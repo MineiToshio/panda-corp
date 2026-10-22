@@ -1,88 +1,60 @@
-# FRD-10 — Achievements Hall · work orders
+# Work orders — FRD-10 Logros (Achievements Hall)
 
-Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
-See the [feature blueprint](../blueprint.md), the [platform architecture](../../../product/architecture.md)
-and the design detail in [`docs/achievements.md`](../../../achievements.md).
-
-TDD: RED → GREEN → refactor. The `lib/achievements.ts` derivation (stats/chains/uniques/secrets)
-comes first; the Hall page/components consume it. **Honesty encoded as negative ACs.**
-
-## Cross-feature dependencies
-- **FRD-01** — `lib/ideas.ts`, `lib/status.ts` (+ `lib/config.ts`).
-- **FRD-03** — `lib/portfolio.ts`.
-- **FRD-04/06** — `lib/docs.ts`, `lib/events.ts`.
-- **FRD-09** — `IF-09-guild-xp`, `CMP-09-xp-bar`, `CMP-09-avatar` (the hero + chain bars). The Hall
-  page (WO-10-005) depends on FRD-09 WO-09-001/003/004.
-- **FRD-13** — design tokens (incl. the 5 tier colors), `tabular-nums`.
-
-## Order & parallelization
-
-The `lib/achievements.ts` engine (WO-10-001) is **VERIFIED**. Phase 2 collapsed the four UI WOs (hall
-page shell + chains + uniques + secrets) into **one coarse UI work order** (WO-10-005) re-anchoring the
-Hall surfaces to the prototype — see the [blueprint Build Plan (Phase 2)](../blueprint.md#build-plan-phase-2).
-The achievements page hero / `GuildBar` / radar are owned by **FRD-09 WO-09-003** (shared route).
-
-```
-WO-10-001 (lib/achievements: stats/chains/uniques/secrets)  VERIFIED
-        │
-        ▼
-WO-10-005 (Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger)
-              ← WO-10-001 (engine) + FRD-13 foundation + FRD-09 (shared page + XpBar)
-```
-
-## v2 — "La página épica" (2026-06-29)
-
-Expansion to ~80 trophies (8 axes, per-trophy rarity), ~21 chains in sagas, ~18 secrets, **re-anchored
-to the REAL event vocabulary** (`docs/achievements.md` §1). 4 coarse WOs, pipelined:
-
-```
-WO-10-009 (events reader extension: surface real enriched fields, fail-loud, uncapped achievements read)
-        │
-        ▼
-WO-10-010 (signals layer: derive real-signal counters/flags → new stat keys)   ← WO-10-009
-        │
-        ▼
-WO-10-011 (catalogue: 8 axes ~80 uniques + rarity, ~21 chains/sagas, ~18 secrets, Seals — re-anchored)
-        │
-        ▼
-WO-10-012 (render: rarity gem + estimated rarity + NUEVO badge + new category icons + Seals shelf + sagas)
-        │
-        ▼
-WO-10-013 (missions abundance: 19 chains/5 sagas + standardized mission/Trofeos/secrets cards — owner feedback)
-```
-
-All v2 work orders (WO-10-009 … WO-10-013) are **VERIFIED** (the Hall shipped 2026-06-29; visual
-baseline re-blessed). WO-10-013 captures the post-review follow-up — see the decision log (2026-06-29).
-
-## v3 — "Informe operativo" (2026-06-29, PLANNED)
-
-The Estadísticas tab becomes a sober operator **report** (anchor
-`docs/design/prototype/informe-del-gremio.html`), additive over the existing radar/records/ledger — all
-figures from REAL data, honesty contract intact (DR-078: "no cableado" never a fabricated zero; the
-time-series is NOT only-grow). Two coarse WOs, the UI depends on the data layer:
-
-```
-WO-10-014 (Informe data layer: flow-series + phase-transitions + scalars + usage + funnel + lessons + rules)
-        │
-        ▼
-WO-10-015 (Informe UI: 6 bands + 8-row ledger + records 2×3)   ← WO-10-014
-```
+> The authoritative order and parallelism is the **Build Plan** in `../blueprint.md` (the build engine reads that, not this). This file is the readable summary. Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`. Platform: [`docs/product/architecture.md`](../../../product/architecture.md). Design detail: [`docs/achievements.md`](../../../achievements.md).
 
 ## Work orders
-| ID | Title | Deploy unit | Status | Depends on |
+
+| WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
-| WO-10-001 | `lib/achievements.ts` — engine (stats/chains/uniques/secrets) | `lib/achievements.ts` | VERIFIED | WO-01-003, WO-01-005, WO-01-007, WO-03-001 |
-| WO-10-005 | Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger | `app/achievements/{ChainCard,UniquesSection}/**`, `AlmostThere.tsx`, `SecretsPanel.tsx` | VERIFIED | WO-10-001, WO-09-003, WO-13-006, WO-13-007, WO-13-008 |
-| WO-10-006 | Rangos tab (enriched rank ladder) + unbounded Nv N metric levels (reconciled-from-code) | `app/achievements/RankLadder/**`, `_components/HallTabs.tsx`, `StatsPanel.tsx`, `lib/achievements/{achievements,tiers}.ts` | VERIFIED | WO-10-001, WO-10-005, WO-09-007 |
-| WO-10-009 | Events reader extension: real enriched fields (verdict/result/reopenCount/blocking/important/agentType/effort/maxAgents/wos/reason), fail-loud, uncapped achievements read | `lib/events/events.ts` | VERIFIED | — |
-| WO-10-010 | Signals layer: derive real-signal counters/flags + new chain stat keys | `lib/achievements/signals.ts`, `lib/achievements/stats.ts` | VERIFIED | WO-10-009 |
-| WO-10-011 | Catalogue v2: 8 axes ~80 uniques + per-trophy rarity, ~21 chains/sagas, ~18 secrets, Seals — re-anchored to signals | `lib/achievements/{definitions,predicates,tiers,achievements}.ts` (split by axis as needed) | VERIFIED | WO-10-010 |
-| WO-10-012 | Render v2: rarity gem + estimated rarity + NUEVO badge + 3 new category icons + Seals shelf + sagas grouping | `app/achievements/{UniquesSection,SecretsPanel,ChainCard,_components/HallTabs}.tsx` | VERIFIED | WO-10-011 |
-| WO-10-013 | Missions abundance: 19 chains/5 sagas + standardized mission/Trofeos/secrets cards (node-ladder fix, uniform `ChainProgress`/`CardFooter`, calm Trofeos accent, uniform-height secrets) | `lib/achievements/{definitions,stats,achievements}.ts`, `app/achievements/{ChainCard,UniquesSection,SecretsPanel,_components/HallTabs,StatsPanel}.tsx` | VERIFIED | WO-10-012 |
-| WO-10-014 | Informe data layer: flow-series (WO-verified/wk + ideas/wk, git) + phase-transitions/project (git) + scalars (FRDs/commits/tests/DR/projects) + usage+effort + funnel/WIP/conversion + lessons + verdict/next-action rules — fail-loud, read-only | `lib/achievements/report/**` | PLANNED | — |
-| WO-10-015 | Informe UI: 6 sober bands (pulse+KPIs · time-series · usage+effort · funnel+flow · health · next-actions) + ledger to 8 rows/column + records 2×3 — DR-062 sober, "no cableado" for unwired | `app/achievements/Informe/**`, `app/achievements/{StatsPanel,_components/HallTabs}.tsx` | PLANNED | WO-10-014 |
-</content>
+| WO-10-001 | achievements-engine | VERIFIED | WO-01-003, WO-01-005, WO-01-007 | History, kept live: the pure engine (stats, chains, uniques, secrets). |
+| WO-10-009 | events-reader-extension | VERIFIED | — | History, kept live: the events reader surfaces the real enriched fields, fail-loud on an unrecognised shape. |
+| WO-10-010 | signals-layer | VERIFIED | WO-10-009 | History, kept live: the single derivation of every real-event aggregate. |
+| WO-10-011 | catalogue-v2 | VERIFIED | WO-10-010 | History, kept live: the 8-axis catalogue, rarity, Seals, sagas, secrets. |
+| WO-10-014 | informe-data-layer | VERIFIED | — | History, kept live: the report readers (flow series, transitions, scalars, usage, funnel, lessons, verdict and next actions). |
+| WO-10-016 | logros-orbita | PLANNED | WO-13-012, WO-25-001, WO-23-006, WO-01-010 | Logros frame and four tabs: guild hero, Resumen, Misiones, Trofeos, Rangos; the shared charts; the Estadísticas seam; removes NUEVO, estimated rarity, summit treatment, party roster, chain crown, per-tier date, revealed-secret treatment. |
+| WO-10-017 | logros-estadisticas-orbita | PLANNED | WO-10-016, WO-10-014, WO-01-011, WO-18-002 | Estadísticas as the Órbita operator report: verdict and KPIs, records and ledgers, weekly charts, honest usage bands with the unreadable-stream notice, funnel and transitions, health, next action, «sin datos aún» versus «no cableado». |
 
-## Navigation scope alignment (2026-10-17)
+> **Depends on** mirrors each work order's `dependsOn` frontmatter. Only WO-10-016 and WO-10-017 own live acceptance criteria.
 
-Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.
+## AC coverage
+
+| AC | Work order |
+|---|---|
+| AC-10-020.1 | WO-10-017 |
+| AC-10-020.2 | WO-10-017 |
+| AC-10-020.3 | WO-10-017 |
+| AC-10-021.1 | WO-10-017 |
+| AC-10-021.2 | WO-10-017 |
+| AC-10-021.3 | WO-10-017 |
+| AC-10-022.1 | WO-10-017 |
+| AC-10-022.2 | WO-10-017 |
+| AC-10-022.3 | WO-10-017 |
+| AC-10-023.1 | WO-10-017 |
+| AC-10-023.2 | WO-10-017 |
+| AC-10-023.3 | WO-10-017 |
+| AC-10-024.1 | WO-10-017 |
+| AC-10-024.2 | WO-10-017 |
+| AC-10-025.1 | WO-10-017 |
+| AC-10-026.1 | WO-10-017 |
+| AC-10-026.2 | WO-10-017 |
+| AC-10-027.1 | WO-10-017 |
+| AC-10-028.1 | WO-10-016 |
+| AC-10-028.2 | WO-10-016 |
+| AC-10-028.3 | WO-10-016 |
+| AC-10-028.4 | WO-10-016 |
+| AC-10-028.5 | WO-10-017 |
+
+## Build order
+
+1. W0: WO-10-009 and WO-10-014 (VERIFIED history, disjoint). W1: WO-10-010. W2: WO-10-011. W3: WO-10-001.
+2. W4: WO-10-016, after the FRD-13 primitives, the URL codec, the composed Informe reader WO-23-006 (the last writer of `page.tsx`) and the clock seam WO-01-010.
+3. W6: WO-10-017, after WO-10-016, the adopted clock and git seams (WO-01-011, W5) and the dashboard `FunnelRow` (WO-18-002, W5).
+4. W7: WO-13-013 deletes the retired primitives once nothing here references them.
+
+## Superseded (v1 history)
+
+- WO-10-005 — Hall surfaces. Superseded by WO-10-016.
+- WO-10-006 — Rangos tab. Superseded by WO-10-016.
+- WO-10-012 — Render v2. Superseded by WO-10-016.
+- WO-10-013 — Missions and sagas standardization. Superseded by WO-10-016.
+- WO-10-015 — Informe operativo UI. Superseded by WO-10-017.

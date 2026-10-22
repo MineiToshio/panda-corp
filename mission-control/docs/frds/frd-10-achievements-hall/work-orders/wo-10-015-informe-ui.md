@@ -3,7 +3,8 @@ id: WO-10-015
 type: work-order
 slug: informe-ui
 title: 'WO-10-015 — Informe operativo UI: 6 bands + 8-row ledger + records 2×3 (sober register)'
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-10-017]
 parent: FRD-10
 implementation_status: VERIFIED
 reopen_count: 0

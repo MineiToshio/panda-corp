@@ -6,9 +6,13 @@ title: WO-01-006 — `readProjectDocs` (feature-centric tree discovery)
 status: ACTIVE
 parent: FRD-01
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - 'src/lib/docs/docs.ts'
+  - 'src/lib/docs/_tests/docs.test.ts'
+  - 'src/lib/docs/_tests/docs.adversarial.test.ts'
+source_requirements: [REQ-01-007]
 dependsOn: [WO-01-000, WO-01-001]
-last_updated: '2026-06-16'
+last_updated: '2026-10-22'
 ---
 # WO-01-006 — `readProjectDocs` (feature-centric tree discovery)
 
@@ -16,9 +20,12 @@ last_updated: '2026-06-16'
 **IDs touched:** `CMP-01-docs`, `IF-01-readProjectDocs`; REQ-01-007
 **Dependencies:** WO-01-000 (fixtures), WO-01-001 (`pathExists`)
 
-## EARS criteria (from FRD-01)
+## v1 delivery record
 
-- AC-01-007.1 — The system SHALL read, per project, the feature-centric product documents in
+FRD-01 is REQ-only (no `AC-01-*` bullets), so this v1 criterion is history and owns nothing. The module
+lives at `src/lib/docs/docs.ts` (the `lib/docs.ts` path above is the v1 plan).
+
+- v1 AC-01-007.1: The system SHALL read, per project, the feature-centric product documents in
   `docs/` (DR-049): the product layer (`docs/product/prd.md` + `docs/product/architecture.md`), each
   feature module under `docs/frds/frd-NN-<slug>/` (`frd.md`, and when present `fdd.md`,
   `blueprint.md`, `mocks/`, `work-orders/`), plus global `docs/adr/`, `docs/analytics/`,

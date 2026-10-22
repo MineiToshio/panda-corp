@@ -6,9 +6,13 @@ title: 'WO-01-005 — `readStatus` (yaml, partial-tolerant)'
 status: ACTIVE
 parent: FRD-01
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - 'src/lib/status/status.ts'
+  - 'src/lib/status/_tests/status.test.ts'
+  - 'src/lib/status/_tests/status.adversarial.test.ts'
+source_requirements: [REQ-01-005, REQ-01-006, REQ-01-010]
 dependsOn: [WO-01-000, WO-01-001]
-last_updated: '2026-06-30'
+last_updated: '2026-10-22'
 ---
 # WO-01-005 — `readStatus` (yaml, partial-tolerant)
 
@@ -16,15 +20,19 @@ last_updated: '2026-06-30'
 **IDs touched:** `CMP-01-status`, `IF-01-readStatus`; REQ-01-005, REQ-01-006 (supplies `phase`), REQ-01-010
 **Dependencies:** WO-01-000 (fixtures), WO-01-001 (`pathExists`)
 
-## EARS criteria (from FRD-01)
+## v1 delivery record
 
-- AC-01-005.1 — WHEN a project has `.pandacorp/status.yaml`, the system SHALL read phase, version,
+FRD-01 is REQ-only (no `AC-01-*` bullets), so these v1 criteria are history and own nothing. The module
+lives at `src/lib/status/status.ts` (the `lib/status.ts` path above is the v1 plan); the sibling files
+`liveness.ts` and `state-version*.ts` belong to later WOs (FRD-06/FRD-05).
+
+- v1 AC-01-005.1: WHEN a project has `.pandacorp/status.yaml`, the system SHALL read phase, version,
   running, progress, work order count, `pending_decisions`, `pending_bugs`, `last_green_sha` and
   `safe_to_test`.
-- AC-01-006.1 — WHEN a card is `in-pipeline`, its column comes from the linked project's `phase`;
+- v1 AC-01-006.1: WHEN a card is `in-pipeline`, its column comes from the linked project's `phase`;
   the project's `status.yaml` is the single source of truth for the phase. *(This WO exposes the
   `phase`; the column map is FRD-02 `lib/board.ts`.)*
-- (Edge) — `status.yaml` absent or malformed → render partial data, without breaking.
+- v1 edge: `status.yaml` absent or malformed → render partial data, without breaking.
 
 ## Contract
 

@@ -6,8 +6,12 @@ title: 'WO-14-004 — Manual: the three feedback channels (doc)'
 status: DRAFT
 parent: FRD-14
 implementation_status: VERIFIED
-source_requirements: []
-last_updated: '2026-06-18'
+artifacts:
+  - 'content/manual/guides/g-feedback.md'
+  - 'content/manual/wo-14-004.feedback-channels.test.ts'
+source_requirements: [REQ-14-003]
+dependsOn: []
+last_updated: '2026-10-22'
 ---
 # WO-14-004 — Manual: the three feedback channels (doc)
 
@@ -15,7 +19,20 @@ last_updated: '2026-06-18'
 **Deploy unit:** a Manual content section (Guides/Concepts) — no app logic.
 
 ## Acceptance criteria (copied)
-- **AC-14-006.1** The Manual SHALL document the three feedback channels (`/pandacorp:bug`, `/pandacorp:iterate`, `/pandacorp:decide`) as file-based, picked up at the next safe point.
+
+Kept live in v2 (map §0.5): this work order owns the feedback-channels criterion, satisfied by the
+Documentación guide `content/manual/guides/g-feedback.md` and its test. WO-08-004 (W3) refreshes the Manual
+content and keeps this page's three commands; the test below must stay green.
+
+- **AC-14-003.3** — Mission Control's Documentación SHALL explain the **three feedback channels** to an in-progress build: `/pandacorp:bug`, `/pandacorp:iterate`, `/pandacorp:decide` (all via files, picked up at the next safe point).
+
+## v1 delivery record
+
+The v1 blueprint id below no longer exists in the FRD; it is history and owns nothing. The guide was
+re-anchored by FRD-08 to the prototype's `g-feedback` page (the `alimentar-build.md` path in the Status Note
+is the v1 file name).
+
+- v1 AC-14-006.1: The Manual SHALL document the three feedback channels (`/pandacorp:bug`, `/pandacorp:iterate`, `/pandacorp:decide`) as file-based, picked up at the next safe point.
 
 ## Scope
 - Author the "Feeding an in-progress build" section in the Manual (FRD-08 surface) explaining the

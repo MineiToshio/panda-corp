@@ -6,17 +6,26 @@ title: 'WO-04-003 — `lib/next-step.ts`: `workspaceCommands(phase)`'
 status: DRAFT
 parent: FRD-04
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - 'src/lib/next-step/next-step.ts'
+  - 'src/lib/next-step/_tests/next-step.wo04003.test.ts'
+  - 'src/lib/next-step/_tests/next-step.wo04003.adversarial.test.ts'
+source_requirements: [REQ-04-006]
 dependsOn: [WO-02-003, WO-01-005]
-last_updated: '2026-06-17'
+last_updated: '2026-10-22'
 ---
 # WO-04-003 — `lib/next-step.ts`: `workspaceCommands(phase)`
 
 **Feature:** FRD-04 · **Implements:** IF-04-next-step (`workspaceCommands`) · **REQ-04-005**
 **Deploy unit:** additions to `lib/next-step.ts` (+ `lib/next-step.test.ts`). Pure function, no fs, no UI.
 
-## Acceptance criteria (copied)
-- **AC-04-005.1** The Commands tab SHALL render the stage-relevant command rows from `lib/next-step.ts`, each with a copy button and a "when to use" description.
+## v1 delivery record
+
+Kept live in v2 as history (map §0.5): `workspaceCommands` is still in use and owns no live acceptance
+criterion; the module lives at `src/lib/next-step/next-step.ts` (`lib/next-step.ts` below is the v1 plan path).
+The v2 Comandos tab is FRD-11's WO-11-004; the workspace «Siguiente paso» is derived once by WO-04-010.
+
+- v1 AC-04-005.1: The Commands tab SHALL render the stage-relevant command rows from `lib/next-step.ts`, each with a copy button and a "when to use" description.
 
 ## Scope
 - Add a **pure** `workspaceCommands(phase: Phase): CommandRow[]` that maps a project phase to the

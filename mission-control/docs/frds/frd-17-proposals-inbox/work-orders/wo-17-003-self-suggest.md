@@ -5,10 +5,12 @@ slug: self-suggest
 title: WO-17-003 — `lib/self-suggest` derivations (6 kinds)
 status: DRAFT
 parent: FRD-17
+foundation: false
 implementation_status: VERIFIED
-source_requirements: []
+artifacts: ["src/lib/self-suggest/self-suggest.ts", "src/lib/self-suggest/_tests/self-suggest.test.ts"]
+source_requirements: [REQ-17-011]
 dependsOn: [WO-17-001]
-last_updated: '2026-06-18'
+last_updated: '2026-10-22'
 ---
 # WO-17-003 — `lib/self-suggest` derivations (6 kinds)
 
@@ -31,21 +33,19 @@ Thresholds (bottleneck N, velocity factor, launch-review age, memory staleness) 
 | `recurring-lesson` | a lesson with `projects.length >= 2` (from `lib/memory`) → propose promotion |
 | `launch-review` | a shipped project past the age threshold → `/pandacorp:review-launch` |
 
-## Acceptance criteria (REQ-17-004)
-- **AC-17-003.1** Each of the six derivations emits a `Suggestion` (correct `kind`, `command`,
-  `evidence`, optional `target`) when its rule fires, and nothing when it does not — one fixture per kind.
-- **AC-17-003.2** `command` is the exact `/pandacorp:*` per the FRD: `bottleneck`→`/pandacorp:recommend`
-  (or board), `policy-friction`→`/pandacorp:decide`, `recurring-lesson`→`/pandacorp:learn`,
-  `launch-review`→`/pandacorp:review-launch`, memory-related → `/pandacorp:memory`.
-- **AC-17-003.3** (architecture §7) No derivation calls Claude or the network — pure over the readers;
-  asserted by the absence of any fetch/exec in the module.
-- **AC-17-003.4** The event tail is the **capped** tail (≤200) — velocity/unused-capability never read
-  the full history.
-- **AC-17-003.5** `recurring-lesson` fires only at `projects.length >= 2` (never on a single-project
-  guess — LESSON-0001/DR-047).
-- **AC-17-003.6** All thresholds come from `lib/constants.ts` (no magic numbers).
-- **AC-17-003.7** Missing inputs (no events, no projects, empty registry) → `computeSuggestions` returns
-  the still-valid subset, never throws (fresh-factory tolerant).
+## v1 delivery record
+Acceptance criteria as delivered in v1 (REQ-17-004 of the v1 blueprint). They are history, not owned
+criteria: the FRD defines no `AC-17-003.K`; WO-17-008 renders the signals this reader derives
+(AC-17-011.3). v2 note: kept live, unchanged. Constants it added to the shared `src/lib/constants.ts`
+(`BOTTLENECK_THRESHOLD`, `VELOCITY_FACTOR`, `LAUNCH_REVIEW_DAYS`, `SELF_SUGGEST_EVENT_CAP`) are not declared
+in this work order's `artifacts` because that file is shared and owned in order by later waves.
+- v1 AC-17-003.1: Each of the six derivations emits a `Suggestion` (correct `kind`, `command`, `evidence`, optional `target`) when its rule fires, and nothing when it does not — one fixture per kind.
+- v1 AC-17-003.2: `command` is the exact `/pandacorp:*` per the FRD: `bottleneck`→`/pandacorp:recommend` (or board), `policy-friction`→`/pandacorp:decide`, `recurring-lesson`→`/pandacorp:learn`, `launch-review`→`/pandacorp:review-launch`, memory-related → `/pandacorp:memory`.
+- v1 AC-17-003.3: (architecture §7) No derivation calls Claude or the network — pure over the readers; asserted by the absence of any fetch/exec in the module.
+- v1 AC-17-003.4: The event tail is the **capped** tail (≤200) — velocity/unused-capability never read the full history.
+- v1 AC-17-003.5: `recurring-lesson` fires only at `projects.length >= 2` (never on a single-project guess — LESSON-0001/DR-047).
+- v1 AC-17-003.6: All thresholds come from `lib/constants.ts` (no magic numbers).
+- v1 AC-17-003.7: Missing inputs (no events, no projects, empty registry) → `computeSuggestions` returns the still-valid subset, never throws (fresh-factory tolerant).
 
 ## TDD
 `lib/self-suggest.test.ts`; one fixture scenario per kind (firing + not-firing) + a fresh-factory

@@ -6,9 +6,13 @@ title: WO-01-008 — Onboarding gate (UI)
 status: ACTIVE
 parent: FRD-01
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - 'src/app/_components/OnboardingGate/**'
+  - 'src/app/_tests/layout.guard.test.tsx'
+  - 'src/app/layout.tsx'
+source_requirements: [REQ-01-001]
 dependsOn: [WO-01-002]
-last_updated: '2026-06-16'
+last_updated: '2026-10-22'
 ---
 # WO-01-008 — Onboarding gate (UI)
 
@@ -16,9 +20,15 @@ last_updated: '2026-06-16'
 **IDs touched:** `CMP-01-onboarding-gate`; REQ-01-001
 **Dependencies:** WO-01-002 (`readProfile`)
 
-## EARS criteria (from FRD-01)
+## v1 delivery record
 
-- AC-01-001.1 — WHEN Pandacorp loads and does NOT find `factory/profile.md`, the system SHALL show —
+FRD-01 is REQ-only (no `AC-01-*` bullets), so this v1 criterion is history and owns nothing. The gate lives
+at `src/app/_components/OnboardingGate/` and its guard in `src/app/layout.tsx` (the `components/` path above
+is the v1 plan). v2 note: this WO is the history-owner of the onboarding guard in `layout.tsx`; WO-13-010,
+WO-19-002 and WO-19-003 edit that file later and must keep the guard (profile absent: gate instead of
+children, `layout.guard.test.tsx` stays green or is updated in the same WO).
+
+- v1 AC-01-001.1: WHEN Pandacorp loads and does NOT find `factory/profile.md`, the system SHALL show —
   BEFORE any other view — an onboarding gate that explains the factory still needs configuring and
   presents the `/pandacorp:onboarding` command with a copy button; the rest of the app stays in the
   background until the profile exists.

@@ -3,7 +3,8 @@ id: WO-04-005
 type: work-order
 slug: tab-summary-and-documents
 title: 'WO-04-005 — Resumen + Documentos tabs'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-04-011, WO-04-012]
 parent: FRD-04
 implementation_status: VERIFIED
 reopen_count: 0

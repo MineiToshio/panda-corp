@@ -6,9 +6,13 @@ title: WO-01-001 — `pathExists` read-only probe
 status: ACTIVE
 parent: FRD-01
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - 'src/lib/fs-utils/fs-utils.ts'
+  - 'src/lib/fs-utils/_tests/fs-utils.test.ts'
+  - 'src/lib/fs-utils/_tests/fs-utils.adversarial.test.ts'
+source_requirements: [REQ-01-010]
 dependsOn: [WO-01-000]
-last_updated: '2026-06-16'
+last_updated: '2026-10-22'
 ---
 # WO-01-001 — `pathExists` read-only probe
 
@@ -16,9 +20,12 @@ last_updated: '2026-06-16'
 **IDs touched:** `IF-01-pathExists`; REQ-01-010
 **Dependencies:** WO-01-000 (fixtures)
 
-## EARS criteria (from FRD-01)
+## v1 delivery record
 
-- AC-01-010.1 — IF a project's path does not exist, THEN the system SHALL mark it as not found and
+FRD-01 is REQ-only (no `AC-01-*` bullets), so this v1 criterion is history and owns nothing. The module
+lives at `src/lib/fs-utils/fs-utils.ts` (the `lib/fs-utils.ts` path above is the v1 plan).
+
+- v1 AC-01-010.1: IF a project's path does not exist, THEN the system SHALL mark it as not found and
   SHALL NOT break the rest of the view.
 
 ## Contract

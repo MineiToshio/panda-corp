@@ -3,12 +3,14 @@ id: WO-16-001
 type: work-order
 slug: scan-folders
 title: 'WO-16-001 — `lib/orphans` scan: projects path + bounded folder listing'
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: []
+superseded_reason: "feature removed 2026-06-22"
 parent: FRD-16
 implementation_status: VERIFIED
 source_requirements: []
 dependsOn: [WO-01-002]
-last_updated: '2026-06-17'
+last_updated: '2026-10-22'
 ---
 # WO-16-001 — `lib/orphans` scan: projects path + bounded folder listing
 

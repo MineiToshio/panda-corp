@@ -8,10 +8,21 @@ parent: FRD-23
 implementation_status: VERIFIED
 reopen_count: 0
 source_requirements: [REQ-23-003, REQ-23-004]
-artifacts: [src/lib/achievements/read-model/**, src/app/achievements/page.tsx, scripts/**, vitest.config.ts]
+artifacts:
+  - 'src/lib/achievements/read-model/aggregate.ts'
+  - 'src/lib/achievements/read-model/aggregateConsumer.ts'
+  - 'src/lib/achievements/read-model/backfill.ts'
+  - 'src/lib/achievements/read-model/regen.ts'
+  - 'src/lib/achievements/read-model/_tests/aggregate.test.ts'
+  - 'src/lib/achievements/read-model/_tests/aggregateConsumer.test.ts'
+  - 'src/lib/achievements/read-model/_tests/backfill.test.ts'
+  - 'src/lib/achievements/read-model/_tests/regen.test.ts'
+  - 'src/app/achievements/page.tsx'
+  - 'scripts/read-model/**'
+  - 'vitest.config.ts'
 difficulty: high
 dependsOn: [WO-23-002]
-last_updated: '2026-07-06'
+last_updated: '2026-10-22'
 ---
 # WO-23-004 — Aggregate index, universal regeneration & backfill
 
@@ -32,9 +43,14 @@ git `post-commit`) so any change that ends in a commit regenerates the portada, 
 - One-shot **backfill** command over existing projects calling `writeStatsPortada` once each.
 
 ## Acceptance criteria (EARS)
-- **AC-23-003.1** — aggregate joins every portada into one file read in O(1); Informe cost independent of N.
-- **AC-23-003.2** — malformed aggregate → fail loud, never a silent empty.
-- **AC-23-004.1** — backfill generates each project's initial portada equivalent to the live reader.
+- **AC-23-003.1** — `sync-portfolio` SHALL join every project's portada into one aggregate file MC reads
+  in O(1); the Informe's cost SHALL be independent of the number of projects.
+- **AC-23-003.2** — The aggregate reader SHALL itself be fail-loud: a malformed aggregate SHALL throw /
+  return an explicit error, never a silent empty.
+- **AC-23-004.1** — A one-shot backfill command SHALL walk git once per existing project and generate
+  its initial portada + seal, equivalent to what the live reader would produce.
+
+> v2 plan note: the declared `artifacts` are the files this work order wrote inside the app tree. Its v1 delivery also touched `package.json` (the `stats:*` scripts), `.gitignore` and the `sync-portfolio` plugin skill; those are not declared here so that `package.json` keeps its single-writer plan (map section 0.1). They are history, not a claim on those files.
 
 ## TDD plan
 RED: aggregate join test (N portadas → one file → O(1) read; malformed → fail loud); backfill

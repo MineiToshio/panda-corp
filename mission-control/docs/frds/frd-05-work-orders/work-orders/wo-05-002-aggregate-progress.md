@@ -6,17 +6,25 @@ title: 'WO-05-002 — `lib/work-orders.ts`: `aggregateProgress`'
 status: DRAFT
 parent: FRD-05
 implementation_status: VERIFIED
+artifacts:
+  - 'src/lib/work-orders/work-orders.ts'
+  - 'src/lib/work-orders/_tests/work-orders.wo05002.test.ts'
 source_requirements: []
 dependsOn: [WO-05-001]
-last_updated: '2026-06-17'
+last_updated: '2026-10-22'
 ---
 # WO-05-002 — `lib/work-orders.ts`: `aggregateProgress`
 
 **Feature:** FRD-05 · **Implements:** IF-05-work-orders (`aggregateProgress`, `WorkOrderProgress`) · **REQ-05-004**
 **Deploy unit:** addition to `lib/work-orders.ts` (+ tests). Pure function, no fs, no UI.
 
-## Acceptance criteria (copied)
-- **AC-05-004.1** The view SHALL show aggregated progress `done / total` and `%`, summing every feature's `work-orders/`.
+## v1 delivery record
+
+Kept live in v2 (map §0.5): `aggregateProgress` stays the single source of the project's done / total / % (REQ-05-005), read by the FRD rows of Observabilidad, the compact project header and La Fragua's verdict. It owns no live v2 acceptance criterion; the criterion it was built against is history:
+
+- v1 AC-05-004.1: The view SHALL show aggregated progress `done / total` and `%`, summing every feature's `work-orders/`.
+
+`artifacts` backfilled 2026-10-22 from the Status Note. No `dependsOn` id was pruned. `status` stays DRAFT until the architecture flip activates the plan.
 
 ## Scope
 - `aggregateProgress(orders: WorkOrder[]): WorkOrderProgress` — pure: `done` = count of `state === "done"`,

@@ -1,167 +1,109 @@
 ---
-id: FRD-15-blueprint
+id: BP-15
 type: blueprint
+slug: plugin-out-of-sync-warning
+title: 'Blueprint — FRD-15 Plugin out-of-sync warning (v2 «Órbita»)'
+status: DRAFT
 parent: FRD-15
-status: ACTIVE
-implementation_status: VERIFIED
-last_updated: '2026-06-17'
+implementation_status: PLANNED
+readiness_gate:
+grounding_gate:
+consistency_gate:
+last_updated: 2026-10-22
 ---
-# Feature blueprint — FRD-15 Plugin out-of-sync warning
 
-> **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
-> This is the **feature blueprint** (DR-049): how FRD-15 is implemented on top of the platform
-> described in [`docs/product/architecture.md`](../../product/architecture.md). It does not restate the
-> platform (stack, read-only invariant, testing strategy, deploy posture) — it references it.
+# Blueprint — FRD-15 Plugin out-of-sync warning (v2 «Órbita»)
 
-## 1. Summary
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> Per-feature blueprint (DR-049) on the platform of
+> [`docs/product/architecture.md`](../../product/architecture.md) (§6 read interfaces, §7 read-only
+> invariant, Route map `/api/plugin-sync`). It does not restate the platform.
 
-Detect the most common factory slip — the factory `plugin/` advanced but the **installed** copy is
-an older version, so newly added/edited skills don't take effect until `claude plugin update` — and
-surface a **persistent, read-only drift banner** with the exact recovery command. A single local
-drift source: the **installed semver `version` is behind the source `version`**.
+## Purpose
 
-The drift truth is computed on the **server** (it needs fs access to read two JSON files), exposed
-via a small **route handler** ([architecture §3, §8](../../product/architecture.md)), and rendered
-by a client banner that polls so it can **disappear on its own** when sync is restored (REQ-15-004).
+Detect the most common factory slip, an installed plugin whose semver `version` is behind the source
+`version`, and warn with the exact recovery command, read-only. v2 keeps the verdict and the route as
+built and redraws the warning in Órbita in two places: the coral `AlertBanner` that opens Inicio
+(FRD-18's WO-18-002) and the coral «Plugin desactualizado» pill in the sidebar on every screen (FRD-19's
+WO-19-003). FRD-15 has **no new work order**: both surfaces fold into the work order that builds their
+host (each alone would be under 20 minutes, DR-100).
 
-Critical invariant (amended 2026-06-22 — version-based; from the FRD and `lib/plugin-sync`): the
-drift check compares the installed **semver `version`** (`~/.claude/plugins/installed_plugins.json`)
-against the **source `version`** (`plugin/.claude-plugin/plugin.json`) — the SAME signal
-`claude plugin update` uses. The banner fires ONLY when the installed version is strictly behind the
-source version. (Previously this compared git **commit SHAs** + an uncommitted-changes check; that
-was abandoned because `installed_plugins.json.gitCommitSha` is frozen at install time and never
-advances, producing a permanent false "behind" alarm — see the FRD's amendment note.)
+## Components & Interfaces
 
-## 2. Platform references
+| ID | Kind | Name / location | Responsibility | Traces | Built by |
+|---|---|---|---|---|---|
+| IF-15-sync | reader | `src/lib/plugin-sync/plugin-sync.ts` (`readInstalledVersion`, `readPluginSourceVersion`, `getPluginSyncState`) | Two JSON reads per runtime, numeric semver compare, `drift` / `reason` (`behind`, `in-sync`, `unknown`), per-runtime verdicts for Claude and Codex folded into `drift`; never throws | REQ-15-002, REQ-15-004, REQ-15-005 | WO-15-001, WO-15-002 (kept) |
+| CMP-15-route | route handler | `GET /api/plugin-sync` (`src/app/api/plugin-sync/route.ts`) | Returns `getPluginSyncState()` as JSON, always 200, `no-store`, no write | REQ-15-004, REQ-15-005 | WO-15-003 (kept) |
+| CMP-15-banner | UI | Inicio's `AlertBanner` (FRD-13 primitive) in `src/app/_components/plugin-sync-banner/` | Heading «El plugin instalado está atrás», both versions, the copyable command, the two recovery steps; polls the route and disappears on its own; nothing for `in-sync` / `unknown` | REQ-15-002 (AC-15-002.1..3), REQ-15-004, AC-15-004.1 | WO-18-002 (FRD-18) |
+| CMP-15-pill | UI | `PluginPill` (`src/components/modules/AppShell/PluginPill.tsx`) | Coral sidebar pill while `drift`, title with both versions, links to the banner on Inicio | REQ-15-006 (AC-15-006.1) | WO-19-003 (FRD-19) |
 
-- **Data sources** (architecture §4.7): `~/.claude/plugins/installed_plugins.json` (the semver
-  `version` of `pandacorp@panda-corp`, user scope — the version `claude plugin update` maintains);
-  `plugin/.claude-plugin/plugin.json` (the source `version`, the authoritative "latest published").
-- **`lib/plugin-sync/plugin-sync.ts`** (architecture §6): owns the two fs reads + the semver
-  comparison for this feature. New module.
-- **Read-only invariant** (architecture §7): only two file reads. No git, no write, no Claude, no
-  execution of the update command.
-- **Surface** (architecture §11): dashboard banner + route handler `app/api/plugin-sync/`.
+### Traceability
 
-## 3. Components & interfaces
-
-### Interfaces (`lib/**`)
-
-**`IF-15-sync` — `lib/plugin-sync/plugin-sync.ts`** (new module, architecture §6).
-Pure-ish readers (paths/root in → typed data out), unit-tested with fixtures.
-
-```ts
-// All paths resolved via lib/config.ts (resolveFactoryRoot / PANDACORP_FACTORY_ROOT) + ~/.claude.
-type PluginSyncState = {
-  installedVersion: string | null;  // semver `version` of pandacorp@panda-corp, or null if not installed/unreadable
-  sourceVersion: string | null;     // semver `version` from plugin/.claude-plugin/plugin.json, or null if unreadable
-  drift: boolean;                    // true ONLY when installedVersion is strictly behind sourceVersion
-  reason: "behind" | "in-sync" | "unknown";
-  detail: string;                    // human (Spanish) one-liner for the banner, always non-empty
-};
-
-readInstalledVersion(claudeHome: string): string | null;      // parse installed_plugins.json → version, defensively
-readPluginSourceVersion(factoryRoot: string): string | null;  // parse plugin/.claude-plugin/plugin.json → version
-getPluginSyncState(): PluginSyncState;                         // composes the two reads + semver comparison into the verdict
-```
-
-Defensive contract: any unreadable/missing/unparseable input (no `installed_plugins.json`, plugin
-not listed, missing/empty `version`) → that field is `null` and `reason` degrades to `"unknown"`,
-never throws. `drift` is only `true` on a **positive** signal (installed semver strictly older than
-source semver); an `unknown` or `in-sync` state does NOT raise the alarm (no false positives —
-REQ-15-005 read-only/honest).
-
-### Route handler
-
-**`CMP-15-route` — `app/api/plugin-sync/route.ts`** (Server, Node runtime).
-`GET` → `getPluginSyncState()` as JSON. Exists because the file reads need Node outside a Server
-Component render and the banner polls it (architecture §3, §8). `export const runtime = "nodejs"`
-and `dynamic = "force-dynamic"` (never cached — drift is live state).
-
-### UI components
-
-**`CMP-15-banner` — `components/plugin-sync-banner.tsx`** (`"use client"`).
-Polls `IF-15-sync` via `CMP-15-route` on mount + on an interval; renders the warning **only when
-`drift === true`** (reason `behind`); otherwise renders nothing (self-clearing, REQ-15-004). Shows the
-"installed behind" copy and the **command to copy** through the shared **`CopyButton`** (FRD-02
-component). Visual reference: `prototype/index.html` `pluginBanner()` — amber `--warn` panel,
-alert-triangle icon, the recall steps (run command → restart session), command row.
-
-**`CMP-15-recall` — the recovery copy** (inside `CMP-15-banner`): command
-`claude plugin update pandacorp@panda-corp` + the sequence text (run command → restart the Claude
-Code session). REQ-15-003.
-
-The banner is mounted by the dashboard (FRD-18 composes the health banners); FRD-15 owns the
-component and its data, FRD-18 places it.
-
-## 4. Behavior / contracts
-
-| Trigger | `reason` | Banner copy (Spanish, summarized) |
+| Requirement | Components | Work order(s) |
 |---|---|---|
-| installed `version` strictly behind source `version` | `behind` | "El plugin instalado está atrás" + recall (run → restart) |
-| installed `version` equals or newer than source | `in-sync` | (no banner) |
-| either version missing/unparseable | `unknown` | (no banner — never a false alarm) |
+| REQ-15-002 (AC-15-002.1, AC-15-002.2, AC-15-002.3, AC-15-004.1) | IF-15-sync, CMP-15-banner | WO-15-001, WO-15-002 (verdict, kept); WO-18-002 owns the four ACs |
+| REQ-15-004 lifecycle (self-clear) | CMP-15-route, CMP-15-banner, CMP-15-pill | WO-15-003 (kept), WO-18-002, WO-19-003 |
+| REQ-15-005 read-only | IF-15-sync, CMP-15-route; both surfaces only copy the command | WO-15-001..003 (kept), WO-18-002, WO-19-003 |
+| REQ-15-006 (AC-15-006.1) | CMP-15-pill | WO-19-003 |
+| Runtime adapters (R9) | IF-15-sync (`runtimes.claude`, `runtimes.codex`) | kept as built |
 
-The command is **always** `claude plugin update pandacorp@panda-corp`; the recall is "run the command →
-restart the session". The banner never executes anything (REQ-15-005). (Uncommitted-in-`plugin/` is
-deliberately NOT a trigger — owner decision 2026-06-22; in the factory the owner edits `plugin/`
-constantly, so only a genuinely older *installed version* warrants the banner.)
+## Contracts
 
-## 5. Traceability (`REQ-15-MMM` → AC → components)
+- **Verdict (IF-15-sync).** `PluginSyncState = { installedVersion, sourceVersion, drift, reason, detail,
+  runtimes }`. `drift` is true only on a positive signal (an installed version strictly behind its
+  source, either runtime); `unknown` and `in-sync` never alarm; unreadable input yields `null` fields
+  and `unknown`, never a throw. The reader's `detail` string is not rendered by the v2 surfaces: their
+  Spanish copy comes from the catalogue through `t()` (`inicio.pluginBanner.*`, `shell.plugin.*`).
+- **Route (CMP-15-route).** Unchanged: `GET`, `runtime = "nodejs"`, `dynamic = "force-dynamic"`,
+  `Cache-Control: no-store`, always 200 with the state. Its file and time reads adopt WO-01-010's seams in
+  WO-01-011 (no behaviour change).
+- **Surfaces.** Server-rendered from `getPluginSyncState()` on each request; the banner additionally
+  polls the route so it clears without a reload. Both render nothing unless `drift`. The banner is the
+  only coral `AlertBanner` of the app; the pill mirrors it (DR-057). Neither executes anything.
+- The uncommitted-changes banner variant of the prototype is removed (FRD-15 amendment, M1).
 
-IDs follow the FRD's acceptance criteria. Restated in the work orders as `AC-15-MMM.K`.
+## Visual spec
 
-| REQ | Acceptance criterion (EARS) | Satisfied by |
+| Surface | Mocks and oracle states | Built by |
 |---|---|---|
-| REQ-15-002 | Installed `version` strictly behind source `version` (semver) → "installed plugin is behind"; equal/newer → nothing; missing/unparseable → `unknown`, nothing | `IF-15-sync` (`readInstalledVersion`, `readPluginSourceVersion`, semver `drift`), `CMP-15-banner` |
-| REQ-15-004 | Warning disappears on its own once the installed version catches up | `CMP-15-banner` (poll + render-only-on-drift), `IF-15-sync` (`in-sync`) |
-| REQ-15-005 | Read-only: shows the copyable `claude plugin update …` command, never executes; unreadable input → `unknown`, never throws | `IF-15-sync` (two file reads only), `CMP-15-recall`, `CMP-15-route`, architecture §7 |
+| Inicio banner | `mocks/plugin-out-of-sync-warning.html#plugin-banner` (375, 768, 1280) | WO-18-002 |
+| Sidebar pill | FRD-19 `app-shell.html#shell-expanded`, `#shell-pending-chip` (pill beside the pending pill) | WO-19-003 |
 
-> **Retired:** REQ-15-001 (uncommitted-changes warning) and REQ-15-003 (separate command-copy REQ) no
-> longer exist after the 2026-06-22 version-based amendment. Uncommitted `plugin/` edits are no longer a
-> trigger; the copyable command is folded into AC-15-004.1 of REQ-15-002. The version-drift case is now
-> the **single** drift reason.
+The fixture home (`docs/design/prototype/fixtures/home/.claude`) holds the installed version that makes
+the oracle state behind (technical-assumptions §2).
 
-All live REQ map to concrete components. No criterion is unsatisfiable on the platform.
+## Dependencies & Risks
 
-## 6. Notes / risks
+- Upstream: FRD-01 `lib/config` (paths, `HOME` seam); FRD-13 (`AlertBanner`, `CommandBox`, tokens).
+- Downstream: FRD-18 (banner placement, WO-18-002), FRD-19 (pill, WO-19-003).
+- Risk: `installed_plugins.json` shape varies by Claude version; parsed defensively (array or object
+  entry), absence → `unknown`. Kept as built.
 
-- **`installed_plugins.json` shape** can vary by Claude version; parse defensively (locate the
-  `pandacorp@panda-corp` entry, read its semver `version`; tolerate both the canonical array-of-entries
-  form and a single-object form), tolerate absence/empty → `null`/`unknown`.
-- **Semver comparison.** Parse `MAJOR.MINOR.PATCH` numerically (strip an optional leading `v` and any
-  pre-release/build suffix); `behind` only when the installed tuple is strictly less than the source
-  tuple, `in-sync` when equal or ahead, `unknown` when either is unparseable — captured as ACs in WO-15-002.
-- **No `simple-git` / no git dependency** — the verdict is two JSON file reads + a numeric semver
-  compare; no `child_process`, no git probe (consistent with the trimmed stack, architecture §2).
-- **Historical:** an earlier design compared the installed `gitCommitSha` against `git log -1 -- plugin/`
-  plus a `git status --porcelain` dirty check. Abandoned 2026-06-22 because the installed `gitCommitSha`
-  is frozen at install time and never advances → a permanent false "behind" alarm.
+## Build Plan
 
-## Build Plan (Phase 2)
+| WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
+|---|---|---|---|---|
+| WO-15-001 | — | `src/lib/plugin-sync/plugin-sync.ts`, `src/lib/plugin-sync/_tests/plugin-sync.test.ts` | false | W0 · kept live, built (no rebuild) |
+| WO-15-002 | WO-15-001 | `src/lib/plugin-sync/plugin-sync.ts`, `src/lib/plugin-sync/_tests/plugin-sync.test.ts` | false | W1 · kept live, built (no rebuild) |
+| WO-15-003 | WO-15-002 | `src/app/api/plugin-sync/route.ts`, `src/app/api/plugin-sync/_tests/route.test.ts`, `src/app/api/plugin-sync/_tests/route.integration.adversarial.test.ts` | false | W2 · kept live, built (no rebuild) |
 
-Phase-2 re-anchors the **presentational** layer of FRD-15 to the owner-approved prototype. The `lib/` +
-route layer is **VERIFIED and untouched** — only the UI banner is re-planned.
+- All three are legacy work orders kept live (`implementation_status: VERIFIED`); the engine does not
+  rebuild them; their waves come from their own `dependsOn` and their files are touched by no v2 WO of
+  the same wave. Later writer: WO-01-011 (W5, `src/app/api/plugin-sync/**`, seam adoption).
+- FRD-15's live ACs are owned cross-FRD: AC-15-002.1, AC-15-002.2, AC-15-002.3 and AC-15-004.1 by
+  **WO-18-002** (W5), AC-15-006.1 by **WO-19-003** (W6). FRD-15's gate re-checks the kept WOs and those
+  owners.
 
-**Coarse WO set:**
+## Work Orders
 
-| WO | Status | Layer | Artifacts (disjoint) |
-|---|---|---|---|
-| WO-15-001 `sync-readers` | **VERIFIED** (kept) | lib | `src/lib/plugin-sync/plugin-sync.ts` (version readers) |
-| WO-15-002 `sync-verdict` | **VERIFIED** (kept) | lib | `src/lib/plugin-sync/plugin-sync.ts` (semver verdict) |
-| WO-15-003 `sync-route` | **VERIFIED** (kept) | route | `src/app/api/plugin-sync/**` |
-| WO-15-004 `sync-banner` | **PLANNED** (re-plan) | UI | `src/app/_components/plugin-sync-banner/**` |
+Live: WO-15-001, WO-15-002, WO-15-003 (kept). Index: [`work-orders/README.md`](work-orders/README.md).
 
-**DAG / parallelism:** WO-15-004 is the only Phase-2 work order. It depends on the three VERIFIED lib/route
-WOs (already shipped) and on the foundation **WO-13-007** (the shared `Banner`). It has no peer in this FRD,
-so there is no intra-FRD parallelism; it runs once WO-13-007 is VERIFIED. Its artifact glob
-(`src/app/_components/plugin-sync-banner/**`) is **disjoint** from every other FRD's UI WO — no collision
-with FRD-16's `orphans-banner/**` or FRD-18's dashboard surfaces.
+## Superseded (v1 history)
 
-**Cross-FRD deps:** `frd-13` (the shared `Banner`/`CmdRow`/`CopyButton` — WO-13-007). The plugin-drift
-banner is the `kind="drift"` **consumer** of that one `Banner`; it must NOT re-declare a banner style
-block (the DR-057 duplicate-banner defect this Phase-2 WO exists to fix).
+- WO-15-004 `PluginSyncBanner` on the v1 `Banner` → WO-18-002 (the Órbita `AlertBanner` on Inicio)
 
-## R9 adapter-aware freshness
+## Readiness check (DR-100)
 
-`PluginSyncState.runtimes` contains independent `claude` and `codex` `RuntimePluginSyncVerdict` values. Claude reads `~/.claude/plugins/installed_plugins.json` and its source manifest; Codex reads the explicitly activated `PANDACORP_CODEX_PLUGIN_ROOT` (with a conservative standard-cache fallback) and its own generated source manifest. The old top-level Claude fields remain additive compatibility fields for shipped clients.
+REQ-15-002, REQ-15-004, REQ-15-005 and REQ-15-006 map to components above; the five live ACs are owned
+once (four by WO-18-002, one by WO-19-003); `dependsOn` names live work orders only; no open
+clarification marker remains.

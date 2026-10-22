@@ -3,7 +3,9 @@ id: WO-16-004
 type: work-order
 slug: orphans-banner
 title: 'WO-16-004 — `OrphansBanner` onto the shared `Banner` (kind="orphan")'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: []
+superseded_reason: "feature removed 2026-06-22"
 parent: FRD-16
 implementation_status: VERIFIED
 artifacts:

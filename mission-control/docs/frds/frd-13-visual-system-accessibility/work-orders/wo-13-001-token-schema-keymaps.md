@@ -3,7 +3,8 @@ id: WO-13-001
 type: work-order
 slug: token-schema-keymaps
 title: WO-13-001 — Token schema validation + agent-color/state-vocab key maps
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-13-010]
 parent: FRD-13
 implementation_status: VERIFIED
 source_requirements: []

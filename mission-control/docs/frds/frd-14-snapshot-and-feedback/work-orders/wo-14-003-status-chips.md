@@ -3,7 +3,8 @@ id: WO-14-003
 type: work-order
 slug: status-chips
 title: 'WO-14-003 — `CMP-14-status-chips`: decisions/bugs/rethink chips'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-03-007]
 parent: FRD-14
 implementation_status: VERIFIED
 source_requirements: ['REQ-14-004', 'REQ-14-005']

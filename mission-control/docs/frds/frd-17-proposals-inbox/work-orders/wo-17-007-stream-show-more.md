@@ -3,7 +3,8 @@ id: WO-17-007
 type: work-order
 slug: stream-show-more
 title: 'WO-17-007 — Collapse long proposal streams with a "ver más" toggle'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-17-008]
 parent: FRD-17
 implementation_status: VERIFIED
 reopen_count: 0

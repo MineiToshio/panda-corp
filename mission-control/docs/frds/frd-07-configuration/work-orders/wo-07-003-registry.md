@@ -6,9 +6,12 @@ title: 'WO-07-003 — `lib/registry.ts`: read decision rules'
 status: DRAFT
 parent: FRD-07
 implementation_status: VERIFIED
+artifacts:
+  - 'src/lib/registry/registry.ts'
+  - 'src/lib/registry/_tests/registry.test.ts'
 source_requirements: []
 dependsOn: [WO-01-001]
-last_updated: '2026-06-17'
+last_updated: '2026-10-22'
 ---
 # WO-07-003 — `lib/registry.ts`: read decision rules
 
@@ -19,12 +22,15 @@ Blueprint: [`IF-07-registry`](../blueprint.md#3-components--interfaces).
 Implement `readDecisionRules()` in `lib/registry.ts`: parse `factory/decisions/registry.yaml`
 (`decisiones[]`) into typed rules. **No hand-copied list** (DR-046).
 
-## Acceptance criteria (EARS, from FRD-07 + DR-046)
-- **AC-07-003.1** — WHEN `readDecisionRules()` runs, it SHALL return one entry per item in `decisiones[]` with `id`, `patron`, `default`, `requiereHumano: boolean` and optional `nota`.
-- **AC-07-003.2** — The `requiereHumano` field SHALL map directly from `requiere_humano`; a missing value SHALL default to `false` and SHALL NOT throw.
-- **AC-07-003.3** — The reader SHALL tolerate extra/unknown YAML keys without failing (forward-compatible).
-- **AC-07-003.4** — WHEN the file is missing or unparseable, the reader SHALL return an empty list with a typed warning, never throw (architecture §7 graceful degradation).
-- **AC-07-003.5** — The reader SHALL read from `resolveFactoryRoot()` (FRD-01) for fixture testing.
+## v1 delivery record
+
+Delivered in v1; this work order owns no live acceptance criterion in v2. Note: v1 AC-07-003.4 (missing or unparseable file returns an empty list) is superseded for the Configuración page by the fail-loud result variant WO-07-006 adds beside this reader (DR-078); the array reader stays for its other consumers.
+
+- v1 AC-07-003.1: WHEN `readDecisionRules()` runs, it SHALL return one entry per item in `decisiones[]` with `id`, `patron`, `default`, `requiereHumano: boolean` and optional `nota`.
+- v1 AC-07-003.2: The `requiereHumano` field SHALL map directly from `requiere_humano`; a missing value SHALL default to `false` and SHALL NOT throw.
+- v1 AC-07-003.3: The reader SHALL tolerate extra/unknown YAML keys without failing (forward-compatible).
+- v1 AC-07-003.4: WHEN the file is missing or unparseable, the reader SHALL return an empty list with a typed warning, never throw (architecture §7 graceful degradation).
+- v1 AC-07-003.5: The reader SHALL read from `resolveFactoryRoot()` (FRD-01) for fixture testing.
 
 ## Dependencies
 - FRD-01 `lib/config.ts`. Cross-feature.

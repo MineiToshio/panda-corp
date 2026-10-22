@@ -6,21 +6,32 @@ title: WO-11-001 — `BUILD_MODES` catalog + per-project persistence
 status: DRAFT
 parent: FRD-11
 implementation_status: VERIFIED
+artifacts:
+  - 'src/lib/constants.ts'
+  - 'src/lib/build-mode-store.ts'
+  - 'src/lib/_tests/build-modes.test.ts'
+  - 'src/lib/_tests/build-modes.adversarial.test.ts'
 source_requirements: []
-last_updated: '2026-06-17'
+dependsOn: []
+last_updated: '2026-10-22'
 ---
 # WO-11-001 — `BUILD_MODES` catalog + per-project persistence
 
 **Feature:** FRD-11 · **Implements:** IF-11-modes, IF-11-mode-store · **REQ-11-001, REQ-11-003**
 **Deploy unit:** `lib/constants.ts` (catalog) + a `"use client"` mode-store helper + colocated tests.
 
-## Acceptance criteria (copied)
-- **AC-11-001.1** The selector SHALL render four mode options in order: Pro/economical, Balanced, Powerful, Deep.
-- **AC-11-001.3** The default selected mode SHALL be Balanced when no mode has been chosen.
-- **AC-11-003.1** The chosen mode SHALL persist per project across refresh and tab close (client-local UI state, NOT a factory/project write).
-- **AC-11-003.2** Re-opening the project's Commands tab SHALL restore its remembered mode.
+## v1 delivery record
 
-> This WO provides the **data**: the catalog (order + defaults) and the persistence helper. The UI is WO-11-002.
+Kept live in v2 (map §0.5): `BUILD_MODES` (the command per mode) and the per-project browser store (`getRememberedMode` / `rememberMode`) are the data the v2 `BuildModePicker` (WO-11-003) reads. It owns no live v2 acceptance criterion; the criteria it was built against are history (the FRD now numbers the picker as REQ-11-005):
+
+- v1 AC-11-001.1: The selector SHALL render four mode options in order: Pro/economical, Balanced, Powerful, Deep.
+- v1 AC-11-001.3: The default selected mode SHALL be Balanced when no mode has been chosen.
+- v1 AC-11-003.1: The chosen mode SHALL persist per project across refresh and tab close (client-local UI state, NOT a factory/project write).
+- v1 AC-11-003.2: Re-opening the project's Commands tab SHALL restore its remembered mode.
+
+`artifacts` backfilled 2026-10-22 from the Status Note (the catalog lives in `src/lib/constants.ts`, the store in `src/lib/build-mode-store.ts`). `dependsOn: []` made explicit; no id was pruned. The v2 display order of the cards (Equilibrado, Pro, Potente, Profundo) is the picker's, not a catalog change. `status` stays DRAFT until the architecture flip activates the plan.
+
+> This WO provides the **data**: the catalog (order + defaults) and the persistence helper. The UI was WO-11-002 (superseded by WO-11-003 and WO-11-004).
 
 ## Scope
 - `BUILD_MODES: readonly BuildModeInfo[]` in `lib/constants.ts` — four entries in order

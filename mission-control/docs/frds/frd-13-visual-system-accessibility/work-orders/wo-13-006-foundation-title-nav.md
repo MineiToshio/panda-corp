@@ -3,7 +3,8 @@ id: WO-13-006
 type: work-order
 slug: foundation-title-nav
 title: 'WO-13-006 — Foundation (FND-1): cohesion title/nav set — PageTitle · SectionHead · Tabs'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-13-012]
 parent: FRD-13
 implementation_status: VERIFIED
 foundation: true

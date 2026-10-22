@@ -3,7 +3,8 @@ id: WO-02-005
 type: work-order
 slug: board-surface
 title: 'WO-02-005 — Board surface (columns + cards + filter + legend + intake + discard)'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-02-015]
 parent: FRD-02
 implementation_status: VERIFIED
 artifacts:

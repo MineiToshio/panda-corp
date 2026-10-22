@@ -1,53 +1,64 @@
-# FRD-04 — Work orders
+# Work orders — FRD-04 Project workspace
 
-Implementation chunks for the **project workspace** shell.
-Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
-Read [`../blueprint.md`](../blueprint.md) first — its **Build Plan (Phase 2)** is the live DAG.
+> The authoritative order and parallelism is the **Build Plan** in [`../blueprint.md`](../blueprint.md) (the
+> build engine reads that, not this). This file is the readable summary. Source-of-truth hierarchy:
+> `FRD > FDD > design-tokens > blueprint > work order`. Platform: [`docs/product/architecture.md`](../../../product/architecture.md).
 
 ## Work orders
 
-| WO | Title | Layer | Status | Implements | Depends on |
+| WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
-| [WO-04-001](./wo-04-001-docs-reader.md) | `lib/docs.ts` — doc tree + raw read + comms readers | lib (TDD) | VERIFIED | IF-04-docs | WO-01-000, WO-01-001 |
-| [WO-04-003](./wo-04-003-workspace-commands.md) | `lib/next-step.ts` — `workspaceCommands(phase)` | lib (TDD) | VERIFIED | IF-04-next-step | WO-02-003, WO-01-005 |
-| [WO-04-004](./wo-04-004-workspace-shell.md) | Workspace shell: header + tabbar + objectives bar | UI | VERIFIED | CMP-04-workspace/header/objectives-bar/tabbar | WO-04-001, WO-04-003, WO-01-005, WO-03-001, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003 |
-| [WO-04-005](./wo-04-005-tab-summary.md) | Resumen + Documentos tabs | UI | VERIFIED (nested-button #418 fixed, gate PASS 2026-06-21) | CMP-04-tab-summary/decisions/activity-log/tab-documents | WO-04-001, WO-04-004, WO-02-003, WO-13-006, WO-13-007, WO-13-001, WO-13-002, WO-13-003 |
-| [WO-04-008](./wo-04-008-change-card-relative-date.md) | Changes tab: relative date on the change card (`formatChangeDate`) | lib (TDD) + UI | PLANNED | CMP-04-change-card | WO-04-004 |
-| [WO-04-009](./wo-04-009-e2e-workspace-tabs-stale.md) | Stale workspace e2e specs: ten tabs (Cuentas) + FRD-25 portfolio URLs | e2e | IN_REVIEW | AC-04-012.1, REQ-04-013 (e2e oracle) | WO-04-004 |
+| [WO-04-001](./wo-04-001-docs-reader.md) | docs-reader | VERIFIED | WO-01-000, WO-01-001 | History, kept live: `src/lib/docs` tree and comms readers (`listProjectDocs`, `readDoc`, `readActivityLog`, `readDecisions`). |
+| [WO-04-003](./wo-04-003-workspace-commands.md) | workspace-commands | VERIFIED | WO-02-003, WO-01-005 | History, kept live: `workspaceCommands(phase)` in `src/lib/next-step`. |
+| [WO-04-013](./wo-04-013-decision-resolved-in-file.md) | decision-resolved-in-file | PLANNED | WO-24-001, WO-04-001 | `readDecisions` honours an in-entry resolution (`resolvedInFile`), strips «· », engine-log predicate; `countOpenChanges`. |
+| [WO-04-010](./wo-04-010-workspace-frame.md) | workspace-frame | PLANNED | WO-19-002, WO-03-007, WO-02-017, WO-26-001, WO-25-001, WO-13-012, WO-06-013, WO-04-013 | Frame: heroes, eight tabs with badges, panel contract, Spec / Arquitectura / Cuentas panels, unknown tab, legacy links; removes Party and the Work orders tab. |
+| [WO-04-011](./wo-04-011-resumen.md) | resumen | PLANNED | WO-04-010, WO-06-013, WO-14-005, WO-04-013, WO-20-001, WO-18-002 | Resumen: upgrade notice, next step, La Fragua, snapshot, Avance por FRD, decisions + dialog, Tu turno, Últimos avances, Bitácora. |
+| [WO-04-012](./wo-04-012-cambios-documentos.md) | cambios-documentos | PLANNED | WO-04-010, WO-08-003 | Cambios groups, banner, dialog and discard confirm; Documentos index by purpose, type chips, search, typed paper. |
 
-## Phase 2 re-plan (2026-06-19)
+> **Depends on** mirrors each work order's `dependsOn` frontmatter. WO-04-001, WO-04-003 and WO-04-013 own no
+> live acceptance criterion (data side; REQ-traced).
 
-The `lib/**` data layer is correct and **VERIFIED** — WO-04-001 / WO-04-003 are untouched. The gap was
-**presentational**: the prior UI work orders (shell / summary / documents / commands) were collapsed to
-the **coarse** Phase-2 set above and re-anchored to the approved prototype `projectPane()` and the
-FRD-13 foundation primitives. Notes:
-- WO-04-006 (Documentos tab) **folded into** WO-04-005 (it shares the `lib/docs.ts` reader and the tab seam).
-- WO-04-007 (Comandos tab) **moved to FRD-11** — FRD-11 now owns `_components/{mode-selector,tab-commands}`.
+## AC coverage
 
-## Order & parallelization (Phase 2)
+| AC | Work order |
+|---|---|
+| AC-04-012.1 | WO-04-010 |
+| AC-04-012.2 | WO-04-010 |
+| AC-04-012.3 | WO-04-010 |
+| AC-04-012.4 | WO-04-010 |
+| AC-04-012.5 | WO-04-010 |
+| AC-04-013.1 | WO-04-010 |
+| AC-04-013.2 | WO-04-010 |
+| AC-04-013.3 | WO-04-010 |
+| AC-04-013.4 | WO-04-010 |
+| AC-04-013.5 | WO-04-010 |
+| AC-04-014.1 | WO-04-010 |
+| AC-04-014.2 | WO-04-010 |
+| AC-04-014.3 | WO-04-011 |
+| AC-04-014.4 | WO-04-011 |
+| AC-04-014.5 | WO-04-011 |
+| AC-04-014.6 | WO-04-011 |
+| AC-04-014.7 | WO-04-011 |
+| AC-04-014.8 | WO-04-012 |
 
-- **Libs already VERIFIED:** WO-04-001, WO-04-003 — not rebuilt.
-- **WO-04-004** (shell) first — it provides the **Tabbar mount seam** that every tab FRD plugs into.
-- **WO-04-005** (Resumen + Documentos) after the shell (mounted into its tab bodies).
-- See `../blueprint.md` → **Build Plan (Phase 2)** for the coarse DAG, parallelism and cross-FRD deps.
+Cross-FRD criteria owned by this FRD's work orders: AC-12-006.4 (WO-04-010); AC-06-020.1, AC-20-001.1,
+AC-20-001.2, AC-20-001.3, AC-20-002.1, AC-20-002.2, AC-20-004.1 (WO-04-011).
 
-## Cross-feature dependencies
+## Build order
 
-- **FRD-13** — the foundation primitives (`Tabs`/`ProgressBar`/`Chip`/`CountBadge`/`Panel`/`CmdRow`/
-  `Button`/`Toast`/`DocHeading`) every UI WO consumes (reuse-before-create).
-- **FRD-01** (data layer): `lib/config.ts`, `lib/status.ts`, `lib/portfolio.ts`.
-- **FRD-02** (`lib/next-step.ts` base) — WO-04-003 extends it.
-- **FRD-03** (portfolio rail) — provides the selected `slug` that opens this workspace.
-- **FRD-05 / FRD-06 / FRD-11 / FRD-12 / FRD-14** — mounted tabs/panels/selector; FRD-04 provides the seam.
+1. W2: WO-04-001 (VERIFIED history). W4: WO-04-003 (VERIFIED history).
+2. W3: WO-04-013, in parallel with the other W3 work orders (it alone writes `src/lib/docs/activity.ts` and
+   `src/lib/changes/openChanges.ts` in that wave).
+3. W5: WO-04-010, after the shell (WO-19-002), the codec (WO-25-001), the composite primitives (WO-13-012), the
+   shared digests (WO-02-017), `AccountsTable` (WO-26-001), La Fragua v2 (WO-06-013) and the Portafolio
+   overview (WO-03-007). It wires every panel, the v1 ones as adapters.
+4. W6: WO-04-011 and WO-04-012 in parallel (disjoint panel files and folders), alongside WO-05-008 and WO-11-004,
+   which rewrite the Observabilidad and Comandos panels through the same contract.
+5. W7: WO-13-013 removes the retired v1 skin after every surface is rebuilt.
 
-## Architecture extension (2026-10-16)
+## Superseded (v1 history)
 
-WO-04-004 now also owns the ten-tab order **Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos · Cuentas** and the complete shared Architecture mount (REQ-04-012). It depends on WO-02-007's shared reader/viewer contract. Existing VERIFIED frontmatter remains historical evidence, not a claim that new model/navigation checks passed; see the updated acceptance criteria and extension evidence boundary in each work order.
-
-## Shared Spec extension (2026-10-16)
-
-WO-04-004 additionally owns REQ-04-013 / AC-04-013.1–.5: Spec second in the ten-tab order, full shared digest/count rendering, empty state, project-scoped links and state isolation. The same coarse shell work order owns these mounting seams; no new work-order machine-state transition is introduced by this manual extension.
-
-## Navigation scope alignment (2026-10-17)
-
-Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.
+- WO-04-004 — Workspace shell: header + tabbar + objectives bar. Superseded by WO-04-010.
+- WO-04-005 — Resumen + Documentos tabs. Superseded by WO-04-011 and WO-04-012.
+- WO-04-008 — Changes tab: relative date on the change card. Superseded by WO-04-012 (REQ-04-011 asks for the absolute date).
+- WO-04-009 — Stale workspace e2e specs: ten tabs and FRD-25 portfolio URLs (IN_REVIEW). Superseded by WO-04-010, which owns `e2e/_workspaceTabs.ts` and the eight-tab specs.

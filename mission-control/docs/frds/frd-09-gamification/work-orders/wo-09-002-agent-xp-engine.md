@@ -3,7 +3,8 @@ id: WO-09-002
 type: work-order
 slug: agent-xp-engine
 title: 'WO-09-002 — `lib/gamification.ts`: agent XP/level engine'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-07-006, WO-13-013]
 parent: FRD-09
 implementation_status: VERIFIED
 source_requirements: []

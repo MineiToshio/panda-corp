@@ -3,7 +3,8 @@ id: WO-03-006
 type: work-order
 slug: last-sync-chip
 title: 'WO-03-006 — Portfolio row: relative "last sync" chip'
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-03-007]
 parent: FRD-03
 implementation_status: VERIFIED
 difficulty: low

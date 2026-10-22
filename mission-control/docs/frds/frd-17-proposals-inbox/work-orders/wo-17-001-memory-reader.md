@@ -5,13 +5,19 @@ slug: memory-reader
 title: WO-17-001 — `lib/memory` lesson reader
 status: ACTIVE
 parent: FRD-17
+foundation: false
 implementation_status: VERIFIED
-source_requirements: []
-last_updated: '2026-06-18'
+artifacts: ["src/lib/memory/memory.ts", "src/lib/memory/_tests/memory.test.ts", "src/lib/memory/_tests/memory.adversarial.test.ts"]
+source_requirements: [REQ-17-001, REQ-17-011]
+dependsOn: []
+last_updated: '2026-10-22'
 ---
 # WO-17-001 — `lib/memory` lesson reader
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`IF-17-memory`) · [architecture §4.6, §6](../../../product/architecture.md).
+> v2 note: kept live as history. This reader is unchanged by the v2 plan; the v2 acceptance criteria that read
+> lessons (AC-17-001.1 to AC-17-001.3) are owned by WO-17-008, which renders them. WO-17-008 may edit
+> `src/lib/memory/**` in a later wave.
 
 ## Goal
 Parse `factory/memory/LESSON-*.md` into typed `Lesson` objects (frontmatter + body), with the
@@ -24,16 +30,14 @@ Parse `factory/memory/LESSON-*.md` into typed `Lesson` objects (frontmatter + bo
 - Derive `projects: string[]` (distinct project names parsed from `source`/`links`).
 - Derive `evalGate`: `"corroborated"` if `status === "active"` OR `projects.length >= 2`, else `"awaiting-2nd"`.
 
-## Acceptance criteria (REQ-17-002, REQ-17-007)
-- **AC-17-001.1** GIVEN fixture lessons, `readLessons` returns one `Lesson` per `LESSON-*.md`, with
-  frontmatter mapped and the body captured.
-- **AC-17-001.2** Templates / `README.md` / `_inbox.md` are skipped.
-- **AC-17-001.3** A lesson missing optional fields (`links`, `promotion`) defaults safely
-  (`promotion: "none"`, `links: []`); malformed frontmatter → that file is skipped, not a throw.
-- **AC-17-001.4** `evalGate === "corroborated"` for `status: active`; `"awaiting-2nd"` for a single-project
-  `status: candidate` lesson.
-- **AC-17-001.5** `projects` parses ≥2 distinct projects from a multi-project `source` and, when the
-  format is ambiguous, yields a conservative count (does not over-count) — anchored to LESSON-0001.
+## v1 delivery record
+Acceptance criteria as delivered in v1 (REQ-17-002, REQ-17-007 of the v1 blueprint). They are history, not
+owned criteria: the ids below were v1 work-order ids and collide with the FRD's v2 ids, which WO-17-008 owns.
+- v1 AC-17-001.1: GIVEN fixture lessons, `readLessons` returns one `Lesson` per `LESSON-*.md`, with frontmatter mapped and the body captured.
+- v1 AC-17-001.2: Templates / `README.md` / `_inbox.md` are skipped.
+- v1 AC-17-001.3: A lesson missing optional fields (`links`, `promotion`) defaults safely (`promotion: "none"`, `links: []`); malformed frontmatter → that file is skipped, not a throw.
+- v1 AC-17-001.4: `evalGate === "corroborated"` for `status: active`; `"awaiting-2nd"` for a single-project `status: candidate` lesson.
+- v1 AC-17-001.5: `projects` parses ≥2 distinct projects from a multi-project `source` and, when the format is ambiguous, yields a conservative count (does not over-count) — anchored to LESSON-0001.
 
 ## TDD
 `lib/memory.test.ts` with a fixture `factory/memory/` tree (active lesson, candidate lesson,

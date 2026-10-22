@@ -3,7 +3,8 @@ id: WO-18-001
 type: work-order
 slug: inicio-dashboard
 title: 'WO-18-001 — `Inicio` real-time dashboard (all six sections + health banners)'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-18-002]
 parent: FRD-18
 implementation_status: VERIFIED
 reopen_count: 0

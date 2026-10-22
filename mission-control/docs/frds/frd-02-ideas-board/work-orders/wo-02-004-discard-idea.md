@@ -5,20 +5,39 @@ slug: discard-idea
 title: WO-02-004 — `discardIdea` (the single write)
 status: ACTIVE
 parent: FRD-02
+foundation: false
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - 'src/lib/discard/discard.ts'
+  - 'src/lib/discard/restore.ts'
+  - 'src/lib/discard/_tests/discard.test.ts'
+  - 'src/lib/discard/_tests/discard.adversarial.test.ts'
+  - 'src/lib/discard/_tests/restore.test.ts'
+  - 'src/app/board/actions/actions.ts'
+  - 'src/app/board/actions/_tests/actions.test.ts'
+source_requirements: [REQ-02-007, REQ-02-008]
 dependsOn: [WO-01-000]
-last_updated: '2026-06-16'
+last_updated: '2026-10-22'
 ---
 # WO-02-004 — `discardIdea` (the single write)
+
+> **Kept live in v2 «Órbita» (wo-map §0.5, 2026-10-22).** VERIFIED bounded write, unchanged in v2: `lib/discard`
+> (discard with optional reason and `status_before_discard`, plus the ADR-0002 restore) and the discard/restore Server
+> Actions, consumed by the idea page (WO-02-016). It owns no live acceptance criterion; it traces REQ-02-007
+> (FRD-02#U3) and REQ-02-008. Its v1 criterion is kept below as non-owning history.
+
+## Summary
+
+The bounded discard write (`discardIdea`, with `restoreIdea` as its inverse, ADR-0002) and its Server Actions: one
+card's frontmatter status and discard bookkeeping rewritten, body and other fields preserved.
 
 **Module:** `lib/discard.ts`
 **IDs touched:** `CMP-02-discard`, `IF-02-discardIdea`; REQ-02-007
 **Dependencies:** WO-01-000 (fixtures), `lib/config.ts` (shipped), gray-matter
 
-## EARS criteria (from FRD-02)
+## v1 delivery record
 
-- AC-02-007.1 — WHEN the owner presses "Discard idea", the system SHALL rewrite `status: discarded`
+- v1 AC-02-007.1: WHEN the owner presses "Discard idea", the system SHALL rewrite `status: discarded`
   in the `.md` frontmatter, **preserving the rest of the file** (Pandacorp's only write).
 
 ## Contract

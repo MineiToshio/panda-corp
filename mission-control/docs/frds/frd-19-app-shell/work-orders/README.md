@@ -1,32 +1,56 @@
 # Work orders — FRD-19 Global app shell
 
 > Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
-> Design: [`blueprint.md`](../blueprint.md). Platform: [`docs/product/architecture.md`](../../../product/architecture.md).
+> The authoritative order and parallelism is the **Build Plan** in [`../blueprint.md`](../blueprint.md)
+> (the build engine reads that, not this). Each WO is a coarse slice, carries its own
+> `implementation_status` frontmatter and copies in the acceptance criteria it owns.
 
-TDD per WO (RED → GREEN → refactor). Gate: `.pandacorp/verify.sh` (structure → biome → tsc → vitest →
-knip → smoke/visual/**shell**) + the Shell-Presence Gate (`e2e/shell.spec.ts`, DR-075).
+## Work orders
 
-## List & order
-
-One coarse **foundation** work order — the global shell is infrastructure every top-level surface
-renders inside, so it is foundation-first.
-
-| WO | Title | Layer | foundation | Depends on |
+| WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
-| WO-19-001 | Global app shell — persistent topbar nav + active state + responsive drawer + gate seed | UI (foundation) | **yes** | WO-13-006, WO-13-008, WO-09-001, WO-17-004, WO-01-008, WO-01-007, WO-01-005, WO-01-004, WO-01-002 |
+| WO-19-002 | appshell-frame-navigation | PLANNED | WO-13-012, WO-25-001, WO-01-008 | The Órbita shell on every route: sidebar, tablet rail, phone top bar, bottom navigation and drawer, skip link, 1180 px frame, seven destinations with one active, no exempt route, `e2e/shell.ts` and `e2e/routes.ts` (foundation, W3) |
+| WO-19-003 | sidebar-contents | PLANNED | WO-19-002, WO-18-002, WO-17-008, WO-21-003, WO-04-013 | Sidebar contents: Proyectos group, counts and rail dot, collapse to the 64 px rail with float, theme button, guild card, plugin and pending pills, gold achievement notice (W6) |
 
-## Parallelization
-- WO-19-001 is a single cohesive unit (the shell is one assembly); no intra-FRD parallelism. It reuses
-  already-VERIFIED primitives and wires the root layout — built and gate-verified as one.
+> **Depends on** mirrors each WO's `dependsOn` frontmatter (DR-087).
 
-## Cross-feature dependencies
-- **FRD-09** `GuildBar` (extended with an `embedded` variant) + `XpBar` — the brand/level/XP block.
-- **FRD-17** `ProposalsBadge` — the Propuestas destination + open-count badge.
-- **FRD-13** the `.tab` pill visual (`Tabs.topTabStyle`), the `Panel`/`rpgpanel` surface signature,
-  design tokens, WCAG — reuse-before-create; the new `Nav` replicates the `.tab` look as real links.
-- The six destinations (`/`, `/board`, `/portfolio`, `/proposals`, `/achievements`, `/manual`) are
-  already-built surfaces; this WO only adds the persistent shell that links them.
+## Build order
 
-## Navigation scope alignment (2026-10-17)
+- **W3:** WO-19-002, the last foundation step, in parallel with the W3 surface work orders (disjoint
+  files). From here every route renders the sidebar with the seven destinations.
+- **W6:** WO-19-003, once the resolvers it shows exist (Inicio owner items WO-18-002, Propuestas actions
+  WO-17-008, worktrees WO-21-003, resolved-in-file decisions WO-04-013), in parallel with the W6 panel
+  work orders.
+- FRD-19's gate runs after WO-19-003. FRD-13's WO-13-013 (W7) deletes the v1 modules this FRD only
+  unmounted.
 
-Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.
+## AC coverage
+
+| AC | Work order |
+|---|---|
+| AC-19-001.1 | WO-19-002 |
+| AC-19-001.2 | WO-19-002 |
+| AC-19-001.3 | WO-19-002 |
+| AC-19-001.4 | WO-19-002 |
+| AC-19-001.5 | WO-19-002 |
+| AC-19-002.1 | WO-19-002 |
+| AC-19-002.2 | WO-19-002 |
+| AC-19-003.1 | WO-19-002 |
+| AC-19-003.2 | WO-19-002 |
+| AC-19-003.3 | WO-19-002 |
+| AC-19-003.4 | WO-19-002 |
+| AC-19-003.5 | WO-19-002 |
+| AC-19-004.1 | WO-19-002 |
+| AC-19-004.2 | WO-19-002 |
+| AC-19-005.1 | WO-19-003 |
+| AC-19-005.2 | WO-19-003 |
+| AC-19-005.3 | WO-19-003 |
+| AC-19-005.4 | WO-19-002 |
+| AC-19-005.5 | WO-19-003 |
+
+Cross-FRD ACs built here (listed in their own FRD's README): AC-09-008.1, AC-09-008.2 (FRD-09),
+AC-15-006.1 (FRD-15), AC-21-008.1, AC-21-008.2 (FRD-21), all owned by WO-19-003.
+
+## Superseded (v1 history)
+
+- WO-19-001 (global app shell, v1 top bar) → WO-19-002, WO-19-003

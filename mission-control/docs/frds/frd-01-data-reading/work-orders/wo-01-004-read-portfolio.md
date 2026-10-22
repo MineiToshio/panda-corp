@@ -6,9 +6,13 @@ title: WO-01-004 — `readPortfolio` (markdown table parse)
 status: ACTIVE
 parent: FRD-01
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - 'src/lib/portfolio/portfolio.ts'
+  - 'src/lib/portfolio/_tests/portfolio.test.ts'
+  - 'src/lib/portfolio/_tests/portfolio.adversarial.test.ts'
+source_requirements: [REQ-01-004]
 dependsOn: [WO-01-000]
-last_updated: '2026-06-16'
+last_updated: '2026-10-22'
 ---
 # WO-01-004 — `readPortfolio` (markdown table parse)
 
@@ -16,12 +20,17 @@ last_updated: '2026-06-16'
 **IDs touched:** `CMP-01-portfolio`, `IF-01-readPortfolio`; REQ-01-004
 **Dependencies:** WO-01-000 (fixtures)
 
-## EARS criteria (from FRD-01 / FRD-03)
+## v1 delivery record
 
-- AC-01-004.1 — The system SHALL read `factory/portfolio.md` to obtain the list of projects and
+FRD-01 is REQ-only (no `AC-01-*` bullets), so this v1 criterion is history and owns nothing. The module
+lives at `src/lib/portfolio/portfolio.ts` (the `lib/portfolio.ts` path above is the v1 plan). v2 note:
+WO-03-007 (W4) later adds the last-commit-ordered overview resolver in the same folder and removes the
+rail-only helpers; this reader (`readPortfolio`) is untouched.
+
+- v1 AC-01-004.1: The system SHALL read `factory/portfolio.md` to obtain the list of projects and
   their paths.
-- (FRD-03) the row also yields `repo`, business snapshot columns (users / return / verdict) and the
-  phase cell — consumed by FRD-03.
+- v1 note (FRD-03): the row also yields `repo`, business snapshot columns (users / return / verdict) and the
+  phase cell, consumed by FRD-03.
 
 ## Contract
 

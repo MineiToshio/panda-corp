@@ -6,9 +6,12 @@ title: 'WO-08-001 — `lib/manual.ts`: index authored Manual content'
 status: DRAFT
 parent: FRD-08
 implementation_status: VERIFIED
+artifacts:
+  - 'src/lib/manual/manual.ts'
+  - 'src/lib/manual/_tests/manual.test.ts'
 source_requirements: []
 dependsOn: [WO-01-001]
-last_updated: '2026-06-16'
+last_updated: '2026-10-22'
 ---
 # WO-08-001 — `lib/manual.ts`: index authored Manual content
 
@@ -20,11 +23,14 @@ Implement `readManualPages()` in `lib/manual.ts` (**new module**): index the app
 Manual content (Tutorial/Guides/Concepts MDX/markdown under `content/manual/`), returning grouped,
 ordered pages with title and body. Distinct from `lib/docs.ts` (per-project docs).
 
-## Acceptance criteria (EARS, from FRD-08)
-- **AC-08-001.1** — `readManualPages()` SHALL return one entry per authored page with `group` (Diátaxis quadrant), `slug`, `title`, `order`, `body`.
-- **AC-08-001.2** — Pages SHALL be returned grouped and ordered per their declared `group`/`order` so the side menu is deterministic.
-- **AC-08-001.3** — WHEN a page file is malformed or missing required metadata, the reader SHALL skip it with a typed warning and SHALL NOT throw.
-- **AC-08-001.4** — The reader SHALL read the app's own `content/manual/` tree (not the factory repo), and SHALL be fixture-testable.
+## v1 delivery record
+
+Delivered in v1; this work order owns no live acceptance criterion in v2 (the live criteria of FRD-08 are owned by WO-08-003). The reader stays the single source of the page index for the Documentación home, search and reader.
+
+- v1 AC-08-001.1: `readManualPages()` SHALL return one entry per authored page with `group` (Diátaxis quadrant), `slug`, `title`, `order`, `body`.
+- v1 AC-08-001.2: Pages SHALL be returned grouped and ordered per their declared `group`/`order` so the side menu is deterministic.
+- v1 AC-08-001.3: WHEN a page file is malformed or missing required metadata, the reader SHALL skip it with a typed warning and SHALL NOT throw.
+- v1 AC-08-001.4: The reader SHALL read the app's own `content/manual/` tree (not the factory repo), and SHALL be fixture-testable.
 
 ## Dependencies
 - FRD-01 `lib/config.ts` pattern (fixture testing). Cross-feature.

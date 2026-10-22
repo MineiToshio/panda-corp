@@ -1,143 +1,143 @@
 ---
 id: FRD-12-blueprint
 type: blueprint
+slug: observability-dataviz
+title: FRD-12 Observability and data visualization feature blueprint, v2 Órbita
+status: DRAFT
 parent: FRD-12
-status: ACTIVE
-implementation_status: VERIFIED
-last_updated: '2026-06-21'
+implementation_status: PLANNED
+readiness_gate:
+grounding_gate:
+consistency_gate:
+last_updated: 2026-10-22
 ---
-# FRD-12 — Observability and data visualization — feature blueprint
+# FRD-12 — Observability and data visualization · feature blueprint (v2 «Órbita»)
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
-> This is the **feature blueprint** for FRD-12, built on top of the platform architecture
-> (`../../product/architecture.md`). Read §5 (the event contract — this feature owns the *honest*
-> read of it), §6 (`lib/events`), §4.7 (`~/.claude/dashboard-events.ndjson`) and §11 (header KPIs
-> + RPG↔timeline/DAG surface). It does not restate the stack or the data model.
+> Per-FRD blueprint (DR-049) on top of [`../../product/architecture.md`](../../product/architecture.md) (§5
+> build-event contract, §6: `deps-layout`, `work-orders`, `frds`; Route map rows for Observabilidad). Binding
+> visual spec: [`fdd.md`](fdd.md) + [`mocks/observability-dataviz.html`](mocks/observability-dataviz.html). Cross-FRD
+> plan: `.pandacorp/run/architecture/wo-map.md` (§2 FRD-12, §5, §6.C items 8 and 9, §8.4).
 
-## 0. Requirement IDs (assigned here)
+## Purpose
 
-| ID | Requirement (EARS, abridged) |
-|---|---|
-| REQ-12-001 | Header shows ≤5 critical KPIs (active projects, agents working, XP of day, builds queued, **failed work orders**); detail in collapsible sections. |
-| REQ-12-002 | Live / No-signal indicator with the timestamp of the last event (data freshness). |
-| REQ-12-003 | Inside a project: RPG ↔ timeline/tree toggle over the same data (work orders → tasks → actions, with duration + parent-child). |
-| REQ-12-004 | Any grouping/ranking limited to **top-5**. |
-| REQ-12-005 | If the work-order DAG is drawn, pointing at a node highlights only its dependency chain (upstream/downstream) and dims the rest; offers "jump to first error" + follow-mode that centers the executing step. |
-| REQ-12-006 | The graph render uses **Dagre** (~39KB), NOT ELK.js (unless real orthogonal-routing need). |
-| REQ-12-007 | Honest metrics (done vs failed, time per work order, events per minute) derived from the same event file, no extra instrumentation. |
+FRD-12 is Mission Control's honest observability layer. In v2 it is mostly realized by other features' surfaces,
+and owns one new piece of its own:
 
-## 1. Architecture fit
+- **Dependencias** (owned here, WO-12-007): the deterministic two-level dependency map of the Observabilidad tab.
+  «Por FRD» draws one box per FRD, two per row, with the FRD's work orders in chain order and the cross-FRD
+  dependencies aggregated to one line per directed pair; «Por work order» draws the orders in depth columns with
+  curved edges. Both are computed from structure only (ids, `dependsOn`, FRD), so a state change only recolours.
+  Clicking an order lights its chain and pins it in the URL with the «Work order en foco» card; below 900 px both
+  levels are ordered lists. No Dagre / ELK at runtime, no zoom / fit / fullscreen toolbar, no «saltar al primer
+  error», no follow mode (FRD «Out of v2»).
+- **The Observabilidad frame, its views over the same data, the drift badge and the live refresh** are built in
+  FRD-05's WO-05-008 (it owns AC-12-002.x, AC-12-003.3, AC-12-005.x).
+- **Freshness and the Inicio Pulso** (AC-12-001.2, AC-12-001.3) are owned by FRD-18's WO-18-002, on top of
+  FRD-06's single build-signal resolver (`src/lib/fragua/build-signal.ts`, WO-06-013).
+- **The legacy `tab=Work orders` link** (AC-12-006.4) is the workspace frame's (WO-04-010).
 
-FRD-12 is the **honest data layer over the events**: a set of **pure selectors** over the capped
-event tail (read by `lib/events`, §6) plus a small set of UI components (header KPIs, freshness
-badge, the timeline/DAG view). The selectors are the canonical home of all derived metrics — Party
-(FRD-06), the dashboard (FRD-18) and gamification (FRD-09/10) consume them, so the derivation lives
-**once** here.
+Retired: the KPI header (AC-12-001.1), the event metrics (AC-12-001.4), the Línea de tiempo (AC-12-003.1); their
+v1 code is deleted by WO-05-008 (`src/app/projects/[slug]/_observability/{TimelineView,ObservabilidadTab,WoDag}`)
+and WO-13-013 (the unmounted `src/app/_observability/**`, `pnpm remove @dagrejs/dagre`).
 
-- **Selectors:** pure functions `(events) → metric`, TDD'd with fixtures. They live in the feature
-  folder (`app/_observability/` shared, or a colocated `_metrics/`), NOT in `lib/` — they are
-  derivations over `lib/events` output, not a new data source.
-- **KPIs / freshness:** Server Components (read on the server via `lib/events` + `lib/status` +
-  `lib/portfolio`).
-- **Timeline:** a Server Component (pure layout from event durations).
-- **DAG:** a Client Component — Dagre computes layout, interaction (hover path-focus, follow-mode)
-  needs the client. **Dagre is introduced as a dependency in WO-12-006 only**, not globally.
+## Components & Interfaces
 
-## 2. Components (`CMP-12-*`) and interfaces (`IF-12-*`)
+| ID | Kind | Name · location | Responsibility | Traces |
+|---|---|---|---|---|
+| CMP-12-dependency-map | RSC | `DependencyMap({ project, route })` · `src/app/projects/[slug]/_components/deps/DependencyMap.tsx` | Self-loading: the `Card` «Grafo de dependencias» with its count chip («N FRDs» or «N work orders»), the `Segmented` named «Nivel del grafo» (Por FRD · Por work order, URL `dag`), the level's intro line, the bounded canvas and the narrow list, the focus card. Reads `listWorkOrders` and the FRD index; the layout from `src/lib/deps-layout`. | REQ-12-004, REQ-12-006 |
+| CMP-12-frd-box | RSC | `DependencyFrdBox` / `DependencyFrdItem` · `deps/` | A compound box per FRD (head button with code tag, title, «done/total», state `StackBar`), its work orders as mini nodes in chain order on a three-column grid (state dot, mono id, clamped title; activation opens the order), the aggregated cross-FRD curves with their count and «⇄ back» label and tooltip; below 900 px `ol.dag-list` of `details.dl-frd` (Depende de / Desbloquea FRD chips or the starting-point sentence, the FRD's work orders). | REQ-12-004, REQ-12-006 |
+| CMP-12-node | RSC | `DependencyNode` · `deps/` | 176 × 46 node tinted by state (dot, mono id, title without the `WO-NN-MMM —` prefix, clamped, full «id · title · state» as tooltip), focus / dim / out-of-scope (dashed) variants; below 900 px the steps list «Paso N · M work orders» of rows. | REQ-12-004 |
+| CMP-12-canvas | client island | `DependencyCanvas` · `deps/` | The bounded, keyboard-scrollable region (`role="region"`, its accessible name) at natural size; hover lights a chain transiently; click pins it by writing `focus` (and clicking it again, the background, Escape or «Quitar foco» clears it); FRD head activation writes `dag=wo` + `frd`. No zoom, wheel zoom, drag-pan or fullscreen. | REQ-12-004, REQ-12-006 |
+| CMP-12-focus-card | RSC | `DependencySide` · `deps/` | The «Work order en foco» card: state chip, id, title, «Abrir work order» (`wo` key), «Depende de · N» and «Desbloquea · N» lists (or their empty sentences); placed above the list below 900 px. | REQ-12-006 |
+| IF-12-deps-layout | lib | `src/lib/deps-layout/` | Pure, byte-deterministic placement from STRUCTURE ONLY (ids, `dependsOn`, FRD; plus the FRD filter at the work-order level): the FRD-level boxes, item positions, dominant-direction links with counts, and the work-order depth columns, edges, steps and chain sets. The prototype's arithmetic ported verbatim (technical-assumptions §4.3). | REQ-12-004 |
+| IF-12-frd-index | lib | `listProjectFrds(projectPath)` · `src/lib/frds/frd-index.ts` | THE project FRD index (DR-115): folder slug, code `FRD-NN`, display title by the prototype's precedence (the Spec digest's FRD title, else the Architecture digest's, else the `frd.md` H1 without its code, else the humanized slug), deduped per request. Consumers: this map, the Observabilidad select and rows (WO-05-008), the work-order detail (WO-05-009), the Comandos targets (WO-11-004). | REQ-12-004, REQ-12-006 |
+| IF-12-drift (existing) | lib | `readFrdDrift` · `src/lib/frds/frd-drift.ts` | The one drift reader (fail loud); rendered by WO-05-008. | REQ-12-003 |
 
-| ID | Kind | Name | Responsibility | Uses | Traces |
-|---|---|---|---|---|---|
-| IF-12-kpis | interface | `deriveKpis(events, projects) → Kpi[]` | Pure: the ≤5 KPIs incl. failed-work-orders. | `lib/events`, `lib/status` types | REQ-12-001 |
-| IF-12-freshness | interface | `freshness(events, now) → { lastAt, live }` | Pure: last-event timestamp + live/stale flag (threshold constant). | `lib/events` | REQ-12-002 |
-| IF-12-rate | interface | `eventsPerMinute(events, window) → Bucket[]` | Pure: events-per-minute buckets, optionally per agent. **Consumed by FRD-06 pulse + FRD-18.** | `lib/events` | REQ-12-007 |
-| IF-12-timeline | interface | `toTimeline(events) → TimelineRow[]` | Pure: events → work-order → task → action rows with duration + parent-child. | `lib/events` | REQ-12-003 |
-| IF-12-dag | interface | `toDag(workOrders) → { nodes, edges }` + `dagChain(id) → {up,down}` | Pure: build the WO dependency graph; compute upstream/downstream chain for path-focus; locate first error. | `lib/work-orders` (FRD-05) | REQ-12-005 |
-| IF-12-topn | interface | `topN(items, n=5) → Item[]` | Pure: bounded ranking helper (the top-5 cap). | — | REQ-12-004 |
-| CMP-12-kpi-header | RSC | `KpiHeader` | Renders the ≤5 KPIs + collapsible detail; `tabular-nums`. | `IF-12-kpis` | REQ-12-001, REQ-12-004 |
-| CMP-12-freshness | RSC/client | `FreshnessBadge` | Live / No-signal badge with timestamp; icon+label (not color-only). **Consumed by FRD-06.** | `IF-12-freshness` | REQ-12-002 |
-| CMP-12-timeline | RSC | `TimelineView` | The timeline/tree render of the same data. | `IF-12-timeline` | REQ-12-003 |
-| CMP-12-dag | client | `WorkOrderDag` | Dagre-laid-out DAG; hover → path-focus (dim rest); "jump to first error"; follow-mode centering the executing step. | `IF-12-dag`, **Dagre**, FRD-13 tokens | REQ-12-005, REQ-12-006 |
-| CMP-12-toggle | client | `RpgTimelineToggle` | Switches RPG (FRD-06) ↔ timeline ↔ DAG over the same snapshot. **Consumed by FRD-06.** | `CMP-12-timeline`, `CMP-12-dag` | REQ-12-003 |
+Reuse: `Card`/`CardHeader`, `Notice` (WO-13-012), `Segmented`, `SelectField`, `Chip`, `StateDot` with the shared
+work-order state map, `StackBar`, `Button` (WO-13-011), `Icon`; `t()` copy (`workspace.observabilidad.dag*`).
+No graph or positioning library.
 
-### New `lib/` modules
-None. FRD-12 derives over existing readers (`lib/events`, `lib/status`, `lib/portfolio`,
-`lib/work-orders`). The selectors are feature-level pure functions, not a data-layer module.
+## Contracts
 
-### New external dependency (introduced here, NOT global)
-- **`dagre`** (`@dagrejs/dagre`, ~39KB) — added to `package.json` **in WO-12-006**, used only by
-  `CMP-12-dag`. Explicitly NOT ELK.js (REQ-12-006; architecture §2 records the choice). No factory
-  memory verdict exists for Dagre yet; if it disappoints, capture a `library-verdict` lesson.
+- **Seam (map §0.3):** `DependencyMap({ project, route })`; `project` structural `{ slug, path }`; `route` carries
+  the FRD-25 keys `dag` (`frd` default · `wo`), `focus` (a work-order id; ignored when not in the shown set),
+  `frd` (FRD folder slug, the work-order level filter). It loads its own data; WO-05-008 mounts it for
+  `view=deps`. All URL writes go through the FRD-25 codec; none runs a mutation.
+- **`src/lib/deps-layout` inputs/outputs:** input = the list of `{ id, frd, dependsOn }` (+ the FRD order of the
+  index); output = plain serializable geometry (canvas size, boxes with their item coordinates, links with path
+  data, label point, count and back count; nodes, edges with path data, columns/steps; upstream and downstream
+  sets for a focus). Same input ⇒ identical output byte for byte; work-order state is never an input. Dependencies
+  naming an id outside the listed set are dropped (no dangling edge); nothing is invented for an order without
+  `dependsOn` (DR-087).
+- **Errors:** the work-order reader never throws; an empty set renders the catalogue's no-dependencies sentence
+  in the `EmptyState` pattern (the panel shows its own empty project state first, so this is defensive).
+- **Live:** the map is server-rendered and refreshed by the Observabilidad panel's single live refresher
+  (WO-05-008); because placement ignores state, a refresh recolours nodes and never moves a box.
 
-## 3. Contracts
-- All selectors take the **already-parsed, capped** `DashboardEvent[]` from `lib/events` (cap
-  100–200, architecture §3/§4.7) — no re-reading the file, no extra instrumentation (REQ-12-007).
-- `IF-12-topn` is applied to every ranking/grouping (REQ-12-004) — a single enforced cap.
-- `IF-12-dag` reads work-order dependencies from `lib/work-orders` (FRD-05). Path-focus is pure
-  (`dagChain`); the dim/highlight + follow-mode are client interaction over that pure result.
-- Freshness threshold (live vs no-signal) is a centralized constant (`lib/constants` or feature
-  constant), not magic.
+## Visual spec (DR-054)
 
-## 4. App surface (§11)
-- **Header KPIs + freshness badge:** the global header / dashboard (`app/`), and reused inside the
-  project workspace.
-- **Timeline / DAG + toggle:** `app/projects/[slug]` → the same surface as the Party tab (FRD-06),
-  swapped by `CMP-12-toggle`.
+| WO | Reproduce | Oracle states | Recorded hooks |
+|---|---|---|---|
+| WO-12-007 | [`fdd.md`](fdd.md) «Dependencias» and States, [`mocks/observability-dataviz.html`](mocks/observability-dataviz.html) | `observability-deps-frd`, `observability-deps-wo`, `observability-deps-focus`, `observability-deps-frd-open`, `observability-deps-list-open` | `.dag-wrap`, `.dag[role=region]`, `.dag-canvas`, `svg.dag-edges`, `.fdag-box`, `.fdag-head[data-dag-frd]`, `.fcode`, `.fdag-title`, `.fdag-bar`, `path.fdag-link`, `text.fdag-n`, `.dag-node` (`.mini`, `.focus`, `.dim`, `.out`), `.dag-id`, `.dag-t`, `path.dag-edge` (`.on`, `.dim`), `ol.dag-list`, `details.dl-frd`, `.dl-rel`, `.dag-side`, `.dag-focus`, `.dag-note` |
 
-## 5. Cross-feature dependencies
-- **FRD-01 `lib/events`** — the parsed capped tail (hard).
-- **FRD-05 `lib/work-orders`** — DAG nodes/edges (hard for WO-12-006).
-- **FRD-01 `lib/status` / `lib/portfolio`** — KPI inputs (active projects, builds queued).
-- **FRD-13 tokens** — DAG node colors (per-agent), motion (<300ms), state by icon+label, freshness
-  badge (not color-only). Hard for the UI WOs.
-- **FRD-06 consumes** `IF-12-rate`, `CMP-12-freshness`, `CMP-12-toggle` → build those before the
-  corresponding FRD-06 WOs (06-009/010).
+Prototype reference: `dagLevels`, `frdDagView`, `depsView` in `docs/design/prototype/prototype.js`. Token slice:
+teal card hue, state hues on nodes, ONE highlight colour for a lit chain, uniform accent edges at rest, mono ids,
+12 px floor. Canvases are compared by computed styles and the checks above (FDD «Measured by styles»).
 
-## 6. Traceability (REQ → CMP/IF)
-Every REQ-12-MMM maps to a CMP-12-* / IF-12-* in §2. No requirement is unbuildable. REQ-12-006 is
-satisfied by the Dagre choice in WO-12-006 (and recorded in architecture §2).
+## Dependencies & Risks
 
-## 7. Build Plan (Phase 2)
+- **Upstream:** WO-13-012 (primitives), WO-25-001 (URL keys), WO-05-001 (reader, VERIFIED). It reads the existing
+  Spec and Architecture digest parsers for FRD titles while WO-02-017 reworks those modules in the same wave
+  (ledger: keep their FRD list shape stable).
+- **Risk: pixel determinism** (technical-assumptions §4.3): any iteration-order or float difference moves boxes;
+  the port is verbatim and a golden test pins coordinates.
+- **Risk: no route before W6.** The map is mounted by WO-05-008 (W6); its behaviour e2e lives in
+  `e2e/observability.spec.ts` (WO-05-008), and WO-12-007 proves its criteria with resolver and component tests.
+- **Risk: superseded work orders** appear as nodes until WO-05-009 (W6) drops them from the reader.
 
-Phase 2 re-paints the project **Observabilidad** tab presentation to the approved prototype. The
-**pure selector layer is VERIFIED** — `topn`/`freshness` (WO-12-001), `kpis` (WO-12-002), `rate`
-(WO-12-003), `timeline` (WO-12-004) — as are the pure `dag.ts` (`toDag`/`dagChain`/`firstError`) and the
-`dagre` dependency; none are re-planned. The two coarse UI WOs consume them. The global dashboard
-`FreshnessBadge` (FRD-18 surface) stays real/VERIFIED and is out of this Phase-2 re-paint. `KpiHeader`/
-`deriveKpis` (`IF-12-kpis`, `CMP-12-kpi-header`) were removed 2026-07-05 (DR-092/DR-115): the component
-was never mounted (superseded by `Pulso`/FRD-18's dashboard pulse section) and its "failed work
-orders" mechanism diverged from `WorkOrder.state` — orphaned dead code, deleted rather than fixed.
+## Traceability
 
-**Coarse DAG:**
+| REQ | Components / interfaces | Live ACs → owner |
+|---|---|---|
+| REQ-12-001 | IF-06-build-signal (WO-06-013), Inicio `Pulso` and cards (FRD-18) | AC-12-001.2, AC-12-001.3 → WO-18-002 |
+| REQ-12-002 | CMP-05-observability-panel, CMP-05-view-toolbar (FRD-05), FRD-04 tab bar | AC-12-002.1, AC-12-002.2, AC-12-002.3 → WO-05-008 |
+| REQ-12-003 | IF-12-drift, FRD-05's drift badge (`FrdDriftBadge`) | AC-12-003.3 → WO-05-008 |
+| REQ-12-004 | CMP-12-dependency-map, CMP-12-frd-box, CMP-12-node, CMP-12-canvas, IF-12-deps-layout, IF-12-frd-index | AC-12-004.1, AC-12-004.2, AC-12-004.3, AC-12-004.4, AC-12-004.5, AC-12-004.6, AC-12-004.7, AC-12-004.8 → WO-12-007 |
+| REQ-12-005 | CMP-05-live-refresh (FRD-05), structure-only layout (IF-12-deps-layout) | AC-12-005.1, AC-12-005.2 → WO-05-008 |
+| REQ-12-006 | CMP-12-dependency-map, CMP-12-canvas, CMP-12-focus-card, FRD-04 legacy alias | AC-12-006.1, AC-12-006.2, AC-12-006.3 → WO-12-007 · AC-12-006.4 → WO-04-010 |
 
-```
-selectors + dag.ts + dagre (VERIFIED) ─┐
-foundation + live (WO-01-009) ─────────┼─▶ WO-12-006  (WoDag: Dagre graph, chain-highlight, jump-to-error, follow-active)
-                                        └─▶ WO-12-005  (ObservabilidadTab + TimelineView)  ──mounts WoDag as DAG lens──┘
-```
+Struck and retired (owned by nobody): AC-12-001.1, AC-12-001.4, AC-12-003.1 (map §8.4).
 
-- **WO-12-005** — `ObservabilidadTab` (sibling of Party; local `SectionHead` strip + the **Línea de
-  tiempo ↔ DAG** `Tabs` toggle over the SAME work orders) + `TimelineView` (WO→tasks→actions duration
-  bars + time axis + jump-to-first-error). **Live** via `useLiveSnapshot` (WO-01-009), not polling.
-- **WO-12-006** — `WoDag` (the dependency graph: Dagre, bezier edges, chain-highlight upstream+downstream,
-  jump-to-first-error, follow-active-step), mounted as the DAG lens of WO-12-005's toggle. **Live** via
-  `useLiveSnapshot`, not polling.
+## Build Plan
 
-**Parallelism.** WO-12-006 can be built in parallel with WO-12-005 and is mounted into its toggle. Across
-FRDs both are **disjoint** from FRD-05 (`_components/{wo-*}/**`) and FRD-06 (`_party/**`): artifacts live
-only under `src/app/projects/[slug]/_observability/**`, so the three workspace tabs re-paint in parallel
-with no file collision.
+> The build engine reads this table; it matches each work order's frontmatter exactly.
 
-**Disjoint artifacts:**
-- WO-12-005: `src/app/projects/[slug]/_observability/ObservabilidadTab/**`, `…/TimelineView/**`.
-- WO-12-006: `src/app/projects/[slug]/_observability/WoDag/**`.
+| WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
+|---|---|---|---|---|
+| WO-12-007 | WO-13-012, WO-25-001, WO-05-001 | `src/app/projects/[slug]/_components/deps/**`, `src/lib/deps-layout/**`, `src/lib/frds/frd-index.ts`, `src/lib/frds/_tests/frd-index.test.ts` | false | W3 · with WO-06-013, WO-02-017 and the other W3 surface WOs |
 
-**Cross-FRD deps:** `frd-13` (foundation primitives + per-state/role color & motion tokens),
-`frd-04` (the workspace Tabbar the tab mounts into), `frd-01` (live — `useLiveSnapshot` + SSE transport,
-WO-01-009). Reads WO dependency data from FRD-05 `lib/work-orders` (VERIFIED).
+- **Order:** WO-12-007 builds in W3 (after the W2 primitives) as a module; WO-05-008 mounts it in W6; WO-05-009 and
+  WO-11-004 read its FRD index.
+- **Disjoint by design:** only `_components/deps/**`, `src/lib/deps-layout/**` and the two `frd-index` files; no
+  other W3 work order writes `src/lib/frds/` (the existing `frd-drift.ts` is read-only here).
+- **Cross-FRD:** the frame and the views of FRD-12's other criteria are FRD-05's and FRD-04's; freshness is
+  FRD-06's resolver consumed by FRD-18.
 
-### Shared Architecture graph navigation — 2026-10-16
+## Superseded (v1 history)
 
-WoDag/ZoomControls and WoDag/useFullscreen now delegate to shared GraphControls and src/hooks/useFullscreen. This promotes the existing top-right icon design and native browser behavior for reuse by the logical model (ADR-0008). Dependency layout, graph selection, live coloring, follow/jump controls, 100% reset and existing zoom behavior are unchanged. No project/build machine-state transition is implied.
+- WO-12-001 Top-N cap helper + freshness selector · superseded by WO-13-013 (dead `src/app/_observability`).
+- WO-12-002 KPI selector · superseded by WO-13-013.
+- WO-12-003 Events-per-minute selector · superseded by WO-13-013.
+- WO-12-004 Timeline selector · superseded by WO-13-013.
+- WO-12-005 Observabilidad tab + Timeline view · superseded by WO-05-008.
+- WO-12-006 Work-order DAG view (Dagre) · superseded by WO-12-007 and WO-05-008.
+
+## Readiness check (DR-100)
+
+Every REQ-12-MMM with a live criterion maps to a component or interface (here or in its owning feature); each live
+criterion is owned by exactly one work order (README AC table, cross-FRD owners by the map); `dependsOn` names only
+live work orders; the W3 artifacts are disjoint; no open clarification marker survives; no API contract.
 
 ## Persistent navigation integration — FRD-25 (2026-10-17)
 

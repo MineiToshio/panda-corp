@@ -3,7 +3,8 @@ id: WO-14-002
 type: work-order
 slug: snapshot-panel
 title: 'WO-14-002 — SnapshotPanel: último commit en verde + worktree command'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-14-005]
 parent: FRD-14
 implementation_status: VERIFIED
 reopen_count: 0

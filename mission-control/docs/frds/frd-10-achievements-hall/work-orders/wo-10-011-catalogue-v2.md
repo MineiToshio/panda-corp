@@ -42,13 +42,16 @@ signals layer (NO `task="…"` reads). Add per-trophy **rarity**, the 3 new axes
 - Rendering of rarity/Seals/NUEVO/new icons/sagas (WO-10-012).
 - The signals layer itself (WO-10-010) and the reader (WO-10-009).
 
-## Acceptance criteria (EARS)
-- **AC-10-011.1** — `UNIQUE_DEFINITIONS` SHALL contain the §3 catalogue (~80) across the 8 axes, each with a `rarity`, each `check` deriving from the signals layer (verifiable, never `task=`).
-- **AC-10-011.2** — `SECRET_DEFINITIONS` SHALL contain the §5 secrets (~18), hint always visible, criterion revealed only on unlock (AC-10-004.2 preserved).
-- **AC-10-011.3** — `CHAIN_DEFINITIONS` SHALL contain the §6 chains (~21) with a `saga`, re-anchored to real signals.
-- **AC-10-011.4** — `computeSeals` SHALL unlock an axis Seal only when ALL that axis's trophies are unlocked, and the Grand Seal only when all 8 Seals are held (pure, fixture-tested).
-- **AC-10-011.5** — `isNew` SHALL be derived from the real unlock `date` vs an injected `now` (≤7 days); never fabricated; locked → not new.
-- **AC-10-011.6** — Empty factory → every trophy locked, honest zeros, no fabricated dates (negative AC).
+## v1 delivery record
+
+Delivered in v1; this work order owns no live acceptance criterion in v2. (`isNew` stays in the engine but no v2 surface renders a NUEVO badge: Out of v2 in the FRD.)
+
+- v1 AC-10-011.1: `UNIQUE_DEFINITIONS` SHALL contain the §3 catalogue (~80) across the 8 axes, each with a `rarity`, each `check` deriving from the signals layer (verifiable, never `task=`).
+- v1 AC-10-011.2: `SECRET_DEFINITIONS` SHALL contain the §5 secrets (~18), hint always visible, criterion revealed only on unlock (AC-10-004.2 preserved).
+- v1 AC-10-011.3: `CHAIN_DEFINITIONS` SHALL contain the §6 chains (~21) with a `saga`, re-anchored to real signals.
+- v1 AC-10-011.4: `computeSeals` SHALL unlock an axis Seal only when ALL that axis's trophies are unlocked, and the Grand Seal only when all 8 Seals are held (pure, fixture-tested).
+- v1 AC-10-011.5: `isNew` SHALL be derived from the real unlock `date` vs an injected `now` (≤7 days); never fabricated; locked → not new.
+- v1 AC-10-011.6: Empty factory → every trophy locked, honest zeros, no fabricated dates (negative AC).
 
 ## TDD plan
 RED: per-axis predicate tests against signal fixtures (unlock + stay-locked); secret hidden-criterion; Seal all-or-nothing; isNew boundary; empty-factory. GREEN: tables + predicates. Refactor; split files by axis to stay ≤500 lines.

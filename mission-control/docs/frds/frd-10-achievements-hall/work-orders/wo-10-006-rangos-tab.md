@@ -3,7 +3,8 @@ id: WO-10-006
 type: work-order
 slug: rangos-tab
 title: 'WO-10-006 — Rangos tab (enriched rank ladder) + unbounded Nv N metric levels'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-10-016]
 parent: FRD-10
 implementation_status: VERIFIED
 reopen_count: 0

@@ -2,11 +2,21 @@
 id: FRD-23-blueprint
 type: blueprint
 parent: FRD-23
-status: ACTIVE
+status: DRAFT
 implementation_status: VERIFIED
-last_updated: '2026-07-07'
+readiness_gate:
+grounding_gate:
+consistency_gate:
+last_updated: '2026-10-22'
 ---
-# Feature blueprint — FRD-23 Materialized stats read-model
+# Feature blueprint — FRD-23 Materialized stats read-model (v2 «Órbita» revision)
+
+> **v2 revision (2026-10-22).** No behaviour of this feature changes in v2: the six work orders are VERIFIED history kept
+> live, and the Informe keeps reading this read-model (Logros › Estadísticas, FRD-10 WO-10-017). This revision adds the
+> component and interface ids, the requirement traceability, the Build Plan table, and narrows each work order's
+> declared artifacts to the files it really wrote. AC-23-001.5 (the seal-coverage rule of 2026-09-30) was checked against
+> the code: it is implemented and proven by
+> `src/lib/achievements/read-model/_tests/informeResolver.sealCoverage.test.ts`, so no new work order is needed.
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
 > This is the **feature blueprint** (DR-049): how FRD-23 is implemented on top of the platform in
@@ -131,3 +141,69 @@ Neither reader returns a bare `[]`/`null` on an unrecognised shape (DR-078); `re
 - **Per-project portada validated by its own seal** → now that it holds only per-project facts, its seal
   covers 100% of its contents (AC-23-006.4).
 - **Equivalence** → factory store numbers == live `derive*` numbers; per-project portada numbers == live.
+
+### Seal-coverage tests (AC-23-001.5)
+- **Unsealed facts stay live** → beside a fresh portada the resolver reads `commits`, `funnel` and the ideas-per-week series from the live readers and serves only the WO-verified series and the FRD count from the portada; an un-derivable live ideas series fails loud, never a fabricated empty series (`informeResolver.sealCoverage.test.ts`, owned by WO-23-006).
+
+## 6. Components and interfaces (ids for traceability)
+
+All under `src/lib/achievements/read-model/` (a pure `lib` package; no UI, no route, no API contract: DR-060 does not apply).
+
+- **`IF-23-portada-reader`** — `statsSchema.ts`, `seal.ts`, `statsReader.ts`: `parseStatsPortada` / `parseStatsAggregate`, `currentSeal`, `isFresh`, `readStatsPortada`, `readStatsAggregate`. Fail-loud results `missing | stale | unparseable`. → REQ-23-001, REQ-23-003 (aggregate reader fail-loud).
+- **`IF-23-portada-writer`** — `statsWriter.ts`: `buildPortada`, `gatherLiveValues`, `writePortadaAtomic`, `writeStatsPortada` (single writer, tmp + rename, assembled from the report `derive*` cores). → REQ-23-002.
+- **`IF-23-aggregate`** — `aggregate.ts`, `aggregateConsumer.ts`: the O(1) join and its read path with the per-use seal re-check. → REQ-23-003.
+- **`IF-23-regen-backfill`** — `regen.ts`, `backfill.ts`, `scripts/read-model/**`: the commit-driven regeneration point and the one-shot backfill. Factory tooling; Mission Control never writes the stores. → REQ-23-003, REQ-23-004.
+- **`IF-23-factory-store`** — `factorySeal.ts`, `factoryStoreReader.ts`, `factoryStoreWriter.ts`: the factory-scoped store, its factory-wide seal, reader and single writer. → REQ-23-006.
+- **`CMP-23-informe-resolver`** — `informeResolver.ts` (+ the seam in `src/app/achievements/page.tsx`): composes the per-project and factory-wide stores with an independent fail-loud fallback per scope, and keeps the unsealed facts live. → REQ-23-001 (incl. AC-23-001.5), REQ-23-005 (nothing here touches `getPendingMerge`), REQ-23-007.
+
+## 7. Traceability (REQ → CMP / IF → work order)
+
+| Requirement | Component(s) / interface(s) | Work order |
+|---|---|---|
+| REQ-23-001 portada reader, fail-loud, fallback (AC-23-001.1 to .4) | `IF-23-portada-reader` | WO-23-001 |
+| REQ-23-001 seal coverage (AC-23-001.5) | `CMP-23-informe-resolver` | WO-23-006 (proof: `informeResolver.sealCoverage.test.ts`) |
+| REQ-23-002 portada writer, atomic, equivalence | `IF-23-portada-writer` | WO-23-002 |
+| REQ-23-003 aggregate index, fail-loud reader | `IF-23-aggregate`, `IF-23-portada-reader` | WO-23-004 |
+| REQ-23-004 backfill | `IF-23-regen-backfill` | WO-23-004 |
+| REQ-23-005 pending merge stays live | none (`getPendingMerge` is untouched; guarded at the resolver seam) | WO-23-003 |
+| REQ-23-006 factory-scoped store | `IF-23-factory-store` | WO-23-005 |
+| REQ-23-007 composed reader | `CMP-23-informe-resolver` | WO-23-006 |
+
+Every live AC (19) is owned by exactly one work order: AC-23-001.1 to .4 by WO-23-001; AC-23-001.5 and AC-23-007.1 to .3 by WO-23-006; AC-23-002.1 to .3 by WO-23-002; AC-23-003.1, .2 and AC-23-004.1 by WO-23-004; AC-23-005.1 by WO-23-003; AC-23-006.1 to .4 by WO-23-005.
+
+## Build Plan
+
+> The build engine reads this table; it does not infer dependencies. All six work orders are VERIFIED history kept live; their declared artifacts are narrowed to the exact files each wrote so the plan is verifiably disjoint inside every wave (the earlier `read-model/**` and `src/app/**` catch-alls are gone).
+
+| WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
+|---|---|---|---|---|
+| WO-23-001 | — | `src/lib/achievements/read-model/statsSchema.ts`, `src/lib/achievements/read-model/seal.ts`, `src/lib/achievements/read-model/statsReader.ts`, `src/lib/achievements/read-model/_tests/statsSchema.test.ts`, `src/lib/achievements/read-model/_tests/statsReader.test.ts`, `src/lib/achievements/read-model/_tests/seal.test.ts`, `src/lib/achievements/read-model/_tests/fixtures.ts` | false | W0 |
+| WO-23-002 | WO-23-001 | `src/lib/achievements/read-model/statsWriter.ts`, `src/lib/achievements/read-model/_tests/statsWriter.test.ts` | false | W1 (with WO-23-003) |
+| WO-23-003 | WO-23-001 | `src/lib/achievements/read-model/informeResolver.ts`, `src/lib/achievements/read-model/_tests/informeResolver.test.ts`, `src/app/achievements/page.tsx` | false | W1 (with WO-23-002) |
+| WO-23-004 | WO-23-002 | `src/lib/achievements/read-model/aggregate.ts`, `src/lib/achievements/read-model/aggregateConsumer.ts`, `src/lib/achievements/read-model/backfill.ts`, `src/lib/achievements/read-model/regen.ts`, `src/lib/achievements/read-model/_tests/aggregate.test.ts`, `src/lib/achievements/read-model/_tests/aggregateConsumer.test.ts`, `src/lib/achievements/read-model/_tests/backfill.test.ts`, `src/lib/achievements/read-model/_tests/regen.test.ts`, `src/app/achievements/page.tsx`, `scripts/read-model/**`, `vitest.config.ts` | false | W2 (with WO-23-005) |
+| WO-23-005 | WO-23-001, WO-23-002 | `src/lib/achievements/read-model/factorySeal.ts`, `src/lib/achievements/read-model/factoryStoreReader.ts`, `src/lib/achievements/read-model/factoryStoreWriter.ts`, `src/lib/achievements/read-model/statsSchema.ts`, `src/lib/achievements/read-model/statsWriter.ts`, `src/lib/achievements/read-model/informeResolver.ts`, `src/lib/achievements/read-model/_tests/factorySeal.test.ts`, `src/lib/achievements/read-model/_tests/factoryStoreReader.test.ts`, `src/lib/achievements/read-model/_tests/factoryStoreWriter.test.ts`, `src/lib/achievements/read-model/_tests/factorySchema.test.ts`, `src/lib/achievements/read-model/_tests/gitFixture.ts`, `src/lib/achievements/read-model/_tests/fixtures.ts`, `src/lib/achievements/read-model/_tests/statsSchema.test.ts`, `src/lib/achievements/read-model/_tests/statsWriter.test.ts`, `src/lib/achievements/read-model/_tests/informeResolver.test.ts` | false | W2 (with WO-23-004) |
+| WO-23-006 | WO-23-003, WO-23-005 | `src/lib/achievements/read-model/informeResolver.ts`, `src/lib/achievements/read-model/_tests/informeResolver.test.ts`, `src/lib/achievements/read-model/_tests/informeResolver.sealCoverage.test.ts`, `src/app/achievements/page.tsx` | false | W3 |
+
+- **Order and parallelism.** WO-23-001 first; WO-23-002 and WO-23-003 are siblings (W1); WO-23-004 and WO-23-005 are siblings (W2); WO-23-006 composes the two (W3). The v1 files each one rewrites (`statsSchema.ts`, `statsWriter.ts`, `informeResolver.ts`, `page.tsx`) are shared only across different waves.
+- **Cross-FRD dependencies.** Consumes FRD-10 WO-10-014's report `derive*` cores (VERIFIED history, not a dependency edge: they are imported, not edited). Consumers: FRD-10 WO-10-016 (waits for WO-23-006 because both write `src/app/achievements/page.tsx`; it is a later wave, W4), FRD-10 WO-10-017 (reads the composed sources through `loadStatisticsData`), FRD-01 WO-01-011 (adopts the clock and git seams in these readers, W5, after this FRD's last wave).
+- **Visual spec.** None: this FRD has no UI and changes no visual (no design pass needed).
+
+```mermaid
+flowchart LR
+  A[WO-23-001] --> B[WO-23-002]
+  A --> C[WO-23-003]
+  B --> D[WO-23-004]
+  A --> E[WO-23-005]
+  B --> E
+  C --> F[WO-23-006]
+  E --> F
+  F --> G[WO-10-016]
+```
+
+## Superseded (v1 history)
+
+None: all six work orders stay live as history.
+
+## Readiness check (DR-100)
+
+Every `REQ-23-001` to `REQ-23-007` maps to a component or interface above; every live AC (19) is covered by exactly one work order; `dependsOn` is acyclic and every referenced work order exists; wave-parallel work orders have disjoint artifacts by design; no foundation work is needed (a pure `lib` package); the platform data model is unchanged (the stores are runtime caches, not entities); no unresolved clarification marker survives in this feature's documents. Lessons that shaped it: LESSON-0009 (seals are commit hashes compared for equality, never ordered), LESSON-0113 (a documented trigger is a proposal until its call site exists: the seal-coverage test names its file).

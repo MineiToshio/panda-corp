@@ -3,7 +3,8 @@ id: WO-03-002
 type: work-order
 slug: portfolio-surface
 title: 'WO-03-002 — Portfolio surface (rail + table + rows + empty + recovery + status chips)'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-03-007]
 parent: FRD-03
 implementation_status: VERIFIED
 reopen_count: 0

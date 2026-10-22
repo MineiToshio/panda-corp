@@ -1,6 +1,8 @@
 ---
 id: WO-17-006
 type: work-order
+status: SUPERSEDED
+superseded_by: [WO-17-008]
 parent: FRD-17
 title: 'WO-17-006 — MemoryHealth: remove the obsolete "SOLO DEMO" demo frame'
 implementation_status: VERIFIED

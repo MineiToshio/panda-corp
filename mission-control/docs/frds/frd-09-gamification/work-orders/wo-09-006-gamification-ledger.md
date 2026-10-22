@@ -7,14 +7,27 @@ status: DRAFT
 parent: FRD-09
 implementation_status: VERIFIED
 reopen_count: 0
-source_requirements: [AC-09-006.1, AC-09-006.2, AC-09-006.3]
+artifacts:
+  - "src/lib/gamification/ledger.ts"
+  - "src/lib/gamification/guildState.ts"
+  - "src/lib/gamification/_tests/ledger.test.ts"
+  - "src/lib/gamification/_tests/guildState.test.ts"
+  - "src/app/_actions/snapshotLedger.ts"
+  - "src/app/_tests/wo-09-006-snapshotLedger.test.ts"
+  - "src/components/dashboard/GamificationLedgerSync/**"
+source_requirements: [REQ-09-006, AC-09-006.1, AC-09-006.2, AC-09-006.3]
 dependsOn: [WO-09-001]
-last_updated: '2026-06-30'
+last_updated: '2026-10-22'
 ---
 # WO-09-006 — Gamification ledger: persistent XP accumulator
 
 Source-of-truth: `FRD > FDD > design-tokens > blueprint > work order`.
-Blueprint: [§5 read-only posture (controlled exception)](../blueprint.md#5-read-only--security-posture).
+Blueprint: [IF-09-ledger / IF-09-guild-state](../blueprint.md#components--interfaces).
+
+> **v2 «Órbita» disposition (2026-10-22): KEPT LIVE, already built.** The ledger and the single guild
+> state resolver are unchanged in v2 and remain the owner of AC-09-006.1 to AC-09-006.3 (re-copied
+> verbatim from the current FRD below). v2 consumers: the sidebar guild card (WO-19-003) and the Logros
+> hero (WO-10-016). The ledger's time reads adopt the injectable clock in WO-01-011 (no behaviour change).
 
 ## Goal
 
@@ -31,15 +44,16 @@ The ledger fixes this by "burning in" the historical maximum: once earned, XP is
 
 ## Acceptance criteria (EARS, from FRD-09 AC-09-006)
 
-- **AC-09-006.1** — WHEN Mission Control computes guild outcomes THEN it SHALL read
-  `factory/gamification-ledger.json` (if present) and use `MAX(live, ledger)` for each metric
-  (workOrdersDone, phasesCompleted, releases) so that deleting a project NEVER decreases XP or level.
-- **AC-09-006.2** — WHEN a live metric exceeds the stored ledger value THEN Mission Control SHALL
-  update the ledger to the new maximum (snapshot-on-exceed). The write is **fire-and-forget** and
-  MUST NOT block the render or increase Time to First Byte.
-- **AC-09-006.3** — `factory/gamification-ledger.json` SHALL be added to `.gitignore` (personal
-  data, DR-033). The app MUST handle its absence gracefully (cold start = empty ledger = no XP
-  loss because live data is sufficient).
+- **AC-09-006.1** — WHEN Mission Control computes guild outcomes THEN it SHALL read the local ledger (`factory/gamification-ledger.json`, gitignored) and use `MAX(live, ledger)` for each metric (workOrdersDone, phasesCompleted, releases) so that **deleting a project NEVER decreases the guild's XP or level**.
+- **AC-09-006.2** — WHEN a live metric exceeds the stored ledger value THEN Mission Control SHALL update the ledger to record the new maximum (snapshot-on-exceed, fire-and-forget — does NOT block the render).
+- **AC-09-006.3** — `factory/gamification-ledger.json` SHALL be gitignored (personal data, DR-033). It SHALL NOT be committed to the repo.
+
+## v1 delivery record
+
+Non-owning history (the v1 wording this WO was verified against; superseded by the criteria above):
+
+- v1 AC-09-006.2: the write is fire-and-forget and MUST NOT block the render or increase Time to First Byte.
+- v1 AC-09-006.3: the app MUST handle the ledger's absence gracefully (cold start = empty ledger = no XP loss because live data is sufficient).
 
 ## In scope
 

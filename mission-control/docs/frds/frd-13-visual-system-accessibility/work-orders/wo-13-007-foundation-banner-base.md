@@ -3,7 +3,8 @@ id: WO-13-007
 type: work-order
 slug: foundation-banner-base
 title: 'WO-13-007 — Foundation (FND-2): the one Banner (dup-fix) + base pills/surfaces/command-row'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-13-011, WO-13-012]
 parent: FRD-13
 implementation_status: VERIFIED
 foundation: true

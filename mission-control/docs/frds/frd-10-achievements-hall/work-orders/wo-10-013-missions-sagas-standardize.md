@@ -3,7 +3,8 @@ id: WO-10-013
 type: work-order
 slug: missions-sagas-standardize
 title: 'WO-10-013 — Missions expanded to 19 chains/5 sagas + standardized mission/Trofeos/secrets cards'
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-10-016]
 parent: FRD-10
 implementation_status: VERIFIED
 source_requirements: []

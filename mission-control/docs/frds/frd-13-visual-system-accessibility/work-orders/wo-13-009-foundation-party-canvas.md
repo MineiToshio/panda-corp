@@ -3,7 +3,8 @@ id: WO-13-009
 type: work-order
 slug: foundation-party-canvas
 title: 'WO-13-009 — Foundation (FND-4): shared pixel-RPG Party canvas primitives'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-06-013]
 parent: FRD-13
 implementation_status: VERIFIED
 foundation: true

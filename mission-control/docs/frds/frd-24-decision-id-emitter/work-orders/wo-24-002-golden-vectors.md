@@ -13,7 +13,7 @@ reopen_count: 0
 artifacts: [src/lib/docs/_tests/fixtures/decisions-golden.md, src/lib/docs/_tests/decision-id-golden.test.ts]
 source_requirements: [REQ-24-002]
 dependsOn: [WO-24-001]
-last_updated: '2026-09-03'
+last_updated: '2026-10-22'
 ---
 
 # WO-24-002 — Golden-vector regression suite (library ↔ CLI agreement)
@@ -47,12 +47,28 @@ paths this FRD creates can never silently drift apart.
 - Editing `plugin/skills/decide/SKILL.md` — out of scope for this project, tracked separately.
 
 ## Acceptance criteria (REQ-24-002)
-- **AC-24-002.1** — Both the library call and the CLI subprocess call, run against
-  `decisions-golden.md`, produce the SAME ordered id list, and that list equals the committed
-  `EXPECTED_IDS`.
-- **AC-24-002.2** — The suite is a real regression gate: it fails if either call path's output
-  diverges from `EXPECTED_IDS` OR from each other (asserted as two independent equality checks
-  against the same golden array, not one derived from the other).
+
+Kept live in v2 (map §0.5): this work order owns REQ-24-002's criteria, copied verbatim from the FRD.
+
+- **AC-24-002.1** — GIVEN a committed fixture `decisions.md` covering (a) two headings sharing the
+  exact same date, (b) at least one legacy `OPEN:`/`CLOSED:`/`RESOLVED:` heading, and (c) a mix of
+  pending and resolved dated blocks, WHEN both the library function (REQ-24-001) and the CLI entry
+  point (AC-24-001.2) run against that fixture, THEN both SHALL produce the same ordered id list,
+  and that list SHALL equal a committed expected-ids list.
+- **AC-24-002.2** — The suite SHALL fail (RED) if the derivation rule changes without the golden
+  fixture being updated in the same change — the two-path comparison is exercised on every gate run,
+  not asserted once and forgotten.
+
+## v1 delivery record
+
+The work-order phrasing of the two criteria at build time (history, owns nothing):
+
+- v1 AC-24-002.1: Both the library call and the CLI subprocess call, run against `decisions-golden.md`,
+  produce the SAME ordered id list, and that list equals the committed `EXPECTED_IDS`.
+- v1 AC-24-002.2: The suite is a real regression gate: it fails if either call path's output diverges from
+  `EXPECTED_IDS` OR from each other (two independent equality checks against the same golden array).
+
+v2 note: FRD-04's WO-04-013 keeps every id byte-identical; the fixture and `EXPECTED_IDS` are not edited by it.
 
 ## Dependencies
 `WO-24-001` — needs `parseDecisionBlocks` and the CLI to exist first.

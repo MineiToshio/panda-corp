@@ -3,7 +3,8 @@ id: WO-05-003
 type: work-order
 slug: wo-board-tab
 title: 'WO-05-003 — Work-orders tab: live kanban board + detail (re-paint to mock)'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-05-008, WO-05-009]
 parent: FRD-05
 implementation_status: VERIFIED
 reopen_count: 0

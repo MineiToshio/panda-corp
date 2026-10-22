@@ -3,7 +3,8 @@ id: WO-13-008
 type: work-order
 slug: foundation-rpg-primitives
 title: 'WO-13-008 — Foundation (FND-3): RPG/gamification primitives — Shield · TierBadge · ItemSlot · KanbanColumn'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-13-011, WO-13-013]
 parent: FRD-13
 implementation_status: VERIFIED
 foundation: true

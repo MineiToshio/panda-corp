@@ -6,9 +6,14 @@ title: 'WO-04-001 — `lib/docs.ts`: doc tree + raw read + comms readers'
 status: DRAFT
 parent: FRD-04
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - 'src/lib/docs/tree.ts'
+  - 'src/lib/docs/activity.ts'
+  - 'src/lib/docs/_tests/docs.wo04001.test.ts'
+  - 'src/lib/docs/_tests/docs.wo04002.test.ts'
+source_requirements: [REQ-04-004]
 dependsOn: [WO-01-000, WO-01-001]
-last_updated: '2026-06-30'
+last_updated: '2026-10-22'
 ---
 # WO-04-001 — `lib/docs.ts`: doc tree + raw read + comms readers
 
@@ -19,12 +24,19 @@ last_updated: '2026-06-30'
 > decisions comms readers. They share the same module, so they are built together (one WO) to avoid
 > same-file collisions. The UI halves are WO-04-005 (Summary tab) and WO-04-006 (Documents tab).
 
-## Acceptance criteria (copied)
-- **AC-04-006.1** The Documents tab SHALL render the feature-centric document tree (nav) from `lib/docs.ts`.
-- **AC-04-006.2** WHEN a document is selected, the Documents tab SHALL render its markdown body; the first available document is selected by default.
-- **AC-04-006.3** WHEN the project has no readable documents, the Documents tab SHALL show a graceful empty state.
-- **AC-04-003.2** The Summary tab SHALL render the activity log read from `.pandacorp/comms/progress.md`; WHEN the file is absent it SHALL show a graceful "no activity yet" empty state.
-- **AC-04-003.3** The Summary tab SHALL render the decision points read from `.pandacorp/inbox/decisions.md`, each highlighted, with a total count badge.
+## v1 delivery record
+
+Kept live in v2 as history (map §0.5): the readers are still in use and own no live acceptance criterion.
+The v1 criteria below were derived by the v1 blueprint and no longer exist in the FRD. The modules live at
+`src/lib/docs/tree.ts` (`listProjectDocs`, `readDoc`) and `src/lib/docs/activity.ts` (`readActivityLog`,
+`readDecisions`); `lib/docs.ts` in the text below is the v1 plan path. v2 extends them in WO-04-012 (tree)
+and WO-04-013 (activity); FRD-24's WO-24-001 extracted `parseDecisionBlocks`.
+
+- v1 AC-04-006.1: The Documents tab SHALL render the feature-centric document tree (nav) from `lib/docs.ts`.
+- v1 AC-04-006.2: WHEN a document is selected, the Documents tab SHALL render its markdown body; the first available document is selected by default.
+- v1 AC-04-006.3: WHEN the project has no readable documents, the Documents tab SHALL show a graceful empty state.
+- v1 AC-04-003.2: The Summary tab SHALL render the activity log read from `.pandacorp/comms/progress.md`; WHEN the file is absent it SHALL show a graceful "no activity yet" empty state.
+- v1 AC-04-003.3: The Summary tab SHALL render the decision points read from `.pandacorp/inbox/decisions.md`, each highlighted, with a total count badge.
 
 ## Scope
 - `listProjectDocs(projectPath): DocNode[]` — discover the feature-centric tree per

@@ -1,138 +1,219 @@
 ---
-id: FRD-13-blueprint
+id: BP-13
 type: blueprint
+slug: visual-system-accessibility
+title: 'Blueprint — FRD-13 Visual system and accessibility (v2 «Órbita»)'
+status: DRAFT
 parent: FRD-13
-status: ACTIVE
-implementation_status: VERIFIED
-last_updated: '2026-06-18'
+implementation_status: PLANNED
+readiness_gate:
+grounding_gate:
+consistency_gate:
+last_updated: 2026-10-22
 ---
-# FRD-13 — Visual system and accessibility — feature blueprint
 
-> **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
-> FRD-13 is **cross-cutting and mostly declarative**: it has little runtime logic and instead
-> defines the **token system** and the **rules** by which every other feature consumes it. Built on
-> the platform architecture (`../../product/architecture.md` §7 "Accessibility & visual system",
-> §2 Tailwind v4 `@theme`/OKLCH). The **design tokens are above this blueprint** in the hierarchy:
-> the frozen `docs/design/design-tokens.json` + `DESIGN.md` (produced by the `/pandacorp:design`
-> phase, see `docs/design/brief.md`) are the source of truth for *values*; this blueprint defines
-> *how they are wired and enforced*, not the palette.
+# Blueprint — FRD-13 Visual system and accessibility (v2 «Órbita»)
 
-## 0. Requirement IDs (assigned here)
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> Per-feature blueprint (DR-049). The platform (stack, data layer, deploy, cross-cutting rules) is
+> [`docs/product/architecture.md`](../../product/architecture.md) §7 (visual system, i18n and copy,
+> motion and accessibility) and is not restated here. The frozen design contract sits ABOVE this
+> blueprint: `docs/design/design-tokens.json`, root `DESIGN.md`, `docs/design/components.md`,
+> `docs/design/microcopy.es.json` ([ADR-0012](../../adr/ADR-0012-adopt-orbita-design-system.md),
+> [ADR-0013](../../adr/ADR-0013-typed-copy-accessor.md)). This blueprint defines how that contract is
+> wired, enforced and retired-from-v1, never its values.
 
-| ID | Requirement (EARS, abridged) |
-|---|---|
-| REQ-13-001 | Theme derived from few tokens in perceptual space (OKLCH: base, accent, contrast); a high-contrast mode without redesign. |
-| REQ-13-002 | A single rationed accent (punctuation, not paint): accent only on what matters; rest warm neutrals. |
-| REQ-13-003 | EVERY number uses `font-variant-numeric: tabular-nums`. |
-| REQ-13-004 | Elevation has 3 levels (canvas → panel → card/popup) with tokenized shadow/spacing scale (radius 8px, base 16px, hairline 1px, spacing in 0.25rem multiples). |
-| REQ-13-005 | Animation uses only `transform`+`opacity`, <300ms, frequency test; 2–3 easing tokens. |
-| REQ-13-006 | UI honors `prefers-reduced-motion`: disables ALL Party animation. |
-| REQ-13-007 | NO state depends on color alone: each state paired with icon/shape + label. |
-| REQ-13-008 | Accessibility: Spanish `aria-label` on icons, `aria-live="polite"`, visible focus ring respecting border-radius, keyboard list nav, contrast ≥4.5:1. |
+## Purpose
 
-## 1. Architecture fit
+FRD-13 is the foundation every v2 surface stands on. It replaces the v1 pixel-RPG skin (OKLCH tokens,
+Pixelify Sans, embossed panels, high-contrast layer) with the owner-approved Órbita system: a token
+layer mirrored from `design-tokens.json` in two first-class themes, the three self-hosted font
+families, the `Icon` set, the typed Spanish copy accessor, the theme preference with a no-flash boot,
+the leaf and composite primitives of the component inventory, and, last of all, the removal of the
+v1 skin once every surface is rebuilt. It owns no data and no route.
 
-There is almost no JS logic here — the deliverable is a **token contract** + **CSS wiring** +
-**enforced conventions**, consumed by FRD-02..06, FRD-10, etc.
+## Components & Interfaces
 
-Layers:
-1. **`docs/design/design-tokens.json`** (frozen by the design phase) — OKLCH base/accent/contrast,
-   light/dark/high-contrast, the ~10 **per-agent colors**, elevation/spacing/radius scale, motion
-   (durations + 2–3 easings). Source of truth for *values*. **This blueprint does not set values.**
-2. **`app/globals.css`** (Tailwind v4 `@theme`) — maps the JSON tokens to CSS custom properties /
-   theme variables; sets `color-scheme`, base `tabular-nums`, the 3 elevation levels, the focus
-   ring, the motion tokens, and the `@media (prefers-reduced-motion: reduce)` block.
-3. **A thin TS helper** (`lib/theme` is NOT created — this is a feature-level constant) exposing the
-   **agent-color token keys** so `IF-06-agent-color` and DAG nodes read one canonical key map.
-4. **Conventions** in `DESIGN.md` (allowed components, prohibitions: no hardcoded colors, single
-   primary action per screen) — enforced by review + biome where possible.
+| ID | Kind | Name / location | Responsibility | Traces | WO |
+|---|---|---|---|---|---|
+| IF-13-tokens | contract | raw token layer in `src/app/globals.css` | Every `design-tokens.json` property under its own name; light on `:root`, dark on `:root[data-theme="dark"]`, theme-agnostic groups once, `overrides` rules verbatim; scene / map tokens declared once (always dark) | REQ-13-001, REQ-13-002, REQ-13-004, REQ-13-005, AC-13-010.4 | WO-13-010 |
+| IF-13-registry | contract | Tailwind v4 registry in `globals.css` | Tailwind namespaces resolving to the raw tokens at use time (colour, font family, font size reset to the `--fs-*` scale, radius, shadow, easing, duration); spacing on the 4 px base | REQ-13-001, REQ-13-003, REQ-13-004, AC-13-010.2 | WO-13-010 |
+| CMP-13-globals | CSS | base layer of `globals.css` | Base typography, `.num` tabular figures, focus ring, `[data-tip]` tooltip, hover gated to hover-capable pointers, `scroll-padding` for sticky bars, one reduced-motion block | REQ-13-003, REQ-13-005, REQ-13-006, REQ-13-009, AC-13-010.3 | WO-13-010 |
+| CMP-13-fonts | assets + CSS | `public/fonts/`, `@font-face` | Space Grotesk, Inter, JetBrains Mono self-hosted with the prototype's rules; no `next/font` | AC-13-010.2 | WO-13-010 |
+| IF-13-theme | interface | `src/lib/theme/` | `Theme`, storage key `orbita-theme`, system default, resolver, `applyTheme`, `persistTheme`, boot script (also mirrors `orbita-sidebar` for WO-19-003) | REQ-13-001 | WO-13-010 |
+| IF-13-copy | interface | `src/lib/copy/` (`t`, `tRich`) | Typed accessor over the frozen catalogue; placeholders, plural selection, inline tags; Spanish accessible names come from it | REQ-13-009 (Spanish names), ADR-0013 | WO-13-010 |
+| CMP-13-icon | component | `src/components/core/Icon/` | The exported SVG set as one component; decorative or labelled | REQ-13-007, REQ-13-009 | WO-13-010 |
+| CMP-13-assets | assets | `public/brand/`, `public/prototype/assets/`, `public/ranks/` | Prototype art as original bytes | REQ-13-008 (sprites), ADR-0012 | WO-13-010 |
+| IF-13-vocabulary | interface | `src/components/core/Chip/vocabulary.ts` | One map each for phase, work-order state and return type → tone, icon, copy key; status vs category tone split | REQ-13-002, REQ-13-007, AC-13-010.1 | WO-13-011 |
+| CMP-13-leaf | components | `src/components/core/*` (leaf) | Button, Chip family, CommandBox, CopyText, Field, MoreBar, StateDot, Avatar, Ring, ProgressBar / StackBar, PhaseStepper, KeyValue, Toast, Segmented, BadgeIcon | REQ-13-002, REQ-13-003, REQ-13-007, REQ-13-008, REQ-13-009, AC-13-010.1 | WO-13-011 |
+| CMP-13-composite | components | `src/components/core/*` (composite) | Card / CardHeader / CardFoot, PageHead / Crumbs, SectionHeading, Tabs, EmptyState, Notice, AlertBanner, Dialog / DialogConfirm / DialogSheet, Table, ListRow, Markdown | REQ-13-004, REQ-13-005, REQ-13-007, REQ-13-009 | WO-13-012 |
+| CMP-13-retirement | change | cross-cutting deletions | Removes the v1 compatibility block, retired primitives, dead v1 code, per-agent colours, Tabler CDN, Dagre; flips `target_platforms` | REQ-13-001, REQ-13-002, REQ-13-004, REQ-13-005, REQ-13-008 | WO-13-013 |
+| (carried) | hooks | `src/components/a11y/` | `LiveRegion` (`aria-live="polite"`) and `useKeyboardNav` (arrow keys on tab strips), unchanged from v1 | REQ-13-009 | (no change) |
 
-## 2. Components (`CMP-13-*`) and interfaces (`IF-13-*`)
+### Traceability (REQ → component → work order)
 
-| ID | Kind | Name | Responsibility | Traces |
+| REQ / AC | Components / interfaces | Work order(s) |
+|---|---|---|
+| REQ-13-001 few tokens, two themes, no high-contrast | IF-13-tokens, IF-13-registry, IF-13-theme, CMP-13-retirement; the visible toggle is FRD-19's CMP-19-theme-toggle | WO-13-010, WO-13-013 (WO-19-003 for the control) |
+| REQ-13-002 neutral chrome | IF-13-tokens, IF-13-vocabulary, CMP-13-leaf, CMP-13-composite | WO-13-010, WO-13-011, WO-13-012 |
+| REQ-13-003 tabular figures | CMP-13-globals (`.num`), IF-13-registry, CMP-13-leaf (Ring, counts) | WO-13-010, WO-13-011 |
+| REQ-13-004 elevation and radius from tokens | IF-13-tokens, IF-13-registry, CMP-13-composite | WO-13-010, WO-13-012, WO-13-013 |
+| REQ-13-005 transform/opacity motion < 300 ms | IF-13-tokens (`--dur`, `--ease`), CMP-13-globals, CMP-13-composite (dialog pop) | WO-13-010, WO-13-012 |
+| REQ-13-006 reduced motion | CMP-13-globals | WO-13-010 |
+| REQ-13-007 never state by colour alone | IF-13-vocabulary, CMP-13-leaf (StateDot, Chip, PhaseStepper), CMP-13-composite (Notice, EmptyState), CMP-13-icon | WO-13-011, WO-13-012 |
+| REQ-13-008 agent identity by sprite or initials, roster without `guild` | CMP-13-assets (sprites), CMP-13-leaf (Avatar), `AGENT_ROLES` kept in `src/app/_design/tokens/tokens.ts`, per-role colours removed | WO-13-010, WO-13-011, WO-13-013 |
+| REQ-13-009 accessibility | CMP-13-globals (focus ring, tooltip), IF-13-copy (Spanish names), CMP-13-icon, CMP-13-leaf (Ring name on focus), CMP-13-composite (Tabs keys, Dialog focus), carried a11y hooks; the skip link is FRD-19's CMP-19-skip-link | WO-13-010, WO-13-011, WO-13-012 (WO-19-002 for the skip link) |
+| AC-13-010.1 | IF-13-vocabulary, CMP-13-leaf | WO-13-011 |
+| AC-13-010.2 | CMP-13-fonts, IF-13-registry | WO-13-010 |
+| AC-13-010.3 | CMP-13-globals | WO-13-010 |
+| AC-13-010.4 | IF-13-tokens | WO-13-010 |
+
+## Contracts
+
+**Token contract (IF-13-tokens).** Input: `docs/design/design-tokens.json` (frozen). Output: one CSS
+custom property per token, same name, same value, in the theme block the JSON puts it in. Invariants:
+the JSON wins over any prose table; scene (`--scene-*`) and map (`--map-*`) tokens are never redeclared
+inside a theme block; no value is invented, rounded or converted. Errors: a token missing from CSS, a
+changed value or an extra Órbita-named property fails the round-trip unit test (WO-13-010).
+
+**Registry contract (IF-13-registry).** Utilities are the only styling vocabulary for components
+(tokens only, no arbitrary values, `calc()` on theme variables as the one exception, per
+`docs/rules/styling-and-ui.md`). Names: Tailwind namespace + the Órbita suffix (for example
+`bg-surface-2`, `text-text-3`, `border-line`, `rounded-xl`, `shadow-dialog`, `font-display`,
+`text-h1`). The font-size scale is reset to the eleven `--fs-*` steps (smallest 12 px). The final name
+table is published in WO-13-010's Status Note and is the reference for every later WO.
+
+**Theme contract (IF-13-theme).** `Theme = "light" | "dark"`. Resolution: stored `orbita-theme` if it is
+`light` or `dark`; else the system (`prefers-color-scheme: light` → light, otherwise dark). Applying a
+theme sets `<html data-theme>`; choosing one also stores it. The boot script runs in the root layout's
+`<head>` before paint (never in a dynamic segment, LESSON-0166) and also mirrors `orbita-sidebar` onto
+`<html data-sidebar-pref>`. Storage unavailable: the choice lasts the view; nothing throws. No other
+theme value exists.
+
+**Copy contract (IF-13-copy, ADR-0013).** `t(key, vars?) → string`; `tRich(key, vars?) → ReactNode`.
+Keys typed from the catalogue (unknown key = compile error); `{name}` placeholders filled from `vars`
+(missing value = thrown error); `{ one, other }` entries selected by `vars.count` with Spanish plural
+rules; inline tags of a value rendered as elements, never via `innerHTML`. Shown content (documents,
+descriptions, lessons, backlog items) and artifact names bypass it. A string the catalogue lacks is a
+design defect reported to the ledger, never a literal (DR-130).
+
+**Icon contract (CMP-13-icon).** `Icon({ name, size, label? })`; `name` is the union of the file stems
+in `docs/design/prototype/icons/`; children identical to the files (test-guarded); decorative unless
+`label`.
+
+**Primitive contracts (CMP-13-leaf, CMP-13-composite).** Names, purposes, hooks and key props are the
+rows of `docs/design/components.md`; exports are published in each WO's Status Note. Recorded decisions
+of this blueprint:
+
+- *Relocation, not renaming:* every primitive that owns tests lives in a folder named after it with a
+  same-named main file (`src/components/core/Ring/Ring.tsx`, `Card/Card.tsx`, `PageHead/PageHead.tsx`,
+  `Crumbs/`, `EmptyState/`, `Notice/`, `Table/`, `ListRow/`, `Field/`, `MoreBar/`, `StateDot/`,
+  `CopyText/`, `PhaseStepper/`, `KeyValue/`, `Segmented/`, `BadgeIcon/`, `Icon/`), as
+  `docs/rules/project-structure.md` requires; components.md lists some as single files.
+- *Restyle in place keeps the v1 export:* four inventory rows are restyles of a v1 module whose export
+  name differs from the canonical row name. The module and its export stay, and the canonical name is
+  the concept: **Dialog = `Modal`** (`Modal/Modal.tsx`, plus new exports `DialogConfirm`, `DialogSheet`),
+  **AlertBanner = `Banner`** (`Banner/Banner.tsx`), **CommandBox = `CmdRow`** (`CmdRow/CmdRow.tsx`, plus
+  `CommandCompact`), **SectionHeading = `SectionHead`** (`SectionHead/SectionHead.tsx`). This avoids
+  aliases and keeps reviewer tests that import the v1 names compiling.
+- *Compatibility wrappers* (`CountBadge`, `TierBadge` over `Chip`; `StateBadge` keeping its icon +
+  label contract; `PageTitle`, `PageLayout` over `PageHead`) exist only for un-migrated v1 consumers
+  and are deleted by WO-13-013.
+- *Vocabulary (IF-13-vocabulary)* is the single source of phase, work-order-state and return-type tone,
+  icon and label key (DR-115); surfaces never redefine them.
+
+**v1 compatibility layer.** From WO-13-010 to WO-13-013, one fenced block of `globals.css` keeps the v1
+token names and global classes that un-migrated v1 components read, re-pointed at the Órbita token the
+frozen `.manual-live` override maps them to where one exists (v1 per-agent colours keep their values).
+It never redefines an Órbita name. The Tabler CDN link lives for the same window.
+
+## Visual spec per UI work order
+
+| WO | Mocks and oracle states | Assets |
+|---|---|---|
+| WO-13-010 | `mocks/visual-system-accessibility.html` (`a11y-skip-link-focus`, `a11y-ring-tooltip-focus`: focus ring, tooltip, tabular figures, both themes); `docs/design/design-tokens.json`; `reference/css/00-fonts.css`, `01-tokens.css`, `02-base.css` | fonts and licences, brand PNG, agent sprites, courier, mascot, six Campaña zones, rank emblems, the SVG icon set |
+| WO-13-011 | `docs/design/prototype/components.html` leaf rows; `a11y-ring-tooltip-focus` for `Ring`; `computed-styles.json` | none beyond WO-13-010 |
+| WO-13-012 | `docs/design/prototype/components.html` composite rows; exercised by every surface's states; `computed-styles.json` | none |
+| WO-13-013 | N/A (removal) | deletes unused v1 art only |
+
+FRD-13's two oracle states render on Inicio inside the shell, so their full comparison needs WO-19-002
+and FRD-18's WO-18-002; the close-out Visual QA compares them with the app in oracle mode.
+
+## Test-side supersession (map §3.3, BL-0051)
+
+Each WO lists its derogated tests in its body. Summary for this FRD:
+
+- WO-13-010 rewrites the implementer tests that pin the v1 palette (`src/app/_tests/globals.css*.test.ts`).
+  The v1 compatibility block keeps `src/app/_tests/agentColorTokens.integration.reviewer.test.ts`
+  green until WO-13-013.
+- WO-13-011 / WO-13-012 update their primitives' implementer tests; the two v1 foundation reviewer
+  suites (`src/app/_design/tokens/_tests/frd13-wo06-09*`, `frd13-wo07-09*`) are derogated where they pin
+  v1 visuals; they also import the `party/*` set that FRD-04's WO-04-010 deletes (ledger).
+- WO-13-013 removes the reviewer suites whose subject it deletes and derogates the per-agent colour
+  sync suite; the FRD-13 gate reviewer, in the same final wave, re-authors any surviving case.
+- Visual baselines: never touched by implementers; re-blessed at the close-out Visual QA.
+
+## Dependencies & Risks
+
+- **Upstream:** none (FRD-13 is the root of the DAG). The frozen contract must not change during the
+  build (DR-080).
+- **Downstream:** every v2 work order depends, directly or transitively, on WO-13-012; FRD-19's
+  WO-19-002 / WO-19-003 consume IF-13-theme, IF-13-copy, CMP-13-icon and the primitives.
+- **Risk: v1 surfaces between W0 and their rebuild.** Mitigated by the v1 compatibility block, the kept
+  Tabler link and restyle-in-place with optional props; v1 screens look transitional (advisory visual
+  gate, DR-106) but render and test green.
+- **Risk: catalogue gaps.** A string a primitive needs that the catalogue lacks is reported, not typed
+  inline (callers pass resolved labels where the catalogue scopes the string to a surface, as `MoreBar`).
+- **Risk: Tailwind registry naming collisions** with raw token names (`--shadow-sm`, `--font-*`):
+  contract above (no self-referencing aliases), verified by the round-trip test.
+- Lessons applied: LESSON-0166 (boot script in the root layout), LESSON-0216 (assets checked by bytes),
+  LESSON-0310 (hover only on hover-capable pointers), LESSON-0484 (no edge stripes; status hues for
+  status), LESSON-0278 (consumer count before deleting a shared helper).
+
+## Build Plan
+
+| WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
 |---|---|---|---|---|
-| IF-13-tokens | contract | `design-tokens.json` schema | OKLCH base/accent/contrast, themes (light/dark/high-contrast), agent palette, elevation/spacing/radius, motion. Frozen by the design phase; this WO validates its shape. | REQ-13-001, REQ-13-004, REQ-13-005 |
-| IF-13-theme-vars | contract | `@theme` CSS variables in `globals.css` | The CSS surface every component styles against. | REQ-13-001..005 |
-| IF-13-agent-colors | interface | `AGENT_COLOR: Record<Role, tokenVar>` | Canonical role→color-token-key map (the single source for sprite, feed, cards, DAG). Consumed by FRD-06 `IF-06-agent-color` + FRD-12 DAG. | REQ-13-002 (agent colors) |
-| IF-13-state-vocab | interface | `STATE_BADGE: Record<State, {icon, label}>` | The icon+label pairing for each state (working/idle/failed/completed/blocked/reviewing) so no state is color-only. | REQ-13-007 |
-| CMP-13-globals | CSS | `app/globals.css` | Wires tokens → theme vars; `color-scheme`, `tabular-nums`, 3 elevations, focus ring, motion + reduced-motion. | REQ-13-001..006, REQ-13-008 |
-| CMP-13-theme-toggle | client | `ThemeToggle` | Light/dark/high-contrast toggle; respects `prefers-color-scheme`; persists in `localStorage` (architecture §4.8). | REQ-13-001 |
-| CMP-13-state-badge | shared | `StateBadge` | Renders a state as icon+shape+label (never color-only); Spanish `aria-label`. Reused by Party/feed/DAG. | REQ-13-007, REQ-13-008 |
-| CMP-13-a11y-primitives | shared | focus ring + `aria-live` region + numeric utility | The visible focus ring (respects radius), the polite live region wrapper, the `tabular-nums` utility class. | REQ-13-003, REQ-13-008 |
+| WO-13-010 | — | `src/app/globals.css`, `src/app/layout.tsx`, `src/app/_design/**`, `src/app/_tests/layout.theme*.test.tsx`, `src/app/_tests/globals.css*.test.ts`, `src/lib/{theme,copy}/**`, `src/components/core/Icon/**`, `public/fonts/**`, `public/brand/**`, `public/prototype/assets/**`, `public/ranks/**`, `e2e/visual-system.spec.ts` | true | W0 · WO-22-001, WO-25-001, WO-02-019 (+ legacy W0 readers) |
+| WO-13-011 | WO-13-010 | `src/components/core/{Button,Chip,CountBadge,TierBadge,CmdRow,CopyButton,CopyText,Field,MoreBar,StateBadge,StateDot,Avatar,Ring,ProgressBar,PhaseStepper,KeyValue,Toast,Segmented,BadgeIcon}/**` | true | W1 · legacy W1 readers only |
+| WO-13-012 | WO-13-011 | `src/components/core/{Card,PageHead,PageTitle,PageLayout,Crumbs,SectionHead,Tabs,EmptyState,Notice,Banner,Modal,Table,ListRow,Markdown}/**` | true | W2 · WO-01-010, WO-11-003 (+ legacy W2) |
+| WO-13-013 | WO-01-011, WO-02-015, WO-02-016, WO-02-018, WO-02-020, WO-03-007, WO-04-011, WO-04-012, WO-05-008, WO-05-009, WO-07-006, WO-08-003, WO-08-004, WO-10-017, WO-11-004, WO-17-008, WO-18-002, WO-19-003, WO-22-002 | `src/components/core/{Panel,ItemSlot,Shield,XpBar,DocHeading,KanbanColumn,TierBadge,CountBadge,StateBadge,PageTitle,PageLayout,CelebrationSurface}/**`, `src/components/modules/ProposalsBadge/**`, `src/components/modules/Nav/navTab.ts`, `src/components/modules/GuildBar/GuildBar.tsx`, `src/components/modules/GuildBar/_tests/{GuildBar,GuildBar.embedded,wo-09-003-guildbar}.test.tsx`, `src/app/_observability/**`, `src/app/_design/**`, `src/lib/gamification/{gamification.ts,agents.ts}`, `src/lib/gamification/_tests/**`, `src/lib/pendingMerge/**`, `src/components/modules/manual-diagrams/FlowGraph.tsx`, `src/components/modules/manual-diagrams/_tests/FlowGraph.test.tsx`, `src/lib/manual/skill-flows.ts`, `src/app/globals.css`, `src/app/layout.tsx`, `public/prototype/assets/**`, `package.json`, `pnpm-lock.yaml`, `README.md`, `.pandacorp/status.yaml` | false | W7 · none (alone) |
 
-### New `lib/` modules
-None. The agent-color key map and the state-vocab are feature-level constants
-(`app/_design/tokens.ts` or `lib/constants.ts` per AGENTS.md "no magic strings"), not a data-layer
-reader. (`lib/theme` is intentionally NOT introduced.)
+- **Order.** W0 tokens → W1 leaf primitives → W2 composite primitives (the split follows the real
+  import direction: `CardHeader` uses the count chip, `Dialog` uses `Button`, `AlertBanner` hosts the
+  command box) → FRD-19's W3 shell → surfaces W3..W6 → W7 retirement.
+- **Disjointness.** WO-13-010's files are touched by no other W0 work order (no v2 W0 WO writes
+  `package.json`, `layout.tsx` or `public/`). WO-13-011 is the only v2 WO in W1. WO-13-012's component
+  folders are disjoint from WO-01-010 (`src/lib/{clock,git,config}`, env, README, `package.json`) and
+  WO-11-003 (`BuildModePicker`). WO-13-013 is alone in W7.
+- **Shared files (map §0.1).** `globals.css`: WO-13-010 then WO-13-013. `layout.tsx`: WO-13-010 (W0),
+  WO-19-002 (W3), WO-19-003 (W6), WO-13-013 (W7). `public/**`: WO-13-010, WO-13-013.
+- **Cross-FRD.** Downstream of everything: FRD-19 (WO-19-002 depends on WO-13-012), every surface FRD.
+  WO-13-013 waits for the last surface WO of every FRD.
 
-## 3. Contracts
-- **No hardcoded colors anywhere** (AGENTS.md, project rule 4): every styled value reads a token
-  var. This blueprint's `globals.css` is the only place that touches raw token values.
-- **Token JSON shape** (validated in WO-13-001) — minimal required keys: `oklch.base/accent/contrast`,
-  `themes.{light,dark,highContrast}`, `agents.<role>`, `elevation[0..2]`, `radius/spacing/hairline`,
-  `motion.duration.*` (<300ms), `motion.easing.*` (2–3).
-- **Reduced-motion contract:** `@media (prefers-reduced-motion: reduce)` zeroes motion durations and
-  the Party engine reads it to skip the RAF loop (FRD-06 WO-06-011). FRD-13 owns the CSS side.
-- **State-by-icon contract:** consumers render `StateBadge` (or `STATE_BADGE`) — they MUST NOT
-  signal state by color alone (review-enforced).
+## Work Orders
 
-## 4. App surface (§11)
-`app/globals.css` (the token wiring) + `docs/design/` (the frozen tokens). `ThemeToggle` in the
-global header. `StateBadge` + a11y primitives in `components/` (shared, reused across features).
+Build order: WO-13-010 (W0) → WO-13-011 (W1) → WO-13-012 (W2) → … → WO-13-013 (W7). Index:
+[`work-orders/README.md`](work-orders/README.md).
 
-## 5. Cross-feature dependencies
-- **Design phase (`docs/design/design-tokens.json` + `DESIGN.md`)** — must be **frozen first**;
-  these are *above* this blueprint in the hierarchy. WO-13-001 validates/consumes them. **Blocking
-  precondition for the value-bearing WOs.**
-- **Consumed by FRD-02..06, FRD-10, FRD-12** — the agent colors, tabular-nums, motion, reduced-motion,
-  state badges and focus ring are dependencies of every UI WO in those features. FRD-13's wiring WOs
-  (13-001/002/003) should land early so the other features' UI WOs can build against real tokens.
+## Superseded (v1 history)
 
-## 6. Traceability (REQ → CMP/IF)
-Every REQ-13-MMM maps to a CMP-13-* / IF-13-* in §2. The requirements are largely declarative
-(tokens + CSS + conventions); the few interactive pieces (`ThemeToggle`, `StateBadge`) are testable.
-No requirement is unbuildable.
+The v1 work orders stay on disk as history (`status: SUPERSEDED`, `implementation_status` unchanged):
 
-## 7. Open dependency note (flag)
-`design-tokens.json` and `DESIGN.md` **do not yet exist** in the repo (only `docs/design/brief.md`
-+ `references`/`codex` scaffolding). The design phase must freeze them before the value-bearing
-WOs (13-001 validation gains teeth, 13-002 wiring) can complete. The logic-only pieces (the
-`STATE_BADGE` vocabulary, the `AGENT_COLOR` *key* map, the schema validator) can be built against
-the agreed *shape* now; the *values* land when the tokens are frozen. This is sequencing, not an
-unbuildable requirement.
+- WO-13-001 token schema and key maps → WO-13-010
+- WO-13-002 globals.css wiring → WO-13-010
+- WO-13-003 tabular-nums and a11y primitives → WO-13-010 (`LiveRegion` and `useKeyboardNav` carried over unchanged)
+- WO-13-004 ThemeToggle with high-contrast → WO-13-010, WO-19-003
+- WO-13-005 StateBadge → WO-13-011
+- WO-13-006 PageTitle, SectionHead, Tabs → WO-13-012
+- WO-13-007 Banner and base primitives → WO-13-011, WO-13-012
+- WO-13-008 RPG primitives → WO-13-011, WO-13-013
+- WO-13-009 Party canvas primitives → WO-06-013 (La Fragua v2; the `party/*` set is deleted by WO-04-010)
 
-## 8. Build Plan (Phase 2 re-anchor — DR-050/057/062)
+## Readiness check (DR-100)
 
-FRD-13 is **the foundation FRD**: it ships the shared visual vocabulary every surface assembles from,
-so it builds **FIRST** and every UI FRD (02–12, 14–18) declares `frd-13` in its cross-FRD deps.
-
-- **Already VERIFIED (do NOT rebuild):** WO-13-001..005 — the frozen token runtime, `globals.css`
-  wiring, `tabular-nums`/a11y primitives, `ThemeToggle`, `StateBadge`.
-- **Foundation wave (`foundation: true`, build before any surface fans out):**
-  - **WO-13-006 (FND-1)** — `PageTitle` · `SectionHead` · `Tabs`/`SubTabs` (cohesion, DR-062).
-  - **WO-13-007 (FND-2)** — the ONE `Banner` (dup-fix) + `Chip`/`CountBadge`/`Panel`/`CmdRow`/`Button`/
-    `Toast`/`ProgressBar`/`DocHeading`.
-  - **WO-13-008 (FND-3)** — `Shield`/`TierBadge`/`ItemSlot`/`KanbanColumn`.
-  - **WO-13-009 (FND-4)** — the **shared pixel-RPG Party canvas** (`Room`/`StoneBridge`/`FlowStrip`/
-    `AgentSprite`/`JudgeSprite`/`SpeechBubble`/`Tooltip`/`Parchment`/`MissionBar`/`DemoControls`/
-    `PowerOffOverlay`) in `src/components/modules/party/`. **Relocated here from FRD-06** because BOTH
-    **La Campaña** (FRD-02) and **La Fragua** (FRD-06) reuse them; scoping them inside FRD-06's
-    route-local `_party/` was the root cause of La Campaña rendering a flat list (the fidelity failure).
-- **Parallelism:** 006/007/008 write disjoint `src/components/core/*` folders, 009 writes
-  `src/components/modules/party/*` → all four parallelize in one foundation wave; the engine keeps the
-  wave foundation-only until **all four** are done (DR-057).
-- **Strict foundation-first across the whole run:** every surface FRD declares `frd-13` in its deps, and
-  the **foundation (this FRD) is built and VERIFIED before any surface fans out** — run FRD-13 alone
-  first (`/pandacorp:implement` scoped to `frd-13`) so no surface starts before its primitive exists.
-- **Cross-FRD deps:** none upstream (tokens frozen). Downstream: **every UI FRD depends on this.**
-- **Gate:** the FRD-13 review/visual gate — primitives render in light+dark, AA contrast, tokens only,
-  keyboard/focus, `prefers-reduced-motion`; `docs/design/components.md` flips these rows to *real*.
-
-
-## Shared modal focus — 2026-10-16
-
-`src/components/core/Modal/Modal.tsx` captures the active opener at the open transition, focuses its panel and restores the connected opener in effect cleanup on close/unmount. It does not restore detached controls after a project switch. Existing keydown trapping and dismissal stay in the shared primitive; callers do not duplicate focus management.
-
-## Persistent navigation integration — FRD-25 (2026-10-17)
-
-The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+Every REQ-13-001..010 maps to a component above; AC-13-010.1 is owned by WO-13-011 and
+AC-13-010.2..4 by WO-13-010 (no gap, no duplicate); `dependsOn` is acyclic and names only live work
+orders; same-wave artifacts are disjoint by design; the foundation (WO-13-010..012) covers every
+primitive of `docs/design/components.md` § Primitives and § Framing patterns; no open clarification
+marker remains.

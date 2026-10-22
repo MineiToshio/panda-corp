@@ -10,10 +10,10 @@ foundation: true
 artifacts:
   - 'src/app/api/live/**'
   - 'src/hooks/useLiveSnapshot.ts'
-  - 'src/hooks/_tests/**'
-source_requirements: [IF-01-events]
+  - 'src/hooks/_tests/useLiveSnapshot*.test.ts'
+source_requirements: [REQ-01-008, REQ-01-012, REQ-01-013]
 dependsOn: [WO-01-005, WO-01-007, WO-05-001]
-last_updated: '2026-06-20'
+last_updated: '2026-10-22'
 ---
 # WO-01-009 — Foundation (FND-5): the shared real-time wire (SSE, not polling)
 
@@ -40,7 +40,14 @@ any interval polling on the live surfaces with push.
   on unmount. Returns `{ snapshot, connected, lastEventAt }`. Events without a `project` field are
   treated as legacy/global (CLAUDE.md). Respects the read-only contract.
 
-## Acceptance criteria
+## v1 delivery record
+
+FRD-01 is REQ-only (no `AC-01-*` bullets), so the plain criteria below are history and own nothing. v2 note:
+the frame and hook contracts of the Status Note are unchanged; `lastEventAt` still drives the live and
+no-signal indicators, while the `byProject` age-in-stage use it mentions is OUT of v2. WO-01-011 (W5) later
+routes this route's clock through `now()`; the route is otherwise left as built.
+
+## Acceptance criteria (v1, history)
 - AC: a change appended to the events NDJSON reaches a subscribed client via SSE (no polling interval).
 - AC: `?project=` filters the stream to that project's slice; a global/legacy event still arrives.
 - AC: the route never throws on a missing/locked file (defensive, mirrors the readers); closing the tab

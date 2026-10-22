@@ -75,26 +75,29 @@ limit):
   `docs/achievements.md` §8 pending-emitter).
 - Mutating any file (read-only invariant, architecture §1/§7).
 
-## Acceptance criteria (EARS)
-- **AC-10-014.1** — `weeklyFlow()` SHALL return WO-verified-per-week from the git crossing-to-`VERIFIED`
+## v1 delivery record
+
+Delivered in v1; this work order owns no live acceptance criterion in v2: the live Informe criteria (AC-10-020.1 to AC-10-027.1, restated in v2 as "equal to the fixture-factory oracle values") are owned by WO-10-017, which consumes these readers. The dated real-data values quoted below (78, 2/131, 823 and so on) are v1 history, not v2 expectations.
+
+- v1 AC-10-014.1: `weeklyFlow()` SHALL return WO-verified-per-week from the git crossing-to-`VERIFIED`
   commit of each `wo-*.md`, bucketed by ISO week, matching **W25=78 / W26=8 / W27=5 / 91 total** on the
   real-shape fixture; AND ideas-per-week from `created` frontmatter matching **W24=3 / W26=15**; AND
   expose `peakWeek=78` and the count of `created`-less ideas excluded. (REQ-10-021, REQ-10-027)
-- **AC-10-014.2** — `phaseTransitions()` SHALL return per-project `{project,date,from,to,isReopen}` from
+- v1 AC-10-014.2: `phaseTransitions()` SHALL return per-project `{project,date,from,to,isReopen}` from
   the git history of each `status.yaml`, with `isReopen=true` on a backward transition, matching the
   mission-control real shape (4 transitions incl. the 06-19 reopen). (REQ-10-023)
-- **AC-10-014.3** — `reportScalars()` SHALL return the wired counts (FRDs 21, Commits 823, DR 99,
+- v1 AC-10-014.3: `reportScalars()` SHALL return the wired counts (FRDs 21, Commits 823, DR 99,
   Projects 2) from their real sources; Tests-passing SHALL be a real count OR an **explicit absent**
   state — never a fabricated number. (REQ-10-026)
-- **AC-10-014.4** — `usageMix()` SHALL return the top workflows + effort mix from `eventsSnapshot`
+- v1 AC-10-014.4: `usageMix()` SHALL return the top workflows + effort mix from `eventsSnapshot`
   matching the real shape; `funnelAndFlow()` SHALL return the funnel/WIP/conversion + discards-without-
   reason matching the real shape; both pure (no new I/O). (REQ-10-022, REQ-10-023, REQ-10-024)
-- **AC-10-014.5** — `lessonCounts()` SHALL return distilled/captured (**2/131**) or an explicit absent
+- v1 AC-10-014.5: `lessonCounts()` SHALL return distilled/captured (**2/131**) or an explicit absent
   state when a source is missing. (REQ-10-024, REQ-10-027)
-- **AC-10-014.6** — `factoryVerdict()` and `nextActions()` SHALL be **pure** functions of the wired
+- v1 AC-10-014.6: `factoryVerdict()` and `nextActions()` SHALL be **pure** functions of the wired
   aggregates (same inputs → same output); `nextActions` items SHALL each carry their command. No
   fabricated sentence/suggestion. (REQ-10-020, REQ-10-025)
-- **AC-10-014.7** (honesty / fail-loud) — Each git-backed reader SHALL distinguish **"source empty"**
+- v1 AC-10-014.7 (honesty / fail-loud): Each git-backed reader SHALL distinguish **"source empty"**
   from **"unparseable / git unavailable"**: on git-unavailable or an unrecognised shape it SHALL return
   an **explicit error/absent** result (so the UI renders an error / "no cableado" band), **never a silent
   `[]` masquerading as zero activity** (DR-078). Each reader SHALL be unit-tested against a **real-shape

@@ -6,9 +6,12 @@ title: WO-15-002 — `getPluginSyncState` semver verdict (drift / reason / detai
 status: DRAFT
 parent: FRD-15
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - "src/lib/plugin-sync/plugin-sync.ts"
+  - "src/lib/plugin-sync/_tests/plugin-sync.test.ts"
+source_requirements: [REQ-15-002, REQ-15-004, REQ-15-005]
 dependsOn: [WO-15-001]
-last_updated: '2026-06-22'
+last_updated: '2026-10-22'
 ---
 # WO-15-002 — `getPluginSyncState` semver verdict (drift / reason / detail)
 
@@ -20,6 +23,11 @@ last_updated: '2026-06-22'
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`IF-15-sync`) · [architecture §4.7, §7](../../../product/architecture.md).
 
+> **v2 «Órbita» disposition (2026-10-22): KEPT LIVE, already built.** `getPluginSyncState()` is unchanged
+> in v2 and is the single drift verdict the Inicio banner (WO-18-002) and the sidebar pill (WO-19-003)
+> read. The FRD's live criteria AC-15-002.1 to AC-15-002.3 are owned by WO-18-002 (the surface that shows
+> or hides the banner, map §7); the criteria below are this WO's v1 delivery history.
+
 ## Goal
 Compose the two readers into the `PluginSyncState` verdict, with correct semver drift logic and the
 Spanish `detail` one-liner.
@@ -29,19 +37,16 @@ Spanish `detail` one-liner.
 Parses each as semver (`MAJOR.MINOR.PATCH`, stripping a leading `v` and any pre-release/build suffix)
 and computes `drift`, `reason` (`behind | in-sync | unknown`), and the Spanish `detail`.
 
-## Acceptance criteria
-- **AC-15-002.1** (REQ-15-002) WHEN the installed `version` is strictly behind the source `version`
-  (semver) → `drift === true`, `reason === "behind"`.
-- **AC-15-002.2** (REQ-15-002, REQ-15-004) WHEN the installed `version` equals OR is newer than the
-  source `version` → `drift === false`, `reason === "in-sync"` (the up-to-date state, no banner).
-- **AC-15-002.3** WHEN `installedVersion` or `sourceVersion` is `null` OR either is an unparseable
-  semver → `reason === "unknown"`, `drift === false` (no false alarm — read-only/honest, REQ-15-005).
-  A `null`/unparseable version NEVER produces `behind`.
-- **AC-15-002.4** Semver comparison is **numeric per component** (`1.10.0` is newer than `1.9.0`); a
-  leading `v` and any `-pre`/`+build` suffix are stripped before comparison.
-- **AC-15-002.5** `detail` is a non-empty Spanish string echoing the installed/source versions and the
-  state (e.g. `"instalado v9.0.0 · hay una versión más nueva del plugin (v9.26.0)"`); covered by a
-  snapshot/assert.
+## v1 delivery record
+
+Non-owning history (the reader-level criteria this WO was verified against; the FRD's AC-15-002.1..3
+are owned by WO-18-002):
+
+- v1 AC-15-002.1: (REQ-15-002) WHEN the installed `version` is strictly behind the source `version` (semver) → `drift === true`, `reason === "behind"`.
+- v1 AC-15-002.2: (REQ-15-002, REQ-15-004) WHEN the installed `version` equals OR is newer than the source `version` → `drift === false`, `reason === "in-sync"` (the up-to-date state, no banner).
+- v1 AC-15-002.3: WHEN `installedVersion` or `sourceVersion` is `null` OR either is an unparseable semver → `reason === "unknown"`, `drift === false` (no false alarm, read-only/honest, REQ-15-005). A `null`/unparseable version NEVER produces `behind`.
+- v1 AC-15-002.4: Semver comparison is numeric per component (`1.10.0` is newer than `1.9.0`); a leading `v` and any `-pre`/`+build` suffix are stripped before comparison.
+- v1 AC-15-002.5: `detail` is a non-empty Spanish string echoing the installed/source versions and the state; covered by a snapshot/assert.
 
 ## TDD
 Extend `lib/plugin-sync/plugin-sync.test.ts`. Drive the two readers with mocks/fixtures to exercise

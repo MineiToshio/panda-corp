@@ -5,7 +5,8 @@ slug: memory-views
 title: >-
   WO-17-002 — `lib/memory` views: candidates / promotionQueue / prunable /
   memoryHealth
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-17-008]
 parent: FRD-17
 implementation_status: VERIFIED
 source_requirements: []

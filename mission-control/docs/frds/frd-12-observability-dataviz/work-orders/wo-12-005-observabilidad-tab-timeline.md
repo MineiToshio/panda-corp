@@ -3,7 +3,8 @@ id: WO-12-005
 type: work-order
 slug: observabilidad-tab-timeline
 title: 'WO-12-005 — Observabilidad tab + Timeline view (live, re-paint to mock)'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-05-008]
 parent: FRD-12
 implementation_status: VERIFIED
 reopen_count: 0

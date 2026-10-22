@@ -1,46 +1,41 @@
-# FRD-09 — Gamification (RPG theme) · work orders
+# Work orders — FRD-09 Gamification
 
-Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
-See the [feature blueprint](../blueprint.md) and the [platform architecture](../../../product/architecture.md).
-
-TDD: RED → GREEN → refactor. The XP engine (pure derivation) comes first; the cross-cutting UI
-(top bar, celebration) consumes it. **Honesty is encoded as negative acceptance criteria** — tests
-that forbidden patterns are absent.
-
-## Cross-feature dependencies
-- **FRD-01** — `lib/status.ts` (`work_orders_done`, `phase`, …) + `lib/config.ts` foundation.
-- **FRD-06/12** — `lib/events.ts` (event stream: `test_ok`, `achievement`, `work_order`, `agent`).
-- **FRD-13** — design tokens, `tabular-nums`, motion rules, `prefers-reduced-motion`.
-
-## Consumers (downstream)
-- **FRD-07** consumes `IF-09-agent-xp` + `CMP-09-avatar` (agents section). FRD-07 WO-07-007 depends
-  on WO-09-002 + WO-09-003 here.
-- **FRD-10** consumes `IF-09-guild-xp` + `CMP-09-xp-bar` (the Hall hero). FRD-10 depends on
-  WO-09-001 + WO-09-004.
-
-## Order & parallelization
-
-The pure XP/celebration engine (001/002/005) is **VERIFIED**. Phase 2 collapsed the three UI WOs
-(avatar + xp-bar/guild-bar + celebration-surface) into **one coarse UI work order** (WO-09-003) that
-re-anchors all the Guild presentational surfaces to the prototype — see the [blueprint Build Plan
-(Phase 2)](../blueprint.md#build-plan-phase-2).
-
-```
-WO-09-001 (lib/gamification: guild XP engine)   ─┐  VERIFIED
-WO-09-002 (lib/gamification: agent XP engine)   ─┤  pure functions
-WO-09-005 (lib/gamification: celebration tiers) ─┘
-        │
-        └─ WO-09-003 (Guild surfaces: GuildBar + GuildHero + StatRadar + CelebrationSurface)
-                       ← WO-09-001 + WO-09-005 (engine) + FRD-13 foundation
-```
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> The authoritative order is the **Build Plan** in [`../blueprint.md`](../blueprint.md). FRD-09 has no
+> new v2 work order: its engine and ledger work orders stay live as built, and its two drawn surfaces
+> (sidebar guild card, achievement notice) are built by FRD-19's WO-19-003.
 
 ## Work orders
-| ID | Title | Deploy unit | Status | Depends on |
+
+| WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
-| WO-09-001 | `lib/gamification.ts` — guild XP/level engine (honest) | `lib/gamification.ts` | VERIFIED | WO-01-005, WO-06-012 |
-| WO-09-002 | `lib/gamification.ts` — agent XP/level engine | `lib/gamification.ts` | VERIFIED | WO-06-012 |
-| WO-09-003 | Guild surfaces: GuildBar + GuildHero + StatRadar + CelebrationSurface | `app/achievements/page.tsx`, `components/modules/GuildBar/**`, `app/achievements/StatsPanel.tsx`, core RPG primitives | VERIFIED | WO-09-001, WO-09-005, WO-09-002, WO-01-007, WO-01-005, WO-03-001, WO-01-009, WO-13-006, WO-13-007, WO-13-008 |
-| WO-09-005 | `lib/gamification.ts` — celebration tier classifier | `lib/gamification.ts` | VERIFIED | WO-06-012 |
-| WO-09-006 | Gamification ledger: persistent XP accumulator | `lib/gamification/ledger.ts`, `app/_actions/snapshotLedger.ts`, `components/dashboard/GamificationLedgerSync/` | PLANNED | WO-09-001 |
-| WO-09-007 | Rank ladder: 40 ranks, granular level + band model, custom emblems (reconciled-from-code) | `lib/gamification/gamification.ts`, `components/core/RankEmblem/**`, `components/modules/{GuildBar,GuildHero}/**`, `public/ranks/*.png` | VERIFIED | WO-09-001, WO-09-003 |
-</content>
+| WO-09-001 | guild-xp-engine | VERIFIED | WO-01-005, WO-06-012 | Pure guild XP / level engine and the 40-rung rank ladder (kept live, built) |
+| WO-09-006 | gamification-ledger | VERIFIED | WO-09-001 | Guild ledger `MAX(live, ledger)`, snapshot-on-exceed Server Action and the single guild-state resolver (kept live, built) |
+
+> **Depends on** mirrors each WO's `dependsOn` frontmatter (DR-087).
+
+## Build order
+
+- WO-09-001 sits in W3 and WO-09-006 in W4 by their own dependencies; both are VERIFIED and are not
+  rebuilt.
+- Cross-FRD: WO-19-003 (FRD-19, W6) builds the guild card and the notice and owns AC-09-008.1 and
+  AC-09-008.2; WO-10-016 (FRD-10, W4) builds the Logros hero and the Rangos ladder; WO-13-013 (FRD-13, W7)
+  deletes the v1 guild leftovers (top-bar `GuildBar`, `XpBar`, `CelebrationSurface`, `agents.ts`,
+  `classifyCelebration`).
+
+## AC coverage
+
+| AC | Work order |
+|---|---|
+| AC-09-006.1 | WO-09-006 |
+| AC-09-006.2 | WO-09-006 |
+| AC-09-006.3 | WO-09-006 |
+| AC-09-008.1 | WO-19-003 |
+| AC-09-008.2 | WO-19-003 |
+
+## Superseded (v1 history)
+
+- WO-09-002 (agent XP / level engine) → WO-07-006, WO-13-013
+- WO-09-003 (guild surfaces: GuildBar, GuildHero, StatRadar, CelebrationSurface) → WO-19-003, WO-10-016
+- WO-09-005 (celebration tier classifier) → WO-19-002, WO-13-013
+- WO-09-007 (rank ladder surfaces) → WO-10-016

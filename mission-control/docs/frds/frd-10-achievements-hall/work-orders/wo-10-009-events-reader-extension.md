@@ -42,11 +42,14 @@ FRD-09 guild).
 - The signals derivation (WO-10-010) and the catalogue (WO-10-011).
 - Any change to FRD-06 Party rendering or FRD-09 guild XP behaviour.
 
-## Acceptance criteria (EARS)
-- **AC-10-009.1** — Given a real `AgentDone`/`ReviewVerdict`/`GateResult`/`GateVerdict`/`BuildLaunch`/`BuildComplete`/`BuildRelaunch`/`AgentFinding`/`SubagentStop` line, the parsed `Event` SHALL expose the corresponding enriched fields above (typed), read from `data.*`.
-- **AC-10-009.2** — Wrong-typed enriched fields SHALL be dropped individually (the event is still parsed); malformed JSON lines SHALL still be skipped — never throw on a single bad line.
-- **AC-10-009.3** — Existing consumers SHALL be unaffected (FRD-06/09 tests stay green); new fields are additive and optional.
-- **AC-10-009.4** — The reader SHALL be unit-tested against **real-shape fixtures** (the exact live shapes in `docs/achievements.md` §1) AND a malformed fixture.
+## v1 delivery record
+
+Delivered in v1; this work order owns no live acceptance criterion in v2. (Note for v2: the reader still skips a malformed line; the unreadable-stream error state of the Estadísticas usage band is detected by a separate source probe added by WO-10-017, not by changing this reader.)
+
+- v1 AC-10-009.1: Given a real `AgentDone`/`ReviewVerdict`/`GateResult`/`GateVerdict`/`BuildLaunch`/`BuildComplete`/`BuildRelaunch`/`AgentFinding`/`SubagentStop` line, the parsed `Event` SHALL expose the corresponding enriched fields above (typed), read from `data.*`.
+- v1 AC-10-009.2: Wrong-typed enriched fields SHALL be dropped individually (the event is still parsed); malformed JSON lines SHALL still be skipped — never throw on a single bad line.
+- v1 AC-10-009.3: Existing consumers SHALL be unaffected (FRD-06/09 tests stay green); new fields are additive and optional.
+- v1 AC-10-009.4: The reader SHALL be unit-tested against **real-shape fixtures** (the exact live shapes in `docs/achievements.md` §1) AND a malformed fixture.
 
 ## TDD plan
 1. RED: fixtures of each real event shape; assert each enriched field surfaces; malformed-line skip.

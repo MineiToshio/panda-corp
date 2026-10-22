@@ -3,7 +3,8 @@ id: WO-06-001
 type: work-order
 slug: event-vocabulary-vm
 title: WO-06-001 — Iconic event vocabulary + event view-model mapper (enriched + hand-off/contract/gate)
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-06-013]
 parent: FRD-06
 implementation_status: VERIFIED
 source_requirements: []

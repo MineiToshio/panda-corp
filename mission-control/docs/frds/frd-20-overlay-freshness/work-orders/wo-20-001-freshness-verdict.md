@@ -6,8 +6,12 @@ title: 'WO-20-001 — `lib/overlay-freshness` reader + verdict (semver, defensiv
 status: DRAFT
 parent: FRD-20
 implementation_status: VERIFIED
+artifacts:
+  - 'src/lib/overlay-freshness/overlay-freshness.ts'
+  - 'src/lib/overlay-freshness/_tests/overlay-freshness.test.ts'
 source_requirements: [REQ-20-001, REQ-20-003]
-last_updated: '2026-06-26'
+dependsOn: []
+last_updated: '2026-10-22'
 ---
 # WO-20-001 — `lib/overlay-freshness` reader + verdict (semver, defensive)
 
@@ -26,12 +30,18 @@ yields `reason: "unknown"`, never throws. No UI here (that is WO-20-002).
   and the `UPGRADE_COMMAND` constant (`/pandacorp:upgrade`).
 - Self-contained semver compare (mirrors `lib/plugin-sync`; second occurrence tolerated, rule of three).
 
-## Acceptance criteria (REQ-20-001, REQ-20-003)
-- **AC-20-001.1** GIVEN project `overlay_version` strictly older than factory `OVERLAY_VERSION` →
+## v1 delivery record
+
+Kept live in v2 as history (map §0.5): the verdict reader is still the source of the Resumen upgrade notice
+and owns no live acceptance criterion; FRD-20's criteria are owned by FRD-04's WO-04-011, which renders the
+notice (DR-100 fold). The v2 notice renders only the `behind` verdict; `up-to-date` and `unknown` show
+nothing. The lines below are the v1 phrasing, history only.
+
+- v1 AC-20-001.1: GIVEN project `overlay_version` strictly older than factory `OVERLAY_VERSION` →
   `reason: "behind"`, detail names both versions.
-- **AC-20-001.2** GIVEN project version equal to OR newer than factory → `reason: "up-to-date"`.
-- **AC-20-001.3** GIVEN either version missing/unparseable → `reason: "unknown"`.
-- **AC-20-003.x** Defensive: missing file, empty/whitespace file, unparseable on either side,
+- v1 AC-20-001.2: GIVEN project version equal to OR newer than factory → `reason: "up-to-date"`.
+- v1 AC-20-001.3: GIVEN either version missing/unparseable → `reason: "unknown"`.
+- v1 AC-20-003.x: Defensive: missing file, empty/whitespace file, unparseable on either side,
   unreadable root → `unknown`, never throws. Tolerates a leading `v`.
 
 ## Tests

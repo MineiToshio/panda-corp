@@ -5,20 +5,35 @@ slug: next-step
 title: WO-02-003 — `nextStep` command map
 status: DRAFT
 parent: FRD-02
+foundation: false
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - 'src/lib/next-step/next-step.ts'
+  - 'src/lib/next-step/_tests/next-step.test.ts'
+  - 'src/lib/next-step/_tests/next-step.adversarial.test.ts'
+source_requirements: [REQ-02-004]
 dependsOn: [WO-01-005]
-last_updated: '2026-06-17'
+last_updated: '2026-10-22'
 ---
 # WO-02-003 — `nextStep` command map
+
+> **Kept live in v2 «Órbita» (wo-map §0.5, 2026-10-22).** VERIFIED library, unchanged in v2 and consumed by the idea
+> page (WO-02-016) and FRD-03/04. It owns no live acceptance criterion; it traces REQ-02-004 (FRD-02#U2). Its v1
+> criterion is kept below as non-owning history. The `workspaceCommands` extension and its tests in the same file
+> belong to WO-04-003.
+
+## Summary
+
+The pure lifecycle → next-command map (`nextStep`): card status, project phase and the advance flag give the
+`/pandacorp:*` command to copy, the folder to open and a Spanish label.
 
 **Module:** `lib/next-step.ts`
 **IDs touched:** `CMP-02-next-step`, `IF-02-nextStep`; REQ-02-004 (also serves FRD-03/04)
 **Dependencies:** WO-01-003 / WO-01-005 (FRD-01 `IdeaStatus` / `Phase` types)
 
-## EARS criteria (from FRD-02)
+## v1 delivery record
 
-- AC-02-004.1 — WHEN the owner clicks a card, the detail SHALL show the **next-step command** (with
+- v1 AC-02-004.1: WHEN the owner clicks a card, the detail SHALL show the **next-step command** (with
   a copy button). This WO supplies the pure status/phase → command map.
 
 ## Contract

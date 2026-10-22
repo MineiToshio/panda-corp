@@ -3,7 +3,8 @@ id: WO-12-001
 type: work-order
 slug: topn-freshness
 title: WO-12-001 — Top-N cap helper + freshness selector
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-13-013]
 parent: FRD-12
 implementation_status: VERIFIED
 source_requirements: []

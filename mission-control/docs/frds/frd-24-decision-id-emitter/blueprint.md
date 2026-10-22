@@ -2,96 +2,97 @@
 id: FRD-24-blueprint
 type: blueprint
 parent: FRD-24
-status: ACTIVE
+status: DRAFT
 implementation_status: VERIFIED
-readiness_gate: passed 2026-09-03
-grounding_gate: passed 2026-09-03
-consistency_gate: passed 2026-09-03
-last_updated: '2026-09-03'
+readiness_gate:
+grounding_gate:
+consistency_gate:
+last_updated: 2026-10-22
 ---
-# Feature blueprint — FRD-24 Shared decision-id emitter
-
-> **Gate status (2026-09-03): ALL THREE PASSED — ACTIVE.** The DR-100 readiness gate (READY, all 8
-> checks pass), the DR-102 repo-grounding gate (READY, all 6 claims verified against the real
-> `activity.ts`/`ts-loader.mjs`/`_tests/` files), and the DR-116 contradiction gate (COHERENT, all 6
-> checks pass) each ran as an independent fresh JUDGE-tier (opus) reviewer once the earlier Anthropic
-> Opus incident (`461yvfrzpwtt`) cleared. `status: ACTIVE` + the three gate stamps above are set per
-> architecture step 9b2; both work orders are flipped `DRAFT -> ACTIVE` accordingly. Confirmed via
-> `preflight-implement.sh mission-control`: the project-wide "un-gated DRAFT work order" block is
-> gone.
+# Feature blueprint — FRD-24 Shared decision-id emitter (v2 revision)
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
 > This is the **feature blueprint** (DR-049): how FRD-24 is implemented on top of the platform
 > described in [`docs/product/architecture.md`](../../product/architecture.md). It references the
-> platform (read-only invariant, testing, tokens) rather than restating it.
+> platform (read-only invariant, testing) rather than restating it.
+>
+> **v2 revision (2026-10-22).** FRD-24 is fully built (both work orders VERIFIED) and has no v2 work order.
+> Both stay live as the owners of its four acceptance criteria. The only v2 interaction is FRD-04's
+> WO-04-013, which edits the same `src/lib/docs/activity.ts` in W3 (in-entry resolution, «· » title strip,
+> engine-log predicate) under the constraint that every id stays byte-identical and the golden vectors
+> stay green unmodified. The gate stamps are cleared for the v2 re-gate.
 
 ## 1. Summary
 
 Extract the existing `readDecisions()` id-derivation loop in `src/lib/docs/activity.ts` into a pure,
 content-in/objects-out function (`parseDecisionBlocks`), then expose a thin one-shot CLI over it so an
-external caller outside the Next.js runtime — the factory's `/pandacorp:decide` skill, run by an agent
-via Bash in a different repo — can invoke the exact same derivation instead of re-deriving it from
-prose. No new algorithm, no new UI, no route handler: a refactor plus a golden-vector test proving the
-two call paths (library function, CLI) never disagree.
+external caller outside the Next.js runtime (the factory's `/pandacorp:decide` skill, run by an agent via
+Bash in a different repo) can invoke the exact same derivation instead of re-deriving it from prose. No new
+algorithm, no UI, no route handler: a refactor plus a golden-vector test proving the two call paths
+(library function, CLI) never disagree.
 
 ## 2. Platform references
 
-- **Data source**: `.pandacorp/inbox/decisions.md` content, already read by `readDecisions`
-  (`lib/config.ts`'s project-path resolution, FRD-01). No new data source.
-- **Read-only invariant** (architecture §7): the CLI only reads a file path given on argv and prints
-  to stdout — no write, no Claude call, no network.
-- **No UI surface** — this FRD is `ui: false`; nothing renders differently. `readDecisions()`'s
-  existing consumers (`TabSummary`, `countPendingDecisions`) are unaffected — same inputs, same
-  outputs, only the internal call path changes.
+- **Data source**: `.pandacorp/inbox/decisions.md` content, already read by `readDecisions` (project-path
+  resolution of `src/lib/config`, FRD-01). No new data source.
+- **Read-only invariant** (architecture §7): the CLI only reads a file path given on argv and prints to
+  stdout; no write, no Claude call, no network.
+- **No UI surface** (`ui: false`). `readDecisions()`'s consumers (the workspace Resumen, `countPendingDecisions`
+  and its readers) are unaffected: same inputs, same ids.
 
-## 3. Modules
+## 3. Components and interfaces
 
-- **`src/lib/docs/activity.ts`** (edit) — new exported `parseDecisionBlocks(content: string):
-  DecisionPoint[]`: the loop `readDecisions()` already runs (`for (const line of content.split("\n"))
-  current = _consumeLine(...)`, then flush via `_pushDecision`), lifted verbatim out of the
-  file-reading wrapper so it takes a string instead of a project path. `readDecisions(projectPath)`
-  becomes: resolve the path, guard existence, `fs.readFileSync`, `return parseDecisionBlocks(content)`
-  — same guards (empty path, missing project, missing file, unreadable file → `[]`, never throws) stay
-  on the wrapper, none of them belong to the pure function. Zero behavior change for existing callers.
-- **`scripts/decisions/decision-id-cli.mjs`** (new) — a one-shot CLI mirroring the existing
-  `scripts/read-model/*.mjs` pattern: run via
-  `node --loader ./scripts/read-model/ts-loader.mjs scripts/decisions/decision-id-cli.mjs <path>`
-  (reuses the project's existing `@/*`-alias + extensionless-import resolve hook, no new loader).
-  Reads `<path>` (a `decisions.md` file), imports `parseDecisionBlocks` from `../../src/lib/docs/activity.ts`,
-  prints one id per line to stdout in file order. Missing/unreadable path → a one-line error to stderr
-  and a non-zero exit (a CLI is a boundary; unlike the library's fail-soft reader, a caller invoking it
-  wrong should see a loud failure, not a silent empty list).
-- **`package.json`** (edit) — new script `"decisions:ids": "node --loader ./scripts/read-model/ts-loader.mjs scripts/decisions/decision-id-cli.mjs"` so the CLI has one documented, stable invocation
-  (`pnpm --silent decisions:ids <path>`) for `/pandacorp:decide` to reference instead of a raw `node` command.
-  The `--silent` is part of the published seam, not decoration: pnpm writes its own run banner
-  (`> mission-control@0.1.0 …`, `> node --loader …`) to **stdout** ahead of the script's output, so a
-  flagless `pnpm decisions:ids` run hands a caller two banner lines it would parse as decision ids.
-  Any documented invocation must carry `--silent` (or `-s` / `--reporter=silent`); the raw
-  `node --loader` form is already id-only on stdout and needs no flag.
+| ID | Kind | Responsibility | Path | REQ | WO |
+|---|---|---|---|---|---|
+| `IF-24-parse-decisions` | lib (pure) | `parseDecisionBlocks(content): DecisionPoint[]`, the loop `readDecisions()` runs, taking a string; `readDecisions(projectPath)` keeps the fail-soft guards and delegates to it. | `src/lib/docs/activity.ts` | REQ-24-001 | WO-24-001 |
+| `CMP-24-decision-id-cli` | CLI | `scripts/decisions/decision-id-cli.mjs` via the existing `scripts/read-model/ts-loader.mjs` resolve hook; prints one id per line; missing/unreadable path → stderr message + non-zero exit. Published invocation `pnpm --silent decisions:ids <path>` (the `--silent` keeps pnpm's banner off stdout). | `scripts/decisions/decision-id-cli.mjs`, `package.json` | REQ-24-001 | WO-24-001 |
+| `IF-24-golden-vectors` | test | Committed fixture + `EXPECTED_IDS`; library, CLI and their cross-check asserted independently on every gate run. | `src/lib/docs/_tests/fixtures/decisions-golden.md`, `src/lib/docs/_tests/decision-id-golden.test.ts` | REQ-24-002 | WO-24-002 |
 
-## 4. Golden-vector contract
+## 4. Contracts
 
-A committed fixture `src/lib/docs/_tests/fixtures/decisions-golden.md` covering: two `##` headings
-sharing the exact same date (proves the `<date>-<n>` counter), one legacy `OPEN:`/`CLOSED:`/`RESOLVED:`
-heading (proves the `legacy-<n>` counter is independent), and a mix of pending/resolved dated blocks
-(proves status never shifts an id). The test asserts:
-1. `parseDecisionBlocks(fixtureContent).map(d => d.id)` equals a committed `EXPECTED_IDS` array.
-2. Spawning `decision-id-cli.mjs` against the same fixture file (via `node:child_process`'s
-   `execFileSync`, matching the existing subprocess-spawning pattern in
-   `src/lib/achievements/read-model/_tests/gitFixture.ts`) and splitting stdout on newlines produces
-   the SAME `EXPECTED_IDS` array — the two-path agreement AC-24-002.1 requires.
-
-Both assertions read from the SAME fixture file so there is exactly one thing to keep in sync when the
-rule genuinely changes (update the fixture + `EXPECTED_IDS` together).
+- **`parseDecisionBlocks`**: input the raw text of a `decisions.md`; output a genuine array of `DecisionPoint`
+  in heading order with ids `<YYYY-MM-DD>-<n>` (n = 1-based count of blocks sharing that date, pending and
+  resolved alike) or `legacy-<n>` for `OPEN:`/`CLOSED:`/`RESOLVED:` headings; no filesystem access, no guards.
+  v2 (WO-04-013) adds `resolvedInFile` and the title strip; the id rule is frozen (FRD non-goal).
+- **CLI**: one positional argument (the `decisions.md` path); success = ids on stdout, exit 0; failure =
+  non-zero exit + stderr; a caller treats any non-zero exit as «could not derive ids».
 
 ## 5. Testing strategy
 
-- **`parseDecisionBlocks`**: extend the existing `src/lib/docs/_tests/docs.wo04002.test.ts` +
-  `docs.wo04002.reviewer.test.ts` suites (the actual home of `readDecisions`' coverage) so every case
-  currently exercised through `readDecisions` + a temp file also runs directly against the pure
-  function with an in-memory string — proves the extraction changed nothing (AC-24-001.1).
-- **Golden vectors**: new `src/lib/docs/_tests/decision-id-golden.test.ts` per §4 above (AC-24-002.1/.2).
-- **CLI boundary**: one test invoking the CLI with a missing path asserts non-zero exit + a stderr
-  message (the loud-failure boundary from §3).
-- Gate: `.pandacorp/verify.sh` (biome → tsc → vitest). No UI change → no Preview Smoke run needed
-  (`ui: false`).
+- `parseDecisionBlocks`: `src/lib/docs/_tests/docs.wo24001.test.ts` proves library ≡ `readDecisions` on the
+  same content and the CLI boundary; `docs.wo04002.test.ts` / `docs.wo04002.reviewer.test.ts` stay green.
+- Golden vectors: `src/lib/docs/_tests/decision-id-golden.test.ts` (AC-24-002.1/.2).
+- Gate: `.pandacorp/verify.sh`. No UI, no Preview Smoke.
+
+## 6. Traceability
+
+| REQ | AC | Components / interfaces | Work order |
+|---|---|---|---|
+| REQ-24-001 | AC-24-001.1, AC-24-001.2 | `IF-24-parse-decisions`, `CMP-24-decision-id-cli` | WO-24-001 |
+| REQ-24-002 | AC-24-002.1, AC-24-002.2 | `IF-24-golden-vectors` | WO-24-002 |
+
+## Build Plan
+
+| WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
+|---|---|---|---|---|
+| WO-24-001 | — | `src/lib/docs/activity.ts`, `src/lib/docs/_tests/docs.wo24001.test.ts`, `scripts/decisions/decision-id-cli.mjs`, `package.json` | false | W0 (history, VERIFIED) |
+| WO-24-002 | WO-24-001 | `src/lib/docs/_tests/fixtures/decisions-golden.md`, `src/lib/docs/_tests/decision-id-golden.test.ts` | false | W1 (history, VERIFIED) |
+
+- **Order:** WO-24-001 → WO-24-002 (the golden test needs the function and the CLI). Both VERIFIED; neither
+  is rebuilt in v2.
+- **Cross-FRD:** later writers of `src/lib/docs/activity.ts` are WO-04-001 (W2, history) and WO-04-013 (W3),
+  different waves; `package.json` is also written by WO-01-010 (W2) and WO-13-013 (W7) (map §0.1).
+
+## Work Orders
+
+WO-24-001 (W0) · WO-24-002 (W1). See [`work-orders/README.md`](./work-orders/README.md).
+
+## Superseded (v1 history)
+
+None.
+
+## Readiness check (DR-100)
+
+Every REQ maps to a component or interface; every AC is owned by exactly one live work order; `dependsOn`
+acyclic; artifacts disjoint within each wave; no open clarification marker. Lesson applied: LESSON-0113 (the
+published `pnpm --silent` invocation was verified as executed, not as documented).

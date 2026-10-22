@@ -1,35 +1,36 @@
 # Work orders — FRD-15 Plugin out-of-sync warning
 
 > Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
-> Design: [`blueprint.md`](../blueprint.md). Platform: [`docs/product/architecture.md`](../../../product/architecture.md).
+> The authoritative order is the **Build Plan** in [`../blueprint.md`](../blueprint.md). FRD-15 has no
+> new v2 work order: its reader and route stay live as built; the Inicio banner is built by FRD-18's
+> WO-18-002 and the sidebar pill by FRD-19's WO-19-003.
 
-Each work order targets ONE deploy unit, is testable in isolation, and follows TDD (RED → GREEN →
-refactor). The gate is `.pandacorp/verify.sh` (biome → tsc → vitest).
+## Work orders
 
-## List & order
+| WO | Slug | Status | Depends on | Summary |
+|---|---|---|---|---|
+| WO-15-001 | sync-readers | VERIFIED | — | Installed and source version readers, defensive, never throw (kept live, built) |
+| WO-15-002 | sync-verdict | VERIFIED | WO-15-001 | `getPluginSyncState()` semver verdict with per-runtime adapters (kept live, built) |
+| WO-15-003 | sync-route | VERIFIED | WO-15-002 | `GET /api/plugin-sync`, uncacheable, always 200, read-only (kept live, built) |
 
-| WO | Title | Layer | Depends on |
-|---|---|---|---|
-| WO-15-001 | `lib/plugin-sync` version readers (installed + source) with fixtures | `lib/` | — |
-| WO-15-002 | `getPluginSyncState` semver verdict (drift/reason/detail) | `lib/` | WO-15-001 |
-| WO-15-003 | `app/api/plugin-sync` route handler | `app/api/` | WO-15-002 |
-| WO-15-004 | `PluginSyncBanner` client component (poll + self-clear) | `components/` | WO-15-003, WO-13-007 |
+> **Depends on** mirrors each WO's `dependsOn` frontmatter (DR-087).
 
-> **Amended 2026-06-22 (version-based).** WO-15-001/002 originally read git **commit SHAs** + an
-> uncommitted-changes check; the shipped behaviour compares the installed semver `version` against the
-> source `version` (the signal `claude plugin update` uses). The SHA model is historical — see the FRD
-> amendment and `docs/decision-log.md`.
+## Build order
 
-## Parallelization
+- W0 WO-15-001 → W1 WO-15-002 → W2 WO-15-003, all VERIFIED and not rebuilt.
+- Cross-FRD owners of FRD-15's ACs: WO-18-002 (FRD-18, W5: the banner) and WO-19-003 (FRD-19, W6: the
+  pill). WO-01-011 (W5) moves the route's reads onto the clock and git seams without behaviour change.
 
-- WO-15-001 has no intra-feature dependency (only `lib/config.ts`, already shipped in FRD-01) → start here.
-- WO-15-002 → WO-15-003 → WO-15-004 form a chain (data verdict → route → UI).
-- WO-15-001 and the readers' fixtures can be authored independently of any other feature.
+## AC coverage
 
-## Cross-feature dependencies
+| AC | Work order |
+|---|---|
+| AC-15-002.1 | WO-18-002 |
+| AC-15-002.2 | WO-18-002 |
+| AC-15-002.3 | WO-18-002 |
+| AC-15-004.1 | WO-18-002 |
+| AC-15-006.1 | WO-19-003 |
 
-- **FRD-01** `lib/config.ts` (`resolveFactoryRoot`, `PANDACORP_FACTORY_ROOT`) — already shipped.
-- **FRD-02** `CopyButton` shared component — consumed by WO-15-004. If not yet available, WO-15-004
-  renders the command with a minimal inline copy and is upgraded when `CopyButton` lands (note it).
-- **FRD-18** composes/places this banner in the dashboard health-banner stack; FRD-15 only owns and
-  exports the component + its data — placement is FRD-18's WO.
+## Superseded (v1 history)
+
+- WO-15-004 (`PluginSyncBanner` on the v1 `Banner`) → WO-18-002

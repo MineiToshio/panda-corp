@@ -6,9 +6,14 @@ title: 'WO-10-001 — `lib/achievements.ts`: achievements engine (stats/chains/u
 status: DRAFT
 parent: FRD-10
 implementation_status: VERIFIED
+artifacts:
+  - 'src/lib/achievements/stats.ts'
+  - 'src/lib/achievements/achievements.ts'
+  - 'src/lib/achievements/readerData.ts'
+  - 'src/lib/achievements/_tests/achievements.test.ts'
 source_requirements: []
-dependsOn: [WO-01-003, WO-01-005, WO-01-007, WO-03-001]
-last_updated: '2026-06-18'
+dependsOn: [WO-01-003, WO-01-005, WO-01-007]
+last_updated: '2026-10-22'
 ---
 # WO-10-001 — `lib/achievements.ts`: achievements engine (stats/chains/uniques/secrets)
 
@@ -48,32 +53,34 @@ cohesive engine, since they share the file and the same reader inputs:
   WO-10-007 uniques, WO-10-008 secrets).
 - The underlying readers themselves (FRD-01/03/04/06).
 
-## Acceptance criteria (EARS, from FRD-10)
+## v1 delivery record
+
+Delivered in v1; this work order owns no live acceptance criterion in v2 (the live criteria of FRD-10 are owned by WO-10-016 and WO-10-017). Pruned from `dependsOn`: WO-03-001 (superseded by WO-03-007). The engine stays the pure source for the Logros tabs.
 
 ### Stats (only-grow counters)
-- **AC-10-001.1** — `computeStats()` SHALL return all the stats listed in `docs/achievements.md`, each derived from a verifiable source (§2 table).
-- **AC-10-001.2** — Each counter SHALL reflect real cumulative history (it only grows); it SHALL NOT be an app-incremented value (negative AC).
-- **AC-10-001.3** — WHEN the factory is empty/fresh, the stats SHALL be honest zeros — never fabricated (negative AC).
-- **AC-10-001.4** — The function SHALL be pure and fixture-tested over reader outputs (no direct fs).
+- v1 AC-10-001.1: `computeStats()` SHALL return all the stats listed in `docs/achievements.md`, each derived from a verifiable source (§2 table).
+- v1 AC-10-001.2: Each counter SHALL reflect real cumulative history (it only grows); it SHALL NOT be an app-incremented value (negative AC).
+- v1 AC-10-001.3: WHEN the factory is empty/fresh, the stats SHALL be honest zeros — never fabricated (negative AC).
+- v1 AC-10-001.4: The function SHALL be pure and fixture-tested over reader outputs (no direct fs).
 
 ### Chains + honest endowed progress
-- **AC-10-002.1** — `computeChains()` SHALL tier up each chain when its stat crosses the threshold (per `docs/achievements.md`), returning current tier, next tier name and pct-to-next.
-- **AC-10-002.2** — Each unlocked tier SHALL carry the **date** and **project** where it happened.
-- **AC-10-002.3** — Progress SHALL be **honest endowed progress**: the bar starts from the progress **already achieved** (real), and the pct SHALL correspond to real work — it SHALL NEVER be inflated nor a bar stuck artificially (negative AC, FRD-09 forbidden pattern).
-- **AC-10-002.4** — Lower-is-better chains (record idea→launch) SHALL compute progress correctly (improving = closer to the next, lower threshold), per the prototype `chainState` logic.
-- **AC-10-002.5** — The function SHALL be pure and fixture-tested.
+- v1 AC-10-002.1: `computeChains()` SHALL tier up each chain when its stat crosses the threshold (per `docs/achievements.md`), returning current tier, next tier name and pct-to-next.
+- v1 AC-10-002.2: Each unlocked tier SHALL carry the **date** and **project** where it happened.
+- v1 AC-10-002.3: Progress SHALL be **honest endowed progress**: the bar starts from the progress **already achieved** (real), and the pct SHALL correspond to real work — it SHALL NEVER be inflated nor a bar stuck artificially (negative AC, FRD-09 forbidden pattern).
+- v1 AC-10-002.4: Lower-is-better chains (record idea→launch) SHALL compute progress correctly (improving = closer to the next, lower threshold), per the prototype `chainState` logic.
+- v1 AC-10-002.5: The function SHALL be pure and fixture-tested.
 
 ### Unique achievements
-- **AC-10-003.1** — `computeUniques()` SHALL return each unique achievement (per `docs/achievements.md`) with `category`, `unlocked`, `date?`, `project?`, and `condition` (shown when locked).
-- **AC-10-003.2** — An unlock SHALL be derived from a **verifiable** result (the triggering event/status), never asserted arbitrarily (negative AC).
-- **AC-10-003.3** — A locked unique SHALL expose its condition (so it is achievable, not obscure); an unlocked one SHALL carry date + project.
-- **AC-10-003.4** — The function SHALL be pure and fixture-tested.
+- v1 AC-10-003.1: `computeUniques()` SHALL return each unique achievement (per `docs/achievements.md`) with `category`, `unlocked`, `date?`, `project?`, and `condition` (shown when locked).
+- v1 AC-10-003.2: An unlock SHALL be derived from a **verifiable** result (the triggering event/status), never asserted arbitrarily (negative AC).
+- v1 AC-10-003.3: A locked unique SHALL expose its condition (so it is achievable, not obscure); an unlocked one SHALL carry date + project.
+- v1 AC-10-003.4: The function SHALL be pure and fixture-tested.
 
 ### Secret achievements
-- **AC-10-004.1** — `computeSecrets()` SHALL return each secret with `unlocked`, a `hint` (always available, cryptic), and — ONLY when unlocked — `criterion`, `date`, `project`.
-- **AC-10-004.2** — WHEN locked, the criterion SHALL be hidden (silhouette + hint); WHEN unlocked, the criterion (what triggered it) SHALL be revealed (negative AC: it SHALL NOT stay obscure after unlock).
-- **AC-10-004.3** — An unlock SHALL be derived from a verifiable result, never asserted arbitrarily.
-- **AC-10-004.4** — The function SHALL be pure and fixture-tested.
+- v1 AC-10-004.1: `computeSecrets()` SHALL return each secret with `unlocked`, a `hint` (always available, cryptic), and — ONLY when unlocked — `criterion`, `date`, `project`.
+- v1 AC-10-004.2: WHEN locked, the criterion SHALL be hidden (silhouette + hint); WHEN unlocked, the criterion (what triggered it) SHALL be revealed (negative AC: it SHALL NOT stay obscure after unlock).
+- v1 AC-10-004.3: An unlock SHALL be derived from a verifiable result, never asserted arbitrarily.
+- v1 AC-10-004.4: The function SHALL be pure and fixture-tested.
 
 ## Dependencies
 - FRD-01 `lib/ideas.ts` / `lib/status.ts` (+ `lib/config.ts`), FRD-03 `lib/portfolio.ts`,

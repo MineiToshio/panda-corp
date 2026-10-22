@@ -6,9 +6,14 @@ title: WO-06-012 — lib/events.ts consumes the enriched event fields (frd/phase
 status: DRAFT
 parent: FRD-06
 implementation_status: VERIFIED
+artifacts:
+  - 'src/lib/events/events.ts'
+  - 'src/lib/events/event-types.ts'
+  - 'src/lib/events/_tests/events.wo06012.test.ts'
+  - 'src/tests/fixtures/events/dashboard-events-enriched.ndjson'
 source_requirements: []
 dependsOn: [WO-01-007]
-last_updated: '2026-06-18'
+last_updated: '2026-10-22'
 ---
 # WO-06-012 — lib/events.ts consumes the enriched event fields
 
@@ -20,9 +25,14 @@ last_updated: '2026-06-18'
 > itself is a separate plugin change, documented there). Current consumers ignore the new fields; missing
 > fields are tolerated. This WO is the **Mission Control read side** only.
 
-## Acceptance criteria (verbatim EARS)
-- AC-06-008.1: THE system SHALL feed off `AgentWorking` events carrying `{role, wo, frd, phase, activity, mode}` and `SubagentStop`, read from `~/.claude/dashboard-events.ndjson` via `lib/events.ts`, **without calling Claude** (read-only).
-- AC-06-008.2: WHEN an event omits the optional enriched fields (`frd`, `phase`, `activity`, `mode`), THE system SHALL still render gracefully (backward compatibility), falling back to defaults rather than throwing.
+## v1 delivery record
+
+Kept live in v2 (map §0.5): the enriched, nested-`data` event parse is what La Fragua v2 (WO-06-013) reads for liveness. It owns no live v2 acceptance criterion: the v2 wording of these criteria is AC-06-011.1 and AC-06-011.2, owned by WO-06-013, which cites this parser in its tests. The criteria it was built against are history (their ids were re-used by the Órbita redesign for other behaviour):
+
+- v1 AC-06-008.1: THE system SHALL feed off `AgentWorking` events carrying `{role, wo, frd, phase, activity, mode}` and `SubagentStop`, read from `~/.claude/dashboard-events.ndjson` via `lib/events.ts`, **without calling Claude** (read-only).
+- v1 AC-06-008.2: WHEN an event omits the optional enriched fields (`frd`, `phase`, `activity`, `mode`), THE system SHALL still render gracefully (backward compatibility), falling back to defaults rather than throwing.
+
+`artifacts` backfilled 2026-10-22 from the Status Note and the resolution note (the enriched types later moved to `event-types.ts`). No `dependsOn` id was pruned. `status` stays DRAFT until the architecture flip activates the plan.
 
 ## Scope
 - Extend the `Event` type with the **optional** fields (parse only if present with the right type):

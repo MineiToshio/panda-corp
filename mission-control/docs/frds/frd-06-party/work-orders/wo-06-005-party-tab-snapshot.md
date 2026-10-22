@@ -3,7 +3,8 @@ id: WO-06-005
 type: work-order
 slug: party-tab-snapshot
 title: WO-06-005 — La Fragua tab + FraguaSnapshot (RSC, read-only)
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-06-013]
 parent: FRD-06
 implementation_status: VERIFIED
 source_requirements: []

@@ -3,7 +3,8 @@ id: WO-10-005
 type: work-order
 slug: hall-surfaces
 title: 'WO-10-005 — Hall surfaces: ChainCard + TrophyCard + AlmostThere + stat ledger'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-10-016]
 parent: FRD-10
 implementation_status: VERIFIED
 reopen_count: 0

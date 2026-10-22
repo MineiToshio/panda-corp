@@ -6,9 +6,13 @@ title: WO-01-003 — `readIdeas` (cards + frontmatter)
 status: ACTIVE
 parent: FRD-01
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - 'src/lib/ideas/ideas.ts'
+  - 'src/lib/ideas/_tests/ideas.test.ts'
+  - 'src/lib/ideas/_tests/ideas.adversarial.test.ts'
+source_requirements: [REQ-01-003]
 dependsOn: [WO-01-000]
-last_updated: '2026-06-16'
+last_updated: '2026-10-22'
 ---
 # WO-01-003 — `readIdeas` (cards + frontmatter)
 
@@ -16,12 +20,15 @@ last_updated: '2026-06-16'
 **IDs touched:** `CMP-01-ideas`, `IF-01-readIdeas`; REQ-01-003
 **Dependencies:** WO-01-000 (fixtures)
 
-## EARS criteria (from FRD-01)
+## v1 delivery record
 
-- AC-01-003.1 — WHEN Pandacorp loads, the system SHALL read all the cards in `factory/ideas/*.md`
+FRD-01 is REQ-only (no `AC-01-*` bullets), so these v1 criteria are history and own nothing. The module
+lives at `src/lib/ideas/ideas.ts` (the `lib/ideas.ts` path above is the v1 plan).
+
+- v1 AC-01-003.1: WHEN Pandacorp loads, the system SHALL read all the cards in `factory/ideas/*.md`
   (ignoring `_idea-template.md` and `decision-log.md`) with their frontmatter (title, status,
   `project_type`, `return_type`, score).
-- (Edge) — Empty ideas folder → empty result handled gracefully.
+- v1 edge: Empty ideas folder → empty result handled gracefully.
 
 ## Contract
 

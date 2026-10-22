@@ -3,12 +3,14 @@ id: WO-16-003
 type: work-order
 slug: orphans-route
 title: WO-16-003 — `app/api/orphans` route handler
-status: DRAFT
+status: SUPERSEDED
+superseded_by: []
+superseded_reason: "feature removed 2026-06-22"
 parent: FRD-16
 implementation_status: VERIFIED
 source_requirements: []
 dependsOn: [WO-16-002]
-last_updated: '2026-06-17'
+last_updated: '2026-10-22'
 ---
 # WO-16-003 — `app/api/orphans` route handler
 

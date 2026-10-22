@@ -1,175 +1,150 @@
 ---
-id: FRD-09-blueprint
+id: BP-09
 type: blueprint
+slug: gamification
+title: 'Blueprint — FRD-09 Gamification (v2 «Órbita»: guild card, notice, honest engine)'
+status: DRAFT
 parent: FRD-09
-status: ACTIVE
-implementation_status: VERIFIED
-last_updated: '2026-06-29'
+implementation_status: PLANNED
+readiness_gate:
+grounding_gate:
+consistency_gate:
+last_updated: 2026-10-22
 ---
-# FRD-09 — Gamification (RPG theme) · feature blueprint
 
-> **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
-> This is the **per-FRD blueprint** (DR-049). It references the
-> **[platform architecture](../../product/architecture.md)** (the event contract §5, the `lib/events.ts`
-> and `lib/status.ts` readers §6, the read-only invariant §1/§7, FRD-13 tokens §7). Read it first.
+# Blueprint — FRD-09 Gamification (v2 «Órbita»: guild card, notice, honest engine)
 
-## 1. Feature summary
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> Per-feature blueprint (DR-049). The platform is
+> [`docs/product/architecture.md`](../../product/architecture.md) (§6 read interfaces, §7 read-only
+> invariant: the guild ledger is the bounded write 5, ADR-0005); the visual system and copy are FRD-13's,
+> the shell that hosts the guild card and the notice is FRD-19's
+> ([blueprint](../frd-19-app-shell/blueprint.md)).
 
-The **honest** RPG layer that wraps real work. It is **cross-cutting** (the top bar + shared
-primitives), not a page. Two deliberate, non-interchangeable layers (FRD vocabulary):
+## Purpose
 
-- **Guild (gremio)** — the **meta** layer: the operator + the whole factory. Guild level/XP in the
-  top bar, persistent across the app. (The Guild Hall lives in [FRD-10](../frd-10-achievements-hall/blueprint.md).)
-- **Party** — the agents building **one** project (the live panel, FRD-06). One party per project.
+The honest game layer over real work. In v2 it is: the pure guild XP / level engine and the 40-rung rank
+ladder (built, kept), the single guild-state resolver with the `MAX(live, ledger)` floor and its
+gitignored ledger (built, kept), and two surfaces the Órbita prototype draws in the shell: the sidebar
+guild card and the gold achievement notice. The scaled celebrations (work-order toast, phase animation,
+release and level-up moments), the agent XP engine and the top-bar guild block are out of v2 and are
+removed. FRD-09 has **no new work order**: its two drawn surfaces are folded into FRD-19's WO-19-003
+(each alone would be under 20 minutes, DR-100), and its kept engine and ledger WOs stay live as built.
 
-The non-negotiable design constraint: **XP is earned by verifiable RESULT** (work order / phase /
-release closed, green tests) — **never** by activity, app opens, or trivial volume. This avoids the
-*overjustification effect* and keeps the layer ethical (FRD-09 principles). **Forbidden:**
-leaderboards, lives/death, daily streaks with reset, false urgency/timers. Streaks are **weekly**
-with a "freeze". Celebrations **scale**: toast (WO) → animation (phase) → celebration (release) →
-level-up. Animation honors `prefers-reduced-motion` (FRD-13).
+## Requirement map
 
-This blueprint owns the **XP engine** (the pure derivation of guild XP/level and agent XP/level from
-real outcomes), which FRD-07 (agent levels) and FRD-10 (the Hall) consume. There is one engine.
+FRD-09 states most rules as unnumbered bullets. This blueprint names them by position, as the FDD does:
+FRD-09#U1 (sidebar guild card shows level and XP), #U2 (40-rung ladder, granular level and rank band,
+emblems), #U3 (RPG vocabulary with restraint), #U4 (XP by result only), #U5 to #U7 (scaled, release and
+level-up celebrations, **Out of v2**), #U8 (the notice is dismissible and closes by itself), #U9 (no
+leaderboards, lives, daily-reset streaks or false urgency; weekly streak), #U10 (complements good UX).
+The numbered groups are REQ-09-006 (AC-09-006.1..3, ledger), REQ-09-007 (runtime-neutral result ledger,
+unnumbered bullets) and REQ-09-008 (AC-09-008.1..2, guild card and notice).
 
-## 2. Where XP comes from (the honesty contract)
+## Components & Interfaces
 
-XP is **derived** from real, verifiable factory outcomes read via the platform readers — it is never
-stored as a mutable counter the app increments on interaction:
+| ID | Kind | Name / location | Responsibility | Traces | Built by |
+|---|---|---|---|---|---|
+| IF-09-guild-xp | pure module | `src/lib/gamification/gamification.ts` (`computeGuildLevel`, `RANKS`, `xpForLevel`, `levelForXp`, `rankForLevel`) | Level from XP (super-linear curve), rank as the level band, XP from verifiable outcomes only, weekly streak only | #U1, #U2, #U4, #U9 | WO-09-001 (kept) |
+| IF-09-guild-state | resolver | `src/lib/gamification/guildState.ts` (`getGuildState()`, request-cached) | THE single source of the displayed level: live outcomes, ledger-merged outcomes, level; every surface reads it | #U1, REQ-09-006 | WO-09-006 (kept) |
+| IF-09-ledger | module + Server Action | `src/lib/gamification/ledger.ts`, `src/app/_actions/snapshotLedger.ts`, `GamificationLedgerSync` | `MAX(live, ledger)` floor, snapshot-on-exceed, gitignored file, schema v2 runtime-neutral fact keys (R9) | REQ-09-006, REQ-09-007 | WO-09-006 (kept) |
+| CMP-09-rank-emblem | component | `src/components/core/RankEmblem/RankEmblem.tsx` | Pixel emblem per rank family with the I·II·III badge | #U2 | kept (v1); consumed by FRD-10 WO-10-016 |
+| CMP-09-guild-card | component | `GuildCard` (`src/components/modules/GuildBar/GuildCard.tsx`) | Crest with the level, rank name, «N / M XP al nivel L», gold bar, link to Logros; crest only on the rails | REQ-09-008 (AC-09-008.1), #U1 | WO-19-003 (FRD-19) |
+| CMP-09-achievement-notice | component | `AchievementToast` (`src/components/modules/AchievementToast/`) | Gold notice for a trophy new or unlocked within 7 days, once per browser, «Ver» and «Cerrar aviso», closes after 9 s, polite status | REQ-09-008 (AC-09-008.2), #U8 | WO-19-003 (FRD-19) |
+| (FRD-10) | surface | Logros hero, Rangos tab (`RankRow`, `EraGroup`) | The rank ladder screen of FDD-09 (`guild-rank-ladder`) and the guild hero | #U2 | WO-10-016 (FRD-10) |
 
-| Outcome (verifiable) | Source | Reader |
+Removed in v2 (map §6.C items 2, 3, 16): `IF-09-agent-xp` (`agents.ts`, agent levels), `IF-09-celebration`
+(`classifyCelebration` and its tier types), `CMP-09-celebration` (`CelebrationSurface`,
+`CelebrationWatcher`), `CMP-09-xp-bar` (`XpBar`) and `CMP-09-guild-bar` (the top-bar block). Removal
+owners: WO-19-002 (unmount, `CelebrationWatcher`), WO-07-006 (agent levels in Configuración), WO-13-013
+(file deletions).
+
+### Traceability
+
+| Requirement | Component(s) | Work order |
 |---|---|---|
-| Work order closed (green) | derived live from work-order files via `listWorkOrders` (DR-092/DR-115, never `status.yaml`'s cached counter); event `achievement`/`test_ok` + `work_order` | `lib/work-orders.ts` (FRD-05), `guildState.ts` (FRD-09), `lib/events.ts` (FRD-06/12) |
-| Phase completed | `status.yaml` `phase` transitions | `lib/status.ts` |
-| Release / launch | `phase: release` reached (DR-085: the launched/terminal phase) | `lib/status.ts`, `portfolio` |
-| Green tests | event `test_ok` | `lib/events.ts` |
-| Agent did a work order | event with `agent` + `work_order` + `status: ok` | `lib/events.ts` |
+| #U1 guild level and XP in the sidebar | IF-09-guild-xp, IF-09-guild-state, CMP-09-guild-card | WO-09-001, WO-09-006, WO-19-003 |
+| #U2 rank ladder, emblems | IF-09-guild-xp, CMP-09-rank-emblem, FRD-10's Rangos tab | WO-09-001, WO-10-016 |
+| #U3 RPG vocabulary with restraint | copy catalogue through FRD-13's `t()`; every guild surface | WO-13-010 and the surface WOs |
+| #U4 XP by result | IF-09-guild-xp | WO-09-001 |
+| #U5..#U7 celebrations | Out of v2 (removed) | WO-19-002, WO-13-013 |
+| #U8 notice dismissible and self-closing | CMP-09-achievement-notice | WO-19-003 |
+| #U9 forbidden patterns, weekly streak | IF-09-guild-xp (negative tests), all guild surfaces | WO-09-001, WO-19-003, WO-10-016 |
+| #U10 complements good UX | cross-cutting (FRD-13 legibility rules) | — |
+| REQ-09-006 (AC-09-006.1..3) | IF-09-ledger, IF-09-guild-state | WO-09-006 |
+| REQ-09-007 runtime-neutral ledger | IF-09-ledger | WO-09-006 (kept, as built) |
+| REQ-09-008 (AC-09-008.1, AC-09-008.2) | CMP-09-guild-card, CMP-09-achievement-notice | WO-19-003 |
 
-The XP→level mapping is a **pure function** of these counts (no time-decay, no engagement bonus, no
-opening-the-app reward). With no data it reports honestly (level/XP from whatever real outcomes
-exist, or zero) — **never a bar stuck at 80%** and never fake progress (FRD-09 forbidden patterns).
+## Contracts
 
-> **No new `lib/` module.** The XP engine is a pure module `lib/gamification.ts` over the EXISTING
-> readers (`status`, `events`). It is **flagged** as a new file in §7 (architecture §6 maps FRD-09 to
-> `events`+`status` but does not name a derivation module).
+- **Guild state (IF-09-guild-state).** `getGuildState()` → `{ statuses, eventsSnapshot, liveOutcomes,
+  outcomes, level }`, cached per request; `level` = `{ level, rankIndex, title, grade, sprite, xp, next,
+  pctToNext }` from IF-09-guild-xp over the ledger-merged outcomes. The guild card's line «N / M XP al
+  nivel L» is N = XP above the current level's threshold, M = the current level's span (both from
+  `xpForLevel`), L = level + 1. No outcomes → honest zero (no fake fill, #U9). No surface re-derives the
+  level.
+- **Ledger (IF-09-ledger).** Unchanged in v2: sole writer `snapshotGamificationLedger` (Server Action,
+  fire-and-forget, never blocks the render), gitignored `factory/gamification-ledger.json`, refuses
+  symlinks, fails closed on corrupt data; it adopts WO-01-010's clock in WO-01-011 (no behaviour change).
+- **Achievement notice.** Input: the newest trophy the FRD-10 achievements reader flags new or unlocked
+  within 7 days of `now()`, and the browser-local `orbita-ach-seen` list. Output: one polite status card;
+  closing by «Ver», «Cerrar aviso» or the 9-second timer records the id; never raised twice in a
+  browser; no factory write. The prototype's `?achievement=preview` affordance is not built (no AC asks
+  for it and its label is not in the catalogue); the oracle state uses the recipe's fallback.
 
-## 3. Components & interfaces
+## Visual spec
 
-### Interfaces (`lib/gamification.ts`, NEW pure module — §7)
-- **`IF-09-guild-xp`** — `computeGuildLevel(outcomes): { level, rankIndex, title, titleEn?, icon?, sprite?, grade?, xp, next, pctToNext }`. Derives the **granular level** from XP and the **rank** as the level band that contains it (see *Rank ladder*, §3a). `level` is the granular level; `next`/`pctToNext` target the **next level** (the bar fills toward the next level); `rankIndex`/`title`/`grade`/`sprite` describe the current rank band. Pure, fixture-tested. → top-bar AC.
-- **`IF-09-guild-state`** (`lib/gamification/guildState.ts`) — **THE single source of truth for the displayed guild level.** `getGuildState(): { statuses, eventsSnapshot, outcomes, level }` reads the live data layers once (`readPortfolio` → `readStatus(resolveProjectPath(path))` → `readEvents`), derives the outcomes and the level, and is wrapped in React `cache()` so every consumer in a request gets the identical object. **Every surface that shows the guild level MUST read it from here** — the GuildBar (`app/layout.tsx`), the Inicio dashboard (`app/page.tsx`) and the Logros hero (`app/achievements/page.tsx`) — instead of each re-deriving `deriveGuildOutcomes` + `computeGuildLevel`. (Three independent derivations is exactly how the header once showed NV3 while Logros showed NV1 — one passed an unresolved portfolio path to `readStatus`.) The uncached core `readGuildState()` is exported for tests. This is also the one place a future ledger merge — `MAX(live, ledger)`, §5 / WO-09-006 — must live so the floor applies everywhere at once.
-- **`IF-09-agent-xp`** — `computeAgentLevel(agentId, events): { level, title, xp, next, pctToNext }`. Title ladder Apprentice → Engineer → Senior → Architect (FRD-07 AC). XP only from that agent's closed work orders. Consumed by **FRD-07** (agent section/detail). Pure, fixture-tested.
-- **`IF-09-celebration`** — `classifyCelebration(event): "toast" | "phase" | "release" | "levelup" | "none"`. Maps an outcome to the celebration tier so it scales (never flat). Pure.
+| Surface | Mocks and oracle states | Built by |
+|---|---|---|
+| Guild card (sidebar, rails) | `mocks/gamification.html#guild-rank-ladder` (expanded card), `#guild-achievement-notice` (tablet crest); FRD-19 `app-shell.html#shell-expanded`, `#shell-rail-collapsed` | WO-19-003 |
+| Achievement notice | `mocks/gamification.html#guild-achievement-notice` (375, 768, 1280) | WO-19-003 |
+| Rank ladder (Logros › Rangos) | `mocks/gamification.html#guild-rank-ladder` | WO-10-016 (FRD-10) |
 
-### §3a. Rank ladder — granular level + rank-by-band (reconciled from code, 2026-06-25)
+Assets: rank emblems `public/ranks/*.png` (original bytes, staged by WO-13-010), `trophy` icon.
 
-> *Reconciled from code by `/pandacorp:sync` on 2026-06-25 — describes the shipped rank system (owner-authored, phases 1–6), not a forward plan. Supersedes the earlier 3-rung "Aprendiz → Maestro del gremio" ladder.*
+## Dependencies & Risks
 
-The guild climbs a **40-rung ladder** (Final Fantasy tone). The level and the rank are **two distinct axes** (decision 2026-06-25 — they are NOT 1:1):
+- Upstream: FRD-01 readers (WO-01-005), FRD-06/12 events reader (WO-06-012), FRD-05 work-order reader;
+  FRD-13 (tokens, `t()`, primitives), FRD-19 (the shell that hosts the card and the notice), FRD-10
+  (achievements reader with `isNew`).
+- Downstream: FRD-10 (Logros hero and Rangos), FRD-18 (Inicio Gremio tile) read IF-09-guild-state.
+- Risk: removing the top-bar `GuildBar`, `CelebrationSurface`, `XpBar` and `agents.ts` while the FRD-09
+  reviewer integration suite still imports them; mitigated by deleting them only in WO-13-013 (W7), which
+  removes that suite with them (map §3.3 rule 3).
+- Risk: the notice's eyebrow «¡Nuevo logro!» is drawn in no captured state (the oracle captured the
+  preview label); reported to design (DR-130) through the architecture ledger.
+- Ethical gate (FRD-09 principles) unchanged: every mechanic keeps its negative tests (no XP for
+  activity, no stuck bar, no daily streak, no leaderboard, no false urgency).
 
-- **Level (granular).** `xpForLevel(level)` is a super-linear curve (rounded to 5) so each level costs more than the last; `levelForXp(xp)` inverts it. The level keeps climbing with XP, unbounded.
-- **Rank (a band of levels).** The 40 ranks are `RANK_DEFS` (Spanish + English names + a Tabler fallback icon). `rankBandSize(i) = 3 + ⌊i/4⌋` widens the bands toward the summit; `RANK_MIN_LEVEL[i]` is the cumulative entry level; `rankForLevel(level)` returns the last rank whose `minLevel ≤ level`. So higher ranks take more levels to earn, and the top (**Portador del Juramento Eterno**) starts at ~Nv 289 — deliberately far.
-- **Families & grades.** Most ranks come in three grades **I·II·III** (`grade ∈ {1,2,3}`, `0` for Humano + the 6 standalone summits). `RANKS` is the single exported source: `Rank = { title, titleEn, icon, sprite, minLevel, grade }`.
-- **Custom emblems.** Each family has a **pixel-art emblem** at `public/ranks/<slug>.png`; `RANK_SPRITES[40]` maps each rank to its family slug (18 sprites = 11 families × shared + 6 summits + Humano). The Tabler `icon` remains the graceful fallback when a sprite is missing.
+## Build Plan
 
-This ladder is consumed by the GuildBar (header), the GuildHero (hero), and the **Rangos tab** (FRD-10 `RankLadder`).
+| WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
+|---|---|---|---|---|
+| WO-09-001 | WO-01-005, WO-06-012 | `src/lib/gamification/gamification.ts`, `src/lib/gamification/_tests/gamification.guild.test.ts` | false | W3 · kept live, built (no rebuild); v2 W3 WOs write other files |
+| WO-09-006 | WO-09-001 | `src/lib/gamification/ledger.ts`, `src/lib/gamification/guildState.ts`, `src/lib/gamification/_tests/ledger.test.ts`, `src/lib/gamification/_tests/guildState.test.ts`, `src/app/_actions/snapshotLedger.ts`, `src/app/_tests/wo-09-006-snapshotLedger.test.ts`, `src/components/dashboard/GamificationLedgerSync/**` | false | W4 · kept live, built (no rebuild); v2 W4 WOs write other files |
 
-### Components
-- **`CMP-09-guild-bar`** — the top-bar Guild level/XP block (level pill `NV {n}`, the **rank emblem + name**, XP bar to next level). Consumes `IF-09-guild-xp` and renders `CMP-09-rank-emblem` (18px). Cross-cutting (in `AppShell`/`app/layout.tsx`). → AC "top bar guild level/XP". Uses the rationed accent on the XP bar (FRD-13); number with `tabular-nums`.
-- **`CMP-09-rank-emblem`** (`components/core/RankEmblem/RankEmblem.tsx`) — the rank's self-framed pixel-art medal: renders `/ranks/<sprite>.png` at a fixed square `size`, falls back to the rank's Tabler `icon` when the sprite is absent, and overlays a small **roman-numeral badge** (I·II·III) when `grade ∈ {1,2,3}` so the three grades of a shared family emblem are distinguishable. Reused by `CMP-09-guild-bar` (18px), `CMP-09-guild-hero` (32px) and FRD-10's `RankLadder` (88/104/124px). → AC "custom pixel-art emblem per rank".
-- **`CMP-09-xp-bar`** — reusable honest XP bar primitive (label + bar + "faltan N para Nv X · <next title>"). Reused by `CMP-09-guild-bar`, FRD-07 agent detail, FRD-10. Never renders fake fill. → AC "bar to next level".
-- **`CMP-09-celebration`** (`"use client"`) — the scaling celebration surface: toast → animation → celebration → level-up moment, driven by `IF-09-celebration` over new events. Honors `prefers-reduced-motion` (no animation), `transform`/`opacity` only, <300ms (FRD-13). → AC "celebration scales".
-- **`CMP-09-rpg-vocab`** — the shared RPG copy/flavor helpers (missions, objectives, party, guild) applied with restraint, Spanish. → AC "RPG flavor with restraint".
-- **`CMP-09-avatar`** — the pixel-art (FF-style) agent avatar component (used here and by FRD-07/10). Static sprite assets; degrades gracefully if a sprite is missing. → FRD-07 avatar AC dependency.
+- Both rows are legacy work orders kept live (`implementation_status: VERIFIED`); the engine does not
+  rebuild them. Their waves come from their own `dependsOn`.
+- FRD-09's acceptance criteria AC-09-008.1 and AC-09-008.2 are owned by FRD-19's **WO-19-003** (W6);
+  FRD-09's gate re-checks the kept WOs and those cross-FRD owners.
+- Later writers of the same files, serialized by wave: WO-01-011 (W5: `ledger.ts`, `snapshotLedger.ts`
+  adopt the clock seam), WO-13-013 (W7: `gamification.ts` loses `classifyCelebration`; `agents.ts` and
+  the obsolete tests go).
 
-### Reused
-- `lib/events.ts` (FRD-06/12), `lib/status.ts` (FRD-01) — readers; FRD-09 adds NO new reader.
-- FRD-13 tokens, `tabular-nums`, motion rules, `prefers-reduced-motion`.
+## Work Orders
 
-## 4. Ethical gate (build-time requirement, from FRD-09)
+Live: WO-09-001 (kept), WO-09-006 (kept). Cross-FRD owner: WO-19-003. Index:
+[`work-orders/README.md`](work-orders/README.md).
 
-EVERY mechanic in this feature SHALL pass the FRD-09 ethical test before shipping: user controls
-participation? builds vs undermines intrinsic motivation? meaningful vs addictive loop? honest about
-its effect? The work orders encode this as **negative acceptance criteria** (tests that the
-forbidden patterns are ABSENT): no leaderboard, no lives/death, no daily-reset streak, no
-false-urgency timer, no XP for activity/app-open, no bar artificially stuck.
+## Superseded (v1 history)
 
-## 5. Read-only & security posture
-All XP is **derived** from read-only sources (architecture §7). No personal data beyond the local
-factory repo. The celebration is purely client-side visual over already-read events.
+- WO-09-002 agent XP / level engine → WO-07-006 (agent levels leave Configuración), WO-13-013 (`agents.ts` deleted)
+- WO-09-003 guild surfaces (GuildBar, GuildHero, StatRadar, CelebrationSurface) → WO-19-003, WO-10-016
+- WO-09-005 celebration tier classifier → WO-19-002 (unmounted), WO-13-013 (deleted)
+- WO-09-007 rank ladder surfaces → WO-10-016 (the ladder data stays in WO-09-001's module)
 
-**Controlled exception — gamification ledger (WO-09-006):** `factory/gamification-ledger.json`
-(gitignored) is a local write: it persists the maximum outcomes ever seen so that deleting a project
-never decreases the guild's XP. The write is a fire-and-forget Server Action (does NOT block the
-render) called by a lightweight client component after page mount. This is the ONLY write in
-FRD-09; it is personal data (DR-033) and must stay gitignored.
+## Readiness check (DR-100)
 
-## 6. Traceability (REQ → AC → CMP/IF)
-
-FRD-09 states EARS bullets (no explicit `REQ-09-MMM` ids). Work orders assign `AC-09-MMM.K`.
-
-| FRD-09 EARS bullet | Component(s) / Interface(s) |
-|---|---|
-| Top bar shows guild level/XP (operator) + title + bar to next | `CMP-09-guild-bar`, `CMP-09-xp-bar`, `IF-09-guild-xp` |
-| 40-rung rank ladder; level=granular, rank=band of levels; custom emblem + I·II·III badge per rank | `IF-09-guild-xp` (§3a `RANKS`/`rankForLevel`/`xpForLevel`), `CMP-09-rank-emblem` |
-| RPG vocabulary & accents with restraint, legibility first | `CMP-09-rpg-vocab` (+ FRD-13) |
-| XP earned by RESULT (WO/phase/release closed), not activity/app-open | `IF-09-guild-xp`, `IF-09-agent-xp` (§2 honesty contract) |
-| Celebration SCALES (toast → phase → release → level-up), never flat | `CMP-09-celebration`, `IF-09-celebration` |
-| NO leaderboards / lives / daily-reset streaks / false urgency; streaks weekly + freeze | negative ACs across all WOs; `IF-09-guild-xp` (weekly streak) |
-| Gamification complements good UX, not compensates for bad | cross-cutting; all WOs subordinate to FRD-13 legibility |
-| White-Hat Octalysis; every achievement maps to a verifiable result; ethical test | §2 + §4 ethical gate (negative ACs) |
-| Agent levels (Apprentice→Architect) — used by FRD-07 | `IF-09-agent-xp`, `CMP-09-avatar` |
-
-## 7. New `lib/` module (flagged)
-`lib/gamification.ts` — pure XP/level/celebration derivation over the existing `events`/`status`
-readers. Not separately named in architecture §6 (which maps FRD-09 to `events`+`status`); recorded
-here as the single new file. No new fs/parse access — it consumes already-typed reader output.
-
-## Build Plan (Phase 2)
-
-Phase 2 re-anchors the **presentational** Guild surfaces to the owner-approved prototype
-(`docs/design/prototype/index.html`); the XP/celebration engine is already correct.
-
-**State:**
-- **VERIFIED (do not rebuild):** WO-09-001 (guild XP engine), WO-09-002 (agent XP engine),
-  WO-09-005 (celebration-tier classifier) — the pure `lib/gamification.ts` module, verified.
-- **PLANNED (Phase 2 UI):** WO-09-003 — the single coarse Guild-surfaces work order
-  (`GuildBar` + `GuildHero` + `StatRadar` + `CelebrationSurface`, reusing `Shield`/`XpBar`/`Avatar`).
-- **PLANNED (Phase 3 — persistence):** WO-09-006 — gamification ledger (`lib/gamification/ledger.ts`
-  + `app/_actions/snapshotLedger.ts` + `GamificationLedgerSync` client component). Independent of
-  WO-09-003; can build in parallel or after.
-
-**Coarse DAG & parallelism:**
-
-```
-[VERIFIED engine: WO-09-001 · WO-09-002 · WO-09-005]   [FRD-13 foundation: WO-13-006/007/008]
-                 └───────────────────────────┬───────────────────────────┘
-                                             ▼
-                             WO-09-003 (Guild surfaces — UI)
-
-[VERIFIED engine: WO-09-001]
-          └─── WO-09-006 (ledger persistence — independent of WO-09-003)
-```
-
-WO-09-003 is a single sequential UI WO with no intra-FRD UI peer (nothing to parallelize within
-FRD-09). It starts once the foundation primitives and the verified engine exist.
-
-**Disjoint artifacts (shared-route coordination with FRD-10):** the achievements route
-(`src/app/achievements/`) is **shared** — FRD-09 owns the **hero block in `page.tsx`**,
-`components/modules/GuildBar/**`, and `app/achievements/StatsPanel.tsx` (the radar); FRD-10 owns the
-chains/trophies/almost-there files (`ChainCard/`, `UniquesSection/`, `AlmostThere.tsx`,
-`SecretsPanel.tsx`). The two FRDs must not both claim the same file; `page.tsx` is the one shared
-composition point and is owned for its hero region by this WO.
-
-**Cross-FRD deps:** `frd-13` (foundation primitives `PageTitle`/`Shield`/`XpBar`/`Avatar`/
-`CelebrationSurface`, tokens, motion, `tabular-nums`); shared achievements route with `frd-10`.
-</content>
-
-## R9 durable result ledger
-
-`lib/gamification/ledger.ts` owns the schema-v2 reader, strict migration, oracle corroboration,
-canonical fact materialization and atomic writer primitive. `app/_actions/snapshotLedger.ts` remains
-the only writer and re-reads portfolio/status/WOs/events on the server under an exclusive sibling lock.
-Production achievement and agent-XP readers receive only `durableEvents(readLedger())`; live transports
-remain available to La Fragua and the usage report. Exact ID and semantic replay dedup improve the live
-feed, but only the monotonic `(oracle kind, oracle ref, canonical act)` fact key controls accounting.
+Every FRD-09 requirement maps to a component above (the out-of-v2 bullets map to their removal); the
+five live ACs are owned once (AC-09-006.1..3 by WO-09-006, AC-09-008.1..2 by WO-19-003); `dependsOn`
+names live work orders only; no open clarification marker remains.

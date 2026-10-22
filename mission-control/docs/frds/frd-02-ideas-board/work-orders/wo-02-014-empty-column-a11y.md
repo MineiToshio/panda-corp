@@ -3,7 +3,8 @@ id: WO-02-014
 type: work-order
 slug: empty-column-a11y
 title: 'WO-02-014 — Accessible empty-column marker on the ideas board'
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-02-015]
 parent: FRD-02
 implementation_status: IN_REVIEW
 difficulty: low

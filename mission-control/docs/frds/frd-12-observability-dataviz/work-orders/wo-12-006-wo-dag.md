@@ -3,7 +3,8 @@ id: WO-12-006
 type: work-order
 slug: wo-dag
 title: 'WO-12-006 — Work-order DAG view (Dagre, live, re-paint to mock)'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-12-007, WO-05-008]
 parent: FRD-12
 implementation_status: VERIFIED
 reopen_count: 0

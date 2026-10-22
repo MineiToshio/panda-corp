@@ -7,11 +7,15 @@ status: ACTIVE
 parent: FRD-23
 implementation_status: VERIFIED
 reopen_count: 0
-source_requirements: [REQ-23-007]
-artifacts: [src/lib/achievements/read-model/**, src/lib/achievements/report/**, src/app/**, src/lib/achievements/read-model/_tests/**]
+source_requirements: [REQ-23-001, REQ-23-007]
+artifacts:
+  - 'src/lib/achievements/read-model/informeResolver.ts'
+  - 'src/lib/achievements/read-model/_tests/informeResolver.test.ts'
+  - 'src/lib/achievements/read-model/_tests/informeResolver.sealCoverage.test.ts'
+  - 'src/app/achievements/page.tsx'
 difficulty: high
 dependsOn: [WO-23-003, WO-23-005]
-last_updated: '2026-07-06'
+last_updated: '2026-10-22'
 ---
 # WO-23-006 — Composed Informe reader (per-project + factory-wide)
 
@@ -36,12 +40,20 @@ the Informe renders identically (FRD-10 REQ-10-020..027 unchanged).
 - Keep `getPendingMerge` live (AC-23-005.1) — untouched.
 
 ## Acceptance criteria (EARS)
-- **AC-23-007.1** — reader composes factory-wide (factory seal) + per-project (per-project seal) facts.
-- **AC-23-007.2** — factory-seal mismatch falls back for factory-wide facts only, per-project facts
-  untouched, and vice-versa; neither fabricates a zero.
-- **AC-23-007.3** (regression) — two materialized projects A, B; a phase change in B mismatches the factory
-  seal → A's Informe is NOT served stale factory-wide data (re-derives / falls back for those facts). MUST
-  fail without the split, pass with it.
+- **AC-23-001.5** — The portada SHALL NOT hold any fact its seal does not validate: `commits`, `funnel` and
+  the ideas-per-week series SHALL be read live even beside a fresh portada, and a live failure to derive
+  one of them SHALL surface as an explicit error result, never a fabricated zero (DR-078).
+- **AC-23-007.1** — The Informe reader SHALL compose factory-wide facts from the factory store (validated
+  by the factory seal) with per-project facts from the portada (validated by the per-project seal).
+- **AC-23-007.2** — A **factory-seal mismatch** SHALL fall back to live git for the **factory-wide facts
+  only**, leaving valid per-project facts untouched (and vice-versa). Neither fallback SHALL fabricate a
+  zero (DR-078).
+- **AC-23-007.3** (regression) — GIVEN two materialized projects A and B, WHEN a phase change in B
+  invalidates the factory-wide facts, project A's Informe SHALL NOT be served with stale factory-wide data:
+  the factory seal SHALL mismatch and A SHALL re-derive / fall back for those facts. (This is the exact
+  defect the split fixes.)
+
+AC-23-001.5 was added after this work order's first delivery (change of 2026-09-30, `docs/decision-log.md`): the resolver keeps `commits`, `funnel` and the ideas series live beside a fresh portada. It is already implemented and covered by `src/lib/achievements/read-model/_tests/informeResolver.sealCoverage.test.ts` (four cases: commits live, funnel live, ideas series live with the WO-verified series sealed, un-derivable ideas series fails loud; plus the FRD count still sealed), so v2 builds nothing new for it; the test is declared in this work order's artifacts so the criterion has one owner.
 
 ## TDD plan
 RED: a **regression test** reproducing the bug — materialize A and B, mutate B's phase, assert A's composed
@@ -110,11 +122,11 @@ resolveInformeSources(
 
 ### Tests (this WO's own — RED-proven, all green)
 `src/lib/achievements/read-model/_tests/informeResolver.test.ts` — extended with:
-- **AC-23-007.1** composed reader: fresh store + fresh portada → factory-wide from store, per-project from
+- v1 test of AC-23-007.1, composed reader: fresh store + fresh portada → factory-wide from store, per-project from
   portada, neither scope's live reader invoked; `testsPassing` composed live.
-- **AC-23-007.2** independent fallback: factory-store miss → factory-wide live only, per-project untouched;
+- v1 test of AC-23-007.2, independent fallback: factory-store miss → factory-wide live only, per-project untouched;
   portada miss → per-project live only, factory-wide untouched; both non-ok → both live, no fabricated zero.
-- **AC-23-007.3** (regression, fails without the split): two projects A/B, B's phase change mismatches the
+- v1 test of AC-23-007.3 (regression, fails without the split): two projects A/B, B's phase change mismatches the
   factory seal → A re-derives factory-wide live, A's own per-project facts stay from its fresh portada.
 
 Re-verified green (no behavior/visual change) alongside: `aggregateChain.reviewer.test.ts` (blessed,

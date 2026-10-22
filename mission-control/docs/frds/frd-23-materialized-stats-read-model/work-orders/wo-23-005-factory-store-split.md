@@ -8,10 +8,25 @@ parent: FRD-23
 implementation_status: VERIFIED
 reopen_count: 0
 source_requirements: [REQ-23-006]
-artifacts: [src/lib/achievements/read-model/**, src/lib/achievements/read-model/_tests/**]
+artifacts:
+  - 'src/lib/achievements/read-model/factorySeal.ts'
+  - 'src/lib/achievements/read-model/factoryStoreReader.ts'
+  - 'src/lib/achievements/read-model/factoryStoreWriter.ts'
+  - 'src/lib/achievements/read-model/statsSchema.ts'
+  - 'src/lib/achievements/read-model/statsWriter.ts'
+  - 'src/lib/achievements/read-model/informeResolver.ts'
+  - 'src/lib/achievements/read-model/_tests/factorySeal.test.ts'
+  - 'src/lib/achievements/read-model/_tests/factoryStoreReader.test.ts'
+  - 'src/lib/achievements/read-model/_tests/factoryStoreWriter.test.ts'
+  - 'src/lib/achievements/read-model/_tests/factorySchema.test.ts'
+  - 'src/lib/achievements/read-model/_tests/gitFixture.ts'
+  - 'src/lib/achievements/read-model/_tests/fixtures.ts'
+  - 'src/lib/achievements/read-model/_tests/statsSchema.test.ts'
+  - 'src/lib/achievements/read-model/_tests/statsWriter.test.ts'
+  - 'src/lib/achievements/read-model/_tests/informeResolver.test.ts'
 difficulty: high
 dependsOn: [WO-23-001, WO-23-002]
-last_updated: '2026-07-06'
+last_updated: '2026-10-22'
 ---
 # WO-23-005 — Factory-scoped store + seal, prune per-project portada
 
@@ -44,11 +59,19 @@ its **own factory-wide seal**, and prune the per-project portada to per-project 
 - Extend the `StatsFactory` schema + `z.infer`/type-guard parser reusing `report/types.ts` verbatim (DR-092).
 
 ## Acceptance criteria (EARS)
-- **AC-23-006.1** — factory-wide facts stored ONCE in `stats-factory.json`, single writer, re-derived (no `+1/-1`).
-- **AC-23-006.2** — factory seal covers `portfolio.md` + `decisions/` + `memory/` + every project's
-  `status.yaml`; a phase change in ANY project mismatches the seal → store treated stale.
-- **AC-23-006.3** — atomic write; `readStatsFactory` fail-loud (missing/stale/unparseable), never silent empty.
-- **AC-23-006.4** — per-project portada no longer contains factory-wide facts; its seal validates 100% of it.
+- **AC-23-006.1** — Factory-wide facts (`phaseTransitions`, `scalars.projects`, `scalars.decisions`,
+  `lessons`) SHALL be stored in **one** factory-scoped store `<factory-root>/.pandacorp/stats-factory.json`,
+  written by a **single writer** that re-derives them from git (via the existing pure `derive*` cores,
+  DR-092) — never with incremental writes, and NOT duplicated once per project.
+- **AC-23-006.2** — The factory store SHALL stamp a **factory-wide seal** = the hash of the last commit
+  touching `factory/portfolio.md`, `factory/decisions/`, `factory/memory/` and every project's
+  `.pandacorp/status.yaml`. A change to any of these routes (e.g. a phase change in project B) SHALL make
+  the seal mismatch and the store be treated as stale.
+- **AC-23-006.3** — The write SHALL be **atomic** (tmp + rename); the reader SHALL be **fail-loud**
+  (DR-078): a missing / stale / malformed factory store returns an explicit reason, never a silent empty.
+- **AC-23-006.4** — The per-project portada SHALL NO LONGER contain factory-wide facts; it holds only
+  `woFlow` (WO-verified per week) and per-project `scalars` (`frds`), all validated by the per-project seal
+  (amended 2026-09-30: `weeklyFlow`'s ideas half, `scalars.commits` and `funnel` left it, AC-23-001.5).
 
 ## TDD plan
 RED: fixtures — a real-shape `stats-factory.json`, a malformed one, a stale one (seal mismatch), a missing

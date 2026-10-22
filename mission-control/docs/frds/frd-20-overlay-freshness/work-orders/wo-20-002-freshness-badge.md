@@ -3,7 +3,8 @@ id: WO-20-002
 type: work-order
 slug: freshness-badge
 title: 'WO-20-002 — `VersionFreshness` badge (Banner consumer) + wire into Resumen'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-04-011]
 parent: FRD-20
 implementation_status: VERIFIED
 source_requirements: [REQ-20-001, REQ-20-002]

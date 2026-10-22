@@ -5,24 +5,37 @@ slug: phase-from-status
 title: WO-02-011 — `phaseFromStatus` derivation
 status: ACTIVE
 parent: FRD-02
+foundation: false
 implementation_status: VERIFIED
+artifacts:
+  - 'src/lib/campaign/campaign.ts'
+  - 'src/lib/campaign/_tests/campaign.test.ts'
 source_requirements: [REQ-02-010]
 dependsOn: [WO-01-003, WO-01-005]
-last_updated: '2026-06-18'
+last_updated: '2026-10-22'
 ---
 # WO-02-011 — `phaseFromStatus` derivation
+
+> **Kept live in v2 «Órbita» (wo-map §0.5, 2026-10-22).** VERIFIED library, unchanged in v2 and read only by La
+> Campaña (WO-02-020) and the idea page (WO-02-016). It remains the owner of AC-02-010.2 (re-copied verbatim below).
+
+## Summary
+
+The pure campaign-phase derivation (`phaseFromStatus`): the same two axes as the board column, collapsed to the
+active phase index 0-5, falling back to research when the status is absent or unrecognized.
 
 **Module:** `lib/campaign.ts`
 **IDs touched:** `CMP-02-phase-from-status`, `IF-02-phaseFromStatus`; REQ-02-010
 **Dependencies:** WO-01-003 (`readIdeas` / `IdeaStatus` types), WO-01-005 (`readStatus` / `Phase`
 types) — FRD-01
 
-## EARS criteria (from FRD-02)
+## Requirements & Acceptance Criteria
 
-- AC-02-010.2 — THE system SHALL **derive the ACTIVE phase from the project's real status** with the
-  mapping `discovered→research`, `documented→product`, `design→design`, `architecture→architecture`,
-  `building→build`, `shipped→release`; IF the status is absent or unrecognized THEN the active phase
-  SHALL default to **research** (index 0) without breaking.
+- **AC-02-010.2** — THE system SHALL **derive the ACTIVE phase from the project's real status** (the card
+  `status` / linked project `status.yaml` phase) with the mapping `discovered→research`,
+  `documented→product`, `design→design`, `architecture→architecture`, `building→build`,
+  `shipped→release`; IF the status is absent or unrecognized THEN the active phase SHALL default to
+  **research** (index 0) without breaking.
 
 ## Contract
 
@@ -33,7 +46,7 @@ export function phaseFromStatus(input: { cardStatus?: IdeaStatus; phase?: Phase 
 ```
 
 Pure function (no fs). Reads the **same two axes** as `deriveColumn` (WO-02-001) but collapses to the
-6-phase index. Mapping table is blueprint §4b:
+6-phase index:
 
 | Card `status` | Project `phase` | → |
 |---|---|---|
@@ -56,7 +69,7 @@ Pure function (no fs). Reads the **same two axes** as `deriveColumn` (WO-02-001)
 ## Status Note
 
 **Built:** `phaseFromStatus(input: { cardStatus?: IdeaStatus; phase?: Phase }): CampaignPhase` — pure
-function with zero side effects. Implements the two-axis mapping from blueprint §4b / AC-02-010.2.
+function with zero side effects. Implements the two-axis mapping of AC-02-010.2.
 
 **Interfaces/contracts exposed:**
 
@@ -70,13 +83,12 @@ export function phaseFromStatus(input: PhaseFromStatusInput): CampaignPhase;
 Both types are imported from FRD-01 layer (`IdeaStatus` from `@/lib/ideas/ideas`,
 `Phase` from `@/lib/status/status`). No new types are introduced.
 
-**Integration seams:** `CMP-02-campaign-pipeline` (`CampaignPipeline.tsx`, next WO) calls
-`phaseFromStatus({ cardStatus: card.status, phase: projectStatus?.phase })` to determine the
-active phase index for rendering done/current/locked rooms.
+**Integration seams:** `CMP-02-campaign-pipeline` (`CampaignPipeline.tsx`) receives the active phase index
+computed with `phaseFromStatus({ cardStatus: card.status, phase: projectStatus?.phase })` to render
+done/current/locked rooms.
 
-**Test files:** `src/lib/campaign/_tests/campaign.test.ts` — 28 tests covering all 8 mapping rows
-(one per table row from blueprint §4b), plus in-range invariant for all 11 valid input combinations,
-plus purity/no-throw guarantees.
+**Test files:** `src/lib/campaign/_tests/campaign.test.ts` — 28 tests covering all 8 mapping rows,
+plus in-range invariant for all 11 valid input combinations, plus purity/no-throw guarantees.
 
 **Gate:** 28/28 tests GREEN. biome clean (campaign scope). tsc clean. Pre-existing biome error
 (`listWorkOrders` complexity in `work-orders.ts`) and pre-existing test failure

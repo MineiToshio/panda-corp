@@ -3,7 +3,8 @@ id: WO-04-009
 type: work-order
 slug: e2e-workspace-tabs-stale
 title: 'WO-04-009 — Stale workspace e2e specs: ten tabs (Cuentas) and FRD-25 portfolio URLs'
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-04-010]
 parent: FRD-04
 implementation_status: IN_REVIEW
 difficulty: low

@@ -3,7 +3,8 @@ id: WO-12-004
 type: work-order
 slug: timeline-selector
 title: 'WO-12-004 — Timeline selector (WO → task → action, durations)'
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-13-013]
 parent: FRD-12
 implementation_status: VERIFIED
 source_requirements: []

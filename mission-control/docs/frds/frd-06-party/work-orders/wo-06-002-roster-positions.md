@@ -3,7 +3,8 @@ id: WO-06-002
 type: work-order
 slug: roster-positions
 title: WO-06-002 — La Fragua layout (rooms + forge/tribunal/vault slots)
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-06-013]
 parent: FRD-06
 implementation_status: VERIFIED
 source_requirements: []

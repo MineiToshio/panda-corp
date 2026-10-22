@@ -3,7 +3,8 @@ id: WO-02-007
 type: work-order
 slug: card-detail
 title: 'WO-02-007 — La Campaña card detail (tabbed + 6-phase pipeline)'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-02-016, WO-02-017, WO-02-020]
 parent: FRD-02
 implementation_status: VERIFIED
 artifacts:

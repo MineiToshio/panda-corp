@@ -1,46 +1,65 @@
-# Work orders — FRD-17 Proposals inbox
+# Work orders — FRD-17 Proposals inbox (Propuestas)
 
-> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
-> Design: [`blueprint.md`](../blueprint.md). Platform: [`docs/product/architecture.md`](../../../product/architecture.md).
+> The authoritative order and parallelism is the **Build Plan** in [`../blueprint.md`](../blueprint.md) (the
+> build engine reads that, not this file). This is the readable summary. Source-of-truth hierarchy:
+> `FRD > FDD > design-tokens > blueprint > work order`. Platform: [`docs/product/architecture.md`](../../../product/architecture.md).
 
-TDD per WO (RED → GREEN → refactor). Gate: `.pandacorp/verify.sh` (biome → tsc → vitest).
+## Work orders
 
-## List & order
-
-The `lib/memory` + `lib/self-suggest` readers (WO-17-001/002/003) are **VERIFIED**. Phase 2 collapsed
-the four UI WOs (page + streams/card, memory-health panel, promotions queue, badge/chip/dismiss) into
-**one coarse UI work order** (WO-17-004) re-anchoring the Proposals surface to the prototype's canonical
-`propuestasView()` — see the [blueprint Build Plan (Phase 2)](../blueprint.md#build-plan-phase-2).
-
-| WO | Title | Layer | Status | Depends on |
+| WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
-| WO-17-001 | `lib/memory` lesson reader (parse + status/promotion/evalGate) | `lib/` | VERIFIED | — |
-| WO-17-002 | `lib/memory` views: candidates / promotionQueue / prunable / memoryHealth | `lib/` | VERIFIED | WO-17-001 |
-| WO-17-003 | `lib/self-suggest` derivations (6 kinds) | `lib/` | VERIFIED | WO-17-001 |
-| WO-17-005 | Loop v2 fields & signals: trigger/applied_in in the reader; lastSweepAt + harvestOrphans in memory-health; detail rows + threshold 20 | `lib/`, `components/`, `app/` | VERIFIED (gate green 2026-07-02, direct implementation DR-097 — drains change mc-frd17-propuestas-memory-health-loop-v2) | WO-17-001, WO-17-002, WO-17-004 |
-| WO-17-004 | Proposals surface: stream/card + promotions queue + memory health + badge/chip | `app/`, `components/` | VERIFIED (gate PASS 2026-06-21, reopen_count reset 0: the DR-057/062 reuse defect is resolved & mutation-locked — MemoryHealth reuses shared Banner+SectionHead, PromotionsQueue reuses SectionHead+Panel+Chip, ProposalsBadge reuses CountBadge; /proposals blessed) | WO-17-002, WO-17-003, WO-13-006, WO-13-007 |
-| WO-17-006 | MemoryHealth: remove the obsolete "SOLO DEMO" demo frame (drains change mc-memory-health-remove-solo-demo-frame — the trigger is real, so the wrapper misled) | `components/` | VERIFIED (gate PASS 2026-07-05: bDemo frame + 4 B_DEMO_* styles removed, both surfaces render the shared Banner directly reuse-proof DR-057; 43 MemoryHealth tests green incl. reviewer adversarial structural/reuse suite; /proposals smoke+shell 42/42) | WO-17-005 |
-| WO-17-007 | Collapse long proposal streams with a "ver más" toggle: first 6 cards + in-place expand in the shared `DismissableProposalStream` (drains change mc-proposal-stream-show-more, DR-069) | `app/` | PLANNED | WO-17-004 |
+| WO-17-001 | memory-reader | VERIFIED | — | `lib/memory` lesson reader (parse, status, promotion, eval gate). Kept live as history. |
+| WO-17-003 | self-suggest | VERIFIED | WO-17-001 | `lib/self-suggest`: the six local, no-Claude derivations. Kept live as history. |
+| WO-17-005 | loop-v2-fields | VERIFIED | WO-17-001 | Loop v2 reader fields (`trigger`, `appliedIn`) and health facts (`lastSweepAt`, `harvestOrphans`). Kept live as history; its v1 UI is replaced in v2. |
+| WO-17-008 | propuestas-orbita | PLANNED | WO-13-012, WO-25-001, WO-22-002, WO-17-001, WO-17-003, WO-17-005 | The v2 Propuestas surface: tabs, Resumen to-do, Memoria lesson flow, lesson dialog, the `ownerActions()` resolver (also the sidebar count) and the removal of the v1 streams, memory-health panel and dismissal. |
 
-## Parallelization
+> **Depends on** mirrors each work order's `dependsOn` frontmatter (DR-087). The `Status` column is the
+> `implementation_status` the engine owns.
 
-- The three `lib/` readers are VERIFIED. WO-17-004 is the single coarse UI WO; it consumes both data
-  layers (WO-17-002 + WO-17-003) and the FRD-13 foundation. No intra-FRD UI peer to parallelize.
+## Build order
 
-## Cross-feature dependencies
+1. **W0 · WO-17-001**, then **W1 · WO-17-003 and WO-17-005** (in parallel, disjoint files): VERIFIED readers,
+   not rebuilt.
+2. **W4 · WO-17-008** - after WO-22-002 (FRD-22, W3: the Backlog tab it mounts), WO-13-012 (composite
+   primitives) and WO-25-001 (URL codec keys). It builds `ownerActions()` first, then Resumen and Memoria,
+   then the dialog and the segment validation, and deletes the v1 streams, panel and dismissal in the same
+   work order.
+3. Cross-FRD: **WO-19-003** (FRD-19, W6) mounts the sidebar Propuestas count from `ownerActions().badgeCount`;
+   **WO-22-002** (FRD-22) provides `BacklogPanel`; **WO-13-013** (FRD-13, W7) deletes any v1 name left
+   unreferenced.
 
-- **FRD-01** `lib/config`, `lib/status`, `lib/portfolio` — shipped.
-- **FRD-02** `lib/board`, `CopyButton` — board derivation + copy button.
-- **FRD-06/12** `lib/events` — the capped event tail (velocity, unused-capability, last-run proxy).
-- **FRD-07/08** `lib/registry`, `lib/reference` — policy-friction + unused-capability capability list.
-- **FRD-14** the pending-decisions/bugs chips that this feature extends with the proposals stream.
-- **FRD-09** the honest/White-Hat framing for dismissibility.
-- **FRD-18** surfaces the proposals/memory-health stream on the dashboard (composes this feature's badge + nudge).
+## AC coverage
 
-> If a cross-feature reader (`lib/board`, `lib/events`, `lib/registry`, `lib/reference`) is not yet
-> shipped when WO-17-003 starts, stub the corresponding derivation behind its reader and light it up
-> when the reader lands — each of the 6 derivations is independently testable.
+The eleven acceptance criteria of `frd.md`, plus the four of FRD-22 that define the tab shell this work order
+builds.
+
+| AC | Work order | Requirement |
+|---|---|---|
+| AC-17-001.1 | WO-17-008 | REQ-17-001 |
+| AC-17-001.2 | WO-17-008 | REQ-17-001 |
+| AC-17-001.3 | WO-17-008 | REQ-17-001 |
+| AC-17-010.1 | WO-17-008 | REQ-17-010 |
+| AC-17-010.2 | WO-17-008 | REQ-17-010 |
+| AC-17-010.3 | WO-17-008 | REQ-17-010 |
+| AC-17-010.4 | WO-17-008 | REQ-17-010 |
+| AC-17-011.1 | WO-17-008 | REQ-17-011 |
+| AC-17-011.2 | WO-17-008 | REQ-17-011 |
+| AC-17-011.3 | WO-17-008 | REQ-17-011 |
+| AC-17-011.4 | WO-17-008 | REQ-17-011 |
+| AC-22-002.1 | WO-17-008 | REQ-22-002 (FRD-22) |
+| AC-22-002.2 | WO-17-008 | REQ-22-002 (FRD-22) |
+| AC-22-002.3 | WO-17-008 | REQ-22-002 (FRD-22) |
+| AC-22-002.4 | WO-17-008 | REQ-22-002 (FRD-22) |
+
+## Superseded (v1 history)
+
+- WO-17-002 `memory-views` - superseded by WO-17-008 (the derived views are edited under WO-17-008's `src/lib/memory`).
+- WO-17-004 `proposals-surface` - superseded by WO-17-008 (four dismissable streams, memory-health panel, badge and chip).
+- WO-17-006 `remove-solo-demo-frame` - superseded by WO-17-008 (its target, the `MemoryHealth` panel, is removed).
+- WO-17-007 `stream-show-more` - superseded by WO-17-008 (the "ver más" toggle is replaced by the shared `MoreBar`).
 
 ## Navigation scope alignment (2026-10-17)
 
-Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.
+Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in the historical
+work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). Existing WO status and
+verification fields remain historical executor-owned state.

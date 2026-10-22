@@ -8,10 +8,12 @@ parent: FRD-23
 implementation_status: VERIFIED
 reopen_count: 0
 source_requirements: [REQ-23-002]
-artifacts: [src/lib/achievements/read-model/statsWriter.ts, src/lib/achievements/read-model/_tests/**]
+artifacts:
+  - 'src/lib/achievements/read-model/statsWriter.ts'
+  - 'src/lib/achievements/read-model/_tests/statsWriter.test.ts'
 difficulty: high
 dependsOn: [WO-23-001]
-last_updated: '2026-07-06'
+last_updated: '2026-10-22'
 ---
 # WO-23-002 — Portada writer
 
@@ -29,9 +31,13 @@ writes it **atomically**. Lives in factory tooling (invoked by hooks/backfill), 
   (tmp file + `fs.rename`).
 
 ## Acceptance criteria (EARS)
-- **AC-23-002.1** — numbers re-derived from git + seal stamped; **never** incremental `+1/-1` writes.
-- **AC-23-002.2** — atomic write (tmp + rename); a mid-write crash never leaves corrupt `stats.json`.
-- **AC-23-002.3** — **equivalence**: materialized numbers == live-git numbers for the same project.
+- **AC-23-002.1** — The writer SHALL re-derive the portada's numbers **from git** (the same values the
+  live reader produces) and stamp the **seal** = `git log -1 --format=%H -- docs/frds .pandacorp/status.yaml`.
+  It SHALL NEVER maintain the numbers with incremental `+1/-1` writes.
+- **AC-23-002.2** — The write SHALL be **atomic** (write to a temp file, then rename) so a crash
+  mid-write never leaves a corrupt `stats.json`.
+- **AC-23-002.3** — The materialized numbers SHALL **equal** the numbers the live git reader derives for
+  the same project (portada-vs-live equivalence), verified by an equivalence test.
 
 ## TDD plan
 RED: equivalence test (write portada for a fixture repo, read it back, assert == the live `derive*`

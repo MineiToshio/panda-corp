@@ -3,7 +3,8 @@ id: WO-15-004
 type: work-order
 slug: sync-banner
 title: 'WO-15-004 — `PluginSyncBanner` onto the shared `Banner` (kind="drift")'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-18-002]
 parent: FRD-15
 implementation_status: VERIFIED
 artifacts:

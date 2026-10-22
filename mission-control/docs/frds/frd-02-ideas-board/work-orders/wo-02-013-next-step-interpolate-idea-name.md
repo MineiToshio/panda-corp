@@ -5,14 +5,28 @@ slug: next-step-interpolate-idea-name
 title: WO-02-013 — "Siguiente paso" interpolates the real idea name (no literal `<idea>`)
 status: DRAFT
 parent: FRD-02
+foundation: false
 implementation_status: VERIFIED
+artifacts:
+  - 'src/components/modules/CampaignPipeline/CampaignPipeline.tsx'
+  - 'src/components/modules/CampaignPipeline/_tests/CampaignPipeline.test.tsx'
 source_requirements: [REQ-02-004, REQ-02-010]
-dependsOn: [WO-02-003, WO-02-007, WO-02-011]
+dependsOn: [WO-02-003, WO-02-011]
 reopen_count: 0
-last_updated: '2026-07-02'
+last_updated: '2026-10-22'
 change_ref: mc-nextstep-real-idea-name.md
 ---
 # WO-02-013 — "Siguiente paso" interpolates the real idea name
+
+> **Kept live in v2 «Órbita» (wo-map §0.5, 2026-10-22).** VERIFIED bug fix; its behaviour (slug interpolation of every
+> `<idea>` token) is carried into v2 by AC-02-010.9, owned by WO-02-020, which rebuilds the module. It owns no live
+> acceptance criterion; it traces REQ-02-004 and REQ-02-010. `dependsOn` pruned of WO-02-007 (SUPERSEDED, see the
+> delivery record). Its WO-local regression criteria are kept below as non-owning history.
+
+## Summary
+
+The "Siguiente paso" panel of La Campaña replaces the literal `<idea>` token with the card's real slug in every
+next-step command, so every command copy-pastes directly.
 
 **Module:** `components/modules/CampaignPipeline/CampaignPipeline.tsx` (the `ficha-next-step`
 "Qué puedes correr" panel), fed by `components/modules/CampaignPipeline/phases.ts`.
@@ -27,13 +41,15 @@ every card, so the owner could not copy/paste a runnable command. Expected: the 
 the **real identifier of the card in context** (the slug), e.g. `/pandacorp:spec panda-script`. It
 applies to **every** command the panel renders that carries the token, not only `spec`.
 
-## Acceptance criteria (regression)
+## v1 delivery record
 
-- AC-02-013.1 — WHEN the "Siguiente paso" panel (`ficha-next-step`) renders for a card, EVERY command
-  that contains the `<idea>` token SHALL be shown with the token replaced by the card's real slug, and
-  the literal string `<idea>` SHALL NOT appear anywhere in the panel.
-- AC-02-013.2 — This holds across phases (research → release), for the advance command and for every
-  other option in the phase (`spec`, `explore`, …), not only the first one.
+- v1 dependency on WO-02-007 (La Campaña card detail) pruned 2026-10-22: WO-02-007 is SUPERSEDED by WO-02-016,
+  WO-02-017 and WO-02-020.
+- v1 regression criterion 1 (WO-local, not the FRD's AC-02-013.x): WHEN the "Siguiente paso" panel
+  (`ficha-next-step`) renders for a card, EVERY command that contains the `<idea>` token SHALL be shown with the token
+  replaced by the card's real slug, and the literal string `<idea>` SHALL NOT appear anywhere in the panel.
+- v1 regression criterion 2 (WO-local): this holds across phases (research → release), for the advance command and
+  for every other option in the phase (`spec`, `explore`, …), not only the first one.
 
 ## Contract
 

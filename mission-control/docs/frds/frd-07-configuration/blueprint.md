@@ -2,141 +2,145 @@
 id: FRD-07-blueprint
 type: blueprint
 parent: FRD-07
-status: ACTIVE
-implementation_status: VERIFIED
-last_updated: '2026-06-18'
+status: DRAFT
+implementation_status: PLANNED
+readiness_gate:
+grounding_gate:
+consistency_gate:
+last_updated: '2026-10-22'
 ---
-# FRD-07 — Configuration · feature blueprint
+# FRD-07 — Configuración · feature blueprint (v2 «Órbita»)
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
-> This is the **per-FRD blueprint** (DR-049): how the Configuration feature is implemented on
-> top of the platform. It references **[platform architecture](../../product/architecture.md)**
-> (the stack, the `lib/**` data layer §6, the read-only invariant §1/§7, the data model §4,
-> the app surfaces §11) rather than restating it. Read that first.
+> This is the **per-FRD blueprint** (DR-049): how the Configuración surface is implemented on top of
+> the platform in [`docs/product/architecture.md`](../../product/architecture.md) (stack §2, read-only
+> invariant §1/§7, `src/lib/**` data layer §6, route map, copy accessor [ADR-0013](../../adr/ADR-0013-typed-copy-accessor.md),
+> the Órbita contract [ADR-0012](../../adr/ADR-0012-adopt-orbita-design-system.md)). It does not restate the platform.
+> It is a v2 revision of the v1 blueprint: the readers and the factory-source mapping are kept; the UI design is the
+> frozen Órbita one (`fdd.md` + `mocks/configuration.html` + the twelve oracle states).
 
 ## 1. Feature summary
 
-A **read-only** view of what is configured in the factory, in four sections — **Skills · Agents ·
-Decision rules · Standards** — each a browsable list → item detail. The agents carry an honest
-**level/title/XP** progression (FRD-09 vocabulary; XP from real work orders, [FRD-09 blueprint](../frd-09-gamification/blueprint.md)).
-All content is **derived at read time** from the canonical factory sources (`plugin/skills/`,
-`plugin/agents/`, `factory/decisions/registry.yaml`, `factory/standards/`) — never hand-copied
-(DR-046). To change configuration the owner edits the files / Claude Code; Mission Control only
-reflects it. This is consistent with the platform read-only golden rule (architecture §1).
+A **read-only** view of what is configured in the factory, at `/configuration`: a **Resumen** hub (one search
+across the four catalogs, four count tiles, «Tus comandos») and four catalogs, **Habilidades · Agentes · Reglas de
+decisión · Estándares**, each a searchable, filterable list with a detail (skills, agents and standards open a
+dialog; a decision rule opens as an inline accordion). Everything is **derived at read time** from the canonical
+factory sources (`plugin/skills/`, `plugin/agents/`, `factory/decisions/registry.yaml`, `factory/standards/`),
+never hand-copied (DR-046), and a source that cannot be read shows an explicit error notice, never an empty
+catalog (DR-078). To change configuration the owner edits the files or uses Claude Code; Mission Control only
+reflects it, and a copy button only writes a command string to the clipboard.
 
-This blueprint covers the **Configuration page**. The DERIVATION mechanics (parsing the plugin and
-factory sources into typed catalogs) are shared with FRD-08 (the Manual's Reference) and live in
-the `lib/reference.ts`, `lib/registry.ts`, `lib/standards.ts` modules (architecture §6). FRD-07 is
-the first consumer; FRD-08 reuses the same modules.
+v2 removes what the design dropped (owner decision 2026-10-21 and the removal rule of the work-order map, §0.6): the
+skill mini-flow and the workflow explainer, the decision-rule explainer, the «New decision rule» and «New standard»
+buttons, and agent level, title and XP with the pixel-art avatar for every agent. Documentación's Referencia now
+points here (FRD-08) instead of embedding these components.
 
-## 2. Source mapping (architecture §6 + §4.6)
+## 2. Source mapping (architecture §6)
 
-| Source file | Module | What FRD-07 reads | Shape note |
+| Source | Module | What FRD-07 reads | Shape note |
 |---|---|---|---|
-| `plugin/skills/<slug>/SKILL.md` | `lib/reference.ts` | slug (dir name), `description` (frontmatter), body markdown | slug is the **directory name**, NEVER a `name:` field (CLAUDE.md skill-naming rule). Invoked as `/pandacorp:<slug>`. |
-| `plugin/agents/<id>.md` | `lib/reference.ts` | `name`, `description`, `model`, body markdown | `model` ∈ `{opus, sonnet, …}`. |
-| `factory/decisions/registry.yaml` | `lib/registry.ts` | `decisiones[]`: `id`, `patron`, `default`, `requiere_humano`, optional `nota` | `requiere_humano` drives the auto-approves (●) / asks-you (●) indicator. |
-| `factory/standards/*.md` | `lib/standards.ts` | filename (→ id/slug), title (H1), body markdown | **GAP:** these files have **no** `domain/severity/enforcement` frontmatter today (verified: only `external-services.md` has any frontmatter, not these fields). See §6 "Derivation gap". |
+| `plugin/skills/<slug>/SKILL.md` | `src/lib/reference/reference.ts` | slug (directory name), `description`, body | slug is the **directory name**, never a `name:` field; invoked as `/pandacorp:<slug>`. `runsIn`, `internal`, `produces` and the used `agents` are **derived** (heuristics on description and body), never invented; an undeclared scope is group «Otras». |
+| `plugin/agents/<id>.md` | `src/lib/reference/reference.ts` | `name`, `description`, `model`, `effort`, `tools`, body | A missing `model` is the «Modelo heredado» tier. `effort` is normalised to `high / medium / low`; any other value or none shows no effort chip (nothing is guessed). |
+| `factory/decisions/registry.yaml` | `src/lib/registry/registry.ts` | `decisiones[]`: `id`, `patron`, `default`, `requiere_humano`, optional `nota` | `requiere_humano` drives the Auto / Tu OK chip and the approval filter. |
+| `factory/standards/*.md` | `src/lib/standards/standards.ts` | filename, H1, body, `domain`, `severity` (MUST / SHOULD / MAY), `enforcement`, `summary` | Frontmatter first; the filename-keyed derivation map is the fallback so no standard lacks metadata (the v1 owner flag about adding frontmatter to the factory standards is unchanged and still open). |
 
-## 3. Components & interfaces
+The factory root is `resolveFactoryRoot()` (FRD-01), overridable by `PANDACORP_FACTORY_ROOT`. Tests use hermetic temp trees and never the default root (LESSON-0450).
 
-### Interfaces (read layer — `lib/**`, architecture §6)
-- **`IF-07-reference`** — `lib/reference.ts`. Pure readers, fixture-tested:
-  - `readSkills(): SkillRef[]` → `{ slug, description, runsIn: "factory"|"project"|"unknown", body }`. `slug` = dir name; `runsIn` is **inferred** from the description/body (heuristic, see §6), never invented.
-  - `readAgents(): AgentRef[]` → `{ id, name, description, model, body }`.
-  - Defensive: a malformed/frontmatter-less file is skipped with a typed warning, never crashes the catalog (architecture §7).
-- **`IF-07-registry`** — `lib/registry.ts`. `readDecisionRules(): DecisionRule[]` → `{ id, patron, default, requiereHumano: boolean, nota? }`. Tolerates extra YAML keys.
-- **`IF-07-standards`** — `lib/standards.ts`. `readStandards(): Standard[]` → `{ id, title, body, domain, severity, enforcement, summary: string[] }`. `domain/severity/enforcement/summary` come from frontmatter when present, else from the **derivation map** (§6); `summary` defaults to the first bullet list or lead paragraph of the body.
+## 3. Components and interfaces
 
-### Components (`app/configuration/` + `components/`)
-- **`CMP-07-config-page`** — `app/configuration/page.tsx` (Server Component). Section tabs (Skills · Agents · Decision rules · Standards); composes the four section views. App surface per architecture §11 (`app/configuration`). → `REQ-07` AC "sections".
-- **`CMP-07-skill-list`** — Skills section. Two groups (En la fábrica / En el proyecto, derived from `runsIn`), each a card grid with name + real description. → AC "list items with name + real description".
-- **`CMP-07-skill-detail`** — Skill detail (Server Component for content + a small `"use client"` `CopyButton` reused from FRD-02). Shows what it is for, where it runs, what it produces, and a **mini-flow** of agent chips (colored per agent) with arrows — the "graph of how the skill works". → AC "skill detail + mini-flow".
-- **`CMP-07-flow-diagram`** — renders the skill's agent mini-flow (chips colored per agent, arrows). The flow data is part of the skill's derived `body`/structured steps; where the SKILL.md does not declare an explicit machine-readable flow, the diagram degrades to the ordered agent list (no invented steps). Colors come from the per-agent token (FRD-13), never hardcoded.
-- **`CMP-07-agent-list`** — Agents section: per agent a **pixel-art avatar** (FF style), its **level** and **title** (Apprentice → Engineer → Senior → Architect). Level/title from `IF-09-agent-xp` (FRD-09). → AC "agents avatar + level + title".
-- **`CMP-07-agent-detail`** — Agent detail: **XP bar to next level** + the explanation "levels up by completing work orders". XP from `IF-09-agent-xp`. → AC "agent detail + XP bar + explanation".
-- **`CMP-07-rules-list`** — Decision rules section: an explainer of what a decision rule IS; ALL DRs with an **auto-approves (●) / asks-you (●)** indicator; a **"New decision rule"** button that copies `/pandacorp:learn` (reuses `CopyButton`). → AC "decision rules".
-- **`CMP-07-rule-detail`** — DR detail: the pre-approved default (`default`), how it is applied (escalates vs auto), file location. → AC "rule detail".
-- **`CMP-07-standards-list`** — Standards section **categorized by domain** (Programming, Architecture, Design, Technology, Quality, Security, Operation, Data/Privacy, Product/Docs), each standard with **severity** (MUST/SHOULD/MAY) and **enforcement** (lint/CI/checklist/human gate) badges; a **"New standard"** button copying `/pandacorp:learn`. → AC "standards categorized + badges".
-- **`CMP-07-standard-detail`** — two views: **Summary** (real key points) + **Detail** (rendered markdown via `react-markdown`). → AC "two views Summary/Detail".
+### Interfaces (`src/lib/**`)
 
-### Reused (do not re-create)
-- `CopyButton` (FRD-02) for the `/pandacorp:learn` buttons.
-- Avatar/level/title from FRD-09 (`IF-09-agent-xp`, the pixel-art avatar component).
-- FRD-13 tokens for all colors (per-agent accent included) — zero hardcoded colors.
+- **`IF-07-reference`** (existing, extended additively; REQ-07-002, REQ-07-004 to REQ-07-008, REQ-07-011): `readSkills()` / `readAgents()` keep their signatures for their other consumers (`self-suggest`, history). New: result-typed variants `readSkillCatalog()` and `readAgentCatalog()` returning `{ ok: true, data } | { ok: false, source, reason }`, the array readers delegating to them (one derivation, two thin views, DR-115). `AgentRef` gains `tools: string[]` and `effort: "high" | "medium" | "low" | null`.
+- **`IF-07-registry`** (existing, extended; REQ-07-009): `readDecisionRules()` unchanged; new `readDecisionRuleCatalog()` result variant.
+- **`IF-07-standards`** (existing, extended; REQ-07-010): `readStandards()` unchanged; new `readStandardCatalog()` result variant.
+- **`IF-07-catalogs`** (new, `src/lib/reference/configurationCatalogs.ts`; REQ-07-001, REQ-07-013): `loadConfigurationCatalogs(): ConfigurationCatalogs`, wrapped in `React.cache` so a request reads each source once. It returns the four `CatalogResult`s plus the facts every surface needs derived once: hub counts (owner commands, internal engines, agents per tier, rules needing the owner's OK, mandatory and recommended standards), the owner-command list, the agent-to-skills inversion (cross-navigation both ways, REQ-07-008) and the domain facet counts. No component derives these again.
 
-## 4. Read-only & security posture
-No writes: every reader is `fs.read*` (architecture §7). The `/pandacorp:learn` buttons only **copy
-a command string to the clipboard**; they never execute it (architecture §1). No personal data is
-touched beyond what already lives in the factory repo.
+### Components (`src/app/configuration/`)
 
-## 5. Traceability (REQ → AC → CMP/IF)
+- **`CMP-07-config-page`** — `page.tsx` and the unchanged `[...segments]/page.tsx` codec adapter (Server Components): load `IF-07-catalogs`, pass DTOs. → REQ-07-001.
+- **`CMP-07-config-shell`** — `ConfigurationShell.tsx` (client boundary): `PageHead`, the `Tabs` navigation «Secciones de configuración», URL state (section, item, search term, filters) through the FRD-25 codec. → REQ-07-001, REQ-07-013.
+- **`CMP-07-config-hub`** — `_components/ConfigHub/`: search, count tiles, «Tus comandos» (`CopyText`), «Resultados». → REQ-07-004, AC-07-013.1.
+- **`CMP-07-skills-catalog`** — `_components/SkillsCatalog/`: search, type chips, three scope groups, rows with copy or «Motor interno». → REQ-07-002, REQ-07-004 to REQ-07-006, AC-07-013.2.
+- **`CMP-07-skill-dialog`** — `_components/SkillDialog/`: kicker, command title, where-it-runs and who-runs-it chips, description, «Agentes:» cross-navigation, command chip, «Definición completa». → REQ-07-003, REQ-07-006 to REQ-07-008, REQ-07-011 (full `SKILL.md` as markdown).
+- **`CMP-07-agents-catalog`** — `_components/AgentsCatalog/`: tier groups with one-line explanation, agent cards with `Avatar` and effort chip. → REQ-07-002, REQ-07-011, AC-07-013.3.
+- **`CMP-07-agent-dialog`** — `_components/AgentDialog/`: model and effort chips, «Herramientas:», «Lo usan:» cross-navigation, «Definición completa». → REQ-07-003, REQ-07-008, REQ-07-011.
+- **`CMP-07-rules-catalog`** — `_components/RulesCatalog/`: approval chips, rows with Auto / Tu OK chip, 30 per page with `MoreBar`, inline accordion. → REQ-07-002, REQ-07-003, REQ-07-009, AC-07-013.4.
+- **`CMP-07-standards-catalog`** — `_components/StandardsCatalog/`: mandatory first, severity facets, domain select, enforcement line. → REQ-07-002, REQ-07-010, AC-07-013.5.
+- **`CMP-07-standard-dialog`** — `_components/StandardDialog/`: kicker «Estándar · <dominio>», chips, markdown. → REQ-07-003, REQ-07-010.
+- **`CMP-07-read-error`** — `_components/ReadError/`: the shared `Notice` error variant naming the failing source. → edge case «source cannot be read» (DR-078).
 
-FRD-07 states its requirements as EARS bullets (no explicit `REQ-07-MMM` ids in the FRD). The
-work orders assign stable `AC-07-MMM.K` ids. Mapping of each FRD bullet to components:
+### Reused, not re-created (components.md)
 
-| FRD-07 EARS bullet | Component(s) / Interface(s) |
-|---|---|
-| Sections Skills · Agents · Decision rules · Standards | `CMP-07-config-page` |
-| Each section lists items with name + real description | `CMP-07-skill-list`, `CMP-07-agent-list`, `CMP-07-rules-list`, `CMP-07-standards-list` |
-| Click item → detail (content/explanation) | `CMP-07-*-detail` (all four) |
-| Skill detail: purpose, where it runs, produces, mini-flow of colored agent chips | `CMP-07-skill-detail`, `CMP-07-flow-diagram`, `IF-07-reference` |
-| Decision rules: explain what a DR is, all DRs with ●/● indicator, detail (default), "New decision rule" copies `/pandacorp:learn` | `CMP-07-rules-list`, `CMP-07-rule-detail`, `IF-07-registry` |
-| Standards categorized by domain, severity + enforcement badges, Summary/Detail, "New standard" copies `/pandacorp:learn` | `CMP-07-standards-list`, `CMP-07-standard-detail`, `IF-07-standards` |
-| Agents: pixel-art avatar, level, title | `CMP-07-agent-list`, `IF-09-agent-xp` |
-| Agent detail: XP bar to next level + "levels up by completing work orders" | `CMP-07-agent-detail`, `IF-09-agent-xp` |
-| Content read from plugin/factory; read-only | `IF-07-reference`, `IF-07-registry`, `IF-07-standards` |
+`PageHead`, `Tabs`, `SearchField` / `SelectField`, `Card` + `CardHeader`, `SectionHeading`, `CommandBox` / `CopyText`, `ListRow`, `Chip` family (`FilterChip`), `Avatar`, `MoreBar`, `Dialog`, `Markdown`, `Notice`. Nothing new is introduced by this FRD.
 
-## 6. Derivation gap (flagged for the owner)
+## 4. Contract: URL state (FRD-25, ADR-0010)
 
-The **Standards** AC requires a **domain**, **severity** (MUST/SHOULD/MAY) and **enforcement**
-(lint/CI/checklist/human gate) per standard, but `factory/standards/*.md` files **do not carry that
-metadata** today (verified). Two honest options — neither invents data:
+Path: `/configuration[/:section[/:item]]`, `section` ∈ `skills · agents · rules · standards`; `item` is the skill slug, agent id, rule id (the open accordion row) or standard id. Query keys carry the search term (`q`) and the filters (`type` for Habilidades, `approval` for Reglas, `severity` and `domain` for Estándares). The codec already owns the path families (`configSection`, `configItem`); the query keys above are requested from WO-25-001 (ledger). Typing replaces history; an unknown section or item is the bounded not-found; no URL write ever runs a mutation.
 
-- **(A, recommended) Add frontmatter to each standard** (`domain`, `severity`, `enforcement`,
-  optional `summary`) in `factory/standards/*.md`, then `lib/standards.ts` derives directly. This is
-  a factory-source change (outside MC's write scope) and the cleanest DR-046 fit. The prototype's
-  `CONFIG.estandares` array already models exactly these fields, so the schema is known.
-- **(B, fallback) A small static derivation map in `lib/standards.ts`** keyed by filename
-  (`quality.md → {domain: Quality, severity: MUST, enforcement: CI}`, …). This is a hand-maintained
-  map — it partially violates the DR-046 "no hand copy" spirit, so it is the fallback only until (A)
-  lands.
+## 5. Read-only and security posture
 
-The work orders implement `lib/standards.ts` against **(A)** with a graceful fallback to **(B)** so
-the section is never empty, and **flag the frontmatter addition to the owner** (it is a factory-repo
-change, not a Mission Control change). `runsIn` for skills is similarly **inferred** (heuristic on
-the description/body keywords "in the factory" / "in the project") — also a candidate for an
-explicit `runs_in:` frontmatter field on skills; flagged, not invented.
+Every reader is `fs.read*` (architecture §7); no write path exists in this feature. The copy buttons write only the command string to the clipboard and never run it or call Claude. Shown content (descriptions, rule text, standards markdown) keeps its source language and is rendered through `Markdown` or as text, never as raw HTML. No personal data beyond the factory repo is touched. No new environment variable, secret or external service.
 
-## Build Plan (Phase 2)
+## 6. Dependencies and risks
 
-The Phase 2 re-anchor collapses the former UI work orders into **one coarse UI WO** while the
-`lib/**` readers stay VERIFIED and are consumed as-is. Build foundation-first.
+- **FRD-08 coupling.** Until WO-08-003 lands, Documentación's reader imports this surface's v1 components (`AgentList`, `SkillsSection`, `StandardsSection`, `DecisionRulesSection`, `AgentDetail`). WO-07-006 rewrites them, so it depends on WO-08-003 (which removes that import) and builds in W4, one wave after the map's W3. See the ledger.
+- **Removals owned elsewhere.** The `FlowGraph` component and the skill-flows data (WO-13-013) and the agent XP engine `src/lib/gamification/agents.ts` (WO-13-013) are deleted in W7 once nothing here references them; WO-07-006 removes every reference.
+- **Open design items (DR-130).** The read-error wording and «what it produces» (REQ-07-007) are not drawn in the captured states; both are ledger items for DESIGN, neither blocks the other states.
+- **Perf.** Four small directory reads per request, cached per request; 48 rules and 27 skills need no virtualization.
+- Lessons that shaped this design: LESSON-0450 (hermetic readers: tests never use the default root), LESSON-0490 (the tool's own chrome is Spanish, shown content keeps its language), LESSON-0484 (one hue per catalog, red/amber/green only for status).
 
-**Coarse WO set**
-| WO | Status | Artifacts (disjoint) | Builds |
-|---|---|---|---|
-| WO-07-001 | VERIFIED | `lib/reference.ts` | `readSkills`/`readAgents` (consume) |
-| WO-07-003 | VERIFIED | `lib/registry.ts` | `readDecisionRules` (consume) |
-| WO-07-004 | VERIFIED | `lib/standards.ts` | `readStandards` (consume) |
-| **WO-07-005** | **PLANNED** | `src/app/configuration/**` | the whole Configuración UI surface |
+## 7. Traceability (REQ → CMP / IF → work order)
 
-**DAG & parallelism**
+| Requirement | Component(s) / interface(s) | Work order |
+|---|---|---|
+| REQ-07-001 Resumen hub and the four catalogs | `CMP-07-config-page`, `CMP-07-config-shell`, `CMP-07-config-hub`, `IF-07-catalogs` | WO-07-006 |
+| REQ-07-002 name and real description per item | the four catalog components, `IF-07-reference` / `IF-07-registry` / `IF-07-standards` | WO-07-006 (readers WO-07-001, WO-07-003, WO-07-004) |
+| REQ-07-003 detail: dialog or inline accordion | `CMP-07-skill-dialog`, `CMP-07-agent-dialog`, `CMP-07-standard-dialog`, `CMP-07-rules-catalog` | WO-07-006 |
+| REQ-07-004 copy-only command chip | `CMP-07-config-hub`, `CMP-07-skills-catalog`, `CMP-07-skill-dialog` | WO-07-006 |
+| REQ-07-005 skills grouped by run location | `CMP-07-skills-catalog`, `IF-07-reference` (`runsIn`) | WO-07-006 |
+| REQ-07-006 «Motor interno» / «Comando tuyo» | `CMP-07-skills-catalog`, `CMP-07-skill-dialog`, `IF-07-reference` (`internal`) | WO-07-006 |
+| REQ-07-007 skill detail and full definition (mini-flow out of v2) | `CMP-07-skill-dialog` | WO-07-006 |
+| REQ-07-008 skills ↔ agents cross-navigation | `CMP-07-skill-dialog`, `CMP-07-agent-dialog`, `IF-07-catalogs` (inversion) | WO-07-006 |
+| REQ-07-009 all rules with Auto / Tu OK, accordion (explainer and button out of v2) | `CMP-07-rules-catalog`, `IF-07-registry` | WO-07-006 |
+| REQ-07-010 standards: domain select, severity, enforcement, dialog (button out of v2) | `CMP-07-standards-catalog`, `CMP-07-standard-dialog`, `IF-07-standards` | WO-07-006 |
+| REQ-07-011 agents: avatar, model chip, effort chip (pixel art, level, title out of v2) | `CMP-07-agents-catalog`, `CMP-07-agent-dialog`, `IF-07-reference` | WO-07-006 |
+| REQ-07-012 (Out of v2: XP bar, model explanation) | none; removed. Model assignment is explained once per tier group (AC-07-013.3) | WO-07-006 (removal) |
+| REQ-07-013 hub, search, tiers, filters (AC-07-013.1 to AC-07-013.5) | `CMP-07-config-hub`, the four catalogs, `IF-07-catalogs` | WO-07-006 |
+
+Every live AC (AC-07-013.1 to AC-07-013.5) is owned by WO-07-006; the three legacy reader work orders are kept live as history and own no live AC.
+
+## Build Plan
+
+> The build engine reads this table; it does not infer dependencies. All artifact globs are literal (no brace expansion) and match each work order's frontmatter.
+
+| WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
+|---|---|---|---|---|
+| WO-07-001 | WO-01-001 | `src/lib/reference/reference.ts`, `src/lib/reference/_tests/reference.test.ts`, `src/tests/fixtures/plugin-reference/**` | false | W2 (with WO-07-003, WO-07-004) |
+| WO-07-003 | WO-01-001 | `src/lib/registry/registry.ts`, `src/lib/registry/_tests/registry.test.ts` | false | W2 (with WO-07-001, WO-07-004) |
+| WO-07-004 | WO-01-001 | `src/lib/standards/standards.ts`, `src/lib/standards/_tests/standards.test.ts` | false | W2 (with WO-07-001, WO-07-003) |
+| WO-07-006 | WO-13-012, WO-25-001, WO-07-001, WO-07-003, WO-07-004, WO-08-003 | `src/app/configuration/**`, `src/lib/reference/**`, `src/lib/registry/**`, `src/lib/standards/**`, `e2e/configuration.spec.ts` | false | W4 (alone in FRD-07) |
+
+- **Order and parallelism.** The three reader work orders are VERIFIED history (kept live, no live AC) and are siblings in W2. WO-07-006 follows everything it consumes and builds alone within FRD-07.
+- **Disjoint artifacts.** Within a wave the globs above do not overlap (the three W2 readers each own their own module; WO-07-006's `src/lib/{reference,registry,standards}/**` globs are in a later wave than the legacy files they extend). Other W4 work orders (WO-03-007, WO-10-016, WO-02-016, WO-17-008) write other directories.
+- **Integration order.** FRD-13 primitives (WO-13-012) → URL codec (WO-25-001) → readers (WO-07-001/003/004) → Documentación UI (WO-08-003, removes the embed of this surface's components) → WO-07-006. WO-13-013 (W7) depends on WO-07-006 and then deletes `FlowGraph`, the skill-flows data and the agent XP engine.
+- **Cross-FRD dependencies.** FRD-13 (WO-13-012), FRD-25 (WO-25-001), FRD-08 (WO-08-003), FRD-01 (WO-01-001). Consumers of this FRD's readers outside the surface: `src/lib/self-suggest` (array readers, unchanged signatures).
+- **Visual spec for UI work orders (DR-054).** WO-07-006 reproduces `mocks/configuration.html` (sections `config-hub`, `config-hub-search`, `config-skills`, `config-skill-dialog`, `config-agents`, `config-agent-dialog`, `config-rules`, `config-rules-search`, `config-rule-detail`, `config-standards`, `config-standards-must`, `config-standard-dialog`) and the oracle states of the same ids, with `fdd.md` as the design; assets: exported SVG icons via `Icon`, agent sprites staged in `public/` by WO-13-010.
+
+```mermaid
+flowchart LR
+  W13[WO-13-012] --> W07[WO-07-006]
+  W25[WO-25-001] --> W07
+  R1[WO-07-001] --> W07
+  R3[WO-07-003] --> W07
+  R4[WO-07-004] --> W07
+  D8[WO-08-003] --> W07
+  W07 --> C13[WO-13-013]
 ```
-FRD-13 foundation (WO-13-006 PageTitle/SectionHead/Tabs · WO-13-007 Panel/Chip/CmdRow/Button · WO-13-008 ItemSlot)
-        │   FRD-09 (IF-09-agent-xp · Avatar/XpBar)
-        ▼
-WO-07-005 (Configuración UI)  ◄── consumes VERIFIED readers WO-07-001/003/004
-```
-Only one UI WO remains, so there is no intra-FRD UI parallelism; its single artifact glob
-(`src/app/configuration/**`) is **disjoint** from FRD-08's (`src/app/manual/**`). The three readers
-are already done.
 
-**Cross-FRD deps line (foundation-first):** `frd-13` (foundation primitives + tokens) **must build
-before** WO-07-005; `frd-09` provides the agent XP/avatar. WO-07-005's cards are then **reused
-verbatim** by FRD-08's Referencia — so FRD-07's UI WO builds **before** FRD-08's UI WO.
+## Superseded (v1 history)
 
+- WO-07-005 — Configuración UI surface (re-anchor to prototype). Superseded by WO-07-006 (`implementation_status` stays VERIFIED as history).
 
-## Persistent navigation integration — FRD-25 (2026-10-17)
+## Readiness check (DR-100)
 
-The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+Every `REQ-07-001` to `REQ-07-013` maps to a component or interface above; every live AC (AC-07-013.1 to AC-07-013.5) is covered by exactly one work order (WO-07-006); `dependsOn` is acyclic and every referenced work order exists; wave-parallel work orders have disjoint artifacts; the foundation is complete (every primitive the mock references is a WO-13-0xx deliverable); the platform data model is unchanged (no entity of its own, `data-model.json` untouched); no unresolved clarification marker survives in this feature's documents.

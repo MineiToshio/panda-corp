@@ -42,11 +42,14 @@ aggregates** the catalogue needs — so the ~80 trophies / ~21 chains read ONE s
 - The catalogue tables + predicates (WO-10-011) — this WO only provides the derivation they call.
 - Rendering (WO-10-012).
 
-## Acceptance criteria (EARS)
-- **AC-10-010.1** — `signals(data)` SHALL derive every aggregate above from the REAL event vocabulary (no `achievement`/`task=` reads), pure, fixture-tested.
-- **AC-10-010.2** — Each first-event lookup SHALL carry the source `at`/`project`; when no verifiable timestamp exists, date SHALL be omitted (never fabricated) — DR-078/honesty.
-- **AC-10-010.3** — `computeStats` SHALL return the new + re-anchored keys; an empty factory → honest zeros (negative AC).
-- **AC-10-010.4** — Shared derivation reused (DR-092): the existing `gamification.ts` outcome classification SHALL NOT be re-implemented here.
+## v1 delivery record
+
+Delivered in v1; this work order owns no live acceptance criterion in v2.
+
+- v1 AC-10-010.1: `signals(data)` SHALL derive every aggregate above from the REAL event vocabulary (no `achievement`/`task=` reads), pure, fixture-tested.
+- v1 AC-10-010.2: Each first-event lookup SHALL carry the source `at`/`project`; when no verifiable timestamp exists, date SHALL be omitted (never fabricated) — DR-078/honesty.
+- v1 AC-10-010.3: `computeStats` SHALL return the new + re-anchored keys; an empty factory → honest zeros (negative AC).
+- v1 AC-10-010.4: Shared derivation reused (DR-092): the existing `gamification.ts` outcome classification SHALL NOT be re-implemented here.
 
 ## TDD plan
 RED: fixtures of real event streams → assert each aggregate; empty-factory zeros; no-fabricated-date. GREEN: implement. Refactor; files ≤500 lines (split signals by family if needed).

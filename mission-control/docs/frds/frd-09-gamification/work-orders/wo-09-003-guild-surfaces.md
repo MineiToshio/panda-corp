@@ -3,7 +3,8 @@ id: WO-09-003
 type: work-order
 slug: guild-surfaces
 title: 'WO-09-003 — Guild surfaces: GuildBar + GuildHero + StatRadar + CelebrationSurface'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-19-003, WO-10-016]
 parent: FRD-09
 implementation_status: VERIFIED
 reopen_count: 0

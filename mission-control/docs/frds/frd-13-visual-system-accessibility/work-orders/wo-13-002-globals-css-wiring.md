@@ -5,7 +5,8 @@ slug: globals-css-wiring
 title: >-
   WO-13-002 — globals.css wiring (themes, elevation, motion, reduced-motion,
   focus)
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-13-010]
 parent: FRD-13
 implementation_status: VERIFIED
 source_requirements: []

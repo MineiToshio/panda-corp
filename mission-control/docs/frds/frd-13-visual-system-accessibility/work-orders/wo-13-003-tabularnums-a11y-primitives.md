@@ -5,7 +5,8 @@ slug: tabularnums-a11y-primitives
 title: >-
   WO-13-003 — tabular-nums + a11y primitives (focus ring, aria-live, keyboard
   nav)
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-13-010]
 parent: FRD-13
 implementation_status: VERIFIED
 source_requirements: []

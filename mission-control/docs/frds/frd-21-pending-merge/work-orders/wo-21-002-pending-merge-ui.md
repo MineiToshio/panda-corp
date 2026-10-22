@@ -4,7 +4,8 @@ type: work-order
 parent: FRD-21
 title: 'UI: global shell indicator + cross-project panel + Resumen block'
 frd: FRD-21
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-21-003, WO-19-003]
 implementation_status: VERIFIED
 artifacts:
   - 'src/app/**/_components/PendingMerge*/**'

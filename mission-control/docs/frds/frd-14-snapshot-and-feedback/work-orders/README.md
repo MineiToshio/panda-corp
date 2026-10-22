@@ -1,39 +1,41 @@
-# FRD-14 — Work orders
+# Work orders — FRD-14 Probable snapshot and feedback channels
 
-Implementation chunks for the **probable snapshot panel, status chips and feedback-channels doc**,
-each testable in isolation. Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
-Read [`../blueprint.md`](../blueprint.md) first.
+> The authoritative order and parallelism is the **Build Plan** in [`../blueprint.md`](../blueprint.md) (the
+> build engine reads that, not this). Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
 
 ## Work orders
 
-| WO | Title | Layer | Status | Implements | Depends on |
+| WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
-| [WO-14-001](./wo-14-001-snapshot-helpers.md) | `lib/snapshot.ts` — `buildSnapshot` + `isSnapshotStale` | lib (TDD) | VERIFIED | IF-14-snapshot | WO-01-005 |
-| [WO-14-002](./wo-14-002-snapshot-panel.md) | SnapshotPanel — último commit en verde + worktree command + building-now + staleness | UI | VERIFIED | CMP-14-snapshot-panel | WO-14-001, WO-13-006, WO-13-007 |
-| [WO-14-003](./wo-14-003-status-chips.md) | `CMP-14-status-chips` — decisions/bugs/rethink chips on the rail | UI | VERIFIED | CMP-14-status-chips | WO-13-007 |
-| [WO-14-004](./wo-14-004-feedback-channels-doc.md) | Manual: three feedback channels (doc) | docs | VERIFIED | REQ-14-006 | — |
+| [WO-14-004](./wo-14-004-feedback-channels-doc.md) | feedback-channels-doc | VERIFIED | — | Kept live: the Documentación guide explaining the three feedback channels (owns AC-14-003.3). |
+| [WO-14-001](./wo-14-001-snapshot-helpers.md) | snapshot-helpers | VERIFIED | WO-01-005 | History, kept live: `buildSnapshot` + `isSnapshotStale` pure helpers. |
+| [WO-14-005](./wo-14-005-snapshot-panel-orbita.md) | snapshot-panel-orbita | PLANNED | WO-13-012, WO-01-010 | Órbita «Último commit en verde» panel + the read-only git gap probe (stale and no-signal states). |
 
-## Phase 2 re-plan (2026-06-19)
+> **Depends on** mirrors each work order's `dependsOn` frontmatter.
 
-The `lib/**` helper (WO-14-001) is correct and **VERIFIED** — untouched. Only **WO-14-002** (the snapshot
-panel UI) was re-planned: re-anchored to the prototype `snapshotPanel()`/`bStalenessPanel()`, given the
-clear canonical copy, and its warning refactored onto the **shared `Banner`**. WO-14-003 (rail chips,
-lives in the FRD-03 portfolio surface) and WO-14-004 (doc, hosted by the FRD-08 Manual) are outside this
-FRD's disjoint workspace subfolder (`_components/snapshot-panel`) and stay **VERIFIED**.
+## AC coverage
 
-## Order & parallelization (Phase 2)
+| AC | Work order |
+|---|---|
+| AC-14-001.1 | WO-14-005 |
+| AC-14-001.2 | WO-14-005 |
+| AC-14-001.3 | WO-14-005 |
+| AC-14-002.1 | WO-14-005 |
+| AC-14-002.2 | WO-14-005 |
+| AC-14-003.1 | WO-03-007 |
+| AC-14-003.2 | WO-03-007 |
+| AC-14-003.3 | WO-14-004 |
 
-- **Lib VERIFIED:** WO-14-001 — not rebuilt.
-- **WO-14-002** (panel) is the only re-planned WO; it mounts into the FRD-04 workspace via the Tabbar
-  shell seam. See `../blueprint.md` → **Build Plan (Phase 2)**.
-- The panel mounts in the FRD-04 workspace; the chips (WO-14-003) mount on the FRD-03 portfolio rail.
+AC-14-003.1 and AC-14-003.2 are «Out of v2» rail behaviours, owned cross-FRD by FRD-03's WO-03-007, which
+removes the rail and verifies their absence. AC-14-004.1 and AC-14-005.1 are struck (retired ids, not owned).
 
-## Cross-feature dependencies
+## Build order
 
-- **FRD-01** (`lib/status.ts` — `last_green_sha`, `safe_to_test`, `pending_decisions`, `pending_bugs`,
-  `rethink_pending`, `running`, `progress`).
-- **FRD-04** (workspace mounts `CMP-14-snapshot-panel`).
-- **FRD-03** (portfolio rail mounts `CMP-14-status-chips`).
-- **FRD-08** (Manual hosts the feedback-channels section, WO-14-004).
-- **FRD-15/16** (the read-only `git` probe pattern reused for staleness inputs — see blueprint §5 flag).
-- Shared `CopyButton` (FRD-02 component).
+1. W0: WO-14-004 (VERIFIED). W3: WO-14-001 (VERIFIED history).
+2. W3: WO-14-005, after WO-13-012 (W2) and WO-01-010 (W2).
+3. W6: FRD-04's WO-04-011 mounts the panel in the Resumen.
+
+## Superseded (v1 history)
+
+- WO-14-002 — SnapshotPanel: último commit en verde + worktree command (v1 skin). Superseded by WO-14-005.
+- WO-14-003 — `CMP-14-status-chips`: decisions/bugs/rethink chips on the rail. Superseded by WO-03-007.

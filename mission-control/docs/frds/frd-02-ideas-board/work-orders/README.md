@@ -1,66 +1,119 @@
-# FRD-02 — Work orders
+# Work orders — FRD-02 Ideas board (v2 «Órbita»)
 
-The **ideas board**: read-only kanban + intake modal + card detail + the single discard write.
-See the feature blueprint ([`../blueprint.md`](../blueprint.md)) and the platform architecture
-([`../../../product/architecture.md`](../../../product/architecture.md)).
-
-> **Compliance reorg (2026-06-18) — paths.** After the migration to `docs/rules/`, this feature's
-> components are route-local: `IntakeModal` and `CardDetail` now live at
-> `app/board/_components/<Name>/<Name>.tsx` (tests in `_tests/`); shared primitives moved to
-> `components/core/` (`CopyButton`, `DiscardButton`, `StateBadge`) and `IdeaCard` to
-> `components/modules/IdeaCard/IdeaCard.tsx`; `src/lib/` is grouped by domain (`lib/<name>/<name>.ts`,
-> e.g. `lib/board/board.ts`). **Older WO prose may cite pre-reorg paths (e.g. `components/CardDetail.tsx`) —
-> the canonical location is the current on-disk path; locate files by name and create NEW files
-> (e.g. `CampaignPipeline`, `lib/campaign`) following these conventions.** `verify.sh` enforces a
-> structure-guard (no loose tests), `max-lines` (≤500) and a circular-dependency gate.
+> The authoritative order + parallelism is the **Build Plan** in `../blueprint.md` (the build engine reads that, not
+> this). This file is the readable summary. Each WO is a **coarse slice** (one cohesive view/capability), carries its
+> own `implementation_status` frontmatter, and copies in its acceptance criteria. v2 work orders are `PLANNED`; the
+> kept v1 work orders are `VERIFIED` libraries and owners of unchanged criteria (wo-map §0.5).
 
 ## Work orders
 
-> **Phase 2 re-plan (2026-06-19).** The `lib/**` read/write layer stays **VERIFIED** and untouched.
-> The UI WOs are collapsed into **two coarse presentational WOs** (`PLANNED`) that re-paint the
-> surfaces onto the FRD-13 foundation primitives to match the prototype. The old fine-grained UI WOs
-> (CopyButton, IntakeModal, filter/legend, discard-action, CampaignPipeline, go-party) were removed —
-> their scope folds into the two coarse WOs. See the **Build Plan (Phase 2)** in `../blueprint.md`.
-
-| WO | Status | Title | Artifact | Depends on |
+| WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
-| WO-02-001 | VERIFIED (lib) | `deriveColumn` two-axis logic | `lib/board.ts` | WO-01-003, WO-01-005 |
-| WO-02-003 | VERIFIED (lib) | `nextStep` command map | `lib/next-step.ts` | WO-01-005 |
-| WO-02-004 | VERIFIED (lib) | `discardIdea` single write + Server Action | `lib/discard.ts`, `app/board/actions.ts` | WO-01-000 |
-| WO-02-011 | VERIFIED (lib) | `phaseFromStatus` derivation (status → active phase 0–5) | `lib/campaign.ts` | WO-01-003, WO-01-005 |
-| WO-02-005 | PLANNED (UI) | **Board surface** — columns + cards + filter + legend + intake + discard | `app/board/**`, `components/modules/{IdeaCard,CategoryFilter,BoardLegend}/**` | WO-02-001, WO-02-004, WO-01-003, WO-01-005, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003 |
-| WO-02-007 | PLANNED (UI) | **La Campaña card detail** — tabbed (5) + 6-phase pipeline | `app/board/_components/CardDetail/**`, `components/modules/CampaignPipeline/**` | WO-02-003, WO-02-011, WO-01-006, WO-13-006, WO-13-007, WO-13-009, WO-13-001, WO-13-002, WO-13-003, WO-06-005 |
-| WO-02-012 | VERIFIED | **Favourite flag** — visual highlight + star toggle (the third write) | `lib/favorite/**`, `components/core/FavoriteButton/**`, `app/board/{actions,IdeaBoardView,_components/BoardShell}/**`, `components/modules/IdeaCard/**` | WO-01-003, WO-02-004, WO-02-005 |
-| WO-02-013 | IN_REVIEW (bug) | **"Siguiente paso" interpolates the real idea name** — replace literal `<idea>` with the card slug in every next-step command | `components/modules/CampaignPipeline/**` | WO-02-003, WO-02-007, WO-02-011 |
-| WO-02-014 | IN_REVIEW (change) | **Accessible empty-column marker** — `role="status"` + visually-hidden "Sin ideas en esta columna", dash `aria-hidden` | `app/board/IdeaBoardView/**` | WO-02-005 |
+| WO-02-019 | data-model-layout-flake | PLANNED | — | Confirm (debugging SOP) and fix the async-layout «Organizando modelo…» flake of the data-model viewer; regression test anchored in the cause. |
+| WO-02-004 | discard-idea | VERIFIED | WO-01-000 | Kept v1: bounded discard/restore write and its Server Actions (ADR-0002). |
+| WO-02-012 | favorite | VERIFIED | WO-01-003, WO-02-004 | Kept v1: the favourite write (ADR-0003); owner of AC-02-012.1/.2. |
+| WO-02-001 | derive-column | VERIFIED | WO-01-003, WO-01-005 | Kept v1: two-axis board-column derivation. |
+| WO-02-003 | next-step | VERIFIED | WO-01-005 | Kept v1: lifecycle → next-command map. |
+| WO-02-011 | phase-from-status | VERIFIED | WO-01-003, WO-01-005 | Kept v1: active campaign phase derivation; owner of AC-02-010.2. |
+| WO-02-015 | board-orbita | PLANNED | WO-13-012, WO-25-001, WO-02-012 | Tablero Órbita: numbered phase columns, search, phase chips, hide-empty, category filter + match count, favourite star, capture and discarded dialogs; creates the FRD e2e spec. |
+| WO-02-017 | spec-architecture-digests | PLANNED | WO-13-012, WO-25-001 | Shared Spec and Arquitectura digests on `ReportBand` / `FrdCard`: bands, FRD and ADR dialogs, env groups, plan mosaic, not-published state; WoDag removed. |
+| WO-02-018 | data-model-viewer-orbita | PLANNED | WO-13-012, WO-02-019 | Data-model viewer restyle on the kept engine: Segmented Diagrama/Esquema, compact toolbar with native fullscreen, relations list, none/error states; v2 removals. |
+| WO-02-020 | campaign-orbita | PLANNED | WO-13-012, WO-11-003, WO-25-001 | La Campaña Órbita: dark map, rooms and corridors, strip, pinned phase sheet, commands with spec modes, build-mode picker, forge link; Claude Design sunset copy. |
+| WO-02-013 | next-step-interpolate-idea-name | VERIFIED | WO-02-003, WO-02-011 | Kept v1: slug interpolation of `<idea>` in the Campaña commands. |
+| WO-02-016 | idea-page | PLANNED | WO-02-017, WO-02-004, WO-02-012, WO-25-001, WO-02-015, WO-02-020, WO-08-003 | Idea page route: header, icon tabs with stage default, Propuesta, Documentos index + reader, discard/restore dialogs; detaches the idea from the board. |
 
-## Ordering & parallelism (Phase 2)
+> **Depends on** mirrors each WO's `dependsOn` frontmatter (DR-087).
 
-- **Foundation first:** both coarse UI WOs depend on **FRD-13** (the shared primitives) being VERIFIED.
-- **The two coarse WOs write disjoint artifacts** (board page/modules vs card-detail `_components/` +
-  `CampaignPipeline` module) and parallelize once FRD-13 lands; a soft preference is WO-02-005 first.
-- The `lib/**` layer (WO-02-001/003/004/011) is consumed as-is — never re-planned.
+## Build order
 
-## Cross-feature dependencies
+- **W0:** WO-02-019 (alone in FRD-02; investigate-then-fix on the current viewer before any restyle).
+- **W1-W2 (kept v1, VERIFIED, not rebuilt):** WO-02-004 (W1), WO-02-012 (W2).
+- **W3:** WO-02-015, WO-02-017, WO-02-018, WO-02-020 in parallel (disjoint artifacts, blueprint § Build Plan), after the
+  foundation (WO-13-012), the URL codec (WO-25-001) and the build-mode picker (WO-11-003); kept v1 WO-02-001,
+  WO-02-003, WO-02-011 sit in W3 by their dependencies.
+- **W4:** WO-02-016 composes the W3 outputs (digests, Campaña with `forgeHref`, `FavoriteButton`) plus `Paper`
+  (WO-08-003) and moves the idea out of the board; kept v1 WO-02-013 sits in W4.
+- **Cross-FRD:** WO-04-010 (W5) mounts `SpecDigest`, `ArchitectureDigest` and `DataModelViewer` in the workspace;
+  WO-13-013 (W7) depends on WO-02-015, WO-02-016, WO-02-018, WO-02-020.
 
-- **Inbound (this feature needs):** FRD-01 `lib/ideas.ts`, `lib/status.ts`, `lib/docs.ts`,
-  `lib/config.ts`. The board view cannot pass tests until those readers exist.
-- **Outbound (others reuse what's created here):** `components/CopyButton.tsx`,
-  `lib/next-step.ts` are reused by FRD-01 (onboarding gate copy), FRD-03 (portfolio recovery + next
-  step) and FRD-04 (workspace).
+## AC coverage
+
+| AC | WO |
+|---|---|
+| AC-02-009.1 | WO-02-016 |
+| AC-02-009.2 | WO-02-016 |
+| AC-02-009.3 | WO-02-016 |
+| AC-02-009.4 | WO-02-016 |
+| AC-02-009.5 | WO-02-016 |
+| AC-02-009.6 | WO-02-016 |
+| AC-02-009.7 | WO-02-016 |
+| AC-02-009.8 | WO-02-016 |
+| AC-02-010.1 | WO-02-020 |
+| AC-02-010.2 | WO-02-011 |
+| AC-02-010.3 | WO-02-020 |
+| AC-02-010.4 | WO-02-020 |
+| AC-02-010.5 | WO-02-020 |
+| AC-02-010.6 | WO-02-020 |
+| AC-02-010.7 | WO-02-020 |
+| AC-02-010.8 | WO-02-020 |
+| AC-02-010.9 | WO-02-020 |
+| AC-02-010.10 | WO-02-020 |
+| AC-02-010.11 | WO-02-020 |
+| AC-02-010.12 | WO-02-020 |
+| AC-02-011.1 | WO-02-017 |
+| AC-02-011.2 | WO-02-017 |
+| AC-02-011.3 | WO-02-017 |
+| AC-02-011.4 | WO-02-017 |
+| AC-02-012.1 | WO-02-012 |
+| AC-02-012.2 | WO-02-012 |
+| AC-02-012.3 | WO-02-015 |
+| AC-02-012.4 | WO-02-015 |
+| AC-02-013.1 | WO-02-017 |
+| AC-02-013.2 | WO-02-017 |
+| AC-02-013.3 | WO-02-017 |
+| AC-02-013.4 | WO-02-017 |
+| AC-02-013.5 | WO-02-017 |
+| AC-02-013.6 | WO-02-017 |
+| AC-02-015.1 | WO-02-018 |
+| AC-02-015.2 | WO-02-018 |
+| AC-02-015.3 | WO-02-018 |
+| AC-02-015.4 | WO-02-018 |
+| AC-02-015.5 | WO-02-018 |
+| AC-02-015.6 | WO-02-018 |
+| AC-02-015.7 | WO-02-018 |
+| AC-02-015.8 | WO-02-018 |
+| AC-02-015.9 | WO-02-018 |
+| AC-02-015.10 | WO-02-018 |
+| AC-02-015.11 | WO-02-019 |
+| AC-02-015.12 | WO-02-018 |
+| AC-02-015.13 | WO-02-018 |
+| AC-02-015.14 | WO-02-016 |
+| AC-02-016.1 | WO-02-015 |
+| AC-02-016.2 | WO-02-015 |
+| AC-02-016.3 | WO-02-015 |
+| AC-02-016.4 | WO-02-015 |
+| AC-02-016.5 | WO-02-016 |
+| AC-02-016.6 | WO-02-020 |
+| AC-02-016.7 | WO-02-017 |
+| AC-02-016.8 | WO-02-017 |
+| AC-11-005.3 | WO-02-020 |
+
+56 live FRD-02 criteria, each owned by exactly one live work order (wo-map §7 and §8.1), plus FRD-11's AC-11-005.3
+drawn in FRD-02's Construcción sheet.
+
+## Superseded (v1 history)
+
+- WO-02-005 (board surface, VERIFIED) → superseded by WO-02-015.
+- WO-02-007 (La Campaña card detail, VERIFIED) → superseded by WO-02-016, WO-02-017, WO-02-020.
+- WO-02-014 (accessible empty-column marker, IN_REVIEW) → superseded by WO-02-015 (REQ-02-014 copy «Sin ideas en esta fase» replaces the «columna» wording).
 
 ## Definition of done (every WO)
 
-- Acceptance-criteria tests first (RED → GREEN → refactor) with fixtures (`PANDACORP_FACTORY_ROOT`).
-- `.pandacorp/verify.sh` green (biome + tsc + vitest).
-- `data-testid` on interactive elements; UI copy in Spanish via i18n; design tokens only.
-- **Only the bounded writes touch the filesystem** — `lib/discard/` (discard + restore) and
-  `lib/favorite/` (favourite, ADR-0003); every other artifact is read-only and adds no AI dependency.
-
-## Logical-model extension (2026-10-16)
-
-WO-02-007 also owns the shared structured-model reader/viewer and board integration (REQ-02-013/015). WO-04-004 mounts that complete Architecture surface in the workspace. See those work orders for current scope and evidence boundaries; earlier table/status evidence does not certify the extension. No new build-state transition is recorded by this documentation change.
-
-## Navigation scope alignment (2026-10-17)
-
-Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.
+- Acceptance-criteria tests first (fast-lane builders write code and tests together, DR-126) with production-shaped
+  fixtures (`PANDACORP_FACTORY_ROOT`) and a malformed fixture that must fail loud for every reader (DR-078).
+- `.pandacorp/verify.sh --since <ref>` green per WO; the full gate at the FRD-02 gate.
+- Tokens only, every UI string from `t()` over `docs/design/microcopy.es.json`, `data-testid` on interactive
+  elements, recorded prototype hooks kept.
+- Only the bounded writes touch the filesystem (`lib/discard/`, `lib/favorite/`, ADR-0002/0003); no AI dependency.
+- Derogated tests handled per the blueprint's test-side supersession (BL-0051): implementer tests updated in the
+  same WO, reviewer tests (`*.reviewer.*`) and blessed baselines left to the gate reviewer.

@@ -3,7 +3,8 @@ id: WO-04-004
 type: work-order
 slug: workspace-shell
 title: 'WO-04-004 — Workspace shell: header + tabbar + objectives bar'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-04-010]
 parent: FRD-04
 implementation_status: VERIFIED
 reopen_count: 0

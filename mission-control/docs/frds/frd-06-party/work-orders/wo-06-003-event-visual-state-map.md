@@ -3,7 +3,8 @@ id: WO-06-003
 type: work-order
 slug: event-visual-state-map
 title: WO-06-003 — Event → visual-action map (La Fragua decoupling boundary)
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-06-013]
 parent: FRD-06
 implementation_status: VERIFIED
 source_requirements: []

@@ -6,8 +6,12 @@ title: 'WO-15-001 — `lib/plugin-sync` version readers (installed version, sour
 status: DRAFT
 parent: FRD-15
 implementation_status: VERIFIED
-source_requirements: []
-last_updated: '2026-06-22'
+artifacts:
+  - "src/lib/plugin-sync/plugin-sync.ts"
+  - "src/lib/plugin-sync/_tests/plugin-sync.test.ts"
+source_requirements: [REQ-15-002, REQ-15-005]
+dependsOn: []
+last_updated: '2026-10-22'
 ---
 # WO-15-001 — `lib/plugin-sync` version readers (installed version, source version)
 
@@ -19,6 +23,11 @@ last_updated: '2026-06-22'
 > `docs/decision-log.md`.
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`IF-15-sync`) · [architecture §4.7, §6, §7](../../../product/architecture.md).
+
+> **v2 «Órbita» disposition (2026-10-22): KEPT LIVE, already built.** The version readers are unchanged
+> in v2 and feed both the Inicio banner (WO-18-002) and the sidebar pill (WO-19-003). This WO owns no live
+> acceptance criterion; the criteria below were written for this WO in v1 and are kept as delivery
+> history (FRD-15 never defined them).
 
 ## Goal
 The two primitive read functions of `lib/plugin-sync/plugin-sync.ts`, each defensive (unreadable/
@@ -33,15 +42,14 @@ unparseable → `null`, never throws). No verdict yet (that is WO-15-002).
 - Both trim the value and return `null` on a missing/empty/non-string `version`, or on a
   missing/malformed JSON file. Read-only file reads only — no git, no `child_process`.
 
-## Acceptance criteria (from REQ-15-002, evidence for the verdict)
-- **AC-15-001.1** GIVEN a fixture `installed_plugins.json` with `pandacorp@panda-corp` → `version`,
-  `readInstalledVersion` returns that version string (trimmed).
-- **AC-15-001.2** GIVEN the file is missing, malformed JSON, or has no `pandacorp@panda-corp` entry →
-  returns `null` (no throw). Same for an entry with a missing/empty `version`.
-- **AC-15-001.3** GIVEN the entry is the canonical array-of-entries form OR a single-object form,
-  `readInstalledVersion` reads the `version` from either (lenient, no throw).
-- **AC-15-001.4** `readPluginSourceVersion` returns the `version` from `plugin/.claude-plugin/plugin.json`
-  under a fixture factory root; returns `null` when the manifest is missing or has no usable `version`.
+## v1 delivery record
+
+Non-owning history (from REQ-15-002, evidence for the verdict):
+
+- v1 AC-15-001.1: GIVEN a fixture `installed_plugins.json` with `pandacorp@panda-corp` → `version`, `readInstalledVersion` returns that version string (trimmed).
+- v1 AC-15-001.2: GIVEN the file is missing, malformed JSON, or has no `pandacorp@panda-corp` entry → returns `null` (no throw). Same for an entry with a missing/empty `version`.
+- v1 AC-15-001.3: GIVEN the entry is the canonical array-of-entries form OR a single-object form, `readInstalledVersion` reads the `version` from either (lenient, no throw).
+- v1 AC-15-001.4: `readPluginSourceVersion` returns the `version` from `plugin/.claude-plugin/plugin.json` under a fixture factory root; returns `null` when the manifest is missing or has no usable `version`.
 
 ## TDD
 Write `lib/plugin-sync/plugin-sync.test.ts` first. Fixtures: a small `installed_plugins.json` and a

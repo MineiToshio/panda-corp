@@ -6,9 +6,13 @@ title: 'WO-07-001 — `lib/reference.ts`: read skills + agents catalogs'
 status: DRAFT
 parent: FRD-07
 implementation_status: VERIFIED
+artifacts:
+  - 'src/lib/reference/reference.ts'
+  - 'src/lib/reference/_tests/reference.test.ts'
+  - 'src/tests/fixtures/plugin-reference/**'
 source_requirements: []
 dependsOn: [WO-01-001]
-last_updated: '2026-06-17'
+last_updated: '2026-10-22'
 ---
 # WO-07-001 — `lib/reference.ts`: read skills + agents catalogs
 
@@ -36,20 +40,22 @@ the file and the `readPluginDir` helper:
 - The Configuration page shell (WO-07-005) and the Skills/Agents UI sections (WO-07-006/007).
 - The other readers: `lib/registry.ts` (WO-07-003), `lib/standards.ts` (WO-07-004).
 
-## Acceptance criteria (EARS, from FRD-07 + DR-046)
+## v1 delivery record
+
+Delivered in v1; this work order owns no live acceptance criterion in v2 (the live criteria of FRD-07 are owned by WO-07-006, which extends these readers additively).
 
 ### Skills catalog
-- **AC-07-001.1** — WHEN `readSkills()` runs, it SHALL return one entry per `plugin/skills/<slug>/SKILL.md`, with `slug` = the directory name (NOT a `name:` field) and `description` = the frontmatter `description`.
-- **AC-07-001.2** — WHEN a skill has no `description` frontmatter or malformed frontmatter, the system SHALL skip it with a typed warning and SHALL NOT throw (the catalog still renders the rest).
-- **AC-07-001.3** — The entry SHALL include the raw body markdown (for the detail view) and a `runsIn` field inferred from the description/body (`"factory" | "project" | "unknown"`) — inferred, never invented; ambiguous → `"unknown"`.
-- **AC-07-001.4** — The reader SHALL read from `resolveFactoryRoot()` (FRD-01 `lib/config.ts`), honoring `PANDACORP_FACTORY_ROOT`, so tests point at a fixture tree.
-- **AC-07-001.5** — The catalog SHALL reflect added/renamed/removed skills automatically on next read (no static array), verified by a fixture with a renamed dir.
+- v1 AC-07-001.1: WHEN `readSkills()` runs, it SHALL return one entry per `plugin/skills/<slug>/SKILL.md`, with `slug` = the directory name (NOT a `name:` field) and `description` = the frontmatter `description`.
+- v1 AC-07-001.2: WHEN a skill has no `description` frontmatter or malformed frontmatter, the system SHALL skip it with a typed warning and SHALL NOT throw (the catalog still renders the rest).
+- v1 AC-07-001.3: The entry SHALL include the raw body markdown (for the detail view) and a `runsIn` field inferred from the description/body (`"factory" | "project" | "unknown"`) — inferred, never invented; ambiguous → `"unknown"`.
+- v1 AC-07-001.4: The reader SHALL read from `resolveFactoryRoot()` (FRD-01 `lib/config.ts`), honoring `PANDACORP_FACTORY_ROOT`, so tests point at a fixture tree.
+- v1 AC-07-001.5: The catalog SHALL reflect added/renamed/removed skills automatically on next read (no static array), verified by a fixture with a renamed dir.
 
 ### Agents catalog
-- **AC-07-002.1** — WHEN `readAgents()` runs, it SHALL return one entry per `plugin/agents/<id>.md` with `id` (filename without extension), `name`, `description`, `model` (from frontmatter) and the body markdown.
-- **AC-07-002.2** — WHEN an agent file lacks `name`/`description`/`model`, the reader SHALL fill the missing field with a typed null/`"unknown"` and SHALL NOT throw; a totally malformed file is skipped with a warning.
-- **AC-07-002.3** — The reader SHALL read from `resolveFactoryRoot()` (FRD-01) so tests use a fixture tree.
-- **AC-07-002.4** — The catalog SHALL reflect added/renamed/removed agents automatically on next read (no static array), verified by a fixture.
+- v1 AC-07-002.1: WHEN `readAgents()` runs, it SHALL return one entry per `plugin/agents/<id>.md` with `id` (filename without extension), `name`, `description`, `model` (from frontmatter) and the body markdown.
+- v1 AC-07-002.2: WHEN an agent file lacks `name`/`description`/`model`, the reader SHALL fill the missing field with a typed null/`"unknown"` and SHALL NOT throw; a totally malformed file is skipped with a warning.
+- v1 AC-07-002.3: The reader SHALL read from `resolveFactoryRoot()` (FRD-01) so tests use a fixture tree.
+- v1 AC-07-002.4: The catalog SHALL reflect added/renamed/removed agents automatically on next read (no static array), verified by a fixture.
 
 ## Dependencies
 - FRD-01 `lib/config.ts` (`resolveFactoryRoot`, env override). Cross-feature.

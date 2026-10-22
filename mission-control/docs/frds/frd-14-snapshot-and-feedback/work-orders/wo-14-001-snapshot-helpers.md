@@ -6,20 +6,31 @@ title: 'WO-14-001 — `lib/snapshot.ts`: `buildSnapshot` + `isSnapshotStale`'
 status: DRAFT
 parent: FRD-14
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - 'src/lib/snapshot/snapshot.ts'
+  - 'src/lib/snapshot/_tests/snapshot.test.ts'
+source_requirements: [REQ-14-001, REQ-14-002]
 dependsOn: [WO-01-005]
-last_updated: '2026-06-18'
+last_updated: '2026-10-22'
 ---
 # WO-14-001 — `lib/snapshot.ts`: `buildSnapshot` + `isSnapshotStale`
 
 **Feature:** FRD-14 · **Implements:** IF-14-snapshot · **REQ-14-001, REQ-14-002, REQ-14-003**
 **Deploy unit:** `lib/snapshot.ts` (+ `lib/snapshot.test.ts`). Pure helpers, no fs, no UI.
 
-## Acceptance criteria (copied)
-- **AC-14-001.2** The panel SHALL render `git worktree add ../<slug>-review <last_green_sha>` with a copy button. *(command string derived here)*
-- **AC-14-001.3** WHEN `last_green_sha` is absent, the panel SHALL be omitted. *(helper returns `null`)*
-- **AC-14-002.1** WHEN running with a work order in progress, show "building now: <progress>". *(`buildingNow` field derived here)*
-- **AC-14-003.1** WHEN `last_green_sha` is far behind HEAD, show a staleness warning. *(verdict derived here)*
+## v1 delivery record
+
+Kept live in v2 as history (map §0.5): `buildSnapshot`, `isSnapshotStale` and the thresholds are still the
+panel's pure helpers and own no live acceptance criterion (the panel criteria are WO-14-005's). The module
+lives at `src/lib/snapshot/snapshot.ts`; the worktree command now targets
+`/Users/Shared/review-worktrees/<project>` (DR-090) and `buildingNow` carries no percentage (the paths and
+wording below are the v1 plan). The git gap probe that feeds `isSnapshotStale` is WO-14-005's `gap.ts`;
+WO-01-011 later routes this module's clock through `now()`.
+
+- v1 AC-14-001.2: The panel SHALL render `git worktree add ../<slug>-review <last_green_sha>` with a copy button. *(command string derived here)*
+- v1 AC-14-001.3: WHEN `last_green_sha` is absent, the panel SHALL be omitted. *(helper returns `null`)*
+- v1 AC-14-002.1: WHEN running with a work order in progress, show "building now: <progress>". *(`buildingNow` field derived here)*
+- v1 AC-14-003.1: WHEN `last_green_sha` is far behind HEAD, show a staleness warning. *(verdict derived here)*
 
 ## Scope
 - `buildSnapshot(slug, status): SnapshotInfo | null` — pure: from already-read `ProjectStatus`,

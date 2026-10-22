@@ -6,8 +6,15 @@ title: WO-01-000 — Test fixtures + `PANDACORP_FACTORY_ROOT` harness
 status: ACTIVE
 parent: FRD-01
 implementation_status: VERIFIED
+artifacts:
+  - 'src/tests/fixtures/index.ts'
+  - 'src/tests/fixtures/_tests/**'
+  - 'src/tests/fixtures/factory-full/**'
+  - 'src/tests/fixtures/factory-fresh/**'
+  - 'src/tests/fixtures/events/**'
 source_requirements: []
-last_updated: '2026-06-16'
+dependsOn: []
+last_updated: '2026-10-22'
 ---
 # WO-01-000 — Test fixtures + `PANDACORP_FACTORY_ROOT` harness
 
@@ -60,13 +67,17 @@ A helper `tests/fixtures/index.ts` exposing absolute paths to each tree (e.g.
 `FIXTURE_FULL`, `FIXTURE_FRESH`) and a `withFactoryRoot(path, fn)` that sets/restores
 `PANDACORP_FACTORY_ROOT` around a test.
 
-## Acceptance criteria (drives downstream WOs)
+## v1 delivery record
 
-- **AC-01-000.1** — The fixture trees exist and are committed as static files (deterministic; no
+FRD-01 defines no `AC-01-*` bullet (REQ-only, see `../blueprint.md` §5), so these v1 criteria are history
+and own nothing. The fixtures now live at `src/tests/fixtures/` (the `tests/fixtures/` paths above are the
+original v1 plan). v2 note: this WO is kept live unchanged; WO-01-010 and WO-01-011 build on it.
+
+- v1 AC-01-000.1: The fixture trees exist and are committed as static files (deterministic; no
   generation at test time beyond env swap).
-- **AC-01-000.2** — `withFactoryRoot(FIXTURE_FULL, fn)` makes `resolveFactoryRoot()` (from
+- v1 AC-01-000.2: `withFactoryRoot(FIXTURE_FULL, fn)` makes `resolveFactoryRoot()` (from
   `lib/config.ts`) resolve to the fixture, restoring the prior env afterward.
-- **AC-01-000.3** — The fixtures include each tolerance case named above (malformed card, malformed
+- v1 AC-01-000.3: The fixtures include each tolerance case named above (malformed card, malformed
   yaml, missing repo, broken path, missing profile, empty ideas, malformed event line).
 
 ## Definition of done

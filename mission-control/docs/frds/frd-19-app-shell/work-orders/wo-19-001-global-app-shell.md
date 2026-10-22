@@ -3,7 +3,8 @@ id: WO-19-001
 type: work-order
 slug: global-app-shell
 title: 'WO-19-001 — Global app shell (persistent topbar nav + active state + responsive drawer + gate seed)'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-19-002, WO-19-003]
 parent: FRD-19
 implementation_status: VERIFIED
 foundation: true

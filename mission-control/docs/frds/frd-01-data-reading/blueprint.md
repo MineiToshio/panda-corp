@@ -2,269 +2,300 @@
 id: FRD-01-blueprint
 type: blueprint
 parent: FRD-01
-status: ACTIVE
-implementation_status: VERIFIED
-last_updated: '2026-06-16'
+status: DRAFT
+implementation_status: PLANNED
+readiness_gate:
+grounding_gate:
+consistency_gate:
+last_updated: '2026-10-22'
 ---
-# FRD-01 — Data reading layer — Feature blueprint
+# FRD-01 — Data reading layer — Feature blueprint (v2 «Órbita»)
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
-> This is the **feature blueprint** (DR-049): how the data-reading layer is implemented on
-> top of the platform. It references the platform architecture
-> ([`../../product/architecture.md`](../../product/architecture.md)) — the chosen stack (§2),
-> the data model / factory filesystem (§4), the event contract (§5), the `lib/**` boundary
-> (§6) and the read-only invariant (§7) — and does **not** restate it.
+> This is the **feature blueprint** (DR-049): how the data-reading layer is implemented on top of the
+> platform. It references the platform architecture
+> ([`../../product/architecture.md`](../../product/architecture.md)): the stack (§2), the factory filesystem
+> data model (§4), the event contract (§5), the `src/lib/**` boundary (§6), the read-only invariant and the
+> fixture seams (§7) and the environment variables (§7). It does not restate them.
 
 ---
 
-## 0. Scope and the one rule
+## Purpose
 
-FRD-01 is **the data layer** — the read interfaces every other feature builds on. It owns the
-`lib/**` reader modules that turn the factory filesystem (architecture §4) into typed, serializable
-data, plus the **onboarding gate** that fires when `factory/profile.md` is absent.
+FRD-01 is **the data layer**: the read interfaces every other feature builds on. It owns the
+`src/lib/**` readers that turn the factory filesystem into typed, serializable data, plus the
+**onboarding gate** that fires when `factory/profile.md` is absent. The platform golden rule is law here:
+**read-only, never call Claude.** The single set of writes in the app (idea discard / restore / favourite,
+change and backlog discard, the guild ledger) belongs to other FRDs.
 
-The platform golden rule (architecture §1) is law here: **read-only, never call Claude.** Every
-module in this blueprint is `fs.read*` only. The single write in the whole app
-(`lib/discard.ts`) belongs to FRD-02, not here.
+v1 shipped every reader (WO-01-000 to WO-01-009, all `VERIFIED`, kept live and unchanged). **v2 adds one
+thing**: the injection seams the close-out fidelity gate needs (technical-assumptions §4.1, open point F4):
+a clock, a git runner and an oracle-mode boot, so the app can replay 159 captured states against the
+fictional prototype factory and never read the owner's real one. Two work orders carry it: **WO-01-010**
+(the seams, W2) and **WO-01-011** (adopting them in the readers no other v2 work order rewrites, W5). v2
+also removes from FRD-01 the digest «Desde tu última visita», its `visto_hasta` marker and the
+time-in-phase (age-in-stage) diffs (FRD-01 amended 2026-10-22; owner decision 2026-10-21).
 
-This blueprint defines the reader *contracts* (signatures + return types + tolerance rules) so the
-feature work orders can be implemented TDD-first against fixtures. `lib/config.ts` already exists
-(architecture §6, shipped with the foundation); FRD-01 consumes it and adds the rest.
+## Components & Interfaces
 
----
-
-## 1. Components & interfaces
-
-Each reader is a **pure-ish module** in `lib/` (path/handle in → typed data out), unit-tested with
-fixtures via `PANDACORP_FACTORY_ROOT`. Components below are the modules; interfaces are their
-exported function contracts. All types are serializable (cross the Server→Client boundary cleanly).
+Each reader is a pure-ish module (path or handle in, typed data out), unit-tested with fixtures via
+`PANDACORP_FACTORY_ROOT`; all returned types are serializable. Paths are the real ones under `src/lib/`.
 
 | ID | Kind | Artifact | Responsibility | Traces |
 |---|---|---|---|---|
-| `CMP-01-config` | module | `lib/config.ts` ✅ | Path constants + `resolveFactoryRoot`. **Already shipped** with the foundation. | REQ-01-001 |
-| `CMP-01-ideas` | module | `lib/ideas.ts` | Read & parse all idea cards (gray-matter). | REQ-01-003 |
-| `CMP-01-profile` | module | `lib/profile.ts` | Read the owner profile; **signal absence** for the onboarding gate. | REQ-01-002 / REQ-01-008 |
-| `CMP-01-portfolio` | module | `lib/portfolio.ts` | Parse the portfolio markdown table → project rows (path + repo + business columns). | REQ-01-004 |
-| `CMP-01-status` | module | `lib/status.ts` | Read & validate `<projectPath>/.pandacorp/status.yaml`, partial-tolerant. | REQ-01-005 / REQ-01-006 |
-| `CMP-01-docs` | module | `lib/docs.ts` | Discover the feature-centric `docs/` tree + `.pandacorp/` comms per project (existence + read). | REQ-01-007 |
-| `CMP-01-events` | module | `lib/events.ts` | Tail & parse `dashboard-events.ndjson` (capped) + state diffs (last-event ts, age-in-stage). | REQ-01-009 |
-| `CMP-01-onboarding-gate` | UI (Server + client copy) | `app/layout.tsx` guard + `components/OnboardingGate.tsx` | Render the gate before any view when no profile. | REQ-01-001 (onboarding) |
-| `IF-01-readProfile` | interface | `readProfile(): ProfileResult` | `{ present: false } \| { present: true; profile: Profile }`. Absence is **explicit**, never invented. | REQ-01-002 / REQ-01-008 |
-| `IF-01-readIdeas` | interface | `readIdeas(): IdeaCard[]` | All cards in `IDEAS_DIR`, skipping `NON_IDEA_FILES`; frontmatter + body. | REQ-01-003 |
-| `IF-01-readPortfolio` | interface | `readPortfolio(): PortfolioEntry[]` | Project rows from the table; tolerate broken/empty rows. | REQ-01-004 |
-| `IF-01-readStatus` | interface | `readStatus(projectPath): StatusResult` | `{ present, malformed, status: Partial<ProjectStatus> }`. Never throws on absent/malformed. | REQ-01-005 / REQ-01-006 |
-| `IF-01-readProjectDocs` | interface | `readProjectDocs(projectPath): ProjectDocsIndex` | Discover product layer + per-FRD modules + global + `.pandacorp/` comms. | REQ-01-007 |
-| `IF-01-readEvents` | interface | `readEvents(opts?): EventsSnapshot` | Capped tail of NDJSON parsed to `Event[]` + derived `{ lastEventAt, byProject }`. | REQ-01-009 |
-| `IF-01-pathExists` | interface | `pathExists(p): boolean` | Read-only existence probe (used by status/docs/portfolio not-found marking). | REQ-01-010 |
+| `CMP-01-config` | module | `src/lib/config/config.ts` | Path constants and `resolveFactoryRoot`. Shipped with the foundation. | REQ-01-001 |
+| `CMP-01-ideas` | module | `src/lib/ideas/ideas.ts` | Read and parse all idea cards (gray-matter). | REQ-01-003 |
+| `CMP-01-profile` | module | `src/lib/profile/profile.ts` | Read the owner profile; signal absence for the onboarding gate. | REQ-01-001 / REQ-01-002 |
+| `CMP-01-portfolio` | module | `src/lib/portfolio/portfolio.ts` | Parse the portfolio markdown table into project rows (path, repo). | REQ-01-004 |
+| `CMP-01-status` | module | `src/lib/status/status.ts` | Read and validate `<project>/.pandacorp/status.yaml`, partial-tolerant, plus the live inbox counts wrapper. | REQ-01-005 / REQ-01-006 |
+| `CMP-01-docs` | module | `src/lib/docs/docs.ts` | Discover the feature-centric `docs/` tree and the `.pandacorp/` comms per project. | REQ-01-007 |
+| `CMP-01-events` | module | `src/lib/events/events.ts` | Tail and parse the event streams (capped, project filter before the cap) and derive `lastEventAt` / `byProject`. | REQ-01-008 / REQ-01-012 / REQ-01-014..019 |
+| `CMP-01-live` | route + hook | `src/app/api/live/route.ts`, `src/hooks/useLiveSnapshot.ts` | The shared SSE transport with `stateVersion`; one `EventStore` singleton, per-connection filter. | REQ-01-008 / REQ-01-012 / REQ-01-013 |
+| `CMP-01-onboarding-gate` | UI (Server) | `src/app/_components/OnboardingGate/OnboardingGate.tsx` + guard in `src/app/layout.tsx` | Render the gate instead of the app when no profile. | REQ-01-001 |
+| `CMP-01-fs` | module | `src/lib/fs-utils/fs-utils.ts` | Read-only existence probe used by status, docs and portfolio not-found marking. | REQ-01-010 |
+| `CMP-01-clock` (v2) | module | `src/lib/clock/clock.ts` | The only source of «now» for readers; honours `MC_CLOCK`. | REQ-01-008 |
+| `CMP-01-git` (v2) | module | `src/lib/git/git.ts`, `fixtureGit.ts`, `fixtureAnswers.ts` | The only git boundary: read-only subcommands, timeout, answers from a fixture when `MC_GIT_FIXTURE` is set. | REQ-01-011 |
+| `CMP-01-env` (v2) | module | `src/lib/config/env.ts` | The environment contract as typed constants and `resolveHomeDir`; checked against `.env.example`. | REQ-01-011 |
+| `CMP-01-oracle-boot` (v2) | module + script | `src/lib/config/oracleEnv.ts`, `scripts/oracle/dev-oracle.mjs`, `pnpm dev:oracle` | The technical-assumptions §1.5 recipe that boots the app against the fixture factory. | REQ-01-011 |
+| `CMP-01-seam-adoption` (v2) | changes | the readers listed in WO-01-011 | Route their clock and git calls through the seams; no behaviour change. | REQ-01-008 / REQ-01-011 |
+| `IF-01-readProfile` | interface | `readProfile(): ProfileResult` | `{ present: false } \| { present: true; profile }`. Absence is explicit, never invented. | REQ-01-001 / REQ-01-002 |
+| `IF-01-readIdeas` | interface | `readIdeas(): IdeaCard[]` | Cards of `IDEAS_DIR`, skipping `NON_IDEA_FILES`; frontmatter and body. | REQ-01-003 |
+| `IF-01-readPortfolio` | interface | `readPortfolio(): PortfolioEntry[]` | Project rows; tolerate broken or empty rows. | REQ-01-004 |
+| `IF-01-readStatus` | interface | `readStatus(projectPath): StatusResult` | `{ present, malformed, status: Partial<ProjectStatus> }`; never throws on absent or malformed. | REQ-01-005 / REQ-01-006 |
+| `IF-01-readProjectDocs` | interface | `readProjectDocs(projectPath): ProjectDocsIndex` | Product layer, per-FRD modules, global docs, `.pandacorp/` comms. | REQ-01-007 |
+| `IF-01-readEvents` | interface | `readEvents(opts?): EventsSnapshot` | Capped tail of both NDJSON transports, merged chronologically, deduplicated by `event_id`. | REQ-01-008 / REQ-01-012 / REQ-01-014..019 |
+| `IF-01-pathExists` | interface | `pathExists(p): boolean` | Read-only existence probe; never throws. | REQ-01-010 |
+| `IF-01-now` (v2) | interface | `now(): Date` | The frozen instant when `MC_CLOCK` is a valid ISO-8601 instant; throws `ClockConfigError` when it is set but invalid; the real clock when unset. | REQ-01-008 |
+| `IF-01-runGit` (v2) | interface | `runGit(args: readonly string[], cwd?: string): string` and `GitError` | Trimmed stdout of an allowlisted read-only git command; throws a typed `GitError` (`disallowed`, `failed`, `timeout`, `no-fixture-answer`). | REQ-01-011 |
+| `IF-01-envContract` (v2) | interface | `ENV` constants, `resolveHomeDir()` | One list of the environment variables, mirrored by `.env.example`. | REQ-01-011 |
+| `IF-01-oracleEnv` (v2) | interface | `oracleEnv(repoRoot): Record<string, string>` | The pure environment of oracle mode (absolute paths, frozen clock, fixture git). | REQ-01-011 |
 
-> **`visto_hasta` marker (REQ-01-008 dashboard seen-marker)** is **client-local UI state**
-> (`localStorage`), NOT a `lib/` reader and NOT a factory write. It is owned by FRD-18; FRD-01 only
-> states the constraint that it is not a write. No component here.
+> **`visto_hasta` (REQ-01-009)** was client-local UI state owned by FRD-18 and is **out of v2** with the
+> digest it fed. No component here; the read-only invariant (REQ-01-011) is unaffected.
 
 ---
 
-## 2. Type contracts (the data-layer surface)
+## Contracts
 
-Defined alongside their modules (or in `lib/types.ts` if shared). Shapes mirror architecture §4.
+### Type contracts (the data-layer surface)
+
+Defined alongside their modules. Shapes mirror architecture §4.
 
 ```ts
-// lib/profile.ts
-type Profile = {
-  name?: string;
-  goals?: string;
-  interests?: string[];
-  assets?: string[];
-  projectsPath?: string;   // bounds the FRD-16 orphan scan
-  body: string;            // markdown body for personalized views
-};
+// profile
+type Profile = { name?: string; goals?: string; interests?: string[]; assets?: string[];
+  projectsPath?: string; body: string };
 type ProfileResult = { present: false } | { present: true; profile: Profile };
 
-// lib/ideas.ts
+// ideas
 type IdeaStatus = "discovered" | "recommended" | "in-pipeline" | "shipped" | "discarded";
-type IdeaCard = {
-  slug: string;            // filename without .md
-  title: string;
-  status: IdeaStatus;
-  projectType?: string;    // project_type chip
-  returnType?: "monetary" | "opportunity" | "personal" | "mixed";
-  score?: number;
-  project?: string;        // path filled once in-pipeline (pointer)
-  body: string;            // markdown summary + key points
-};
+type IdeaCard = { slug: string; title: string; status: IdeaStatus; projectType?: string;
+  returnType?: "monetary" | "opportunity" | "personal" | "mixed"; score?: number;
+  project?: string; body: string };
 
-// lib/portfolio.ts
-type PortfolioEntry = {
-  name: string;
-  path: string;            // raw path cell (may be relative or "inside the factory")
-  repo?: string;           // repo URL, "—"/empty normalized to undefined
-  originIdea?: string;
-  phase?: string;          // table cell (advisory; status.yaml is authoritative)
-  users?: string;          // business snapshot (FRD-03)
-  returnMetric?: string;
-  verdict?: string;
-  lastSync?: string;
-};
+// portfolio
+type PortfolioEntry = { name: string; path: string; repo?: string; originIdea?: string;
+  phase?: string; users?: string; returnMetric?: string; verdict?: string; lastSync?: string };
 
-// lib/status.ts
+// status
 type Phase = "product" | "design" | "architecture" | "implementation" | "release";
-type ProjectStatus = {
-  // Reconciled from code 2026-07-05 (DR-092/DR-115): `progress`/`workOrdersTotal`/
-  // `workOrdersDone` removed — dead status.yaml replica fields with no display reader.
-  // WO counts derive live via listWorkOrders/aggregateProgress.
-  project: string; phase: Phase; version: string; running: boolean;
-  pendingDecisions: number; pendingBugs: number; rethinkPending: boolean;
-  advancePending: boolean; lastGreenSha: string; safeToTest: boolean;
-  overlayVersion?: string; createdWith?: string; updatedAt?: string; repo?: string;
-};
 type StatusResult =
   | { present: false; malformed: false; status: null }
   | { present: true; malformed: boolean; status: Partial<ProjectStatus> };
+// ProjectStatus: project, phase, version, running, pendingDecisions, pendingBugs, rethinkPending,
+// advancePending, lastGreenSha, safeToTest, overlayVersion?, createdWith?, updatedAt?, repo?.
+// The old progress / work-order-total fields have no reader (DR-092 / DR-115): work-order counts derive
+// live from `listWorkOrders`, decisions and bugs from the live inbox (`readStatusWithLiveInboxCounts`).
 
-// lib/events.ts  (schema = architecture §5)
-type Event = {
-  event: string; at: string; agent?: string; session?: string;
-  tool?: string; status?: "ok" | "fail"; workOrder?: string; task?: string;
-  project?: string;        // optional; missing ⇒ legacy/global (CLAUDE.md)
-};
-type EventsSnapshot = {
-  events: Event[];                          // capped tail (default 200)
-  lastEventAt: string | null;
-  byProject: Record<string, { lastEventAt: string }>;  // for live/no-signal + age-in-stage
-};
+// docs
+type FrdModule = { slug: string; hasFdd: boolean; hasBlueprint: boolean; hasMocks: boolean;
+  hasWorkOrders: boolean };
+type ProjectDocsIndex = { prd?: string; architecture?: string; frds: FrdModule[]; hasAdr: boolean;
+  hasAnalytics: boolean; hasDecisionLog: boolean;
+  comms: { progress?: string; decisions?: string; bugs: string[] } };
+
+// events (schema = architecture §5)
+type Event = { event: string; at: string; agent?: string; session?: string; tool?: string;
+  status?: "ok" | "fail"; workOrder?: string; task?: string; project?: string /* absent = legacy/global */ };
+type EventsSnapshot = { events: Event[]; lastEventAt: string | null;
+  byProject: Record<string, { lastEventAt: string }> };
 ```
 
-> **Reconciled from code (2026-07-07).** The `Event` type carries a growing set of **optional**
-> enriched fields the parser tolerates from the real engine vocabulary (read from a nested `data`
-> object with a top-level fallback; a wrong type drops just that field, never the event):
-> `frd`/`phase`/`activity`/`mode`/`role` (WO-06-012, FRD-06), the result-bearing
-> `verdict`/`result`/`reopenCount`/`blocking`/`important`/`agentType`/`effortLevel`/`maxAgents`/`wos`/`frds`/`reason`/`workflows`
-> (WO-10-009, FRD-10), and the 2026-07-07 build-engine vocabulary
-> `stage` (Hardening), `outcome` (PatchResult), `pass`/`routes`/`failed` (PreviewSmoke) and `attempt` (gate).
-> `wos` is tolerated in BOTH shapes — the `"done/total"` STRING form (`BuildComplete`) and a plain
-> numeric COUNT (the extended `gate` event, which the parser earlier dropped silently — fixed
-> `af087570`). Chronology is compared via `Date.parse` (`lib/events/event-time.ts` `isNewerTimestamp`),
-> not lexicographically, because the engine mixes second- and millisecond-precision `at` stamps.
+The `Event` type also carries optional enriched fields the parser tolerates from the real engine vocabulary,
+read from a nested `data` object with a top-level fallback, where a wrong type drops that field and never
+the event: `frd`, `phase`, `activity`, `mode`, `role` (FRD-06); `verdict`, `result`, `reopenCount`,
+`blocking`, `important`, `agentType`, `effortLevel`, `maxAgents`, `wos`, `frds`, `reason`, `workflows`
+(FRD-10); `stage`, `outcome`, `pass`, `routes`, `failed`, `attempt` (build-engine vocabulary). `wos` is
+tolerated as a `"done/total"` string and as a plain count. Chronology uses `Date.parse`
+(`event-time.ts`), never a lexicographic compare, because the engine mixes second- and millisecond-precision
+stamps.
 
-```ts
+### Fixture seams (v2)
 
-// lib/docs.ts
-type FrdModule = {
-  slug: string; hasFdd: boolean; hasBlueprint: boolean;
-  hasMocks: boolean; hasWorkOrders: boolean;
-};
-type ProjectDocsIndex = {
-  prd?: string; architecture?: string;        // product layer (paths present)
-  frds: FrdModule[];                           // per-feature modules discovered
-  hasAdr: boolean; hasAnalytics: boolean; hasDecisionLog: boolean;
-  comms: { progress?: string; decisions?: string; bugs: string[] };  // .pandacorp/ (gitignored)
-};
-```
+Each seam is **inert unless its variable is set**: `pnpm dev` and `pnpm start` never set them; only
+`pnpm dev:oracle` (WO-01-010) and the test and e2e harnesses do. The variable list, defaults and who sets
+them are architecture §7 "Environment variables"; `.env.example` documents each with its own comment line.
 
----
+- `now()`: reads `MC_CLOCK` at call time, returns a new `Date` per call, throws on an invalid value, has no
+  framework dependency (the CLIs under `scripts/` import it).
+- `runGit(args, cwd?)`: refuses any subcommand outside the read-only allowlist before spawning
+  (`log`, `rev-parse`, `rev-list`, `status`, `diff`, `show`, `symbolic-ref`, `branch` list forms,
+  `worktree list`); runs with an explicit timeout, a bounded output buffer and `GIT_OPTIONAL_LOCKS=0`. With
+  `MC_GIT_FIXTURE` set it never spawns: the repository is chosen from `cwd` (the factory root answers from
+  `repos.factory`; a folder named `<id>` from `repos[<id>]`) and the command from a data-driven answer table
+  (the prototype's `fixtureGit()` families, plus `rev-list --count HEAD` and `log -1 --format=%cI`; WO-01-011
+  adds the history families). A command without an answer throws `GitError` `no-fixture-answer`, exactly like
+  a failing git, so each reader takes its existing fail-soft path.
+- `oracleEnv(repoRoot)`: factory root `docs/design/prototype/fixtures/factory-root`, `HOME`
+  `fixtures/home`, both event files under it, the accounts file under `fixtures/pandacorp-vault`,
+  `MC_GIT_FIXTURE` `fixtures/git-state.json`, `MC_CLOCK` `2026-10-21T00:20:00.000Z` (a caller value wins),
+  `NEXT_TELEMETRY_DISABLED=1`. Oracle mode never reads the owner's real factory (LESSON-0450: the harness,
+  not each test, forces the default root).
 
-## 3. Tolerance rules (cross-cutting, architecture §7)
+## Tolerance rules (cross-cutting, architecture §7)
 
-Every reader is **fail-soft** — a missing or malformed input yields a partial/empty result, never a
-throw or a blank screen:
+Every reader is fail-soft **and honest**: a missing or malformed input yields a partial result that says so,
+never a throw and never a silent success that looks like data (DR-078).
 
-- `readProfile` → `{ present: false }` on absent file (drives the gate, REQ-01-001).
-- `readIdeas` → skips `NON_IDEA_FILES`; a card with unparseable frontmatter is skipped (logged),
-  not fatal; empty folder → `[]` (REQ-01 edge case).
-- `readPortfolio` → empty/missing file → `[]`; rows missing cells degrade to `undefined` fields.
-- `readStatus` → absent → `{ present: false }`; malformed YAML → `{ present: true, malformed: true,
-  status: {} }`; partial keys tolerated (REQ-01-005/006, edge case).
-- `readProjectDocs` → only reports what exists; absent layers → empty/false.
-- `readEvents` → missing NDJSON → empty snapshot; a malformed line is skipped, valid lines kept;
-  tail capped at 200 (architecture §3/§5). **(reconciled from code 2026-07-07)** — the reader
-  tail-reads only the last **256 KB** of the file (`readTailUtf8`: `open → fstat → read → close` one
-  fd, dropping the first partial line so no truncated JSON reaches the parser), not the whole file —
-  the dashboard stream grows unbounded (every Claude session appends; it had reached ~16 MB) and only
-  the last ~200 events are ever kept. The `project` filter is applied BEFORE the cap (existing rule);
-  the tail byte-window sits above it.
-- `pathExists` → never throws; a not-found project is **marked**, the rest of the view survives
-  (REQ-01-010).
+- `readProfile`: `{ present: false }` on an absent file (drives the gate).
+- `readIdeas`: skips `NON_IDEA_FILES`; a card with unparseable frontmatter is skipped and logged; an empty
+  folder is `[]`.
+- `readPortfolio`: an empty or missing file is `[]`; rows missing cells degrade to `undefined` fields; a row
+  whose path is missing on disk is kept and marked (never dropped).
+- `readStatus`: absent is `{ present: false }`; malformed YAML is `{ present: true, malformed: true,
+  status: {} }`; partial keys are tolerated.
+- `readProjectDocs`: reports only what exists; absent layers are empty or false.
+- `readEvents`: a missing NDJSON is an empty snapshot; a malformed line is skipped and valid lines kept; the
+  reader tail-reads only the last 256 KB (one fd, dropping the first partial line); the `project` filter is
+  applied BEFORE the cap of 200; both transports are merged chronologically before the cap and an exact
+  `event_id` repeats once.
+- `pathExists`: never throws; a not-found project is marked and the rest of the view survives.
 
----
+## Platform surfaces used
 
-## 4. Platform surfaces used / created
+- `src/lib/**` boundary (architecture §6): this feature owns `config`, `ideas`, `profile`, `portfolio`,
+  `status`, `docs`, `events`, `fs-utils` and, in v2, `clock` and `git`.
+- App surface (architecture §11 and the Route map): cross-cutting. The only page-level piece is the
+  onboarding gate in the root `layout.tsx` render path, and the route handler `/api/live`.
+- Event contract and runtime-neutral adapter (Proposal 32 R9): the canonical vocabulary is
+  `plugin/runtime/event-vocabulary.json`; Mission Control consumes only the generated, drift-checked
+  projection `src/lib/events/event-vocabulary.json` and never keeps its own alias table. Legacy Claude
+  (`~/.claude/dashboard-events.ndjson`) and Codex (`~/.codex/dashboard-events.ndjson`) transports are merged.
+  `event-contract.ts` maps aliases to the stable semantic name and the La Fragua display name; result
+  consumers ledger by `(run_id, event_name, subject)`, so transport ids and alias spelling cannot inflate XP
+  or unlocks. Events are observability only: status, phase, work-order and build truth come from
+  `.pandacorp/status.yaml`, work-order frontmatter and track / git evidence, whether the stream exists or not.
+- Shared live transport (WO-01-009): `/api/live` and `useLiveSnapshot` are built on the readers above. A
+  module-level `EventStore` singleton owns one `fs.watch` and a snapshot memoized by `{size, mtimeMs}`; every
+  connection subscribes and filters for its own `?project=` / `?kind=` (shared read cap 600, per-frame tail
+  200, debounced watch bursts, throttled frames). Per-client `stateVersion` watchers stamp each frame with the
+  max mtime of the project machine state (`status.yaml` and the work-order files), so consumers re-read when
+  state advances without an event (DR-066 fix 3). Downstream: FRD-05, FRD-06, FRD-12, FRD-18 subscribe to
+  their slice instead of polling.
 
-- **`lib/**` boundary** (architecture §6): this feature creates `ideas`, `profile`, `portfolio`,
-  `status`, `docs`, `events` and a small `pathExists` helper (place in `lib/fs-utils.ts` or inside
-  `config.ts` — proposed: **`lib/fs-utils.ts`**, a new tiny module; noted for the report).
-- **App surface** (architecture §11): FRD-01 is cross-cutting (no page of its own) **except** the
-  onboarding gate, which lives in the root `app/layout.tsx` render path
-  (`components/OnboardingGate.tsx`). The gate renders the `/pandacorp:onboarding` command with a
-  copy button (the shared `components/CopyButton.tsx` is introduced by FRD-02/03; FRD-01 may ship a
-  minimal copy affordance or depend on it — see WO ordering).
-- **No route handlers** (those are FRD-15/16 only).
+## Requirement → component traceability (REQ-01-MMM)
 
----
+FRD-01 is **REQ-only by design**: a non-UI platform reader FRD with no `AC-01-*` bullets. The FRD lists
+EARS bullets without ids; they are numbered here. **The numbering is frozen**: ids 001 to 011 keep the
+meaning they have in every v1 work order; bullets added since take new numbers (012 onwards). The v1 table
+mapped `CMP-01-events` to REQ-01-009 in one place and REQ-01-008 in another; the table below is the
+correction (the events reader is REQ-01-008).
 
-## 5. Requirement → component traceability (REQ-01-MMM)
+| REQ | FRD bullet (abridged) | Component(s) / interface(s) | Work order(s) |
+|---|---|---|---|
+| REQ-01-001 | No `profile.md`: onboarding gate before any view, with the copyable command. | `CMP-01-onboarding-gate`, `IF-01-readProfile` | WO-01-002, WO-01-008 |
+| REQ-01-002 | `profile.md` present: read it to personalize. | `CMP-01-profile`, `IF-01-readProfile` | WO-01-002 |
+| REQ-01-003 | Read all `factory/ideas/*.md` (skip template and log) with frontmatter. | `CMP-01-ideas`, `IF-01-readIdeas` | WO-01-003 |
+| REQ-01-004 | Read `factory/portfolio.md`: projects and paths. | `CMP-01-portfolio`, `IF-01-readPortfolio` | WO-01-004 |
+| REQ-01-005 | Read each `status.yaml`; counts derive live, never from status.yaml counters (DR-092 / DR-115). | `CMP-01-status`, `IF-01-readStatus` | WO-01-005 |
+| REQ-01-006 | In-pipeline card: column from the project's `phase` (status.yaml is the single source). | `CMP-01-status` (the column map is FRD-02 `lib/board`) | WO-01-005 |
+| REQ-01-007 | Read the feature-centric `docs/` tree and the `.pandacorp/` comms. | `CMP-01-docs`, `IF-01-readProjectDocs` | WO-01-006 |
+| REQ-01-008 | Read the event stream: live and no-signal indicators (last event per running build). The digest diffs and age-in-stage are **out of v2**. | `CMP-01-events`, `CMP-01-live`, `CMP-01-clock`, `IF-01-readEvents`, `IF-01-now` | WO-01-007, WO-01-009, WO-01-010, WO-01-011 |
+| REQ-01-009 | Persist the dashboard «seen» marker client-side. **Out of v2** (FRD-18 digest removed). | none (retired) | none |
+| REQ-01-010 | Project path missing: mark not found, never break the view. | `CMP-01-fs`, `IF-01-pathExists`, `CMP-01-status` tolerance | WO-01-001, WO-01-005 |
+| REQ-01-011 | NEVER call Claude or write (except FRD-02 discard; browser-local UI state is not a write). | cross-cutting: every reader is `fs.read*`; `CMP-01-git` read-only allowlist; `CMP-01-env`; `CMP-01-oracle-boot`; `CMP-01-seam-adoption` | WO-01-010, WO-01-011 |
+| REQ-01-012 | A single-project event read applies the project filter BEFORE the tail cap. | `CMP-01-events`, `CMP-01-live` | WO-01-007, WO-01-009 |
+| REQ-01-013 | `/api/live?project=` also watches the machine state and stamps `stateVersion`; `PANDACORP_EVENTS_FILE` overrides the path. | `CMP-01-live` | WO-01-009 |
+| REQ-01-014 | Merge the Claude and Codex transports through one canonical vocabulary, preserving La Fragua display names. | `CMP-01-events` (`event-contract.ts`) | WO-01-007 |
+| REQ-01-015 | Two records with the same `event_id` keep exactly one observation. | `CMP-01-events` | WO-01-007 |
+| REQ-01-016 | Aliases of one result-bearing act ledger once by `(run_id, event_name, subject)`. | FRD-09 ledger over `CMP-01-events` | WO-01-007 |
+| REQ-01-017 | A missing, malformed or deleted transport changes no phase, work-order or build state. | `CMP-01-events` fail-soft; status and work orders read from files | WO-01-007 |
+| REQ-01-018 | Both transports are merged chronologically before the bounded tail cap. | `CMP-01-events` | WO-01-007 |
+| REQ-01-019 | Dispatch-completion and change-reconciliation events stay non-result acts. | `CMP-01-events` (`event-contract.ts`) | WO-01-007 |
 
-The FRD lists its acceptance criteria as EARS bullets; numbered here in order for traceability.
+> The fixture seams (`CMP-01-clock`, `CMP-01-git`, `CMP-01-env`, `CMP-01-oracle-boot`) have no FRD bullet of
+> their own; they trace to architecture.md §7 "Fixture seams (oracle mode, ADR-0012)" and, as consequences,
+> to REQ-01-008 (the clock) and REQ-01-011 (read-only git). Reported to the PM as an FRD-01 wording gap in
+> the architecture ledger.
 
-| REQ | Acceptance criterion (abridged) | Component(s) / interface(s) |
-|---|---|---|
-| REQ-01-001 | No `profile.md` → onboarding gate before any view, with copy command. | `CMP-01-onboarding-gate`, `IF-01-readProfile` |
-| REQ-01-002 | `profile.md` present → read it to personalize. | `CMP-01-profile`, `IF-01-readProfile` |
-| REQ-01-003 | Read all `factory/ideas/*.md` (skip template/log) + frontmatter. | `CMP-01-ideas`, `IF-01-readIdeas` |
-| REQ-01-004 | Read `factory/portfolio.md` → projects + paths. | `CMP-01-portfolio`, `IF-01-readPortfolio` |
-| REQ-01-005 | Read each project's `status.yaml` (phase, version, running, last_green_sha, safe_to_test). WO counts derive live from the work-order files (`listWorkOrders`), decisions/bugs from the live inbox (`readStatusWithLiveInboxCounts`) — never the status.yaml counters (DR-092/DR-115). | `CMP-01-status`, `IF-01-readStatus` |
-| REQ-01-006 | In-pipeline card → column from project `phase` (status.yaml is the single source). | `CMP-01-status` (provides phase; column derivation = FRD-02 `lib/board.ts`) |
-| REQ-01-007 | Read per-project feature-centric `docs/` + `.pandacorp/` comms. | `CMP-01-docs`, `IF-01-readProjectDocs` |
-| REQ-01-008 | Read event stream → diffs, live/no-signal, age-in-stage. (`visto_hasta` = client-local, FRD-18.) | `CMP-01-events`, `IF-01-readEvents` |
-| REQ-01-009 | Persist `visto_hasta` as client-local UI state (not a factory write). | *(FRD-18; constraint only — no component here)* |
-| REQ-01-010 | Project path missing → mark not-found, don't break the view. | `IF-01-pathExists`, `CMP-01-status` tolerance |
-| REQ-01-011 | NEVER call Claude / never write (except FRD-02 discard). | cross-cutting invariant (all readers `fs.read*`) |
+## AC ⇄ design check
 
-> Note: REQ numbering maps the FRD's EARS bullets in document order (001 = first bullet … 011 = last
-> bullet, "never call Claude/write"). The onboarding-gate criterion and the "personalize" criterion
-> are split into REQ-01-001 and REQ-01-002.
+- «Onboarding gate before any other view»: enforced in `src/app/layout.tsx` (a server guard reads
+  `readProfile` and renders the gate instead of children). Later editors of `layout.tsx` (WO-13-010,
+  WO-19-002, WO-19-003) keep the guard and its `layout.guard.test.tsx`.
+- «Single source of truth for phase»: `status.ts` exposes `phase`; the column map is FRD-02.
+- «Never break the rest of the view»: tolerance rules and `pathExists`.
+- «Never write»: read-only readers; `runGit` refuses write subcommands before spawning.
+- No FRD-01 requirement is unbuildable on the platform.
 
----
+## Dependencies & Risks
 
-## 6. AC ⇄ design check (acceptance-criteria reconciliation)
+- Upstream: none (FRD-01 is the root of the data layer). Downstream: every FRD reads through it; the v2
+  consumers of the seams are WO-21-003, WO-03-007, WO-10-016 (via WO-01-010) and the readers WO-01-011
+  migrates.
+- Risk: `config.ts` resolves some paths at import time, so the oracle variables must be set before the
+  server starts; `dev:oracle` guarantees it, a test that needs a different root uses `withFactoryRoot`.
+- Risk: the history answers of the git fixture must match each reader's parser output; WO-01-011 proves it
+  with fixture-mode tests rather than by inspection.
+- `HOME` is overridden in oracle mode, so the launcher sets `NEXT_TELEMETRY_DISABLED=1` and the framework
+  writes nothing into the fixtures.
 
-- Onboarding gate "before any other view" → enforced in `app/layout.tsx` (server guard reads
-  `readProfile` and short-circuits to the gate). ✅
-- "single source of truth for phase" → `lib/status.ts` exposes `phase`; the column map lives in
-  FRD-02 (`lib/board.ts`) which consumes it. No duplication. ✅
-- "never break the rest of the view" → §3 tolerance rules + `pathExists`. ✅
-- Event cap (architecture §3) → `readEvents` default cap 200. ✅
+## Build Plan
 
-No FRD-01 criterion is unbuildable on the platform.
+> The build engine reads this table; it does not infer dependencies. Legacy v1 work orders are kept live
+> (`VERIFIED`, unchanged) so the plan, the AC matrix and the waves are consistent project-wide. Waves are
+> computed from `dependsOn` across the whole project.
 
-## 7. Build Plan (Phase 2 — the shared live transport, FND-5)
+| WO | Depends on | Artifacts | Foundation | Parallel with |
+|---|---|---|---|---|
+| WO-01-000 | — | `src/tests/fixtures/index.ts`, `src/tests/fixtures/_tests/**`, `src/tests/fixtures/factory-full/**`, `src/tests/fixtures/factory-fresh/**`, `src/tests/fixtures/events/**` | false | W0 |
+| WO-01-001 | WO-01-000 | `src/lib/fs-utils/fs-utils.ts`, `src/lib/fs-utils/_tests/fs-utils.test.ts`, `src/lib/fs-utils/_tests/fs-utils.adversarial.test.ts` | false | W1; with WO-01-002, WO-01-003, WO-01-004, WO-01-007 |
+| WO-01-002 | WO-01-000 | `src/lib/profile/profile.ts`, `src/lib/profile/_tests/profile.test.ts`, `src/lib/profile/_tests/profile.adversarial.test.ts` | false | W1; with WO-01-001, WO-01-003, WO-01-004, WO-01-007 |
+| WO-01-003 | WO-01-000 | `src/lib/ideas/ideas.ts`, `src/lib/ideas/_tests/ideas.test.ts`, `src/lib/ideas/_tests/ideas.adversarial.test.ts` | false | W1; with WO-01-001, WO-01-002, WO-01-004, WO-01-007 |
+| WO-01-004 | WO-01-000 | `src/lib/portfolio/portfolio.ts`, `src/lib/portfolio/_tests/portfolio.test.ts`, `src/lib/portfolio/_tests/portfolio.adversarial.test.ts` | false | W1; with WO-01-001, WO-01-002, WO-01-003, WO-01-007 |
+| WO-01-007 | WO-01-000 | `src/lib/events/events.ts`, `src/lib/events/_tests/events.test.ts`, `src/lib/events/_tests/events.adversarial.test.ts` | false | W1; with WO-01-001, WO-01-002, WO-01-003, WO-01-004 |
+| WO-01-005 | WO-01-000, WO-01-001 | `src/lib/status/status.ts`, `src/lib/status/_tests/status.test.ts`, `src/lib/status/_tests/status.adversarial.test.ts` | false | W2; with WO-01-006, WO-01-008, WO-01-010 |
+| WO-01-006 | WO-01-000, WO-01-001 | `src/lib/docs/docs.ts`, `src/lib/docs/_tests/docs.test.ts`, `src/lib/docs/_tests/docs.adversarial.test.ts` | false | W2; with WO-01-005, WO-01-008, WO-01-010 |
+| WO-01-008 | WO-01-002 | `src/app/_components/OnboardingGate/**`, `src/app/_tests/layout.guard.test.tsx`, `src/app/layout.tsx` | false | W2; with WO-01-005, WO-01-006, WO-01-010 |
+| WO-01-010 | WO-01-000, WO-01-001 | `src/lib/clock/**`, `src/lib/git/**`, `src/lib/config/**`, `scripts/oracle/**`, `.env.example`, `README.md`, `package.json` | false | W2; with WO-01-005, WO-01-006, WO-01-008, WO-13-012, WO-11-003 |
+| WO-01-009 | WO-01-005, WO-01-007, WO-05-001 | `src/app/api/live/**`, `src/hooks/useLiveSnapshot.ts`, `src/hooks/_tests/useLiveSnapshot*.test.ts` | true | W3 |
+| WO-01-011 | WO-01-010, WO-10-014, WO-23-006, WO-14-001, WO-17-003, WO-17-005, WO-17-008, WO-09-006, WO-01-009, WO-15-003 | `src/lib/achievements/report/**`, `src/lib/achievements/read-model/**`, `src/lib/snapshot/**`, `src/lib/memory/memory-health.ts`, `src/lib/self-suggest/**`, `src/lib/gamification/ledger.ts`, `src/lib/build-track/**`, `src/lib/git/fixtureAnswers.ts`, `src/lib/git/_tests/gitBoundary.test.ts`, `src/app/api/live/**`, `src/app/api/plugin-sync/**`, `src/app/_actions/snapshotLedger.ts` | false | W5; with WO-04-010, WO-18-002 |
 
-The data-reading layer is **VERIFIED and frozen** (WO-01-000..008 — the readers/parsers; the Phase-2
-gap is presentational, not in `lib/`). Phase 2 adds ONE new piece here: the real-time wire.
+- **Order and parallelism.** WO-01-000 first (every reader consumes its fixture tree). The pure readers
+  (001, 002, 003, 004, 007) are independent and run in parallel in W1; 005, 006, 008 and the new 010 run in
+  W2; 009 (the live transport, `foundation: true`, consumed by the real-time surfaces) in W3; WO-01-011 last
+  (W5) because it migrates readers other FRDs finish first.
+- **Artifacts, disjoint within a wave (DR-060).** Same-wave rows write different `src/lib/<module>/` folders
+  (W1, W2); WO-01-010 owns `package.json`, `.env.example`, `README.md` and `scripts/oracle/**` in W2, and no
+  other W2 work order writes them. Overlaps with later waves (`src/app/api/live/**` in WO-01-009 and
+  WO-01-011, `src/lib/git/**` in WO-01-010 and WO-01-011, `src/app/layout.tsx` with the shell WOs) are
+  serialized by dependency, never parallel.
+- **Integration order.** Seams (010) before any consumer: WO-21-003 and WO-03-007 depend on WO-01-010 and
+  adopt `runGit` / `now` for what they own; WO-01-011 closes the rest. The oracle-mode boot is complete
+  only after WO-01-011.
+- **Cross-FRD dependencies.** WO-01-009 depends on WO-05-001 (work-order reader). WO-01-011 depends on the
+  owners of the readers it migrates (FRD-09, 10, 14, 15, 17, 23). Consumers of the seams: WO-03-007,
+  WO-21-003, WO-10-016.
+- **Visual spec.** None: FRD-01 has no screen (the onboarding gate keeps its v1 look until the shell WOs
+  restyle it through the tokens; its oracle states, if any, belong to FRD-19).
 
-- **Already VERIFIED (do NOT rebuild):** WO-01-000..008 — `pathExists`, `readProfile`, `readIdeas`,
-  `readPortfolio`, `readStatus`, `readProjectDocs`, `readEvents`, onboarding gate.
-- **Foundation wave (`foundation: true`):**
-  - **WO-01-009 (FND-5)** — the shared SSE transport (`app/api/live/route.ts`) + the `useLiveSnapshot`
-    hook, built **on the existing readers** (no `lib/` parsing re-implemented). Read-only; pushes deltas.
-- **Cross-FRD deps:** none upstream. **Downstream (real-time consumers that depend on `frd-01`):**
-  FRD-05 (Work orders), FRD-06 (Party), FRD-12 (Observabilidad), FRD-18 (Inicio) — each subscribes to
-  its own event slice via `useLiveSnapshot`, replacing any polling.
-- **Gate:** SSE delivers an appended event to a subscribed client; `?project=` slices correctly; no leak
-  on unmount; defensive on missing/locked files. Its `## Status Note` publishes the frame + hook contract.
+## Superseded (v1 history)
 
-> **Reconciled from code (2026-07-07) — stream hygiene.** `/api/live` no longer opens a watcher and
-> re-parses the whole file per connection. A module-level **`EventStore` singleton** owns ONE
-> `fs.watch` on the events file plus a shared parsed snapshot memoized by `{size, mtimeMs}`; every SSE
-> connection SUBSCRIBES to that shared store and filters it for its own `?project=`/`?kind=`. The
-> shared unfiltered read is capped at `SHARED_CAP=600` (headroom so a busy global stream can't crowd a
-> single project out) and each client frame is tail-capped at `CONNECTION_TAIL=200`; watch bursts are
-> debounced (`STORE_DEBOUNCE_MS`) and frames throttled (`EMIT_THROTTLE_MS`). The per-client
-> `stateVersion` stat-watchers stay (cheap, project-specific) and stamp each frame with the project
-> machine-state's max mtime (the DR-066 refresh trigger consumed by FRD-05/FRD-06).
+None: all ten v1 work orders (WO-01-000 to WO-01-009) stay live. Their acceptance bullets are rewritten as
+non-owning `v1 AC-01-…` history lines because FRD-01 defines no AC.
 
-## 8. Runtime-neutral event adapter (Proposal 32 R9)
+## Work Orders
 
-- Canonical vocabulary: `plugin/runtime/event-vocabulary.json`. Mission Control consumes only the generated, drift-checked projection `src/lib/events/event-vocabulary.json`; it never maintains an independent alias table.
-- Transports are additive and runtime-local: legacy Claude remains `~/.claude/dashboard-events.ndjson`; Codex writes `~/.codex/dashboard-events.ndjson`. The reader merges both and exact-deduplicates `event_id`.
-- `event-contract.ts` maps aliases to the stable semantic name and the pre-existing La Fragua display name. New events carry `runtime`, `run_id`, `event_id`, and `subject`; legacy lines remain accepted without fabricated run boundaries.
-- Result consumers use one semantic ledger keyed by `(run_id,event_name,subject)`. Transport IDs and alias spelling cannot inflate XP or unlocks.
-- Events are observability only. Status, phase, WO and build truth continue to come from `.pandacorp/status.yaml`, WO frontmatter and track/git evidence.
+In build order: WO-01-000; then WO-01-001, WO-01-002, WO-01-003, WO-01-004, WO-01-007 (parallel); then
+WO-01-005, WO-01-006, WO-01-008, WO-01-010 (parallel); WO-01-009; WO-01-011. Index with summaries:
+[`work-orders/README.md`](work-orders/README.md).

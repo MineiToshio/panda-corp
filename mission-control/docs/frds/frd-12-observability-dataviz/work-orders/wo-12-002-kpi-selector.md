@@ -3,7 +3,8 @@ id: WO-12-002
 type: work-order
 slug: kpi-selector
 title: 'WO-12-002 — KPI selector (≤5, incl. failed work orders)'
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-13-013]
 parent: FRD-12
 implementation_status: VERIFIED
 source_requirements: []

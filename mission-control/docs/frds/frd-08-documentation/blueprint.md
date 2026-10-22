@@ -2,164 +2,139 @@
 id: FRD-08-blueprint
 type: blueprint
 parent: FRD-08
-status: ACTIVE
-implementation_status: VERIFIED
-last_updated: '2026-09-30'
+status: DRAFT
+implementation_status: PLANNED
+readiness_gate:
+grounding_gate:
+consistency_gate:
+last_updated: '2026-10-22'
 ---
-# FRD-08 — Documentation (the Manual / "Códice del gremio") · feature blueprint
+# FRD-08 — Documentación · feature blueprint (v2 «Órbita»)
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
-> This is the **per-FRD blueprint** (DR-049). It references the
-> **[platform architecture](../../product/architecture.md)** (the `lib/**` data layer §6, the
-> read-only invariant §1/§7, the app surface §11 `app/manual`) and the
-> **[FRD-07 blueprint](../frd-07-configuration/blueprint.md)** (which owns the same derivation
-> readers). Read those first.
+> This is the **per-FRD blueprint** (DR-049) for the Documentación surface (route folder `src/app/manual`, interface name
+> «Documentación»). It references the platform [`architecture.md`](../../product/architecture.md) (stack §2,
+> read-only invariant §1/§7, `src/lib/**` §6, route map, copy accessor [ADR-0013](../../adr/ADR-0013-typed-copy-accessor.md),
+> Órbita contract [ADR-0012](../../adr/ADR-0012-adopt-orbita-design-system.md)) and the [FRD-07 blueprint](../frd-07-configuration/blueprint.md),
+> which now owns the catalogs. It is a v2 revision of the v1 blueprint.
 
 ## 1. Feature summary
 
-A navigable factory **Manual** inside Mission Control — the **operable surface of the factory's
-know-how**, organized with **Diátaxis**: Tutorial ("Empezar aquí"), How-to ("Guías"), Reference
-("Referencia"), Explanation ("Conceptos"). It must be sufficient for someone with **no prior
-context** (including a handoff to another person) to understand and operate the factory.
+The navigable face of the factory's know-how, organised with Diátaxis as four authored groups, **Tutorial · Guías ·
+Conceptos · Workflows**, plus a **Referencia** entry that points to Configuración (FRD-07) where the catalogs live
+(one catalog, one set of cards, derived from the factory, DR-046). v2 shape: a home that routes the reader in, one
+full-text search with snippets, and a reader with breadcrumbs, a position counter (or the tutorial's «Paso X de Y»
+bar), previous and next within the group and the page index at the right (folded behind a control below 900 px).
+The authored content (38 pages today) is refreshed to the v2 factory and the v2 app, and the interactive skill flow
+graph with its curated explainers is removed (owner default O2: the skill-flows data and `FlowGraph` leave the app).
 
-The defining architectural constraint (DR-046): the **Reference catalogs** — commands (skills),
-agents (party), decision rules, standards — are **DERIVED from the canonical source at build/read
-time**, never a hand-maintained copy, so a new/renamed/removed skill, agent, rule or standard
-appears automatically with **zero drift**. The hand-authored **Tutorial / Guides / Concepts** pages
-are kept in sync by the documentation discipline (a change to how the factory is operated updates
-the affected page in the same change — root `CLAUDE.md` "Decision log").
+Two work orders split the surface: **WO-08-003** is the UI (shell, home, search, reader, index, not-found, the shared
+`DocIndex` / `Paper` module); **WO-08-004** is the content and the removals (Claude Design sunset wording, retired
+Mission Control surfaces, requirements REQ-08-013 to REQ-08-019 re-verified, flow graph off the pages).
 
-## 2. How the Reference is DERIVED (the DR-046 core)
+## 2. Content model (kept from v1, still true)
 
-The Reference **reuses the exact same readers** that FRD-07 introduces (architecture §6) — there is
-**one** derivation path, not two:
+- **Authored pages** live in `content/manual/<group>/<slug>.md` and are indexed by `readManualPages()` (`src/lib/manual/manual.ts`, WO-08-001, history): `group`, `slug`, `title`, `order`, `body`. A malformed page is skipped with a typed warning. `readServiceManualPages()` (FRD-26) is merged by the page exactly as today.
+- **One source of content per page (REQ-08-018, DR-115).** A page with a bespoke renderer (`src/app/manual/manualPages.tsx`, long sections in `_components/*Detail.tsx`, diagrams in `src/components/modules/manual-diagrams/`) takes its content ONLY from that renderer; its `.md` is an index stub (frontmatter, H1, one-line summary). A page without a renderer renders its `.md` body through `Markdown`. Guards: `manualSingleSource.test.ts`, `conceptEquipo.test.tsx`.
+- **Roster.** «El equipo» bios and the team diagram share one `GROUPS` roster (`TeamDiagram.tsx`); a test fails when an agent is added to `plugin/agents/` without a card (REQ-08-019).
+- **Currency (REQ-08-013, REQ-08-017).** Workflow-facing statements are copied from the installed plugin skills and standards (DR-046); the structure page reflects the feature-centric layout (DR-049). v2 adds content tests (sunset wording, retired Mission Control phrases, required topics).
+- **No catalogs here (REQ-08-006, REQ-08-007).** Referencia links to `/configuration/<section>`; the Documentación contains no catalog renderer and no `reference` content group.
 
-| Reference catalog | Reader (owned by FRD-07) | Canonical source |
-|---|---|---|
-| Commands (skills) | `IF-07-reference` → `readSkills()` | `plugin/skills/<slug>/SKILL.md` (slug = dir name, `description` frontmatter) |
-| Agents (party) | `IF-07-reference` → `readAgents()` | `plugin/agents/<id>.md` (`name`, `description`, `model`) |
-| Decision rules | `IF-07-registry` → `readDecisionRules()` | `factory/decisions/registry.yaml` |
-| Standards | `IF-07-standards` → `readStandards()` | `factory/standards/*.md` (+ derivation gap, FRD-07 §6) |
-
-**Build/read-time, not hand copy.** In Mission Control these are Server Components that call the
-readers on each render (the factory repo is the read-only database, architecture §1) — equivalent to
-build-time derivation for a static export. The acceptance test for DR-046 is: **adding/renaming a
-skill/agent/rule/standard in the factory makes it appear/rename in the Reference with no edit to any
-Manual file.** FRD-08 owns the **presentation** of these catalogs in the Manual's Reference section;
-FRD-07 owns the readers and the Configuration presentation. They share the readers; they do not
-duplicate them.
-
-> The prototype reconciles `CONFIG.{skills,agents,rules,estandares}` **by hand** (a stopgap). The
-> Next.js Manual MUST replace that with the live derivation above (Mission Control decision-log
-> 2026-06-15). A hand-maintained catalog array in the real app is the anti-pattern this FRD forbids.
-
-## 3. Where the hand-authored pages live (Diátaxis)
-
-Tutorial / Guides / Concepts are **content**, not derived. They are authored as markdown/MDX inside
-Mission Control and rendered by the reading area. The page set (from the FRD AC + prototype
-`DOCNAV`), grouped by Diátaxis quadrant:
-
-- **Empezar aquí (Tutorial):** "Cómo empezar" (first run → first command).
-- **Guías (How-to):** "Cómo operas a diario", "Cómo se construye", "Cómo hand-off a otra persona".
-- **Referencia (Reference, DERIVED):** Commands · Agents · Decision rules · Standards (§2).
-- **Conceptos (Explanation):** "Qué es Pandacorp", "El pipeline", "El equipo", "Estándares y reglas",
-  "Arquitectura del sistema", "Mission Control por dentro", "Estado y archivos", "Hooks/gates/seguridad",
-  "Stacks (golden paths)", "Construcción desatendida", "El plugin", "Autoaprendizaje".
-
-**DR-049 currency (AC):** any Concept/Guide page that describes a project's documentation structure
-SHALL reflect the **feature-centric** layout — the product layer (`docs/product/`), per-feature
-module folders `docs/frds/frd-NN-<slug>/` (`frd.md` + on-demand `fdd.md`/`blueprint.md`/`mocks/`/
-`work-orders/`), the global `docs/{adr,analytics,reviews,decision-log.md}`, the ID spine
-(`REQ-NN-MMM → AC-NN-MMM.K → CMP/IF-NN → WO-NN-MMM`) and the hierarchy `FRD > FDD > design-tokens >
-blueprint > work order` — NOT the old by-type layout (flat `docs/frds/`, global `docs/blueprint.md`,
-global `docs/work-orders/`). The derived Reference picks up DR-049 and the rewritten `structure.md`
-standard automatically (no extra work).
-
-## 4. Storage of hand-authored content
-
-The authored pages live as **MDX/markdown files inside the app** (e.g. `app/manual/content/<group>/<slug>.mdx`
-or a `content/manual/` tree), discovered by a thin index. This keeps them version-controlled with the
-app and renderable by `react-markdown` (architecture §2). They are NOT read from the factory repo —
-they ARE the Manual content. (Distinct from the per-project docs read by `lib/docs.ts`, which is a
-different feature, FRD-04/05.) A small `lib/manual.ts` indexes the authored pages; **flagged as a new
-`lib/` module** (not in architecture §6's list — see §7).
-
-## 5. Components & interfaces
+## 3. Components and interfaces
 
 ### Interfaces
-- **`IF-08-manual-index`** — `lib/manual.ts` (**NEW**, §7): `readManualPages(): ManualPage[]` → `{ group, slug, title, order, body }` for the authored Tutorial/Guides/Concepts pages. Pure, fixture-tested.
-- Reuses **`IF-07-reference`, `IF-07-registry`, `IF-07-standards`** for the Reference (no new reader).
 
-### Components (`app/manual/`)
-- **`CMP-08-manual-page`** — `app/manual/page.tsx` (Server Component): side menu (pages grouped by Diátaxis quadrant) + reading area. App surface architecture §11 `app/manual`. → AC "side menu + reading area".
-- **`CMP-08-doc-nav`** — the side menu; groups Empezar aquí / Guías / Referencia / Conceptos. → AC "side menu".
-- **`CMP-08-doc-reader`** — renders the selected page: a bespoke renderer when `getManualPageComponent(slug)` resolves (it always wins and is the page's only content source), else the `.md` body via `react-markdown`; or a Reference catalog view. → AC "renders each page", AC "one source per page".
-- **`CMP-08-reference-commands`** — Reference: commands list, derived from `readSkills()`. → DR-046 AC.
-- **`CMP-08-reference-agents`** — Reference: agents/party list, derived from `readAgents()`. → DR-046 AC.
-- **`CMP-08-reference-rules`** — Reference: decision rules, derived from `readDecisionRules()`. → DR-046 AC.
-- **`CMP-08-reference-standards`** — Reference: standards, derived from `readStandards()`. → DR-046 AC.
-- **`CMP-08-concept-pages`** — the authored Tutorial/Guides/Concepts content: one bespoke renderer per page in `src/app/manual/manualPages.tsx` (long reference sections live in `src/app/manual/_components/*Detail.tsx`, reference tables use `ProseTable`), plus an index-stub `.md` per page that only feeds the nav (`readManualPages`). Includes the DR-049 feature-centric structure page (`espinazo-de-documentos`). The team roster + bios share one `GROUPS` array in `manual-diagrams/TeamDiagram.tsx`. → AC "pages cover…", "sufficient for no-context reader", DR-049 currency, "one source per page", "El equipo lists every plugin agent".
+- **`IF-08-manual-index`** (existing, WO-08-001): `readManualPages(appRoot?): ManualPage[]`, unchanged. The single source of the page list for home counts, search, index and prev/next.
+- **`IF-08-search-index`** (new, `src/app/manual/_components/DocsSearch/`; AC-08-020.2). `buildSearchIndex(pages, extractText): SearchEntry[]` and `searchPages(index, query): SearchHit[]`, both pure. `extractText(page)` is injected: for a page with a bespoke renderer it is the text of the renderer's static markup (the shell lazily imports `react-dom/server` in the client on the first non-empty term and memoises the index for the session), for any other page the `.md` body stripped of markdown syntax. `searchPages` matches title and text, case- and accent-insensitively; hits are ordered title matches first, then by group order and page `order`; each hit carries `{ page, group, snippet }` where the snippet is a window of roughly 120 characters around the first match, with an ellipsis on each truncated side. A page whose renderer cannot be extracted is indexed by title only, and a test that extracts every registered renderer fails if any throws (no silent loss, DR-078).
+- **`IF-08-legacy-redirect`** (new, in `[...segments]/page.tsx`): the closed table `reference/commands|agents|rules|standards[/<item>]` → `/configuration/skills|agents|rules|standards[/<item>]`; any other `reference/*` path is not found. The item is carried as one URL-encoded segment.
+- **`IF-08-doc-index`** (new, `src/components/modules/DocumentReader/DocIndex.tsx` and `DocItem`; components.md row): props `groups: { id, label, count, items: { id, label, href, current? }[] }[]`, `query`, `onQuery`, optional `typeFilters` (the project Documentos tab uses them; the Documentación does not), `toggleLabel` (the folded control: «Índice · <página>» in the Documentación, «Elegir documento · N» in Documentos). From 900 px it is rendered at the right; below it is behind a `button` that opens it above the page and returns focus to the button on close.
+- **`IF-08-paper`** (new, `src/components/modules/DocumentReader/Paper.tsx`): typed document reader, props `type`, `path`, content as children (a `Markdown`); header with the type chip, the path and a copy button. Consumed by WO-04-012.
 
-### Reused
-- `CopyButton` (FRD-02) for inline commands inside pages.
-- `react-markdown` (architecture §2) for rendering.
-- FRD-13 tokens for all styling.
+### Components (`src/app/manual/`)
 
-## 6. Read-only & security posture
-All reads (`fs.read*`), no writes (architecture §7). Inline command chips **copy** strings, never
-execute (architecture §1). The Reference's derivation introduces no new write path.
+- **`CMP-08-docs-shell`** — `page.tsx`, `ManualShell.tsx`, `[...segments]/page.tsx`, `types.ts`: `PageHead`, URL state (`/manual/:group/:page`, `q`, `index`) through the FRD-25 codec, home/search/reader/not-found selection. → REQ-08-001, REQ-08-002.
+- **`CMP-08-docs-home`** — `_components/DocsHome/` (`DocsGroupCard`, `DocsSteps`): «Empieza aquí», «Guías para el día a día», «Explorar por tipo» with Referencia. The curated link lists (the four essentials, the six daily guides) are constants whose slugs a test resolves against the page index. → AC-08-020.1, REQ-08-003, REQ-08-007.
+- **`CMP-08-docs-search`** — `_components/DocsSearch/`: the results card over `IF-08-search-index`. → AC-08-020.2.
+- **`CMP-08-doc-reader`** — `DocReader.tsx`: `Crumbs`, counter or tutorial bar, body (renderer or `Markdown`), previous and next cards. → AC-08-020.3, REQ-08-002, REQ-08-003.
+- **`CMP-08-doc-nav`** — `DocNav.tsx`: builds the `DocIndex` groups (including the Referencia links) from the page list. → AC-08-020.3.
+- **`CMP-08-docs-not-found`** — the `EmptyState` of the unknown page. → REQ-08-001.
+- **`CMP-08-concept-pages`** — the authored content (WO-08-004): `manualPages.tsx`, `_components/*Detail.tsx`, `manual-diagrams/*`, `content/manual/**` stubs, `ManualLink`. → REQ-08-004, REQ-08-005, REQ-08-013 to REQ-08-019.
 
-## 7. New `lib/` module (flagged)
-`lib/manual.ts` is **not** in architecture §6's table. It indexes the **app-local authored Manual
-content** (Tutorial/Guides/Concepts MDX), distinct from `lib/docs.ts` (which reads **per-project**
-docs). It is a thin, pure reader over the app's own `content/manual/` tree. Recorded here as the
-single new module FRD-08 introduces; everything else reuses FRD-07's readers.
+`ManualNavContext` keeps its interface (`goToSkill`, `goToAgent`, `goToManual`); `ManualShell` implements the first two as links to the Configuración item URLs and the third as a reader navigation. The two Configuración-facing members are dead once `FlowGraph` is deleted; WO-13-013 removes them (ledger).
 
-## 8. Traceability (REQ → AC → CMP/IF)
+### Reused (components.md)
 
-FRD-08 states EARS bullets (no explicit `REQ-08-MMM` ids). Work orders assign `AC-08-MMM.K`.
+`PageHead`, `Crumbs`, `SearchField`, `Card` + `CardHeader`, `ListRow`, `Chip`, `Button`, `Markdown`, `CommandBox`, `Avatar`, `EmptyState`, `Icon`.
 
-| FRD-08 EARS bullet | Component(s) / Interface(s) |
-|---|---|
-| Side menu with pages + reading area that renders each page | `CMP-08-manual-page`, `CMP-08-doc-nav`, `CMP-08-doc-reader` |
-| Pages cover: what Pandacorp is, the flow, stages, commands, modes, standards, operate/handoff | `CMP-08-concept-pages` |
-| Sufficient for a no-context reader to understand & operate | `CMP-08-concept-pages` (Diátaxis completeness) |
-| Reference (commands/agents/rules/standards) DERIVED from canonical source, not hand-copied (DR-046) | `CMP-08-reference-*` + `IF-07-reference/registry/standards` |
-| Manual stays in sync: Reference auto-derived; Tutorial/Guides/Concepts kept current by discipline (DR-046) | `CMP-08-reference-*` (auto) + `CMP-08-concept-pages` (discipline) |
-| Multi-runtime page exposes the current permission boundary, one-shot R10/R11 certification exceptions and safe-point-only cold switch | `CMP-08-concept-pages` (`ConceptMultiRuntime` + `RuntimeComparison`) |
-| Concept/Guide pages reflect the feature-centric DR-049 layout + ID spine + hierarchy | `CMP-08-concept-pages` (the structure page) |
-| A bespoke page's `.md` is an index stub; one source of content per page (DR-115) | `CMP-08-doc-reader` + `CMP-08-concept-pages`; guard `src/app/manual/_tests/manualSingleSource.test.ts` |
-| "El equipo" shows a bio card for every agent in `plugin/agents/` (incl. `drift-finder`) | `CMP-08-concept-pages` (`TeamDiagram`/`TeamBios`); guard `src/app/manual/_tests/conceptEquipo.test.tsx` |
+## 4. Contract: URL state (FRD-25, ADR-0010)
 
-## 9. Build Plan (Phase 2)
+`/manual` (home), `/manual/:group/:page` with `group` ∈ `tutorial · guides · concepts · workflows` (pages by slug). Query keys: `q` (the search term, shared by the home search and the index search) and `index` (the folded index open on a narrow screen). The path families are already in the codec; `q` and `index` are requested from WO-25-001 (ledger). Typing replaces history. Legacy `reference/*` paths redirect as above. An unknown group or page is the bounded not-found of FRD-25, rendered in place.
 
-The Phase 2 re-anchor collapses the former UI work orders (shell + two Reference + concept content)
-into **one coarse UI WO**; the authored-content index `lib/manual.ts` stays VERIFIED and is consumed
-as-is. Build foundation-first.
+## 5. Read-only and security posture
 
-**Coarse WO set**
-| WO | Status | Artifacts (disjoint) | Builds |
-|---|---|---|---|
-| WO-08-001 | VERIFIED | `lib/manual.ts` | `readManualPages` (consume) |
-| **WO-08-002** | **PLANNED** | `src/app/manual/**` | the whole Documentación UI surface |
+Reads only (`fs.read*` of the app's own `content/manual`); no write path. Commands are shown to copy and never run. The legacy redirect maps to fixed Configuración paths (closed section list, one encoded item segment): no open redirect. No personal data, secret or external service is touched. Private account identities never enter public Documentación content (FRD-26 rule, unchanged).
 
-**DAG & parallelism**
+## 6. Dependencies and risks
+
+- **Search text extraction.** Full-text search over bespoke pages needs their rendered text (the stub `.md` carries none by REQ-08-018). The chosen design renders them on the client lazily; risk: a renderer that depends on a provider. Mitigation: renderers use default (no-op) contexts; the extraction test covers every registered page. Fallback if extraction ever proves too heavy: title-only entries for the affected pages, reported by the test.
+- **Oracle drift on content.** The frozen prototype still draws «Portfolio → Party» in the `g-modo` and tutorial states; REQ-08-013 removes it. Ledger item for DESIGN; the FRD wins.
+- **Cross-FRD ordering.** WO-08-003 removes the embed of Configuración's v1 components, so WO-07-006 depends on it; WO-04-012 consumes `DocIndex` and `Paper`; WO-13-013 deletes `FlowGraph`, `skill-flows.ts`, `workflow-flows.ts` and the dead nav members after both W3 work orders.
+- Lessons that shaped this design: LESSON-0490 (the tool's chrome is Spanish; authored page bodies and shown content keep their language), LESSON-0113 (a documented mechanism is a proposal until its call site exists: the guard tests name their files), LESSON-0123 (no em or en dash in new copy).
+
+## 7. Traceability (REQ → CMP / IF → work order)
+
+| Requirement | Component(s) / interface(s) | Work order |
+|---|---|---|
+| REQ-08-001 surface named «Documentación», not-found page | `CMP-08-docs-shell`, `CMP-08-docs-not-found`, `CMP-08-concept-pages` (content audit) | WO-08-003, WO-08-004 |
+| REQ-08-002 reading area and index at the right, folded below 900 px | `CMP-08-doc-reader`, `CMP-08-doc-nav`, `IF-08-doc-index` | WO-08-003 |
+| REQ-08-003 four groups plus Referencia → Configuración | `CMP-08-docs-home`, `CMP-08-doc-nav`, `IF-08-manual-index` | WO-08-003 |
+| REQ-08-004 pages cover the required topics | `CMP-08-concept-pages` | WO-08-004 |
+| REQ-08-005 sufficient for a no-context reader | `CMP-08-concept-pages` | WO-08-004 |
+| REQ-08-006 catalogs derived, never hand-copied | none here: FRD-07 `IF-07-catalogs`; this FRD asserts it holds no catalog | WO-08-003, WO-08-004 (test), WO-07-006 |
+| REQ-08-007 Referencia points to Configuración | `CMP-08-docs-home`, `CMP-08-doc-nav`, `IF-08-legacy-redirect` | WO-08-003 |
+| REQ-08-008 to REQ-08-010, REQ-08-012 (Out of v2: curated explainers, flow graph, cross-navigation, skill-flows data) | none; removed | WO-08-004 (pages), WO-13-013 (files) |
+| REQ-08-011 full `SKILL.md` as markdown | FRD-07 `CMP-07-skill-dialog` | WO-07-006 |
+| REQ-08-013 pages reflect the current workflow; sunset wording; `g-modo` refresh | `CMP-08-concept-pages` | WO-08-004 |
+| REQ-08-014 to REQ-08-016 multi-runtime Concept (DR-133) | `CMP-08-concept-pages` (`ConceptMultiRuntime`, `RuntimeComparison`, `MultiRuntimeDiagram`) | WO-08-004 |
+| REQ-08-017 feature-centric structure page | `CMP-08-concept-pages` | WO-08-004 |
+| REQ-08-018 bespoke page = renderer only, `.md` is an index stub | `CMP-08-doc-reader`, `CMP-08-concept-pages`; guard `manualSingleSource.test.ts` | WO-08-004 |
+| REQ-08-019 «El equipo» bio per agent | `CMP-08-concept-pages` (`TeamDiagram`, bios); guard `conceptEquipo.test.tsx` | WO-08-004 |
+| REQ-08-020 home, search, reader (AC-08-020.1 to AC-08-020.3) | `CMP-08-docs-home`, `CMP-08-docs-search`, `IF-08-search-index`, `CMP-08-doc-reader`, `IF-08-doc-index` | WO-08-003 |
+
+Every live AC (AC-08-020.1 to AC-08-020.3) is owned by WO-08-003; WO-08-004 and the kept WO-08-001 own none.
+
+## Build Plan
+
+> The build engine reads this table; it does not infer dependencies. All artifact globs are literal and match each work order's frontmatter.
+
+| WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
+|---|---|---|---|---|
+| WO-08-001 | WO-01-001 | `src/lib/manual/manual.ts`, `src/lib/manual/_tests/manual.test.ts` | false | W2 |
+| WO-08-003 | WO-13-012, WO-25-001 | `src/app/manual/page.tsx`, `src/app/manual/ManualShell.tsx`, `src/app/manual/DocReader.tsx`, `src/app/manual/DocNav.tsx`, `src/app/manual/ManualNavContext.tsx`, `src/app/manual/types.ts`, `src/app/manual/[...segments]/**`, `src/app/manual/_components/DocsHome/**`, `src/app/manual/_components/DocsSearch/**`, `src/components/modules/DocumentReader/**`, `src/app/manual/_tests/page*.test.tsx`, `src/app/manual/_tests/docs-home*.test.tsx`, `src/app/manual/_tests/docs-search*.test.tsx`, `src/app/manual/_tests/doc-reader*.test.tsx`, `src/app/manual/_tests/persistentNavigation*.test.tsx`, `src/app/manual/_tests/visual-reanchor*.test.tsx`, `e2e/documentation.spec.ts` | false | W3 (with WO-08-004) |
+| WO-08-004 | WO-13-012, WO-08-001, WO-14-004 | `src/app/manual/manualPages.tsx`, `src/app/manual/_components/*Detail.tsx`, `src/app/manual/_components/ManualLink.tsx`, `content/manual/**/*.md`, `content/manual/wo-08-005.content.test.ts`, `src/lib/manual/**`, `src/components/modules/manual-diagrams/**`, `src/app/manual/_tests/manual-content*.test.tsx`, `src/app/manual/_tests/manualPages*.test.tsx`, `src/app/manual/_tests/conceptEquipo.test.tsx`, `src/app/manual/_tests/manualSingleSource.test.ts` | false | W3 (with WO-08-003) |
+
+- **Order and parallelism.** WO-08-001 is VERIFIED history (W2). WO-08-003 and WO-08-004 are siblings in W3 and run in parallel: their artifacts are disjoint file by file (shell, reader and shared module versus renderers, details, content, diagrams and their tests; the test globs are split by file prefix). `src/lib/manual/**` is WO-08-004's this wave; WO-08-003 does not touch it.
+- **Integration order.** FRD-13 primitives (WO-13-012) and the URL codec (WO-25-001) → WO-08-003 / WO-08-004 → WO-04-012 (mounts `DocIndex` and `Paper`), WO-07-006 (rewrites the Configuración components after WO-08-003 removed their embed) → WO-13-013 (deletes `FlowGraph`, `skill-flows.ts`, `workflow-flows.ts`, the dead nav members).
+- **Cross-FRD dependencies.** FRD-13 (WO-13-012), FRD-25 (WO-25-001), FRD-14 (WO-14-004, the feedback page whose commands must stay), FRD-01 (WO-01-001). Consumers: FRD-04 (WO-04-012), FRD-07 (WO-07-006), FRD-13 (WO-13-013).
+- **Visual spec for UI work orders (DR-054).** WO-08-003 reproduces `mocks/documentation.html` (`docs-home`, `docs-search`, `docs-page`, `docs-page-index-open`, `docs-page-not-found`, `docs-page-tutorial`, `docs-page-guide`); WO-08-004 supplies the content of `docs-page-guide`, `docs-page-team` and `docs-page-multi-runtime` and the `el-pipeline` design block. `fdd.md` is the design; assets: exported SVG icons via `Icon`, agent sprites staged in `public/` by WO-13-010.
+
+```mermaid
+flowchart LR
+  A[WO-08-001] --> D[WO-08-004]
+  B[WO-14-004] --> D
+  C[WO-13-012] --> E[WO-08-003]
+  C --> D
+  F[WO-25-001] --> E
+  E --> G[WO-07-006]
+  E --> H[WO-04-012]
+  D --> I[WO-13-013]
+  E --> I
 ```
-FRD-13 foundation (WO-13-006 PageTitle/SectionHead/Tabs · WO-13-007 Panel/Chip/CmdRow/Button/DocHeading · WO-13-008 ItemSlot)
-        ▼
-FRD-07 WO-07-005 (Configuración UI — the SkillCard/AgentCard/RuleCard/StandardCard)
-        ▼
-WO-08-002 (Documentación UI)  ◄── reuses FRD-07's catalog cards VERBATIM; consumes VERIFIED readers (WO-08-001 + FRD-07 readers)
-```
-One UI WO remains, so no intra-FRD UI parallelism; its single artifact glob (`src/app/manual/**`) is
-**disjoint** from FRD-07's (`src/app/configuration/**`).
 
-**Cross-FRD deps line (foundation-first):** `frd-13` (foundation primitives + tokens) **must build
-before** WO-08-002; **`frd-07`** must build before it too — the Referencia **reuses** FRD-07's
-`SkillCard`/`AgentCard`/`RuleCard`/`StandardCard` + shared detail verbatim (DR-057, no fork), and the
-four catalogs are **derived live** through FRD-07's readers (DR-046). Build order:
-`frd-13 → frd-07 (WO-07-005) → frd-08 (WO-08-002)`.
+## Superseded (v1 history)
 
-## Persistent navigation integration — FRD-25 (2026-10-17)
+- WO-08-002 — Documentación UI surface (re-anchor to prototype). Superseded by WO-08-003 and WO-08-004 (`implementation_status` stays VERIFIED as history).
 
-The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+## Readiness check (DR-100)
+
+Every `REQ-08-001` to `REQ-08-020` maps to a component, an interface or an explicit removal above; every live AC (AC-08-020.1 to AC-08-020.3) is covered by exactly one work order (WO-08-003); `dependsOn` is acyclic and every referenced work order exists; the two W3 work orders have disjoint artifacts by design; the foundation is complete (primitives from WO-13-010..012); the platform data model is unchanged; no unresolved clarification marker survives in this feature's documents.

@@ -6,9 +6,13 @@ title: WO-01-002 — `readProfile` (presence + parse)
 status: ACTIVE
 parent: FRD-01
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - 'src/lib/profile/profile.ts'
+  - 'src/lib/profile/_tests/profile.test.ts'
+  - 'src/lib/profile/_tests/profile.adversarial.test.ts'
+source_requirements: [REQ-01-001, REQ-01-002]
 dependsOn: [WO-01-000]
-last_updated: '2026-06-16'
+last_updated: '2026-10-22'
 ---
 # WO-01-002 — `readProfile` (presence + parse)
 
@@ -16,14 +20,17 @@ last_updated: '2026-06-16'
 **IDs touched:** `CMP-01-profile`, `IF-01-readProfile`; REQ-01-001 (absence signal), REQ-01-002
 **Dependencies:** WO-01-000 (fixtures)
 
-## EARS criteria (from FRD-01)
+## v1 delivery record
 
-- AC-01-001.1 — WHEN Pandacorp loads and does NOT find `factory/profile.md`, the system SHALL show
+FRD-01 is REQ-only (no `AC-01-*` bullets), so these v1 criteria are history and own nothing. The module
+lives at `src/lib/profile/profile.ts` (the `lib/profile.ts` path above is the v1 plan).
+
+- v1 AC-01-001.1: WHEN Pandacorp loads and does NOT find `factory/profile.md`, the system SHALL show
   an onboarding gate before any other view. *(This WO supplies the absence signal; the gate UI is
   WO-01-008.)*
-- AC-01-002.1 — WHEN `factory/profile.md` exists, the system SHALL read it (name, goals, interests,
+- v1 AC-01-002.1: WHEN `factory/profile.md` exists, the system SHALL read it (name, goals, interests,
   assets, project types) to personalize greetings and views.
-- (Edge) — `factory/profile.md` absent → absence is signaled, never assumed/invented.
+- v1 edge: `factory/profile.md` absent → absence is signaled, never assumed/invented.
 
 ## Contract
 

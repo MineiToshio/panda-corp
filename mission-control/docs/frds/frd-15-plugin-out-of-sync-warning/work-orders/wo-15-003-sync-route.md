@@ -6,13 +6,22 @@ title: WO-15-003 — `app/api/plugin-sync` route handler
 status: DRAFT
 parent: FRD-15
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - "src/app/api/plugin-sync/route.ts"
+  - "src/app/api/plugin-sync/_tests/route.test.ts"
+  - "src/app/api/plugin-sync/_tests/route.integration.adversarial.test.ts"
+source_requirements: [REQ-15-004, REQ-15-005]
 dependsOn: [WO-15-002]
-last_updated: '2026-06-17'
+last_updated: '2026-10-22'
 ---
 # WO-15-003 — `app/api/plugin-sync` route handler
 
 > Source-of-truth: [`blueprint.md`](../blueprint.md) (`CMP-15-route`) · [architecture §3, §8](../../../product/architecture.md).
+
+> **v2 «Órbita» disposition (2026-10-22): KEPT LIVE, already built.** `GET /api/plugin-sync` keeps its
+> contract in v2 (no backend change, map §0.3); the Inicio banner (WO-18-002) polls it to self-clear.
+> It adopts WO-01-010's seams in WO-01-011 (no behaviour change). This WO owns no live acceptance
+> criterion; the criteria below are v1 delivery history.
 
 ## Goal
 Expose `getPluginSyncState()` over `GET /api/plugin-sync` so the client banner can poll it (the file
@@ -23,13 +32,14 @@ reads need Node outside a Server Component render — architecture §3).
 - `export const runtime = "nodejs"` (Node `fs` reads) and `export const dynamic = "force-dynamic"`
   (drift is live state — never cached).
 
-## Acceptance criteria
-- **AC-15-003.1** `GET /api/plugin-sync` returns 200 with a JSON body matching the `PluginSyncState` shape.
-- **AC-15-003.2** (REQ-15-005) The handler performs NO write and never executes the update command —
-  it only calls the read-only `IF-15-sync`.
-- **AC-15-003.3** The response is uncacheable (`dynamic = "force-dynamic"`; no stale drift).
-- **AC-15-003.4** WHEN `IF-15-sync` returns `reason === "unknown"`, the handler still returns 200 (the
-  banner decides not to show) — a degraded probe is not a 500.
+## v1 delivery record
+
+Non-owning history:
+
+- v1 AC-15-003.1: `GET /api/plugin-sync` returns 200 with a JSON body matching the `PluginSyncState` shape.
+- v1 AC-15-003.2: (REQ-15-005) The handler performs NO write and never executes the update command; it only calls the read-only `IF-15-sync`.
+- v1 AC-15-003.3: The response is uncacheable (`dynamic = "force-dynamic"`; no stale drift).
+- v1 AC-15-003.4: WHEN `IF-15-sync` returns `reason === "unknown"`, the handler still returns 200 (the banner decides not to show); a degraded probe is not a 500.
 
 ## TDD
 Test the route by importing the handler and invoking `GET` with a `PANDACORP_FACTORY_ROOT` fixture

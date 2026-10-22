@@ -5,28 +5,42 @@ slug: derive-column
 title: WO-02-001 — `deriveColumn` two-axis logic
 status: ACTIVE
 parent: FRD-02
+foundation: false
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - 'src/lib/board/board.ts'
+  - 'src/lib/board/_tests/board.test.ts'
+  - 'src/lib/board/_tests/board.adversarial.test.ts'
+source_requirements: [REQ-02-001]
 dependsOn: [WO-01-003, WO-01-005]
-last_updated: '2026-06-16'
+last_updated: '2026-10-22'
 ---
 # WO-02-001 — `deriveColumn` two-axis logic
+
+> **Kept live in v2 «Órbita» (wo-map §0.5, 2026-10-22).** VERIFIED library, unchanged in v2 and consumed by the board
+> (WO-02-015). It owns no live acceptance criterion; it traces REQ-02-001 (FRD-02#U1). Its v1 criteria are kept below
+> as non-owning history.
+
+## Summary
+
+The pure two-axis board-column derivation (`deriveColumn(card, projectStatus)`): card `status` plus the linked
+project's phase decide the column, with the `documented` fallback when the project or its status is missing.
 
 **Module:** `lib/board.ts`
 **IDs touched:** `CMP-02-board-derive`, `IF-02-deriveColumn`; REQ-02-001
 **Dependencies:** WO-01-003 (`readIdeas` types), WO-01-005 (`readStatus` types) — FRD-01
 
-## EARS criteria (from FRD-02)
+## v1 delivery record
 
-- AC-02-001.1 — The board SHALL place each idea into one of `discovered → documented → design →
+- v1 AC-02-001.1: The board SHALL place each idea into one of `discovered → documented → design →
   architecture → building → shipped` (+ `discarded`) by deriving the column from two axes (card
   `status` + project `phase`), NOT from the card `status` alone.
-- AC-02-001.2 — `discovered`/`recommended` → **discovered** (recommended shows a badge).
-- AC-02-001.3 — `in-pipeline` → column from project `phase`: `product`→documented, `design`→design,
+- v1 AC-02-001.2: `discovered`/`recommended` → **discovered** (recommended shows a badge).
+- v1 AC-02-001.3: `in-pipeline` → column from project `phase`: `product`→documented, `design`→design,
   `architecture`→architecture, `implementation`→building, `release`→shipped.
-- AC-02-001.4 — `shipped` → shipped; `discarded` → discarded.
-- AC-02-001.5 — The board SHALL NOT expect `design`/`architecture`/`building` as a card `status`.
-- AC-02-001.6 — IF an in-pipeline card's project or `status.yaml` is missing, THEN it SHALL fall
+- v1 AC-02-001.4: `shipped` → shipped; `discarded` → discarded.
+- v1 AC-02-001.5: The board SHALL NOT expect `design`/`architecture`/`building` as a card `status`.
+- v1 AC-02-001.6: IF an in-pipeline card's project or `status.yaml` is missing, THEN it SHALL fall
   back to the **documented** column without breaking.
 
 ## Contract
@@ -36,7 +50,7 @@ type BoardColumn = "discovered" | "documented" | "design" | "architecture" | "bu
 export function deriveColumn(card: IdeaCard, projectStatus: StatusResult | null): BoardColumn;
 ```
 
-Pure function (no fs). The mapping table is the blueprint §2.
+Pure function (no fs). The mapping is FRD-02's first requirement bullet (REQ-02-001), locked in the tests.
 
 ## Definition of done
 

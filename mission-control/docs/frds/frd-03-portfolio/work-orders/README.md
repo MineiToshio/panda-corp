@@ -1,52 +1,53 @@
-# FRD-03 — Work orders
+# Work orders — FRD-03 Portfolio and project navigation
 
-The **portfolio rail + project navigation + read-only path-not-found recovery**. Composes the FRD-01
-data layer; hosts the FRD-04 workspace in its right panel. See the feature blueprint
-([`../blueprint.md`](../blueprint.md)) and the platform architecture
-([`../../../product/architecture.md`](../../../product/architecture.md)).
+> The authoritative order and parallelism is the **Build Plan** in `../blueprint.md` (the build engine reads
+> that, not this). This file is the readable summary. The work order carries its own `implementation_status`
+> frontmatter and copies in its acceptance criteria.
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+
+The Portafolio is the overview of every project (cards or the «Comparativa» list), with Cuentas as its third
+view and the «Cambiar de proyecto» dialog. v2 rebuilds it in one work order and removes the v1 rail; the
+three v1 work orders are superseded.
 
 ## Work orders
 
-> **Phase 2 re-plan (2026-06-19).** The `lib/**` compose helper stays **VERIFIED** and untouched. The
-> UI WOs are collapsed into **one coarse presentational WO** (`PLANNED`) re-painting the whole
-> `/portfolio` surface onto the FRD-13 foundation primitives to match the prototype. The old
-> fine-grained UI WOs (rail, business-snapshot, selection-slot, empty/recovery) were removed —
-> `BusinessSnapshot` is **deferred** (not built); the rest folds into the coarse WO. See the **Build
-> Plan (Phase 2)** in `../blueprint.md`.
-
-| WO | Status | Title | Artifact | Depends on |
+| WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
-| WO-03-001 | VERIFIED (lib) | `activeProjects` compose helper | `lib/portfolio.ts` (`activeProjects`) | WO-01-004, WO-01-005, WO-01-001 |
-| WO-03-002 | VERIFIED (UI) | **Portfolio surface** — rail + table + rows + empty + recovery + status chips | `app/portfolio/**`, `components/modules/{ProjectRail,ProjectRow}/**` | WO-03-001, WO-01-004, WO-01-005, WO-01-001, WO-02-003, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003, WO-04-004 |
-| WO-03-006 | VERIFIED (change) | **Relative "last sync" chip** on the portfolio rail row (`formatLastSync` helper + `LastSyncChip`) | `lib/portfolio/formatLastSync.ts` (+ test), `components/modules/ProjectRail/LastSyncChip.tsx` | WO-03-001, WO-03-002 |
+| WO-03-007 | portafolio-overview | PLANNED | WO-13-012, WO-25-001, WO-26-001, WO-01-010, WO-01-004 | Every project once, ordered by last commit: `ProjectCard`, Lista, the Tarjetas / Lista / Cuentas switch mounting the global directory, the project picker, the empty, missing-folder and no-signal states, the unknown-project card; removes the rail. |
 
-> **Deferred — not built:** `BusinessSnapshot` (shipped-project business snapshot) — FRD-03 "Out of
-> scope / Future". The rail keeps conceptual space but renders nothing today.
+> **Depends on** mirrors the work order's `dependsOn` frontmatter (DR-087).
 
-## Ordering & parallelism (Phase 2)
+## AC coverage
 
-- **Foundation first:** the coarse UI WO depends on **FRD-13** (the shared primitives) being VERIFIED;
-  `RecoveryHint` refactors onto the shared `Banner`, StatusChips onto `CountBadge`.
-- **Single coarse WO** — the whole `/portfolio` page is one cohesive surface; no intra-FRD
-  parallelism. The compose helper (WO-03-001) is consumed as-is — never re-planned.
-- The workspace slot hosts FRD-04's component; until FRD-04 lands, stub the slot so
-  selection/default-select stay testable.
+| AC | Work order |
+|---|---|
+| AC-03-008.1 | WO-03-007 |
+| AC-03-008.2 | WO-03-007 |
+| AC-03-008.3 | WO-03-007 |
+| AC-14-003.1 | WO-03-007 |
+| AC-14-003.2 | WO-03-007 |
 
-## Cross-feature dependencies
+AC-14-003.1 and AC-14-003.2 belong to FRD-14 and are **Out of v2** (the rail is gone); WO-03-007 owns them
+and verifies them by removal. AC-14-004.1 and AC-14-005.1 are struck in FRD-14 and not owned. The
+REQ-level bullets of FRD-03 (REQ-03-001 to REQ-03-007, REQ-03-009 and the two unnumbered rules) have no AC
+id; the blueprint maps them to components.
 
-- **Inbound:** FRD-01 `readPortfolio` + `readStatus` + `pathExists` (WO-03-001 cannot pass without
-  them). FRD-02 `components/CopyButton.tsx` (recovery command) and `lib/next-step.ts` (optional next
-  command). FRD-04 workspace component (WO-03-004 host).
-- **Outbound:** the portfolio rail is the navigation entry to FRD-04 workspaces.
+## Build order
 
-## Definition of done (every WO)
+W4 (after WO-26-001 in W3 and WO-25-001 in W0). It runs in parallel with WO-17-008, WO-10-016 and WO-02-016
+(disjoint artifacts). Consumers: WO-04-010 (W5), WO-18-002 (W5), WO-19-003 (W6).
 
-- Acceptance-criteria tests first (RED → GREEN → refactor) with fixtures (`PANDACORP_FACTORY_ROOT`).
-- `.pandacorp/verify.sh` green (biome + tsc + vitest).
-- `data-testid` on interactive elements; Spanish UI copy via i18n; design tokens only;
-  `tabular-nums` on metrics.
-- **Read-only:** never clones, never writes the portfolio, never calls Claude; no AI dependency added.
+## Definition of done
 
-## Navigation scope alignment (2026-10-17)
+- Tests first (RED, then GREEN); `.pandacorp/verify.sh` green: biome, `tsc --strict`, vitest, knip, madge,
+  smoke and shell.
+- Read-only: the recovery commands are copyable text; the app never clones, writes the portfolio or calls
+  Claude.
+- The removal list of the work order is entirely gone; the built screens match the FDD mocks on the frozen
+  tokens in light and dark at 375, 768 and 1280.
 
-Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.
+## Superseded (v1 history)
+
+- WO-03-001 `active-projects` (VERIFIED), superseded_by: [WO-03-007]
+- WO-03-002 `project-rail` (VERIFIED), superseded_by: [WO-03-007]
+- WO-03-006 `last-sync-chip` (VERIFIED), superseded_by: [WO-03-007]

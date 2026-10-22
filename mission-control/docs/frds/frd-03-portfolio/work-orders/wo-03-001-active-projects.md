@@ -3,12 +3,13 @@ id: WO-03-001
 type: work-order
 slug: active-projects
 title: WO-03-001 — `activeProjects` compose helper
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-03-007]
 parent: FRD-03
 implementation_status: VERIFIED
 source_requirements: []
 dependsOn: [WO-01-004, WO-01-005, WO-01-001]
-last_updated: '2026-06-30'
+last_updated: '2026-10-22'
 ---
 # WO-03-001 — `activeProjects` compose helper
 

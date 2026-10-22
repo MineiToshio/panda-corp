@@ -10,10 +10,10 @@ implementation_status: VERIFIED
 blocked_reason:
 difficulty: low
 reopen_count: 0
-artifacts: [src/lib/docs/activity.ts, scripts/decisions/decision-id-cli.mjs, package.json]
+artifacts: [src/lib/docs/activity.ts, src/lib/docs/_tests/docs.wo24001.test.ts, scripts/decisions/decision-id-cli.mjs, package.json]
 source_requirements: [REQ-24-001]
 dependsOn: []
-last_updated: '2026-09-03'
+last_updated: '2026-10-22'
 ---
 
 # WO-24-001 — Extract `parseDecisionBlocks` + the `decision-id-cli` entry point
@@ -50,14 +50,33 @@ skill, via Bash) can get the exact same ordered id list without re-deriving the 
 - The golden-vector regression suite proving the two paths agree — that is WO-24-002.
 
 ## Acceptance criteria (REQ-24-001)
-- **AC-24-001.1** — `parseDecisionBlocks` applied to the content Mission Control already reads
-  produces the identical ordered `DecisionPoint[]` `readDecisions()` produced before this change (the
-  existing `src/lib/docs/_tests/docs.wo04002.test.ts` + `docs.wo04002.reviewer.test.ts` suites covering
-  `readDecisions` stay green unmodified —
-  proof the extraction is behavior-neutral).
-- **AC-24-001.2** — `pnpm --silent decisions:ids <path-to-a-decisions.md>` (or the equivalent raw `node
-  --loader ...` invocation) prints the same ids `parseDecisionBlocks` would return for that file's
-  content, one per line, with no Next.js/React import anywhere on the CLI's module graph.
+
+Kept live in v2 (map §0.5): this work order owns REQ-24-001's criteria, copied verbatim from the FRD.
+
+- **AC-24-001.1** — GIVEN the exact `.pandacorp/inbox/decisions.md` content Mission Control already
+  parses, WHEN the extracted pure function runs over that content, THEN it SHALL return the identical
+  ordered `DecisionPoint[]` (ids included) that `readDecisions()` returns today — a refactor that
+  relocates the existing parsing loop, never a new or adjusted derivation rule (the id scheme itself
+  is unchanged, per the queue card's explicit non-goal).
+- **AC-24-001.2** — The derivation SHALL be reachable from a **plain Node script outside the Next.js
+  runtime** (no framework import, no server context) so an external caller — a coding agent running
+  `/pandacorp:decide` via Bash, in the factory repo — can invoke it directly against a project's
+  `decisions.md` and get back the same ordered id list.
+
+## v1 delivery record
+
+The work-order phrasing of the two criteria at build time (history, owns nothing):
+
+- v1 AC-24-001.1: `parseDecisionBlocks` applied to the content Mission Control already reads produces the
+  identical ordered `DecisionPoint[]` `readDecisions()` produced before this change (the existing
+  `docs.wo04002.test.ts` + `docs.wo04002.reviewer.test.ts` suites stay green unmodified).
+- v1 AC-24-001.2: `pnpm --silent decisions:ids <path-to-a-decisions.md>` (or the raw `node --loader ...`
+  invocation) prints the same ids `parseDecisionBlocks` would return, one per line, with no Next.js/React
+  import on the CLI's module graph.
+
+v2 note: FRD-04's WO-04-013 (W3) edits `src/lib/docs/activity.ts` (in-entry resolution, «· » strip,
+engine-log predicate) without changing any id; this work order's tests and WO-24-002's golden vectors must
+stay green unmodified through that change.
 
 ## Dependencies
 None — this is the foundation WO of FRD-24.

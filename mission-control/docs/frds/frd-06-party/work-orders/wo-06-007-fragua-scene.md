@@ -3,7 +3,8 @@ id: WO-06-007
 type: work-order
 slug: fragua-scene
 title: 'WO-06-007 — La Fragua scene re-paint (FraguaScene + PartyScene/PartyTab shell)'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-06-013]
 parent: FRD-06
 implementation_status: VERIFIED
 reopen_count: 0

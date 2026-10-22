@@ -1,36 +1,56 @@
 # Work orders — FRD-23 Materialized stats read-model
 
-> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
-> Design: [`blueprint.md`](../blueprint.md). Platform: [`docs/product/architecture.md`](../../../product/architecture.md).
-> Architecture decision: [`ADR-0004`](../../../adr/ADR-0004-materialized-stats-read-model.md).
+> The authoritative order and parallelism is the **Build Plan** in `../blueprint.md` (the build engine reads that, not this). This file is the readable summary. Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`. Platform: [`docs/product/architecture.md`](../../../product/architecture.md). Architecture decision: [`ADR-0004`](../../../adr/ADR-0004-materialized-stats-read-model.md).
 
-Each work order targets ONE deploy unit, is testable in isolation, and follows TDD (RED → GREEN →
-refactor). The gate is `.pandacorp/verify.sh` (biome → tsc → vitest). The DR-078 fail-loud fixtures
-(real portada + malformed + stale + missing) and the DR-115 equivalence test are mandatory.
+All six work orders are VERIFIED history kept live (a pure `lib` package, no UI). Each follows TDD (RED, GREEN, refactor); the DR-078 fail-loud fixtures (real portada, malformed, stale, missing) and the DR-115 equivalence test are mandatory. v2 changes none of their behaviour; it only narrows their declared artifacts so each wave is verifiably disjoint.
 
-## List & order
+## Work orders
 
-| WO | Title | Layer | Depends on |
-|---|---|---|---|
-| WO-23-001 | Portada reader + seal + fail-loud fixtures (real / malformed / stale / missing) | `lib/` | — |
-| WO-23-002 | Portada writer (single writer, atomic tmp+rename) + portada-vs-live equivalence test | `lib/` | WO-23-001 |
-| WO-23-003 | Wire the Informe to read the portada/aggregate first, fall back to live git | `lib/`, `app/` | WO-23-001 |
-| WO-23-004 | `sync-portfolio` aggregate index + Stop/`post-commit` regeneration + one-shot backfill | tooling | WO-23-002 |
-| WO-23-005 | **SSOT split** — factory-scoped store + seal (writer/reader) + prune the per-project portada to per-project facts (DR-115) | `lib/` | WO-23-001, WO-23-002 |
-| WO-23-006 | Recompose the Informe reader (per-project + factory-wide) with independent fail-loud fallback + cross-project staleness regression | `lib/`, `app/` | WO-23-003, WO-23-005 |
+| WO | Slug | Status | Depends on | Summary |
+|---|---|---|---|---|
+| WO-23-001 | portada-reader-seal | VERIFIED | — | Portada reader, freshness seal and fail-loud fixtures (real, malformed, stale, missing). |
+| WO-23-002 | portada-writer | VERIFIED | WO-23-001 | Portada writer: single writer, atomic tmp + rename, portada-versus-live equivalence. |
+| WO-23-003 | informe-wiring-fallback | VERIFIED | WO-23-001 | Wire the Informe to read the portada first and fall back to live git; `getPendingMerge` stays live. |
+| WO-23-004 | aggregate-regen-backfill | VERIFIED | WO-23-002 | O(1) aggregate index, commit-driven regeneration, one-shot backfill. |
+| WO-23-005 | factory-store-split | VERIFIED | WO-23-001, WO-23-002 | Factory-scoped store and seal (writer and reader); prune the per-project portada (SSOT split, DR-115). |
+| WO-23-006 | informe-composed-reader | VERIFIED | WO-23-003, WO-23-005 | Recompose the Informe reader with independent fail-loud fallback per scope; seal-coverage rule (AC-23-001.5) proven here. |
 
-## Parallelization
+> **Depends on** mirrors each work order's `dependsOn` frontmatter.
 
-- WO-23-001 has no intra-feature dependency → start here.
-- WO-23-002 consumes the `StatsPortada` schema + seal from WO-23-001.
-- WO-23-003 consumes the reader; WO-23-004 consumes the writer.
-- **WO-23-005/006 (SSOT split, change `stats-ssot-split-factory-facts`)** are the DR-115 correction the
-  FRD-23 gate surfaced: WO-23-005 builds the factory-scoped store and prunes the per-project portada;
-  WO-23-006 recomposes the Informe reader and adds the cross-project staleness regression. WO-23-004's
-  regeneration point (`sync-portfolio`) also writes the factory store (natural whole-factory walk).
+## AC coverage
+
+| AC | Work order |
+|---|---|
+| AC-23-001.1 | WO-23-001 |
+| AC-23-001.2 | WO-23-001 |
+| AC-23-001.3 | WO-23-001 |
+| AC-23-001.4 | WO-23-001 |
+| AC-23-001.5 | WO-23-006 |
+| AC-23-002.1 | WO-23-002 |
+| AC-23-002.2 | WO-23-002 |
+| AC-23-002.3 | WO-23-002 |
+| AC-23-003.1 | WO-23-004 |
+| AC-23-003.2 | WO-23-004 |
+| AC-23-004.1 | WO-23-004 |
+| AC-23-005.1 | WO-23-003 |
+| AC-23-006.1 | WO-23-005 |
+| AC-23-006.2 | WO-23-005 |
+| AC-23-006.3 | WO-23-005 |
+| AC-23-006.4 | WO-23-005 |
+| AC-23-007.1 | WO-23-006 |
+| AC-23-007.2 | WO-23-006 |
+| AC-23-007.3 | WO-23-006 |
+
+## Build order
+
+1. W0: WO-23-001. W1: WO-23-002 and WO-23-003 (siblings, disjoint files). W2: WO-23-004 and WO-23-005 (siblings, disjoint files). W3: WO-23-006.
+2. Consumers after this FRD: FRD-10 WO-10-016 (W4, it writes the same `src/app/achievements/page.tsx` last), WO-10-017 (W6, through the statistics loader), FRD-01 WO-01-011 (W5, adopts the clock and git seams in these readers).
 
 ## Cross-feature dependencies
 
-- **FRD-10** WO-10-014 `src/lib/achievements/report/*` — the pure `derive*` cores the writer reuses
-  (DR-092) and the live-git fallback path. Shipped.
-- **FRD-21** `getPendingMerge` — stays live, explicitly NOT materialized (AC-23-005.1).
+- **FRD-10** WO-10-014 `src/lib/achievements/report/*`: the pure `derive*` cores the writers reuse (DR-092) and the live-git fallback. Shipped, imported not edited.
+- **FRD-21** `getPendingMerge`: stays live, explicitly not materialized (AC-23-005.1).
+
+## Superseded (v1 history)
+
+None.

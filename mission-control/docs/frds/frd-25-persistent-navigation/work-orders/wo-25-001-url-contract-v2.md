@@ -1,0 +1,232 @@
+---
+id: WO-25-001
+type: work-order
+slug: url-contract-v2
+title: 'WO-25-001 — URL contract for v2 + the history flake'
+status: DRAFT
+parent: FRD-25
+foundation: false
+implementation_status: PLANNED
+difficulty: high
+reopen_count: 0
+artifacts:
+  - 'src/lib/navigation/**'
+  - 'e2e/persistent-navigation.spec.ts'
+  - 'e2e/persistent-navigation/**'
+  - 'src/app/projects/[slug]/_components/wo-detail/**'
+  - 'src/app/projects/[slug]/_components/tab-work-orders/**'
+  - 'src/app/projects/[slug]/_components/tabbar.tsx'
+source_requirements: [AC-25-001.1, AC-25-002.1, AC-25-003.1, AC-25-004.1, AC-25-005.1, AC-25-006.1, AC-25-007.1, AC-25-008.1, AC-25-009.1, AC-25-010.1, AC-25-011.1, AC-25-012.1]
+dependsOn: []
+last_updated: 2026-10-22
+change_ref: persistent-navigation-history-flaky.md
+---
+
+# WO-25-001 URL contract for v2 + the history flake
+
+## Summary
+
+Makes the single URL codec ship every v2 key and legacy alias up front, while the current UI keeps working
+(aliases and enumerated keys are pure, exported and tested, and each v2 surface applies them when it adopts
+its keys), publishes the one place that says which sidebar destination a path belongs to (no shell
+exemption), and splits the oracle e2e spec by family so each v2 work order updates only its own steps.
+Then it runs the `debugging.md` investigation of the intermittent `persistent-navigation.spec.ts:342`
+failure after back / forward and fixes it at its confirmed cause, in the product or in the spec. Rigor is
+critical (the spec is an oracle surface).
+
+## In Scope
+
+**1. Codec additions in `src/lib/navigation/`** (all additive: nothing a v1 caller sees changes before its
+owner adopts the v2 form; no URL write ever runs a mutation).
+
+- `normalizeLegacyNavigation(href): string` (pure, idempotent, never throws, unknown input returned
+  unchanged). It maps legacy forms to their v2 location while retaining the project, tab, document / work
+  order, filters and the anchor (AC-25-004.1): workspace `party` to `summary`; `work-orders` (path tail
+  `/:wo/:view` or `?tab=Work orders` and the legacy display-name tabs) to `observability` with `wo` and
+  `woview` (`summary` or `full`); `portfolioView=accounts` to `view=cuentas` (FRD-26 AC-26-002.1, both
+  spellings accepted until every caller moved); `/manual/reference/:catalog/:item` to
+  `/configuration/:catalog/:item`. It is **not** applied by the codec itself: the v2 owner of each surface
+  calls it at its route boundary (WO-03-007 Portafolio, WO-04-010 workspace, WO-07-006 Configuración,
+  WO-08-003 Documentación) and feeds the result to `NavigationCanonical`, because the v1 Party and Work
+  orders tabs still exist until WO-04-010.
+- A key registry with value sets and bounds for the keys v2 adds, and `validateNavigationQuery(context,
+  state)` returning a typed result (`ok`, or `unsupported` with the key and the reason; never a thrown
+  exception). Each surface validates the keys it owns; the global bounds gate (`routeHref`: repeated values,
+  length, traversal) is unchanged. v2 keys (the full table is in `../blueprint.md` § Key registry):
+  Portafolio `view` in `tarjetas`, `lista`, `cuentas`; Observabilidad `view` in `frd`, `tablero`, `deps`,
+  `frd` (one FRD id), `state` (a comma-joined set of work-order states in canonical order, because repeated
+  keys are rejected), `wo`, `woview` in `summary`, `full`, `dag` in `frd`, `wo`, `focus` (a work-order id);
+  Cuentas `accountsQuery`, `accountsState` in `all`, `active`, `pending`, `candidates`, `reference`, and
+  `account` (the open row). Kept: `phase`, `model` in `Diagrama`, `Esquema`, `entity`, `modelQuery`,
+  `schemaTable`, `expanded` in `1`, and every v1 key. Unknown optional keys stay retained.
+- `activeDestinationPath(pathname): string | null` (single source of the active sidebar destination):
+  `/` exact is Inicio; `/board/**` Tablero; `/portfolio/**` and `/projects/**` Portafolio (a project
+  workspace keeps Portafolio active); `/proposals/**`, `/achievements/**`, `/manual/**`, `/configuration/**`
+  their own; anything else `null`. There is no exemption list (AC-25-010.1). WO-19-002's `Nav` consumes it.
+- `useUrlSearch(key)`: the hook every searchable surface uses; it always replaces the history entry, so
+  search typing never pushes (AC-25-003.1). `useCanonicalSelection` and `NavigationCanonical` keep their
+  contracts.
+- One list of workspace tab path words: `routeState.ts` currently repeats the tab list that `urls.ts`
+  already owns; both read one exported constant (DR-115). The v1 words (`party`, `work-orders`) stay in it
+  until WO-04-010.
+- Identity catalog and CLI (`identities.ts`, `identityCatalog.ts`, `scripts/navigation/**`) are unchanged.
+
+**2. Split of the oracle spec by family (mechanical, assertions moved verbatim, titles preserved).** The
+current single file is pinned by testids and routes that nine v2 work orders change in different waves; a
+shared file would force several same-wave writers (DR-060) and break BL-0051. Result:
+
+| New file | Tests it receives | Updated later by |
+|---|---|---|
+| `e2e/persistent-navigation.spec.ts` (core) | home and root default resolution; invalid resources, tails and traversal; legacy queries; post-build registration (the flake) | WO-03-007 (W4: the `/portfolio` root step), WO-04-010 (W5: tab steps, work-order aliases) |
+| `e2e/persistent-navigation/_location.ts` | the shared `LocationCase` type and `assertLocation` helper | this WO only |
+| `e2e/persistent-navigation/board.spec.ts` | the `board` case; Board document reader and campaign phase | WO-02-020 (W3), WO-02-016 (W4) |
+| `e2e/persistent-navigation/model.spec.ts` | model schema, entity and search; expanded paste | WO-02-018 (W3) |
+| `e2e/persistent-navigation/workspace.spec.ts` | the `portfolio` and `standalone` cases | WO-04-010 (W5) |
+| `e2e/persistent-navigation/proposals.spec.ts` | the `proposals` case; the backlog read-only detail | WO-22-002 (W3), WO-17-008 (W4) |
+| `e2e/persistent-navigation/achievements.spec.ts` | the `achievements` case | WO-10-016 (W4) |
+| `e2e/persistent-navigation/configuration.spec.ts` | the `configuration` case; the configuration and agent read-only details | WO-07-006 (W3) |
+| `e2e/persistent-navigation/manual.spec.ts` | authored Manual selection, anchor, paste and history | WO-08-003 (W3) |
+| `e2e/persistent-navigation/destinations.spec.ts` | nested destinations keep global highlights | WO-19-002 (W3) |
+
+The number of tests and their titles are identical before and after; the first commit of this part changes
+no assertion.
+
+**3. The flake, by `docs/rules/debugging.md`** (card `persistent-navigation-history-flaky.md`, step
+`persistent-navigation.spec.ts:342` "post-build registration: a non-first project retains identity through
+WO Summary/Full/return in both workspaces"). Observed: under `verify.sh` `wo-detail-summary` is missing
+after `goBack()`; in an isolated run, after returning to the list the click on the `party` tab does not
+change the URL. Cause unconfirmed (product or spec).
+
+1. Reproduce first. Run the step alone at least ten times and inside `bash .pandacorp/verify.sh` at least
+   three times; keep each failing run's trace. Record, per run, the failing line, `history.length`, the URL
+   and whether the page is hydrated at each step (a mount-gated control is a free oracle, LESSON-0185).
+2. Timeline: when it last passed (`git log` on the spec, the navigation folder, `wo-detail`, `tabbar`,
+   `NavigationCanonical`), what changed between (commits, upgrades, config), and whether the uncommitted
+   pile in the tree or a parallel session was present.
+3. Suspects, each discarded with direct evidence (read the code, run the command), never by "unlikely".
+   The list always includes (a) another process writing the same state and (b) the harness itself:
+   - S1 a parallel writer: the test mutates `e2e/fixtures/factory-root` in place (portfolio row, a new
+     project folder) and the app writes `factory/gamification-ledger.json` and its lock while rendering;
+     a second run on port 3900, a lane or the engine's gate worktree can share the files or the port
+     (LESSON-0040);
+   - S2 harness: first-compile of the new routes on `next dev`, cold boot, hydration right after
+     `goBack()` or `wo-detail-back` (LESSON-0139, LESSON-0197), expect timeouts under load;
+   - S3 product, history semantics: Summary / Full and the tab bar use `router.push`; whether, after
+     `page.reload()`, the previous entry still belongs to the Next router, and what `popstate` does on it;
+   - S4 product, canonicalization racing history: `NavigationCanonical` calls `router.replace` in an
+     effect when the location differs from the server seed; after a back / forward traversal a stale seed
+     could rewrite the entry just traversed;
+   - S5 product, seed mismatch: `useSyncExternalStore` takes the server seed as its server snapshot; a
+     click before hydration completes is lost;
+   - S6 spec: no web-first guard between `toHaveURL(href$)` and the next tab click;
+   - S7 isolation: state left by an earlier test of the same worker (ledger lock, server cache).
+4. Confirmed cause = it predicts the symptom AND explains why the passing cases pass. Anything less stays
+   a labelled hypothesis and does not get a fix.
+5. Fix minimal: a product cause is fixed in `src/lib/navigation/**` or, when it lives in the history
+   wiring of the Work orders detail or the tab bar, in `wo-detail/**`, `tab-work-orders/**` or `tabbar.tsx`
+   (declared above for that reason; WO-05-008, WO-05-009 and WO-04-010 rewrite them later and inherit the
+   regression test). A spec / harness cause is fixed in the spec with web-first assertions or a hydration
+   guard, never with a hard wait, and never by weakening what the step proves.
+6. Sibling audit: once confirmed, check every other step and every other `router.push` / `replace` caller
+   that shares the cause.
+7. Regression: a test anchored in the cause (unit when the cause is in the codec, e2e otherwise). A bug that
+   passed every gate silently also names a missing oracle: add it.
+8. If a genuine audit finds no cause, do not close as a mystery: land attribution guards (the per-step
+   timeline logging of step 1 kept as an opt-in trace, a pre-step hydration assertion, a fixture-isolation
+   assertion), record what was ruled out in the Status Note, and leave the card open.
+
+## Out of Scope
+
+- Applying the aliases or the validators in a surface (each v2 owner does, see above); changing any
+  surface component outside the contingent files named in item 3.
+- The behaviour of the expanded model viewer and of the sidebar (AC-25-011.1 and AC-25-010.1 halves that
+  live in `DataModelViewer` and `AppShell`): WO-02-018 and WO-19-002 cite those ACs without owning them.
+- The identity catalog schema, the CLI writer and `factory/navigation-identities.json`.
+- Visual baselines: untouched (this WO changes no pixels).
+
+## Requirements & Acceptance Criteria
+
+FRD-25 is a headless contract; its criteria have no `REQ-25-*` ids (the ACs are the requirements).
+
+- **AC-25-001.1** — (renamed from "AC-25-001", amended 2026-10-22, v2 plan) WHEN a user selects an idea/project, tab, document, Work Order, read-only reference/detail, campaign phase, model mode/entity/search, or supported list filter, THEN Mission Control SHALL encode that semantic location in the URL.
+- **AC-25-002.1** — (renamed from "AC-25-002", amended 2026-10-22, v2 plan) WHEN the user reloads, pastes a copied URL into a new session, or uses Back/Forward, THEN the application SHALL restore the addressed resource/tab/detail/filter without executing a mutation or build command.
+- **AC-25-003.1** — (renamed from "AC-25-003", amended 2026-10-22, v2 plan) WHEN a root page automatically chooses a project/tab/default Manual page, THEN the application SHALL replace the current history entry with the resolved explicit location; search typing SHALL replace rather than push each keystroke.
+- **AC-25-004.1** — (renamed from "AC-25-004", amended 2026-10-22, v2 plan) WHEN old query-based Portfolio or standalone project links are opened, THEN the compatibility resolver SHALL retain the selected project, tab, document/WO, filters and anchor while normalizing to the corresponding presentation context.
+- **AC-25-005.1** — (renamed from "AC-25-005", amended 2026-10-22, v2 plan) WHEN a project display name, card filename or folder changes and its dedicated identity reference is retained/reconciled, THEN the identity catalog SHALL retain its immutable ID and reserved public slug; an explicit public-slug rename SHALL preserve the previous slug as an alias.
+- **AC-25-006.1** — (renamed from "AC-25-006", amended 2026-10-22, v2 plan) WHEN a future idea/project is registered after the dashboard build, THEN the same dynamic route families SHALL resolve it without generating a new page or rebuilding Mission Control.
+- **AC-25-007.1** — (renamed from "AC-25-007", amended 2026-10-22, v2 plan) WHEN an explicit project/idea is unknown or a legacy alias is ambiguous, THEN the application SHALL show an unavailable/not-found result rather than choosing the first unrelated item.
+- **AC-25-008.1** — (renamed from "AC-25-008", amended 2026-10-22, v2 plan) WHEN a path/query has an unsupported tab/tail, repeated query values, excessive length, traversal, or an unknown document/detail, THEN routing SHALL reject it or display bounded unavailable content; document reads SHALL retain the existing scoped allowlist.
+- **AC-25-009.1** — (renamed from "AC-25-009", amended 2026-10-22, v2 plan: no Party tab in v2) WHEN navigation occurs inside an embedded Portfolio workspace or a standalone project workspace, THEN every child/return link SHALL retain that context and identity, including a non-first project's WO Summary/Full, documents and Changes.
+- **AC-25-010.1** — (renamed from "AC-25-010", amended 2026-10-22, v2 plan: no shell exemption in v2) WHEN a descendant route is active on phone/tablet/desktop, THEN the global destination highlight (a project workspace keeps Portafolio active), the sidebar navigation (tablet rail, phone drawer) and keyboard behavior SHALL remain correct, and no route SHALL be exempt from the shell.
+- **AC-25-011.1** — (renamed from "AC-25-011", amended 2026-10-22, v2 plan: no viewport-filling dialog in v2) WHEN an expanded model URL is restored, THEN the inline model viewer SHALL be restored without requesting native fullscreen until a user gesture; hover, drag coordinates, transient loading/errors, unsaved forms and destructive confirmations SHALL remain ephemeral.
+- **AC-25-012.1** — (renamed from "AC-25-012", amended 2026-10-22, v2 plan) WHEN catalog registration is repeated or reads occur, THEN one explicit CLI writer SHALL allocate identities idempotently and atomically, GET reads SHALL never allocate/write identities, and an existing corrupt catalog SHALL fail loudly.
+
+**How each is proven at this work order's gate** (the v1 UI is still mounted at W0, so the behavioural halves
+that live in v2 surfaces are cited, not owned, by those surfaces' work orders):
+
+| AC | Evidence in this WO | v2 surface that re-verifies it (cites the AC) |
+|---|---|---|
+| 001.1, 002.1 | codec round trip (`parse(serialize(state))`) for every family and every v2 key; the family e2e specs (direct, reload, fresh paste, Back, Forward); the repaired step 342 | each surface's own family spec |
+| 003.1 | unit tests with a history spy: `useCanonicalSelection` and `useUrlSearch` replace, never push; the core spec's root-default step | WO-03-007, every searchable surface |
+| 004.1 | `normalizeLegacyNavigation` cases keeping project, tab, document / WO, filters and anchor; the core spec's legacy-queries step | WO-04-010 |
+| 005.1, 006.1, 012.1 | existing identity tests (`identities.test.ts`, the reviewer CLI suite) re-cited with the new ids; the post-build registration step (new project resolved without rebuild; CLI repeat adds nothing) | none (unchanged) |
+| 007.1, 008.1 | resolver and bounds tests: unknown project / idea, ambiguous alias, repeated and oversized query values, traversal; enumerated-key validator tests | each surface that validates its keys |
+| 009.1 | the repaired step 342 (non-first project keeps identity through WO Summary / Full / return in both workspaces); `navigationHref` preserves context | WO-04-010, WO-05-008 |
+| 010.1 | `activeDestinationPath` table test (no exemption, workspace keeps Portafolio) | WO-19-002 (shell, phone / tablet / desktop, keyboard) |
+| 011.1 | codec: `expanded` is a retained, validated selection that never implies a fullscreen request | WO-02-018 (inline restore, no dialog) |
+
+## Components & Interfaces
+
+`CMP-25-codec` (`urls.ts`, `routeState.ts`), `CMP-25-aliases`, `CMP-25-key-registry`,
+`CMP-25-destination`, `CMP-25-url-state` (`useUrlState`, `useUrlSearch`, `useCanonicalSelection`,
+`NavigationCanonical`), `CMP-25-identity` (unchanged), `CMP-25-e2e-oracle` (the split spec). Interfaces
+`IF-25-parse`, `IF-25-href`, `IF-25-normalize`, `IF-25-validate`, `IF-25-destination`, `IF-25-search`.
+Definitions in `../blueprint.md`.
+
+## Reuse
+
+Everything extends `src/lib/navigation/`; no second codec (DR-057, DR-115). The e2e helpers keep using
+`gotoHydrated` from `e2e/_hydration.ts` (canonical, untouched).
+
+## Installs
+
+None.
+
+## Visual reference
+
+N/A: headless contract, no screen and no oracle state.
+
+## Tests this WO owns
+
+- Unit tests next to the codec: round trips per family and v2 key, `normalizeLegacyNavigation` (including
+  idempotence and unknown input), `validateNavigationQuery`, `activeDestinationPath`, the history spy tests.
+  Property-based round trip (fast-check) for `parse(serialize(state))`.
+- The split e2e specs (mechanical) and the regression test of the confirmed cause.
+- Updated citations of the new ids in implementer-authored tests; the existing reviewer suites
+  (`src/lib/navigation/_tests/*.reviewer.test.ts`) are never edited by the implementer.
+
+## Derogated tests
+
+- `src/lib/navigation/_tests/*.reviewer.test.ts` cite the old ids `AC-25-NNN`. They are listed to the
+  FRD-25 gate reviewer for re-citation (DR-080); the additive codec changes must keep them green as they
+  are.
+- `e2e/persistent-navigation.spec.ts` steps that v2 surfaces change are NOT touched here: the `party` tab
+  step, the `/portfolio` auto-select step and the work-order tail steps stay valid on the v1 UI mounted at
+  W0 and are replaced by WO-03-007 and WO-04-010 in their own waves.
+
+## Definition of done
+
+- Written first (RED), then GREEN; the AC evidence table above is met; the repaired step passes ten
+  consecutive isolated runs and three consecutive `verify.sh` runs.
+- `.pandacorp/verify.sh` green: biome, `tsc --strict`, vitest, knip, madge, smoke, shell.
+- Error path per failure mode: an unsupported value, repeated or oversized query, traversal and an unknown
+  resource each reject or show bounded unavailable content; an existing corrupt catalog still fails loudly.
+- Non-functional: all of it is pure and server-or-client safe; no filesystem access moves into client
+  bundles; no new dependency.
+- Cite `LESSON-0185` (e2e flake family) and `LESSON-0365` (URL state keys stable ids, never display names).
+
+## Dependencies
+
+None (W0). Consumers: every v2 surface WO (they depend on this one in the map).
+
+## Status Note

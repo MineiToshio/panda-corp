@@ -3,7 +3,8 @@ id: WO-06-004
 type: work-order
 slug: party-engine
 title: WO-06-004 — La Fragua engine (RAF loop, wave cap, rooms, parchment, gate)
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-06-013]
 parent: FRD-06
 implementation_status: VERIFIED
 source_requirements: []

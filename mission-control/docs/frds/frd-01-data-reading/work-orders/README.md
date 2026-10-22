@@ -1,49 +1,57 @@
-# FRD-01 — Work orders
+# Work orders — FRD-01 Data reading layer
 
-The **data layer**. Each work order is one reader module + its TDD fixtures (RED → GREEN →
-refactor), testable in isolation via `PANDACORP_FACTORY_ROOT` pointing at a fixture tree. No
-production UI here except the onboarding gate (the only `app/` surface FRD-01 owns).
+> The authoritative order and parallelism is the **Build Plan** in `../blueprint.md` (the build engine reads
+> that, not this). This file is the readable summary. Each work order is a coarse slice (one reader module or
+> capability), carries its own `implementation_status` frontmatter and its own artifacts.
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
 
-See the feature blueprint ([`../blueprint.md`](../blueprint.md)) for components/interfaces and the
-platform architecture ([`../../../product/architecture.md`](../../../product/architecture.md), §4
-data model, §6 `lib/**`).
+The **data layer**: one reader per work order with its TDD fixtures, testable in isolation through
+`PANDACORP_FACTORY_ROOT`, plus (v2) the fixture seams of the fidelity gate. v1 work orders (000 to 009)
+stay live and `VERIFIED`; WO-01-010 and WO-01-011 are new. FRD-01 is REQ-only by design (it defines no
+`AC-01-*` bullet), so no work order owns an acceptance criterion; they trace to `REQ-01-MMM` in the
+blueprint (§ Requirement → component traceability).
 
 ## Work orders
 
-| WO | Title | Module | Depends on |
-|---|---|---|---|
-| WO-01-000 | Test fixtures + `PANDACORP_FACTORY_ROOT` harness | `tests/fixtures/factory/**` | — |
-| WO-01-001 | `pathExists` read-only probe | `lib/fs-utils.ts` | WO-01-000 |
-| WO-01-002 | `readProfile` (presence + parse) | `lib/profile.ts` | WO-01-000 |
-| WO-01-003 | `readIdeas` (cards + frontmatter) | `lib/ideas.ts` | WO-01-000 |
-| WO-01-004 | `readPortfolio` (table parse) | `lib/portfolio.ts` | WO-01-000 |
-| WO-01-005 | `readStatus` (yaml, partial-tolerant) | `lib/status.ts` | WO-01-000, WO-01-001 |
-| WO-01-006 | `readProjectDocs` (feature-centric tree) | `lib/docs.ts` | WO-01-000, WO-01-001 |
-| WO-01-007 | `readEvents` (capped tail + diffs) | `lib/events.ts` | WO-01-000 |
-| WO-01-008 | Onboarding gate (UI) | `components/OnboardingGate.tsx` + `app/layout.tsx` guard | WO-01-002 |
+| WO | Slug | Status | Depends on | Summary |
+|---|---|---|---|---|
+| WO-01-000 | test-fixtures | VERIFIED | — | Fixture factory trees and the `withFactoryRoot` harness every reader test uses. |
+| WO-01-001 | path-exists | VERIFIED | WO-01-000 | `pathExists`, the read-only existence probe. |
+| WO-01-002 | read-profile | VERIFIED | WO-01-000 | `readProfile`: presence and parse; absence drives the onboarding gate. |
+| WO-01-003 | read-ideas | VERIFIED | WO-01-000 | `readIdeas`: idea cards with their frontmatter. |
+| WO-01-004 | read-portfolio | VERIFIED | WO-01-000 | `readPortfolio`: the portfolio table into project rows. |
+| WO-01-007 | read-events | VERIFIED | WO-01-000 | `readEvents`: capped tail, project filter before the cap, live and no-signal inputs. |
+| WO-01-005 | read-status | VERIFIED | WO-01-000, WO-01-001 | `readStatus`: partial-tolerant `status.yaml` plus live inbox counts. |
+| WO-01-006 | read-project-docs | VERIFIED | WO-01-000, WO-01-001 | `readProjectDocs`: the feature-centric `docs/` tree and `.pandacorp/` comms. |
+| WO-01-008 | onboarding-gate | VERIFIED | WO-01-002 | The onboarding gate instead of the app when there is no profile. |
+| WO-01-010 | fixture-seams | PLANNED | WO-01-000, WO-01-001 | v2: `now()`, `runGit()`, the env contract and `pnpm dev:oracle` for the fidelity gate. |
+| WO-01-009 | live-transport-sse | VERIFIED | WO-01-005, WO-01-007, WO-05-001 | The shared SSE transport (`/api/live`) and `useLiveSnapshot`. |
+| WO-01-011 | adopt-seams | PLANNED | WO-01-010, WO-10-014, WO-23-006, WO-14-001, WO-17-003, WO-17-005, WO-17-008, WO-09-006, WO-01-009, WO-15-003 | v2: route the kept readers' clock and git calls through the seams. |
 
-## Ordering & parallelism
+> **Depends on** mirrors each work order's `dependsOn` frontmatter (DR-087). **Status** is the
+> `implementation_status` of the work order.
 
-- **WO-01-000 first** — every other WO consumes the fixture tree. Blocking.
-- After WO-01-000, the pure readers **parallelize fully**: WO-01-002, -003, -004, -007 are
-  independent of each other. WO-01-001 (`pathExists`) is tiny and should land early because
-  WO-01-005 and WO-01-006 depend on it.
-- **WO-01-008 (onboarding gate)** is the only UI; depends on `readProfile` (WO-01-002). It also
-  wants a copy affordance — if `components/CopyButton.tsx` (FRD-02 WO-02-002 / FRD-03) is not yet
-  available, ship a minimal inline copy button and let FRD-02 consolidate later.
+## AC coverage
 
-## Cross-feature dependencies (outbound)
+FRD-01 defines no acceptance criterion; every work order is AC-less by design and traces to `REQ-01-MMM`.
+WO-01-010 and WO-01-011 enable the oracle-mode states of FRD-04, FRD-10 and FRD-18.
 
-Almost everything downstream depends on this layer:
-- FRD-02 (`lib/board.ts`, `lib/next-step.ts`, `lib/discard.ts`) consumes `readIdeas` + `readStatus`.
-- FRD-03 (portfolio) consumes `readPortfolio` + `readStatus` + `pathExists`.
-- FRD-04/05 consume `readStatus` + `readProjectDocs`.
-- FRD-06/12/18 consume `readEvents`.
+## Build order
 
-## Definition of done (every WO)
+Waves come from the Build Plan: W0 WO-01-000; W1 WO-01-001, WO-01-002, WO-01-003, WO-01-004, WO-01-007
+(parallel); W2 WO-01-005, WO-01-006, WO-01-008, WO-01-010 (parallel); W3 WO-01-009; W5 WO-01-011. Cross-FRD:
+WO-01-009 needs WO-05-001; WO-01-011 needs the owners of the readers it migrates (FRD-09, 10, 14, 15, 17,
+23); WO-21-003, WO-03-007 and WO-10-016 depend on WO-01-010.
 
-- Acceptance-criteria tests written **first** (RED), then GREEN, then refactor.
-- Tests run against the fixture tree (WO-01-000), never the live factory.
-- `.pandacorp/verify.sh` green: `pnpm biome check .` → `pnpm tsc --noEmit` → `pnpm vitest run`.
-- Reader is fail-soft per blueprint §3 (no throw on missing/malformed input).
-- No write to disk, no Claude/AI dependency added to `package.json`.
+## Definition of done (every work order)
+
+- Tests written first (RED), then GREEN, then refactor; run against the fixture tree, never the live factory.
+- `.pandacorp/verify.sh` green: biome, `tsc --strict`, vitest, knip, madge.
+- Readers are fail-soft and honest per the blueprint's tolerance rules (no throw on missing or malformed
+  input, no silent empty success).
+- No write to disk, no Claude / AI dependency in `package.json`.
+
+## Superseded (v1 history)
+
+None. All v1 work orders of this FRD are kept live; their `- **AC-…**` style bullets were rewritten as plain
+`v1 AC-01-…` history lines (FRD-01 defines no AC).

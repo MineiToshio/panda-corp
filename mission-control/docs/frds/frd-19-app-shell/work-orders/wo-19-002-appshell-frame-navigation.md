@@ -1,0 +1,243 @@
+---
+id: WO-19-002
+type: work-order
+slug: appshell-frame-navigation
+title: 'WO-19-002 — AppShell frame and navigation (sidebar, tablet rail, phone bars and drawer, Shell-Presence contract)'
+status: DRAFT
+parent: FRD-19
+foundation: true
+implementation_status: PLANNED
+blocked_reason:
+difficulty: high
+reopen_count: 0
+artifacts:
+  - "src/components/modules/{AppShell,Nav}/**"
+  - "src/app/layout.tsx"
+  - "src/app/_tests/layout*.test.tsx"
+  - "src/app/{not-found,error}.tsx"
+  - "src/app/_tests/error-net.test.tsx"
+  - "src/lib/constants.ts"
+  - "e2e/shell.ts"
+  - "e2e/routes.ts"
+  - "e2e/shell-usability.spec.ts"
+  - "e2e/persistent-navigation.spec.ts"
+  - "src/app/manual/_tests/persistentNavigation.test.tsx"
+  - "src/components/modules/{PendingMergeBadge,CelebrationWatcher}/**"
+source_requirements: [REQ-19-001, REQ-19-002, REQ-19-003, REQ-19-004, REQ-19-005, AC-19-001.1, AC-19-001.2, AC-19-001.3, AC-19-001.4, AC-19-001.5, AC-19-002.1, AC-19-002.2, AC-19-003.1, AC-19-003.2, AC-19-003.3, AC-19-003.4, AC-19-003.5, AC-19-004.1, AC-19-004.2, AC-19-005.4]
+dependsOn: [WO-13-012, WO-25-001, WO-01-008]
+last_updated: 2026-10-22
+---
+
+# WO-19-002 — AppShell frame and navigation (sidebar, tablet rail, phone bars and drawer, Shell-Presence contract)
+
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> Blueprint: [`../blueprint.md`](../blueprint.md) (CMP-19-app-shell, CMP-19-sidebar, CMP-19-nav,
+> IF-19-nav-active, IF-19-nav-destinations, CMP-19-topbar, CMP-19-bottom-nav, CMP-19-drawer,
+> CMP-19-skip-link, IF-19-shell-contract). Nav contract: `docs/design/components.md`
+> § AppShell nav contract (DR-075).
+
+## Summary
+
+Replaces the v1 top navigation with the Órbita persistent shell on every route: the `AppShell` frame
+(252 px sidebar from 1180 px, 76 px icon rail with mini labels from 760 to 1179 px, phone sticky top
+bar, bottom navigation and off-canvas drawer below 760 px), the brand, the seven destinations as real
+links with exactly one active, the skip link that moves focus to `main#content` in place, the 1180 px
+content frame, no exempt route, and the Shell-Presence seeds `e2e/shell.ts` / `e2e/routes.ts`. The
+sidebar's contents (projects, counts, collapse, theme button, guild card, pills, notice) are slots that
+WO-19-003 fills.
+
+## In Scope
+
+1. **`AppShell`** (restyle in place, `AppShell/AppShell.tsx`, client): markup and hooks as the prototype
+   records them: `a.skip` first, then `.app#app` (`data-testid="app-shell"`, `data-sidebar="expanded"`
+   in this WO) holding `aside#sidebar` (accessible name «Navegación principal», `data-open` for the
+   drawer), `.scrim#scrim`, and `.main` with the phone `TopBar`, `main#content.page` (`tabIndex={-1}`,
+   the skip target and the page frame) and the phone `BottomNav`. Grid `252px | 1fr` (desktop),
+   `76px | 1fr` (tablet), one column (phone). Content frame at most `--content` (1180 px), centred, with
+   the `.page` gutters 40 / 24 / 16 px (frozen overrides). The shell renders no other landmark around
+   the page and adds no second `<main>`.
+2. **Drawer (phone, below 760 px):** the same `aside#sidebar`, off-canvas `min(300px, 86vw)`, slides in by
+   `transform` (220 ms, `--ease`; none under reduced motion), over the scrim. Opened by `button#menu`
+   (TopBar) or by «Más» (`BottomNav`); `aria-expanded` on `#menu`, `aria-controls="sidebar"` on both
+   openers; `inert` while closed (phone only; never inert at tablet or desktop); focus moves to the first
+   link on open; closes on Escape (focus returns to the opener that opened it), pointer-down outside
+   (the scrim), activating any destination (including the current route) and any route change.
+3. **`Sidebar`** (new, `AppShell/Sidebar.tsx`): `--bg-2` column, sticky, full height; the brand link
+   (`a.brand` to `/`, accessible name «Pandacorp Mission Control: ir a Inicio» from `shell.brand.aria`,
+   the raster mark `/brand/pandacorp.png` with empty `alt`, «Pandacorp» over «MISSION CONTROL»); then,
+   in the prototype's order, optional slots `pills`, the `Nav`, `projects`, `guild` and `footer` (all
+   empty in this WO; WO-19-003 fills them; AC-19-001.3 is met by the brand plus these hosts).
+4. **`Nav` + `NavItem`** (restyle `Nav/Nav.tsx`, new `Nav/NavItem.tsx`): `nav.navgroup` named «Secciones»
+   (`shell.sidebar.sectionsAria`); seven `a.navitem` (`next/link`, client-side) from
+   `NAV_DESTINATIONS`, each with its `Icon` and tone (Inicio amber `home`, Tablero teal `kanban`,
+   Portafolio blue `folder`, Propuestas pink `bulb`, Logros gold `trophy`, Documentación violet `book`,
+   Configuración slate `settings`), the full label `.lbl` and the mini label `.mini` («Docs», «Ajustes»
+   for the two long ones). At any width exactly one of `.lbl` / `.mini` is rendered (the other
+   `display: none`), so each link's accessible name is exactly its label (the Shell-Presence gate
+   matches names exactly). The current destination has `aria-current="page"`, the raised surface and
+   the bolder label; `data-testid="app-nav-<id>"` with the ids `inicio`, `tablero`, `portfolio`,
+   `propuestas`, `logros`, `documentacion`, `configuracion`; `Nav` keeps `data-testid="app-nav"`.
+5. **Active rule (IF-19-nav-active, `Nav/navActive.ts`, pure):** `/` exactly → Inicio; `/board` and
+   everything under it (idea pages) → Tablero; `/portfolio` and `/projects` and everything under them
+   (the workspace) → Portafolio; `/proposals`, `/achievements`, `/manual`, `/configuration` families →
+   their destination; any other path → none (no false highlight). A prefix only matches whole path
+   segments.
+6. **`TopBar`** (new, phone only): sticky 58 px bar with `button#menu` («Abrir menú», `menu` icon), the
+   30 px logo and `#where` («MISSION CONTROL» in small caps over the active destination's label).
+   **`BottomNav`** (new, phone only): `nav#bottomnav` named «Accesos rápidos» (`shell.bottomNav.aria`),
+   five 52 px columns: Inicio, Tablero, Portafolio, Docs (links, `aria-current` on the active one) and
+   «Más» (`button[data-action="drawer"]`, `aria-controls="sidebar"`, opens the drawer).
+7. **`SkipLink`** (new): `a.skip` to `#content` with the catalogue's skip-link label «Saltar al
+   contenido» (the link FRD-13's `a11y-skip-link-focus` state focuses; the shards do not record its
+   text, reported as a DR-130 gap), the first focusable element, off-screen until focused; activation
+   moves focus to `main#content` in place (a real in-page anchor, never a route).
+8. **Navigation constants (IF-19-nav-destinations, `src/lib/constants.ts`):** `NAV_DESTINATIONS` (id,
+   path, label key, mini key, icon, tone) and the route constants the shell uses. The e2e contract is
+   seeded from the prototype, not from these constants (author-independent check).
+9. **Root layout:** mounts `<AppShell>{children}</AppShell>` once, inside the onboarding guard (the
+   onboarding gate still replaces the whole view when the profile is absent, edge case of FRD-19);
+   removes the top-bar mounts and their server reads (`GuildBar`, `ProposalsBadge` with
+   `countOpenProposals`, `PendingMergeBadge` with `getPendingMerge`, `CelebrationWatcher`); keeps
+   `GamificationLedgerSync` and WO-13-010's fonts, boot script and Tabler link.
+10. **Not-found and error pages** (`src/app/not-found.tsx`, `src/app/error.tsx`): they render inside the
+    shell, so their top-level `<main>` becomes a plain wrapper (the shell owns `main#content`).
+    `global-error.tsx` replaces the root layout and keeps its own `<main>`.
+11. **Shell-Presence seeds (IF-19-shell-contract):** `e2e/shell.ts` rewritten from components.md
+    § AppShell nav contract: `SHELL_SELECTOR = "aside#sidebar"`, the seven `{ label, path }` in order
+    (label «Portafolio»), `SHELL_EXEMPT = []`, `NAV_TOGGLE = "#menu"`. `e2e/routes.ts` lists every v2
+    surface up front: Inicio `/`, Tablero `/board`, the idea page `/board/idea-in-pipeline`, Portafolio
+    `/portfolio`, the workspace `/projects/mission-control`, Propuestas `/proposals`, Logros
+    `/achievements`, Documentación `/manual`, Configuración `/configuration` (names = the nav labels; the
+    `blessed` flags of already-blessed surfaces kept, new surfaces `blessed: false` until their FRD gate).
+12. **Removals (map §6.C items 1, 2 and 3, first half):** the top navigation and its exemptions
+    (`AppShell/ShellNavigation.tsx`, `AppShell/shellScope.ts`, `AppShell/shell.module.css`,
+    `AppShell/copy.es.ts`, the v1 header markup and `[data-nav-toggle]`), the `PendingMergeBadge`
+    module, and the `CelebrationWatcher` module (tiered celebrations), each with its tests. Unmounted
+    but NOT deleted here, because other FRDs' reviewer suites still import them until their own gates
+    re-bless: `ProposalsBadge`, `GuildBar` (top-bar component), `CelebrationSurface`, `Nav/navTab.ts`
+    (WO-13-013 deletes them).
+
+## Out of Scope
+
+- The sidebar's contents: counts, Proyectos group, collapse to the 64 px rail and its float, theme
+  button, guild card, pills, achievement notice (WO-19-003). AC-19-003.1's collapse control is
+  AC-19-005.3's control, delivered by WO-19-003 into the footer slot.
+- Rebuilding any page. A v1 page that still renders its own `<main>` (through `PageLayout` or
+  directly) sits inside `main#content` until its surface WO rebuilds it on `PageHead`; every v2
+  surface WO renders no `<main>` (ledger).
+- The URL codec (WO-25-001); the workspace tabs and their e2e (WO-04-010).
+
+## Requirements & Acceptance Criteria
+
+REQ-19-001 to REQ-19-004 and the responsive pattern of REQ-19-005.
+
+- **AC-19-001.1** The app SHALL render a single persistent navigation shell (the landmark `aside#sidebar`) on every surface (Inicio, Tablero, Portafolio, Propuestas, Logros, Documentación, Configuración), so all seven destinations are reachable from any surface without using the browser back button.
+- **AC-19-001.2** The shell SHALL contain exactly the seven top-level destinations, each a link to its correct route: Inicio→`/`, Tablero→`/board`, Portafolio→`/portfolio`, Propuestas→`/proposals`, Logros→`/achievements`, Documentación→`/manual`, Configuración→`/configuration`. No dead hrefs (`#`/`/`-placeholders), no extra top-level destinations.
+- **AC-19-001.3** The shell SHALL host the brand, the guild card (FRD-09 AC-09-008.1), the Propuestas count and the global pills "Plugin desactualizado" and "⎇ N pendientes".
+- **AC-19-001.4** Navigation between destinations SHALL be client-side (`next/link`), not a full page reload.
+- **AC-19-001.5** A keyboard-reachable **skip link** "Saltar al contenido" SHALL be the first focusable element of the page and SHALL move focus to the main content region in place, without routing to another screen (WCAG 2.2 SC 2.4.1).
+- **AC-19-002.1** WHEN the current route matches a destination, that destination SHALL be marked active — both programmatically (`aria-current="page"`) and visually — and **exactly one** destination SHALL be active at a time (not color-alone — `aria-current` carries the meaning).
+- **AC-19-002.2** The active match SHALL be exact for Inicio (`/`) and per path for the other six; the project workspace is a drill-in of Portafolio and keeps Portafolio active [ASSUMPTION: since no route is exempt from the shell any more, the workspace needs an active destination; Portafolio is the surface it opens from — source: C-01 and FRD-04]. WHEN the route is unmatched (for example `not-found`), no destination SHALL be marked active (no false highlight).
+- **AC-19-003.1** WHEN the viewport is 1180 px or wider, THE shell SHALL display the expanded sidebar with full labels and the collapse control (AC-19-005.3).
+- **AC-19-003.2** WHEN the viewport is from 760 px through 1179 px, THE shell SHALL display a 76 px icon rail with mini labels ("Docs" for Documentación and "Ajustes" for Configuración are the short forms).
+- **AC-19-003.3** WHEN the viewport is 759 px or narrower, THE shell SHALL show a sticky top bar with the brand and a menu toggle (`#menu`, accessible name "Abrir menú", with `aria-expanded` and `aria-controls="sidebar"`), a bottom navigation (Inicio · Tablero · Portafolio · Docs · Más) and an off-canvas drawer holding the full sidebar, opened by the toggle or by "Más"; WHILE the drawer is closed it SHALL be inert. Every link SHALL have a target of at least 44 px by design (24 px is only the gated floor).
+- **AC-19-003.4** WHEN Escape is pressed with the drawer open, THE shell SHALL close it and restore focus to its opener; outside pointer-down, destination activation (including the current route) and route changes SHALL also close it.
+- **AC-19-003.5** WHEN rendering page content, THE shell SHALL center a content frame of at most 1180 px with a 40 px gutter on each side, and shrink to narrower viewports; shared digest panels SHALL fill their host without the narrower 920px inner panel cap, while prose MAY retain a readable line-length cap. Model-only fullscreen SHALL continue to fill the browser viewport.
+- **AC-19-004.1** The shell SHALL render on EVERY route, including the project workspace (`/projects/**`) and Configuración (`/configuration`); no route is exempt, and the workspace keeps its own header and back control inside the content frame.
+- **AC-19-004.2** The Shell-Presence Gate (`e2e/shell.ts`) SHALL mirror this contract with an empty exempt set; the app and the gate SHALL not drift.
+- **AC-19-005.4** — THE shell SHALL become an icon rail on tablets and a top bar, bottom navigation and drawer on phones (REQ-19-003).
+
+**Fidelity criterion.** The built shell matches `mocks/app-shell.html` `shell-expanded` (375, 768, 1280)
+and `shell-drawer-open` (375), and FRD-13's `a11y-skip-link-focus`, in layout, structure, components and
+density on the frozen tokens, with the recorded hooks (`aside#sidebar`, `#menu`, `#scrim`,
+`nav#bottomnav`, `.navitem`, `.navgroup`, `a.skip`, `main#content`, `data-open`, `data-sidebar`); verified
+by the preview smoke and shell gates here and the fidelity diff at close-out.
+
+**Completeness (DR-100).** Keyboard: skip link first, tab order brand → nav, drawer focus in on open and
+back to the opener on close, no focus trap on desktop. Focus never under the sticky top bar or bottom
+navigation (`scroll-padding`, AC-13-010.3). Touch: 44 px design targets in the drawer and bottom
+navigation. Reduced motion: no drawer slide. No hydration mismatch (the active state derives from the
+pathname on both server and client). Performance: the shell is one client boundary; the brand PNG loads
+with the shell (accepted trade-off, ADR-0012); no layout shift when the drawer state changes.
+
+## Reuse (components.md)
+
+Restyle in place: `AppShell`, `Nav`. Create (rows already inventoried): `Sidebar`, `NavItem`, `TopBar`,
+`BottomNav`, `SkipLink`. Reuse: `Icon`, `t()`, tokens (WO-13-010); `IconButton` (WO-13-011). `Footer` is
+prototype-only and is not built.
+
+## Installs
+
+None.
+
+## Visual reference
+
+- **Mock screens:** `docs/frds/frd-19-app-shell/mocks/app-shell.html#shell-expanded` (1280 sidebar, 768
+  rail, 375 top bar and bottom navigation) and `#shell-drawer-open` (375);
+  `docs/frds/frd-13-visual-system-accessibility/mocks/visual-system-accessibility.html#a11y-skip-link-focus`.
+  Oracle states: `shell-expanded`, `shell-drawer-open`, `a11y-skip-link-focus`. Screenshots in each
+  FRD's `mocks/screenshots/`.
+- **Token slice:** `--sidebar` 252, `--rail` 76, `--content` 1180, `--bg-2` (sidebar), `--surface`
+  (raised current item), `--line`, `--text`, `--text-2`, the seven destination hues and `--tint`,
+  `--shadow-panel` (drawer), `--backdrop` (scrim), `.page` gutters (`--s10` / `--s6` / `--s4`), `--dur`,
+  `--ease`, `--fs-sm` / `--fs-xs` (labels, mini labels). Portable CSS:
+  `docs/design/prototype/reference/css/18-app-frame.css`, `34-responsive.css`, `48-sidebar-rail.css`,
+  `52-phone-pass.css`, `53-phone-tablet-pass.css`.
+- **FDD pointer:** `docs/frds/frd-19-app-shell/fdd.md` (Screens, States, Nav contract).
+- **Assets:** `/brand/pandacorp.png` and the `home`, `kanban`, `folder`, `bulb`, `trophy`, `book`,
+  `settings`, `menu` icons (staged by WO-13-010).
+
+## Tests (owned)
+
+- `src/components/modules/Nav/_tests/navActive.test.ts`: the active rule over a path table (root,
+  each family, nested idea and workspace paths for both `/portfolio/<p>` and `/projects/<p>`, near-miss
+  prefixes such as `/manual-other`, unknown paths → none).
+- `src/components/modules/Nav/_tests/Nav.test.tsx` (rewritten): seven links in order with the exact
+  names and hrefs; exactly one `aria-current="page"`; mini labels on the rail.
+- `src/components/modules/AppShell/_tests/AppShell.test.tsx` (rewritten): skip link is the first
+  focusable and targets `#content`; drawer opens from `#menu` and from «Más», sets `aria-expanded`,
+  is inert when closed on phones, closes on Escape with focus back to the opener, on scrim pointer-down,
+  on destination activation and on a pathname change.
+- `src/app/_tests/layout.shell.test.tsx`: the shell is mounted once around the page; the onboarding gate
+  replaces it when the profile is absent; no top-bar badge is mounted. `layout.guard.test.tsx` kept and
+  updated; `layout.guildbartop.test.tsx` and `layout.proposalsbadge.test.tsx` deleted (behaviour removed).
+- `e2e/shell-usability.spec.ts` (the behaviour spec, rewritten for v2): at 1280 the 252 px sidebar and a
+  content frame of at most 1180 px with 40 px gutters; at 768 the 76 px rail with «Docs» and «Ajustes»;
+  at 375 the top bar, the five-item bottom navigation (targets at least 44 px), the drawer cycle
+  (toggle, «Más», Escape with focus return, outside press, link activation, route change) and no
+  horizontal overflow; the skip link moves focus to `main#content` without changing the URL path; the
+  workspace and Configuración render the sidebar with Portafolio and Configuración active; a focused
+  link is never under the sticky bars. Light and dark. `gotoHydrated`, no hard waits.
+- `e2e/persistent-navigation.spec.ts`: only the shell test («nested destinations retain global
+  highlights…») is updated (Configuración now has the shell; `#menu` replaces `[data-nav-toggle]`).
+- `src/app/manual/_tests/persistentNavigation.test.tsx`: only the last case changes (prefix matching
+  through the new active rule; the exemption assertions are removed).
+- `src/app/_tests/error-net.test.tsx`: updated only if it pinned the page-level `<main>`.
+
+### Derogated tests (map §3.3, BL-0051)
+
+- Implementer-authored, rewritten or deleted here: the AppShell, Nav, ShellNavigation, PendingMergeBadge
+  and CelebrationWatcher tests, the three `src/app/_tests/layout*` files listed above.
+- Reviewer-authored, removed with `git rm` because their subject is deleted by this WO (rule 3,
+  FRD-mandated removal): `src/components/modules/AppShell/_tests/usability.reviewer.test.tsx` (the v1
+  top-bar disclosure, §6.C item 1; its v1 props no longer compile) and
+  `src/components/modules/CelebrationWatcher/_tests/wo-09-003-celebration-watcher.reviewer.test.tsx`
+  (the module is deleted, §6.C item 3). The FRD-19 gate reviewer writes the v2 acceptance.
+- Visual baselines: every page changes (the sidebar); never touched here, re-blessed at the close-out
+  Visual QA (map §3.3.4). `e2e/shell.spec.ts` is verbatim and untouched.
+
+## Definition of done
+
+- Owned tests and the Shell-Presence gate green against the new `e2e/shell.ts` (landmark on every
+  `routes.ts` surface, seven destinations with exact names and hrefs).
+- `.pandacorp/verify.sh` green; knip shows no orphan from the removed top bar.
+- Status Note lists the `AppShell` / `Sidebar` slot props and `navActive` signature WO-19-003 builds on.
+
+## Dependencies
+
+WO-13-012 (primitives, after WO-13-010 / WO-13-011), WO-25-001 (no shell exemption in the URL
+contract), WO-01-008 (onboarding guard in `layout.tsx`). Consumers: WO-19-003; every surface renders
+inside it. Cites LESSON-0066 and LESSON-0185 (no `networkidle`, hydration-safe e2e), LESSON-0364 (only
+inner content caps go; the 1180 px frame stays).
+
+## Status Note

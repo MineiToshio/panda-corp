@@ -3,7 +3,8 @@ id: WO-09-005
 type: work-order
 slug: celebration-tiers
 title: 'WO-09-005 — `lib/gamification.ts`: celebration tier classifier'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-19-002, WO-13-013]
 parent: FRD-09
 implementation_status: VERIFIED
 source_requirements: []

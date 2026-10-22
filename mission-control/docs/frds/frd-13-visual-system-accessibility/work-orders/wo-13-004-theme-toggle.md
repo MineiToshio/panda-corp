@@ -3,7 +3,8 @@ id: WO-13-004
 type: work-order
 slug: theme-toggle
 title: 'WO-13-004 — ThemeToggle (light/dark/high-contrast, persisted)'
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-13-010, WO-19-003]
 parent: FRD-13
 implementation_status: VERIFIED
 source_requirements: []

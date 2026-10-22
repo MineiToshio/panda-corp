@@ -1,201 +1,185 @@
 ---
-id: FRD-18-blueprint
+id: BP-18
 type: blueprint
+slug: dashboard
+title: Inicio (the command center)
+status: DRAFT
 parent: FRD-18
-status: ACTIVE
-implementation_status: VERIFIED
-last_updated: '2026-06-21'
+implementation_status: PLANNED
+readiness_gate:
+grounding_gate:
+consistency_gate:
+last_updated: '2026-10-22'
 ---
-# Feature blueprint — FRD-18 Dashboard ("Inicio", the command center)
 
-> **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
-> This is the **feature blueprint** (DR-049): how FRD-18 is implemented on top of the platform in
-> [`docs/product/architecture.md`](../../product/architecture.md). It references the platform and the
-> sibling features it composes; it does not restate them.
+# Blueprint — FRD-18 Dashboard ("Inicio", the command center)
 
-## 1. Summary
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> Per-feature blueprint (DR-049) on top of [`docs/product/architecture.md`](../../product/architecture.md)
+> (§6 `inicio/` module, §7 read-only invariant and fixture seams, §11 mapping, route map row `/`). It does not
+> restate the platform. v2 revision of the v1 blueprint: the six stacked sections (health banners, digest, Tu
+> turno, Pulso, Cartera, Tu progreso) become the drawn two-column composition; the digest and `visto_hasta` are
+> gone; everything that still describes live code (a composition layer over existing readers, no new factory
+> data, no write, event-driven refresh) is kept.
 
-The default landing of Mission Control: a read-only **command center** that answers, at a glance,
-*"what needs me now, what changed while I was away, and what's the next command"* across the whole
-factory. It is **almost entirely a composition layer** — it surfaces existing signals and reads the
-existing `lib/**` layer; it introduces no new factory data, no new write.
+## Purpose
 
-Six stacked sections (FRD layout, top to bottom):
-1. **Health banners** (conditional) — onboarding gate (FRD-01) + plugin drift (FRD-15) + orphans (FRD-16).
-2. **Desde tu última visita** — the digest of events since the operator last acknowledged (`visto_hasta`).
-3. **Tu turno** — the human-gate decision queue (hero block).
-4. **Pulso de la fábrica** — the funnel + the one metric that matters (idea→shipped).
-5. **Construcción y cartera** — one card per active/shipped project.
-6. **Tu progreso** — the honest gamification strip (FRD-09).
+Inicio answers "what needs me now, what is the factory already doing, and where do my projects stand". It is a
+composition layer: it adds one new resolver module (`src/lib/inicio/`) for the facts no other surface owns
+(the owner's turn, the in-flight groups, the idea funnel, the pulse tiles, the last achievement) and otherwise
+renders other features' resolvers: the project cards (FRD-03), the guild state (FRD-09), the worktrees card
+(FRD-21), the plugin verdict (FRD-15) and the freshness voice (FRD-06). One work order builds it (WO-18-002),
+late (W5), because it joins everything.
 
-Visual reference: `prototype/index.html` view `dashboard` (`dashboardView()`, lines 610–679;
-`digestSection()` 593–609; `pluginBanner()` 563–567). The persisted digest marker uses `localStorage`
-(survives refresh/close); in the prototype events/age are mocked — the app reads the real layer.
+## Components & Interfaces
 
-Approved as a **first version** (owner: "good to ship and iterate"); the "Tu turno" composition, the
-digest ack model and the pulse framing are expected to evolve (FRD note).
+| ID | Kind | Responsibility | Location | REQ |
+|---|---|---|---|---|
+| `IF-18-turn` | interface | `ownerTurnItems(): { items; count }`, request-cached, the single resolver of "what waits on the owner on Inicio" and of its count (the sidebar Inicio count and the "Tu turno N" pill both read it, DR-115). Items: pending decisions of every portfolio project first (a decision whose own file says RESUELTO or OBSOLETO is excluded: `DecisionPoint.resolvedInFile`, WO-04-013), then changes with status `ready`; each item carries `kind`, `id`, title, project name and slug, age (`ageDays` of the decision date, or the request date of the change), the scoped command (`/pandacorp:decide <id>` or `/pandacorp:implement change:<id>`), where it runs, and the detail payload of the dialog. Running builds, auto-retried work orders and `advance_pending` are never items (REQ-18-011). Decision entries that are engine-log lines (`isEngineLogEntry`, exported by WO-04-013) are excluded too. An optional `{ project }` argument narrows it to one project, so the workspace Resumen's own "Tu turno" (WO-04-011, DR-057, DR-115) reads the same resolver; `AskRow` stays exported from the `TuTurno` folder for that second route. Dates ("hace N días", "pedido el …") use the shared Spanish date formatters of `src/lib/copy/` (WO-13-010). | `src/lib/inicio/turn.ts` (new) | REQ-18-010, REQ-18-011, REQ-18-012 |
+| `IF-18-flight` | interface | `inFlightGroups(): FlightGroup[]` (building, review, draft): changes with status `building`; work orders in `review`; one row per project that has drafts ("N cambios en borrador"). A group with no row is absent; no row at all means the card is not drawn. Never asks the owner for anything. | `src/lib/inicio/flight.ts` (new) | AC-18-022.3 |
+| `IF-18-funnel` | interface | `ideaFunnel(): { rows; discarded }`: active ideas per pipeline phase through the board's own derivation (`lib/board` `deriveColumn`), the Lanzamiento row from `countLaunched` (the one bridge resolver, REQ-18-014), discarded ideas counted apart. | `src/lib/inicio/funnel.ts` (new) | REQ-18-013, REQ-18-014, AC-18-022.4 |
+| `IF-18-pulse` | interface | `pulseTiles(cards): Tile[]`: Proyectos, FRDs and work orders verificadas "de N", totals taken from the same project-card list the Cartera renders (no second derivation); at most `PULSE_MAX_SIGNALS = 5` tiles (AC-12-001.3), three today. | `src/lib/inicio/pulse.ts` (new; replaces `src/app/_lib/pulse.ts`) | REQ-18-013, AC-12-001.3 |
+| `IF-18-achievement` | interface | `lastAchievement(): { title; unlockedAt; fresh } or null`: the newest unlocked unique achievement; `fresh` is the FRD-09 rule (flagged new or unlocked within 7 days, AC-09-008.2). The guild level, XP and rank come from `getGuildState()`, the one guild source, never recomputed here. | `src/lib/inicio/achievement.ts` (new) | Gremio bullet |
+| `IF-18-decision-detail` | interface | Additive fields `ask` and `context` on `DecisionPoint` (the first paragraph of the block's "Qué necesito de ti" or "Qué decidir" field and its "Contexto" field), so the Tu turno dialog shows "Lo que se necesita de ti" and "Contexto" from the decision file, not from invented text. Ids and the existing fields are unchanged (FRD-24 golden vectors stay byte-identical). | `src/lib/docs/activity.ts` (additive, W5) | AC-18-022.2 |
+| `CMP-18-page` | component | `HomePage`: Server Component. `PageHead` (h1 "Inicio"), the plugin `AlertBanner` first when behind, then the `home-grid`: left column Tu turno, Tu cartera, En marcha; right column Pulso, Gremio, Embudo de ideas, Árboles de trabajo; one column below 1024 px with Tu turno first. Each independently slow block sits in its own `Suspense`. | `src/app/page.tsx` | REQ-18-001, REQ-18-002, AC-18-022.1 |
+| `CMP-18-banner` | component | `PluginSyncBanner`: client component that reads `/api/plugin-sync`, renders the shared `AlertBanner` ("El plugin instalado está atrás", both versions, the two steps, `claude plugin update pandacorp@panda-corp` in a `CommandBox`) only when the installed version is strictly behind, and clears itself on the next poll. Unknown or in-sync renders nothing. | `src/app/_components/plugin-sync-banner/` (restyled in place) | REQ-15-002, REQ-15-004, REQ-15-005 |
+| `CMP-18-turn` | component | `TuTurno` card (`CardHeader` with the amber icon tile and the count pill, or the green "Al día" chip), the `AskRow` list and the calm `EmptyState` "Nada espera tu acción ahora mismo."; `TurnDetailDialog` for "Detalles". `AskRow` (components.md path `src/app/(dashboard)/_components/AskRow.tsx`) is relocated into this folder, next to the card that owns its rows and its dialog (a relocation components.md allows; the name does not change). | `src/components/dashboard/TuTurno/` | REQ-18-003, REQ-18-010, REQ-18-012, AC-18-022.2 |
+| `CMP-18-cartera` | component | `Cartera`: the `SectionHeading` "Tu cartera" with its link "Ver portafolio", one `ProjectCard` (compact, WO-03-007) per project in the portfolio's last-commit order, or the first-action card ("Tu fábrica todavía no tiene proyectos" with `/pandacorp:new-idea` and `/pandacorp:spec <idea>`) when there are no projects. | `src/components/dashboard/Cartera/` | REQ-18-016, REQ-18-021 |
+| `CMP-18-flight` | component | `EnMarchaCard` with its collapsible `FlightGroup`s (native `details`, closed at rest, title, hint, count) and the `TurnRow` rows; route-local pieces at the components.md paths. | `src/app/(dashboard)/_components/` (`EnMarchaCard`, `FlightGroup`, `TurnRow`) | AC-18-022.3 |
+| `CMP-18-pulso` | component | `Pulso` (components.md `KpiTiles`): the tiles of `IF-18-pulse` with display numbers. | `src/components/modules/Pulso/` (restyled in place) | AC-18-022.4 |
+| `CMP-18-embudo` | component | `EmbudoCard` with a `FunnelRow` per phase and the foot "N descartadas" plus the link "Abrir tablero". | `src/app/(dashboard)/_components/` (`EmbudoCard`, `FunnelRow`) | AC-18-022.4 |
+| `CMP-18-gremio` | component | `Progreso` becomes the Gremio card: crest (`public/ranks/`), rank name, "Nivel N · XP", the gold bar, "X XP para el nivel N+1 · T trofeos", `LastAchievement` (with the "Nuevo" chip when fresh) and the link "Ver logros". No streaks, no urgency. | `src/components/dashboard/Progreso/` + `LastAchievement` in `src/app/(dashboard)/_components/` | Gremio bullet |
+| `CMP-18-live` | component | `DashboardLiveWatcher` (kept): subscribes to `useLiveSnapshot` and calls `router.refresh()` when a new event arrives and when the frame's `stateVersion` moves (the same `state-version-moved` rule WO live refresh uses; AC-06-019.7 last sentence). It owns no transport and polls nothing. | `src/components/dashboard/DashboardLiveWatcher/` | REQ-18-004 |
+| `CMP-18-worktrees` | component | The hosted FRD-21 mount `FactoryWorktrees` ("Árboles de trabajo"); placed last in the right column. FRD-21 owns it. | `src/components/dashboard/FactoryWorktrees/` (WO-21-003) | AC-18-022.1 |
 
-## 2. Platform references
+Reuse (components.md, in order): `PageHead`, `AlertBanner`, `Card`/`CardHeader`, `AskRow`, `CommandBox`/
+`CommandCompact`, `Dialog`, `ProjectCard` (compact) with `PhaseStepper` and `Ring`, `Chip` family,
+`EmptyState`/`Notice`, `KpiTiles`, `FunnelRow`, `FlightGroup`, `LastAchievement`, `Icon`. Nothing is created
+beyond the rows the inventory lists.
 
-- **Composes existing `lib/**`** (architecture §6) — FRD-18 creates **no new `lib/` module**:
-  - `lib/events.ts` (FRD-06/12) — the capped event tail for the digest + live/no-signal + last-event time.
-  - `lib/status.ts` (FRD-01/04) — phase, version, progress, age-in-stage, `pending_decisions`, `running`.
-  - `lib/portfolio.ts` (FRD-01/03) — the project list for the build & portfolio cards.
-  - `lib/ideas.ts` + `lib/board.ts` (FRD-01/02) — ideas-alive funnel + "Descubierta" awaiting prioritization.
-  - `lib/next-step.ts` (FRD-02/03/04) — the next command per project/idea.
-  - `lib/work-orders.ts` (FRD-05) — work-order progress + failing/blocked blocker reason.
-  - `lib/memory.ts` (FRD-17) — the memory-backlog nudge for "Tu turno".
-  - `lib/profile.ts` (FRD-01) — the onboarding-gate banner.
-- **Composes sibling banners**: `PluginSyncBanner` (FRD-15 `CMP-15-banner`), `OrphansBanner`
-  (FRD-16 `CMP-16-banner`), and the proposals/memory-health nudge (FRD-17).
-- **Reuses honest indicators**: live / no-signal + age-in-stage (FRD-12); honest gamification strip (FRD-09);
-  visual/a11y system (FRD-13).
-- **Client-local UI state** (architecture §4.8): the `visto_hasta` digest marker + dismissals →
-  `localStorage`. NOT a factory or project write — consistent with the read-only invariant (FRD-01).
-- **Surface** (architecture §11): `app/` (the default landing route `/`).
+## Contracts
 
-## 3. Components & interfaces
+**Page data flow.** The page calls the resolvers once per request (`React.cache` inside each), in parallel
+(`Promise.all`), and passes plain data down: `ownerTurnItems()`, `inFlightGroups()`, the project-card list of
+WO-03-007, `ideaFunnel()`, `pulseTiles()`, `getGuildState()` and `lastAchievement()`. Components never read
+`fs`, git or events directly (structure guard). Every "now" comes from `now()` and every git read from
+`runGit` (WO-01-010) through the resolvers, so oracle mode freezes ages ("hace 6 días") and last-change times.
 
-FRD-18 is a composition feature: its "interface" is a small set of **pure derivation helpers**
-(`IF-18-*`) over the already-read `lib/**` data, plus the page + section components. No new `lib/`
-module; the derivations live in the feature folder (e.g. `app/(dashboard)/_lib/`), unit-tested.
+**Tu turno item (`IF-18-turn`).** Success: ordered `items` (decisions first, then ready changes, each kind in
+project order then file order) and `count = items.length`, which also feeds the sidebar's Inicio count
+(WO-19-003). Errors: an unreadable decisions file or change queue for one project is reported through the
+reader's own fail-loud result (DR-078) and surfaces as a `Notice` row naming the project, never as a silent
+"Al día"; the other projects still list. Invariants: an item exists only if it needs the owner (REQ-18-010);
+`count` equals the rows shown; the dialog text of a decision is the decision file's text, in its source
+language.
 
-### Derivation helpers (pure, unit-tested)
+**Dialog (`AC-18-022.2`).** Decision: kicker "Decisión · <project>", the sentence of `dialogs.turnDecision.intro`,
+chips (age, decision id), "Lo que se necesita de ti", "Recomendación del agente", the collapsed "Contexto", the
+sentence `dialogs.turnDecision.run` (or `runStale` when the decision is 7 days old or more) and the command.
+Change: kicker "Cambio en cola · <project>", the change body, `dialogs.turnChange.*` and the command. Native
+dialog: focus in, Tab trapped, Escape closes, focus returns to "Detalles: <title>".
 
-**`IF-18-digest`** — given the event tail + the `visto_hasta` marker, split events into **new**
-(newer than the marker, highlighted + counted) vs the **last-24h** rolling-window fallback; produce
-the *al día* state when there are no new events. The marker is supplied by the client; the helper is
-pure over (events, marker).
+**Freshness voice (AC-06-019.7).** A running build whose freshest signal is older than the freshness TTL shows
+"Sin señal · último evento hace N" on the card instead of "Construyendo". The verdict is computed once by the
+resolver FRD-06 owns (the `FreshnessBadge` source); the card (WO-03-007's `ProjectCard`) and the scene read it;
+this work order owns the AC because it is the first wave where the scene, this card and the Portafolio card
+all exist, and proves it with one cross-surface test over a stale-signal fixture.
 
-**`IF-18-turn`** — build the **human-gate queue** from: pending decisions (`status.pending_decisions`
-+ `.pandacorp/inbox/decisions.md` kinds: spend money / deploy prod / design-stack choice / delete
-data), shipped projects awaiting `/pandacorp:review-launch` (DR-043), the memory-backlog nudge
-(FRD-17 `memoryHealth`), and ideas in "Descubierta" awaiting prioritization. **Excludes** routine
-progress: running builds, auto-retried failed WOs, and `advance_pending` (DR-032) are NOT gates.
-Ordered by urgency.
+**URL.** Inicio has no URL state of its own. The pill link `#worktrees-card` (FRD-21) and the card links go
+through the FRD-25 codec; the "Detalles" dialog is ephemeral (a confirmation-like read, not a shareable
+selection).
 
-**`IF-18-pulse`** — the funnel (ideas alive → in construction → shipped), the count awaiting the owner,
-and the **idea→shipped conversion** (the one metric). ≤5 signals; "in construction" distinguishes live
-from stale builds via the FRD-12 live/no-signal indicator.
+## Removals (v1 things the frozen design dropped; map §6.C item 11)
 
-**`IF-18-card`** — per project, derive: phase + version, work-order progress, age-in-stage, next
-command, and the freshness/staleness/blocker flags (live/no-signal from the last event time; *estancado*
-when phase age exceeds the staleness threshold; inline blocker reason from a failing/blocked WO; shipped
-→ *estable · en operación* with `/pandacorp:review-launch`).
+WO-18-002 deletes, with their tests, in the same work order: the digest "Desde tu última visita" (`Digest`
+module, `src/app/_lib/digest.ts`, the `visto_hasta` marker and its local-storage keys), the v1 `Cartera` card
+facts that the design dropped (version, age-in-stage, "estancado", "N bugs", the inline blocker reason and the
+"estable · en operación" presentation: `src/app/(dashboard)/_lib/card.ts` and its test), the v1 turn builder
+`buildTurnQueue` with its extra gate kinds (shipped awaiting review, memory nudge, undiscovered ideas: these
+live in Propuestas, REQ-18-010), `src/app/_lib/pulse.ts` (moved to `IF-18-pulse`), the page-level
+`OnboardingGate` branch (unreachable: the root layout guard already replaces the page while
+`factory/profile.md` is absent), and the two dead memory-nudge constants `MEMORY_RAW_NOTES_THRESHOLD` and `MEMORY_STALE_DAYS_THRESHOLD` in
+`src/lib/constants.ts` (their last importers go with the page; the `MemoryHealth` panel went with WO-17-008). Knip does not catch a tested-but-unmounted leftover, so the work
+order's removal checklist is explicit and the reviewer ticks it.
 
-Thresholds (no-signal freshness, phase-staleness, last-24h window) in `lib/constants.ts` (no magic numbers).
+## Traceability
 
-### UI surfaces
-
-**`CMP-18-page` — `app/page.tsx`** (Server Component, the default route `/`). Reads the `lib/**`
-layer, computes `IF-18-turn` / `IF-18-pulse` / `IF-18-card` server-side, and renders the six sections.
-The Board / Portfolio / Achievements / Configuration / Manual tabs remain reachable from the top nav.
-
-**`CMP-18-banners`** — the conditional health-banner stack: onboarding gate (FRD-01) +
-`PluginSyncBanner` (FRD-15) + `OrphansBanner` (FRD-16). FRD-18 **places** them; FRD-15/16 own them.
-
-**`CMP-18-digest` — `components/dashboard/digest.tsx`** (`"use client"`, owns the `visto_hasta` marker).
-Reads the marker from `localStorage`, renders new vs last-24h via `IF-18-digest`, shows the "marcar
-visto" action that advances the marker, and (always-open) increments the "new" count live as events
-arrive. A refresh or mere visit does NOT advance the marker.
-
-**`CMP-18-turn`** — the "Tu turno" hero queue (server-rendered from `IF-18-turn`), each item with its
-copyable command (`CopyButton`) and a click that navigates to the project/idea/board; *al día* badge
-when empty.
-
-**`CMP-18-pulse`** — the funnel + conversion metric (from `IF-18-pulse`).
-
-**`CMP-18-cartera`** — the build & portfolio cards (from `IF-18-card`), incl. the first-action card when
-there are no active projects.
-
-**`CMP-18-progress`** — the honest gamification strip (FRD-09 data; recent achievement + next milestone).
-
-## 4. The `visto_hasta` marker (client-local, REQ-18 digest)
-
-- Persisted in `localStorage`; survives refresh + tab close (architecture §4.8). NOT a factory/project write.
-- Advances ONLY on acknowledge ("marcar visto") or on acting on an item — never on refresh/visit.
-- Events newer than the marker are "new" (highlighted + counted); a refresh never loses unseen events.
-- No new events → *al día* + the last-24h activity (dimmed) as a rolling-window fallback (never empty).
-- Prototype parity: `lsGet`/`lsSet`/`seenMs`/`markSeen` (lines 581–588) — same model in the app.
-
-## 5. Traceability (`REQ-18-MMM` → AC → components)
-
-IDs grouped by the FRD's labelled sections. The FRD has general ACs + per-section ACs; mapped below.
-
-| REQ | Acceptance criterion (EARS, summarized) | Satisfied by |
+| REQ | Satisfied by | Work order |
 |---|---|---|
-| REQ-18-001 | Dashboard is the default landing; other tabs reachable from top nav | `CMP-18-page` (route `/`), top nav |
-| REQ-18-002 | Read-only, no Claude; every actionable item shows the exact command + copy; click navigates | `CMP-18-page`, `CopyButton`, `lib/next-step` |
-| REQ-18-003 | Exception-first / quiet when healthy (no manufactured urgency, no vanity counters) | all sections (*al día* states), FRD-09 |
-| REQ-18-004 | Banners section: onboarding gate + plugin drift + orphans (conditional) | `CMP-18-banners` (composes FRD-01/15/16) |
-| REQ-18-005 | Digest shows change-framed events with relative time from the event stream + diffs (not totals) | `CMP-18-digest`, `IF-18-digest`, `lib/events` |
-| REQ-18-006 | `visto_hasta` locally persisted; survives refresh/close; refresh/visit does NOT advance it | `CMP-18-digest`, §4 |
-| REQ-18-007 | Marker advances only on acknowledge/act; events newer than marker are "new" | `CMP-18-digest`, `IF-18-digest` |
-| REQ-18-008 | No new events → *al día* + last-24h (dimmed) fallback, never empty | `IF-18-digest`, `CMP-18-digest` |
-| REQ-18-009 | (SHOULD) live-update the "new" count without a refresh | `CMP-18-digest` (poll/live) |
-| REQ-18-010 | "Tu turno" contains ONLY genuine human gates (decisions, review-launch, memory nudge, undiscovered ideas) | `IF-18-turn`, `CMP-18-turn` |
-| REQ-18-011 | Routine progress (running build, auto-retried WO, `advance_pending`) NOT in the queue | `IF-18-turn` (exclusion rules) |
-| REQ-18-012 | Queue urgency-ordered; header shows count waiting or *al día* | `IF-18-turn`, `CMP-18-turn` |
-| REQ-18-013 | Pulse = funnel + owner-waiting count + idea→shipped conversion; composes FRD-12; ≤5 signals | `IF-18-pulse`, `CMP-18-pulse` |
-| REQ-18-014 | "In construction" distinguishes live from stale builds (FRD-12 live/no-signal) | `IF-18-pulse`, `IF-18-card` |
-| REQ-18-015 | Per active/shipped project card: phase+version, WO progress, age-in-stage, next command | `IF-18-card`, `CMP-18-cartera` |
-| REQ-18-016 | Stale running build → *sin señal* + last-event time; fresh → *en vivo* | `IF-18-card` (`lib/events` last-event) |
-| REQ-18-017 | Phase beyond staleness threshold → *estancado* + age | `IF-18-card` (`lib/status` age) |
-| REQ-18-018 | Failing/blocked WO → inline blocker reason (no need to open logs) | `IF-18-card` (`lib/work-orders`) |
-| REQ-18-019 | Shipped project → *estable · en operación* + `/pandacorp:review-launch` next | `IF-18-card`, `lib/next-step` |
-| REQ-18-020 | No active projects → first-action card with the start command (never blank) | `CMP-18-cartera` |
-| REQ-18-021 | Gamification strip: level/XP, recent achievement, next milestone, from real outcomes; no streaks | `CMP-18-progress`, FRD-09 |
+| REQ-18-001 Default landing, other destinations reachable | `CMP-18-page`; the shell (FRD-19) | WO-18-002 |
+| REQ-18-002 Read-only, exact command with copy, click navigates | `CMP-18-turn`, `CMP-18-cartera` (`CommandBox`, linked cards) | WO-18-002 |
+| REQ-18-003 Quiet when healthy | `CMP-18-turn` (calm state, "Al día") | WO-18-002 |
+| REQ-18-004 Live | `CMP-18-live` | WO-18-002 |
+| REQ-18-005 to REQ-18-009 Digest | removed in v2 (Out of v2); verified by the removal list | WO-18-002 |
+| REQ-18-010 to REQ-18-012 Tu turno | `IF-18-turn`, `CMP-18-turn` | WO-18-002 (AC-18-022.2) |
+| REQ-18-013 Pulso and Embudo, at most five signals | `IF-18-pulse`, `IF-18-funnel`, `CMP-18-pulso`, `CMP-18-embudo` | WO-18-002 (AC-18-022.4, AC-12-001.3) |
+| REQ-18-014 Launched count from the one resolver | `IF-18-funnel` (`countLaunched`) | WO-18-002 |
+| REQ-18-015 Stale build reads "Sin señal" | freshness resolver (FRD-06), `ProjectCard` chip | WO-18-002 (AC-06-019.7, AC-12-001.2) |
+| REQ-18-016, REQ-18-017 Card content, "Sin señal" chip | `ProjectCard` compact (WO-03-007), `CMP-18-cartera` | WO-18-002 |
+| REQ-18-018 to REQ-18-020 Stalled, bugs, blocker | removed in v2 (Out of v2) | WO-18-002 |
+| REQ-18-021 Next command by phase | `ProjectCard` (`lib/next-step`) | WO-18-002 |
+| First-action card | `CMP-18-cartera` | WO-18-002 |
+| Gremio card | `CMP-18-gremio`, `IF-18-achievement` | WO-18-002 |
+| REQ-18-022 Layout, Tu turno detail, En marcha, Pulso and Embudo | `CMP-18-page`, `CMP-18-turn`, `CMP-18-flight`, `CMP-18-pulso`, `CMP-18-embudo` | WO-18-002 (AC-18-022.1 to AC-18-022.4) |
+| REQ-15-002, REQ-15-004 (FRD-15 banner) | `CMP-18-banner` | WO-18-002 (AC-15-002.1 to AC-15-002.3, AC-15-004.1) |
+| REQ-15-006 (FRD-15 pill) | WO-19-003 | WO-19-003 |
+| FRD-12 Pulso limit and freshness declaration | `IF-18-pulse`, freshness resolver | WO-18-002 (AC-12-001.2, AC-12-001.3) |
 
-All REQ map to concrete components/derivations. None unsatisfiable on the platform.
+## Visual spec (WO-18-002; binding, DR-054)
 
-## 6. Edge cases (FRD)
+FDD: [`fdd.md`](fdd.md). Mock: `mocks/dashboard.html`; screenshots in `mocks/screenshots/`. Oracle states of this
+FRD's gate (`oracle-states.json`, recipes in `oracle-recipes.md`): `home`, `home-turn-dialog`,
+`home-in-flight-open`, `home-calm` (fixture overlay: the only pending decision marked RESUELTO),
+`factory-empty` (fixture overlay: no ideas, no projects), `build-no-signal` (the build claims to run with no
+fresh signal); plus `plugin-banner` of FRD-15 (`mocks/plugin-out-of-sync-warning.html` in the FRD-15 folder).
+Assets: the rank crest PNG from `public/ranks/` (original bytes, `image-rendering: pixelated`), icons through
+`Icon`; no other image.
 
-- `visto_hasta` is client-local UI state (a preference), not a write (architecture §4.8).
-- Fresh factory (no event stream) → digest *al día*; portfolio first-action cards; nothing faked (REQ-18-008/020).
-- Many waiting items → the "Tu turno" queue stays urgency-ordered and does not truncate silently (REQ-18-012).
+## Dependencies & Risks
 
-## 7. Notes / risks
+- Upstream, all earlier waves: WO-21-003 (the worktrees card and reader), WO-03-007 (`ProjectCard` and the
+  project-card list), WO-04-013 (`resolvedInFile`), WO-06-013 (the freshness voice), WO-13-012 (composite
+  primitives), WO-25-001 (URL codec). Legacy readers it composes stay as they are: `lib/ideas`, `lib/board`,
+  `lib/changes`, `lib/work-orders`, `lib/gamification`, `lib/achievements`, `lib/plugin-sync`.
+- Consumers: WO-19-003 reads `ownerTurnItems().count` and `lastAchievement()` (one predicate for the toast),
+  WO-13-013 deletes whatever v1 name stays unreferenced.
+- Risk: the heaviest dependency surface of the app. Mitigation: one new lib module, every other fact read from
+  its owner; the cross-surface test for AC-06-019.7 and the oracle-mode states catch drift early.
+- Risk: the page is slow when it reads every portfolio project. Mitigation: parallel reads, request cache, a
+  `Suspense` per block, bounded `runGit` calls (WO-01-010).
 
-- **Composition, not duplication.** FRD-18 must NOT re-implement live/no-signal, the next-step map, the
-  board derivation, the memory-health read, or the banners — it consumes them. Any logic that would be
-  reusable belongs in the owning feature's `lib/` module, not in the dashboard folder.
-- **Heaviest dependency surface in the project**: FRD-18 transitively depends on FRD-01's whole reader
-  layer + FRD-02 board/next-step + FRD-05 work-orders + FRD-06/12 events + FRD-09 gamification + FRD-15/16
-  banners + FRD-17 memory. Sequence it LAST among the data-consuming features (see work-orders README).
-- **`advance_pending` placement** (DR-032): explicitly NOT in "Tu turno" — it is a Board signal. The
-  exclusion is an AC (WO-18-001), not an afterthought.
+Lessons applied: LESSON-0077 (the count of the owner's turn, the launched-ideas count and the guild level are each
+derived by one resolver that every surface reads), LESSON-0484 (the two columns end near the same height, red/amber/
+green only for status), LESSON-0185 (the Inicio behaviour spec avoids `networkidle`, which the open live stream
+would never reach; it uses `gotoHydrated` and web-first assertions).
 
-## Build Plan (Phase 2)
+## Build Plan
 
-Phase-2 re-anchors the **whole `/` home surface** to the owner-approved prototype and makes it
-**REAL-TIME**. FRD-18 owns no `lib/` data of its own — it composes the already-VERIFIED reader layer; so
-there is **no lib-only WO to keep**. The six former presentational WOs (digest / tu-turno / pulso / cartera
-/ progreso / page-assembly) are **collapsed into ONE coarse UI work order** — the surface is a single
-cohesive composition and was splitting cleanly anyway only at the section level, which the prototype
-re-anchor + the shared-primitive reuse make moot.
+| WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
+|---|---|---|---|---|
+| WO-18-002 | WO-21-003, WO-03-007, WO-04-013, WO-06-013, WO-13-012, WO-25-001 | `src/app/page.tsx`, `src/app/(dashboard)/**`, `src/components/dashboard/{TuTurno,Progreso,Cartera,DashboardLiveWatcher}/**`, `src/components/modules/{Pulso,Digest}/**`, `src/app/_lib/**`, `src/app/_components/plugin-sync-banner/**`, `src/lib/inicio/**`, `src/lib/docs/activity.ts`, `src/lib/docs/_tests/activity.turn-detail.test.ts`, `src/lib/constants.ts`, `src/app/_tests/{page.dashboard,wo-18-001-fixes,wo-18-001-inicio-dashboard}.test.tsx`, `e2e/inicio.spec.ts` | false | W5; WO-04-010, WO-01-011 (other FRDs) |
 
-**Coarse WO set:**
+- **Order and integration.** A single, terminal work order of the surface; it must run after the worktrees card
+  (W3) and the Portafolio card (W4) exist. WO-19-003 (W6) then reads its published resolvers; WO-04-011 (W6)
+  does not depend on it.
+- **Disjointness.** `src/app/page.tsx` was written by WO-21-003 in W3 (an earlier wave). `src/lib/docs/activity.ts`
+  was written by WO-04-013 in W3. `src/lib/constants.ts` was written by WO-19-002 in W3. In W5 the other writers
+  are WO-04-010 (`src/app/projects/[slug]/**`) and WO-01-011 (kept readers), both disjoint.
+- **No backend contract file.** `/api/live` and `/api/plugin-sync` keep their contracts; nothing is added, so no
+  `docs/api/<wo-id>.md` (DR-060).
 
-| WO | Status | Layer | Artifacts (disjoint) |
-|---|---|---|---|
-| WO-18-001 `inicio-dashboard` | **PLANNED** (re-plan, collapses old 001–006) | UI (real-time) | `src/app/page.tsx`, `src/app/(dashboard)/**`, `src/components/dashboard/**`, `src/components/modules/Pulso/**`, `src/components/modules/Digest/**` |
+## Work Orders
 
-**Collapsed / deleted:** the old `wo-18-001-digest`, `wo-18-002-tu-turno`, `wo-18-003-pulso`,
-`wo-18-004-cartera`, `wo-18-005-progreso`, `wo-18-006-page-assembly` files are removed — their scope is
-fully subsumed by the one coarse WO-18-001 (id reused as the lowest existing UI id).
+1. WO-18-002 `inicio-orbita` (high, W5): the whole Inicio surface, its resolvers and its removals.
 
-**DAG / parallelism:** WO-18-001 is the **single, terminal** Phase-2 work order. It is the heaviest
-dependency surface in the project and must be sequenced **LAST** among the UI work orders: it cannot start
-until its foundation, transport and hosted-banner dependencies are VERIFIED — FRD-13 WO-13-006/007/008
-(primitives), FRD-01 WO-01-009 (the live transport), and the banners it hosts (FRD-15 WO-15-004, FRD-16
-WO-16-004). No intra-FRD parallelism (one WO). Its artifact globs are **disjoint** from FRD-15's
-`plugin-sync-banner/**` and FRD-16's `orphans-banner/**` (which it merely *mounts*, not edits).
+## Superseded (v1 history)
 
-**Cross-FRD deps:** `frd-13` (shared primitives — WO-13-006/007/008), `frd-01` (the `useLiveSnapshot`
-real-time transport — WO-01-009; this surface is event-driven, NOT polling), `frd-15` and `frd-16` (it
-**hosts** both health banners, both `Banner` consumers). The dashboard composes — it must NOT re-implement
-live/no-signal, the next-step map, the board derivation, the memory-health read, or the banners.
+- WO-18-001 `inicio-dashboard` (superseded by WO-18-002): the six-section real-time dashboard with the digest.
 
-## Persistent navigation integration — FRD-25 (2026-10-17)
+## Readiness check (DR-100)
 
-The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+Every explicit `REQ-18-001..022` maps to a component or interface above (the digest and the three card flags as
+removals); every live AC of FRD-18 and the cross-FRD ACs assigned by the plan (AC-15-002.1 to AC-15-002.3,
+AC-15-004.1, AC-06-019.7, AC-12-001.2, AC-12-001.3) is owned by WO-18-002 only; `dependsOn` is acyclic and all
+named work orders exist; the foundation it needs is FRD-13's; no unresolved question survives in this
+feature's documents.

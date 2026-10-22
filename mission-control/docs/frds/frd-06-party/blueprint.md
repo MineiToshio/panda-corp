@@ -1,267 +1,154 @@
 ---
 id: FRD-06-blueprint
 type: blueprint
+slug: la-fragua
+title: FRD-06 La Fragua feature blueprint, v2 Órbita
+status: DRAFT
 parent: FRD-06
-status: ACTIVE
-implementation_status: VERIFIED
-last_updated: '2026-07-05'
+implementation_status: PLANNED
+readiness_gate:
+grounding_gate:
+consistency_gate:
+last_updated: 2026-10-22
 ---
-# FRD-06 — Party · La Fragua (live build view) — feature blueprint
+# FRD-06 — La Fragua (live build view) · feature blueprint (v2 «Órbita»)
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
-> This is the **feature blueprint** for FRD-06. It describes how **La Fragua** is built **on top of**
-> the platform architecture (`../../product/architecture.md`) — it does not restate the stack, the data
-> model or the event contract. Read §5 (event contract — incl. the new optional `frd/phase/activity/mode`
-> fields), §6 (`lib/events`, `lib/tasks`) and §4.7 (`~/.claude/` sources) of the platform architecture.
-> **Visual contract:** `../../../prototype/party-proposal.html` (La Fragua) — the approved functional &
-> visual reference for rooms, wave, the deep relay, the parchment, the Bóveda compaction and the FRD tracker.
-> Faithful engine model: `../../../prototype/party-redesign-spec.md` §2–3.
+> Per-FRD blueprint (DR-049). Built on the platform ([`../../product/architecture.md`](../../product/architecture.md):
+> §5 build-event contract, §6 read interfaces, §7 cross-cutting) without restating it. Binding visual spec:
+> [`fdd.md`](fdd.md) + [`mocks/party.html`](mocks/party.html) (frozen Órbita prototype, ADR-0012). Cross-FRD plan:
+> `.pandacorp/run/architecture/wo-map.md` (§2 FRD-06, §6.C item 5).
 
-## 0. Requirement IDs
+## Purpose
 
-The FRD authors its own EARS criteria with stable ids (DR-049): `REQ-06-001..012`, each with
-`AC-06-MMM.K`. This blueprint maps each REQ to components/interfaces and work orders; the EARS text is
-copied verbatim into the work orders.
+La Fragua v2 is a four-station scene at the head of the project **Resumen** (FRD-04 mounts it; there is no Party
+tab). It answers "how much is left and where": a verdict sentence and health chip, a stacked forging bar, the
+stations **Cola · Taller · Revisión · Bóveda** holding one token per work order placed by its **frontmatter state**
+(the same reader as Observabilidad), live crews and a courier only while the build is live, and foot chips. Events
+drive only liveness; nothing in the scene is a control (DR-061, read-only).
 
-| ID | Requirement (abridged) |
-|---|---|
-| REQ-06-001 | One sprite per running `implementer` WO; wave = mode; the rest = "+N en cola". |
-| REQ-06-002 | Per-FRD scene with the FRD title + a global project WO counter; hover tooltip = WO id+title. |
-| REQ-06-003 | Linear rooms Forja → Tribunal → Bóveda (not a kanban); moves animate inside/between rooms. |
-| REQ-06-004 | ONE `reviewer` per FRD; opens when all WOs `IN_REVIEW`; 3 lenses; ≥12 slots (4×3). |
-| REQ-06-005 | Bóveda places `VERIFIED` WOs as trophies; compacts to "+N archivados" beyond 9. |
-| REQ-06-006 | The parchment = the real `Status Note` hand-off between dependent WOs (artifact, not chat). |
-| REQ-06-007 | Deep mode = a sequential `test-writer → backend-dev →📄contract→ frontend-dev` relay (Opus); single implementer if no frontend. |
-| REQ-06-008 | Feeds off enriched `AgentWorking{role,wo,frd,phase,activity,mode}` + `SubagentStop`; read-only; no Claude; tolerant of missing optional fields. |
-| REQ-06-009 | Read-only in production: mode read from state, no selector, no pause/reset (controls demo-only). |
-| REQ-06-010 | Empty state, reduced-motion (disable all animation), multi-project project+role borders. |
-| REQ-06-011 | Bitácora del gremio: real build events, iconic vocabulary, failure-first, auto-scroll+pin, cap ≤200. |
-| REQ-06-012 | Achievement toast on WO close (`VERIFIED`), <300ms motion, reduced-motion variant. |
+The whole v1 sprite scene (`src/app/projects/[slug]/_party/**`, `src/components/modules/party/**`: rooms,
+bridges, parchment, deep relay, flow strip, bitácora feed, camp, Misión bar effort, demo controls, per-WO toast,
+event view-model) is removed by **WO-04-010** (map §6.C item 5), which also removes the Party tab. WO-06-013 never
+imports from those folders; it ports into `src/lib/fragua/` only what it needs (the event-to-liveness reading).
 
-## 1. Architecture fit
+## Components & Interfaces
 
-The Party is the only feature with a **client animation engine**; everything else in MC is a Server
-Component. The split is unchanged in nature, but the model is now **the engine's**:
-
-- **Server Component** (`app/projects/[slug]` → Party tab, RSC): reads the capped event tail via
-  `lib/events` (§6), derives the **current FRD in build**, the **mode** (read from the event stream's
-  `mode` field / state), the **running WOs vs queued count**, the **review-gate** state and the
-  **Bóveda trophies**, and passes a serializable `FraguaSnapshot` to the client engine. No `fs` ever
-  reaches the client. **No mode selector, no pause/reset** — production is read-only (REQ-06-009).
-- **Client Component** (`"use client"`, the scene): owns the `requestAnimationFrame` loop and the DOM
-  rooms/sprites/parchments/relay. It receives event diffs via props and translates them into visual
-  actions through the decoupling map.
-
-The engine is a TypeScript/React re-implementation of the prototype's La Fragua functions (the
-forge/tribunal/vault placement, the wave cap, the deep relay sub-sequence, the parchment routing). The
-prototype's *director* (synthetic events + the demo mode selector) is replaced by the **real enriched
-event stream** from `lib/events`.
-
-## 2. Components (`CMP-06-*`) and interfaces (`IF-06-*`)
-
-| ID | Kind | Name | Responsibility | Uses | Traces |
-|---|---|---|---|---|---|
-| CMP-06-party-tab | RSC | `PartyTab` | Server entry: reads the event tail, derives the `FraguaSnapshot` (current FRD, mode, running WOs, queued N, gate, trophies, global counter), renders scene + feed + empty state. **Read-only** (no selector/controls). | `lib/events`, `IF-06-fragua-snapshot`, `lib/config` | REQ-06-002, REQ-06-008, REQ-06-009, REQ-06-010 |
-| CMP-06-scene | client | `FraguaScene` | The living map: rooms (Forja/Tribunal/Bóveda), running sprites (≤ wave), the "+N en cola" badge, the reviewer gate, the trophy shelf + "+N archivados", the parchment, the deep relay, the FRD tracker + global counter, hover tooltips. Wraps the engine + RAF loop. | `IF-06-engine`, `IF-06-fragua-layout`, role-color tokens (FRD-13) | REQ-06-001, REQ-06-002, REQ-06-003, REQ-06-004, REQ-06-005, REQ-06-006, REQ-06-007 |
-| CMP-06-relay | client | `DeepRelay` | The per-WO sequential `test-writer → backend-dev →📄→ frontend-dev` relay sub-render (3-segment progress, active sub-step, contract hand-off, "Opus" label). Used by the scene for deep-mode WOs with a frontend. | `IF-06-fragua-layout`, role-color tokens | REQ-06-007 |
-| CMP-06-feed | client | `EventFeed` | The bitácora: capped event log, iconic vocabulary, role colors, first-class failure rows, auto-scroll + pin; hand-off / contract / gate lines. | `IF-06-event-vm`, `IF-06-icon-map` | REQ-06-011, REQ-06-010 |
-| CMP-06-achievement | client | `AchievementToast` | Fires "¡Logro desbloqueado!" on a WO-close (`VERIFIED`) event; reduced-motion variant; <300ms motion. | `IF-06-event-vm`, motion tokens (FRD-13) | REQ-06-012 |
-| CMP-06-empty | RSC | `PartyEmptyState` | Graceful "no FRD in build / no events" state. | — | REQ-06-010 |
-| IF-06-engine | interface | `createFraguaEngine(snapshot, opts)` | Pure-ish engine: `setWo(wo, state)`, `enqueue(wo)`, `startHandoff(fromWo, toWo)`, `advanceRelay(wo, step)`, `openGate()`, `tick(now)`, `applyEvents(diff)`. Owns the visual queue; no DOM in the core. | reads the WO-state model | REQ-06-001, REQ-06-003, REQ-06-006, REQ-06-007 |
-| IF-06-fragua-layout | interface | `forgeSlots(mode)`, `deepSlots()`, `reviewSlots()`, `vaultSlots()`, room rects | Pure station/room layout: forge slots per mode (8 normal / 6 deep wider), 12 tribunal slots (4×3), 9 vault slots + "+N", the room rectangles and the connecting paths (forge→tribunal→vault). | — | REQ-06-001, REQ-06-003, REQ-06-004, REQ-06-005, REQ-06-007 |
-| IF-06-fragua-snapshot | interface | `toFraguaSnapshot(events, opts) → FraguaSnapshot` | Pure: enriched event tail → the server snapshot: current `frd` (+title), `mode`, running WOs (≤ wave), `queuedCount`, gate state, trophies (+ archivedCount), `{done,total}` global counter. Tolerant of missing optional fields (REQ-06-008). | `lib/events` types, `IF-06-state-map` | REQ-06-001, REQ-06-002, REQ-06-004, REQ-06-005, REQ-06-008 |
-| IF-06-event-vm | interface | `toEventVM(event) → EventVM` | Pure mapper: raw `Event` → `{ icon, toolIcon?, roleColorKey, projectColorKey?, isFailure, label(es), at, wo?, frd?, project? }`. | `lib/events` types, `IF-06-icon-map` | REQ-06-011, REQ-06-010 |
-| IF-06-icon-map | interface | `EVENT_ICON: Record<EventType, Icon>` | The fixed bounded vocabulary (**19** as of 2026-07-07 — was 16 at 2026-07-01/-05: added `reopen` ↩️, `hardening` 🛡️, `patch` 🩹 for the new build-engine events, alongside `read,write,edit,test_ok,test_fail,message,start,end,handoff,contract,gate,blocked,review,achievement,launch,commit`) event→icon + tool→extra-icon. Raw-name map: `wo_reopen→reopen`, `Hardening→hardening`, `PatchResult→patch`, `BuildLaunch/BuildRelaunch→launch`, `BuildComplete→end`, `GateVerdict/ReviewVerdict→review`, `wo_commit→commit`; `PreviewSmoke` has no own type — it resolves into `test_ok`/`test_fail` by its `pass` flag. Centralized constant. | — | REQ-06-011 |
-| IF-06-state-map | interface | `eventToVisual(event) → VisualAction` | Pure map: enriched event → engine action (`setWo`, `enqueue`, `startHandoff`, `advanceRelay`, `openGate`, **`closeGate`**, `verifyWo`, `fireAchievement`, `downSprite`, `noop`). The decoupling boundary. **(reconciled from code 2026-07-07)** — `GateVerdict → closeGate` (the tribunal ruled, FRD-level, no WO), and `wo_reopen → setWo(wo,'building')` (the backward walk to the forge). | `lib/events` types | REQ-06-001, REQ-06-003, REQ-06-004, REQ-06-006, REQ-06-007, REQ-06-012 |
-| IF-06-role-color | interface | `roleColor(role) → tokenVar` | Pure: build role (`implementer`/`reviewer`/`test-writer`/`backend-dev`/`frontend-dev`) → its fixed CSS color token (FRD-13). The single source the sprite, relay, feed and trophies all read. | FRD-13 tokens | REQ-06-010, REQ-06-011 |
-
-### `lib/events.ts` — enriched-field parsing (cross-feature, FRD-01)
-`lib/events.ts` (FRD-01) gains the **optional** event fields `frd`, `phase` (`build | review`),
-`activity` (`test | backend | frontend | selftest | implement`) and `mode` (the run's mode), plus the
-new event kinds `HandoffWritten {wo, frd}` and `ContractPublished {wo, frd}` — all **backward-compatible**
-(new optional fields; current consumers ignore them; missing fields tolerated). The actual emission of
-these fields is the **plugin's** prerequisite change (`pandacorp-build.js` + `emit-event.sh`), documented
-there; this view consumes them. This is delivered as **WO-06-012** (the `lib/events.ts` parse extension).
-
-### New `lib/` modules
-Only the `lib/events.ts` field extension (WO-06-012). The engine and the pure mappers/snapshot live
-under the **feature folder** (`app/projects/[slug]/_party/`), TDD'd as pure functions.
-
-## 3. Contracts
-
-### Server → client snapshot (props of `FraguaScene`)
-```ts
-type FraguaSnapshot = {
-  frd: { id: string; title: string } | null;     // the FRD currently in build (per-FRD scene)
-  mode: BuildMode;                                // read from state (REQ-06-009); default 'powerful'
-  wave: number;                                   // mode → wave size (cap on running sprites)
-  running: { wo: string; title: string; state: WoState; relay?: RelayState }[]; // ≤ wave
-  queuedCount: number;                            // "+N en cola"
-  gate: { open: boolean };                        // reviewer gate (one per FRD)
-  trophies: { wo: string }[];                     // VERIFIED WOs of this FRD (≤9 shown)
-  archivedCount: number;                          // "+N archivados" beyond the shelf
-  project: { done: number; total: number };       // global counter (e.g. 52/109)
-  events: EventVM[];                              // capped tail, already mapped (≤200)
-  active: boolean;                                // false → empty state
-  lastEventAt: string | null;
-};
-type WoState = 'building' | 'in_review' | 'verified' | 'blocked';
-type RelayState = { step: 'test' | 'backend' | 'frontend'; contractPublished: boolean }; // deep only
-type BuildMode = 'pro' | 'balanced' | 'powerful' | 'deep';
-```
-The mapping `event → action` is **only** in `IF-06-state-map`, tested in isolation. The wave cap
-(`running.length ≤ wave`) is enforced in `IF-06-fragua-snapshot` so the scene can never over-render.
-
-### The wave / mode table (faithful to the engine)
-| mode | wave | split | worker | judge |
+| ID | Kind | Name · location | Responsibility | Traces |
 |---|---|---|---|---|
-| pro | 2 | no | Sonnet | Sonnet |
-| balanced | 4 | no | Sonnet | Opus |
-| powerful (default) | 8 | no | Sonnet | Opus |
-| deep | 6 | **yes** (relay if the WO has a frontend) | **Opus** | Opus |
+| CMP-06-fragua-scene | RSC | `FraguaScene` · `src/app/projects/[slug]/_components/Fragua/FraguaScene.tsx` | `section.fragua` on the always-dark `--scene-*` tokens in both themes: eyebrow «La Fragua · <project>», verdict headline, status sentence, health chip, forging bar (`role="img"` with the four counts), the four stations, courier route, foot chips and the token note; never-built variant. No demo control, no effort, no power/reset/pause. | REQ-06-012, REQ-06-013, REQ-06-020 |
+| CMP-06-station | RSC | `FraguaStation` (+ `FraguaStationEmpty`) · same folder | Decorative crew (`aria-hidden`), plate with name, count and sub-label, at most 8 tokens then «+N»; the empty variant draws three dashed ghost slots and the station's empty message with its icon. One station per row below 900 px. | REQ-06-020 |
+| CMP-06-token | client island | `FraguaToken` + the token card (`#tok-tip`, `role="tooltip"`) · same folder | 44×40 `button` (FRD number over order number, tinted by state, coral when failed), `aria-label` «<id>: <title>»; hover or focus opens the card (code, state chip, title, first sentence of the summary, «FRD-NN · title») positioned in place with the prototype's own offset arithmetic (no portal, no positioning library); leave, blur or scroll closes it; activating the token (click, Enter, tap on touch) opens the order in Observabilidad (`…/observability?wo=<id>`). | REQ-06-002, REQ-06-020 |
+| CMP-06-live | client island | `FraguaLive` · same folder | One `useLiveSnapshot` subscription for the Resumen: throttled `router.refresh()` on a fresher event or a moved `stateVersion` (`lib/status/state-version-moved.ts`), plus one scheduled refresh when the current signal would cross the no-signal TTL, so a silent build degrades to «Sin señal» without a reload. Toggles the live class that animates crews and courier. | REQ-06-001, REQ-06-013, REQ-06-019 |
+| CMP-06-freshness-badge | client | `FreshnessBadge` · `src/components/modules/FreshnessBadge/` (restyled in place) | The shared build-signal chip: «Construyendo» (violet, loader) while live, «Sin señal · último evento hace N» (coral, alert) when `running` but stale, nothing when idle; `data-volatile`; re-grades from the server instant plus elapsed client time. Consumers: project header (FRD-04), Inicio card (FRD-18), Portafolio card (FRD-03). | REQ-06-019 |
+| IF-06-build-signal | lib | `buildSignal(input)` · `src/lib/fragua/build-signal.ts` | THE single resolver of a project's build signal (DR-066/DR-115, LESSON-0077): `idle` when `running` is not true; otherwise the freshest of `supervisor_heartbeat` and the project's latest event graded by `freshnessBand` (`lib/status/liveness.ts`, TTL 10 min) into `live` or `no-signal` with its age in minutes. Inputs injected (`now()` of `src/lib/clock`). | REQ-06-013, REQ-06-019 |
+| IF-06-stations | lib | `deriveStations(orders)` · `src/lib/fragua/stations.ts` | Pure: frontmatter state → station (`todo` → Cola; `in_progress` and `fail` → Taller, failed tokens coral; `review` → Revisión; `done` → Bóveda), counts, first 8 tokens in reader order, overflow, empty flags, the four forging-bar counts, the busy span for the courier. Events never create, move or count a token (an FRD-level `wo` is ignored by construction). | REQ-06-001, REQ-06-020 |
+| IF-06-verdict | lib | `deriveVerdict(input)` · `src/lib/fragua/verdict.ts` | Pure: the health (precedence: Sin señal → Espera tu decisión → Construyendo ahora → En pausa (no movement for more than 7 days) → Listo para lanzar (all verified in Construcción) → Avanzando) and the verdict sentence parts (phase and %, what is left or «restantes … esperan la revisión», open changes, no-signal note, what waits for the owner), as catalogue keys + variables. | REQ-06-020 |
+| IF-06-scene-data | lib | `loadFraguaScene(project)` · `src/lib/fragua/scene-data.ts` | The scene's one cached resolver (`React.cache()`): `listWorkOrders` (FRD-05), `readStatus` (phase, `running`, heartbeat), `readEvents({ project })` (project-scoped before the tail cap), `aggregateProgress`, `buildSignal`. It reads neither the change queue nor the FRD index (facts owned by other features' resolvers in the same wave; the mount passes them, see Contracts). | REQ-06-011, REQ-06-020 |
 
-### The parchment hand-off (REQ-06-006)
-A `HandoffWritten {wo, frd}` event → `startHandoff(fromWo, toWo)` where `toWo` is the dependent WO per
-the Build Plan. The parchment is the **`Status Note`** document, animated as an artifact between
-stations — never a chat. If the dependent WO is not in the scene, the parchment animates to the
-forge/queue edge without a target sprite (edge case).
+Reuse: `Chip` family (health and foot chips), `Icon`, `StateDot` with the shared work-order state map
+(WO-13-011, ledger), `t()` copy (`workspace.resumen.forge.*`, `workspace.resumen.verdict.*`, `common.build.*`).
+No new component beyond the components.md rows `FraguaScene`, `FraguaStation`, `FraguaToken` (FDD-06).
 
-### The deep relay (REQ-06-007)
-In `deep` mode, a WO **with a frontend** is a 3-step sequential relay; `advanceRelay(wo, step)` walks
-`test → backend → frontend`, sequentially (one completed before the next). `ContractPublished {wo,frd}`
-flips `contractPublished=true` and renders the 📄 between backend and frontend + a feed line. A deep WO
-**without** a frontend renders as a single `implementer` (AC-06-007.4).
+## Contracts
 
-### Failure & multi-project (REQ-06-010/011)
-Failure (`status:'fail'` / `test_fail`) → first-class feed row (danger token + ❌) and may down the
-WO sprite; never filtered. Multi-project rows carry a project-color left border + role-color second
-border; events with no `project` render role-color only (legacy/global, CLAUDE.md).
+- **Seam (map §0.3):** `FraguaScene({ project, openChanges?, ownerPending?, lastActivityAt?, frds? })`.
+  `project` is structural `{ slug, path, name }` (FRD-04's `WorkspaceProject` maps onto it: `slug`,
+  `projectPath`, `name`). Four facts belong to other features' single resolvers that land in the same wave or
+  later, so the mount supplies them and the scene never derives them itself (DR-115, LESSON-0077):
+  `openChanges` = `countOpenChanges` (FRD-04, WO-04-013; «N cambios abiertos» chip and verdict part);
+  `ownerPending` = this project's count from `ownerTurnItems({ project })` (FRD-18, WO-18-002; «Espera tu
+  decisión» and «N cosas esperan tu decisión.»); `lastActivityAt` = the project's last-commit instant
+  (FRD-03's resolver, carried by `WorkspaceProject.lastMove`; «En pausa» and «Último movimiento …»);
+  `frds` = the FRD index rows (FRD-12, WO-12-007; «FRD-NN · title» in the token card). When one is absent the
+  scene omits that part (no open-changes chip, no owner part, «Último movimiento sin registro», the card shows the
+  FRD code alone); it never shows an invented value. WO-04-011 passes all four (ledger).
+- **Read errors:** the work-order reader never throws; an unreadable `status.yaml` yields `idle` (never a
+  fabricated live state); a `null` open-changes count (its reader failed, FRD-04 §4.5) omits the chip. The scene
+  never renders blank and never crashes (AC-06-013.1).
+- **Freshness chip:** `FreshnessBadge({ signal, nowIso })`; the v1 prop `lastSignalAt` stays accepted until its
+  last caller (`_party/**`, removed by WO-04-010) is gone; its removal is requested from WO-13-013 (ledger).
+- **Assets:** crews `public/prototype/assets/{product-manager,frontend-dev,backend-dev,reviewer,test-writer,devops}.png`,
+  `courier.png` (copied as original bytes by WO-13-010), plain `<img>` with `image-rendering: pixelated`, no
+  `next/image`.
+- **Motion:** crews bob and the courier walks by CSS transforms only (`--from`, `--to`, `--dur` = 3 s per station
+  between the first and last busy stations); only while live; hidden below 900 px and under
+  `prefers-reduced-motion`, where the scene stays static and still reads live by its chip and sentence.
 
-## 4. App surface
-`app/projects/[slug]` → **Party tab** (client engine inside an RSC tab shell). No new route; a tab of
-the project workspace (FRD-04). The embed contract matches the prototype `party-proposal.html`
-(`?embed=1&mode=<mode>` for the mockup only; production reads the mode from state). Assets reused from
-`prototype/assets/**`: rooms `assets/zones/backend.png` (forge), `tribunal.png`, `boveda.png` (new art);
-sprites `assets/agents/*.png` (the `implementer` reuses `backend-dev.png`).
+## Visual spec (DR-054)
 
-## 5. Cross-feature dependencies
-- **FRD-01 (`lib/events`)** — the data layer. WO-06-012 extends it with the enriched optional fields;
-  hard dependency. The **plugin** must emit those fields for *real* (non-demo) data — a documented
-  prerequisite, not part of this FRD's code.
-- **FRD-11 (build modes)** — the `BuildMode` enum + the wave table; the mode is read from state.
-- **FRD-12 (observability)** — owns the shared events-per-minute / timeline-DAG selectors if a future
-  toggle is wired; **not required** by La Fragua's faithful scene (the old activity-pulse / view-toggle
-  requirements are dropped from FRD-06's must-haves — see §6).
-- **FRD-13 (visual system)** — the per-role color tokens, motion tokens (achievement <300ms +
-  reduced-motion), `prefers-reduced-motion` disables the RAF loop.
-
-## 6. Traceability & deltas from the previous model
-Every `REQ-06-001..012` maps to ≥1 `CMP-06-*`/`IF-06-*` above. REQ-06-009 (read-only) is a **negative
-requirement** satisfied by the platform read-only invariant — no selector/control affordance is built.
-
-**Dropped from the previous (fictitious) blueprint:** the 4 fixed zones, the wandering cast, the live
-handoffs, the researcher-on-demand, and the standalone **activity-pulse** (`CMP-06-pulse`) and
-**RPG↔timeline view-toggle** (`CMP-06-view-toggle`) as FRD-06 must-haves. The pure infra
-(`event-vm`, `state-map`, `icon-map`, the engine shell, the feed, the achievement toast) is **kept but
-re-pointed** at the faithful model (rooms/wave/relay/parchment), and the layout/roster/snapshot/scene
-work is re-planned (see `work-orders/README.md`).
-
-## Build Plan (Phase 2)
-
-Phase 2 re-paints the **Party · La Fragua** canvas to `mocks/la-fragua.html`. The entire **pure / logic
-layer is VERIFIED** — `lib/events` enriched parse (WO-06-012), `event-vm` (WO-06-001), `layout`
-(WO-06-002), `state-map` (WO-06-003), `engine` (WO-06-004) and `toFraguaSnapshot` (WO-06-005) — and is
-**not** re-planned; the two coarse UI WOs consume it. The existing **real** `EventFeed`,
-`AchievementToast` and `DeepRelay` are **reused**, never recreated.
-
-> **Party canvas primitives moved to the GLOBAL foundation (FRD-13 WO-13-009).** They are a **shared**
-> set reused by La Campaña (FRD-02) AND La Fragua (FRD-06); scoping them route-locally here was the root
-> cause of La Campaña rendering a flat list. They now live in `src/components/modules/party/`, built +
-> VERIFIED in FRD-13 **before** any surface. FRD-06 keeps **one** coarse UI WO (the scene) that consumes
-> them.
-
-**Coarse DAG:**
-
-```
-WO-06-001/002/003/004/005/012 (pure/logic, VERIFIED) ─┐
-FRD-13 foundation (incl. WO-13-009 Party canvas) ─────┼─▶ WO-06-007  (La Fragua scene re-paint:
-WO-01-009 useLiveSnapshot (VERIFIED) ─────────────────┘              FraguaScene + PartyScene/PartyTab)
-```
-
-- **WO-06-007 — La Fragua scene re-paint** — composes the shared FRD-13 Party-canvas primitives
-  (`Room`/`StoneBridge`/`FlowStrip`/`AgentSprite`/`JudgeSprite`/`SpeechBubble`/`Tooltip`/`Parchment`/
-  `MissionBar`/`DemoControls`/`PowerOffOverlay`, from `src/components/modules/party/`) into `FraguaScene`
-  + the `PartyScene`/`PartyTab` shell, faithful to the mock, **live off `useLiveSnapshot`** (WO-01-009,
-  event-driven, not polling); the always-visible flow strip lights the active beat. Reuses the **real**
-  `EventFeed`/`AchievementToast`/`DeepRelay`. The geometry (`_party/layout`), engine and `fragua-snapshot`
-  feed the (stateless) primitives here.
-
-**Parallelism.** Across FRDs the scene is **disjoint** from FRD-05 (`_components/{wo-board,wo-detail,…}/**`)
-and FRD-12 (`_observability/**`): its artifacts live only under `src/app/projects/[slug]/_party/**`, so
-the three workspace tabs re-paint in parallel with no collision. The shared primitives it imports are
-already built (FRD-13, `src/components/modules/party/**`).
-
-**Disjoint artifacts:**
-- WO-06-007: `src/app/projects/[slug]/_party/{FraguaScene,PartyScene,PartyTab}/**`.
-
-**Cross-FRD deps:** `frd-13` (foundation **incl. the Party canvas WO-13-009 — VERIFIED first**),
-`frd-04` (the workspace Tabbar the scene mounts into), `frd-01` (live — `useLiveSnapshot`, WO-01-009).
-
-## 7. As-built — the v2 GLOBAL scene pipeline (2026-07-02)
-
-> The definitive map of what feeds every pixel of La Fragua. Written so any agent (or human)
-> can extend the scene without re-discovering the data flow. Requirement side: REQ-06-019
-> (AC-06-019.1–.7) in `frd.md`.
-
-### 7.1 The one honesty rule
-
-**Decoration never fakes measurement.** Every element is either (a) anchored to a REAL signal
-(named below), or (b) pure ambient decoration that encodes NOTHING (chimney smoke, the strolling
-panda mascot). There is no third category: an element that LOOKS like data must BE data
-(DR-087 "read real or empty-honest"; DR-061 read-only).
-
-### 7.2 Data sources — who feeds what
-
-| Source | Read by | Drives | Never drives |
+| WO | Reproduce | Oracle states | Recorded hooks |
 |---|---|---|---|
-| **WO frontmatter** (`docs/frds/*/work-orders/*.md`, `implementation_status`, `dependsOn`) | `listWorkOrders` → `structureFromWorkOrders` | THE STRUCTURE: forge sprites (`IN_PROGRESS` ≤ wave cap), tribunal occupants (`IN_REVIEW`), gate queue (FRDs fully in review), enfermería beds (`fail`/BLOCKED), trophies (`VERIFIED`, grouped: a fully-verified FRD collapses into ONE champion entry — scaled sprite + 🏆 + `FRD-NN` tag — loose WOs keep their statuette; the shelf GROWS a row per 9 entries, `+N más` only past 45), the Campaña strip per-FRD states, the done/total counter | liveness (a stale file still renders; the badge says how fresh) |
-| **Event stream** (`~/.claude/dashboard-events.ndjson`, project-filtered BEFORE the tail cap, last **256 KB** tail-read; env override `PANDACORP_EVENTS_FILE`) | `readEvents` → `toFraguaSnapshot` opts + `EventFeed` | LIVENESS + FOCUS: which FRD is highlighted, the bitácora feed, the gate **open/close** lifecycle (`gate` opens the tribunal, `GateVerdict` closes it — latest-per-FRD superseding via `gateSignalForFrd`, so the session shuts live), the **backward** `wo_reopen` walk (tribunal → forge, `processWoReopen`), achievement toasts | structure (an event can NEVER conjure a sprite the frontmatter doesn't back — DR-092) |
-| **`track.jsonl`** (durable per-project timeline, DR-086) | `readBuildTimeline` → `woStarts` map | REAL elapsed time in speech bubbles ("N min al fuego / ante el juez") | anything fabricated — a WO without a `wo_start` line simply shows no time |
-| **`status.yaml`** (`running`, `supervisor_heartbeat`) | `readStatus` → `isLive`/`freshnessBand` (`lib/status/liveness`, the single DR-092 derivation) | powered-off vs active scene (AC-06-013), the freshness badge bands | "running" alone is NEVER proof of life (DR-066: live ⇔ running AND fresh) |
-| **`wo_commit` engine event** (v9.44+) | `useSceneLife` (lastCommitAt diff) | the courier flight forge → tribunal — a decorative CUE anchored to a real per-WO green commit; stale-tail replays never launch it | any state |
-| **`readPending`** (FRD-21 — real git worktrees/branches not merged) | RSC `renderPartyTab` → `tents` pass-through | THE CAMPAMENTO: one ⛺ per pending-merge branch (occupied-only corner patch, `zones/camp.png`) | anything build-related (it is repo state, not build state) |
-| **SSE `stateVersion`** (max mtime of status.yaml + WO files, stamped by `/api/live?project=`) | `PartyLiveShell` | a throttled `router.refresh()` when the machine state moves WITHOUT an event (cold start, long gate) — the scene can't look dead while the state file advances (DR-066 fix 3) | rendering directly (it only triggers the RSC re-read) |
+| WO-06-013 | [`fdd.md`](fdd.md), [`mocks/party.html`](mocks/party.html) | `fragua-real`, `fragua-on`, `fragua-off`, `fragua-empty`, `fragua-token-card`, `build-no-signal` | `section.fragua` (`.is-live` / `.is-idle`), `.fr-head`, `.eyebrow`, `.fr-side`, `.fr-quest`, `.fr-scene`, `.fr-path`, `.fr-route`, `.fr-courier`, `.fr-walker`, `.fr-station[data-station]`, `.fr-cast`, `.fr-plate`, `.fr-count`, `.tokens` (`.is-empty`), `.token[data-wo]`, `.tk-a`, `.tk-b`, `.token-more`, `.tk-ghost`, `.fr-empty-msg`, `.fr-foot`, `.fr-note`, `#tok-tip` |
 
-### 7.3 The render loop (server → client)
+Prototype reference: `fraguaScene`, `tokenTip`, `projectVerdict`, `buildSignal` in
+`docs/design/prototype/prototype.js`; `.fragua`, `.fr-*`, `.token`, `.tok-tip` in `prototype.css`. Token slice:
+`--scene-*` (always dark), the state hues through `data-tone`, the gold courier route, 12 px floor,
+`tabular-nums` on counts. The scene is mounted on the Resumen by WO-04-011 (W6), so its gate-time picture is
+FRD-04's `project-summary*` states as well.
 
-1. **RSC pass** (`ProjectWorkspace` → `renderPartyTab`): reads work orders + timeline + status,
-   derives `woStarts`, passes `project` (the emitters' `basename $PWD`), `running`,
-   `supervisorHeartbeat` and the authoritative `workOrders` into `PartyTab`, which reads the
-   event tail and derives the initial `FraguaSnapshot` via `toFraguaSnapshot` (pure).
-2. **Client live shell** (`PartyLiveShell`): subscribes to `GET /api/live?project=` (SSE). Each
-   frame re-derives the snapshot from the live events — but ALWAYS carrying the RSC's
-   `workOrders` structure (events only modulate liveness/focus). Two refresh triggers share one
-   throttled path (5 s): a genuinely fresher event, or a moved `stateVersion`.
-3. **Scene** (`FraguaScene`): one persistent sprite engine for the whole build
-   (`frdId: "fragua-global"` — a focus change must NOT reset in-flight walks; the diff effect
-   retires departed WOs). `useSceneLife` is the single low-frequency clock (6 s tick) driving
-   bubble rotation, the elapsed-time clock and the courier cue. Ambient motion is pure CSS
-   (smoke, panda, courier keyframes in `globals.css`), all under `prefers-reduced-motion`.
+## Dependencies & Risks
 
-### 7.4 Performance budget (measured)
+- **Upstream:** WO-13-012 (primitives), WO-01-010 (`now()`), WO-25-001 (the `wo` key and observability path),
+  WO-05-001 (reader, VERIFIED), WO-06-012 (enriched event parse, VERIFIED).
+- **Consumers:** WO-04-011 (mount, AC-06-020.1, passes the four cross-feature facts), WO-18-002 (AC-06-019.7
+  across scene, Inicio and Portafolio, reusing `buildSignal` and `FreshnessBadge`), WO-03-007 and WO-04-010 (the
+  same chip; `WorkspaceProject.build` is `buildSignal`'s value, one resolver).
+- **Why props and not reads:** `countOpenChanges` (WO-04-013) and the FRD index (WO-12-007) build in this same
+  wave, `ownerTurnItems` (W5) and the last-commit resolver (W4) later; reading or re-deriving them here would
+  either break same-wave disjointness or create a second derivation. Moving the scene to a later wave would
+  delay `buildSignal` / `FreshnessBadge`, which the W4/W5 cards consume.
+- **Risk: no route before W6.** The scene has no page until WO-04-011 mounts it, so its behaviour e2e belongs to
+  the mount (ledger); WO-06-013 proves its criteria with component and resolver tests against production-shaped
+  fixtures (work-order folders, `status.yaml`, nested-`data` event lines with foreign-project noise).
+- **Risk: superseded work orders** count in the stations until WO-05-009 (W6) excludes them from the reader.
 
-No per-frame React state: the 6 s `useSceneLife` tick is the only interval; sprite positions are
-written imperatively by the RAF engine (`useFraguaSprites`), never through setState; ambient
-loops are CSS-only. SSE frames are throttled server-side (200 ms) and the RSC refresh
-client-side (5 s). Sprites are positioned via `transform: translate(...)` (Fase 3), never per-frame
-`left/top`, so the RAF write never triggers layout. Measured (CDP, 6 s idle scene, 2026-07-02):
-**0.163 ms/frame** total main-thread (script+layout+recalc), layout **0.0 ms** — an order of
-magnitude under the 2 ms budget.
+## Traceability
 
-### 7.5 Freshness is declared, never implied (DR-066)
+| REQ | Components / interfaces | Live ACs → owner |
+|---|---|---|
+| REQ-06-001 | IF-06-stations, CMP-06-live | AC-06-001.5, AC-06-001.6 → WO-06-013 |
+| REQ-06-002 | CMP-06-token | AC-06-002.3 → WO-06-013 |
+| REQ-06-011 | IF-06-scene-data, IF-06-build-signal | AC-06-011.1, AC-06-011.2, AC-06-011.3 → WO-06-013 |
+| REQ-06-012 | CMP-06-fragua-scene (no control, no effort) | AC-06-012.1, AC-06-012.2, AC-06-012.3 → WO-06-013 |
+| REQ-06-013 | IF-06-build-signal, CMP-06-live, CMP-06-fragua-scene | AC-06-013.1, AC-06-013.2, AC-06-013.3, AC-06-013.4 → WO-06-013 |
+| REQ-06-014 | CMP-06-fragua-scene, CMP-06-live (reduced motion) | AC-06-014.1 → WO-06-013 |
+| REQ-06-018 | CMP-06-fragua-scene (static live cues) | AC-06-018.5 → WO-06-013 |
+| REQ-06-019 | IF-06-build-signal, CMP-06-freshness-badge, CMP-06-live | AC-06-019.7 → WO-18-002 (first wave where scene, Inicio card and Portafolio card all exist) |
+| REQ-06-020 | CMP-06-fragua-scene, CMP-06-station, CMP-06-token, IF-06-stations, IF-06-verdict | AC-06-020.1 → WO-04-011 (Resumen mount) · AC-06-020.2 to AC-06-020.8 → WO-06-013 |
 
-The `FreshnessBadge` (shared module, `data-volatile`) grades the freshest of
-{supervisor heartbeat, latest event} into "en vivo" (< 3·T), "datos de hace N min" (< 10-min
-TTL) and "sin señal" (≥ TTL). The producer side of this contract (who advances the heartbeat
-and when) lives in `factory/standards/observability.md`; the consumer derivation is
-`lib/status/liveness.ts` and is the ONLY place the bands are computed.
+Retired criteria (FRD table «Retired by the Órbita redesign») are owned by nobody and built by nobody.
+
+## Build Plan
+
+> The build engine reads this table; it matches each work order's frontmatter exactly.
+
+| WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
+|---|---|---|---|---|
+| WO-06-012 | WO-01-007 | `src/lib/events/events.ts`, `src/lib/events/event-types.ts`, `src/lib/events/_tests/events.wo06012.test.ts`, `src/tests/fixtures/events/dashboard-events-enriched.ndjson` | false | W2 (legacy, VERIFIED, never rebuilt) |
+| WO-06-013 | WO-13-012, WO-01-010, WO-25-001, WO-05-001, WO-06-012 | `src/app/projects/[slug]/_components/Fragua/**`, `src/lib/fragua/**`, `src/components/modules/FreshnessBadge/**` | false | W3 · with WO-12-007, WO-14-005 and the other W3 surface WOs |
+
+- **Order:** WO-06-012 is VERIFIED history (the parser WO-06-013 reads). WO-06-013 builds in W3 once the composite
+  primitives (WO-13-012, W2) and the clock (WO-01-010, W2) exist; its other edges are VERIFIED or W0.
+- **Disjoint by design:** WO-06-013 writes only `_components/Fragua/**`, `src/lib/fragua/**` and the
+  `FreshnessBadge` module; no other W3 work order touches them (map §3.2).
+- **Integration:** WO-04-010 (W5) deletes the v1 scene; WO-04-011 (W6) mounts `FraguaScene` at the head of the
+  Resumen; WO-18-002 (W5) reuses `buildSignal` / `FreshnessBadge` for AC-06-019.7.
+
+## Superseded (v1 history)
+
+All superseded by WO-06-013 (the v1 code they built is deleted by WO-04-010):
+
+- WO-06-001 Iconic event vocabulary + event view-model mapper.
+- WO-06-002 La Fragua layout (rooms + forge/tribunal/vault slots).
+- WO-06-003 Event → visual-action map.
+- WO-06-004 La Fragua engine (RAF loop, wave cap, rooms, parchment, gate).
+- WO-06-005 La Fragua tab + `FraguaSnapshot`.
+- WO-06-007 La Fragua scene re-paint (FraguaScene + PartyScene/PartyTab shell).
+
+## Readiness check (DR-100)
+
+Every REQ-06-MMM with a live criterion maps to a component or interface; each live criterion is owned by exactly one
+work order (README AC table; two of them cross-FRD by the map); `dependsOn` names only live work orders; the W3
+artifacts are disjoint; the primitives come from FRD-13's foundation work orders; no open clarification marker
+survives. No API contract is planned (no route handler changes, map §0.3).

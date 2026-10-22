@@ -3,7 +3,8 @@ id: WO-04-008
 type: work-order
 slug: change-card-relative-date
 title: 'WO-04-008 — Changes tab: relative date on the change card'
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-04-012]
 parent: FRD-04
 implementation_status: VERIFIED
 difficulty: low

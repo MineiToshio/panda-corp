@@ -1,37 +1,42 @@
-# FRD-11 — Work orders
+# Work orders — FRD-11 Per-project build modes
 
-Implementation chunks for the **per-project build mode selector + the Comandos tab**.
-Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
-Read [`../blueprint.md`](../blueprint.md) first — its **Build Plan (Phase 2)** is the live DAG.
+> The authoritative order + parallelism is the **Build Plan** in [`../blueprint.md`](../blueprint.md) (the build
+> engine reads that, not this). This file is the readable summary. Each WO is a **coarse slice** (one cohesive
+> view/capability), carries its own `implementation_status` frontmatter, and copies in its acceptance criteria.
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
 
 ## Work orders
 
-| WO | Title | Layer | Status | Implements | Depends on |
+| WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
-| [WO-11-001](./wo-11-001-mode-catalog.md) | `BUILD_MODES` catalog + per-project persistence | lib (TDD) | VERIFIED | IF-11-modes, IF-11-mode-store | — |
-| [WO-11-002](./wo-11-002-mode-selector.md) | BuildModeSelector + Comandos tab | UI | PLANNED | CMP-11-mode-selector, CMP-04-tab-commands | WO-11-001, WO-04-003, WO-04-004, WO-01-005, WO-13-006, WO-13-007 |
+| [WO-11-001](./wo-11-001-mode-catalog.md) | mode-catalog | VERIFIED | — | `BUILD_MODES` catalog and the per-project browser store (v1, kept live) |
+| [WO-11-003](./wo-11-003-build-mode-picker.md) | build-mode-picker | PLANNED | WO-13-011, WO-11-001 | `BuildModePicker` module: four mode cards, power meter, remembered choice, the command |
+| [WO-11-004](./wo-11-004-comandos-tab.md) | comandos-tab | PLANNED | WO-04-010, WO-11-003, WO-12-007 | Comandos tab: next step, mode picker, scoped build target, changes and decisions; removes the inline mode select |
 
-## Phase 2 re-plan (2026-06-19)
+> **Depends on** mirrors each WO's **`dependsOn`** frontmatter (DR-087).
 
-The data layer (WO-11-001: `BUILD_MODES` catalog + per-project `localStorage` store) is correct and
-**VERIFIED** — untouched. **WO-11-002** was re-planned and **widened**: FRD-11 now owns the **whole
-Comandos tab** (`_components/{mode-selector,tab-commands}`), re-anchored to the prototype
-`projComandos()` (= `buildModePanel()` + `commandsBox()`). The Comandos tab UI moved here from FRD-04's
-former WO-04-007. The selector remains a **read/copy-command** surface (not a build trigger).
+## Build order
 
-## Order & parallelization (Phase 2)
+- W0: WO-11-001, VERIFIED history, never rebuilt.
+- W2: WO-11-003 (module only), so La Campaña (WO-02-020, W3) can mount it.
+- W6: WO-11-004 after the workspace frame (WO-04-010, W5), in parallel with the other panel work orders.
 
-- **Lib VERIFIED:** WO-11-001 — not rebuilt.
-- **WO-11-002** is the only re-planned WO; it mounts into the FRD-04 workspace via the Tabbar shell seam.
-  See `../blueprint.md` → **Build Plan (Phase 2)**.
+## AC coverage
 
-## Cross-feature dependencies
+| AC | Work order |
+|---|---|
+| AC-11-005.1 | WO-11-003 |
+| AC-11-005.2 | WO-11-004 |
+| AC-11-005.3 | WO-02-020 |
 
-- **FRD-13** — foundation primitives (`Tabs`/`Panel`/`CmdRow`/`Button`/`Toast`) consumed by the UI WO.
-- **FRD-04** — the Comandos tab mounts into the workspace via the Tabbar seam; `workspaceCommands(phase)`
-  lives in FRD-04's VERIFIED lib `lib/next-step.ts`.
-- **Out of MC scope:** REQ-11-004 — the `/pandacorp:implement` skill accepting the mode argument is a
-  factory-plugin change, not a Mission Control work order (blueprint §5).
+## Superseded (v1 history)
+
+- WO-11-002 BuildModeSelector + Comandos tab, superseded by WO-11-003 and WO-11-004.
+
+## Out of MC scope
+
+REQ-11-004 (the `/pandacorp:implement` skill accepting `pro`, `powerful`, `deep`) is the factory plugin's; Mission
+Control only shows the matching command.
 
 ## Navigation scope alignment (2026-10-17)
 

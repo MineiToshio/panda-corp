@@ -3,7 +3,8 @@ id: WO-07-005
 type: work-order
 slug: configuration-ui
 title: 'WO-07-005 — Configuración UI surface (re-anchor to prototype)'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-07-006]
 parent: FRD-07
 implementation_status: VERIFIED
 reopen_count: 0
@@ -11,7 +12,7 @@ artifacts:
   - 'src/app/configuration/**'
 source_requirements: [REQ-07, AC-07-001, AC-07-002, AC-07-003, AC-07-004, AC-07-005]
 dependsOn: [WO-07-001, WO-07-003, WO-07-004, WO-09-002, WO-01-007, WO-13-006, WO-13-007, WO-13-008]
-last_updated: '2026-06-19'
+last_updated: '2026-10-22'
 ---
 # WO-07-005 — Configuración UI surface (re-anchor to prototype)
 

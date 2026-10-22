@@ -8,10 +8,13 @@ parent: FRD-23
 implementation_status: VERIFIED
 reopen_count: 0
 source_requirements: [REQ-23-001, REQ-23-005]
-artifacts: [src/lib/achievements/report/**, src/app/**]
+artifacts:
+  - 'src/lib/achievements/read-model/informeResolver.ts'
+  - 'src/lib/achievements/read-model/_tests/informeResolver.test.ts'
+  - 'src/app/achievements/page.tsx'
 difficulty: medium
 dependsOn: [WO-23-001]
-last_updated: '2026-07-06'
+last_updated: '2026-10-22'
 ---
 # WO-23-003 — Informe wiring + honest fallback
 
@@ -29,10 +32,15 @@ readers** (WO-10-014) on any non-`ok` result. No visual change (the Informe look
 - Keep `getPendingMerge` (FRD-21) on the **live** path — NOT materialized (AC-23-005.1).
 
 ## Acceptance criteria (EARS)
-- **AC-23-001.1** — fresh portada → numbers come from the portada, no live git shell.
-- **AC-23-001.2/.3/.4** — missing / stale / corrupt → fall back to the live reader, honest, never a
-  fabricated zero.
-- **AC-23-005.1** — `getPendingMerge` still reads live git.
+- **AC-23-005.1** — `getPendingMerge` (FRD-21) SHALL NOT be materialized; it SHALL continue to read live
+  git so un-merged worktree/branch state is never shown stale.
+
+## v1 delivery record
+
+The reader-side criteria below are owned by WO-23-001 (AC-23-001.1 to AC-23-001.4) and proven here at the resolver level; they are history here, not owned.
+
+- v1 AC-23-001.1: fresh portada → numbers come from the portada, no live git shell.
+- v1 AC-23-001.2/.3/.4: missing / stale / corrupt → fall back to the live reader, honest, never a fabricated zero.
 
 ## TDD plan
 RED: resolver tests over stubbed reader results (fresh → portada; each non-`ok` → live fallback);

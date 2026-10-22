@@ -3,7 +3,8 @@ id: WO-11-002
 type: work-order
 slug: mode-selector-and-commands-tab
 title: 'WO-11-002 — BuildModeSelector + Comandos tab'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-11-003, WO-11-004]
 parent: FRD-11
 implementation_status: VERIFIED
 reopen_count: 0

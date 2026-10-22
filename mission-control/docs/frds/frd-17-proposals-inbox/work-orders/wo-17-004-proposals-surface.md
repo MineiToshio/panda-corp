@@ -3,7 +3,8 @@ id: WO-17-004
 type: work-order
 slug: proposals-surface
 title: 'WO-17-004 — Proposals surface: stream/card + promotions queue + memory health + badge/chip'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-17-008]
 parent: FRD-17
 implementation_status: VERIFIED
 reopen_count: 0

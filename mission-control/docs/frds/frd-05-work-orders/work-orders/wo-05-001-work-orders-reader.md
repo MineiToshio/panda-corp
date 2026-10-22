@@ -6,20 +6,30 @@ title: 'WO-05-001 — `lib/work-orders.ts`: discover + parse work orders'
 status: ACTIVE
 parent: FRD-05
 implementation_status: VERIFIED
+artifacts:
+  - 'src/lib/work-orders/work-orders.ts'
+  - 'src/lib/work-orders/_tests/work-orders.test.ts'
+  - 'src/lib/work-orders/_tests/work-orders.adversarial.test.ts'
+  - 'src/tests/fixtures/wo-05-001/**'
 source_requirements: []
 dependsOn: [WO-01-000]
-last_updated: '2026-06-16'
+last_updated: '2026-10-22'
 ---
 # WO-05-001 — `lib/work-orders.ts`: discover + parse work orders
 
 **Feature:** FRD-05 · **Implements:** IF-05-work-orders (`listWorkOrders`, `WorkOrder`, `WorkOrderState`) · **REQ-05-002, REQ-05-005**
 **Deploy unit:** `lib/work-orders.ts` (+ `lib/work-orders.test.ts`). Library only, no UI.
 
-## Acceptance criteria (copied)
-- **AC-05-002.1** EACH card SHALL show its FRD via a chip (the source feature `frd-NN-<slug>`).
-- **AC-05-005.1** The kanban SHALL be read-only — state comes from the files written by the agents.
+## v1 delivery record
 
-> This WO covers the **reader** that surfaces the FRD per work order and its state. The chip/UI is WO-05-003.
+Kept live in v2 (map §0.5): `listWorkOrders` and `readWorkOrderDoc` are the unchanged reader every v2 work-order surface reads (Observabilidad, La Fragua, the dependency map). It owns no live v2 acceptance criterion; the criteria it was built against are history, re-numbered by the FRD-05 design-freeze amendment:
+
+- v1 AC-05-002.1: EACH card SHALL show its FRD via a chip (the source feature `frd-NN-<slug>`).
+- v1 AC-05-005.1: The kanban SHALL be read-only — state comes from the files written by the agents.
+
+`artifacts` backfilled 2026-10-22 from the Status Note and the tests that cite this work order. No `dependsOn` id was pruned. v2 edits to `src/lib/work-orders/**` belong to WO-05-009.
+
+> This WO covers the **reader** that surfaces the FRD per work order and its state. The chip/UI was WO-05-003 (superseded by WO-05-008 and WO-05-009).
 
 ## Scope
 - `listWorkOrders(projectPath): WorkOrder[]` — discover across **all** features:

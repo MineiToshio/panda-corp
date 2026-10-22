@@ -1,49 +1,45 @@
 # Work orders — FRD-18 Dashboard ("Inicio")
 
-> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
-> Design: [`blueprint.md`](../blueprint.md). Platform: [`docs/product/architecture.md`](../../../product/architecture.md).
+> The authoritative order and parallelism is the **Build Plan** in [`../blueprint.md`](../blueprint.md) (the
+> build engine reads that, not this file). This is the readable summary. Source-of-truth hierarchy:
+> `FRD > FDD > design-tokens > blueprint > work order`.
 
-TDD per WO (RED → GREEN → refactor). Gate: `.pandacorp/verify.sh` (biome → tsc → vitest).
-FRD-18 is the **heaviest composition surface** and is **REAL-TIME**; sequence it LAST among the UI
-features. See the blueprint's **Build Plan (Phase 2)**.
+## Work orders
 
-## List & order (Phase 2)
+| WO | Slug | Status | Depends on | Summary |
+|---|---|---|---|---|
+| WO-18-002 | inicio-orbita | PLANNED | WO-21-003, WO-03-007, WO-04-013, WO-06-013, WO-13-012, WO-25-001 | The whole Inicio surface: plugin banner, two columns (Tu turno with its Detalles dialog, Tu cartera, En marcha; Pulso, Gremio, Embudo, Árboles de trabajo), the `src/lib/inicio` resolvers and the removal of the digest and the dropped card facts. |
 
-Phase-2 collapses the former six presentational WOs (digest / tu-turno / pulso / cartera / progreso /
-page-assembly) into **ONE coarse real-time UI work order** — the whole `/` home surface — re-anchored to
-the prototype and reusing the shared primitives.
+> **Depends on** mirrors the work order's `dependsOn` frontmatter (DR-087).
 
-| WO | Title | Layer | Depends on |
-|---|---|---|---|
-| WO-18-001 | `Inicio` real-time dashboard — all six sections + the hosted health banners | UI (real-time) | WO-01-009, WO-01-008, WO-01-007, WO-01-005, WO-01-004, WO-01-003, WO-01-002, WO-03-001, WO-05-001, WO-09-001, WO-10-001, WO-13-006, WO-13-007, WO-13-008, WO-15-004, WO-16-004, WO-17-001 |
+## Build order
 
-## Parallelization
+1. **W5 · WO-18-002** - the only work order of this FRD and the join point of the surface. It starts after the
+   worktrees card (WO-21-003, W3), the freshness voice (WO-06-013, W3), the decision reader fix (WO-04-013, W3)
+   and the Portafolio `ProjectCard` (WO-03-007, W4) are verified.
+2. Cross-FRD: **WO-19-003** (FRD-19, W6) reads `ownerTurnItems().count` for the sidebar's Inicio count and
+   `lastAchievement()` for the achievement notice; **WO-13-013** (FRD-13, W7) deletes any v1 name left unreferenced.
 
-- WO-18-001 is the **single, terminal** Phase-2 work order — no intra-FRD parallelism. It is the join
-  point of the whole surface and must run **LAST**, after its foundation, the live transport, and the two
-  hosted banners are VERIFIED.
-- Each pure derivation (`IF-18-digest`/`-turn`/`-pulse`/`-card`) lives in `(dashboard)/_lib/` and is
-  unit-tested with fixtures before its section component, inside this one WO.
+## AC coverage
 
-## Cross-feature dependencies (the broadest in the project)
+The four acceptance criteria of `frd.md`, plus the criteria of other FRDs that the plan assigns to this work
+order (they are defined in FRD-15, FRD-06 and FRD-12 and owned here).
 
-- **FRD-01** `lib/config`, `lib/ideas`, `lib/profile`, `lib/portfolio`, `lib/status`, `lib/events` — the reader layer.
-- **FRD-02** `lib/board`, `lib/next-step`, `CopyButton`.
-- **FRD-05** `lib/work-orders` — WO progress + blocker reason.
-- **FRD-06 / FRD-12** `lib/events` — digest, live/no-signal, last-event time.
-- **FRD-09** gamification (level/XP, achievement, next milestone) — the progress strip.
-- **FRD-13** the shared primitives (`PageTitle`/`SectionHead`, `Banner`/`Chip`/`CmdRow`/`CopyButton`/
-  `ProgressBar`/`Toast`, the RPG foot/`XpBar`) — WO-13-006/007/008. Reuse-before-create; no bespoke banner.
-- **FRD-01** `lib/config`, `lib/ideas`, `lib/profile`, `lib/portfolio`, `lib/status`, `lib/events` — the
-  reader layer — **and WO-01-009 (`useLiveSnapshot`), the shared live transport this surface consumes.**
-- **FRD-15** `PluginSyncBanner`, **FRD-16** `OrphansBanner` — **hosted** in the conditional banner stack
-  (both `Banner` consumers).
-- **FRD-17** `lib/memory` (`memoryHealth`) — the memory-backlog nudge in "Tu turno"; the proposals nudge.
+| AC | Work order | Requirement |
+|---|---|---|
+| AC-18-022.1 | WO-18-002 | REQ-18-022 |
+| AC-18-022.2 | WO-18-002 | REQ-18-022 |
+| AC-18-022.3 | WO-18-002 | REQ-18-022 |
+| AC-18-022.4 | WO-18-002 | REQ-18-022 |
+| AC-15-002.1 | WO-18-002 | REQ-15-002 (FRD-15) |
+| AC-15-002.2 | WO-18-002 | REQ-15-002 (FRD-15) |
+| AC-15-002.3 | WO-18-002 | REQ-15-002 (FRD-15) |
+| AC-15-004.1 | WO-18-002 | REQ-15-004 (FRD-15) |
+| AC-06-019.7 | WO-18-002 | REQ-18-015 (FRD-06) |
+| AC-12-001.2 | WO-18-002 | REQ-18-015 (FRD-12) |
+| AC-12-001.3 | WO-18-002 | REQ-18-013 (FRD-12) |
 
-> Because FRD-18 only composes, the surface can be built against a fixture version of any not-yet-shipped
-> reader and lit up when it lands — but the FULL dashboard (WO-18-001) is "done" only once its upstream
-> readers, the FRD-13 primitives, the FRD-01 live transport, and the FRD-15/16 hosted banners exist.
+## Superseded (v1 history)
 
-## Navigation scope alignment (2026-10-17)
-
-Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.
+- WO-18-001 `inicio-dashboard` - superseded by WO-18-002 (the six-section real-time dashboard with the digest
+  "Desde tu última visita"; its code is replaced in place).

@@ -1,42 +1,34 @@
-# FRD-07 — Configuration · work orders
+# Work orders — FRD-07 Configuración
 
-Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
-See the [feature blueprint](../blueprint.md) and the [platform architecture](../../../product/architecture.md).
-
-Each work order targets **one deploy unit** and is testable in isolation (TDD: RED → GREEN →
-refactor). The `lib/**` readers (data layer) come first; the page/components consume them.
-
-## Cross-feature dependencies
-- **FRD-01 (data reading layer)** — the `lib/config.ts` foundation (`resolveFactoryRoot`,
-  `PANDACORP_FACTORY_ROOT`) and the fixture-tree testing pattern. All readers depend on it.
-- **FRD-13 (visual system & tokens)** — `docs/design/design-tokens.json` + per-agent accent
-  tokens. All UI WOs depend on tokens being available (zero hardcoded colors).
-- **FRD-09 (gamification)** — `IF-09-agent-xp` (agent level/title/XP from real work orders) and the
-  pixel-art avatar component. Agent WOs (WO-07-006/007) depend on FRD-09 WO-09-002/003.
-
-## Order & parallelization (Phase 2)
-
-The UI work orders were **collapsed into one coarse WO** (WO-07-005); the three `lib/**` readers stay
-VERIFIED and are consumed as-is. See the blueprint's **Build Plan (Phase 2)**.
-
-```
-WO-07-001 (lib/reference: skills + agents) ─┐  VERIFIED
-WO-07-003 (lib/registry) ───────────────────┼─ VERIFIED (consumed as-is)
-WO-07-004 (lib/standards) ───────────────────┘  VERIFIED
-        │
-        ▼
-WO-07-005 (Configuración UI surface)   ← foundation-first: FRD-13 (WO-13-006/007/008) + FRD-09 (agent XP/avatar)
-```
+> The authoritative order and parallelism is the **Build Plan** in `../blueprint.md` (the build engine reads that, not this). This file is the readable summary. Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`. Platform: [`docs/product/architecture.md`](../../../product/architecture.md).
 
 ## Work orders
-| ID | Title | Deploy unit | Status | Depends on |
+
+| WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
-| WO-07-001 | `lib/reference.ts` — read skills + agents catalogs | `lib/reference.ts` | VERIFIED | WO-01-001 |
-| WO-07-003 | `lib/registry.ts` — read decision rules | `lib/registry.ts` | VERIFIED | WO-01-001 |
-| WO-07-004 | `lib/standards.ts` — read standards (+ derivation fallback) | `lib/standards.ts` | VERIFIED | WO-01-001 |
-| WO-07-005 | Configuración UI surface (re-anchor to prototype) | `src/app/configuration/**` | PLANNED | WO-07-001, WO-07-003, WO-07-004, WO-09-002, WO-01-007, WO-13-006, WO-13-007, WO-13-008 |
-</content>
+| WO-07-001 | reference-skills | VERIFIED | WO-01-001 | History, kept live: `src/lib/reference` skills and agents readers (extended additively by WO-07-006). |
+| WO-07-003 | registry | VERIFIED | WO-01-001 | History, kept live: `src/lib/registry` decision-rules reader. |
+| WO-07-004 | standards | VERIFIED | WO-01-001 | History, kept live: `src/lib/standards` reader with the derivation fallback. |
+| WO-07-006 | configuracion-orbita | PLANNED | WO-13-012, WO-25-001, WO-07-001, WO-07-003, WO-07-004, WO-08-003 | The whole Órbita Configuración surface: hub, four catalogs, filters, dialogs, fail-loud read errors; removes the v1 mini-flow, explainer, creation buttons and agent XP. |
 
-## Navigation scope alignment (2026-10-17)
+> **Depends on** mirrors each work order's `dependsOn` frontmatter. The three reader work orders carry no live acceptance criterion; WO-07-006 owns all of them.
 
-Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.
+## AC coverage
+
+| AC | Work order |
+|---|---|
+| AC-07-013.1 | WO-07-006 |
+| AC-07-013.2 | WO-07-006 |
+| AC-07-013.3 | WO-07-006 |
+| AC-07-013.4 | WO-07-006 |
+| AC-07-013.5 | WO-07-006 |
+
+## Build order
+
+1. W2: WO-07-001, WO-07-003, WO-07-004 (VERIFIED history; siblings, disjoint modules).
+2. W4: WO-07-006, after the FRD-13 composite primitives (WO-13-012, W2), the URL codec (WO-25-001, W0), the readers and WO-08-003 (W3), which removes Documentación's embed of this surface's v1 components. Deviation from the work-order map (W3): see the blueprint, section 6.
+3. WO-13-013 (W7) then deletes `FlowGraph`, the skill-flows data and the agent XP engine, none of which this surface references any more.
+
+## Superseded (v1 history)
+
+- WO-07-005 — Configuración UI surface (re-anchor to prototype). Superseded by WO-07-006.

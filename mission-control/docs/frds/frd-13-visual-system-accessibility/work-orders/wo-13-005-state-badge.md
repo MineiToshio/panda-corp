@@ -3,7 +3,8 @@ id: WO-13-005
 type: work-order
 slug: state-badge
 title: 'WO-13-005 — StateBadge (icon+shape+label, never color-only)'
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-13-011]
 parent: FRD-13
 implementation_status: VERIFIED
 source_requirements: []

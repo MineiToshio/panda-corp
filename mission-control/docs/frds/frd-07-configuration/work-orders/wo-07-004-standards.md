@@ -6,9 +6,12 @@ title: 'WO-07-004 — `lib/standards.ts`: read standards (+ derivation fallback)
 status: DRAFT
 parent: FRD-07
 implementation_status: VERIFIED
+artifacts:
+  - 'src/lib/standards/standards.ts'
+  - 'src/lib/standards/_tests/standards.test.ts'
 source_requirements: []
 dependsOn: [WO-01-001]
-last_updated: '2026-06-17'
+last_updated: '2026-10-22'
 ---
 # WO-07-004 — `lib/standards.ts`: read standards (+ derivation fallback)
 
@@ -23,12 +26,15 @@ Implement `readStandards()` in `lib/standards.ts`: derive the standards catalog 
 when present (option A); fall back to a small **derivation map** (option B) so the section is never
 empty. **No fully hand-copied catalog** (DR-046 spirit).
 
-## Acceptance criteria (EARS, from FRD-07 + DR-046)
-- **AC-07-004.1** — WHEN `readStandards()` runs, it SHALL return one entry per `factory/standards/*.md` (excluding `README.md`) with `id` (filename), `title` (H1), `body`, `domain`, `severity`, `enforcement` and `summary: string[]`.
-- **AC-07-004.2** — WHEN a standard file declares `domain/severity/enforcement` (and optional `summary`) in frontmatter, the reader SHALL use those values verbatim (option A).
-- **AC-07-004.3** — WHEN frontmatter is absent, the reader SHALL fall back to the static derivation map keyed by filename (option B) so no standard is missing its metadata; an unmapped file SHALL get `domain: "Other"`, `severity: "SHOULD"`, `enforcement: "checklist"` and a typed warning (never crash).
-- **AC-07-004.4** — `summary` SHALL default to the body's first bullet list (or lead paragraph) when not provided.
-- **AC-07-004.5** — The reader SHALL read from `resolveFactoryRoot()` (FRD-01) for fixture testing, and SHALL reflect added/renamed standards automatically (no static catalog of *content*).
+## v1 delivery record
+
+Delivered in v1; this work order owns no live acceptance criterion in v2. WO-07-006 extends this reader additively (a fail-loud result variant, no change to the `Standard` fields it already returns).
+
+- v1 AC-07-004.1: WHEN `readStandards()` runs, it SHALL return one entry per `factory/standards/*.md` (excluding `README.md`) with `id` (filename), `title` (H1), `body`, `domain`, `severity`, `enforcement` and `summary: string[]`.
+- v1 AC-07-004.2: WHEN a standard file declares `domain/severity/enforcement` (and optional `summary`) in frontmatter, the reader SHALL use those values verbatim (option A).
+- v1 AC-07-004.3: WHEN frontmatter is absent, the reader SHALL fall back to the static derivation map keyed by filename (option B) so no standard is missing its metadata; an unmapped file SHALL get `domain: "Other"`, `severity: "SHOULD"`, `enforcement: "checklist"` and a typed warning (never crash).
+- v1 AC-07-004.4: `summary` SHALL default to the body's first bullet list (or lead paragraph) when not provided.
+- v1 AC-07-004.5: The reader SHALL read from `resolveFactoryRoot()` (FRD-01) for fixture testing, and SHALL reflect added/renamed standards automatically (no static catalog of *content*).
 
 ## Dependencies
 - FRD-01 `lib/config.ts`. Cross-feature.

@@ -3,7 +3,8 @@ id: WO-08-002
 type: work-order
 slug: documentation-ui
 title: 'WO-08-002 — Documentación UI surface (re-anchor to prototype)'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-08-003, WO-08-004]
 parent: FRD-08
 implementation_status: VERIFIED
 reopen_count: 0

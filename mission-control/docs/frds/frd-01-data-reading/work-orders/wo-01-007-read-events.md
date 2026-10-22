@@ -6,9 +6,13 @@ title: WO-01-007 — `readEvents` (capped tail + state diffs)
 status: ACTIVE
 parent: FRD-01
 implementation_status: VERIFIED
-source_requirements: []
+artifacts:
+  - 'src/lib/events/events.ts'
+  - 'src/lib/events/_tests/events.test.ts'
+  - 'src/lib/events/_tests/events.adversarial.test.ts'
+source_requirements: [REQ-01-008]
 dependsOn: [WO-01-000]
-last_updated: '2026-06-16'
+last_updated: '2026-10-22'
 ---
 # WO-01-007 — `readEvents` (capped tail + state diffs)
 
@@ -16,9 +20,15 @@ last_updated: '2026-06-16'
 **IDs touched:** `CMP-01-events`, `IF-01-readEvents`; REQ-01-008
 **Dependencies:** WO-01-000 (fixtures)
 
-## EARS criteria (from FRD-01)
+## v1 delivery record
 
-- AC-01-008.1 — The system SHALL read the event stream (`~/.claude/dashboard-events.ndjson`) and
+FRD-01 is REQ-only (no `AC-01-*` bullets), so this v1 criterion is history and owns nothing. The module
+lives at `src/lib/events/events.ts` (the `lib/events.ts` path above is the v1 plan). v2 note: the dashboard
+digest and the age-in-stage diffs named below are OUT of v2 (FRD-01, owner decision 2026-10-21); the reader
+keeps `lastEventAt` / `byProject` for the live and no-signal indicators, and WO-01-011 later routes its clock
+through `now()`.
+
+- v1 AC-01-008.1: The system SHALL read the event stream (`~/.claude/dashboard-events.ndjson`) and
   compute state diffs to build the dashboard digest and the live / no-signal indicators (last-event
   timestamp per running build) and each project's time-in-current-phase (age-in-stage).
 

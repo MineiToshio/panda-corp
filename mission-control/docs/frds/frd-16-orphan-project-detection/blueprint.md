@@ -2,11 +2,22 @@
 id: FRD-16-blueprint
 type: blueprint
 parent: FRD-16
-status: ACTIVE
+status: SUPERSEDED
 implementation_status: VERIFIED
-last_updated: '2026-06-20'
+readiness_gate:
+grounding_gate:
+consistency_gate:
+last_updated: '2026-10-22'
 ---
-# Feature blueprint — FRD-16 Orphan project detection (adopt?)
+# Feature blueprint — FRD-16 Orphan project detection (HISTORICAL, feature removed)
+
+> **HISTORICAL RECORD, NOT A PLAN (v2 «Órbita», 2026-10-22).** FRD-16 was removed on 2026-06-22
+> (`../frd.md`, status `REMOVED`): `src/lib/orphans`, `GET /api/orphans` and the `OrphansBanner` no
+> longer exist, and v2 re-adds none of them. This file is kept only so the traceability spine
+> (`REQ-16-001..006`, `CMP-16-*`, `IF-16-scan`) still resolves for the four historical work orders,
+> all of which are `SUPERSEDED` with `superseded_by: []` (`work-orders/README.md`). It carries no Build
+> Plan: there is no live work order, so nothing here is built, gated or re-verified.
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
 > This is the **feature blueprint** (DR-049): how FRD-16 is implemented on top of the platform in
@@ -123,9 +134,9 @@ All REQ map to concrete components. None unsatisfiable.
 - **Portfolio path parsing** is reused from `lib/portfolio.ts` (FRD-01), which already tolerates broken
   rows — no duplicate parser.
 
-## Build Plan (Phase 2)
+## Superseded (v1 history): the Phase 2 plan
 
-Phase-2 re-anchors the **presentational** layer of FRD-16 to the owner-approved prototype. The `lib/` +
+Phase-2 re-anchored the **presentational** layer of FRD-16 to the owner-approved prototype. The `lib/` +
 route layer (the bounded, marker-gated scan + classify) is **VERIFIED and untouched** — only the UI
 banner is re-planned.
 

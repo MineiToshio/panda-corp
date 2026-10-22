@@ -2,297 +2,203 @@
 id: FRD-10-blueprint
 type: blueprint
 parent: FRD-10
-status: ACTIVE
-implementation_status: VERIFIED
-last_updated: '2026-06-29'
+status: DRAFT
+implementation_status: PLANNED
+readiness_gate:
+grounding_gate:
+consistency_gate:
+last_updated: '2026-10-22'
 ---
-# FRD-10 — Achievements Hall (Guild Hall) · feature blueprint
+# FRD-10 — Logros (Achievements Hall) · feature blueprint (v2 «Órbita»)
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
-> This is the **per-FRD blueprint** (DR-049). It references the
-> **[platform architecture](../../product/architecture.md)** (the `lib/events.ts`/`lib/status.ts`
-> readers §6, the read-only invariant §1/§7, the app surface §11 `app/achievements`, FRD-13 tokens),
-> the **[FRD-09 blueprint](../frd-09-gamification/blueprint.md)** (the XP engine + honesty rules) and
-> the design detail in **[`docs/achievements.md`](../../achievements.md)**. Read those first.
+> This is the **per-FRD blueprint** (DR-049) for Logros, the page of achievements that are also stats that grow. It
+> references the platform [`architecture.md`](../../product/architecture.md) (stack §2, read-only invariant §1/§7, the
+> `src/lib/**` data layer §6, route map, copy accessor [ADR-0013](../../adr/ADR-0013-typed-copy-accessor.md), the Órbita
+> contract [ADR-0012](../../adr/ADR-0012-adopt-orbita-design-system.md), the stats read-model
+> [ADR-0004](../../adr/ADR-0004-materialized-stats-read-model.md)), the [FRD-23 blueprint](../frd-23-materialized-stats-read-model/blueprint.md)
+> (the Estadísticas data source), the [FRD-09 blueprint](../frd-09-gamification/blueprint.md) (the XP engine and rank table) and the
+> design detail in [`docs/achievements.md`](../../achievements.md). It is a v2 revision: the engine and the report readers are
+> kept (they are VERIFIED history); the UI is the frozen Órbita design.
 
 ## 1. Feature summary
 
-The **Guild Hall**: a page of achievements that are also **stats that grow**, each with a date and
-project. All stats are **computed by reading the factory and the projects** (no stored counters) —
-honest by construction. It has a **5-tab layout** (Resumen · Misiones · Trofeos · Estadísticas · **Rangos**) with: a stats
-panel (counters that only grow, each showing an **unbounded `Nv N` metric level** — `metricLevel`,
-phase 3, no longer capped at 5), **cumulative chains** that tier up (**Común → Poco común → Raro →
-Épico → Leyenda**) with an honest **endowed-progress** bar to the next tier, an **"Almost there"**
-section (Zeigarnik), **unique achievements** by category (Discovery, Speed, Quality, Consistency,
-Mastery), **secret achievements** (silhouette + cryptic hint until unlocked, then reveal the
-criterion — never an obscure loot box), and the new **Rangos** tab: the 40-rung guild rank ladder
-(FRD-09) as an enriched era-sectioned climb (`RankLadder`).
+`/achievements` is five tabs: **Resumen · Misiones · Trofeos · Estadísticas · Rangos**, under one guild hero. Every
+number is **computed by reading the factory and the projects** (no stored counters), each trophy, mission and secret
+derives from a verifiable real signal, and a value with no source is never a zero: it reads «no cableado», and a counter
+whose event was never recorded reads «sin datos aún» (the two are never merged). The Estadísticas tab is the sober
+operator report; its figures come from the FRD-23 read-model with a fail-loud live fallback. v2 rebuilds the surfaces
+and removes what the design dropped (the NUEVO badge, the estimated-rarity blurb, the summit treatment, the party roster
+and record badges in the hero, the chain crown and per-tier date and project, the revealed-secret treatment, the
+populated usage lists). Two work orders carry it: **WO-10-016** (frame, hero, Resumen, Misiones, Trofeos, Rangos) and
+**WO-10-017** (Estadísticas).
 
-It reuses the FRD-09 engine and primitives (`IF-09-guild-xp`, `CMP-09-xp-bar`, `CMP-09-avatar`) and
-adds the **stats/chains/achievements computation** over the existing readers. The chain thresholds,
-tier names and unique/secret list are specified in `docs/achievements.md`.
+## 2. Where the numbers come from (honesty contract, kept)
 
-### v2 (2026-06-29) — "la página épica": catalogue + real-signal re-wiring
-The catalogue grew to **~80 trophies across 8 axes** (Discovery · Speed · Quality · Consistency ·
-Mastery · **Production · Guild · Resilience**), **~19 chains grouped in 5 sagas**, and **~18 secrets**,
-with **per-trophy rarity** (a pyramid over the `tiers.ts` colors), category **Seals** (a meta-trophy per
-axis + a Grand Seal), and a **NUEVO** badge. The decisive change is **not** the count: the v1 predicates
-read an `achievement`/`task=…` event **nothing ever emitted**, so most trophies were dormant forever.
-v2 re-anchors every unlock to the **real event vocabulary** (`AgentDone`/`ReviewVerdict`/`GateResult`/
-`GateVerdict`/`BuildLaunch`/`BuildComplete`/`BuildRelaunch`/`SubagentStop`/`AgentFinding`, fields nested
-under `data`) via a new **signals layer**. The single `lib/achievements.ts` module became a **`lib/
-achievements/` package** (§3). Full catalogue, the real-signal map and the rarity model:
-`docs/achievements.md` v2.
-
-### R9 accounting boundary (2026-07-11)
-
-The live Claude/Codex streams still drive narrative and the usage report, but production trophy
-predicates receive `ReaderData.durableEvents` from the canonical v2 gamification ledger. Presence of
-that field, including an empty array, is an explicit trust boundary: raw events cannot fall through.
-Only oracle-materialized result fields reach `signals.ts`/catalogue helpers. Signals without a durable
-oracle (agent/role/mode, time-of-day, relaunches, subagents) stay visible as telemetry but honestly
-remain zero/locked for durable achievements.
-
-## 2. Where the stats come from (honesty contract, shared with FRD-09)
-
-Every stat is **derived from verifiable real outcomes** read via the platform readers — never an
-app-incremented counter:
-
-| Stat / achievement input | Source | Reader |
+| Fact | Source | Reader |
 |---|---|---|
-| products shipped ("launched" — the Informe's `funnel.launched`, the dashboard Pulso's `ideasShipped`) | shipped idea cards ∪ projects at `phase: release` (DR-085: launched/terminal), de-duplicated | `countLaunched` in `lib/ideas/ideas.ts` (DR-085/DR-115 single bridge resolver — never re-derived locally) |
-| ideas captured / discarded | `factory/ideas/*.md` (`status`) | `lib/ideas.ts` (FRD-01) |
-| work orders completed | live `listWorkOrders(path).state === "done"` summed across the portfolio (`workOrdersDoneLive`, DR-092/DR-115 — never `status.yaml`'s cached counter) + `achievement` events | `lib/work-orders.ts`, `guildState.ts`, `lib/events.ts` |
-| phases completed | `status.yaml` `phase` history | `lib/status.ts` |
-| iterations, flawless launches, PRDs, ADRs, agents coordinated | docs presence + events | `lib/docs.ts`, `lib/events.ts`, `lib/status.ts` |
-| record streak (weekly), record idea→launch | timestamps from events/status | `lib/events.ts`, `lib/status.ts` |
-| unique / secret unlock date + project | the event/status that triggered it | `lib/events.ts`, `lib/status.ts` |
+| products launched | shipped idea cards ∪ projects at `phase: release`, de-duplicated | `countLaunched` in `src/lib/ideas/ideas.ts` (one bridge resolver, DR-085/DR-115; never re-derived locally) |
+| ideas captured and discarded | `factory/ideas/*.md` | `readIdeas` (FRD-01) |
+| work orders completed | live `listWorkOrders(path).state === "done"` summed over the portfolio (`workOrdersDoneLive`, DR-092) | `src/lib/work-orders`, `guildState.ts` |
+| phases, iterations, flawless launches, PRDs, ADRs, agents, streak, idea→launch record | `status.yaml` history, docs presence, durable events | `readStatus`, `src/lib/docs`, the durable ledger (R9 boundary below) |
+| unlock date and project of a trophy | the event or status that triggered it | `src/lib/events`, `readStatus` |
+| weekly WO-verified series, phase transitions, scalars, lessons, funnel | git history of the committed artifacts, ideas, memory | the report readers (section 4) via the FRD-23 resolver |
 
-Counters **only grow** because they reflect cumulative real history. Endowed progress is **honest**:
-bars start at the progress **already achieved** (real), never inflated (FRD-10 AC + FRD-09 forbidden
-"stuck bar"). No notifications/nagging (FRD-10 AC).
+Counters reflect cumulative real history; endowed progress shows the progress already achieved, never inflated.
+**R9 accounting boundary (kept):** production trophy predicates receive only the durable ledger's oracle-materialized events
+(`ReaderData.durableEvents`; an empty array is an explicit boundary); signals with no durable oracle stay visible as
+telemetry and honestly remain locked for durable achievements.
 
-## 3. New `lib/` module (flagged)
-`lib/achievements.ts` — pure computation of `{ stats, chains, uniques, secrets }` from the typed
-reader outputs. Architecture §6 maps FRD-10 to `events`+`status`; this derivation module is the one
-new file (flagged here, like FRD-09's `lib/gamification.ts`). No new fs access — consumes reader
-output. The chain/tier/unique definitions are data tables sourced from `docs/achievements.md`.
+## 3. The engine (history, consumed unchanged)
 
-**v2 — the module became a `lib/achievements/` package** (each file ≤ the size limit, one concern):
-- `signals.ts` — `deriveSignals(data): Signals` + memoized `signalsFor(data)` (WeakMap, DR-092): the
-  **single derivation** of every real-event aggregate (woClosed, builds, relaunches, subagents,
-  gatePasses, flawlessGates, reviewsApproved, findings, distinct roles/modes, weeklyStreak, activeDays,
-  peaks, fastest build, time-of-day flags, first-occurrence stamps). Folded via `foldEvent`/`foldByKind`
-  to stay under the cognitive-complexity cap.
-- `readerData.ts` — the `ReaderData` type (extracted here to break the `stats ↔ signals` import cycle
-  caught by madge; `stats.ts` re-exports it).
-- `catalogue/` — `types.ts` (the 8-axis `UniqueCategory`, `UniqueDefinition` w/ rarity, `SecretDefinition`),
-  `helpers.ts` (shared check helpers), one file **per axis** (`discovery`/`speed`/`quality`/
-  `consistency`/`mastery`/`production`/`guild`/`resilience`.ts) and `secrets.ts`.
-- `predicates.ts` — the **assembler**: concatenates the axis arrays into `UNIQUE_DEFINITIONS` (no barrel
-  re-export; consumers import types/secrets from the concrete modules).
-- `definitions.ts` — the chain tables + `Saga`/`SAGA_ORDER`/`SAGA_ICONS` and the `saga` field.
-- `tiers.ts` — the 5 tier colors **plus** the v2 `Rarity` type + `rarityColor`/`rarityLabel`/`rarityBlurb`.
-- `stats.ts` / `achievements.ts` — `computeStats`/`computeUniques`/`computeChains`/`computeSecrets` +
-  the new `computeSeals`, all re-anchored to `signals`.
+`src/lib/achievements/` is a pure package: `signals.ts` (`signalsFor`, the single memoised derivation of every real-event
+aggregate), `readerData.ts`, `catalogue/` (one file per axis plus secrets and helpers), `predicates.ts` (assembler),
+`definitions.ts` (chains and sagas), `tiers.ts` (tier and rarity colours), `stats.ts` / `achievements.ts` (`computeStats`,
+`computeChains`, `computeUniques`, `computeSeals`, `computeSecrets`, `metricLevel`). The events reader surfaces the enriched
+real fields and fails loud on an unrecognised enriched shape (WO-10-009). WO-10-016 removes only `rarityBlurb` from
+`tiers.ts` (its single v2 consumer is gone); fields the v2 surfaces no longer render (`isNew`, per-tier unlock date and
+project) stay in the engine untouched.
 
-Plus a **reader extension** outside the package: `lib/events/events.ts` surfaces the real **enriched
-fields** (`verdict`, `result`, `reopenCount`, `blocking`, `important`, `agentType`, `effortLevel`,
-`maxAgents`, `wos`, `frds`, `reason`) from the nested `data`, with **fail-loud** parsing (DR-078).
+## 4. Interfaces
 
-### v3 — "Informe operativo" report readers (WO-10-014)
-The Estadísticas tab becomes a sober operator **report** (FRD-10 v3, anchor
-`docs/design/prototype/informe-del-gremio.html`). It needs aggregates the v2 signals layer does not
-provide because they read the **committed artifacts' git history** and the **ideas/usage** sources. New
-read modules under `lib/achievements/report/` (or `lib/report/`, decided at build), each **fail-loud**
-(DR-078) and **read-only**:
-- **`IF-10-flow-series`** — WO-verified-per-week + ideas-captured-per-week. The WO series reads the **git
-  history of each `work-orders/wo-*.md`** for the commit where `implementation_status` crosses to
-  `VERIFIED`, grouped by ISO week (needs **git at read time**, via `execSync` like `build-track.ts`'s
-  `readGitLog` — reuse that fail-soft pattern; perf caveat below). The ideas series reads the `created`
-  frontmatter from `factory/ideas/*.md`. Also exposes the **peak week** (max WO count) for the records
-  grid.
-- **`IF-10-phase-transitions`** — per-project `phase` transition log read from the **git history of each
-  `.pandacorp/status.yaml`**, with the project name and a **reopen** flag when a transition moves
-  backwards in the phase order (`product<design<architecture<implementation<release`). Needs **git at
-  read time**.
-- **`IF-10-scalars`** — the scalar counts for the expanded ledger / pulse: **FRDs (21)**, **Commits
-  (823)**, **Tests passing (7134)**, **Decisions/DR (99)**, **Projects created (2)**. FRDs from
-  `docs/frds/` folder count (reuse `lib/docs`); commits from `git rev-list --count` (git at read time);
-  tests-passing and DR from their real source (DR count = `factory/decisions/registry.yaml` entries via
-  the existing registry reader; tests-passing source decided at build — if not wireable cheaply it ships
-  as **"no cableado"**, never a fabricated number).
-- **`IF-10-usage`** — most-used workflows/skills + effort mix, aggregated from the event stream
-  (`eventsSnapshot`, already read by the page) — no new fs access; pure over `ReaderData`.
-- **`IF-10-funnel`** — ideas→launched funnel + WIP (active projects) + conversion, pure over
-  `readIdeas`+`readStatus` (no new I/O). The `launched` count itself delegates to `countLaunched`
-  (`lib/ideas/ideas.ts`, DR-085/DR-115) — the same resolver the dashboard Pulso KPI calls, so the two
-  surfaces can never independently drift on "how many launches" again.
-- **`IF-10-lessons`** — distilled-vs-captured lesson counts (**2 / 131**), from the memory reader
-  (`lib/memory`) + the inbox; renders "no cableado" if a source is absent.
-- **verdict + next-actions** — pure deterministic rule functions over the above aggregates (same inputs →
-  same output); no fabrication.
+### Engine and report (existing, consumed unchanged)
 
-**Perf caveat (git-at-read-time).** `IF-10-flow-series`, `IF-10-phase-transitions` and the commit-count
-part of `IF-10-scalars` shell out to git (`execSync`) at render time, like `build-track.ts`. Keep each
-`git log` **scoped to the relevant pathspec** (`-- <path>`), reuse the fail-soft `try/catch → []`
-contract, and cache per request (`React.cache()`, DR-092) so a tab render does not re-run git per row.
-Git unavailable → the band renders its **"no cableado" / error** state, never a fabricated series.
-**One subprocess per interface, never per row (2026-07-06).** The first cut spawned one git process
-**per commit** (`phase-transitions` did a `git show` for each of up to 400 commits) and one **per wo
-file** (`flow-series` pickaxed `git log -G` across all 98 `wo-*.md`), making the /achievements render
-~2.5 s. Both now gather their whole input in a **single `git log --reverse -p` pass** over the relevant
-pathspec, parsing the `+…` added diff lines (change points / VERIFIED crossings) and the NUL-marked
-per-commit date — output-identical to the per-row scan (equivalence verified), ~150 ms each. The
-combined `flow-series` pass is deliberately **un-`-n`-capped**: `-n N --reverse` keeps the N *newest*
-commits, which would drop the oldest VERIFIED crossings across the whole tree.
+`IF-10-signals`, `IF-10-stats`, `IF-10-metric-level`, `IF-10-chains`, `IF-10-uniques`, `IF-10-seals`, `IF-10-secrets`
+(section 3); report readers under `src/lib/achievements/report/`, all read-only and fail-loud (DR-078): `IF-10-flow-series`
+(WO-verified and ideas-captured per ISO week, with the `created`-less exclusion count), `IF-10-phase-transitions`
+(per-project transitions with the reopen flag), `IF-10-scalars` (FRDs, commits, decisions, projects, tests-passing or
+explicit null), `IF-10-usage` (workflows and effort mix, pure over the event snapshot), `IF-10-funnel` (funnel, WIP,
+conversion, discards without reason), `IF-10-lessons`, and the pure `factoryVerdict` / `nextActions` rules. Per the FRD-23
+ADR the Informe reads the materialized stores first (aggregate index, per-project portada, factory store) and falls back
+to these live readers only on a missing, stale or corrupt store, independently per scope.
 
-> **Superseded (2026-07-06, FRD-23 + ADR-0004).** The git-at-read-time contract above stays as the
-> **fallback** path only. It no longer scales past a handful of projects (O(N): ~1.4 s at 30, ~4.7 s at
-> 100). The Informe now reads a **materialized read-model** (`.pandacorp/stats.json`, an honest cache
-> with a self-validating freshness seal), falling back to these live git readers only when the snapshot
-> is missing / stale / corrupt (fail-loud, DR-078). See
-> [`FRD-23`](../frd-23-materialized-stats-read-model/frd.md) and
-> [`ADR-0004`](../../adr/ADR-0004-materialized-stats-read-model.md).
+### New in v2
 
-## 4. Components & interfaces
+- **`IF-10-view-rules`** (`src/app/achievements/_utils/`, WO-10-016; AC-10-028.1 to AC-10-028.4): pure functions over the engine's DTOs: mission ordering by closeness to the next tier (zero progress last), nearest-trophy selection (lowest rarity per category, three when a category is active, ties by catalogue order), era collapse (every era more than one step beyond the current rank), attribute summary (strongest, weakest, without data), recent trophies (the last four).
+- **`IF-10-statistics-data`** (`src/app/achievements/_components/Stats/loadStatisticsData.ts`; created as a v1 adapter by WO-10-016, rewritten by WO-10-017): `loadStatisticsData()`, server-side and request-cached, returns the radar/records/ledger inputs, the resolved Informe sources, the usage mix, the usage-source health and the counter provenance. It is the only thing `page.tsx` calls for the Estadísticas tab.
+- **`IF-10-usage-source`** (`src/lib/events/eventSourceHealth.ts`, WO-10-017; AC-10-022.3): `eventSourceHealth()` returns `{ ok: true }` or `{ ok: false, kind: "missing" | "invalid-json", source, line? }` for the same files and the same tail window that `readEvents` parses (the reader keeps skipping a malformed line for every other consumer; only the usage band is fail-loud). `events.ts` exports its private source resolver and tail reader so the path logic exists once.
+- **`IF-10-stat-provenance`** (`_components/Stats/statProvenance.ts`, WO-10-017; AC-10-026.2, AC-10-028.5): a closed table from each event-fed counter to the event kinds that feed it; a counter reads «sin datos aún» only when its value is 0 and none of its kinds was recorded; otherwise it shows its number (a measured zero included). A scalar with no source reads «no cableado».
 
-### Interfaces (`lib/achievements/`, NEW pure package — §3)
-- **`IF-10-signals`** (v2, `signals.ts`) — `signalsFor(data): Signals` (memoized) → the single derivation
-  of every real-event aggregate the catalogue/stats consume (DR-092 single-source). Pure; reads the
-  uncapped event stream + statuses/ideas, never fabricates.
-- **`IF-10-stats`** — `computeStats(readerData): Stat[]` → the character-sheet counters (only-grow),
-  v2 re-anchored to `signals` (added builds, subagents, gates, reviews, findings, modes, activedays).
-- **`IF-10-metric-level`** (`lib/achievements.ts`, reconciled 2026-06-25) — `metricLevel(statKey, value): number` → the **unbounded `Nv N`** per-metric level shown in the Estadísticas tab (phase 3). It counts how many of the metric's defined chain thresholds the value has crossed, then **extends ≈1.6× beyond the last** so higher-is-better metrics keep climbing past Nv 5 (lower-is-better stays bounded by its finite tiers; unknown/0 → 0 = "sin nivel"). Replaces the old rarity-named tier on Estadísticas; the rarity-named 5-tier chains remain the **Misiones** lens.
-- **`IF-10-chains`** — `computeChains(stats): ChainState[]` → per chain `{ stat, currentTier, nextTier, pctToNext (endowed), saga, unlocks: {tier, date, project}[] }` using the `docs/achievements.md` thresholds. Lower-is-better chains (idea→launch) handled per the prototype `chainState` logic. v2 carries `saga` (copied from the chain definition) for the Misiones saga grouping.
-- **`IF-10-uniques`** — `computeUniques(data, now?): Unique[]` → `{ name, category (1 of 8 axes), rarity,
-  isNew, unlocked, date?, project?, condition }`. `rarity` from the catalogue; `isNew` = unlocked within
-  7 days of `now` (honest, from the real `date`).
-- **`IF-10-seals`** (v2) — `computeSeals(uniques): Seal[]` → one Seal per axis `{ axis, name, unlocked,
-  total, earned }` (unlocked when `earned === total`) + the **Grand Seal** (`axis:"grand"`, unlocked when
-  all axis Seals are held). Pure-derived from the unlocked-set — **no new signal**.
-- **`IF-10-secrets`** — `computeSecrets(readerData): Secret[]` → `{ unlocked, hint, criterion?, date?, project? }`; criterion is revealed ONLY when unlocked.
+## 5. Components (`src/app/achievements/`, `src/components/modules/GuildHero/`)
 
-### Components (`app/achievements/`)
-- **`CMP-10-hall-page`** — `app/achievements/page.tsx` (Server Component): reads the single source `getGuildState()` (FRD-09 `IF-09-guild-state`) and renders the **5-tab** Hall (Resumen · Misiones · Trofeos · Estadísticas · **Rangos**) via `HallTabs`; the GuildHero lives inside the Resumen tab (not a persistent header — the always-visible level is the header GuildBar). Party avatars via `CMP-09-avatar`. App surface architecture §11 `app/achievements`. → page AC.
-- **`CMP-10-rank-ladder`** (`app/achievements/RankLadder/RankLadder.tsx` + `ladderMeta.ts`, reconciled 2026-06-25) — the **Rangos** tab: the 40-rung guild rank ladder (FRD-09 `RANKS`/`rankForLevel`) as an **enriched, era-sectioned vertical climb**. Each rank row = a **large `RankEmblem`** (88px; 104px current; 124px summit — the art is the hero) + name + a one-line RPG **flavor caption** (`ladderMeta.FAMILY_FLAVOR`) + the **level band** `Nv min–max` + the **XP threshold** + a state marker with **icon + text label** (`✓ Conseguido` / `ESTÁS AQUÍ` / `🔒 Nv N` — never color alone, WCAG 1.4.1). The 40 ranks group into **6 narrative eras** (`ladderMeta.ERAS`); the current rank glows with a progress bar to the next rank; locked ranks dim toward the summit (opacity floor 0.5); the summit (rank 40) gets a distinct centered treatment. → AC "Rangos tab". (Design rationale — list over grid — in the FDD §Rangos.)
-- **`CMP-10-stats-panel`** — the stats character sheet (only-grow counters), each with its **unbounded `Nv N` metric level** (`IF-10-metric-level`) shown as a chip + a band-colored pip (phase 3 — replaces the rarity-named tier on Estadísticas). Numbers use `tabular-nums` (FRD-13). → AC "statistics panel".
-- **`CMP-10-chain-card`** (`ChainCard/`) — a cumulative chain in **one standardized layout** (v2): `SpotCard` (spotlight) and `StandardCard` (rest) both render the shared **`ChainProgress`** block — `NodeLadder` (the first connector segment now draws: node 0 is `flex:0 0 auto`) → goal-row OR "Cadena legendaria completada" → **`.xpbar` ALWAYS** (completed = full 100%) → the uniform **`CardFooter`** (latest dated unlock `📅 date · project`, else the honest cumulative fallback). The spotlight is vertical at a larger scale (bar BELOW, not floated right). → AC "cumulative chains", "date+project per tier", "endowed progress honest".
-- **`CMP-10-almost-there`** — top chains by % to next tier (Zeigarnik). → AC "Almost there".
-- **`CMP-10-uniques`** (`UniquesSection/`) — unique trophies grouped **by state** (Conquistados / Por conquistar), with the **8 axes** as filter chips, a per-trophy **`RarityTag`** (gem + label, `title` = rarity blurb) and a **`NuevoBadge`** (unlocked < 7 days). Conquered = calm warn **left-accent** (no full glow); locked = lock icon + `aria-label` (no "Bloqueado" text). → AC "unique achievements by state + 8 axes + rarity + NUEVO".
-- **`CMP-10-seals`** (v2, `SealsShelf` in `HallTabs`) — the meta-trophy shelf: 8 axis Seals + the Grand Seal, each with `earned/total` so partial axes read as a goal (`IF-10-seals`). → AC "Seals".
-- **`CMP-10-informe`** (v3, `app/achievements/Informe/**`) — the Estadísticas tab's sober operator
-  **report**: the six bands (pulse + KPI row · real time-series · usage+effort · funnel+per-project flow ·
-  health 2-column · next-actions) over the new report interfaces, rendered in the calm register (DR-062),
-  tokens-only, Spanish labels/aria, "no cableado" for every unwired figure. Sits **above** the existing
-  radar/records/ledger block in the Estadísticas tab (the radar + records 2×3 + 8-row ledger stay). →
-  AC-10-020.x … AC-10-027.x.
-- **`CMP-10-secrets`** (`SecretsPanel/`) — secret achievements in a **responsive uniform-height grid** (`gridAutoRows:1fr` + card `height:100%`): silhouette + cryptic hint when locked; reveal the criterion + date+project when unlocked — never an obscure loot box. → AC "secret achievements".
+Route-private components live in `_components/<Name>/` (feature-first); only `GuildHero` is a shared module. Where
+components.md names a path, the blueprint records the relocation (a module is relocated, never renamed or forked).
 
-### Reused (no duplication)
-- FRD-09: `IF-09-guild-xp`, `CMP-09-xp-bar`, `CMP-09-avatar`.
-- FRD-01/03/06: `lib/ideas.ts`, `lib/status.ts`, `lib/portfolio.ts`, `lib/docs.ts`, `lib/events.ts`.
-- FRD-13 tokens (the 5 tier colors are tokens, per prototype `--tier-1..5`), `tabular-nums`.
+- **`CMP-10-hall-page`** — `page.tsx` + `[...segments]/page.tsx` (Server Components): DTO assembly and codec seeding. → FRD-10#U7.
+- **`CMP-10-hall-tabs`** — `_components/HallTabs.tsx` (client): the five-tab `Tabs` frame, a count only on Trofeos, URL state (tab, category, trophy, eras). → FRD-10#U7.
+- **`CMP-10-guild-hero`** — `GuildHero` (restyle in place): crest XL, kicker, rank name, XP line, gold bar, three counts. → FRD-10#U9, #U10, #U11.
+- **`CMP-10-summary-tab`** — `_components/summary/`: composes `CMP-10-almost-there` (`AlmostThere.tsx`, FRD-10#U17), `CMP-10-seals-card` («Sellos del gremio», #U3), `CMP-10-next-rank-card` (`NextRankCard`, relocated from components.md `_components/NextRankCard.tsx`; AC-10-028.1, #U11), `CMP-10-recent-trophies`, `CMP-10-attributes-card` (compact radar and sentence; AC-10-028.1).
+- **`CMP-10-missions-tab`** — `_components/missions/`: spotlight, sagas, `CMP-10-mission-card` (`MissionCard`, the restyle of `ChainCard`, relocated from `ChainCard/`; one layout, always-present bar, uniform footer). → FRD-10#U5, #U12, #U15, #U20, #U21, AC-10-028.2.
+- **`CMP-10-trophies-tab`** — `_components/trophies/`: conquered bar, Sellos, category chips, Conquistados, «Los más alcanzables», «Por conquistar» (12 at a time), Secretos, `CMP-10-trophy-card` / `CMP-10-secret-tile` / `CMP-10-seal-tile` (relocated from components.md `_components/TrophyCard.tsx`; they replace `UniquesSection/` and `SecretsPanel/`), `CMP-10-trophy-dialog`. → FRD-10#U1, #U2, #U3, #U18, #U19, AC-10-028.3.
+- **`CMP-10-rank-ladder`** — `RankLadder/` (restyle in place; `RankRow` / `EraGroup`): eras, rows, current rank, collapsed far eras. → FRD-10#U8, AC-10-028.4.
+- **`CMP-10-charts`** — `_components/charts/`: `RadarChart`, `ColumnChart`, `LineChart` (token-coloured SVG with text alternatives), built and tested by WO-10-016, the last two mounted by WO-10-017.
+- **`CMP-10-statistics-tab`** — `_components/Stats/StatisticsTab.tsx` (+ `Informe/` composition): the report in the calm register (DR-062): `CMP-10-informe-pulse` (verdict, KPIs), `CMP-10-stat-kpi`, `CMP-10-record-tile`, `CMP-10-ledger-card`, `CMP-10-time-series`, `CMP-10-usage-band`, `CMP-10-flow-band` (reused `FunnelRow`), `CMP-10-transition-row`, `CMP-10-health-band`, `CMP-10-next-action`. → REQ-10-020 to REQ-10-028.5, FRD-10#U6, #U13, #U14.
 
-## 5. Honesty / ethics (from FRD-09 + FRD-10)
-Negative ACs across the WOs: counters reflect real cumulative history (no app-increment); endowed
-progress shows REAL achieved progress (never inflated/stuck); secrets always reveal their criterion
-on unlock (no permanent obscurity); NO notifications/nagging, NO leaderboards, NO false urgency. Each
-unlock maps to a verifiable result. Empty factory → honest empty/low state, never fabricated trophies.
+Reused, not re-created: `PageHead`, `Tabs`, `Card` + `CardHeader`, `SectionHeading`, `ProgressBar`, `Chip` family, `MoreBar`, `Dialog`, `Notice`, `EmptyState`, `CommandBox`, `Icon`, and `FunnelRow` from the Inicio dashboard (WO-18-002).
 
-## 6. Read-only & security posture
-All stats derived from read-only sources (architecture §7); nothing written. No personal data beyond
-the local factory repo.
+**Statistics seam.** WO-10-016 owns `page.tsx` and `HallTabs.tsx`; WO-10-017 rewrites the Estadísticas tab. The two never edit the same file: `HallTabs` mounts `StatisticsTab` and `page.tsx` calls `loadStatisticsData`; both are created by WO-10-016 as behaviour-identical adapters over the v1 report and replaced by WO-10-017 (waves W4 and W6, the pattern of the workspace panel seams).
 
-## 7. Traceability (REQ → AC → CMP/IF)
+## 6. Contract: URL state (FRD-25, ADR-0010)
 
-FRD-10 states EARS bullets (no explicit `REQ-10-MMM` ids). Work orders assign `AC-10-MMM.K`.
+`/achievements[/:tab]`, `tab` ∈ `summary · missions · trophies · statistics · ranks`. Query keys carry the category filter, the open trophy and the opened eras. The tab path family is in the codec; the three query keys are requested from WO-25-001 (ledger). Meaningful selections survive reload and Back; no URL write ever runs a mutation. The «Por conquistar» and transitions pages (12 and 10 at a time) are local view state.
 
-| FRD-10 EARS bullet | Component(s) / Interface(s) |
-|---|---|
-| Statistics panel (counters that only grow) | `CMP-10-stats-panel`, `IF-10-stats` |
-| Each metric shows an unbounded `Nv N` level (never capped at 5) | `IF-10-metric-level`, `CMP-10-stats-panel` |
-| 5-tab layout incl. **Rangos** = the 40-rung rank ladder (enriched, era-sectioned) | `CMP-10-hall-page` (`HallTabs`), `CMP-10-rank-ladder` (+ FRD-09 `RANKS`) |
-| Cumulative chains tier up (Bronze→Legend) + bar to next + next tier name | `CMP-10-chain-card`, `IF-10-chains` |
-| Each unlocked tier stores/shows date + project | `IF-10-chains`, `CMP-10-chain-card` |
-| "Almost there" section (Zeigarnik) | `CMP-10-almost-there`, `IF-10-chains` |
-| Unique achievements by state, 8 axes as filter chips, date+project / condition | `CMP-10-uniques`, `IF-10-uniques` |
-| Per-trophy **rarity** gem+label (pyramid) + estimated blurb (v2) | `IF-10-uniques` (`rarity`), `tiers.ts` (`rarityColor/Label/Blurb`), `CMP-10-uniques` (`RarityTag`) |
-| **Seals** — one per axis + Grand Seal (v2) | `IF-10-seals` (`computeSeals`), `CMP-10-seals` (`SealsShelf`) |
-| **NUEVO** badge on trophies unlocked < 7 days (v2) | `IF-10-uniques` (`isNew`), `CMP-10-uniques` (`NuevoBadge`) |
-| Chains **grouped into sagas** on Misiones (v2) | `IF-10-chains` (`saga`), `definitions.ts` (`SAGA_*`), `SagaSection` |
-| Every unlock from a **real signal**, events reader **fail-loud** (v2, honesty) | `IF-10-signals`, `lib/events/events.ts` (enriched fields, DR-078) |
-| Secret achievements: silhouette + cryptic hint → reveal criterion on unlock | `CMP-10-secrets`, `IF-10-secrets` |
-| Honest endowed progress (start from real achieved, no nagging) | `IF-10-chains` (endowed), `CMP-10-chain-card` (negative ACs) |
-| Names fun & scaling in grandeur by tier | `IF-10-chains` (data from `docs/achievements.md`) |
-| Hero with guild level/XP + party | `CMP-10-hall-page` + `IF-09-guild-xp` + `CMP-09-avatar` |
+## 7. Read-only and security posture
 
-## Build Plan (Phase 2)
+Every reader is read-only (architecture §7). Mission Control writes none of the stores (their writers are factory tooling, ADR-0004). The report command is shown to copy, never run. No new environment variable, secret or external service. No personal data beyond the local factory repo. Honesty is encoded as negative acceptance criteria: no app-incremented counter, no inflated progress, no permanent mystery, no notification or nagging, no leaderboard.
 
-Phase 2 re-anchors the **presentational** Hall surfaces to the owner-approved prototype
-(`docs/design/prototype/index.html`, the **Logros** view); the stats/chains/uniques/secrets engine is
-already correct.
+## 8. Dependencies and risks
 
-**State (all VERIFIED — the Hall is built; v2 shipped 2026-06-29):**
-- **WO-10-001** — the `lib/achievements` engine (stats/chains/uniques/secrets).
-- **WO-10-005** — the coarse Hall-surfaces UI (`ChainCard` + `UniquesSection` + `AlmostThere` +
-  `SecretsPanel` + `HeroStat`/`StatLedgerRow`).
-- **WO-10-006** — the Rangos tab (`RankLadder`, reconciled 2026-06-25).
-- **v2 catalogue + real-signal re-wiring (WO-10-009 … WO-10-013):**
-  - **WO-10-009** — surface the real enriched event fields (`lib/events/events.ts`, fail-loud).
-  - **WO-10-010** — the real-signal derivation layer (`signals.ts` + `readerData.ts`).
-  - **WO-10-011** — catalogue v2 (~80 trophies / 8 axes / 18 secrets, real-signal wired) +
-    per-trophy rarity + Seals + NUEVO infra + character-sheet stats re-anchored.
-  - **WO-10-012** — render v2 (rarity gem/label, NUEVO, `SealsShelf`) + dead-code/a11y prune.
-  - **WO-10-013** — missions expanded to 19 chains grouped in 5 sagas (`SagaSection`) + the visual
-    standardization of the mission cards, the Trofeos tab and the secrets grid (decision-log
-    2026-06-29: node-ladder fix, uniform `ChainProgress`/`CardFooter`, calm Trofeos accent,
-    uniform-height secrets).
+- **Statistics honesty.** The events reader skips a malformed line, so an unreadable usage stream was previously invisible; `IF-10-usage-source` closes that for the usage band only. The reason sentences for the notice («la línea N no es JSON válido», the missing-file case) are not in the frozen catalogue: DESIGN item in the ledger (DR-130).
+- **Oracle drift.** The frozen capture draws the «Por conquistar» `MoreBar` as «Mostrar 24 más» (the prototype doubles its step); the FRD and FDD say 12 at a time and win. Ledger item.
+- **Cross-FRD ordering.** WO-10-016 waits for WO-23-006 (the last writer of `page.tsx`), so it sits in W4; WO-10-017 waits for WO-18-002 (`FunnelRow`) and WO-01-011 (clock and git seams adopted in the readers).
+- **Fixture equality.** Oracle-equality tests run the report against the fixture factory through the WO-01-010 seams (`PANDACORP_FACTORY_ROOT`, git fixture, `MC_CLOCK`), with expected values copied by hand from the prototype's dataset, never from the implementation's own output.
+- Lessons that shaped this design: LESSON-0450 (hermetic readers in tests), LESSON-0009 (compare timestamps with `Date.parse`), LESSON-0113 (a documented mechanism is a proposal until its call site exists: the guards and the loader are named by file), LESSON-0484 (red/amber/green only for status, one hue per other category, two-column layouts end at the same height), LESSON-0490 (the tool's chrome is Spanish; shown content keeps its language).
 
-**v3 — "Informe operativo" (PLANNED, 2026-06-29):** the Estadísticas tab becomes a sober operator report
-(anchor `docs/design/prototype/informe-del-gremio.html`), additive over the existing radar/records/ledger.
-Two coarse work orders, the UI depends on the data layer:
-- **WO-10-014** (PLANNED) — the report **data layer**: `IF-10-flow-series`, `IF-10-phase-transitions`,
-  `IF-10-scalars`, `IF-10-usage`, `IF-10-funnel`, `IF-10-lessons` + the verdict/next-action rule
-  functions. TDD-friendly, fail-loud (DR-078); the git-backed readers shell out at read time (perf caveat
-  in §3).
-- **WO-10-015** (PLANNED, dependsOn WO-10-014) — the report **UI** (`CMP-10-informe`): the six bands +
-  the ledger expansion to 8 rows/column + the records 2×3 grid, matching the prototype, tokens-only, a11y
-  (Spanish labels), DR-062 sober register, every unwired figure as "no cableado".
+## 9. Traceability
 
-```
-[VERIFIED v2 Hall]
-        │
-        ▼
-WO-10-014 (Informe data layer: flow-series + phase-transitions + scalars + usage + funnel + lessons + rules)
-        │
-        ▼
-WO-10-015 (Informe UI: 6 bands + 8-row ledger + records 2×3)   ← WO-10-014
+Numbered requirements:
+
+| Requirement | Component(s) / interface(s) | Work order |
+|---|---|---|
+| REQ-10-020 verdict and KPI row | `CMP-10-informe-pulse`, `CMP-10-stat-kpi`, verdict rule | WO-10-017 |
+| REQ-10-021 real weekly series; no raw-event view | `CMP-10-time-series`, `CMP-10-charts`, `IF-10-flow-series` | WO-10-017 |
+| REQ-10-022 usage and effort bands; unreadable-stream notice | `CMP-10-usage-band`, `IF-10-usage`, `IF-10-usage-source` | WO-10-017 |
+| REQ-10-023 funnel and phase transitions | `CMP-10-flow-band`, `CMP-10-transition-row`, `IF-10-funnel`, `IF-10-phase-transitions` | WO-10-017 |
+| REQ-10-024 health band | `CMP-10-health-band`, `IF-10-funnel`, `IF-10-lessons` | WO-10-017 |
+| REQ-10-025 next actions | `CMP-10-next-action`, `nextActions` rule | WO-10-017 |
+| REQ-10-026 ledgers of 8 rows | `CMP-10-ledger-card`, `IF-10-scalars`, `IF-10-stat-provenance` | WO-10-017 |
+| REQ-10-027 records 2×3 | `CMP-10-record-tile`, `IF-10-flow-series`, `IF-10-lessons` | WO-10-017 |
+| REQ-10-028 (AC-10-028.1 to .4) Resumen, missions, trophies, ranks | `CMP-10-summary-tab`, `CMP-10-missions-tab`, `CMP-10-trophies-tab`, `CMP-10-rank-ladder`, `IF-10-view-rules` | WO-10-016 |
+| REQ-10-028 (AC-10-028.5) never-recorded counters; transitions 10 at a time | `IF-10-stat-provenance`, `CMP-10-transition-row` | WO-10-017 |
+
+Unnumbered base criteria (numbered `FRD-10#U1` to `#U21` in file order, as the FDD cites them):
+
+| Criterion | Component(s) / interface(s) | Work order |
+|---|---|---|
+| #U1 rarity grade as dot plus text | `CMP-10-trophy-card`, `IF-10-uniques` (`rarity`), `tiers.ts` | WO-10-016 |
+| #U2 eight axes as filter chips | `CMP-10-trophies-tab` | WO-10-016 |
+| #U3 Sellos and Sello grande | `IF-10-seals`, `CMP-10-seal-tile`, `CMP-10-seals-card` | WO-10-016 |
+| #U4 NUEVO badge | Out of v2: removed | WO-10-016 |
+| #U5 sagas on Misiones | `IF-10-chains` (`saga`), `CMP-10-missions-tab` | WO-10-016 |
+| #U6 honesty, fail-loud events reader | `IF-10-signals`, `lib/events`, report readers, `IF-10-usage-source` | WO-10-009/010/014 (history), WO-10-017 |
+| #U7 five tabs, count only on Trofeos | `CMP-10-hall-tabs` | WO-10-016 |
+| #U8 Rangos ladder, eras, state markers | `CMP-10-rank-ladder` (+ FRD-09 rank table) | WO-10-016 |
+| #U9, #U10, #U11 hero, counts, XP lines | `CMP-10-guild-hero`, `CMP-10-next-rank-card`, `CMP-10-rank-ladder` | WO-10-016 |
+| #U12 one chain-card layout | `CMP-10-mission-card` | WO-10-016 |
+| #U13 statistics panel; #U14 unbounded `Nv N` | `CMP-10-statistics-tab`, `IF-10-metric-level`, `CMP-10-ledger-card` | WO-10-017 |
+| #U15 chains tier up through five tiers | `IF-10-chains`, `CMP-10-mission-card` | WO-10-016 |
+| #U16 per-tier date and project; chain crown | Out of v2: removed | WO-10-016 |
+| #U17 «Casi lo tienes» and «A un paso de subir» | `CMP-10-almost-there`, spotlight | WO-10-016 |
+| #U18 trophies by state | `CMP-10-trophies-tab`, `IF-10-uniques` | WO-10-016 |
+| #U19 secrets (revealed-secret treatment Out of v2) | `CMP-10-secret-tile`, `IF-10-secrets` | WO-10-016 |
+| #U20 honest endowed progress | `IF-10-chains`, `CMP-10-mission-card` | WO-10-016 |
+| #U21 fun tier names | engine data (`docs/achievements.md`) | WO-10-011 (history) |
+
+## Build Plan
+
+> The build engine reads this table; it does not infer dependencies. All artifact globs are literal and match each work order's frontmatter. WO-10-001, WO-10-009, WO-10-010, WO-10-011 and WO-10-014 are VERIFIED history kept live (no live AC); WO-10-016 and WO-10-017 own all 23 live ACs.
+
+| WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
+|---|---|---|---|---|
+| WO-10-009 | — | `src/lib/events/events.ts`, `src/lib/events/_tests/**` | false | W0 (with WO-10-014) |
+| WO-10-014 | — | `src/lib/achievements/report/**`, `src/lib/achievements/report/_tests/**` | false | W0 (with WO-10-009) |
+| WO-10-010 | WO-10-009 | `src/lib/achievements/signals.ts`, `src/lib/achievements/stats.ts`, `src/lib/achievements/_tests/**` | false | W1 |
+| WO-10-011 | WO-10-010 | `src/lib/achievements/definitions.ts`, `src/lib/achievements/predicates.ts`, `src/lib/achievements/tiers.ts`, `src/lib/achievements/achievements.ts`, `src/lib/achievements/_tests/**` | false | W2 |
+| WO-10-001 | WO-01-003, WO-01-005, WO-01-007 | `src/lib/achievements/stats.ts`, `src/lib/achievements/achievements.ts`, `src/lib/achievements/readerData.ts`, `src/lib/achievements/_tests/achievements.test.ts` | false | W3 |
+| WO-10-016 | WO-13-012, WO-25-001, WO-23-006, WO-01-010 | `src/app/achievements/page.tsx`, `src/app/achievements/[...segments]/**`, `src/app/achievements/_components/HallTabs.tsx`, `src/app/achievements/_components/summary/**`, `src/app/achievements/_components/missions/**`, `src/app/achievements/_components/trophies/**`, `src/app/achievements/_components/charts/**`, `src/app/achievements/_components/Stats/StatisticsTab.tsx`, `src/app/achievements/_components/Stats/loadStatisticsData.ts`, `src/app/achievements/_utils/**`, `src/app/achievements/RankLadder/**`, `src/app/achievements/ChainCard/**`, `src/app/achievements/UniquesSection/**`, `src/app/achievements/SecretsPanel/**`, `src/app/achievements/AlmostThere.tsx`, `src/app/achievements/_tests/hall*.test.tsx`, `src/app/achievements/_tests/page.test.tsx`, `src/app/achievements/_tests/wo-09-003-stat-radar.test.tsx`, `src/app/achievements/_tests/wo-10-005-hall-surfaces.test.tsx`, `src/components/modules/GuildHero/**`, `src/lib/achievements/tiers.ts`, `src/lib/achievements/_tests/seals-rarity.test.ts`, `e2e/achievements.spec.ts` | false | W4 (alone in FRD-10) |
+| WO-10-017 | WO-10-016, WO-10-014, WO-01-011, WO-18-002 | `src/app/achievements/Informe/**`, `src/app/achievements/StatsPanel.tsx`, `src/app/achievements/_components/Stats/**`, `src/lib/achievements/report/**`, `src/lib/events/events.ts`, `src/lib/events/eventSourceHealth.ts`, `src/lib/events/_tests/eventSourceHealth.test.ts`, `src/app/achievements/_tests/stats*.test.tsx`, `src/app/achievements/_tests/wo-10-015-stats-panel-expansion.test.tsx`, `e2e/achievements-statistics.spec.ts` | false | W6 (alone in FRD-10) |
+
+- **Order and parallelism.** The engine chain (WO-10-009 → 10-010 → 10-011 → 10-001) and the report readers (WO-10-014) are history. WO-10-016 starts when the FRD-13 primitives, the URL codec, the composed Informe reader (WO-23-006) and the clock seam exist (W4). WO-10-017 follows WO-10-016, the adopted seams (WO-01-011) and the dashboard's `FunnelRow` (WO-18-002) (W6).
+- **Disjoint artifacts.** Within each wave the globs do not overlap: W0 events vs report; W1 to W3 touch the engine files one wave at a time; W4 and W6 hold one work order of this FRD each. Shared directories are split file by file across waves: `Stats/StatisticsTab.tsx` and `Stats/loadStatisticsData.ts` are created in W4 and replaced in W6 (seam), and `src/lib/achievements/report/**`, `src/lib/events/events.ts` are touched by later waves than the legacy owners. The other W4 work orders (WO-03-007, WO-17-008, WO-02-016) write other directories.
+- **Integration order.** FRD-13 foundation → FRD-25 codec → FRD-23 composed reader (WO-23-006, W3) → WO-10-016 (W4) → WO-18-002 (W5) and WO-01-011 (W5) → WO-10-017 (W6) → WO-13-013 (W7, deletes the retired primitives this FRD no longer references).
+- **Cross-FRD dependencies.** FRD-13 (WO-13-012), FRD-25 (WO-25-001), FRD-23 (WO-23-006), FRD-01 (WO-01-001/003/005/007/010/011), FRD-18 (WO-18-002). Consumers: WO-19-003 (the sidebar guild card reads the same guild state), WO-13-013.
+- **Visual spec for UI work orders (DR-054).** WO-10-016 reproduces `mocks/achievements-hall.html` (`achievements-summary`, `achievements-missions`, `achievements-trophies`, `achievements-trophy-category`, `achievements-trophy-dialog`, `achievements-ranks`) and the ladder rows of the FRD-09 mock `guild-rank-ladder`; WO-10-017 reproduces `achievements-stats` and `stats-stream-error`; `fdd.md` is the design; assets: rank emblems, crest and trophy art from `public/ranks/**` and the exported SVG icons, staged by WO-13-010.
+
+```mermaid
+flowchart LR
+  E9[WO-10-009] --> E10[WO-10-010] --> E11[WO-10-011]
+  S1[WO-01-003 / 01-005 / 01-007] --> E1[WO-10-001]
+  F12[WO-13-012] --> H16[WO-10-016]
+  C25[WO-25-001] --> H16
+  R23[WO-23-006] --> H16
+  K10[WO-01-010] --> H16
+  H16 --> H17[WO-10-017]
+  R14[WO-10-014] --> H17
+  K11[WO-01-011] --> H17
+  D18[WO-18-002] --> H17
+  H17 --> Z13[WO-13-013]
 ```
 
-**Coarse DAG & parallelism:**
+## Superseded (v1 history)
 
-```
-[VERIFIED engine: WO-10-001]   [FRD-13 foundation: WO-13-006/007/008]   [FRD-09 WO-09-003: page hero + XpBar]
-              └───────────────────────────┬───────────────────────────────────────┘
-                                          ▼
-                          WO-10-005 (Hall surfaces — UI)
-```
+- WO-10-005 — Hall surfaces (ChainCard, TrophyCard, AlmostThere, stat ledger). Superseded by WO-10-016.
+- WO-10-006 — Rangos tab and unbounded `Nv N` levels. Superseded by WO-10-016.
+- WO-10-012 — Render v2 (rarity gem, NUEVO, Seals shelf, sagas). Superseded by WO-10-016.
+- WO-10-013 — Missions expanded to 19 chains and 5 sagas, standardized cards. Superseded by WO-10-016.
+- WO-10-015 — Informe operativo UI. Superseded by WO-10-017.
 
-WO-10-005 is a single sequential UI WO (no intra-FRD UI peer to parallelize). It starts once the
-foundation primitives, the verified engine, and the FRD-09 page hero/shell exist.
+(Their `implementation_status` stays VERIFIED as history.)
 
-**Disjoint artifacts (shared-route coordination with FRD-09):** the achievements route
-(`src/app/achievements/`) is **shared**. **FRD-09 WO-09-003 owns** the page hero block in `page.tsx`,
-`components/modules/GuildBar/**` and `StatsPanel.tsx` (the radar). **This WO owns** the
-chains/trophies/almost-there files only: `ChainCard/`, `UniquesSection/`, `AlmostThere.tsx`,
-`SecretsPanel.tsx`. Neither FRD re-implements the other's region; `page.tsx`'s hero is FRD-09's, its
-per-tab bodies are populated by this WO's components.
+## Readiness check (DR-100)
 
-**Cross-FRD deps:** `frd-13` (foundation `SectionHead`/`Tabs`/`ItemSlot`/`TierBadge`/`XpBar`, tier
-tokens, `tabular-nums`); `frd-09` (shared achievements page + the `XpBar` primitive + `IF-09-guild-xp`).
-</content>
-
-## Persistent navigation integration — FRD-25 (2026-10-17)
-
-The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+Every numbered requirement `REQ-10-020` to `REQ-10-028` and every unnumbered base criterion (#U1 to #U21) maps to a component, an interface or an explicit removal above; every live AC (AC-10-020.1 to AC-10-028.5, 23 in all) is covered by exactly one work order (WO-10-016: AC-10-028.1 to AC-10-028.4; WO-10-017: the other 19); `dependsOn` is acyclic and every referenced work order exists; wave-parallel work orders have disjoint artifacts by design; the foundation is complete (primitives from WO-13-010..012, `FunnelRow` from WO-18-002); the platform data model is unchanged (this FRD has no entity of its own, `data-model.json` untouched); no unresolved clarification marker survives in this feature's documents.

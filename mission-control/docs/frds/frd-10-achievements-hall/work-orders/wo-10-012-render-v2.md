@@ -3,7 +3,8 @@ id: WO-10-012
 type: work-order
 slug: render-v2
 title: 'WO-10-012 — Render v2: rarity gem + NUEVO badge + new axis icons + Seals shelf + sagas'
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-10-016]
 parent: FRD-10
 implementation_status: VERIFIED
 source_requirements: []

@@ -8,10 +8,17 @@ parent: FRD-23
 implementation_status: VERIFIED
 reopen_count: 0
 source_requirements: [REQ-23-001]
-artifacts: [src/lib/achievements/read-model/**, src/lib/achievements/read-model/_tests/**]
+artifacts:
+  - 'src/lib/achievements/read-model/statsSchema.ts'
+  - 'src/lib/achievements/read-model/seal.ts'
+  - 'src/lib/achievements/read-model/statsReader.ts'
+  - 'src/lib/achievements/read-model/_tests/statsSchema.test.ts'
+  - 'src/lib/achievements/read-model/_tests/statsReader.test.ts'
+  - 'src/lib/achievements/read-model/_tests/seal.test.ts'
+  - 'src/lib/achievements/read-model/_tests/fixtures.ts'
 difficulty: high
 dependsOn: []
-last_updated: '2026-07-06'
+last_updated: '2026-10-22'
 ---
 # WO-23-001 — Portada reader + freshness seal
 
@@ -31,11 +38,18 @@ No writing here.
 - The `StatsPortada` / `StatsAggregate` Zod schema + `z.infer` types, reusing `report/types.ts`.
 
 ## Acceptance criteria (EARS)
-- **AC-23-001.1** — present + well-formed + seal matches → `{ok:true; value}`, no git shell for numbers.
-- **AC-23-001.2** — missing → `{ok:false; reason:"missing"}`.
-- **AC-23-001.3** — seal mismatch → `{ok:false; reason:"stale"}`.
-- **AC-23-001.4** — present but corrupt/unrecognised → **fail loud** `{ok:false; reason:"unparseable"}`
-  (never a silent `[]`/`null`).
+- **AC-23-001.1** — WHEN a project's `.pandacorp/stats.json` is present, well-formed and its seal
+  **matches** the current git seal, Mission Control SHALL read the **sealed** Informe numbers (the WO-verified
+  series and the FRD count) from the portada and NOT shell out to the `docs/frds` git history for that project.
+- **AC-23-001.2** — WHEN the portada is **missing**, Mission Control SHALL fall back to the live git
+  reader for that project (current behavior), never a fabricated zero.
+- **AC-23-001.3** — WHEN the portada exists but its **seal mismatches** the current git seal (stale),
+  Mission Control SHALL treat it as stale and fall back to the live git reader for that project.
+- **AC-23-001.4** — WHEN the portada is **present but unparseable/corrupt** (malformed JSON or an
+  unrecognised shape), the reader SHALL **fail loud** (throw / explicit error variant) and the caller
+  SHALL fall back to the live git reader — never a silent `[]`/`null` treated as "no activity" (DR-078).
+
+(The reader-level result shapes it delivers: present and fresh gives `{ok:true; value}`; missing gives `reason:"missing"`; a seal mismatch gives `reason:"stale"`; corrupt or unrecognised gives `reason:"unparseable"`, never a silent `[]` or `null`. AC-23-001.5, the seal-coverage rule added 2026-09-30, is owned by WO-23-006 and proven by `informeResolver.sealCoverage.test.ts`.)
 
 ## TDD plan
 RED: fixtures — a **real production-shape** `stats.json`, a **malformed** one (bad JSON + wrong shape),

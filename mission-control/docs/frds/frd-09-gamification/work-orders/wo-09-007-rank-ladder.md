@@ -3,7 +3,8 @@ id: WO-09-007
 type: work-order
 slug: rank-ladder
 title: 'WO-09-007 — Guild rank ladder: 40 ranks, granular level + band model, custom emblems'
-status: DRAFT
+status: SUPERSEDED
+superseded_by: [WO-10-016]
 parent: FRD-09
 implementation_status: VERIFIED
 reopen_count: 0

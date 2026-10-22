@@ -3,7 +3,8 @@ id: WO-12-003
 type: work-order
 slug: events-per-minute
 title: WO-12-003 — Events-per-minute selector (per-agent)
-status: ACTIVE
+status: SUPERSEDED
+superseded_by: [WO-13-013]
 parent: FRD-12
 implementation_status: VERIFIED
 source_requirements: []
