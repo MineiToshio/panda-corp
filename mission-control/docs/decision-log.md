@@ -1,5 +1,48 @@
 # Decision Log — Mission Control
 
+## 2026-10-21 — Órbita visual redesign approved by the owner
+
+**What:** The owner approved the Órbita exploration as Mission Control's new design: round 5, iteration 28, `docs/design/explorations/visual-refresh-2026/index.html` (preview round 5.28). Canonical doc: [proposal](design/explorations/visual-refresh-2026/proposal.md). Next comes the design freeze (tokens, `DESIGN.md`, component inventory, per-FRD mocks and fidelity oracle). Then a v2 milestone through `/pandacorp:change` updates the PRD/FRDs and plans the build.
+
+**Why:** after 28 owner-reviewed iterations, the design covers every Mission Control function with real data, at desktop, tablet and phone widths, in both themes. It passes the interaction, accessibility, overflow, small-text and preflight checks recorded in [round-5 verification](design/explorations/visual-refresh-2026/round-5-verification.md). The running app does not change until the v2 build.
+
+## 2026-10-21 — Órbita (exploration): shared component rules so the app reads as one
+
+**What:** The exploration adopts app-wide component rules. Canonical doc: [proposal, iteration 28](design/explorations/visual-refresh-2026/proposal.md).
+- **Headers:** every card and report band uses one header (tinted icon tile in its colour, display title of one size, a count pill in the same colour). There is one heading form for sections outside cards.
+- **Type:** small uppercase labels use Inter, and monospace is only for ids, code, commands and paths.
+- **Colour:** green, amber and red mean status or severity only. Categories moved to violet, blue, teal, pink, slate and gold. A project's phase counts as status.
+- **Controls:**
+  - commands in a coloured container take its tint;
+  - selected filters are neutral;
+  - «Mostrar más», search fields and card intros each have one form;
+  - side-by-side cards end at the same height.
+
+**Why:** the owner found the screens inconsistent (grey header icons in Cambios, coloured ones in Comandos). An audit showed three visual dialects and drift in colour, type and controls. Shared rules fix each class of drift once and give the real build a contract to follow.
+
+## 2026-10-21 — Interface language: Mission Control speaks Spanish; shown documents keep theirs
+
+**Owner decision:** everything that belongs to Mission Control itself is in Spanish: navigation, headings, labels, states, explanations, empty states and buttons. Content that Mission Control only shows keeps its original language, which today is English. That covers project documents (the Documentos tab, PRD/FRD/ADR/work-order bodies) and the AI-generated files of the projects and the factory: titles, descriptions of skills and agents, rules, lessons, backlog items and model notes.
+
+**What:** The Órbita exploration translated its remaining English interface strings: Portafolio, Lanzamiento (phase), Investigación (document type), Trampa (lesson type) and «Habilidad propuesta». The work-order summary says in one line that its content comes from the order's document. See the [proposal, iteration 27](design/explorations/visual-refresh-2026/proposal.md). The proper names of factory artifacts (FRD, PRD, ADR, work order, spec, backlog) are kept until the owner decides whether to translate them.
+
+**Why:** a mixed-language interface read as an error. Translating the shown content would need the app to call a model, which it never does, or keep a second copy of every document, which would drift from the source. So the line runs between what Mission Control says and what it shows.
+
+## 2026-10-21 — Órbita (exploration): phone and tablet patterns
+
+**What:** The round-5 mockup gets its own patterns for narrow screens. Canonical doc: [proposal, iteration 26](design/explorations/visual-refresh-2026/proposal.md).
+- **Below 1024 px:** two-column card pairs become one column, with the actionable side first. Fixed-column data tables (Cuentas, the portfolio comparison, the architecture stack) become one card per row.
+- **Below 900 px:**
+  - dependency maps become an ordered list (FRD → depends on / unblocks → its work orders; work orders by build step);
+  - La Fragua shows one station per row;
+  - an idea's documents are picked from a folded list.
+- **On phones:**
+  - list rows move their chips and commands under the title;
+  - long lists page (rules 30, transitions 10, trophies 12, board columns 4);
+  - commands and markdown tables never break inside a word: commands wrap at ":" and spaces, tables scroll with a visible hint.
+
+**Why:** the owner asked for a full tablet/phone pass where nothing breaks and everything navigates well, and allowed interfaces to differ from desktop. Three independent reviews of all routes at 375 and 768 px found about 60 problems. Most came from a few shared causes, so each cause got one rule instead of a per-screen patch. This is still a mockup: the real app is unchanged and the design is not approved.
+
 ## 2026-10-20 — Hermetic test harness for the navigation catalog; knip ignores nested worktrees
 
 **What:** `vitest.setup.ts` now reads this checkout's own factory root as catalog-absent (`src/test/ownerPrivateState.ts`, plus a regression test). Every other root, such as a tmp fixture, still reaches the real reader. `knip.json` ignores `.claude/**`. Canonical doc: [FRD-25 blueprint](frds/frd-25-persistent-navigation/blueprint.md).
@@ -10,6 +53,24 @@
 
 **What:** New curated flow for the `worktrees` skill in [skill-flows.ts](../src/lib/manual/skill-flows.ts): deterministic inventory, automatic removal of only merged + clean + idle items, per-item owner questions with a recommendation, archive-before-discard, and the final summary.
 **Why:** DR-046 (the Manual reflects the factory) for the factory's new skill (plugin 9.139.0, DR-135), which Inicio's redesigned "Árboles de trabajo" card points at. Copy only; no app behavior change.
+
+## 2026-10-20 — Redesign Órbita completely (round 5) with real data in every section
+
+**Owner request:** Full creative freedom over colors, shapes and layout, even a complete change, provided every Mission Control function stays and the result is good, navigable, easy to understand and well made.
+
+**What:** The exploration is rewritten rather than restyled. A persistent sidebar (sections, the five projects, the guild) becomes an icon rail on tablet and a top bar with bottom navigation and drawer on phone; this deliberately replaces the earlier top-navigation recommendation because projects are the app's main object. Inicio becomes a decision-first command center: *Tu turno* lists only what the owner can act on (real pending decisions, changes ready to build) and *En marcha* what advances without them. Work orders default to a per-FRD view with state filters (the old board produced an 18,000 px column), Observabilidad adds a state mosaic and a dependency trace, documents are ordered by purpose, and Propuestas, Logros, Configuración and the Manual now show real captured data. Neutral chrome keeps hue for meaning only; tokens, a 12 px type floor and hover-only-on-pointer rules satisfy the design preflight. [Proposal](design/explorations/visual-refresh-2026/proposal.md#round-5--full-redesign-with-real-data-everywhere) lists every change and the remaining gaps; [round-5 verification](design/explorations/visual-refresh-2026/round-5-verification.md) records the checks.
+
+**Later the same day:** iterations on Inicio, the board and the idea/project tabs (glance reports with modals; Funko Tracker as the complete architecture example with services and environment groups) are recorded in the proposal's Round 5 iterations.
+
+**Layout rule (iteration 12):** a secondary sidebar (document index, Manual index, idea document rail) sits on the RIGHT of its content, so the app sidebar is the only left column; dialogs carry the tone of the tab that opened them.
+
+**Colour rule (iteration 13):** no coloured accent stripes on edges (top or left bars on cards, papers, dialogs, banners, nav items); hue lives in text, chips and tints.
+
+**Workspace (iteration 19):** the work-order section becomes «Observabilidad» (absorbing the timeline and dependency views; the separate tab is removed), Cuentas follows Arquitectura, and Party is kept as «La Fragua» on real counts only, with a kill criterion recorded in the proposal.
+
+**Iteration 21:** typography is Space Grotesk + Inter (owner's choice); the desktop sidebar collapses to an icon rail that floats open on pointer, as in PandaTrack; the Party scene moves into the Resumen as its head (proposal, with a Panel alternative), and the dependency graph returns under Observabilidad.
+
+**Boundary:** [DESIGN.md](../DESIGN.md) retains the production contract. The two new read-only exporters write only the ignored `data/` folder. No application code, route, token, reader or build state changes; no freeze or approval is implied.
 
 ## 2026-10-20 — Approved services/account directory
 

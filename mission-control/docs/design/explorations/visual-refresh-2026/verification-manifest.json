@@ -1,15 +1,15 @@
 {
-  "date": "2026-10-17",
+  "date": "2026-10-20",
   "artifact": "index.html",
-  "sha256": "ed4c103fb98e9b4a0f3114c032e982e6523c6755b00ee58514a5411606494941",
+  "sha256": "9e8b736aad5ce4503373f29e842995c3d50f92b6f7e7b909778684c0ca85082b",
   "baseChecks": 64,
   "nestedChecks": 25,
   "interactionChecks": 7,
-  "note": "Prior round counts are historical. See round-4-verification.md for current scoped evidence. This is a local HTML mockup, not a production gate.",
+  "note": "Prior round counts are historical. See round-5-verification.md for current scoped evidence. This is a local HTML mockup, not a production gate.",
   "round1_sha256": "0476be971196cceca7a81d2250488d8443ffc7fc84b40698c37105b36993b5e1",
-  "preview_sha256": "fa550df9907084ce9be1c2f7941370d587bcf3138bba870edfe8ca6c3c82d55d",
+  "preview_sha256": "80a192677f5fc29994aef0ec0de0c9fd47bb890d6f53386e597acd41f5c63ce9",
   "followUpChecks": 9,
-  "round": 4,
+  "round": 5,
   "sourceSnapshotCapturedAt": "2026-10-17T14:43:38.902Z",
   "round3": {
     "matrixStates": 90,
@@ -29,5 +29,22 @@
     "independentReview": "no remaining blockers; one semantic issue and three presentation nits resolved and checked",
     "finalPaletteStates": 8,
     "reviewFixStates": 33
+  },
+  "round4_sha256": "ed4c103fb98e9b4a0f3114c032e982e6523c6755b00ee58514a5411606494941",
+  "round5": {
+    "matrixStates": 344,
+    "flowAssertions": 77,
+    "smallTextRoutes": 0,
+    "preflight": "0 fail, 2 warn (mono font, literal lengths)",
+    "remainingAxe": "16 target-size notes at 375 px, all on controls of 28 px or more partially covered by the sticky bottom navigation in the capture",
+    "independentReview": "blockers and should-fix items resolved or declared; see round-5-verification.md",
+    "captures": {
+      "projects": "2026-10-20",
+      "extras": "2026-10-20",
+      "manual": "2026-10-20"
+    },
+    "iteration": 28,
+    "phoneTabletReview": "three independent reviews of every route at 375 and 768 px, then a second review of the fixed captures; no layout-breaking issue left",
+    "consistencyReview": "three cross-screen catalogues, shared rules applied, then two verification passes; remaining items fixed"
   }
 }

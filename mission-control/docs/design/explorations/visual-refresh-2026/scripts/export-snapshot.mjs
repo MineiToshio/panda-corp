@@ -19,6 +19,10 @@ import { readChangeQueue } from "@/lib/changes/changes";
 import { readBuildTimeline } from "@/lib/build-track/build-track";
 import { workspaceCommands } from "@/lib/next-step/next-step";
 import { readManualPages } from "@/lib/manual/manual";
+import { readServicesDirectory } from "@/lib/services/services";
+import { getOverlayFreshness } from "@/lib/overlay-freshness/overlay-freshness";
+import { parsePitch, parseRiskMitigation } from "@/lib/pitch/pitch";
+import { PHASES as CAMPAIGN_PHASES } from "@/components/modules/CampaignPipeline/phases";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const MISSION_CONTROL_ROOT = path.resolve(SCRIPT_DIR, "../../../../..");
@@ -112,6 +116,46 @@ function resolveIdeaProjectId(idea) {
   return match?.id ?? null;
 }
 
+// The board's "Propuesta" tab structure, through the app's own pitch parser plus the same row rules
+// the IdeaPitch component applies (problem quote, vision features/checks, red team, ask, risk pairs,
+// legal, evidence). Markdown is pre-rendered so the study shows exactly the same content.
+const FEATURE_RE = /^[-*]\s+\*\*(.+?)\*\*\s*[—:–-]*\s*(.*)$/;
+const CHECK_RE = /^[-*]\s+(✓|✔|☑|✅|!|⚠|✗|✕)\s+(.*)$/;
+const PREVIEW_RE = /vista previa|preview/i;
+const withoutTables = (md) => md.split("\n").filter((l) => !l.trimStart().startsWith("|")).join("\n").trim();
+function pitchSnapshot(body) {
+  const pitch = parsePitch(body ?? "");
+  if (!pitch.hasStructured) return null;
+  const glance = pitch.glance.map((item) => {
+    const base = { label: item.label, kind: item.kind, html: renderMarkdown(item.value) };
+    if (item.kind === "problema") {
+      const lines = item.value.split("\n");
+      const prose = lines.filter((l) => !l.trimStart().startsWith(">")).join("\n").trim();
+      const quote = lines.filter((l) => l.trimStart().startsWith(">")).map((l) => l.replace(/^\s*>\s?/, "")).join("\n").trim();
+      return { ...base, proseHtml: renderMarkdown(prose), quoteHtml: quote ? renderMarkdown(quote) : "" };
+    }
+    if (item.kind === "vision") {
+      const lines = item.value.split("\n");
+      const features = lines.map((l) => l.match(FEATURE_RE)).filter(Boolean).map((m) => ({ title: m[1].trim(), desc: (m[2] ?? "").trim() }));
+      const checks = lines.map((l) => l.match(CHECK_RE)).filter(Boolean).map((m) => ({ ok: /[✓✔☑✅]/.test(m[1]), text: m[2].trim() }));
+      const preview = lines.find((l) => PREVIEW_RE.test(l));
+      return { ...base, features, checks, previewUrl: preview ? preview.replace(/\*\*/g, "").replace(/^[-*>\s]+/, "").trim() : null };
+    }
+    return base;
+  });
+  const deep = pitch.deepDive.map((section) => {
+    const risks = parseRiskMitigation(section.markdown);
+    const kind = /evidencia|evidence|fuentes/i.test(section.heading) ? "evidence" : /red team|pre.?mortem/i.test(section.heading) ? "premortem" : /\bask\b/i.test(section.heading) ? "ask" : risks.length ? "risks" : /legal/i.test(section.heading) ? "legal" : "default";
+    return {
+      heading: section.heading,
+      kind,
+      html: renderMarkdown(kind === "risks" ? withoutTables(section.markdown) : section.markdown),
+      risks: risks.map((r) => ({ riskHtml: renderMarkdown(r.risk), mitigationHtml: renderMarkdown(r.mitigation) })),
+    };
+  });
+  return { verdict: pitch.verdict, laApuesta: pitch.laApuesta ? renderMarkdown(pitch.laApuesta) : null, badges: pitch.badges, glance, scorecard: pitch.scorecard, deep };
+}
+
 function ideaSnapshot(idea) {
   return {
     slug: idea.slug,
@@ -123,6 +167,7 @@ function ideaSnapshot(idea) {
     favorite: idea.favorite === true,
     body: idea.body,
     html: renderMarkdown(idea.body),
+    pitch: pitchSnapshot(idea.body),
     projectId: resolveIdeaProjectId(idea),
   };
 }
@@ -221,6 +266,30 @@ function firstUsefulParagraph(markdown) {
   return text ?? null;
 }
 
+// The services directory joins the public catalog with the private accounts file. Like the app's
+// Accounts view, the snapshot keeps the login email and dashboard link (so the owner knows which
+// account to sign in with); it drops credentials, notes, native resource ids and quota snapshots.
+const SERVICES = readServicesDirectory({ factoryRoot: FACTORY_ROOT });
+function projectServices(projectId) {
+  return SERVICES.allocations
+    .filter((allocation) => allocation.projectId === projectId)
+    .map((allocation) => {
+      const provider = SERVICES.providers.find((entry) => entry.id === allocation.providerId);
+      const account = SERVICES.accounts.find((entry) => entry.id === allocation.accountRef);
+      return {
+        id: allocation.integrationId,
+        providerId: allocation.providerId,
+        provider: provider?.name ?? allocation.providerId,
+        type: provider?.type ?? null,
+        purpose: provider?.purpose ?? null,
+        status: allocation.status,
+        account: account ? { name: account.displayName, login: account.loginEmail ?? null, access: account.accessStatus, automation: account.automationStatus, plan: account.plan } : null,
+        url: account?.dashboardUrl ?? provider?.dashboardUrl ?? null,
+        environments: allocation.resources.map((resource) => ({ environment: resource.environment, resource: resource.resourceName })),
+      };
+    });
+}
+
 function buildProject(project, ideas) {
   const statusResult = readStatus(project.path);
   const status = statusResult.present ? statusResult.status : null;
@@ -275,6 +344,7 @@ function buildProject(project, ideas) {
     phase,
     running: status?.running ?? null,
     version,
+    overlay: getOverlayFreshness(status?.overlayVersion ?? null, FACTORY_ROOT),
     idea,
     spec,
     architecture,
@@ -288,6 +358,11 @@ function buildProject(project, ideas) {
     activity,
     commands,
     envNames: (artifacts.envVars ?? []).map((envVar) => envVar.name),
+    // Names and comments only, exactly what the app shows; values are never read.
+    envVars: (artifacts.envVars ?? []).map((envVar) => ({ name: envVar.name, comment: envVar.comment ?? "" })),
+    services: projectServices(project.id),
+    targetPlatforms: status?.targetPlatforms ?? status?.target_platforms ?? null,
+    deployTarget: status?.deployTarget ?? status?.deploy_target ?? null,
     counts: {
       orders: orders.length,
       done: orders.filter((order) => order.state === "done").length,
@@ -304,7 +379,7 @@ const manual = readManualPages(MISSION_CONTROL_ROOT).map((page) => ({
   html: renderMarkdown(page.body),
 }));
 const capturedAt = new Date().toISOString();
-const snapshot = { capturedAt, ideas, projects, manual };
+const snapshot = { capturedAt, ideas, projects, manual, campaign: CAMPAIGN_PHASES };
 
 const gaps = projects.flatMap((project) => {
   const missing = [];
