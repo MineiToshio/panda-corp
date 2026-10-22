@@ -2565,6 +2565,36 @@ const SCENARIOS = {
   'factory-empty': () => { PROJECTS.length = 0; IDEAS.length = 0; },
   /** Nothing waits on the owner: every decision answered, every ready change already building. */
   'home-calm': () => { for (const p of PROJECTS) { p.decisions.forEach(x => { x.resolved = true; }); p.changesList.forEach(c => { if (c.status === 'ready') c.status = 'building'; }); } },
+  /** pandacast has no version recorded yet (the hero chip falls back to «Sin versión»). */
+  'project-no-version': () => { projectById('pandacast').version = null; },
+  /** pandasaga's description is long enough to clamp, so the hero offers «Ver más» / «Ver menos». */
+  'project-long-subtitle': () => { const p = projectById('pandasaga'); p.subtitle = `${p.subtitle} ${p.subtitle}`; },
+  /** pandacast has published no FRD yet (Resumen «Avance por FRD» empty state). */
+  'project-no-frds': () => { projectById('pandacast').frds = []; },
+  /** pandacast's change queue is empty (Cambios empty state). */
+  'changes-none': () => { projectById('pandacast').changesList = []; },
+  /** funko-tracker's last green commit exists but the build has not marked it safe to test yet. */
+  'snapshot-unsafe': () => { projectById('funko-tracker').safeToTest = false; },
+  /** The weekly-flow series could not be read (Estadísticas error state, distinct from no data). */
+  'stats-weekly-error': () => { EXTRAS.guild.stats.informe.weeklyFlow = { ok: false, error: 'stats.json no tiene la serie semanal' }; },
+  /** No phase transition has been recorded yet (Estadísticas empty state). */
+  'stats-transitions-empty': () => { EXTRAS.guild.stats.informe.transitions = { ok: true, value: [] }; },
+  /** One lesson is obsolete, so Memoria shows the «Para podar» card. */
+  'memory-prunable': () => { const m = EXTRAS.memory; const prune = m.streams.find(s => s.key === 'prune'); const src = m.streams.find(s => s.key === 'candidates')?.items[0]; if (prune && src) prune.items = [{ ...src, id: `${src.id}-old` }]; },
+  /** Nothing needs the owner in Propuestas: no urgent or important backlog, no promotion, no discovered idea, memory up to date. */
+  'proposals-calm': () => { const m = EXTRAS.memory; EXTRAS.backlog.items.forEach(i => { if (i.priority === 'p0' || i.priority === 'p1') i.priority = 'p2'; }); m.streams.forEach(s => { if (s.key === 'promotions') s.items = []; if (s.key === 'suggestions') s.items = s.items.filter(x => x.kind !== 'recurring-lesson'); }); IDEAS.forEach(i => { if (ideaPhase(i) === 'discovered') i.status = 'discarded'; }); m.health.staleDays = 0; },
+  /** The factory repository also holds a build lane branch (origin «Carril de un build»). */
+  'worktrees-lane': () => { const r = HEALTH.pending.find(x => x.id === 'factory'); r.items.unshift({ ...r.items[0], branch: 'lane/frd-05-a', subject: 'feat(mission-control): work-order views (lane a)', worktree: null, worktreeLabel: null }); },
+  /** The PostHog account has no project linked yet (account dialog without links). */
+  'account-unlinked': () => { SERVICES_DIR.allocations = SERVICES_DIR.allocations.filter(a => a.providerId !== 'posthog'); },
+  /** Every open bug of the factory backlog got fixed, so filtering by bugs leaves «Abiertos» empty. */
+  'backlog-bugs-closed': () => { EXTRAS.backlog.items.forEach(i => { if (i.type === 'bug' && i.status === 'open') i.status = 'done'; }); },
+  /** pandacast has no document published yet (Documentos empty state). */
+  'documents-none': () => { projectById('pandacast').docs = []; },
+  /** pandasaga's DESIGN.md exists but is empty (the reader says so instead of a blank page). */
+  'document-empty': () => { const d = projectById('pandasaga').docs.find(x => x.id === 'DESIGN'); d.body = ''; d.html = ''; },
+  /** A trophy unlocked by the latest build, never shown yet: the «¡Nuevo logro!» notice appears. */
+  'achievement-new': () => { store.set('orbita-ach-seen', ''); const t = unlockedByDate(EXTRAS.guild)[0]; if (t) t.isNew = true; document.querySelectorAll('.ach-toast').forEach(e => e.remove()); achievementNotice(); },
 };
 function applyScenario(name) {
   if (!SCENARIOS[name]) throw new Error(`Unknown scenario ${name}`);

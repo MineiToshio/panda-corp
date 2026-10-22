@@ -1197,6 +1197,96 @@
           }
         ],
         "note": "Fixture scenario model-invalid: data-model.json references a missing attribute (DR-078)."
+      },
+      {
+        "id": "project-no-version",
+        "title": "Workspace hero: project without a recorded version",
+        "route": "#portfolio?project=pandacast",
+        "actions": [
+          {
+            "js": "applyScenario('project-no-version')"
+          },
+          {
+            "waitFor": ".hero"
+          }
+        ],
+        "note": "Fixture scenario project-no-version."
+      },
+      {
+        "id": "project-subtitle-open",
+        "title": "Workspace hero: long description expanded («Ver menos»)",
+        "route": "#portfolio?project=pandasaga",
+        "actions": [
+          {
+            "js": "applyScenario('project-long-subtitle')"
+          },
+          {
+            "waitFor": "[data-action=\"toggle-sub\"]"
+          },
+          {
+            "click": "[data-action=\"toggle-sub\"]"
+          }
+        ],
+        "note": "Fixture scenario project-long-subtitle."
+      },
+      {
+        "id": "resumen-no-frds",
+        "title": "Resumen: project with no FRD published yet",
+        "route": "#portfolio?project=pandacast",
+        "actions": [
+          {
+            "js": "applyScenario('project-no-frds')"
+          },
+          {
+            "waitFor": ".hero"
+          }
+        ],
+        "note": "Fixture scenario project-no-frds."
+      },
+      {
+        "id": "changes-empty",
+        "title": "Cambios: empty change queue",
+        "route": "#portfolio?project=pandacast&tab=Cambios",
+        "actions": [
+          {
+            "js": "applyScenario('changes-none')"
+          },
+          {
+            "waitFor": ".state-strip"
+          }
+        ],
+        "note": "Fixture scenario changes-none."
+      },
+      {
+        "id": "documents-empty",
+        "title": "Documentos: project with no published document",
+        "route": "#portfolio?project=pandacast&tab=Documentos",
+        "actions": [
+          {
+            "js": "applyScenario('documents-none')"
+          },
+          {
+            "waitFor": ".empty"
+          }
+        ],
+        "note": "Fixture scenario documents-none."
+      },
+      {
+        "id": "document-empty-body",
+        "title": "Documentos: an empty document in the reader",
+        "route": "#portfolio?project=pandasaga&tab=Documentos&doc=DESIGN",
+        "actions": [
+          {
+            "js": "applyScenario('document-empty')"
+          },
+          {
+            "waitFor": "#paper"
+          }
+        ],
+        "widths": [
+          1280
+        ],
+        "note": "Fixture scenario document-empty."
       }
     ],
     "frd-05-work-orders": [
@@ -1523,6 +1613,19 @@
         "id": "docs-page-multi-runtime",
         "title": "Documentation: multi-runtime concept",
         "route": "#documentacion?page=multi-runtime"
+      },
+      {
+        "id": "docs-search-empty",
+        "title": "Documentation: search with no matching page",
+        "route": "#documentacion",
+        "actions": [
+          {
+            "fill": [
+              "#manual-search",
+              "zzqxv"
+            ]
+          }
+        ]
       }
     ],
     "frd-09-gamification": [
@@ -1610,6 +1713,34 @@
           }
         ],
         "note": "Fixture scenario stats-stream-error: the event stream has an unparseable line."
+      },
+      {
+        "id": "stats-weekly-error",
+        "title": "Estadísticas: weekly series unreadable",
+        "route": "#logros?tab=Estad%C3%ADsticas",
+        "actions": [
+          {
+            "js": "applyScenario('stats-weekly-error')"
+          },
+          {
+            "waitFor": ".kpis"
+          }
+        ],
+        "note": "Fixture scenario stats-weekly-error."
+      },
+      {
+        "id": "stats-transitions-empty",
+        "title": "Estadísticas: no phase transition recorded",
+        "route": "#logros?tab=Estad%C3%ADsticas",
+        "actions": [
+          {
+            "js": "applyScenario('stats-transitions-empty')"
+          },
+          {
+            "waitFor": ".kpis"
+          }
+        ],
+        "note": "Fixture scenario stats-transitions-empty."
       }
     ],
     "frd-11-build-modes": [
@@ -1793,6 +1924,20 @@
           }
         ],
         "note": "Fixture scenario build-no-signal: funko-tracker running, supervisor heartbeat 25 min old (DR-066)."
+      },
+      {
+        "id": "snapshot-unsafe",
+        "title": "Snapshot panel: green commit not yet safe to test",
+        "route": "#portfolio?project=funko-tracker",
+        "actions": [
+          {
+            "js": "applyScenario('snapshot-unsafe')"
+          },
+          {
+            "waitFor": ".hero"
+          }
+        ],
+        "note": "Fixture scenario snapshot-unsafe."
       }
     ],
     "frd-15-plugin-out-of-sync-warning": [
@@ -1835,6 +1980,34 @@
           375,
           1280
         ]
+      },
+      {
+        "id": "proposals-memory-prune",
+        "title": "Memoria: an obsolete lesson to prune",
+        "route": "#propuestas?tab=Memoria",
+        "actions": [
+          {
+            "js": "applyScenario('memory-prunable')"
+          },
+          {
+            "waitFor": ".lf"
+          }
+        ],
+        "note": "Fixture scenario memory-prunable."
+      },
+      {
+        "id": "proposals-calm",
+        "title": "Propuestas Resumen: nothing needs the owner",
+        "route": "#propuestas",
+        "actions": [
+          {
+            "js": "applyScenario('proposals-calm')"
+          },
+          {
+            "waitFor": ".pa-card"
+          }
+        ],
+        "note": "Fixture scenario proposals-calm."
       }
     ],
     "frd-18-dashboard": [
@@ -1990,6 +2163,54 @@
           1280
         ],
         "note": "At 375 the sidebar is the drawer: see FRD-19 shell-drawer-open."
+      },
+      {
+        "id": "shell-skip-link",
+        "title": "Shell: skip link focused",
+        "route": "#inicio",
+        "actions": [
+          {
+            "js": "document.querySelector('a.skip').focus()"
+          }
+        ],
+        "widths": [
+          375,
+          1280
+        ],
+        "capture": "viewport"
+      },
+      {
+        "id": "shell-theme-toggled",
+        "title": "Shell: theme button after switching theme",
+        "route": "#inicio",
+        "actions": [
+          {
+            "click": "#sidebar [data-action=\"toggle-theme\"]"
+          }
+        ],
+        "widths": [
+          1280
+        ],
+        "capture": "viewport"
+      },
+      {
+        "id": "shell-achievement-notice",
+        "title": "Shell: «¡Nuevo logro!» notice",
+        "route": "#inicio",
+        "actions": [
+          {
+            "js": "applyScenario('achievement-new')"
+          },
+          {
+            "waitFor": ".ach-toast"
+          }
+        ],
+        "widths": [
+          375,
+          1280
+        ],
+        "capture": "viewport",
+        "note": "Fixture scenario achievement-new."
       }
     ],
     "frd-20-overlay-freshness": [
@@ -2079,6 +2300,31 @@
           }
         ],
         "note": "Fixture scenario worktrees-unreadable: git could not be read for pandasaga."
+      },
+      {
+        "id": "worktrees-factory-dialog",
+        "title": "Pending merge: factory branches by origin (lane, Codex)",
+        "route": "#inicio",
+        "actions": [
+          {
+            "js": "applyScenario('worktrees-lane')"
+          },
+          {
+            "waitFor": ".wt-table"
+          },
+          {
+            "click": "[data-wt-repo=\"factory\"]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375,
+          1280
+        ],
+        "note": "Fixture scenario worktrees-lane."
       }
     ],
     "frd-22-factory-backlog": [
@@ -2165,6 +2411,23 @@
           }
         ],
         "note": "Fixture scenario backlog-errors: a malformed card and a duplicate id."
+      },
+      {
+        "id": "backlog-open-empty",
+        "title": "Backlog: filter with nothing open",
+        "route": "#propuestas?tab=Backlog",
+        "actions": [
+          {
+            "js": "applyScenario('backlog-bugs-closed')"
+          },
+          {
+            "waitFor": ".toolbar"
+          },
+          {
+            "click": "[data-bfilter=\"type\"][data-val=\"bug\"]"
+          }
+        ],
+        "note": "Fixture scenario backlog-bugs-closed."
       }
     ],
     "frd-26-services-accounts": [
@@ -2227,6 +2490,49 @@
           }
         ],
         "note": "Fixture scenario accounts-source-error."
+      },
+      {
+        "id": "accounts-project-empty",
+        "title": "Accounts: project with no services assigned",
+        "route": "#portfolio?project=mission-control&tab=Cuentas"
+      },
+      {
+        "id": "portfolio-accounts-nomatch",
+        "title": "Accounts directory: search with no match",
+        "route": "#portfolio?view=cuentas",
+        "actions": [
+          {
+            "fill": [
+              "#acc-search",
+              "zzqxv"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "accounts-dialog-unlinked",
+        "title": "Accounts directory: account with no linked project",
+        "route": "#portfolio?view=cuentas",
+        "actions": [
+          {
+            "js": "applyScenario('account-unlinked')"
+          },
+          {
+            "waitFor": ".acc-dir"
+          },
+          {
+            "click": "[data-account=\"posthog|posthog-main\"]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "widths": [
+          375,
+          1280
+        ],
+        "capture": "viewport",
+        "note": "Fixture scenario account-unlinked."
       }
     ]
   },
@@ -2245,6 +2551,11 @@
       {
         "selector": "#tok-tip:not([hidden])",
         "label": "Work order card (floating in the app)",
+        "style": "position:static;margin:24px auto;transform:none"
+      },
+      {
+        "selector": "a.skip:focus",
+        "label": "Skip link (focused; it sits before the app frame)",
         "style": "position:static;margin:24px auto;transform:none"
       }
     ]

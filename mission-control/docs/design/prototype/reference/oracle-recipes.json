@@ -260,6 +260,246 @@
       "used_by": [
         "frd-09-gamification/guild-achievement-notice"
       ]
+    },
+    "project-no-version": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('project-no-version')",
+      "what": "Workspace hero: project without a recorded version",
+      "recipe": [
+        "Overlay `projects/pandacast/.pandacorp/status.yaml`: remove the `version:` key."
+      ],
+      "asserts": "The captured state shows «Sin versión».",
+      "oracle_text": "Sin versión",
+      "surfaces": [
+        "Workspace hero: project without a recorded version"
+      ],
+      "used_by": [
+        "frd-04-project-workspace/project-no-version"
+      ]
+    },
+    "project-long-subtitle": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('project-long-subtitle')",
+      "what": "Workspace hero: long description expanded («Ver menos»)",
+      "recipe": [
+        "Overlay the pandasaga idea card/PRD description so the project subtitle is the current one repeated twice (over 180 characters); the e2e step then clicks «Ver más»."
+      ],
+      "asserts": "The captured state shows «Ver menos».",
+      "oracle_text": "Ver menos",
+      "surfaces": [
+        "Workspace hero: long description expanded («Ver menos»)"
+      ],
+      "used_by": [
+        "frd-04-project-workspace/project-subtitle-open"
+      ]
+    },
+    "project-no-frds": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('project-no-frds')",
+      "what": "Resumen: project with no FRD published yet",
+      "recipe": [
+        "Overlay `projects/pandacast/docs/frds/`: no `frd-*/frd.md` and no work orders."
+      ],
+      "asserts": "The captured state shows «Aún no hay FRDs publicados.».",
+      "oracle_text": "Aún no hay FRDs publicados.",
+      "surfaces": [
+        "Resumen: project with no FRD published yet"
+      ],
+      "used_by": [
+        "frd-04-project-workspace/resumen-no-frds"
+      ]
+    },
+    "changes-none": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('changes-none')",
+      "what": "Cambios: empty change queue",
+      "recipe": [
+        "Overlay `projects/pandacast/.pandacorp/inbox/changes/`: no change cards (README only)."
+      ],
+      "asserts": "The captured state shows «No hay cambios abiertos en la cola.».",
+      "oracle_text": "No hay cambios abiertos en la cola.",
+      "surfaces": [
+        "Cambios: empty change queue"
+      ],
+      "used_by": [
+        "frd-04-project-workspace/changes-empty"
+      ]
+    },
+    "stats-weekly-error": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('stats-weekly-error')",
+      "what": "Estadísticas: weekly series unreadable",
+      "recipe": [
+        "Overlay `factory/.pandacorp/stats.json` (or the materialized read-model) so the weekly-flow series fails to read; every other series stays readable."
+      ],
+      "asserts": "The captured state shows «No se pudo leer la serie semanal.».",
+      "oracle_text": "No se pudo leer la serie semanal.",
+      "surfaces": [
+        "Estadísticas: weekly series unreadable"
+      ],
+      "used_by": [
+        "frd-10-achievements-hall/stats-weekly-error"
+      ]
+    },
+    "stats-transitions-empty": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('stats-transitions-empty')",
+      "what": "Estadísticas: no phase transition recorded",
+      "recipe": [
+        "Overlay every fixture project's phase history so no phase transition is recorded (git log of status.yaml phase changes empty)."
+      ],
+      "asserts": "The captured state shows «Sin transiciones registradas.».",
+      "oracle_text": "Sin transiciones registradas.",
+      "surfaces": [
+        "Estadísticas: no phase transition recorded"
+      ],
+      "used_by": [
+        "frd-10-achievements-hall/stats-transitions-empty"
+      ]
+    },
+    "snapshot-unsafe": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('snapshot-unsafe')",
+      "what": "Snapshot panel: green commit not yet safe to test",
+      "recipe": [
+        "Overlay `projects/funko-tracker/.pandacorp/status.yaml`: `safe_to_test: false` (keep `running: true` and `last_green_sha`)."
+      ],
+      "asserts": "The captured state shows «Aún no es seguro».",
+      "oracle_text": "Aún no es seguro",
+      "surfaces": [
+        "Snapshot panel: green commit not yet safe to test"
+      ],
+      "used_by": [
+        "frd-14-snapshot-and-feedback/snapshot-unsafe"
+      ]
+    },
+    "memory-prunable": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('memory-prunable')",
+      "what": "Memoria: an obsolete lesson to prune",
+      "recipe": [
+        "Overlay `factory/memory/`: mark one candidate lesson obsolete so the review lists it under prune."
+      ],
+      "asserts": "The captured state shows «Para podar».",
+      "oracle_text": "Para podar",
+      "surfaces": [
+        "Memoria: an obsolete lesson to prune"
+      ],
+      "used_by": [
+        "frd-17-proposals-inbox/proposals-memory-prune"
+      ]
+    },
+    "proposals-calm": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('proposals-calm')",
+      "what": "Propuestas Resumen: nothing needs the owner",
+      "recipe": [
+        "Overlay `factory/backlog/`: no open p0/p1 item; `factory/memory/`: no promotion and no recurring-lesson suggestion, last memory run today; `factory/ideas/`: no discovered idea without a project."
+      ],
+      "asserts": "The captured state shows «Nada necesita tu decisión ahora.».",
+      "oracle_text": "Nada necesita tu decisión ahora.",
+      "surfaces": [
+        "Propuestas Resumen: nothing needs the owner"
+      ],
+      "used_by": [
+        "frd-17-proposals-inbox/proposals-calm"
+      ]
+    },
+    "achievement-new": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('achievement-new')",
+      "what": "Shell: «¡Nuevo logro!» notice",
+      "recipe": [
+        "Overlay the gamification ledger so the most recent unlocked trophy is flagged new and not yet seen (clear the seen marker in storage)."
+      ],
+      "asserts": "The captured state shows «¡Nuevo logro!».",
+      "oracle_text": "¡Nuevo logro!",
+      "surfaces": [
+        "Shell: «¡Nuevo logro!» notice"
+      ],
+      "used_by": [
+        "frd-19-app-shell/shell-achievement-notice"
+      ]
+    },
+    "worktrees-lane": {
+      "kind": "git-double",
+      "scenario": "applyScenario('worktrees-lane')",
+      "what": "Pending merge: factory branches by origin (lane, Codex)",
+      "recipe": [
+        "Extend `fixtureGit(repo)` for the factory repo: add an unmerged branch `lane/frd-05-a` (1 commit ahead, subject «feat(mission-control): work-order views (lane a)») besides the existing `codex/backlog-gate-retry`."
+      ],
+      "asserts": "The captured state shows «Carril de un build».",
+      "oracle_text": "Carril de un build",
+      "surfaces": [
+        "Pending merge: factory branches by origin (lane, Codex)"
+      ],
+      "used_by": [
+        "frd-21-pending-merge/worktrees-factory-dialog"
+      ]
+    },
+    "backlog-bugs-closed": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('backlog-bugs-closed')",
+      "what": "Backlog: filter with nothing open",
+      "recipe": [
+        "Overlay `factory/backlog/`: every open item of type bug is `status: done`."
+      ],
+      "asserts": "The captured state shows «Nada abierto con este filtro.».",
+      "oracle_text": "Nada abierto con este filtro.",
+      "surfaces": [
+        "Backlog: filter with nothing open"
+      ],
+      "used_by": [
+        "frd-22-factory-backlog/backlog-open-empty"
+      ]
+    },
+    "account-unlinked": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('account-unlinked')",
+      "what": "Accounts directory: account with no linked project",
+      "recipe": [
+        "Overlay every project's `.pandacorp/accounts/services.yaml`: no allocation of provider `posthog`."
+      ],
+      "asserts": "The captured state shows «Sin vínculos documentados. No demuestra ausencia de uso.».",
+      "oracle_text": "Sin vínculos documentados. No demuestra ausencia de uso.",
+      "surfaces": [
+        "Accounts directory: account with no linked project"
+      ],
+      "used_by": [
+        "frd-26-services-accounts/accounts-dialog-unlinked"
+      ]
+    },
+    "documents-none": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('documents-none')",
+      "what": "Documentos: project with no published document",
+      "recipe": [
+        "Overlay `projects/pandacast/`: no PRD, FRD, ADR, DESIGN or other published document."
+      ],
+      "asserts": "The captured state shows «No hay documentos publicados para este proyecto.».",
+      "oracle_text": "No hay documentos publicados para este proyecto.",
+      "surfaces": [
+        "Documentos: project with no published document"
+      ],
+      "used_by": [
+        "frd-04-project-workspace/documents-empty"
+      ]
+    },
+    "document-empty": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('document-empty')",
+      "what": "Documentos: an empty document in the reader",
+      "recipe": [
+        "Overlay `projects/pandasaga/DESIGN.md`: an empty file."
+      ],
+      "asserts": "The captured state shows «Documento vacío.».",
+      "oracle_text": "Documento vacío.",
+      "surfaces": [
+        "Documentos: an empty document in the reader"
+      ],
+      "used_by": [
+        "frd-04-project-workspace/document-empty-body"
+      ]
     }
   },
   "findings": [
