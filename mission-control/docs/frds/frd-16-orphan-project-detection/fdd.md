@@ -6,10 +6,12 @@ parent: frds/frd-16-orphan-project-detection/frd.md
 ui: true
 visual_source: docs/design/prototype/index.html
 mock: docs/design/prototype/index.html
-status: ACTIVE
+status: REMOVED
 last_updated: '2026-06-19'
 ---
 # FDD-16 — Orphan project detection (adopt?)
+
+> **HISTORICAL (amended 2026-10-22, v2 plan).** FRD-16 was removed on 2026-06-22 (see `frd.md`). This design is kept as a record only: the banner, its strings and the prototype key `BGROUP.orphanMore` cited below are NOT live microcopy keys and are not part of the Órbita design contract or `docs/design/microcopy.es.json`. Nothing here is built, planned or checked in v2.
 
 > Scoped feature design on the **frozen visual contract** (`docs/design/design-tokens.json` + root
 > `DESIGN.md`), extracted from the owner-approved prototype. Cross-cutting tokens/a11y are FRD-13's FDD.

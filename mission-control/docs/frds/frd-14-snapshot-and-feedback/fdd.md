@@ -57,7 +57,7 @@ From `docs/design/components.md`: `SnapshotPanel` (new, root `#snapshot-panel`, 
 
 Behaviour with no picture of its own (non-visual rules):
 
-- The documentation explains the three feedback channels to a running build, `/pandacorp:bug`, `/pandacorp:iterate` and `/pandacorp:decide`, all via files picked up at the next safe point (AC-14-003.3, AC-14-005.1). That content lives in the Documentación pages (FRD-08); this FRD adds no screen for it.
+- The documentation explains the three feedback channels to a running build, `/pandacorp:bug`, `/pandacorp:iterate` and `/pandacorp:decide`, all via files picked up at the next safe point (AC-14-003.3). That content lives in the Documentación pages (FRD-08); this FRD adds no screen for it.
 
 ## Responsive & accessibility
 

@@ -18,11 +18,11 @@ prototype_blessed_at: '409a0564'
 
 | Screen | Purpose | Captured state | ACs |
 |---|---|---|---|
-| Cuentas tab of a project (Funko Tracker) | The external services this project declares: what each is for, which login to use, in which environments it has resources, and its status | `accounts-project` | AC-26-003, AC-26-006, AC-26-011.1, AC-26-010 |
-| Portafolio, third view "Cuentas" | The factory's accounts in one place, with the projects that use each, searchable and filterable by state | `portfolio-accounts` | AC-26-001, AC-26-003, AC-26-005, AC-26-010 |
-| Directory filtered by state | The same view reduced to one state: Pendientes | `portfolio-accounts-filter` | AC-26-005 |
-| Account dialog | One account in detail: identity and access, recorded plan, automation level, linked projects with environment resources, the reuse recipe and the dashboard link | `portfolio-accounts-dialog` | AC-26-004 |
-| Directory with an invalid source | The registry problems named and bounded; the rest of the directory stays usable | `accounts-source-error` | AC-26-007, AC-26-008 |
+| Cuentas tab of a project (Funko Tracker) | The external services this project declares: what each is for, which login to use, in which environments it has resources, and its status | `accounts-project` | AC-26-003.1, AC-26-006.1, AC-26-011.1, AC-26-010.1 |
+| Portafolio, third view "Cuentas" | The factory's accounts in one place, with the projects that use each, searchable and filterable by state | `portfolio-accounts` | AC-26-001.1, AC-26-003.1, AC-26-005.1, AC-26-010.1 |
+| Directory filtered by state | The same view reduced to one state: Pendientes | `portfolio-accounts-filter` | AC-26-005.1 |
+| Account dialog | One account in detail: identity and access, recorded plan, automation level, linked projects with environment resources, the reuse recipe and the dashboard link | `portfolio-accounts-dialog` | AC-26-004.1 |
+| Directory with an invalid source | The registry problems named and bounded; the rest of the directory stays usable | `accounts-source-error` | AC-26-007.1, AC-26-008.1 |
 
 ### The project tab (`accounts-project`)
 
@@ -40,7 +40,7 @@ Route `#portfolio?project=funko-tracker&tab=Cuentas`. FRD-04's crumbs, compact h
 
 ### The global view (`portfolio-accounts`)
 
-Route `#portfolio?view=cuentas` (the prototype route; the build's URL contract is `portfolioView=accounts`, AC-26-002). Page header (FRD-03's slot): `h1` "Portafolio" and its subtitle. Then, in a vertical stack:
+Route `#portfolio?view=cuentas` (the prototype route; the build's URL contract is `view=cuentas` too, with `portfolioView=accounts` accepted as an alias, AC-26-002.1). Page header (FRD-03's slot): `h1` "Portafolio" and its subtitle. Then, in a vertical stack:
 
 1. A toolbar with the segmented control named "Vista del portafolio": "Tarjetas", "Lista" (FRD-03's views) and "Cuentas" (selected, neutral), and at the right the faint small label "Directorio de cuentas de la fábrica".
 2. An intro paragraph: "Las cuentas de la fábrica en un solo lugar: qué servicio es, con qué usuario entrar y qué proyectos lo usan. Clic en el nombre para abrir su panel y en el usuario para copiarlo. Lo guardado son observaciones con fecha, no una sesión activa; las credenciales nunca se muestran."
@@ -59,21 +59,21 @@ Captured at the viewport at 375 and 1280, opened from the "Detalles" button of t
 
 ### The invalid-source notice (`accounts-source-error`)
 
-Same screen as `portfolio-accounts`, with a coral `Notice` (`role="alert"`) between the intro paragraph and the search toolbar: the bold title "Información incompleta o inválida", then one line per problem with the file in `code` and the reason ("services/accounts.yaml: el registro no cumple el contrato."; "projects/pandacast/.pandacorp/accounts/services.yaml: apunta a una cuenta que no existe."), and the small muted line "Se revisa sin mostrar datos sensibles. El resto del directorio sí se pudo leer." The toolbar and the full table follow unchanged; the notice names files and reasons only, never a value, a raw error or a credential reference (AC-26-008).
+Same screen as `portfolio-accounts`, with a coral `Notice` (`role="alert"`) between the intro paragraph and the search toolbar: the bold title "Información incompleta o inválida", then one line per problem with the file in `code` and the reason ("services/accounts.yaml: el registro no cumple el contrato."; "projects/pandacast/.pandacorp/accounts/services.yaml: apunta a una cuenta que no existe."), and the small muted line "Se revisa sin mostrar datos sensibles. El resto del directorio sí se pudo leer." The toolbar and the full table follow unchanged; the notice names files and reasons only, never a value, a raw error or a credential reference (AC-26-008.1).
 
 ## States
 
 | State | What the owner sees | Captured state | ACs |
 |---|---|---|---|
-| Project tab with services | The table above, ordered "Configurado", "Propuesto", "Inactivo", then A to Z | `accounts-project` | AC-26-011.1, AC-26-003 |
-| Services without a value | A faint dash in Usuario or Entornos | `accounts-project` | AC-26-003 |
-| Directory, all accounts | Search, chips with counts and the full table | `portfolio-accounts` | AC-26-001, AC-26-005 |
-| Account without a known login | The faint text "Cuenta pendiente de identificar" in Usuario, state "Candidato" | `portfolio-accounts` | AC-26-003 |
-| Filter active | "Pendientes" pressed, the count reads "1 cuenta", one row | `portfolio-accounts-filter` | AC-26-005 |
-| Account open | The dialog above | `portfolio-accounts-dialog` | AC-26-004 |
-| Source problems | The coral notice naming each problem; the table still lists every account that was read | `accounts-source-error` | AC-26-007 |
+| Project tab with services | The table above, ordered "Configurado", "Propuesto", "Inactivo", then A to Z | `accounts-project` | AC-26-011.1, AC-26-003.1 |
+| Services without a value | A faint dash in Usuario or Entornos | `accounts-project` | AC-26-003.1 |
+| Directory, all accounts | Search, chips with counts and the full table | `portfolio-accounts` | AC-26-001.1, AC-26-005.1 |
+| Account without a known login | The faint text "Cuenta pendiente de identificar" in Usuario, state "Candidato" | `portfolio-accounts` | AC-26-003.1 |
+| Filter active | "Pendientes" pressed, the count reads "1 cuenta", one row | `portfolio-accounts-filter` | AC-26-005.1 |
+| Account open | The dialog above | `portfolio-accounts-dialog` | AC-26-004.1 |
+| Source problems | The coral notice naming each problem; the table still lists every account that was read | `accounts-source-error` | AC-26-007.1 |
 
-Behaviour with no picture of its own (rules about data, structure or what is not rendered): the Cuentas view works independently of the selected project and with an empty portfolio (AC-26-001); the view and filters survive navigation and history through the URL, using `portfolioView=accounts` and never an ambiguous project slug (AC-26-002); the reader passes only a whitelisted non-secret DTO to the browser and logs nothing sensitive (AC-26-008); Documentación derives its Services page from the public catalog without reading identities (AC-26-009); no cloud API call and no registry write happens on render or filter (AC-26-010); a project's tab never infers ownership from SDKs, variable names or a browser session (AC-26-006).
+Behaviour with no picture of its own (rules about data, structure or what is not rendered): the Cuentas view works independently of the selected project and with an empty portfolio (AC-26-001.1); the view and filters survive navigation and history through the URL, using `portfolioView=accounts` and never an ambiguous project slug (AC-26-002.1); the reader passes only a whitelisted non-secret DTO to the browser and logs nothing sensitive (AC-26-008.1); Documentación derives its Services page from the public catalog without reading identities (AC-26-009.1); no cloud API call and no registry write happens on render or filter (AC-26-010.1); a project's tab never infers ownership from SDKs, variable names or a browser session (AC-26-006.1).
 
 ## Components used
 
@@ -96,7 +96,7 @@ No new component.
 ## Interaction & flow
 
 1. From a project, the owner opens the Cuentas tab, clicks a service name to open its dashboard in a new tab, or clicks a login to copy it.
-2. From Portafolio, the owner picks "Cuentas" in the view switch; the project selection and any unrelated URL state survive the switch (AC-26-002). The owner searches by service, email or project, narrows with a state chip, and opens "Detalles" on a row.
+2. From Portafolio, the owner picks "Cuentas" in the view switch; the project selection and any unrelated URL state survive the switch (AC-26-002.1). The owner searches by service, email or project, narrows with a state chip, and opens "Detalles" on a row.
 3. In the dialog the owner reads the dated observations, copies the email, follows the reuse recipe, or opens the provider dashboard. Closing the dialog returns focus to the "Detalles" button that opened it.
 4. When a source is invalid, the notice appears above the toolbar and the rest of the directory stays usable.
 
@@ -110,7 +110,7 @@ No new component.
 
 ## Copy
 
-Keyed Spanish strings: `docs/design/microcopy.es.json`; reconciliation notes in `docs/design/freeze/copy/frd-26.md`. Provider purposes, recipe text and steps come from the public catalog and keep their source language (English today); the interface labels are Spanish. The state labels follow the captured views: "Configurado", "Propuesto", "Inactivo" in the project tab and "Activa", "Pendiente", "Candidato", "Referencia" in the directory; a state never prints its raw key (AC-26-005).
+Keyed Spanish strings: `docs/design/microcopy.es.json`; reconciliation notes in `docs/design/freeze/copy/frd-26.md`. Provider purposes, recipe text and steps come from the public catalog and keep their source language (English today); the interface labels are Spanish. The state labels follow the captured views: "Configurado", "Propuesto", "Inactivo" in the project tab and "Activa", "Pendiente", "Candidato", "Referencia" in the directory; a state never prints its raw key (AC-26-005.1).
 
 ## Fidelity references
 

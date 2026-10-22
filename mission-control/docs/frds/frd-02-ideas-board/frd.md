@@ -4,7 +4,7 @@ type: frd
 title: FRD-02 — Ideas board
 parent: product/prd.md
 status: ACTIVE
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-02-ideas-board/mocks/ideas-board.html
@@ -100,9 +100,16 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   PRD/FRDs (EARS) → mockups + design tokens + components.md (microcopy) → blueprint + ADRs +
   Build Plan + work orders → código verificado y endurecido (auditado, GREEN) → app lanzada
   (interna o externa) + plan de lanzamiento`.
-- **AC-02-010.8** — THE fichas SHALL reflect the **current factory**: the **Design** ficha SHALL state
-  that design uses **Claude Design** and produces **`components.md`** + **mocks** + design tokens (and
-  microcopy via `copywriter`); the **Architecture** ficha SHALL state that it **plans the foundation
+- **AC-02-010.8** — (amended 2026-10-22, v2 plan: Claude Design sunset, change card `design-phase-copy-claude-design-sunset`) THE fichas SHALL reflect the **current factory**: the **Design** ficha SHALL state
+  that the `designer` writes the design directions as **HTML** in the repo and publishes them as **private
+  Artifacts** for the owner's review (the exact prototype copy: "Creación del sistema visual y la microcopia.
+  El designer escribe las direcciones de diseño en HTML y las publica como Artifacts privados para que las
+  revises, y el copywriter aporta la voz, para que el producto sea bello, accesible y coherente en lenguaje."
+  and, on the designer's team line, "Escribe los mockups en HTML y los publica como Artifacts privados para tu
+  revisión, define los tokens de diseño y el inventario components.md, y asegura la consistencia visual."),
+  that it produces **`components.md`** + **mocks** + design tokens (and microcopy via `copywriter`), and no
+  ficha or other app text SHALL mention Claude Design;
+  the **Architecture** ficha SHALL state that it **plans the foundation
   (shared primitives) and the file artifacts** of each work order (plus the blueprint, ADRs and Build
   Plan); and the **Build** ficha SHALL reflect the **v2 build flow** — foundation-first, disjoint
   waves serialized by file artifact, per-WO fidelity loop, the 4-lens + visual-judge gate and the
@@ -146,7 +153,7 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
 ### Card-detail fidelity pass (amendment, 2026-06-22)
 A visual-fidelity reconciliation of the card detail against `prototype/party-pipeline.html` (the
 campaign map) + `prototype/index.html` `detailView()`:
-- **AC-02-010.4 amended** — the **active** phase's ficha is shown **by default** (the prototype opens
+- **AC-02-010.11** — (amended 2026-10-22, v2 plan: renumbered from the fidelity-pass restatement "AC-02-010.4 amended", so each id is defined once) the **active** phase's ficha is shown **by default** (the prototype opens
   the active phase) and **stays pinned**: clicking another phase switches it; clicking the open one
   keeps it open (the detail below the map is always visible, never toggled closed). The ficha header
   shows the kicker "Fase {n} de 6", the phase name and a state chip (e.g. "Fase 1 de 6" · "Investigación" ·
@@ -155,18 +162,18 @@ campaign map) + `prototype/index.html` `detailView()`:
   motion rule); `prefers-reduced-motion` renders them static. The campaign body is one bordered panel
   below the (bare, icon-bearing) tab pills; the header caption is left-aligned; the stage is
   full-width with the rooms centred.
-- **AC-02-010.3 deliverable** — each room shows its cast and the room name; the hand-off artifact
+- **AC-02-010.12** — (amended 2026-10-22, v2 plan: renumbered from the fidelity-pass restatement "AC-02-010.3 deliverable", so each id is defined once) each room shows its cast and the room name; the hand-off artifact
   (`research.md`, `PRD + FRDs`, `sistema + mocks`, `blueprint + Build Plan`, `el código`) is written
   on the **corridor** between two rooms, which turns solid green once delivered; there is no artifact
   pill inside the room and no striped road.
-- **AC-02-009.1** — every rendered tab carries an inline SVG icon (Propuesta bulb, Spec layers, Arquitectura cube, Documentos file, Campaña flag); the tab for the current location is the only one marked active.
-- **AC-02-009.2/.3 Documentos** is a **curated index + reader**: the index sits on the **RIGHT** of the
+- **AC-02-009.6** — (amended 2026-10-22, v2 plan: renumbered from the fidelity-pass restatement of "AC-02-009.1", so each id is defined once) every rendered tab carries an inline SVG icon (Propuesta bulb, Spec layers, Arquitectura cube, Documentos file, Campaña flag); the tab for the current location is the only one marked active.
+- **AC-02-009.7** — (amended 2026-10-22, v2 plan: renumbered from the fidelity-pass restatement of "AC-02-009.2/.3", so each id is defined once) **Documentos** is a **curated index + reader**: the index sits on the **RIGHT** of the
   reader (folded behind a list below 900 px) and always lists **Resumen** (the summary reader) plus one
   item per project document, grouped by purpose; selecting an item shows it in the reader (a board
   card defers the full document read to the project workspace). Commands live in the Campaña ficha
   (the `Comandos` tab no longer exists), through the shared `CmdRow`; building/release cards add a
   project-command box (`workspaceCommands`).
-- **AC-02-009.4 In-document links open in the reader** — a relative link inside a document to another
+- **AC-02-009.8** — (amended 2026-10-22, v2 plan: renumbered from the fidelity-pass restatement of "AC-02-009.4", so each id is defined once) **In-document links open in the reader**: a relative link inside a document to another
   document the reader surfaces (e.g. the PRD linking an FRD) SHALL open that document in the SAME
   card-detail reader (it selects it in the rail — client-state navigation, not a page nav); an off-app
   URL SHALL open in a new tab; any other relative link SHALL render as plain text (never a broken link).
@@ -284,7 +291,7 @@ The project-owned source is `docs/product/data-model.json`. Contract and reader 
 - **AC-02-015.3** — WHEN the viewer opens at desktop or tablet width, THE default SHALL be **Diagrama** (on phones it opens on **Esquema**, amended 2026-10-22), using content-sized entity cards that show full names, attribute names and types without ellipsis, 24px attribute rows and 12px field text; THE viewer SHALL offer native pointer-drag panning of the canvas background, zoom, fit/reset, keyboard arrows and labelled directional buttons without requiring scrollbars to navigate the diagram.
 - **AC-02-015.4** — WHEN the owner chooses **Esquema**, THE viewer SHALL display a single column of compact, initially collapsed entity accordions; activating an entity SHALL expand its natural-height, selectable Prisma-like text, attributes, keys and explicit relationship/cardinality text from the same artifact, close any other open entity in that viewer, and permit collapsing it again; this SHALL be a viewing representation, not an executable Prisma schema or an HTML attribute table.
 - **AC-02-015.5** — WHEN the owner searches an entity/attribute or selects an entity/relation, THE viewer SHALL reveal matching entities, center diagram search results and highlight matching/connected graph elements without editing or dropping model data or adding a lower detail panel. Activating the same explicitly selected relationship again SHALL clear selection; activating a connector highlighted only by entity-neighborhood selection SHALL select that relationship first. Selected and keyboard-focused relationship connectors SHALL use the routed line/cardinality strokes as their visual indicator, without an outline around the SVG group bounds; other controls SHALL retain their existing focus indicators. Active expanded search SHALL announce matches or no matches inside its dialog.
-- **AC-02-015.6** — WHEN the owner expands the model, THE viewer SHALL request native browser fullscreen ("Pantalla completa") on a model-only host within the activating gesture (**Out of v2 (owner decision 2026-10-21):** the fallback to a viewport-filling diagram dialog when native fullscreen is unavailable or rejected); it SHALL reuse the dependency map’s compact top-right icon toolbar for zoom, percentage/reset, fit and fullscreen/minimize, with search and click-pan alternatives and no source bands, tabs, visible instructions, legend or lower details; it SHALL preserve its model and selection, provide modal keyboard navigation/Escape, restore the actual activating text/icon trigger focus on close or native fullscreen exit, and prevent another selected project's model from leaking into the view.
+- **AC-02-015.6** — WHEN the owner expands the model, THE viewer SHALL request native browser fullscreen ("Pantalla completa") on a model-only host within the activating gesture (**Out of v2 (owner decision 2026-10-21):** the fallback to a viewport-filling diagram dialog when native fullscreen is unavailable or rejected); it SHALL use its own compact top-right icon toolbar (amended 2026-10-22, v2 plan: the dependency map no longer has this toolbar, FRD-12 AC-12-004.5) for zoom, percentage/reset, fit and fullscreen/minimize, with search and click-pan alternatives and no source bands, tabs, visible instructions, legend or lower details; it SHALL preserve its model and selection, provide modal keyboard navigation/Escape, restore the actual activating text/icon trigger focus on close or native fullscreen exit, and prevent another selected project's model from leaking into the view.
 - **AC-02-015.7** — WHEN the source is absent, explicitly `persistence: none`, valid with no entities, malformed, oversized, unreadable or unsupported, THE viewer SHALL show the corresponding missing/none/empty/error state and keep the rest of Architecture usable; invalid input SHALL never appear as a valid empty diagram. Malformed, oversized, unsupported and unreadable sources share ONE explicit error notice in Modelo de datos (same copy shape, naming what failed), distinct from the explicit-none state ("Este proyecto declara explícitamente que no usa base de datos.") and from the not-published state.
 - **AC-02-015.8** — WHEN a usable designed model is displayed without independent schema verification, THE inline viewer SHALL state **"Modelo diseñado, no verificado contra una base viva"**; phase, timestamps and work-order state SHALL NOT imply operational-schema verification.
 - **AC-02-015.9** — WHEN identical project artifacts are opened from the board, portfolio workspace or direct project page, THE system SHALL use the same reader and viewer and SHALL retain all other Architecture sections (REQ-02-013).
@@ -330,7 +337,7 @@ The project-owned source is `docs/product/data-model.json`. Contract and reader 
 
 ### REQ-02-015 graph-control consistency amendment
 
-The dependency map is the owner-selected visual oracle for graph navigation. Both render the same GraphControls component and shared browser-fullscreen hook (ADR-0008). Model wheel and pointer camera updates are animation-frame batched; fine wheel deltas are normalized, button zoom steps are 15%, and stable entity/edge content is retained during camera movement. Existing model/source/layout/cardinality requirements remain unchanged.
+(Amended 2026-10-22, v2 plan.) The data-model viewer owns its compact top-right icon toolbar (the `GraphControls` component, with the shared browser-fullscreen hook, ADR-0008); the dependency map no longer renders it (FRD-12 AC-12-004.5, deterministic prototype layout). Model wheel and pointer camera updates are animation-frame batched; fine wheel deltas are normalized, button zoom steps are 15%, and stable entity/edge content is retained during camera movement. Existing model/source/layout/cardinality requirements remain unchanged.
 
 ## Persistent navigation integration — FRD-25 (2026-10-17)
 

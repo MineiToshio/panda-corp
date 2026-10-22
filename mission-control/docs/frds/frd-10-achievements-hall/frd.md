@@ -111,11 +111,13 @@ figures, plus a KPI row of FLOW metrics.
 #### REQ-10-021 — "En el tiempo, de verdad" (real time-series — REPLACES the raw-event-count view)
 - **AC-10-021.1** — THE system SHALL show a **WO-verified-per-week** series grouped by **ISO week**,
   where each WO's week is the **git commit where its `implementation_status` crosses to `VERIFIED`** (read
-  from the git history of each `work-orders/wo-*.md`, `IF-10-flow-series`), matching the verified real
-  shape **W25=78, W26=8, W27=5 (91 total)**.
+  from the git history of each `work-orders/wo-*.md`, `IF-10-flow-series`), and the per-week values SHALL equal
+  the fixture-factory oracle values (state `achievements-stats`, fixtures at `docs/design/prototype/fixtures/`).
+  (Amended 2026-10-22, v2 plan: replaces the dated real-data shape W25=78, W26=8, W27=5, which no live test can reproduce.)
 - **AC-10-021.2** — THE system SHALL show an **ideas-captured-per-week** series from the **`created`**
-  frontmatter of `factory/ideas/*.md` grouped by ISO week (`IF-10-flow-series`), matching the verified
-  real shape **W24=3, W26=15**. IF an idea card has no `created` frontmatter THEN it SHALL be excluded
+  frontmatter of `factory/ideas/*.md` grouped by ISO week (`IF-10-flow-series`), and the per-week values SHALL
+  equal the fixture-factory oracle values (state `achievements-stats`, fixtures at `docs/design/prototype/fixtures/`;
+  amended 2026-10-22, v2 plan: replaces the dated real-data shape W24=3, W26=15). IF an idea card has no `created` frontmatter THEN it SHALL be excluded
   from the per-week series (and that exclusion SHALL be observable, not silently zeroed).
 - **AC-10-021.3** — THE Informe SHALL NOT render the old raw-event-count "en el tiempo" view (raw event
   counts are noise); this requirement REPLACES it. (Negative AC.)
@@ -134,21 +136,23 @@ figures, plus a KPI row of FLOW metrics.
 
 #### REQ-10-023 — "Embudo y flujo" (funnel + per-project phase transitions)
 - **AC-10-023.1** — THE system SHALL show the **ideas → launched funnel** from `readIdeas` + `readStatus`
-  (`IF-10-funnel`): total ideas (matching the verified real shape **18: discovered 6, in-pipeline 2,
-  discarded 10**) narrowing to launched (**1**), with the conversion **≈ 6 %**.
+  (`IF-10-funnel`): total ideas narrowing to launched, with the conversion, and the funnel counts and the
+  conversion SHALL equal the fixture-factory oracle values (state `achievements-stats`; amended 2026-10-22, v2 plan:
+  replaces the dated real-data shape 18 ideas, 1 launched, ≈ 6 %).
 - **AC-10-023.2** — THE system SHALL show **phase transitions PER PROJECT** read from the **git history of
   the `phase` field in each `.pandacorp/status.yaml`** (`IF-10-phase-transitions`), labelling each row
-  with the **project name**, matching the verified real shape for `mission-control`: **06-16
-  architecture→implementation, 06-18 implementation→release, 06-19 release→implementation (flagged as a
-  REOPEN), 06-21 implementation→release**.
+  with the **project name**, and the transitions (date, project, from→to) SHALL equal the fixture-factory
+  oracle values (state `achievements-stats`; amended 2026-10-22, v2 plan: replaces the dated real-data shape of
+  `mission-control`, 06-16 to 06-21).
 - **AC-10-023.3** — WHEN a transition goes **backwards** in the phase order (a reopen, e.g.
   release→implementation) THE system SHALL **flag it as a reopening** (text + icon, never color alone).
 
 #### REQ-10-024 — "Estado y salud del proceso" (2-column health band)
 - **AC-10-024.1** — THE left column SHALL list **projects by phase** from `readStatus` (`IF-10-funnel`),
-  matching the verified real shape **mission-control → release, personal-page-v2 → design**.
+  and each project's phase SHALL equal the fixture-factory oracle values (state `achievements-stats`; amended
+  2026-10-22, v2 plan: replaces the dated real-data shape mission-control → release, personal-page-v2 → design).
 - **AC-10-024.2** — THE right column SHALL list **process signals** each from its real source:
-  **lessons distilled** (matching **2 / 131**, `IF-10-lessons`); **build relaunches** (from
+  **lessons distilled** (equal to the fixture-factory oracle value, state `achievements-stats`, `IF-10-lessons`; amended 2026-10-22, v2 plan: replaces the dated 2 / 131); **build relaunches** (from
   `IF-10-phase-transitions` reopen count / signals); **discards without a structured reason** (idea cards
   with `status: discarded` whose `discard_reason` is empty/freeform — itself a finding, from `readIdeas`);
   **quality telemetry not wired** (rendered explicitly as **"no cableado"**, not a zero).
@@ -161,19 +165,21 @@ figures, plus a KPI row of FLOW metrics.
 
 #### REQ-10-026 — Ledger expanded to 8 rows per column (aligned, no staircase)
 - **AC-10-026.1** — THE per-category ledger SHALL show **exactly 8 rows in each of the three columns** so
-  the columns align (no staircase). **Producción** gains **FRDs completed (21), Commits (823), Projects
-  created (2)**; **Calidad** gains **Tests passing (7134), Decisions/DR (99)**. Each new row's value
+  the columns align (no staircase). **Producción** gains **FRDs completed, Commits, Projects
+  created**; **Calidad** gains **Tests passing, Decisions/DR**. Each new row's value
   SHALL come from its real source (`IF-10-scalars` for the git/doc counts; `readIdeas`/`readStatus` for
-  the rest).
+  the rest), and the values SHALL equal the fixture-factory oracle values (state `achievements-stats`;
+  amended 2026-10-22, v2 plan: replaces the dated real-data values 21, 823, 2, 7134 and 99).
 - **AC-10-026.2** — Each new ledger value SHALL be a real count (or **a no-value marker with the "no cableado" label** when its
   source is not wired) — never a fabricated number. A counter whose event has never been recorded reads
   "sin datos aún" instead (AC-10-028.5); the two states are never merged.
 
 #### REQ-10-027 — Records grid expanded to 2×3 (6 records)
 - **AC-10-027.1** — THE records block (right of Atributos) SHALL show a **2×3 grid of 6 records**, adding
-  to the existing 3: **Peak week** (the WO count of the best week, **78**, from `IF-10-flow-series`);
-  **Lessons captured** (**131**, from `IF-10-lessons`); **Subagents coordinated** (from
-  `signals.subagents`). Each record SHALL come from its real source; an unwired record SHALL render
+  to the existing 3: **Peak week** (the WO count of the best week, from `IF-10-flow-series`);
+  **Lessons captured** (from `IF-10-lessons`); **Subagents coordinated** (from
+  `signals.subagents`). Each record SHALL come from its real source and equal the fixture-factory oracle value
+  (state `achievements-stats`; amended 2026-10-22, v2 plan: replaces the dated 78 and 131); an unwired record SHALL render
   **a no-value marker with the "no cableado" label**, never a fabricated value.
 
 ### REQ-10-028 — Resumen, missions, trophies, ranks and stats details (added 2026-10-22, design freeze)

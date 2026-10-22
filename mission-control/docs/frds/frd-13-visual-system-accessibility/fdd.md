@@ -51,7 +51,7 @@ These rules of the FRD have no captured state because they are values in tokens 
 
 | Rule | Where it is fixed and checked |
 |---|---|
-| REQ-13-001 few tokens, two committed themes (light and dark, both first-class), authored in hex, high-contrast as a var-override layer over dark | `design-tokens.json` (custom properties per theme), `DESIGN.md` § Tokens; the build mirrors them in `src/app/globals.css` `@theme` |
+| REQ-13-001 few tokens, two committed themes (light and dark, both first-class), authored in hex, no high-contrast layer (owner default O1, 2026-10-22) | `design-tokens.json` (custom properties per theme), `DESIGN.md` § Tokens; the build mirrors them in `src/app/globals.css` `@theme` |
 | REQ-13-002, AC-13-010.1 neutral chrome, hue only with meaning and always with text or an icon, green / amber / red only for status or severity (phase counts as status), no edge stripes | `DESIGN.md` § Colour rules; every FRD's screens show it (this FRD's own states: the neutral chrome and the single coral banner) |
 | REQ-13-003 tabular figures on every number | CSS (`.num`, `font-variant-numeric: tabular-nums`); visible in the ring percentage of `a11y-ring-tooltip-focus` |
 | REQ-13-004 elevation and radius from the token scales, no per-component shadow or radius | `design-tokens.json` shadows (`shadow`, `shadow-sm`, `node`, `drop`, `panel`, `dialog`, `toast`) and radii (6, 8, 10, 12, 16, 22, 28, pill) |

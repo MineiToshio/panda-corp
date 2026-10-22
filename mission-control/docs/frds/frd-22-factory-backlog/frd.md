@@ -3,7 +3,7 @@ id: FRD-22
 type: frd
 title: FRD-22 — Factory backlog surface (Propuestas · Backlog tab)
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-22-factory-backlog/mocks/factory-backlog.html
@@ -26,7 +26,7 @@ Surfaces the factory's **actionable work queue** — `factory/backlog/BL-*` (DR-
 - **AC-22-002.1** — The Propuestas page SHALL present three tabs, **Resumen**, **Memoria** and **Backlog**, using the shared `Tabs`/`SubTabs` primitive (DR-062) — no bespoke switcher.
 - **AC-22-002.2** — **Resumen** SHALL be active by default (FRD-17 AC-17-011.1); **Memoria** SHALL contain the self-learning surface (memory-health panel + the proposal streams + the promotions queue, FRD-17).
 - **AC-22-002.3** — The **Backlog** tab SHALL show a count badge of its actionable items (open and in progress, for example "Backlog 11") when greater than zero.
-- **AC-22-002.4** — Both panels SHALL stay mounted (toggled with `hidden`) so the memory streams' local dismiss state survives a tab switch, and SHALL carry `data-volatile` (DR-088) so the visual baseline masks their live, length-varying data.
+- **AC-22-002.4** — Both panels SHALL stay mounted (toggled with `hidden`) so each panel's tab-local state (for example the Backlog filters, its opened card and the paging of its history) survives a tab switch; the memory streams have no dismiss state in v2 (FRD-17, per-card dismiss is out of v2). (Amended 2026-10-22, v2 plan.) Both panels SHALL carry `data-volatile` (DR-088) so the visual baseline masks their live, length-varying data.
 
 ### REQ-22-003 — Read-mostly, how-to-work note
 - **AC-22-003.1** — The Backlog panel SHALL explain, in the "Cómo avanzar" card (AC-22-010.3, which replaced the how-to note), that these are actionable items worked by asking an agent (e.g. «implementa BL-0007»), and that Mission Control only displays and (per REQ-22-007) lets the owner discard them — it never creates, closes or edits the content of a `factory/backlog/` item (consistent with the FRD-17 read-only boundary, minus the one bounded discard write).
