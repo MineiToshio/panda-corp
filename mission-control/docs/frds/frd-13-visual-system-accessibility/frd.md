@@ -29,10 +29,10 @@ Mission Control must feel **engineered, not decorative**, without the owner (wea
 
 ### REQ-13-010 — Colour, type, pointer and scene rules (added 2026-10-22, design freeze)
 
-- AC-13-010.1 — THE UI SHALL keep its chrome neutral and SHALL use hue only to carry meaning, always together with text or an icon and never as an edge stripe; green, amber and red SHALL mean status or severity only (a project's phase counts as status, the deliberate exception for phase colours).
-- AC-13-010.2 — THE UI SHALL render with the three self-hosted families Space Grotesk, Inter and JetBrains Mono, SHALL NOT render product text below 12 px, and SHALL use monospace only for ids, code, commands and paths.
-- AC-13-010.3 — WHERE the pointer cannot hover, THE UI SHALL apply no hover effect, and a focused element SHALL never sit under a sticky bar (focus is scrolled clear of it).
-- AC-13-010.4 — THE La Fragua scene and the Campaña map SHALL use the always-dark scene tokens in both themes.
+- **AC-13-010.1** — THE UI SHALL keep its chrome neutral and SHALL use hue only to carry meaning, always together with text or an icon and never as an edge stripe; green, amber and red SHALL mean status or severity only (a project's phase counts as status, the deliberate exception for phase colours).
+- **AC-13-010.2** — THE UI SHALL render with the three self-hosted families Space Grotesk, Inter and JetBrains Mono, SHALL NOT render product text below 12 px, and SHALL use monospace only for ids, code, commands and paths.
+- **AC-13-010.3** — WHERE the pointer cannot hover, THE UI SHALL apply no hover effect, and a focused element SHALL never sit under a sticky bar (focus is scrolled clear of it).
+- **AC-13-010.4** — THE La Fragua scene and the Campaña map SHALL use the always-dark scene tokens in both themes.
 
 **Worked example (AC-13-010.1).** A work order card in review shows an eye icon and the text "En revisión" in the review hue. A card for a failed work order uses the coral status hue with an alert icon and "Bloqueado". A category chip (for example "web") uses a category hue (violet, blue, teal, pink, slate or gold), never green, amber or red.
 

@@ -61,10 +61,10 @@ It composes existing layers — honest gamification ([FRD-09](../frd-09-gamifica
 - The Gremio card SHALL show the guild level/XP, the most recent achievement (with a "Nuevo" chip when fresh) and the next milestone, all derived from **real outcomes** (shipped, phases completed, lessons graduated) per FRD-09. No streaks, no false urgency.
 
 ### REQ-18-022 — Layout, Tu turno detail, En marcha and Pulso/Embudo (added 2026-10-22, design freeze)
-- AC-18-022.1 — THE Inicio SHALL arrange its cards in two columns (left: Tu turno, Tu cartera, En marcha; right: Pulso, Gremio, Embudo de ideas, Árboles de trabajo) below the plugin warning, and SHALL put Tu turno first when the layout is one column (below 1024 px).
-- AC-18-022.2 — EACH Tu turno item SHALL be one line (title, "project · kind · age", its scoped command with copy), and WHEN "Detalles" is activated THE system SHALL open a dialog explaining what it is, what is needed, the recommendation, the context and what the command does.
-- AC-18-022.3 — THE Inicio SHALL list in-flight work in the "En marcha" card, apart from Tu turno, in collapsible groups: "Construyéndose ahora", "Esperan la revisión de su FRD" and "Borradores en la cola".
-- AC-18-022.4 — THE Inicio SHALL show the factory pulse (Proyectos, FRDs, work orders verificadas) and the "Embudo de ideas" per phase, with the discarded ideas counted apart.
+- **AC-18-022.1** — THE Inicio SHALL arrange its cards in two columns (left: Tu turno, Tu cartera, En marcha; right: Pulso, Gremio, Embudo de ideas, Árboles de trabajo) below the plugin warning, and SHALL put Tu turno first when the layout is one column (below 1024 px).
+- **AC-18-022.2** — EACH Tu turno item SHALL be one line (title, "project · kind · age", its scoped command with copy), and WHEN "Detalles" is activated THE system SHALL open a dialog explaining what it is, what is needed, the recommendation, the context and what the command does.
+- **AC-18-022.3** — THE Inicio SHALL list in-flight work in the "En marcha" card, apart from Tu turno, in collapsible groups: "Construyéndose ahora", "Esperan la revisión de su FRD" and "Borradores en la cola".
+- **AC-18-022.4** — THE Inicio SHALL show the factory pulse (Proyectos, FRDs, work orders verificadas) and the "Embudo de ideas" per phase, with the discarded ideas counted apart.
 
 **Worked example (AC-18-022.2).** A pending decision "2026-10-15-1" of Funko Tracker appears as one line: its title, "Funko Tracker · decisión · hace 6 días", and `/pandacorp:decide 2026-10-15-1` with a copy button. "Detalles" opens the dialog with the recommendation (as text) and a sentence on what the command does.
 

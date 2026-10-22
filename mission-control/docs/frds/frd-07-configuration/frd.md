@@ -33,11 +33,11 @@ The content is read from the factory plugin (`plugin/skills`, `plugin/agents`, `
 
 ### REQ-07-013 — Resumen hub, search, tiers and filters (added 2026-10-22, design freeze)
 
-- AC-07-013.1 — THE Configuración SHALL open on a Resumen that offers one search across skills, agents, rules and standards, four count tiles, and "Tus comandos" (the owner's commands, copied on click).
-- AC-07-013.2 — EACH catalog tab SHALL offer a search, and Habilidades SHALL filter by the chips "Todas · Comandos tuyos · Motores internos" and offer a copy button per row.
-- AC-07-013.3 — THE Agentes tab SHALL group agents by model tier, each group header explaining the tier in one line, and each agent SHALL carry an effort chip.
-- AC-07-013.4 — THE Reglas de decisión tab SHALL filter by the chips "Todas · Automáticas · Requieren tu OK", SHALL mark each rule with its Auto or Tu OK chip, and SHALL list 30 rules at a time with "Mostrar más".
-- AC-07-013.5 — THE Estándares tab SHALL list the Obligatorio standards first in one list, SHALL filter by severity facets and by domain select, and SHALL show each standard's enforcement line under its title.
+- **AC-07-013.1** — THE Configuración SHALL open on a Resumen that offers one search across skills, agents, rules and standards, four count tiles, and "Tus comandos" (the owner's commands, copied on click).
+- **AC-07-013.2** — EACH catalog tab SHALL offer a search, and Habilidades SHALL filter by the chips "Todas · Comandos tuyos · Motores internos" and offer a copy button per row.
+- **AC-07-013.3** — THE Agentes tab SHALL group agents by model tier, each group header explaining the tier in one line, and each agent SHALL carry an effort chip.
+- **AC-07-013.4** — THE Reglas de decisión tab SHALL filter by the chips "Todas · Automáticas · Requieren tu OK", SHALL mark each rule with its Auto or Tu OK chip, and SHALL list 30 rules at a time with "Mostrar más".
+- **AC-07-013.5** — THE Estándares tab SHALL list the Obligatorio standards first in one list, SHALL filter by severity facets and by domain select, and SHALL show each standard's enforcement line under its title.
 
 **Worked example (AC-07-013.4).** The factory has 48 decision rules, 13 of which need the owner's OK. The hub tile reads "13 requieren tu OK"; choosing the chip "Requieren tu OK" lists those 13; choosing "Todas" lists the first 30 and "Mostrar más" reveals the next 18.
 

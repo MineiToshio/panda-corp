@@ -72,7 +72,7 @@ which warns when the **installed plugin** is behind the **plugin source**. They 
   and the readers never throw (DR-078: an explicit `unknown` reason, never a silent fallthrough).
 
 ### REQ-20-004 — Where to run the command (added 2026-10-22, design freeze)
-- AC-20-004.1 — THE upgrade notice SHALL name the project folder where the command runs ("Córrelo en la carpeta de <Proyecto>").
+- **AC-20-004.1** — THE upgrade notice SHALL name the project folder where the command runs ("Córrelo en la carpeta de <Proyecto>").
 
 **Worked example (AC-20-004.1).** PandaSaga is on overlay v8.98.0 and the factory on v8.110.0: the notice reads "Este proyecto usa una versión vieja del motor de Pandacorp", names both versions, shows `/pandacorp:upgrade` with a copy button and the line "Córrelo en la carpeta de PandaSaga". A project on v8.110.0 shows no notice.
 

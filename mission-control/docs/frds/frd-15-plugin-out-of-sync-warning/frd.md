@@ -43,7 +43,7 @@ The banner has one reason that renders: **the installed version is behind the so
 - The check SHALL **not execute anything**: it only reads the two JSON files and shows the command; the owner runs it. Any unreadable/unparseable input yields `unknown` (never a false alarm), and the readers never throw.
 
 ### REQ-15-006 — Sidebar pill (added 2026-10-22, design freeze)
-- AC-15-006.1 — WHILE the installed plugin is behind the source (AC-15-002.1), THE sidebar SHALL show a coral "Plugin desactualizado" pill whose title names both versions ("Instalado 9.140.0 · repositorio 9.141.0") and which links to the banner on Inicio.
+- **AC-15-006.1** — WHILE the installed plugin is behind the source (AC-15-002.1), THE sidebar SHALL show a coral "Plugin desactualizado" pill whose title names both versions ("Instalado 9.140.0 · repositorio 9.141.0") and which links to the banner on Inicio.
 
 **Worked example (AC-15-006.1).** Installed 9.140.0, source 9.141.0: the pill "Plugin desactualizado" shows in the sidebar on every screen and its title reads "Instalado 9.140.0 · repositorio 9.141.0"; activating it opens Inicio, where the banner "El plugin instalado está atrás" shows the command and the two steps ("Corre el comando", "Reinicia la sesión de Claude Code"). Once the installed version catches up, both pill and banner disappear.
 

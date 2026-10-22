@@ -47,10 +47,10 @@ The owner-facing surface of the factory's self-learning loop (DR-047) and the pl
 
 ### REQ-17-011 — Resumen to-do, navigation badge, automatic signals and the lesson flow (added 2026-10-22, design freeze)
 
-- AC-17-011.1 — THE Propuestas page SHALL open on the tab Resumen ("Qué te toca, en orden"): an ordered list of only the actions that need the owner, each with its count, its reason, its command, where to run it and a link to the detail; memory upkeep SHALL read "se revisa sola" while the daily routine is current.
-- AC-17-011.2 — THE Propuestas navigation badge SHALL count the owner's actions, not the proposal items.
-- AC-17-011.3 — THE "Señales automáticas" SHALL be grouped by kind, and a signal that flags most of its population (such as the unused-skills signal) SHALL be marked unreliable.
-- AC-17-011.4 — THE Memoria tab SHALL explain a lesson's four steps and who moves each one, SHALL list the lessons awaiting the owner ("Esperan tu decisión") first, and SHALL keep the candidates collapsed under "no piden nada".
+- **AC-17-011.1** — THE Propuestas page SHALL open on the tab Resumen ("Qué te toca, en orden"): an ordered list of only the actions that need the owner, each with its count, its reason, its command, where to run it and a link to the detail; memory upkeep SHALL read "se revisa sola" while the daily routine is current.
+- **AC-17-011.2** — THE Propuestas navigation badge SHALL count the owner's actions, not the proposal items.
+- **AC-17-011.3** — THE "Señales automáticas" SHALL be grouped by kind, and a signal that flags most of its population (such as the unused-skills signal) SHALL be marked unreliable.
+- **AC-17-011.4** — THE Memoria tab SHALL explain a lesson's four steps and who moves each one, SHALL list the lessons awaiting the owner ("Esperan tu decisión") first, and SHALL keep the candidates collapsed under "no piden nada".
 
 **Worked example (AC-17-011.2).** The factory has 42 automatic signals, 16 promotions awaiting the owner and 24 candidate lessons. They group into 4 actions that need the owner, so the badge reads 4, not 82.
 

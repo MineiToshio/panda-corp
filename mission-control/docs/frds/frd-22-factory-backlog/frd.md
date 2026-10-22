@@ -59,10 +59,10 @@ Surfaces the factory's **actionable work queue** — `factory/backlog/BL-*` (DR-
 - **AC-22-009.2** — An `open`/`doing` item's detail modal SHALL render a `CmdRow` with the item's own targeted command, `/pandacorp:implement-backlog <id>`; a `done` or `discarded` item never shows it (the same actionable set REQ-22-007 uses for the discard action).
 
 ### REQ-22-010 — Priority tiles, topic bars, "Cómo avanzar" and priority groups (added 2026-10-22, design freeze)
-- AC-22-010.1 — WHEN a priority tile (P0, P1 or P2, each with its count) is activated, THE backlog SHALL show only that priority.
-- AC-22-010.2 — WHEN a bar of "Por tema" (the plain-name areas, with merged areas counted together) is activated, THE backlog SHALL show only that topic; "Quitar filtros" SHALL clear the filters and an empty result SHALL read "Nada abierto con este filtro."
-- AC-22-010.3 — THE backlog SHALL show a "Cómo avanzar" card with the whole-queue command first ("Todo de una vez.", with its cost warning) and then the one-at-a-time command ("Uno por uno.", recommended), each with where it runs.
-- AC-22-010.4 — THE open items SHALL be grouped by priority sub-groups (P0 URGENTE, P1 IMPORTANTE, P2 CUANDO HAYA TIEMPO) and paged with "Mostrar N más · quedan M".
+- **AC-22-010.1** — WHEN a priority tile (P0, P1 or P2, each with its count) is activated, THE backlog SHALL show only that priority.
+- **AC-22-010.2** — WHEN a bar of "Por tema" (the plain-name areas, with merged areas counted together) is activated, THE backlog SHALL show only that topic; "Quitar filtros" SHALL clear the filters and an empty result SHALL read "Nada abierto con este filtro."
+- **AC-22-010.3** — THE backlog SHALL show a "Cómo avanzar" card with the whole-queue command first ("Todo de una vez.", with its cost warning) and then the one-at-a-time command ("Uno por uno.", recommended), each with where it runs.
+- **AC-22-010.4** — THE open items SHALL be grouped by priority sub-groups (P0 URGENTE, P1 IMPORTANTE, P2 CUANDO HAYA TIEMPO) and paged with "Mostrar N más · quedan M".
 
 **Worked example (AC-22-010.1, AC-22-010.2).** The backlog has 1 item En curso and 10 Abiertos. Activating the tile "P0" lists only the P0 items; activating the bar "Skills" in "Por tema" as well lists only the P0 items about Skills (the filters combine); "Quitar filtros" restores all 11.
 

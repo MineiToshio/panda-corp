@@ -38,9 +38,9 @@ The **"Documentación"** surface: the navigable face of the factory's know-how i
 
 ### REQ-08-020 — Home, search and reader (added 2026-10-22, design freeze)
 
-- AC-08-020.1 — THE Documentación home SHALL offer "Empieza aquí" (the numbered tutorial path, then "Después, entiende lo esencial"), "Guías para el día a día", and an explore-by-type block (Tutorial · Guías · Conceptos · Workflows) whose Referencia entry points to Configuración.
-- AC-08-020.2 — WHEN the owner searches the Documentación, THE system SHALL list the matching pages from every group, each with a text snippet.
-- AC-08-020.3 — THE reader SHALL show breadcrumbs, a "Paso X de Y" progress bar on tutorial pages, previous/next links within the page's group, and a page index to the RIGHT of the page with its own search, folded behind a control below 900 px.
+- **AC-08-020.1** — THE Documentación home SHALL offer "Empieza aquí" (the numbered tutorial path, then "Después, entiende lo esencial"), "Guías para el día a día", and an explore-by-type block (Tutorial · Guías · Conceptos · Workflows) whose Referencia entry points to Configuración.
+- **AC-08-020.2** — WHEN the owner searches the Documentación, THE system SHALL list the matching pages from every group, each with a text snippet.
+- **AC-08-020.3** — THE reader SHALL show breadcrumbs, a "Paso X de Y" progress bar on tutorial pages, previous/next links within the page's group, and a page index to the RIGHT of the page with its own search, folded behind a control below 900 px.
 
 **Worked example (AC-08-020.3).** The owner opens the third page of a six-page tutorial: breadcrumbs "Documentación › Tutorial › <page>", the bar reads "Paso 3 de 6", "Anterior" and "Siguiente" move within the tutorial group, and the index on the right lists the group's pages with a search box. At 375 px the index is folded behind a button.
 

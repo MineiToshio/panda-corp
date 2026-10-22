@@ -27,9 +27,9 @@ Lets you choose how much power each project is built with, and shows the command
 
 ### REQ-11-005 — Mode cards, scoped target and Campaña entry (added 2026-10-22, design freeze)
 
-- AC-11-005.1 — THE Comandos tab SHALL present the four build modes as selectable cards, each with its icon, its tag (the literal command argument `pro`, `powerful` or `deep`, and "por defecto" for the default), a power meter from 1 to 4 and a hint, with Equilibrado preselected.
-- AC-11-005.2 — WHEN the owner picks a target under "Construir un objetivo concreto" (an FRD, a pending work order or a change from the queue), THE command box SHALL show `/pandacorp:implement` scoped to that target: `/pandacorp:implement <id>` for an FRD or a work order and `/pandacorp:implement change:<id>` for a queued change.
-- AC-11-005.3 — THE Construcción phase sheet in La Campaña (FRD-02) SHALL offer the same mode picker behind "Elegir modo de construcción".
+- **AC-11-005.1** — THE Comandos tab SHALL present the four build modes as selectable cards, each with its icon, its tag (the literal command argument `pro`, `powerful` or `deep`, and "por defecto" for the default), a power meter from 1 to 4 and a hint, with Equilibrado preselected.
+- **AC-11-005.2** — WHEN the owner picks a target under "Construir un objetivo concreto" (an FRD, a pending work order or a change from the queue), THE command box SHALL show `/pandacorp:implement` scoped to that target: `/pandacorp:implement <id>` for an FRD or a work order and `/pandacorp:implement change:<id>` for a queued change.
+- **AC-11-005.3** — THE Construcción phase sheet in La Campaña (FRD-02) SHALL offer the same mode picker behind "Elegir modo de construcción".
 
 **Worked example (AC-11-005.1, AC-11-005.2).** The owner opens Comandos: Equilibrado is selected and the box shows `/pandacorp:implement`. Choosing Potente shows `/pandacorp:implement powerful`. Choosing the queued change "mc-fix-dates" as the target shows `/pandacorp:implement change:mc-fix-dates`. Choosing Equilibrado again drops the mode argument.
 

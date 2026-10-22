@@ -178,11 +178,11 @@ figures, plus a KPI row of FLOW metrics.
 
 ### REQ-10-028 — Resumen, missions, trophies, ranks and stats details (added 2026-10-22, design freeze)
 
-- AC-10-028.1 — THE Logros Resumen SHALL show, in its right column, "Tu siguiente rango" (the current and next emblem, the XP left and how XP is earned), a compact attributes radar naming the strongest and weakest attribute, and the last four trophies.
-- AC-10-028.2 — WITHIN each saga on Misiones, missions SHALL be ordered by closeness to their next tier, with untouched missions (zero progress) last and muted.
-- AC-10-028.3 — THE Trofeos tab SHALL show a conquered bar and the row of Sellos, "Los más alcanzables" (the lowest-rarity locked trophy of each category, three when a category filter is active), and SHALL list the locked trophies of "Por conquistar" 12 at a time.
-- AC-10-028.4 — THE Rangos tab SHALL collapse every era more than one step beyond the current rank into a single row showing its level range and its rank count.
-- AC-10-028.5 — WHERE a counter's event has never been recorded, THE Estadísticas tab SHALL show "sin datos aún" (not 0) with an explanatory line that distinguishes it from "no cableado", and SHALL list phase transitions 10 at a time.
+- **AC-10-028.1** — THE Logros Resumen SHALL show, in its right column, "Tu siguiente rango" (the current and next emblem, the XP left and how XP is earned), a compact attributes radar naming the strongest and weakest attribute, and the last four trophies.
+- **AC-10-028.2** — WITHIN each saga on Misiones, missions SHALL be ordered by closeness to their next tier, with untouched missions (zero progress) last and muted.
+- **AC-10-028.3** — THE Trofeos tab SHALL show a conquered bar and the row of Sellos, "Los más alcanzables" (the lowest-rarity locked trophy of each category, three when a category filter is active), and SHALL list the locked trophies of "Por conquistar" 12 at a time.
+- **AC-10-028.4** — THE Rangos tab SHALL collapse every era more than one step beyond the current rank into a single row showing its level range and its rank count.
+- **AC-10-028.5** — WHERE a counter's event has never been recorded, THE Estadísticas tab SHALL show "sin datos aún" (not 0) with an explanatory line that distinguishes it from "no cableado", and SHALL list phase transitions 10 at a time.
 
 **Worked example (AC-10-028.2).** In a saga with three missions: A at 80% of its next tier, B at 30%, C at 0%. Order: A, B, then C (muted, last).
 

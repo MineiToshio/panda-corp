@@ -35,9 +35,9 @@ The Portafolio overview lists **every** project, whatever its phase (`product`, 
 
 ### REQ-03-008 — Overview cards, list view and project picker (added 2026-10-22, design freeze)
 
-- AC-03-008.1 — THE Portafolio overview SHALL show one card per project, ordered by last commit, each with the project avatar, its phase chip, a six-segment stepper with a tooltip per phase, a progress ring of verified work orders with its tooltip, "Etapa N de 6 del pipeline · último cambio hace …", its counts, and "Siguiente · `<command>`" (the next command, FRD-18 REQ-18-021).
-- AC-03-008.2 — WHEN the owner picks "Lista" in the Tarjetas / Lista switch, THE system SHALL show a comparison table (Fase, FRDs, Docs, ADRs, Cambios abiertos, Decisiones) instead of the cards, SHALL keep the choice in the URL (`view=lista`), and SHALL render one card per row below 1024 px.
-- AC-03-008.3 — WHEN the owner activates "Cambiar de proyecto", THE system SHALL open a dialog (kicker "Portafolio") with a searchable list of projects, in the same order as the overview (last commit first).
+- **AC-03-008.1** — THE Portafolio overview SHALL show one card per project, ordered by last commit, each with the project avatar, its phase chip, a six-segment stepper with a tooltip per phase, a progress ring of verified work orders with its tooltip, "Etapa N de 6 del pipeline · último cambio hace …", its counts, and "Siguiente · `<command>`" (the next command, FRD-18 REQ-18-021).
+- **AC-03-008.2** — WHEN the owner picks "Lista" in the Tarjetas / Lista switch, THE system SHALL show a comparison table (Fase, FRDs, Docs, ADRs, Cambios abiertos, Decisiones) instead of the cards, SHALL keep the choice in the URL (`view=lista`), and SHALL render one card per row below 1024 px.
+- **AC-03-008.3** — WHEN the owner activates "Cambiar de proyecto", THE system SHALL open a dialog (kicker "Portafolio") with a searchable list of projects, in the same order as the overview (last commit first).
 
 **Worked example (AC-03-008.2).** Funko Tracker is building, its last commit was 1 h ago, with 2 open changes and 1 pending decision. In Tarjetas its card reads "Etapa 5 de 6 del pipeline · último cambio hace 1 h". In Lista the same project is one row: Fase "Construcción", Cambios abiertos 2, Decisiones 1. At 768 px the row becomes a card.
 

@@ -60,10 +60,10 @@ The analytical views live in the project-level **"Observabilidad" tab**, the wor
 - **AC-12-005.2** — IF no new event has arrived THEN the views SHALL stay consistent with the freshness indicator of AC-12-001.2 (no fabricated progress).
 
 ### REQ-12-006 — Dependencias levels, focus card, narrow list and legacy link (added 2026-10-22, design freeze)
-- AC-12-006.1 — THE Dependencias view SHALL switch between an FRD-level map ("Por FRD", FRD boxes) and a work-order graph ("Por work order"), and WHEN an FRD title is activated THE system SHALL open that FRD in the work-order graph.
-- AC-12-006.2 — WHEN a work order is focused, THE system SHALL show the card "Work order en foco" with "Depende de · N", "Desbloquea · N" and a link "Abrir work order", and SHALL keep the focus in the URL.
-- AC-12-006.3 — WHERE the viewport is narrower than 900 px, THE dependency map SHALL render as an ordered build list ("Paso N · M work orders") whose FRDs unfold to their work orders.
-- AC-12-006.4 — WHEN a legacy link with `tab=Work orders` opens, THE workspace SHALL show the Observabilidad tab (FRD-05 views).
+- **AC-12-006.1** — THE Dependencias view SHALL switch between an FRD-level map ("Por FRD", FRD boxes) and a work-order graph ("Por work order"), and WHEN an FRD title is activated THE system SHALL open that FRD in the work-order graph.
+- **AC-12-006.2** — WHEN a work order is focused, THE system SHALL show the card "Work order en foco" with "Depende de · N", "Desbloquea · N" and a link "Abrir work order", and SHALL keep the focus in the URL.
+- **AC-12-006.3** — WHERE the viewport is narrower than 900 px, THE dependency map SHALL render as an ordered build list ("Paso N · M work orders") whose FRDs unfold to their work orders.
+- **AC-12-006.4** — WHEN a legacy link with `tab=Work orders` opens, THE workspace SHALL show the Observabilidad tab (FRD-05 views).
 
 **Worked example (AC-12-006.3).** At 375 px the map is a list: "Paso 1 · 1 work order", "Paso 2 · 3 work orders", and so on; unfolding a step shows its FRDs and their work orders. The intro line says "Pulsa una work order para ver de qué depende y qué desbloquea."
 

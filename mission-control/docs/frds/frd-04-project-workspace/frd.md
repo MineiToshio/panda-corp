@@ -33,14 +33,14 @@ On opening a project from the Portafolio, its workspace: a **tabs-first** surfac
 
 ### REQ-04-014 — Workspace header, Resumen and Documentos (added 2026-10-22, design freeze)
 
-- AC-04-014.1 — THE workspace SHALL show the full project hero on Resumen only, and on every other tab a one-line header (initials, name, phase, "n/m WO · pct", a compact stepper, "Cambiar proyecto").
-- AC-04-014.2 — EACH workspace tab with countable content SHALL show its count as a badge on the tab.
-- AC-04-014.3 — THE Resumen SHALL show four key tiles (avance, falta, cambios abiertos, último movimiento) and the next step with its copyable command ("Siguiente paso").
-- AC-04-014.4 — THE Resumen SHALL list each FRD in "Avance por FRD" with a stacked work-order state bar and n/m, with unfinished FRDs first.
-- AC-04-014.5 — THE Resumen SHALL list the project's decisions with a "Resuelta" or "Pendiente" chip, SHALL open each one in a decision dialog (the recommendation as text), and SHALL flag a pending entry whose file already records a resolution as "ya resuelta en el archivo".
-- AC-04-014.6 — THE Resumen SHALL show the project's own "Tu turno" items, and SHALL place them first when the layout is a single column (below 1024 px).
-- AC-04-014.7 — THE Resumen SHALL build "Últimos avances" only from verified work orders and filed or started changes, each line with an icon, a status label and a date, and SHALL keep the raw engine log collapsed as "Bitácora técnica del motor".
-- AC-04-014.8 — THE Documentos tab SHALL order its index by purpose, filter it by document type (chips with counts) and by search, render the open document as typed paper (type chip, path, copy), and SHALL place the index to the RIGHT of the reader, folded behind the button "Elegir documento · N" (N = the number of documents) below 900 px.
+- **AC-04-014.1** — THE workspace SHALL show the full project hero on Resumen only, and on every other tab a one-line header (initials, name, phase, "n/m WO · pct", a compact stepper, "Cambiar proyecto").
+- **AC-04-014.2** — EACH workspace tab with countable content SHALL show its count as a badge on the tab.
+- **AC-04-014.3** — THE Resumen SHALL show four key tiles (avance, falta, cambios abiertos, último movimiento) and the next step with its copyable command ("Siguiente paso").
+- **AC-04-014.4** — THE Resumen SHALL list each FRD in "Avance por FRD" with a stacked work-order state bar and n/m, with unfinished FRDs first.
+- **AC-04-014.5** — THE Resumen SHALL list the project's decisions with a "Resuelta" or "Pendiente" chip, SHALL open each one in a decision dialog (the recommendation as text), and SHALL flag a pending entry whose file already records a resolution as "ya resuelta en el archivo".
+- **AC-04-014.6** — THE Resumen SHALL show the project's own "Tu turno" items, and SHALL place them first when the layout is a single column (below 1024 px).
+- **AC-04-014.7** — THE Resumen SHALL build "Últimos avances" only from verified work orders and filed or started changes, each line with an icon, a status label and a date, and SHALL keep the raw engine log collapsed as "Bitácora técnica del motor".
+- **AC-04-014.8** — THE Documentos tab SHALL order its index by purpose, filter it by document type (chips with counts) and by search, render the open document as typed paper (type chip, path, copy), and SHALL place the index to the RIGHT of the reader, folded behind the button "Elegir documento · N" (N = the number of documents) below 900 px.
 
 **Worked example (AC-04-014.5).** `decisions.md` still lists "2026-10-15-1" under its pending heading, but the entry itself already records a resolution. The Resumen shows that decision as "Resuelta" with the note "ya resuelta en el archivo", and it is not counted among the pending decisions (the `readDecisions` fix of the 2026-10-21 scope decision).
 
