@@ -13,8 +13,9 @@ reopen_count: 0
 artifacts:
   - 'src/app/projects/[slug]/_panels/ResumenPanel.tsx'
   - 'src/app/projects/[slug]/_components/{tab-summary,version-freshness,ProgressList}/**'
+  - 'e2e/resumen.spec.ts'
 source_requirements: [REQ-04-004, REQ-04-005, REQ-04-014, REQ-06-020, REQ-20-001, REQ-20-002, REQ-20-003, REQ-20-004]
-dependsOn: [WO-04-010, WO-06-013, WO-14-005, WO-04-013, WO-20-001, WO-18-002]
+dependsOn: [WO-04-010, WO-06-013, WO-14-005, WO-04-013, WO-20-001, WO-18-002, WO-12-007]
 last_updated: 2026-10-22
 ---
 
@@ -35,14 +36,23 @@ notice is folded here (DR-100 fold).
 
 - `CMP-04-resumen` (`_panels/ResumenPanel.tsx` + `_components/tab-summary/`): composition in the drawn order;
   reads `project` (the `WorkspaceProject` of WO-04-010) for counts, next step and liveness, and loads the rest
-  through `src/lib` readers.
+  through `src/lib` readers. It renders no `<main>`: the shell's `main#content` is the page's only main
+  landmark (AC-19-001.5, REQ-13-009); tests that queried `getByRole("main")` in `tab-summary/_tests/` are
+  updated here.
 - Upgrade notice (`CMP-20-upgrade-notice`, `_components/version-freshness/`): `VersionFreshness` restyled as a
   consumer of `Notice` (amber, accessible name «Actualización pendiente», alert icon) + `CommandBox`
-  (`/pandacorp:upgrade`) + «Córrelo en la carpeta de <Proyecto>»; detail names both versions, with the
-  `workspace.resumen.upgrade.bodyBuilding` variant while the build is live; verdict from
-  `getOverlayFreshness` (WO-20-001); `up-to-date` and `unknown` render nothing.
+  (`/pandacorp:upgrade`) + «Córrelo en la carpeta de <Proyecto>»; the detail is the drawn body of
+  `overlay-behind` naming both versions, whether or not a build is live (no separate while-building wording
+  is drawn, so none is built; reconciliation 2026-10-22); verdict from `getOverlayFreshness` (WO-20-001);
+  `up-to-date` and `unknown` render nothing.
 - «Siguiente paso:» line from `project.nextStep` (sentence + `CommandBox`), omitted when there is no command.
-- La Fragua: mounts `FraguaScene` (WO-06-013) first in the panel body after the two lines above.
+- La Fragua: mounts `FraguaScene` (WO-06-013) first in the panel body after the two lines above, as
+  `FraguaScene({ project, openChanges, ownerPending, lastActivityAt, frds })` with
+  `project.counts.openChanges` (`countOpenChanges`), this project's `ownerTurnItems({ project }).count`
+  (WO-18-002), `project.lastMove` (WO-03-007's `getLastCommit()`) and `listProjectFrds()` (WO-12-007): the
+  single resolvers AC-06-020.2 («Espera tu decisión», «En pausa»), AC-06-020.4 (FRD title in the token card)
+  and AC-06-020.7 (foot chips) read; the scene derives none of them itself.
+- «Avance por FRD» names FRDs through `listProjectFrds()` (one FRD index, DR-115).
 - Snapshot: mounts `SnapshotPanel` (WO-14-005) between La Fragua and the columns, passing the project name,
   the folder, the `buildSnapshot` result, the `readSnapshotGap` result and the no-signal age from the shared
   liveness module; rendered only while a build is running and a `last_green_sha` exists.
@@ -57,16 +67,17 @@ notice is folded here (DR-100 fold).
   decision dialog (kicker «Decisión · <Proyecto>», title, status/project/date chips, the sentence on what the
   capture holds, the recommendation as text only, the scoped `/pandacorp:decide <id>` command, «Abrir
   <Proyecto>»); no approve affordance.
-- Project «Tu turno»: the project's items from `ownerTurnItems()` (WO-18-002, filtered to this project:
-  pending decisions with `/pandacorp:decide <id>` and an age hint, ready changes with
+- Project «Tu turno»: the project's items from `ownerTurnItems({ project })` (WO-18-002, filtered to this
+  project, engine-log entries excluded through `isEngineLogEntry`: pending decisions with
+  `/pandacorp:decide <id>` and an age hint, ready changes with
   `/pandacorp:implement change:<id>`), rendered with the shared `AskRow` (`src/components/dashboard/TuTurno/`,
-  WO-18-002) and its «Detalles» dialog; count pill; the `workspace.resumen.turn.empty` sentence when empty;
+  WO-18-002) and its «Detalles» dialog; count pill; the `workspace.resumen.turn.empty` sentence when empty (drawn in FRD-06's captured states);
   placed first in the single-column layout below 1024 px.
 - `CMP-04-progress-list` (`_components/ProgressList/`): «Últimos avances» from verified work orders (build
   track end times grouped by day, «N work orders verificadas» + the FRD codes) and changes with a date
   (status label from the `workspace.resumen.progress.change*` keys, e.g. «Listo para construir»,
   «Terminado»), newest first, six lines, each with icon, status label, subject and absolute date; change lines
-  open the change in the Cambios tab; the `workspace.resumen.progress.empty` sentence when none. Dates compared
+  open the change in the Cambios tab; the `workspace.resumen.progress.empty` sentence when none (drawn in FRD-06's captured states). Dates compared
   with `Date.parse` (LESSON-0009).
 - «Bitácora técnica del motor»: native `details`, collapsed, count pill, «Notas en crudo del build», entries from
   `readActivityLog`; omitted when there are none.
@@ -99,7 +110,7 @@ REQ-04-004, REQ-04-005, REQ-04-014 (Resumen), FRD-06 REQ-06-020, FRD-20 REQ-20-0
   "Este proyecto usa una versión vieja del motor de Pandacorp", a detail naming both versions, and the copyable
   `/pandacorp:upgrade` command.
 - **AC-20-001.2** — **Out of v2 (owner decision 2026-10-21):** IF the project's `overlay_version` **equals or is newer than** the factory's,
-  Mission Control SHALL show the ok badge ("al día") with **no** command row. In v2, the same condition shows nothing.
+  Mission Control SHALL show the ok badge ("al día") with **no** command row. In v2, the same condition shows nothing. (drawn in FRD-18's captured states)
 - **AC-20-001.3** — IF either version is missing or unparseable, Mission Control SHALL treat the
   state as `unknown` and show **nothing** (no false alarm).
 - **AC-20-002.1** — The warn notice SHALL show the **command to copy** `/pandacorp:upgrade`.
@@ -126,7 +137,8 @@ leaves La Fragua static (WO-06-013); the panel never writes and never runs a com
   `#project-summary`, `#project-summary-funko`, `#project-summary-decisions`, `#project-decision-dialog`,
   `#project-snapshot`; `docs/frds/frd-20-overlay-freshness/mocks/overlay-freshness.html#overlay-behind`.
   Oracle states: `project-summary`, `project-summary-funko`, `project-summary-decisions`,
-  `project-decision-dialog`, `project-snapshot`, `overlay-behind`.
+  `project-decision-dialog`, `project-snapshot`, `overlay-behind`, and the scenario state `resumen-no-frds`
+  («Aún no hay FRDs publicados.», reproduced from its `oracle-recipes.json` double).
 - **Token slice:** card surface `--surface` / `--line` / `--r-lg`, `--shadow`; hues `--amber` (notice,
   decisions, Tu turno), `--violet` (Avance por FRD), `--teal` (Últimos avances), `--slate` (Bitácora),
   `--green`/`--pink`/`--blue` (progress lines) with `--tint`/`--tint-strong`; `--fs-h3` card titles,
@@ -149,7 +161,11 @@ components.md row `ProgressList`. Installs: none.
   `2026-07-01-1` shape, an engine-log entry, a legacy heading; a change queue with every status; a build track
   with verified work orders), plus a malformed `decisions.md`/queue that must show the error state.
 - Panel test: drawn order, Tu turno first in the single-column order, snapshot only while running with a green
-  SHA, notice only when behind.
+  SHA, notice only when behind, `FraguaScene` receives the four facts from the shared resolvers.
+- `e2e/resumen.spec.ts` (the behaviour spec of the Resumen and of La Fragua inside it, because WO-06-013 has
+  no route before this mount; reconciliation 2026-10-22): scene present at the head of Resumen, four stations,
+  token card on focus, idle line, no control in the scene; the decision dialog opens and returns focus.
+  `gotoHydrated`, `getByRole` first, no hard waits.
 - **Derogated tests (map §3.3):** implementer-authored, rewritten or deleted here:
   `tab-summary/_tests/tab-summary.test.tsx`, `tab-summary.wo04005.test.tsx`,
   `tab-summary.markdown-and-deploy.test.tsx` (deploy row removed: deleted), `PendingMergeBlock.test.tsx`
@@ -162,7 +178,7 @@ components.md row `ProgressList`. Installs: none.
 
 WO-04-010 (panel contract, `WorkspaceProject`), WO-06-013 (`FraguaScene`), WO-14-005 (`SnapshotPanel`,
 `readSnapshotGap`), WO-04-013 (`resolvedInFile`, `isEngineLogEntry`), WO-20-001 (verdict), WO-18-002
-(`AskRow`, `ownerTurnItems()`).
+(`AskRow`, `ownerTurnItems({ project })`), WO-12-007 (`listProjectFrds()`).
 
 ## Definition of done
 

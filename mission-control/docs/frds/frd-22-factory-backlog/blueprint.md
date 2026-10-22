@@ -122,8 +122,16 @@ FDD: [`fdd.md`](fdd.md). Mock: `mocks/factory-backlog.html` (shard drawn from th
 `mocks/screenshots/`. Oracle states of this FRD's gate (`docs/design/prototype/reference/oracle-states.json`,
 recipes in `oracle-recipes.md`): `backlog`, `backlog-priority-filter`, `backlog-area-filter`,
 `backlog-item-dialog`, `backlog-discard-confirm`, `backlog-history-open`, `backlog-errors` (the last one is the
-fixture overlay with a malformed card and a duplicate `BL-0013`). Assets: icons only, through `Icon`; no image,
-no new font. The panel keeps `data-testid="backlog-panel"` (the persistent-navigation spec asserts it).
+fixture overlay with a malformed card and a duplicate `BL-0013`), plus the scenario state `backlog-open-empty`
+(«Nada abierto con este filtro.», build-side double in `oracle-recipes.json`). Assets: icons only, through
+`Icon`; no image, no new font. The panel keeps `data-testid="backlog-panel"` (the persistent-navigation spec
+asserts it).
+
+**Reconciliation (2026-10-22, binding).** WO-22-002 depends on WO-25-001 (wave unchanged, W3) and updates the
+backlog steps of the split `e2e/persistent-navigation/proposals.spec.ts` (WO-17-008 updates its tab steps in W4)
+and `BacklogPanel/_tests/persistentNavigation.test.tsx`. The core `StateTile` lives in
+`src/components/core/StateTile/` (created here, reused by WO-05-008). `MoreBar`'s paged rule (`step` =
+`2 × pageSize`) is WO-13-011's.
 
 ## Dependencies & Risks
 
@@ -150,7 +158,7 @@ FRD-17 import it), LESSON-0185 (the behaviour e2e spec avoids `networkidle` and 
 | WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
 |---|---|---|---|---|
 | WO-22-001 | — | `src/lib/backlog/**` | false | W0; none inside this FRD |
-| WO-22-002 | WO-22-001, WO-13-012 | `src/app/proposals/_components/{BacklogPanel,AreaBar}/**`, `src/app/proposals/_actions/**`, `src/components/core/StateTile/**`, `e2e/backlog.spec.ts`, `e2e/fixtures/factory-root/factory/backlog/BL-90*.md` | false | W3; none inside this FRD |
+| WO-22-002 | WO-22-001, WO-13-012, WO-25-001 | `src/app/proposals/_components/{BacklogPanel,AreaBar}/**`, `src/app/proposals/_actions/**`, `src/components/core/StateTile/**`, `e2e/backlog.spec.ts`, `e2e/fixtures/factory-root/factory/backlog/BL-90*.md`, `e2e/persistent-navigation/proposals.spec.ts` | false | W3; none inside this FRD |
 
 - **Order and integration.** WO-22-001 first (a W0 lane: the reader, the area helpers and the reason-aware
   write, no UI). WO-22-002 builds the tab on top; WO-17-008 (FRD-17, W4) then mounts `BacklogPanel` inside the

@@ -142,6 +142,16 @@ no URL write runs a mutation.
   `#portfolio-accounts-filter`, `#portfolio-accounts-dialog`, `#accounts-source-error` (FDD-26); assets: none
   beyond the exported icons.
 
+## Reconciliation (2026-10-22, binding)
+
+- WO-04-010 mounts `ProjectAccounts` in the workspace Cuentas panel, reads `projectServiceRows(...).length` for
+  the tab badge, and deletes the transitional `ServicesDirectory` facade (`ServicesDirectory.tsx`, `copy.ts`, its
+  test) once `ProjectWorkspace.tsx` and `tabbar.tsx` stop importing it (W5); WO-03-007 deletes `PortfolioViews.tsx`
+  (W4). WO-26-001 keeps both compiling in W3.
+- The uncaptured states are now captured (`accounts-project-empty`, `portfolio-accounts-nomatch`,
+  `accounts-dialog-unlinked`, lead commit 0e6b7191) and cited by WO-26-001. `accounts-source-error` still needs a
+  reader-level injection in the close-out harness (lead item).
+
 ## Superseded (v1 history)
 
 `work-orders.md` (SVC-01 to SVC-04, the 2026-10-20 attended delivery slices) is kept as delivery history;

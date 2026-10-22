@@ -58,6 +58,9 @@ surface shares. Owner-bundled fix (PRD v2 «Bundled fixes» 2), no queue card.
   fixture and expected ids are not edited.
 - Rendering (WO-04-011, WO-18-002, WO-19-003 consume these).
 - Owner-pending change counts (ready/draft only, REQ-04-010): not this function.
+- The optional `ask` / `context` fields of `DecisionPoint` for Inicio's «Detalles» dialog: WO-18-002 adds them
+  to `activity.ts` in W5 (one writer per file per wave); this work order does not. A decision resolved in its
+  own file keeps `resolved: true` (so `countPendingDecisions` and `ownerTurnItems()` exclude it).
 
 ## Requirements & Acceptance Criteria
 

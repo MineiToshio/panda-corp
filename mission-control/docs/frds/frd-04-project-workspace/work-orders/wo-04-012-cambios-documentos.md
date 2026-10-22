@@ -44,7 +44,8 @@ paper at full width, the index on the right from 900 px and behind «Elegir docu
   construcción, Cerrando, Borradores), En construcción and Cerrando never hidden behind the history; done and
   discarded together in one collapsed `details` «Historial N»; each item a `ListRow` (type icon tile, title,
   «slug · fecha · frd», kind chip «Cambio» / «Bug», status chip with its word); «Pedir un cambio» card with
-  `/pandacorp:change`; the `workspace.cambios.empty` sentence when the queue is empty.
+  `/pandacorp:change`; the `workspace.cambios.empty` sentence when the queue is empty. Renders no `<main>`
+  (the shell's `main#content` is the only one).
 - Card date (REQ-04-011): absolute Spanish date («19 oct. 2026») with the raw ISO date as tooltip; an
   unparseable date shown raw in the same slot; through the shared date formatter of the copy layer (ledger
   request to WO-13-010). The relative `formatChangeDate` goes.
@@ -63,8 +64,13 @@ paper at full width, the index on the right from 900 px and behind «Elegir docu
   success the dialog closes and the item leaves the default view (`revalidatePath`), on an expected failure the
   confirm shows the domain message inline and stays open; the action authorizes nothing beyond the bounded
   write (local single-operator app) and never touches a sibling file.
-- `CMP-04-documents` (`_panels/DocumentosPanel.tsx`, `_components/tab-documents/`): the shared `DocIndex` and
-  `Paper` (WO-08-003): purpose groups (Producto, Arquitectura y decisiones, one group per FRD module «FRD-NN
+- `readChangeQueue()` keeps its item fields `id`, `title` and `status` (names and meaning) unchanged in this
+  wave: WO-11-004 (same wave W6) builds the «Cambio · title» targets and `change:<id>` commands from them
+  (AC-11-005.2); additions are optional fields only.
+- `CMP-04-documents` (`_panels/DocumentosPanel.tsx`, `_components/tab-documents/`): the shared `DocIndex` /
+  `DocItem` and `Paper` (WO-08-003, `src/components/modules/DocumentReader/`) consumed exactly as the FRD-08
+  blueprint specifies them (`IF-08-doc-index`: `groups`, `query`, `onQuery`, optional `typeFilters`,
+  `toggleLabel`; `IF-08-paper`: `type`, `path`, children); no fork: purpose groups (Producto, Arquitectura y decisiones, one group per FRD module «FRD-NN
   <title>», Diseño, Analítica, Revisiones, Work orders), type `FilterChip`s with counts («Todos» first), search
   by name («Buscar documento…»), the index to the RIGHT of the reader from 900 px and folded behind the
   `aria-expanded` button «Elegir documento · N» (N = number of documents) below; the open document as `Paper`
@@ -113,7 +119,10 @@ is a real button with `aria-expanded`; state chips carry words; no horizontal ov
 - **Mock screens:** `docs/frds/frd-04-project-workspace/mocks/project-workspace.html` sections
   `#project-changes`, `#project-change-dialog`, `#project-change-discard`, `#project-change-rebuilds`,
   `#project-documents`, `#project-documents-search`, `#project-documents-index-open`. Oracle states with the
-  same ids.
+  same ids, plus the scenario states `changes-empty` («No hay cambios abiertos en la cola.»),
+  `documents-empty` («No hay documentos publicados para este proyecto.») and `document-empty-body` («Documento
+  vacío.»), each reproduced from its `docs/design/prototype/reference/oracle-recipes.json` double in this work
+  order's tests and at the close-out Visual QA.
 - **Token slice:** `--surface`, `--line`, `--surface-3` (selected `FilterChip`), hues `--pink` (Cambios,
   change kind), `--blue` (En construcción), `--amber` (Cerrando, warning), `--slate` (Borradores, Historial),
   `--green` (Hechos), `--coral` (Bug, error banner) with `--tint`/`--tint-strong`; `--r-lg` cards, `--r-xl`

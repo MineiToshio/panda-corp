@@ -13,7 +13,7 @@ three v1 work orders are superseded.
 
 | WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
-| WO-03-007 | portafolio-overview | PLANNED | WO-13-012, WO-25-001, WO-26-001, WO-01-010, WO-01-004 | Every project once, ordered by last commit: `ProjectCard`, Lista, the Tarjetas / Lista / Cuentas switch mounting the global directory, the project picker, the empty, missing-folder and no-signal states, the unknown-project card; removes the rail. |
+| WO-03-007 | portafolio-overview | PLANNED | WO-13-012, WO-25-001, WO-26-001, WO-01-010, WO-01-004, WO-04-013, WO-06-013 | Every project once, ordered by last commit: `ProjectCard`, Lista, the Tarjetas / Lista / Cuentas switch mounting the global directory, the project picker, the empty, missing-folder and no-signal states, the unknown-project card; removes the rail. |
 
 > **Depends on** mirrors the work order's `dependsOn` frontmatter (DR-087).
 

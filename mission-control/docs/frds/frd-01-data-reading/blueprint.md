@@ -289,6 +289,16 @@ correction (the events reader is REQ-01-008).
 - **Visual spec.** None: FRD-01 has no screen (the onboarding gate keeps its v1 look until the shell WOs
   restyle it through the tokens; its oracle states, if any, belong to FRD-19).
 
+## Reconciliation (2026-10-22, binding)
+
+- WO-01-010's fixture git table also answers the FRD-21 worktree families (including the `pandasaga` failure of
+  `worktrees-unreadable`) and the FRD-14 snapshot gap queries (`project-snapshot`, `project-snapshot-stale`); a
+  command the table cannot answer is a gap in the consumer's reader contract, never a reason to mock a reader.
+- Every v2 work order that reads time or git imports `now()` from `@/lib/clock/clock` and `runGit()` from
+  `@/lib/git/git`; none adds `child_process` or a zero-argument `Date` (WO-01-011's boundary test).
+- `accounts-source-error` (FRD-26) cannot be replayed from files; the close-out Visual QA needs a reader-level
+  injection around `getServicesDirectory()` (lead / oracle-harness item, not a work order of this FRD).
+
 ## Superseded (v1 history)
 
 None: all ten v1 work orders (WO-01-000 to WO-01-009) stay live. Their acceptance bullets are rewritten as

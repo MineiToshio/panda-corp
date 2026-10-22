@@ -21,7 +21,7 @@ artifacts:
   - 'e2e/cuentas.spec.ts'
   - 'e2e/persistent-navigation.spec.ts'
 source_requirements: [REQ-03-001, REQ-03-002, REQ-03-003, REQ-03-004, REQ-03-005, REQ-03-006, REQ-03-007, REQ-03-008, REQ-03-009]
-dependsOn: [WO-13-012, WO-25-001, WO-26-001, WO-01-010, WO-01-004]
+dependsOn: [WO-13-012, WO-25-001, WO-26-001, WO-01-010, WO-01-004, WO-04-013, WO-06-013]
 last_updated: 2026-10-22
 ---
 
@@ -54,15 +54,22 @@ last-sync chip, the rail decision / bug / rethink chips, the business-snapshot p
   - `phase?` and `stageIndex` (`product` 2, `design` 3, `architecture` 4, `implementation` 5, `release` 6;
     stage 1, Investigación, is complete for any existing project; `phase` undefined when neither source
     supplies one, and the stepper then shows every segment pending).
-  - `build`: `idle`, `live` or `noSignal` with the last signal, from `status.running` and the freshness of
-    `lib/status/liveness` (the same resolver Inicio and La Fragua use; never stale shown as live).
-  - `lastCommit`: `{ at }` or `{ at: null, reason: "no-repository" | "unreadable" }`, read through
-    `runGit` (WO-01-010) with `cwd` the project folder; never silently empty.
+  - `build`: the value of `buildSignal()` (`src/lib/fragua/build-signal.ts`, WO-06-013): `idle`, `live` or
+    `noSignal` with the last signal age (the one resolver Inicio, La Fragua, the workspace hero and this card
+    share, AC-06-019.7; never stale shown as live); the card renders it through the restyled
+    `FreshnessBadge` (WO-06-013).
+  - `lastCommit`: `{ at }` or `{ at: null, reason: "no-repository" | "unreadable" }` from the callable
+    resolver `getLastCommit(projectPath)` (`src/lib/portfolio/lastCommit.ts`, `React.cache`, `runGit`
+    (WO-01-010) `log -1 --format=%cI` with `cwd` the project folder; never silently empty). It is published
+    for every other surface that shows the project's last movement: the workspace hero and «último
+    movimiento» (WO-04-010) and La Fragua's foot chip (passed by WO-04-011); nobody calls git for it again.
   - `pathMissing`: the existence flag inverted; the row is kept, never dropped.
   - `counts`: `ordersVerified`, `ordersTotal` (`listWorkOrders` / `aggregateProgress`), `frds` and `docs`
-    (the same list the Documentos tab shows, `listProjectDocs`), `adrs`, `openChanges` (`readChangeQueue`
-    items not done or discarded), `pendingDecisions` (`readStatusWithLiveInboxCounts`). `null` when the
-    folder is missing (nothing can be read honestly).
+    (the same list the Documentos tab shows, `listProjectDocs`), `adrs`, `openChanges` (the value of
+    `countOpenChanges(projectPath)`, `src/lib/changes/openChanges.ts`, WO-04-013: the one open-changes count;
+    no second filter over `readChangeQueue` here), `pendingDecisions` (`readStatusWithLiveInboxCounts`).
+    `null` when the folder is missing or the source failed (nothing can be read honestly). The sidebar's
+    «<Fase> · <pct>%» (WO-19-003) reads `phase` and `ordersVerified` / `ordersTotal` from this item.
   - `nextCommand`: FRD-18 REQ-18-021, derived from the phase and never from a fixture: an
     `implementation` project with any work order not verified maps to `/pandacorp:implement`; a `release`
     project to `/pandacorp:review-launch`; otherwise the phase's natural next step (`nextStep({ phase })`).
@@ -109,9 +116,10 @@ the running claim is not live, «Sin señal · último evento hace …» (REQ-03
 gone); «Siguiente · `<command>`». The whole card is one link to the workspace. The **missing-folder** card
 (`article.proj-card.is-missing`, coral tint) keeps its title as the only link and shows the `Notice`
 «Ruta no encontrada» with the sentence and two `CommandBox`es, `git clone <repo> <path>` then
-`/pandacorp:sync-portfolio`; with no `repo` the warning (reported: the FRD wording and the catalogue's
-`inicio.pathMissing.bodyNoRepo` differ and the state is not captured; the catalogue key is used). Counts
-and age are omitted when the folder is missing. Detection is read-only: the app never clones, writes the
+`/pandacorp:sync-portfolio`; with no `repo` the same drawn title and body are kept and only the
+`/pandacorp:sync-portfolio` command box is shown (no clone command can be built); the dedicated no-remote
+sentence is drawn in no state of the prototype, so it is not built (design item, reconciliation 2026-10-22).
+Counts and age are omitted when the folder is missing. Detection is read-only: the app never clones, writes the
 portfolio or calls Claude.
 
 **`ProjectSwitcher` (`src/components/modules/ProjectSwitcher/`).** Props `{ projects: ProjectOverviewItem[];
@@ -132,7 +140,8 @@ focus returns to the button; a row navigates to that project's workspace. WO-04-
 - Remove the rail decision / bug / rethink chips (AC-14-003.1, AC-14-003.2), the invalid-date chip and the
   business snapshot; nothing is kept behind a flag (PRD A-2).
 - `ProjectListItem.snapshot` and `.lastSync` lose their only readers here; their removal touches fixtures in
-  other FRDs' tests and is left to the dead-code sweep (reported), not done silently.
+  other FRDs' tests, so WO-13-013 (W7) removes both fields and fixes those fixtures (reconciliation
+  2026-10-22); this work order only stops reading them.
 
 ## Out of Scope
 
@@ -206,7 +215,7 @@ None.
 - Copy keys: `portafolio.*`, `dialogs.projectPicker.*`, `inicio.pathMissing.*`, `inicio.firstProject.*`,
   `common.build.*`, `common.relativeTime.*`, `workspace.hero.switcher.*`, `shell.projects.toggleTitle`.
   The button «Cambiar proyecto» is drawn in FRD-04's `project-summary` state (the picker states of this FRD
-  show the dialog it opens); the no-remote warning is not drawn in any captured state (key only, reported).
+  show the dialog it opens); the no-remote sentence is drawn nowhere and is not built (design item).
 
 ## Tests this WO owns
 
@@ -255,7 +264,8 @@ None.
 ## Dependencies
 
 WO-13-012 (primitives), WO-25-001 (codec, normalizer, keys), WO-26-001 (`AccountsDirectory`), WO-01-010
-(`runGit`, `now`), WO-01-004 (`readPortfolio`). Consumers: WO-04-010 (mounts `ProjectSwitcher`, reads the
+(`runGit`, `now`), WO-01-004 (`readPortfolio`), WO-04-013 (`countOpenChanges`), WO-06-013 (`buildSignal()`,
+`FreshnessBadge`). Consumers: WO-04-010 (mounts `ProjectSwitcher`, reads the
 overview for the hero), WO-18-002 (`ProjectCard` compact, `FirstProjectCard`), WO-19-003 (sidebar projects).
 
 ## Status Note

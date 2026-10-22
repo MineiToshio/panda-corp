@@ -97,7 +97,9 @@ named «Copiar <comando>»; `role="status"` on the notice; one column at every w
 - **Mock screens:** `docs/frds/frd-14-snapshot-and-feedback/mocks/snapshot-and-feedback.html` sections
   `#project-snapshot`, `#project-snapshot-stale`, `#build-no-signal` (the same panel also appears in
   `docs/frds/frd-04-project-workspace/mocks/project-workspace.html#project-snapshot`). Oracle states:
-  `project-snapshot`, `project-snapshot-stale`, `build-no-signal`.
+  `project-snapshot`, `project-snapshot-stale`, `build-no-signal`, and the scenario state `snapshot-unsafe`
+  («Aún no es seguro» when `safe_to_test` is false, reproduced from its
+  `docs/design/prototype/reference/oracle-recipes.json` double).
 - **Token slice:** `--surface`, `--line`, `--r-lg`, `--shadow`; `--green` (card tone, pill), `--amber`
   (stale pill and notice), `--blue` (building-now line), `--coral` (no-signal line) with
   `--tint`/`--tint-strong`; `--font-mono` for the SHA and the command; `--fs-sm` intro, `--fs-h3` title.

@@ -9,9 +9,9 @@ foundation: false
 implementation_status: PLANNED
 difficulty: medium
 reopen_count: 0
-artifacts: ["src/app/proposals/_components/{BacklogPanel,AreaBar}/**", "src/app/proposals/_actions/**", "src/components/core/StateTile/**", "e2e/backlog.spec.ts", "e2e/fixtures/factory-root/factory/backlog/BL-90*.md"]
+artifacts: ["src/app/proposals/_components/{BacklogPanel,AreaBar}/**", "src/app/proposals/_actions/**", "src/components/core/StateTile/**", "e2e/backlog.spec.ts", "e2e/fixtures/factory-root/factory/backlog/BL-90*.md", "e2e/persistent-navigation/proposals.spec.ts"]
 source_requirements: [REQ-22-001, REQ-22-003, REQ-22-004, REQ-22-005, REQ-22-006, REQ-22-007, REQ-22-009, REQ-22-010]
-dependsOn: [WO-22-001, WO-13-012]
+dependsOn: [WO-22-001, WO-13-012, WO-25-001]
 last_updated: '2026-10-22'
 ---
 
@@ -130,8 +130,9 @@ None.
   `backlog-history-open`, `backlog-errors`; screenshots in `mocks/screenshots/<id>-<width>-<theme>.jpg`
   (375/768/1280, light and dark; the two dialogs at 375 and 1280).
 - **Oracle states** (`docs/design/prototype/reference/oracle-states.json`, recipes in `oracle-recipes.md`,
-  frd slug `frd-22-factory-backlog`): the same seven ids; `backlog-errors` is the fixture overlay with a
-  malformed card and a duplicate `BL-0013`. Keep the prototype's recorded classes and hooks (`.state-strip`,
+  frd slug `frd-22-factory-backlog`): the same seven ids plus `backlog-open-empty` («Nada abierto con este
+  filtro.», scenario state reproduced from its `oracle-recipes.json` double); `backlog-errors` is the fixture
+  overlay with a malformed card and a duplicate `BL-0013`. Keep the prototype's recorded classes and hooks (`.state-strip`,
   `.state-tile`, `.area-bars`, `.area-bar`, `.bl-row`, `.band-sub`, `.morebtn`) on those elements.
 - **Token slice:** `--tint-strong` and the hue tokens of coral (P0, bug, error), amber (P1), slate (P2, plain
   chips), blue (Abiertos, Por tema, Mejora), violet (En curso, Cómo avanzar), green (history); `--surface`,
@@ -162,13 +163,18 @@ builders; no whole-component snapshots.
   the FRD gate's reviewer; WO-17-008 owns the page-level tests of the same folder.
 - Visual baselines of `/proposals` are derogated by WO-19-002 and again here; implementers never touch
   `e2e/visual.spec.ts-snapshots/**` (the reviewer re-blesses at the close-out).
-- `e2e/persistent-navigation.spec.ts` keeps asserting `proposals-tab-backlog`, `proposals-tab-memoria` and
-  `backlog-panel`: the `data-testid` of the panel root is part of this work order's contract.
+- `backlog-panel` (the `data-testid` of the panel root) is part of this work order's contract. The split oracle
+  files created by WO-25-001 (W0) are updated here where the Órbita panel breaks them (BL-0051): the backlog
+  read-only detail steps of `e2e/persistent-navigation/proposals.spec.ts` (WO-17-008 updates the tab steps of the
+  same file in W4) and `BacklogPanel/_tests/persistentNavigation.test.tsx` (the completed-item case: Backlog
+  filters and status disclosure are tab-local state in v2, AC-22-002.4, so `backlogGroups` leaves the URL while
+  `backlogItem` stays).
 
 ## Dependencies
 
 WO-22-001 (reader, area helpers, reason-aware write); WO-13-012 (composite primitives, through which the leaf
-primitives of WO-13-011 are available). Consumer: WO-17-008. WO-05-008 reuses `StateTile` (ledger request).
+primitives of WO-13-011 are available); WO-25-001 (the split oracle files and the `backlogItem` key; W0, so the
+wave stays W3). Consumer: WO-17-008. WO-05-008 reuses `StateTile` (ledger request).
 
 ## Status Note
 

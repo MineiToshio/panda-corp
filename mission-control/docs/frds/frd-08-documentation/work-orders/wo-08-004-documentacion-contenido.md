@@ -52,12 +52,12 @@ Brings the authored Documentación pages and diagrams up to the v2 factory and t
 
 - The shell, home, search, reader, index and not-found page (WO-08-003).
 - Configuración (WO-07-006) and the Campaña ficha copy (WO-02-020).
-- Deleting `FlowGraph`, `src/lib/manual/skill-flows.ts` and `src/lib/manual/workflow-flows.ts`: WO-13-013 (W7) deletes the files once nothing imports them; this WO removes every page and test import of them.
+- Deleting `FlowGraph` and `src/lib/manual/skill-flows.ts`: WO-13-013 (W7) deletes them once nothing imports them (FlowGraph's own test keeps them compiling and "used" until then); this WO removes every page and test import of them. `src/lib/manual/workflow-flows.ts` is NOT out of scope: its only importer is `manualPages.tsx`, so this WO deletes it (reconciliation 2026-10-22; leaving it untested and unimported from W3 to W7 would red knip).
 - New pages: v2 adds none; the page count (Tutorial 2, Guías 11, Conceptos 22, Workflows 3) is unchanged.
 
 ### Removed in this WO (v1 pieces; delete code, exports and tests together)
 
-1. The interactive flow graph on the Workflows pages: the two `<FlowGraph flow={buildFlow|backlogFlow}/>` blocks in `manualPages.tsx`, with any sentence that tells the reader to click a node, and the `workflow-flows.ts` imports.
+1. The interactive flow graph on the Workflows pages: the two `<FlowGraph flow={buildFlow|backlogFlow}/>` blocks in `manualPages.tsx`, with any sentence that tells the reader to click a node, the `workflow-flows.ts` imports and the file `src/lib/manual/workflow-flows.ts` itself (it imports the `SkillFlow` type from `skill-flows.ts`, which WO-13-013 deletes).
 2. The curated per-skill explainers and the skill-flow cross-navigation from the pages (REQ-08-008 to REQ-08-010, REQ-08-012): the `getSkillFlow` describes in `manualPages.builder.test.tsx`, `manualPages.lanes.test.tsx` and `manualPages.fastLane.test.tsx` are deleted; their page-text describes (DR-125, DR-126 content on the unattended-build and workflow pages) stay and stay green.
 3. Any `ManualLink` target that pointed at a removed Referencia page or at a skill flow (`ManualLink` itself stays for page-to-page links).
 4. Every unused export left by the above.

@@ -80,7 +80,7 @@ reference the deleted custom property:
 
 `--color-tier-5` is **not declared anywhere** in the CSS (verified: `grep "color-tier" src/app/globals.css` → empty), so those two components relied entirely on the `--color-agent-guild`
 **fallback**. At last-green `f00b3ca` the token existed (globals.css:49) and the highest tier
-("Leyenda"/"Platino") medals/chains rendered with the guild color. After this WO the
+("Leyenda"/"Platino") medals/chains rendered with the guild color (drawn in FRD-10's captured states). After this WO the
 `var(--color-tier-5, var(--color-agent-guild))` expression resolves to an **undefined custom
 property with no fallback** → the `color` is dropped → tier-5 falls back to inherited text color.
 **Real visual regression on the achievements page (FRD-10).**

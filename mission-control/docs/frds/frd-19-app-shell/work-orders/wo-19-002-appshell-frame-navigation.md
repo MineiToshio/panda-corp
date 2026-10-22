@@ -20,8 +20,7 @@ artifacts:
   - "e2e/shell.ts"
   - "e2e/routes.ts"
   - "e2e/shell-usability.spec.ts"
-  - "e2e/persistent-navigation.spec.ts"
-  - "src/app/manual/_tests/persistentNavigation.test.tsx"
+  - "e2e/persistent-navigation/destinations.spec.ts"
   - "src/components/modules/{PendingMergeBadge,CelebrationWatcher}/**"
 source_requirements: [REQ-19-001, REQ-19-002, REQ-19-003, REQ-19-004, REQ-19-005, AC-19-001.1, AC-19-001.2, AC-19-001.3, AC-19-001.4, AC-19-001.5, AC-19-002.1, AC-19-002.2, AC-19-003.1, AC-19-003.2, AC-19-003.3, AC-19-003.4, AC-19-003.5, AC-19-004.1, AC-19-004.2, AC-19-005.4]
 dependsOn: [WO-13-012, WO-25-001, WO-01-008]
@@ -77,19 +76,21 @@ WO-19-003 fills.
    matches names exactly). The current destination has `aria-current="page"`, the raised surface and
    the bolder label; `data-testid="app-nav-<id>"` with the ids `inicio`, `tablero`, `portfolio`,
    `propuestas`, `logros`, `documentacion`, `configuracion`; `Nav` keeps `data-testid="app-nav"`.
-5. **Active rule (IF-19-nav-active, `Nav/navActive.ts`, pure):** `/` exactly → Inicio; `/board` and
-   everything under it (idea pages) → Tablero; `/portfolio` and `/projects` and everything under them
-   (the workspace) → Portafolio; `/proposals`, `/achievements`, `/manual`, `/configuration` families →
-   their destination; any other path → none (no false highlight). A prefix only matches whole path
-   segments.
+5. **Active rule (IF-19-nav-active):** `Nav` consumes `activeDestinationPath(pathname)` from
+   `src/lib/navigation` (WO-25-001, the single source of the rule, DR-115; no exemption list, AC-25-010.1)
+   and only maps the returned root path to its destination id in `Nav/navActive.ts`; it keeps no second copy
+   of the path table. The rule it consumes: `/` exactly → Inicio; `/board` and everything under it (idea
+   pages) → Tablero; `/portfolio` and `/projects` and everything under them (the workspace) → Portafolio;
+   `/proposals`, `/achievements`, `/manual`, `/configuration` families → their destination; any other path
+   → none (no false highlight); a prefix only matches whole path segments.
 6. **`TopBar`** (new, phone only): sticky 58 px bar with `button#menu` («Abrir menú», `menu` icon), the
    30 px logo and `#where` («MISSION CONTROL» in small caps over the active destination's label).
    **`BottomNav`** (new, phone only): `nav#bottomnav` named «Accesos rápidos» (`shell.bottomNav.aria`),
    five 52 px columns: Inicio, Tablero, Portafolio, Docs (links, `aria-current` on the active one) and
    «Más» (`button[data-action="drawer"]`, `aria-controls="sidebar"`, opens the drawer).
 7. **`SkipLink`** (new): `a.skip` to `#content` with the catalogue's skip-link label «Saltar al
-   contenido» (the link FRD-13's `a11y-skip-link-focus` state focuses; the shards do not record its
-   text, reported as a DR-130 gap), the first focusable element, off-screen until focused; activation
+   contenido» (captured in this FRD's `shell-skip-link` state; FRD-13's `a11y-skip-link-focus` focuses the
+   same link), the first focusable element, off-screen until focused; activation
    moves focus to `main#content` in place (a real in-page anchor, never a route).
 8. **Navigation constants (IF-19-nav-destinations, `src/lib/constants.ts`):** `NAV_DESTINATIONS` (id,
    path, label key, mini key, icon, tone) and the route constants the shell uses. The e2e contract is
@@ -97,7 +98,9 @@ WO-19-003 fills.
 9. **Root layout:** mounts `<AppShell>{children}</AppShell>` once, inside the onboarding guard (the
    onboarding gate still replaces the whole view when the profile is absent, edge case of FRD-19);
    removes the top-bar mounts and their server reads (`GuildBar`, `ProposalsBadge` with
-   `countOpenProposals`, `PendingMergeBadge` with `getPendingMerge`, `CelebrationWatcher`); keeps
+   `countOpenProposals`, `PendingMergeBadge` with `getPendingMerge`, `CelebrationWatcher`), so `layout.tsx`
+   imports neither `countOpenProposals` (deleted by WO-17-008 in W4) nor `getPendingMerge` (kept until
+   WO-13-013); keeps
    `GamificationLedgerSync` and WO-13-010's fonts, boot script and Tabler link.
 10. **Not-found and error pages** (`src/app/not-found.tsx`, `src/app/error.tsx`): they render inside the
     shell, so their top-level `<main>` becomes a plain wrapper (the shell owns `main#content`).
@@ -105,10 +108,14 @@ WO-19-003 fills.
 11. **Shell-Presence seeds (IF-19-shell-contract):** `e2e/shell.ts` rewritten from components.md
     § AppShell nav contract: `SHELL_SELECTOR = "aside#sidebar"`, the seven `{ label, path }` in order
     (label «Portafolio»), `SHELL_EXEMPT = []`, `NAV_TOGGLE = "#menu"`. `e2e/routes.ts` lists every v2
-    surface up front: Inicio `/`, Tablero `/board`, the idea page `/board/idea-in-pipeline`, Portafolio
-    `/portfolio`, the workspace `/projects/mission-control`, Propuestas `/proposals`, Logros
-    `/achievements`, Documentación `/manual`, Configuración `/configuration` (names = the nav labels; the
-    `blessed` flags of already-blessed surfaces kept, new surfaces `blessed: false` until their FRD gate).
+    surface up front: Inicio `/`, Tablero `/board`, the idea page `/board/idea-in-pipeline` and its
+    explicit tab `/board/idea-in-pipeline/proposal`, the idea data-model route
+    `/board/idea-in-pipeline/architecture`, Portafolio `/portfolio`, the workspace
+    `/projects/mission-control`, Propuestas `/proposals`, `/proposals/memory` and `/proposals/backlog`, Logros
+    `/achievements`, Documentación `/manual`, Configuración `/configuration` (names = the nav labels plus the
+    sub-view; the `blessed` flags of already-blessed surfaces kept, new surfaces `blessed: false` until their
+    FRD gate). The FRD-02, FRD-17, FRD-18, FRD-21 and FRD-22 behaviour specs and the smoke gate need these
+    routes (ledger B, G).
 12. **Removals (map §6.C items 1, 2 and 3, first half):** the top navigation and its exemptions
     (`AppShell/ShellNavigation.tsx`, `AppShell/shellScope.ts`, `AppShell/shell.module.css`,
     `AppShell/copy.es.ts`, the v1 header markup and `[data-nav-toggle]`), the `PendingMergeBadge`
@@ -175,7 +182,8 @@ None.
 - **Mock screens:** `docs/frds/frd-19-app-shell/mocks/app-shell.html#shell-expanded` (1280 sidebar, 768
   rail, 375 top bar and bottom navigation) and `#shell-drawer-open` (375);
   `docs/frds/frd-13-visual-system-accessibility/mocks/visual-system-accessibility.html#a11y-skip-link-focus`.
-  Oracle states: `shell-expanded`, `shell-drawer-open`, `a11y-skip-link-focus`. Screenshots in each
+  Oracle states: `shell-expanded`, `shell-drawer-open`, `shell-skip-link` (scenario state, skip link focused
+  with its text; `oracle-recipes.json` double), `a11y-skip-link-focus`. Screenshots in each
   FRD's `mocks/screenshots/`.
 - **Token slice:** `--sidebar` 252, `--rail` 76, `--content` 1180, `--bg-2` (sidebar), `--surface`
   (raised current item), `--line`, `--text`, `--text-2`, the seven destination hues and `--tint`,
@@ -189,9 +197,10 @@ None.
 
 ## Tests (owned)
 
-- `src/components/modules/Nav/_tests/navActive.test.ts`: the active rule over a path table (root,
-  each family, nested idea and workspace paths for both `/portfolio/<p>` and `/projects/<p>`, near-miss
-  prefixes such as `/manual-other`, unknown paths → none).
+- `src/components/modules/Nav/_tests/navActive.test.ts`: the mapping from `activeDestinationPath` to the
+  destination id over a path table (root, each family, nested idea and workspace paths for both
+  `/portfolio/<p>` and `/projects/<p>`, near-miss prefixes such as `/manual-other`, unknown paths → none);
+  cites AC-25-010.1 (re-verified here, owned by WO-25-001).
 - `src/components/modules/Nav/_tests/Nav.test.tsx` (rewritten): seven links in order with the exact
   names and hrefs; exactly one `aria-current="page"`; mini labels on the rail.
 - `src/components/modules/AppShell/_tests/AppShell.test.tsx` (rewritten): skip link is the first
@@ -208,10 +217,13 @@ None.
   horizontal overflow; the skip link moves focus to `main#content` without changing the URL path; the
   workspace and Configuración render the sidebar with Portafolio and Configuración active; a focused
   link is never under the sticky bars. Light and dark. `gotoHydrated`, no hard waits.
-- `e2e/persistent-navigation.spec.ts`: only the shell test («nested destinations retain global
-  highlights…») is updated (Configuración now has the shell; `#menu` replaces `[data-nav-toggle]`).
-- `src/app/manual/_tests/persistentNavigation.test.tsx`: only the last case changes (prefix matching
-  through the new active rule; the exemption assertions are removed).
+- `e2e/persistent-navigation/destinations.spec.ts` (split out of the core spec by WO-25-001): the shell
+  test («nested destinations retain global highlights…») is updated (Configuración now has the shell;
+  `#menu` replaces `[data-nav-toggle]`). The core `e2e/persistent-navigation.spec.ts` is not touched here.
+- `src/components/modules/Nav/_tests/persistentNavigation.test.tsx` (split out of
+  `src/app/manual/_tests/persistentNavigation.test.tsx` by WO-25-001; reconciliation 2026-10-22, the manual
+  file is WO-08-003's): the prefix case runs through the new active rule; the `isShellExempt` assertions go
+  with `shellScope.ts`.
 - `src/app/_tests/error-net.test.tsx`: updated only if it pinned the page-level `<main>`.
 
 ### Derogated tests (map §3.3, BL-0051)

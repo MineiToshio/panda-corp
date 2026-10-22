@@ -48,7 +48,7 @@ late (W5), because it joins everything.
 | `CMP-18-flight` | component | `EnMarchaCard` with its collapsible `FlightGroup`s (native `details`, closed at rest, title, hint, count) and the `TurnRow` rows; route-local pieces at the components.md paths. | `src/app/(dashboard)/_components/` (`EnMarchaCard`, `FlightGroup`, `TurnRow`) | AC-18-022.3 |
 | `CMP-18-pulso` | component | `Pulso` (components.md `KpiTiles`): the tiles of `IF-18-pulse` with display numbers. | `src/components/modules/Pulso/` (restyled in place) | AC-18-022.4 |
 | `CMP-18-embudo` | component | `EmbudoCard` with a `FunnelRow` per phase and the foot "N descartadas" plus the link "Abrir tablero". | `src/app/(dashboard)/_components/` (`EmbudoCard`, `FunnelRow`) | AC-18-022.4 |
-| `CMP-18-gremio` | component | `Progreso` becomes the Gremio card: crest (`public/ranks/`), rank name, "Nivel N · XP", the gold bar, "X XP para el nivel N+1 · T trofeos", `LastAchievement` (with the "Nuevo" chip when fresh) and the link "Ver logros". No streaks, no urgency. | `src/components/dashboard/Progreso/` + `LastAchievement` in `src/app/(dashboard)/_components/` | Gremio bullet |
+| `CMP-18-gremio` | component | `Progreso` becomes the Gremio card: crest (`public/ranks/`), rank name, "Nivel N · XP", the gold bar, "X XP para el nivel N+1 · T trofeos", `LastAchievement` (with the "Nuevo" chip when fresh, drawn in FRD-03's captured states) and the link "Ver logros". No streaks, no urgency. | `src/components/dashboard/Progreso/` + `LastAchievement` in `src/app/(dashboard)/_components/` | Gremio bullet |
 | `CMP-18-live` | component | `DashboardLiveWatcher` (kept): subscribes to `useLiveSnapshot` and calls `router.refresh()` when a new event arrives and when the frame's `stateVersion` moves (the same `state-version-moved` rule WO live refresh uses; AC-06-019.7 last sentence). It owns no transport and polls nothing. | `src/components/dashboard/DashboardLiveWatcher/` | REQ-18-004 |
 | `CMP-18-worktrees` | component | The hosted FRD-21 mount `FactoryWorktrees` ("Árboles de trabajo"); placed last in the right column. FRD-21 owns it. | `src/components/dashboard/FactoryWorktrees/` (WO-21-003) | AC-18-022.1 |
 
@@ -75,13 +75,16 @@ language.
 
 **Dialog (`AC-18-022.2`).** Decision: kicker "Decisión · <project>", the sentence of `dialogs.turnDecision.intro`,
 chips (age, decision id), "Lo que se necesita de ti", "Recomendación del agente", the collapsed "Contexto", the
-sentence `dialogs.turnDecision.run` (or `runStale` when the decision is 7 days old or more) and the command.
+drawn run sentence `dialogs.turnDecision.runStale` when the decision is 7 days old or more, and the command.
+A younger decision shows the command without a run sentence: the prototype draws no fresh-decision wording, so
+none is built (DR-130; design item, reconciliation 2026-10-22).
 Change: kicker "Cambio en cola · <project>", the change body, `dialogs.turnChange.*` and the command. Native
 dialog: focus in, Tab trapped, Escape closes, focus returns to "Detalles: <title>".
 
 **Freshness voice (AC-06-019.7).** A running build whose freshest signal is older than the freshness TTL shows
 "Sin señal · último evento hace N" on the card instead of "Construyendo". The verdict is computed once by the
-resolver FRD-06 owns (the `FreshnessBadge` source); the card (WO-03-007's `ProjectCard`) and the scene read it;
+resolver FRD-06 owns, `buildSignal()` (`src/lib/fragua/build-signal.ts`, WO-06-013, rendered by the restyled
+`FreshnessBadge`); the card (WO-03-007's `ProjectCard`), the workspace hero and the scene read it;
 this work order owns the AC because it is the first wave where the scene, this card and the Portafolio card
 all exist, and proves it with one cross-surface test over a stale-signal fixture.
 
@@ -122,7 +125,7 @@ order's removal checklist is explicit and the reviewer ticks it.
 | Gremio card | `CMP-18-gremio`, `IF-18-achievement` | WO-18-002 |
 | REQ-18-022 Layout, Tu turno detail, En marcha, Pulso and Embudo | `CMP-18-page`, `CMP-18-turn`, `CMP-18-flight`, `CMP-18-pulso`, `CMP-18-embudo` | WO-18-002 (AC-18-022.1 to AC-18-022.4) |
 | REQ-15-002, REQ-15-004 (FRD-15 banner) | `CMP-18-banner` | WO-18-002 (AC-15-002.1 to AC-15-002.3, AC-15-004.1) |
-| REQ-15-006 (FRD-15 pill) | WO-19-003 | WO-19-003 |
+| REQ-15-006 (FRD-15 pill) | `CMP-15-pill` (defined in the FRD-15 blueprint, hosted in the sidebar) | WO-19-003 |
 | FRD-12 Pulso limit and freshness declaration | `IF-18-pulse`, freshness resolver | WO-18-002 (AC-12-001.2, AC-12-001.3) |
 
 ## Visual spec (WO-18-002; binding, DR-054)
@@ -141,8 +144,14 @@ Assets: the rank crest PNG from `public/ranks/` (original bytes, `image-renderin
   project-card list), WO-04-013 (`resolvedInFile`), WO-06-013 (the freshness voice), WO-13-012 (composite
   primitives), WO-25-001 (URL codec). Legacy readers it composes stay as they are: `lib/ideas`, `lib/board`,
   `lib/changes`, `lib/work-orders`, `lib/gamification`, `lib/achievements`, `lib/plugin-sync`.
-- Consumers: WO-19-003 reads `ownerTurnItems().count` and `lastAchievement()` (one predicate for the toast),
-  WO-13-013 deletes whatever v1 name stays unreferenced.
+- Consumers: WO-19-003 reads `ownerTurnItems().count` and `lastAchievement().fresh` (one predicate for the
+  «Nuevo» chip and the `CMP-09-achievement-notice` of the FRD-09 blueprint), WO-04-011 reads
+  `ownerTurnItems({ project })` and `AskRow`, WO-10-017 imports `FunnelRow` (kept at its components.md path,
+  props `phase`, `count`, `max`), WO-13-013 deletes whatever v1 name stays unreferenced.
+- **Reconciliation (2026-10-22, binding).** Tu cartera reads `getProjectOverview()` (WO-03-007) including
+  `nextCommand` and reuses `FirstProjectCard`; the Árboles card anchor `id="worktrees-card"` belongs to
+  WO-21-003's card; the page renders no `<main>`; the fresh-decision run sentence is not built (drawn
+  nowhere, design item).
 - Risk: the heaviest dependency surface of the app. Mitigation: one new lib module, every other fact read from
   its owner; the cross-surface test for AC-06-019.7 and the oracle-mode states catch drift early.
 - Risk: the page is slow when it reads every portfolio project. Mitigation: parallel reads, request cache, a

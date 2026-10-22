@@ -106,6 +106,13 @@ plain cards, mono for commands only, 12 px floor; icons `layers`, `clock`, `bolt
   `lib/{clock,git,config}`); WO-11-004 writes only its panel file, the two `_components` folders and its e2e spec.
 - **Cross-FRD:** WO-02-020 (W3) mounts the picker in La Campaña (owner of AC-11-005.3).
 
+## Reconciliation (2026-10-22, binding)
+
+- WO-11-004's «Siguiente paso» reads `WorkspaceProject.phase` / `.nextStep` (WO-04-010), never its own
+  derivation; it deletes `_components/mode-selector/**`, the last product consumer of `IMPLEMENT_MODES`, whose
+  export WO-13-013 removes in W7; it consumes `readChangeQueue()`'s stable `id` / `title` / `status` (WO-04-012,
+  same wave) and renders no `<main>`.
+
 ## Superseded (v1 history)
 
 - WO-11-002 BuildModeSelector + Comandos tab · superseded by WO-11-003 and WO-11-004.

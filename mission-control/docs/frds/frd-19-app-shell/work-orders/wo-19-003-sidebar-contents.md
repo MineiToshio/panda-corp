@@ -22,7 +22,7 @@ artifacts:
   - "src/app/_tests/layout.sidebar*.test.tsx"
   - "e2e/shell-sidebar.spec.ts"
 source_requirements: [REQ-19-005, REQ-09-008, REQ-15-006, REQ-21-001, AC-19-005.1, AC-19-005.2, AC-19-005.3, AC-19-005.5, AC-09-008.1, AC-09-008.2, AC-15-006.1, AC-21-008.1, AC-21-008.2]
-dependsOn: [WO-19-002, WO-18-002, WO-17-008, WO-21-003, WO-04-013]
+dependsOn: [WO-19-002, WO-18-002, WO-17-008, WO-21-003, WO-04-013, WO-03-007]
 last_updated: 2026-10-22
 ---
 
@@ -51,9 +51,11 @@ All data is read on the server in the root layout through the existing request-c
 WO-19-002. Browser-local preferences use the prototype's keys and are not factory writes.
 
 1. **Proyectos group (CMP-19-projects, `SidebarProjects` + `ProjectNavItem`):** up to five projects
-   ordered by last commit from WO-03-007's portfolio resolver; each row `a.navitem` to the project's
+   ordered by last commit (descending) from WO-03-007's `getProjectOverview()` (`src/lib/portfolio/`, the
+   one project-card list resolver, DR-115); each row `a.navitem` to the project's
    workspace with the initials avatar (`Avatar`, phase hue from the shared vocabulary), the name and
-   «<Fase> · <pct>%» (phase label and the verified-work-order percentage the `ProjectCard` shows), the
+   «<Fase> · <pct>%» (the phase and verified-work-order percentage values `getProjectOverview()` exposes,
+   the same the `ProjectCard` shows; nothing re-derived here), the
    full accessible name from `shell.projects.itemAriaWithOrders` / `itemAriaNoOrders`; the catalogue's
    «Ver los N» link to `/portfolio` when there are more (no captured state has six or more projects:
    reported as a DR-130 gap); the header is
@@ -61,10 +63,11 @@ WO-19-002. Browser-local preferences use the prototype's keys and are not factor
    `shell.projects.toggleTitle` and the project count; folding is remembered under
    `orbita-projects-open` (folded: the header becomes the pill with a right chevron and `#projlist` is
    hidden). On the rails only the avatars show; on the collapsed rail a hairline replaces the header.
-2. **Counts (CMP-19-nav-counts, `Nav` + `NavItem`):** Inicio = the count of `ownerTurnItems()`
-   (WO-18-002; decisions resolved in their own file excluded, WO-04-013), alert variant (amber) with the
+2. **Counts (CMP-19-nav-counts, `Nav` + `NavItem`):** Inicio = `ownerTurnItems().count` (`src/lib/inicio/`,
+   WO-18-002; decisions resolved in their own file excluded, WO-04-013), alert variant (amber) with the
    description `shell.navCount.decisions`; Tablero = active (non-discarded) ideas from the ideas reader
-   the board uses; Propuestas = the count of `ownerActions()` (WO-17-008) with the description
+   the board uses; Propuestas = `ownerActions().badgeCount` (`src/lib/proposals/`, WO-17-008; it replaces
+   the v1 `ProposalsBadge`) with the description
    `shell.navCount.proposals`, absent at zero (no manufactured urgency). The visible number is
    `aria-hidden` and the description is attached with `aria-describedby`, so every destination link's
    accessible name stays exactly its label (Shell-Presence contract). `.raildot` on Inicio while it has
@@ -98,25 +101,31 @@ WO-19-002. Browser-local preferences use the prototype's keys and are not factor
    Inicio's first element, WO-18-002), `alert` icon, «Plugin desactualizado» (`shell.plugin.outdated`),
    title `shell.plugin.title` with the behind runtime's installed and source versions. Nothing renders
    for `in-sync` or `unknown`.
-7. **Pending pill (`PendingPill`):** from `pendingPillSummary()` (WO-21-003):
-   `a.plugin-pill.pending-pill` to `/#worktrees-card` (Inicio's «Árboles de trabajo» card); label
-   `shell.pending.label` (plural, the uncapped count as drawn) or `shell.pending.labelNone` when only
-   unreadable repositories exist, suffixed `shell.pending.labelUrgent` / `labelUnread` in the alert
-   variant; alert variant = coral tone + `alert` icon (state by icon and text), calm = slate + `branch`
+7. **Pending pill (`PendingPill`, the component FRD-21's blueprint traces REQ-21-001 / AC-21-008.1 /
+   AC-21-008.2 to):** from `pendingPillSummary()` (`src/lib/pendingMerge/`, WO-21-003; shape `{ count,
+   urgent, unreadable, hidden }`): `a.plugin-pill.pending-pill` to `/#` + `WORKTREES_CARD_ID` (the
+   `worktrees-card` anchor exported by the same module and carried by Inicio's «Árboles de trabajo» card,
+   WO-21-003); label `shell.pending.label` (plural, the uncapped count as drawn) or
+   `shell.pending.labelNone` when the count is 0 but a repository is unreadable, suffixed
+   `shell.pending.labelUrgent` / `labelUnread` in the alert variant (`labelUnread` wins when both apply, as
+   captured in `worktrees-unreadable`); alert variant = coral tone + `alert` icon (state by icon and text), calm = slate + `branch`
    icon; title from `shell.pending.titleBranches` + `titleUnread` + `titleSuffix`, repeated in an
    `.sr-only` span; hidden when nothing is pending and every repository was read. Icon-only on rails.
 8. **Achievement notice (CMP-09-achievement-notice, `AchievementToast`):** mounted once in the root
-   layout. The newest trophy that the achievements reader flags new or unlocked within 7 days of `now()`
-   (the `isNew` window of `src/lib/achievements/`, clock from WO-01-010) and whose id is not in the
+   layout. The newest trophy for which `lastAchievement().fresh` (`src/lib/inicio/`, WO-18-002: flagged
+   new or unlocked within 7 days of `now()`, clock from WO-01-010) holds, the one predicate shared with
+   Inicio's «Nuevo» chip, and whose id is not in the
    browser-local `orbita-ach-seen` list raises `div.ach-toast[role="status"]` (polite, takes no focus):
    gold card bottom right (above the bottom navigation on phones), trophy tile, the catalogue's notice
-   eyebrow (AC-09-008.2; its real-unlock wording is drawn in no captured state, reported as a DR-130 gap),
+   eyebrow (AC-09-008.2; the real-unlock wording is captured in this FRD's `shell-achievement-notice` state),
    the trophy's title and description as data, «Ver» to `/achievements/trophies` and the close
    `IconButton` named «Cerrar aviso» (`logros.notice.closeAria`, drawn in FRD-09's notice state).
    «Ver», the close button and the 9-second timer all close it and record the id; reloading never raises
    the same trophy again. The prototype's `?achievement=preview` review affordance is not built (its
-   label is not in the catalogue and no AC asks for it); the oracle state is reproduced with the recipe's
-   fallback (a fixture trophy unlocked within 7 days; the eyebrow line is masked in L3).
+   label is not in the catalogue and no AC asks for it); the real-unlock notice is reproduced as this FRD's
+   `shell-achievement-notice` from its `oracle-recipes.json` double (a fixture trophy unlocked within 7 days
+   of the frozen clock); FRD-09's `guild-achievement-notice` (preview mode) keeps the recipe's fallback with
+   the eyebrow line masked in L3.
 
 Removals in this WO (map §6.C items 2 and 23): the theme control's high-contrast option (the whole v1
 `core/ThemeToggle` module, superseded by the shell's `ThemeToggle`); the v1 top-bar guild block is
@@ -182,7 +191,11 @@ None.
   `#shell-rail-collapsed`, `#shell-rail-float`, `#shell-projects-folded`, `#shell-pending-chip`;
   `docs/frds/frd-21-pending-merge/mocks/pending-merge.html#shell-pending-chip-open`;
   `docs/frds/frd-09-gamification/mocks/gamification.html#guild-achievement-notice` and `#guild-rank-ladder`
-  (guild card). Oracle states: the same ids (`guild-achievement-notice` via its fallback double).
+  (guild card). Oracle states: the same ids (`guild-achievement-notice` via its fallback double), plus the
+  scenario states `shell-theme-toggled` (light theme chosen: «Tema claro» / «Cambiar a tema claro» on the
+  button) and `shell-achievement-notice` (real-unlock notice «¡Nuevo logro!»), each reproduced from its
+  `docs/design/prototype/reference/oracle-recipes.json` double in `e2e/shell-sidebar.spec.ts` and at the
+  close-out Visual QA.
 - **Token slice:** `--rail-c` 64, `--rail` 76, `--sidebar` 252, `--shadow-panel` (float), `--gold` and its
   tint (guild card, notice), `--coral` (plugin and alert pending pill), `--slate` (calm pending pill),
   `--amber` (Inicio count and rail dot), the phase hues (project avatars), `--surface-3` (folded pill),
@@ -238,8 +251,8 @@ None.
 
 WO-19-002 (shell, slots, `NavItem`), WO-18-002 (`ownerTurnItems()`, Inicio card ids and the banner),
 WO-17-008 (`ownerActions()`), WO-21-003 (`pendingPillSummary()`), WO-04-013 (resolved-in-file
-decisions excluded from the Inicio count). Reads, through those and the kept readers, WO-03-007's
-portfolio order, WO-09-006's guild state, FRD-15's `getPluginSyncState()` and FRD-10's achievements
+decisions excluded from the Inicio count), WO-03-007 (`getProjectOverview()`: order, phase, percentage).
+Reads, through those and the kept readers, WO-09-006's guild state, FRD-15's `getPluginSyncState()` and FRD-10's achievements
 reader; WO-13-010's theme util and boot seam. Cites LESSON-0310 (float and hover only on hover-capable
 pointers; focus opens it too), LESSON-0077 (counts read through one resolver each).
 

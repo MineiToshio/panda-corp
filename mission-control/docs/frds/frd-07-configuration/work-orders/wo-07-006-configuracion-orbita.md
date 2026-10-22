@@ -15,6 +15,7 @@ artifacts:
   - 'src/lib/registry/**'
   - 'src/lib/standards/**'
   - 'e2e/configuration.spec.ts'
+  - 'e2e/persistent-navigation/configuration.spec.ts'
 source_requirements: [REQ-07-001, REQ-07-002, REQ-07-003, REQ-07-004, REQ-07-005, REQ-07-006, REQ-07-007, REQ-07-008, REQ-07-009, REQ-07-010, REQ-07-011, REQ-07-012, REQ-07-013]
 dependsOn: [WO-13-012, WO-25-001, WO-07-001, WO-07-003, WO-07-004, WO-08-003]
 last_updated: '2026-10-22'
@@ -41,6 +42,8 @@ Rebuilds the whole Configuración surface (`/configuration`, `/configuration/:se
 - **Fail-loud read errors (DR-078).** A catalog whose source cannot be read or parsed renders the shared `Notice` (error variant) naming the failing source, in place of that catalog; the other catalogs keep working. See the Out of Scope note on the wording.
 - **Readers (additive).** Beside the existing `readSkills` / `readAgents` / `readDecisionRules` / `readStandards` (behaviour unchanged for their other consumers), add a result-typed variant per catalog (`{ ok: true, data } | { ok: false, source, reason }`) that the array readers delegate to, extend `AgentRef` with `tools` and a normalised `effort`, and add the one composed resolver `loadConfigurationCatalogs` (see the blueprint, `IF-07-catalogs`) that also derives the hub counts, the owner-command list and the skill-to-agent inversion once.
 - **Behaviour e2e.** `e2e/configuration.spec.ts` (one spec for the surface): opens the hub, searches across catalogs, filters Habilidades, opens a skill dialog and jumps to an agent, expands a rule, filters Estándares by severity and domain. Starts every navigation with `gotoHydrated`; selects by role and name.
+- **Landmark and route boundary.** The page renders no `<main>` (the shell's `main#content` is the page's only main landmark, AC-19-001.5, REQ-13-009); the tests under `src/app/configuration/_tests/` that query `getByRole("main")` are updated here. Legacy `/manual/reference/...` links are normalised by WO-08-003 (`normalizeLegacyNavigation`) before they reach this route; this page applies the same normaliser at its own boundary for any legacy configuration query, and uses the WO-25-001 keys `q`, `type`, `approval`, `severity`, `domain`.
+- **Split oracle files (WO-25-001).** `e2e/persistent-navigation/configuration.spec.ts` (the `configuration` case and the configuration and agent read-only details, including the former `/manual/reference/agents/reviewer` detail now at `/configuration/agents/reviewer`) and `src/app/configuration/_tests/persistentNavigation.test.tsx` (the standard-detail case, whose `standardView` sub-tabs this work order removes) are updated here (AC-25-001.1, AC-25-002.1 re-verified, BL-0051).
 
 ## Out of Scope
 

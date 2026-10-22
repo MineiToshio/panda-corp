@@ -24,7 +24,7 @@ Change: `.pandacorp/inbox/changes/mc-proposal-stream-show-more.md` (DR-069).
 Extend the **shared** `DismissableProposalStream` (`CMP-17-stream`, WO-17-004) so a long list does not
 render all cards at once. By default the stream shows only the first **~6** undismissed cards; when
 there are more, a **"ver más" toggle** at the end of the group expands the rest **in-place** (show/hide
-over the already-loaded data — no pagination, no extra fetch, no new server round-trip). A "ver menos"
+over the already-loaded data — no pagination, no extra fetch, no new server round-trip). (drawn in FRD-04's captured states) A "ver menos"
 affordance collapses it back. With 35+ candidate lessons today the tab currently feels overwhelming on
 entry; this makes any long stream calm to land on without losing access to the full list.
 

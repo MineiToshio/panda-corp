@@ -25,6 +25,8 @@ artifacts:
   - 'src/app/board/_tests/**'
   - 'src/app/board/actions/read-doc.ts'
   - 'e2e/ideas-board.spec.ts'
+  - 'e2e/persistent-navigation/board.spec.ts'
+  - 'src/lib/go-party/**'
 source_requirements: [REQ-02-004, REQ-02-007, REQ-02-008, REQ-02-009, REQ-02-012, REQ-02-015, REQ-02-016]
 dependsOn: [WO-02-017, WO-02-004, WO-02-012, WO-25-001, WO-02-015, WO-02-020, WO-08-003]
 last_updated: '2026-10-22'
@@ -47,11 +49,15 @@ It also takes the v1 idea detail out of the board and extends the FRD's e2e spec
   the idea page instead of the board. Tab segment ∈ `proposal · spec · architecture · documents · campaign`, plus
   `/board/:idea/documents/:doc`; unknown tab → `notFound()`; unknown idea → the designed card «Esta idea no existe»
   with «Volver al tablero» (state `idea-not-found`), not a framework 404. A legacy `/board?idea=<slug>` link resolves
-  to the idea route through the FRD-25 codec (WO-25-001).
+  to the idea route: this work order applies WO-25-001's `normalizeLegacyNavigation` at the board route boundary
+  (keeping `boardTab`, `doc`, `expanded` and the other FRD-02 keys) and feeds `NavigationCanonical`.
 - **Idea read** (`IF-02-idea-page-read`, blueprint Contracts C2) in `src/app/board/_utils/`: one `React.cache()`
   resolver per request for the open idea (card fields, stage, campaign phase, `running`, project navigation slug,
   scoped document structure and count, spec digest, `readArchitectureArtifacts` bundle, next-step command,
-  `forgeHref` = Portafolio → project → Resumen URL). `readCardProject` is refactored here, not duplicated.
+  `forgeHref` = Portafolio → project → Resumen URL, built through the codec with the canonical `summary` tab
+  directly, never the legacy `party` alias, AC-06-020.1). `readCardProject` is refactored here, not duplicated.
+  The v1 host-navigation helper `src/lib/go-party/**` (`goToParty`, `partyUrl`, `?tab=party`; no product importer
+  left once the forge action is a plain link) is deleted here with its tests (map §0.6; reconciliation 2026-10-22).
 - **`IdeaHeader`** (`PageHead` drill-in pattern, h1 = idea title): category and return chips, «Score N/100»,
   «Etapa: <fase>» or «Descartada» (no stepper), «Volver al tablero» link, the `FavoriteButton` star (WO-02-015),
   «Abrir en Portafolio» (project-linked ideas; link to the FRD-04 workspace), «Descartar idea» (`Button` danger sm;
@@ -203,7 +209,10 @@ components.md row `IdeaDocsRail` / `IdeaDocsItem` (folder `IdeaDocs/`). Installs
   (icons, single active, URL persistence, document click lands on Documentos), `IdeaDocs` (Resumen first, grouping,
   folded list below 900 px, link classification), discard/restore dialogs (reason optional, no quick-tags, optimistic
   revert).
-- E2E: extend `e2e/ideas-board.spec.ts` as in scope.
+- E2E: extend `e2e/ideas-board.spec.ts` as in scope; update the idea-tab and document-reader steps of
+  `e2e/persistent-navigation/board.spec.ts` (split out by WO-25-001; the campaign `phase` step was WO-02-020's in W3)
+  that the idea route breaks (AC-25-001.1, AC-25-002.1 re-verified, BL-0051).
+- `src/lib/go-party/_tests/*` are deleted with the module.
 
 ### Derogated tests (BL-0051)
 

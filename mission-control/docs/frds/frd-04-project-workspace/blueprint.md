@@ -83,13 +83,14 @@ No component is created that `components.md` does not list (reuse → adapt → 
 - **Success:** a `WorkspaceProject` value: identity (`slug` = the persisted navigation slug, never the
   display name, LESSON-0365; `name`; `initials`; `folder` = basename of the project path, the review-worktree
   and event key; absolute `projectPath`); `status` (`Partial<ProjectStatus>`), `phase`, `version` (or none);
-  `build` = `idle | live | no-signal (+ age of the last signal)` from the shared liveness module
-  (`src/lib/status/liveness.ts`, DR-066), never the `running` flag alone; `progress` = `{ done, total, pct }`
-  from `aggregateProgress(listWorkOrders())`; `counts` = `{ orders, frds, documents, adrs, openChanges,
-  services }` (orders from the work-order list, FRDs from `countFrdFolders`, documents and ADRs from
-  `listProjectDocs`, open changes from `countOpenChanges`, services from the FRD-26 allocation of this
-  project); `lastMove` = the project's last commit instant from WO-03-007's last-commit resolver
-  (`src/lib/portfolio/`, through `runGit`), `null` when unknown; `nextStep` = `{ command, sentence }` where
+  `build` = the value of `buildSignal()` (`src/lib/fragua/build-signal.ts`, WO-06-013: `idle | live |
+  no-signal (+ age of the last signal)`, DR-066), never the `running` flag alone and never a second
+  derivation from `src/lib/status/liveness.ts`; `progress` = `{ done, total, pct }` and `counts` = `{ orders,
+  frds, documents, adrs, openChanges }` taken from the project's `ProjectOverviewItem` of
+  `getProjectOverview()` (WO-03-007, which reads `listWorkOrders`/`aggregateProgress`, `countFrdFolders`,
+  `listProjectDocs` and `countOpenChanges`), plus `services` = `projectServiceRows(getServicesDirectory(),
+  id).length` (WO-26-001); `lastMove` = `getLastCommit(projectPath)` (WO-03-007, `src/lib/portfolio/`, through
+  `runGit`), `null` when unknown; FRD names through `listProjectFrds()` (WO-12-007); `nextStep` = `{ command, sentence }` where
   sentence is the catalogue key + vars of «Siguiente paso» (implementation with open work orders →
   `/pandacorp:implement` + «Sigue la construcción: queda 1 work order abierta.» / «quedan N»; release →
   `/pandacorp:review-launch` + «Estable · en operación: revisa cómo va el lanzamiento.»; any other case → the
@@ -118,6 +119,12 @@ No component is created that `components.md` does not list (reuse → adapt → 
 - `ProjectWorkspace` keeps its exported props (`item`, `selection`, `headingLevel?`, `navigationBaseHref?`) and
   `workspaceSelection` / `workspaceHref` keep their signatures, because the Portafolio page (WO-03-007) hosts
   the workspace through them.
+- `WoDetail({ project, woId, view })` (`_components/wo-detail/WoDetail.tsx`) is created by WO-04-010 as an
+  adapter over the v1 `WorkOrderDetail` + `readWorkOrderDoc` and mounted by the Observabilidad adapter; in W6
+  WO-05-008 mounts the same export and WO-05-009 rewrites its inside (signature fixed, map §0.3), so both build
+  in parallel (reconciliation 2026-10-22: the map called the seam "existing", but the v1 export is
+  `WorkOrderDetail({ order, content, activeWoTab })`).
+- The standalone route resolves the project through `allProjects()` (every phase), never `activeProjects()`.
 
 ### 4.3 Tabs, URL and unknown tab (WO-04-010)
 
@@ -174,9 +181,9 @@ No component is created that `components.md` does not list (reuse → adapt → 
 
 | WO | Mocks (`mocks/project-workspace.html#…`) and oracle states | Assets |
 |---|---|---|
-| WO-04-010 | `#project-spec`, `#project-spec-empty`, `#project-architecture`, `#project-tab-not-found`, `#model-invalid`; FRD-12 `observability-dataviz.html#observability-legacy-link`; the hero and tab bar of every state of this FRD | the 64 exported icons via `Icon` (WO-13-010); no raster |
-| WO-04-011 | `#project-summary`, `#project-summary-funko`, `#project-summary-decisions`, `#project-decision-dialog`, `#project-snapshot`; FRD-20 `overlay-freshness.html#overlay-behind` | La Fragua art is FRD-06's (staged by WO-13-010) |
-| WO-04-012 | `#project-changes`, `#project-change-dialog`, `#project-change-discard`, `#project-change-rebuilds`, `#project-documents`, `#project-documents-search`, `#project-documents-index-open` | icons only |
+| WO-04-010 | `#project-spec`, `#project-spec-empty`, `#project-architecture`, `#project-tab-not-found`, `#model-invalid`, scenario states `project-no-version`, `project-subtitle-open`; FRD-12 `observability-dataviz.html#observability-legacy-link`; the hero and tab bar of every state of this FRD | the 64 exported icons via `Icon` (WO-13-010); no raster |
+| WO-04-011 | `#project-summary`, `#project-summary-funko`, `#project-summary-decisions`, `#project-decision-dialog`, `#project-snapshot`, scenario state `resumen-no-frds`; FRD-20 `overlay-freshness.html#overlay-behind` | La Fragua art is FRD-06's (staged by WO-13-010) |
+| WO-04-012 | `#project-changes`, `#project-change-dialog`, `#project-change-discard`, `#project-change-rebuilds`, `#project-documents`, `#project-documents-search`, `#project-documents-index-open`, scenario states `changes-empty`, `documents-empty`, `document-empty-body` | icons only |
 
 Recorded ids, classes and `data-*`/`aria-*` hooks of the prototype stay on the recorded elements
 (`.hero`, `.hero.compact`, `.switcher[data-action="projects"]`, `.tabs-wrap`, `.tabs[role=tablist]`,
@@ -240,8 +247,8 @@ Recorded ids, classes and `data-*`/`aria-*` hooks of the prototype stay on the r
 | WO-04-001 | WO-01-000, WO-01-001 | `src/lib/docs/tree.ts`, `src/lib/docs/activity.ts`, `src/lib/docs/_tests/docs.wo04001.test.ts`, `src/lib/docs/_tests/docs.wo04002.test.ts` | false | W2 (history, VERIFIED) |
 | WO-04-003 | WO-02-003, WO-01-005 | `src/lib/next-step/next-step.ts`, `src/lib/next-step/_tests/next-step.wo04003.test.ts`, `src/lib/next-step/_tests/next-step.wo04003.adversarial.test.ts` | false | W4 (history, VERIFIED) |
 | WO-04-013 | WO-24-001, WO-04-001 | `src/lib/docs/activity.ts`, `src/lib/docs/_tests/activity.resolved-in-file.test.ts`, `src/lib/changes/openChanges.ts`, `src/lib/changes/_tests/openChanges.test.ts` | false | W3 (with WO-14-005 and the other W3 work orders) |
-| WO-04-010 | WO-19-002, WO-03-007, WO-02-017, WO-26-001, WO-25-001, WO-13-012, WO-06-013, WO-04-013 | `src/app/projects/[slug]/page.tsx`, `src/app/projects/[slug]/ProjectWorkspace.tsx`, `src/app/projects/[slug]/workspace-route.ts`, `src/app/projects/[slug]/[...segments]/**`, `src/app/projects/[slug]/_panels/**`, `src/app/projects/[slug]/_components/{tabbar.tsx,workspace-header.tsx,objectives-bar.tsx,WorkspaceNavigation.tsx,tab-spec.tsx,document-links.ts}`, `src/app/projects/[slug]/_components/{ProjectHero,ProjectHeroCompact}/**`, `src/app/projects/[slug]/_components/_tests/{workspace-shell,workspace-navigation,spec-tab,spec-workspace,architecture-tab}*.test.tsx`, `src/app/projects/[slug]/_components/wo-detail/_tests/wo-detail.integration.test.tsx`, `src/app/projects/[slug]/_tests/**`, `src/app/projects/[slug]/_party/**`, `src/components/modules/party/**`, `e2e/{_workspaceTabs.ts,logical-data-model.spec.ts,portfolio-spec.spec.ts,persistent-navigation.spec.ts}` | false | W5 (with WO-18-002, WO-01-011) |
-| WO-04-011 | WO-04-010, WO-06-013, WO-14-005, WO-04-013, WO-20-001, WO-18-002 | `src/app/projects/[slug]/_panels/ResumenPanel.tsx`, `src/app/projects/[slug]/_components/{tab-summary,version-freshness,ProgressList}/**` | false | W6 (with WO-04-012, WO-05-008, WO-05-009, WO-11-004, WO-19-003, WO-10-017) |
+| WO-04-010 | WO-19-002, WO-03-007, WO-02-017, WO-26-001, WO-25-001, WO-13-012, WO-06-013, WO-04-013, WO-02-020, WO-12-007 | `src/app/projects/[slug]/page.tsx`, `src/app/projects/[slug]/ProjectWorkspace.tsx`, `src/app/projects/[slug]/workspace-route.ts`, `src/app/projects/[slug]/[...segments]/**`, `src/app/projects/[slug]/_panels/**`, `src/app/projects/[slug]/_components/{tabbar.tsx,workspace-header.tsx,objectives-bar.tsx,WorkspaceNavigation.tsx,tab-spec.tsx,document-links.ts}`, `src/app/projects/[slug]/_components/{ProjectHero,ProjectHeroCompact}/**`, `src/app/projects/[slug]/_components/_tests/{workspace-shell,workspace-navigation,spec-tab,spec-workspace,architecture-tab}*.test.tsx`, `src/app/projects/[slug]/_components/wo-detail/WoDetail.tsx`, `src/app/projects/[slug]/_components/wo-detail/_tests/wo-detail.integration.test.tsx`, `src/app/projects/[slug]/_tests/**`, `src/app/projects/[slug]/_party/**`, `src/components/modules/party/**`, `src/components/modules/ServicesDirectory/{ServicesDirectory.tsx,copy.ts}`, `src/components/modules/ServicesDirectory/_tests/ServicesDirectory.test.tsx`, `src/app/_design/tokens/_tests/frd13-wo06-09.adversarial.reviewer.test.tsx`, `src/app/_design/tokens/_tests/frd13-wo07-09.adversarial.reviewer2.test.tsx`, `e2e/{_workspaceTabs.ts,logical-data-model.spec.ts,portfolio-spec.spec.ts,persistent-navigation.spec.ts}`, `e2e/persistent-navigation/workspace.spec.ts` | false | W5 (with WO-18-002, WO-01-011) |
+| WO-04-011 | WO-04-010, WO-06-013, WO-14-005, WO-04-013, WO-20-001, WO-18-002, WO-12-007 | `src/app/projects/[slug]/_panels/ResumenPanel.tsx`, `src/app/projects/[slug]/_components/{tab-summary,version-freshness,ProgressList}/**`, `e2e/resumen.spec.ts` | false | W6 (with WO-04-012, WO-05-008, WO-05-009, WO-11-004, WO-19-003, WO-10-017) |
 | WO-04-012 | WO-04-010, WO-08-003 | `src/app/projects/[slug]/_panels/{CambiosPanel,DocumentosPanel}.tsx`, `src/app/projects/[slug]/_components/{tab-changes,tab-documents}/**`, `src/app/projects/[slug]/_actions/**`, `src/lib/changes/**`, `src/lib/docs/tree.ts`, `src/lib/docs/_tests/{tree,docs.wo04001}*.test.ts` | false | W6 (with WO-04-011 and the other W6 work orders) |
 
 - **Order:** WO-04-013 (W3, data fixes) → WO-04-010 (W5, frame + panel contract) → WO-04-011 and WO-04-012
@@ -256,6 +263,33 @@ Recorded ids, classes and `data-*`/`aria-*` hooks of the prototype stay on the r
   contract for WO-05-008 and WO-11-004 (W6). WO-13-013 (W7) runs after it.
 - **Integration order:** the frame lands with v1 adapters (the gate stays green), then each W6 panel replaces
   its adapter; no consumer builds before its provider.
+- **W5 disjointness of the additions:** `wo-detail/WoDetail.tsx` (WO-05-009 rewrites it in W6, WO-25-001 may touch
+  `wo-detail/**` in W0), the `ServicesDirectory` facade files (WO-26-001 W3, WO-03-007 W4 `PortfolioViews.tsx`
+  only), the two FRD-13 reviewer suites (WO-13-010 W0) and `e2e/persistent-navigation/workspace.spec.ts`
+  (WO-25-001 W0): no other W5 work order (WO-18-002, WO-01-011) writes them. WO-04-011's `e2e/resumen.spec.ts`
+  is new and no other W6 work order writes it.
+
+## Reconciliation (2026-10-22, binding)
+
+- **One resolver per fact.** `WorkspaceProject` composes `getProjectOverview()` / `getLastCommit()` (WO-03-007),
+  `buildSignal()` (WO-06-013), `countOpenChanges()` (WO-04-013), `projectServiceRows()` (WO-26-001) and
+  `listProjectFrds()` (WO-12-007); the Comandos «Siguiente paso» (WO-11-004) reads `WorkspaceProject.nextStep`.
+- **La Fragua mount.** WO-04-011 passes `FraguaScene` the four cross-feature facts (`openChanges`,
+  `ownerPending` = `ownerTurnItems({ project }).count`, `lastActivityAt` = `lastMove`, `frds`) and owns the
+  behaviour e2e of the scene inside Resumen (`e2e/resumen.spec.ts`). WO-06-013 stays W3 (moving it would push
+  WO-03-007 and WO-04-010 a wave later).
+- **Removal ownership.** WO-04-010 `git rm`s the FRD-13 reviewer suites `frd13-wo06-09*` / `frd13-wo07-09*`
+  (they import `src/components/modules/party/**`, deleted here; map §3.3 rule 3: a reviewer suite whose subject
+  is deleted is `git rm`ed by the deleting work order and listed as derogated). It also deletes the transitional
+  `ServicesDirectory` facade once `ProjectWorkspace.tsx` / `tabbar.tsx` stop importing it.
+- **Legacy links.** WO-04-010 applies `normalizeLegacyNavigation` (`party` → `summary`, `work-orders[/<wo>/<view>]`
+  and `observabilidad` → `observability`); an unknown tab arrives as `unknown` from `workspaceRouteState()`.
+- **No `<main>`.** Panels and heroes render no `<main>` (the shell's `main#content` is the only one).
+- **Copy.** The upgrade notice uses the drawn body in every case (the while-building variant is drawn nowhere and
+  is not built); `readChangeQueue` keeps `id` / `title` / `status` stable in W6 for WO-11-004; WO-04-012 consumes
+  FRD-08's `DocIndex` / `DocItem` / `Paper` props unchanged.
+- **Cross-FRD ids.** Hosted components defined elsewhere are named by their owners' ids where referenced:
+  `CMP-09-guild-card`, `CMP-09-achievement-notice` (FRD-09), `CMP-15-pill` (FRD-15), all built by WO-19-003.
 
 ## Work Orders
 

@@ -19,13 +19,19 @@ artifacts:
   - 'src/app/projects/[slug]/_components/{tabbar.tsx,workspace-header.tsx,objectives-bar.tsx,WorkspaceNavigation.tsx,tab-spec.tsx,document-links.ts}'
   - 'src/app/projects/[slug]/_components/{ProjectHero,ProjectHeroCompact}/**'
   - 'src/app/projects/[slug]/_components/_tests/{workspace-shell,workspace-navigation,spec-tab,spec-workspace,architecture-tab}*.test.tsx'
+  - 'src/app/projects/[slug]/_components/wo-detail/WoDetail.tsx'
   - 'src/app/projects/[slug]/_components/wo-detail/_tests/wo-detail.integration.test.tsx'
   - 'src/app/projects/[slug]/_tests/**'
   - 'src/app/projects/[slug]/_party/**'
   - 'src/components/modules/party/**'
+  - 'src/components/modules/ServicesDirectory/{ServicesDirectory.tsx,copy.ts}'
+  - 'src/components/modules/ServicesDirectory/_tests/ServicesDirectory.test.tsx'
+  - 'src/app/_design/tokens/_tests/frd13-wo06-09.adversarial.reviewer.test.tsx'
+  - 'src/app/_design/tokens/_tests/frd13-wo07-09.adversarial.reviewer2.test.tsx'
   - 'e2e/{_workspaceTabs.ts,logical-data-model.spec.ts,portfolio-spec.spec.ts,persistent-navigation.spec.ts}'
+  - 'e2e/persistent-navigation/workspace.spec.ts'
 source_requirements: [REQ-04-001, REQ-04-002, REQ-04-003, REQ-04-012, REQ-04-013, REQ-04-014, REQ-12-006]
-dependsOn: [WO-19-002, WO-03-007, WO-02-017, WO-26-001, WO-25-001, WO-13-012, WO-06-013, WO-04-013]
+dependsOn: [WO-19-002, WO-03-007, WO-02-017, WO-26-001, WO-25-001, WO-13-012, WO-06-013, WO-04-013, WO-02-020, WO-12-007]
 last_updated: 2026-10-22
 change_ref: e2e-workspace-tabs-stale.md
 ---
@@ -47,20 +53,37 @@ target. The other five panels are wired to their current v1 content until their 
 ## In Scope
 
 - `IF-04-workspace-project` (`_panels/workspaceProject.ts`): the request-scoped resolver of blueprint §4.1
-  (identity with the stable slug, status, build liveness, progress, counts, last movement, next step), built
-  only from `src/lib` readers: `listWorkOrders`/`aggregateProgress`, `listProjectDocs`/`countFrdFolders`,
-  `countOpenChanges` (WO-04-013), `countPendingDecisions`, the FRD-26 allocation reader, the WO-03-007
-  last-commit resolver, `src/lib/status/liveness.ts`, `nextStep`.
+  (identity with the stable slug, status, build liveness, progress, counts, last movement, next step). It
+  composes the single resolvers and re-derives nothing (DR-115, reconciliation 2026-10-22): the project's
+  `ProjectOverviewItem` from `getProjectOverview()` (WO-03-007: verified / total work orders, FRDs,
+  documents, ADRs, open changes = `countOpenChanges`, last commit = `getLastCommit()`), `build` = the value
+  of `buildSignal()` (`src/lib/fragua/build-signal.ts`, WO-06-013; no second derivation from
+  `lib/status/liveness`), `services` = `projectServiceRows(getServicesDirectory(), id).length` (WO-26-001),
+  FRD names through `listProjectFrds()` (`src/lib/frds/frd-index.ts`, WO-12-007), `countPendingDecisions`,
+  `nextStep`. The same item feeds the `ProjectSwitcher` list.
+- Project resolution: `page.tsx` resolves the project through `allProjects()` (every phase, WO-03-007), not
+  `activeProjects()`, so a `product` / `design` project listed in Portafolio does not 404 on the standalone
+  route (REQ-03-001); an unknown project stays the route not-found.
 - `IF-04-panel-contract` (`_panels/types.ts` + the eight `_panels/*Panel.tsx`): `PanelProps = { project, route }`.
   Resumen, Observabilidad, Cambios, Documentos and Comandos render the current v1 content (v1 `TabSummary`
-  with its current props; v1 work-order list or `WorkOrderDetail` when a work order is selected, then the
-  v1 `ObservabilidadTab`; v1 `TabChanges`; v1 `TabDocuments`; v1 `TabCommands`).
+  with its current props; for Observabilidad the `WoDetail` seam below when a work order is selected,
+  otherwise the v1 work-order list, then the v1 `ObservabilidadTab`; v1 `TabChanges`; v1 `TabDocuments`; v1
+  `TabCommands`).
+- `WoDetail` seam (`_components/wo-detail/WoDetail.tsx`, new file; reconciliation 2026-10-22): the stable
+  export `WoDetail({ project, woId, view })` (`view`: `"Resumen" | "Documento completo"`, map §0.3) (drawn in FRD-05's captured states) as an
+  adapter over the v1 `WorkOrderDetail` + `readWorkOrderDoc` (an unknown id may keep today's behaviour);
+  the Observabilidad adapter mounts it. WO-05-008 (W6) mounts the same export and WO-05-009 (W6) rewrites
+  its inside without changing the signature, so the two W6 work orders build in parallel.
 - `CMP-04-workspace` (`ProjectWorkspace.tsx`, `page.tsx`, `[...segments]/page.tsx`, `workspace-route.ts`):
   crumbs «Portafolio › <Proyecto>», hero vs compact hero by tab, tab bar, selected panel keyed by the project
-  path. Same exported props and helper signatures (the Portafolio page of WO-03-007 hosts it). Tab resolution
-  uses the codec's canonical ids and alias table (WO-25-001): `party` → `summary`, `work-orders` and
-  `observabilidad` → `observability`, a raw `?tab=Work orders` → `observability`; the canonical URL is written
-  back; an alias is never a not-found. An unknown tab renders `SectionNotFound` under the compact header.
+  path. Same exported props and helper signatures: `ProjectWorkspace({ item, selection, headingLevel,
+  navigationBaseHref })` stays source-compatible because the Portafolio page of WO-03-007 hosts it and
+  `src/app/portfolio/**` is not in this work order's artifacts. Tab resolution applies
+  `normalizeLegacyNavigation` (WO-25-001) at the route boundary, then the codec's canonical ids: `party` →
+  `summary`, `work-orders` (including `work-orders/<wo>/<view>`) and `observabilidad` → `observability`, a
+  raw `?tab=Work orders` → `observability`; the canonical URL is written back; an alias is never a
+  not-found. An unknown tab (passed through by `workspaceRouteState()` as `unknown`) renders
+  `SectionNotFound` under the compact header.
 - `CMP-04-tabbar` (`tabbar.tsx`): the eight tabs on the shared `Tabs` with icon, hue, count badge
   (Observabilidad = work orders, Cuentas = services, Cambios = open changes, Documentos = documents; none when
   zero or unknown), overflow arrows, arrow keys, selected tab scrolled into view on phones; `tablist`
@@ -71,7 +94,7 @@ target. The other five panels are wired to their current v1 content until their 
   live, «Sin señal · último evento hace N» when `running` is not backed by a fresh signal (drawn in FRD-14's
   `build-no-signal` capture; through the restyled `FreshnessBadge` of WO-06-013), «Sin construcción activa»
   otherwise; the no-version, no-plan and no-orders fallbacks use the catalogue keys
-  `workspace.hero.noVersion`, `workspace.hero.stats.noPlan`, `workspace.hero.compact.noOrders`; the subtitle is
+  `workspace.hero.noVersion`, `workspace.hero.stats.noPlan`, `workspace.hero.compact.noOrders` (drawn in FRD-06's captured states); the subtitle is
   clamped to two lines with the `workspace.hero.subtitle.*` toggle past 180 characters; the switcher is
   WO-03-007's `ProjectSwitcher`.
 - `CMP-04-panel-spec`: the shared `SpecDigest` (WO-02-017) through `tab-spec.tsx` with
@@ -86,11 +109,20 @@ target. The other five panels are wired to their current v1 content until their 
   Contracts C3: the project's phase for the FRD progress rule, per-FRD work-order progress, the link resolver,
   the not-published flag), no DAG-related prop, and the same `readSpecDigest` / `readArchitectureArtifacts`
   bundles the board reads (one resolver per fact).
-- `CMP-04-panel-accounts`: the shared `AccountsTable` (WO-26-001) for this project.
+- `CMP-04-panel-accounts`: mounts WO-26-001's `ProjectAccounts({ services, projectId })` (intro, issue
+  notice, the shared `AccountsTable`, empty state) with `getServicesDirectory()`; the tab badge is
+  `projectServiceRows(...).length` (AC-26-011.1). Once `ProjectWorkspace.tsx` and `tabbar.tsx` stop
+  importing it, the transitional `ServicesDirectory` facade (`ServicesDirectory.tsx`, `copy.ts` and
+  `_tests/ServicesDirectory.test.tsx`) is deleted here (its last importers; knip).
+- The hero and compact hero mount WO-03-007's `ProjectSwitcher` with the `getProjectOverview()` list.
 - e2e (`change_ref: e2e-workspace-tabs-stale.md`, absorbs superseded WO-04-009): `e2e/_workspaceTabs.ts`
-  becomes the eight labels in order; `portfolio-spec.spec.ts` and `logical-data-model.spec.ts` assert them
-  (label text without the badge digits); `persistent-navigation.spec.ts` replaces its Party-tab and
-  Work-orders-tab steps with the v2 tabs and the legacy aliases; the workspace behaviour coverage
+  becomes the eight labels in order; `portfolio-spec.spec.ts` and the workspace tab-list steps of
+  `logical-data-model.spec.ts` assert them (label text without the badge digits; the viewer steps were
+  updated by WO-02-018 in W3); the core `persistent-navigation.spec.ts` replaces its Party-tab and
+  Work-orders-tail steps with the v2 tabs and the legacy aliases, and `e2e/persistent-navigation/workspace.spec.ts`
+  (the `portfolio` and `standalone` cases, split out by WO-25-001) gets the same update (AC-25-004.1,
+  AC-25-009.1 re-verified); the tab-frame assertions of `_components/_tests/{spec-tab,architecture-tab}.test.tsx`
+  are updated here (WO-02-017 updated only their digest-internal assertions in W3); the workspace behaviour coverage
   (eight tabs in order, default Resumen, compact header on non-Resumen tabs, unknown tab card, legacy
   Work orders link landing on Observabilidad, Spec link opening the same project's Documentos) lives in
   `portfolio-spec.spec.ts`. Every spec starts with `gotoHydrated`.
@@ -151,7 +183,11 @@ honoured (no tab animation beyond the tokens); all strings through `t()`.
   `#project-spec`, `#project-spec-empty`, `#project-architecture`, `#project-tab-not-found`, `#model-invalid`,
   and the hero + tab bar of `#project-summary`; FRD-12 `docs/frds/frd-12-observability-dataviz/mocks/observability-dataviz.html#observability-legacy-link`.
   Oracle states: `project-spec`, `project-spec-empty`, `project-architecture`, `project-tab-not-found`,
-  `model-invalid`, `observability-legacy-link` (`docs/design/prototype/reference/oracle-states.json`).
+  `model-invalid`, `observability-legacy-link`, and the scenario states `project-no-version` (hero «Sin
+  versión») and `project-subtitle-open` (subtitle expanded, «Ver menos»)
+  (`docs/design/prototype/reference/oracle-states.json`; the scenario doubles of the same names in
+  `docs/design/prototype/reference/oracle-recipes.json` are reproduced by this work order's tests and at the
+  close-out Visual QA).
 - **Token slice:** `--surface`, `--line`, `--text`/`--text-2`/`--text-3`, hues `--violet` `--blue` `--green`
   `--amber` `--teal` `--pink` `--slate` with `--tint`/`--tint-strong`, `--r-lg` (hero, cards), `--r-pill`
   (chips, badge), `--fs-h1` hero title, `--fs-sm`/`--fs-xs`, `--s3`..`--s6`, `--shadow`, `--font-display` for the
@@ -182,18 +218,25 @@ Builds `CMP-04-workspace`, `CMP-04-tabbar`, `CMP-04-project-hero`, `CMP-04-proje
   alias to the Observabilidad adapter). Deleted with their whole module: every test under `_party/**` and
   `src/components/modules/party/**`, including the reviewer-authored `_party/_tests/frd-06-*.reviewer.*`,
   `_party/_tests/fragua-snapshot.reviewer.test.ts` and `_party/PartyTab/_tests/PartyTab.integration.reviewer.test.tsx`
-  (`git rm`, listed in the Status Note). Reviewer-authored, NOT edited (the FRD-04 gate reviewer re-blesses or
+  (`git rm`, listed in the Status Note). Also `git rm`ed (map §3.3 rule 3; reconciliation 2026-10-22, this
+  work order deletes their only v2-relevant subject `src/components/modules/party/**` and they only probe
+  the superseded v1 foundation WO-13-006..009): the FRD-13 reviewer suites
+  `src/app/_design/tokens/_tests/frd13-wo06-09.adversarial.reviewer.test.tsx` and
+  `frd13-wo07-09.adversarial.reviewer2.test.tsx`, listed as derogated for the FRD-13 gate reviewer.
+  `ServicesDirectory/_tests/ServicesDirectory.test.tsx` goes with the facade. Reviewer-authored, NOT edited (the FRD-04 gate reviewer re-blesses or
   rewrites them): `_tests/page.reviewer.test.tsx`, `_tests/page.reviewer.integration.test.tsx`,
   `_components/_tests/spec-workspace.reviewer.test.tsx`. Visual baselines: never touched.
 
 ## Dependencies
 
-WO-19-002 (shell), WO-03-007 (`ProjectSwitcher`, last-commit resolver, Portafolio host), WO-02-017 (digests),
-WO-26-001 (`AccountsTable`), WO-25-001 (codec, aliases), WO-13-012 (primitives), WO-06-013 (`FreshnessBadge`,
-and the v2 scene that makes `_party/**` removable), WO-04-013 (`countOpenChanges`). Before this work order
-deletes `src/components/modules/party/**`, `CampaignPipeline`/`RoamingCast` (WO-02-020) and the two FRD-13
-reviewer tests under `src/app/_design/tokens/_tests/` must no longer import it (ledger requests); if an importer
-remains, stop and report instead of editing a file outside `artifacts`.
+WO-19-002 (shell), WO-03-007 (`ProjectSwitcher`, `getProjectOverview()`, `getLastCommit()`, `allProjects()`,
+Portafolio host), WO-02-017 (digests), WO-26-001 (`ProjectAccounts`, `projectServiceRows`), WO-25-001
+(codec, aliases, `normalizeLegacyNavigation`), WO-13-012 (primitives), WO-06-013 (`buildSignal()`,
+`FreshnessBadge`, and the v2 scene that makes `_party/**` removable), WO-04-013 (`countOpenChanges`),
+WO-02-020 (`CampaignPipeline`/`RoamingCast` stop importing `src/components/modules/party/**` in W3),
+WO-12-007 (`listProjectFrds()`). The two FRD-13 reviewer suites that import the party module are removed
+here (above). If any other importer of `src/components/modules/party/**` remains, stop and report instead of
+editing a file outside `artifacts`.
 
 ## Definition of done
 

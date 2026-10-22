@@ -10,7 +10,7 @@
 | WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
 | WO-19-002 | appshell-frame-navigation | PLANNED | WO-13-012, WO-25-001, WO-01-008 | The Órbita shell on every route: sidebar, tablet rail, phone top bar, bottom navigation and drawer, skip link, 1180 px frame, seven destinations with one active, no exempt route, `e2e/shell.ts` and `e2e/routes.ts` (foundation, W3) |
-| WO-19-003 | sidebar-contents | PLANNED | WO-19-002, WO-18-002, WO-17-008, WO-21-003, WO-04-013 | Sidebar contents: Proyectos group, counts and rail dot, collapse to the 64 px rail with float, theme button, guild card, plugin and pending pills, gold achievement notice (W6) |
+| WO-19-003 | sidebar-contents | PLANNED | WO-19-002, WO-18-002, WO-17-008, WO-21-003, WO-04-013, WO-03-007 | Sidebar contents: Proyectos group, counts and rail dot, collapse to the 64 px rail with float, theme button, guild card, plugin and pending pills, gold achievement notice (W6) |
 
 > **Depends on** mirrors each WO's `dependsOn` frontmatter (DR-087).
 

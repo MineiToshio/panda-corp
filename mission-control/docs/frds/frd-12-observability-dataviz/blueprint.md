@@ -124,6 +124,12 @@ Struck and retired (owned by nobody): AC-12-001.1, AC-12-001.4, AC-12-003.1 (map
 - **Cross-FRD:** the frame and the views of FRD-12's other criteria are FRD-05's and FRD-04's; freshness is
   FRD-06's resolver consumed by FRD-18.
 
+## Reconciliation (2026-10-22, binding)
+
+- WO-12-007 uses exactly WO-25-001's keys `dag`, `focus`, `frd` and never edits `src/lib/navigation/**`; its
+  `listProjectFrds()` (`src/lib/frds/frd-index.ts`) is the one FRD index read by WO-04-010, WO-04-011 (and La
+  Fragua through it), WO-05-008 and WO-11-004; WO-02-017 keeps the digests' FRD-list shape stable in W3.
+
 ## Superseded (v1 history)
 
 - WO-12-001 Top-N cap helper + freshness selector · superseded by WO-13-013 (dead `src/app/_observability`).

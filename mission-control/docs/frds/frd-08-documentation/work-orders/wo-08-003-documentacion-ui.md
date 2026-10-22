@@ -24,9 +24,10 @@ artifacts:
   - 'src/app/manual/_tests/docs-home*.test.tsx'
   - 'src/app/manual/_tests/docs-search*.test.tsx'
   - 'src/app/manual/_tests/doc-reader*.test.tsx'
-  - 'src/app/manual/_tests/persistentNavigation*.test.tsx'
+  - 'src/app/manual/_tests/persistentNavigation.test.tsx'
   - 'src/app/manual/_tests/visual-reanchor*.test.tsx'
   - 'e2e/documentation.spec.ts'
+  - 'e2e/persistent-navigation/manual.spec.ts'
 source_requirements: [REQ-08-001, REQ-08-002, REQ-08-003, REQ-08-006, REQ-08-007, REQ-08-020]
 dependsOn: [WO-13-012, WO-25-001]
 last_updated: '2026-10-22'
@@ -43,9 +44,9 @@ Rebuilds the Documentación shell (`/manual`, `/manual/:group/:page`) as the Ór
 
 ## In Scope
 
-- **Shell and routing.** `ManualShell` renders `PageHead` (eyebrow, h1 «Documentación», subtitle) and either the home, the search results, the reader or the not-found state from the URL (`/manual`, `/manual/:group/:page`, `q`, `index`). `page.tsx` keeps reading the authored pages (`readManualPages()` plus `readServiceManualPages()`, unchanged) and no longer reads skills, agents, rules or standards. `[...segments]/page.tsx` keeps its codec seeding, drops the `reference` family as a rendered surface and redirects the legacy `reference/<commands|agents|rules|standards>[/<item>]` paths to `/configuration/<skills|agents|rules|standards>[/<item>]` (an old link keeps its resource).
+- **Shell and routing.** `ManualShell` renders `PageHead` (eyebrow, h1 «Documentación», subtitle) and either the home, the search results, the reader or the not-found state from the URL (`/manual`, `/manual/:group/:page`, `q`, `index`). `page.tsx` keeps reading the authored pages (`readManualPages()` plus `readServiceManualPages()`, unchanged) and no longer reads skills, agents, rules or standards. `[...segments]/page.tsx` keeps its codec seeding, drops the `reference` family as a rendered surface and redirects the legacy `reference/<commands|agents|rules|standards>[/<item>]` paths to `/configuration/<skills|agents|rules|standards>[/<item>]` (an old link keeps its resource) by applying WO-25-001's `normalizeLegacyNavigation` at this route boundary (the codec's catalog mapping is `commands → skills`, `agents`, `rules`, `standards`, the same ids as Configuración's sections; no second mapping table here, DR-115). The shell renders no `<main>` (the app shell's `main#content` is the only main landmark, AC-19-001.5); `page.test.tsx` and `visual-reanchor.test.tsx` cases that query `getByRole("main")` are updated here.
 - **Home (AC-08-020.1).** `DocsHome` (`DocsGroupCard` / `DocsSteps`): search field «Buscar en toda la Documentación» (placeholder with the live page count); card «Empieza aquí» with the numbered tutorial path then «Después, entiende lo esencial» (four curated concept links); card «Guías para el día a día» (six curated guide links, the guide count, «Ver todas»); the two cards end at the same height and stack below 1024 px; block «Explorar por tipo» (Tutorial, Guías, Conceptos, Workflows with their page counts, then Referencia with «En Configuración» linking to `/configuration`). Group counts and the page count are derived from the page index, never typed in.
-- **Search (AC-08-020.2).** `DocsSearch`: a pure, injected-renderer index (`buildSearchIndex`) and `searchPages`, listing matches from every group in a «Resultados» card, each with its title, an ellipsis-delimited snippet around the match and its group chip; choosing a hit opens the page. See the blueprint (`IF-08-search-index`) for the text-extraction contract; the term lives in `q`, typing replaces history.
+- **Search (AC-08-020.2).** `DocsSearch`: a pure, injected-renderer index (`buildSearchIndex`) and `searchPages`, listing matches from every group in a «Resultados» card, each with its title, an ellipsis-delimited snippet around the match and its group chip; choosing a hit opens the page. See the blueprint (`IF-08-search-index`) for the text-extraction contract (reconciliation 2026-10-22, confirmed: lazy client-side extraction of each registered renderer's text with `react-dom/server` `renderToStaticMarkup`, already installed, built on the first non-empty term and memoised; no build-time generated index, which would be a second replica of the pages, DR-115; a test proves every registered renderer is extractable); the term lives in `q`, typing replaces history.
 - **Reader (AC-08-020.3).** `DocReader` + `DocNav` + `DocIndex`: `Crumbs` (Documentación › group › page), counter «2 de 22» (or «Paso 2 de 2» with the two-segment progress bar and the text «Paso 2 de 2 del tutorial» on tutorial pages), the page body (a bespoke renderer when one exists, else the `.md` body through `Markdown`; the content is WO-08-004's), the previous and next cards «Anterior en <grupo>» / «Siguiente en <grupo>», and the index at the right (own search «Buscar en la Documentación…», groups Tutorial · Guías · Conceptos · Workflows · Referencia with counts, the current page highlighted and `aria-current="page"`). Below 900 px the index is a `button` «Índice · <título>» that opens it above the page and returns focus to the button when closed; the opened state lives in `index`.
 - **Referencia.** The index and the home list Comandos, Agentes, Reglas de decisión and Estándares as links to the matching Configuración section (FRD-07); no catalog is rendered here.
 - **Not found.** An unknown group or page renders the `EmptyState` «Esta página no existe» / «La Documentación no tiene una página «<slug>».» with the link «Ir al inicio de la Documentación»; no index and no reader.
@@ -61,7 +62,7 @@ Rebuilds the Documentación shell (`/manual`, `/manual/:group/:page`) as the Ór
 
 ### Removed in this WO (v1 pieces; delete code, exports and tests together)
 
-1. The embedded Referencia: the imports of `AgentList`, `AgentDetail`, `SkillsSection`, `StandardsSection`, `DecisionRulesSection` from `DocReader.tsx`, the reference-selection state and props (`skills`, `agents`, `rules`, `standards`, `levels`) from `ManualShell`, `DocNav` and `page.tsx`, and the `reference/*` navigation branch of `DocNav`.
+1. The embedded Referencia: the imports of `AgentList`, `AgentDetail`, `SkillsSection`, `StandardsSection`, `DecisionRulesSection` from `DocReader.tsx`, `DocReader.tsx`'s type import of `AgentLevelResult` from `@/lib/gamification/agents` (WO-13-013 deletes `agents.ts`; agent levels are out of v2), the reference-selection state and props (`skills`, `agents`, `rules`, `standards`, `levels`) from `ManualShell`, `DocNav` and `page.tsx`, and the `reference/*` navigation branch of `DocNav`.
 2. The two-pane `236px 1fr` side menu with the Diátaxis headers «Empezar aquí · Guías · Referencia · Conceptos» as the navigation (replaced by the index at the right and the home).
 3. The `reference` segment family as a rendered route (kept only as the redirect above).
 4. Any unused export or prop left by the above, and the tests of the removed pieces.
@@ -78,7 +79,7 @@ Worked example (AC-08-020.3): the third page of a six-page tutorial reads «Docu
 
 Completeness (definition of done beyond the ACs):
 
-- **Error and empty paths:** unknown page (above); a search with no match shows the catalogue's empty sentence (`documentacion.results.empty`, not captured in the mocks, so no literal is typed in code) in the results card; a page whose renderer throws while indexing is indexed by title only and its failure is reported by a test, never swallowed silently at runtime.
+- **Error and empty paths:** unknown page (above); a search with no match shows the catalogue's empty sentence (`documentacion.results.empty`, captured in state `docs-search-empty`; no literal is typed in code) in the results card; a page whose renderer throws while indexing is indexed by title only and its failure is reported by a test, never swallowed silently at runtime.
 - **Security:** read-only; commands are shown to copy, never run; the legacy redirects only map to fixed Configuración paths (no open redirect: the section is matched against a closed list, the item is URL-encoded as one segment).
 - **Performance:** the search index is built lazily on the first non-empty term and memoised for the session; the home and reader do no work for it before then; wide tables and code scroll inside their own box.
 - **Accessibility:** the index control is a `button` whose label contains the page name; the opened index is keyboard reachable and closes back to its control; breadcrumbs end in `aria-current="page"`; the progress bar carries «Paso X de Y del tutorial» as text; one `h1` «Documentación»; 44 px targets on touch layouts; `prefers-reduced-motion` honoured; only transforms animate.
@@ -99,7 +100,8 @@ None.
 
 ## Derogated tests (BL-0051: same WO, never a later one)
 
-- Implementer-authored, updated or deleted here: `src/app/manual/_tests/page.test.tsx`, `persistentNavigation.test.tsx`, `visual-reanchor.test.tsx` (v1 side menu, Referencia embed, `PageTitle`).
+- Implementer-authored, updated or deleted here: `src/app/manual/_tests/page.test.tsx`, `persistentNavigation.test.tsx` (after WO-25-001's split it holds only the three Manual cases; this work order is its one W3 owner, reconciliation 2026-10-22), `visual-reanchor.test.tsx` (v1 side menu, Referencia embed, `PageTitle`).
+- `e2e/persistent-navigation/manual.spec.ts` (split out by WO-25-001): authored Manual selection, anchor, paste and history updated to the v2 reader; the former `/manual/reference/...` steps assert the redirect to `/configuration/...` (AC-25-001.1, AC-25-002.1, AC-25-004.1 re-verified).
 - Reviewer-authored, NOT edited (DR-080), re-blessed or rewritten by the FRD-08 gate reviewer: `src/app/manual/_tests/frd-08-gate-opus.reviewer.test.tsx`, `frd-08-reuse.gate.reviewer.test.tsx`, `manual.reviewer.integration.test.tsx` (they pin the v1 Referencia reuse of the Configuración cards and the old shell).
 - Blessed visual baselines of `/manual` (`e2e/visual.spec.ts-snapshots/**`): never touched; re-blessed by the reviewer at the close-out Visual QA.
 
@@ -110,7 +112,7 @@ Component and unit tests beside the code (`getByRole` first): home blocks and de
 ## Visual reference
 
 - **Mock screen(s) to reproduce:** `docs/frds/frd-08-documentation/mocks/documentation.html`, sections `docs-home`, `docs-search`, `docs-page`, `docs-page-index-open`, `docs-page-not-found`, `docs-page-tutorial` (and `docs-page-guide` for the counter variant); screenshots in `mocks/screenshots/<id>-<width>-<theme>.jpg` at 375 / 768 / 1280, light and dark (the index-open state at 375 and 768).
-- **Oracle states** (`oracle-states.json`, `frd_slug` frd-08-documentation): `docs-home`, `docs-search`, `docs-page`, `docs-page-index-open`, `docs-page-not-found`, `docs-page-tutorial`, `docs-page-guide`; routes `/manual`, `/manual/concepts/el-pipeline`, `/manual/concepts/no-existe`, `/manual/tutorial/como-empezar`, `/manual/guides/g-modo`. (`docs-page-team` and `docs-page-multi-runtime` are WO-08-004's content states.)
+- **Oracle states** (`oracle-states.json`, `frd_slug` frd-08-documentation): `docs-home`, `docs-search`, `docs-search-empty` (scenario state; its build-side double is the `oracle-recipes.json` entry of the same name), `docs-page`, `docs-page-index-open`, `docs-page-not-found`, `docs-page-tutorial`, `docs-page-guide`; routes `/manual`, `/manual/concepts/el-pipeline`, `/manual/concepts/no-existe`, `/manual/tutorial/como-empezar`, `/manual/guides/g-modo`. (`docs-page-team` and `docs-page-multi-runtime` are WO-08-004's content states.)
 - **Token slice:** the reader's hue follows the page's group (`data-tone`); `--surface`, `--surface-2`, `--line`, `--text`, `--text-2`, `--text-3`, `--focus`; progress bar fill in the group hue; radius and spacing tokens as in `docs/design/design-tokens.json`; Space Grotesk titles, Inter body, JetBrains Mono only for commands and paths; `tabular-nums` on counters; nothing under 12 px.
 - **FDD pointer:** `docs/frds/frd-08-documentation/fdd.md`.
 - **Assets:** exported SVG icons via `Icon`; the agent sprites used by the roster are staged in `public/` by WO-13-010.

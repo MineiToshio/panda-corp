@@ -101,7 +101,7 @@ Delivers REQ-02-002, REQ-02-003, REQ-02-005, REQ-02-006, REQ-02-014, REQ-02-016 
   "Quitar de favoritas: <título>") and `aria-pressed` reflecting the state.
 - **AC-02-012.4** — **Out of v2 (owner decision 2026-10-21):** WHEN a card is a favourite, THE system SHALL highlight it with a distinct **gold
   card background + border** (the `--color-warn` token, distinct from the teal accent used by
-  "recomendada"/"en construcción"). The highlight SHALL **not** be conveyed by colour alone — the
+  "recomendada"/"en construcción"). The highlight SHALL **not** be conveyed by colour alone — the (drawn in FRD-04's captured states)
   card's `aria-label` SHALL include "favorita" and carry the filled-star control (accessibility.md).
   In v2 the filled gold star of AC-02-012.3 alone marks a favourite.
 

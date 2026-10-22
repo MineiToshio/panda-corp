@@ -158,7 +158,26 @@ and could not satisfy BL-0051 (a broken step must be repaired in the work order 
 therefore moves the tests, assertions and titles unchanged, into `e2e/persistent-navigation/<family>.spec.ts`
 plus a shared `_location.ts`, and leaves the codec-centric core in `e2e/persistent-navigation.spec.ts`. The
 table of who updates which file is in WO-25-001. This is a feature-level decision, not an ADR: it changes no
-platform contract.
+platform contract. The unit suite `src/app/manual/_tests/persistentNavigation.test.tsx`, which pins the
+Manual, the sidebar prefix rule, the Backlog, Propuestas and Configuración, is split the same way by the same
+work order (reconciliation 2026-10-22; it was the one W3 artifact overlap between WO-08-003 and WO-19-002).
+
+## Reconciliation (2026-10-22, binding)
+
+- **Aliases are applied by owners, not by the codec.** `normalizeLegacyNavigation` is pure and exported; each
+  v2 owner applies it at its route boundary (Portafolio WO-03-007, workspace WO-04-010, Configuración
+  WO-07-006, Documentación WO-08-003, idea page WO-02-016). Applying `party → summary` inside the codec at W0
+  would make the v1 Party tab unreachable before WO-04-010 (W5) removes it.
+- **AC-25-010.1 / AC-25-011.1 stay owned by WO-25-001** (map §8.5): the URL halves are proven here by unit
+  tests; WO-19-002 and WO-02-018 cite the ids in their own tests and their FRD gates re-verify the surface
+  halves.
+- **Unknown workspace tab** passes through `workspaceRouteState()` as `unknown` with its raw label (WO-04-010
+  draws the in-tab not-found card); an unknown project stays a route not-found.
+- **Key requests honoured up front:** FRD-02 board and idea keys plus the legacy `/board?idea=` resolution,
+  FRD-07 `q`/`type`/`approval`/`severity`/`domain`, FRD-08 `q`/`index`, FRD-10 `category`/`trophy`/`eras`,
+  FRD-17/22 `proposalsTab`/`stream`/`lesson`/`backlogItem`, the Observabilidad seven-key set (with a
+  comma-joined `state`), the `observabilidad` and `work-orders/<wo>/<view>` aliases; a fragment survives
+  every codec-built href.
 
 ## Dependencies & Risks
 
@@ -180,7 +199,7 @@ platform contract.
 
 | WO | Depends on | Artifacts | Foundation | Parallel with |
 |---|---|---|---|---|
-| WO-25-001 | — | `src/lib/navigation/**`, `e2e/persistent-navigation.spec.ts`, `e2e/persistent-navigation/**`, `src/app/projects/[slug]/_components/wo-detail/**`, `src/app/projects/[slug]/_components/tab-work-orders/**`, `src/app/projects/[slug]/_components/tabbar.tsx` | false | W0; with WO-13-010, WO-22-001, WO-02-019 |
+| WO-25-001 | — | `src/lib/navigation/**`, `e2e/persistent-navigation.spec.ts`, `e2e/persistent-navigation/**`, `src/app/projects/[slug]/_components/wo-detail/**`, `src/app/projects/[slug]/_components/tab-work-orders/**`, `src/app/projects/[slug]/_components/tabbar.tsx`, `src/app/manual/_tests/persistentNavigation.test.tsx`, `src/components/modules/Nav/_tests/persistentNavigation.test.tsx`, `src/app/proposals/_components/BacklogPanel/_tests/persistentNavigation.test.tsx`, `src/app/proposals/_tests/persistentNavigation.test.tsx`, `src/app/configuration/_tests/persistentNavigation.test.tsx` | false | W0; with WO-13-010, WO-22-001, WO-02-019 |
 
 - **Order and parallelism.** One coarse work order: the codec additions, the spec split and the flake fix
   are one contract and one file family; splitting them would put two writers on `src/lib/navigation/**`.

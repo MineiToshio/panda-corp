@@ -15,6 +15,7 @@ artifacts:
   - 'src/lib/_tests/command-modes*.test.ts'
   - 'src/app/board/_components/CardDetail/CardDetail.tsx'
   - 'src/app/board/_components/CardDetail/_tests/CardDetail.tabs.test.tsx'
+  - 'e2e/persistent-navigation/board.spec.ts'
 source_requirements: [REQ-02-010, REQ-02-016, REQ-11-005]
 dependsOn: [WO-13-012, WO-11-003, WO-25-001]
 last_updated: '2026-10-22'
@@ -217,6 +218,11 @@ rows `CampaignRoom`, `PhaseSheet`, `TeamMember` in `src/components/modules/Campa
   picker mounted behind its disclosure, forge link only on a reached build sheet with `forgeHref`, reduced motion
   static, live markers only while `running`, the sunset copy present and «Claude Design» absent.
 - Unit: `command-modes` spec modes and hints; `IMPLEMENT_MODES` still derived from `BUILD_MODES`.
+- `e2e/persistent-navigation/board.spec.ts` (split out by WO-25-001): the campaign `phase` step is updated to the
+  pinned sheet and the room buttons (AC-25-001.1, AC-25-002.1 re-verified); WO-02-016 updates the idea-tab steps in
+  W4.
+- `CampaignPipeline.tsx` and `RoamingCast.tsx` import nothing from `src/components/modules/party/**` once this work
+  order lands (WO-04-010 depends on it before deleting that folder in W5).
 
 ### Derogated tests (BL-0051)
 

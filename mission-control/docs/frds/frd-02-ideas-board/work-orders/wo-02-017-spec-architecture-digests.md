@@ -63,7 +63,12 @@ shared `ReportBand` family and `FrdCard`, and removes the work-order DAG from th
 - **Seam for FRD-04** (`IF-02-digest-props`, blueprint Contracts C3): new props optional; the props `ProjectWorkspace`
   and `TabSpec` pass today (`project`, `navigationBaseHref`-driven link resolver, `frdCount`, chips inputs) stay
   accepted until WO-04-010 rewires the workspace (W5). Keep the digest roots' accessible names (`article`
-  «Resumen del spec» and the architecture equivalent) so the workspace mounts stay testable.
+  «Resumen del spec» and the architecture equivalent) so the workspace mounts stay testable. The FRD lists of
+  both readers keep their shape in this wave (`parseSpec(...).frds[].id` / `.title` and the architecture digest's
+  per-FRD list): `listProjectFrds()` (WO-12-007, same wave W3) reads them for the FRD titles the oracle draws
+  («FRD-01 · Data reading», AC-12-004.1, AC-05-008.2); additions are optional fields only.
+- Only the digest-internal assertions of `src/app/projects/[slug]/_components/_tests/{spec-tab,architecture-tab}.test.tsx`
+  are updated here (the digest markup changes in W3); their tab-frame assertions stay WO-04-010's (W5).
 - Copy: every label from `t()` (catalogue keys under `workspace.spec.*`, `workspace.arquitectura.*`); delete the
   local `ArchitectureDigest/copy.es.ts`.
 

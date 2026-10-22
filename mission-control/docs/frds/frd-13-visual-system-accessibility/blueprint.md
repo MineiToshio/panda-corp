@@ -120,7 +120,15 @@ of this blueprint:
   label contract; `PageTitle`, `PageLayout` over `PageHead`) exist only for un-migrated v1 consumers
   and are deleted by WO-13-013.
 - *Vocabulary (IF-13-vocabulary)* is the single source of phase, work-order-state and return-type tone,
-  icon and label key (DR-115); surfaces never redefine them.
+  icon and label key (DR-115); surfaces never redefine them. The work-order-state presentation is one
+  exported map consumed through `StateDot` / `Chip` by FRD-05, FRD-06 and FRD-12 (reconciliation
+  2026-10-22).
+- *`MoreBar` modes* (reconciliation 2026-10-22): paged (consumer `pageSize`, `step` default
+  `2 × pageSize` as the prototype's `moreList`, a consumer may pass the step its FRD fixes) and
+  reveal-all («Mostrar {count} más» / «Mostrar menos»); the label stays the caller's resolved catalogue
+  string.
+- *Dates (IF-13-copy)*: one shared Spanish formatter pair in `src/lib/copy/dates.ts` (absolute «19 oct.
+  2026», relative «hoy · ayer · hace N días · hace N min»), `now` passed in; every surface uses it.
 
 **v1 compatibility layer.** From WO-13-010 to WO-13-013, one fenced block of `globals.css` keeps the v1
 token names and global classes that un-migrated v1 components read, re-pointed at the Órbita token the
@@ -148,7 +156,9 @@ Each WO lists its derogated tests in its body. Summary for this FRD:
   green until WO-13-013.
 - WO-13-011 / WO-13-012 update their primitives' implementer tests; the two v1 foundation reviewer
   suites (`src/app/_design/tokens/_tests/frd13-wo06-09*`, `frd13-wo07-09*`) are derogated where they pin
-  v1 visuals; they also import the `party/*` set that FRD-04's WO-04-010 deletes (ledger).
+  v1 visuals; they import the `party/*` set that FRD-04's WO-04-010 deletes in W5, so WO-04-010 `git rm`s
+  them (map §3.3 rule 3; reconciliation 2026-10-22: they only probe the superseded WO-13-006..009, one
+  owner, not WO-13-010 and not WO-13-013).
 - WO-13-013 removes the reviewer suites whose subject it deletes and derogates the per-agent colour
   sync suite; the FRD-13 gate reviewer, in the same final wave, re-authors any surviving case.
 - Visual baselines: never touched by implementers; re-blessed at the close-out Visual QA.
@@ -177,7 +187,7 @@ Each WO lists its derogated tests in its body. Summary for this FRD:
 | WO-13-010 | — | `src/app/globals.css`, `src/app/layout.tsx`, `src/app/_design/**`, `src/app/_tests/layout.theme*.test.tsx`, `src/app/_tests/globals.css*.test.ts`, `src/lib/{theme,copy}/**`, `src/components/core/Icon/**`, `public/fonts/**`, `public/brand/**`, `public/prototype/assets/**`, `public/ranks/**`, `e2e/visual-system.spec.ts` | true | W0 · WO-22-001, WO-25-001, WO-02-019 (+ legacy W0 readers) |
 | WO-13-011 | WO-13-010 | `src/components/core/{Button,Chip,CountBadge,TierBadge,CmdRow,CopyButton,CopyText,Field,MoreBar,StateBadge,StateDot,Avatar,Ring,ProgressBar,PhaseStepper,KeyValue,Toast,Segmented,BadgeIcon}/**` | true | W1 · legacy W1 readers only |
 | WO-13-012 | WO-13-011 | `src/components/core/{Card,PageHead,PageTitle,PageLayout,Crumbs,SectionHead,Tabs,EmptyState,Notice,Banner,Modal,Table,ListRow,Markdown}/**` | true | W2 · WO-01-010, WO-11-003 (+ legacy W2) |
-| WO-13-013 | WO-01-011, WO-02-015, WO-02-016, WO-02-018, WO-02-020, WO-03-007, WO-04-011, WO-04-012, WO-05-008, WO-05-009, WO-07-006, WO-08-003, WO-08-004, WO-10-017, WO-11-004, WO-17-008, WO-18-002, WO-19-003, WO-22-002 | `src/components/core/{Panel,ItemSlot,Shield,XpBar,DocHeading,KanbanColumn,TierBadge,CountBadge,StateBadge,PageTitle,PageLayout,CelebrationSurface}/**`, `src/components/modules/ProposalsBadge/**`, `src/components/modules/Nav/navTab.ts`, `src/components/modules/GuildBar/GuildBar.tsx`, `src/components/modules/GuildBar/_tests/{GuildBar,GuildBar.embedded,wo-09-003-guildbar}.test.tsx`, `src/app/_observability/**`, `src/app/_design/**`, `src/lib/gamification/{gamification.ts,agents.ts}`, `src/lib/gamification/_tests/**`, `src/lib/pendingMerge/**`, `src/components/modules/manual-diagrams/FlowGraph.tsx`, `src/components/modules/manual-diagrams/_tests/FlowGraph.test.tsx`, `src/lib/manual/skill-flows.ts`, `src/app/globals.css`, `src/app/layout.tsx`, `public/prototype/assets/**`, `package.json`, `pnpm-lock.yaml`, `README.md`, `.pandacorp/status.yaml` | false | W7 · none (alone) |
+| WO-13-013 | WO-01-011, WO-02-015, WO-02-016, WO-02-018, WO-02-020, WO-03-007, WO-04-011, WO-04-012, WO-05-008, WO-05-009, WO-07-006, WO-08-003, WO-08-004, WO-10-017, WO-11-004, WO-17-008, WO-18-002, WO-19-003, WO-22-002 | `src/components/core/{Panel,ItemSlot,Shield,XpBar,DocHeading,KanbanColumn,TierBadge,CountBadge,StateBadge,PageTitle,PageLayout,CelebrationSurface}/**`, `src/components/modules/ProposalsBadge/**`, `src/components/modules/Nav/navTab.ts`, `src/components/modules/GuildBar/GuildBar.tsx`, `src/components/modules/GuildBar/_tests/{GuildBar,GuildBar.embedded,wo-09-003-guildbar}.test.tsx`, `src/app/_observability/**`, `src/app/_design/**`, `src/lib/gamification/{gamification.ts,agents.ts}`, `src/lib/gamification/_tests/**`, `src/lib/pendingMerge/**`, `src/components/modules/manual-diagrams/FlowGraph.tsx`, `src/components/modules/manual-diagrams/_tests/FlowGraph.test.tsx`, `src/lib/manual/skill-flows.ts`, `src/app/manual/{ManualNavContext,ManualShell}.tsx`, `src/components/modules/FreshnessBadge/**`, `src/lib/portfolio/**`, `src/app/projects/[slug]/_components/_tests/workspace-navigation.test.tsx`, `src/app/projects/[slug]/_components/wo-detail/_tests/wo-detail.integration.test.tsx`, `src/lib/constants.ts`, `src/lib/command-modes.ts`, `src/lib/_tests/command-modes*.test.ts`, `src/app/globals.css`, `src/app/layout.tsx`, `public/prototype/assets/**`, `package.json`, `pnpm-lock.yaml`, `README.md`, `.pandacorp/status.yaml` | false | W7 · none (alone) |
 
 - **Order.** W0 tokens → W1 leaf primitives → W2 composite primitives (the split follows the real
   import direction: `CardHeader` uses the count chip, `Dialog` uses `Button`, `AlertBanner` hosts the

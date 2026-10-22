@@ -97,7 +97,13 @@ running and a green SHA exists», passes the project name and folder, the `build
   declared files (`snapshot.ts` and its test) are different files; WO-01-011 (W5) later edits
   `src/lib/snapshot/**` to adopt `now()`, a different wave.
 - **Visual spec (DR-054):** `mocks/snapshot-and-feedback.html#project-snapshot`, `#project-snapshot-stale`,
-  `#build-no-signal`; oracle states with the same ids. No raster assets.
+  `#build-no-signal`; oracle states with the same ids, plus the scenario state `snapshot-unsafe` («Aún no es
+  seguro», `oracle-recipes.json` double). No raster assets.
+- **Reconciliation (2026-10-22, binding).** WO-01-010 answers the snapshot gap queries in fixture mode (ledger
+  C accepted). The restyle keeps `SnapshotPanel`'s v1 props plus optional `projectName`, `gap`, `noSignalAgo`
+  instead of the map seam `SnapshotPanel({ project })` (TabSummary passes `{ slug, snapshot }` until WO-04-011);
+  the components.md path/props difference is a design item, not a plan defect. The no-signal age is formatted
+  by WO-13-010's shared relative formatter.
 
 ## Work Orders
 

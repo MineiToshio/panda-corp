@@ -10,7 +10,7 @@
 | WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
 | WO-22-001 | backlog-reader | PLANNED | — | Re-verify the backlog reader (fail-loud errors, duplicate ids, severity-then-id order), add the plain-name area helpers and let the bounded discard write record a typed reason. |
-| WO-22-002 | backlog-tab-orbita | PLANNED | WO-22-001, WO-13-012 | The Backlog panel: priority tiles, topic bars, Cómo avanzar, En curso and Abiertos by priority, collapsed history, read-error notice, item dialog and discard confirmation. |
+| WO-22-002 | backlog-tab-orbita | PLANNED | WO-22-001, WO-13-012, WO-25-001 | The Backlog panel: priority tiles, topic bars, Cómo avanzar, En curso and Abiertos by priority, collapsed history, read-error notice, item dialog and discard confirmation. |
 
 > **Depends on** mirrors each work order's `dependsOn` frontmatter (DR-087).
 

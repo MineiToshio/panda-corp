@@ -38,7 +38,10 @@ anchor.
   `runGit`, all "now" through `now()` (WO-01-010); leftovers from `git worktree list --porcelain` minus the
   locked worktrees (counted apart for the dialog summary); repositories identified by the first worktree path so
   repositories sharing a git directory collapse into one row.
-- `src/components/modules/Worktrees/`: `WorktreesCard`, `WorktreesTable`, `WorktreesBranchDialog`.
+- `src/components/modules/Worktrees/`: `WorktreesCard` (its root element carries `id={WORKTREES_CARD_ID}`,
+  i.e. `id="worktrees-card"`, the anchor the sidebar pill links to, AC-21-008.1 and oracle
+  `shell-pending-chip-open`; WO-18-002 only places the card), `WorktreesTable`, `WorktreesBranchDialog`. No
+  `child_process` and no zero-argument `Date` in these artifacts (WO-01-011's boundary test).
 - `src/components/dashboard/FactoryWorktrees/FactoryWorktrees.tsx` rewritten as the Server Component mount
   (reads `getWorktreesByRepo()`, renders `WorktreesCard`); `src/app/page.tsx` swaps the import and drops the
   `getPendingMerge()` read. WO-18-002 (W5) rewrites the page layout around the mount.
@@ -109,7 +112,9 @@ None.
   The pill states `shell-pending-chip` and `shell-pending-chip-open` are WO-19-003's.
 - **Oracle states** (`oracle-states.json`, frd slug `frd-21-pending-merge`): `worktrees-card`,
   `worktrees-branch-dialog`, `worktrees-unreadable` (recipe: the git double that makes `worktree list` fail for
-  the `pandasaga` repository; the others answer from `git-state.json`). Keep the recorded hooks (`.wt-table`,
+  the `pandasaga` repository; the others answer from `git-state.json`), and the scenario state
+  `worktrees-factory-dialog` (the factory repository's branch dialog with the origins «Carril de un build» and
+  «Sesión de Codex», reproduced from its `oracle-recipes.json` double). Keep the recorded hooks (`.wt-table`,
   `.skill-line`, `.state-dot`, `.legend`, `p.tbl-hint`, `data-wt-repo`) on the elements.
 - **Token slice:** the teal dialog head and card hue, coral (Depurar ya, "No se pudo leer", the notice), amber
   (Revisar pronto), green (Al día, Limpio), `--surface`, `--surface-2`, `--line`, radius 16 and 22, tabular

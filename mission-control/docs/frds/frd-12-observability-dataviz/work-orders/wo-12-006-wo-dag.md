@@ -34,7 +34,7 @@ follow-active-step, live off the real event stream.
   with **Dagre** (~39KB, consume the VERIFIED `dagre` dependency; **not** ELK.js).
   - **Chain-highlight** (`bDagChain`): hovering/selecting a node highlights its full dependency chain
     (upstream + downstream) with `accent` edges + thicker stroke and **dims** the rest (`opacity:.32`);
-    a hint line + "limpiar".
+    a hint line + "limpiar" (drawn in FRD-02's captured states).
   - **Jump to first error**: a `danger`-bordered button selects the first `fail` WO and highlights its
     chain.
   - **Follow the active step**: a labelled toggle; when ON, the running WO gets an accent drop-shadow +

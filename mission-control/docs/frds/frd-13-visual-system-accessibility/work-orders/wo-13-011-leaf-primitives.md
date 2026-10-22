@@ -43,7 +43,13 @@ AC-13-010.1.
    Lanzamiento green, unknown slate), work-order state → tone, icon and copy key (todo slate `circle`,
    in progress blue `loader`, review amber `eye`, done green `check`, blocked coral `alert`), return
    type → tone. Labels come from `t()` (`common.phases.*`, `common.workOrderStates.*`,
-   `common.returnTypes.*`). No surface re-derives these (DR-115).
+   `common.returnTypes.*`). No surface re-derives these (DR-115). The work-order state map is exported
+   as one presentation keyed by the work-order state union (`todo · in_progress · review · done ·
+   blocked`, the reader's failed state mapping to `blocked`) → word key `common.workOrderStates.*`
+   (`todo`, `inProgress`, `review`, `done`, `blocked`), hue slate / blue / amber / green / coral, icon `circle` / `loader` / `eye` /
+   `check` / `alert`, the DESIGN.md state table) and consumed through `StateDot` and `Chip`, so FRD-05
+   rows, cards and tiles, FRD-06 tokens and FRD-12 nodes keep no copy of it (REQ-05-002, AC-06-001.6,
+   AC-12-004.2; LESSON-0077).
 2. **Primitives**, each a typed component with a short JSDoc, tokens only (Tailwind utilities on the
    WO-13-010 registry), keeping the prototype class hooks on the root element (`.btn`, `.chip`, `.cmd`,
    `.ring`, `.bar`, `.stackbar`, `.stepper`, `.kv`, `.seg`, `.badge-icon`, `.copy-text`, `.morebtn`,
@@ -69,7 +75,15 @@ AC-13-010.1.
      labelled), `SelectField` (`.field` with chevron, labelled), `Switch` (`role="switch"`,
      `aria-checked`).
    - `MoreBar` (new): full-width dashed 40 px button; the caller passes the already-resolved label
-     (the catalogue's «Mostrar N más · quedan M» family), so the primitive holds no copy.
+     (the catalogue's «Mostrar N más · quedan M» family), so the primitive holds no copy. It also owns
+     the reveal arithmetic both drawn modes need (reconciliation 2026-10-22): **paged** (default):
+     `pageSize` from the consumer, each press reveals `step` more items, `step` defaulting to
+     `2 × pageSize` (prototype `moreList`: «Mostrar 14 más · quedan 14» with 24 candidates at page 10,
+     «Mostrar 2 más · quedan 2» at page 15), N = min(step, remaining) and M = remaining before the press,
+     both handed to the caller's label; a consumer whose FRD fixes another step passes it (FRD-10's
+     «Por conquistar» passes 12, AC-10-028.3); **reveal-all**: one press shows the whole remainder
+     (label «Mostrar {count} más»), then «Mostrar menos» collapses (FRD-05's Tablero,
+     `workspace.observabilidad.kanban.showMore` / `showLess`, AC-05-008.3). (drawn in FRD-05's captured states)
    - `StateDot` (new): 7 px dot plus the state word (never colour alone). `StateBadge` keeps its
      export and icon-plus-label contract (the FRD-13 reviewer test pins it) and adopts Órbita styling;
      new code uses `StateDot`; WO-13-013 deletes `StateBadge`.

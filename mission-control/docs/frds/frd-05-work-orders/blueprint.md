@@ -164,6 +164,16 @@ AC-12-003.3, AC-12-005.1, AC-12-005.2.
   `git rm`'d reviewer tests (two in `_components/_tests/`, one under `_observability/`) are WO-05-008's alone. Other W6 WOs write other `_panels/*` files and other folders.
 - **Cross-FRD:** consumes FRD-04 (frame), FRD-12 (map, FRD index, drift), FRD-13 (primitives), FRD-25 (codec),
   FRD-08 (`Paper`); feeds FRD-13's WO-13-013 (W7, depends on both v2 WOs).
+- **Reconciliation (2026-10-22, binding).** (1) The `WoDetail({ project, woId, view })` seam is CREATED by
+  WO-04-010 (W5) in `wo-detail/WoDetail.tsx` as an adapter over the v1 `WorkOrderDetail` + `readWorkOrderDoc`
+  and mounted by its Observabilidad adapter; WO-05-008 mounts the same export and WO-05-009 rewrites its inside
+  in W6, signature unchanged. (2) WO-05-009 keeps `listWorkOrders` excluding `status: SUPERSEDED` documents: it
+  is needed (otherwise the 61 superseded v1 work orders count in every view, the scene and the map) and it is the
+  reader's one definition of "the plan". (3) Observabilidad uses exactly WO-25-001's keys (`view`, `frd`, a
+  comma-joined `state`, `wo`, `woview`, `dag`, `focus`) and accepts the Resumen's `frd` links. (4) `StateTile` is
+  the core one of WO-22-002; the work-order state presentation is WO-13-011's shared map; the Tablero's
+  reveal-all `MoreBar` mode is WO-13-011's. (5) WO-05-008 deletes `_observability/WoDag/**` (last importers
+  `ZoomControls.tsx` → `GraphControls`, `useFullscreen.ts`), letting WO-02-018's back-compat exports go.
 
 ```mermaid
 graph LR

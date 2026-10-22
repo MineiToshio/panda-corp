@@ -153,7 +153,11 @@ None.
   `#accounts-project`, `#portfolio-accounts`, `#portfolio-accounts-filter`, `#portfolio-accounts-dialog`,
   `#accounts-source-error`; screenshots in `mocks/screenshots/`. Oracle states in
   `docs/design/prototype/reference/oracle-states.json`: `accounts-project`, `portfolio-accounts`,
-  `portfolio-accounts-filter`, `portfolio-accounts-dialog`, `accounts-source-error`. Keep the recorded
+  `portfolio-accounts-filter`, `portfolio-accounts-dialog`, `accounts-source-error`, and the scenario states
+  `accounts-project-empty` (project with no allocated service), `portfolio-accounts-nomatch` (search with no
+  match) and `accounts-dialog-unlinked` (account without documented links), each reproduced from its
+  `docs/design/prototype/reference/oracle-recipes.json` double in this WO's tests and at the close-out Visual
+  QA. Keep the recorded
   hooks (`.acc-table`, `.acc-name`, `.copy-text`, `.env-chips`, `.state-dot`, ids, `data-*` and `aria-*`).
 - **Token slice:** teal environment chips and status dot hues, the coral notice, table / card surface,
   radius and spacing of `Card`, `Table` and `Chip`; light and dark.

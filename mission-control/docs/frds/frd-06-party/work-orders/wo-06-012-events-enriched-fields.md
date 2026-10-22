@@ -39,7 +39,7 @@ Kept live in v2 (map §0.5): the enriched, nested-`data` event parse is what La 
   - `frd?: string` — the FRD id of the event.
   - `phase?: "build" | "review"` — the engine phase.
   - `activity?: "test" | "backend" | "frontend" | "selftest" | "implement"` — the sub-step (deep relay + non-split).
-  - `mode?: "pro" | "balanced" | "powerful" | "deep"` — the run's mode.
+  - `mode?: "pro" | "balanced" | "powerful" | "deep"` — the run's mode (drawn in FRD-11's captured states).
   - `role?: string` — the build role (alias/normalization for the existing `agent`, per the engine's `AgentWorking{role}`).
 - Recognize the new event kinds in the stream: `HandoffWritten {wo, frd}` and `ContractPublished {wo, frd}` (no schema change beyond the optional fields — they reuse `event` + `wo`/`frd`).
 - **Backward compatibility:** every new field is optional; a line missing them parses exactly as today (AC-06-008.2). No existing field/behavior changes; the cap, `lastEventAt`, `byProject` and the per-line tolerance are untouched.

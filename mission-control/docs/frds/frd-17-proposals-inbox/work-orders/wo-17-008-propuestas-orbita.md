@@ -9,7 +9,7 @@ foundation: false
 implementation_status: PLANNED
 difficulty: high
 reopen_count: 0
-artifacts: ["src/app/proposals/page.tsx", "src/app/proposals/[...segments]/**", "src/app/proposals/_components/{ProposalsTabs,ProposalsSummary,ProposalCard,ProposalActionRow,LessonFlow,SignalGroup,PromotionsQueuePanel,DismissableProposalStream,ProposalStream}/**", "src/app/proposals/_components/{LessonDetail,LessonDetailModal}.tsx", "src/app/proposals/_components/streamMeta.ts", "src/app/proposals/_tests/**", "src/lib/{proposals,self-suggest,memory}/**", "src/components/modules/{PromotionsQueue,MemoryHealth,ProposalsDismiss}/**", "e2e/proposals.spec.ts", "e2e/fixtures/factory-root/factory/memory/LESSON-90*.md"]
+artifacts: ["src/app/proposals/page.tsx", "src/app/proposals/[...segments]/**", "src/app/proposals/_components/{ProposalsTabs,ProposalsSummary,ProposalCard,ProposalActionRow,LessonFlow,SignalGroup,PromotionsQueuePanel,DismissableProposalStream,ProposalStream}/**", "src/app/proposals/_components/{LessonDetail,LessonDetailModal}.tsx", "src/app/proposals/_components/streamMeta.ts", "src/app/proposals/_tests/**", "src/lib/{proposals,self-suggest,memory}/**", "src/components/modules/{PromotionsQueue,MemoryHealth,ProposalsDismiss}/**", "e2e/proposals.spec.ts", "e2e/fixtures/factory-root/factory/memory/LESSON-90*.md", "e2e/persistent-navigation/proposals.spec.ts"]
 source_requirements: [REQ-17-001, REQ-17-009, REQ-17-010, REQ-17-011, REQ-22-002]
 dependsOn: [WO-13-012, WO-25-001, WO-22-002, WO-17-001, WO-17-003, WO-17-005]
 last_updated: '2026-10-22'
@@ -44,6 +44,13 @@ memory-health panel and their extras.
   `LessonFlow`, `ProposalStream` (Candidatas, Para podar), `PromotionsQueuePanel`, `LessonDetail`,
   `LessonDetailModal`; `src/components/modules/PromotionsQueue/` (card of "Esperan tu decisión", `LessonRow`).
 - Mounts `BacklogPanel` (WO-22-002) as the Backlog panel; passes the actionable count to the tab badge.
+- The page renders no `<main>` (the shell's `main#content` is the page's only main landmark, AC-19-001.5,
+  REQ-13-009); `src/app/proposals/_tests/proposals-page.test.tsx` cases that query `getByRole("main")` are
+  updated here.
+- Split oracle files created by WO-25-001 (W0): the tab steps of `e2e/persistent-navigation/proposals.spec.ts`
+  (WO-22-002 updated its backlog steps in W3) and `src/app/proposals/_tests/persistentNavigation.test.tsx` (tab
+  paste and history, promotion from its collection path) are updated here (AC-25-001.1, AC-25-002.1
+  re-verified); WO-25-001's keys `proposalsTab` (`resumen` default), `stream`, `lesson`, `backlogItem`.
 - A behaviour e2e spec `e2e/proposals.spec.ts` (`gotoHydrated`, `getByRole`, no hard waits) over the lesson
   fixtures it adds only as `e2e/fixtures/factory-root/factory/memory/LESSON-90*.md` (never editing an existing
   fixture file; it may use the `BL-90*` backlog fixtures WO-22-002 added): Resumen is the default tab and lists
@@ -65,7 +72,7 @@ memory-health panel and their extras.
   (`src/components/modules/MemoryHealth/**`, replaced by `LessonFlow`); `memoryHealth()` keeps reporting its facts.
 - The reject affordance of the promotions queue; the "Úsala cuando" trigger row of the lesson detail; the
   "Crónica del gremio" alias in the page metadata.
-- The "ver más / ver menos" toggle: `DismissableProposalStream/**` (replaced by `ProposalStream` and the shared
+- The "ver más / ver menos" (drawn in FRD-04's captured states) toggle: `DismissableProposalStream/**` (replaced by `ProposalStream` and the shared
   `MoreBar`), the v1 `ProposalCard/**`, `_components/streamMeta.ts`, and `countOpenProposals`.
 - The retrieval-trigger box that FDD-17 describes in the dialog is NOT built (FRD-17 puts it out of v2, FRD >
   FDD; reported in the ledger).
@@ -79,7 +86,7 @@ REQ-22-002 (the tab shell). The acceptance criteria this work order owns, copied
 - **AC-17-001.2** — A proposal item SHALL show its own per-item command **only when** its command genuinely differs from the rest of its group (e.g. each self-suggestion routes to a different skill); otherwise the item is title + evidence only and defers to the group-level command.
 - **AC-17-001.3** — The Memoria tab SHALL list **"Esperan tu decisión"** (the promotions queue) first, then the collapsed **"Candidatas"**, then **"Para podar"** (the lesson-oriented groups stay adjacent; amended 2026-10-22), the last drawn ONLY WHEN at least one lesson is prunable (otherwise the health line reads "Ninguna lección obsoleta.").
 - **AC-17-010.1** — WHERE a proposal stream has **more cards than its page size** (Candidatas 10, Esperan tu decisión 8; Señales automáticas show all), the shared stream component (`CMP-17-stream`) SHALL render only the first page and a full-width bar **"Mostrar N más · quedan M"**; the remaining cards SHALL NOT be in the rendered list until revealed. (Amended 2026-10-22: it replaced the "ver más" toggle with threshold 6.)
-- **AC-17-010.2** — WHEN the owner activates the bar, the next page of the **already-loaded** cards SHALL appear **in-place** (no additional fetch or navigation); there is no collapse back ("ver menos" is not drawn).
+- **AC-17-010.2** — WHEN the owner activates the bar, the next page of the **already-loaded** cards SHALL appear **in-place** (no additional fetch or navigation); there is no collapse back ("ver menos" is not drawn). (drawn in FRD-04's captured states)
 - **AC-17-010.3** — WHERE a stream has **no more cards than its page size**, **no bar** SHALL be shown and every card SHALL render (unchanged behavior).
 - **AC-17-010.4** — The paging SHALL live in the **single shared** "Mostrar más" component the whole app uses (memory, backlog, rules, trophies, transitions; Órbita iteration 28) and apply **uniformly to every stream kind** it serves — one code path, not a per-kind fork (DR-057). Existing detail-dialog / group-level-command behavior SHALL be unchanged; the bar is a semantic `<button>`, keyboard-operable, Spanish copy, state not by color alone (FRD-13). Added 2026-07-05 (drains change `mc-proposal-stream-show-more`, DR-069).
 - **AC-17-011.1** — THE Propuestas page SHALL open on the tab Resumen ("Qué te toca, en orden"): an ordered list of only the actions that need the owner, each with its count, its reason, its command, where to run it and a link to the detail; memory upkeep SHALL read "se revisa sola" while the daily routine is current.
@@ -135,7 +142,9 @@ None.
   `mocks/screenshots/<id>-<width>-<theme>.jpg` (375/768/1280, light and dark; the dialog at 375 and 1280).
 - **Oracle states** (`oracle-states.json`, `oracle-recipes.md`, frd slug `frd-17-proposals-inbox`):
   `proposals-summary`, `proposals-memory` (Candidatas opened over a long list), `proposals-lesson-dialog`
-  (first lesson row of Memoria). The Backlog states are WO-22-002's. Keep the recorded hooks (`.pa-row`,
+  (first lesson row of Memoria), and the scenario states `proposals-memory-prune` («Para podar» present) and
+  `proposals-calm` («Nada necesita tu decisión ahora.»), each reproduced from its `oracle-recipes.json` double in
+  this WO's e2e and at the close-out Visual QA. The Backlog states are WO-22-002's. Keep the recorded hooks (`.pa-row`,
   `.pa-n`, `.pa-cmd`, `.lf`, `.lf-step`, `.lf-arrow`, `.sig-group`, `.lrow[data-lesson]`, `.band-sub`,
   `.morebtn`) on those elements.
 - **Token slice:** amber (the Resumen card, "Importante"), coral ("Urgente", unreliable marker accent), teal
@@ -174,9 +183,12 @@ and `data-volatile`); the route-segment validation tests; the e2e spec above.
   `_components/DismissableProposalStream/_tests/streamShowMore.reviewer.test.tsx`.
 - Reviewer-authored, page rewritten not deleted, so derogated and re-blessed or rewritten by the FRD-17 gate
   reviewer: `src/app/proposals/_tests/{frd-17-gate,frd-17-gate-opus,frd-17-reuse.gate,proposals-composition,
-  proposals-wiring,proposals-integration}.reviewer.test.tsx`.
-- `e2e/persistent-navigation.spec.ts` keeps passing: the `data-testid`s `proposals-tab-memoria`,
-  `proposals-tab-backlog` and `backlog-panel` are part of this contract. Visual baselines of `/proposals` are
+  proposals-wiring,proposals-integration}.reviewer.test.tsx`. Explicitly derogated among them: the
+  `ProposalsBadge` cases of `frd-17-gate-opus.reviewer.test.tsx` and `frd-17-reuse.gate.reviewer.test.tsx`
+  (the sidebar count over `ownerActions()`, WO-19-003, replaces the badge; WO-13-013 deletes `ProposalsBadge` in
+  W7), which the FRD-17 gate reviewer retires.
+- The `data-testid`s `proposals-tab-memoria`, `proposals-tab-backlog` and `backlog-panel` are part of this
+  contract (the core and split persistent-navigation specs assert them). Visual baselines of `/proposals` are
   derogated by WO-19-002 and again here; implementers never touch `e2e/visual.spec.ts-snapshots/**`.
 
 ## Dependencies

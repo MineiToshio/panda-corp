@@ -15,8 +15,9 @@ artifacts:
   - 'src/hooks/_tests/useFullscreen*.test.ts'
   - 'e2e/model-usability.spec.ts'
   - 'e2e/logical-data-model.spec.ts'
+  - 'e2e/persistent-navigation/model.spec.ts'
 source_requirements: [REQ-02-015]
-dependsOn: [WO-13-012, WO-02-019]
+dependsOn: [WO-13-012, WO-02-019, WO-25-001]
 last_updated: '2026-10-22'
 ---
 
@@ -138,7 +139,10 @@ engine. Restyle in place: `DataModelViewer`, `GraphControls`, `DiagramControls`.
 - Component: Segmented default by width, search reveal/center + announcement, entity selection highlight, relations
   list toggle semantics, Esquema accordion exclusivity (real browser check in the e2e), none/missing/error states,
   fullscreen request in the gesture + focus return + no fallback dialog (`useFullscreen` unit test).
-- E2E: `e2e/model-usability.spec.ts` and the viewer steps of `e2e/logical-data-model.spec.ts` updated as in scope.
+- E2E: `e2e/model-usability.spec.ts` and the viewer steps of `e2e/logical-data-model.spec.ts` updated as in scope;
+  `e2e/persistent-navigation/model.spec.ts` (split out by WO-25-001): the "expanded paste" step asserted the v1
+  dialog and now asserts the inline viewer restored from `expanded` with no native fullscreen request until a user
+  gesture. The viewer tests that cover this cite AC-25-011.1 (owned by WO-25-001, re-verified here).
 
 ### Derogated tests (BL-0051)
 

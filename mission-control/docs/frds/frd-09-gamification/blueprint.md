@@ -136,6 +136,16 @@ Assets: rank emblems `public/ranks/*.png` (original bytes, staged by WO-13-010),
 Live: WO-09-001 (kept), WO-09-006 (kept). Cross-FRD owner: WO-19-003. Index:
 [`work-orders/README.md`](work-orders/README.md).
 
+## Reconciliation (2026-10-22, binding)
+
+- Kept-live legacy work orders whose `status` is DRAFT (WO-09-001, WO-09-006) stay DRAFT: the blueprint's
+  DRAFT → ACTIVE flip activates them (author brief; map §0.5.1's "keep ACTIVE" applies to those already ACTIVE).
+- `CMP-09-guild-card` and `CMP-09-achievement-notice` are built by WO-19-003; the notice and Inicio's «Nuevo»
+  chip share one predicate, `lastAchievement().fresh` (WO-18-002). The real-unlock notice is captured as FRD-19's
+  `shell-achievement-notice`; this FRD's `guild-achievement-notice` (preview mode) keeps the recipe fallback.
+- The top-bar `GuildBar`, `CelebrationSurface` and `classifyCelebration` stay on disk (unmounted) until WO-13-013
+  (W7) because other FRDs' reviewer suites import them (map §0.3 / §3.3 rule confirmed for every author).
+
 ## Superseded (v1 history)
 
 - WO-09-002 agent XP / level engine → WO-07-006 (agent levels leave Configuración), WO-13-013 (`agents.ts` deleted)

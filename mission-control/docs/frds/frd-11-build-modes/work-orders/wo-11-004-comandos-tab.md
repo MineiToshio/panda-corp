@@ -57,7 +57,12 @@ copy-only note. It removes the v1 inline mode `<select>` (`ModeSelector`).
     decisión pendiente» `/pandacorp:decide`, «Paquete grande o rediseño» `/pandacorp:new-version`, and the note
     «Los comandos se copian para pegarlos en Claude Code. Mission Control nunca los ejecuta.».
 - **Removal (map §6.C item 14):** `_components/mode-selector/**` (`ModeSelector`, the inline mode `<select>` /
-  radio chip row), the v1 «Comandos a la mano» list markup, their now-unused exports and tests.
+  radio chip row), the v1 «Comandos a la mano» list markup, their now-unused exports and tests. `mode-selector` is
+  the last product consumer of `IMPLEMENT_MODES` (`src/lib/command-modes.ts`, kept compiling and unit-tested by
+  WO-02-020); the export itself is removed by WO-13-013 (W7), which declares that file (it is not in this work
+  order's artifacts).
+- The panel and `TabCommands` render no `<main>` (the shell's `main#content` is the only one); tests under
+  `tab-commands/_tests/` that queried `getByRole("main")` are updated here.
 
 ## Out of Scope
 

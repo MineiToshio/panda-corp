@@ -118,7 +118,7 @@ Every live AC (AC-07-013.1 to AC-07-013.5) is owned by WO-07-006; the three lega
 | WO-07-001 | WO-01-001 | `src/lib/reference/reference.ts`, `src/lib/reference/_tests/reference.test.ts`, `src/tests/fixtures/plugin-reference/**` | false | W2 (with WO-07-003, WO-07-004) |
 | WO-07-003 | WO-01-001 | `src/lib/registry/registry.ts`, `src/lib/registry/_tests/registry.test.ts` | false | W2 (with WO-07-001, WO-07-004) |
 | WO-07-004 | WO-01-001 | `src/lib/standards/standards.ts`, `src/lib/standards/_tests/standards.test.ts` | false | W2 (with WO-07-001, WO-07-003) |
-| WO-07-006 | WO-13-012, WO-25-001, WO-07-001, WO-07-003, WO-07-004, WO-08-003 | `src/app/configuration/**`, `src/lib/reference/**`, `src/lib/registry/**`, `src/lib/standards/**`, `e2e/configuration.spec.ts` | false | W4 (alone in FRD-07) |
+| WO-07-006 | WO-13-012, WO-25-001, WO-07-001, WO-07-003, WO-07-004, WO-08-003 | `src/app/configuration/**`, `src/lib/reference/**`, `src/lib/registry/**`, `src/lib/standards/**`, `e2e/configuration.spec.ts`, `e2e/persistent-navigation/configuration.spec.ts` | false | W4 (alone in FRD-07) |
 
 - **Order and parallelism.** The three reader work orders are VERIFIED history (kept live, no live AC) and are siblings in W2. WO-07-006 follows everything it consumes and builds alone within FRD-07.
 - **Disjoint artifacts.** Within a wave the globs above do not overlap (the three W2 readers each own their own module; WO-07-006's `src/lib/{reference,registry,standards}/**` globs are in a later wave than the legacy files they extend). Other W4 work orders (WO-03-007, WO-10-016, WO-02-016, WO-17-008) write other directories.
@@ -136,6 +136,19 @@ flowchart LR
   D8[WO-08-003] --> W07
   W07 --> C13[WO-13-013]
 ```
+
+## Reconciliation (2026-10-22, binding)
+
+- WO-07-006 is W4 (it depends on WO-08-003, which removes the Documentación embed of this surface's components
+  first); `e2e/persistent-navigation/configuration.spec.ts` and the split unit file
+  `src/app/configuration/_tests/persistentNavigation.test.tsx` (both created by WO-25-001 in W0) are updated here.
+- The page renders no `<main>` (the shell owns `main#content`); tests querying `getByRole("main")` are updated here.
+- WO-25-001 ships the keys `q`, `type`, `approval`, `severity`, `domain`; legacy `/manual/reference/...` lands on
+  `/configuration/...` through `normalizeLegacyNavigation`, applied by WO-08-003 at the Documentación boundary.
+- Reviewer suites this work order rewrites the surface of (`src/app/configuration/_tests/frd07*.reviewer*`) are
+  derogated, never edited, and listed in the WO for the FRD-07 gate reviewer to re-bless. Whether the per-WO gate
+  tolerates a derogated reviewer suite of the FRD under build is an engine question escalated to the lead (ledger
+  F, map §3.3.3); the plan does not assume it.
 
 ## Superseded (v1 history)
 

@@ -17,7 +17,7 @@
 | WO-02-011 | phase-from-status | VERIFIED | WO-01-003, WO-01-005 | Kept v1: active campaign phase derivation; owner of AC-02-010.2. |
 | WO-02-015 | board-orbita | PLANNED | WO-13-012, WO-25-001, WO-02-012 | Tablero Órbita: numbered phase columns, search, phase chips, hide-empty, category filter + match count, favourite star, capture and discarded dialogs; creates the FRD e2e spec. |
 | WO-02-017 | spec-architecture-digests | PLANNED | WO-13-012, WO-25-001 | Shared Spec and Arquitectura digests on `ReportBand` / `FrdCard`: bands, FRD and ADR dialogs, env groups, plan mosaic, not-published state; WoDag removed. |
-| WO-02-018 | data-model-viewer-orbita | PLANNED | WO-13-012, WO-02-019 | Data-model viewer restyle on the kept engine: Segmented Diagrama/Esquema, compact toolbar with native fullscreen, relations list, none/error states; v2 removals. |
+| WO-02-018 | data-model-viewer-orbita | PLANNED | WO-13-012, WO-02-019, WO-25-001 | Data-model viewer restyle on the kept engine: Segmented Diagrama/Esquema, compact toolbar with native fullscreen, relations list, none/error states; v2 removals. |
 | WO-02-020 | campaign-orbita | PLANNED | WO-13-012, WO-11-003, WO-25-001 | La Campaña Órbita: dark map, rooms and corridors, strip, pinned phase sheet, commands with spec modes, build-mode picker, forge link; Claude Design sunset copy. |
 | WO-02-013 | next-step-interpolate-idea-name | VERIFIED | WO-02-003, WO-02-011 | Kept v1: slug interpolation of `<idea>` in the Campaña commands. |
 | WO-02-016 | idea-page | PLANNED | WO-02-017, WO-02-004, WO-02-012, WO-25-001, WO-02-015, WO-02-020, WO-08-003 | Idea page route: header, icon tabs with stage default, Propuesta, Documentos index + reader, discard/restore dialogs; detaches the idea from the board. |

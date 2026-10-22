@@ -16,6 +16,11 @@ artifacts:
   - 'src/app/projects/[slug]/_components/wo-detail/**'
   - 'src/app/projects/[slug]/_components/tab-work-orders/**'
   - 'src/app/projects/[slug]/_components/tabbar.tsx'
+  - 'src/app/manual/_tests/persistentNavigation.test.tsx'
+  - 'src/components/modules/Nav/_tests/persistentNavigation.test.tsx'
+  - 'src/app/proposals/_components/BacklogPanel/_tests/persistentNavigation.test.tsx'
+  - 'src/app/proposals/_tests/persistentNavigation.test.tsx'
+  - 'src/app/configuration/_tests/persistentNavigation.test.tsx'
 source_requirements: [AC-25-001.1, AC-25-002.1, AC-25-003.1, AC-25-004.1, AC-25-005.1, AC-25-006.1, AC-25-007.1, AC-25-008.1, AC-25-009.1, AC-25-010.1, AC-25-011.1, AC-25-012.1]
 dependsOn: []
 last_updated: 2026-10-22
@@ -41,24 +46,44 @@ owner adopts the v2 form; no URL write ever runs a mutation).
 
 - `normalizeLegacyNavigation(href): string` (pure, idempotent, never throws, unknown input returned
   unchanged). It maps legacy forms to their v2 location while retaining the project, tab, document / work
-  order, filters and the anchor (AC-25-004.1): workspace `party` to `summary`; `work-orders` (path tail
-  `/:wo/:view` or `?tab=Work orders` and the legacy display-name tabs) to `observability` with `wo` and
-  `woview` (`summary` or `full`); `portfolioView=accounts` to `view=cuentas` (FRD-26 AC-26-002.1, both
-  spellings accepted until every caller moved); `/manual/reference/:catalog/:item` to
-  `/configuration/:catalog/:item`. It is **not** applied by the codec itself: the v2 owner of each surface
-  calls it at its route boundary (WO-03-007 Portafolio, WO-04-010 workspace, WO-07-006 Configuración,
-  WO-08-003 Documentación) and feeds the result to `NavigationCanonical`, because the v1 Party and Work
-  orders tabs still exist until WO-04-010.
+  order, filters and the anchor (AC-25-004.1): workspace `party` to `summary`; `observabilidad` (the v1
+  tab id) to `observability`; `work-orders` (path tail `/:wo/:view` or `?tab=Work orders` and the legacy
+  display-name tabs) to `observability` with `wo` and `woview` (`summary` or `full`);
+  `portfolioView=accounts` to `view=cuentas` (FRD-26 AC-26-002.1, both spellings accepted until every caller
+  moved); `/manual/reference/:catalog/:item` to `/configuration/:catalog/:item` (catalog ids `skills`,
+  `agents`, `rules`, `standards`; the v1 `commands` catalog maps to `skills`); a legacy `/board?idea=<slug>`
+  (with or without `boardTab`, `doc`, `expanded`) to `/board/<slug>[/<tab>]` keeping the remaining keys
+  (FRD-02, WO-02-016). It is **not** applied by the codec itself: the v2 owner of each surface calls it at
+  its route boundary (WO-03-007 Portafolio, WO-04-010 workspace, WO-07-006 Configuración, WO-08-003
+  Documentación, WO-02-016 idea page) and feeds the result to `NavigationCanonical`, because the v1 Party and
+  Work orders tabs still exist until WO-04-010 (reconciliation 2026-10-22: this reading of "ships every key
+  and alias up front" is confirmed; the codec ships the aliases, the owners apply them).
+- `workspaceRouteState()` passes an unknown workspace tab segment through as `{ tab: "unknown", raw }`
+  (the raw label kept) instead of calling `notFound()`, so WO-04-010 renders the drawn «Esta sección no
+  existe» card under the compact header (REQ-04-002, oracle `project-tab-not-found`). An unknown project
+  stays a route not-found (AC-25-007.1).
 - A key registry with value sets and bounds for the keys v2 adds, and `validateNavigationQuery(context,
   state)` returning a typed result (`ok`, or `unsupported` with the key and the reason; never a thrown
   exception). Each surface validates the keys it owns; the global bounds gate (`routeHref`: repeated values,
   length, traversal) is unchanged. v2 keys (the full table is in `../blueprint.md` § Key registry):
   Portafolio `view` in `tarjetas`, `lista`, `cuentas`; Observabilidad `view` in `frd`, `tablero`, `deps`,
   `frd` (one FRD id), `state` (a comma-joined set of work-order states in canonical order, because repeated
-  keys are rejected), `wo`, `woview` in `summary`, `full`, `dag` in `frd`, `wo`, `focus` (a work-order id);
+  keys are rejected; a single value such as `state=review` stays valid), `wo`, `woview` in `summary`, `full`,
+  `dag` in `frd`, `wo`, `focus` (a work-order id); these seven are the whole Observabilidad key set (WO-05-008
+  and WO-12-007 use exactly these and report any other in the ledger);
   Cuentas `accountsQuery`, `accountsState` in `all`, `active`, `pending`, `candidates`, `reference`, and
-  `account` (the open row). Kept: `phase`, `model` in `Diagrama`, `Esquema`, `entity`, `modelQuery`,
-  `schemaTable`, `expanded` in `1`, and every v1 key. Unknown optional keys stay retained.
+  `account` (the open row); Configuración `q`, `type` (Habilidades), `approval` (Reglas), `severity` and
+  `domain` (Estándares); Documentación `q` and `index` (folded index open); Logros `category`, `trophy` (the
+  open trophy dialog id) and `eras` (the opened eras, a comma-joined set); Propuestas `proposalsTab` in
+  `resumen`, `memory`, `backlog` (the bare `/proposals` is `resumen`), `stream` in `promotions`,
+  `candidate-lesson`, `prune`, `lesson` and `backlogItem` (Backlog filters, history paging and the discard
+  confirmation stay out of the URL, AC-22-002.4). Kept, and explicitly round-tripped because the FRD-02
+  surfaces restore from them: `boardQuery`, `category`, `discarded`, `idea`, the idea tab segment
+  (`proposal`, `spec`, `architecture`, `documents`, `campaign`) plus the legacy `boardTab`, `doc` and the
+  `/board/:idea/documents/:doc` segment, `phase`, `specFrd`, `architectureFrd`, `adr`, `model` in `Diagrama`,
+  `Esquema`, `modelQuery`, `entity`, `relationship`, `schemaTable`, `expanded` in `1` (read as "restore the
+  inline viewer", never a fullscreen request), and every other v1 key. Unknown optional keys stay retained.
+  A URL fragment (for example Inicio's `#worktrees-card`) survives every codec-built href.
 - `activeDestinationPath(pathname): string | null` (single source of the active sidebar destination):
   `/` exact is Inicio; `/board/**` Tablero; `/portfolio/**` and `/projects/**` Portafolio (a project
   workspace keeps Portafolio active); `/proposals/**`, `/achievements/**`, `/manual/**`, `/configuration/**`
@@ -84,12 +109,24 @@ shared file would force several same-wave writers (DR-060) and break BL-0051. Re
 | `e2e/persistent-navigation/workspace.spec.ts` | the `portfolio` and `standalone` cases | WO-04-010 (W5) |
 | `e2e/persistent-navigation/proposals.spec.ts` | the `proposals` case; the backlog read-only detail | WO-22-002 (W3), WO-17-008 (W4) |
 | `e2e/persistent-navigation/achievements.spec.ts` | the `achievements` case | WO-10-016 (W4) |
-| `e2e/persistent-navigation/configuration.spec.ts` | the `configuration` case; the configuration and agent read-only details | WO-07-006 (W3) |
-| `e2e/persistent-navigation/manual.spec.ts` | authored Manual selection, anchor, paste and history | WO-08-003 (W3) |
+| `e2e/persistent-navigation/configuration.spec.ts` | the `configuration` case; the configuration and agent read-only details | WO-07-006 (W4) |
+| `e2e/persistent-navigation/manual.spec.ts` | authored Manual selection, anchor, paste and history (including the former `/manual/reference/...` detail) | WO-08-003 (W3) |
 | `e2e/persistent-navigation/destinations.spec.ts` | nested destinations keep global highlights | WO-19-002 (W3) |
 
 The number of tests and their titles are identical before and after; the first commit of this part changes
 no assertion.
+
+**2b. Same split for the unit suite `src/app/manual/_tests/persistentNavigation.test.tsx`** (reconciliation
+2026-10-22: it pins five surfaces rebuilt by five W3/W4 work orders, the same DR-060 / BL-0051 problem as the
+e2e spec). Cases moved verbatim (titles kept), each next to the module it renders:
+
+| New file | Cases it receives | Updated later by |
+|---|---|---|
+| `src/app/manual/_tests/persistentNavigation.test.tsx` (kept) | manual reference detail, manual root default, unavailable manual target | WO-08-003 (W3) |
+| `src/components/modules/Nav/_tests/persistentNavigation.test.tsx` | complete navigation prefixes and the nested-configuration exemption | WO-19-002 (W3) |
+| `src/app/proposals/_components/BacklogPanel/_tests/persistentNavigation.test.tsx` | completed backlog item and status disclosure | WO-22-002 (W3) |
+| `src/app/proposals/_tests/persistentNavigation.test.tsx` | proposals tab paste and history; promotion from its collection path | WO-17-008 (W4) |
+| `src/app/configuration/_tests/persistentNavigation.test.tsx` | standard detail representation | WO-07-006 (W4) |
 
 **3. The flake, by `docs/rules/debugging.md`** (card `persistent-navigation-history-flaky.md`, step
 `persistent-navigation.spec.ts:342` "post-build registration: a non-first project retains identity through
@@ -141,6 +178,10 @@ change the URL. Cause unconfirmed (product or spec).
   surface component outside the contingent files named in item 3.
 - The behaviour of the expanded model viewer and of the sidebar (AC-25-011.1 and AC-25-010.1 halves that
   live in `DataModelViewer` and `AppShell`): WO-02-018 and WO-19-002 cite those ACs without owning them.
+  Reconciliation 2026-10-22 (binding): ownership stays here per map §8.5 (this work order owns the URL halves
+  and proves them with unit tests at the FRD-25 gate); WO-19-002 (`Nav` consumes `activeDestinationPath`) and
+  WO-02-018 (inline restore, no native fullscreen) each cite the AC id in their own tests and their FRD
+  gates re-verify the surface halves. No README table changes.
 - The identity catalog schema, the CLI writer and `factory/navigation-identities.json`.
 - Visual baselines: untouched (this WO changes no pixels).
 
@@ -201,7 +242,8 @@ N/A: headless contract, no screen and no oracle state.
 - Unit tests next to the codec: round trips per family and v2 key, `normalizeLegacyNavigation` (including
   idempotence and unknown input), `validateNavigationQuery`, `activeDestinationPath`, the history spy tests.
   Property-based round trip (fast-check) for `parse(serialize(state))`.
-- The split e2e specs (mechanical) and the regression test of the confirmed cause.
+- The split e2e specs and the split unit suite (both mechanical, items 2 and 2b) and the regression test of
+  the confirmed cause.
 - Updated citations of the new ids in implementer-authored tests; the existing reviewer suites
   (`src/lib/navigation/_tests/*.reviewer.test.ts`) are never edited by the implementer.
 

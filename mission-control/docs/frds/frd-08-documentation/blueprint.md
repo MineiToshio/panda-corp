@@ -110,11 +110,28 @@ Every live AC (AC-08-020.1 to AC-08-020.3) is owned by WO-08-003; WO-08-004 and 
 | WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
 |---|---|---|---|---|
 | WO-08-001 | WO-01-001 | `src/lib/manual/manual.ts`, `src/lib/manual/_tests/manual.test.ts` | false | W2 |
-| WO-08-003 | WO-13-012, WO-25-001 | `src/app/manual/page.tsx`, `src/app/manual/ManualShell.tsx`, `src/app/manual/DocReader.tsx`, `src/app/manual/DocNav.tsx`, `src/app/manual/ManualNavContext.tsx`, `src/app/manual/types.ts`, `src/app/manual/[...segments]/**`, `src/app/manual/_components/DocsHome/**`, `src/app/manual/_components/DocsSearch/**`, `src/components/modules/DocumentReader/**`, `src/app/manual/_tests/page*.test.tsx`, `src/app/manual/_tests/docs-home*.test.tsx`, `src/app/manual/_tests/docs-search*.test.tsx`, `src/app/manual/_tests/doc-reader*.test.tsx`, `src/app/manual/_tests/persistentNavigation*.test.tsx`, `src/app/manual/_tests/visual-reanchor*.test.tsx`, `e2e/documentation.spec.ts` | false | W3 (with WO-08-004) |
+| WO-08-003 | WO-13-012, WO-25-001 | `src/app/manual/page.tsx`, `src/app/manual/ManualShell.tsx`, `src/app/manual/DocReader.tsx`, `src/app/manual/DocNav.tsx`, `src/app/manual/ManualNavContext.tsx`, `src/app/manual/types.ts`, `src/app/manual/[...segments]/**`, `src/app/manual/_components/DocsHome/**`, `src/app/manual/_components/DocsSearch/**`, `src/components/modules/DocumentReader/**`, `src/app/manual/_tests/page*.test.tsx`, `src/app/manual/_tests/docs-home*.test.tsx`, `src/app/manual/_tests/docs-search*.test.tsx`, `src/app/manual/_tests/doc-reader*.test.tsx`, `src/app/manual/_tests/persistentNavigation.test.tsx`, `src/app/manual/_tests/visual-reanchor*.test.tsx`, `e2e/documentation.spec.ts`, `e2e/persistent-navigation/manual.spec.ts` | false | W3 (with WO-08-004) |
 | WO-08-004 | WO-13-012, WO-08-001, WO-14-004 | `src/app/manual/manualPages.tsx`, `src/app/manual/_components/*Detail.tsx`, `src/app/manual/_components/ManualLink.tsx`, `content/manual/**/*.md`, `content/manual/wo-08-005.content.test.ts`, `src/lib/manual/**`, `src/components/modules/manual-diagrams/**`, `src/app/manual/_tests/manual-content*.test.tsx`, `src/app/manual/_tests/manualPages*.test.tsx`, `src/app/manual/_tests/conceptEquipo.test.tsx`, `src/app/manual/_tests/manualSingleSource.test.ts` | false | W3 (with WO-08-003) |
 
 - **Order and parallelism.** WO-08-001 is VERIFIED history (W2). WO-08-003 and WO-08-004 are siblings in W3 and run in parallel: their artifacts are disjoint file by file (shell, reader and shared module versus renderers, details, content, diagrams and their tests; the test globs are split by file prefix). `src/lib/manual/**` is WO-08-004's this wave; WO-08-003 does not touch it.
-- **Integration order.** FRD-13 primitives (WO-13-012) and the URL codec (WO-25-001) → WO-08-003 / WO-08-004 → WO-04-012 (mounts `DocIndex` and `Paper`), WO-07-006 (rewrites the Configuración components after WO-08-003 removed their embed) → WO-13-013 (deletes `FlowGraph`, `skill-flows.ts`, `workflow-flows.ts`, the dead nav members).
+- **Integration order.** FRD-13 primitives (WO-13-012) and the URL codec (WO-25-001) → WO-08-003 / WO-08-004 → WO-04-012 (mounts `DocIndex` and `Paper`), WO-07-006 (rewrites the Configuración components after WO-08-003 removed their embed) → WO-13-013 (deletes `FlowGraph`, `skill-flows.ts`, the dead nav members; `workflow-flows.ts` goes earlier, with WO-08-004, which removes its only importer).
+
+## Reconciliation (2026-10-22, binding)
+
+- **Search.** Lazy client-side text extraction of each registered renderer with `react-dom/server`
+  `renderToStaticMarkup` (installed; no new dependency), built on the first non-empty term and memoised, with a
+  test that every registered renderer is extractable. A build-time generated index is rejected: it would be a
+  second replica of the page text (DR-115).
+- **`src/app/manual/_tests/persistentNavigation.test.tsx`** has one owner, WO-08-003 (W3): WO-25-001 (W0) moves its
+  non-Manual cases next to their owners (Nav, Backlog, Propuestas, Configuración), so WO-19-002 no longer writes it.
+  This fixed the one W3 artifact overlap `waves.mjs` reported.
+- **`e2e/persistent-navigation/manual.spec.ts`** is WO-08-003's alone (WO-08-004 writes no route or reader).
+- WO-08-003 applies `normalizeLegacyNavigation` at the Documentación boundary (`/manual/reference/:catalog/:item` →
+  `/configuration/:catalog/:item`, catalogs `skills` (from `commands`), `agents`, `rules`, `standards`), removes
+  `DocReader.tsx`'s `AgentLevelResult` type import, and renders no `<main>`.
+- WO-08-004 deletes `src/lib/manual/workflow-flows.ts`; WO-13-013 deletes `skill-flows.ts`, `FlowGraph` and the
+  `goToSkill` / `goToAgent` members of `ManualNavContext` with their `ManualShell` implementation.
+- The empty-search sentence is captured (`docs-search-empty`, WO-08-003's Visual reference).
 - **Cross-FRD dependencies.** FRD-13 (WO-13-012), FRD-25 (WO-25-001), FRD-14 (WO-14-004, the feedback page whose commands must stay), FRD-01 (WO-01-001). Consumers: FRD-04 (WO-04-012), FRD-07 (WO-07-006), FRD-13 (WO-13-013).
 - **Visual spec for UI work orders (DR-054).** WO-08-003 reproduces `mocks/documentation.html` (`docs-home`, `docs-search`, `docs-page`, `docs-page-index-open`, `docs-page-not-found`, `docs-page-tutorial`, `docs-page-guide`); WO-08-004 supplies the content of `docs-page-guide`, `docs-page-team` and `docs-page-multi-runtime` and the `el-pipeline` design block. `fdd.md` is the design; assets: exported SVG icons via `Icon`, agent sprites staged in `public/` by WO-13-010.
 

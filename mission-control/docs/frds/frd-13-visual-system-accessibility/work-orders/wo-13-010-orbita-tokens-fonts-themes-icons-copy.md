@@ -104,7 +104,16 @@ stages the prototype art in `public/` as original bytes. Every later work order 
    keys selected by `vars.count` through `Intl.PluralRules("es")` (selection, not formatting).
    `tRich(key, vars?)` returns React nodes for the catalogue values that carry inline tags (`<b>`,
    `<code>`, `<i>`), parsed into elements without `innerHTML`. Works in Server and Client Components;
-   no provider.
+   no provider. Plural objects interpolate `{count}` as well as select the form.
+   **Shared Spanish date formatters** (`src/lib/copy/dates.ts`, the one pair every surface uses; DR-115,
+   reconciliation 2026-10-22): `formatDate(value)` → absolute short date «19 oct. 2026» (`es-PE`,
+   date-only values read in UTC, the raw string returned unchanged when unparseable, never a thrown
+   error or an invented date) and `formatRelative(then, now)` → «hoy · ayer · hace N días · hace N min»
+   and the hour forms, from the catalogue's `common.relativeTime.*` keys (no literal). `now` is passed in
+   (callers get it from WO-01-010's `now()`; this module reads no clock). Consumers: FRD-04 Cambios and
+   Resumen dates (REQ-04-011, AC-04-014.5/.7), FRD-14 no-signal age (AC-14-002.2), Inicio, Backlog, the
+   worktrees dialog (whose «N h» / «N días» are their own catalogue keys); comparisons stay on `Date.parse`
+   (LESSON-0009).
 7. **Icon (CMP-13-icon).** `Icon({ name, size?: "sm" | "md" | "lg", label? })` renders the exported
    SVG of `docs/design/prototype/icons/<name>.svg` inline: 24×24 viewBox, `stroke="currentColor"`,
    width 1.8, round caps and joins, 15 / 18 / 22 px, class `i` (the prototype hook). The icon children

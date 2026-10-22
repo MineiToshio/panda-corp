@@ -33,7 +33,7 @@ table (`last sync` / `última sync` / `ultima sync` headers) but is never render
 ## Scope
 
 - New pure helper `src/lib/portfolio/formatLastSync.ts` that turns the `lastSync` date string into a
-  Spanish relative label ("hoy", "ayer", "hace N días", "hace N meses", "hace N años"). Takes `now`
+  Spanish relative label ("hoy", "ayer", "hace N días", "hace N meses", "hace N años") (drawn in FRD-04's captured states). Takes `now`
   as an injectable parameter (default `new Date()`) so tests are deterministic.
 - Compare with `Date.parse` at the comparison point — never lexicographic ISO comparison
   (LESSON-0009; `docs/rules/code-conventions.md` "Verified traps").

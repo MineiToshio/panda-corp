@@ -32,10 +32,13 @@ dropped, and publishes `ownerTurnItems()` (the Tu turno list and its count, also
 ## In Scope
 
 - `src/lib/inicio/` (new, request-cached resolvers, pure where possible, fail loud): `turn.ts`
-  (`ownerTurnItems({ project? })`: all projects by default, one project when asked, engine-log entries
-  excluded via `isEngineLogEntry` of WO-04-013; WO-04-011 reuses it and `AskRow`, which this work order keeps
-  exported from `src/components/dashboard/TuTurno/`), `flight.ts` (`inFlightGroups()`), `funnel.ts`
-  (`ideaFunnel()`), `pulse.ts` (`pulseTiles()`), `achievement.ts` (`lastAchievement()`); every "now" through
+  (`ownerTurnItems({ project? })` returning the items and their `count`: all projects by default, one
+  project when asked (its `count` is the per-project figure WO-04-011 passes to La Fragua as `ownerPending`),
+  engine-log entries excluded via `isEngineLogEntry` of WO-04-013; WO-04-011 reuses it and `AskRow`, which
+  this work order keeps exported from `src/components/dashboard/TuTurno/`), `flight.ts` (`inFlightGroups()`), `funnel.ts`
+  (`ideaFunnel()`), `pulse.ts` (`pulseTiles()`), `achievement.ts` (`lastAchievement()`, whose `fresh` flag
+  (flagged new or unlocked within 7 days) is the one predicate for the «Nuevo» chip here and for WO-19-003's
+  achievement notice); every "now" through
   `now()` and git through `runGit` (WO-01-010) via the resolvers; dates through the shared Spanish date
   formatters of `src/lib/copy/` (WO-13-010).
 - `src/lib/docs/activity.ts` (additive, W5): `DecisionPoint.ask` and `DecisionPoint.context`, read from the
@@ -44,13 +47,21 @@ dropped, and publishes `ownerTurnItems()` (the Tu turno list and its count, also
   `src/lib/docs/_tests/activity.turn-detail.test.ts` over a real-shaped block and a block without the fields.
 - `src/app/page.tsx` and `src/app/(dashboard)/_components/` (`EnMarchaCard`, `FlightGroup`, `TurnRow`,
   `EmbudoCard`, `FunnelRow`, `LastAchievement`): the page composition, the `home-grid` (two columns from
-  1024 px, one column with Tu turno first below it), `Suspense` per independently slow block.
-- `src/components/dashboard/TuTurno/` (card, `AskRow`, `TurnDetailDialog`), `Cartera/` (section heading, compact
-  `ProjectCard` list from WO-03-007, first-action card), `Progreso/` (Gremio card), `DashboardLiveWatcher/`
+  1024 px, one column with Tu turno first below it), `Suspense` per independently slow block. The page renders
+  no `<main>` (the shell's `main#content` is the only one). `FunnelRow` stays at
+  `src/app/(dashboard)/_components/FunnelRow.tsx` (the components.md path) with props `phase`, `count`, `max`,
+  importable by Logros' «Embudo ideas → lanzado» (WO-10-017, AC-10-023.1).
+- `src/components/dashboard/TuTurno/` (card, `AskRow`, `TurnDetailDialog`), `Cartera/` (section heading, the
+  compact `ProjectCard` list read from `getProjectOverview()` of WO-03-007 including `nextCommand`
+  (REQ-18-021, derived once there, never recomputed here), and `FirstProjectCard` exported from
+  `src/components/modules/ProjectCard/` for the empty factory), `Progreso/` (Gremio card), `DashboardLiveWatcher/`
   (also refreshes when the live frame's `stateVersion` moves), `src/components/modules/Pulso/` (KpiTiles),
   `src/app/_components/plugin-sync-banner/` (restyled onto the shared `AlertBanner` with the two versions, the
   two steps and the command box; clears itself).
-- Hosts `FactoryWorktrees` (WO-21-003) as the last card of the right column; does not edit it.
+- Hosts `FactoryWorktrees` (WO-21-003) as the last card of the right column; does not edit it (the card
+  itself carries `id="worktrees-card"`, WO-21-003's `WORKTREES_CARD_ID`, the sidebar pill's anchor).
+- The card freshness chip and the AC-06-019.7 test read `buildSignal()` (`src/lib/fragua/build-signal.ts`,
+  WO-06-013) through the `ProjectCard` / `FreshnessBadge` (no second derivation).
 - A behaviour e2e spec `e2e/inicio.spec.ts` (`gotoHydrated`, `getByRole`, no hard waits) against the e2e fixture
   factory: heading and landmarks, Tu turno before Pulso at a narrow viewport, a command with its copy button,
   "Detalles" opens the dialog and Escape closes it with focus back on the button (when the fixture has an item;
@@ -105,7 +116,7 @@ reload (REQ-18-004); the queue is decisions first and never truncates silently (
 comes from `countLaunched` (REQ-18-014); the next command per card is derived from the phase (REQ-18-021, via
 `ProjectCard`); with no projects the first-action card shows `/pandacorp:new-idea` and `/pandacorp:spec <idea>`
 (state `factory-empty`); the Gremio card shows rank, level, XP, the next level and the last achievement with
-"Nuevo" when fresh, with no streaks. FRD-15's pill (AC-15-006.1) is WO-19-003's; the rest of FRD-06 belongs to WO-06-013
+"Nuevo" when fresh, with no streaks (drawn in FRD-03's captured states). FRD-15's pill (AC-15-006.1) is WO-19-003's; the rest of FRD-06 belongs to WO-06-013
 (AC-06-020.1 to WO-04-011).
 
 Completeness (definition of done beyond the ACs): error path per failure mode (a project whose decisions file or

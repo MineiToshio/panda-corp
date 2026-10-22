@@ -42,7 +42,7 @@ Build/re-anchor the cross-cutting **Guild** visual layer faithfully to the proto
   compact `XpBar`. Lives in the app shell (`app/layout.tsx`).
 - **`GuildHero`** — the character-sheet hero panel on the Achievements page: `Shield` crest + guild
   title + feats/trophies/missions summary line + full-width `XpBar` + the **TU PARTY** sprite roster.
-- **`StatRadar`** — the 6-axis "Atributos del gremio" SVG attribute radar (hosted on the Hall's
+- **`StatRadar`** — the 6-axis "Atributos del gremio" SVG attribute radar (drawn in FRD-10's captured states) (hosted on the Hall's
   Estadísticas tab; FRD-09 owns the visual, FRD-10 owns the tab).
 - **`CelebrationSurface`** — the **auto-firing** full-screen celebration (release) / level-up overlay,
   driven by `classifyCelebration()`; fired by the milestone (release / XP threshold), **never a button**.

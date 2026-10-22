@@ -43,6 +43,11 @@ the old Work orders tab body.
   (`readFrdDrift`) once per request; renders the view from the URL keys `view`, `frd`, `state`; mounts
   `DependencyMap({ project, route })` for `view=deps` and `WoDetail({ project, woId, view })` when `wo` is set
   (both seams exist before this wave; see the blueprint Contracts); mounts `WoLiveRefresh` once for all of them.
+  It uses exactly WO-25-001's Observabilidad keys (`view` frd|tablero|deps, `frd` one id, `state` one
+  comma-joined set in canonical order, `wo`, `woview` summary|full, `dag` frd|wo, `focus`), never edits
+  `src/lib/navigation/**`, and reports any other key in the ledger. The `frd` filter is also the target of the
+  Resumen's «Avance por FRD» rows and «Ver todos» link (AC-04-014.4): rows open while filtered. The panel
+  renders no `<main>`.
 - **Toolbar** (`_components/wo-views/`): `Segmented` Por FRD · Tablero · Dependencias with their icons (URL
   `view`, default omitted), the «Filtrar por FRD» `SelectField` (`WoFrdFilter`, restyled in place, options «Todos
   los FRDs (N)» then one per FRD with work orders, «FRD-NN · title» from the FRD index; URL `frd`), and the muted

@@ -24,6 +24,14 @@ artifacts:
   - "src/components/modules/manual-diagrams/FlowGraph.tsx"
   - "src/components/modules/manual-diagrams/_tests/FlowGraph.test.tsx"
   - "src/lib/manual/skill-flows.ts"
+  - "src/app/manual/{ManualNavContext,ManualShell}.tsx"
+  - "src/components/modules/FreshnessBadge/**"
+  - "src/lib/portfolio/**"
+  - "src/app/projects/[slug]/_components/_tests/workspace-navigation.test.tsx"
+  - "src/app/projects/[slug]/_components/wo-detail/_tests/wo-detail.integration.test.tsx"
+  - "src/lib/constants.ts"
+  - "src/lib/command-modes.ts"
+  - "src/lib/_tests/command-modes*.test.ts"
   - "src/app/globals.css"
   - "src/app/layout.tsx"
   - "public/prototype/assets/**"
@@ -65,9 +73,21 @@ Each deletion is preceded by a reference search; knip, madge and `tsc` clean aft
    the duplicate `FreshnessBadge`, `WorkOrderDag`; map §6.C item 9); `classifyCelebration` and the
    celebration tier types in `src/lib/gamification/gamification.ts` and the agent XP engine
    `src/lib/gamification/agents.ts` (§6.C items 3 and 16) with their test cases; `FlowGraph` and
-   `src/lib/manual/skill-flows.ts` (§6.C item 17, owner default O2 confirmed); `getPendingMerge()` and
-   any part of `src/lib/pendingMerge/` that `getWorktreesByRepo()` / `pendingPillSummary()` (WO-21-003)
-   no longer use.
+   `src/lib/manual/skill-flows.ts` (§6.C item 17, owner default O2 confirmed; `workflow-flows.ts` was
+   already deleted by WO-08-004 in W3 together with its last importer, reconciliation 2026-10-22), and the
+   then-dead `goToSkill` / `goToAgent` members of `src/app/manual/ManualNavContext.tsx` with their
+   `ManualShell.tsx` implementation (REQ-08-012, REQ-07-007/011/012 removed every caller in W3/W4);
+   `getPendingMerge()`, `src/lib/pendingMerge/pendingMerge.ts` and its test (callers gone: the layout badge
+   with WO-19-002, `PendingMergeBlock` with WO-04-011) and any other part of `src/lib/pendingMerge/` that
+   `getWorktreesByRepo()` / `pendingPillSummary()` (WO-21-003) no longer use.
+2b. **Dead constants and props** (DR-115: no dead reader fields): the `IMPLEMENT_MODES` export of
+   `src/lib/command-modes.ts` and its test case (its last consumer `mode-selector` went with WO-11-004);
+   `STALENESS_THRESHOLD_DAYS` and
+   `FRESHNESS_THRESHOLD_MS` in `src/lib/constants.ts` (last importer `src/app/_observability/**`, deleted
+   here); `FreshnessBadge`'s v1 `lastSignalAt` prop (its last `_party/**` callers went with WO-04-010);
+   `ProjectListItem.snapshot` and `.lastSync` in `src/lib/portfolio/portfolio.ts` (no reader after
+   WO-03-007), fixing the implementer test fixtures that still set them (the two workspace tests declared
+   above and `src/lib/portfolio/_tests/*`; a reviewer suite that sets them is listed as derogated).
 3. **Tokens**: the fenced v1 compatibility block of `globals.css` (v1 token names, per-agent colours,
    `--font-pixel`, the v1 global classes), every other dead v1 rule, and in
    `src/app/_design/tokens/tokens.ts` the v1 token-schema validator and `AGENT_COLOR` (REQ-13-008: no
@@ -125,9 +145,10 @@ Status Note (rule 3, FRD-mandated removal); the FRD-13 gate reviewer re-authors 
 - `src/app/_design/tokens/_tests/tokens.adversarial.review.test.ts` (probes the v1 validator and
   `AGENT_COLOR`).
 - `src/app/_design/tokens/_tests/frd13.integration.reviewer.test.tsx` (renders `StateBadge`).
-- `src/app/_design/tokens/_tests/frd13-wo06-09.adversarial.reviewer.test.tsx` and
-  `frd13-wo07-09.adversarial.reviewer2.test.tsx`, if still present (they render the retired primitives
-  and the `party/*` set).
+
+`src/app/_design/tokens/_tests/frd13-wo06-09.adversarial.reviewer.test.tsx` and
+`frd13-wo07-09.adversarial.reviewer2.test.tsx` are not this work order's: WO-04-010 removes them in W5 with
+the `party/*` set they import (reconciliation 2026-10-22, one owner).
 
 Derogated but not removed (the FRD-13 gate reviewer rewrites it): `src/app/_tests/agentColorTokens.integration.reviewer.test.ts`
 (its sync case loses its subject when the per-agent tokens go).

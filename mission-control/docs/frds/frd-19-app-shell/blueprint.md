@@ -38,7 +38,7 @@ contract (`e2e/shell.ts`) and the gated route list (`e2e/routes.ts`).
 | CMP-19-app-shell | client component | `AppShell` (`src/components/modules/AppShell/AppShell.tsx`) | Frame `.app#app` with `aside#sidebar`, scrim, `main#content.page`, phone bars; grid per breakpoint; drawer state; collapse state (from WO-19-003) | REQ-19-001, REQ-19-003, REQ-19-004, REQ-19-005 | WO-19-002, WO-19-003 |
 | CMP-19-sidebar | component | `Sidebar` (`AppShell/Sidebar.tsx`) | Brand link and the ordered slots: pills, nav, projects, guild, footer | REQ-19-001 (AC-19-001.3) | WO-19-002, WO-19-003 |
 | CMP-19-nav | client component | `Nav` + `NavItem` (`src/components/modules/Nav/`) | Seven `next/link` destinations, icon, tone, label and mini label, `aria-current`; counts and rail dot from WO-19-003 | REQ-19-001, REQ-19-002, REQ-19-005 | WO-19-002, WO-19-003 |
-| IF-19-nav-active | pure function | `Nav/navActive.ts` | pathname → active destination or none (exact `/`; whole-segment families; workspace → Portafolio; idea → Tablero) | REQ-19-002 | WO-19-002 |
+| IF-19-nav-active | pure function | `Nav/navActive.ts` over FRD-25's `activeDestinationPath` | pathname → active destination or none (exact `/`; whole-segment families; workspace → Portafolio; idea → Tablero); the rule itself lives once in `src/lib/navigation` (WO-25-001), this module only maps its result to a destination id | REQ-19-002, AC-25-010.1 (cited) | WO-19-002 |
 | IF-19-nav-destinations | constants | `NAV_DESTINATIONS` in `src/lib/constants.ts` | id, path, label key, mini key, icon, tone of the seven destinations (single source for the app) | REQ-19-001 | WO-19-002 |
 | CMP-19-topbar | component | `TopBar` (`AppShell/TopBar.tsx`) | Phone sticky bar: `button#menu`, logo, `#where` | REQ-19-003 | WO-19-002 |
 | CMP-19-bottom-nav | component | `BottomNav` (`AppShell/BottomNav.tsx`) | Phone bottom navigation: Inicio, Tablero, Portafolio, Docs, «Más» | REQ-19-003 | WO-19-002 |
@@ -77,7 +77,8 @@ nav, `projects`, `guild`, `footer`. `Nav` / `NavItem` accept optional per-destin
 render nothing. The layout (a Server Component) reads each slot's data through the existing
 request-cached resolvers and passes it down; client components only hold browser-local state.
 
-**Active destination (IF-19-nav-active).** Input: pathname. Output: one destination id or none. Rules:
+**Active destination (IF-19-nav-active).** Input: pathname. Output: one destination id or none, derived
+from `activeDestinationPath(pathname)` (WO-25-001, single source, DR-115). Rules:
 `/` exact → Inicio; whole-segment families `/board` → Tablero; `/portfolio`, `/projects` → Portafolio;
 `/proposals`, `/achievements`, `/manual`, `/configuration` → their destination; anything else → none.
 Invariant: at most one destination is current; the result is identical on server and client.
@@ -98,7 +99,8 @@ script), `orbita-projects-open`, `orbita-ach-seen`. Storage unavailable: the sta
 Propuestas `/proposals`, Logros `/achievements`, Documentación `/manual`, Configuración `/configuration`),
 `SHELL_EXEMPT = []`, `NAV_TOGGLE = "#menu"`, seeded from components.md, never from the app's constants.
 `e2e/shell.spec.ts` stays verbatim. `e2e/routes.ts` lists every v2 surface (Inicio, Tablero, an idea page,
-Portafolio, a workspace, Propuestas, Logros, Documentación, Configuración).
+its explicit `proposal` tab and its data-model (`architecture`) route, Portafolio, a workspace, Propuestas
+with `/proposals/memory` and `/proposals/backlog`, Logros, Documentación, Configuración).
 
 No API or Server Action contract (read-only shell; DR-060 not applicable).
 
@@ -106,8 +108,8 @@ No API or Server Action contract (read-only shell; DR-060 not applicable).
 
 | WO | Mocks and oracle states | Assets |
 |---|---|---|
-| WO-19-002 | `mocks/app-shell.html#shell-expanded` (375, 768, 1280), `#shell-drawer-open` (375); FRD-13 `visual-system-accessibility.html#a11y-skip-link-focus` | brand PNG; `home`, `kanban`, `folder`, `bulb`, `trophy`, `book`, `settings`, `menu` icons |
-| WO-19-003 | `#shell-rail-collapsed`, `#shell-rail-float`, `#shell-projects-folded`, `#shell-pending-chip` (768, 1280); FRD-21 `pending-merge.html#shell-pending-chip-open`; FRD-09 `gamification.html#guild-achievement-notice`, `#guild-rank-ladder` (guild card) | `alert`, `branch`, `panelClose`, `panelOpen`, `sun`, `moon`, `trophy`, `x`, `list`, `chevD`, `chevR` icons |
+| WO-19-002 | `mocks/app-shell.html#shell-expanded` (375, 768, 1280), `#shell-drawer-open` (375), scenario state `shell-skip-link`; FRD-13 `visual-system-accessibility.html#a11y-skip-link-focus` | brand PNG; `home`, `kanban`, `folder`, `bulb`, `trophy`, `book`, `settings`, `menu` icons |
+| WO-19-003 | `#shell-rail-collapsed`, `#shell-rail-float`, `#shell-projects-folded`, `#shell-pending-chip` (768, 1280), scenario states `shell-theme-toggled`, `shell-achievement-notice`; FRD-21 `pending-merge.html#shell-pending-chip-open`; FRD-09 `gamification.html#guild-achievement-notice`, `#guild-rank-ladder` (guild card) | `alert`, `branch`, `panelClose`, `panelOpen`, `sun`, `moon`, `trophy`, `x`, `list`, `chevD`, `chevR` icons |
 
 Portable CSS: `docs/design/prototype/reference/css/18-app-frame.css`, `34-responsive.css`,
 `48-sidebar-rail.css`, `52-phone-pass.css`, `53-phone-tablet-pass.css`. The prototype footer text and
@@ -116,8 +118,9 @@ capture stamp are prototype-only and are not built.
 ## Test-side supersession (map §3.3, BL-0051)
 
 - WO-19-002 rewrites the shell's own tests, `e2e/shell.ts`, `e2e/routes.ts`, `e2e/shell-usability.spec.ts`,
-  the shell case of `e2e/persistent-navigation.spec.ts` and of
-  `src/app/manual/_tests/persistentNavigation.test.tsx`; deletes the tests of the removed top bar,
+  the shell case in `e2e/persistent-navigation/destinations.spec.ts` and in
+  `src/components/modules/Nav/_tests/persistentNavigation.test.tsx` (both split out by WO-25-001 in W0;
+  reconciliation 2026-10-22, the manual unit file is WO-08-003's); deletes the tests of the removed top bar,
   `PendingMergeBadge` and `CelebrationWatcher`; removes with `git rm` the two reviewer suites whose
   subject it deletes (`AppShell/_tests/usability.reviewer.test.tsx`, the v1 top-bar disclosure;
   `CelebrationWatcher/_tests/wo-09-003-celebration-watcher.reviewer.test.tsx`).
@@ -146,8 +149,8 @@ capture stamp are prototype-only and are not built.
 
 | WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
 |---|---|---|---|---|
-| WO-19-002 | WO-13-012, WO-25-001, WO-01-008 | `src/components/modules/{AppShell,Nav}/**`, `src/app/layout.tsx`, `src/app/_tests/layout*.test.tsx`, `src/app/{not-found,error}.tsx`, `src/app/_tests/error-net.test.tsx`, `src/lib/constants.ts`, `e2e/shell.ts`, `e2e/routes.ts`, `e2e/shell-usability.spec.ts`, `e2e/persistent-navigation.spec.ts`, `src/app/manual/_tests/persistentNavigation.test.tsx`, `src/components/modules/{PendingMergeBadge,CelebrationWatcher}/**` | true | W3 · WO-21-003, WO-26-001, WO-02-015, WO-02-017, WO-02-018, WO-02-020, WO-06-013, WO-07-006, WO-08-003, WO-08-004, WO-12-007, WO-14-005, WO-22-002, WO-04-013 |
-| WO-19-003 | WO-19-002, WO-18-002, WO-17-008, WO-21-003, WO-04-013 | `src/components/modules/AppShell/{Sidebar,SidebarProjects,PluginPill,PendingPill,ThemeToggle,AppShell}.tsx`, `src/components/modules/AppShell/useSidebarPreference.ts`, `src/components/modules/AppShell/_tests/{sidebar,pills,theme-toggle,collapse}*.test.tsx`, `src/components/modules/Nav/{Nav,NavItem,ProjectNavItem}.tsx`, `src/components/modules/Nav/_tests/{nav-counts,project-nav-item}*.test.tsx`, `src/components/modules/{GuildBar,AchievementToast}/**`, `src/components/core/ThemeToggle/**`, `src/app/layout.tsx`, `src/app/_tests/layout.sidebar*.test.tsx`, `e2e/shell-sidebar.spec.ts` | false | W6 · WO-04-011, WO-04-012, WO-05-008, WO-05-009, WO-11-004, WO-10-017 |
+| WO-19-002 | WO-13-012, WO-25-001, WO-01-008 | `src/components/modules/{AppShell,Nav}/**`, `src/app/layout.tsx`, `src/app/_tests/layout*.test.tsx`, `src/app/{not-found,error}.tsx`, `src/app/_tests/error-net.test.tsx`, `src/lib/constants.ts`, `e2e/shell.ts`, `e2e/routes.ts`, `e2e/shell-usability.spec.ts`, `e2e/persistent-navigation/destinations.spec.ts`, `src/components/modules/{PendingMergeBadge,CelebrationWatcher}/**` | true | W3 · WO-21-003, WO-26-001, WO-02-015, WO-02-017, WO-02-018, WO-02-020, WO-06-013, WO-08-003, WO-08-004, WO-12-007, WO-14-005, WO-22-002, WO-04-013 |
+| WO-19-003 | WO-19-002, WO-18-002, WO-17-008, WO-21-003, WO-04-013, WO-03-007 | `src/components/modules/AppShell/{Sidebar,SidebarProjects,PluginPill,PendingPill,ThemeToggle,AppShell}.tsx`, `src/components/modules/AppShell/useSidebarPreference.ts`, `src/components/modules/AppShell/_tests/{sidebar,pills,theme-toggle,collapse}*.test.tsx`, `src/components/modules/Nav/{Nav,NavItem,ProjectNavItem}.tsx`, `src/components/modules/Nav/_tests/{nav-counts,project-nav-item}*.test.tsx`, `src/components/modules/{GuildBar,AchievementToast}/**`, `src/components/core/ThemeToggle/**`, `src/app/layout.tsx`, `src/app/_tests/layout.sidebar*.test.tsx`, `e2e/shell-sidebar.spec.ts` | false | W6 · WO-04-011, WO-04-012, WO-05-008, WO-05-009, WO-11-004, WO-10-017 |
 
 - **Order.** WO-19-002 is the last foundation step (W3): after it every route renders the sidebar with
   the seven destinations (the Shell-Presence gate checks exactly that). WO-19-003 lands in W6 because it
@@ -158,8 +161,25 @@ capture stamp are prototype-only and are not built.
   W6: the panel WOs write their own `_panels` / component folders; only WO-19-003 writes `layout.tsx`
   and the shell folders.
 - **Shared files (map §0.1).** `src/app/layout.tsx`: WO-13-010 (W0), WO-19-002 (W3), WO-19-003 (W6),
-  WO-13-013 (W7). `src/lib/constants.ts`: WO-19-002 in W3. `e2e/persistent-navigation.spec.ts`: WO-25-001
-  (W0), WO-19-002 (W3, shell case only), WO-04-010 (W5).
+  WO-13-013 (W7). `src/lib/constants.ts`: WO-19-002 in W3. The shell case of the oracle spec lives in
+  `e2e/persistent-navigation/destinations.spec.ts` (WO-25-001 W0, WO-19-002 W3); the core spec is not
+  written here.
+
+## Reconciliation (2026-10-22, binding)
+
+- **One `<main>`.** The shell's `main#content` is the page's only main landmark (AC-19-001.5, AC-19-003.5,
+  REQ-13-009). Every v2 surface WO renders no `<main>` and updates its own tests that query
+  `getByRole("main")` (recorded in WO-07-006, WO-08-003, WO-17-008, WO-04-011, WO-11-004).
+- **Active rule single source.** `Nav` consumes `activeDestinationPath` (WO-25-001); `Nav/navActive.ts` only
+  maps the result.
+- **Removal timing confirmed (map §0.3 / §3.3).** A module that another FRD's reviewer suite imports is only
+  unmounted in W3..W6 and deleted by WO-13-013 (W7): `ProposalsBadge`, `CelebrationSurface`, the top-bar
+  `GuildBar`, `Nav/navTab.ts`. The same rule binds every author's removals; a removal WO that deletes a whole
+  module `git rm`s the reviewer suites whose only subject it is (rule 3), otherwise it lists them as
+  derogated.
+- **Sidebar resolvers.** Projects from `getProjectOverview()` (WO-03-007), Inicio count
+  `ownerTurnItems().count`, Propuestas `ownerActions().badgeCount`, the pending pill
+  `pendingPillSummary()` + `WORKTREES_CARD_ID`, the notice `lastAchievement().fresh`.
 - **Cross-FRD.** Upstream FRD-13, FRD-25, FRD-01 (W3); FRD-18, FRD-17, FRD-21, FRD-04 (W6). Downstream:
   FRD-13's WO-13-013 (W7).
 

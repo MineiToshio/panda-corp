@@ -43,6 +43,9 @@ one resolver every surface uses to name an FRD.
   the FRD-scoped set plus its direct neighbours marked out-of-scope, upstream and downstream sets for a focus,
   the steps for the narrow list) from `docs/design/prototype/prototype.js`. Input: `{ id, frd, dependsOn }[]` and
   the FRD order; output: serializable geometry (blueprint Contracts). State is never an input.
+- URL keys: exactly WO-25-001's Observabilidad set (`dag` frd|wo, `focus` one work-order id, `frd` one FRD id;
+  `view`, `state`, `wo`, `woview` belong to WO-05-008); this work order never edits `src/lib/navigation/**` and
+  reports any other key or value in the ledger (reconciliation 2026-10-22).
 - **`src/lib/frds/frd-index.ts`**: `listProjectFrds(projectPath)` (slug, `FRD-NN`, display title by the
   prototype's precedence: Spec digest title, Architecture digest title, `frd.md` H1 without the code, humanized
   slug), deduped per request; fail loud on an unreadable folder listing, tolerant of a missing `frd.md`.

@@ -134,6 +134,15 @@ Retired criteria (FRD table «Retired by the Órbita redesign») are owned by no
   `FreshnessBadge` module; no other W3 work order touches them (map §3.2).
 - **Integration:** WO-04-010 (W5) deletes the v1 scene; WO-04-011 (W6) mounts `FraguaScene` at the head of the
   Resumen; WO-18-002 (W5) reuses `buildSignal` / `FreshnessBadge` for AC-06-019.7.
+- **Reconciliation (2026-10-22, binding).** WO-06-013 stays W3 (author C's request to move it to W4 behind
+  WO-04-013 is declined: WO-03-007 (W4) and WO-18-002 (W5) consume `buildSignal()` / `FreshnessBadge`, and the move
+  would push WO-03-007 to W5 and WO-04-010 to W6). The scene derives no cross-feature count: the mount
+  (WO-04-011) passes `openChanges` (`countOpenChanges`), `ownerPending` (`ownerTurnItems({ project }).count`),
+  `lastActivityAt` (`getLastCommit()`) and `frds` (`listProjectFrds()`). `buildSignal()` is the one freshness
+  resolver read by the scene, the Portafolio and Inicio cards (WO-03-007, WO-18-002) and the workspace hero
+  (`WorkspaceProject.build`, WO-04-010). WO-04-011 owns the behaviour e2e of the scene inside Resumen
+  (`e2e/resumen.spec.ts`). `FreshnessBadge`'s v1 `lastSignalAt` prop is dropped by WO-13-013 (W7). The
+  per-station empty lines are drawn in FRD-04's `project-summary*` and FRD-20's `overlay-behind`.
 
 ## Superseded (v1 history)
 

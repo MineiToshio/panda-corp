@@ -54,10 +54,10 @@ All shapes are at contract altitude; WO-03-007 owns the code.
 | `id` | the public navigation slug (`getProjectNavigation`), the key used in URLs and the picker |
 | `name`, `path`, `repo?` | the portfolio row, verbatim (`path` may be relative or `~/…`) |
 | `phase?`, `stageIndex` | resolved phase (status.yaml authoritative, the table cell as advisory fallback) and its position in the six-stage pipeline (`product` 2 … `release` 6; stage 1 is always complete) |
-| `build` | `idle`, `live`, or `noSignal` with the last signal (from `status.running` and `lib/status/liveness`) |
-| `lastCommit` | `{ at }` or `{ at: null, reason: "no-repository" \| "unreadable" }`, read through `runGit` |
+| `build` | the value of `buildSignal()` (WO-06-013): `idle`, `live`, or `noSignal` with the last signal age; rendered through the restyled `FreshnessBadge` |
+| `lastCommit` | `{ at }` or `{ at: null, reason: "no-repository" \| "unreadable" }`, from the published resolver `getLastCommit(projectPath)` (`src/lib/portfolio/lastCommit.ts`, `runGit`), which the workspace (WO-04-010) and La Fragua's mount (WO-04-011) also read |
 | `pathMissing` | the folder does not resolve; the row is kept |
-| `counts` | `ordersVerified`, `ordersTotal`, `frds`, `docs`, `adrs`, `openChanges`, `pendingDecisions`; `null` when the folder is missing |
+| `counts` | `ordersVerified`, `ordersTotal`, `frds`, `docs`, `adrs`, `openChanges` (= `countOpenChanges`, WO-04-013), `pendingDecisions`; `null` when the folder is missing |
 | `nextCommand` | FRD-18 REQ-18-021: `implementation` with open work orders is `/pandacorp:implement`, `release` is `/pandacorp:review-launch`, otherwise `nextStep({ phase })` |
 
 Order: last commit descending, no date last, ties by name. The facts are derived once per request
@@ -122,7 +122,7 @@ portfolio) and `U2` (folder missing), as in the FDD.
 
 | WO | Depends on | Artifacts | Foundation | Parallel with |
 |---|---|---|---|---|
-| WO-03-007 | WO-13-012, WO-25-001, WO-26-001, WO-01-010, WO-01-004 | `src/app/portfolio/**`, `src/components/modules/ProjectCard/**`, `src/components/modules/ProjectSwitcher/**`, `src/components/modules/ProjectRail/**`, `src/components/modules/ServicesDirectory/PortfolioViews.tsx`, `src/lib/portfolio/**`, `src/lib/_tests/active-projects.test.ts`, `e2e/portafolio.spec.ts`, `e2e/cuentas.spec.ts`, `e2e/persistent-navigation.spec.ts` | false | W4; with WO-17-008, WO-10-016, WO-02-016 |
+| WO-03-007 | WO-13-012, WO-25-001, WO-26-001, WO-01-010, WO-01-004, WO-04-013, WO-06-013 | `src/app/portfolio/**`, `src/components/modules/ProjectCard/**`, `src/components/modules/ProjectSwitcher/**`, `src/components/modules/ProjectRail/**`, `src/components/modules/ServicesDirectory/PortfolioViews.tsx`, `src/lib/portfolio/**`, `src/lib/_tests/active-projects.test.ts`, `e2e/portafolio.spec.ts`, `e2e/cuentas.spec.ts`, `e2e/persistent-navigation.spec.ts` | false | W4; with WO-17-008, WO-10-016, WO-02-016 |
 
 - **Order and parallelism.** One coarse work order: the overview resolver, the page, the cards, the list and
   the switcher share one read model and one removal list; splitting would put two writers on
@@ -135,7 +135,13 @@ portfolio) and `U2` (folder missing), as in the FDD.
 - **Integration order.** After WO-26-001 (the directory it mounts) and WO-25-001; before WO-04-010 (which
   mounts `ProjectSwitcher` and reads the overview), WO-18-002 and WO-19-003.
 - **Cross-FRD dependencies.** WO-13-012 (FRD-13), WO-25-001 (FRD-25), WO-26-001 (FRD-26), WO-01-010 and
-  WO-01-004 (FRD-01).
+  WO-01-004 (FRD-01), WO-04-013 (`countOpenChanges`, FRD-04), WO-06-013 (`buildSignal()` and
+  `FreshnessBadge`, FRD-06); both W3, so the wave stays W4 (reconciliation 2026-10-22).
+- **Reconciliation (2026-10-22, binding).** One resolver per fact (DR-115, LESSON-0077): open changes from
+  `countOpenChanges`, the build chip from `buildSignal()`, the last commit from the published
+  `getLastCommit()`; `getProjectOverview()` is the list the sidebar, Inicio's «Tu cartera» and the workspace
+  hero read. `ProjectListItem.snapshot` / `.lastSync` are removed by WO-13-013 (cross-FRD fixtures). The
+  no-remote sentence of U2 is drawn nowhere: not built (design item).
 - **Visual spec.** `mocks/portfolio.html`: `#portfolio-cards`, `#portfolio-list`, `#portfolio-project-picker`,
   `#portfolio-project-picker-search`, `#portfolio-project-not-found`, `#portfolio-path-missing`,
   `#factory-empty`, `#build-no-signal`; host of `frd-26-services-accounts/mocks/services-accounts.html#portfolio-accounts`.

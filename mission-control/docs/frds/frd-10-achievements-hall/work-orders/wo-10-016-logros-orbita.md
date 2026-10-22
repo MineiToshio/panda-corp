@@ -33,6 +33,7 @@ artifacts:
   - 'src/lib/achievements/tiers.ts'
   - 'src/lib/achievements/_tests/seals-rarity.test.ts'
   - 'e2e/achievements.spec.ts'
+  - 'e2e/persistent-navigation/achievements.spec.ts'
 source_requirements: [REQ-10-028]
 dependsOn: [WO-13-012, WO-25-001, WO-23-006, WO-01-010]
 last_updated: '2026-10-22'
@@ -131,6 +132,8 @@ Unit and component tests beside the code (`getByRole` first): each pure view rul
 - **Assets:** the rank emblems, crest and trophy art as original bytes from `public/ranks/**` and the exported SVG icons (staged by WO-13-010).
 
 ## Dependencies
+
+Reconciliation 2026-10-22: this work order also updates `e2e/persistent-navigation/achievements.spec.ts` (split out by WO-25-001; the `achievements` case moves to the `logros-tab-*` testids; AC-25-001.1 / AC-25-002.1 re-verified), uses the WO-25-001 keys `category`, `trophy`, `eras`, passes its «Por conquistar» step (12) to the shared `MoreBar`, imports `now()` from `@/lib/clock/clock` and never adds `child_process` or a zero-argument `Date` (WO-01-011's boundary test), and renders no `<main>`.
 
 WO-13-012 (composite primitives), WO-25-001 (URL codec; the Logros tab segments plus the filter keys), WO-23-006 (the composed Informe reader that `page.tsx` wired last, so the page file is free before this WO rewrites it), WO-01-010 (the frozen clock `now()` for the recency rules). Consumed by WO-10-017 (charts, statistics seam) and WO-13-013.
 

@@ -486,7 +486,7 @@ Coarse map only; each FRD's `blueprint.md` details its components (`CMP-NN-*`), 
 | FRD-11 | Build modes | `command-modes`, browser-local mode store | `BuildModePicker` in Comandos and La Campaña |
 | FRD-12 | Observability | `deps-layout`, `work-orders`, `events` | Observabilidad › Dependencias, drift badge, Inicio Pulso |
 | FRD-13 | Visual system & a11y | `copy`, `theme` | tokens, fonts, icons, primitives |
-| FRD-14 | Snapshot & feedback | `snapshot` | last-green-commit panel in Resumen; Portafolio chips |
+| FRD-14 | Snapshot & feedback | `snapshot` | last-green-commit panel in Resumen only (the v1 Portafolio rail chips are removed in v2) |
 | FRD-15 | Plugin out-of-sync warning | `plugin-sync` | Inicio banner + sidebar pill; `/api/plugin-sync` |
 | ~~FRD-16~~ | ~~Orphan project detection~~, removed 2026-06-22 | — | — |
 | FRD-17 | Proposals inbox | `proposals`, `memory`, `self-suggest` | Propuestas (Resumen, Memoria) + sidebar count |

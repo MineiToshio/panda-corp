@@ -94,8 +94,13 @@ this FRD's work order does not touch them.
 ## Visual spec (WO-21-003; binding, DR-054)
 
 FDD: [`fdd.md`](fdd.md). Mock: `mocks/pending-merge.html`; screenshots in `mocks/screenshots/`. Oracle states of
-this FRD's gate: `worktrees-card`, `worktrees-branch-dialog`, `worktrees-unreadable` (WO-21-003) and
-`shell-pending-chip`, `shell-pending-chip-open` (the pill: WO-19-003, captured on `/board`). The unreadable state
+this FRD's gate: `worktrees-card`, `worktrees-branch-dialog`, `worktrees-unreadable`, the scenario state
+`worktrees-factory-dialog` (the factory repository's dialog, drawing the origins «Carril de un build» and «Sesión
+de Codex»; `oracle-recipes.json` double) (WO-21-003) and `shell-pending-chip`, `shell-pending-chip-open` (the
+pill: WO-19-003, captured on `/board`). Reconciliation 2026-10-22: WO-01-010 answers every git family the
+reader issues (including the `pandasaga` failure of `worktrees-unreadable`); the card carries
+`id={WORKTREES_CARD_ID}`; `PendingPill` (WO-19-003) consumes `pendingPillSummary()` `{ count, urgent, unreadable,
+hidden }` (REQ-21-001, AC-21-008.1/.2 traced to it). The unreadable state
 is produced by pointing the git runner at a fixture that makes `worktree list` fail for one repository, never by
 mocking the reader. Assets: icons through `Icon` only. The card is the last card of the right column of
 Inicio's grid (FRD-18 owns the grid).

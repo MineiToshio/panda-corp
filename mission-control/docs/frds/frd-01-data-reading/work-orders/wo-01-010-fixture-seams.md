@@ -61,6 +61,19 @@ every v2 WO migrates the readers it owns.
     repository's last commit, from `lastActivity[<id>]`). A command with no answer throws `GitError`
     `no-fixture-answer`, exactly like a failing git, so readers take their existing fail-soft path.
     WO-01-011 extends the table with the history families the report readers issue.
+    Also answered here, because W3 consumers read them (reconciliation 2026-10-22; a command the table cannot
+    answer is a gap in the consumer's reader contract, never a reason to mock the reader):
+    - FRD-21 (WO-21-003, AC-21-007.1/.2, states `worktrees-card`, `worktrees-branch-dialog`,
+      `worktrees-unreadable`), per repository root of `git-state.json`: `worktree list --porcelain` (main
+      worktree first, `locked` / `detached` flags from `extraWorktrees`, branch checkouts from
+      `branches[].worktree`), `branch --no-merged <default>`, `rev-list --count`, `log -1` (subject and committer
+      time), `status --porcelain` inside a branch worktree (the uncommitted count); under the
+      `worktrees-unreadable` scenario `worktree list` fails for the `pandasaga` repository with the message
+      «git worktree list terminó con error».
+    - FRD-14 (WO-14-005, AC-14-001.1, AC-14-002.1, states `project-snapshot` and `project-snapshot-stale`): the
+      snapshot gap queries of `src/lib/snapshot/gap.ts` (commits from `last_green_sha` to HEAD, the committer
+      times of both commits, the subject of the green commit), with `a41c09e2` (WO-07-002 of FRD-07) for
+      `project-snapshot` and 14 commits / 26 hours for `project-snapshot-stale`.
 - `src/lib/config/env.ts`: the environment contract as typed constants (the variable names of
   architecture.md §7 "Environment variables": `PANDACORP_FACTORY_ROOT`, `PANDACORP_EVENTS_FILE`,
   `PANDACORP_CODEX_EVENTS_FILE`, `PANDACORP_ACCOUNTS_FILE`, `PANDACORP_CODEX_PLUGIN_ROOT`,

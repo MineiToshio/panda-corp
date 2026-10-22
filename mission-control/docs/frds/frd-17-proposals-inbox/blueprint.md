@@ -119,7 +119,9 @@ the rail chip by WO-03-007, the sidebar count is `ownerActions().badgeCount`).
 FDD: [`fdd.md`](fdd.md). Mock: `mocks/proposals-inbox.html`; screenshots in `mocks/screenshots/` (375/768/1280,
 light and dark; the dialog at 375 and 1280). Oracle states of this FRD's gate (`oracle-states.json`):
 `proposals-summary`, `proposals-memory` (Candidatas opened, long list) and `proposals-lesson-dialog` (reached by
-clicking the first lesson row of Memoria). Assets: icons through `Icon` only. The Backlog tab's states belong
+clicking the first lesson row of Memoria), plus the scenario states `proposals-memory-prune` («Para podar»
+present) and `proposals-calm` (no action: «Nada necesita tu decisión ahora.»), reproduced from their
+`oracle-recipes.json` doubles. Assets: icons through `Icon` only. The Backlog tab's states belong
 to FRD-22. Keep the recorded hooks (`.pa-row`, `.pa-n`, `.lf`, `.lf-step`, `.sig-group`, `.lrow` with
 `data-lesson`, `.morebtn`) on those elements.
 
@@ -152,7 +154,7 @@ LESSON-0185 (the behaviour e2e spec uses `gotoHydrated` and web-first assertions
 | WO-17-001 | — | `src/lib/memory/memory.ts`, `src/lib/memory/_tests/memory.test.ts`, `src/lib/memory/_tests/memory.adversarial.test.ts` | false | W0; history, VERIFIED |
 | WO-17-003 | WO-17-001 | `src/lib/self-suggest/self-suggest.ts`, `src/lib/self-suggest/_tests/self-suggest.test.ts` | false | W1; WO-17-005, history, VERIFIED |
 | WO-17-005 | WO-17-001 | `src/lib/memory/memory.ts`, `src/lib/memory/memory-health.ts`, `src/lib/memory/_tests/memory-loop-v2.test.ts`, `src/lib/memory/_tests/memory-health.test.ts`, `src/components/modules/MemoryHealth/MemoryHealth.tsx`, `src/components/modules/MemoryHealth/_tests/memory-health.loop-v2.test.tsx`, `src/app/proposals/_components/LessonDetail.tsx`, `src/app/proposals/_tests/wo-17-005-lesson-detail-v2.test.tsx` | false | W1; WO-17-003, history, VERIFIED |
-| WO-17-008 | WO-13-012, WO-25-001, WO-22-002, WO-17-001, WO-17-003, WO-17-005 | `src/app/proposals/page.tsx`, `src/app/proposals/[...segments]/**`, `src/app/proposals/_components/{ProposalsTabs,ProposalsSummary,ProposalCard,ProposalActionRow,LessonFlow,SignalGroup,PromotionsQueuePanel,DismissableProposalStream,ProposalStream}/**`, `src/app/proposals/_components/{LessonDetail,LessonDetailModal}.tsx`, `src/app/proposals/_components/streamMeta.ts`, `src/app/proposals/_tests/**`, `src/lib/{proposals,self-suggest,memory}/**`, `src/components/modules/{PromotionsQueue,MemoryHealth,ProposalsDismiss}/**`, `e2e/proposals.spec.ts`, `e2e/fixtures/factory-root/factory/memory/LESSON-90*.md` | false | W4; WO-03-007, WO-10-016, WO-02-016 (other FRDs) |
+| WO-17-008 | WO-13-012, WO-25-001, WO-22-002, WO-17-001, WO-17-003, WO-17-005 | `src/app/proposals/page.tsx`, `src/app/proposals/[...segments]/**`, `src/app/proposals/_components/{ProposalsTabs,ProposalsSummary,ProposalCard,ProposalActionRow,LessonFlow,SignalGroup,PromotionsQueuePanel,DismissableProposalStream,ProposalStream}/**`, `src/app/proposals/_components/{LessonDetail,LessonDetailModal}.tsx`, `src/app/proposals/_components/streamMeta.ts`, `src/app/proposals/_tests/**`, `src/lib/{proposals,self-suggest,memory}/**`, `src/components/modules/{PromotionsQueue,MemoryHealth,ProposalsDismiss}/**`, `e2e/proposals.spec.ts`, `e2e/fixtures/factory-root/factory/memory/LESSON-90*.md`, `e2e/persistent-navigation/proposals.spec.ts` | false | W4; WO-03-007, WO-10-016, WO-02-016 (other FRDs) |
 
 - **Order and integration.** The three kept readers are VERIFIED and untouched in behaviour (WO-17-008 may edit
   their files for v2 needs, in a later wave). WO-17-008 starts after WO-22-002 (the Backlog tab it mounts) and
@@ -165,6 +167,13 @@ LESSON-0185 (the behaviour e2e spec uses `gotoHydrated` and web-first assertions
   importer, `src/app/page.tsx`, changes); the memory upkeep threshold is a named constant of `src/lib/proposals/`.
 - **No backend contract file.** No route handler or HTTP API is added or changed (`ownerActions()` is an
   in-process resolver), so no `docs/api/<wo-id>.md` (DR-060).
+- **Reconciliation (2026-10-22, binding).** WO-17-008 updates the tab steps of the split
+  `e2e/persistent-navigation/proposals.spec.ts` (W4, after WO-22-002's backlog steps in W3) and
+  `src/app/proposals/_tests/persistentNavigation.test.tsx` (inside its `_tests/**`); it derogates the
+  `ProposalsBadge` cases of `frd-17-gate-opus.reviewer.test.tsx` and `frd-17-reuse.gate.reviewer.test.tsx`
+  (the module stays on disk until WO-13-013 deletes it in W7, so later gates keep compiling); it renders no
+  `<main>`. WO-25-001 ships `proposalsTab=resumen`, the stream slugs `promotions`, `candidate-lesson`,
+  `prune`, and `backlogItem`.
 
 ## Work Orders
 
