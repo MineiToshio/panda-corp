@@ -89,7 +89,7 @@ Delivers REQ-02-002, REQ-02-003, REQ-02-005, REQ-02-006, REQ-02-014, REQ-02-016 
 «Descartadas · N» button and dialog) and renders REQ-02-001. The favourite write itself stays with WO-02-012
 (AC-02-012.1, AC-02-012.2); the star in the idea header is mounted by WO-02-016 with this component.
 
-- **AC-02-016.1** — WHEN the owner types in the board search ("Buscar por nombre o contenido…"), THE system SHALL show only the ideas whose title matches, across every phase column.
+- **AC-02-016.1** — (amended 2026-10-22, v2 reconciliation) WHEN the owner types in the board search ("Buscar por nombre o contenido…"), THE system SHALL show only the ideas whose title or content matches, across every phase column.
 - **AC-02-016.2** — THE board SHALL show one phase selector chip per phase with its idea count, and WHEN a chip is activated THE system SHALL scroll that phase's column into view.
 - **AC-02-016.3** — WHEN the owner turns on "Ocultar columnas vacías", THE board SHALL remove the empty phases and their selector chips, and SHALL remember the choice in this browser.
 - **AC-02-016.4** — WHILE a category filter is active, THE board SHALL show the live count "N ideas coinciden".

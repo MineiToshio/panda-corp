@@ -127,11 +127,11 @@ viewer everywhere) is WO-02-018's; this WO provides the single reader seam it re
 - **AC-02-013.5** — THE **per-FRD** cards SHALL render one card per FRD (id · title · WO count · blueprint
   one-liner); clicking a card SHALL open a **modal** with that FRD's blueprint summary + its work-orders
   list — consistent with the Spec tab's FRD-card→modal pattern (owner rule: heavy detail in a modal).
-- **AC-02-013.6** — **Out of v2 (owner decision 2026-10-21):** WHEN an FRD's modal is open AND that FRD has **more than one** live work order, THE
+- **AC-02-013.6** — (amended 2026-10-22, v2 reconciliation) **Out of v2 (owner decision 2026-10-21):** WHEN an FRD's modal is open AND that FRD has **more than one** live work order, THE
   system SHALL render, at the end of the modal, a **scoped dependency DAG** (the same `WoDag` reused by
   the main Plan de implementación) showing ONLY that FRD's work orders and their intra-FRD dependencies
   /parallelism. WHEN the FRD has a single work order, THE system SHALL NOT render the DAG (there is no
-  dependency/parallelism to show). In v2 the FRD modal ends with its links only (Contrato, Diseño,
+  dependency/parallelism to show). In v2 the FRD modal ends with its links only (Contrato,
   Blueprint, Ver work orders).
 - **AC-02-016.7** — EACH FRD card in the Spec and Arquitectura tabs SHALL open its detail from its whole area, SHALL carry a coloured kind tag (UI, Infra, Tool/CLI, API or Data, taken from the FRD's `ui:` field when the digest lacks it), and SHALL show work-order progress only once construction has started (before that, the planned count).
 - **AC-02-016.8** — THE "Variables de entorno" block SHALL group variables by their `.env.example` section, SHALL label a variable without its own comment "Sin descripción en .env.example" with a count badge, and SHALL fold any group longer than 12 variables.

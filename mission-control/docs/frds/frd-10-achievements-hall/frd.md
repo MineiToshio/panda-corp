@@ -186,7 +186,7 @@ figures, plus a KPI row of FLOW metrics.
 
 - **AC-10-028.1** — THE Logros Resumen SHALL show, in its right column, "Tu siguiente rango" (the current and next emblem, the XP left and how XP is earned), a compact attributes radar naming the strongest and weakest attribute, and the last four trophies.
 - **AC-10-028.2** — WITHIN each saga on Misiones, missions SHALL be ordered by closeness to their next tier, with untouched missions (zero progress) last and muted.
-- **AC-10-028.3** — THE Trofeos tab SHALL show a conquered bar and the row of Sellos, "Los más alcanzables" (the lowest-rarity locked trophy of each category, three when a category filter is active), and SHALL list the locked trophies of "Por conquistar" 12 at a time.
+- **AC-10-028.3** — (amended 2026-10-22, v2 reconciliation) THE Trofeos tab SHALL show a conquered bar and the row of Sellos, "Los más alcanzables" (the lowest-rarity locked trophy of each category, three when a category filter is active), and SHALL list the locked trophies of "Por conquistar" paged with the shared "Mostrar más" bar: the first 12, then WHEN the bar is activated THE system SHALL reveal the next 24 (or what remains), the bar reading "Mostrar N más · quedan M" with N = the next batch (at most 24) and M = the trophies still hidden (the captured state draws "Mostrar 24 más · quedan 46").
 - **AC-10-028.4** — THE Rangos tab SHALL collapse every era more than one step beyond the current rank into a single row showing its level range and its rank count.
 - **AC-10-028.5** — WHERE a counter's event has never been recorded, THE Estadísticas tab SHALL show "sin datos aún" (not 0) with an explanatory line that distinguishes it from "no cableado", and SHALL list phase transitions 10 at a time.
 

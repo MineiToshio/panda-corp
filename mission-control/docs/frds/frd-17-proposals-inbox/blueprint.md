@@ -135,9 +135,10 @@ to FRD-22. Keep the recorded hooks (`.pa-row`, `.pa-n`, `.lf`, `.lf-step`, `.sig
 - Risk: the lesson `context` field and bodies are in English inside a Spanish interface; they are shown
   content and are never translated (platform i18n rule).
 - Design/FRD conflicts decided here (reported in the ledger): FDD-17 describes the retrieval-trigger box in the
-  lesson dialog and says "there is no prune list in v2", while FRD-17 (owner, 2026-10-21) puts "Úsala cuando"
-  out of v2 and AC-17-001.3 draws "Para podar" when something is prunable; FRD > FDD, so the box is not built
-  and the prune card is built conditionally.
+  lesson dialog and says "there is no prune list in v2", while AC-17-001.3 draws "Para podar" when something is
+  prunable. Resolved 2026-10-22: REQ-17-009 was amended so the dialog shows the trigger in the drawn box (only the
+  labelled «Úsala cuando» row is out of v2), and the prune card is built conditionally (state
+  `proposals-memory-prune`).
 
 Lessons applied: LESSON-0077 (one resolver behind every surface that counts the same fact: `ownerActions()`
 feeds the Resumen list, the tab badges, the flow tile and the sidebar count), LESSON-0484 (the two summary

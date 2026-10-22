@@ -37,7 +37,7 @@ memory-health panel and their extras.
   `ownerActions.ts` (`ownerActions()`), `signals.ts` (`groupSignals()`), a named constant
   `MEMORY_UNREVIEWED_DAYS` (2) and `UNRELIABLE_SIGNAL_RATIO` (0.6); `countOpenProposals` is deleted.
   `src/lib/memory/` and `src/lib/self-suggest/` change only where a v2 AC needs it (no new field is invented;
-  `harvestOrphans` and `trigger` stay reported, unrendered).
+  `harvestOrphans` stays reported, unrendered; `trigger` renders in the lesson dialog's drawn box).
 - `src/app/proposals/page.tsx`, `[...segments]/page.tsx` (validates tabs, streams `promotions`, `candidate-lesson`,
   `prune`, lesson ids and backlog item ids against `loadProposalsData()`; unknown values are a bounded
   not-found), `_components/`: `ProposalsTabs`, `ProposalsSummary`, `ProposalActionRow`, `SignalGroup`,
@@ -74,8 +74,9 @@ memory-health panel and their extras.
   "Crónica del gremio" alias in the page metadata.
 - The "ver más / ver menos" (drawn in FRD-04's captured states) toggle: `DismissableProposalStream/**` (replaced by `ProposalStream` and the shared
   `MoreBar`), the v1 `ProposalCard/**`, `_components/streamMeta.ts`, and `countOpenProposals`.
-- The retrieval-trigger box that FDD-17 describes in the dialog is NOT built (FRD-17 puts it out of v2, FRD >
-  FDD; reported in the ledger).
+- The lesson dialog shows the lesson's retrieval trigger in the drawn blue box with a target icon when the lesson
+  has one (FDD-17, state `proposals-lesson-dialog`; REQ-17-009 amended 2026-10-22). Only the labelled «Úsala
+  cuando» row stays out of v2.
 
 ## Requirements & Acceptance Criteria
 
@@ -94,7 +95,7 @@ REQ-22-002 (the tab shell). The acceptance criteria this work order owns, copied
 - **AC-17-011.3** — THE "Señales automáticas" SHALL be grouped by kind, and a signal that flags most of its population (such as the unused-skills signal) SHALL be marked unreliable.
 - **AC-17-011.4** — THE Memoria tab SHALL explain a lesson's four steps and who moves each one, SHALL list the lessons awaiting the owner ("Esperan tu decisión") first, and SHALL keep the candidates collapsed under "no piden nada".
 - **AC-22-002.1** — The Propuestas page SHALL present three tabs, **Resumen**, **Memoria** and **Backlog**, using the shared `Tabs`/`SubTabs` primitive (DR-062) — no bespoke switcher.
-- **AC-22-002.2** — **Resumen** SHALL be active by default (FRD-17 AC-17-011.1); **Memoria** SHALL contain the self-learning surface (memory-health panel + the proposal streams + the promotions queue, FRD-17).
+- **AC-22-002.2** — (amended 2026-10-22, v2 reconciliation) **Resumen** SHALL be active by default (FRD-17 AC-17-011.1); **Memoria** SHALL contain the self-learning surface (the `LessonFlow` health line + the proposal streams + the promotions queue, FRD-17).
 - **AC-22-002.3** — The **Backlog** tab SHALL show a count badge of its actionable items (open and in progress, for example "Backlog 11") when greater than zero.
 - **AC-22-002.4** — Both panels SHALL stay mounted (toggled with `hidden`) so each panel's tab-local state (for example the Backlog filters, its opened card and the paging of its history) survives a tab switch; the memory streams have no dismiss state in v2 (FRD-17, per-card dismiss is out of v2). (Amended 2026-10-22, v2 plan.) Both panels SHALL carry `data-volatile` (DR-088) so the visual baseline masks their live, length-varying data.
 

@@ -63,7 +63,9 @@ honest live/no-signal + staleness conventions of observability ([FRD-12](../frd-
 
 **Worked example (AC-21-007.1).** Repository A has 1 unmerged branch last touched 2 hours ago and no leftover worktree: state "Al día". Repository B has 1 leftover worktree: "Revisar pronto". Repository C has 2 unmerged branches, one untouched for 9 days: "Depurar ya". Repository D has nothing: "Limpio". The pill reads "⎇ 3 pendientes · depurar ya" and its alert variant is on.
 
-## Data source
+## Data source (historical, v1; superseded 2026-10-22)
+
+> Superseded by AC-21-007.1: in v2 the leftovers come from `git worktree list` (without the locked worktrees), not from the file-based manifest and snapshot below. Kept only so the v1 rationale stays traceable; it is not a requirement.
 
 Per project, two file-based inputs under the (gitignored) `.pandacorp/run/`:
 - the **active-worktree manifest** `worktrees/*.json` (branch, path, task, started-at — written by
@@ -84,7 +86,6 @@ fall back to the manifest; unreadable → the error state (REQ-21-006).
 - The snapshot is stale (the driver hasn't run) → show the manifest-derived view and a subtle "datos de
   hace X" freshness note (FRD-12 convention), never a confidently-wrong "al día".
 - A repository that cannot be read → its row shows "No se pudo leer" and the pill goes to its alert variant (REQ-21-006, AC-21-008.2).
-- Many pending items → the list stays ordered and scrolls; the pill shows the count capped at `9+`.
 
 ## Notes
 

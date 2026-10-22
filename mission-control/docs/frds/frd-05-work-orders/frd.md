@@ -30,14 +30,14 @@ Read-only views of the work orders' state (Por FRD, Tablero), with their FRD and
 - **AC-05-008.1** — THE Observabilidad tab SHALL offer the views Por FRD (the default), Tablero and Dependencias (FRD-12), and SHALL keep the selected view in the URL.
 - **AC-05-008.2** — THE Por FRD view SHALL start with every FRD collapsed (each group showing its stacked state bar and "n/m %"), SHALL offer one "Expandir todo" / "Colapsar todo" toggle and a "Filtrar por FRD" select, and SHALL show the four state tiles with counts as filters that combine with each other and with the select.
 - **AC-05-008.3** — THE Tablero SHALL show at most 8 cards per column (4 on phones) followed by "Mostrar N más", and SHALL collapse an empty column to one line.
-- **AC-05-008.4** — THE work-order Resumen SHALL read in this order: a flow header with an "Ahora:" sentence; "De qué trata"; "Qué cambia" (with "Fuera de alcance" apart); "Cómo se comprueba" (one card per acceptance criterion, EARS keywords marked); "Qué se construyó" (a long note folded). It SHALL show a fact sheet (Estado, Dificultad, Reaperturas, Actualizada, Requisitos, Archivos que toca, Dependencias up and down, "Construir esta orden" with its scoped build command) and a line saying the content comes from the order's own document.
+- **AC-05-008.4** — (amended 2026-10-22, v2 reconciliation) THE work-order Resumen SHALL read in this order: a flow header with an "Ahora:" sentence; "De qué trata"; "Qué cambia" (with "Fuera de alcance" apart); "Cómo se comprueba" (one card per acceptance criterion, EARS keywords marked); "Qué se construyó" (a long note folded). It SHALL show a fact sheet (Estado, Dificultad, Reaperturas, Actualizada, Requisitos, Archivos que toca, Dependencias up and down, "Construir esta work order" with its scoped build command) and a line saying the content comes from the order's own document.
 
 **Worked example (AC-05-008.3).** A Verificado column holds 21 work orders. On desktop it shows the first 8 followed by "Mostrar 13 más"; on a phone it shows 4 followed by "Mostrar 17 más". A column with no work orders is a single line.
 
 ## Edge cases
 - Project with no work orders yet → "Este proyecto todavía no tiene work orders publicadas. Sus documentos de producto y diseño siguen disponibles." plus the `/pandacorp:architecture` command, which generates them.
 - No work order has failed → the Tablero has no Bloqueado column (REQ-05-001).
-- A work order link that does not resolve → the not-found state "Esta orden no está publicada" with "WO-99-999 no aparece entre las work orders capturadas de Mission Control." and the link "Ver work orders" (FRD-25 owns the not-found contract).
+- A work order link that does not resolve → the not-found state "Esta work order no está publicada" with "WO-99-999 no aparece entre las work orders de Mission Control." (`workspace.observabilidad.notFound`) and the link "Ver work orders" (FRD-25 owns the not-found contract).
 
 ## Persistent navigation integration — FRD-25 (2026-10-17)
 

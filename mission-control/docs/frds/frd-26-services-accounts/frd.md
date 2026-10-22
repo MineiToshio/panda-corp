@@ -3,6 +3,7 @@ id: FRD-26
 type: frd
 title: Services and account directory
 status: ACTIVE
+implementation_status: PLANNED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-26-services-accounts/mocks/services-accounts.html

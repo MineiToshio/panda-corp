@@ -13,12 +13,12 @@ last_updated: '2026-10-22'
 
 The landing screen of Mission Control: a read-only **command center** that answers, at a glance, *"what needs me now and what's the next command"* across the whole factory. It is the **default view**; the Tablero / Portafolio / Propuestas / Logros / Documentación / Configuración destinations stay reachable from the sidebar (FRD-19). Its navigation label and its page heading (H1) are both "Inicio"; "Centro de mando" lives in the subtitle, "Tu centro de mando: primero lo que necesita tu acción; después lo que avanza y el estado de tus proyectos." (H1 = nav label, as the Shell-Presence Gate checks).
 
-It composes existing layers — honest gamification ([FRD-09](../frd-09-gamification/frd.md)), observability and data-viz ([FRD-12](../frd-12-observability-dataviz/frd.md)), the visual/accessibility system ([FRD-13](../frd-13-visual-system-accessibility/frd.md)) — and surfaces existing signals: the onboarding gate ([FRD-01](../frd-01-data-reading/frd.md)), plugin drift ([FRD-15](../frd-15-plugin-out-of-sync-warning/frd.md)) and pending merges ([FRD-21](../frd-21-pending-merge/frd.md)). Designed from the dashboard-design research (action-oriented, exception-first, anti-vanity; see the decision log entry of 2026-06-16).
+It composes existing layers — honest gamification ([FRD-09](../frd-09-gamification/frd.md)), observability and data-viz ([FRD-12](../frd-12-observability-dataviz/frd.md)), the visual/accessibility system ([FRD-13](../frd-13-visual-system-accessibility/frd.md)) — and surfaces existing signals: plugin drift ([FRD-15](../frd-15-plugin-out-of-sync-warning/frd.md)) and pending merges ([FRD-21](../frd-21-pending-merge/frd.md)). Designed from the dashboard-design research (action-oriented, exception-first, anti-vanity; see the decision log entry of 2026-06-16).
 
 > **Design freeze amendment (2026-10-22, S2.2).** The approved Órbita prototype is the oracle. The layout is the two-column composition of AC-18-022.1; the "Desde tu última visita" digest is out of v2 (owner decision 2026-10-21, prefixed **Out of v2**, original text kept); Tu turno holds decisions and changes ready, and the idea→shipped conversion lives in Logros → Estadísticas (contradiction C-18 of `docs/design/freeze/reconciliation.md`). Prototype-drawn behaviours are REQ-18-022 (AC-18-022.1 to AC-18-022.4).
 
 ## Layout (top to bottom, left column then right column)
-1. **Health banner** (conditional, only when triggered): plugin drift (FRD-15). The onboarding gate (FRD-01) shows here when triggered.
+1. **Health banner** (conditional, only when triggered): plugin drift (FRD-15).
 2. Left column: **Tu turno** (the hero block) → **Tu cartera** → **En marcha**.
 3. Right column: **Pulso** → **Gremio** → **Embudo de ideas** → **Árboles de trabajo** (FRD-21).
 4. Below 1024 px: one column, with Tu turno first (AC-18-022.1).

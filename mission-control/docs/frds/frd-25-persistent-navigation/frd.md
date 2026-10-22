@@ -3,11 +3,12 @@ id: FRD-25
 type: frd
 title: Persistent navigation URLs
 status: ACTIVE
+implementation_status: PLANNED
 ui: false
 ---
 # FRD-25 — Persistent navigation URLs
 
-This is a headless cross-cutting navigation contract over existing approved UI components; it introduces no new visual surface or design oracle. Existing feature FDDs remain the visual source. Implementation state is recorded in delivery evidence rather than executor-owned frontmatter fields.
+This is a headless cross-cutting navigation contract over existing approved UI components; it introduces no new visual surface or design oracle. Existing feature FDDs remain the visual source. Implementation state follows the v2 work orders in `work-orders/` (their `implementation_status`, rolled up in this frontmatter); `work-orders.md` keeps the v1 delivery evidence.
 
 Owner-approved 2026-10-17. This cross-cutting contract supersedes local-only selection and name-derived routing in FRDs02–08,10–13,17–19,22. The approved research inventory is [the route proposal](../../proposals/persistent-navigation-urls.md). Existing visual surfaces remain approved, inside the centered 1180px content frame of the v2 shell (FRD-19; amended 2026-10-22, v2 plan, replacing the earlier 1240px frame).
 

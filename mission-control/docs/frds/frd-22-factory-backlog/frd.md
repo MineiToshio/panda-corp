@@ -24,7 +24,7 @@ Surfaces the factory's **actionable work queue** — `factory/backlog/BL-*` (DR-
 
 ### REQ-22-002 — In-page tabs (Resumen | Memoria | Backlog)
 - **AC-22-002.1** — The Propuestas page SHALL present three tabs, **Resumen**, **Memoria** and **Backlog**, using the shared `Tabs`/`SubTabs` primitive (DR-062) — no bespoke switcher.
-- **AC-22-002.2** — **Resumen** SHALL be active by default (FRD-17 AC-17-011.1); **Memoria** SHALL contain the self-learning surface (memory-health panel + the proposal streams + the promotions queue, FRD-17).
+- **AC-22-002.2** — (amended 2026-10-22, v2 reconciliation) **Resumen** SHALL be active by default (FRD-17 AC-17-011.1); **Memoria** SHALL contain the self-learning surface (the `LessonFlow` health line + the proposal streams + the promotions queue, FRD-17).
 - **AC-22-002.3** — The **Backlog** tab SHALL show a count badge of its actionable items (open and in progress, for example "Backlog 11") when greater than zero.
 - **AC-22-002.4** — Both panels SHALL stay mounted (toggled with `hidden`) so each panel's tab-local state (for example the Backlog filters, its opened card and the paging of its history) survives a tab switch; the memory streams have no dismiss state in v2 (FRD-17, per-card dismiss is out of v2). (Amended 2026-10-22, v2 plan.) Both panels SHALL carry `data-volatile` (DR-088) so the visual baseline masks their live, length-varying data.
 
@@ -52,7 +52,7 @@ Surfaces the factory's **actionable work queue** — `factory/backlog/BL-*` (DR-
 - **AC-22-007.3** — A discarded item moves out of the default En curso/Abiertos view into the collapsed card "Hechos y descartados N" (REQ-22-006), mirroring the project-level Cambios tab (FRD-04 "Historial N").
 
 ### REQ-22-008 — Priority ordering (severity, then id)
-- **AC-22-008.1** — WITHIN each status group, items SHALL be ordered by `severity` first (P0 before P1 before P2), then by `id` ascending; an item with no `severity` SHALL sort after all severities. This is an invariant of the reader (`readBacklog`), not a per-view sort — every consumer of the read result sees the same order.
+- **AC-22-008.1** — (amended 2026-10-22, v2 reconciliation) WITHIN each actionable status group (En curso, Abiertos), items SHALL be ordered by `severity` first (P0 before P1 before P2), then by `id` ascending; an item with no `severity` SHALL sort after all severities. The history ("Hechos y descartados", done and discarded items) SHALL be ordered by `closed` date, newest first; items without a `closed` date (for example those discarded from Mission Control) SHALL follow in reader order. This is an invariant of the reader (`readBacklog`), not a per-view sort — every consumer of the read result sees the same order.
 
 ### REQ-22-009 — Ready-to-copy `implement-backlog` commands
 - **AC-22-009.1** — WHEN the backlog has at least one `open`/`doing` item, the "Cómo avanzar" card (AC-22-010.3, above the list) SHALL render a `CmdRow` with the generic command `/pandacorp:implement-backlog` (no id) — the same copy-to-clipboard affordance used elsewhere in Mission Control (never executed by the app itself, FRD-01's golden rule). Omitted entirely when there are zero actionable items. (Amended 2026-10-22: the command moved from below the list into the card.)

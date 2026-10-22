@@ -61,7 +61,7 @@ Top to bottom:
 3. **Category filter chips** (`FilterChip`, group named "Categoría"): "Todos 82" and the eight axes with counts: Descubrimiento 11 · Velocidad 10 · Calidad 10 · Constancia 10 · Maestría 10 · Producción 14 · Gremio 9 · Resiliencia 8 (`FRD-10#U2`). Selected = neutral surface, never a hue; the chips carry no icon. They wrap to a second row at 1280.
 4. **Conquistados** (count "18"): trophy tiles in a 3-column grid (gold tile, name, description, rarity chip, "6 oct. 2026 · PersonalPage v2"); a conquered trophy without a date line is drawn with no footer, never an invented date (`FRD-10#U18`).
 5. **"Los más alcanzables"** (count "6 de 64"): the line "Los de rareza más baja, uno por categoría: los primeros que conviene perseguir.", then tinted tiles whose chip reads "Común · Descubrimiento" (rarity · category) (AC-10-028.3).
-6. **Por conquistar** (count "58"): compact tiles (lock icon, name, condition, rarity chip), 4 per row at 1280, 12 shown at a time; a full-width dashed `MoreBar` "Mostrar 24 más · quedan 46" ends the list (AC-10-028.3).
+6. **Por conquistar** (count "58"): compact tiles (lock icon, name, condition, rarity chip), 4 per row at 1280, 12 shown first and up to 24 more per press; a full-width dashed `MoreBar` "Mostrar 24 más · quedan 46" ends the list (AC-10-028.3).
 7. **Secretos** ("0 de 18"): silhouette tiles with "?" and the cryptic hint in italics ("Ves el vacío al otro lado.") (`FRD-10#U19`).
 
 Rarity (`FRD-10#U1`): Común · Poco común · Raro · Épico · Leyenda, always a chip with a coloured dot AND the text; never colour alone. Category and rarity names are Spanish.
