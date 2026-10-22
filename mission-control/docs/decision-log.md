@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-22 — v2 explicit scope: Sentry, SEO/metadata and mailing list excluded
+
+**What:** for v2 of this internal, LAN-only, personal-return tool: Sentry (error tracking) is excluded, unexpected errors surface through the global error net and the server log; SEO/metadata is excluded beyond the app name as the browser-tab title (no OG, sitemap, robots or structured data); a mailing list is excluded (no email of any kind). PostHog stays excluded and the interface stays Spanish-only, as already recorded. `docs/product/architecture.md` § Explicit scope decisions cites this entry.
+
+**Why:** the owner delegated the v2 plan's open calls to the lead's recommendation on 2026-10-22 ("sí a todo lo que tú me recomiendas", "hazlo todo"). None of the three has a consumer here: no public pages, no users besides the owner, no external services. The architecture consistency gate asked for an explicit answer instead of an inferred one.
+
 ## 2026-10-22 — v2 may remove v1 features (owner scope clarification)
 
 **What:** the frozen Órbita design is the target of v2, both ways. A v1 surface or behaviour that the frozen design (amended FRDs, FDDs, prototype oracle) drops or contradicts is removed in v2, with its code, navigation entries and tests. Keeping it just because v1 had it is not a goal. What the design adds is in scope as the amended FRDs state it. The earlier rule "undrawn features stay out of v2" means v2 does not build undrawn things. It does not oblige v2 to keep v1 things the design dropped. The v2 work-order map lists every planned removal.

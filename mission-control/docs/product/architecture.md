@@ -395,10 +395,10 @@ Recorded for this internal, personal-return tool (DR-131 asks each one separatel
 | Scope | Answer | Source |
 |---|---|---|
 | PostHog / product analytics | **Excluded.** No SDK, no event plan; the economic arc does not apply (`return_type: personal`). | `docs/analytics/events.md` (verification 2026-07-05), CLAUDE.md |
-| Sentry / error tracking | **Excluded.** No SDK; unexpected errors surface through the global error net and the dev/server logs. | Decision log (overlay re-sync: "mission-control has no PostHog/Sentry"); no explicit owner quote recorded |
+| Sentry / error tracking | **Excluded.** No SDK; unexpected errors surface through the global error net and the dev/server logs. | Decision log 2026-10-22 (v2 explicit scope), owner-delegated |
 | Multilingual i18n | **Single locale, Spanish.** No locale routing, no switcher, no `hreflang`; centralized catalogue via `t()`. Shown content keeps its language. | Owner decision 2026-10-21 (interface language), ADR-0012 §2, PRD v2 constraints |
-| SEO / metadata | **Excluded.** Basic page identity only (the app name as the browser-tab title); no OG, sitemap, robots or structured data. | Evident for a non-public internal tool (`seo-i18n.md`); no explicit owner answer recorded |
-| Mailing list | **Excluded.** No list, no Kit, no email of any kind. | Evident (no external services, §2); no explicit owner answer recorded |
+| SEO / metadata | **Excluded.** Basic page identity only (the app name as the browser-tab title); no OG, sitemap, robots or structured data. | Decision log 2026-10-22 (v2 explicit scope), owner-delegated |
+| Mailing list | **Excluded.** No list, no Kit, no email of any kind. | Decision log 2026-10-22 (v2 explicit scope), owner-delegated |
 
 ---
 
