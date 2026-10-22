@@ -4,13 +4,13 @@ type: gotcha
 domain: css
 tags: [css, cascade, specificity, monolithic-stylesheet, patching]
 context: patching a single large/monolithic stylesheet by appending new rules, and a new rule silently loses to an existing generic rule or is itself silently inherited by an unrelated existing component
-trigger: use this when adding or editing a rule in a single large hand-maintained stylesheet (not a scoped component-CSS setup) and the fix doesn't visibly apply
-source: "pandasaga .pandacorp/run/lessons.md 2026-10-14 (agent-inferred, two related findings on the same project): (1) a caption bar rendered as `<figcaption>` silently inherited an existing generic `.figure figcaption { display: grid; margin-top }` rule meant for a different context, stacking its actions below the text; (2) a new rule appended right after an early selector anchor (`.text-cover`) still lost the cascade to later, more-generic rules (`.saga-row .actions`, `.card-link`) at equal specificity, because source order — not intent — decided the winner"
+trigger: use this when adding or editing a rule in a single large hand-maintained stylesheet (not a scoped component-CSS setup) and the fix doesn't visibly apply, whether because of a specificity mismatch or a source-order tie
+source: "pandasaga .pandacorp/run/lessons.md 2026-10-14 (agent-inferred, two related findings on the same project): (1) a caption bar rendered as `<figcaption>` silently inherited an existing generic `.figure figcaption { display: grid; margin-top }` rule meant for a different context, stacking its actions below the text; (2) a new rule appended right after an early selector anchor (`.text-cover`) still lost the cascade to later, more-generic rules (`.saga-row .actions`, `.card-link`) at equal specificity, because source order — not intent — decided the winner; corroborated by mission-control .pandacorp/run/lessons.md 2026-10-21 (agent-inferred) — Orbita, a DIFFERENT mechanism in the same family: a phone-only override `.acc-table td { border: 0 }` silently lost to the higher-specificity base rule `table.t td`, so leftover borders showed only on phones, caught only in a screenshot, not by reading the CSS"
 provenance: agent-inferred
 created: 2026-10-15
-status: candidate
+status: active
 promotion: none
-confidence: medium
+confidence: high
 times_applied: 0
 applied_in: []
 links: [LESSON-0254]
@@ -35,3 +35,9 @@ sufficiently specific selectors rather than relying on a bare tag name that a ge
 might already claim; when a fix needs to win a cascade tie, either raise its specificity or append it at
 the END of the file rather than near a logically-related but earlier anchor; and verify every CSS patch
 with an actual screenshot, since a rule losing silently produces no error.
+
+**Cross-project corroboration (mission-control, 2026-10-21):** a narrow-viewport override written as
+`.acc-table td { border: 0 }` lost outright to the unconditional base rule `table.t td` — not a
+source-order tie, but a genuine SPECIFICITY gap (one class selector vs. a compound element+class
+selector). Same family of trap, same fix shape: match or raise the overriding selector's specificity
+(`table.t.acc-table td`), and confirm the result in a screenshot rather than by re-reading the CSS.

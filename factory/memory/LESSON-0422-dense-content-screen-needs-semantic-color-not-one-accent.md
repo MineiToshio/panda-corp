@@ -30,3 +30,8 @@ every label to tell things apart — the screen reads as flat regardless of how 
 the primary action) and assign distinct semantic colors and/or weights to different states and categories
 (status, section type, emphasis level) so scanning works at a glance, without forcing the reader to parse
 every piece of text.
+
+**Corroborating detail (mission-control, 2026-10-21, owner-stated):** the owner sharpened this into an
+explicit standing rule for Orbita: one distinct hue per CATEGORY, with red/amber/green reserved
+EXCLUSIVELY for status/severity — never doubling as a category's identity colour. See LESSON-0484 for the
+fuller rule set this was captured alongside.

@@ -5,12 +5,12 @@ domain: web-performance
 tags: [css, scoping, css-modules, global-stylesheet, class-collision]
 context: a Next.js (or similar) project organizes CSS in route-local files (e.g. `src/app/[locale]/*/_components/*.css`) importing plain, non-module CSS per feature
 trigger: use this when a project's route-local CSS files use plain top-level class names (not CSS Modules) and two features pick the same class name independently
-source: "personal-page-v2 .pandacorp/run/lessons.md 2026-07-03 — found and fixed two real collisions (.next-card, .closing)"
+source: "personal-page-v2 .pandacorp/run/lessons.md 2026-07-03 — found and fixed two real collisions (.next-card, .closing); corroborated by mission-control .pandacorp/run/lessons.md 2026-10-21 (agent-inferred) — Orbita, a single-file HTML prototype where `.ps-next` named both the Campana next-step box and the Resumen next-step row and silently restyled each other"
 provenance: agent-inferred
 created: 2026-07-04
-status: candidate
+status: active
 promotion: none
-confidence: medium
+confidence: high
 times_applied: 0
 applied_in: []
 links: [LESSON-0058, LESSON-0254]
@@ -34,3 +34,10 @@ Modules / scoped class names, or actively grep for a class name across the WHOLE
 feature's own file) before reusing a short/generic name like `.card`, `.closing`, `.header`. When
 diagnosing an unexplained layout override, check for a same-named class defined in a different feature's
 CSS file before assuming the bug is local to the feature you're looking at.
+
+**Cross-project corroboration (mission-control, 2026-10-21):** the identical mechanism recurs even
+OUTSIDE a multi-file CSS codebase — a single-file HTML design prototype reused a short class name
+(`.ps-next`) for two unrelated sections (a "next step" box on one screen, a "next step" row on another),
+and the later-declared one silently restyled the earlier one. The fix is the same: prefix
+screen/feature-specific class names rather than relying on a short generic name being "obviously" scoped
+by which screen's markup it sits in.
