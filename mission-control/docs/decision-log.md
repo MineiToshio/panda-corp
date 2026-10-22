@@ -1,5 +1,16 @@
 # Decision Log — Mission Control
 
+## 2026-10-22 — Milestone v2 «Órbita» opened (new-version)
+
+**What:** `/pandacorp:change` classified the frozen Órbita redesign as a milestone and handed it to the `new-version` engine with the owner present.
+- `version: v1 → v2` in `.pandacorp/status.yaml`.
+- The mini-PRD is written: `docs/product/prd.md` § Version 2, with a v2 column in the feature landscape.
+- [ADR-0012](adr/ADR-0012-adopt-orbita-design-system.md) adopts Órbita as the frozen design contract and justifies replacing the design tokens, as the engine requires.
+- `target_platforms` stays `desktop` for now, with a note: the v2 build flips it to `responsive` in the same change that makes the app responsive (DR-074). Flipping it before then would red the responsive gate for every session.
+- Next: step 3, the blueprints and work orders against the frozen contract. It includes amending FRD-25, which still names the Party tab, and reconciling the stale `implementation_status` frontmatter.
+
+**Why:** the owner approved the redesign, the freeze, and the scope decisions of 2026-10-21/22.
+
 ## 2026-10-22 — Pandacorp overlay upgraded 8.100.0 → 8.110.0
 
 **What:** A compatible overlay bump (DR-048), run as the preflight of `/pandacorp:change` for the v2 milestone. No build was running.
