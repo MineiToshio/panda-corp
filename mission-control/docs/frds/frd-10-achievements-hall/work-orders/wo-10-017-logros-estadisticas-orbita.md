@@ -3,7 +3,7 @@ id: WO-10-017
 type: work-order
 slug: logros-estadisticas-orbita
 title: 'WO-10-017 — Logros · Estadísticas (Informe) Órbita'
-status: DRAFT
+status: ACTIVE
 parent: FRD-10
 foundation: false
 implementation_status: PLANNED

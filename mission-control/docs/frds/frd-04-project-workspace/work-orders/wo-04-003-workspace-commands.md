@@ -3,7 +3,7 @@ id: WO-04-003
 type: work-order
 slug: workspace-commands
 title: 'WO-04-003 — `lib/next-step.ts`: `workspaceCommands(phase)`'
-status: DRAFT
+status: ACTIVE
 parent: FRD-04
 implementation_status: VERIFIED
 artifacts:

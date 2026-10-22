@@ -3,7 +3,7 @@ id: WO-17-003
 type: work-order
 slug: self-suggest
 title: WO-17-003 — `lib/self-suggest` derivations (6 kinds)
-status: DRAFT
+status: ACTIVE
 parent: FRD-17
 foundation: false
 implementation_status: VERIFIED

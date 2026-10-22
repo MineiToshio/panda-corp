@@ -3,7 +3,7 @@ id: WO-13-010
 type: work-order
 slug: orbita-tokens-fonts-themes-icons-copy
 title: 'WO-13-010 — Órbita tokens, fonts, themes, icons, copy accessor and assets'
-status: DRAFT
+status: ACTIVE
 parent: FRD-13
 foundation: true
 implementation_status: PLANNED

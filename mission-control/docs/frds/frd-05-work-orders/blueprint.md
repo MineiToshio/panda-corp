@@ -3,12 +3,12 @@ id: FRD-05-blueprint
 type: blueprint
 slug: work-orders-live-view
 title: FRD-05 Work orders (live view) feature blueprint, v2 Órbita
-status: DRAFT
+status: ACTIVE
 parent: FRD-05
 implementation_status: PLANNED
-readiness_gate:
-grounding_gate:
-consistency_gate:
+readiness_gate: passed 2026-10-22
+grounding_gate: passed 2026-10-22
+consistency_gate: passed 2026-10-22
 last_updated: 2026-10-22
 ---
 # FRD-05 — Work orders (live view) · feature blueprint (v2 «Órbita»)

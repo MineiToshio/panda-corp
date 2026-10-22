@@ -3,7 +3,7 @@ id: WO-04-013
 type: work-order
 slug: decision-resolved-in-file
 title: 'WO-04-013 — Decision reader: a decision resolved in its own file is never pending'
-status: DRAFT
+status: ACTIVE
 parent: FRD-04
 foundation: false
 implementation_status: PLANNED

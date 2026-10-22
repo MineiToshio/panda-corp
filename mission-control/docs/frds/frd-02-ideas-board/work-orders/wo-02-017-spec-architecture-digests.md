@@ -3,7 +3,7 @@ id: WO-02-017
 type: work-order
 slug: spec-architecture-digests
 title: WO-02-017 Spec and Arquitectura digests (shared by the idea page and the workspace)
-status: DRAFT
+status: ACTIVE
 parent: FRD-02
 foundation: false
 implementation_status: PLANNED

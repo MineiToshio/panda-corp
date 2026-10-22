@@ -3,7 +3,7 @@ id: WO-04-001
 type: work-order
 slug: docs-reader
 title: 'WO-04-001 — `lib/docs.ts`: doc tree + raw read + comms readers'
-status: DRAFT
+status: ACTIVE
 parent: FRD-04
 implementation_status: VERIFIED
 artifacts:

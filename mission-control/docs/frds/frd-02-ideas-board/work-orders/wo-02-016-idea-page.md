@@ -3,7 +3,7 @@ id: WO-02-016
 type: work-order
 slug: idea-page
 title: WO-02-016 Idea page (header, tabs, Propuesta, Documentos, discard and restore)
-status: DRAFT
+status: ACTIVE
 parent: FRD-02
 foundation: false
 implementation_status: PLANNED

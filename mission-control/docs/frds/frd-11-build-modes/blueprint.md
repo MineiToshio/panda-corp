@@ -3,12 +3,12 @@ id: FRD-11-blueprint
 type: blueprint
 slug: build-modes
 title: FRD-11 Per-project build modes feature blueprint, v2 Órbita
-status: DRAFT
+status: ACTIVE
 parent: FRD-11
 implementation_status: PLANNED
-readiness_gate:
-grounding_gate:
-consistency_gate:
+readiness_gate: passed 2026-10-22
+grounding_gate: passed 2026-10-22
+consistency_gate: passed 2026-10-22
 last_updated: 2026-10-22
 ---
 # FRD-11 — Per-project build modes · feature blueprint (v2 «Órbita»)

@@ -3,7 +3,7 @@ id: WO-19-002
 type: work-order
 slug: appshell-frame-navigation
 title: 'WO-19-002 — AppShell frame and navigation (sidebar, tablet rail, phone bars and drawer, Shell-Presence contract)'
-status: DRAFT
+status: ACTIVE
 parent: FRD-19
 foundation: true
 implementation_status: PLANNED

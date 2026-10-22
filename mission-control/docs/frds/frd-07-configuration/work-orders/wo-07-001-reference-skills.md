@@ -3,7 +3,7 @@ id: WO-07-001
 type: work-order
 slug: reference
 title: 'WO-07-001 — `lib/reference.ts`: read skills + agents catalogs'
-status: DRAFT
+status: ACTIVE
 parent: FRD-07
 implementation_status: VERIFIED
 artifacts:

@@ -2,12 +2,12 @@
 id: FRD-23-blueprint
 type: blueprint
 parent: FRD-23
-status: DRAFT
+status: ACTIVE
 implementation_status: VERIFIED
-readiness_gate:
-grounding_gate:
-consistency_gate:
-last_updated: '2026-10-22'
+readiness_gate: passed 2026-10-22
+grounding_gate: passed 2026-10-22
+consistency_gate: passed 2026-10-22
+last_updated: 2026-10-22
 ---
 # Feature blueprint — FRD-23 Materialized stats read-model (v2 «Órbita» revision)
 

@@ -3,7 +3,7 @@ id: WO-17-008
 type: work-order
 slug: propuestas-orbita
 title: Propuestas Órbita - Resumen to-do, Memoria lesson flow, tabs, lesson dialog and the owner-actions resolver
-status: DRAFT
+status: ACTIVE
 parent: FRD-17
 foundation: false
 implementation_status: PLANNED

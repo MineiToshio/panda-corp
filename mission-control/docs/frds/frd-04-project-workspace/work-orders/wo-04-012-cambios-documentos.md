@@ -3,7 +3,7 @@ id: WO-04-012
 type: work-order
 slug: cambios-documentos
 title: 'WO-04-012 — Cambios and Documentos tabs'
-status: DRAFT
+status: ACTIVE
 parent: FRD-04
 foundation: false
 implementation_status: PLANNED

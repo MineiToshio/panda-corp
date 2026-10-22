@@ -3,7 +3,7 @@ id: WO-04-011
 type: work-order
 slug: resumen
 title: 'WO-04-011 — Resumen: La Fragua head, tiles, next step, Avance por FRD, decisions, Tu turno, Últimos avances, snapshot, upgrade notice'
-status: DRAFT
+status: ACTIVE
 parent: FRD-04
 foundation: false
 implementation_status: PLANNED

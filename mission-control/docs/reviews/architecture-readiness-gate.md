@@ -93,3 +93,7 @@ After the three edits re-run `plan-consistency.mjs` (frontmatter == Build Plan =
 - A5. The expedite card `e2e-workspace-tabs-stale` is only fixed at W5 (WO-04-010), so the stale workspace-tab e2e stays red-prone
   through W0-W4.
 - A6. `.pandacorp/status.yaml` carries 13 keys unknown to the template (doc-lint DR-115 drift); engine-owned, unrelated to the plan.
+
+## Resolution addendum (2026-10-22)
+
+Every blocker above was fixed in one pass (commit d0c65539) and re-verified by the lead: `waves.mjs` exit 0, `ac-matrix.mjs` exit 0 (AC MATRIX OK), `plan-consistency.mjs` exit 0, `check-fdd-coverage.mjs --plan` COVERED, `doc-lint.sh` exit 0, `verify.sh --only=residual-ambiguity` exit 0, `data-model.json` parses, no `# OBSOLETE:` tombstone. Targeted checks: WO-18-002 `dependsOn` contains WO-19-002; WO-04-010 `dependsOn` contains WO-02-018; WO-01-011 `dependsOn` contains WO-14-005 (and WO-21-003); each edge matches its blueprint Build Plan row and README row (`plan-consistency.mjs` green); no wave label changed (`waves.mjs` green). Advisory A1 (frd13 reviewer suites) aligned in WO-13-011/012 and the FRD-13 blueprint. Verdict after resolution: PASS.

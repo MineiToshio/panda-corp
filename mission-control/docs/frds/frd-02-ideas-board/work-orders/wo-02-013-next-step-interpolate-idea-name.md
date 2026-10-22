@@ -3,7 +3,7 @@ id: WO-02-013
 type: work-order
 slug: next-step-interpolate-idea-name
 title: WO-02-013 — "Siguiente paso" interpolates the real idea name (no literal `<idea>`)
-status: DRAFT
+status: ACTIVE
 parent: FRD-02
 foundation: false
 implementation_status: VERIFIED

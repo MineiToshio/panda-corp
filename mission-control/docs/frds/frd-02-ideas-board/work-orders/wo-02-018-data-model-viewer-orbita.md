@@ -3,7 +3,7 @@ id: WO-02-018
 type: work-order
 slug: data-model-viewer-orbita
 title: WO-02-018 Data-model viewer Órbita restyle and v2 removals
-status: DRAFT
+status: ACTIVE
 parent: FRD-02
 foundation: false
 implementation_status: PLANNED

@@ -3,7 +3,7 @@ id: WO-05-002
 type: work-order
 slug: aggregate-progress
 title: 'WO-05-002 — `lib/work-orders.ts`: `aggregateProgress`'
-status: DRAFT
+status: ACTIVE
 parent: FRD-05
 implementation_status: VERIFIED
 artifacts:

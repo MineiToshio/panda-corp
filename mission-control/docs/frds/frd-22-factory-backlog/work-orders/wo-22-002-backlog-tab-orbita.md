@@ -3,7 +3,7 @@ id: WO-22-002
 type: work-order
 slug: backlog-tab-orbita
 title: Backlog tab Órbita - priority tiles, topic bars, Cómo avanzar, groups, history, item dialog
-status: DRAFT
+status: ACTIVE
 parent: FRD-22
 foundation: false
 implementation_status: PLANNED

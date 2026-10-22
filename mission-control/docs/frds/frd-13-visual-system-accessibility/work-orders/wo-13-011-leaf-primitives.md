@@ -3,7 +3,7 @@ id: WO-13-011
 type: work-order
 slug: leaf-primitives
 title: 'WO-13-011 — Órbita leaf primitives (buttons, chips, command box, fields, state, progress)'
-status: DRAFT
+status: ACTIVE
 parent: FRD-13
 foundation: true
 implementation_status: PLANNED

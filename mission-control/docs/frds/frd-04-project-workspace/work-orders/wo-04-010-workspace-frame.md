@@ -3,7 +3,7 @@ id: WO-04-010
 type: work-order
 slug: workspace-frame
 title: 'WO-04-010 — Workspace frame: eight tabs, heroes, panel contract, Spec/Arquitectura/Cuentas mounts, Party removal'
-status: DRAFT
+status: ACTIVE
 parent: FRD-04
 foundation: false
 implementation_status: PLANNED

@@ -3,7 +3,7 @@ id: WO-14-005
 type: work-order
 slug: snapshot-panel-orbita
 title: 'WO-14-005 — Snapshot panel Órbita'
-status: DRAFT
+status: ACTIVE
 parent: FRD-14
 foundation: false
 implementation_status: PLANNED

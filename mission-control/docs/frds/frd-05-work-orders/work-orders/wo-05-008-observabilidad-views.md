@@ -3,7 +3,7 @@ id: WO-05-008
 type: work-order
 slug: observabilidad-views
 title: 'WO-05-008 Observabilidad frame: Por FRD, Tablero, Dependencias mount, drift badge, live refresh'
-status: DRAFT
+status: ACTIVE
 parent: FRD-05
 foundation: false
 implementation_status: PLANNED

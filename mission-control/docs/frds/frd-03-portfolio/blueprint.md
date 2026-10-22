@@ -2,12 +2,12 @@
 id: FRD-03-blueprint
 type: blueprint
 parent: FRD-03
-status: DRAFT
+status: ACTIVE
 implementation_status: PLANNED
-readiness_gate:
-grounding_gate:
-consistency_gate:
-last_updated: '2026-10-22'
+readiness_gate: passed 2026-10-22
+grounding_gate: passed 2026-10-22
+consistency_gate: passed 2026-10-22
+last_updated: 2026-10-22
 ---
 # FRD-03 — Portfolio and project navigation — Feature blueprint (v2 «Órbita»)
 

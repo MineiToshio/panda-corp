@@ -3,7 +3,7 @@ id: WO-09-001
 type: work-order
 slug: guild-xp-engine
 title: 'WO-09-001 — `lib/gamification.ts`: guild XP/level engine (honest)'
-status: DRAFT
+status: ACTIVE
 parent: FRD-09
 implementation_status: VERIFIED
 artifacts:

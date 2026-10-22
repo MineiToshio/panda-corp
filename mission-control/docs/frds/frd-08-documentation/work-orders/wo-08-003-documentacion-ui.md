@@ -3,7 +3,7 @@ id: WO-08-003
 type: work-order
 slug: documentacion-ui
 title: 'WO-08-003 — Documentación UI: home, search, reader, index, not-found'
-status: DRAFT
+status: ACTIVE
 parent: FRD-08
 foundation: false
 implementation_status: PLANNED

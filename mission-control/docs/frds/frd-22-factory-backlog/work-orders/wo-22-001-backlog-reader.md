@@ -3,7 +3,7 @@ id: WO-22-001
 type: work-order
 slug: backlog-reader
 title: Backlog reader, area helpers and the reason-aware discard write
-status: DRAFT
+status: ACTIVE
 parent: FRD-22
 foundation: false
 implementation_status: PLANNED

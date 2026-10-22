@@ -3,13 +3,13 @@ id: BP-02
 type: blueprint
 slug: ideas-board
 title: FRD-02 Ideas board (v2 «Órbita»)
-status: DRAFT
+status: ACTIVE
 parent: FRD-02
 implementation_status: PLANNED
-readiness_gate:
-grounding_gate:
-consistency_gate:
-last_updated: '2026-10-22'
+readiness_gate: passed 2026-10-22
+grounding_gate: passed 2026-10-22
+consistency_gate: passed 2026-10-22
+last_updated: 2026-10-22
 ---
 
 # Blueprint — FRD-02 Ideas board (v2 «Órbita»)

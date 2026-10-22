@@ -3,7 +3,7 @@ id: WO-13-012
 type: work-order
 slug: composite-primitives
 title: 'WO-13-012 — Órbita composite primitives and framing patterns'
-status: DRAFT
+status: ACTIVE
 parent: FRD-13
 foundation: true
 implementation_status: PLANNED

@@ -3,7 +3,7 @@ id: WO-07-003
 type: work-order
 slug: registry
 title: 'WO-07-003 — `lib/registry.ts`: read decision rules'
-status: DRAFT
+status: ACTIVE
 parent: FRD-07
 implementation_status: VERIFIED
 artifacts:

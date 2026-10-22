@@ -3,7 +3,7 @@ id: WO-15-003
 type: work-order
 slug: sync-route
 title: WO-15-003 — `app/api/plugin-sync` route handler
-status: DRAFT
+status: ACTIVE
 parent: FRD-15
 implementation_status: VERIFIED
 artifacts:

@@ -3,7 +3,7 @@ id: WO-10-016
 type: work-order
 slug: logros-orbita
 title: 'WO-10-016 — Logros: hero, Resumen, Misiones, Trofeos, Rangos'
-status: DRAFT
+status: ACTIVE
 parent: FRD-10
 foundation: false
 implementation_status: PLANNED

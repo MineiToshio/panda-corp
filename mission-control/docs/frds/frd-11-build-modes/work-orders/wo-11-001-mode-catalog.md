@@ -3,7 +3,7 @@ id: WO-11-001
 type: work-order
 slug: mode-catalog
 title: WO-11-001 — `BUILD_MODES` catalog + per-project persistence
-status: DRAFT
+status: ACTIVE
 parent: FRD-11
 implementation_status: VERIFIED
 artifacts:

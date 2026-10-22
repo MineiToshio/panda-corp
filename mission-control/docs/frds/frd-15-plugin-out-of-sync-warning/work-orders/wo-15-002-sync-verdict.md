@@ -3,7 +3,7 @@ id: WO-15-002
 type: work-order
 slug: sync-verdict
 title: WO-15-002 — `getPluginSyncState` semver verdict (drift / reason / detail)
-status: DRAFT
+status: ACTIVE
 parent: FRD-15
 implementation_status: VERIFIED
 artifacts:

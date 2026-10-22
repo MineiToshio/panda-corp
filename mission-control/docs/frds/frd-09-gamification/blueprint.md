@@ -3,12 +3,12 @@ id: BP-09
 type: blueprint
 slug: gamification
 title: 'Blueprint — FRD-09 Gamification (v2 «Órbita»: guild card, notice, honest engine)'
-status: DRAFT
+status: ACTIVE
 parent: FRD-09
 implementation_status: PLANNED
-readiness_gate:
-grounding_gate:
-consistency_gate:
+readiness_gate: passed 2026-10-22
+grounding_gate: passed 2026-10-22
+consistency_gate: passed 2026-10-22
 last_updated: 2026-10-22
 ---
 

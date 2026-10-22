@@ -3,7 +3,7 @@ id: WO-18-002
 type: work-order
 slug: inicio-orbita
 title: Inicio Órbita - two-column command center, Tu turno, En marcha, Pulso, Gremio, Embudo and the plugin banner
-status: DRAFT
+status: ACTIVE
 parent: FRD-18
 foundation: false
 implementation_status: PLANNED

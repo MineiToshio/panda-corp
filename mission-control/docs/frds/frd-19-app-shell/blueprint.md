@@ -3,12 +3,12 @@ id: BP-19
 type: blueprint
 slug: app-shell
 title: 'Blueprint — FRD-19 Global app shell (v2 «Órbita» sidebar)'
-status: DRAFT
+status: ACTIVE
 parent: FRD-19
 implementation_status: PLANNED
-readiness_gate:
-grounding_gate:
-consistency_gate:
+readiness_gate: passed 2026-10-22
+grounding_gate: passed 2026-10-22
+consistency_gate: passed 2026-10-22
 last_updated: 2026-10-22
 ---
 

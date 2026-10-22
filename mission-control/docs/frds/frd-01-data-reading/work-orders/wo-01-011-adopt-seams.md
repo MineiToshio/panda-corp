@@ -3,7 +3,7 @@ id: WO-01-011
 type: work-order
 slug: adopt-seams
 title: 'WO-01-011 — Adopt the clock and git seams in the kept readers'
-status: DRAFT
+status: ACTIVE
 parent: FRD-01
 foundation: false
 implementation_status: PLANNED

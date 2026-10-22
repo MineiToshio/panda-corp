@@ -3,7 +3,7 @@ id: WO-13-013
 type: work-order
 slug: retire-v1-skin
 title: 'WO-13-013 — Retire the v1 skin and dead v1 code; flip target_platforms to responsive'
-status: DRAFT
+status: ACTIVE
 parent: FRD-13
 foundation: false
 implementation_status: PLANNED

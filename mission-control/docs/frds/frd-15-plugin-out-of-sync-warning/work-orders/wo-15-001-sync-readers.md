@@ -3,7 +3,7 @@ id: WO-15-001
 type: work-order
 slug: sync-readers
 title: 'WO-15-001 — `lib/plugin-sync` version readers (installed version, source version)'
-status: DRAFT
+status: ACTIVE
 parent: FRD-15
 implementation_status: VERIFIED
 artifacts:

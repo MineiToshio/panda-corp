@@ -3,7 +3,7 @@ id: WO-02-019
 type: work-order
 slug: data-model-layout-flake
 title: WO-02-019 Data-model async layout, confirm and fix the «Organizando modelo…» flake
-status: DRAFT
+status: ACTIVE
 parent: FRD-02
 foundation: false
 implementation_status: PLANNED

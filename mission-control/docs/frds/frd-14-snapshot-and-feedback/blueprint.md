@@ -2,11 +2,11 @@
 id: FRD-14-blueprint
 type: blueprint
 parent: FRD-14
-status: DRAFT
+status: ACTIVE
 implementation_status: PLANNED
-readiness_gate:
-grounding_gate:
-consistency_gate:
+readiness_gate: passed 2026-10-22
+grounding_gate: passed 2026-10-22
+consistency_gate: passed 2026-10-22
 last_updated: 2026-10-22
 ---
 # FRD-14 Probable snapshot and feedback channels · feature blueprint (v2 «Órbita»)

@@ -3,7 +3,7 @@ id: WO-09-006
 type: work-order
 slug: gamification-ledger
 title: 'WO-09-006 — Gamification ledger: persistent XP accumulator'
-status: DRAFT
+status: ACTIVE
 parent: FRD-09
 implementation_status: VERIFIED
 reopen_count: 0

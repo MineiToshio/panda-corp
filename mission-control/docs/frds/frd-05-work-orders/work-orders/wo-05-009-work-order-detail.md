@@ -3,7 +3,7 @@ id: WO-05-009
 type: work-order
 slug: work-order-detail
 title: 'WO-05-009 Work-order detail: reading summary and full document'
-status: DRAFT
+status: ACTIVE
 parent: FRD-05
 foundation: false
 implementation_status: PLANNED

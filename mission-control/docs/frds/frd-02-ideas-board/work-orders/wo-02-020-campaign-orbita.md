@@ -3,7 +3,7 @@ id: WO-02-020
 type: work-order
 slug: campaign-orbita
 title: WO-02-020 La Campaña Órbita (map, strip, phase sheet, commands, mode picker)
-status: DRAFT
+status: ACTIVE
 parent: FRD-02
 foundation: false
 implementation_status: PLANNED

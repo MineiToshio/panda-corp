@@ -3,7 +3,7 @@ id: WO-14-004
 type: work-order
 slug: feedback-channels-doc
 title: 'WO-14-004 — Manual: the three feedback channels (doc)'
-status: DRAFT
+status: ACTIVE
 parent: FRD-14
 implementation_status: VERIFIED
 artifacts:

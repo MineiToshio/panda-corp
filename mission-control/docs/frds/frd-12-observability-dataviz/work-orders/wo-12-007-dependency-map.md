@@ -3,7 +3,7 @@ id: WO-12-007
 type: work-order
 slug: dependency-map
 title: 'WO-12-007 Dependencias: deterministic two-level dependency map'
-status: DRAFT
+status: ACTIVE
 parent: FRD-12
 foundation: false
 implementation_status: PLANNED

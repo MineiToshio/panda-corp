@@ -109,3 +109,7 @@
   hotspots.
 - **Logical data model.** v2 changes no logical shape (DATA-7: `data-model.json` unchanged). That is not
   re-verified here; it is the reviewer's evidence at each gate.
+
+## Resolution addendum (2026-10-22)
+
+Every blocker above was fixed in one pass (commit d0c65539) and re-verified by the lead: `waves.mjs` exit 0, `ac-matrix.mjs` exit 0 (AC MATRIX OK), `plan-consistency.mjs` exit 0, `check-fdd-coverage.mjs --plan` COVERED, `doc-lint.sh` exit 0, `verify.sh --only=residual-ambiguity` exit 0, `data-model.json` parses, no `# OBSOLETE:` tombstone. Targeted check for B1: `wo-21-003-worktrees-by-repo.md` now swaps the `node:child_process` runner of `src/lib/pendingMerge/pendingMerge.ts` for the `runGit` seam (6 mentions of `runGit`), the file is in its artifacts, it depends on WO-01-010, and WO-01-011 (which adds `gitBoundary.test.ts`) now depends on WO-21-003, so the boundary holds when the test lands. Advisories fixed in the same pass: Tailwind `--text-*` collision, `biome-ignore` for the boot script, `pnpm build` in WO-13-010's done, client clock from the server, `.env.example` config path, 65 icons (architecture.md, ADR-0012, blueprints, components.md, design-decisions.md), mission-control's fixture last-commit date. Verdict after resolution: PASS.

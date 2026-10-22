@@ -3,7 +3,7 @@ id: WO-19-003
 type: work-order
 slug: sidebar-contents
 title: 'WO-19-003 — Sidebar contents: projects, counts, collapse rail, theme button, guild card, pills, achievement notice'
-status: DRAFT
+status: ACTIVE
 parent: FRD-19
 foundation: false
 implementation_status: PLANNED

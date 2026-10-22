@@ -3,7 +3,7 @@ id: WO-11-004
 type: work-order
 slug: comandos-tab
 title: 'WO-11-004 Comandos tab'
-status: DRAFT
+status: ACTIVE
 parent: FRD-11
 foundation: false
 implementation_status: PLANNED

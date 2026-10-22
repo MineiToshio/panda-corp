@@ -3,7 +3,7 @@ id: WO-07-004
 type: work-order
 slug: standards
 title: 'WO-07-004 — `lib/standards.ts`: read standards (+ derivation fallback)'
-status: DRAFT
+status: ACTIVE
 parent: FRD-07
 implementation_status: VERIFIED
 artifacts:

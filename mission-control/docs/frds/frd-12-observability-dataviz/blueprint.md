@@ -3,12 +3,12 @@ id: FRD-12-blueprint
 type: blueprint
 slug: observability-dataviz
 title: FRD-12 Observability and data visualization feature blueprint, v2 Órbita
-status: DRAFT
+status: ACTIVE
 parent: FRD-12
 implementation_status: PLANNED
-readiness_gate:
-grounding_gate:
-consistency_gate:
+readiness_gate: passed 2026-10-22
+grounding_gate: passed 2026-10-22
+consistency_gate: passed 2026-10-22
 last_updated: 2026-10-22
 ---
 # FRD-12 — Observability and data visualization · feature blueprint (v2 «Órbita»)

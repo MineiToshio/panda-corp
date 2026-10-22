@@ -3,7 +3,7 @@ id: WO-20-001
 type: work-order
 slug: freshness-verdict
 title: 'WO-20-001 — `lib/overlay-freshness` reader + verdict (semver, defensive)'
-status: DRAFT
+status: ACTIVE
 parent: FRD-20
 implementation_status: VERIFIED
 artifacts:

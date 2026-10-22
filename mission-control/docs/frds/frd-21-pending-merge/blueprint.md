@@ -3,13 +3,13 @@ id: BP-21
 type: blueprint
 slug: pending-merge
 title: Pending-merge visibility (Árboles de trabajo card and sidebar pill)
-status: DRAFT
+status: ACTIVE
 parent: FRD-21
 implementation_status: PLANNED
-readiness_gate:
-grounding_gate:
-consistency_gate:
-last_updated: '2026-10-22'
+readiness_gate: passed 2026-10-22
+grounding_gate: passed 2026-10-22
+consistency_gate: passed 2026-10-22
+last_updated: 2026-10-22
 ---
 
 # Blueprint — FRD-21 Pending-merge visibility

@@ -3,7 +3,7 @@ id: WO-03-007
 type: work-order
 slug: portafolio-overview
 title: 'WO-03-007 — Portafolio overview: cards, Lista, Cuentas view switch, project picker, empty and missing-path states'
-status: DRAFT
+status: ACTIVE
 parent: FRD-03
 foundation: false
 implementation_status: PLANNED

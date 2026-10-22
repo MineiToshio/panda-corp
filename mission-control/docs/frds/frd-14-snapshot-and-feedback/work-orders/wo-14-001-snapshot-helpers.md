@@ -3,7 +3,7 @@ id: WO-14-001
 type: work-order
 slug: snapshot-helpers
 title: 'WO-14-001 — `lib/snapshot.ts`: `buildSnapshot` + `isSnapshotStale`'
-status: DRAFT
+status: ACTIVE
 parent: FRD-14
 implementation_status: VERIFIED
 artifacts:

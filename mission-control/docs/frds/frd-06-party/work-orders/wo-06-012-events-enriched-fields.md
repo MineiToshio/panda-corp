@@ -3,7 +3,7 @@ id: WO-06-012
 type: work-order
 slug: events-enriched-fields
 title: WO-06-012 — lib/events.ts consumes the enriched event fields (frd/phase/activity/mode + hand-off/contract)
-status: DRAFT
+status: ACTIVE
 parent: FRD-06
 implementation_status: VERIFIED
 artifacts:

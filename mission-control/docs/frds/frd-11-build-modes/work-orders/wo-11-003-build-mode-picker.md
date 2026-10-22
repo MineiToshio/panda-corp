@@ -3,7 +3,7 @@ id: WO-11-003
 type: work-order
 slug: build-mode-picker
 title: 'WO-11-003 BuildModePicker module'
-status: DRAFT
+status: ACTIVE
 parent: FRD-11
 foundation: false
 implementation_status: PLANNED

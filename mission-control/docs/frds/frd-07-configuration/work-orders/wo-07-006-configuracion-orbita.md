@@ -3,7 +3,7 @@ id: WO-07-006
 type: work-order
 slug: configuracion-orbita
 title: 'WO-07-006 — Configuración Órbita: hub, catalog tabs, filters, dialogs'
-status: DRAFT
+status: ACTIVE
 parent: FRD-07
 foundation: false
 implementation_status: PLANNED

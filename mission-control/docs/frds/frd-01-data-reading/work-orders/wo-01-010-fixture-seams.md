@@ -3,7 +3,7 @@ id: WO-01-010
 type: work-order
 slug: fixture-seams
 title: 'WO-01-010 — Fixture seams: injectable clock, git runner and oracle-mode boot'
-status: DRAFT
+status: ACTIVE
 parent: FRD-01
 foundation: false
 implementation_status: PLANNED

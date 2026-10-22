@@ -3,13 +3,13 @@ id: BP-18
 type: blueprint
 slug: dashboard
 title: Inicio (the command center)
-status: DRAFT
+status: ACTIVE
 parent: FRD-18
 implementation_status: PLANNED
-readiness_gate:
-grounding_gate:
-consistency_gate:
-last_updated: '2026-10-22'
+readiness_gate: passed 2026-10-22
+grounding_gate: passed 2026-10-22
+consistency_gate: passed 2026-10-22
+last_updated: 2026-10-22
 ---
 
 # Blueprint — FRD-18 Dashboard ("Inicio", the command center)

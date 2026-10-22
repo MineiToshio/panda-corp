@@ -3,12 +3,12 @@ id: FRD-06-blueprint
 type: blueprint
 slug: la-fragua
 title: FRD-06 La Fragua feature blueprint, v2 Órbita
-status: DRAFT
+status: ACTIVE
 parent: FRD-06
 implementation_status: PLANNED
-readiness_gate:
-grounding_gate:
-consistency_gate:
+readiness_gate: passed 2026-10-22
+grounding_gate: passed 2026-10-22
+consistency_gate: passed 2026-10-22
 last_updated: 2026-10-22
 ---
 # FRD-06 — La Fragua (live build view) · feature blueprint (v2 «Órbita»)

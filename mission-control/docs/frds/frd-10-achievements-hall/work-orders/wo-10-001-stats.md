@@ -3,7 +3,7 @@ id: WO-10-001
 type: work-order
 slug: achievements-engine
 title: 'WO-10-001 — `lib/achievements.ts`: achievements engine (stats/chains/uniques/secrets)'
-status: DRAFT
+status: ACTIVE
 parent: FRD-10
 implementation_status: VERIFIED
 artifacts:

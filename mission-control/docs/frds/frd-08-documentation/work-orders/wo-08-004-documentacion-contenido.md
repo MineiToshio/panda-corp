@@ -3,7 +3,7 @@ id: WO-08-004
 type: work-order
 slug: documentacion-contenido
 title: 'WO-08-004 — Documentación content refresh and v2 removals'
-status: DRAFT
+status: ACTIVE
 parent: FRD-08
 foundation: false
 implementation_status: PLANNED

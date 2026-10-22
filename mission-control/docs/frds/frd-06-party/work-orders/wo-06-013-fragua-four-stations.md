@@ -3,7 +3,7 @@ id: WO-06-013
 type: work-order
 slug: fragua-four-stations
 title: 'WO-06-013 La Fragua four-station scene'
-status: DRAFT
+status: ACTIVE
 parent: FRD-06
 foundation: false
 implementation_status: PLANNED

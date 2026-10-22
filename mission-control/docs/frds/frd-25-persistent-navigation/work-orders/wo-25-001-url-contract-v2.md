@@ -3,7 +3,7 @@ id: WO-25-001
 type: work-order
 slug: url-contract-v2
 title: 'WO-25-001 — URL contract for v2 + the history flake'
-status: DRAFT
+status: ACTIVE
 parent: FRD-25
 foundation: false
 implementation_status: PLANNED

@@ -3,7 +3,7 @@ id: WO-21-003
 type: work-order
 slug: worktrees-by-repo
 title: Worktrees by repository - reader, pill summary, Árboles de trabajo card and branch dialog
-status: DRAFT
+status: ACTIVE
 parent: FRD-21
 foundation: false
 implementation_status: PLANNED

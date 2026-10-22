@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-22 — v2 «Órbita» plan gated and ACTIVE (new-version step 3)
+
+**What:** the v2 blueprints and work orders are written, reconciled, gated and flipped to ACTIVE. 38 new work orders in 8 waves (foundation WO-13-010/011/012 and WO-19-002 first, cleanup and the `target_platforms: responsive` flip in WO-13-013 last); 50 v1 work orders kept live with their ACs re-copied verbatim and 61 SUPERSEDED as history. The four queued change cards and the bundled readDecisions fix are work orders (WO-04-010, WO-25-001, WO-02-019, WO-02-020/WO-08-004, WO-04-013). The design oracle gained 20 captured empty/error states with build recipes. The three fresh-agent gates (`docs/reviews/architecture-{readiness,grounding,consistency}-gate.md`) failed with 14 blockers, all fixed in one pass and re-verified; every blueprint carries the three gate stamps. A bare `/pandacorp:implement` now builds v2.
+
+**Why:** the owner asked for the project to be left ready so that running `/pandacorp:implement` builds the approved redesign.
+
 ## 2026-10-22 — v2 explicit scope: Sentry, SEO/metadata and mailing list excluded
 
 **What:** for v2 of this internal, LAN-only, personal-return tool: Sentry (error tracking) is excluded, unexpected errors surface through the global error net and the server log; SEO/metadata is excluded beyond the app name as the browser-tab title (no OG, sitemap, robots or structured data); a mailing list is excluded (no email of any kind). PostHog stays excluded and the interface stays Spanish-only, as already recorded. `docs/product/architecture.md` § Explicit scope decisions cites this entry.

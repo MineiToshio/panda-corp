@@ -3,7 +3,7 @@ id: WO-02-015
 type: work-order
 slug: board-orbita
 title: WO-02-015 Tablero Órbita (columns, search, phase chips, hide-empty, filters, favourite star)
-status: DRAFT
+status: ACTIVE
 parent: FRD-02
 foundation: false
 implementation_status: PLANNED

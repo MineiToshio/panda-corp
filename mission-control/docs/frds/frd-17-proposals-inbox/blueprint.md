@@ -3,13 +3,13 @@ id: BP-17
 type: blueprint
 slug: proposals-inbox
 title: Proposals inbox (Propuestas - to-do, memory, automatic signals)
-status: DRAFT
+status: ACTIVE
 parent: FRD-17
 implementation_status: PLANNED
-readiness_gate:
-grounding_gate:
-consistency_gate:
-last_updated: '2026-10-22'
+readiness_gate: passed 2026-10-22
+grounding_gate: passed 2026-10-22
+consistency_gate: passed 2026-10-22
+last_updated: 2026-10-22
 ---
 
 # Blueprint — FRD-17 Proposals inbox (self-learning gate + self-suggestion)

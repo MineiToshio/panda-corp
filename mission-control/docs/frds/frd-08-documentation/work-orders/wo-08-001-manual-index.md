@@ -3,7 +3,7 @@ id: WO-08-001
 type: work-order
 slug: manual-index
 title: 'WO-08-001 — `lib/manual.ts`: index authored Manual content'
-status: DRAFT
+status: ACTIVE
 parent: FRD-08
 implementation_status: VERIFIED
 artifacts:

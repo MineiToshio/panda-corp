@@ -3,7 +3,7 @@ id: WO-01-009
 type: work-order
 slug: live-transport-sse
 title: 'WO-01-009 — Foundation (FND-5): the shared live transport (SSE route + useLiveSnapshot)'
-status: DRAFT
+status: ACTIVE
 parent: FRD-01
 implementation_status: VERIFIED
 foundation: true

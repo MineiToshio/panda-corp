@@ -3,7 +3,7 @@ id: WO-26-001
 type: work-order
 slug: cuentas
 title: 'WO-26-001 — Cuentas: project table and global directory'
-status: DRAFT
+status: ACTIVE
 parent: FRD-26
 foundation: false
 implementation_status: PLANNED
