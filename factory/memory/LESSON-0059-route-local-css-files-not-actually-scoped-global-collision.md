@@ -9,7 +9,7 @@ source: "personal-page-v2 .pandacorp/run/lessons.md 2026-07-03 — found and fix
 provenance: agent-inferred
 created: 2026-07-04
 status: active
-promotion: none
+promotion: proposed   # 2026-10-22 (librarian review) — target: factory/standards/patterns.md (CSS/responsive review checklist, alongside LESSON-0254's entry): "before reusing a short/generic class name in a plain (non-module) stylesheet — one route-local file or a single-file prototype — grep the whole codebase for that name first; route-local/single-file CSS organization only LOOKS scoped." Corroborated across 2 distinct projects (personal-page-v2, mission-control) with zero contradicting evidence — the same collision mechanism recurring in two very different CSS setups (per-route files vs. one HTML prototype file) makes it a standing review-checklist candidate, not a one-off.
 confidence: high
 times_applied: 0
 applied_in: []

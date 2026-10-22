@@ -9,7 +9,7 @@ source: "pandasaga .pandacorp/run/lessons.md 2026-10-14 (agent-inferred, two rel
 provenance: agent-inferred
 created: 2026-10-15
 status: active
-promotion: none
+promotion: proposed   # 2026-10-22 (librarian review) — target: factory/standards/patterns.md (CSS/responsive review checklist, alongside LESSON-0254's entry): "when a patch to a single large/monolithic stylesheet doesn't visibly apply, check BOTH a source-order tie and a plain specificity gap before re-reading the CSS — confirm the fix in a rendered screenshot, not by eyeballing the rule." Corroborated across 2 distinct projects (pandasaga, mission-control) via 3 independent occurrences with zero contradicting evidence — this is the generic monolithic-stylesheet-patching trap, complementary to but distinct from LESSON-0254's narrower max-width-reset case.
 confidence: high
 times_applied: 0
 applied_in: []
