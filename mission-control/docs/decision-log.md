@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-22 — v2 may remove v1 features (owner scope clarification)
+
+**What:** the frozen Órbita design is the target of v2, both ways. A v1 surface or behaviour that the frozen design (amended FRDs, FDDs, prototype oracle) drops or contradicts is removed in v2, with its code, navigation entries and tests. Keeping it just because v1 had it is not a goal. What the design adds is in scope as the amended FRDs state it. The earlier rule "undrawn features stay out of v2" means v2 does not build undrawn things. It does not oblige v2 to keep v1 things the design dropped. The v2 work-order map lists every planned removal.
+
+**Why:** the owner said that v2 exists because some v1 features are no longer used and some new ones are needed, and that the approved design already reflects that.
+
 ## 2026-10-22 — Milestone v2 «Órbita» opened (new-version)
 
 **What:** `/pandacorp:change` classified the frozen Órbita redesign as a milestone and handed it to the `new-version` engine with the owner present.
