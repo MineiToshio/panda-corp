@@ -14,6 +14,9 @@ confidence: medium
 times_applied: 1
 applied_in: [panda-corp]
 links: [LESSON-0094]
+# 5th corroboration (2026-10-23, pandacorp-memory-review sweep): new facet — the tool's own call
+# validation is NOT a reliable backstop when the misuse call happens to include a valid throwaway
+# `prompt` (it only rejects the shape missing a required field, per the 4th occurrence). See body.
 ---
 
 **Situation:** to "wait" for a background research agent to finish, an agent scheduled a `ScheduleWakeup`
@@ -68,3 +71,15 @@ accepting a polling wakeup, and the follow-up `stop: true` call reported "no pen
 validation is already a partial backstop against this exact anti-pattern, not just agent judgment — but
 it does not replace the rule, since a differently-shaped call (e.g. one that supplies a throwaway
 `prompt`) would still succeed and misfire.
+
+**Fifth corroborating occurrence (2026-10-23, same routine):** right after dispatching two background
+`pandacorp:librarian` harvest agents (mission-control + funko-tracker), the orchestrating session called
+`ScheduleWakeup` with the `<<autonomous-loop-dynamic>>` prompt sentinel to "wait" for them. This time the
+call **succeeded** — it armed a real wakeup instead of being rejected, because (unlike the 4th occurrence)
+it supplied a syntactically valid `prompt`. This confirms the 4th occurrence's caveat: the tool's own
+validation only catches the shape missing a required field; it is not a general backstop against this
+misuse. Caught and cancelled (`stop: true`) before it fired, with no side effects — the background
+agents' completions arrived via the ordinary automatic task-notification regardless. Kept `status:
+candidate` / `promotion: proposed` unchanged, consistent with the prior three passes' judgment that this
+lesson's own history of narrowing/retraction warrants an owner review before activation rather than
+mechanical auto-activation on cross-corroboration count alone.
