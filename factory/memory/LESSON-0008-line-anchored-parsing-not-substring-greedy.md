@@ -9,7 +9,7 @@ source: "mission-control lessons.md — WO-05-001 work-orders.ts STATUS_RE (2026
 provenance: agent-inferred
 created: 2026-06-30
 status: active
-promotion: none
+promotion: proposed   # 2026-10-23 (librarian review) — target: factory/standards/patterns.md (new "marker/status parsing" review-checklist item: anchor to structural position, never substring-anywhere; for delimiter pairs resolve the closing token against the block's true boundary, not its first occurrence). Corroborated across 2 distinct projects via 3 independent incidents (2 in mission-control, 1 in panda-corp's own _inbox.md tooling) with zero contradicting evidence, confidence already high — cheap, recurring parser-bug class worth codifying.
 confidence: high
 times_applied: 2
 applied_in: [personal-page-v2, mission-control]

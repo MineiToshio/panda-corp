@@ -8,8 +8,8 @@ trigger: use this when adding a new rule to a project's always-loaded CLAUDE.md/
 source: "panda-corp 2026-07-02 — always-loaded layer measured at ~450 lines; docs/proposals/24; Anthropic/HumanLayer guidance on bloated CLAUDE.md files"
 provenance: agent-inferred
 created: 2026-07-03
-status: candidate
-promotion: none
+status: active   # 2026-10-23 (librarian review) — eval-gate: cross-corroborated by 2 distinct projects (panda-corp, mission-control), activating per DR-047 lifecycle step 2
+promotion: proposed   # 2026-10-23 (librarian review) — target: factory/standards/documentation.md (new "always-loaded rules budget" subsection: prefer a short example over a paragraph, point at tooling config instead of restating an already-enforced rule, treat ~300 lines as a prune signal). Corroborated across 2 distinct projects with zero contradicting evidence — bloated always-loaded context is a recurring, cheap-to-prevent drift.
 confidence: medium
 times_applied: 2
 applied_in: [panda-corp, mission-control]

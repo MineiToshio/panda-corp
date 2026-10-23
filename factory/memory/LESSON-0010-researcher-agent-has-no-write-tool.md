@@ -8,8 +8,8 @@ trigger: use this when writing or editing a skill that instructs the researcher 
 source: factory/memory/_inbox.md (2026-06-28)
 provenance: agent-inferred
 created: 2026-06-30
-status: candidate
-promotion: none
+status: active   # 2026-10-23 (librarian review) — eval-gate: cross-corroborated by 2 distinct projects (panda-corp, mission-control), activating per DR-047 lifecycle step 2
+promotion: proposed   # 2026-10-23 (librarian review) — target: factory/standards/prompting-conventions.md (new rule alongside PROMPT-5, "check a delegated agent's tool grant before instructing it to write a file"). Corroborated across 2 distinct projects with zero contradicting evidence — a Write-less sub-agent degrading silently to chat text is a cheap, recurring skill-authoring mistake worth a standing checklist line.
 confidence: medium
 times_applied: 2
 applied_in: [panda-corp, mission-control]
