@@ -1891,8 +1891,10 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
           — sin deploy a la nube ni gate de producción.
         </ChipDefRow>
         <ChipDefRow chip="external" tone="ok" isFirst={false}>
-          Producto desplegado fuera (Vercel, AWS, etc.), con su gate humano de producción. Mismo
-          ciclo: una vez lanzado, estás en <Code>release</Code> e iteras.
+          Producto desplegado fuera (Vercel, AWS, etc.), con su gate humano de producción. Hasta el
+          release todo es local; ahí se conecta Vercel a GitHub con <Code>main</Code> como única
+          rama de producción (nunca deploys manuales). Una vez lanzado, nada llega a{" "}
+          <Code>main</Code> sin tu orden explícita (DR-138): estás en <Code>release</Code> e iteras.
         </ChipDefRow>
       </Panel>
 

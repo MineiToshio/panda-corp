@@ -84,6 +84,18 @@ Plus: `pending_decisions` (.pandacorp/inbox/decisions.md), `rethink_pending` (it
 
 The constitution's gates (production, spending money, deleting data, external communications, access changes) are applied as **`deny` rules in `.claude/settings.json`** + the `block-dangerous.sh` hook, NOT as limits stated in the conversation (context compaction can lose them). Claude Code's "auto mode" is NOT a security shield — deny rules always win.
 
+## Production branch and deploy pipeline (INFRA-7, INFRA-8, DR-138)
+
+> Severity: **MUST**. Enforcement: `block-dangerous.sh` (no manual Vercel deploys; no push to `main` in a launched project without the owner's order) + `merge-queue.sh` (a launched project hands back with exit 21) + the architecture/release checklists. Owner decision 2026-10-23.
+
+**`main` is the ONE production branch, always.** No project ever creates a `production`, `prod`, `release` or `live` branch to stand for production, and no host is configured to deploy production from any branch other than `main`. A long-lived gating branch duplicates the production fact (DR-115) and hides what is live. Feature, worktree and preview branches are fine; they are never production.
+
+**Everything is local until `/pandacorp:release`.** Spec, design, architecture and the whole build run 100% on the owner's machine (`127.0.0.1`, Docker for dev services). No Vercel project, no preview/staging deployment and no host-side configuration exist before the release skill runs. Architecture DESIGNS the deploy (ADR + `.env.production` handoff) and never executes it; it may prepare provider accounts and values per `external-services.md`, but not the hosting project or its deployments.
+
+**Deploys come only from GitHub.** At release, after the owner's production gate (DR-004), the `devops` agent creates the Vercel project, connects it to the project's GitHub repository through Vercel's Git integration, sets **Production Branch = `main`**, loads the production environment variables, and the first production deployment is produced by GitHub (the connection's initial build of `main`, or a push to `main`). From then on: a push to `main` = a production deployment; a push to any other branch = a preview deployment. Never a CLI upload (`vercel`, `vercel deploy`, `vercel redeploy`, `--prod` or `--prebuilt`) and never a dashboard redeploy as the normal path. Vercel's instant rollback to an earlier Git-built deployment is allowed only as the incident runbook's emergency first move (below); the fix still lands as a commit on `main`. The same principle applies to any other host (Railway, Fly, Cloudflare): deploy from the GitHub branch integration, production from `main`.
+
+**After launch, nothing reaches GitHub `main` without the owner's explicit order.** Once `phase: release` with a non-`internal` `deploy_target` (a missing `deploy_target` counts as external), landing on `main` IS releasing to production. Work happens on a branch; the agent may push that branch so Vercel builds a preview URL for the owner to try. Only when the owner says so in chat ("ya está aprobado, lánzalo a producción", "haz merge a main") does the agent merge to `main` and push it: `PANDACORP_OWNER_RELEASE_OK=1 bash .pandacorp/merge-queue.sh` (ff-merge + `git push origin main`), or the same token as a prefix on a direct `git push`. The token is a deliberate named step: set it only after that explicit order, never on inference, and never carry one approval over to another change. A post-launch `/pandacorp:implement` run still builds on the local `main` checkout (the engine's single-writer contract), so its whole unpushed delta is one release candidate: report it and push only on the owner's order. Pre-launch projects and internal tools are unaffected (local `main` is not a production trigger there).
+
 ## Backup & restore (launched products)
 
 What must be true for a **released** product (`phase: release`):
@@ -96,6 +108,7 @@ What must be true for a **released** product (`phase: release`):
 
 ## How it is verified
 - **Human gates**: deny rules in `.claude/settings.json` + `block-dangerous.sh` hook (hard, deterministic).
+- **Production branch and deploy pipeline (INFRA-7/8)**: `block-dangerous.sh` blocks every manual Vercel deploy command and, in a launched project, any push that would update `main` without `PANDACORP_OWNER_RELEASE_OK=1`; `merge-queue.sh` hands back with exit 21 in a launched project unless the same token is set, and pushes `main` when it is. Canaries: `plugin/scripts/test-block-dangerous.sh` (DR-138 sections) and `plugin/scripts/test-merge-queue-release-gate.sh`. "`main` is the Production Branch and no `production` branch exists" is a release-checklist item (manual), as is "no hosted deployment before release" at architecture.
 - **Port ledger**: written by `scaffold`/`architecture` automation (never guessed); collisions are prevented by construction.
 - **Docker dev, worktree hygiene, local-deployment layout**: review-only (conventions applied by the skills; `reviewer` on deviation).
 - **Backup/restore**: release checklist — restore must be TESTED once before an external release (manual, named step).
@@ -111,7 +124,7 @@ When Sentry or an uptime check fires:
    - **down** (product unusable): act immediately — rollback now, diagnose after; push the owner NOW.
    - **degraded** (a flow broken, rest works): rollback or fix the same day; push the owner.
    - **cosmetic**: file it via `/pandacorp:change` in the project's queue; no interruption, no rollback.
-2. **First move = rollback** to the last green deploy (the deploy platform's previous build) — restore service first, diagnose after. Fix-forward only when there is nothing green to roll back to.
+2. **First move = rollback** to the last green deploy (the deploy platform's previous Git-built deployment, e.g. Vercel instant rollback) — restore service first, diagnose after. Then make `main` match: the revert or fix lands on `main` through the owner's order (DR-138), so the next push does not re-ship the broken commit. Fix-forward only when there is nothing green to roll back to.
 3. **Notify the owner** (push) for anything user-facing (down/degraded): what broke, what was done, current state.
 4. **Close the loop**: postmortem → a durable lesson in `factory/memory/` (DR-047) + the fix filed via `/pandacorp:change` in the project's queue.
 

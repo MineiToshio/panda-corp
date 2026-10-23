@@ -365,6 +365,67 @@ done < <(printf '%s\n' "$cmd" | awk '{ gsub(/&&|\|\||[;&]/, "\n"); gsub(/\|/, "\
 # the OWNER approves; only after explicit approval in the conversation does the deploy run (re-running
 # the exact command after the owner's OK is the approved path — the block message says so).
 echo "$cmd" | grep -Eq '(^|[[:space:];&|])vercel( .*)? (--prod|deploy .*--prod)' && block "production deploy = human gate (DR-004): present staging + costs, get the owner's explicit OK first"
+
+# DR-138 / INFRA-7: Vercel deploys come ONLY from the GitHub integration (a push to `main` = production,
+# a push to any other branch = preview). A CLI upload (`vercel`, `vercel deploy`, `vercel redeploy`,
+# with or without --prod) is never the path, owner OK or not — setup subcommands (link, env, git
+# connect, project, domains, logs, rollback) and --version/--help stay allowed.
+while IFS= read -r seg; do
+  set -f; set -- $seg; set +f
+  # the command word only (after VAR=val prefixes and a package-runner launcher), never an argument
+  while [ $# -gt 0 ]; do
+    case "$1" in *=*|npx|bunx|yarn|pnpm|dlx|exec) shift ;; *) break ;; esac
+  done
+  [ "${1:-}" = "vercel" ] || continue
+  shift
+  sub=""
+  for t in "$@"; do
+    case "$t" in -v|--version|-h|--help) sub="info"; break ;; -*) ;; *) sub="$t"; break ;; esac
+  done
+  case "$sub" in
+    ""|deploy|redeploy) block "manual Vercel deploy is forbidden (DR-138): deploys run only through the GitHub integration — push to a non-main branch for a preview; production is a merge/push to main, and only on the owner's explicit order once launched" ;;
+  esac
+done < <(printf '%s\n' "$cmd" | awk '{ gsub(/&&|\|\||[;|&]/, "\n"); print }')
+
+# DR-138 / INFRA-8: once a project is LAUNCHED externally (status.yaml `phase: release` and a
+# deploy_target other than `internal`; a missing deploy_target counts as external, fail-safe), GitHub
+# `main` IS production — Vercel ships every push to it. Publishing to main therefore needs the owner's
+# explicit order in chat; the agent then re-runs the push prefixed with PANDACORP_OWNER_RELEASE_OK=1.
+# Pre-launch projects, internal tools and the factory are unaffected.
+launched_status=""
+for d in "$scope_root" "$cwd"; do [ -f "$d/.pandacorp/status.yaml" ] && { launched_status="$d/.pandacorp/status.yaml"; break; }; done
+if [ -n "$launched_status" ] \
+   && grep -Eq '^phase:[[:space:]]*release([[:space:]]|#|$)' "$launched_status" \
+   && ! grep -Eq '^deploy_target:[[:space:]]*internal([[:space:]]|#|$)' "$launched_status" \
+   && ! printf '%s' "$cmd" | grep -q 'PANDACORP_OWNER_RELEASE_OK=1'; then
+  cur_branch=$(git -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+  while IFS= read -r seg; do
+    set -f; set -- $seg; set +f
+    while [ $# -gt 1 ] && ! { [ "$1" = "git" ] && [ "$2" = "push" ]; }; do shift; done
+    [ $# -gt 1 ] && [ "$1" = "git" ] && [ "$2" = "push" ] || continue
+    shift 2
+    remote=""; refs=""; all=0
+    for t in "$@"; do
+      case "$t" in
+        --all|--mirror) all=1 ;;
+        -*) ;;
+        *) if [ -z "$remote" ]; then remote="$t"; else refs="$refs $t"; fi ;;
+      esac
+    done
+    to_main=$all
+    if [ -z "${refs// /}" ]; then
+      [ "$cur_branch" = "main" ] && to_main=1
+    else
+      for r in $refs; do
+        r="${r#+}"; dst="${r##*:}"
+        [ "$r" = "HEAD" ] && [ "$cur_branch" = "main" ] && dst="main"
+        case "$dst" in main|refs/heads/main) to_main=1 ;; esac
+      done
+    fi
+    [ "$to_main" = 1 ] && block "this project is LAUNCHED: GitHub main is production and Vercel deploys every push to it (DR-138). Push your branch for a preview instead; publish to main only after the owner's explicit order in chat, then re-run prefixed with PANDACORP_OWNER_RELEASE_OK=1"
+  done < <(printf '%s\n' "$cmd" | awk '{ gsub(/&&|\|\||[;|&]/, "\n"); print }')
+fi
+
 echo "$cmd" | grep -Eq '(^|[[:space:];&|])(flyctl|fly) deploy' && block "production deploy = human gate (DR-004): get the owner's explicit OK first"
 echo "$cmd" | grep -Eq '(^|[[:space:];&|])railway (up|deploy)' && block "production deploy = human gate (DR-004): get the owner's explicit OK first"
 echo "$cmd" | grep -Eq '(^|[[:space:];&|])wrangler (deploy|publish)' && block "production deploy = human gate (DR-004): get the owner's explicit OK first"

@@ -23,6 +23,12 @@ Mechanical rules (`any`/`@ts-ignore` bans, unused imports, import sorting, type-
 
 Exception: framework-reserved filenames (`page.tsx`, `route.ts`) follow the framework.
 
+## URLs are always English (CONV-18, DR-139)
+- Every URL is English **whatever the app's language**: route segments and App Router folders (`/collection`, `app/settings/profile/`), dynamic-segment names, `ROUTES` constants, API paths, query keys and fixed query values (`?status=pending`). Never `/coleccion` or `?estado=`.
+- Multilingual: the locale prefix (`/es/…`) is the only localized part; never a per-locale `pathnames` map or localized rewrites.
+- Data slugs come from a stable ID or an English/canonical slug; proper names stay ASCII kebab-case (`/figures/son-goku`), common words are never translated into the path.
+- Existing non-English routes change only through their own change request, with redirects.
+
 ## Project skills (CONV-17, DR-137)
 - Every new project skill exposes `<project-slug>:<skill-slug>` (English kebab-case); the project slug comes from `.pandacorp/status.yaml`'s `project`. Use `ingest-delta` for incremental ingestion.
 - Standalone Claude Code: folder `.claude/skills/<skill-slug>/`, frontmatter `name: <project-slug>:<skill-slug>`, H1 and invocation examples use the full name. Plugins: plugin name is the project slug, skill folder and `name` stay bare; the loader adds the prefix once. The factory's plugin remains `pandacorp:<skill-slug>`.

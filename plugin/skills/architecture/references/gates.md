@@ -44,7 +44,7 @@ materializes `docs/api/<wo-id>.md` BEFORE its consumer runs (the gate checks the
 exists, DR-060); **the published logical model matches its source (DATA-7)**: the gate compares
 `docs/product/data-model.json` with the canonical schema source (the architecture.md Data model section, read by
 line, or the checked-in schema once one exists) entity by entity, attribute, key and cardinality, and names the
-source paths and the result in its report; the BL-0051 test-side supersession rule holds; and **every UI FRD plans only UI its frozen oracle
+source paths and the result in its report; the BL-0051 test-side supersession rule holds; **every route, API path, query key and slug the plan names is English** whatever the app's language, with no per-locale pathnames (CONV-18, DR-139); **the deploy design keeps `main` as the only production branch, deploys only through the host's GitHub integration and creates nothing hosted before release** (DR-138); and **every UI FRD plans only UI its frozen oracle
 captures (DR-130)**: `check-fdd-coverage.mjs --plan` exits 0 (every FDD screen/state row cites a captured state with
 its `oracle-states.json` entry, every control/string the FDD names is drawn in that FRD's captured states, and no
 `blueprint.md` or work order names copy those states do not draw). A red caused by the FDD or the prototype is a

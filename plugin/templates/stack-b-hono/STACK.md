@@ -52,7 +52,7 @@ Browser gates: N/A (headless — declared opt-out above). Interim minimal script
 
 ## CI / Deploy (CI is an optional external-governance layer — DR-040)
 
-**The primary quality gate is LOCAL** (`.pandacorp/verify.sh`); the solo operator pushes to `main` directly. GitHub Actions (lint + typecheck + test) is an **optional** layer for projects with an external remote/collaborators — it re-runs the same gate, never replaces it. Deploy: **container on Railway** (default — reads `process.env.PORT`, Railpack/Dockerfile) or Fly.io (Dockerfile); **Cloudflare Workers** if the blueprint calls for edge (then the entry adapter changes and Node-only libs are off the table — decide in the blueprint, not mid-build).
+**The primary quality gate is LOCAL** (`.pandacorp/verify.sh`); the solo operator pushes to `main` directly until launch (after launch only on the owner's order, DR-138). GitHub Actions (lint + typecheck + test) is an **optional** layer for projects with an external remote/collaborators — it re-runs the same gate, never replaces it. Deploy: **container on Railway** (default — reads `process.env.PORT`, Railpack/Dockerfile) or Fly.io (Dockerfile); **Cloudflare Workers** if the blueprint calls for edge (then the entry adapter changes and Node-only libs are off the table — decide in the blueprint, not mid-build). Whatever the host, it is set up only at `/pandacorp:release` and deploys from its GitHub integration with `main` as the production branch, never a CLI deploy or a `production` branch; after launch `main` moves (and is pushed) only on the owner's explicit order (DR-138, `infra.md`).
 
 ## Pending template machinery (honest TODO — factory backlog)
 

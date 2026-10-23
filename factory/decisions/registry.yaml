@@ -18,11 +18,13 @@ decisiones:
     patron: "deploy to staging / test environment"
     default: "auto-approve if CI is green"
     requiere_humano: false
+    nota: "Narrowed by DR-138 (2026-10-23): nothing is hosted before /pandacorp:release, so there is no pre-launch staging deploy; after launch a preview is a push of a non-main branch through the host's GitHub integration (auto, no gate)."
 
   - id: DR-004
     patron: "deploy to PRODUCTION"
     default: "BLOCK — requires explicit approval from the owner"
     requiere_humano: true
+    nota: "Mechanism per DR-138 (2026-10-23): production = GitHub main through the host's Git integration. The gate is the owner's approval at /pandacorp:release (first deployment) and, after launch, the owner's explicit order before any merge/push to main (PANDACORP_OWNER_RELEASE_OK=1; block-dangerous.sh + merge-queue.sh exit 21)."
 
   - id: DR-005
     patron: "spend money (purchases, paid plans, domains, paid APIs)"
@@ -801,3 +803,15 @@ decisiones:
     default: "Expose every project-owned skill as <project-slug>:<skill-slug>, both in English kebab-case; use ingest-delta for incremental ingestion. Resolve the project slug from status.yaml. Follow CONV-17 in conventions.md and rules/code-conventions.md for standalone versus plugin/runtime packaging; never duplicate a plugin-supplied namespace. Update live contracts/examples/routines on rename and preserve historical evidence and persisted extractor compatibility."
     requiere_humano: false
     nota: "Owner decision 2026-10-20 in funko-tracker: funko-tracker:ingest-catalog and funko-tracker:ingest-delta; applies to every new project skill. Standalone Claude naming is checked by check-project-skills.mjs through doc-lint.sh; runtime namespace resolution stays an authoring-review check. Overlay 8.110.0 propagates the convention and verifier on normal upgrade, never mid-build. Compatible upgrade warns on older/unknown created_with without renaming product skills; new-project gates and scoped strict checks at new/renamed-skill authoring enforce the rule."
+
+  - id: DR-138
+    patron: "production branch, when hosting is created, how a deploy is triggered, and who may update main after launch"
+    default: "(1) main is the ONLY production branch in every project, always: never create a production/prod/release/live branch or point a host's production at another branch. (2) Everything is local until /pandacorp:release: no Vercel (or other host) project, no preview/staging deployment and no host-side configuration before it; architecture designs the deploy and never executes it. (3) Deploys come only from GitHub: at release, after the DR-004 approval, devops creates the Vercel project, connects it to the GitHub repo through the Git integration with Production Branch = main, loads the production env vars, and GitHub produces the deployment; push to main = production, any other branch = preview. Never a CLI upload (vercel, vercel deploy, vercel redeploy, --prod, --prebuilt) or a dashboard redeploy as the path; instant rollback to an earlier Git-built deployment only as the incident runbook's emergency first move, the fix then lands on main. (4) After launch (phase: release with deploy_target not internal; missing counts as external) nothing reaches GitHub main without the owner's explicit order in chat: work lives on a branch (push it for a preview), and on the order the agent runs PANDACORP_OWNER_RELEASE_OK=1 bash .pandacorp/merge-queue.sh (ff-merge + push). The token is set only after that explicit order and never reused for another change."
+    requiere_humano: true
+    nota: "Owner decision 2026-10-23 after funko-tracker's ADR-0011 created a fast-forward production branch to keep the DR-004 gate (the project itself is not modified; existing projects keep their setup until their own change). Enforced: block-dangerous.sh blocks every manual Vercel deploy and, in a launched project, any push that would update main without the token (canary test-block-dangerous.sh); merge-queue.sh hands back with exit 21 in a launched project and pushes main with the token (canary test-merge-queue-release-gate.sh); Codex execpolicy forbids vercel deploy/redeploy. Rules: INFRA-7/INFRA-8 in factory/standards/infra.md, constitution §11, rules/external-services.md. A post-launch /pandacorp:implement run still builds on the local main checkout (engine single-writer contract), so its unpushed delta is one release candidate pushed only on the owner's order. Amends DR-003 (no pre-launch staging) and states DR-004's mechanism."
+
+  - id: DR-139
+    patron: "naming a URL: route segments, App Router folders, API paths, query keys, slugs, in any project language"
+    default: "Every URL is English, 100% of the time, whatever the app's language (Spanish, Japanese, French...): route segments and App Router folders, dynamic-segment names, ROUTES constants, API paths, query-string keys and fixed values, and data slugs (built from a stable ID or an English/canonical slug; proper names in ASCII kebab-case, common words never translated). In a multilingual app the locale prefix (/es/...) is the only localized part; never a per-locale pathnames map or localized rewrites. FRDs, FDDs, prototypes, blueprints and work orders name routes the same way. Existing projects keep their URLs until a change of their own migrates them with redirects; upgrade never renames routes."
+    requiere_humano: false
+    nota: "Owner decision 2026-10-23 after funko-tracker shipped Spanish URLs (the project itself is not modified here). Rule CONV-18 in factory/standards/conventions.md (plus seo-i18n.md), operative form in rules/code-conventions.md and rules/i18n-next-intl.md. Verified manually: architecture readiness gate (route map), reviewer quality lens, release checklist; a deterministic route-name check is not wired (natural-language detection would false-positive on proper names)."

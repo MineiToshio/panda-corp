@@ -1,5 +1,10 @@
 # Decision Log — Mission Control
 
+## 2026-10-23 — Manual reflects the GitHub-only deploy model (DR-138)
+
+**What:** the Manual's release page (`src/app/manual/manualPages.tsx`, "Interno vs externo") and the stacks table (`src/app/manual/_components/StacksDetail.tsx`) now say that external products stay local until release, deploy only through Vercel's GitHub integration with `main` as the single production branch, and that after launch nothing reaches `main` without the owner's explicit order.
+**Why:** factory decision DR-138 (factory `decision-log.md`, 2026-10-23); the Manual must match the operable surface (DR-046). Mission Control itself is internal (`deploy_target: internal`), so its own landing and deploy are unaffected.
+
 ## 2026-10-22 — v2 «Órbita» plan gated and ACTIVE (new-version step 3)
 
 **What:** the v2 blueprints and work orders are written, reconciled, gated and flipped to ACTIVE. 38 new work orders in 8 waves (foundation WO-13-010/011/012 and WO-19-002 first, cleanup and the `target_platforms: responsive` flip in WO-13-013 last); 50 v1 work orders kept live with their ACs re-copied verbatim and 61 SUPERSEDED as history. The four queued change cards and the bundled readDecisions fix are work orders (WO-04-010, WO-25-001, WO-02-019, WO-02-020/WO-08-004, WO-04-013). The design oracle gained 20 captured empty/error states with build recipes. The three fresh-agent gates (`docs/reviews/architecture-{readiness,grounding,consistency}-gate.md`) failed with 14 blockers, all fixed in one pass and re-verified; every blueprint carries the three gate stamps. A bare `/pandacorp:implement` now builds v2.

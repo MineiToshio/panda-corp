@@ -11,3 +11,4 @@ source: Pandacorp stack — next-intl
 - **Use the server helpers** (`getTranslations`, `getLocale`) **only in non-React code**: route handlers, `metadata`, and Next.js framework functions.
 - **Never hardcode user-facing copy** — every string is a translation key. Keys/content live under the locales folder (`src/i18n/locales/<locale>/`).
 - The default/launch locale comes from the product's launch-language decision, not automatically the owner's language.
+- **URLs stay English in every locale** (CONV-18): the locale prefix is the only localized part; never configure next-intl `pathnames` to translate route segments.

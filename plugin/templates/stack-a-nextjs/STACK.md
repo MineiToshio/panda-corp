@@ -231,7 +231,7 @@ The gate is **not** hand-rolled per project. Install `${CLAUDE_PLUGIN_ROOT}/temp
 
 ## CI (optional external-governance layer — DR-040)
 
-**The primary quality gate is LOCAL** (`.pandacorp/verify.sh`, run by the build engine per-FRD and at close-out); the solo operator commits and pushes to `main` **directly** — PRs are not the default. **GitHub Actions / PRs / protected branches are an OPTIONAL layer**, enabled when the project has an external remote/collaborators or the owner wants belt-and-suspenders: `.github/workflows/ci.yml` then re-runs the same checks in parallel jobs — `lint` (biome check), `typecheck` (tsc --noEmit), `test` (vitest run), plus E2E (`playwright test`) toward main. pnpm cache. It never replaces the local gate.
+**The primary quality gate is LOCAL** (`.pandacorp/verify.sh`, run by the build engine per-FRD and at close-out); the solo operator commits and pushes to `main` **directly** until launch — PRs are not the default; after launch `main` is production and moves only on the owner's explicit order (DR-138). **GitHub Actions / PRs / protected branches are an OPTIONAL layer**, enabled when the project has an external remote/collaborators or the owner wants belt-and-suspenders: `.github/workflows/ci.yml` then re-runs the same checks in parallel jobs — `lint` (biome check), `typecheck` (tsc --noEmit), `test` (vitest run), plus E2E (`playwright test`) toward main. pnpm cache. It never replaces the local gate.
 
 ## Library conventions (apply only when the project uses the library)
 
@@ -249,4 +249,4 @@ Tech-gated rules: they ride with this stack's libraries. If the blueprint swaps 
 
 ## Deploy
 
-Vercel (hobby to start). Environment variables via the Vercel dashboard, never in the repo.
+Vercel (hobby to start), set up only at `/pandacorp:release` (everything before is local). The Vercel project is connected to the GitHub repository through the Git integration with **Production Branch = `main`**: a push to `main` deploys production, any other branch a preview. Never a CLI deploy (`vercel`, `vercel deploy`, `vercel redeploy`) and never a `production` branch (DR-138, `infra.md`). After launch, `main` moves only on the owner's explicit order. Environment variables via the Vercel dashboard/API, never in the repo.

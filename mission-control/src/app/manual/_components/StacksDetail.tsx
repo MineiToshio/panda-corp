@@ -23,7 +23,7 @@ const PATH_A_ROWS: readonly (readonly string[])[] = [
   ["ORM", "Prisma (data layer en queries/)"],
   ["Tests", "Vitest + Testing Library + Playwright (e2e)"],
   ["Lint y formato", "Biome"],
-  ["Despliegue", "Vercel (web)"],
+  ["Despliegue", "Vercel (web), vía GitHub con main como producción"],
   ["Secretos", "SOPS + age"],
   ["Pagos", "Polar"],
   ["Analítica", "PostHog + Sentry"],

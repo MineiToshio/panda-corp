@@ -47,6 +47,8 @@
     { "pattern": ["rm", "-r", ".pandacorp"], "decision": "forbidden", "justification": ".pandacorp is protected owner/build state." },
     { "pattern": ["gh", "repo", "delete"], "decision": "forbidden", "justification": "Repository deletion is an owner hard gate." },
     { "pattern": ["vercel", "--prod"], "decision": "forbidden", "justification": "Production release requires the owner gate." },
+    { "pattern": ["vercel", "deploy"], "decision": "forbidden", "justification": "Vercel deploys run only through the GitHub integration (DR-138)." },
+    { "pattern": ["vercel", "redeploy"], "decision": "forbidden", "justification": "Vercel deploys run only through the GitHub integration (DR-138)." },
     { "pattern": ["claude"], "decision": "forbidden", "justification": "Codex may not dispatch or steer the Claude runtime." }
   ]
 }

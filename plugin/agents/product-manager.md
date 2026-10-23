@@ -48,5 +48,6 @@ Confirm:
 7. The value hypothesis maps to a metric, with an activation milestone and numeric kill-signals (DR-043).
 8. The clarification gate ran for the idea's mode and the **Assumptions & open decisions** are recorded in the PRD (DR-095).
 9. No contradictions across FRDs (a term/value/entity is consistent everywhere).
+10. Every route/path/slug an FRD names is English, whatever the app's language (CONV-18, DR-139).
 
 An ambiguous spec is the root cause of cascading errors downstream.

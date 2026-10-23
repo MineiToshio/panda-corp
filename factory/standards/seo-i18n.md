@@ -7,12 +7,15 @@
 - Only approved SEO work gets metadata/OG, canonical, sitemap/robots, structured data where applicable and verification work orders. Internal/private apps normally need no public indexing; keep basic page identity (the app name as a browser-tab title, no SEO descriptions/OG) and access control (robots/noindex is not security).
 - Deferred/excluded multilingual features add no extra locales, language switcher, locale routing or hreflang; centralized launch-locale messages remain mandatory (conventions.md).
 
+## Rule — URLs in English, every project (CONV-18)
+- Routes, API paths, query keys and data slugs are English regardless of the launch language or the number of locales; see `conventions.md` for the full rule. This holds even when SEO and multilingual i18n are both deferred.
+
 ## Rule — SEO / metadata (when approved for now)
 - Plan the approved deliverables only: **Next's Metadata API** for selected page titles/descriptions, Open Graph images, canonical URLs, `sitemap.ts`, `robots.ts` and structured data where applicable. A titles/descriptions-only choice does not enable the rest.
 - Content rendered in an indexable way (Server Components by default helps).
 
 ## Rule — multilingual i18n (when approved for now)
-- Subpath routing (`/es/`, `/fr/`) with `app/[lang]/…` + message catalog with **next-intl**. The default/launch locale comes from the spec's launch-language research (DR-041), not automatically Spanish; see `conventions.md`.
+- Subpath routing (`/es/`, `/fr/`) with `app/[lang]/…` + message catalog with **next-intl**. The locale prefix is the only localized part of a URL: path segments stay English in every locale, never a per-locale `pathnames` map (CONV-18, DR-139 in `conventions.md`). The default/launch locale comes from the spec's launch-language research (DR-041), not automatically Spanish; see `conventions.md`.
 - No hardcoded visible text: everything via i18n.
 
 ## Rule — multi-language SEO (when both multilingual i18n and SEO are approved for now)

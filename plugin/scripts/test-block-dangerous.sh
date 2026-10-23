@@ -89,8 +89,11 @@ check "dangerous cmd from repo subdir"     2 "$fx/src/deep" "git push --force or
 echo "== MUST ALLOW (expect 0) =="
 check "reset --hard to explicit sha"       0 "$fx" "git reset --hard 515c5ff"
 check "reset --hard long sha"              0 "$fx" "git reset --hard 515c5ff1234abcd"
-check "vercel preview"                     0 "$fx" "vercel"
-check "vercel deploy (non-prod)"           0 "$fx" "vercel deploy"
+check "vercel link (setup)"                0 "$fx" "vercel link --yes"
+check "vercel env ls (setup)"              0 "$fx" "vercel env ls production"
+check "vercel git connect (setup)"         0 "$fx" "vercel git connect"
+check "vercel --version"                   0 "$fx" "npx vercel --version"
+check "grep for the word vercel"           0 "$fx" "grep -rn vercel docs"
 check "git clean -fd (keeps ignored)"      0 "$fx" "git clean -fd"
 check "rm -rf node_modules"                0 "$fx" "rm -rf node_modules"
 check "rm -rf dist"                        0 "$fx" "rm -rf dist"
@@ -239,6 +242,33 @@ check "allow: pgrep only inspects"                                0 "$fx" "pgrep
 check "allow: xargs kill fed by an own pid file"                  0 "$fx" 'cat server.pid | xargs kill'
 check "allow: prose mentioning the ban in a commit message"       0 "$fx" 'git commit -m "docs: never run pkill -f next"'
 check "allow: serve-once helper"                                  0 "$fx" "bash .pandacorp/serve-once.sh -- pnpm start"
+
+echo "== DR-138: Vercel deploys only through GitHub (manual CLI deploys always blocked) =="
+check "block: bare vercel (CLI upload)"            2 "$fx" "vercel"
+check "block: vercel deploy"                       2 "$fx" "vercel deploy"
+check "block: npx vercel deploy --prebuilt"        2 "$fx" "npx vercel deploy --prebuilt"
+check "block: vercel redeploy"                     2 "$fx" "vercel redeploy https://x.vercel.app"
+check "block: vercel --yes (flags only)"           2 "$fx" "pnpm dlx vercel --yes"
+
+echo "== DR-138: launched project -- GitHub main is production, publishing needs the owner's order =="
+lx=$(mktemp -d)
+( cd "$lx" && git init -q -b main && git commit -q --allow-empty -m init && git branch feature-x )
+mkdir -p "$lx/.pandacorp"
+printf 'project: demo\nphase: release\ndeploy_target: external  # live\n' > "$lx/.pandacorp/status.yaml"
+check "block: push origin main (launched)"         2 "$lx" "git push origin main"
+check "block: bare push while on main (launched)"  2 "$lx" "git push"
+check "block: push -u origin on main (launched)"   2 "$lx" "git push -u origin"
+check "block: push feature-x:main (launched)"      2 "$lx" "git push origin feature-x:main"
+check "block: push --all (launched)"               2 "$lx" "git push --all origin"
+check "allow: push feature branch (preview)"       0 "$lx" "git push -u origin feature-x"
+check "allow: push with the owner's release token" 0 "$lx" "PANDACORP_OWNER_RELEASE_OK=1 git push origin main"
+printf 'project: demo\nphase: release\n' > "$lx/.pandacorp/status.yaml"
+check "block: missing deploy_target = external"    2 "$lx" "git push origin main"
+printf 'project: demo\nphase: release\ndeploy_target: internal\n' > "$lx/.pandacorp/status.yaml"
+check "allow: internal tool pushes main"           0 "$lx" "git push origin main"
+printf 'project: demo\nphase: implementation\n' > "$lx/.pandacorp/status.yaml"
+check "allow: pre-launch project pushes main"      0 "$lx" "git push origin main"
+rm -rf "$lx"
 
 echo "== OUT OF SCOPE (expect 0 in a non-Pandacorp dir) =="
 plain=$(mktemp -d)

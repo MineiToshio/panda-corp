@@ -65,7 +65,7 @@ The full round suite is in `iteration-loop.md`.
 
 ## 6 · Heuristics you always apply
 
-Clear hierarchy (1 primary action per screen), designed empty/loading/error states, real text (not lorem ipsum), touch targets ≥44px, WCAG AA contrast.
+Clear hierarchy (1 primary action per screen), designed empty/loading/error states, real text (not lorem ipsum), touch targets ≥44px, WCAG AA contrast. Prototype routes, hrefs and screen file names are English whatever the UI language (`/collection`, `collection.html`), because the nav contract and `routes.ts` become the app's real URLs (CONV-18, DR-139).
 
 ## 7 · Freeze the contract — as one task of the parallel plan
 

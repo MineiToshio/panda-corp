@@ -41,7 +41,7 @@ Scan `docs/product/prd.md`, every `frd.md` + `fdd.md`, `docs/design/technical-as
 | # | Trigger | Typical alternatives to lay out |
 |---|---|---|
 | 1 | Stack and any golden-path deviation (`factory/standards/stack.md`, latest stable) | golden path · the deviation with its reason |
-| 2 | Hosting and the monthly cost envelope (DR-005 for anything paid; DR-035/038 payments on Vercel) | free tiers · the paid plan with the amount |
+| 2 | Hosting and the monthly cost envelope (DR-005 for anything paid; DR-035/038 payments on Vercel). Not a branch question: production is always `main` via the host's GitHub integration, set up at release (DR-138) | free tiers · the paid plan with the amount |
 | 3 | **Media and third-party content**: where images/files/video come from, and store vs hotlink vs same-origin proxy, rights stance, fallback, link rot | store in object storage · hotlink by URL · same-origin proxy (allowlisted hosts) · no images |
 | 4 | **Data ingestion and curation**: in-app pipeline vs owner-run agent skills over a CLI vs manual entry; and whether an admin/operator web UI is needed at all | web console · skills + ops CLI · seed files · none in v1 |
 | 5 | External data sources: access and legal (scraping vs ToS, licensed feed, owner-supplied evidence), rate limits | official API · licensed feed · read-through-a-browser curation · manual |

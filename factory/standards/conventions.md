@@ -76,6 +76,18 @@ Escalate upward, never downward, if a first attempt at a lower tier comes back i
 | Hooks | `use*` | `useUser()` |
 | Booleans | `is/has/can*` | `isOpen`, `hasError` |
 
+## Rule — URLs always in English (CONV-18, DR-139)
+
+> Severity: **MUST** · Enforcement: reviewer quality lens + architecture readiness checklist (route map) + `/pandacorp:release` checklist. Owner decision 2026-10-23.
+
+Every URL a product exposes is English, **100% of the time, whatever the app's language** (Spanish, Japanese, French…). The UI copy is localized; the address is not.
+
+- **Route segments and page paths**: `/collection`, `/settings/profile`, `/items/[itemId]`, never `/coleccion`, `/ajustes/perfil`. This includes App Router folder names (`app/collection/page.tsx`), route groups, dynamic-segment names and the `ROUTES` constants.
+- **API paths, query-string keys and fixed query values**: `/api/v1/orders?status=pending&sort=newest`, never `?estado=pendiente`.
+- **Multilingual apps**: the locale prefix is the only language marker (`/es/collection`, `/fr/collection`); the path after it stays English. Never translate pathnames per locale (no next-intl `pathnames` map, no localized rewrites).
+- **Slugs generated from data**: build them from the record's stable ID or an English/canonical slug field; a proper name keeps its spelling transliterated to ASCII kebab-case (`/figures/son-goku`), but a common word never becomes a Spanish (or other non-English) path segment.
+- Specs and designs name routes the same way: FRDs, FDDs, prototypes, blueprints and work orders write English paths even when their prose quotes Spanish UI text. Existing projects keep their URLs until a change of their own migrates them (with redirects); upgrade never renames routes.
+
 ## Rule — project skill names (CONV-17, DR-137)
 
 > Severity: **MUST** · Enforcement: `.pandacorp/check-project-skills.mjs`, called by `doc-lint.sh` / `verify.sh`, plus the skill-authoring review for runtime-specific packaging.
@@ -137,6 +149,7 @@ Every new or explicitly renamed skill for a product project has the public name 
 - **Imports**: Biome organize-imports + the `@/*` alias in `tsconfig` (toolchain conformance check on `/pandacorp:upgrade`); deep-relative imports → review-only.
 - **Secrets**: gitleaks (pre-commit hook + platform push protection); `.env.example` sync → review-only (reviewer checklist).
 - **`.env.example` per-variable descriptions (CONV-16)**: `.pandacorp/doc-lint.sh`, run by `verify.sh`, fails on every project (any `created_via`) when a variable has no description comment of its own directly above it; canaried by `canary.sh` step 9 and the factory self-test `plugin/scripts/test-doc-lint-env-example.sh`. Whether the description is accurate stays review-only.
+- **URLs in English (CONV-18)**: manual — the architecture readiness checklist rejects a non-English route/API path in the route map, blueprints or work orders; the reviewer's quality lens rejects one in code (`app/**` folder names, `ROUTES`, route handlers, query keys); release confirms the live route list.
 - **Naming, handlers, constants, boundary validation**: review-only (`reviewer` quality lens); boundary validation is also exercised indirectly by the adversarial/malformed-input tests (DR-015/DR-078, `quality.md`).
 - **Language (committed=English), Conventional Commits, no force-push**: review-only.
 - **Claims and diagnoses (evidence before assertion)**: manual — agent self-check before asserting *or* before building a diagnosis/fix plan on a stand-in, plus owner spot-check; the build-side counterpart is wired (the Stop gate's `verify.sh` + DR-068's fenced run-state receipts), the chat and diagnosis sides are judgment calls by nature.

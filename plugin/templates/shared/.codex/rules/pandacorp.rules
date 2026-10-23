@@ -8,4 +8,6 @@ prefix_rule(pattern=["rm","-rf",".pandacorp"], decision="forbidden", justificati
 prefix_rule(pattern=["rm","-r",".pandacorp"], decision="forbidden", justification=".pandacorp is protected owner/build state.")
 prefix_rule(pattern=["gh","repo","delete"], decision="forbidden", justification="Repository deletion is an owner hard gate.")
 prefix_rule(pattern=["vercel","--prod"], decision="forbidden", justification="Production release requires the owner gate.")
+prefix_rule(pattern=["vercel","deploy"], decision="forbidden", justification="Vercel deploys run only through the GitHub integration (DR-138).")
+prefix_rule(pattern=["vercel","redeploy"], decision="forbidden", justification="Vercel deploys run only through the GitHub integration (DR-138).")
 prefix_rule(pattern=["claude"], decision="forbidden", justification="Codex may not dispatch or steer the Claude runtime.")
