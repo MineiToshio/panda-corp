@@ -11,8 +11,8 @@ created: 2026-09-10
 status: active
 promotion: proposed   # 2026-10-17 (librarian review) — target: factory/standards/quality.md (close-out checklist, as a visual-asset-specific corollary to CONV-13/LESSON-0069). Corroborated across 2 distinct projects (personal-page-v2, pandasaga) with zero contradicting evidence — file-presence checks systematically miss wrong-content visual assets (favicons, logos, icons), and owner-stated confidence is high.
 confidence: high
-times_applied: 2
-applied_in: [personal-page-v2, pandasaga]
+times_applied: 3
+applied_in: [personal-page-v2, pandasaga, mission-control]
 links: [LESSON-0069]
 ---
 

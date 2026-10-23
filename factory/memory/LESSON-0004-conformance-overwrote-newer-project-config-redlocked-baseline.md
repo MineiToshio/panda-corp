@@ -11,8 +11,8 @@ created: 2026-06-30
 status: active
 promotion: approved
 confidence: high
-times_applied: 1
-applied_in: [funko-tracker]
+times_applied: 2
+applied_in: [funko-tracker, mission-control]
 links: [BL-0003, DR-076, DR-059, DR-048, LESSON-0002]
 ---
 

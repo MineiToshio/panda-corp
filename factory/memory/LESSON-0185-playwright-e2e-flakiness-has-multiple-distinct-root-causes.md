@@ -11,8 +11,8 @@ created: 2026-08-03
 status: active
 promotion: none
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [mission-control]
 links: [LESSON-0040, LESSON-0066, LESSON-0079, LESSON-0139, LESSON-0197, LESSON-0363, LESSON-0411, LESSON-0416]
 ---
 

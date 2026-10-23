@@ -28,3 +28,12 @@ steerability and losing native effort control is a cheap trade, not a real budge
 **Apply next time:** when token-budgeting a fan-out of subagents, tier primarily by `model` (per
 DR-111/CONV-12); treat `effort` as a secondary, prompt-induced lever, and don't let the Agent tool's
 missing native effort parameter block a choice that's otherwise right for the flow's steerability needs.
+
+**Contradiction flagged 2026-10-23 (librarian harvest) — NOT reconciled, needs re-verification.** A new
+finding (mission-control `.pandacorp/run/lessons.md`, 2026-10-22, LESSON-0500) reports the Agent tool NOW
+exposes a native `effort` param (`low|medium|high|xhigh|max`), contradicting this lesson's core claim
+("has no effort parameter... only via prompt instruction"). Either the tool gained this parameter after
+2026-07-21 (most likely — tool schemas evolve) or the original finding was itself wrong. Left as
+`status: candidate`, not edited further here — re-check the LIVE Agent tool schema before relying on
+either claim, per LESSON-0500/LESSON-0069, and reconcile this lesson (update or deprecate) once
+confirmed.

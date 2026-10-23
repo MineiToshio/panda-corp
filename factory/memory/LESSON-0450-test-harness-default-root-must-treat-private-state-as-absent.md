@@ -11,7 +11,7 @@ created: 2026-10-21
 status: active
 promotion: none
 confidence: high
-times_applied: 0
+times_applied: 1
 applied_in: [mission-control]
 links: [LESSON-0090]
 ---

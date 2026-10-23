@@ -11,7 +11,8 @@ created: 2026-06-30
 status: active
 promotion: approved   # 2026-07-01 — codified as engine-owned IN_PROGRESS at wave dispatch (BL-0002 closed, plugin v9.41.0)
 confidence: high
-times_applied: 0
+times_applied: 1
+applied_in: [mission-control]
 links: [BL-0002, DR-097, DR-050, LESSON-0002]
 ---
 

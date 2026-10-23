@@ -11,8 +11,8 @@ created: 2026-07-03
 status: candidate
 promotion: none
 confidence: medium
-times_applied: 1
-applied_in: [panda-corp]
+times_applied: 2
+applied_in: [panda-corp, mission-control]
 links: []
 ---
 

@@ -11,8 +11,8 @@ created: 2026-07-12
 status: active  # 2026-10-18 (librarian review) — cross-corroborated by 2 distinct citing projects (pandasaga, funko-tracker), eval-gate bar met
 promotion: proposed   # 2026-10-18 (librarian review) — target: factory/standards/patterns.md (new "Next.js App Router provider placement" review item, or seo-i18n.md alongside the next-intl entry). Cited by 2 distinct projects (pandasaga, funko-tracker) with zero contradicting evidence — any i18n/theme project nesting a pre-hydration script-owning provider inside a locale/dynamic segment hits this exact class of bug, and the fix (hoist above the dynamic segment, or force a full document nav on param change) is cheap to codify once.
 confidence: medium
-times_applied: 2
-applied_in: [pandasaga, funko-tracker]
+times_applied: 3
+applied_in: [pandasaga, funko-tracker, mission-control]
 links: [LESSON-0168]
 ---
 
