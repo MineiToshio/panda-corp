@@ -33,3 +33,14 @@ that actually needs a real, self-contained `node_modules` tree.
 hardlinked from the shared pnpm store — cheap, not a full download) rather than symlinking the main
 checkout's `node_modules` before running `verify.sh`/e2e. Reserve symlinking, if ever used, for tools
 proven not to touch Turbopack's dev/build server; when in doubt, install for real.
+
+**Generalization (funko-tracker, 2026-10-21/22, `.pandacorp/run/lessons.md`, agent-inferred):** the same
+refusal fires for ANY symlinked directory escaping the worktree's own filesystem root, not just
+`node_modules`. A project's `worktree-setup.sh` linked a large gitignored reference-asset folder
+(`funko-ref`) from outside the worktree to skip re-copying it; Next 16's Turbopack refused to start the
+webServer with "symlink target leaves the filesystem root," exactly the same mechanism as the
+`node_modules` case. Working fixes: an APFS clone (`cp -cR`, cheap and nearly instant on macOS, unlike a
+real copy elsewhere) instead of a symlink, or moving the symlink's target to live INSIDE the project tree
+(e.g. under a gitignored subdirectory of the worktree itself) so it never crosses the root boundary
+Turbopack checks. Treat this as a blanket rule for worktree bootstrap scripts: never symlink ANY directory
+from outside the worktree root when the project's dev/build server runs on Turbopack.

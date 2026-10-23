@@ -125,3 +125,15 @@ path (`EnterWorktree({path})`). Tracked as BL-0027.
 `.pandacorp/worktree-setup.sh` hook, NOT inline in the canonical `worktree-bootstrap.sh`: the 8.81.0 to
 8.98.0 upgrade regenerates the canonical script and would have silently dropped them. The project moved both
 steps into the hook during that upgrade (docs/decision-log.md 2026-10-06). See LESSON-0131.
+
+**Eleventh facet — missing gitignored assets produce MISLEADING functional failures, not obvious missing-
+file errors (funko-tracker, 2026-10-21/22, `.pandacorp/run/lessons.md`, agent-inferred):** a fresh
+funko-tracker worktree did not bring over `docs/design/prototype/assets/funko-ref` (gitignored, ~709
+reference photos). The symptom was not a clean "file not found" — the gate saw a carousel that appeared
+to lose its hover arrows and export silhouettes that looked "broken," because the underlying images
+404'd (`/oracle-media/*`). Facets 2 and 6 above describe a missing-env/missing-codegen error that reads as
+an obvious false red; this one shows the SAME root cause (gitignored state absent from a fresh worktree)
+can instead masquerade as a plausible-looking UI/functional regression, which is more dangerous because it
+invites debugging the wrong layer. Fix applied: link only that one asset folder as step 1 of the project's
+`.pandacorp/worktree-setup.sh`, before the gate runs — and do NOT also symlink `.env.local` if the
+worktree's whole point is to stay isolated from the main checkout's live secrets.

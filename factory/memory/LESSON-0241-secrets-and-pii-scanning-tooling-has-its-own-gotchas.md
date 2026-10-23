@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0201, LESSON-0231, LESSON-0232]
+links: [LESSON-0201, LESSON-0231, LESSON-0232, LESSON-0494, BL-0279]
 ---
 
 **Situation:** across one project, three independent incidents hit the same underlying activity —
@@ -41,3 +41,23 @@ version-fragile line number, and (c) validate every detection rule against real 
 masked-shape review before trusting or freezing it. Treat a "quick regex for X" or "just gitleaks it" as
 requiring the same rigor as any other verification tooling — an unvalidated scanner is worse than no
 scanner if it produces false confidence.
+
+**Fourth facet — a text/secrets scanner does not cover embedded third-party IP in binaries, and a
+documented launch dependency is not self-enforcing (funko-tracker, 2026-10-21/22, `.pandacorp/run/
+lessons.md`, agent-inferred):** before flipping a repo from private to public, a full history secrets scan
+(`gitleaks git --log-opts=--all`, not just the current tree) was run — but the repo also carried ~1,900
+committed mock/prototype screenshots that embed official THIRD-PARTY photos and logos, which no secret
+scanner (gitleaks or otherwise) is designed to flag at all; that class of exposure is only caught by
+treating tracked BINARY/image assets as their own review surface, separate from text-pattern scanning. The
+project's own `architecture.md` had already listed "purge screenshots before any public repo" as an
+explicit launch dependency — the repo was made public without re-reading that document first, i.e. the
+documented dependency existed but nothing forced re-checking it at the moment of the actual visibility
+change (the same class as LESSON-0113: a documented trigger is a proposal, not evidence it's enforced).
+**Apply next time (addition):** before any repo-visibility change, in addition to the three-point checklist
+above, (d) scan ALL git history, not just the current tree (`--log-opts=--all` or equivalent), (e) treat
+tracked binaries/images as a distinct review pass for embedded third-party IP (trademarked logos, stock
+photos, screenshots of other products) that no text-based secrets scanner will ever catch, and (f) explicitly
+re-read the project's own already-documented "launch dependencies" (architecture.md, ADRs) as a required
+step of the visibility-change action itself, not something assumed already handled because it was written
+down once. See also LESSON-0494 (a related but distinct privacy gotcha: a design-freeze capture pass
+rendering real data on a public repo) and BL-0279 (the actionable release-flow checklist gap this surfaced).
