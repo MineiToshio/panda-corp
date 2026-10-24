@@ -26,7 +26,7 @@ the capture happens.
 
 ## Fix plan
 1. Add a repo-visibility check to the freeze's entry conditions in `freeze-and-fidelity.md` (e.g.
-   `gh repo view --json visibility` or equivalent), run before the capture pass (S1.2/`freeze.mjs`) starts.
+   `gh repo view --json visibility` or `gh api` (CONV-19)), run before the capture pass (S1.2/`freeze.mjs`) starts.
 2. On a public repo, require the prototype to render from a FICTIONAL fixture factory written in the app's
    own reader/data formats (not real project data) for the duration of the capture pass, rather than
    skipping the check or proceeding anyway.

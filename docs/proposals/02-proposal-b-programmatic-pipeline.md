@@ -29,7 +29,7 @@ proyecto-x/  (its own GitHub repo, created by the orchestrator)
 1. `pnpm factory new "Funko tracker"` (or a GitHub issue with the `idea` label) triggers the pipeline.
 2. Each stage runs the SDK's `query()` with an output schema; if validation fails, it retries with the error injected (max. 3) and then escalates.
 3. Go/No-Go: the orchestrator computes the scoring; if it passes the threshold and involves no spending, it continues on its own; if not, it opens an approval issue and waits (asynchronous H1 gate).
-4. The orchestrator creates the project repo via the GitHub API from the stack template, configures branch protection and secrets.
+4. The orchestrator creates the project repo using `gh repo create` (or `gh api` for template API operations, CONV-19) from the stack template, configures branch protection and secrets.
 5. Implementation: GitHub Actions jobs (or custom runners in Docker with `bypassPermissions` + sandbox) run headless sessions per task; each task = 1 PR; CI is the gate, not the agent.
 6. Production release: GitHub environment with required reviewer = you (GitHub's native H2 gate).
 

@@ -23,7 +23,7 @@ A system where you contribute **ideas or problems** ("app to order from the tabl
 | Degree of autonomy | High (routines, worktrees, hooks) | Maximum (24/7 in the cloud, unattended) | Medium (designed with a human at every phase) |
 | Determinism | Medium-high (deterministic hooks, skill-guided flow) | Maximum (state machine in code) | Low-medium |
 | Maintenance | Low (versioned markdown) | High (custom code + an evolving SDK) | Delegated, but customizing = fork |
-| Multi-project | User-level plugin + scaffold | GitHub API + templates | Not solved (would have to be added) |
+| Multi-project | User-level plugin + scaffold | `gh` CLI (`gh api`) + templates (CONV-19) | Not solved (would have to be added) |
 | Main risk | Tied to Claude Code | Premature over-engineering; API cost | Fighting against the grain of the framework |
 | Detail | [Proposal A](01-proposal-a-native-factory.md) | [Proposal B](02-proposal-b-programmatic-pipeline.md) | [Proposal C](03-proposal-c-existing-frameworks.md) |
 

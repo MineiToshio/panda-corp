@@ -2,6 +2,10 @@
 
 The Accounts view is a directory, not a secret manager or an infrastructure controller. Use it to find the external provider, purpose, authorized login email, clickable dashboard and consuming projects. GitHub remains standard shared repository infrastructure rather than a selectable provider in this directory.
 
+## GitHub access
+
+Agents always use `gh` CLI with the owner's existing keyring authentication for GitHub PRs, issues, CI/Actions status/logs, API calls (`gh api`) and releases. Never use the GitHub MCP connector or alternate direct HTTP/SDK/browser access. If `gh` or its authentication is unavailable, report the blocker; do not copy tokens or switch connectors. Existing owner gates still govern the operation. The reviewer checks executed session calls at handoff; this is review-only, not a CI guarantee. Canonical rule: `factory/standards/conventions.md`, CONV-19; all projects receive it through the always-injected `rules/code-conventions.md` on normal overlay upgrade.
+
 ## Sources of truth
 
 - Public reusable recipes: `factory/services/catalog.yaml` (displayed in Manual). No personal identities or provider-native account IDs.

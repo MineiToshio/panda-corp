@@ -88,6 +88,16 @@ Every URL a product exposes is English, **100% of the time, whatever the app's l
 - **Slugs generated from data**: build them from the record's stable ID or an English/canonical slug field; a proper name keeps its spelling transliterated to ASCII kebab-case (`/figures/son-goku`), but a common word never becomes a Spanish (or other non-English) path segment.
 - Specs and designs name routes the same way: FRDs, FDDs, prototypes, blueprints and work orders write English paths even when their prose quotes Spanish UI text. Existing projects keep their URLs until a change of their own migrates them (with redirects); upgrade never renames routes.
 
+## Rule — GitHub access through gh CLI (CONV-19)
+
+> Severity: **MUST** · Enforcement: checklist (review-only; reviewer tool-call audit). Owner decision 2026-10-24. Operative form: `rules/code-conventions.md` (`applies_when: always`).
+
+**Rule:** Whenever an agent interacts with GitHub, use the `gh` CLI with the owner's existing keyring authentication. This includes pull requests, issues, CI/Actions status and logs, API calls and releases. Use the relevant `gh` subcommand or `gh api` for REST/GraphQL operations; never use the GitHub MCP connector or bypass `gh` with a direct HTTP client, SDK or browser automation. If `gh` or its authentication is unavailable, report the blocker instead of switching access paths. Do not extract, print or copy keyring tokens. Existing owner gates still apply to the operation being performed; choosing `gh` grants no additional authorization. Ordinary local Git and Git transport remain governed by the Git convention.
+
+**How it is verified:** At handoff, the reviewer's GitHub-access checklist inspects the session's executed tool calls/commands: every GitHub service operation must use `gh`, and there must be zero GitHub MCP or alternate service-access calls. A single violation fails this checklist; no GitHub operations means not applicable. This is review-only, not a lint/CI or `verify.sh` guarantee: repository text alone cannot prove which runtime tools were executed.
+
+**Why:** The owner reported that the GitHub MCP connector failed with an invalid token while `gh` worked with the owner's keyring authentication. Standardizing on that authenticated path avoids divergent credentials and repeated connector failures.
+
 ## Rule — project skill names (CONV-17, DR-137)
 
 > Severity: **MUST** · Enforcement: `.pandacorp/check-project-skills.mjs`, called by `doc-lint.sh` / `verify.sh`, plus the skill-authoring review for runtime-specific packaging.
@@ -143,6 +153,8 @@ Every new or explicitly renamed skill for a product project has the public name 
 - This binds **product copy only** — not code, not committed technical docs, not the factory's own prose, and not chat with the owner (CONV-11). Where a content pipeline exists, make it a mechanical check on the pipeline's output (`grep` for the two characters), not a guideline a human remembers to apply.
 
 ## How it is verified
+
+- **GitHub access (CONV-19)**: review-only — the reviewer's GitHub-access checklist audits executed session calls against the binary criteria above; catalog validation does not certify runtime compliance.
 
 - **Project skill names (CONV-17)**: `node .pandacorp/check-project-skills.mjs --strict` rejects missing/duplicate/invalid identity fields, missing frontmatter delimiters, bare or wrong-project names and directory/suffix mismatches in standalone `.claude/skills/`. `doc-lint.sh` invokes `--rollout` before its docs-only early exit: hard for projects born on overlay 8.110.0+, advisory for older/unknown birth versions. Authoring review runs `--strict --skill <slug>` for every new/renamed skill. Full YAML/native syntax and plugin/runtime namespace resolution remain the named skill-authoring review, not a claim of runtime qualification or a full frontmatter parser. Canary: `node --test plugin/scripts/test-project-skill-names.mjs`.
 - **Typing**: `tsc --noEmit` with `strict: true` (`verify.sh` gate, fail-closed); `any`/`@ts-ignore` → Biome `noExplicitAny` as error. `mypy --strict` on Python stacks.

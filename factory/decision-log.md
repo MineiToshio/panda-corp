@@ -1,5 +1,12 @@
 # Decision Log — Factory
 
+## 2026-10-24 — Require gh CLI for every agent GitHub interaction (CONV-19)
+
+**What:** Owner-approved convention in [conventions.md](standards/conventions.md): MUST use `gh` with existing owner keyring authentication for PRs, issues, CI/Actions, API calls and releases; never GitHub MCP or alternate service-access paths. Registered as review-only/manual in [rule-registry.md](standards/rule-registry.md) and indexed in the standards README. The named reviewer checklist audits executed calls; the catalog gate does not prove runtime compliance. All existing operation-level owner gates remain intact.
+**Why:** Owner report on 2026-10-24: GitHub MCP failed with an invalid token while `gh` worked. This records the owner's evidence, not a fresh credential test. Supersedes the capability research's GitHub MCP recommendation and clarifies proposal API paths as `gh api` and backlog alternatives as gh-only for agents; dated decision-log history and research source links remain historical references. The always-injected rule and compatible overlay 8.112.0 propagate on normal upgrade; no product projects or credentials were changed. Manual guide: [services and accounts](../plugin/docs/services-and-accounts.md).
+**Verification:** `bash factory/standards/check-standards.sh` exits 0; supersession sweep covers `factory/`, `plugin/`, `docs/`. No authenticated GitHub operation is needed for this documentation change.
+
+
 ## 2026-10-23 — `main` is the only production branch; deploys only through GitHub; URLs always English
 
 **What:** Two owner decisions. **DR-138:** `main` is the only production branch in every project (never a `production`/`prod` branch); everything is local until `/pandacorp:release`; at release the Vercel project is created and connected to GitHub with Production Branch `main`, and every deployment comes from a GitHub push (never the CLI); after launch nothing reaches GitHub `main` without the owner's explicit order. New rules INFRA-7/INFRA-8 in [infra](standards/infra.md), [constitution](constitution.md) §11, [external-services](standards/external-services.md), [stack](standards/stack.md); DR-003/DR-004 notes in the [registry](decisions/registry.yaml). **DR-139:** every URL is English whatever the app's language (routes, App Router folders, API paths, query keys, slugs; the locale prefix is the only localized part). New rule CONV-18 in [conventions](standards/conventions.md) and [seo-i18n](standards/seo-i18n.md). Both rows added to the [rule registry](standards/rule-registry.md).

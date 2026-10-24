@@ -1,5 +1,5 @@
 ---
-description: Core code conventions — language, naming, strict typing, constants, imports, handlers, commits.
+description: Core code conventions — language, naming, strict typing, constants, imports, handlers, commits, GitHub access through gh CLI.
 applies_when: always
 globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.py"]
 source: Pandacorp standard — conventions
@@ -59,6 +59,11 @@ Exception: framework-reserved filenames (`page.tsx`, `route.ts`) follow the fram
 ## Env vars, comments & commits
 - Update `.env.example` in the SAME change that adds a variable, grouped by service. **Every variable gets its OWN one-line `# what it is for / how to obtain it` comment on the line directly above it** (CONV-16): a comment shared by a block of variables describes only the first one, and a section header (`# --- Group ---`) or a commented-out assignment is not a description. Commented-out optional variables (`# NAME=value`) need one too. Take the purpose from the project's docs and code, never invent it. `.pandacorp/doc-lint.sh` (run by `verify.sh`) fails on any undescribed variable. Never commit real values or secrets.
 - Comments explain **why**, not what; no ticket/issue references in code. Conventional Commits with scope, in English (`feat(orders): add table selection`); small single-purpose commits; never force-push a shared branch; never commit secrets or build artifacts.
+
+## GitHub access (CONV-19, MUST)
+- Always use `gh` CLI with the owner's existing keyring authentication for GitHub interactions: PRs, issues, CI/Actions status/logs, API calls and releases. Use the relevant subcommand or `gh api` for REST/GraphQL.
+- Never use the GitHub MCP connector or alternate direct HTTP, SDK or browser automation to access GitHub. If `gh` or authentication is unavailable, report the blocker; never extract, print or copy keyring tokens. Existing owner gates still apply. Ordinary local Git and Git transport keep their existing rules.
+- Review-only enforcement: at handoff the reviewer's GitHub-access checklist audits executed session calls. Pass only if every GitHub service operation used `gh` and zero GitHub MCP/alternate calls occurred; no operations means not applicable. Repository lint/CI cannot certify runtime tool use.
 
 ## Dependencies
 - Versions (DR-052): new project → latest stable (`@latest`); in-flight → don't churn mid-build; brownfield → latest still compatible with its framework major (check before adding). This governs which version to ADD; independently, **pin it exact in the lockfile (no `^`/`~`)** — same discipline as `web-security.md`'s Supply chain section, not limited to public-web projects: selecting `@latest` and pinning it exactly are not in tension.

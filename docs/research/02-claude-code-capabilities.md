@@ -15,7 +15,7 @@
 | **Agent Teams** (experimental) | `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | One-off adversarial review (multi-agent debate, competing lenses) — **not the build engine** |
 | **Dynamic Workflows** | `Workflow` tool / JS script that orchestrates subagents in the background (resumable) | **Engine of `/pandacorp:implement`**: work-order pipeline (loop in the script code, state in variables + files + commits, deterministic) |
 | **Routines (cloud)** | `/schedule`, GitHub/API triggers | Persistent cron: nightly grooming, PR review, post-deploy verification |
-| **MCP** | `.mcp.json` | GitHub, Notion, web search, databases |
+| **MCP** | `.mcp.json` | Notion, web search, databases; GitHub uses `gh` CLI (CONV-19) |
 | **Plugins** | `.claude-plugin/plugin.json` | Package the factory's agents+skills+hooks and install them in any project |
 | **Permissions + Sandbox** | `settings.json → permissions/sandbox` | Safe autonomy; deny-list and OS-level isolation |
 | **Dynamic workflows** | `ultracode:`, `.claude/workflows/` | Fan-out of 16-1000 agents for massive tasks (audits, migrations) |
@@ -47,7 +47,7 @@ Note: as of 2026-06-15, `claude -p` and the SDK on subscription plans consume a 
 Triggers: cron (min. 1 hour), GitHub events (PR opened, release), POST to API. They run even when the machine is off. Managed at [claude.ai/code/routines](https://claude.ai/code/routines).
 
 ### Permissions and sandbox
-Modes: `default`, `acceptEdits`, `plan`, `dontAsk`, `bypassPermissions` (only in containers). `allow/deny` rules with syntax `Bash(git push --force *)`, `Read(**/.env)`, `mcp__github__delete_*`. The sandbox (Seatbelt/bubblewrap) limits filesystem and network at the OS level — complementary to permissions. Pattern for full autonomy: Docker container + sandbox + `bypassPermissions`.
+Modes: `default`, `acceptEdits`, `plan`, `dontAsk`, `bypassPermissions` (only in containers). `allow/deny` rules with syntax `Bash(git push --force *)`, `Read(**/.env)`, `mcp__notion__delete_*`. The sandbox (Seatbelt/bubblewrap) limits filesystem and network at the OS level — complementary to permissions. Pattern for full autonomy: Docker container + sandbox + `bypassPermissions`.
 
 ### Plugins
 Structure: `.claude-plugin/plugin.json` + `skills/` + `agents/` + `hooks/hooks.json` + `.mcp.json`. The `name` becomes a namespace (`/pandacorp:spec`). A private marketplace can be hosted in a GitHub repo. **It is the ideal mechanism for distributing the factory's know-how to separate projects.**
@@ -70,7 +70,7 @@ factory-repo/
 │   ├── skills/                # /nueva-idea, /investigar, /spec, /scaffold, /release
 │   ├── workflows/             # massive audits
 │   └── hooks/                 # block-dangerous.sh, verify-before-stop.sh
-├── .mcp.json                  # GitHub, web search, Notion
+├── .mcp.json                  # web search, Notion (GitHub uses gh CLI, CONV-19)
 └── settings.json              # permissions, hooks, default mode
 ```
 

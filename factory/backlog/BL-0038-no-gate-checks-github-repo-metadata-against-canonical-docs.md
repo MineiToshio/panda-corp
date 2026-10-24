@@ -20,7 +20,7 @@ existing skill or gate currently reads/checks this metadata against the docs, so
 invisible until a human notices it by chance (as happened on personal-page-v2).
 
 ## Root cause
-Repo metadata (About description, homepage, topics) lives entirely on GitHub's side (via the `gh` CLI or
+Repo metadata (About description, homepage, topics) lives entirely on GitHub's side (agents access it through `gh` CLI only, CONV-19; humans may use the
 web UI), outside the repo's own tracked files — none of the factory's doc-lint, sync, or release
 checklists currently reads it, so nothing re-derives or validates it from the canonical docs the way
 other release-time checks do.
