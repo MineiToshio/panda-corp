@@ -9,7 +9,7 @@ source: "personal-page-v2 .pandacorp/run/lessons.md 2026-07-10 (agent-inferred) 
 provenance: agent-inferred
 created: 2026-07-10
 status: active  # cross-project corroboration (personal-page-v2 + funko-tracker) meets the eval-gate bar (DR-047)
-promotion: none
+promotion: proposed   # 2026-10-25 librarian review — target: factory/standards/build-orchestration.md's DR-096 worktree-bootstrap section, as a standing onboarding MUST: "a project whose own `.env.local`/secrets or a codegen/build step is a prerequisite for `verify.sh` creates `.pandacorp/worktree-setup.sh` (the shared template's already-reserved extension point) at onboarding (scaffold/architecture stack-install) time, BEFORE the first worktree-isolated build" — verifier: stack-install/scaffold detects the prerequisite (DB dependency + DB-dependent test setup, a codegen CLI/plugin, a required non-empty env var) and either generates the hook or fails the onboarding gate if it can't. Rationale: recurred independently 5 TIMES across 2 distinct projects (personal-page-v2 x3, funko-tracker x2) over 3 months, each time re-discovered as a false-red rather than fixed at the root; the actionable one-time code fix is already tracked as BL-0257 (open) — this promotion makes the underlying rule durable/enforced going forward, not just this one fix.
 confidence: high
 times_applied: 0
 applied_in: []

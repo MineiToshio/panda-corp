@@ -8,7 +8,7 @@ trigger: use this when evaluating whether to let Codex (or another non-Claude ru
 source: "funko-tracker .pandacorp/run/lessons.md 2026-10-19, owner-stated override + agent-inferred quality findings (5 WOs, gpt-6-astra/6.1-sol/6-luna via codex-cli 0.163.0)"
 provenance: owner-stated
 created: 2026-10-19
-status: candidate
+status: active   # 2026-10-25 librarian review: eval-gate catch-up — provenance owner-stated already met the OR-clause bar (missed activation at harvest step 4, BL-0090-class gap)
 promotion: none
 confidence: medium
 times_applied: 0

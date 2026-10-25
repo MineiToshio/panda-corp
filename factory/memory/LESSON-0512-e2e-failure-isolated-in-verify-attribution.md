@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0185, LESSON-0040]
+links: [LESSON-0185, LESSON-0040, LESSON-0079]
 ---
 
 **Situation:** an e2e test failed only inside `verify.sh` right after a merge, and passed when run
