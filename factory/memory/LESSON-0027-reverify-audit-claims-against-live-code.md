@@ -39,3 +39,15 @@ each item against the live file before execution, not just before reporting. Thi
 NARRATIVE/CONTEXT claim carried forward between recurring sweeps (a "still true, nothing changed" aside
 supporting a verdict) — it is easy to skip re-checking exactly because it doesn't read as the headline
 finding; re-verify it with the same rigor as the verdict itself, every sweep, not just on first write.
+
+**Fourth/fifth corroborating instance (funko-tracker, 2026-10, agent-inferred, same project — two
+separate near-mistakes caught before telling the owner):** the agent nearly proposed new tracking tables
+for ingestion/coverage dates without checking the existing Prisma schema first — `OnboardedScope`
+(`onboardedAt`, `lastDeltaCoveredThrough`) and `CoverageCell` (`lastCheckedAt`) already modeled exactly
+that, and "scope" goals already derive from the catalog automatically. Separately, the agent asserted a
+piece-merge feature "doesn't exist" without reading the code — `ops merge:confirm`/`mergeCollectibles`
+already implemented it. Both are the same root failure as the headline instance (asserting an absence or
+a gap from memory/assumption rather than reading the live schema/code first), extended from "a prior
+audit finding" to "my own unchecked assumption about what the codebase already has" — the discipline is
+identical: grep/read the live artifact before claiming something is missing, not just before claiming
+something is broken.

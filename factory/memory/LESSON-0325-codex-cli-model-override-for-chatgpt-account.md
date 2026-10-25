@@ -52,3 +52,10 @@ mid-task rather than with an obvious permission error. The flag must be passed a
 `resume` call, not assumed inherited from the session being resumed. Separately in the same run,
 `gpt-6-astra` returned "Selected model is at capacity" mid-task; resuming the SAME session (with the
 sandbox flag re-passed) recovered the in-progress work rather than losing it.
+
+**Fifth corroborating instance, background-hang on stdin (funko-tracker, 2026-10-25, agent-inferred):**
+`codex exec` launched in the background WITHOUT redirecting stdin from `/dev/null` hung indefinitely at
+"Reading additional input from stdin" — it was still waiting for EOF on stdin 7 hours later, having made
+no progress and never erroring out. A background/detached invocation of `codex exec` must always close
+or redirect stdin explicitly (`</dev/null`), the same discipline any backgrounded CLI needs, or a silent,
+indefinite hang is indistinguishable from a slow-but-working run until someone checks on it.

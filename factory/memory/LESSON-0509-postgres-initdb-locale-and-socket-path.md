@@ -31,3 +31,10 @@ session/scratch path can silently exceed it even though `initdb` itself succeede
 initdb --locale=C -D <datadir>`. If the data directory lives under a long or deeply nested path, start the
 server with `-k ''` (empty `unix_socket_directories`, TCP-only) or relocate the data directory to a short
 path, rather than assuming any filesystem location works for the socket.
+
+**Corroborating instance (funko-tracker, 2026-10, agent-inferred, same project):** the locale requirement
+is not limited to `initdb` — a native Homebrew `postgresql@17` instance on a non-English macOS shell also
+failed to START (`pg_ctl start`, not just `initdb`) without an explicit `LC_ALL=en_US.UTF-8` (a locale the
+build supports) set in the invoking environment. Treat `LANG`/`LC_ALL` as something to pin explicitly for
+BOTH `initdb` and every subsequent `pg_ctl start`/service invocation on this machine, not only the one-time
+init step.
