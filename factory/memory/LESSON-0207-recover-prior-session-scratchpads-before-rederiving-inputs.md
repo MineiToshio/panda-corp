@@ -4,8 +4,8 @@ type: pattern
 domain: agent-orchestration
 tags: [scratchpad, session-continuity, find, rederivation, cost]
 context: starting a new session/subagent on a task that a previous session likely already did partial research or produced inputs for (a fact sheet, a research memo, generated assets)
-trigger: use this when starting work that resembles something a previous session in the same project may have already researched or drafted
-source: "personal-page-v2 .pandacorp/run/lessons.md 2026-09-07, agent-inferred. Complementary facet, 2026-09-13 (same project, agent-inferred): the session scratchpad can be WIPED between sessions (the `find`-based recovery above fails). To keep editing an already-published artifact in that case, recover it via the Artifact tool's `action=read` (it saves the full HTML under `tool-results/`) and strip the publish-time doctype/head/body wrapper before republishing — a second, independent recovery channel for when the filesystem-based one is unavailable. Corroborated from a SECOND, distinct project (mission-control, 2026-09-25, `.pandacorp/run/lessons.md` 2026-09-22, librarian harvest): a session restart during the 2026-09 implement-speed sprint wiped the scratchpad holding several canary/forensic analysis reports (`canary-d-report.md`, `canary-c-forensics.md`, etc.) with no recovery channel available for that artifact type (unlike a published HTML page, a plain analysis report has no Artifact-tool backstop) — the reports were permanently lost, not just inconvenient to re-derive. This corroborates the 'wiped' failure mode across two independent projects and adds a sharper prescription: durable analysis output has no guaranteed recovery path at all once the scratchpad is wiped, so it must be written to the repo (`docs/reviews/`, `factory/`, or the equivalent durable location) in the SAME turn it is produced, not left in scratch pending a later write."
+trigger: use this when starting work that resembles something a previous session in the same project may have already researched or drafted, or when a session restart has just occurred and background workers were in flight before it
+source: "personal-page-v2 .pandacorp/run/lessons.md 2026-09-07, agent-inferred. Complementary facet, 2026-09-13 (same project, agent-inferred): the session scratchpad can be WIPED between sessions (the `find`-based recovery above fails). To keep editing an already-published artifact in that case, recover it via the Artifact tool's `action=read` (it saves the full HTML under `tool-results/`) and strip the publish-time doctype/head/body wrapper before republishing — a second, independent recovery channel for when the filesystem-based one is unavailable. Corroborated from a SECOND, distinct project (mission-control, 2026-09-25, `.pandacorp/run/lessons.md` 2026-09-22, librarian harvest): a session restart during the 2026-09 implement-speed sprint wiped the scratchpad holding several canary/forensic analysis reports (`canary-d-report.md`, `canary-c-forensics.md`, etc.) with no recovery channel available for that artifact type (unlike a published HTML page, a plain analysis report has no Artifact-tool backstop) — the reports were permanently lost, not just inconvenient to re-derive. This corroborates the 'wiped' failure mode across two independent projects and adds a sharper prescription: durable analysis output has no guaranteed recovery path at all once the scratchpad is wiped, so it must be written to the repo (`docs/reviews/`, `factory/`, or the equivalent durable location) in the SAME turn it is produced, not left in scratch pending a later write. Fourth corroboration, factory (`factory/memory/_inbox.md` 2026-10-24, agent-inferred): a session restart also kills any BACKGROUND WORKERS dispatched before it, not just scratchpad files — there is no recovery channel for a background worker itself, so the correct response is to re-launch the work and tell the owner plainly that nothing from before the restart ran, never assume or report pre-restart completion (CONV-13)."
 provenance: agent-inferred
 created: 2026-09-08
 status: active
@@ -13,7 +13,7 @@ promotion: proposed   # 2026-10-19 (librarian review) — target: factory/standa
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0177]
 ---
 
 **Situation:** prior sessions' scratchpad directories survive on disk at
@@ -51,3 +51,12 @@ file, so recover the authored content by slicing from the authored `<title>` tag
 tag in the returned HTML, discarding everything outside that span, before re-editing and republishing.
 Also re-publish after every meaningful edit rather than batching several edits before the next publish —
 batching widens the window in which a scratchpad rotation can erase unpublished work.
+
+**Fourth corroboration, factory (2026-10-24, agent-inferred):** a session restart does not just wipe the
+scratchpad's FILES — it also kills any background workers (Agent-tool subagents) that were dispatched
+before the restart. Neither their output nor any trace that they ran survives; there is no recovery
+channel for a background worker itself (distinct from recovering an already-written artifact). The
+correct response on noticing a restart is to re-launch the needed work from scratch AND tell the owner
+plainly that nothing from before the restart actually ran — never assume or report that a pre-restart
+background task completed just because it was dispatched; verify its output exists post-restart before
+trusting or citing it (CONV-13).

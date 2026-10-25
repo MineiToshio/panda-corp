@@ -362,3 +362,27 @@ reinventing the count and instead enforce ONE canonical bullet shape at write ti
 reminder.sh / rule-8 prompt text itself), closing the drift at the source rather than chasing it at read
 time. No new backlog item; same item, same scope. Source: factory/memory/_inbox.md note, 2026-10-20 sweep
 (agent-inferred), harvested 2026-10-21.
+
+## Note (annotated 2026-10-25) — an explicit drain marker, anchored on the WHOLE line, worked cleanly across 5 files in one pass
+
+A distinct, untried approach: every harvest that fully drains a file already writes an explicit
+`<!-- No live notes pending as of YYYY-MM-DD. -->` marker right after the drain (a convention already in
+use in both `factory/memory/_inbox.md` and portfolio projects' `.pandacorp/run/lessons.md`, visible
+throughout this file's own `source:` citations), distinct from a drain summary's own closing `-->`.
+Anchoring on `grep -n "No live notes pending as of"`'s LAST match, then counting/classifying only lines
+after it, was tried live during the 2026-10-25 harvest across 5 files in one pass (factory inbox: 7 live
+— matched a manual read; funko-tracker: 25 live; mission-control/personal-page-v2/pandacast: 0 live
+each) with no false positive from a live note merely discussing the marker phrase (none existed at the
+time). This sidesteps every boundary-detection trap the 2026-09-26/27/29/10-06/10-16/10-20 annotations
+above converged on (it never needs to find where a `<!-- Drained ... -->` block's own closing `-->`
+sits, isolated or inline) — it only needs the marker line to exist and be unambiguous. **Caveat, same
+class of trap as the 2026-09-27 annotation:** this breaks the day a LIVE note's own prose quotes the
+phrase "No live notes pending as of" (not yet observed) — whoever implements this must require the
+marker to be matched as the WHOLE line content (e.g. `^<!-- No live notes pending as of .*\. -->$`), not
+a substring match, to stay safe against that trap. Worth evaluating as the simplest fix for this item
+before adding further tag-regex or `-->`-boundary variants — it is orthogonal to (and potentially
+replaces the need for) every line-tag-matching and `-->`-boundary-matching approach recorded above,
+provided every harvest reliably writes the marker (which is not itself verified/enforced anywhere; a
+harvest that forgets to write it would make this approach silently fail back to the already-documented
+traps). Source: factory/memory/_inbox.md note, landed mid-drain during the 2026-10-25 harvest
+(agent-inferred).

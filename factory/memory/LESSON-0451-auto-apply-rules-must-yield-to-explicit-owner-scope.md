@@ -4,8 +4,8 @@ type: pattern
 domain: skill-design
 tags: [skill-eval, owner-instruction, automation-scope, worktrees]
 context: a skill/rule engine that auto-applies an action it judges "safe" (e.g. auto-delete, auto-merge) across a batch of candidate items
-trigger: use this when designing or evaluating a skill that auto-applies a "safe" class of action to multiple items in one run, and the owner's own request already named a narrower, explicit scope
-source: "plugin/skills/worktrees/evals/evals.json (prompt: \"...la rama codex/old-experiment descartala...lo demas no lo toques sin preguntarme\") — DR-135 worktrees skill eval, factory/memory/_inbox.md 2026-10-20 (agent-inferred)"
+trigger: use this when designing or evaluating a skill that auto-applies a "safe" class of action to multiple items in one run, or when drafting a cleanup/delete-list proposal, and the owner has named a narrower, explicit scope — whether in the original request or mid-flight
+source: "plugin/skills/worktrees/evals/evals.json (prompt: \"...la rama codex/old-experiment descartala...lo demas no lo toques sin preguntarme\") — DR-135 worktrees skill eval, factory/memory/_inbox.md 2026-10-20 (agent-inferred). Second corroborating instance, factory/memory/_inbox.md 2026-10-24 (agent-inferred): a live cleanup proposal (funko-tracker only, leave other projects) scoped mid-flight by the owner, not at the original request — the delete list itself had to be narrowed before being proposed."
 provenance: agent-inferred
 created: 2026-10-21
 status: candidate
@@ -32,3 +32,12 @@ THAT request — even for other items that would independently satisfy the "safe
 for an explicit scope-limiting instruction; if present, apply automation ONLY within that scope and route
 everything else through the normal confirm-first path, regardless of whether those other items would also
 qualify as safe.
+
+**Second corroborating instance, factory (2026-10-25, agent-inferred):** the owner narrowed the scope of
+an in-progress cleanup MID-FLIGHT (e.g. "just funko-tracker, leave the other projects alone"), not in the
+original request. Before proposing a delete/cleanup list for the owner's approval, the list itself must
+already be narrowed to the owner's most recent explicit scope — the agent must not draft or present a
+broader candidate list (even one it plans to caveat) and rely on the owner to catch the overreach. The
+rule generalizes beyond "the same request": an explicit scope given AT ANY POINT in the conversation
+constrains every later batch-action proposal made under that automation rule, not just the one it was
+stated alongside.
