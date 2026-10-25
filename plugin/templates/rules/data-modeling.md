@@ -15,4 +15,5 @@ source: Pandacorp standard — data-modeling
 - **N+1**: load relations with `include`/`select` in ONE query in the data layer; **never query inside a loop**. `select` only the needed columns on hot paths.
 - **Denormalize only with a measured reason + an ADR** naming what keeps the copy consistent; default normalized.
 - Schema changes = versioned, reversible migrations, never edited after applied (see quality-and-testing).
+- Migrations are applied to the native test template database (`<slug>_template` on `127.0.0.1:<base+2>`) before the DB-backed suites; per-run test databases are cloned from it and dropped at teardown (zero residue, DR-140). Never point tests at Neon dev/prod.
 - Seed script (`prisma/seed.ts`): deterministic, minimal, **dev-only** — never against production. Tests use their own factories, not the seed.

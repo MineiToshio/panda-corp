@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [DR-140, INFRA-9]
 ---
 
 **Situation:** `initdb` on a Homebrew-installed native PostgreSQL failed with "configuración regional

@@ -4,7 +4,7 @@
 
 ## Gates (verified by scripts/CI, never by the agent's self-report)
 Validation order before considering something done:
-1. **Tests** (unit + integration) green.
+1. **Tests** (unit + integration) green. DB-backed suites run only against the native local test Postgres and leave zero residue; `db:test:check-clean` is part of the gate (`infra.md` INFRA-9/10, DR-140).
 2. **Type-check** strict with no errors (`tsc --noEmit` / `mypy --strict`).
 3. **Lint + format** with no errors or new warnings (the stack's linter/formatter).
 4. **Build** clean where applicable.

@@ -8,7 +8,7 @@ trigger: use this when an architecture/stack-install step, a fidelity/e2e gate, 
 source: "synthesis over 5 evidence-anchored candidates, all funko-tracker .pandacorp/run/lessons.md 2026-10-18/19 (agent-inferred + owner-stated): LESSON-0429 (owner-stated — container identity/naming convention), LESSON-0431 (agent-inferred — a fidelity/e2e gate's own dedicated database was never self-provisioned, P1003 on a fresh environment), LESSON-0438 (agent-inferred — several DB-backed vitest suites run concurrently against one local Postgres starve setup/teardown hooks, looking like flaky tests), LESSON-0439 (agent-inferred — a cherry-picked Prisma schema change needs `db:generate` in the receiving checkout, tsc stays green against its own stale generated client), LESSON-0441 (agent-inferred — stopping the old DB container before pulling the new image turns pull latency into guaranteed downtime for every DB-backed verify). Librarian reflection pass, 2026-10-19 scheduled memory review."
 provenance: agent-inferred
 created: 2026-10-19
-status: candidate
+status: deprecated
 promotion: none
 confidence: medium
 times_applied: 0
@@ -61,3 +61,5 @@ This is a single-project reflection (all 5 source lessons are funko-tracker evid
 `candidate` until a second, distinct project corroborates the pattern as a whole (DR-047
 anti-poisoning) — but each of the 5 underlying facet lessons is independently evidence-anchored and
 citable on its own before that happens.
+
+**Superseded 2026-10-24 by DR-140 (owner-stated):** no Docker for project databases; tests use a native local Homebrew Postgres with zero residue (`factory/standards/infra.md` INFRA-9/10).

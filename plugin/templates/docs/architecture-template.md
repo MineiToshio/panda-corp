@@ -97,6 +97,10 @@ Prepared production inputs are not a production deployment or verified productio
 
 Environments, CI/CD shape, hosting target, rollback. *(Local/internal tool: say so and stop.)*
 
+### Test database (DR-140, INFRA-9/10)
+
+If the project has a database: native Homebrew `postgresql@NN` on `127.0.0.1:<base+2>` (review `<base+3>`), data dir, database names (`<slug>_template`, per-run `<slug>_test_*`), the variable the tests read (`TEST_DATABASE_URL`), and the commands (`pnpm db:test:up`, `pnpm db:test:down`, `pnpm db:test:check-clean`). State the zero-residue mechanism (drop at teardown, rollback, stale sweep, post-run check in `verify.sh`). Never Docker, never Neon for tests; app development uses the Neon dev branch.
+
 ## Non-functional constraints
 
 Performance / scale / cost / privacy targets that bind every feature. Keep to what actually binds.

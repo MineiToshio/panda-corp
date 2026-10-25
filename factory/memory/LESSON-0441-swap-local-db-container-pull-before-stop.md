@@ -8,7 +8,7 @@ trigger: use this when about to replace a running local database container with 
 source: "funko-tracker .pandacorp/run/lessons.md 2026-10-19 (agent-inferred)"
 provenance: agent-inferred
 created: 2026-10-19
-status: candidate
+status: deprecated
 promotion: none
 confidence: medium
 times_applied: 0
@@ -30,3 +30,5 @@ being reachable, including an unrelated verify/gate run that happens to fire dur
 (`docker pull postgres:17`) while the OLD container is still running and serving traffic, then do
 stop-old → up-new → migrate as one fast sequential step — never stop the old container before the new
 image has already finished downloading.
+
+**Superseded 2026-10-24 by DR-140 (owner-stated):** no Docker for project databases; tests use a native local Homebrew Postgres with zero residue (`factory/standards/infra.md` INFRA-9/10).

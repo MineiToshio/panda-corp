@@ -8,7 +8,7 @@ trigger: use this when an architecture/stack-install step needs to stand up a lo
 source: "funko-tracker .pandacorp/run/lessons.md 2026-10-18, owner-stated"
 provenance: owner-stated
 created: 2026-10-19
-status: active
+status: deprecated
 promotion: none
 confidence: high
 times_applied: 0
@@ -29,3 +29,5 @@ SAME long-lived container across runs instead of spinning up a parallel, differe
 project's own `pnpm db:up` (or equivalent) expects, with the compose project name set to the project
 slug and one container per needed engine (Postgres/MySQL/Redis) inside it — never a hand-rolled
 `docker run` with an improvised name.
+
+**Superseded 2026-10-24 by DR-140 (owner-stated):** no Docker for project databases; tests use a native local Homebrew Postgres with zero residue (`factory/standards/infra.md` INFRA-9/10).

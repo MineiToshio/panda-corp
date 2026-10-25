@@ -1,5 +1,11 @@
 # Decision log — Plugin pandacorp
 
+## v9.143.0 — 2026-10-24 (MINOR): native test Postgres + zero residue (DR-140)
+
+**What:** [architecture](../skills/architecture/SKILL.md) step (f), [stack-install.md](../skills/architecture/references/stack-install.md) (d) and [environment-delivery.md](../skills/architecture/references/environment-delivery.md) now generate the native test DB (Homebrew Postgres on `127.0.0.1:<base+2>`, `db:test:up`/`down`/`check-clean` wired into `verify.sh`) and `TEST_DATABASE_URL` with its real loopback value in `.env.local`/`.env.example` (one comment per variable), documented in architecture.md's new test-database section ([template](../templates/docs/architecture-template.md)). Docker Compose removed from stack A STACK.md; stack B/C, [devops](../agents/devops.md) and injected rules `quality-and-testing.md`, `data-modeling.md`, `external-services.md` updated. Overlay 8.113.0 (compatible).
+**Why:** owner rule 2026-10-24 (factory decision log, DR-140).
+
+
 ## 2026-10-24 — Inject mandatory gh CLI GitHub access (CONV-19)
 
 **What / why:** Owner-approved rule after GitHub MCP rejected its token while `gh` worked: all agent GitHub service interactions use `gh` with existing keyring authentication, including `gh api`; no GitHub MCP or alternate service-access path. Updated [code-conventions](../templates/rules/code-conventions.md) (`applies_when: always`), its catalog and the [Manual guide](services-and-accounts.md). Compatible overlay bump 8.111.0 → 8.112.0 triggers normal project upgrade; no project is edited in this change. Checklist enforcement audits executed tool calls at handoff; this is review-only, not automated CI enforcement. Existing owner gates and token secrecy remain binding. Canonical standard and catalog row: `factory/standards/conventions.md` CONV-19 and `rule-registry.md`. Standards catalog exits 0.

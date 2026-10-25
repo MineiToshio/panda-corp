@@ -39,6 +39,11 @@ source: Pandacorp standard — quality
 - No hard waits: Playwright auto-waiting + web-first assertions (never `waitForTimeout`); RTL puts only assertions inside `waitFor`.
 - Placement (`_tests/`, `src/test/`, `e2e/`) → see `project-structure`.
 
+## Test database: native, local, zero residue (DR-140, INFRA-9/10)
+- Tests that need a database (unit/integration, `verify.sh`, e2e) use ONLY the project's native Homebrew PostgreSQL on `127.0.0.1:<base+2>` (started by `pnpm db:test:up`, URL in `TEST_DATABASE_URL`). Never Docker, never a cloud DB (Neon dev/prod is for running the app, not for tests). A test URL with a non-loopback host fails loud before connecting.
+- Zero residue: per-run/per-worker databases (`<slug>_test_*`) are dropped at teardown, per-test transactions are rolled back, and setup sweeps stale `<slug>_test_*` databases left by crashed runs. Between runs only the empty template remains.
+- `pnpm db:test:check-clean` runs in `verify.sh` after the DB-backed suites and FAILS the gate on any leftover test database or non-empty template table. Never delete the check to get green.
+
 ## E2E & independent verification
 - E2E only on critical flows; select by `data-testid`, not brittle text/CSS; leave NO persistent test data (deterministic teardown or an ephemeral DB).
 - **Hydration-safe e2e (web UI).** Every e2e spec that fills or submits a form starts with `gotoHydrated(page, path)` from `e2e/_hydration.ts` — never a bare `page.goto` followed by `fill`. `goto` resolves before React hydrates, so typed input reaches only the DOM and the submit falls back to a native GET (a flaky test, and form data in the URL). The helper waits on the page's FORM (not `main`); a product that needs a stricter signal sets `data-hydrated` on the form or an ancestor from a client effect and the helper honors it first.

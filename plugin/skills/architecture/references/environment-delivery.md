@@ -47,6 +47,16 @@ within a process to the protected destination; display only names, counts and re
   client is intentionally shared across approved dev/prod callback origins in the shared PandaTrack project;
   record this exception explicitly. It does not permit sharing unrelated secrets or adding staging.
 
+- **Native test database (DR-140, INFRA-9/10):** when the project has a database, the test DB is a
+  native Homebrew PostgreSQL on `127.0.0.1:<base+2>`, never Docker and never Neon. Generate
+  `TEST_DATABASE_URL` (and the test-only mapping to the `DATABASE_URL` the code reads, applied inside the
+  test command) with its **real local value** in the local-only block of `.env.local`; loopback
+  credentials are not secrets, so `.env.example` carries the same loopback value. Each variable gets its
+  own one-line comment (CONV-16): what it is, that it is the native test Postgres started by
+  `pnpm db:test:up`, and that tests leave zero residue. Never in `.env.production`. Document port, database
+  names (`<slug>_template`, `<slug>_test_*`) and the start/check commands in `architecture.md`'s
+  environment/test section.
+
 ## 3. Deliver protected files to explicit targets
 
 Write in the MAIN project checkout under its existing single-writer ownership. If it is busy, leave delivery

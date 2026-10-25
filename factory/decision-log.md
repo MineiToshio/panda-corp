@@ -1,5 +1,12 @@
 # Decision Log — Factory
 
+## 2026-10-24 — DB tests only on native local Postgres, zero residue; Docker not required (DR-140)
+
+**What:** New MUST rules INFRA-9 (DB-backed tests run only against a native Homebrew PostgreSQL on loopback `base+2`; never Docker, never Neon) and INFRA-10 (zero residue: drop per-run DBs, roll back, sweep stale `<slug>_test_*`, post-run `db:test:check-clean` fails the gate) in [infra.md](standards/infra.md); INFRA-1 rewritten (Docker Compose form superseded); rows in [rule-registry.md](standards/rule-registry.md); pointers in [quality.md](standards/quality.md) and [external-services.md](standards/external-services.md); DR-140 in the registry. App development uses the Neon dev branch. LESSON-0429/0441/0446 deprecated.
+**Why:** owner-stated 2026-10-24: two macOS users run in parallel and the work user must run Docker Desktop, which cannot run for both, so the personal user must not depend on Docker; cloud DBs are wrong for tests (per-worker create/drop, quota, pollution). Triggered by funko-tracker's red local `verify.sh`; that project migrates in its own session and is not touched here.
+**Verification:** `check-standards.sh`; supersession sweep of `docker` across `factory/`, `plugin/` (remaining hits are deploy Dockerfiles and the Playwright image, unrelated). The zero-residue check is a per-project script; no factory canary exists yet.
+
+
 ## 2026-10-24 — Require gh CLI for every agent GitHub interaction (CONV-19)
 
 **What:** Owner-approved convention in [conventions.md](standards/conventions.md): MUST use `gh` with existing owner keyring authentication for PRs, issues, CI/Actions, API calls and releases; never GitHub MCP or alternate service-access paths. Registered as review-only/manual in [rule-registry.md](standards/rule-registry.md) and indexed in the standards README. The named reviewer checklist audits executed calls; the catalog gate does not prove runtime compliance. All existing operation-level owner gates remain intact.

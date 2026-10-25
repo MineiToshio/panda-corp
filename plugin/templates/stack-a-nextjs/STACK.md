@@ -33,23 +33,21 @@ pnpm create t3-app@latest . --noGit   # the Pandacorp scaffold already has git
    **Do NOT run `biome init` and hand-tune it.** Install the **canonical `biome.json`** (`${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/biome.json`) **VERBATIM** — it is the MAXIMUM fail-closed config (DR-059), conformance-checked by `/pandacorp:upgrade`. It enables the **domains** (`react`, `next`, `test`) and the **`a11y`** group, and promotes the hard-enforcement rules to **error**. **Correction:** Biome *detects the presence* of a domain from `package.json`, but **the domain's rules are NOT auto-activated** — you must enable each domain (and `useSortedClasses`, a nursery rule) **explicitly** in `biome.json`, which the canonical file does. Tailwind class ordering = Biome's `useSortedClasses` (replaces `prettier-plugin-tailwindcss`). Biome formats AND lints; do not add Prettier or ESLint. **Escape hatch only if needed**: a minimal ESLint config running *only* `eslint-plugin-testing-library` (and/or `eslint-config-next`) for the few rules Biome lacks — never re-add Prettier.
 3. **Testing + dead-code gate**: `pnpm add -D vitest @testing-library/react @testing-library/jest-dom jsdom @playwright/test knip madge` — then install the canonical **`knip.json`** (`${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/knip.json`) VERBATIM (DR-059).
 4. **shadcn/ui**: `pnpm dlx shadcn@latest init` — use the preset/tokens from `docs/design/design-tokens.json`.
-5. **DB**: **dev → Postgres in Docker** (see below); **staging/prod → managed** (Neon — Supabase was evaluated and rejected, see `external-services.md`). Connection strings only in protected `.env.local` / `.env.production` with explicit destination selection (DR-021; `external-services.md` three-file contract).
+5. **DB**: **tests → native local Homebrew Postgres** (see below); **app development → Neon dev branch**; **staging/prod → managed** (Neon — Supabase was evaluated and rejected, see `external-services.md`). Connection strings only in protected `.env.local` / `.env.production` with explicit destination selection (DR-021; `external-services.md` three-file contract).
 6. **Structure**: features in folders (`src/features/<feature>/`), shared in `src/lib/`, components one file + colocated test.
 
-## Database in dev (Docker) + worktrees (DR-021/022/023)
+## Test database (native Postgres, no Docker) + worktrees (DR-021/022/023, DR-140)
 
-`docker-compose.yml` with Postgres (and Redis if applicable); the port comes from the final local-only block of `.env.local` via `docker compose --env-file .env.local ...` (port convention in `factory/standards/infra.md`). The agent brings it up with `docker compose --env-file .env.local up -d` before the tests.
+No Docker, no Compose file (`infra.md` INFRA-9/10). Tests use a native Homebrew `postgresql@NN` on `127.0.0.1:<base+2>` (review worktree `<base+3>`), data dir under `~/.local/share/pandacorp-pg/<slug>`. App development uses the Neon dev branch. The project ships these scripts:
 
-```yaml
-# docker-compose.yml (dev)
-services:
-  db:
-    image: postgres:17
-    ports: ["${DB_PORT:-5432}:5432"]
-    environment: { POSTGRES_PASSWORD: dev, POSTGRES_DB: ${PROJECT_DB:-app} }
-    volumes: ["pgdata:/var/lib/postgresql/data"]
-volumes: { pgdata: {} }
+```jsonc
+// package.json (scripts)
+"db:test:up": "bash scripts/db-test.sh up",          // initdb once (--locale=C --encoding=UTF8), pg_ctl start, create <slug>_template + migrate
+"db:test:down": "bash scripts/db-test.sh down",      // pg_ctl stop
+"db:test:check-clean": "bash scripts/db-test.sh check-clean" // FAIL if any <slug>_test_* DB or a non-empty template table remains
 ```
+
+The test harness clones `<slug>_test_<run>_<worker>` from the template, rolls back per-test transactions, drops its databases at teardown, and at setup drops stale `<slug>_test_*` from crashed runs. `verify.sh` runs `pnpm db:test:up` before and `pnpm db:test:check-clean` after the DB-backed suites. `TEST_DATABASE_URL` (loopback, non-secret) lives in `.env.local`; a non-loopback host fails the test command before connecting.
 
 **`.worktreeinclude`** at the root (copies unversioned config to each new worktree, to test a snapshot without reconfiguring):
 
@@ -59,7 +57,7 @@ volumes: { pgdata: {} }
 
 Never bootstrap `.env.production` or provider-admin credentials; no additional root dotenv files.
 
-Test the last green without stopping the agent: `git worktree add /Users/Shared/review-worktrees/<project> <last_green_sha>` (the canonical review-worktrees root, DR-090 — never a sibling inside the projects area, no `-review` suffix) → in that folder, `pnpm install` (fast with the pnpm store), adjust `DB_PORT` in its `.env.local` local-only block, `docker compose --env-file .env.local -p <project>-review up -d`, and run the dev server. A single review folder, refreshed to the last green.
+Test the last green without stopping the agent: `git worktree add /Users/Shared/review-worktrees/<project> <last_green_sha>` (the canonical review-worktrees root, DR-090 — never a sibling inside the projects area, no `-review` suffix) → in that folder, `pnpm install` (fast with the pnpm store), set its `TEST_DATABASE_URL` port to `<base+3>` in the `.env.local` local-only block, `pnpm db:test:up`, and run the dev server. A single review folder, refreshed to the last green.
 
 ## Hard enforcement (lint rules — make the rule library fail the gate, not just live in prose)
 

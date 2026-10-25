@@ -66,7 +66,7 @@ devDependency.
 
 From `.pandacorp/status.yaml` `dev_port_base` (reserved at scaffold, DR-022): write `.claude/launch.json` with the
 app on `base+0` (the stack's dev command, e.g. `pnpm` `["run","dev"]` plus the `--port`/`-p base` flag and
-`"port": base`), and set local app/DB/service ports in the final local-only block of `.env.local` per the block offsets (Postgres `+2`, Redis `+4`). Configure Compose to read that file explicitly for port interpolation (for example `docker compose --env-file .env.local up -d`); do not generate a fourth `.env` file.
+`"port": base`), and set local app/DB/service ports in the final local-only block of `.env.local` per the block offsets (test Postgres `+2`, review `+3`, Redis `+4`); do not generate a fourth `.env` file. **Test database (DR-140, INFRA-9/10):** no Docker/Compose. Install the native-Postgres scripts (`db:test:up`/`db:test:down`/`db:test:check-clean`, see the stack's STACK.md) and wire `verify.sh` to run `db:test:up` before and `db:test:check-clean` after the DB-backed suites. Write `TEST_DATABASE_URL=postgresql://<slug>@127.0.0.1:<base+2>/<slug>_template` with its real value in `.env.local` (local loopback credentials are not secrets) and the same non-secret loopback shape in `.env.example`, each with its own one-line purpose comment (CONV-16). Never point tests at Neon or Docker.
 `dev_port_base: 0` → allocate a block from `factory/ports.yaml` exactly as `scaffold` does, then materialize.
 
 ## (e) Exact versions at the install point (DR-102, SEC-4 cooldown)
