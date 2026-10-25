@@ -7,7 +7,7 @@ status: open
 severity: p1
 opened: 2026-10-25
 closed:
-source: "funko-tracker .pandacorp/run/lessons.md 2026-10 (agent-inferred) — an agent nearly ran `pkill -f vitest` host-wide after a shell `test` alias shadowing incident; see LESSON-0530. Confirmed live: `plugin/scripts/block-dangerous.sh:313` SERVER_KILL_TARGETS='(^|[^a-z0-9])(next|node|nodejs|vite|playwright|pnpm|npm|npx|tsx)([^a-z0-9]|\$)' does not match the string `vitest` (the character after `vite` is `s`, which fails the `[^a-z0-9]|\$` boundary)."
+source: "funko-tracker .pandacorp/run/lessons.md 2026-10 (agent-inferred) — an agent nearly ran `pkill -f vitest` host-wide after a shell `test` alias shadowing incident; see LESSON-0530. Confirmed live: `plugin/scripts/block-dangerous.sh:313` SERVER_KILL_TARGETS='(^|[^a-z0-9])(next|node|nodejs|vite|playwright|pnpm|npm|npx|tsx)([^a-z0-9]|\\$)' does not match the string `vitest` (the character after `vite` is `s`, which fails the `[^a-z0-9]|\\$` boundary)."
 closes:
 links: [BL-0223, LESSON-0530]
 ---
