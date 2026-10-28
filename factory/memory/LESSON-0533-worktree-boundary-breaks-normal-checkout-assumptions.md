@@ -11,8 +11,8 @@ created: 2026-10-25
 status: active   # cross-corroborated: panda-corp (LESSON-0111) + funko-tracker (LESSON-0478/0523/0524), 2 distinct projects
 promotion: none
 confidence: high
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [funko-tracker]
 links: [LESSON-0090, LESSON-0102, LESSON-0111, LESSON-0131, LESSON-0478, LESSON-0523, LESSON-0524]
 ---
 
