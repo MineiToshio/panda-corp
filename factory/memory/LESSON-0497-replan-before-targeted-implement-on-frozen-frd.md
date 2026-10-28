@@ -18,7 +18,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0537]
 ---
 
 **Situation:** an FRD was amended by a design freeze (a `new-version` milestone), but its own work orders

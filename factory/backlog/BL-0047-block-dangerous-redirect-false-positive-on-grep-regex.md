@@ -87,6 +87,20 @@ redirect-truncation guard and the generic destructive-command matchers). Workaro
 and the other command into separate Bash calls, or write heredoc'd text via Edit/Write instead of a bash
 heredoc. See `factory/memory/LESSON-0105` (12th corroboration) for the generalized workaround.
 
+## Corroborating occurrence (2026-10-23, mission-control, harvested via /pandacorp:memory) — a FOURTH distinct matcher
+A live reproduction on a NEW matcher, confirming the systemic root cause extends past the three matchers
+already named above: the Vercel-deploy-CLI blocker false-positived on a `grep` command whose SEARCH
+PATTERN was the literal text of mission-control's own production-deploy command string — the carrier
+`grep` never ran a deploy, it only searched for text mentioning one, but the scanner reads the whole
+command string with no distinction between "this IS the blocked action" and "this command's argument
+MENTIONS the blocked action's text." The same sweep also reproduced the already-known heredoc-body gap
+(10th/11th/12th corroborations) on a new content surface: a heredoc body merely describing a recursive
+delete of a test fixture directory whose name resembled a protected `.pandacorp/`-style state path tripped
+the destructive-command (`rm -r`) matcher on descriptive prose. Workaround for both: `grep -nF -f
+<pattern-file>` (read the search pattern from a file instead of inlining it in the command argument) for
+the grep case, and writing the check to a script file first instead of an inline heredoc for the prose
+case. See `factory/memory/LESSON-0105` (13th corroboration) for the generalized workaround.
+
 ## Root cause
 The redirect scanner (line 101) is a bare textual pattern match with no shell-tokenization/quote-awareness:
 it cannot distinguish an actual redirect operator from a `>` character that is merely PART of an argument
