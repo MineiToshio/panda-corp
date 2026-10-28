@@ -13,7 +13,7 @@ promotion: proposed   # 2026-10-19 (librarian review) — target: factory/standa
 confidence: high
 times_applied: 0
 applied_in: []
-links: [DR-096, LESSON-0034, LESSON-0039]
+links: [DR-096, LESSON-0034, LESSON-0039, LESSON-0125]
 ---
 
 **Situation:** `worktree-bootstrap.sh` copied `.claude/launch.json` from the main checkout into a new

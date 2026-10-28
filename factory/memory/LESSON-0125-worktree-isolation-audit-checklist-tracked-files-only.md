@@ -31,7 +31,7 @@ promotion: proposed   # 2026-09-10 (librarian review, updated 2026-10-15 after f
 confidence: medium
 times_applied: 1
 applied_in: [funko-tracker]
-links: [LESSON-0073, LESSON-0090, LESSON-0093, LESSON-0111, LESSON-0124, LESSON-0131, LESSON-0158, DR-096, BL-0151]
+links: [LESSON-0073, LESSON-0090, LESSON-0093, LESSON-0102, LESSON-0111, LESSON-0124, LESSON-0131, LESSON-0158, DR-096, BL-0151]
 ---
 
 **Situation:** across five INDEPENDENT incidents over five days, DR-096 git-worktree isolation leaked in
