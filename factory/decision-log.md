@@ -1,5 +1,12 @@
 # Decision Log — Factory
 
+## 2026-10-27 — Batch integration of finished verified branches (DR-141)
+
+**What:** [BUILD-4](standards/build-orchestration.md) replaces the per-source full integration-gate default in DR-096 when several finished independently verified branches are waiting: one integration branch from current main, all selected changes merged, one full queue gate; on red, scoped repair of the owning defect and one combined retry. A singleton still lands alone. DR-141 in the [registry](decisions/registry.yaml), catalog row and standards index; [quality](standards/quality.md) cross-reference. Production order/token, branch verification, per-FRD gates and the backlog engine's cheap catalog checks are preserved.
+**Why:** Explicit owner order: repeated full gates for accumulated finished work multiply latency. Manual squash merges preserve conflict resolutions through the unchanged queue's plain rebase; retain source branches and SHA mapping rather than pretending squash proves ancestry. Review-only landing evidence checklist plus a real-queue rehearsal; no new multi-branch CLI. Propagation: always-injected quality rule + project guide, overlay 8.114.0. Manual: new batch-integration guide. No sibling project is changed.
+**Verification:** `check-standards.sh` exit 0 (178 rules, 32 files); `test-batch-integration.sh` exit 0 (combined gate once, conflict resolution survives an actual rebase, red blocks main, scoped retry, source tips retained); `test-merge-queue-release-gate.sh` 12/12; `check-derived-drift.sh` exit 0; Bash syntax and `git diff --check` clean. Independent review re-ran the gates. Repository `.git` is read-only in this session: no commit/activation performed. `claude plugin validate` is unavailable under the runtime policy.
+
+
 ## 2026-10-24 — DB tests only on native local Postgres, zero residue; Docker not required (DR-140)
 
 **What:** New MUST rules INFRA-9 (DB-backed tests run only against a native Homebrew PostgreSQL on loopback `base+2`; never Docker, never Neon) and INFRA-10 (zero residue: drop per-run DBs, roll back, sweep stale `<slug>_test_*`, post-run `db:test:check-clean` fails the gate) in [infra.md](standards/infra.md); INFRA-1 rewritten (Docker Compose form superseded); rows in [rule-registry.md](standards/rule-registry.md); pointers in [quality.md](standards/quality.md) and [external-services.md](standards/external-services.md); DR-140 in the registry. App development uses the Neon dev branch. LESSON-0429/0441/0446 deprecated.

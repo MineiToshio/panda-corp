@@ -1,6 +1,6 @@
 # Build orchestration standard (DR-050)
 
-> Domain: Quality/Process · Severity: **MUST** · Enforcement: the build engine itself (state machine, FRD gates, heartbeat locks) + `verify.sh` — **factory-internal (process): not injected** as a rule file; projects meet it through the engine and the `.pandacorp/` overlay.
+> Domain: Quality/Process · Severity: **MUST** · Enforcement: the build engine itself (state machine, FRD gates, heartbeat locks) + `verify.sh` — **factory-internal (process)** except the project-facing BUILD-4 batch-landing rule, injected through `rules/quality-and-testing.md`; projects meet the rest through the engine and the `.pandacorp/` overlay.
 
 How the factory plans, tracks and runs a build. The orchestration is **driven by the documents** —
 state and plans live in structured data the build engine reads, not in the engine's runtime
@@ -2219,22 +2219,73 @@ worktree). Hard caveat: the template must have **zero active connections** durin
 branch-creation serializes. `testcontainers`/`pg_tmp` own the *test* layer; Neon branching is the
 CI/preview option. A stateless project (the MC case) declares "none".
 
-### 5. The serialized merge queue (`merge.lock`)
+### 5. Batch integration through the serialized merge queue (DR-141, BUILD-4)
 
-Reunite branches through **one serialized writer** — the single-writer principle of §2, at *merge*
-granularity. When a session's worktree work greens (its own gate passes), it joins the queue
-**automatically**; the owner just sees "done and merged". Behind an atomic, freshness-stamped
-`.pandacorp/run/merge.lock` (atomic `mkdir`, reclaimed when stale via `-mmin`, exactly like `build.lock`):
+**Rule (MUST; enforcement: landing-session checklist).** When two or more finished branches
+are waiting to land, each already independently verified on its own branch, combine them in
+**one integration branch from the current `main`**. Merge every selected branch, resolve conflicts,
+and run the **full integration gate ONCE on the combined result**, through
+`bash .pandacorp/merge-queue.sh` from that integration worktree. Never run the queue/full gate
+once per waiting branch. A single finished change still lands alone as before. Do not wait for
+unfinished work or combine WIP; branch verification and per-FRD review gates remain required.
+One session owns the batch and its worktree; source sessions must stop writing the selected tips.
 
-1. **Rebase** the branch onto the current `main` tip.
-2. Run the **integration gate** (`verify.sh`) on the combined result.
-3. **Fast-forward merge → `main`** if green; **remove the worktree + branch**.
-4. Release the lock.
+**Manual procedure (existing tooling; no multi-branch CLI).** Record the selected branch names,
+immutable SHAs, owning changes and green branch evidence in the landing handoff. Create a fresh
+worktree/branch from the local current `main`, bootstrap it, and merge each recorded tip there.
+Use `git merge --squash <recorded-sha>` followed by a scoped commit for each source (name the
+source SHA and owning change in the commit body). Resolve conflicts from both changes' intent
+before committing; unresolved intent is handed back, never forced. Do not run the full gate
+between these commits. Squash commits keep conflict resolutions in ordinary commits: the existing
+queue's plain rebase must not discard a resolution stored only in a merge commit.
 
-Because each merge advances `main`, the next holder rebases onto the **new** tip — the merge-queue
-invariant ("frozen + up-to-date target"). A textual conflict git's 3-way merge can't resolve (`git
-rebase`/`merge` exits non-zero, `<<<<<<<` markers) is **HANDED BACK, never auto-forced**; the agent may
-auto-resolve only when it can read both diffs/intents **and** the gate then passes.
+Example (replace the names/SHAs; record evidence first):
+
+```sh
+git worktree add -b integration/ready-batch /tmp/project-ready-batch main
+cd /tmp/project-ready-batch
+bash .pandacorp/worktree-bootstrap.sh
+git merge --squash <first-verified-sha>
+git commit -m "chore(integration): include first verified change" -m "Source: <first-verified-sha>; owner: <change-id>"
+git merge --squash <second-verified-sha>
+git commit -m "chore(integration): include second verified change" -m "Source: <second-verified-sha>; owner: <change-id>"
+bash .pandacorp/merge-queue.sh
+```
+
+The queue remains **one serialized writer**: it locks the shared git directory, rebases the
+integration branch onto the current `main`, gates that whole result, fast-forwards `main` only
+if green and releases the lock. Keep the worktree while a session is inside it (§7).
+Never invoke the queue again on every source branch after the batch lands. Squashed source tips
+are not ancestors of `main`: retain those branches and the source-to-integration mapping;
+cleanup must not infer safety from the batch landing or force-delete them.
+
+**On RED:** keep the complete batch on its branch, attribute the failing assertion/file/contract
+to its owning change (including a conflict-resolution error), repair only that defect, commit,
+and re-run the full queue/gate once on the repaired combined result. Repeat only for a new
+observed failure within the existing repair budget, never a per-source gate loop. An unknown
+owner, unresolved conflict, busy main or exhausted budget gets DR-099's immediate, honest hand-back;
+never sweep unrelated failures or mask a red.
+
+**Human gates unchanged:** after external launch, production merge/push still requires the
+owner's explicit order for the **selected batch**, and `PANDACORP_OWNER_RELEASE_OK=1` only for
+that authorized landing (DR-138). Without it, exit 21 preserves the branch. Never reuse an
+approval for additional changes. The existing queue still rechecks on a later authorized retry after
+exit 21 or an advanced main; record that safety/authorization retry separately, never as a
+per-source gate loop. Single-change behavior and all other human gates remain intact.
+
+**How it is verified (binary, review-only):** the landing session checks the recorded source
+SHAs/branch-green evidence, the commits including all selected changes, and the queue log: exactly
+one full integration-gate invocation for the assembled batch before any repair, with each further
+invocation linked to an observed red and its scoped fix (or the existing queue’s documented
+exit-21/advanced-main safety retry). Per-source queue/full-gate invocations
+fail this checklist. `plugin/scripts/test-batch-integration.sh` rehearses the manual procedure
+against the real queue (one combined gate, fail-closed red, scoped repair); the checklist, not
+this fixture, enforces session compliance. `test-merge-queue-release-gate.sh` guards DR-138.
+
+**Why:** a full suite per already-verified waiting branch multiplies landing latency without
+checking the final combined result any better. One combined pass exposes interactions; attribution
+keeps repairs bounded. This amends DR-096's per-branch landing default, not the build engine's
+per-FRD verification or the factory backlog engine's lightweight per-merge catalog validator.
 
 **The integration gate is the arbiter** of textual/type/test correctness — a clean *textual* merge can
 still fail to compile (the CoAgent risk), so green-on-the-merged-result is the real bar. It **cannot**

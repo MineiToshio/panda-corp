@@ -32,7 +32,7 @@ The copying skill reads the project's chosen stack (from `docs/product/architect
 | `code-conventions.md` | `always` | Language, naming, project-prefixed skills, strict typing, constants, imports, handlers, comments/commits, mandatory gh CLI GitHub access, env vars, deps |
 | `clean-code.md` | `always` | File/function size, complexity, SRP/SoC, DRY (rule of three), dead code, purity, module boundaries, AI-legibility |
 | `project-structure.md` | `always` | Mandatory `src/`, `core/`+`modules/`, single/multi-file folders, `_tests/`, feature-first, promotion |
-| `quality-and-testing.md` | `always` | Green gates, TDD, risk-based coverage, test discipline (getByRole, isolation, no hard waits), owner-attended live-attempt economy |
+| `quality-and-testing.md` | `always` | Green gates, TDD, risk-based coverage, test discipline (getByRole, isolation, no hard waits), owner-attended live-attempt economy, batch integration of verified waiting branches (DR-141) |
 | `debugging.md` | `always` | Incident investigation SOP: reproduce-first, timeline, suspects incl. parallel writers/the harness, confirmed-cause criterion, sibling audit, attribution guards |
 | `documentation-and-decisions.md` | `always` | Canonical doc + decision log discipline, two-layer docs |
 | `logical-data-model.md` | `always` | Publish and refresh the shared logical model with every schema change, including no-database projects |

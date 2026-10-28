@@ -68,3 +68,15 @@ unmatched mock-agent label, and exit non-zero on any failure.
 ## Going deeper
 
 The canonical, exhaustive spec for both engines' mechanics — wave scheduling, the recovery ladder (patch-first → self-repair → revert+reopen), the concurrent-run guard, the supervisor contract, the change-queue drain, the split gate's contracts — lives in `factory/standards/build-orchestration.md`. This page only orients; it does not duplicate that spec.
+
+## Manual branch landing: batch the full integration gate (DR-141)
+
+Outside the coordinated engines, several finished independently verified branches waiting to land
+are assembled into one integration branch from current main. Follow the project guide's manual
+`git merge --squash <recorded-sha>` + source-mapped commits, resolve conflicts, then call
+`bash .pandacorp/merge-queue.sh` once on the combined result. On red, repair only the attributed
+owning defect and retry once. A single finished change still lands alone. Production release
+requires the owner's explicit order covering the batch and the existing release token.
+This changes the full integration-gate unit; the backlog engine's cheap per-merge
+`validate-backlog.sh` catalog checks and the build engine's per-FRD gates still apply.
+Canonical: `factory/standards/build-orchestration.md`, Parallel manual sessions §5 (BUILD-4).
