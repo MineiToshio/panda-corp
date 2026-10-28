@@ -386,3 +386,54 @@ provided every harvest reliably writes the marker (which is not itself verified/
 harvest that forgets to write it would make this approach silently fail back to the already-documented
 traps). Source: factory/memory/_inbox.md note, landed mid-drain during the 2026-10-25 harvest
 (agent-inferred).
+
+## Note (annotated 2026-10-26) — a boolean-flag `awk` one-liner over-matches from the FIRST marker onward, not just the last
+
+A further distinct implementation trap, found while applying the 2026-10-25 marker-anchor approach above:
+a one-liner `awk '/<marker>/{ln=NR} ln && NR>ln' file` does NOT isolate content after the LAST marker —
+once `ln` is set truthy by the FIRST match, it stays truthy for the rest of the script's run (awk never
+resets it), so the condition `ln && NR>ln` is true from just after the first marker all the way to EOF,
+printing every line after the FIRST drain marker, including the content of every subsequent already-
+drained block. On a file with several historical drain markers this reproduces the exact overcount shape
+this item already documents, just via a new specific one-liner shape. Fix: compute the last marker's line
+number FIRST with a dedicated pass (`LAST=$(grep -n '<marker>' file | tail -1 | cut -d: -f1)`), then
+`tail -n +$((LAST+1)) file` — two separate commands, not one stateful `awk` pass. Checked against
+LESSON-0008 (already cites this exact BL-0061/`_inbox.md` incident family): this is a further live
+reproduction from the SAME project/routine, not independent cross-project corroboration, so per this
+item's own 2026-09-29/10-06 precedent it does not warrant another LESSON-0008 update. No new backlog item.
+Source: factory/memory/_inbox.md agent-inferred note (2026-10-26 harvest PASO 0).
+
+## Note (annotated 2026-10-27) — the marker anchor itself needs a FULL-LINE match, not a substring `grep`; a note quoting the marker in backticks as a worked example is a false positive
+
+The very caveat the 2026-10-25 annotation above flagged as "not yet observed" happened the next day: an
+unanchored `grep -n '<!-- No live notes pending as of'` (no `^`) matched a LIVE note's own prose — the
+2026-10-26 note above, which quotes the marker text inside backticks as a worked example — as if it were
+a real marker line, and discarded genuinely-pending notes written after it (undercounting 2 pending
+notes as 4 once fixed, i.e. the bug hid real work rather than fabricating fake work, the dangerous
+direction for a routine deciding whether to skip a sweep). Fix (exactly as the 2026-10-25 annotation's
+own caveat prescribed): anchor to the WHOLE line with `grep -n '^<!-- No live notes pending as of'`
+(start-of-line anchor on the literal marker prefix), not a bare substring search. This re-corroborates
+BL-0061's core thesis with a NEW variant of the trap (substring-match-vs-full-line-anchor on the marker
+itself, not the `-->` boundary token this item's earlier annotations covered) — checked against
+LESSON-0008 per the same precedent above, still the same project/routine, no new lesson warranted. No new
+backlog item. Source: factory/memory/_inbox.md agent-inferred note (2026-10-27 harvest PASO 0).
+
+## Note (annotated 2026-10-28) — when the marker is ABSENT entirely, an empty `$LAST` silently makes `tail -n +$((LAST+1))` print the WHOLE file instead of signaling "zero pending"
+
+A further distinct trap in the 2026-10-25 marker-anchor formula's own shell implementation
+(`LAST=$(grep -n '^<!-- No live notes pending as of' file | tail -1 | cut -d: -f1); tail -n
++$((LAST+1)) file`): it silently assumes the marker always exists. On portfolio projects whose
+`.pandacorp/run/lessons.md` was fully drained but whose last harvest never wrote the explicit marker
+(observed 2026-10-28 on pandacast, pandasaga and personal-page-v2 — each file ends right at the closing
+`-->` of its last `<!-- Drained ... -->` block, with no following marker line), `grep` finds nothing, so
+`$LAST` is empty; bash arithmetic treats an empty variable as `0`, so `$((LAST+1))` evaluates to `1`, and
+`tail -n +1` prints the ENTIRE file as if every line were a live pending note (63.6KB of fully-drained
+history read as pending, on personal-page-v2) — the opposite failure direction from most prior
+annotations (which undercounted); this one fabricates maximum false pending work with no error at all.
+Fix: explicitly check `[ -z "$LAST" ]` before using it; when empty, fall back to the position of the
+LAST `<!-- Drained ... -->` block's own closing `-->` (already-established boundary logic from the
+2026-09-26/27/29 annotations above) — if nothing follows that close, the correct count is 0 pending, not
+"no marker found, treat whole file as pending." Checked against LESSON-0008 per this item's own
+2026-09-29/10-06/10-26/10-27 precedent: same project/routine family, no new lesson warranted. No new
+backlog item. Source: factory/memory/_inbox.md agent-inferred note (2026-10-28, landed mid-drain during
+the 2026-10-28 harvest).
