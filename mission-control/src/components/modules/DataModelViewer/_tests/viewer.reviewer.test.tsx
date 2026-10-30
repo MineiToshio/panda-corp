@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { DataModelResult } from "@/lib/architecture/data-model/types";
 import { dataModelFixture } from "@/test/dataModelFixture";
 import { DataModelViewer } from "../DataModelViewer";
+import { waitForLayout } from "./waitForLayout";
 
 async function renderModel() {
   const rendered = render(
@@ -10,6 +11,7 @@ async function renderModel() {
       result={{ kind: "ready", model: dataModelFixture(), source: "docs/product/data-model.json" }}
     />,
   );
+  await waitForLayout();
   await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
   return rendered;
 }

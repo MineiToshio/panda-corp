@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DataModelViewer } from "../DataModelViewer";
 import { readyFixture } from "./fixture";
+import { waitForLayout } from "./waitForLayout";
 
 beforeEach(() => {
   Object.defineProperties(HTMLDialogElement.prototype, {
@@ -28,6 +29,7 @@ afterEach(() => {
 
 async function renderReady() {
   render(<DataModelViewer result={readyFixture()} />);
+  await waitForLayout();
   await screen.findByRole("button", { name: "Seleccionar entidad Entry" });
 }
 

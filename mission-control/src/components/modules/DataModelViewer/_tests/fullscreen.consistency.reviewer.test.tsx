@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DataModelViewer } from "../DataModelViewer";
 import { readyFixture } from "./fixture";
+import { waitForLayout } from "./waitForLayout";
 
 const requestDescriptor = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,
@@ -70,6 +71,7 @@ function mockNativeFullscreen() {
 
 async function renderReadyModel() {
   render(<DataModelViewer result={readyFixture()} />);
+  await waitForLayout();
   await screen.findByRole("application", { name: "Diagrama del modelo de datos" });
   return screen.getByRole("button", { name: "Ver en pantalla completa" });
 }

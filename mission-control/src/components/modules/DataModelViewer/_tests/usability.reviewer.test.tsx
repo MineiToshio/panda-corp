@@ -3,11 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import { DataModelViewer } from "../DataModelViewer";
 import { readyFixture } from "./fixture";
+import { waitForLayout } from "./waitForLayout";
 
 afterEach(cleanup);
 
 async function ready() {
   render(<DataModelViewer result={readyFixture()} />);
+  await waitForLayout();
   await screen.findByRole("button", { name: "Ver relación Propiedad" });
 }
 
