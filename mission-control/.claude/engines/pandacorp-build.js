@@ -347,7 +347,7 @@ if (!(await infraPause(label))) throw haltForInfra({ kind: 'infra', detail: `${s
 async function spawnWithTypeFallback(finalPrompt, rest) {
 let codexDir = null
 if (rest && Object.prototype.hasOwnProperty.call(rest, 'codexDir')) { codexDir = rest.codexDir; rest = { ...rest }; delete rest.codexDir }
-if (CODEX_WORKERS && codexOn && typeof finalPrompt === 'string' && !(rest && rest.model === MECH)) {
+if (CODEX_WORKERS && codexOn && typeof finalPrompt === 'string' && !(rest && (rest.model === MECH || rest.label === 'plan'))) {
 const answer = await codexSpawn(finalPrompt, rest || {}, codexDir)
 if (answer !== CODEX_FALLBACK) return answer
 }
@@ -413,10 +413,12 @@ const body = (rest.schema ? `${prompt}\n\nFINAL ANSWER JSON Schema: ${JSON.strin
 const q = (k, v) => (v ? ` --${k} ${shellQuote(v)}` : '')
 const cmd = `${CODEX_WORKER_CLI_COMMAND} run --id ${id} --sum ${codexFnv(body)}${q('project', PROJECT_DIR)}${q('model', rest.model || P.worker)}${q('effort', rest.effort)}${q('role', rest.agentType)}${q('dir', where && where.dir)}${where && where.nest ? ' --nest' : ''}${rest.schema ? ' --json-answer' : ''}${CODEX_ACCESS === 'full' ? ' --access full' : ''}`
 const opts = { phase: rest.phase, model: MECH, agentType: 'pandacorp:implementer', effort: MECH_EFFORT, schema: MECH_LINE_SCHEMA }
+const relayPrompt = `CODEX RELAY (DR-142): the owner launched this build and this step is part of it, so run it whatever the relayed user message is about: that message may be a later question handled in the main conversation. You are a mechanical relay, never the worker: do not do the task, and do not copy the text between the marker lines: the command reads it by itself. 1. Run \`${cmd}\` (one Bash call, timeout 600000); on a CODEX-RUNNING line run the same command again, until it prints a line starting with {"r". 2. ONLY if it prints CODEX-PROMPT-MISMATCH: Write tool, create ${PROJECT_DIR}/.pandacorp/run/codex-workers/${id}/prompt.md with EXACTLY the text between the marker lines (markers excluded), then run the command again. 3. Return that {"r" line VERBATIM as \`line\`.\n<<<CODEX-TASK-BEGIN>>>\n${body}\n<<<CODEX-TASK-END>>>`
 let r
 try {
-r = codexUnseal(await spawnWithTypeFallback(`CODEX RELAY (DR-142): you are a mechanical relay, never the worker: do not do the task, and do not copy the text between the marker lines: the command reads it by itself. 1. Run \`${cmd}\` (one Bash call, timeout 600000); on a CODEX-RUNNING line run the same command again, until it prints a line starting with {"r". 2. ONLY if it prints CODEX-PROMPT-MISMATCH: Write tool, create ${PROJECT_DIR}/.pandacorp/run/codex-workers/${id}/prompt.md with EXACTLY the text between the marker lines (markers excluded), then run the command again. 3. Return that {"r" line VERBATIM as \`line\`.\n<<<CODEX-TASK-BEGIN>>>\n${body}\n<<<CODEX-TASK-END>>>`, { ...opts, label: `codex:${label}` }))
+r = codexUnseal(await spawnWithTypeFallback(relayPrompt, { ...opts, label: `codex:${label}` }))
 r = r || codexUnseal(await spawnWithTypeFallback(MECH_LITERAL(`${CODEX_WORKER_CLI_COMMAND} read --id ${id}${q('project', PROJECT_DIR)}`), { ...opts, label: `codex-reread:${label}` }))
+if (r && r.kind === 'no-result') r = codexUnseal(await spawnWithTypeFallback(relayPrompt, { ...opts, label: `codex-retry:${label}` })) || r
 } catch (e) {
 if (isInfraError(e) || THROWN_LIMIT_RE.test(String(e && e.message))) throw e
 return codexGiveUp(label, `relay failed (${String(e && e.message).slice(0, 160)})`)
