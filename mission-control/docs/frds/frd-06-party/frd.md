@@ -9,6 +9,7 @@ ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-06-party/mocks/party.html
 last_updated: '2026-10-22'
+floor: false
 ---
 # FRD-06 — La Fragua (live build view; formerly the Party tab)
 

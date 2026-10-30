@@ -7,6 +7,7 @@ implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 last_updated: '2026-10-22'
+floor: false
 ---
 # FRD-14 — Probable snapshot and feedback channels
 

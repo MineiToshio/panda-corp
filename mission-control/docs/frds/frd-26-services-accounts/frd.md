@@ -8,6 +8,7 @@ ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-26-services-accounts/mocks/services-accounts.html
 last_updated: '2026-10-22'
+floor: false
 ---
 # FRD-26 — Services and account directory
 

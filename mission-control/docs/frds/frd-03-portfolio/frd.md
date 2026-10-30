@@ -8,6 +8,7 @@ ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-03-portfolio/mocks/portfolio.html
 last_updated: '2026-10-22'
+floor: false
 ---
 # FRD-03 — Portfolio and project navigation
 

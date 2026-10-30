@@ -8,6 +8,7 @@ ui: true
 visual_source: docs/design/prototype/index.html
 last_updated: '2026-10-22'
 visual_source_mocks: docs/frds/frd-17-proposals-inbox/mocks/proposals-inbox.html
+floor: false
 ---
 # FRD-17 — Proposals inbox (self-learning gate + self-suggestion)
 

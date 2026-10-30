@@ -9,6 +9,7 @@ ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-02-ideas-board/mocks/ideas-board.html
 last_updated: '2026-10-22'
+floor: false
 ---
 # FRD-02 — Ideas board
 

@@ -8,6 +8,7 @@ last_updated: '2026-10-22'
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-10-achievements-hall/mocks/achievements-hall.html
+floor: false
 ---
 # FRD-10 — Achievements Hall
 

@@ -5,6 +5,7 @@ title: Persistent navigation URLs
 status: ACTIVE
 implementation_status: PLANNED
 ui: false
+floor: false
 ---
 # FRD-25 — Persistent navigation URLs
 

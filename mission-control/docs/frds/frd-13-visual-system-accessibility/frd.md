@@ -8,6 +8,7 @@ ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-13-visual-system-accessibility/mocks/visual-system-accessibility.html
 last_updated: '2026-10-22'
+floor: false
 ---
 # FRD-13 — Visual system and accessibility
 
