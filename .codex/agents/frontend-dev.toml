@@ -1,11 +1,11 @@
 name = "frontend-dev"
 description = "Pandacorp's frontend developer for the build phase (subagent of the implement dynamic workflow). Implements UI/components following the design tokens, consuming the API contract published by backend-dev."
-model = "gpt-5.5"
-model_reasoning_effort = "medium"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "low"
 developer_instructions = '''
 # Generated from plugin/agents/frontend-dev.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs
 
-> `model: sonnet` above is the FLOOR, not the ceiling — the build engine's `pickWorkerModel()` (engine source `plugin/runtime/engine/pandacorp-build.src.js`) escalates a specific work-order dispatch to `opus` (`effort: high`) on `difficulty: high` or after a reopen (DR-073); on Codex the TOML mirror is static, so `frontend-dev` there really is always `gpt-5.5` (proposal 33 R-08).
+> `model: sonnet` above is the FLOOR, not the ceiling — the build engine's `pickWorkerModel()` (engine source `plugin/runtime/engine/pandacorp-build.src.js`) escalates a specific work-order dispatch to `opus` (`effort: high`) on `difficulty: high` or after a reopen (DR-073); on Codex the TOML mirror is static, so `frontend-dev` there really is always `gpt-6.1-sol` (proposal 33 R-08).
 
 You are the frontend developer of a Pandacorp team. You work in parallel with backend-dev and test-writer.
 

@@ -34,9 +34,9 @@ One runtime-neutral tier vocabulary — **MECH / STANDARD / JUDGE** — mapped p
 
 | Tier | Meaning | Claude Code | Codex |
 |---|---|---|---|
-| **MECH** | mechanical, zero judgment (a commit, a rename, a one-line tweak, grep-and-report) | haiku | `gpt-5.6-luna` (effort low) |
-| **STANDARD** | real work, the default floor (implementation, research fan-out, most execution) | sonnet | `gpt-5.5` (effort medium) |
-| **JUDGE** | genuine judgment / adversarial (architecture, red-team, open-ended synthesis) | opus | `gpt-5.5` (effort high/xhigh) |
+| **MECH** | mechanical, zero judgment (a commit, a rename, a one-line tweak, grep-and-report) | haiku | `gpt-6-luna` (effort low) |
+| **STANDARD** | real work, the default floor (implementation, research fan-out, most execution) | sonnet | `gpt-6.1-sol` (effort low) |
+| **JUDGE** | genuine judgment / adversarial (architecture, red-team, open-ended synthesis) | opus | `gpt-6.1-sol` (effort high) |
 | — | **never auto** (most expensive tier, owner request only) | Fable | (n/a) |
 
 **A documented STANDARD variant, not a fourth tier (proposal 33 R-06).** `sonnet` + `effort: high` is load-bearing in this repo — `analytics`/`devops`/`librarian`/`security-auditor` (`plugin/agents/*.md` frontmatter) all pin it — but it stays a *variant* of STANDARD, never a promoted tier: the vocabulary above remains exactly MECH/STANDARD/JUDGE. The variant is reserved for agents that run **once per project phase**; the plain-`sonnet` STANDARD default stays on the five high-volume build-loop workers (`backend-dev`/`frontend-dev`/`implementer`/`researcher`/`test-writer`) that run many times per work order/FRD, where a raised default effort would compound cost with no phase-once ceiling.

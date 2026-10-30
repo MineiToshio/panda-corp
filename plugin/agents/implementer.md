@@ -5,7 +5,7 @@ tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 ---
 
-> `model: sonnet` above is the FLOOR, not the ceiling — the build engine's `pickWorkerModel()` (engine source `plugin/runtime/engine/pandacorp-build.src.js`) escalates the solo-build dispatch to `opus` (`effort: high`) on `difficulty: high` or after a reopen (DR-073; the split-mode self-test dispatch intentionally stays at the floor, BL-0115); on Codex the TOML mirror is static, so `implementer` there really is always `gpt-5.5` (proposal 33 R-08).
+> `model: sonnet` above is the FLOOR, not the ceiling — the build engine's `pickWorkerModel()` (engine source `plugin/runtime/engine/pandacorp-build.src.js`) escalates the solo-build dispatch to `opus` (`effort: high`) on `difficulty: high` or after a reopen (DR-073; the split-mode self-test dispatch intentionally stays at the floor, BL-0115); on Codex the TOML mirror is static, so `implementer` there really is always `gpt-6.1-sol` (proposal 33 R-08).
 
 You are Pandacorp's implementer. You execute ONE work order at a time, with TDD, without going out of scope.
 

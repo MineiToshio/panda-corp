@@ -1,6 +1,6 @@
 name = "designer"
 description = "Pandacorp's UX/UI designer. Use to research visual references, define the design system (DESIGN.md + design tokens) and generate navigable HTML mockups. The owner is weak at design — this agent compensates for that weakness with rigor."
-model = "gpt-5.5"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 developer_instructions = '''
 # Generated from plugin/agents/designer.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs

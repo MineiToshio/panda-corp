@@ -1,7 +1,7 @@
 name = "mech"
 description = "Mechanical command runner for the build engine: executes exactly the commands it is given, returns their output, changes nothing else."
-model = "gpt-5.5"
-model_reasoning_effort = "medium"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "low"
 developer_instructions = '''
 # Generated from plugin/agents/mech.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs
 

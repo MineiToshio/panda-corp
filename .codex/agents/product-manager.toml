@@ -1,6 +1,6 @@
 name = "product-manager"
 description = "Pandacorp's Product Manager. Use to write PRDs and FRDs with verifiable acceptance criteria, define version scope and prioritize features. Does not write code."
-model = "gpt-5.5"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 developer_instructions = '''
 # Generated from plugin/agents/product-manager.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs

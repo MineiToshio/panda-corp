@@ -1,5 +1,12 @@
 # Decision log — Plugin pandacorp
 
+
+## v9.144.1 — 2026-10-29 (PATCH): Codex tiers off the rejected gpt-5.5 (BL-0287)
+
+**What:** `runtime/model-tiers.json` Codex half re-mapped: MECH `gpt-6-luna`/low, STANDARD `gpt-6.1-sol`/low (was `gpt-5.5`/medium), JUDGE `gpt-6.1-sol`/high (was `gpt-5.5`/high). `.codex/agents/*.toml` regenerated (19 files); the static-mirror note in `agents/{implementer,backend-dev,frontend-dev}.md` and the example in `skills/design/references/freeze-and-fidelity.md` updated.
+**Why:** a live probe on codex-cli 0.163.0 (ChatGPT login) rejects `gpt-5.5` with HTTP 400 `model_not_found`, so every STANDARD/JUDGE dispatch under Codex hard-failed. Levels come from an owner-run 55-run calibration (2026-10-23): `gpt-6.1-sol` low already scores 10/10 on an unguided 10-bug review with the fewest tokens; `gpt-6-astra` showed no gain; xhigh only added 2-3x wall time; `gpt-6-luna` is MECH-only (6/7.5/8.5 low→high on that review).
+**Verification:** `generate-codex-agents.mjs --check` clean; `check-derived-drift.sh` exit 0; `test-codex-enforcement.mjs` 20/20, `test-codex-executor.mjs` 56/56; `RuntimeComparison.test.tsx` 4/4; one `codex exec` per tier (tier-mech, tier-standard, tier-judge) answered OK.
+
 ## v9.144.0 — 2026-10-27 (MINOR): batch full integration gates (DR-141)
 
 **What / why:** Owner-approved batch integration for several finished independently verified branches: one integration branch and one full queue gate, scoped owning repair on red; singleton behavior and production gates unchanged. Updated [quality rule](../templates/rules/quality-and-testing.md), [project guide](../templates/shared/.pandacorp/guide.md.tpl), rule catalog, landing guidance in change/architecture/worktrees and [workflow guide](dynamic-workflows.md). Compatible overlay 8.114.0 propagates through upgrade. No runtime merge-queue change or new CLI: documented squash-merge procedure keeps resolutions through plain rebase and retains source SHA mapping/branches. Added `test-batch-integration.sh` using the real queue (combined pass, red blocks main, scoped retry). Factory BUILD-4 and DR-141 are canonical; live compliance is a named manual checklist, not claimed as automated. Mission Control's new authored Manual guide explains the rule; Reference derives canonical sources. Activation follows commit, plugin update and session restart.

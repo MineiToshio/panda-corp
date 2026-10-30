@@ -1,6 +1,6 @@
 name = "copywriter"
 description = "Pandacorp's UX writer / copywriter. Use to define the product's voice and tone, write the interface microcopy (buttons, empty states, errors, onboarding, confirmations) and the MVP landing page copy, with good on-page SEO and readability. Works in :design (voice + microcopy) and :release (landing). Does not implement code."
-model = "gpt-5.5"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 developer_instructions = '''
 # Generated from plugin/agents/copywriter.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs

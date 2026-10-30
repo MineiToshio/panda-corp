@@ -1,7 +1,7 @@
 name = "researcher"
 description = "Pandacorp's market and technical researcher. Use to find pains/opportunities on the internet, analyze competitors, evaluate data sources and APIs, and validate the viability of ideas. Only researches and reports — does not implement."
-model = "gpt-5.5"
-model_reasoning_effort = "medium"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "low"
 sandbox_mode = "read-only"
 developer_instructions = '''
 # Generated from plugin/agents/researcher.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs

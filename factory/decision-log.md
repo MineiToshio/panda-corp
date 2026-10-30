@@ -1,5 +1,11 @@
 # Decision Log — Factory
 
+
+## 2026-10-29 — Codex tier table moves to the GPT-6 family (BL-0287)
+
+**What:** [PORT-2](standards/agent-portability.md) Codex column: MECH `gpt-6-luna` (low), STANDARD `gpt-6.1-sol` (low), JUDGE `gpt-6.1-sol` (high); AGENTS.md rule 11 prose and Mission Control's runtime diagram aligned. Plugin 9.144.1.
+**Why:** Codex now rejects `gpt-5.5` for ChatGPT-login accounts (verified live), the second retirement after BL-0113. The new levels are the cheapest that reached top quality in the owner's Codex calibration; STANDARD drops from medium to low because Sol low already saturated every task measured.
+
 ## 2026-10-27 — Batch integration of finished verified branches (DR-141)
 
 **What:** [BUILD-4](standards/build-orchestration.md) replaces the per-source full integration-gate default in DR-096 when several finished independently verified branches are waiting: one integration branch from current main, all selected changes merged, one full queue gate; on red, scoped repair of the owning defect and one combined retry. A singleton still lands alone. DR-141 in the [registry](decisions/registry.yaml), catalog row and standards index; [quality](standards/quality.md) cross-reference. Production order/token, branch verification, per-FRD gates and the backlog engine's cheap catalog checks are preserved.

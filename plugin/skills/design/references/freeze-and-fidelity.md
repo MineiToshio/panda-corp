@@ -39,7 +39,7 @@ A tool defect is fixed in the factory, not in the project: note it in the tracke
 
 ## Tiers — portable, one source
 
-Each task names a PORT-2 tier and effort. Resolve it at dispatch from `plugin/runtime/model-tiers.json` (the PORT-2 table in `factory/standards/agent-portability.md`); model names here are examples only. `JUDGE·high` reads as *JUDGE (Claude: opus · Codex: tier-judge / gpt-5.5 high)*; `STANDARD·medium` as *STANDARD (Claude: sonnet · Codex: tier-standard / gpt-5.5 medium)*; `MECH·low` as *MECH (Claude: haiku · Codex: tier-mech / gpt-5.6-luna low)*. On Claude the `Agent` `model` parameter overrides the named agent's frontmatter. A MECH task that is one command runs in the lead's own shell; spawning an agent to run a script is waste. Escalate upward only (CONV-12).
+Each task names a PORT-2 tier and effort. Resolve it at dispatch from `plugin/runtime/model-tiers.json` (the PORT-2 table in `factory/standards/agent-portability.md`); model names here are examples only. `JUDGE·high` reads as *JUDGE (Claude: opus · Codex: tier-judge / gpt-6.1-sol high)*; `STANDARD·medium` as *STANDARD (Claude: sonnet · Codex: tier-standard / gpt-6.1-sol medium)*; `MECH·low` as *MECH (Claude: haiku · Codex: tier-mech / gpt-6-luna low)*. On Claude the `Agent` `model` parameter overrides the named agent's frontmatter. A MECH task that is one command runs in the lead's own shell; spawning an agent to run a script is waste. Escalate upward only (CONV-12).
 
 ## Context packs — read once, write many
 

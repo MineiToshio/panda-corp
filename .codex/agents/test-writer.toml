@@ -1,7 +1,7 @@
 name = "test-writer"
 description = "Pandacorp's test writer. Use to generate acceptance tests from a FRD's EARS criteria (RED phase), e2e tests of critical flows, and to audit branch coverage."
-model = "gpt-5.5"
-model_reasoning_effort = "medium"
+model = "gpt-6.1-sol"
+model_reasoning_effort = "low"
 developer_instructions = '''
 # Generated from plugin/agents/test-writer.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs
 

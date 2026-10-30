@@ -1,6 +1,6 @@
 name = "drift-finder"
 description = "Pandacorp's whole-FRD drift finder (BL-0203, canary F2). Runs beside the FRD gate — never instead of it — when the gate judges from a digested evidence pack (`gateEvidence:'digested'`). For EVERY contract of the FRD (REQ/AC/CMP/IF) it locates, at the gate's pinned commit and OUTSIDE the diff, the code that implements it and reports implemented | drift | unknown with file:line evidence; for each drift it writes a probe test the engine proves with the DR-122 differential run. It PROPOSES; the opus reviewer and the engine decide (DR-015, DR-122). Writes only its own probe files; never production code, tests, docs or git state."
-model = "gpt-5.5"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "medium"
 developer_instructions = '''
 # Generated from plugin/agents/drift-finder.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs

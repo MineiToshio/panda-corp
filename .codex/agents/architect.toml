@@ -1,6 +1,6 @@
 name = "architect"
 description = "Pandacorp's software architect. Use to write a project's technical blueprint, choose the golden path, design the data model and record ADRs. Does not implement."
-model = "gpt-5.5"
+model = "gpt-6.1-sol"
 model_reasoning_effort = "high"
 developer_instructions = '''
 # Generated from plugin/agents/architect.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs
