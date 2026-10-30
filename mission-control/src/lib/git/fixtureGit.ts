@@ -95,21 +95,23 @@ export function fixtureGit(file: string, args: readonly string[], cwd: string): 
   const entry = Object.entries(repos).find(
     ([, repo]) => validRepo(repo) && repo.branches.some((b) => b.worktree === cwd),
   );
-  const id =
-    path.resolve(cwd) === path.resolve(resolveFactoryRoot())
+  const id = entry?.[0] ?? path.basename(cwd);
+  const repoId =
+    path.resolve(cwd) === path.resolve(resolveFactoryRoot()) ||
+    path.resolve(cwd) === path.resolve(resolveFactoryRoot(), "../projects/mission-control")
       ? "factory"
-      : (entry?.[0] ?? path.basename(cwd));
+      : id;
   if (args.join(" ") === "log -1 --format=%cI" && typeof data.lastActivity[id] === "string")
     return data.lastActivity[id];
   if (
     data.scenario === "worktrees-unreadable" &&
-    id === "pandasaga" &&
+    repoId === "pandasaga" &&
     args.join(" ") === "worktree list --porcelain"
   )
     throw new GitError("failed", "git worktree list terminó con error");
   const snapshot = snapshotAnswer(id, data.lastActivity[id], data.scenario, args.join(" "));
   if (snapshot !== undefined) return snapshot;
-  const repo = repos[id];
+  const repo = repos[repoId];
   const answer = validRepo(repo) ? fixtureAnswer(repo, args, cwd) : undefined;
   if (answer === undefined)
     throw new GitError("no-fixture-answer", "Git fixture has no answer for this read");

@@ -14,3 +14,8 @@
   background: var(--tone);
   flex: none;
 }
+
+.dot[data-variant="repository"] {
+  gap: var(--s2);
+  font-weight: inherit;
+}

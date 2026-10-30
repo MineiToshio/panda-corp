@@ -32,6 +32,8 @@ export function fixtureAnswer(
     "rev-list --count HEAD": () => String(repo.commits),
     [`branch --no-merged ${defaultBranch} --format=%(refname:short)`]: () =>
       repo.branches.map((b) => b.name).join("\n"),
+    [`branch --no-merged ${defaultBranch} --format=%(refname)`]: () =>
+      repo.branches.map((b) => `refs/heads/${b.name}`).join("\n"),
     "status --porcelain -- plugin": () => changedFiles(repo.pluginUncommitted ?? 0, "plugin/file-"),
     "status --porcelain": () =>
       changedFiles(repo.branches.find((b) => b.worktree === cwd)?.uncommitted ?? 0, "src/file-"),
@@ -57,6 +59,10 @@ export function fixtureAnswer(
   for (const branch of repo.branches) {
     const branchAnswers: Record<string, string> = {
       [`rev-list --count main..${branch.name}`]: String(branch.ahead),
+      [`log -1 --format=%ct refs/heads/${branch.name}`]: String(
+        Math.floor(Date.parse(branch.lastCommitAt) / 1000),
+      ),
+      [`log -1 --format=%s refs/heads/${branch.name}`]: branch.subject,
       [`log -1 --format=%ct ${branch.name}`]: String(
         Math.floor(Date.parse(branch.lastCommitAt) / 1000),
       ),

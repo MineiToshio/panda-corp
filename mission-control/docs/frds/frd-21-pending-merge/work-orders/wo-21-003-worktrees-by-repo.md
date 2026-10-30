@@ -6,14 +6,13 @@ title: Worktrees by repository - reader, pill summary, Árboles de trabajo card 
 status: ACTIVE
 parent: FRD-21
 foundation: false
-implementation_status: BLOCKED
-blocked_reason: error
+implementation_status: VERIFIED
 difficulty: medium
 reopen_count: 0
-artifacts: ["src/lib/pendingMerge/**", "src/components/modules/Worktrees/**", "src/components/dashboard/FactoryWorktrees/**", "src/app/page.tsx", "src/app/_tests/{page.dashboard,wo-18-001-fixes,wo-18-001-inicio-dashboard}.test.tsx", "e2e/worktrees.spec.ts"]
+artifacts: ["src/lib/pendingMerge/**", "src/lib/git/**", "src/components/modules/Worktrees/**", "src/components/dashboard/FactoryWorktrees/**", "src/components/core/StateDot/**", "src/components/core/Table/**", "docs/design/microcopy.es.json", "src/app/page.tsx", "src/app/_tests/{page.dashboard,wo-18-001-fixes,wo-18-001-inicio-dashboard}.test.tsx", "e2e/worktrees.spec.ts"]
 source_requirements: [REQ-21-001, REQ-21-002, REQ-21-003, REQ-21-005, REQ-21-006, REQ-21-007]
 dependsOn: [WO-01-010, WO-13-012]
-last_updated: '2026-10-22'
+last_updated: '2026-10-30'
 ---
 
 # WO-21-003 Worktrees by repository
@@ -25,7 +24,7 @@ last_updated: '2026-10-22'
 
 Publish the per-repository view of un-merged parallel work and draw it: `getWorktreesByRepo()` (branches outside
 `main` and leftover worktrees per repository, the legend-rule state of each, an unreadable repository as its
-own row), `pendingPillSummary()` for the sidebar pill, the Inicio card "Árboles de trabajo" with its table,
+own row), `summarizeWorktrees(rows)` for the sidebar pill, the Inicio card "Árboles de trabajo" with its table,
 legend and `/pandacorp:worktrees` command, and the branch dialog. It swaps Inicio's import so the page stops
 using the v1 factory-only reader. The pill itself is WO-19-003's; this work order gives it its data and its
 anchor.
@@ -35,7 +34,7 @@ anchor.
 - `src/lib/pendingMerge/` (additive; `getPendingMerge()`/`readPending()` stay byte-compatible):
   `repoState.ts` (the pure legend rule, thresholds as named constants: 3 leftovers, 3 branches, 24 hours,
   7 days), `worktreesByRepo.ts` (`getWorktreesByRepo()`, `React.cache`), `pillSummary.ts`
-  (`pendingPillSummary()`), and the exported constant `WORKTREES_CARD_ID = "worktrees-card"`. All git through
+  (`summarizeWorktrees(rows)`), and the exported constant `WORKTREES_CARD_ID = "worktrees-card"`. All git through
   `runGit`, all "now" through `now()` (WO-01-010); leftovers from `git worktree list --porcelain` minus the
   locked worktrees (counted apart for the dialog summary); repositories identified by the first worktree path so
   repositories sharing a git directory collapse into one row.
@@ -139,7 +138,7 @@ None.
 Reader tests with a fake `runGit` and a fixed `now()` (the state rule at every boundary: 2 and 3 leftovers,
 2 and 3 branches, 24 h and 7 d, locked worktrees excluded, merged branch not pending, unreadable repository as
 an error entry and the others unaffected, two portfolio entries sharing one git directory collapse, ordering);
-`pendingPillSummary` cases (hidden at zero, count across repositories, urgent, unreadable wins the suffix,
+`summarizeWorktrees` cases (hidden at zero, count across repositories, urgent, unreadable wins the suffix,
 zero count with an unreadable repository); component tests by role and name (row opens the dialog, disabled
 rows, notice `role="alert"`, legend toggles, command has a copy button); the e2e spec above. A malformed
 `git worktree list` output must fail loud as an unreadable repository (DR-078), with a malformed fixture.
@@ -160,20 +159,105 @@ rows, notice `role="alert"`, legend toggles, command has a copy button); the e2e
 
 WO-01-010 (the clock and git seams, also adopted by the v1 `pendingMerge.ts` runner here), WO-13-012 (composite
 primitives). Consumers: WO-01-011 (its boundary test needs the runner swap), WO-18-002 (places the card),
-WO-19-003 (pill: `pendingPillSummary()` and `WORKTREES_CARD_ID`), WO-13-013 (deletes the legacy reader).
+WO-19-003 (pill: `summarizeWorktrees(rows)` and `WORKTREES_CARD_ID`), WO-13-013 (deletes the legacy reader).
 
 ## Status Note
+
+2026-10-30: Malformed branch-output repair (REQ-21-006, DR-078). Empty output remains
+clean; only parenthesised HEAD descriptions are skipped. Full `refs/heads/` entries
+are accepted and every other line throws, producing an unreadable repository row.
+Implementation remains IN_REVIEW; changes are uncommitted by owner instruction.
+No reviewer tests or blessed visual baselines were edited.
+Verification with `export PORT=4330 PANDACORP_E2E_PORT=4330`:
+- `pnpm exec vitest run src/lib/pendingMerge src/lib/git --reporter=dot`: exit 0,
+  7 files and 41 tests passed, including `worktreesByRepo.malformed.reviewer.test.ts`.
+- `bash .pandacorp/verify.sh --only=biome,tsc,knip`: exit 0. Biome reports a
+  schema-version information message; Knip reports configuration hints.
+No browser/e2e or full-project verification was performed for this repair.
+
+2026-10-30: Second independent gate repair. Read full branch refs with `%(refname)` and
+keep only `refs/heads/` entries, so localized detached/rebase descriptions are never branch
+names. The fixture answers this exact command and retains the short-ref command for the
+legacy reader. Required read failures distinguish worktree command/format, branch reads
+against main, branch age reads and `GitError.kind === "timeout"` through Spanish catalogue
+copy. The original worktree-command error text stays intact. Fixture activity uses the
+folder's own identity while repository facts alone use the factory mapping. Repository
+rows from the cached resolver carry an explicit id (`factory` or project folder id), and
+the table hook reads it independently of the display name; injected legacy rows retain
+the path fallback. Expanded the artifacts ledger to cover git, StateDot, Table and copy.
+
+Baseline reviewer run: 2 failures, 10 passes (missing-main reason and Mission Control
+activity). The detached real-git case passed with both the default `LANG=C.UTF-8` and
+`LANG=es_ES.UTF-8`; this environment did not reproduce translated output. An added
+regression uses the exact Spanish detached description. Before implementation, the
+additional unit/component run had 7 failures and 9 passes, covering that description,
+step-specific reasons, timeouts and display-name-independent identity.
+Changes remain uncommitted; no reviewer-authored files or blessed baselines were edited.
+No e2e or Chromium execution is authorized in this sandbox.
+
+Final verification for the second repair (`export PORT=4330 PANDACORP_E2E_PORT=4330`):
+- `pnpm exec vitest run src/lib/pendingMerge src/lib/git src/components/modules/Worktrees src/components/dashboard/FactoryWorktrees src/components/core --reporter=dot`: passed, exit 0; 55 files and 679 tests, including all named reviewer regressions. Output includes Node localStorage warnings and React act warnings in core tests.
+- `LANG=es_ES.UTF-8 pnpm exec vitest run src/lib/pendingMerge/_tests/worktreesByRepo.realgit.reviewer.test.ts src/lib/git/_tests/fixtureGit.reviewer.test.ts --reporter=dot`: passed, exit 0; 2 files and 12 tests. No `LC_ALL=C` override was used. Actual translated Git output remains unverified; the exact Spanish pseudo-ref is covered by the unit regression.
+- `bash .pandacorp/verify.sh --only=biome,tsc,knip`: passed, exit 0 after fixing one formatter line wrap. Biome emits its schema-version information message; Knip emits configuration hints. This is the requested partial gate, not a full-project certification.
+- `git diff --check`: passed. No changes are staged or committed; reviewer tests and blessed visual baselines remain unchanged. No e2e/browser or visual verification was attempted.
+
+2026-10-30: Gate repair: preserve all four table columns at narrow widths with higher-specificity
+module selectors; accept Git detached/rebase pseudo-branches; qualify branch log refs and fail
+closed on unreadable ages. Errors use catalogue copy and sort after pending rows, before clean
+rows; the card orders hint, notices, legend. Reused core StateDot through its repository variant,
+added column tooltips and alert chip icon, restored the factory oracle hook, and rounded dialog days.
+Ledger addition: `src/lib/git/fixtureAnswers.ts` answers qualified log refs; `src/lib/git/fixtureGit.ts`
+maps the oracle's `projects/mission-control` folder to factory so it deduplicates with that repository.
+Also adapted core Table column titles, StateDot, the copy catalogue and the component inventory.
+Changes remain uncommitted by owner instruction; e2e/Chromium are excluded in this sandbox.
+
+Verification for this repair (`export PORT=4330 PANDACORP_E2E_PORT=4330`):
+- `pnpm exec vitest run src/lib/pendingMerge/_tests/worktreesByRepo.realgit.reviewer.test.ts src/components/modules/Worktrees/_tests/Worktrees.reviewer.test.tsx src/components/dashboard/FactoryWorktrees/_tests/FactoryWorktrees.reviewer.test.tsx src/lib/pendingMerge/_tests/worktreesByRepo.test.ts src/lib/git/_tests/fixtureGit.test.ts src/components/modules/Worktrees/_tests/Worktrees.test.tsx src/components/dashboard/FactoryWorktrees/_tests/FactoryWorktrees.test.tsx --reporter=dot`: 7 files, 32 tests passed, including all three non-e2e reviewer files.
+- `pnpm exec vitest run src/components/core/Table/_tests/Table.test.tsx src/components/core/Chip/_tests/vocabulary.test.tsx src/components/core/Ring/_tests/Ring.test.tsx --reporter=dot`: 3 files, 10 tests passed.
+- `bash .pandacorp/verify.sh --only=biome,tsc,knip`: passed, exit 0; the generated partial report has all three subgates green. Biome reports an existing schema-version information message; Knip reports configuration hints.
+- `git diff --check`: passed. No reviewer-authored files or visual baselines changed.
+The first reviewer run reproduced seven failures; the repair passes them. An earlier
+expanded run exposed an old error-first ordering assertion, now updated by repository name.
+The first quality run exposed a reviewer fixture's union spread typing: unreadable rows now
+permit an empty `branches` collection (never branch facts), and the final tsc run passes.
+No e2e attempt was made. Responsive rendering at 768/375 and browser behavior remain unverified.
+
+2026-10-30: Restored the exact inverse patch of revert 134af454 without conflicts.
+The requested `git revert --no-edit 134af454` could not create the worktree
+Git index lock (sandbox: Operation not permitted); no commit was created.
+The landed pure `summarizeWorktrees(rows)` boundary and module-local GitError
+remain intact; no unused zero-argument pill wrapper was reintroduced.
+Verification (port 4330; `PORT` and `PANDACORP_E2E_PORT` exported):
+- `bash .pandacorp/verify.sh --only=biome,tsc,knip,vitest`: biome/tsc/knip
+  passed; Vitest 529 files passed, 4 failed (8057 tests passed, 14 failed).
+  Thirteen failures are in the excluded-known-red snapshot-panel area; one is
+  BuildModePicker's inaccessible-storage/failed-write test, outside this WO.
+- `pnpm exec vitest run src/lib/pendingMerge/_tests/worktreesByRepo.test.ts src/components/modules/Worktrees/_tests/Worktrees.test.tsx src/components/dashboard/FactoryWorktrees/_tests/FactoryWorktrees.test.tsx --reporter=dot`:
+  3 files and 8 tests passed.
+- `pnpm exec playwright test e2e/frd-21-pending-merge.behaviour.spec.ts e2e/worktrees.spec.ts`:
+  initial server startup timed out after EMFILE watcher errors. Retried with
+  `WATCHPACK_POLLING=true`, `MC_GIT_FIXTURE=$PWD/docs/design/prototype/fixtures/git-state.json`
+  and `MC_CLOCK=2026-10-20T15:00:00.000Z`: server started; all four desktop/mobile
+  cases were blocked before execution by Chromium's MachPortRendezvousServer
+  `Permission denied (1100)`. Browser behavior remains unverified.
+  The temporary e2e/server-env.json port override was restored.
+- `NODE_OPTIONS=--no-experimental-webstorage bash .pandacorp/verify.sh --only=biome,tsc,knip,vitest`:
+  biome/tsc/knip passed again. Vitest: 528 files passed, 5 failed;
+  8056 tests passed, 15 failed. BuildModePicker passed on this run;
+  two DataModelViewer reviewer cases (native fullscreen and deselecting a
+  relationship) failed alongside the same 13 snapshot-panel failures.
+  These additional failures remain outside the WO scope; acceptance is not green.
+- `git diff --check`: passed.
 
 
 Built `readWorktreesByRepo(repositories, instant?): WorktreesByRepo` and request-cached
 `getWorktreesByRepo(): WorktreesByRepo`, `repoState({branches, leftovers}): RepoState`,
-`pendingPillSummary(): {count, urgent, unreadable, hidden}`, and client-safe
+`summarizeWorktrees(rows): {count, urgent, unreadable, hidden}`, and client-safe
 `WORKTREES_CARD_ID` from `repoState.ts`. Repositories deduplicate by the first porcelain
 worktree path; unmerged branches come from `branch --no-merged main`. Leftovers are
 non-primary worktrees with no unmerged branch, excluding locked entries (counted apart).
-Malformed worktree/branch reads yield a named error row; optional per-branch metrics
-retain the known pending branch with zero metrics/name fallback when unavailable.
-Ages retain fractional hours for strict threshold comparisons and display floored hours/days.
+Malformed worktree/branch reads yield a named error row; optional per-branch counts retain the known pending branch with zero counts/name fallback when unavailable; a failed required age read yields an unreadable repository.
+Ages retain fractional hours for strict threshold comparisons and display floored hours and rounded days.
 Origin prefixes are lane/, claude/, codex/, otherwise manual. Counts use main as the
 integration branch, matching the frozen oracle. Read-only `runGit` and `now` seams own I/O.
 

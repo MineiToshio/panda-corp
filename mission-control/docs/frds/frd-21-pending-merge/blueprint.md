@@ -60,12 +60,21 @@ entries that share a git directory (Mission Control lives inside the factory rep
 Every git call goes through `runGit(args, cwd)` (read-only, fixture-aware, WO-01-010) and every "now" through
 `now()` (the frozen clock in oracle mode); the module never touches `fs`/`child_process` for git and never
 calls Claude. Per repository the reader runs only commands the fixture runner answers (`worktree list
---porcelain`, `branch --no-merged <default>`, `rev-list --count`, `log -1`, `status --porcelain` in the branch's
+--porcelain`, `branch --no-merged main --format=%(refname)`, `rev-list --count`, `log -1`, `status --porcelain` in the branch's
 worktree); a command the fixture cannot answer is a ledger request to WO-01-010, never a mock of the reader.
+Only full refs starting with `refs/heads/` are branch entries; localized detached/rebase descriptions
+are excluded without parsing translated text. The fixture retains the short-ref command for the legacy
+reader. Factory rows carry `id: "factory"`, portfolio rows their folder id; the table's `data-wt-repo`
+hook uses this identity rather than display copy (injected legacy rows fall back to their path basename).
+In fixture dispatch, folder activity keeps its own identity even when repository facts map to factory.
 Branch origin comes from the branch prefix: `lane/` is "Carril de un build", `claude/` "Sesión de Claude Code",
 `codex/` "Sesión de Codex", anything else "Rama manual" (`inicio.worktrees.origin.*`). Errors: a repository
 whose `git worktree list` (or branch read) fails becomes one entry `{ kind: "error", reason }` and the other
-repositories still list; "nothing pending" and "could not read" are different values (DR-078). Ordering:
+repositories still list; "nothing pending" and "could not read" are different values (DR-078).
+Required failures use Spanish catalogue reasons for the actual step: worktree command failure (the existing
+`readError` copy), malformed worktree output, branch reads against main (including a missing main), or
+branch age reads. A `GitError` timeout at any required step uses `readTimeout` rather than a command-failure
+reason; subprocess output never becomes UI copy. Ordering:
 state rank descending (`cleanNow`, `reviewSoon`, `upToDate`, `clean`), then branches plus leftovers
 descending. Invariants: the count in the pill equals the sum of unmerged branches in the table; a repository
 with nothing to show is still a row (state `clean`, dashes, disabled name).
@@ -131,7 +140,7 @@ fake or fixture runner; the checkout's own repository is never the default input
 
 | WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
 |---|---|---|---|---|
-| WO-21-003 | WO-01-010, WO-13-012 | `src/lib/pendingMerge/**`, `src/components/modules/Worktrees/**`, `src/components/dashboard/FactoryWorktrees/**`, `src/app/page.tsx`, `src/app/_tests/{page.dashboard,wo-18-001-fixes,wo-18-001-inicio-dashboard}.test.tsx`, `e2e/worktrees.spec.ts` | false | W3; none inside this FRD |
+| WO-21-003 | WO-01-010, WO-13-012 | `src/lib/pendingMerge/**`, `src/lib/git/**`, `src/components/modules/Worktrees/**`, `src/components/dashboard/FactoryWorktrees/**`, `src/components/core/StateDot/**`, `src/components/core/Table/**`, `docs/design/microcopy.es.json`, `src/app/page.tsx`, `src/app/_tests/{page.dashboard,wo-18-001-fixes,wo-18-001-inicio-dashboard}.test.tsx`, `e2e/worktrees.spec.ts` | false | W3; none inside this FRD |
 
 - **Order and integration.** One work order. WO-21-003 (W3) publishes the reader, the pill summary and the card;
   WO-18-002 (FRD-18, W5) rewrites `src/app/page.tsx` around it; WO-19-003 (FRD-19, W6) mounts the pill.

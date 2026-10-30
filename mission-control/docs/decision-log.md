@@ -8,6 +8,28 @@ Owner-delegated scope extension for [WO-14-005](frds/frd-14-snapshot-and-feedbac
 
 [WO-14-005](frds/frd-14-snapshot-and-feedback/work-orders/wo-14-005-snapshot-panel-orbita.md) restores the Órbita snapshot panel and read-only git gap probe. The [FRD contract](frds/frd-14-snapshot-and-feedback/frd.md) keeps stopped builds free of a building-now line while the shared resolver age chooses no-signal wording. The behaviour test checks verbatim command copying; stable folder selection stays with the WO-04-011 caller. This preserves the panel boundary without changing the snapshot helper or independent reviewer suites.
 
+## 2026-10-30 — Make worktree reads independent of locale and display copy
+
+The [FRD-21 reader contract](frds/frd-21-pending-merge/blueprint.md#contracts) now selects full local
+refs, excluding localized detached/rebase descriptions by ref namespace. Required read errors identify
+the failing step and retain timeout classification through Spanish catalogue copy. The git fixture keeps
+Mission Control's folder activity separate from the factory's repository facts, and the repository hook
+uses a stable id instead of the display name. [WO-21-003](frds/frd-21-pending-merge/work-orders/wo-21-003-worktrees-by-repo.md)
+records the expanded artifacts and regression evidence. These repairs address the second independent
+gate's failures without changing reviewer tests or visual baselines.
+
+## 2026-10-30 — Repair worktree review boundaries
+
+The [WO-21-003](frds/frd-21-pending-merge/work-orders/wo-21-003-worktrees-by-repo.md) reader now qualifies branch log refs, accepts Git detached/rebase pseudo-branches and treats failed age reads as unreadable rather than recent. Read errors use Spanish catalogue copy and follow pending rows, before clean rows. The card preserves four scrollable columns, the recorded factory hook, rounded day ages and hint/notice/legend order. The [component inventory](design/components.md) records reuse of the core StateDot repository variant and the module components; fixture dispatch collapses Mission Control into the factory repository.
+
+## 2026-10-30 — Restore WO-21-003 for review
+
+Restored the inverse patch of revert `134af454` without conflicts, preserving the landed export cleanup. The [work order](frds/frd-21-pending-merge/work-orders/wo-21-003-worktrees-by-repo.md) returns to `IN_REVIEW`; its Status Note records verification and the sandbox restriction preventing Git index writes. No merge, push, visual baseline or reviewer-authored test was changed.
+
+## 2026-10-30 — Keep pending-merge exports aligned with landed consumers
+
+Removed the unused git error re-export and kept fixture/branch types and state thresholds module-local. The [FRD-21 blueprint](frds/frd-21-pending-merge/blueprint.md#contracts) records that the zero-argument pill wrapper lands with WO-19-003; the tested `summarizeWorktrees(rows)` calculation stays available. This repairs the full knip gate without speculative consumers or gate exceptions. LESSON-0077 preserves one summary calculation; LESSON-0244 requires the complete gate to certify the landed tree.
+
 ## 2026-10-30 — Shared build-mode picker
 
 [WO-11-003](frds/frd-11-build-modes/work-orders/wo-11-003-build-mode-picker.md) implements the frozen [FRD-11](frds/frd-11-build-modes/frd.md) cards as a shared module for Comandos and Campaña. The [component inventory](design/components.md) records the shared location. `CmdRow` and `CopyButton` gain optional command-box styling, accessible copy labels and result callbacks so consumers reuse the existing primitives. Browser subscriptions use a balanced server snapshot before restoring the per-project preference.

@@ -3,6 +3,7 @@ import styles from "./Table.module.css";
 interface TableColumn {
   readonly id: string;
   readonly label: string;
+  readonly title?: string;
 }
 
 interface TableRow {
@@ -30,7 +31,7 @@ export function Table({ caption, columns, rows }: TableProps): React.JSX.Element
         <thead>
           <tr>
             {columns.map((column) => (
-              <th key={column.id} scope="col">
+              <th key={column.id} scope="col" title={column.title}>
                 {column.label}
               </th>
             ))}
