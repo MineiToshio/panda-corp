@@ -1,0 +1,45 @@
+.stepper {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.step {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.line {
+  height: 5px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+}
+.step[data-state="past"] .line {
+  background: color-mix(in srgb, var(--tone) 55%, var(--surface-3));
+}
+.step[data-state="current"] .line {
+  background: var(--tone);
+  box-shadow: 0 0 0 var(--rule) color-mix(in srgb, var(--tone) 22%, transparent);
+}
+.label {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.step[data-state="current"] .label {
+  color: var(--tone);
+  font-weight: 700;
+}
+.step[data-state="past"] .label {
+  color: var(--text-2);
+}
+.compact {
+  gap: 3px;
+}
+.compact .line {
+  height: 4px;
+}

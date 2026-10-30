@@ -19,7 +19,12 @@
 // Types
 // ---------------------------------------------------------------------------
 
+import type { Tone } from "@/components/core/Chip/vocabulary";
+import styles from "./ProgressBar.module.css";
+
 export interface ProgressBarProps {
+  /** Órbita hue: renders the 6 px bar in that hue instead of the v1 striped bar. */
+  tone?: Tone;
   /** Number of completed items. */
   done: number;
   /** Total items. */
@@ -44,9 +49,28 @@ export function ProgressBar({
   done,
   total,
   ariaLabel = "Progreso",
+  tone,
 }: ProgressBarProps): React.JSX.Element {
   const pct = total === 0 ? 0 : Math.min(100, Math.round((done / total) * 100));
   const isComplete = total > 0 && done >= total;
+
+  if (tone) {
+    return (
+      <div
+        data-testid="progress-bar"
+        data-complete={String(isComplete)}
+        data-tone={isComplete ? "green" : tone}
+        className={`bar ${styles.bar}`}
+        role="progressbar"
+        aria-label={ariaLabel}
+        aria-valuenow={done}
+        aria-valuemin={0}
+        aria-valuemax={total}
+      >
+        <span style={{ width: `${pct}%` }} />
+      </div>
+    );
+  }
 
   const trackStyle: React.CSSProperties = {
     position: "relative",

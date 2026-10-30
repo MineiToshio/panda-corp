@@ -1,0 +1,16 @@
+.more {
+  width: 100%;
+  min-height: 40px;
+  border-radius: var(--r);
+  border: var(--hairline) dashed var(--line-strong);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+@media (hover: hover) {
+  .more:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+}

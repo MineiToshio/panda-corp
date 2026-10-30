@@ -1,0 +1,49 @@
+.copy {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  padding: 4px 8px;
+  margin-left: -8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: copy;
+}
+.copy::after {
+  content: attr(data-hint);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 2px);
+  padding: 2px 8px;
+  border-radius: var(--r-xs);
+  background: var(--primary-bg);
+  color: var(--primary-fg);
+  font: 600 var(--fs-xs) / 1.4 var(--font-body);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, 4px);
+  pointer-events: none;
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+.copy:focus-visible {
+  color: var(--teal);
+}
+.copy:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+@media (hover: hover) {
+  .copy:hover {
+    color: var(--teal);
+    background-color: color-mix(in srgb, var(--teal) 8%, transparent);
+  }
+  .copy:hover::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}

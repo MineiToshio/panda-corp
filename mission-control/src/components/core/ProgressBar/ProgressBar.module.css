@@ -1,0 +1,25 @@
+.bar {
+  position: relative;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--tone, var(--green));
+}
+.stack {
+  display: flex;
+  height: 8px;
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  background: var(--surface-3);
+  gap: 2px;
+}
+.stack > span {
+  background: var(--tone);
+  min-width: 3px;
+}

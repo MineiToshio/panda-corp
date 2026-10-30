@@ -1,0 +1,16 @@
+.dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  color: var(--tone);
+  white-space: nowrap;
+}
+.mark {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tone);
+  flex: none;
+}

@@ -6,7 +6,7 @@ title: 'WO-13-011 — Órbita leaf primitives (buttons, chips, command box, fiel
 status: ACTIVE
 parent: FRD-13
 foundation: true
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 blocked_reason:
 difficulty: medium
 reopen_count: 0
@@ -209,3 +209,16 @@ LESSON-0484 (no edge stripes; red / amber / green for status only) and LESSON-00
 no `aria-label` on bare spans, interactive roles need focusability).
 
 ## Status Note
+
+**Built (extend in place, new folders for new primitives).** Styling for the hue-tinted primitives lives in a CSS module per folder that mirrors the prototype's reference CSS on the raw tokens (`color-mix(... var(--tint-strong) ...)` cannot be expressed as registry utilities); hover is gated in `@media (hover: hover)`; prototype class hooks (`chip`, `seg`, `ring`, `stepper`, `kv`, `copy-text`, `morebtn`, `field`, `switch`, `state-dot`, `badge-icon`, `bar`, `stackbar`) are on the root elements and `data-tone` sets `--tone` (rules from WO-13-010).
+
+**Exports and contracts.**
+- `Chip/vocabulary.ts`: `Tone`, `StatusTone` (green, amber, coral), `CategoryTone`, `isTone`, `PHASES`/`Phase`, `PHASE_PRESENTATION`, `phasePresentation(id)`, `WORK_ORDER_STATES`/`WorkOrderState` (`todo|in_progress|review|done|blocked`), `WORK_ORDER_STATE_PRESENTATION`, `statePresentation(state)`, `RETURN_PRESENTATION`, `RARITY_TONE`; every entry is `{ tone, icon, labelKey }` (labelKey is a `CopyKey`; call `t(labelKey)`). Unknown phase / state fall back to neutral slate «Sin fase» / «Sin estado».
+- `Chip` (`Chip/Chip.tsx`): `tone` is now a v1 tone OR a `Tone` hue; new optional `variant: "tint"|"outline"|"plain"|"dashed"` and `icon: IconName` (hue tones only). v1 tones render exactly as before. `CountPill({ count })`, `FilterChip({ pressed, onClick, children })` in the same folder.
+- `Button/IconButton.tsx` `IconButton({ icon, label, onClick?, disabled? })` (throws on an empty label), `Button/ButtonLink.tsx` `ButtonLink({ href, children, look?: "inline"|"button" })`.
+- `StateDot({ state })`, `Ring({ percent, size?: "md"|"lg", tone?, tip? })` (tip: focusable + `data-tip` + accessible name; no tip: named by `common.ring.defaultAria`), `PhaseStepper({ phase, compact? })`, `KeyValue({ items: {id,label,value}[] })`, `Segmented({ label, options, value, onChange })` (a `fieldset`), `BadgeIcon({ icon, tone?, size?, label? })`, `CopyText({ text, onResult? })`, `SearchField`/`SelectField`/`Switch` in `Field/Field.tsx`, `MoreBar({ label, onClick })` plus `pagedReveal(total, pressed, pageSize, step?)` and `allReveal(total, pageSize, expanded)` returning `{ visible, remaining, next }` in `MoreBar/MoreBar.tsx`.
+- `ProgressBar` gains optional `tone` (6 px hue bar, same progressbar semantics and `data-testid`); `StackBar({ segments: {label,count,tone}[] })` in `ProgressBar/StackBar.tsx`.
+
+**Decisions and assumptions a consumer inherits.** The v1 `Button`, `CountBadge`, `TierBadge`, `CmdRow`, `CopyButton`, `StateBadge`, `Avatar`, `Toast` and the v1 look of `ProgressBar` were NOT rewritten: they keep their contracts and the pinned tests and already take the Órbita palette through WO-13-010's compatibility mapping; the surface work orders that need the drawn Órbita command box («Copiar <comando>» name, `CommandCompact`), toast and avatar rebuild them there (carried forward, recorded in components.md as v1 until then). `CopyText` reports the result through `onResult` instead of raising a toast itself (no global toast bus exists yet); the caller shows `states.toast.copied` / `states.toast.clipboardBlocked`. A hue never travels alone: hue `Chip` takes text or an icon, `StateDot`/`PhaseStepper` write the state word; the static check forbids edge-stripe borders in the new primitives. The `Switch` is a `button[role=switch]`.
+
+**Tests.** `Chip/_tests/vocabulary.test.tsx`, `Ring/_tests/Ring.test.tsx`, `PhaseStepper/_tests/PhaseStepper.test.tsx`, `Field/_tests/Field.test.tsx`, `Button/_tests/IconButton.test.tsx`.

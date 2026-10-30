@@ -11,11 +11,19 @@
  * Consumers: CountBadge (preset), ProposalsBadge, StatusChips, ProposalsChip.
  */
 
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
+import styles from "./Chip.module.css";
+import { isTone, type Tone } from "./vocabulary";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type ChipTone = "ok" | "warn" | "danger" | "info" | "accent" | "secondary";
+type V1ChipTone = "ok" | "warn" | "danger" | "info" | "accent" | "secondary";
+/** A v1 tone (existing consumers) or one of the nine Órbita hues (new code). */
+export type ChipTone = V1ChipTone | Tone;
+export type ChipVariant = "tint" | "outline" | "plain" | "dashed";
 
 export interface ChipProps {
   /** Visual tone — all colors via CSS custom properties only. */
@@ -24,13 +32,17 @@ export interface ChipProps {
   label?: string;
   /** Text content. */
   children?: React.ReactNode;
+  /** Órbita hues only: the shape (tinted, outlined, neutral or dashed illustrative). Defaults to tinted. */
+  variant?: ChipVariant;
+  /** Órbita hues only: a leading icon. A hue always travels with text or an icon (AC-13-010.1). */
+  icon?: IconName;
 }
 
 // ---------------------------------------------------------------------------
 // Token map: tone → CSS variable names (no hardcoded hex)
 // ---------------------------------------------------------------------------
 
-const CHIP_VARS: Record<ChipTone, { fg: string; bg: string }> = {
+const CHIP_VARS: Record<V1ChipTone, { fg: string; bg: string }> = {
   ok: { fg: "var(--color-ok)", bg: "var(--color-ok-bg)" },
   warn: { fg: "var(--color-warn)", bg: "var(--color-warn-bg)" },
   danger: { fg: "var(--color-danger)", bg: "var(--color-danger-bg)" },
@@ -52,7 +64,24 @@ const CHIP_VARS: Record<ChipTone, { fg: string; bg: string }> = {
  *   - verde: `<Chip tone="ok" label="en vivo" />`
  *   - live: `<Chip tone="ok" label="live" />`
  */
-export function Chip({ tone, label, children }: ChipProps): React.JSX.Element {
+export function Chip({
+  tone,
+  label,
+  children,
+  variant = "tint",
+  icon,
+}: ChipProps): React.JSX.Element {
+  if (isTone(tone)) {
+    const className = [styles.chip, variant === "tint" ? "" : styles[variant]]
+      .filter(Boolean)
+      .join(" ");
+    return (
+      <span data-testid="chip" data-tone={tone} className={`chip ${className}`}>
+        {icon ? <Icon name={icon} size="sm" /> : null}
+        {children ?? label}
+      </span>
+    );
+  }
   const vars = CHIP_VARS[tone];
 
   const style: React.CSSProperties = {
