@@ -5,7 +5,7 @@ import { WORKSPACE_TAB_LABELS } from "./_workspaceTabs";
 test("portfolio reuses Architecture after Work orders with a draggable compact model", async ({
   page,
 }) => {
-  await gotoHydrated(page, "/portfolio?project=Mission%20Control&tab=architecture", {
+  await gotoHydrated(page, "/portfolio/mission-control/architecture", {
     selector: '[data-testid="data-model-viewer"] input',
   });
   const tabs = page.getByRole("navigation", { name: "Pestañas del espacio de trabajo" });
@@ -100,7 +100,7 @@ test("model corner controls match the dependency map and retain a full-window fa
       value: undefined,
     });
   });
-  await gotoHydrated(page, "/portfolio?project=Mission%20Control&tab=architecture", {
+  await gotoHydrated(page, "/portfolio/mission-control/architecture", {
     selector: '[data-testid="data-model-viewer"] input',
   });
   const appearance = (element: HTMLElement | SVGElement) => {
