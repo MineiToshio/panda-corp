@@ -1,5 +1,10 @@
 # Decision Log — Mission Control
 
+## 2026-10-30 — Shared build-mode picker
+
+[WO-11-003](frds/frd-11-build-modes/work-orders/wo-11-003-build-mode-picker.md) implements the frozen [FRD-11](frds/frd-11-build-modes/frd.md) cards as a shared module for Comandos and Campaña. The [component inventory](design/components.md) records the shared location. `CmdRow` and `CopyButton` gain optional command-box styling, accessible copy labels and result callbacks so consumers reuse the existing primitives. Browser subscriptions use a balanced server snapshot before restoring the per-project preference.
+
+
 ## 2026-10-30 — Restore the inherited tabular-number baseline
 
 **What:** `html` in `src/app/globals.css` again sets `font-variant-numeric: tabular-nums`, preserving [FRD-13 AC-13-003.1](frds/frd-13-visual-system-accessibility/frd.md).

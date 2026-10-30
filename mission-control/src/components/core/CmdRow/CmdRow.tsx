@@ -25,6 +25,7 @@
 
 import { useId, useState } from "react";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { Icon } from "@/components/core/Icon/Icon";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,6 +44,10 @@ export interface CmdRowMode {
 export interface CmdRowProps {
   /** The base command string to display and optionally copy. */
   command: string;
+  /** Accessible copy action and result reporting for composed command surfaces. */
+  variant?: "box";
+  copyLabel?: string;
+  onCopyResult?: (copied: boolean) => void;
   /** If false, suppresses the CopyButton. Defaults to true. */
   copy?: boolean;
   /** When provided, renders an inline mode `<select>` before the copy button. */
@@ -71,6 +76,30 @@ const ROW_STYLE: React.CSSProperties = {
   border: "1px solid var(--color-border-strong)",
   borderRadius: "var(--radius-sm, 8px)",
   padding: "9px 11px",
+};
+
+const BOX_STYLE: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "calc(var(--s2) + var(--s1) / 2)",
+  minHeight: "calc(var(--s10) + var(--s1))",
+  minWidth: 0,
+  padding: "var(--s1) var(--s1) var(--s1) var(--s3)",
+  borderRadius: "var(--r)",
+  background: "color-mix(in srgb, var(--tone, var(--violet)) 5%, var(--surface))",
+  border: "var(--hairline) solid color-mix(in srgb, var(--tone, var(--violet)) 22%, var(--line))",
+};
+const BOX_TEXT_STYLE: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  color: "var(--text)",
+  fontFamily: "var(--font-mono)",
+  fontSize: "var(--fs-sm)",
+  lineHeight: 1.4,
+  padding: "calc(var(--s3) / 2) 0",
+  overflowWrap: "break-word",
+  wordBreak: "normal",
+  whiteSpace: "normal",
 };
 
 // With a mode select the command may wrap to a second line; pin the controls to the top.
@@ -154,6 +183,43 @@ const TOOLTIP_STYLE: React.CSSProperties = {
   pointerEvents: "none",
 };
 
+function CommandFrame({
+  variant,
+  hasModes,
+  command,
+  children,
+}: {
+  readonly variant?: "box";
+  readonly hasModes: boolean;
+  readonly command: string;
+  readonly children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <div
+      data-testid="cmd-row"
+      className={variant === "box" ? "cmd" : undefined}
+      style={variant === "box" ? BOX_STYLE : hasModes ? ROW_MODES_STYLE : ROW_STYLE}
+    >
+      {/* Leading terminal glyph (prototype `.cmd` → `ti-terminal-2`) */}
+      {variant === "box" ? (
+        <Icon name="terminal" />
+      ) : (
+        <i
+          className="ti ti-terminal-2"
+          aria-hidden="true"
+          style={{ fontSize: "15px", color: "var(--color-text2)", lineHeight: 1, flexShrink: 0 }}
+        />
+      )}
+      {variant === "box" ? (
+        <code style={BOX_TEXT_STYLE}>{command}</code>
+      ) : (
+        <span style={hasModes ? TEXT_WRAP_STYLE : TEXT_STYLE}>{command}</span>
+      )}
+      {children}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // CmdRow component
 // ---------------------------------------------------------------------------
@@ -168,6 +234,9 @@ const TOOLTIP_STYLE: React.CSSProperties = {
  */
 export function CmdRow({
   command,
+  variant,
+  copyLabel,
+  onCopyResult,
   copy = true,
   modes,
   modeDefaultLabel,
@@ -195,14 +264,7 @@ export function CmdRow({
   const handleTipHide = (): void => setTipOpen(false);
 
   const row = (
-    <div data-testid="cmd-row" style={hasModes ? ROW_MODES_STYLE : ROW_STYLE}>
-      {/* Leading terminal glyph (prototype `.cmd` → `ti-terminal-2`) */}
-      <i
-        className="ti ti-terminal-2"
-        aria-hidden="true"
-        style={{ fontSize: "15px", color: "var(--color-text2)", lineHeight: 1, flexShrink: 0 }}
-      />
-      <span style={hasModes ? TEXT_WRAP_STYLE : TEXT_STYLE}>{displayCommand}</span>
+    <CommandFrame variant={variant} hasModes={hasModes} command={displayCommand}>
       {hasModes && (
         <span style={TOOLTIP_WRAP_STYLE}>
           <select
@@ -230,8 +292,15 @@ export function CmdRow({
           )}
         </span>
       )}
-      {copy && <CopyButton value={displayCommand} />}
-    </div>
+      {copy && (
+        <CopyButton
+          value={displayCommand}
+          accessibleLabel={copyLabel}
+          onResult={onCopyResult}
+          variant={variant}
+        />
+      )}
+    </CommandFrame>
   );
 
   if (!hasModes) return row;

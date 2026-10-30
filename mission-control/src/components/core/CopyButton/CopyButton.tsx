@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { Icon } from "@/components/core/Icon/Icon";
 
 /** Duration in milliseconds the "copiado" confirmation is shown before reverting. */
 const REVERT_DELAY_MS = 2_000;
@@ -9,6 +10,10 @@ const REVERT_DELAY_MS = 2_000;
 export interface CopyButtonProps {
   /** The text value to copy to the clipboard when the button is clicked. */
   value: string;
+  /** Accessible action name supplied by command surfaces. */
+  variant?: "box";
+  accessibleLabel?: string;
+  onResult?: (copied: boolean) => void;
   /** Optional visible label rendered inside the button before the copy icon. */
   label?: string;
 }
@@ -46,7 +51,13 @@ const BUTTON_STYLE: React.CSSProperties = {
  *
  * AC-02-003.x / AC-02-004.x
  */
-export function CopyButton({ value, label }: CopyButtonProps): React.JSX.Element {
+export function CopyButton({
+  value,
+  label,
+  variant,
+  accessibleLabel,
+  onResult,
+}: CopyButtonProps): React.JSX.Element {
   const [copied, setCopied] = useState(false);
   const pendingRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -68,6 +79,7 @@ export function CopyButton({ value, label }: CopyButtonProps): React.JSX.Element
     try {
       await navigator.clipboard.writeText(value);
       setCopied(true);
+      onResult?.(true);
 
       // Clear any existing revert timeout
       if (timeoutRef.current !== null) {
@@ -87,8 +99,9 @@ export function CopyButton({ value, label }: CopyButtonProps): React.JSX.Element
       // Clipboard write failed (e.g. NotAllowedError in restricted contexts).
       // Do NOT show the "copiado" confirmation — that would mislead the user.
       pendingRef.current = false;
+      onResult?.(false);
     }
-  }, [value]);
+  }, [value, onResult]);
 
   const ariaLabel = copied ? "Copiado al portapapeles" : "Copiar al portapapeles";
 
@@ -96,18 +109,38 @@ export function CopyButton({ value, label }: CopyButtonProps): React.JSX.Element
     <button
       type="button"
       data-testid="copy-button"
-      aria-label={ariaLabel}
+      aria-label={copied ? ariaLabel : (accessibleLabel ?? ariaLabel)}
       onClick={handleClick}
-      style={BUTTON_STYLE}
+      style={
+        variant === "box"
+          ? {
+              display: "inline-grid",
+              placeItems: "center",
+              flexShrink: 0,
+              width: "calc(var(--s8) + var(--s1))",
+              height: "calc(var(--s8) + var(--s1))",
+              border: 0,
+              padding: 0,
+              borderRadius: "var(--r-sm)",
+              background: "transparent",
+              color: "var(--tone, var(--violet))",
+              cursor: "pointer",
+            }
+          : BUTTON_STYLE
+      }
     >
       {label !== undefined && <span>{label}</span>}
       {/* Icon-only affordance (prototype `ti-copy`); state via aria-label + icon swap,
           never a visible "copiar"/"copiado" word. */}
-      <i
-        className={copied ? "ti ti-check" : "ti ti-copy"}
-        aria-hidden="true"
-        style={{ fontSize: "13px", lineHeight: 1, color: copied ? "var(--color-ok)" : "inherit" }}
-      />
+      {variant === "box" ? (
+        <Icon name={copied ? "check" : "copy"} size="sm" />
+      ) : (
+        <i
+          className={copied ? "ti ti-check" : "ti ti-copy"}
+          aria-hidden="true"
+          style={{ fontSize: "13px", lineHeight: 1, color: copied ? "var(--color-ok)" : "inherit" }}
+        />
+      )}
     </button>
   );
 }

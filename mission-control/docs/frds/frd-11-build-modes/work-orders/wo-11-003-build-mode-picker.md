@@ -6,7 +6,7 @@ title: 'WO-11-003 BuildModePicker module'
 status: ACTIVE
 parent: FRD-11
 foundation: false
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 blocked_reason:
 difficulty: low
 reopen_count: 0
@@ -48,7 +48,7 @@ only: La Campaña (WO-02-020) and the Comandos tab (WO-11-004) mount it.
 ## Out of Scope
 
 - The surrounding «Modo de construcción» card, the Comandos tab and the scoped target: WO-11-004. The Campaña
-  sheet's «Elegir modo de construcción» entry: WO-02-020.
+  sheet's «Elegir modo de construcción» entry (AC-11-005.3): WO-02-020.
 - Any write outside the browser store; launching a build (copy only).
 - Deleting the v1 `ModeSelector` (WO-11-004 removes it once nothing mounts it).
 
@@ -59,7 +59,7 @@ REQ-11-001 (four modes), REQ-11-002 (the exact command), REQ-11-003 (remembered 
 - **AC-11-005.1** — THE Comandos tab SHALL present the four build modes as selectable cards, each with its icon, its tag (the literal command argument `pro`, `powerful` or `deep`, and "por defecto" for the default), a power meter from 1 to 4 and a hint, with Equilibrado preselected.
 
 The module proves the criterion in isolation; WO-11-004 mounts it in the Comandos tab (its e2e covers the mounted
-behaviour). The Campaña entry is AC-11-005.3, owned by WO-02-020.
+behaviour). The Campaña entry is owned by WO-02-020 (see Out of Scope).
 
 **Completeness and NFRs.** Error path: a storage read or write that fails (private mode, corrupt value) falls back to
 Equilibrado and never throws (the v1 store already guarantees it; test it through the picker). Accessibility: a
@@ -105,3 +105,16 @@ CMP-11-build-mode-picker, CMP-11-build-mode-card; reads IF-11-modes and IF-11-mo
 WO-13-011 (W1, leaf primitives), WO-11-001 (W0, `BUILD_MODES` and the store, VERIFIED).
 
 ## Status Note
+
+
+**Built:** the shared client `BuildModePicker({ project: string, onModeChange?: (mode: BuildMode) => void })` and `BuildModeCard({ mode: BuildMode, pressed: boolean, onSelect: (mode: BuildMode) => void })`. Display order is balanced/pro/powerful/deep, with power 2/1/3/4. The catalogue supplies every visible label, tag, hint and meter name. Cards reuse `BadgeIcon`; commands reuse `CmdRow`, `CopyButton` and `Toast`.
+
+**Contracts and seams:** consumers mount the picker inside their own card; no route or outer heading is included. `BUILD_MODES` remains the source of exact command strings. `useSyncExternalStore` uses balanced on the server and the existing per-project browser store on the client. Native storage events and the browser-local `mc:build-mode-change` event refresh all mounted pickers. Selection persists before notifying subscribers; the callback receives the actually remembered mode, including balanced when storage fails. Invalid storage retains the existing store's documented preference fallback.
+
+**Shared primitive extension:** `CmdRow` gains optional `variant?: "box"`, `copyLabel?: string` and `onCopyResult?: (copied: boolean) => void`, forwarded as optional `accessibleLabel`/`onResult` props to `CopyButton`. Existing callers keep their original label and behavior. This avoids a second command box and lets the picker expose the command-specific copy action and the existing success/failure toast.
+
+**Tests:** `src/components/modules/BuildModePicker/_tests/BuildModePicker.test.tsx` covers AC-11-005.1, keyboard activation, exact commands and copying, default and restored selection, project isolation, storage updates, corrupt/blocked storage and hydration without recoverable errors. The module has no route until WO-11-004; that work order owns the mounted Comandos behavior e2e. The isolated fidelity harness and comparison images live under `.pandacorp/run/frd11-fidelity*` and are not committed.
+
+**Retry evidence:** the prior module and shared primitive extensions were recovered from the parked WO salvage. The current base had neither the module nor its `copyLabel`/`onCopyResult` primitive contracts. This retry declares both primitive changes and the decision log explicitly; the command-box variant retains the v1 default for existing consumers.
+
+**Acceptance ownership clarification:** moved the existing Campaña criterion reference into Out of Scope, preserving its owner WO-02-020. The commit checker extracts every criterion mentioned under Acceptance Criteria, including explanatory cross-references; this module owns only AC-11-005.1 as the dispatch and FRD require.
