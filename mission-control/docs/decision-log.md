@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-30 — Keep primitive implementation details module-local
+
+**What:** removed the unused `CardPair` wrapper and its orphan CSS; card pairing remains a surface layout rule in [the component inventory](design/components.md). Unconsumed helper constants and structural types stay module-local while component props and presentation resolvers retain their contracts.
+
+**Why:** the full build gate rejects unused exports. Exporting implementation details before a consumer exists makes the landed foundation fail knip without adding runtime behavior.
+
 ## 2026-10-30 — Pandacorp overlay upgraded 8.114.1 → 8.114.2
 
 **What:** engine only: the plugin 9.146.1 fix for the Codex worker id and the infra pause.

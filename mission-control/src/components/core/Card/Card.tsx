@@ -58,7 +58,3 @@ export function CardFoot({ children }: { readonly children: React.ReactNode }): 
   return <div className={`card-foot ${styles.foot}`}>{children}</div>;
 }
 
-/** Two cards of the same height; one column below 1024 px (put the actionable card first). */
-export function CardPair({ children }: { readonly children: React.ReactNode }): React.JSX.Element {
-  return <div className={styles.pair}>{children}</div>;
-}

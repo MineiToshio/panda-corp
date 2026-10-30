@@ -1,11 +1,11 @@
 import styles from "./Table.module.css";
 
-export interface TableColumn {
+interface TableColumn {
   readonly id: string;
   readonly label: string;
 }
 
-export interface TableRow {
+interface TableRow {
   readonly id: string;
   /** Cell content by column id. */
   readonly cells: Readonly<Record<string, React.ReactNode>>;

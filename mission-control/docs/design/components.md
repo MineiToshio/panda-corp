@@ -49,7 +49,7 @@ Every surface uses these and nothing else for the same job. A surface that inven
 | `SearchField` / `SelectField` | One field height (40px), search at most 480px wide (full width on phones); selects are `.field` with a chevron; `Switch` for «Ocultar columnas vacías». | `src/components/core/Field/Field.tsx` | `.field.search`, `.field`, `.switch` (config: SearchField, SelectField, Switch) |
 | `Dialog` | One native `dialog#dlg`: width `min(680px, 100vw − 32px)`, radius 22px, tinted sticky head with an uppercase kicker in the dialog's hue, display title, ✕, 20px body; `DialogConfirm` adds Cancelar / verb and an optional reason; `DialogSheet` is the label \| content rows layout (128px labels) for FRD details. Native Escape and focus return. | `src/components/core/Modal/Modal.tsx` (restyle; one `Modal` core) | `#dlg` (config: Dialog, DialogConfirm, DialogSheet) |
 | `Toast` | `#toast` inverted pill, bottom centre, 2.6s, for simulated writes and copy; `AchievementToast` (gold, «Ver», «Cerrar aviso», closes after 9s) is a distinct component. | `src/components/core/Toast/Toast.tsx` (restyle) | `#toast` (config: Toast) |
-| Card pairs | Two cards side by side end at the same height; below 1024px one column, actionable side first. A layout rule on `.grid-2` / `.home-grid`, not a component. | `src/components/core/Card.tsx` layout helpers | `.grid-2`, `.home-grid` |
+| Card pairs | Two cards side by side end at the same height; below 1024px one column, actionable side first. A layout rule on `.grid-2` / `.home-grid`, not a component. | Surface-owned `.grid-2` / `.home-grid` layouts | `.grid-2`, `.home-grid` |
 
 ## Primitives — `components/core/`
 

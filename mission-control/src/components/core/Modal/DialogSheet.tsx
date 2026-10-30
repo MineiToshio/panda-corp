@@ -1,6 +1,6 @@
 import styles from "./Dialog.module.css";
 
-export interface SheetRow {
+interface SheetRow {
   readonly id: string;
   readonly label: string;
   readonly content: React.ReactNode;
