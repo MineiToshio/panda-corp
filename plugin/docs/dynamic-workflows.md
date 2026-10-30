@@ -80,3 +80,10 @@ requires the owner's explicit order covering the batch and the existing release 
 This changes the full integration-gate unit; the backlog engine's cheap per-merge
 `validate-backlog.sh` catalog checks and the build engine's per-FRD gates still apply.
 Canonical: `factory/standards/build-orchestration.md`, Parallel manual sessions §5 (BUILD-4).
+
+
+BL-0288: the manual merge queue runs its integration gate with the committed project-relative
+`e2e/server-env.json`, preserving auth/media data identity in the shared gate DB. Its lock serializes
+these gates. If the committed PORT is busy, exit 14 asks you to stop the dev server / other gate
+on that port and re-run. EXIT cleanup unlocks first, then restores local PORT only on failure; success keeps the manifest deleted (BL-0288).
+Bootstrap changes only PORT; it preserves URLs.

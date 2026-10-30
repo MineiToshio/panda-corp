@@ -207,6 +207,85 @@ git_q -C "$PORT_MAIN" worktree remove --force "$PORT_WT1"
 git_q -C "$PORT_MAIN" worktree remove --force "$PORT_WT3"
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════════
+# (f) BL-0288: PORT alone changes; all URL bytes identify the committed shared gate origin.
+# Auth and seeded media share an origin; merge-queue gates the committed file instead.
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+URL_MAIN="$TMPROOT/url-main"
+mkdir -p "$URL_MAIN/.pandacorp" "$URL_MAIN/e2e"
+( cd "$URL_MAIN" && git init -q -b main \
+  && echo '{"name":"some-product","version":"0.0.0"}' > package.json \
+  && echo 'lockfileVersion: 9' > pnpm-lock.yaml \
+  && cp "$SCRIPT_SRC" .pandacorp/worktree-bootstrap.sh && chmod +x .pandacorp/worktree-bootstrap.sh \
+  && cat > e2e/server-env.json <<'JSON'
+{
+  "PORT": "4037",
+  "BETTER_AUTH_URL": "http://127.0.0.1:4037",
+  "ORACLE_MEDIA_BASE_URL": "http://127.0.0.1:4037/oracle-media",
+  "LOCALHOST_URL": "http://localhost:4037/x",
+  "LOCALHOST_ORIGIN": "http://localhost:4037/",
+  "QUERY_URL": "http://127.0.0.1:4037?media=1",
+  "REMOTE_PORT_URL": "http://example.com:4037",
+  "HTTPS_ORIGIN": "https://127.0.0.1:4037",
+  "EMBEDDED_URL": "origin=http://127.0.0.1:4037",
+  "DATABASE_URL": "postgresql://postgres:dev@localhost:4032/ft_gate",
+  "NEXT_PUBLIC_PRODUCT_URL": "https://funkotracker.example",
+  "LONGER_PORT_URL": "http://127.0.0.1:40370"
+}
+JSON
+  mkdir -p .claude && echo 'node_modules/' > .gitignore \
+  && echo '{"version":"0.0.1","configurations":[{"name":"app","runtimeExecutable":"pnpm","runtimeArgs":["run","dev"],"port":4030}]}' > .claude/launch.json \
+  && git add -A && git_q commit -qm seed )
+URL_WT="$TMPROOT/url-wt"
+git_q -C "$URL_MAIN" worktree add --detach "$URL_WT" main
+( cd "$URL_WT" && PANDACORP_E2E_PORT=3964 bash .pandacorp/worktree-bootstrap.sh >/tmp/wtb-f1.log 2>&1 )
+URL_ENV="$URL_WT/e2e/server-env.json"
+f_key() { jq -r --arg k "$2" '.[$k] // empty' "$1" 2>/dev/null; }
+ok "$([ "$(f_key "$URL_ENV" BETTER_AUTH_URL)" = "http://127.0.0.1:4037" ] && echo 1 || echo 0)" "(f1) a bare loopback origin on the own PORT stays unchanged (got: $(f_key "$URL_ENV" BETTER_AUTH_URL))"
+ok "$([ "$(f_key "$URL_ENV" ORACLE_MEDIA_BASE_URL)" = "http://127.0.0.1:4037/oracle-media" ] && echo 1 || echo 0)" "(f1) a media data-identity URL with a path stays untouched (got: $(f_key "$URL_ENV" ORACLE_MEDIA_BASE_URL))"
+ok "$([ "$(f_key "$URL_ENV" LOCALHOST_URL)" = "http://localhost:4037/x" ] && echo 1 || echo 0)" "(f1) a localhost URL with a path stays untouched"
+ok "$([ "$(f_key "$URL_ENV" LOCALHOST_ORIGIN)" = "http://localhost:4037/" ] && echo 1 || echo 0)" "(f1) a bare localhost origin keeps its trailing slash unchanged"
+ok "$([ "$(f_key "$URL_ENV" HTTPS_ORIGIN)" = "https://127.0.0.1:4037" ] && echo 1 || echo 0)" "(f1) a bare HTTPS loopback origin stays unchanged"
+ok "$([ "$(f_key "$URL_ENV" QUERY_URL)" = "http://127.0.0.1:4037?media=1" ] && echo 1 || echo 0)" "(f1) a loopback URL with a query stays untouched"
+ok "$([ "$(f_key "$URL_ENV" REMOTE_PORT_URL)" = "http://example.com:4037" ] && echo 1 || echo 0)" "(f1) a remote host on the committed port stays untouched"
+ok "$([ "$(f_key "$URL_ENV" EMBEDDED_URL)" = "origin=http://127.0.0.1:4037" ] && echo 1 || echo 0)" "(f1) an embedded loopback origin stays untouched"
+ok "$([ "$(f_key "$URL_ENV" DATABASE_URL)" = "postgresql://postgres:dev@localhost:4032/ft_gate" ] && echo 1 || echo 0)" "(f2) a loopback URL on a DIFFERENT port (the DB) is untouched"
+ok "$([ "$(f_key "$URL_ENV" NEXT_PUBLIC_PRODUCT_URL)" = "https://funkotracker.example" ] && echo 1 || echo 0)" "(f2) a remote URL is untouched"
+ok "$([ "$(f_key "$URL_ENV" LONGER_PORT_URL)" = "http://127.0.0.1:40370" ] && echo 1 || echo 0)" "(f2) a port that merely starts with the own PORT digits is untouched"
+( cd "$URL_WT" && PANDACORP_E2E_PORT=3964 bash .pandacorp/worktree-bootstrap.sh >/tmp/wtb-f3.log 2>&1 )
+ok "$([ "$(f_key "$URL_ENV" PORT)" = "3964" ] && [ "$(f_key "$URL_ENV" BETTER_AUTH_URL)" = "http://127.0.0.1:4037" ] && echo 1 || echo 0)" "(f3) a re-bootstrap changes PORT alone and preserves URLs (got: $(f_key "$URL_ENV" PORT) / $(f_key "$URL_ENV" BETTER_AUTH_URL))"
+ok "$([ "$(f_key "$URL_MAIN/e2e/server-env.json" BETTER_AUTH_URL)" = "http://127.0.0.1:4037" ] && echo 1 || echo 0)" "(f4) the MAIN checkout keeps its committed own-origin URL"
+ok "$([ -z "$(cd "$URL_WT" && git status --porcelain -- e2e/server-env.json)" ] && echo 1 || echo 0)" "(f5) the rewritten file stays hidden from \`git status\` (skip-worktree)"
+ok "$([ "$(jq -r '.configurations[0].autoPort' "$URL_WT/.claude/launch.json" 2>/dev/null)" = "true" ] && echo 1 || echo 0)" "(f6) a TRACKED launch.json is still flipped to autoPort"
+ok "$([ -z "$(cd "$URL_WT" && git status --porcelain)" ] && echo 1 || echo 0)" "(f6) ...and the whole worktree stays clean for merge-queue.sh (got: $(cd "$URL_WT" && git status --porcelain | tr '\n' ' '))"
+# BL-0288: numeric JSON PORT is valid too; nested projects preserve URLs and leave no temp files.
+NUM_MAIN="$TMPROOT/numeric-main"
+mkdir -p "$NUM_MAIN/mission-control/e2e" "$NUM_MAIN/mission-control/.pandacorp"
+( cd "$NUM_MAIN" && git init -q -b main \
+  && echo '{"name":"numeric-product"}' > mission-control/package.json \
+  && printf 'node_modules/\n.env.local\n' > .gitignore \
+  && cp "$SCRIPT_SRC" mission-control/.pandacorp/worktree-bootstrap.sh \
+  && echo '{"PORT":4037,"URL":"http://[::1]:4037"}' > mission-control/e2e/server-env.json \
+  && git add -A && git_q commit -qm seed )
+NUM_WT="$TMPROOT/numeric-wt"
+git_q -C "$NUM_MAIN" worktree add --detach "$NUM_WT" main
+NUM_ENV="$NUM_WT/mission-control/e2e/server-env.json"
+echo '{"PORT":3989,"URL":"http://[::1]:4037"}' > "$NUM_ENV"
+git_q -C "$NUM_WT" update-index --skip-worktree mission-control/e2e/server-env.json
+( cd "$NUM_WT/mission-control" && PANDACORP_E2E_PORT=3964 bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/f8.log" 2>&1 )
+rc_f8=$?
+ok "$([ "$rc_f8" = 0 ] && [ "$(f_key "$NUM_ENV" PORT)" = 3964 ] && [ "$(f_key "$NUM_ENV" URL)" = 'http://[::1]:4037' ] && echo 1 || echo 0)" "(f8) numeric PORT changes in a nested project while IPv6 URL stays unchanged"
+ok "$([ -z "$(find "$NUM_WT/mission-control/e2e" -name 'server-env.json.*')" ] && [ -z "$(git -C "$NUM_WT" status --porcelain)" ] && echo 1 || echo 0)" "(f8) numeric PORT leaves no temp file and clean git status"
+
+# BL-0288: malformed input must leave neither a partial replacement nor mktemp debris, and the
+# rest of bootstrap (manifest) must still run (BL-0288).
+echo '{broken' > "$NUM_ENV"
+( cd "$NUM_WT" && PANDACORP_E2E_PORT=3964 bash mission-control/.pandacorp/worktree-bootstrap.sh >"$TMPROOT/f9.log" 2>&1 )
+rc_f9=$?
+ok "$([ "$rc_f9" = 0 ] && [ "$(cat "$NUM_ENV")" = '{broken' ] && [ -z "$(find "$NUM_WT/mission-control/e2e" -name 'server-env.json.*')" ] && echo 1 || echo 0)" "(f9) jq failure is nonfatal, preserves input and removes its temp file"
+git_q -C "$NUM_MAIN" worktree remove --force "$NUM_WT"
+git_q -C "$URL_MAIN" worktree remove --force "$URL_WT"
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
 # (e) PANDACORP_FACTORY_ROOT derivation (BL-0160) — canary-c-forensics.md §7: the gate-worktree
 # bootstrap left PANDACORP_FACTORY_ROOT pointing at the factory's real MAIN checkout instead of the
 # canary's own worktree, so a gate's Preview Smoke run could read (and race against) ideas/portfolio/

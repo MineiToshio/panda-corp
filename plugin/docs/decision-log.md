@@ -1,6 +1,14 @@
 # Decision log — Plugin pandacorp
 
 
+## v9.145.2 — 2026-10-29 (PATCH): gate committed server-env; restore local PORT on exit (BL-0288)
+
+**What:** [Bootstrap](../templates/shared/.pandacorp/worktree-bootstrap.sh) remains PORT-only (numeric tostring, jq temp cleanup, tracked env/launch skip-worktree). [Merge queue](../templates/shared/.pandacorp/merge-queue.sh) clears/restores overrides before rebase, gates HEAD-identical project-relative server-env without re-bootstrap, and probes its committed PORT: busy → new exit 14 with stop/retry instructions. EXIT releases the lock first and re-bootstraps only on nonzero post-restore outcomes (including abort, red, 21 and ff-merge failure). Shared-DB integration gates are serialized by that lock. Mission Control bootstrap is byte-identical; its diverged queue is untouched. Plugin 9.144.2 / overlay 8.114.1.
+**Why:** On 2026-10-29 the owner chose this Pareto option over a per-worktree DB. URL rewriting was rejected: ORACLE_MEDIA_BASE_URL identifies 400 shared-DB media rows seeded at :4037; moving it produced 0/400 images and 26 red media e2e tests (owner-provided evidence). Moving only auth origins violates localFixture's same-origin invariant between auth and media.
+**Verification:** Final-design regressions RED bootstrap 46/5, queue 45/11 → GREEN 51/0 and 56/0. Fixtures cover committed PORT observed by verify, exit 21, busy port 14 without verify, red 11, local restoration/clean status, main config updates, nested invocation and rebase abort. Live funko-tracker proof: unit 3169/3169, e2e 460/462; `contact.spec.ts:11` was a flake (6/6 alone), while `personal-controls-motion.spec.ts:5` is a pre-existing defect (6/6 on untouched main).
+
+**BL-0288 review:** Restore only root launch/project-prefixed env skip entries; preserve user/sparse skips; missing jq → 20; unlock before failure-only bootstrap with warning/status preservation; exit 0 keeps manifest deleted; probed high-port fixtures cover user bytes/bits and locks after 0/14/11 (queue 76/0, bootstrap 51/0; batch integration/syntax pass).
+
 ## v9.145.1 — 2026-10-29 (PATCH): Codex workers default to full access (DR-142)
 
 **What:** under `--workers codex` the engine now defaults `args.codexAccess` to `full` (`codex exec -s danger-full-access`); `--codex-access sandbox` is the opt-in. Launcher doc, implement skill, DR-142 and tests updated.

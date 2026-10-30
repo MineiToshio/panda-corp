@@ -73,6 +73,11 @@ if [ -f "$MAIN_WT/.claude/launch.json" ] && command -v jq >/dev/null 2>&1; then
       | if .runtimeArgs then .runtimeArgs |= strip_port else . end
     )' "$MAIN_WT/.claude/launch.json" > "$WORKTREE/.claude/launch.json" 2>/dev/null \
     || cp "$MAIN_WT/.claude/launch.json" "$WORKTREE/.claude/launch.json"
+  # Some projects TRACK launch.json (funko-tracker): hide this worktree-local rewrite from `git status`,
+  # or merge-queue.sh's clean-tree check refuses to land every bootstrapped branch (BL-0288).
+  if git -C "$WORKTREE" ls-files --error-unmatch .claude/launch.json >/dev/null 2>&1; then
+    git -C "$WORKTREE" update-index --skip-worktree .claude/launch.json 2>/dev/null || true
+  fi
 fi
 
 # ── 2b. e2e/server-env.json PORT — derive a per-worktree e2e port (BL-0154) ──────────────────────────
@@ -114,7 +119,16 @@ if [ "$WORKTREE" != "$MAIN_WT" ] && [ -n "$APP_DIR" ] && [ -f "$SERVER_ENV_FILE"
   fi
   echo "  • e2e/server-env.json PORT → $E2E_PORT (worktree-derived, BL-0154)"
   TMP_SERVER_ENV="$(mktemp "$SERVER_ENV_FILE.XXXXXX")"
-  jq --arg p "$E2E_PORT" '.PORT = $p' "$SERVER_ENV_FILE" > "$TMP_SERVER_ENV" && mv "$TMP_SERVER_ENV" "$SERVER_ENV_FILE"
+  # BL-0288: PORT-only (BL-0154); numeric JSON PORT is supported via tostring. Do NOT move
+  # port-derived URLs: some are data identity. funko-tracker's ORACLE_MEDIA_BASE_URL matches
+  # 400 media rows seeded at :4037 in the shared gate DB; auth and media must share an origin
+  # (localFixture invariant). merge-queue.sh therefore gates the committed file; see there.
+  # Failed jq preserves the input and removes mktemp debris before bootstrap continues.
+  if jq --arg p "$E2E_PORT" '.PORT = ($p | tostring)' "$SERVER_ENV_FILE" > "$TMP_SERVER_ENV"; then
+    mv "$TMP_SERVER_ENV" "$SERVER_ENV_FILE"
+  else
+    rm -f "$TMP_SERVER_ENV"
+  fi
   # Hide the local rewrite of this TRACKED file from `git status` in THIS worktree only (each linked
   # worktree has its own index) — otherwise the file shows permanently modified, defeating the Stop
   # hook's clean-tree fast-path (BL-0044) on every single Stop, forever, and never because of this
