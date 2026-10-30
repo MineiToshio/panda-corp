@@ -268,6 +268,7 @@ function renderSummaryTab(options: {
       pendingDecisions={pendingDecisions}
       slug={slug}
       snapshot={snapshot}
+      status={status}
       deployTarget={status.deployTarget}
       deployUrl={status.deployUrl}
       overlayFreshness={overlayFreshness}

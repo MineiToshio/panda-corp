@@ -9,7 +9,7 @@
 |---|---|---|---|---|
 | [WO-14-004](./wo-14-004-feedback-channels-doc.md) | feedback-channels-doc | VERIFIED | — | Kept live: the Documentación guide explaining the three feedback channels (owns AC-14-003.3). |
 | [WO-14-001](./wo-14-001-snapshot-helpers.md) | snapshot-helpers | VERIFIED | WO-01-005 | History, kept live: `buildSnapshot` + `isSnapshotStale` pure helpers. |
-| [WO-14-005](./wo-14-005-snapshot-panel-orbita.md) | snapshot-panel-orbita | PLANNED | WO-13-012, WO-01-010 | Órbita «Último commit en verde» panel + the read-only git gap probe (stale and no-signal states). |
+| [WO-14-005](./wo-14-005-snapshot-panel-orbita.md) | snapshot-panel-orbita | IN_REVIEW | WO-13-012, WO-01-010 | Órbita «Último commit en verde» panel + the read-only git gap probe (stale and no-signal states). |
 
 > **Depends on** mirrors each work order's `dependsOn` frontmatter.
 

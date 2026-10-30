@@ -30,11 +30,13 @@ import { CountBadge } from "@/components/core/CountBadge/CountBadge";
 import { DocHeading } from "@/components/core/DocHeading/DocHeading";
 import { Markdown } from "@/components/core/Markdown/Markdown";
 import { Panel } from "@/components/core/Panel/Panel";
+import { formatRelative } from "@/lib/copy/dates";
 import type { ActivityLog, DecisionPoint } from "@/lib/docs/activity";
 import type { OverlayFreshnessState } from "@/lib/overlay-freshness/overlay-freshness";
 import type { PendingResult } from "@/lib/pendingMerge/pendingMerge";
 import type { SnapshotInfo } from "@/lib/snapshot/snapshot";
-import type { DeployTarget } from "@/lib/status/status";
+import { isLive } from "@/lib/status/liveness";
+import type { DeployTarget, ProjectStatus } from "@/lib/status/status";
 import { SnapshotPanel } from "../snapshot-panel/snapshot-panel";
 import { VersionFreshness } from "../version-freshness/version-freshness";
 import { PendingMergeBlock } from "./PendingMergeBlock";
@@ -62,6 +64,8 @@ export interface TabSummaryProps {
   slug?: string;
   /** FRD-14 snapshot; null/absent when there is no last_green_sha (panel omitted). */
   snapshot?: SnapshotInfo | null;
+  /** Interim heartbeat input until the workspace supplies the shared build signal. */
+  status?: Partial<ProjectStatus>;
   /** Deploy target (DR-085) — internal (in-house tool) vs external (Vercel/AWS). */
   deployTarget?: DeployTarget;
   /** Live URL of the deployment (DR-085). When present, a clickable "Versión desplegada" row shows. */
@@ -603,11 +607,18 @@ export function TabSummary({
   pendingDecisions,
   slug = "",
   snapshot = null,
+  status,
   deployTarget,
   deployUrl,
   overlayFreshness,
   pendingMerge,
 }: TabSummaryProps): React.JSX.Element {
+  // Heartbeat-based interim until WO-04-011 and WO-06-013 supply the shared build signal.
+  const now = Date.now();
+  const noSignalAgo =
+    status?.running === true && !isLive(status, now)
+      ? formatRelative(status.supervisorHeartbeat ?? "", now)
+      : undefined;
   return (
     <main data-testid="tab-summary" aria-label="Resumen del proyecto" style={ROOT_STYLE}>
       {/* FRD-20 — overlay-freshness badge: "al día con la fábrica" or the /pandacorp:upgrade
@@ -644,7 +655,7 @@ export function TabSummary({
       </Panel>
 
       {/* FRD-14 snapshot panel — inside Summary (WS-2, prototype projResumen); omitted when null */}
-      <SnapshotPanel slug={slug} snapshot={snapshot} />
+      <SnapshotPanel slug={slug} snapshot={snapshot} noSignalAgo={noSignalAgo} />
 
       {/* AC-04-003.3 + AC-04-004.1 — decision points (prototype: decisionesBox()) */}
       <DecisionsBlock decisions={decisions} pendingDecisions={pendingDecisions} />

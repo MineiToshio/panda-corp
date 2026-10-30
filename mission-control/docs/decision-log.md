@@ -1,5 +1,13 @@
 # Decision Log — Mission Control
 
+## 2026-10-30 — Interim Resumen heartbeat exception
+
+Owner-delegated scope extension for [WO-14-005](frds/frd-14-snapshot-and-feedback/work-orders/wo-14-005-snapshot-panel-orbita.md): TabSummary uses the existing status/liveness.ts helper to pass noSignalAgo from the current workspace heartbeat, preventing dead running claims from showing building-now. WO-04-011 and WO-06-013 own removal in favor of the shared build signal; AC-14-001.1 remains open until WO-04-011 adds the mount gate and changes the behaviour fixture to running:true. The redundant Panel activity contract paragraph was removed from the FRD.
+
+## 2026-10-30 — Snapshot activity follows the running claim and shared signal
+
+[WO-14-005](frds/frd-14-snapshot-and-feedback/work-orders/wo-14-005-snapshot-panel-orbita.md) restores the Órbita snapshot panel and read-only git gap probe. The [FRD contract](frds/frd-14-snapshot-and-feedback/frd.md) keeps stopped builds free of a building-now line while the shared resolver age chooses no-signal wording. The behaviour test checks verbatim command copying; stable folder selection stays with the WO-04-011 caller. This preserves the panel boundary without changing the snapshot helper or independent reviewer suites.
+
 ## 2026-10-30 — Shared build-mode picker
 
 [WO-11-003](frds/frd-11-build-modes/work-orders/wo-11-003-build-mode-picker.md) implements the frozen [FRD-11](frds/frd-11-build-modes/frd.md) cards as a shared module for Comandos and Campaña. The [component inventory](design/components.md) records the shared location. `CmdRow` and `CopyButton` gain optional command-box styling, accessible copy labels and result callbacks so consumers reuse the existing primitives. Browser subscriptions use a balanced server snapshot before restoring the per-project preference.
