@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DataModelViewer } from "../DataModelViewer";
 import { readyFixture } from "./fixture";
@@ -26,6 +26,21 @@ function visit(href: string) {
 }
 
 describe("persistent logical model location", () => {
+  it.each([
+    "entity=entry",
+    "expanded=1&entity=entry",
+  ])("AC-25-001.1: an expand gesture writes expanded and Escape removes it from %s", async (search) => {
+    visit(`/portfolio/registered/architecture?${search}`);
+    render(<DataModelViewer result={readyFixture()} />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Ampliar modelo" }, { timeout: 5000 }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(new URLSearchParams(window.location.search).get("expanded")).toBe("1");
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(new URLSearchParams(window.location.search).get("expanded")).toBeNull();
+  });
   it("restores schema, search, selected table and browser history selection", async () => {
     visit(
       "/portfolio/registered/architecture?model=schema&modelQuery=reviewer&entity=entry&schemaTable=entry",

@@ -200,7 +200,7 @@ test("post-build registration: a non-first project retains identity through WO S
     const registered = sourceFiles(root, snapshotFiles(root));
     for (const family of ["portfolio", "projects"]) {
       const href = `/${family}/navigation-review-second/observability`;
-      await gotoHydrated(page, href, { selector: '[data-testid="tab-observability"]' });
+      await gotoHydrated(page, href, { selector: '[data-testid="tabbar"]' });
       await expect(page.getByTestId("wo-board")).toContainText("Second project reader");
       if (family === "portfolio") {
         const rows = page.getByTestId("selectable-project-row");
