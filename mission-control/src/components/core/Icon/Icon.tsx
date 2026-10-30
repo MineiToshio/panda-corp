@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { ICON_NODES, type IconName } from "./iconData";
 
-export type IconSize = "sm" | "md" | "lg";
+type IconSize = "sm" | "md" | "lg";
 
 export interface IconProps {
   readonly name: IconName;

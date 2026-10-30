@@ -6,7 +6,7 @@ export const SIDEBAR_STORAGE_KEY = "orbita-sidebar";
 export const SYSTEM_LIGHT_QUERY = "(prefers-color-scheme: light)";
 
 /** Type guard for a persisted theme value. */
-export function isTheme(value: unknown): value is Theme {
+function isTheme(value: unknown): value is Theme {
   return value === "light" || value === "dark";
 }
 
