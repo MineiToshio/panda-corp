@@ -6,7 +6,7 @@ title: 'WO-01-010 — Fixture seams: injectable clock, git runner and oracle-mod
 status: ACTIVE
 parent: FRD-01
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 difficulty: low
 reopen_count: 0
 artifacts:
