@@ -1,6 +1,12 @@
 # Decision log — Plugin pandacorp
 
 
+## v9.146.1 — 2026-10-30 (PATCH): Codex workers survive a real Workflow run; the infra pause can run (DR-142)
+
+**What:** the Codex worker id no longer calls `Date.now()`, which the Workflow runtime refuses; it now uses the lease epoch plus the per-run sequence. The infra pause runs a 60 s node timer instead of `sleep 60`, which the Bash tool blocks. `test-engine-artifact` now fails on any `Date.now()`/`new Date()` in the artifact. Overlay 8.114.2 ships the engine.
+**Why:** the first live `/pandacorp:implement codex` stopped at its first worker call after 38 seconds, reported as `paused-infra` although it was a code error; the scenario stubs provide a clock, so 230 scenarios could not see it.
+**Verification:** `test-engine-artifact`, `test-build-engine` and `test-codex-worker` green; the live proof is the Mission Control run launched right after this release.
+
 ## v9.146.0 — 2026-10-29 (MINOR): Codex workers across lanes and repairs, automatic stop, telemetry (DR-142)
 
 **What:** completes the Codex-worker mode for the whole build. (1) Proven in lanes and the repair ladder: new engine scenarios show every lane builder running on Codex inside its own lane worktree (`-C` the lane path), every gate inside its pinned worktree (project prefix nested), and the sonnet fix-forward + opus repair on Codex at their own tier/effort. (2) Automatic stop: new `runtime/codex-workers.mjs` (`stopCodexWorkers`) is called by `build-state.mjs` on `quiesce` (every run end) and on `reclaim` (a dead run's lease taken over), so no detached Codex worker outlives its run; `codex-worker.mjs stop` reuses it. (3) Telemetry: `codex-worker.mjs` appends `worker_started` / `worker_stopped` (existing vocabulary aliases; `data.executor: "codex"`, role, model, effort, ok/kind, seconds) to `~/.claude/dashboard-events.ndjson`, a bulkhead that never fails the worker. Zero engine bytes (artifact 478,485).

@@ -49,6 +49,8 @@ check(WORKFLOW_SCRIPT_LIMIT - SIZE_BUDGET >= MIN_HEADROOM, `the ${SIZE_BUDGET}-b
 // ── 2. Freshness ─────────────────────────────────────────────────────────────
 check(compactEngine(source) === artifact, "committed artifact == generate-engine(source)", `run node plugin/scripts/generate-engine.mjs`);
 check(artifact.startsWith("export const meta = {"), "artifact BEGINS with the pure meta literal (Workflow contract)");
+// The Workflow runtime has no clock and throws on either call; scenario stubs would not notice (first live Codex run died on it).
+check(!/\bDate\.now\(|\bnew Date\(/.test(artifact), "artifact uses no Date.now()/new Date() (unavailable in a Workflow script)");
 check(/^\/\/ GENERATED from plugin\/runtime\/engine\/pandacorp-build\.src\.js .*do not edit/m.test(artifact), "artifact carries the GENERATED banner");
 
 // ── 3. AST equivalence through an independent parser ─────────────────────────

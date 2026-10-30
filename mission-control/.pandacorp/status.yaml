@@ -4,7 +4,7 @@ project: "Pandacorp"
 phase: implementation
 last_harvest: "2026-10-28T14:20:22Z"
 version: v2
-overlay_version: "8.114.1"
+overlay_version: "8.114.2"
 created_with: "6.0.0"
 target_platforms: desktop  # v2 flips this to responsive in the same change that makes the app responsive (DR-074; owner decision 2026-10-21)
 deploy_target: internal  # internal tool (runs on 127.0.0.1) — no external host (DR-085)

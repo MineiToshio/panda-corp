@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-30 — Pandacorp overlay upgraded 8.114.1 → 8.114.2
+
+**What:** engine only: the plugin 9.146.1 fix for the Codex worker id and the infra pause.
+
+**Why:** the first `/pandacorp:implement codex` run stopped at its first worker call on those two engine defects.
+
 ## 2026-10-30 — Pandacorp overlay upgraded 8.110.0 → 8.114.1
 
 **What:** regenerated `.pandacorp/guide.md`, `AGENTS.md`, `.pandacorp/merge-queue.sh` and the build engine; re-synced `docs/rules/` (`code-conventions`, `external-services`, `quality-and-testing`) and the rules index. `verify.sh`, `canary.sh`, `biome.json`, Playwright config and the e2e gate specs already matched the templates.

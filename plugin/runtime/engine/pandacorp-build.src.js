@@ -942,7 +942,7 @@ function haltForInfra(sig, label) {
 async function infraPause(forLabel) {
   agentSpawned++
   try {
-    const r = await spawnWithTypeFallback(`${WORK_FROM}INFRA PAUSE (proposal 39 C7): the previous agent call (${forLabel}) failed for an infrastructure reason. Run exactly \`sleep ${INFRA_PAUSE_SECONDS}\` as ONE Bash call (timeout ${(INFRA_PAUSE_SECONDS + 30) * 1000} ms), nothing before or after it, then return { done: true }.`,
+    const r = await spawnWithTypeFallback(`${WORK_FROM}INFRA PAUSE (proposal 39 C7): the previous agent call (${forLabel}) failed for an infrastructure reason. Run exactly \`node -e "setTimeout(() => {}, ${INFRA_PAUSE_SECONDS * 1000})"\` as ONE Bash call (timeout ${(INFRA_PAUSE_SECONDS + 30) * 1000} ms), nothing before or after it, then return { done: true }.`,
       { label: `infra-pause:${forLabel}`, phase: 'Build', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
     return Boolean(r && r.done === true)
   } catch (e) { return false }
@@ -1045,7 +1045,7 @@ function codexGiveUp(label, why) {
 }
 async function codexSpawn(prompt, rest, where) {
   const label = String(rest.label || 'agent')
-  const id = `${label.replace(/[^\w.-]+/g, '-').slice(0, 60)}-${++codexSeq}-${Date.now().toString(36)}`
+  const id = `${label.replace(/[^\w.-]+/g, '-').slice(0, 60)}-e${LEASE_EPOCH}-${++codexSeq}`
   const body = (rest.schema ? `${prompt}\n\nFINAL ANSWER JSON Schema: ${JSON.stringify(rest.schema)}` : prompt).trimEnd()
   const q = (k, v) => (v ? ` --${k} ${shellQuote(v)}` : '')
   const cmd = `${CODEX_WORKER_CLI_COMMAND} run --id ${id} --sum ${codexFnv(body)}${q('project', PROJECT_DIR)}${q('model', rest.model || P.worker)}${q('effort', rest.effort)}${q('role', rest.agentType)}${q('dir', where && where.dir)}${where && where.nest ? ' --nest' : ''}${rest.schema ? ' --json-answer' : ''}${CODEX_ACCESS === 'full' ? ' --access full' : ''}`

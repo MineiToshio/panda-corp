@@ -768,7 +768,7 @@ SCENARIOS.push({
     t.ok(byLabel(run, 'build:wo-i1-001').length === 2, `the builder is retried exactly once (got ${byLabel(run, 'build:wo-i1-001').length} spawns)`)
     const pause = indexOf(run, /^infra-pause:build:wo-i1-001$/)
     t.ok(pause >= 0 && pause < run.calls.map((c) => c.label).lastIndexOf('build:wo-i1-001'), 'an infra pause runs BEFORE the retry')
-    t.ok(pause >= 0 && /sleep 60/.test(run.calls[pause].prompt), 'the pause is a literal `sleep 60` op (the Workflow runtime has no sleep)')
+    t.ok(pause >= 0 && /setTimeout\(\(\) => \{\}, 60000\)/.test(run.calls[pause].prompt) && !/`sleep /.test(run.calls[pause].prompt), 'the pause is a literal 60 s node timer (the Workflow runtime has no sleep, and the Bash tool blocks a standalone sleep)')
     noRepairPath(t, run)
     t.ok(hasLog(run, /infra/i) && hasLog(run, /not a work-order failure/i), 'the infra class is logged as not a WO failure')
     t.ok(run.result && run.result.stopReason !== 'paused-infra' && run.result.builtFrds.includes('frd-i1'), 'a single recovered infra failure does not stop the run: the FRD verifies')
@@ -3924,7 +3924,7 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
     const reread = byLabel(run, 'codex-reread:fast-build:frd-41')[0]
-    t.ok(reread && /codex-worker\.mjs' read --id fast-build-frd-41-\d+-\w+ --project/.test(reread.prompt), 'the engine re-read the stored result')
+    t.ok(reread && /codex-worker\.mjs' read --id fast-build-frd-41-e\d+-\d+ --project/.test(reread.prompt), 'the engine re-read the stored result')
     t.ok(run.logs.some((l) => /reread fixture/.test(l)), 'it acted on the re-read line, not on the altered copy')
   },
 })
