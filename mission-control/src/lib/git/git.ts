@@ -3,9 +3,6 @@ import { resolveFactoryRoot } from "../config/config";
 import { fixtureGit } from "./fixtureGit";
 import { GitError } from "./gitError";
 
-// biome-ignore lint/performance/noBarrelFile: The public git boundary exposes its shared error without a circular dependency.
-export { GitError } from "./gitError";
-
 function isReadOnly(args: readonly string[]): boolean {
   const [command, ...rest] = args;
   if (
