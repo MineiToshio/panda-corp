@@ -10,9 +10,7 @@ export function workspaceSelection(
   rawParams: RouteQuery,
   projectPath?: string,
 ): WorkspaceSelection {
-  const params = rawParams.project
-    ? parseNavigationUrl(normalizeLegacyNavigation(workspaceQueryHref(rawParams)))
-    : rawParams;
+  const params = parseNavigationUrl(normalizeLegacyNavigation(workspaceQueryHref(rawParams)));
   const activeTab = resolveWorkspaceTab(params.tab);
   if (typeof params.tab === "string" && params.tab !== activeTab) notFound();
   const defaultDoc =

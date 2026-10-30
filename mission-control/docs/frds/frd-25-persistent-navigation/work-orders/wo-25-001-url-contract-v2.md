@@ -281,6 +281,27 @@ None (W0). Consumers: every v2 surface WO (they depend on this one in the map).
 
 ## Status Note
 
+### 2026-10-30 — Empty Portfolio legacy tab normalization
+
+Workspace query normalization now runs regardless of whether `project` is present, so legacy
+`tab=party`, `tab=work-orders` and `tab=Work orders` values are normalized before tab resolution
+on an empty Portfolio. The obsolete `shellScope.ts` module was removed; it is no longer a retained
+compatibility seam or an artifact of this work order.
+
+Verification from this checkout (2026-10-30), with `PORT=PANDACORP_E2E_PORT=3930`:
+
+```sh
+export PORT=3930 PANDACORP_E2E_PORT=3930
+pnpm exec vitest run 'src/app/projects/[slug]/_tests/workspace-route.empty.reviewer.test.ts' src/app/portfolio --reporter=dot
+bash .pandacorp/verify.sh --only=biome,tsc,knip
+```
+
+- Targeted route / Portfolio run: **219/219 tests passed, 19/19 files passed**.
+- Static gate: exit 0. Biome reported the existing schema 2.5.1 / CLI 2.5.2 informational mismatch;
+  knip printed existing configuration hints.
+- No reviewer tests, visual baselines, or other files were changed. Changes remain uncommitted on
+  `orch/frd-25`.
+
 ### 2026-10-30 — Second independent gate regression repair
 
 Owner-directed correction: the former no-`wo` Observabilidad branch hid the v1 work-order board.
@@ -300,10 +321,8 @@ accounts restore / return, document-link cleanup and drift-link cleanup. Two dir
 in `workspace-navigation.test.tsx` now select Observabilidad; legacy route coverage remains intact.
 No reviewer test, visual baseline, identity catalog or port configuration was changed.
 
-Remaining compatibility seam: `AppShell` no longer imports or calls `isShellExempt`. `shellScope.ts`
-is retained only for test imports, including the frozen FRD-25 `v2-boundaries.reviewer.test.tsx`.
-Removing that module while reviewer edits are prohibited would break module resolution and TypeScript;
-retirement remains for the reviewer-owned probe update. It is not a production routing branch.
+`AppShell` no longer imports or calls `isShellExempt`, and `shellScope.ts` has been removed. There is
+no remaining shell-exemption compatibility seam.
 
 Verification from this checkout (2026-10-30), with `PORT=PANDACORP_E2E_PORT=3930` (the unchanged
 `e2e/server-env.json` port; no server or Chromium was started):
@@ -359,7 +378,6 @@ Changed files (all under `mission-control/`):
 - `src/app/projects/[slug]/_observability/ObservabilidadTab/ObservabilidadTab.tsx`
 - `src/app/projects/[slug]/_observability/ObservabilidadTab/_tests/ObservabilidadTab.test.tsx`
 - `src/components/modules/AppShell/AppShell.tsx`
-- `src/components/modules/AppShell/shellScope.ts`
 - `src/components/modules/Nav/Nav.tsx`
 - `src/components/modules/Nav/_tests/Nav.test.tsx`
 - `src/components/modules/ServicesDirectory/PortfolioViews.tsx`
