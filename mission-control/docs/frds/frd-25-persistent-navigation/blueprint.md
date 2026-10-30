@@ -3,11 +3,11 @@ id: FRD-25-blueprint
 type: blueprint
 parent: FRD-25
 status: ACTIVE
-implementation_status: BLOCKED
+implementation_status: VERIFIED
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22
-last_updated: 2026-10-22
+last_updated: 2026-10-30
 ---
 # FRD-25 — Persistent navigation URLs — Feature blueprint (v2 «Órbita»)
 

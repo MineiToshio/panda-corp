@@ -6,7 +6,7 @@ title: 'WO-25-001 — URL contract for v2 + the history flake'
 status: ACTIVE
 parent: FRD-25
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -23,7 +23,7 @@ artifacts:
   - 'src/app/configuration/_tests/persistentNavigation.test.tsx'
 source_requirements: [AC-25-001.1, AC-25-002.1, AC-25-003.1, AC-25-004.1, AC-25-005.1, AC-25-006.1, AC-25-007.1, AC-25-008.1, AC-25-009.1, AC-25-010.1, AC-25-011.1, AC-25-012.1]
 dependsOn: []
-last_updated: 2026-10-22
+last_updated: 2026-10-30
 change_ref: persistent-navigation-history-flaky.md
 ---
 
@@ -280,6 +280,17 @@ N/A: headless contract, no screen and no oracle state.
 None (W0). Consumers: every v2 surface WO (they depend on this one in the map).
 
 ## Status Note
+
+### 2026-10-30 — Independent FRD gate: PASS
+
+Reviewed at `5270e525`, rebased on main `7a863e60`. Full `verify.sh --report-all` passed at `1cb8a334`
+(all sub-gates, vitest 8,148/8,148, Playwright 180 passed on desktop and mobile, 12 production-only
+skips). The later one-line empty-Portfolio fix re-passed its test, `src/app/projects`, `src/app/portfolio`
+(1,445/1,445), Biome, tsc and knip. Mutation: 25 of 27 targeted mutants killed; the two survivors are the
+redundant boundary normalization calls that only feed the hydration seed. The commits since that entry
+are landed, so its "uncommitted" line below no longer applies. The history-flake card stays open: its
+original cause remains unconfirmed (LESSON-0185). La Fragua stays unreachable until WO-06-013, by
+recorded owner decision.
 
 ### 2026-10-30 — Empty Portfolio legacy tab normalization
 

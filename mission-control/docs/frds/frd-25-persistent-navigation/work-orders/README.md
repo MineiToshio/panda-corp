@@ -11,7 +11,7 @@
 
 | WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
-| WO-25-001 | url-contract-v2 | IN_REVIEW | — | The codec ships every v2 key and legacy alias, the active-destination rule and `useUrlSearch`; the oracle spec is split by family; the intermittent history failure of step 342 is investigated and fixed at its confirmed cause. |
+| WO-25-001 | url-contract-v2 | VERIFIED | — | The codec ships every v2 key and legacy alias, the active-destination rule and `useUrlSearch`; the oracle spec is split by family; the intermittent history failure of step 342 is investigated and fixed at its confirmed cause. |
 
 > **Depends on** mirrors the work order's `dependsOn` frontmatter (DR-087).
 
