@@ -3,7 +3,7 @@ id: FRD-14-blueprint
 type: blueprint
 parent: FRD-14
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: BLOCKED
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22
