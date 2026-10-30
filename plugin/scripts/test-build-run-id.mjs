@@ -309,10 +309,15 @@ for (const bad of [["--no-parallel-gates", "--gate-slots", "2"], ["--parallel-ga
   ok(!("builderEffort" in bare), "proposal 41 launcher: without --builder-effort no key is set (the engine default: a sonnet builder at medium, DR-126)");
   ok(workflowArgs(await launch(["--builder-effort", "default"])).builderEffort === "default", "proposal 41 launcher: --builder-effort default (the opt-out) reaches the engine as args.builderEffort:'default'");
   ok(workflowArgs(await launch(["--lane", "fast", "--builder-effort", "high"])).builderEffort === "high", "proposal 41 launcher: --builder-effort high reaches the engine");
+  ok(!("workers" in bare) && !("codexAccess" in bare), "DR-142 launcher: without --workers no key is set (the engine is unchanged)");
+  ok(!("workers" in workflowArgs(await launch(["--workers", "claude"]))), "DR-142 launcher: --workers claude is the same as omitting it");
+  const codexRun = workflowArgs(await launch(["--workers", "codex"]));
+  ok(codexRun.workers === "codex" && !("codexAccess" in codexRun), "DR-142 launcher: --workers codex reaches the engine as args.workers:'codex' (sandbox access by default)");
+  ok(workflowArgs(await launch(["--workers", "codex", "--codex-access", "full"])).codexAccess === "full", "DR-142 launcher: --codex-access full reaches the engine");
   const nowSized = await launch([...frds, "--lane", "fast"], "40");
   ok(/recommended\s+floor is 8 \+ 20 x FRDs\s+= 88/.test(nowSized), "P39 launcher control: the fast lane with the default review budget keeps the per-FRD gate sizing warning");
 }
-for (const bad of [["--lane"], ["--lane", "turbo"], ["--lane", "Fast"], ["--review-budget"], ["--review-budget", "later"], ["--lane", "classic", "--review-budget", "defer"], ["--review-budget", "now", "--lane", "classic"], ["--lane", "fast", "--lane", "classic"], ["--lane", "fast", "--review-budget", "now", "--review-budget", "defer"], ["--lanes"], ["--lanes", "0"], ["--lanes", "two"], ["--lanes", "-2"], ["--lanes", "2", "--lanes", "3"], ["--lanes", "2", "--lane", "classic"], ["--lane", "classic", "--lanes", "2"], ["--builder-effort"], ["--builder-effort", "xhigh"], ["--builder-effort", "low", "--builder-effort", "high"], ["--lane", "classic", "--builder-effort", "medium"]]) {
+for (const bad of [["--lane"], ["--lane", "turbo"], ["--lane", "Fast"], ["--review-budget"], ["--review-budget", "later"], ["--lane", "classic", "--review-budget", "defer"], ["--review-budget", "now", "--lane", "classic"], ["--lane", "fast", "--lane", "classic"], ["--lane", "fast", "--review-budget", "now", "--review-budget", "defer"], ["--lanes"], ["--lanes", "0"], ["--lanes", "two"], ["--lanes", "-2"], ["--lanes", "2", "--lanes", "3"], ["--lanes", "2", "--lane", "classic"], ["--lane", "classic", "--lanes", "2"], ["--builder-effort"], ["--builder-effort", "xhigh"], ["--builder-effort", "low", "--builder-effort", "high"], ["--lane", "classic", "--builder-effort", "medium"], ["--workers"], ["--workers", "gpt"], ["--workers", "codex", "--workers", "claude"], ["--codex-access", "full"], ["--workers", "codex", "--codex-access", "root"]]) {
   const root = await fixture({ phase: "architecture", running: "false" });
   let rejected = false;
   try { await exec("bash", [claudeLauncherPath, root, "pro", "8", "auto", ...bad]); } catch (error) { rejected = error.code === 3; }

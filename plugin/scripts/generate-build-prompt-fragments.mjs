@@ -17,24 +17,20 @@ const dismissalSource = dismissalMatch[1].trim().replace(/\s+/g, " ");
 const serverLifecycleMatch = reviewer.match(/<!-- SERVER_LIFECYCLE_START -->([\s\S]*?)<!-- SERVER_LIFECYCLE_END -->/);
 if (!serverLifecycleMatch) throw new Error("canonical SERVER_LIFECYCLE block not found in reviewer.md");
 const serverLifecycleSource = serverLifecycleMatch[1].trim().replace(/\s+/g, " ");
-const driftFinder = readFileSync(path.join(root, "plugin/agents/drift-finder.md"), "utf8");
-const driftFinderMatch = driftFinder.match(/<!-- DRIFT_FINDER_START -->([\s\S]*?)<!-- DRIFT_FINDER_END -->/);
-if (!driftFinderMatch) throw new Error("canonical DRIFT_FINDER block not found in drift-finder.md");
-const driftFinderSource = driftFinderMatch[1].trim().replace(/\s+/g, " ");
+// The drift finder's method is NOT inlined any more (DR-142, engine size budget): the engine points the agent at the
+// installed plugin's agents/drift-finder.md, the same canonical block, read at run time.
 // Writes into the engine SOURCE; the deployable artifact is derived from it by generate-engine.mjs (BL-0204).
 const file = path.join(root, "plugin/runtime/engine/pandacorp-build.src.js");
 const body = readFileSync(file, "utf8");
 const generated = `const SYNC_ROLLUPS = ${JSON.stringify(source)}.replaceAll('{{STATE_CLI_COMMAND}}', STATE_CLI_COMMAND).replaceAll('{{PROJECT_DIR}}', PROJECT_DIR).replaceAll('{{LEASE_TOKEN}}', LEASE_TOKEN).replaceAll('{{LEASE_EPOCH}}', String(LEASE_EPOCH))`;
 const generatedWholeFrd = `const WHOLE_FRD_ORACLE = ${JSON.stringify(wholeFrdSource)}`;
 const generatedDriftClaim = `const DRIFT_CLAIM_DIRECTIVE = ${JSON.stringify(driftClaimSource)}`;
-const generatedDriftFinder = `const DRIFT_FINDER_DIRECTIVE = ${JSON.stringify(driftFinderSource)}`;
 const generatedServerLifecycle = `const SERVER_LIFECYCLE_DIRECTIVE = ${JSON.stringify(serverLifecycleSource)}`;
 const generatedDismissal = `const DISMISSAL_CITATION_DIRECTIVE = ${JSON.stringify(dismissalSource)}`;
 if (!/^const SYNC_ROLLUPS = .*$/m.test(body)) throw new Error("SYNC_ROLLUPS generation marker not found");
 if (!/^const WHOLE_FRD_ORACLE = .*$/m.test(body)) throw new Error("WHOLE_FRD_ORACLE generation marker not found");
 if (!/^const DRIFT_CLAIM_DIRECTIVE = .*$/m.test(body)) throw new Error("DRIFT_CLAIM_DIRECTIVE generation marker not found");
-if (!/^const DRIFT_FINDER_DIRECTIVE = .*$/m.test(body)) throw new Error("DRIFT_FINDER_DIRECTIVE generation marker not found");
 if (!/^const DISMISSAL_CITATION_DIRECTIVE = .*$/m.test(body)) throw new Error("DISMISSAL_CITATION_DIRECTIVE generation marker not found");
 if (!/^const SERVER_LIFECYCLE_DIRECTIVE = .*$/m.test(body)) throw new Error("SERVER_LIFECYCLE_DIRECTIVE generation marker not found");
-const next = body.replace(/^const SYNC_ROLLUPS = .*$/m, generated).replace(/^const DISMISSAL_CITATION_DIRECTIVE = .*$/m, generatedDismissal).replace(/^const WHOLE_FRD_ORACLE = .*$/m, generatedWholeFrd).replace(/^const DRIFT_CLAIM_DIRECTIVE = .*$/m, generatedDriftClaim).replace(/^const DRIFT_FINDER_DIRECTIVE = .*$/m, generatedDriftFinder).replace(/^const SERVER_LIFECYCLE_DIRECTIVE = .*$/m, generatedServerLifecycle);
+const next = body.replace(/^const SYNC_ROLLUPS = .*$/m, generated).replace(/^const DISMISSAL_CITATION_DIRECTIVE = .*$/m, generatedDismissal).replace(/^const WHOLE_FRD_ORACLE = .*$/m, generatedWholeFrd).replace(/^const DRIFT_CLAIM_DIRECTIVE = .*$/m, generatedDriftClaim).replace(/^const SERVER_LIFECYCLE_DIRECTIVE = .*$/m, generatedServerLifecycle);
 writeFileSync(file, next);

@@ -1,6 +1,11 @@
 # Decision Log — Factory
 
 
+## 2026-10-29 — `/pandacorp:implement codex`: Codex as a subordinate worker of the Claude engine (DR-142)
+
+**What:** [DR-142](decisions/registry.yaml) adds an opt-in tag that sends every non-mechanical worker of the Claude build engine to the owner's Codex subscription through a sealed relay (plugin 9.145.0). The engine, its lease and every gate decision stay in Claude; without the tag nothing changes.
+**Why:** owner request: use the spare Codex quota so the Claude subscription lasts longer, quality first. It is a narrow exception to DR-133/PORT-5's "runtimes never call one another": Codex answers as a worker and never orchestrates.
+
 ## 2026-10-29 — Codex tier table moves to the GPT-6 family (BL-0287)
 
 **What:** [PORT-2](standards/agent-portability.md) Codex column: MECH `gpt-6-luna` (low), STANDARD `gpt-6.1-sol` (low), JUDGE `gpt-6.1-sol` (high); AGENTS.md rule 11 prose and Mission Control's runtime diagram aligned. Plugin 9.144.1.

@@ -10,7 +10,13 @@
 #           [--parallel-gates | --no-parallel-gates] [--gate-slots <1-8>] [--gate-evidence explore|digested]
 #           [--gate-context-scope] [--drift-finder on|off] [--gate-inventory-cache]
 #           [--lane fast|classic] [--review-budget now|defer] [--lanes <positive-int>] [--builder-effort low|medium|high|default] [--resume <run-id>]
-#   mode:      pro | balanced | powerful | deep   (default powerful)
+#           [--workers claude|codex] [--codex-access sandbox|full]
+#   --workers codex (DR-142): engine args.workers — every non-mechanical worker runs on Codex through the codex-worker
+#              relay; the engine, its MECH shell runners and every gate decision stay in this Claude run. Omitted or
+#              `claude` → no key: the engine is unchanged. --codex-access (codex only) → args.codexAccess: `sandbox`
+#              (default) keeps Codex's workspace-write sandbox, which cannot write .git; `full` gives the Codex worker
+#              the same reach as the Claude worker it replaces (it can commit). The owner chooses `full` explicitly.
+#   mode:     pro | balanced | powerful | deep   (default powerful)
 #   maxAgents: integer hard cap on subagents this run (the real overnight guardrail), or the literal `auto`
 #              (OPT-IN: the engine sizes a cap from its own post-plan projection; an explicit integer is never
 #              overridden, and `auto` is NOT a budget the owner chose — the overnight warning below still fires)
@@ -67,6 +73,7 @@ PROJ="${1:-.}"; PROJ="${PROJ%/}"; [ "$#" -gt 0 ] && shift
 MODE="powerful"; MAX_AGENTS=""; RUN_MODE="auto"
 FRDS=""; CHANGE=""; MAX_FRDS=""; MAX_SPEND=""; TTL="3600"; PARALLEL_GATES=""; GATE_SLOTS=""; GATE_EVIDENCE=""
 GATE_CONTEXT_SCOPE=""; DRIFT_FINDER=""; GATE_INVENTORY_CACHE=""; LANE=""; REVIEW_BUDGET=""; RESUME_RUN=""; LANES=""; BUILDER_EFFORT=""
+WORKERS=""; CODEX_ACCESS=""
 
 # Preserve the historical four positional arguments, then parse additive named scope/options.
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then MODE="$1"; shift; fi
@@ -94,6 +101,10 @@ while [ "$#" -gt 0 ]; do
       [ -z "$BUILDER_EFFORT" ] || { echo "ERROR: --builder-effort given twice." >&2; exit 3; }; BUILDER_EFFORT="$2"; shift 2 ;;
     --lanes) [ "$#" -ge 2 ] || { echo "ERROR: --lanes requires a value (a positive integer)." >&2; exit 3; }
       [ -z "$LANES" ] || { echo "ERROR: --lanes given twice." >&2; exit 3; }; LANES="$2"; shift 2 ;;
+    --workers) [ "$#" -ge 2 ] || { echo "ERROR: --workers requires a value (claude|codex)." >&2; exit 3; }
+      [ -z "$WORKERS" ] || { echo "ERROR: --workers given twice." >&2; exit 3; }; WORKERS="$2"; shift 2 ;;
+    --codex-access) [ "$#" -ge 2 ] || { echo "ERROR: --codex-access requires a value (sandbox|full)." >&2; exit 3; }
+      [ -z "$CODEX_ACCESS" ] || { echo "ERROR: --codex-access given twice." >&2; exit 3; }; CODEX_ACCESS="$2"; shift 2 ;;
     --resume) [ "$#" -ge 2 ] || { echo "ERROR: --resume requires the run id of the cut run." >&2; exit 3; }
       [ -z "$RESUME_RUN" ] || { echo "ERROR: --resume given twice." >&2; exit 3; }; RESUME_RUN="$2"; shift 2 ;;
     *) echo "ERROR: unknown launcher argument: $1" >&2; exit 3 ;;
@@ -121,6 +132,12 @@ case "$REVIEW_BUDGET" in ""|now|defer) ;; *) echo "ERROR: --review-budget must b
 [ -z "$REVIEW_BUDGET" ] || [ "$LANE" = "fast" ] || { echo "ERROR: --review-budget is fast-lane only (it contradicts --lane classic)." >&2; exit 3; }
 case "$BUILDER_EFFORT" in ""|low|medium|high|default) ;; *) echo "ERROR: --builder-effort must be low, medium, high or default." >&2; exit 3 ;; esac
 [ -z "$BUILDER_EFFORT" ] || [ "$LANE" = "fast" ] || { echo "ERROR: --builder-effort is fast-lane only (it contradicts --lane classic)." >&2; exit 3; }
+case "$WORKERS" in ""|claude|codex) ;; *) echo "ERROR: --workers must be claude or codex." >&2; exit 3 ;; esac
+case "$CODEX_ACCESS" in ""|sandbox|full) ;; *) echo "ERROR: --codex-access must be sandbox or full." >&2; exit 3 ;; esac
+[ -z "$CODEX_ACCESS" ] || [ "$WORKERS" = "codex" ] || { echo "ERROR: --codex-access only applies with --workers codex." >&2; exit 3; }
+if [ "$WORKERS" = "codex" ]; then
+  command -v "${PANDACORP_CODEX_BIN:-codex}" >/dev/null 2>&1 || { echo "ERROR: --workers codex needs the Codex CLI on PATH (codex not found)." >&2; exit 3; }
+fi
 # The worktree lanes (proposal 40 Phase B) are a fast-lane schedule: the classic waves never read args.lanes.
 if [ -n "$LANES" ]; then
   [[ "$LANES" =~ ^[1-9][0-9]?$ ]] || { echo "ERROR: --lanes must be a positive integer (1-99)." >&2; exit 3; }
@@ -240,8 +257,8 @@ ARGS_BUILD_RC=0
 if [ "${PANDACORP_TEST_FAIL_ARGS_JSON:-0}" = "1" ]; then
   ARGS_BUILD_RC=1
 else
-  WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" "$STATE_CLI" "$PARALLEL_GATES" "$GATE_SLOTS" "$GATE_EVIDENCE" "$GATE_CONTEXT_SCOPE" "$DRIFT_FINDER" "$GATE_INVENTORY_CACHE" "$LANE" "$REVIEW_BUDGET" "$LANES" "$BUILDER_EFFORT" <<'NODE'
-const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend, stateCli, parallelGates, gateSlots, gateEvidence, gateContextScope, driftFinder, gateInventoryCache, lane, reviewBudget, lanes, builderEffort] = process.argv.slice(2);
+  WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" "$STATE_CLI" "$PARALLEL_GATES" "$GATE_SLOTS" "$GATE_EVIDENCE" "$GATE_CONTEXT_SCOPE" "$DRIFT_FINDER" "$GATE_INVENTORY_CACHE" "$LANE" "$REVIEW_BUDGET" "$LANES" "$BUILDER_EFFORT" "$WORKERS" "$CODEX_ACCESS" <<'NODE'
+const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend, stateCli, parallelGates, gateSlots, gateEvidence, gateContextScope, driftFinder, gateInventoryCache, lane, reviewBudget, lanes, builderEffort, workers, codexAccess] = process.argv.slice(2);
 const args = { mode };
 if (maxAgents === "auto") args.maxAgents = "auto";
 else if (maxAgents) args.maxAgents = Number(maxAgents);
@@ -265,6 +282,8 @@ if (lane) args.lane = lane;
 if (reviewBudget) args.reviewBudget = reviewBudget;
 if (lanes) args.lanes = Number(lanes);
 if (builderEffort) args.builderEffort = builderEffort;
+if (workers === "codex") args.workers = "codex";
+if (codexAccess) args.codexAccess = codexAccess;
 process.stdout.write(JSON.stringify({ scriptPath, args }));
 NODE
 ) || ARGS_BUILD_RC=$?

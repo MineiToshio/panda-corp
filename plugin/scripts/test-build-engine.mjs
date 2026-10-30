@@ -48,6 +48,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { sealLine } from './drift-seal.mjs'
 import { decideCarryOver, decideGreenfield } from './greenfield-probe.mjs'
+import { fnv as codexFnv } from './codex-worker.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // BL-0204: the readable SOURCE (the deployable artifact is generated from it; PANDACORP_ENGINE_RUN=artifact
@@ -3837,6 +3838,95 @@ SCENARIOS.push({
     },
   })
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DR-142 — `/pandacorp:implement codex`: every non-MECH worker goes through the Codex relay
+// ─────────────────────────────────────────────────────────────────────────────
+// The relay is a MECH agent labelled `codex:<the worker's label>`. The stub plays codex-worker.mjs: it answers with
+// the sealed line the script would print, carrying what the Claude worker would have answered (defaultResponse).
+const codexBody = (call) => call.prompt.split('<<<CODEX-TASK-BEGIN>>>\n')[1].split('\n<<<CODEX-TASK-END>>>')[0]
+const codexSealed = (payload) => { const r = JSON.stringify(payload); return { line: JSON.stringify({ r, sum: codexFnv(r) }) } }
+const codexWorkerAnswer = (call) => {
+  const inner = call.label.slice('codex:'.length)
+  const pseudo = { ...call, label: inner, prompt: codexBody(call), opts: {} }
+  let answer = defaultResponse(inner, pseudo)
+  if (inner.startsWith('gate:') && answer && typeof answer === 'object') answer = withProbes(pseudo, 'traceability' in answer ? answer : { ...answer, traceability: validTraceability })
+  return /--json-answer/.test(call.prompt) ? { status: 'done', ok: true, model: 'gpt-6.1-sol', effort: 'medium', answer } : { status: 'done', ok: true, model: 'gpt-6.1-sol', effort: 'medium', text: typeof answer === 'string' ? answer : JSON.stringify(answer) }
+}
+const CODEX_OK = { label: /^codex:/, response: (call) => codexSealed(codexWorkerAnswer(call)) }
+const CODEX_ARGS = { mode: 'balanced', ...FAST, workers: 'codex' }
+const workerCalls = (run) => run.calls.filter((c) => c.model !== 'haiku')
+SCENARIOS.push({
+  name: 'codex-workers-route-every-worker — with workers:codex no worker reaches a Claude model: each goes through a MECH relay carrying the Codex model/effort/role, and the build completes',
+  args: CODEX_ARGS,
+  plan: p41Plan(),
+  responses: [CODEX_OK],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(workerCalls(run).length === 0, `no direct Claude worker call (got ${workerCalls(run).map((c) => `${c.label}/${c.model}`).join(', ')})`)
+    const relay = byLabel(run, 'codex:fast-build:frd-41')[0]
+    t.ok(relay && relay.model === 'haiku' && relay.agentType === 'pandacorp:implementer', `the builder ran through a haiku implementer relay (got ${relay && `${relay.model}/${relay.agentType}`})`)
+    t.ok(relay && /codex-worker\.mjs' run /.test(relay.prompt) && /--model 'sonnet'/.test(relay.prompt) && /--effort 'medium'/.test(relay.prompt) && /--role 'pandacorp:implementer'/.test(relay.prompt) && /--json-answer/.test(relay.prompt) && !/--access/.test(relay.prompt), 'the relay command carries model, effort, role and the schema answer; sandbox access is the script default (no flag)')
+    const sum = relay && /--sum ([0-9a-f]{8})/.exec(relay.prompt)
+    t.ok(sum && sum[1] === codexFnv(codexBody(relay).trimEnd()), 'the --sum is the FNV of exactly the task text between the markers')
+    t.ok(relay && codexBody(relay).includes('FINAL ANSWER JSON Schema: {'), 'the task asks for one JSON answer against the worker schema')
+    t.ok(byLabel(run, /^codex:gate:/).length >= 1, 'the FRD gate ran on Codex too')
+    t.ok(run.logs.some((l) => /⇄ Codex gpt-6\.1-sol · medium — fast-build:frd-41/.test(l)), 'each Codex worker is logged with its model and effort')
+    t.ok(run.logs.some((l) => /trabajadores CODEX \(acceso sandbox\)/.test(l)), 'the arg-echo line names the Codex mode')
+  },
+})
+SCENARIOS.push({
+  name: 'codex-workers-off-by-default — without the tag the engine spawns no relay and the builder is the Claude agent',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^codex/).length === 0, 'no codex relay')
+    t.ok(p41Builder(run) && p41Builder(run).model === 'sonnet', 'the Claude sonnet builder runs')
+    t.ok(!run.logs.some((l) => /CODEX/.test(l)), 'no Codex mention in the logs')
+  },
+})
+SCENARIOS.push({
+  name: 'codex-workers-failure-falls-back — a Codex error never fails the work order: that one call reruns on its Claude agent, the next goes to Codex again',
+  args: CODEX_ARGS,
+  plan: p41Plan(),
+  responses: [{ label: 'codex:fast-build:frd-41', times: 1, response: codexSealed({ status: 'done', ok: false, kind: 'error', detail: 'codex exit 1' }) }, CODEX_OK],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const claude = p41Builder(run)
+    t.ok(claude && claude.model === 'sonnet' && claude.index > byLabel(run, 'codex:fast-build:frd-41')[0].index, 'the Claude builder ran right after the failed relay')
+    t.ok(byLabel(run, /^codex:gate:/).length >= 1, 'the gate still went to Codex (one failure does not turn it off)')
+    t.ok(run.logs.some((l) => /⚠ codex fast-build:frd-41: error: codex exit 1 → agente Claude$/.test(l)), 'the fallback is logged')
+  },
+})
+SCENARIOS.push({
+  name: 'codex-workers-limit-turns-codex-off — a Codex usage limit sends the rest of the run to Claude, loudly',
+  args: CODEX_ARGS,
+  plan: p41Plan(),
+  responses: [{ label: /^codex:/, response: codexSealed({ status: 'done', ok: false, kind: 'limit', detail: 'usage limit reached' }) }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^codex:/).length === 1, `only the first worker tried Codex (got ${byLabel(run, /^codex:/).length})`)
+    t.ok(byLabel(run, /^gate:/).length >= 1 && byLabel(run, /^gate:/).every((c) => c.model !== 'haiku'), 'the gate ran on its Claude judge')
+    t.ok(run.logs.some((l) => /Codex APAGADO el resto de la corrida/.test(l)), 'the switch-off is logged')
+  },
+})
+SCENARIOS.push({
+  name: 'codex-workers-garbled-copy-is-reread — a relay line that fails its seal is re-read from the stored result, never trusted',
+  args: CODEX_ARGS,
+  plan: p41Plan(),
+  responses: [
+    { label: 'codex:fast-build:frd-41', times: 1, response: (call) => ({ line: codexSealed(codexWorkerAnswer(call)).line.replace('\\"ok\\":true', '\\"ok\\":false') }) },
+    { label: 'codex-reread:fast-build:frd-41', times: 1, response: () => codexSealed({ status: 'done', ok: false, kind: 'error', detail: 'reread fixture' }) },
+    CODEX_OK,
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const reread = byLabel(run, 'codex-reread:fast-build:frd-41')[0]
+    t.ok(reread && /codex-worker\.mjs' read --id fast-build-frd-41-\d+-\w+ --project/.test(reread.prompt), 'the engine re-read the stored result')
+    t.ok(run.logs.some((l) => /reread fixture/.test(l)), 'it acted on the re-read line, not on the altered copy')
+  },
+})
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner

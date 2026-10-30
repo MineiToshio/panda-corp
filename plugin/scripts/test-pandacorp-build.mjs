@@ -2664,7 +2664,9 @@ SCENARIOS.push({
     // dispatch, commit-wo, park-wo, gate-prepare, gate-release, reuse-check), infraPause (`sleep 60`) and the paused-infra
     // close ('build-paused') — each runs exact commands, zero judgment. = 31.
     t.ok(mechAgentCount === 31, `exactly 31 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
-    t.ok(mechEffortCount === 31, `exactly 31 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
+    // + 1 effort site WITHOUT a MECH_AGENT (DR-142): the Codex relay runs at MECH model/effort but must stay
+    // pandacorp:implementer, because it writes the task file with the Write tool and pandacorp:mech has only Bash/Read.
+    t.ok(mechEffortCount === 32, `exactly 32 call sites carry effort: MECH_EFFORT — one per MECH_AGENT(...) site plus the Codex relay (got ${mechEffortCount})`)
     t.ok(siteKeepsOriginalAgentType("label: 'safe-point'") && !siteKeepsOriginalAgentType("label: 'safe-point-pre-loop'"), 'in-loop safe-point (class c, genuine judgment + frontmatter mutation) keeps its ORIGINAL agentType — never converted; the pre-loop sibling (read-only) is NOT covered by this same anchor')
     t.ok(siteKeepsOriginalAgentType('label: `apply-gate:${frd}`'), 'apply-gate keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
     t.ok(siteKeepsOriginalAgentType('label: `persist-block:${frd}`'), 'persist-block keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
@@ -8212,7 +8214,9 @@ SCENARIOS.push({
     const agentMd = readFileSync(path.resolve(__dirname, '../agents/drift-finder.md'), 'utf8')
     t.ok(/^model: sonnet$/m.test(agentMd) && /^tools: Read, Grep, Glob, Bash$/m.test(agentMd), 'plugin/agents/drift-finder.md: model sonnet, tools Read/Grep/Glob/Bash')
     const block = (agentMd.match(/<!-- DRIFT_FINDER_START -->([\s\S]*?)<!-- DRIFT_FINDER_END -->/) || [])[1]
-    t.ok(block && source.includes(`const DRIFT_FINDER_DIRECTIVE = ${JSON.stringify(block.trim().replace(/\s+/g, ' '))}`), 'DRIFT_FINDER_DIRECTIVE is byte-identical to the generated agent block')
+    // DR-142 (engine size budget): the method is no longer inlined — the prompt points at the installed agents/drift-finder.md.
+    t.ok(block && /Whole-FRD drift finder method/.test(block) && /0\. \*\*Pin discipline \(BL-0205\)/.test(block), 'agents/drift-finder.md keeps the canonical method block, step 0 included')
+    t.ok(/^const DRIFT_FINDER_DIRECTIVE = `[^\n]*STATE_CLI\.replace\(\/scripts\\\/\[\^\/\]\+\$\/, 'agents\/drift-finder\.md'\)/m.test(source) && !source.includes('one pass over EVERY contract, located in the code'), 'DRIFT_FINDER_DIRECTIVE points at the installed agent file instead of inlining it')
   },
 })
 
@@ -8621,7 +8625,7 @@ SCENARIOS.push({
     t.ok(f && /EVERY Bash command with the literal printed directory/.test(f.prompt) && /absolute paths under `<pinDir>`/.test(f.prompt), 'every command prefixed; Read/Grep/Glob get absolute paths')
     t.ok(f && /LAST call: `cd "<pinDir>" && git rev-parse HEAD`/.test(f.prompt) && /DISCARDS your whole report/.test(f.prompt), 'a last-call HEAD check, and the consequence is stated')
     t.ok(f && /shell does NOT remember that `cd` \(BL-0205\)/.test(f.prompt), 'the shared gate-worktree preamble says the cwd does not persist')
-    t.ok(f && /Whole-FRD drift finder method/.test(f.prompt) && /0\. \*\*Pin discipline \(BL-0205\)/.test(f.prompt), 'the generated directive (drift-finder.md) carries step 0')
+    t.ok(f && /Whole-FRD drift finder method/.test(f.prompt) && /FIRST Read `\/installed plugin\/agents\/drift-finder\.md`/.test(f.prompt) && /steps 0 \(pin discipline, BL-0205\)/.test(f.prompt), 'the directive sends the finder to the installed drift-finder.md, step 0 included')
     t.ok(/required: \['contracts', 'pinDir', 'headSha'\]/.test(source), 'the structured output requires pinDir and headSha')
     t.ok(hasLog(run, /drift finder → 1 contract\(s\)/) && !hasLog(run, /DriftFinderFallback/), 'a finder that reports the pin is accepted')
   },

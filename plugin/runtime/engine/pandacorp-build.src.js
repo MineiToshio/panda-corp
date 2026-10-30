@@ -38,6 +38,11 @@ const INVENTORY_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'ga
 const WO_REVERT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'wo-revert.mjs'))}`
 // BL-0214: the evidence collector's report sealer and the drift finder's snippet checker ship in the same scripts dir.
 const SEAL_REPORT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'seal-report.mjs'))}`
+// DR-142: `/pandacorp:implement codex` — every NON-mechanical worker runs on the owner's Codex subscription through
+// the codex-worker relay (same scripts dir, same rule). Off (args.workers absent/'claude') → the engine is unchanged.
+const CODEX_WORKERS = Boolean(args && args.workers === 'codex')
+const CODEX_ACCESS = args && args.codexAccess === 'full' ? 'full' : 'sandbox'
+const CODEX_WORKER_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'codex-worker.mjs'))}`
 const FINDER_SNIPPETS_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'finder-snippets.mjs'))}`
 
 // ── Input (all optional) ─────────────────────────────────────────────────────
@@ -408,7 +413,7 @@ const DISMISSAL_CITATION_DIRECTIVE = "**Scope dismissals need a literal citation
 // A gate agent owns the server it starts and stops only that one (never a host-wide pkill/killall); .pandacorp/serve-once.sh does it by construction.
 const SERVER_LIFECYCLE_DIRECTIVE = "**Server lifecycle (BL-0223) — you own the server you start, and ONLY that one:** a dev/prod server you start for a check (`pnpm start`, `next start`, `vite preview`) is stopped only by the PID or process group you started. Start it with `bash .pandacorp/serve-once.sh -- <command>` (a free ephemeral port, its own process group, killed exactly on exit; `--run '<checks>'` runs your curl/Playwright checks against `$SERVE_URL` and cleans up in one call), never on a fixed port such as 3000, which collides with every concurrent gate and project. If you start one by hand: pick a free port, record `$!`, and stop it with `kill <PID>`, `kill -- -<PGID>` or `pkill -P <PID>`. NEVER `pkill -f`, `killall`, or `lsof -ti :<port> | xargs kill` on a server you did not start yourself: they terminate every matching server on the machine (the owner's other projects, a benchmark oracle, Mission Control), and the safety gate refuses them."
 // BL-0203: GENERATED from plugin/agents/drift-finder.md's DRIFT_FINDER block (generate-build-prompt-fragments.mjs) — do not hand-edit.
-const DRIFT_FINDER_DIRECTIVE = "**Whole-FRD drift finder method (BL-0203) — one pass over EVERY contract, located in the code, never assumed:** 0. **Pin discipline (BL-0205) — the shell forgets its directory between your Bash calls.** Your Bash tool starts EVERY call in the launching session's own directory, the factory's MAIN checkout where later commits have already landed, never in the pinned worktree; a `cd` in one call does NOT carry to the next, so a bare `grep`/`cat` silently audits the wrong code. The engine's prompt names the pinned worktree and the pinned commit. Your FIRST call prints the absolute project directory inside the pin and its HEAD (`cd \"<dir>\" && pwd -P && git rev-parse HEAD`): that HEAD must start with the pinned commit, and if it does not, STOP and return no contracts. From then on start EVERY Bash command with the literal absolute directory it printed (`cd \"<pinDir>\" && …`, or `git -C \"<pinDir>\" …`, or only absolute paths), the heredocs that write probes included, and give Read, Grep and Glob absolute paths under it, never a relative one. Your LAST call repeats the HEAD check. Report `pinDir` and `headSha` (first call) and `headShaEnd` (last call) exactly as printed: the engine discards your whole report if a reported HEAD is not the pin. 1. **Inventory.** Read `docs/frds/<frd>/frd.md` in full at this pin and list every normative contract with its id: each `REQ-NN-MMM` requirement, each `AC-NN-MMM.K` acceptance criterion, and the `CMP-NN-*`/`IF-NN-*` components and interfaces its `blueprint.md` declares. A clause without an id is still a contract — name it by its section. Do not stop at the contracts the work orders under review own: the drift this pass exists for lives in the OTHER contracts, the ones earlier cycles verified. 2. **Locate each one in the code, not in its name.** `grep` for the id, for the identifiers, routes, labels and literal strings the contract names, and OPEN the file that implements it. Never mark a contract implemented because a file or function has a plausible name, because a test with its id exists, or because a work order's Status Note says so — read the lines that do the work and quote them. 3. **Compare literally.** Check values, sets, enums, lists and mappings item by item against the text — a filter set the spec requires to exclude a category can still contain it under an old or renamed label. Check that content the spec requires is actually present in the rendered output, not just that the component that should carry it exists — a prior revert can silently drop the content while leaving the component standing. Check that a surface the spec requires is mounted on a reachable route, not only defined in an unused component. 4. **Check input validation beyond the type.** For every contract about parsing, dates, numbers or user input, find the validation and ask what it accepts that it should not: a lenient date parser can accept a string that only looks like a date, or resolve a calendar day in the wrong timezone; a lenient number parser can accept trailing non-numeric characters. A validation criterion met only for the inputs the implementer happened to test is drift. 5. **Classify each contract** — `implemented` (you read the implementing lines; give the project-relative file, the line and a short snippet copied verbatim from those lines, at least 6 characters — the engine checks every snippet against the committed tree at the pin, and a row whose snippet is not there is handed to the judge as `unknown`; two such rows discard your whole report), `drift` (the code contradicts the text; quote both sides in `why`), or `unknown` (you could not locate the implementation, or your tool budget ran out before you reached it). Never guess `implemented` to finish faster: an honest `unknown` makes the judge look; a false `implemented` hides the defect. Set `owner` to the work order whose `source_requirements` (frontmatter) lists the contract, or `none`, and `claim` to `cycle` when that owner is one of the work orders under review this cycle, else `preexisting`. 6. **Write one probe per drift.** A vitest file at `.pandacorp/run/drift-probes/<frd>/<contract-id-slug>.finder.drift-probe.ts` (e.g. `req-03-001.finder.drift-probe.ts`; the `.finder` infix keeps it apart from the reviewer's own probes) that FAILS on an assertion precisely because of the contradiction and would PASS once the contract holds. Import production code ONLY through the `@/` alias (the engine runs a copy of it from another directory) and `describe/it/expect` from `vitest`; keep it deterministic (fixed dates, no network, no real clock). Write it with a Bash heredoc. Do not run it — the engine runs it twice at two commits. It lives outside the collected test tree on purpose: never copy it into `src/`. 7. **Stay read-only everywhere else.** Before your first probe, delete only your own stale probes for this FRD (`rm -f .pandacorp/run/drift-probes/<frd>/*.finder.drift-probe.ts*`). Never edit production code, tests, docs or frontmatter; never run `verify.sh`, the test suite, a dev server or a browser; never run a git command that writes; never commit. Another agent is running the gate script in this same worktree right now. 8. **Budget.** Spend at most the tool-call budget the engine states. Work through the contracts the work orders under review do NOT own first (that is where the digested judge cannot look), then the cycle's own. When the budget runs out, mark every contract you have not reached `unknown` and set `budgetExhausted: true` — never drop a contract from the list."
+const DRIFT_FINDER_DIRECTIVE = `**Whole-FRD drift finder method (BL-0203):** FIRST Read \`${STATE_CLI.replace(/scripts\/[^/]+$/, 'agents/drift-finder.md')}\` (the installed plugin's current copy, whatever agent definition this session loaded) and follow its "Whole-FRD drift finder method" section exactly: steps 0 (pin discipline, BL-0205) to 8 (budget) bind you as written there.`
 const RENEW_LEASE = `FIRST renew this run's atomic lease (fail closed): \`${STATE_CLI_COMMAND} renew --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. If renewal fails, return stop:true and mutate nothing.`
 // REV-5: the minimal, standalone shape of RENEW_LEASE's own ask (no stop_receipt fence — RENEW_LEASE
 // never runs INSPECT_STOP, only the full safe-point prompt does) — used by the throttled-boundary
@@ -474,7 +479,7 @@ if (args === undefined || args === null) {
   log(`⚠⚠ args arrived as a ${typeof args}, NOT an object — mode/maxAgents/maxFrds were DROPPED. This run is UNBOUNDED. Stop and relaunch passing args as a JSON object (DR-072 R2).`)
 }
 if (!LEASE_TOKEN || !LEASE_EPOCH) throw new Error('FATAL: atomic lease token/epoch missing — launch only through launch-implement.sh')
-log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS === Infinity ? 'sin tope' : MAX_FRDS} · maxAgents ${MAX_AGENTS_AUTO ? 'auto (se dimensiona tras el plan)' : (MAX_AGENTS || 'OFF (sin freno de presupuesto!)')} · workers ${P.worker} · judge ${P.judge}${CHANGE ? ' · change ' + CHANGE : ONLY ? ' · frds ' + ONLY.join(',') : ''}`)
+log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS === Infinity ? 'sin tope' : MAX_FRDS} · maxAgents ${MAX_AGENTS_AUTO ? 'auto (se dimensiona tras el plan)' : (MAX_AGENTS || 'OFF (sin freno de presupuesto!)')} · workers ${P.worker} · judge ${P.judge}${CODEX_WORKERS ? ` · trabajadores CODEX (acceso ${CODEX_ACCESS})` : ''}${CHANGE ? ' · change ' + CHANGE : ONLY ? ' · frds ' + ONLY.join(',') : ''}`)
 
 // Party telemetry. `ctx` enriches the event so the Party views can be faithful to the run
 // WITHOUT inventing anything: frd (which feature), phase ('build'|'review'), activity (the
@@ -727,7 +732,11 @@ const GATE_WORKTREE = PROJECT_DIR === '.' ? '.pandacorp/run/gate-worktree' : `${
 // slot is a whole-repo checkout too, so a nested project's gate enters `gate-worktree-<k>/<prefix>` — and the
 // slot's bootstrap (gateWorktreePrompt) runs from that same project directory, where `.pandacorp/` lives.
 const gateProjectCd = (wt = GATE_WORKTREE) => `cd "${wt}/$(git -C ${shellQuote(PROJECT_DIR)} rev-parse --show-prefix)"`
-const worktreeWorkFrom = (pinSha, wt = GATE_WORKTREE) => `Work from the GATE WORKTREE ${wt} — FIRST cd into the PROJECT directory inside it, exactly: \`${gateProjectCd(wt)}\` (the worktree holds the WHOLE repo; a nested project's root is not the worktree root). It is a DETACHED git worktree checked out at the pinned commit ${pinSha} (a frozen, quiet copy of the tree so the main build keeps going); DO NOT cd to the main project root and DO NOT run any \`git commit\`/branch op that writes the main tree. Every relative path below is relative to that project directory inside the worktree; any path written as an absolute ${PROJECT_DIR}/... is the MAIN tree (append-only files only). **Your shell does NOT remember that \`cd\` (BL-0205):** a subagent's Bash tool starts every call in the launching session's own directory — the MAIN checkout, which is NOT the pinned commit — so a bare \`grep\`/\`cat\`/\`ls\` reads the wrong tree. Start EVERY Bash command with that same \`cd\` (\`<that cd> && <command>\`), or use only absolute paths / \`git -C <worktree>\`, and give Read/Grep/Glob absolute paths under the worktree.\n`
+// DR-142: a workFrom preamble is prose for a Claude agent; a Codex worker needs the directory itself (`codex exec -C`).
+// Every preamble that moves the agent off the project root registers its directory here, keyed by its exact text.
+const codexWorkDirs = new Map()
+const codexWorkDir = (text, dir, nest) => { if (CODEX_WORKERS) codexWorkDirs.set(text, { dir, nest }); return text }
+const worktreeWorkFrom = (pinSha, wt = GATE_WORKTREE) => codexWorkDir(`Work from the GATE WORKTREE ${wt} — FIRST cd into the PROJECT directory inside it, exactly: \`${gateProjectCd(wt)}\` (the worktree holds the WHOLE repo; a nested project's root is not the worktree root). It is a DETACHED git worktree checked out at the pinned commit ${pinSha} (a frozen, quiet copy of the tree so the main build keeps going); DO NOT cd to the main project root and DO NOT run any \`git commit\`/branch op that writes the main tree. Every relative path below is relative to that project directory inside the worktree; any path written as an absolute ${PROJECT_DIR}/... is the MAIN tree (append-only files only). **Your shell does NOT remember that \`cd\` (BL-0205):** a subagent's Bash tool starts every call in the launching session's own directory — the MAIN checkout, which is NOT the pinned commit — so a bare \`grep\`/\`cat\`/\`ls\` reads the wrong tree. Start EVERY Bash command with that same \`cd\` (\`<that cd> && <command>\`), or use only absolute paths / \`git -C <worktree>\`, and give Read/Grep/Glob absolute paths under the worktree.\n`, wt, true)
 // ── D1 gate-slot pool geometry (args.parallelGates, BL-0186) ──────────────────────────────────────
 // Slot k (1-based) lives at `${GATE_WORKTREE}-<k>` — never the single C2 path, so a dirty legacy worktree
 // (BL-0067 crash evidence, e.g. Mission Control's own) can never poison the pool, and the flag-off path
@@ -883,6 +892,7 @@ agent = async (prompt, opts = {}) => {
   const wf = (opts && opts.workFrom !== undefined) ? opts.workFrom : WORK_FROM
   let rest = opts
   if (opts && opts.workFrom !== undefined) { rest = { ...opts }; delete rest.workFrom }   // never leak workFrom into the real agent() opts
+  if (CODEX_WORKERS && opts && opts.workFrom) rest = { ...rest, codexDir: codexWorkDirs.get(opts.workFrom) || null }
   const finalPrompt = typeof prompt === 'string' && wf ? wf + prompt : prompt
   return INFRA_GUARD ? infraGuardedSpawn(finalPrompt, rest) : spawnWithTypeFallback(finalPrompt, rest)
 }
@@ -953,6 +963,14 @@ async function infraGuardedSpawn(finalPrompt, rest) {
   }
 }
 async function spawnWithTypeFallback(finalPrompt, rest) {
+  let codexDir = null
+  if (rest && Object.prototype.hasOwnProperty.call(rest, 'codexDir')) { codexDir = rest.codexDir; rest = { ...rest }; delete rest.codexDir }
+  // DR-142: in codex mode a worker call (anything but the MECH shell runners, which ARE the bridge to the shell) runs on
+  // Codex; the Claude spawn below only happens when Codex could not answer this call.
+  if (CODEX_WORKERS && codexOn && typeof finalPrompt === 'string' && !(rest && rest.model === MECH)) {
+    const answer = await codexSpawn(finalPrompt, rest || {}, codexDir)
+    if (answer !== CODEX_FALLBACK) return answer
+  }
   // Already know pandacorp:mech is unavailable this run — substitute the fallback BEFORE spawning, so
   // this call never pays for a repeat of the same guaranteed rejection.
   if (mechUnavailable && rest && rest.agentType === 'pandacorp:mech') {
@@ -1003,6 +1021,50 @@ async function spawnWithTypeFallback(finalPrompt, rest) {
       throw e
     }
   }
+}
+
+// ── DR-142: Codex workers (`/pandacorp:implement codex`) ────────────────────────────────────────────
+// The Workflow runtime only spawns Claude agents and has no shell, so a Codex worker is reached through a MECH relay:
+// it writes the task to a file (checked against this FNV-1a, so a garbled copy is refused), runs codex-worker.mjs
+// until Codex finishes, and copies back one sealed line. The engine then treats the answer exactly like the Claude
+// worker's: the same schema, the same sealed commit-wo/park-wo receipts, the same independent gates. A Codex failure
+// never fails the work order — that call falls back to its Claude agent; a Codex usage limit, or three failures in
+// a row, turns Codex off for the rest of the run (the owner's Claude quota then carries the build, logged loudly).
+const CODEX_FALLBACK = Symbol('codex-fallback')
+let codexOn = true
+let codexFails = 0
+let codexSeq = 0
+const codexFnv = (t) => { let h = 0x811c9dc5; for (let i = 0; i < t.length; i++) h = Math.imul(h ^ t.charCodeAt(i), 0x01000193) >>> 0; return h.toString(16).padStart(8, '0') }
+function codexUnseal(raw) {
+  try { const s = JSON.parse(String(raw && typeof raw === 'object' ? raw.line : raw).trim()); return codexFnv(s.r) === s.sum ? JSON.parse(s.r) : null } catch { return null }
+}
+function codexGiveUp(label, why) {
+  if (++codexFails >= 3) codexOn = false
+  log(`⚠ codex ${label}: ${why} → agente Claude${codexOn ? '' : '; Codex APAGADO el resto de la corrida'}`)
+  return CODEX_FALLBACK
+}
+async function codexSpawn(prompt, rest, where) {
+  const label = String(rest.label || 'agent')
+  const id = `${label.replace(/[^\w.-]+/g, '-').slice(0, 60)}-${++codexSeq}-${Date.now().toString(36)}`
+  const body = (rest.schema ? `${prompt}\n\nFINAL ANSWER JSON Schema: ${JSON.stringify(rest.schema)}` : prompt).trimEnd()
+  const q = (k, v) => (v ? ` --${k} ${shellQuote(v)}` : '')
+  const cmd = `${CODEX_WORKER_CLI_COMMAND} run --id ${id} --sum ${codexFnv(body)}${q('project', PROJECT_DIR)}${q('model', rest.model || P.worker)}${q('effort', rest.effort)}${q('role', rest.agentType)}${q('dir', where && where.dir)}${where && where.nest ? ' --nest' : ''}${rest.schema ? ' --json-answer' : ''}${CODEX_ACCESS === 'full' ? ' --access full' : ''}`
+  const opts = { phase: rest.phase, model: MECH, agentType: 'pandacorp:implementer', effort: MECH_EFFORT, schema: MECH_LINE_SCHEMA }
+  let r
+  try {
+    r = codexUnseal(await spawnWithTypeFallback(`CODEX RELAY (DR-142): you are a mechanical relay, never the worker: do not do the task. 1. Write tool: create ${PROJECT_DIR}/.pandacorp/run/codex-workers/${id}/prompt.md with EXACTLY the text between the marker lines (markers excluded). 2. Run \`${cmd}\` (one Bash call, timeout 600000) and obey every CODEX-RUNNING / CODEX-PROMPT-MISMATCH line it prints, until it prints a line starting with {"r". 3. Return that line VERBATIM as \`line\`.\n<<<CODEX-TASK-BEGIN>>>\n${body}\n<<<CODEX-TASK-END>>>`, { ...opts, label: `codex:${label}` }))
+    r = r || codexUnseal(await spawnWithTypeFallback(MECH_LITERAL(`${CODEX_WORKER_CLI_COMMAND} read --id ${id}${q('project', PROJECT_DIR)}`), { ...opts, label: `codex-reread:${label}` }))
+  } catch (e) {
+    if (isInfraError(e) || THROWN_LIMIT_RE.test(String(e && e.message))) throw e   // the CLAUDE relay hit a limit: the run's infra, not Codex's
+    return codexGiveUp(label, `relay failed (${String(e && e.message).slice(0, 160)})`)
+  }
+  if (!r || !r.ok) {
+    if (r && r.kind === 'limit') codexOn = false
+    return codexGiveUp(label, r ? `${r.kind}: ${String(r.detail).slice(0, 200)}` : 'no sealed result')
+  }
+  codexFails = 0
+  log(`⇄ Codex ${r.model} · ${r.effort} — ${label}`)
+  return rest.schema ? r.answer : r.text
 }
 
 // ── BL-0011: whole-project gate quarantine of a needs-owner-BLOCKED route (LESSON-0021, DR-085) ──
@@ -6255,7 +6317,7 @@ const laneMainWork = () => Boolean(lane.barrier || lane.fixQ.length || (lane.lan
 // the barrier's work orders will use. That red is the base's, never a reason to touch the dependencies.
 const laneSchemaBarrier = () => [...lane.live.values()].some((c) => c.onMain === 'schema')
 const LANE_BARRIER_NOTE = ' A schema/package barrier is building on main and this lane\'s base predates it: a knip unused-dependency (or unlisted-dependency) red here is EXPECTED; never remove or add a dependency and never edit package.json or the lockfile to clear it (the landing re-checks on main).'
-const laneWorkFrom = (ln) => `LANE ${ln.lane} (proposal 40 Phase B): you build chain ${ln.chain} in the lane worktree ${ln.path} on branch lane/${ln.chain}. cd there FIRST and run everything there with its env loaded (\`set -a; . .pandacorp/run/lane.env; set +a\`: PORT ${(ln.env || {}).PORT}; your dev server and e2e use this lane's port only, never main's or a sibling lane's). Never touch ${PROJECT_DIR} (main); never merge, rebase or push: the engine lands the chain.\n`
+const laneWorkFrom = (ln) => codexWorkDir(`LANE ${ln.lane} (proposal 40 Phase B): you build chain ${ln.chain} in the lane worktree ${ln.path} on branch lane/${ln.chain}. cd there FIRST and run everything there with its env loaded (\`set -a; . .pandacorp/run/lane.env; set +a\`: PORT ${(ln.env || {}).PORT}; your dev server and e2e use this lane's port only, never main's or a sibling lane's). Never touch ${PROJECT_DIR} (main); never merge, rebase or push: the engine lands the chain.\n`, ln.path, false)
 const laneScope = () => [...[...frdState].filter(([, st]) => !st.failed).map(([f]) => `--frd ${shellQuote(f)}`), ...[...globalQueue.keys()].map((id) => `--build ${shellQuote(id)}`),
   ...[...frdState.keys()].filter((f) => fastIsFloor(f) && !builtFrds.includes(f)).map((f) => `--wait-verified ${shellQuote(f)}`), `--lanes ${LANES_K}`, `--mode ${shellQuote(MODE)}`].join(' ')
 const laneIds = (c) => { const st = frdState.get(c.frd); return c.wos.map((id) => ((st && st.f.workOrders.find((w) => w.id.toLowerCase() === String(id).toLowerCase())) || { id }).id) }
