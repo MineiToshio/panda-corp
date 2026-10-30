@@ -35,11 +35,19 @@ describe("independent persistent navigation boundary", () => {
     ["another", "summary", "unexpected"],
     ["another", "work-orders", "WO-01-001", "destroy"],
     ["another", "documents", "docs/product/prd", "full"],
-    ["another", "unsupported"],
     ["another", "work-orders", "WO-01-001", "summary", "extra"],
   ])("rejects unsupported workspace tails: %j", (...segments) => {
     const href = routeHref("/portfolio", segments, {});
     expect(() => workspaceRouteState(href, segments)).toThrow(notFoundDigest);
+  });
+
+  it("passes an unknown workspace tab through with its raw label instead of rejecting the route", () => {
+    const segments = ["another", "unsupported"];
+    const href = routeHref("/portfolio", segments, {});
+    expect(workspaceRouteState(href, segments)).toMatchObject({
+      tab: "unknown",
+      raw: "unsupported",
+    });
   });
 
   it.each([
