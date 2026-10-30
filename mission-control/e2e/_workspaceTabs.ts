@@ -6,12 +6,10 @@
 export const WORKSPACE_TAB_LABELS = [
   "Resumen",
   "Spec",
-  "Work orders",
-  "Arquitectura",
-  "Cambios",
-  "Party",
   "Observabilidad",
+  "Arquitectura",
+  "Cuentas",
+  "Cambios",
   "Documentos",
   "Comandos",
-  "Cuentas",
 ] as const;

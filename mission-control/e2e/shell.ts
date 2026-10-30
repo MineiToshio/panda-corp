@@ -33,7 +33,7 @@ export type NavDestination = {
  * pages are routes but not top-level nav). Empty ⇒ no shell ⇒ vacuous pass.
  */
 export const NAV_DESTINATIONS: readonly NavDestination[] = [
-  // The prototype topbar() six destinations (index.html ~L646-652) — FRD-19 nav contract.
+  // The seven approved v2 destinations (AC-19-001.2) — FRD-19 nav contract.
   // Mirrors docs/frds/frd-19-app-shell/mocks/README.md and the Nav/ProposalsBadge link list.
   { label: "Inicio", path: "/" },
   { label: "Tablero", path: "/board" },
@@ -41,6 +41,7 @@ export const NAV_DESTINATIONS: readonly NavDestination[] = [
   { label: "Propuestas", path: "/proposals" },
   { label: "Logros", path: "/achievements" },
   { label: "Documentación", path: "/manual" },
+  { label: "Configuración", path: "/configuration" },
 ] as const;
 
 /**

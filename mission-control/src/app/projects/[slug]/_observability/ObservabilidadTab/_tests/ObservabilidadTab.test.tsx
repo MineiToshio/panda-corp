@@ -6,8 +6,7 @@
  * WoLiveRefresh for live updates — it no longer derives Gantt rows from the event stream.
  *
  * Acceptance criteria covered:
- *   AC-12-002.1 — Observabilidad tab exists as a sibling of Party (not nested)
- *   AC-12-002.2 — Party stays live-agents-only; timeline/DAG are NOT in Party
+ *   AC-04-012.1 — Observabilidad remains reachable without Party
  *   AC-12-002.3 — Observabilidad tab provides Línea de tiempo ↔ DAG toggle
  *   AC-12-003.1 — Timeline view rendered when "timeline" view is active
  *   AC-12-005.1 — live updater mounted (WoLiveRefresh re-reads the durable track)
@@ -153,11 +152,18 @@ describe("ObservabilidadTab (WO-12-005)", () => {
     expect(header.textContent).toMatch(/work orders/i);
   });
 
-  it("renders the Party hint line pointing operators to the Party tab", () => {
+  it("AC-04-012.1 — does not direct operators to the removed Party tab", () => {
     renderTab();
-    const hint = screen.getByTestId("obs-party-hint");
-    expect(hint.textContent).toMatch(/Party/i);
-    expect(hint.textContent).toMatch(/agentes/i);
+    expect(screen.queryByText(/pestaña.*Party/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("obs-party-hint")).not.toBeInTheDocument();
+  });
+
+  it("AC-25-002.1/004.1 — restores the canonical dependency view on a fresh mount", () => {
+    window.history.replaceState({}, "", "/projects/demo/observability?view=deps");
+    renderTab();
+    expect(screen.getByRole("tab", { name: "DAG" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("wo-dag-stub")).toBeVisible();
+    expect(screen.queryByTestId("obs-view-timeline")).not.toBeInTheDocument();
   });
 
   it("AC-12-002.3 — defaults to timeline view", () => {

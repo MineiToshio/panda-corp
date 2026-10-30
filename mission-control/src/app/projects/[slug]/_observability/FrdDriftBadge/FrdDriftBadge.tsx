@@ -62,7 +62,13 @@ export function FrdDriftBadge({
     <Link
       href={
         navigationBaseHref
-          ? navigationHref(navigationBaseHref, { tab: "changes", wo: null, wotab: null, doc: null })
+          ? navigationHref(navigationBaseHref, {
+              tab: "changes",
+              wo: null,
+              wotab: null,
+              woview: null,
+              doc: null,
+            })
           : `?project=${encodeURIComponent(project)}&tab=changes`
       }
       data-testid={`frd-drift-badge-${frdId}`}

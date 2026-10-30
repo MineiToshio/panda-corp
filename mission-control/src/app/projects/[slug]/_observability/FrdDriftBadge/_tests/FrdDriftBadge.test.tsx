@@ -7,6 +7,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { FrdDriftResult } from "@/lib/frds/frd-drift";
+import { WorkspaceNavigationProvider } from "../../../_components/WorkspaceNavigation";
 import { FrdDriftBadge } from "../FrdDriftBadge";
 
 const TWO: FrdDriftResult = { ok: true, ids: ["AC-02-010.4", "REQ-03-001"] };
@@ -18,6 +19,18 @@ describe("FrdDriftBadge: a verified FRD with recorded drift", () => {
     expect(link).toHaveAttribute("href", "?project=alpha&tab=changes");
     expect(link).toHaveAttribute("title", expect.stringContaining("AC-02-010.4, REQ-03-001"));
     expect(link).toHaveAttribute("data-testid", "frd-drift-badge-frd-02-ideas-board");
+  });
+
+  it("AC-25-009.1 — clears work-order representation when opening Changes", () => {
+    render(
+      <WorkspaceNavigationProvider href="/portfolio/alpha/observability?wo=WO-01-001&woview=full&state=done">
+        <FrdDriftBadge frdId="frd-02-ideas-board" state="done" drift={TWO} project="alpha" />
+      </WorkspaceNavigationProvider>,
+    );
+    expect(screen.getByRole("link", { name: /Verificado · 2 derivas/ })).toHaveAttribute(
+      "href",
+      "/portfolio/alpha/changes?state=done",
+    );
   });
 
   it("uses the singular for a single drift", () => {

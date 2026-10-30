@@ -1,13 +1,13 @@
 /**
  * AppShell — the persistent global app shell (CMP-19-app-shell, FRD-19).
  *
- * The prototype `topbar()`: one rpgpanel with the brand + guild identity on the left and the six
+ * The prototype `topbar()`: one rpgpanel with the brand + guild identity on the left and the seven
  * top-level destinations on the right. Mounted once by `app/layout.tsx`, it frames every top-level
  * surface and is the navigation the per-FRD sharding (DR-056) left orphaned.
  *
- * Client Component: owns the mobile drawer state and reads `usePathname()` to decide scope — the
- * drill-in surfaces (`/projects/**`, `/configuration`) render WITHOUT the topbar (they carry their
- * own in-context header + back control), mirroring `e2e/shell.ts` SHELL_EXEMPT (AC-19-004).
+ * Client Component: owns the mobile drawer state and reads `usePathname()` to reset navigation
+ * after route changes. Every route, including project and configuration descendants, retains
+ * the shell and its seven destinations.
  *
  * The brand + guild block (`levelBar`) and the Propuestas destination (`proposalsBadge`) are passed
  * as slot nodes from the Server layout so they keep their server-derived data; `Nav` is the only
@@ -27,7 +27,6 @@ import { usePathname } from "next/navigation";
 import type React from "react";
 import { ShellNavigation } from "./ShellNavigation";
 import styles from "./shell.module.css";
-import { isShellExempt } from "./shellScope";
 
 // ---------------------------------------------------------------------------
 // Styles — CSS custom properties only (tokens); responsive bits live in globals.css
@@ -86,9 +85,7 @@ export interface AppShellProps {
 /**
  * AppShell — persistent topbar + page content.
  *
- * On a top-level surface: skip link → `<header data-app-shell>` (brand + level on the left, the
- * toggle + `Nav` on the right) → `#main-content` wrapping the page. On an exempt drill-in: just
- * `#main-content` (no topbar).
+ * Every surface keeps the skip link, global header and `#main-content` wrapper.
  */
 export function AppShell({
   levelBar,
@@ -97,17 +94,6 @@ export function AppShell({
   children,
 }: AppShellProps): React.JSX.Element {
   const pathname = usePathname() ?? "";
-  const exempt = isShellExempt(pathname);
-
-  if (exempt) {
-    return (
-      <div className={styles.container}>
-        <div id="main-content" tabIndex={-1}>
-          {children}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>

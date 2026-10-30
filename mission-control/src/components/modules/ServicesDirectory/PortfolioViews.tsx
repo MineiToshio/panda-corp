@@ -13,7 +13,9 @@ export function PortfolioViews({
 }): React.JSX.Element {
   const router = useRouter();
   function handleChange(id: string): void {
-    router.push(navigationHref(href, { portfolioView: id === "accounts" ? "accounts" : null }));
+    router.push(
+      navigationHref(href, { portfolioView: null, view: id === "accounts" ? "cuentas" : null }),
+    );
   }
   return (
     <SubTabs

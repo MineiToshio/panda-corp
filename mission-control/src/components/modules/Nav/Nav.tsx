@@ -1,9 +1,9 @@
 /**
  * Nav — the persistent top-level destinations of the app shell (CMP-19-nav, FRD-19).
  *
- * The prototype `topbar()` nav row: six `.tab` destinations, active by current route. Five are plain
- * `next/link`s here; the sixth (Propuestas) is the `ProposalsBadge` slot, placed in its prototype
- * position (4th) so the row reads Inicio · Tablero · Portfolio · Propuestas · Logros · Documentación.
+ * The prototype `topbar()` nav row: seven `.tab` destinations, active by current route. Six are plain
+ * `next/link`s here; Propuestas is the `ProposalsBadge` slot, placed in its prototype
+ * position (4th) so the row reads Inicio · Tablero · Portfolio · Propuestas · Logros · Documentación · Configuración.
  * Real links (not `<button role="tab">`) styled as the `.tab` pill (shared `navTabStyle`).
  *
  * Traceability: CMP-19-nav → REQ-19-001 (AC-19-001.1/.2/.4), REQ-19-002 (AC-19-002.1/.2).
@@ -29,10 +29,11 @@ const LINKS_BEFORE: readonly NavItem[] = [
   { slug: "portfolio", label: "Portfolio", href: "/portfolio" },
 ] as const;
 
-/** The two destinations after Propuestas (prototype order). */
+/** The three destinations after Propuestas (prototype order). */
 const LINKS_AFTER: readonly NavItem[] = [
   { slug: "logros", label: "Logros", href: "/achievements" },
   { slug: "documentacion", label: "Documentación", href: "/manual" },
+  { slug: "configuracion", label: "Configuración", href: "/configuration" },
 ] as const;
 
 const NAV_STYLE: React.CSSProperties = {
@@ -63,10 +64,10 @@ export interface NavProps {
 }
 
 /**
- * Nav — the six top-level destinations, active by `usePathname()`.
+ * Nav — the seven top-level destinations, active by `usePathname()`.
  *
- * Renders the five plain destinations around the Propuestas slot. Exactly one destination is active
- * at a time; an exempt drill-in or unmatched route leaves none active (no false highlight).
+ * Renders the six plain destinations around the Propuestas slot. Exactly one destination is active
+ * at a time; an unmatched route leaves none active (no false highlight).
  */
 export function Nav({ proposalsBadge }: NavProps): React.JSX.Element {
   const pathname = usePathname() ?? "";

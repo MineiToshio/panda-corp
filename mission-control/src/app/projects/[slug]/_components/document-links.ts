@@ -19,6 +19,7 @@ export function docHref(project: string, docId: string, navigationBaseHref?: str
       doc: docId,
       wo: null,
       wotab: null,
+      woview: null,
     });
   const q = new URLSearchParams({ project, tab: "documents", doc: docId });
   return `?${q.toString()}`;

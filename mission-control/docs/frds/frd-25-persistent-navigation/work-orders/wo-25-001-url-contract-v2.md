@@ -281,6 +281,90 @@ None (W0). Consumers: every v2 surface WO (they depend on this one in the map).
 
 ## Status Note
 
+### 2026-10-30 — Second independent gate regression repair
+
+Owner-directed correction: the former no-`wo` Observabilidad branch hid the v1 work-order board.
+It now renders that list followed by `ObservabilidadTab`; a selected work order still renders only
+its detail. `wo-detail.integration.test.tsx` is unchanged (including its legacy `tab=work-orders`
+assertion). The workspace exposes eight tabs in AC-04-012.1 order and has no Party or separate Work
+orders render branch. Canonical `view=deps` and `view=cuentas` restore their views, the Cuentas switch
+writes the canonical key, and document / drift links clear `woview`. The shell renders unconditionally
+and provides all seven destinations of AC-19-001.2; the e2e shell/tab inventories match those contracts.
+
+**Owner decision:** La Fragua stays unreachable in the UI until WO-06-013 lands. No replacement Party
+entry was added to Summary or Observabilidad. The blueprint's formerly contradictory alias deferrals
+and the work-order index now state the current boundary behavior and IN_REVIEW hand-off.
+
+The four requested v1 tests were updated, with additional focused regressions for dependency restore,
+accounts restore / return, document-link cleanup and drift-link cleanup. Two direct component fixtures
+in `workspace-navigation.test.tsx` now select Observabilidad; legacy route coverage remains intact.
+No reviewer test, visual baseline, identity catalog or port configuration was changed.
+
+Remaining compatibility seam: `AppShell` no longer imports or calls `isShellExempt`. `shellScope.ts`
+is retained only for test imports, including the frozen FRD-25 `v2-boundaries.reviewer.test.tsx`.
+Removing that module while reviewer edits are prohibited would break module resolution and TypeScript;
+retirement remains for the reviewer-owned probe update. It is not a production routing branch.
+
+Verification from this checkout (2026-10-30), with `PORT=PANDACORP_E2E_PORT=3930` (the unchanged
+`e2e/server-env.json` port; no server or Chromium was started):
+
+```sh
+export PORT=3930 PANDACORP_E2E_PORT=3930
+pnpm exec vitest run src/lib/navigation/_tests persistentNavigation.test.tsx workspace-shell.test.tsx architecture-tab.test.tsx Nav.test.tsx ServicesDirectory.test.tsx wo-detail.integration.test.tsx workspace-navigation.test.tsx ObservabilidadTab.test.tsx FrdDriftBadge.test.tsx AppShell.test.tsx restoration.test.tsx src/components/modules/DataModelViewer/_tests/navigation.test.tsx --maxWorkers=4 --reporter=dot
+bash .pandacorp/verify.sh --only=biome,tsc,knip
+```
+
+- Final targeted run: **176/176 tests passed, 27/27 files passed**, including FRD-25 reviewer suites,
+  the four requested test files and the unchanged work-order integration test.
+- Static gate: exit 0; the generated partial gate report records Biome, TypeScript and knip exit 0.
+  Existing informational output remains: Biome schema 2.5.1 versus CLI 2.5.2 and knip config hints.
+- RED evidence before the production fix: the unchanged integration suite failed its board assertion
+  (14 passed / 1 failed), and the four updated v2 suites failed 7 assertions (33 passed / 7 failed).
+- The first expanded run without a worker limit failed one protected Esquema restoration probe while
+  rendering `Organizando modelo…` (175 passed / 1 failed). The same 27 files passed unchanged with
+  `--maxWorkers=4`. This establishes a concurrency-sensitive failure observation, not a diagnosed root
+  cause; neither reviewer tests nor model code were modified to mask it.
+- `pnpm exec vitest run src/components/modules/AppShell/_tests/usability.reviewer.test.tsx --maxWorkers=4 --reporter=dot`:
+  exit 1, **2 failed / 3 passed**. Both failures are at line 46, the Inicio / Propuestas cases that
+  expect exactly six destinations and reject Configuración. The protected file is unchanged.
+- `git diff --check`: exit 0. Explicit diff checks of all `*.reviewer.*`, snapshot paths and
+  `wo-detail.integration.test.tsx` are empty; `git branch --show-current` reports `orch/frd-25`.
+- Browser reload / fresh paste / Back / Forward, responsive / visual acceptance and the full gate
+  remain **unverified**: the owner explicitly prohibited e2e and Chromium for this sandbox.
+- No commit was attempted or created, as requested. No merge, push or merge-queue command ran;
+  all edits remain uncommitted on `orch/frd-25`. WO-25-001 remains **IN_REVIEW**, not VERIFIED.
+
+Evidence logs: `/private/tmp/frd25-second-gate-red.log`, `frd25-second-gate-v2-red.log`,
+`frd25-second-gate-targeted.log`, `frd25-second-gate-workspace.log`, `frd25-second-gate-green.log`,
+`frd25-second-gate-green-bounded.log`, `frd25-second-gate-static.log` and
+`frd25-second-gate-protected-reviewer.log` (all under `/private/tmp/`).
+
+Changed files (all under `mission-control/`):
+
+- `docs/decision-log.md`
+- `docs/frds/frd-25-persistent-navigation/blueprint.md`
+- `docs/frds/frd-25-persistent-navigation/work-orders/README.md`
+- `docs/frds/frd-25-persistent-navigation/work-orders/wo-25-001-url-contract-v2.md`
+- `e2e/_workspaceTabs.ts`
+- `e2e/shell.ts`
+- `src/app/portfolio/page.tsx`
+- `src/app/projects/[slug]/ProjectWorkspace.tsx`
+- `src/app/projects/[slug]/_components/_tests/architecture-tab.test.tsx`
+- `src/app/projects/[slug]/_components/_tests/workspace-navigation.test.tsx`
+- `src/app/projects/[slug]/_components/_tests/workspace-shell.test.tsx`
+- `src/app/projects/[slug]/_components/document-links.ts`
+- `src/app/projects/[slug]/_components/tabbar.tsx`
+- `src/app/projects/[slug]/_observability/FrdDriftBadge/FrdDriftBadge.tsx`
+- `src/app/projects/[slug]/_observability/FrdDriftBadge/_tests/FrdDriftBadge.test.tsx`
+- `src/app/projects/[slug]/_observability/ObservabilidadTab/ObservabilidadTab.tsx`
+- `src/app/projects/[slug]/_observability/ObservabilidadTab/_tests/ObservabilidadTab.test.tsx`
+- `src/components/modules/AppShell/AppShell.tsx`
+- `src/components/modules/AppShell/shellScope.ts`
+- `src/components/modules/Nav/Nav.tsx`
+- `src/components/modules/Nav/_tests/Nav.test.tsx`
+- `src/components/modules/ServicesDirectory/PortfolioViews.tsx`
+- `src/components/modules/ServicesDirectory/_tests/ServicesDirectory.test.tsx`
+
 ### 2026-10-30 — Independent gate repair
 
 Owner-directed repair supersedes the earlier surface deferral for AC-25-004.1,

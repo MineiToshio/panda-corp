@@ -151,12 +151,21 @@ describe("approved read-only account directory", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("No hay vínculos");
   });
-  it("global tabs keep selection and do not interpret accounts as a project slug", async () => {
+  it("AC-25-004.1 — global tabs keep selection and do not interpret accounts as a project slug", async () => {
     const user = userEvent.setup();
     render(<PortfolioViews href="/portfolio/demo/summary?unrelated=keep" accounts={false} />);
     await user.click(screen.getByRole("tab", { name: "Cuentas" }));
-    expect(push).toHaveBeenCalledWith(
-      "/portfolio/demo/summary?unrelated=keep&portfolioView=accounts",
+    expect(push).toHaveBeenCalledWith("/portfolio/demo/summary?unrelated=keep&view=cuentas");
+  });
+  it("returns from canonical Cuentas to projects and removes the legacy alias", async () => {
+    const user = userEvent.setup();
+    render(
+      <PortfolioViews
+        href="/portfolio/demo/summary?view=cuentas&portfolioView=accounts&unrelated=keep"
+        accounts
+      />,
     );
+    await user.click(screen.getByRole("tab", { name: "Proyectos" }));
+    expect(push).toHaveBeenCalledWith("/portfolio/demo/summary?unrelated=keep");
   });
 });

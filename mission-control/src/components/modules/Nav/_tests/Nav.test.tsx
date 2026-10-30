@@ -1,11 +1,10 @@
 /**
  * FRD-19 — Nav (CMP-19-nav) tests.
  *
- * The six top-level destinations as real links styled `.tab`, active by `usePathname()`. The sixth
- * (Propuestas) is the injected slot, here a stub — its own behaviour lives in ProposalsBadge tests.
+ * The seven top-level destinations as real links styled `.tab`, active by `usePathname()`. Propuestas is the injected slot, here a stub — its own behaviour lives in ProposalsBadge tests.
  *
- * AC-19-001.2 (six correct hrefs), AC-19-001.4 (real links), AC-19-002.1/.2 (exactly one active; `/`
- * exact; none on exempt/unknown).
+ * AC-19-001.2 (seven correct hrefs), AC-19-001.4 (real links), AC-19-002.1/.2 (exactly one active; `/`
+ * exact; none on unknown).
  */
 
 import { render, screen } from "@testing-library/react";
@@ -30,14 +29,27 @@ beforeEach(() => {
   mockUsePathname.mockReturnValue("/");
 });
 
-describe("FRD-19 Nav — six top-level destinations", () => {
-  it("renders the five plain destinations as links with their correct hrefs", () => {
+describe("FRD-19 Nav — seven top-level destinations", () => {
+  it("renders the six plain destinations as links with their correct hrefs", () => {
     render(<Nav proposalsBadge={SLOT} />);
     expect(screen.getByTestId("app-nav-inicio")).toHaveAttribute("href", "/");
     expect(screen.getByTestId("app-nav-tablero")).toHaveAttribute("href", "/board");
     expect(screen.getByTestId("app-nav-portfolio")).toHaveAttribute("href", "/portfolio");
     expect(screen.getByTestId("app-nav-logros")).toHaveAttribute("href", "/achievements");
     expect(screen.getByTestId("app-nav-documentacion")).toHaveAttribute("href", "/manual");
+    expect(screen.getByRole("link", { name: "Configuración" })).toHaveAttribute(
+      "href",
+      "/configuration",
+    );
+    expect(screen.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+      "/",
+      "/board",
+      "/portfolio",
+      "/proposals",
+      "/achievements",
+      "/manual",
+      "/configuration",
+    ]);
   });
 
   it("places the Propuestas slot between Portfolio and Logros (prototype order)", () => {
@@ -62,8 +74,18 @@ describe("FRD-19 Nav — six top-level destinations", () => {
     expect(screen.getByTestId("app-nav-inicio")).not.toHaveAttribute("aria-current");
   });
 
-  it("marks no destination active on an exempt/unknown route", () => {
-    mockUsePathname.mockReturnValue("/configuration");
+  it("AC-19-001.2 — highlights Configuración on its descendants", () => {
+    mockUsePathname.mockReturnValue("/configuration/skills/reviewer");
+    render(<Nav proposalsBadge={SLOT} />);
+    expect(screen.getByRole("link", { name: "Configuración" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(currentLinks()).toHaveLength(1);
+  });
+
+  it("marks no destination active on an unknown route", () => {
+    mockUsePathname.mockReturnValue("/unknown");
     render(<Nav proposalsBadge={SLOT} />);
     expect(currentLinks()).toHaveLength(0);
   });

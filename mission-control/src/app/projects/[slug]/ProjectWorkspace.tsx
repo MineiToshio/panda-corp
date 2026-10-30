@@ -22,7 +22,6 @@ import { getServicesDirectory } from "@/lib/services/services";
  * Traceability: CMP-04-workspace → REQ-04-001/002; FRD-03 (projectPane embed), WS-2/WS-3.
  */
 
-import path from "node:path";
 import { notFound } from "next/navigation";
 import { ArchitectureDigest } from "@/app/board/_components/CardDetail/ArchitectureDigest/ArchitectureDigest";
 import { readArchitectureArtifacts } from "@/lib/architecture/read-artifacts";
@@ -53,7 +52,6 @@ import { WorkspaceNavigationProvider } from "./_components/WorkspaceNavigation";
 import { type WoDetailTab, WorkOrderDetail } from "./_components/wo-detail/wo-detail";
 import { WorkspaceHeader } from "./_components/workspace-header";
 import { ObservabilidadTab } from "./_observability/ObservabilidadTab/ObservabilidadTab";
-import { PartyTab } from "./_party/PartyTab/PartyTab";
 
 // ---------------------------------------------------------------------------
 // Selection (URL-derived; resolved by the caller from its own searchParams)
@@ -69,10 +67,8 @@ export interface WorkspaceSelection {
 const VALID_TABS = new Set<string>([
   "summary",
   "spec",
-  "work-orders",
   "architecture",
   "changes",
-  "party",
   "observabilidad",
   "documents",
   "commands",
@@ -202,44 +198,6 @@ function renderDocumentsTab(
 }
 
 /**
- * Party tab body. `project` is the FOLDER name — the emitters stamp `basename $PWD`, not the
- * portfolio display name — and scopes both the event tail and the SSE stream. `workOrders`
- * (same `listWorkOrders` source the objectives bar uses, DR-092) decides the scene structure:
- * sprites/rooms/queue/trophies/counter/gate. `woStarts` (track.jsonl, same reader as
- * Observabilidad) powers the REAL "N min al fuego" bubbles — never a fabricated progress value.
- */
-function renderPartyTab(
-  projectPath: string,
-  running: boolean,
-  supervisorHeartbeat?: string,
-): React.JSX.Element {
-  const partyOrders = listWorkOrders(projectPath);
-  const partyTimeline = readBuildTimeline(projectPath, partyOrders);
-  const woStarts: Record<string, number> = {};
-  for (const tlFrd of partyTimeline.frds) {
-    for (const tlWo of tlFrd.workOrders) {
-      if (tlWo.startMs !== null) woStarts[tlWo.id] = tlWo.startMs;
-    }
-  }
-  // Campamento (Fase 3): pending-merge worktrees/branches — the SAME readPending the
-  // summary tab and the "⎇ pendientes" chip use (DR-092). On a read error the camp
-  // simply doesn't render; the Summary tab is the surface that reports the error.
-  const pending = readPending(projectPath);
-  const tents =
-    pending.kind === "ok" ? pending.items.map((i) => ({ branch: i.branch, status: i.status })) : [];
-  return (
-    <PartyTab
-      running={running}
-      project={path.basename(projectPath)}
-      workOrders={partyOrders}
-      woStarts={woStarts}
-      supervisorHeartbeat={supervisorHeartbeat}
-      tents={tents}
-    />
-  );
-}
-
-/**
  * Summary tab body (WS-2, prototype projResumen). The summary text is the idea-card markdown
  * body — the SAME content the board card-detail shows — falling back to the title when there
  * is no card/body.
@@ -329,9 +287,6 @@ export function ProjectWorkspace({
     case "spec":
       body = renderSpecTab(projectPath, title, status.targetPlatforms, navigationBaseHref);
       break;
-    case "work-orders":
-      body = renderWorkOrdersTab(projectPath, slug, selection, navigationBaseHref);
-      break;
     case "architecture": {
       const architecture = readArchitectureArtifacts(projectPath);
       body = (
@@ -355,23 +310,21 @@ export function ProjectWorkspace({
         <TabChanges result={readChangeQueue(projectPath)} projectPath={projectPath} slug={slug} />
       );
       break;
-    case "party":
-      // Pass the authoritative build flag so the scene shows the powered-off state
-      // when the build is off, instead of a frozen active scene from a stale event
-      // tail (AC-06-013). `running` is derived above from status.yaml / the portfolio.
-      body = renderPartyTab(projectPath, running, status.supervisorHeartbeat);
-      break;
     case "observabilidad": {
+      const workOrders = renderWorkOrdersTab(projectPath, slug, selection, navigationBaseHref);
       if (selection.woParam) {
-        body = renderWorkOrdersTab(projectPath, slug, selection, navigationBaseHref);
+        body = workOrders;
         break;
       }
       const obsOrders = listWorkOrders(projectPath);
       const timeline = readBuildTimeline(projectPath, obsOrders);
       body = (
-        <div data-testid="tab-observabilidad-body" style={{ padding: "12px 16px" }}>
-          <ObservabilidadTab workOrders={obsOrders} timeline={timeline} project={slug} />
-        </div>
+        <>
+          {workOrders}
+          <div data-testid="tab-observabilidad-body" style={{ padding: "12px 16px" }}>
+            <ObservabilidadTab workOrders={obsOrders} timeline={timeline} project={slug} />
+          </div>
+        </>
       );
       break;
     }

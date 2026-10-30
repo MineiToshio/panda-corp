@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-30 — Restore navigation reachability after workspace alias adoption
+
+[WO-25-001](frds/frd-25-persistent-navigation/work-orders/wo-25-001-url-contract-v2.md) repairs the second gate's regressions: Observabilidad retains the v1 work-order list before its diagnostics until WO-04-010, the workspace exposes eight tabs in AC-04-012.1 order, and the shell exposes seven destinations including Configuración (AC-19-001.2). Canonical dependency and accounts selections restore on reload; document and Changes links clear the work-order representation. The [FRD-25 blueprint](frds/frd-25-persistent-navigation/blueprint.md) and [work-order index](frds/frd-25-persistent-navigation/work-orders/README.md) now agree that both workspace boundaries apply aliases immediately.
+
+**Owner decision:** La Fragua stays unreachable in the UI until WO-06-013 lands. Removing Party must not re-expose it in Summary or Observabilidad. The shell renders unconditionally; the legacy `shellScope.ts` probe remains solely because the frozen FRD-25 reviewer suite imports it. Its removal requires the reviewer to update that probe. The protected `AppShell/_tests/usability.reviewer.test.tsx` still asserts six destinations and must be reported rather than edited.
+
 ## 2026-10-30 — Enforce the persistent-navigation boundary contract
 
 [WO-25-001](frds/frd-25-persistent-navigation/work-orders/wo-25-001-url-contract-v2.md) repairs the independent FRD-25 findings: workspace aliases normalize at route boundaries, invalid Board tails remain intact, every route retains the shell, projects highlight Portfolio, and canonical model modes restore inline. The [blueprint](frds/frd-25-persistent-navigation/blueprint.md) records the override to the earlier surface deferral. Gesture-only expansion remains ephemeral so pasting `expanded=1` cannot reopen a modal. Approved v2 test repairs replace contradictory v1 assertions; independent reviewer probes are restored unchanged.

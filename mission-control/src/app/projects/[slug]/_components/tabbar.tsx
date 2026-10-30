@@ -1,47 +1,17 @@
 "use client";
 
-/**
- * WO-04-004 — TabBar (CMP-04-tabbar)
- *
- * Client Component ("use client"): tab selection for the project workspace.
- *   - Nine tabs in exact order: Resumen · Spec · Work orders · Arquitectura · Cambios · Party ·
- *     Observabilidad · Documentos · Comandos (AC-04-001.1, WO-04-004 re-anchor;
- *     Cambios added to surface the project's `.pandacorp/inbox/changes/` queue).
- *   - URL-driven selection: receives activeTab prop (derived from ?tab= search
- *     param by page.tsx). On change, pushes the new ?tab= to the URL.
- *   - Built on the shared SubTabs primitive (DR-062 / WO-13-006) — no ad-hoc
- *     tab switcher. Uses testIdPrefix="tab-" so test-ids stay "tab-<id>".
- *   - Spanish labels (architecture §7 — UI copy in Spanish).
- *   - ZERO hardcoded colors — CSS custom properties only (via SubTabs tokens).
- *   - data-testid="tabbar" on the container.
- *
- * NOTE: Only CMP-04-tabbar is "use client". All other workspace components are
- * Server Components (blueprint §4, WO-04-004 Definition of Done).
- *
- * Traceability:
- *   CMP-04-tabbar → REQ-04-001
- *   AC-04-001.1 — exactly nine tabs in order (WO-04-004: Observabilidad added; Cambios added)
- *   AC-04-001.2 — default Summary; reflects ?tab= param
- */
+/** URL-driven workspace navigation shared by Portfolio and standalone project routes. */
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
 import { servicesCopy } from "@/components/modules/ServicesDirectory/copy";
 import { navigationHref } from "@/lib/navigation/urls";
 
-// ---------------------------------------------------------------------------
-// Tab definitions (AC-04-001.1 — nine tabs in exact order; Resumen · Spec · Work orders ·
-// Party · Observabilidad · Documentos · Comandos per prototype projectPane() line 897
-// of docs/design/prototype/index.html, plus Cambios (FRD-04, the change-queue tab))
-// ---------------------------------------------------------------------------
-
 export type TabId =
   | "summary"
   | "spec"
-  | "work-orders"
   | "architecture"
   | "changes"
-  | "party"
   | "observabilidad"
   | "documents"
   | "commands"
@@ -51,14 +21,12 @@ export type TabId =
 const WORKSPACE_TABS = [
   { id: "summary", label: "Resumen" },
   { id: "spec", label: "Spec" },
-  { id: "work-orders", label: "Work orders" },
-  { id: "architecture", label: "Arquitectura" },
-  { id: "changes", label: "Cambios" },
-  { id: "party", label: "Party" },
   { id: "observabilidad", label: "Observabilidad" },
+  { id: "architecture", label: "Arquitectura" },
+  { id: "accounts", label: servicesCopy.accountsTab },
+  { id: "changes", label: "Cambios" },
   { id: "documents", label: "Documentos" },
   { id: "commands", label: "Comandos" },
-  { id: "accounts", label: servicesCopy.accountsTab },
 ] as const satisfies ReadonlyArray<{ id: TabId; label: string }>;
 
 // ---------------------------------------------------------------------------

@@ -92,7 +92,8 @@ export default async function PortfolioPage({
   const rawQuery = await searchParams;
   routeHref("/portfolio", [], rawQuery);
   const params = { ...rawQuery, ...routeState };
-  const accountsView = params.portfolioView === "accounts";
+  const accountsView =
+    params.view === "cuentas" || (params.view === undefined && params.portfolioView === "accounts");
   const rawParam = params.project;
   const projectParam = typeof rawParam === "string" ? rawParam : undefined;
 
@@ -126,7 +127,7 @@ export default async function PortfolioPage({
     <PageLayout
       icon="ti-stack-2"
       title="Portfolio"
-      subtitle="Tus proyectos en obra y lanzados. Elige uno para su workspace: resumen, work orders, party y documentación."
+      subtitle="Tus proyectos en obra y lanzados. Elige uno para su workspace: resumen, observabilidad, arquitectura, cuentas, cambios, documentos y comandos."
       testId="portfolio-page"
     >
       {selectedItem && <NavigationCanonical href={href} />}

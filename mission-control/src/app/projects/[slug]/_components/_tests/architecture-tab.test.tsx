@@ -9,19 +9,17 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("shared Architecture workspace entry", () => {
-  it("places Arquitectura immediately after Work orders and preserves the selected project", () => {
+  it("AC-04-012.1 — places Arquitectura after Observabilidad and preserves the selected project", () => {
     render(<TabBar activeTab="architecture" />);
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "Resumen",
       "Spec",
-      "Work orders",
-      "Arquitectura",
-      "Cambios",
-      "Party",
       "Observabilidad",
+      "Arquitectura",
+      "Cuentas",
+      "Cambios",
       "Documentos",
       "Comandos",
-      "Cuentas",
     ]);
     fireEvent.click(screen.getByRole("tab", { name: "Arquitectura" }));
     const query = new URLSearchParams(push.mock.calls[0]?.[0]);

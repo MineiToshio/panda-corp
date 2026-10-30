@@ -11,7 +11,7 @@
 
 | WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
-| WO-25-001 | url-contract-v2 | PLANNED | — | The codec ships every v2 key and legacy alias, the active-destination rule and `useUrlSearch`; the oracle spec is split by family; the intermittent history failure of step 342 is investigated and fixed at its confirmed cause. |
+| WO-25-001 | url-contract-v2 | IN_REVIEW | — | The codec ships every v2 key and legacy alias, the active-destination rule and `useUrlSearch`; the oracle spec is split by family; the intermittent history failure of step 342 is investigated and fixed at its confirmed cause. |
 
 > **Depends on** mirrors the work order's `dependsOn` frontmatter (DR-087).
 
@@ -38,6 +38,17 @@ W0, no dependencies; it runs in parallel with WO-13-010, WO-22-001 and WO-02-019
 depends on it. Later writers of the files it creates: WO-03-007 (W4) and WO-04-010 (W5) edit steps of the
 core spec; the family spec files are updated by the owners named in the work order (WO-02-016,
 WO-02-018, WO-02-020, WO-07-006, WO-08-003, WO-10-016, WO-17-008, WO-19-002, WO-22-002, WO-04-010).
+
+## Current transition (2026-10-30)
+
+WO-25-001 applies workspace aliases at both route boundaries now, superseding the earlier surface
+owner deferral. The eight workspace tabs follow AC-04-012.1 and the global navigation exposes the seven
+destinations of AC-19-001.2. Until WO-04-010 replaces Observabilidad, its unselected state keeps the v1
+work-order list followed by `ObservabilidadTab`; a selected work order shows its detail. Canonical
+`view=deps` and `view=cuentas` restore the dependency and global accounts views respectively.
+**La Fragua remains unreachable in the UI until WO-06-013 lands.** See the
+[blueprint](../blueprint.md#legacy-aliases-normalizelegacynavigation) and the work order's dated Status Note.
+`IN_REVIEW` is a hand-off state, not a declaration that the full browser gate passed.
 
 ## Definition of done
 

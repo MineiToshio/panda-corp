@@ -23,6 +23,7 @@ vi.mock("@/hooks/useLiveSnapshot", () => ({
 vi.mock("@/lib/portfolio/portfolio", () => ({
   railProjects: () => projects,
   activeProjects: () => projects,
+  readPortfolio: () => projects,
 }));
 const fixture = path.resolve("e2e/fixtures/factory-root/mission-control");
 const status = { present: false, malformed: false, status: null } as const;
@@ -64,6 +65,22 @@ describe("persistent project workspace navigation", () => {
     expect(navigation.push).toHaveBeenCalledWith(
       "/portfolio/selected-project/work-orders/WO-01-001/full?frd=frd-01-x",
     );
+  });
+
+  it.each([
+    { view: "cuentas" },
+    { portfolioView: "accounts" },
+  ])("AC-25-002.1/004.1 — restores the global accounts directory from %j", async (query) => {
+    setUrl("/portfolio/selected-project/summary");
+    render(
+      await PortfolioPage({
+        searchParams: Promise.resolve(query),
+        routeState: { project: "selected-project", tab: "summary" },
+      }),
+    );
+    expect(screen.getByRole("tab", { name: "Cuentas" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("searchbox")).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Selected Project" })).not.toBeInTheDocument();
   });
 
   it("canonicalizes the default document to its explicit allowlisted key", async () => {
@@ -117,7 +134,7 @@ describe("persistent project workspace navigation", () => {
       ProjectWorkspace({
         item,
         selection: {
-          activeTab: "work-orders",
+          activeTab: "observabilidad",
           woParam: "WO-missing",
           woTabParam: "summary",
           docParam: undefined,
@@ -141,7 +158,7 @@ describe("persistent project workspace navigation", () => {
     setUrl("/portfolio/selected-project/work-orders?state=done&frd=frd-01-x");
     render(
       <TabBar
-        activeTab="work-orders"
+        activeTab="observabilidad"
         navigationBaseHref="/portfolio/selected-project/work-orders"
       />,
     );
@@ -181,7 +198,7 @@ describe("persistent project workspace navigation", () => {
         },
       ],
       "Selected Project",
-      "/projects/selected-project/spec",
+      "/projects/selected-project/observability?wo=WO-01-001&woview=full",
     );
     expect(resolver("../frds/frd-01-x/frd.md#acceptance")).toEqual({
       href: "/projects/selected-project/documents/docs%2Ffrds%2Ffrd-01-x%2Ffrd#acceptance",

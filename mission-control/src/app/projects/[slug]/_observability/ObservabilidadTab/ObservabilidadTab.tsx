@@ -3,10 +3,9 @@
 /**
  * WO-12-005 — ObservabilidadTab (CMP-12-toggle shell)
  *
- * The Observabilidad project tab — sibling of Party (AC-12-002.1):
+ * The Observabilidad project tab:
  *   - A thin Panel strip: eye-search icon + "OBSERVABILIDAD · 2 vistas sobre los MISMOS
  *     work orders" eyebrow + the 2-view SubTabs toggle (Línea de tiempo ↔ DAG)
- *   - A muted hint pointing operators to Party for live agents (AC-12-002.2)
  *   - Hosts TimelineView (this WO) and WoDag (WO-12-006)
  *
  * Timeline v2: the timeline is no longer derived from the live event stream — it is
@@ -57,7 +56,7 @@ const OBS_TABS = [
 // ---------------------------------------------------------------------------
 
 /**
- * ObservabilidadTab — the Observabilidad project sub-tab (sibling of Party).
+ * ObservabilidadTab — the Observabilidad project sub-tab.
  * Live: WoLiveRefresh triggers a server re-read of the track on each SSE event.
  */
 export function ObservabilidadTab({
@@ -67,7 +66,7 @@ export function ObservabilidadTab({
 }: ObservabilidadTabProps): React.JSX.Element {
   // View state: "timeline" (default) or "dag" (AC-12-002.3)
   const [rawView, setView] = useUrlState("view", "timeline");
-  const view = rawView === "dag" ? "dag" : "timeline";
+  const view = rawView === "dag" || rawView === "deps" ? "dag" : "timeline";
 
   return (
     <div data-testid="obs-shell" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -123,19 +122,6 @@ export function ObservabilidadTab({
               ariaLabel="Vista de observabilidad"
             />
           </div>
-        </div>
-
-        {/* Party hint line (AC-12-002.2) */}
-        <div
-          data-testid="obs-party-hint"
-          style={{
-            fontSize: "11px",
-            color: "var(--color-text3)",
-            marginTop: "6px",
-          }}
-        >
-          ¿Buscas a los agentes en vivo? Están en la pestaña{" "}
-          <strong style={{ fontWeight: 500 }}>Party</strong>.
         </div>
       </div>
 

@@ -97,17 +97,21 @@ persisted readable slugs and case-preserving encoded document / work-order keys.
 | `?model=diagram` / `?model=schema` | `?model=Diagrama` / `?model=Esquema` | |
 | `?project=<name>&tab=…` (old query-based Portfolio / standalone links) | the path form of the same selection | the v1 compatibility, kept |
 
-The codec does not apply aliases by itself: applying `party → summary` while the v1 Party tab exists would
-make that tab unreachable. Each v2 surface applies the normalizer at its route boundary when it removes the
-v1 form (WO-03-007, WO-04-010, WO-07-006, WO-08-003) and passes the result to `NavigationCanonical` (a replace,
-never a push).
+The codec does not apply aliases by itself. **Portfolio and standalone workspace route boundaries apply
+`normalizeLegacyNavigation` now**, including legacy query roots, Party and work-order details. Validation
+of the original tail precedes normalization; the hydration seed, resolved selection and canonical URL use
+the normalized location. Other surface owners apply their aliases when they adopt v2 (WO-07-006,
+WO-08-003, WO-02-016). `NavigationCanonical` replaces the location without adding a history entry.
 
-**2026-10-30 repair override:** Portfolio and standalone workspace boundaries apply the
-normalizer now, including legacy query roots, Party and work-order details. This
-supersedes the deferral above for these contexts. Validation of the original tail
-precedes normalization; the hydration seed, resolved selection and canonical URL
-use the normalized location. Model URL restoration stays inline; native fullscreen
-and the existing expanded presentation require an explicit expand gesture.
+**2026-10-30 gate repair:** the workspace exposes the eight tabs in AC-04-012.1 order. With no selected
+work order, Observabilidad renders the v1 work-order list followed by `ObservabilidadTab` until
+WO-04-010 replaces that surface; selecting `wo` renders only its detail. The transitional dependency view
+accepts canonical `view=deps`, and the global accounts directory restores `view=cuentas` while accepting
+`portfolioView=accounts` as a legacy alias. Document and Changes links clear both `wotab` and `woview`.
+Party has no tab, render branch or hint. **La Fragua remains unreachable in the UI until WO-06-013 lands**;
+its implementation is not re-exposed through Summary or Observabilidad during the transition.
+Model URL restoration stays inline; native fullscreen and the expanded presentation require an explicit
+expand gesture.
 
 ### Key registry (`validateNavigationQuery`) — the complete v2 key set
 
@@ -189,10 +193,11 @@ work order (reconciliation 2026-10-22; it was the one W3 artifact overlap betwee
 
 ## Reconciliation (2026-10-22, binding)
 
-- **Aliases are applied by owners, not by the codec.** `normalizeLegacyNavigation` is pure and exported; each
-  v2 owner applies it at its route boundary (Portafolio WO-03-007, workspace WO-04-010, Configuración
-  WO-07-006, Documentación WO-08-003, idea page WO-02-016). Applying `party → summary` inside the codec at W0
-  would make the v1 Party tab unreachable before WO-04-010 (W5) removes it.
+- **Aliases are applied by owners, not by the codec.** `normalizeLegacyNavigation` is pure and exported.
+  As amended on 2026-10-30, Portfolio and standalone workspace boundaries already apply it, superseding
+  the former WO-03-007 / WO-04-010 deferral. Party is removed from workspace navigation and resolves to
+  Summary; La Fragua stays unreachable until WO-06-013. Configuración WO-07-006, Documentación WO-08-003
+  and idea page WO-02-016 apply their aliases at their own boundaries.
 - **AC-25-010.1 / AC-25-011.1 stay owned by WO-25-001** (map §8.5): the URL halves are proven here by unit
   tests; WO-19-002 and WO-02-018 cite the ids in their own tests and their FRD gates re-verify the surface
   halves.
