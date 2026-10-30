@@ -1,6 +1,6 @@
 import styles from "./Segmented.module.css";
 
-export interface SegmentedOption {
+interface SegmentedOption {
   readonly value: string;
   readonly label: string;
 }

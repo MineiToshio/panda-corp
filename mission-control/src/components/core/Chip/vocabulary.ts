@@ -6,7 +6,7 @@ export const STATUS_TONES = ["green", "amber", "coral"] as const;
 /** Category hues: they carry no status meaning. */
 export const CATEGORY_TONES = ["blue", "teal", "violet", "pink", "slate", "gold"] as const;
 
-export type StatusTone = (typeof STATUS_TONES)[number];
+type StatusTone = (typeof STATUS_TONES)[number];
 export type CategoryTone = (typeof CATEGORY_TONES)[number];
 export type Tone = StatusTone | CategoryTone;
 
@@ -45,7 +45,7 @@ export const PHASE_PRESENTATION = {
 } as const satisfies Record<Phase, Presentation>;
 
 /** Fallback for a phase the reader does not know. */
-export const UNKNOWN_PHASE = {
+const UNKNOWN_PHASE = {
   tone: "slate",
   icon: "dot",
   labelKey: "common.phases.none",
@@ -68,7 +68,7 @@ export const WORK_ORDER_STATE_PRESENTATION = {
   blocked: { tone: "coral", icon: "alert", labelKey: "common.workOrderStates.blocked" },
 } as const satisfies Record<WorkOrderState, Presentation>;
 
-export const UNKNOWN_STATE = {
+const UNKNOWN_STATE = {
   tone: "slate",
   icon: "dot",
   labelKey: "common.workOrderStates.none",
@@ -81,7 +81,7 @@ export function statePresentation(state: string | undefined): Presentation {
     : UNKNOWN_STATE;
 }
 
-export const RETURN_TYPES = ["monetary", "personal", "mixed"] as const;
+const RETURN_TYPES = ["monetary", "personal", "mixed"] as const;
 export type ReturnType = (typeof RETURN_TYPES)[number];
 
 /** Return type to tone and label (category hues only). */

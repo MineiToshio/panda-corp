@@ -23,7 +23,7 @@ import { isTone, type Tone } from "./vocabulary";
 type V1ChipTone = "ok" | "warn" | "danger" | "info" | "accent" | "secondary";
 /** A v1 tone (existing consumers) or one of the nine Órbita hues (new code). */
 export type ChipTone = V1ChipTone | Tone;
-export type ChipVariant = "tint" | "outline" | "plain" | "dashed";
+type ChipVariant = "tint" | "outline" | "plain" | "dashed";
 
 export interface ChipProps {
   /** Visual tone — all colors via CSS custom properties only. */

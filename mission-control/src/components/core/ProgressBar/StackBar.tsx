@@ -2,7 +2,7 @@ import type { Tone } from "@/components/core/Chip/vocabulary";
 import { t } from "@/lib/copy/copy";
 import styles from "./ProgressBar.module.css";
 
-export interface StackSegment {
+interface StackSegment {
   /** Spanish state word, shown in the text alternative. */
   readonly label: string;
   readonly count: number;
