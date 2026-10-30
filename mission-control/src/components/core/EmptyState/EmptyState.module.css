@@ -1,0 +1,11 @@
+.empty {
+  display: grid;
+  place-items: center;
+  gap: var(--s2);
+  text-align: center;
+  padding: var(--s8) var(--s4);
+  color: var(--text-3);
+  border: var(--hairline) dashed var(--line-strong);
+  border-radius: var(--r-lg);
+  font-size: var(--fs-md);
+}

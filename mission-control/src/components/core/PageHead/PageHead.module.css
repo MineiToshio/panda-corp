@@ -1,0 +1,23 @@
+.head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s5);
+  margin-bottom: var(--s6);
+  flex-wrap: wrap;
+}
+.titles {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.titles p {
+  color: var(--text-2);
+  font-size: var(--fs-base);
+  max-width: 70ch;
+}
+.actions {
+  display: flex;
+  gap: var(--s3);
+  flex-wrap: wrap;
+}

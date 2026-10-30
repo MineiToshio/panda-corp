@@ -6,7 +6,7 @@ title: 'WO-13-012 — Órbita composite primitives and framing patterns'
 status: ACTIVE
 parent: FRD-13
 foundation: true
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 blocked_reason:
 difficulty: high
 reopen_count: 0
@@ -179,3 +179,17 @@ Cites LESSON-0364 (only the inner content cap goes; the shell frame keeps its en
 `PageHead` / `Card` widths inside the 1180 px frame).
 
 ## Status Note
+
+**Built.** New folders (CSS module per folder on the raw tokens, prototype hooks on the roots, `data-tone` for the hue): `Card/Card.tsx` (`Card`, `CardHeader`, `CardFoot`, `CardPair`), `PageHead/PageHead.tsx`, `Crumbs/Crumbs.tsx`, `EmptyState/EmptyState.tsx`, `Notice/Notice.tsx`, `Table/Table.tsx`, `ListRow/ListRow.tsx` (`ListRow`, `DividedList`). The dialog family extends the shared `Modal` in place: `Modal/DialogConfirm.tsx` and `Modal/DialogSheet.tsx` compose it, so the focus trap, Escape and focus return of `Modal` (and its reviewer test) are unchanged.
+
+**Contracts.**
+- `Card({ tone?, variant?: "default"|"flush"|"tinted", children })`; `CardHeader({ title, level?: 2|3|4, icon?, count?, action? })` (icon tile `BadgeIcon` sm + one title size + `CountPill`); `CardFoot({ children })`; `CardPair({ children })` (equal height, one column under 1024 px; put the actionable card first).
+- `PageHead({ title, subtitle?, crumbs?: Crumb[], eyebrow?, actions? })` renders ONE `h1`, never a `<main>`; `Crumbs({ items: {label, href?}[] })` (last item `aria-current="page"`, nav named `common.breadcrumb.aria` «Ruta»).
+- `EmptyState({ icon, children })`; `Notice({ icon, tone?, kind?: "info"|"error", children })` (`error` is coral with `role="alert"`; the caller passes the domain message; `info` is `role="status"`).
+- `Table({ caption, columns: {id,label}[], rows: {id, cells: Record<colId, ReactNode>}[] })`: one DOM, `scope="col"` heads, every `td` has `data-label`; under 1024 px the CSS turns rows into cards.
+- `ListRow({ title, meta?, icon?, tone?, extra?, href?, onClick? })` (link, button or static; chips in `extra` must not be interactive) and `DividedList({ items: {id,row}[] })`.
+- `DialogConfirm({ open, title, testIdBase, cancelLabel, confirmLabel, reasonLabel?, onCancel, onConfirm(reason), children? })`; `DialogSheet({ rows: {id,label,content}[] })` (128 px label column).
+
+**Decisions and assumptions a consumer inherits.** `Tabs`, `SectionHead`, `Banner`, `Markdown`, `PageTitle` and `PageLayout` were NOT restyled in place or turned into wrappers (their v1 contracts and pinned reviewer tests stay; they already adopt the Órbita palette through WO-13-010's mapping): the surface work orders that need the drawn Órbita Tabs (hue bar, overflow arrows), SectionHeading, AlertBanner hosting a command box, hue-tinted Markdown and the compat wrappers over `PageHead` do that when they rebuild those screens, and WO-13-013 removes the v1 names. The shared `Modal` stays an overlay `div` with `role="dialog"` (not a native `<dialog>`) so its reviewer-authored focus tests keep passing; `DialogConfirm` closes through `onCancel` on Escape and backdrop. No behaviour e2e spec was added for the dialogs here: no route renders them yet (this WO's commit declares no e2e file); the first surface that mounts them carries it. Canonical-name mapping: Dialog = `Modal`, AlertBanner = `Banner`, SectionHeading = `SectionHead`.
+
+**Tests.** `Card/_tests/Card.test.tsx`, `Table/_tests/Table.test.tsx`.

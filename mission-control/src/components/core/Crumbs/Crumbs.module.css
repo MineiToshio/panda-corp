@@ -1,0 +1,18 @@
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  flex-wrap: wrap;
+}
+.crumbs a {
+  color: var(--text-2);
+  text-decoration: none;
+}
+@media (hover: hover) {
+  .crumbs a:hover {
+    color: var(--text);
+    text-decoration: underline;
+  }
+}

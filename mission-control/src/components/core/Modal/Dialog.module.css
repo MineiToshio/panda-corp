@@ -1,0 +1,46 @@
+.label {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 6px;
+}
+.reason {
+  width: 100%;
+  min-height: 88px;
+  padding: var(--s3);
+  border-radius: var(--r);
+  border: var(--hairline) solid var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s3);
+}
+.sheet {
+  display: grid;
+  gap: var(--s4);
+  margin: 0;
+}
+.row {
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr);
+  gap: var(--s4);
+  border-top: var(--hairline) solid var(--line);
+  padding-top: var(--s4);
+}
+.row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.row dt {
+  color: var(--text-3);
+}
+.row dd {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--fs-md);
+}
