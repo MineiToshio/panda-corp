@@ -1,5 +1,5 @@
 import type { KeyboardEvent, MouseEvent } from "react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { useUrlState } from "@/lib/navigation/useUrlState";
@@ -7,9 +7,13 @@ import { useUrlState } from "@/lib/navigation/useUrlState";
 /** Native browser fullscreen with a model-only full-window fallback and modal focus lifecycle. */
 export function useModelExpansion() {
   const [expandedKey, setExpandedKey] = useUrlState("expanded", "");
-  const expanded = expandedKey === "1";
+  const [gestureExpanded, setGestureExpanded] = useState(false);
+  const expanded = expandedKey === "1" && gestureExpanded;
   const setExpanded = useCallback(
-    (next: boolean) => setExpandedKey(next ? "1" : ""),
+    (next: boolean) => {
+      setGestureExpanded(next);
+      setExpandedKey(next ? "1" : "");
+    },
     [setExpandedKey],
   );
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -18,6 +22,15 @@ export function useModelExpansion() {
   const enteredNative = useRef(false);
   const restoreIcon = useRef(false);
   const native = useFullscreen(surfaceRef);
+  useEffect(() => {
+    function restoreInline() {
+      enteredNative.current = false;
+      setGestureExpanded(false);
+      if (native.isFullscreen) native.toggle();
+    }
+    window.addEventListener("popstate", restoreInline);
+    return () => window.removeEventListener("popstate", restoreInline);
+  }, [native.isFullscreen, native.toggle]);
   useEffect(() => {
     if (native.isFullscreen) enteredNative.current = true;
     else if (enteredNative.current) {

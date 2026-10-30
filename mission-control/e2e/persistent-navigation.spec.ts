@@ -1,13 +1,35 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
 import {
   expectHydrated,
   historyCheckpoint,
   observeHistory,
 } from "./persistent-navigation/_history";
+
+async function expectWorkOrderLocation(page: Page, pathname: string, view?: string, hash = "") {
+  await expect
+    .poll(() => {
+      const url = new URL(page.url());
+      const wo = url.searchParams.get("wo");
+      return {
+        pathname: url.pathname,
+        wo,
+        woview: url.searchParams.get("woview") ?? (wo ? "summary" : null),
+        legacy: ["project", "tab", "wotab"].filter((key) => url.searchParams.has(key)),
+        hash: url.hash,
+      };
+    })
+    .toEqual({
+      pathname,
+      wo: view ? "WO-01-001" : null,
+      woview: view ?? null,
+      legacy: [],
+      hash,
+    });
+}
 
 function snapshotFiles(root: string): Map<string, Buffer> {
   return new Map(
@@ -95,19 +117,18 @@ test("legacy queries normalize nested WO and document selections while preservin
   for (const [legacy, canonical] of [
     [
       "/portfolio?project=Mission%20Control&tab=work-orders&wo=WO-01-001&wotab=full#goal",
-      "/portfolio/mission-control/work-orders/WO-01-001/full#goal",
+      "/portfolio/mission-control/observability",
     ],
     [
       "/projects/mission-control?tab=work-orders&wo=WO-01-001&wotab=full#goal",
-      "/projects/mission-control/work-orders/WO-01-001/full#goal",
+      "/projects/mission-control/observability",
     ],
   ] as const) {
     await page.goto(legacy);
-    await expect
-      .poll(() => new URL(page.url()).pathname + new URL(page.url()).hash)
-      .toBe(canonical);
+    await expectWorkOrderLocation(page, canonical, "full", "#goal");
     await expect(page.getByTestId("wo-detail-full")).toContainText("Reader module");
     await page.reload();
+    await expectWorkOrderLocation(page, canonical, "full", "#goal");
     await expect(page.getByTestId("wo-detail-full")).toContainText("Reader module");
   }
   await page.goto(
@@ -178,8 +199,8 @@ test("post-build registration: a non-first project retains identity through WO S
     expect(repeat.changedFiles).toEqual([]);
     const registered = sourceFiles(root, snapshotFiles(root));
     for (const family of ["portfolio", "projects"]) {
-      const href = `/${family}/navigation-review-second/work-orders`;
-      await gotoHydrated(page, href, { selector: '[data-testid="tab-work-orders"]' });
+      const href = `/${family}/navigation-review-second/observability`;
+      await gotoHydrated(page, href, { selector: '[data-testid="tab-observability"]' });
       await expect(page.getByTestId("wo-board")).toContainText("Second project reader");
       if (family === "portfolio") {
         const rows = page.getByTestId("selectable-project-row");
@@ -189,17 +210,19 @@ test("post-build registration: a non-first project retains identity through WO S
       }
       await historyCheckpoint(page, `${family}-card`, '[data-testid="wo-card-link"]', info);
       await page.getByTestId("wo-card-link").click();
-      await expect(page).toHaveURL(new RegExp(`${href}/WO-01-001/summary$`));
+      await expectWorkOrderLocation(page, href, "summary");
       await expect(page.getByTestId("wo-detail-summary")).toContainText("Second project reader");
       await historyCheckpoint(page, `${family}-full`, '[data-testid="wo-detail-tab-full"]', info);
       await expectHydrated(page, '[data-testid="wo-detail-tab-full"]');
       await page.getByTestId("wo-detail-tab-full").click();
-      await expect(page).toHaveURL(new RegExp(`${href}/WO-01-001/full$`));
+      await expectWorkOrderLocation(page, href, "full");
       await expect(page.getByTestId("wo-detail-full")).toContainText("Second project reader");
       await page.reload();
+      await expectWorkOrderLocation(page, href, "full");
       await expect(page.getByTestId("wo-detail-full")).toContainText("Second project reader");
       await historyCheckpoint(page, `${family}-back`, '[data-testid="wo-detail-tab-full"]', info);
       await page.goBack();
+      await expectWorkOrderLocation(page, href, "summary");
       await expect(page.getByTestId("wo-detail-summary")).toContainText("Second project reader");
       await historyCheckpoint(
         page,
@@ -208,11 +231,12 @@ test("post-build registration: a non-first project retains identity through WO S
         info,
       );
       await page.goForward();
+      await expectWorkOrderLocation(page, href, "full");
       await expect(page.getByTestId("wo-detail-full")).toContainText("Second project reader");
       await historyCheckpoint(page, `${family}-return`, '[data-testid="wo-detail-back"]', info);
       await page.getByTestId("wo-detail-back").click();
-      await expect(page).toHaveURL(new RegExp(`${href}$`));
-      for (const tab of ["party", "changes", "documents"]) {
+      await expectWorkOrderLocation(page, href);
+      for (const tab of ["summary", "changes", "documents"]) {
         await historyCheckpoint(
           page,
           `${family}-tab`,

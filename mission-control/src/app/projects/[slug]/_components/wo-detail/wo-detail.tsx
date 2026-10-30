@@ -298,7 +298,9 @@ export function WorkOrderDetail({
   function handleTabChange(id: string): void {
     const currentHref =
       navigationBaseHref ?? `${window.location.pathname}${window.location.search}`;
-    router.push(navigationHref(currentHref, { tab: "work-orders", wo: order.id, wotab: id }));
+    router.push(
+      navigationHref(currentHref, { tab: "work-orders", wo: order.id, wotab: id, woview: null }),
+    );
   }
 
   // A useful body excerpt for the Summary tab (#23) — replaces the old file-path.
@@ -313,7 +315,12 @@ export function WorkOrderDetail({
           data-testid="wo-detail-back"
           href={
             navigationBaseHref
-              ? navigationHref(navigationBaseHref, { tab: "work-orders", wo: null, wotab: null })
+              ? navigationHref(navigationBaseHref, {
+                  tab: "work-orders",
+                  wo: null,
+                  wotab: null,
+                  woview: null,
+                })
               : "?tab=work-orders"
           }
           aria-label="Volver al tablero de work orders"

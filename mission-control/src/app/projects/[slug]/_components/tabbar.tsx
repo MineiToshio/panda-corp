@@ -111,6 +111,7 @@ export function TabBar({ activeTab, navigationBaseHref }: TabBarProps): React.JS
     next.delete("doc");
     next.delete("wo");
     next.delete("wotab");
+    next.delete("woview");
     const liveHref = `${window.location.pathname}${window.location.search}`;
     const baseHref = /^\/(portfolio|projects)\//.test(liveHref) ? liveHref : navigationBaseHref;
     router.push(
@@ -120,6 +121,7 @@ export function TabBar({ activeTab, navigationBaseHref }: TabBarProps): React.JS
             doc: null,
             wo: null,
             wotab: null,
+            woview: null,
           })
         : `?${next.toString()}`,
     );

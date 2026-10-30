@@ -43,7 +43,7 @@ export default async function ProjectWorkspacePage({
     notFound();
   }
 
-  const selection = workspaceSelection(sp, item.path);
+  const selection = workspaceSelection({ ...sp, project: slug }, item.path);
   const href = workspaceHref(
     "/projects",
     sp,

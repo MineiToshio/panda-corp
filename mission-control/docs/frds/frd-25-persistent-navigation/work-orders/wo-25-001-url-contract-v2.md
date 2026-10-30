@@ -6,8 +6,7 @@ title: 'WO-25-001 — URL contract for v2 + the history flake'
 status: ACTIVE
 parent: FRD-25
 foundation: false
-implementation_status: BLOCKED
-blocked_reason: needs-owner
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -281,6 +280,51 @@ N/A: headless contract, no screen and no oracle state.
 None (W0). Consumers: every v2 surface WO (they depend on this one in the map).
 
 ## Status Note
+
+### 2026-10-30 — Independent gate repair
+
+Owner-directed repair supersedes the earlier surface deferral for AC-25-004.1,
+AC-25-010.1 and AC-25-011.1. Both workspace route boundaries now normalize aliases
+before selection, preserving context and WO representation; their canonical replace
+keeps the fragment. The shell has no exemptions and Nav uses the destination resolver.
+Canonical Esquema restores schema mode. URL restoration keeps the model inline;
+only an explicit expand gesture can open the existing fullscreen presentation.
+Malformed Board tails remain unchanged by the normalizer. Six approved v2 test
+repairs were applied and the three independent reviewer probes restored byte-for-byte.
+No visual baseline or identity catalog changed.
+
+Verification (2026-10-30, PORT=PANDACORP_E2E_PORT=4310):
+
+- Final targeted navigation/model/shell suite: 142/142 passed across 31 files, including
+  the restored reviewer boundaries and acceptance probes, workspace alias regressions,
+  and the gesture/history regression (`restoration.test.tsx`).
+- Workspace integration suite: 153 passed, 1 failed. The unchanged v1 test in
+  `wo-detail.integration.test.tsx` demands `wo-board` for legacy `tab=work-orders`;
+  FRD-25 requires that location to resolve to Observability. It was left red,
+  without weakening the test.
+- `bash .pandacorp/verify.sh --only=biome,tsc,knip,vitest`: Biome, TypeScript and
+  knip passed; Vitest 8,074 passed / 15 failed. Thirteen failures are in the
+  explicitly excluded snapshot-panel scope. The other two are the v1 board assertion
+  above and `BuildModePicker.test.tsx`'s failed-storage fallback (expected Equilibrado
+  pressed, observed false). No BuildModePicker code or tests were changed.
+- Desktop and mobile aliases E2E both failed before executing their bodies: Chromium
+  aborted with macOS `MachPortRendezvousServer: Permission denied (1100)`. The full
+  38-case navigation E2E attempt was interrupted after the same launch failure.
+  Browser acceptance, reload/history and responsive behavior remain unverified.
+- Reviewer probes match the source archive byte-for-byte (SHA-256 comparison).
+  `git diff --check` passed. No blessed baselines or `.pandacorp` state were staged.
+
+Logs and the temporary port-4310 Playwright override were retained in
+`/private/tmp/frd25-evidence/`. The override was removed from the working tree.
+The Next server on 4310 (PID 3154) remained after interrupting Playwright; an explicit
+attempt to stop that PID was denied by the process sandbox. This is not a green
+FRD gate: WO-25-001 is IN_REVIEW, not VERIFIED.
+
+Commit limitation (2026-10-30): explicit-path `git add` and the requested Conventional
+Commit both failed because the sandbox denied creating
+`/Users/Shared/Proyectos/panda-corp/.git/worktrees/orch-frd-25/index.lock`.
+No commit was created; edits remain in this worktree.
+
 
 2026-10-30 implementation hand-off (fast lane, DR-126).
 

@@ -1,10 +1,10 @@
 /**
  * FRD-19 — AppShell (CMP-19-app-shell) tests.
  *
- * The persistent topbar on top-level surfaces; absent on the exempt drill-ins. Covers the landmark,
+ * The persistent shell on every route, including configuration and project drill-ins. Covers the landmark,
  * the hosted slots, the skip link, the mobile toggle, the #main-content wrapper, and the scope rule.
  *
- * AC-19-001.1/.3/.5, AC-19-003.2, AC-19-004.1.
+ * AC-19-001.1/.3/.5, AC-19-003.2, AC-19-004.1, AC-25-010.1.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -70,17 +70,33 @@ describe("FRD-19 AppShell — persistent global shell", () => {
     expect(toggle).toHaveAttribute("aria-controls", "app-nav-region");
   });
 
-  it("does NOT render the topbar on the exempt Configuration route", () => {
-    mockUsePathname.mockReturnValue("/configuration");
+  it.each([
+    "/configuration",
+    "/configuration/skills/spec",
+  ])("AC-25-010.1: retains the shell and page content on %s", (pathname) => {
+    mockUsePathname.mockReturnValue(pathname);
     renderShell();
-    expect(screen.queryByTestId("app-shell")).toBeNull();
+    expect(screen.getByTestId("app-shell")).toBeInTheDocument();
+    expect(screen.getAllByRole("navigation").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Saltar al contenido" })).toHaveAttribute(
+      "href",
+      "#main-content",
+    );
     expect(screen.getByTestId("page")).toBeInTheDocument();
   });
 
-  it("does NOT render the topbar on the project workspace (/projects/**)", () => {
-    mockUsePathname.mockReturnValue("/projects/mission-control");
+  it.each([
+    "/projects/mission-control",
+    "/projects/mission-control/spec",
+  ])("AC-25-010.1: retains the shell and workspace content on %s", (pathname) => {
+    mockUsePathname.mockReturnValue(pathname);
     renderShell();
-    expect(screen.queryByTestId("app-shell")).toBeNull();
+    expect(screen.getByTestId("app-shell")).toBeInTheDocument();
+    expect(screen.getAllByRole("navigation").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Saltar al contenido" })).toHaveAttribute(
+      "href",
+      "#main-content",
+    );
     expect(screen.getByTestId("page")).toBeInTheDocument();
   });
 });

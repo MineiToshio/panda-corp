@@ -102,6 +102,13 @@ make that tab unreachable. Each v2 surface applies the normalizer at its route b
 v1 form (WO-03-007, WO-04-010, WO-07-006, WO-08-003) and passes the result to `NavigationCanonical` (a replace,
 never a push).
 
+**2026-10-30 repair override:** Portfolio and standalone workspace boundaries apply the
+normalizer now, including legacy query roots, Party and work-order details. This
+supersedes the deferral above for these contexts. Validation of the original tail
+precedes normalization; the hydration seed, resolved selection and canonical URL
+use the normalized location. Model URL restoration stays inline; native fullscreen
+and the existing expanded presentation require an explicit expand gesture.
+
 ### Key registry (`validateNavigationQuery`) — the complete v2 key set
 
 This table is THE key registry; WO-25-001's In Scope list states the same set, key for key (gate finding B9).

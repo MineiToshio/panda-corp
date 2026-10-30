@@ -100,12 +100,12 @@ export default async function PortfolioPage({
   const selectedItem =
     projectParam === undefined ? items[0] : resolveProjectNavigation(projectParam, items);
   if (projectParam !== undefined && selectedItem === undefined) notFound();
-  const selection = workspaceSelection(params, selectedItem?.path);
   const selectedSlug = selectedItem?.name;
   const identity = selectedItem
     ? getProjectNavigation(selectedItem.path, selectedItem.name)
     : undefined;
   const publicSlug = identity?.slug;
+  const selection = workspaceSelection({ ...params, project: publicSlug }, selectedItem?.path);
   const href = workspaceHref("/portfolio", params, publicSlug, selection);
 
   // Resolve the selected project's workspace (prototype projectPane embedded in the right pane, DEC-4).

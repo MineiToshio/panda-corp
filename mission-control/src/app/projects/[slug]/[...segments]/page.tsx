@@ -1,3 +1,4 @@
+import { normalizeLegacyNavigation } from "@/lib/navigation/aliases";
 import { type RouteQuery, routeHref, workspaceRouteState } from "@/lib/navigation/routeState";
 import { NavigationSeedProvider } from "@/lib/navigation/useUrlState";
 import ProjectWorkspacePage from "../page";
@@ -13,9 +14,14 @@ export default async function PersistentProject({
   const { slug, segments } = await params;
   const query = await searchParams;
   const href = routeHref("/projects", [slug, ...segments], query);
-  const routeState = workspaceRouteState(href, [slug, ...segments]);
+  workspaceRouteState(href, [slug, ...segments]);
+  const canonical = normalizeLegacyNavigation(href);
+  const routeState = workspaceRouteState(
+    canonical,
+    new URL(canonical, "http://localhost").pathname.split("/").slice(2),
+  );
   return (
-    <NavigationSeedProvider href={href}>
+    <NavigationSeedProvider href={canonical}>
       <ProjectWorkspacePage
         params={Promise.resolve({ slug })}
         searchParams={Promise.resolve(query)}

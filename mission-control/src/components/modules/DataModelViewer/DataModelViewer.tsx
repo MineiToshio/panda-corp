@@ -86,8 +86,11 @@ function ReadyViewer({
   source: string;
   layout: ModelLayout;
 }) {
-  const [modelMode, setMode] = useUrlState("model", "diagram");
-  const mode = modelMode === "schema" ? "schema" : "diagram";
+  const [modelMode, setModelMode] = useUrlState("model", "Diagrama");
+  const mode = ["schema", "Esquema"].includes(modelMode) ? "schema" : "diagram";
+  function setMode(next: string) {
+    setModelMode(next === "schema" ? "Esquema" : "Diagrama");
+  }
   const [query, setQuery] = useUrlState("modelQuery", "");
   const [entityId] = useUrlState("entity", "");
   const [relationshipId] = useUrlState("relationship", "");

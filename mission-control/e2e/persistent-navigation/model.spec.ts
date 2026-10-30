@@ -36,13 +36,29 @@ test("model schema entity and search restore; search replaces history and expand
   expanded.searchParams.set("expanded", "1");
   const fresh = await browser.newContext({ viewport: page.viewportSize() ?? undefined });
   try {
+    await fresh.addInitScript(() => {
+      Object.defineProperty(HTMLElement.prototype, "requestFullscreen", {
+        configurable: true,
+        value: async () => {
+          sessionStorage.setItem("reviewerFullscreenRequested", "true");
+        },
+      });
+    });
     const pasted = await fresh.newPage();
     await pasted.goto(expanded.toString());
-    await expect(pasted.getByRole("dialog", { name: "Modelo de datos" })).toBeVisible();
-    expect(await pasted.evaluate(() => document.fullscreenElement)).toBeNull();
-    await pasted.reload();
-    await expect(pasted.getByRole("dialog", { name: "Modelo de datos" })).toBeVisible();
-    expect(await pasted.evaluate(() => document.fullscreenElement)).toBeNull();
+    for (const restore of ["paste", "reload"]) {
+      if (restore === "reload") await pasted.reload();
+      const inline = pasted.getByTestId("data-model-viewer");
+      await expect(inline.getByRole("searchbox")).toHaveValue("users");
+      await expect(
+        inline.getByRole("button", { name: "Seleccionar entidad users", exact: true }),
+      ).toHaveAttribute("aria-pressed", "true");
+      await expect(pasted.getByRole("dialog")).toHaveCount(0);
+      expect(await pasted.evaluate(() => document.fullscreenElement)).toBeNull();
+      expect(
+        await pasted.evaluate(() => sessionStorage.getItem("reviewerFullscreenRequested")),
+      ).toBeNull();
+    }
   } finally {
     await fresh.close();
   }

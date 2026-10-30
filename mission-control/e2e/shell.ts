@@ -49,13 +49,7 @@ export const NAV_DESTINATIONS: readonly NavDestination[] = [
  * DR-074 `data-scroll-x="intentional"` pattern, for "this route has no topbar by design". A trailing
  * `/**` matches the whole subtree; otherwise the match is exact.
  */
-export const SHELL_EXEMPT: readonly string[] = [
-  // Drill-in surfaces with their own in-context header + back control (FRD-19 AC-19-004).
-  // Mirrored by the app in src/components/modules/AppShell/shellScope.ts — keep in sync.
-  "/projects/**",
-  "/configuration",
-  "/configuration/**",
-] as const;
+export const SHELL_EXEMPT: readonly string[] = [];
 
 /**
  * Optional mobile drawer/hamburger trigger (author-declared). Empty selector ⇒ the nav must be

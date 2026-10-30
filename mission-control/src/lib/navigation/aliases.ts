@@ -47,6 +47,14 @@ function hasWorkspaceTail(parts: string[]): boolean {
   return true;
 }
 
+function hasBoardTail(parts: string[]): boolean {
+  const [, , tab, detail] = parts;
+  if (parts.length > 4) return false;
+  if (tab && !["proposal", "spec", "architecture", "documents", "campaign"].includes(tab))
+    return false;
+  return !detail || tab === "documents";
+}
+
 function workspacePatch(href: string): NavigationPatch | null {
   const state = parseNavigationUrl(href);
   const raw = state.tab;
@@ -82,7 +90,7 @@ export function normalizeLegacyNavigation(href: string): string {
       const workspace = workspacePatch(href);
       if (!workspace) return href;
       Object.assign(patch, workspace);
-    } else if (family !== "board") return href;
+    } else if (family !== "board" || !hasBoardTail(parts)) return href;
     if (url.searchParams.get("model") === "diagram") patch.model = "Diagrama";
     if (url.searchParams.get("model") === "schema") patch.model = "Esquema";
     return navigationHref(href, patch);

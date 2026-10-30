@@ -362,6 +362,10 @@ export function ProjectWorkspace({
       body = renderPartyTab(projectPath, running, status.supervisorHeartbeat);
       break;
     case "observabilidad": {
+      if (selection.woParam) {
+        body = renderWorkOrdersTab(projectPath, slug, selection, navigationBaseHref);
+        break;
+      }
       const obsOrders = listWorkOrders(projectPath);
       const timeline = readBuildTimeline(projectPath, obsOrders);
       body = (

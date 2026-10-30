@@ -19,5 +19,8 @@ test("nested destinations retain global highlights and configuration retains its
   await expect(page.getByTestId("app-nav-documentacion")).toHaveAttribute("aria-current", "page");
   await page.goto("/configuration/rules/DR-009");
   await expect(page.getByTestId("rule-detail")).toBeVisible();
-  await expect(page.getByTestId("app-nav")).toHaveCount(0);
+  await expect(page.getByTestId("app-shell")).toHaveCount(1);
+  await expect(
+    page.locator('[data-testid="app-shell"] a[href="/configuration"][aria-current="page"]'),
+  ).toHaveCount(1);
 });

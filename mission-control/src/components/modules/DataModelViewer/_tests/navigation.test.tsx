@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DataModelViewer } from "../DataModelViewer";
 import { readyFixture } from "./fixture";
@@ -46,20 +46,42 @@ describe("persistent logical model location", () => {
       "true",
     );
   });
-  it("restores the expanded fallback without requesting native fullscreen", async () => {
+  it("AC-25-011.1: restores expanded URLs inline across history without a dialog or native fullscreen", async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "requestFullscreen");
     const request = vi.fn(async () => {});
     Object.defineProperty(HTMLElement.prototype, "requestFullscreen", {
       configurable: true,
       value: request,
     });
-    visit("/portfolio/registered/architecture?expanded=1&entity=entry");
-    render(<DataModelViewer result={readyFixture()} />);
-    await waitForLayout();
-    expect(await screen.findByRole("dialog")).toBeVisible();
-    expect(request).not.toHaveBeenCalled();
-    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(window.location.search).not.toContain("expanded");
+    try {
+      visit("/portfolio/registered/architecture?expanded=1&entity=entry");
+      const viewer = render(<DataModelViewer result={readyFixture()} />);
+      try {
+        await waitForLayout();
+        await screen.findByRole("tab", { name: "Diagrama" });
+        for (const search of [
+          "expanded=1&entity=entry",
+          "entity=entry",
+          "expanded=1&entity=entry",
+        ]) {
+          visit(`/portfolio/registered/architecture?${search}`);
+          expect.soft(screen.queryByRole("dialog")).not.toBeInTheDocument();
+          expect
+            .soft(
+              within(screen.getByRole("tabpanel")).queryByRole("button", {
+                name: "Seleccionar entidad Entry",
+              }),
+            )
+            .toHaveAttribute("aria-pressed", "true");
+          expect.soft(request).not.toHaveBeenCalled();
+        }
+      } finally {
+        viewer.unmount();
+      }
+    } finally {
+      if (descriptor) Object.defineProperty(HTMLElement.prototype, "requestFullscreen", descriptor);
+      else Reflect.deleteProperty(HTMLElement.prototype, "requestFullscreen");
+    }
   });
 });
 

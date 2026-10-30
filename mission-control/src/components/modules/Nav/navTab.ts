@@ -8,6 +8,7 @@
  */
 
 import type React from "react";
+import { activeDestinationPath } from "@/lib/navigation/destinations";
 
 /** The `.tab` pill visual for a real nav link. Active = accent-bg/accent-text (prototype `.tab.on`). */
 export function navTabStyle(active: boolean): React.CSSProperties {
@@ -33,5 +34,5 @@ export function navTabStyle(active: boolean): React.CSSProperties {
 
 /** Match a destination and its descendants at a complete path-segment boundary. */
 export function isNavActive(pathname: string, href: string): boolean {
-  return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
+  return activeDestinationPath(pathname) === href;
 }

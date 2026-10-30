@@ -1,5 +1,9 @@
 # Decision Log — Mission Control
 
+## 2026-10-30 — Enforce the persistent-navigation boundary contract
+
+[WO-25-001](frds/frd-25-persistent-navigation/work-orders/wo-25-001-url-contract-v2.md) repairs the independent FRD-25 findings: workspace aliases normalize at route boundaries, invalid Board tails remain intact, every route retains the shell, projects highlight Portfolio, and canonical model modes restore inline. The [blueprint](frds/frd-25-persistent-navigation/blueprint.md) records the override to the earlier surface deferral. Gesture-only expansion remains ephemeral so pasting `expanded=1` cannot reopen a modal. Approved v2 test repairs replace contradictory v1 assertions; independent reviewer probes are restored unchanged.
+
 ## 2026-10-30 — Interim Resumen heartbeat exception
 
 Owner-delegated scope extension for [WO-14-005](frds/frd-14-snapshot-and-feedback/work-orders/wo-14-005-snapshot-panel-orbita.md): TabSummary uses the existing status/liveness.ts helper to pass noSignalAgo from the current workspace heartbeat, preventing dead running claims from showing building-now. WO-04-011 and WO-06-013 own removal in favor of the shared build signal; AC-14-001.1 remains open until WO-04-011 adds the mount gate and changes the behaviour fixture to running:true. The redundant Panel activity contract paragraph was removed from the FRD.
