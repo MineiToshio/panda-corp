@@ -6,7 +6,7 @@ title: 'WO-13-010 — Órbita tokens, fonts, themes, icons, copy accessor and as
 status: ACTIVE
 parent: FRD-13
 foundation: true
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 blocked_reason:
 difficulty: high
 reopen_count: 0
@@ -282,3 +282,15 @@ seam). Cites LESSON-0166 (boot script in the root layout), LESSON-0216 (assets c
 presence), LESSON-0310 (hover gated on hover-capable pointers).
 
 ## Status Note
+
+**Built.** `src/app/globals.css` is generated-then-hand-owned: font-face (7 rules, `/fonts/<file>`), a Tailwind registry (`@theme` for names that live in a Tailwind namespace: `--font-*`, `--shadow*`, `--text-*` size scale reset to the eleven `--fs-*`, `--radius-*` reset; `@theme inline` for the colour / radius / easing aliases), the raw token layer (light on `:root`, dark on `:root[data-theme="dark"]` and on `:root:not([data-theme])` under `prefers-color-scheme: dark`; scene and map tokens once), every `overrides` rule (the self-referencing `--font-*`/`--hairline` entries of `.manual-live` are dropped: they would be invalid), one fenced v1 compatibility layer, the global base (focus ring, `.num`, `[data-tip]`, `.i`, `scroll-padding`), the retained v1 surface rules with every `:hover` rule moved inside `@media (hover: hover)`, and ONE reduced-motion block. `layout.tsx` lost `next/font` and Pixelify; it renders `<html lang="es" suppressHydrationWarning>` and the boot script first in `<head>` (Tabler CDN link stays until WO-13-013). Assets in `public/` are original bytes (they were already staged; fonts, licences and the six zones / agent sprites are now covered by a byte test).
+
+**Interfaces.**
+- Registry names (Tailwind utilities): colours `bg bg-2 surface surface-2 surface-3 line line-strong text text-2 text-3 primary-bg primary-fg focus backdrop blue teal violet pink amber green coral slate gold tone scene-* map-*` (so `bg-surface`, `text-text-2`, `border-line`, `text-blue`); fonts `font-display font-body font-mono`; sizes `text-xs sm md base lg xl h3 h2 h1s h1m h1`; radii `rounded-xs sm md DEFAULT lg xl 2xl pill`; shadows `shadow shadow-sm node drop panel dialog toast`; `ease-orbita`; default transition duration / easing are `--dur` / `--ease`. Spacing is Tailwind's 4 px base (`p-1` = `--s1`).
+- `Icon({ name: IconName, size?: "sm"|"md"|"lg", label?: string })` in `src/components/core/Icon/Icon.tsx`; data `ICON_NODES` / `IconName` in `iconData.ts`; class `i` (+ `sm`/`lg`), `data-icon`, decorative `aria-hidden` unless `label` (`role="img"`).
+- `src/lib/theme/theme.ts`: `Theme`, `THEME_STORAGE_KEY="orbita-theme"`, `SIDEBAR_STORAGE_KEY="orbita-sidebar"`, `isTheme`, `resolveTheme(stored, systemPrefersLight)`, `currentTheme(storage?)`, `applyTheme(theme, root?)`, `persistTheme(theme, storage?) -> boolean` (false when storage is unavailable); `bootScript.ts`: `THEME_BOOT_SCRIPT`.
+- `src/lib/copy/copy.ts`: `t(key: CopyKey, vars?)`, `tRich(key, vars?)`, `CopyKey`, `CopyVars`; `dates.ts`: `formatDate(value)`, `formatRelative(then, now)`. The catalogue is imported as `@/../docs/design/microcopy.es.json`.
+
+**Decisions a consumer inherits.** A missing placeholder, a plural without numeric `count` or an unknown runtime key throws. `tRich` inserts variables as text (a variable can not inject a tag); it supports `<b>`, `<code>`, `<i>` (no nesting). Catalogue strings contain non-breaking spaces (e.g. «hace 5 días»): compare through `t()`, never a typed literal. `formatDate` reads date-only values in UTC, other timestamps in the local zone; `formatRelative` returns «sin registro» for an unparseable input and uses `common.build.minutesAgo/hoursAgo` for the sub-day forms. The sidebar preference is mirrored only when it is `collapsed` or `expanded`. v1 compat names live only in the fenced block (`:root` + dark/no-JS tier and trace overrides), mapped to Órbita like `.manual-live`; `--color-text`, `--color-surface`, `--color-backdrop` now come from the registry (Órbita values). The two `globals.css.adversarial*` tests were deleted (they pinned v1 high-contrast and three-elevation behaviour).
+
+**Tests.** `src/app/_tests/globals.css.test.ts`, `src/app/_tests/layout.theme.test.tsx`, `src/lib/theme/_tests/theme.test.ts`, `src/lib/copy/_tests/copy.test.ts`, `src/components/core/Icon/_tests/Icon.test.tsx`, `src/app/_design/tokens/_tests/assets.bytes.test.ts`, `e2e/visual-system.spec.ts`.

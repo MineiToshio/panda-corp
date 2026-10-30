@@ -90,3 +90,5 @@
 {"kind":"build_paused","reason":"infra","label":"plan","at":"2026-10-30T09:10:58Z"}
 {"kind":"wo_start","frd":"frd-01-data-reading","wo":"WO-01-010","at":"2026-10-30T13:33:09Z"}
 {"kind":"wo_start","frd":"frd-01-data-reading","wo":"WO-01-010","at":"2026-10-30T13:42:11Z"}
+{"kind":"wo_start","frd":"frd-13-visual-system-accessibility","wo":"WO-13-010","at":"2026-10-30T15:12:54Z"}
+{"kind":"wo_end","frd":"frd-13-visual-system-accessibility","wo":"WO-13-010","state":"in_review","at":"2026-10-30T15:22:35.296Z"}

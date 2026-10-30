@@ -12,7 +12,6 @@
  */
 
 import type { Metadata } from "next";
-import { Pixelify_Sans, Space_Grotesk } from "next/font/google";
 import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
 import { GamificationLedgerSync } from "@/components/dashboard/GamificationLedgerSync/GamificationLedgerSync";
 import { AppShell } from "@/components/modules/AppShell/AppShell";
@@ -24,6 +23,7 @@ import { getGuildState } from "@/lib/gamification/guildState";
 import { getPendingMerge } from "@/lib/pendingMerge/pendingMerge";
 import { readProfile } from "@/lib/profile/profile";
 import { countOpenProposals } from "@/lib/proposals/proposals";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme/bootScript";
 import "./globals.css";
 
 // Local always-on deploy: the production build is served as a stable snapshot via launchd, but the
@@ -31,21 +31,6 @@ import "./globals.css";
 // the current status.yaml / ideas / portfolio), never freeze at build time. force-dynamic on the root
 // layout makes all routes dynamic (SSR per request). Live surfaces also push deltas via SSE (/api/live).
 export const dynamic = "force-dynamic";
-
-// Prototype fonts (DR-054) — wired via next/font to avoid CLS and self-host.
-// Exposed as CSS variables consumed by globals.css @theme (--font-pixel / --font-display).
-const pixelify = Pixelify_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-pixelify",
-  display: "swap",
-});
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-space-grotesk",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Pandacorp Mission Control",
@@ -74,8 +59,12 @@ export default function RootLayout({
   const pendingMerge = getPendingMerge();
 
   return (
-    <html lang="es" className={`${pixelify.variable} ${spaceGrotesk.variable}`}>
+    <html lang="es" suppressHydrationWarning>
       <head>
+        {/* Boot script (IF-13-theme): sets data-theme and the sidebar preference before first paint, so
+            there is no flash of the wrong theme. Static source, rendered in the root layout only. */}
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static first-party boot script, no user input */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         {/* Tabler Icons webfont — same CDN version as the prototype (index.html line 8).
             Provides .ti .ti-* icon classes used by PageTitle, SectionHead, Tabs,
             ConfigurationShell, ManualShell, SectionHero and other components (DR-054). */}
