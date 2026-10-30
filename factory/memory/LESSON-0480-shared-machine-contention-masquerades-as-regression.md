@@ -50,3 +50,12 @@ parallel-worker CPU scheduling delay, so it is often the FIRST assertion to flak
 full-suite run even when nothing else in the same file is slow — treat that as a candidate for
 widening the timeout (with headroom for CI parallelism) or isolating the test, not as evidence the
 code under test regressed.
+
+**Eighth instance (2026-10-29, funko-tracker — a SEVENTH resource-contention mechanism, API fan-out
+saturating the dev server itself):** desktop e2e specs flaked specifically on load-sensitive waits only
+when run under host load from parallel concurrent sessions. The specific trigger was a feature (export
+preview) that itself fires roughly 300 `/api/cutout` requests in a burst, saturating `next dev`'s own
+capacity under the ALREADY-loaded host, and a cleanup step reading state mid-in-flight-refresh. The fix
+was test-only (stub the cutout calls, wait explicitly for saves) rather than any app-code change —
+reinforcing that a feature's own legitimate API fan-out can itself become the contended resource once a
+shared host is already busy, not just an external daemon/DB/port another job owns.

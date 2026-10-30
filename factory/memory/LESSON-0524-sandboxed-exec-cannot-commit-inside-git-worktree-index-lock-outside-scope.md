@@ -5,7 +5,7 @@ domain: build-orchestration
 tags: [codex, sandbox, worktree, git, index-lock, orchestration]
 context: running a sandboxed CLI agent (e.g. `codex exec -s workspace-write`) whose write permission is scoped to a directory, inside a git worktree, when that agent needs to `git commit`
 trigger: use this when a sandboxed agent executing inside a git worktree reports a successful edit but silently fails to commit (or hangs/errors on git commit) despite having workspace-write access to the worktree directory
-source: "funko-tracker .pandacorp/run/lessons.md 2026-10 (agent-inferred) — `codex exec -s workspace-write` run with its cwd set to a worktree directory could not commit, because `.git/index.lock` for a worktree is written inside the COMMON `.git` directory of the main checkout (outside the worktree's own path, via git's worktree/common-dir mechanism), which the sandbox's write scope (limited to the worktree directory itself) does not cover"
+source: "funko-tracker .pandacorp/run/lessons.md 2026-10 (agent-inferred) — `codex exec -s workspace-write` run with its cwd set to a worktree directory could not commit, because `.git/index.lock` for a worktree is written inside the COMMON `.git` directory of the main checkout (outside the worktree's own path, via git's worktree/common-dir mechanism), which the sandbox's write scope (limited to the worktree directory itself) does not cover. Corroborated 2026-10-28 (same project, agent-inferred): the SAME sandbox, in the SAME worktree, also could not launch Chromium (blocked on `MachPortRendezvous`, a macOS sandbox-exempt IPC mechanism Chromium needs to spawn its renderer processes) nor run a NESTED Codex image-generation call — both distinct resources outside the directory-scoped write permission's reach, the same structural class as the commit failure."
 provenance: agent-inferred
 created: 2026-10-25
 status: candidate
@@ -35,3 +35,10 @@ either (a) grant the sandbox write access to the common `.git` directory as well
 path), or (b) design the flow so the SANDBOXED agent only edits/validates and the SUPERVISING/orchestrating
 process (which already has full repo access) performs the actual `git commit` after validation passes —
 the latter is the safer default and avoids widening the sandbox's write scope at all.
+
+**Apply next time (addendum, 2026-10-28):** a directory-scoped workspace-write sandbox's reach extends
+past git internals — plan for it to also be unable to launch a real browser (Chromium needs sandbox-
+exempt OS-level IPC, not just filesystem writes), bind a database port, or recursively invoke another
+sandboxed worker (nested image generation). Design the division of labor up front: the sandboxed worker
+does the edit/generation/validation step; the supervising process (full access) performs commit,
+browser-driven gates, DB-touching steps, and anything else outside a plain filesystem write.

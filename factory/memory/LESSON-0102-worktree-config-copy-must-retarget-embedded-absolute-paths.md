@@ -13,7 +13,7 @@ promotion: proposed   # 2026-10-19 (librarian review) — target: factory/standa
 confidence: high
 times_applied: 0
 applied_in: []
-links: [DR-096, LESSON-0034, LESSON-0039, LESSON-0125]
+links: [DR-096, LESSON-0034, LESSON-0039, LESSON-0125, LESSON-0544]
 ---
 
 **Situation:** `worktree-bootstrap.sh` copied `.claude/launch.json` from the main checkout into a new
@@ -95,3 +95,12 @@ PROJECT-specific each time (retarget every embedded origin with the project's ow
 in that project's own `.pandacorp/worktree-setup.sh` or server-env template), not a shared-tooling change,
 since the field names (`BETTER_AUTH_URL`, `ORACLE_MEDIA_BASE_URL`) are app-specific and the shared
 `worktree-bootstrap.sh` cannot know about them.
+
+**Resolution (2026-10-29, funko-tracker, BL-0288):** the project-specific fix this lesson called for
+turned out to be the wrong direction for `ORACLE_MEDIA_BASE_URL` specifically — it is not a value to
+retarget at all, because it is baked into already-seeded DATA (400 media rows in the shared gate DB),
+not a runtime pointer. The actual fix split the two fields by kind (origin-identity, follow the port, vs
+data-identity, never move it) and serialized the integration gate on the ONE committed config instead of
+trying to make every worktree internally self-consistent. See `LESSON-0544` for the generalized
+origin-identity-vs-data-identity distinction this incident produced — it supersedes this lesson's
+"retarget every embedded origin" prescription for any field that is itself baked into persisted data.

@@ -40,3 +40,16 @@ step that depends on it, never after; and (2) order its own steps so the databas
 that prerenders against it (`next build` after `resetAndSeed`, not before). Verify this by actually
 dropping the database (or using a disposable container) and re-running the gate from zero, not by trusting
 that it worked once on a machine that already had the database from a prior manual run.
+
+**Third incident (2026-10-28, funko-tracker — a SHARED gate database reused across branches, not just
+"never provisioned"):** even after the database exists and was migrated once, a gate database shared
+across multiple branches/worktrees (`ft_gate`) is not guaranteed to carry the schema a NEW branch's own
+migrations expect — a branch that adds a migration fails its e2e gate with `column does not exist`
+because the shared database was never re-migrated for that branch's changes, only created and seeded
+long ago. This is the same underlying principle one layer later: "provision once" is not "migrate on
+every run."
+
+**Apply next time (addendum):** a gate database that is REUSED across branches/worktrees (rather than
+created fresh per run) must have pending migrations applied as a step of every gate invocation, not just
+at first creation — treat "run migrations" as part of the gate's own self-provisioning contract alongside
+"create" and "seed," never a one-time setup step performed by hand on an old container.
