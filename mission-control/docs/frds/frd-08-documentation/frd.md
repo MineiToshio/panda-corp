@@ -3,7 +3,7 @@ id: FRD-08
 type: frd
 title: FRD-08 — Documentation
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: PLANNED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-08-documentation/mocks/documentation.html

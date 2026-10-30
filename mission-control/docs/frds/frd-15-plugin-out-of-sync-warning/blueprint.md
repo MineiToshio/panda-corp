@@ -5,7 +5,7 @@ slug: plugin-out-of-sync-warning
 title: 'Blueprint — FRD-15 Plugin out-of-sync warning (v2 «Órbita»)'
 status: ACTIVE
 parent: FRD-15
-implementation_status: PLANNED
+implementation_status: VERIFIED
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22

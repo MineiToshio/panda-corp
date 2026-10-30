@@ -3,7 +3,7 @@ id: FRD-03
 type: frd
 title: FRD-03 — Portfolio and project navigation
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: PLANNED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-03-portfolio/mocks/portfolio.html

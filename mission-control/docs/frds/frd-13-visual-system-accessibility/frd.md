@@ -3,7 +3,7 @@ id: FRD-13
 type: frd
 title: FRD-13 — Visual system and accessibility
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: PLANNED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-13-visual-system-accessibility/mocks/visual-system-accessibility.html

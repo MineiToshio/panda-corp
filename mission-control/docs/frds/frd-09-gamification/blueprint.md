@@ -5,7 +5,7 @@ slug: gamification
 title: 'Blueprint — FRD-09 Gamification (v2 «Órbita»: guild card, notice, honest engine)'
 status: ACTIVE
 parent: FRD-09
-implementation_status: PLANNED
+implementation_status: VERIFIED
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22

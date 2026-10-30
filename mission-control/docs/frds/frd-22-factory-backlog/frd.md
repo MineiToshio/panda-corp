@@ -3,7 +3,7 @@ id: FRD-22
 type: frd
 title: FRD-22 — Factory backlog surface (Propuestas · Backlog tab)
 status: ACTIVE
-implementation_status: VERIFIED
+implementation_status: PLANNED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-22-factory-backlog/mocks/factory-backlog.html
