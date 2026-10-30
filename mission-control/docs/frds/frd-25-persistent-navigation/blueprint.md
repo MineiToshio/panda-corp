@@ -3,7 +3,7 @@ id: FRD-25-blueprint
 type: blueprint
 parent: FRD-25
 status: ACTIVE
-implementation_status: BLOCKED
+implementation_status: PLANNED
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22

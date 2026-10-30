@@ -6,8 +6,7 @@ title: 'WO-25-001 — URL contract for v2 + the history flake'
 status: ACTIVE
 parent: FRD-25
 foundation: false
-implementation_status: BLOCKED
-blocked_reason: error
+implementation_status: PLANNED
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -303,3 +302,5 @@ The diagnostic production change and contract test were discarded with the gover
 commands. No production implementation, new interface or changed assumption is delivered by
 this repair; the history-flake investigation and remaining acceptance criteria remain open.
 Runtime evidence and the builder's preserved implementation remain in `.pandacorp/`.
+
+2026-10-30 unblocked: independent DR-080 ruling (commit d69cffa5) replaced the stale reviewer vector. Rebuild WO-25-001 to return `{ tab: "unknown", raw }` and keep the malformed-tail rejections in `routeState.ts`.
