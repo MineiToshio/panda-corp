@@ -17,6 +17,8 @@ for (const target of cases) {
     page,
     browser,
   }) => {
+    // The slowest route takes five full navigations here, too close to the 30 s default under gate load.
+    test.slow();
     await gotoHydrated(page, target.href, { selector: `[data-testid="${target.selected}"]` });
     await assertLocation(page, target);
     await page.reload();
