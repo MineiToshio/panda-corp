@@ -6,7 +6,8 @@ title: 'WO-25-001 — URL contract for v2 + the history flake'
 status: ACTIVE
 parent: FRD-25
 foundation: false
-implementation_status: IN_PROGRESS
+implementation_status: BLOCKED
+blocked_reason: error
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -280,3 +281,25 @@ N/A: headless contract, no screen and no oracle state.
 None (W0). Consumers: every v2 surface WO (they depend on this one in the map).
 
 ## Status Note
+
+2026-10-30 repair hand-off: BLOCKED, cause `gate-test-defective` (DR-080 / BL-0001).
+The mandatory unknown-tab contract above and the blueprint's binding reconciliation require
+`workspaceRouteState("/portfolio/another/unsupported", ["another", "unsupported"])` to return
+`{ project: "another", tab: "unknown", raw: "unsupported" }`. The immutable reviewer suite
+`src/lib/navigation/_tests/persistent-navigation.adversarial.reviewer.test.ts:38-42` requires the
+same call to throw `NEXT_HTTP_ERROR_FALLBACK;404`. A correct implementation cannot satisfy both.
+
+Reproduced in this session: unchanged HEAD passes all 24 reviewer tests; three new contract cases
+(both workspace families and an original Spanish tab label) fail, while the malformed-tail case
+passes. A minimal production change preserving malformed-tail rejection makes those contract
+cases pass. `bash .pandacorp/verify.sh --only=vitest --files=src/lib/navigation/routeState.ts`
+then exits 1 with 105/106 tests passing across 10 files: the only failure is the reviewer's
+`["another", "unsupported"]` vector at line 42. The generated report is `scope: partial`,
+`green: false`; no certification is claimed.
+
+Applied LESSON-0002: route this derogated oracle to independent reviewer repair instead of
+rebuilding against an unsatisfiable gate. No reviewer test or visual baseline was edited.
+The diagnostic production change and contract test were discarded with the governed BL-0202
+commands. No production implementation, new interface or changed assumption is delivered by
+this repair; the history-flake investigation and remaining acceptance criteria remain open.
+Runtime evidence and the builder's preserved implementation remain in `.pandacorp/`.
