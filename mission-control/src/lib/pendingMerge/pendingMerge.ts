@@ -14,12 +14,11 @@
  * "no pending work" and "could not read" are distinct, distinctly-rendered states.
  */
 
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { cache } from "react";
-import { now as clockNow } from "@/lib/clock/clock";
 import { resolveFactoryRoot } from "@/lib/config/config";
-import { runGit } from "@/lib/git/git";
 
 /** Hours of inactivity after which un-merged work is flagged stale (owner-tunable, shared with the check). */
 const PENDING_STALE_HOURS: number = Number(process.env.PANDACORP_STALE_HOURS ?? 3);
@@ -45,7 +44,7 @@ export type PendingResult =
 /** Runs a git subcommand in a repo, returning trimmed stdout. Injectable so tests fake git, not the module. */
 export type GitRunner = (args: readonly string[]) => string;
 function realGit(repoRoot: string): GitRunner {
-  return (args) => runGit(args, repoRoot);
+  return (args) => execFileSync("git", [...args], { cwd: repoRoot, encoding: "utf8" }).trim();
 }
 
 /** Map a branch → its worktree path from `git worktree list --porcelain`. */
@@ -84,7 +83,7 @@ function deriveStatus(ageHours: number, hasWorktree: boolean): PendingStatus {
  */
 export function readPending(
   repoRoot: string,
-  now: number = clockNow().getTime(),
+  now: number = Date.now(),
   run: GitRunner = realGit(repoRoot),
 ): PendingResult {
   let defaultBranch: string;

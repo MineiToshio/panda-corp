@@ -62,6 +62,7 @@ import type { MemoryHealth } from "@/lib/memory/memory-health";
 import { memoryHealth } from "@/lib/memory/memory-health";
 import { getProjectNavigation } from "@/lib/navigation/identities";
 import { navigationHref } from "@/lib/navigation/urls";
+import { getPendingMerge } from "@/lib/pendingMerge/pendingMerge";
 import { activeProjects, type ProjectListItem } from "@/lib/portfolio/portfolio";
 import { readProfile } from "@/lib/profile/profile";
 import type { StatusResult } from "@/lib/status/status";
@@ -313,6 +314,7 @@ export default function HomePage(): React.JSX.Element {
   const memHealth = memoryHealth();
   const profileResult = readProfile();
   // Factory worktrees — same cached source as the shell badge (DR-092, single source).
+  const factoryWorktrees = getPendingMerge();
 
   // ── 2. Derive sections ──────────────────────────────────────────────────
 
@@ -389,7 +391,7 @@ export default function HomePage(): React.JSX.Element {
         <Cartera cards={cards} />
 
         {/* ── Section 5b: Árboles de trabajo de la fábrica (factory worktrees, DR-096 §7) ── */}
-        <FactoryWorktrees />
+        <FactoryWorktrees result={factoryWorktrees} />
 
         {/* ── Section 6: Tu progreso (gamification strip, AC-18-001.8) ── */}
         <Progreso
