@@ -50,3 +50,19 @@ it("REQ-01-011: runs bounded reads with optional locks disabled; classifies time
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+it("REQ-01-011: the real CLI loader imports the git boundary without transpilation", () => {
+  expect(() =>
+    childProcess.execFileSync(
+      process.execPath,
+      [
+        "--loader",
+        "./scripts/read-model/ts-loader.mjs",
+        "--input-type=module",
+        "-e",
+        'await import("./src/lib/git/git.ts")',
+      ],
+      { cwd: process.cwd(), stdio: "pipe", timeout: 5000 },
+    ),
+  ).not.toThrow();
+});

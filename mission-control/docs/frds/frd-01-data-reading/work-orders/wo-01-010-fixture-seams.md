@@ -222,3 +222,8 @@ negative cases. Test files: `src/lib/clock/_tests/clock.test.ts`,
 `src/lib/git/_tests/{git,fixtureGit}.test.ts`, `src/lib/config/_tests/{env,oracleEnv}.test.ts`,
 `scripts/oracle/_tests/dev-oracle.test.ts`; existing `config.test.ts` remains unchanged.
 No UI is owned, so visual fidelity and dialog e2e do not apply.
+
+Runtime follow-up (agent-inferred): Node's strip-only TypeScript loader rejects constructor parameter
+properties even when Vitest and tsc accept them. `GitError.kind` therefore uses an explicit readonly
+field assignment. `git.test.ts` also imports the real module through the existing Node CLI loader,
+so this boundary is checked independently of Vitest's TypeScript transform.
