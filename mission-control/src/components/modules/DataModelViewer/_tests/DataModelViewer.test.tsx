@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DataModelViewer } from "../DataModelViewer";
 import { readyFixture } from "./fixture";
+import { waitForLayout } from "./waitForLayout";
 
 beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
@@ -46,6 +47,7 @@ describe("published model viewer", () => {
   });
   it("starts with a readable diagram, exposes every field and never claims implementation", async () => {
     render(<DataModelViewer result={readyFixture()} />);
+    await waitForLayout();
     await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
     expect(screen.getByRole("tab", { name: "Diagrama" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("application", { name: "Diagrama del modelo de datos" })).toBeVisible();
@@ -62,6 +64,7 @@ describe("published model viewer", () => {
   it("searches attributes, focuses their entity and displays no-results feedback", async () => {
     const user = userEvent.setup();
     render(<DataModelViewer result={readyFixture()} />);
+    await waitForLayout();
     await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
     const input = screen.getByRole("searchbox", { name: "Buscar tabla o atributo" });
     await user.type(input, "reviewerId");
@@ -77,6 +80,7 @@ describe("published model viewer", () => {
   it("selects relations on the diagram without a lower inspector", async () => {
     const user = userEvent.setup();
     render(<DataModelViewer result={readyFixture()} />);
+    await waitForLayout();
     await user.click(await screen.findByRole("button", { name: "Ver relación Propiedad" }));
     expect(screen.getByRole("button", { name: "Ver relación Propiedad" })).toHaveAttribute(
       "aria-pressed",
@@ -87,6 +91,7 @@ describe("published model viewer", () => {
   it("offers compact schema blocks with composite keys and relation declarations", async () => {
     const user = userEvent.setup();
     render(<DataModelViewer result={readyFixture()} />);
+    await waitForLayout();
     await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
     await user.click(screen.getByRole("tab", { name: "Esquema" }));
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
@@ -100,6 +105,7 @@ describe("published model viewer", () => {
   it("zooms with explicit controls and wheel without scrolling the document", async () => {
     const user = userEvent.setup();
     render(<DataModelViewer result={readyFixture()} />);
+    await waitForLayout();
     await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
     const zoom = () =>
       Number.parseInt(screen.getByRole("button", { name: /^Zoom / }).textContent ?? "0", 10);
@@ -116,6 +122,7 @@ describe("published model viewer", () => {
   it("opens a modal, traps focus, closes with Escape and restores the expand control", async () => {
     const user = userEvent.setup();
     render(<DataModelViewer result={readyFixture()} />);
+    await waitForLayout();
     await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
     await user.click(screen.getByRole("button", { name: "Ampliar modelo" }));
     const dialog = screen.getByRole("dialog", { name: "Modelo de datos" });

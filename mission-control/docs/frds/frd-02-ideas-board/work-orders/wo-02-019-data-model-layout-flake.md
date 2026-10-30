@@ -110,3 +110,57 @@ its regression test land; N consecutive runs of the viewer folder under load and
 in the Status Note); `.pandacorp/verify.sh --since <ref>` green; the queue card is closed by the FRD-02 gate.
 
 ## Status Note
+
+**Outcome: cause confirmed, test harness, not product.** The async layout lifecycle needed no change:
+`useModelLayout.ts`, `elkEngine.ts` and the pending/error rendering are untouched, so AC-02-015.10 geometry and
+the 20 s bound are unchanged. AC-02-015.11 was already met; `_tests/asyncLayout.test.tsx` now pins it deterministically.
+
+**Reproduced on the unmodified tree (base 72daad88817f).** Only the full suite under extra contention reproduces it:
+`vitest run` (503 files) alongside 40 CPU-bound processes on 10 cores, twice. Run b: 3 failed of 8062, in
+`fullscreen.consistency.reviewer` (:80, wait at :73), `fullscreen.ux.reviewer` (:36, wait at :31) and
+`navigation.test.tsx:33`, each `Unable to find role=...` with «Organizando modelo…» in the DOM. Run a: green, max 1043 ms.
+Viewer folder alone: 5/5 green under 30 CPU-bound processes, which is why earlier runs with 4 processes saw nothing.
+
+**Confirmed cause.** A file's FIRST layout runs against Testing Library's 1000 ms default `findBy*` budget and, loaded,
+reaches that budget. Timing every real `layoutModel` call (throwaway instrumentation, not committed):
+idle cold ELK 41 ms; green full suite 148-361 ms for the slowest first-in-file layouts; loaded run b, first-in-file up to
+1025 ms while every later layout stayed at or below 172 ms. That predicts the symptom and the non-failures: only the
+first wait of a file is exposed, the failing set varies by run (1-3 tests), and folder-only runs stay far below 1 s.
+Injecting 1100 ms into `layoutModel` on the unmodified tree fails 29 of 58 tests with the same symptom, in all sighted files.
+
+**Fix.** `_tests/waitForLayout.ts`: `waitForLayout(): Promise<void>` waits up to 21 s for the pending copy to leave,
+then asserts it did not end in the layout error (the budget sits above the hook's 20 s bound, so a hung layout is
+reported as `layout failed`, and a timeout as `layout still pending`). Used by `navigation.test.tsx` and
+`DataModelViewer.test.tsx` (waits only, assertions unchanged). It reads `COPY.loading` / `COPY.layoutError`: when
+WO-02-018 moves copy to `t()`, this helper moves with it.
+
+**Evidence after the fix.** Viewer folder under 30 processes: 5/5 green (63 tests). 1100 ms injection: implementer files
+0 failures, 20 failures all in `*.reviewer.*`. Full suite under 40 processes: 2 runs, 4 and 2 failures, all
+in `*.reviewer.*`, none in implementer files. Mutation: `LAYOUT_WAIT_MS = 1_000` fails the regression test.
+`e2e/logical-data-model.spec.ts`: 1 run, 6/6 in 19 s on port 4100 (warm; cold start not re-proven).
+
+**REMAINING, needs the FRD-02 gate reviewer (DR-080, LESSON-0002): this flake is NOT closed until this is applied.** The
+same 1 s default still governs these reviewer waits, which can still fail under load:
+`usability.reviewer.test.tsx:11`, `viewer.reviewer.test.tsx:13`, `fullscreen.ux.reviewer.test.tsx:31`,
+`fullscreen.consistency.reviewer.test.tsx:73`. Exact change: after `render(...)` in each helper, `await waitForLayout();`
+from `./waitForLayout`, or pass `{}, { timeout: 21_000 }` as the query's arguments. Alternative at one seam:
+`configure({ asyncUtilTimeout: 21_000 })` in `vitest.setup.ts`, outside this work order's files, and it would affect every suite.
+
+**Suspects ruled out with evidence.** Lost resolution after cancellation or a stale response: every failure is pending on a
+first layout that the timing log shows finishing, and `asyncLayout.test.tsx` covers stale and cancelled paths. Shared ELK
+instance: `routeGraph` builds a new one per call. Fake timers: no viewer test used them before this work order; the new ones
+restore real timers. Order dependence: not observed, and the failing tests are first-layout tests in each file.
+ELK load itself: 19-23 ms. 20 s bound: the slowest measured layout is 1451 ms.
+
+**Not verified.** The card's `navigation.test.tsx:37` sighting was not reproduced: line 37 is a synchronous query reached
+only after the searchbox proved the layout ready, so this cause does not explain that exact line (the reproduction failed
+at :33, the same test). The original log is unavailable. The e2e failure seen in the previous attempt
+(`e2e/_hydration.ts:58`, `readyState` 15 s timeout on the first desktop case, 5 of 6 passing, diagram already in the
+snapshot; LESSON-0185) is a separate document-readiness wait, not the layout. Its cause is unconfirmed; the two model-entry
+`gotoHydrated` calls now allow 25 s, a spec-local wait with `_hydration.ts` unchanged. Concurrent writers: sibling lane 2
+was running during these measurements, so contention was real but not exclusive to this work order. LESSON-0450 hermeticity
+was not re-audited. No first-failure timeline is claimed beyond the card's dates; the timeline shows no viewer or vitest
+config change between 2026-10-20 and the sightings other than `7b0d60c3` (setup hermeticity).
+
+**Tests:** `_tests/asyncLayout.test.tsx` (5 cases citing AC-02-015.11), `_tests/navigation.test.tsx`,
+`_tests/DataModelViewer.test.tsx`, `e2e/logical-data-model.spec.ts`. No shared component created; inventory unchanged.

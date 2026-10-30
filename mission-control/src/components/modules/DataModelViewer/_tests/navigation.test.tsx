@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DataModelViewer } from "../DataModelViewer";
 import { readyFixture } from "./fixture";
+import { waitForLayout } from "./waitForLayout";
 
 beforeEach(() => {
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
@@ -30,6 +31,7 @@ describe("persistent logical model location", () => {
       "/portfolio/registered/architecture?model=schema&modelQuery=reviewer&entity=entry&schemaTable=entry",
     );
     render(<DataModelViewer result={readyFixture()} />);
+    await waitForLayout();
     expect(await screen.findByRole("searchbox")).toHaveValue("reviewer");
     expect(screen.getByRole("tab", { name: "Esquema" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Entry")).toHaveAttribute("open");
@@ -52,6 +54,7 @@ describe("persistent logical model location", () => {
     });
     visit("/portfolio/registered/architecture?expanded=1&entity=entry");
     render(<DataModelViewer result={readyFixture()} />);
+    await waitForLayout();
     expect(await screen.findByRole("dialog")).toBeVisible();
     expect(request).not.toHaveBeenCalled();
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
@@ -63,6 +66,7 @@ describe("persistent logical model location", () => {
 it("shows a bounded unavailable state for an unknown model entity", async () => {
   visit("/portfolio/registered/architecture?entity=not-published");
   render(<DataModelViewer result={readyFixture()} />);
+  await waitForLayout();
   expect(await screen.findByText("La selección del modelo no está disponible.")).toBeVisible();
   expect(screen.getByRole("button", { name: "Seleccionar entidad Account" })).not.toHaveAttribute(
     "aria-pressed",
