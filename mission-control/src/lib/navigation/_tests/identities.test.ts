@@ -104,7 +104,7 @@ describe("persistent navigation identity lifecycle", () => {
     expect(getIdeaNavigation("recover-card")).toEqual(before);
     expect(getProjectNavigation("recover", "Recover")).toEqual(projectBefore);
   });
-  it("boots through the CLI using actual readers and exposes registrations without a dashboard build", () => {
+  it("AC-25-006.1: boots through the CLI using actual readers and exposes registrations without a dashboard build", () => {
     idea("from-cli");
     const cli = [
       "--loader",
@@ -121,7 +121,7 @@ describe("persistent navigation identity lifecycle", () => {
     expect(getIdeaNavigation("from-cli").id).toMatch(/^idea_/);
     expect(resolveIdeaNavigation("from-cli", [{ slug: "from-cli" }])).toBe("from-cli");
   });
-  it("retains URLs across display rename, card filename rename, folder move, and explicit public rename", () => {
+  it("AC-25-005.1: retains URLs across display rename, card filename rename, folder move, and explicit public rename", () => {
     fs.mkdirSync(path.join(root, "original"));
     portfolio([["Original Name", "original"]]);
     idea("old-card", "original");
@@ -149,7 +149,7 @@ describe("persistent navigation identity lifecycle", () => {
     expect(resolveProjectNavigation(original.slug, items)).toBe(items[0]);
     expect(getProjectNavigation("moved", "New Name").slug).toBe("new-public-url");
   });
-  it("allocates distinct same-name projects and rejects ambiguous legacy names", () => {
+  it("AC-25-007.1: allocates distinct same-name projects and rejects ambiguous legacy names", () => {
     fs.mkdirSync(path.join(root, "first"));
     fs.mkdirSync(path.join(root, "second"));
     portfolio([
@@ -168,7 +168,7 @@ describe("persistent navigation identity lifecycle", () => {
       applyRegistration(root, { kind: "project", id: second.id, slug: first.slug }),
     ).toThrow("reserved");
   });
-  it("never writes on reads and fails loudly for corrupted catalogs and orphan references", () => {
+  it("AC-25-012.1: never writes on reads and fails loudly for corrupted catalogs and orphan references", () => {
     idea("legacy-card");
     expect(getIdeaNavigation("legacy-card").slug).toBe("legacy-card");
     expect(fs.existsSync(path.join(root, "factory/navigation-identities.json"))).toBe(false);

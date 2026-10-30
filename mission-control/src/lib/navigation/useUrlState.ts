@@ -72,3 +72,15 @@ export function useCanonicalSelection(family: string, key: string, value: string
       updateNavigation({ [key]: value }, { replace: true });
   }, [family, key, value]);
 }
+
+/** Read a search selection; typing always replaces the current history entry. */
+export function useUrlSearch(
+  key: string,
+): [string, (value: string | ((previous: string) => string)) => void] {
+  const [value, setValue] = useUrlState(key, "");
+  const setSearch = useCallback(
+    (next: string | ((previous: string) => string)): void => setValue(next, true),
+    [setValue],
+  );
+  return [value, setSearch];
+}

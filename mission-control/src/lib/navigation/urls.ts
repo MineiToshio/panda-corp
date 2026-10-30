@@ -17,7 +17,7 @@ const HALL_TABS: Record<string, string> = {
   estadisticas: "statistics",
   rangos: "ranks",
 };
-const WORKSPACE_TABS: Record<string, string> = {
+export const WORKSPACE_TABS: Record<string, string> = {
   summary: "summary",
   spec: "spec",
   "work-orders": "work-orders",
@@ -109,7 +109,7 @@ function boardPath(state: NavigationState): string[] {
   if (!idea) return [];
   const path = [idea];
   if (tab) path.push(BOARD_TABS[tab] ?? tab);
-  const doc = tab === "docs" ? take(state, "doc") : undefined;
+  const doc = tab === "docs" || tab === "documents" ? take(state, "doc") : undefined;
   if (doc) path.push(doc);
   return path;
 }

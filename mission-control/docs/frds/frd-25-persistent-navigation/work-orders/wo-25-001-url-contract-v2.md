@@ -6,7 +6,7 @@ title: 'WO-25-001 — URL contract for v2 + the history flake'
 status: ACTIVE
 parent: FRD-25
 foundation: false
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -281,26 +281,58 @@ None (W0). Consumers: every v2 surface WO (they depend on this one in the map).
 
 ## Status Note
 
-2026-10-30 repair hand-off: BLOCKED, cause `gate-test-defective` (DR-080 / BL-0001).
-The mandatory unknown-tab contract above and the blueprint's binding reconciliation require
-`workspaceRouteState("/portfolio/another/unsupported", ["another", "unsupported"])` to return
-`{ project: "another", tab: "unknown", raw: "unsupported" }`. The immutable reviewer suite
-`src/lib/navigation/_tests/persistent-navigation.adversarial.reviewer.test.ts:38-42` requires the
-same call to throw `NEXT_HTTP_ERROR_FALLBACK;404`. A correct implementation cannot satisfy both.
+2026-10-30 implementation hand-off (fast lane, DR-126).
 
-Reproduced in this session: unchanged HEAD passes all 24 reviewer tests; three new contract cases
-(both workspace families and an original Spanish tab label) fail, while the malformed-tail case
-passes. A minimal production change preserving malformed-tail rejection makes those contract
-cases pass. `bash .pandacorp/verify.sh --only=vitest --files=src/lib/navigation/routeState.ts`
-then exits 1 with 105/106 tests passing across 10 files: the only failure is the reviewer's
-`["another", "unsupported"]` vector at line 42. The generated report is `scope: partial`,
-`green: false`; no certification is claimed.
+Delivered the additive URL contract: `WORKSPACE_TABS` is shared with the workspace grammar;
+`workspaceRouteState(href, segments): NavigationState` preserves an unsupported tab as
+`{ project, tab: "unknown", raw }`, including Spanish labels, while malformed tails still reject.
+The independent ruling d69cffa5 resolved the previous contradictory reviewer vector; reviewer tests
+are untouched by this implementation.
 
-Applied LESSON-0002: route this derogated oracle to independent reviewer repair instead of
-rebuilding against an unsatisfiable gate. No reviewer test or visual baseline was edited.
-The diagnostic production change and contract test were discarded with the governed BL-0202
-commands. No production implementation, new interface or changed assumption is delivered by
-this repair; the history-flake investigation and remaining acceptance criteria remain open.
-Runtime evidence and the builder's preserved implementation remain in `.pandacorp/`.
+New pure interfaces: `normalizeLegacyNavigation(href: string): string` (opt-in, idempotent,
+unknown/malformed input unchanged); `validateNavigationQuery(context: NavigationContext,
+state: NavigationState): NavigationQueryResult` (`{ ok: true }` or `{ ok: false, key, reason }`);
+`activeDestinationPath(pathname: string): string | null`; `useUrlSearch(key: string)` returns
+`[string, (string | ((previous: string) => string)) => void]` with replace-only writes.
+`NAVIGATION_KEYS` publishes each surface's owned rules. `WORK_ORDER_STATE_ORDER` publishes
+`todo, in_progress, review, done, fail` for canonical comma-joined state sets.
 
-2026-10-30 unblocked: independent DR-080 ruling (commit d69cffa5) replaced the stale reviewer vector. Rebuild WO-25-001 to return `{ tab: "unknown", raw }` and keep the malformed-tail rejections in `routeState.ts`.
+Consumer seams and inherited decisions: aliases are NOT implicitly applied by the codec;
+v2 surface owners call the normalizer at their route boundary. The v1 path-to-tab spelling
+(`observabilidad`, `memoria`, Spanish board/hall tab ids) is intentionally retained until those
+owners adopt v2. Public project references remain the existing dedicated identity catalog,
+not a slug guessed from a display name (LESSON-0365). Dynamic catalog/filter ids are bounded
+syntactically here; the owning surface validates membership against its loaded catalog.
+Accounts search counts Unicode code points (200), whereas the existing global route bounds
+remain unchanged. Expanded model state is a selection, never a fullscreen command. Unknown
+optional keys and fragments survive. No identities, CLI, components, dependencies or visual
+baselines changed. Visual reference is N/A (headless WO).
+
+Moved the navigation E2E oracle into the eight declared family specs plus `_location.ts`;
+core retains roots, invalid URLs, legacy queries and post-build registration. The formerly
+multi-family read-only-details test retains its title/assertions in each destination's spec.
+The unit suite is split among Manual, Nav, BacklogPanel, Proposals and Configuration with
+its original case titles/assertions intact. The standalone behaviour spec covers detail
+reload and Back/Forward while observing command requests.
+
+History investigation (LESSON-0185): the initial ten-run reproduction yielded 9 passes and
+one failed card navigation. Its retained trace (`.pandacorp/run/wo25-evidence/repro-repeat3.zip`)
+shows Fast Refresh cancelling the detail GET and reloading the list while this builder was
+editing code. That run is contaminated, NOT evidence of the original defect's cause. A second
+stable-code run passed 10/10; log `.pandacorp/run/wo25-repro-stable.log`. Process inspection
+found no competing project dev server on 3900; the unrelated 4030 server was left alone.
+The v1 navigation wiring still uses Next push/replace; no production history change is justified
+by this reproduction. The original cause remains UNCONFIRMED and its card remains open.
+As prescribed by the inconclusive-audit fallback, `_history.ts` records URL/history length,
+actual-node hydration and push/replace/popstate stacks as test attachments (console output
+opt-in via `NAVIGATION_TRACE`), asserts fixture isolation, and guards the next interactive
+node after reload/native return without fixed waits or click retries.
+
+Tests: `src/lib/navigation/_tests/{aliases,keys,destinations,routeState,useUrlState,urls,identities}.test.*`,
+the five split persistentNavigation unit files, `e2e/persistent-navigation.spec.ts`,
+`e2e/persistent-navigation/*.spec.ts`, and `e2e/frd-25-persistent-navigation.behaviour.spec.ts`.
+The round-trip property is exercised over a deterministic Unicode/delimiter corpus with the
+installed test runner; fast-check is not installed and this WO forbids new dependencies.
+Local unit verification: 14 files / 61 tests passed; final scoped and browser verdicts follow
+through the build engine commands. The fast-lane single scoped self-verify replaces the older
+three-full-verify reproduction requirement; no full-gate certification is claimed here.

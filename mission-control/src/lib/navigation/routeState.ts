@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { type NavigationState, parseNavigationUrl } from "./urls";
+import { type NavigationState, parseNavigationUrl, WORKSPACE_TABS } from "./urls";
 
 /** Next route query shape; repeated values are rejected rather than resolved by order. */
 export type RouteQuery = Record<string, string | string[] | undefined>;
@@ -37,22 +37,13 @@ export function routeHref(base: string, segments: readonly string[], query: Rout
   return href;
 }
 
-/** Reject unknown tabs and malformed path tails before any workspace reader executes. */
+/** Preserve unknown tab labels and reject malformed path tails before any workspace reader executes. */
 export function workspaceRouteState(href: string, segments: readonly string[]): NavigationState {
   const [, tab, detail, representation] = segments;
-  const tabs = [
-    "summary",
-    "spec",
-    "work-orders",
-    "architecture",
-    "changes",
-    "party",
-    "observability",
-    "documents",
-    "commands",
-    "accounts",
-  ];
-  if (tab && !tabs.includes(tab)) notFound();
+  if (tab && !Object.values(WORKSPACE_TABS).includes(tab)) {
+    if (segments.length > 2) notFound();
+    return { ...parseNavigationUrl(href), tab: "unknown", raw: tab };
+  }
   if (detail && tab !== "work-orders" && tab !== "documents") notFound();
   if (representation && (tab !== "work-orders" || !["summary", "full"].includes(representation)))
     notFound();
