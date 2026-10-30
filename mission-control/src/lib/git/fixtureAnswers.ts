@@ -1,5 +1,5 @@
 /** Serialized branch facts in the prototype oracle. */
-export interface FixtureBranch {
+interface FixtureBranch {
   name: string;
   lastCommitAt: string;
   ahead: number;
