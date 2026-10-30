@@ -18,7 +18,7 @@ export type NavigationContext =
 /** Unsupported selections remain explicit instead of silently falling back. */
 export type NavigationQueryResult = { ok: true } | { ok: false; key: string; reason: string };
 /** Canonical URL set order, shared by state-filter writers and their validator. */
-export const WORK_ORDER_STATE_ORDER: readonly string[] = [
+const WORK_ORDER_STATE_ORDER: readonly string[] = [
   "todo",
   "in_progress",
   "review",
