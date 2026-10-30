@@ -3884,6 +3884,7 @@ SCENARIOS.push({
     t.ok(byLabel(run, /^codex/).length === 0, 'no codex relay')
     t.ok(p41Builder(run) && p41Builder(run).model === 'sonnet', 'the Claude sonnet builder runs')
     t.ok(!run.logs.some((l) => /CODEX/.test(l)), 'no Codex mention in the logs')
+    t.ok(!run.calls.some((c) => /codex-worker\.mjs/.test(c.prompt)), 'no prompt mentions the Codex relay, the lease release included')
   },
 })
 SCENARIOS.push({
@@ -3925,6 +3926,58 @@ SCENARIOS.push({
     const reread = byLabel(run, 'codex-reread:fast-build:frd-41')[0]
     t.ok(reread && /codex-worker\.mjs' read --id fast-build-frd-41-\d+-\w+ --project/.test(reread.prompt), 'the engine re-read the stored result')
     t.ok(run.logs.some((l) => /reread fixture/.test(l)), 'it acted on the re-read line, not on the altered copy')
+  },
+})
+
+// The relay answers with what the scenario's OWN scripted response for the inner label would have returned.
+const codexVia = (list) => ({ label: /^codex:/, response: async (call) => {
+  const inner = call.label.slice('codex:'.length)
+  const pseudo = { ...call, label: inner, prompt: codexBody(call), opts: {} }
+  const r = list.find((x) => (typeof x.label === 'string' && x.label === inner) || (x.label instanceof RegExp && x.label.test(inner)) || (typeof x.prefix === 'string' && inner.startsWith(x.prefix)))
+  if (!r) return codexSealed(codexWorkerAnswer(call))
+  const answer = await (typeof r.response === 'function' ? r.response(pseudo) : r.response)
+  return codexSealed({ status: 'done', ok: true, model: 'gpt-6.1-sol', effort: 'medium', answer })
+} })
+{
+  const sim = laneSim([chainOf('frd-cxa', ['wo-cxa-001']), chainOf('frd-cxb', ['wo-cxb-001'])])
+  SCENARIOS.push({
+    name: 'codex-workers-in-lanes — each lane builder runs on Codex IN its own lane worktree (-C the lane path), and each gate in its pinned worktree (the project nested inside it)',
+    args: { ...LANED_ARGS, workers: 'codex' },
+    plan: fastPlan([{ frd: 'frd-cxa', ids: ['wo-cxa-001'] }, { frd: 'frd-cxb', ids: ['wo-cxb-001'] }]),
+    responses: [codexVia(sim.responses), ...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      const lanes = byLabel(run, /^codex:lane-build:/)
+      t.ok(lanes.length === 2 && byLabel(run, /^lane-build:/).length === 0, `both lane builders went to Codex, none to Claude (got ${lanes.length})`)
+      t.ok(lanes.every((c) => /--dir '\/lanes\/lane-\d\/proj'/.test(c.prompt) && !/--nest/.test(c.prompt)), 'each lane builder runs in its lane worktree path')
+      t.ok(new Set(lanes.map((c) => /--dir '([^']+)'/.exec(c.prompt)[1])).size === 2, 'the two builders run in two different lanes')
+      const gates = byLabel(run, /^codex:gate:/)
+      t.ok(gates.length >= 1 && gates.every((c) => /--dir '[^']*gate-worktree[^']*' --nest/.test(c.prompt)), 'each gate runs in its pinned gate worktree, nested to the project prefix')
+      t.ok(workerCalls(run).length === 0, `no direct Claude worker (got ${workerCalls(run).map((c) => c.label).join(', ')})`)
+    },
+  })
+}
+SCENARIOS.push({
+  name: 'codex-workers-repair-ladder — the fix-forward and the opus repair run on Codex too, each at its own tier and effort',
+  args: { mode: 'balanced', ...FUSED, workers: 'codex' },
+  plan: F30_PLAN,
+  noPlanLine: true,
+  responses: (() => {
+    const list = [
+      fusedStart(F30_PLAN),
+      { label: 'verify:frd-f1', response: { line: mechLine('verify', { status: 'red', frd: 'frd-f1', green: false, usable: false, floor: false, sha: 'feed00000002', scope: 'full', failure: 'knip: unused export' }) } },
+      { label: 'repair:frd-f1', response: { green: true } },
+      { label: 'wo-revert-plan:frd-f1', response: { output: sealLine({ ok: true, version: 1, frd: 'frd-f1', mode: 'plan', status: 'nothing', changed: false, wos: [], files: [] }) } },
+    ]
+    return [codexVia(list), ...list]
+  })(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const fix = byLabel(run, 'codex:fix:frd-f1')[0]
+    t.ok(fix && /--model 'sonnet'/.test(fix.prompt) && /--effort 'medium'/.test(fix.prompt), 'the sonnet fix-forward ran on Codex at medium')
+    const rep = byLabel(run, 'codex:repair:frd-f1')[0]
+    t.ok(rep && /--model 'opus'/.test(rep.prompt) && rep.index > fix.index, 'the opus repair ran on Codex after it (JUDGE tier: gpt-6.1-sol high)')
+    t.ok(byLabel(run, /^(fix|repair):frd-f1$/).length === 0, 'neither ran on a Claude model')
   },
 })
 

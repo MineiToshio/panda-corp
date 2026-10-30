@@ -20,11 +20,14 @@
 // The relay writes the task to <project>/.pandacorp/run/codex-workers/<id>/prompt.md with its Write tool; --sum is
 // the engine's FNV-1a of that text, so a truncated or altered copy is refused (status:error, kind:prompt-mismatch).
 import { spawn, execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, openSync, closeSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, openSync, closeSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { stopCodexWorkers } from "../runtime/codex-workers.mjs";
 
 const PLUGIN = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const EVENTS = process.env.PANDACORP_EVENTS_FILE || path.join(os.homedir(), ".claude/dashboard-events.ndjson");
 const CODEX_BIN = process.env.PANDACORP_CODEX_BIN || "codex";
 const ID_RE = /^[A-Za-z0-9._-]{1,120}$/;
 const EFFORTS = new Set(["low", "medium", "high", "xhigh", "max"]);
@@ -75,6 +78,14 @@ function roleInstructions(role) {
   return readFileSync(file, "utf8").replace(/^---\n[\s\S]*?\n---\n/, "").trim();
 }
 
+/** Mission Control's event stream (worker_started / worker_stopped, executor codex). Telemetry is a bulkhead: a
+ *  failed append is reported on stderr and never fails the worker or changes its sealed result. */
+function telemetry(event, data) {
+  try {
+    appendFileSync(EVENTS, `${JSON.stringify({ event, at: new Date().toISOString(), project: path.basename(project), data: { executor: "codex", ...data } })}\n`);
+  } catch (e) { process.stderr.write(`codex-worker: telemetry not recorded (${e.message})\n`); }
+}
+
 function workDir() {
   const base = path.resolve(opt("dir") || project);
   if (!flag("nest")) return base;
@@ -117,6 +128,7 @@ function start(dir, id) {
   closeSync(out);
   child.unref();
   writeFileSync(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, model: tier.model, effort: tier.effort, access: opt("access") || "sandbox", startedAt: new Date().toISOString() }));
+  telemetry("worker_started", { id, role: opt("role"), model: tier.model, effort: tier.effort, access: opt("access") || "sandbox" });
 }
 
 function lastJsonObject(text) {
@@ -159,18 +171,14 @@ async function run() {
     if (Date.now() >= deadline) { process.stdout.write(`CODEX-RUNNING ${id} since ${state.startedAt}: run the same command again\n`); return; }
     await new Promise((r) => setTimeout(r, 2000));
   }
-  writeFileSync(resultFile, `${emit(finish(dir, state))}\n`);
+  const result = finish(dir, state);
+  writeFileSync(resultFile, `${emit(result)}\n`);
+  telemetry("worker_stopped", { id, role: opt("role"), model: state.model, effort: state.effort, ok: result.ok, kind: result.kind || "", seconds: Math.round((Date.now() - Date.parse(state.startedAt)) / 1000) });
 }
 
 function stop() {
-  const ids = flag("all") ? (existsSync(root) ? execFileSync("ls", [root], { encoding: "utf8" }).split("\n").filter(Boolean) : []) : [opt("id")];
-  const killed = [];
-  for (const id of ids) {
-    const state = readJson(path.join(workerDir(id), "state.json"));
-    if (!state || existsSync(path.join(workerDir(id), "exit")) || !alive(state.pid)) continue;
-    try { process.kill(-state.pid, "SIGTERM"); killed.push(id); } catch { /* already gone */ }
-  }
-  emit({ status: "done", ok: true, killed });
+  if (!flag("all")) workerDir(opt("id"));   // validates the id
+  emit({ status: "done", ok: true, killed: stopCodexWorkers(project, flag("all") ? undefined : [opt("id")]) });
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

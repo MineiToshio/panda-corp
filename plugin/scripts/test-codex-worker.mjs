@@ -32,7 +32,9 @@ chmodSync(fake, 0o755);
 
 const project = path.join(tmp, "proj");
 mkdirSync(project, { recursive: true });
-const runCli = (args, env = {}) => execFileSync("node", [CLI, ...args], { encoding: "utf8", env: { ...process.env, PANDACORP_CODEX_BIN: fake, ...env } }).trim();
+const eventsFile = path.join(tmp, "events.ndjson");
+const runCli = (args, env = {}) => execFileSync("node", [CLI, ...args], { encoding: "utf8", env: { ...process.env, PANDACORP_CODEX_BIN: fake, PANDACORP_EVENTS_FILE: eventsFile, ...env } }).trim();
+const events = () => readFileSync(eventsFile, "utf8").trim().split("\n").map((l) => JSON.parse(l));
 const unseal = (line) => { const s = JSON.parse(line); return fnv(s.r) === s.sum ? JSON.parse(s.r) : null; };
 const prep = (id, text) => { const dir = path.join(project, ".pandacorp/run/codex-workers", id); mkdirSync(dir, { recursive: true }); writeFileSync(path.join(dir, "prompt.md"), `${text}\n`); return { dir, sum: fnv(text) }; };
 
@@ -56,6 +58,9 @@ ok(codexTier("sonnet", "minimal").effort === "low" && codexTier("weird-model").m
   const again = runCli(["run", "--project", project, "--id", "w1", "--sum", sum, "--model", "sonnet", "--max", "5"]);
   ok(unseal(again) && unseal(again).answer.sha === "abc123", "a repeated run returns the stored result, never a second Codex run");
   ok(unseal(runCli(["read", "--project", project, "--id", "w1"])).ok === true, "read reprints the sealed result");
+  const ev = events().filter((e) => e.data && e.data.id === "w1");
+  ok(ev.length === 2 && ev[0].event === "worker_started" && ev[1].event === "worker_stopped" && ev.every((e) => e.project === "proj" && e.data.executor === "codex" && e.data.role === "pandacorp:implementer" && e.data.model === "gpt-6.1-sol"), "Mission Control gets ONE worker_started and ONE worker_stopped (executor codex, role, model) — the repeated run adds none");
+  ok(ev[1].data.ok === true && Number.isInteger(ev[1].data.seconds), "worker_stopped carries the outcome and the duration");
 }
 // Full access is explicit.
 {
@@ -85,6 +90,29 @@ ok(codexTier("sonnet", "minimal").effort === "low" && codexTier("weird-model").m
   runCli(["run", "--project", project, "--id", "w7", "--sum", s7, "--model", "sonnet", "--max", "1"], { FAKE_MODE: "slow" });
   ok(unseal(runCli(["stop", "--project", project, "--all"])).killed.includes("w7"), "stop --all kills a running worker");
   ok(/^\{"r":"\{\\"status\\":\\"error\\",\\"kind\\":\\"bad-id\\"/.test(runCli(["run", "--project", project, "--id", "../escape", "--sum", "0", "--model", "x"])), "a worker id with path characters is refused");
+}
+
+// Every end of a run stops leftover workers: build-state's quiesce and reclaim call the shared stopper.
+{
+  const { spawn } = await import("node:child_process");
+  const { stopCodexWorkers } = await import("../runtime/codex-workers.mjs");
+  const p2 = path.join(tmp, "proj2");
+  const dirOf = (id) => path.join(p2, ".pandacorp/run/codex-workers", id);
+  const live = spawn("/bin/sh", ["-c", "sleep 30"], { detached: true, stdio: "ignore" });
+  live.unref();
+  mkdirSync(dirOf("alive"), { recursive: true });
+  writeFileSync(path.join(dirOf("alive"), "state.json"), JSON.stringify({ pid: live.pid }));
+  mkdirSync(dirOf("finished"), { recursive: true });
+  writeFileSync(path.join(dirOf("finished"), "state.json"), JSON.stringify({ pid: live.pid }));
+  writeFileSync(path.join(dirOf("finished"), "exit"), "0\n");
+  const killed = stopCodexWorkers(p2);
+  await new Promise((r) => setTimeout(r, 300));
+  let gone = false;
+  try { process.kill(live.pid, 0); } catch { gone = true; }
+  ok(killed.length === 1 && killed[0] === "alive" && gone, "stopCodexWorkers kills a running worker's process group and skips a finished one");
+  ok(stopCodexWorkers(path.join(tmp, "no-such-project")).length === 0, "a project with no Codex workers is a no-op");
+  const state = readFileSync(path.join(path.dirname(CLI), "../runtime/build-state.mjs"), "utf8");
+  ok(/export async function quiesce[^\n]*stopCodexWorkers\(project\)/.test(state) && /export async function reclaim[\s\S]*?stopCodexWorkers\(project\);[^\n]*\n\s*return acquireUnlocked/.test(state), "build-state stops the workers on quiesce (every run end) and on reclaiming a dead run's lease");
 }
 
 console.log(`RESULT: ${passed} passed, ${failed} failed`);

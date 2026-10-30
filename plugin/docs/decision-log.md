@@ -1,6 +1,12 @@
 # Decision log — Plugin pandacorp
 
 
+## v9.146.0 — 2026-10-29 (MINOR): Codex workers across lanes and repairs, automatic stop, telemetry (DR-142)
+
+**What:** completes the Codex-worker mode for the whole build. (1) Proven in lanes and the repair ladder: new engine scenarios show every lane builder running on Codex inside its own lane worktree (`-C` the lane path), every gate inside its pinned worktree (project prefix nested), and the sonnet fix-forward + opus repair on Codex at their own tier/effort. (2) Automatic stop: new `runtime/codex-workers.mjs` (`stopCodexWorkers`) is called by `build-state.mjs` on `quiesce` (every run end) and on `reclaim` (a dead run's lease taken over), so no detached Codex worker outlives its run; `codex-worker.mjs stop` reuses it. (3) Telemetry: `codex-worker.mjs` appends `worker_started` / `worker_stopped` (existing vocabulary aliases; `data.executor: "codex"`, role, model, effort, ok/kind, seconds) to `~/.claude/dashboard-events.ndjson`, a bulkhead that never fails the worker. Zero engine bytes (artifact 478,485).
+**Why:** the owner asked for the full implementation after the first phase proved itself; the routing already covered every worker, so what remained was proof for lanes/repairs and the operational loose ends.
+**Verification:** `test-build-engine` 230/230 (7 codex scenarios), `test-codex-worker` 24/24 (real process-group stop, telemetry once per worker), `test-build-state` 33/33, `test-engine-lease-lifecycle` 8/8, `test-pandacorp-build` 391/391, `test-build-mech` 398/398, `test-build-mech-lanes` 240/240, `test-codex-executor` 56/56, `test-build-run-id` 110/110, `test-runtime-switch` exit 0. **Not verified:** a full build canary on a real project.
+
 ## v9.145.2 — 2026-10-29 (PATCH): gate committed server-env; restore local PORT on exit (BL-0288)
 
 **What:** [Bootstrap](../templates/shared/.pandacorp/worktree-bootstrap.sh) remains PORT-only (numeric tostring, jq temp cleanup, tracked env/launch skip-worktree). [Merge queue](../templates/shared/.pandacorp/merge-queue.sh) clears/restores overrides before rebase, gates HEAD-identical project-relative server-env without re-bootstrap, and probes its committed PORT: busy → new exit 14 with stop/retry instructions. EXIT releases the lock first and re-bootstraps only on nonzero post-restore outcomes (including abort, red, 21 and ff-merge failure). Shared-DB integration gates are serialized by that lock. Mission Control bootstrap is byte-identical; its diverged queue is untouched. Plugin 9.144.2 / overlay 8.114.1.

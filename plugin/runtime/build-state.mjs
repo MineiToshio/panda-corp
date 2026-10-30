@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { lstat, mkdir, open, readFile, readdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import { stopCodexWorkers } from "./codex-workers.mjs";
 
 const iso = () => new Date().toISOString();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -122,7 +123,7 @@ async function acquireUnlocked(project, { runtime, runId, ttlSeconds = 3600, tok
 }
 export async function acquire(project, options) { const p = await assertSafeLayout(project, { allowMissingRun: true }); await mkdir(p.run, { recursive: true }); await assertSafeLayout(project); return withMutex(p.mutex, () => acquireUnlocked(project, options)); }
 export async function renew(project, token, epoch) { return withFence(project, token, epoch, async (lease) => { const next = { ...lease, renewed_at: iso() }; await atomicJson(paths(project).lease, next); await reassertActiveProjection(project, next); return next; }); }
-export async function quiesce(project, token, epoch) { return withFence(project, token, epoch, async (lease) => { const next = { ...lease, quiesced_at: iso() }; await atomicJson(paths(project).lease, next); await reassertActiveProjection(project, next, { running: false }); return next; }); }
+export async function quiesce(project, token, epoch) { return withFence(project, token, epoch, async (lease) => { const next = { ...lease, quiesced_at: iso() }; await atomicJson(paths(project).lease, next); await reassertActiveProjection(project, next, { running: false }); stopCodexWorkers(project); return next; }); }
 export async function finalizeRelease(project, token, epoch) { const p = await assertSafeLayout(project); return withMutex(p.mutex, async () => { const lease = await assertFence(project, token, epoch, { allowQuiesced: true }); if (!lease.quiesced_at) throw Object.assign(new Error("lease must be quiesced before final release"), { code: "INVALID_STATE" }); const tomb = `${p.leaseDir}.released-${lease.epoch}-${process.pid}`; await rename(p.leaseDir, tomb); await rm(tomb, { recursive: true, force: true }); return lease; }); }
 // Compatibility wrapper for callers that do not own a git commit boundary. Certified executors use
 // quiesce -> commit the running:false projection -> finalizeRelease, so no writer-free commit window
@@ -137,6 +138,7 @@ export async function reclaim(project, { runtime, runId, ttlSeconds = 3600 }) {
     // long uninterrupted gate/repair chain can silently outlive one TTL width while genuinely alive.
     if (!isReclaimable(old)) throw Object.assign(new Error("lease is stale but within its BL-0153 reclaim grace window — not yet reclaimable"), { code: "CONTENDED" });
     const tomb = `${p.leaseDir}.stale-${old.epoch}-${process.pid}`; await rename(p.leaseDir, tomb); await rm(tomb, { recursive: true, force: true });
+    stopCodexWorkers(project);   // DR-142: a dead run's Codex workers must not keep writing under the new owner
     return acquireUnlocked(project, { runtime, runId, ttlSeconds });
   });
 }
