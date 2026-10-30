@@ -59,3 +59,17 @@ that does NOT touch the lockfile) asserts no install is attempted (idempotency m
 
 Re-syncing every existing project's already-landed `merge-queue.sh` by hand (that is `/pandacorp:upgrade`'s
 normal job once this ships, not a step of this item).
+
+## Corroborating occurrence (2026-10-29)
+
+A second live instance of main's `node_modules` drifting behind its own committed lockfile, this time
+surfacing as a deterministic e2e failure rather than a missing-binary error: funko-tracker's main
+checkout had `node_modules` installed 2026-10-22, but the lockfile had `zod`/`undici` bumped 2026-10-25
+— the piece route consistently hit its own error boundary in main while every freshly-provisioned
+worktree at the same commit passed cleanly (fresh worktrees always install from the current lockfile).
+Confirms the same root gap this item already tracks (no install step after a lockfile-touching landing)
+and adds a second concrete symptom shape (a silent app-level failure, not just a missing-tool error) to
+watch for once this item ships its Stop-hook defense-in-depth step. The generalizable diagnostic
+counterpart (compare installed vs. lockfile-pinned versions before calling a main-only failure a real
+regression) is captured separately as `factory/memory/LESSON-0545`. No new backlog item — same item,
+same scope, corroboration only.
