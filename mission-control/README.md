@@ -47,6 +47,17 @@ pnpm test:smoke               # e2e smoke (Playwright)
 pnpm verify                   # the full gate: lint + typecheck + tests + e2e
 ```
 
+Environment overrides are documented individually in [`.env.example`](.env.example):
+`PANDACORP_FACTORY_ROOT`, `PANDACORP_EVENTS_FILE`, `PANDACORP_CODEX_EVENTS_FILE`,
+`PANDACORP_ACCOUNTS_FILE`, `PANDACORP_CODEX_PLUGIN_ROOT`, `MC_CLOCK` and `MC_GIT_FIXTURE`.
+Set them before starting the server; configuration paths are resolved at import time.
+
+For an isolated prototype factory, run `pnpm dev:oracle --port <free-port>`.
+It uses fixture home, events, accounts and git answers with a frozen clock, disables Next telemetry,
+and refuses to start without fixtures. Generate missing fixtures explicitly with
+`node docs/design/prototype/scripts/make-fixtures.mjs`. A supplied `MC_CLOCK` overrides the default
+`2026-10-21T00:20:00.000Z`; do not set oracle overrides in production.
+
 There is **no deploy**: `/pandacorp:release` for this project just means running it locally (`return_type: personal`, `deploy_target: internal`) — see [`docs/product/architecture.md`](docs/product/architecture.md) §10.
 
 ## Project structure

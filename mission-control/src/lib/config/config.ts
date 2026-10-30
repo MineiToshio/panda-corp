@@ -10,6 +10,8 @@ import path from "node:path";
  * Override with the `PANDACORP_FACTORY_ROOT` env var (e.g. for tests, or if the
  * app is ever run from a different cwd).
  *
+ * Set environment overrides before server boot: derived path constants are captured at import time.
+ *
  * Nothing here calls Claude or writes to disk — this only resolves where to READ.
  */
 

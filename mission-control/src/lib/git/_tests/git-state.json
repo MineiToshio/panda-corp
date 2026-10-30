@@ -1,0 +1,73 @@
+{
+  "repos": {
+    "factory": {
+      "name": "F\u00e1brica (panda-corp)",
+      "root": "/workspace/panda-corp",
+      "commits": 1762,
+      "pluginUncommitted": 0,
+      "branches": [
+        {
+          "name": "codex/backlog-gate-retry",
+          "lastCommitAt": "2026-10-20T14:20:00.000Z",
+          "ahead": 1,
+          "subject": "fix(build-engine): keep the first red run when a retry passes",
+          "filesChanged": 4,
+          "worktree": null,
+          "uncommitted": 0
+        },
+        {
+          "name": "wt/stats-seal-refresh",
+          "lastCommitAt": "2026-10-20T14:20:00.000Z",
+          "ahead": 1,
+          "subject": "fix(mission-control): refresh the stats seal after a merge",
+          "filesChanged": 3,
+          "worktree": "/workspace/panda-corp/.claude/worktrees/stats-seal-refresh",
+          "uncommitted": 0
+        },
+        {
+          "name": "wt/manual-anchor-links",
+          "lastCommitAt": "2026-10-20T13:20:00.000Z",
+          "ahead": 1,
+          "subject": "feat(mission-control): anchor links in the manual",
+          "filesChanged": 5,
+          "worktree": "/workspace/panda-corp/.claude/worktrees/manual-anchor-links",
+          "uncommitted": 0
+        },
+        {
+          "name": "wt/prototype-fixture",
+          "lastCommitAt": "2026-10-20T22:20:00.000Z",
+          "ahead": 2,
+          "subject": "docs(mission-control): fixture data for the prototype",
+          "filesChanged": 12,
+          "worktree": "/workspace/panda-corp/.claude/worktrees/prototype-fixture",
+          "uncommitted": 3
+        }
+      ],
+      "extraWorktrees": [
+        {
+          "path": "/workspace/panda-corp/.claude/worktrees/old-review",
+          "detached": true,
+          "locked": true
+        },
+        {
+          "path": "/workspace/panda-corp/.claude/worktrees/scratch-check",
+          "detached": true
+        }
+      ]
+    },
+    "pandasaga": {
+      "name": "PandaSaga",
+      "root": "/workspace/pandasaga",
+      "commits": 214,
+      "branches": [],
+      "extraWorktrees": []
+    }
+  },
+  "lastActivity": {
+    "funko-tracker": "2026-10-20T18:40:11-05:00",
+    "mission-control": "2026-10-20T16:10:24-05:00",
+    "pandasaga": "2026-10-20T14:30:05-05:00",
+    "pandacast": "2026-10-19T00:40:00-05:00",
+    "personal-page-v2": "2026-10-19T00:38:00-05:00"
+  }
+}

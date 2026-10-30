@@ -6,7 +6,7 @@ title: 'WO-01-010 — Fixture seams: injectable clock, git runner and oracle-mod
 status: ACTIVE
 parent: FRD-01
 foundation: false
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 difficulty: low
 reopen_count: 0
 artifacts:
@@ -186,3 +186,39 @@ WO-01-000 (fixtures harness) and WO-01-001 (`pathExists`, used by the launcher's
 WO-01-011, WO-21-003, WO-03-007, WO-10-016 and every WO that reads time or git.
 
 ## Status Note
+
+Implemented dependency-free call-time `now(): Date` / `ClockConfigError`, the read-only
+`runGit(args: readonly string[], cwd?: string): string` boundary and shared `GitError`
+(`disallowed | failed | timeout | no-fixture-answer`), typed `ENV`, `resolveHomeDir(): string`
+and `oracleEnv(repoRoot: string): Record<string, string>`. `pnpm dev:oracle` uses the existing
+TypeScript loader, checks required fixtures before spawning Next, passes through arguments, and
+forwards termination signals. No existing reader is migrated in this work order.
+
+Consumers inherit trimmed git stdout, a 10-second real-git timeout, 1 MiB output bound, disabled
+optional index locks, and no subprocess output in surfaced errors. Fixture repository selection
+uses the configured factory root, otherwise the cwd basename, with explicit branch-worktree
+matching. Display-only fixture roots do not select a repository. Unknown reads throw; missing,
+malformed and structurally invalid fixtures throw safe typed errors. Fixture files are re-read on
+each call so temporary gate overlays take effect without stale cached state.
+
+Scenario selection was unspecified in the source recipe: the optional top-level fixture JSON
+`scenario` field accepts `snapshot-stale` or `worktrees-unreadable`; omit it for the default.
+Only temporary copies should set it. The snapshot probe for funko-tracker's `a41c09e2` defaults to
+3 commits / 5 hours, or 14 commits / 26 hours in the stale scenario, deriving HEAD time from
+`lastActivity`. The unreadable scenario fails only pandasaga's worktree-list query.
+The fixture green-commit subject is a deterministic descriptive oracle value because the frozen
+fixture has no green-commit subject field. No frozen design files were changed.
+
+Oracle paths are absolute, HOME and USERPROFILE both point into fixture home, telemetry is disabled,
+and GIT_DIR / GIT_CEILING_DIRECTORIES fence unmigrated git readers away from the real repository.
+The optional Codex event file is not required to exist. The Codex plugin cache override is also
+isolated under fixture home. Environment path overrides must be set before config import.
+
+Applied LESSON-0450: tests use explicit committed fictional git facts and temporary repositories,
+never the owner's implicit factory or private home. The existing global test setup requires jsdom;
+tests retain that environment and spy on the actual child-process boundary through its default
+Node export. Read-fixture tests include the real Spanish prototype shape and malformed/missing
+negative cases. Test files: `src/lib/clock/_tests/clock.test.ts`,
+`src/lib/git/_tests/{git,fixtureGit}.test.ts`, `src/lib/config/_tests/{env,oracleEnv}.test.ts`,
+`scripts/oracle/_tests/dev-oracle.test.ts`; existing `config.test.ts` remains unchanged.
+No UI is owned, so visual fidelity and dialog e2e do not apply.
