@@ -6,7 +6,7 @@ title: 'WO-13-012 — Órbita composite primitives and framing patterns'
 status: ACTIVE
 parent: FRD-13
 foundation: true
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 blocked_reason:
 difficulty: high
 reopen_count: 0
