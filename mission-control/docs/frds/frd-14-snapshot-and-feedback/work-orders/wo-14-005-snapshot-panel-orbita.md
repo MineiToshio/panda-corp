@@ -6,7 +6,7 @@ title: 'WO-14-005 — Snapshot panel Órbita'
 status: ACTIVE
 parent: FRD-14
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 blocked_reason:
 difficulty: low
 reopen_count: 0
