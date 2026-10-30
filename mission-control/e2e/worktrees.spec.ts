@@ -4,7 +4,7 @@ import { gotoHydrated } from "./_hydration";
 test("AC-21-007.1, AC-21-007.3: worktree card, cleanup command and keyboard scroll region", async ({
   page,
 }) => {
-  await gotoHydrated(page, "/");
+  await gotoHydrated(page, "/", { selector: "#worktrees-card button" });
   const card = page.locator("#worktrees-card");
   await expect(card.getByRole("heading", { name: "Árboles de trabajo" })).toBeVisible();
   await expect(card.getByRole("button", { name: "Copiar /pandacorp:worktrees" })).toBeVisible();

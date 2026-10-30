@@ -2,12 +2,9 @@ import { expect, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
 
 test("AC-21-007.2: repository dialog primary flow and keyboard lifecycle", async ({ page }) => {
-  await gotoHydrated(page, "/");
+  await gotoHydrated(page, "/", { selector: "#worktrees-card button" });
   const trigger = page.locator("#worktrees-card button[data-wt-repo]:enabled").first();
-  if ((await trigger.count()) === 0) {
-    await expect(page.locator("#worktrees-card")).toBeVisible();
-    return;
-  }
+  await expect(trigger).toBeVisible();
   await trigger.click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
