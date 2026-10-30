@@ -62,6 +62,23 @@ ok(codexTier("sonnet", "minimal").effort === "low" && codexTier("weird-model").m
   ok(ev.length === 2 && ev[0].event === "worker_started" && ev[1].event === "worker_stopped" && ev.every((e) => e.project === "proj" && e.data.executor === "codex" && e.data.role === "pandacorp:implementer" && e.data.model === "gpt-6.1-sol"), "Mission Control gets ONE worker_started and ONE worker_stopped (executor codex, role, model) — the repeated run adds none");
   ok(ev[1].data.ok === true && Number.isInteger(ev[1].data.seconds), "worker_stopped carries the outcome and the duration");
 }
+// The task text comes from the relay's transcript, not from a model's copy.
+{
+  const transcripts = path.join(project, "..", "transcripts", "s1", "subagents", "workflows", "wf_1");
+  mkdirSync(transcripts, { recursive: true });
+  const task = "Line one with this wo.\n\n  Indented line.\nLast line.";
+  const sum = fnv(task);
+  const relay = `Run \`node codex-worker.mjs run --id t1 --sum ${sum} --project x\`\n  <<<CODEX-TASK-BEGIN>>>\n${task.split("\n").map((l) => `  ${l}`).join("\n")}\n  <<<CODEX-TASK-END>>>`;
+  writeFileSync(path.join(transcripts, "agent-a1.jsonl"), `${JSON.stringify({ message: { content: [{ type: "text", text: `  ${relay}` }] } })}\n`);
+  const dir = path.join(project, ".pandacorp/run/codex-workers", "t1");
+  mkdirSync(dir, { recursive: true });
+  const env = { CODEX_WORKER_TRANSCRIPTS: path.join(project, "..", "transcripts"), FAKE_MODE: "text" };
+  const p = unseal(runCli(["run", "--project", project, "--id", "t1", "--sum", sum, "--model", "haiku", "--max", "20"], env));
+  ok(p && p.ok && readFileSync(path.join(dir, "prompt.md"), "utf8") === task, "with no prompt.md the exact task is recovered from the relay transcript");
+  mkdirSync(path.join(project, ".pandacorp/run/codex-workers", "t2"), { recursive: true });
+  const wrong = runCli(["run", "--project", project, "--id", "t2", "--sum", fnv("something else"), "--model", "haiku", "--max", "5"], env);
+  ok(/^CODEX-PROMPT-MISMATCH /.test(wrong), "no transcript with that id and checksum still asks the relay for the copy");
+}
 // Full access is explicit.
 {
   const { dir, sum } = prep("w2", "Commit it.");

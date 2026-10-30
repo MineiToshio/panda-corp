@@ -1,6 +1,11 @@
 # Decision log — Plugin pandacorp
 
 
+## v9.146.2 — 2026-10-30 (PATCH): Codex workers read their task from the relay transcript (DR-142)
+
+- **What:** `codex-worker.mjs` recovers the exact task text from the relay agent's transcript and verifies its checksum; the relay's `prompt.md` copy is only the fallback. Overlay 8.114.3.
+- **Why:** the first real Codex run failed because the haiku relay changed a word while retyping an 8 KB prompt. Three such failures would turn Codex off and move the build to Claude.
+
 ## v9.146.1 — 2026-10-30 (PATCH): Codex workers survive a real Workflow run; the infra pause can run (DR-142)
 
 **What:** the Codex worker id no longer calls `Date.now()`, which the Workflow runtime refuses; it now uses the lease epoch plus the per-run sequence. The infra pause runs a 60 s node timer instead of `sleep 60`, which the Bash tool blocks. `test-engine-artifact` now fails on any `Date.now()`/`new Date()` in the artifact. Overlay 8.114.2 ships the engine.

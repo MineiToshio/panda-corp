@@ -20,7 +20,7 @@
 // The relay writes the task to <project>/.pandacorp/run/codex-workers/<id>/prompt.md with its Write tool; --sum is
 // the engine's FNV-1a of that text, so a truncated or altered copy is refused (status:error, kind:prompt-mismatch).
 import { spawn, execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync, openSync, closeSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, openSync, closeSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,6 +31,10 @@ const EVENTS = process.env.PANDACORP_EVENTS_FILE || path.join(os.homedir(), ".cl
 const CODEX_BIN = process.env.PANDACORP_CODEX_BIN || "codex";
 const ID_RE = /^[A-Za-z0-9._-]{1,120}$/;
 const EFFORTS = new Set(["low", "medium", "high", "xhigh", "max"]);
+const TASK_BEGIN = "<<<CODEX-TASK-BEGIN>>>";
+const TASK_END = "<<<CODEX-TASK-END>>>";
+const TRANSCRIPT_MAX_AGE_MS = 60 * 60 * 1000;
+
 // Codex's own usage-limit / rate-limit wording (an exhausted subscription window, not a defect of the work).
 const LIMIT_RE = /usage limit|rate[ _-]?limit|too many requests|\b429\b|quota|upgrade to (?:plus|pro)|try again (?:at|in)/i;
 
@@ -94,8 +98,50 @@ function workDir() {
   return path.join(base, prefix);
 }
 
+/**
+ * The engine's exact task text, read from the relay agent's own transcript. A relay model retyping a long prompt
+ * changes words, so copying is only the fallback; the transcript holds the bytes the engine computed.
+ * @param {string} id worker id, matched against the relay's own command line
+ * @param {string} sum expected checksum of the task text
+ * @returns {string|null} the verified task text, or null when no transcript yields it
+ */
+function promptFromTranscript(id, sum) {
+  const base = process.env.CODEX_WORKER_TRANSCRIPTS || path.join(os.homedir(), ".claude/projects");
+  const needle = `run --id ${id} --sum ${sum}`;
+  const cutoff = Date.now() - TRANSCRIPT_MAX_AGE_MS;
+  const files = [];
+  for (const entry of readdirSync(base, { recursive: true, withFileTypes: true })) {
+    if (!/^agent-.*\.jsonl$/.test(entry.name)) continue;
+    const file = path.join(entry.parentPath, entry.name);
+    const mtime = statSync(file).mtimeMs;
+    if (mtime >= cutoff) files.push({ file, mtime });
+  }
+  for (const { file } of files.sort((a, b) => b.mtime - a.mtime)) {
+    const raw = readFileSync(file, "utf8");
+    if (!raw.includes(needle)) continue;
+    for (const line of raw.split("\n")) {
+      if (!line.includes(needle) || !line.includes(TASK_BEGIN)) continue;
+      const content = JSON.parse(line).message?.content;
+      for (const block of typeof content === "string" ? [{ text: content }] : content || []) {
+        const text = block.text || "";
+        const from = text.indexOf(TASK_BEGIN);
+        const to = text.indexOf(TASK_END);
+        if (!text.includes(needle) || from < 0 || to < from) continue;
+        // The Workflow harness indents every relayed line by two spaces.
+        const task = text.slice(from, to).split("\n").slice(1).map((l) => l.replace(/^ {1,2}/, "")).join("\n").trimEnd();
+        if (fnv(task) === sum) return task;
+      }
+    }
+  }
+  return null;
+}
+
 function start(dir, id) {
   const promptFile = path.join(dir, "prompt.md");
+  let recovered = null;
+  try { recovered = promptFromTranscript(id, opt("sum")); }
+  catch (e) { process.stderr.write(`codex-worker: transcript not usable, falling back to the relay's copy (${e.message})\n`); }
+  if (recovered !== null) writeFileSync(promptFile, recovered);
   const mismatch = (why) => { process.stdout.write(`CODEX-PROMPT-MISMATCH ${why}: rewrite prompt.md exactly, then run the same command again\n`); process.exit(0); };
   if (!existsSync(promptFile)) mismatch(`missing ${promptFile}`);
   const task = readFileSync(promptFile, "utf8").trimEnd();
