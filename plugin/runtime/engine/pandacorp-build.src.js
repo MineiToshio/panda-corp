@@ -41,7 +41,7 @@ const SEAL_REPORT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, '
 // DR-142: `/pandacorp:implement codex` — every NON-mechanical worker runs on the owner's Codex subscription through
 // the codex-worker relay (same scripts dir, same rule). Off (args.workers absent/'claude') → the engine is unchanged.
 const CODEX_WORKERS = Boolean(args && args.workers === 'codex')
-const CODEX_ACCESS = args && args.codexAccess === 'full' ? 'full' : 'sandbox'
+const CODEX_ACCESS = args && args.codexAccess === 'sandbox' ? 'sandbox' : 'full'   // owner decision 2026-10-29: full by default (a sandboxed worker cannot commit)
 const CODEX_WORKER_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'codex-worker.mjs'))}`
 const FINDER_SNIPPETS_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'finder-snippets.mjs'))}`
 

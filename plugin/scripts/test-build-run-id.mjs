@@ -312,7 +312,7 @@ for (const bad of [["--no-parallel-gates", "--gate-slots", "2"], ["--parallel-ga
   ok(!("workers" in bare) && !("codexAccess" in bare), "DR-142 launcher: without --workers no key is set (the engine is unchanged)");
   ok(!("workers" in workflowArgs(await launch(["--workers", "claude"]))), "DR-142 launcher: --workers claude is the same as omitting it");
   const codexRun = workflowArgs(await launch(["--workers", "codex"]));
-  ok(codexRun.workers === "codex" && !("codexAccess" in codexRun), "DR-142 launcher: --workers codex reaches the engine as args.workers:'codex' (sandbox access by default)");
+  ok(codexRun.workers === "codex" && !("codexAccess" in codexRun), "DR-142 launcher: --workers codex reaches the engine as args.workers:'codex' (no access key: the engine defaults to full)");
   ok(workflowArgs(await launch(["--workers", "codex", "--codex-access", "full"])).codexAccess === "full", "DR-142 launcher: --codex-access full reaches the engine");
   const nowSized = await launch([...frds, "--lane", "fast"], "40");
   ok(/recommended\s+floor is 8 \+ 20 x FRDs\s+= 88/.test(nowSized), "P39 launcher control: the fast lane with the default review budget keeps the per-FRD gate sizing warning");

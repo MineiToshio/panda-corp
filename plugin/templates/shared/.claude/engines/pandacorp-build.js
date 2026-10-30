@@ -27,7 +27,7 @@ const INVENTORY_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'ga
 const WO_REVERT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'wo-revert.mjs'))}`
 const SEAL_REPORT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'seal-report.mjs'))}`
 const CODEX_WORKERS = Boolean(args && args.workers === 'codex')
-const CODEX_ACCESS = args && args.codexAccess === 'full' ? 'full' : 'sandbox'
+const CODEX_ACCESS = args && args.codexAccess === 'sandbox' ? 'sandbox' : 'full'
 const CODEX_WORKER_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'codex-worker.mjs'))}`
 const FINDER_SNIPPETS_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'finder-snippets.mjs'))}`
 const MODE = (args && args.mode) || 'powerful'

@@ -3866,13 +3866,13 @@ SCENARIOS.push({
     t.ok(workerCalls(run).length === 0, `no direct Claude worker call (got ${workerCalls(run).map((c) => `${c.label}/${c.model}`).join(', ')})`)
     const relay = byLabel(run, 'codex:fast-build:frd-41')[0]
     t.ok(relay && relay.model === 'haiku' && relay.agentType === 'pandacorp:implementer', `the builder ran through a haiku implementer relay (got ${relay && `${relay.model}/${relay.agentType}`})`)
-    t.ok(relay && /codex-worker\.mjs' run /.test(relay.prompt) && /--model 'sonnet'/.test(relay.prompt) && /--effort 'medium'/.test(relay.prompt) && /--role 'pandacorp:implementer'/.test(relay.prompt) && /--json-answer/.test(relay.prompt) && !/--access/.test(relay.prompt), 'the relay command carries model, effort, role and the schema answer; sandbox access is the script default (no flag)')
+    t.ok(relay && /codex-worker\.mjs' run /.test(relay.prompt) && /--model 'sonnet'/.test(relay.prompt) && /--effort 'medium'/.test(relay.prompt) && /--role 'pandacorp:implementer'/.test(relay.prompt) && /--json-answer/.test(relay.prompt) && /--access full/.test(relay.prompt), 'the relay command carries model, effort, role, the schema answer and full access (the codex-mode default)')
     const sum = relay && /--sum ([0-9a-f]{8})/.exec(relay.prompt)
     t.ok(sum && sum[1] === codexFnv(codexBody(relay).trimEnd()), 'the --sum is the FNV of exactly the task text between the markers')
     t.ok(relay && codexBody(relay).includes('FINAL ANSWER JSON Schema: {'), 'the task asks for one JSON answer against the worker schema')
     t.ok(byLabel(run, /^codex:gate:/).length >= 1, 'the FRD gate ran on Codex too')
     t.ok(run.logs.some((l) => /⇄ Codex gpt-6\.1-sol · medium — fast-build:frd-41/.test(l)), 'each Codex worker is logged with its model and effort')
-    t.ok(run.logs.some((l) => /trabajadores CODEX \(acceso sandbox\)/.test(l)), 'the arg-echo line names the Codex mode')
+    t.ok(run.logs.some((l) => /trabajadores CODEX \(acceso full\)/.test(l)), 'the arg-echo line names the Codex mode')
   },
 })
 SCENARIOS.push({

@@ -13,9 +13,10 @@
 #           [--workers claude|codex] [--codex-access sandbox|full]
 #   --workers codex (DR-142): engine args.workers — every non-mechanical worker runs on Codex through the codex-worker
 #              relay; the engine, its MECH shell runners and every gate decision stay in this Claude run. Omitted or
-#              `claude` → no key: the engine is unchanged. --codex-access (codex only) → args.codexAccess: `sandbox`
-#              (default) keeps Codex's workspace-write sandbox, which cannot write .git; `full` gives the Codex worker
-#              the same reach as the Claude worker it replaces (it can commit). The owner chooses `full` explicitly.
+#              `claude` → no key: the engine is unchanged. --codex-access (codex only) → args.codexAccess. Omitted →
+#              the engine default `full` (owner decision 2026-10-29): the Codex worker gets the reach of the Claude
+#              worker it replaces, so it can commit. `sandbox` keeps Codex's workspace-write sandbox, which cannot write
+#              .git (a sandboxed builder cannot commit).
 #   mode:     pro | balanced | powerful | deep   (default powerful)
 #   maxAgents: integer hard cap on subagents this run (the real overnight guardrail), or the literal `auto`
 #              (OPT-IN: the engine sizes a cap from its own post-plan projection; an explicit integer is never

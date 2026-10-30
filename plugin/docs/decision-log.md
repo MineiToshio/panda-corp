@@ -1,6 +1,12 @@
 # Decision log — Plugin pandacorp
 
 
+## v9.145.1 — 2026-10-29 (PATCH): Codex workers default to full access (DR-142)
+
+**What:** under `--workers codex` the engine now defaults `args.codexAccess` to `full` (`codex exec -s danger-full-access`); `--codex-access sandbox` is the opt-in. Launcher doc, implement skill, DR-142 and tests updated.
+**Why:** owner decision: a sandboxed worker cannot write `.git`, so a Codex builder could never commit; the owner's own Codex already runs `sandbox_mode = "danger-full-access"`, which is why their native Codex builds commit. Full access is the reach the Claude worker already has.
+**Verification:** live owner-authorized run: a `gpt-6.1-sol` worker in a lane-like git worktree wrote the file and committed (`feat: hello`). `test-build-engine` 228/228, `test-build-run-id` 110/110, `test-pandacorp-build` 391/391, `test-engine-artifact` 19/19 (478,485 bytes).
+
 ## v9.145.0 — 2026-10-29 (MINOR): `/pandacorp:implement codex` — Codex workers under the Claude engine (DR-142)
 
 **What:** new opt-in tag. `launch-implement.sh --workers codex [--codex-access sandbox|full]` → engine `args.workers:'codex'` / `args.codexAccess`. In `spawnWithTypeFallback` (the one point every agent call passes) a non-MECH call goes to `codexSpawn`: a haiku `pandacorp:implementer` relay writes the task to `.pandacorp/run/codex-workers/<id>/prompt.md` (FNV-1a checked), loops `scripts/codex-worker.mjs run` (detached `codex exec --ignore-user-config`, role instructions from `agents/<role>.md`, tier from `runtime/model-tiers.json`, effort passed through) past the 10-minute Bash cap, and returns one sealed line; a garbled copy is re-read (`read`). Gate/lane worktree preambles register their directory so Codex runs there (`-C`). Failure → that call reruns on its Claude agent; limit or 3 failures in a row → Codex off for the run. ARG-ECHO names the mode. The implement skill documents the tag.
