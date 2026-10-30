@@ -6,7 +6,8 @@ title: Worktrees by repository - reader, pill summary, Árboles de trabajo card 
 status: ACTIVE
 parent: FRD-21
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: BLOCKED
+blocked_reason: error
 difficulty: medium
 reopen_count: 0
 artifacts: ["src/lib/pendingMerge/**", "src/components/modules/Worktrees/**", "src/components/dashboard/FactoryWorktrees/**", "src/app/page.tsx", "src/app/_tests/{page.dashboard,wo-18-001-fixes,wo-18-001-inicio-dashboard}.test.tsx", "e2e/worktrees.spec.ts"]

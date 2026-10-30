@@ -5,7 +5,7 @@ slug: pending-merge
 title: Pending-merge visibility (Árboles de trabajo card and sidebar pill)
 status: ACTIVE
 parent: FRD-21
-implementation_status: PLANNED
+implementation_status: BLOCKED
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22
