@@ -5,15 +5,15 @@ domain: build-orchestration
 tags: [codex, sandbox, worktree, git, index-lock, orchestration]
 context: running a sandboxed CLI agent (e.g. `codex exec -s workspace-write`) whose write permission is scoped to a directory, inside a git worktree, when that agent needs to `git commit`
 trigger: use this when a sandboxed agent executing inside a git worktree reports a successful edit but silently fails to commit (or hangs/errors on git commit) despite having workspace-write access to the worktree directory
-source: "funko-tracker .pandacorp/run/lessons.md 2026-10 (agent-inferred) — `codex exec -s workspace-write` run with its cwd set to a worktree directory could not commit, because `.git/index.lock` for a worktree is written inside the COMMON `.git` directory of the main checkout (outside the worktree's own path, via git's worktree/common-dir mechanism), which the sandbox's write scope (limited to the worktree directory itself) does not cover. Corroborated 2026-10-28 (same project, agent-inferred): the SAME sandbox, in the SAME worktree, also could not launch Chromium (blocked on `MachPortRendezvous`, a macOS sandbox-exempt IPC mechanism Chromium needs to spawn its renderer processes) nor run a NESTED Codex image-generation call — both distinct resources outside the directory-scoped write permission's reach, the same structural class as the commit failure."
+source: "funko-tracker .pandacorp/run/lessons.md 2026-10 (agent-inferred) — `codex exec -s workspace-write` run with its cwd set to a worktree directory could not commit, because `.git/index.lock` for a worktree is written inside the COMMON `.git` directory of the main checkout (outside the worktree's own path, via git's worktree/common-dir mechanism), which the sandbox's write scope (limited to the worktree directory itself) does not cover. Corroborated 2026-10-28 (same project, agent-inferred): the SAME sandbox, in the SAME worktree, also could not launch Chromium (blocked on `MachPortRendezvous`, a macOS sandbox-exempt IPC mechanism Chromium needs to spawn its renderer processes) nor run a NESTED Codex image-generation call — both distinct resources outside the directory-scoped write permission's reach, the same structural class as the commit failure. Corroborated on a DIFFERENT project (mission-control/panda-corp, 2026-10-29, `.pandacorp/run/lessons.md`, agent-inferred): the Apply-next-time fix (a) above does NOT actually work via `codex exec -s workspace-write --add-dir <git-common-dir>` — the sandbox still refuses writes under `.git` even with the common dir explicitly added. This is the same limitation DR-142 (registry) designed around directly: its `--codex-access sandbox` option documents 'workspace-write: cannot write .git, so it cannot commit' as accepted, not something `--add-dir` resolves — the engine's actual answer is fix (b), the supervising process commits after a sandboxed worker only edits/validates."
 provenance: agent-inferred
 created: 2026-10-25
-status: candidate
+status: active   # 2026-10-29: cross-project corroboration (funko-tracker + mission-control) meets the eval-gate bar
 promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0111]
+links: [LESSON-0111, DR-142]
 ---
 
 **Situation:** a sandboxed CLI agent was given workspace-write access scoped to a git worktree's own
@@ -35,6 +35,12 @@ either (a) grant the sandbox write access to the common `.git` directory as well
 path), or (b) design the flow so the SANDBOXED agent only edits/validates and the SUPERVISING/orchestrating
 process (which already has full repo access) performs the actual `git commit` after validation passes —
 the latter is the safer default and avoids widening the sandbox's write scope at all.
+
+**Corroborating correction (2026-10-29):** option (a) is NOT achievable on Codex CLI by passing
+`--add-dir <git-common-dir>` to `codex exec -s workspace-write` — the sandbox still refuses writes under
+`.git` regardless. Treat (a) as theoretical/not currently available for this specific sandbox+tool
+combination; (b) (the orchestrator commits, the sandboxed worker only edits/validates) is the one that
+actually works, and is what DR-142's own design adopts by default.
 
 **Apply next time (addendum, 2026-10-28):** a directory-scoped workspace-write sandbox's reach extends
 past git internals — plan for it to also be unable to launch a real browser (Chromium needs sandbox-

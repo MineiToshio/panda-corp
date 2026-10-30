@@ -36,3 +36,16 @@ the baseline pre-check prompt's STEP texts, the run-end close-out prompt bodies.
 ## Done when
 
 The artifact is ≤ 465 000 bytes, the budget is not raised, and the decision log records what moved.
+
+## Corroborating occurrence — 2026-10-29 (mission-control/panda-corp build, DR-142)
+
+The squeeze recurred exactly as predicted: landing DR-142 (opt-in Codex workers for `/pandacorp:implement`)
+found the artifact back down to 77 bytes of headroom. The specific recovery applied this time was a NEW
+instance of this item's own fix-plan technique, one level more specific than "move logic to a mech script":
+the drift-finder's inlined method body (~5.6 KB) was discovered to be a byte-for-byte DUPLICATE of the
+already-authored `plugin/agents/drift-finder.md`, and was converted to a Read pointer (the agent reads the
+authored file at runtime) instead of carrying a second embedded copy — freeing enough room for DR-142 to
+fit. Generalized as LESSON-0554 (dedup-via-Read-pointer as a lever for a size-budgeted generated artifact,
+distinct from but complementary to this item's mech-script-extraction plan). The underlying problem this
+item tracks is NOT closed by this one-off recovery — the budget will be squeezed again by the next feature;
+the systemic fix (moving deterministic logic to mech scripts, per the existing Fix plan) is still open.
