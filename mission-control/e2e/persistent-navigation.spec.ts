@@ -39,6 +39,8 @@ function sourceFiles(root: string, files: Map<string, Buffer>): Map<string, Buff
 // restores original bytes and unlinks only explicitly observed new files, never directories.
 
 test("home and root default resolution retain one meaningful history entry", async ({ page }) => {
+  // Six full navigations take 22-28 s on the dev server, too close to the 30 s default under gate load.
+  test.slow();
   await gotoHydrated(page, "/achievements/ranks", {
     selector: '[data-testid="logros-tab-rangos"]',
   });
