@@ -43,7 +43,15 @@ describe("integrated responsive shell independent acceptance", () => {
       within(nav)
         .getAllByRole("link")
         .map((link) => link.textContent),
-    ).toEqual(["Inicio", "Tablero", "Portfolio", "Propuestas", "Logros", "Documentación"]);
+    ).toEqual([
+      "Inicio",
+      "Tablero",
+      "Portfolio",
+      "Propuestas",
+      "Logros",
+      "Documentación",
+      "Configuración",
+    ]);
     fireEvent.click(within(nav).getByRole("link", { name: destination }));
     expect(toggle).toHaveAttribute("aria-expanded", "false");
   });

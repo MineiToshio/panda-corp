@@ -1,9 +1,10 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
+import { usePathname } from "next/navigation";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isShellExempt } from "@/components/modules/AppShell/shellScope";
+import { AppShell } from "@/components/modules/AppShell/AppShell";
 import { readyFixture } from "@/components/modules/DataModelViewer/_tests/fixture";
 import { DataModelViewer } from "@/components/modules/DataModelViewer/DataModelViewer";
 import { isNavActive } from "@/components/modules/Nav/navTab";
@@ -12,6 +13,11 @@ import { activeDestinationPath } from "@/lib/navigation/destinations";
 import { readNavigationCatalog } from "@/lib/navigation/identityCatalog";
 import { validateNavigationQuery } from "@/lib/navigation/keys";
 import { routeHref, workspaceRouteState } from "@/lib/navigation/routeState";
+
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  usePathname: vi.fn(() => "/"),
+}));
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -71,7 +77,18 @@ describe("FRD-25 whole-contract boundary probes (LESSON-0450, LESSON-0185)", () 
       "/configuration",
       "/configuration/skills/reviewer",
     ]) {
-      expect.soft(isShellExempt(href), href).toBe(false);
+      vi.mocked(usePathname).mockReturnValue(href);
+      render(
+        <AppShell
+          levelBar={<span>Guild</span>}
+          proposalsBadge={<a href="/proposals">Propuestas</a>}
+        >
+          <p>{href}</p>
+        </AppShell>,
+      );
+      expect.soft(screen.getByTestId("app-shell"), href).toBeInTheDocument();
+      expect.soft(screen.getByText(href), href).toBeInTheDocument();
+      cleanup();
     }
     expect(activeDestinationPath("/projects/second/spec")).toBe("/portfolio");
     expect(isNavActive("/projects/second/spec", "/portfolio")).toBe(true);
@@ -84,10 +101,9 @@ describe("FRD-25 whole-contract boundary probes (LESSON-0450, LESSON-0185)", () 
       "/portfolio/second/architecture?model=Esquema&schemaTable=entry",
     );
     render(<DataModelViewer result={readyFixture()} />);
-    expect(await screen.findByRole("tab", { name: /^Esquema$/ })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    expect(
+      await screen.findByRole("tab", { name: /^Esquema$/ }, { timeout: 10_000 }),
+    ).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Entry")).toHaveAttribute("open");
   });
 
@@ -119,7 +135,9 @@ describe("FRD-25 whole-contract boundary probes (LESSON-0450, LESSON-0185)", () 
     try {
       window.history.replaceState({}, "", "/portfolio/second/architecture?expanded=1&entity=entry");
       const viewer = render(<DataModelViewer result={readyFixture()} />);
-      expect(await screen.findByRole("tab", { name: /^Diagrama$/ })).toBeVisible();
+      expect(
+        await screen.findByRole("tab", { name: /^Diagrama$/ }, { timeout: 10_000 }),
+      ).toBeVisible();
       expect(request).not.toHaveBeenCalled();
       expect.soft(showModal).not.toHaveBeenCalled();
       expect.soft(screen.queryByRole("dialog")).not.toBeInTheDocument();

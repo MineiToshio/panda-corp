@@ -34,7 +34,7 @@ for (const theme of ["light", "dark"]) {
     expect(button.y - box.y).toBeLessThan(25);
     await expect(header.getByTestId("app-nav")).toHaveCount(1);
     await toggle.click();
-    await expect(nav.getByRole("link")).toHaveCount(6);
+    await expect(nav.getByRole("link")).toHaveCount(7);
     const navBox = await nav.boundingBox();
     if (!navBox) throw new Error("Expanded phone destinations missing");
     expect(navBox.width).toBeGreaterThan(box.width - 50);
@@ -69,7 +69,7 @@ for (const theme of ["light", "dark"]) {
     const destinations = await nav.boundingBox();
     if (!destinations) throw new Error("Tablet navigation missing");
     expect(destinations.width).toBeGreaterThan(box.width - 50);
-    await expect(nav.getByRole("link")).toHaveCount(6);
+    await expect(nav.getByRole("link")).toHaveCount(7);
     await page.keyboard.press("Escape");
     await expect(nav).toBeHidden();
   });
