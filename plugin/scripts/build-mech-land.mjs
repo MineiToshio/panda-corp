@@ -13,7 +13,7 @@
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { BASELINE_RE, InputError, Refusal, acquireLock, dirtyEntries, projectCtx, releaseLock, unique } from './build-mech-lib.mjs'
+import { BASELINE_RE, InputError, Refusal, acquireLock, dirtyEntries, projectCtx, releaseLock, unique, stagePaths } from './build-mech-lib.mjs'
 
 /** The engine's REVIEWER_TEST_PATH: the paths a reviewer's adversarial tests live under. */
 const REVIEWER_TEST_RE = /(^|\/)(__tests__|_tests|tests?|e2e)\/|\.(test|spec)\.[cm]?[jt]sx?$/
@@ -107,7 +107,7 @@ export function gateLandOp(o) {
     }
     const paths = unique(landed.map((x) => x.path))
     if (paths.length) {
-      const add = gTop(['--literal-pathspecs', 'add', '--', ...paths])
+      const add = stagePaths({ run: gTop }, paths)
       if (!add.ok) throw new Refusal('stage-failed', `could not stage the gate's files: ${add.err}`)
     }
     const staged = paths.length ? gTop(['--literal-pathspecs', 'diff', '--cached', '--name-only', '--', ...paths]).out.split('\n').filter(Boolean) : []

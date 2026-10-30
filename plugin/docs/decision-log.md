@@ -1,6 +1,11 @@
 # Decision log — Plugin pandacorp
 
 
+## v9.146.4 — 2026-10-30 (PATCH): every build commit stages through one helper
+
+**What:** `stagePaths` in `build-mech-lib.mjs` replaces each direct `git add` of the build ops. The lanes regression now covers a landing with a dirty journal.
+**Why:** 9.146.3 fixed only `commit-wo`; the journal sweep hit the same refusal and parked every chain at landing.
+
 ## v9.146.3 — 2026-10-30 (PATCH): commit-wo commits a journal tracked under an ignored directory
 
 **What:** `commit-wo` retries a refused `git add -A` with `add -u` for tracked paths. Regression scenario in `test-build-mech-lanes.mjs`.

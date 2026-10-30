@@ -20,7 +20,7 @@ import { appendFileSync, copyFileSync, existsSync, lstatSync, mkdirSync, readFil
 import os from 'node:os'
 import path from 'node:path'
 import { stampLastGreen, transitionWorkOrder } from '../runtime/build-state.mjs'
-import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, projectBinEnv, projectCtx, releaseLock, sealReportProvenance, unique, withdrawLine } from './build-mech-lib.mjs'
+import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, projectBinEnv, projectCtx, releaseLock, sealReportProvenance, unique, withdrawLine, stagePaths } from './build-mech-lib.mjs'
 import { readReport } from './build-mech-fast.mjs'
 import { runVerify, verifyStatus } from './build-mech-verify.mjs'
 
@@ -183,7 +183,7 @@ export async function certifyStateOp(o) {
   }
   try {
     await fenced(() => stampLastGreen(ctx.project, o.token, o.epoch, snapshot))
-    const p = ctx.g.run(['--literal-pathspecs', 'add', '--', PROJECTION])
+    const p = stagePaths(ctx.g, [PROJECTION])
     const c = p.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', 'chore(build): publish last green snapshot', '--', PROJECTION]) : p
     if (!c.ok) throw new Refusal('pointer-failed', `the snapshot ${snapshot.slice(0, 12)} is committed but the last_green_sha pointer commit failed: ${c.err || 'no output'}`, { snapshot: snapshot.slice(0, 12) })
   } catch (e) {

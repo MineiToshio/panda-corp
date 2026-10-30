@@ -22,7 +22,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statS
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, dispatchSnapshotFile, findWo, fmGet, frontmatterStatus, inReviewWindow, projectCtx, releaseLock, sealReportProvenance, unique, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, dispatchSnapshotFile, findWo, fmGet, frontmatterStatus, inReviewWindow, projectCtx, releaseLock, sealReportProvenance, unique, withdrawLine, woAcIds, woIdOf, stagePaths } from './build-mech-lib.mjs'
 import { landedDiff } from './build-mech-close.mjs'
 import { runVerify, verifyStatus } from './build-mech-verify.mjs'
 import { decideCarryOver, decideGreenfield, probe as probeGreenfield } from './greenfield-probe.mjs'
@@ -226,7 +226,7 @@ function classifyFrds(ctx, frds, { range = null, lockWaitMs }) {
       const paths = changed.map((x) => frdMdRel(x.frd))
       const originals = paths.map((p) => readFileSync(path.join(ctx.project, p), 'utf8'))
       paths.forEach((p, i) => writeFileSync(path.join(ctx.project, p), setFmKey(originals[i], 'floor', changed[i].floor)))
-      const add = ctx.g.run(['--literal-pathspecs', 'add', '--', ...paths])
+      const add = stagePaths(ctx.g, paths)
       const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', `chore(build): floor classification of ${changed.map((x) => `${x.frd}=${x.floor}`).join(', ')}\n\nProposal 39 C3: deterministic (classify-change.mjs --product-floor), monotone.`, '--', ...paths]) : add
       if (!c.ok) { ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...paths]); paths.forEach((p, i) => writeFileSync(path.join(ctx.project, p), originals[i])); throw new Refusal('commit-failed', `the floor commit failed and frd.md was restored: ${c.err || 'no output'}`) }
       committed = ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12)
@@ -363,7 +363,7 @@ export function commitUsable(ctx, o, frd, sha, preexisting = null) {
     const why = preexisting ? `Bench FM-7: verify.sh red only on other FRDs' pre-existing failures (${preexisting.files.join(', ')}), red on the same tests at the base ${preexisting.base}.` : 'Proposal 39 C6: committed work orders, verify.sh green on the clean landed SHA, not floor.'
     appendFileSync(trackAbs, `${line}\n`)
     const paths = unique([TRACK, ...dirtyEntries(ctx).filter((e) => JOURNALS.includes(e.path)).map((e) => e.path)])
-    const add = ctx.g.run(['--literal-pathspecs', 'add', '--', ...paths])
+    const add = stagePaths(ctx.g, paths)
     const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', `chore(build): ${frd} usable at ${sha}\n\n${why}`, '--', ...paths]) : add
     if (c.ok) usableCommit = ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12)
     else {

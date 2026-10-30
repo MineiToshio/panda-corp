@@ -321,6 +321,26 @@ export function withdrawLine(abs, line, existedBefore) {
   if (!rest && !existedBefore) rmSync(abs, { force: true }); else writeFileSync(abs, rest)
 }
 /**
+ * `git add` for a commit's paths. A tracked journal may sit under a directory ignored later (the factory repo ignores
+ * `.pandacorp/`), which plain `add` refuses in a localized message, so any refusal retries tracked paths with `add -u`.
+ * @param {{ run: (args: string[]) => { ok: boolean, out: string, err: string } }} g git runner
+ * @param {string[]} paths paths to stage
+ * @param {string[]} [flags] extra `add` flags, such as `-A`
+ * @returns {{ ok: boolean, out: string, err: string }} the last git result
+ */
+export function stagePaths(g, paths, flags = []) {
+  const add = g.run(['--literal-pathspecs', 'add', ...flags, '--', ...paths])
+  if (add.ok) return add
+  const listed = g.run(['--literal-pathspecs', 'ls-files', '--', ...paths])
+  if (!listed.ok) return add
+  const tracked = new Set(listed.out.split('\n').filter(Boolean))
+  if (!tracked.size) return add
+  const rest = paths.filter((p) => !tracked.has(p))
+  const update = g.run(['--literal-pathspecs', 'add', '-u', '--', ...tracked])
+  return update.ok && rest.length ? g.run(['--literal-pathspecs', 'add', ...flags, '--', ...rest]) : update
+}
+
+/**
  * Commit whatever the journals hold right now, as their own commit (the "next committer stages it" rule, done by an
  * op that would otherwise leave them dirty). A failed commit unstages them and leaves the lines in place.
  * @returns {{ sha: string|null, paths: string[], error?: string }}
@@ -328,7 +348,7 @@ export function withdrawLine(abs, line, existedBefore) {
 export function commitJournals(ctx, message) {
   const paths = dirtyEntries(ctx).filter((e) => JOURNALS.includes(e.path)).map((e) => e.path)
   if (!paths.length) return { sha: null, paths }
-  const add = ctx.g.run(['--literal-pathspecs', 'add', '--', ...paths])
+  const add = stagePaths(ctx.g, paths)
   const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', message, '--', ...paths]) : add
   if (!c.ok) { ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...paths]); return { sha: null, paths, error: c.err || 'no output' } }
   return { sha: ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12), paths }

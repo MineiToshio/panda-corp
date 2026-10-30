@@ -93,7 +93,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renew } from '../runtime/build-state.mjs'
-import { BASELINE_RE, INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, dispatchSnapshotFile, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, maxAcsPerTitle, projectBinEnv, projectCtx, releaseLock, reportProvenance, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { BASELINE_RE, INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, dispatchSnapshotFile, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, maxAcsPerTitle, projectBinEnv, projectCtx, releaseLock, reportProvenance, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf, stagePaths } from './build-mech-lib.mjs'
 import { BRIEF_OPS } from './build-mech-brief.mjs'
 import { FAST_OPS, carryOverOf, durableUsable, greenfieldOf } from './build-mech-fast.mjs'
 import { closeOp, prodSmokeOp, securityScopeOp, telemetryScopeOp } from './build-mech-close.mjs'
@@ -118,16 +118,6 @@ const SCHEMA_PATHS = [
 const TEST_FILE_RE = /(^|\/)(_tests|__tests__|tests?|e2e)\/|\.(test|spec)\.[cm]?[jt]sx?$/
 const TRACK = JOURNALS[0]
 
-/** `git add -A` for a commit's paths. A tracked journal may sit under a directory ignored later (the factory repo
- *  ignores `.pandacorp/`), which plain `add` refuses in a localized message, so any refusal retries with `add -u`. */
-function stageAll(ctx, paths) {
-  const add = ctx.g.run(['--literal-pathspecs', 'add', '-A', '--', ...paths])
-  if (add.ok) return add
-  const tracked = new Set(ctx.g.must(['--literal-pathspecs', 'ls-files', '--', ...paths]).split('\n').filter(Boolean))
-  const rest = paths.filter((p) => !tracked.has(p))
-  const update = ctx.g.run(['--literal-pathspecs', 'add', '-u', '--', ...tracked])
-  return update.ok && rest.length ? ctx.g.run(['--literal-pathspecs', 'add', '-A', '--', ...rest]) : update
-}
 const CODE_FILE_RE = /\.[cm]?[jt]sx?$/
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -293,7 +283,7 @@ function commitWo(o) {
       writeFileSync(woAbs, original)
       if (woEnd) withdrawLine(trackAbs, woEnd, trackExisted)
     }
-    const add = stageAll(ctx, paths)
+    const add = stagePaths(ctx.g, paths, ['-A'])
     const commit = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', commitMessage(wo, original, o, stagedExtras), '--', ...paths]) : add
     if (!commit.ok) { restore(); throw new Refusal('commit-failed', `the commit failed and the stamp was restored: ${commit.err.split('\n').slice(-3).join(' | ') || 'no output'}`) }
     const sha = ctx.g.must(['rev-parse', 'HEAD']).trim()
@@ -394,7 +384,7 @@ function demoteUnstamped(ctx, onMain, salvaged, salvageDir) {
     toPlanned.forEach((d, i) => writeFileSync(path.join(ctx.project, d.rel), setFrontmatterStatus(originals[i], 'PLANNED')))
     const paths = toPlanned.map((d) => d.rel)
     const ids = toPlanned.map((d) => d.wo).join(', ')
-    const add = ctx.g.run(['--literal-pathspecs', 'add', '--', ...paths])
+    const add = stagePaths(ctx.g, paths)
     const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', `chore(build): demote ${ids} to PLANNED (no IN_REVIEW commit after the last IN_PROGRESS stamp)\n\nProposal 39 C7 stamp-anchored resume: the work order is rebuilt.`, '--', ...paths]) : add
     if (!c.ok) {
       ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...paths])
@@ -477,7 +467,8 @@ function dispatch(o) {
     let committed = null
     if (o.commit && stamped.length) {
       const paths = stamped.map((w) => w.rel)
-      ctx.g.must(['--literal-pathspecs', 'add', '--', ...paths])
+      const add = stagePaths(ctx.g, paths)
+      if (!add.ok) throw new Refusal('commit-failed', `the dispatch stamp could not be staged: ${add.err}`)
       const c = ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', `chore(build): dispatch ${stamped.map((w) => w.id).join(', ')} (IN_PROGRESS)`, '--', ...paths])
       if (!c.ok) { ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...paths]); stamped.forEach((w) => writeFileSync(path.join(ctx.project, w.rel), texts[wos.indexOf(w)])); throw new Refusal('commit-failed', `the dispatch commit failed and the stamps were restored: ${c.err || 'no output'}`) }
       committed = ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12)

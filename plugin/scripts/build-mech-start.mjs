@@ -32,7 +32,7 @@ import path from 'node:path'
 import { syncRollups } from '../runtime/build-state.mjs'
 import { planOp } from './build-mech-fast.mjs'
 import { lanePlanOp } from './build-mech-lanes.mjs'
-import { PROJECTION, acquireLock, dirtyEntries, projectCtx, releaseLock } from './build-mech-lib.mjs'
+import { PROJECTION, acquireLock, dirtyEntries, projectCtx, releaseLock, stagePaths } from './build-mech-lib.mjs'
 
 const ROLLUP_DOC_RE = /^docs\/frds\/[^/]+\/(frd|blueprint)\.md$/
 const BUILDABLE = new Set(['PLANNED', 'IN_PROGRESS'])
@@ -85,7 +85,7 @@ async function syncAndCommit(ctx, o) {
   if (!paths.length) return { ok: true, corrected: r.corrected, commit: null }
   const lock = acquireLock(ctx, { waitMs: o.lockWaitMs, op: 'fast-start' })
   try {
-    const add = ctx.g.run(['--literal-pathspecs', 'add', '--', ...paths])
+    const add = stagePaths(ctx.g, paths)
     const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', 'chore(build): sync the work-order rollups before the first dispatch', '--', ...paths]) : add
     if (!c.ok) { ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...paths]); throw new Error(`the rollup commit failed: ${c.err || 'no output'}`) }
     return { ok: true, corrected: r.corrected, commit: ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12) }

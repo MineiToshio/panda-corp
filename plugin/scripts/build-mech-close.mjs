@@ -30,7 +30,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSyn
 import os from 'node:os'
 import path from 'node:path'
 import { finalizeRelease, localDay, quiesce, readSecurityReport, setProjectPhase } from '../runtime/build-state.mjs'
-import { InputError, JOURNALS, PROJECTION, REPORT_REL, Refusal, acquireLock, dirtyEntries, projectCtx, releaseLock, reportProvenance, sealReportProvenance, unique } from './build-mech-lib.mjs'
+import { InputError, JOURNALS, PROJECTION, REPORT_REL, Refusal, acquireLock, dirtyEntries, projectCtx, releaseLock, reportProvenance, sealReportProvenance, unique, stagePaths } from './build-mech-lib.mjs'
 import { securityDeltaTriggers } from './product-floor.mjs'
 import { runVerify } from './build-mech-verify.mjs'
 
@@ -48,7 +48,7 @@ function commitPaths(ctx, o, paths, message) {
   const lock = acquireLock(ctx, { waitMs: o.lockWaitMs, op: o.op })
   try {
     const all = unique([...paths, ...dirtyEntries(ctx).filter((e) => JOURNALS.includes(e.path)).map((e) => e.path)])
-    const add = ctx.g.run(['--literal-pathspecs', 'add', '--', ...all])
+    const add = stagePaths(ctx.g, all)
     const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', message, '--', ...all]) : add
     if (!c.ok) { ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...all]); throw new Refusal('commit-failed', `${message.split('\n')[0]}: the commit failed: ${(c.err || 'no output').split('\n').slice(-2).join(' | ')}`) }
     return ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12)

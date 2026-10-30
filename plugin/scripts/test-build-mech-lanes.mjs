@@ -1051,8 +1051,8 @@ console.log('tracked-journal-under-ignored-dir: a journal tracked under a later-
     r.commitMain({ '.pandacorp/track.jsonl': '{"kind":"seed"}\n' }, 'chore: track journal')
     r.commitMain({ '.gitignore': '.pandacorp/\n' }, 'chore: ignore overlay dir')
     ok(r.run('lane-pool', ['--size', '1']).code === 0, 'lane-pool creates one lane')
-    const b = r.buildIn(1, 'WO-01-001', { 'src/wo-01-001.ts': 'export const a = 1\n' })
-    ok(b.code === 0 && b.receipt.status === 'committed', `commit-wo commits (${b.receipt.status}: ${b.receipt.reason || ''})`)
+    const { land } = landOne(r, 1, ['WO-01-001'], () => ({ 'src/wo-01-001.ts': 'export const a = 1\n' }))
+    ok(land.code === 0, `the chain lands with a dirty journal (${land.receipt.status}: ${land.receipt.reason || ''})`)
   } finally { r.cleanup() }
 }
 
