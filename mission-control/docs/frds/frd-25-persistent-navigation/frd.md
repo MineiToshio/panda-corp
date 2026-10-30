@@ -3,7 +3,7 @@ id: FRD-25
 type: frd
 title: Persistent navigation URLs
 status: ACTIVE
-implementation_status: IN_REVIEW
+implementation_status: BLOCKED
 ui: false
 floor: false
 ---

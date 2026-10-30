@@ -46,3 +46,13 @@ El AC texto FRD dice: build = implementer+reviewer+analytics; release = security
 **Advisory (no bloquea):** `IdeaBoardView.tsx` encabezado docstring aún dice '7 columnas ... descartadas', pero renderiza 6. De review-only, persiste en main.
 
 </details>
+
+## FRD-25 — Código rechazado de WO-25-001 no se pudo descartar (necesita propietario)
+
+**Bloquea:** WO-25-001
+
+**Contexto:** No pude descartar el código rechazado de WO-25-001 (frd-25-persistent-navigation) sin tocar trabajo de otras features: dirty: uncommitted change(s) on target path(s): e2e/persistent-navigation.spec.ts, e2e/persistent-navigation/destinations.spec.ts, e2e/persistent-navigation/model.spec.ts, src/components/modules/Nav/_tests/persistentNavigation.test.tsx — nothing was reverted. Ese código sigue en main y puede romper el gate de otras FRDs.
+
+**Estado:** PENDIENTE
+
+**Decisión necesaria:** Decide cómo resolverlo: (a) revertir a mano los commits de esas órdenes resolviendo el conflicto, o (b) conservar el código y corregirlo.

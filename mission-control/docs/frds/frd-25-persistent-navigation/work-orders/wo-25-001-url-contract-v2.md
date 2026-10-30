@@ -6,7 +6,8 @@ title: 'WO-25-001 — URL contract for v2 + the history flake'
 status: ACTIVE
 parent: FRD-25
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: BLOCKED
+blocked_reason: needs-owner
 difficulty: high
 reopen_count: 0
 artifacts:
