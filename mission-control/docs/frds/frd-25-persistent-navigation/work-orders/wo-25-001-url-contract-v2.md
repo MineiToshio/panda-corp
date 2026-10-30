@@ -6,7 +6,7 @@ title: 'WO-25-001 — URL contract for v2 + the history flake'
 status: ACTIVE
 parent: FRD-25
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_PROGRESS
 difficulty: high
 reopen_count: 0
 artifacts:
