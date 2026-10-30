@@ -13,7 +13,7 @@ promotion: proposed   # 2026-10-19 (librarian review) — target: factory/standa
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0177]
+links: [LESSON-0177, LESSON-0186]
 ---
 
 **Situation:** prior sessions' scratchpad directories survive on disk at

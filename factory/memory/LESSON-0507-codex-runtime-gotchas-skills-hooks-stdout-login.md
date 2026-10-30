@@ -24,7 +24,7 @@ promotion: none
 confidence: low
 times_applied: 0
 applied_in: []
-links: [LESSON-0325, LESSON-0506]
+links: [LESSON-0325, LESSON-0506, LESSON-0524]
 ---
 
 **Situation:** six distinct, unrelated Codex CLI operating gotchas surfaced across two sessions, none

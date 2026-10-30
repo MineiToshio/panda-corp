@@ -13,7 +13,7 @@ promotion: none
 confidence: high
 times_applied: 0
 applied_in: []
-links: [BL-0288, LESSON-0478, LESSON-0533]
+links: [BL-0288, LESSON-0478, LESSON-0533, LESSON-0102]
 ---
 
 **Situation:** funko-tracker's per-worktree e2e needed its own `PORT`, and two environment URLs derive

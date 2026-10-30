@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0111, DR-142]
+links: [LESSON-0111, DR-142, LESSON-0507]
 ---
 
 **Situation:** a sandboxed CLI agent was given workspace-write access scoped to a git worktree's own

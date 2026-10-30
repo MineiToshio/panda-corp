@@ -17,6 +17,8 @@ links: [LESSON-0094]
 # 5th corroboration (2026-10-23, pandacorp-memory-review sweep): new facet — the tool's own call
 # validation is NOT a reliable backstop when the misuse call happens to include a valid throwaway
 # `prompt` (it only rejects the shape missing a required field, per the 4th occurrence). See body.
+# 6th corroboration (2026-10-30, same routine): recurred in the exact 4th-occurrence shape again
+# (call rejected for missing `prompt`, then `stop: true` found nothing armed) — see body.
 ---
 
 **Situation:** to "wait" for a background research agent to finish, an agent scheduled a `ScheduleWakeup`
@@ -83,3 +85,14 @@ agents' completions arrived via the ordinary automatic task-notification regardl
 candidate` / `promotion: proposed` unchanged, consistent with the prior three passes' judgment that this
 lesson's own history of narrowing/retraction warrants an owner review before activation rather than
 mechanical auto-activation on cross-corroboration count alone.
+
+**Sixth corroborating occurrence (2026-10-30, same routine):** right after dispatching two background
+`pandacorp:librarian` harvest agents (factory + funko-tracker) during this same scheduled sweep, the
+orchestrating session again reached for `ScheduleWakeup` to pause until they finished. This recurrence
+landed back in the 4th occurrence's shape, not the 5th's: the first call errored demanding `prompt`
+(since `stop` wasn't `true`), and the follow-up `stop: true` call reported "no pending wakeup to cancel"
+— nothing had actually been armed, zero side effects either way. Confirms the lesson is still live
+practice five-plus months after the original incident despite `promotion: proposed` sitting unreviewed —
+the correct move each time is simply to end the turn with a status update and let the Agent tool's own
+completion notification resume the session; `CronCreate`-based loops use a separate mechanism entirely
+and are likewise not a substitute here.
