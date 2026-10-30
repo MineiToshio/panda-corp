@@ -57,4 +57,3 @@ export function CardHeader({
 export function CardFoot({ children }: { readonly children: React.ReactNode }): React.JSX.Element {
   return <div className={`card-foot ${styles.foot}`}>{children}</div>;
 }
-
