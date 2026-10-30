@@ -21,10 +21,10 @@
 
 | File | What it covers | Why it's here |
 |---|---|---|
-| `code-conventions.md` | Language, naming, strict typing, constants, imports, handlers, comments/commits, env vars, deps | `always` |
+| `code-conventions.md` | Language, naming, English URLs, strict typing, constants, imports, handlers, comments/commits, env vars, deps, GitHub access through `gh` | `always` |
 | `clean-code.md` | File/function size, complexity, SRP/SoC, DRY (rule of three), dead code, purity, module boundaries, AI-legibility | `always` |
 | `project-structure.md` | Mandatory `src/`, `core/`+`modules/`, single/multi-file folders, `_tests/`, feature-first, promotion | `always` |
-| `quality-and-testing.md` | Green gates, TDD, risk-based coverage, test discipline (getByRole, isolation, no hard waits), owner-attended live-attempt economy | `always` |
+| `quality-and-testing.md` | Green gates, TDD, risk-based coverage, test discipline (getByRole, isolation, no hard waits), test database, owner-attended live-attempt economy, batch integration | `always` |
 | `documentation-and-decisions.md` | Canonical doc + decision log discipline, two-layer docs | `always` |
 | `logical-data-model.md` | Publish and refresh the shared logical model with every schema change (DATA-7) | `always` |
 | `external-services.md` | Approved external-service scope, account reuse, resource names, env-variable preparation and evidence | `always` |

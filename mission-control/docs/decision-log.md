@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-30 — Pandacorp overlay upgraded 8.110.0 → 8.114.1
+
+**What:** regenerated `.pandacorp/guide.md`, `AGENTS.md`, `.pandacorp/merge-queue.sh` and the build engine; re-synced `docs/rules/` (`code-conventions`, `external-services`, `quality-and-testing`) and the rules index. `verify.sh`, `canary.sh`, `biome.json`, Playwright config and the e2e gate specs already matched the templates.
+
+**Why:** `/pandacorp:implement` requires the current overlay. `knip.json` keeps its project-specific drift on purpose: the template omits the `scripts/navigation` entry and project globs, and applying it turns knip red (`isNavigationSlug`, `validateNavigationCatalog` read as unused). Canary 11/11 and a full `verify.sh` passed; three other full runs went red only in Playwright (a transient busy port and the known flaky data-model and persistent-navigation specs, unrelated to this change).
+
 ## 2026-10-23 — Manual reflects the GitHub-only deploy model (DR-138)
 
 **What:** the Manual's release page (`src/app/manual/manualPages.tsx`, "Interno vs externo") and the stacks table (`src/app/manual/_components/StacksDetail.tsx`) now say that external products stay local until release, deploy only through Vercel's GitHub integration with `main` as the single production branch, and that after launch nothing reaches `main` without the owner's explicit order.

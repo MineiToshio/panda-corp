@@ -39,6 +39,11 @@ source: Pandacorp standard — quality
 - No hard waits: Playwright auto-waiting + web-first assertions (never `waitForTimeout`); RTL puts only assertions inside `waitFor`.
 - Placement (`_tests/`, `src/test/`, `e2e/`) → see `project-structure`.
 
+## Test database: native, local, zero residue (DR-140, INFRA-9/10)
+- Tests that need a database (unit/integration, `verify.sh`, e2e) use ONLY the project's native Homebrew PostgreSQL on `127.0.0.1:<base+2>` (started by `pnpm db:test:up`, URL in `TEST_DATABASE_URL`). Never Docker, never a cloud DB (Neon dev/prod is for running the app, not for tests). A test URL with a non-loopback host fails loud before connecting.
+- Zero residue: per-run/per-worker databases (`<slug>_test_*`) are dropped at teardown, per-test transactions are rolled back, and setup sweeps stale `<slug>_test_*` databases left by crashed runs. Between runs only the empty template remains.
+- `pnpm db:test:check-clean` runs in `verify.sh` after the DB-backed suites and FAILS the gate on any leftover test database or non-empty template table. Never delete the check to get green.
+
 ## E2E & independent verification
 - E2E only on critical flows; select by `data-testid`, not brittle text/CSS; leave NO persistent test data (deterministic teardown or an ephemeral DB).
 - **Hydration-safe e2e (web UI).** Every e2e spec that fills or submits a form starts with `gotoHydrated(page, path)` from `e2e/_hydration.ts` — never a bare `page.goto` followed by `fill`. `goto` resolves before React hydrates, so typed input reaches only the DOM and the submit falls back to a native GET (a flaky test, and form data in the URL). The helper waits on the page's FORM (not `main`); a product that needs a stricter signal sets `data-hydrated` on the form or an ancestor from a client effect and the helper honors it first.
@@ -48,3 +53,11 @@ source: Pandacorp standard — quality
 ## Owner-attended live attempts
 - A gate only the owner can run (a production release, a live certification canary, a "try it now") is the scarcest, most expensive gate; repeated failed live attempts are themselves a release-gate failure.
 - Before asking the owner to consume another: enumerate the COMPLETE matrix of prior failures of that attempt class; red-team the current fix against EACH row (why can't it recur?); and prove the rehearsal exercises the real boundary — a mock speaks the parser's exact dialect by construction, so keep ≥1 non-mocked element in the pre-flight and prove the negative corpus still goes RED.
+
+## Batch integration of finished branches (DR-141, BUILD-4)
+- **MUST:** when several independently verified finished branches are waiting, assemble them in one integration worktree/branch from current `main`; record source SHAs, owning changes and green branch evidence. Merge each recorded tip with `git merge --squash <sha>` and commit with its source SHA/change; resolve conflicts before committing. Do not run the full gate between source commits. Squash keeps conflict resolutions through the existing queue's plain rebase.
+- Run `bash .pandacorp/merge-queue.sh` **ONCE on the combined branch**, never per source branch. A single finished change still lands alone. Branch verification and per-FRD reviews remain required; unfinished work stays out.
+- On red: attribute the failure to its owning change, repair only that defect, commit and re-run the full queue once on the combined result. Further retries require a fresh observed failure within the repair budget. Unknown attribution/conflict/busy main is an immediate DR-099 hand-back; never mask or sweep unrelated reds.
+- **Production gates unchanged:** explicit owner order covering the selected batch before production merge/push; `PANDACORP_OWNER_RELEASE_OK=1` only for that landing (DR-138). No approval inferred from grouping work. A later authorized retry after exit 21 or an advanced main keeps the queue’s existing full recheck; record it separately, never per source.
+- Preserve source branches and the source-to-integration mapping; squashed sources are not ancestors of main. Do not run the queue again on each source after batch success, or force-delete source branches based on that success.
+- **Verification (landing-session checklist, review-only):** source SHA/green evidence and combined commits are present; queue logs show exactly one full gate before repairs, every later pass linked to an observed red/scoped fix or the existing queue’s exit-21/advanced-main safety retry. A per-source full integration-gate loop fails the checklist. Canonical: `build-orchestration.md`, Parallel manual sessions §5; executable rehearsal: factory `test-batch-integration.sh` (not proof of live-session compliance).
