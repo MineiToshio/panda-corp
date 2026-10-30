@@ -1,4 +1,4 @@
-import { getWorktreesByRepo, type WorktreesByRepo } from "./worktreesByRepo";
+import type { WorktreesByRepo } from "./worktreesByRepo";
 export function summarizeWorktrees(rows: WorktreesByRepo): {
   count: number;
   urgent: boolean;
@@ -13,7 +13,4 @@ export function summarizeWorktrees(rows: WorktreesByRepo): {
     unreadable,
     hidden: count === 0 && unreadable === 0,
   };
-}
-export function pendingPillSummary() {
-  return summarizeWorktrees(getWorktreesByRepo());
 }

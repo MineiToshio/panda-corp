@@ -47,6 +47,12 @@ consumes the summary this FRD publishes.
 
 ## Contracts
 
+**Landed summary boundary (2026-10-30).** Until WO-19-003 mounts the sidebar pill,
+`pillSummary.ts` exposes the pure `summarizeWorktrees(rows: WorktreesByRepo)` calculation.
+The unused zero-argument `pendingPillSummary()` wrapper is deferred to that consumer;
+it must delegate to this calculation with `getWorktreesByRepo()` rather than add another
+git read (LESSON-0077). Threshold constants and branch-detail types remain module-local.
+
 **Reader (`IF-21-worktrees`).** Repositories: the factory repository plus every portfolio entry whose folder
 exists (`readPortfolio()`); a missing folder is FRD-03's «Ruta no encontrada», not a git failure, and is not a
 row here. A repository is identified by the first `worktree` path of `git worktree list --porcelain`, so

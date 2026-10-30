@@ -1,6 +1,6 @@
-export const CLEANUP_COUNT = 3;
-export const REVIEW_HOURS = 24;
-export const CLEANUP_HOURS = 7 * REVIEW_HOURS;
+const CLEANUP_COUNT = 3;
+const REVIEW_HOURS = 24;
+const CLEANUP_HOURS = 7 * REVIEW_HOURS;
 export type RepoState = "cleanNow" | "reviewSoon" | "upToDate" | "clean";
 export function repoState({
   branches,

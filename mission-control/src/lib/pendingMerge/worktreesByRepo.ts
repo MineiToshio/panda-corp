@@ -6,7 +6,7 @@ import { runGit } from "@/lib/git/git";
 import { readPortfolio } from "@/lib/portfolio/portfolio";
 import { type RepoState, repoState } from "./repoState";
 
-export interface WorktreeBranch {
+interface WorktreeBranch {
   readonly name: string;
   readonly subject: string;
   readonly origin: "lane" | "claude" | "codex" | "manual";

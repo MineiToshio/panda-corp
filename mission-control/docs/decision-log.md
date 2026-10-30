@@ -1,5 +1,9 @@
 # Decision Log — Mission Control
 
+## 2026-10-30 — Keep pending-merge exports aligned with landed consumers
+
+Removed the unused git error re-export and kept fixture/branch types and state thresholds module-local. The [FRD-21 blueprint](frds/frd-21-pending-merge/blueprint.md#contracts) records that the zero-argument pill wrapper lands with WO-19-003; the tested `summarizeWorktrees(rows)` calculation stays available. This repairs the full knip gate without speculative consumers or gate exceptions. LESSON-0077 preserves one summary calculation; LESSON-0244 requires the complete gate to certify the landed tree.
+
 ## 2026-10-30 — Shared build-mode picker
 
 [WO-11-003](frds/frd-11-build-modes/work-orders/wo-11-003-build-mode-picker.md) implements the frozen [FRD-11](frds/frd-11-build-modes/frd.md) cards as a shared module for Comandos and Campaña. The [component inventory](design/components.md) records the shared location. `CmdRow` and `CopyButton` gain optional command-box styling, accessible copy labels and result callbacks so consumers reuse the existing primitives. Browser subscriptions use a balanced server snapshot before restoring the per-project preference.
