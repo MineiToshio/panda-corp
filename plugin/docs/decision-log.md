@@ -1,6 +1,11 @@
 # Decision log — Plugin pandacorp
 
 
+## v9.146.3 — 2026-10-30 (PATCH): commit-wo commits a journal tracked under an ignored directory
+
+**What:** `commit-wo` retries a refused `git add -A` with `add -u` for tracked paths. Regression scenario in `test-build-mech-lanes.mjs`.
+**Why:** the factory repo ignores `.pandacorp/` while `.pandacorp/track.jsonl` stays tracked, so every Mission Control work order failed to commit and was parked with its work saved.
+
 ## v9.146.2 — 2026-10-30 (PATCH): Codex workers read their task from the relay transcript (DR-142)
 
 - **What:** `codex-worker.mjs` recovers the exact task text from the relay agent's transcript and verifies its checksum; the relay's `prompt.md` copy is only the fallback. Overlay 8.114.3.

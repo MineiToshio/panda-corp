@@ -1043,5 +1043,18 @@ console.log('preexisting-red-in-other-frd-does-not-block-usable: a red only on a
   } finally { r.cleanup() }
 }
 
+// ── tracked-journal-under-ignored-dir ──
+console.log('tracked-journal-under-ignored-dir: a journal tracked under a later-ignored .pandacorp/ still commits')
+{
+  const r = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001' }], { flat: true })
+  try {
+    r.commitMain({ '.pandacorp/track.jsonl': '{"kind":"seed"}\n' }, 'chore: track journal')
+    r.commitMain({ '.gitignore': '.pandacorp/\n' }, 'chore: ignore overlay dir')
+    ok(r.run('lane-pool', ['--size', '1']).code === 0, 'lane-pool creates one lane')
+    const b = r.buildIn(1, 'WO-01-001', { 'src/wo-01-001.ts': 'export const a = 1\n' })
+    ok(b.code === 0 && b.receipt.status === 'committed', `commit-wo commits (${b.receipt.status}: ${b.receipt.reason || ''})`)
+  } finally { r.cleanup() }
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)

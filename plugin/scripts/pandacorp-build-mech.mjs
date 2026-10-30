@@ -117,6 +117,17 @@ const SCHEMA_PATHS = [
 ]
 const TEST_FILE_RE = /(^|\/)(_tests|__tests__|tests?|e2e)\/|\.(test|spec)\.[cm]?[jt]sx?$/
 const TRACK = JOURNALS[0]
+
+/** `git add -A` for a commit's paths. A tracked journal may sit under a directory ignored later (the factory repo
+ *  ignores `.pandacorp/`), which plain `add` refuses in a localized message, so any refusal retries with `add -u`. */
+function stageAll(ctx, paths) {
+  const add = ctx.g.run(['--literal-pathspecs', 'add', '-A', '--', ...paths])
+  if (add.ok) return add
+  const tracked = new Set(ctx.g.must(['--literal-pathspecs', 'ls-files', '--', ...paths]).split('\n').filter(Boolean))
+  const rest = paths.filter((p) => !tracked.has(p))
+  const update = ctx.g.run(['--literal-pathspecs', 'add', '-u', '--', ...tracked])
+  return update.ok && rest.length ? ctx.g.run(['--literal-pathspecs', 'add', '-A', '--', ...rest]) : update
+}
 const CODE_FILE_RE = /\.[cm]?[jt]sx?$/
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -282,7 +293,7 @@ function commitWo(o) {
       writeFileSync(woAbs, original)
       if (woEnd) withdrawLine(trackAbs, woEnd, trackExisted)
     }
-    const add = ctx.g.run(['--literal-pathspecs', 'add', '-A', '--', ...paths])
+    const add = stageAll(ctx, paths)
     const commit = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', commitMessage(wo, original, o, stagedExtras), '--', ...paths]) : add
     if (!commit.ok) { restore(); throw new Refusal('commit-failed', `the commit failed and the stamp was restored: ${commit.err.split('\n').slice(-3).join(' | ') || 'no output'}`) }
     const sha = ctx.g.must(['rev-parse', 'HEAD']).trim()
