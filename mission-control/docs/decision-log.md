@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-30 — Restore the inherited tabular-number baseline
+
+**What:** `html` in `src/app/globals.css` again sets `font-variant-numeric: tabular-nums`, preserving [FRD-13 AC-13-003.1](frds/frd-13-visual-system-accessibility/frd.md).
+
+**Why:** the complete fix-forward gate exposed two existing acceptance tests failing after the token stylesheet replacement removed the global numeric baseline. Keeping only the opt-in utility leaves unclassed numbers outside the accessibility contract.
+
 ## 2026-10-30 — Keep primitive implementation details module-local
 
 **What:** removed the unused `CardPair` wrapper and its orphan CSS; card pairing remains a surface layout rule in [the component inventory](design/components.md). Unconsumed helper constants and structural types stay module-local while component props and presentation resolvers retain their contracts.

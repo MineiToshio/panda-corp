@@ -564,6 +564,7 @@
   box-sizing: border-box;
 }
 html {
+  font-variant-numeric: tabular-nums;
   -webkit-text-size-adjust: 100%;
   scroll-padding-top: 88px;
   /* `clip` (not `hidden`) so full-bleed sections add no horizontal scrollbar and <html> stays no scroll container. */
