@@ -21,7 +21,7 @@ export function WorktreesCard({ rows }: { readonly rows: WorktreesByRepo }): Rea
           <CmdRow
             command="/pandacorp:worktrees"
             variant="box"
-            copyLabel="Copiar /pandacorp:worktrees"
+            copyLabel={t("common.copy.command", { command: "/pandacorp:worktrees" })}
           />
         </div>
         <WorktreesTable rows={rows} onSelect={setSelected} />

@@ -62,7 +62,7 @@ export function WorktreesBranchDialog({
         <CmdRow
           command="/pandacorp:worktrees"
           variant="box"
-          copyLabel="Copiar /pandacorp:worktrees"
+          copyLabel={t("common.copy.command", { command: "/pandacorp:worktrees" })}
         />
       </Modal>
     </div>
