@@ -6,7 +6,7 @@ title: Worktrees by repository - reader, pill summary, Árboles de trabajo card 
 status: ACTIVE
 parent: FRD-21
 foundation: false
-implementation_status: IN_PROGRESS
+implementation_status: IN_REVIEW
 difficulty: medium
 reopen_count: 0
 artifacts: ["src/lib/pendingMerge/**", "src/components/modules/Worktrees/**", "src/components/dashboard/FactoryWorktrees/**", "src/app/page.tsx", "src/app/_tests/{page.dashboard,wo-18-001-fixes,wo-18-001-inicio-dashboard}.test.tsx", "e2e/worktrees.spec.ts"]
@@ -163,3 +163,29 @@ WO-19-003 (pill: `pendingPillSummary()` and `WORKTREES_CARD_ID`), WO-13-013 (del
 
 ## Status Note
 
+
+Built `readWorktreesByRepo(repositories, instant?): WorktreesByRepo` and request-cached
+`getWorktreesByRepo(): WorktreesByRepo`, `repoState({branches, leftovers}): RepoState`,
+`pendingPillSummary(): {count, urgent, unreadable, hidden}`, and client-safe
+`WORKTREES_CARD_ID` from `repoState.ts`. Repositories deduplicate by the first porcelain
+worktree path; unmerged branches come from `branch --no-merged main`. Leftovers are
+non-primary worktrees with no unmerged branch, excluding locked entries (counted apart).
+Malformed worktree/branch reads yield a named error row; optional per-branch metrics
+retain the known pending branch with zero metrics/name fallback when unavailable.
+Ages retain fractional hours for strict threshold comparisons and display floored hours/days.
+Origin prefixes are lane/, claude/, codex/, otherwise manual. Counts use main as the
+integration branch, matching the frozen oracle. Read-only `runGit` and `now` seams own I/O.
+
+The Inicio mount now renders `WorktreesCard` with repository rows, cleanup command,
+keyboard-scrollable table, legend and error notices. `WorktreesTable({rows,onSelect})`
+opens `WorktreesBranchDialog({repository,onClose})`; the existing Modal supplies focus
+trap, Escape and focus return. Local styling translates the teal header and AskRow pattern.
+No new primitive was introduced: Card/Table/Chip/Notice/BadgeIcon/CmdRow/Modal are reused.
+Factory display name is the specified data value Fábrica (no catalogue key, as noted in WO).
+The command copy accessible label uses the existing CommandBox wording.
+
+Applied LESSON-0077 (one cached repository resolver for card and pill) and LESSON-0450
+(explicit frozen fictional git fixture, never the owner's repository in reader tests).
+Tests: pendingMerge/_tests/worktreesByRepo.test.ts, modules/Worktrees/_tests/Worktrees.test.tsx,
+FactoryWorktrees/_tests/FactoryWorktrees.test.tsx, e2e/worktrees.spec.ts and
+ e2e/frd-21-pending-merge.behaviour.spec.ts. The v1 reader only swaps its git/clock adapters.
