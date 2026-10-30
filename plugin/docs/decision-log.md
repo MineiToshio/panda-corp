@@ -1,6 +1,11 @@
 # Decision log — Plugin pandacorp
 
 
+## v9.146.5 — 2026-10-30 (PATCH): Codex relays survive a later owner question; the plan stays on Claude
+
+**What:** the relay prompt states it belongs to the launched build, a relay that left no worker is retried once, and the `plan` call keeps its Claude agent. Overlay 8.114.4.
+**Why:** a relay read the owner's latest question and declined to run, which sent FRD-13 to Claude. The plan's 132 KB answer cannot cross a relay, so each run planned twice (about 17 minutes each).
+
 ## v9.146.4 — 2026-10-30 (PATCH): every build commit stages through one helper
 
 **What:** `stagePaths` in `build-mech-lib.mjs` replaces each direct `git add` of the build ops. The lanes regression now covers a landing with a dirty journal.
