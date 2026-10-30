@@ -109,3 +109,7 @@
 {"kind":"wo_end","frd":"frd-11-build-modes","wo":"WO-11-003","state":"in_review","at":"2026-10-30T17:38:50.381Z"}
 {"kind":"wo_start","frd":"frd-21-pending-merge","wo":"WO-21-003","at":"2026-10-30T17:43:13Z"}
 {"kind":"wo_end","frd":"frd-21-pending-merge","wo":"WO-21-003","state":"in_review","at":"2026-10-30T17:44:54.373Z"}
+{"kind":"wo_start","frd":"frd-14-snapshot-and-feedback","wo":"WO-14-005","at":"2026-10-30T18:13:24Z"}
+{"kind":"wo_start","frd":"frd-14-snapshot-and-feedback","wo":"WO-14-005","at":"2026-10-30T18:18:46Z"}
+{"kind":"review_end","frd":"frd-25-persistent-navigation","verdict":"blocked","at":"2026-10-30T18:45:25Z"}
+{"kind":"frd_end","frd":"frd-25-persistent-navigation","at":"2026-10-30T18:45:25Z"}
