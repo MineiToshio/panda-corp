@@ -342,7 +342,7 @@ scripts ignore it. There was no v1 work order file, so nothing is superseded.
 `e2e/integration-navigation-refresh.spec.ts` independently checks both legacy query and
 legacy DAG entry points: an initial SSE frame establishes the baseline, a second advances
 it, and the real RSC refresh preserves client focus and canonical dependency selections.
-A server-normalized Architecture entry also preserves model search and expanded URL state
-through reload. The controlled EventSource replaces only transport; history and Next routing
+A server-normalized Architecture entry explicitly selects Diagram (phones default to Schema)
+and preserves model search and expanded URL state through reload. The controlled EventSource replaces only transport; history and Next routing
 remain real. The SVG cases additionally verify painted radar labels stay inside their bounds
 at 320/390/1280px with computed typography at or above 12px.

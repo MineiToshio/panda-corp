@@ -64,6 +64,10 @@ test("server canonicalization preserves client model selections on reload", asyn
     selector: '[data-testid="data-model-viewer"]',
   });
   await expect(page).not.toHaveURL(/tab=architecture/);
+  await page
+    .getByTestId("data-model-viewer")
+    .getByRole("button", { name: "Diagrama", exact: true })
+    .click();
   await page.getByTestId("data-model-viewer").getByRole("searchbox").fill("id");
   await expect(page).toHaveURL(/modelQuery=id/);
   await page.getByTestId("model-fullscreen").click();
