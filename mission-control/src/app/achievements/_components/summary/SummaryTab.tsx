@@ -1,4 +1,5 @@
 import { Card, CardHeader } from "@/components/core/Card/Card";
+import { Icon } from "@/components/core/Icon/Icon";
 import type { ChainState, Seal, Unique } from "@/lib/achievements/achievements";
 import { t, tRich } from "@/lib/copy/copy";
 import type { GuildLevel } from "@/lib/gamification/gamification";
@@ -55,7 +56,7 @@ export function SummaryTab({
           {recent.length ? (
             <div className={styles.recent}>
               {recent.map((trophy) => (
-                <TrophyCard key={trophy.name} trophy={trophy} onOpen={onOpen} />
+                <TrophyCard key={trophy.name} trophy={trophy} variant="recent" onOpen={onOpen} />
               ))}
             </div>
           ) : (
@@ -77,6 +78,7 @@ export function SummaryTab({
               </p>
               <a className={styles.link} href="/achievements/statistics">
                 {t("logros.summary.seeStats")}
+                <Icon name="arrow" size="sm" />
               </a>
             </div>
           </div>

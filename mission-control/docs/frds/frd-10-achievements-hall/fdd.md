@@ -168,3 +168,19 @@ Component tests and static checks are recorded in the decision log. Browser fide
 
 `logros-desktop, logros-mobile` re-blessed after the structural fidelity corrections, viewed against `docs/design/prototype/index.html` at 375 and 1280 in both themes. Reviewer Layer-B sign-off: only the corrected surfaces moved. The route baselines are consistency guards from `e2e/fixtures/factory-root`.
 prototype_blessed_at: 0e6b7191
+
+### Visual closure, 2026-10-31
+
+The Trofeos catalogue follows the approved `#logros?tab=Trofeos` horizontal-card composition: three columns for conquered/nearest trophies, four for the paged locked catalogue, compact secret rows and an icon/percentage progress summary. The existing `TrophyCard` accepts `catalogue`, `near` and `recent` variants so the summary's recent trophy tiles preserve their vertical composition. Category filters, reveal batches, source counts and dialog behavior remain unchanged.
+
+The summary's next-rank discs use the existing `--map-bg` token, 64px containers and 56px sprites. Radar geometry includes radial axes and six vertex markers in `--teal`; labels are capitalized and the statistics link includes an arrow. `GuildHero` keeps its existing public API and implementation for the shared Inicio consumer.
+
+### Independent review corrections, 2026-10-31
+
+`TrophyGrid` receives an explicit won/locked variant, so empty conquered sections retain their trophy icon. Nearest targets are capped at six (three inside a category); remaining locked trophies reuse the same rarity index for a stable ascending order. Locked buttons expose their title and localized locked state.
+
+Catalogue text flexes to the available width. Evidence dates use inline icons and muted extra-small text. Earned slots are 42px; nearest/locked slots are 34px. Secret hints use a decorative violet question mark. Seal tiles show the axis before the count and use gold progress bars. The progress summary uses a 19px gold badge; rarity dots are 7px, derived from spacing tokens.
+
+The summary radar occupies 230px on desktop, uses medium label text and a 4% visual floor while preserving zero in its accessible data. Rank discs shrink to 52px with 44px sprites on phones. Recent tiles use gold icons and omit the project line; the dialog keeps that evidence. Links use medium semibold text and radar prose uses the small muted style. Shared `GuildHero` remains unchanged.
+
+Browser verification at 1280px and 375px confirmed no horizontal overflow, a 230px radar with approximately 9.82px effective labels, 64/52px rank discs, 56/44px sprites, and medium semibold rank links. At 375px the conquered-card text measures 255px, matching the prototype; slots measure 42/34px, rarity dots 7px and the summary badge 19px. Dialog dismissal, category changes and the empty conquered trophy icon were exercised. These checks do not re-bless the existing screenshot baselines.

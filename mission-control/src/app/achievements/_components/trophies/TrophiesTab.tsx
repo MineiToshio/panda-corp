@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { useState } from "react";
+import { BadgeIcon } from "@/components/core/BadgeIcon/BadgeIcon";
 import { FilterChip } from "@/components/core/Chip/FilterChip";
 import { MoreBar, pagedReveal } from "@/components/core/MoreBar/MoreBar";
 import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
@@ -8,7 +9,7 @@ import type { Seal, Secret, Unique } from "@/lib/achievements/achievements";
 import { t } from "@/lib/copy/copy";
 import { useUrlState } from "@/lib/navigation/useUrlState";
 import { CATEGORIES, categoryLabel } from "../../_utils/presentation";
-import { nearestTrophies } from "../../_utils/viewRules";
+import { nearestTrophies, RARITY_INDEX } from "../../_utils/viewRules";
 import { SealTile } from "./SealTile";
 import { SecretTile } from "./SecretTile";
 import { TrophyCard } from "./TrophyCard";
@@ -31,12 +32,22 @@ export function TrophiesTab({
   const filtered = uniques.filter((item) => category === "all" || item.category === category);
   const won = filtered.filter((item) => item.unlocked);
   const nearest = nearestTrophies(filtered, category === "all" ? undefined : category);
-  const todo = filtered.filter((item) => !item.unlocked && !nearest.includes(item));
+  const todo = filtered
+    .filter((item) => !item.unlocked && !nearest.includes(item))
+    .sort((a, b) => RARITY_INDEX[a.rarity] - RARITY_INDEX[b.rarity]);
   const wonCount = uniques.filter((item) => item.unlocked).length;
   return (
     <div className={styles.stack}>
       <div className={styles.conquered}>
-        <b>{t("logros.trophies.progress", { won: wonCount, total: uniques.length })}</b>
+        <div className={styles.progressHead}>
+          <b>
+            <span className={styles.summaryBadge}>
+              <BadgeIcon icon="trophy" tone="gold" size="sm" />
+            </span>{" "}
+            {t("logros.trophies.progress", { won: wonCount, total: uniques.length })}
+          </b>
+          <span>{uniques.length ? Math.round((wonCount / uniques.length) * 100) : 0}%</span>
+        </div>
         <ProgressBar
           tone="gold"
           done={wonCount}
@@ -46,6 +57,7 @@ export function TrophiesTab({
       </div>
       <section>
         <SectionHead
+          icon="shield"
           label={t("logros.trophies.seals")}
           note={t("logros.trophies.sealsCount", {
             done: seals.filter((seal) => seal.unlocked).length,
@@ -69,6 +81,7 @@ export function TrophiesTab({
         ))}
       </fieldset>
       <TrophyGrid
+        variant="won"
         title={t("logros.trophies.won")}
         items={won}
         secrets={category === "all" ? secrets.filter((secret) => secret.unlocked) : []}
@@ -77,6 +90,7 @@ export function TrophiesTab({
       />
       <section>
         <SectionHead
+          icon="target"
           label={t("logros.trophies.near")}
           tone="green"
           note={t("logros.trophies.nearCount", {
@@ -91,7 +105,7 @@ export function TrophiesTab({
         </p>
         <div className={styles.grid}>
           {nearest.map((trophy) => (
-            <TrophyCard key={trophy.name} trophy={trophy} onOpen={onOpen} />
+            <TrophyCard key={trophy.name} trophy={trophy} variant="near" onOpen={onOpen} />
           ))}
         </div>
       </section>
@@ -99,6 +113,7 @@ export function TrophiesTab({
       {category === "all" ? (
         <section>
           <SectionHead
+            icon="sparkles"
             label={t("logros.trophies.secrets")}
             tone="violet"
             note={t("logros.trophies.secretsCount", {
@@ -106,7 +121,7 @@ export function TrophiesTab({
               total: secrets.length,
             })}
           />
-          <div className={styles.grid}>
+          <div className={styles.secrets}>
             {secrets
               .filter((secret) => !secret.unlocked)
               .map((secret) => (
@@ -119,6 +134,7 @@ export function TrophiesTab({
   );
 }
 function TrophyGrid({
+  variant,
   title,
   items,
   secrets = [],
@@ -126,6 +142,7 @@ function TrophyGrid({
   empty,
   onOpen,
 }: {
+  variant: "won" | "locked";
   title: string;
   items: readonly Unique[];
   secrets?: readonly Secret[];
@@ -135,9 +152,9 @@ function TrophyGrid({
 }): React.JSX.Element {
   return (
     <section aria-label={title}>
-      <SectionHead label={title} count={total} />
+      <SectionHead icon={variant === "won" ? "trophy" : "lock"} label={title} count={total} />
       {items.length || secrets.length ? (
-        <div className={styles.grid}>
+        <div className={variant === "won" ? styles.grid : styles.lockedGrid}>
           {items.map((trophy) => (
             <TrophyCard key={trophy.name} trophy={trophy} onOpen={onOpen} />
           ))}
@@ -163,6 +180,7 @@ function LockedGrid({
   return (
     <section>
       <TrophyGrid
+        variant="locked"
         title={t("logros.trophies.todo")}
         items={items.slice(0, reveal.visible)}
         total={items.length}

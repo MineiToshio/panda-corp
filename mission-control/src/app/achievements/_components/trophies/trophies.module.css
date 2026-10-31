@@ -5,7 +5,7 @@
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--s3);
 }
 .trophy,
@@ -64,11 +64,11 @@
 }
 .seal {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--s3);
   padding: var(--s3);
   border-radius: var(--r);
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--text);
   border: var(--hairline) solid var(--line);
 }
@@ -89,13 +89,10 @@
   display: grid;
   gap: var(--s3);
   padding: var(--s4);
-  background: color-mix(in srgb, var(--gold) 8%, var(--surface));
+  background: var(--surface);
+  border: var(--hairline) solid var(--line);
   border-radius: var(--r-lg);
   font-variant-numeric: tabular-nums;
-}
-.secret {
-  border-style: dashed;
-  background: color-mix(in srgb, var(--violet) 5%, var(--surface));
 }
 @media (max-width: 1023px) {
   .grid,
@@ -104,7 +101,8 @@
   }
 }
 @media (max-width: 759px) {
-  .grid {
+  .grid,
+  .seals {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -120,4 +118,152 @@
   justify-content: space-between;
   gap: var(--s2);
   font-size: var(--fs-md);
+}
+
+/* Catalogue cards use the approved horizontal, compact trophy layout. */
+.trophy:not([data-variant="recent"]) {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  border-radius: var(--r);
+  padding: var(--s3);
+}
+.details {
+  flex: 1;
+  display: grid;
+  gap: var(--s1);
+  min-width: 0;
+}
+.trophy:not([data-variant="recent"]) b {
+  font-size: var(--fs-sm);
+}
+.trophy:not([data-variant="recent"]) .icon {
+  flex: none;
+  width: calc(var(--s8) + var(--s1) / 2);
+  height: calc(var(--s8) + var(--s1) / 2);
+  color: var(--text-3);
+  background: var(--surface-2);
+}
+.trophy[data-locked="false"]:not([data-variant="recent"]) {
+  padding: var(--s4);
+  border-color: color-mix(in srgb, var(--gold) 35%, var(--line));
+}
+.trophy[data-locked="false"]:not([data-variant="recent"]) .icon,
+.trophy[data-variant="near"] .icon {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) var(--tint-strong), var(--surface));
+}
+.trophy[data-variant="near"] {
+  border-color: color-mix(in srgb, var(--gold) 40%, var(--line));
+  background: color-mix(in srgb, var(--gold) 5%, var(--surface));
+}
+.rarity {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.dot {
+  width: calc(var(--s2) - var(--s1) / 4);
+  height: calc(var(--s2) - var(--s1) / 4);
+  border-radius: var(--r-pill);
+  background: var(--tone);
+  flex: none;
+}
+.lockedGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s2);
+}
+.secrets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s2);
+}
+.secret {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: calc(var(--s10) + var(--s1));
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r);
+  border-style: solid;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-style: italic;
+}
+.secretMark {
+  flex: none;
+  color: var(--violet);
+  font-weight: 800;
+  font-style: normal;
+}
+.progressHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s2);
+}
+.progressHead b {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.progressHead > span {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.seal b {
+  font-size: var(--fs-sm);
+}
+@media (max-width: 1023px) {
+  .lockedGrid,
+  .secrets {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 759px) {
+  .lockedGrid,
+  .secrets {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.details small {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.details small > svg {
+  display: inline;
+  vertical-align: text-bottom;
+  margin-right: var(--s1);
+}
+.trophy[data-locked="false"]:not([data-variant="recent"]) b {
+  font-size: var(--fs-md);
+}
+.trophy[data-locked="false"]:not([data-variant="recent"]) .icon {
+  width: calc(var(--s10) + var(--s1) / 2);
+  height: calc(var(--s10) + var(--s1) / 2);
+}
+.trophy[data-variant="recent"][data-locked="false"] .icon {
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) var(--tint-strong), var(--surface));
+}
+.trophy[data-variant="near"] .icon {
+  background: color-mix(in srgb, var(--gold) var(--tint), var(--surface));
+}
+.trophy[data-variant="catalogue"][data-locked="true"] b {
+  color: var(--text-2);
+}
+.summaryBadge > span {
+  width: calc(var(--s5) - var(--s1) / 4);
+  height: calc(var(--s5) - var(--s1) / 4);
+}
+@media (hover: hover) {
+  .trophy:hover,
+  .secret:hover {
+    border-color: var(--line-strong);
+  }
 }

@@ -18,12 +18,12 @@ export function SealTile({
   return (
     <div
       className={variant === "row" ? styles.sealRow : `seal ${styles.seal}`}
-      data-tone={seal.unlocked ? "gold" : "slate"}
+      data-tone={variant === "tile" || seal.unlocked ? "gold" : "slate"}
     >
       {variant === "row" ? (
         <BadgeIcon icon={seal.unlocked ? "shield" : "lock"} size="sm" />
       ) : (
-        <Icon name={seal.unlocked ? "shield" : "lock"} />
+        <Icon name={seal.unlocked ? "shield" : "lock"} size="sm" />
       )}
       <div>
         <div className={styles.sealHead}>
@@ -35,14 +35,14 @@ export function SealTile({
           )}
         </div>
         <small>
-          {variant === "tile" && `${seal.earned}/${seal.total} · `}
           {categoryLabel(seal.axis)}
+          {variant === "tile" && ` · ${seal.earned}/${seal.total}`}
         </small>
         {progress ? (
           <ProgressBar
             done={seal.earned}
             total={seal.total}
-            tone={seal.unlocked ? "gold" : "slate"}
+            tone={variant === "tile" || seal.unlocked ? "gold" : "slate"}
             ariaLabel={seal.name}
           />
         ) : null}

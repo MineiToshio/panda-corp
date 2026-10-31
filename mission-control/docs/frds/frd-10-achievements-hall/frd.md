@@ -187,7 +187,7 @@ figures, plus a KPI row of FLOW metrics.
 
 - **AC-10-028.1** — THE Logros Resumen SHALL show, in its right column, "Tu siguiente rango" (the current and next emblem, the XP left and how XP is earned), a compact attributes radar naming the strongest and weakest attribute, and the last four trophies.
 - **AC-10-028.2** — WITHIN each saga on Misiones, missions SHALL be ordered by closeness to their next tier, with untouched missions (zero progress) last and muted.
-- **AC-10-028.3** — (amended 2026-10-22, v2 reconciliation) THE Trofeos tab SHALL show a conquered bar and the row of Sellos, "Los más alcanzables" (the lowest-rarity locked trophy of each category, three when a category filter is active), and SHALL list the locked trophies of "Por conquistar" paged with the shared "Mostrar más" bar: the first 12, then WHEN the bar is activated THE system SHALL reveal the next 24 (or what remains), the bar reading "Mostrar N más · quedan M" with N = the next batch (at most 24) and M = the trophies still hidden (the captured state draws "Mostrar 24 más · quedan 46").
+- **AC-10-028.3** — (amended 2026-10-22, v2 reconciliation) THE Trofeos tab SHALL show a conquered bar and the row of Sellos, "Los más alcanzables" (at most six lowest-rarity locked trophies, one per category; three when a category filter is active), and SHALL list the locked trophies of "Por conquistar" paged with the shared "Mostrar más" bar: the first 12, then WHEN the bar is activated THE system SHALL reveal the next 24 (or what remains), the bar reading "Mostrar N más · quedan M" with N = the next batch (at most 24) and M = the trophies still hidden (the captured state draws "Mostrar 24 más · quedan 46").
 - **AC-10-028.4** — THE Rangos tab SHALL collapse every era more than one step beyond the current rank into a single row showing its level range and its rank count.
 - **AC-10-028.5** — WHERE a counter's event has never been recorded, THE Estadísticas tab SHALL show "sin datos aún" (not 0) with an explanatory line that distinguishes it from "no cableado", and SHALL list phase transitions 10 at a time.
 
@@ -209,3 +209,14 @@ before they can ship — never shipped as dormant.
 ## Persistent navigation integration — FRD-25 (2026-10-17)
 
 The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+
+### Visual closure, 2026-10-31 (AC-10-028.1 / AC-10-028.3)
+
+- The conquered summary includes a trophy icon, real earned/total counts and the rounded earned percentage (zero for an empty catalogue).
+- At desktop width, conquered and nearest trophies use three columns of horizontal cards. Locked trophies remain a denser four-column grid. Rarity is a text line with a colored dot; nearest trophies include the category on that line and a gold-tinted target icon/card. Mobile grids collapse to one column.
+- Locked secrets are compact hint rows with a decorative violet question mark; no condition or invented evidence is exposed.
+- Summary rank steps use 64px dark circular discs with 56px pixel emblems (52px discs and 44px sprites on phones). The next emblem is visually muted. The attributes radar uses teal fill, axes and vertex markers, with capitalized labels and a directional statistics link. Recent trophies retain the vertical tile treatment.
+
+- The remaining locked catalogue is ordered by ascending rarity, preserving catalogue order for ties. Won/locked section icons are explicit, including an empty conquered section. Locked trophy buttons include the trophy title and localized locked state in their accessible name.
+- Catalogue card text fills the remaining horizontal space. Earned cards use 42px slots and medium titles; nearest/locked cards use 34px slots and small icons. Dates remain inline with muted extra-small evidence text; rarity dots measure 7px. The summary progress icon uses a gold 19px badge.
+- The summary radar is 230px wide at desktop, with medium SVG label text, a minimum visual radius of 4% for zero values, and unchanged actual values in its accessible description. Summary links use medium semibold text. Recent trophy icons are gold; project evidence remains available in the detail dialog rather than the recent tile.

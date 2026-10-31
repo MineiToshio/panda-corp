@@ -22,7 +22,9 @@ export function NextRankCard({ level }: { level: GuildLevel }): React.JSX.Elemen
       <CardHeader title={t("logros.nextRank.title")} icon="crown" />
       <div className={styles.rankPair}>
         <div>
-          <RankEmblem sprite={current.sprite} icon={current.icon} size={56} alt={current.title} />
+          <span className={styles.emblem}>
+            <RankEmblem sprite={current.sprite} icon={current.icon} size={56} alt={current.title} />
+          </span>
           <b>{current.title}</b>
           <small>{t("logros.nextRank.now", { level: level.level })}</small>
         </div>
@@ -32,7 +34,9 @@ export function NextRankCard({ level }: { level: GuildLevel }): React.JSX.Elemen
               <Icon name="arrow" />
             </span>
             <div>
-              <RankEmblem sprite={next.sprite} icon={next.icon} size={56} alt={next.title} />
+              <span className={`${styles.emblem} ${styles.nextEmblem}`}>
+                <RankEmblem sprite={next.sprite} icon={next.icon} size={56} alt={next.title} />
+              </span>
               <b>{next.title}</b>
               <small>{t("logros.nextRank.from", { level: next.minLevel })}</small>
             </div>

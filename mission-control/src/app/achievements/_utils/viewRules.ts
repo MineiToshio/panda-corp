@@ -29,7 +29,8 @@ export function orderedMissions(chains: readonly ChainState[]): ChainState[] {
     (a, b) => Number(untouched(a)) - Number(untouched(b)) || b.pctToNext - a.pctToNext,
   );
 }
-const RARITY_INDEX: Record<Rarity, number> = {
+/** Shared ascending rarity order for targets and the remaining catalogue. */
+export const RARITY_INDEX: Record<Rarity, number> = {
   Común: 0,
   "Poco común": 1,
   Raro: 2,
@@ -43,11 +44,13 @@ export function nearestTrophies(uniques: readonly Unique[], category?: string): 
     .sort((a, b) => RARITY_INDEX[a.rarity] - RARITY_INDEX[b.rarity]);
   if (category) return locked.slice(0, 3);
   const seen = new Set<UniqueCategory>();
-  return locked.filter((item) => {
-    if (seen.has(item.category)) return false;
-    seen.add(item.category);
-    return true;
-  });
+  return locked
+    .filter((item) => {
+      if (seen.has(item.category)) return false;
+      seen.add(item.category);
+      return true;
+    })
+    .slice(0, 6);
 }
 /** Far eras collapse; the current era and its immediate successor remain open. */
 export function eraCollapsed(era: number, currentEra: number): boolean {

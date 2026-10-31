@@ -1,4 +1,3 @@
-import { Icon } from "@/components/core/Icon/Icon";
 import type { Secret } from "@/lib/achievements/achievements";
 import { t } from "@/lib/copy/copy";
 import { TrophyCard, type TrophyView } from "./TrophyCard";
@@ -25,9 +24,10 @@ export function SecretTile({
   }
   return (
     <div className={`secret-tile ${styles.secret}`} data-tone="violet">
-      <Icon name="lock" />
-      <b>{secret.hint}</b>
-      <span>{t("logros.trophy.locked")}</span>
+      <span className={styles.secretMark} aria-hidden="true">
+        ?
+      </span>
+      <span>{secret.hint}</span>
     </div>
   );
 }

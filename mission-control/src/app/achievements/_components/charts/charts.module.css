@@ -6,8 +6,7 @@
   color: var(--text-2);
 }
 .radar {
-  /* 240 px is the viewBox width: below it the labels scale under the 12 px floor. */
-  min-inline-size: min(calc(var(--s10) * 6), 100%);
+  min-inline-size: 0;
   max-inline-size: calc(var(--s10) * 7.5);
   margin-inline: auto;
 }
@@ -21,8 +20,8 @@
   stroke-width: 1;
 }
 .area {
-  fill: color-mix(in srgb, var(--gold) 20%, transparent);
-  stroke: var(--gold);
+  fill: color-mix(in srgb, var(--teal) 30%, transparent);
+  stroke: var(--teal);
   stroke-width: 2;
 }
 .column {
@@ -32,4 +31,13 @@
   fill: none;
   stroke: var(--teal);
   stroke-width: 2;
+}
+
+.vertex {
+  fill: var(--teal);
+}
+.radar text {
+  font-size: var(--fs-md);
+  text-transform: capitalize;
+  font-weight: 600;
 }

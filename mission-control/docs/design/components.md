@@ -251,3 +251,9 @@ live in its scoped `PitchDecision.tsx`; Evidence forwards the host reader resolv
 papers follow the shared paper geometry and expose a localized empty state when prose is absent.
 IdeaHeader scopes the oracle 40px favourite and 32px small navigation actions to the idea header;
 other FavouriteButton and ButtonLink consumers retain their current sizing.
+
+### Logros visual closure (2026-10-31)
+
+`TrophyCard` (`src/app/achievements/_components/trophies/TrophyCard.tsx`) supports `catalogue` (horizontal rarity-line card), `near` (gold-tinted target with category) and `recent` (vertical chips tile). `SecretTile` renders a compact locked hint row. `NextRankCard` uses 64px dark discs and 56px pixel sprites; `RadarChart` uses teal geometry, radial axes and vertex markers. `GuildHero`'s public API is unchanged.
+
+Independent review refinement (2026-10-31): catalogue cards use flexible text, inline extra-small date evidence, 42px earned / 34px locked slots and 7px rarity dots. Locked cards name their state accessibly. Secret hints use a decorative violet question mark; seal tiles place the axis before the count with gold bars. The summary badge is 19px, rank discs shrink to 52px/44px on phones, and the 230px radar uses medium labels with a 4% visual floor. Recent tiles omit project text; summary links are medium semibold.

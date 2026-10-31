@@ -62,6 +62,21 @@ describe("hall view rules", () => {
       "third",
     ]);
   });
+  it("caps the all-category targets at six while retaining rarity order", () => {
+    const categories = [
+      "Discovery",
+      "Speed",
+      "Quality",
+      "Consistency",
+      "Mastery",
+      "Production",
+      "Guild",
+      "Resilience",
+    ] as const;
+    expect(
+      nearestTrophies(categories.map((category) => trophy(category, { category }))),
+    ).toHaveLength(6);
+  });
   it("AC-10-028.4 collapses only eras beyond the current and its immediate successor", () => {
     expect(eraCollapsed(0, 0)).toBe(false);
     expect(eraCollapsed(1, 0)).toBe(false);

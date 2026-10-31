@@ -108,7 +108,11 @@ describe("Orbita hall surfaces", () => {
       within(screen.getByRole("region", { name: "Por conquistar" })).getAllByRole("button"),
     ).toHaveLength(36);
     expect(screen.getByRole("button", { name: "Mostrar 13 más · quedan 13" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Descubrimiento/ }));
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Categoría" })).getByRole("button", {
+        name: /Descubrimiento/,
+      }),
+    );
     expect(window.location.search).toContain("category=Discovery");
     expect(screen.queryByText("Cryptic hint")).not.toBeInTheDocument();
     expect(
