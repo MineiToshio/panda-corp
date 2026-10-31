@@ -127,7 +127,7 @@ describe("AC-22-004.1 fail-loud boundary", () => {
   it.each([
     ["severity out of range", { severity: "p3" }, "invalid severity"],
     ["severity uppercase", { severity: "P1" }, "invalid severity"],
-    ["severity empty string", { severity: '""' }, "invalid severity"],
+    ["severity blank", { severity: '"  "' }, "invalid severity"],
     ["status from another queue", { status: "ready" }, "invalid or missing status"],
     ["status missing", { status: undefined }, "invalid or missing status"],
     ["type from another queue", { type: "feature" }, "invalid or missing type"],

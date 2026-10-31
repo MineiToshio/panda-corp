@@ -128,7 +128,10 @@ describe("REQ-18-011: routine progress never enters the queue", () => {
     const groups = deriveFlightGroups([inbox()]);
     expect(groups.map((group) => group.kind)).toEqual(["building", "draft"]);
     expect(groups[0]?.rows[0]?.href).toBe("/portfolio/example/changes?change=c-building");
-    expect(groups[1]?.rows[0]).toMatchObject({ count: 1, href: "/portfolio/example/changes" });
+    expect(groups[1]?.rows[0]).toMatchObject({
+      title: "1 cambio en borrador",
+      href: "/portfolio/example/changes",
+    });
   });
 });
 

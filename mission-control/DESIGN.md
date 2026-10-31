@@ -34,7 +34,7 @@ All values come from `design-tokens.json`; the CSS only reads custom properties.
 | Space | `--s1`…`--s12` = 4/8/12/16/20/24/32/40/48 | |
 | Radii | `--r-xs` 6 · `--r-sm` 8 · `--r-md` 10 · `--r` 12 · `--r-lg` 16 · `--r-xl` 22 · `--r-2xl` 28 · `--r-pill` | cards 16, buttons/fields/command boxes 12, small buttons 8, dialog 22 |
 | Strokes | `--hairline` 1px · `--rule` 3px | `--rule` is the focus/selection halo width, never an edge stripe |
-| Elevation | `--shadow` (resting) `--shadow-sm` `--shadow-node` `--shadow-drop` `--shadow-panel` `--shadow-dialog` `--shadow-toast` | soft in light; dark adds an inset hairline to `--shadow` |
+| Elevation | `--shadow` (resting) `--shadow-sm` `--shadow-node` `--shadow-drop` `--shadow-panel` `--shadow-dialog` `--shadow-crest` `--shadow-toast` | soft in light; dark adds an inset hairline to `--shadow` |
 | Layout | `--sidebar` 252 · `--rail-c` 64 (collapsed desktop rail) · `--rail` 76 (tablet rail) · `--content` 1180 | page frame = `--content` + 2 × 40px gutters |
 | Motion | `--ease` `cubic-bezier(.2,.8,.2,1)` · `--dur` 160ms | see Motion |
 | Scene | `--scene-*` (text 1-3, surface 1-2, line 1-2, nine hues) · `--map-*` (bg, room, edge, label bg/fg, hand-off bg/fg) | defined once at `:root`, the dark palette, **not** re-declared per theme |

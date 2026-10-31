@@ -74,6 +74,7 @@
   --shadow-panel: 20px 0 60px #16192240;
   --shadow-dialog: 0 30px 80px #16192240;
   --shadow-toast: 0 16px 40px #16192240;
+  --shadow-crest: 0 10px 30px color-mix(in srgb, var(--gold) 30%, transparent);
   --text-*: initial;
   --text-xs: var(--fs-xs);
   --text-sm: var(--fs-sm);

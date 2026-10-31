@@ -8,6 +8,8 @@ Retained counts, re-read: signals 35 rests on FRD-17 REQ-17-014 and the seven sk
 
 Fidelity corrections against `prototype.css`/`prototype.js`: band bleed restored by dropping the one-axis clips that cut it, since `overflow-clip-margin` did not apply; spec callouts, scope items, muted pills, bullets, decisions and document buttons ported; hero and next-rank emblems drop the grade badge; Logros spacing, Cuentas phone labels and service icons, idea header tones and score fallback, and signal-group tones and chevrons aligned.
 
+The first full gate after these patches failed three reviewer tests the scoped runs had not covered, all from the reviewed patches. GuildHero's crest shadow now reads `--shadow-crest`. Two reviewer assertions were amended by the independent reviewer: the empty-severity row of AC-22-004.1 became a blank-severity row, because the oracle fixture's BL-0011 and AC-22-008.1 treat empty as absent; the FRD-18 draft row asserts its title instead of the removed `count`.
+
 ## 2026-10-31 · Reader/count reconciliation after Visual QA (f1)
 
 Production readers were executed against `docs/design/prototype/fixtures/factory-root`, its sibling project fixtures and the environment from `src/lib/config/oracleEnv.ts`. The regression evidence is `src/lib/inicio/_tests/oracleCounts.test.ts`; no fixture, visual baseline or owner state was changed.
