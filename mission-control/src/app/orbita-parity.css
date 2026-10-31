@@ -377,6 +377,7 @@ body .dhero {
 body .dhero .eyebrow {
   font: 700 var(--fs-xs) / 1.2 var(--font-body);
   letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--teal);
 }
 body .dhero h2 {
@@ -1171,4 +1172,47 @@ body .snap-sha {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--s2);
+}
+
+body .sbul {
+  margin: 0;
+  padding-left: 1.1em;
+  display: grid;
+  gap: 6px;
+}
+body .sbul li::marker {
+  color: var(--tone, var(--text-3));
+}
+body .muted-pill {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  border: var(--hairline) solid var(--line);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+body ul.decs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+body .decs li {
+  position: relative;
+  padding: 8px 0 8px 22px;
+  border-top: var(--hairline) dashed color-mix(in srgb, var(--amber) 35%, transparent);
+  font-size: var(--fs-sm);
+}
+body .decs li:first-child {
+  border-top: 0;
+}
+body .decs li::before {
+  content: "◆";
+  position: absolute;
+  left: 2px;
+  color: var(--amber);
+}
+body .band-head .card-head {
+  flex-wrap: nowrap;
 }

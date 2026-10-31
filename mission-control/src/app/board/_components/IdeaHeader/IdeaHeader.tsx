@@ -1,6 +1,7 @@
 import { BadgeIcon } from "@/components/core/BadgeIcon/BadgeIcon";
 import { ButtonLink } from "@/components/core/Button/ButtonLink";
 import { Chip } from "@/components/core/Chip/Chip";
+import type { Tone } from "@/components/core/Chip/vocabulary";
 import { DiscardButton } from "@/components/core/DiscardButton/DiscardButton";
 import { FavoriteButton } from "@/components/core/FavoriteButton/FavoriteButton";
 import { Icon } from "@/components/core/Icon/Icon";
@@ -25,6 +26,16 @@ const STAGES = {
   discarded: "idea.header.stageDiscarded",
 } as const;
 
+const STAGE_TONES = {
+  discovered: "teal",
+  documented: "blue",
+  design: "pink",
+  architecture: "amber",
+  building: "violet",
+  shipped: "green",
+  discarded: "slate",
+} as const satisfies Record<keyof typeof STAGES, Tone>;
+
 /** Drill-in header with the idea's title, stage and reversible actions. */
 export function IdeaHeader({
   card,
@@ -41,22 +52,29 @@ export function IdeaHeader({
   readonly restoreAction: (slug: string) => Promise<RestoreResult>;
   readonly favoriteAction: (slug: string, favorite: boolean) => Promise<FavoriteResult>;
 }): React.JSX.Element {
+  const tone = card.status === "discarded" ? "slate" : STAGE_TONES[column];
   return (
     <>
-      <header className={`idea-head ${styles.header}`} data-tone="amber">
+      <header className={`idea-head ${styles.header}`} data-tone={tone}>
         <div className={`idea-title ${styles.title}`}>
-          <BadgeIcon icon="bulb" tone="amber" />
+          <BadgeIcon icon="bulb" tone={tone} />
           <h1>{card.title}</h1>
           <div className={`row ${styles.meta}`}>
             {card.projectType && (
-              <Chip tone="slate">{CATEGORY_LABELS[card.projectType]?.[0] ?? card.projectType}</Chip>
+              <Chip tone="slate" variant="plain">
+                {CATEGORY_LABELS[card.projectType]?.[0] ?? card.projectType}
+              </Chip>
             )}
             {card.returnType && (
-              <Chip tone="slate">{RETURN_LABELS[card.returnType]?.[0] ?? card.returnType}</Chip>
+              <Chip tone={RETURN_LABELS[card.returnType]?.[1] ?? "slate"}>
+                {RETURN_LABELS[card.returnType]?.[0] ?? card.returnType}
+              </Chip>
             )}
-            {card.score !== undefined && (
-              <span>{t("idea.header.scoreOf", { score: card.score })}</span>
-            )}
+            <span>
+              {card.score
+                ? t("idea.header.scoreOf", { score: card.score })
+                : t("tablero.card.noScore")}
+            </span>
           </div>
         </div>
         <p className={`idea-stage ${styles.stage}`}>

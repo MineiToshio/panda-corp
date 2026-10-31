@@ -79,7 +79,7 @@ export function HallTabs({
     updateNavigation({ hallTab: id, trophy: null });
   }
   return (
-    <div data-testid="logros-tabs" className="grid min-w-0 grid-cols-1 gap-5">
+    <div data-testid="logros-tabs" className="grid min-w-0 grid-cols-1">
       {hero}
       <Tabs
         tabs={TABS.map((id) => ({

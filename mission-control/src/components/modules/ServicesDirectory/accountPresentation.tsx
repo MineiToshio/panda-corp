@@ -2,9 +2,22 @@
 import { useState } from "react";
 import { Chip } from "@/components/core/Chip/Chip";
 import { CopyText } from "@/components/core/CopyText/CopyText";
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 import { type CopyKey, t } from "@/lib/copy/copy";
 import type { ServiceAccount, ServiceAllocation, ServiceProvider } from "@/lib/services/types";
 import styles from "./ServicesDirectory.module.css";
+
+const SERVICE_ICONS: Readonly<Record<string, IconName>> = {
+  database: "database",
+  authentication: "lock",
+  storage: "archive",
+  hosting: "cube",
+  email: "inbox",
+  analytics: "activity",
+  monitoring: "eye",
+  payments: "bolt",
+};
 
 /** Service-domain states have their own words, independent of work-order states. */
 export function AccountState({
@@ -77,6 +90,7 @@ export function ProviderLink({
       rel="noopener noreferrer"
       title={t("workspace.cuentas.openPanelTitle", { provider: provider.name })}
     >
+      <Icon name={SERVICE_ICONS[provider.type] ?? "cube"} size="sm" />
       <b>{provider.name}</b>
       <span className="sr-only">{t("common.newTab.srSuffix")}</span>
     </a>

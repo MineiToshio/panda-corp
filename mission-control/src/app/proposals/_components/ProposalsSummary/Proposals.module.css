@@ -121,6 +121,20 @@
   border-radius: 0;
   padding: var(--s4) 0;
 }
+.signals > summary {
+  color: var(--tone);
+}
+.signals > summary b {
+  color: var(--text);
+  font-size: var(--fs-md);
+}
+.signalChevron {
+  display: inline-flex;
+  margin-left: auto;
+}
+.signals[open] .signalChevron {
+  transform: rotate(180deg);
+}
 .signal {
   padding: var(--s3) 0;
   font-size: var(--fs-sm);

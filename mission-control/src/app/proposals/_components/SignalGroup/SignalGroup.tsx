@@ -1,9 +1,19 @@
-import { CountPill } from "@/components/core/Chip/CountPill";
+import { Chip } from "@/components/core/Chip/Chip";
+import type { Tone } from "@/components/core/Chip/vocabulary";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 import { t, tRich } from "@/lib/copy/copy";
 import type { SignalGroupData } from "@/lib/proposals/signals";
 import styles from "../ProposalsSummary/Proposals.module.css";
+
+const GROUP_LOOK = {
+  board: { tone: "blue", icon: "columns" },
+  recurring: { tone: "teal", icon: "rocket" },
+  unused: { tone: "slate", icon: "activity" },
+  other: { tone: "slate", icon: "sparkles" },
+} as const satisfies Record<SignalGroupData["kind"], { tone: Tone; icon: IconName }>;
+
 /** Native disclosure of automatic signals with explicit unreliable-signal copy. */
 export function SignalGroup({
   group,
@@ -33,11 +43,17 @@ export function SignalGroup({
           ? t("propuestas.signals.recurring.note")
           : null;
   return (
-    <details className={`sig-group ${styles.disclosure} ${styles.signals}`}>
+    <details
+      className={`sig-group ${styles.disclosure} ${styles.signals}`}
+      data-tone={GROUP_LOOK[group.kind].tone}
+    >
       <summary>
-        <Icon name="activity" />
-        {t(`propuestas.signals.${group.kind}.title`)}
-        <CountPill count={group.items.length} />
+        <Icon name={GROUP_LOOK[group.kind].icon} size="sm" />
+        <b>{t(`propuestas.signals.${group.kind}.title`)}</b>
+        <Chip tone={GROUP_LOOK[group.kind].tone}>{group.items.length}</Chip>
+        <span className={styles.signalChevron}>
+          <Icon name="chevD" size="sm" />
+        </span>
       </summary>
       {note && <p className={styles.intro}>{note}</p>}
       {sharedCommand && <CmdRow command={sharedCommand} />}

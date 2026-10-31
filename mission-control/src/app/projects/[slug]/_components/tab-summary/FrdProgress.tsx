@@ -31,7 +31,7 @@ export function FrdProgress({
       <CardHeader
         title={t("workspace.resumen.frdProgress.title")}
         count={error ? undefined : frds.length}
-        icon="layers"
+        icon="clipboard"
       />
       {error ??
         (rows.length ? (

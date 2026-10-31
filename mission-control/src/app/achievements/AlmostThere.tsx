@@ -14,21 +14,23 @@ export function AlmostThere({ chains }: { chains: readonly ChainState[] }): Reac
     <Card tone="gold">
       <CardHeader title={t("logros.summary.almostThere")} icon="target" />
       {near.length ? (
-        near.map((chain) => (
-          <div key={chain.statKey}>
-            <div className={styles.rowHead}>
-              <strong>{chain.nextTier?.name}</strong>
-              <span className={styles.counter}>
-                {chain.value ?? 0} / {chain.nextTier?.threshold}
-              </span>
+        <div className={styles.stack}>
+          {near.map((chain) => (
+            <div key={chain.statKey}>
+              <div className={styles.rowHead}>
+                <strong>{chain.nextTier?.name}</strong>
+                <span className={styles.counter}>
+                  {chain.value ?? 0} / {chain.nextTier?.threshold}
+                </span>
+              </div>
+              <p className={styles.missionLabel}>
+                {chain.label}
+                {chain.saga ? ` · ${chain.saga}` : ""}
+              </p>
+              <ProgressBar tone="gold" done={chain.pctToNext} total={100} ariaLabel={chain.label} />
             </div>
-            <p className={styles.missionLabel}>
-              {chain.label}
-              {chain.saga ? ` · ${chain.saga}` : ""}
-            </p>
-            <ProgressBar tone="gold" done={chain.pctToNext} total={100} ariaLabel={chain.label} />
-          </div>
-        ))
+          ))}
+        </div>
       ) : (
         <p>{t("logros.summary.noMissionNear")}</p>
       )}

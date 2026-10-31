@@ -16,8 +16,8 @@ export type TabId =
   | "documents"
   | "commands";
 const WORKSPACE_TABS = [
-  { id: "summary", label: t("common.workspaceTabs.resumen"), icon: "home", tone: "violet" },
-  { id: "spec", label: t("common.workspaceTabs.spec"), icon: "book", tone: "blue" },
+  { id: "summary", label: t("common.workspaceTabs.resumen"), icon: "gauge", tone: "slate" },
+  { id: "spec", label: t("common.workspaceTabs.spec"), icon: "layers", tone: "blue" },
   {
     id: "observability",
     label: t("common.workspaceTabs.observabilidad"),

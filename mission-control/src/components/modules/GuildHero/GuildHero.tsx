@@ -12,7 +12,6 @@ interface GuildHeroProps {
   pctToNext: number;
   rankIcon?: IconName;
   rankSprite?: string;
-  rankGrade?: number;
   trophiesCount: number;
   trophiesTotal: number;
   secretsCount?: number;
@@ -29,7 +28,6 @@ export function GuildHero({
   pctToNext,
   rankIcon,
   rankSprite,
-  rankGrade,
   trophiesCount,
   trophiesTotal,
   secretsCount = 0,
@@ -46,7 +44,7 @@ export function GuildHero({
     >
       <div className={styles.crest}>
         <div className={styles.crestInner}>
-          <RankEmblem sprite={rankSprite} icon={rankIcon} grade={rankGrade} size={64} alt={title} />
+          <RankEmblem sprite={rankSprite} icon={rankIcon} size={64} alt={title} />
         </div>
       </div>
       <div className={styles.body}>

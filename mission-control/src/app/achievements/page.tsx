@@ -22,7 +22,7 @@ export default async function HallPage(): Promise<React.JSX.Element> {
   const trophiesCount = uniques.filter((item) => item.unlocked).length;
   const tiersReached = chains.reduce((sum, chain) => sum + chain.currentTierIndex + 1, 0);
   return (
-    <div data-testid="achievements-page" className="grid min-w-0 grid-cols-1 gap-5">
+    <div data-testid="achievements-page" className="grid min-w-0 grid-cols-1">
       <PageHead title={t("logros.title")} subtitle={t("logros.subtitle")} />
       <HallTabs
         chains={chains}
@@ -42,7 +42,6 @@ export default async function HallPage(): Promise<React.JSX.Element> {
             pctToNext={level.pctToNext}
             rankIcon={level.icon}
             rankSprite={level.sprite}
-            rankGrade={level.grade}
             trophiesCount={trophiesCount}
             trophiesTotal={uniques.length}
             secretsCount={secrets.filter((item) => item.unlocked).length}

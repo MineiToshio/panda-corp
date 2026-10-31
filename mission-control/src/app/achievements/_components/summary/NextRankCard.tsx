@@ -1,4 +1,5 @@
 import { Card, CardHeader } from "@/components/core/Card/Card";
+import { Icon } from "@/components/core/Icon/Icon";
 import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
 import { RankEmblem } from "@/components/core/RankEmblem/RankEmblem";
 import { t, tRich } from "@/lib/copy/copy";
@@ -18,30 +19,20 @@ export function NextRankCard({ level }: { level: GuildLevel }): React.JSX.Elemen
     target > base ? Math.min(100, Math.max(0, ((level.xp - base) / (target - base)) * 100)) : 100;
   return (
     <Card tone="gold">
-      <CardHeader title={t("logros.nextRank.title")} icon="stairs" />
+      <CardHeader title={t("logros.nextRank.title")} icon="crown" />
       <div className={styles.rankPair}>
         <div>
-          <RankEmblem
-            sprite={current.sprite}
-            icon={current.icon}
-            grade={current.grade}
-            size={56}
-            alt={current.title}
-          />
+          <RankEmblem sprite={current.sprite} icon={current.icon} size={56} alt={current.title} />
           <b>{current.title}</b>
           <small>{t("logros.nextRank.now", { level: level.level })}</small>
         </div>
         {next ? (
           <>
-            <span aria-hidden="true">→</span>
+            <span aria-hidden="true" className={styles.rankArrow}>
+              <Icon name="arrow" />
+            </span>
             <div>
-              <RankEmblem
-                sprite={next.sprite}
-                icon={next.icon}
-                grade={next.grade}
-                size={56}
-                alt={next.title}
-              />
+              <RankEmblem sprite={next.sprite} icon={next.icon} size={56} alt={next.title} />
               <b>{next.title}</b>
               <small>{t("logros.nextRank.from", { level: next.minLevel })}</small>
             </div>
@@ -54,9 +45,12 @@ export function NextRankCard({ level }: { level: GuildLevel }): React.JSX.Elemen
         total={100}
         ariaLabel={t("logros.nextRank.progressAria", { name: next?.title ?? current.title })}
       />
-      <p>{next ? tRich("logros.nextRank.left", { xp: left }) : t("logros.nextRank.highest")}</p>
+      <p className={styles.rankNote}>
+        {next ? tRich("logros.nextRank.left", { xp: left }) : t("logros.nextRank.highest")}
+      </p>
       <a className={styles.link} href="/achievements/ranks">
         {t("logros.nextRank.ladder")}
+        <Icon name="arrow" size="sm" />
       </a>
     </Card>
   );

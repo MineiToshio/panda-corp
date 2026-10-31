@@ -83,11 +83,6 @@
   display: flex;
   gap: var(--s3);
 }
-.quote {
-  border-left: var(--hairline) solid var(--line);
-  padding: var(--s4);
-  background: color-mix(in srgb, var(--teal) var(--tint), var(--surface));
-}
 .decisions {
   padding: var(--s3) var(--s4);
   border: var(--hairline) solid color-mix(in srgb, var(--amber) 45%, transparent);
@@ -183,13 +178,4 @@
   .band {
     padding: var(--s4);
   }
-}
-
-.decisionList {
-  margin: 0;
-  padding-left: var(--s4);
-  list-style: disc;
-}
-.decisionList li::marker {
-  color: var(--amber);
 }

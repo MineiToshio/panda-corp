@@ -29,6 +29,12 @@
   justify-items: center;
   text-align: center;
 }
+.rankPair b {
+  font: 700 var(--fs-sm) / 1.3 var(--font-display);
+}
+.rankArrow {
+  color: var(--gold);
+}
 .rankPair small {
   color: var(--text-2);
   font-size: var(--fs-xs);
@@ -39,7 +45,14 @@
   gap: var(--s4);
   align-items: center;
 }
+.rankNote {
+  margin-top: var(--s2);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
 .link {
+  gap: var(--s1);
+  font-size: var(--fs-sm);
   color: var(--gold);
   min-height: calc(var(--s8) + var(--s3));
   display: inline-flex;

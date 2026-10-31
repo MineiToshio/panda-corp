@@ -766,10 +766,8 @@ pre,
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
-/* Report bands bleed to the page gutters; the panel must not turn that bleed into horizontal scroll. */
+/* Report bands bleed to the page gutters; only <html> clips, because a nested one-axis clip would cut the bleed. */
 [id^="card-detail-panel-"],
 [id^="card-detail-panel-"] > article {
   min-width: 0;
-  overflow-x: clip;
-  overflow-clip-margin: var(--gutter);
 }

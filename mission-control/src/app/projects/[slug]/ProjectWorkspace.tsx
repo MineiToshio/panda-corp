@@ -110,7 +110,7 @@ export function ProjectWorkspace({
           aria-labelledby={
             selection.activeTab === "unknown" ? undefined : `workspace-tab-${selection.activeTab}`
           }
-          style={{ minWidth: 0, overflowX: "clip", overflowClipMargin: "var(--gutter)" }}
+          style={{ minWidth: 0 }}
         >
           {Panel(props)}
         </div>

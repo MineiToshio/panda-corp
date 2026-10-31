@@ -34,6 +34,7 @@ export function RestoreButton({
       <Button
         variant="default"
         size="sm"
+        icon="rotate"
         disabled={pending}
         onClick={() => setOpen(true)}
         data-testid="restore-button"

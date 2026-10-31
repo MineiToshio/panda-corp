@@ -1,4 +1,3 @@
-import { Chip } from "@/components/core/Chip/Chip";
 import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
 import styles from "@/components/modules/ReportBand/reportBand.module.css";
 import type { SpecBlock } from "@/lib/spec/spec";
@@ -16,23 +15,23 @@ export function BlockContent({
     return <Markdown resolveLink={resolveLink}>{block.markdown}</Markdown>;
   if (block.kind === "highlight")
     return (
-      <blockquote className={`pquote ${styles.quote}`} data-testid="spec-highlight">
+      <div className="pbox" data-tone="blue" data-testid="spec-highlight">
         {block.markdown.replace(/\*\*/g, "")}
-      </blockquote>
+      </div>
     );
   if (block.kind === "chips-muted")
     return (
       <div className={styles.chips}>
         {items.map((item) => (
-          <Chip key={item.title} tone="slate" variant="plain">
+          <span className="muted-pill" key={item.title}>
             {item.title}
-          </Chip>
+          </span>
         ))}
       </div>
     );
   if (block.kind === "bullets")
     return (
-      <ul>
+      <ul className="sbul">
         {items.map((item) => (
           <li key={item.title} data-testid="spec-bullet">
             <b>{item.title}</b>
@@ -48,7 +47,7 @@ export function BlockContent({
           <div className={styles.check} key={item.title} data-testid="spec-scope-item">
             <span aria-hidden="true">✓</span>
             <span>
-              <b>{item.title}</b>
+              {item.title}
               {item.desc && `: ${item.desc}`}
             </span>
           </div>
@@ -58,7 +57,7 @@ export function BlockContent({
   if (block.kind === "decisions")
     return (
       <div className={`pbox ${styles.decisions}`} data-tone="amber" data-testid="spec-decisions">
-        <ul className={styles.decisionList}>
+        <ul className="decs">
           {items.map((item) => (
             <li key={item.title}>
               <b>{item.title}</b>

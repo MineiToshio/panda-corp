@@ -3,7 +3,9 @@
 import { Button } from "@/components/core/Button/Button";
 import { ButtonLink } from "@/components/core/Button/ButtonLink";
 import { Chip } from "@/components/core/Chip/Chip";
+import type { Tone } from "@/components/core/Chip/vocabulary";
 import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 import type { LinkResolver } from "@/components/core/Markdown/Markdown";
 import { Notice } from "@/components/core/Notice/Notice";
 import { projectMetaChips } from "@/components/modules/IdeaCard/IdeaCard";
@@ -83,6 +85,7 @@ export function SpecDigest({
             resolveLink,
             "docs/product/prd.md",
             t("workspace.spec.buttons.prdFull"),
+            { icon: "flag", tone: "blue" },
           )}
           rows={spec.prd.blocks.map((block) => ({
             id: block.label,
@@ -100,6 +103,7 @@ export function SpecDigest({
             resolveLink,
             "docs/product/research.md",
             t("workspace.spec.buttons.researchFull"),
+            { icon: "search", tone: "teal" },
           )}
           rows={spec.research.blocks.map((block) => ({
             id: block.label,
@@ -183,11 +187,17 @@ function SpecHero({
       chips={
         <>
           {spec.fase && (
-            <Chip tone="violet">{t("workspace.spec.phaseChip", { phase: spec.fase })}</Chip>
+            <Chip tone="blue">{t("workspace.spec.phaseChip", { phase: spec.fase })}</Chip>
           )}
-          {projectMetaChips(projectType, targetPlatforms).map((chip) => (
+          {projectMetaChips(projectType, targetPlatforms).map((chip, index) => (
             <span key={chip.label} data-testid="spec-meta-chip">
-              <Chip tone="slate">{chip.label}</Chip>
+              <Chip
+                tone="slate"
+                variant="plain"
+                icon={projectType && index === 0 ? "cube" : undefined}
+              >
+                {chip.label}
+              </Chip>
             </span>
           ))}
         </>
@@ -212,21 +222,22 @@ function documentAction(
   resolveLink: LinkResolver | undefined,
   path: string,
   label: string,
+  look: { readonly icon: IconName; readonly tone: Tone },
 ): React.ReactNode {
   const target = resolveLink?.(path);
   if (!target) return null;
   const content = (
     <>
-      <Icon name="file" size="sm" />
+      <Icon name={look.icon} size="sm" />
       {label}
     </>
   );
   return "onSelect" in target ? (
-    <Button size="sm" onClick={target.onSelect}>
+    <Button size="sm" variant="toned" tone={look.tone} onClick={target.onSelect}>
       {content}
     </Button>
   ) : (
-    <ButtonLink look="button" size="sm" href={target.href}>
+    <ButtonLink look="button" size="sm" tone={look.tone} href={target.href}>
       {content}
     </ButtonLink>
   );

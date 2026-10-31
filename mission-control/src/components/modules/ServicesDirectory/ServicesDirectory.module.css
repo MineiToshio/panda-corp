@@ -38,9 +38,11 @@
 .state {
   display: inline-flex;
   align-items: center;
-  gap: var(--s2);
+  gap: 6px;
   white-space: nowrap;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  color: var(--tone);
 }
 .state > span {
   width: var(--s2);
@@ -85,10 +87,22 @@
     grid-row: 1;
     justify-self: end;
   }
+  .table table td::before {
+    margin-bottom: 2px;
+    font-weight: 400;
+    color: var(--text-2);
+    text-transform: none;
+    letter-spacing: 0;
+  }
   .table table td:first-child::before,
   .table table td:nth-child(5)::before,
   .table table td:nth-child(8)::before,
   .table table td:nth-child(9)::before {
     display: none;
   }
+}
+.intro {
+  margin-bottom: var(--s6);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
 }

@@ -4,6 +4,7 @@ import type { ServicesDirectoryData } from "@/lib/services/types";
 import { projectServiceRows } from "@/lib/services/views";
 import { AccountsTable } from "./AccountsTable";
 import { ServiceIssues } from "./ServiceIssues";
+import styles from "./ServicesDirectory.module.css";
 /** Project-scoped declarations, with honest empty and partial-source states. */
 export function ProjectAccounts({
   data,
@@ -14,7 +15,7 @@ export function ProjectAccounts({
 }): React.JSX.Element {
   return (
     <div>
-      <p>{t("workspace.cuentas.intro")}</p>
+      <p className={styles.intro}>{t("workspace.cuentas.intro")}</p>
       <ServiceIssues issues={data.issues} />
       {projectServiceRows(data, projectId).length ? (
         <AccountsTable variant="project" services={data} projectId={projectId} />

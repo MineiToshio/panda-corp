@@ -4,6 +4,7 @@
   gap: var(--s6);
   align-items: center;
   padding: var(--s6);
+  margin-bottom: var(--s6);
   border-radius: var(--r-xl);
   border: var(--hairline) solid color-mix(in srgb, var(--gold) 35%, var(--line));
   background: linear-gradient(
@@ -47,6 +48,7 @@
 }
 .body p {
   color: var(--text-2);
+  font-size: var(--fs-sm);
   margin: 0;
   font-variant-numeric: tabular-nums;
 }
@@ -86,6 +88,10 @@
   .hero {
     padding: var(--s4);
     gap: var(--s4);
+  }
+  .counts {
+    justify-content: flex-start;
+    text-align: left;
   }
   .crest {
     width: calc(var(--s12) + var(--s6));
