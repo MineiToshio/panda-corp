@@ -325,12 +325,19 @@ describe("REQ-02-007, REQ-02-008, REQ-02-018: the bounded writes from the real h
   });
 });
 
+const PRD_SEGMENT = encodeURIComponent("docs/product/prd.md");
+
 describe("REQ-02-009: Documentos through the real reader", () => {
   it("a relative link selects the surfaced document; unknown ones stay plain text", async () => {
     const user = userEvent.setup();
     idea("demo", linked);
     project();
-    await mountIdea("demo/documents", { doc: "docs/product/prd.md" });
+    await expect(mountIdea("demo/documents", { doc: "docs/product/prd.md" })).rejects.toMatchObject(
+      {
+        digest: `NEXT_REDIRECT;replace;/board/demo/documents/${PRD_SEGMENT};307;`,
+      },
+    );
+    await mountIdea(`demo/documents/${PRD_SEGMENT}`);
     expect(await screen.findByRole("heading", { name: "PRD" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Sin destino" })).toBeNull();
     expect(screen.getByText("Sin destino")).toBeInTheDocument();
@@ -358,7 +365,7 @@ describe("REQ-02-009: Documentos through the real reader", () => {
     const file = join(root, "demo/docs/product/prd.md");
     chmodSync(file, 0o000);
     try {
-      await mountIdea("demo/documents", { doc: "docs/product/prd.md" });
+      await mountIdea(`demo/documents/${PRD_SEGMENT}`);
       expect(await screen.findByText("No se pudo leer este documento.")).toBeInTheDocument();
     } finally {
       chmodSync(file, 0o644);
@@ -369,7 +376,7 @@ describe("REQ-02-009: Documentos through the real reader", () => {
     idea("demo", linked);
     project();
     unlinkSync(join(root, "demo/docs/product/prd.md"));
-    await mountIdea("demo/documents", { doc: "docs/product/prd.md" });
+    await mountIdea(`demo/documents/${PRD_SEGMENT}`);
     expect(screen.getByText("Tarjeta de la idea")).toBeInTheDocument();
   });
 

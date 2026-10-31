@@ -17,6 +17,7 @@ import { routeHref, workspaceRouteState } from "@/lib/navigation/routeState";
 vi.mock("next/navigation", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/navigation")>()),
   usePathname: vi.fn(() => "/"),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
 }));
 
 afterEach(() => vi.restoreAllMocks());

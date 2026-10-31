@@ -2,7 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Nav } from "../Nav";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/board" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/board",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }),
+}));
 
 describe("AC-19-005.2 gate: no manufactured urgency", () => {
   it("Inicio with nothing for the owner shows no count, no description and no dot", () => {

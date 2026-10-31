@@ -50,6 +50,7 @@ vi.mock("next/navigation", async (actual) => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
 }));
 
+import { PortfolioContent } from "../PortfolioContent";
 import PortfolioPage from "../page";
 
 async function renderPage(query: Record<string, string> = {}): Promise<void> {
@@ -148,7 +149,16 @@ describe("FRD-03 page assembly (reviewer)", () => {
       project("alpha", { stage: "implementation" }),
       project("beta", { stage: "design" }),
     ];
-    await renderPage({ project: "beta" });
+    await expect(renderPage({ project: "beta" })).rejects.toMatchObject({
+      digest: "NEXT_REDIRECT;replace;/portfolio/beta/summary;307;",
+    });
+    render(
+      await PortfolioContent({
+        searchParams: Promise.resolve({}),
+        routeState: { project: "beta", tab: "summary" },
+        requestHref: "/portfolio/beta/summary",
+      }),
+    );
     expect(screen.getByRole("heading", { level: 1, name: "beta workspace" })).toBeVisible();
     expect(screen.queryByTestId("portfolio-overview")).toBeNull();
     expect(screen.queryByRole("heading", { name: "Portafolio" })).toBeNull();

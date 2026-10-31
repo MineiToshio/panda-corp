@@ -4,6 +4,7 @@ import path from "node:path";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { readCardProject } from "@/app/board/_utils/readCardProject";
+import { PortfolioContent } from "@/app/portfolio/PortfolioContent";
 import PortfolioPage from "@/app/portfolio/page";
 import { parseNavigationUrl } from "@/lib/navigation/urls";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
@@ -110,6 +111,13 @@ beforeEach(() => {
   navigation.query = "project=Selected+project&tab=work-orders&wo=WO-01-001&wotab=full&doc=stale";
 });
 
+const openPortfolioSpec = (slug: string) =>
+  PortfolioContent({
+    searchParams: Promise.resolve({}),
+    routeState: { project: slug, tab: "spec" },
+    requestHref: `/portfolio/${slug}/spec`,
+  });
+
 describe("Spec workspace independent review", () => {
   it("shares the board's exact digest source and live folder-count input", async () => {
     const board = readCardProject({
@@ -132,11 +140,14 @@ describe("Spec workspace independent review", () => {
   });
 
   it("opens the selected Portfolio project's full digest and counts real FRD folders, not narrative cards or docs", async () => {
-    const { rerender } = render(
-      await PortfolioPage({
+    await expect(
+      PortfolioPage({
         searchParams: Promise.resolve({ project: "Selected project", tab: "spec" }),
       }),
-    );
+    ).rejects.toMatchObject({
+      digest: "NEXT_REDIRECT;replace;/portfolio/selected-project/spec;307;",
+    });
+    const { rerender } = render(await openPortfolioSpec("selected-project"));
     expect(screen.getByTestId("workspace-page")).toHaveAttribute("data-slug", "selected-project");
     expect(screen.getByRole("tab", { name: "Spec" })).toHaveAttribute("aria-selected", "true");
     const article = screen.getByRole("article", { name: "Resumen del spec" });
@@ -151,11 +162,7 @@ describe("Spec workspace independent review", () => {
     expect(readSpecDigest).not.toHaveBeenCalledWith(projectAt(0).path);
     fireEvent.click(within(article).getAllByRole("button", { name: /Feature/ })[0] as HTMLElement);
     expect(screen.getByRole("dialog")).toHaveTextContent("Detalle Selected narrative");
-    rerender(
-      await PortfolioPage({
-        searchParams: Promise.resolve({ project: "First project", tab: "spec" }),
-      }),
-    );
+    rerender(await openPortfolioSpec("first-project"));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByRole("article", { name: "Resumen del spec" })).not.toHaveTextContent(
       "Selected narrative",
@@ -163,11 +170,7 @@ describe("Spec workspace independent review", () => {
   });
 
   it("scopes Spec document links to the selected project and neutralizes unknown paths", async () => {
-    render(
-      await PortfolioPage({
-        searchParams: Promise.resolve({ project: "Selected project", tab: "spec" }),
-      }),
-    );
+    render(await openPortfolioSpec("selected-project"));
     const article = screen.getByRole("article", { name: "Resumen del spec" });
     const link = within(article).getByRole("link", { name: "Documento existente" });
     const query = parseNavigationUrl(link.getAttribute("href") ?? "");
@@ -194,11 +197,7 @@ describe("Spec workspace independent review", () => {
   });
 
   it("shows an honest empty Spec without falling back to another project's digest", async () => {
-    render(
-      await PortfolioPage({
-        searchParams: Promise.resolve({ project: "Empty project", tab: "spec" }),
-      }),
-    );
+    render(await openPortfolioSpec("empty-project"));
     expect(screen.getByTestId("workspace-page")).toHaveAttribute("data-slug", "empty-project");
     expect(screen.getByRole("tab", { name: "Spec" })).toHaveAttribute("aria-selected", "true");
     const body = screen.getByTestId("workspace-tab-body");
