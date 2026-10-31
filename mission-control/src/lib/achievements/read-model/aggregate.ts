@@ -1,3 +1,4 @@
+import { now as clockNow } from "@/lib/clock/clock";
 /**
  * lib/achievements/read-model/aggregate.ts — the O(1) aggregate index join (FRD-23, WO-23-004, REQ-23-003).
  *
@@ -85,7 +86,10 @@ export function buildStatsAggregate(entries: readonly PortadaJoinEntry[]): Stats
 export function writeStatsAggregate(filePath: string, aggregate: StatsAggregate): void {
   const dir = path.dirname(filePath);
   fs.mkdirSync(dir, { recursive: true });
-  const tmpPath = path.join(dir, `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`);
+  const tmpPath = path.join(
+    dir,
+    `.${path.basename(filePath)}.${process.pid}.${clockNow().getTime()}.tmp`,
+  );
   const serialized = `${JSON.stringify(aggregate, null, 2)}\n`;
   try {
     fs.writeFileSync(tmpPath, serialized, "utf-8");

@@ -50,6 +50,10 @@ vi.mock("@/lib/status/status", () => ({
 vi.mock("@/lib/events/events", () => ({
   readEvents: vi.fn().mockReturnValue({ events: [], lastEventAt: null, byProject: {} }),
 }));
+// The usage probe reads the same transports through the module mocked above; the empty factory is healthy.
+vi.mock("@/lib/events/eventSourceHealth", () => ({
+  eventSourceHealth: vi.fn().mockReturnValue({ ok: true }),
+}));
 vi.mock("@/lib/ideas/ideas", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/ideas/ideas")>();
   return {

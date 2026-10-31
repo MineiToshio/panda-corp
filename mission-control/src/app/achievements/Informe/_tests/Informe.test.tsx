@@ -1,342 +1,207 @@
-/**
- * WO-10-015 — Informe operativo: the six-band sober report (RED → GREEN → refactor).
- *
- * Traceability:
- *   AC-10-015.1 — pulse band: verdict + KPI row incl. lead-time "—"/"no cableado"
- *   AC-10-015.2 — time-series band (woVerified + ideas per week), no raw-event-count view
- *   AC-10-015.3 — usage band: workflows + effort; absent stream → "no cableado" (fail-loud)
- *   AC-10-015.4 — funnel + transitions, reopen flagged by icon AND the word
- *   AC-10-015.5 — health band: projects-by-phase + signals incl. "no cableado" telemetry
- *   AC-10-015.6 — next-actions each carry their command string
- *   AC-10-015.8 — sober register: no RPG lore/levels/glow words; Spanish labels
- *
- * Blueprint: CMP-10-informe (FRD-10 blueprint §4)
- * Source-of-truth hierarchy: FRD > FDD > design-tokens > blueprint > work order
- */
+import path from "node:path";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { loadStatisticsData } from "../../_components/Stats/loadStatisticsData";
+import { StatisticsTab } from "../../_components/Stats/StatisticsTab";
 
-import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type {
-  FunnelFlow,
-  PhaseTransition,
-  UsageMix,
-  WeeklyFlow,
-} from "@/lib/achievements/report/types";
-import type { NextAction } from "@/lib/achievements/report/verdict";
-import type { IdeaStatus } from "@/lib/ideas/ideas";
-import { Informe } from "../Informe";
-import type { InformeData } from "../informeData";
+beforeEach(() => {
+  const fixtures = path.resolve("docs/design/prototype/fixtures");
+  vi.stubEnv("PANDACORP_FACTORY_ROOT", path.join(fixtures, "factory-root"));
+  vi.stubEnv("MC_GIT_FIXTURE", path.join(fixtures, "git-state.json"));
+  vi.stubEnv("MC_CLOCK", "2026-10-21T00:20:00Z");
+  vi.stubEnv("PANDACORP_EVENTS_FILE", path.join(fixtures, "home/.claude/dashboard-events.ndjson"));
+  vi.stubEnv("PANDACORP_CODEX_EVENTS_FILE", "");
+});
+afterEach(() => {
+  cleanup();
+  vi.unstubAllEnvs();
+});
 
-afterEach(cleanup);
-
-// ── Fixture builder ──────────────────────────────────────────────────────────
-
-function buildFunnel(over: Partial<FunnelFlow> = {}): FunnelFlow {
-  const byStatus: Record<IdeaStatus, number> = {
-    discovered: 6,
-    recommended: 0,
-    "in-pipeline": 2,
-    shipped: 0,
-    discarded: 10,
-  };
-  return {
-    totalIdeas: 18,
-    byStatus,
-    launched: 1,
-    conversionPct: 6,
-    wip: 1,
-    discardsWithoutReason: 10,
-    ...over,
-  };
-}
-
-function buildWeeklyFlow(over: Partial<WeeklyFlow> = {}): WeeklyFlow {
-  return {
-    woVerified: [
-      { isoWeek: "2026-25", count: 78 },
-      { isoWeek: "2026-26", count: 8 },
-      { isoWeek: "2026-27", count: 5 },
-    ],
-    ideasCaptured: [
-      { isoWeek: "2026-24", count: 3 },
-      { isoWeek: "2026-26", count: 15 },
-    ],
-    peakWeek: 78,
-    ideasWithoutCreated: 0,
-    ...over,
-  };
-}
-
-function buildUsage(over: Partial<UsageMix> = {}): UsageMix {
-  return {
-    workflows: [
-      { name: "deep-research", count: 1494 },
-      { name: "pandacorp-build", count: 850 },
-      { name: "auditorías / research", count: 400 },
-    ],
-    effort: [
-      { level: "high", count: 1384 },
-      { level: "xhigh", count: 937 },
-      { level: "max", count: 700 },
-      { level: "medium", count: 3 },
-    ],
-    ...over,
-  };
-}
-
-const TRANSITIONS: readonly PhaseTransition[] = [
-  {
-    project: "mission-control",
-    date: "2026-06-16",
-    from: "architecture",
-    to: "implementation",
-    isReopen: false,
-  },
-  {
-    project: "mission-control",
-    date: "2026-06-18",
-    from: "implementation",
-    to: "release",
-    isReopen: false,
-  },
-  {
-    project: "mission-control",
-    date: "2026-06-19",
-    from: "release",
-    to: "implementation",
-    isReopen: true,
-  },
-  {
-    project: "mission-control",
-    date: "2026-06-21",
-    from: "implementation",
-    to: "release",
-    isReopen: false,
-  },
-];
-
-const ACTIONS: readonly NextAction[] = [
-  { label: "Destila 131 notas capturadas en lecciones", command: "/pandacorp:memory" },
-  {
-    label: "Acompaña hasta el lanzamiento 1 construcción en marcha",
-    command: "/pandacorp:release",
-  },
-  { label: "Da criterio a los descartes", command: "/pandacorp:recommend" },
-];
-
-function buildData(over: Partial<InformeData> = {}): InformeData {
-  return {
-    verdict: "Fábrica en marcha: 1 lanzado y 1 en construcción.",
-    pulse: {
-      woPerWeek: 5,
-      woPrevWeek: 8,
-      wip: 1,
-      wipLabel: "personal-page-v2 · diseño",
-      conversionPct: 6,
+// Expectations transcribed from data/extras.js guild.stats, never generated from the loader.
+describe("Statistics fixture-factory oracle", () => {
+  it("AC-10-020.1 AC-10-020.2 AC-10-020.3: verdict and four real KPIs, with unwired lead time", () => {
+    const data = loadStatisticsData();
+    render(<StatisticsTab {...data} />);
+    expect(data.informeData.verdict).toBe("Fábrica en marcha: 1 lanzado(s) y 4 en construcción.");
+    expect(data.informeData.pulse).toMatchObject({
+      woPerWeek: 2,
+      woPrevWeek: 2,
+      wip: 4,
+      conversionPct: 5,
       launched: 1,
-      totalIdeas: 18,
+      totalIdeas: 22,
       leadTime: null,
-    },
-    weeklyFlow: { ok: true, value: buildWeeklyFlow() },
-    usage: { ok: true, value: buildUsage() },
-    funnel: buildFunnel(),
-    transitions: { ok: true, value: [...TRANSITIONS] },
-    projectsByPhase: [
-      { project: "mission-control", phase: "release" },
-      { project: "personal-page-v2", phase: "design" },
-    ],
-    signals: {
-      distilledLessons: 2,
-      capturedLessons: 131,
-      relaunches: 5,
-      discardsWithoutReason: 10,
-      qualityTelemetry: null,
-    },
-    actions: [...ACTIONS],
-    ...over,
-  };
-}
-
-// ── AC-10-015.1 — pulse band ─────────────────────────────────────────────────
-
-describe("Informe · pulse band (AC-10-015.1)", () => {
-  it("renders the verdict sentence", () => {
-    render(<Informe data={buildData()} />);
-    expect(
-      screen.getByText(/Fábrica en marcha: 1 lanzado y 1 en construcción/),
-    ).toBeInTheDocument();
-  });
-
-  it("renders the KPI row (WO/week + delta, WIP, conversion)", () => {
-    render(<Informe data={buildData()} />);
+    });
+    expect(screen.getByText(data.informeData.verdict)).toBeVisible();
     const pulse = screen.getByTestId("informe-pulse");
-    expect(within(pulse).getByText("5")).toBeInTheDocument(); // WO/week
-    expect(within(pulse).getByText(/5 vs 8/)).toBeInTheDocument(); // delta
-    expect(within(pulse).getByText("6")).toBeInTheDocument(); // conversion
+    expect(within(pulse).getAllByRole("article")).toHaveLength(4);
+    expect(within(pulse).getByText("↑ 2 vs 2 la previa")).toBeVisible();
+    expect(within(pulse).getByRole("article", { name: "Lead time" })).toHaveTextContent(
+      "— idea→release",
+    );
+    expect(within(pulse).getByText("no cableado")).toBeVisible();
   });
-
-  it("renders lead time as '—' with a 'no cableado' label, never a zero", () => {
-    render(<Informe data={buildData()} />);
-    const lead = screen.getByTestId("informe-lead-time");
-    expect(within(lead).getByText("—")).toBeInTheDocument();
-    expect(within(lead).getByText(/no cablead|sin cablear/i)).toBeInTheDocument();
-    expect(within(lead).queryByText("0")).not.toBeInTheDocument();
-  });
-});
-
-// ── AC-10-015.2 — time-series band ───────────────────────────────────────────
-
-describe("Informe · time-series band (AC-10-015.2)", () => {
-  it("renders the WO-verified-per-week series", () => {
-    render(<Informe data={buildData()} />);
-    const band = screen.getByTestId("informe-time");
-    expect(within(band).getByText("78")).toBeInTheDocument();
-    expect(within(band).getByText(/sem 25/)).toBeInTheDocument();
-  });
-
-  it("renders the ideas-captured-per-week series", () => {
-    render(<Informe data={buildData()} />);
-    const band = screen.getByTestId("informe-time");
-    expect(within(band).getByText("15")).toBeInTheDocument();
-    expect(within(band).getAllByText(/sem 26/).length).toBeGreaterThan(0);
-  });
-
-  it("renders 'no cableado' when the git series is absent (fail-loud)", () => {
-    render(<Informe data={buildData({ weeklyFlow: { ok: false, reason: "git-unavailable" } })} />);
-    const band = screen.getByTestId("informe-time");
-    expect(within(band).getAllByText(/no cablead|sin cablear/i).length).toBeGreaterThan(0);
-  });
-});
-
-// ── AC-10-015.3 — usage band ─────────────────────────────────────────────────
-
-describe("Informe · usage band (AC-10-015.3)", () => {
-  it("renders top workflows + effort mix", () => {
-    render(<Informe data={buildData()} />);
-    const band = screen.getByTestId("informe-usage");
-    expect(within(band).getByText("deep-research")).toBeInTheDocument();
-    expect(within(band).getByText("1494")).toBeInTheDocument();
-    expect(within(band).getByText("high")).toBeInTheDocument();
-    expect(within(band).getByText("1384")).toBeInTheDocument();
-  });
-
-  it("renders 'no cableado' error state when the event stream is absent (not an empty band)", () => {
-    render(<Informe data={buildData({ usage: { ok: false, reason: "git-unavailable" } })} />);
-    const band = screen.getByTestId("informe-usage");
-    expect(within(band).getAllByText(/no cablead|sin cablear/i).length).toBeGreaterThan(0);
-    expect(within(band).queryByText("deep-research")).not.toBeInTheDocument();
-  });
-});
-
-// ── AC-10-015.4 — funnel + transitions ───────────────────────────────────────
-
-describe("Informe · funnel & flow band (AC-10-015.4)", () => {
-  it("renders the ideas→launched funnel", () => {
-    render(<Informe data={buildData()} />);
-    const band = screen.getByTestId("informe-funnel");
-    expect(within(band).getByText("18")).toBeInTheDocument();
-    expect(within(band).getByText("1")).toBeInTheDocument();
-  });
-
-  it("renders per-project phase transitions with the project name", () => {
-    render(<Informe data={buildData()} />);
-    const band = screen.getByTestId("informe-funnel");
-    expect(within(band).getAllByText("mission-control").length).toBeGreaterThan(0);
-    expect(within(band).getAllByText(/implementation/).length).toBeGreaterThan(0);
-  });
-
-  it("flags a reopen transition by the word 'Reapertura' (not color alone)", () => {
-    render(<Informe data={buildData()} />);
-    const band = screen.getByTestId("informe-funnel");
-    const reopenRow = within(band).getByTestId("transition-reopen");
-    expect(within(reopenRow).getByText(/reapertura/i)).toBeInTheDocument();
-    // The reopen icon carries an accessible label/title too (icon + word, WCAG 1.4.1).
-    expect(
-      reopenRow.querySelector('[aria-label*="eapertura"], [title*="eapertura"]'),
-    ).not.toBeNull();
-  });
-
-  it("renders two identical same-day transitions as two rows without a duplicate-key warning", () => {
-    // A phase bounced back and forth within one day yields identical (project, date, from, to) tuples.
-    const bounce: PhaseTransition = {
-      project: "mission-control",
-      date: "2026-06-16",
-      from: "architecture",
-      to: "implementation",
-      isReopen: false,
-    };
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
+  it("AC-10-021.1 AC-10-021.2 AC-10-021.3: oracle weekly series, accessible charts and observable undated exclusions", () => {
+    const data = loadStatisticsData();
+    expect(data.informeData.weeklyFlow).toEqual({
+      ok: true,
+      value: {
+        woVerified: [
+          { isoWeek: "2026-25", count: 76 },
+          { isoWeek: "2026-26", count: 10 },
+          { isoWeek: "2026-27", count: 11 },
+          { isoWeek: "2026-28", count: 8 },
+          { isoWeek: "2026-36", count: 2 },
+          { isoWeek: "2026-39", count: 2 },
+        ],
+        ideasCaptured: [
+          { isoWeek: "2026-24", count: 3 },
+          { isoWeek: "2026-26", count: 15 },
+          { isoWeek: "2026-27", count: 2 },
+          { isoWeek: "2026-28", count: 1 },
+          { isoWeek: "2026-42", count: 1 },
+        ],
+        peakWeek: 76,
+        ideasWithoutCreated: 0,
+      },
+    });
+    const flow = data.informeData.weeklyFlow;
+    if (!flow.ok) throw new Error("oracle unavailable");
     render(
-      <Informe data={buildData({ transitions: { ok: true, value: [bounce, bounce, bounce] } })} />,
+      <StatisticsTab
+        {...data}
+        informeData={{
+          ...data.informeData,
+          weeklyFlow: { ok: true, value: { ...flow.value, ideasWithoutCreated: 2 } },
+        }}
+      />,
     );
-
-    const band = screen.getByTestId("informe-funnel");
-    expect(within(band).getAllByTestId("transition-row")).toHaveLength(3);
-    const duplicateKeyWarnings = errorSpy.mock.calls.filter((args) =>
-      args.some((arg) => typeof arg === "string" && arg.includes("same key")),
+    expect(
+      screen.getByRole("img", { name: /sem 2026-25: 76 work orders.*sem 2026-39: 2 work orders/ }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("img", { name: /sem 2026-24: 3 ideas.*sem 2026-42: 1 ideas/ }),
+    ).toBeVisible();
+    expect(screen.getByText(/Ideas capturadas por semana: 2/)).toHaveTextContent("Sin fecha");
+    expect(screen.queryByText(/conteo de eventos|eventos por semana/i)).not.toBeInTheDocument();
+  });
+  it("AC-10-022.1 AC-10-022.2 AC-10-022.3: empty usage stays distinct from a coral read error and leaves other bands intact", () => {
+    const data = loadStatisticsData();
+    const view = render(<StatisticsTab {...data} />);
+    expect(screen.getByText(/Sin eventos de uso en el registro todavía/)).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    view.rerender(
+      <StatisticsTab
+        {...data}
+        usageHealth={{ ok: false, kind: "invalid-json", source: "/fixture/events", line: 214 }}
+      />,
     );
-    expect(duplicateKeyWarnings).toHaveLength(0);
+    expect(screen.getByRole("alert")).toHaveAttribute("data-tone", "coral");
+    expect(screen.getByRole("alert")).toHaveTextContent("invalid-json: 214");
+    expect(screen.getAllByText("Sin datos: el registro no se pudo leer.")).toHaveLength(2);
+    expect(screen.getByText(data.informeData.verdict)).toBeVisible();
+  });
+  it("AC-10-023.1 AC-10-023.2 AC-10-023.3 AC-10-028.5: real funnel, reopening cues, exactly ten more transitions per press", () => {
+    const data = loadStatisticsData();
+    render(<StatisticsTab {...data} />);
+    expect(data.informeData.funnel).toMatchObject({
+      totalIdeas: 22,
+      launched: 1,
+      conversionPct: 5,
+      wip: 4,
+    });
+    const list = screen.getByRole("list", { name: "Transiciones de fase por proyecto" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(10);
+    expect(within(list).getByText("Reapertura")).toHaveAttribute("data-tone", "amber");
+    const reopened = within(list).getAllByRole("listitem")[9];
+    expect(reopened).toHaveTextContent("06-19");
+    expect(reopened).toHaveTextContent("Pandacorp (Mission Control)");
+    expect(reopened).toHaveTextContent("↺");
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar 10 más · quedan 10" }));
+    expect(within(list).getAllByRole("listitem")).toHaveLength(20);
+    expect(screen.queryByRole("button", { name: /Mostrar/ })).not.toBeInTheDocument();
+  });
+  it("AC-10-024.1 AC-10-024.2 AC-10-025.1: oracle project phases, source-backed health and single copy-only action", () => {
+    const data = loadStatisticsData();
+    render(<StatisticsTab {...data} />);
+    expect(data.informeData.projectsByPhase).toEqual([
+      { project: "PersonalPage v2", phase: "release" },
+      { project: "Funko Tracker", phase: "implementation" },
+      { project: "Pandacorp", phase: "implementation" },
+      { project: "PandaCast", phase: "architecture" },
+      { project: "PandaSaga", phase: "architecture" },
+    ]);
+    expect(data.informeData.signals).toMatchObject({
+      distilledLessons: 36,
+      capturedLessons: 65,
+      discardsWithoutReason: 7,
+      qualityTelemetry: null,
+    });
+    expect(within(screen.getByTestId("informe-health")).getByText("36 / 65")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Copiar /pandacorp:release" })).toBeVisible();
+    expect(within(screen.getByTestId("informe-actions")).getAllByRole("button")).toHaveLength(1);
+  });
+  it("AC-10-026.1 AC-10-026.2 AC-10-027.1 AC-10-028.5: six records, three eight-row ledgers, null and never-recorded states", () => {
+    const data = loadStatisticsData();
+    render(<StatisticsTab {...data} />);
+    expect(data.statsScalars).toEqual({
+      frds: 26,
+      commits: 1762,
+      decisions: 48,
+      projects: 5,
+      testsPassing: null,
+    });
+    const ledgers = ["Producción", "Calidad", "Ritmo y alcance"].map((name) =>
+      screen.getByRole("region", { name }),
+    );
+    expect(ledgers).toHaveLength(3);
+    for (const ledger of ledgers) expect(within(ledger).getAllByRole("listitem")).toHaveLength(8);
+    expect(
+      within(screen.getByRole("region", { name: "Atributos del gremio" })).getAllByRole("article"),
+    ).toHaveLength(6);
+    expect(data.statsRecords).toEqual({ peakWeek: 76, capturedLessons: 65, subagents: 0 });
+    expect(screen.getByRole("article", { name: "Subagentes" })).toHaveTextContent("0");
+    expect(screen.getByRole("article", { name: "Subagentes" })).not.toHaveTextContent(
+      "sin datos aún",
+    );
+    expect(screen.getByRole("listitem", { name: "Tests en verde" })).toHaveTextContent(
+      "— no cableado",
+    );
+    expect(screen.getByText(/No es un cero medido/)).toBeVisible();
+  });
+  it("source failures and empty transitions remain local honest states", () => {
+    const data = loadStatisticsData();
+    render(
+      <StatisticsTab
+        {...data}
+        informeData={{
+          ...data.informeData,
+          weeklyFlow: { ok: false, reason: "git-unavailable" },
+          transitions: { ok: true, value: [] },
+        }}
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("No se pudo leer la serie semanal.");
+    expect(screen.getByText("Sin transiciones registradas.")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Cómo usas la fábrica" })).toBeVisible();
   });
 
-  it("renders 'no cableado' when the transitions series is absent", () => {
-    render(<Informe data={buildData({ transitions: { ok: false, reason: "unparseable" } })} />);
-    const band = screen.getByTestId("informe-funnel");
-    expect(within(band).getByText(/no cablead|sin cablear/i)).toBeInTheDocument();
-  });
-});
-
-// ── AC-10-015.5 — health band ────────────────────────────────────────────────
-
-describe("Informe · health band (AC-10-015.5)", () => {
-  it("renders projects-by-phase", () => {
-    render(<Informe data={buildData()} />);
-    const band = screen.getByTestId("informe-health");
-    expect(within(band).getByText("personal-page-v2")).toBeInTheDocument();
-    expect(within(band).getByText("design")).toBeInTheDocument();
-  });
-
-  it("renders process signals incl. lessons 2/131 and quality telemetry 'no cableado'", () => {
-    render(<Informe data={buildData()} />);
-    const band = screen.getByTestId("informe-health");
-    expect(within(band).getByText("2 / 131")).toBeInTheDocument();
-    const telemetry = within(band).getByTestId("signal-quality-telemetry");
-    expect(within(telemetry).getByText(/no cablead|sin cablear/i)).toBeInTheDocument();
-    expect(within(telemetry).queryByText("0")).not.toBeInTheDocument();
-  });
-});
-
-// ── AC-10-015.6 — next-actions band ──────────────────────────────────────────
-
-describe("Informe · next-actions band (AC-10-015.6)", () => {
-  it("renders each action with its command string", () => {
-    render(<Informe data={buildData()} />);
-    const band = screen.getByTestId("informe-actions");
-    expect(within(band).getByText("/pandacorp:memory")).toBeInTheDocument();
-    expect(within(band).getByText("/pandacorp:release")).toBeInTheDocument();
-    expect(within(band).getByText("/pandacorp:recommend")).toBeInTheDocument();
-    expect(within(band).getByText(/Destila 131 notas/)).toBeInTheDocument();
-  });
-});
-
-// ── AC-10-015.8 — sober register ─────────────────────────────────────────────
-
-describe("Informe · sober register (AC-10-015.8)", () => {
-  it("renders the six band headers in Spanish", () => {
-    render(<Informe data={buildData()} />);
-    expect(screen.getByText(/El pulso de la fábrica/i)).toBeInTheDocument();
-    expect(screen.getByText(/En el tiempo, de verdad/i)).toBeInTheDocument();
-    expect(screen.getByText(/Cómo usas la fábrica/i)).toBeInTheDocument();
-    expect(screen.getByText(/Embudo y flujo/i)).toBeInTheDocument();
-    expect(screen.getByText(/Estado y salud del proceso/i)).toBeInTheDocument();
-    expect(screen.getByText(/Qué mover ahora/i)).toBeInTheDocument();
-  });
-
-  it("carries no RPG lore words (Nv/nivel/gremio/leyenda/glow) in the report bands", () => {
-    const { container } = render(<Informe data={buildData()} />);
-    const report = within(container).getByTestId("informe-report");
-    const text = report.textContent ?? "";
-    expect(text).not.toMatch(/\bNv \d/);
-    expect(text).not.toMatch(/leyenda/i);
+  it("AC-10-028.5: a list longer than two pages reveals ten, then the final remainder", () => {
+    const data = loadStatisticsData();
+    const transitions = data.informeData.transitions;
+    if (!transitions.ok) throw new Error("oracle unavailable");
+    const rows = [...transitions.value, ...transitions.value.slice(0, 5)];
+    render(
+      <StatisticsTab
+        {...data}
+        informeData={{ ...data.informeData, transitions: { ok: true, value: rows } }}
+      />,
+    );
+    const list = screen.getByRole("list", { name: "Transiciones de fase por proyecto" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(10);
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar 10 más · quedan 15" }));
+    expect(within(list).getAllByRole("listitem")).toHaveLength(20);
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar 5 más · quedan 5" }));
+    expect(within(list).getAllByRole("listitem")).toHaveLength(25);
   });
 });

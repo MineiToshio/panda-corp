@@ -1,3 +1,4 @@
+import { now as clockNow } from "@/lib/clock/clock";
 /**
  * lib/achievements/read-model/factoryStoreWriter.ts — the single factory-store writer (FRD-23, WO-23-005, REQ-23-006.1).
  *
@@ -132,7 +133,10 @@ function gatherFactoryValues(factoryRoot: string): LiveFactoryValues {
 export function writeFactoryStoreAtomic(filePath: string, store: StatsFactory): void {
   const dir = path.dirname(filePath);
   fs.mkdirSync(dir, { recursive: true });
-  const tmpPath = path.join(dir, `.${STATS_FACTORY_FILENAME}.${process.pid}.${Date.now()}.tmp`);
+  const tmpPath = path.join(
+    dir,
+    `.${STATS_FACTORY_FILENAME}.${process.pid}.${clockNow().getTime()}.tmp`,
+  );
   const serialized = `${JSON.stringify(store, null, 2)}\n`;
   try {
     fs.writeFileSync(tmpPath, serialized, "utf-8");
@@ -166,7 +170,7 @@ function factoryStorePath(factoryRoot: string): string {
  * @returns The absolute path of the written `stats-factory.json`.
  * @throws FactoryDeriveError when git is unavailable or a required source could not be derived.
  */
-export function writeStatsFactory(factoryRoot: string, now: () => Date = () => new Date()): string {
+export function writeStatsFactory(factoryRoot: string, now: () => Date = () => clockNow()): string {
   const seal = currentFactorySeal(factoryRoot);
   if (seal === null) {
     throw new FactoryDeriveError(

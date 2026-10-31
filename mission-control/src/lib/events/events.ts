@@ -99,7 +99,7 @@ function defaultCodexEventsPath(): string {
  * first (partial) line is dropped so no truncated JSON line reaches the parser.
  * Uses one fd (open → fstat → read → close) so size and content are consistent.
  */
-function readTailUtf8(filePath: string): string {
+export function readTailUtf8(filePath: string): string {
   const fd = fs.openSync(filePath, "r");
   try {
     const { size } = fs.fstatSync(fd);
@@ -414,7 +414,7 @@ function deriveByProject(events: readonly Event[]): Record<string, { lastEventAt
 
 type EventSource = { path: string; runtime: EventRuntime };
 
-function resolveEventSources(explicitPath: string | undefined): EventSource[] {
+export function resolveEventSources(explicitPath: string | undefined): EventSource[] {
   if (explicitPath !== undefined) {
     return [
       {

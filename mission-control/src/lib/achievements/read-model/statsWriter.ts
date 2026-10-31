@@ -1,3 +1,4 @@
+import { now as clockNow } from "@/lib/clock/clock";
 /**
  * lib/achievements/read-model/statsWriter.ts — the single portada writer (FRD-23, WO-23-002, REQ-23-002).
  *
@@ -135,7 +136,7 @@ export function writePortadaAtomic(filePath: string, portada: StatsPortada): voi
   fs.mkdirSync(dir, { recursive: true });
   // A unique temp name in the SAME dir keeps the rename on one filesystem (atomic) and avoids
   // collisions if two writers race — each renames its own temp over the target (last wins, whole).
-  const tmpPath = path.join(dir, `.${STATS_FILENAME}.${process.pid}.${Date.now()}.tmp`);
+  const tmpPath = path.join(dir, `.${STATS_FILENAME}.${process.pid}.${clockNow().getTime()}.tmp`);
   const serialized = `${JSON.stringify(portada, null, 2)}\n`;
   try {
     fs.writeFileSync(tmpPath, serialized, "utf-8");
@@ -164,7 +165,7 @@ export function writePortadaAtomic(filePath: string, portada: StatsPortada): voi
  * @returns The absolute path of the written `stats.json`.
  * @throws PortadaDeriveError when git is unavailable or a required source could not be derived.
  */
-export function writeStatsPortada(projectPath: string, now: () => Date = () => new Date()): string {
+export function writeStatsPortada(projectPath: string, now: () => Date = () => clockNow()): string {
   const seal = currentSeal(projectPath);
   if (seal === null) {
     throw new PortadaDeriveError(

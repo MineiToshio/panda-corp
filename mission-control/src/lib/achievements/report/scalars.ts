@@ -12,8 +12,9 @@
  * Traceability: AC-10-014.3.
  */
 
-import { execSync } from "node:child_process";
 import { cache } from "react";
+import { runGit } from "@/lib/git/git";
+import { GitError } from "@/lib/git/gitError";
 import { readProjectDocs } from "../../docs/docs";
 import { readPortfolio } from "../../portfolio/portfolio";
 import { readDecisionRules } from "../../registry/registry";
@@ -22,7 +23,7 @@ import type { ReportScalars } from "./types";
 /** The raw source counts injected into the pure derivation (separated so it is testable). */
 export type ScalarSources = {
   readonly frds: number;
-  readonly commits: number;
+  readonly commits: number | null;
   readonly decisions: number;
   readonly projects: number;
   /** Real tests-passing count, or null when no source is wired (renders "no cableado"). */
@@ -43,18 +44,15 @@ export function deriveScalars(sources: ScalarSources): ReportScalars {
   };
 }
 
-/** `git rev-list --count HEAD` for a repo, or 0 when git is unavailable (fail-soft). */
-function gitCommitCount(repoRoot: string): number {
+/** `git rev-list --count HEAD` for a repo, or null when git is unavailable. */
+function gitCommitCount(repoRoot: string): number | null {
   try {
-    const out = execSync("git rev-list --count HEAD", {
-      cwd: repoRoot,
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
+    const out = runGit(["rev-list", "--count", "HEAD"], repoRoot);
     const n = Number.parseInt(out.trim(), 10);
-    return Number.isFinite(n) ? n : 0;
-  } catch {
-    return 0;
+    return Number.isFinite(n) ? n : null;
+  } catch (error) {
+    if (error instanceof GitError) return null;
+    throw error;
   }
 }
 

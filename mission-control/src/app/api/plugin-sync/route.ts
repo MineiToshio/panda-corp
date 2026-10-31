@@ -2,9 +2,8 @@
  * CMP-15-route — GET /api/plugin-sync
  *
  * Exposes `getPluginSyncState()` (IF-15-sync) as a JSON endpoint so the
- * client banner can poll it. The git probe needs Node.js `child_process`
- * which is unavailable inside a Server Component render, hence the route
- * handler (architecture §3, §8).
+ * client banner can poll live drift without a page navigation. The git probe
+ * needs the Node.js runtime for `child_process` (architecture §3, §8).
  *
  * Read-only invariant (architecture §7, REQ-15-005):
  *   This handler ONLY calls the read-only `getPluginSyncState()`.
@@ -23,8 +22,7 @@ import { getPluginSyncState } from "@/lib/plugin-sync/plugin-sync";
  * Use the Node.js runtime so `child_process` (used by `execFileSync` inside
  * `lib/plugin-sync.ts`) is available. The Edge runtime does not support it.
  *
- * AC-15-003.3 / architecture §3: git probes need Node outside a Server
- * Component render.
+ * AC-15-003.3 / architecture §3: git probes require Node.js.
  */
 export const runtime = "nodejs";
 

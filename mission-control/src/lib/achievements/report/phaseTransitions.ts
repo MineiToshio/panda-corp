@@ -5,16 +5,16 @@
  *
  * Per-project `phase` transition log from the git history of each `.pandacorp/status.yaml`.
  * Each entry is `{ project, date, from, to, isReopen }` where `isReopen` is true when `to`
- * precedes `from` in the pipeline order. Git access via `execSync` (build-track.ts pattern),
+ * precedes `from` in the pipeline order. Git access via `runGit` (build-track.ts pattern),
  * scoped to the status.yaml pathspec and `-n`-capped.
  *
  * Traceability: AC-10-014.2 / .7.
  */
 
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { cache } from "react";
+import { runGit } from "@/lib/git/git";
 import { resolveFactoryRoot } from "../../config/config";
 import { readPortfolio } from "../../portfolio/portfolio";
 import type { Phase, PhaseTransition, ReportResult } from "./types";
@@ -116,19 +116,17 @@ function extractPhase(blob: string): string | null {
  * consumes change points, these observations are equivalent to reading the phase at every commit —
  * at the cost of ONE subprocess instead of one `git show` per commit (the /achievements render was
  * spawning up to `GIT_LOG_CAP` processes per project; DR-092 perf, LESSON on subprocess fan-out).
- * Empty / git-unavailable → []. An unrecognised phase value is still surfaced (fail loud downstream).
+ * Empty → []; git-unavailable → null. An unrecognised phase value is still surfaced (fail loud downstream).
  */
-function observationsForStatusFile(repoRoot: string, relPath: string): PhaseObservation[] {
+function observationsForStatusFile(repoRoot: string, relPath: string): PhaseObservation[] | null {
   let log = "";
   try {
-    log = execSync(`git log -n ${GIT_LOG_CAP} --reverse --format=%x00%cI -p -- "${relPath}"`, {
-      cwd: repoRoot,
-      encoding: "utf-8",
-      maxBuffer: 32 * 1024 * 1024,
-      stdio: ["ignore", "pipe", "ignore"],
-    });
+    log = runGit(
+      ["log", "-n", String(GIT_LOG_CAP), "--reverse", "--format=%x00%cI", "-p", "--", relPath],
+      repoRoot,
+    );
   } catch {
-    return [];
+    return null;
   }
 
   const observations: PhaseObservation[] = [];
@@ -148,11 +146,7 @@ function observationsForStatusFile(repoRoot: string, relPath: string): PhaseObse
 /** True when git is usable in `repoRoot`. */
 function gitAvailable(repoRoot: string): boolean {
   try {
-    execSync("git rev-parse --is-inside-work-tree", {
-      cwd: repoRoot,
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
+    runGit(["rev-parse", "--is-inside-work-tree"], repoRoot);
     return true;
   } catch {
     return false;
@@ -185,8 +179,10 @@ function readPhaseTransitions(): ReportResult<PhaseTransition[]> {
     const repoRoot = path.isAbsolute(rawPath) ? rawPath : path.join(factoryRoot, rawPath);
     if (!fs.existsSync(path.join(repoRoot, statusRelPath()))) continue;
     if (!gitAvailable(repoRoot)) continue;
+    const observations = observationsForStatusFile(repoRoot, statusRelPath());
+    if (observations === null) return { ok: false, reason: "git-unavailable" };
     anyGit = true;
-    history[entry.name] = observationsForStatusFile(repoRoot, statusRelPath());
+    history[entry.name] = observations;
   }
 
   if (!anyGit) return { ok: false, reason: "git-unavailable" };

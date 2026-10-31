@@ -6,7 +6,7 @@ title: 'WO-01-011 — Adopt the clock and git seams in the kept readers'
 status: ACTIVE
 parent: FRD-01
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: low
 reopen_count: 0
 artifacts:
@@ -24,7 +24,7 @@ artifacts:
   - 'src/app/_actions/snapshotLedger.ts'
 source_requirements: [REQ-01-008, REQ-01-011]
 dependsOn: [WO-01-010, WO-10-014, WO-23-006, WO-14-001, WO-14-005, WO-17-003, WO-17-005, WO-17-008, WO-09-006, WO-01-009, WO-15-003, WO-21-003]
-last_updated: 2026-10-22
+last_updated: 2026-10-31
 ---
 
 # WO-01-011 Adopt the clock and git seams in the kept readers
@@ -127,3 +127,10 @@ moves `pendingMerge.ts` onto `runGit`, which the boundary test requires. If any 
 editing it or allow-listing it. Enables the oracle-mode run of the close-out Visual QA.
 
 ## Status Note
+
+- 2026-10-31 (S6B): Adopted `now()` and `runGit()` in the owned kept readers and writers; added fixture history answers for phase transitions, verified work orders, timeline and seals. The boundary regression was RED with six external importers, then GREEN. No source importer outside `src/lib/git/` remains.
+- 2026-10-31: `PORT=3992 PANDACORP_E2E_PORT=3992 pnpm exec vitest run src/lib/git src/lib/achievements/report src/lib/achievements/read-model src/lib/snapshot src/lib/build-track src/lib/self-suggest src/lib/memory src/lib/gamification src/app/api/live src/app/api/plugin-sync --maxWorkers=2`: 55 suites / 649 tests passed before the new fixture cases; the subsequent git/report run passed 16 suites / 126 tests including both fixture cases. `pnpm exec tsc --noEmit`, scoped Biome, and `pnpm exec knip` passed (knip has ten pre-existing configuration hints). Full final stream verification is recorded in WO-10-017.
+- 2026-10-31: Frozen oracle `data/extras.js` reports a peak of 76, matching the checked-in fixture history (the retired dated example of 78 is not the current oracle). LESSON-0450: tests explicitly select the fixture factory, never the owner root.
+- 2026-10-31: No reviewer suite was changed. `snapshot/_tests/gap.gate.reviewer.test.ts` uses child_process to construct real git fixtures rather than spying on production subprocess calls; it passed unchanged. FRD-23 and FRD-24 vectors passed in the scoped read-model/gamification run. No Playwright, full verify.sh, commit or merge was run, as requested.
+
+- 2026-10-31: Additional RED→GREEN failure probes confirmed that a failed/timeout/unanswered history read after a successful git probe must not become an empty successful report. The owned flow/phase readers now preserve explicit git-unavailable results for that case; successful history derivation is unchanged. Invalid MC_CLOCK is explicitly tested to reject rather than fall through to the owner wall clock. Final FRD-23/FRD-24 regression evidence is in WO-10-017.

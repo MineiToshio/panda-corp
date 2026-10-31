@@ -13,10 +13,10 @@
  * never thrown.
  */
 
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { type FrdDriftResult, readFrdDrift } from "@/lib/frds/frd-drift";
+import { runGit } from "@/lib/git/git";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 
 // ---------------------------------------------------------------------------
@@ -545,12 +545,7 @@ const GIT_DUR_DEFAULT_MS = 8 * 60_000; // first WO (no previous commit to gap fr
 function readGitLog(projectPath: string): GitCommit[] {
   let out = "";
   try {
-    out = execSync("git log -n 4000 --format=%cI%x09%s -- .", {
-      cwd: projectPath,
-      encoding: "utf-8",
-      maxBuffer: 16 * 1024 * 1024,
-      stdio: ["ignore", "pipe", "ignore"],
-    });
+    out = runGit(["log", "-n", "4000", "--format=%cI%x09%s", "--", "."], projectPath);
   } catch {
     return [];
   }
@@ -701,7 +696,7 @@ export function deriveGitTimeline(
   return { frds, hasDurations: true, source: "git", estimated: true, buildStartMs };
 }
 
-/** execSync git log + derive. Returns null when git is unavailable or has no WO commits. */
+/** runGit log + derive. Returns null when git is unavailable or has no WO commits. */
 function fromGit(projectPath: string, orders: readonly WorkOrder[]): BuildTimeline | null {
   const commits = readGitLog(projectPath);
   if (commits.length === 0) return null;

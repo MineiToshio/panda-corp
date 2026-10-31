@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { now as clockNow } from "@/lib/clock/clock";
 import { resolveFactoryRoot } from "../config/config";
 import { type Lesson, readLessons } from "./memory";
 
@@ -124,7 +125,7 @@ function deriveStaleness(latestMtimeMs: number | null): {
     return { lastMemoryRunAt: null, staleDays: null };
   }
   const lastMemoryRunAt = new Date(latestMtimeMs).toISOString();
-  const staleDays = Math.max(0, Math.floor((Date.now() - latestMtimeMs) / MS_PER_DAY));
+  const staleDays = Math.max(0, Math.floor((clockNow().getTime() - latestMtimeMs) / MS_PER_DAY));
   return { lastMemoryRunAt, staleDays };
 }
 

@@ -1,3 +1,4 @@
+import { now as clockNow } from "@/lib/clock/clock";
 /**
  * lib/self-suggest.ts — `computeSuggestions()` (WO-17-003, FRD-17, IF-17-suggest)
  *
@@ -128,7 +129,7 @@ function daysAgo(iso: string | null): number | null {
   if (!iso) return null;
   const parsed = Date.parse(iso);
   if (!Number.isFinite(parsed)) return null;
-  const diffMs = Date.now() - parsed;
+  const diffMs = clockNow().getTime() - parsed;
   return diffMs / (1000 * 60 * 60 * 24);
 }
 

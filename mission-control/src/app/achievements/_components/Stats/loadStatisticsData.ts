@@ -10,10 +10,12 @@ import { funnelAndFlow } from "@/lib/achievements/report/funnel";
 import { lessonCounts } from "@/lib/achievements/report/lessons";
 import { phaseTransitions } from "@/lib/achievements/report/phaseTransitions";
 import { reportScalars } from "@/lib/achievements/report/scalars";
+import { recordedKinds } from "@/lib/achievements/report/statProvenance";
 import { usageMix } from "@/lib/achievements/report/usage";
 import { signalsFor } from "@/lib/achievements/signals";
 import type { ReaderData } from "@/lib/achievements/stats";
 import { resolveFactoryRoot } from "@/lib/config/config";
+import { eventSourceHealth } from "@/lib/events/eventSourceHealth";
 import { readEvents } from "@/lib/events/events";
 import { getGuildState } from "@/lib/gamification/guildState";
 import { durableEvents, readLedger } from "@/lib/gamification/ledger";
@@ -43,7 +45,10 @@ export const loadStatisticsData = cache(() => {
   // ── Informe operativo report data (WO-10-015 consumes WO-10-014 readers) ───
   // Mission Control's own repo is the project whose git history backs the series;
   // it lives at the process cwd (it shares the factory .git one level up — see CLAUDE.md).
-  const projectPath = process.cwd();
+  const projectPath =
+    process.env.MC_GIT_FIXTURE === undefined
+      ? process.cwd()
+      : path.resolve(resolveFactoryRoot(), "../projects/mission-control");
   const reportSignals = signalsFor(readerData);
   // FRD-23: read the Informe numbers from the O(1) AGGREGATE index first (AC-23-003.1 clause b) —
   // one file read of `<factory-root>/.pandacorp/stats-aggregate.json`, independent of N projects.
@@ -79,12 +84,9 @@ export const loadStatisticsData = cache(() => {
   );
   const reportScalarsValue = informeSources.scalars;
   const lessons = informeSources.lessons;
-  // Fail-loud usage band (AC-10-015.3): an absent event stream → "no cableado". Usage is not
-  // part of the materialized portada (blueprint §4) — it stays on its own live derivation.
-  const usageResult: ReturnType<typeof buildInformeData>["usage"] =
-    eventsSnapshot.events.length === 0 && eventsSnapshot.lastEventAt === null
-      ? { ok: false, reason: "git-unavailable" }
-      : { ok: true, value: usageMix(readerData) };
+  const usageHealth = eventSourceHealth();
+  const counterKinds = [...recordedKinds(readerData)];
+  const usageResult = { ok: true as const, value: usageMix(readerData) };
   const informeData = buildInformeData({
     weeklyFlow: informeSources.weeklyFlow,
     usage: usageResult,
@@ -95,10 +97,17 @@ export const loadStatisticsData = cache(() => {
     relaunches: reportSignals.relaunches,
   });
   const statsRecords = {
-    peakWeek: informeData.weeklyFlow.ok ? informeData.weeklyFlow.value.peakWeek : 0,
-    capturedLessons: lessons?.captured ?? 0,
+    peakWeek: informeData.weeklyFlow.ok ? informeData.weeklyFlow.value.peakWeek : null,
+    capturedLessons: lessons?.captured ?? null,
     subagents: reportSignals.subagents,
   };
 
-  return { readerData, informeData, statsScalars: reportScalarsValue, statsRecords };
+  return {
+    readerData,
+    informeData,
+    statsScalars: reportScalarsValue,
+    statsRecords,
+    usageHealth,
+    counterKinds,
+  };
 });

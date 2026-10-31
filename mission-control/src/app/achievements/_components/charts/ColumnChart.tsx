@@ -26,9 +26,7 @@ export function ColumnChart({
           height={(Math.max(0, point.value) / max) * 160}
           className={styles.column}
         >
-          <title>
-            {point.label}: {point.value}
-          </title>
+          <title>{`${point.label}: ${point.value}`}</title>
         </rect>
       ))}
     </svg>

@@ -7,12 +7,12 @@
  * fresh; mismatch → stale → fall back to live git. Correctness never depends on any particular
  * writer having run — the seal decides (DR-115 honest-cache).
  *
- * Platform golden rule (architecture §1): read-only. Git access via `execSync`, scoped to the
+ * Platform golden rule (architecture §1): read-only. Git access via `runGit`, scoped to the
  * two pathspecs, `-1`-capped (the phaseTransitions.ts pattern).
  */
 
-import { execSync } from "node:child_process";
 import { cache } from "react";
+import { runGit } from "@/lib/git/git";
 import type { StatsPortada } from "./statsSchema";
 
 /** The pathspecs whose last-touching commit defines the Informe's freshness seal. */
@@ -33,11 +33,7 @@ export const currentSeal: (projectPath: string) => string | null = cache(
   (projectPath: string): string | null => {
     let out = "";
     try {
-      out = execSync(`git log -1 --format=%H -- ${SEAL_PATHSPECS.join(" ")}`, {
-        cwd: projectPath,
-        encoding: "utf-8",
-        stdio: ["ignore", "pipe", "ignore"],
-      });
+      out = runGit(["log", "-1", "--format=%H", "--", ...SEAL_PATHSPECS], projectPath);
     } catch {
       return null;
     }

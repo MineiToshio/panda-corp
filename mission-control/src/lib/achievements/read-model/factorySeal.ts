@@ -8,15 +8,15 @@
  * any of these routes (e.g. a phase change in project B) mismatches the seal and the store is
  * treated stale — the exact cross-project defect the SSOT split fixes (DR-115/DR-116, AC-23-006.2).
  *
- * Platform golden rule (architecture §1): read-only. Git access via `execSync`, scoped to those
+ * Platform golden rule (architecture §1): read-only. Git access via `runGit`, scoped to those
  * pathspecs, `-1`-capped (the phaseTransitions.ts / seal.ts pattern). Equality only, never ordered —
  * a seal is a commit hash, not an orderable timestamp (LESSON-0009's ordering hazard does not apply).
  */
 
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { cache } from "react";
+import { runGit } from "@/lib/git/git";
 import { resolveProjectPath } from "../../config/config";
 import { readPortfolio } from "../../portfolio/portfolio";
 import type { StatsFactory } from "./statsSchema";
@@ -71,14 +71,9 @@ function projectStatusPathspecs(factoryRoot: string): readonly string[] {
 export const currentFactorySeal: (factoryRoot: string) => string | null = cache(
   (factoryRoot: string): string | null => {
     const pathspecs = [...FACTORY_PATHSPECS, ...projectStatusPathspecs(factoryRoot)];
-    const quoted = pathspecs.map((spec) => `"${spec}"`).join(" ");
     let out = "";
     try {
-      out = execSync(`git log -1 --format=%H -- ${quoted}`, {
-        cwd: factoryRoot,
-        encoding: "utf-8",
-        stdio: ["ignore", "pipe", "ignore"],
-      });
+      out = runGit(["log", "-1", "--format=%H", "--", ...pathspecs], factoryRoot);
     } catch {
       return null;
     }

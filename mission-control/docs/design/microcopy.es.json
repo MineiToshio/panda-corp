@@ -1594,6 +1594,7 @@
       "noData": "sin datos aún",
       "noDataNote": "«Sin datos aún»: la fábrica todavía no registra ese tipo de evento (gates, reviews, días activos…). No es un cero medido.",
       "level": "Nv {level}",
+      "noLevel": "sin nivel",
       "ledger": {
         "production": "Producción",
         "quality": "Calidad",
@@ -1619,7 +1620,7 @@
       "usageSub": "¿En qué me apoyo y a qué coste?",
       "usageError": "No se pudo leer el registro de uso",
       "usageErrorBody": "<code>~/.claude/dashboard-events.ndjson</code>. Los dos bloques quedan sin datos hasta que se pueda leer; no es un cero medido.",
-      "usageErrorBodyWithReason": "<code>~/.claude/dashboard-events.ndjson</code>: {reason}. Los dos bloques quedan sin datos hasta que se pueda leer; no es un cero medido.",
+      "usageErrorBodyWithReason": "{reason}. Los dos bloques quedan sin datos hasta que se pueda leer; no es un cero medido.",
       "workflows": "Workflows y skills más usados",
       "workflowsErrorEmpty": "Sin datos: el registro no se pudo leer.",
       "workflowsEmpty": "Sin eventos de uso en el registro todavía: este bloque se llena cuando las skills emiten su evento.",

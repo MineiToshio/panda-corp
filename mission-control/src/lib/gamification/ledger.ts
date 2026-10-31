@@ -1,3 +1,4 @@
+import { now as clockNow } from "@/lib/clock/clock";
 /**
  * Canonical durable gamification/accounting ledger (FRD-09, DR-033, DR-092).
  *
@@ -176,7 +177,7 @@ function migrateV1(value: unknown): GamificationLedgerV2 | null {
   const phasesCompleted = nat(t.phasesCompleted);
   const releases = nat(t.releases);
   if (workOrdersDone === null || phasesCompleted === null || releases === null) return null;
-  const now = new Date().toISOString();
+  const now = clockNow().toISOString();
   return {
     ...zeroLedger(),
     updatedAt: now,
@@ -397,7 +398,7 @@ function canonicalFactEvent(source: Event, oracle: DurableEventFact["oracle"]): 
 export function corroborateEvents(
   events: readonly Event[],
   ledger: GamificationLedgerV2,
-  now = new Date().toISOString(),
+  now = clockNow().toISOString(),
 ): DurableEventFact[] {
   const projects = projectOracles();
   const out: DurableEventFact[] = [];
@@ -423,7 +424,7 @@ export function mergeLedger(
   ledger: GamificationLedgerV2,
   live: GuildOutcomes,
   facts: readonly DurableEventFact[],
-  now = new Date().toISOString(),
+  now = clockNow().toISOString(),
 ): GamificationLedgerV2 {
   const nextFacts = { ...ledger.facts };
   for (const fact of facts) nextFacts[fact.key] = fact;
@@ -454,7 +455,7 @@ export function atomicWriteLedger(ledgerPath: string, ledger: GamificationLedger
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
-  const temp = `${ledgerPath}.tmp-${process.pid}-${Date.now()}`;
+  const temp = `${ledgerPath}.tmp-${process.pid}-${clockNow().getTime()}`;
   const fd = fs.openSync(temp, "wx", 0o600);
   try {
     fs.writeFileSync(fd, `${JSON.stringify(ledger, null, 2)}\n`, "utf8");

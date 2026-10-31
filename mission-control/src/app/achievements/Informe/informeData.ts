@@ -46,7 +46,7 @@ const PHASE_LABELS: Readonly<Record<Phase, string>> = {
 // ── Shapes the Informe view consumes ──────────────────────────────────────────
 
 /** The pulse band's KPI row (one verdict + four KPIs). */
-export type InformePulse = {
+type InformePulse = {
   /** WO verified in the most recent week. */
   readonly woPerWeek: number;
   /** WO verified in the previous week (for the delta). */
@@ -66,13 +66,13 @@ export type InformePulse = {
 };
 
 /** One project's current phase (for the health band's projects-by-phase column). */
-export type ProjectPhase = {
+type ProjectPhase = {
   readonly project: string;
   readonly phase: Phase;
 };
 
 /** The process-signals column of the health band. */
-export type InformeSignals = {
+type InformeSignals = {
   /** Distilled LESSON cards, or null when the memory source is absent. */
   readonly distilledLessons: number | null;
   /** Captured raw notes, or null when the memory source is absent. */

@@ -1,3 +1,4 @@
+import { now as clockNow } from "@/lib/clock/clock";
 /**
  * WO-01-009 — GET /api/live — the shared SSE live transport
  *
@@ -411,7 +412,7 @@ export function GET(request: Request): Response {
       /** Throttled wrapper: deduplicate rapid re-read bursts. */
       function scheduleEmit(): void {
         if (destroyed) return;
-        const now = Date.now();
+        const now = clockNow().getTime();
         const elapsed = now - lastEmitAt;
 
         if (emitThrottleTimer !== null) {
@@ -426,7 +427,7 @@ export function GET(request: Request): Response {
           // Defer to the end of the throttle window.
           emitThrottleTimer = setTimeout(() => {
             emitThrottleTimer = null;
-            lastEmitAt = Date.now();
+            lastEmitAt = clockNow().getTime();
             emitSnapshot();
           }, EMIT_THROTTLE_MS - elapsed);
         }

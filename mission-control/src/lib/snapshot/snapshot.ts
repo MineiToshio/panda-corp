@@ -1,3 +1,4 @@
+import { now as clockNow } from "@/lib/clock/clock";
 /**
  * WO-14-001 — `lib/snapshot.ts`: pure helpers for the snapshot panel.
  *
@@ -110,7 +111,7 @@ export function buildSnapshot(
   // AC-14-002.1 + DR-066 rule (a): buildingNow only when LIVE — `running` crossed with
   // heartbeat recency, never the self-reported flag alone. A frozen running:true with a
   // stale/absent heartbeat is `noSignal`, not "building now".
-  const now = nowMs ?? Date.now();
+  const now = nowMs ?? clockNow().getTime();
   let buildingNow: string | undefined;
   let noSignal: true | undefined;
   if (status.running === true) {

@@ -1,3 +1,7 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { GitError } from "./gitError";
+
 /** Serialized branch facts in the prototype oracle. */
 interface FixtureBranch {
   name: string;
@@ -11,6 +15,7 @@ interface FixtureBranch {
 /** Serialized repository facts; root is a display path, never the repository lookup key. */
 export interface FixtureRepo {
   root: string;
+  name?: string;
   commits: number;
   pluginUncommitted?: number;
   branches: FixtureBranch[];
@@ -30,6 +35,7 @@ export function fixtureAnswer(
   const answers: Record<string, () => string> = {
     "symbolic-ref --quiet --short refs/remotes/origin/HEAD": () => `origin/${defaultBranch}`,
     "rev-list --count HEAD": () => String(repo.commits),
+    "rev-parse --is-inside-work-tree": () => "true",
     [`branch --no-merged ${defaultBranch} --format=%(refname:short)`]: () =>
       repo.branches.map((b) => b.name).join("\n"),
     [`branch --no-merged ${defaultBranch} --format=%(refname)`]: () =>
@@ -72,5 +78,61 @@ export function fixtureAnswer(
     };
     if (command in branchAnswers) return branchAnswers[command];
   }
+  return historyAnswer(repo, args, cwd);
+}
+
+function historyAnswer(
+  repo: FixtureRepo,
+  args: readonly string[],
+  cwd: string,
+): string | undefined {
+  const file = process.env.MC_GIT_FIXTURE;
+  if (file === undefined) return undefined;
+  const data: unknown = JSON.parse(readFileSync(file, "utf8"));
+  if (!isRecord(data)) throw new GitError("no-fixture-answer", "Invalid history fixture");
+  const command = args.join(" ");
+  if (command.startsWith("log -1 --format=%H -- ")) return "f".repeat(40);
+  if (command === "log --reverse --format=%x00%cI -p -- docs/frds") {
+    return verifiedEntries(data.verifiedAt)
+      .map(([file, date]) => `\0${date}\n+++ b/${file}\n+implementation_status: VERIFIED`)
+      .join("\n");
+  }
+  if (command === "log -n 400 --reverse --format=%x00%cI -p -- .pandacorp/status.yaml") {
+    const name =
+      path.basename(cwd) === "mission-control" || path.basename(repo.root) === "panda-corp"
+        ? "Pandacorp (Mission Control)"
+        : repo.name;
+    const history = isRecord(data.phaseHistory) ? data.phaseHistory[name ?? ""] : undefined;
+    if (!Array.isArray(history)) throw new GitError("no-fixture-answer", "Missing phase history");
+    return history
+      .map((obs) => {
+        if (!isRecord(obs) || typeof obs.date !== "string" || typeof obs.phase !== "string")
+          throw new GitError("no-fixture-answer", "Invalid phase history");
+        return `\0${obs.date}T00:00:00Z\n+phase: ${obs.phase}`;
+      })
+      .join("\n");
+  }
+  if (command === "log -n 4000 --format=%cI%x09%s -- .") {
+    return verifiedEntries(data.verifiedAt)
+      .map(([file, date]) => {
+        const id = /wo-(\d+-\d+)/.exec(file)?.[1];
+        if (!id) throw new GitError("no-fixture-answer", "Invalid work-order history");
+        return `${date}\tfeat(build): verify WO-${id}`;
+      })
+      .join("\n");
+  }
   return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function verifiedEntries(value: unknown): [string, string][] {
+  if (!isRecord(value)) throw new GitError("no-fixture-answer", "Missing verified history");
+  return Object.entries(value).map(([file, date]) => {
+    if (typeof date !== "string" || !Number.isFinite(Date.parse(date)))
+      throw new GitError("no-fixture-answer", "Invalid verified history");
+    return [file, date];
+  });
 }

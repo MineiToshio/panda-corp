@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 /** The only writer for factory/gamification-ledger.json. */
 import fs from "node:fs";
 import path from "node:path";
+import { now as clockNow } from "@/lib/clock/clock";
 import { resolveFactoryRoot, resolveProjectPath } from "@/lib/config/config";
 import { readEvents } from "@/lib/events/events";
 import { deriveGuildOutcomes } from "@/lib/gamification/gamification";
@@ -34,7 +35,7 @@ function acquireLock(lockPath: string): LockOwner | null {
   const owner: LockOwner = {
     token: randomUUID(),
     pid: process.pid,
-    acquiredAt: new Date().toISOString(),
+    acquiredAt: clockNow().toISOString(),
   };
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -55,7 +56,9 @@ function acquireLock(lockPath: string): LockOwner | null {
       } catch {
         /* incomplete acquisition is reclaimable */
       }
-      const age = prior ? Date.now() - Date.parse(prior.acquiredAt) : Number.POSITIVE_INFINITY;
+      const age = prior
+        ? clockNow().getTime() - Date.parse(prior.acquiredAt)
+        : Number.POSITIVE_INFINITY;
       if (prior && pidAlive(prior.pid) && age < 600_000) return null;
       try {
         fs.unlinkSync(path.join(lockPath, "owner.json"));

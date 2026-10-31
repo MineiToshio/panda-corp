@@ -7,17 +7,17 @@
  *
  * WO-verified-per-week reads the git history of each `work-orders/wo-*.md` for the commit
  * where `implementation_status` crosses to VERIFIED, bucketed by ISO week. Ideas-per-week
- * reads the `created` frontmatter of `factory/ideas/*.md`. Git access is via `execSync`
+ * reads the `created` frontmatter of `factory/ideas/*.md`. Git access is via `runGit`
  * (reusing build-track.ts's fail-soft pattern), scoped to the pathspec and `-n`-capped.
  *
  * Traceability: AC-10-014.1 / .7.
  */
 
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import { cache } from "react";
+import { runGit } from "@/lib/git/git";
 import { resolveFactoryRoot } from "../../config/config";
 import type {
   IdeasSeries,
@@ -125,7 +125,7 @@ export function deriveWeeklyFlow(input: FlowInput | null): ReportResult<WeeklyFl
  * commit is prefixed by a NUL-marked ISO date (`--format=%x00%cI`); each diff's `+++ b/<path>`
  * header names the file, and the first `+…implementation_status: VERIFIED` added line per file
  * marks its crossing (first one wins, oldest→newest via `--reverse`). Keyed by the repo-root-
- * relative path git emits. `{}` when git is unavailable (fail-soft).
+ * relative path git emits. `null` when git is unavailable (fail-soft).
  *
  * NOT `-n`-capped: the combined pathspec has far more commits than any single wo, and a cap
  * (`-n N --reverse` keeps the N NEWEST) would drop the oldest crossings. This replaces one
@@ -133,18 +133,13 @@ export function deriveWeeklyFlow(input: FlowInput | null): ReportResult<WeeklyFl
  * /achievements render) with one subprocess for the whole tree (~150ms), output-identical to
  * the per-file scan (equivalence verified, DR-092 perf).
  */
-function verifiedIsoByWo(repoRoot: string): Map<string, string> {
+function verifiedIsoByWo(repoRoot: string): Map<string, string> | null {
   const firstByPath = new Map<string, string>();
   let log = "";
   try {
-    log = execSync('git log --reverse --format=%x00%cI -p -- "docs/frds"', {
-      cwd: repoRoot,
-      encoding: "utf-8",
-      maxBuffer: 256 * 1024 * 1024,
-      stdio: ["ignore", "pipe", "ignore"],
-    });
+    log = runGit(["log", "--reverse", "--format=%x00%cI", "-p", "--", "docs/frds"], repoRoot);
   } catch {
-    return firstByPath;
+    return null;
   }
   let currentIso = "";
   let currentFile = "";
@@ -182,11 +177,7 @@ function lookupVerified(map: ReadonlyMap<string, string>, relPath: string): stri
 /** True when git is usable in `repoRoot` (a single cheap probe so absence is detectable). */
 function gitAvailable(repoRoot: string): boolean {
   try {
-    execSync("git rev-parse --is-inside-work-tree", {
-      cwd: repoRoot,
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
+    runGit(["rev-parse", "--is-inside-work-tree"], repoRoot);
     return true;
   } catch {
     return false;
@@ -261,6 +252,7 @@ function readWeeklyFlow(projectPath: string): ReportResult<WeeklyFlow> {
   }
   const woFiles = collectWoFiles(projectPath);
   const verifiedIso = verifiedIsoByWo(projectPath);
+  if (verifiedIso === null) return { ok: false, reason: "git-unavailable" };
   const verifiedAt = woFiles.map((rel) => lookupVerified(verifiedIso, rel));
   const ideasCreated = readIdeaCreatedDates(resolveFactoryRoot());
   return deriveWeeklyFlow({ verifiedAt, ideasCreated });
@@ -285,6 +277,7 @@ function readWoVerifiedSeries(projectPath: string): ReportResult<WoVerifiedSerie
     return { ok: false, reason: "git-unavailable" };
   }
   const verifiedIso = verifiedIsoByWo(projectPath);
+  if (verifiedIso === null) return { ok: false, reason: "git-unavailable" };
   return deriveWoVerifiedSeries(
     collectWoFiles(projectPath).map((rel) => lookupVerified(verifiedIso, rel)),
   );

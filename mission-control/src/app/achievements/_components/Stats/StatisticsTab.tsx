@@ -1,44 +1,40 @@
 import type { ReportScalars } from "@/lib/achievements/report/types";
 import type { ReaderData } from "@/lib/achievements/stats";
-import { t } from "@/lib/copy/copy";
+import type { EventSourceHealth } from "@/lib/events/eventSourceHealth";
 import { InformeBands, InformePulse } from "../../Informe/Informe";
 import type { InformeData } from "../../Informe/informeData";
-import { StatsPanel, type StatsRecords } from "../../StatsPanel";
-/** Data seam consumed by the statistics adapter. */
+import { CharacterSheet } from "./CharacterSheet";
+import styles from "./Stats.module.css";
+import type { StatsRecords } from "./types";
+
+/** Serializable statistics seam; all source access belongs to the cached server loader. */
 export interface StatisticsData {
-  readerData: ReaderData;
-  informeData?: InformeData;
-  statsScalars?: ReportScalars;
-  statsRecords?: StatsRecords;
+  readonly readerData: ReaderData;
+  readonly informeData?: InformeData;
+  readonly statsScalars?: ReportScalars;
+  readonly statsRecords?: StatsRecords;
+  readonly usageHealth?: EventSourceHealth;
+  readonly counterKinds?: readonly string[];
 }
-/** Preserve the v1 statistics report until its dedicated work order replaces this adapter. */
+/** Operator report, interleaved with the engine-derived character sheet. */
 export function StatisticsTab({
   readerData,
   informeData,
   statsScalars,
   statsRecords,
+  usageHealth,
+  counterKinds,
 }: StatisticsData): React.JSX.Element {
-  if (informeData === undefined) {
-    return <StatsPanel readerData={readerData} />;
-  }
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "4px 2px 12px" }}>
-        <span
-          style={{
-            fontFamily: "var(--font-pixel)",
-            fontSize: "11px",
-            color: "var(--color-accent-text)",
-            letterSpacing: ".06em",
-          }}
-        >
-          {t("logros.stats.executive")}
-        </span>
-        <div style={{ flex: 1, height: "1px", background: "var(--color-border)" }} />
-      </div>
-      <InformePulse data={informeData} />
-      <StatsPanel readerData={readerData} scalars={statsScalars} records={statsRecords} />
-      <InformeBands data={informeData} />
+    <div className={styles.report} data-testid="informe-report">
+      {informeData ? <InformePulse data={informeData} /> : null}
+      <CharacterSheet
+        readerData={readerData}
+        scalars={statsScalars}
+        records={statsRecords}
+        counterKinds={counterKinds}
+      />
+      {informeData ? <InformeBands data={informeData} usageHealth={usageHealth} /> : null}
     </div>
   );
 }

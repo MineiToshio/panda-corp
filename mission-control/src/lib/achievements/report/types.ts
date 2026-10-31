@@ -74,7 +74,7 @@ export type PhaseTransition = {
 /** IF-10-scalars — the scalar counts for the ledger / pulse. */
 export type ReportScalars = {
   readonly frds: number;
-  readonly commits: number;
+  readonly commits: number | null;
   readonly decisions: number;
   readonly projects: number;
   /** Real tests-passing count, or `null` → "no cableado" (never a fabricated number). */
