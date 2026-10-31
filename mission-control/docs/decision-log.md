@@ -1,5 +1,9 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 · Preserve the architecture mosaic on partial work-order failures
+
+Render file-level errors alongside the mosaic of readable work orders instead of hiding it when one file fails. Keep FRD labels and exclude the broken order. Align board and workspace integration assertions with the emitted Spanish status validation message. Canonical contract: [FRD-02](frds/frd-02-ideas-board/frd.md#file-level-report-failures-2026-10-31).
+
 ## 2026-10-31 · Clarify proportional display exceptions and count provenance
 
 During this close-out, the approved prototype governs conflicting visual specifications, except for security, accessibility or data loss. `.num` and `.chip`, including column-count chips, remain proportional. Remove the overridden `.num` tabular declaration and reconcile DESIGN, FRD-13, its FDD/blueprint and accessibility comments. Chromium source-cascade comparisons are identical before/after in both themes. FRD-17 now explicitly separates frozen capture counts from the dated live audit. Sources: [DESIGN](../DESIGN.md), [FRD-13](frds/frd-13-visual-system-accessibility/frd.md), [FDD-17](frds/frd-17-proposals-inbox/fdd.md).

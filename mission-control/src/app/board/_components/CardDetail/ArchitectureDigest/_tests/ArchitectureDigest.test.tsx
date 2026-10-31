@@ -256,3 +256,34 @@ it("shows FRD titles beside mosaic ids and the plan explanation", () => {
   expect(screen.getByRole("heading", { name: "Por FRD" })).toBeVisible();
   expect(screen.getByText(/Cada fila es un FRD y cada cuadro/)).toBeVisible();
 });
+
+it("keeps valid work-order tiles beside a broken file notice in the partial plan", () => {
+  render(
+    <ArchitectureDigest
+      body={DIGEST_TWO_FRDS}
+      title="p"
+      workOrders={LIVE_WOS}
+      constructionStarted
+      sourceErrors={{
+        workOrderFiles: [
+          {
+            file: "docs/frds/frd-01-site-shell/work-orders/wo-01-003-broken.md",
+            reason: "invalid implementation_status",
+          },
+        ],
+      }}
+    />,
+  );
+  const plan = within(screen.getByTestId("arch-plan"));
+  expect(plan.getByRole("alert")).toHaveTextContent("wo-01-003-broken.md");
+  expect(plan.getByRole("alert")).toHaveTextContent("implementation_status no es PLANNED");
+  expect(plan.getAllByRole("img", { name: /^WO-/ })).toHaveLength(LIVE_WOS.length);
+  for (const order of LIVE_WOS) {
+    expect(
+      plan.getByRole("img", { name: new RegExp(`${order.id} · ${order.title}`) }),
+    ).toBeVisible();
+  }
+  expect(plan.queryByRole("img", { name: /WO-01-003/ })).not.toBeInTheDocument();
+  expect(plan.getByText("FRD-01 Site shell")).toBeVisible();
+  expect(plan.getByText("FRD-02 Home")).toBeVisible();
+});

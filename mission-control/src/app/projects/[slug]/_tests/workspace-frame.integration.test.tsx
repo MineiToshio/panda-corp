@@ -217,7 +217,7 @@ describe("workspace real mount", () => {
     );
     write("docs/frds/frd-01-x/frd.md", "---\nui: [\n---\n");
     mount(tab, `/projects/fixture-project/${tab}`);
-    expect(screen.getByText(/invalid implementation_status/)).toBeVisible();
+    expect(screen.getByText(/implementation_status no es PLANNED/)).toBeVisible();
     expect(screen.getByText(/unexpected end|flow collection|missed comma/i)).toBeVisible();
   });
   it("AC-04-012.2: architecture mounts all shared bands, live FRDs, orders and the route context", () => {

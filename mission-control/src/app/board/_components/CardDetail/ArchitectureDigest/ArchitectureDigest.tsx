@@ -415,7 +415,12 @@ function ArchitecturePlan({
   readonly frds: readonly { id: string; title: string }[];
 }): React.JSX.Element {
   if (sourceErrors?.workOrderFiles?.length)
-    return <FileReadErrors errors={sourceErrors.workOrderFiles} />;
+    return (
+      <>
+        <FileReadErrors errors={sourceErrors.workOrderFiles} />
+        <PlanMosaic workOrders={workOrders} started={started} frds={frds} />
+      </>
+    );
   if (sourceErrors?.workOrders)
     return (
       <Notice icon="alert" kind="error">

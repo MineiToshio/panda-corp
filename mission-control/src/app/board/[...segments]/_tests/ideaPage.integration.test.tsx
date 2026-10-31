@@ -229,7 +229,7 @@ it("AC-02-016.7 AC-02-011.4 AC-02-013.3: sourceErrors remain visible through the
   expect(screen.getAllByRole("alert")).toHaveLength(4);
   expect(screen.getByText(/invalid variable declaration/)).toBeVisible();
   expect(
-    within(screen.getByRole("tabpanel")).getByText(/invalid implementation_status/),
+    within(screen.getByRole("tabpanel")).getByText(/implementation_status no es PLANNED/),
   ).toBeVisible();
   fireEvent.click(screen.getByRole("tab", { name: "Spec" }));
   expect(screen.getAllByRole("alert")).toHaveLength(2);
