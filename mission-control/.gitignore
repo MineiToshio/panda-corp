@@ -41,5 +41,6 @@ test-results/
 # snapshotLedger, AC-09-006.3) writes its runtime gamification ledger inside it on
 # first render — runtime data, gitignored exactly like the real factory ledger.
 e2e/fixtures/factory-root/factory/gamification-ledger.json
+e2e/fixtures/factory-root/factory/gamification-ledger.json.lock/
 
 .claude/worktrees/
