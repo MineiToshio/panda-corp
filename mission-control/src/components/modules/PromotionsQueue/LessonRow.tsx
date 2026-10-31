@@ -35,13 +35,17 @@ export function LessonRow({
       onClick={() => onSelect(lesson)}
     >
       <BadgeIcon icon="bulb" tone={meta.tone} size="sm" />
-      <span className={styles.grow}>
-        <strong>{lesson.context || t("propuestas.memory.lessonFallback")}</strong>
+      <span className={`grow ${styles.grow}`}>
+        <strong className="clamp-2">
+          {lesson.context || t("propuestas.memory.lessonFallback")}
+        </strong>
         <small>
           {lesson.id} · {lesson.domain} · {lesson.projects.join(", ")}
         </small>
       </span>
-      <Chip tone={meta.tone}>{meta.label}</Chip>
+      <Chip tone={meta.tone} variant="outline">
+        {meta.label}
+      </Chip>
     </button>
   );
 }

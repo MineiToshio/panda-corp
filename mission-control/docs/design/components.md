@@ -166,7 +166,7 @@ Composed from the rows above; never re-implement a primitive inside one.
 | Component | Purpose | Path | Prototype | Key props / variants | Status |
 |---|---|---|---|---|---|
 | `ProposalActionRow` | «Qué te toca, en orden»: count, reason, command, where to run it, link. | `src/app/proposals/_components/ProposalActionRow.tsx` | `.pa-row` (config: ProposalActionRow) | `action` | restyle (`ProposalCard`) |
-| `LessonFlow` | Four-step lesson flow with who moves each step. | `src/app/proposals/_components/LessonFlow.tsx` | `.lf` (config: LessonFlow) | none | new |
+| `LessonFlow` | Four-step lesson flow with who moves each step. | `src/app/proposals/_components/LessonFlow/LessonFlow.tsx` | `.lf` (config: LessonFlow) | none | new |
 | `SignalGroup` | «Señales automáticas» group by kind; a signal that flags most of its population is marked unreliable. | `src/app/proposals/_components/SignalGroup.tsx` | `.sig-group` (config: SignalGroup) | `kind`, `items[]` | new |
 | `AreaBar` | «Por tema» bar in plain names that filters the backlog. | `src/app/proposals/_components/AreaBar.tsx` | `.area-bar` (config: AreaBar) | `area`, `count`, `pressed` | new |
 | `ConfigTile` / `ConfigRow` | Configuración hub count tile; catalog row with icon, name, description and a copy-on-click command. | `src/app/configuration/_components/ConfigRow.tsx` | `.cfg-tile`, `.cfg-row` (config: ConfigTile, ConfigRow) | `kind` (skill violet, agent blue, rule pink, standard teal) | restyle (`SkillCard`, `StandardCard`) |
@@ -293,3 +293,17 @@ those values to English is a separate CONV-18 change.
 
 GraphControls renders its percentage at the 12px minimum and rotates the up/down icons to match
 their directional labels. Keyboard focus reveals complete ADR titles and FRD summaries; activation opens the full ADR document.
+
+## Proposals visual closure (2026-10-31)
+
+- `LessonFlow`: left-aligned icon/number/label tiles using the existing stage tones.
+- `ProposalsSummary`: definition-list health counters, shared Chip owner badge, arrow links,
+  neutral inline upkeep note and `--s3` action gaps, `--s4` health-column gaps and `--s6` section gaps.
+- `PromotionsQueue` / `LessonRow`: outlined type chips; divided recent rows compose
+  the selection button, Nueva Chip and CommandCompact as sibling controls.
+- `ProposalStream`: native candidates disclosure with BadgeIcon and rotating chevron.
+
+Independent review restored `band-sub` for recent discoveries, the global `grow` and
+`clamp-2` lesson-title hooks, and responsive two-column health facts. Summary title
+and subtitle form one wrapping header group; candidates use the card-title type scale
+and keep their hint adjacent to the chevron.

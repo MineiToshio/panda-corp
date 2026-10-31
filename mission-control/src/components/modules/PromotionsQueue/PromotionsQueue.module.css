@@ -1,4 +1,4 @@
-.lesson {
+.lesson.lesson {
   display: flex;
   gap: var(--s3);
   align-items: center;
@@ -6,7 +6,8 @@
   text-align: left;
   border: 0;
   border-bottom: var(--hairline) solid var(--line);
-  padding: var(--s4) 0;
+  padding: var(--s3);
+  border-radius: 0;
   background: transparent;
   color: var(--text);
   cursor: pointer;
@@ -26,12 +27,8 @@
   margin-top: var(--s1);
 }
 .recent {
-  border-top: var(--hairline) solid var(--line);
   padding-top: var(--s4);
   margin-top: var(--s4);
-}
-.recent h3 {
-  font-size: var(--fs-sm);
 }
 .intro {
   color: var(--text-3);
@@ -39,7 +36,37 @@
   margin-bottom: var(--s4);
 }
 @media (max-width: 599px) {
-  .lesson {
+  .lesson.lesson {
     flex-wrap: wrap;
+  }
+}
+
+.recent h3 {
+  white-space: nowrap;
+}
+.recentRow {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  border-bottom: var(--hairline) solid var(--line);
+  padding: var(--s2) 0;
+}
+.recentRow .lesson.lesson {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+}
+.recentRow .lesson.lesson > :last-child {
+  display: none;
+}
+@media (max-width: 759px) {
+  .recentRow {
+    flex-wrap: wrap;
+  }
+  .recentRow .lesson.lesson {
+    flex-basis: 100%;
+  }
+  .recent h3 {
+    white-space: normal;
   }
 }

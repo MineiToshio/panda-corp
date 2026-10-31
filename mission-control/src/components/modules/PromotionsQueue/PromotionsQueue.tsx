@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Card, CardHeader } from "@/components/core/Card/Card";
 import { Chip } from "@/components/core/Chip/Chip";
-import { CmdRow } from "@/components/core/CmdRow/CmdRow";
+import { CommandCompact } from "@/components/core/CmdRow/CmdRow";
 import { MoreBar, pagedReveal } from "@/components/core/MoreBar/MoreBar";
 import { t, tRich } from "@/lib/copy/copy";
 import type { Lesson } from "@/lib/memory/memory";
@@ -31,7 +31,7 @@ export function PromotionsQueue({
     <Card tone="teal">
       <CardHeader
         title={t("propuestas.memory.waiting.title")}
-        icon="bulb"
+        icon="rocket"
         count={queued.length + recentLessons.length}
       />
       <p className={styles.intro}>{tRich("propuestas.memory.waiting.intro")}</p>
@@ -49,10 +49,10 @@ export function PromotionsQueue({
         <div className={styles.recent}>
           <h3 className="band-sub">{t("propuestas.memory.waiting.recent")}</h3>
           {recentLessons.map((lesson) => (
-            <div key={lesson.id}>
+            <div key={lesson.id} className={styles.recentRow}>
               <LessonRow lesson={lesson} onSelect={onSelectLesson} />
               <Chip tone="teal">{t("propuestas.memory.waiting.newChip")}</Chip>
-              <CmdRow command={buildLearnCommand(lesson)} />
+              <CommandCompact command={buildLearnCommand(lesson)} />
             </div>
           ))}
         </div>

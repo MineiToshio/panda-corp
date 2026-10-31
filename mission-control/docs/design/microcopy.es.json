@@ -1272,7 +1272,7 @@
       },
       "memoryFine": {
         "kind": "Al día",
-        "title": "La memoria se revisa sola",
+        "title": "La memoria se revisa sola.",
         "why": "La rutina diaria cosechó y revisó por última vez el {date}. No necesitas hacer nada."
       }
     },

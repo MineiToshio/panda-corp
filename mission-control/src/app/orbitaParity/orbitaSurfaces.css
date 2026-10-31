@@ -254,3 +254,12 @@ body .token.sim {
   width: 44px;
   height: 40px;
 }
+
+/* Proposals recent-discovery band, shared with the prototype's section labels. */
+.band-sub {
+  margin: var(--s5) 0 var(--s3);
+  font: 700 var(--fs-xs) / 1.2 var(--font-body);
+  letter-spacing: var(--ls-label, 0.08em);
+  text-transform: uppercase;
+  color: var(--text-2);
+}

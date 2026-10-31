@@ -27,7 +27,7 @@ describe("Proposals page composition", () => {
     expect(
       screen.getAllByText("Nada necesita tu decisión ahora.", { selector: "p" })[0],
     ).toBeVisible();
-    expect(screen.getByText("La memoria se revisa sola")).toBeVisible();
+    expect(screen.getByText("La memoria se revisa sola.")).toBeVisible();
   });
   it("AC-17-001.3 AC-17-011.4 mounts waiting, collapsed candidates, and conditional pruning in order", () => {
     fs.writeFileSync(

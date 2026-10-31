@@ -8,9 +8,9 @@ import { ProposalsTabLink } from "../ProposalsTabs/ProposalsTabs";
 
 const META = {
   urgent: { tone: "coral", icon: "alert" },
-  decide: { tone: "teal", icon: "bulb" },
-  important: { tone: "amber", icon: "settings" },
-  ideas: { tone: "blue", icon: "search" },
+  decide: { tone: "teal", icon: "rocket" },
+  important: { tone: "amber", icon: "list" },
+  ideas: { tone: "blue", icon: "bulb" },
   memoryStale: { tone: "teal", icon: "clock" },
 } as const satisfies Record<OwnerActionKind, { tone: string; icon: IconName }>;
 /** Ordered owner action with reason, command, execution location and detail link. */

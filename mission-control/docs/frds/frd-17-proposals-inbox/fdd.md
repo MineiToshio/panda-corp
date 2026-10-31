@@ -5,7 +5,7 @@ slug: proposals-inbox
 title: Propuestas (to-do, memory and signals)
 status: ACTIVE
 parent: FRD-17
-last_updated: '2026-10-22'
+last_updated: '2026-10-31'
 prototype_blessed_at: '0e6b7191'
 ---
 
@@ -119,3 +119,35 @@ prototype_blessed_at: 0e6b7191
 Automatic-signal disclosures are flat groups separated only by a top rule, with no enclosing side/bottom border or surface fill. Oracle: `prototype.css:954-959`; `prototype.js:1813-1819`.
 
 Component tests and static checks are recorded in the decision log. Browser fidelity, themes and overflow still require the attended Claude reviewer; no visual baseline was edited.
+
+## Visual closure (2026-10-31, lane F)
+
+The approved live prototype controls the following presentation details. Resumen uses 12 px
+(`--s3`) gaps only between action blocks, 16 px (`--s4`) between health columns and
+24 px (`--s6`) between sections, with no extra top padding. Health facts are definition lists with
+the label above a compact `--fs-h2` number; their unboxed navigation links end in an arrow.
+The owner count uses the shared amber Chip. Current memory upkeep is one inline sentence
+on a neutral `--surface-2` strip, preceded by a check icon.
+
+Memoria uses an activity header icon and left-aligned lifecycle tiles: stage icon, number,
+label, then supporting text. Stage icons are inbox, bulb, rocket and shield. Lesson type
+chips use the shared outline variant. Recent discoveries keep their uppercase band label
+on one line at desktop sizes; each divided row contains lesson selection, a Nueva chip
+and the shared CommandCompact. On phones these controls wrap without nested buttons.
+Candidates retain a native keyboard-operable disclosure with a bulb tile and trailing
+chevron, which rotates when opened. No data-reader or command-execution contract changes.
+
+### Independent-review corrections
+
+At desktop sizes the flow stretches every stage to equal height; at 1023 px and below,
+arrows form left-aligned rows with the arrow icon rotated down. The owner-controlled
+transition uses green and weight 650. Below 760 px the health counters use two columns.
+Lesson buttons have square corners and `--s3` padding; the global grow/clamp classes
+allow phone titles to occupy the row width with type chips underneath. The recent
+band uses the shared `band-sub` typography without a second top divider. Candidates
+use display-font `--fs-h3` type and keep their hint next to the chevron.
+
+Summary icons are target (owner tasks), rocket (decide), list (important and backlog),
+bulb (ideas) and sparkles (signals). The subtitle belongs directly beneath the owner
+card title, with its Chip wrapping onto a separate line on phones. Candidates include
+the localized corroboration note, and the memory-upkeep title ends with a period.

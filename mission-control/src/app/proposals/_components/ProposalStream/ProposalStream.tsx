@@ -1,8 +1,10 @@
 "use client";
 import { useState } from "react";
+import { BadgeIcon } from "@/components/core/BadgeIcon/BadgeIcon";
 import { Card, CardHeader } from "@/components/core/Card/Card";
 import { CountPill } from "@/components/core/Chip/CountPill";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
+import { Icon } from "@/components/core/Icon/Icon";
 import { MoreBar, pagedReveal } from "@/components/core/MoreBar/MoreBar";
 import { LessonRow } from "@/components/modules/PromotionsQueue/LessonRow";
 import { t } from "@/lib/copy/copy";
@@ -52,9 +54,17 @@ export function ProposalStream({
       {kind === "candidate-lesson" ? (
         <details className={styles.disclosure} data-tone="blue">
           <summary>
-            <span>{t("propuestas.memory.candidates.title")}</span>
+            <BadgeIcon icon="bulb" size="sm" />
+            <span className={styles.candidatesTitle}>
+              {t("propuestas.memory.candidates.title")}
+            </span>
             <CountPill count={lessons.length} />
-            <small>{t("propuestas.memory.candidates.hint")}</small>
+            <span className={styles.candidatesHint}>
+              <small>{t("propuestas.memory.candidates.hint")}</small>
+              <span className={styles.signalChevron}>
+                <Icon name="chevD" size="sm" />
+              </span>
+            </span>
           </summary>
           <p className={styles.intro}>{t("propuestas.memory.candidates.intro")}</p>
           {lessons.length === 0 ? <p>{t("common.none")}</p> : list}

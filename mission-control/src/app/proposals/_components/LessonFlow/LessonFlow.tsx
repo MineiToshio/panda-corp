@@ -7,10 +7,10 @@ import type { OwnerActionsResult } from "@/lib/proposals/ownerActions";
 import styles from "../ProposalsSummary/Proposals.module.css";
 
 const STEPS = [
-  { key: "rawNotes", sub: "rawNotesSub", tone: "slate" },
-  { key: "candidates", sub: "candidatesSub", tone: "blue" },
-  { key: "waiting", sub: "waitingSub", tone: "teal" },
-  { key: "activeRules", sub: "activeRulesSub", tone: "violet" },
+  { key: "rawNotes", sub: "rawNotesSub", tone: "slate", icon: "inbox" },
+  { key: "candidates", sub: "candidatesSub", tone: "blue", icon: "bulb" },
+  { key: "waiting", sub: "waitingSub", tone: "teal", icon: "rocket" },
+  { key: "activeRules", sub: "activeRulesSub", tone: "violet", icon: "shield" },
 ] as const;
 const ARROWS = ["dailyRoutine", "twoProjects", "youDecide"] as const;
 /** Four lesson lifecycle stages, their actors and the recorded review freshness. */
@@ -25,18 +25,19 @@ export function LessonFlow({
 }): React.JSX.Element {
   return (
     <Card tone="teal">
-      <CardHeader title={t("propuestas.memory.flow.title")} icon="bulb" />
+      <CardHeader title={t("propuestas.memory.flow.title")} icon="activity" />
       <p className={styles.intro}>{t("propuestas.memory.flow.intro")}</p>
       <div className={`lf ${styles.flow}`}>
         {STEPS.map((step, index) => (
           <Fragment key={step.key}>
             <div className={`lf-step ${styles.step}`} data-tone={step.tone}>
-              <strong>{t(`propuestas.memory.flow.${step.key}`)}</strong>
+              <Icon name={step.icon} size="sm" />
               <b>{facts[step.key] ?? t("common.relativeTime.noRecord")}</b>
+              <strong>{t(`propuestas.memory.flow.${step.key}`)}</strong>
               <small>{t(`propuestas.memory.flow.${step.sub}`)}</small>
             </div>
             {index < 3 && (
-              <div className={`lf-arrow ${styles.arrow}`}>
+              <div className={`lf-arrow ${styles.arrow} ${index === 2 ? styles.ownerArrow : ""}`}>
                 <Icon name="arrow" />
                 {t(`propuestas.memory.flow.${ARROWS[index] ?? "youDecide"}`)}
               </div>
