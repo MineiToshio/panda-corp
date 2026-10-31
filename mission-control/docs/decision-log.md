@@ -1,5 +1,45 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 · Clarify proportional display exceptions and count provenance
+
+During this close-out, the approved prototype governs conflicting visual specifications, except for security, accessibility or data loss. `.num` and `.chip`, including column-count chips, remain proportional. Remove the overridden `.num` tabular declaration and reconcile DESIGN, FRD-13, its FDD/blueprint and accessibility comments. Chromium source-cascade comparisons are identical before/after in both themes. FRD-17 now explicitly separates frozen capture counts from the dated live audit. Sources: [DESIGN](../DESIGN.md), [FRD-13](frds/frd-13-visual-system-accessibility/frd.md), [FDD-17](frds/frd-17-proposals-inbox/fdd.md).
+
+
+## 2026-10-31 · Complete Summary and Spec review corrections
+
+Reconcile forge placement across FRD-04, FRD-06, their FDDs and blueprints, the PRD and the historical WO note. Align code chips, log heading, document actions and empty progress tracks with the approved prototype. Keep construction on implement while queued changes remain and provide a non-empty next-command explanation. See [FRD-04](frds/frd-04-project-workspace/frd.md), [FRD-06](frds/frd-06-party/frd.md) and [components](design/components.md). Verified at 1280 and 375 in both themes.
+
+
+## 2026-10-31 · Preserve real project identity and partial proposal counts; finish reviewed responsive corrections
+
+The shell renders the authoritative proposal badge despite partial source errors, which remain visible on Proposals. A shared display-name helper removes descriptive subtitles before rendering project initials, sidebar identity and phone titles. The worktree table uses specific cell spacing, portfolio controls keep a 44 px content separation, the account table contains clipped accessible headers, and the project switcher uses intrinsic Summary sizing and full width only in compact phone headers. Selected view icons are blue, the phone hero ring is 60 px, Configuration keeps a 24 px tab-to-search gap, and unknown tabs use localized text. PortfolioContent isolates internal routeState from Next page props, fixing a base TS2344 error. Why: independent review reproduced defects using real factory names and partial source failures that fixture-only verification had missed. Canonical docs: [Shell](frds/frd-19-app-shell/fdd.md), [Portfolio](frds/frd-03-portfolio/fdd.md), [Portfolio blueprint](frds/frd-03-portfolio/blueprint.md), [Worktrees](frds/frd-21-pending-merge/fdd.md), [Accounts](frds/frd-26-services-accounts/fdd.md), [Configuration](frds/frd-07-configuration/fdd.md), [Components](design/components.md).
+
+
+## 2026-10-31 · Correct Propuestas after independent visual review
+
+Restored distinct spacing contracts: 24 px between sections, 16 px between health columns and 12 px only between action cards. Corrected lesson rows, responsive flow arrows, candidates disclosure, summary header wrapping, icons and localized supporting copy. Canonical documents: [FDD-17](frds/frd-17-proposals-inbox/fdd.md) and [component inventory](design/components.md). Verified against the live prototype at 1280 and 375 px.
+
+
+## 2026-10-31 · Correct architecture disclosures and keyboard model navigation
+
+Restore the prototype's first-open environment group, count/warning chips and complete plan labels. Synchronize keyboard focus with the diagram camera, restore entity deep links, compact ELK geometry and explicitly explain incomplete fits while preserving 12px text. Canonical documents: FRD-02 [frd](frds/frd-02-ideas-board/frd.md), [fdd](frds/frd-02-ideas-board/fdd.md), [blueprint](frds/frd-02-ideas-board/blueprint.md) and [components](design/components.md).
+
+
+## 2026-10-31 · Resolve independent achievement visual review
+
+Refined responsive card density, inline evidence, explicit won/locked sections, stable rarity ordering and six nearest targets. Corrected radar labels, rank discs, recent tiles, seals and secret hints. Updated [FRD-10](frds/frd-10-achievements-hall/frd.md), [FDD](frds/frd-10-achievements-hall/fdd.md) and [component inventory](design/components.md). Verified at 1280px and 375px.
+
+
+## 2026-10-31 · Close proposal review findings
+
+Forward the reader resolver to Evidence, expose localized empty summaries, restore oracle chart typography and paper geometry, remove accumulated hero spacing, and correct heading levels. Require Next.js board query props and update direct test calls. Updated [FRD](frds/frd-02-ideas-board/frd.md), [FDD](frds/frd-02-ideas-board/fdd.md), [blueprint](frds/frd-02-ideas-board/blueprint.md) and [components](design/components.md).
+
+
+## 2026-10-31 · Preserve valid work orders beside named source failures
+
+Share the strict published source across workspace progress and portfolio counts. Return valid items plus per-file errors, preserve whole-source directory failures, and withhold exact project totals for incomplete plans. Render localized file diagnostics beside valid progress and underline source-error links. Updated FRDs 03/04/05/12, their blueprints/FDDs, microcopy and component inventory. Evidence: `docs/reviews/2026-10-31-lane-a-readers.md`.
+
+
 ## 2026-10-31 · Close-out inventory without phase promotion
 
 Re-read main at `673c5ea6` (a descendant of `9134329a`) and its read-only, gitignored inbox. The project readers report one pending decision, zero pending bugs (building items are excluded), and four open changes (building items are included). Corrected only `pending_decisions` (3 → 1) and `pending_changes` (0 → 4) in [status.yaml](../.pandacorp/status.yaml). The four cards remain `building`; the index-only `nav-client-params-in-flight` entry has no active card. No inbox/comms file was changed.
