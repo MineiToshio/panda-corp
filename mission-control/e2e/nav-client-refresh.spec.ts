@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { controlLiveFrames, emitLiveFrame } from "./persistent-navigation/_live-race";
 
 const BASE = "/portfolio/mission-control/observability";
 const QUERY = "view=deps&dag=wo&frd=FRD-01";
@@ -29,20 +30,12 @@ for (const start of [
   }) => {
     test.setTimeout(90_000);
     // Only the external event transport is controlled; Next's history patch, RSC and router are real.
-    let emit: () => void = () => {};
-    const frame = new Promise<void>((resolve) => {
-      emit = resolve;
-    });
-    await page.route(/\/api\/live(?:\?|$)/, async (route) => {
-      await frame;
-      await route.fulfill({
-        contentType: "text/event-stream",
-        body: `data: ${JSON.stringify({ events: [], lastEventAt: "2099-01-01T00:00:00.000Z", stateVersion: 1 })}\n\n`,
-      });
-    });
+    await controlLiveFrames(page);
     await gotoHydrated(page, start, { selector: ".seg button" });
     await expectSelection(page, null);
     await expect(page.getByRole("combobox")).toHaveValue("frd-01-x");
+    // The first frame is the baseline of what the server already rendered; only an advance refreshes.
+    await emitLiveFrame(page, 1);
     await page.getByRole("button", { name: /WO-01-003 ·/ }).click();
     await expectSelection(page, "WO-01-003");
 
@@ -50,7 +43,7 @@ for (const start of [
       const request = response.request();
       return request.headers().rsc === "1" && new URL(request.url()).pathname === BASE;
     });
-    emit();
+    await emitLiveFrame(page, 2);
     const response = await refreshed;
     expect(response.ok()).toBe(true);
     expect(new URL(response.url()).searchParams.get("focus")).toBe("WO-01-003");

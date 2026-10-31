@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { reloadCommitted } from "./persistent-navigation/_history";
 
 const BASE = "/portfolio/mission-control/observability";
 const ORDER =
@@ -73,7 +74,8 @@ test("REQ-25: a portfolio filter survives a reload and walks Back", async ({ pag
   await gotoHydrated(page, "/portfolio", { selector: ".seg button" });
   await page.getByRole("button", { name: "Lista", exact: true }).click();
   await expect(page).toHaveURL(/view=lista/);
-  await page.reload();
+  // A Back before hydration commits is rewritten by Next's first history sync, on every entry.
+  await reloadCommitted(page);
   await expect(page).toHaveURL(/view=lista/);
   await expect(page.getByRole("button", { name: "Lista", exact: true })).toHaveAttribute(
     "aria-pressed",
@@ -83,38 +85,26 @@ test("REQ-25: a portfolio filter survives a reload and walks Back", async ({ pag
   await expect(page).not.toHaveURL(/view=lista/);
 });
 
-test("AC-25-003.1: client model params set before a canonical replace lands stay in the URL", async ({
+test("AC-25-003.1: a server canonical URL keeps client model params through a real refresh", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  let release: () => void = () => {};
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
+  await gotoHydrated(page, "/portfolio/mission-control/architecture?tab=architecture", {
+    selector: '[data-testid="data-model-viewer"]',
   });
-  let held = 0;
-  await page.route(/_rsc=/, async (route) => {
-    held += 1;
-    await gate;
-    await route.continue().catch(() => {});
-  });
-  await page.goto("/portfolio/mission-control/architecture?tab=architecture", {
-    waitUntil: "domcontentloaded",
-  });
+  // The redirect lands before mount, so no later canonical write can race these selections.
+  await expect(page).toHaveURL(/\/portfolio\/mission-control\/architecture$/);
   const viewer = page.getByTestId("data-model-viewer");
-  await viewer.waitFor();
-  await expect.poll(() => held, { timeout: 20_000 }).toBeGreaterThan(0);
-  const search = viewer.getByRole("searchbox");
-  await expect(async () => {
-    await search.fill("id");
-    await expect(page).toHaveURL(/modelQuery=id/, { timeout: 500 });
-  }).toPass();
+  await viewer.getByRole("searchbox").fill("id");
+  await expect(page).toHaveURL(/modelQuery=id/);
   await page.getByTestId("model-fullscreen").click();
   await expect(page).toHaveURL(/expanded=1/);
   await expect.poll(() => page.evaluate(() => document.fullscreenElement !== null)).toBe(true);
-  const refreshed = page.waitForResponse((r) => r.url().includes("_rsc="));
-  release();
-  await refreshed;
+  const refreshed = page.waitForResponse((r) => r.request().headers().rsc === "1");
+  await page.evaluate(() => Reflect.get(Reflect.get(window, "next"), "router").refresh());
+  expect((await refreshed).ok()).toBe(true);
   await expect(page).toHaveURL(/\/architecture\?.*modelQuery=id/);
   await expect(page).toHaveURL(/expanded=1/);
+  await expect(viewer.getByRole("searchbox").first()).toHaveValue("id");
   await expect.poll(() => page.evaluate(() => document.fullscreenElement !== null)).toBe(true);
 });
