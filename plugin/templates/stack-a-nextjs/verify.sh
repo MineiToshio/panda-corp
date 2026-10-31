@@ -582,8 +582,13 @@ gate_playwright() {
   # DR-072 BLOCKING lenses (routes render clean + the app shell is present). Visual + responsive
   # stay in the FULL run (close-out / Visual QA): fine fidelity is advisory at the gate and may
   # never block, so paying the whole serialized suite per FRD bought nothing but wall-clock.
+  # DR-143: a project's e2e/parallel-safe.json splits the FULL run into two tiers (two server boots):
+  # the listed specs on several workers, then everything else on one. No file, same single run.
   if [ -n "$SINCE" ]; then
     pnpm exec playwright test e2e/smoke.spec.ts e2e/shell.spec.ts
+  elif [ -f e2e/parallel-safe.json ]; then
+    PANDACORP_E2E_TIER=parallel pnpm exec playwright test e2e/ || return $?
+    PANDACORP_E2E_TIER=serial pnpm exec playwright test e2e/
   else
     pnpm exec playwright test e2e/
   fi

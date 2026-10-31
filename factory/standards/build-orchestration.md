@@ -576,7 +576,7 @@ The build engine reviews and tests **per FRD**, not per work order:
   - **Layer A — deterministic visual regression (the hard block).** Playwright `toHaveScreenshot()`
     diffs each route against its own **blessed baseline**; fail-closed (a missing or over-budget
     baseline is RED). Determinism is mandatory or it flakes: pinned Playwright Docker image,
-    `workers:1`, fonts ready (`await document.fonts.ready`), animations disabled + caret hidden,
+    `workers:1` (visual specs never join the DR-143 parallel tier), fonts ready (`await document.fonts.ready`), animations disabled + caret hidden,
     deterministic seeded data + frozen clock, genuinely dynamic regions `mask`ed (never loosen the
     global threshold to hide them), `updateSnapshots:'none'` in CI, visual specs **excluded from
     retries** (a retry re-writes a missing baseline and turns the gate fail-OPEN). Budget: default

@@ -1,5 +1,10 @@
 # Decision Log — Factory
 
+## 2026-10-31 — Serial by default, parallel only with evidence (DR-143)
+
+**What:** [DR-143](decisions/registry.yaml) lets a project opt specs into a parallel e2e tier through `e2e/parallel-safe.json`, backed by per-test write evidence. [build-orchestration.md](standards/build-orchestration.md) keeps visual specs on one worker.
+**Why:** full passes are slow, but a global worker bump is unsafe: specs share one fixture user and a naive 3-worker run failed on it. The tier saves about 12% on funko-tracker, so it stays opt-in. A larger gain needs a production-build e2e server, which is not yet proven.
+
 
 ## 2026-10-29 — `/pandacorp:implement codex`: Codex as a subordinate worker of the Claude engine (DR-142)
 

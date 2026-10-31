@@ -82,6 +82,8 @@ case "$1" in
     ;;
   exec)
     if [ "$2" = "playwright" ]; then
+      if [ -n "${WP08_ARGV_LOG:-}" ]; then printf 'tier=%s\n' "${PANDACORP_E2E_TIER:-none}" >> "$WP08_ARGV_LOG"; fi
+      if [ "${WP05_FAIL_TIER:-}" = "${PANDACORP_E2E_TIER:-none}" ]; then exit 1; fi
       if [ "${WP05_FAIL_PLAYWRIGHT:-0}" = "1" ]; then
         echo "1) e2e/smoke.spec.ts:10:5 › smoke › FIXTURE forced playwright failure"
         exit 1
@@ -518,6 +520,43 @@ if [ -f "$rf" ] && [ "$(json_get "$rf" "d['scope']")" = "partial" ]; then
   ok "(REV2-H) scope stays partial when --since trails a scope flag (--since itself is silently dropped by the positional parse)"
 else
   bad "(REV2-H) expected scope=partial, got $(json_get "$rf" "d['scope']" 2>/dev/null)" "$out"
+fi
+rm -rf "$FX"
+
+# DR-143 · parallel-safe.json splits only the FULL run, parallel tier first; a red tier stops the gate.
+FX=$(new_fixture)
+add_playwright_fixtures "$FX"
+ARGV="$FX/argv.log"; : > "$ARGV"
+WP08_ARGV_LOG="$ARGV" run_verify "$FX" >/dev/null 2>&1; rc=$?
+if [ "$rc" -eq 0 ] && [ "$(grep -c '^tier=' "$ARGV")" = "1" ] && grep -q '^tier=none$' "$ARGV"; then
+  ok "(DR-143) no parallel-safe.json: one Playwright run, no tier"
+else
+  bad "(DR-143) expected a single untiered run (rc=$rc)" "$(cat "$ARGV")"
+fi
+echo '["smoke.spec.ts"]' > "$FX/e2e/parallel-safe.json"
+: > "$ARGV"
+WP08_ARGV_LOG="$ARGV" run_verify "$FX" >/dev/null 2>&1; rc=$?
+if [ "$rc" -eq 0 ] && [ "$(grep '^tier=' "$ARGV" | tr '\n' ' ')" = "tier=parallel tier=serial " ]; then
+  ok "(DR-143) parallel-safe.json: parallel tier, then serial tier"
+else
+  bad "(DR-143) expected parallel then serial (rc=$rc)" "$(cat "$ARGV")"
+fi
+: > "$ARGV"
+WP08_ARGV_LOG="$ARGV" WP05_FAIL_TIER=parallel run_verify "$FX" >/dev/null 2>&1; rc=$?
+if [ "$rc" -ne 0 ] && ! grep -q '^tier=serial$' "$ARGV"; then
+  ok "(DR-143) a red parallel tier reds the gate and skips the serial tier"
+else
+  bad "(DR-143) red parallel tier not honoured (rc=$rc)" "$(cat "$ARGV")"
+fi
+: > "$ARGV"
+WP08_ARGV_LOG="$ARGV" WP05_FAIL_TIER=serial run_verify "$FX" >/dev/null 2>&1; rc=$?
+if [ "$rc" -ne 0 ]; then ok "(DR-143) a red serial tier reds the gate"; else bad "(DR-143) red serial tier passed" "$(cat "$ARGV")"; fi
+: > "$ARGV"
+WP08_ARGV_LOG="$ARGV" run_verify "$FX" --since deadbeef >/dev/null 2>&1; rc=$?
+if grep -q '^tier=none$' "$ARGV" && ! grep -q '^tier=parallel$' "$ARGV"; then
+  ok "(DR-143) --since keeps its scoped untiered run"
+else
+  bad "(DR-143) --since must not tier (rc=$rc)" "$(cat "$ARGV")"
 fi
 rm -rf "$FX"
 

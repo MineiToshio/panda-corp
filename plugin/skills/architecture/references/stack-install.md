@@ -54,7 +54,7 @@ gates). The STACK.md hard-enforcement section and Library conventions are the ra
 
 Copy `templates/stack-<chosen>/e2e/{smoke.spec.ts,visual.spec.ts,responsive.spec.ts,_responsive-helper.ts,shell.spec.ts,headers.spec.ts,hydration.spec.ts,_hydration.ts,prod-smoke.spec.ts,_prod-smoke.ts}`
 into `e2e/` and `e2e/playwright.config.ts` to the project root (the conformance-checked set). **Seed, never
-overwrite**, `e2e/routes.ts`, `e2e/_target.ts` and `e2e/shell.ts` from the templates only if missing (per-project,
+overwrite**, `e2e/routes.ts`, `e2e/_target.ts` and `e2e/shell.ts` from the templates only if missing (the optional `e2e/parallel-safe.json` and `e2e/globalSetup.ts` are project-owned, DR-143) (per-project,
 never byte-diffed). For `e2e/shell.ts` (DR-075) materialize the nav contract `design` Step 8a recorded: with a
 persistent shell, populate `SHELL_SELECTOR` + `NAV_DESTINATIONS` (`{label, path}` per top-level nav link, from the
 prototype's nav block / the `components.md` `AppShell` row, NOT from `routes.ts`) + `SHELL_EXEMPT` + `NAV_TOGGLE`;

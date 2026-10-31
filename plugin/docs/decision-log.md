@@ -1,5 +1,10 @@
 # Decision log — Plugin pandacorp
 
+## v9.147.0 — 2026-10-31 (MINOR): optional parallel e2e tier and no repeated viewport-agnostic gates (DR-143, BL-0296)
+
+**What:** the stack-a `playwright.config.ts` reads an optional `e2e/parallel-safe.json` and `verify.sh` runs those specs first on several workers, then the rest on one. `shell`, `headers` and `hydration` run on desktop only, because each sets its own viewport or renders none. A project's `e2e/globalSetup.ts` is wired in when present, so an upgrade no longer drops a test lease. Overlay 8.115.0.
+**Why:** the owner asked for faster full passes. Measured on funko-tracker (422 unique tests, no coverage lost): 459-475 s on one worker, 417 s with the tier at comparable load, so about 12%. The earlier estimate of 3-5 min was wrong: one `next dev` is the bottleneck, and per-test time triples at 3 workers. Removing the shell duplicates saves 9 s, not 2-4 min. A selectable viewport matrix and a reordered `verify.sh` were rejected: the full gate needs both viewports, and the order only changes the time to a red, not a green pass.
+
 ## v9.146.6 — 2026-10-31 (PATCH): preserve responsive helper fixes through upgrade (BL-0259)
 
 **What:** Back-ported the visually-hidden clipped-text exemption and obscured-target re-measurement to the stack-a responsive helper template.
