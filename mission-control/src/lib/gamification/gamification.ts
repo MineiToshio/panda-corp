@@ -1,29 +1,5 @@
 import type { IconName } from "@/components/core/Icon/iconData";
-/**
- * lib/gamification.ts — Pure XP / level / celebration engine (FRD-09)
- *
- * Platform golden rule (architecture §1): read-only derivation only. Pure functions.
- * This module is flagged as a NEW file in blueprint §7.
- *
- * Interfaces implemented (blueprint §3):
- *   IF-09-guild-xp  — computeGuildLevel(outcomes): GuildLevel
- *
- * Traceability:
- *   AC-09-001.1 — computeGuildLevel returns { level, title, xp, next, pctToNext }
- *   AC-09-001.2 — XP only from verifiable results (WO closed, phase, release, green tests)
- *   AC-09-001.3 — No outcomes → honest zero state; never bar stuck at ~80%
- *   AC-09-001.4 — Streak is weekly (with freeze cap), never daily-reset
- *   AC-09-001.5 — Pure function, fixture-tested
- *   AC-09-005.1 — maps outcome events to the correct celebration tier
- *   AC-09-005.2 — non-result/activity events → "none" (ethical constraint: no XP for activity)
- *   AC-09-005.3 — ambiguous/unknown → "none" (never a default celebration); pure function
- *
- * FRD-09 non-negotiable design constraints enforced here:
- *   - XP / celebrations ONLY for verifiable results (WO closed, phase done, release, level-up).
- *   - NO XP for: app-open, read, write, edit, message, navigation, activity.
- *   - NO celebration for: activity events, failure, ambiguous.
- *   - Forbidden patterns: leaderboards, lives, daily-reset streaks, false urgency, bar at ~80%.
- */
+/** Pure guild XP and level derivation from verifiable outcomes. */
 
 import { semanticLedger } from "../events/event-contract";
 import type { EventsSnapshot } from "../events/events";

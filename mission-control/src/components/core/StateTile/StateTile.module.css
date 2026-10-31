@@ -20,7 +20,7 @@
   font-variant-numeric: tabular-nums;
 }
 .tile small {
-  color: var(--muted);
+  color: var(--text-3);
   font-size: var(--fs-xs);
 }
 .label {

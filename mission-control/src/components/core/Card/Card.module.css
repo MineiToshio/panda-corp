@@ -44,3 +44,11 @@
   justify-content: space-between;
   flex-wrap: wrap;
 }
+
+.head a,
+.foot a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--s6);
+  min-width: var(--s6);
+}

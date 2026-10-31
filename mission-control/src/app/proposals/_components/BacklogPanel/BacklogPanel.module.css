@@ -23,10 +23,10 @@
 }
 .toolbar > span {
   margin-left: auto;
-  color: var(--muted);
+  color: var(--text-3);
 }
 .intro {
-  color: var(--muted);
+  color: var(--text-3);
   font-size: var(--fs-sm);
   margin-bottom: var(--s4);
 }
@@ -52,7 +52,7 @@
 }
 .id {
   font-family: var(--font-mono);
-  color: var(--muted);
+  color: var(--text-3);
   font-size: var(--fs-xs);
 }
 .grow {
@@ -65,7 +65,7 @@
   overflow-wrap: anywhere;
 }
 .grow small {
-  color: var(--muted);
+  color: var(--text-3);
   font-size: var(--fs-xs);
   margin-top: var(--s1);
 }

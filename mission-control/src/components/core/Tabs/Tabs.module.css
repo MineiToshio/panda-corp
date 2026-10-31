@@ -34,10 +34,6 @@
 .tabs button :global(.i) {
   color: var(--text-3);
 }
-/* biome-ignore lint/correctness/noUnknownPseudoClass: CSS Modules supports global icon classes. */
-.tabs button :global(.ti) {
-  color: var(--text-3);
-}
 @media (hover: hover) {
   .tabs button:hover {
     color: var(--text);
@@ -49,10 +45,6 @@
 }
 /* biome-ignore lint/correctness/noUnknownPseudoClass: CSS Modules exposes the shared icon hooks globally. */
 .tabs button[aria-selected="true"] :global(.i) {
-  color: var(--tone);
-}
-/* biome-ignore lint/correctness/noUnknownPseudoClass: CSS Modules supports global icon classes. */
-.tabs button[aria-selected="true"] :global(.ti) {
   color: var(--tone);
 }
 .tabs button[aria-selected="true"]::after {

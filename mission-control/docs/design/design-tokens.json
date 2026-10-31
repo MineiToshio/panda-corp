@@ -155,7 +155,9 @@
       "--shadow-drop": "0 6px 10px #16192233",
       "--shadow-panel": "20px 0 60px #16192240",
       "--shadow-dialog": "0 30px 80px #16192240",
-      "--shadow-toast": "0 16px 40px #16192240"
+      "--shadow-toast": "0 16px 40px #16192240",
+      "--shadow-room-selected": "0 0 0 3px color-mix(in srgb, var(--tone) 45%, transparent), 0 0 28px color-mix(in srgb, var(--tone) 40%, transparent)",
+      "--shadow-room-current": "0 0 0 2px var(--tone), 0 0 30px -10px var(--tone)"
     },
     "hue": {
       "--blue": "#2350b5",
@@ -303,53 +305,6 @@
         "context": "",
         "tokens": {
           "--tone": "var(--teal)"
-        }
-      },
-      {
-        "selector": ".manual-live",
-        "context": "",
-        "tokens": {
-          "--color-text": "var(--text)",
-          "--color-text2": "var(--text-2)",
-          "--color-text3": "var(--text-3)",
-          "--color-base": "var(--bg)",
-          "--color-surface": "var(--surface)",
-          "--color-surface2": "var(--surface-2)",
-          "--color-panel": "var(--surface)",
-          "--color-card": "var(--surface-2)",
-          "--color-card2": "var(--surface-3)",
-          "--color-border": "var(--line)",
-          "--color-border-strong": "var(--line-strong)",
-          "--color-accent": "var(--violet)",
-          "--color-accent-bg": "color-mix(in srgb, var(--violet) var(--tint-strong), transparent)",
-          "--color-accent-text": "var(--violet)",
-          "--color-on-accent": "var(--primary-fg)",
-          "--color-secondary": "var(--blue)",
-          "--color-info": "var(--blue)",
-          "--color-info-bg": "color-mix(in srgb, var(--blue) var(--tint), transparent)",
-          "--color-ok": "var(--green)",
-          "--color-ok-bg": "color-mix(in srgb, var(--green) var(--tint), transparent)",
-          "--color-warn": "var(--amber)",
-          "--color-warn-bg": "color-mix(in srgb, var(--amber) var(--tint), transparent)",
-          "--color-danger": "var(--coral)",
-          "--color-danger-bg": "color-mix(in srgb, var(--coral) var(--tint), transparent)",
-          "--color-cat-1": "var(--blue)",
-          "--color-cat-2": "var(--teal)",
-          "--color-cat-3": "var(--violet)",
-          "--color-cat-6": "var(--pink)",
-          "--color-cat-7": "var(--amber)",
-          "--color-cat-8": "var(--green)",
-          "--font-body": "var(--font-body)",
-          "--font-sans": "var(--font-body)",
-          "--font-display": "var(--font-display)",
-          "--font-pixel": "var(--font-display)",
-          "--hairline": "1px",
-          "--radius": "10px",
-          "--radius-sm": "8px",
-          "--radius-md": "12px",
-          "--radius-lg": "16px",
-          "--shadow-1": "none",
-          "--avatar-size-sm": "28px"
         }
       },
       {

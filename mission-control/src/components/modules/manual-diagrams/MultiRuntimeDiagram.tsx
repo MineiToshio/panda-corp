@@ -66,7 +66,7 @@ function DoorCard({ door }: { door: Door }): React.JSX.Element {
         borderRadius: "var(--radius-md, 12px)",
         padding: "12px",
         background: "var(--surface-2)",
-        boxShadow: `0 0 18px -12px ${door.accent}`,
+        boxShadow: "var(--shadow-sm)",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
@@ -100,7 +100,7 @@ function DoorCard({ door }: { door: Door }): React.JSX.Element {
               color: "var(--text-2)",
               lineHeight: 1.45,
               paddingLeft: "10px",
-              borderLeft: `2px solid ${door.accent}`,
+              borderLeft: "var(--hairline) solid var(--line)",
             }}
           >
             {line}

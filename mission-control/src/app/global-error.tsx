@@ -32,7 +32,7 @@ const WRAP_STYLE: React.CSSProperties = {
 
 const BUTTON_STYLE: React.CSSProperties = {
   padding: "0.5rem 1rem",
-  borderRadius: "var(--radius, 0.5rem)",
+  borderRadius: "var(--r)",
   border: "var(--hairline, 1px) solid var(--violet)",
   background: "var(--violet)",
   color: "var(--bg)",

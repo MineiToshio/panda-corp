@@ -12,7 +12,7 @@
   align-items: stretch;
 }
 .intro {
-  color: var(--muted);
+  color: var(--text-3);
   font-size: var(--fs-sm);
   margin-bottom: var(--s4);
 }
@@ -51,7 +51,7 @@
   font-size: var(--fs-lg);
 }
 .actionBody p {
-  color: var(--muted);
+  color: var(--text-3);
   font-size: var(--fs-sm);
 }
 .kind {
@@ -85,7 +85,7 @@
   flex-direction: column;
   gap: var(--s1);
   font-size: var(--fs-xs);
-  color: var(--muted);
+  color: var(--text-3);
 }
 .fact b {
   font: 700 var(--fs-h1) var(--font-display);
@@ -109,7 +109,7 @@
 .disclosure :where(summary) small {
   margin-left: auto;
   font-size: var(--fs-xs);
-  color: var(--muted);
+  color: var(--text-3);
 }
 .disclosure[open] summary {
   margin-bottom: var(--s4);
@@ -124,7 +124,7 @@
   font-size: var(--fs-sm);
 }
 .signal p {
-  color: var(--muted);
+  color: var(--text-3);
   font-size: var(--fs-xs);
 }
 .flow {
@@ -152,18 +152,18 @@
 }
 .step small {
   font-size: var(--fs-xs);
-  color: var(--muted);
+  color: var(--text-3);
 }
 .arrow {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--s2);
-  color: var(--muted);
+  color: var(--text-3);
   font-size: var(--fs-xs);
 }
 .meta {
-  color: var(--muted);
+  color: var(--text-3);
   font-size: var(--fs-xs);
 }
 .chips {

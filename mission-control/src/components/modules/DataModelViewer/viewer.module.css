@@ -325,10 +325,10 @@
   opacity: 0.35;
 }
 .relations {
-  margin-top: var(--space-4);
+  margin-top: var(--s4);
   border: 1px solid var(--line);
   border-radius: var(--r);
-  padding: var(--space-3);
+  padding: var(--s3);
 }
 .relations summary {
   cursor: pointer;
@@ -337,7 +337,7 @@
   display: block;
   width: 100%;
   text-align: left;
-  padding: var(--space-2);
+  padding: var(--s2);
   color: var(--text-2);
   background: var(--surface);
   border: 0;
@@ -345,7 +345,7 @@
 }
 .relations button[aria-pressed="true"] {
   color: var(--blue);
-  background: var(--blue-tint);
+  background: color-mix(in srgb, var(--blue) var(--tint), var(--surface));
 }
 .surface:fullscreen .expandedCanvas {
   height: 100%;

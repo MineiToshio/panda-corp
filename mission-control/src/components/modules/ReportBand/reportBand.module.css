@@ -84,7 +84,7 @@
   gap: var(--s3);
 }
 .quote {
-  border-left: var(--rule) solid var(--teal);
+  border-left: var(--hairline) solid var(--line);
   padding: var(--s4);
   background: color-mix(in srgb, var(--teal) var(--tint), var(--surface));
 }
@@ -160,6 +160,9 @@
   border: var(--hairline) solid var(--tone);
   background: color-mix(in srgb, var(--tone) var(--tint), var(--surface));
   font: var(--fs-xs) / 1.4 var(--font-mono);
+}
+.tile small {
+  font-size: var(--fs-xs);
 }
 .frd:focus-visible,
 .adr:focus-visible {

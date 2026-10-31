@@ -47,7 +47,7 @@
       var(--tone) 50%,
       color-mix(in srgb, var(--tone) 30%, var(--surface-2)) 50%
     );
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--tone) 35%, transparent);
+    box-shadow: 0 0 0 var(--hairline) color-mix(in srgb, var(--tone) 35%, transparent);
   }
   /* Map: a 5-column snake. Rooms fill the width; corridors between them carry the hand-off artifact. */
   [class~="map"] {
@@ -99,9 +99,7 @@
   }
   [class~="room"][class~="is-sel"] {
     border-color: var(--tone);
-    box-shadow:
-      0 0 0 3px color-mix(in srgb, var(--tone) 45%, transparent),
-      0 0 28px color-mix(in srgb, var(--tone) 40%, transparent);
+    box-shadow: var(--shadow-room-selected);
   }
   [class~="room-name"] {
     position: absolute;
@@ -123,7 +121,7 @@
     width: 8px;
     height: 8px;
     margin-right: 6px;
-    border-radius: 2px;
+    border-radius: var(--r-xs);
     background: var(--tone);
     vertical-align: 1px;
   }
@@ -213,7 +211,7 @@
       gap: 6px;
     }
     [class~="room"] {
-      order: var(--n);
+      order: 0;
     }
     [class~="corridor"] {
       display: none;
@@ -278,9 +276,7 @@
     display: none;
   }
   [class~="room"][class~="is-current"] {
-    box-shadow:
-      0 0 0 2px var(--tone),
-      0 0 30px -10px var(--tone);
+    box-shadow: var(--shadow-room-current);
   }
   @keyframes camp-idle {
     0%,
@@ -385,7 +381,7 @@
     position: absolute;
     inset: var(--s2);
     border-radius: 50%;
-    box-shadow: 0 0 var(--s5) var(--violet);
+    box-shadow: var(--shadow-room-current);
   }
   [class~="live-speech"] {
     display: none;
@@ -431,16 +427,14 @@
 }
 
 .pipeline [class~="room"][class~="is-current"] {
-  animation: room-pulse 2.4s ease-in-out infinite alternate;
+  animation: room-pulse var(--dur) var(--ease) alternate;
 }
 @keyframes room-pulse {
   from {
-    box-shadow: 0 0 0 2px var(--tone);
+    opacity: 0.8;
   }
   to {
-    box-shadow:
-      0 0 0 2px var(--tone),
-      0 0 var(--s5) var(--tone);
+    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {

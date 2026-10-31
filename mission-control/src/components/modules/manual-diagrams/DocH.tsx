@@ -49,10 +49,10 @@ export function DocH({ title, id, level = 2 }: DocHProps): React.JSX.Element {
         style={{
           width: "6px",
           height: "18px",
-          borderRadius: "3px",
+          borderRadius: "var(--r-xs)",
           background: "var(--violet)",
           flex: "0 0 auto",
-          boxShadow: "0 0 9px -2px var(--violet)",
+          boxShadow: "none",
         }}
       />
       <HeadingTag

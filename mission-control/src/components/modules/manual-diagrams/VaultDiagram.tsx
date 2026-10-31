@@ -353,7 +353,7 @@ export function VaultDiagram(): React.JSX.Element {
                 style={{
                   width: "12px",
                   height: "12px",
-                  borderRadius: "3px",
+                  borderRadius: "var(--r-xs)",
                   background: item.color,
                   flex: "0 0 auto",
                 }}

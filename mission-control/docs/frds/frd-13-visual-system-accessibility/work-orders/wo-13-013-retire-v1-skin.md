@@ -192,6 +192,33 @@ consumer count before deleting it).
 
 ## Status Note
 
+### 2026-10-31 — S7 round 3: final-gate source patch
+
+Implementation remains IN_REVIEW; no blocked_reason is present in frontmatter. Patched body
+numeric inheritance, undeclared properties, radius-scale consumers, neutral edge rules, the
+12 px text floor, scene chip contrast, card-link target floors, transform-only progress and a
+160 ms opacity pulse. Named room shadows preserve the exact approved prototype values at
+`docs/design/prototype/reference/css/43-idea-layout.css`; tone-dependent shadows are also declared
+at the hue-owning element so inherited variables do not resolve against a missing root hue.
+Removed the retired manual token override, its test skip, dead icon rules and stale comments.
+The scene plain chip's token pair (#b6bccb / #1b2029) calculates to 8.59:1; computed browser
+contrast, route-wide numeric figures, mobile targets and visual fidelity remain unverified.
+
+Verification from `mission-control/`, with `export PORT=3999 PANDACORP_E2E_PORT=3999`:
+- `pnpm exec knip`: exit 0; ten configuration hints remain.
+- `pnpm exec tsc --noEmit`: exit 0.
+- `pnpm exec biome check .`: exit 0 after formatting globals.css; schema version info remains
+  (configuration 2.5.1, installed CLI 2.5.2).
+- `pnpm lint:cycles`: exit 0, no circular dependency; madge reports one warning.
+- `pnpm exec vitest run src/app/_tests src/app/_components/OnboardingGate src/app/board/_components/CardDetail/IdeaPitch src/app/proposals/_components/ProposalsSummary src/app/proposals/_components/BacklogPanel src/app/achievements/_components/Stats 'src/app/projects/[slug]/_components/Fragua' src/components/core/Card src/components/core/RankEmblem src/components/core/StateTile src/components/core/Tabs src/components/core/ProgressBar src/components/modules/ReportBand src/components/modules/DataModelViewer src/components/modules/SectionedMarkdown src/components/modules/CampaignPipeline src/components/modules/PromotionsQueue src/components/modules/manual-diagrams src/lib/gamification --maxWorkers=2`:
+  66 files / 495 tests passed, including the unchanged FRD-13 source-contract reviewer suite.
+- `git diff --check`: exit 0.
+
+No Playwright run, reviewer-file edit, visual-baseline edit, decision-log write, staging, commit,
+merge, push or merge-queue execution. The browser visual gate remains pending; no visual pass
+is claimed. Changes are uncommitted on orch/s7, based on 0e9bcf1b.
+
+
 ### 2026-10-31 — FRD-13 final gate: NOT READY, patch-first, status stays IN_REVIEW
 
 Independent reviewer, branch `orch/s7`. WO-13-010 to WO-13-013 stay IN_REVIEW; `reopen_count` unchanged.

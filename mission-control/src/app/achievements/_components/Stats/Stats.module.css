@@ -133,7 +133,7 @@
   display: flex;
   align-items: center;
   gap: var(--s2);
-  min-height: calc(var(--s9));
+  min-height: calc(var(--s8) + var(--s1));
   border-top: var(--hairline) solid var(--line);
   font-size: var(--fs-sm);
   color: var(--text-2);
@@ -169,7 +169,7 @@
   grid-template-columns: 64px minmax(0, 1fr) auto auto;
   gap: var(--s2);
   align-items: center;
-  min-height: var(--s9);
+  min-height: calc(var(--s8) + var(--s1));
   border-top: var(--hairline) solid var(--line);
   font-size: var(--fs-sm);
 }

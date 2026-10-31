@@ -5,7 +5,6 @@
  * `global-error.tsx`.
  *
  * Must be a Client Component (Next.js requirement for error boundaries).
- * No hardcoded colours — only `--color-*` design tokens (styling-and-ui rule).
  */
 
 "use client";
@@ -25,7 +24,7 @@ const WRAP_STYLE: React.CSSProperties = {
 
 const BUTTON_STYLE: React.CSSProperties = {
   padding: "0.5rem 1rem",
-  borderRadius: "var(--radius, 0.5rem)",
+  borderRadius: "var(--r)",
   border: "var(--hairline, 1px) solid var(--violet)",
   background: "var(--violet)",
   color: "var(--bg)",

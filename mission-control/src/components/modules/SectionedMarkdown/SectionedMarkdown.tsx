@@ -153,7 +153,7 @@ const SECTION_HEADER_STYLE: React.CSSProperties = {
 function SectionBlock({ section }: { section: Section }): React.JSX.Element {
   const { icon, color } = sectionStyle(section.label);
   return (
-    <div style={{ borderLeft: `2px solid ${color}`, paddingLeft: "12px" }}>
+    <div style={{ borderLeft: "var(--hairline) solid var(--line)", paddingLeft: "12px" }}>
       <h3 style={{ ...SECTION_HEADER_STYLE, color }}>
         <span style={{ fontSize: "15px" }} aria-hidden="true">
           <Icon name={icon} size="sm" />

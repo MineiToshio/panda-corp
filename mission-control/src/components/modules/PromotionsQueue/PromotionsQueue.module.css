@@ -21,7 +21,7 @@
 }
 .grow small {
   font-size: var(--fs-xs);
-  color: var(--muted);
+  color: var(--text-3);
   display: block;
   margin-top: var(--s1);
 }
@@ -34,7 +34,7 @@
   font-size: var(--fs-sm);
 }
 .intro {
-  color: var(--muted);
+  color: var(--text-3);
   font-size: var(--fs-sm);
   margin-bottom: var(--s4);
 }

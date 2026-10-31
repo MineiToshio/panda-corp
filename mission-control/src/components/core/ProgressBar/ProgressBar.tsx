@@ -78,9 +78,11 @@ export function ProgressBar({
   const fillStyle: React.CSSProperties = {
     display: "block",
     height: "100%",
-    width: `${pct}%`,
+    width: "100%",
+    transform: `scaleX(${pct / 100})`,
+    transformOrigin: "left",
     background: isComplete ? "var(--green)" : "var(--violet)",
-    transition: "width var(--dur) var(--ease)",
+    transition: "transform var(--dur) var(--ease)",
   };
 
   const labelStyle: React.CSSProperties = {

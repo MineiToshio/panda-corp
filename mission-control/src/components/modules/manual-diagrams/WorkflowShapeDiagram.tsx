@@ -31,7 +31,7 @@ function WorkerChip({ label }: { label: string }): React.JSX.Element {
         minWidth: 0,
         background: "var(--surface)",
         border: "1px solid var(--line-strong)",
-        borderRadius: "8px",
+        borderRadius: "var(--r-sm)",
         padding: "9px 6px",
         textAlign: "center",
         fontSize: "11.5px",
@@ -51,7 +51,7 @@ function GateLensChip({ label }: { label: string }): React.JSX.Element {
         minWidth: 0,
         background: "color-mix(in srgb, var(--amber) var(--tint), transparent)",
         border: `0.5px solid var(--amber)`,
-        borderRadius: "8px",
+        borderRadius: "var(--r-sm)",
         padding: "7px 6px",
         textAlign: "center",
         fontSize: "10.5px",
@@ -86,7 +86,7 @@ export function WorkflowShapeDiagram(): React.JSX.Element {
           gap: "8px",
           background: "var(--surface-2)",
           border: "1px solid var(--line-strong)",
-          borderRadius: "10px",
+          borderRadius: "var(--r-md)",
           padding: "10px 12px",
         }}
       >
@@ -117,7 +117,7 @@ export function WorkflowShapeDiagram(): React.JSX.Element {
         style={{
           background: "color-mix(in srgb, var(--green) var(--tint), transparent)",
           border: "0.5px solid var(--green)",
-          borderRadius: "8px",
+          borderRadius: "var(--r-sm)",
           padding: "8px 12px",
           textAlign: "center",
           fontSize: "12px",

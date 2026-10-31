@@ -41,7 +41,7 @@ const CARD_STYLE: React.CSSProperties = {
   // Elevation level 1: panel above canvas.
   background: "var(--surface-2)",
   border: "var(--hairline, 1px) solid var(--line)",
-  borderRadius: "var(--radius, 0.5rem)",
+  borderRadius: "var(--r)",
   boxShadow: "var(--shadow-panel, none)",
   padding: "calc(var(--spacing, 0.25rem) * 8)",
   maxWidth: "36rem",
@@ -74,7 +74,7 @@ const COMMAND_ROW_STYLE: React.CSSProperties = {
   flexWrap: "wrap",
   padding: "calc(var(--spacing, 0.25rem) * 3)",
   background: "var(--surface-3)",
-  borderRadius: "calc(var(--radius, 0.5rem) * 0.75)",
+  borderRadius: "var(--r-sm)",
   border: "var(--hairline, 1px) solid var(--line)",
 };
 

@@ -38,13 +38,12 @@ function rowKey(color: string): React.CSSProperties {
 export const ROW_KEY_HOT_STYLE = rowKey("var(--text-3)");
 export const ROW_KEY_COLD_STYLE = rowKey("var(--text-3)");
 
-// problema → quote callout (accent border, not grey)
 export const QUOTE_STYLE: React.CSSProperties = {
-  borderLeft: "3px solid var(--violet)",
+  borderLeft: "var(--hairline) solid var(--line)",
   padding: "8px 14px",
   margin: "10px 0 0",
   background: "var(--surface-2)",
-  borderRadius: "0 10px 10px 0",
+  borderRadius: "0 var(--r-md) var(--r-md) 0",
   fontStyle: "italic",
   fontSize: "14px",
   color: "var(--text-2)",
@@ -54,7 +53,7 @@ export const QUOTE_STYLE: React.CSSProperties = {
 export const VISION_FRAME_STYLE: React.CSSProperties = {
   border: "1px solid var(--line-strong)",
   background: "var(--surface-2)",
-  borderRadius: "12px",
+  borderRadius: "var(--r)",
   padding: "12px 16px",
 };
 // "La visión" feature cards mirror the Spec tab's "Usuarios" role cards (SpecDigest.styles
@@ -68,7 +67,7 @@ export const FEATS_STYLE: React.CSSProperties = {
 export const FEAT_STYLE: React.CSSProperties = {
   background: "var(--surface-2)",
   border: "1px solid var(--line)",
-  borderRadius: "12px",
+  borderRadius: "var(--r)",
   padding: "12px 14px",
 };
 export const FEAT_TITLE_STYLE: React.CSSProperties = {
@@ -90,7 +89,7 @@ export const MOCK_STYLE: React.CSSProperties = {
   marginTop: "12px",
   background: "var(--bg)",
   border: "1px solid var(--line)",
-  borderRadius: "14px",
+  borderRadius: "var(--r-lg)",
   padding: "16px",
   fontFamily: "var(--font-mono, ui-monospace, monospace)",
 };
@@ -117,7 +116,7 @@ export const CHECKITEM_STYLE: React.CSSProperties = {
   alignItems: "center",
   gap: "10px",
   padding: "8px 10px",
-  borderRadius: "9px",
+  borderRadius: "var(--r-md)",
   marginBottom: "6px",
   fontSize: "13px",
   background: "var(--surface-2)",
@@ -128,7 +127,7 @@ function checkIcon(ok: boolean): React.CSSProperties {
   return {
     width: "22px",
     height: "22px",
-    borderRadius: "6px",
+    borderRadius: "var(--r-xs)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -147,7 +146,7 @@ export const CHECK_WARN_ICON_STYLE = checkIcon(false);
 export const PREMORTEM_STYLE: React.CSSProperties = {
   background: "color-mix(in srgb, var(--coral) var(--tint), transparent)",
   border: "1px solid var(--coral)",
-  borderRadius: "12px",
+  borderRadius: "var(--r)",
   padding: "14px 16px",
   marginTop: "2px",
   fontSize: "14px",
@@ -156,7 +155,7 @@ export const PREMORTEM_STYLE: React.CSSProperties = {
 export const ASK_STYLE: React.CSSProperties = {
   background: "color-mix(in srgb, var(--violet) var(--tint-strong), transparent)",
   border: "1px solid var(--violet)",
-  borderRadius: "14px",
+  borderRadius: "var(--r-lg)",
   padding: "16px 20px",
   fontSize: "15px",
   color: "var(--text)",
@@ -168,7 +167,7 @@ export const RM_STYLE: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
   border: "1px solid var(--line)",
-  borderRadius: "11px",
+  borderRadius: "var(--r)",
   overflow: "hidden",
   marginTop: "10px",
 };
@@ -195,7 +194,7 @@ export const TWOCOL_STYLE: React.CSSProperties = {
 export const SUBPANEL_STYLE: React.CSSProperties = {
   background: "var(--surface)",
   border: "1px solid var(--line)",
-  borderRadius: "14px",
+  borderRadius: "var(--r-lg)",
   padding: "18px",
 };
 export const SUBPANEL_TITLE_STYLE: React.CSSProperties = {
@@ -223,7 +222,7 @@ export const SCORE_TRACK_STYLE: React.CSSProperties = {
   flex: 1,
   height: "12px",
   background: "var(--surface-3)",
-  borderRadius: "6px",
+  borderRadius: "var(--r-xs)",
   overflow: "hidden",
 };
 const SCORE_FILL_COLOR: Record<ScoreLevel, string> = {
@@ -252,7 +251,7 @@ export const SCORE_VAL_STYLE: React.CSSProperties = {
 export const DETAILS_STYLE: React.CSSProperties = {
   background: "var(--surface)",
   border: "1px solid var(--line)",
-  borderRadius: "12px",
+  borderRadius: "var(--r)",
   padding: "4px 16px",
   marginTop: "8px",
 };
