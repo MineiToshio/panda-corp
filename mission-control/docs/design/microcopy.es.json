@@ -574,6 +574,8 @@
       },
       "tableAria": "Cuentas de la fábrica",
       "columns": {
+        "type": "Tipo",
+        "organization": "Organización",
         "service": "Servicio",
         "purpose": "Para qué",
         "user": "Usuario",

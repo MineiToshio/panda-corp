@@ -6,8 +6,7 @@ title: 'WO-12-007 Dependencias: deterministic two-level dependency map'
 status: ACTIVE
 parent: FRD-12
 foundation: false
-implementation_status: PLANNED
-blocked_reason:
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -17,7 +16,7 @@ artifacts:
   - 'src/lib/frds/_tests/frd-index.test.ts'
 source_requirements: [REQ-12-004, REQ-12-006]
 dependsOn: [WO-13-012, WO-25-001, WO-05-001]
-last_updated: 2026-10-22
+last_updated: 2026-10-30
 ---
 
 # WO-12-007 Dependencias: deterministic two-level dependency map
@@ -158,3 +157,15 @@ WO-13-012 (W2, primitives), WO-25-001 (W0, `dag` / `focus` / `frd` / `wo` keys),
 added to the map's list because this WO imports it, DR-087; the wave stays W3).
 
 ## Status Note
+
+- 2026-10-30 (S1C): Built the self-loading two-level map, server-only geometry, URL-owned selections, transient/pinned chain highlight, direct-dependency focus details, bounded canvases and ordered narrow lists. Added the shared cached FRD index with Spec > Architecture > H1 > humanized slug precedence and explicit listing failures.
+- 2026-10-30: Layout golden fixtures were extracted directly from the frozen prototype arithmetic, without executing its UI: Mission Control (110 work orders, 23 FRD boxes, 1048×2792 canvas) and Funko Tracker (48 work orders, 8 boxes, 1048×1080). Full and FRD-scoped work-order coordinates match, as do FRD box and item coordinates. State changes produce byte-identical geometry; independent and dangling references never fabricate edges. Cycle tests also require finite geometry.
+- 2026-10-30: Scoped TypeScript and Biome passed. Scoped Vitest passed (5 files, 15 tests), including real frontmatter reads, title-source precedence, all clearing actions and URL state. Initial RED was observed before the layout modules existed. AC references in each of this stream's three WO acceptance sections are cited by tests (11 / 24 / 11 references respectively).
+- 2026-10-30: No Playwright, browser, visual fidelity or full gate was run per stream instructions; the mount and behavior e2e remain with WO-05-008. No shared primitive, reviewer-authored test, visual baseline, navigation codec or decision log was edited. The template's fixed e2e server-env port is outside this WO; no server was started in this stream. All scoped commands exported PORT=3942 and PANDACORP_E2E_PORT=3942.
+- 2026-10-30: Git staging/commit is blocked by sandbox denial when creating `.git/worktrees/orch-s1c/index.lock`. No merge, push, merge queue or main-checkout write was attempted. Reviewable changes remain in this checkout with per-WO patches prepared outside the repository.
+
+- 2026-10-30: Final scoped stream verification: 60 tests in 13 files passed; after the final account-placeholder accessibility fix, its 7 component tests passed again. Biome checked 61 scoped files without diagnostics; scoped TypeScript and `git diff --check` passed. Scope audit found exactly 60 changed files, all within these WOs or their authorized status documents.
+
+- 2026-10-30 (S1C round 2): Round 2 review patch: own-property checks ignore prototype-key FRD values; the scroll region is capped by its local 640px token. DependencyEdge is internal. A real-file composition test exercises DependencyMap so knip counts the module through tests, as the DoD requires. Integration mismatch remains: the blueprint uses the FRD folder slug, while src/lib/navigation/keys.ts:49 accepts only ^FRD-\d+$; the navigation codec is outside this patch.
+
+- 2026-10-30 (S1C round 2 verification): Reproduced 13 failing reviewer cases before the patch (68 passing); the same scoped regression now passes, with 237 tests across 25 files, including reviewer suites and the real-file DependencyMap composition test. The added signal-age boundary test passes separately (1 test). Full `pnpm knip` exits 0 (configuration hints only); `pnpm exec tsc --noEmit` passes; scoped Biome passes. Commands export `PORT=3942` and `PANDACORP_E2E_PORT=3942`, with Vitest `--maxWorkers=2`. Work remains IN_REVIEW and uncommitted. Reviewer tests and blessed baselines are unchanged. Browser rendering, Playwright, visual fidelity and the full verify.sh gate were not executed.

@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseAccounts, parseAllocations, parseProviders } from "../parsers";
-import { readServicesDirectory } from "../services";
+import { readServicesDirectory, serviceIssueCode } from "../services";
 
 const roots: string[] = [];
 const provider = {
@@ -137,7 +137,7 @@ describe("approved services registry contract", () => {
     });
     expect(result.providers).toHaveLength(1);
     expect(result.accounts).toHaveLength(0);
-    expect(result.issues).toContainEqual({ code: "missing", source: "accounts" });
+    expect(result.issues).toContainEqual({ code: "missing", source: "services/accounts.yaml" });
   });
   it("derives consumers and redacts secrets in every projection", () => {
     const { root, accountsPath } = fixture();
@@ -190,7 +190,7 @@ describe("approved services registry contract", () => {
     fs.writeFileSync(accountsPath, "password: [RAW_SECRET");
     const result = readServicesDirectory({ factoryRoot: root, accountsPath, projects: [] });
     expect(JSON.stringify(result)).not.toContain("RAW_SECRET");
-    expect(result.issues).toContainEqual({ code: "invalid", source: "accounts" });
+    expect(result.issues).toContainEqual({ code: "invalid", source: "services/accounts.yaml" });
   });
   it("rejects duplicates and credential-bearing dashboard links", () => {
     expect(() => parseAccounts({ schema_version: 1, accounts: [account, account] })).toThrow();
@@ -224,4 +224,96 @@ describe("approved services registry contract", () => {
       ),
     ).toThrow();
   });
+});
+
+describe("bounded issue classification", () => {
+  it("AC-26-007.1 AC-26-008.1: maps every internal failure to a closed safe code", () => {
+    for (const [id, code] of [
+      ["duplicate-id", "duplicate"],
+      ["duplicate-project", "duplicate"],
+      ["dangling-provider", "dangling"],
+      ["dangling-account", "dangling"],
+      ["production-as-dev", "productionAsDev"],
+      ["shared-dev-prod-resource", "productionAsDev"],
+      ["oversized-registry", "unreadable"],
+      ["RAW_SECRET", "invalid"],
+    ])
+      expect(serviceIssueCode(new Error(id))).toBe(code);
+    expect(serviceIssueCode({ code: "ENOENT", message: "RAW_SECRET" })).toBe("missing");
+    expect(serviceIssueCode({ code: "EACCES", path: "/private/RAW_SECRET" })).toBe("unreadable");
+  });
+  it("AC-26-007.1: distinguishes unreadable, duplicate and malformed private registries", () => {
+    const { root, accountsPath } = fixture();
+    fs.writeFileSync(
+      accountsPath,
+      JSON.stringify({ schema_version: 1, accounts: [account, account] }),
+    );
+    expect(readServicesDirectory({ factoryRoot: root, accountsPath, projects: [] }).issues).toEqual(
+      [{ source: "services/accounts.yaml", code: "duplicate" }],
+    );
+    expect(
+      readServicesDirectory({ factoryRoot: root, accountsPath: root, projects: [] }).issues,
+    ).toEqual([{ source: "services/accounts.yaml", code: "unreadable" }]);
+  });
+  it("AC-26-009.1: public projection uses recipes without private identity or secret fields", async () => {
+    const { readServiceManualPages } = await import("../manual");
+    const { root } = fixture();
+    const pages = JSON.stringify(readServiceManualPages(root));
+    expect(pages).toContain("Reuse organization");
+    expect(pages).not.toMatch(/owner@example.com|login_email|credential_ref/);
+  });
+});
+
+it("AC-26-007.1: a bad project emits one bounded issue and leaves valid links intact", () => {
+  const { root, accountsPath } = fixture();
+  const projects = ["valid", "dangling", "production", "duplicate"];
+  const source = (name: string) => `projects/${name}/.pandacorp/accounts/services.yaml`;
+  const write = (name: string, value: unknown) => {
+    const folder = path.join(root, name, ".pandacorp/accounts");
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, "services.yaml"), JSON.stringify(value));
+  };
+  const service = { provider_id: "neon", account_ref: "neon-main", status: "configured" };
+  write("valid", {
+    schema_version: 1,
+    project_id: "valid",
+    resource_slug: "valid",
+    services: { db: service },
+  });
+  write("dangling", {
+    schema_version: 1,
+    project_id: "dangling",
+    resource_slug: "dangling",
+    services: { db: { ...service, account_ref: "absent" } },
+  });
+  write("production", {
+    schema_version: 1,
+    project_id: "production",
+    resource_slug: "production",
+    services: {
+      storage: {
+        provider_id: "cloudflare",
+        account_ref: null,
+        status: "proposed",
+        environments: { dev: { resource_name: "app-prod" } },
+      },
+    },
+  });
+  write("duplicate", {
+    schema_version: 1,
+    project_id: "valid",
+    resource_slug: "valid",
+    services: { db: service },
+  });
+  const data = readServicesDirectory({
+    factoryRoot: root,
+    accountsPath,
+    projects: projects.map((name) => ({ name, path: path.join(root, name) })),
+  });
+  expect(data.allocations.map((row) => row.projectId)).toEqual(["valid"]);
+  expect(data.issues).toEqual([
+    { source: source("dangling"), code: "dangling" },
+    { source: source("production"), code: "productionAsDev" },
+    { source: source("duplicate"), code: "duplicate" },
+  ]);
 });

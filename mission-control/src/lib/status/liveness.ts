@@ -23,7 +23,7 @@ export const LIVE_WINDOW_MS = 3 * SUPERVISOR_TICK_MS;
 export const NO_SIGNAL_TTL_MS = 10 * 60_000;
 
 /** Graded freshness band (DR-066 rule b). */
-export type FreshnessBand = "live" | "aging" | "no-signal";
+type FreshnessBand = "live" | "aging" | "no-signal";
 
 /** A band verdict plus the signal age (null when there is no interpretable signal). */
 export interface Freshness {

@@ -1,0 +1,317 @@
+.live {
+  min-width: 0;
+}
+.scene {
+  --text: var(--scene-text);
+  --text-2: var(--scene-text-2);
+  --text-3: var(--scene-text-3);
+  --surface: var(--scene-surface);
+  --surface-2: var(--scene-surface-2);
+  --blue: var(--scene-blue);
+  --teal: var(--scene-teal);
+  --violet: var(--scene-violet);
+  --pink: var(--scene-pink);
+  --amber: var(--scene-amber);
+  --green: var(--scene-green);
+  --coral: var(--scene-coral);
+  --slate: var(--scene-slate);
+  --gold: var(--scene-gold);
+  --line: var(--scene-line);
+  --line-strong: var(--scene-line-strong);
+  display: grid;
+  gap: var(--s4);
+  padding: var(--s5) var(--s6);
+  border-radius: var(--r-xl);
+  border: var(--hairline) solid var(--scene-line);
+  color: var(--map-label-fg);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--map-bg) 55%, transparent),
+      color-mix(in srgb, var(--map-bg) 88%, transparent)
+    ),
+    url("/prototype/assets/zones/build-hall.png") center 40% / cover,
+    var(--map-bg);
+}
+.head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s3);
+  align-items: start;
+}
+.head h2 {
+  margin-top: var(--s1);
+  font-size: var(--fs-h2);
+  color: var(--map-label-fg);
+}
+.head p,
+.note {
+  color: var(--scene-text-2);
+}
+.eyebrow {
+  color: var(--gold);
+  font-size: var(--fs-xs);
+}
+.quest {
+  display: flex;
+  height: var(--s3);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  background: var(--scene-line);
+}
+.quest > span {
+  background: var(--tone);
+}
+.stations {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s3);
+  padding-top: var(--s2);
+}
+.station {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: var(--s2);
+  justify-items: center;
+  min-width: 0;
+}
+.cast {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: end;
+  gap: var(--s1);
+  height: 96px;
+}
+.cast img {
+  width: 72px;
+  height: 72px;
+  image-rendering: pixelated;
+  filter: drop-shadow(var(--shadow-drop));
+}
+.plate {
+  display: grid;
+  gap: var(--s1);
+  justify-items: center;
+  align-content: start;
+  width: 100%;
+  padding: var(--s3);
+  border-radius: var(--r-lg);
+  background: var(--map-label-bg);
+  border: var(--hairline) solid color-mix(in srgb, var(--tone) 45%, transparent);
+  text-align: center;
+  font-size: var(--fs-xs);
+}
+.count {
+  font: 800 var(--fs-h1) / 1 var(--font-display);
+  color: color-mix(in srgb, var(--tone) 55%, var(--map-label-fg));
+  font-variant-numeric: tabular-nums;
+}
+.tokens {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s1);
+  margin-top: var(--s1);
+  min-height: 84px;
+  align-content: start;
+}
+.token,
+.more {
+  display: grid;
+  place-content: center;
+  width: 44px;
+  height: 40px;
+  border: 0;
+  padding: 0;
+  border-radius: var(--r-sm);
+  font: 700 var(--fs-xs) / 1.05 var(--font-mono);
+}
+.token {
+  background: var(--tone);
+  color: var(--map-bg);
+  cursor: pointer;
+}
+.token:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--s1);
+}
+.more {
+  background: var(--map-label-bg);
+  color: var(--map-label-fg);
+}
+.ghost {
+  width: 44px;
+  height: 40px;
+  border-radius: var(--r-sm);
+  border: 2px dashed var(--scene-line-strong);
+}
+.empty {
+  flex-basis: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--fs-xs);
+}
+.tip {
+  position: fixed;
+  z-index: 70;
+  display: grid;
+  gap: var(--s1);
+  width: min(320px, calc(100vw - 16px));
+  padding: var(--s3);
+  border-radius: var(--r);
+  background: var(--scene-surface);
+  color: var(--scene-text);
+  border: var(--hairline) solid var(--scene-line-strong);
+  box-shadow: var(--shadow-dialog);
+  pointer-events: none;
+}
+.foot {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--s3);
+}
+.foot > span:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+.note {
+  font-size: var(--fs-xs);
+}
+.path,
+.route {
+  position: absolute;
+  top: 74px;
+  pointer-events: none;
+}
+.path {
+  left: 10%;
+  right: 10%;
+  border-top: 3px dashed var(--scene-line-strong);
+}
+.route {
+  border-top: 3px solid var(--gold);
+}
+.courier {
+  position: absolute;
+  z-index: 2;
+  top: 38px;
+  height: 56px;
+  pointer-events: none;
+}
+.walker {
+  position: absolute;
+  inset: 0;
+}
+.walker img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 56px;
+  height: 56px;
+  margin-left: -28px;
+  image-rendering: pixelated;
+}
+.active .cast img {
+  animation: work 0.55s ease-in-out infinite;
+}
+.active .walker {
+  animation: carry calc(var(--dur) * 2) linear infinite;
+}
+@keyframes work {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  50% {
+    transform: translateY(-5px) rotate(-3deg);
+  }
+}
+@keyframes carry {
+  0% {
+    transform: translateX(0);
+  }
+  48%,
+  50% {
+    transform: translateX(100%);
+  }
+  98%,
+  100% {
+    transform: translateX(0);
+  }
+}
+@media (hover: hover) {
+  .token:hover {
+    transform: scale(1.25);
+  }
+}
+@media (max-width: 899px) {
+  .head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .stations {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .station {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto;
+    width: 100%;
+    align-items: center;
+  }
+  .path,
+  .courier,
+  .route {
+    display: none;
+  }
+  .plate {
+    grid-template-columns: 1fr auto;
+  }
+  .tokens {
+    grid-column: 1 / -1;
+    min-height: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .active .cast img,
+  .active .walker {
+    animation: none;
+  }
+  .route,
+  .courier {
+    display: none;
+  }
+  .token:hover {
+    transform: none;
+  }
+}
+
+.live:not(.active) .route,
+.live:not(.active) .courier {
+  display: none;
+}
+
+.active .walker img {
+  animation: turn calc(var(--dur) * 2) steps(1, end) infinite;
+}
+@keyframes turn {
+  0% {
+    transform: scaleX(1);
+  }
+  49% {
+    transform: scaleX(-1);
+  }
+  99% {
+    transform: scaleX(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .active .walker img {
+    animation: none;
+  }
+}

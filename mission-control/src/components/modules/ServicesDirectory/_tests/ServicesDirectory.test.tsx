@@ -1,171 +1,105 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
-import { parseAccounts, parseProviders } from "@/lib/services/parsers";
-import type { ServicesDirectoryData } from "@/lib/services/types";
-import { directoryRows, ServicesDirectory } from "../ServicesDirectory";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { servicesFixture } from "@/lib/services/_tests/fixture";
+import { AccountsDirectory } from "../AccountsDirectory";
+import { PortfolioViews } from "../PortfolioViews";
+import { ProjectAccounts } from "../ProjectAccounts";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
-
-import { PortfolioViews } from "../PortfolioViews";
-
-function data(): ServicesDirectoryData {
-  const providers = parseProviders({
-    schema_version: 1,
-    providers: [
-      {
-        id: "neon",
-        name: "Neon",
-        type: "Database",
-        purpose: "PostgreSQL per project",
-        adoption: "base",
-        dashboard_url: "https://console.neon.tech",
-        reuse_policy: "One account",
-        environment_policy: "Branches",
-        automation: { methods: ["api"], status: "documented", steps: ["Create"] },
-        quota_notes: "Check quota",
-        sources: [{ url: "https://example.com/docs", checked_at: "2026-10-19" }],
-      },
-      {
-        id: "modal",
-        name: "Modal",
-        type: "Compute",
-        purpose: "Render posters",
-        adoption: "optional",
-        dashboard_url: "https://modal.com",
-        reuse_policy: "Shared",
-        environment_policy: "Separate apps",
-        automation: { methods: ["cli"], status: "documented", steps: ["Deploy"] },
-        quota_notes: "Zero spend",
-        sources: [{ url: "https://example.com/docs", checked_at: "2026-10-19" }],
-      },
-    ],
-  });
-  const accounts = parseAccounts({
-    schema_version: 1,
-    accounts: [
-      {
-        id: "neon-main",
-        provider_id: "neon",
-        login_email: "first@example.com",
-        display_name: "Main",
-        access_status: "historical_identity_verified",
-        observed_at: "2026-10-19",
-        plan: "Free",
-        accepting_new_projects: true,
-        automation_status: "documented",
-        next_step: null,
-        notes: null,
-      },
-      {
-        id: "neon-second",
-        provider_id: "neon",
-        login_email: "second@example.com",
-        display_name: "Second",
-        access_status: "unverified",
-        observed_at: null,
-        plan: null,
-        accepting_new_projects: false,
-        automation_status: "pending",
-        next_step: "Verify",
-        notes: null,
-      },
-    ],
-  });
-  return {
-    providers,
-    accounts,
-    issues: [],
-    allocations: [
-      {
-        integrationId: "database",
-        projectId: "demo",
-        projectName: "Demo Project",
-        projectHref: "/portfolio/demo/accounts",
-        providerId: "neon",
-        accountRef: "neon-main",
-        status: "observed",
-        resources: [{ environment: "dev", resourceName: "demo-dev", nativeResourceId: null }],
-      },
-      {
-        integrationId: "render",
-        projectId: "other",
-        projectName: "Other",
-        projectHref: "/portfolio/other/accounts",
-        providerId: "modal",
-        accountRef: null,
-        status: "proposed",
-        resources: [],
-      },
-    ],
-  };
-}
-describe("approved read-only account directory", () => {
-  it("distinguishes multiple accounts and safe new-tab dashboards", () => {
-    render(<ServicesDirectory data={data()} />);
-    expect(screen.getByText("first@example.com", { selector: "summary span" })).toBeInTheDocument();
-    expect(
-      screen.getByText("second@example.com", { selector: "summary span" }),
-    ).toBeInTheDocument();
-    for (const link of screen.getAllByRole("link", { name: "Abrir panel ↗" })) {
+beforeEach(() => window.history.replaceState(null, "", "/portfolio?view=cuentas&keep=yes"));
+describe("accounts acceptance", () => {
+  it("AC-26-001.1 AC-26-003.1 AC-26-010.1: works independently of project selection, separates identities and opens safe dashboards", () => {
+    render(<AccountsDirectory data={servicesFixture()} />);
+    expect(screen.getByRole("table", { name: "Cuentas de la fábrica" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /first@example.com/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /second@example.com/ })).toBeInTheDocument();
+    for (const link of screen.getAllByRole("link", { name: /Neon/ })) {
       expect(link).toHaveAttribute("target", "_blank");
       expect(link).toHaveAttribute("rel", "noopener noreferrer");
     }
   });
-  it("searches by project and email, then filters honest candidates", async () => {
-    const user = userEvent.setup();
-    render(<ServicesDirectory data={data()} />);
-    const search = screen.getByRole("searchbox");
-    await user.type(search, "Demo Project");
-    expect(
-      screen.getByText("Main", { exact: false, selector: "summary span" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText("second@example.com", { selector: "summary span" }),
-    ).not.toBeInTheDocument();
-    await user.clear(search);
-    await user.type(search, "second@");
-    expect(
-      screen.queryByText("first@example.com", { selector: "summary span" }),
-    ).not.toBeInTheDocument();
-    await user.clear(search);
-    await user.selectOptions(screen.getByRole("combobox"), "candidates");
-    expect(screen.getByText("Modal", { selector: "summary strong" })).toBeInTheDocument();
-    expect(screen.queryByText("Neon", { selector: "summary strong" })).not.toBeInTheDocument();
-  });
-  it("scopes project accounts without leaking unrelated identities", () => {
-    const result = directoryRows(data(), "demo");
-    expect(result).toHaveLength(1);
-    expect(result[0]?.account?.id).toBe("neon-main");
-    render(<ServicesDirectory data={data()} projectId="demo" />);
-    expect(screen.queryByText("second@example.com")).not.toBeInTheDocument();
-    expect(screen.queryByText("Modal", { selector: "summary strong" })).not.toBeInTheDocument();
-  });
-  it("shows errors and missing bindings explicitly", () => {
-    const model = data();
-    model.issues = [{ source: "accounts", code: "invalid" }];
-    render(<ServicesDirectory data={model} projectId="missing" />);
-    expect(
-      within(screen.getByRole("alert")).getByText(/no cumple el contrato/),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("No hay vínculos");
-  });
-  it("AC-25-004.1 — global tabs keep selection and do not interpret accounts as a project slug", async () => {
-    const user = userEvent.setup();
-    render(<PortfolioViews href="/portfolio/demo/summary?unrelated=keep" accounts={false} />);
-    await user.click(screen.getByRole("tab", { name: "Cuentas" }));
-    expect(push).toHaveBeenCalledWith("/portfolio/demo/summary?unrelated=keep&view=cuentas");
-  });
-  it("returns from canonical Cuentas to projects and removes the legacy alias", async () => {
+  it("AC-26-002.1: retains selection, unrelated state and legacy normalization", async () => {
     const user = userEvent.setup();
     render(
-      <PortfolioViews
-        href="/portfolio/demo/summary?view=cuentas&portfolioView=accounts&unrelated=keep"
-        accounts
-      />,
+      <PortfolioViews href="/portfolio/demo/summary?portfolioView=accounts&keep=yes" accounts />,
     );
     await user.click(screen.getByRole("tab", { name: "Proyectos" }));
-    expect(push).toHaveBeenCalledWith("/portfolio/demo/summary?unrelated=keep");
+    expect(push).toHaveBeenCalledWith("/portfolio/demo/summary?keep=yes");
+    await user.click(screen.getByRole("tab", { name: "Cuentas" }));
+    expect(push).toHaveBeenLastCalledWith("/portfolio/demo/summary?keep=yes&view=cuentas");
   });
+  it("AC-26-005.1: exclusive states, search by project/email and URL filters", async () => {
+    const user = userEvent.setup();
+    render(<AccountsDirectory data={servicesFixture()} />);
+    expect(screen.getByRole("button", { name: "Activas 1" })).toBeInTheDocument();
+    await user.type(screen.getByRole("searchbox"), "Demo Project");
+    expect(screen.queryByRole("button", { name: /second@example.com/ })).not.toBeInTheDocument();
+    expect(location.search).toContain("accountsQuery=Demo+Project");
+    await user.clear(screen.getByRole("searchbox"));
+    await user.click(screen.getByRole("button", { name: "Candidatos 1" }));
+    expect(location.search).toContain("accountsState=candidates");
+    expect(location.search).toContain("keep=yes");
+    expect(screen.queryByRole("link", { name: /Neon/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Candidato")).toBeInTheDocument();
+  });
+  it("AC-26-004.1: keyboard detail, recipe, dated facts, resources, focus return", async () => {
+    const user = userEvent.setup();
+    render(<AccountsDirectory data={servicesFixture()} />);
+    const opener = screen.getByRole("button", { name: "Detalles: Main" });
+    await user.click(opener);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("2026-10-19", { exact: false })).toBeInTheDocument();
+    expect(within(dialog).getByText("demo-dev", { exact: false })).toBeInTheDocument();
+    expect(within(dialog).getByText("One account")).toBeInTheDocument();
+    expect(within(dialog).getByText("Create")).toBeInTheDocument();
+    expect(location.search).toContain("account=neon");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+  });
+  it("AC-26-006.1 AC-26-007.1 AC-26-008.1 AC-26-011.1: project-only, bounded notice, ordered table, copy and responsive captions", async () => {
+    const user = userEvent.setup();
+    const model = servicesFixture();
+    model.issues = [{ source: "services/accounts.yaml", code: "invalid" }];
+    const allocation = model.allocations[0];
+    if (!allocation) throw new Error("Missing fixture allocation");
+    model.allocations.push({
+      ...allocation,
+      integrationId: "extra",
+      status: "configured",
+    });
+    const { container } = render(<ProjectAccounts data={model} projectId="demo" />);
+    expect(screen.getByRole("alert")).toHaveTextContent("no cumple el contrato");
+    expect(screen.queryByText("second@example.com")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("row")[1]).toHaveTextContent("Configurado");
+    const copy = screen.getAllByRole("button", { name: /first@example.com/ }).at(0);
+    if (!copy) throw new Error("Missing login");
+    await user.click(copy);
+    expect(await navigator.clipboard.readText()).toBe("first@example.com");
+    expect(container.querySelector('td[data-label="Entornos"] .chip')).toHaveAttribute(
+      "data-tone",
+      "teal",
+    );
+    expect(container.querySelector(".acc-table")).toBeInTheDocument();
+  });
+  it("AC-26-006.1: explicit empty project and no-match directory", async () => {
+    const { unmount } = render(<ProjectAccounts data={servicesFixture()} projectId="missing" />);
+    expect(screen.getByText(/no tiene servicios asignados/)).toBeInTheDocument();
+    unmount();
+    render(<AccountsDirectory data={servicesFixture()} />);
+    await userEvent.setup().type(screen.getByRole("searchbox"), "no such service");
+    expect(screen.getByText(/No hay coincidencias/)).toBeInTheDocument();
+  });
+});
+
+it("AC-26-003.1 AC-26-011.1: missing project cells use explicit faint placeholders", () => {
+  const model = servicesFixture();
+  const allocation = model.allocations[0];
+  if (!allocation) throw new Error("Missing fixture allocation");
+  allocation.accountRef = null;
+  allocation.resources = [];
+  render(<ProjectAccounts data={model} projectId="demo" />);
+  expect(screen.getAllByText("−")).toHaveLength(2);
 });

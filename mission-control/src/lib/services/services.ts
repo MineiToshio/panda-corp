@@ -14,19 +14,30 @@ interface ReadOptions {
   accountsPath?: string;
   projects?: { name: string; path: string }[];
 }
-function readFile(file: string, source: string, issues: ServiceIssue[]): unknown {
+/** Convert internal failures to bounded codes; raw error text never leaves the reader. */
+export function serviceIssueCode(error: unknown): ServiceIssue["code"] {
+  if (error && typeof error === "object" && "code" in error)
+    return error.code === "ENOENT" ? "missing" : "unreadable";
+  const id = error instanceof Error ? error.message : "";
+  if (id.startsWith("duplicate-")) return "duplicate";
+  if (id.startsWith("dangling-")) return "dangling";
+  if (["production-as-dev", "shared-dev-prod-resource"].includes(id)) return "productionAsDev";
+  return id === "oversized-registry" ? "unreadable" : "invalid";
+}
+function readFile(file: string, source: ServiceIssue["source"], issues: ServiceIssue[]): unknown {
+  let content: string;
   try {
-    const content = fs.readFileSync(file, "utf8");
+    if (fs.statSync(file).size > 1024 * 1024) throw new Error("oversized-registry");
+    content = fs.readFileSync(file, "utf8");
     if (Buffer.byteLength(content, "utf8") > 1024 * 1024) throw new Error("oversized-registry");
-    return parse(content);
   } catch (error) {
-    issues.push({
-      source,
-      code:
-        error && typeof error === "object" && "code" in error && error.code === "ENOENT"
-          ? "missing"
-          : "invalid",
-    });
+    issues.push({ source, code: serviceIssueCode(error) });
+    return undefined;
+  }
+  try {
+    return parse(content);
+  } catch {
+    issues.push({ source, code: "invalid" });
     return undefined;
   }
 }
@@ -35,12 +46,22 @@ export function readServiceCatalog(
   factoryRoot = resolveFactoryRoot(),
 ): Pick<ServicesDirectoryData, "providers" | "issues"> {
   const issues: ServiceIssue[] = [];
-  const raw = readFile(path.join(factoryRoot, "factory/services/catalog.yaml"), "catalog", issues);
+  const raw = readFile(
+    path.join(factoryRoot, "factory/services/catalog.yaml"),
+    "factory/services/catalog.yaml",
+    issues,
+  );
   if (raw === undefined) return { providers: [], issues };
   try {
     return { providers: parseProviders(raw), issues };
-  } catch {
-    return { providers: [], issues: [...issues, { source: "catalog", code: "invalid" }] };
+  } catch (error) {
+    return {
+      providers: [],
+      issues: [
+        ...issues,
+        { source: "factory/services/catalog.yaml", code: serviceIssueCode(error) },
+      ],
+    };
   }
 }
 /** Read-only local join over public recipes, private accounts and trusted portfolio paths. */
@@ -51,11 +72,12 @@ export function readServicesDirectory(options: ReadOptions = {}): ServicesDirect
     accounts: [],
     allocations: [],
   };
+  if (result.issues.length) return result;
   const configuredPath = options.accountsPath ?? process.env.PANDACORP_ACCOUNTS_FILE;
   const accountsPath = configuredPath
     ? path.resolve(factoryRoot, configuredPath)
     : path.resolve(factoryRoot, "../pandacorp-vault/services/accounts.yaml");
-  const accountsRaw = readFile(accountsPath, "accounts", result.issues);
+  const accountsRaw = readFile(accountsPath, "services/accounts.yaml", result.issues);
   const providerIds = new Set(result.providers.map((provider) => provider.id));
   if (accountsRaw !== undefined) {
     try {
@@ -63,11 +85,14 @@ export function readServicesDirectory(options: ReadOptions = {}): ServicesDirect
       if (accounts.some((account) => !providerIds.has(account.providerId)))
         throw new Error("dangling-provider");
       result.accounts = accounts;
-    } catch {
-      result.issues.push({ source: "accounts", code: "invalid" });
+    } catch (error) {
+      result.issues.push({ source: "services/accounts.yaml", code: serviceIssueCode(error) });
     }
   }
-  const projects = directoryProjects(options, accountsRaw, factoryRoot, result.issues);
+  const validAccountsRaw = result.issues.some((issue) => issue.source === "services/accounts.yaml")
+    ? undefined
+    : accountsRaw;
+  const projects = directoryProjects(options, validAccountsRaw, factoryRoot, result.issues);
   const seenProjects = new Set<string>();
   const seenSlugs = new Set<string>();
   for (const project of projects)
@@ -87,7 +112,7 @@ function directoryProjects(
       if (!projects.some((entry) => resolveProjectPath(entry.path) === project.path))
         projects.push(project);
   } catch {
-    issues.push({ source: "project-directory", code: "invalid" });
+    issues.push({ source: "services/accounts.yaml", code: "invalid" });
   }
   return projects;
 }
@@ -119,7 +144,8 @@ interface JoinContext {
 function readProject(project: { name: string; path: string }, context: JoinContext): void {
   const { result, providerIds, seenProjects, seenSlugs } = context;
   const projectPath = resolveProjectPath(project.path);
-  const source = `project:${project.name}`;
+  const folder = path.basename(projectPath).replace(/[^a-zA-Z0-9_-]/g, "_");
+  const source: ServiceIssue["source"] = `projects/${folder}/.pandacorp/accounts/services.yaml`;
   const raw = readFile(
     path.join(projectPath, ".pandacorp/accounts/services.yaml"),
     source,
@@ -149,8 +175,8 @@ function readProject(project: { name: string; path: string }, context: JoinConte
         throw new Error("dangling-account");
     }
     result.allocations.push(...parsed.allocations);
-  } catch {
-    result.issues.push({ source, code: "invalid" });
+  } catch (error) {
+    result.issues.push({ source, code: serviceIssueCode(error) });
   }
 }
 /** Request-scoped cache is the sole data source for both private directory surfaces. */

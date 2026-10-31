@@ -13,20 +13,20 @@ describe("FreshnessBadge", () => {
     render(<FreshnessBadge lastSignalAt={new Date(Date.now() - 30_000).toISOString()} />);
     const badge = screen.getByTestId("freshness-badge");
     expect(badge).toHaveAttribute("data-band", "live");
-    expect(badge).toHaveTextContent("en vivo");
+    expect(badge).toHaveTextContent("Construyendo");
   });
 
   it("aging signal (3·T ≤ age < TTL) → 'datos de hace N min', never dressed as live", () => {
     render(<FreshnessBadge lastSignalAt={new Date(Date.now() - 5 * 60_000).toISOString()} />);
     const badge = screen.getByTestId("freshness-badge");
     expect(badge).toHaveAttribute("data-band", "aging");
-    expect(badge).toHaveTextContent(/datos de hace 5 min/);
+    expect(badge).toHaveTextContent(/Construyendo/);
   });
 
   it("signal past the TTL → 'sin señal' (not the last value dressed as current)", () => {
     render(<FreshnessBadge lastSignalAt={new Date(Date.now() - 60 * 60_000).toISOString()} />);
     expect(screen.getByTestId("freshness-badge")).toHaveAttribute("data-band", "no-signal");
-    expect(screen.getByTestId("freshness-badge")).toHaveTextContent("sin señal");
+    expect(screen.getByTestId("freshness-badge")).toHaveTextContent("Sin señal");
   });
 
   it("no signal at all → 'sin señal'", () => {
@@ -38,4 +38,14 @@ describe("FreshnessBadge", () => {
     render(<FreshnessBadge lastSignalAt={null} />);
     expect(screen.getByTestId("freshness-badge")).toHaveAttribute("data-volatile");
   });
+});
+
+it("AC-06-020.6: idle signal renders nothing, no fabricated live chip", () => {
+  const { container } = render(
+    <FreshnessBadge
+      signal={{ kind: "idle", lastSignalAt: null, ageMinutes: null }}
+      nowIso="2026-10-30T12:00:00Z"
+    />,
+  );
+  expect(container).toBeEmptyDOMElement();
 });

@@ -6,7 +6,7 @@ title: 'WO-26-001 — Cuentas: project table and global directory'
 status: ACTIVE
 parent: FRD-26
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: medium
 reopen_count: 0
 artifacts:
@@ -15,7 +15,7 @@ artifacts:
   - 'e2e/cuentas.spec.ts'
 source_requirements: [AC-26-001.1, AC-26-002.1, AC-26-003.1, AC-26-004.1, AC-26-005.1, AC-26-006.1, AC-26-007.1, AC-26-008.1, AC-26-009.1, AC-26-010.1, AC-26-011.1]
 dependsOn: [WO-13-012, WO-25-001]
-last_updated: 2026-10-22
+last_updated: 2026-10-30
 ---
 
 # WO-26-001 Cuentas: project table and global directory
@@ -204,3 +204,16 @@ WO-13-012 (primitives and framing patterns, including the transitive tokens, `t(
 (the URL keys and `useUrlSearch`). Consumers: WO-03-007, WO-04-010.
 
 ## Status Note
+
+- 2026-10-30 (S1C): Built shared project/directory tables, exclusive directory states, URL search/filter/dialog, bounded issue mapping and compatibility facade. Frozen prototype services reproduce 7 active / 1 pending / 2 candidate / 0 reference.
+- 2026-10-30: Scoped Vitest passed (3 files, 23 tests); scoped TypeScript passed using `/private/tmp/s1c-tsconfig.json` (project options, explicit Next CSS declarations and test setup); Biome passed on `src/lib/services`, `src/components/modules/ServicesDirectory`, `e2e/cuentas.spec.ts`. RED was observed before the new views existed.
+- 2026-10-30: Browser/visual, phone layout and Playwright were not executed per stream instructions. The behavior spec assumes the shared e2e factory has no private registry. Portfolio assembly/empty-portfolio rendering is reverified by WO-03-007.
+- 2026-10-30: Integration gap for S1A: current `CopyText` accepts only `text` and `onResult`, so its accessible name is the generic catalogue copy action rather than `workspace.cuentas.copyUserAria`. Core was not edited. The table's responsive card layout is inherited from `Table`; native dialog styling/focus is inherited from `Modal` and must be rechecked after S1A lands. Empty/no-match/unlinked defensive wording uses catalogue keys only, as recorded in this WO.
+
+- 2026-10-30: Final stream regression includes 25 account tests. The e2e spec now temporarily empties only the test portfolio and restores its original bytes in finally; execution in Chromium remains unverified. Git staging/commit was denied by the sandbox; per-WO patch prepared.
+
+- 2026-10-30: Final scoped stream verification: 60 tests in 13 files passed; after the final account-placeholder accessibility fix, its 7 component tests passed again. Biome checked 61 scoped files without diagnostics; scoped TypeScript and `git diff --check` passed. Scope audit found exactly 60 changed files, all within these WOs or their authorized status documents.
+
+- 2026-10-30 (S1C round 2): Round 2 review patch: account rows now include provider type, organization and dated access observations (AC-26-003.1 takes precedence over the five-column FDD). Unassigned allocations retain a candidate row even when the provider has accounts. A failed catalog stops the join with its single bounded issue. Dialogs retain provider automation evidence, allocation status, environment/resource pairs and environment policy; account-only facts are omitted for candidates. Dashboard actions use button styling and announce the new tab. Both login copy surfaces report clipboard success/failure.
+
+- 2026-10-30 (S1C round 2 verification): Reproduced 13 failing reviewer cases before the patch (68 passing); the same scoped regression now passes, with 237 tests across 25 files, including reviewer suites and the real-file DependencyMap composition test. The added signal-age boundary test passes separately (1 test). Full `pnpm knip` exits 0 (configuration hints only); `pnpm exec tsc --noEmit` passes; scoped Biome passes. Commands export `PORT=3942` and `PANDACORP_E2E_PORT=3942`, with Vitest `--maxWorkers=2`. Work remains IN_REVIEW and uncommitted. Reviewer tests and blessed baselines are unchanged. Browser rendering, Playwright, visual fidelity and the full verify.sh gate were not executed.

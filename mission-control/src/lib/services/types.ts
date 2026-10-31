@@ -63,8 +63,11 @@ export interface ServiceAllocation {
 }
 /** Safe reader error, never includes file contents or parser exception values. */
 export interface ServiceIssue {
-  code: string;
-  source: string;
+  code: "missing" | "unreadable" | "invalid" | "duplicate" | "dangling" | "productionAsDev";
+  source:
+    | "factory/services/catalog.yaml"
+    | "services/accounts.yaml"
+    | `projects/${string}/.pandacorp/accounts/services.yaml`;
 }
 /** One read model shared by the global and project-scoped directories. */
 export interface ServicesDirectoryData {

@@ -6,8 +6,7 @@ title: 'WO-06-013 La Fragua four-station scene'
 status: ACTIVE
 parent: FRD-06
 foundation: false
-implementation_status: PLANNED
-blocked_reason:
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -16,7 +15,7 @@ artifacts:
   - 'src/components/modules/FreshnessBadge/**'
 source_requirements: [REQ-06-001, REQ-06-002, REQ-06-011, REQ-06-012, REQ-06-013, REQ-06-014, REQ-06-018, REQ-06-019, REQ-06-020]
 dependsOn: [WO-13-012, WO-01-010, WO-25-001, WO-05-001, WO-06-012]
-last_updated: 2026-10-22
+last_updated: 2026-10-30
 ---
 
 # WO-06-013 La Fragua four-station scene
@@ -182,3 +181,16 @@ WO-06-012 (enriched event parse, VERIFIED). The last four edges are added to the
 imports them (DR-087); the wave stays W3.
 
 ## Status Note
+
+- 2026-10-30 (S1C): Built the self-loading always-dark scene, four authoritative stations, capped tokens/tooltips, live transport/TTL island and shared build-signal chip. Project build events are filtered before the scene tail; hook noise cannot make a build live. Actual sprite paths are `/prototype/assets/agents/` (the public copied assets), including courier.
+- 2026-10-30: Scoped TypeScript and Biome passed. Scoped Vitest passed: 5 files, 19 tests, including real work-order/status/event fixtures and stateVersion/TTL timer tests. RED was observed before the resolver files existed; the TTL test exposed an effect dependency on the router object and passed after depending on its stable refresh function. LESSON-0077 and LESSON-0310 follow the WO's shared-resolver and tap-navigation contracts.
+- 2026-10-30: No browser, visual or Playwright verification was run per stream instructions. The CSS reduced-motion and narrow-layout rules have static assertions; actual rendering remains for the stream reviewer and WO-04-011 mount. No cross-feature facts are invented when omitted. No source imports the retired party scene, no controls or effort level ship.
+- 2026-10-30: Git commit remained blocked by sandbox denial of `.git/worktrees/orch-s1c/index.lock`; changes are preserved in this checkout. No main checkout writes, merge, push, full gate or baseline update was attempted.
+
+- 2026-10-30: Final stream regression includes 20 Fragua tests. The live refresher retains a pending stateVersion refresh through subsequent frames; expiry removes local motion immediately. Scene hue tokens remain dark in both themes.
+
+- 2026-10-30: Final scoped stream verification: 60 tests in 13 files passed; after the final account-placeholder accessibility fix, its 7 component tests passed again. Biome checked 61 scoped files without diagnostics; scoped TypeScript and `git diff --check` passed. Scope audit found exactly 60 changed files, all within these WOs or their authorized status documents.
+
+- 2026-10-30 (S1C round 2): Round 2 review patch: removed the unused FreshnessBand export; scene, verdict and badge share signal-age formatting with whole hours from 60 minutes. The empty Taller icon is a clock. Added boundary checks for null, 59, 60, 119 and 120 minutes.
+
+- 2026-10-30 (S1C round 2 verification): Reproduced 13 failing reviewer cases before the patch (68 passing); the same scoped regression now passes, with 237 tests across 25 files, including reviewer suites and the real-file DependencyMap composition test. The added signal-age boundary test passes separately (1 test). Full `pnpm knip` exits 0 (configuration hints only); `pnpm exec tsc --noEmit` passes; scoped Biome passes. Commands export `PORT=3942` and `PANDACORP_E2E_PORT=3942`, with Vitest `--maxWorkers=2`. Work remains IN_REVIEW and uncommitted. Reviewer tests and blessed baselines are unchanged. Browser rendering, Playwright, visual fidelity and the full verify.sh gate were not executed.
