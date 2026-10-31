@@ -12,6 +12,13 @@
   color: var(--tone, var(--text-2));
   background: color-mix(in srgb, var(--tone, var(--slate)) var(--tint-strong), transparent);
 }
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tone, var(--slate));
+  flex: none;
+}
 .outline {
   background: transparent;
   border: var(--hairline) solid color-mix(in srgb, var(--tone, var(--slate)) 45%, transparent);
@@ -39,7 +46,7 @@
   padding: 0 var(--s3);
   border: var(--hairline) solid var(--line-strong);
   color: var(--text-2);
-  background: var(--surface);
+  background: transparent;
   font-size: var(--fs-sm);
 }
 .filter[aria-pressed="true"] {

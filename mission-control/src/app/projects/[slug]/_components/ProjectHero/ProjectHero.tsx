@@ -6,7 +6,7 @@ import { Ring } from "@/components/core/Ring/Ring";
 import { FreshnessBadge } from "@/components/modules/FreshnessBadge/FreshnessBadge";
 import { ProjectSwitcher } from "@/components/modules/ProjectSwitcher/ProjectSwitcher";
 import { type CopyKey, t } from "@/lib/copy/copy";
-import { formatAgo } from "@/lib/portfolio/formatAgo";
+import { formatRelative } from "@/lib/copy/dates";
 import type { WorkspaceProject } from "../../_panels/workspaceProject";
 import styles from "./ProjectHero.module.css";
 import { ProjectSubtitle } from "./ProjectSubtitle";
@@ -18,15 +18,40 @@ export interface ProjectHeroProps {
 export function ProjectIdentity({
   project,
   headingLevel = 1,
-}: ProjectHeroProps): React.JSX.Element {
+  size = "lg",
+  children,
+}: ProjectHeroProps & {
+  readonly size?: "md" | "lg";
+  readonly children?: React.ReactNode;
+}): React.JSX.Element {
   const Heading = headingLevel === 1 ? "h1" : "h2";
   const { tone, labelKey } = phasePresentation(project.phase);
+  const phase = (
+    <Chip tone={tone} icon="dot">
+      {t(labelKey)}
+    </Chip>
+  );
   return (
     <div className={styles.identity}>
-      <Avatar name={project.name} initials={project.initials} tone={tone} size="lg" />
+      <Avatar name={project.name} tone={tone} size={size} />
       <div>
-        <Heading>{project.name}</Heading>
-        <Chip tone={tone}>{t(labelKey)}</Chip>
+        {size === "lg" ? (
+          <>
+            <div className={styles.chips}>
+              {phase}
+              {children}
+            </div>
+            <Heading>{project.name}</Heading>
+          </>
+        ) : (
+          <>
+            <Heading>{project.name}</Heading>
+            <div className={styles.chips}>
+              {phase}
+              {children}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -43,20 +68,21 @@ export function ProjectHero({ project, headingLevel }: ProjectHeroProps): React.
   return (
     <header className={styles.hero} data-tone={tone} data-testid="project-hero">
       <div className={styles.top}>
-        <ProjectIdentity project={project} headingLevel={headingLevel} />
+        <ProjectIdentity project={project} headingLevel={headingLevel}>
+          <Chip tone="slate" variant="plain">
+            {project.version
+              ? t("workspace.hero.version", { version: project.version.replace(/^v/i, "") })
+              : t("workspace.hero.noVersion")}
+          </Chip>
+          {project.build.kind === "idle" ? (
+            <Chip tone="slate" variant="plain">
+              {t("workspace.hero.noBuild")}
+            </Chip>
+          ) : (
+            <FreshnessBadge signal={project.build} nowIso={project.nowIso} />
+          )}
+        </ProjectIdentity>
         <ProjectSwitcher projects={project.projects} currentId={project.slug} />
-      </div>
-      <div className={styles.chips}>
-        <Chip tone="slate">
-          {project.version
-            ? t("workspace.hero.version", { version: project.version.replace(/^v/i, "") })
-            : t("workspace.hero.noVersion")}
-        </Chip>
-        {project.build.kind === "idle" ? (
-          <Chip tone="slate">{t("workspace.hero.noBuild")}</Chip>
-        ) : (
-          <FreshnessBadge signal={project.build} nowIso={project.nowIso} />
-        )}
       </div>
       <ProjectSubtitle key={project.projectPath} text={project.summary} />
       <div className={styles.stats}>
@@ -81,7 +107,7 @@ export function ProjectHero({ project, headingLevel }: ProjectHeroProps): React.
         )}
         {project.lastMove && (
           <div className={styles.stat}>
-            <b>{formatAgo(project.lastMove, new Date(project.nowIso))}</b>
+            <b>{formatRelative(project.lastMove.slice(0, 10), project.nowIso)}</b>
             <small>{t("workspace.hero.stats.lastMove")}</small>
           </div>
         )}

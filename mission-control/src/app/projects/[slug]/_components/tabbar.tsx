@@ -30,10 +30,10 @@ const WORKSPACE_TABS = [
     icon: "cube",
     tone: "amber",
   },
-  { id: "accounts", label: t("common.workspaceTabs.cuentas"), icon: "lock", tone: "teal" },
+  { id: "accounts", label: t("common.workspaceTabs.cuentas"), icon: "users", tone: "teal" },
   { id: "changes", label: t("common.workspaceTabs.cambios"), icon: "branch", tone: "pink" },
-  { id: "documents", label: t("common.workspaceTabs.documentos"), icon: "file", tone: "blue" },
-  { id: "commands", label: t("common.workspaceTabs.comandos"), icon: "terminal", tone: "slate" },
+  { id: "documents", label: t("common.workspaceTabs.documentos"), icon: "file", tone: "teal" },
+  { id: "commands", label: t("common.workspaceTabs.comandos"), icon: "terminal", tone: "violet" },
 ] as const satisfies TabsProps["tabs"];
 export interface TabBarProps {
   activeTab: TabId | "unknown";

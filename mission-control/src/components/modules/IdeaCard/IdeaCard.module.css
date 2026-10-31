@@ -1,9 +1,9 @@
 .card {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--s3);
-  padding: var(--s4);
-  border-radius: var(--r-lg);
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--r);
   background: var(--surface);
   border: var(--hairline) solid var(--line);
   min-width: 0;
@@ -15,20 +15,21 @@
   display: block;
   font: 650 var(--fs-base) / 1.35 var(--font-display);
   color: var(--text);
-  padding-right: var(--s10);
+  padding-right: 34px;
+  letter-spacing: normal;
   overflow-wrap: anywhere;
   text-decoration: none;
 }
 .meta {
   display: flex;
   align-items: center;
-  gap: var(--s2);
+  gap: 6px;
   flex-wrap: wrap;
 }
 .score {
   margin-left: auto;
-  display: flex;
-  gap: var(--s2);
+  display: inline-flex;
+  gap: 6px;
   align-items: center;
   color: var(--text-3);
   font-size: var(--fs-xs);

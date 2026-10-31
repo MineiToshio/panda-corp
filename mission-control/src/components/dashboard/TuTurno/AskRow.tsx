@@ -2,8 +2,9 @@
 import { useState } from "react";
 import { BadgeIcon } from "@/components/core/BadgeIcon/BadgeIcon";
 import { Button } from "@/components/core/Button/Button";
-import { CmdRow } from "@/components/core/CmdRow/CmdRow";
+import { CommandCompact } from "@/components/core/CmdRow/CmdRow";
 import { t } from "@/lib/copy/copy";
+import { formatDate } from "@/lib/copy/dates";
 import type { OwnerTurnItem } from "@/lib/inicio/turn";
 import { TurnDetailDialog } from "./TurnDetailDialog";
 import styles from "./TuTurno.module.css";
@@ -30,11 +31,14 @@ export function AskRow({
         <strong>{item.title}</strong>
         <small>
           {item.project} · {t(decision ? "inicio.turn.kindDecision" : "inicio.turn.kindChange")} ·{" "}
-          {decision ? `${item.id}${item.date ? " · " : ""}` : ""}
-          {item.date ? item.ageLabel : null}
+          {!item.date
+            ? null
+            : decision
+              ? item.ageLabel
+              : t("inicio.turn.requestedOn", { date: formatDate(item.date) })}
         </small>
         <div className={styles.command}>
-          <CmdRow command={item.command} />
+          <CommandCompact command={item.command} />
         </div>
       </div>
       <Button

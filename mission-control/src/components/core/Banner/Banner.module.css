@@ -7,7 +7,17 @@
   border-radius: var(--r-xl);
   border: var(--hairline) solid color-mix(in srgb, var(--tone) 55%, var(--line));
   background: color-mix(in srgb, var(--tone) var(--tint-strong), var(--surface));
+  color: var(--text);
+}
+.iconTile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r);
   color: var(--tone);
+  background: color-mix(in srgb, var(--tone) var(--tint-strong), transparent);
 }
 .body {
   flex: 1;

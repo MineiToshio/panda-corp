@@ -16,10 +16,8 @@
   min-width: 0;
 }
 .number {
-  font-family: var(--font-display);
+  display: block;
   font-size: var(--fs-h1s);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
   margin: 0;
 }
 .pulse dt {

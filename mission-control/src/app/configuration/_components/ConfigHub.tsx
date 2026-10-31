@@ -1,6 +1,8 @@
 import { Card, CardHeader } from "@/components/core/Card/Card";
 import { Chip } from "@/components/core/Chip/Chip";
 import { CopyText } from "@/components/core/CopyText/CopyText";
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 import { ListRow } from "@/components/core/ListRow/ListRow";
 import { t } from "@/lib/copy/copy";
 import type { ConfigurationCatalogs } from "@/lib/reference/configurationCatalogs";
@@ -12,6 +14,13 @@ export interface HubProps {
   query: string;
   onOpen: (section: CatalogSection, item?: string) => void;
 }
+const TILE_ICONS = {
+  skills: "bolt",
+  agents: "users",
+  rules: "shield",
+  standards: "book",
+} as const satisfies Record<CatalogSection, IconName>;
+
 /** Summary counts and copy-only owner commands, replaced by cross-catalog search results. */
 export function ConfigHub({ catalogs, query, onOpen }: HubProps): React.JSX.Element {
   if (query.trim()) {
@@ -65,9 +74,12 @@ export function ConfigHub({ catalogs, query, onOpen }: HubProps): React.JSX.Elem
             key={section}
             onClick={() => onOpen(section)}
           >
-            <span>{t(LABELS[section])}</span>
+            <span className="cfg-ico">
+              <Icon name={TILE_ICONS[section]} />
+            </span>
+            <span className="cfg-l">{t(LABELS[section])}</span>
             <b>{counts[section]}</b>
-            <small>{subtitles[section]}</small>
+            <small className="xs muted">{subtitles[section]}</small>
           </button>
         ))}
       </div>
@@ -77,11 +89,11 @@ export function ConfigHub({ catalogs, query, onOpen }: HubProps): React.JSX.Elem
           <p className={styles.muted}>{t("configuracion.hub.commands.intro")}</p>
           <div className={`cmd-grid ${styles.commands}`}>
             {catalogs.ownerCommands.map((skill) => (
-              <div className={styles.command} key={skill.slug}>
+              <div className={`cmd-cell ${styles.command}`} key={skill.slug}>
                 <CopyText text={`/pandacorp:${skill.slug}`} />
                 <button
                   type="button"
-                  className={styles.description}
+                  className={`cmd-desc clamp-2 ${styles.description}`}
                   onClick={() => onOpen("skills", skill.slug)}
                 >
                   {skill.description}

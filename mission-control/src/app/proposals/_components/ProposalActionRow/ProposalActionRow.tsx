@@ -34,24 +34,24 @@ export function ProposalActionRow({
   return (
     <li className={`pa-row ${styles.action}`} data-tone={meta.tone}>
       <span className={`pa-n ${styles.number}`}>{index + 1}</span>
-      <div className={styles.actionBody}>
-        <span className={styles.kind}>
-          <Icon name={meta.icon} />
+      <div className={`pa-main ${styles.actionBody}`}>
+        <span className={`pa-kind ${styles.kind}`}>
+          <Icon name={meta.icon} size="sm" />
           {t(`propuestas.actions.${action.kind}.kind`)}
         </span>
         <h3>{t(`propuestas.actions.${action.kind}.title`, { count: action.count })}</h3>
-        <p>{why}</p>
+        <p className="small muted">{why}</p>
         <div className="pa-cmd">
           <CmdRow command={action.command} variant="box" />
+          <span className="xs faint">
+            {t("propuestas.summary.runIt", { where: t(`propuestas.actions.${action.kind}.where`) })}
+          </span>
         </div>
-        <p>
-          {t("propuestas.summary.runIt", { where: t(`propuestas.actions.${action.kind}.where`) })}
-        </p>
-        <ProposalsTabLink href={action.href} className={styles.link}>
-          {t(`propuestas.actions.${action.kind}.link`)}
-          <Icon name="arrow" />
-        </ProposalsTabLink>
       </div>
+      <ProposalsTabLink href={action.href} className={`btn sm ${styles.link}`}>
+        {t(`propuestas.actions.${action.kind}.link`)}
+        <Icon name="arrow" size="sm" />
+      </ProposalsTabLink>
     </li>
   );
 }

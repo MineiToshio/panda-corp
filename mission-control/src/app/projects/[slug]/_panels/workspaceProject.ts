@@ -10,6 +10,20 @@ import { projectServiceRows } from "@/lib/services/views";
 import { readArtifact } from "@/lib/spec/read-artifacts";
 
 /** Compose shared facts once; failed counts retain their unknown state. */
+/** The idea body's first real paragraph as plain text: the hero never shows markdown syntax. */
+function firstUsefulParagraph(markdown: string | undefined): string | undefined {
+  return markdown
+    ?.split(/\n\s*\n/)
+    .map((part) =>
+      part
+        .replace(/^#{1,6}\s+/gm, "")
+        .replace(/^>\s?/gm, "")
+        .replace(/[*_`[\]]/g, "")
+        .trim(),
+    )
+    .find((part) => part.length > 20 && !part.startsWith("|"));
+}
+
 export const loadWorkspaceProject = cache((item: ProjectListItem) => {
   const projectPath = resolveProjectPath(item.path);
   const projects = getProjectOverview();
@@ -46,12 +60,6 @@ export const loadWorkspaceProject = cache((item: ProjectListItem) => {
     name: overview.name,
     projectPath,
     folder: projectPath.split("/").at(-1) ?? overview.id,
-    initials: overview.name
-      .split(/\s+/u)
-      .slice(0, 2)
-      .map((word) => word[0])
-      .join("")
-      .toUpperCase(),
     status,
     phase: overview.phase,
     version: status.version,
@@ -71,7 +79,7 @@ export const loadWorkspaceProject = cache((item: ProjectListItem) => {
     pendingDecisions: overview.counts.pendingDecisions,
     lastMove: overview.lastCommit.at,
     nextStep: { command: overview.nextCommand, sentence: nextSentence(overview) },
-    summary: card?.body.trim() || overview.name,
+    summary: firstUsefulParagraph(card?.body) ?? overview.name,
     projectType: card?.projectType,
     frds: frds.value,
     frdError: frds.error,

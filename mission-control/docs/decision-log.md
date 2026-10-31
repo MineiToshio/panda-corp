@@ -1,5 +1,9 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 · End-of-build Visual QA against the oracle
+
+Compared the 146 default-profile oracle states with the build at 375 and 1280 in both themes. Cosmetic drift was corrected in shell, primitives and surfaces, and component rules that had drifted are now ported verbatim from the prototype into `src/app/orbita-parity.css`. The `workspace.resumen.frdProgress.total` copy became a plural entry so one FRD no longer reads "1 FRDs", and phase transitions use the oracle's date format. Re-blessed the visual baselines with provenance in each surface's `fdd.md`. Open divergences stay in `.pandacorp/comms/visual-punch-list.md`.
+
 ## 2026-10-31 — FRD-13 final gate on WO-13-013: scope grant recorded, gate not passed
 
 The orchestrator granted WO-13-013 scope to migrate the Manual, its diagrams, CampaignPipeline, command modes and any remaining live v1-layer consumer, superseding the WO's stop-on-live-consumer clause ([WO-13-013](frds/frd-13-visual-system-accessibility/work-orders/wo-13-013-retire-v1-skin.md)). The grant explains why the delivery touches files outside the original artifact list.

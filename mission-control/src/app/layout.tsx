@@ -39,6 +39,7 @@ import { readProfile } from "@/lib/profile/profile";
 import { ownerActions } from "@/lib/proposals/ownerActions";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/bootScript";
 import "./globals.css";
+import "./orbita-parity.css";
 
 // Local always-on deploy: the production build is served as a stable snapshot via launchd, but the
 // app is a LIVE dashboard over the factory filesystem — so every route must render per-request (read

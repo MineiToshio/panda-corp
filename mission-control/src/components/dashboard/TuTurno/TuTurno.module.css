@@ -34,10 +34,6 @@
 .command {
   margin-top: var(--s1);
   max-width: 100%;
-  --command-height: var(--s8);
-  --command-padding: 0;
-  --command-font-size: var(--fs-xs);
-  --command-gap: var(--s1);
 }
 .detail {
   display: grid;

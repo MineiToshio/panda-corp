@@ -5,10 +5,26 @@
   gap: var(--s3);
   margin-bottom: var(--s5);
 }
+.search {
+  flex: 0 1 480px;
+  min-width: 0;
+}
+.search > div {
+  max-width: none;
+}
 .filters {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s2);
+  gap: 6px;
+}
+.grow {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.count {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
 
 .filters {

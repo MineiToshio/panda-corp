@@ -426,6 +426,13 @@ html {
     scroll-padding-bottom: 80px;
   }
 }
+/* Component `font` shorthands reset these, so inheriting from body cannot hold. */
+body *,
+::before,
+::after {
+  font-feature-settings: "cv11", "ss01" !important;
+  font-variant-numeric: tabular-nums !important;
+}
 body {
   margin: 0;
   background: var(--bg);
@@ -434,12 +441,6 @@ body {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
-}
-/* A component's `font` shorthand resets font-variant-numeric, so inheriting from body cannot hold. */
-*,
-::before,
-::after {
-  font-variant-numeric: tabular-nums !important;
 }
 h1,
 h2,
@@ -499,6 +500,48 @@ pre,
   font-variant-numeric: tabular-nums;
   font-weight: 750;
   letter-spacing: -0.02em;
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tone, var(--slate));
+  flex: none;
+}
+:is(.card, .notice, .alert-banner, .ps-next, .turn)[data-tone] {
+  --command-bg: color-mix(in srgb, var(--tone) 5%, var(--surface));
+  --command-line: color-mix(in srgb, var(--tone) 22%, var(--line));
+}
+.muted {
+  color: var(--text-2);
+}
+.faint {
+  color: var(--text-3);
+}
+.small {
+  font-size: var(--fs-sm);
+}
+.xs {
+  font-size: var(--fs-xs);
+}
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  color: var(--tone, var(--blue));
+  font: 600 var(--fs-md) / 1.3 var(--font-body);
+  letter-spacing: -0.15px;
+  text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+@media (hover: hover) {
+  .link:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 }
 :focus-visible {
   outline: 2px solid var(--focus);
@@ -709,5 +752,16 @@ pre,
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+}
+@media (max-width: 759px) {
+  h1 {
+    font-size: var(--fs-h1s);
+  }
+}
+@media (max-width: 759px) {
+  /* `!important`: the row's two-column grid is an inline style. */
+  .pitch-row {
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 }

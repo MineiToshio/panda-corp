@@ -29,7 +29,7 @@ export function ProjectNavItem({
       data-tone={tone}
       aria-label={label}
     >
-      <Avatar name={project.name} tone={tone} />
+      <Avatar name={project.name} tone={tone} size="sm" />
       <span className="meta">
         <span>{project.name}</span>
         <small>

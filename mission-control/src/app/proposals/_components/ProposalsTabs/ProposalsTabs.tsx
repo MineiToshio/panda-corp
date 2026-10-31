@@ -38,7 +38,7 @@ export function ProposalsTabs({
         tabIdPrefix="proposals-tab-id-"
         panelIdPrefix="proposals-panel-"
         tabs={[
-          { id: "resumen", label: t("propuestas.tabs.resumen"), icon: "list", tone: "amber" },
+          { id: "resumen", label: t("propuestas.tabs.resumen"), icon: "target", tone: "pink" },
           {
             id: "memoria",
             label: t("propuestas.tabs.memoria"),
@@ -49,7 +49,7 @@ export function ProposalsTabs({
           {
             id: "backlog",
             label: t("propuestas.tabs.backlog"),
-            icon: "layers",
+            icon: "list",
             tone: "blue",
             count: backlogOpenCount && backlogOpenCount > 0 ? backlogOpenCount : undefined,
           },

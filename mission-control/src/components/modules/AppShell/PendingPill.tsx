@@ -32,7 +32,7 @@ export function PendingPill({
       data-volatile
       title={title}
     >
-      <Icon name={alert ? "alert" : "branch"} />
+      <Icon name={alert ? "alert" : "branch"} size="sm" />
       <span className="lbl">{label}</span>
       <span className="sr-only">{title}</span>
     </Link>

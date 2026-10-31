@@ -116,3 +116,8 @@ prototype_blessed_at: 0e6b7191
 `workspace-desktop` re-blessed and `workspace-mobile` first blessed 2026-10-31 at the FRD-13 recheck, viewed against the wave 6 predecessor and `docs/design/prototype/index.html#portfolio?project=mission-control&tab=summary`. Reviewer sign-off: the structure is unchanged at 1280; the "Último movimiento" chip no longer renders as a pale pill over La Fragua, and the command rows and hyphen widths moved with tabular figures. At 390 hero, tabs, Fragua and the Resumen cards are present; the bottom bar mid-image is a full-page capture effect. Consistency only; the next oracle pass judges fidelity.
 
 prototype_blessed_at: 0e6b7191
+
+## Baseline provenance (Visual QA, 2026-10-31)
+
+Oracle: `docs/design/prototype/index.html` (route shards of `reference/oracle-states.json`), captured at 375 and 1280, light and dark, against `pnpm dev:oracle`. Layer-B sign-off: reviewer viewed the re-blessed baselines; they are consistency guards rendered from `e2e/fixtures/factory-root`, not pixel matches of the oracle (L3 still open, see `.pandacorp/comms/visual-punch-list.md`).
+prototype_blessed_at: 0e6b7191

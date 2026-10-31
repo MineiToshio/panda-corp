@@ -5,6 +5,7 @@ import { Button } from "@/components/core/Button/Button";
 import { Chip } from "@/components/core/Chip/Chip";
 import { phasePresentation } from "@/components/core/Chip/vocabulary";
 import { SearchField } from "@/components/core/Field/Field";
+import { Icon } from "@/components/core/Icon/Icon";
 import { DividedList, ListRow } from "@/components/core/ListRow/ListRow";
 import { Modal } from "@/components/core/Modal/Modal";
 import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
@@ -37,8 +38,18 @@ export function ProjectSwitcher({
   );
   return (
     <>
-      <Button variant="default" icon="chevD" onClick={handleOpen}>
-        {t("workspace.hero.switcher.label")}
+      <Button
+        variant="default"
+        icon="folder"
+        className="switcher"
+        ariaLabel={t("workspace.hero.switcher.label")}
+        onClick={handleOpen}
+      >
+        <span>
+          <b>{t("workspace.hero.switcher.label")}</b>
+          <small>{t("workspace.hero.switcher.count", { count: projects.length })}</small>
+        </span>
+        <Icon name="chevD" size="sm" />
       </Button>
       <Modal
         open={open}

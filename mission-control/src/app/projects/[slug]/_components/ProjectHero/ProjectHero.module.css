@@ -3,7 +3,7 @@
   gap: var(--s5);
   padding: var(--s6);
   border-radius: var(--r-xl);
-  margin-block: var(--s4) var(--s6);
+  margin-block: 14px var(--s6);
   background: radial-gradient(
     120% 140% at 0% 0%,
     color-mix(in srgb, var(--tone) 16%, var(--surface)) 0%,
@@ -17,7 +17,7 @@
 .chips,
 .stats {
   display: flex;
-  gap: var(--s4);
+  gap: var(--s3);
   align-items: center;
   flex-wrap: wrap;
 }
@@ -32,11 +32,14 @@
 .identity > div {
   min-width: 0;
 }
+.identity > div {
+  display: grid;
+  gap: 6px;
+}
 .identity h1,
 .identity h2 {
   font: 750 var(--fs-h1m) / 1.1 var(--font-display);
   overflow-wrap: anywhere;
-  margin-bottom: var(--s2);
 }
 .subtitle {
   color: var(--text-2);

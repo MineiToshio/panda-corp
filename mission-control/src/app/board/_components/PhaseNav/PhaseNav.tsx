@@ -1,4 +1,4 @@
-import { Chip } from "@/components/core/Chip/Chip";
+import type { Tone } from "@/components/core/Chip/vocabulary";
 import { t } from "@/lib/copy/copy";
 import styles from "./PhaseNav.module.css";
 
@@ -6,6 +6,7 @@ interface Phase {
   id: string;
   step: number;
   label: string;
+  tone: Tone;
   cards: readonly unknown[];
 }
 /** Jump to a visible column, respecting reduced motion. */
@@ -24,12 +25,19 @@ export function PhaseNav({ phases }: { phases: readonly Phase[] }): React.JSX.El
       aria-label={t("tablero.phaseNavAria")}
       data-scroll-x="intentional"
     >
-      {phases.map((phase) => (
-        <button type="button" key={phase.id} onClick={() => jump(phase.id)}>
-          {phase.step} {phase.label}{" "}
-          <Chip tone="slate" variant="plain">
-            {phase.cards.length}
-          </Chip>
+      {phases.map((phase, index) => (
+        <button
+          type="button"
+          key={phase.id}
+          data-tone={phase.tone}
+          data-phase-jump={phase.id}
+          aria-current={index === 0}
+          aria-label={`${phase.step} ${phase.label} ${phase.cards.length}`}
+          onClick={() => jump(phase.id)}
+        >
+          <span className="dot" aria-hidden="true" />
+          {phase.label}
+          <span className={styles.count}>{phase.cards.length}</span>
         </button>
       ))}
     </nav>

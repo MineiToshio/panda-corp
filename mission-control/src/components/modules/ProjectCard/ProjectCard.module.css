@@ -13,7 +13,7 @@
 }
 .head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--s3);
 }
 .identity {
@@ -33,7 +33,8 @@
 .facts {
   display: flex;
   flex-wrap: wrap;
-  gap: calc(var(--s3) + var(--s1) / 2);
+  align-items: center;
+  gap: 14px;
   font-size: var(--fs-xs);
   color: var(--text-3);
 }
@@ -43,8 +44,8 @@
   font-variant-numeric: tabular-nums;
 }
 .next {
-  font-size: var(--fs-xs);
-  color: var(--text-2);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
   margin: 0;
 }
 .next code {
@@ -66,9 +67,6 @@
 }
 .first p {
   margin: 0;
-}
-.compact {
-  gap: var(--s3);
 }
 @media (hover: hover) {
   a.card:hover {

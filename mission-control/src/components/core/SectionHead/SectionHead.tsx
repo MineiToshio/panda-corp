@@ -16,6 +16,8 @@ export interface SectionHeadProps {
   icon?: IconName;
   /** Optional arbitrary content placed after the trailing rule (overrides count). */
   rightHtml?: React.ReactNode;
+  /** Semantic heading for a section title; the default stays a plain label row. */
+  as?: "div" | "h2";
 }
 
 /** Neutral section heading, hue icon, hairline and optional note or trailing action. */
@@ -24,12 +26,13 @@ export function SectionHead({
   count,
   icon,
   rightHtml,
+  as: Heading = "div",
   tone = "slate",
   note,
   link,
 }: SectionHeadProps): React.JSX.Element {
   return (
-    <div className={`saga-head ${styles.head}`} data-testid="section-head" data-tone={tone}>
+    <Heading className={`saga-head ${styles.head}`} data-testid="section-head" data-tone={tone}>
       {icon ? <Icon name={icon} size="sm" /> : null}
       <span>{label}</span>
       <span
@@ -50,6 +53,6 @@ export function SectionHead({
           {link.label}
         </a>
       ) : null}
-    </div>
+    </Heading>
   );
 }

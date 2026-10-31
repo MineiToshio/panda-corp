@@ -2,6 +2,7 @@ import { Chip } from "@/components/core/Chip/Chip";
 import { phasePresentation } from "@/components/core/Chip/vocabulary";
 import type { PhaseTransition } from "@/lib/achievements/report/types";
 import { t } from "@/lib/copy/copy";
+import { formatDate } from "@/lib/copy/dates";
 import styles from "./Stats.module.css";
 
 /** Phase observation with textual, symbolic and amber reopening cues. */
@@ -12,7 +13,7 @@ export function TransitionRow({
 }): React.JSX.Element {
   return (
     <li className={styles.transition}>
-      <time dateTime={transition.date}>{transition.date.slice(5)}</time>
+      <time dateTime={transition.date}>{formatDate(transition.date)}</time>
       <span className={`tr-p ${styles.project}`}>{transition.project}</span>
       <span className="tr-f">
         {t(phasePresentation(transition.from).labelKey)} {transition.isReopen ? "↺" : "→"}{" "}

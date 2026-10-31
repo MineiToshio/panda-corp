@@ -36,7 +36,8 @@ export function Chip({
     .join(" ");
   return (
     <span data-testid="chip" data-tone={tone} className={`chip ${className}`}>
-      {icon ? <Icon name={icon} size="sm" /> : null}
+      {icon === "dot" ? <span className={styles.dot} aria-hidden="true" /> : null}
+      {icon && icon !== "dot" ? <Icon name={icon} size="sm" /> : null}
       {children ?? label}
     </span>
   );

@@ -4,18 +4,25 @@
   gap: var(--s5);
   flex-wrap: wrap;
   padding: var(--s4) var(--s5);
-  margin-block: var(--s4);
+  margin-block: 14px var(--s4);
   border-radius: var(--r-xl);
-  background: var(--surface);
-  border: var(--hairline) solid var(--line);
+  background: radial-gradient(
+    120% 140% at 0% 0%,
+    color-mix(in srgb, var(--tone) 16%, var(--surface)) 0%,
+    var(--surface) 55%
+  );
+  border: var(--hairline) solid color-mix(in srgb, var(--tone) 24%, var(--line));
   min-width: 0;
 }
 .hero h1,
 .hero h2 {
   font-size: var(--fs-h2);
 }
+.hero > :first-child {
+  flex: 1 1 auto;
+}
 .step {
-  flex: 1 1 260px;
+  flex: 0 1 260px;
   min-width: 160px;
 }
 @media (max-width: 759px) {

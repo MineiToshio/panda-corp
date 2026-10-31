@@ -20,8 +20,8 @@
   display: inline-grid;
   place-items: center;
   flex: none;
-  width: calc(var(--s8) + var(--s1));
-  height: calc(var(--s8) + var(--s1));
+  width: 36px;
+  height: 36px;
   border-radius: var(--r);
   background: color-mix(in srgb, var(--gold) 22%, transparent);
   color: var(--gold);
@@ -36,7 +36,8 @@
   color: var(--text-2);
 }
 .card [role="progressbar"] {
-  margin-top: var(--s2);
+  margin-top: 10px;
+  height: 5px;
 }
 .card [role="progressbar"] > span {
   background: var(--gold);

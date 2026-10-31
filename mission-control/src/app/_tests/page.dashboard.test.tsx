@@ -48,7 +48,9 @@ describe("Inicio command center", () => {
     expect(screen.queryByRole("main")).not.toBeInTheDocument();
     const headings = screen
       .getAllByRole("heading", { level: 2, hidden: true })
-      .map((node) => node.textContent?.replace(/^Tu turno\d+$/, "Tu turno"));
+      .map((node) =>
+        node.textContent?.replace(/^Tu turno\d+$/, "Tu turno").replace(/^(Tu cartera).+$/, "$1"),
+      );
     expect(headings).toEqual(
       expect.arrayContaining([
         "Tu turno",

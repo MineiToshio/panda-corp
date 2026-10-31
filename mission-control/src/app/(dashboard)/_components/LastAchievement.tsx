@@ -18,7 +18,9 @@ export function LastAchievement({
       data-fresh={achievement.fresh}
       className={`last-ach ${achievement.fresh ? "fresh" : ""} ${styles.lastAchievement}`}
     >
-      <Icon name="trophy" />
+      <span className={styles.laIcon}>
+        <Icon name="trophy" size="sm" />
+      </span>
       <div>
         <small>
           {t("logros.lastAchievement.line", {
@@ -31,6 +33,7 @@ export function LastAchievement({
         <b>{achievement.title}</b>
       </div>
       {achievement.fresh ? <Chip tone="gold">{t("logros.lastAchievement.newChip")}</Chip> : null}
+      <Icon name="chevR" size="sm" />
     </Link>
   );
 }

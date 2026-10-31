@@ -89,3 +89,8 @@ prototype_blessed_at: 409a0564
 `logros-mobile` first blessed 2026-10-31 at the FRD-13 recheck, viewed at 390 against `docs/design/prototype/index.html#logros`. Reviewer sign-off: hero, Casi lo tienes, sellos, rango, trofeos and the radar are present, no console error; the bottom bar mid-image is a full-page capture effect. Consistency only; the next oracle pass judges fidelity.
 
 prototype_blessed_at: 0e6b7191
+
+## Baseline provenance (Visual QA, 2026-10-31)
+
+Oracle: `docs/design/prototype/index.html` (route shards of `reference/oracle-states.json`), captured at 375 and 1280, light and dark, against `pnpm dev:oracle`. Layer-B sign-off: reviewer viewed the re-blessed baselines; they are consistency guards rendered from `e2e/fixtures/factory-root`, not pixel matches of the oracle (L3 still open, see `.pandacorp/comms/visual-punch-list.md`).
+prototype_blessed_at: 0e6b7191

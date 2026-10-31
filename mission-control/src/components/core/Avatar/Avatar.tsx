@@ -37,6 +37,16 @@ export interface AvatarProps {
   tone?: Tone;
 }
 
+/** Two letters per name; a single CamelCase word uses its capitals so PandaSaga and PandaCast differ. */
+function initialsOf(identity: string): string {
+  const words = identity.split(/[\s-]+/).filter(Boolean);
+  const source =
+    words.length > 1
+      ? words.map((word) => word.charAt(0))
+      : (identity.match(/\p{Lu}/gu) ?? [identity]);
+  return source.join("").slice(0, 2).toUpperCase();
+}
+
 /** Project initials tile or pixelated agent sprite; missing images fall back to initials. */
 export function Avatar({
   agentId,
@@ -50,15 +60,7 @@ export function Avatar({
   const [failedSrc, setFailedSrc] = useState<string>();
   const spriteSrc = agentId && Object.hasOwn(SPRITE_MAP, agentId) ? SPRITE_MAP[agentId] : undefined;
   const identity = name ?? agentId ?? initials ?? "";
-  const letters =
-    initials ??
-    identity
-      .split(/[\s-]+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part.charAt(0))
-      .join("")
-      .toUpperCase();
+  const letters = initials ?? initialsOf(identity);
   const resolvedSize = size ?? (agentId ? "sm" : "md");
   function handleImageError(): void {
     setFailedSrc(spriteSrc);

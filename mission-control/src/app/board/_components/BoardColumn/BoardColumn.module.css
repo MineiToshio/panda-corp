@@ -3,29 +3,36 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--s3);
-  padding: var(--s3);
+  gap: 10px;
+  padding: 10px;
   border-radius: var(--r-lg);
   background: color-mix(in srgb, var(--tone) 5%, var(--bg-2));
   border: var(--hairline) solid var(--line);
 }
 .column[data-empty="true"] {
+  background: color-mix(in srgb, var(--tone) 3%, var(--bg-2));
   border-style: dashed;
 }
 .head {
   display: flex;
   align-items: center;
   gap: var(--s2);
-  padding: var(--s1);
-}
-.head h2 {
+  padding: var(--s1) 6px 6px;
   margin: 0;
-  flex: 1;
   font: 700 var(--fs-md) / 1.2 var(--font-display);
 }
-.head h2 span {
-  color: var(--text-3);
+.step {
   font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-weight: 650;
+}
+.label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.column[data-empty="true"] .head {
+  color: var(--text-2);
+  font-weight: 600;
 }
 .empty {
   color: var(--text-2);

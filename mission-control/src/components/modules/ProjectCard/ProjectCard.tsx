@@ -91,8 +91,8 @@ export function ProjectCard({
         {docs !== null ? (
           <span>{tRich("inicio.projectCard.factsDocs", { count: docs })}</span>
         ) : null}
+        <FreshnessBadge signal={project.build} nowIso={project.nowIso} />
       </div>
-      <FreshnessBadge signal={project.build} nowIso={project.nowIso} />
       <p className={styles.next}>
         {tRich("inicio.projectCard.next", { command: project.nextCommand })}
       </p>

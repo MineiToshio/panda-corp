@@ -108,3 +108,8 @@ prototype_blessed_at: 0e6b7191
 `propuestas-mobile` first blessed 2026-10-31 at the FRD-13 recheck, viewed at 390 against its desktop baseline and `docs/design/prototype/index.html#propuestas`. Reviewer sign-off: title, intro and tabs are present. The panel is empty in the shot because it carries `data-volatile`, as on desktop, so this baseline asserts chrome only. Consistency only; the next oracle pass judges fidelity.
 
 prototype_blessed_at: 0e6b7191
+
+## Baseline provenance (Visual QA, 2026-10-31)
+
+Oracle: `docs/design/prototype/index.html` (route shards of `reference/oracle-states.json`), captured at 375 and 1280, light and dark, against `pnpm dev:oracle`. Layer-B sign-off: reviewer viewed the re-blessed baselines; they are consistency guards rendered from `e2e/fixtures/factory-root`, not pixel matches of the oracle (L3 still open, see `.pandacorp/comms/visual-punch-list.md`).
+prototype_blessed_at: 0e6b7191

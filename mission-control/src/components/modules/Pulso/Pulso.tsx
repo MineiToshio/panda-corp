@@ -10,7 +10,7 @@ export function Pulso({ tiles }: { readonly tiles: readonly PulseTile[] }): Reac
       <dl className={`pulse ${styles.pulse}`}>
         {tiles.map((tile) => (
           <div key={tile.label}>
-            <dd className={styles.number}>{tile.value ?? "?"}</dd>
+            <dd className={`num ${styles.number}`}>{tile.value ?? "?"}</dd>
             <dt>{tile.label}</dt>
           </div>
         ))}

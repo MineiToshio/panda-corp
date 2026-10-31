@@ -39,14 +39,12 @@ export function BoardColumn({
         ideas: t("tablero.column.ideas", { count: phase.cards.length }),
       })}
     >
-      <header className={styles.head}>
-        <h2>
-          <span>{phase.step}</span> {phase.label}
-        </h2>
-        <Chip tone="slate" variant="plain">
-          {phase.cards.length}
-        </Chip>
-      </header>
+      <h2 className={`kcol-head ${styles.head}`}>
+        <span className="dot" aria-hidden="true" />
+        <span className={styles.step}>{phase.step}</span>
+        <span className={styles.label}>{phase.label}</span>
+        <Chip tone={phase.tone}>{phase.cards.length}</Chip>
+      </h2>
       {empty ? (
         <p className={styles.empty} role="status" aria-label={emptyLabel}>
           {emptyLabel}

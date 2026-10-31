@@ -28,7 +28,7 @@ export function PluginPill({
       title={title}
       aria-label={t("shell.plugin.outdated")}
     >
-      <Icon name="alert" />
+      <Icon name="alert" size="sm" />
       <span className="lbl">{t("shell.plugin.outdated")}</span>
     </Link>
   );

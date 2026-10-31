@@ -19,6 +19,8 @@
   padding: 2px 2px 2px var(--s2);
   gap: 6px;
   border-radius: var(--r-sm);
+  border-color: color-mix(in srgb, var(--tone, var(--violet)) 22%, var(--line));
+  background: color-mix(in srgb, var(--tone, var(--violet)) 5%, var(--surface));
 }
 .compact .command > span {
   font-size: var(--fs-xs);

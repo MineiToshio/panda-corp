@@ -131,3 +131,8 @@ prototype_blessed_at: 0e6b7191
 `tablero-mobile` first blessed 2026-10-31 at the FRD-13 recheck, once `target_platforms: responsive` made the mobile baselines real. Viewed at 390 against `docs/design/prototype/index.html#tablero`. Reviewer sign-off: header, filters, phase jump and columns present, no console error. The fixed bottom bar lands mid-image because the shot is full page; that is a capture effect. It proves consistency only; the next oracle pass judges fidelity.
 
 prototype_blessed_at: 0e6b7191
+
+## Baseline provenance (Visual QA, 2026-10-31)
+
+Oracle: `docs/design/prototype/index.html` (route shards of `reference/oracle-states.json`), captured at 375 and 1280, light and dark, against `pnpm dev:oracle`. Layer-B sign-off: reviewer viewed the re-blessed baselines; they are consistency guards rendered from `e2e/fixtures/factory-root`, not pixel matches of the oracle (L3 still open, see `.pandacorp/comms/visual-punch-list.md`).
+prototype_blessed_at: 0e6b7191

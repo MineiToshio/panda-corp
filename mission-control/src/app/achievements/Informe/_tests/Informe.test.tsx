@@ -114,7 +114,7 @@ describe("Statistics fixture-factory oracle", () => {
     expect(within(list).getAllByRole("listitem")).toHaveLength(10);
     expect(within(list).getByText("Reapertura")).toHaveAttribute("data-tone", "amber");
     const reopened = within(list).getAllByRole("listitem")[9];
-    expect(reopened).toHaveTextContent("06-19");
+    expect(reopened).toHaveTextContent("19 jun. 2026");
     expect(reopened).toHaveTextContent("Pandacorp (Mission Control)");
     expect(reopened).toHaveTextContent("↺");
     fireEvent.click(screen.getByRole("button", { name: "Mostrar 10 más · quedan 10" }));

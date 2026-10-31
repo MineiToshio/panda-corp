@@ -13,7 +13,7 @@ export function EmptyState({ icon, children }: EmptyStateProps): React.JSX.Eleme
   return (
     <div className={`empty ${styles.empty}`}>
       <Icon name={icon} size="lg" />
-      <p>{children}</p>
+      <div>{children}</div>
     </div>
   );
 }

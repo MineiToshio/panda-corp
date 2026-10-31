@@ -1,4 +1,3 @@
-import { Chip } from "@/components/core/Chip/Chip";
 import { phasePresentation } from "@/components/core/Chip/vocabulary";
 import { PhaseStepper } from "@/components/core/PhaseStepper/PhaseStepper";
 import { ProjectSwitcher } from "@/components/modules/ProjectSwitcher/ProjectSwitcher";
@@ -14,12 +13,15 @@ export function ProjectHeroCompact({ project, headingLevel }: ProjectHeroProps):
       className={styles.hero}
       data-tone={phasePresentation(project.phase).tone}
     >
-      <ProjectIdentity project={project} headingLevel={headingLevel} />
-      {total === 0 ? (
-        <Chip tone="slate">{t("workspace.hero.compact.noOrders")}</Chip>
-      ) : done !== null && total !== null && pct !== null ? (
-        <Chip tone="slate">{t("workspace.hero.compact.progress", { done, total, pct })}</Chip>
-      ) : null}
+      <ProjectIdentity project={project} headingLevel={headingLevel} size="md">
+        {total === 0 ? (
+          <span className="small faint">{t("workspace.hero.compact.noOrders")}</span>
+        ) : done !== null && total !== null && pct !== null ? (
+          <span className="small faint">
+            {t("workspace.hero.compact.progress", { done, total, pct })}
+          </span>
+        ) : null}
+      </ProjectIdentity>
       <div className={styles.step}>
         <PhaseStepper phase={project.phase} compact />
       </div>

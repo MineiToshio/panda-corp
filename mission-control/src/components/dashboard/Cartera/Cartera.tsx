@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { CardHeader } from "@/components/core/Card/Card";
+import { Icon } from "@/components/core/Icon/Icon";
+import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { FirstProjectCard } from "@/components/modules/ProjectCard/FirstProjectCard";
 import { ProjectCard } from "@/components/modules/ProjectCard/ProjectCard";
 import { t } from "@/lib/copy/copy";
@@ -13,10 +14,16 @@ export function Cartera({
 }): React.JSX.Element {
   return (
     <section data-tone="blue">
-      <CardHeader
-        title={t("inicio.portfolio.title")}
+      <SectionHead
+        as="h2"
+        label={t("inicio.portfolio.title")}
         icon="folder"
-        action={<Link href="/portfolio">{t("inicio.portfolio.seeAll")}</Link>}
+        tone="blue"
+        rightHtml={
+          <Link className="link xs" data-tone="blue" href="/portfolio">
+            {t("inicio.portfolio.seeAll")} <Icon name="arrow" size="sm" />
+          </Link>
+        }
       />
       {cards.length ? (
         <div className={styles.cards}>

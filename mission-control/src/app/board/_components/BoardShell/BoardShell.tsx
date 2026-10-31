@@ -53,7 +53,7 @@ function extractCategories(cards: BoardCardEntry[]): string[] {
       result.push(card.projectType);
     }
   }
-  return result;
+  return result.sort();
 }
 
 /** Return true when the card matches the active category filter (or no filter). */
@@ -68,12 +68,6 @@ function matchesQuery(card: BoardCardEntry, query: string): boolean {
   const haystack = `${card.title} ${card.body ?? ""}`.toLowerCase();
   return haystack.includes(query);
 }
-
-const CONTENT_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 3)",
-};
 
 export function BoardShell({ cards, favoriteAction }: BoardShellProps): React.JSX.Element {
   const router = useRouter();
@@ -146,6 +140,7 @@ export function BoardShell({ cards, favoriteAction }: BoardShellProps): React.JS
           <>
             <Button
               variant="default"
+              icon="archive"
               onClick={() => setDiscardedOpen(true)}
               data-testid="discarded-trigger"
             >
@@ -153,6 +148,7 @@ export function BoardShell({ cards, favoriteAction }: BoardShellProps): React.JS
             </Button>
             <Button
               variant="primary"
+              icon="plus"
               onClick={() => setIntakeOpen(true)}
               data-testid="intake-trigger"
             >
@@ -172,9 +168,9 @@ export function BoardShell({ cards, favoriteAction }: BoardShellProps): React.JS
         onSelect={handleCardClick}
       />
 
-      <div style={CONTENT_STYLE}>
+      <div>
         <div className={`toolbar ${styles.toolbar}`}>
-          <div id="idea-search">
+          <div className={styles.search}>
             <SearchField
               label={t("tablero.search.aria")}
               placeholder={t("tablero.search.placeholder")}
@@ -184,7 +180,7 @@ export function BoardShell({ cards, favoriteAction }: BoardShellProps): React.JS
           </div>
           <fieldset className={styles.filters} aria-label={t("tablero.filters.categoryAria")}>
             <FilterChip pressed={!selectedCategory} onClick={() => setCategory("")}>
-              {t("tablero.filters.all")} {visibleCards.length}
+              {t("tablero.filters.all")} <span className={styles.count}>{visibleCards.length}</span>
             </FilterChip>
             {categories.map((cat) => (
               <FilterChip
@@ -192,22 +188,27 @@ export function BoardShell({ cards, favoriteAction }: BoardShellProps): React.JS
                 pressed={selectedCategory === cat}
                 onClick={() => setCategory(cat)}
               >
-                {CATEGORY_LABELS[cat]?.[0] ?? cat}{" "}
-                {visibleCards.filter((card) => card.projectType === cat).length}
+                {CATEGORY_LABELS[cat]?.[0] ?? cat}
+                <span className={styles.count}>
+                  {visibleCards.filter((card) => card.projectType === cat).length}
+                </span>
               </FilterChip>
             ))}
           </fieldset>
+          {hasActiveFilter && (
+            <Button variant="ghost" size="sm" icon="x" onClick={handleClearFilters}>
+              {t("tablero.filters.clear")}
+            </Button>
+          )}
+          <span className={styles.grow} />
+          <p id="board-count" className="small faint" aria-live="polite">
+            {hasActiveFilter && t("tablero.filters.matches", { count: filteredCards.length })}
+          </p>
           <Switch
             label={t("tablero.filters.hideEmpty")}
             checked={hideEmpty}
             onChange={handleHideEmpty}
           />
-          {hasActiveFilter && (
-            <Button onClick={handleClearFilters}>{t("tablero.filters.clear")}</Button>
-          )}
-          <p id="board-count" aria-live="polite">
-            {hasActiveFilter && t("tablero.filters.matches", { count: filteredCards.length })}
-          </p>
         </div>
         {/* Two-axis routing preserves the project phase independently from the card status. */}
         <IdeaBoardView

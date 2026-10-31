@@ -43,3 +43,9 @@
 .compact .line {
   height: 4px;
 }
+.compact .step {
+  padding: 6px 0;
+}
+.compact .label {
+  display: none;
+}

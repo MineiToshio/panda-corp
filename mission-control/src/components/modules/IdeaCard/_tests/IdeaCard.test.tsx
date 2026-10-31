@@ -112,7 +112,7 @@ describe("IdeaCard — return chip (returnType, AC-02-005.1)", () => {
   it("return chip shows the Spanish return label (not the raw enum)", () => {
     // BRD-03: chips show the Spanish label with its tone, never the English enum.
     render(<IdeaCard {...FULL_CARD} />);
-    expect(screen.getByTestId("idea-card-return-type")).toHaveTextContent("monetario");
+    expect(screen.getByTestId("idea-card-return-type")).toHaveTextContent("Monetaria");
   });
 
   it("does NOT render return chip when returnType is absent", () => {

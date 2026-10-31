@@ -61,7 +61,7 @@ export function Button({
       aria-label={ariaLabel}
       onClick={onClick}
     >
-      {icon ? <Icon name={icon} /> : null}
+      {icon ? <Icon name={icon} size="sm" /> : null}
       {children}
     </button>
   );

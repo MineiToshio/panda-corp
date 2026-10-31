@@ -676,7 +676,10 @@
       "frdProgress": {
         "title": "Avance por FRD",
         "intro": "Primero lo que falta terminar.",
-        "total": "{count} FRDs en total",
+        "total": {
+          "one": "{count} FRD en total",
+          "other": "{count} FRDs en total"
+        },
         "seeAll": "Ver todos",
         "empty": "Aún no hay FRDs publicados."
       },

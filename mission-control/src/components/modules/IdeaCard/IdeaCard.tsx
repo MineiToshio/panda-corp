@@ -56,7 +56,7 @@ export const CATEGORY_LABELS: Record<string, readonly [string, IconName]> = {
   mobile: ["mobile", "grid"],
   desktop: ["desktop", "grid"],
   ia: ["IA", "sparkles"],
-  "claude-code": ["Claude Code", "terminal"],
+  "claude-code": ["claude-code", "terminal"],
   "prompt-system": ["prompts", "file"],
   automatizacion: ["automatización", "users"],
   cli: ["CLI", "terminal"],
@@ -100,10 +100,10 @@ export type ReturnTypeKey = NonNullable<IdeaCardProps["returnType"]>;
 
 /** return_type → [Spanish label, Chip tone] (prototype RET, index.html L184). */
 export const RETURN_LABELS: Record<ReturnTypeKey, readonly [string, ChipTone]> = {
-  monetary: ["monetario", "green"],
-  opportunity: ["oportunidad", "amber"],
-  personal: ["personal", "blue"],
-  mixed: ["mixto", "violet"],
+  monetary: ["Monetaria", "teal"],
+  opportunity: ["Oportunidad", "amber"],
+  personal: ["Personal", "violet"],
+  mixed: ["Mixta", "pink"],
 };
 
 /** Idea summary with a real navigation link and optional live project progress. */
@@ -158,13 +158,14 @@ export function IdeaCard({
             t("tablero.card.noScore")
           ) : (
             <>
-              {t("tablero.card.score")} {score}
+              {t("tablero.card.score")}
               <ProgressBar
                 done={score}
                 total={100}
                 tone="teal"
                 ariaLabel={t("tablero.card.score")}
               />
+              {score}
             </>
           )}
         </span>

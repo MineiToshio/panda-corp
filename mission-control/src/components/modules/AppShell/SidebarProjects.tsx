@@ -38,13 +38,14 @@ export function SidebarProjects({
         title={t("shell.projects.toggleTitle")}
         aria-expanded={open}
         aria-controls="projlist"
+        aria-label={`${t("shell.projects.label")}${projects ? ` (${projects.length})` : ""}`}
         onClick={handleToggle}
       >
-        <span>
-          {t("shell.projects.label")}
-          {projects ? ` (${projects.length})` : ""}
+        <span>{t("shell.projects.label")}</span>
+        <span className="faint">
+          {projects ? projects.length : null}
+          <Icon name={open ? "chevD" : "chevR"} size="sm" />
         </span>
-        <Icon name={open ? "chevD" : "chevR"} />
       </button>
       <div id="projlist" hidden={!open}>
         {projects?.slice(0, 5).map((project) => (

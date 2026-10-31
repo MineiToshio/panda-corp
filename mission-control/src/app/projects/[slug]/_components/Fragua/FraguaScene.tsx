@@ -140,7 +140,7 @@ export function FraguaScene({
             <Chip tone="slate" variant="plain" icon="clock">
               {t("workspace.resumen.forge.lastMove", {
                 ago: lastActivityAt
-                  ? formatRelative(lastActivityAt, data.nowIso)
+                  ? formatRelative(lastActivityAt.slice(0, 10), data.nowIso)
                   : t("common.relativeTime.noRecord"),
               })}
             </Chip>

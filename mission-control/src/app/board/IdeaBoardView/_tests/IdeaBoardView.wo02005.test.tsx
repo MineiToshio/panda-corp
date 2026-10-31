@@ -297,7 +297,7 @@ describe("IdeaBoardView WO-02-005 — AC-02-005.1 chips on cards", () => {
     render(<IdeaBoardView cards={[DOCUMENTED_CARD]} />);
     const chips = screen.getAllByTestId("idea-card-return-type");
     expect(chips.length).toBeGreaterThan(0);
-    expect(chips[0]).toHaveTextContent("personal");
+    expect(chips[0]).toHaveTextContent("Personal");
   });
 
   it("card renders score with tabular-nums", () => {

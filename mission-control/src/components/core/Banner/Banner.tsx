@@ -56,7 +56,7 @@ const PRESENTATION = {
 
 function BannerIcon({ icon, tone }: { icon?: IconName; tone: BannerTone }): React.JSX.Element {
   return (
-    <span data-testid="banner-icon" aria-hidden="true">
+    <span className={styles.iconTile} data-testid="banner-icon" aria-hidden="true">
       <Icon name={icon ?? PRESENTATION[tone].icon} size="lg" />
     </span>
   );

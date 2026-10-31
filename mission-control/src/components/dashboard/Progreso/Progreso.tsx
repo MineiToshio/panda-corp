@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LastAchievement } from "@/app/(dashboard)/_components/LastAchievement";
 import { Card, CardFoot, CardHeader } from "@/components/core/Card/Card";
+import { Icon } from "@/components/core/Icon/Icon";
 import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
 import { RankEmblem } from "@/components/core/RankEmblem/RankEmblem";
 import { t } from "@/lib/copy/copy";
@@ -18,7 +19,7 @@ export function Progreso({
   readonly trophies: number;
 }): React.JSX.Element {
   return (
-    <Card tone="gold" variant="tinted">
+    <Card tone="gold">
       <CardHeader title={t("inicio.guild.title")} icon="shield" />
       <div className={styles.identity}>
         <RankEmblem sprite={level.sprite} grade={level.grade} icon={level.icon} size={56} />
@@ -42,7 +43,10 @@ export function Progreso({
       </p>
       <LastAchievement achievement={achievement} />
       <CardFoot>
-        <Link href="/achievements">{t("inicio.guild.seeAchievements")}</Link>
+        <span />
+        <Link className="link" data-tone="gold" href="/achievements">
+          {t("inicio.guild.seeAchievements")} <Icon name="arrow" size="sm" />
+        </Link>
       </CardFoot>
     </Card>
   );

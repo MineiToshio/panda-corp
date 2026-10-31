@@ -25,11 +25,11 @@ import { TrophyDialog } from "./trophies/TrophyDialog";
 
 const TABS = ["resumen", "misiones", "trofeos", "estadisticas", "rangos"] as const;
 const ICONS = {
-  resumen: "grid",
-  misiones: "target",
+  resumen: "gauge",
+  misiones: "flag",
   trofeos: "trophy",
-  estadisticas: "chart",
-  rangos: "stairs",
+  estadisticas: "activity",
+  rangos: "crown",
 } as const;
 interface HallTabsProps {
   chains: readonly ChainState[];

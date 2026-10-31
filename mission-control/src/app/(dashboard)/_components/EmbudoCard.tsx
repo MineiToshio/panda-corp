@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card, CardFoot, CardHeader } from "@/components/core/Card/Card";
+import { Icon } from "@/components/core/Icon/Icon";
 import { t } from "@/lib/copy/copy";
 import type { FunnelData } from "@/lib/inicio/funnel";
 import { FunnelRow } from "./FunnelRow";
@@ -16,8 +17,12 @@ export function EmbudoCard({ funnel }: { readonly funnel: FunnelData }): React.J
         ))}
       </div>
       <CardFoot>
-        <span>{t("inicio.funnel.discarded", { count: funnel.discarded })}</span>
-        <Link href="/board">{t("inicio.funnel.openBoard")}</Link>
+        <span className="small faint">
+          {t("inicio.funnel.discarded", { count: funnel.discarded })}
+        </span>
+        <Link className="link" data-tone="teal" href="/board">
+          {t("inicio.funnel.openBoard")} <Icon name="arrow" size="sm" />
+        </Link>
       </CardFoot>
     </Card>
   );

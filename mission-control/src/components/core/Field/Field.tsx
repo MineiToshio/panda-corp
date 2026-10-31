@@ -25,7 +25,7 @@ export function SearchField({
   }
   return (
     <div className={`field ${styles.field} ${styles.search}`}>
-      <Icon name="search" />
+      <Icon name="search" size="sm" />
       <label htmlFor={id} className="sr-only">
         {label}
       </label>

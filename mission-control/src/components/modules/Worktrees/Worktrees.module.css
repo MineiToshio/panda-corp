@@ -12,6 +12,8 @@
   gap: var(--s2);
   flex-wrap: wrap;
   margin: var(--s3) 0 var(--s4);
+}
+.skill > span {
   font-size: var(--fs-xs);
   color: var(--text-3);
 }
@@ -28,7 +30,7 @@
   font-size: var(--fs-sm);
 }
 .table :is(th, td) {
-  padding: calc(var(--s2) + var(--s1) / 4) calc(var(--s3) / 2);
+  padding: 9px 6px;
   border-top: var(--hairline) solid var(--line);
   text-align: left;
   color: var(--text-2);
@@ -36,8 +38,11 @@
 .table thead th {
   border-top: 0;
   font-size: var(--fs-xs);
+  font-weight: 600;
   color: var(--text-3);
-  text-transform: uppercase;
+}
+.table td {
+  font-variant-numeric: tabular-nums;
 }
 .link {
   color: var(--text);
@@ -53,17 +58,24 @@
   color: var(--text-2);
   cursor: default;
 }
-.hint {
-  color: var(--text-3);
+p.hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
   font-size: var(--fs-xs);
-  margin: var(--s2) 0 0;
+  margin: var(--s2) 0 var(--s4);
 }
 .legend {
   margin-top: var(--s3);
-  font-size: var(--fs-xs);
-  color: var(--text-3);
 }
 .legend summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  color: var(--blue);
+  font-weight: 600;
+  font-size: var(--fs-md);
   cursor: pointer;
 }
 .branch {
