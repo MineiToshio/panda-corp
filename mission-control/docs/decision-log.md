@@ -1,5 +1,9 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 · Preserve navigation entries across live refresh and canonical redirects
+
+Treat the first live event as a baseline and defer background refreshes until navigation commits. Resolve canonical defaults through server redirects, withdrawing the local `__NA` rename that left Next state stale. The deterministic regression fails on base; production passes 80/80 and the independent probe 5/5. This supersedes the previous nondiscriminating closure. See [FRD-25](frds/frd-25-persistent-navigation/frd.md), [blueprint](frds/frd-25-persistent-navigation/blueprint.md) and [ADR-0010](adr/ADR-0010-persistent-navigation-identity.md).
+
 ## 2026-10-31 · Preserve the architecture mosaic on partial work-order failures
 
 Render file-level errors alongside the mosaic of readable work orders instead of hiding it when one file fails. Keep FRD labels and exclude the broken order. Align board and workspace integration assertions with the emitted Spanish status validation message. Canonical contract: [FRD-02](frds/frd-02-ideas-board/frd.md#file-level-report-failures-2026-10-31).
