@@ -115,6 +115,8 @@
   margin-bottom: var(--s4);
 }
 .signals {
+  border: 0;
+  background: transparent;
   border-top: var(--hairline) solid var(--line);
   border-radius: 0;
   padding: var(--s4) 0;

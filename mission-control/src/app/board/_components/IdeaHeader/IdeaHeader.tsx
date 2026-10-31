@@ -47,7 +47,7 @@ export function IdeaHeader({
         <div className={`idea-title ${styles.title}`}>
           <BadgeIcon icon="bulb" tone="amber" />
           <h1>{card.title}</h1>
-          <div className={styles.meta}>
+          <div className={`row ${styles.meta}`}>
             {card.projectType && (
               <Chip tone="slate">{CATEGORY_LABELS[card.projectType]?.[0] ?? card.projectType}</Chip>
             )}
@@ -69,7 +69,13 @@ export function IdeaHeader({
         <div className={`idea-actions ${styles.actions}`}>
           <ButtonLink look="button" size="sm" href="/board">
             <Icon name="back" size="sm" />
-            {t("idea.header.backLong")}
+            <span aria-hidden="true" className={styles.longLabel}>
+              {t("idea.header.backLong")}
+            </span>
+            <span aria-hidden="true" className={styles.shortLabel}>
+              {t("idea.header.backShort")}
+            </span>
+            <span className="sr-only">{t("idea.header.backLong")}</span>
           </ButtonLink>
           <span className={styles.buttons}>
             <FavoriteButton
@@ -80,14 +86,26 @@ export function IdeaHeader({
             />
             {forgeHref && (
               <ButtonLink look="button" size="sm" href={forgeHref}>
-                {t("idea.header.openInPortfolioLong")}
+                <span aria-hidden="true" className={styles.longLabel}>
+                  {t("idea.header.openInPortfolioLong")}
+                </span>
+                <span aria-hidden="true" className={styles.shortLabel}>
+                  {t("idea.header.openInPortfolioShort")}
+                </span>
+                <span className="sr-only">{t("idea.header.openInPortfolioLong")}</span>
+                <Icon name="arrow" size="sm" />
               </ButtonLink>
             )}
             {card.status === "discarded" ? (
               <RestoreButton slug={card.slug} title={card.title} restoreAction={restoreAction} />
             ) : (
               card.status !== "shipped" && (
-                <DiscardButton slug={card.slug} title={card.title} discardAction={discardAction} />
+                <DiscardButton
+                  slug={card.slug}
+                  title={card.title}
+                  discardAction={discardAction}
+                  compactOnPhone
+                />
               )
             )}
           </span>

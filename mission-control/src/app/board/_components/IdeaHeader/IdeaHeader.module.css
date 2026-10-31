@@ -37,3 +37,22 @@
 .buttons {
   gap: var(--s2);
 }
+
+.title .meta {
+  grid-column: 2;
+}
+.shortLabel {
+  display: none;
+}
+@media (max-width: 759px) {
+  .actions,
+  .buttons {
+    flex-wrap: nowrap;
+  }
+  .longLabel {
+    display: none;
+  }
+  .shortLabel {
+    display: inline;
+  }
+}

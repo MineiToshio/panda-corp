@@ -113,3 +113,9 @@ prototype_blessed_at: 0e6b7191
 
 Oracle: `docs/design/prototype/index.html` (route shards of `reference/oracle-states.json`), captured at 375 and 1280, light and dark, against `pnpm dev:oracle`. Layer-B sign-off: reviewer viewed the re-blessed baselines; they are consistency guards rendered from `e2e/fixtures/factory-root`, not pixel matches of the oracle (L3 still open, see `.pandacorp/comms/visual-punch-list.md`).
 prototype_blessed_at: 0e6b7191
+
+## Structural fidelity correction (2026-10-31)
+
+Automatic-signal disclosures are flat groups separated only by a top rule, with no enclosing side/bottom border or surface fill. Oracle: `prototype.css:954-959`; `prototype.js:1813-1819`.
+
+Component tests and static checks are recorded in the decision log. Browser fidelity, themes and overflow still require the attended Claude reviewer; no visual baseline was edited.

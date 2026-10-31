@@ -2,6 +2,7 @@ import { Card, CardHeader } from "@/components/core/Card/Card";
 import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
 import type { ChainState } from "@/lib/achievements/achievements";
 import { t } from "@/lib/copy/copy";
+import styles from "./_components/summary/summary.module.css";
 import { orderedMissions } from "./_utils/viewRules";
 
 /** The three genuinely progressing chains closest to their next tier. */
@@ -15,9 +16,15 @@ export function AlmostThere({ chains }: { chains: readonly ChainState[] }): Reac
       {near.length ? (
         near.map((chain) => (
           <div key={chain.statKey}>
-            <strong>{chain.nextTier?.name}</strong>
-            <p>
-              {chain.label} · {chain.value ?? 0}/{chain.nextTier?.threshold}
+            <div className={styles.rowHead}>
+              <strong>{chain.nextTier?.name}</strong>
+              <span className={styles.counter}>
+                {chain.value ?? 0} / {chain.nextTier?.threshold}
+              </span>
+            </div>
+            <p className={styles.missionLabel}>
+              {chain.label}
+              {chain.saga ? ` · ${chain.saga}` : ""}
             </p>
             <ProgressBar tone="gold" done={chain.pctToNext} total={100} ariaLabel={chain.label} />
           </div>

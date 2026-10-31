@@ -89,8 +89,8 @@
   background: color-mix(in srgb, var(--teal) var(--tint), var(--surface));
 }
 .decisions {
-  padding: var(--s4);
-  border: var(--hairline) solid var(--amber);
+  padding: var(--s3) var(--s4);
+  border: var(--hairline) solid color-mix(in srgb, var(--amber) 45%, transparent);
   border-radius: var(--r);
   background: color-mix(in srgb, var(--amber) var(--tint), var(--surface));
 }
@@ -183,4 +183,13 @@
   .band {
     padding: var(--s4);
   }
+}
+
+.decisionList {
+  margin: 0;
+  padding-left: var(--s4);
+  list-style: disc;
+}
+.decisionList li::marker {
+  color: var(--amber);
 }

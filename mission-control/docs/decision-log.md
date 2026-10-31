@@ -13,6 +13,16 @@ Production readers were executed against `docs/design/prototype/fixtures/factory
 - **Project display name:** `src/lib/portfolio/overview.ts` displays `Mission Control` for the source name `Pandacorp (Mission Control)`, following the prototype's explicit short-name mapping. [FRD-03 REQ-03-003](frds/frd-03-portfolio/frd.md) requires the project title without prescribing the long form. Source names, source paths and navigation identities remain intact. Both the source-identity regression and real fixture verify this boundary.
 
 Tests were written and observed failing before the archive, empty-severity, flight-weight and display-name patches. Targeted Vitest tests, TypeScript and Biome checks passed; this delivery does not claim a browser/visual run or a full build gate.
+## 2026-10-31 · Structural fidelity corrections for the final visual review
+
+Restored the prototype's framed GuildHero, right-aligned near-mission counts and summary-only flat seal rows ([FDD-10](frds/frd-10-achievements-hall/fdd.md)); account row cards place service and state together on phones while retaining required identity fields ([FDD-26](frds/frd-26-services-accounts/fdd.md)). Spec report headers reuse CardHeader with optional icons/actions and source documents resolve through the embedding reader; decisions are an amber inline list. Idea headers align chips under the title and use compact phone actions while preserving full accessible names ([FDD-02](frds/frd-02-ideas-board/fdd.md)). FRD progress retains the footer only above the eight-row cap, without reordering Resumen ([FDD-04](frds/frd-04-project-workspace/fdd.md)). Automatic signals lose inherited disclosure borders and fill ([FDD-17](frds/frd-17-proposals-inbox/fdd.md)).
+
+The first component-test run exposed two accessible-name regressions from duplicated responsive labels; both variants now stay decorative and a single screen-reader label supplies the name. Reviewer tests and blessed visual baselines are unchanged. No existing component test was deemed stale; added coverage exercises source-document navigation and the eight-row footer boundary.
+
+Verification: the scoped `pnpm exec vitest run` passed 368 tests in 45 files (GuildHero, ReportBand, ServicesDirectory, DiscardButton, achievements, SpecDigest, IdeaPitch, board, tab-summary and proposals). `pnpm exec tsc --noEmit` passed; `pnpm exec biome check` passed on all 20 changed TSX/CSS files; `git diff --check` passed. All commands ran from `mission-control` with `PORT=3972` and `PANDACORP_E2E_PORT=3972`. Vitest printed Node experimental localStorage warnings. No reviewer test was edited.
+
+The possible 8 px `.pitch-ok` overflow is unconfirmed: its risk wrapper is `1fr 1fr` with a 1 px enclosing border, and the mitigation adds 14 px padding on each side plus a 1 px left border, all under border-box sizing. At a 343 px content width its nominal mitigation content is 141.5 px, with text-dependent minimum sizing. CSS alone does not establish the reported overflow; no speculative fix was applied. A browser reviewer must measure the actual content at 375 px and judge all changed surfaces in both themes. Chromium was not started in this worker's sandbox.
+
 
 ## 2026-10-31 · End-of-build Visual QA against the oracle
 

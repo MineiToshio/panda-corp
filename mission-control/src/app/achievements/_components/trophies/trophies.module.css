@@ -72,13 +72,15 @@
   color: var(--text);
   border: var(--hairline) solid var(--line);
 }
-.seal > div {
+.seal > div,
+.sealRow > div {
   display: grid;
   gap: var(--s1);
   flex: 1;
   min-width: 0;
 }
-.seal small {
+.seal small,
+.sealRow small {
   color: var(--text-2);
   font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
@@ -105,4 +107,17 @@
   .grid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+.sealRow {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.sealHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  font-size: var(--fs-md);
 }

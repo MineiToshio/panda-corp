@@ -121,3 +121,9 @@ prototype_blessed_at: 0e6b7191
 
 Oracle: `docs/design/prototype/index.html` (route shards of `reference/oracle-states.json`), captured at 375 and 1280, light and dark, against `pnpm dev:oracle`. Layer-B sign-off: reviewer viewed the re-blessed baselines; they are consistency guards rendered from `e2e/fixtures/factory-root`, not pixel matches of the oracle (L3 still open, see `.pandacorp/comms/visual-punch-list.md`).
 prototype_blessed_at: 0e6b7191
+
+## Structural fidelity correction (2026-10-31)
+
+Avance por FRD shows its total and Ver todos footer only when there are more than eight rows, matching `prototype.js:833`. The established upgrade notice, La Fragua and Siguiente paso order is unchanged. Spec uses the shared band headers and source-document actions described by FRD-02.
+
+Component tests and static checks are recorded in the decision log. Browser fidelity, themes and overflow still require the attended Claude reviewer; no visual baseline was edited.

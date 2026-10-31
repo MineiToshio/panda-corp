@@ -43,7 +43,7 @@ export function SummaryTab({
           <CardHeader title={t("logros.summary.seals")} icon="shield" />
           <div className={styles.stack}>
             {seals.map((seal) => (
-              <SealTile key={seal.axis} seal={seal} progress />
+              <SealTile key={seal.axis} seal={seal} progress variant="row" />
             ))}
           </div>
         </Card>

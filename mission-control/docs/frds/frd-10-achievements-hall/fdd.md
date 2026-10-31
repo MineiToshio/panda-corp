@@ -157,3 +157,9 @@ prototype_blessed_at: 0e6b7191
 `logros-desktop` re-blessed 2026-10-31 in the wave 6 batch after WO-19-003 filled the sidebar (counts, Proyectos, guild card, Colapsar, theme button), viewed against its wave 4-5 predecessor and `docs/design/prototype/index.html#logros`. Reviewer sign-off: only the sidebar moved, the hero, tabs and Resumen cards are unchanged, no console error. The pending pill carries `data-volatile`, because it is live git data that streams in late, so the baseline omits it. It proves consistency only; the close-out oracle pass judges fidelity.
 
 prototype_blessed_at: 0e6b7191
+
+## Structural fidelity correction (2026-10-31)
+
+The summary uses the gold-framed crest (96/80 px, 72/60 px on phones, with a 64 px emblem), right-aligned near-mission counters and flat seal rows. The trophy catalog retains seal tiles. Oracle: `prototype.css:400-401,524-525`; `prototype.js:1908-1909`.
+
+Component tests and static checks are recorded in the decision log. Browser fidelity, themes and overflow still require the attended Claude reviewer; no visual baseline was edited.

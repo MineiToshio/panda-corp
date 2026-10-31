@@ -1,6 +1,9 @@
 "use client";
 
+import { Button } from "@/components/core/Button/Button";
+import { ButtonLink } from "@/components/core/Button/ButtonLink";
 import { Chip } from "@/components/core/Chip/Chip";
+import { Icon } from "@/components/core/Icon/Icon";
 import type { LinkResolver } from "@/components/core/Markdown/Markdown";
 import { Notice } from "@/components/core/Notice/Notice";
 import { projectMetaChips } from "@/components/modules/IdeaCard/IdeaCard";
@@ -74,7 +77,13 @@ export function SpecDigest({
       {spec.prd && spec.prd.blocks.length > 0 && (
         <ReportBand
           title={t("workspace.spec.bands.prd")}
-          tone="teal"
+          tone="blue"
+          icon="flag"
+          action={documentAction(
+            resolveLink,
+            "docs/product/prd.md",
+            t("workspace.spec.buttons.prdFull"),
+          )}
           rows={spec.prd.blocks.map((block) => ({
             id: block.label,
             label: block.label,
@@ -85,7 +94,13 @@ export function SpecDigest({
       {spec.research && spec.research.blocks.length > 0 && (
         <ReportBand
           title={t("workspace.spec.bands.research")}
-          tone="blue"
+          tone="teal"
+          icon="search"
+          action={documentAction(
+            resolveLink,
+            "docs/product/research.md",
+            t("workspace.spec.buttons.researchFull"),
+          )}
           rows={spec.research.blocks.map((block) => ({
             id: block.label,
             label: block.label,
@@ -106,6 +121,7 @@ export function SpecDigest({
               : t("workspace.spec.bands.frds", { count: frds?.length ?? frdCount ?? 0 })
           }
           tone="violet"
+          icon="book"
         >
           <div className={styles.grid}>
             {cards.map((frd) => (
@@ -190,4 +206,28 @@ function specCards(spec: ReturnType<typeof parseSpec>, frds?: readonly DigestFrd
         live,
       }))
     : spec.frds.map((frd) => ({ ...frd, live: undefined, ui: undefined }));
+}
+
+function documentAction(
+  resolveLink: LinkResolver | undefined,
+  path: string,
+  label: string,
+): React.ReactNode {
+  const target = resolveLink?.(path);
+  if (!target) return null;
+  const content = (
+    <>
+      <Icon name="file" size="sm" />
+      {label}
+    </>
+  );
+  return "onSelect" in target ? (
+    <Button size="sm" onClick={target.onSelect}>
+      {content}
+    </Button>
+  ) : (
+    <ButtonLink look="button" size="sm" href={target.href}>
+      {content}
+    </ButtonLink>
+  );
 }

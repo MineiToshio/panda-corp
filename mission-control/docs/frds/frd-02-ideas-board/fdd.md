@@ -136,3 +136,9 @@ prototype_blessed_at: 0e6b7191
 
 Oracle: `docs/design/prototype/index.html` (route shards of `reference/oracle-states.json`), captured at 375 and 1280, light and dark, against `pnpm dev:oracle`. Layer-B sign-off: reviewer viewed the re-blessed baselines; they are consistency guards rendered from `e2e/fixtures/factory-root`, not pixel matches of the oracle (L3 still open, see `.pandacorp/comms/visual-punch-list.md`).
 prototype_blessed_at: 0e6b7191
+
+## Structural fidelity correction (2026-10-31)
+
+Idea-header metadata occupies the second grid column below the title. Phone actions use the existing short translated labels and an icon-only discard action with its accessible name preserved. Spec bands use flag/search/book icons, blue PRD and teal Research hues, source-document actions through the embedding reader resolver, and an amber decision list with a mixed-opacity border. Oracle: `prototype.css:1521,1637-1638,778`; `prototype.js:703-705,885,936,973-975`. The possible `.pitch-ok` 8 px overflow is not confirmed and its implementation is unchanged pending browser measurement.
+
+Component tests and static checks are recorded in the decision log. Browser fidelity, themes and overflow still require the attended Claude reviewer; no visual baseline was edited.

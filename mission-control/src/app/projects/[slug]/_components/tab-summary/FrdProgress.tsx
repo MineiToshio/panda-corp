@@ -73,17 +73,19 @@ export function FrdProgress({
                 </li>
               ))}
             </ul>
-            <CardFoot>
-              <span className={styles.meta}>
-                {t("workspace.resumen.frdProgress.total", { count: frds.length })}
-              </span>
-              <a
-                className={styles.link}
-                href={navigationHref(navigationBaseHref, { tab: "observability", frd: null })}
-              >
-                {t("workspace.resumen.frdProgress.seeAll")}
-              </a>
-            </CardFoot>
+            {rows.length > 8 && (
+              <CardFoot>
+                <span className={styles.meta}>
+                  {t("workspace.resumen.frdProgress.total", { count: frds.length })}
+                </span>
+                <a
+                  className={styles.link}
+                  href={navigationHref(navigationBaseHref, { tab: "observability", frd: null })}
+                >
+                  {t("workspace.resumen.frdProgress.seeAll")}
+                </a>
+              </CardFoot>
+            )}
           </>
         ) : (
           <p className={styles.empty}>{t("workspace.resumen.frdProgress.empty")}</p>

@@ -56,3 +56,20 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.rowHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+.counter {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.missionLabel {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  margin-bottom: var(--s2);
+}

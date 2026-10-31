@@ -152,3 +152,13 @@ it("REQ-04-004: project queue shares the real pending count, stable command and 
   ).toBeVisible();
   expect(screen.getAllByText(/hace \d+ días/).length).toBeGreaterThan(0);
 });
+
+it("omits the FRD footer when all rows fit within the prototype's eight-row limit", () => {
+  const frds = Array.from({ length: 8 }, (_, i) => ({
+    slug: `frd-${i + 1}-test`,
+    code: `FRD-${String(i + 1).padStart(2, "0")}`,
+    title: `Feature ${i + 1}`,
+  }));
+  render(<FrdProgress frds={frds} orders={[]} navigationBaseHref="/projects/demo/summary" />);
+  expect(screen.queryByRole("link", { name: "Ver todos" })).not.toBeInTheDocument();
+});

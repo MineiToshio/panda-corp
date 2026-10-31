@@ -44,8 +44,10 @@ export function GuildHero({
       data-tone="gold"
       aria-label={t("logros.hero.eyebrow", { level })}
     >
-      <div className={`crest xl ${styles.crest}`}>
-        <RankEmblem sprite={rankSprite} icon={rankIcon} grade={rankGrade} size={120} alt={title} />
+      <div className={styles.crest}>
+        <div className={styles.crestInner}>
+          <RankEmblem sprite={rankSprite} icon={rankIcon} grade={rankGrade} size={64} alt={title} />
+        </div>
       </div>
       <div className={styles.body}>
         <p className={styles.kicker}>{t("logros.hero.eyebrow", { level })}</p>

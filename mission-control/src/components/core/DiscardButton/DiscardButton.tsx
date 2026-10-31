@@ -1,12 +1,15 @@
 "use client";
 import { useActionState, useRef, useState } from "react";
 import { Button } from "@/components/core/Button/Button";
+import { Icon } from "@/components/core/Icon/Icon";
 import { DialogConfirm } from "@/components/core/Modal/DialogConfirm";
 import { t } from "@/lib/copy/copy";
 import type { DiscardResult } from "@/lib/discard/discard";
+import styles from "./DiscardButton.module.css";
 
 export interface DiscardButtonProps {
   readonly slug: string;
+  readonly compactOnPhone?: boolean;
   readonly title?: string;
   readonly discardAction: (slug: string, reason?: string) => Promise<DiscardResult>;
 }
@@ -15,6 +18,7 @@ export interface DiscardButtonProps {
 export function DiscardButton({
   slug,
   title = slug,
+  compactOnPhone = false,
   discardAction,
 }: DiscardButtonProps): React.JSX.Element {
   const [open, setOpen] = useState(false);
@@ -39,8 +43,12 @@ export function DiscardButton({
         disabled={pending}
         onClick={() => setOpen(true)}
         data-testid="discard-button"
+        ariaLabel={t("idea.header.discardAria")}
       >
-        {t("idea.header.discard")}
+        {compactOnPhone && <Icon name="trash" size="sm" />}
+        <span className={compactOnPhone ? styles.label : undefined}>
+          {t("idea.header.discard")}
+        </span>
       </Button>
       <DialogConfirm
         open={open}

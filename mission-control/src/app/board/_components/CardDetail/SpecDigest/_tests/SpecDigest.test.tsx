@@ -5,7 +5,7 @@
  */
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SpecDigest } from "../SpecDigest";
 
 const DIGEST = `---
@@ -169,4 +169,27 @@ it("shows an unavailable state for an unknown FRD instead of opening another ite
   render(<SpecDigest title="fallback" body={DIGEST} />);
   expect(screen.getByRole("status")).toHaveTextContent("El FRD seleccionado no está disponible.");
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+it("opens full source documents through the embedding reader resolver", () => {
+  const openPrd = vi.fn();
+  render(
+    <SpecDigest
+      title="Demo"
+      body={DIGEST}
+      resolveLink={(path) =>
+        path === "docs/product/prd.md"
+          ? { onSelect: openPrd }
+          : path === "docs/product/research.md"
+            ? { href: "/projects/demo/documents?doc=research", external: false }
+            : null
+      }
+    />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "PRD completo" }));
+  expect(openPrd).toHaveBeenCalledOnce();
+  expect(screen.getByRole("link", { name: "Research completo" })).toHaveAttribute(
+    "href",
+    "/projects/demo/documents?doc=research",
+  );
 });

@@ -124,3 +124,9 @@ prototype_blessed_at: 409a0564
 - **Oracle table:** `docs/design/prototype/reference/oracle-states.json`, the five entries of `frd-26-services-accounts`.
 - **Reference files:** `docs/design/prototype/reference/computed-styles.json`, `docs/design/prototype/components.html`, root `DESIGN.md`, `docs/design/design-tokens.json`. Styles to match: `.acc-table`, `.acc-name`, `.copy-text`, `.env-chips`, `.state-dot`, `.seg`, `.acc-links` in `docs/design/prototype/prototype.css`.
 - **components.md rows:** `AccountsTable`, `Segmented`, `SearchField`, `Chip`, `StateDot`, `Dialog`, `EmptyState` / `Notice`, `Tabs`, `PageHead`.
+
+## Structural fidelity correction (2026-10-31)
+
+Below 1024 px each account is a two-column row card: service and state share the first line; remaining account metadata spans both columns, with explicit labels for identity, login and environments/projects. Existing required identity/access fields remain present. Oracle: `prototype.css:1391-1400` and AC-26-003.1.
+
+Component tests and static checks are recorded in the decision log. Browser fidelity, themes and overflow still require the attended Claude reviewer; no visual baseline was edited.

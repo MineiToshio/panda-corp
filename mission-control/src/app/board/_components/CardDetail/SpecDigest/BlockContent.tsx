@@ -57,13 +57,15 @@ export function BlockContent({
     );
   if (block.kind === "decisions")
     return (
-      <div className={`pbox ${styles.decisions}`} data-testid="spec-decisions">
-        {items.map((item) => (
-          <div key={item.title} className="spec-decision">
-            <b>{item.title}</b>
-            {item.desc && <p>{item.desc}</p>}
-          </div>
-        ))}
+      <div className={`pbox ${styles.decisions}`} data-tone="amber" data-testid="spec-decisions">
+        <ul className={styles.decisionList}>
+          {items.map((item) => (
+            <li key={item.title}>
+              <b>{item.title}</b>
+              {item.desc && `: ${item.desc}`}
+            </li>
+          ))}
+        </ul>
       </div>
     );
   const testId =

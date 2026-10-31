@@ -15,6 +15,25 @@
 .crest {
   display: grid;
   place-items: center;
+  width: calc(var(--s12) * 2);
+  height: calc(var(--s12) * 2);
+  border-radius: var(--r-2xl);
+  background: conic-gradient(
+    from 210deg,
+    color-mix(in srgb, var(--gold) 70%, transparent),
+    color-mix(in srgb, var(--amber) 35%, transparent),
+    color-mix(in srgb, var(--gold) 70%, transparent)
+  );
+  box-shadow: 0 calc(var(--s5) / 2) calc(var(--s10) - var(--s5) / 2)
+    color-mix(in srgb, var(--gold) 30%, transparent);
+}
+.crestInner {
+  display: grid;
+  place-items: center;
+  width: calc(var(--s10) * 2);
+  height: calc(var(--s10) * 2);
+  border-radius: var(--r-xl);
+  background: var(--surface);
 }
 .body {
   min-width: 0;
@@ -66,6 +85,16 @@
 @media (max-width: 759px) {
   .hero {
     padding: var(--s4);
-    gap: var(--s3);
+    gap: var(--s4);
+  }
+  .crest {
+    width: calc(var(--s12) + var(--s6));
+    height: calc(var(--s12) + var(--s6));
+    border-radius: var(--r-xl);
+  }
+  .crestInner {
+    width: calc(var(--s10) + var(--s5));
+    height: calc(var(--s10) + var(--s5));
+    border-radius: var(--r-lg);
   }
 }

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import { CardHeader } from "@/components/core/Card/Card";
 import type { Tone } from "@/components/core/Chip/vocabulary";
+import type { IconName } from "@/components/core/Icon/iconData";
 import styles from "./reportBand.module.css";
 
 export interface ReportRow {
@@ -10,12 +12,16 @@ export interface ReportRow {
 /** Shared tinted report band; supplied rows use a fixed label column and preserve authored content. */
 export function ReportBand({
   title,
+  icon,
+  action,
   tone = "slate",
   rows = [],
   children,
   testId,
 }: {
   readonly title: string;
+  readonly icon?: IconName;
+  readonly action?: ReactNode;
   readonly tone?: Tone;
   readonly rows?: readonly ReportRow[];
   readonly children?: ReactNode;
@@ -23,9 +29,9 @@ export function ReportBand({
 }): React.JSX.Element {
   return (
     <section className={`band ${styles.band}`} data-tone={tone} data-testid={testId}>
-      <header className={styles.head}>
-        <h3>{title}</h3>
-      </header>
+      <div className={`band-head ${styles.head}`}>
+        <CardHeader title={title} level={3} icon={icon} action={action} />
+      </div>
       {rows.map((row) => (
         <div className={`brow ${styles.row}`} key={row.id}>
           <div className={styles.label}>{row.label}</div>

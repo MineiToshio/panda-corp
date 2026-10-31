@@ -63,3 +63,32 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+@media (max-width: 1023px) {
+  .table table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: calc(var(--s3) / 2) var(--s3);
+    padding: var(--s3) var(--s4);
+  }
+  .table table td {
+    padding: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    grid-column: 1 / -1;
+  }
+  .table table td:first-child {
+    grid-column: 1;
+  }
+  .table table td:nth-child(8) {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+  .table table td:first-child::before,
+  .table table td:nth-child(5)::before,
+  .table table td:nth-child(8)::before,
+  .table table td:nth-child(9)::before {
+    display: none;
+  }
+}
