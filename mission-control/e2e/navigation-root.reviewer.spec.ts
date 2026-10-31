@@ -4,6 +4,7 @@ import { gotoHydrated } from "./_hydration";
 import { reloadCommitted } from "./persistent-navigation/_history";
 
 const BASE = "/portfolio/mission-control/observability";
+const LIVE_DEBOUNCE_MS = 300;
 const ORDER =
   "e2e/fixtures/factory-root/mission-control/docs/frds/frd-01-x/work-orders/wo-01-003-board.md";
 
@@ -13,7 +14,29 @@ async function settled(page: Page, href: string) {
   await page.waitForLoadState("load");
 }
 
+/** Count delivered SSE frames so a test can act only after the client has its baseline. */
+async function countLiveFrames(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const Native = window.EventSource;
+    Reflect.set(window, "liveFrames", 0);
+    window.EventSource = class extends Native {
+      constructor(url: string | URL, options?: EventSourceInit) {
+        super(url, options);
+        this.addEventListener("message", () =>
+          Reflect.set(window, "liveFrames", Number(Reflect.get(window, "liveFrames")) + 1),
+        );
+      }
+    };
+  });
+}
+
 async function liveRefresh(page: Page): Promise<void> {
+  // A touch before the first frame would only become that frame's baseline, never a refresh.
+  await expect
+    .poll(() => page.evaluate(() => Number(Reflect.get(window, "liveFrames"))), { timeout: 15_000 })
+    .toBeGreaterThan(0);
+  // Let the transport's debounce commit that baseline before the state moves.
+  await page.evaluate((ms) => new Promise((resolve) => setTimeout(resolve, ms)), LIVE_DEBOUNCE_MS);
   const { atime, mtime } = fs.statSync(ORDER);
   try {
     fs.utimesSync(ORDER, new Date(), new Date());
@@ -61,6 +84,7 @@ test("REQ-25: a hard load of a non-canonical URL keeps Back and Forward across c
 test("AC-12-005.1: the legacy dag view survives a live refresh on its canonical URL", async ({
   page,
 }) => {
+  await countLiveFrames(page);
   await page.goto(`${BASE}?view=dag&dag=wo`);
   await expect(page).toHaveURL(/view=deps/);
   await expect(page.locator('[data-wo="WO-01-003"]:visible').first()).toBeVisible();

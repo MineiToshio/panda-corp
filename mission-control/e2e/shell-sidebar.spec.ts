@@ -6,6 +6,13 @@ import { gotoHydrated } from "./_hydration";
 const ledger = path.resolve("e2e/fixtures/factory-root/factory/gamification-ledger.json");
 const status = path.resolve("e2e/fixtures/factory-root/mission-control/.pandacorp/status.yaml");
 const committedStatus = fs.readFileSync(status, "utf8");
+const FRESH_TROPHIES = [
+  "El primer ladrillo",
+  "El primer spec",
+  "El debut del diseñador",
+  "El blueprintero",
+  "Memoria de la fábrica",
+];
 // The ledger stays absent and the tracked project status returns to its committed bytes.
 function restoreFixture(): void {
   fs.rmSync(ledger, { force: true });
@@ -81,8 +88,21 @@ test("AC-09-008.2: achievement-new oracle double raises once and dismissal survi
     "href",
     "/achievements/trophies",
   );
-  await notice.getByRole("button", { name: "Cerrar aviso" }).click();
-  await expect(notice).toHaveCount(0);
-  await page.reload();
+  // Five fresh unlocks raise once each, in order: the next arrives on a later load, or sooner
+  // when a server update re-renders the shell, so a closed title can only be followed by a new one.
+  async function reloadSettled(): Promise<void> {
+    await page.reload();
+    await expect(page.locator("#app")).toHaveAttribute("data-hydrated", "true");
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve))),
+    );
+  }
+  for (const title of FRESH_TROPHIES) {
+    if ((await notice.count()) === 0) await reloadSettled();
+    await expect(notice).toContainText(title);
+    await notice.getByRole("button", { name: "Cerrar aviso" }).click();
+    await expect(notice.filter({ hasText: title })).toHaveCount(0);
+  }
+  await reloadSettled();
   await expect(notice).toHaveCount(0);
 });
