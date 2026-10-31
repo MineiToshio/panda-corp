@@ -62,6 +62,14 @@ function panelControls(tab: TabDef, prefix?: string): string | undefined {
   return tab.panelId ?? (prefix != null ? `${prefix}${tab.id}` : undefined);
 }
 
+function revealTab(list: HTMLDivElement, button: HTMLButtonElement): void {
+  const strip = list.getBoundingClientRect();
+  const tab = button.getBoundingClientRect();
+  const offset =
+    tab.left < strip.left ? tab.left - strip.left : Math.max(0, tab.right - strip.right);
+  if (offset) list.scrollBy?.({ left: offset, behavior: "auto" });
+}
+
 /** Controlled, hue-marked tabs with manual keyboard activation and horizontal overflow. */
 export function Tabs({
   level = "top",
@@ -80,11 +88,7 @@ export function Tabs({
     const list = listRef.current;
     const button = buttonRefs.current.get(active);
     if (list && button && window.matchMedia?.("(max-width: 759px)").matches) {
-      const strip = list.getBoundingClientRect();
-      const tab = button.getBoundingClientRect();
-      const offset =
-        tab.left < strip.left ? tab.left - strip.left : Math.max(0, tab.right - strip.right);
-      if (offset) list.scrollBy?.({ left: offset, behavior: "auto" });
+      revealTab(list, button);
     }
     measure();
   }, [active, measure]);
@@ -114,7 +118,11 @@ export function Tabs({
     }
     event.preventDefault();
     const tab = enabled[next];
-    if (tab) buttonRefs.current.get(tab.id)?.focus({ preventScroll: true });
+    const button = tab && buttonRefs.current.get(tab.id);
+    if (button) {
+      button.focus({ preventScroll: true });
+      if (listRef.current) revealTab(listRef.current, button);
+    }
   }
   const fallbackId = tabs.find((tab) => !tab.disabled)?.id;
   const focusId = tabs.some((tab) => tab.id === active && !tab.disabled) ? active : fallbackId;

@@ -13,7 +13,9 @@ describe("accounts acceptance", () => {
   it("AC-26-001.1 AC-26-003.1 AC-26-010.1: works independently of project selection, separates identities and opens safe dashboards", () => {
     render(<AccountsDirectory data={servicesFixture()} />);
     expect(screen.getByRole("table", { name: "Cuentas de la fábrica" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /first@example.com/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Copiar el usuario de Neon: first@example.com" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /second@example.com/ })).toBeInTheDocument();
     for (const link of screen.getAllByRole("link", { name: /Neon/ })) {
       expect(link).toHaveAttribute("target", "_blank");
@@ -50,6 +52,11 @@ describe("accounts acceptance", () => {
     const opener = screen.getByRole("button", { name: "Detalles: Main" });
     await user.click(opener);
     const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByRole("button", {
+        name: "Copiar el usuario de Neon: first@example.com",
+      }),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText("2026-10-19", { exact: false })).toBeInTheDocument();
     expect(within(dialog).getByText("demo-dev", { exact: false })).toBeInTheDocument();
     expect(within(dialog).getByText("One account")).toBeInTheDocument();
@@ -74,7 +81,9 @@ describe("accounts acceptance", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("no cumple el contrato");
     expect(screen.queryByText("second@example.com")).not.toBeInTheDocument();
     expect(screen.getAllByRole("row")[1]).toHaveTextContent("Configurado");
-    const copy = screen.getAllByRole("button", { name: /first@example.com/ }).at(0);
+    const copy = screen
+      .getAllByRole("button", { name: "Copiar el usuario de Neon: first@example.com" })
+      .at(0);
     if (!copy) throw new Error("Missing login");
     await user.click(copy);
     expect(await navigator.clipboard.readText()).toBe("first@example.com");

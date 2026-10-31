@@ -54,7 +54,7 @@ export function AccountsTable(props: Props): React.JSX.Element {
             ),
             purpose: row.provider.purpose,
             user: row.account ? (
-              <AccountLogin login={row.account.loginEmail} />
+              <AccountLogin login={row.account.loginEmail} provider={row.provider.name} />
             ) : (
               <span className={styles.faint}>
                 <span aria-hidden="true">−</span>
@@ -82,7 +82,9 @@ export function AccountsTable(props: Props): React.JSX.Element {
               t("portafolio.accounts.toVerify")
             ),
             purpose: row.provider.purpose,
-            user: <AccountLogin login={row.account?.loginEmail ?? null} />,
+            user: (
+              <AccountLogin login={row.account?.loginEmail ?? null} provider={row.provider.name} />
+            ),
             projects: (
               <span className={styles.environments}>
                 {[...new Set(row.allocations.map((link) => link.projectName))].map((name) => (

@@ -83,12 +83,22 @@ export function ProviderLink({
   );
 }
 /** No credentials are accepted here: only the reader's non-secret login identifier. */
-export function AccountLogin({ login }: { login: string | null }): React.JSX.Element {
+export function AccountLogin({
+  login,
+  provider,
+}: {
+  login: string | null;
+  provider: string;
+}): React.JSX.Element {
   const [copied, setCopied] = useState<boolean | null>(null);
   return (
     <>
       {login ? (
-        <CopyText text={login} onResult={setCopied} />
+        <CopyText
+          text={login}
+          ariaLabel={t("workspace.cuentas.copyUserAria", { provider, login })}
+          onResult={setCopied}
+        />
       ) : (
         <span className={styles.faint}>{t("portafolio.accounts.unidentified")}</span>
       )}

@@ -95,7 +95,11 @@ function accountFacts({ provider, account }: DirectoryAccountRow) {
     {
       id: "email",
       label: t("dialogs.account.email"),
-      content: account?.loginEmail ? <AccountLogin login={account.loginEmail} /> : unknown,
+      content: account?.loginEmail ? (
+        <AccountLogin login={account.loginEmail} provider={provider.name} />
+      ) : (
+        unknown
+      ),
     },
     ...(account
       ? [

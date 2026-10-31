@@ -166,3 +166,36 @@ describe("Tabs — optional count badge on tab", () => {
     expect(tabBtn).toHaveTextContent("5");
   });
 });
+
+describe("Tabs keyboard overflow", () => {
+  it.each([true, false])("reveals clipped tabs at any width (mobile: %s)", (mobile) => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({ matches: mobile })),
+    );
+    const onChange = vi.fn();
+    render(<Tabs tabs={SAMPLE_TABS} active="inicio" onChange={onChange} />);
+    const strip = screen.getByRole("tablist");
+    const first = screen.getByRole("tab", { name: "Inicio" });
+    const second = screen.getByRole("tab", { name: "Tablero" });
+    const scrollBy = vi.fn();
+    Object.defineProperty(strip, "scrollBy", { value: scrollBy });
+    vi.spyOn(strip, "getBoundingClientRect").mockReturnValue(new DOMRect(100, 200, 200, 40));
+    vi.spyOn(second, "getBoundingClientRect").mockReturnValue(new DOMRect(280, 200, 100, 40));
+    vi.spyOn(first, "getBoundingClientRect").mockReturnValue(new DOMRect(40, 200, 100, 40));
+    const focus = vi.spyOn(second, "focus");
+    const windowScroll = vi.spyOn(window, "scrollBy");
+    first.focus();
+    fireEvent.keyDown(strip, { key: "ArrowRight" });
+    expect(second).toHaveFocus();
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    expect(scrollBy).toHaveBeenLastCalledWith({ left: 80, behavior: "auto" });
+    fireEvent.keyDown(strip, { key: "ArrowLeft" });
+    expect(first).toHaveFocus();
+    expect(scrollBy).toHaveBeenLastCalledWith({ left: -60, behavior: "auto" });
+    expect(windowScroll).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+});
