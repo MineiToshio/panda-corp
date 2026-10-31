@@ -4,7 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PageHead } from "@/components/core/PageHead/PageHead";
 import { AppShell } from "../AppShell";
 
-vi.mock("next/navigation", () => ({ usePathname: vi.fn(() => "/") }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: vi.fn(() => "/"),
+}));
 let resize: (event: { matches: boolean }) => void;
 const visibility = document.createElement("style");
 visibility.textContent = ".mini { display: none; }";

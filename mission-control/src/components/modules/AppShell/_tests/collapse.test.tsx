@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../AppShell";
 import { ThemeToggle } from "../ThemeToggle";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/",
+}));
 let desktop = true;
 let resize: (event: { matches: boolean }) => void;
 beforeEach(() => {

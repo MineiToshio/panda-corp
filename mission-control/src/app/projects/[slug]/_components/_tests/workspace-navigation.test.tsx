@@ -54,6 +54,7 @@ describe("persistent project workspace navigation", () => {
       await PortfolioPage({
         searchParams: Promise.resolve({ frd: "frd-01-x" }),
         routeState: { project: "selected-project", tab: "work-orders", wo: order.id },
+        requestHref: `/portfolio/selected-project/observability?frd=frd-01-x&wo=WO-01-001&woview=summary`,
       }),
     );
     expect(screen.getByRole("heading", { level: 1, name: "Selected Project" })).toBeVisible();
@@ -76,6 +77,7 @@ describe("persistent project workspace navigation", () => {
       await PortfolioPage({
         searchParams: Promise.resolve(query),
         routeState: { project: "selected-project", tab: "summary" },
+        requestHref: "/portfolio/selected-project/summary?view=cuentas",
       }),
     );
     expect(screen.getByRole("heading", { level: 1, name: "Selected Project" })).toBeVisible();
@@ -84,16 +86,13 @@ describe("persistent project workspace navigation", () => {
 
   it("canonicalizes the default document to its explicit allowlisted key", async () => {
     setUrl("/portfolio/selected-project/documents");
-    render(
-      await PortfolioPage({
+    await expect(
+      PortfolioPage({
         searchParams: Promise.resolve({}),
         routeState: { project: "selected-project", tab: "documents" },
+        requestHref: "/portfolio/selected-project/documents",
       }),
-    );
-    expect(navigation.replace).toHaveBeenCalledWith(
-      expect.stringMatching(/^\/portfolio\/selected-project\/documents\/.+/),
-      { scroll: false },
-    );
+    ).rejects.toThrow("NEXT_REDIRECT");
   });
 
   it("canonicalizes standalone legacy detail paths before mounting interactive controls", async () => {

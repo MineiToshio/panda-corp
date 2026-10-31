@@ -34,7 +34,10 @@ function project(id: string, total: number | null = 10): ProjectOverviewItem {
   };
 }
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/portfolio/Alpha/commands" }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/portfolio/Alpha/commands",
+}));
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.restoreAllMocks());
 describe("AC-19-005.1: sidebar project group", () => {
