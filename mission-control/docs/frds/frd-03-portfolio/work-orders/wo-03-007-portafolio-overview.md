@@ -6,7 +6,7 @@ title: 'WO-03-007 — Portafolio overview: cards, Lista, Cuentas view switch, pr
 status: ACTIVE
 parent: FRD-03
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -22,7 +22,7 @@ artifacts:
   - 'e2e/persistent-navigation.spec.ts'
 source_requirements: [REQ-03-001, REQ-03-002, REQ-03-003, REQ-03-004, REQ-03-005, REQ-03-006, REQ-03-007, REQ-03-008, REQ-03-009]
 dependsOn: [WO-13-012, WO-25-001, WO-26-001, WO-01-010, WO-01-004, WO-04-013, WO-06-013]
-last_updated: 2026-10-22
+last_updated: 2026-10-30
 ---
 
 # WO-03-007 Portafolio overview: cards, Lista, Cuentas view switch, project picker, empty and missing-path states
@@ -270,3 +270,170 @@ WO-13-012 (primitives), WO-25-001 (codec, normalizer, keys), WO-26-001 (`Account
 overview for the hero), WO-18-002 (`ProjectCard` compact, `FirstProjectCard`), WO-19-003 (sidebar projects).
 
 ## Status Note
+
+### 2026-10-30 — S3A round 2 review patches
+
+- Kept `implementation_status: IN_REVIEW`; no blocked reason is present. No commit or staging was performed.
+- Passed the server-resolved overview view into the client. The legacy accounts URL uses that selection
+  until canonical navigation takes over; returning to the root through history still selects Tarjetas.
+  Added a jsdom regression with the raw legacy URL and a popstate transition; `useUrlState` is unchanged.
+- Repository cells are parsed into bare clone URLs at the portfolio reader. Malformed cells become
+  undefined, selecting the existing no-repository recovery branch. Added malformed-cell coverage and
+  updated the non-reviewer escaped-pipe test to reject its truncated URL instead of preserving it.
+- Missing-folder cards retain their phase tone, six-step stepper and stage label. Recovery commands
+  are inside the Notice. Added card assertions for phase tone, steps, stage and command containment.
+- Unsupported overview views no longer produce an empty quoted identifier in the 404 card. Comparison
+  mobile labels come from the catalogue through the shared Table's optional mobileLabel. Corrected
+  the compact stepper class separation, component inventory paths and stale consumer/rail comments.
+- No reviewer test, blessed baseline, decision log or `.pandacorp` file was modified.
+
+Verification ran from `mission-control/` with `export PORT=3961 PANDACORP_E2E_PORT=3961`:
+
+```sh
+pnpm exec knip
+# PASS (exit 0); 9 configuration hints remain.
+pnpm exec tsc --noEmit --incremental false
+# PASS (exit 0), no diagnostics.
+pnpm exec biome check .
+# PASS (exit 0), 1199 files; informational schema-version mismatch (2.5.1 vs CLI 2.5.2).
+pnpm exec biome check --write src/app/portfolio/not-found.tsx src/components/modules/ProjectCard/_tests/ProjectCard.test.tsx src/lib/portfolio/_tests/portfolio.adversarial.test.ts
+# PASS, final 3 edited files checked; no fixes applied.
+pnpm exec vitest run src/app/portfolio src/components/modules/ProjectCard src/lib/portfolio src/components/core/PhaseStepper --maxWorkers=2
+# PASS, 11 files / 139 tests, including the unchanged reviewer suites in these paths.
+git diff --check
+# PASS (run from the worktree root).
+```
+
+Initial scoped baseline: 2 failures / 132 tests (repository Markdown and missing-folder stepper).
+An intermediate run caught the old truncated-URL expectation and an incorrect tone in the newly added
+implementer assertion; both were corrected before the final green run. Two pnpm invocations accidentally
+ran from the factory root and failed with ERR_PNPM_RECURSIVE_EXEC_NO_PACKAGE; the commands were then run
+from Mission Control as recorded above. Vitest reports Node's experimental localStorage warning.
+No checks remain red in the requested scope. Browser hydration, HTTP 404 rendering, responsive/visual
+fidelity and Playwright remain unverified; no full verify.sh was run.
+
+
+
+### 2026-10-30 — S3A implementation; independent review pending
+
+- Built the all-phase overview, cached `getProjectOverview()` and callable `getLastCommit()` through
+  `runGit`, frozen-clock relative ages, shared build liveness, canonical work-order/document/FRD/open-change
+  counts, and phase-derived next commands. Missing paths stay visible and failed sources stay unknown.
+  `countFrdFolders()` also counts a feature represented only by its blueprint, avoiding a second FRD-count rule.
+- Built Tarjetas / Lista / Cuentas with URL-owned selection, the empty-factory composition, missing-path
+  recovery commands, project 404 boundary, and the searchable native project picker. Explicit selection
+  mounts the existing workspace at full width; root selection remains the overview. The persistent path
+  adapter remains compatible. `source` carries the existing `ProjectListItem` only for the stable workspace
+  mount seam until WO-04-010; `nowIso` is the server instant consumed by freshness and age presentations.
+- Removed v1 production rail/layout/slot/selection/chips/snapshot/recovery/last-sync/view-switch modules
+  and their implementer tests. Kept `ProjectListItem.snapshot` / `.lastSync` compatibility fields for W7.
+  No core primitives, reviewer suites, blessed baselines, decision log or `.pandacorp` state were edited.
+- Added `e2e/portafolio.spec.ts`, updated the persistent-navigation root expectations, and moved the
+  Cuentas fixture restoration into `test.afterEach`. No browser was launched.
+- Acceptance citations: AC-03-008.1 in overview composition/resolver/real-fixture/git-fixture and ProjectCard
+  tests; AC-03-008.2 in overview/table/history and authored e2e tests; AC-03-008.3 in ProjectSwitcher tests;
+  AC-14-003.1 and AC-14-003.2 in the production-import removal scan. REQ-03-001/003/005/006 and U1/U2
+  are also exercised in those suites. Responsive CSS reuse is inspected in unit tests; browser rendering,
+  HTTP 404 delivery, reload/Back e2e, native-browser dialog behavior and visual fidelity remain unverified.
+- TDD evidence: the first overview test run failed resolving the not-yet-built `formatAgo` module; targeted
+  repairs led to 39 passing tests. Existing compatibility tests were retained where their source still exists.
+
+All commands below ran from `mission-control/` with `export PORT=3961 PANDACORP_E2E_PORT=3961`:
+
+```sh
+pnpm exec vitest run src/app/portfolio/_tests/overview.test.tsx src/lib/portfolio/_tests/overview.test.ts src/lib/portfolio/_tests/overview-resolver.test.ts src/lib/portfolio/_tests/lastCommit.fixture.test.ts src/lib/portfolio/_tests/overview.integration.test.ts src/components/modules/ProjectCard src/components/modules/ProjectSwitcher --maxWorkers=2
+# PASS: 7 files, 39 tests.
+pnpm exec biome check src/app/portfolio src/components/modules/ProjectCard src/components/modules/ProjectSwitcher src/lib/portfolio e2e/portafolio.spec.ts e2e/cuentas.spec.ts e2e/persistent-navigation.spec.ts
+# PASS: 35 files, no fixes applied (the additional integration suite was included).
+pnpm exec tsc --noEmit --incremental false
+# FAIL: 8 TS2307 imports in preserved legacy suites; no implementation diagnostics.
+pnpm exec knip
+# FAIL: the same 8 unresolved imports; also reports 9 configuration hints.
+pnpm exec vitest run src/app/portfolio src/lib/portfolio src/components/modules/ProjectCard src/components/modules/ProjectSwitcher src/components/modules/ServicesDirectory src/lib/_tests/active-projects.test.ts --maxWorkers=2
+# FAIL: 9 files failed, 11 passed; 8 tests failed, 162 passed. Failures are the preserved v1 suites below.
+pnpm exec vitest run 'src/app/projects/[slug]/_tests/page.reviewer.test.tsx' 'src/app/projects/[slug]/_tests/page.reviewer.integration.test.tsx' 'src/app/projects/[slug]/_components/_tests/spec-workspace.reviewer.test.tsx' src/lib/navigation/_tests/identity-cli.adversarial.reviewer.test.ts src/lib/_tests/active-projects.adversarial.test.ts src/lib/_tests/active-projects.test.ts --maxWorkers=2
+# FAIL: spec-workspace's 3 tests mock railProjects without allProjects; 5 other files / 79 tests pass.
+git diff --check
+# PASS.
+```
+
+Reviewer reconciliation required; all listed suites were left unchanged per the task:
+
+- Retire the removed-subject suites: `src/app/portfolio/_tests/frd-03-integration.reviewer.test.tsx`,
+  `src/app/portfolio/_tests/frd-03-nested-interactive.reviewer.test.tsx`,
+  `src/app/portfolio/_tests/frd-03-integration.gate.reviewer.test.tsx`,
+  `src/app/portfolio/_tests/frd-03-rail-reuse.gate.reviewer.test.tsx`,
+  `src/app/portfolio/_tests/frd-03-gate-opus.reviewer.test.tsx`,
+  `src/lib/portfolio/_tests/formatLastSync.reviewer.test.ts`, and the header-marked
+  `src/app/portfolio/_components/status-chips/_tests/status-chips.adversarial.test.tsx`.
+- Rewrite `src/app/portfolio/_tests/frd-03-page-assembly.reviewer.test.tsx`: it mocks the removed rail
+  resolver and expects automatic first-project selection and rail recovery UI.
+- Update `src/app/projects/[slug]/_components/_tests/spec-workspace.reviewer.test.tsx`: its portfolio mock
+  exports the retired `railProjects` contract, so the real overview cannot resolve `allProjects`.
+- Update `e2e/frd25-gate-regressions.reviewer.spec.ts` lines 13–24: it pins the retired `portfolio-page`
+  root hook. It was inspected but not executed.
+- Reconcile the implementer suite `src/components/modules/ServicesDirectory/_tests/ServicesDirectory.test.tsx`
+  through its owner: it still imports `PortfolioViews` and tests its removed sub-tabs. That test file is
+  outside S3A's permitted paths, so it was left unchanged; its unrelated AccountsDirectory/ProjectAccounts
+  coverage should remain.
+
+No commit, staging, merge, push, merge-queue invocation or full verify.sh / Playwright run was performed.
+The work order is built and handed off as IN_REVIEW with the above red reconciliation work explicit.
+
+### Explicit path list — WO-03-007 only
+
+Paths are relative to the factory worktree; D = deleted, M = modified, A = new/untracked.
+
+- M: `mission-control/docs/frds/frd-03-portfolio/work-orders/wo-03-007-portafolio-overview.md`
+- M: `mission-control/e2e/cuentas.spec.ts`
+- M: `mission-control/e2e/persistent-navigation.spec.ts`
+- A: `mission-control/e2e/portafolio.spec.ts`
+- D: `mission-control/src/app/portfolio/PortfolioLayout.tsx`
+- A: `mission-control/src/app/portfolio/PortfolioOverview.module.css`
+- A: `mission-control/src/app/portfolio/PortfolioOverview.tsx`
+- D: `mission-control/src/app/portfolio/SelectableProjectRail.tsx`
+- D: `mission-control/src/app/portfolio/WorkspaceSlot.tsx`
+- D: `mission-control/src/app/portfolio/_components/BusinessSnapshot/BusinessSnapshot.tsx`
+- D: `mission-control/src/app/portfolio/_components/BusinessSnapshot/_tests/BusinessSnapshot.test.tsx`
+- D: `mission-control/src/app/portfolio/_components/PortfolioEmpty/PortfolioEmpty.tsx`
+- D: `mission-control/src/app/portfolio/_components/PortfolioEmpty/_tests/PortfolioEmpty.test.tsx`
+- D: `mission-control/src/app/portfolio/_components/RecoveryHint/RecoveryHint.tsx`
+- D: `mission-control/src/app/portfolio/_components/RecoveryHint/_tests/RecoveryHint.reuse.test.tsx`
+- D: `mission-control/src/app/portfolio/_components/RecoveryHint/_tests/RecoveryHint.test.tsx`
+- D: `mission-control/src/app/portfolio/_components/status-chips/_tests/proposals-chip.test.tsx`
+- D: `mission-control/src/app/portfolio/_components/status-chips/_tests/status-chips.reuse.test.tsx`
+- D: `mission-control/src/app/portfolio/_components/status-chips/_tests/status-chips.test.tsx`
+- D: `mission-control/src/app/portfolio/_components/status-chips/status-chips.tsx`
+- D: `mission-control/src/app/portfolio/_tests/PortfolioLayout.test.tsx`
+- A: `mission-control/src/app/portfolio/_tests/overview.test.tsx`
+- D: `mission-control/src/app/portfolio/_tests/portfolio-last-sync.test.tsx`
+- D: `mission-control/src/app/portfolio/_tests/wo-03-002-portfolio-surface.test.tsx`
+- D: `mission-control/src/app/portfolio/_tests/wo-03-004.test.tsx`
+- A: `mission-control/src/app/portfolio/not-found.tsx`
+- M: `mission-control/src/app/portfolio/page.tsx`
+- D: `mission-control/src/app/portfolio/selection.ts`
+- A: `mission-control/src/components/modules/ProjectCard/FirstProjectCard.tsx`
+- A: `mission-control/src/components/modules/ProjectCard/ProjectCard.module.css`
+- A: `mission-control/src/components/modules/ProjectCard/ProjectCard.tsx`
+- A: `mission-control/src/components/modules/ProjectCard/_tests/ProjectCard.test.tsx`
+- A: `mission-control/src/components/modules/ProjectCard/_tests/fixture.ts`
+- D: `mission-control/src/components/modules/ProjectRail/LastSyncChip.tsx`
+- D: `mission-control/src/components/modules/ProjectRail/ProjectRail.tsx`
+- D: `mission-control/src/components/modules/ProjectRail/_tests/ProjectRail.lastSync.test.tsx`
+- D: `mission-control/src/components/modules/ProjectRail/_tests/ProjectRail.selectable.test.tsx`
+- A: `mission-control/src/components/modules/ProjectSwitcher/ProjectSwitcher.module.css`
+- A: `mission-control/src/components/modules/ProjectSwitcher/ProjectSwitcher.tsx`
+- A: `mission-control/src/components/modules/ProjectSwitcher/_tests/ProjectSwitcher.test.tsx`
+- D: `mission-control/src/components/modules/ServicesDirectory/PortfolioViews.tsx`
+- D: `mission-control/src/lib/portfolio/_tests/activeProjects.lastSync.test.ts`
+- D: `mission-control/src/lib/portfolio/_tests/formatLastSync.test.ts`
+- A: `mission-control/src/lib/portfolio/_tests/lastCommit.fixture.test.ts`
+- A: `mission-control/src/lib/portfolio/_tests/overview-resolver.test.ts`
+- A: `mission-control/src/lib/portfolio/_tests/overview.integration.test.ts`
+- A: `mission-control/src/lib/portfolio/_tests/overview.test.ts`
+- D: `mission-control/src/lib/portfolio/_tests/railProjects.test.ts`
+- A: `mission-control/src/lib/portfolio/formatAgo.ts`
+- D: `mission-control/src/lib/portfolio/formatLastSync.ts`
+- A: `mission-control/src/lib/portfolio/lastCommit.ts`
+- A: `mission-control/src/lib/portfolio/overview.ts`
+- M: `mission-control/src/lib/portfolio/portfolio.ts`

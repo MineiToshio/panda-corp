@@ -4,20 +4,10 @@ import { getServicesDirectory } from "@/lib/services/services";
 /**
  * ProjectWorkspace — the shared project workspace body (CMP-04-workspace).
  *
- * Extracted from the standalone `/projects/[slug]` page so the SAME workspace renders in TWO places,
- * faithful to the prototype where the workspace lives in the Portfolio's right pane (portfolioView →
- * projectPane): a rail on the left, the full workspace on the right.
- *   - `/projects/[slug]/page.tsx`        — standalone deep-link.
- *   - Portfolio right pane (WorkspaceSlot) — the prototype's canonical surface.
- *
- * Normal document flow (no 100dvh/overflow chrome): the page column (#pcapp, centered 1240px maximum) provides the
- * frame, exactly like the prototype's projectPane sits inside #pcapp. The caller resolves the project
- * (so /projects can 404 while Portfolio degrades gracefully); this component is presentation + the
- * lazy per-tab data reads.
- *
- * Tab selection is URL-driven and context-agnostic: TabBar merges `?tab=` into the CURRENT route's
- * query (so `?project=` survives inside Portfolio). Snapshot panel lives INSIDE the Summary tab
- * (prototype projResumen), not in always-visible chrome.
+ * Shared by standalone project deep links and explicit Portfolio project selections.
+ * Both callers resolve the project and supply the URL-driven tab selection; the Portfolio overview
+ * is replaced by this full-width workspace. Tab-specific data is read lazily, and the snapshot panel
+ * belongs to Summary rather than the shared chrome.
  *
  * Traceability: CMP-04-workspace → REQ-04-001/002; FRD-03 (projectPane embed), WS-2/WS-3.
  */

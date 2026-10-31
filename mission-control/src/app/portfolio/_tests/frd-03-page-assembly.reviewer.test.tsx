@@ -1,161 +1,233 @@
 /**
- * FRD-03 REVIEWER — adversarial assembly test over the REAL PortfolioPage (DR-015, DR-050).
- *
- * The two prior reopens were the same failure class: every component is green in
- * isolation, but the ASSEMBLED page (page.tsx → SelectableProjectRail + WorkspaceSlot)
- * dropped acceptance criteria. The existing reviewer tests render SelectableProjectRail
- * directly; NONE renders the actual async Server Component `PortfolioPage`. These tests
- * render the page itself, end to end, so the selection wiring + the snapshot/recovery
- * contract are verified on the surface the user actually sees.
- *
- * Edge cases the implementers did NOT write:
- *   - AC-03-005.1 — no ?project param → first active project selected; the SAME slug
- *     reaches BOTH the rail (data-selected) AND the WorkspaceSlot (data-slug). The prior
- *     bug class was "rail and slot disagree" / "default never reaches the slot".
- *   - AC-03-004.1 — ?project=<name> → that project selected in rail AND slot together.
- *   - unmatched explicit project → not found without selecting the first project.
- *   - AC-03-003.1 + AC-03-006.2/.3 reach the LIVE page (not just the rail in isolation):
- *     a shipped row's snapshot and a missing-path row's badge+recovery are in the DOM.
- *   - snapshot leakage guard: a NON-release row carrying a snapshot would still render
- *     it (the rail renders on `snapshot !== undefined`, not on stage) — assert the page
- *     does not surface a snapshot on a building row that has none. (DR-085)
- *
- * Anchored in: AC-03-003.1, AC-03-004.1, AC-03-005.1, AC-03-006.2/.3 → CMP-03-rail +
- * CMP-03-workspace-slot through page.tsx (the LIVE surface).
+ * FRD-03 REVIEWER: adversarial assembly over the REAL PortfolioPage and the REAL overview resolver
+ * (DR-015, DR-050). Only the portfolio source, git and the workspace mount are faked, so what is
+ * asserted is the assembled surface: overview by default, every phase once, the designed states.
  */
-
-import { render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 import type { StatusResult } from "@/lib/status/status";
 
-function status(phase: string, running?: boolean): StatusResult {
+const absent: StatusResult = { present: false, malformed: false, status: null };
+
+function status(fields: Record<string, unknown>): StatusResult {
+  return { present: true, malformed: false, status: fields as never };
+}
+
+function project(name: string, overrides: Partial<ProjectListItem> = {}): ProjectListItem {
   return {
-    present: true,
-    malformed: false,
-    status: { phase: phase as never, ...(running !== undefined ? { running } : {}) },
+    name,
+    path: `/p/${name}`,
+    status: absent,
+    exists: true,
+    ...overrides,
   };
 }
 
-const absentStatus: StatusResult = { present: false, malformed: false, status: null };
-
-const BUILDING: ProjectListItem = {
-  name: "alpha",
-  path: "/p/alpha",
-  status: status("implementation", true),
-  exists: true,
-  stage: "implementation",
-  running: true,
-};
-
-const SHIPPED: ProjectListItem = {
-  name: "beta-shipped",
-  path: "/p/beta-shipped",
-  status: status("release", false),
-  exists: true,
-  stage: "release",
-  running: false,
-  snapshot: { users: "742", returnMetric: "$1 900 MRR", verdict: "double-down" },
-};
-
-const BROKEN_WITH_REPO: ProjectListItem = {
-  name: "gamma-gone",
-  path: "/p/gamma-gone",
-  repo: "https://github.com/acme/gamma.git",
-  status: absentStatus,
-  exists: false,
-  stage: "implementation",
-  running: undefined,
-};
-
-// railProjects() is mocked so the page renders a deterministic, in-memory list
-// (the real reader hits the factory portfolio on disk; not what we want to assert).
-const mockItems: ProjectListItem[] = [BUILDING, SHIPPED, BROKEN_WITH_REPO];
-
-vi.mock("@/lib/portfolio/portfolio", () => ({
-  railProjects: () => mockItems,
+const NOW = "2026-10-30T12:00:00.000Z";
+const mocks = vi.hoisted(() => ({
+  items: [] as ProjectListItem[],
+  commits: new Map<string, { at: string } | { at: null; reason: "unreadable" }>(),
 }));
 
-// Import AFTER the mock is registered.
+vi.mock("@/lib/portfolio/portfolio", () => ({ allProjects: () => mocks.items }));
+vi.mock("@/lib/portfolio/lastCommit", () => ({
+  getLastCommit: (projectPath: string) =>
+    mocks.commits.get(projectPath) ?? { at: null, reason: "no-repository" },
+}));
+vi.mock("@/lib/clock/clock", () => ({ now: () => new Date(NOW) }));
+vi.mock("@/lib/events/events", () => ({ readEvents: () => ({ events: [] }) }));
+vi.mock("@/lib/services/services", async () => {
+  const { servicesFixture } = await import("@/lib/services/_tests/fixture");
+  return { getServicesDirectory: () => servicesFixture() };
+});
+vi.mock("@/app/projects/[slug]/ProjectWorkspace", async (actual) => ({
+  ...(await actual<typeof import("@/app/projects/[slug]/ProjectWorkspace")>()),
+  ProjectWorkspace: ({ item }: { item: { name: string } }) => <h1>{item.name} workspace</h1>,
+}));
+vi.mock("next/navigation", async (actual) => ({
+  ...(await actual<typeof import("next/navigation")>()),
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+}));
+
 import PortfolioPage from "../page";
 
-function makeSearchParams(
-  params: Record<string, string | string[] | undefined>,
-): Promise<Record<string, string | string[] | undefined>> {
-  return Promise.resolve(params);
+async function renderPage(query: Record<string, string> = {}): Promise<void> {
+  render(await PortfolioPage({ searchParams: Promise.resolve(query) }));
 }
 
-async function renderPage(
-  params: Record<string, string | string[] | undefined> = {},
-): Promise<void> {
-  const ui = await PortfolioPage({ searchParams: makeSearchParams(params) });
-  render(ui);
+const cardTitles = (): (string | null)[] =>
+  screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent);
+
+function card(name: string): HTMLElement {
+  const found = screen.getByRole("heading", { level: 3, name }).closest(".proj-card");
+  if (!(found instanceof HTMLElement)) throw new Error(`No card for ${name}`);
+  return found;
 }
 
-describe("FRD-03 page assembly — the LIVE PortfolioPage (reviewer)", () => {
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
+afterEach(() => {
+  cleanup();
+  mocks.items = [];
+  mocks.commits.clear();
+  window.history.replaceState(null, "", "/");
+});
 
-  it("AC-03-005.1 — no ?project: first project selected; same slug reaches rail AND slot", async () => {
-    await renderPage({});
-
-    // The first active project (alpha) is the default selection in the rail.
-    const alphaRow = screen.getByRole("article", { name: /alpha/i });
-    expect(alphaRow.getAttribute("data-selected")).toBe("true");
-
-    // The OTHER rows are not selected.
-    expect(
-      screen.getByRole("article", { name: /beta-shipped/i }).getAttribute("data-selected"),
-    ).toBe("false");
-
-    // The workspace slot carries the SAME slug as the selected rail row (rail/slot agree).
-    const slot = screen.getByTestId("workspace-slot");
-    expect(slot.getAttribute("data-slug")).toBe("alpha");
-  });
-
-  it("AC-03-004.1 — ?project=<name>: that project selected in rail AND slot together", async () => {
-    await renderPage({ project: "beta-shipped" });
-
-    expect(
-      screen.getByRole("article", { name: /beta-shipped/i }).getAttribute("data-selected"),
-    ).toBe("true");
-    expect(screen.getByRole("article", { name: /alpha/i }).getAttribute("data-selected")).toBe(
-      "false",
+describe("FRD-03 page assembly (reviewer)", () => {
+  it("REQ-03-006: no selection shows the overview, never a default project's workspace", async () => {
+    mocks.items = [project("alpha", { stage: "implementation" })];
+    await renderPage();
+    expect(screen.getByRole("heading", { level: 1, name: "Portafolio" })).toBeVisible();
+    expect(screen.queryByTestId("portfolio-page-workspace")).toBeNull();
+    expect(screen.getByRole("button", { name: "Tarjetas" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
-    expect(screen.getByTestId("workspace-slot").getAttribute("data-slug")).toBe("beta-shipped");
   });
 
-  it("an unmatched explicit project fails without selecting an unrelated project", async () => {
+  it("REQ-03-001: every phase, and an unknown phase, is listed exactly once", async () => {
+    const phases = ["product", "design", "architecture", "implementation", "release"] as const;
+    mocks.items = [...phases.map((stage) => project(stage, { stage })), project("sin-fase")];
+    await renderPage();
+    expect(cardTitles().sort()).toEqual([...phases, "sin-fase"].sort());
+    expect(within(card("sin-fase")).queryByText(/Etapa \d de 6/)).toBeNull();
+    expect(within(card("product")).getByText(/Etapa 2 de 6 del pipeline/)).toBeVisible();
+    expect(within(card("release")).getByText(/Etapa 6 de 6 del pipeline/)).toBeVisible();
+  });
+
+  it("REQ-03-002: a re-versioned project back in implementation shows Construcción and keeps its place", async () => {
+    mocks.items = [
+      project("newer", { stage: "release" }),
+      project("reversioned", { stage: "implementation" }),
+    ];
+    mocks.commits.set("/p/newer", { at: "2026-10-30T11:00:00Z" });
+    mocks.commits.set("/p/reversioned", { at: "2026-10-29T11:00:00Z" });
+    await renderPage();
+    expect(cardTitles()).toEqual(["newer", "reversioned"]);
+    expect(within(card("reversioned")).getAllByText("Construcción")[0]).toBeVisible();
+    expect(card("reversioned")).toHaveTextContent("Etapa 5 de 6 del pipeline");
+  });
+
+  it("AC-03-008.1: order is by instant, not by the text of mixed offsets; no date goes last", async () => {
+    mocks.items = [
+      project("undated", { stage: "design" }),
+      project("text-later", { stage: "design" }),
+      project("instant-later", { stage: "design" }),
+    ];
+    // Textually greater, but one hour EARLIER as an instant (LESSON-0009).
+    mocks.commits.set("/p/text-later", { at: "2026-10-30T10:30:00+01:00" });
+    mocks.commits.set("/p/instant-later", { at: "2026-10-30T10:00:00Z" });
+    await renderPage();
+    expect(cardTitles()).toEqual(["instant-later", "text-later", "undated"]);
+  });
+
+  it("REQ-03-003: Construyendo only while running with signal, Sin señal when stale, nothing when idle", async () => {
+    mocks.items = [
+      project("live", {
+        stage: "implementation",
+        running: true,
+        status: status({ supervisorHeartbeat: "2026-10-30T11:59:00Z" }),
+      }),
+      project("stale", {
+        stage: "implementation",
+        running: true,
+        status: status({ supervisorHeartbeat: "2026-10-30T09:00:00Z" }),
+      }),
+      project("idle", { stage: "implementation", running: false }),
+    ];
+    await renderPage();
+    expect(within(card("live")).getByText("Construyendo")).toBeVisible();
+    expect(within(card("stale")).queryByText("Construyendo")).toBeNull();
+    expect(within(card("stale")).getByText(/Sin señal/)).toBeVisible();
+    expect(within(card("idle")).queryByText("Construyendo")).toBeNull();
+    expect(within(card("idle")).queryByText(/Sin señal/)).toBeNull();
+    expect(within(card("idle")).queryByText(/detenid/i)).toBeNull();
+  });
+
+  it("REQ-03-005: an explicit project opens its workspace with no overview chrome", async () => {
+    mocks.items = [
+      project("alpha", { stage: "implementation" }),
+      project("beta", { stage: "design" }),
+    ];
+    await renderPage({ project: "beta" });
+    expect(screen.getByRole("heading", { level: 1, name: "beta workspace" })).toBeVisible();
+    expect(screen.queryByTestId("portfolio-overview")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Portafolio" })).toBeNull();
+  });
+
+  it("an unknown project and an unsupported view are bounded 404s, never the first project", async () => {
+    mocks.items = [project("alpha", { stage: "implementation" })];
     await expect(renderPage({ project: "does-not-exist" })).rejects.toThrow("404");
+    await expect(renderPage({ view: "kanban" })).rejects.toThrow("404");
   });
 
-  it("a shipped project's rail row carries NO business snapshot on the LIVE page (prototype `.rail`)", async () => {
-    await renderPage({});
-
-    // The rail item is name + stage + count dots only; the business snapshot (the
-    // "herramienta interna" return chip included) does not belong in the sidebar.
-    const shippedRow = screen.getByRole("article", { name: /beta-shipped/i });
-    expect(within(shippedRow).queryByTestId("business-snapshot")).toBeNull();
-    expect(within(shippedRow).queryByText("$1 900 MRR")).toBeNull();
-    expect(within(shippedRow).queryByText("double-down")).toBeNull();
+  it("factory-empty: first-action card in Tarjetas and Lista; Cuentas opens from the URL", async () => {
+    await renderPage();
+    expect(screen.getByRole("heading", { name: /todavía no tiene proyectos/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Cuentas" })).toBeVisible();
+    expect(screen.getByTestId("portfolio-overview")).toHaveTextContent("/pandacorp:new-idea");
+    cleanup();
+    window.history.replaceState(null, "", "/portfolio?view=cuentas");
+    await renderPage({ view: "cuentas" });
+    expect(screen.getByRole("table", { name: "Cuentas de la fábrica" })).toBeVisible();
   });
 
-  it("AC-03-006.2/.3 — a missing-path project shows badge + copyable recovery on the LIVE page", async () => {
-    await renderPage({});
-
-    const goneRow = screen.getByRole("article", { name: /gamma-gone/i });
-    expect(within(goneRow).queryByText(/ruta no encontrada|path not found/i)).not.toBeNull();
-    expect(within(goneRow).queryByText(/git clone/i)).not.toBeNull();
-    expect(within(goneRow).queryByText(/sync-portfolio/i)).not.toBeNull();
+  it("AC-03-008.2: the Decisiones column equals the live count; a missing folder is unknown, not 0", async () => {
+    window.history.replaceState(null, "", "/portfolio?view=lista");
+    mocks.items = [
+      project("alpha", { stage: "implementation", status: status({ pendingDecisions: 7 }) }),
+      project("gone", { stage: "release", exists: false }),
+    ];
+    await renderPage({ view: "lista" });
+    const table = screen.getByRole("table", { name: "Comparativa de proyectos" });
+    const cells = [...table.querySelectorAll('td[data-label="Decisiones"]')].map(
+      (cell) => cell.textContent,
+    );
+    expect(cells).toEqual(["7", "—"]);
   });
 
-  it("a building row carries NO business snapshot (no cross-stage snapshot leakage)", async () => {
-    await renderPage({});
+  it("no business snapshot, rail row or last-sync chip survives on a launched project", async () => {
+    mocks.items = [
+      project("shipped", {
+        stage: "release",
+        lastSync: "2026-06-15",
+        snapshot: { users: "742", returnMetric: "$1 900 MRR", verdict: "double-down" },
+      }),
+    ];
+    await renderPage();
+    expect(screen.queryByText("$1 900 MRR")).toBeNull();
+    expect(screen.queryByText("double-down")).toBeNull();
+    expect(screen.queryByText("2026-06-15")).toBeNull();
+    expect(screen.queryByTestId("selectable-project-row")).toBeNull();
+  });
+});
 
-    const buildingRow = screen.getByRole("article", { name: /alpha/i });
-    expect(within(buildingRow).queryByTestId("business-snapshot")).toBeNull();
-    // ...and no spurious not-found badge on a present path.
-    expect(within(buildingRow).queryByText(/ruta no encontrada|path not found/i)).toBeNull();
+describe("FRD-03 missing project folder (reviewer)", () => {
+  const gone = (repo?: string): ProjectListItem =>
+    project("gone", { stage: "architecture", exists: false, repo });
+
+  it("edge case: the chip and recovery commands appear with the rest of its card intact", async () => {
+    mocks.items = [gone("https://example.com/gone.git")];
+    await renderPage();
+    const missing = card("gone");
+    expect(within(missing).getByText("Ruta no encontrada")).toBeVisible();
+    expect(missing).toHaveTextContent("git clone https://example.com/gone.git /p/gone");
+    expect(missing).toHaveTextContent("/pandacorp:sync-portfolio");
+    expect(within(missing).getByRole("list", { name: /Arquitectura/ })).toBeVisible();
+    expect(within(missing).getByText(/Etapa 4 de 6 del pipeline/)).toBeVisible();
+  });
+
+  it("no repo: no clone command and no invented no-remote warning", async () => {
+    mocks.items = [gone()];
+    await renderPage();
+    const missing = card("gone");
+    expect(within(missing).getByText("Ruta no encontrada")).toBeVisible();
+    expect(within(missing).queryByText(/git clone/)).toBeNull();
+    expect(within(missing).queryByText(/Sin remoto registrado/)).toBeNull();
+  });
+
+  it("the chip disappears once the folder exists again", async () => {
+    mocks.items = [project("back", { stage: "architecture", exists: true })];
+    await renderPage();
+    expect(screen.queryByText("Ruta no encontrada")).toBeNull();
   });
 });

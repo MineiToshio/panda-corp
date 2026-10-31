@@ -15,11 +15,20 @@ test("AC-25-002.1/004.1: Cuentas survives its legacy alias, canonicalization and
   page,
 }) => {
   await gotoHydrated(page, "/portfolio?portfolioView=accounts", {
-    selector: '[data-testid="portfolio-page"]',
+    selector: '[data-testid="portfolio-overview"]',
   });
   await expect.poll(() => queryValue(page, "view")).toBe("cuentas");
+  await expect(page.getByRole("button", { name: "Cuentas", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await page.reload();
-  await expect(page.getByTestId("portfolio-page")).toBeVisible();
+  await expect(page.getByTestId("portfolio-overview")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cuentas", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.getByRole("table", { name: "Cuentas de la fábrica" })).toBeVisible();
   await expect(page.getByTestId("portfolio-page-workspace")).toHaveCount(0);
 });
 

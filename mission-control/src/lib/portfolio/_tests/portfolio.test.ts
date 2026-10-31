@@ -708,3 +708,19 @@ describe("Spanish-header portfolio (real-file shape, DR-009)", () => {
     expect(mc.originIdea).toBe("conversación de diseño");
   });
 });
+
+describe("repository cell validation", () => {
+  it.each([
+    "[repo](broken)",
+    "[repo](https://github.com/acme/repo",
+    "not a repository",
+    "javascript:alert(1)",
+    "https://example.com/repo;echo",
+    "—",
+  ])("rejects malformed repo %s", (repo) => {
+    const [entry] = readPortfolio(
+      `| Name | Path | Repo |\n|---|---|---|\n| Gone | /gone | ${repo} |\n`,
+    );
+    expect(entry?.repo).toBeUndefined();
+  });
+});

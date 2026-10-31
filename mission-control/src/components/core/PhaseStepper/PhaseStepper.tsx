@@ -22,7 +22,9 @@ export function PhaseStepper({ phase, compact = false }: PhaseStepperProps): Rea
   const currentLabel = t(currentId ? PHASE_PRESENTATION[currentId].labelKey : "common.phases.none");
   return (
     <ol
-      className={`stepper ${styles.stepper}${compact ? `compact ${styles.compact}` : ""}`}
+      className={["stepper", styles.stepper, compact && "compact", compact && styles.compact]
+        .filter(Boolean)
+        .join(" ")}
       aria-label={t("common.phaseSteps.aria", { phase: currentLabel })}
     >
       {PHASES.map((id, index) => {

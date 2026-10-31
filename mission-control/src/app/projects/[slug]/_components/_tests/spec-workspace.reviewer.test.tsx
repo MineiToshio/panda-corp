@@ -27,7 +27,7 @@ const projects: ProjectListItem[] = [];
 const digests = new Map<string, string>();
 vi.mock("@/lib/portfolio/portfolio", () => ({
   activeProjects: () => projects,
-  railProjects: () => projects,
+  allProjects: () => projects,
 }));
 vi.mock("@/lib/spec/read-spec", () => ({
   readSpecDigest: vi.fn((projectPath: string) => digests.get(projectPath) ?? null),

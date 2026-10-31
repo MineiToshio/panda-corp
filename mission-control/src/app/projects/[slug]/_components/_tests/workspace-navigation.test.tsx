@@ -21,7 +21,7 @@ vi.mock("@/hooks/useLiveSnapshot", () => ({
   useLiveSnapshot: () => ({ snapshot: null, connected: false, lastEventAt: null }),
 }));
 vi.mock("@/lib/portfolio/portfolio", () => ({
-  railProjects: () => projects,
+  allProjects: () => projects,
   activeProjects: () => projects,
   readPortfolio: () => projects,
 }));
@@ -56,7 +56,7 @@ describe("persistent project workspace navigation", () => {
         routeState: { project: "selected-project", tab: "work-orders", wo: order.id },
       }),
     );
-    expect(screen.getByRole("heading", { level: 2, name: "Selected Project" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1, name: "Selected Project" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Volver al tablero de work orders" })).toHaveAttribute(
       "href",
       "/portfolio/selected-project/work-orders?frd=frd-01-x",
@@ -70,7 +70,7 @@ describe("persistent project workspace navigation", () => {
   it.each([
     { view: "cuentas" },
     { portfolioView: "accounts" },
-  ])("AC-25-002.1/004.1 — restores the global accounts directory from %j", async (query) => {
+  ])("REQ-03-009 AC-26-002.1 — keeps the chosen project workspace with %j", async (query) => {
     setUrl("/portfolio/selected-project/summary");
     render(
       await PortfolioPage({
@@ -78,9 +78,8 @@ describe("persistent project workspace navigation", () => {
         routeState: { project: "selected-project", tab: "summary" },
       }),
     );
-    expect(screen.getByRole("tab", { name: "Cuentas" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("searchbox")).toBeVisible();
-    expect(screen.queryByRole("heading", { name: "Selected Project" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Selected Project" })).toBeVisible();
+    expect(screen.queryByTestId("portfolio-overview")).not.toBeInTheDocument();
   });
 
   it("canonicalizes the default document to its explicit allowlisted key", async () => {

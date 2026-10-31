@@ -177,10 +177,8 @@ describe("frd-01 adversarial: readPortfolio — GFM escaped pipe in a cell is NO
     expect(result).toHaveLength(1);
     expect(result[0]?.name).toBe("pp");
     expect(result[0]?.path).toBe("p/p");
-    // Documented gap: repo is truncated at the unescaped pipe (column shift).
-    // If/when escaped pipes are supported, this expectation should flip to the
-    // full URL "https://x?a=1|2".
-    expect(result[0]?.repo).toBe("https://x?a=1\\");
+    // The truncated cell is malformed and must not become a clone command.
+    expect(result[0]?.repo).toBeUndefined();
   });
 });
 

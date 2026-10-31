@@ -89,12 +89,14 @@ test("home and root default resolution retain one meaningful history entry", asy
   await page.reload();
   await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
   await page.goto("/portfolio");
-  await expect(page).toHaveURL(/\/portfolio\/mission-control\/summary$/);
+  await expect(page).toHaveURL(/\/portfolio$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Portafolio" })).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
   await page.goForward();
-  await expect(page).toHaveURL(/\/portfolio\/mission-control\/summary$/);
+  await expect(page).toHaveURL(/\/portfolio$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Portafolio" })).toBeVisible();
 });
 
 test("invalid explicit resources, tails and document traversal never render another project's workspace", async ({
@@ -239,10 +241,8 @@ test("post-build registration: a non-first project retains identity through WO S
       });
       await expect(page.getByTestId("wo-board")).toContainText("Second project reader");
       if (family === "portfolio") {
-        const rows = page.getByTestId("selectable-project-row");
-        await expect(rows).toHaveCount(2);
-        await expect(rows.nth(1)).toHaveAttribute("data-selected", "true");
-        await expect(rows.nth(0)).toHaveAttribute("data-selected", "false");
+        await expect(page.getByTestId("portfolio-page-workspace")).toBeVisible();
+        await expect(page.getByTestId("portfolio-overview")).toHaveCount(0);
       }
       await historyCheckpoint(page, `${family}-card`, '[data-testid="wo-card-link"]', info);
       await page.getByTestId("wo-card-link").click();

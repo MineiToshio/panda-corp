@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { servicesFixture } from "@/lib/services/_tests/fixture";
 import { AccountsDirectory } from "../AccountsDirectory";
-import { PortfolioViews } from "../PortfolioViews";
 import { ProjectAccounts } from "../ProjectAccounts";
 
 const push = vi.fn();
@@ -21,16 +20,6 @@ describe("accounts acceptance", () => {
       expect(link).toHaveAttribute("target", "_blank");
       expect(link).toHaveAttribute("rel", "noopener noreferrer");
     }
-  });
-  it("AC-26-002.1: retains selection, unrelated state and legacy normalization", async () => {
-    const user = userEvent.setup();
-    render(
-      <PortfolioViews href="/portfolio/demo/summary?portfolioView=accounts&keep=yes" accounts />,
-    );
-    await user.click(screen.getByRole("tab", { name: "Proyectos" }));
-    expect(push).toHaveBeenCalledWith("/portfolio/demo/summary?keep=yes");
-    await user.click(screen.getByRole("tab", { name: "Cuentas" }));
-    expect(push).toHaveBeenLastCalledWith("/portfolio/demo/summary?keep=yes&view=cuentas");
   });
   it("AC-26-005.1: exclusive states, search by project/email and URL filters", async () => {
     const user = userEvent.setup();

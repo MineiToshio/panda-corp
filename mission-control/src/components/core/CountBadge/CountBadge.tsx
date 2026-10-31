@@ -8,7 +8,6 @@
  * Tokens only. Light+dark first-class. WCAG AA.
  *
  * Traceability: CMP-13-countbadge, AC-13-006.x.
- * Consumers: ProposalsBadge, StatusChips, ProjectRail.
  */
 
 import { Chip, type ChipTone } from "@/components/core/Chip/Chip";

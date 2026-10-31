@@ -21,7 +21,7 @@ export type PortfolioEntry = {
   name: string;
   /** Raw path cell; never validated for existence here (REQ-01-010: that is pathExists()'s job). */
   path: string;
-  /** Repo URL. Placeholder cells ("—", "-", "") are normalized to `undefined`. */
+  /** Bare clone URL; missing or malformed repository cells become `undefined`. */
   repo?: string;
   originIdea?: string;
   /** Advisory phase cell; status.yaml is authoritative. */
@@ -108,6 +108,21 @@ function normalizeCell(raw: string): string | undefined {
   return PLACEHOLDERS.has(trimmed) ? undefined : trimmed === "" ? undefined : trimmed;
 }
 
+/** Extract a clone URL from a bare URL or a complete Markdown link; reject malformed cells. */
+function cleanRepoCell(raw: string): string | undefined {
+  const candidate = raw.match(/^\[[^\]]*\]\(([^\s]+)\)$/)?.[1] ?? raw;
+  if (/[^\w:/@.?#%+=~()-]/.test(candidate)) return undefined;
+  if (/^[\w.-]+@[\w.-]+:[\w./-]+$/.test(candidate)) return candidate;
+  try {
+    const url = new URL(candidate);
+    return ["https:", "http:", "ssh:", "git:"].includes(url.protocol) && url.hostname
+      ? candidate
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Parser
 // ---------------------------------------------------------------------------
@@ -159,7 +174,8 @@ function buildEntry(cells: readonly string[], columnMap: ColumnMap): PortfolioEn
   for (let i = 2; i < columnMap.length; i++) {
     const key = columnMap[i];
     if (key === undefined || key === "name" || key === "path") continue;
-    const normalized = normalizeCell(cells[i] ?? "");
+    const raw = cells[i] ?? "";
+    const normalized = key === "repo" ? cleanRepoCell(raw) : normalizeCell(raw);
     if (normalized !== undefined) {
       (entry as Record<string, string | undefined>)[key] = normalized;
     }
@@ -306,11 +322,15 @@ export type ProjectListItem = {
 };
 
 /**
- * The set of portfolio phase advisory cell values that map to active phases.
+ * Advisory portfolio phase aliases; live status remains authoritative.
  * "shipped" / "lanzada" are human-readable aliases for the launched "release" phase
  * in the portfolio table (DR-085: the old "operation" phase folded into "release").
  */
 const ADVISORY_TO_PHASE: Record<string, Phase> = {
+  product: "product",
+  design: "design",
+  producto: "product",
+  diseño: "design",
   architecture: "architecture",
   implementation: "implementation",
   building: "implementation",
@@ -327,17 +347,10 @@ const ADVISORY_TO_PHASE: Record<string, Phase> = {
   lanzada: "release",
 };
 
-/** Phases whose projects appear in the Portfolio rail (REQ-03-001): building + shipped only. */
-const RAIL_PHASES: ReadonlySet<Phase> = new Set<Phase>(["implementation", "release"]);
+const ACTIVE_PHASES: ReadonlySet<Phase> = new Set(["architecture", "implementation", "release"]);
 
 /**
- * Live phases: the rail's phases plus `architecture`. The dashboard cards (REQ-18-016) and the
- * workspace route lookup still need architecture-phase projects; the rail does not (REQ-03-001).
- */
-const ACTIVE_PHASES: ReadonlySet<Phase> = new Set<Phase>(["architecture", ...RAIL_PHASES]);
-
-/**
- * Determine the rail display phase: status.yaml is authoritative; fall back to the
+ * Determine the display phase: status.yaml is authoritative; fall back to the
  * portfolio advisory phase cell (mapped to a Phase literal). Undefined when neither
  * source supplies a valid phase.
  */
@@ -363,7 +376,10 @@ function resolveRunning(statusResult: StatusResult): boolean | undefined {
 }
 
 /** Business snapshot, populated only for the launched "release" phase from the portfolio row columns. */
-function resolveSnapshot(entry: PortfolioEntry, stage: Phase): ProjectListItem["snapshot"] {
+function resolveSnapshot(
+  entry: PortfolioEntry,
+  stage: Phase | undefined,
+): ProjectListItem["snapshot"] {
   if (stage !== "release") return undefined;
   const { users, returnMetric, verdict } = entry;
   if (users !== undefined || returnMetric !== undefined || verdict !== undefined) {
@@ -373,18 +389,14 @@ function resolveSnapshot(entry: PortfolioEntry, stage: Phase): ProjectListItem["
 }
 
 /**
- * Enrich a single portfolio entry into a ProjectListItem, or null when its phase
- * is not active (so it should not appear in the rail).
+ * Enrich a portfolio entry without excluding early or unknown phases.
  */
-function enrichEntry(entry: PortfolioEntry): ProjectListItem | null {
+function enrichEntry(entry: PortfolioEntry): ProjectListItem {
   const resolvedPath = resolveProjectPath(entry.path);
   const statusResult = readStatusWithLiveInboxCounts(resolvedPath);
   const exists = pathExists(resolvedPath);
 
   const stage = resolveStage(entry, statusResult);
-  if (stage === undefined || !ACTIVE_PHASES.has(stage)) {
-    return null;
-  }
 
   return {
     name: entry.name,
@@ -399,55 +411,14 @@ function enrichEntry(entry: PortfolioEntry): ProjectListItem | null {
   };
 }
 
-/**
- * Compose helper: read the portfolio, enrich each entry with its status and
- * existence flag, and return only the active-phase entries.
- *
- * Live set: `architecture` | `implementation` | `release` (DR-085: `operation` folded into `release`); the
- * Portfolio rail narrows it to building + shipped via {@link railProjects} (REQ-03-001).
- * Phase is determined from `status.yaml` (authoritative); absent/malformed status
- * falls back to the portfolio table's `phase` cell (advisory).
- *
- * Overload:
- * - **Omitted** — reads from `config.PORTFOLIO` (same as readPortfolio()).
- * - **Raw markdown content** (string with `\n`) — parses the content in-memory;
- *   existence probes use the raw path from the portfolio row (for inline fixture tests).
- *
- * Tolerance rules (blueprint §3):
- * - Missing portfolio → []
- * - Missing status.yaml → phase from portfolio advisory cell; exists from pathExists.
- * - Malformed status → same fallback.
- * - Path not found → exists: false; row still listed when phase is active (badge-ready).
- * - Never throws.
- *
- * @param content - Optional raw portfolio markdown content (for inline tests).
- * @returns Array of ProjectListItem (active phases only). Never throws.
- *
- * Traceability: IF-03-activeProjects → REQ-03-001..003, REQ-03-006; AC-03-001.1
- */
-export function activeProjects(content?: string): ProjectListItem[] {
-  const entries = readPortfolio(content);
-  const result: ProjectListItem[] = [];
-
-  for (const entry of entries) {
-    const item = enrichEntry(entry);
-    if (item !== null) {
-      result.push(item);
-    }
-  }
-
-  return result;
+/** Every portfolio entry, enriched once from the live status and folder existence. */
+export function allProjects(content?: string): ProjectListItem[] {
+  return readPortfolio(content).map(enrichEntry);
 }
 
-/**
- * The Portfolio rail's projects (REQ-03-001): only `implementation` (building) and `release`
- * (shipped) — `product` / `design` / `architecture` projects live on the Tablero, not here.
- *
- * @param content - Optional raw portfolio markdown content (for inline tests).
- * @returns Rail ProjectListItems in portfolio order. Never throws.
- */
-export function railProjects(content?: string): ProjectListItem[] {
-  return activeProjects(content).filter(
-    (item) => item.stage !== undefined && RAIL_PHASES.has(item.stage),
+/** Compatibility seam for Inicio and standalone workspace callers until their v2 work orders. */
+export function activeProjects(content?: string): ProjectListItem[] {
+  return allProjects(content).filter(
+    (item) => item.stage !== undefined && ACTIVE_PHASES.has(item.stage),
   );
 }
