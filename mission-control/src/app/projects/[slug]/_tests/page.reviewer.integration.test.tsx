@@ -26,6 +26,7 @@ import os from "node:os";
 import path from "node:path";
 import { render, screen } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { t } from "@/lib/copy/copy";
 
 // Mock Next.js router — TabBar uses useRouter for URL-driven tab navigation.
 vi.mock("next/navigation", async (actual) => ({
@@ -202,12 +203,10 @@ describe("FRD-04 reviewer — Summary tab real comms integration", () => {
 
   it("a CLOSED-only decisions file → no pending warning treatment (AC-04-004.1 'otherwise')", async () => {
     render(await renderPage({}));
-    const section = screen.getByTestId("decisions-section");
-    // The single decision is CLOSED → resolved → pendingDecisions === 0 → not pending.
-    expect(section.getAttribute("data-pending")).toBe("false");
-    expect(screen.queryByTestId("decisions-count-badge")).toBeNull();
-    // No unresolved warning icon rendered for a resolved decision.
-    expect(screen.queryByTestId("decision-warning-icon")).toBeNull();
+    // The single decision is CLOSED → resolved → it is not pending anywhere on Resumen.
+    expect(screen.getByRole("button", { name: /MARKER-DEC/ })).toHaveTextContent("Resuelta");
+    expect(screen.getByText(t("workspace.resumen.turn.empty"))).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Copiar \/pandacorp:decide/ })).toBeNull();
   });
 });
 
@@ -234,14 +233,21 @@ describe("FRD-04 reviewer: compact header numeric edges", () => {
 // Commands tab — phase robustness through the real page wiring
 // ---------------------------------------------------------------------------
 
+function nextStepCard(): HTMLElement {
+  const heading = screen.getByRole("heading", { name: t("workspace.comandos.nextStep.title") });
+  const card = heading.closest("section");
+  if (!card) throw new Error("Next-step heading sits outside its card");
+  return card;
+}
+
 describe("FRD-04 reviewer — Commands tab phase robustness", () => {
   it("release phase shows iterate + new-version (implement lives in ModeSelector, not CommandsBox)", async () => {
     statusState.phase = "release";
     render(await renderPage({ tab: "commands" }));
-    const commands = screen.getAllByTestId("command-row-command").map((n) => n.textContent ?? "");
-    expect(commands.some((c) => c.includes("/pandacorp:new-version"))).toBe(true);
-    expect(commands.some((c) => c.includes("/pandacorp:iterate"))).toBe(true);
-    expect(commands.some((c) => c.includes("/pandacorp:implement"))).toBe(false);
+    const body = nextStepCard();
+    expect(body).toHaveTextContent("/pandacorp:new-version");
+    expect(body).toHaveTextContent("/pandacorp:iterate");
+    expect(body).not.toHaveTextContent("/pandacorp:implement");
   });
 
   it("an UNKNOWN phase string survives to the Commands tab → safe fallback, never a building command", async () => {
@@ -254,10 +260,10 @@ describe("FRD-04 reviewer — Commands tab phase robustness", () => {
     ).resolves.toBeUndefined();
     if (el !== undefined) {
       render(el);
-      const commands = screen.getAllByTestId("command-row-command").map((n) => n.textContent ?? "");
+      const body = nextStepCard();
       // Fallback row is the safe spec command — never a misleading implement/release.
-      expect(commands.some((c) => c.includes("/pandacorp:spec"))).toBe(true);
-      expect(commands.some((c) => c.includes("/pandacorp:implement"))).toBe(false);
+      expect(body).toHaveTextContent("/pandacorp:spec");
+      expect(body).not.toHaveTextContent("/pandacorp:implement");
     }
   });
 });

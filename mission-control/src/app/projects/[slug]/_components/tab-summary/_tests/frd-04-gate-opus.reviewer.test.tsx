@@ -142,7 +142,7 @@ describe("FRD-04 gate (opus) — Documentos nav + body integration", () => {
     const md = "# Workspace\n\nbody copy";
     render(<TabDocuments nodes={NODES} selectedId="frd-04-frd" content={md} project="mc" />);
 
-    const items = screen.getAllByTestId("doc-nav-item");
+    const items = within(screen.getByRole("navigation")).getAllByRole("link");
     const current = items.filter((el) => el.getAttribute("aria-current") === "page");
     expect(current).toHaveLength(1);
     expect(current[0]?.textContent).toContain("frd.md");
@@ -156,7 +156,7 @@ describe("FRD-04 gate (opus) — Documentos nav + body integration", () => {
   it("renders the graceful empty state with no docs and never throws (AC-04-006.3)", () => {
     render(<TabDocuments nodes={[]} selectedId={null} content={null} project="mc" />);
     expect(screen.getByTestId("documents-empty")).toBeInTheDocument();
-    expect(screen.queryByTestId("documents-nav")).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });
 });
 
@@ -171,7 +171,7 @@ describe("FRD-04 gate (opus) — read-only invariant (DR-061)", () => {
     }
   });
 
-  it("the Documentos tab renders no <form> and no buttons — navigation is plain links", () => {
+  it("the Documentos tab renders no <form> and navigation is plain links", () => {
     const nodes: DocNode[] = [
       { id: "prd", label: "prd.md", group: "Product", relPath: "docs/product/prd.md" },
     ];
@@ -179,9 +179,12 @@ describe("FRD-04 gate (opus) — read-only invariant (DR-061)", () => {
       <TabDocuments nodes={nodes} selectedId="prd" content="# Title" project="mc" />,
     );
     expect(container.querySelector("form")).toBeNull();
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    // The only buttons are the local index disclosure and the URL-owned type filters.
+    for (const button of screen.getAllByRole("button")) {
+      expect(button).toHaveAttribute("type", "button");
+    }
     // Nav items are anchors with an href (URL-driven selection, no client mutation).
-    for (const a of screen.getAllByTestId("doc-nav-item")) {
+    for (const a of within(screen.getByRole("navigation")).getAllByRole("link")) {
       expect(a.tagName.toLowerCase()).toBe("a");
       expect(a.getAttribute("href")).toBeTruthy();
     }

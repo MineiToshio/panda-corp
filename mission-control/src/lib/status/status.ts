@@ -56,7 +56,7 @@ export type Phase = "product" | "design" | "architecture" | "implementation" | "
  *   - `internal`: an internal tool used in-house (like Mission Control on 127.0.0.1) — no external server.
  *   - `external`: deployed to an external host (Vercel, AWS, …).
  */
-export type DeployTarget = "internal" | "external";
+type DeployTarget = "internal" | "external";
 
 /** Web target platform (DR-074) — drives the responsive gate and the "qué es" tags. */
 type TargetPlatform = "desktop" | "mobile" | "responsive";

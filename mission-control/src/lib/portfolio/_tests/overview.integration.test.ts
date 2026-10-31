@@ -18,7 +18,7 @@ it("AC-03-008.1 REQ-03-001: real readers compose the committed factory without d
         ordersVerified: 0,
         ordersTotal: 1,
         frds: 1,
-        docs: 7,
+        docs: 8,
         adrs: 1,
         openChanges: 0,
         pendingDecisions: 2,

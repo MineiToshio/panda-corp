@@ -58,11 +58,11 @@ describe("persistent project workspace navigation", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Selected Project" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Volver" })).toHaveAttribute(
       "href",
-      "/portfolio/selected-project/work-orders?frd=frd-01-x",
+      "/portfolio/selected-project/observability?frd=frd-01-x",
     );
     fireEvent.click(screen.getByRole("tab", { name: "Documento completo" }));
     expect(navigation.push).toHaveBeenCalledWith(
-      "/portfolio/selected-project/work-orders/WO-01-001/full?frd=frd-01-x",
+      "/portfolio/selected-project/observability?frd=frd-01-x&wo=WO-01-001&woview=full",
     );
   });
 
@@ -121,19 +121,18 @@ describe("persistent project workspace navigation", () => {
   it("rejects unknown work orders and documents instead of opening an unrelated default", () => {
     const item = projects[1];
     if (!item) throw new Error("Missing project fixture");
-    expect(() =>
-      render(
-        ProjectWorkspace({
-          item,
-          selection: {
-            activeTab: "observability",
-            woParam: "WO-missing",
-            woTabParam: "summary",
-            docParam: undefined,
-          },
-        }),
-      ),
-    ).toThrow("404");
+    render(
+      ProjectWorkspace({
+        item,
+        selection: {
+          activeTab: "observability",
+          woParam: "WO-missing",
+          woTabParam: "summary",
+          docParam: undefined,
+        },
+      }),
+    );
+    expect(screen.getByText("Esta work order no está publicada")).toBeVisible();
     expect(() =>
       render(
         ProjectWorkspace({

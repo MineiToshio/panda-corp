@@ -72,7 +72,7 @@ const BUILD_MODE_HINTS: Record<BuildMode, string> = {
 };
 
 /** The base implement command — the flag (build mode id, or "") is appended to it. */
-export const IMPLEMENT_BASE_COMMAND = "/pandacorp:implement";
+const IMPLEMENT_BASE_COMMAND = "/pandacorp:implement";
 
 /** The flag appended to the implement command for a build mode ("" for the default balanced). */
 export function buildModeFlag(mode: BuildMode): string {
@@ -100,13 +100,6 @@ export const IMPLEMENT_MODES: ReadonlyArray<CommandMode> = BUILD_MODES.filter(
   hint: BUILD_MODE_HINTS[mode.id],
 }));
 
-/** First "no flag" option label for the implement select — the neutral word "default" (no flag =
- * the balanced default mode); what it is lives in the tooltip + the hint line. */
-export const IMPLEMENT_MODE_DEFAULT_LABEL = "default";
-
 /** Hover tooltip explaining what the implement mode field controls. */
 export const IMPLEMENT_MODE_TITLE =
   "Modo de construcción — con cuánta potencia se construye el proyecto";
-
-/** The default mode's description — shown as the select's hint when no flag is chosen. */
-export const IMPLEMENT_DEFAULT_HINT = BUILD_MODE_HINTS[DEFAULT_BUILD_MODE];

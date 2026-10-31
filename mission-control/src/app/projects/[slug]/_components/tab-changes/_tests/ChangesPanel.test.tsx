@@ -148,7 +148,7 @@ it("REQ-04-008: cancel clears discard failure and caps the reason", async () => 
   await user.click(screen.getByRole("button", { name: /Change ready/ }));
   await user.click(screen.getByRole("button", { name: "Descartar cambio" }));
   expect(screen.getByRole("textbox")).toHaveAttribute("maxlength", "2000");
-  expect(screen.getByRole("button", { name: "Descartar" })).toHaveAttribute("data-tone", "danger");
+  expect(screen.getByRole("button", { name: "Descartar" })).toHaveAttribute("data-variant", "danger");
   vi.mocked(discardChangeAction).mockResolvedValue({ ok: false, reason: "not-found" });
   await user.click(screen.getByRole("button", { name: "Descartar" }));
   expect(screen.getByRole("alert")).toBeInTheDocument();

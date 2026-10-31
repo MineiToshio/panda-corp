@@ -17,6 +17,7 @@
 
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { t } from "@/lib/copy/copy";
 
 // --- Mock Next.js router — TabBar uses useRouter for URL-driven navigation ---
 
@@ -74,6 +75,11 @@ vi.mock("@/lib/docs/tree", async (original) => ({
 vi.mock("@/lib/docs/activity", () => ({
   readActivityLog: () => ({ entries: ["did a thing"] }),
   readDecisions: () => [{ title: "pick a db", resolved: false }],
+  isEngineLogEntry: () => false,
+  readDecisionSource: () => ({
+    decisions: [{ id: "2026-10-30-1", title: "pick a db", resolved: false }],
+    invalid: false,
+  }),
 }));
 
 vi.mock("@/lib/work-orders/work-orders", async (importOriginal) => ({
@@ -102,14 +108,8 @@ describe("FRD-04 workspace page — Commands tab integration (AC-04-005.1/.2)", 
 
     // The real TabCommands content must be present.
     expect(screen.getByTestId("tab-commands-body")).toBeTruthy();
-    expect(screen.getByTestId("commands-list")).toBeTruthy();
-
-    // implementation phase → at least one stage command row (release/iterate).
-    // implement lives in ModeSelector, not in CommandsBox command rows.
-    const rows = screen.getAllByTestId("command-row");
-    expect(rows.length).toBeGreaterThanOrEqual(1);
-    const commands = screen.getAllByTestId("command-row-command").map((n) => n.textContent ?? "");
-    expect(commands.some((c) => c.includes("/pandacorp:release"))).toBe(true);
+    // implementation phase → the next-step card carries its stage commands.
+    expect(screen.getByTestId("tab-commands-body")).toHaveTextContent("/pandacorp:release");
   });
 
   it("AC-04-005.2 — Commands tab mounts the FRD-11 mode selector slot", async () => {
@@ -124,13 +124,15 @@ describe("FRD-04 workspace page — other tabs integrate correctly", () => {
     const el = await renderPage({});
     render(el);
     // The decision read at page level should surface (pending decision present).
-    expect(screen.getByText(/pick a db/i)).toBeTruthy();
+    expect(screen.getAllByText(/pick a db/i).length).toBeGreaterThan(0);
   });
 
   it("AC-04-006.2 — Documents tab renders first doc body by default", async () => {
     const el = await renderPage({ tab: "documents" });
     render(el);
-    expect(screen.getByTestId("documents-nav")).toBeTruthy();
+    expect(
+      screen.getByRole("navigation", { name: t("documentacion.reader.indexAria") }),
+    ).toBeTruthy();
     // first node is product/prd → body rendered from readDoc
     expect(screen.getByTestId("documents-body").textContent).toMatch(/docs\/product\/prd\.md/);
   });

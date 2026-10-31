@@ -26,7 +26,7 @@ const readTargets = cache((projectPath: string) => {
   ];
 });
 /** Resolve the read-only target catalogue once per request and preserve shared next-step facts. */
-export default async function ComandosPanel({ project }: PanelProps): Promise<React.JSX.Element> {
+export default function ComandosPanel({ project }: PanelProps): React.JSX.Element {
   return (
     <TabCommands
       phase={project.phase}

@@ -1,11 +1,13 @@
 import { cache } from "react";
 import { resolveProjectPath } from "@/lib/config/config";
 import { t } from "@/lib/copy/copy";
+import { listProjectFrds } from "@/lib/frds/frd-index";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { getProjectOverview, type ProjectOverviewItem } from "@/lib/portfolio/overview";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 import { getServicesDirectory } from "@/lib/services/services";
 import { projectServiceRows } from "@/lib/services/views";
+import { readArtifact } from "@/lib/spec/read-artifacts";
 
 /** Compose shared facts once; failed counts retain their unknown state. */
 export const loadWorkspaceProject = cache((item: ProjectListItem) => {
@@ -38,6 +40,7 @@ export const loadWorkspaceProject = cache((item: ProjectListItem) => {
   const card = readIdeas().find(
     (idea) => idea.project && resolveProjectPath(idea.project) === projectPath,
   );
+  const frds = readArtifact(() => listProjectFrds(projectPath), []);
   return {
     slug: overview.id,
     name: overview.name,
@@ -70,6 +73,8 @@ export const loadWorkspaceProject = cache((item: ProjectListItem) => {
     nextStep: { command: overview.nextCommand, sentence: nextSentence(overview) },
     summary: card?.body.trim() || overview.name,
     projectType: card?.projectType,
+    frds: frds.value,
+    frdError: frds.error,
     services,
     serviceId,
     constructionStarted: overview.phase === "implementation" || overview.phase === "release",
