@@ -58,7 +58,7 @@ function panelControls(tab: TabDef, prefix?: string): string | undefined {
   return tab.panelId ?? (prefix != null ? `${prefix}${tab.id}` : undefined);
 }
 
-const OVERFLOW_CONTROL_WIDTH = 28;
+const OVERFLOW_CONTROL_WIDTH = 32;
 /** Keeps a revealed tab's edge off the control: scrollBy rounds, so an exact fit can land under it. */
 const OVERFLOW_CONTROL_CLEARANCE = OVERFLOW_CONTROL_WIDTH + 2;
 

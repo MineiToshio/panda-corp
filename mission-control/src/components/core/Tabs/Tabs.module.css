@@ -107,7 +107,7 @@
   position: absolute;
   top: var(--s2);
   z-index: 2;
-  width: var(--s8);
+  width: var(--tabs-control-width);
   height: var(--s8);
   min-height: var(--s8);
   display: grid;

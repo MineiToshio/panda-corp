@@ -105,3 +105,10 @@ prototype_blessed_at: 409a0564
 ### Tab overflow controls (2026-10-31)
 
 The shared tab overflow buttons use the prototype's 32px circular shape, strong hairline border, secondary text and small shadow. Existing directional edge gradients continue to signal obscured tabs. Controls remain named, keyboard reachable and scroll the tab strip.
+
+### Integrated keyboard repair (2026-10-31)
+
+Tabs reserve 32px plus a 2px rounding clearance when revealing a focused tab under an overflow
+control. The control width and reveal calculation share the same CSS custom property value,
+so the circular spacing-8 controls cannot cover either focused edge. Arrow/Home/End and manual
+activation behavior are unchanged.
