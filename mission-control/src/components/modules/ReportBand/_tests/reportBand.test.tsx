@@ -16,7 +16,8 @@ it("AC-02-016.8: env groups over twelve fold and identify missing descriptions",
       }))}
     />,
   );
-  expect(screen.getByText("Analytics · 13").closest("details")).not.toHaveAttribute("open");
+  expect(screen.getByText("Analytics").closest("details")).not.toHaveAttribute("open");
+  expect(screen.getByText("13 de 13 sin descripción")).toBeInTheDocument();
   expect(screen.getAllByText("Sin descripción en", { exact: false })).toHaveLength(13);
 });
 it("AC-02-013.3: live states group by FRD and planned projects show a count", () => {
