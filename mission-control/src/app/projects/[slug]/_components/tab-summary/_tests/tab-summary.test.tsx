@@ -1,476 +1,154 @@
-/**
- * WO-04-005 — TabSummary (CMP-04-tab-summary) tests
- *
- * Traceability:
- *   AC-04-003.1 Summary tab SHALL render the project summary and key points.
- *   AC-04-003.2 Summary tab SHALL render the activity log; absent → "no activity" empty state.
- *   AC-04-003.3 Summary tab SHALL render decision points, each highlighted, with a count badge.
- *   AC-04-004.1 WHEN pending_decisions > 0 → warning treatment + count; 0 → neutral state.
- *
- * Data layer (IF-04-docs):
- *   readActivityLog → ActivityLog { entries: string[] }
- *   readDecisions   → DecisionPoint[] { title, recommendation?, resolved }
- *
- * Stack: Vitest + @testing-library/react + jsdom.
- * This file tests rendering contracts only — I/O is tested in lib/docs.wo04002.test.ts.
- */
+import fs from "node:fs";
+import { render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ProjectListItem } from "@/lib/portfolio/portfolio";
+import ResumenPanel from "../../../_panels/ResumenPanel";
+import { ProjectHero } from "../../ProjectHero/ProjectHero";
+import { FrdProgress } from "../FrdProgress";
+import { summaryFixture } from "./summaryFixture";
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+const state = vi.hoisted(() => ({ items: [] as ProjectListItem[] }));
+vi.mock("@/lib/portfolio/portfolio", () => ({
+  allProjects: () => state.items,
+  readPortfolio: () => state.items,
+}));
+class FakeEventSource {
+  close() {}
+}
+let fixture: ReturnType<typeof summaryFixture>;
+beforeEach(() => {
+  fixture = summaryFixture();
+  state.items = [fixture.item];
+  vi.stubGlobal("EventSource", FakeEventSource);
+});
+afterEach(() => {
+  fixture.cleanup();
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
-import type { ActivityLog, DecisionPoint } from "@/lib/docs/activity";
-import { TabSummary } from "../tab-summary";
-
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
-
-const EMPTY_LOG: ActivityLog = { entries: [] };
-
-const LOG_WITH_ENTRIES: ActivityLog = {
-  entries: [
-    "WO-04-001 completado: listProjectDocs implementado.",
-    "WO-04-002 en progreso: readActivityLog listo.",
-    "Decisión pendiente sobre Playwright.",
-  ],
-};
-
-const EMPTY_DECISIONS: DecisionPoint[] = [];
-
-const TWO_OPEN_DECISIONS: DecisionPoint[] = [
-  {
-    id: "2026-06-15-1",
-    title: "¿Usar Playwright para e2e?",
-    date: "2026-06-15",
-    status: "pending",
-    resolved: false,
-  },
-  {
-    id: "2026-06-15-2",
-    title: "Límite de eventos para readEvents",
-    date: "2026-06-15",
-    status: "pending",
-    resolved: false,
-    recommendation: "Usar 500 como límite por defecto.",
-  },
-];
-
-const MIXED_DECISIONS: DecisionPoint[] = [
-  {
-    id: "2026-06-15-1",
-    title: "Elegir base de datos",
-    date: "2026-06-15",
-    status: "resolved",
-    resolved: true,
-  },
-  {
-    id: "2026-06-15-2",
-    title: "Estrategia de testing",
-    date: "2026-06-15",
-    status: "pending",
-    resolved: false,
-  },
-];
-
-const ALL_RESOLVED: DecisionPoint[] = [
-  {
-    id: "2026-06-15-1",
-    title: "Auth library",
-    date: "2026-06-15",
-    status: "resolved",
-    resolved: true,
-  },
-  {
-    id: "2026-06-15-2",
-    title: "Deploy target",
-    date: "2026-06-15",
-    status: "resolved",
-    resolved: true,
-  },
-];
-
-const SAMPLE_SUMMARY = "Este proyecto implementa el panel de control de la fábrica.";
-const SAMPLE_KEY_POINTS = ["Lectura de ideas", "Panel de proyectos", "Tablero Kanban"];
-
-// ---------------------------------------------------------------------------
-// AC-04-003.1 — Summary + key points
-// ---------------------------------------------------------------------------
-
-describe("frd-04: TabSummary — AC-04-003.1 summary and key points", () => {
-  it("frd-04: AC-04-003.1 — WHEN summary is provided THEN renders the summary-section element", () => {
+describe("Resumen composition", () => {
+  it("AC-04-014.3 AC-06-020.1: mounts La Fragua from project facts before the copyable next step, without another main", () => {
+    const project = {
+      ...fixture.project(),
+      counts: { ...fixture.project().counts, openChanges: 3 },
+      lastMove: "2026-10-30T12:00:00Z",
+    };
     render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={SAMPLE_KEY_POINTS}
-        activityLog={EMPTY_LOG}
-        decisions={EMPTY_DECISIONS}
-        pendingDecisions={0}
-      />,
+      <>
+        <ProjectHero project={project} />
+        <ResumenPanel project={project} route={fixture.route} />
+      </>,
     );
-    expect(screen.getByTestId("summary-section")).toBeDefined();
+    expect(screen.queryByRole("main")).toBeNull();
+    expect(within(screen.getByTestId("project-hero")).getByText("0/1")).toBeVisible();
+    expect(within(screen.getByTestId("project-hero")).getByText("cambios abiertos")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Copiar /pandacorp:implement" })).toBeVisible();
+    expect(screen.getByText("La Fragua · Display Name")).toBeVisible();
+    expect(screen.getByText("Falta 1")).toBeVisible();
+    expect(screen.getByText("3 cambios abiertos")).toBeVisible();
+    expect(screen.getByText(/Último movimiento/)).not.toHaveTextContent("sin registro");
+    expect(
+      screen
+        .getByText("La Fragua · Display Name")
+        .compareDocumentPosition(screen.getByText("Siguiente paso:")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByText("La Fragua · Display Name")
+        .compareDocumentPosition(screen.getByRole("heading", { name: "Avance por FRD 1" })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByText("El equipo descansa: no hay un build corriendo.")).toBeVisible();
   });
-
-  it("frd-04: AC-04-003.1 — WHEN summary is provided THEN renders the summary text", () => {
+  it("AC-04-014.4: unfinished first, eight rows, shared titles, state alternatives, counts and filtered links", () => {
+    const frds = Array.from({ length: 10 }, (_, i) => ({
+      slug: `frd-${i + 1}-test`,
+      code: `FRD-${String(i + 1).padStart(2, "0")}`,
+      title: `Feature ${i + 1}`,
+    }));
     render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={SAMPLE_KEY_POINTS}
-        activityLog={EMPTY_LOG}
-        decisions={EMPTY_DECISIONS}
-        pendingDecisions={0}
+      <FrdProgress
+        frds={frds}
+        orders={[
+          {
+            id: "WO-01-001",
+            title: "Done",
+            frd: frds[0]?.slug ?? "",
+            state: "done",
+            relPath: "done.md",
+          },
+          {
+            id: "WO-02-001",
+            title: "Review",
+            frd: frds[1]?.slug ?? "",
+            state: "review",
+            relPath: "review.md",
+          },
+        ]}
+        navigationBaseHref="/projects/demo/summary"
       />,
     );
-    expect(screen.getByTestId("summary-text").textContent).toContain(SAMPLE_SUMMARY);
+    const rows = within(screen.getByRole("list")).getAllByRole("link");
+    expect(rows).toHaveLength(8);
+    expect(rows[0]).toHaveTextContent("FRD-02 Feature 2");
+    expect(rows[0]).toHaveTextContent("0/1");
+    expect(rows[0]).toHaveAttribute("href", "/projects/demo/observability?frd=FRD-02");
+    expect(screen.getByRole("img")).toHaveAccessibleName("1 En revisión");
+    expect(screen.getByText("10 FRDs en total")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Ver todos" })).toHaveAttribute(
+      "href",
+      "/projects/demo/observability",
+    );
   });
-
-  it("frd-04: AC-04-003.1 — WHEN key points are provided THEN renders the key-points-list element", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={SAMPLE_KEY_POINTS}
-        activityLog={EMPTY_LOG}
-        decisions={EMPTY_DECISIONS}
-        pendingDecisions={0}
-      />,
-    );
-    expect(screen.getByTestId("key-points-list")).toBeDefined();
+  it("AC-04-014.7: raw log is collapsed and never leaks prose into structured progress", () => {
+    fixture.write(".pandacorp/comms/progress.md", "- Raw engine details\n");
+    render(<ResumenPanel project={fixture.project()} route={fixture.route} />);
+    const summary = screen.getByText("Bitácora técnica del motor");
+    expect(summary.closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText("Sin avances registrados todavía.")).toBeVisible();
+    expect(screen.getByText("Raw engine details")).not.toBeVisible();
   });
-
-  it("frd-04: AC-04-003.1 — WHEN key points are provided THEN each point is rendered as a list item", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={SAMPLE_KEY_POINTS}
-        activityLog={EMPTY_LOG}
-        decisions={EMPTY_DECISIONS}
-        pendingDecisions={0}
-      />,
-    );
-    const items = screen.getAllByTestId("key-point-item");
-    expect(items.length).toBe(SAMPLE_KEY_POINTS.length);
+  it("AC-04-014.4 AC-04-014.5 AC-04-014.7: errors stay in their owning cards, rather than claiming an empty source", () => {
+    fixture.write(".pandacorp/inbox/decisions.md", "## malformed heading\n");
+    fixture.write(".pandacorp/inbox/changes/bad.md", "---\ntype: nonsense\n---\n# Broken\n");
+    render(<ResumenPanel project={fixture.project()} route={fixture.route} />);
+    expect(
+      screen.getAllByRole("alert").some((alert) => alert.textContent?.includes("Decisiones")),
+    ).toBe(true);
+    expect(
+      screen.getAllByRole("alert").some((alert) => alert.textContent?.includes("Últimos avances")),
+    ).toBe(true);
+    expect(screen.queryByText("Sin decisiones tuyas registradas.")).toBeNull();
+    expect(screen.queryByText("Sin avances registrados todavía.")).toBeNull();
   });
-
-  it("frd-04: AC-04-003.1 — WHEN keyPoints is empty THEN key-points-list is not rendered", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={EMPTY_DECISIONS}
-        pendingDecisions={0}
-      />,
+  it("AC-04-014.6: the single-column CSS puts Tu turno ahead of the informational column", () => {
+    const css = fs.readFileSync(
+      "src/app/projects/[slug]/_components/tab-summary/tab-summary.module.css",
+      "utf8",
     );
-    expect(screen.queryByTestId("key-points-list")).toBeNull();
+    expect(css).toMatch(/max-width:\s*1023px/);
+    expect(css).toMatch(/\.action\s*\{\s*order:\s*-1/);
   });
 });
 
-// ---------------------------------------------------------------------------
-// AC-04-003.2 — Activity log rendering + empty state
-// ---------------------------------------------------------------------------
-
-describe("frd-04: TabSummary — AC-04-003.2 activity log", () => {
-  it("frd-04: AC-04-003.2 — WHEN entries exist THEN renders the activity-log element", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={LOG_WITH_ENTRIES}
-        decisions={EMPTY_DECISIONS}
-        pendingDecisions={0}
-      />,
-    );
-    expect(screen.getByTestId("activity-log")).toBeDefined();
-  });
-
-  it("frd-04: AC-04-003.2 — WHEN entries exist THEN renders each activity item", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={LOG_WITH_ENTRIES}
-        decisions={EMPTY_DECISIONS}
-        pendingDecisions={0}
-      />,
-    );
-    const items = screen.getAllByTestId("activity-log-item");
-    expect(items.length).toBe(LOG_WITH_ENTRIES.entries.length);
-  });
-
-  it("frd-04: AC-04-003.2 — WHEN entries is empty THEN renders activity-log-empty", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={EMPTY_DECISIONS}
-        pendingDecisions={0}
-      />,
-    );
-    expect(screen.getByTestId("activity-log-empty")).toBeDefined();
-  });
-
-  it("frd-04: AC-04-003.2 — WHEN entries is empty THEN empty state has role='status' for a11y", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={EMPTY_DECISIONS}
-        pendingDecisions={0}
-      />,
-    );
-    const empty = screen.getByTestId("activity-log-empty");
-    expect(empty.getAttribute("role")).toBe("status");
-  });
-
-  it("frd-04: AC-04-003.2 — WHEN entries is empty THEN does NOT render activity-log-item elements", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={EMPTY_DECISIONS}
-        pendingDecisions={0}
-      />,
-    );
-    expect(screen.queryByTestId("activity-log-item")).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// AC-04-003.3 — Decision points rendering + count badge
-// ---------------------------------------------------------------------------
-
-describe("frd-04: TabSummary — AC-04-003.3 decision points", () => {
-  it("frd-04: AC-04-003.3 — WHEN decisions is empty THEN renders decisions-empty", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={EMPTY_DECISIONS}
-        pendingDecisions={0}
-      />,
-    );
-    expect(screen.getByTestId("decisions-empty")).toBeDefined();
-  });
-
-  it("frd-04: AC-04-003.3 — WHEN decisions exist THEN renders the decisions-list element", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={TWO_OPEN_DECISIONS}
-        pendingDecisions={2}
-      />,
-    );
-    expect(screen.getByTestId("decisions-list")).toBeDefined();
-  });
-
-  it("frd-04: AC-04-003.3 — WHEN decisions exist THEN renders one decision-item per DecisionPoint", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={TWO_OPEN_DECISIONS}
-        pendingDecisions={2}
-      />,
-    );
-    const items = screen.getAllByTestId("decision-item");
-    expect(items.length).toBe(TWO_OPEN_DECISIONS.length);
-  });
-
-  it("frd-04: AC-04-003.3 — WHEN pending decisions > 0 THEN renders decisions-count-badge", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={TWO_OPEN_DECISIONS}
-        pendingDecisions={2}
-      />,
-    );
-    expect(screen.getByTestId("decisions-count-badge")).toBeDefined();
-  });
-
-  it("frd-04: AC-04-003.3 — WHEN pending decisions > 0 THEN badge shows the count", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={TWO_OPEN_DECISIONS}
-        pendingDecisions={2}
-      />,
-    );
-    const badge = screen.getByTestId("decisions-count-badge");
-    expect(badge.textContent).toContain("2");
-  });
-
-  it("frd-04: AC-04-003.3 — WHEN pending decisions is 0 THEN does NOT render decisions-count-badge", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={ALL_RESOLVED}
-        pendingDecisions={0}
-      />,
-    );
-    expect(screen.queryByTestId("decisions-count-badge")).toBeNull();
-  });
-
-  it("frd-04: AC-04-003.3 — WHEN a decision has a recommendation THEN it renders the recommendation text", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={TWO_OPEN_DECISIONS}
-        pendingDecisions={2}
-      />,
-    );
-    const body = document.body;
-    expect(body.textContent).toContain("Usar 500 como límite por defecto.");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// AC-04-004.1 — Warning treatment for pending decisions
-// ---------------------------------------------------------------------------
-
-describe("frd-04: TabSummary — AC-04-004.1 warning highlight for pending decisions", () => {
-  it("frd-04: AC-04-004.1 — WHEN pending_decisions > 0 THEN decisions-section has data-pending='true'", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={TWO_OPEN_DECISIONS}
-        pendingDecisions={2}
-      />,
-    );
-    const section = screen.getByTestId("decisions-section");
-    expect(section.getAttribute("data-pending")).toBe("true");
-  });
-
-  it("frd-04: AC-04-004.1 — WHEN pending_decisions === 0 THEN decisions-section has data-pending='false'", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={ALL_RESOLVED}
-        pendingDecisions={0}
-      />,
-    );
-    const section = screen.getByTestId("decisions-section");
-    expect(section.getAttribute("data-pending")).toBe("false");
-  });
-
-  it("frd-04: AC-04-004.1 — WHEN pending_decisions > 0 THEN decision items have a warning indicator (not color-alone — icon present)", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={TWO_OPEN_DECISIONS}
-        pendingDecisions={2}
-      />,
-    );
-    const indicators = screen.getAllByTestId("decision-warning-icon");
-    expect(indicators.length).toBeGreaterThan(0);
-  });
-
-  it("frd-04: AC-04-004.1 — WHEN pending_decisions === 0 THEN renders the neutral decisions-empty state", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={EMPTY_DECISIONS}
-        pendingDecisions={0}
-      />,
-    );
-    expect(screen.getByTestId("decisions-empty")).toBeDefined();
-  });
-
-  it("frd-04: AC-04-004.1 — WHEN there are mixed decisions THEN pending count reflects only open ones", () => {
-    // 1 open + 1 resolved = pendingDecisions = 1
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={MIXED_DECISIONS}
-        pendingDecisions={1}
-      />,
-    );
-    const badge = screen.getByTestId("decisions-count-badge");
-    expect(badge.textContent).toContain("1");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Empty / loading states — no-content variants
-// ---------------------------------------------------------------------------
-
-describe("frd-04: TabSummary — empty and loading states", () => {
-  it("frd-04: WHEN summary is empty string THEN still renders summary-section without crashing", () => {
-    expect(() =>
-      render(
-        <TabSummary
-          summary=""
-          keyPoints={[]}
-          activityLog={EMPTY_LOG}
-          decisions={EMPTY_DECISIONS}
-          pendingDecisions={0}
-        />,
-      ),
-    ).not.toThrow();
-    expect(screen.getByTestId("summary-section")).toBeDefined();
-  });
-
-  it("frd-04: WHEN all data is absent/empty THEN renders without crash and shows both empty states", () => {
-    render(
-      <TabSummary
-        summary=""
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={EMPTY_DECISIONS}
-        pendingDecisions={0}
-      />,
-    );
-    expect(screen.getByTestId("activity-log-empty")).toBeDefined();
-    expect(screen.getByTestId("decisions-empty")).toBeDefined();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// data-testid coverage — every interactive/significant element
-// ---------------------------------------------------------------------------
-
-describe("frd-04: TabSummary — data-testid coverage (test-writer contract)", () => {
-  it("frd-04: WHEN rendered with full data THEN all required testids are present", () => {
-    render(
-      <TabSummary
-        summary={SAMPLE_SUMMARY}
-        keyPoints={SAMPLE_KEY_POINTS}
-        activityLog={LOG_WITH_ENTRIES}
-        decisions={TWO_OPEN_DECISIONS}
-        pendingDecisions={2}
-      />,
-    );
-    // Core structure
-    expect(screen.getByTestId("summary-panel")).toBeDefined();
-    expect(screen.getByTestId("summary-section")).toBeDefined();
-    expect(screen.getByTestId("summary-text")).toBeDefined();
-    expect(screen.getByTestId("key-points-list")).toBeDefined();
-    expect(screen.getByTestId("decisions-section")).toBeDefined();
-    expect(screen.getByTestId("decisions-list")).toBeDefined();
-    expect(screen.getByTestId("decisions-count-badge")).toBeDefined();
-    expect(screen.getByTestId("activity-log")).toBeDefined();
-  });
+it("REQ-04-004: project queue shares the real pending count, stable command and age with La Fragua", () => {
+  fixture.write(
+    ".pandacorp/inbox/decisions.md",
+    `# Decisions
+## 2026-10-25 (PENDIENTE) — Choose hosting
+- **Qué necesito de ti:** Choose a host
+## 2026-10-26 (PENDIENTE) — Already decided
+- **Estado:** RESUELTO
+`,
+  );
+  render(<ResumenPanel project={fixture.project()} route={fixture.route} />);
+  expect(screen.getByRole("heading", { name: "Tu turno 1" })).toBeVisible();
+  expect(screen.getByText("Espera tu decisión")).toBeVisible();
+  expect(
+    screen.getByRole("button", { name: "Copiar /pandacorp:decide 2026-10-25-1" }),
+  ).toBeVisible();
+  expect(screen.getAllByText(/hace \d+ días/).length).toBeGreaterThan(0);
 });

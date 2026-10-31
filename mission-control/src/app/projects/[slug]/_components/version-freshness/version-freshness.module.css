@@ -1,0 +1,29 @@
+.notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s4);
+}
+.body {
+  flex: 1;
+  min-width: 0;
+}
+.body p {
+  color: var(--text-2);
+  margin: var(--s1) 0 0;
+  font-size: var(--fs-sm);
+}
+.command {
+  min-width: 0;
+  flex: 1;
+}
+.command p {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  margin: 0 0 var(--s2);
+}
+@media (max-width: 767px) {
+  .notice {
+    display: grid;
+  }
+}

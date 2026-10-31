@@ -15,6 +15,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathExists } from "../fs-utils/fs-utils";
+import { isEngineLogEntry as isTechnicalEntry } from "./decision-kind";
 
 /**
  * The parsed activity log from `.pandacorp/comms/progress.md`.
@@ -158,26 +159,36 @@ export function readActivityLog(projectPath: string): ActivityLog {
  * @returns `DecisionPoint[]` — genuine JS Array. Never throws.
  */
 export function readDecisions(projectPath: string): DecisionPoint[] {
-  if (!projectPath || projectPath.trim() === "") {
-    return [];
-  }
-  if (!pathExists(projectPath)) {
-    return [];
-  }
-
-  const decisionsPath = path.join(projectPath, ".pandacorp", "inbox", "decisions.md");
-  if (!pathExists(decisionsPath)) {
-    return [];
-  }
-
-  let content: string;
+  if (!projectPath.trim()) return [];
   try {
-    content = fs.readFileSync(decisionsPath, "utf-8");
+    return readDecisionSource(projectPath).decisions;
   } catch {
     return [];
   }
+}
 
-  return parseDecisionBlocks(content);
+/** Shared decision source preserves valid blocks alongside malformed-heading errors. */
+export function readDecisionSource(root: string): { decisions: DecisionPoint[]; invalid: boolean } {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(path.join(root, ".pandacorp/inbox/decisions.md"), "utf8");
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return { decisions: [], invalid: false };
+    throw error;
+  }
+  let invalid = false;
+  let supported = true;
+  const lines = raw.split("\n").filter((line) => {
+    if (/^##\s/.test(line)) {
+      supported = parseDecisionBlocks(line).length > 0;
+      if (!supported) invalid = true;
+    }
+    return supported;
+  });
+  const decisions = parseDecisionBlocks(lines.join("\n"));
+  if (raw.trim() && !decisions.length && !/^#\s/m.test(raw)) invalid = true;
+  return { decisions, invalid };
 }
 
 /**
@@ -451,5 +462,5 @@ function _pushDecision(result: DecisionPoint[], block: DecisionBlock | null): vo
 
 /** Identify timestamp-prefixed technical log entries consistently across decision surfaces. */
 export function isEngineLogEntry(point: Pick<DecisionPoint, "title">): boolean {
-  return /^(?:T?\d{1,2}:\d{2}\b|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}\b)/.test(point.title);
+  return isTechnicalEntry(point);
 }

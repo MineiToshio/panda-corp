@@ -77,8 +77,12 @@ describe("Fragua scene acceptance", () => {
     expect(screen.getByRole("tooltip")).toBeInTheDocument();
     fireEvent.blur(token);
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    await user.tab();
+    expect(token).toHaveFocus();
+    fireEvent.scroll(window);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
     await user.click(token);
-    expect(state.push).toHaveBeenCalledWith("/portfolio/demo/observability?wo=WO-06-001");
+    expect(state.push).toHaveBeenCalledWith("/projects/demo/observability?wo=WO-06-001");
   });
   it("AC-04-014.3 (Resumen owns the start command) AC-06-012.1 AC-06-012.2 AC-06-012.3 AC-06-013.2 AC-06-013.3 AC-06-020.2 AC-06-020.6 AC-06-020.7: read-only live, stale and foot facts", () => {
     state.orders = [order("todo"), order("done", "WO-06-002")];

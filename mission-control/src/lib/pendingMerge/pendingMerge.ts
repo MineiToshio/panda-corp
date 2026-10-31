@@ -25,7 +25,7 @@ const PENDING_STALE_HOURS: number = Number(process.env.PANDACORP_STALE_HOURS ?? 
 /** Status of a pending item — a discriminated literal so the UI switch is exhaustive (typescript.md). */
 type PendingStatus = "in-progress" | "ready" | "stale";
 
-export interface PendingItem {
+interface PendingItem {
   readonly branch: string;
   readonly worktree: string | null;
   readonly ahead: number;

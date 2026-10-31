@@ -1,86 +1,103 @@
 /**
- * FRD-04 gate — adversarial reviewer tests for TabSummary (WO-04-005).
- *
- * Regression anchor for a real browser failure observed at the FRD gate: rendering
- * the Summary tab with a pending decision that carries a recommendation once threw
- * React error #418 (a hydration mismatch) in production, caused by invalid
- * <button>-in-<button> nesting (the now-removed "Aprobar la recomendación"
- * affordance wrapped the shared CopyButton — itself a <button> — inside an outer
- * <button>). The affordance itself was removed (owner decision, 2026-06-30 — a
- * pre-baked approve button skipped the context a real `/pandacorp:decide <id>`
- * conversation gives), which makes this exact nesting structurally impossible —
- * but the general invariant (no <button> ever contains another <button>) is kept
- * here as a standing regression guard for the decision card.
- *
- * Why this is a CORRECTION (blocking), not a visual nit:
- *  - Invalid DOM nesting: a <button> cannot contain an interactive <button>
- *    (HTML spec; React validateDOMNesting emits a console.error and the server/
- *    client markup diverge → #418 pageerror).
- *  - Accessibility: nested interactive controls are not correctly operable by
- *    keyboard / assistive tech (accessibility.md — "everything operable by mouse
- *    is operable by keyboard"; the inner control's activation is ambiguous).
- *  - It fails the mandatory Preview Smoke Gate (DR-055): an uncaught pageerror /
- *    console error on the route is a RED gate.
+ * FRD-04 gate (reviewer-authored, DR-015), reconciled for WO-04-011: the Resumen as mounted from real
+ * project files. Covers its reading failures against production-shaped sources and the
+ * client-boundary rule the unit environment cannot see on its own.
  */
-
+import fs from "node:fs";
+import path from "node:path";
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import type { ActivityLog, DecisionPoint } from "@/lib/docs/activity";
-import { TabSummary } from "../tab-summary";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ProjectListItem } from "@/lib/portfolio/portfolio";
+import ResumenPanel from "../../../_panels/ResumenPanel";
+import { readSummary } from "../readSummary";
+import { summaryFixture } from "./summaryFixture";
 
-const EMPTY_LOG: ActivityLog = { entries: [] };
+const state = vi.hoisted(() => ({ items: [] as ProjectListItem[] }));
+vi.mock("@/lib/portfolio/portfolio", () => ({
+  allProjects: () => state.items,
+  readPortfolio: () => state.items,
+}));
+class FakeEventSource {
+  close() {}
+}
+let fixture: ReturnType<typeof summaryFixture>;
+beforeEach(() => {
+  fixture = summaryFixture();
+  state.items = [fixture.item];
+  vi.stubGlobal("EventSource", FakeEventSource);
+});
+afterEach(() => {
+  fixture.cleanup();
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
-function pendingWithRecommendation(): DecisionPoint[] {
-  return [
-    {
-      id: "2026-06-15-1",
-      title: "¿Subir el límite de gasto?",
-      date: "2026-06-15",
-      status: "pending",
-      recommendation: "Usar 500 €/mes",
-      resolved: false,
-    },
-  ];
+function panel(): HTMLElement {
+  render(<ResumenPanel project={fixture.project()} route={fixture.route} />);
+  return screen.getByTestId("tab-summary");
 }
 
-describe("TabSummary — gate: the decision card must not nest interactive controls", () => {
-  it("no <button> in the rendered tree contains a descendant <button> (HTML validity + a11y + #418 regression guard)", () => {
-    const decisions = pendingWithRecommendation();
-    render(
-      <TabSummary
-        summary="x"
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={decisions}
-        pendingDecisions={1}
-      />,
-    );
+const ENGINE_SHAPED = `# Decisiones
 
-    const buttons = screen.getAllByRole("button");
-    expect(buttons.length).toBeGreaterThan(0);
-    for (const btn of buttons) {
-      const nested = within(btn).queryAllByRole("button");
-      expect(
-        nested,
-        "an interactive <button> must not contain another <button> (invalid DOM, breaks keyboard a11y, React #418)",
-      ).toHaveLength(0);
-    }
+## RESUELTO (2026-09-25) — FRD-02 — Contradicciones
+
+- **Estado:** RESUELTO
+
+## FRD-25 — Código rechazado que no se pudo descartar (necesita propietario)
+
+Detalle escrito por el motor.
+
+### (1) Un subapartado
+`;
+
+describe("FRD-04 gate — Resumen sources", () => {
+  it("AC-04-014.5 DR-078: a real engine-written heading never hides the decisions that did parse", () => {
+    fixture.write(".pandacorp/inbox/decisions.md", ENGINE_SHAPED);
+    expect(readSummary(fixture.item.path).decisions.value.length).toBeGreaterThan(0);
   });
 
-  it("no approve-btn exists — recommendation renders as plain context text, never a one-click copy command", () => {
-    const decisions = pendingWithRecommendation();
-    render(
-      <TabSummary
-        summary="x"
-        keyPoints={[]}
-        activityLog={EMPTY_LOG}
-        decisions={decisions}
-        pendingDecisions={1}
-      />,
-    );
+  it("AC-04-014.6: without a pending item Tu turno states its empty sentence, not a read failure", () => {
+    const summary = panel();
+    const heading = within(summary).getByRole("heading", { name: /^Tu turno/ });
+    const card = heading.closest("section") ?? heading.parentElement?.parentElement;
+    expect(card).not.toHaveTextContent("no se pudo leer");
+  });
 
-    expect(screen.queryByTestId("approve-btn")).not.toBeInTheDocument();
-    expect(document.body.innerHTML).not.toContain("Aprobado:");
-    expect(screen.getByText(/Usar 500 €\/mes/)).toBeInTheDocument();
+  it("AC-04-014.6: Tu turno lists this project's pending decision with its scoped command", () => {
+    fixture.write(
+      ".pandacorp/inbox/decisions.md",
+      "# Decisiones\n\n## 2026-10-20 · ¿Qué proveedor?\n\n- **Estado:** PENDIENTE\n",
+    );
+    const summary = panel();
+    const heading = within(summary).getByRole("heading", { name: /^Tu turno/ });
+    const card = heading.closest("section") ?? heading.parentElement?.parentElement;
+    expect(card).toHaveTextContent("/pandacorp:decide 2026-10-20-1");
+  });
+});
+
+function clientFiles(directory: string): string[] {
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const file = path.join(directory, entry.name);
+    if (entry.isDirectory()) return entry.name === "_tests" ? [] : clientFiles(file);
+    return /\.tsx$/.test(entry.name) && fs.readFileSync(file, "utf8").startsWith('"use client"')
+      ? [file]
+      : [];
+  });
+}
+
+describe("FRD-04 gate — client boundary", () => {
+  it("preview smoke: no client component of the panel loads a module that needs node:fs", () => {
+    const root = path.resolve("src/app/projects/[slug]/_components");
+    const offenders = ["tab-summary", "ProgressList", "version-freshness", "Fragua"]
+      .flatMap((folder) => clientFiles(path.join(root, folder)))
+      .flatMap((file) =>
+        [...fs.readFileSync(file, "utf8").matchAll(/^import (?!type )[^;]*from "@\/([^"]+)";/gm)]
+          .map((match) => path.resolve("src", `${match[1]}.ts`))
+          .filter((target) => fs.existsSync(target))
+          .filter((target) => /from "node:/.test(fs.readFileSync(target, "utf8")))
+          .map((target) => `${path.basename(file)} -> ${path.relative("src", target)}`),
+      );
+    expect(offenders).toEqual([]);
   });
 });

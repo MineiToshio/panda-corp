@@ -36,7 +36,7 @@ export function FraguaScene({
   const busy = data.stations.flatMap((station, index) => (station.count ? [index] : []));
   const from = busy.at(0) ?? 0,
     to = busy.at(-1) ?? 0;
-  const route = `/portfolio/${encodeURIComponent(project.slug)}/observability`;
+  const route = `/projects/${encodeURIComponent(project.slug)}/observability`;
   const age = formatSignalAge(data.signal.ageMinutes);
   const courierStyle = {
     left: `${(from + 0.5) * 25}%`,

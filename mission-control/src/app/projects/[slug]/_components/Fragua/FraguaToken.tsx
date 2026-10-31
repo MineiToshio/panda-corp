@@ -31,9 +31,9 @@ export function FraguaToken({
     ?.trim();
   useEffect(() => {
     function close(): void {
-      setOpen(false);
+      if (document.activeElement !== button.current) setOpen(false);
     }
-    window.addEventListener("scroll", close, true);
+    window.addEventListener("scroll", close, { capture: true, passive: true });
     return () => window.removeEventListener("scroll", close, true);
   }, []);
   useLayoutEffect(() => {

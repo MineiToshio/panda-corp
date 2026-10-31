@@ -3,7 +3,7 @@ import path from "node:path";
 import { cache } from "react";
 import { type ChangeQueueItem, readChangeQueue } from "@/lib/changes/changes";
 import { resolveProjectPath } from "@/lib/config/config";
-import { type DecisionPoint, parseDecisionBlocks } from "@/lib/docs/activity";
+import { type DecisionPoint, readDecisionSource } from "@/lib/docs/activity";
 import { getProjectNavigation } from "@/lib/navigation/identities";
 import { readPortfolio } from "@/lib/portfolio/portfolio";
 import { listWorkOrders, type WorkOrder } from "@/lib/work-orders/work-orders";
@@ -24,27 +24,6 @@ export interface ProjectInbox {
 
 function missing(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
-}
-function decisionsAt(root: string): { decisions: DecisionPoint[]; invalid: boolean } {
-  let raw: string;
-  try {
-    raw = fs.readFileSync(path.join(root, ".pandacorp/inbox/decisions.md"), "utf8");
-  } catch (error) {
-    if (missing(error)) return { decisions: [], invalid: false };
-    throw error;
-  }
-  let invalid = false;
-  let supported = true;
-  const lines = raw.split("\n").filter((line) => {
-    if (/^##\s/.test(line)) {
-      supported = parseDecisionBlocks(line).length > 0;
-      if (!supported) invalid = true;
-    }
-    return supported;
-  });
-  const decisions = parseDecisionBlocks(lines.join("\n"));
-  if (raw.trim() && !decisions.length && !/^#\s/m.test(raw)) invalid = true;
-  return { decisions, invalid };
 }
 function assertQueueReadable(directory: string): void {
   let entries: fs.Dirent[];
@@ -69,7 +48,7 @@ export function readProjectInbox(
   let changes: ChangeQueueItem[] = [];
   let workOrders: WorkOrder[] = [];
   try {
-    const result = decisionsAt(project.path);
+    const result = readDecisionSource(project.path);
     decisions = result.decisions;
     if (result.invalid) errors.push({ project: project.name, source: "decisions" });
   } catch {

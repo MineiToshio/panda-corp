@@ -30,7 +30,8 @@ export function AskRow({
         <strong>{item.title}</strong>
         <small>
           {item.project} · {t(decision ? "inicio.turn.kindDecision" : "inicio.turn.kindChange")} ·{" "}
-          {item.ageLabel}
+          {decision ? `${item.id}${item.date ? " · " : ""}` : ""}
+          {item.date ? item.ageLabel : null}
         </small>
         <div className={styles.command}>
           <CmdRow command={item.command} />

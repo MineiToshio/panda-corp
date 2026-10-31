@@ -5,7 +5,7 @@ slug: polish
 title: WO-01-004 — Polish pass
 status: ACTIVE
 parent: FRD-01
-implementation_status: PENDING
+implementation_status: PLANNED
 source_requirements: [REQ-01-001]
 dependsOn: [WO-01-001]
 last_updated: '2026-06-15'

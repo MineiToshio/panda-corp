@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { now } from "@/lib/clock/clock";
 import { t } from "@/lib/copy/copy";
-import { formatDate } from "@/lib/copy/dates";
+import { formatRelative } from "@/lib/copy/dates";
 import { isEngineLogEntry } from "@/lib/docs/activity";
 import { type InboxError, type ProjectInbox, projectInboxes } from "./inbox";
 
@@ -35,9 +35,7 @@ function itemBase(project: ProjectInbox, date: string | null, nowIso: string) {
     where: project.path,
     date,
     ageDays: Number.isFinite(elapsed) ? Math.max(0, Math.floor(elapsed / 86400000)) : null,
-    ageLabel: date
-      ? t("inicio.turn.requestedOn", { date: formatDate(date) })
-      : t("common.relativeTime.noRecord"),
+    ageLabel: date ? formatRelative(date, nowIso) : t("common.relativeTime.noRecord"),
   };
 }
 /** Decisions first, then ready changes; never truncate or count work owned by the engine. */
