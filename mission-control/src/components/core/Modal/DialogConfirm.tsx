@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/core/Button/Button";
 import styles from "./Dialog.module.css";
 import { Modal } from "./Modal";
@@ -33,6 +33,9 @@ export function DialogConfirm({
 }: DialogConfirmProps): React.JSX.Element | null {
   const reasonId = useId();
   const [reason, setReason] = useState("");
+  useEffect(() => {
+    if (open) setReason("");
+  }, [open]);
   function handleReason(event: React.ChangeEvent<HTMLTextAreaElement>): void {
     setReason(event.target.value);
   }

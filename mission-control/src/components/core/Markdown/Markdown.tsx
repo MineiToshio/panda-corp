@@ -16,8 +16,11 @@
 import type { CSSProperties } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { Tone } from "@/components/core/Chip/vocabulary";
 import { remarkHeadingAnchors } from "./headingAnchors";
+import styles from "./Markdown.module.css";
 import { MarkdownAnchorScope } from "./MarkdownAnchorScope";
+import { Scrollable } from "./Scrollable";
 
 // ---------------------------------------------------------------------------
 // Root — body scale (prototype: 15px / 1.6) + overflow safety
@@ -25,9 +28,9 @@ import { MarkdownAnchorScope } from "./MarkdownAnchorScope";
 
 const ROOT_STYLE: CSSProperties = {
   fontFamily: "var(--font-body)",
-  fontSize: "15px",
-  lineHeight: 1.6,
-  color: "var(--color-text, currentColor)",
+  fontSize: "var(--fs-lg)",
+  lineHeight: 1.7,
+  color: "var(--text)",
   // `break-word` (not `anywhere`) breaks long unbreakable tokens (urls/paths/ids) to
   // prevent overflow WITHOUT collapsing the min-content width to one character — which,
   // in a narrow flex/grid cell (mobile), squished the whole document to 1 char per line.
@@ -42,56 +45,60 @@ const ROOT_STYLE: CSSProperties = {
 
 const H1_STYLE: CSSProperties = {
   fontFamily: "var(--font-display)",
-  fontSize: "20px",
+  fontSize: "var(--fs-h1s)",
   fontWeight: 600,
   lineHeight: 1.25,
-  margin: "2px 0 10px",
-  color: "var(--color-text)",
+  margin: "0 0 .7em",
+  paddingBottom: ".4em",
+  borderBottom:
+    "var(--hairline) solid color-mix(in srgb, var(--tone, var(--line)) 40%, var(--line))",
+  color: "var(--tone, var(--text))",
 };
 const H2_STYLE: CSSProperties = {
   fontFamily: "var(--font-display)",
-  fontSize: "16px",
+  fontSize: "var(--fs-h2)",
   fontWeight: 600,
   lineHeight: 1.35,
-  margin: "22px 0 6px",
-  color: "var(--color-text)",
+  margin: "1.8em 0 .6em",
+  color: "var(--tone, var(--text))",
 };
 const H3_STYLE: CSSProperties = {
   fontFamily: "var(--font-display)",
-  fontSize: "14px",
+  fontSize: "var(--fs-xl)",
   fontWeight: 600,
   lineHeight: 1.4,
-  margin: "16px 0 4px",
-  color: "var(--color-text)",
+  margin: "1.5em 0 .5em",
+  color: "color-mix(in srgb, var(--tone, var(--text)) 60%, var(--text))",
 };
 const H4_STYLE: CSSProperties = {
-  fontFamily: "var(--font-display)",
-  fontSize: "13px",
-  fontWeight: 600,
-  letterSpacing: "0.01em",
+  fontFamily: "var(--font-body)",
+  fontSize: "var(--fs-xs)",
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: ".08em",
   margin: "14px 0 4px",
-  color: "var(--color-text2, var(--color-text))",
+  color: "color-mix(in srgb, var(--tone, var(--slate)) 70%, var(--text-2))",
 };
 
-const P_STYLE: CSSProperties = { margin: "8px 0", lineHeight: 1.65 };
+const P_STYLE: CSSProperties = { margin: "0 0 .9em", lineHeight: 1.7 };
 // Tailwind v4's preflight resets `ul,ol { list-style: none }`, which removed the bullets
 // (leaving only the indent). Restore the markers explicitly: disc for ul, decimal for ol.
 const UL_STYLE: CSSProperties = {
-  margin: "8px 0",
-  paddingLeft: "22px",
+  margin: "0 0 .9em",
+  paddingLeft: "1.4em",
   listStyleType: "disc",
   listStylePosition: "outside",
 };
 const OL_STYLE: CSSProperties = {
-  margin: "8px 0",
-  paddingLeft: "26px",
+  margin: "0 0 .9em",
+  paddingLeft: "1.4em",
   listStyleType: "decimal",
   listStylePosition: "outside",
 };
 const LI_STYLE: CSSProperties = { margin: "4px 0", lineHeight: 1.6, display: "list-item" };
-const STRONG_STYLE: CSSProperties = { fontWeight: 600, color: "var(--color-text)" };
+const STRONG_STYLE: CSSProperties = { fontWeight: 600, color: "var(--text)" };
 const A_STYLE: CSSProperties = {
-  color: "var(--color-accent-text, var(--color-accent))",
+  color: "var(--blue)",
   textDecoration: "underline",
   textUnderlineOffset: "2px",
 };
@@ -101,53 +108,54 @@ const A_NEUTRAL_STYLE: CSSProperties = { color: "inherit" };
 
 const INLINE_CODE_STYLE: CSSProperties = {
   fontFamily: "var(--font-mono)",
-  fontSize: "0.85em",
-  background: "var(--color-secondary, var(--color-surface2))",
+  fontSize: "max(.86em, var(--fs-xs))",
+  background: "color-mix(in srgb, var(--tone, var(--slate)) 8%, var(--surface-3))",
   padding: "1px 5px",
-  borderRadius: "4px",
-  color: "var(--color-text)",
+  borderRadius: "var(--r-xs)",
+  color: "var(--text)",
 };
 const PRE_STYLE: CSSProperties = {
   fontFamily: "var(--font-mono)",
-  fontSize: "13px",
+  fontSize: "var(--fs-xs)",
   lineHeight: 1.5,
-  background: "var(--color-secondary, var(--color-surface2))",
+  background: "color-mix(in srgb, var(--tone, var(--slate)) 8%, var(--surface-3))",
   padding: "12px 14px",
-  borderRadius: "var(--radius-sm, 8px)",
+  borderRadius: "var(--r)",
   margin: "10px 0",
   overflowX: "auto",
 };
 const BLOCKQUOTE_STYLE: CSSProperties = {
   margin: "10px 0",
   paddingLeft: "12px",
-  borderLeft: "3px solid var(--color-border, currentColor)",
-  color: "var(--color-text2, currentColor)",
+  border: "var(--hairline) solid color-mix(in srgb, var(--tone, var(--blue)) 30%, var(--line))",
+  borderRadius: "var(--r)",
+  background: "color-mix(in srgb, var(--tone, var(--blue)) 7%, transparent)",
+  color: "var(--text-2)",
 };
 const HR_STYLE: CSSProperties = {
   border: "none",
-  borderTop: "0.5px solid var(--color-border, currentColor)",
+  borderTop: "0.5px solid var(--line)",
   margin: "18px 0",
 };
 
-const TABLE_WRAP_STYLE: CSSProperties = { overflowX: "auto", margin: "10px 0" };
 const TABLE_STYLE: CSSProperties = {
   borderCollapse: "collapse",
   width: "100%",
-  fontSize: "14px",
+  fontSize: "var(--fs-md)",
 };
 const TH_STYLE: CSSProperties = {
   textAlign: "left",
-  padding: "6px 10px",
-  borderBottom: "1px solid var(--color-border, currentColor)",
-  background: "var(--color-secondary, transparent)",
+  padding: "9px var(--s3)",
+  border: "var(--hairline) solid var(--line)",
+  background: "color-mix(in srgb, var(--tone, var(--slate)) var(--tint), var(--surface-2))",
   fontWeight: 600,
 };
 const TD_STYLE: CSSProperties = {
-  padding: "6px 10px",
-  borderBottom: "0.5px solid var(--color-border, currentColor)",
+  padding: "9px var(--s3)",
+  border: "var(--hairline) solid var(--line)",
   verticalAlign: "top",
 };
-const IMG_STYLE: CSSProperties = { maxWidth: "100%", borderRadius: "var(--radius-sm, 8px)" };
+const IMG_STYLE: CSSProperties = { maxWidth: "100%", borderRadius: "var(--r)" };
 
 // ---------------------------------------------------------------------------
 // Element map. Two notes:
@@ -214,13 +222,19 @@ const COMPONENTS: Components = {
     }
     return <code style={INLINE_CODE_STYLE}>{children}</code>;
   },
-  pre: ({ children }) => <pre style={PRE_STYLE}>{children}</pre>,
+  pre: ({ children }) => (
+    <Scrollable kind="code">
+      <pre style={PRE_STYLE}>{children}</pre>
+    </Scrollable>
+  ),
   blockquote: ({ children }) => <blockquote style={BLOCKQUOTE_STYLE}>{children}</blockquote>,
   hr: () => <hr style={HR_STYLE} />,
   table: ({ children }) => (
-    <div style={TABLE_WRAP_STYLE}>
-      <table style={TABLE_STYLE}>{children}</table>
-    </div>
+    <Scrollable kind="table">
+      <table className={styles.table} style={TABLE_STYLE}>
+        {children}
+      </table>
+    </Scrollable>
   ),
   th: ({ children }) => <th style={TH_STYLE}>{children}</th>,
   td: ({ children }) => <td style={TD_STYLE}>{children}</td>,
@@ -307,6 +321,9 @@ function makeAnchor(resolveLink: LinkResolver): NonNullable<Components["a"]> {
 export interface MarkdownProps {
   /** The raw markdown string to render. */
   children: string;
+  /** Document-type hue and dense embedded presentation. */
+  tone?: Tone;
+  compact?: boolean;
   /** Optional testid on the root wrapper. */
   "data-testid"?: string;
   /** Optional style overrides merged onto the root (e.g. a tighter font-size). */
@@ -329,12 +346,20 @@ export function Markdown({
   children,
   style,
   resolveLink,
+  tone,
+  compact = false,
   ...rest
 }: MarkdownProps): React.JSX.Element {
   const components = resolveLink ? { ...COMPONENTS, a: makeAnchor(resolveLink) } : COMPONENTS;
   return (
     <MarkdownAnchorScope
-      style={style ? { ...ROOT_STYLE, ...style } : ROOT_STYLE}
+      className={`pc-markdown md ${styles.markdown} ${compact ? `compact ${styles.compact}` : ""}`}
+      tone={tone}
+      style={{
+        ...ROOT_STYLE,
+        ...(compact ? { fontSize: "var(--fs-md)", lineHeight: 1.6 } : {}),
+        ...style,
+      }}
       testId={rest["data-testid"]}
     >
       <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={components}>

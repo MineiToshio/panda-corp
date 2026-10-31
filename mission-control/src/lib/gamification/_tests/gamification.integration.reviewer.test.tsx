@@ -360,12 +360,12 @@ describe("FRD-09 GuildBar — max-rank boundary", () => {
 // ===========================================================================
 
 describe("FRD-09 Avatar — unknown id degrades, never breaks layout", () => {
-  it("an unknown agent id still renders an <img> with Spanish alt and does not throw", () => {
+  // REQ-13-008: an agent without a sprite shows initials, never another role's art.
+  it("an unknown agent id renders initials with a Spanish name and does not throw", () => {
     // biome-ignore lint/suspicious/noExplicitAny: deliberately passing an off-contract id
     render(<Avatar agentId={"mystery-agent" as any} />);
-    const img = screen.getByTestId("agent-avatar-img") as HTMLImageElement;
-    expect(img).toBeDefined();
-    expect(img.getAttribute("src")).toBeTruthy(); // falls back to a real sprite
-    expect(img.getAttribute("alt")).toContain("mystery-agent"); // Spanish alt "Sprite de …"
+    expect(screen.queryByTestId("agent-avatar-img")).toBeNull();
+    expect(screen.getByTestId("agent-avatar-placeholder")).toHaveTextContent("MA");
+    expect(screen.getByRole("img", { name: "Avatar de agente mystery-agent" })).toBeDefined();
   });
 });

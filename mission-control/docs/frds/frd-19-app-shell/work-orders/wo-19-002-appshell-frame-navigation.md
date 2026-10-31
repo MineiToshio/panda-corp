@@ -6,8 +6,7 @@ title: 'WO-19-002 — AppShell frame and navigation (sidebar, tablet rail, phone
 status: ACTIVE
 parent: FRD-19
 foundation: true
-implementation_status: PLANNED
-blocked_reason:
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -24,7 +23,7 @@ artifacts:
   - "src/components/modules/{PendingMergeBadge,CelebrationWatcher}/**"
 source_requirements: [REQ-19-001, REQ-19-002, REQ-19-003, REQ-19-004, REQ-19-005, AC-19-001.1, AC-19-001.2, AC-19-001.3, AC-19-001.4, AC-19-001.5, AC-19-002.1, AC-19-002.2, AC-19-003.1, AC-19-003.2, AC-19-003.3, AC-19-003.4, AC-19-003.5, AC-19-004.1, AC-19-004.2, AC-19-005.4]
 dependsOn: [WO-13-012, WO-25-001, WO-01-008]
-last_updated: 2026-10-22
+last_updated: 2026-10-30
 ---
 
 # WO-19-002 — AppShell frame and navigation (sidebar, tablet rail, phone bars and drawer, Shell-Presence contract)
@@ -99,8 +98,8 @@ WO-19-003 fills.
    onboarding gate still replaces the whole view when the profile is absent, edge case of FRD-19);
    removes the top-bar mounts and their server reads (`GuildBar`, `ProposalsBadge` with
    `countOpenProposals`, `PendingMergeBadge` with `getPendingMerge`, `CelebrationWatcher`), so `layout.tsx`
-   imports neither `countOpenProposals` (deleted by WO-17-008 in W4) nor `getPendingMerge` (kept until
-   WO-13-013); keeps
+   imports neither `countOpenProposals` nor `getPendingMerge` (both unused entry points retired here
+   during S1B round 2 by owner instruction); keeps
    `GamificationLedgerSync` and WO-13-010's fonts, boot script and Tabler link.
 10. **Not-found and error pages** (`src/app/not-found.tsx`, `src/app/error.tsx`): they render inside the
     shell, so their top-level `<main>` becomes a plain wrapper (the shell owns `main#content`).
@@ -253,3 +252,107 @@ inside it. Cites LESSON-0066 and LESSON-0185 (no `networkidle`, hydration-safe e
 inner content caps go; the 1180 px frame stays).
 
 ## Status Note
+
+- 2026-10-30 (S1B round 2): opening the phone drawer makes visibility immediate while retaining its transform animation and reduced-motion override. The sticky sidebar uses the new `--z-sidebar` token (60), below the phone scrim (65). `#menu` reuses IconButton with additive id/className/ARIA props. Removed obsolete v1 shell CSS.
+- 2026-10-30 (owner-directed early removal): deleted the unreferenced `src/lib/proposals/proposals.ts` (no tests or runtime consumers remain), the unused `getPendingMerge` wrapper/imports, and unused ButtonVariant/ButtonTone/TabDef exports here instead of WO-17-008 and WO-13-013. `readPending` and its tests remain. Reviewer suites and knip.json are unchanged.
+
+### 2026-10-30 — S1B round 2 verification
+
+Executed from `mission-control/`, with `export PORT=3943 PANDACORP_E2E_PORT=3943`:
+
+```sh
+pnpm knip
+pnpm exec tsc --noEmit
+pnpm exec biome check .
+pnpm exec vitest run src/components/modules/AppShell src/components/modules/Nav src/app/_tests src/lib/proposals src/lib/pendingMerge --maxWorkers=2 --reporter=dot
+```
+
+All four commands exited 0. Knip emitted nine configuration hints; knip.json remains unchanged.
+Biome checked 1153 files and emitted only the existing schema-version information (2.5.1 vs CLI
+2.5.2). Vitest passed 20 files / 149 tests, including the unchanged reviewer suites in the selected
+paths, with Node localStorage experimental warnings. The removed proposals folder has no test files.
+After strengthening the menu selector to preserve its 44 px target against shared button styles,
+`pnpm --dir mission-control exec biome check src/components/modules/AppShell/AppShell.module.css`
+passed (one file). `git diff --check` passed. No remaining red check in this requested batch.
+No full verify.sh, browser, Playwright or computed-style/fidelity verification was performed.
+No reviewer tests, blessed visual baselines or .pandacorp files changed. Changes remain unstaged
+and uncommitted on orch/s1b; no merge, push or merge-queue operation was performed.
+
+### 2026-10-30 — S1B implementation, awaiting independent review
+
+- Built on branch `orch/s1b`, in the assigned worktree only. No commit, stage, merge, push,
+  merge queue, full verification gate or Chromium/Playwright run was performed, as instructed.
+- Replaced the v1 header with the persistent sidebar (252 px), tablet rail (76 px), phone bars,
+  scrim and drawer. Added catalogue-backed navigation, canonical active-family mapping, a skip
+  link to the shell-owned `main#content`, route/link/outside/Escape dismissal, focus entry/return,
+  phone keyboard containment, breakpoint-specific inertness and reduced-motion styles.
+- `AppShellProps` is `{ children, pills?, projects?, guild?, footer? }`. The optional nodes are
+  passed to `SidebarSlots` in brand → pills → Nav → projects → guild → footer order.
+  `Sidebar` additionally receives `{ open, inert, sidebarRef, onNavigate }` from AppShell.
+  `navActive(pathname: string): NavDestinationId | null` maps the result of
+  `activeDestinationPath()` to the catalogue id; it does not duplicate route-family rules.
+  `Nav()` owns all seven links. Counts, projects, guild and footer content remain WO-19-003 scope.
+- R16: the inherited S1A `PageLayout` already renders a section. The owned integration test
+  mounts it in AppShell and finds a single main. Error and not-found boundaries now use divs;
+  `global-error.tsx` is untouched. Other legacy pages with direct main elements are outside this
+  stream; no claim is made that every route has passed a browser landmark audit.
+- RootLayout removes the old GuildBar, ProposalsBadge, PendingMergeBadge and CelebrationWatcher
+  mounts and their server reads, preserving the onboarding guard, ledger sync, theme boot and
+  font resources. Removed the pending badge and tiered watcher production modules and their
+  implementer tests. Reviewer suites are deliberately untouched, including their now-retired imports.
+- Seeded `e2e/shell.ts` with `aside#sidebar`, `#menu`, Portafolio and no exemptions. Added the five
+  missing v2 route entries without changing blessing flags. Rewrote shell usability coverage for
+  desktop/tablet/phone, both themes, focus, drawer dismissal, sticky-bar occlusion and client navigation;
+  changed the destinations spec's toggle selector. These browser assertions have NOT been executed.
+- The phone title order follows the higher-priority FDD/prototype: destination, then the small
+  Mission Control product line. The initial native menu button was superseded in S1B round 2 by
+  shared IconButton with additive id/className/ARIA support; the shell retains a 44 px touch target.
+  No dependencies were installed.
+
+Verification (all commands exported `PORT=3943 PANDACORP_E2E_PORT=3943`):
+
+```sh
+pnpm --dir mission-control exec tsc --project /private/tmp/s1b-tsconfig-owned.json --noEmit --incremental false
+pnpm --dir mission-control exec tsc --project /private/tmp/s1b-tsconfig.json --noEmit --incremental false
+pnpm --dir mission-control exec biome check src/components/modules/AppShell/{AppShell.tsx,AppShell.module.css,BottomNav.tsx,Sidebar.tsx,SkipLink.tsx,TopBar.tsx,useDrawer.ts,_tests/AppShell.test.tsx} src/components/modules/Nav/{Nav.tsx,NavItem.tsx,Nav.module.css,navActive.ts,_tests/Nav.test.tsx,_tests/navActive.test.ts} src/app/{layout,not-found,error}.tsx src/lib/constants.ts e2e/{shell.ts,routes.ts,shell-usability.spec.ts,persistent-navigation/destinations.spec.ts}
+pnpm --dir mission-control exec vitest run src/components/modules/AppShell src/components/modules/Nav --exclude '**/*.reviewer.*' --reporter=dot
+pnpm --dir mission-control exec vitest run src/components/modules/AppShell src/components/modules/Nav src/components/modules/PendingMergeBadge src/components/modules/CelebrationWatcher --reporter=dot
+pnpm --dir mission-control exec vitest run src/app/_tests/layout.guard.test.tsx src/app/_tests/layout.guildbartop.test.tsx src/app/_tests/layout.proposalsbadge.test.tsx src/app/_tests/error-net.test.tsx --reporter=dot
+```
+
+- The temporary TypeScript configs extend this worktree's tsconfig and list only the four module
+  folders, the three changed app files, constants, the four e2e files and ambient setup. Owned config
+  excludes reviewer files; the second includes them. This checkout has no generated next-env.d.ts;
+  the configs load the installed Next global/image declarations directly, without writing a generated
+  file into the worktree. Transitive imports are typechecked normally.
+- Owned TypeScript: PASS. Biome: PASS, 22 changed source/test files. Owned Vitest: PASS, 4 suites,
+  36 tests. Initial RED before implementation: 10 failed / 6 passed, then patched in place.
+- Module-folder Vitest including unchanged reviewers: RED, 4 suites passed / 2 failed; 34 tests
+  passed / 5 failed at that run (before two additional passing owned focus tests). Failures are the
+  old AppShell menu-label assertions and the removed CelebrationWatcher import.
+- TypeScript including those reviewers: RED, two diagnostics: old `levelBar`/`proposalsBadge`
+  props in AppShell usability, and the missing removed CelebrationWatcher module.
+- Targeted layout/error run: guard and error-net PASS (13 tests); old guild-topbar and proposals-badge
+  suites RED (7 tests), because this WO intentionally removes their global mounts. These files were
+  not edited: the worker's explicit allowlist excludes them.
+
+Reviewer reconciliation required (no reviewer-owned file was edited or removed):
+
+1. Remove `AppShell/_tests/usability.reviewer.test.tsx` and
+   `CelebrationWatcher/_tests/wo-09-003-celebration-watcher.reviewer.test.tsx`, as the WO derogates
+   their v1 subjects. Replace with independent v2 shell acceptance.
+2. Rewrite `src/lib/navigation/_tests/v2-boundaries.reviewer.test.tsx`: it still constructs AppShell
+   with the removed v1 slot props. Reconcile the shell assertions in
+   `e2e/frd25-gate-regressions.reviewer.spec.ts` with the sidebar and Portafolio label, and run them.
+3. Remove/reconcile the retired `src/app/_tests/layout.guildbartop.test.tsx` and
+   `layout.proposalsbadge.test.tsx`; replace their global-mount contract with v2 layout acceptance.
+   Keep `layout.guard.test.tsx` and `error-net.test.tsx` (both passed).
+4. Run `e2e/shell-usability.spec.ts`, `e2e/persistent-navigation/destinations.spec.ts` and the untouched
+   shell-presence gate, then perform responsive/fidelity review and reviewer-owned baseline updates.
+5. The plan's BUILD_MODES importer checks remain unrun here (outside the worker's test scope):
+   `mode-selector.reviewer.test.tsx`, `frd-11-gate.reviewer.test.tsx`,
+   `frd-11-gate-opus.reviewer.test.tsx`, `src/lib/_tests/build-modes.adversarial.test.ts`.
+   BUILD_MODES itself was not changed.
+
+No full gate, build, browser behaviour, screenshots, axe run or visual fidelity has been verified.
+The remaining reds above must be reconciled by the reviewer/orchestrator before landing.

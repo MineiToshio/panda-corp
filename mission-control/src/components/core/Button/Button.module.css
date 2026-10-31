@@ -4,12 +4,13 @@
   justify-content: center;
   gap: var(--s2);
   min-height: 40px;
-  padding: 0 var(--s4);
+  padding: 0 14px;
   border-radius: var(--r);
   border: var(--hairline) solid var(--line-strong);
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--text);
   font: 600 var(--fs-md) / 1 var(--font-body);
+  transition: transform var(--dur) var(--ease);
   white-space: nowrap;
   text-decoration: none;
 }
@@ -26,11 +27,74 @@
   padding: 0;
   border: 0;
   background: transparent;
-  color: var(--text);
-  text-decoration: underline;
+  color: var(--tone, var(--blue));
+  text-decoration: none;
 }
 @media (hover: hover) {
   .btn:hover:not(:disabled) {
-    background: var(--surface-2);
+    background: var(--surface-3);
+  }
+}
+
+.btn[data-size="sm"] {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: var(--fs-sm);
+  border-radius: var(--r-sm);
+}
+.btn[data-size="lg"] {
+  min-height: 48px;
+  padding: 0 var(--s5);
+}
+.btn[data-variant="primary"] {
+  background: var(--primary-bg);
+  color: var(--primary-fg);
+  border-color: transparent;
+}
+.btn[data-variant="ghost"] {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-2);
+}
+.btn[data-variant="toned"] {
+  color: var(--tone, var(--violet));
+  background: color-mix(in srgb, var(--tone, var(--violet)) var(--tint), transparent);
+  border-color: color-mix(in srgb, var(--tone, var(--violet)) 35%, transparent);
+}
+.btn[data-variant="danger"],
+.btn[data-tone="danger"] {
+  color: var(--coral);
+  background: transparent;
+  border-color: color-mix(in srgb, var(--coral) 40%, transparent);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(var(--hairline));
+}
+.icon {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-2);
+  border-radius: var(--r-md);
+}
+@media (hover: hover) {
+  .btn[data-variant="primary"]:hover:not(:disabled) {
+    background: var(--primary-bg);
+    filter: brightness(0.92);
+  }
+  .btn[data-variant="toned"]:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--tone, var(--violet)) var(--tint-strong), transparent);
+  }
+  .btn[data-variant="danger"]:hover:not(:disabled),
+  .btn[data-tone="danger"]:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--coral) var(--tint), transparent);
+  }
+  .link:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
   }
 }

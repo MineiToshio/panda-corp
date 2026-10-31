@@ -1,48 +1,12 @@
-/**
- * WO-13-006 — Tabs / SubTabs (CMP-13-tabs, DR-062)
- *
- * THE one tab/sub-tab pill switcher. Reused for:
- *   - Top nav (Inicio · Tablero · Portfolio · Propuestas · Logros · Documentación)
- *   - Project workspace sub-tab bar (Resumen · Work orders · Party · Observabilidad · …)
- *   - Observabilidad timeline ↔ DAG toggle
- *   - WO detail / config / logros sub-tabs
- *
- * No ad-hoc switcher per screen — a bespoke per-screen tab is a DR-062 defect.
- * Distinct from RailItem/.navitem (those are for rail navigation, not tabbed content).
- *
- * Visual (from prototype lines 62–65):
- *   .tab  (level="top") — padding 7px 13px, radius 8px, 13px display-font, accent-bg active
- *   .stab (level="sub") — padding 6px 11px, radius var(--radius-md), 13px, secondary active
- *
- * ARIA tab semantics:
- *   role="tablist" on container
- *   role="tab"     on each button
- *   aria-selected  = "true" | "false"
- *   Arrow key navigation: ArrowLeft / ArrowRight cycle focus through tabs (wraps)
- *
- * Props:
- *   level    — "top" (.tab) or "sub" (.stab)
- *   tabs     — ordered list of tab definitions
- *   active   — id of the currently active tab
- *   onChange — called with the tab id when the user selects one
- *
- * SubTabs is a convenience wrapper that hard-codes level="sub".
- *
- * Tokens: all styling via CSS custom properties — zero hardcoded colors.
- *
- * Traceability:
- *   CMP-13-tabs → FRD-13
- *   AC-13-006.15..23
- */
-
 "use client";
 
-import type React from "react";
-import { useCallback, useRef } from "react";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import { useEffect, useRef } from "react";
+import type { Tone } from "@/components/core/Chip/vocabulary";
+import { Icon } from "@/components/core/Icon/Icon";
+import { ICON_NODES, type IconName } from "@/components/core/Icon/iconData";
+import { t } from "@/lib/copy/copy";
+import styles from "./Tabs.module.css";
+import { useTabOverflow } from "./useTabOverflow";
 
 /** A single tab definition. */
 interface TabDef {
@@ -54,13 +18,19 @@ interface TabDef {
   icon?: string;
   /** Optional count badge displayed inline after the label. */
   count?: number;
+  /** Hue of the selected underline and icon. */
+  tone?: Tone;
+  /** Explicit associated panel id. */
+  panelId?: string;
+  /** Disabled tabs are excluded from keyboard navigation. */
+  disabled?: boolean;
 }
 
 export interface TabsProps {
   /** "top" renders the .tab style; "sub" renders the .stab style. */
-  level: "top" | "sub";
+  level?: "top" | "sub";
   /** Ordered list of tab definitions. */
-  tabs: TabDef[];
+  tabs: readonly TabDef[];
   /** The id of the currently active tab. */
   active: string;
   /** Called with the id of the newly selected tab. */
@@ -80,179 +50,153 @@ export interface TabsProps {
    * Example: `tabIdPrefix="config-tab-id-"` → `id="config-tab-id-skills"`.
    */
   tabIdPrefix?: string;
+  /** Optional panel id prefix; omitted associations do not emit aria-controls. */
+  panelIdPrefix?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Styles — CSS custom properties only (AC-13-006.22)
-// ---------------------------------------------------------------------------
-
-const TABLIST_STYLE: React.CSSProperties = {
-  display: "flex",
-  gap: "5px",
-  flexWrap: "wrap",
-};
-
-/** Returns the inline style for a top-level tab (.tab from prototype line 62–63). */
-function topTabStyle(active: boolean): React.CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "5px",
-    padding: "7px 13px",
-    borderRadius: "8px",
-    fontSize: "13px",
-    cursor: "pointer",
-    border: "1px solid transparent",
-    fontFamily: "var(--font-display)",
-    fontWeight: active ? 500 : 500,
-    color: active ? "var(--color-accent-text)" : "var(--color-text2)",
-    background: active ? "var(--color-accent-bg)" : "transparent",
-    // Transition on transform/opacity only (REQ-13-005)
-    transition:
-      "color var(--duration-fast, 150ms) var(--easing-standard, ease), " +
-      "background var(--duration-fast, 150ms) var(--easing-standard, ease)",
-    outline: "none",
-  };
+function isIconName(name: string): name is IconName {
+  return Object.hasOwn(ICON_NODES, name);
 }
 
-/** Returns the inline style for a sub-level tab (.stab from prototype line 64–65). */
-function subTabStyle(active: boolean): React.CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "5px",
-    padding: "6px 11px",
-    borderRadius: "var(--radius-md, 12px)",
-    fontSize: "13px",
-    cursor: "pointer",
-    border: "0.5px solid transparent",
-    color: active ? "var(--color-text)" : "var(--color-text2)",
-    fontWeight: active ? 500 : 400,
-    background: active ? "var(--color-card2)" : "transparent",
-    transition:
-      "color var(--duration-fast, 150ms) var(--easing-standard, ease), " +
-      "background var(--duration-fast, 150ms) var(--easing-standard, ease)",
-    outline: "none",
-  };
+function panelControls(tab: TabDef, prefix?: string): string | undefined {
+  return tab.panelId ?? (prefix != null ? `${prefix}${tab.id}` : undefined);
 }
 
-const COUNT_BADGE_STYLE: React.CSSProperties = {
-  fontSize: "10px",
-  background: "var(--color-accent)",
-  color: "var(--color-on-accent)",
-  borderRadius: "var(--radius-pill, 999px)",
-  padding: "0 6px",
-  marginLeft: "3px",
-  fontVariantNumeric: "tabular-nums",
-};
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
-/**
- * Tabs — THE one tab pattern (DR-062).
- *
- * Keyboard navigation:
- *   ArrowRight → next tab (wraps to first)
- *   ArrowLeft  → prev tab (wraps to last)
- *   Focus is moved imperatively via ref array; selection stays at `active`
- *   until the user presses Enter/Space or clicks (standard roving tabindex).
- */
+/** Controlled, hue-marked tabs with manual keyboard activation and horizontal overflow. */
 export function Tabs({
-  level,
+  level = "top",
   tabs,
   active,
   onChange,
   ariaLabel,
   testIdPrefix = "tab-",
   tabIdPrefix,
+  panelIdPrefix,
 }: TabsProps): React.JSX.Element {
-  // Ref array to imperatively focus tab buttons on arrow-key navigation
-  const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const listRef = useRef<HTMLDivElement>(null);
+  const { left, right, measure, scroll } = useTabOverflow(listRef);
+  const buttonRefs = useRef(new Map<string, HTMLButtonElement>());
+  useEffect(() => {
+    const list = listRef.current;
+    const button = buttonRefs.current.get(active);
+    if (list && button && window.matchMedia?.("(max-width: 759px)").matches) {
+      const strip = list.getBoundingClientRect();
+      const tab = button.getBoundingClientRect();
+      const offset =
+        tab.left < strip.left ? tab.left - strip.left : Math.max(0, tab.right - strip.right);
+      if (offset) list.scrollBy?.({ left: offset, behavior: "auto" });
+    }
+    measure();
+  }, [active, measure]);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      const focused = document.activeElement as HTMLButtonElement | null;
-      const idx = buttonRefs.current.indexOf(focused);
-      if (idx === -1) return;
-
-      if (e.key === "ArrowRight") {
-        e.preventDefault();
-        const next = (idx + 1) % tabs.length;
-        buttonRefs.current[next]?.focus();
-      } else if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        const prev = (idx - 1 + tabs.length) % tabs.length;
-        buttonRefs.current[prev]?.focus();
-      }
-    },
-    [tabs.length],
-  );
-
-  const tabStyle = level === "top" ? topTabStyle : subTabStyle;
-
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+    const enabled = tabs.filter((tab) => !tab.disabled);
+    const index = enabled.findIndex(
+      (tab) => buttonRefs.current.get(tab.id) === document.activeElement,
+    );
+    if (index < 0) return;
+    let next = index;
+    switch (event.key) {
+      case "ArrowRight":
+        next = (index + 1) % enabled.length;
+        break;
+      case "ArrowLeft":
+        next = (index - 1 + enabled.length) % enabled.length;
+        break;
+      case "Home":
+        next = 0;
+        break;
+      case "End":
+        next = enabled.length - 1;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    const tab = enabled[next];
+    if (tab) buttonRefs.current.get(tab.id)?.focus({ preventScroll: true });
+  }
+  const fallbackId = tabs.find((tab) => !tab.disabled)?.id;
+  const focusId = tabs.some((tab) => tab.id === active && !tab.disabled) ? active : fallbackId;
   return (
-    <div
-      data-testid="tabs-root"
-      data-level={level}
-      role="tablist"
-      aria-label={ariaLabel}
-      style={TABLIST_STYLE}
-      onKeyDown={handleKeyDown}
-    >
-      {tabs.map((tab, idx) => {
-        const isActive = tab.id === active;
-        return (
-          <button
-            key={tab.id}
-            ref={(el) => {
-              buttonRefs.current[idx] = el;
-            }}
-            id={tabIdPrefix != null ? `${tabIdPrefix}${tab.id}` : undefined}
-            type="button"
-            role="tab"
-            data-testid={`${testIdPrefix}${tab.id}`}
-            data-active={isActive ? "true" : "false"}
-            aria-selected={isActive ? "true" : "false"}
-            tabIndex={isActive ? 0 : -1}
-            style={tabStyle(isActive)}
-            onClick={() => onChange(tab.id)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onChange(tab.id);
-              }
-            }}
-          >
-            {/* Optional leading icon (AC-13-006.19 / icon tests) */}
-            {tab.icon != null && (
-              <i
-                className={`ti ${tab.icon}`}
-                style={{ fontSize: "13px", verticalAlign: "-2px" }}
-                aria-hidden="true"
-              />
-            )}
-
-            {/* Label */}
-            {tab.label}
-
-            {/* Optional count badge (matches prototype tabProp() pattern).
-                The count is inside the <button role="tab"> context — no extra
-                aria-label needed; screen readers read the full button text. */}
-            {tab.count != null && <span style={COUNT_BADGE_STYLE}>{tab.count}</span>}
-          </button>
-        );
-      })}
+    <div className={`tabs-wrap ${styles.wrap}`} data-more-left={left} data-more-right={right}>
+      {left ? (
+        <button
+          type="button"
+          className={styles.previous}
+          aria-label={t("common.tabs.previous")}
+          onClick={() => scroll(-1)}
+        >
+          <Icon name="back" size="sm" />
+        </button>
+      ) : null}
+      <div
+        ref={listRef}
+        className={`tabs ${styles.tabs}`}
+        data-testid="tabs-root"
+        data-level={level}
+        role="tablist"
+        aria-label={ariaLabel}
+        onKeyDown={handleKeyDown}
+        onScroll={measure}
+      >
+        {tabs.map((tab) => {
+          const isActive = tab.id === active;
+          return (
+            <button
+              key={tab.id}
+              ref={(element) => {
+                if (element) buttonRefs.current.set(tab.id, element);
+                else buttonRefs.current.delete(tab.id);
+              }}
+              id={tabIdPrefix != null ? `${tabIdPrefix}${tab.id}` : undefined}
+              type="button"
+              role="tab"
+              data-testid={`${testIdPrefix}${tab.id}`}
+              data-active={isActive ? "true" : "false"}
+              data-tone={tab.tone ?? "slate"}
+              aria-selected={isActive}
+              aria-controls={panelControls(tab, panelIdPrefix)}
+              disabled={tab.disabled}
+              tabIndex={tab.id === focusId ? 0 : -1}
+              onClick={() => onChange(tab.id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onChange(tab.id);
+                }
+              }}
+            >
+              {tab.icon ? (
+                isIconName(tab.icon) ? (
+                  <Icon name={tab.icon} size="sm" />
+                ) : (
+                  <i className={`ti ${tab.icon}`} aria-hidden="true" />
+                )
+              ) : null}
+              {tab.label}
+              {tab.count != null ? (
+                <span className={`num ${styles.badge}`}>{tab.count}</span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+      {right ? (
+        <button
+          type="button"
+          className={styles.next}
+          aria-label={t("common.tabs.next")}
+          onClick={() => scroll(1)}
+        >
+          <Icon name="arrow" size="sm" />
+        </button>
+      ) : null}
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// SubTabs — convenience alias for level="sub"
-// ---------------------------------------------------------------------------
-
-/** SubTabs — shorthand for <Tabs level="sub" …>. AC-13-006.23. */
+/** Compatibility shorthand for secondary tab strips. */
 export function SubTabs(props: Omit<TabsProps, "level">): React.JSX.Element {
   return <Tabs level="sub" {...props} />;
 }

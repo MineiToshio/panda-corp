@@ -24,15 +24,10 @@ describe("PageTitle (CMP-13-pagetitle)", () => {
     expect(h1).toHaveTextContent("Inicio");
   });
 
-  // AC-13-006.2: accent itemslot icon
-  it("renders icon container with aria-hidden", () => {
+  it("wraps the canonical PageHead rather than drawing a separate title", () => {
     render(<PageTitle icon="ti-home" title="Inicio" />);
-    const root = screen.getByTestId("page-title");
-    // icon slot must be present and aria-hidden (decorative)
-    const iconSlot = root.querySelector("[aria-hidden='true']");
-    expect(iconSlot).not.toBeNull();
-    // icon class should be inside the slot
-    expect(iconSlot?.querySelector(".ti") ?? root.querySelector(".ti")).not.toBeNull();
+    expect(screen.getByTestId("page-title").querySelector("header.pagehead")).not.toBeNull();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 
   // AC-13-006.3: subtitle optional

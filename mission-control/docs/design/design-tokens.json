@@ -95,6 +95,7 @@
       "--dur": "160ms"
     },
     "layout": {
+      "--z-sidebar": "60",
       "--sidebar": "252px",
       "--rail-c": "64px",
       "--rail": "76px",

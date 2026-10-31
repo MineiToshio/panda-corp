@@ -8,7 +8,7 @@ test("nested destinations retain global highlights and configuration retains its
     selector: '[data-testid="card-detail-tab-spec"]',
   });
   await expect(page.getByTestId("app-nav-tablero")).toHaveAttribute("aria-current", "page");
-  const toggle = page.locator("[data-nav-toggle]");
+  const toggle = page.locator("#menu");
   if (await toggle.isVisible()) {
     await toggle.click();
     await expect(page.getByTestId("app-nav-tablero")).toBeVisible();

@@ -1,5 +1,9 @@
 # Decision Log — Mission Control
 
+## 2026-10-30 — Repair shell visibility and retire unused entry points early
+
+[WO-19-002](frds/frd-19-app-shell/work-orders/wo-19-002-appshell-frame-navigation.md) makes drawer visibility immediate on open so focus can enter, and uses the [sidebar stacking token](design/design-tokens.json) to keep navigation above full-bleed content. The phone menu reuses IconButton through additive id/className/ARIA props. Owner instruction moves unused proposal-count and pending-merge wrapper retirement forward from WO-17-008 / WO-13-013; the used pending-merge reader remains. Unused primitive type exports and stale v1 shell CSS are removed without changing reviewer tests or knip configuration.
+
 ## 2026-10-30 — Restore navigation reachability after workspace alias adoption
 
 [WO-25-001](frds/frd-25-persistent-navigation/work-orders/wo-25-001-url-contract-v2.md) repairs the second gate's regressions: Observabilidad retains the v1 work-order list before its diagnostics until WO-04-010, the workspace exposes eight tabs in AC-04-012.1 order, and the shell exposes seven destinations including Configuración (AC-19-001.2). Canonical dependency and accounts selections restore on reload; document and Changes links clear the work-order representation. The [FRD-25 blueprint](frds/frd-25-persistent-navigation/blueprint.md) and [work-order index](frds/frd-25-persistent-navigation/work-orders/README.md) now agree that both workspace boundaries apply aliases immediately.

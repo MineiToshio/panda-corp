@@ -78,16 +78,16 @@ for (const path of [
   }) => {
     await gotoHydrated(page, path, { selector: '[data-testid="app-shell"]' });
     await expect(page.getByTestId("app-shell")).toHaveCount(1);
-    await expect(page.locator("main")).toHaveCount(1);
+    await expect(page.locator("aside#sidebar")).toHaveCount(1);
+    await expect(page.locator("main#content")).toHaveCount(1);
     await expect(page.locator("h1")).toHaveCount(1);
-    await expect(page.locator("#main-content")).toHaveCount(1);
     await expect(page.getByRole("link", { name: "Saltar al contenido" })).toHaveCount(1);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
       ),
     ).toBeLessThanOrEqual(1);
-    const toggle = page.locator("[data-nav-toggle]");
+    const toggle = page.locator("#menu");
     if (await toggle.isVisible()) {
       await toggle.click();
       await expect(toggle).toHaveAttribute("aria-expanded", "true");

@@ -9,11 +9,13 @@ export function MarkdownAnchorScope({
   style,
   testId,
   className = "pc-markdown",
+  tone,
 }: {
   children: ReactNode;
   style: CSSProperties;
   testId?: string;
   className?: string;
+  tone?: import("@/components/core/Chip/vocabulary").Tone;
 }): React.JSX.Element {
   const root = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -42,7 +44,7 @@ export function MarkdownAnchorScope({
     };
   }, [children]);
   return (
-    <div ref={root} className={className} style={style} data-testid={testId}>
+    <div ref={root} className={className} data-tone={tone} style={style} data-testid={testId}>
       {children}
     </div>
   );

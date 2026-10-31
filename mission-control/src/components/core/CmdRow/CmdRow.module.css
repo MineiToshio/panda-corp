@@ -1,0 +1,25 @@
+.command > svg {
+  color: var(--tone, var(--violet));
+  flex: none;
+}
+.compact {
+  --command-height: 32px;
+  --command-padding: 2px 2px 2px var(--s2);
+  --command-gap: 6px;
+  --command-radius: var(--r-sm);
+  --command-font-size: var(--fs-xs);
+  --command-copy-padding: 0 var(--s1);
+  --command-copy-height: 26px;
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+}
+.compact .command {
+  min-height: 32px;
+  padding: 2px 2px 2px var(--s2);
+  gap: 6px;
+  border-radius: var(--r-sm);
+}
+.compact .command > span {
+  font-size: var(--fs-xs);
+}

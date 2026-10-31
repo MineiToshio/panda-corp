@@ -120,7 +120,7 @@ of this blueprint:
   `CommandCompact`), **SectionHeading = `SectionHead`** (`SectionHead/SectionHead.tsx`). This avoids
   aliases and keeps reviewer tests that import the v1 names compiling.
 - *Compatibility wrappers* (`CountBadge`, `TierBadge` over `Chip`; `StateBadge` keeping its icon +
-  label contract; `PageTitle`, `PageLayout` over `PageHead`) exist only for un-migrated v1 consumers
+  label contract; `PageTitle`, `PageLayout` over `PageHead`, with the shell owning the only main landmark) exist only for un-migrated v1 consumers
   and are deleted by WO-13-013.
 - *Vocabulary (IF-13-vocabulary)* is the single source of phase, work-order-state and return-type tone,
   icon and label key (DR-115); surfaces never redefine them. The work-order-state presentation is one
@@ -132,6 +132,31 @@ of this blueprint:
   string.
 - *Dates (IF-13-copy)*: one shared Spanish formatter pair in `src/lib/copy/dates.ts` (absolute «19 oct.
   2026», relative «hoy · ayer · hace N días · hace N min»), `now` passed in; every surface uses it.
+
+### Published additive primitive API (2026-10-30, S1A)
+
+Existing imports and caller props remain valid; consumers may adopt these props without migrating
+other callers. Canonical concepts remain `CommandBox = CmdRow`, `Dialog = Modal`.
+
+- `Button` in `core/Button/Button`: `variant?: "default" | "primary" | "secondary" | "ghost" |
+  "toned" | "danger"` (`secondary` remains a default-look compatibility value), `tone?: Tone |
+  "default" | "danger"`, `size?: "sm" | "md" | "lg"`, `icon?: IconName`, `className?: string`,
+  plus the existing `disabled`, `onClick`, `children`, `type`, `ariaLabel`, `data-testid`.
+  Default/md is 40 px; sm is 32 px; primary inverts the neutral primary tokens; danger is outlined coral.
+- `Tabs` in `core/Tabs/Tabs`: `level?: "top" | "sub"` (defaults to top),
+  `tabs: readonly TabDef[]`, `active`, `onChange`, `ariaLabel?`, `testIdPrefix?`, `tabIdPrefix?`,
+  `panelIdPrefix?`. Exported `TabDef` retains `id`, `label`, `icon?: string`, `count?` and adds
+  `tone?: Tone`, `panelId?: string`, `disabled?: boolean`. SVG names and legacy `ti-*` icon strings
+  are supported. `aria-controls` uses `panelId`, otherwise `${panelIdPrefix}${id}` only when the caller supplies `panelIdPrefix`; without either, it is omitted.
+  Selection stays controlled; arrows/Home/End move focus, Enter/Space select. `SubTabs` stays exported.
+- `Modal` in `core/Modal/Modal`: existing `open`, `onClose`, `title`, `testIdBase`, `ariaLabel?`,
+  `badge?`, `width?`, `children` plus `tone?: Tone`, `kicker?: string`, `footer?: ReactNode`,
+  `className?: string`. Native `dialog`, rendered in place; `testIdBase` hooks are preserved.
+  Default width is the frozen 680 px cap. Open focuses the dialog; close restores a connected opener.
+  Escape, backdrop dismissal and keyboard trapping remain supported. No caller changes required.
+
+`PageLayout` becomes a section around `PageHead` and the existing content slot. The shell owns the
+single main landmark, avoiding nested main elements during the migration (plan risk R16).
 
 **v1 compatibility layer.** From WO-13-010 to WO-13-013, one fenced block of `globals.css` keeps the v1
 token names and global classes that un-migrated v1 components read, re-pointed at the Órbita token the

@@ -50,12 +50,12 @@ describe("core/Markdown — heading demotion (one-h1-per-page invariant)", () =>
     expect(screen.getByTestId("md-root").textContent).not.toContain("# Título");
   });
 
-  it("still renders the demoted main title with the H1 visual scale (20px)", () => {
+  it("keeps the demoted main title on the frozen heading scale", () => {
     render(<Markdown>{"# Título"}</Markdown>);
     // Demotion changes the TAG (h1→h2) but keeps the visual weight (H1_STYLE, 20px),
     // so the document's main title never reads smaller than its own sub-headings.
     const heading = screen.getByRole("heading", { level: 2, name: "Título" });
-    expect(heading.style.fontSize).toBe("20px");
+    expect(heading.style.fontSize).toBe("var(--fs-h1s)");
   });
 });
 

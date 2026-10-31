@@ -7,14 +7,13 @@ status: ACTIVE
 parent: FRD-13
 foundation: true
 implementation_status: IN_REVIEW
-blocked_reason:
 difficulty: high
 reopen_count: 0
 artifacts:
   - "src/components/core/{Card,PageHead,PageTitle,PageLayout,Crumbs,SectionHead,Tabs,EmptyState,Notice,Banner,Modal,Table,ListRow,Markdown}/**"
 source_requirements: [REQ-13-002, REQ-13-004, REQ-13-005, REQ-13-007, REQ-13-009]
 dependsOn: [WO-13-011]
-last_updated: 2026-10-22
+last_updated: 2026-10-30
 ---
 
 # WO-13-012 — Órbita composite primitives and framing patterns
@@ -51,10 +50,9 @@ the leaf primitives of WO-13-011 (no re-implemented chip, button or icon tile).
    at most 70ch, actions at the right (wrapping). `Crumbs` (new folder): last item `aria-current="page"`,
    accessible name from the catalogue's breadcrumb label (drawn by the drill-in states of FRD-02, FRD-04
    and FRD-08). `PageTitle` and `PageLayout` are restyled as thin
-   compatibility wrappers over `PageHead` (exports unchanged; `PageLayout` keeps rendering its own
-   `<main>` for the v1 pages that still use it, which from WO-19-002 on is a transient landmark inside
-   the shell's `main#content` until each surface is rebuilt on `PageHead`; both are deleted by
-   WO-13-013). `PageHead` itself never renders a `<main>`.
+   compatibility wrappers over `PageHead` (exports unchanged; `PageLayout` renders a section, leaving
+   the sole `main#content` to the shell, resolving plan risk R16 in S1A on 2026-10-30; both wrappers
+   are deleted by WO-13-013). `PageHead` itself never renders a `<main>`.
 3. `SectionHeading` (restyle in place: module and export stay `SectionHead/SectionHead.tsx` /
    `SectionHead`): display 15 px / 700 in TEXT colour, icon in the section hue, hairline, muted note and
    optional link at the right.
@@ -179,6 +177,80 @@ Cites LESSON-0364 (only the inner content cap goes; the shell frame keeps its en
 `PageHead` / `Card` widths inside the 1180 px frame).
 
 ## Status Note
+
+### 2026-10-30 — S1A round 2 review patches
+
+- Tabs scrolls only its own horizontal strip on phone widths, with keyboard focus using
+  `preventScroll`; it never calls `scrollIntoView`. Both global icon hooks (`.i` and `.ti`) take the
+  selected tone or inactive `--text-3`. Panel associations are emitted only for caller-supplied
+  `panelId` or `panelIdPrefix`; the published blueprint default now states this contract.
+- Dialog retains native top-layer positioning by removing `position: relative`. Only `::backdrop`
+  paints the backdrop token and blur; the transparent test-host dismissal hook remains. Reopening a
+  DialogConfirm clears the typed reason. Banner uses `--tint-strong` and the 55% border mix.
+- B1's main landmark is outside this patch and remains owned by WO-19-002.
+- No commits, staging, merges, pushes, merge queue, reviewer-test edits or baseline changes.
+
+- Verification from `mission-control/`, with `export PORT=3941 PANDACORP_E2E_PORT=3941`:
+  - `pnpm exec tsc --noEmit --project /private/tmp/mission-control-s1a-round2.tsconfig.json` passed.
+    This temporary config extends this checkout's tsconfig, includes the eight affected core folders
+    and their tests, vitest.setup.ts and installed Next CSS declarations; it is not a whole-app check.
+  - `git diff --name-only --relative -- src/components/core | xargs pnpm exec biome check` passed
+    (11 changed source/style files); `git diff --check` passed.
+  - `pnpm exec vitest run src/components/core/{Tabs,Modal,CmdRow}/_tests/*.s1a.reviewer.test.tsx src/components/modules/BuildModePicker/_tests/BuildModePicker.reviewer.test.tsx --maxWorkers=2 --reporter=dot`
+    passed: 36 tests, four files, including all eight new S1A reviewer tests.
+  - `pnpm exec vitest run src/components/core/{CmdRow,CopyButton,Toast,TierBadge,ProgressBar,Tabs,Modal,Banner} --maxWorkers=2 --reporter=dot`
+    passed: 169 tests, 18 files. This includes the restored stable Toast test hook; an earlier broad
+    run caught the temporary accidental change to that hook before its restoration.
+  - `pnpm exec vitest related src/components/core/{CmdRow/CmdRow.tsx,CopyButton/CopyButton.tsx,Tabs/Tabs.tsx,Modal/DialogConfirm.tsx,Toast/Toast.tsx,TierBadge/TierBadge.tsx,ProgressBar/ProgressBar.tsx,Banner/Banner.module.css,Modal/Dialog.module.css,Tabs/Tabs.module.css,CmdRow/CmdRow.module.css} --run --maxWorkers=2 --reporter=dot`
+    completed with 2435 passed / 2 failed tests in 190 files before the final progress compatibility
+    correction. Failures: `src/app/proposals/_tests/proposals-page.test.tsx:319` requires a standalone
+    main landmark (B1, explicitly outside S1A); the unchanged legacy reviewer2 test requires the
+    `--color-ok` completion token. ProgressBar now uses `var(--green, var(--color-ok))`, preserving
+    the v2 hue with a legacy fallback. The full related suite was not repeated after this correction.
+  - `pnpm exec vitest related src/components/core/ProgressBar/ProgressBar.tsx --run --maxWorkers=2 --reporter=dot`
+    passed after the final correction: 140 tests, four files, including the unchanged reviewer2 test.
+  - Node localStorage, legacy test act() and manual derivation warnings were emitted. B1 remains red.
+    No full verify.sh, browser/Playwright, phone computed-style measurement, theme visual check or
+    pixel/fidelity gate was run. Reviewer tests and blessed visual baselines are unchanged.
+
+
+### 2026-10-30 — S1A completion (supersedes the deferred-restyle assumption below)
+
+- `Tabs/Tabs.tsx`: additive contract published in the blueprint first. Existing level/tabs/active/
+  onChange/ariaLabel/testIdPrefix/tabIdPrefix remain accepted; level now defaults to top and tabs may
+  be readonly. Exported `TabDef` adds tone/panelId/disabled, and Tabs adds panelIdPrefix. SVG and legacy
+  ti-* icons work. The one strip uses 46 px buttons, hue underline, count pill, 28 px fades and named
+  overflow controls. Arrow keys/Home/End skip disabled tabs; Enter/Space select without owning the URL.
+  Panel associations and selected-tab scroll are provided; SubTabs stays exported.
+- `SectionHead/SectionHead.tsx` (SectionHeading): neutral 15 px/700 title, tinted icon, hairline;
+  existing label/count/icon/rightHtml plus optional tone/note/link. Root hooks saga-head/saga-line.
+- `Banner/Banner.tsx` (AlertBanner): coral rounded alert anatomy with the same tone/kind/icon/heading/
+  detail/children/commandRow/dismissible/onDismiss/items/collapseAfter contract and old test hooks.
+  Legacy tone values keep distinct geometric icons; the alert surface is uniformly coral. Command rows
+  compose CmdRow's box presentation, with no edge stripes. Existing legacy collapse phrases remain
+  compatibility copy; no frozen catalogue keys were changed.
+- `Modal/Modal.tsx` (Dialog): native in-place dialog#dlg with showModal/close/cancel, 680 px default cap,
+  tinted sticky head, optional tone/kicker/footer/className, labelled title, SVG close control and
+  20 px body. Existing props, backdrop/close/panel test hooks and `Cerrar modal` accessible name remain.
+  Focus moves to the dialog, both Tab directions are trapped, current close callbacks do not reopen it,
+  and only a connected opener regains focus. Root scroll locks preserve overflow and scrollbar-gutter
+  values and are released after the last open dialog. Non-native DOM hosts use the same dialog markup
+  with open-attribute/keyboard fallback for jsdom. DialogConfirm and DialogSheet still compose it.
+- `Markdown/Markdown.tsx`: additive tone/compact, raw Órbita typography, tinted heading/code/table
+  styling, zebra rows and whole-word table cells. New Markdown/Scrollable exposes a named keyboard
+  scroll region and catalogue hint on overflow. Heading demotion, ids, async anchor restoration and
+  link resolver behavior are preserved.
+- `PageTitle/PageTitle.tsx` now composes PageHead with existing title/subtitle/tail and test hooks;
+  icon remains accepted for callers. `PageLayout/PageLayout.tsx` retains all props and uses a section
+  rather than a nested main. R16 has a regression test rendering it under main#content and asserting
+  one main and one h1. No caller was edited.
+- Scoped verification and Git publication limitation: see WO-13-011's dated S1A entry. tsc and Biome
+  passed; 224 Vitest cases in 22 touched-folder suites passed, including the unchanged Modal focus
+  reviewer suite. No reviewer tests or blessed visual baselines were changed. No outside-folder
+  foundation/board/gamification reviewer suites, full gate or browser/fidelity checks were run.
+  No reviewer test has been identified as needing a move; the external suites remain unverified.
+
+### Prior build record (superseded where the completion above differs)
 
 **Built.** New folders (CSS module per folder on the raw tokens, prototype hooks on the roots, `data-tone` for the hue): `Card/Card.tsx` (`Card`, `CardHeader`, `CardFoot`, `CardPair`), `PageHead/PageHead.tsx`, `Crumbs/Crumbs.tsx`, `EmptyState/EmptyState.tsx`, `Notice/Notice.tsx`, `Table/Table.tsx`, `ListRow/ListRow.tsx` (`ListRow`, `DividedList`). The dialog family extends the shared `Modal` in place: `Modal/DialogConfirm.tsx` and `Modal/DialogSheet.tsx` compose it, so the focus trap, Escape and focus return of `Modal` (and its reviewer test) are unchanged.
 

@@ -7,14 +7,13 @@ status: ACTIVE
 parent: FRD-13
 foundation: true
 implementation_status: IN_REVIEW
-blocked_reason:
 difficulty: medium
 reopen_count: 0
 artifacts:
   - "src/components/core/{Button,Chip,CountBadge,TierBadge,CmdRow,CopyButton,CopyText,Field,MoreBar,StateBadge,StateDot,Avatar,Ring,ProgressBar,PhaseStepper,KeyValue,Toast,Segmented,BadgeIcon}/**"
 source_requirements: [REQ-13-002, REQ-13-003, REQ-13-007, REQ-13-008, REQ-13-009, REQ-13-010, AC-13-010.1]
 dependsOn: [WO-13-010]
-last_updated: 2026-10-22
+last_updated: 2026-10-30
 ---
 
 # WO-13-011 — Órbita leaf primitives (buttons, chips, command box, fields, state, progress)
@@ -209,6 +208,82 @@ LESSON-0484 (no edge stripes; red / amber / green for status only) and LESSON-00
 no `aria-label` on bare spans, interactive roles need focusability).
 
 ## Status Note
+
+### 2026-10-30 — S1A round 2 review patches
+
+- CopyButton delegates toast presentation when `onResult` is supplied; standalone copying keeps its
+  internal success/failure toast. Toast instances now have unique HTML ids and retain `data-testid="toast"`.
+- CommandBox inserts a break after every colon and protects hyphenated identifiers with non-wrapping
+  spans while copying the original string. Neutral command frames use `--bg-2`; explicit hues retain
+  the tint. CommandCompact supplies CSS variables for its 32 px frame, 6 px gap, `--r-sm`, `--fs-xs`
+  and 26 px copy/mode controls, so inline styles no longer override the compact presentation.
+- TierBadge is a thin Chip wrapper using the shared rarity hues, preserving tier/name/ARIA hooks and
+  replacing the 9 px pixel text with the Chip's `--fs-xs`. ProgressBar's default track is 6 px with v2
+  surface/radius/hue/type tokens and no stripes; its progress semantics and labels remain.
+- No commits, staging, merges, pushes, merge queue, reviewer-test edits or baseline changes.
+
+- Verification from `mission-control/`, with `export PORT=3941 PANDACORP_E2E_PORT=3941`:
+  - `pnpm exec tsc --noEmit --project /private/tmp/mission-control-s1a-round2.tsconfig.json` passed.
+    This temporary config extends this checkout's tsconfig, includes the eight affected core folders
+    and their tests, vitest.setup.ts and installed Next CSS declarations; it is not a whole-app check.
+  - `git diff --name-only --relative -- src/components/core | xargs pnpm exec biome check` passed
+    (11 changed source/style files); `git diff --check` passed.
+  - `pnpm exec vitest run src/components/core/{Tabs,Modal,CmdRow}/_tests/*.s1a.reviewer.test.tsx src/components/modules/BuildModePicker/_tests/BuildModePicker.reviewer.test.tsx --maxWorkers=2 --reporter=dot`
+    passed: 36 tests, four files, including all eight new S1A reviewer tests.
+  - `pnpm exec vitest run src/components/core/{CmdRow,CopyButton,Toast,TierBadge,ProgressBar,Tabs,Modal,Banner} --maxWorkers=2 --reporter=dot`
+    passed: 169 tests, 18 files. This includes the restored stable Toast test hook; an earlier broad
+    run caught the temporary accidental change to that hook before its restoration.
+  - `pnpm exec vitest related src/components/core/{CmdRow/CmdRow.tsx,CopyButton/CopyButton.tsx,Tabs/Tabs.tsx,Modal/DialogConfirm.tsx,Toast/Toast.tsx,TierBadge/TierBadge.tsx,ProgressBar/ProgressBar.tsx,Banner/Banner.module.css,Modal/Dialog.module.css,Tabs/Tabs.module.css,CmdRow/CmdRow.module.css} --run --maxWorkers=2 --reporter=dot`
+    completed with 2435 passed / 2 failed tests in 190 files before the final progress compatibility
+    correction. Failures: `src/app/proposals/_tests/proposals-page.test.tsx:319` requires a standalone
+    main landmark (B1, explicitly outside S1A); the unchanged legacy reviewer2 test requires the
+    `--color-ok` completion token. ProgressBar now uses `var(--green, var(--color-ok))`, preserving
+    the v2 hue with a legacy fallback. The full related suite was not repeated after this correction.
+  - `pnpm exec vitest related src/components/core/ProgressBar/ProgressBar.tsx --run --maxWorkers=2 --reporter=dot`
+    passed after the final correction: 140 tests, four files, including the unchanged reviewer2 test.
+  - Node localStorage, legacy test act() and manual derivation warnings were emitted. B1 remains red.
+    No full verify.sh, browser/Playwright, phone computed-style measurement, theme visual check or
+    pixel/fidelity gate was run. Reviewer tests and blessed visual baselines are unchanged.
+
+
+### 2026-10-30 — S1A completion (supersedes the deferred-restyle assumption below)
+
+- Completed `Button/Button.tsx`: additive `variant` default/primary/secondary/ghost/toned/danger,
+  `tone` hue/default/danger, `size` sm/md/lg, `icon`, `className`; existing event, type, disabled,
+  accessible-label and test-id props remain. 40 px md, 32 px sm, neutral inverted primary and outlined
+  coral danger. Root hooks are `btn`, variant and size. The old `pc-btn` hook is retired here because
+  its compatibility CSS forces the v1 glow and filled-danger hover with `!important`; no caller edits.
+  `Button/IconButton.tsx` additionally accepts `data-testid` for the native dialog close action.
+- `CmdRow/CmdRow.tsx` is CommandBox (no second implementation or alias). `variant="box"` renders a
+  terminal SVG, token-based 5% container hue, code that wraps at the first colon and spaces, a 36 px
+  copy control named through `common.copy.command`, and preserves every mode-selection prop/callback.
+  Additive `tone?: Tone`. The default compact v1 span retains its selectable/ellipsis contract for
+  the kept reviewer probes. New `CommandCompact(props: Omit<CmdRowProps, "variant">)` composes it for
+  list rows. Long unbroken identifiers in the box scroll rather than split.
+- `CopyButton/CopyButton.tsx` preserves its props and two-second button confirmation/in-flight guard;
+  success and failure now raise the shared `Toast` using the frozen catalogue. Pending results do
+  not update an unmounted control. `Toast/Toast.tsx` keeps its props, uses inverted primary tokens,
+  `#toast`, a 2.6-second default duration and message-sensitive dismissal independent of callback identity.
+- `Avatar/Avatar.tsx` keeps agentId/size/test-suffix, adds optional name/initials/label/tone and makes
+  agentId optional for project tiles. Project default is md (36 px); initials inherit the phase hue.
+  Known agent sprites stay pixelated; unknown or failed sprites show initials rather than another role.
+- Published the Button/Tabs/Modal API in blueprint §Published additive primitive API before coding
+  the implementations. Attempted the required contract-first commit, but Git could not create
+  `/Users/Shared/Proyectos/panda-corp/.git/worktrees/orch-s1a/index.lock` (`Operation not permitted`).
+  No commit, merge, push or merge queue was performed; this remains an external handoff limitation.
+- Verification from `mission-control/`, with `PORT=3941` and `PANDACORP_E2E_PORT=3941`:
+  `pnpm exec tsc --noEmit --project /private/tmp/mission-control-s1a.tsconfig.json` passed. The temporary
+  config extends this checkout's tsconfig, includes only the twelve touched core folders and their
+  tests plus vitest.setup.ts, and loads installed Next CSS declarations and Node types; this checkout
+  has no generated next-env.d.ts. It does not scan every app route.
+  `pnpm exec biome check src/components/core/{Button,CmdRow,CopyButton,Toast,Avatar,Tabs,SectionHead,Banner,Modal,Markdown,PageTitle,PageLayout}`
+  passed (52 files). `pnpm exec vitest run src/components/core/{Button,CmdRow,CopyButton,Toast,Avatar,Tabs,SectionHead,Banner,Modal,Markdown,PageTitle,PageLayout} --maxWorkers=2 --reporter=dot`
+  passed (224 tests, 22 files). Includes unchanged header-marked CopyButton reviewer probes and native
+  Modal focus reviewer tests. Node localStorage and legacy clipboard-test act() warnings were emitted.
+  No full verify.sh, cross-surface suites, browser, Playwright or computed-style/fidelity verification
+  was run, as explicitly scoped by S1A. Reviewer tests and visual baselines were not modified.
+
+### Prior build record (superseded where the completion above differs)
 
 **Built (extend in place, new folders for new primitives).** Styling for the hue-tinted primitives lives in a CSS module per folder that mirrors the prototype's reference CSS on the raw tokens (`color-mix(... var(--tint-strong) ...)` cannot be expressed as registry utilities); hover is gated in `@media (hover: hover)`; prototype class hooks (`chip`, `seg`, `ring`, `stepper`, `kv`, `copy-text`, `morebtn`, `field`, `switch`, `state-dot`, `badge-icon`, `bar`, `stackbar`) are on the root elements and `data-tone` sets `--tone` (rules from WO-13-010).
 

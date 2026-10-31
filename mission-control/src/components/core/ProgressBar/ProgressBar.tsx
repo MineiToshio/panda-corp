@@ -5,12 +5,6 @@
  * role=progressbar with full ARIA (aria-valuenow/min/max/label).
  * tabular-nums on all numerals.
  *
- * Prototype reference (re-anchor, DR-054):
- *   .xpbar → height:18px; border-radius:7px; border:1px solid var(--bd2);
- *             background:var(--canvas); overflow:hidden
- *   .xpbar > i → display:block; height:100%; background:var(--accent); transition:width .6s
- *   Stripe overlay: repeating-linear-gradient(90deg, transparent 0 16px, var(--canvas) 16px 18px)
- *
  * Tokens only. Light+dark first-class.
  * Traceability: CMP-13-progressbar, AC-13-006.x.
  */
@@ -23,7 +17,7 @@ import type { Tone } from "@/components/core/Chip/vocabulary";
 import styles from "./ProgressBar.module.css";
 
 export interface ProgressBarProps {
-  /** Órbita hue: renders the 6 px bar in that hue instead of the v1 striped bar. */
+  /** Órbita hue: sets the 6 px bar hue; omitted keeps the labelled presentation. */
   tone?: Tone;
   /** Number of completed items. */
   done: number;
@@ -43,7 +37,7 @@ export interface ProgressBarProps {
  * Usage: `<ProgressBar done={3} total={10} />`
  *
  * Shows "done/total · pct%" label. Fill switches to ok-color at 100%.
- * Stripe overlay matches the XpBar aesthetic from the prototype.
+ * Both presentations use the Órbita track and hue tokens.
  */
 export function ProgressBar({
   done,
@@ -74,10 +68,10 @@ export function ProgressBar({
 
   const trackStyle: React.CSSProperties = {
     position: "relative",
-    height: "18px",
-    borderRadius: "7px",
-    border: "1px solid var(--color-border-strong)",
-    background: "var(--color-base)",
+    height: "6px",
+    borderRadius: "var(--r-pill)",
+    border: 0,
+    background: "var(--surface-3)",
     overflow: "hidden",
   };
 
@@ -85,26 +79,16 @@ export function ProgressBar({
     display: "block",
     height: "100%",
     width: `${pct}%`,
-    background: isComplete ? "var(--color-ok)" : "var(--color-accent)",
-    transition: "width var(--duration-expressive, 280ms) var(--easing-standard, ease)",
-  };
-
-  // Stripe overlay (matches .xpbar::after in the prototype)
-  const stripeStyle: React.CSSProperties = {
-    position: "absolute",
-    inset: 0,
-    backgroundImage:
-      "repeating-linear-gradient(90deg, transparent 0 16px, var(--color-base) 16px 18px)",
-    opacity: 0.5,
-    pointerEvents: "none",
+    background: isComplete ? "var(--green, var(--color-ok))" : "var(--violet)",
+    transition: "width var(--dur) var(--ease)",
   };
 
   const labelStyle: React.CSSProperties = {
     display: "flex",
     justifyContent: "space-between",
-    fontSize: "11px",
-    color: "var(--color-text2)",
-    marginTop: "4px",
+    fontSize: "var(--fs-xs)",
+    color: "var(--text-2)",
+    marginTop: "var(--s1)",
     fontVariantNumeric: "tabular-nums",
   };
 
@@ -120,7 +104,6 @@ export function ProgressBar({
     >
       <div style={trackStyle}>
         <i data-testid="progress-bar-fill" style={fillStyle} />
-        <div aria-hidden="true" style={stripeStyle} />
       </div>
       <div aria-hidden="true" style={labelStyle}>
         <span>

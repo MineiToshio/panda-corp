@@ -1,133 +1,11 @@
 "use client";
 
-/**
- * Modal — reusable overlay dialog (core primitive, DR-057).
- *
- * Extracted from IntakeModal so every modal surface shares ONE implementation:
- * fixed overlay + dimmed/blurred backdrop + centered panel, with the accessibility
- * contract baked in (role="dialog", aria-modal, focus-on-open, Escape closes,
- * Tab/Shift+Tab trapped, backdrop click closes, panel click does not).
- *
- * The owner's rule: we do NOT use inline expand-that-pushes-content; surfaces that
- * reveal more detail open in a modal. This is the shared component for that.
- *
- * Design rules (FRD-13, AGENTS.md): zero hardcoded colors (CSS custom properties),
- * data-testid on key nodes (derived from `testIdBase`), Spanish copy at the call site.
- *
- * Usage:
- *   <Modal open={open} onClose={close} title="…" testIdBase="intake" badge={…}>
- *     …body…
- *   </Modal>
- */
-
-import { useEffect, useRef } from "react";
-
-// ---------------------------------------------------------------------------
-// Styles — CSS custom properties only.
-// ---------------------------------------------------------------------------
-
-const OVERLAY_STYLE: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 200,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-};
-
-const BACKDROP_STYLE: React.CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  background:
-    "var(--color-backdrop, color-mix(in oklch, var(--color-base, black) 60%, transparent))",
-  backdropFilter: "blur(3px)",
-  WebkitBackdropFilter: "blur(3px)",
-};
-
-const PANEL_BASE_STYLE: React.CSSProperties = {
-  position: "relative",
-  zIndex: 1,
-  background: "var(--color-panel)",
-  border: "0.5px solid var(--color-border-strong)",
-  borderRadius: "var(--radius-lg, 16px)",
-  padding: "22px 24px",
-  maxWidth: "calc(100vw - 32px)",
-  maxHeight: "85vh",
-  overflowY: "auto",
-  boxShadow: "var(--shadow-pop, var(--shadow-overlay, 0 18px 50px rgba(0,0,0,0.5)))",
-  display: "flex",
-  flexDirection: "column",
-  gap: "14px",
-  outline: "none",
-};
-
-const HEADER_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "10px",
-};
-
-const HEADER_LEFT_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "9px",
-  flexWrap: "wrap",
-  minWidth: 0,
-};
-
-const HEADING_STYLE: React.CSSProperties = {
-  margin: 0,
-  fontFamily: "var(--font-display, inherit)",
-  fontSize: "15px",
-  fontWeight: 600,
-  color: "var(--color-text)",
-};
-
-const CLOSE_BTN_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "var(--color-card)",
-  border: "1px solid var(--color-border-strong)",
-  cursor: "pointer",
-  color: "var(--color-text)",
-  padding: "5px 10px",
-  borderRadius: "8px",
-  flexShrink: 0,
-};
-
-// ---------------------------------------------------------------------------
-// Focus-trap helper — keeps Tab/Shift+Tab inside the dialog panel (a11y).
-// ---------------------------------------------------------------------------
-
-const FOCUSABLE_SELECTOR =
-  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
-
-/** Wrap focus inside `panel` when Tab/Shift+Tab would otherwise escape it. */
-function trapFocus(event: KeyboardEvent, panel: HTMLDivElement): void {
-  const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
-  const first = focusable.at(0);
-  const last = focusable.at(-1);
-  if (!first || !last) return;
-
-  if (event.shiftKey) {
-    if (document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    }
-    return;
-  }
-
-  if (document.activeElement === last || document.activeElement === panel) {
-    event.preventDefault();
-    first.focus();
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
+import { useId, useRef } from "react";
+import { IconButton } from "@/components/core/Button/IconButton";
+import type { Tone } from "@/components/core/Chip/vocabulary";
+import { t } from "@/lib/copy/copy";
+import styles from "./Dialog.module.css";
+import { useModalLifecycle } from "./useModalLifecycle";
 
 export interface ModalProps {
   /** Whether the modal is open and visible. */
@@ -145,16 +23,21 @@ export interface ModalProps {
   ariaLabel?: string;
   /** Optional node rendered before the title (e.g. a "TABLERO" badge). */
   badge?: React.ReactNode;
-  /** Panel width (default 540px). */
+  /** Panel width (default 680px). */
   width?: number | string;
+  /** Dialog header hue; defaults to slate. */
+  tone?: Tone;
+  /** Optional uppercase context label in the sticky header. */
+  kicker?: string;
+  /** Optional actions below the body. */
+  footer?: React.ReactNode;
+  /** Additional panel classes. */
+  className?: string;
   /** Modal body. */
   children: React.ReactNode;
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
+/** Native in-place dialog with a sticky tinted header and connected-opener focus return. */
 export function Modal({
   open,
   onClose,
@@ -162,84 +45,72 @@ export function Modal({
   testIdBase,
   ariaLabel,
   badge,
-  width = 540,
+  width = 680,
   children,
+  tone = "slate",
+  kicker,
+  footer,
+  className,
 }: ModalProps): React.JSX.Element | null {
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  // Focus the panel on open and return to its connected opener on close/unmount.
-  useEffect(() => {
-    if (!open || !panelRef.current) return;
-    const opener = document.activeElement;
-    panelRef.current.focus();
-    return () => {
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
-    };
-  }, [open]);
-
-  // Escape dismisses + Tab/Shift+Tab focus trap (a11y).
-  useEffect(() => {
-    if (!open) return;
-
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (event.key === "Tab" && panelRef.current) {
-        trapFocus(event, panelRef.current);
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open, onClose]);
-
+  const panelRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  useModalLifecycle({ open, panelRef, onClose });
+  function handleCancel(event: React.SyntheticEvent<HTMLDialogElement>): void {
+    event.preventDefault();
+    onClose();
+  }
+  function handleBackdrop(event: React.MouseEvent<HTMLDialogElement>): void {
+    if (event.target !== event.currentTarget) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (
+      event.clientX < bounds.left ||
+      event.clientX > bounds.right ||
+      event.clientY < bounds.top ||
+      event.clientY > bounds.bottom
+    )
+      onClose();
+  }
   if (!open) return null;
-
   return (
-    <div style={OVERLAY_STYLE}>
-      {/* Backdrop — clickable, separate from the panel (clicking the panel must NOT close) */}
+    <div className={styles.overlay}>
+      {/* The native backdrop handles real browsers; this hook also supports non-dialog DOM hosts. */}
       <div
         data-testid={`${testIdBase}-backdrop`}
         aria-hidden="true"
-        style={BACKDROP_STYLE}
+        className={styles.backdrop}
         onClick={onClose}
       />
-
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard handled via the document keydown useEffect above */}
-      <div
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: clicks outside dialog bounds dismiss; Escape uses native cancel */}
+      <dialog
         ref={panelRef}
-        role="dialog"
+        id="dlg"
         aria-modal="true"
-        aria-label={ariaLabel ?? title}
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabel ? undefined : titleId}
         data-testid={`${testIdBase}-modal`}
-        style={{ ...PANEL_BASE_STYLE, width }}
+        data-tone={tone}
+        className={`${styles.dialog} ${className ?? ""}`}
+        style={{ width }}
         tabIndex={-1}
-        onClick={(e) => e.stopPropagation()}
+        onCancel={handleCancel}
+        onClick={handleBackdrop}
       >
-        {/* Header: optional badge + title (left) · icon ✕ (right) */}
-        <div style={HEADER_STYLE}>
-          <div style={HEADER_LEFT_STYLE}>
+        <div className={`dhead ${styles.head}`}>
+          <div className={`dtitle ${styles.title}`}>
             {badge}
-            <h2 style={HEADING_STYLE}>{title}</h2>
+            {kicker ? <p className={`dkicker ${styles.kicker}`}>{kicker}</p> : null}
+            <h2 id={titleId}>{title}</h2>
           </div>
-
-          <button
-            type="button"
+          <IconButton
             data-testid={`${testIdBase}-close`}
-            aria-label="Cerrar modal"
-            style={CLOSE_BTN_STYLE}
+            icon="x"
+            label={`${t("dialogs.default.close")} modal`}
             onClick={onClose}
-          >
-            <i className="ti ti-x" aria-hidden="true" style={{ fontSize: "13px" }} />
-          </button>
+          />
         </div>
-
-        {children}
-      </div>
+        <div className={`dbody ${styles.body}`}>{children}</div>
+        {footer ? <div className={styles.footer}>{footer}</div> : null}
+      </dialog>
     </div>
   );
 }

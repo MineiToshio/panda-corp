@@ -15,14 +15,7 @@ import type { Metadata } from "next";
 import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
 import { GamificationLedgerSync } from "@/components/dashboard/GamificationLedgerSync/GamificationLedgerSync";
 import { AppShell } from "@/components/modules/AppShell/AppShell";
-import { CelebrationWatcher } from "@/components/modules/CelebrationWatcher/CelebrationWatcher";
-import { GuildBar } from "@/components/modules/GuildBar/GuildBar";
-import { PendingMergeBadge } from "@/components/modules/PendingMergeBadge/PendingMergeBadge";
-import { ProposalsBadge } from "@/components/modules/ProposalsBadge/ProposalsBadge";
-import { getGuildState } from "@/lib/gamification/guildState";
-import { getPendingMerge } from "@/lib/pendingMerge/pendingMerge";
 import { readProfile } from "@/lib/profile/profile";
-import { countOpenProposals } from "@/lib/proposals/proposals";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/bootScript";
 import "./globals.css";
 
@@ -46,18 +39,6 @@ export default function RootLayout({
   // Path resolved at call-time inside readProfile() so PANDACORP_FACTORY_ROOT env is respected.
   const profileResult = readProfile();
 
-  // Guild level from THE single source of truth (AC-09-004.1) — the same getGuildState()
-  // the Inicio dashboard and the Logros hero read, so the level never diverges across surfaces.
-  const { outcomes: guildOutcomes } = getGuildState();
-
-  // Open proposal count for the top-bar guild badge (CMP-17-badge, AC-17-007.1).
-  // Fail-soft: missing factory/memory → { total: 0 } → calm state.
-  const proposalCounts = countOpenProposals();
-
-  // Pending-merge indicator (FRD-21): live git state of the factory repo's un-merged worktrees/branches.
-  // Read-only, fail-loud; renders nothing when there is none (calm). DR-096 visibility layer.
-  const pendingMerge = getPendingMerge();
-
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
@@ -76,21 +57,7 @@ export default function RootLayout({
       <body>
         {profileResult.present ? (
           <>
-            {/* AppShell — the persistent global topbar (FRD-19): brand + guild level/XP on the left,
-                the six top-level destinations on the right. GuildBar (embedded) and ProposalsBadge are
-                passed as slots so they keep their server-derived data; AppShell decides scope (no
-                topbar on the exempt drill-ins) and wraps the page in #main-content. */}
-            <AppShell
-              levelBar={<GuildBar outcomes={guildOutcomes} embedded />}
-              proposalsBadge={<ProposalsBadge openCount={proposalCounts.total} />}
-              pendingMergeBadge={<PendingMergeBadge result={pendingMerge} />}
-            >
-              {children}
-            </AppShell>
-            {/* CelebrationWatcher — auto-fires CelebrationSurface on result events
-                (release/levelup/phase/toast). Client component; no server I/O;
-                fires automatically from the live event stream (DR-061, AC-09-006.1). */}
-            <CelebrationWatcher />
+            <AppShell>{children}</AppShell>
             {/* Reconcile durable accounting on every route; direct navigation to
                 Logros/Configuración must not depend on visiting Inicio first. */}
             <GamificationLedgerSync />

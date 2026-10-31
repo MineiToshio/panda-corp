@@ -1,3 +1,6 @@
+import type { IconName } from "@/components/core/Icon/iconData";
+import type { CopyKey } from "@/lib/copy/copy";
+
 /**
  * Mission Control — shared constants.
  *
@@ -138,3 +141,76 @@ export const FRESHNESS_THRESHOLD_MS = 30 * 60 * 1000;
  * flagged "estancado" (stalled). Default: 7 days.
  */
 export const STALENESS_THRESHOLD_DAYS = 7;
+
+/** A persistent-shell destination; path ownership stays in the navigation resolver. */
+export interface NavDestination {
+  readonly id: string;
+  readonly path: string;
+  readonly labelKey: CopyKey;
+  readonly miniKey: CopyKey;
+  readonly icon: IconName;
+  readonly tone: string;
+}
+
+/** Ordered Órbita destinations, shared by the sidebar and phone shortcuts. */
+export const NAV_DESTINATIONS = [
+  {
+    id: "inicio",
+    path: "/",
+    labelKey: "shell.nav.inicio",
+    miniKey: "shell.navMini.inicio",
+    icon: "home",
+    tone: "amber",
+  },
+  {
+    id: "tablero",
+    path: "/board",
+    labelKey: "shell.nav.tablero",
+    miniKey: "shell.navMini.tablero",
+    icon: "kanban",
+    tone: "teal",
+  },
+  {
+    id: "portfolio",
+    path: "/portfolio",
+    labelKey: "shell.nav.portafolio",
+    miniKey: "shell.navMini.portafolio",
+    icon: "folder",
+    tone: "blue",
+  },
+  {
+    id: "propuestas",
+    path: "/proposals",
+    labelKey: "shell.nav.propuestas",
+    miniKey: "shell.navMini.propuestas",
+    icon: "bulb",
+    tone: "pink",
+  },
+  {
+    id: "logros",
+    path: "/achievements",
+    labelKey: "shell.nav.logros",
+    miniKey: "shell.navMini.logros",
+    icon: "trophy",
+    tone: "gold",
+  },
+  {
+    id: "documentacion",
+    path: "/manual",
+    labelKey: "shell.nav.documentacion",
+    miniKey: "shell.navMini.documentacion",
+    icon: "book",
+    tone: "violet",
+  },
+  {
+    id: "configuracion",
+    path: "/configuration",
+    labelKey: "shell.nav.configuracion",
+    miniKey: "shell.navMini.configuracion",
+    icon: "settings",
+    tone: "slate",
+  },
+] as const satisfies readonly NavDestination[];
+
+/** The shell destination identifier returned by navActive. */
+export type NavDestinationId = (typeof NAV_DESTINATIONS)[number]["id"];

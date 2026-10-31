@@ -1,102 +1,138 @@
-/**
- * FRD-19 — AppShell (CMP-19-app-shell) tests.
- *
- * The persistent shell on every route, including configuration and project drill-ins. Covers the landmark,
- * the hosted slots, the skip link, the mobile toggle, the #main-content wrapper, and the scope rule.
- *
- * AC-19-001.1/.3/.5, AC-19-003.2, AC-19-004.1, AC-25-010.1.
- */
-
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { usePathname } from "next/navigation";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { AppShell } from "../AppShell";
 
 vi.mock("next/navigation", () => ({ usePathname: vi.fn(() => "/") }));
-const mockUsePathname = vi.mocked(usePathname);
-
-const LEVEL = <div data-testid="level-slot">level</div>;
-const BADGE = (
-  <a href="/proposals" data-testid="badge-slot">
-    Propuestas
-  </a>
-);
-
-function renderShell() {
-  return render(
-    <AppShell levelBar={LEVEL} proposalsBadge={BADGE}>
-      <main data-testid="page">page</main>
-    </AppShell>,
-  );
-}
-
+let resize: (event: { matches: boolean }) => void;
+const visibility = document.createElement("style");
+visibility.textContent = ".mini { display: none; }";
 beforeEach(() => {
-  mockUsePathname.mockReturnValue("/");
+  document.head.append(visibility);
+  vi.mocked(usePathname).mockReturnValue("/");
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn(() => ({
+      matches: true,
+      addEventListener: (_type: string, handler: typeof resize) => {
+        resize = handler;
+      },
+      removeEventListener: vi.fn(),
+    })),
+  );
 });
 
-describe("FRD-19 AppShell — persistent global shell", () => {
-  it("renders the shell landmark on a top-level surface", () => {
-    renderShell();
-    expect(screen.getByTestId("app-shell")).toBeInTheDocument();
-    expect(screen.getByRole("banner")).toBeInTheDocument();
-  });
+function shell() {
+  return (
+    <AppShell>
+      <PageLayout icon="ti-home" title="Inicio">
+        <button type="button">Page action</button>
+      </PageLayout>
+    </AppShell>
+  );
+}
+function menu() {
+  return screen.getByRole("button", { name: "Abrir menú" });
+}
+function sidebar() {
+  return screen.getByRole("complementary", { name: "Navegación principal" });
+}
 
-  it("hosts the level slot, the nav, and the proposals slot", () => {
-    renderShell();
-    expect(screen.getByTestId("level-slot")).toBeInTheDocument();
-    expect(screen.getByTestId("app-nav")).toBeInTheDocument();
-    expect(screen.getByTestId("badge-slot")).toBeInTheDocument();
-  });
-
-  it("wraps page content in #main-content and adds no second <main>", () => {
-    const { container } = renderShell();
-    expect(container.querySelector("#main-content")).not.toBeNull();
-    expect(screen.getByTestId("page")).toBeInTheDocument();
-    expect(screen.getAllByRole("main")).toHaveLength(1);
-  });
-
-  it("provides a skip link to #main-content as the first focusable element", () => {
-    const { container } = renderShell();
+describe("FRD-19 persistent frame", () => {
+  it("AC-19-001.5, R16: skip link is first and focuses the single shell main in place", () => {
+    render(shell());
     const skip = screen.getByRole("link", { name: "Saltar al contenido" });
-    expect(skip).toHaveAttribute("href", "#main-content");
-    expect(container.firstElementChild).toBe(skip);
+    expect(document.body.firstElementChild?.firstElementChild).toBe(skip);
+    expect(skip).toHaveAttribute("href", "#content");
+    fireEvent.click(skip);
+    expect(screen.getByRole("main")).toHaveFocus();
+    expect(screen.getByRole("main")).toHaveAttribute("id", "content");
+    expect(window.location.pathname).toBe("/");
   });
 
-  it("exposes the mobile nav toggle with aria-expanded + aria-controls", () => {
-    renderShell();
-    const toggle = screen.getByTestId("app-nav-toggle");
-    expect(toggle).toHaveAttribute("data-nav-toggle");
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(toggle).toHaveAttribute("aria-controls", "app-nav-region");
+  it("AC-19-003.3/.4: phone drawer is inert, opens to first link, Escape returns to either opener", () => {
+    render(shell());
+    expect(sidebar()).toHaveAttribute("inert");
+    for (const opener of [menu(), screen.getByRole("button", { name: "Más" })]) {
+      fireEvent.click(opener);
+      expect(sidebar()).not.toHaveAttribute("inert");
+      expect(menu()).toHaveAttribute("aria-expanded", "true");
+      expect(
+        within(sidebar()).getByRole("link", { name: "Pandacorp Mission Control: ir a Inicio" }),
+      ).toHaveFocus();
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(sidebar()).toHaveAttribute("data-open", "false");
+      expect(opener).toHaveFocus();
+    }
   });
 
-  it.each([
-    "/configuration",
-    "/configuration/skills/spec",
-  ])("AC-25-010.1: retains the shell and page content on %s", (pathname) => {
-    mockUsePathname.mockReturnValue(pathname);
-    renderShell();
-    expect(screen.getByTestId("app-shell")).toBeInTheDocument();
-    expect(screen.getAllByRole("navigation").length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: "Saltar al contenido" })).toHaveAttribute(
-      "href",
-      "#main-content",
+  it("AC-19-003.4: outside press and current destination activation dismiss the drawer", () => {
+    render(shell());
+    fireEvent.click(menu());
+    fireEvent.pointerDown(screen.getByTestId("drawer-scrim"));
+    expect(menu()).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(menu());
+    fireEvent.click(within(sidebar()).getByRole("link", { name: "Inicio" }));
+    expect(menu()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("AC-19-003.4: pathname changes close the drawer without replacing page content", () => {
+    const view = render(shell());
+    fireEvent.click(menu());
+    vi.mocked(usePathname).mockReturnValue("/projects/mission-control");
+    view.rerender(shell());
+    expect(menu()).toHaveAttribute("aria-expanded", "false");
+    expect(within(sidebar()).getByRole("link", { name: "Portafolio" })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
-    expect(screen.getByTestId("page")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Page action" })).toBeInTheDocument();
   });
 
-  it.each([
-    "/projects/mission-control",
-    "/projects/mission-control/spec",
-  ])("AC-25-010.1: retains the shell and workspace content on %s", (pathname) => {
-    mockUsePathname.mockReturnValue(pathname);
-    renderShell();
-    expect(screen.getByTestId("app-shell")).toBeInTheDocument();
-    expect(screen.getAllByRole("navigation").length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: "Saltar al contenido" })).toHaveAttribute(
-      "href",
-      "#main-content",
-    );
-    expect(screen.getByTestId("page")).toBeInTheDocument();
+  it("AC-19-003.2/.3: desktop/tablet is never inert and crossing the breakpoint closes the drawer", () => {
+    render(shell());
+    fireEvent.click(menu());
+    act(() => resize({ matches: false }));
+    expect(sidebar()).not.toHaveAttribute("inert");
+    expect(menu()).toHaveAttribute("aria-expanded", "false");
+    act(() => resize({ matches: true }));
+    expect(sidebar()).toHaveAttribute("inert");
   });
+
+  it("AC-19-003.4: phone keyboard navigation stays inside the drawer", () => {
+    render(shell());
+    fireEvent.click(menu());
+    const first = within(sidebar()).getByRole("link", {
+      name: "Pandacorp Mission Control: ir a Inicio",
+    });
+    const last = within(sidebar()).getByRole("link", { name: "Configuración" });
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(last).toHaveFocus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(first).toHaveFocus();
+  });
+
+  it("AC-19-003.1/.2: desktop keeps navigation interactive without trapping focus", () => {
+    render(shell());
+    act(() => resize({ matches: false }));
+    const last = within(sidebar()).getByRole("link", { name: "Configuración" });
+    last.focus();
+    expect(fireEvent.keyDown(document, { key: "Tab", cancelable: true })).toBe(true);
+    expect(sidebar()).not.toHaveAttribute("inert");
+  });
+
+  it("AC-19-001.3: hosts sidebar slots in order around the navigation", () => {
+    render(
+      <AppShell pills="Pills" projects="Projects" guild="Guild" footer="Footer">
+        Page
+      </AppShell>,
+    );
+    expect(sidebar().textContent).toMatch(/Pills.*Inicio.*Projects.*Guild.*Footer/);
+  });
+});
+
+afterEach(() => {
+  visibility.remove();
+  vi.unstubAllGlobals();
 });

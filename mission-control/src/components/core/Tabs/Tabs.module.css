@@ -1,0 +1,132 @@
+.wrap {
+  position: relative;
+  margin-bottom: var(--s6);
+}
+.tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: var(--hairline) solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+.tabs button,
+.tabs a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 46px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  border-radius: var(--r-md) var(--r-md) 0 0;
+}
+/* biome-ignore lint/correctness/noUnknownPseudoClass: CSS Modules exposes the shared icon hooks globally. */
+.tabs button :global(.i) {
+  color: var(--text-3);
+}
+/* biome-ignore lint/correctness/noUnknownPseudoClass: CSS Modules supports global icon classes. */
+.tabs button :global(.ti) {
+  color: var(--text-3);
+}
+@media (hover: hover) {
+  .tabs button:hover {
+    color: var(--text);
+    background: var(--surface-2);
+  }
+}
+.tabs button[aria-selected="true"] {
+  color: var(--text);
+}
+/* biome-ignore lint/correctness/noUnknownPseudoClass: CSS Modules exposes the shared icon hooks globally. */
+.tabs button[aria-selected="true"] :global(.i) {
+  color: var(--tone);
+}
+/* biome-ignore lint/correctness/noUnknownPseudoClass: CSS Modules supports global icon classes. */
+.tabs button[aria-selected="true"] :global(.ti) {
+  color: var(--tone);
+}
+.tabs button[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -1px;
+  height: 2.5px;
+  border-radius: var(--r-xs) var(--r-xs) 0 0;
+  background: var(--tone);
+}
+.tabs .sep {
+  width: var(--hairline);
+  margin: var(--s3) 6px;
+  background: var(--line-strong);
+  flex: none;
+}
+.tabs .badge {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-3);
+  background: var(--surface-3);
+  border-radius: var(--r-pill);
+  padding: var(--hairline) 7px;
+}
+.wrap::before,
+.wrap::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: var(--hairline);
+  width: 28px;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 1;
+}
+.wrap::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg), transparent);
+}
+.wrap::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--bg), transparent);
+}
+.wrap[data-more-left="true"]::before,
+.wrap[data-more-right="true"]::after {
+  opacity: 1;
+}
+
+.tabs button {
+  cursor: pointer;
+}
+.tabs button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.previous,
+.next {
+  position: absolute;
+  top: var(--s2);
+  z-index: 2;
+  width: 28px;
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.previous {
+  left: 0;
+}
+.next {
+  right: 0;
+}

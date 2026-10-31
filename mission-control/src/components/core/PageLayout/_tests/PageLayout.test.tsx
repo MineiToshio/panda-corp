@@ -1,6 +1,6 @@
 /**
  * PageLayout — the standard page chrome (DR-062 extension).
- * Renders one <main> + the shared PageTitle + the page body.
+ * Renders a section under the shell main + the shared PageTitle + page body.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -8,14 +8,15 @@ import { describe, expect, it } from "vitest";
 import { PageLayout } from "../PageLayout";
 
 describe("PageLayout", () => {
-  it("renders exactly one <main> carrying the given testId", () => {
+  it("renders a section carrying the given testId without owning a main landmark", () => {
     render(
       <PageLayout icon="ti-home" title="Inicio" testId="dashboard-page">
         <p>cuerpo</p>
       </PageLayout>,
     );
     const main = screen.getByTestId("dashboard-page");
-    expect(main.tagName.toLowerCase()).toBe("main");
+    expect(main.tagName.toLowerCase()).toBe("section");
+    expect(screen.queryByRole("main")).toBeNull();
   });
 
   it("renders the title as the page H1 via the shared PageTitle", () => {
@@ -53,7 +54,7 @@ describe("PageLayout", () => {
     expect(screen.getByTestId("my-tail")).toHaveTextContent("3");
   });
 
-  it("applies the accessible label to the main landmark when given", () => {
+  it("applies the accessible label to the page region when given", () => {
     render(
       <PageLayout
         icon="ti-layout-kanban"
@@ -64,6 +65,17 @@ describe("PageLayout", () => {
         <p>cuerpo</p>
       </PageLayout>,
     );
-    expect(screen.getByRole("main", { name: "Tablero de ideas Pandacorp" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tablero de ideas Pandacorp" })).toBeInTheDocument();
+  });
+  it("keeps a single main when mounted inside the persistent shell", () => {
+    render(
+      <main id="content">
+        <PageLayout icon="ti-home" title="Inicio">
+          <p>Body</p>
+        </PageLayout>
+      </main>,
+    );
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 });

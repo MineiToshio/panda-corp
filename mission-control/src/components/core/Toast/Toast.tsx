@@ -14,7 +14,7 @@
  * Traceability: CMP-13-toast, AC-13-006.x.
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent, useId, useRef } from "react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -25,7 +25,7 @@ export interface ToastProps {
   message: string;
   /** Whether the toast is currently visible. */
   visible: boolean;
-  /** Auto-dismiss after this many ms when visible=true. Defaults to 2000ms. */
+  /** Auto-dismiss after this many ms when visible=true. Defaults to 2600ms. */
   durationMs?: number;
   /** Called when the auto-dismiss timer fires (parent should set visible=false). */
   onDismiss?: () => void;
@@ -49,13 +49,15 @@ export interface ToastProps {
 export function Toast({
   message,
   visible,
-  durationMs = 2_000,
+  durationMs = 2_600,
   onDismiss,
 }: ToastProps): React.JSX.Element {
+  const toastId = useId();
+  const dismiss = useEffectEvent(() => onDismiss?.());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !message) return;
 
     // Clear any existing timer before starting a new one
     if (timerRef.current !== null) {
@@ -63,7 +65,7 @@ export function Toast({
     }
 
     timerRef.current = setTimeout(() => {
-      onDismiss?.();
+      dismiss();
     }, durationMs);
 
     return () => {
@@ -72,33 +74,35 @@ export function Toast({
         timerRef.current = null;
       }
     };
-  }, [visible, durationMs, onDismiss]);
+  }, [visible, durationMs, message]);
 
   const style: React.CSSProperties = {
     position: "fixed",
-    bottom: "calc(var(--space-base, 1rem) * 1.5)",
+    bottom: "var(--s6)",
     left: "50%",
     transform: "translateX(-50%)",
     zIndex: 200,
+    maxWidth: "calc(100vw - 32px)",
     display: "inline-flex",
     alignItems: "center",
-    gap: "6px",
-    padding: "8px 14px",
-    borderRadius: "var(--radius-sm, 8px)",
-    border: "var(--hairline, 1px) solid var(--color-border-strong)",
-    background: "var(--color-card)",
-    color: "var(--color-text)",
-    fontSize: "13px",
-    fontWeight: 500,
-    boxShadow: "var(--shadow-2, 0 18px 50px rgba(0,0,0,.5))",
+    gap: "10px",
+    padding: "var(--s3) var(--s4)",
+    borderRadius: "var(--r)",
+    background: "var(--primary-bg)",
+    color: "var(--primary-fg)",
+    fontSize: "var(--fs-md)",
+    fontWeight: 600,
+    boxShadow: "var(--shadow-toast)",
     // Opacity-only transition (FRD-13: transform/opacity only, <300ms)
     opacity: visible ? 1 : 0,
     pointerEvents: visible ? "auto" : "none",
-    transition: "opacity var(--duration-base, 200ms) var(--easing-standard, ease)",
+    transition: "opacity var(--dur) var(--ease)",
   };
 
   return (
     <div
+      id={`toast-${toastId}`}
+      className="toast"
       data-testid="toast"
       role="status"
       aria-live="polite"

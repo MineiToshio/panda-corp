@@ -29,7 +29,7 @@ const LINK_STYLE: React.CSSProperties = {
 
 export default function NotFound() {
   return (
-    <main style={WRAP_STYLE}>
+    <div style={WRAP_STYLE}>
       <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 600 }}>Página no encontrada</h1>
       <p style={{ margin: 0, fontSize: "0.875rem", opacity: 0.8 }}>
         La ruta que buscás no existe en Mission Control.
@@ -37,6 +37,6 @@ export default function NotFound() {
       <Link href="/" style={LINK_STYLE}>
         Volver al inicio
       </Link>
-    </main>
+    </div>
   );
 }

@@ -16,9 +16,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { cache } from "react";
 import { now as clockNow } from "@/lib/clock/clock";
-import { resolveFactoryRoot } from "@/lib/config/config";
 import { runGit } from "@/lib/git/git";
 
 /** Hours of inactivity after which un-merged work is flagged stale (owner-tunable, shared with the check). */
@@ -142,11 +140,3 @@ export function readPending(
   items.sort((a, b) => order[a.status] - order[b.status] || b.ahead - a.ahead);
   return { kind: "ok", items };
 }
-
-/**
- * Cross-surface single source (DR-092): the pending-merge state for the factory repo (where Mission
- * Control's own worktrees live). Request-scoped via `React.cache` so the shell indicator and any
- * per-project view read the SAME derivation. Returns the full result so callers can distinguish
- * empty from error.
- */
-export const getPendingMerge = cache((): PendingResult => readPending(resolveFactoryRoot()));

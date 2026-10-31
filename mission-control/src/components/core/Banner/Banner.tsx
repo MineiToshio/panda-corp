@@ -1,36 +1,11 @@
 "use client";
 
-/**
- * WO-13-007 — Banner (CMP-13-banner)
- *
- * THE shared warn/info/ok/danger banner strip (DR-057 dup-fix).
- * Eliminates the duplicate BANNER_STYLE/ICON_STYLE/CMD_ROW_STYLE blocks that
- * each consumer used to re-declare independently (e.g. PluginSyncBanner, FRD-15).
- *
- * Contract:
- *   - tone: warn/info/ok/danger — sets data-tone, colors via CSS vars only
- *   - kind: drift/orphan/gate/error/inline — sets data-kind (consumer context)
- *   - heading: required string
- *   - detail?: optional secondary line
- *   - commandRow?: optional mono command string (renders CmdRow)
- *   - dismissible?: boolean — shows dismiss ×
- *   - onDismiss?: () => void — called when dismissed
- *   - items[]?: { id, label } — multi-item list
- *   - collapseAfter?: number — collapse list beyond this count
- *
- * Accessibility: role="alert", aria-label, icon aria-hidden, keyboard dismiss.
- * Motion: respects prefers-reduced-motion via CSS (no JS animation).
- * Tokens only: all colors via var(--color-*) / var(--hairline) / var(--space-base).
- *
- * Traceability: AC-13-006.x, CMP-13-banner, DR-057.
- */
-
 import { useState } from "react";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import { Icon } from "@/components/core/Icon/Icon";
+import { ICON_NODES, type IconName } from "@/components/core/Icon/iconData";
+import { t } from "@/lib/copy/copy";
+import styles from "./Banner.module.css";
 
 type BannerTone = "warn" | "info" | "ok" | "danger";
 type BannerKind = "drift" | "gate" | "error" | "inline";
@@ -72,141 +47,29 @@ export interface BannerProps {
   collapseAfter?: number;
 }
 
-// ---------------------------------------------------------------------------
-// Token map: tone → CSS variable names (no hardcoded hex)
-// ---------------------------------------------------------------------------
+const PRESENTATION = {
+  warn: { icon: "alert" },
+  info: { icon: "circle" },
+  ok: { icon: "check" },
+  danger: { icon: "x" },
+} as const satisfies Record<BannerTone, { icon: IconName }>;
 
-const TONE_VARS: Record<BannerTone, { fg: string; bg: string; border: string }> = {
-  warn: {
-    fg: "var(--color-warn)",
-    bg: "var(--color-warn-bg)",
-    border: "var(--color-warn)",
-  },
-  info: {
-    fg: "var(--color-info)",
-    bg: "var(--color-info-bg)",
-    border: "var(--color-info)",
-  },
-  ok: {
-    fg: "var(--color-ok)",
-    bg: "var(--color-ok-bg)",
-    border: "var(--color-ok)",
-  },
-  danger: {
-    fg: "var(--color-danger)",
-    bg: "var(--color-danger-bg)",
-    border: "var(--color-danger)",
-  },
-} as const;
-
-// ---------------------------------------------------------------------------
-// Icon shapes per tone (inline SVG, aria-hidden — state conveyed by text too)
-// ---------------------------------------------------------------------------
-
-function ToneIcon({ tone }: { tone: BannerTone }): React.JSX.Element {
-  // All icons are geometrically distinct so no two tones share the same shape.
-  // aria-hidden: the icon is decorative; heading text + aria-label carry the meaning.
-  const size = 16;
-
-  switch (tone) {
-    case "warn":
-      // Warning triangle
-      return (
-        <svg
-          data-testid="banner-icon"
-          width={size}
-          height={size}
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-          role="presentation"
-        >
-          <polygon points="8,2 14,14 2,14" />
-          <line x1="8" y1="7" x2="8" y2="10" />
-          <circle cx="8" cy="12" r="0.5" fill="currentColor" stroke="none" />
-        </svg>
-      );
-    case "danger":
-      // Circle with X
-      return (
-        <svg
-          data-testid="banner-icon"
-          width={size}
-          height={size}
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-          role="presentation"
-        >
-          <circle cx="8" cy="8" r="6" />
-          <line x1="5.5" y1="5.5" x2="10.5" y2="10.5" />
-          <line x1="10.5" y1="5.5" x2="5.5" y2="10.5" />
-        </svg>
-      );
-    case "ok":
-      // Circle with checkmark
-      return (
-        <svg
-          data-testid="banner-icon"
-          width={size}
-          height={size}
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-          role="presentation"
-        >
-          <circle cx="8" cy="8" r="6" />
-          <polyline points="5.5,8 7,10 10.5,6" />
-        </svg>
-      );
-    default:
-      // Circle with i (covers info + any unknown tone)
-      return (
-        <svg
-          data-testid="banner-icon"
-          width={size}
-          height={size}
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-          role="presentation"
-        >
-          <circle cx="8" cy="8" r="6" />
-          <line x1="8" y1="6" x2="8" y2="6" strokeWidth={2} />
-          <line x1="8" y1="8.5" x2="8" y2="11" />
-        </svg>
-      );
-  }
+function isIconName(name: string): name is IconName {
+  return Object.hasOwn(ICON_NODES, name);
 }
 
-// ---------------------------------------------------------------------------
-// Banner component (CMP-13-banner)
-// ---------------------------------------------------------------------------
+function BannerIcon({ icon, tone }: { icon?: string; tone: BannerTone }): React.JSX.Element {
+  if (icon !== undefined && !isIconName(icon)) {
+    return <i className={`ti ${icon}`} data-testid="banner-icon" aria-hidden="true" />;
+  }
+  return (
+    <span data-testid="banner-icon" aria-hidden="true">
+      <Icon name={icon ?? PRESENTATION[tone].icon} size="lg" />
+    </span>
+  );
+}
 
-/**
- * Banner — THE shared warn/info/ok/danger banner strip.
- *
- * One component for all app banners (FRD-15 PluginSyncBanner, FRD-03 path-not-found,
- * FRD-18 health banners, FRD-17 memory-health nudge).
- *
- * Use via: `<Banner tone="warn" heading="…" detail="…" commandRow="…" dismissible />`
- */
+/** Shared alert banner and command box. Legacy tone values remain accepted during migration. */
 export function Banner({
   tone,
   kind,
@@ -221,171 +84,62 @@ export function Banner({
   collapseAfter,
 }: BannerProps): React.JSX.Element {
   const [expanded, setExpanded] = useState(false);
-
-  const vars = TONE_VARS[tone];
-
-  // Full rounded card, neutral hairline border (prototype: `.5px solid var(--bd2)`,
-  // radius-md) — NOT a top/bottom strip and NOT the loud tone-colored border.
-  const rootStyle: React.CSSProperties = {
-    background: vars.bg,
-    border: "0.5px solid var(--color-border-strong)",
-    borderRadius: "var(--radius-md, 12px)",
-    padding: "12px 14px",
-    width: "100%",
-    color: vars.fg,
-  };
-
-  const innerStyle: React.CSSProperties = {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "10px",
-  };
-
-  const bodyStyle: React.CSSProperties = {
-    flex: 1,
-    minWidth: 0,
-  };
-
-  const headingStyle: React.CSSProperties = {
-    fontSize: "0.875rem",
-    fontWeight: 500,
-    margin: 0,
-  };
-
-  const detailStyle: React.CSSProperties = {
-    fontSize: "0.75rem",
-    opacity: 0.9,
-    margin: "0.125rem 0 0",
-  };
-
-  const dismissStyle: React.CSSProperties = {
-    background: "transparent",
-    border: "none",
-    cursor: "pointer",
-    opacity: 0.7,
-    padding: "0.125rem 0.25rem",
-    marginLeft: "auto",
-    fontSize: "1rem",
-    lineHeight: 1,
-    flexShrink: 0,
-    color: "inherit",
-  };
-
-  const toggleStyle: React.CSSProperties = {
-    background: "transparent",
-    border: "none",
-    cursor: "pointer",
-    opacity: 0.85,
-    padding: "0.25rem 0",
-    fontSize: "0.75rem",
-    fontWeight: 500,
-    textDecoration: "underline",
-    color: "inherit",
-  };
-
-  const itemStyle: React.CSSProperties = {
-    fontSize: "0.8125rem",
-    margin: "0.25rem 0 0",
-    paddingLeft: "0.25rem",
-    borderLeft: `2px solid ${vars.border}`,
-  };
-
-  // Determine which items to show (collapsed vs expanded)
   const safeItems = Array.isArray(items) ? items : [];
-  const hasItems = safeItems.length > 0;
-  const shouldCollapse =
-    hasItems && collapseAfter !== undefined && safeItems.length > collapseAfter;
-  const shownItems = shouldCollapse && !expanded ? safeItems.slice(0, collapseAfter) : safeItems;
-  const hiddenCount = shouldCollapse ? safeItems.length - (collapseAfter ?? 0) : 0;
-
+  const limit = collapseAfter === undefined ? safeItems.length : Math.max(0, collapseAfter);
+  const shouldCollapse = safeItems.length > limit;
+  const shownItems = shouldCollapse && !expanded ? safeItems.slice(0, limit) : safeItems;
+  const hiddenCount = safeItems.length - limit;
+  function handleToggle(): void {
+    setExpanded((previous) => !previous);
+  }
   return (
     <div
+      className={`alert-banner ${styles.banner}`}
       data-testid="banner"
       data-tone={tone}
       data-kind={kind}
       role="alert"
-      aria-label={`Aviso: ${heading}`}
-      style={rootStyle}
+      aria-label={heading}
+      style={{ "--tone": "var(--coral)" } as React.CSSProperties}
     >
-      <div style={innerStyle}>
-        {/* Icon — state conveyed by icon + heading text, never color alone (FRD-13).
-            Prefer the consumer's per-banner Tabler glyph; fall back to the tone SVG. */}
-        <span style={{ flexShrink: 0, marginTop: "1px", lineHeight: 1, color: vars.fg }}>
-          {icon !== undefined ? (
-            <i
-              className={`ti ${icon}`}
-              data-testid="banner-icon"
-              aria-hidden="true"
-              style={{ fontSize: "20px", lineHeight: 1 }}
-            />
-          ) : (
-            <ToneIcon tone={tone} />
-          )}
-        </span>
-
-        <div style={bodyStyle}>
-          {/* Primary heading */}
-          <p style={headingStyle}>{heading}</p>
-
-          {/* Optional detail */}
-          {detail !== undefined && (
-            <p data-testid="banner-detail" style={detailStyle}>
-              {detail}
-            </p>
-          )}
-
-          {/* Optional extra body content (recall steps, custom sections) */}
-          {children}
-
-          {/* Multi-item list */}
-          {hasItems &&
-            shownItems.map((item) => (
-              <p key={item.id} style={itemStyle}>
-                {item.label}
-              </p>
-            ))}
-
-          {/* Collapse toggle */}
-          {shouldCollapse && (
-            <button
-              type="button"
-              data-testid="banner-collapse-toggle"
-              aria-expanded={expanded}
-              style={toggleStyle}
-              onClick={() => {
-                setExpanded((prev) => !prev);
-              }}
-            >
-              {expanded
-                ? "Ver menos"
-                : `Ver ${hiddenCount} elemento${hiddenCount === 1 ? "" : "s"} más`}
-            </button>
-          )}
-
-          {/* Optional command row — aligned with the body content (left edge = heading, not
-              under the icon), reusing the shared CmdRow primitive (DR-057). Lives inside the
-              body column so its width tracks the message, owner request 2026-06-26. */}
-          {commandRow !== undefined && (
-            <div data-testid="banner-cmd-row" style={{ marginTop: "10px" }}>
-              <CmdRow command={commandRow} />
-            </div>
-          )}
-        </div>
-
-        {/* Optional dismiss button (keyboard-operable, AC-13-006.3) */}
-        {dismissible === true && (
+      <BannerIcon icon={icon} tone={tone} />
+      <div className={styles.body}>
+        <h2>{heading}</h2>
+        {detail !== undefined ? <p data-testid="banner-detail">{detail}</p> : null}
+        {children}
+        {shownItems.map((item) => (
+          <p key={item.id}>{item.label}</p>
+        ))}
+        {shouldCollapse ? (
           <button
+            className={styles.toggle}
             type="button"
-            data-testid="banner-dismiss"
-            aria-label="Descartar aviso"
-            style={dismissStyle}
-            onClick={onDismiss}
+            data-testid="banner-collapse-toggle"
+            aria-expanded={expanded}
+            onClick={handleToggle}
           >
-            {/* × — state conveyed by button label, not color alone (FRD-13) */}
-            &#x00D7;
+            {expanded
+              ? "Ver menos"
+              : `Ver ${hiddenCount} elemento${hiddenCount === 1 ? "" : "s"} más`}
           </button>
-        )}
+        ) : null}
+        {commandRow !== undefined ? (
+          <div data-testid="banner-cmd-row" className={styles.command}>
+            <CmdRow command={commandRow} variant="box" />
+          </div>
+        ) : null}
       </div>
+      {dismissible ? (
+        <button
+          type="button"
+          className={styles.dismiss}
+          data-testid="banner-dismiss"
+          aria-label={t("dialogs.default.close")}
+          onClick={onDismiss}
+        >
+          <Icon name="x" />
+        </button>
+      ) : null}
     </div>
   );
 }

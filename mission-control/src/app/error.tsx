@@ -1,6 +1,6 @@
 /**
  * Root segment error boundary — catches render/runtime errors thrown below the
- * root layout (the layout's `<html>`/`<body>` and `GuildBar` stay mounted; only
+ * root layout (the layout's `<html>`/`<body>` and `AppShell` stay mounted; only
  * the page content is replaced). For failures in the layout itself, the net is
  * `global-error.tsx`.
  *
@@ -45,7 +45,7 @@ export default function RouteError({
   }, [error]);
 
   return (
-    <main style={WRAP_STYLE} role="alert" aria-live="assertive">
+    <div style={WRAP_STYLE} role="alert" aria-live="assertive">
       <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 600 }}>
         No se pudo cargar la vista
       </h1>
@@ -55,6 +55,6 @@ export default function RouteError({
       <button type="button" onClick={reset} style={BUTTON_STYLE}>
         Reintentar
       </button>
-    </main>
+    </div>
   );
 }

@@ -23,9 +23,11 @@
  * Traceability: CMP-13-cmdrow, AC-13-006.x, AC-02-010.9.
  */
 
-import { useId, useState } from "react";
+import { Fragment, useId, useState } from "react";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import { Icon } from "@/components/core/Icon/Icon";
+import { t } from "@/lib/copy/copy";
+import styles from "./CmdRow.module.css";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,6 +46,8 @@ export interface CmdRowMode {
 export interface CmdRowProps {
   /** The base command string to display and optionally copy. */
   command: string;
+  /** Optional container hue. */
+  tone?: import("@/components/core/Chip/vocabulary").Tone;
   /** Token-based command box presentation; omitted for the compact row. */
   variant?: "box";
   /** Accessible name of the copy action. */
@@ -73,11 +77,12 @@ export interface CmdRowProps {
 const ROW_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "10px",
-  background: "var(--color-base, var(--color-panel))",
-  border: "1px solid var(--color-border-strong)",
-  borderRadius: "var(--radius-sm, 8px)",
-  padding: "9px 11px",
+  gap: "var(--command-gap, 10px)",
+  background: "var(--bg-2)",
+  border: "var(--hairline) solid var(--line)",
+  borderRadius: "var(--command-radius, var(--r))",
+  padding: "var(--command-padding, var(--s1) var(--s1) var(--s1) var(--s3))",
+  minHeight: "var(--command-height, 44px)",
 };
 
 const BOX_STYLE: React.CSSProperties = {
@@ -88,7 +93,7 @@ const BOX_STYLE: React.CSSProperties = {
   minWidth: 0,
   padding: "var(--s1) var(--s1) var(--s1) var(--s3)",
   borderRadius: "var(--r)",
-  background: "color-mix(in srgb, var(--tone, var(--violet)) 5%, var(--surface))",
+  background: "var(--bg-2)",
   border: "var(--hairline) solid color-mix(in srgb, var(--tone, var(--violet)) 22%, var(--line))",
 };
 const BOX_TEXT_STYLE: React.CSSProperties = {
@@ -96,10 +101,11 @@ const BOX_TEXT_STYLE: React.CSSProperties = {
   minWidth: 0,
   color: "var(--text)",
   fontFamily: "var(--font-mono)",
-  fontSize: "var(--fs-sm)",
+  fontSize: "var(--command-font-size, var(--fs-sm))",
   lineHeight: 1.4,
   padding: "calc(var(--s3) / 2) 0",
-  overflowWrap: "break-word",
+  overflowWrap: "normal",
+  overflowX: "auto",
   wordBreak: "normal",
   whiteSpace: "normal",
 };
@@ -109,12 +115,12 @@ const ROW_MODES_STYLE: React.CSSProperties = { ...ROW_STYLE, alignItems: "flex-s
 
 const TEXT_BASE: React.CSSProperties = {
   fontFamily: "var(--font-mono, monospace)",
-  fontSize: "13px",
+  fontSize: "var(--command-font-size, var(--fs-sm))",
   flex: 1,
   minWidth: 0,
   userSelect: "all",
   fontVariantNumeric: "tabular-nums",
-  color: "var(--color-text)",
+  color: "var(--text)",
 };
 
 const TEXT_STYLE: React.CSSProperties = {
@@ -137,23 +143,23 @@ const TEXT_WRAP_STYLE: React.CSSProperties = {
 const SELECT_STYLE: React.CSSProperties = {
   flexShrink: 0,
   boxSizing: "border-box",
-  height: "27px",
+  height: "var(--command-copy-height, 27px)",
   maxWidth: "190px",
   padding: "0 8px",
   fontFamily: "var(--font-mono, monospace)",
-  fontSize: "12px",
-  borderRadius: "var(--radius-sm, 8px)",
-  border: "1px solid var(--color-border-strong)",
+  fontSize: "var(--fs-xs)",
+  borderRadius: "var(--r)",
+  border: "var(--hairline) solid var(--line)",
   background: "var(--color-card)",
-  color: "var(--color-text)",
+  color: "var(--text)",
   cursor: "pointer",
 };
 
 const HINT_STYLE: React.CSSProperties = {
   margin: "6px 0 0",
-  fontSize: "0.6875rem",
+  fontSize: "var(--fs-xs)",
   lineHeight: 1.45,
-  color: "var(--color-text3)",
+  color: "var(--text-3)",
 };
 
 // Custom tooltip — anchors the select so the tip can sit ABOVE it (vs the native `title`,
@@ -174,24 +180,26 @@ const TOOLTIP_STYLE: React.CSSProperties = {
   width: "max-content",
   maxWidth: "240px",
   padding: "6px 9px",
-  borderRadius: "var(--radius-sm, 8px)",
-  border: "1px solid var(--color-border-strong)",
+  borderRadius: "var(--r)",
+  border: "var(--hairline) solid var(--line)",
   background: "var(--color-panel)",
-  color: "var(--color-text)",
-  fontSize: "11px",
+  color: "var(--text)",
+  fontSize: "var(--fs-xs)",
   lineHeight: 1.4,
   whiteSpace: "normal",
-  boxShadow: "0 2px 10px rgba(0,0,0,.28)",
+  boxShadow: "var(--shadow)",
   pointerEvents: "none",
 };
 
 function CommandFrame({
   variant,
+  tone,
   hasModes,
   command,
   children,
 }: {
   readonly variant?: "box";
+  readonly tone?: import("@/components/core/Chip/vocabulary").Tone;
   readonly hasModes: boolean;
   readonly command: string;
   readonly children: React.ReactNode;
@@ -199,21 +207,27 @@ function CommandFrame({
   return (
     <div
       data-testid="cmd-row"
-      className={variant === "box" ? "cmd" : undefined}
-      style={variant === "box" ? BOX_STYLE : hasModes ? ROW_MODES_STYLE : ROW_STYLE}
+      className={`cmd ${styles.command}`}
+      data-tone={tone}
+      style={{
+        ...(variant === "box" ? BOX_STYLE : hasModes ? ROW_MODES_STYLE : ROW_STYLE),
+        ...(tone ? { background: "color-mix(in srgb, var(--tone) 5%, var(--surface))" } : {}),
+      }}
     >
-      {/* Leading terminal glyph (prototype `.cmd` → `ti-terminal-2`) */}
+      <Icon name="terminal" />
       {variant === "box" ? (
-        <Icon name="terminal" />
-      ) : (
-        <i
-          className="ti ti-terminal-2"
-          aria-hidden="true"
-          style={{ fontSize: "15px", color: "var(--color-text2)", lineHeight: 1, flexShrink: 0 }}
-        />
-      )}
-      {variant === "box" ? (
-        <code style={BOX_TEXT_STYLE}>{command}</code>
+        <code style={BOX_TEXT_STYLE}>
+          {Array.from(command.matchAll(/[^:\s]+|:|\s+/g), (match) => (
+            <Fragment key={match.index}>
+              {match[0].includes("-") ? (
+                <span style={{ whiteSpace: "nowrap" }}>{match[0]}</span>
+              ) : (
+                match[0]
+              )}
+              {match[0] === ":" ? <wbr /> : null}
+            </Fragment>
+          ))}
+        </code>
       ) : (
         <span style={hasModes ? TEXT_WRAP_STYLE : TEXT_STYLE}>{command}</span>
       )}
@@ -237,6 +251,7 @@ function CommandFrame({
 export function CmdRow({
   command,
   variant,
+  tone,
   copyLabel,
   onCopyResult,
   copy = true,
@@ -266,7 +281,7 @@ export function CmdRow({
   const handleTipHide = (): void => setTipOpen(false);
 
   const row = (
-    <CommandFrame variant={variant} hasModes={hasModes} command={displayCommand}>
+    <CommandFrame variant={variant} tone={tone} hasModes={hasModes} command={displayCommand}>
       {hasModes && (
         <span style={TOOLTIP_WRAP_STYLE}>
           <select
@@ -297,7 +312,7 @@ export function CmdRow({
       {copy && (
         <CopyButton
           value={displayCommand}
-          accessibleLabel={copyLabel}
+          accessibleLabel={copyLabel ?? t("common.copy.command", { command: displayCommand })}
           onResult={onCopyResult}
           variant={variant}
         />
@@ -318,6 +333,15 @@ export function CmdRow({
           {hint}
         </p>
       )}
+    </div>
+  );
+}
+
+/** Compact list-row command, sharing display, mode selection and clipboard behavior with CmdRow. */
+export function CommandCompact(props: Omit<CmdRowProps, "variant">): React.JSX.Element {
+  return (
+    <div className={`ask-cmd ${styles.compact}`}>
+      <CmdRow {...props} />
     </div>
   );
 }

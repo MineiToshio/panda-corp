@@ -283,7 +283,7 @@ describe("DiscardButton — confirmation opens in a modal", () => {
 
     const modal = screen.getByTestId("discard-modal");
     expect(modal).toBeInTheDocument();
-    expect(modal).toHaveAttribute("role", "dialog");
+    expect(modal.tagName).toBe("DIALOG");
     expect(modal).toContainElement(screen.getByTestId("discard-reason-form"));
     expect(modal).toContainElement(screen.getByTestId("discard-confirm-button"));
   });

@@ -1,0 +1,41 @@
+.markdown {
+  min-width: 0;
+}
+.markdown > :first-child {
+  margin-top: 0;
+}
+.markdown li::marker {
+  color: var(--tone, var(--text-3));
+}
+.markdown pre code {
+  padding: 0;
+  background: none;
+  font-size: var(--fs-sm);
+}
+.table {
+  min-width: 100%;
+}
+.table th,
+.table td {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--surface-2) 55%, transparent);
+}
+.compact ul {
+  padding-left: 1.2em;
+}
+.scroll {
+  overflow-x: auto;
+  margin: 0 0 0.9em;
+  max-width: 100%;
+}
+.scroll pre {
+  min-width: max-content;
+}
+.hint {
+  margin: var(--s1) 0 var(--s2);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}

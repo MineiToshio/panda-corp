@@ -17,7 +17,7 @@
  *   CMP-09-avatar → AC-09-003.1, AC-09-003.2, AC-09-003.3, AC-09-003.4
  */
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { Avatar, type AvatarSize, SPRITE_MAP } from "../Avatar";
 
@@ -92,9 +92,8 @@ describe("CMP-09-avatar — AC-09-003.1: renders avatar for known agent id", () 
   it("applies tokenized border-radius via CSS var (FRD-13 radius token)", () => {
     render(<Avatar agentId="reviewer" />);
     const wrapper = screen.getByTestId("agent-avatar");
-    const style = wrapper.getAttribute("style") ?? "";
-    // border-radius must reference the --radius CSS custom property, not a hardcoded value
-    expect(style).toContain("var(--radius");
+    expect(wrapper).toHaveClass("pav");
+    expect(wrapper).toHaveAttribute("data-size", "sm");
   });
 });
 
@@ -328,5 +327,20 @@ describe("CMP-09-avatar — integration: no layout break", () => {
       .find((el) => el.getAttribute("data-role") === "backend-dev");
     expect(avatarResearcher).toBeDefined();
     expect(avatarBackend).toBeDefined();
+  });
+});
+
+describe("Orbita project identity and missing sprites", () => {
+  it("renders project initials in a phase hue", () => {
+    render(<Avatar name="Panda Factory" tone="teal" />);
+    expect(screen.getByRole("img", { name: "Panda Factory" })).toHaveTextContent("PF");
+    expect(screen.getByTestId("project-avatar")).toHaveAttribute("data-tone", "teal");
+    expect(screen.getByTestId("project-avatar")).toHaveAttribute("data-size", "md");
+  });
+  it("falls back to initials when a known sprite cannot be loaded", () => {
+    render(<Avatar agentId="backend-dev" />);
+    fireEvent.error(screen.getByTestId("agent-avatar-img"));
+    expect(screen.queryByTestId("agent-avatar-img")).toBeNull();
+    expect(screen.getByTestId("agent-avatar-placeholder")).toHaveTextContent("BD");
   });
 });

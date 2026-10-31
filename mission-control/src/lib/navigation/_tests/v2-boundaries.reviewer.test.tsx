@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "@/components/modules/AppShell/AppShell";
 import { readyFixture } from "@/components/modules/DataModelViewer/_tests/fixture";
 import { DataModelViewer } from "@/components/modules/DataModelViewer/DataModelViewer";
-import { isNavActive } from "@/components/modules/Nav/navTab";
+import { navActive } from "@/components/modules/Nav/navActive";
 import { normalizeLegacyNavigation } from "@/lib/navigation/aliases";
 import { activeDestinationPath } from "@/lib/navigation/destinations";
 import { readNavigationCatalog } from "@/lib/navigation/identityCatalog";
@@ -79,19 +79,22 @@ describe("FRD-25 whole-contract boundary probes (LESSON-0450, LESSON-0185)", () 
     ]) {
       vi.mocked(usePathname).mockReturnValue(href);
       render(
-        <AppShell
-          levelBar={<span>Guild</span>}
-          proposalsBadge={<a href="/proposals">Propuestas</a>}
-        >
+        <AppShell>
           <p>{href}</p>
         </AppShell>,
       );
       expect.soft(screen.getByTestId("app-shell"), href).toBeInTheDocument();
       expect.soft(screen.getByText(href), href).toBeInTheDocument();
+      expect
+        .soft(screen.getByTestId("app-nav-portfolio").hasAttribute("aria-current"), href)
+        .toBe(href.startsWith("/projects/"));
+      expect
+        .soft(screen.getByTestId("app-nav-configuracion").hasAttribute("aria-current"), href)
+        .toBe(href.startsWith("/configuration"));
       cleanup();
     }
     expect(activeDestinationPath("/projects/second/spec")).toBe("/portfolio");
-    expect(isNavActive("/projects/second/spec", "/portfolio")).toBe(true);
+    expect(navActive("/projects/second/spec")).toBe("portfolio");
   });
 
   it("AC-25-001.1/002.1: restores the canonical Esquema model mode rather than the diagram default", async () => {

@@ -204,6 +204,7 @@
   --r-pill: 999px;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --dur: 160ms;
+  --z-sidebar: 60;
   --sidebar: 252px;
   --rail-c: 64px;
   --rail: 76px;
@@ -1030,14 +1031,6 @@ pre,
   font-size: 0.875rem;
 }
 
-/* ---------------------------------------------------------------------------
- * CMP-19-app-shell — global shell (FRD-19): skip link + responsive nav
- * Desktop: the six destinations are inline in the topbar, the toggle is hidden.
- * Phone/tablet (≤1100px): the integrated header disclosure lives in AppShell/shell.module.css; the
- * route-keyed ShellNavigation state drives [data-nav-region][data-open]. Dedicated usability
- * cases qualify phone/tablet header behavior without changing project platform declarations.
- * --------------------------------------------------------------------------- */
-
 /* Skip link — first focusable element; offscreen until focused (WCAG 2.4.1) */
 .app-skip-link {
   position: absolute;
@@ -1182,11 +1175,6 @@ pre,
   }
 }
 /* Portfolio collapsible rail (owner toggle) — styles above. */
-
-/* ShellNavigation owns the responsive disclosure; Nav keeps one desktop row. */
-.app-nav {
-  display: flex;
-}
 
 /* ── Propuesta tab (IdeaPitch) — colour & spacing helpers the inline-styled Markdown can't do ──
    The shared <Markdown> renders bold as white and adds block margins; these descendant rules

@@ -18,7 +18,7 @@
  */
 
 /** The persistent-shell landmark — author-declared. One element; prefer a semantic nav or a data hook. */
-export const SHELL_SELECTOR = "[data-app-shell]";
+export const SHELL_SELECTOR = "aside#sidebar";
 
 export type NavDestination = {
   /** The visible link label — must match the prototype's nav text. */
@@ -29,15 +29,15 @@ export type NavDestination = {
 
 /**
  * The prototype's TOP-LEVEL nav destinations — seeded from the prototype, NOT from routes.ts SURFACES.
- * SURFACES is every gated route, a SUPERSET of the topbar destinations (detail / modal / auth / sub
+ * SURFACES is every gated route, a SUPERSET of the sidebar destinations (detail / modal / auth / sub
  * pages are routes but not top-level nav). Empty ⇒ no shell ⇒ vacuous pass.
  */
 export const NAV_DESTINATIONS: readonly NavDestination[] = [
   // The seven approved v2 destinations (AC-19-001.2) — FRD-19 nav contract.
-  // Mirrors docs/frds/frd-19-app-shell/mocks/README.md and the Nav/ProposalsBadge link list.
+  // Mirrors docs/design/components.md and docs/frds/frd-19-app-shell/mocks/app-shell.html.
   { label: "Inicio", path: "/" },
   { label: "Tablero", path: "/board" },
-  { label: "Portfolio", path: "/portfolio" },
+  { label: "Portafolio", path: "/portfolio" },
   { label: "Propuestas", path: "/proposals" },
   { label: "Logros", path: "/achievements" },
   { label: "Documentación", path: "/manual" },
@@ -47,7 +47,7 @@ export const NAV_DESTINATIONS: readonly NavDestination[] = [
 /**
  * Routes that legitimately render WITHOUT / OUTSIDE the persistent shell, or are sub-destinations
  * reached from inside another surface (not top-level nav). Author-declared escape hatch — the exact
- * DR-074 `data-scroll-x="intentional"` pattern, for "this route has no topbar by design". A trailing
+ * DR-074 `data-scroll-x="intentional"` pattern, for "this route has no shell by design". A trailing
  * `/**` matches the whole subtree; otherwise the match is exact.
  */
 export const SHELL_EXEMPT: readonly string[] = [];
@@ -56,7 +56,7 @@ export const SHELL_EXEMPT: readonly string[] = [];
  * Optional mobile drawer/hamburger trigger (author-declared). Empty selector ⇒ the nav must be
  * visible at the mobile width without a toggle.
  */
-export const NAV_TOGGLE = "[data-nav-toggle]";
+export const NAV_TOGGLE = "#menu";
 
 /** Derived: the app declares a persistent shell iff it has at least one nav destination. */
 export const HAS_SHELL: boolean = NAV_DESTINATIONS.length > 0;

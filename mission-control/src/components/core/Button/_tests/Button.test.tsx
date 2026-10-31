@@ -4,6 +4,7 @@
  * Primary/secondary/ghost variants. ≥44px hit area. 1 primary per screen.
  */
 
+import { readFileSync } from "node:fs";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { Button, type ButtonProps } from "@/components/core/Button/Button";
@@ -49,20 +50,24 @@ describe("Button — tone (danger palette, DR-057 reuse)", () => {
     expect(screen.getByRole("button").getAttribute("data-tone")).toBe("danger");
   });
 
-  it("primary + danger is a FILLED danger button (solid danger background)", () => {
+  it("danger remains outlined coral even when combined with primary", () => {
     renderButton({ variant: "primary", tone: "danger" });
-    const btn = screen.getByRole("button");
-    expect(btn.style.background).toContain("--color-danger");
-    // Text uses on-accent (per-theme contrast on the saturated red), not a hardcoded colour.
-    expect(btn.style.color).toContain("--color-on-accent");
+    expect(screen.getByRole("button")).toHaveAttribute("data-tone", "danger");
+    const css = readFileSync("src/components/core/Button/Button.module.css", "utf8");
+    expect(css).toMatch(
+      /\.btn\[data-tone="danger"\]\s*\{[^}]*color: var\(--coral\);[^}]*background: transparent;/,
+    );
   });
 
-  it("secondary + danger is an OUTLINE danger button (card bg, danger text + border)", () => {
-    renderButton({ variant: "secondary", tone: "danger" });
-    const btn = screen.getByRole("button");
-    expect(btn.style.color).toContain("--color-danger");
-    expect(btn.style.borderColor).toContain("--color-danger");
-    expect(btn.style.background).toContain("--color-card");
+  it("uses neutral primary inversion and the frozen 40/32 px sizes", () => {
+    const css = readFileSync("src/components/core/Button/Button.module.css", "utf8");
+    expect(css).toContain("background: var(--primary-bg)");
+    expect(css).toContain("color: var(--primary-fg)");
+    expect(css).toContain("min-height: 40px");
+    expect(css).toContain("min-height: 32px");
+    renderButton({ variant: "toned", tone: "teal", icon: "check" });
+    expect(screen.getByRole("button")).toHaveAttribute("data-tone", "teal");
+    expect(screen.getByRole("button").querySelector('[data-icon="check"]')).not.toBeNull();
   });
 });
 

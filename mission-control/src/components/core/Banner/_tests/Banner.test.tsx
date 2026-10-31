@@ -12,6 +12,7 @@
  *   AC-13-006.6 — Tokens only, no hardcoded colors.
  */
 
+import { readFileSync } from "node:fs";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { Banner, type BannerProps } from "@/components/core/Banner/Banner";
@@ -233,11 +234,10 @@ describe("frd-13/wo-13-007: Banner — full rounded border (prototype fidelity)"
     const { container } = renderBanner({ tone: "warn", heading: "Bordered" });
     const root = container.firstElementChild as HTMLElement | null;
     if (!root) throw new Error("Root element not found");
-    const style = root.getAttribute("style") ?? "";
-    expect(style).toMatch(/border-radius/);
-    expect(style).not.toMatch(/border-top\s*:/);
-    expect(style).not.toMatch(/border-bottom\s*:/);
-    expect(style).toMatch(/border\s*:/);
+    expect(root).toHaveClass("alert-banner");
+    const css = readFileSync("src/components/core/Banner/Banner.module.css", "utf8");
+    expect(css).toContain("border-radius: var(--r-xl)");
+    expect(css).toContain("border: var(--hairline) solid");
   });
 
   it("frd-13: optional icon prop renders a Tabler glyph as the banner-icon", () => {
