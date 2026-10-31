@@ -767,7 +767,6 @@ pre,
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
-/* Report bands bleed to the page gutters; only <html> clips, because a nested one-axis clip would cut the bleed. */
 [id^="card-detail-panel-"],
 [id^="card-detail-panel-"] > article {
   min-width: 0;

@@ -45,10 +45,6 @@
   display: none;
 }
 @media (max-width: 759px) {
-  .actions,
-  .buttons {
-    flex-wrap: nowrap;
-  }
   .longLabel {
     display: none;
   }

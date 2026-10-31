@@ -387,10 +387,13 @@ body .dhero h2 {
 body .dhero .chip {
   font-weight: 600;
 }
+/* The bleed is painted, not laid out: negative margins would count as horizontal overflow at every ancestor. */
 body .band {
-  margin-inline: calc(-1 * var(--gutter));
-  padding: var(--s6) var(--gutter);
+  --shadow-band: 0 0 0 var(--gutter) color-mix(in srgb, var(--tone) 6%, var(--bg));
+  padding: var(--s6) 0;
   background: color-mix(in srgb, var(--tone) 6%, var(--bg));
+  box-shadow: var(--shadow-band);
+  clip-path: inset(0 calc(-1 * var(--gutter)));
   border-top: var(--hairline) solid var(--line);
   min-width: 0;
 }
