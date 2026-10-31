@@ -1,27 +1,37 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { expect, type Page, test } from "@playwright/test";
+import { expect as baseExpect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
 import {
   expectHydrated,
   historyCheckpoint,
   observeHistory,
+  reloadCommitted,
 } from "./persistent-navigation/_history";
+
+// Legacy WO links settle in two server round trips (alias, then NavigationCanonical's replace) and
+// each one can stall for seconds on the shared dev server; these assertions pin the destination, not
+// its latency. The default 5 s budget is what made this spec fail at a different step on each run.
+const NAVIGATION_TIMEOUT = 60_000;
+const expect = baseExpect.configure({ timeout: NAVIGATION_TIMEOUT });
 
 async function expectWorkOrderLocation(page: Page, pathname: string, view?: string, hash = "") {
   await expect
-    .poll(() => {
-      const url = new URL(page.url());
-      const wo = url.searchParams.get("wo");
-      return {
-        pathname: url.pathname,
-        wo,
-        woview: url.searchParams.get("woview") ?? (wo ? "summary" : null),
-        legacy: ["project", "tab", "wotab"].filter((key) => url.searchParams.has(key)),
-        hash: url.hash,
-      };
-    })
+    .poll(
+      () => {
+        const url = new URL(page.url());
+        const wo = url.searchParams.get("wo");
+        return {
+          pathname: url.pathname,
+          wo,
+          woview: url.searchParams.get("woview") ?? (wo ? "summary" : null),
+          legacy: ["project", "tab", "wotab"].filter((key) => url.searchParams.has(key)),
+          hash: url.hash,
+        };
+      },
+      { timeout: NAVIGATION_TIMEOUT },
+    )
     .toEqual({
       pathname,
       wo: view ? "WO-01-001" : null,
@@ -59,6 +69,14 @@ function sourceFiles(root: string, files: Map<string, Buffer>): Map<string, Buff
 
 // This test changes only deterministic fixture files, AFTER the production build. Teardown
 // restores original bytes and unlinks only explicitly observed new files, never directories.
+// It lives in afterEach because a timed-out test body is abandoned: its finally may never run,
+// and the leftover project would then break every later test sharing this fixture.
+let restoreFixture: (() => Promise<void>) | undefined;
+test.afterEach(async () => {
+  const restore = restoreFixture;
+  restoreFixture = undefined;
+  await restore?.();
+});
 
 test("home and root default resolution retain one meaningful history entry", async ({ page }) => {
   // Six full navigations take 22-28 s on the dev server, too close to the 30 s default under gate load.
@@ -144,6 +162,8 @@ test("legacy queries normalize nested WO and document selections while preservin
 test("post-build registration: a non-first project retains identity through WO Summary/Full/return in both workspaces", async ({
   page,
 }) => {
+  // About 25 server navigations: 15-22 s when quiet, over 130 s when parallel gates share the machine.
+  test.setTimeout(300_000);
   const info = test.info();
   await observeHistory(page);
   const root = path.resolve("e2e/fixtures/factory-root");
@@ -151,6 +171,19 @@ test("post-build registration: a non-first project retains identity through WO S
   expect(fs.readFileSync(path.join(root, "factory/portfolio.md"), "utf8")).not.toContain(
     "Navigation Review Second",
   );
+  restoreFixture = async () => {
+    try {
+      await page.close();
+      await expect
+        .poll(() => fs.existsSync(path.join(root, "factory/gamification-ledger.json.lock")), {
+          timeout: 10_000,
+        })
+        .toBe(false);
+    } finally {
+      for (const file of snapshotFiles(root).keys()) if (!before.has(file)) fs.unlinkSync(file);
+      for (const [file, content] of before) fs.writeFileSync(file, content);
+    }
+  };
   const project = path.join(root, "navigation-review-second");
   const write = (relative: string, content: string) => {
     const file = path.join(project, relative);
@@ -200,7 +233,10 @@ test("post-build registration: a non-first project retains identity through WO S
     const registered = sourceFiles(root, snapshotFiles(root));
     for (const family of ["portfolio", "projects"]) {
       const href = `/${family}/navigation-review-second/observability`;
-      await gotoHydrated(page, href, { selector: '[data-testid="tabbar"]' });
+      await gotoHydrated(page, href, {
+        selector: '[data-testid="tabbar"]',
+        timeout: NAVIGATION_TIMEOUT,
+      });
       await expect(page.getByTestId("wo-board")).toContainText("Second project reader");
       if (family === "portfolio") {
         const rows = page.getByTestId("selectable-project-row");
@@ -217,7 +253,7 @@ test("post-build registration: a non-first project retains identity through WO S
       await page.getByTestId("wo-detail-tab-full").click();
       await expectWorkOrderLocation(page, href, "full");
       await expect(page.getByTestId("wo-detail-full")).toContainText("Second project reader");
-      await page.reload();
+      await reloadCommitted(page);
       await expectWorkOrderLocation(page, href, "full");
       await expect(page.getByTestId("wo-detail-full")).toContainText("Second project reader");
       await historyCheckpoint(page, `${family}-back`, '[data-testid="wo-detail-tab-full"]', info);
@@ -266,14 +302,6 @@ test("post-build registration: a non-first project retains identity through WO S
     for (const [file, bytes] of registered)
       expect(afterNavigation.get(file)?.equals(bytes), file).toBe(true);
   } finally {
-    await historyCheckpoint(page, "final", '[data-testid="tabbar"]', info);
-    await page.close();
-    await expect
-      .poll(() => fs.existsSync(path.join(root, "factory/gamification-ledger.json.lock")), {
-        timeout: 10_000,
-      })
-      .toBe(false);
-    for (const file of snapshotFiles(root).keys()) if (!before.has(file)) fs.unlinkSync(file);
-    for (const [file, content] of before) fs.writeFileSync(file, content);
+    if (!page.isClosed()) await historyCheckpoint(page, "final", '[data-testid="tabbar"]', info);
   }
 });

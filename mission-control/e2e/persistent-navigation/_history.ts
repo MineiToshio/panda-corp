@@ -74,3 +74,14 @@ export async function expectHydrated(page: Page, selector: string): Promise<void
     );
   }, selector);
 }
+
+/**
+ * Reload, then wait for the hydration COMMIT. `__reactProps$` appears during hydration's render
+ * phase, before Next installs its popstate listener and rewrites the entry from its server URL:
+ * a Back in that gap is lost. The root layout's ledger action is the first POST after that commit.
+ */
+export async function reloadCommitted(page: Page): Promise<void> {
+  const committed = page.waitForRequest((request) => request.method() === "POST");
+  await page.reload();
+  await committed;
+}
