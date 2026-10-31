@@ -1,3 +1,4 @@
+/* biome-ignore-all lint/style/noDescendingSpecificity: rule order is the prototype's own cascade, ported verbatim. */
 /*
  * Prototype component rules, ported verbatim from docs/design/prototype/{base,prototype}.css for the surfaces whose
  * CSS modules drifted from the frozen design. Selectors use the prototype's semantic class names, which the build keeps

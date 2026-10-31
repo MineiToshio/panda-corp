@@ -501,6 +501,7 @@ pre,
   font-weight: 750;
   letter-spacing: -0.02em;
 }
+/* biome-ignore lint/style/noDescendingSpecificity: the bare dot sets size; `.stamp .dot` only rebinds its tone. */
 .dot {
   width: 7px;
   height: 7px;
