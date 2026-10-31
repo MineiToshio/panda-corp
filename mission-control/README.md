@@ -1,10 +1,10 @@
 # Mission Control
 
-A single-screen, read-only dashboard for operating the **Pandacorp** factory — the state of every idea and project, their documentation, the next command to run, and a live "Party" view of the agents building — wrapped in an honest gamification layer.
+The Órbita command center for the **Pandacorp** factory: ideas, projects, proposals, documentation and achievements, with persistent navigation and a live project build view.
 
 ## What it does
 
-Mission Control turns running the Pandacorp factory from the terminal into a single command center. It shows, at a glance, what needs the owner's attention, what changed since their last visit, and the next `/pandacorp:*` command to run — plus a live RPG-style view of agents building a project, a documentation browser (the "Manual"), and honest progress (XP, levels, achievements tied to real work, never to opening the app).
+Mission Control turns running the Pandacorp factory from the terminal into a single command center. It shows, at a glance, what needs the owner's attention, what changed since their last visit, and the next `/pandacorp:*` command to run — plus La Fragua for live project construction, a documentation browser, and honest progress (XP, levels, achievements tied to real work, never to opening the app).
 
 It is **read-only**: it never calls Claude and never executes commands — the owner runs the suggested command themselves in Claude Code. The only writes are a small, bounded, human-triggered set (discard/restore an idea card's status, toggle its favorite flag). It's an internal tool for a single, Spanish-speaking operator — there is no auth, no multi-user support, and no deploy: it runs on `127.0.0.1`.
 
@@ -16,7 +16,7 @@ See the full product spec in [`docs/product/prd.md`](docs/product/prd.md).
 |---|---|
 | Framework | Next.js 16 (App Router), React 19 |
 | Language | TypeScript (strict) |
-| Styling | Tailwind CSS v4 (`@theme`, OKLCH tokens) |
+| Styling | Tailwind CSS v4 (`@theme`, Órbita design tokens) |
 | Lint/format | Biome |
 | Tests | Vitest + Testing Library (unit/component), Playwright (e2e: smoke, visual, responsive, shell) |
 | Data | None — reads the factory's filesystem directly (idea cards, `portfolio.md`, each project's `.pandacorp/status.yaml`) via `gray-matter` + `yaml`. No database. |
@@ -40,6 +40,15 @@ bash ../plugin/scripts/navigation-identities.sh --apply
 
 # run
 pnpm dev                     # served at http://127.0.0.1:3000
+
+# isolated, deterministic prototype data
+pnpm dev:oracle --port 3999
+
+# static checks
+pnpm exec knip
+pnpm exec tsc --noEmit
+pnpm exec biome check .
+pnpm lint:cycles
 
 # test
 pnpm test                    # unit/component (Vitest)

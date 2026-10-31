@@ -20,9 +20,9 @@ export interface BuildModeInfo {
   /** Stable identifier; never changes between releases. */
   id: BuildMode;
   /** i18n key for the mode label shown in the selector. */
-  label: string;
+  label: CopyKey;
   /** i18n key for the mode description (agents, models, recommended plan). */
-  description: string;
+  description: CopyKey;
   /**
    * The exact command the owner copies into Claude.
    * Balanced: "/pandacorp:implement" (no argument).
@@ -42,26 +42,26 @@ export const BUILD_MODES: readonly BuildModeInfo[] = Object.freeze(
     [
       {
         id: "pro",
-        label: "buildModes.pro.label",
-        description: "buildModes.pro.description",
+        label: "workspace.comandos.buildMode.pro.label",
+        description: "workspace.comandos.buildMode.pro.hint",
         command: "/pandacorp:implement pro",
       },
       {
         id: "balanced",
-        label: "buildModes.balanced.label",
-        description: "buildModes.balanced.description",
+        label: "workspace.comandos.buildMode.balanced.label",
+        description: "workspace.comandos.buildMode.balanced.hint",
         command: "/pandacorp:implement",
       },
       {
         id: "powerful",
-        label: "buildModes.powerful.label",
-        description: "buildModes.powerful.description",
+        label: "workspace.comandos.buildMode.powerful.label",
+        description: "workspace.comandos.buildMode.powerful.hint",
         command: "/pandacorp:implement powerful",
       },
       {
         id: "deep",
-        label: "buildModes.deep.label",
-        description: "buildModes.deep.description",
+        label: "workspace.comandos.buildMode.deep.label",
+        description: "workspace.comandos.buildMode.deep.hint",
         command: "/pandacorp:implement deep",
       },
     ] as const satisfies BuildModeInfo[]

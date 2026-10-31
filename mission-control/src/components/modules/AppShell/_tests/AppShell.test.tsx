@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { usePathname } from "next/navigation";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PageLayout } from "@/components/core/PageLayout/PageLayout";
+import { PageHead } from "@/components/core/PageHead/PageHead";
 import { AppShell } from "../AppShell";
 
 vi.mock("next/navigation", () => ({ usePathname: vi.fn(() => "/") }));
@@ -26,9 +26,10 @@ beforeEach(() => {
 function shell() {
   return (
     <AppShell>
-      <PageLayout icon="ti-home" title="Inicio">
+      <div>
+        <PageHead title="Inicio" />
         <button type="button">Page action</button>
-      </PageLayout>
+      </div>
     </AppShell>
   );
 }

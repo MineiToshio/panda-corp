@@ -164,7 +164,7 @@ export function CockpitDetail(): React.JSX.Element {
         escritura atómica), nunca con sumas incrementales; así el costo de git se paga cuando un
         proyecto cambia, no en cada clic tuyo.
       </Body>
-      <NotePanel icon="ti-info-circle">
+      <NotePanel icon="circle">
         La materialización se activa cuando se generan los archivos por primera vez:{" "}
         <Code>pnpm stats:backfill</Code> para las portadas por proyecto y{" "}
         <Code>pnpm stats:factory</Code> para el store de la fábrica. Mientras no existan, corre por

@@ -198,7 +198,7 @@ export function DesatendidaDetail(): React.JSX.Element {
           <Code>maxAgents</Code> sin las unidades de gate por FRD (el launcher te lo recuerda).
         </li>
       </Ul>
-      <NotePanel icon="ti-player-pause" iconColor="var(--color-warn)">
+      <NotePanel icon="minus" iconColor="var(--amber)">
         <B weight={500}>Si se acaba tu cupo de uso.</B> Un límite de uso de la suscripción no es un
         fallo de la build: el motor se pausa limpio, no revierte ni pierde nada de lo ya commiteado,
         te avisa, y se reanuda cuando se renueve la ventana con{" "}
@@ -281,7 +281,7 @@ export function DesatendidaDetail(): React.JSX.Element {
         falla o llega incompleto, el run se detiene de forma segura en vez de adivinar que no hay
         una orden pendiente.
       </Body>
-      <NotePanel icon="ti-alert-triangle" iconColor="var(--color-warn)">
+      <NotePanel icon="alert" iconColor="var(--amber)">
         <B weight={500}>Límite honesto de la plataforma.</B> En Claude, el Dynamic Workflow no tiene
         acceso directo al filesystem ni a procesos: un subagente Claude ejecuta{" "}
         <Code>inspect-stop</Code> y transporta el recibo. La validación fail-closed y la
@@ -339,7 +339,7 @@ export function DesatendidaDetail(): React.JSX.Element {
         columns={ENGINE_ARGS_COLUMNS}
         rows={ENGINE_ARGS_ROWS}
       />
-      <NotePanel icon="ti-info-circle">
+      <NotePanel icon="circle">
         Estos flags viven en el código del motor; su fuente canónica es{" "}
         <Code>factory/standards/build-orchestration.md</Code>. No son algo que normalmente
         configures desde Mission Control.

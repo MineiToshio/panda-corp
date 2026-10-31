@@ -240,10 +240,10 @@ describe("frd-13/wo-13-007: Banner — full rounded border (prototype fidelity)"
     expect(css).toContain("border: var(--hairline) solid");
   });
 
-  it("frd-13: optional icon prop renders a Tabler glyph as the banner-icon", () => {
-    renderBanner({ tone: "warn", heading: "Iconned", icon: "ti-folder-question" });
+  it("frd-13: optional icon prop renders an inline SVG as the banner-icon", () => {
+    renderBanner({ tone: "warn", heading: "Iconned", icon: "folder" });
     const icon = screen.getByTestId("banner-icon");
-    expect(icon.className).toContain("ti-folder-question");
+    expect(icon.querySelector("svg")).not.toBeNull();
     expect(icon.getAttribute("aria-hidden")).toBe("true");
   });
 });

@@ -1,8 +1,11 @@
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
+
 /**
  * RankEmblem — the guild rank's pixel-art emblem (a self-framed medal sprite).
  *
  * Renders `/ranks/<sprite>.png` at a fixed square size. Falls back to the rank's
- * Tabler icon when the sprite slug is missing (older GuildLevel objects / tests).
+ * Órbita icon when the sprite slug is missing (older GuildLevel objects / tests).
  *
  * The sprite already IS the medal (its own circular frame + glow), so callers
  * render it directly — no extra bordered container around it.
@@ -15,8 +18,8 @@ const ROMAN = ["", "I", "II", "III"] as const;
 export type RankEmblemProps = {
   /** Rank-family sprite slug → /ranks/<slug>.png. */
   sprite?: string;
-  /** Tabler icon class used as a fallback when there is no sprite. */
-  icon?: string;
+  /** Órbita icon used as a fallback when there is no sprite. */
+  icon?: IconName;
   /** Square size in px. */
   size: number;
   /** Sub-grade 1/2/3 (I·II·III) → a small roman-numeral badge; 0 = none. */
@@ -32,7 +35,7 @@ function EmblemImage({
   alt,
 }: {
   sprite?: string;
-  icon?: string;
+  icon?: IconName;
   size: number;
   alt: string;
 }): React.JSX.Element {
@@ -51,11 +54,12 @@ function EmblemImage({
     );
   }
   return (
-    <i
-      className={`ti ${icon ?? "ti-medal"}`}
+    <span
       aria-hidden="true"
-      style={{ fontSize: `${Math.round(size * 0.78)}px`, color: "var(--color-accent-text)" }}
-    />
+      style={{ fontSize: `${Math.round(size * 0.78)}px`, color: "var(--violet)" }}
+    >
+      <Icon name={icon ?? "trophy"} size="sm" />
+    </span>
   );
 }
 
@@ -88,12 +92,12 @@ export function RankEmblem({
           position: "absolute",
           right: "-4px",
           bottom: "-4px",
-          fontFamily: "var(--font-pixel)",
+          fontFamily: "var(--font-display)",
           fontSize: `${Math.max(10, Math.round(size * 0.42))}px`,
           lineHeight: 1,
-          color: "var(--color-on-accent)",
-          background: "var(--color-accent)",
-          border: "1px solid var(--color-base)",
+          color: "var(--primary-fg)",
+          background: "var(--violet)",
+          border: "1px solid var(--bg)",
           borderRadius: "4px",
           padding: "1px 3px",
           letterSpacing: "0.02em",

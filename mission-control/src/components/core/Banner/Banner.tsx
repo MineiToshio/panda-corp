@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { Icon } from "@/components/core/Icon/Icon";
-import { ICON_NODES, type IconName } from "@/components/core/Icon/iconData";
+import type { IconName } from "@/components/core/Icon/iconData";
 import { t } from "@/lib/copy/copy";
 import styles from "./Banner.module.css";
 
@@ -21,10 +21,10 @@ export interface BannerProps {
   /** Consumer context — identifies what kind of condition this banner represents. */
   kind?: BannerKind;
   /**
-   * Optional Tabler icon class (e.g. "ti-alert-triangle") shown left of the heading,
+   * Optional Órbita icon (e.g. "alert") shown left of the heading,
    * matching the prototype's per-banner glyph. Falls back to the tone SVG when omitted.
    */
-  icon?: string;
+  icon?: IconName;
   /** Required heading (primary signal, always visible). */
   heading: string;
   /** Optional secondary detail line. */
@@ -54,14 +54,7 @@ const PRESENTATION = {
   danger: { icon: "x" },
 } as const satisfies Record<BannerTone, { icon: IconName }>;
 
-function isIconName(name: string): name is IconName {
-  return Object.hasOwn(ICON_NODES, name);
-}
-
-function BannerIcon({ icon, tone }: { icon?: string; tone: BannerTone }): React.JSX.Element {
-  if (icon !== undefined && !isIconName(icon)) {
-    return <i className={`ti ${icon}`} data-testid="banner-icon" aria-hidden="true" />;
-  }
+function BannerIcon({ icon, tone }: { icon?: IconName; tone: BannerTone }): React.JSX.Element {
   return (
     <span data-testid="banner-icon" aria-hidden="true">
       <Icon name={icon ?? PRESENTATION[tone].icon} size="lg" />
@@ -69,7 +62,7 @@ function BannerIcon({ icon, tone }: { icon?: string; tone: BannerTone }): React.
   );
 }
 
-/** Shared alert banner and command box. Legacy tone values remain accepted during migration. */
+/** Shared alert banner and command box. Tone also identifies the alert severity. */
 export function Banner({
   tone,
   kind,

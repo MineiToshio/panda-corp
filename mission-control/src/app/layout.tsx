@@ -70,13 +70,6 @@ export default function RootLayout({
             there is no flash of the wrong theme. Static source, rendered in the root layout only. */}
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static first-party boot script, no user input */}
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
-        {/* Tabler Icons webfont — same CDN version as the prototype (index.html line 8).
-            Provides .ti .ti-* icon classes used by PageTitle, SectionHead, Tabs,
-            ConfigurationShell, ManualShell, SectionHero and other components (DR-054). */}
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css"
-        />
       </head>
       <body>
         {profileResult.present ? (

@@ -35,7 +35,7 @@ describe("rarity — every Unique carries a grade", () => {
   it("rarityColor + rarityLabel resolve for every grade", () => {
     for (const r of ["Común", "Poco común", "Raro", "Épico", "Leyenda"] as const) {
       expect(rarityLabel(r)).toBe(r);
-      expect(rarityColor(r)).toMatch(/var\(--color-/);
+      expect(rarityColor(r)).toMatch(/var\(--(?:slate|teal|blue|violet|gold)\)/);
     }
   });
 });

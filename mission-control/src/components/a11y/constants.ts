@@ -27,7 +27,7 @@ export const TABULAR_NUMS_CLASS = "tabular-nums" as const;
 
 /**
  * Utility class for the visible focus ring that respects `border-radius`.
- * Applies `outline: var(--focus-ring)` with `outline-offset: 2px` —
+ * Applies `outline: 2px solid var(--focus)` with `outline-offset: 2px` —
  * the underlying CSS is declared in `app/globals.css` via `:focus-visible`
  * (WO-13-002). This constant is used when an element needs the ring applied
  * as an additional className (e.g. opt-in alongside :focus-visible defaults).

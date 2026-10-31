@@ -2,7 +2,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { computeAgentLevel } from "../../gamification/agents";
 import { semanticLedger } from "../event-contract";
 import { type Event, readEvents } from "../events";
 
@@ -75,7 +74,6 @@ describe("R9 runtime-neutral event contract", () => {
     const events = readEvents({ cap: 20 }).events;
     expect(events).toHaveLength(2);
     expect(semanticLedger(events)).toHaveLength(1);
-    expect(computeAgentLevel("reviewer", events).xp).toBe(1);
   });
 
   it("does not mutate canonical phase/WO/build files when streams change or disappear", () => {

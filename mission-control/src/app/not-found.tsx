@@ -15,14 +15,14 @@ const WRAP_STYLE: React.CSSProperties = {
   maxWidth: "32rem",
   margin: "0 auto",
   padding: "4rem 2rem",
-  color: "var(--color-text)",
+  color: "var(--text)",
 };
 
 const LINK_STYLE: React.CSSProperties = {
   padding: "0.5rem 1rem",
   borderRadius: "var(--radius, 0.5rem)",
-  border: "var(--hairline, 1px) solid var(--color-accent)",
-  color: "var(--color-accent)",
+  border: "var(--hairline, 1px) solid var(--violet)",
+  color: "var(--violet)",
   textDecoration: "none",
   fontSize: "0.875rem",
 };

@@ -1,3 +1,4 @@
+import { Icon } from "@/components/core/Icon/Icon";
 /**
  * manual-diagrams/StacksTable.tsx — FRD-08 ("Stacks · golden paths")
  *
@@ -13,7 +14,7 @@
  */
 
 import type React from "react";
-import { Panel } from "@/components/core/Panel/Panel";
+import { Card } from "@/components/core/Card/Card";
 
 type Stack = {
   readonly key: string;
@@ -51,39 +52,35 @@ export function StacksTable(): React.JSX.Element {
     <div data-testid="manual-diagram-stacks">
       {STACKS.map((s) => (
         <div key={s.key} style={{ marginBottom: "8px" }}>
-          <Panel>
+          <Card>
             <div style={{ display: "flex", gap: "10px", alignItems: "baseline", flexWrap: "wrap" }}>
-              <span
-                style={{ fontSize: "16px", fontWeight: 500, color: "var(--color-accent-text)" }}
-              >
+              <span style={{ fontSize: "16px", fontWeight: 500, color: "var(--violet)" }}>
                 {s.key}
               </span>
-              <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text)" }}>
+              <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)" }}>
                 {s.name}
               </span>
-              <span style={{ marginLeft: "auto", fontSize: "11px", color: "var(--color-text3)" }}>
-                <i
-                  className="ti ti-cloud-up"
-                  aria-hidden="true"
-                  style={{ fontSize: "11px", verticalAlign: "-1px" }}
-                />{" "}
+              <span style={{ marginLeft: "auto", fontSize: "11px", color: "var(--text-3)" }}>
+                <span aria-hidden="true" style={{ fontSize: "11px", verticalAlign: "-1px" }}>
+                  <Icon name="external" size="sm" />
+                </span>{" "}
                 {s.deploy}
               </span>
             </div>
             <div
               style={{
                 fontSize: "12px",
-                color: "var(--color-text2)",
+                color: "var(--text-2)",
                 marginTop: "4px",
                 fontFamily: "var(--font-mono, monospace)",
               }}
             >
               {s.stack}
             </div>
-          </Panel>
+          </Card>
         </div>
       ))}
-      <div style={{ fontSize: "11px", color: "var(--color-text3)", lineHeight: 1.6 }}>
+      <div style={{ fontSize: "11px", color: "var(--text-3)", lineHeight: 1.6 }}>
         {STARTING_POINTS}
       </div>
     </div>

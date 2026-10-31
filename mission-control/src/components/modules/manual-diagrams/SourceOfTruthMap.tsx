@@ -1,3 +1,5 @@
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 /**
  * manual-diagrams/SourceOfTruthMap.tsx — FRD-08 ("Operar desde cualquier agente")
  *
@@ -15,14 +17,14 @@ import type React from "react";
 
 type Mechanism = "symlink" | "import" | "shared" | "generated" | "mirror";
 
-type Meta = { readonly label: string; readonly icon: string; readonly color: string };
+type Meta = { readonly label: string; readonly icon: IconName; readonly color: string };
 
 const MECHANISM_META: Record<Mechanism, Meta> = {
-  symlink: { label: "symlink", icon: "ti-link", color: "var(--color-ok)" },
-  import: { label: "import", icon: "ti-file-import", color: "var(--color-info)" },
-  shared: { label: "compartido", icon: "ti-files", color: "var(--color-text2)" },
-  generated: { label: "generado", icon: "ti-wand", color: "var(--color-warn)" },
-  mirror: { label: "espejo", icon: "ti-copy", color: "var(--color-accent-text)" },
+  symlink: { label: "symlink", icon: "link", color: "var(--green)" },
+  import: { label: "import", icon: "file", color: "var(--blue)" },
+  shared: { label: "compartido", icon: "file", color: "var(--text-2)" },
+  generated: { label: "generado", icon: "sparkles", color: "var(--amber)" },
+  mirror: { label: "espejo", icon: "copy", color: "var(--violet)" },
 } as const;
 
 type Piece = {
@@ -95,7 +97,9 @@ function MechanismBadge({ mechanism }: { mechanism: Mechanism }): React.JSX.Elem
         whiteSpace: "nowrap",
       }}
     >
-      <i className={`ti ${meta.icon}`} aria-hidden="true" style={{ fontSize: "12px" }} />
+      <span aria-hidden="true" style={{ fontSize: "12px" }}>
+        <Icon name={meta.icon} size="sm" />
+      </span>
       {meta.label}
     </span>
   );
@@ -110,17 +114,15 @@ function PieceRow({ piece, isFirst }: { piece: Piece; isFirst: boolean }): React
         gap: "12px",
         alignItems: "flex-start",
         padding: "9px 0",
-        borderTop: isFirst ? undefined : "1px solid var(--color-border)",
+        borderTop: isFirst ? undefined : "1px solid var(--line)",
       }}
     >
       <div style={{ flex: "0 0 150px", minWidth: 0 }}>
-        <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--color-text)" }}>
-          {piece.piece}
-        </div>
+        <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--text)" }}>{piece.piece}</div>
         <div
           style={{
             fontSize: "11px",
-            color: "var(--color-text2)",
+            color: "var(--text-2)",
             fontFamily: "var(--font-mono, monospace)",
             marginTop: "2px",
             lineHeight: 1.4,
@@ -139,7 +141,7 @@ function PieceRow({ piece, isFirst }: { piece: Piece; isFirst: boolean }): React
               style={{
                 fontSize: "10px",
                 fontWeight: 600,
-                color: "var(--color-warn)",
+                color: "var(--amber)",
                 textTransform: "uppercase",
                 letterSpacing: "0.03em",
               }}
@@ -151,7 +153,7 @@ function PieceRow({ piece, isFirst }: { piece: Piece; isFirst: boolean }): React
         <div
           style={{
             fontSize: "12px",
-            color: "var(--color-text2)",
+            color: "var(--text-2)",
             marginTop: "4px",
             lineHeight: 1.45,
           }}

@@ -41,7 +41,7 @@ export function PluginDetail(): React.JSX.Element {
           cambiar un flujo).
         </li>
       </Ul>
-      <NotePanel icon="ti-tag" iconColor="var(--color-accent)">
+      <NotePanel icon="file" iconColor="var(--violet)">
         La versión se edita en un solo lugar, <Code>plugin/runtime/plugin-metadata.json</Code>, y
         los manifiestos de Claude y de Codex se generan a partir de él. Cada cambio en{" "}
         <Code>plugin/</Code> bumpa esa versión y registra el motivo en{" "}

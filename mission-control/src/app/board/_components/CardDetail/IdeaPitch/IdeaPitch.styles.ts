@@ -35,25 +35,25 @@ function rowKey(color: string): React.CSSProperties {
   };
 }
 // Row labels muted to the Spec tab's grey (was warn/info) — owner request.
-export const ROW_KEY_HOT_STYLE = rowKey("var(--color-text3)");
-export const ROW_KEY_COLD_STYLE = rowKey("var(--color-text3)");
+export const ROW_KEY_HOT_STYLE = rowKey("var(--text-3)");
+export const ROW_KEY_COLD_STYLE = rowKey("var(--text-3)");
 
 // problema → quote callout (accent border, not grey)
 export const QUOTE_STYLE: React.CSSProperties = {
-  borderLeft: "3px solid var(--color-accent)",
+  borderLeft: "3px solid var(--violet)",
   padding: "8px 14px",
   margin: "10px 0 0",
-  background: "var(--color-card)",
+  background: "var(--surface-2)",
   borderRadius: "0 10px 10px 0",
   fontStyle: "italic",
   fontSize: "14px",
-  color: "var(--color-text2)",
+  color: "var(--text-2)",
 };
 
 // la visión → feature grid (HTML .feats / .feat)
 export const VISION_FRAME_STYLE: React.CSSProperties = {
-  border: "1px solid var(--color-border-strong)",
-  background: "var(--color-card)",
+  border: "1px solid var(--line-strong)",
+  background: "var(--surface-2)",
   borderRadius: "12px",
   padding: "12px 16px",
 };
@@ -66,8 +66,8 @@ export const FEATS_STYLE: React.CSSProperties = {
   gap: "10px",
 };
 export const FEAT_STYLE: React.CSSProperties = {
-  background: "var(--color-card)",
-  border: "1px solid var(--color-border)",
+  background: "var(--surface-2)",
+  border: "1px solid var(--line)",
   borderRadius: "12px",
   padding: "12px 14px",
 };
@@ -75,21 +75,21 @@ export const FEAT_TITLE_STYLE: React.CSSProperties = {
   display: "block",
   fontSize: "13px",
   fontWeight: 700,
-  color: "var(--color-info)",
+  color: "var(--blue)",
   marginBottom: "4px",
 };
 export const FEAT_DESC_STYLE: React.CSSProperties = {
   margin: 0,
   fontSize: "13px",
   lineHeight: 1.45,
-  color: "var(--color-text2)",
+  color: "var(--text-2)",
 };
 
 // la visión → mock preview (HTML .mock / .checkitem)
 export const MOCK_STYLE: React.CSSProperties = {
   marginTop: "12px",
-  background: "var(--color-base)",
-  border: "1px solid var(--color-border)",
+  background: "var(--bg)",
+  border: "1px solid var(--line)",
   borderRadius: "14px",
   padding: "16px",
   fontFamily: "var(--font-mono, ui-monospace, monospace)",
@@ -104,13 +104,13 @@ export const MOCK_DOT_STYLE: React.CSSProperties = {
   width: "10px",
   height: "10px",
   borderRadius: "50%",
-  background: "var(--color-border-strong)",
+  background: "var(--line-strong)",
   flexShrink: 0,
 };
 export const MOCK_URL_STYLE: React.CSSProperties = {
   marginLeft: "6px",
   fontSize: "11px",
-  color: "var(--color-text3)",
+  color: "var(--text-3)",
 };
 export const CHECKITEM_STYLE: React.CSSProperties = {
   display: "flex",
@@ -120,9 +120,9 @@ export const CHECKITEM_STYLE: React.CSSProperties = {
   borderRadius: "9px",
   marginBottom: "6px",
   fontSize: "13px",
-  background: "var(--color-card)",
-  border: "1px solid var(--color-border)",
-  color: "var(--color-text)",
+  background: "var(--surface-2)",
+  border: "1px solid var(--line)",
+  color: "var(--text)",
 };
 function checkIcon(ok: boolean): React.CSSProperties {
   return {
@@ -134,8 +134,10 @@ function checkIcon(ok: boolean): React.CSSProperties {
     justifyContent: "center",
     flexShrink: 0,
     fontSize: "13px",
-    background: ok ? "var(--color-ok-bg)" : "var(--color-danger-bg)",
-    color: ok ? "var(--color-ok)" : "var(--color-danger)",
+    background: ok
+      ? "color-mix(in srgb, var(--green) var(--tint), transparent)"
+      : "color-mix(in srgb, var(--coral) var(--tint), transparent)",
+    color: ok ? "var(--green)" : "var(--coral)",
   };
 }
 export const CHECK_OK_ICON_STYLE = checkIcon(true);
@@ -143,8 +145,8 @@ export const CHECK_WARN_ICON_STYLE = checkIcon(false);
 
 // red team → pre-mortem box (HTML .premortem)
 export const PREMORTEM_STYLE: React.CSSProperties = {
-  background: "var(--color-danger-bg)",
-  border: "1px solid var(--color-danger)",
+  background: "color-mix(in srgb, var(--coral) var(--tint), transparent)",
+  border: "1px solid var(--coral)",
   borderRadius: "12px",
   padding: "14px 16px",
   marginTop: "2px",
@@ -152,12 +154,12 @@ export const PREMORTEM_STYLE: React.CSSProperties = {
 };
 // el ask → highlighted box (HTML .ask)
 export const ASK_STYLE: React.CSSProperties = {
-  background: "var(--color-accent-bg)",
-  border: "1px solid var(--color-accent)",
+  background: "color-mix(in srgb, var(--violet) var(--tint-strong), transparent)",
+  border: "1px solid var(--violet)",
   borderRadius: "14px",
   padding: "16px 20px",
   fontSize: "15px",
-  color: "var(--color-text)",
+  color: "var(--text)",
   marginTop: "2px",
 };
 
@@ -165,23 +167,23 @@ export const ASK_STYLE: React.CSSProperties = {
 export const RM_STYLE: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr",
-  border: "1px solid var(--color-border)",
+  border: "1px solid var(--line)",
   borderRadius: "11px",
   overflow: "hidden",
   marginTop: "10px",
 };
 export const RM_RISK_STYLE: React.CSSProperties = {
   padding: "12px 14px",
-  background: "var(--color-danger-bg)",
+  background: "color-mix(in srgb, var(--coral) var(--tint), transparent)",
   fontSize: "13px",
-  color: "var(--color-text)",
+  color: "var(--text)",
 };
 export const RM_MIT_STYLE: React.CSSProperties = {
   padding: "12px 14px",
-  background: "var(--color-ok-bg)",
-  borderLeft: "1px solid var(--color-border)",
+  background: "color-mix(in srgb, var(--green) var(--tint), transparent)",
+  borderLeft: "1px solid var(--line)",
   fontSize: "13px",
-  color: "var(--color-text)",
+  color: "var(--text)",
 };
 
 // --- Decision board: scorecard + chart (HTML .twocol / .panel) ---------
@@ -191,15 +193,15 @@ export const TWOCOL_STYLE: React.CSSProperties = {
   gap: "16px",
 };
 export const SUBPANEL_STYLE: React.CSSProperties = {
-  background: "var(--color-panel)",
-  border: "1px solid var(--color-border)",
+  background: "var(--surface)",
+  border: "1px solid var(--line)",
   borderRadius: "14px",
   padding: "18px",
 };
 export const SUBPANEL_TITLE_STYLE: React.CSSProperties = {
   fontSize: "14px",
   fontWeight: 700,
-  color: "var(--color-text)",
+  color: "var(--text)",
 };
 
 // scorecard bars (HTML .scab)
@@ -215,19 +217,19 @@ export const SCORE_NAME_STYLE: React.CSSProperties = {
   flexShrink: 0,
   fontFamily: "var(--font-mono, ui-monospace, monospace)",
   fontSize: "11px",
-  color: "var(--color-text3)",
+  color: "var(--text-3)",
 };
 export const SCORE_TRACK_STYLE: React.CSSProperties = {
   flex: 1,
   height: "12px",
-  background: "var(--color-card2)",
+  background: "var(--surface-3)",
   borderRadius: "6px",
   overflow: "hidden",
 };
 const SCORE_FILL_COLOR: Record<ScoreLevel, string> = {
-  high: "var(--color-ok)",
-  mid: "var(--color-warn)",
-  low: "var(--color-info)",
+  high: "var(--green)",
+  mid: "var(--amber)",
+  low: "var(--blue)",
 };
 const SCORE_FILL_WIDTH: Record<ScoreLevel, string> = { high: "92%", mid: "56%", low: "28%" };
 export function scoreFillStyle(level: ScoreLevel): React.CSSProperties {
@@ -243,13 +245,13 @@ export const SCORE_VAL_STYLE: React.CSSProperties = {
   textAlign: "right",
   fontFamily: "var(--font-mono, ui-monospace, monospace)",
   fontSize: "11px",
-  color: "var(--color-text2)",
+  color: "var(--text-2)",
 };
 
 // evidence collapsible (HTML details/summary/.src)
 export const DETAILS_STYLE: React.CSSProperties = {
-  background: "var(--color-panel)",
-  border: "1px solid var(--color-border)",
+  background: "var(--surface)",
+  border: "1px solid var(--line)",
   borderRadius: "12px",
   padding: "4px 16px",
   marginTop: "8px",
@@ -258,7 +260,7 @@ export const SUMMARY_STYLE: React.CSSProperties = {
   cursor: "pointer",
   fontFamily: "var(--font-mono, ui-monospace, monospace)",
   fontSize: "12.5px",
-  color: "var(--color-accent-text)",
+  color: "var(--violet)",
   padding: "8px 0",
 };
 export const EVIDENCE_BODY_STYLE: React.CSSProperties = { padding: "4px 0 6px" };
@@ -267,11 +269,11 @@ export const EVIDENCE_BODY_STYLE: React.CSSProperties = { padding: "4px 0 6px" }
 export const EVIDENCE_SRC_STYLE: React.CSSProperties = {
   fontSize: "13px",
   lineHeight: 1.5,
-  color: "var(--color-text2)",
+  color: "var(--text-2)",
   padding: "5px 0",
 };
 export const EVIDENCE_LINK_STYLE: React.CSSProperties = {
-  color: "var(--color-accent-text)",
+  color: "var(--violet)",
   textDecoration: "underline",
   textUnderlineOffset: "2px",
 };

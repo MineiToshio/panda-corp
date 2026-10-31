@@ -1,3 +1,4 @@
+import { Icon } from "@/components/core/Icon/Icon";
 /**
  * manual-diagrams/WorkflowShapeDiagram.tsx — FRD-08 Workflows overview ("La forma que se repite")
  *
@@ -28,13 +29,13 @@ function WorkerChip({ label }: { label: string }): React.JSX.Element {
       style={{
         flex: "1 1 0",
         minWidth: 0,
-        background: "var(--color-panel)",
-        border: "1px solid var(--color-border-strong)",
+        background: "var(--surface)",
+        border: "1px solid var(--line-strong)",
         borderRadius: "8px",
         padding: "9px 6px",
         textAlign: "center",
         fontSize: "11.5px",
-        color: "var(--color-text2)",
+        color: "var(--text-2)",
       }}
     >
       {label}
@@ -48,13 +49,13 @@ function GateLensChip({ label }: { label: string }): React.JSX.Element {
       style={{
         flex: "1 1 0",
         minWidth: 0,
-        background: "var(--color-warn-bg)",
-        border: `0.5px solid var(--color-warn)`,
+        background: "color-mix(in srgb, var(--amber) var(--tint), transparent)",
+        border: `0.5px solid var(--amber)`,
         borderRadius: "8px",
         padding: "7px 6px",
         textAlign: "center",
         fontSize: "10.5px",
-        color: "var(--color-warn)",
+        color: "var(--amber)",
       }}
     >
       {label}
@@ -83,22 +84,23 @@ export function WorkflowShapeDiagram(): React.JSX.Element {
           display: "flex",
           alignItems: "center",
           gap: "8px",
-          background: "var(--color-card)",
-          border: "1px solid var(--color-border-strong)",
+          background: "var(--surface-2)",
+          border: "1px solid var(--line-strong)",
           borderRadius: "10px",
           padding: "10px 12px",
         }}
       >
-        <i
-          className="ti ti-hand-stop"
+        <span
           aria-hidden="true"
-          style={{ fontSize: "16px", color: "var(--color-warn)", flex: "0 0 auto" }}
-        />
+          style={{ fontSize: "16px", color: "var(--amber)", flex: "0 0 auto" }}
+        >
+          <Icon name="users" size="sm" />
+        </span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--color-text)" }}>
+          <div style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--text)" }}>
             La compuerta — el jefe de redacción
           </div>
-          <div style={{ fontSize: "11.5px", color: "var(--color-text2)", marginTop: "4px" }}>
+          <div style={{ fontSize: "11.5px", color: "var(--text-2)", marginTop: "4px" }}>
             Verifica antes de dejar pasar. En "split" son varios especialistas a la vez:
           </div>
           <div style={{ display: "flex", gap: "6px", marginTop: "6px", flexWrap: "wrap" }}>
@@ -113,13 +115,13 @@ export function WorkflowShapeDiagram(): React.JSX.Element {
       {/* What survives the gate */}
       <div
         style={{
-          background: "var(--color-ok-bg)",
-          border: "0.5px solid var(--color-ok)",
+          background: "color-mix(in srgb, var(--green) var(--tint), transparent)",
+          border: "0.5px solid var(--green)",
           borderRadius: "8px",
           padding: "8px 12px",
           textAlign: "center",
           fontSize: "12px",
-          color: "var(--color-ok)",
+          color: "var(--green)",
         }}
       >
         Solo lo confirmado se imprime

@@ -67,7 +67,7 @@ export function ArquitecturaDetail(): React.JSX.Element {
           diseño de implementación de esa feature concreta. Una por FRD.
         </li>
       </Ul>
-      <NotePanel icon="ti-layers-subtract" iconColor="var(--color-accent)">
+      <NotePanel icon="layers" iconColor="var(--violet)">
         Nunca se fusionan: el blueprint de feature referencia la arquitectura de plataforma, no la
         duplica.
       </NotePanel>

@@ -1,3 +1,4 @@
+import { Icon } from "@/components/core/Icon/Icon";
 /**
  * manual-diagrams/ModificationGuide.tsx — FRD-08 ("Operar desde cualquier agente")
  *
@@ -76,7 +77,7 @@ export function ModificationGuide(): React.JSX.Element {
             gap: "12px",
             alignItems: "flex-start",
             padding: "8px 0",
-            borderTop: i === 0 ? undefined : "1px solid var(--color-border)",
+            borderTop: i === 0 ? undefined : "1px solid var(--line)",
           }}
         >
           <div
@@ -84,17 +85,18 @@ export function ModificationGuide(): React.JSX.Element {
               flex: "0 0 160px",
               fontSize: "12px",
               fontWeight: 600,
-              color: "var(--color-text)",
+              color: "var(--text)",
               display: "flex",
               gap: "7px",
               alignItems: "flex-start",
             }}
           >
-            <i
-              className="ti ti-pencil"
+            <span
               aria-hidden="true"
-              style={{ fontSize: "13px", color: "var(--color-accent-text)", marginTop: "1px" }}
-            />
+              style={{ fontSize: "13px", color: "var(--violet)", marginTop: "1px" }}
+            >
+              <Icon name="file" size="sm" />
+            </span>
             {row.change}
           </div>
           <div
@@ -102,7 +104,7 @@ export function ModificationGuide(): React.JSX.Element {
               flex: 1,
               minWidth: 0,
               fontSize: "12px",
-              color: "var(--color-text2)",
+              color: "var(--text-2)",
               lineHeight: 1.5,
             }}
           >

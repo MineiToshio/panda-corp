@@ -82,15 +82,15 @@ describe("WO-08-004 v2 authored documentation", () => {
     expect(text("como-empezar")).toContain("La Fragua");
     expect(text("como-empezar")).toContain("Resumen");
   });
-  it("REQ-08-006 REQ-08-011 removes embedded catalogs and workflow graphs while retaining the deferred graph module", () => {
+  it("REQ-08-006 REQ-08-011 removes embedded catalogs and workflow graphs and retires the deferred graph module", () => {
     expect(pages.some((page) => page.group === "reference")).toBe(false);
     const registry = fs.readFileSync("src/app/manual/manualPages.tsx", "utf8");
     expect(registry).not.toMatch(
       /FlowGraph|workflow-flows|SkillDetail|AgentList|SkillsSection|DecisionRulesSection/,
     );
     expect(fs.existsSync("src/lib/manual/workflow-flows.ts")).toBe(false);
-    expect(fs.existsSync("src/lib/manual/skill-flows.ts")).toBe(true);
-    expect(fs.existsSync("src/components/modules/manual-diagrams/FlowGraph.tsx")).toBe(true);
+    expect(fs.existsSync("src/lib/manual/skill-flows.ts")).toBe(false);
+    expect(fs.existsSync("src/components/modules/manual-diagrams/FlowGraph.tsx")).toBe(false);
   });
   it.each(
     manualPageSlugs(),

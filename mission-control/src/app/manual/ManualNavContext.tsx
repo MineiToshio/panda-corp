@@ -4,17 +4,11 @@
 import { createContext, useContext } from "react";
 
 export interface ManualNav {
-  /** Open the skill in Configuration. */
-  goToSkill: (slug: string) => void;
-  /** Open the agent in Configuration. */
-  goToAgent: (id: string) => void;
   /** Open an authored Manual page (e.g. a Workflows sub-page) by group + slug. */
   goToManual: (group: string, slug: string) => void;
 }
 
 const NOOP_NAV: ManualNav = {
-  goToSkill: () => {},
-  goToAgent: () => {},
   goToManual: () => {},
 };
 

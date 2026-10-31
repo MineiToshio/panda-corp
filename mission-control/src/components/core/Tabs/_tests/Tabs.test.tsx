@@ -144,14 +144,14 @@ describe("SubTabs convenience alias", () => {
 });
 
 describe("Tabs — optional icon on tabs", () => {
-  it("renders icon class inside tab when icon provided", () => {
+  it("renders inline SVG inside tab when icon provided", () => {
     const tabsWithIcons = [
-      { id: "a", label: "Alpha", icon: "ti-bolt" },
+      { id: "a", label: "Alpha", icon: "bolt" as const },
       { id: "b", label: "Beta" },
     ];
     render(<Tabs level="sub" tabs={tabsWithIcons} active="a" onChange={vi.fn()} />);
     const tabA = screen.getByTestId("tab-a");
-    expect(tabA.querySelector(".ti-bolt")).not.toBeNull();
+    expect(tabA.querySelector("svg")).not.toBeNull();
   });
 });
 
@@ -198,4 +198,29 @@ describe("Tabs keyboard overflow", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
+});
+
+it("keeps keyboard-focused tabs clear of both overflow arrows", () => {
+  render(<Tabs tabs={SAMPLE_TABS} active="inicio" onChange={vi.fn()} />);
+  const strip = screen.getByRole("tablist");
+  const [first, second] = screen.getAllByRole("tab");
+  if (!first || !second) throw new Error("Missing sample tabs");
+  Object.defineProperties(strip, {
+    scrollLeft: { value: 50, configurable: true },
+    clientWidth: { value: 200, configurable: true },
+    scrollWidth: { value: 500, configurable: true },
+  });
+  const scrollBy = vi.fn();
+  Object.defineProperty(strip, "scrollBy", { value: scrollBy });
+  vi.spyOn(strip, "getBoundingClientRect").mockReturnValue(new DOMRect(100, 0, 200, 40));
+  vi.spyOn(second, "getBoundingClientRect").mockReturnValue(new DOMRect(250, 0, 40, 40));
+  vi.spyOn(first, "getBoundingClientRect").mockReturnValue(new DOMRect(110, 0, 40, 40));
+  first.focus();
+  fireEvent.keyDown(strip, { key: "ArrowRight" });
+  expect(second).toHaveFocus();
+  expect(scrollBy).toHaveBeenLastCalledWith({ left: 18, behavior: "auto" });
+  fireEvent.keyDown(strip, { key: "ArrowLeft" });
+  expect(first).toHaveFocus();
+  expect(scrollBy).toHaveBeenLastCalledWith({ left: -18, behavior: "auto" });
+  vi.restoreAllMocks();
 });

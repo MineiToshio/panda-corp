@@ -23,6 +23,7 @@
   justify-content: space-between;
   gap: var(--s3);
   margin-bottom: var(--s4);
+  flex-wrap: wrap;
   min-width: 0;
 }
 .title {

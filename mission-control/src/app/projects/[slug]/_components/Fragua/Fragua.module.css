@@ -135,7 +135,7 @@
   cursor: pointer;
 }
 .token:focus-visible {
-  outline: var(--focus-ring);
+  outline: 2px solid var(--focus);
   outline-offset: var(--s1);
 }
 .more {

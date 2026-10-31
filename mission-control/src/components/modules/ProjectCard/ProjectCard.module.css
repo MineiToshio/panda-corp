@@ -1,5 +1,6 @@
 .card {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: calc(var(--s3) + var(--s1) / 2);
   padding: calc(var(--s4) + var(--s1) / 2);
   border-radius: var(--r-lg);

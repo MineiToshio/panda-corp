@@ -32,15 +32,15 @@ const GATE_STYLE: React.CSSProperties = {
   justifyContent: "center",
   minHeight: "100dvh",
   padding: "calc(var(--spacing, 0.25rem) * 8)",
-  background: "var(--color-surface, Canvas)",
-  color: "var(--color-text, currentColor)",
+  background: "var(--surface)",
+  color: "var(--text)",
   fontFamily: "inherit",
 };
 
 const CARD_STYLE: React.CSSProperties = {
   // Elevation level 1: panel above canvas.
-  background: "var(--color-surface-panel, var(--color-surface, Canvas))",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
+  background: "var(--surface-2)",
+  border: "var(--hairline, 1px) solid var(--line)",
   borderRadius: "var(--radius, 0.5rem)",
   boxShadow: "var(--shadow-panel, none)",
   padding: "calc(var(--spacing, 0.25rem) * 8)",
@@ -56,14 +56,14 @@ const HEADING_STYLE: React.CSSProperties = {
   fontWeight: 700,
   lineHeight: 1.3,
   margin: 0,
-  color: "var(--color-text, currentColor)",
+  color: "var(--text)",
 };
 
 const DESCRIPTION_STYLE: React.CSSProperties = {
   fontSize: "0.875rem",
   lineHeight: 1.6,
   margin: 0,
-  color: "var(--color-text-muted, var(--color-text, currentColor))",
+  color: "var(--text-3)",
   opacity: 0.8,
 };
 
@@ -73,9 +73,9 @@ const COMMAND_ROW_STYLE: React.CSSProperties = {
   gap: "calc(var(--spacing, 0.25rem) * 2)",
   flexWrap: "wrap",
   padding: "calc(var(--spacing, 0.25rem) * 3)",
-  background: "var(--color-surface-code, color-mix(in oklch, currentColor 5%, transparent))",
+  background: "var(--surface-3)",
   borderRadius: "calc(var(--radius, 0.5rem) * 0.75)",
-  border: "var(--hairline, 1px) solid var(--color-border, currentColor)",
+  border: "var(--hairline, 1px) solid var(--line)",
 };
 
 const CODE_STYLE: React.CSSProperties = {
@@ -83,14 +83,14 @@ const CODE_STYLE: React.CSSProperties = {
   fontSize: "0.875rem",
   fontWeight: 600,
   letterSpacing: "-0.01em",
-  color: "var(--color-accent, var(--color-text, currentColor))",
+  color: "var(--violet)",
   flex: 1,
   minWidth: 0,
 };
 
 const HINT_STYLE: React.CSSProperties = {
   fontSize: "0.75rem",
-  color: "var(--color-text-muted, var(--color-text, currentColor))",
+  color: "var(--text-3)",
   opacity: 0.65,
   lineHeight: 1.5,
   margin: 0,

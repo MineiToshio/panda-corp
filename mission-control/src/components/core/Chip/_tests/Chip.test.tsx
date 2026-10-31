@@ -16,7 +16,17 @@ function renderChip(props: ChipProps) {
 }
 
 describe("frd-13/wo-13-007: Chip — tone rendering", () => {
-  const tones: ChipProps["tone"][] = ["ok", "warn", "danger", "info", "accent", "secondary"];
+  const tones: ChipProps["tone"][] = [
+    "green",
+    "amber",
+    "coral",
+    "blue",
+    "teal",
+    "violet",
+    "pink",
+    "slate",
+    "gold",
+  ];
 
   for (const tone of tones) {
     it(`frd-13: Chip tone="${tone}" — renders with data-tone attribute`, () => {
@@ -29,19 +39,19 @@ describe("frd-13/wo-13-007: Chip — tone rendering", () => {
 
 describe("frd-13/wo-13-007: Chip — content", () => {
   it("frd-13: Chip — renders children text", () => {
-    renderChip({ tone: "ok", children: "Activo" });
+    renderChip({ tone: "green", children: "Activo" });
     expect(screen.getByText("Activo")).toBeDefined();
   });
 
   it("frd-13: Chip — has data-testid='chip'", () => {
-    renderChip({ tone: "warn", children: "Aviso" });
+    renderChip({ tone: "amber", children: "Aviso" });
     expect(screen.getByTestId("chip")).toBeDefined();
   });
 });
 
 describe("frd-13/wo-13-007: Chip — tokens only (no hardcoded hex in inline styles)", () => {
   it("frd-13: Chip — inline style uses var() not hardcoded hex", () => {
-    const { container } = renderChip({ tone: "warn", children: "X" });
+    const { container } = renderChip({ tone: "amber", children: "X" });
     const el = container.firstElementChild as HTMLElement | null;
     if (!el) throw new Error("No element");
     const style = el.getAttribute("style") ?? "";
@@ -51,7 +61,7 @@ describe("frd-13/wo-13-007: Chip — tokens only (no hardcoded hex in inline sty
 
 describe("frd-13/wo-13-007: Chip — optional label prop", () => {
   it("frd-13: Chip — renders label prop as text", () => {
-    renderChip({ tone: "info", label: "FRD-13" });
+    renderChip({ tone: "blue", label: "FRD-13" });
     expect(screen.getByText("FRD-13")).toBeDefined();
   });
 });

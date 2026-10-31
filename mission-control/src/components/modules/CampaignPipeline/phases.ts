@@ -21,10 +21,10 @@
 import {
   type CommandMode,
   IMPLEMENT_MODE_TITLE,
-  IMPLEMENT_MODES,
   SPEC_MODE_TITLE,
   SPEC_MODES,
 } from "@/lib/command-modes";
+import { BUILD_MODES, DEFAULT_BUILD_MODE } from "@/lib/constants";
 import { t } from "@/lib/copy/copy";
 
 // ---------------------------------------------------------------------------
@@ -74,6 +74,14 @@ export interface PhaseDefinition {
 // ---------------------------------------------------------------------------
 // Static data: index 0–5 maps to these 6 phases in order.
 // ---------------------------------------------------------------------------
+
+const CAMPAIGN_BUILD_MODES: readonly CommandMode[] = BUILD_MODES.filter(
+  (mode) => mode.id !== DEFAULT_BUILD_MODE,
+).map((mode) => ({
+  flag: mode.id,
+  label: t(mode.label),
+  hint: t(mode.description),
+}));
 
 /** The 6 campaign phases in pipeline order (research → release). */
 export const PHASES: ReadonlyArray<PhaseDefinition> = [
@@ -164,7 +172,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       {
         label: "Construye con TDD",
         command: "/pandacorp:implement",
-        modes: IMPLEMENT_MODES,
+        modes: CAMPAIGN_BUILD_MODES,
         modeTitle: IMPLEMENT_MODE_TITLE,
       },
       { label: "Ajusta la arquitectura / work orders", command: "/pandacorp:architecture" },
@@ -190,7 +198,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       {
         label: "Reanuda / continúa el build",
         command: "/pandacorp:implement",
-        modes: IMPLEMENT_MODES,
+        modes: CAMPAIGN_BUILD_MODES,
         modeTitle: IMPLEMENT_MODE_TITLE,
       },
       { label: "Reporta un bug encontrado probando", command: "/pandacorp:bug" },

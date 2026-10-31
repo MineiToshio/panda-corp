@@ -1,5 +1,5 @@
 .viewer {
-  --model-unit: calc(var(--space-base) / 4);
+  --model-unit: calc(1rem / 4);
   --model-font: var(--fs-xs);
   color: var(--text);
   min-width: 0;
@@ -281,7 +281,7 @@
   min-height: 440px;
 }
 .state {
-  padding: var(--space-base);
+  padding: 1rem;
   border: 1px solid var(--line);
   border-radius: var(--r);
   color: var(--text-2);

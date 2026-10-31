@@ -1,3 +1,4 @@
+import { Icon } from "@/components/core/Icon/Icon";
 /**
  * manual-diagrams/CockpitDataDiagram.tsx — FRD-08 ("Mission Control por dentro")
  *
@@ -34,7 +35,7 @@ export function CockpitDataDiagram(): React.JSX.Element {
             style={{
               fontSize: "12px",
               fontFamily: "var(--font-mono, monospace)",
-              color: "var(--color-text2)",
+              color: "var(--text-2)",
               padding: "2px 0",
             }}
           >
@@ -42,15 +43,13 @@ export function CockpitDataDiagram(): React.JSX.Element {
           </div>
         ))}
       </div>
-      <i
-        className="ti ti-arrow-right"
-        aria-hidden="true"
-        style={{ fontSize: "18px", color: "var(--color-text3)" }}
-      />
+      <span aria-hidden="true" style={{ fontSize: "18px", color: "var(--text-3)" }}>
+        <Icon name="arrow" size="sm" />
+      </span>
       <div
         style={{
-          background: "var(--color-accent)",
-          color: "var(--color-on-accent)",
+          background: "var(--violet)",
+          color: "var(--primary-fg)",
           borderRadius: "var(--radius-sm, 8px)",
           padding: "10px 14px",
           textAlign: "center",

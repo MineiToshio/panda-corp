@@ -7,8 +7,6 @@
  *                and `release` (launched) — DR-085 folded the old `operation` phase into `release`.
  *                The Portfolio overview uses `allProjects()` to include every phase.
  *   AC-03-002.1  Each project SHALL expose its stage and a running indicator.
- *   AC-03-003.1  Each launched (`release`) project SHALL expose its business snapshot
- *                when present in the portfolio.
  *   AC-03-006.x  Path-not-found detection: exists:false still listed; badge-ready.
  *
  * Regression anchors from .pandacorp/comms/progress.md (past incidents):
@@ -27,7 +25,7 @@
  *   proj-a           implementation (running:true)   YES  active phase
  *   proj-architecture architecture (running:false)   YES  active phase
  *   proj-release      release (running:true)         YES  active phase (building)
- *   proj-operation    release (running:false)         YES  active phase (launched) + snapshot (DR-085)
+ *   proj-operation    release (running:false)         YES  active phase (launched) (DR-085)
  *   proj-b            malformed YAML (no phase)       YES  active but status malformed → fallback
  *   proj-missing-repo no status.yaml                  NO   portfolio phase=product → NON-active
  *   proj-product      product (running:false)          YES  NON-active phase, excluded
@@ -61,7 +59,6 @@ type ProjectListItem = {
   exists: boolean;
   stage?: string;
   running?: boolean;
-  snapshot?: { users?: string; returnMetric?: string; verdict?: string };
 };
 
 // ---------------------------------------------------------------------------
@@ -270,89 +267,6 @@ describe("frd-03: activeProjects — AC-03-002.1 stage and running fields", () =
 });
 
 // ---------------------------------------------------------------------------
-// AC-03-003.1 — business snapshot for launched (release) projects
-// blueprint §2/§3: snapshot populated ONLY for the launched (release) phase; absent fields omitted silently (DR-085)
-// ---------------------------------------------------------------------------
-
-describe("frd-03: activeProjects — AC-03-003.1 business snapshot for launched projects", () => {
-  it("frd-03: proj-operation (release/launched) has a snapshot object", async () => {
-    await withFactoryRoot(FIXTURE_FULL, () => {
-      const item = (activeProjects() as ProjectListItem[]).find((p) => p.name === "proj-operation");
-      expect(item?.snapshot).toBeDefined();
-    });
-  });
-
-  it("frd-03: proj-operation snapshot has users '500' from the portfolio row", async () => {
-    await withFactoryRoot(FIXTURE_FULL, () => {
-      const item = (activeProjects() as ProjectListItem[]).find((p) => p.name === "proj-operation");
-      expect(item?.snapshot?.users).toBe("500");
-    });
-  });
-
-  it("frd-03: proj-operation snapshot has returnMetric '$1 200 MRR' from the portfolio row", async () => {
-    await withFactoryRoot(FIXTURE_FULL, () => {
-      const item = (activeProjects() as ProjectListItem[]).find((p) => p.name === "proj-operation");
-      expect(item?.snapshot?.returnMetric).toBe("$1 200 MRR");
-    });
-  });
-
-  it("frd-03: proj-operation snapshot has verdict 'double-down' from the portfolio row", async () => {
-    await withFactoryRoot(FIXTURE_FULL, () => {
-      const item = (activeProjects() as ProjectListItem[]).find((p) => p.name === "proj-operation");
-      expect(item?.snapshot?.verdict).toBe("double-down");
-    });
-  });
-
-  it("frd-03: proj-a (implementation) has no snapshot (snapshot is undefined or absent)", async () => {
-    // Snapshot is only for the launched (release) phase, not for the building phases (DR-085).
-    await withFactoryRoot(FIXTURE_FULL, () => {
-      const item = (activeProjects() as ProjectListItem[]).find((p) => p.name === "proj-a");
-      // The contract says snapshot is populated only for the launched (release) phase.
-      // It must not appear on non-release entries.
-      expect(item?.snapshot).toBeUndefined();
-    });
-  });
-
-  it("frd-03: proj-architecture (architecture) has no snapshot", async () => {
-    await withFactoryRoot(FIXTURE_FULL, () => {
-      const item = (activeProjects() as ProjectListItem[]).find(
-        (p) => p.name === "proj-architecture",
-      );
-      expect(item?.snapshot).toBeUndefined();
-    });
-  });
-
-  it("frd-03: WHEN a launched (release) row has placeholder values in snapshot columns THEN those fields are undefined (not placeholder strings)", () => {
-    // Inline fixture: launched (release) row with "—" in all snapshot columns (DR-085).
-    // Tests that normalizeCell from readPortfolio propagates through activeProjects.
-    // This is a unit-level inline fixture test (no fs round-trip needed).
-    const ACTIVE_PHASES_WITH_PLACEHOLDERS = [
-      "| Name | Path | Repo | Origin idea | Phase | Users | Return metric | Verdict | Last sync |",
-      "|---|---|---|---|---|---|---|---|---|",
-      "| op-no-snap | projects/proj-operation | — | An op project | release | — | — | — | 2026-06-10 |",
-    ].join("\n");
-    // We invoke via a string-content overload of readPortfolio to test the compose logic
-    // without touching the PANDACORP_FACTORY_ROOT env (pure parser path).
-    // The compose helper activeProjects() wraps readPortfolio + readStatus + pathExists;
-    // to test this specific normalization path, we assert via the portfolioContent overload
-    // of activeProjects (if the WO exposes one), or we verify the property on the
-    // output item from the full fixture (a launched/release row with all "—" snapshot cells).
-    const item = (activeProjects as (content?: string) => ProjectListItem[])(
-      ACTIVE_PHASES_WITH_PLACEHOLDERS,
-    );
-    const op = item.find((p) => p.name === "op-no-snap");
-    if (op?.snapshot !== undefined) {
-      expect(op.snapshot.users).toBeUndefined();
-      expect(op.snapshot.returnMetric).toBeUndefined();
-      expect(op.snapshot.verdict).toBeUndefined();
-    } else {
-      // If the implementation omits snapshot entirely when all cells are undefined, that is correct too.
-      expect(op?.snapshot).toBeUndefined();
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
 // Malformed status fallback (regression WO-01-005 I2, I3)
 // blueprint §2: "if status absent/malformed, fall back to the portfolio table's `phase` cell"
 // ---------------------------------------------------------------------------
@@ -541,29 +455,6 @@ describe("frd-03: activeProjects — inline content with a single active project
         expect(ACTIVE_PHASES.has(item.stage)).toBe(true);
       }
     }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Snapshot absent-fields: snapshot undefined when ALL cells are placeholders
-// Tests the "absent → omit silently" rule (FRD-03 §3, blueprint §3).
-// ---------------------------------------------------------------------------
-
-describe("frd-03: activeProjects — snapshot omitted when all columns are placeholder", () => {
-  it("frd-03: proj-broken-path (shipped→release fallback, all snapshot cells are portfolio values) has snapshot populated", async () => {
-    // proj-broken-path: portfolio row has users=340, returnMetric='OSS stars', verdict='shipped'
-    // It is classified as active via the 'shipped' portfolio phase fallback.
-    // Its snapshot should be populated from portfolio columns.
-    await withFactoryRoot(FIXTURE_FULL, () => {
-      const item = (activeProjects() as ProjectListItem[]).find(
-        (p) => p.name === "proj-broken-path",
-      );
-      if (item !== undefined && item.snapshot !== undefined) {
-        expect(item.snapshot.users).toBe("340");
-      }
-      // No assertion if item is absent (the exact active-set logic for the 'shipped'
-      // portfolio keyword is pinned by the inclusion test above).
-    });
   });
 });
 

@@ -82,7 +82,7 @@ export function StacksDetail(): React.JSX.Element {
           La decisión queda registrada como ADR en <Code>docs/adr/</Code>.
         </li>
       </Ul>
-      <NotePanel icon="ti-info-circle">
+      <NotePanel icon="circle">
         Usar el golden path no es obligatorio: el architect puede proponer alternativas si hay
         razones técnicas sólidas, pero debe justificarlas y tú debes aprobarlas.
       </NotePanel>

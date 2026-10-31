@@ -1,3 +1,4 @@
+import type { IconName } from "@/components/core/Icon/iconData";
 /**
  * lib/achievements/definitions.ts — Chain data tables (FRD-10)
  *
@@ -31,13 +32,13 @@ export const SAGA_ORDER: readonly Saga[] = [
   "El Tiempo",
 ];
 
-/** Icon per saga (Tabler). */
-export const SAGA_ICONS: Record<Saga, string> = {
-  "La Construcción": "ti-building-factory-2",
-  "Las Ideas": "ti-bulb",
-  "El Oficio": "ti-award",
-  "El Gremio": "ti-users-group",
-  "El Tiempo": "ti-clock-hour-4",
+/** Órbita icon per saga. */
+export const SAGA_ICONS: Record<Saga, IconName> = {
+  "La Construcción": "factory",
+  "Las Ideas": "bulb",
+  "El Oficio": "trophy",
+  "El Gremio": "users",
+  "El Tiempo": "clock",
 };
 
 /** Chain definition (data table — never mutated at runtime). */

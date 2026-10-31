@@ -91,9 +91,7 @@ describe("AC-13-010.1: chip family", () => {
     expect(screen.getByText("7")).toBeTruthy();
   });
 
-  it("AC-13-010.1: a v1 tone keeps its inline contract; FilterChip state is aria-pressed", () => {
-    render(<Chip tone="ok" label="en vivo" />);
-    expect(screen.getByText("en vivo").getAttribute("data-tone")).toBe("ok");
+  it("AC-13-010.1: FilterChip state is aria-pressed", () => {
     const onClick = vi.fn();
     render(
       <FilterChip pressed onClick={onClick}>

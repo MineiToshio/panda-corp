@@ -1,3 +1,5 @@
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 /**
  * SectionedMarkdown — render a markdown body as **titled, colour-coded sections**
  * (CMP-17-detail / CMP-22-detail, FRD-17 / FRD-22).
@@ -80,7 +82,7 @@ function parseBody(body: string): ParsedBody {
   return { preamble: preambleLines.join("\n").trim(), sections };
 }
 
-type SectionStyle = { icon: string; color: string };
+type SectionStyle = { icon: IconName; color: string };
 
 /**
  * Prefix → style table. Each entry's `prefixes` are matched (case-insensitively,
@@ -93,38 +95,38 @@ type SectionStyle = { icon: string; color: string };
 const SECTION_STYLES: ReadonlyArray<{ prefixes: readonly string[]; style: SectionStyle }> = [
   {
     prefixes: ["situation", "situación"],
-    style: { icon: "ti-alert-circle", color: "var(--color-info)" },
+    style: { icon: "alert", color: "var(--blue)" },
   },
   {
     prefixes: ["lesson", "lección"],
-    style: { icon: "ti-bulb", color: "var(--color-accent-text)" },
+    style: { icon: "bulb", color: "var(--violet)" },
   },
-  { prefixes: ["apply", "aplica"], style: { icon: "ti-arrow-right", color: "var(--color-ok)" } },
+  { prefixes: ["apply", "aplica"], style: { icon: "arrow", color: "var(--green)" } },
   {
     prefixes: ["why", "por qué", "por que"],
-    style: { icon: "ti-help-circle", color: "var(--color-text2)" },
+    style: { icon: "circle", color: "var(--text-2)" },
   },
   {
     prefixes: ["problem", "problema"],
-    style: { icon: "ti-alert-triangle", color: "var(--color-danger)" },
+    style: { icon: "alert", color: "var(--coral)" },
   },
   {
     prefixes: ["root cause", "causa"],
-    style: { icon: "ti-microscope", color: "var(--color-warn)" },
+    style: { icon: "search", color: "var(--amber)" },
   },
   {
     prefixes: ["fix plan", "fix", "plan"],
-    style: { icon: "ti-tool", color: "var(--color-accent-text)" },
+    style: { icon: "settings", color: "var(--violet)" },
   },
-  { prefixes: ["test", "prueba"], style: { icon: "ti-flask", color: "var(--color-info)" } },
+  { prefixes: ["test", "prueba"], style: { icon: "bulb", color: "var(--blue)" } },
   {
     prefixes: ["done when", "done", "hecho"],
-    style: { icon: "ti-circle-check", color: "var(--color-ok)" },
+    style: { icon: "check", color: "var(--green)" },
   },
-  { prefixes: ["out of scope", "fuera"], style: { icon: "ti-ban", color: "var(--color-text2)" } },
+  { prefixes: ["out of scope", "fuera"], style: { icon: "lock", color: "var(--text-2)" } },
 ];
 
-const FALLBACK_STYLE: SectionStyle = { icon: "ti-point", color: "var(--color-accent-text)" };
+const FALLBACK_STYLE: SectionStyle = { icon: "dot", color: "var(--violet)" };
 
 /** Icon + colour for a section label (first prefix match wins, fallback safe). */
 function sectionStyle(label: string): SectionStyle {
@@ -153,7 +155,9 @@ function SectionBlock({ section }: { section: Section }): React.JSX.Element {
   return (
     <div style={{ borderLeft: `2px solid ${color}`, paddingLeft: "12px" }}>
       <h3 style={{ ...SECTION_HEADER_STYLE, color }}>
-        <i className={`ti ${icon}`} style={{ fontSize: "15px" }} aria-hidden="true" />
+        <span style={{ fontSize: "15px" }} aria-hidden="true">
+          <Icon name={icon} size="sm" />
+        </span>
         {section.label}
       </h3>
       <Markdown>{section.content.trim()}</Markdown>

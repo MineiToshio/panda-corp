@@ -1,4 +1,6 @@
-"use client";
+import type { IconName } from "@/components/core/Icon/iconData";
+
+("use client");
 
 import { useEffect } from "react";
 import { IdeaDocs } from "@/app/board/_components/IdeaDocs/IdeaDocs";
@@ -30,7 +32,7 @@ type TabKey = "propuesta" | "spec" | "arquitectura" | "docs" | "campana";
 interface TabDef {
   id: TabKey;
   label: string;
-  icon?: string;
+  icon?: IconName;
   tone?: Tone;
 }
 
@@ -59,7 +61,7 @@ const SUMMARY_KEY = "summary";
 const READER_STATE_STYLE: React.CSSProperties = {
   margin: 0,
   fontSize: "0.875rem",
-  color: "var(--color-text-muted, var(--color-text2, currentColor))",
+  color: "var(--text-3)",
 };
 
 const FRD_FILE_LABEL: Record<string, string> = {

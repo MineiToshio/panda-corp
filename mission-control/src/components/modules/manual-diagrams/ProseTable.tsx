@@ -13,7 +13,7 @@
  */
 
 import type React from "react";
-import { Panel } from "@/components/core/Panel/Panel";
+import { Card } from "@/components/core/Card/Card";
 
 export interface ProseTableProps {
   /** Accessible name of the table (what the rows enumerate). */
@@ -29,17 +29,17 @@ export interface ProseTableProps {
 const TH_STYLE: React.CSSProperties = {
   textAlign: "left",
   padding: "6px 8px",
-  borderBottom: "1px solid var(--color-border)",
-  color: "var(--color-text2)",
+  borderBottom: "1px solid var(--line)",
+  color: "var(--text-2)",
   fontWeight: 500,
   whiteSpace: "nowrap",
 };
 
 const TD_STYLE: React.CSSProperties = {
   padding: "6px 8px",
-  borderBottom: "1px solid var(--color-border)",
+  borderBottom: "1px solid var(--line)",
   verticalAlign: "top",
-  color: "var(--color-text2)",
+  color: "var(--text-2)",
   lineHeight: 1.5,
 };
 
@@ -47,7 +47,7 @@ const MONO_TD_STYLE: React.CSSProperties = {
   ...TD_STYLE,
   fontFamily: "var(--font-mono, monospace)",
   fontSize: "11px",
-  color: "var(--color-text)",
+  color: "var(--text)",
 };
 
 const DEFAULT_MONO_COLUMNS: readonly number[] = [0];
@@ -60,7 +60,7 @@ export function ProseTable({
   monoColumns = DEFAULT_MONO_COLUMNS,
 }: ProseTableProps): React.JSX.Element {
   return (
-    <Panel>
+    <Card>
       <section aria-label={label} style={{ overflowX: "auto", margin: "-2px" }}>
         <table
           data-testid="manual-prose-table"
@@ -92,6 +92,6 @@ export function ProseTable({
           </tbody>
         </table>
       </section>
-    </Panel>
+    </Card>
   );
 }

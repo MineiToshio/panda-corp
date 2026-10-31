@@ -15,8 +15,8 @@ import { useEffect } from "react";
 const BODY_STYLE: React.CSSProperties = {
   margin: 0,
   minHeight: "100vh",
-  background: "var(--color-base)",
-  color: "var(--color-text)",
+  background: "var(--bg)",
+  color: "var(--text)",
   fontFamily: "system-ui, sans-serif",
 };
 
@@ -33,9 +33,9 @@ const WRAP_STYLE: React.CSSProperties = {
 const BUTTON_STYLE: React.CSSProperties = {
   padding: "0.5rem 1rem",
   borderRadius: "var(--radius, 0.5rem)",
-  border: "var(--hairline, 1px) solid var(--color-accent)",
-  background: "var(--color-accent)",
-  color: "var(--color-base)",
+  border: "var(--hairline, 1px) solid var(--violet)",
+  background: "var(--violet)",
+  color: "var(--bg)",
   cursor: "pointer",
   fontSize: "0.875rem",
 };

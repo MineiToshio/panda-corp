@@ -1,3 +1,4 @@
+import { Icon } from "@/components/core/Icon/Icon";
 /**
  * manual-diagrams/ArchDiagram.tsx — FRD-08 ("Arquitectura del sistema")
  *
@@ -31,10 +32,10 @@ export function ArchDiagram(): React.JSX.Element {
       {/* The factory region */}
       <div
         style={{
-          border: "1px solid var(--color-border)",
+          border: "1px solid var(--line)",
           borderRadius: "var(--radius-lg, 16px)",
           padding: "12px",
-          background: "var(--color-panel)",
+          background: "var(--surface)",
           marginBottom: "10px",
         }}
       >
@@ -43,19 +44,17 @@ export function ArchDiagram(): React.JSX.Element {
             fontSize: "13px",
             fontWeight: 500,
             marginBottom: "8px",
-            color: "var(--color-text)",
+            color: "var(--text)",
           }}
         >
-          <i
-            className="ti ti-building-factory-2"
-            aria-hidden="true"
-            style={{ fontSize: "14px", verticalAlign: "-2px" }}
-          />{" "}
+          <span aria-hidden="true" style={{ fontSize: "14px", verticalAlign: "-2px" }}>
+            <Icon name="factory" size="sm" />
+          </span>{" "}
           La fábrica · repo panda-corp (el know-how)
         </div>
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
           {FACTORY_PARTS.map((part) => (
-            <Chip key={part} tone="secondary">
+            <Chip key={part} tone="slate">
               {part}
             </Chip>
           ))}
@@ -65,7 +64,7 @@ export function ArchDiagram(): React.JSX.Element {
       <div
         style={{
           textAlign: "center",
-          color: "var(--color-text3)",
+          color: "var(--text-3)",
           fontSize: "12px",
           margin: "2px 0",
         }}
@@ -87,19 +86,15 @@ export function ArchDiagram(): React.JSX.Element {
           <div
             key={product}
             style={{
-              border: "1px solid var(--color-border)",
+              border: "1px solid var(--line)",
               borderRadius: "var(--radius-md, 12px)",
               padding: "8px 12px",
-              background: "var(--color-panel)",
+              background: "var(--surface)",
               textAlign: "center",
             }}
           >
-            <div style={{ fontSize: "12px", fontWeight: 500, color: "var(--color-text)" }}>
-              {product}
-            </div>
-            <div style={{ fontSize: "11px", color: "var(--color-text3)" }}>
-              repo propio · su docs/
-            </div>
+            <div style={{ fontSize: "12px", fontWeight: 500, color: "var(--text)" }}>{product}</div>
+            <div style={{ fontSize: "11px", color: "var(--text-3)" }}>repo propio · su docs/</div>
           </div>
         ))}
       </div>

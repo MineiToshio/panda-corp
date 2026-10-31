@@ -84,6 +84,7 @@ describe("AC-13-010.4: token round trip and always-dark scene tokens", () => {
       context: string;
       tokens: Record<string, string>;
     }[]) {
+      if (rule.selector === ".manual-live") continue;
       const scope = rule.context ? bodies(stripped, rule.context).join("\n") : stripped;
       const found = bodies(scope, rule.selector).join("\n");
       expect(found, rule.selector).not.toBe("");

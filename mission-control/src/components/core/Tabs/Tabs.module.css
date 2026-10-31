@@ -1,5 +1,6 @@
 .wrap {
   position: relative;
+  min-width: 0;
   margin-bottom: var(--s6);
 }
 .tabs {
@@ -84,7 +85,7 @@
   position: absolute;
   top: 0;
   bottom: var(--hairline);
-  width: 28px;
+  width: var(--tabs-control-width);
   pointer-events: none;
   opacity: 0;
   z-index: 1;
@@ -114,7 +115,7 @@
   position: absolute;
   top: var(--s2);
   z-index: 2;
-  width: 28px;
+  width: var(--tabs-control-width);
   min-height: 30px;
   display: grid;
   place-items: center;

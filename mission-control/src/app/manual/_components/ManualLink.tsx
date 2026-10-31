@@ -13,7 +13,7 @@ export function ManualLink({
   return (
     <a
       href={`/manual/${encodeURIComponent(group)}/${encodeURIComponent(slug)}`}
-      style={{ color: "var(--color-accent-text)", textDecoration: "underline" }}
+      style={{ color: "var(--violet)", textDecoration: "underline" }}
     >
       {children}
     </a>

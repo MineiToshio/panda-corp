@@ -1,3 +1,4 @@
+import type { IconName } from "@/components/core/Icon/iconData";
 /**
  * lib/gamification.ts — Pure XP / level / celebration engine (FRD-09)
  *
@@ -6,7 +7,6 @@
  *
  * Interfaces implemented (blueprint §3):
  *   IF-09-guild-xp  — computeGuildLevel(outcomes): GuildLevel
- *   IF-09-celebration — classifyCelebration(event): CelebrationTier
  *
  * Traceability:
  *   AC-09-001.1 — computeGuildLevel returns { level, title, xp, next, pctToNext }
@@ -22,12 +22,11 @@
  *   - XP / celebrations ONLY for verifiable results (WO closed, phase done, release, level-up).
  *   - NO XP for: app-open, read, write, edit, message, navigation, activity.
  *   - NO celebration for: activity events, failure, ambiguous.
- *   - Celebrations SCALE: toast (WO) → phase → release → levelup. Never flat.
  *   - Forbidden patterns: leaderboards, lives, daily-reset streaks, false urgency, bar at ~80%.
  */
 
 import { semanticLedger } from "../events/event-contract";
-import type { Event, EventsSnapshot } from "../events/events";
+import type { EventsSnapshot } from "../events/events";
 import type { StatusResult } from "../status/status";
 
 // ---------------------------------------------------------------------------
@@ -46,8 +45,8 @@ export type Rank = {
   readonly title: string;
   /** English name (for the Rangos ladder / reference). */
   readonly titleEn: string;
-  /** Tabler icon class for the rank (fallback when the sprite is unavailable). */
-  readonly icon: string;
+  /** Órbita icon for the rank (fallback when the sprite is unavailable). */
+  readonly icon: IconName;
   /** Rank-family sprite slug → /ranks/<sprite>.png (custom pixel-art emblem). */
   readonly sprite: string;
   /** Minimum (entry) granular LEVEL for this rank — a rank spans a band of levels. */
@@ -67,47 +66,47 @@ export type Rank = {
  * XP weights (per outcome, §2 honesty contract): WO 10 · phase 50 · release 200 ·
  * green test 1 · weekly streak 5/wk (capped). Activity is NEVER rewarded.
  */
-const RANK_DEFS: ReadonlyArray<{ es: string; en: string; icon: string }> = [
-  { es: "Humano", en: "Human", icon: "ti-user" },
-  { es: "Buscador del Alba I", en: "Dawn Seeker I", icon: "ti-sunrise" },
-  { es: "Buscador del Alba II", en: "Dawn Seeker II", icon: "ti-sunrise" },
-  { es: "Buscador del Alba III", en: "Dawn Seeker III", icon: "ti-sunrise" },
-  { es: "Portador de Luz I", en: "Lightbearer I", icon: "ti-flame" },
-  { es: "Portador de Luz II", en: "Lightbearer II", icon: "ti-flame" },
-  { es: "Portador de Luz III", en: "Lightbearer III", icon: "ti-flame" },
-  { es: "Guardián del Juramento I", en: "Oathkeeper I", icon: "ti-shield" },
-  { es: "Guardián del Juramento II", en: "Oathkeeper II", icon: "ti-shield" },
-  { es: "Guardián del Juramento III", en: "Oathkeeper III", icon: "ti-shield" },
-  { es: "Guardián de Glifos I", en: "Glyphwarden I", icon: "ti-hexagon" },
-  { es: "Guardián de Glifos II", en: "Glyphwarden II", icon: "ti-hexagon" },
-  { es: "Guardián de Glifos III", en: "Glyphwarden III", icon: "ti-hexagon" },
-  { es: "Guardián del Éter I", en: "Aether Warden I", icon: "ti-sparkles" },
-  { es: "Guardián del Éter II", en: "Aether Warden II", icon: "ti-sparkles" },
-  { es: "Guardián del Éter III", en: "Aether Warden III", icon: "ti-sparkles" },
-  { es: "Portador de Esquirla I", en: "Shardbearer I", icon: "ti-diamond" },
-  { es: "Portador de Esquirla II", en: "Shardbearer II", icon: "ti-diamond" },
-  { es: "Portador de Esquirla III", en: "Shardbearer III", icon: "ti-diamond" },
-  { es: "Caballero Radiante I", en: "Knight Radiant I", icon: "ti-sword" },
-  { es: "Caballero Radiante II", en: "Knight Radiant II", icon: "ti-sword" },
-  { es: "Caballero Radiante III", en: "Knight Radiant III", icon: "ti-sword" },
-  { es: "Invocador de Reinos I", en: "Realmcaller I", icon: "ti-world" },
-  { es: "Invocador de Reinos II", en: "Realmcaller II", icon: "ti-world" },
-  { es: "Invocador de Reinos III", en: "Realmcaller III", icon: "ti-world" },
-  { es: "Heraldo del Alba I", en: "Dawn Herald I", icon: "ti-flare" },
-  { es: "Heraldo del Alba II", en: "Dawn Herald II", icon: "ti-flare" },
-  { es: "Heraldo del Alba III", en: "Dawn Herald III", icon: "ti-flare" },
-  { es: "Señor de Tormentas I", en: "Stormlord I", icon: "ti-bolt" },
-  { es: "Señor de Tormentas II", en: "Stormlord II", icon: "ti-bolt" },
-  { es: "Señor de Tormentas III", en: "Stormlord III", icon: "ti-bolt" },
-  { es: "Ascendente I", en: "Ascendant I", icon: "ti-arrow-big-up-lines" },
-  { es: "Ascendente II", en: "Ascendant II", icon: "ti-arrow-big-up-lines" },
-  { es: "Ascendente III", en: "Ascendant III", icon: "ti-arrow-big-up-lines" },
-  { es: "Ascendente del Fénix", en: "Phoenix Ascendant", icon: "ti-flame" },
-  { es: "Señor del Leviatán", en: "Leviathan Lord", icon: "ti-ripple" },
-  { es: "Señor Dragón Carmesí", en: "Crimson Dragonlord", icon: "ti-meteor" },
-  { es: "Guardián Celestial", en: "Celestial Warden", icon: "ti-star" },
-  { es: "Soberano del Alba", en: "Dawn Sovereign", icon: "ti-crown" },
-  { es: "Portador del Juramento Eterno", en: "Eternal Oathbearer", icon: "ti-trophy" },
+const RANK_DEFS: ReadonlyArray<{ es: string; en: string; icon: IconName }> = [
+  { es: "Humano", en: "Human", icon: "users" },
+  { es: "Buscador del Alba I", en: "Dawn Seeker I", icon: "sun" },
+  { es: "Buscador del Alba II", en: "Dawn Seeker II", icon: "sun" },
+  { es: "Buscador del Alba III", en: "Dawn Seeker III", icon: "sun" },
+  { es: "Portador de Luz I", en: "Lightbearer I", icon: "flame" },
+  { es: "Portador de Luz II", en: "Lightbearer II", icon: "flame" },
+  { es: "Portador de Luz III", en: "Lightbearer III", icon: "flame" },
+  { es: "Guardián del Juramento I", en: "Oathkeeper I", icon: "shield" },
+  { es: "Guardián del Juramento II", en: "Oathkeeper II", icon: "shield" },
+  { es: "Guardián del Juramento III", en: "Oathkeeper III", icon: "shield" },
+  { es: "Guardián de Glifos I", en: "Glyphwarden I", icon: "cube" },
+  { es: "Guardián de Glifos II", en: "Glyphwarden II", icon: "cube" },
+  { es: "Guardián de Glifos III", en: "Glyphwarden III", icon: "cube" },
+  { es: "Guardián del Éter I", en: "Aether Warden I", icon: "sparkles" },
+  { es: "Guardián del Éter II", en: "Aether Warden II", icon: "sparkles" },
+  { es: "Guardián del Éter III", en: "Aether Warden III", icon: "sparkles" },
+  { es: "Portador de Esquirla I", en: "Shardbearer I", icon: "diamond" },
+  { es: "Portador de Esquirla II", en: "Shardbearer II", icon: "diamond" },
+  { es: "Portador de Esquirla III", en: "Shardbearer III", icon: "diamond" },
+  { es: "Caballero Radiante I", en: "Knight Radiant I", icon: "shield" },
+  { es: "Caballero Radiante II", en: "Knight Radiant II", icon: "shield" },
+  { es: "Caballero Radiante III", en: "Knight Radiant III", icon: "shield" },
+  { es: "Invocador de Reinos I", en: "Realmcaller I", icon: "circle" },
+  { es: "Invocador de Reinos II", en: "Realmcaller II", icon: "circle" },
+  { es: "Invocador de Reinos III", en: "Realmcaller III", icon: "circle" },
+  { es: "Heraldo del Alba I", en: "Dawn Herald I", icon: "sparkles" },
+  { es: "Heraldo del Alba II", en: "Dawn Herald II", icon: "sparkles" },
+  { es: "Heraldo del Alba III", en: "Dawn Herald III", icon: "sparkles" },
+  { es: "Señor de Tormentas I", en: "Stormlord I", icon: "bolt" },
+  { es: "Señor de Tormentas II", en: "Stormlord II", icon: "bolt" },
+  { es: "Señor de Tormentas III", en: "Stormlord III", icon: "bolt" },
+  { es: "Ascendente I", en: "Ascendant I", icon: "arrow" },
+  { es: "Ascendente II", en: "Ascendant II", icon: "arrow" },
+  { es: "Ascendente III", en: "Ascendant III", icon: "arrow" },
+  { es: "Ascendente del Fénix", en: "Phoenix Ascendant", icon: "flame" },
+  { es: "Señor del Leviatán", en: "Leviathan Lord", icon: "activity" },
+  { es: "Señor Dragón Carmesí", en: "Crimson Dragonlord", icon: "sparkles" },
+  { es: "Guardián Celestial", en: "Celestial Warden", icon: "star" },
+  { es: "Soberano del Alba", en: "Dawn Sovereign", icon: "crown" },
+  { es: "Portador del Juramento Eterno", en: "Eternal Oathbearer", icon: "trophy" },
 ];
 
 /**
@@ -283,11 +282,11 @@ export type GuildLevel = {
   /** Human-readable rank title (Spanish) from the RANKS ladder. */
   readonly title: string;
   /**
-   * English rank name + Tabler icon for the current rank. Always set by
+   * English rank name + Órbita icon for the current rank. Always set by
    * computeGuildLevel; optional so hand-built test fixtures stay terse.
    */
   readonly titleEn?: string;
-  readonly icon?: string;
+  readonly icon?: IconName;
   /** Rank-family sprite slug → /ranks/<slug>.png. */
   readonly sprite?: string;
   /** Current rank's sub-grade: 1/2/3 (I·II·III), 0 = none. */
@@ -361,108 +360,6 @@ export function computeGuildLevel(outcomes: GuildOutcomes): GuildLevel {
     next: nextLevelXp,
     pctToNext,
   };
-}
-
-/**
- * The four celebration tiers (plus "none"), ordered by scale.
- *
- *   "toast"   — work order closed (green tests, achievement + workOrder)
- *   "phase"   — phase completed (phase transition or phase-scoped end/handoff)
- *   "release" — project released / reached the launched "release" phase
- *   "levelup" — guild or agent crossed a level threshold
- *   "none"    — no celebration (activity events, unknown, failure, ambiguous)
- */
-export type CelebrationTier = "toast" | "phase" | "release" | "levelup" | "none";
-
-/**
- * Classify an event from the dashboard stream into a celebration tier.
- *
- * Pure function: same input always yields same output; no side effects; event is never mutated.
- *
- * Decision table (FRD-09 blueprint §2 + AC-09-005.*):
- *
- * | event         | conditions                          | tier     |
- * |---------------|-------------------------------------|----------|
- * | achievement   | task = "levelup" or "level-up"      | levelup  |
- * | achievement   | task = "release"                    | release  |
- * | achievement   | task starts with "phase:"           | phase    |
- * | achievement   | workOrder present, status ≠ "fail"  | toast    |
- * | test_ok       | workOrder present                   | toast    |
- * | end           | task = "release"                    | release  |
- * | end           | task starts with "phase:"           | phase    |
- * | handoff       | task starts with "phase:"           | phase    |
- * | (anything)    | status = "fail"                     | none     |
- * | (anything)    | unknown / activity                  | none     |
- *
- * Ethical invariant (FRD-09): activity events (read, write, edit, message, start, review,
- * blocked, test_fail, navigation, app-open) ALWAYS return "none".
- */
-export function classifyCelebration(event: Event): CelebrationTier {
-  // Failure is never a celebration (FRD-09 ethical constraint).
-  if (event.status === "fail") {
-    return "none";
-  }
-
-  const { event: kind, task, workOrder } = event;
-
-  // ── achievement events (the primary verifiable-result signal) ──────────────
-  if (kind === "achievement") {
-    return _classifyAchievement(task, workOrder);
-  }
-
-  // ── test_ok: green test suite with a work-order attribution ───────────────
-  if (kind === "test_ok") {
-    // test_ok without a work-order is ambiguous (could be a standalone run).
-    return _hasWorkOrder(workOrder) ? "toast" : "none";
-  }
-
-  // ── end / handoff: phase-scoped transitions ────────────────────────────────
-  if (kind === "end" || kind === "handoff") {
-    return _classifyPhaseScoped(task);
-  }
-
-  // ── everything else: activity events (read, write, edit, message, start,
-  //    review, blocked, test_fail, navigation, app-open, unknown) ─────────────
-  return "none";
-}
-
-/** True when `workOrder` is a non-empty string. */
-function _hasWorkOrder(workOrder: unknown): boolean {
-  return typeof workOrder === "string" && workOrder.length > 0;
-}
-
-/** Classify an "achievement" event. Behavior copied verbatim from the inline block. */
-function _classifyAchievement(task: unknown, workOrder: unknown): CelebrationTier {
-  // Level-up crossing takes priority over everything else.
-  if (task === "levelup" || task === "level-up") {
-    return "levelup";
-  }
-  // Release / launch (reached the launched "release" phase).
-  if (task === "release") {
-    return "release";
-  }
-  // Phase completion (e.g. "phase:design", "phase:architecture").
-  if (typeof task === "string" && task.startsWith("phase:")) {
-    return "phase";
-  }
-  // Work-order closed (the most common verifiable result).
-  if (_hasWorkOrder(workOrder)) {
-    return "toast";
-  }
-  // achievement with no meaningful context → ambiguous → none.
-  return "none";
-}
-
-/** Classify an end/handoff event by its phase scope. Behavior copied verbatim. */
-function _classifyPhaseScoped(task: unknown): CelebrationTier {
-  if (task === "release") {
-    return "release";
-  }
-  if (typeof task === "string" && task.startsWith("phase:")) {
-    return "phase";
-  }
-  // end/handoff without a phase scope is not a verifiable result.
-  return "none";
 }
 
 // ---------------------------------------------------------------------------

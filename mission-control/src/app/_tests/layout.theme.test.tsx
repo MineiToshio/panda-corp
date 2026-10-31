@@ -37,7 +37,7 @@ function walk(dir: string): string[] {
 }
 
 describe("AC-13-010.2: root layout", () => {
-  it("AC-13-010.2: <html lang=es> carries the boot script first in <head>, before the stylesheet link", () => {
+  it("AC-13-010.2: <html lang=es> carries the boot script first in <head>, without a remote icon stylesheet", () => {
     fs.writeFileSync(path.join(tmpRoot, "factory", "profile.md"), "---\nname: Ada\n---\n# Ada\n");
     const html = RootLayout({ children: null }) as ReactElement<{
       lang: string;
@@ -47,12 +47,17 @@ describe("AC-13-010.2: root layout", () => {
     expect(html.props.lang).toBe("es");
     expect(html.props.suppressHydrationWarning).toBe(true);
     const head = childElements(html.props.children).find((e) => e.type === "head");
-    const [first, second] = childElements(head?.props.children as ReactNode);
+    const headChildren = childElements(head?.props.children as ReactNode);
+    const [first] = headChildren;
     expect(first?.type).toBe("script");
     expect((first?.props.dangerouslySetInnerHTML as { __html: string }).__html).toBe(
       THEME_BOOT_SCRIPT,
     );
-    expect(second?.type).toBe("link");
+    expect(
+      headChildren.some(
+        (element) => element.type === "link" && String(element.props.href).includes("tabler"),
+      ),
+    ).toBe(false);
   });
 
   it("AC-13-010.2: nothing under src/ imports next/font or names Pixelify Sans", () => {

@@ -20,15 +20,15 @@ const WRAP_STYLE: React.CSSProperties = {
   maxWidth: "32rem",
   margin: "0 auto",
   padding: "4rem 2rem",
-  color: "var(--color-text)",
+  color: "var(--text)",
 };
 
 const BUTTON_STYLE: React.CSSProperties = {
   padding: "0.5rem 1rem",
   borderRadius: "var(--radius, 0.5rem)",
-  border: "var(--hairline, 1px) solid var(--color-accent)",
-  background: "var(--color-accent)",
-  color: "var(--color-base)",
+  border: "var(--hairline, 1px) solid var(--violet)",
+  background: "var(--violet)",
+  color: "var(--bg)",
   cursor: "pointer",
   fontSize: "0.875rem",
 };

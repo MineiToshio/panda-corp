@@ -26,13 +26,7 @@ function EndpointMarker({
         d={endpoint.max === "many" ? "M0 -7 L14 0 L0 7 M0 0 H14" : "M8 -7 V7"}
       />
       {endpoint.min === 0 ? (
-        <circle
-          className={styles.edgeLine}
-          cx={24}
-          cy={0}
-          r={4}
-          style={{ fill: "var(--color-base)" }}
-        />
+        <circle className={styles.edgeLine} cx={24} cy={0} r={4} style={{ fill: "var(--bg)" }} />
       ) : (
         <path className={styles.edgeLine} d="M24 -7 V7" />
       )}

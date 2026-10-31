@@ -162,7 +162,7 @@ export function EstandaresDetail(): React.JSX.Element {
         </li>
         <li>Una habilidad nueva en el plugin.</li>
       </Ul>
-      <NotePanel icon="ti-school">
+      <NotePanel icon="book">
         <Code>/pandacorp:learn</Code> facilita la promoción, contigo como gate final.
       </NotePanel>
     </>

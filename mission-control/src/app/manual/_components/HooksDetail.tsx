@@ -81,7 +81,7 @@ export function HooksDetail(): React.JSX.Element {
         <li>Ejecuta mutation testing para confirmar que los tests no son decorativos.</li>
         <li>Solo si todo pasa marca las work orders como VERIFIED y el FRD avanza.</li>
       </Ul>
-      <NotePanel icon="ti-scale" iconColor="var(--color-accent)">
+      <NotePanel icon="layers" iconColor="var(--violet)">
         <B weight={500}>La invariante:</B> el implementer nunca verifica su propio trabajo. No hay
         «bypass»: un agente que se saltara este gate violaría la constitución.
       </NotePanel>
@@ -131,7 +131,7 @@ export function HooksDetail(): React.JSX.Element {
         </li>
       </Ul>
 
-      <NotePanel icon="ti-key" iconColor="var(--color-warn)">
+      <NotePanel icon="lock" iconColor="var(--amber)">
         <B weight={600}>Secretos.</B> Nunca en el código ni en el contexto de los agentes: se
         inyectan por variables de entorno, el <Code>.gitignore</Code> excluye <Code>.env*</Code> y
         SOPS + age es el gestor de secretos recomendado (DR-037).

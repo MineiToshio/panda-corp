@@ -395,169 +395,6 @@
   --tone: inherit;
 }
 
-/* === v1 compatibility layer (removed by WO-13-013) ===
-   The v1 names the un-migrated surfaces still read. Mapped to the Órbita token the frozen
-   .manual-live override uses where one exists; the agent colours keep their v1 values. */
-:root {
-  --color-text2: var(--text-2);
-  --color-text3: var(--text-3);
-  --color-base: var(--bg);
-  --color-surface2: var(--surface-2);
-  --color-panel: var(--surface);
-  --color-card: var(--surface-2);
-  --color-card2: var(--surface-3);
-  --color-border: var(--line);
-  --color-border-strong: var(--line-strong);
-  --color-accent: var(--violet);
-  --color-accent-bg: color-mix(in srgb, var(--violet) var(--tint-strong), transparent);
-  --color-accent-text: var(--violet);
-  --color-on-accent: var(--primary-fg);
-  --color-secondary: var(--blue);
-  --color-info: var(--blue);
-  --color-info-bg: color-mix(in srgb, var(--blue) var(--tint), transparent);
-  --color-ok: var(--green);
-  --color-ok-bg: color-mix(in srgb, var(--green) var(--tint), transparent);
-  --color-warn: var(--amber);
-  --color-warn-bg: color-mix(in srgb, var(--amber) var(--tint), transparent);
-  --color-danger: var(--coral);
-  --color-danger-bg: color-mix(in srgb, var(--coral) var(--tint), transparent);
-  --color-cat-1: var(--blue);
-  --color-cat-2: var(--teal);
-  --color-cat-3: var(--violet);
-  --color-cat-6: var(--pink);
-  --color-cat-7: var(--amber);
-  --color-cat-8: var(--green);
-  --font-sans: var(--font-body);
-  --font-pixel: var(--font-display);
-  --shadow-1: none;
-  --avatar-size-sm: 28px;
-  --color-text-muted: var(--text-3);
-  --color-canvas: var(--bg);
-  --color-border2: var(--line-strong);
-  --color-surface-panel: var(--surface-2);
-  --color-contrast: var(--text);
-  --color-cat-4: var(--blue);
-  --color-cat-5: var(--teal);
-  --color-cat-9: var(--coral);
-  --shadow-0: none;
-  --shadow-2: var(--shadow-dialog);
-  --space-base: 1rem;
-  --duration-fast: 150ms;
-  --duration-base: 200ms;
-  --duration-expressive: 280ms;
-  --easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
-  --easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
-  --focus-ring: 2px solid var(--focus);
-  --color-agent-researcher: oklch(0.65 0.18 45);
-  --color-agent-backend-dev: oklch(0.55 0.2 260);
-  --color-agent-frontend-dev: oklch(0.65 0.22 200);
-  --color-agent-test-writer: oklch(0.7 0.2 130);
-  --color-agent-reviewer: oklch(0.65 0.2 300);
-  --color-agent-security-auditor: oklch(0.6 0.18 20);
-  --color-agent-architect: oklch(0.6 0.2 240);
-  --color-agent-product-manager: oklch(0.7 0.18 85);
-  --color-agent-designer: oklch(0.7 0.22 330);
-  --color-agent-implementer: oklch(0.65 0.2 160);
-  --color-agent-copywriter: oklch(0.7 0.18 340);
-  --color-agent-analytics: oklch(0.68 0.2 100);
-  --color-agent-devops: oklch(0.6 0.18 200);
-  --color-tier-1: #757b81;
-  --color-tier-2: #1c8742;
-  --color-tier-3: #006eb8;
-  --color-tier-4: #7c3eb3;
-  --color-tier-5: #c26300;
-  --color-trace-1: #3f5e8a;
-  --color-trace-2: #3f7d68;
-  --color-trace-3: #8a5547;
-  --color-trace-4: #8a5786;
-  --color-trace-5: #67793c;
-  --color-trace-6: #3f7d85;
-  --color-trace-7: #85733c;
-  --color-trace-8: #5b6489;
-  --color-trace-9: #7c5267;
-  --color-trace-10: #57488a;
-}
-:root[data-theme="dark"] {
-  --color-tier-1: #989fa8;
-  --color-tier-2: #53be70;
-  --color-tier-3: #339fee;
-  --color-tier-4: #b474f4;
-  --color-tier-5: #f68c36;
-  --color-trace-1: #6e8bb3;
-  --color-trace-2: #7faf9b;
-  --color-trace-3: #b3897a;
-  --color-trace-4: #b38ab0;
-  --color-trace-5: #9bab6e;
-  --color-trace-6: #7badb3;
-  --color-trace-7: #b3a36e;
-  --color-trace-8: #8f96b3;
-  --color-trace-9: #a87f97;
-  --color-trace-10: #8a7bb8;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    --color-tier-1: #989fa8;
-    --color-tier-2: #53be70;
-    --color-tier-3: #339fee;
-    --color-tier-4: #b474f4;
-    --color-tier-5: #f68c36;
-    --color-trace-1: #6e8bb3;
-    --color-trace-2: #7faf9b;
-    --color-trace-3: #b3897a;
-    --color-trace-4: #b38ab0;
-    --color-trace-5: #9bab6e;
-    --color-trace-6: #7badb3;
-    --color-trace-7: #b3a36e;
-    --color-trace-8: #8f96b3;
-    --color-trace-9: #a87f97;
-    --color-trace-10: #8a7bb8;
-  }
-}
-/* .manual-live (design-tokens.json overrides): the Manual page's mapping of the v1 names (a self-referencing entry is dropped: it would be invalid). */
-.manual-live {
-  --color-text: var(--text);
-  --color-text2: var(--text-2);
-  --color-text3: var(--text-3);
-  --color-base: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface2: var(--surface-2);
-  --color-panel: var(--surface);
-  --color-card: var(--surface-2);
-  --color-card2: var(--surface-3);
-  --color-border: var(--line);
-  --color-border-strong: var(--line-strong);
-  --color-accent: var(--violet);
-  --color-accent-bg: color-mix(in srgb, var(--violet) var(--tint-strong), transparent);
-  --color-accent-text: var(--violet);
-  --color-on-accent: var(--primary-fg);
-  --color-secondary: var(--blue);
-  --color-info: var(--blue);
-  --color-info-bg: color-mix(in srgb, var(--blue) var(--tint), transparent);
-  --color-ok: var(--green);
-  --color-ok-bg: color-mix(in srgb, var(--green) var(--tint), transparent);
-  --color-warn: var(--amber);
-  --color-warn-bg: color-mix(in srgb, var(--amber) var(--tint), transparent);
-  --color-danger: var(--coral);
-  --color-danger-bg: color-mix(in srgb, var(--coral) var(--tint), transparent);
-  --color-cat-1: var(--blue);
-  --color-cat-2: var(--teal);
-  --color-cat-3: var(--violet);
-  --color-cat-6: var(--pink);
-  --color-cat-7: var(--amber);
-  --color-cat-8: var(--green);
-  --font-body: var(--font-body);
-  --font-sans: var(--font-body);
-  --font-display: var(--font-display);
-  --font-pixel: var(--font-display);
-  --hairline: 1px;
-  --radius: 10px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --shadow-1: none;
-  --avatar-size-sm: 28px;
-}
-
 /* === Global base (CMP-13-globals) === */
 *,
 *::before,
@@ -664,8 +501,12 @@ pre,
   position: absolute;
   width: var(--hairline);
   height: var(--hairline);
+  padding: 0;
+  margin: calc(-1 * var(--hairline));
+  border: 0;
   overflow: hidden;
   clip: rect(0 0 0 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
@@ -732,457 +573,13 @@ pre,
   transform: none;
 }
 
-/* === v1 surfaces (retired with their screens in WO-13-013 and later) === */
-/* ---------------------------------------------------------------------------
- * Party canvas stage — 30px dot-grid overlay (WO-02-007 / WO-13-009)
- * Faithful to la-campana.html .stage::before and la-fragua.html .stage::before.
- * Applied via [data-party-stage] so the inline Stage div can use it without
- * JavaScript (::before cannot be set via inline style).
- * --------------------------------------------------------------------------- */
-[data-party-stage]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(#1d2629 0.5px, transparent 0.5px),
-    linear-gradient(90deg, #1d2629 0.5px, transparent 0.5px);
-  background-size: 30px 30px;
-  opacity: 0.5;
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Party room hover lift — transform-only (AC-13-005.1: only compositable properties in globals.css transitions) */
-@media (hover: hover) {
-  [data-party-stage] [data-testid="room-root"]:hover {
-    transform: translateY(-2px);
-    transition: transform 0.15s;
-  }
-}
-
-/* Active room pulse animation (roompulse) */
-[data-party-stage] [data-testid="room-root"][data-state="active"] {
-  animation: roompulse 2.2s ease-in-out infinite;
-}
-
-@keyframes roompulse {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 2px var(--color-accent),
-      0 0 36px -10px var(--color-accent);
-  }
-  50% {
-    box-shadow:
-      0 0 0 2px var(--color-accent),
-      0 0 52px -6px var(--color-accent);
-  }
-}
-
-/* Room overlay button — visible focus ring for keyboard navigation */
-[data-party-stage] [data-testid="room-root"] button:focus-visible::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 2px solid var(--color-accent-text, var(--color-accent));
-  border-radius: inherit;
-  pointer-events: none;
-}
-
-/* ---------------------------------------------------------------------------
- * Campaign cast — roaming sprites (CampaignPipeline / RoamingCast).
- * Faithful to party-pipeline.html .spi / .walking / .halo / .say (~L76-91).
- * The roam engine (RoamingCast) toggles `.walking` and `.on` imperatively; the
- * bob/halo keyframes are auto-disabled by the global prefers-reduced-motion rule
- * above (so reduced-motion = fully static, alongside the engine's matchMedia skip).
- * --------------------------------------------------------------------------- */
-@keyframes campaign-idle-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-3px);
-  }
-}
-@keyframes campaign-walk-bob {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
-}
-@keyframes campaign-halo {
-  0%,
-  100% {
-    opacity: 0.3;
-    transform: translateX(-50%) scale(0.85);
-  }
-  50% {
-    opacity: 0.55;
-    transform: translateX(-50%) scale(1.15);
-  }
-}
-.campaign-bob {
-  animation: campaign-idle-bob 2.6s ease-in-out infinite;
-}
-.campaign-bob.walking {
-  animation: campaign-walk-bob 0.42s ease-in-out infinite;
-}
-.campaign-halo {
-  position: absolute;
-  bottom: 14px;
-  left: 50%;
-  width: 44px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  opacity: 0.45;
-  filter: blur(2px);
-  transform: translateX(-50%);
-  z-index: -1;
-  pointer-events: none;
-  animation: campaign-halo 1.5s ease-in-out infinite;
-}
-.campaign-say {
-  position: absolute;
-  bottom: 54px;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: 120px;
-  width: max-content;
-  display: none;
-  padding: 3px 7px;
-  border-radius: 8px;
-  background: var(--color-panel);
-  border: 1px solid var(--color-border-strong);
-  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.4);
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  line-height: 1.25;
-  color: var(--color-text);
-  text-align: center;
-  z-index: 9;
-  pointer-events: none;
-}
-.campaign-say.on {
-  display: block;
-}
-.campaign-say::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-top: -1px;
-  border: 5px solid transparent;
-  border-top-color: var(--color-panel);
-}
-
-/* ---------------------------------------------------------------------------
- * Fragua liveness (WO-06 liveness pass) — continuous ambient animation so an
- * active build READS as alive even between discrete events. The event stream
- * only moves on transitions; a single agent grinding one WO emits nothing for
- * minutes, which left the scene frozen. These animations are time-driven, not
- * event-driven, so the forge always breathes while work is happening.
- * All are auto-disabled under prefers-reduced-motion by the global rule above
- * (animation-duration: 0ms), which freezes each at frame 0 — every keyframe's
- * 0% is a deliberate, sensible static state (visible, never empty/off-screen).
- * Reuses campaign-idle-bob for the sprite bob (no near-duplicate keyframe).
- * --------------------------------------------------------------------------- */
-
-/* Working/review sprite gently bobs up-down (reuses the campaign idle-bob keyframe). */
-.fragua-sprite-bob {
-  animation: campaign-idle-bob 2.6s ease-in-out infinite;
-}
-
-/* Under-sprite halo breathes. Opacity-only (position is set inline on the halo span,
-   so animating transform here would shift it). Frame 0 = the resting 0.55 opacity. */
-@keyframes fragua-halo {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 0.85;
-  }
-}
-.fragua-halo-pulse {
-  animation: fragua-halo 1.6s ease-in-out infinite;
-}
-
-/* Forge hammer strike — the working sprite swings a hammer above its head, so
-   the forge reads as actively "forging" (eye-candy, NOT a progress value). The
-   hammer rises, then snaps down to the strike with a brief hold, on a loop.
-   Frame 0 is the resting RAISED pose (rotate(-12deg)) so under reduced-motion
-   (the global rule zeroes the duration) users see a static raised hammer, not a
-   frame caught mid-swing. transform-origin is set inline (80% 80%) so it pivots
-   from its lower-right, like a real strike. */
-@keyframes fragua-hammer-swing {
-  0% {
-    transform: rotate(-12deg);
-  }
-  35% {
-    transform: rotate(-18deg);
-  }
-  60% {
-    transform: rotate(22deg);
-  }
-  72% {
-    transform: rotate(22deg);
-  }
-  100% {
-    transform: rotate(-12deg);
-  }
-}
-.fragua-hammer {
-  animation: fragua-hammer-swing 0.7s ease-in-out infinite;
-  transform-origin: 80% 80%;
-}
-
-/* Global "build alive" heartbeat dot (PartyScene header). Frame 0 = solid dot. */
-@keyframes fragua-heartbeat {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.5);
-    opacity: 0.5;
-  }
-}
-.fragua-heartbeat {
-  animation: fragua-heartbeat 1.4s ease-in-out infinite;
-}
-.fragua-heartbeat-stale {
-  animation: fragua-heartbeat 3s ease-in-out infinite;
-}
-
-/* Active FlowStrip beat softly glows so the top pipeline strip reads as live.
-   Frame 0 = the resting accent border (no glow), matching the inline style. */
-@keyframes fragua-beat-glow {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
-  50% {
-    box-shadow: 0 0 10px -2px var(--color-accent);
-  }
-}
-.fragua-beat-active {
-  animation: fragua-beat-glow 2s ease-in-out infinite;
-}
-
-/* ---------------------------------------------------------------------------
- * Card detail · Documentos tab — two-pane rail + reader (prototype docsBody).
- * 210px rail + reader on desktop; stacks to one column on narrow viewports.
- * --------------------------------------------------------------------------- */
-.card-detail-docs-grid {
-  display: grid;
-  grid-template-columns: 210px 1fr;
-  gap: 14px;
-  align-items: start;
-}
-@media (max-width: 640px) {
-  .card-detail-docs-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* ---------------------------------------------------------------------------
- * Summary tab · activity entries — each entry renders through <Markdown>, which
- * wraps its content in block <p>/<ul> with vertical margins. In the compact,
- * single-line activity rows those margins read as uneven gaps, so collapse the
- * leading/trailing block margins (multi-paragraph entries still flow inside).
- * --------------------------------------------------------------------------- */
-.pc-activity-entry > .pc-markdown > :first-child {
-  margin-top: 0;
-}
-.pc-activity-entry > .pc-markdown > :last-child {
-  margin-bottom: 0;
-}
-
-/* ---------------------------------------------------------------------------
- * CMP-09-celebration — scaling celebration surface (WO-09-006)
- * --------------------------------------------------------------------------- */
-
-.celebration-surface {
-  display: inline-block;
-  position: fixed;
-  bottom: calc(var(--space-base, 1rem) * 2);
-  right: calc(var(--space-base, 1rem) * 2);
-  z-index: 100;
-  pointer-events: none;
-}
-
-.celebration-inner {
-  display: inline-flex;
-  align-items: center;
-  gap: calc(var(--space-base, 1rem) * 0.5);
-  padding: calc(var(--space-base, 1rem) * 0.5) var(--space-base, 1rem);
-  border-radius: var(--radius, 8px);
-  border: var(--hairline, 1px) solid var(--color-accent, currentColor);
-  background: var(--color-surface, Canvas);
-  box-shadow: var(--shadow-2, none);
-  color: var(--color-text, currentColor);
-  font-size: 0.875rem;
-}
-
-/* Skip link — first focusable element; offscreen until focused (WCAG 2.4.1) */
-.app-skip-link {
-  position: absolute;
-  left: -9999px;
-  top: 0;
-  z-index: 200;
-  padding: 8px 14px;
-  border-radius: 8px;
-  background: var(--color-accent-bg);
-  color: var(--color-accent-text);
-  font-family: var(--font-display);
-  font-size: 13px;
-}
-.app-skip-link:focus {
-  left: 8px;
-  top: 8px;
-}
-
-/* Health-banner stack on Inicio (OnboardingGate + PluginSyncBanner). The flex/gap
-   live in this class (NOT inline) so the `:empty` rule below can actually win: when
-   every banner renders null (profile present, plugin in-sync) the wrapper is empty
-   and collapses, leaving the title→first-section gap identical to the other pages
-   (an inline `display:flex` would beat `:empty` and re-introduce a 24px stray gap). */
-.dashboard-banners {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.dashboard-banners:empty {
-  display: none;
-}
-
-/* Shared Button hover (prototype `button:hover`) — accent border + soft glow.
-   `!important` overrides the per-variant border-color the Button sets inline; the
-   Button's own `transition` animates it. Scoped OUT of the danger tone, which has
-   its own destructive hover below. Honored on every default-tone <Button> (.pc-btn). */
-@media (hover: hover) {
-  .pc-btn:not([data-tone="danger"]):hover {
-    border-color: var(--color-accent) !important;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.06),
-      0 0 14px -7px var(--color-accent) !important;
-  }
-}
-
-/* Danger-tone hover (Button tone="danger"). Two shapes:
-   - FILLED (primary): keep a SOLID danger background (subtly deepened) so the text
-     stays readable — the old bug was swapping the fill for a faint tint, leaving the
-     on-accent text stranded on a near-empty background. Glow in the danger colour.
-   - OUTLINE (secondary/ghost): card stays, add a soft danger-bg tint + danger border;
-     the red text reads fine on the tint.
-   Only compositable props animate (the inline transition); AC-13-005.1. */
-@media (hover: hover) {
-  .pc-btn[data-tone="danger"][data-variant="primary"]:hover {
-    border-color: var(--color-danger) !important;
-    background: color-mix(in oklch, var(--color-danger) 86%, var(--color-base)) !important;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      0 0 16px -6px var(--color-danger) !important;
-  }
-}
-@media (hover: hover) {
-  .pc-btn[data-tone="danger"]:not([data-variant="primary"]):hover {
-    border-color: var(--color-danger) !important;
-    background: var(--color-danger-bg) !important;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.06),
-      0 0 14px -7px var(--color-danger) !important;
-  }
-}
-
-/* Work-order kanban card hover (prototype `.card:hover`) — accent border + soft
-   glow. Inline styles cannot express `:hover`, so the wo-board card uses this
-   class while its `transition` stays inline. The danger (Falló) variant keeps
-   its own border/background inline; the hover glow still reads as interactive. */
-@media (hover: hover) {
-  .wo-card:hover {
-    border-color: var(--color-accent) !important;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.05),
-      0 0 14px -7px var(--color-accent) !important;
-  }
-}
-
-/* FRD chip overflow guard (#22). The shared Chip is `white-space:nowrap` inline
-   (right for most chips), so a long FRD slug spills past the kanban card edge.
-   Inside the wo-board card we relax the chip so it wraps mid-token and stays
-   within the card width — the override has to target the chip element itself,
-   because its `white-space` is set inline and won't inherit from the wrapper. */
-.wo-frd-chip [data-testid="chip"] {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  max-width: 100%;
-}
-
-/* Portfolio grid responsiveness (#portfolio-mobile). Inline styles can't express a
-   media query, so the responsive track-template lives here: a single stacked column on
-   mobile (rail above the full-width workspace — a 240px rail beside the workspace leaves
-   it too narrow on phones and long docs squish to one char per line), and "240px rail +
-   workspace" from the tablet breakpoint up. minmax(0, …) floors the workspace at 0 so a
-   wide child scrolls inside itself, never the whole page. */
-.pc-portfolio-grid {
-  grid-template-columns: minmax(0, 1fr);
-}
-@media (min-width: 768px) {
-  .pc-portfolio-grid {
-    grid-template-columns: 240px minmax(0, 1fr);
-  }
-  /* Collapsed (owner toggle): the rail column shrinks to just its toggle button so the
-     workspace — and the cramped 3-column Documentos view — takes the full width. */
-  .pc-portfolio-grid.is-collapsed {
-    grid-template-columns: 40px minmax(0, 1fr);
-  }
-}
-.pc-portfolio-railcol {
-  min-width: 0;
-}
-/* When collapsed, hide the rail itself; the toggle button stays to bring it back. */
-.pc-portfolio-grid.is-collapsed .pc-rail-body {
-  display: none;
-}
-/* Rail collapse/expand toggle — a small, quiet icon button above the rail. */
-.pc-rail-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin: 0 0 8px;
-  border: 0.5px solid var(--color-border);
-  border-radius: var(--radius-sm, 8px);
-  background: var(--color-panel);
-  color: var(--color-text2);
-  font-size: 16px;
-  cursor: pointer;
-}
-@media (hover: hover) {
-  .pc-rail-toggle:hover {
-    color: var(--color-accent-text);
-    border-color: var(--color-accent);
-  }
-}
-/* Portfolio collapsible rail (owner toggle) — styles above. */
-
 /* ── Propuesta tab (IdeaPitch) — colour & spacing helpers the inline-styled Markdown can't do ──
    The shared <Markdown> renders bold as white and adds block margins; these descendant rules
    colour the critical text (red risk / green ok / amber ask) and tighten the row bodies. */
 /* The row's dashed separator lives HERE (a class), not inline, so :last-child can drop it
    — an inline border can't be overridden by a class. */
 .pitch-row {
-  border-bottom: 1px dashed var(--color-border);
+  border-bottom: 1px dashed var(--line);
 }
 .pitch-row:last-child {
   border-bottom: 0; /* the last row's dashed line clashes with the next block's solid border */
@@ -1195,124 +592,39 @@ pre,
 }
 /* `!important` because the shared <Markdown> sets `color` INLINE on <strong> (inline wins over a class). */
 .pitch-danger .pc-markdown :is(strong, b) {
-  color: var(--color-danger) !important;
+  color: var(--coral) !important;
 }
 .pitch-ok .pc-markdown :is(strong, b) {
-  color: var(--color-ok) !important;
+  color: var(--green) !important;
 }
 .pitch-ask .pc-markdown :is(strong, b) {
-  color: var(--color-warn) !important;
+  color: var(--amber) !important;
 }
 /* Evidence source rows: "descripción — link", dashed separators, last one borderless. */
 .pitch-src {
-  border-bottom: 1px dashed var(--color-border);
+  border-bottom: 1px dashed var(--line);
 }
 .pitch-src:last-child {
   border-bottom: 0;
 }
 
-/* ── Spec tab (SpecDigest) — high-level PRD/research/FRDs digest helpers ──
-   Same family as the pitch rules: dashed row separators (last one dropped) and the
-   FRD card's expand affordance (a chevron that rotates when the <details> is open). */
-.spec-row {
-  border-bottom: 1px dashed var(--color-border);
-}
-.spec-row:last-child {
-  border-bottom: 0;
-}
 .spec-decision:last-child {
   border-bottom: 0;
-}
-/* FRD cards are clickable (open the detail modal) — hover/focus affordance. */
-@media (hover: hover) {
-  .spec-frd-card:hover {
-    border-color: var(--color-border-strong);
-    background: color-mix(in oklab, var(--color-accent-bg) 14%, var(--color-panel));
-  }
-}
-.spec-frd-card:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-/* On narrow viewports the 150px label column is cramped — stack label over content. */
-@media (max-width: 640px) {
-  .spec-row {
-    grid-template-columns: 1fr !important;
-    gap: 6px !important;
-  }
-}
-
-/* ── La Fragua v2 Fase 2 — vida: courier flight + ambient chimney smoke ── */
-/* The courier fires on a REAL engine wo_commit event (forge → tribunal). */
-@keyframes fragua-courier {
-  0% {
-    transform: translate(0, 0);
-    opacity: 0;
-  }
-  12% {
-    opacity: 1;
-  }
-  88% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate(150px, 34px);
-    opacity: 0;
-  }
-}
-.fragua-courier-flight {
-  animation: fragua-courier 2.4s ease-in-out forwards;
-}
-/* Pure-decoration chimney smoke: two staggered puffs rising over the forge. */
-@keyframes fragua-smoke {
-  0% {
-    transform: translateY(0) scale(0.6);
-    opacity: 0;
-  }
-  25% {
-    opacity: 0.35;
-  }
-  100% {
-    transform: translateY(-26px) scale(1.15);
-    opacity: 0;
-  }
-}
-.fragua-smoke {
-  animation: fragua-smoke 3.6s ease-out infinite;
-}
-.fragua-smoke-late {
-  animation: fragua-smoke 3.6s ease-out 1.8s infinite;
-}
-/* Panda mascot ambient stroll: crosses the 920px stage in ~9s, then rests
-   off-stage for the remainder of the long loop (pure decoration). */
-@keyframes fragua-panda {
-  0% {
-    transform: translateX(0);
-  }
-  18% {
-    transform: translateX(1040px);
-  }
-  100% {
-    transform: translateX(1040px);
-  }
-}
-.fragua-panda-walk {
-  animation: fragua-panda 50s linear infinite;
 }
 
 .services-directory {
   display: grid;
-  gap: var(--space-base);
+  gap: 1rem;
   min-width: 0;
 }
 .services-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-base);
+  gap: 1rem;
 }
 .services-controls label {
   display: grid;
-  gap: calc(var(--space-base) / 2);
+  gap: calc(1rem / 2);
   flex: 1;
   min-width: 0;
 }
@@ -1320,21 +632,21 @@ pre,
 .services-controls select {
   width: 100%;
   min-height: 44px;
-  padding: calc(var(--space-base) / 2);
-  color: var(--color-text);
-  background: var(--color-panel);
-  border: var(--hairline) solid var(--color-border);
+  padding: calc(1rem / 2);
+  color: var(--text);
+  background: var(--surface);
+  border: var(--hairline) solid var(--line);
   border-radius: var(--radius-md);
 }
 .services-cards {
   display: grid;
-  gap: var(--space-base);
+  gap: 1rem;
 }
 .services-card {
-  padding: var(--space-base);
-  border: var(--hairline) solid var(--color-border);
+  padding: 1rem;
+  border: var(--hairline) solid var(--line);
   border-radius: var(--radius-md);
-  background: var(--color-panel);
+  background: var(--surface);
   overflow-wrap: anywhere;
 }
 .services-card summary {
@@ -1343,12 +655,12 @@ pre,
 }
 .services-card summary span {
   display: block;
-  margin-top: calc(var(--space-base) / 2);
+  margin-top: calc(1rem / 2);
 }
 .services-facts {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: calc(var(--space-base) / 2);
+  gap: calc(1rem / 2);
 }
 .services-facts dt {
   font-weight: 600;
@@ -1357,20 +669,20 @@ pre,
   margin: 0;
 }
 .services-issues {
-  border: var(--hairline) solid var(--color-border);
-  padding: var(--space-base);
+  border: var(--hairline) solid var(--line);
+  padding: 1rem;
   border-radius: var(--radius-md);
 }
 .services-directory a {
-  color: var(--color-accent-text);
+  color: var(--violet);
   text-decoration: underline;
 }
 .services-directory h3 {
   font-weight: 600;
-  margin-block: var(--space-base) calc(var(--space-base) / 2);
+  margin-block: 1rem calc(1rem / 2);
 }
 
-/* One reduced-motion block (REQ-13-006): every animation and transition off, decorative motion hidden. */
+/* One reduced-motion block (REQ-13-006): every animation and transition off. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1378,15 +690,5 @@ pre,
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
-  }
-  .fragua-courier-flight {
-    opacity: 0;
-  }
-  .fragua-smoke,
-  .fragua-smoke-late {
-    opacity: 0.2;
-  }
-  .fragua-panda-walk {
-    visibility: hidden;
   }
 }

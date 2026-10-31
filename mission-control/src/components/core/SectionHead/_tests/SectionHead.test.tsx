@@ -45,9 +45,9 @@ describe("SectionHead (CMP-13-sectionhead)", () => {
 
   // AC-13-006.11: optional icon
   it("renders icon when provided", () => {
-    render(<SectionHead label="En la fábrica" icon="ti-building-castle" />);
+    render(<SectionHead label="En la fábrica" icon="factory" />);
     const root = screen.getByTestId("section-head");
-    const icon = root.querySelector(".ti-building-castle");
+    const icon = root.querySelector("svg");
     expect(icon).not.toBeNull();
   });
 
@@ -80,9 +80,16 @@ describe("SectionHead (CMP-13-sectionhead)", () => {
 
   // AC-13-006.14: no hardcoded colors
   it("uses CSS custom properties — no bare hex colors in style attribute", () => {
-    render(<SectionHead label="Test" icon="ti-flame" count={3} />);
+    render(<SectionHead label="Test" icon="flame" count={3} />);
     const root = screen.getByTestId("section-head");
     expect(root.outerHTML).not.toMatch(/#[0-9a-fA-F]{3,6}\b/);
     expect(root.outerHTML).not.toMatch(/\brgb\s*\(/);
   });
+});
+
+it("places the note after the section rule", () => {
+  render(<SectionHead label="Pulso" note="Actualizado" />);
+  expect(screen.getByTestId("section-head-rule").nextElementSibling).toBe(
+    screen.getByText("Actualizado"),
+  );
 });

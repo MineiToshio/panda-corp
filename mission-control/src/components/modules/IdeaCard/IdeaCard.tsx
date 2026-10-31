@@ -1,4 +1,5 @@
 import { Chip, type ChipTone } from "@/components/core/Chip/Chip";
+import type { IconName } from "@/components/core/Icon/iconData";
 import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
 import { t } from "@/lib/copy/copy";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
@@ -44,36 +45,36 @@ export interface IdeaCardProps {
 
 // ---------------------------------------------------------------------------
 // Spanish label maps (faithful to the prototype CAT / RET maps).
-// The category map carries a Spanish label + Tabler icon; unknown categories
+// The category map carries a Spanish label + Órbita icon; unknown categories
 // fall back to the raw value (keeps free-form project_type values visible).
 // The return map carries a Spanish label + Chip tone (semantic colour).
 // ---------------------------------------------------------------------------
 
-/** project_type → [Spanish label, Tabler icon] (prototype CAT, index.html L185). */
-export const CATEGORY_LABELS: Record<string, readonly [string, string]> = {
-  web: ["web", "ti-world"],
-  mobile: ["mobile", "ti-device-mobile"],
-  desktop: ["desktop", "ti-device-desktop"],
-  ia: ["IA", "ti-sparkles"],
-  "claude-code": ["Claude Code", "ti-terminal-2"],
-  "prompt-system": ["prompts", "ti-message-code"],
-  automatizacion: ["automatización", "ti-robot"],
-  cli: ["CLI", "ti-terminal"],
-  rework: ["rework", "ti-refresh"],
-  otro: ["otro", "ti-box"],
+/** project_type → [Spanish label, Órbita icon] (prototype CAT, index.html L185). */
+export const CATEGORY_LABELS: Record<string, readonly [string, IconName]> = {
+  web: ["web", "circle"],
+  mobile: ["mobile", "grid"],
+  desktop: ["desktop", "grid"],
+  ia: ["IA", "sparkles"],
+  "claude-code": ["Claude Code", "terminal"],
+  "prompt-system": ["prompts", "file"],
+  automatizacion: ["automatización", "users"],
+  cli: ["CLI", "terminal"],
+  rework: ["rework", "rotate"],
+  otro: ["otro", "cube"],
 };
 
 /** Web target platform → Spanish label + icon, for the "qué es" tags (DR-074). */
-const PLATFORM_LABELS: Record<string, readonly [string, string]> = {
-  desktop: ["Desktop", "ti-device-desktop"],
-  mobile: ["Mobile", "ti-device-mobile"],
-  responsive: ["Responsive", "ti-devices"],
+const PLATFORM_LABELS: Record<string, readonly [string, IconName]> = {
+  desktop: ["Desktop", "grid"],
+  mobile: ["Mobile", "grid"],
+  responsive: ["Responsive", "grid"],
 };
 
 /** A "qué es" meta chip — what kind of app it is (and, for web, its platform). */
 export interface MetaChip {
   label: string;
-  icon?: string;
+  icon?: IconName;
 }
 
 /**
@@ -99,10 +100,10 @@ export type ReturnTypeKey = NonNullable<IdeaCardProps["returnType"]>;
 
 /** return_type → [Spanish label, Chip tone] (prototype RET, index.html L184). */
 export const RETURN_LABELS: Record<ReturnTypeKey, readonly [string, ChipTone]> = {
-  monetary: ["monetario", "ok"],
-  opportunity: ["oportunidad", "warn"],
-  personal: ["personal", "info"],
-  mixed: ["mixto", "accent"],
+  monetary: ["monetario", "green"],
+  opportunity: ["oportunidad", "amber"],
+  personal: ["personal", "blue"],
+  mixed: ["mixto", "violet"],
 };
 
 /** Idea summary with a real navigation link and optional live project progress. */

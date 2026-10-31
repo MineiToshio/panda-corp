@@ -150,7 +150,7 @@ const SELECT_STYLE: React.CSSProperties = {
   fontSize: "var(--fs-xs)",
   borderRadius: "var(--r)",
   border: "var(--hairline) solid var(--line)",
-  background: "var(--color-card)",
+  background: "var(--surface-2)",
   color: "var(--text)",
   cursor: "pointer",
 };
@@ -182,7 +182,7 @@ const TOOLTIP_STYLE: React.CSSProperties = {
   padding: "6px 9px",
   borderRadius: "var(--r)",
   border: "var(--hairline) solid var(--line)",
-  background: "var(--color-panel)",
+  background: "var(--surface)",
   color: "var(--text)",
   fontSize: "var(--fs-xs)",
   lineHeight: 1.4,

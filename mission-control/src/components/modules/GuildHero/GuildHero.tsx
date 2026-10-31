@@ -1,3 +1,4 @@
+import type { IconName } from "@/components/core/Icon/iconData";
 import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
 import { RankEmblem } from "@/components/core/RankEmblem/RankEmblem";
 import { t } from "@/lib/copy/copy";
@@ -9,7 +10,7 @@ interface GuildHeroProps {
   xp: number;
   next: number;
   pctToNext: number;
-  rankIcon?: string;
+  rankIcon?: IconName;
   rankSprite?: string;
   rankGrade?: number;
   trophiesCount: number;

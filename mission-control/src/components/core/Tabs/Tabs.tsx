@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Tone } from "@/components/core/Chip/vocabulary";
 import { Icon } from "@/components/core/Icon/Icon";
-import { ICON_NODES, type IconName } from "@/components/core/Icon/iconData";
+import type { IconName } from "@/components/core/Icon/iconData";
 import { t } from "@/lib/copy/copy";
 import styles from "./Tabs.module.css";
 import { useTabOverflow } from "./useTabOverflow";
@@ -14,8 +14,8 @@ interface TabDef {
   id: string;
   /** Displayed label (Spanish). */
   label: string;
-  /** Optional Tabler icon class (e.g. "ti-bolt"). */
-  icon?: string;
+  /** Optional Órbita icon (e.g. "bolt"). */
+  icon?: IconName;
   /** Optional count badge displayed inline after the label. */
   count?: number;
   /** Hue of the selected underline and icon. */
@@ -54,19 +54,21 @@ export interface TabsProps {
   panelIdPrefix?: string;
 }
 
-function isIconName(name: string): name is IconName {
-  return Object.hasOwn(ICON_NODES, name);
-}
-
 function panelControls(tab: TabDef, prefix?: string): string | undefined {
   return tab.panelId ?? (prefix != null ? `${prefix}${tab.id}` : undefined);
 }
 
+const OVERFLOW_CONTROL_WIDTH = 28;
+
 function revealTab(list: HTMLDivElement, button: HTMLButtonElement): void {
   const strip = list.getBoundingClientRect();
   const tab = button.getBoundingClientRect();
+  const visibleLeft = strip.left + (list.scrollLeft > 1 ? OVERFLOW_CONTROL_WIDTH : 0);
+  const visibleRight =
+    strip.right -
+    (list.scrollLeft + list.clientWidth < list.scrollWidth - 1 ? OVERFLOW_CONTROL_WIDTH : 0);
   const offset =
-    tab.left < strip.left ? tab.left - strip.left : Math.max(0, tab.right - strip.right);
+    tab.left < visibleLeft ? tab.left - visibleLeft : Math.max(0, tab.right - visibleRight);
   if (offset) list.scrollBy?.({ left: offset, behavior: "auto" });
 }
 
@@ -127,7 +129,12 @@ export function Tabs({
   const fallbackId = tabs.find((tab) => !tab.disabled)?.id;
   const focusId = tabs.some((tab) => tab.id === active && !tab.disabled) ? active : fallbackId;
   return (
-    <div className={`tabs-wrap ${styles.wrap}`} data-more-left={left} data-more-right={right}>
+    <div
+      className={`tabs-wrap ${styles.wrap}`}
+      style={{ "--tabs-control-width": `${OVERFLOW_CONTROL_WIDTH}px` } as React.CSSProperties}
+      data-more-left={left}
+      data-more-right={right}
+    >
       {left ? (
         <button
           type="button"
@@ -175,13 +182,7 @@ export function Tabs({
                 }
               }}
             >
-              {tab.icon ? (
-                isIconName(tab.icon) ? (
-                  <Icon name={tab.icon} size="sm" />
-                ) : (
-                  <i className={`ti ${tab.icon}`} aria-hidden="true" />
-                )
-              ) : null}
+              {tab.icon ? <Icon name={tab.icon} size="sm" /> : null}
               {tab.label}
               {tab.count != null ? (
                 <span className={`num ${styles.badge}`}>{tab.count}</span>

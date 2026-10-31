@@ -9,6 +9,8 @@
 .titles {
   display: grid;
   gap: 6px;
+  grid-template-columns: minmax(0, 1fr);
+  overflow-wrap: anywhere;
   min-width: 0;
 }
 .titles p {

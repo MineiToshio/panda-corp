@@ -1,5 +1,5 @@
 .bar {
-  --graph-unit: calc(var(--space-base) / 4);
+  --graph-unit: calc(1rem / 4);
   position: absolute;
   top: calc(var(--graph-unit) * 2);
   right: calc(var(--graph-unit) * 2);

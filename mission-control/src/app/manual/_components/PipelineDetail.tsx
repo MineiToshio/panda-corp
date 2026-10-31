@@ -84,7 +84,7 @@ export function PipelineDetail(): React.JSX.Element {
         <li>Si la sesión no puede publicar Artifacts, se usan archivos locales o capturas.</li>
         <li>Al cierre, el agente reconcilia los componentes con la galería del sistema.</li>
       </Ul>
-      <NotePanel icon="ti-hand-click" iconColor="var(--color-accent)">
+      <NotePanel icon="users" iconColor="var(--violet)">
         Tú solo tomas decisiones (aprobar, corregir o diferir); nunca haces de mensajero.
       </NotePanel>
       <Body margin="0 0 8px">
@@ -213,7 +213,7 @@ export function PipelineDetail(): React.JSX.Element {
         DAG de las work orders. Cada FRD abre un modal con su blueprint y sus work orders y, si
         tiene más de una, su propio sub-DAG de dependencias y paralelismo.
       </Body>
-      <NotePanel icon="ti-writing-sign">
+      <NotePanel icon="file">
         El skill cambió de nombre de <Code>/pandacorp:blueprint</Code> a{" "}
         <Code>/pandacorp:architecture</Code> (la fase produce la arquitectura completa, no solo un
         blueprint). El artefacto <Code>blueprint.md</Code> por FRD conserva su nombre: sigue siendo

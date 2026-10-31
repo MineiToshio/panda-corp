@@ -20,9 +20,9 @@ import type React from "react";
 
 // A labelled colour legend so the two encoded colours never carry meaning alone.
 const LEGEND: readonly { readonly color: string; readonly label: string }[] = [
-  { color: "var(--color-accent)", label: "código y framework · repo compartido" },
-  { color: "var(--color-warn)", label: "tus datos personales · repo privado" },
-  { color: "var(--color-text3)", label: "efímero · se regenera, nadie lo trackea" },
+  { color: "var(--violet)", label: "código y framework · repo compartido" },
+  { color: "var(--amber)", label: "tus datos personales · repo privado" },
+  { color: "var(--text-3)", label: "efímero · se regenera, nadie lo trackea" },
 ] as const;
 
 export function VaultDiagram(): React.JSX.Element {
@@ -33,7 +33,7 @@ export function VaultDiagram(): React.JSX.Element {
         width="100%"
         role="img"
         aria-label="Una sola carpeta en disco con tres bandas de archivos, dos repos git que trackean bandas distintas, y dos remotos"
-        style={{ display: "block", height: "auto", fontFamily: "var(--font-sans, sans-serif)" }}
+        style={{ display: "block", height: "auto", fontFamily: "var(--font-body)" }}
         xmlns="http://www.w3.org/2000/svg"
       >
         {/* arrowhead marker (neutral) */}
@@ -47,7 +47,7 @@ export function VaultDiagram(): React.JSX.Element {
             orient="auto"
             markerUnits="userSpaceOnUse"
           >
-            <path d="M1,1 L7,4 L1,7" fill="none" stroke="var(--color-text3)" strokeWidth="1.4" />
+            <path d="M1,1 L7,4 L1,7" fill="none" stroke="var(--text-3)" strokeWidth="1.4" />
           </marker>
         </defs>
 
@@ -58,18 +58,11 @@ export function VaultDiagram(): React.JSX.Element {
           width="260"
           height="330"
           rx="12"
-          fill="var(--color-card)"
-          stroke="var(--color-border-strong)"
+          fill="var(--surface-2)"
+          stroke="var(--line-strong)"
           strokeWidth="1.5"
         />
-        <text
-          x="380"
-          y="54"
-          textAnchor="middle"
-          fontSize="13"
-          fontWeight={600}
-          fill="var(--color-text)"
-        >
+        <text x="380" y="54" textAnchor="middle" fontSize="13" fontWeight={600} fill="var(--text)">
           una sola carpeta en disco
         </text>
         <text
@@ -78,7 +71,7 @@ export function VaultDiagram(): React.JSX.Element {
           textAnchor="middle"
           fontSize="12"
           fontFamily="var(--font-mono, monospace)"
-          fill="var(--color-text2)"
+          fill="var(--text-2)"
         >
           panda-corp/
         </text>
@@ -91,11 +84,11 @@ export function VaultDiagram(): React.JSX.Element {
             width="228"
             height="82"
             rx="8"
-            fill="var(--color-accent-bg)"
-            stroke="var(--color-accent)"
+            fill="color-mix(in srgb, var(--violet) var(--tint-strong), transparent)"
+            stroke="var(--violet)"
             strokeWidth="1.5"
           />
-          <text x="282" y="130" fontSize="12" fontWeight={600} fill="var(--color-accent-text)">
+          <text x="282" y="130" fontSize="12" fontWeight={600} fill="var(--violet)">
             código y framework
           </text>
           <text
@@ -103,7 +96,7 @@ export function VaultDiagram(): React.JSX.Element {
             y="150"
             fontSize="10.5"
             fontFamily="var(--font-mono, monospace)"
-            fill="var(--color-text2)"
+            fill="var(--text-2)"
           >
             CLAUDE.md · plugin/
           </text>
@@ -112,7 +105,7 @@ export function VaultDiagram(): React.JSX.Element {
             y="167"
             fontSize="10.5"
             fontFamily="var(--font-mono, monospace)"
-            fill="var(--color-text2)"
+            fill="var(--text-2)"
           >
             mission-control/src
           </text>
@@ -126,11 +119,11 @@ export function VaultDiagram(): React.JSX.Element {
             width="228"
             height="98"
             rx="8"
-            fill="var(--color-warn-bg)"
-            stroke="var(--color-warn)"
+            fill="color-mix(in srgb, var(--amber) var(--tint), transparent)"
+            stroke="var(--amber)"
             strokeWidth="1.5"
           />
-          <text x="282" y="222" fontSize="12" fontWeight={600} fill="var(--color-text)">
+          <text x="282" y="222" fontSize="12" fontWeight={600} fill="var(--text)">
             tus datos personales
           </text>
           <text
@@ -138,7 +131,7 @@ export function VaultDiagram(): React.JSX.Element {
             y="242"
             fontSize="10.5"
             fontFamily="var(--font-mono, monospace)"
-            fill="var(--color-text2)"
+            fill="var(--text-2)"
           >
             factory/profile.md
           </text>
@@ -147,7 +140,7 @@ export function VaultDiagram(): React.JSX.Element {
             y="259"
             fontSize="10.5"
             fontFamily="var(--font-mono, monospace)"
-            fill="var(--color-text2)"
+            fill="var(--text-2)"
           >
             ideas/ · portfolio
           </text>
@@ -156,7 +149,7 @@ export function VaultDiagram(): React.JSX.Element {
             y="276"
             fontSize="10.5"
             fontFamily="var(--font-mono, monospace)"
-            fill="var(--color-text2)"
+            fill="var(--text-2)"
           >
             ports · ledger · memoria
           </text>
@@ -170,12 +163,12 @@ export function VaultDiagram(): React.JSX.Element {
             width="228"
             height="76"
             rx="8"
-            fill="var(--color-base)"
-            stroke="var(--color-border)"
+            fill="var(--bg)"
+            stroke="var(--line)"
             strokeWidth="1.5"
             strokeDasharray="4 3"
           />
-          <text x="282" y="330" fontSize="12" fontWeight={600} fill="var(--color-text3)">
+          <text x="282" y="330" fontSize="12" fontWeight={600} fill="var(--text-3)">
             efímero
           </text>
           <text
@@ -183,11 +176,11 @@ export function VaultDiagram(): React.JSX.Element {
             y="350"
             fontSize="10.5"
             fontFamily="var(--font-mono, monospace)"
-            fill="var(--color-text3)"
+            fill="var(--text-3)"
           >
             node_modules · .next · logs
           </text>
-          <text x="282" y="367" fontSize="10.5" fill="var(--color-text3)">
+          <text x="282" y="367" fontSize="10.5" fill="var(--text-3)">
             se regeneran — nadie los trackea
           </text>
         </g>
@@ -201,11 +194,11 @@ export function VaultDiagram(): React.JSX.Element {
             width="176"
             height="52"
             rx="9"
-            fill="var(--color-card)"
-            stroke="var(--color-accent)"
+            fill="var(--surface-2)"
+            stroke="var(--violet)"
             strokeWidth="1.5"
           />
-          <text x="30" y="139" fontSize="11.5" fontWeight={600} fill="var(--color-text)">
+          <text x="30" y="139" fontSize="11.5" fontWeight={600} fill="var(--text)">
             repo 1
           </text>
           <text
@@ -213,14 +206,14 @@ export function VaultDiagram(): React.JSX.Element {
             y="157"
             fontSize="10"
             fontFamily="var(--font-mono, monospace)"
-            fill="var(--color-text2)"
+            fill="var(--text-2)"
           >
             panda-corp/.git (dentro)
           </text>
           <path
             d="M192,144 C222,144 236,149 264,149"
             fill="none"
-            stroke="var(--color-text3)"
+            stroke="var(--text-3)"
             strokeWidth="1.6"
             markerEnd="url(#vault-arrow)"
           />
@@ -234,11 +227,11 @@ export function VaultDiagram(): React.JSX.Element {
             width="176"
             height="58"
             rx="9"
-            fill="var(--color-card)"
-            stroke="var(--color-warn)"
+            fill="var(--surface-2)"
+            stroke="var(--amber)"
             strokeWidth="1.5"
           />
-          <text x="30" y="259" fontSize="11.5" fontWeight={600} fill="var(--color-text)">
+          <text x="30" y="259" fontSize="11.5" fontWeight={600} fill="var(--text)">
             repo 2 · el overlay
           </text>
           <text
@@ -246,7 +239,7 @@ export function VaultDiagram(): React.JSX.Element {
             y="277"
             fontSize="10"
             fontFamily="var(--font-mono, monospace)"
-            fill="var(--color-text2)"
+            fill="var(--text-2)"
           >
             pandacorp-vault/
           </text>
@@ -255,14 +248,14 @@ export function VaultDiagram(): React.JSX.Element {
             y="290"
             fontSize="10"
             fontFamily="var(--font-mono, monospace)"
-            fill="var(--color-text2)"
+            fill="var(--text-2)"
           >
             personal.git (hermano, fuera)
           </text>
           <path
             d="M192,266 C224,266 236,258 264,252"
             fill="none"
-            stroke="var(--color-text3)"
+            stroke="var(--text-3)"
             strokeWidth="1.6"
             markerEnd="url(#vault-arrow)"
           />
@@ -274,7 +267,7 @@ export function VaultDiagram(): React.JSX.Element {
           <path
             d="M496,149 C528,149 540,120 566,120"
             fill="none"
-            stroke="var(--color-text3)"
+            stroke="var(--text-3)"
             strokeWidth="1.6"
             markerEnd="url(#vault-arrow)"
           />
@@ -284,14 +277,14 @@ export function VaultDiagram(): React.JSX.Element {
             width="176"
             height="52"
             rx="9"
-            fill="var(--color-card)"
-            stroke="var(--color-accent)"
+            fill="var(--surface-2)"
+            stroke="var(--violet)"
             strokeWidth="1.5"
           />
-          <text x="582" y="117" fontSize="11.5" fontWeight={600} fill="var(--color-text)">
+          <text x="582" y="117" fontSize="11.5" fontWeight={600} fill="var(--text)">
             GitHub compartido
           </text>
-          <text x="582" y="135" fontSize="10" fill="var(--color-text2)">
+          <text x="582" y="135" fontSize="10" fill="var(--text-2)">
             el equipo ve el código
           </text>
         </g>
@@ -301,7 +294,7 @@ export function VaultDiagram(): React.JSX.Element {
           <path
             d="M496,252 C530,252 540,276 566,276"
             fill="none"
-            stroke="var(--color-text3)"
+            stroke="var(--text-3)"
             strokeWidth="1.6"
             markerEnd="url(#vault-arrow)"
           />
@@ -311,23 +304,23 @@ export function VaultDiagram(): React.JSX.Element {
             width="176"
             height="58"
             rx="9"
-            fill="var(--color-card)"
-            stroke="var(--color-warn)"
+            fill="var(--surface-2)"
+            stroke="var(--amber)"
             strokeWidth="1.5"
           />
-          <text x="582" y="273" fontSize="11.5" fontWeight={600} fill="var(--color-text)">
+          <text x="582" y="273" fontSize="11.5" fontWeight={600} fill="var(--text)">
             GitHub privado
           </text>
-          <text x="582" y="291" fontSize="10" fill="var(--color-text2)">
+          <text x="582" y="291" fontSize="10" fill="var(--text-2)">
             solo tú · offsite
           </text>
-          <text x="582" y="304" fontSize="10" fill="var(--color-text2)">
+          <text x="582" y="304" fontSize="10" fill="var(--text-2)">
             sobrevive al portátil
           </text>
         </g>
 
         {/* caption */}
-        <text x="380" y="428" textAnchor="middle" fontSize="11.5" fill="var(--color-text2)">
+        <text x="380" y="428" textAnchor="middle" fontSize="11.5" fill="var(--text-2)">
           una carpeta · dos repos que trackean archivos distintos
         </text>
         <text
@@ -336,7 +329,7 @@ export function VaultDiagram(): React.JSX.Element {
           textAnchor="middle"
           fontSize="11.5"
           fontWeight={600}
-          fill="var(--color-text)"
+          fill="var(--text)"
         >
           ninguno está en los dos → cero copia, cero doble verdad
         </text>
@@ -352,7 +345,7 @@ export function VaultDiagram(): React.JSX.Element {
                 alignItems: "center",
                 gap: "6px",
                 fontSize: "11px",
-                color: "var(--color-text2)",
+                color: "var(--text-2)",
               }}
             >
               <span

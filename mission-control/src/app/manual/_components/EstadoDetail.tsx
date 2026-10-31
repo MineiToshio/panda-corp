@@ -131,7 +131,7 @@ export function EstadoDetail(): React.JSX.Element {
         solo las lecciones promovidas se commitean.
       </Body>
 
-      <NotePanel icon="ti-key" iconColor="var(--color-warn)">
+      <NotePanel icon="lock" iconColor="var(--amber)">
         <B weight={600}>Secretos.</B> Nunca están en ningún archivo versionado: se inyectan por
         variables de entorno o con un gestor de secretos (SOPS + age), y el <Code>.gitignore</Code>{" "}
         de cada proyecto excluye <Code>.env*</Code> por defecto.

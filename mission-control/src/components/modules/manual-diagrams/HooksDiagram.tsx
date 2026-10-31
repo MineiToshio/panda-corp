@@ -1,3 +1,4 @@
+import type { IconName } from "@/components/core/Icon/iconData";
 /**
  * manual-diagrams/HooksDiagram.tsx — FRD-08 ("Hooks, gates y seguridad")
  *
@@ -13,11 +14,11 @@
  */
 
 import type React from "react";
-import { Panel } from "@/components/core/Panel/Panel";
+import { Card } from "@/components/core/Card/Card";
 import { IconRow } from "./atoms";
 
 type Hook = {
-  readonly icon: string;
+  readonly icon: IconName;
   readonly color: string;
   readonly name: string;
   readonly body: string;
@@ -25,20 +26,20 @@ type Hook = {
 
 const HOOKS: readonly Hook[] = [
   {
-    icon: "ti-shield-x",
-    color: "var(--color-danger)",
+    icon: "shield",
+    color: "var(--coral)",
     name: "PreToolUse · block-dangerous.sh",
     body: "Bloquea comandos peligrosos antes de ejecutarlos: rm -rf, push a main, force-push, borrar repos.",
   },
   {
-    icon: "ti-checks",
-    color: "var(--color-ok)",
+    icon: "check",
+    color: "var(--green)",
     name: "Stop · verify-before-stop.sh",
     body: "Corre .pandacorp/verify.sh (tests + typecheck + lint). Fail-closed: un agente no puede declarar «terminado» si falla.",
   },
   {
-    icon: "ti-broadcast",
-    color: "var(--color-info)",
+    icon: "activity",
+    color: "var(--blue)",
     name: "Eventos · emit-event.sh",
     body: "Los subagentes del workflow + el hook SubagentStop escriben a ~/.claude/dashboard-events.ndjson, que La Fragua lee en vivo.",
   },
@@ -49,7 +50,7 @@ export function HooksDiagram(): React.JSX.Element {
     <div data-testid="manual-diagram-hooks">
       {HOOKS.map((hook) => (
         <div key={hook.name} style={{ marginBottom: "8px" }}>
-          <Panel>
+          <Card>
             <IconRow
               icon={hook.icon}
               iconColor={hook.color}
@@ -57,7 +58,7 @@ export function HooksDiagram(): React.JSX.Element {
             >
               {hook.body}
             </IconRow>
-          </Panel>
+          </Card>
         </div>
       ))}
     </div>

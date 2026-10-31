@@ -6,15 +6,14 @@ import { type BuildSignal, buildSignal } from "@/lib/fragua/build-signal";
 import { formatSignalAge } from "@/lib/fragua/signal-age";
 import { freshnessBand } from "@/lib/status/liveness";
 
-/** The legacy timestamp prop remains accepted until its last scene consumer is retired. */
-export type FreshnessBadgeProps =
-  | { signal: BuildSignal; nowIso: string; lastSignalAt?: never }
-  | { lastSignalAt: string | null; signal?: never; nowIso?: string };
+export interface FreshnessBadgeProps {
+  readonly signal: BuildSignal;
+  readonly nowIso: string;
+}
 
 /** Shared build chip, regraded from the server instant plus elapsed client time. */
 export function FreshnessBadge(props: FreshnessBadgeProps): React.JSX.Element | null {
-  const [legacyNow] = useState(() => Date.now());
-  const serverMs = props.nowIso ? Date.parse(props.nowIso) : legacyNow;
+  const serverMs = Date.parse(props.nowIso);
   const [nowMs, setNowMs] = useState(serverMs);
   useEffect(() => {
     setNowMs(serverMs);
@@ -23,9 +22,9 @@ export function FreshnessBadge(props: FreshnessBadgeProps): React.JSX.Element | 
     return () => clearInterval(timer);
   }, [serverMs]);
   const initial = props.signal;
-  const stamp = initial?.lastSignalAt ?? props.lastSignalAt ?? null;
+  const stamp = initial.lastSignalAt;
   const signal = buildSignal({
-    running: initial ? initial.kind !== "idle" : true,
+    running: initial.kind !== "idle",
     lastEventAt: stamp,
     nowMs: nowMs,
   });

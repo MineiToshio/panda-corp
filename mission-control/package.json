@@ -2,7 +2,7 @@
   "name": "mission-control",
   "version": "0.1.0",
   "private": true,
-  "description": "Pandacorp Mission Control \u2014 local, read-only factory dashboard (never calls Claude).",
+  "description": "Pandacorp Mission Control — local, read-only factory dashboard (never calls Claude).",
   "type": "module",
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --port 3000",
@@ -28,7 +28,6 @@
     "dev:oracle": "node --loader ./scripts/read-model/ts-loader.mjs scripts/oracle/dev-oracle.mjs"
   },
   "dependencies": {
-    "@dagrejs/dagre": "^3.0.0",
     "elkjs": "0.12.0",
     "gray-matter": "^4.0.3",
     "next": "^16.2.7",

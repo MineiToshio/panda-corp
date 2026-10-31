@@ -1,3 +1,5 @@
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 /**
  * manual-diagrams/atoms.tsx — FRD-08 Manual concept diagrams (shared atoms)
  *
@@ -33,7 +35,7 @@ export function DownArrow({
       aria-hidden="true"
       style={{
         margin: `6px 0 6px ${marginLeft}`,
-        color: "var(--color-text3)",
+        color: "var(--text-3)",
         fontSize: size,
         lineHeight: 1,
       }}
@@ -46,7 +48,7 @@ export function DownArrow({
 // ---------------------------------------------------------------------------
 // IconRowCard — a `.panel`-style row: leading status icon + title + body.
 // Prototype: the channels / hooks panels (icon left, title + caption right).
-// Rendered WITHOUT its own Panel so callers wrap it in <Panel> for the surface.
+// Rendered WITHOUT its own Panel so callers wrap it in <Card> for the surface.
 // ---------------------------------------------------------------------------
 
 export function IconRow({
@@ -55,24 +57,22 @@ export function IconRow({
   title,
   children,
 }: {
-  icon: string;
+  icon: IconName;
   iconColor: string;
   title: React.ReactNode;
   children: React.ReactNode;
 }): React.JSX.Element {
   return (
     <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-      <i
-        className={`ti ${icon}`}
-        aria-hidden="true"
-        style={{ fontSize: "18px", color: iconColor, marginTop: "1px" }}
-      />
+      <span aria-hidden="true" style={{ fontSize: "18px", color: iconColor, marginTop: "1px" }}>
+        <Icon name={icon} size="sm" />
+      </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text)" }}>{title}</div>
+        <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)" }}>{title}</div>
         <div
           style={{
             fontSize: "12px",
-            color: "var(--color-text2)",
+            color: "var(--text-2)",
             marginTop: "3px",
             lineHeight: 1.5,
           }}

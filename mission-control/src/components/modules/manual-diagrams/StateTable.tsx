@@ -62,14 +62,14 @@ const ROWS: readonly Row[] = [
 const TH_STYLE: React.CSSProperties = {
   textAlign: "left",
   padding: "6px 8px",
-  borderBottom: "1px solid var(--color-border)",
-  color: "var(--color-text2)",
+  borderBottom: "1px solid var(--line)",
+  color: "var(--text-2)",
   fontWeight: 500,
 };
 
 const TD_BASE: React.CSSProperties = {
   padding: "6px 8px",
-  borderBottom: "1px solid var(--color-border)",
+  borderBottom: "1px solid var(--line)",
 };
 
 export function StateTable(): React.JSX.Element {
@@ -93,13 +93,13 @@ export function StateTable(): React.JSX.Element {
                 ...TD_BASE,
                 fontFamily: "var(--font-mono, monospace)",
                 fontSize: "11px",
-                color: "var(--color-text)",
+                color: "var(--text)",
               }}
             >
               {row.file}
             </td>
-            <td style={{ ...TD_BASE, color: "var(--color-text2)" }}>{row.stores}</td>
-            <td style={{ ...TD_BASE, color: "var(--color-text3)" }}>{row.writer}</td>
+            <td style={{ ...TD_BASE, color: "var(--text-2)" }}>{row.stores}</td>
+            <td style={{ ...TD_BASE, color: "var(--text-3)" }}>{row.writer}</td>
           </tr>
         ))}
       </tbody>

@@ -79,7 +79,7 @@ export function ProgressBar({
     display: "block",
     height: "100%",
     width: `${pct}%`,
-    background: isComplete ? "var(--green, var(--color-ok))" : "var(--violet)",
+    background: isComplete ? "var(--green)" : "var(--violet)",
     transition: "width var(--dur) var(--ease)",
   };
 

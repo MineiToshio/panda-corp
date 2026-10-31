@@ -1,3 +1,4 @@
+import type { IconName } from "@/components/core/Icon/iconData";
 /**
  * manual-diagrams/ChannelsDiagram.tsx — FRD-08 ("Cómo operas a diario")
  *
@@ -12,7 +13,7 @@
  */
 
 import type React from "react";
-import { Panel } from "@/components/core/Panel/Panel";
+import { Card } from "@/components/core/Card/Card";
 import { IconRow } from "./atoms";
 
 // ---------------------------------------------------------------------------
@@ -20,7 +21,7 @@ import { IconRow } from "./atoms";
 // ---------------------------------------------------------------------------
 
 type Channel = {
-  readonly icon: string;
+  readonly icon: IconName;
   readonly color: string;
   readonly cmd: string;
   readonly headline: string;
@@ -29,22 +30,22 @@ type Channel = {
 
 const CHANNELS: readonly Channel[] = [
   {
-    icon: "ti-bug",
-    color: "var(--color-danger)",
+    icon: "alert",
+    color: "var(--coral)",
     cmd: "/pandacorp:bug",
     headline: "Algo está roto",
     body: "Lo dejas en la bandeja; la construcción lo recoge y lo arregla con un test de regresión. No para al agente.",
   },
   {
-    icon: "ti-git-branch",
-    color: "var(--color-info)",
+    icon: "branch",
+    color: "var(--blue)",
     cmd: "/pandacorp:iterate",
     headline: "Un cambio o módulo nuevo",
     body: "El PM triagea: ajuste chico se encola; cambio fuerte te muestra el impacto y pide pausar.",
   },
   {
-    icon: "ti-check",
-    color: "var(--color-warn)",
+    icon: "check",
+    color: "var(--amber)",
     cmd: "/pandacorp:decide",
     headline: "Responder algo que te preguntó",
     body: "Te muestra la decisión con su recomendación, la registra y desbloquea el frente.",
@@ -60,7 +61,7 @@ export function ChannelsDiagram(): React.JSX.Element {
     <div data-testid="manual-diagram-channels">
       {CHANNELS.map((ch) => (
         <div key={ch.cmd} style={{ marginBottom: "8px" }}>
-          <Panel>
+          <Card>
             <IconRow
               icon={ch.icon}
               iconColor={ch.color}
@@ -73,7 +74,7 @@ export function ChannelsDiagram(): React.JSX.Element {
             >
               {ch.body}
             </IconRow>
-          </Panel>
+          </Card>
         </div>
       ))}
     </div>

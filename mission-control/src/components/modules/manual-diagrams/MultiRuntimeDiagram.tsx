@@ -1,3 +1,5 @@
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 /**
  * manual-diagrams/MultiRuntimeDiagram.tsx — FRD-08 ("Operar desde cualquier agente")
  *
@@ -18,7 +20,7 @@ import type React from "react";
 
 type Door = {
   readonly key: "claude" | "codex";
-  readonly icon: string;
+  readonly icon: IconName;
   readonly title: string;
   readonly subtitle: string;
   readonly accent: string;
@@ -29,19 +31,19 @@ type Door = {
 const DOORS: readonly Door[] = [
   {
     key: "claude",
-    icon: "ti-door",
+    icon: "external",
     title: "Puerta Claude Code",
     subtitle: "runtime nativo",
-    accent: "var(--color-cat-2)",
+    accent: "var(--teal)",
     reads: "CLAUDE.md → importa AGENTS.md",
     layer: ["plugin /pandacorp:* + hooks", "motor background + supervisor"],
   },
   {
     key: "codex",
-    icon: "ti-door-enter",
+    icon: "external",
     title: "Puerta Codex",
     subtitle: "app · CLI · acceso completo",
-    accent: "var(--color-cat-7)",
+    accent: "var(--amber)",
     reads: "AGENTS.md directo + plugin Codex",
     layer: ["plugin + .agents/skills (symlink)", ".codex/agents/*.toml (generados)"],
   },
@@ -63,27 +65,25 @@ function DoorCard({ door }: { door: Door }): React.JSX.Element {
         border: `1px solid ${door.accent}`,
         borderRadius: "var(--radius-md, 12px)",
         padding: "12px",
-        background: "var(--color-card)",
+        background: "var(--surface-2)",
         boxShadow: `0 0 18px -12px ${door.accent}`,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-        <i
-          className={`ti ${door.icon}`}
-          aria-hidden="true"
-          style={{ fontSize: "18px", color: door.accent }}
-        />
+        <span aria-hidden="true" style={{ fontSize: "18px", color: door.accent }}>
+          <Icon name={door.icon} size="sm" />
+        </span>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text)" }}>
+          <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>
             {door.title}
           </div>
-          <div style={{ fontSize: "11px", color: "var(--color-text3)" }}>{door.subtitle}</div>
+          <div style={{ fontSize: "11px", color: "var(--text-3)" }}>{door.subtitle}</div>
         </div>
       </div>
       <div
         style={{
           fontSize: "11px",
-          color: "var(--color-text2)",
+          color: "var(--text-2)",
           fontFamily: "var(--font-mono, monospace)",
           marginBottom: "8px",
           lineHeight: 1.5,
@@ -97,7 +97,7 @@ function DoorCard({ door }: { door: Door }): React.JSX.Element {
             key={line}
             style={{
               fontSize: "11px",
-              color: "var(--color-text2)",
+              color: "var(--text-2)",
               lineHeight: 1.45,
               paddingLeft: "10px",
               borderLeft: `2px solid ${door.accent}`,
@@ -124,7 +124,7 @@ export function MultiRuntimeDiagram(): React.JSX.Element {
       <div
         style={{
           textAlign: "center",
-          color: "var(--color-text3)",
+          color: "var(--text-3)",
           fontSize: "12px",
           margin: "8px 0 2px",
         }}
@@ -137,10 +137,10 @@ export function MultiRuntimeDiagram(): React.JSX.Element {
         data-testid="multi-runtime-core"
         style={{
           marginTop: "8px",
-          border: "1px solid var(--color-border-strong)",
+          border: "1px solid var(--line-strong)",
           borderRadius: "var(--radius-lg, 16px)",
           padding: "12px",
-          background: "var(--color-panel)",
+          background: "var(--surface)",
         }}
       >
         <div
@@ -148,14 +148,12 @@ export function MultiRuntimeDiagram(): React.JSX.Element {
             fontSize: "13px",
             fontWeight: 600,
             marginBottom: "8px",
-            color: "var(--color-text)",
+            color: "var(--text)",
           }}
         >
-          <i
-            className="ti ti-building-warehouse"
-            aria-hidden="true"
-            style={{ fontSize: "14px", verticalAlign: "-2px" }}
-          />{" "}
+          <span aria-hidden="true" style={{ fontSize: "14px", verticalAlign: "-2px" }}>
+            <Icon name="factory" size="sm" />
+          </span>{" "}
           El núcleo compartido · el mismo conjunto de ficheros
         </div>
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
@@ -165,9 +163,9 @@ export function MultiRuntimeDiagram(): React.JSX.Element {
               style={{
                 fontSize: "11px",
                 fontWeight: 500,
-                color: "var(--color-text2)",
-                background: "var(--color-card)",
-                border: "1px solid var(--color-border)",
+                color: "var(--text-2)",
+                background: "var(--surface-2)",
+                border: "1px solid var(--line)",
                 borderRadius: "var(--radius-sm, 8px)",
                 padding: "3px 9px",
               }}

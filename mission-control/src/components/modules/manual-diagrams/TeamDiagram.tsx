@@ -1,3 +1,4 @@
+import type { IconName } from "@/components/core/Icon/iconData";
 /**
  * manual-diagrams/TeamDiagram.tsx — FRD-08 ("El equipo de agentes")
  *
@@ -19,7 +20,7 @@
 import type React from "react";
 import type { AgentRole } from "@/app/_design/tokens/tokens";
 import { Avatar } from "@/components/core/Avatar/Avatar";
-import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
+import { BadgeIcon } from "@/components/core/BadgeIcon/BadgeIcon";
 
 // ---------------------------------------------------------------------------
 // Roster data — mirrors the prototype `groups` array (label + role ids), plus
@@ -34,7 +35,7 @@ import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
  */
 type Visual =
   | { readonly kind: "sprite"; readonly role: AgentRole }
-  | { readonly kind: "icon"; readonly icon: string };
+  | { readonly kind: "icon"; readonly icon: IconName };
 
 type Member = {
   readonly id: string;
@@ -143,7 +144,7 @@ const GROUPS: readonly Group[] = [
       {
         id: "drift-finder",
         role: "Buscador de deriva",
-        visual: { kind: "icon", icon: "ti-radar" },
+        visual: { kind: "icon", icon: "radar" },
         bio: "Busca deriva en el FRD completo: recorre cada contrato del FRD (requisitos, criterios, componentes e interfaces) contra el código que ya estaba verificado, fuera del diff, para detectar dónde el código se alejó de lo que el FRD promete. Por cada deriva escribe una prueba que la demuestra. Corre junto al gate de cada FRD, pero solo cuando el gate usa evidencia digested, que no es el valor por defecto (el defecto es explore); también puedes encenderlo a mano con --drift-finder on. Solo propone: el reviewer sigue siendo el juez y cada deriva pasa por una prueba diferencial (DR-122) antes de convertirse en tarjeta o en reapertura de una work order. Corre sobre sonnet, con esfuerzo medio y hasta 60 llamadas a herramientas.",
       },
       {
@@ -160,13 +161,13 @@ const GROUPS: readonly Group[] = [
       {
         id: "librarian",
         role: "Memoria",
-        visual: { kind: "icon", icon: "ti-books" },
+        visual: { kind: "icon", icon: "book" },
         bio: "Cosecha las lecciones del inbox de memoria (.pandacorp/run/lessons.md) y las refina en entradas duraderas en factory/memory/. Mantiene la memoria transversal de la fábrica.",
       },
       {
         id: "mech",
         role: "Ejecutor mecánico",
-        visual: { kind: "icon", icon: "ti-settings" },
+        visual: { kind: "icon", icon: "settings" },
         bio: "Ejecutor mecánico de bajo juicio: solo tiene acceso a Bash y Read, nunca a Write ni Edit, así que no puede tocar código de producto. Corre los pasos de plomería del motor de implement que no requieren decidir nada: el commit por work order, el sello de dispatch de cada oleada, el sync de rollups y la notificación de fin de run (más el archivado de changes cuando leanCloseOut está desactivado; por defecto ese paso vive en el cierre del reviewer). No reemplaza al implementer ni al reviewer: ejecuta exactamente el comando que se le indica y nada más. El safe point se queda en el implementer, porque decidir qué hacer con un ítem drenado es juicio, no un script. Corre sobre el modelo MECH (haiku por defecto, configurable con args.mechModel) con esfuerzo bajo.",
       },
     ],
@@ -181,13 +182,7 @@ function MemberVisual({ member }: { member: Member }): React.JSX.Element {
   if (member.visual.kind === "sprite") {
     return <Avatar agentId={member.visual.role} size="sm" />;
   }
-  return (
-    <ItemSlot
-      size={32}
-      aria-label={`Ícono de ${member.id}`}
-      icon={<i className={`ti ${member.visual.icon}`} aria-hidden="true" />}
-    />
-  );
+  return <BadgeIcon size="sm" label={`Ícono de ${member.id}`} icon={member.visual.icon} />;
 }
 
 export function TeamDiagram(): React.JSX.Element {
@@ -199,7 +194,7 @@ export function TeamDiagram(): React.JSX.Element {
             style={{
               fontSize: "12px",
               fontWeight: 500,
-              color: "var(--color-text2)",
+              color: "var(--text-2)",
               marginBottom: "6px",
             }}
           >
@@ -213,8 +208,8 @@ export function TeamDiagram(): React.JSX.Element {
                   display: "flex",
                   gap: "8px",
                   alignItems: "center",
-                  background: "var(--color-panel)",
-                  border: "1px solid var(--color-border)",
+                  background: "var(--surface)",
+                  border: "1px solid var(--line)",
                   borderRadius: "var(--radius-md, 12px)",
                   padding: "7px 11px 7px 7px",
                 }}
@@ -226,12 +221,12 @@ export function TeamDiagram(): React.JSX.Element {
                       fontSize: "12px",
                       fontWeight: 500,
                       fontFamily: "var(--font-mono, monospace)",
-                      color: "var(--color-text)",
+                      color: "var(--text)",
                     }}
                   >
                     {member.id}
                   </div>
-                  <div style={{ fontSize: "11px", color: "var(--color-text2)" }}>{member.role}</div>
+                  <div style={{ fontSize: "11px", color: "var(--text-2)" }}>{member.role}</div>
                 </div>
               </div>
             ))}
@@ -252,7 +247,7 @@ export function TeamBios(): React.JSX.Element {
             style={{
               fontSize: "12px",
               fontWeight: 500,
-              color: "var(--color-text2)",
+              color: "var(--text-2)",
               marginBottom: "6px",
             }}
           >
@@ -263,8 +258,8 @@ export function TeamBios(): React.JSX.Element {
               key={member.id}
               aria-labelledby={`team-bio-${member.id}`}
               style={{
-                background: "var(--color-panel)",
-                border: "1px solid var(--color-border)",
+                background: "var(--surface)",
+                border: "1px solid var(--line)",
                 borderRadius: "var(--radius-md, 12px)",
                 padding: "10px 12px",
                 marginBottom: "8px",
@@ -277,7 +272,7 @@ export function TeamBios(): React.JSX.Element {
                   fontSize: "13px",
                   fontWeight: 600,
                   fontFamily: "var(--font-mono, monospace)",
-                  color: "var(--color-text)",
+                  color: "var(--text)",
                 }}
               >
                 {member.id}
@@ -287,7 +282,7 @@ export function TeamBios(): React.JSX.Element {
                   margin: 0,
                   fontSize: "13px",
                   lineHeight: 1.6,
-                  color: "var(--color-text2)",
+                  color: "var(--text-2)",
                 }}
               >
                 {member.bio}

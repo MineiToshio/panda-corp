@@ -26,8 +26,8 @@ export function SnapshotMini(): React.JSX.Element {
           style={{
             flex: 1,
             minWidth: "160px",
-            background: "var(--color-cat-8)",
-            color: "var(--color-base)",
+            background: "var(--green)",
+            color: "var(--bg)",
             borderRadius: "var(--radius-sm, 8px)",
             padding: "10px 12px",
           }}
@@ -42,8 +42,8 @@ export function SnapshotMini(): React.JSX.Element {
           style={{
             flex: 1,
             minWidth: "160px",
-            background: "var(--color-cat-1)",
-            color: "var(--color-base)",
+            background: "var(--blue)",
+            color: "var(--bg)",
             borderRadius: "var(--radius-sm, 8px)",
             padding: "10px 12px",
           }}
@@ -59,7 +59,7 @@ export function SnapshotMini(): React.JSX.Element {
         aria-hidden="true"
         style={{
           textAlign: "center",
-          color: "var(--color-text3)",
+          color: "var(--text-3)",
           margin: "6px 0",
           fontSize: "14px",
         }}
@@ -69,16 +69,16 @@ export function SnapshotMini(): React.JSX.Element {
       {/* git shared history bar */}
       <div
         style={{
-          background: "var(--color-panel)",
+          background: "var(--surface)",
           borderRadius: "var(--radius-sm, 8px)",
           padding: "10px 12px",
           textAlign: "center",
         }}
       >
-        <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text)" }}>
+        <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)" }}>
           git · historial compartido
         </div>
-        <div style={{ fontSize: "11px", color: "var(--color-text2)", marginTop: "2px" }}>
+        <div style={{ fontSize: "11px", color: "var(--text-2)", marginTop: "2px" }}>
           solo cruzan los commits verdes · el agente nunca para
         </div>
       </div>

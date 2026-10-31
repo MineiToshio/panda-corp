@@ -50,9 +50,9 @@ export function DocH({ title, id, level = 2 }: DocHProps): React.JSX.Element {
           width: "6px",
           height: "18px",
           borderRadius: "3px",
-          background: "var(--color-accent)",
+          background: "var(--violet)",
           flex: "0 0 auto",
-          boxShadow: "0 0 9px -2px var(--color-accent)",
+          boxShadow: "0 0 9px -2px var(--violet)",
         }}
       />
       <HeadingTag
@@ -62,7 +62,7 @@ export function DocH({ title, id, level = 2 }: DocHProps): React.JSX.Element {
           fontSize: "18px",
           fontFamily: "var(--font-display, system-ui, sans-serif)",
           fontWeight: 600,
-          color: "var(--color-text)",
+          color: "var(--text)",
           lineHeight: 1.3,
         }}
       >

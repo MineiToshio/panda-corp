@@ -346,35 +346,36 @@ function EffortChart({ scorecard }: { scorecard: ScorecardAxis[] }): React.JSX.E
       })}
       data-testid="pitch-chart"
     >
-      <rect x="44" y="14" width="150" height="92" fill="var(--color-ok-bg)" opacity="0.5" />
-      <line x1="44" y1="14" x2="44" y2="180" stroke="var(--color-border)" />
-      <line x1="44" y1="180" x2="360" y2="180" stroke="var(--color-border)" />
-      <text x="120" y="198" fill="var(--color-text3)" textAnchor="middle">
+      <rect
+        x="44"
+        y="14"
+        width="150"
+        height="92"
+        fill="color-mix(in srgb, var(--green) var(--tint), transparent)"
+        opacity="0.5"
+      />
+      <line x1="44" y1="14" x2="44" y2="180" stroke="var(--line)" />
+      <line x1="44" y1="180" x2="360" y2="180" stroke="var(--line)" />
+      <text x="120" y="198" fill="var(--text-3)" textAnchor="middle">
         {t("idea.pitch.tickMicro")}
       </text>
-      <text x="240" y="198" fill="var(--color-text3)" textAnchor="middle">
+      <text x="240" y="198" fill="var(--text-3)" textAnchor="middle">
         {t("idea.pitch.tickSmall")}
       </text>
-      <text x="330" y="198" fill="var(--color-text3)" textAnchor="middle">
+      <text x="330" y="198" fill="var(--text-3)" textAnchor="middle">
         {t("idea.pitch.tickLarge")}
       </text>
-      <text x="200" y="214" fill="var(--color-accent-text)" textAnchor="middle">
+      <text x="200" y="214" fill="var(--violet)" textAnchor="middle">
         {t("idea.pitch.axisEffort")}
       </text>
-      <text
-        x="14"
-        y="100"
-        fill="var(--color-accent-text)"
-        textAnchor="middle"
-        transform="rotate(-90 14 100)"
-      >
+      <text x="14" y="100" fill="var(--violet)" textAnchor="middle" transform="rotate(-90 14 100)">
         {t("idea.pitch.axisValue")}
       </text>
-      <text x="60" y="30" fill="var(--color-ok)" opacity="0.8" fontSize="10">
+      <text x="60" y="30" fill="var(--green)" opacity="0.8" fontSize="10">
         {t("idea.pitch.sweetSpot")}
       </text>
-      <circle cx={x} cy={y} r="9" fill="var(--color-accent)" />
-      <text x={x + 14} y={y + 4} fill="var(--color-text)">
+      <circle cx={x} cy={y} r="9" fill="var(--violet)" />
+      <text x={x + 14} y={y + 4} fill="var(--text)">
         {t("idea.pitch.thisIdea")}
       </text>
     </svg>

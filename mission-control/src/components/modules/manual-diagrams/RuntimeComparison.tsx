@@ -1,3 +1,5 @@
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 /**
  * manual-diagrams/RuntimeComparison.tsx — FRD-08 ("Operar desde cualquier agente")
  *
@@ -28,7 +30,7 @@ type Row = {
 
 type StatusMeta = {
   readonly label: string;
-  readonly icon: string;
+  readonly icon: IconName;
   readonly color: string;
   readonly bg: string;
 };
@@ -36,21 +38,21 @@ type StatusMeta = {
 const STATUS_META: Record<Status, StatusMeta> = {
   same: {
     label: "idéntico",
-    icon: "ti-equal",
-    color: "var(--color-ok)",
-    bg: "var(--color-ok-bg)",
+    icon: "layers",
+    color: "var(--green)",
+    bg: "color-mix(in srgb, var(--green) var(--tint), transparent)",
   },
   degrades: {
     label: "degrada",
-    icon: "ti-arrow-down-right",
-    color: "var(--color-warn)",
-    bg: "var(--color-warn-bg)",
+    icon: "arrow",
+    color: "var(--amber)",
+    bg: "color-mix(in srgb, var(--amber) var(--tint), transparent)",
   },
   "claude-only": {
     label: "solo Claude",
-    icon: "ti-lock",
-    color: "var(--color-info)",
-    bg: "var(--color-info-bg)",
+    icon: "lock",
+    color: "var(--blue)",
+    bg: "color-mix(in srgb, var(--blue) var(--tint), transparent)",
   },
 } as const;
 
@@ -142,7 +144,9 @@ function StatusBadge({ status }: { status: Status }): React.JSX.Element {
         whiteSpace: "nowrap",
       }}
     >
-      <i className={`ti ${meta.icon}`} aria-hidden="true" style={{ fontSize: "12px" }} />
+      <span aria-hidden="true" style={{ fontSize: "12px" }}>
+        <Icon name={meta.icon} size="sm" />
+      </span>
       {meta.label}
     </span>
   );
@@ -157,7 +161,7 @@ function ComparisonRow({ row, isFirst }: { row: Row; isFirst: boolean }): React.
         gap: "12px",
         alignItems: "flex-start",
         padding: "9px 0",
-        borderTop: isFirst ? undefined : "1px solid var(--color-border)",
+        borderTop: isFirst ? undefined : "1px solid var(--line)",
       }}
     >
       <div
@@ -165,19 +169,19 @@ function ComparisonRow({ row, isFirst }: { row: Row; isFirst: boolean }): React.
           flex: "0 0 128px",
           fontSize: "12px",
           fontWeight: 600,
-          color: "var(--color-text)",
+          color: "var(--text)",
         }}
       >
         {row.capability}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginBottom: "5px" }}>
-          <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.45 }}>
-            <span style={{ color: "var(--color-cat-2)", fontWeight: 600 }}>Claude · </span>
+          <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.45 }}>
+            <span style={{ color: "var(--teal)", fontWeight: 600 }}>Claude · </span>
             {row.claude}
           </div>
-          <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.45 }}>
-            <span style={{ color: "var(--color-cat-7)", fontWeight: 600 }}>Codex · </span>
+          <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.45 }}>
+            <span style={{ color: "var(--amber)", fontWeight: 600 }}>Codex · </span>
             {row.codex}
           </div>
         </div>
@@ -200,28 +204,29 @@ export function RuntimeComparison(): React.JSX.Element {
         data-testid="runtime-row-identical"
         style={{
           marginTop: "10px",
-          border: "1px solid var(--color-ok)",
+          border: "1px solid var(--green)",
           borderRadius: "var(--radius-md, 12px)",
           padding: "10px 12px",
-          background: "var(--color-ok-bg)",
+          background: "color-mix(in srgb, var(--green) var(--tint), transparent)",
           display: "flex",
           gap: "10px",
           alignItems: "flex-start",
         }}
       >
-        <i
-          className="ti ti-shield-check"
+        <span
           aria-hidden="true"
-          style={{ fontSize: "18px", color: "var(--color-ok)", marginTop: "1px" }}
-        />
+          style={{ fontSize: "18px", color: "var(--green)", marginTop: "1px" }}
+        >
+          <Icon name="shield" size="sm" />
+        </span>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text)" }}>
+          <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>
             {IDENTICAL_ROW.capability} · idéntico en ambas puertas
           </div>
           <div
             style={{
               fontSize: "12px",
-              color: "var(--color-text2)",
+              color: "var(--text-2)",
               marginTop: "3px",
               lineHeight: 1.5,
             }}

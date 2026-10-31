@@ -1,3 +1,5 @@
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 /**
  * manual-diagrams/prose.tsx — FRD-08 Manual prose atoms
  *
@@ -9,14 +11,12 @@
  */
 
 import type React from "react";
-import { Panel } from "@/components/core/Panel/Panel";
+import { Card } from "@/components/core/Card/Card";
 
 /** A lead paragraph (the muted intro under a heading). */
 export function Lead({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
-    <p
-      style={{ fontSize: "13px", color: "var(--color-text2)", margin: "0 0 14px", lineHeight: 1.6 }}
-    >
+    <p style={{ fontSize: "13px", color: "var(--text-2)", margin: "0 0 14px", lineHeight: 1.6 }}>
       {children}
     </p>
   );
@@ -33,9 +33,7 @@ export function Body({
   margin?: string;
 }): React.JSX.Element {
   return (
-    <p style={{ fontSize: size, lineHeight: 1.7, margin, color: "var(--color-text)" }}>
-      {children}
-    </p>
+    <p style={{ fontSize: size, lineHeight: 1.7, margin, color: "var(--text)" }}>{children}</p>
   );
 }
 
@@ -61,22 +59,21 @@ export function Code({ children }: { children: React.ReactNode }): React.JSX.Ele
  */
 export function NotePanel({
   icon,
-  iconColor = "var(--color-text2)",
+  iconColor = "var(--text-2)",
   children,
   marginTop = "10px",
 }: {
-  icon?: string;
+  icon?: IconName;
   iconColor?: string;
   children: React.ReactNode;
   marginTop?: string;
 }): React.JSX.Element {
   return (
     <div style={{ marginTop }}>
-      <Panel>
-        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.55 }}>
+      <Card>
+        <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.55 }}>
           {icon != null && (
-            <i
-              className={`ti ${icon}`}
+            <span
               aria-hidden="true"
               style={{
                 fontSize: "13px",
@@ -84,11 +81,13 @@ export function NotePanel({
                 color: iconColor,
                 marginRight: "4px",
               }}
-            />
+            >
+              <Icon name={icon} size="sm" />
+            </span>
           )}
           {children}
         </div>
-      </Panel>
+      </Card>
     </div>
   );
 }
@@ -102,7 +101,7 @@ export function Ul({ children }: { children: React.ReactNode }): React.JSX.Eleme
         paddingLeft: "18px",
         fontSize: "13px",
         lineHeight: 1.7,
-        color: "var(--color-text)",
+        color: "var(--text)",
       }}
     >
       {children}
@@ -113,10 +112,7 @@ export function Ul({ children }: { children: React.ReactNode }): React.JSX.Eleme
 /** A thin divider rule (the prototype's `border-top:.5px solid var(--bd)`). */
 export function Divider(): React.JSX.Element {
   return (
-    <div
-      aria-hidden="true"
-      style={{ borderTop: "1px solid var(--color-border)", margin: "12px 0" }}
-    />
+    <div aria-hidden="true" style={{ borderTop: "1px solid var(--line)", margin: "12px 0" }} />
   );
 }
 
@@ -135,7 +131,7 @@ export function ChipFlow({ children }: { children: React.ReactNode }): React.JSX
  */
 export function MonoBlock({ text }: { text: string }): React.JSX.Element {
   return (
-    <Panel>
+    <Card>
       <pre
         style={{
           margin: 0,
@@ -143,11 +139,11 @@ export function MonoBlock({ text }: { text: string }): React.JSX.Element {
           fontFamily: "var(--font-mono, monospace)",
           fontSize: "12px",
           lineHeight: 1.7,
-          color: "var(--color-text2)",
+          color: "var(--text-2)",
         }}
       >
         {text}
       </pre>
-    </Panel>
+    </Card>
   );
 }

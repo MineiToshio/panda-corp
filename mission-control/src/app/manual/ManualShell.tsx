@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { EmptyState } from "@/components/core/EmptyState/EmptyState";
 import { SearchField } from "@/components/core/Field/Field";
@@ -16,19 +15,16 @@ import type { ManualShellProps } from "./types";
 
 /** Client shell: the URL is the only owner of the selected document and search term. */
 export function ManualShell({ pages }: ManualShellProps): React.JSX.Element {
-  const router = useRouter();
   const [group] = useUrlState("manualGroup", "");
   const [slug] = useUrlState("manualPage", "");
   const [query, setQuery] = useUrlState("q", "");
   const page = pages.find((entry) => entry.group === group && entry.slug === slug);
   const nav = useMemo<ManualNav>(
     () => ({
-      goToSkill: (skill) => router.push(`/configuration/skills/${encodeURIComponent(skill)}`),
-      goToAgent: (agent) => router.push(`/configuration/agents/${encodeURIComponent(agent)}`),
       goToManual: (nextGroup, nextSlug) =>
         updateNavigation({ manualGroup: nextGroup, manualPage: nextSlug, q: null, index: null }),
     }),
-    [router],
+    [],
   );
   const missing = (group || slug) && !page;
   return (

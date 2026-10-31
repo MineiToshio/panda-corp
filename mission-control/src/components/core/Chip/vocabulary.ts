@@ -10,14 +10,6 @@ type StatusTone = (typeof STATUS_TONES)[number];
 export type CategoryTone = (typeof CATEGORY_TONES)[number];
 export type Tone = StatusTone | CategoryTone;
 
-/** True for the nine Órbita hues (as opposed to the v1 chip tones). */
-export function isTone(value: string): value is Tone {
-  return (
-    (STATUS_TONES as readonly string[]).includes(value) ||
-    (CATEGORY_TONES as readonly string[]).includes(value)
-  );
-}
-
 export interface Presentation {
   readonly tone: Tone;
   readonly icon: IconName;

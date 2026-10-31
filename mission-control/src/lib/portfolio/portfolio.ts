@@ -307,18 +307,6 @@ export type ProjectListItem = {
    * field is missing/malformed. Never NaN or null-coerced (regression anchor B1').
    */
   running?: boolean;
-  /**
-   * Business snapshot populated ONLY for the launched ("release") phase, from the portfolio row's
-   * Users / Return metric / Verdict columns. Undefined for non-launched entries or when all
-   * snapshot cells are placeholders.
-   */
-  snapshot?: {
-    users?: string;
-    returnMetric?: string;
-    verdict?: string;
-  };
-  /** Raw "last sync" cell of the portfolio row (REQ-03-007); the rail formats it. Undefined for a placeholder. */
-  lastSync?: string;
 };
 
 /**
@@ -375,19 +363,6 @@ function resolveRunning(statusResult: StatusResult): boolean | undefined {
   return undefined;
 }
 
-/** Business snapshot, populated only for the launched "release" phase from the portfolio row columns. */
-function resolveSnapshot(
-  entry: PortfolioEntry,
-  stage: Phase | undefined,
-): ProjectListItem["snapshot"] {
-  if (stage !== "release") return undefined;
-  const { users, returnMetric, verdict } = entry;
-  if (users !== undefined || returnMetric !== undefined || verdict !== undefined) {
-    return { users, returnMetric, verdict };
-  }
-  return undefined;
-}
-
 /**
  * Enrich a portfolio entry without excluding early or unknown phases.
  */
@@ -406,8 +381,6 @@ function enrichEntry(entry: PortfolioEntry): ProjectListItem {
     exists,
     stage,
     running: resolveRunning(statusResult),
-    snapshot: resolveSnapshot(entry, stage),
-    lastSync: entry.lastSync,
   };
 }
 

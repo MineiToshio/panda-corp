@@ -61,16 +61,16 @@ export function tierRarityName(tierIndex: number): string {
 export function tierColor(tierIndex: number): string {
   switch (tierIndex) {
     case 0:
-      return "var(--color-tier-1, var(--color-agent-researcher))";
+      return "var(--slate)";
     case 1:
-      return "var(--color-tier-2, var(--color-agent-frontend-dev))";
+      return "var(--teal)";
     case 2:
-      return "var(--color-tier-3, var(--color-accent))";
+      return "var(--blue)";
     case 3:
-      return "var(--color-tier-4, var(--color-agent-reviewer))";
+      return "var(--violet)";
     case 4:
-      return "var(--color-tier-5, var(--color-agent-product-manager))";
+      return "var(--gold)";
     default:
-      return "var(--color-border-strong)";
+      return "var(--line-strong)";
   }
 }

@@ -30,37 +30,37 @@ type Phase = {
 const PHASES: readonly Phase[] = [
   {
     name: "Descubierta",
-    color: "var(--color-text3)",
+    color: "var(--text-3)",
     body: "Exploras una idea difusa en conversación, capturas una idea tuya, o la fábrica descubre oportunidades en internet.",
     cmd: "/pandacorp:explore · :new-idea · :discover",
   },
   {
     name: "Documentada",
-    color: "var(--color-cat-2)",
+    color: "var(--teal)",
     body: "Nace el proyecto (handoff). Investigación + PRD + FRDs del MVP con criterios verificables.",
     cmd: "/pandacorp:spec <idea>",
   },
   {
     name: "Diseño",
-    color: "var(--color-cat-3)",
+    color: "var(--violet)",
     body: "El designer genera 3 mockups navegables + design tokens; el copywriter define la voz y el microcopy real. Tú eliges uno.",
     cmd: "/pandacorp:design",
   },
   {
     name: "Arquitectura",
-    color: "var(--color-cat-8)",
+    color: "var(--green)",
     body: "El architect propone el stack (lo apruebas), diseña y genera las work orders.",
     cmd: "/pandacorp:architecture",
   },
   {
     name: "En construcción",
-    color: "var(--color-cat-6)",
+    color: "var(--pink)",
     body: "Un workflow dinámico orquesta a los subagentes (TDD), desatendido. Lo sigues en Mission Control. El último paso es el endurecimiento: seguridad, calidad, auditoría y métricas/telemetría.",
     cmd: "/pandacorp:implement",
   },
   {
     name: "Lanzada",
-    color: "var(--color-cat-1)",
+    color: "var(--blue)",
     body: "La versión (ya auditada) se despliega y lanza —interno en local o externo (Vercel/AWS)—; el devops la pone viva con la copy de landing lista. Producción la apruebas tú. Desde aquí iteras: no hay una fase «operación» aparte.",
     cmd: "/pandacorp:release",
   },
@@ -81,7 +81,7 @@ export function PipelineDiagram(): React.JSX.Element {
               <div
                 style={{
                   background: phase.color,
-                  color: "var(--color-base)",
+                  color: "var(--bg)",
                   borderRadius: "var(--radius-sm, 8px)",
                   padding: "9px 8px",
                   textAlign: "center",
@@ -94,7 +94,7 @@ export function PipelineDiagram(): React.JSX.Element {
             </div>
             {/* Description + command */}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: "13px", color: "var(--color-text)", lineHeight: 1.5 }}>
+              <div style={{ fontSize: "13px", color: "var(--text)", lineHeight: 1.5 }}>
                 {phase.body}
               </div>
               <div style={{ marginTop: "6px" }}>

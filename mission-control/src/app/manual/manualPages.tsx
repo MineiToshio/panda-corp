@@ -1,4 +1,9 @@
-"use client";
+import type { Tone } from "@/components/core/Chip/vocabulary";
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
+
+("use client");
+
 /**
  * app/manual/manualPages.tsx — FRD-08 Manual page registry (the faithful readers)
  *
@@ -19,10 +24,10 @@
  */
 
 import type React from "react";
+import { Card } from "@/components/core/Card/Card";
 import { Chip } from "@/components/core/Chip/Chip";
+import { CountPill } from "@/components/core/Chip/CountPill";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
-import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
-import { Panel } from "@/components/core/Panel/Panel";
 import { ArchDiagram } from "@/components/modules/manual-diagrams/ArchDiagram";
 import { DownArrow, IconRow } from "@/components/modules/manual-diagrams/atoms";
 import { ChannelsDiagram } from "@/components/modules/manual-diagrams/ChannelsDiagram";
@@ -71,7 +76,9 @@ import { useManualNav } from "./ManualNavContext";
 // ---------------------------------------------------------------------------
 
 const RIGHT_ARROW = (
-  <i className="ti ti-arrow-right" aria-hidden="true" style={{ color: "var(--color-text3)" }} />
+  <span aria-hidden="true" style={{ color: "var(--text-3)" }}>
+    <Icon name="arrow" size="sm" />
+  </span>
 );
 
 /** A numbered quickstart step (rpgpanel + accent itemslot number + body + cmd). */
@@ -88,32 +95,15 @@ function QuickStep({
 }): React.JSX.Element {
   return (
     <div style={{ marginBottom: "10px" }}>
-      <Panel variant="rpgpanel">
+      <Card>
         <div style={{ display: "flex", gap: "11px", alignItems: "flex-start" }}>
-          <ItemSlot
-            size={30}
-            tone="accent"
-            aria-label={`Paso ${n}`}
-            icon={
-              <span
-                style={{
-                  fontFamily: "var(--font-pixel, monospace)",
-                  fontSize: "15px",
-                  fontWeight: 700,
-                }}
-              >
-                {n}
-              </span>
-            }
-          />
+          <CountPill count={n} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 600, fontSize: "14px", color: "var(--color-text)" }}>
-              {title}
-            </div>
+            <div style={{ fontWeight: 600, fontSize: "14px", color: "var(--text)" }}>{title}</div>
             <div
               style={{
                 fontSize: "13px",
-                color: "var(--color-text2)",
+                color: "var(--text-2)",
                 lineHeight: 1.55,
                 marginTop: "3px",
               }}
@@ -127,7 +117,7 @@ function QuickStep({
             )}
           </div>
         </div>
-      </Panel>
+      </Card>
     </div>
   );
 }
@@ -149,13 +139,13 @@ function GuideStep({
         gap: "11px",
         alignItems: "flex-start",
         padding: "9px 0",
-        borderTop: isFirst ? undefined : "1px solid var(--color-border)",
+        borderTop: isFirst ? undefined : "1px solid var(--line)",
       }}
     >
       <span
         style={{
-          fontFamily: "var(--font-pixel, monospace)",
-          color: "var(--color-accent-text)",
+          fontFamily: "var(--font-display)",
+          color: "var(--violet)",
           fontSize: "13px",
           flex: "0 0 auto",
           width: "16px",
@@ -167,7 +157,7 @@ function GuideStep({
       <div
         style={{
           fontSize: "13px",
-          color: "var(--color-text)",
+          color: "var(--text)",
           lineHeight: 1.55,
           flex: 1,
           minWidth: 0,
@@ -197,16 +187,16 @@ function GuidePage({
     <>
       <DocH title={title} level={2} />
       {intro != null && <Lead>{intro}</Lead>}
-      <Panel>
+      <Card>
         {steps.map((step, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: static authored step list, stable order
           <GuideStep key={i} n={i + 1} isFirst={i === 0}>
             {step}
           </GuideStep>
         ))}
-      </Panel>
+      </Card>
       {tip != null && (
-        <NotePanel icon="ti-bulb" iconColor="var(--color-warn)">
+        <NotePanel icon="bulb" iconColor="var(--amber)">
           {tip}
         </NotePanel>
       )}
@@ -223,19 +213,19 @@ function GuidePage({
 // TUTORIAL pages
 // ---------------------------------------------------------------------------
 
-const LANDING_FEATURES: readonly { icon: string; title: string; body: string }[] = [
+const LANDING_FEATURES: readonly { icon: IconName; title: string; body: string }[] = [
   {
-    icon: "ti-eye",
+    icon: "eye",
     title: "Solo-lectura",
     body: "nunca llama a Claude — solo lee archivos; el trabajo lo paga tu suscripción Max",
   },
   {
-    icon: "ti-map-2",
+    icon: "map",
     title: "Estado en vivo",
     body: "ideas, proyectos, work orders y los agentes trabajando en Mission Control",
   },
   {
-    icon: "ti-terminal-2",
+    icon: "terminal",
     title: "Te da el comando",
     body: "copias, pegas en Claude Code, vuelves y el estado ya avanzó",
   },
@@ -245,7 +235,7 @@ function ManualLanding(): React.JSX.Element {
   return (
     <>
       <DocH title="Qué es Pandacorp" level={2} />
-      <Panel>
+      <Card>
         <Body size="15px" margin="0 0 8px">
           Operas una <B weight={600}>fábrica de software hecha 100% con IA</B>. Tú traes ideas o
           problemas; un equipo de agentes los investiga, documenta, diseña, arquitecta y construye
@@ -254,7 +244,7 @@ function ManualLanding(): React.JSX.Element {
         <p
           style={{
             fontSize: "13px",
-            color: "var(--color-text2)",
+            color: "var(--text-2)",
             lineHeight: 1.6,
             margin: "0 0 14px",
           }}
@@ -267,7 +257,7 @@ function ManualLanding(): React.JSX.Element {
         {/* Feature cards */}
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", margin: "0 0 16px" }}>
           {LANDING_FEATURES.map((f) => (
-            <Panel key={f.title} variant="rpgpanel">
+            <Card key={f.title}>
               <div style={{ minWidth: "165px" }}>
                 <div
                   style={{
@@ -276,20 +266,18 @@ function ManualLanding(): React.JSX.Element {
                     gap: "7px",
                     fontSize: "12px",
                     fontWeight: 600,
-                    color: "var(--color-text)",
+                    color: "var(--text)",
                   }}
                 >
-                  <i
-                    className={`ti ${f.icon}`}
-                    aria-hidden="true"
-                    style={{ fontSize: "15px", color: "var(--color-accent-text)" }}
-                  />{" "}
+                  <span aria-hidden="true" style={{ fontSize: "15px", color: "var(--violet)" }}>
+                    <Icon name={f.icon} size="sm" />
+                  </span>{" "}
                   {f.title}
                 </div>
                 <div
                   style={{
                     fontSize: "11px",
-                    color: "var(--color-text2)",
+                    color: "var(--text-2)",
                     marginTop: "4px",
                     lineHeight: 1.45,
                   }}
@@ -297,7 +285,7 @@ function ManualLanding(): React.JSX.Element {
                   {f.body}
                 </div>
               </div>
-            </Panel>
+            </Card>
           ))}
         </div>
         {/* Pipeline */}
@@ -306,20 +294,21 @@ function ManualLanding(): React.JSX.Element {
             fontSize: "13px",
             fontWeight: 600,
             margin: "2px 0 8px",
-            color: "var(--color-text)",
+            color: "var(--text)",
           }}
         >
-          <i
-            className="ti ti-route"
+          <span
             aria-hidden="true"
-            style={{ fontSize: "14px", verticalAlign: "-2px", color: "var(--color-accent-text)" }}
-          />{" "}
+            style={{ fontSize: "14px", verticalAlign: "-2px", color: "var(--violet)" }}
+          >
+            <Icon name="branch" size="sm" />
+          </span>{" "}
           El recorrido de una idea
         </div>
         <PipelineDiagram />
-      </Panel>
+      </Card>
       {/* Tour CTA */}
-      <NotePanel icon="ti-player-play" iconColor="var(--color-accent-text)">
+      <NotePanel icon="arrow" iconColor="var(--violet)">
         <B weight={600}>¿Primera vez? Haz el tour.</B> Sigue UNA idea de punta a punta en ~5 min y
         mira a tu party construir — está en <B weight={600}>Empieza aquí → Cómo empezar</B>.
       </NotePanel>
@@ -374,7 +363,7 @@ function ManualQuickstart(): React.JSX.Element {
         }
         cmd="/pandacorp:implement"
       />
-      <NotePanel icon="ti-bulb" iconColor="var(--color-warn)">
+      <NotePanel icon="bulb" iconColor="var(--amber)">
         <B weight={600}>Lo que acabas de ver:</B> Mission Control nunca llamó a Claude — solo leyó
         archivos y te dio el comando de cada paso; todo el trabajo salió de tu suscripción. ¿Quieres
         entender el porqué? Ve a <B weight={600}>Conceptos</B>. ¿Una tarea puntual? Mira las{" "}
@@ -533,7 +522,7 @@ function GuideFeedback(): React.JSX.Element {
         punto seguro, sin que tengas que pararlo.
       </Lead>
       <ChannelsDiagram />
-      <NotePanel icon="ti-info-circle">
+      <NotePanel icon="circle">
         Mission Control te resalta los puntos de decisión pendientes y los bugs por procesar en
         Portafolio → Resumen.
       </NotePanel>
@@ -615,7 +604,7 @@ function ConceptQueEs(): React.JSX.Element {
   return (
     <>
       <DocH title="Qué es Pandacorp" level={2} />
-      <Panel>
+      <Card>
         <Body>
           Pandacorp es una <B weight={600}>fábrica de software hecha 100% con IA</B>. Tú aportas
           ideas o problemas; la fábrica los investiga, documenta, diseña, arquitecta y construye
@@ -631,11 +620,11 @@ function ConceptQueEs(): React.JSX.Element {
             margin: "14px 0",
           }}
         >
-          <Chip tone="info">tu idea</Chip>
+          <Chip tone="blue">tu idea</Chip>
           {RIGHT_ARROW}
-          <Chip tone="accent">la fábrica (agentes de IA)</Chip>
+          <Chip tone="violet">la fábrica (agentes de IA)</Chip>
           {RIGHT_ARROW}
-          <Chip tone="ok">app lanzada</Chip>
+          <Chip tone="green">app lanzada</Chip>
         </div>
         <Divider />
         <div
@@ -643,7 +632,7 @@ function ConceptQueEs(): React.JSX.Element {
             fontSize: "13px",
             fontWeight: 500,
             marginBottom: "6px",
-            color: "var(--color-text)",
+            color: "var(--text)",
           }}
         >
           Dos objetivos
@@ -653,12 +642,12 @@ function ConceptQueEs(): React.JSX.Element {
           <li>Apps que te faciliten la vida, monetizen o no.</li>
         </Ul>
         <Divider />
-        <div style={{ fontSize: "12px", color: "var(--color-text2)" }}>
+        <div style={{ fontSize: "12px", color: "var(--text-2)" }}>
           <B weight={500}>Esta app (Mission Control) es solo-lectura:</B> muestra el estado y te
           dice qué comando ejecutar. Nunca llama a Claude — el trabajo lo haces pegando los comandos
           en Claude Code, así sale de tu suscripción.
         </div>
-      </Panel>
+      </Card>
       <QueEsDetail />
     </>
   );
@@ -673,15 +662,15 @@ function ConceptPipeline(): React.JSX.Element {
         no te gusta, re-corres el mismo comando y sigues puliendo (no avanza hasta tu ok). Copia el
         comando, pégalo en Claude Code en la carpeta que toca, y vuelve.
       </Lead>
-      <Panel>
+      <Card>
         <PipelineDiagram />
-      </Panel>
-      <NotePanel icon="ti-flag">
+      </Card>
+      <NotePanel icon="flag">
         <B weight={500}>El handoff:</B> la idea vive en la fábrica hasta <Code>spec</Code>; ahí nace
         su propia carpeta/repo y desde entonces toda la documentación del producto vive en el
         proyecto.
       </NotePanel>
-      <NotePanel icon="ti-refresh" iconColor="var(--color-accent)">
+      <NotePanel icon="rotate" iconColor="var(--violet)">
         <B weight={500}>Iterar sin avanzar:</B> ¿no te gusta el output de una etapa? Vuelve a correr
         el mismo comando y sigues puliendo — la tarjeta no avanza hasta tu visto bueno. Tu feedback
         se guarda en <Code>.pandacorp/comms/iteration.md</Code>, así retomas aunque pierdas la
@@ -701,9 +690,9 @@ function ConceptEquipo(): React.JSX.Element {
         delegan según la fase. Cada uno usa el modelo adecuado (opus para juicio, sonnet para tareas
         mecánicas). Su ficha completa está en <B weight={600}>Referencia → Agentes</B>.
       </Lead>
-      <Panel>
+      <Card>
         <TeamDiagram />
-      </Panel>
+      </Card>
 
       <DocH title="Quién hace qué" />
       <Body>
@@ -720,7 +709,7 @@ function ConceptEquipo(): React.JSX.Element {
         hasta el tope del modo (en potente, 8 a la vez) cuando no dependen entre sí. La coordinación
         es explícita en el código del workflow: no hay comunicación directa entre agentes.
       </Body>
-      <NotePanel icon="ti-device-gamepad-2" iconColor="var(--color-accent)">
+      <NotePanel icon="grid" iconColor="var(--violet)">
         <B weight={500}>En Mission Control,</B> La Fragua muestra a los agentes activos con sus
         avatares animados. Los estados reflejan el trabajo en tiempo real: el agente se mueve cuando
         trabaja, se congela cuando espera y celebra cuando completa una work order.
@@ -746,12 +735,12 @@ function ConceptEstandares(): React.JSX.Element {
         que la IA no te pregunte cada vez. Todo el detalle en{" "}
         <B weight={600}>Referencia → Estándares</B> y <B weight={600}>Reglas de decisión</B>.
       </Lead>
-      <Panel>
+      <Card>
         <div
           style={{
             fontSize: "12px",
             fontWeight: 500,
-            color: "var(--color-text2)",
+            color: "var(--text-2)",
             marginBottom: "8px",
           }}
         >
@@ -771,27 +760,27 @@ function ConceptEstandares(): React.JSX.Element {
             "Producto/Docs",
             "Fábrica/Portabilidad",
           ].map((d) => (
-            <Chip key={d} tone="secondary">
+            <Chip key={d} tone="slate">
               {d}
             </Chip>
           ))}
         </div>
         <Divider />
-        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
-          <B weight={500}>Severidad:</B> <Chip tone="danger">MUST</Chip> obligatorio ·{" "}
-          <Chip tone="warn">SHOULD</Chip> recomendado · <Chip tone="secondary">MAY</Chip> opcional.
-          La IA solo te escala si va a romper un MUST.
+        <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.6 }}>
+          <B weight={500}>Severidad:</B> <Chip tone="coral">MUST</Chip> obligatorio ·{" "}
+          <Chip tone="amber">SHOULD</Chip> recomendado · <Chip tone="slate">MAY</Chip> opcional. La
+          IA solo te escala si va a romper un MUST.
         </div>
         <Divider />
-        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
+        <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.6 }}>
           <B weight={500}>El registro de reglas</B> (<Code>rule-registry.md</Code>) indexa las ~157
-          reglas con su estado real de enforcement: <Chip tone="ok">wired</Chip> un script/gate la
-          verifica solo · <Chip tone="warn">manual</Chip> un paso humano NOMBRADO ·{" "}
-          <Chip tone="danger">aspirational</Chip> nada la verifica (un MUST aspiracional es un
+          reglas con su estado real de enforcement: <Chip tone="green">wired</Chip> un script/gate
+          la verifica solo · <Chip tone="amber">manual</Chip> un paso humano NOMBRADO ·{" "}
+          <Chip tone="coral">aspirational</Chip> nada la verifica (un MUST aspiracional es un
           defecto — hoy hay <B weight={600}>cero</B>). <Code>check-standards.sh</Code> valida la
           plantilla, deriva los conteos en vivo y avisa si reaparece uno.{" "}
           <B weight={500}>Sesión de promoción de memoria (2026-09-03):</B> 7 reglas nuevas nacidas
-          de lecciones corroboradas del store, todas <Chip tone="warn">manual</Chip>: CONV-14
+          de lecciones corroboradas del store, todas <Chip tone="amber">manual</Chip>: CONV-14
           (trampas verificadas: comparación léxica de ISO-8601, caché de gray-matter,{" "}
           <Code>git add -f</Code> bajo un directorio ignorado después), CONV-15 (voz del copy de
           producto: la raya larga está prohibida por ser el tell más fiable de prosa generada por
@@ -806,7 +795,7 @@ function ConceptEstandares(): React.JSX.Element {
           artefacto vivo.
         </div>
         <Divider />
-        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
+        <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.6 }}>
           <B weight={500}>Fuente única de verdad (DR-115, 2026-07-05):</B> cada hecho (un conteo, un
           estado, un nivel) tiene <B weight={600}>un solo escritor</B>; todo lo demás{" "}
           <B weight={600}>deriva</B> a través de un único resolver — nunca duplica. Un valor
@@ -817,7 +806,7 @@ function ConceptEstandares(): React.JSX.Element {
           <Code>single-source-of-truth.md</Code>.
         </div>
         <Divider />
-        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
+        <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.6 }}>
           <B weight={500}>
             Consistencia documental — el gate de supersesión completa (DR-116, 2026-07-05):
           </B>{" "}
@@ -836,7 +825,7 @@ function ConceptEstandares(): React.JSX.Element {
           caza la deriva que se cuele — reporta y ficha como <Code>BL-*</Code>, nunca edita ni
           bloquea. Canónico: <Code>document-consistency.md</Code>.
         </div>
-      </Panel>
+      </Card>
       <EstandaresDetail />
     </>
   );
@@ -851,9 +840,9 @@ function ConceptArquitectura(): React.JSX.Element {
         productos viven en repos separados, cada uno con su propia documentación. Mission Control
         solo refleja el estado.
       </Lead>
-      <Panel>
+      <Card>
         <ArchDiagram />
-      </Panel>
+      </Card>
       <NotePanel>
         <B weight={500}>Regla de oro:</B> cada dato vive en UN solo lugar; el otro lado guarda un
         puntero. El proyecto nunca necesita leer la fábrica para trabajar — los estándares llegan
@@ -875,11 +864,11 @@ function ConceptCockpit(): React.JSX.Element {
         interna.
       </Lead>
       <div style={{ marginBottom: "10px" }}>
-        <Panel>
+        <Card>
           <CockpitDataDiagram />
-        </Panel>
+        </Card>
       </div>
-      <Panel>
+      <Card>
         <Ul>
           <li>
             <B weight={500}>Stack:</B> Next.js (App Router; los Server Components leen el
@@ -902,7 +891,7 @@ function ConceptCockpit(): React.JSX.Element {
             ejecutar un comando.
           </li>
         </Ul>
-      </Panel>
+      </Card>
       <CockpitDetail />
     </>
   );
@@ -916,12 +905,12 @@ function ConceptEstado(): React.JSX.Element {
         Todo el estado vive en archivos (no en una BD ni en el chat). Así el avance sobrevive a
         cortes, y la fábrica y Mission Control leen exactamente lo mismo.
       </Lead>
-      <Panel>
+      <Card>
         <div style={{ overflowX: "auto" }}>
           <StateTable />
         </div>
-      </Panel>
-      <NotePanel icon="ti-lock" iconColor="var(--color-accent)">
+      </Card>
+      <NotePanel icon="lock" iconColor="var(--violet)">
         Durante un build, <Code>status.yaml</Code> es una proyección controlada por la lease, no un
         segundo candado. Acquire, heartbeat, sincronización y cierre reponen fase, hora de inicio,
         run lógico, runtime y epoch desde esa única fuente. La reparación de baseline nunca restaura
@@ -942,7 +931,7 @@ function ConceptHooks(): React.JSX.Element {
         nunca marca sus propios checks.
       </Lead>
       <HooksDiagram />
-      <NotePanel icon="ti-lock">
+      <NotePanel icon="lock">
         Los gates humanos (producción, gastar dinero, borrar datos, comunicaciones externas) se
         aplican como <B weight={500}>reglas deny duras</B> en settings.json, no como límites dichos
         en la conversación.
@@ -953,7 +942,7 @@ function ConceptHooks(): React.JSX.Element {
         portfolio, ledgers) no tiene historia git por diseño: un borrado ahí es pérdida permanente.
         Tras el incidente de 2026-07-04 tiene doble blindaje:
       </Lead>
-      <NotePanel icon="ti-database-export" iconColor="var(--color-accent)">
+      <NotePanel icon="database" iconColor="var(--violet)">
         <B weight={600}>Backup automático en cada SessionStart</B> a{" "}
         <Code>pandacorp-vault/backups/</Code> (una carpeta por día, 30 días de retención). Es{" "}
         <B weight={500}>aditivo dentro del día</B> — un borrado parcial en el origen nunca encoge el
@@ -961,7 +950,7 @@ function ConceptHooks(): React.JSX.Element {
         roto no se disfrace de backup sano. Dónde vive todo este estado personal y cómo restaurarlo
         en una máquina nueva: ver <B weight={500}>«El vault · tu estado personal»</B>.
       </NotePanel>
-      <NotePanel icon="ti-shield-lock" iconColor="var(--color-warn)">
+      <NotePanel icon="shield" iconColor="var(--amber)">
         <B weight={600}>Rutas protegidas en el gate de comandos.</B> <Code>block-dangerous.sh</Code>{" "}
         bloquea el borrado recursivo que ALCANCE una ruta protegida — también el borrado del{" "}
         <B weight={500}>directorio padre</B> (<Code>rm -rf mi-app</Code> contiene su{" "}
@@ -1087,14 +1076,14 @@ function ConceptVault(): React.JSX.Element {
         <Code>panda-corp/</Code>, dentro de <Code>Proyectos/</Code>. Guarda todo el estado personal
         y local de la máquina que no puede vivir dentro del repo. Dentro hay tres cosas:
       </Body>
-      <Panel>
+      <Card>
         {VAULT_CONTENTS.map((row, i) => (
           <KvRow key={row.name} label={<Code>{row.name}</Code>} isFirst={i === 0}>
             {row.what}
           </KvRow>
         ))}
-      </Panel>
-      <NotePanel icon="ti-info-circle" iconColor="var(--color-info)">
+      </Card>
+      <NotePanel icon="circle" iconColor="var(--blue)">
         <B weight={600}>¿Por qué al lado y no fuera, como los deployments?</B> La regla de «mantener
         cosas fuera de <Code>Proyectos/</Code>» existe para que una herramienta no confunda un{" "}
         <B weight={500}>servidor que corre</B> (un deployment) con código fuente — es sobre cosas
@@ -1109,11 +1098,11 @@ function ConceptVault(): React.JSX.Element {
         <B weight={600}>dos repos git</B> que trackean conjuntos de archivos{" "}
         <B weight={600}>distintos</B>. Ningún archivo está en los dos.
       </Lead>
-      <Panel>
+      <Card>
         <div style={{ overflowX: "auto" }}>
           <VaultDiagram />
         </div>
-      </Panel>
+      </Card>
       <Body margin="12px 0 12px">
         La analogía que funciona:{" "}
         <B weight={600}>
@@ -1124,7 +1113,7 @@ function ConceptVault(): React.JSX.Element {
         la misma carpeta. Por eso el <Code>.git</Code> del overlay es diminuto (~232 KB, solo la
         historia de unos archivos de texto), no un duplicado del proyecto.
       </Body>
-      <NotePanel icon="ti-check" iconColor="var(--color-ok)">
+      <NotePanel icon="check" iconColor="var(--green)">
         <B weight={600}>No es una segunda fuente de verdad.</B> Cada archivo tiene exactamente una
         copia física y un repo que lo trackea (conjuntos disjuntos) → cero duplicación, cero deriva.
         Es la misma ley de fuente única de verdad (DR-115) que rige el resto de la fábrica, aplicada
@@ -1136,19 +1125,19 @@ function ConceptVault(): React.JSX.Element {
         Hay dos formas de perder tu trabajo, y cada una tiene su red de seguridad. No son
         intercambiables:
       </Body>
-      <NotePanel icon="ti-history" iconColor="var(--color-accent)">
+      <NotePanel icon="clock" iconColor="var(--violet)">
         <B weight={600}>Los backups → contra un borrado accidental.</B> Si alguien barre o borra una
         carpeta <Code>.pandacorp/</Code> del estado gitignoreado, el snapshot del día lo deshace.
         Cubren <B weight={500}>TODO</B>: el estado de propietario de cada proyecto (inbox/comms){" "}
         <B weight={500}>y</B> los archivos personales de la fábrica. Pero son{" "}
         <B weight={600}>locales</B> (viven en el vault) → no te salvan si pierdes el portátil.
       </NotePanel>
-      <NotePanel icon="ti-cloud-lock" iconColor="var(--color-warn)">
+      <NotePanel icon="lock" iconColor="var(--amber)">
         <B weight={600}>El remoto privado del overlay → contra la pérdida del portátil.</B> Los
         datos personales de la fábrica (ideas, perfil) están <B weight={500}>offsite</B> en un
         GitHub privado. Si el disco muere, tus ideas siguen ahí.
       </NotePanel>
-      <NotePanel icon="ti-alert-triangle" iconColor="var(--color-warn)">
+      <NotePanel icon="alert" iconColor="var(--amber)">
         <B weight={600}>Pendiente (recuperación ante desastre real):</B> hoy los backups son SOLO
         locales. Para sobrevivir a la pérdida del equipo necesitan una{" "}
         <B weight={600}>copia en la nube</B> — mientras no la haya, solo el overlay está a salvo
@@ -1163,7 +1152,7 @@ function ConceptVault(): React.JSX.Element {
       {RESTORE_STEPS.map((step, i) => (
         <QuickStep key={step.key} n={i + 1} title={step.title} body={step.body} cmd={step.cmd} />
       ))}
-      <NotePanel icon="ti-cloud" iconColor="var(--color-accent-text)">
+      <NotePanel icon="external" iconColor="var(--violet)">
         Las <B weight={600}>dos fuentes que deben estar vivas FUERA del equipo</B> para que esto
         funcione: el <B weight={500}>remoto privado del overlay</B> (paso 3) y una{" "}
         <B weight={500}>copia offsite de los backups</B> (paso 4). El vault en disco es local — y
@@ -1171,7 +1160,7 @@ function ConceptVault(): React.JSX.Element {
       </NotePanel>
 
       <DocH title="Y las llaves, ¿dónde?" />
-      <NotePanel icon="ti-key" iconColor="var(--color-warn)">
+      <NotePanel icon="lock" iconColor="var(--amber)">
         <B weight={600}>Los secretos NO van en el vault.</B> La llave <Code>age</Code> de SOPS vive
         en <Code>~/.config/pandacorp/</Code> — tu carpeta de usuario, privada — por dos razones:{" "}
         <Code>/Users/Shared/</Code> es multi-usuario en macOS (lugar equivocado para una llave
@@ -1209,7 +1198,7 @@ function ConceptDesatendida(): React.JSX.Element {
         deja siempre un punto probable.
       </Lead>
       <div style={{ marginBottom: "10px" }}>
-        <Panel>
+        <Card>
           <Ul>
             <li>
               <B weight={500}>Auto mode</B> (permisos): el agente deja de preguntar «¿continúo?»;
@@ -1238,23 +1227,23 @@ function ConceptDesatendida(): React.JSX.Element {
               tasks + TaskStop para procesos largos.
             </li>
           </Ul>
-        </Panel>
+        </Card>
       </div>
       <div
         style={{
           fontSize: "12px",
           fontWeight: 500,
-          color: "var(--color-text2)",
+          color: "var(--text-2)",
           marginBottom: "6px",
         }}
       >
         Probar un snapshot sin parar al agente
       </div>
-      <Panel>
+      <Card>
         <SnapshotMini />
-      </Panel>
+      </Card>
       <DesatendidaDetail />
-      <NotePanel icon="ti-route" iconColor="var(--color-accent)">
+      <NotePanel icon="branch" iconColor="var(--violet)">
         El mecanismo del motor (oleadas globales, gate en abanico, supervisor) está detallado en{" "}
         <button
           type="button"
@@ -1265,7 +1254,7 @@ function ConceptDesatendida(): React.JSX.Element {
             padding: 0,
             margin: 0,
             font: "inherit",
-            color: "var(--color-accent-text)",
+            color: "var(--violet)",
             textDecoration: "underline",
             cursor: "pointer",
           }}
@@ -1286,12 +1275,12 @@ function ConceptPlugin(): React.JSX.Element {
         El know-how se empaqueta como un plugin de Claude Code, disponible en cualquier carpeta.
       </Lead>
       <div style={{ marginBottom: "10px" }}>
-        <Panel>
+        <Card>
           <div
             style={{
               fontSize: "12px",
               fontWeight: 500,
-              color: "var(--color-text2)",
+              color: "var(--text-2)",
               marginBottom: "6px",
             }}
           >
@@ -1301,7 +1290,7 @@ function ConceptPlugin(): React.JSX.Element {
             style={{
               fontFamily: "var(--font-mono, monospace)",
               fontSize: "12px",
-              color: "var(--color-text2)",
+              color: "var(--text-2)",
               lineHeight: 1.8,
             }}
           >
@@ -1315,14 +1304,14 @@ function ConceptPlugin(): React.JSX.Element {
             <br />
             └── templates/ · scaffolds por golden path
           </div>
-        </Panel>
+        </Card>
       </div>
-      <Panel>
+      <Card>
         <div
           style={{
             fontSize: "12px",
             fontWeight: 500,
-            color: "var(--color-text2)",
+            color: "var(--text-2)",
             marginBottom: "6px",
           }}
         >
@@ -1333,16 +1322,17 @@ function ConceptPlugin(): React.JSX.Element {
           <Code>bumpear la versión</Code> → <Code>commit</Code> → <Code>claude plugin update</Code>{" "}
           → reiniciar sesión.
         </Body>
-        <div style={{ fontSize: "12px", color: "var(--color-text2)" }}>
-          <i
-            className="ti ti-alert-triangle"
+        <div style={{ fontSize: "12px", color: "var(--text-2)" }}>
+          <span
             aria-hidden="true"
-            style={{ fontSize: "13px", verticalAlign: "-2px", color: "var(--color-warn)" }}
-          />{" "}
+            style={{ fontSize: "13px", verticalAlign: "-2px", color: "var(--amber)" }}
+          >
+            <Icon name="alert" size="sm" />
+          </span>{" "}
           Mission Control detecta cuando editaste el plugin pero no lo actualizaste (compara el SHA
           instalado con el repo) y muestra un aviso.
         </div>
-      </Panel>
+      </Card>
       <PluginDetail />
     </>
   );
@@ -1358,21 +1348,22 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
         <Code>factory/memory/</Code>. Los agentes la consultan en el siguiente proyecto — así la
         fábrica se vuelve más lista y construye más rápido con el uso, sin reentrenar ningún modelo.
       </Lead>
-      <Panel>
+      <Card>
         <SelfLearningLoop />
-      </Panel>
+      </Card>
 
       <DocH title="Los 3 actores · quién hace qué" />
       <div style={{ marginBottom: "8px" }}>
-        <Panel>
+        <Card>
           <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-            <i
-              className="ti ti-feather"
+            <span
               aria-hidden="true"
-              style={{ fontSize: "18px", color: "var(--color-cat-2)", marginTop: "1px" }}
-            />
+              style={{ fontSize: "18px", color: "var(--teal)", marginTop: "1px" }}
+            >
+              <Icon name="file" size="sm" />
+            </span>
             <div>
-              <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text)" }}>
+              <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)" }}>
                 El cronista (
                 <span style={{ fontFamily: "var(--font-mono, monospace)" }}>librarian</span>) · el
                 obrero
@@ -1380,7 +1371,7 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
               <div
                 style={{
                   fontSize: "12px",
-                  color: "var(--color-text2)",
+                  color: "var(--text-2)",
                   marginTop: "3px",
                   lineHeight: 1.5,
                 }}
@@ -1390,25 +1381,26 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
               </div>
             </div>
           </div>
-        </Panel>
+        </Card>
       </div>
       <div style={{ marginBottom: "8px" }}>
-        <Panel>
+        <Card>
           <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-            <i
-              className="ti ti-book"
+            <span
               aria-hidden="true"
-              style={{ fontSize: "18px", color: "var(--color-accent)", marginTop: "1px" }}
-            />
+              style={{ fontSize: "18px", color: "var(--violet)", marginTop: "1px" }}
+            >
+              <Icon name="book" size="sm" />
+            </span>
             <div>
-              <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text)" }}>
+              <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)" }}>
                 <span style={{ fontFamily: "var(--font-mono, monospace)" }}>/pandacorp:memory</span>{" "}
                 · el mando
               </div>
               <div
                 style={{
                   fontSize: "12px",
-                  color: "var(--color-text2)",
+                  color: "var(--text-2)",
                   marginTop: "3px",
                   lineHeight: 1.5,
                 }}
@@ -1420,24 +1412,25 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
               </div>
             </div>
           </div>
-        </Panel>
+        </Card>
       </div>
-      <Panel>
+      <Card>
         <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-          <i
-            className="ti ti-school"
+          <span
             aria-hidden="true"
-            style={{ fontSize: "18px", color: "var(--color-ok)", marginTop: "1px" }}
-          />
+            style={{ fontSize: "18px", color: "var(--green)", marginTop: "1px" }}
+          >
+            <Icon name="book" size="sm" />
+          </span>
           <div>
-            <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--color-text)" }}>
+            <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)" }}>
               <span style={{ fontFamily: "var(--font-mono, monospace)" }}>/pandacorp:learn</span> ·
               el ascenso
             </div>
             <div
               style={{
                 fontSize: "12px",
-                color: "var(--color-text2)",
+                color: "var(--text-2)",
                 marginTop: "3px",
                 lineHeight: 1.5,
               }}
@@ -1447,13 +1440,13 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
             </div>
           </div>
         </div>
-      </Panel>
+      </Card>
 
       <DocH title="La captura es general y automática" />
       <p
         style={{
           fontSize: "13px",
-          color: "var(--color-text2)",
+          color: "var(--text-2)",
           margin: "0 0 10px",
           lineHeight: 1.6,
         }}
@@ -1467,18 +1460,18 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
         conversación como red de seguridad por si algo se escapó; luego el cronista lo pule. Tres
         niveles:
       </p>
-      <Panel>
+      <Card>
         <ChipFlow>
-          <Chip tone="accent">1 · Capturar (siempre)</Chip>
+          <Chip tone="violet">1 · Capturar (siempre)</Chip>
           {RIGHT_ARROW}
-          <Chip tone="accent">2 · Refinar (cronista)</Chip>
+          <Chip tone="violet">2 · Refinar (cronista)</Chip>
           {RIGHT_ARROW}
-          <Chip tone="ok">3 · Consolidar (a regla, con tu ok)</Chip>
+          <Chip tone="green">3 · Consolidar (a regla, con tu ok)</Chip>
         </ChipFlow>
-      </Panel>
+      </Card>
 
       <DocH title="Las protecciones · por qué no se llena de basura ni se envenena" />
-      <Panel>
+      <Card>
         <Ul>
           <li>
             <B weight={500}>Dedup A.U.D.N.:</B> cada nota se resuelve en AÑADIR / ACTUALIZAR /
@@ -1507,12 +1500,13 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
           </li>
         </Ul>
         <Divider />
-        <div style={{ fontSize: "12px", color: "var(--color-text2)" }}>
-          <i
-            className="ti ti-alert-triangle"
+        <div style={{ fontSize: "12px", color: "var(--text-2)" }}>
+          <span
             aria-hidden="true"
-            style={{ fontSize: "13px", verticalAlign: "-2px", color: "var(--color-warn)" }}
-          />{" "}
+            style={{ fontSize: "13px", verticalAlign: "-2px", color: "var(--amber)" }}
+          >
+            <Icon name="alert" size="sm" />
+          </span>{" "}
           Lección del research: <B weight={500}>capturar de más no es mejor</B> — un agente que se
           fía de sus propias reflexiones envenena la memoria. Por eso solo se capturan notas
           ancladas a evidencia, nunca opiniones. Desde 2026-07-09 esto es una regla dura con
@@ -1520,13 +1514,13 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
           (una fecha, un id, un fichero, un commit, una URL) o <Code>validate-memory.sh</Code> pone
           la memoria en rojo.
         </div>
-      </Panel>
+      </Card>
 
       <DocH title="La cola de promociones · decides cuando quieras" />
       <p
         style={{
           fontSize: "13px",
-          color: "var(--color-text2)",
+          color: "var(--text-2)",
           margin: "0 0 10px",
           lineHeight: 1.6,
         }}
@@ -1542,18 +1536,18 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
         <Code>promotion: proposed</Code>, cuando el dueño la aprueba ahí mismo (así llegó
         LESSON-0147 a PROMPT-8, 2026-07-15).
       </p>
-      <Panel>
+      <Card>
         <ChipFlow>
-          <Chip tone="secondary">proposed</Chip>
+          <Chip tone="slate">proposed</Chip>
           {RIGHT_ARROW}
-          <Chip tone="warn">tú revisas · status</Chip>
+          <Chip tone="amber">tú revisas · status</Chip>
           {RIGHT_ARROW}
-          <Chip tone="ok">approved</Chip>
-          <span style={{ color: "var(--color-text3)" }}>o</span>
-          <Chip tone="secondary">rejected</Chip>
+          <Chip tone="green">approved</Chip>
+          <span style={{ color: "var(--text-3)" }}>o</span>
+          <Chip tone="slate">rejected</Chip>
         </ChipFlow>
-      </Panel>
-      <NotePanel icon="ti-check" iconColor="var(--color-ok)">
+      </Card>
+      <NotePanel icon="check" iconColor="var(--green)">
         Al aprobar, <Code>/learn</Code> hace back-link a la lección y marca{" "}
         <Code>promotion: approved</Code> <B weight={500}>y</B> <Code>status: active</Code>{" "}
         (BL-0088): tu aprobación ya es corroboración más fuerte que el umbral cruzado de proyectos,
@@ -1561,7 +1555,7 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
       </NotePanel>
 
       <DocH title="Qué NO es autoaprendizaje" />
-      <Panel>
+      <Card>
         <Ul>
           <li>
             <B weight={500}>No es reflexión sobre reflexiones:</B> las lecciones se anclan en
@@ -1589,10 +1583,10 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
             verificador) se aplica solo, y siempre notificando; todo lo demás espera al dueño.
           </li>
         </Ul>
-      </Panel>
+      </Card>
 
       <DocH title="Tipos de lección" />
-      <Panel>
+      <Card>
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
           {[
             "problema → solución",
@@ -1601,13 +1595,13 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
             "truco (gotcha)",
             "anti-patrón",
           ].map((t) => (
-            <Chip key={t} tone="secondary">
+            <Chip key={t} tone="slate">
               {t}
             </Chip>
           ))}
         </div>
-      </Panel>
-      <NotePanel icon="ti-eye" iconColor="var(--color-accent)">
+      </Card>
+      <NotePanel icon="eye" iconColor="var(--violet)">
         <B weight={500}>Dónde lo ves:</B> en el <B weight={500}>buzón de Propuestas</B> de Mission
         Control (FRD-17): la cola de ascensos con su comando listo para copiar, las autosugerencias
         de la app y el panel de salud de la memoria (notas pendientes, último barrido diario y
@@ -1639,7 +1633,7 @@ function KvRow({
         gap: "12px",
         alignItems: "baseline",
         padding: "7px 0",
-        borderTop: isFirst ? undefined : "1px solid var(--color-border)",
+        borderTop: isFirst ? undefined : "1px solid var(--line)",
       }}
     >
       <div
@@ -1647,7 +1641,7 @@ function KvRow({
           flex: "0 0 132px",
           fontSize: "12px",
           fontWeight: 600,
-          color: "var(--color-text)",
+          color: "var(--text)",
         }}
       >
         {label}
@@ -1657,7 +1651,7 @@ function KvRow({
           flex: 1,
           minWidth: 0,
           fontSize: "13px",
-          color: "var(--color-text2)",
+          color: "var(--text-2)",
           lineHeight: 1.55,
         }}
       >
@@ -1675,7 +1669,7 @@ function ChipDefRow({
   children,
 }: {
   chip: string;
-  tone: "info" | "ok" | "warn" | "danger" | "accent" | "secondary";
+  tone: Tone;
   isFirst: boolean;
   children: React.ReactNode;
 }): React.JSX.Element {
@@ -1686,7 +1680,7 @@ function ChipDefRow({
         gap: "10px",
         alignItems: "flex-start",
         padding: "8px 0",
-        borderTop: isFirst ? undefined : "1px solid var(--color-border)",
+        borderTop: isFirst ? undefined : "1px solid var(--line)",
       }}
     >
       <div style={{ flex: "0 0 116px" }}>
@@ -1697,7 +1691,7 @@ function ChipDefRow({
           flex: 1,
           minWidth: 0,
           fontSize: "13px",
-          color: "var(--color-text2)",
+          color: "var(--text-2)",
           lineHeight: 1.55,
         }}
       >
@@ -1718,32 +1712,17 @@ function NumberedTrail({
       {steps.map((s, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: static authored ordered trail
         <div key={i}>
-          <Panel variant="rpgpanel">
+          <Card>
             <div style={{ display: "flex", gap: "11px", alignItems: "flex-start" }}>
-              <ItemSlot
-                size={28}
-                tone="accent"
-                aria-label={`Paso ${i + 1}`}
-                icon={
-                  <span
-                    style={{
-                      fontFamily: "var(--font-pixel, monospace)",
-                      fontSize: "14px",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {i + 1}
-                  </span>
-                }
-              />
+              <CountPill count={i + 1} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: "13px", color: "var(--color-text)" }}>
+                <div style={{ fontWeight: 600, fontSize: "13px", color: "var(--text)" }}>
                   {s.title}
                 </div>
                 <div
                   style={{
                     fontSize: "13px",
-                    color: "var(--color-text2)",
+                    color: "var(--text-2)",
                     lineHeight: 1.55,
                     marginTop: "3px",
                   }}
@@ -1752,7 +1731,7 @@ function NumberedTrail({
                 </div>
               </div>
             </div>
-          </Panel>
+          </Card>
           {i < steps.length - 1 && <DownArrow marginLeft="14px" />}
         </div>
       ))}
@@ -1778,24 +1757,24 @@ function ConceptArcoEconomico(): React.JSX.Element {
       </Lead>
 
       <DocH title="Los cuatro tipos de retorno" />
-      <Panel>
-        <ChipDefRow chip="personal" tone="info" isFirst>
+      <Card>
+        <ChipDefRow chip="personal" tone="blue" isFirst>
           El usuario eres tú. Se salta investigación de mercado/competencia, validación de demanda,
           precio y GTM; el foco es resolver bien tu necesidad.
         </ChipDefRow>
-        <ChipDefRow chip="monetary" tone="ok" isFirst={false}>
+        <ChipDefRow chip="monetary" tone="green" isFirst={false}>
           App pensada para generar ingresos. Tratamiento completo: gate de demanda, unit-economics y
           plan de distribución.
         </ChipDefRow>
-        <ChipDefRow chip="mixed" tone="accent" isFirst={false}>
+        <ChipDefRow chip="mixed" tone="violet" isFirst={false}>
           Útil para ti y monetizable a la vez. Mismo tratamiento que <Code>monetary</Code>.
         </ChipDefRow>
-        <ChipDefRow chip="opportunity" tone="warn" isFirst={false}>
+        <ChipDefRow chip="opportunity" tone="amber" isFirst={false}>
           Apalanca un activo tuyo (audiencia, comunidad, red, posicionamiento). Valida que el
           alcance es real y define una métrica de oportunidad; sin precio salvo que sea{" "}
           <Code>mixed</Code>.
         </ChipDefRow>
-      </Panel>
+      </Card>
 
       <DocH title="El gate de demanda · puede matar una idea antes de construir" />
       <Body>
@@ -1804,7 +1783,7 @@ function ConceptArcoEconomico(): React.JSX.Element {
         <Code>mixed</Code> revisa si hay competidores <B weight={600}>que cobran de verdad</B> (el
         mercado existe y paga), si el dolor es frecuente y, en B2B, quién paga.
       </Body>
-      <NotePanel icon="ti-skull" iconColor="var(--color-danger)">
+      <NotePanel icon="alert" iconColor="var(--coral)">
         Si la señal falta o contradice la idea,{" "}
         <B weight={600}>para y recomienda matar/pivotar — NO crea el proyecto</B> (matar aquí no
         deja un repo huérfano). Es la pieza que evita invertir diseño y construcción en una idea
@@ -1812,7 +1791,7 @@ function ConceptArcoEconomico(): React.JSX.Element {
       </NotePanel>
 
       <DocH title="Unit-economics y kill-signals · viven en el PRD" />
-      <Panel>
+      <Card>
         <Ul>
           <li>
             <B weight={500}>Unit-economics</B> — precio propuesto (anclado a los competidores que
@@ -1826,7 +1805,7 @@ function ConceptArcoEconomico(): React.JSX.Element {
             revisión formal). Para <Code>opportunity</Code>, la métrica de oportunidad.
           </li>
         </Ul>
-      </Panel>
+      </Card>
 
       <DocH title="La distribución · en release" />
       <Body>
@@ -1835,7 +1814,7 @@ function ConceptArcoEconomico(): React.JSX.Element {
         — el canal de adquisición principal + 3-5 borradores de posts para que tú publiques, bajo el
         gate de comunicaciones externas (DR-008). Para <Code>personal</Code>, se salta.
       </Body>
-      <NotePanel icon="ti-rocket" iconColor="var(--color-accent-text)">
+      <NotePanel icon="rocket" iconColor="var(--violet)">
         <B weight={600}>Desplegado ≠ lanzado:</B> una app sin usuarios no genera nada. El cierre del
         arco lo hace <Code>review-launch</Code> (kill / hold / double-down) — ver{" "}
         <B weight={600}>Después de lanzar</B>.
@@ -1860,38 +1839,38 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
         lo que haces estando ya en <Code>release</Code>.
       </Lead>
 
-      <Panel>
+      <Card>
         <div
           style={{
             fontSize: "12px",
             fontWeight: 500,
-            color: "var(--color-text2)",
+            color: "var(--text-2)",
             marginBottom: "8px",
           }}
         >
           Las 6 fases (termina en release)
         </div>
         <ChipFlow>
-          <Chip tone="secondary">investigación</Chip>
+          <Chip tone="slate">investigación</Chip>
           {RIGHT_ARROW}
-          <Chip tone="secondary">product</Chip>
+          <Chip tone="slate">product</Chip>
           {RIGHT_ARROW}
-          <Chip tone="secondary">design</Chip>
+          <Chip tone="slate">design</Chip>
           {RIGHT_ARROW}
-          <Chip tone="secondary">architecture</Chip>
+          <Chip tone="slate">architecture</Chip>
           {RIGHT_ARROW}
-          <Chip tone="secondary">implementation</Chip>
+          <Chip tone="slate">implementation</Chip>
           {RIGHT_ARROW}
-          <Chip tone="ok">release</Chip>
+          <Chip tone="green">release</Chip>
         </ChipFlow>
         <Divider />
-        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
+        <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.6 }}>
           La <B weight={500}>auditoría —seguridad, calidad y métricas/telemetría—</B> es el{" "}
           <B weight={500}>último paso de la construcción</B> (<Code>implementation</Code>), no del
           release. Cuando una versión llega a <Code>release</Code> ya está endurecida y desplegada;{" "}
           <Code>release</Code> significa «ya está lanzado», y desde ahí iteras.
         </div>
-      </Panel>
+      </Card>
 
       <DocH title="Interno vs externo · el mismo release" />
       <Lead>
@@ -1899,19 +1878,19 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
         campo <Code>deploy_target</Code>). Es el mismo concepto —un release de un producto de
         software—; solo cambia el destino.
       </Lead>
-      <Panel>
-        <ChipDefRow chip="internal" tone="info" isFirst>
+      <Card>
+        <ChipDefRow chip="internal" tone="blue" isFirst>
           Herramienta interna: vive sin servidor externo (como el propio Mission Control en{" "}
           <Code>127.0.0.1</Code>). <Code>/pandacorp:release</Code> aquí significa correrla en local
           — sin deploy a la nube ni gate de producción.
         </ChipDefRow>
-        <ChipDefRow chip="external" tone="ok" isFirst={false}>
+        <ChipDefRow chip="external" tone="green" isFirst={false}>
           Producto desplegado fuera (Vercel, AWS, etc.), con su gate humano de producción. Hasta el
           release todo es local; ahí se conecta Vercel a GitHub con <Code>main</Code> como única
           rama de producción (nunca deploys manuales). Una vez lanzado, nada llega a{" "}
           <Code>main</Code> sin tu orden explícita (DR-138): estás en <Code>release</Code> e iteras.
         </ChipDefRow>
-      </Panel>
+      </Card>
 
       <DocH title="review-launch · cierra el bucle (DR-043)" />
       <Lead>
@@ -1921,7 +1900,7 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
         <Code>docs/analytics/events.md</Code>) según el <Code>return_type</Code>, compara, y
         actualiza las columnas de negocio del portfolio.
       </Lead>
-      <NotePanel icon="ti-shield-check" iconColor="var(--color-warn)">
+      <NotePanel icon="shield" iconColor="var(--amber)">
         <B weight={600}>Antes de leer un solo número, dos asertos de procedencia</B> (los datos del
         proyecto equivocado son peores que ningún dato): que exista la telemetría de ESTE proyecto (
         <Code>docs/analytics/events.md</Code> — si falta, se detiene con «sin telemetría:
@@ -1930,7 +1909,7 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
         de otra org: deja las consultas escritas para que las corras y reporta «sin datos para este
         proyecto»). Nunca inventa números.
       </NotePanel>
-      <Panel>
+      <Card>
         <KvRow label="monetary / mixed" isFirst>
           usuarios activos, ingresos/MRR y el chequeo de unit-economics (¿los ingresos cubren el
           coste por usuario + el asiento de Vercel Pro?).
@@ -1941,32 +1920,32 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
         <KvRow label="personal" isFirst={false}>
           ¿el dueño realmente la usa (una señal mínima de uso)?
         </KvRow>
-      </Panel>
+      </Card>
 
       <DocH title="Los tres veredictos" />
-      <Panel>
-        <ChipDefRow chip="DOUBLE DOWN" tone="ok" isFirst>
+      <Card>
+        <ChipDefRow chip="DOUBLE DOWN" tone="green" isFirst>
           La hipótesis se sostuvo (o va bien): recomienda el siguiente paso (encolar la próxima
           feature por la puerta única <Code>/pandacorp:change</Code>, o empujar la distribución de{" "}
           <Code>docs/launch-plan.md</Code>).
         </ChipDefRow>
-        <ChipDefRow chip="HOLD" tone="warn" isFirst={false}>
+        <ChipDefRow chip="HOLD" tone="amber" isFirst={false}>
           No concluyente / demasiado pronto: seguir midiendo; fija la próxima fecha de revisión.
         </ChipDefRow>
-        <ChipDefRow chip="KILL / ARCHIVE" tone="danger" isFirst={false}>
+        <ChipDefRow chip="KILL / ARCHIVE" tone="coral" isFirst={false}>
           Saltó un kill-signal (monetary: bajo el umbral o CAC &gt; LTV; opportunity: métrica plana;
           personal: el dueño dejó de usarla): recomienda archivar y liberar el foco.
         </ChipDefRow>
-      </Panel>
+      </Card>
 
-      <NotePanel icon="ti-hand-stop" iconColor="var(--color-warn)">
+      <NotePanel icon="users" iconColor="var(--amber)">
         <B weight={600}>No mata por su cuenta.</B> review-launch lee, recomienda y solo escribe las
         columnas de negocio + una nota. Matar, archivar, desplegar o gastar siguen siendo{" "}
         <B weight={500}>gates humanos</B>: el bucle produce la recomendación, tú decides. Es
         consciente del retorno — una herramienta <Code>personal</Code> que usas a diario es un éxito
         aunque facture $0.
       </NotePanel>
-      <NotePanel icon="ti-layout-dashboard" iconColor="var(--color-accent)">
+      <NotePanel icon="grid" iconColor="var(--violet)">
         Alimenta el portfolio con columnas de negocio —Usuarios / Retorno / Veredicto— para ver
         ganadores vs zombies. Una idea matada realimenta a <Code>recommend</Code>, para que no
         vuelva a proponer la misma apuesta muerta. Puede correr a demanda, en sesión atendida como
@@ -2005,13 +1984,13 @@ function ConceptServiciosSecretos(): React.JSX.Element {
       </Lead>
 
       <DocH title="El stack de servicios (probado)" />
-      <Panel>
+      <Card>
         {SERVICE_STACK.map((row, i) => (
           <KvRow key={row.service} label={row.concern} isFirst={i === 0}>
-            <span style={{ fontWeight: 600, color: "var(--color-text)" }}>{row.service}</span>
+            <span style={{ fontWeight: 600, color: "var(--text)" }}>{row.service}</span>
           </KvRow>
         ))}
-      </Panel>
+      </Card>
 
       <DocH title="El modelo de cuentas" />
       <Body>
@@ -2021,7 +2000,7 @@ function ConceptServiciosSecretos(): React.JSX.Element {
         de Resend, una org de PostHog, un producto de Polar — cada uno con su credencial. Basta para
         producción real con datos personales (GDPR).
       </Body>
-      <NotePanel icon="ti-shield-check" iconColor="var(--color-ok)">
+      <NotePanel icon="shield" iconColor="var(--green)">
         <B weight={600}>Regla «free org SÍ, cuenta-títere NO».</B> Usar la separación que el
         proveedor ofrece (orgs de PostHog, proyectos de Neon) es legítimo. Crear varias cuentas con{" "}
         <Code>+alias</Code> para esquivar un tope del free-tier viola los términos de servicio y
@@ -2029,7 +2008,7 @@ function ConceptServiciosSecretos(): React.JSX.Element {
       </NotePanel>
 
       <DocH title="Los secretos · cifrados, fuera de todo repo" />
-      <Panel>
+      <Card>
         <Ul>
           <li>
             <B weight={500}>Runtime</B> — tres archivos: <Code>.env.example</Code> sin valores,{" "}
@@ -2047,15 +2026,16 @@ function ConceptServiciosSecretos(): React.JSX.Element {
           </li>
         </Ul>
         <Divider />
-        <div style={{ fontSize: "12px", color: "var(--color-text2)" }}>
-          <i
-            className="ti ti-lock"
+        <div style={{ fontSize: "12px", color: "var(--text-2)" }}>
+          <span
             aria-hidden="true"
-            style={{ fontSize: "13px", verticalAlign: "-2px", color: "var(--color-text2)" }}
-          />{" "}
+            style={{ fontSize: "13px", verticalAlign: "-2px", color: "var(--text-2)" }}
+          >
+            <Icon name="lock" size="sm" />
+          </span>{" "}
           Nunca van secretos al código ni al contexto de los agentes (DR-037).
         </div>
-      </Panel>
+      </Card>
 
       <DocH title="Pagos desde Perú · Merchant of Record" />
       <Body>
@@ -2067,7 +2047,7 @@ function ConceptServiciosSecretos(): React.JSX.Element {
       </Body>
 
       <DocH title="El aviso de Vercel Pro" />
-      <NotePanel icon="ti-alert-triangle" iconColor="var(--color-warn)">
+      <NotePanel icon="alert" iconColor="var(--amber)">
         Vercel Hobby (gratis) es <B weight={500}>no comercial</B>: cualquier cobro, anuncio o
         donación cuenta como comercial. Si una versión cobra, requiere{" "}
         <B weight={500}>Vercel Pro</B> ($20/mes por asiento — un asiento = toda la fábrica).{" "}
@@ -2076,7 +2056,7 @@ function ConceptServiciosSecretos(): React.JSX.Element {
       </NotePanel>
 
       <DocH title="Push al celular en cada gate" />
-      <NotePanel icon="ti-device-mobile-message" iconColor="var(--color-accent-text)">
+      <NotePanel icon="grid" iconColor="var(--violet)">
         En cualquier punto que requiera una decisión/acción tuya (gates DR-004/005/007/008/035,
         pendientes de <Code>decide</Code>, o un signup/2FA/pago durante el aprovisionamiento), el
         agente dispara una notificación push. Llega al celular si Remote Control / la app de Claude
@@ -2091,16 +2071,16 @@ function ConceptServiciosSecretos(): React.JSX.Element {
 // CONCEPT: Los gates humanos
 // ---------------------------------------------------------------------------
 
-const HUMAN_GATES: readonly { icon: string; label: React.ReactNode; body: React.ReactNode }[] = [
-  { icon: "ti-bulb", label: "Selección de idea", body: "elegir qué idea avanza." },
-  { icon: "ti-palette", label: "Elección de diseño", body: "aprobar el diseño visual." },
+const HUMAN_GATES: readonly { icon: IconName; label: React.ReactNode; body: React.ReactNode }[] = [
+  { icon: "bulb", label: "Selección de idea", body: "elegir qué idea avanza." },
+  { icon: "palette", label: "Elección de diseño", body: "aprobar el diseño visual." },
   {
-    icon: "ti-cloud-upload",
+    icon: "external",
     label: "Release a producción",
     body: <>el deploy a producción (DR-004).</>,
   },
   {
-    icon: "ti-coin",
+    icon: "diamond",
     label: "Gastar dinero",
     body: (
       <>
@@ -2110,17 +2090,17 @@ const HUMAN_GATES: readonly { icon: string; label: React.ReactNode; body: React.
     ),
   },
   {
-    icon: "ti-trash",
+    icon: "trash",
     label: "Borrar datos o recursos",
     body: <>datos, repos, ramas remotas o recursos cloud (DR-007).</>,
   },
   {
-    icon: "ti-mail-forward",
+    icon: "arrow",
     label: "Comunicaciones externas",
     body: <>emails a usuarios, webhooks públicos, publicar en stores/marketplaces (DR-008).</>,
   },
   {
-    icon: "ti-key",
+    icon: "lock",
     label: "Cambios de acceso",
     body: "permisos, roles, credenciales.",
   },
@@ -2138,20 +2118,20 @@ function ConceptGatesHumanos(): React.JSX.Element {
       </Lead>
 
       <DocH title="La lista completa" />
-      <Panel>
+      <Card>
         {HUMAN_GATES.map((g) => (
           <div key={String(g.label)} style={{ marginBottom: "8px" }}>
-            <Panel variant="rpgpanel">
-              <IconRow icon={g.icon} iconColor="var(--color-accent-text)" title={g.label}>
+            <Card>
+              <IconRow icon={g.icon} iconColor="var(--violet)" title={g.label}>
                 {g.body}
               </IconRow>
-            </Panel>
+            </Card>
           </div>
         ))}
-      </Panel>
+      </Card>
 
       <DocH title="Se aplican como reglas duras, no como conversación" />
-      <NotePanel icon="ti-lock" iconColor="var(--color-danger)">
+      <NotePanel icon="lock" iconColor="var(--coral)">
         Estos gates se aplican como{" "}
         <B weight={600}>
           reglas <Code>deny</Code> duras
@@ -2169,7 +2149,7 @@ function ConceptGatesHumanos(): React.JSX.Element {
         próxima vez que aparezca el mismo caso, ya no te preguntan: el default decide. Así la
         fábrica se vuelve más autónoma con el uso, sin perder el control sobre lo que importa.
       </Body>
-      <NotePanel icon="ti-device-mobile-message" iconColor="var(--color-accent)">
+      <NotePanel icon="grid" iconColor="var(--violet)">
         Cada gate dispara además un <B weight={500}>push al celular</B> (DR-038): el pendiente queda
         por archivo y te llega un aviso accionable.
       </NotePanel>
@@ -2192,7 +2172,7 @@ function ConceptEspinazoDocs(): React.JSX.Element {
       </Lead>
 
       <DocH title="Qué es cada documento" />
-      <Panel>
+      <Card>
         <KvRow label="PRD" isFirst>
           <Code>docs/product/prd.md</Code> — la visión, usuarios, métricas y alcance + una tabla
           VIVA de «feature landscape» (el mapa de FRDs).
@@ -2216,48 +2196,48 @@ function ConceptEspinazoDocs(): React.JSX.Element {
           <Code>frd-NN-&lt;slug&gt;/work-orders/wo-NN-MMM-&lt;slug&gt;.md</Code> — una rebanada
           gruesa (una vista/capacidad); copia sus AC en línea.
         </KvRow>
-      </Panel>
+      </Card>
 
       <DocH title="La cadena de trazabilidad" />
-      <Panel>
+      <Card>
         <ChipFlow>
-          <Chip tone="accent">REQ-NN-MMM</Chip>
+          <Chip tone="violet">REQ-NN-MMM</Chip>
           {RIGHT_ARROW}
-          <Chip tone="accent">AC-NN-MMM.K</Chip>
+          <Chip tone="violet">AC-NN-MMM.K</Chip>
           {RIGHT_ARROW}
-          <Chip tone="info">CMP-NN · IF-NN</Chip>
+          <Chip tone="blue">CMP-NN · IF-NN</Chip>
           {RIGHT_ARROW}
-          <Chip tone="ok">WO-NN-MMM</Chip>
+          <Chip tone="green">WO-NN-MMM</Chip>
         </ChipFlow>
         <Divider />
-        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
+        <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.6 }}>
           <Code>REQ</Code> requisito (en <Code>frd.md</Code>) · <Code>AC</Code> criterio de
           aceptación (EARS) · <Code>CMP/IF</Code> componente/interfaz (en <Code>blueprint.md</Code>)
           · <Code>WO</Code> work order, cuyos tests mapean de vuelta a <Code>AC-NN-MMM.K</Code>.
         </div>
-      </Panel>
+      </Card>
 
       <DocH title="La jerarquía de fuente de verdad" />
       <Lead>
         Cuando dos documentos se contradicen, <B weight={600}>gana el de arriba</B> y se corrige el
         de abajo. Los cambios propagan upstream en ese orden.
       </Lead>
-      <Panel>
+      <Card>
         <ChipFlow>
-          <Chip tone="accent">FRD</Chip>
-          <span style={{ color: "var(--color-text3)" }}>&gt;</span>
-          <Chip tone="info">FDD</Chip>
-          <span style={{ color: "var(--color-text3)" }}>&gt;</span>
-          <Chip tone="info">design-tokens</Chip>
-          <span style={{ color: "var(--color-text3)" }}>&gt;</span>
-          <Chip tone="secondary">blueprint</Chip>
-          <span style={{ color: "var(--color-text3)" }}>&gt;</span>
-          <Chip tone="secondary">work order</Chip>
+          <Chip tone="violet">FRD</Chip>
+          <span style={{ color: "var(--text-3)" }}>&gt;</span>
+          <Chip tone="blue">FDD</Chip>
+          <span style={{ color: "var(--text-3)" }}>&gt;</span>
+          <Chip tone="blue">design-tokens</Chip>
+          <span style={{ color: "var(--text-3)" }}>&gt;</span>
+          <Chip tone="slate">blueprint</Chip>
+          <span style={{ color: "var(--text-3)" }}>&gt;</span>
+          <Chip tone="slate">work order</Chip>
         </ChipFlow>
-      </Panel>
+      </Card>
 
       <DocH title="La disciplina de las dos escrituras" />
-      <Panel>
+      <Card>
         <Body size="13px" margin="0 0 8px">
           Documentar un cambio son <B weight={600}>dos cosas, siempre</B>:
         </Body>
@@ -2272,14 +2252,14 @@ function ConceptEspinazoDocs(): React.JSX.Element {
           </li>
         </Ul>
         <Divider />
-        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
+        <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.6 }}>
           El canónico responde «¿qué es verdad ahora?»; el log, «¿cómo llegamos aquí y por qué?».
           Hacen falta los dos: el FRD solo pierde el porqué; el log solo deja el FRD mintiendo. Un
           cambio de comportamiento <B weight={500}>no está hecho</B> sin su FRD actualizado{" "}
           <B weight={500}>y</B> su entrada de decision-log.
         </div>
-      </Panel>
-      <NotePanel icon="ti-folders" iconColor="var(--color-accent)">
+      </Card>
+      <NotePanel icon="folder" iconColor="var(--violet)">
         La estructura es <B weight={500}>feature-céntrica</B> (DR-049): una capa fina de producto +
         un módulo autocontenido por feature. Las carpetas aparecen bajo demanda. La Documentación de
         Mission Control refleja esta misma disciplina (DR-046). <Code>NN</Code> es el número de la
@@ -2287,19 +2267,19 @@ function ConceptEspinazoDocs(): React.JSX.Element {
         ID.
       </NotePanel>
       <DocH title="Patrón prohibido: docs/proposals/ en un proyecto" />
-      <Panel>
+      <Card>
         <Body size="13px" margin="0 0 8px">
           Un proyecto <B weight={600}>nunca</B> tiene una carpeta <Code>docs/proposals/</Code>: ese
           patrón solo existe en el repo de la fábrica, para sus RFCs. Un archivo ahí es invisible
           para el motor de build y para la cola de cambios de Mission Control, así que nunca se va a
           procesar.
         </Body>
-        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
+        <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.6 }}>
           Un cambio pendiente siempre va a <Code>.pandacorp/inbox/changes/</Code>, por{" "}
           <Code>/pandacorp:change</Code>. Si tienes una idea o un cambio para un proyecto, úsalo: no
           crees un documento de propuesta dentro de <Code>docs/</Code>.
         </div>
-      </Panel>
+      </Card>
     </>
   );
 }
@@ -2332,7 +2312,7 @@ function ConceptTuPerfil(): React.JSX.Element {
         <Code>/pandacorp:discover</Code> no busca a ciegas ni te entrega memos que no pediste: caza
         con 2-3 lentes rotativos y tu gusto entra ANTES del gasto (DR-039, rediseño 2026-07-01).
       </Lead>
-      <Panel>
+      <Card>
         <KvRow label="Fase 1" isFirst>
           <B weight={500}>Barrido teaser</B> (barato y ancho): lentes de caza — app-enhancement
           (quejas de apps conocidas → extensiones), tus otras identidades, own-itch/QoL, challenger
@@ -2348,8 +2328,8 @@ function ConceptTuPerfil(): React.JSX.Element {
           se puede conseguir antes de construir— y el memo-pitch. Tus reacciones al resto se
           destilan como patrones de atracción/rechazo en tu perfil (DR-053).
         </KvRow>
-      </Panel>
-      <NotePanel icon="ti-scale">
+      </Card>
+      <NotePanel icon="layers">
         Un lente cuyo dolor tu propio tablero ya saturó (hoy: el coleccionista) queda en descanso. Y
         tus comentarios y DMs de TikTok son la fuente #1 que el agente no puede leer: cuando pegas
         los temas que se repiten, entran como semillas. El criterio dual se honra: no descarta una
@@ -2365,13 +2345,13 @@ function ConceptTuPerfil(): React.JSX.Element {
       </Body>
 
       <DocH title="El perfil se mantiene vivo solo (DR-053)" />
-      <NotePanel icon="ti-refresh" iconColor="var(--color-accent)">
+      <NotePanel icon="rotate" iconColor="var(--violet)">
         El perfil <B weight={600}>no es un formulario de una sola vez</B>: es un documento vivo.
         Cuando revelas un hecho personal y durable sobre ti en cualquier conversación, el agente lo
         escribe/actualiza en el perfil (lee primero, deduplica, nunca duplica). El destino es
         siempre <Code>factory/profile.md</Code>. No te pide permiso para anotar un hecho personal.
       </NotePanel>
-      <NotePanel icon="ti-stack-2">
+      <NotePanel icon="layers">
         El perfil del dueño es un plano distinto de la <B weight={500}>memoria de ingeniería</B> (
         <Code>factory/memory/</Code>, lecciones reutilizables) y del{" "}
         <B weight={500}>decision-log</B> (historia). No se mezclan.
@@ -2401,22 +2381,22 @@ function ConceptMultiRuntime(): React.JSX.Element {
         Piensa en un edificio con dos puertas que llevan al mismo taller. Cada puerta tiene su capa
         propia; ambas abren al mismo conjunto de ficheros.
       </Lead>
-      <Panel>
+      <Card>
         <MultiRuntimeDiagram />
-      </Panel>
-      <NotePanel icon="ti-lock" iconColor="var(--color-ok)">
+      </Card>
+      <NotePanel icon="lock" iconColor="var(--green)">
         <B weight={600}>Codex y Claude Code: acceso completo.</B> Desde el 2026-10-20 (DR-133),
         ambos pueden ejecutar todos los skills y escribir documentación, work orders y estado. La
         restricción DR-120 queda sustituida. Un solo escritor por proyecto y relevo en un punto
         seguro.
       </NotePanel>
-      <NotePanel icon="ti-clock-check" iconColor="var(--color-warn)">
+      <NotePanel icon="clock" iconColor="var(--amber)">
         <B weight={600}>Permiso no significa automatización certificada.</B> Si faltan Workflow,
         programación o subagentes, Codex trabaja en la sesión, secuencialmente. El launcher
         automático conserva su alcance probado: un FRD o cambio, foreground y hasta dos horas. No se
         promete ejecución nocturna ni se toma control de un proceso de Claude.
       </NotePanel>
-      <NotePanel icon="ti-route" iconColor="var(--color-warn)">
+      <NotePanel icon="branch" iconColor="var(--amber)">
         En Claude, el launcher entrega al Workflow la ruta absoluta y validada del escritor de
         estado como <Code>stateCli</Code>. Los subagentes usan esa capacidad explícita para renovar,
         sincronizar y cerrar; nunca intentan reconstruirla desde <Code>CLAUDE_PLUGIN_ROOT</Code>,
@@ -2431,23 +2411,23 @@ function ConceptMultiRuntime(): React.JSX.Element {
         <B weight={600}>nunca menos correcto</B>. El detalle completo vive en el estándar{" "}
         <Code>factory/standards/agent-portability.md</Code> (reglas PORT-1…6).
       </Lead>
-      <Panel>
+      <Card>
         <div style={{ overflowX: "auto" }}>
           <RuntimeComparison />
         </div>
-      </Panel>
+      </Card>
 
       <DocH title="Single source of truth · qué es enlace, qué es generado" />
       <Lead>
         Una sola fuente por cosa; lo demás es symlink, import o artefacto generado. Las copias
         derivadas están automatizadas y el gate las compara con su fuente.
       </Lead>
-      <Panel>
+      <Card>
         <div style={{ overflowX: "auto" }}>
           <SourceOfTruthMap />
         </div>
-      </Panel>
-      <NotePanel icon="ti-git-compare" iconColor="var(--color-accent)">
+      </Card>
+      <NotePanel icon="branch" iconColor="var(--violet)">
         <B weight={600}>La capa derivada ya no depende del ritual.</B> Desde 2026-07-04 el gate{" "}
         <Code>check-derived-drift.sh</Code> (hook de Stop en el repo de la fábrica) verifica en cada
         sesión que los TOML generados coinciden con sus fuentes, que ambos manifests del plugin
@@ -2465,7 +2445,7 @@ function ConceptMultiRuntime(): React.JSX.Element {
         únicamente cuando un oráculo canónico de archivos, Git o artefactos lo confirma. Los eventos
         nunca deciden fase, work order ni build: esos hechos siguen viniendo de archivos canónicos.
       </Lead>
-      <NotePanel icon="ti-plug-connected" iconColor="var(--color-accent)">
+      <NotePanel icon="link" iconColor="var(--violet)">
         El estado del plugin también separa puertas: Claude y Codex tienen veredictos de cache
         instalado independientes. Que una esté al día no demuestra nada sobre la otra.
       </NotePanel>
@@ -2475,10 +2455,10 @@ function ConceptMultiRuntime(): React.JSX.Element {
         Para que un cambio funcione en ambas puertas, esto es lo mínimo que hay que hacer en cada
         caso.
       </Lead>
-      <Panel>
+      <Card>
         <ModificationGuide />
-      </Panel>
-      <NotePanel icon="ti-shield-x" iconColor="var(--color-warn)">
+      </Card>
+      <NotePanel icon="shield" iconColor="var(--amber)">
         <B weight={600}>Enforcement en Codex tiene dos estados.</B> La política, los adaptadores y
         las proyecciones de hooks/config ya están certificados en fuente. Hasta instalar el plugin,
         revisar sus definiciones y darles trust en una sesión real, AGENTS.md sigue siendo el piso
@@ -2635,7 +2615,7 @@ function GuideAdoptar(): React.JSX.Element {
           },
         ]}
       />
-      <NotePanel icon="ti-plug-connected" iconColor="var(--color-accent)">
+      <NotePanel icon="link" iconColor="var(--violet)">
         Tras adoptar, el proyecto aparece de inmediato en el <B weight={600}>Tablero</B> de Mission
         Control (por su ficha) y también en el <B weight={600}>Portafolio</B> (por su fila), con su
         fase inferida, igual que un proyecto nacido del handoff. El Tablero (fichas) y el Portafolio
@@ -2735,7 +2715,7 @@ function GuideSync(): React.JSX.Element {
           },
         ]}
       />
-      <NotePanel icon="ti-arrow-back-up" iconColor="var(--color-accent)">
+      <NotePanel icon="back" iconColor="var(--violet)">
         Complementa a <Code>/pandacorp:change</Code>: <B weight={600}>sync</B> documenta lo que el
         código hizo de <B weight={600}>más</B>; <Code>change</Code>/<Code>bug</Code> arregla lo que
         el código hace de <B weight={600}>menos</B>.
@@ -2758,34 +2738,34 @@ function GuideCambio(): React.JSX.Element {
         qué es: lo describes en lenguaje normal y el skill lo clasifica, le da una clase de urgencia
         y lo deja en la cola de cambios <Code>.pandacorp/inbox/changes/</Code>.
       </Lead>
-      <NotePanel icon="ti-shield-check" iconColor="var(--color-ok)">
+      <NotePanel icon="shield" iconColor="var(--green)">
         <B weight={600}>Es seguro por diseño (DR-069).</B> <Code>change</Code> solo captura +
         clasifica + escribe un fichero a la cola. No edita docs/work-orders/código y no tiene lógica
         de detección de build, así que no puede confundirse sobre si hay un build corriendo y
         corromperlo.
       </NotePanel>
-      <Panel>
+      <Card>
         <div
           style={{
             fontSize: "12px",
             fontWeight: 500,
-            color: "var(--color-text2)",
+            color: "var(--text-2)",
             marginBottom: "6px",
           }}
         >
           Cómo viaja un cambio
         </div>
         <ChipFlow>
-          <Chip tone="accent">/change</Chip>
+          <Chip tone="violet">/change</Chip>
           {RIGHT_ARROW}
-          <Chip tone="info">cola de cambios</Chip>
+          <Chip tone="blue">cola de cambios</Chip>
           {RIGHT_ARROW}
-          <Chip tone="warn">punto seguro del build</Chip>
+          <Chip tone="amber">punto seguro del build</Chip>
           {RIGHT_ARROW}
-          <Chip tone="ok">mismo gate de revisión/test</Chip>
+          <Chip tone="green">mismo gate de revisión/test</Chip>
         </ChipFlow>
-      </Panel>
-      <Panel>
+      </Card>
+      <Card>
         <Ul>
           <li>
             <B weight={500}>El build drena la cola en su punto seguro</B> (entre features, nunca a
@@ -2793,14 +2773,14 @@ function GuideCambio(): React.JSX.Element {
             corres.
           </li>
           <li>
-            <B weight={500}>Clase de servicio:</B> <Chip tone="danger">expedite</Chip> (urgente /
-            rompe algo / bloquea pruebas → salta al frente) o <Chip tone="secondary">standard</Chip>{" "}
+            <B weight={500}>Clase de servicio:</B> <Chip tone="coral">expedite</Chip> (urgente /
+            rompe algo / bloquea pruebas → salta al frente) o <Chip tone="slate">standard</Chip>{" "}
             (default, FIFO).
           </li>
           <li>
-            <B weight={500}>draft vs ready:</B> <Chip tone="ok">ready</Chip> = completo, el build lo
-            construye; <Chip tone="secondary">draft</Chip> = lo aparcas para visibilidad, el build
-            lo SALTA hasta que lo pases a ready. Mission Control muestra ambos.
+            <B weight={500}>draft vs ready:</B> <Chip tone="green">ready</Chip> = completo, el build
+            lo construye; <Chip tone="slate">draft</Chip> = lo aparcas para visibilidad, el build lo
+            SALTA hasta que lo pases a ready. Mission Control muestra ambos.
           </li>
           <li>
             <B weight={500}>
@@ -2816,8 +2796,8 @@ function GuideCambio(): React.JSX.Element {
             clasificación normal feature/cambio.
           </li>
         </Ul>
-      </Panel>
-      <NotePanel icon="ti-help-circle" iconColor="var(--color-warn)">
+      </Card>
+      <NotePanel icon="circle" iconColor="var(--amber)">
         ¿Te preguntó algo el build? Eso NO es un cambio (va en sentido contrario) → usa{" "}
         <Code>/pandacorp:decide</Code>.
       </NotePanel>
@@ -2832,14 +2812,14 @@ function GuideCambio(): React.JSX.Element {
 const SKILL_TABLE_TH_STYLE: React.CSSProperties = {
   textAlign: "left",
   padding: "6px 8px",
-  borderBottom: "1px solid var(--color-border)",
-  color: "var(--color-text2)",
+  borderBottom: "1px solid var(--line)",
+  color: "var(--text-2)",
   fontWeight: 500,
 };
 
 const SKILL_TABLE_TD_STYLE: React.CSSProperties = {
   padding: "6px 8px",
-  borderBottom: "1px solid var(--color-border)",
+  borderBottom: "1px solid var(--line)",
   verticalAlign: "top",
 };
 
@@ -2878,7 +2858,7 @@ function EngineCard({
   group,
   slug,
 }: {
-  icon: string;
+  icon: IconName;
   title: React.ReactNode;
   body: React.ReactNode;
   group: string;
@@ -2901,21 +2881,20 @@ function EngineCard({
         marginBottom: "8px",
       }}
     >
-      <Panel variant="rpgpanel">
+      <Card>
         <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-          <i
-            className={`ti ${icon}`}
+          <span
             aria-hidden="true"
-            style={{ fontSize: "18px", color: "var(--color-accent)", marginTop: "1px" }}
-          />
+            style={{ fontSize: "18px", color: "var(--violet)", marginTop: "1px" }}
+          >
+            <Icon name={icon} size="sm" />
+          </span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--color-text)" }}>
-              {title}
-            </div>
+            <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>{title}</div>
             <div
               style={{
                 fontSize: "12px",
-                color: "var(--color-text2)",
+                color: "var(--text-2)",
                 marginTop: "3px",
                 lineHeight: 1.5,
               }}
@@ -2923,13 +2902,14 @@ function EngineCard({
               {body}
             </div>
           </div>
-          <i
-            className="ti ti-chevron-right"
+          <span
             aria-hidden="true"
-            style={{ fontSize: "16px", color: "var(--color-text3)", flex: "0 0 auto" }}
-          />
+            style={{ fontSize: "16px", color: "var(--text-3)", flex: "0 0 auto" }}
+          >
+            <Icon name="chevR" size="sm" />
+          </span>
         </div>
-      </Panel>
+      </Card>
     </button>
   );
 }
@@ -2945,7 +2925,7 @@ function WorkflowsOverview(): React.JSX.Element {
         corta. No es un agente que improvisa — es una cinta de montaje con estaciones fijas.
       </Lead>
 
-      <NotePanel icon="ti-shield-check" iconColor="var(--color-warning)">
+      <NotePanel icon="shield" iconColor="var(--amber)">
         Las señales de parada no dependen del shell. El motor inspecciona
         <Code>.pandacorp/run/stop</Code> mediante un recibo Node determinista, inmune a aliases como
         <Code>test=npm test</Code>. Si sale antes del planner, el cierre es un comando mecánico
@@ -2953,7 +2933,7 @@ function WorkflowsOverview(): React.JSX.Element {
         devuelve el recibo de rutas permitidas antes de liberar la lease.
       </NotePanel>
 
-      <NotePanel icon="ti-tools" iconColor="var(--color-accent)">
+      <NotePanel icon="settings" iconColor="var(--violet)">
         Piensa en la diferencia entre un <B weight={600}>cocinero</B> y una{" "}
         <B weight={600}>cadena de montaje</B>.
         <Ul>
@@ -2973,7 +2953,7 @@ function WorkflowsOverview(): React.JSX.Element {
       </NotePanel>
 
       <DocH title="Skill vs Workflow" />
-      <Panel>
+      <Card>
         <div style={{ overflowX: "auto" }}>
           <table
             data-testid="workflows-skill-vs-workflow-table"
@@ -2989,21 +2969,15 @@ function WorkflowsOverview(): React.JSX.Element {
             <tbody>
               {SKILL_VS_WORKFLOW_ROWS.map((row) => (
                 <tr key={row.label}>
-                  <td style={{ ...SKILL_TABLE_TD_STYLE, color: "var(--color-text2)" }}>
-                    {row.label}
-                  </td>
-                  <td style={{ ...SKILL_TABLE_TD_STYLE, color: "var(--color-text3)" }}>
-                    {row.skill}
-                  </td>
-                  <td style={{ ...SKILL_TABLE_TD_STYLE, color: "var(--color-text)" }}>
-                    {row.workflow}
-                  </td>
+                  <td style={{ ...SKILL_TABLE_TD_STYLE, color: "var(--text-2)" }}>{row.label}</td>
+                  <td style={{ ...SKILL_TABLE_TD_STYLE, color: "var(--text-3)" }}>{row.skill}</td>
+                  <td style={{ ...SKILL_TABLE_TD_STYLE, color: "var(--text)" }}>{row.workflow}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </Panel>
+      </Card>
 
       <DocH title="La forma que se repite: fan-out → compuerta" />
       <Body>
@@ -3014,12 +2988,12 @@ function WorkflowsOverview(): React.JSX.Element {
         compuerta es "split", en vez de un editor hay cuatro especialistas (hechos, legal, estilo,
         maqueta) leyendo a la vez, y un jefe de redacción firma solo lo que sobrevive.
       </Body>
-      <Panel>
+      <Card>
         <WorkflowShapeDiagram />
-      </Panel>
+      </Card>
 
       <DocH title="Por qué determinista (y no dejar que el modelo improvise)" />
-      <Panel>
+      <Card>
         <Ul>
           <li>
             <B weight={500}>Fiabilidad</B>: el merge se hace de uno en uno, siempre; nunca dos a la
@@ -3033,11 +3007,11 @@ function WorkflowsOverview(): React.JSX.Element {
             order), así que relanzar = leer dónde te quedaste. Nunca se rehace algo ya verificado.
           </li>
         </Ul>
-      </Panel>
+      </Card>
 
       <DocH title="Los motores que existen hoy" />
       <EngineCard
-        icon="ti-building-factory-2"
+        icon="factory"
         title="pandacorp-build — el motor de construcción"
         body={
           <>
@@ -3049,7 +3023,7 @@ function WorkflowsOverview(): React.JSX.Element {
         slug="wf-pandacorp-build"
       />
       <EngineCard
-        icon="ti-git-merge"
+        icon="branch"
         title="pandacorp-backlog — el motor de drenado del backlog"
         body={
           <>
@@ -3061,7 +3035,7 @@ function WorkflowsOverview(): React.JSX.Element {
         slug="wf-pandacorp-backlog"
       />
 
-      <NotePanel icon="ti-eye-off" iconColor="var(--color-text2)">
+      <NotePanel icon="eye" iconColor="var(--text-2)">
         Los dos viven en <Code>.claude/engines/</Code> — una carpeta que el menú "/" NO escanea,
         para que estos motores internos no aparezcan como comandos sueltos. Los invoca siempre un
         skill, nunca tú a mano.
@@ -3079,11 +3053,11 @@ function WorkflowBuild(): React.JSX.Element {
     <>
       <DocH title="pandacorp-build — el motor de construcción" level={2} />
       <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "10px" }}>
-        <Chip tone="accent">
+        <Chip tone="violet">
           <Code>/pandacorp:implement</Code>
         </Chip>
-        <Chip tone="secondary">corre en el proyecto</Chip>
-        <Chip tone="ok">segundo plano · reanudable</Chip>
+        <Chip tone="slate">corre en el proyecto</Chip>
+        <Chip tone="green">segundo plano · reanudable</Chip>
       </div>
       <Lead>
         Es la joya de la corona: construye un proyecto entero leyendo las FRDs y sus work orders, y
@@ -3094,14 +3068,14 @@ function WorkflowBuild(): React.JSX.Element {
         paralelo.
       </Lead>
 
-      <NotePanel icon="ti-building-skyscraper" iconColor="var(--color-accent)">
+      <NotePanel icon="factory" iconColor="var(--violet)">
         Como levantar un edificio: no puedes construir el piso 3 antes del 2, pero dentro de un piso
         hay muchos obreros a la vez, y cada piso se inspecciona antes de subir al siguiente. La
         inspección es la compuerta de revisión — y esa inspección ahora la hacen varios
         especialistas en paralelo.
       </NotePanel>
 
-      <NotePanel icon="ti-bolt" iconColor="var(--color-accent)">
+      <NotePanel icon="bolt" iconColor="var(--violet)">
         <B weight={500}>Por defecto, carril rápido (desde 9.119.0, DR-124).</B> Cada feature la
         construye un solo agente, como uno suelto, y queda <B weight={500}>USABLE</B> (código en
         main, verify.sh en verde, aviso al celular) en minutos; la revisión con opus corre después,
@@ -3147,7 +3121,7 @@ function WorkflowBuild(): React.JSX.Element {
         worktree y está limpio; si está sucio, huérfano o ambiguo, conserva todo y ejecuta el gate
         síncrono sobre el árbol principal.
       </NotePanel>
-      <NotePanel icon="ti-shield-lock" iconColor="var(--color-accent)">
+      <NotePanel icon="shield" iconColor="var(--violet)">
         La lease también es la fuente de la proyección activa. Acquire, renovación,{" "}
         <Code>sync-rollups</Code> y cierre reponen fase, run lógico, runtime, epoch y hora de inicio
         en <Code>status.yaml</Code>. El cierre cambia únicamente la actividad a{" "}
@@ -3166,7 +3140,7 @@ function WorkflowBuild(): React.JSX.Element {
         tiempo de revisión, nunca el punto de escritura. Se apaga con{" "}
         <Code>--no-parallel-gates</Code> si quieres volver al camino de un solo worktree.
       </Body>
-      <NotePanel icon="ti-scale" iconColor="var(--color-warn)">
+      <NotePanel icon="layers" iconColor="var(--amber)">
         Este paralelismo cuesta agentes, no tiempo extra por gate: si vas a revisar varios FRDs a la
         vez, dale presupuesto de sobra. Regla práctica medida: <Code>maxAgents</Code> ≈ 8 de base,
         más 4 a 6 por work order, más unas 20 por cada FRD a revisar (24 con el buscador de deriva);
@@ -3198,7 +3172,7 @@ function WorkflowBuild(): React.JSX.Element {
         durable (<Code>.pandacorp/build-journal.jsonl</Code>, committeado — sobrevive a un corte):
       </Body>
       <div style={{ marginBottom: "10px" }}>
-        <Panel>
+        <Card>
           <Ul>
             <li>
               <B weight={500}>Diagnostica primero.</B> Antes de tocar nada, clasifica el fallo:
@@ -3219,7 +3193,7 @@ function WorkflowBuild(): React.JSX.Element {
               independientes — nunca se queda dando vueltas.
             </li>
           </Ul>
-        </Panel>
+        </Card>
       </div>
       <Body>
         En el registro de La Fragua estos momentos tienen icono propio:{" "}
@@ -3268,11 +3242,11 @@ function WorkflowBacklog(): React.JSX.Element {
     <>
       <DocH title="pandacorp-backlog — el motor de drenado del backlog" level={2} />
       <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "10px" }}>
-        <Chip tone="accent">
+        <Chip tone="violet">
           <Code>/pandacorp:implement-backlog</Code> (sin argumentos)
         </Chip>
-        <Chip tone="secondary">corre en la fábrica</Chip>
-        <Chip tone="ok">reanudable</Chip>
+        <Chip tone="slate">corre en la fábrica</Chip>
+        <Chip tone="green">reanudable</Chip>
       </div>
       <Lead>
         Drena el backlog de la fábrica (<Code>factory/backlog/BL-*.md</Code>) de forma determinista:
@@ -3281,7 +3255,7 @@ function WorkflowBacklog(): React.JSX.Element {
         entre cada merge. Antes esto lo improvisaba el skill a mano; ahora es una cinta.
       </Lead>
 
-      <NotePanel icon="ti-car-garage" iconColor="var(--color-accent)">
+      <NotePanel icon="home" iconColor="var(--violet)">
         Como un taller de reparación: cada coche averiado entra a su propia bahía (worktree) con un
         mecánico del tamaño del trabajo (haiku para lo trivial, sonnet lo normal, opus lo difícil),
         y todos trabajan a la vez. Pero por la única puerta de salida sale UN coche cada vez (merge
@@ -3311,7 +3285,7 @@ function WorkflowBacklog(): React.JSX.Element {
         <Code>doing</Code> con su razón, nunca se pierde.
       </Body>
 
-      <NotePanel icon="ti-alert-triangle" iconColor="var(--color-warn)">
+      <NotePanel icon="alert" iconColor="var(--amber)">
         <B weight={600}>Nota de ingeniería.</B> Al validar este motor se aprendió algo: los agentes
         de tier bajo (haiku) tienden a "derivar" al repositorio de su directorio de sesión aunque el
         prompt lleve rutas absolutas. La solución fue un preámbulo ANCHOR en TODOS los prompts
