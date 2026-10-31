@@ -315,3 +315,19 @@ marker survives in this feature's docs. Lessons applied: LESSON-0008 (line-ancho
 LESSON-0009 (dates compared with `Date.parse`), LESSON-0066 and LESSON-0185 (e2e traps), LESSON-0077 (one
 resolver per shared count), LESSON-0365 (stable slug, never a display name, in URLs and the worktree folder),
 LESSON-0490 (Spanish chrome, shown content keeps its language).
+
+## Strict published work-order source (2026-10-31)
+
+`readPublishedWorkOrders(projectPath)` is the request-cached source shared by portfolio counts,
+Observability (including dependencies/detail), Summary, La Fragua and digest readers. Its result is
+`{ items: WorkOrder[], errors: { file: string; reason: string }[] }`. Discovery errors on a directory
+throw with its path; absent directories remain legitimate empty plans. Every candidate file is
+validated independently, then parsed with the existing field extractor. Malformed/empty/unreadable
+files and invalid implementation statuses remain explicit errors and never become todo orders.
+
+`readSummary` carries valid orders and changes with independent `fileErrors`; FRD and recent-progress
+cards render those notices beside valid data. Global overview exposes `orderErrors`, while
+`ordersVerified`/`ordersTotal` become null for an incomplete source. Cards, sidebar, project picker,
+workspace headers and Lista display the unread-file count instead of a fabricated exact percentage.
+`FileReadErrors` reuses Notice, wraps long paths, and localizes parser reasons through microcopy.
+Lista links to source errors remain underlined at all widths.

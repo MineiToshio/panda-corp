@@ -1,4 +1,5 @@
 import { Notice } from "@/components/core/Notice/Notice";
+import { FileReadErrors } from "@/components/modules/FileReadErrors/FileReadErrors";
 import { t } from "@/lib/copy/copy";
 import { readFrdDrift } from "@/lib/frds/frd-drift";
 import { listProjectFrds } from "@/lib/frds/frd-index";
@@ -24,23 +25,30 @@ export default function ObservabilidadPanel({ project, route }: PanelProps): Rea
     />
   ) : null;
   let views: React.ReactNode;
-  const orders = readArtifact(() => readPublishedWorkOrders(project.projectPath), []);
+  const orders = readArtifact(() => readPublishedWorkOrders(project.projectPath), {
+    items: [],
+    errors: [],
+  });
   const frds = readArtifact(() => listProjectFrds(project.projectPath), []);
   if (orders.error || frds.error)
     views = (
       <Notice icon="alert" kind="error">
-        {t("inicio.worktrees.unreadable")}
-        <code>{orders.error ? "docs/frds/*/work-orders/" : "docs/frds/"}</code>
+        {t("inicio.worktrees.unreadable")}{" "}
+        <code>
+          {orders.error?.replace("directory could not be listed", t("readerFailures.directory")) ??
+            frds.error}
+        </code>
       </Notice>
     );
-  else if (!orders.value.length) views = <WorkOrderEmpty />;
+  else if (!orders.value.items.length)
+    views = orders.value.errors.length ? null : <WorkOrderEmpty />;
   else {
     const drifts = Object.fromEntries(
       frds.value.map((frd) => [frd.slug, readFrdDrift(project.projectPath, frd.slug)]),
     );
     views = (
       <WoViews
-        orders={orders.value}
+        orders={orders.value.items}
         frds={frds.value}
         drifts={drifts}
         href={route.navigationBaseHref}
@@ -63,6 +71,7 @@ export default function ObservabilidadPanel({ project, route }: PanelProps): Rea
     <>
       <WoLiveRefresh project={project.folder} />
       <WoNavigationRefresh wo={route.woParam} />
+      <FileReadErrors errors={orders.value.errors} />
       <WoSelection wo={route.woParam} detail={detail} views={views} />
     </>
   );

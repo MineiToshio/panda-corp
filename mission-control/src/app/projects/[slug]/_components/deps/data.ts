@@ -3,10 +3,10 @@ import { dependencyChain } from "@/lib/deps-layout/chain";
 import { frdLayout } from "@/lib/deps-layout/frd-layout";
 import { workOrderLayout } from "@/lib/deps-layout/work-order-layout";
 import { listProjectFrds } from "@/lib/frds/frd-index";
-import { listWorkOrders } from "@/lib/work-orders/work-orders";
+import { readPublishedWorkOrders } from "@/lib/work-orders/published";
 /** Resolve every natural-size layout once on the server, never after client hydration. */
 export const loadDependencyMap = cache((projectPath: string) => {
-  const orders = listWorkOrders(projectPath);
+  const orders = readPublishedWorkOrders(projectPath).items;
   const frds = orders.length ? listProjectFrds(projectPath) : [];
   return {
     orders,

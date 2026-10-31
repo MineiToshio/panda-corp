@@ -1,4 +1,5 @@
 import { Chip } from "@/components/core/Chip/Chip";
+import { FileReadErrors } from "@/components/modules/FileReadErrors/FileReadErrors";
 import { t } from "@/lib/copy/copy";
 import { formatRelative } from "@/lib/copy/dates";
 import { type FraguaProject, loadFraguaScene } from "@/lib/fragua/scene-data";
@@ -24,6 +25,7 @@ export function FraguaScene({
   frds,
 }: FraguaSceneProps): React.JSX.Element {
   const data = loadFraguaScene(project);
+  if (data.errors?.length) return <FileReadErrors errors={data.errors} />;
   const verdict = deriveVerdict({
     ...data,
     openChanges,

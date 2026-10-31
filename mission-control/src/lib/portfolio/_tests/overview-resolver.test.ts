@@ -4,9 +4,9 @@ import type { ProjectListItem } from "../portfolio";
 vi.mock("../portfolio", () => ({ allProjects: vi.fn() }));
 vi.mock("../lastCommit", () => ({ getLastCommit: vi.fn() }));
 vi.mock("@/lib/work-orders/work-orders", () => ({
-  listWorkOrders: vi.fn(),
   aggregateProgress: vi.fn(),
 }));
+vi.mock("@/lib/work-orders/published", () => ({ readPublishedWorkOrders: vi.fn() }));
 vi.mock("@/lib/docs/tree", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/docs/tree")>()),
   listProjectDocs: vi.fn(),
@@ -19,7 +19,8 @@ vi.mock("@/lib/navigation/identities", () => ({
 
 import { countOpenChanges } from "@/lib/changes/openChanges";
 import { listProjectDocs } from "@/lib/docs/tree";
-import { aggregateProgress, listWorkOrders } from "@/lib/work-orders/work-orders";
+import { readPublishedWorkOrders } from "@/lib/work-orders/published";
+import { aggregateProgress } from "@/lib/work-orders/work-orders";
 import { getLastCommit } from "../lastCommit";
 import { getProjectOverview } from "../overview";
 import { allProjects } from "../portfolio";
@@ -49,7 +50,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("MC_CLOCK", "2026-10-30T12:00:00Z");
   vi.mocked(allProjects).mockReturnValue([project("Alpha")]);
-  vi.mocked(listWorkOrders).mockReturnValue([]);
+  vi.mocked(readPublishedWorkOrders).mockReturnValue({ items: [], errors: [] });
   vi.mocked(aggregateProgress).mockReturnValue({ done: 2, total: 5, pct: 40 });
   vi.mocked(listProjectDocs).mockReturnValue([
     { id: "frd", label: "frd", group: "Feature: frd-01-a", relPath: "docs/frds/frd-01-a/frd.md" },
@@ -83,7 +84,7 @@ describe("AC-03-008.1: canonical overview", () => {
         pendingDecisions: 3,
       },
     });
-    expect(listWorkOrders).toHaveBeenCalledExactlyOnceWith("/absent/Alpha");
+    expect(readPublishedWorkOrders).toHaveBeenCalledExactlyOnceWith("/absent/Alpha");
     expect(countOpenChanges).toHaveBeenCalledExactlyOnceWith("/absent/Alpha");
   });
   it("sorts by last commit descending, missing dates last, with name ties", () => {
@@ -121,7 +122,7 @@ describe("AC-03-008.1: canonical overview", () => {
     const [item] = getProjectOverview();
     expect(item).toMatchObject({ pathMissing: true, phase: undefined, stageIndex: 0 });
     expect(Object.values(item?.counts ?? {})).toEqual(Array(7).fill(null));
-    expect(listWorkOrders).not.toHaveBeenCalled();
+    expect(readPublishedWorkOrders).not.toHaveBeenCalled();
     expect(getLastCommit).not.toHaveBeenCalled();
   });
   it("does not manufacture zero for a failed source or malformed status", () => {
@@ -150,4 +151,18 @@ it("REQ-03-003: displays the approved short project name without changing its so
   expect(item?.name).toBe("Mission Control");
   expect(item?.source.name).toBe("Pandacorp (Mission Control)");
   expect(item?.id).toBe("pandacorp (mission control)");
+});
+
+it("DR-115 DR-078: a partial strict plan exposes file failures and withholds exact totals", () => {
+  vi.mocked(readPublishedWorkOrders).mockReturnValue({
+    items: [],
+    errors: [
+      { file: "docs/frds/frd-03/work-orders/wo-03-002.md", reason: "malformed YAML frontmatter" },
+    ],
+  });
+  expect(getProjectOverview()[0]).toMatchObject({
+    counts: { ordersVerified: null, ordersTotal: null },
+    orderErrors: [{ file: "docs/frds/frd-03/work-orders/wo-03-002.md" }],
+    nextCommand: "/pandacorp:implement",
+  });
 });

@@ -241,7 +241,12 @@ function deriveWorkOrderSummary(content: string): string | undefined {
   return paragraph.length > 0 ? paragraph : undefined;
 }
 
-function parseWorkOrderFile(absPath: string, frdSlug: string, projectPath: string): WorkOrder {
+/** Parse a source already validated by the published boundary, reusing legacy field extraction. */
+export function parseWorkOrderFile(
+  absPath: string,
+  frdSlug: string,
+  projectPath: string,
+): WorkOrder {
   const content = readWorkOrderDoc(projectPath, path.relative(projectPath, absPath)) ?? "";
 
   const facts = readFacts(content);

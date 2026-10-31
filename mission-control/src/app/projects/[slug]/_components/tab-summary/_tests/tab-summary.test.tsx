@@ -162,3 +162,40 @@ it("omits the FRD footer when all rows fit within the prototype's eight-row limi
   render(<FrdProgress frds={frds} orders={[]} navigationBaseHref="/projects/demo/summary" />);
   expect(screen.queryByRole("link", { name: "Ver todos" })).not.toBeInTheDocument();
 });
+
+it("DR-078: malformed source files are named beside valid FRD progress and recent changes", () => {
+  const raw = fs.readFileSync(
+    "src/lib/work-orders/_tests/fixtures/personal-page-invalid-order.md",
+    "utf8",
+  );
+  fixture.write("docs/frds/frd-03-projects-case-studies/frd.md", "# FRD-03 Case studies\n");
+  fixture.write("docs/frds/frd-03-projects-case-studies/work-orders/wo-03-002-broken.md", raw);
+  fixture.write(
+    ".pandacorp/inbox/changes/done/blog-cover-alt-field.md",
+    fs.readFileSync("src/lib/work-orders/_tests/fixtures/personal-page-invalid-change.md", "utf8"),
+  );
+  fixture.write(
+    ".pandacorp/inbox/changes/valid.md",
+    "---\ntype: change\nstatus: ready\ndate: 2026-10-30\n---\n# Valid recent change\n",
+  );
+  const project = fixture.project();
+  expect(project.progress.total).toBeNull();
+  render(<ResumenPanel project={project} route={fixture.route} />);
+  expect(
+    screen
+      .getAllByRole("alert")
+      .some(
+        (alert) =>
+          alert.textContent?.includes("wo-03-002-broken.md") &&
+          alert.textContent?.includes("YAML malformado"),
+      ),
+  ).toBe(true);
+  expect(
+    screen
+      .getAllByRole("alert")
+      .some((alert) => alert.textContent?.includes("blog-cover-alt-field.md")),
+  ).toBe(true);
+  expect(screen.getByRole("link", { name: /FRD-01 Reading/ })).toBeVisible();
+  expect(screen.getByRole("link", { name: /Valid recent change/ })).toBeVisible();
+  expect(screen.queryByText(/19\/25|76%/)).not.toBeInTheDocument();
+});

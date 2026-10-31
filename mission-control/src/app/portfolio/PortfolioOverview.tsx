@@ -72,13 +72,31 @@ function Comparison({ projects }: { readonly projects: ProjectOverviewItem[] }):
                 {c.ordersVerified}/{c.ordersTotal}
               </span>
             </div>
+          ) : project.orderErrors?.length ? (
+            <Link
+              className={styles.readFailure}
+              href={`/portfolio/${encodeURIComponent(project.id)}/observability`}
+            >
+              {t("readerFailures.unreadFiles", { count: project.orderErrors.length })}
+            </Link>
           ) : (
             "—"
           ),
         frds: c.frds ?? "—",
         docs: c.docs ?? "—",
         adrs: c.adrs ?? "—",
-        openChanges: c.openChanges ?? "—",
+        openChanges:
+          c.openChanges ??
+          (project.pathMissing ? (
+            "—"
+          ) : (
+            <Link
+              className={styles.readFailure}
+              href={`/portfolio/${encodeURIComponent(project.id)}/changes`}
+            >
+              {t("inicio.worktrees.unreadable")}
+            </Link>
+          )),
         decisions: c.pendingDecisions ?? "—",
       },
     };

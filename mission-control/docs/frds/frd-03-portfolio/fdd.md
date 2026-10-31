@@ -89,3 +89,13 @@ prototype_blessed_at: 409a0564
 - **Oracle states of this FRD (`oracle-states.json`):** `portfolio-cards`, `portfolio-list`, `portfolio-accounts`, `portfolio-project-picker`, `portfolio-project-picker-search`, `portfolio-project-not-found`, `portfolio-path-missing`, `factory-empty`, `build-no-signal`.
 - **Reference files:** `docs/design/prototype/reference/computed-styles.json`, `docs/design/prototype/reference/css/` (06-card, 07-chip, 10-segmented, 11-progress, 12-command, 13-list-row, 14-empty-notice, 16-table, 21-phase-stepper), `docs/design/prototype/components.html`, icons in `docs/design/prototype/icons/`.
 - **`docs/design/components.md` rows:** `PageHead`, `Segmented`, `Chip` family, `CommandBox`, `ListRow`, `EmptyState` / `Notice`, `Dialog`, `SearchField` / `SelectField`, `Card`, `Table`, `Avatar`, `Ring`, `ProgressBar` / `StackBar`, `PhaseStepper`, `CopyText`, `ProjectCard`, `ProjectSwitcher`, `AccountsTable`.
+
+## Unknown change count (2026-10-31)
+
+In Lista, an existing project's unknown open-change count is a plain text link "No se pudo leer" to its Cambios tab. Reuse the table and link primitives without new tokens or layout. Missing project folders retain their absent-source placeholder. This is a read-error state (AC-03-008.3), not a numeric total.
+
+## Partial-source state (2026-10-31)
+
+FileReadErrors reuses the coral Notice with each relative path and localized reason, wrapping long
+paths on phones. Valid lists remain below the notice. Incomplete project totals show "N archivos sin
+leer" instead of a progress fraction/ring. Lista's source-error links are visibly underlined.

@@ -132,3 +132,9 @@ Component tests and static checks are recorded in the decision log. Browser fide
 
 `workspace-mobile` re-blessed after the structural fidelity corrections, viewed against `docs/design/prototype/index.html` at 375 and 1280 in both themes. Reviewer Layer-B sign-off: only the corrected surfaces moved. The route baselines are consistency guards from `e2e/fixtures/factory-root`.
 prototype_blessed_at: 0e6b7191
+
+## Partial-source state (2026-10-31)
+
+FileReadErrors reuses the coral Notice with each relative path and localized reason, wrapping long
+paths on phones. Valid lists remain below the notice. Incomplete project totals show "N archivos sin
+leer" instead of a progress fraction/ring. Lista's source-error links are visibly underlined.

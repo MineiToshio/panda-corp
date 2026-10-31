@@ -1,0 +1,7 @@
+.errors {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.errors code {
+  white-space: normal;
+}

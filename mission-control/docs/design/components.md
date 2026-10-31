@@ -219,3 +219,18 @@ Status Note records the remaining exports. Avatar uses `agentId` for an agent or
 for a project; sprite rendering is always pixelated. PageLayout renders a section so the shell owns
 one main landmark. The early table's `iconOnly` concept is the separate `IconButton`; Button accepts
 an optional `icon` while its existing `ariaLabel` names an icon-only use.
+
+### Reader failure clarification (2026-10-31)
+
+- `ObservabilidadPanel` reuses `Notice`: separate its localized read-failure text and inline source path with a literal space.
+- `PortfolioOverview` reuses `Table` and `Link`: an unknown open-change count for an existing project displays "No se pudo leer" linking to its Cambios tab. The canonical counter keeps its typed unknown result; no partial total is shown. Missing project folders keep the absent-source placeholder.
+
+### Per-file read failures (2026-10-31)
+
+| Component | Purpose | Path | Notes |
+| --- | --- | --- | --- |
+| FileReadErrors | Shared coral Notice naming failed source files and localized reasons beside valid data. | `src/components/modules/FileReadErrors/FileReadErrors.tsx` | Paths wrap at phone widths; optional contextual heading. Used by Observability, FRD progress, recent progress, La Fragua and Changes. |
+
+ProjectCard, ProjectNavItem, ProjectSwitcher and both workspace hero variants show the number of
+unread work-order files when the strict published plan is incomplete. Portfolio comparison uses the
+same count and underlines error links. No numeric total/ring is derived from the tolerant reader.

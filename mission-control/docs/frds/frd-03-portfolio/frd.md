@@ -57,3 +57,7 @@ The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) superse
 ## Global account directory extension (2026-10-20, amended 2026-10-22)
 
 - **REQ-03-009** — The Portafolio SHALL offer the global accounts directory as a third view, "Cuentas", beside Tarjetas and Lista, reusing the Cuentas table of the project workspace plus a search, a state filter and a row dialog (state `portfolio-accounts`, owner decision at M1 2026-10-22). Cuentas works with no project selected and with an empty portfolio; `portfolioView=accounts` preserves the chosen project workspace and history. FRD-26 owns the reader, filtering and private/public boundaries.
+
+## Read-failure clarification (2026-10-31)
+
+- **AC-03-008.3**: When the open-change total is unknown for an existing project, Lista SHALL show the localized "No se pudo leer" link to `/portfolio/<project>/changes`, where the queue names malformed files. It SHALL NOT show zero, a partial count or an unexplained dash. Missing project folders retain the absent-source placeholder. The canonical count remains `countOpenChanges`, including its strict archive validation (AC-04-014.3).

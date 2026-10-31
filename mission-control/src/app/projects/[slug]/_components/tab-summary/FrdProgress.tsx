@@ -13,11 +13,13 @@ export function FrdProgress({
   orders,
   navigationBaseHref,
   error,
+  issues,
 }: {
   readonly frds: readonly ProjectFrd[];
   readonly orders: readonly WorkOrder[];
   readonly navigationBaseHref: string;
   readonly error?: React.ReactNode;
+  readonly issues?: React.ReactNode;
 }): React.JSX.Element {
   const rows = frds
     .map((frd) => {
@@ -33,6 +35,7 @@ export function FrdProgress({
         count={error ? undefined : frds.length}
         icon="clipboard"
       />
+      {issues}
       {error ??
         (rows.length ? (
           <>
@@ -87,9 +90,9 @@ export function FrdProgress({
               </CardFoot>
             )}
           </>
-        ) : (
+        ) : !issues ? (
           <p className={styles.empty}>{t("workspace.resumen.frdProgress.empty")}</p>
-        ))}
+        ) : null)}
     </Card>
   );
 }

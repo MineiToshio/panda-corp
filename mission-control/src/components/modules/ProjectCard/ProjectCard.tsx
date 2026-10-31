@@ -82,6 +82,9 @@ export function ProjectCard({
         })}
       </p>
       <div className={`facts ${styles.facts}`}>
+        {project.orderErrors?.length ? (
+          <span>{t("readerFailures.unreadFiles", { count: project.orderErrors.length })}</span>
+        ) : null}
         {done !== null && total !== null ? (
           <span>{tRich("inicio.projectCard.factsOrders", { done, total })}</span>
         ) : null}

@@ -11,8 +11,14 @@ import { latestBuildEvent } from "@/lib/fragua/live-events";
 import { getProjectNavigation } from "@/lib/navigation/identities";
 import { nextStep } from "@/lib/next-step/next-step";
 import { projectDisplayName } from "@/lib/portfolio/displayName";
+import { readArtifact } from "@/lib/spec/read-artifacts";
 import type { Phase } from "@/lib/status/status";
-import { aggregateProgress, listWorkOrders } from "@/lib/work-orders/work-orders";
+import {
+  type PublishedWorkOrders,
+  readPublishedWorkOrders,
+  type WorkOrderReadError,
+} from "@/lib/work-orders/published";
+import { aggregateProgress } from "@/lib/work-orders/work-orders";
 import { getLastCommit, type LastCommit } from "./lastCommit";
 import { allProjects, type ProjectListItem } from "./portfolio";
 
@@ -38,6 +44,8 @@ export interface ProjectOverviewItem {
     readonly openChanges: number | null;
     readonly pendingDecisions: number | null;
   };
+  readonly orderErrors?: readonly WorkOrderReadError[];
+  readonly orderSourceError?: string;
   readonly nextCommand: string;
 }
 
@@ -52,11 +60,15 @@ const UNKNOWN_COUNTS: ProjectOverviewItem["counts"] = {
   pendingDecisions: null,
 };
 
-function projectCounts(item: ProjectListItem, projectPath: string): ProjectOverviewItem["counts"] {
+function projectCounts(
+  item: ProjectListItem,
+  projectPath: string,
+  orders: PublishedWorkOrders | null,
+): ProjectOverviewItem["counts"] {
   if (!item.exists) return UNKNOWN_COUNTS;
   try {
     assertReadableSources(path.join(projectPath, "docs"));
-    return readCounts(item, projectPath);
+    return readCounts(item, projectPath, orders);
   } catch {
     return UNKNOWN_COUNTS;
   }
@@ -77,12 +89,16 @@ function assertReadableSources(directory: string): void {
   }
 }
 
-function readCounts(item: ProjectListItem, projectPath: string): ProjectOverviewItem["counts"] {
-  const progress = aggregateProgress(listWorkOrders(projectPath));
+function readCounts(
+  item: ProjectListItem,
+  projectPath: string,
+  orders: PublishedWorkOrders | null,
+): ProjectOverviewItem["counts"] {
+  const progress = aggregateProgress(orders?.items ?? []);
   const docs = listProjectDocs(projectPath);
   return {
-    ordersVerified: progress.done,
-    ordersTotal: progress.total,
+    ordersVerified: orders && !orders.errors.length ? progress.done : null,
+    ordersTotal: orders && !orders.errors.length ? progress.total : null,
     frds: countFrdFolders(docs),
     docs: docs.length,
     adrs: docs.filter((doc) => doc.relPath.startsWith("docs/adr/")).length,
@@ -96,7 +112,11 @@ function readCounts(item: ProjectListItem, projectPath: string): ProjectOverview
 
 function overviewItem(item: ProjectListItem, nowIso: string): ProjectOverviewItem {
   const projectPath = resolveProjectPath(item.path);
-  const counts = projectCounts(item, projectPath);
+  const orders = readArtifact(
+    () => (item.exists ? readPublishedWorkOrders(projectPath) : null),
+    null,
+  );
+  const counts = projectCounts(item, projectPath, orders.value);
   const status = item.status.present && !item.status.malformed ? item.status.status : {};
   const eventProject = path.basename(projectPath);
   const events = item.exists
@@ -120,6 +140,8 @@ function overviewItem(item: ProjectListItem, nowIso: string): ProjectOverviewIte
     lastCommit: item.exists ? getLastCommit(projectPath) : { at: null, reason: "no-repository" },
     pathMissing: !item.exists,
     counts,
+    orderErrors: orders.value?.errors,
+    orderSourceError: orders.error,
     nextCommand:
       item.stage === "release"
         ? "/pandacorp:review-launch"

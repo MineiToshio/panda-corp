@@ -49,3 +49,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.readFailure {
+  text-decoration: underline;
+  text-underline-offset: var(--s1);
+}

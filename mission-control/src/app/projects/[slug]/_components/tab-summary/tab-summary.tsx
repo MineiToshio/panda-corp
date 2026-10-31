@@ -3,6 +3,7 @@ import { CountPill } from "@/components/core/Chip/CountPill";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { Icon } from "@/components/core/Icon/Icon";
 import { Markdown } from "@/components/core/Markdown/Markdown";
+import { FileReadErrors } from "@/components/modules/FileReadErrors/FileReadErrors";
 import { t } from "@/lib/copy/copy";
 import { formatSignalAge } from "@/lib/fragua/signal-age";
 import { navigationHref } from "@/lib/navigation/urls";
@@ -44,11 +45,8 @@ export function TabSummary({
   const { activityLog, decisions, orders, changes, timeline } = data;
   const progressError = orders.error || changes.error || timeline.error;
   const frdError = project.frdError || orders.error;
-  const progressSource = changes.error
-    ? ".pandacorp/inbox/changes"
-    : timeline.error
-      ? ".pandacorp/track.jsonl"
-      : "docs/frds";
+  const progressSource = failedProgressSource(data);
+  const issues = sourceIssues(data);
   const occurrences = new Map<string, number>();
   const logEntries = activityLog.entries
     .map((entry) => {
@@ -64,13 +62,17 @@ export function TabSummary({
       className={styles.root}
     >
       <VersionFreshness state={overlayFreshness} projectName={project.name} />
-      <FraguaScene
-        project={{ slug: project.slug, name: project.name, path: project.projectPath }}
-        openChanges={project.counts.openChanges}
-        ownerPending={ownerTurn.count}
-        lastActivityAt={project.lastMove}
-        frds={project.frds}
-      />
+      {orders.error ? (
+        <SourceError source={orders.error} />
+      ) : (
+        <FraguaScene
+          project={{ slug: project.slug, name: project.name, path: project.projectPath }}
+          openChanges={project.counts.openChanges}
+          ownerPending={ownerTurn.count}
+          lastActivityAt={project.lastMove}
+          frds={project.frds}
+        />
+      )}
       {project.nextStep.command ? (
         <div className={styles.next}>
           <p>
@@ -98,6 +100,7 @@ export function TabSummary({
             frds={project.frds}
             orders={orders.value}
             navigationBaseHref={navigationBaseHref}
+            issues={issues.orders}
             error={
               frdError ? (
                 <SourceError source={`${t("workspace.resumen.frdProgress.title")} (docs/frds)`} />
@@ -137,6 +140,7 @@ export function TabSummary({
                     navigationBaseHref,
                   )
             }
+            issues={issues.progress}
             error={
               progressError ? (
                 <SourceError
@@ -166,4 +170,19 @@ export function TabSummary({
       ) : null}
     </section>
   );
+}
+
+function failedProgressSource(data: ReturnType<typeof readSummary>): string {
+  if (data.changes.error) return ".pandacorp/inbox/changes";
+  return data.timeline.error ? ".pandacorp/track.jsonl" : "docs/frds";
+}
+function sourceIssues(data: ReturnType<typeof readSummary>) {
+  const orders = data.orders.fileErrors ?? [];
+  const progress = [...orders, ...(data.changes.fileErrors ?? [])];
+  return {
+    orders: orders.length ? <FileReadErrors errors={orders} /> : undefined,
+    progress: progress.length ? (
+      <FileReadErrors heading={t("workspace.resumen.progress.title")} errors={progress} />
+    ) : undefined,
+  };
 }

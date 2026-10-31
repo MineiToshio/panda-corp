@@ -86,6 +86,11 @@ export function ProjectHero({ project, headingLevel }: ProjectHeroProps): React.
       </div>
       <ProjectSubtitle key={project.projectPath} text={project.summary} />
       <div className={styles.stats}>
+        {project.overview?.orderErrors?.length ? (
+          <span>
+            {t("readerFailures.unreadFiles", { count: project.overview.orderErrors.length })}
+          </span>
+        ) : null}
         {progress.pct !== null && <Ring percent={progress.pct} size="lg" tone={tone} />}
         {progress.total === 0 ? (
           <span>{t("workspace.hero.stats.noPlan")}</span>

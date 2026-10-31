@@ -51,9 +51,10 @@ const props = {
   },
 } as unknown as PanelProps;
 beforeEach(() => {
-  source.orders.mockReturnValue([
-    { id: "WO-01-001", title: "Source", frd: "frd-01-core", state: "done", relPath: "" },
-  ]);
+  source.orders.mockReturnValue({
+    items: [{ id: "WO-01-001", title: "Source", frd: "frd-01-core", state: "done", relPath: "" }],
+    errors: [],
+  });
   source.frds.mockReturnValue([{ slug: "frd-01-core", code: "FRD-01", title: "Core" }]);
   source.drift.mockReturnValue({ ok: true, ids: [] });
   vi.clearAllMocks();
@@ -113,11 +114,14 @@ describe("AC-12-002.1 AC-12-002.2 AC-12-002.3 server mounts", () => {
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
-    expect(screen.getByRole("alert")).toHaveTextContent("No se pudo leer");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "docs/frds/frd-01-core/work-orders/wo-01-001-broken.md",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("YAML malformado");
     expect(screen.queryByText("Dependency map")).not.toBeInTheDocument();
   });
   it("keeps a legitimately empty project free of tiles, groups and filters", () => {
-    source.orders.mockReturnValue([]);
+    source.orders.mockReturnValue({ items: [], errors: [] });
     render(<ObservabilidadPanel {...props} />);
     expect(screen.getByText(/todavía no tiene work orders/)).toBeInTheDocument();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
@@ -140,4 +144,21 @@ it("AC-05-008.2 renders an empty project before docs/frds exists", async () => {
   } finally {
     fs.rmdirSync(root);
   }
+});
+
+it("DR-078: a per-file failure keeps valid work-order views mounted", () => {
+  const valid = { id: "WO-01-001", title: "Valid", frd: "frd-01-core", state: "done", relPath: "" };
+  source.orders.mockReturnValue({
+    items: [valid],
+    errors: [
+      {
+        file: "docs/frds/frd-01-core/work-orders/wo-01-002-broken.md",
+        reason: "malformed YAML frontmatter",
+      },
+    ],
+  });
+  render(<ObservabilidadPanel {...props} />);
+  expect(screen.getByText("Dependency map")).toBeVisible();
+  expect(screen.getByRole("alert")).toHaveTextContent("wo-01-002-broken.md");
+  expect(screen.getByRole("alert")).toHaveTextContent("YAML malformado");
 });

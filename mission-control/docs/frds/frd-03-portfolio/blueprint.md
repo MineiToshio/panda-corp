@@ -161,3 +161,19 @@ portfolio) and `U2` (folder missing), as in the FDD.
 
 [`WO-03-007`](work-orders/wo-03-007-portafolio-overview.md): the only live one. Index:
 [`work-orders/README.md`](work-orders/README.md).
+
+## Strict published work-order source (2026-10-31)
+
+`readPublishedWorkOrders(projectPath)` is the request-cached source shared by portfolio counts,
+Observability (including dependencies/detail), Summary, La Fragua and digest readers. Its result is
+`{ items: WorkOrder[], errors: { file: string; reason: string }[] }`. Discovery errors on a directory
+throw with its path; absent directories remain legitimate empty plans. Every candidate file is
+validated independently, then parsed with the existing field extractor. Malformed/empty/unreadable
+files and invalid implementation statuses remain explicit errors and never become todo orders.
+
+`readSummary` carries valid orders and changes with independent `fileErrors`; FRD and recent-progress
+cards render those notices beside valid data. Global overview exposes `orderErrors`, while
+`ordersVerified`/`ordersTotal` become null for an incomplete source. Cards, sidebar, project picker,
+workspace headers and Lista display the unread-file count instead of a fabricated exact percentage.
+`FileReadErrors` reuses Notice, wraps long paths, and localizes parser reasons through microcopy.
+Lista links to source errors remain underlined at all widths.

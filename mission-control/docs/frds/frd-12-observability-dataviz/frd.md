@@ -89,3 +89,7 @@ Cost/tokens per agent and per project; trace export; comparison of idea→launch
 ## Persistent navigation integration — FRD-25 (2026-10-17)
 
 The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+
+## Malformed source clarification (2026-10-31)
+
+A syntactically invalid work-order file SHALL produce a visible per-file notice naming its relative path and reason. The other valid work orders SHALL remain available in Observability, Summary FRD progress and recent progress. The invalid document SHALL NOT become a fabricated todo order. Unreadable discovery directories fail the entire source; deliberate absence remains empty. Global progress SHALL show the number of unread files instead of an exact total or percentage when any work order failed to parse.

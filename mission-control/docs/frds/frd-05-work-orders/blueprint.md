@@ -204,3 +204,19 @@ survives. No backend route or API changes, so no `docs/api/<wo-id>.md` is planne
 ## Persistent navigation integration — FRD-25 (2026-10-17)
 
 The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+
+## Strict published work-order source (2026-10-31)
+
+`readPublishedWorkOrders(projectPath)` is the request-cached source shared by portfolio counts,
+Observability (including dependencies/detail), Summary, La Fragua and digest readers. Its result is
+`{ items: WorkOrder[], errors: { file: string; reason: string }[] }`. Discovery errors on a directory
+throw with its path; absent directories remain legitimate empty plans. Every candidate file is
+validated independently, then parsed with the existing field extractor. Malformed/empty/unreadable
+files and invalid implementation statuses remain explicit errors and never become todo orders.
+
+`readSummary` carries valid orders and changes with independent `fileErrors`; FRD and recent-progress
+cards render those notices beside valid data. Global overview exposes `orderErrors`, while
+`ordersVerified`/`ordersTotal` become null for an incomplete source. Cards, sidebar, project picker,
+workspace headers and Lista display the unread-file count instead of a fabricated exact percentage.
+`FileReadErrors` reuses Notice, wraps long paths, and localizes parser reasons through microcopy.
+Lista links to source errors remain underlined at all widths.

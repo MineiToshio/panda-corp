@@ -75,3 +75,11 @@ On opening a project from the Portafolio, its workspace: a **tabs-first** surfac
 ## Persistent navigation integration — FRD-25 (2026-10-17)
 
 The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+
+## Per-file read failures (2026-10-31)
+
+A broken work-order file SHALL be named with its reason while valid siblings remain visible.
+The shared strict source SHALL never infer state for the broken file. Summary's FRD progress and
+recent advances SHALL retain valid data with per-file notices, including malformed archived changes.
+An unreadable discovery directory remains a whole-source failure. Global progress SHALL state the
+number of unread files instead of claiming an exact project total or percentage.

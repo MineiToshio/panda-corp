@@ -1,4 +1,13 @@
 {
+  "readerFailures": {
+    "unreadFiles": { "one": "{count} archivo sin leer", "other": "{count} archivos sin leer" },
+    "malformedYaml": "YAML malformado: revisa las comillas y la sintaxis del frontmatter",
+    "invalidStatus": "implementation_status no es PLANNED, IN_PROGRESS, IN_REVIEW, VERIFIED ni BLOCKED",
+    "unreadableFile": "No se pudo abrir el archivo",
+    "emptyFile": "El archivo está vacío",
+    "directory": "No se pudo listar el directorio",
+    "partialPlan": "Se muestran solo los work orders legibles. El avance total no se puede calcular."
+  },
   "common": {
     "phases": {
       "discovered": "Investigación",

@@ -100,3 +100,7 @@ prototype_blessed_at: 409a0564
 - **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#portfolio?project=mission-control&tab=Observabilidad&view=deps` (the other states add the parameters listed in `docs/design/freeze/fidelity.config.json`).
 - **Oracle states of this FRD** (`oracle-states.json`): `observability-legacy-link`, `observability-deps-frd`, `observability-deps-wo`, `observability-deps-focus`, `observability-deps-frd-open`, `observability-deps-list-open`, `build-no-signal`, `wo-frd-drift`, `wo-frd-drift-unreadable`.
 - **Measured by styles, not pixels:** the dependency canvases are compared by computed styles of their nodes, boxes and lines (L1/L2) and by the checks above; the data-model canvas of FRD-02 follows the same rule.
+
+## Work-order read error (2026-10-31)
+
+The coral FileReadErrors notice names every failed work-order file and its localized reason, followed by the valid work-order views. Paths wrap within the notice at phone widths. Individual failures never replace the entire list. Global progress shows "N archivos sin leer"; partial FRD counts describe only the readable orders. No total percentage is shown for an incomplete project plan.

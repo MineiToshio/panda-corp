@@ -49,3 +49,23 @@ describe("AC-19-005.1: phase and project progress", () => {
     expect(screen.getByRole("link")).not.toHaveAccessibleName(/sin work orders/);
   });
 });
+
+it("DR-078: announces the unread-file count instead of a fabricated percentage", () => {
+  render(
+    <ProjectNavItem
+      project={{
+        ...project("PersonalPage", null),
+        orderErrors: [
+          {
+            file: "docs/frds/frd-03/work-orders/wo-03-002.md",
+            reason: "malformed YAML frontmatter",
+          },
+        ],
+      }}
+    />,
+  );
+  expect(
+    screen.getByRole("link", { name: "PersonalPage: Construcción · 1 archivo sin leer" }),
+  ).toHaveTextContent("1 archivo sin leer");
+  expect(screen.getByRole("link")).not.toHaveTextContent("40%");
+});

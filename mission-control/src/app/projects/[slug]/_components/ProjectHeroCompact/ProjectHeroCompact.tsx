@@ -14,7 +14,11 @@ export function ProjectHeroCompact({ project, headingLevel }: ProjectHeroProps):
       data-tone={phasePresentation(project.phase).tone}
     >
       <ProjectIdentity project={project} headingLevel={headingLevel} size="md">
-        {total === 0 ? (
+        {project.overview?.orderErrors?.length ? (
+          <span className="small faint">
+            {t("readerFailures.unreadFiles", { count: project.overview.orderErrors.length })}
+          </span>
+        ) : total === 0 ? (
           <span className="small faint">{t("workspace.hero.compact.noOrders")}</span>
         ) : done !== null && total !== null && pct !== null ? (
           <span className="small faint">

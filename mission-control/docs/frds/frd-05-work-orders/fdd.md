@@ -87,3 +87,9 @@ prototype_blessed_at: 409a0564
 - **Oracle states of this FRD (`oracle-states.json`):** `wo-by-frd`, `wo-by-frd-expanded`, `wo-state-filter`, `wo-kanban`, `wo-kanban-expanded`, `wo-detail`, `wo-detail-full`, `wo-detail-not-found`, `wo-empty`, `wo-failed`, `wo-failed-row`.
 - **Reference files:** `docs/design/prototype/reference/computed-styles.json`, `docs/design/prototype/reference/css/` (11-progress, 12-command, 13-list-row, 14-empty-notice, 15-key-value, 20-tabs, 26-work-orders), `docs/design/prototype/components.html`.
 - **`docs/design/components.md` rows:** `StateTile`, `FrdRow`, `WorkOrderRow`, `WorkOrderColumn` / `WorkOrderCard`, `WoSteps`, `CriterionList`, `DependencyButton`, `MoreBar`, `Segmented`, `Tabs`, `ProgressBar` / `StackBar`, `StateDot`, `EmptyState` / `Notice`, `CommandBox`, `KeyValue`, `Markdown`, `Paper`.
+
+## Partial-source state (2026-10-31)
+
+FileReadErrors reuses the coral Notice with each relative path and localized reason, wrapping long
+paths on phones. Valid lists remain below the notice. Incomplete project totals show "N archivos sin
+leer" instead of a progress fraction/ring. Lista's source-error links are visibly underlined.

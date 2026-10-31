@@ -3,7 +3,8 @@ import { cache } from "react";
 import { now } from "@/lib/clock/clock";
 import { readEvents } from "@/lib/events/events";
 import { readStatus } from "@/lib/status/status";
-import { aggregateProgress, listWorkOrders } from "@/lib/work-orders/work-orders";
+import { readPublishedWorkOrders } from "@/lib/work-orders/published";
+import { aggregateProgress } from "@/lib/work-orders/work-orders";
 import { buildSignal } from "./build-signal";
 import { latestBuildEvent } from "./live-events";
 import { deriveStations } from "./stations";
@@ -15,7 +16,8 @@ export interface FraguaProject {
 }
 /** One request-scoped load: frontmatter owns structure, project events only own liveness. */
 export const loadFraguaScene = cache((project: FraguaProject) => {
-  const orders = listWorkOrders(project.path).filter((order) => /^WO-\d+-\d+$/.test(order.id));
+  const source = readPublishedWorkOrders(project.path);
+  const orders = source.items.filter((order) => /^WO-\d+-\d+$/.test(order.id));
   const result = readStatus(project.path);
   const status = result.present && !result.malformed ? result.status : {};
   const eventProject = path.basename(project.path);
@@ -24,6 +26,7 @@ export const loadFraguaScene = cache((project: FraguaProject) => {
   const nowIso = now().toISOString();
   return {
     orders,
+    errors: source.errors,
     stations: deriveStations(orders),
     progress: aggregateProgress(orders),
     phase: status.phase,

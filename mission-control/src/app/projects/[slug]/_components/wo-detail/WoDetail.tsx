@@ -1,7 +1,8 @@
 import { Card, CardHeader } from "@/components/core/Card/Card";
 import { t } from "@/lib/copy/copy";
 import { navigationHref } from "@/lib/navigation/urls";
-import { listWorkOrders, readWorkOrderDetail } from "@/lib/work-orders/work-orders";
+import { readPublishedWorkOrders } from "@/lib/work-orders/published";
+import { readWorkOrderDetail } from "@/lib/work-orders/work-orders";
 import type { WorkspaceProject } from "../../_panels/workspaceProject";
 import styles from "./detail.module.css";
 import { WorkOrderDetail } from "./wo-detail";
@@ -17,7 +18,10 @@ export function WoDetail({
   view: "Resumen" | "Documento completo";
   navigationBaseHref?: string;
 }): React.JSX.Element {
-  const detail = readWorkOrderDetail(project.projectPath, woId);
+  const orders = readPublishedWorkOrders(project.projectPath).items;
+  const detail = orders.some((order) => order.id === woId)
+    ? readWorkOrderDetail(project.projectPath, woId)
+    : { kind: "not-found" as const };
   const href =
     navigationBaseHref ??
     `/portfolio/${encodeURIComponent(project.slug)}/observability?wo=${encodeURIComponent(woId)}`;
@@ -37,8 +41,8 @@ export function WoDetail({
       content={detail.markdown}
       activeWoTab={view === "Documento completo" ? "full" : "summary"}
       sections={detail.sections}
-      dependents={detail.dependents}
-      orders={listWorkOrders(project.projectPath)}
+      dependents={orders.filter((order) => order.dependsOn?.includes(woId))}
+      orders={orders}
       frd={project.frds.find((frd) => frd.slug === detail.order.frd)}
       navigationBaseHref={href}
     />

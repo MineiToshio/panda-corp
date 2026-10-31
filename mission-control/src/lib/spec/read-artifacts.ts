@@ -1,7 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import matter from "gray-matter";
-import { listWorkOrders } from "@/lib/work-orders/work-orders";
+import { readPublishedWorkOrders } from "@/lib/work-orders/published";
 import { readDigestFrds } from "./read-frds";
 import { readSpecDigest } from "./read-spec";
 
@@ -22,39 +19,24 @@ export function readArtifact<T>(read: () => T, fallback: T): { value: T; error?:
   }
 }
 
-/** Validate every work-order source before using the legacy tolerant state reader. */
-export function readDigestWorkOrders(projectPath: string) {
-  const dir = join(projectPath, "docs/frds");
-  if (!existsSync(dir)) return [];
-  for (const frd of readdirSync(dir, { withFileTypes: true }).filter((entry) =>
-    entry.isDirectory(),
-  )) {
-    const orders = join(dir, frd.name, "work-orders");
-    if (!existsSync(orders)) continue;
-    for (const file of readdirSync(orders).filter((name) => /^wo-.*\.md$/i.test(name))) {
-      const source = join(orders, file);
-      const parsed = matter(readFileSync(source, "utf-8"), { excerpt: false });
-      if (
-        parsed.data.implementation_status !== undefined &&
-        !["PLANNED", "IN_PROGRESS", "IN_REVIEW", "VERIFIED", "BLOCKED"].includes(
-          parsed.data.implementation_status,
-        )
-      )
-        throw new Error(`${source}: invalid implementation_status`);
-    }
-  }
-  return listWorkOrders(projectPath);
-}
+/** Both digest and workspace consume the same strict, request-cached published plan. */
+export const readDigestWorkOrders = readPublishedWorkOrders;
 
 /** Request-scoped Spec mount seam: narrative plus live identity, kinds, counts and state. */
 export function readSpecArtifacts(projectPath: string) {
-  const orders = readArtifact(() => readDigestWorkOrders(projectPath), []);
-  const frds = readArtifact(() => readDigestFrds(projectPath, orders.value), []);
+  const orders = readArtifact(() => readDigestWorkOrders(projectPath), { items: [], errors: [] });
+  const frds = readArtifact(() => readDigestFrds(projectPath, orders.value.items), []);
   return {
     body: readSpecDigest(projectPath) ?? "",
     frds: frds.value,
     frdCount: frds.value.length,
-    workOrders: orders.value,
-    sourceErrors: { workOrders: orders.error, frds: frds.error } satisfies DigestSourceErrors,
+    workOrders: orders.value.items,
+    sourceErrors: {
+      workOrders:
+        orders.error ??
+        (orders.value.errors.map((issue) => `${issue.file}: ${issue.reason}`).join("; ") ||
+          undefined),
+      frds: frds.error,
+    } satisfies DigestSourceErrors,
   };
 }

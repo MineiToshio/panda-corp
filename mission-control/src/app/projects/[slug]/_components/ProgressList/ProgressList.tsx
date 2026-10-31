@@ -9,13 +9,16 @@ import type { ProgressItem } from "./progressItems";
 export function ProgressList({
   items,
   error,
+  issues,
 }: {
   readonly items: readonly ProgressItem[];
   readonly error?: React.ReactNode;
+  readonly issues?: React.ReactNode;
 }): React.JSX.Element {
   return (
     <Card tone="teal">
       <CardHeader title={t("workspace.resumen.progress.title")} icon="activity" />
+      {issues}
       {error ??
         (items.length ? (
           <ul className={`progress-list ${styles.list}`}>
@@ -50,9 +53,9 @@ export function ProgressList({
               );
             })}
           </ul>
-        ) : (
+        ) : !issues ? (
           <p className={styles.empty}>{t("workspace.resumen.progress.empty")}</p>
-        ))}
+        ) : null)}
     </Card>
   );
 }

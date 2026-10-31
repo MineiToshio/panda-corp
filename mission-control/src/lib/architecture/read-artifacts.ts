@@ -17,17 +17,28 @@ export function readArchitectureArtifacts(projectPath: string) {
       ? { kind: "none" as const }
       : result;
   const hasArchitecture = architectureContent !== undefined || dataModel.kind !== "missing";
-  const orders = readArtifact(() => (hasArchitecture ? readDigestWorkOrders(projectPath) : []), []);
+  const orders = readArtifact(
+    () => (hasArchitecture ? readDigestWorkOrders(projectPath) : { items: [], errors: [] }),
+    { items: [], errors: [] },
+  );
   const env = readArtifact(() => (hasArchitecture ? readEnvExample(projectPath) : []), []);
   const adrs = readArtifact(() => (hasArchitecture ? readAdrs(projectPath) : []), []);
-  const frds = readArtifact(() => readDigestFrds(projectPath, orders.value), []);
+  const frds = readArtifact(() => readDigestFrds(projectPath, orders.value.items), []);
   return {
     architectureContent,
     dataModel,
-    workOrders: hasArchitecture ? orders.value : undefined,
+    workOrders: hasArchitecture ? orders.value.items : undefined,
     envVars: hasArchitecture ? env.value : undefined,
     adrs: hasArchitecture ? adrs.value : undefined,
     frds: frds.value,
-    sourceErrors: { workOrders: orders.error, env: env.error, adrs: adrs.error, frds: frds.error },
+    sourceErrors: {
+      workOrders:
+        orders.error ??
+        (orders.value.errors.map((issue) => `${issue.file}: ${issue.reason}`).join("; ") ||
+          undefined),
+      env: env.error,
+      adrs: adrs.error,
+      frds: frds.error,
+    },
   };
 }

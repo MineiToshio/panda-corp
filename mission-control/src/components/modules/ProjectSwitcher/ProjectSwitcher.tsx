@@ -71,15 +71,7 @@ export function ProjectSwitcher({
             items={filtered.map((project) => {
               const { tone, labelKey } = phasePresentation(project.phase);
               const c = project.counts;
-              const orders =
-                c.ordersTotal === 0
-                  ? t("dialogs.projectPicker.noOrders")
-                  : c.ordersVerified !== null && c.ordersTotal !== null
-                    ? t("dialogs.projectPicker.ordersProgress", {
-                        done: c.ordersVerified,
-                        total: c.ordersTotal,
-                      })
-                    : t("common.relativeTime.noRecord");
+              const orders = orderLabel(project);
               return {
                 id: project.id,
                 row: (
@@ -132,4 +124,18 @@ export function ProjectSwitcher({
       </Modal>
     </>
   );
+}
+
+function orderLabel(project: ProjectOverviewItem): string {
+  const c = project.counts;
+  return c.ordersTotal === 0
+    ? t("dialogs.projectPicker.noOrders")
+    : c.ordersVerified !== null && c.ordersTotal !== null
+      ? t("dialogs.projectPicker.ordersProgress", {
+          done: c.ordersVerified,
+          total: c.ordersTotal,
+        })
+      : project.orderErrors?.length
+        ? t("readerFailures.unreadFiles", { count: project.orderErrors.length })
+        : t("common.relativeTime.noRecord");
 }

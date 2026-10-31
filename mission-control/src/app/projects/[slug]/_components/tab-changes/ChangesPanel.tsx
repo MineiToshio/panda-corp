@@ -6,7 +6,7 @@ import { Card, CardHeader } from "@/components/core/Card/Card";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { DialogConfirm } from "@/components/core/Modal/DialogConfirm";
 import { Modal } from "@/components/core/Modal/Modal";
-import { Notice } from "@/components/core/Notice/Notice";
+import { FileReadErrors } from "@/components/modules/FileReadErrors/FileReadErrors";
 import type { ChangeQueueReadResult } from "@/lib/changes/changes";
 import { t } from "@/lib/copy/copy";
 import { useUrlState } from "@/lib/navigation/useUrlState";
@@ -86,16 +86,13 @@ export function ChangesPanel({
       aria-label={t("workspace.cambios.request.title")}
       className={styles.stack}
     >
-      {errors.length ? (
-        <Notice kind="error" icon="alert">
-          {t("workspace.cambios.errors", { count: errors.length })}
-          <ul>
-            {errors.map((error) => (
-              <li key={error.file}>{error.file}</li>
-            ))}
-          </ul>
-        </Notice>
-      ) : null}
+      <FileReadErrors
+        heading={t("workspace.cambios.errors", { count: errors.length })}
+        errors={errors.map((issue) => ({
+          ...issue,
+          file: `.pandacorp/inbox/changes/${issue.file}`,
+        }))}
+      />
       <div className={styles.strip}>
         {ACTIVE_STATUSES.map((status) => (
           <div key={status} data-tone={STATUS_TONES[status]}>

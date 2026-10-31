@@ -16,8 +16,9 @@ export function ProjectNavItem({
     done !== null && total !== null && total > 0
       ? Math.min(100, Math.round((done / total) * 100))
       : null;
-  const label =
-    pct !== null
+  const label = project.orderErrors?.length
+    ? `${project.name}: ${phase} · ${t("readerFailures.unreadFiles", { count: project.orderErrors.length })}`
+    : pct !== null
       ? t("shell.projects.itemAriaWithOrders", { name: project.name, phase, pct })
       : total === 0
         ? t("shell.projects.itemAriaNoOrders", { name: project.name, phase })
@@ -34,7 +35,11 @@ export function ProjectNavItem({
         <span>{project.name}</span>
         <small>
           {phase}
-          {pct !== null ? ` · ${pct}%` : ""}
+          {project.orderErrors?.length
+            ? ` · ${t("readerFailures.unreadFiles", { count: project.orderErrors.length })}`
+            : pct !== null
+              ? ` · ${pct}%`
+              : ""}
         </small>
       </span>
     </Link>

@@ -10,6 +10,19 @@ import { PortfolioOverview } from "../PortfolioOverview";
 beforeEach(() => window.history.replaceState(null, "", "/portfolio"));
 
 describe("portfolio overview", () => {
+  it("AC-03-008.3: an unknown change count names the read failure and links to its source", () => {
+    window.history.replaceState(null, "", "/portfolio?view=lista");
+    render(
+      <PortfolioOverview
+        projects={[{ ...PROJECT, counts: { ...PROJECT.counts, openChanges: null } }]}
+        directory={servicesFixture()}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "No se pudo leer" })).toHaveAttribute(
+      "href",
+      `/portfolio/${PROJECT.id}/changes`,
+    );
+  });
   it("AC-03-008.2: Lista replaces cards, keeps URL and history, renders one labelled row with live decisions", async () => {
     const user = userEvent.setup();
     render(<PortfolioOverview projects={[PROJECT]} directory={servicesFixture()} />);
