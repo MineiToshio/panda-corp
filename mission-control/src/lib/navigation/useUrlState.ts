@@ -9,9 +9,9 @@ import {
   useEffect,
   useSyncExternalStore,
 } from "react";
+import { commitNavigationHref, NAVIGATION_EVENT } from "./history";
 import { type NavigationPatch, navigationHref, parseNavigationUrl } from "./urls";
 
-const NAVIGATION_EVENT = "mission-control:navigation";
 const NavigationSeed = createContext("/");
 
 /** Supply the server's exact route during hydration without duplicating view state. */
@@ -42,10 +42,7 @@ export function updateNavigation(patch: NavigationPatch, options?: { replace?: b
   const current = currentHref();
   const next = navigationHref(current, patch);
   if (next === current) return;
-  // Next copies its history internals and restores canonicalUrl for external shallow updates.
-  if (options?.replace) window.history.replaceState(null, "", next);
-  else window.history.pushState(null, "", next);
-  window.dispatchEvent(new Event(NAVIGATION_EVENT));
+  commitNavigationHref(next, options);
 }
 
 /** Read a view selection from the URL and update it with native history semantics. */

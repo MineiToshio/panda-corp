@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ProjectWorkspace } from "@/app/projects/[slug]/ProjectWorkspace";
 import { workspaceHref, workspaceSelection } from "@/app/projects/[slug]/workspace-route";
 import { PageHead } from "@/components/core/PageHead/PageHead";
@@ -17,12 +17,17 @@ import { PortfolioOverview } from "./PortfolioOverview";
 export async function PortfolioContent({
   searchParams,
   routeState = {},
+  requestHref,
 }: {
   searchParams: Promise<RouteQuery>;
   routeState?: Record<string, string>;
+  requestHref?: string;
 }): Promise<React.JSX.Element> {
   const rawQuery = await searchParams;
-  const legacy = routeHref("/portfolio", [], rawQuery);
+  const legacy = routeHref("/portfolio", [], rawQuery).replace(
+    /^\/portfolio\/(?=\?|$)/,
+    "/portfolio",
+  );
   const canonical = normalizeLegacyNavigation(legacy);
   const params = { ...parseNavigationUrl(canonical), ...routeState };
   const projects = getProjectOverview();
@@ -36,6 +41,7 @@ export async function PortfolioContent({
     if (!project) notFound();
     const selection = workspaceSelection(params, item.path);
     const href = workspaceHref("/portfolio", params, project.id, selection);
+    if ((requestHref ?? legacy) !== href) redirect(href);
     return (
       <NavigationSeedProvider href={href}>
         <NavigationCanonical href={href} />
@@ -53,6 +59,7 @@ export async function PortfolioContent({
   const view = params.view ?? "tarjetas";
   if (!["tarjetas", "lista", "cuentas"].includes(view)) notFound();
   const href = canonical.replace(/^\/portfolio\//, "/portfolio");
+  if (legacy !== href) redirect(href);
   return (
     <NavigationSeedProvider href={href}>
       <NavigationCanonical href={href} />

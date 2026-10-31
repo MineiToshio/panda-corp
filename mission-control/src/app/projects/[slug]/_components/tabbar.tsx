@@ -1,8 +1,9 @@
 "use client";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { Tabs, type TabsProps } from "@/components/core/Tabs/Tabs";
 import { t } from "@/lib/copy/copy";
+import { useNavigationRouter } from "@/lib/navigation/NavigationProvider";
 import { navigationHref } from "@/lib/navigation/urls";
 import type { WorkspaceProject } from "../_panels/workspaceProject";
 
@@ -47,7 +48,7 @@ export function TabBar({
   projectName = "",
   counts,
 }: TabBarProps): React.JSX.Element {
-  const router = useRouter();
+  const router = useNavigationRouter();
   const searchParams = useSearchParams();
   const wrapper = useRef<HTMLElement>(null);
   const badges = {

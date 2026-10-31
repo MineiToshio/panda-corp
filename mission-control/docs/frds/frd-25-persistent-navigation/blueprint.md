@@ -7,7 +7,7 @@ implementation_status: VERIFIED
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22
-last_updated: 2026-10-30
+last_updated: 2026-10-31
 ---
 # FRD-25 — Persistent navigation URLs — Feature blueprint (v2 «Órbita»)
 
@@ -101,7 +101,31 @@ The codec does not apply aliases by itself. **Portfolio and standalone workspace
 `normalizeLegacyNavigation` now**, including legacy query roots, Party and work-order details. Validation
 of the original tail precedes normalization; the hydration seed, resolved selection and canonical URL use
 the normalized location. Other surface owners apply their aliases when they adopt v2 (WO-07-006,
-WO-08-003, WO-02-016). `NavigationCanonical` replaces the location without adding a history entry.
+WO-08-003, WO-02-016). Both workspace families resolve canonical defaults with server redirects,
+including the default document path and WO Summary query. The two Board boundaries also redirect
+legacy aliases before rendering, preserving their existing canonicalization contract. Portfolio passes the original request href
+through its catch-all boundary, so comparison is against the requested route rather than a synthetic
+query-only root. The overview normalizes the synthetic trailing slash before comparison.
+
+**2026-10-31 reviewed repair:** the first finite event timestamp establishes a baseline, just like
+`stateVersionMoved`; only a later event or machine-state advance requests a refresh. Existing five-second
+coalescing remains. `NavigationProvider` lives in the root layout and wraps imperative workspace
+navigation in a shared React transition, marking it pending synchronously before calling Next.
+`useBackgroundRefresh` defers requests during that transition, coalesces them, reevaluates the current
+subscriber predicate after commit, and cancels requests on unmount. `WoLiveRefresh` (including its
+coalescing timer), `FraguaLive` (event/state and expiry timer), `WoNavigationRefresh`, and the dashboard
+watcher all use it. `DetailTabs`, `TabBar`, `WoViews`, `FraguaToken` and sidebar `NavigationLink` enter
+that same transition. Links retain Next's prefetch and modifier-click behavior through public onNavigate.
+
+Canonical URL renaming through `history.replaceState` with `__NA` is removed: it bypassed Next and
+left canonicalUrl/tree stale. `NavigationCanonical` can only mark an exact current URL, without a URL
+argument. Shallow client selections still use Next's patched native history bridge and a custom
+`missionControlHref` marker. No internal router fields are fabricated or used to detect pending work.
+
+After a native WO return or hard reload, tests wait for the layout POST after hydration commit before
+interacting. Deterministic regressions inject live frames through EventSource and delay Full RSC by
+500 ms; network latency is an adversarial stimulus, not a completion wait. Canonical refresh asserts
+the requested URL and a subsequent history commit. Back to Documents counts RSC requests.
 
 **2026-10-30 gate repair:** the workspace exposes the eight tabs in AC-04-012.1 order. With no selected
 work order, Observabilidad renders the v1 work-order list followed by `ObservabilidadTab` until
@@ -179,6 +203,7 @@ There is no exemption list: `configuration` and every other route render inside 
 keystroke and never pushes (AC-25-003.1). Surfaces with a search (Tablero, Configuración, Documentación,
 Cuentas, the data-model viewer) use it.
 
+
 ## Decision: the oracle spec is split by family
 
 The v1 `e2e/persistent-navigation.spec.ts` pins testids and routes of ten surfaces that nine v2 work orders
@@ -211,6 +236,12 @@ work order (reconciliation 2026-10-22; it was the one W3 artifact overlap betwee
 
 ## Dependencies & Risks
 
+- **History verification (2026-10-31):** the initial 10/10 run did not discriminate the baseline and
+  cannot justify closure. Independent review reproduced loss of the Summary entry during live refresh
+  and exposed the stale canonical router tree. Canonical-plus-refresh is part of the supported flow,
+  not an excluded edge case. The new deterministic tests must fail against the base before closure.
+  Isolated fixtures avoid dev HMR noise; they do not fix the application race. The real-root sandbox
+  separately denies ledger writes; no factory data is edited by the verification.
 - No upstream work order (W0). Downstream: every v2 surface work order depends on WO-25-001 (map): the
   shell (WO-19-002) consumes `activeDestinationPath`; Portafolio, workspace, Configuración and
   Documentación apply `normalizeLegacyNavigation`; every searchable surface uses `useUrlSearch`.
@@ -222,6 +253,59 @@ work order (reconciliation 2026-10-22; it was the one W3 artifact overlap betwee
   on the v1 UI; a surface WO that forgets its file turns its own gate red, which is the intended signal.
 - Risk, aliases not applied by the codec: a v2 owner that forgets to call the normalizer leaves a legacy URL
   as a 404; the FRD gate's legacy-queries step in the core spec catches it.
+
+## Navigation history verification
+
+The focused configuration at `e2e/persistent-navigation/playwright.config.ts` prepares a copy of the
+frozen fixture under ignored `test-results/navigation-fixture`, puts compiler temporaries under
+`test-results/navigation-tmp`, and binds the server and mutation test to the same copy. It runs one
+worker, zero retries and its own server; it never reuses another lane's listener. The test rejects an
+override outside the original fixture or this project's `test-results/` tree. Existing source fixtures
+and the default shared Playwright configuration stay unchanged. The fixture teardown still checks
+source bytes and restores files. Preparation copies without deleting directories; an interrupted
+fixture with stale registration fails its explicit precondition rather than silently passing.
+The snapshot excludes the derived ledger's transient lock directory and temporary files before
+traversal/read, since the writer can release them concurrently. It still reads the stable ledger for
+teardown and all authored sources; unrelated read errors propagate. Filtering after reading caused
+two ENOENT failures after successful navigation in the first expanded production run (38/40 passed).
+
+Run from `mission-control/`, with an available isolated port:
+
+```sh
+PORT=4902 PANDACORP_PROD_SMOKE=1 PW_TEST_CONNECT_WS_ENDPOINT=ws://127.0.0.1:4950/pw pnpm exec playwright test --config=e2e/persistent-navigation/playwright.config.ts --repeat-each=10
+```
+
+Unset `PANDACORP_PROD_SMOKE` for development. The production mode performs a full `next build` and
+`next start`; no TypeScript bypass. The configuration selects only the registration regression and
+the history cases, including deterministic live races, canonical refresh and document traversal. Retained failure traces include clicks, requests, browser errors and console
+history events with document identity, timestamps, old/new state and stacks, surviving native links
+and hard reloads. Filter remote-server traces by the current page id when earlier contexts are present.
+
+**2026-10-31 differential evidence:** the previous candidate lost the Summary history entry in
+5/5 executions of the independent delayed-RSC/first-live-frame probe. The new first-frame test also
+fails against a production build of base `840f2ce9` (history length remains two instead of three).
+The candidate's canonical-refresh regression requested a URL without `woview=summary`, proving the
+metadata-only rename did not synchronize Next. The earlier ordinary 10/10 runs were nondiscriminating.
+
+| Suspect | Evidence and disposition |
+|---|---|
+| Dev/load | Production reproduces deterministically, ruling out dev compilation as the root cause. Fixture/HMR isolation remains useful test hygiene only. |
+| Competing router actions | First live frame calls refresh during pending push; refresh's replace semantics lose the Summary entry. Baseline the initial event and defer subsequent refreshes through a shared transition. |
+| Canonical metadata | Renaming with __NA bypasses Next canonicalUrl/tree; server redirects now establish both URL and tree before interactive content. |
+| Harness | A delay-free run can miss the race. Delay Full RSC and inject the first/live-throttled frame explicitly; assert history length plus hard-reload traversal. Transient ledger locks remain excluded before snapshot reads. |
+| Parallel writer | Production baseline and candidate are served sequentially on the owned port from immutable builds; frame injection needs no factory writes. |
+
+Final production verification: eight cases repeated ten times, **80/80 passed** with one worker and
+zero retries, including **40/40** targeted first-frame/throttled races, canonical refresh and
+Document Back cases. The unchanged independent delayed-RSC probe passed **5/5**, each preserving
+history length two to three. The real-factory Portfolio walkthrough retained `woview=summary` after
+6.5 seconds, then restored Summary/Full through hard reload and Back/Forward. Its independent
+Document Back probe observed the correct canonical tree and zero RSC requests (one measurement,
+not a latency guarantee). Focused units passed 84/84 across 13 files; the full production build,
+focused TypeScript and Biome checks passed. Evidence: lane B `review2/final.log`, `final-race.log`,
+`final-real-walk.log`, `final-real-net.log` and `final-unit.log`. Earlier green runs are not closure
+evidence. Real-root ledger writes were denied by the sandbox and file-watcher EMFILE errors were
+visible; neither is claimed fixed by this navigation repair.
 
 ## Build Plan
 

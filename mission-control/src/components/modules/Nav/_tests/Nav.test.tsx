@@ -3,7 +3,10 @@ import { usePathname } from "next/navigation";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Nav } from "../Nav";
 
-vi.mock("next/navigation", () => ({ usePathname: vi.fn(() => "/") }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: vi.fn(() => "/"),
+}));
 const visibility = document.createElement("style");
 visibility.textContent = ".mini { display: none; }";
 beforeEach(() => {

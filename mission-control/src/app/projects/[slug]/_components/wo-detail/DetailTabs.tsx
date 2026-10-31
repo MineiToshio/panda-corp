@@ -1,11 +1,11 @@
 "use client";
-import { useRouter } from "next/navigation";
 import { Tabs } from "@/components/core/Tabs/Tabs";
 import { t } from "@/lib/copy/copy";
+import { useNavigationRouter } from "@/lib/navigation/NavigationProvider";
 import { navigationHref } from "@/lib/navigation/urls";
 /** Small URL-owned island; document markdown stays on the server. */
 export function DetailTabs({ active, href }: { active: string; href: string }): React.JSX.Element {
-  const router = useRouter();
+  const router = useNavigationRouter();
   return (
     <Tabs
       level="sub"

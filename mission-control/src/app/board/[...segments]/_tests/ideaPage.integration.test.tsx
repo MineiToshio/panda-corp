@@ -77,16 +77,21 @@ async function mount(
   query: Record<string, string> = {},
 ): Promise<ReturnType<typeof render>> {
   const segments = tab ? ["public-idea", tab] : ["public-idea"];
-  const search = new URLSearchParams(query).toString();
+  const canonicalQuery = { ...query };
+  if (tab === "documents" && query.doc) {
+    segments.push(query.doc);
+    delete canonicalQuery.doc;
+  }
+  const search = new URLSearchParams(canonicalQuery).toString();
   window.history.replaceState(
     null,
     "",
-    `/board/${segments.join("/")}${search ? `?${search}` : ""}`,
+    `/board/${segments.map(encodeURIComponent).join("/")}${search ? `?${search}` : ""}`,
   );
   return render(
     await PersistentBoard({
       params: Promise.resolve({ segments }),
-      searchParams: Promise.resolve(query),
+      searchParams: Promise.resolve(canonicalQuery),
     }),
   );
 }
@@ -332,16 +337,11 @@ it("AC-02-016.5: unknown ideas render the designed recovery card and invalid tab
     }),
   ).rejects.toThrow();
 });
-it("AC-02-009.4: board legacy URLs preserve document and expanded selections at the boundary", async () => {
+it("AC-02-009.4: board legacy URLs redirect before mounting and preserve document and expanded selections", async () => {
   project();
-  window.history.replaceState(
-    null,
-    "",
-    "/board?idea=public-idea&boardTab=docs&doc=docs%2Fproduct%2Fprd&expanded=1",
-  );
   const readArtifacts = vi.spyOn(architecture, "readArchitectureArtifacts");
-  render(
-    await BoardPage({
+  await expect(
+    BoardPage({
       searchParams: Promise.resolve({
         idea: "public-idea",
         boardTab: "docs",
@@ -349,15 +349,19 @@ it("AC-02-009.4: board legacy URLs preserve document and expanded selections at 
         expanded: "1",
       }),
     }),
-  );
-  expect(screen.getByRole("heading", { name: "Tablero" })).toBeInTheDocument();
-  expect(screen.queryByTestId("card-detail")).not.toBeInTheDocument();
+  ).rejects.toMatchObject({
+    digest:
+      "NEXT_REDIRECT;replace;/board/public-idea/documents/docs%2Fproduct%2Fprd?expanded=1;307;",
+  });
   expect(readArtifacts).not.toHaveBeenCalled();
-  expect(screen.getByRole("progressbar", { name: "0/1 WO" })).toHaveAttribute("aria-valuemax", "1");
-  expect(router.replace).toHaveBeenCalledWith(
-    "/board/public-idea/documents/docs%2Fproduct%2Fprd?expanded=1",
-    { scroll: false },
-  );
+  await expect(
+    PersistentBoard({
+      params: Promise.resolve({ segments: ["public-idea", "architecture"] }),
+      searchParams: Promise.resolve({ model: "diagram" }),
+    }),
+  ).rejects.toMatchObject({
+    digest: "NEXT_REDIRECT;replace;/board/public-idea/architecture?model=Diagrama;307;",
+  });
 });
 
 it("AC-02-016.5: the real board requests the separate idea page by public identity", async () => {

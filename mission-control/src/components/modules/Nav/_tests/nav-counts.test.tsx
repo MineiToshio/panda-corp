@@ -2,7 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Nav } from "../Nav";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/",
+}));
 const css = document.createElement("style");
 css.textContent = ".mini { display: none; }";
 afterEach(() => css.remove());

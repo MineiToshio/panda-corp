@@ -161,3 +161,10 @@ Every REQ-06-MMM with a live criterion maps to a component or interface; each li
 work order (README AC table; two of them cross-FRD by the map); `dependsOn` names only live work orders; the W3
 artifacts are disjoint; the primitives come from FRD-13's foundation work orders; no open clarification marker
 survives. No API contract is planned (no route handler changes, map §0.3).
+
+## Navigation coordination (2026-10-31)
+
+Both FraguaLive refresh paths (live snapshot/state and no-signal TTL timer) use
+`useBackgroundRefresh`; the root NavigationProvider defers/coalesces them while a user navigation is
+pending and cancels work from unmounted subscribers. FraguaToken enters that shared transition
+before its router push. Signal freshness and TTL rendering remain unchanged. See FRD-25.

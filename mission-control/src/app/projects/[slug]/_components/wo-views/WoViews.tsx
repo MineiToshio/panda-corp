@@ -1,11 +1,11 @@
 "use client";
-import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/core/EmptyState/EmptyState";
 import { Icon } from "@/components/core/Icon/Icon";
 import { Segmented } from "@/components/core/Segmented/Segmented";
 import { t } from "@/lib/copy/copy";
 import type { FrdDriftResult } from "@/lib/frds/frd-drift";
 import type { ProjectFrd } from "@/lib/frds/frd-index";
+import { useNavigationRouter } from "@/lib/navigation/NavigationProvider";
 import { type NavigationPatch, type NavigationState, navigationHref } from "@/lib/navigation/urls";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { WorkOrderBoard } from "../wo-board/wo-board";
@@ -30,7 +30,7 @@ export function WoViews({
   state: NavigationState;
   children?: React.ReactNode;
 }): React.JSX.Element {
-  const router = useRouter();
+  const router = useNavigationRouter();
   const view = state.view === "tablero" || state.view === "deps" ? state.view : "frd";
   const frd = selectedFrd(frds, state.frd),
     states = parseStates(state.state);

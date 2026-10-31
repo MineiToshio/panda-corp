@@ -46,8 +46,10 @@ export default async function PersistentBoard({
         </Card>
       </section>
     );
-  const href = normalizeLegacyNavigation(routeHref("/board", segments, await searchParams));
+  const requested = routeHref("/board", segments, await searchParams);
+  const href = normalizeLegacyNavigation(requested);
   if (idea !== data.navigationSlug) redirect(navigationHref(href, { idea: data.navigationSlug }));
+  if (requested !== href) redirect(href);
   return (
     <NavigationSeedProvider href={href}>
       <NavigationCanonical href={href} />

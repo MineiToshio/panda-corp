@@ -1,7 +1,7 @@
 ---
 id: ADR-0010
 status: ACCEPTED
-last_updated: 2026-10-22
+last_updated: 2026-10-31
 ---
 
 # ADR-0010 — Persistent resource identity and shared URL routing
@@ -19,3 +19,18 @@ Names and folder paths change; deriving every href from the current name breaks 
 A moved resource must retain its dedicated reference and be reconciled; unknown locations cannot be inferred from an ID alone. Alias conflicts are explicit errors. Existing data requires previewed non-destructive bootstrap, and its private catalog must be backed up in the vault. A missing catalog supports legacy fixtures/bootstrap; corruption in an existing catalog is not treated as an empty factory. Native fullscreen restoration requires a user gesture; URL restoration uses the existing expanded dialog. Path parsers are bounded and scoped document allowlists remain authoritative.
 
 Canonical contracts: [FRD-25](../frds/frd-25-persistent-navigation/frd.md), [blueprint](../frds/frd-25-persistent-navigation/blueprint.md), [platform architecture](../product/architecture.md).
+
+## Live navigation amendment (2026-10-31)
+
+Canonical defaults and legacy aliases resolve through server redirects in Portfolio, standalone
+projects and Board. Renaming an entry with Next's `__NA` metadata bypasses synchronization and leaves
+canonicalUrl/tree stale; that approach is withdrawn. Native history remains for shallow client views
+and marking an already exact entry without a URL argument.
+
+The root NavigationProvider coordinates workspace/sidebar push/replace through React useTransition.
+Live refresh requests wait while navigation is pending, coalesce per mounted subscriber, and reevaluate
+the current predicate after commit; unmounted requests are cancelled. The first WO event sample only
+establishes a baseline. This uses public React/Next APIs instead of observing private router fields or
+estimating completion with timers. Deterministic delayed-RSC/frame injection, refresh-after-canonical
+and document Back request counts supplement ordinary traversal tests; an ordinary 10/10 run alone did
+not distinguish the faulty base from the candidate.

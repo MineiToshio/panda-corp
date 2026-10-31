@@ -51,3 +51,10 @@ The shared strict source SHALL never infer state for the broken file. Summary's 
 recent advances SHALL retain valid data with per-file notices, including malformed archived changes.
 An unreadable discovery directory remains a whole-source failure. Global progress SHALL state the
 number of unread files instead of claiming an exact project total or percentage.
+
+## Navigation-safe live updates (2026-10-31)
+
+The first finite event timestamp and machine-state version establish baselines and do not refresh.
+Later advances retain the five-second coalescing policy. A refresh, including a scheduled callback,
+SHALL wait for any pending workspace navigation to commit; it SHALL NOT replace the Summary entry
+created before a Full selection. Unmounted subscribers cancel queued refreshes. See FRD-25.

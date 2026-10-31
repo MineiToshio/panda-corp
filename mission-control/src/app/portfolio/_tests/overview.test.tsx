@@ -101,6 +101,9 @@ vi.mock("@/lib/navigation/NavigationCanonical", () => ({
   ),
 }));
 vi.mock("next/navigation", () => ({
+  redirect: (href: string) => {
+    throw new Error(`NEXT_REDIRECT:${href}`);
+  },
   notFound: () => {
     throw new Error("NEXT_NOT_FOUND");
   },
@@ -112,8 +115,8 @@ import { getProjectOverview } from "@/lib/portfolio/overview";
 import PortfolioNotFound from "../not-found";
 import { PortfolioContent as PortfolioPage } from "../PortfolioContent";
 
-const page = (query = {}, routeState?: Record<string, string>) =>
-  PortfolioPage({ searchParams: Promise.resolve(query), routeState });
+const page = (query = {}, routeState?: Record<string, string>, requestHref?: string) =>
+  PortfolioPage({ searchParams: Promise.resolve(query), routeState, requestHref });
 beforeEach(() => vi.mocked(getProjectOverview).mockReturnValue([PROJECT]));
 
 describe("portfolio page assembly", () => {
@@ -136,7 +139,7 @@ describe("portfolio page assembly", () => {
       expect(screen.getByRole("table", { name: "Cuentas de la fábrica" })).toBeVisible();
   });
   it("REQ-03-005: explicit public identity mounts full-width workspace with no Portafolio heading", async () => {
-    render(await page({}, { project: "alpha", tab: "summary" }));
+    render(await page({}, { project: "alpha", tab: "summary" }, "/portfolio/alpha/summary"));
     expect(screen.getByRole("region", { name: "Workspace" })).toHaveAttribute(
       "data-heading-level",
       "1",
@@ -147,31 +150,12 @@ describe("portfolio page assembly", () => {
       "/portfolio/alpha/summary",
     );
   });
-  it("keeps the server-resolved accounts view while the legacy URL hydrates, and supports Back", async () => {
-    window.history.replaceState(null, "", "/portfolio?portfolioView=accounts");
-    render(await page({ portfolioView: "accounts" }));
-    expect(screen.getByRole("button", { name: "Cuentas" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("table", { name: "Cuentas de la fábrica" })).toBeVisible();
-    act(() => {
-      window.history.replaceState(null, "", "/portfolio");
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    });
-    expect(screen.getByRole("button", { name: "Tarjetas" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+  it("redirects legacy accounts and project URLs before mounting interactive children", async () => {
+    await expect(page({ portfolioView: "accounts" })).rejects.toThrow(
+      "NEXT_REDIRECT:/portfolio?view=cuentas",
     );
-  });
-  it("normalizes the legacy accounts and project URLs with replace through NavigationCanonical", async () => {
-    const { unmount } = render(await page({ portfolioView: "accounts", keep: "yes" }));
-    expect(screen.getByTestId("canonical").getAttribute("data-href")).toContain("view=cuentas");
-    expect(screen.getByTestId("canonical").getAttribute("data-href")).not.toContain(
-      "portfolioView",
-    );
-    unmount();
-    render(await page({ project: "Alpha Project" }));
-    expect(screen.getByTestId("canonical")).toHaveAttribute(
-      "data-href",
-      "/portfolio/alpha/summary",
+    await expect(page({ project: "Alpha Project" })).rejects.toThrow(
+      "NEXT_REDIRECT:/portfolio/alpha/summary",
     );
   });
   it("rejects unknown projects, repeated views and unsupported overview views with the 404 boundary", async () => {

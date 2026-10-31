@@ -13,10 +13,19 @@ This is a headless cross-cutting navigation contract over existing approved UI c
 
 Owner-approved 2026-10-17. This cross-cutting contract supersedes local-only selection and name-derived routing in FRDs02–08,10–13,17–19,22. The approved research inventory is [the route proposal](../../proposals/persistent-navigation-urls.md). Existing visual surfaces remain approved, inside the centered 1180px content frame of the v2 shell (FRD-19; amended 2026-10-22, v2 plan, replacing the earlier 1240px frame).
 
+> **2026-10-31 reviewed repair:** the first live event now establishes a baseline, subsequent
+> refreshes wait for pending navigation, and server redirects synchronize canonical URLs with Next.
+> Production verification passed 80/80 cases (eight cases repeated ten times), including 40/40
+> targeted race/canonical/document cases; the independent deterministic race passed 5/5. The same
+> first-frame regression fails on base `840f2ce9`. A real-factory walkthrough preserved Summary after
+> refresh and restored Summary/Full through hard reload, Back and Forward. These results supersede
+> the earlier nondiscriminating closure. Queue-card archival remains an integration action; this
+> lane has not archived it.
+
 ## Acceptance criteria (EARS)
 
 - **AC-25-001.1** — (renamed from "AC-25-001", amended 2026-10-22, v2 plan) WHEN a user selects an idea/project, tab, document, Work Order, read-only reference/detail, campaign phase, model mode/entity/search, or supported list filter, THEN Mission Control SHALL encode that semantic location in the URL.
-- **AC-25-002.1** — (renamed from "AC-25-002", amended 2026-10-22, v2 plan) WHEN the user reloads, pastes a copied URL into a new session, or uses Back/Forward, THEN the application SHALL restore the addressed resource/tab/detail/filter without executing a mutation or build command.
+- **AC-25-002.1** — (renamed from "AC-25-002", amended 2026-10-22, v2 plan) WHEN the user reloads, pastes a copied URL into a new session, or uses Back/Forward, THEN the application SHALL restore the addressed resource/tab/detail/filter without executing a mutation or build command. This includes a hard reload between a WO Summary/Full selection and Back/Forward, and repeated traversal of shallow view entries. A restored client-owned location SHALL NOT be rewritten by an older server-rendered canonical default.
 - **AC-25-003.1** — (renamed from "AC-25-003", amended 2026-10-22, v2 plan) WHEN a root page automatically chooses a project/tab/default Manual page, THEN the application SHALL replace the current history entry with the resolved explicit location; search typing SHALL replace rather than push each keystroke.
 - **AC-25-004.1** — (renamed from "AC-25-004", amended 2026-10-22, v2 plan) WHEN old query-based Portfolio or standalone project links are opened, THEN the compatibility resolver SHALL retain the selected project, tab, document/WO, filters and anchor while normalizing to the corresponding presentation context.
 - **AC-25-005.1** — (renamed from "AC-25-005", amended 2026-10-22, v2 plan) WHEN a project display name, card filename or folder changes and its dedicated identity reference is retained/reconciled, THEN the identity catalog SHALL retain its immutable ID and reserved public slug; an explicit public-slug rename SHALL preserve the previous slug as an alias.

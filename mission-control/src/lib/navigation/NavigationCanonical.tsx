@@ -1,23 +1,23 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
+import { isManagedNavigationEntry, markNavigationEntry } from "./history";
 
-function searchKey(search: string): string {
-  return new URLSearchParams(search).toString();
-}
-
-/** Normalize defaults and legacy aliases without adding an extra history entry. */
+/** Normalize server defaults once without racing a newer client selection or history traversal. */
 export function NavigationCanonical({ href }: { href: string }): null {
-  const router = useRouter();
-  const committed = useRef("");
-  committed.current = `${usePathname()}?${useSearchParams()?.toString()}`;
   useEffect(() => {
-    const { pathname, search, hash } = window.location;
-    if (`${pathname}${search}` === href) return;
-    // A tree that commits after Back or a shallow update must not rewrite the newer URL.
-    if (`${pathname}?${searchKey(search)}` !== committed.current) return;
-    router.replace(`${href}${hash}`, { scroll: false });
-  }, [href, router]);
+    const { pathname, search } = window.location;
+    if (isManagedNavigationEntry()) return;
+    const source = window.location.href;
+    let active = true;
+    // Parent passive effects install Next's history bridge after child hydration effects.
+    queueMicrotask(() => {
+      if (!active || window.location.href !== source || isManagedNavigationEntry()) return;
+      if (`${pathname}${search}` === href) markNavigationEntry();
+    });
+    return () => {
+      active = false;
+    };
+  }, [href]);
   return null;
 }

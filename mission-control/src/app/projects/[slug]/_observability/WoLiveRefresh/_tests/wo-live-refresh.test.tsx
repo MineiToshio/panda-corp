@@ -46,12 +46,15 @@ describe("WoLiveRefresh", () => {
     expect(refreshMock).not.toHaveBeenCalled();
   });
 
-  it("refreshes when a new event arrives (lastEventAt changed)", () => {
+  it("uses the first event as a baseline and refreshes only when it advances", () => {
     useLiveSnapshotMock.mockReturnValue(frame(null, 100));
     const { rerender } = render(<WoLiveRefresh project="mc" />);
     expect(refreshMock).not.toHaveBeenCalled();
 
     useLiveSnapshotMock.mockReturnValue(frame("2026-07-07T10:00:05Z", 100));
+    rerender(<WoLiveRefresh project="mc" />);
+    expect(refreshMock).not.toHaveBeenCalled();
+    useLiveSnapshotMock.mockReturnValue(frame("2026-07-07T10:00:06Z", 100));
     rerender(<WoLiveRefresh project="mc" />);
     expect(refreshMock).toHaveBeenCalledTimes(1);
   });
@@ -71,13 +74,13 @@ describe("WoLiveRefresh", () => {
   it("does not refresh when neither the event nor the state version moved", () => {
     useLiveSnapshotMock.mockReturnValue(frame("2026-07-07T10:00:05Z", 100));
     const { rerender } = render(<WoLiveRefresh project="mc" />);
-    // First real frame triggers one refresh (board becomes current).
-    expect(refreshMock).toHaveBeenCalledTimes(1);
+    // First real frame establishes the baseline without interrupting navigation.
+    expect(refreshMock).not.toHaveBeenCalled();
 
     // A replay of the SAME frame (new object, same values) must not refresh again.
     useLiveSnapshotMock.mockReturnValue(frame("2026-07-07T10:00:05Z", 100));
     rerender(<WoLiveRefresh project="mc" />);
-    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(refreshMock).not.toHaveBeenCalled();
   });
 
   it("renders the invisible marker span (data-testid=wo-live-refresh)", () => {
@@ -92,20 +95,20 @@ it("AC-12-005.1 AC-12-005.2 coalesces bursts, ignores older events and clears pe
   try {
     useLiveSnapshotMock.mockReturnValue(frame("2026-10-30T10:00:00Z", 100));
     const { rerender, unmount } = render(<WoLiveRefresh project="mc" />);
-    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(refreshMock).toHaveBeenCalledTimes(0);
     useLiveSnapshotMock.mockReturnValue(frame("2026-10-30T09:00:00Z", 100));
     rerender(<WoLiveRefresh project="mc" />);
     vi.advanceTimersByTime(5000);
-    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(refreshMock).toHaveBeenCalledTimes(0);
     useLiveSnapshotMock.mockReturnValue(frame("2026-10-30T10:00:01Z", 100));
     rerender(<WoLiveRefresh project="mc" />);
-    expect(refreshMock).toHaveBeenCalledTimes(2);
+    expect(refreshMock).toHaveBeenCalledTimes(1);
     useLiveSnapshotMock.mockReturnValue(frame("2026-10-30T10:00:02Z", 90));
     rerender(<WoLiveRefresh project="mc" />);
-    expect(refreshMock).toHaveBeenCalledTimes(2);
+    expect(refreshMock).toHaveBeenCalledTimes(1);
     unmount();
     vi.advanceTimersByTime(5000);
-    expect(refreshMock).toHaveBeenCalledTimes(2);
+    expect(refreshMock).toHaveBeenCalledTimes(1);
   } finally {
     vi.useRealTimers();
   }

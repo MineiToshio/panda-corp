@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { BoardShell } from "@/app/board/_components/BoardShell/BoardShell";
 import { toggleFavoriteAction } from "@/app/board/actions/actions";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/types";
@@ -16,9 +17,14 @@ import { listWorkOrders } from "@/lib/work-orders/work-orders";
 export default async function BoardPage({
   searchParams,
 }: {
-  searchParams: Promise<RouteQuery>;
-}): Promise<React.JSX.Element> {
-  const href = normalizeLegacyNavigation(routeHref("/board", [], (await searchParams) ?? {}));
+  searchParams?: Promise<RouteQuery>;
+} = {}): Promise<React.JSX.Element> {
+  const requested = routeHref("/board", [], (await searchParams) ?? {}).replace(
+    /^\/board\/(?=\?|$)/,
+    "/board",
+  );
+  const href = normalizeLegacyNavigation(requested);
+  if (requested !== href) redirect(href);
   const cards: BoardCardEntry[] = readIdeas().map((card) => {
     const project = card.project ? readStatus(resolveProjectPath(card.project)) : null;
     return {

@@ -22,7 +22,11 @@ export default async function PersistentPortfolio({
   );
   return (
     <NavigationSeedProvider href={canonical}>
-      <PortfolioContent searchParams={Promise.resolve(query)} routeState={routeState} />
+      <PortfolioContent
+        searchParams={Promise.resolve(query)}
+        routeState={routeState}
+        requestHref={href}
+      />
     </NavigationSeedProvider>
   );
 }

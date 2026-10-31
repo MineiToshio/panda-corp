@@ -1,9 +1,9 @@
 "use client";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Avatar } from "@/components/core/Avatar/Avatar";
 import { phasePresentation } from "@/components/core/Chip/vocabulary";
 import { t } from "@/lib/copy/copy";
+import { NavigationLink as Link } from "@/lib/navigation/NavigationLink";
 import { parseNavigationUrl } from "@/lib/navigation/urls";
 import { projectDisplayName } from "@/lib/portfolio/displayName";
 import type { ProjectOverviewItem } from "@/lib/portfolio/overview";

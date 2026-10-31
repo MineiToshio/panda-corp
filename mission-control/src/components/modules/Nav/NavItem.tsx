@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { Icon } from "@/components/core/Icon/Icon";
 import type { NavDestination } from "@/lib/constants";
 import { t } from "@/lib/copy/copy";
+import { NavigationLink as Link } from "@/lib/navigation/NavigationLink";
 import styles from "./Nav.module.css";
 
 /** A full-label sidebar destination with an alternate mini label for the tablet rail. */

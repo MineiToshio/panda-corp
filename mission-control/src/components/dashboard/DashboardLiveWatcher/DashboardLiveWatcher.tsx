@@ -24,9 +24,9 @@
  *   REQ-18-004   — dashboard updates live without a reload
  */
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { useLiveSnapshot } from "@/hooks/useLiveSnapshot";
+import { useBackgroundRefresh } from "@/lib/navigation/NavigationProvider";
 import { stateVersionMoved } from "@/lib/status/state-version-moved";
 
 /**
@@ -39,7 +39,7 @@ import { stateVersionMoved } from "@/lib/status/state-version-moved";
  * Renders null — no visible output.
  */
 export function DashboardLiveWatcher(): null {
-  const router = useRouter();
+  const refresh = useBackgroundRefresh();
   const { lastEventAt, snapshot } = useLiveSnapshot();
   const previousVersion = useRef<number | null>(null);
   // Track the previous lastEventAt to detect genuinely new events
@@ -49,8 +49,8 @@ export function DashboardLiveWatcher(): null {
     const eventMoved = lastEventAt !== null && lastEventAt !== prevLastEventAt.current;
     const stateMoved = stateVersionMoved(snapshot?.stateVersion, previousVersion);
     if (eventMoved) prevLastEventAt.current = lastEventAt;
-    if (eventMoved || stateMoved) router.refresh();
-  }, [lastEventAt, snapshot, router]);
+    if (eventMoved || stateMoved) refresh();
+  }, [lastEventAt, snapshot, refresh]);
 
   return null;
 }

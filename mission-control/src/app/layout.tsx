@@ -32,6 +32,7 @@ import { guildAchievements } from "@/lib/inicio/achievement";
 import { isFreshAchievement } from "@/lib/inicio/achievementSelection";
 import { inicioGuild } from "@/lib/inicio/guild";
 import { ownerTurnItems } from "@/lib/inicio/turn";
+import { NavigationProvider } from "@/lib/navigation/NavigationProvider";
 import { summarizeWorktrees } from "@/lib/pendingMerge/pillSummary";
 import { getWorktreesByRepo } from "@/lib/pendingMerge/worktreesByRepo";
 import { getPluginSyncState } from "@/lib/plugin-sync/plugin-sync";
@@ -79,7 +80,7 @@ export default function RootLayout({
       </head>
       <body>
         {profileResult.present ? (
-          <>
+          <NavigationProvider>
             <AppShell
               location={
                 <Suspense fallback={<ShellLocation projects={null} />}>
@@ -113,7 +114,7 @@ export default function RootLayout({
             {/* Reconcile durable accounting on every route; direct navigation to
                 Logros/Configuración must not depend on visiting Inicio first. */}
             <GamificationLedgerSync />
-          </>
+          </NavigationProvider>
         ) : (
           <OnboardingGate />
         )}

@@ -1,9 +1,9 @@
 "use client";
-import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Chip } from "@/components/core/Chip/Chip";
 import { statePresentation } from "@/components/core/Chip/vocabulary";
 import { t } from "@/lib/copy/copy";
+import { useNavigationRouter } from "@/lib/navigation/NavigationProvider";
 import { navigationHref } from "@/lib/navigation/urls";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import styles from "./Fragua.module.css";
@@ -21,7 +21,7 @@ export function FraguaToken({
     [position, setPosition] = useState({ left: 0, top: 0 });
   const button = useRef<HTMLButtonElement>(null),
     tip = useRef<HTMLDivElement>(null);
-  const router = useRouter();
+  const router = useNavigationRouter();
   const presentation = statePresentation(order.state === "fail" ? "blocked" : order.state);
   const code = order.id.match(/^WO-(\d+)-(\d+)$/);
   const title = order.title.replace(/^WO-\d+-\d+\s*[—–:-]?\s*/, "");

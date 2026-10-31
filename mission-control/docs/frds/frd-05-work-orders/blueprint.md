@@ -220,3 +220,11 @@ cards render those notices beside valid data. Global overview exposes `orderErro
 workspace headers and Lista display the unread-file count instead of a fabricated exact percentage.
 `FileReadErrors` reuses Notice, wraps long paths, and localizes parser reasons through microcopy.
 Lista links to source errors remain underlined at all widths.
+
+## Navigation coordination (2026-10-31)
+
+`WoLiveRefresh` applies `stateVersionMoved` to finite event timestamps as well as machine state;
+first samples only establish baselines. Its immediate and throttled callbacks use
+`useBackgroundRefresh` from the root `NavigationProvider` (FRD-25), so no refresh can overwrite a
+pending workspace push. `WoNavigationRefresh` rechecks current URL selection against current props
+after the transition; a resolved mismatch or unmounted consumer does not trigger stale work.

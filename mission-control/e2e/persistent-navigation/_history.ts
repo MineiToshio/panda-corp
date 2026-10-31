@@ -7,13 +7,25 @@ export async function observeHistory(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const target = window as TimelineWindow;
     target.navigationTimeline = [];
+    function record(event: Record<string, unknown>): void {
+      const entry = {
+        ...event,
+        at: Date.now(),
+        document: performance.timeOrigin,
+        state: history.state,
+      };
+      target.navigationTimeline?.push(entry);
+      // Playwright's trace retains console events across native navigations and hard reloads.
+      console.debug("navigation-history", JSON.stringify(entry));
+    }
     for (const method of ["pushState", "replaceState"] as const) {
       const original = history[method].bind(history);
       history[method] = (...args: Parameters<History[typeof method]>) => {
-        target.navigationTimeline?.push({
+        record({
           method,
           from: location.href,
           to: args[2],
+          nextState: args[0],
           length: history.length,
           stack: new Error().stack,
         });
@@ -21,7 +33,7 @@ export async function observeHistory(page: Page): Promise<void> {
       };
     }
     window.addEventListener("popstate", () => {
-      target.navigationTimeline?.push({
+      record({
         method: "popstate",
         url: location.href,
         length: history.length,
@@ -44,6 +56,7 @@ export async function historyCheckpoint(
         step,
         url: location.href,
         length: history.length,
+        state: history.state,
         hydrated:
           !!node &&
           Object.keys(node).some(

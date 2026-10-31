@@ -1,9 +1,9 @@
 "use client";
-import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useLiveSnapshot } from "@/hooks/useLiveSnapshot";
 import type { BuildSignal } from "@/lib/fragua/build-signal";
 import { latestBuildEvent } from "@/lib/fragua/live-events";
+import { useBackgroundRefresh } from "@/lib/navigation/NavigationProvider";
 import { NO_SIGNAL_TTL_MS } from "@/lib/status/liveness";
 import { stateVersionMoved } from "@/lib/status/state-version-moved";
 import styles from "./Fragua.module.css";
@@ -20,7 +20,7 @@ export function FraguaLive({
   children: ReactNode;
 }): React.JSX.Element {
   const { snapshot } = useLiveSnapshot({ project });
-  const { refresh } = useRouter(),
+  const refresh = useBackgroundRefresh(),
     version = useRef<number | null>(null),
     lastRefresh = useRef(0),
     pending = useRef(false);

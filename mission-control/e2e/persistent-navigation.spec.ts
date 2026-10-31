@@ -13,6 +13,7 @@ import {
 // Assert the canonical destination independently from shared-server navigation latency.
 const NAVIGATION_TIMEOUT = 60_000;
 const expect = baseExpect.configure({ timeout: NAVIGATION_TIMEOUT });
+test.use({ trace: "retain-on-failure" });
 
 async function expectWorkOrderLocation(page: Page, pathname: string, view?: string, hash = "") {
   await expect
@@ -40,15 +41,20 @@ async function expectWorkOrderLocation(page: Page, pathname: string, view?: stri
 }
 
 function snapshotFiles(root: string): Map<string, Buffer> {
-  return new Map(
-    fs
-      .readdirSync(root, { recursive: true, withFileTypes: true })
-      .filter((entry) => entry.isFile())
-      .map((entry) => {
-        const file = path.join(entry.parentPath, entry.name);
-        return [file, fs.readFileSync(file)];
-      }),
-  );
+  const files = new Map<string, Buffer>();
+  const ledger = path.join(root, "factory/gamification-ledger.json");
+  const collect = (directory: string) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const file = path.join(directory, entry.name);
+      // Skip transient ledger artifacts before traversing or reading them: the writer
+      // can release its lock between directory enumeration and the snapshot read.
+      if (file === `${ledger}.lock` || file.startsWith(`${ledger}.tmp-`)) continue;
+      if (entry.isDirectory()) collect(file);
+      else if (entry.isFile()) files.set(file, fs.readFileSync(file));
+    }
+  };
+  collect(root);
+  return files;
 }
 
 // GuildBar already materializes its derived ledger while rendering. Navigation must
@@ -70,6 +76,21 @@ function sourceFiles(root: string, files: Map<string, Buffer>): Map<string, Buff
 // It lives in afterEach because a timed-out test body is abandoned: its finally may never run,
 // and the leftover project would then break every later test sharing this fixture.
 let restoreFixture: (() => Promise<void>) | undefined;
+
+function navigationFixtureRoot(): string {
+  // A dev run can isolate mutable data from Tailwind's source scanner and Fast Refresh.
+  const root = path.resolve(
+    process.env.NAVIGATION_TEST_FACTORY_ROOT ?? "e2e/fixtures/factory-root",
+  );
+  if (
+    root !== path.resolve("e2e/fixtures/factory-root") &&
+    !root.startsWith(`${path.resolve("test-results")}${path.sep}`)
+  ) {
+    throw new Error("Navigation fixtures must stay inside this project's test-results directory");
+  }
+  return root;
+}
+
 test.afterEach(async () => {
   const restore = restoreFixture;
   restoreFixture = undefined;
@@ -170,7 +191,7 @@ test("post-build registration: a non-first project retains identity through WO S
   test.setTimeout(300_000);
   const info = test.info();
   await observeHistory(page);
-  const root = path.resolve("e2e/fixtures/factory-root");
+  const root = navigationFixtureRoot();
   const before = snapshotFiles(root);
   expect(fs.readFileSync(path.join(root, "factory/portfolio.md"), "utf8")).not.toContain(
     "Navigation Review Second",
@@ -272,7 +293,12 @@ test("post-build registration: a non-first project retains identity through WO S
       await expectWorkOrderLocation(page, href, "full");
       await expect(page.getByTestId("wo-detail-full")).toContainText("Second project reader");
       await historyCheckpoint(page, `${family}-return`, '[data-testid="wo-detail-back"]', info);
+      const returnCommitted = page.waitForRequest((request) => {
+        const url = new URL(request.url());
+        return request.method() === "POST" && url.pathname === href && !url.searchParams.has("wo");
+      });
       await page.getByTestId("wo-detail-back").click();
+      await returnCommitted;
       await expectWorkOrderLocation(page, href);
       for (const tab of ["summary", "changes", "documents"]) {
         await historyCheckpoint(
