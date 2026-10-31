@@ -4,7 +4,7 @@ type: bug
 area: build-engine
 title: "engine agents receive the LAUNCHING session's CLAUDE.md chain, not the project's, when /implement is launched from a session whose cwd is another project"
 status: done
-severity: p3
+severity: p2
 opened: 2026-10-01
 closed: 2026-10-03
 source: "pandacorp-bench-form benchmark 2026-10-01 (orchestrator session cwd = mission-control launched bench-implement's engine)"
