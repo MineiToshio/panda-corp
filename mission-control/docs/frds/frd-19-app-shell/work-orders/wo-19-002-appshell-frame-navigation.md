@@ -6,7 +6,7 @@ title: 'WO-19-002 — AppShell frame and navigation (sidebar, tablet rail, phone
 status: ACTIVE
 parent: FRD-19
 foundation: true
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts:

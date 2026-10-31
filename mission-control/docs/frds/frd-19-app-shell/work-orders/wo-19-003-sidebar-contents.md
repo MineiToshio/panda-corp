@@ -6,7 +6,7 @@ title: 'WO-19-003 — Sidebar contents: projects, counts, collapse rail, theme b
 status: ACTIVE
 parent: FRD-19
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts:

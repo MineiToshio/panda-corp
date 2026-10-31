@@ -3,7 +3,7 @@ id: FRD-01
 type: frd
 title: FRD-01 — Data reading layer
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: VERIFIED
 last_updated: '2026-07-01'
 floor: false
 ---

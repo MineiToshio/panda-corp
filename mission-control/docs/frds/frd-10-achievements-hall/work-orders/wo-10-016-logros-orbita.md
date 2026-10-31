@@ -6,7 +6,7 @@ title: 'WO-10-016 — Logros: hero, Resumen, Misiones, Trofeos, Rangos'
 status: ACTIVE
 parent: FRD-10
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts:

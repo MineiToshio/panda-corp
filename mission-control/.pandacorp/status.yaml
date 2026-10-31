@@ -13,15 +13,15 @@ running: false
 run_started_at: "2026-10-31T05:11:22.155Z"
 run_completed_at: "2026-07-07T05:30:00Z"
 repo: ""
-updated_at: "2026-10-31T08:36:32.190Z"
-last_event_at: "2026-10-31T08:36:32.190Z"
+updated_at: "2026-10-31T09:33:02.617Z"
+last_event_at: "2026-10-31T09:33:02.617Z"
 work_orders_total: 149
-work_orders_verified: 140
-work_orders_in_review: 5
-work_orders_planned: 4
+work_orders_verified: 145
+work_orders_in_review: 3
+work_orders_planned: 1
 work_orders_in_progress: 0
 work_orders_blocked: 0
-work_orders_done: 140
+work_orders_done: 145
 pending_decisions: 3
 pending_bugs: 0
 rethink_pending: false
@@ -47,6 +47,6 @@ _release_prior_note: true  # RELEASE (DR-085): whole-project cross-feature INTEG
 blocked: []  # WO-23-005 gate-test-defective RESOLVED: the blessed aggregateChain.reviewer.test.ts:111-137 was re-blessed to the SSOT-split contract (fresh portada → factory-wide from live/factory-store) at the WO-23-006 gate; all 104 WOs VERIFIED.
 pending_changes: 0
 supervisor_heartbeat: ""
-build_run_id: "batch-w45-gate"
+build_run_id: "batch-w6-gate"
 build_runtime: "claude"
 build_lease_epoch: 1

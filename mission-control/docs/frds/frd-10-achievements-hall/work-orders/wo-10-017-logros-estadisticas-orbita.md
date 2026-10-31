@@ -6,7 +6,7 @@ title: 'WO-10-017 — Logros · Estadísticas (Informe) Órbita'
 status: ACTIVE
 parent: FRD-10
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: medium
 reopen_count: 0
 artifacts:

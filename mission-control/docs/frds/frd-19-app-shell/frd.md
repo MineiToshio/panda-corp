@@ -3,7 +3,7 @@ id: FRD-19
 type: frd
 title: 'FRD-19 — Global app shell (persistent sidebar navigation)'
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-19-app-shell/mocks/app-shell.html

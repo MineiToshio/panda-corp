@@ -6,7 +6,7 @@ title: 'WO-01-011 — Adopt the clock and git seams in the kept readers'
 status: ACTIVE
 parent: FRD-01
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: low
 reopen_count: 0
 artifacts:

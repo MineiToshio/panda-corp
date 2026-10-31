@@ -1,5 +1,15 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 — Wave 6 batch: filled sidebar, kept-reader seams and the statistics report
+
+The batch combines [WO-19-003](frds/frd-19-app-shell/work-orders/wo-19-003-sidebar-contents.md), [WO-01-011](frds/frd-01-data-reading/work-orders/wo-01-011-adopt-seams.md) and [WO-10-017](frds/frd-10-achievements-hall/work-orders/wo-10-017-logros-estadisticas-orbita.md). `readBuildTimeline` stays with main's Últimos avances wiring and now reads git through `runGit`.
+
+**Accessible names.** The failing `nav-counts.gate.reviewer.test.tsx` was a test environment fault: Vitest loads no CSS module, so jsdom counted both the label and the mini label. Chromium gives each destination its one rendered label ("Docs" and "Ajustes" on the tablet rail), so the jsdom test now selects by test id and `e2e/w6-integration.reviewer.spec.ts` asserts the real names. That browser check found a real defect: the collapsed 64 px rail hid `.lbl` with `display: none`, which left all seven links unnamed and stopped keyboard users from reaching them by name. The label is now visually hidden there, not removed.
+
+**Visual gate.** The pending pill streams in late and shows live git branches, so `PendingPill` carries `data-volatile` and the visual gate omits it. A captured Propuestas shot had lost the pill and shifted the nav 52 px, within the gate's tolerance. `/achievements/statistics` joins `e2e/routes.ts` as a smoke surface with no pixel baseline, because its figures come from live git.
+
+**State.** WO-01-011, WO-19-002, WO-19-003, WO-10-016 and WO-10-017 reached VERIFIED through the governed transition, closing FRD-01, FRD-19 and FRD-10. The tablero, documentacion, propuestas, logros and workspace desktop baselines were re-blessed after viewing each against its predecessor; the plan names four, and workspace is the fifth because it was first blessed in wave 4-5 and the sidebar moves it too. The provenance lines are in each FDD. They prove consistency only.
+
 ## 2026-10-31 — Wave 4-5 batch: workspace frame, Resumen, work orders and Cambios, Documentos, Comandos
 
 The batch combines [WO-04-010](frds/frd-04-project-workspace/work-orders/wo-04-010-workspace-frame.md), [WO-04-011](frds/frd-04-project-workspace/work-orders/wo-04-011-resumen.md), [WO-04-012](frds/frd-04-project-workspace/work-orders/wo-04-012-cambios-documentos.md), [WO-05-008](frds/frd-05-work-orders/work-orders/wo-05-008-observabilidad-views.md), [WO-05-009](frds/frd-05-work-orders/work-orders/wo-05-009-work-order-detail.md) and [WO-11-004](frds/frd-11-build-modes/work-orders/wo-11-004-comandos-tab.md), on top of the shell and primitives of wave 1. The integrated gate also judged [WO-06-013](frds/frd-06-party/work-orders/wo-06-013-fragua-four-stations.md) and [WO-12-007](frds/frd-12-observability-dataviz/work-orders/wo-12-007-dependency-map.md) on a real route for the first time.
