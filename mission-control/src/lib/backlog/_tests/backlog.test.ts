@@ -4,14 +4,6 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readBacklog } from "../backlog";
 
-/**
- * backlog.ts reader tests (FRD-22, DR-078 fail-loud boundary).
- *
- * Each test builds a real factory root in a temp dir, points
- * PANDACORP_FACTORY_ROOT at it, and exercises readBacklog() against real and
- * malformed fixtures — the malformed one MUST surface in errors[], not vanish.
- */
-
 let tmpRoot: string;
 let backlogDir: string;
 const prevEnv = process.env.PANDACORP_FACTORY_ROOT;
@@ -24,7 +16,7 @@ const VALID_ITEM = `---
 id: BL-0001
 type: bug
 area: build-engine
-title: A real closeable defect
+title: Fallo real del motor
 status: open
 severity: p1
 opened: 2026-06-30
@@ -50,7 +42,7 @@ afterEach(() => {
 });
 
 describe("readBacklog — real fixtures", () => {
-  it("parses a valid BL-*.md item with all fields", () => {
+  it("AC-22-001.1: parses a valid BL-*.md item with all fields", () => {
     writeItem("BL-0001-real.md", VALID_ITEM);
     const { items, errors } = readBacklog();
     expect(errors).toEqual([]);
@@ -60,12 +52,11 @@ describe("readBacklog — real fixtures", () => {
       id: "BL-0001",
       type: "bug",
       area: "build-engine",
-      title: "A real closeable defect",
+      title: "Fallo real del motor",
       status: "open",
       severity: "p1",
       source: "LESSON-0002",
     });
-    // opened is coerced from a YAML date to an ISO string
     expect(item?.opened).toBe("2026-06-30");
     expect(item?.closed).toBeNull();
     expect(item?.links).toEqual(["LESSON-0002", "DR-073"]);
@@ -170,20 +161,16 @@ body
     );
     const { items, errors } = readBacklog();
     expect(errors).toEqual([]);
-    // p0 group first (BL-0002 before BL-0010, both p0, ordered by id), then p1
-    // (BL-0005), then the no-severity item last.
     expect(items.map((i) => i.id)).toEqual(["BL-0002", "BL-0010", "BL-0005", "BL-0001"]);
   });
 });
 
 describe("readBacklog — fail-loud on malformed items (DR-078)", () => {
-  it("surfaces malformed YAML frontmatter in errors[], does not drop it silently", () => {
+  it("AC-22-004.1: surfaces malformed YAML frontmatter in errors[], does not drop it silently", () => {
     writeItem("BL-0001-real.md", VALID_ITEM);
     writeItem("BL-0009-broken.md", "---\nid: BL-0009\ntype: bug\n  bad: [unclosed\n---\nbody");
     const { items, errors } = readBacklog();
-    // The valid item still parses...
     expect(items.map((i) => i.id)).toEqual(["BL-0001"]);
-    // ...and the broken one is surfaced, never silently vanished.
     expect(errors).toHaveLength(1);
     expect(errors[0]?.file).toBe("BL-0009-broken.md");
     expect(errors[0]?.reason).toMatch(/malformed/i);
@@ -225,20 +212,94 @@ body
     expect(errors[0]?.reason).toMatch(/type/i);
   });
 
-  it("surfaces a duplicate id fail-loud and keeps only the first (BL-0013, DR-078)", () => {
-    // Two different files claiming the same id is a data-integrity defect: the second
-    // must NOT produce a second item (which would render duplicate React keys) — it is
-    // reported in errors[], naming the file that first defined the id.
+  it("AC-22-004.3: surfaces a duplicate id fail-loud and keeps only the first (BL-0013, DR-078)", () => {
     writeItem("BL-0010-a.md", VALID_ITEM.replace("BL-0001", "BL-0010"));
     writeItem("BL-0010-b.md", VALID_ITEM.replace("BL-0001", "BL-0010"));
     const { items, errors } = readBacklog();
-    // Exactly one item with that id (unique keys guaranteed for the UI).
     expect(items.filter((i) => i.id === "BL-0010")).toHaveLength(1);
-    // The other file is surfaced fail-loud, naming the file that first defined the id
-    // (order-independent: whichever readdir yields second is the reported duplicate).
     const dupError = errors.find((e) => e.reason.includes("duplicate id BL-0010"));
     expect(dupError).toBeDefined();
     expect(dupError?.file).toMatch(/^BL-0010-[ab]\.md$/);
-    expect(dupError?.reason).toMatch(/already defined in BL-0010-[ab]\.md/);
+    const first = fs.readdirSync(backlogDir).find((file) => file !== dupError?.file);
+    expect(errors).toEqual([
+      { file: dupError?.file, reason: `duplicate id BL-0010 (already defined in ${first})` },
+    ]);
   });
+});
+
+it.each([
+  false,
+  true,
+])("AC-22-008.1: groups priority and history independently (reverse=%s)", (reverse) => {
+  const cases: [string, string, string, string][] = [
+    ["BL-0011", "doing", "p2", ""],
+    ["BL-0010", "doing", "p0", ""],
+    ["BL-0013", "open", "p1", ""],
+    ["BL-0012", "open", "p1", ""],
+    ["BL-0014", "open", "", ""],
+    ["BL-0015", "open", "p2", ""],
+    ["BL-0016", "done", "p0", "2026-10-01T01:00:00+02:00"],
+    ["BL-0017", "discarded", "p2", "2026-10-01T00:00:00Z"],
+    ["BL-0018", "done", "p0", ""],
+    ["BL-0019", "discarded", "p1", ""],
+  ];
+  for (const [index, [id, status, severity, closed]] of (reverse
+    ? [...cases].reverse()
+    : cases
+  ).entries()) {
+    writeItem(
+      `BL-${String(index).padStart(4, "0")}-fixture.md`,
+      VALID_ITEM.replace("BL-0001", id)
+        .replace("status: open", `status: ${status}`)
+        .replace("severity: p1", severity ? `severity: ${severity}` : "")
+        .replace("closed:", `closed: '${closed}'`),
+    );
+  }
+  const { items, errors } = readBacklog();
+  expect(errors).toEqual([]);
+  expect(items.map((item) => item.id)).toEqual([
+    "BL-0010",
+    "BL-0011",
+    "BL-0012",
+    "BL-0013",
+    "BL-0015",
+    "BL-0014",
+    "BL-0017",
+    "BL-0016",
+    ...(reverse ? ["BL-0019", "BL-0018"] : ["BL-0018", "BL-0019"]),
+  ]);
+});
+
+it.each([
+  "",
+  VALID_ITEM.replace("area: build-engine", ""),
+  VALID_ITEM.replace("status: open", "status: unknown"),
+  VALID_ITEM.replace("severity: p1", "severity: p9"),
+])("AC-22-004.1: reports malformed file %s", (raw) => {
+  writeItem("BL-0001-bad.md", raw);
+  expect(readBacklog()).toMatchObject({ items: [], errors: [{ file: "BL-0001-bad.md" }] });
+});
+
+it("AC-22-004.1: reports an unreadable item entry", () => {
+  fs.mkdirSync(path.join(backlogDir, "BL-0020-unreadable.md"));
+  expect(readBacklog()).toEqual({
+    items: [],
+    errors: [{ file: "BL-0020-unreadable.md", reason: "file could not be read" }],
+  });
+});
+
+it("AC-22-008.1: preserves time precision for native YAML timestamp history", () => {
+  writeItem(
+    "BL-0021.md",
+    VALID_ITEM.replace("BL-0001", "BL-0021")
+      .replace("status: open", "status: done")
+      .replace("closed:", "closed: 2026-10-01T01:00:00Z"),
+  );
+  writeItem(
+    "BL-0022.md",
+    VALID_ITEM.replace("BL-0001", "BL-0022")
+      .replace("status: open", "status: done")
+      .replace("closed:", "closed: 2026-10-01T02:00:00Z"),
+  );
+  expect(readBacklog().items.map((item) => item.id)).toEqual(["BL-0022", "BL-0021"]);
 });

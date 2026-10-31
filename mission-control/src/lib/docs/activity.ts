@@ -63,6 +63,8 @@ export interface DecisionPoint {
   recommendation?: string;
   status: "pending" | "resolved" | "obsolete";
   resolved: boolean;
+  /** The body resolves a decision whose heading alone would leave it pending. */
+  resolvedInFile?: true;
 }
 
 /**
@@ -281,7 +283,8 @@ const RECOMMENDATION_LINE = /^-?\s*\*{1,2}Recommendation:\*{1,2}\s*(.+)/i;
 // Spanish variant: "**Recomendación:**" / "**Recomendación (del agente):**" / "**Recomendación del X:**".
 const RECOMENDACION_LINE = /^-?\s*\*{1,2}Recomendaci[oó]n[^:*]*:\*{1,2}\s*(.+)/i;
 // The template's machine field: "- **Estado:** PENDIENTE" / "RESUELTO: …" / "OBSOLETO: …".
-const ESTADO_LINE = /^-?\s*\*{1,2}Estado:?\*{1,2}\s*(PENDIENTE|RESUELTO|OBSOLETO|OBSOLETA)/i;
+const ESTADO_LINE =
+  /^\s*(?:[-*+]\s+)?\*{0,2}Estado\*{0,2}:?\*{0,2}[^\p{L}]*(PENDIENTE|RESUELTO|RESUELTA|OBSOLETO|OBSOLETA|SUPERSEDIDO|SUPERSEDIDA)(?!\p{L})/iu;
 // "Resolved" / "pending" / "obsolete" keyword sets for a heading's status phrase — covers both the
 // legacy English single-word phrase (CLOSED/RESOLVED/OPEN) and the Spanish free-text phrase.
 // Obsolete is its OWN status (the codebase moved on, no answer was given) — NOT folded into
@@ -350,8 +353,8 @@ function _parseEstado(line: string): "pending" | "resolved" | "obsolete" | undef
   const m = ESTADO_LINE.exec(line);
   if (!m) return undefined;
   const word = (m[1] ?? "").toUpperCase();
-  if (word === "RESUELTO") return "resolved";
-  if (word === "OBSOLETO" || word === "OBSOLETA") return "obsolete";
+  if (word === "RESUELTO" || word === "RESUELTA") return "resolved";
+  if (OBSOLETE_KEYWORDS.test(word)) return "obsolete";
   return "pending";
 }
 
@@ -384,13 +387,21 @@ function _pushDecision(result: DecisionPoint[], block: DecisionBlock | null): vo
   const status = _resolveStatus(block.statusPhrase, block.estado);
   const dp: DecisionPoint = {
     id: block.id,
-    title: block.title,
+    title: block.title.replace(/^·\s*/, ""),
     date: block.date,
     status,
     resolved: status !== "pending",
   };
+  if (block.estado === "resolved" && _resolveStatus(block.statusPhrase, null) === "pending") {
+    dp.resolvedInFile = true;
+  }
   if (block.recommendation !== undefined) {
     dp.recommendation = block.recommendation;
   }
   result.push(dp);
+}
+
+/** Identify timestamp-prefixed technical log entries consistently across decision surfaces. */
+export function isEngineLogEntry(point: Pick<DecisionPoint, "title">): boolean {
+  return /^(?:T?\d{1,2}:\d{2}\b|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}\b)/.test(point.title);
 }

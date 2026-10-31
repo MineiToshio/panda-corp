@@ -98,9 +98,9 @@ function coerceString(value: unknown): string {
   return "";
 }
 
-/** Coerce a YAML date/scalar to an ISO `YYYY-MM-DD` string, or null when absent. */
+/** Preserve YAML timestamp precision; date-only values remain YYYY-MM-DD. */
 function coerceDate(value: unknown): string | null {
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (value instanceof Date) return value.toISOString().replace(/T00:00:00\.000Z$/, "");
   if (typeof value === "string" && value.trim() !== "") return value.trim();
   return null;
 }
@@ -167,14 +167,18 @@ function parseBacklogFile(filePath: string): ParseOutcome {
   const fm = parsed.data as Record<string, unknown>;
 
   const id = typeof fm.id === "string" ? fm.id : undefined;
-  if (id === undefined) return { error: "missing required field: id" };
+  if (id === undefined || id.trim() === "") return { error: "missing required field: id" };
   if (!isBacklogType(fm.type)) return { error: `${id}: invalid or missing type (bug|change)` };
   const area = coerceString(fm.area);
   if (area === "") return { error: `${id}: missing required field: area` };
   const title = coerceString(fm.title);
   if (title === "") return { error: `${id}: missing required field: title` };
   if (!isBacklogStatus(fm.status)) {
-    return { error: `${id}: invalid or missing status (open|doing|done)` };
+    return { error: `${id}: invalid or missing status (open|doing|done|discarded)` };
+  }
+
+  if (fm.severity != null && !isBacklogSeverity(fm.severity)) {
+    return { error: `${id}: invalid severity (p0|p1|p2)` };
   }
 
   return {
@@ -242,7 +246,17 @@ export function readBacklog(): BacklogReadResult {
     items.push(outcome.item);
   }
 
-  items.sort(compareByPriorityThenId);
+  const statusRank: Record<BacklogStatus, number> = { doing: 0, open: 1, done: 2, discarded: 2 };
+  items.sort((a, b) => {
+    const group = statusRank[a.status] - statusRank[b.status];
+    if (group !== 0) return group;
+    if (statusRank[a.status] < 2) return compareByPriorityThenId(a, b);
+    const dateA = a.closed === null ? Number.NaN : Date.parse(a.closed);
+    const dateB = b.closed === null ? Number.NaN : Date.parse(b.closed);
+    if (Number.isNaN(dateA)) return Number.isNaN(dateB) ? 0 : 1;
+    if (Number.isNaN(dateB)) return -1;
+    return dateB - dateA;
+  });
 
   return { items, errors };
 }

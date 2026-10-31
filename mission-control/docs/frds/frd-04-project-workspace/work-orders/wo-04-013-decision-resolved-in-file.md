@@ -6,8 +6,7 @@ title: 'WO-04-013 — Decision reader: a decision resolved in its own file is ne
 status: ACTIVE
 parent: FRD-04
 foundation: false
-implementation_status: PLANNED
-blocked_reason:
+implementation_status: VERIFIED
 difficulty: low
 reopen_count: 0
 artifacts:
@@ -17,7 +16,7 @@ artifacts:
   - 'src/lib/changes/_tests/openChanges.test.ts'
 source_requirements: [REQ-04-004, REQ-04-014]
 dependsOn: [WO-24-001, WO-04-001]
-last_updated: 2026-10-22
+last_updated: 2026-10-30
 change_ref: none
 ---
 
@@ -102,3 +101,34 @@ Regression test anchored in the PersonalPage v2 case fails before the fix and pa
 vectors byte-identical; `.pandacorp/verify.sh` green; Status Note filled.
 
 ## Status Note
+
+Implemented the data contracts in blueprint §4.4/§4.5 without UI or ID-derivation changes.
+
+- `DecisionPoint.resolvedInFile?: true` is present only when an explicit body resolution overrides a pending heading (including no heading status). Terminal headings do not acquire the marker. `Estado` accepts optional list/bold formatting and non-letter status prefixes; unknown/malformed statuses retain the heading classification. Obsolete and superseded body statuses remain terminal. The parser stays line-anchored, applying **LESSON-0008**, with a regression for status mentions embedded in prose.
+- `isEngineLogEntry(point: Pick<DecisionPoint, "title">): boolean` identifies titles starting with `HH:MM`, `THH:MM` or an ISO date-time. Titles lose their leading middle dot; IDs and ordering still derive exclusively from headings. `countPendingDecisions(projectPath)` automatically excludes body-resolved entries.
+- `countOpenChanges(projectPath: string): OpenChangesResult` returns `{ ok: true, count: number, errors: [] }` or `{ ok: false, count: null, errors: ChangeQueueReadResult["errors"] }`. Consumers must narrow `ok` and omit unknown counts; any reader error invalidates the whole count, including when valid items also exist. Open means ready/draft/building/closing, irrespective of type or archive location. Missing queues inherit the existing reader's legitimate empty result; filesystem discovery and its existing semantics remain owned by `readChangeQueue`.
+- Tests: `activity.resolved-in-file.test.ts` covers the PersonalPage shape and pending count, malformed marker fallback, obsolete states, engine-title classification and unchanged golden IDs/order. `openChanges.test.ts` covers all six queue statuses, a Spanish production-shaped card, missing queue, malformed and unreadable items. Both new suites passed (16 tests) before handoff; final scoped verification follows the engine commit. No UI component or visual contract changed (Visual reference: N/A).
+
+### 2026-10-30 reviewer repair
+
+- `countOpenChanges` now checks queue and archive listing in `openChanges.ts` before using the existing
+  reader. Only `ENOENT` is an empty-directory case; listing failures produce an unknown count with an
+  explicit directory error, including when the other directory contains valid items. `changes.ts` is unchanged.
+- The explicit Estado parser recognizes `RESUELTA` as resolved, retaining the existing obsolete and
+  superseded handling. Engine-log clock prefixes accept one or two hour digits, including `T9:05`.
+- Removed the empty `blocked_reason`; retained `implementation_status: IN_REVIEW` and aligned the README row.
+- `pnpm exec vitest run src/lib/backlog src/lib/docs/_tests/activity src/lib/changes/_tests/openChanges --reporter=dot`: exit 0, 10 files / 194 tests passed (initial baseline: 14 reviewer failures).
+- `pnpm exec vitest run src/lib/docs/_tests/decision-id-golden.test.ts src/lib/docs/_tests/docs.wo24001.test.ts src/lib/docs/_tests/docs.wo04002.test.ts src/lib/docs/_tests/docs.wo04002.reviewer.test.ts --reporter=dot`: exit 0, 4 files / 128 tests passed; golden vectors and reviewer tests unchanged.
+- `bash .pandacorp/verify.sh --only=biome,tsc,knip`: exit 0. Non-failing output: existing Biome schema/CLI mismatch, nine Knip configuration hints; Vitest also reports Node experimental warnings.
+- No commits or writes to the main checkout, reviewer tests, visual baselines or decision log. Browser verification was not attempted under the sandbox restriction; no port was supplied or inherited. The full verification suite was not run.
+
+### 2026-10-30 — Independent gate: PASS
+
+Reviewed at `6f5e908b`. The reviewer suites from `df40940e` are unchanged and green with the FRD-24 golden
+vectors and the existing decision tests (322/322), and D4-D6 are closed. The old-vs-new parser run over the
+funko-tracker, personal-page-v2 and mission-control decision files shows identical ids and only the intended
+changes: PersonalPage `2026-07-01-1` is resolved and both «· » title prefixes are gone. Full `verify.sh` at
+that SHA was NOT green: every sub-gate through vitest passed (8,328/8,328) and Playwright reported 179 passed,
+12 skipped, 1 failed. The failure is `e2e/persistent-navigation.spec.ts:144` on mobile, which this work order
+does not touch; the same class of failure reproduces at `f7a6573e` without this code (LESSON-0185 family,
+cause unconfirmed). It is recorded as pre-existing, not waived as green. Logical data model: unchanged.

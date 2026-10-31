@@ -6,13 +6,13 @@ title: Backlog reader, area helpers and the reason-aware discard write
 status: ACTIVE
 parent: FRD-22
 foundation: false
-implementation_status: PLANNED
+implementation_status: VERIFIED
 difficulty: low
 reopen_count: 0
 artifacts: ["src/lib/backlog/**"]
 source_requirements: [REQ-22-001, REQ-22-004, REQ-22-007, REQ-22-008]
 dependsOn: []
-last_updated: '2026-10-22'
+last_updated: '2026-10-30'
 ---
 
 # WO-22-001 Backlog reader, area helpers and the reason-aware discard write
@@ -121,3 +121,66 @@ the logical model: record "unchanged").
 
 ## Status Note
 
+- Recovered the previous parked implementation after reading its source and tests. Its recorded commit
+  refusal involved ignored journal staging; the prescribed commit command will re-check that condition.
+- `readBacklog(): BacklogReadResult` keeps the existing item/body/error interface and first-wins duplicate
+  boundary, rejects supplied invalid severity and blank ids, and groups doing, open, then combined history.
+  Actionable groups sort by severity then id. History sorts by parsed timestamps, retaining YAML-native
+  timestamp precision, followed by undated items in reader order.
+- `backlogAreaKey(area: string): BacklogAreaKey` provides nine catalogue leaves; hooks/plugin-hooks merge
+  and unknown codes become other. `countByArea(items: readonly Pick<BacklogItem, "area">[]):
+  { key: BacklogAreaKey; count: number }[]` returns present areas by descending count then key. Consumers
+  resolve labels through `propuestas.backlog.areas.*`. LESSON-0077 informs the single shared resolver.
+- `discardBacklogItem(id: string, reason?: string): DiscardBacklogResult` keeps its existing result union.
+  It trims reasons and bounds them to 500 Unicode code points; blank/absent adds no field. YAML scalar source
+  ranges allow the three permitted fields to change while preserving all other bytes, comments and body.
+  Existing yaml dependency only. IDs must match BL-digits, identify a regular markdown file declaring that
+  id, and have open/doing status. Terminal/unknown states refuse the write; no sibling is written.
+- Tests: `src/lib/backlog/_tests/backlog.test.ts`, `areas.test.ts`, `discard-backlog.test.ts` cover every owned
+  AC, Spanish real-shaped fixtures, malformed/unreadable data, duplicates, ordering, merged areas,
+  reason bounds, write refusal and byte/sibling preservation.
+- Logical data model: unchanged (existing frontmatter queue). No UI or shared component was created.
+  Visual reference is N/A; the FRD-22 behaviour e2e spec is absent in this base and belongs to WO-22-002.
+- Retry validation: all 32 unit cases, `tsc --noEmit` and scoped Biome passed together (EXIT=0).
+- Current retry: the prescribed `commit-wo` ran its related tests but returned `ok:false`,
+  `status:commit-failed` (exit 4), naming ignored `mission-control/.pandacorp` and the git hint to use `-f`.
+  Source inspection confirms journal staging uses `git add -A`; the command restored the implementation
+  stamp. This is an observed commit infrastructure blocker, not a test failure. No build machinery,
+  package/dependency, ignore rule or main checkout was modified. Parked through the prescribed command;
+  post-commit self-verify/browser gates were not run because no work order committed.
+
+### 2026-10-30 restoration
+
+- Restored the seven parked files in the assigned orch/w0 worktree. Existing target files matched the current main checkout before restoration; no newer target code needed reconciliation.
+- Left changes uncommitted as instructed. No reviewer tests, visual baselines, decision log or build state were changed.
+- `pnpm exec vitest run src/lib/backlog --reporter=dot`: exit 0, 3 files and 32 tests passed.
+- `bash .pandacorp/verify.sh --only=biome,tsc,knip`: exit 0. Biome reported an informational schema/CLI version mismatch (2.5.1/2.5.2); Knip reported nine configuration hints. No failing gate.
+- The first test invocation exposed an accidental nested copy path; those seven newly created files were relocated to the intended project paths and the empty nested directories removed before the successful rerun.
+- Browser verification was not run (sandbox restriction). No port was supplied; neither acceptance command starts a server.
+
+### 2026-10-30 reviewer repair
+
+- Reproduced the independent review baseline: the requested acceptance suite had 14 failing tests.
+- Empty scalar replacements now insert the required separator. Every proposed write is re-parsed with
+  the reader's cache-bypassing parser and checked for the requested id, discarded status and prior status
+  before touching disk. Layouts whose bounded additions produce invalid YAML (including flow mappings,
+  indented roots and document-end markers) return `parse-error` with the original bytes intact.
+- Reads use a Buffer and reject a non-identical UTF-8 round trip. Candidate discovery continues past a
+  prefix-matching file declaring a different id, selecting the file declaring the requested id.
+- Added JSDoc to `DiscardBacklogResult` and `BacklogAreaKey`; aligned this work order's README row.
+- `pnpm exec vitest run src/lib/backlog src/lib/docs/_tests/activity src/lib/changes/_tests/openChanges --reporter=dot`: exit 0, 10 files / 194 tests passed, including the unchanged reviewer suites.
+- `bash .pandacorp/verify.sh --only=biome,tsc,knip`: exit 0 after extracting the empty-scalar formatting helper to satisfy the complexity limit. Biome reports the existing schema/CLI mismatch; Knip reports nine configuration hints.
+- Remains `IN_REVIEW`. No commits, reviewer-test edits, visual-baseline edits, decision-log edits or main-checkout writes. Browser verification was not attempted under the sandbox restriction; no port was supplied or inherited. The full verification suite was not run.
+
+### 2026-10-30 — Independent gate: PASS
+
+Reviewed at `6f5e908b`. The reviewer suites from `df40940e` are unchanged and green with the other owned
+tests (322/322), and D1-D3 are closed. On a tmp copy of the real backlog, 113 open/doing discards
+succeeded, 172 done items were refused, and line diffs touched only the three fields. Full `verify.sh`
+at that SHA was NOT green: every sub-gate through vitest passed (8,328/8,328) and Playwright reported
+179 passed, 12 skipped, 1 failed. The failure is `e2e/persistent-navigation.spec.ts:144` on mobile, which
+this work order does not touch; the same class of failure reproduces at `f7a6573e` without this code
+(LESSON-0185 family, cause unconfirmed). It is recorded as pre-existing, not waived as green. Data model:
+unchanged (a markdown-frontmatter queue). `BL-0220` carries `severity: p3`, so the reader reports it in
+`errors[]` until the factory file is corrected. Accepted residual: a frontmatter anchor on `status`, or a
+final `|+` block, keeps its bytes but changes that other field's parsed value; no real item uses either.
