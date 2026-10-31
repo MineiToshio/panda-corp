@@ -10,6 +10,7 @@ import { type BuildSignal, buildSignal } from "@/lib/fragua/build-signal";
 import { latestBuildEvent } from "@/lib/fragua/live-events";
 import { getProjectNavigation } from "@/lib/navigation/identities";
 import { nextStep } from "@/lib/next-step/next-step";
+import { projectDisplayName } from "@/lib/portfolio/displayName";
 import type { Phase } from "@/lib/status/status";
 import { aggregateProgress, listWorkOrders } from "@/lib/work-orders/work-orders";
 import { getLastCommit, type LastCommit } from "./lastCommit";
@@ -104,7 +105,7 @@ function overviewItem(item: ProjectListItem, nowIso: string): ProjectOverviewIte
   return {
     source: item,
     id: getProjectNavigation(item.path, item.name).slug,
-    name: item.name === "Pandacorp (Mission Control)" ? "Mission Control" : item.name,
+    name: projectDisplayName(item.name),
     path: item.path,
     repo: item.repo,
     phase: item.stage,

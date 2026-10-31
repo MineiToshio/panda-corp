@@ -19,10 +19,7 @@ export function EnMarchaCard({
       <CardHeader
         title={t("inicio.inFlight.title")}
         icon="bolt"
-        count={groups.reduce(
-          (total, group) => total + group.rows.reduce((sum, row) => sum + (row.count ?? 1), 0),
-          0,
-        )}
+        count={groups.reduce((total, group) => total + group.rows.length, 0)}
       />
       <p className={styles.intro}>{t("inicio.inFlight.intro")}</p>
       {errors.map((error) => (

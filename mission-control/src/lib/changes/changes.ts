@@ -243,13 +243,9 @@ function listChangeFiles(dir: string): string[] {
  * - Skips `README.md` and any `_*` template file.
  * - A missing directory is a legitimately-empty queue → `{ items: [], errors: [] }`.
  * - A malformed item is surfaced in `errors[]` (fail-loud, DR-078) — never dropped.
- * - Live-only consumers set `includeArchived: false`; history remains validated by default.
  * - Read-only: zero writes to disk.
  */
-export function readChangeQueue(
-  projectPath: string,
-  { includeArchived = true }: { includeArchived?: boolean } = {},
-): ChangeQueueReadResult {
+export function readChangeQueue(projectPath: string): ChangeQueueReadResult {
   const { pending, done } = changeDirs(projectPath);
 
   const items: ChangeQueueItem[] = [];
@@ -261,7 +257,7 @@ export function readChangeQueue(
 
   const sources: ReadonlyArray<{ dir: string; label: string }> = [
     { dir: pending, label: "" },
-    ...(includeArchived ? [{ dir: done, label: "done/" }] : []),
+    { dir: done, label: "done/" },
   ];
 
   for (const { dir, label } of sources) {

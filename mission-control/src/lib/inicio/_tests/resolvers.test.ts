@@ -157,6 +157,19 @@ it("REQ-18-003: malformed archive does not invalidate the live owner count", () 
   }
 });
 
+it("REQ-18-001: an archived card left ready stays in the same queue Cambios shows", () => {
+  const archive = path.join(root, ".pandacorp/inbox/changes/done/left-ready.md");
+  fs.mkdirSync(path.dirname(archive), { recursive: true });
+  fs.writeFileSync(archive, "---\ntype: feature\nstatus: ready\n---\n# Left ready\n");
+  try {
+    expect(deriveOwnerTurn([inbox()], instant).count).toBe(
+      readChangeQueue(root).items.filter((item) => item.status === "ready").length,
+    );
+  } finally {
+    fs.unlinkSync(archive);
+  }
+});
+
 it("AC-18-022.3: a project draft group contributes one row to the flight badge", () => {
   change("draft");
   const project = inbox();
@@ -165,10 +178,11 @@ it("AC-18-022.3: a project draft group contributes one row to the flight badge",
   const groups = deriveFlightGroups([{ ...project, changes: [first, { ...first, id: "second" }] }]);
   expect(groups[0]?.rows).toHaveLength(1);
   expect(groups[0]?.rows[0]?.title).toBe("2 cambios en borrador");
-  expect(
-    groups.reduce(
-      (total, group) => total + group.rows.reduce((sum, row) => sum + (row.count ?? 1), 0),
-      0,
-    ),
-  ).toBe(1);
+  expect(groups.flatMap((group) => group.rows)).toHaveLength(1);
+});
+
+it("REQ-03-003: inbox surfaces show the same short name as the project overview", async () => {
+  const { projectDisplayName } = await import("@/lib/portfolio/displayName");
+  expect(projectDisplayName("Pandacorp (Mission Control)")).toBe("Mission Control");
+  expect(projectDisplayName("Funko Tracker")).toBe("Funko Tracker");
 });

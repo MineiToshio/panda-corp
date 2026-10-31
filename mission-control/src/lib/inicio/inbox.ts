@@ -5,6 +5,7 @@ import { type ChangeQueueItem, readChangeQueue } from "@/lib/changes/changes";
 import { resolveProjectPath } from "@/lib/config/config";
 import { type DecisionPoint, readDecisionSource } from "@/lib/docs/activity";
 import { getProjectNavigation } from "@/lib/navigation/identities";
+import { projectDisplayName } from "@/lib/portfolio/displayName";
 import { readPortfolio } from "@/lib/portfolio/portfolio";
 import { listWorkOrders, type WorkOrder } from "@/lib/work-orders/work-orders";
 
@@ -55,9 +56,11 @@ export function readProjectInbox(
   }
   try {
     assertQueueReadable(path.join(project.path, ".pandacorp/inbox/changes"));
-    const queue = readChangeQueue(project.path, { includeArchived: false });
+    const queue = readChangeQueue(project.path);
     changes = queue.items;
-    if (queue.errors.length) errors.push({ project: project.name, source: "changes" });
+    // History is validated by Cambios; a broken archive must not hide the owner's live queue.
+    if (queue.errors.some((error) => !error.file.startsWith("done/")))
+      errors.push({ project: project.name, source: "changes" });
   } catch {
     errors.push({ project: project.name, source: "changes" });
   }
@@ -72,7 +75,7 @@ export function readProjectInbox(
 export const projectInboxes = cache((): ProjectInbox[] =>
   readPortfolio().map((project) =>
     readProjectInbox({
-      name: project.name,
+      name: projectDisplayName(project.name),
       id: getProjectNavigation(project.path, project.name).slug,
       path: resolveProjectPath(project.path),
     }),

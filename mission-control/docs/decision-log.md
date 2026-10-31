@@ -1,5 +1,13 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 · Independent review of the reader and fidelity patches
+
+The Inicio archive isolation was reworked: `readProjectInbox` keeps the one full `readChangeQueue` read and ignores only `done/` errors, so a card left `ready` in the archive stays visible in both Tu turno and Cambios instead of diverging (DR-115). `countOpenChanges` still reports unknown on a malformed archive, by its documented contract. `FlightRow.count` had no writer after the draft fix and was removed; the badge counts rows. The short project name moved to `src/lib/portfolio/displayName.ts` and also reaches Tu turno and En marcha, matching `p.short`; board cards and statistics keep the long source name as the prototype does.
+
+Retained counts, re-read: signals 35 rests on FRD-17 REQ-17-014 and the seven skills are `user-invocable: false`. Documents 80 is a reading of FRD-01, whose clause lists what SHALL be read without excluding anything; the reader already goes beyond it (`docs/design`, `docs/reviews`, research). Lessons 12 is not supported by the cited REQ-17-013, which concerns the removed dismissable stream: FRD-17's AC-17-011.2 worked example and FDD-17 both state 16. The twelve stay unchanged pending an owner ruling, because sixteen would count four lessons twice.
+
+Fidelity corrections against `prototype.css`/`prototype.js`: band bleed restored by dropping the one-axis clips that cut it, since `overflow-clip-margin` did not apply; spec callouts, scope items, muted pills, bullets, decisions and document buttons ported; hero and next-rank emblems drop the grade badge; Logros spacing, Cuentas phone labels and service icons, idea header tones and score fallback, and signal-group tones and chevrons aligned.
+
 ## 2026-10-31 · Reader/count reconciliation after Visual QA (f1)
 
 Production readers were executed against `docs/design/prototype/fixtures/factory-root`, its sibling project fixtures and the environment from `src/lib/config/oracleEnv.ts`. The regression evidence is `src/lib/inicio/_tests/oracleCounts.test.ts`; no fixture, visual baseline or owner state was changed.

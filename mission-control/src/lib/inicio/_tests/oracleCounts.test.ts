@@ -65,9 +65,13 @@ it("FRD-17/18/22: production readers reconcile counts against the approved oracl
     ["review", 9],
     ["draft", 2],
   ]);
-  expect(
-    groups.flatMap((group) => group.rows).reduce((sum, row) => sum + (row.count ?? 1), 0),
-  ).toBe(29);
+  expect(groups.flatMap((group) => group.rows)).toHaveLength(29);
+  expect(groups.flatMap((group) => group.rows).map((row) => row.project)).toContain(
+    "Mission Control",
+  );
+  expect(groups.flatMap((group) => group.rows).map((row) => row.project)).not.toContain(
+    "Pandacorp (Mission Control)",
+  );
   expect(getProjectOverview().find((item) => item.path.includes("mission-control"))?.name).toBe(
     "Mission Control",
   );

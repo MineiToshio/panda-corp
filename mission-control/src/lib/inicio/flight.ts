@@ -8,7 +8,6 @@ export interface FlightRow {
   readonly project: string;
   readonly title: string;
   readonly href: string;
-  readonly count?: number;
 }
 export interface FlightGroupData {
   readonly kind: FlightKind;
