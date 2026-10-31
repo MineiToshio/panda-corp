@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Markdown } from "@/components/core/Markdown/Markdown";
 import { DocIndex, type DocIndexGroup } from "@/components/modules/DocumentReader/DocIndex";
 import styles from "@/components/modules/DocumentReader/DocumentReader.module.css";
@@ -57,7 +56,8 @@ export function TabDocuments({
 }: TabDocumentsProps): React.JSX.Element {
   const [query, setQuery] = useUrlSearch("doc-q");
   const [type, setType] = useUrlState("doc-type", "");
-  const [open, setOpen] = useState(false);
+  // URL-owned: the canonical selection redirect remounts this tab and would reset local state.
+  const [opened, setOpened] = useUrlState("opened", "");
   if (!nodes.length)
     return (
       <p role="status" data-testid="documents-empty">
@@ -107,8 +107,8 @@ export function TabDocuments({
         searchPlaceholder={t("workspace.documentos.searchPlaceholder")}
         query={query}
         onQuery={setQuery}
-        open={open}
-        onOpenChange={setOpen}
+        open={opened === "1"}
+        onOpenChange={(open) => setOpened(open ? "1" : "")}
         toggleLabel={t("workspace.documentos.pick", { count: nodes.length })}
         typeFilters={typeFilters}
       />
