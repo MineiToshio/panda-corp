@@ -1,5 +1,14 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 · Close-out inventory without phase promotion
+
+Re-read main at `673c5ea6` (a descendant of `9134329a`) and its read-only, gitignored inbox. The project readers report one pending decision, zero pending bugs (building items are excluded), and four open changes (building items are included). Corrected only `pending_decisions` (3 → 1) and `pending_changes` (0 → 4) in [status.yaml](../.pandacorp/status.yaml). The four cards remain `building`; the index-only `nav-client-params-in-flight` entry has no active card. No inbox/comms file was changed.
+
+All 149 `work-orders/wo-*.md` files are `VERIFIED`; all 26 FRDs and 26 blueprints already roll up to `VERIFIED`. The governed `sync-rollups` CLI refused this inventory checkout because `.pandacorp/run` is absent. Running that same CLI with a valid scratch lease over a temporary copy of the project's status and FRDs returned `corrected: 0`, total 149, all verified. No build lease was acquired in the project. Phase, green pointer and safety claim were preserved: the build gate's governed `stamp-last-green` publication owns the pointer, not an inventory writer. This is not a release or full-gate certification.
+
+The focused Vitest run passed 224 tests in 23 files (DataModelViewer plus CampaignPipeline and Manual content guards). The layout harness waits above the product's 20-second bound, equal-content model payloads retain layout identity, and navigation assertions await selected state. The design copy uses HTML/private Artifacts; workspace e2e specs share the current eight-tab list including Cuentas. These three cards are closure candidates, pending the required fresh gate evidence and archive metadata. The history-flake card stays open: its original cause is unconfirmed and diagnostic/hydration guards do not establish a fix. No browser or full verification run was performed; no port was assigned to this inventory task. The main checkout has no `.pandacorp/run/gate-report.json`, so a current close-out gate could not be established. The recorded completion timestamp predates the latest start; the actual completion time was not established and was not invented.
+
+
 ## 2026-10-31 · Independent review of the reader and fidelity patches
 
 The Inicio archive isolation was reworked: `readProjectInbox` keeps the one full `readChangeQueue` read and ignores only `done/` errors, so a card left `ready` in the archive stays visible in both Tu turno and Cambios instead of diverging (DR-115). `countOpenChanges` still reports unknown on a malformed archive, by its documented contract. `FlightRow.count` had no writer after the draft fix and was removed; the badge counts rows. The short project name moved to `src/lib/portfolio/displayName.ts` and also reaches Tu turno and En marcha, matching `p.short`; board cards and statistics keep the long source name as the prototype does.
