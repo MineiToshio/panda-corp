@@ -1,5 +1,17 @@
 # Decision Log — Mission Control
 
+## 2026-10-30 — Wave 2-3 batch: board, digests, documentation, portfolio and proposals
+
+The batch combines [WO-02-015](frds/frd-02-ideas-board/work-orders/wo-02-015-board-orbita.md), [WO-02-020](frds/frd-02-ideas-board/work-orders/wo-02-020-campaign-orbita.md), [WO-02-018](frds/frd-02-ideas-board/work-orders/wo-02-018-data-model-viewer-orbita.md), [WO-02-017](frds/frd-02-ideas-board/work-orders/wo-02-017-spec-architecture-digests.md), [WO-08-003](frds/frd-08-documentation/work-orders/wo-08-003-documentacion-ui.md), [WO-08-004](frds/frd-08-documentation/work-orders/wo-08-004-documentacion-contenido.md), [WO-03-007](frds/frd-03-portfolio/work-orders/wo-03-007-portafolio-overview.md), [WO-22-002](frds/frd-22-factory-backlog/work-orders/wo-22-002-backlog-tab-orbita.md) and [WO-17-008](frds/frd-17-proposals-inbox/work-orders/wo-17-008-propuestas-orbita.md). WO-08-003, WO-08-004, WO-03-007 and WO-22-002 are VERIFIED: their FRDs have no other open work order and each was seen rendering in a browser. FRD-02 stays open for WO-02-016. WO-17-008 stays IN_REVIEW: [REQ-17-021](frds/frd-17-proposals-inbox/frd.md) puts the promotion target and rationale in the lesson dialog, and the lesson reader does not parse them, since they sit in a YAML comment on the `promotion:` line.
+
+**FRD outranks FDD rulings.** Where the design or the blueprint disagreed, the FRD decided. WO-26-001 rows show provider type, organization and dated access status per AC-26-003.1. The lesson dialog carries the high-risk badge per REQ-17-021. Signals keep their own commands when they differ, per AC-17-001.2. The lesson dialog keeps its metadata strip and real section headings per [REQ-17-015](frds/frd-17-proposals-inbox/frd.md), so `SectionedMarkdown` labels became `h3` elements, which also reaches the backlog detail.
+
+`src/lib/proposals/proposals.ts` was already gone before this batch, earlier than the [blueprint](frds/frd-17-proposals-inbox/blueprint.md) planned: `countOpenProposals` lost its last consumer when WO-19-002 removed the top-bar badge, so WO-17-008 had nothing left to retire. The sidebar count is `ownerActions().badgeCount`.
+
+An empty backlog reads "No hay ítems en el backlog."; "Nada abierto con este filtro." stays reserved for a filtered result, per [AC-22-010.2](frds/frd-22-factory-backlog/frd.md).
+
+The tablero, documentacion and propuestas desktop baselines were re-blessed after viewing each against its predecessor; the provenance lines are in each FDD. They prove consistency only. The propuestas panels carry `data-volatile`, so that baseline covers the chrome and not the Resumen content.
+
 ## 2026-10-30 — Wave 1 batch: Órbita frame, primitives and three feature modules
 
 The wave 1 batch combines the FRD-13 primitives, [WO-19-002](frds/frd-19-app-shell/work-orders/wo-19-002-appshell-frame-navigation.md), [WO-26-001](frds/frd-26-services-accounts/work-orders/wo-26-001-cuentas.md), [WO-06-013](frds/frd-06-party/work-orders/wo-06-013-fragua-four-stations.md) and [WO-12-007](frds/frd-12-observability-dataviz/work-orders/wo-12-007-dependency-map.md). WO-26-001 is VERIFIED because its directory, project tab and Documentación pages were seen rendering in a browser. WO-06-013 and WO-12-007 stay IN_REVIEW although nothing else in their FRDs is open: they have no route until WO-04-011 and WO-05-008 mount them, so no gate has seen them render. FRD-13 and FRD-19 keep their remaining work orders open.

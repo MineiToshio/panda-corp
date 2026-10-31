@@ -6,7 +6,7 @@ title: 'WO-08-004 — Documentación content refresh and v2 removals'
 status: ACTIVE
 parent: FRD-08
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: medium
 reopen_count: 0
 change_ref: design-phase-copy-claude-design-sunset.md

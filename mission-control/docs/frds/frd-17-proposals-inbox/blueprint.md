@@ -5,7 +5,7 @@ slug: proposals-inbox
 title: Proposals inbox (Propuestas - to-do, memory, automatic signals)
 status: ACTIVE
 parent: FRD-17
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22

@@ -201,13 +201,12 @@ test.describe("AC-08-020.1 AC-08-020.2 home and search", () => {
     const text = (await results.innerText()).replace(/\n/g, " ");
     for (const group of ["Tutorial", "Guías", "Conceptos", "Workflows"])
       expect(text).toContain(group);
-    const glued = await results
-      .getByRole("link")
-      .evaluateAll((links) =>
-        links
-          .map((link) => link.textContent ?? "")
-          .filter((row) => /\p{Ll}[.:]?\p{Lu}\p{Ll}/u.test(row.slice(row.indexOf("…")))),
-      );
+    // The chip and the title are separate elements, and a camel-cased brand is not two glued blocks.
+    const snippets = await results.getByRole("link").locator("small").allInnerTexts();
+    expect(snippets.length).toBeGreaterThan(0);
+    const glued = snippets.filter((snippet) =>
+      /\p{Ll}[.:]?\p{Lu}\p{Ll}/u.test(snippet.replace(/\b(?:OpenCode|JavaScript)\b/g, "")),
+    );
     expect(glued).toEqual([]);
   });
 });

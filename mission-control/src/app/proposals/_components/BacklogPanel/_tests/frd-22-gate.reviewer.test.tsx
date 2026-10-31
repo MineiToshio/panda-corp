@@ -113,7 +113,10 @@ describe("page limits (AC-22-010.4, blueprint Contracts)", () => {
 describe("states and how-to (AC-22-001.2, AC-22-004.2, AC-22-009.1, AC-22-010.3)", () => {
   it("an empty backlog is explicit and offers no command", () => {
     panel([]);
-    expect(screen.getAllByText("Nada abierto con este filtro.").length).toBeGreaterThan(0);
+    // "Nada abierto con este filtro." belongs to a filtered result (AC-22-010.2), and an empty
+    // backlog has no filter to blame.
+    expect(screen.getByText("No hay ítems en el backlog.")).toBeVisible();
+    expect(screen.queryByText("Nada abierto con este filtro.")).toBeNull();
     expect(screen.queryByRole("button", { name: /^Copiar/ })).toBeNull();
   });
 

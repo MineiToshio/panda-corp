@@ -120,7 +120,9 @@ test.describe("Cuentas directory with a real registry", () => {
     page,
   }) => {
     await gotoHydrated(page, "/manual", { optional: true });
-    await page.getByText("Servicios y cuentas", { exact: true }).first().click();
+    await page.getByRole("searchbox", { name: "Buscar en toda la Documentación" }).fill("Neon");
+    await page.getByRole("link", { name: /Servicios y cuentas/ }).click();
+    await expect(page).toHaveURL(/\/manual\/guides\/services$/);
     const main = page.locator("main#content");
     await expect(main).toContainText("Neon");
     await expect(main).not.toContainText("owner@example.com");

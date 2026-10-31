@@ -4,6 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CampaignPipeline } from "../CampaignPipeline";
 import { PHASES } from "../phases";
 
+/** CmdRow splits a command across text nodes, so the whole command is matched on its element. */
+const commandText =
+  (command: string) =>
+  (_: string, element: Element | null): boolean =>
+    element?.tagName === "CODE" && element.textContent === command;
+
 beforeEach(() => {
   vi.stubGlobal(
     "matchMedia",
@@ -59,14 +65,14 @@ describe("Órbita campaign", () => {
     const user = userEvent.setup();
     render(<CampaignPipeline slug="sample" activePhase={0} />);
     const sheet = screen.getByRole("region", { name: "Investigación" });
-    expect(within(sheet).getByText("/pandacorp:spec sample")).toBeVisible();
-    expect(within(sheet).getByText("/pandacorp:explore sample")).toBeVisible();
+    expect(within(sheet).getByText(commandText("/pandacorp:spec sample"))).toBeVisible();
+    expect(within(sheet).getByText(commandText("/pandacorp:explore sample"))).toBeVisible();
     expect(within(sheet).queryByRole("combobox")).not.toBeInTheDocument();
     await user.click(
       screen.getByText("Cuántas preguntas te hago antes de generar la documentación"),
     );
     for (const flag of ["--ask", "--auto", "--infer"])
-      expect(within(sheet).getByText(`/pandacorp:spec sample ${flag}`)).toBeVisible();
+      expect(within(sheet).getByText(commandText(`/pandacorp:spec sample ${flag}`))).toBeVisible();
     const clipboard = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText: clipboard },
@@ -125,8 +131,8 @@ describe("Órbita campaign", () => {
     "a$'b",
   ])("AC-02-010.9 interpolates %s literally into every factory command", (slug) => {
     render(<CampaignPipeline slug={slug} activePhase={0} />);
-    expect(screen.getByText(`/pandacorp:spec ${slug}`)).toBeVisible();
-    expect(screen.getByText(`/pandacorp:explore ${slug}`)).toBeVisible();
+    expect(screen.getByText(commandText(`/pandacorp:spec ${slug}`))).toBeVisible();
+    expect(screen.getByText(commandText(`/pandacorp:explore ${slug}`))).toBeVisible();
   });
   it("AC-02-010.8 includes private HTML artifacts and the whole current teams", () => {
     const design = PHASES.find((phase) => phase.key === "design");

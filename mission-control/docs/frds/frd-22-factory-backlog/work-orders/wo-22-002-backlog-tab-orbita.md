@@ -6,7 +6,7 @@ title: Backlog tab Órbita - priority tiles, topic bars, Cómo avanzar, groups, 
 status: ACTIVE
 parent: FRD-22
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: medium
 reopen_count: 0
 artifacts: ["src/app/proposals/_components/{BacklogPanel,AreaBar}/**", "src/app/proposals/_actions/**", "src/components/core/StateTile/**", "e2e/backlog.spec.ts", "e2e/fixtures/factory-root/factory/backlog/BL-90*.md", "e2e/persistent-navigation/proposals.spec.ts"]

@@ -6,7 +6,7 @@ title: 'WO-03-007 — Portafolio overview: cards, Lista, Cuentas view switch, pr
 status: ACTIVE
 parent: FRD-03
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts:

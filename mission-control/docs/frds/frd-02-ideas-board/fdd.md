@@ -8,7 +8,7 @@ parent: FRD-02
 ui: true
 visual_source: docs/design/prototype/index.html
 last_updated: '2026-10-22'
-prototype_blessed_at: '409a0564'
+prototype_blessed_at: '0e6b7191'
 ---
 
 # FDD — FRD-02 Ideas board
@@ -112,9 +112,11 @@ Spanish, from `docs/design/microcopy.es.json`; no em dash in product copy.
 
 Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is the bar; its *How to verify* is the gate).
 
-prototype_blessed_at: 409a0564
+prototype_blessed_at: 0e6b7191
 
 `tablero-desktop` re-blessed 2026-10-30 in the wave 1 batch as a consistency baseline after the Órbita shell (WO-19-002) and primitives, judged against `docs/design/prototype/index.html#tablero` and the prior baseline. Fidelity to the prototype is judged at the close-out oracle pass, not by this bless.
+
+`tablero-desktop` re-blessed 2026-10-30 in the wave 2-3 batch after WO-02-015 rebuilt the board (filters, phase jump, six columns), viewed against its wave 1 predecessor and `docs/design/prototype/index.html#tablero`. Reviewer sign-off: recognizably the Órbita surface, no console error, no structural gap. This is a consistency baseline; fidelity is judged at the close-out oracle pass.
 
 - **Mocks:** `docs/frds/frd-02-ideas-board/mocks/ideas-board.html` (one `mock-screen` section per captured state) and `docs/frds/frd-02-ideas-board/mocks/screenshots/<id>-<width>-<theme>.jpg`.
 - **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#tablero` and `#idea?idea=<slug>&tab=<tab>`; the data-model states use `#portfolio?project=<slug>&tab=Arquitectura&model=<view>`.

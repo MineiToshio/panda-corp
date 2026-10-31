@@ -53,6 +53,12 @@ function card(over: Partial<IdeaCardModel>): IdeaCardModel {
 }
 
 // The single source mapping: what page.tsx computes per card.
+/** CmdRow splits a command across text nodes, so the whole command is matched on its element. */
+const commandText =
+  (command: string) =>
+  (_: string, element: Element | null): boolean =>
+    element?.tagName === "CODE" && element.textContent === command;
+
 function toEntry(c: IdeaCardModel, status: StatusResult | null): BoardCardEntry {
   return {
     slug: c.slug,
@@ -244,7 +250,10 @@ describe("FRD-02 integration: CardDetail surfaces the real next-step command + c
     );
     // The next-step command now lives in the campaign ficha (the Comandos tab was folded in).
     const nextStep = screen.getByTestId("ficha-next-step");
-    expect(within(nextStep).getByText("/pandacorp:implement")).toBeTruthy();
+    // The sheet's own row, plus the same command inside the mode picker.
+    expect(
+      within(nextStep).getAllByText(commandText("/pandacorp:implement")).length,
+    ).toBeGreaterThan(0);
     // The copy affordance (WO-02-002) is wired in via CmdRow (≥1 copy button since
     // each command row carries one; architecture has multiple commands).
     expect(within(nextStep).getAllByTestId("copy-button").length).toBeGreaterThanOrEqual(1);
@@ -264,6 +273,6 @@ describe("FRD-02 integration: CardDetail surfaces the real next-step command + c
     render(<CardDetail slug="n" title="N" status="discovered" body="x" />);
     const nextStep = screen.getByTestId("ficha-next-step");
     // CampaignPipeline substitutes the slug into the command, so <idea> → "n".
-    expect(within(nextStep).getByText("/pandacorp:spec n")).toBeTruthy();
+    expect(within(nextStep).getByText(commandText("/pandacorp:spec n"))).toBeTruthy();
   });
 });

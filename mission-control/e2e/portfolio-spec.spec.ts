@@ -19,7 +19,7 @@ test("Portfolio Spec reuses the digest, FRD dialog and same-project document lin
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
     true,
   );
-  const open = spec.getByRole("button", { name: "Ver detalle de FRD-01 Fuente de datos" });
+  const open = spec.getByRole("button", { name: "FRD-01 Fuente de datos" });
   await open.click();
   await expect(page.getByRole("dialog")).toContainText("leer los documentos del proyecto");
   await page.keyboard.press("Escape");

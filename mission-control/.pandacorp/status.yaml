@@ -10,18 +10,18 @@ target_platforms: desktop  # v2 flips this to responsive in the same change that
 deploy_target: internal  # internal tool (runs on 127.0.0.1) — no external host (DR-085)
 deploy_url: "http://192.168.18.227:1987"  # MC's internal release on the LAN
 running: false
-run_started_at: "2026-10-30T16:09:19.009Z"
+run_started_at: "2026-10-31T05:11:22.155Z"
 run_completed_at: "2026-07-07T05:30:00Z"
 repo: ""
-updated_at: "2026-10-31T03:25:30.683Z"
-last_event_at: "2026-10-31T03:25:30.683Z"
+updated_at: "2026-10-31T05:11:22.922Z"
+last_event_at: "2026-10-31T05:11:22.922Z"
 work_orders_total: 149
-work_orders_verified: 118
-work_orders_in_review: 8
-work_orders_planned: 23
+work_orders_verified: 122
+work_orders_in_review: 13
+work_orders_planned: 14
 work_orders_in_progress: 0
 work_orders_blocked: 0
-work_orders_done: 118
+work_orders_done: 122
 pending_decisions: 3
 pending_bugs: 0
 rethink_pending: false
@@ -47,6 +47,6 @@ _release_prior_note: true  # RELEASE (DR-085): whole-project cross-feature INTEG
 blocked: []  # WO-23-005 gate-test-defective RESOLVED: the blessed aggregateChain.reviewer.test.ts:111-137 was re-blessed to the SSOT-split contract (fresh portada → factory-wide from live/factory-store) at the WO-23-006 gate; all 104 WOs VERIFIED.
 pending_changes: 0
 supervisor_heartbeat: ""
-build_run_id: "run_20261030T160918Z_91863"
+build_run_id: "batch-w23-gate"
 build_runtime: "claude"
-build_lease_epoch: 7
+build_lease_epoch: 1

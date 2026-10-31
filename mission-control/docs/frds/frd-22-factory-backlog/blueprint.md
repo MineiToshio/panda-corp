@@ -5,7 +5,7 @@ slug: factory-backlog
 title: Factory backlog surface (Propuestas · Backlog tab)
 status: ACTIVE
 parent: FRD-22
-implementation_status: PLANNED
+implementation_status: VERIFIED
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22

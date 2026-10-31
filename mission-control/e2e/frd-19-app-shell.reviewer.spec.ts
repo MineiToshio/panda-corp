@@ -19,9 +19,7 @@ const ACTIVE: readonly [RegExp, string][] = [
 // Transition ledger (blueprint "Risk: nested <main>"): v1 pages not yet rebuilt on PageHead. An
 // entry leaves here with its surface work order; any other surface growing a main is RED.
 const TRANSIENT_NESTED_MAIN: Readonly<Record<string, number>> = {
-  "/portfolio": 1, // WO-04-011 (embedded tab-summary)
   "/projects/mission-control": 1, // WO-04-011 (tab-summary)
-  "/manual": 1, // WO-08-003 (DocReader)
   "/configuration": 1, // WO-07-006
 };
 

@@ -15,9 +15,11 @@ test("nested destinations retain global highlights and configuration retains its
     await page.keyboard.press("Escape");
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
   }
-  await page.goto("/manual/reference/rules/DR-009");
+  await page.goto("/manual/guides/g-cambio");
   await expect(page.getByTestId("app-nav-documentacion")).toHaveAttribute("aria-current", "page");
-  await page.goto("/configuration/rules/DR-009");
+  // The Documentation reference moved to Configuration, so its legacy address lands there.
+  await page.goto("/manual/reference/rules/DR-009");
+  await expect(page).toHaveURL(/\/configuration\/rules\/DR-009$/);
   await expect(page.getByTestId("rule-detail")).toBeVisible();
   await expect(page.getByTestId("app-shell")).toHaveCount(1);
   await expect(

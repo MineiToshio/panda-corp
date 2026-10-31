@@ -11,6 +11,10 @@ const WORKSPACE = "/portfolio/mission-control";
 const queryValue = (page: Page, key: string): string | null =>
   new URL(page.url()).searchParams.get(key);
 
+// The pinned fixture ships no service catalog, so the directory has its toolbar and no table rows.
+const accountsDirectory = (page: Page) =>
+  page.getByRole("searchbox", { name: "Buscar servicio, correo o proyecto" });
+
 test("AC-25-002.1/004.1: Cuentas survives its legacy alias, canonicalization and reload", async ({
   page,
 }) => {
@@ -22,13 +26,14 @@ test("AC-25-002.1/004.1: Cuentas survives its legacy alias, canonicalization and
     "aria-pressed",
     "true",
   );
+  await expect(accountsDirectory(page)).toBeVisible();
   await page.reload();
   await expect(page.getByTestId("portfolio-overview")).toBeVisible();
   await expect(page.getByRole("button", { name: "Cuentas", exact: true })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
-  await expect(page.getByRole("table", { name: "Cuentas de la fábrica" })).toBeVisible();
+  await expect(accountsDirectory(page)).toBeVisible();
   await expect(page.getByTestId("portfolio-page-workspace")).toHaveCount(0);
 });
 

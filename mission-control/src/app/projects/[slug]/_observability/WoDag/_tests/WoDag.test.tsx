@@ -317,8 +317,8 @@ describe("WoDag — fidelity: controls, zoom, a11y", () => {
     expect(screen.getByTestId("dag-zoom-in")).toBeTruthy();
     expect(screen.getByTestId("dag-zoom-fit")).toBeTruthy();
     expect(screen.getByTestId("dag-zoom-level").textContent).toContain("100%");
-    expect(screen.getByTestId("dag-fullscreen").getAttribute("aria-label")).toContain(
-      "pantalla completa",
+    expect(screen.getByTestId("dag-fullscreen").getAttribute("aria-label")).toMatch(
+      /pantalla completa/i,
     );
   });
 

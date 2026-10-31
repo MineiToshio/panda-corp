@@ -69,3 +69,17 @@ test("the phase jump works and a discarded row opens that idea", async ({ page }
   await page.goBack();
   await expect(page.getByTestId("idea-board")).toBeVisible();
 });
+
+test("every implement sheet offers the build-mode picker", async ({ page }) => {
+  await gotoHydrated(page, "/board/idea-in-pipeline/campaign", {
+    selector: '[data-testid="campaign-phase-design"]',
+  });
+  for (const key of ["architecture", "build"] as const) {
+    await page.getByTestId(`campaign-phase-${key}`).click();
+    const sheet = page.getByTestId("ficha-next-step");
+    await sheet.getByText("Elegir modo de construcción").click();
+    const picker = sheet.getByTestId("build-mode-picker");
+    await expect(picker).toBeVisible();
+    await expect(picker.getByTestId("build-mode-pro")).toBeVisible();
+  }
+});

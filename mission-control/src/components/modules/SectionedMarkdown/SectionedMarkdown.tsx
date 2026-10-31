@@ -152,10 +152,10 @@ function SectionBlock({ section }: { section: Section }): React.JSX.Element {
   const { icon, color } = sectionStyle(section.label);
   return (
     <div style={{ borderLeft: `2px solid ${color}`, paddingLeft: "12px" }}>
-      <div style={{ ...SECTION_HEADER_STYLE, color }}>
+      <h3 style={{ ...SECTION_HEADER_STYLE, color }}>
         <i className={`ti ${icon}`} style={{ fontSize: "15px" }} aria-hidden="true" />
         {section.label}
-      </div>
+      </h3>
       <Markdown>{section.content.trim()}</Markdown>
     </div>
   );

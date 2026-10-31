@@ -89,7 +89,6 @@ describe("search and category (AC-02-016.1, AC-02-016.4)", () => {
   it("the polite live region exists BEFORE the first filter, so the first count is announced", async () => {
     const user = userEvent.setup();
     const { container } = render(<BoardShell cards={CARDS} discardAction={discardAction} />);
-    // biome-ignore lint/style/noRestrictedGlobals: a live region has no role/name to query by
     const region = container.ownerDocument.getElementById("board-count");
     expect(region).toHaveAttribute("aria-live", "polite");
     await user.click(screen.getByRole("button", { name: /^CLI 1$/ }));

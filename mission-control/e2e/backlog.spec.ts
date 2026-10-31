@@ -58,5 +58,7 @@ test("a discard from a pasted backlog item closes the URL after the action and s
   await page.reload();
   await expect(page).toHaveURL(/\/proposals\/backlog$/);
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  expect(fs.readFileSync(path.join(fixtures, "BL-9001.md"), "utf8")).toContain("status: discarded");
+  expect(fs.readFileSync(path.join(fixtures, "BL-9001.md"), "utf8")).toMatch(
+    /^status: "?discarded"?$/m,
+  );
 });

@@ -9,7 +9,7 @@ ui: true
 visual_source: docs/design/prototype/index.html
 mock: docs/frds/frd-08-documentation/mocks/documentation.html
 last_updated: '2026-10-22'
-prototype_blessed_at: '409a0564'
+prototype_blessed_at: '0e6b7191'
 ---
 
 # FDD — FRD-08 Documentación
@@ -93,9 +93,11 @@ Interface strings are the Spanish ones in the states above and in `docs/design/m
 
 Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is the bar; its *How to verify* is the gate): the component catalogue (`docs/design/prototype/components.html`), measured styles (`docs/design/prototype/reference/computed-styles.json`), the exported icons and logo (`docs/design/prototype/{icons,logo}/`), the copy file and the whole-app prototype for states and motion.
 
-prototype_blessed_at: 409a0564
+prototype_blessed_at: 0e6b7191
 
 `documentacion-desktop` re-blessed 2026-10-30 in the wave 1 batch as a consistency baseline after the Órbita shell (WO-19-002) and primitives, judged against `docs/design/prototype/index.html#documentacion` and the prior baseline. Fidelity to the prototype is judged at the close-out oracle pass, not by this bless.
+
+`documentacion-desktop` re-blessed 2026-10-30 in the wave 2-3 batch after WO-08-003 replaced the reader home with the search, cards and "Explorar por tipo", viewed against its wave 1 predecessor and `docs/design/prototype/index.html#documentacion`. Reviewer sign-off: recognizably the Órbita surface, no console error, no structural gap. This is a consistency baseline; fidelity is judged at the close-out oracle pass.
 
 - **Mock:** `docs/frds/frd-08-documentation/mocks/documentation.html` (sections `docs-home`, `docs-search`, `docs-page`, `docs-page-index-open`, `docs-page-not-found`, `docs-page-tutorial`, `docs-page-guide`, `docs-page-team`, `docs-page-multi-runtime`).
 - **Mock screenshots** in `mocks/screenshots/`: `<id>-<width>-<theme>.jpg` at 375, 768 and 1280, light and dark (the index-open state at 375 and 768).
