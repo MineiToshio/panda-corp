@@ -16,6 +16,8 @@ prototype_blessed_at: '0e6b7191'
 
 "Propuestas" is a sidebar destination (FRD-19) and the owner's to-do for the factory itself: what needs a decision, in order, with the exact command and where to run it. The page has three tabs, Resumen (default), Memoria and Backlog; this FDD covers Resumen and Memoria and the lesson dialog. The Backlog tab is FRD-22's (its captured state is `backlog` in that FRD). The page title block is the shared `PageHead`: the eyebrow "Captura de la fábrica · 20 oct. 2026, 7:20 p. m." (prototype capture stamp, not product copy), the `h1` "Propuestas" (equal to the nav label) and the subtitle "Lo que la fábrica aprendió construyendo y lo que hay que arreglar en ella misma. Aquí ves qué te toca y qué comando correr." The tab strip is the shared `Tabs`: "Resumen", "Memoria" with the count pill 16 and "Backlog" with 11, each with its icon, the selected one with the underline.
 
+**Count provenance.** All counts, dates, lesson IDs and commands in the screen descriptions below describe the frozen 2026-10-20 prototype capture, including 16 waiting lessons and 42 automatic signals. They are visual examples, not live values or product constants. The separate dated live audit at the end records 43 waiting lessons and 26 signals; production surfaces always derive their current values from the shared resolvers.
+
 Mission Control only shows. It never harvests, promotes, prunes or runs a skill; every action is a command to copy and run in Claude Code.
 
 ## Screens
@@ -36,7 +38,7 @@ Mission Control only shows. It never harvests, promotes, prunes or runs a skill;
   - Below the list, a calm strip with a check icon: "La memoria se revisa sola." and "La rutina diaria cosechó y revisó por última vez el 20 oct. 2026. No necesitas hacer nada." Memory upkeep reads this way while the daily routine is current.
 - Two cards side by side, ending at the same height: **"Memoria de la fábrica"** ("Lo que aprendió construyendo tus proyectos.", the figures "Reglas activas" 12, "Esperan tu decisión" 16, "Candidatas" 24 with "se corroboran solas", link "Ver cómo avanza una lección") and **"Backlog de la fábrica"** ("Fallos y mejoras de la propia fábrica (motor, plantillas, skills), no de tus proyectos.", the figures "Urgentes · P0" 2, "Importantes · P1" 4, "Cuando haya tiempo · P2" 3, "1 ítem ya está en curso.", link "Ver el backlog por tema").
 - **"Señales automáticas"** card with the count pill 42 and the sentence "Avisos que la fábrica genera sola. Ya están incluidos arriba cuando piden algo de ti." Signals are grouped by kind into four expander rows, each with an icon, title and count pill, collapsed in the capture: "Columnas del tablero con muchas ideas" (2), "Lecciones vistas en 2 proyectos" (12), "Skills sin uso registrado" (27) and "Otras" (1). A row opens to its explanation and its items (for example the 12 lessons each with its own `/pandacorp:learn LESSON-NNNN` and copy). The unused-skills row, which flags 27 of 27 skills, opens with the marker "Señal poco fiable:" and says it only reads the last 200 usage entries and asks for no action (AC-17-011.3).
-- The Propuestas sidebar item carries the count 4, the owner's actions, not the 42 + 16 + 24 items behind them (AC-17-011.2). Its accessible name is "4 cosas esperan tu decisión".
+- The Propuestas sidebar item carries the count 4, the owner's actions, not the sum of automatic signals, waiting lessons and candidates behind them (AC-17-011.2). Its accessible name is "4 cosas esperan tu decisión".
 
 **Memoria** (`proposals-memory`), top to bottom:
 
@@ -151,3 +153,7 @@ Summary icons are target (owner tasks), rocket (decide), list (important and bac
 bulb (ideas) and sparkles (signals). The subtitle belongs directly beneath the owner
 card title, with its Chip wrapping onto a separate line on phones. Candidates include
 the localized corroboration note, and the memory-upkeep title ends with a period.
+
+## Live-count reconciliation (2026-10-31)
+
+The frozen prototype uses illustrative populations (16 waiting lessons and 42 signals). Live counts are derived, not copied: the 2026-10-31 audit observed a waiting union of 43 unique lesson IDs (39 proposed promotions plus 4 additional eligible recurring lessons), and an automatic-signal total of 26. The Resumen action, Memoria tab, flow tile and waiting group use the same deduplicated resolver. Other frozen examples, including candidate and active-rule counts, remain capture descriptions rather than constants.

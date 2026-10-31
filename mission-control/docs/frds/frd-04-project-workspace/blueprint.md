@@ -7,7 +7,7 @@ implementation_status: VERIFIED
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22
-last_updated: 2026-10-22
+last_updated: 2026-10-31
 ---
 # FRD-04 Project workspace · feature blueprint (v2 «Órbita»)
 
@@ -335,3 +335,9 @@ Lista links to source errors remain underlined at all widths.
 ### Next-command explanation correction (2026-10-31)
 
 The shared overview keeps implement while orders are unfinished, source counts are unknown, or the change queue is non-empty. Only known-complete construction with no open changes recommends release. WorkspaceProject pairs that authoritative command with its phase-command when sentence; construction uses remaining-order or queued-change copy, and no next-command sentence is empty.
+
+## Document-count audit (2026-10-31 close-out)
+
+The 80/82 comparison is a discovery-scope difference, not an arithmetic or deduplication failure. Replaying the 82 Funko Tracker document paths from the frozen `docs/design/prototype/data/snapshot.js` through `listProjectDocs` yields 80 unique paths. The two excluded paths are root `DESIGN.md` and `docs/rules/README.md`. The prototype exporter recursively includes `docs/**/*.md` plus root `DESIGN.md`; the application reader enumerates product, feature, work-order, ADR/global, design-directory, analytics and review layers. It does not enumerate root design files or engineering-rule directories. The reader and its `readDoc` allowlist remain unchanged: this audit found no counting bug within that discovery contract.
+
+The current real Funko Tracker checkout yields 174 documents under the same reader, rather than the old captured 80. Its source files and feature paths have changed since capture; neither 80 nor 82 is a product constant. The Documentos badges, type filters and picker must derive from the current discovered nodes. A future expansion to all Markdown requires an explicit discovery/read-allowlist change, with security tests, rather than adjusting a displayed count to match the frozen snapshot.

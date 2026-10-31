@@ -6,7 +6,7 @@
  * the strings directly — so a rename propagates everywhere automatically.
  *
  * Traces:
- *   TABULAR_NUMS_CLASS → AC-13-003.1 (REQ-13-003): EVERY number uses tabular-nums.
+ *   TABULAR_NUMS_CLASS → AC-13-003.1 (REQ-13-003): numeric content and tabular data.
  *   FOCUS_RING_CLASS   → AC-13-008.1 (REQ-13-008): visible focus ring respecting border-radius.
  *
  * Both constants map to Tailwind v4 utility classes:
@@ -20,8 +20,9 @@
 
 /**
  * Tailwind utility class that sets `font-variant-numeric: tabular-nums`.
- * Apply to every numeric container: XP values, levels, column counts, stats,
- * timestamps (AC-13-003.1 / REQ-13-003).
+ * Apply to numeric content and tabular data that require aligned figures.
+ * Preserve proportional display exceptions such as `.num` and `.chip`
+ * (AC-13-003.1 / REQ-13-003).
  */
 export const TABULAR_NUMS_CLASS = "tabular-nums" as const;
 

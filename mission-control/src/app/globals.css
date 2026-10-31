@@ -415,7 +415,6 @@
   box-sizing: border-box;
 }
 html {
-  font-variant-numeric: tabular-nums;
   -webkit-text-size-adjust: 100%;
   scroll-padding-top: 88px;
   /* `clip` (not `hidden`) so full-bleed sections add no horizontal scrollbar and <html> stays no scroll container. */
@@ -432,14 +431,12 @@ body *,
 ::before,
 ::after {
   font-feature-settings: "cv11", "ss01" !important;
-  font-variant-numeric: tabular-nums !important;
 }
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
   font: 400 var(--fs-base) / 1.55 var(--font-body);
-  font-variant-numeric: tabular-nums;
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
 }
@@ -496,9 +493,13 @@ pre,
   font-family: var(--font-mono);
   font-size: max(0.88em, var(--fs-xs));
 }
+td,
+time,
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
 .num {
   font-family: var(--font-display);
-  font-variant-numeric: tabular-nums;
   font-weight: 750;
   letter-spacing: -0.02em;
 }

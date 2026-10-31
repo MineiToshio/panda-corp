@@ -9,7 +9,7 @@ implementation_status: VERIFIED
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22
-last_updated: 2026-10-22
+last_updated: 2026-10-31
 ---
 
 # Blueprint — FRD-17 Proposals inbox (self-learning gate + self-suggestion)
@@ -64,8 +64,8 @@ over), `Icon`. The Resumen action blocks, the flow tiles and the signal groups a
 
 **`ownerActions()`.** Inputs: none (reads through `IF-17-data`). Success: the object above. Invariants: every
 count derives from the same read as the list it summarizes; `badgeCount` equals the number of
-`ProposalActionRow`s on Resumen (worked example of AC-17-011.2: 42 signals, 16 promotions and 24 candidates
-group into 4 actions, so the badge reads 4); the "decide" count equals the Memoria tab badge, the flow tile and
+`ProposalActionRow`s on Resumen (worked example of AC-17-011.2: the live 2026-10-31 read has 39 proposed promotions plus 4 additional recurring lessons,
+43 unique waiting lessons and 26 automatic signals; these populations yield 4 action groups, so the badge reads 4); the "decide" count equals the Memoria tab badge, the flow tile and
 the pill of "Esperan tu decisión". Errors: an unreadable backlog directory or memory store is the reader's own
 fail-loud result and renders the designed error `Notice` on the affected card, never a count of zero that reads
 as "all clear"; the other cards still render.

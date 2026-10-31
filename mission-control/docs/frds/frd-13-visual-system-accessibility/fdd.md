@@ -5,7 +5,7 @@ slug: visual-system-accessibility
 title: Visual system and accessibility
 status: ACTIVE
 parent: FRD-13
-last_updated: '2026-10-22'
+last_updated: '2026-10-31'
 prototype_blessed_at: '409a0564'
 ---
 
@@ -34,7 +34,7 @@ prototype_blessed_at: '409a0564'
 
 - On the Funko Tracker card of "Tu cartera", the conic progress ring (`Ring`, 52px, "81%") has the focus ring around it and an inverted tooltip pill above it reading "39 de 48 work orders verificadas".
 - The ring is `role="img"` and focusable (`tabindex="0"`); its accessible name and its tooltip are the same sentence, so the meaning is available to a keyboard user and a screen reader, not only to a pointer (REQ-13-009). Other rings carry their own sentence ("109 de 110 work orders verificadas").
-- The percentage is real text inside the ring, with tabular figures (REQ-13-003).
+- The percentage is real text inside the ring; its approved display style takes precedence over a blanket numeric-format rule (REQ-13-003).
 
 ## States
 
@@ -53,7 +53,7 @@ These rules of the FRD have no captured state because they are values in tokens 
 |---|---|
 | REQ-13-001 few tokens, two committed themes (light and dark, both first-class), authored in hex, no high-contrast layer (owner default O1, 2026-10-22) | `design-tokens.json` (custom properties per theme), `DESIGN.md` § Tokens; the build mirrors them in `src/app/globals.css` `@theme` |
 | REQ-13-002, AC-13-010.1 neutral chrome, hue only with meaning and always with text or an icon, green / amber / red only for status or severity (phase counts as status), no edge stripes | `DESIGN.md` § Colour rules; every FRD's screens show it (this FRD's own states: the neutral chrome and the single coral banner) |
-| REQ-13-003 tabular figures on every number | CSS (`.num`, `font-variant-numeric: tabular-nums`); visible in the ring percentage of `a11y-ring-tooltip-focus` |
+| REQ-13-003 scoped tabular figures on numbers and tabular data, proportional prose and approved large-display exceptions | CSS (`.tabular-nums`, `time`, table data cells and component numeric styles; no global inheritance); `.num` and `.chip` remain proportional display exceptions |
 | REQ-13-004 elevation and radius from the token scales, no per-component shadow or radius | `design-tokens.json` shadows (`shadow`, `shadow-sm`, `node`, `drop`, `panel`, `dialog`, `toast`) and radii (6, 8, 10, 12, 16, 22, 28, pill) |
 | REQ-13-005 motion: transforms only, under 300ms (160ms base, ease token), the frequency test; the sidebar collapse is a transform and a dialog's text never fades | `DESIGN.md` § Motion; the M1 decision of 2026-10-22 keeps this rule and the prototype animates transforms only |
 | REQ-13-006 `prefers-reduced-motion` disables La Fragua and every non-essential motion | one CSS rule in `base.css`; checked in a reduced-motion run |

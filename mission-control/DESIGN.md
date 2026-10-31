@@ -47,7 +47,7 @@ Three self-hosted families (SIL OFL), served from the app, never a system stack 
 
 - Headings use `--font-display`: `h1` 750 / 32px (25px under 760px; the project hero's `h1` is 28px, 21px on phones), tracking −.025em; `h2` and card titles 700 / 19px (`--fs-h3`); `h3` 650 / 16px; `h4` 650 / 14px. Body is Inter 15px / 1.55 with `font-feature-settings: "cv11", "ss01"`.
 - `code, kbd, pre, .mono` use `--font-mono` at `max(.88em, 12px)`.
-- Numbers use `.num` (Space Grotesk 750, `tabular-nums`) or `font-variant-numeric: tabular-nums`. Big display figures use proportional figures: Space Grotesk's tabular "1" clips.
+- Numeric content and tabular data use tabular figures only through explicit `.tabular-nums`, `time`, table data cells or component numeric styles. Ordinary prose never inherits this feature from `html`, `body` or a universal selector. The approved prototype keeps `.num` (Space Grotesk 750) and `.chip` proportional as display exceptions; this includes column counts rendered as chips. Do not apply a blanket tabular rule to counts, XP, levels or stats when their approved display style is proportional.
 - **Small uppercase labels** (`.eyebrow`, dialog kickers, table heads, nav group labels) are **Inter** 12px / 650, tracking .08em, uppercase. Monospace is never used for labels.
 - Hero tags, FRD kind tags, build-mode tags, level chips, document counts and the «copiar» hint are Inter. Monospace appears for work-order and FRD codes (`WO-02-014`, `FRD-02`), ADR ids, environment variable names, commands and paths.
 
@@ -172,3 +172,7 @@ shadcn/ui and Tailwind are the accessible foundation; the identity above is besp
 ## Voice
 
 Plain Spanish, direct, no jargon where a plain word exists; explain what a command does and where to run it. Product copy is loaded verbatim from the FRD copy files (`docs/design/freeze/copy/`) and the i18n catalogue.
+
+## Visual close-out precedence (2026-10-31 only)
+
+For this close-out, the owner-approved prototype takes precedence over conflicting FRD wording, except where security, accessibility or data loss is involved. Each owning lane reconciles its FRD/FDD in the same patch. Live data counts remain derived from their documented sources; frozen illustrative counts are not product constants. This exception does not change the general factory specification policy.

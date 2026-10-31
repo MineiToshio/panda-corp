@@ -6,7 +6,7 @@ status: VERIFIED
 implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
-last_updated: '2026-10-22'
+last_updated: '2026-10-31'
 visual_source_mocks: docs/frds/frd-17-proposals-inbox/mocks/proposals-inbox.html
 floor: false
 ---
@@ -49,11 +49,11 @@ The owner-facing surface of the factory's self-learning loop (DR-047) and the pl
 ### REQ-17-011 — Resumen to-do, navigation badge, automatic signals and the lesson flow (added 2026-10-22, design freeze)
 
 - **AC-17-011.1** — THE Propuestas page SHALL open on the tab Resumen ("Qué te toca, en orden"): an ordered list of only the actions that need the owner, each with its count, its reason, its command, where to run it and a link to the detail; memory upkeep SHALL read "se revisa sola" while the daily routine is current.
-- **AC-17-011.2** — THE Propuestas navigation badge SHALL count the owner's actions, not the proposal items.
+- **AC-17-011.2** — THE Propuestas navigation badge SHALL count the owner's action groups, not the proposal items. The lesson decision count, Memoria badge and waiting tile SHALL share the union of proposed promotions and eligible recurring lessons, deduplicated by lesson ID and excluding approved, rejected or deprecated recurring lessons.
 - **AC-17-011.3** — THE "Señales automáticas" SHALL be grouped by kind, and a signal that flags most of its population (such as the unused-skills signal) SHALL be marked unreliable.
 - **AC-17-011.4** — THE Memoria tab SHALL explain a lesson's four steps and who moves each one, SHALL list the lessons awaiting the owner ("Esperan tu decisión") first, and SHALL keep the candidates collapsed under "no piden nada".
 
-**Worked example (AC-17-011.2).** The factory has 42 automatic signals, 16 promotions awaiting the owner and 24 candidate lessons. They group into 4 actions that need the owner, so the badge reads 4, not 82.
+**Worked example (AC-17-011.2).** On 2026-10-31 the live factory has 39 proposed promotions plus 4 additional eligible recurring lessons: 43 unique lessons await a decision, not 16. All lesson surfaces show that same union. The live automatic signals total is 26, independently derived; signals and candidates are not added to the lesson decision count. The navigation badge counts action groups (4 in this read), not the 43 lessons or the sum of populations. These observed values are examples, never fixed product constants.
 
 ## Non-goals
 - Mission Control does NOT harvest, promote, prune, or run any skill. It never edits `factory/memory/`, `factory/standards/`, `factory/decisions/registry.yaml` or `plugin/`. The loop's harvest/apply/prune live in `/pandacorp:memory` + `/pandacorp:learn` + the owner.

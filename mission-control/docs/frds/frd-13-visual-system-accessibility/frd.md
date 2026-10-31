@@ -7,7 +7,7 @@ implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-13-visual-system-accessibility/mocks/visual-system-accessibility.html
-last_updated: '2026-10-22'
+last_updated: '2026-10-31'
 floor: false
 ---
 # FRD-13 — Visual system and accessibility
@@ -20,7 +20,7 @@ Mission Control must feel **engineered, not decorative**, without the owner (wea
 
 - **REQ-13-001** — The theme SHALL be derived from **few tokens** — a small, structured set of surface / text / line / hue / tint / shadow / scene tokens per theme, frozen in `docs/design/design-tokens.json` and `DESIGN.md` — instead of dozens of loose, unrelated values, so that touching a hue doesn't throw off the text contrast. The tokens are authored in **hex**. There are exactly **two committed themes** (light and dark, both first-class), and the theme control is a sun/moon toggle between them only. There is no high-contrast mode: no control, no var-override layer and no third theme. (Amended 2026-10-22, v2 plan: the high-contrast option of v1 is removed, owner default O1.)
 - **REQ-13-002** — The chrome (surfaces, text, lines, controls) SHALL be **neutral** (graphite / porcelain); hue SHALL be used only where it carries meaning, per AC-13-010.1.
-- **REQ-13-003** — EVERY number (XP, levels, per-column counts, stats, timestamps) SHALL use **`font-variant-numeric: tabular-nums`**.
+- **REQ-13-003** — Numeric content and tabular data SHALL use **`font-variant-numeric: tabular-nums`** only through explicit tabular styles (`.tabular-nums`, `time`, table data cells or component numeric styles). Ordinary prose SHALL NOT inherit tabular figures from global `html`, `body` or universal rules. The approved prototype's `.num` and `.chip` SHALL remain proportional display exceptions, including per-column counts rendered as chips and the display figures selected by `orbitaResponsive.css`; the semantic fact that a value is a count, XP, level or stat SHALL NOT override its approved display style.
 - **REQ-13-004** — Elevation and radius SHALL come from the frozen token scales: the shadow tokens (`shadow`, `shadow-sm`, `node`, `drop`, `panel`, `dialog`, `toast`), the radii (6, 8, 10, 12, 16, 22, 28 px and pill) and a 1px hairline; the light theme re-declares the shadows with softer values. No component SHALL declare its own shadow or radius.
 - **REQ-13-005** — Animation SHALL use **only `transform` and `opacity`**, duration **<300ms**, and apply the *frequency test*: what is seen dozens of times a day (tabs, hover) is restrained; the expressive is reserved for rare and satisfying events (achievement notice, completed work order). 2–3 easing tokens, not per-component curves. This includes the sidebar collapse (a transform, never an animated `width`) and the dialog pop (no fade of the dialog's text). (M1 2026-10-22: this rule wins over the prototype, which is corrected.)
 - **REQ-13-006** — The UI SHALL honor **`prefers-reduced-motion`**: it disables all La Fragua animation and every other non-essential motion (long sessions → avoid fatigue).

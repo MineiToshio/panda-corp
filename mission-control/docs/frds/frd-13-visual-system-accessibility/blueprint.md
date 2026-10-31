@@ -9,7 +9,7 @@ implementation_status: VERIFIED
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22
-last_updated: 2026-10-22
+last_updated: 2026-10-31
 ---
 
 # Blueprint — FRD-13 Visual system and accessibility (v2 «Órbita»)
@@ -38,7 +38,7 @@ v1 skin once every surface is rebuilt. It owns no data and no route.
 |---|---|---|---|---|---|
 | IF-13-tokens | contract | raw token layer in `src/app/globals.css` | Every `design-tokens.json` property under its own name; light on `:root`, dark on `:root[data-theme="dark"]`, theme-agnostic groups once, `overrides` rules verbatim; scene / map tokens declared once (always dark) | REQ-13-001, REQ-13-002, REQ-13-004, REQ-13-005, AC-13-010.4 | WO-13-010 |
 | IF-13-registry | contract | Tailwind v4 registry in `globals.css` | Tailwind namespaces resolving to the raw tokens at use time (colour, font family, font size reset to the `--fs-*` scale, radius, shadow, easing, duration); spacing on the 4 px base | REQ-13-001, REQ-13-003, REQ-13-004, AC-13-010.2 | WO-13-010 |
-| CMP-13-globals | CSS | base layer of `globals.css` | Base typography, `.num` tabular figures, focus ring, `[data-tip]` tooltip, hover gated to hover-capable pointers, `scroll-padding` for sticky bars, one reduced-motion block | REQ-13-003, REQ-13-005, REQ-13-006, REQ-13-009, AC-13-010.3 | WO-13-010 |
+| CMP-13-globals | CSS | base layer of `globals.css` | Base typography, scoped tabular figures (`.tabular-nums`, `time`, table data and component numeric styles), proportional prose and `.num`/`.chip` display exceptions, focus ring, `[data-tip]` tooltip, hover gated to hover-capable pointers, `scroll-padding` for sticky bars, one reduced-motion block | REQ-13-003, REQ-13-005, REQ-13-006, REQ-13-009, AC-13-010.3 | WO-13-010 |
 | CMP-13-fonts | assets + CSS | `public/fonts/`, `@font-face` | Space Grotesk, Inter, JetBrains Mono self-hosted with the prototype's rules; no `next/font` | AC-13-010.2 | WO-13-010 |
 | IF-13-theme | interface | `src/lib/theme/` | `Theme`, storage key `orbita-theme`, system default, resolver, `applyTheme`, `persistTheme`, boot script (also mirrors `orbita-sidebar` for WO-19-003) | REQ-13-001 | WO-13-010 |
 | IF-13-copy | interface | `src/lib/copy/` (`t`, `tRich`) | Typed accessor over the frozen catalogue; placeholders, plural selection, inline tags; Spanish accessible names come from it | REQ-13-009 (Spanish names), ADR-0013 | WO-13-010 |
@@ -56,7 +56,7 @@ v1 skin once every surface is rebuilt. It owns no data and no route.
 |---|---|---|
 | REQ-13-001 few tokens, two themes, no high-contrast | IF-13-tokens, IF-13-registry, IF-13-theme, CMP-13-retirement; the visible toggle is FRD-19's CMP-19-theme-toggle | WO-13-010, WO-13-013 (WO-19-003 for the control) |
 | REQ-13-002 neutral chrome | IF-13-tokens, IF-13-vocabulary, CMP-13-leaf, CMP-13-composite | WO-13-010, WO-13-011, WO-13-012 |
-| REQ-13-003 tabular figures | CMP-13-globals (`.num`), IF-13-registry, CMP-13-leaf (Ring, counts) | WO-13-010, WO-13-011 |
+| REQ-13-003 tabular figures | CMP-13-globals (explicit tabular styles), IF-13-registry, CMP-13-leaf (component numeric styles; proportional `.num`/`.chip` exceptions) | WO-13-010, WO-13-011 |
 | REQ-13-004 elevation and radius from tokens | IF-13-tokens, IF-13-registry, CMP-13-composite | WO-13-010, WO-13-012, WO-13-013 |
 | REQ-13-005 transform/opacity motion < 300 ms | IF-13-tokens (`--dur`, `--ease`), CMP-13-globals, CMP-13-composite (dialog pop) | WO-13-010, WO-13-012 |
 | REQ-13-006 reduced motion | CMP-13-globals | WO-13-010 |
