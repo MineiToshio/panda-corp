@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 · Restore 44px touch targets in the phone idea header
+
+Keep the compact 32px navigation links at desktop widths only, and give the phone header's
+favourite control a 44px target. Accessibility's 44px design goal takes precedence over the
+compact reference dimensions on phones; update the FRD rationale accordingly. See [FRD-02 FDD](frds/frd-02-ideas-board/fdd.md).
+
 ## 2026-10-31 · Preserve navigation entries across live refresh and canonical redirects
 
 Treat the first live event as a baseline and defer background refreshes until navigation commits. Resolve canonical defaults through server redirects, withdrawing the local `__NA` rename that left Next state stale. The deterministic regression fails on base; production passes 80/80 and the independent probe 5/5. This supersedes the previous nondiscriminating closure. See [FRD-25](frds/frd-25-persistent-navigation/frd.md), [blueprint](frds/frd-25-persistent-navigation/blueprint.md) and [ADR-0010](adr/ADR-0010-persistent-navigation-identity.md).

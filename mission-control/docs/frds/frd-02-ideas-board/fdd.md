@@ -166,8 +166,9 @@ chips use the pale `--tint` mixed with `--surface`, retaining their phase colour
   their default level 3. The shared hero eyebrow has line-height 1.2; proposal metadata chips
   use the oracle 6px gap and inline-flex wrappers so they do not add baseline height. CardDetail adds no flex gap
   after the tab wrapper: its own bottom margin supplies the spacing before the hero. The header
-  favourite is 40px and small navigation actions retain their 32px height, producing the oracle
-  action-row height of 40px. These targets exceed the WCAG AA 24px minimum.
+  favourite is 40px and small navigation actions retain their 32px height on desktop, producing
+  the oracle action-row height of 40px. On phones, accessibility's 44px touch target takes
+  precedence. The 24px WCAG AA target-size floor is only a minimum.
 - The decision chart matches the oracle: 80-high, radius-6 ideal zone at 14% green; ticks start at
   x=70/180/300. Ticks and captions use 600-weight 12px mono; ideal-zone and idea labels use body type.
   Score labels use secondary text. The Evidence disclosure uses the measured 14px body token.
@@ -224,6 +225,6 @@ The real Funko Tracker digest already supplies de-prefixed mosaic titles; its re
 
 ### Integrated responsive repair (2026-10-31)
 
-Phone header actions retain the approved 32px small links and 40px favourite; both action
-groups use spacing-1 gaps so the complete row fits the 288px content area at a 320px viewport.
-Accessible labels and the 24px minimum target floor are unchanged.
+On phones, header actions meet the 44px accessibility touch-target goal, overriding the approved
+32px small-link and 40px favourite sizes. Both action groups use spacing-1 gaps so the complete
+row fits the 288px content area at a 320px viewport. Accessible labels remain unchanged.

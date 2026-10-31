@@ -50,6 +50,10 @@
     flex-wrap: nowrap;
     gap: var(--s1);
   }
+  .actions [data-testid="favorite-button"] {
+    width: calc(var(--s10) + var(--s1));
+    height: calc(var(--s10) + var(--s1));
+  }
   .longLabel {
     display: none;
   }
@@ -62,6 +66,8 @@
   width: var(--s10);
   height: var(--s10);
 }
-.actions a[data-size="sm"] {
-  min-height: var(--s8);
+@media (min-width: 760px) {
+  .actions a[data-size="sm"] {
+    min-height: var(--s8);
+  }
 }
