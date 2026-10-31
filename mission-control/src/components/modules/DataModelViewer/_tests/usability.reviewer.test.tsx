@@ -10,6 +10,7 @@ afterEach(cleanup);
 async function ready() {
   render(<DataModelViewer result={readyFixture()} />);
   await waitForLayout();
+  fireEvent.click(screen.getByText(/^Relaciones/));
   await screen.findByRole("button", { name: "Ver relación Propiedad" });
 }
 
@@ -21,13 +22,18 @@ describe("model usability independent acceptance", () => {
   ])("toggles a selected relationship off with %s", async (gesture) => {
     await ready();
     const relation = screen.getByRole("button", { name: "Ver relación Propiedad" });
-    const activate = () => {
-      if (gesture === "click") fireEvent.click(relation);
-      else fireEvent.keyDown(relation, { key: gesture });
+    const user = userEvent.setup();
+    const activate = async () => {
+      if (gesture === "click") {
+        await user.click(relation);
+        return;
+      }
+      relation.focus();
+      await user.keyboard(gesture === "Enter" ? "{Enter}" : " ");
     };
-    activate();
+    await activate();
     expect(relation).toHaveAttribute("aria-pressed", "true");
-    activate();
+    await activate();
     expect(relation).toHaveAttribute("aria-pressed", "false");
   });
 
@@ -40,8 +46,9 @@ describe("model usability independent acceptance", () => {
     expect(ownership).toHaveAttribute("aria-pressed", "false");
     expect(review).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "Seleccionar entidad Account" }));
-    expect(ownership).toHaveAttribute("aria-pressed", "true");
-    expect(review).toHaveAttribute("aria-pressed", "true");
+    // An entity neighbourhood lights connectors without explicitly selecting their rows.
+    expect(ownership).toHaveAttribute("aria-pressed", "false");
+    expect(review).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(review);
     expect(review).toHaveAttribute("aria-pressed", "true");
     expect(ownership).toHaveAttribute("aria-pressed", "false");
@@ -50,7 +57,7 @@ describe("model usability independent acceptance", () => {
   it("starts schema entities collapsed and opens each on demand without losing fields, keys or mappings", async () => {
     const user = userEvent.setup();
     await ready();
-    await user.click(screen.getByRole("tab", { name: "Esquema" }));
+    await user.click(screen.getByRole("button", { name: "Esquema" }));
     const accountCode = screen.getByText(/model Account \{/);
     const entryCode = screen.getByText(/model Entry \{/);
     expect(accountCode).not.toBeVisible();

@@ -3,7 +3,8 @@ import { parseArchitecture } from "@/lib/architecture/architecture";
 import { readDataModel } from "@/lib/architecture/data-model/read-data-model";
 import { readEnvExample } from "@/lib/architecture/env";
 import { readArchitectureDigest } from "@/lib/architecture/read-architecture";
-import { listWorkOrders } from "@/lib/work-orders/work-orders";
+import { readArtifact, readDigestWorkOrders } from "@/lib/spec/read-artifacts";
+import { readDigestFrds } from "@/lib/spec/read-frds";
 
 /** Read the same architecture artifacts for board and workspace without creating replicas. */
 export function readArchitectureArtifacts(projectPath: string) {
@@ -16,11 +17,17 @@ export function readArchitectureArtifacts(projectPath: string) {
       ? { kind: "none" as const }
       : result;
   const hasArchitecture = architectureContent !== undefined || dataModel.kind !== "missing";
+  const orders = readArtifact(() => (hasArchitecture ? readDigestWorkOrders(projectPath) : []), []);
+  const env = readArtifact(() => (hasArchitecture ? readEnvExample(projectPath) : []), []);
+  const adrs = readArtifact(() => (hasArchitecture ? readAdrs(projectPath) : []), []);
+  const frds = readArtifact(() => readDigestFrds(projectPath, orders.value), []);
   return {
     architectureContent,
     dataModel,
-    workOrders: hasArchitecture ? listWorkOrders(projectPath) : undefined,
-    envVars: hasArchitecture ? readEnvExample(projectPath) : undefined,
-    adrs: hasArchitecture ? readAdrs(projectPath) : undefined,
+    workOrders: hasArchitecture ? orders.value : undefined,
+    envVars: hasArchitecture ? env.value : undefined,
+    adrs: hasArchitecture ? adrs.value : undefined,
+    frds: frds.value,
+    sourceErrors: { workOrders: orders.error, env: env.error, adrs: adrs.error, frds: frds.error },
   };
 }

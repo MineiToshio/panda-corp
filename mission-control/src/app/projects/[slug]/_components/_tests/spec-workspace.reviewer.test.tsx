@@ -126,11 +126,10 @@ describe("Spec workspace independent review", () => {
         searchParams: Promise.resolve({ tab: "spec" }),
       }),
     );
-    expect(readSpecDigest).toHaveBeenCalledTimes(2);
-    expect(vi.mocked(readSpecDigest).mock.calls).toEqual([
-      [projectAt(1).path],
-      [projectAt(1).path],
-    ]);
+    // The bundle also reads the digest for FRD detail: the count may move, the source may not.
+    expect(new Set(vi.mocked(readSpecDigest).mock.calls.map(([path]) => path))).toEqual(
+      new Set([projectAt(1).path]),
+    );
     expect(screen.getByRole("article", { name: "Resumen del spec" })).toHaveTextContent(
       `FRDs · las piezas del v1 (${board.frdCount})`,
     );

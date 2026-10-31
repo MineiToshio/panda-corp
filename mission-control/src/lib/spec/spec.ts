@@ -25,7 +25,7 @@ type SpecBlockKind =
   | "decisions"
   | "refs";
 
-export interface SpecItem {
+interface SpecItem {
   /** Bold lead of a `- **Title** — desc` bullet (or the whole bullet when there's no bold). */
   title: string;
   /** The text after the em-dash (empty for a plain `- text` chip). */
@@ -42,7 +42,7 @@ export interface SpecBlock {
   items: SpecItem[];
 }
 
-export interface SpecSection {
+interface SpecSection {
   /** Clean label: "PRD" | "Research". */
   label: string;
   blocks: SpecBlock[];

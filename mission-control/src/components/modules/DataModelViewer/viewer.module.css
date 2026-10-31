@@ -1,7 +1,7 @@
 .viewer {
   --model-unit: calc(var(--space-base) / 4);
-  --model-font: 12px;
-  color: var(--color-text);
+  --model-font: var(--fs-xs);
+  color: var(--text);
   min-width: 0;
   font-size: var(--model-font);
 }
@@ -13,13 +13,13 @@
   gap: calc(var(--model-unit) * 2);
 }
 .provenance {
-  color: var(--color-text2);
+  color: var(--text-2);
   gap: var(--model-unit) calc(var(--model-unit) * 3);
   margin-bottom: calc(var(--model-unit) * 3);
 }
 .provenance code {
   overflow-wrap: anywhere;
-  color: var(--color-text3);
+  color: var(--text-3);
 }
 .toolbar {
   margin-bottom: calc(var(--model-unit) * 2);
@@ -32,20 +32,28 @@
   width: 100%;
   min-height: calc(var(--model-unit) * 9);
   padding: calc(var(--model-unit) * 2);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--color-base);
-  color: var(--color-text);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  background: var(--bg);
+  color: var(--text);
   font: inherit;
 }
 .canvas {
   position: relative;
   overflow: hidden;
-  height: 440px;
+  height: 560px;
   width: 100%;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--line);
   border-top: 0;
-  background: var(--color-base);
+  background:
+    radial-gradient(
+      circle at var(--hairline) var(--hairline),
+      color-mix(in srgb, var(--text-3) 22%, transparent) var(--hairline),
+      transparent 0
+    )
+    0 0 / 22px 22px,
+    var(--bg-2);
+  border-radius: var(--r-lg);
   cursor: grab;
   touch-action: none;
   overscroll-behavior: contain;
@@ -64,12 +72,11 @@
   pointer-events: none;
 }
 .edge {
-  pointer-events: auto;
-  cursor: pointer;
+  pointer-events: none;
 }
 .edgeLine {
   fill: none;
-  stroke: var(--color-text3);
+  stroke: var(--text-3);
   stroke-width: 1.5;
   pointer-events: none;
 }
@@ -80,8 +87,8 @@
 }
 .edge text {
   font: var(--model-font) var(--font-mono);
-  fill: var(--color-text2);
-  stroke: var(--color-base);
+  fill: var(--text-2);
+  stroke: var(--bg);
   stroke-width: 4;
   paint-order: stroke;
   stroke-linejoin: round;
@@ -89,25 +96,26 @@
 }
 .edge[data-active="true"] .edgeLine,
 .edge:focus-visible .edgeLine {
-  stroke: var(--color-accent);
+  stroke: var(--blue);
   stroke-width: 2.5;
 }
 .entity {
   user-select: none;
   -webkit-user-select: none;
   position: absolute;
-  background: var(--color-card);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-node);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
   overflow: hidden;
   font-size: var(--model-font);
 }
 .entity[data-related="true"] {
-  border-color: var(--color-accent);
+  border-color: var(--blue);
 }
 .entity[data-selected="true"],
 .entity[data-match="true"] {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
 .entityHead {
@@ -119,10 +127,10 @@
   gap: calc(var(--model-unit) * 2);
   padding: 0 calc(var(--model-unit) * 2);
   font: inherit;
-  color: var(--color-text);
-  background: var(--color-card2);
+  color: var(--text);
+  background: var(--surface-2);
   border: 0;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--line);
   cursor: pointer;
   text-align: left;
 }
@@ -132,7 +140,7 @@
   font-family: var(--font-mono);
 }
 .entityHead span {
-  color: var(--color-text3);
+  color: var(--text-3);
 }
 .entity table {
   width: 100%;
@@ -143,7 +151,7 @@
 .entity td {
   height: 24px;
   padding: 0 var(--model-unit);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--line);
   overflow: visible;
   white-space: nowrap;
 }
@@ -154,18 +162,18 @@
   padding-left: calc(var(--model-unit) * 2);
 }
 .entity td:nth-child(2) {
-  color: var(--color-text2);
+  color: var(--text-2);
 }
 .entity td:nth-child(3) {
-  color: var(--color-accent-text);
+  color: var(--blue);
   font-size: var(--model-font);
 }
 .entity td:last-child {
   text-align: center;
-  color: var(--color-text2);
+  color: var(--text-2);
 }
 .searchStatus {
-  color: var(--color-text2);
+  color: var(--text-2);
   margin: calc(var(--model-unit) * 2) 0;
   line-height: 1.5;
 }
@@ -176,13 +184,13 @@
 }
 .schema details {
   min-width: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-base);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--bg);
   overflow: hidden;
 }
 .schema details[open] {
-  border-color: var(--color-border-strong);
+  border-color: var(--line-strong);
 }
 .schemaName {
   display: flex;
@@ -190,8 +198,8 @@
   gap: calc(var(--model-unit) * 2);
   min-height: calc(var(--model-unit) * 11);
   padding: calc(var(--model-unit) * 2) calc(var(--model-unit) * 3);
-  color: var(--color-text);
-  background: var(--color-card2);
+  color: var(--text);
+  background: var(--surface-2);
   cursor: pointer;
   list-style: none;
 }
@@ -199,7 +207,7 @@
   display: none;
 }
 .schema details[open] .schemaName {
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--line);
 }
 .schema details[open] .schemaName i {
   transform: rotate(90deg);
@@ -211,15 +219,15 @@
   overflow-wrap: anywhere;
 }
 .schemaName span {
-  color: var(--color-text3);
+  color: var(--text-3);
   white-space: nowrap;
 }
 .schemaName:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--blue);
   outline-offset: -2px;
 }
 .schema p {
-  color: var(--color-text2);
+  color: var(--text-2);
   margin: calc(var(--model-unit) * 2) calc(var(--model-unit) * 3);
 }
 .schema pre {
@@ -228,24 +236,6 @@
   padding: calc(var(--model-unit) * 3);
   overflow: auto;
   user-select: text;
-}
-.dialog {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100dvh;
-  max-width: none;
-  max-height: none;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  color: var(--color-text);
-  background: var(--color-base);
-  border: 0;
-  border-radius: 0;
-}
-.dialog::backdrop {
-  background: var(--color-base);
 }
 .expandedCanvas {
   position: absolute;
@@ -260,19 +250,20 @@
 .expandedSurface {
   width: 100%;
   height: 100%;
-  background: var(--color-base);
+  background: var(--bg);
 }
 .surface:fullscreen {
   width: 100vw;
   height: 100dvh;
-  background: var(--color-base);
+  background: var(--bg);
 }
 .surface:-webkit-full-screen {
   width: 100vw;
   height: 100vh;
-  background: var(--color-base);
+  background: var(--bg);
 }
 .expandedSearch {
+  z-index: 2;
   position: absolute;
   top: calc(var(--model-unit) * 2);
   left: calc(var(--model-unit) * 2);
@@ -283,7 +274,7 @@
   min-width: 0;
 }
 .expandedSearch .searchStatus {
-  background: var(--color-card);
+  background: var(--surface);
   padding: var(--model-unit);
 }
 .expandedPlaceholder {
@@ -291,9 +282,9 @@
 }
 .state {
   padding: var(--space-base);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  color: var(--text-2);
   overflow-wrap: anywhere;
   font-size: 13px;
 }
@@ -309,7 +300,7 @@
   border: 0;
 }
 .viewer :is(button, input, [tabindex]):focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--blue);
   outline-offset: 2px;
 }
 /* SVG group bounds include remote endpoints; use the routed line as its focus indicator. */
@@ -324,11 +315,44 @@
   .canvas {
     height: 400px;
   }
-  .dialog .expandedCanvas {
-    height: 100%;
-  }
   .expandedSearch {
     top: calc(var(--model-unit) * 12);
     width: min(260px, calc(100% - var(--model-unit) * 4));
   }
+}
+
+.entity[data-dimmed="true"] {
+  opacity: 0.35;
+}
+.relations {
+  margin-top: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: var(--space-3);
+}
+.relations summary {
+  cursor: pointer;
+}
+.relations button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2);
+  color: var(--text-2);
+  background: var(--surface);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+}
+.relations button[aria-pressed="true"] {
+  color: var(--blue);
+  background: var(--blue-tint);
+}
+.surface:fullscreen .expandedCanvas {
+  height: 100%;
+}
+
+.entity td [data-tone] {
+  height: var(--s4);
+  padding: 0 var(--s1);
+  border-radius: var(--r-xs);
 }

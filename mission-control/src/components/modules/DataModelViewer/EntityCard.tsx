@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { Chip } from "@/components/core/Chip/Chip";
 import type { DataModelEntity } from "@/lib/architecture/data-model/types";
 import { COPY } from "./copy.es";
 import { entityGeometry } from "./entityGeometry";
@@ -11,19 +12,22 @@ function EntityCardContent({
   selected,
   related,
   matching,
+  dimmed,
   onSelect,
 }: {
   node: ModelNode;
   selected: boolean;
   related: boolean;
   matching: boolean;
+  dimmed: boolean;
   onSelect: (id: string) => void;
 }): React.JSX.Element {
   const entity = node.entity;
   const [nameWidth, typeWidth, keyWidth, optionalWidth] = entityGeometry(entity).columns;
   return (
     <section
-      className={styles.entity}
+      className={`entity ${styles.entity}`}
+      data-dimmed={dimmed}
       style={{ left: node.x, top: node.y, width: node.width }}
       data-selected={selected}
       data-related={related}
@@ -61,7 +65,13 @@ function EntityCardContent({
             <tr key={attribute.id}>
               <td title={attribute.name}>{attribute.name}</td>
               <td title={attribute.type}>{attribute.type}</td>
-              <td>{fieldKeys(entity, attribute.id).join(" ")}</td>
+              <td>
+                {fieldKeys(entity, attribute.id).map((key) => (
+                  <Chip key={key} tone={key === "PK" ? "blue" : key === "FK" ? "teal" : "violet"}>
+                    {key}
+                  </Chip>
+                ))}
+              </td>
               <td
                 title={attribute.optional ? COPY.optional : COPY.required}
                 aria-label={attribute.optional ? COPY.optional : COPY.required}

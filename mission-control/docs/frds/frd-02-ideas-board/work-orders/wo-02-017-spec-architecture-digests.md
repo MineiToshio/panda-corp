@@ -6,7 +6,7 @@ title: WO-02-017 Spec and Arquitectura digests (shared by the idea page and the 
 status: ACTIVE
 parent: FRD-02
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -16,7 +16,7 @@ artifacts:
   - 'src/app/projects/[slug]/_components/_tests/{spec-tab,architecture-tab}.test.tsx'
 source_requirements: [REQ-02-011, REQ-02-013, REQ-02-016]
 dependsOn: [WO-13-012, WO-25-001]
-last_updated: '2026-10-22'
+last_updated: '2026-10-30'
 ---
 
 # WO-02-017 Spec and Arquitectura digests
@@ -207,3 +207,14 @@ The ACs above pass with tests that fail without the change; `WoDag` is no longer
 tokens only; every string from `t()`.
 
 ## Status Note
+
+- 2026-10-30 (S2B): Built the shared ReportBand family (DigestHero, label/content rows, EnvRow/EnvFold, AdrRow, PlanMosaic) and Spec/FrdCard/FrdDetail. Both digests use the completed FRD-13 primitives and URL-owned dialogs. Removed both digest style files, IntegrationBands, architecture local copy, the WoDag import and the implementer DAG integration suite. No reviewer tests edited.
+- 2026-10-30: The additive mount seam accepts `frds: DigestFrd[]`, `sourceErrors: DigestSourceErrors`, `constructionStarted`, `navigationBaseHref`, plus all prior props. `readSpecArtifacts` returns body/live FRDs/count/orders/errors; `readArchitectureArtifacts` additionally returns live FRDs and band errors. WO-02-016 / WO-04-010 must pass these additive fields when replacing their mounts; existing mounts still compile but do not yet forward them. Live FRD rows provide ui-kind fallback, blueprint summary and work-order state. Source errors remain independent of narrative/model validity.
+- 2026-10-30: Combined S2B implementer verification passed 131 tests in 22 files. Scoped TypeScript passed; Biome passed for 47 touched source/test/style files. Each of this WO's twelve acceptance criteria is cited in a test. Chromium, browser dialog focus/accordion exclusivity and visual fidelity are unverified by task constraint.
+- 2026-10-30: Reviewer-only run: 22 failing / 28 passing tests across 13 suites. Six failing suites: viewer fullscreen.consistency, fullscreen.ux, modelIdentity, usability, viewer; ArchitectureDigest usability (old listitem shape). All layout/routing/hostile-id/async/frame reviewer suites and read-artifacts reviewer passed. Navigation v2-boundaries/v2-survivors and spec-workspace remain for the reviewer to reconcile outside this stream's test scope. No visual baselines, decision log or .pandacorp state changed.
+- 2026-10-30: Shared catalogue/inventory files are outside S2B ownership. Existing catalogue keys drive the new visible headings and states. Legacy viewer/navigation-control labels and unavailable-selection labels, plus ADR metadata wording, still need missing catalogue entries; inventory rows already exist but their ReportBand paths need the central relocation update. These are explicit review/integration follow-ups, not claimed complete.
+
+- 2026-10-30 (agent-inferred): A new RED test demonstrated that the legacy architecture parser ignored the v2 Integraciones y operación heading and dropped prose/nested service tasks. Patched only its services parser and renderer to retain the authored continuations; all other bands keep their source contracts.
+
+- 2026-10-30 (S2B round 2): Patched FRD observability IDs and extension-free document navigation, empty env/ADR bands, the unpublished architecture state, zero-order plan copy, three-line env section banners, and frontmatter-free blueprint summaries. Added fixtures matching the read-only pandatrack and funko-tracker .env.example header shapes. Removed the requested unused exports while retaining parseEnvExample for the immutable reviewer probe. Knip no longer flags parseEnvExample; its remaining findings are ButtonVariant, ButtonTone and TabDef outside this patch scope. The unpublished dialog fixture now supplies a published digest when exercising plan cards. No reviewer tests or visual baselines changed.
+- 2026-10-30 (S2B round 2 verification): With PORT=3952 and PANDACORP_E2E_PORT=3952, scoped Vitest passed 193 tests in 36 files, including both unchanged s2b.adversarial.reviewer suites (13 tests, also passed separately). TypeScript (`pnpm exec tsc --noEmit --incremental false`) passed; scoped Biome passed 84 files. Knip exited 1 for the three out-of-scope exports recorded in WO-02-017. Browser/E2E and visual fidelity remain unverified. Changes remain uncommitted by owner instruction.

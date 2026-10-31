@@ -122,3 +122,18 @@ Postgres con Prisma; tres tablas.
     expect(parseArchitecture(REAL_DIGEST).hasContent).toBe(true);
   });
 });
+
+it("AC-02-013.2: keeps operational prose, nested tasks and service continuations under the v2 heading", () => {
+  const arch = parseArchitecture(
+    "## Integraciones y operación\nOwner responsibility before the flows.\n\n- **Analytics**: Capture events.\n  - Keep retention at 30 days.\n\n  Export events every week.\n",
+  );
+  expect(arch.services.map((item) => `${item.title} ${item.desc}`).join("\n")).toContain(
+    "Owner responsibility before the flows.",
+  );
+  expect(arch.services.map((item) => `${item.title} ${item.desc}`).join("\n")).toContain(
+    "Keep retention at 30 days.",
+  );
+  expect(arch.services.map((item) => `${item.title} ${item.desc}`).join("\n")).toContain(
+    "Export events every week.",
+  );
+});

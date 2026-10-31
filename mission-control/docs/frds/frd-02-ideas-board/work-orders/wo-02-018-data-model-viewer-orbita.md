@@ -6,7 +6,7 @@ title: WO-02-018 Data-model viewer Órbita restyle and v2 removals
 status: ACTIVE
 parent: FRD-02
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -18,7 +18,7 @@ artifacts:
   - 'e2e/persistent-navigation/model.spec.ts'
 source_requirements: [REQ-02-015]
 dependsOn: [WO-13-012, WO-02-019, WO-25-001]
-last_updated: '2026-10-22'
+last_updated: '2026-10-30'
 ---
 
 # WO-02-018 Data-model viewer Órbita restyle and v2 removals
@@ -75,6 +75,7 @@ inspector and duplicate relationship-button list if any remains.
 
 ## Out of Scope
 
+- Idea-page placement (AC-02-015.14, owned by WO-02-016).
 - The layout engine and its async lifecycle (kept; flake fixed by WO-02-019 before this WO).
 - The reader/validator `src/lib/architecture/data-model/**` (unchanged; WO-02-017 owns `src/lib/architecture`).
 - The band heading and the not-published message of Arquitectura (WO-02-017).
@@ -82,8 +83,7 @@ inspector and duplicate relationship-button list if any remains.
 
 ## Requirements & Acceptance Criteria
 
-Delivers REQ-02-015 and its graph-control consistency amendment, except AC-02-015.11 (WO-02-019) and AC-02-015.14
-(WO-02-016).
+Delivers REQ-02-015 and its graph-control consistency amendment, except AC-02-015.11 (WO-02-019).
 
 - **AC-02-015.1** — WHEN a valid version-1 relational or document model is available, THE viewer SHALL display every declared entity, ordered attribute, logical type, optionality, PK/FK/UQ membership as per-attribute badges and composite-key group, preserving isolated entities, self-relations, parallel edges and declared association entities without inventing joins. **Out of v2 (owner decision 2026-10-21):** the visual distinction of composite key groups, isolated entities and self-relations (the keys show as per-attribute badges only).
 - **AC-02-015.2** — WHEN a relationship is displayed or selected, THE viewer SHALL preserve both endpoint cardinalities, explicitly labelled `1`, `0..1`, `0..*` or `1..*` (the "Relaciones N" list shows each as `from min..max → to min..max`); it SHALL NOT render a lower relationship inspector or duplicate relationship-button list. **Out of v2 (owner decision 2026-10-21):** the attribute mappings shown on links and the independently selectable graph connectors.
@@ -167,3 +167,14 @@ tests); the kept engine's reviewer tests stay green; both e2e specs pass hydrate
 green; tokens only; every string from `t()`.
 
 ## Status Note
+
+- 2026-10-30 (S2B): Built the Segmented viewer, phone schema default, relationship-row selection, key chips, native-only fullscreen and trigger focus return. Kept layout/routing/frame-camera logic. Scoped Vitest (excluding the six derogated presentation/identity reviewer suites) passed: 13 files, 40 tests. `pnpm exec tsc --noEmit --incremental false` passed after fixes. Browser execution and visual fidelity are unverified by task constraint.
+- 2026-10-30: Reviewer reconciliation required for fullscreen.ux, fullscreen.consistency, usability, viewer, frame.consistency and modelIdentity (tab/expanded shape), plus navigation v2-boundaries/v2-survivors. No reviewer tests or visual baselines edited. The legacy copy.es export stays because reviewer-owned modelIdentity imports it; some legacy control/loading labels have no frozen catalogue keys and remain in the adapter.
+- 2026-10-30 (agent-inferred): Fullscreen focus tests require a stable ref object; replacing the ref on every hook render executes native-exit cleanup and invalidates the test's fullscreen state.
+
+- 2026-10-30: Moved the unchanged AC-02-015.14 ownership cross-reference to Out of Scope, as wave-plan finding 5 requires, so the acceptance extractor does not demand WO-02-016's future test from this work order.
+
+- 2026-10-30: Final combined S2B verification: scoped TypeScript and Biome (47 files) passed; implementer Vitest passed 131 tests / 22 files. The retained layout/routing/async/frame reviewer coverage passed in the separate reviewer run. Remaining reviewer failures are documented in WO-02-017.
+
+- 2026-10-30 (S2B round 2): Search matches are excluded from selection dimming while a query is active. Removed the four dead copy keys, distinguished fit/fullscreen using the existing maximize/external icons, and replaced the scrollbar instruction with controls in diagramAria and the implementer assertions. The independent S2B viewer probe passed without modification. No browser or visual verification was performed.
+- 2026-10-30 (S2B round 2 verification): With PORT=3952 and PANDACORP_E2E_PORT=3952, scoped Vitest passed 193 tests in 36 files, including both unchanged s2b.adversarial.reviewer suites (13 tests, also passed separately). TypeScript (`pnpm exec tsc --noEmit --incremental false`) passed; scoped Biome passed 84 files. Knip exited 1 for the three out-of-scope exports recorded in WO-02-017. Browser/E2E and visual fidelity remain unverified. Changes remain uncommitted by owner instruction.

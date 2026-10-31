@@ -39,7 +39,7 @@ El esqueleto bilingüe.
 - ¿Selector de idioma explícito?
 `;
 
-describe("SpecDigest", () => {
+describe("AC-02-011.2: SpecDigest", () => {
   it("renders the project hero and the PRD/Research/FRD content", () => {
     render(<SpecDigest title="fallback" body={DIGEST} />);
     expect(screen.getByRole("heading", { name: "Toshio.dev" })).toBeInTheDocument();
@@ -117,25 +117,25 @@ Si lo reemplazas, te contactan en vez de cerrar la pestaña.
     expect(screen.getByRole("heading", { name: "Mi proyecto" })).toBeInTheDocument();
   });
 
-  it("opens the detail modal with the FRD's blocks when its card is clicked", () => {
+  it("AC-02-011.3: opens the detail modal with the FRD's blocks when its card is clicked", () => {
     render(<SpecDigest title="fallback" body={DIGEST} />);
     // No dialog until a card is clicked.
     expect(screen.queryByRole("dialog")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /Ver detalle de FRD-01/ }));
+    fireEvent.click(screen.getByRole("button", { name: /FRD-01 Site shell/ }));
 
     const dialog = screen.getByRole("dialog");
     expect(dialog).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /FRD-01 · Site shell/ })).toBeInTheDocument();
     expect(screen.getByText("El marco que envuelve toda la app.")).toBeInTheDocument();
     expect(screen.getByText("Como visitante, quiero cambiar de idioma.")).toBeInTheDocument();
-    expect(screen.getByText("Open questions")).toBeInTheDocument();
+    expect(screen.getByText("Preguntas abiertas")).toBeInTheDocument();
     expect(screen.getByText("¿Selector de idioma explícito?")).toBeInTheDocument();
   });
 
   it("closes the modal via its close button", () => {
     render(<SpecDigest title="fallback" body={DIGEST} />);
-    fireEvent.click(screen.getByRole("button", { name: /Ver detalle de FRD-01/ }));
+    fireEvent.click(screen.getByRole("button", { name: /FRD-01 Site shell/ }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cerrar modal" }));
     expect(screen.queryByRole("dialog")).toBeNull();

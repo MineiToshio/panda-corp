@@ -16,7 +16,7 @@
  *     calls and the change event, and is a no-op where no API exists (jsdom).
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /** Legacy WebKit-prefixed Fullscreen members the standard DOM types omit. */
 interface WebkitFullscreenDocument {
@@ -44,13 +44,20 @@ export interface Fullscreen {
 export function useFullscreen(ref: React.RefObject<HTMLElement | null>): Fullscreen {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  const trigger = useRef<HTMLElement | null>(null);
+  const wasFullscreen = useRef(false);
   useEffect(() => {
     const onChange = (): void => {
-      setIsFullscreen(currentFullscreenElement() === ref.current);
+      const active = currentFullscreenElement() === ref.current;
+      setIsFullscreen(active);
+      if (wasFullscreen.current && !active) trigger.current?.focus();
+      if (active) ref.current?.querySelector<HTMLElement>("button")?.focus();
+      wasFullscreen.current = active;
     };
     document.addEventListener("fullscreenchange", onChange);
     document.addEventListener("webkitfullscreenchange", onChange);
     return () => {
+      if (currentFullscreenElement() === ref.current) exitFullscreen();
       document.removeEventListener("fullscreenchange", onChange);
       document.removeEventListener("webkitfullscreenchange", onChange);
     };
@@ -59,23 +66,30 @@ export function useFullscreen(ref: React.RefObject<HTMLElement | null>): Fullscr
   const toggle = useCallback((): void => {
     const el = ref.current;
     if (!el) return;
-    const doc = document as Document & WebkitFullscreenDocument;
     const elx = el as HTMLElement & WebkitFullscreenElement;
+    if (!currentFullscreenElement())
+      trigger.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const restore = () => trigger.current?.focus();
     try {
       if (currentFullscreenElement()) {
-        // Promise.resolve guards engines that return undefined, not a Promise.
-        if (document.exitFullscreen)
-          void Promise.resolve(document.exitFullscreen()).catch(() => {});
-        else doc.webkitExitFullscreen?.();
+        exitFullscreen();
       } else if (el.requestFullscreen) {
-        void Promise.resolve(el.requestFullscreen()).catch(() => {});
+        void Promise.resolve(el.requestFullscreen()).catch(restore);
       } else {
         elx.webkitRequestFullscreen?.();
       }
     } catch {
+      restore();
       // Blocked / no user gesture / engine threw synchronously — stay inline.
     }
   }, [ref]);
 
   return { isFullscreen, toggle };
+}
+
+function exitFullscreen(): void {
+  const doc = document as Document & WebkitFullscreenDocument;
+  if (document.exitFullscreen) void Promise.resolve(document.exitFullscreen()).catch(() => {});
+  else doc.webkitExitFullscreen?.();
 }

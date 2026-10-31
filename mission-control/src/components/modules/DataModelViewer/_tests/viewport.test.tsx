@@ -19,7 +19,7 @@ function pointer(canvas: HTMLDivElement, x: number, y: number): PointerEvent<HTM
 }
 
 describe("diagram navigation", () => {
-  it("supports deterministic directional button pan and zoom independent of native scroll offsets", async () => {
+  it("AC-02-015.3 AC-02-015.12: supports deterministic directional button pan and zoom independent of native scroll offsets", async () => {
     const layout = await layoutModel(modelFixture());
     const { result } = renderHook(() => useViewport(layout));
     const initial = result.current.view;
@@ -33,7 +33,7 @@ describe("diagram navigation", () => {
     act(() => result.current.zoomBy(0.001));
     expect(result.current.view.zoom).toBe(0.02);
   });
-  it("does not move during click jitter and moves only beyond the drag threshold", async () => {
+  it("AC-02-015.13: does not move during click jitter and moves only beyond the drag threshold", async () => {
     const canvas = document.createElement("div");
     const layout = await layoutModel(modelFixture());
     const { result } = renderHook(() => useViewport(layout));

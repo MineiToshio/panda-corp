@@ -1,60 +1,74 @@
-/**
- * env.ts — server-only reader for a project's `.env.example` (the env-var inventory the
- * architecture phase generates, DR-102). Feeds the "Variables de entorno" block of the
- * Arquitectura tab — read LIVE from the real file so it never drifts from the digest.
- *
- * Format (loose by design — a `.env.example` is forgiving): a leading `# comment` describes the
- * next `KEY=value` line. We keep the var NAME and the immediately-preceding comment (purpose);
- * the value is intentionally ignored (examples often ship blank or placeholder values).
- */
-
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 export interface EnvVar {
-  /** The variable name (left of `=`). */
-  name: string;
-  /** One-line purpose from the preceding `#` comment(s); empty when none. */
-  comment: string;
+  readonly name: string;
+  readonly comment: string;
+  /** Source section, absent only for legacy callers. */
+  readonly section?: string;
+  readonly described?: boolean;
 }
 
-/** A valid env var assignment line: `NAME=...` (uppercase name, the .env convention). */
-const ENV_LINE_RE = /^([A-Z][A-Z0-9_]*)\s*=/;
-
-/**
- * Read `<project>/.env.example` into a list of `{name, comment}`. Absent file → [] (a project may
- * legitimately have no env vars). Unreadable → [] (degrade rather than crash the board).
- *
- * Read-only: only `existsSync` + `readFileSync` — no writes, never reads `.env` (real secrets).
- */
-export function readEnvExample(projectPath: string): EnvVar[] {
-  const path = join(projectPath, ".env.example");
-  if (!existsSync(path)) return [];
-  let raw: string;
-  try {
-    raw = readFileSync(path, "utf-8");
-  } catch {
-    return [];
-  }
-
+/** Parse the public inventory without retaining any example value. Invalid source fails loudly. */
+export function parseEnvExample(raw: string): EnvVar[] {
   const vars: EnvVar[] = [];
-  let pendingComment: string[] = [];
-  for (const line of raw.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed === "") {
-      // A blank line ends a comment block (so a comment only describes the var right below it).
-      pendingComment = [];
+  let section = "";
+  let comments: string[] = [];
+  const lines = raw.split(/\r?\n/);
+  for (const [index, line] of lines.entries()) {
+    const text = line.trim();
+    if (!text) {
+      comments = [];
       continue;
     }
-    if (trimmed.startsWith("#")) {
-      pendingComment.push(trimmed.replace(/^#+\s?/, "").trim());
+    const assignment = text.match(/^(?:#\s*)?([A-Z][A-Z0-9_]*)\s*=/);
+    if (assignment?.[1]) {
+      vars.push({
+        name: assignment[1],
+        comment: comments.join(" "),
+        section,
+        described: comments.length > 0,
+      });
+      comments = [];
       continue;
     }
-    const m = trimmed.match(ENV_LINE_RE);
-    if (m?.[1] != null) {
-      vars.push({ name: m[1], comment: pendingComment.join(" ").trim() });
+    if (text.startsWith("#")) {
+      const comment = text.replace(/^#+\s*/, "");
+      if (/^[-=]{2,}$/.test(comment)) {
+        comments = [];
+        continue;
+      }
+      if (isSectionHeader(text, lines[index + 1], comments.length)) {
+        section = comment.replace(/^[-=]+\s*|\s*[-=]+$/g, "").trim();
+        comments = [];
+      } else comments.push(comment);
+      continue;
     }
-    pendingComment = [];
+    if (/^[a-z][a-z\d_]*\s*=/.test(text)) {
+      comments = [];
+      continue;
+    }
+    throw new Error(`.env.example:${index + 1}: invalid variable declaration`);
   }
   return vars;
+}
+
+function isSectionHeader(
+  text: string,
+  nextLine: string | undefined,
+  commentCount: number,
+): boolean {
+  const next = nextLine?.trim() ?? "";
+  return (
+    /^#\s*[-=]{2,}\s*$/.test(next) ||
+    /^[-=]{2,}|^##/.test(text.replace(/^#\s*/, "")) ||
+    /^##/.test(text) ||
+    (!next && commentCount === 0)
+  );
+}
+
+/** Missing inventory is deliberate absence; unreadable/malformed sources throw for the bundle to report. */
+export function readEnvExample(projectPath: string): EnvVar[] {
+  const file = join(projectPath, ".env.example");
+  return existsSync(file) ? parseEnvExample(readFileSync(file, "utf-8")) : [];
 }

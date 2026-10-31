@@ -4,7 +4,7 @@ import { layoutModel } from "../layout";
 import { modelFixture } from "./fixture";
 
 describe("ERD layout", async () => {
-  it("keeps isolated entities and every parallel/self relation, deterministically", async () => {
+  it("AC-02-015.1 AC-02-015.10: keeps isolated entities and every parallel/self relation, deterministically", async () => {
     const model = modelFixture();
     const result = await layoutModel(model);
     expect(result.nodes.map((node) => node.entity.id)).toEqual(["account", "entry", "audit"]);

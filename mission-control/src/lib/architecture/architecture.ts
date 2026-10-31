@@ -25,7 +25,7 @@ interface ArchRow {
   porque: string;
 }
 
-export interface ArchItem {
+interface ArchItem {
   /** Bold lead of a `- **Title** — desc` bullet (or the whole bullet when there's no bold). */
   title: string;
   /** The text after the em-dash (empty for a plain `- text` bullet). */
@@ -48,7 +48,7 @@ interface ArchWo {
   desc: string;
 }
 
-export interface ArchFrd {
+interface ArchFrd {
   /** Normalized id, e.g. "FRD-01". */
   id: string;
   title: string;
@@ -169,6 +169,27 @@ function parseItems(markdown: string): ArchItem[] {
       items.push({ title: p[1].replace(/\*\*/g, "").trim(), desc: "" });
     }
   }
+  return items;
+}
+
+/** Preserve operational prose and continuation lines instead of reducing services to single-line bullets. */
+function parseServices(lines: string[]): ArchItem[] {
+  const items: ArchItem[] = [];
+  let current: ArchItem = { title: "", desc: "" };
+  let continuation: string[] = [];
+  function flush() {
+    const desc = [current.desc, ...continuation].join("\n").trim();
+    if (current.title || desc) items.push({ ...current, desc });
+    continuation = [];
+  }
+  for (const line of lines) {
+    const item = parseItems(line)[0];
+    if (item) {
+      flush();
+      current = item;
+    } else continuation.push(line);
+  }
+  flush();
   return items;
 }
 
@@ -300,12 +321,12 @@ export function parseArchitecture(raw: string): ArchitectureData {
 
   const stackLines = findH2(sections, /stack|tecnolog/i);
   const dataLines = findH2(sections, /modelo de datos|data model|datos/i);
-  const servicesLines = findH2(sections, /comunicaci|servicios|services|comms/i);
+  const servicesLines = findH2(sections, /comunicaci|servicios|services|comms|integraci|operaci/i);
   const frdLines = findH2(sections, /por frd|frd/i);
 
   const stackRows = stackLines != null ? parseStackTable(stackLines) : [];
   const dataModel = dataLines != null ? parseDataModel(dataLines) : null;
-  const services = servicesLines != null ? parseItems(servicesLines.join("\n")) : [];
+  const services = servicesLines != null ? parseServices(servicesLines) : [];
   const frds = frdLines != null ? parseFrds(frdLines) : [];
 
   const hasContent =

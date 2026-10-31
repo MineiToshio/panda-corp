@@ -6,59 +6,31 @@ async function openModel(page: Page): Promise<Locator> {
   await gotoHydrated(page, "/portfolio?project=Mission%20Control&tab=architecture", {
     selector: '[data-testid="data-model-viewer"] input',
   });
+  await page.getByRole("button", { name: "Diagrama", exact: true }).click();
   await expect(page.getByTestId("model-viewport")).toBeVisible();
   return page.getByTestId("data-model-viewer");
 }
 
-async function edgePoint(relation: Locator): Promise<{ x: number; y: number }> {
-  return relation
-    .locator("path")
-    .first()
-    .evaluate((element) => {
-      if (!(element instanceof SVGPathElement)) throw new Error("Relationship hit path missing");
-      const matrix = element.getScreenCTM();
-      if (!matrix) throw new Error("Relationship path is not rendered");
-      const point = element.getPointAtLength(element.getTotalLength() / 2).matrixTransform(matrix);
-      return { x: point.x, y: point.y };
-    });
-}
-
-test("relationships toggle with repeated pointer and keyboard activation and switch directly", async ({
-  page,
-}) => {
-  await openModel(page);
-  await page.getByTestId("model-zoom-fit").click();
-  await page.getByTestId("model-viewport").scrollIntoViewIfNeeded();
-  const ownership = page.getByRole("button", { name: "Ver relación Posee", exact: true });
-  const profile = page.getByRole("button", { name: "Ver relación Tiene perfil", exact: true });
-  const point = await edgePoint(ownership);
-  await page.mouse.click(point.x, point.y);
-  await expect(ownership).toHaveAttribute("aria-pressed", "true");
-  await page.mouse.click(point.x, point.y);
-  await expect(ownership).toHaveAttribute("aria-pressed", "false");
-  await page.mouse.dblclick(point.x, point.y);
-  await expect(ownership).toHaveAttribute("aria-pressed", "false");
-  for (const key of ["Enter", "Space"]) {
-    await ownership.focus();
-    await ownership.press(key);
-    await expect(ownership).toHaveAttribute("aria-pressed", "true");
-    await ownership.press(key);
-    await expect(ownership).toHaveAttribute("aria-pressed", "false");
-  }
-  await ownership.press("Enter");
-  await profile.focus();
-  await profile.press("Enter");
-  await expect(profile).toHaveAttribute("aria-pressed", "true");
-  await expect(ownership).toHaveAttribute("aria-pressed", "false");
-});
-
-test("fullscreen diagram fields reject text selection and pointer pan clears an existing Range", async ({
+test("AC-02-015.2 AC-02-015.5: only relationship rows activate connectors and toggle explicitly", async ({
   page,
 }) => {
   const viewer = await openModel(page);
-  await viewer.getByRole("button", { name: "Ampliar modelo" }).click();
+  await viewer.locator("summary").filter({ hasText: "Relaciones" }).click();
+  const ownership = viewer.getByRole("button", { name: "Ver relación Posee", exact: true });
+  await ownership.click();
+  await expect(ownership).toHaveAttribute("aria-pressed", "true");
+  await ownership.press("Enter");
+  await expect(ownership).toHaveAttribute("aria-pressed", "false");
+  await expect(viewer.locator("svg [role=button],svg [tabindex]")).toHaveCount(0);
+});
+
+test("AC-02-015.6 AC-02-015.13: fullscreen diagram fields reject text selection and pointer pan clears an existing Range", async ({
+  page,
+}) => {
+  const viewer = await openModel(page);
+  await viewer.getByRole("button", { name: "Pantalla completa" }).click();
   await expect.poll(() => page.evaluate(() => document.fullscreenElement?.tagName)).toBe("DIV");
-  const dialog = page.getByRole("dialog", { name: "Modelo de datos" });
+  const dialog = viewer.locator(":scope > div:fullscreen");
   await dialog.getByRole("searchbox").fill("users");
   const field = dialog
     .locator('section[aria-label="users"]')
@@ -82,14 +54,14 @@ test("fullscreen diagram fields reject text selection and pointer pan clears an 
   await expect(page.getByTestId("model-viewport")).toHaveCount(1);
 });
 
-test("schema starts closed in one column, opens one entity at a time and retains copyable complete code", async ({
+test("AC-02-015.4: schema starts closed in one column, opens one entity at a time and retains copyable complete code", async ({
   page,
 }) => {
   const viewer = await openModel(page);
-  await viewer.getByRole("tab", { name: "Esquema", exact: true }).click();
-  const entities = viewer.locator("details");
+  await viewer.getByRole("button", { name: "Esquema", exact: true }).click();
+  const entities = viewer.locator("details[aria-label]");
   await expect(entities).toHaveCount(6);
-  await expect(viewer.locator("details[open]")).toHaveCount(0);
+  await expect(viewer.locator("details[aria-label][open]")).toHaveCount(0);
   const rows = await entities.evaluateAll((items) =>
     items.map((item) => {
       const box = item.getBoundingClientRect();
@@ -108,7 +80,7 @@ test("schema starts closed in one column, opens one entity at a time and retains
   await expect(users.locator("code")).toContainText('@relation("Posee", collections');
   await membership.locator("summary").click();
   await expect(users).not.toHaveAttribute("open", "");
-  await expect(viewer.locator("details[open]")).toHaveCount(1);
+  await expect(viewer.locator("details[aria-label][open]")).toHaveCount(1);
   const code = membership.locator("code");
   await expect(code).toContainText("@@id([collection_id, item_id])");
   await expect(code).toContainText("timestamp");
@@ -126,5 +98,5 @@ test("schema starts closed in one column, opens one entity at a time and retains
     "@@id([collection_id, item_id])",
   );
   await membership.locator("summary").press("Space");
-  await expect(viewer.locator("details[open]")).toHaveCount(0);
+  await expect(viewer.locator("details[aria-label][open]")).toHaveCount(0);
 });

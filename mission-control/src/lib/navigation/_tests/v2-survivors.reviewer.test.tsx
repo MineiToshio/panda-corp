@@ -28,9 +28,9 @@ describe("FRD-25 boundary probes closing surviving mutants (LESSON-0185)", () =>
     window.history.replaceState({}, "", "/portfolio/second/architecture?entity=entry");
     render(<DataModelViewer result={readyFixture()} />);
     await waitForLayout();
-    fireEvent.click(screen.getByRole("tab", { name: /^Esquema$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Esquema$/ }));
     expect(new URLSearchParams(window.location.search).get("model")).toBe("Esquema");
-    fireEvent.click(screen.getByRole("tab", { name: /^Diagrama$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Diagrama$/ }));
     expect(new URLSearchParams(window.location.search).get("model")).toBe("Diagrama");
   });
 

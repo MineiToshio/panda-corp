@@ -75,26 +75,16 @@ function extractDecision(raw: string): string {
 
 /**
  * Read all ADRs from `<project>/docs/adr/`, sorted by id. Absent dir → [] (a project may have no
- * ADRs). Unreadable file → skipped (degrade rather than crash). Read-only.
+ * ADRs). Unreadable source throws for the shared bundle to report in the ADR band. Read-only.
  */
 export function readAdrs(projectPath: string): Adr[] {
   const dir = join(projectPath, "docs", "adr");
   if (!existsSync(dir)) return [];
-  let files: string[];
-  try {
-    files = readdirSync(dir).filter((f) => ADR_FILE_RE.test(f));
-  } catch {
-    return [];
-  }
+  const files = readdirSync(dir).filter((f) => ADR_FILE_RE.test(f));
 
   const adrs: Adr[] = [];
   for (const file of files.sort()) {
-    let raw: string;
-    try {
-      raw = readFileSync(join(dir, file), "utf-8");
-    } catch {
-      continue;
-    }
+    const raw = readFileSync(join(dir, file), "utf-8");
     const id = frontmatterValue(raw, "id") ?? idFromFile(file);
     adrs.push({
       id,

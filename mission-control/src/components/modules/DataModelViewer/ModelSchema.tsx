@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { Icon } from "@/components/core/Icon/Icon";
 import type { DataModel, DataModelEntity } from "@/lib/architecture/data-model/types";
 import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
 import { COPY } from "./copy.es";
@@ -44,7 +45,7 @@ export function ModelSchema({
   const group = useId();
   const [selectedTable, setSelectedTable] = useUrlState("schemaTable", "");
   return (
-    <div className={styles.schema}>
+    <div className={`schema-list ${styles.schema}`}>
       {model.entities
         .filter((entity) => matches.includes(entity.id))
         .map((entity) => (
@@ -63,7 +64,7 @@ export function ModelSchema({
             }}
           >
             <summary className={styles.schemaName}>
-              <i className="ti ti-chevron-right" aria-hidden="true" />
+              <Icon name="chevR" />
               <strong>{entity.name}</strong>
               <span>{COPY.attributeCount(entity.attributes.length)}</span>
             </summary>

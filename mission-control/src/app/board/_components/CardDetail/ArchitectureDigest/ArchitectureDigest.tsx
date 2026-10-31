@@ -1,419 +1,55 @@
 "use client";
 
-/**
- * ArchitectureDigest (CMP-02-architecture-digest) — the native "Arquitectura" tab: a high-level,
- * visual Spanish summary of the project's platform architecture, mirroring SpecDigest's visual
- * language (full-bleed tinted bands, label|content rows, FRD cards + modal). It is fed by:
- *   - the digest `.pandacorp/comms/arquitectura-resumen.md` (parsed by `parseArchitecture`) for the
- *     NARRATIVE (stack table, data model, services, per-FRD cards), and
- *   - LIVE artifacts for the machine-truth blocks: the implementation-plan DAG (work-order
- *     frontmatter, via the reused WoDag), the ADRs (`docs/adr/*`) and the env vars (`.env.example`).
- *
- * One scannable screen, top→bottom: hero → stack table → integrations/operation → data model (conditional) → env
- * → ADRs → the implementation-plan DAG (the centerpiece) → per-FRD cards. Heavy detail lives behind
- * a Modal (an ADR's body, an FRD's work orders).
- *
- * Traceability: CMP-02-architecture-digest → REQ-02-009 (the architecture overview, after Spec;
- * visible only when the project has an architecture digest).
- */
-
-import { WoDag } from "@/app/projects/[slug]/_observability/WoDag/WoDag";
+import { Chip } from "@/components/core/Chip/Chip";
 import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
 import { Modal } from "@/components/core/Modal/Modal";
+import { Notice } from "@/components/core/Notice/Notice";
 import { DataModelViewer } from "@/components/modules/DataModelViewer/DataModelViewer";
 import { projectMetaChips } from "@/components/modules/IdeaCard/IdeaCard";
+import { AdrRow } from "@/components/modules/ReportBand/AdrRow";
+import { DigestHero } from "@/components/modules/ReportBand/DigestHero";
+import { EnvFold } from "@/components/modules/ReportBand/EnvRow";
+import { PlanMosaic } from "@/components/modules/ReportBand/PlanMosaic";
+import { ReportBand } from "@/components/modules/ReportBand/ReportBand";
+import styles from "@/components/modules/ReportBand/reportBand.module.css";
+import {
+  digestNavigationBase,
+  hasConstructionStarted,
+} from "@/components/modules/Spec/digestState";
+import { FrdCard } from "@/components/modules/Spec/FrdCard";
+import { FrdDetail } from "@/components/modules/Spec/FrdDetail";
 import type { Adr } from "@/lib/architecture/adr";
-import { type ArchFrd, parseArchitecture } from "@/lib/architecture/architecture";
+import { parseArchitecture } from "@/lib/architecture/architecture";
 import type { DataModelResult } from "@/lib/architecture/data-model/types";
 import type { EnvVar } from "@/lib/architecture/env";
+import { t } from "@/lib/copy/copy";
 import { useUrlState } from "@/lib/navigation/useUrlState";
+import type { DigestSourceErrors } from "@/lib/spec/read-artifacts";
+import type { DigestFrd } from "@/lib/spec/read-frds";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
-import {
-  BLABEL_FRD_STYLE,
-  BLOCK_FRD_STYLE,
-  CONTAINER_STYLE,
-  EYEBROW_STYLE,
-  FRD_CARD_STYLE,
-  FRD_GRID_STYLE,
-  FRD_HEAD_STYLE,
-  FRD_ID_STYLE,
-  FRD_MORE_STYLE,
-  FRD_SUMMARY_TEXT_STYLE,
-  FRD_TITLE_STYLE,
-  HERO_CHIPS_ROW_STYLE,
-  HERO_STYLE,
-  INNER_STYLE,
-  INTRO_STYLE,
-  META_CHIP_STYLE,
-  META_ICON_STYLE,
-  PHASE_CHIP_STYLE,
-  TITLE_STYLE,
-} from "../SpecDigest/SpecDigest.styles";
-import {
-  ADR_DECISION_STYLE,
-  ADR_ID_STYLE,
-  ADR_LIST_STYLE,
-  ADR_ROW_STYLE,
-  ADR_TEXT_WRAP_STYLE,
-  ADR_TITLE_STYLE,
-  BLOCK_DATA_STYLE,
-  BLOCK_STACK_STYLE,
-  blockLabel,
-  DATA_NOTE_STYLE,
-  ENTITY_CARD_STYLE,
-  ENTITY_DESC_STYLE,
-  ENTITY_GRID_STYLE,
-  ENTITY_NAME_STYLE,
-  FRD_MODAL_BP_STYLE,
-  FRD_MODAL_WO_LABEL_STYLE,
-  NODB_CALLOUT_STYLE,
-  NODB_ICON_STYLE,
-  PLAN_BLOCK_STYLE,
-  PLAN_HEAD_STYLE,
-  PLAN_SUB_STYLE,
-  PLAN_TITLE_STYLE,
-  STACK_CAPA_STYLE,
-  STACK_PICK_STYLE,
-  STACK_TABLE_STYLE,
-  STACK_TD_STYLE,
-  STACK_TH_STYLE,
-  SUBHEAD_STYLE,
-  WO_COUNT_STYLE,
-  WO_DESC_STYLE,
-  WO_ID_STYLE,
-  WO_ROW_STYLE,
-} from "./ArchitectureDigest.styles";
-import { ARCH_COPY } from "./copy.es";
-import { EnvBand, ServicesBand } from "./IntegrationBands";
 
 export interface ArchitectureDigestProps {
-  /** The `.pandacorp/comms/arquitectura-resumen.md` digest markdown. */
-  body: string;
-  /** Validated project-owned logical schema, read through the shared architecture boundary. */
-  dataModel?: DataModelResult;
-  /** Card title (fallback when the digest has no `proyecto`). */
-  title: string;
-  /** App type (web / mobile / api …) — a "qué es" chip next to the phase chip. */
-  projectType?: string;
-  /** Web target platform (desktop / mobile / responsive) — a "qué es" chip. */
-  targetPlatforms?: string;
-  /** Live work orders (from listWorkOrders) — the implementation-plan DAG. */
-  workOrders?: WorkOrder[];
-  /** Live env vars (from `.env.example`). */
-  envVars?: EnvVar[];
-  /** Live ADRs (from `docs/adr/*`). */
-  adrs?: Adr[];
-  /** Portfolio path of the linked project — scopes the DAG's live snapshot. */
-  project?: string;
-  resolveLink?: LinkResolver;
+  readonly body: string;
+  readonly title: string;
+  readonly dataModel?: DataModelResult;
+  readonly projectType?: string;
+  readonly targetPlatforms?: string;
+  readonly workOrders?: WorkOrder[];
+  readonly envVars?: EnvVar[];
+  readonly adrs?: Adr[];
+  readonly project?: string;
+  readonly resolveLink?: LinkResolver;
+  readonly frds?: readonly DigestFrd[];
+  readonly constructionStarted?: boolean;
+  readonly navigationBaseHref?: string;
+  readonly sourceErrors?: DigestSourceErrors;
 }
 
-// --- Stack matrix -----------------------------------------------------------
-
-function StackTable({ rows }: { rows: ReturnType<typeof parseArchitecture>["stackRows"] }) {
-  return (
-    <table style={STACK_TABLE_STYLE} data-testid="arch-stack-table">
-      <thead>
-        <tr>
-          <th style={STACK_TH_STYLE}>Capa</th>
-          <th style={STACK_TH_STYLE}>Elección</th>
-          <th style={STACK_TH_STYLE}>Por qué</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row) => (
-          <tr key={row.capa} data-testid="arch-stack-row">
-            <td style={STACK_CAPA_STYLE}>{row.capa}</td>
-            <td style={STACK_PICK_STYLE}>{row.eleccion}</td>
-            <td style={STACK_TD_STYLE}>{row.porque}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-// --- Data model (conditional) ----------------------------------------------
-
-function DataModel({
-  model,
-}: {
-  model: NonNullable<ReturnType<typeof parseArchitecture>["dataModel"]>;
-}) {
-  return (
-    <section className="arch-block" style={BLOCK_DATA_STYLE} data-testid="arch-data-model">
-      <div style={INNER_STYLE}>
-        <p style={blockLabel("var(--color-ok)")}>🗄️ Modelo de datos</p>
-        {model.isNone ? (
-          <p style={NODB_CALLOUT_STYLE} data-testid="arch-nodb">
-            <i className="ti ti-database-off" aria-hidden="true" style={NODB_ICON_STYLE} />
-            <span>
-              {model.note !== "" ? model.note : "Sin base de datos — contenido como código."}
-            </span>
-          </p>
-        ) : (
-          model.note !== "" && <p style={DATA_NOTE_STYLE}>{model.note}</p>
-        )}
-        {model.entities.length > 0 && (
-          <div style={ENTITY_GRID_STYLE}>
-            {model.entities.map((e) => (
-              <div key={e.title} style={ENTITY_CARD_STYLE} data-testid="arch-entity">
-                <span style={ENTITY_NAME_STYLE}>{e.title}</span>
-                {e.desc !== "" && <p style={ENTITY_DESC_STYLE}>{e.desc}</p>}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-// --- ADRs -------------------------------------------------------------------
-
-function AdrRow({ adr, onOpen }: { adr: Adr; onOpen: (adr: Adr) => void }) {
-  return (
-    <button
-      type="button"
-      style={ADR_ROW_STYLE}
-      className="arch-adr-row"
-      data-testid="arch-adr"
-      onClick={() => onOpen(adr)}
-      aria-label={`Ver ${adr.id} ${adr.title}`}
-    >
-      <span style={ADR_ID_STYLE}>{adr.id}</span>
-      <span style={ADR_TEXT_WRAP_STYLE}>
-        <p style={ADR_TITLE_STYLE}>{adr.title}</p>
-        {adr.decision !== "" && <p style={ADR_DECISION_STYLE}>{adr.decision}</p>}
-      </span>
-    </button>
-  );
-}
-
-function AdrModal({
-  adr,
-  onClose,
-  resolveLink,
-}: {
-  adr: Adr;
-  onClose: () => void;
-  resolveLink?: LinkResolver;
-}) {
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={`${adr.id} · ${adr.title}`}
-      testIdBase="arch-adr"
-      width={640}
-    >
-      <Markdown resolveLink={resolveLink}>{adr.body}</Markdown>
-    </Modal>
-  );
-}
-
-// --- Per-FRD cards + modal --------------------------------------------------
-
-/** The 2-digit FRD number from a digest id ("FRD-01") or a live WO slug ("frd-01-site-shell"). */
-function frdKey(value: string): string {
-  const m = value.match(/frd[\s-]?(\d+)/i);
-  return m?.[1] != null ? m[1].padStart(2, "0") : value.toLowerCase();
-}
-
-/** The live work orders that belong to a digest FRD, matched by FRD number. */
-function workOrdersForFrd(frd: ArchFrd, workOrders: WorkOrder[]): WorkOrder[] {
-  const key = frdKey(frd.id);
-  return workOrders.filter((wo) => frdKey(wo.frd) === key);
-}
-
-/**
- * The FRD card's "N WOs" badge is derived LIVE from disk (`workOrdersForFrd` over the
- * live `listWorkOrders` result) — never from `frd.workOrders.length`, which is parsed
- * from the gitignored digest PROSE (`.pandacorp/comms/arquitectura-resumen.md`). The
- * DAG/modal of this same card already reads the disk count (line ~517); the badge used
- * to disagree with them the moment the digest listed a WO that doesn't exist on disk
- * (or omitted one that does). Disk is the truth here; the digest stays narrative only
- * (blueprint summary, DR-092/DR-115).
- */
-function FrdCard({
-  frd,
-  liveWorkOrders,
-  onOpen,
-}: {
-  frd: ArchFrd;
-  /** This FRD's live work orders (`workOrdersForFrd(frd, listWorkOrders(...))`) — the disk truth. */
-  liveWorkOrders: WorkOrder[];
-  onOpen: (frd: ArchFrd) => void;
-}) {
-  const woCount = liveWorkOrders.length;
-  return (
-    <button
-      type="button"
-      style={FRD_CARD_STYLE}
-      className="spec-frd-card"
-      data-testid="arch-frd"
-      onClick={() => onOpen(frd)}
-      aria-label={`Ver detalle de ${frd.id} ${frd.title}`}
-    >
-      <div style={FRD_HEAD_STYLE}>
-        <span style={FRD_ID_STYLE}>{frd.id}</span>
-        {woCount > 0 && (
-          <span style={WO_COUNT_STYLE}>
-            {woCount} WO{woCount === 1 ? "" : "s"}
-          </span>
-        )}
-      </div>
-      <p style={FRD_TITLE_STYLE}>{frd.title}</p>
-      {frd.blueprint !== "" && <p style={FRD_SUMMARY_TEXT_STYLE}>{frd.blueprint}</p>}
-      <span style={FRD_MORE_STYLE}>Ver detalle →</span>
-    </button>
-  );
-}
-
-function FrdModal({
-  frd,
-  liveWorkOrders,
-  project,
-  onClose,
-}: {
-  frd: ArchFrd;
-  /** The live work orders of THIS FRD (for the scoped dependency DAG). */
-  liveWorkOrders: WorkOrder[];
-  project?: string;
-  onClose: () => void;
-}) {
-  // The scoped DAG only earns its place when there's parallelism/dependencies to show —
-  // i.e. the FRD has more than one work order (a single-WO FRD has nothing to graph).
-  const showDag = liveWorkOrders.length > 1;
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={`${frd.id} · ${frd.title}`}
-      testIdBase="arch-frd"
-      width={620}
-    >
-      {frd.blueprint !== "" && <p style={FRD_MODAL_BP_STYLE}>{frd.blueprint}</p>}
-      {frd.workOrders.length > 0 && (
-        <>
-          <p style={FRD_MODAL_WO_LABEL_STYLE}>Work orders ({frd.workOrders.length})</p>
-          <div>
-            {frd.workOrders.map((wo) => (
-              <div key={wo.id} style={WO_ROW_STYLE} data-testid="arch-frd-wo">
-                <span style={WO_ID_STYLE}>{wo.id}</span>
-                <span style={WO_DESC_STYLE}>{wo.desc}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-      {showDag && (
-        <div data-testid="arch-frd-dag">
-          <p style={FRD_MODAL_WO_LABEL_STYLE}>Dependencias y paralelismo</p>
-          <WoDag workOrders={liveWorkOrders} project={project} />
-        </div>
-      )}
-    </Modal>
-  );
-}
-
-// --- Hero -------------------------------------------------------------------
-
-type MetaChip = ReturnType<typeof projectMetaChips>[number];
-
-function Hero({
-  arch,
-  title,
-  metaChips,
-}: {
-  arch: ReturnType<typeof parseArchitecture>;
-  title: string;
-  metaChips: MetaChip[];
-}) {
-  return (
-    <header style={HERO_STYLE}>
-      <div style={INNER_STYLE}>
-        <p style={EYEBROW_STYLE}>Arquitectura</p>
-        <h3 style={TITLE_STYLE}>{arch.proyecto ?? title}</h3>
-        {arch.stack != null && <p style={INTRO_STYLE}>{arch.stack}</p>}
-        {arch.intro != null && arch.intro !== arch.stack && (
-          <p style={{ ...INTRO_STYLE, fontSize: "14px", marginTop: "8px" }}>{arch.intro}</p>
-        )}
-        <div style={HERO_CHIPS_ROW_STYLE}>
-          {arch.host != null && (
-            <span style={META_CHIP_STYLE} data-testid="arch-chip-host">
-              <i className="ti ti-server" aria-hidden="true" style={META_ICON_STYLE} />
-              {arch.host}
-            </span>
-          )}
-          {arch.coste != null && (
-            <span style={META_CHIP_STYLE} data-testid="arch-chip-coste">
-              <i className="ti ti-coin" aria-hidden="true" style={META_ICON_STYLE} />
-              {arch.coste}
-            </span>
-          )}
-          {arch.fase != null && <span style={PHASE_CHIP_STYLE}>fase · {arch.fase}</span>}
-          {metaChips.map((chip) => (
-            <span key={chip.label} style={META_CHIP_STYLE} data-testid="arch-meta-chip">
-              {chip.icon != null && (
-                <i className={`ti ${chip.icon}`} aria-hidden="true" style={META_ICON_STYLE} />
-              )}
-              {chip.label}
-            </span>
-          ))}
-        </div>
-      </div>
-    </header>
-  );
-}
-
-// --- Services + env band ----------------------------------------------------
-
-// --- ADR band ---------------------------------------------------------------
-
-function AdrBand({ adrs, onOpen }: { adrs: Adr[]; onOpen: (adr: Adr) => void }) {
-  return (
-    <section style={INNER_STYLE}>
-      <div style={ADR_LIST_STYLE} data-testid="arch-adrs">
-        <p style={SUBHEAD_STYLE}>🧭 Decisiones (ADRs)</p>
-        {adrs.map((adr) => (
-          <AdrRow key={adr.id} adr={adr} onOpen={onOpen} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-// --- Implementation-plan band (the centerpiece) -----------------------------
-
-function PlanBand({ workOrders, project }: { workOrders: WorkOrder[]; project?: string }) {
-  return (
-    <section style={INNER_STYLE}>
-      <div style={PLAN_BLOCK_STYLE} data-testid="arch-plan">
-        <div style={PLAN_HEAD_STYLE}>
-          <h4 style={PLAN_TITLE_STYLE}>🗺️ Plan de implementación</h4>
-        </div>
-        <p style={PLAN_SUB_STYLE}>
-          El grafo de work orders: cada nodo es una orden de trabajo agrupada por FRD, las flechas
-          son dependencias y el color es su estado. Muestra qué corre en paralelo y la ruta crítica.
-          Toca un nodo para resaltar su cadena.
-        </p>
-        <WoDag workOrders={workOrders} project={project} />
-      </div>
-    </section>
-  );
-}
-
-function isUnavailableSelection(id: string, selection: unknown): boolean {
-  return id !== "" && selection == null;
-}
-
-// --- Root -------------------------------------------------------------------
-
+/** Shared architecture report: authored narrative plus independently read live artifact bands. */
 export function ArchitectureDigest({
   body,
-  dataModel,
   title,
+  dataModel,
   projectType,
   targetPlatforms,
   workOrders = [],
@@ -421,93 +57,306 @@ export function ArchitectureDigest({
   adrs = [],
   project,
   resolveLink,
+  frds,
+  constructionStarted,
+  navigationBaseHref,
+  sourceErrors,
 }: ArchitectureDigestProps): React.JSX.Element {
   const arch = parseArchitecture(body);
-  const metaChips = projectMetaChips(projectType, targetPlatforms);
-  const adrList = adrs;
   const [adrId, setAdrId] = useUrlState("adr", "");
   const [frdId, setFrdId] = useUrlState("architectureFrd", "");
-  const openAdr = adrList.find((adr) => adr.id === adrId) ?? null;
-  const openFrd = arch.frds.find((frd) => frd.id === frdId) ?? null;
-
-  const wos = workOrders;
-  const env = envVars;
-  const hasServicesEnv = arch.services.length > 0 || env.length > 0;
-
+  const adr = adrs.find((item) => item.id === adrId);
+  const cards = frds
+    ? frds.map((live) => ({
+        id: live.id,
+        title: live.title,
+        blueprint: arch.frds.find((frd) => frd.id === live.id)?.blueprint || live.blueprint,
+        ui: live.ui,
+        live,
+      }))
+    : arch.frds.map((frd) => ({ ...frd, live: undefined, ui: undefined }));
+  const open = cards.find((frd) => frd.id === frdId);
+  const started = hasConstructionStarted(arch.fase, workOrders, constructionStarted);
+  const base = digestNavigationBase(navigationBaseHref, project);
+  const notPublished = isNotPublished(arch.hasContent, dataModel);
   return (
-    <article
-      data-testid="card-detail-architecture"
-      style={CONTAINER_STYLE}
-      aria-label="Resumen de la arquitectura"
-    >
-      <Hero arch={arch} title={title} metaChips={metaChips} />
-
+    <article data-testid="card-detail-architecture" aria-label="Resumen de la arquitectura">
+      <ArchitectureHero
+        arch={arch}
+        title={title}
+        projectType={projectType}
+        targetPlatforms={targetPlatforms}
+      />
+      {notPublished && <Notice icon="book">{t("workspace.arquitectura.notPublished")}</Notice>}
       {arch.stackRows.length > 0 && (
-        <section className="arch-block" style={BLOCK_STACK_STYLE} data-testid="arch-stack">
-          <div style={INNER_STYLE}>
-            <p style={blockLabel("var(--color-accent-text)")}>{ARCH_COPY.stack}</p>
-            <p style={{ ...INTRO_STYLE, fontSize: "13px", marginBottom: "16px" }}>
-              {ARCH_COPY.stackHelp}
-            </p>
-            <StackTable rows={arch.stackRows} />
-          </div>
-        </section>
+        <ReportBand
+          title={t("workspace.arquitectura.stack.title")}
+          tone="blue"
+          testId="arch-stack"
+          rows={arch.stackRows.map((row, index) => ({
+            id: `${row.capa}-${index}`,
+            label: row.capa,
+            content: (
+              <>
+                <b>{row.eleccion}</b>
+                <p>{row.porque}</p>
+              </>
+            ),
+          }))}
+        />
       )}
-
-      {arch.services.length > 0 && <ServicesBand services={arch.services} />}
-
-      {dataModel !== undefined ? (
-        <section className="arch-block" style={BLOCK_DATA_STYLE} data-testid="arch-data-model">
-          <div style={INNER_STYLE}>
-            <p style={blockLabel("var(--color-ok)")}>🗄️ Modelo de datos</p>
-            <DataModelViewer result={dataModel} />
-          </div>
-        </section>
-      ) : arch.dataModel != null ? (
-        <DataModel model={arch.dataModel} />
-      ) : null}
-
-      {hasServicesEnv && <EnvBand env={env} />}
-
-      {adrList.length > 0 && <AdrBand adrs={adrList} onOpen={(adr) => setAdrId(adr.id)} />}
-
-      <PlanBand workOrders={wos} project={project} />
-
-      {arch.frds.length > 0 && (
-        <section className="arch-block" style={BLOCK_FRD_STYLE}>
-          <div style={INNER_STYLE}>
-            <p style={BLABEL_FRD_STYLE}>🧩 Por FRD ({arch.frds.length})</p>
-            <div style={FRD_GRID_STYLE}>
-              {arch.frds.map((frd) => (
+      {arch.services.length > 0 && (
+        <ReportBand
+          title={t("workspace.arquitectura.services.title")}
+          tone="teal"
+          testId="arch-services"
+          rows={arch.services.map((service, index) => ({
+            id: `${index}`,
+            label: service.desc ? service.title : "",
+            content: (
+              <div data-testid="arch-service">
+                <Markdown resolveLink={resolveLink}>{service.desc || service.title}</Markdown>
+              </div>
+            ),
+          }))}
+        />
+      )}
+      <ModelBand arch={arch} dataModel={dataModel} notPublished={notPublished} />
+      {!notPublished && (
+        <>
+          {hasBandContent(envVars.length, sourceErrors?.env) && (
+            <EnvironmentBand entries={envVars} error={sourceErrors?.env} />
+          )}
+          {hasBandContent(adrs.length, sourceErrors?.adrs) && (
+            <ReportBand
+              title={t("workspace.arquitectura.adrs.title", { count: adrs.length })}
+              testId="arch-adrs"
+              tone="violet"
+            >
+              {sourceErrors?.adrs ? (
+                <Notice icon="alert" kind="error">
+                  {sourceErrors.adrs}
+                </Notice>
+              ) : (
+                adrs.map((item) => (
+                  <AdrRow key={item.id} adr={item} onOpen={() => setAdrId(item.id)} />
+                ))
+              )}
+            </ReportBand>
+          )}
+          <ReportBand
+            title={t("workspace.arquitectura.plan.title")}
+            testId="arch-plan"
+            tone="violet"
+          >
+            {sourceErrors?.workOrders ? (
+              <Notice icon="alert" kind="error">
+                {sourceErrors.workOrders}
+              </Notice>
+            ) : (
+              <PlanMosaic workOrders={workOrders} started={started} />
+            )}
+            {sourceErrors?.frds && (
+              <Notice icon="alert" kind="error">
+                {sourceErrors.frds}
+              </Notice>
+            )}
+            <div className={styles.grid}>
+              {cards.map((frd) => (
                 <FrdCard
                   key={frd.id}
-                  frd={frd}
-                  liveWorkOrders={workOrdersForFrd(frd, wos)}
-                  onOpen={(frd) => setFrdId(frd.id)}
+                  frd={{ ...frd, summary: frd.blueprint }}
+                  workOrders={frd.live?.workOrders ?? ordersForFrd(frd.id, workOrders)}
+                  started={started}
+                  onOpen={() => setFrdId(frd.id)}
+                  testId="arch-frd"
                 />
               ))}
             </div>
-          </div>
-        </section>
+          </ReportBand>
+        </>
       )}
-
-      {isUnavailableSelection(adrId, openAdr) && (
-        <p role="status">El ADR seleccionado no está disponible.</p>
+      {adrId && !adr && <p role="status">El ADR seleccionado no está disponible.</p>}
+      {frdId && !open && <p role="status">El FRD seleccionado no está disponible.</p>}
+      {adr && (
+        <Modal
+          open
+          title={`${adr.id} · ${adr.title}`}
+          kicker={adr.id}
+          testIdBase="arch-adr"
+          tone="violet"
+          onClose={() => setAdrId("")}
+        >
+          <AdrDocument adr={adr} resolveLink={resolveLink} />
+        </Modal>
       )}
-      {isUnavailableSelection(frdId, openFrd) && (
-        <p role="status">El FRD seleccionado no está disponible.</p>
-      )}
-      {openAdr != null && (
-        <AdrModal adr={openAdr} onClose={() => setAdrId("")} resolveLink={resolveLink} />
-      )}
-      {openFrd != null && (
-        <FrdModal
-          frd={openFrd}
-          liveWorkOrders={workOrdersForFrd(openFrd, wos)}
-          project={project}
+      {open && (
+        <FrdDetail
+          architecture
+          frd={open}
+          live={open.live}
+          blueprint={open.blueprint}
+          workOrders={open.live?.workOrders ?? ordersForFrd(open.id, workOrders)}
+          started={started}
           onClose={() => setFrdId("")}
+          resolveLink={resolveLink}
+          navigationBaseHref={base}
         />
       )}
     </article>
+  );
+}
+
+function isNotPublished(hasContent: boolean, model?: DataModelResult): boolean {
+  return !hasContent && (!model || model.kind === "missing");
+}
+
+function hasBandContent(count: number, error?: string): boolean {
+  return count > 0 || Boolean(error);
+}
+
+function ordersForFrd(id: string, orders: readonly WorkOrder[]): WorkOrder[] {
+  return orders.filter((order) => order.id.startsWith(`${id.replace("FRD-", "WO-")}-`));
+}
+
+function EnvironmentBand({
+  entries,
+  error,
+}: {
+  entries: readonly EnvVar[];
+  error?: string;
+}): React.JSX.Element {
+  const groups = new Map<string, EnvVar[]>();
+  for (const entry of entries) {
+    const key = entry.section || t("workspace.arquitectura.env.generalGroup");
+    groups.set(key, [...(groups.get(key) ?? []), entry]);
+  }
+  const missing = entries.filter((entry) => entry.described === false || !entry.comment).length;
+  return (
+    <ReportBand
+      title={t("workspace.arquitectura.env.title", { count: entries.length })}
+      testId="arch-env-block"
+      tone="gold"
+    >
+      {error ? (
+        <Notice icon="alert" kind="error">
+          {error}
+        </Notice>
+      ) : (
+        <>
+          {entries.length > 0 && (
+            <Chip tone={missing ? "amber" : "teal"}>
+              {missing
+                ? t("workspace.arquitectura.env.missingChip", { missing, total: entries.length })
+                : t("workspace.arquitectura.env.allDescribed")}
+            </Chip>
+          )}
+          {[...groups].map(([group, items]) => (
+            <EnvFold key={group} group={group} entries={items} />
+          ))}
+        </>
+      )}
+    </ReportBand>
+  );
+}
+
+function AdrDocument({
+  adr,
+  resolveLink,
+}: {
+  adr: Adr;
+  resolveLink?: LinkResolver;
+}): React.JSX.Element {
+  const metadata = adr.body.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  return (
+    <>
+      {metadata && (
+        <details>
+          <summary>Metadatos del documento</summary>
+          <pre>{metadata[1]}</pre>
+        </details>
+      )}
+      <Markdown resolveLink={resolveLink}>
+        {metadata ? adr.body.slice(metadata[0].length) : adr.body}
+      </Markdown>
+    </>
+  );
+}
+
+function ArchitectureHero({
+  arch,
+  title,
+  projectType,
+  targetPlatforms,
+}: {
+  arch: ReturnType<typeof parseArchitecture>;
+  title: string;
+  projectType?: string;
+  targetPlatforms?: string;
+}): React.JSX.Element {
+  return (
+    <DigestHero
+      eyebrow={t("workspace.arquitectura.eyebrow")}
+      title={arch.proyecto ?? title}
+      lead={
+        <>
+          {arch.stack && <p>{arch.stack}</p>}
+          {arch.intro && arch.intro !== arch.stack && <p>{arch.intro}</p>}
+        </>
+      }
+      chips={
+        <>
+          {arch.host && (
+            <span data-testid="arch-chip-host">
+              <Chip tone="slate">{arch.host}</Chip>
+            </span>
+          )}
+          {arch.coste && (
+            <span data-testid="arch-chip-coste">
+              <Chip tone="slate">{arch.coste}</Chip>
+            </span>
+          )}
+          {arch.fase && (
+            <Chip tone="violet">{t("workspace.spec.phaseChip", { phase: arch.fase })}</Chip>
+          )}
+          {projectMetaChips(projectType, targetPlatforms).map((chip) => (
+            <span key={chip.label} data-testid="arch-meta-chip">
+              <Chip tone="slate">{chip.label}</Chip>
+            </span>
+          ))}
+        </>
+      }
+    />
+  );
+}
+
+function ModelBand({
+  arch,
+  dataModel,
+  notPublished,
+}: {
+  arch: ReturnType<typeof parseArchitecture>;
+  dataModel?: DataModelResult;
+  notPublished: boolean;
+}): React.JSX.Element {
+  return (
+    <ReportBand
+      title={t("workspace.arquitectura.dataModel.title")}
+      tone="teal"
+      testId="arch-data-model"
+    >
+      {arch.dataModel?.note && <p>{arch.dataModel.note}</p>}
+      {arch.dataModel?.entities.map((entity) => (
+        <p key={entity.title}>
+          <b>{entity.title}</b>
+          {entity.desc && `: ${entity.desc}`}
+        </p>
+      ))}
+      {!notPublished && (
+        <DataModelViewer
+          result={dataModel ?? (arch.dataModel?.isNone ? { kind: "none" } : { kind: "missing" })}
+        />
+      )}
+    </ReportBand>
   );
 }

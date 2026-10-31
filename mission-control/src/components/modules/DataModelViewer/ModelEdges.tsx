@@ -1,4 +1,4 @@
-import { type KeyboardEvent, memo } from "react";
+import { memo } from "react";
 import type { DataModelEndpoint } from "@/lib/architecture/data-model/types";
 import { COPY } from "./copy.es";
 import type { ModelEdge, ModelLayout, ModelSelection } from "./layout";
@@ -40,15 +40,7 @@ function EndpointMarker({
   );
 }
 
-function Edge({
-  edge,
-  active,
-  onSelect,
-}: {
-  edge: ModelEdge;
-  active: boolean;
-  onSelect: (selection: ModelSelection) => void;
-}) {
+function Edge({ edge, active }: { edge: ModelEdge; active: boolean }) {
   const relation = edge.relationship;
   const points = edge.points;
   const first = points[0];
@@ -59,29 +51,8 @@ function Edge({
   const path = points
     .map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`)
     .join(" ");
-  function select() {
-    onSelect({ kind: "relationship", id: relation.id });
-  }
-  function handleKeyDown(event: KeyboardEvent<SVGGElement>) {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      select();
-    }
-  }
   return (
-    // biome-ignore lint/a11y/useSemanticElements: SVG paths require a group with button semantics and keyboard selection.
-    <g
-      className={styles.edge}
-      data-active={active}
-      data-model-interactive="true"
-      role="button"
-      tabIndex={0}
-      aria-label={`${COPY.relation} ${relation.name ?? relation.id}`}
-      aria-pressed={active}
-      onClick={select}
-      onKeyDown={handleKeyDown}
-    >
-      <path d={path} className={styles.edgeHit} />
+    <g className={styles.edge} data-active={active}>
       <path d={path} className={styles.edgeLine} />
       <EndpointMarker endpoint={relation.from} point={first} toward={second} />
       <EndpointMarker endpoint={relation.to} point={last} toward={previous} />
@@ -103,15 +74,13 @@ function Edge({
   );
 }
 
-/** All relation paths remain independently selectable, including parallel and self edges. */
+/** Noninteractive routed strokes preserve parallel and self edges. */
 function ModelEdgesContent({
   layout,
   selection,
-  onSelect,
 }: {
   layout: ModelLayout;
   selection: ModelSelection;
-  onSelect: (selection: ModelSelection) => void;
 }): React.JSX.Element {
   return (
     <svg
@@ -130,7 +99,6 @@ function ModelEdgesContent({
               : selection?.kind === "entity" &&
                 [edge.relationship.from.entity, edge.relationship.to.entity].includes(selection.id)
           }
-          onSelect={onSelect}
         />
       ))}
     </svg>

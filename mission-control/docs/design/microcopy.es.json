@@ -997,7 +997,7 @@
         "fit": "Ajustar a la vista",
         "reset": "Restablecer",
         "fullscreen": "Pantalla completa",
-        "diagramAria": "Diagrama de entidades. Arrastra o usa las barras para desplazarte; el esquema textual tiene la misma información.",
+        "diagramAria": "Diagrama de entidades. Arrastra o usa los controles para desplazarte; el esquema textual tiene la misma información.",
         "diagramHint": "Selecciona una entidad para resaltar sus relaciones; vuelve a pulsarla para limpiar la selección.",
         "attributes": "{count} atributos",
         "schemaAria": "Esquema de {name}",

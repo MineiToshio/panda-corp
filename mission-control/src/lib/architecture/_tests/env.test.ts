@@ -60,3 +60,45 @@ describe("readEnvExample", () => {
     expect(vars[0]?.comment).toBe("");
   });
 });
+
+it("AC-02-016.8: separates section headers, per-variable comments and optional declarations without retaining values", () => {
+  const project = tmpProject();
+  writeFileSync(
+    join(project, ".env.example"),
+    "# --- Database ---\n# Database URL\nDATABASE_URL=secret\nPASSWORD=secret\n\n# Analytics\n\n# Optional key\n# ANALYTICS_KEY=secret\n",
+  );
+  expect(readEnvExample(project)).toEqual([
+    { name: "DATABASE_URL", comment: "Database URL", section: "Database", described: true },
+    { name: "PASSWORD", comment: "", section: "Database", described: false },
+    { name: "ANALYTICS_KEY", comment: "Optional key", section: "Analytics", described: true },
+  ]);
+  writeFileSync(join(project, ".env.example"), "not a declaration");
+  expect(() => readEnvExample(project)).toThrow(/invalid variable declaration/);
+});
+
+it.each([
+  {
+    project: "pandatrack",
+    header:
+      "# -----------------------------------------------------------------------------\n# Database\n# -----------------------------------------------------------------------------",
+    section: "Database",
+    comment: "Postgres connection string (e.g. Neon, local). Required for Prisma and app data.",
+  },
+  {
+    project: "funko-tracker",
+    header: "# --- Database (Neon DEV for all local development; Docker is forbidden) ---",
+    section: "Database (Neon DEV for all local development; Docker is forbidden)",
+    comment:
+      "Pooled runtime connection: Neon DEV in .env.local, Neon production in .env.production; tests use explicit native Homebrew fixtures.",
+  },
+])("AC-02-016.8: preserves the $project .env.example section shape", ({
+  header,
+  section,
+  comment,
+}) => {
+  const project = tmpProject();
+  writeFileSync(join(project, ".env.example"), `${header}\n# ${comment}\nDATABASE_URL=\n`);
+  expect(readEnvExample(project)).toEqual([
+    { name: "DATABASE_URL", comment, section, described: true },
+  ]);
+});

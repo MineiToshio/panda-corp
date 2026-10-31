@@ -6,14 +6,7 @@
  */
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-
-// Mock the live DAG — its rendering (dagre/SVG/live snapshot) is exercised in WoDag's own tests.
-vi.mock("@/app/projects/[slug]/_observability/WoDag/WoDag", () => ({
-  WoDag: ({ workOrders }: { workOrders: unknown[] }) => (
-    <div data-testid="wo-dag-mock">{workOrders.length} WOs</div>
-  ),
-}));
+import { describe, expect, it } from "vitest";
 
 import { ArchitectureDigest } from "../ArchitectureDigest";
 
@@ -83,7 +76,7 @@ describe("ArchitectureDigest", () => {
     expect(screen.getByTestId("arch-chip-coste")).toHaveTextContent("$0/mes");
   });
 
-  it("renders the stack matrix rows", () => {
+  it("AC-02-013.2: renders the stack matrix rows", () => {
     renderDigest();
     expect(screen.getByText("Framework / UI")).toBeInTheDocument();
     expect(screen.getByText("RSC, SSG por ruta")).toBeInTheDocument();
@@ -95,15 +88,19 @@ describe("ArchitectureDigest", () => {
     expect(screen.getByText("BlogPost")).toBeInTheDocument();
   });
 
-  it("renders the services and the live env vars", () => {
+  it("AC-02-013.4: renders the services and the live env vars", () => {
     renderDigest();
     expect(screen.getByText("Web3Forms")).toBeInTheDocument();
     expect(screen.getByText("NEXT_PUBLIC_SITE_URL")).toBeInTheDocument();
   });
 
-  it("renders the implementation-plan DAG (the mocked WoDag)", () => {
+  it("AC-02-013.3: before construction renders the live planned count", () => {
     renderDigest();
-    expect(screen.getByTestId("wo-dag-mock")).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("arch-plan")).getByText("0 work orders planificadas", {
+        selector: "p",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("opens an ADR modal with its body when an ADR row is clicked", () => {
@@ -112,11 +109,13 @@ describe("ArchitectureDigest", () => {
     expect(screen.getByText("full body.")).toBeInTheDocument();
   });
 
-  it("opens an FRD modal listing its work orders when an FRD card is clicked", () => {
+  it("AC-02-013.5: opens an FRD modal without inventing work orders from digest prose", () => {
     renderDigest();
     fireEvent.click(screen.getByRole("button", { name: /FRD-01 Site shell/ }));
-    expect(screen.getByText("WO-00-001")).toBeInTheDocument();
-    expect(screen.getByText(/design system/)).toBeInTheDocument();
+    expect(screen.queryByText("WO-00-001")).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("dialog")).getByText("0 work orders planificadas"),
+    ).toBeVisible();
   });
 });
 
@@ -160,7 +159,7 @@ describe("ArchitectureDigest — FRD card WO-count badge derives from disk", () 
     );
     const card = screen.getByRole("button", { name: /FRD-01 Site shell/ });
     // Disk has 2 WOs for frd-01 even though the prose only lists one ("WO-00-001").
-    expect(within(card).getByText("2 WOs")).toBeInTheDocument();
+    expect(within(card).getByText("2 work orders planificadas")).toBeInTheDocument();
   });
 });
 
@@ -207,13 +206,13 @@ describe("ArchitectureDigest — per-FRD dependency DAG", () => {
     render(<ArchitectureDigest body={DIGEST_TWO_FRDS} title="p" workOrders={LIVE_WOS} />);
   }
 
-  it("shows the scoped DAG in the modal of an FRD with more than one work order", () => {
+  it("AC-02-013.6: ends with live orders and links, without the removed scoped DAG", () => {
     renderTwoFrds();
     fireEvent.click(screen.getByRole("button", { name: /FRD-01 Site shell/ }));
-    const dag = screen.getByTestId("arch-frd-dag");
-    expect(dag).toBeInTheDocument();
-    // The scoped DAG only receives THIS FRD's two work orders (not the other FRD's).
-    expect(within(dag).getByTestId("wo-dag-mock")).toHaveTextContent("2 WOs");
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("WO-01-001")).toBeVisible();
+    expect(within(dialog).queryByText("WO-02-001")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("arch-frd-dag")).not.toBeInTheDocument();
   });
 
   it("does NOT show the scoped DAG in the modal of an FRD with a single work order", () => {

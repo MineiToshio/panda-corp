@@ -1,5 +1,4 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DataModelViewer } from "../DataModelViewer";
 import { readyFixture } from "./fixture";
@@ -72,8 +71,8 @@ function mockNativeFullscreen() {
 async function renderReadyModel() {
   render(<DataModelViewer result={readyFixture()} />);
   await waitForLayout();
-  await screen.findByRole("application", { name: "Diagrama del modelo de datos" });
-  return screen.getByRole("button", { name: "Ver en pantalla completa" });
+  await screen.findByRole("application", { name: /^Diagrama de entidades/ });
+  return screen.getByRole("button", { name: "Pantalla completa" });
 }
 
 describe("model viewer parity with Architecture graph controls", () => {
@@ -89,25 +88,24 @@ describe("model viewer parity with Architecture graph controls", () => {
     if (!host) throw new Error("The browser fullscreen target is missing");
     expect(host).not.toBeInstanceOf(HTMLDialogElement);
     const graph = within(host);
-    expect(graph.getByRole("application", { name: "Diagrama del modelo de datos" })).toBeVisible();
-    expect(graph.queryByRole("tab")).not.toBeInTheDocument();
+    expect(graph.getByRole("application", { name: /^Diagrama de entidades/ })).toBeVisible();
+    expect(graph.queryByRole("button", { name: "Esquema" })).not.toBeInTheDocument();
     expect(graph.queryByText("docs/product/data-model.json")).not.toBeInTheDocument();
     expect(graph.queryByRole("complementary")).not.toBeInTheDocument();
     expect(graph.getByRole("button", { name: "Salir de pantalla completa" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    expect(graph.getByRole("button", { name: "Ajustar el grafo a la vista" })).toBeVisible();
+    expect(graph.getByRole("button", { name: "Ajustar a la vista" })).toBeVisible();
     expect(graph.getByRole("button", { name: /Zoom .*restablecer/i })).toBeVisible();
-    expect(
-      screen.getAllByRole("application", { name: "Diagrama del modelo de datos" }),
-    ).toHaveLength(1);
-    expect(screen.getAllByRole("searchbox", { name: "Buscar tabla o atributo" })).toHaveLength(1);
+    expect(screen.getAllByRole("application", { name: /^Diagrama de entidades/ })).toHaveLength(1);
+    expect(graph.getAllByRole("searchbox", { name: "Buscar entidad o atributo" })).toHaveLength(1);
   });
 
   it("closes the expanded presentation when native Escape produces fullscreenchange and returns focus", async () => {
     mockNativeFullscreen();
     const trigger = await renderReadyModel();
+    trigger.focus();
     fireEvent.click(trigger);
     expect(fullscreenElement).not.toBeNull();
 
@@ -117,10 +115,8 @@ describe("model viewer parity with Architecture graph controls", () => {
     });
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "Ver en pantalla completa" })).toHaveFocus();
-    expect(
-      screen.getAllByRole("application", { name: "Diagrama del modelo de datos" }),
-    ).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Pantalla completa" })).toHaveFocus();
+    expect(screen.getAllByRole("application", { name: /^Diagrama de entidades/ })).toHaveLength(1);
   });
 
   it("exits the native API from the minimize control and preserves a single inline diagram", async () => {
@@ -130,16 +126,14 @@ describe("model viewer parity with Architecture graph controls", () => {
 
     expect(exit).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(
-      screen.getAllByRole("application", { name: "Diagrama del modelo de datos" }),
-    ).toHaveLength(1);
+    expect(screen.getAllByRole("application", { name: /^Diagrama de entidades/ })).toHaveLength(1);
   });
 
   it.each([
     "missing",
     "rejected",
     "throws",
-  ] as const)("keeps a keyboard-dismissable diagram-only fallback when native fullscreen is %s", async (failure) => {
+  ] as const)("stays inline and focused, with no fallback dialog, when native fullscreen is %s", async (failure) => {
     Object.defineProperty(HTMLElement.prototype, "requestFullscreen", {
       configurable: true,
       value:
@@ -150,21 +144,14 @@ describe("model viewer parity with Architecture graph controls", () => {
               return Promise.reject(new Error("Fullscreen blocked"));
             }),
     });
-    const user = userEvent.setup();
-    fireEvent.click(await renderReadyModel());
-    const dialog = await screen.findByRole("dialog", { name: "Modelo de datos" });
+    const trigger = await renderReadyModel();
+    trigger.focus();
+    fireEvent.click(trigger);
 
-    expect(
-      within(dialog).getByRole("application", { name: "Diagrama del modelo de datos" }),
-    ).toBeVisible();
-    expect(within(dialog).queryByRole("tab")).not.toBeInTheDocument();
-    expect(within(dialog).queryByRole("complementary")).not.toBeInTheDocument();
-    expect(
-      screen.getAllByRole("application", { name: "Diagrama del modelo de datos" }),
-    ).toHaveLength(1);
-    await user.keyboard("{Escape}");
-
+    await waitFor(() => expect(trigger).toHaveFocus());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ver en pantalla completa" })).toHaveFocus();
+    expect(fullscreenElement).toBeNull();
+    expect(trigger).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getAllByRole("application", { name: /^Diagrama de entidades/ })).toHaveLength(1);
   });
 });

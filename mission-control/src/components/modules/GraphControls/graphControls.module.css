@@ -7,11 +7,11 @@
   display: flex;
   align-items: center;
   gap: calc(var(--graph-unit) / 2);
-  background: var(--color-panel);
-  border: 0.5px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 0.5px solid var(--line);
+  border-radius: var(--r);
   padding: calc(var(--graph-unit) / 2);
-  box-shadow: var(--shadow-1, none);
+  box-shadow: var(--shadow-node);
 }
 .bar button {
   display: inline-flex;
@@ -20,19 +20,19 @@
   width: calc(var(--graph-unit) * 6.5);
   height: calc(var(--graph-unit) * 6.5);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--r);
   background: transparent;
-  color: var(--color-text2);
+  color: var(--text-2);
   cursor: pointer;
   font-size: 15px;
   line-height: 1;
 }
 .bar button:hover,
 .bar button[aria-expanded="true"] {
-  background: var(--color-card2);
+  background: var(--surface-2);
 }
 .bar button:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
 .bar .level {
@@ -46,7 +46,7 @@
   width: 1px;
   height: calc(var(--graph-unit) * 4);
   margin: 0 calc(var(--graph-unit) / 2);
-  background: var(--color-border);
+  background: var(--line);
 }
 .panPad {
   position: absolute;
@@ -55,10 +55,10 @@
   display: grid;
   grid-template-columns: repeat(3, auto);
   padding: var(--graph-unit);
-  border: 0.5px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-panel);
-  box-shadow: var(--shadow-1, none);
+  border: 0.5px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  box-shadow: var(--shadow-node);
 }
 .up {
   grid-area: 1 / 2;

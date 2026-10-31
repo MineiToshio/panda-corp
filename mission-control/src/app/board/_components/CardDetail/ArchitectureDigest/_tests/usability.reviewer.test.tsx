@@ -56,6 +56,6 @@ describe("architecture reading order independent acceptance", () => {
     expect(integrations.getByText(/retain the operational event rationale/)).toBeVisible();
     expect(integrations.getByText("Web3Forms")).toBeVisible();
     expect(integrations.getByText(/without a server runtime/)).toBeVisible();
-    expect(integrations.getAllByRole("listitem")).toHaveLength(2);
+    expect(integrations.getAllByTestId("arch-service")).toHaveLength(2);
   });
 });

@@ -49,6 +49,7 @@ export function ModelDiagram({
     <>
       <div
         ref={viewport.canvasRef}
+        id="diagram"
         data-testid="model-viewport"
         className={`${styles.canvas} ${expanded ? styles.expandedCanvas : ""}`}
         // biome-ignore lint/a11y/noNoninteractiveTabindex: Arrow-key pan requires a focusable graph viewport.
@@ -67,7 +68,7 @@ export function ModelDiagram({
             transform: `translate(${viewport.view.x}px, ${viewport.view.y}px) scale(${viewport.view.zoom})`,
           }}
         >
-          <ModelEdges layout={layout} selection={selection} onSelect={onSelect} />
+          <ModelEdges layout={layout} selection={selection} />
           {layout.nodes.map((node) => (
             <EntityCard
               key={node.entity.id}
@@ -75,6 +76,12 @@ export function ModelDiagram({
               selected={selection?.kind === "entity" && selection.id === node.entity.id}
               related={related.has(node.entity.id)}
               matching={Boolean(query) && matches.includes(node.entity.id)}
+              dimmed={
+                selection !== null &&
+                !(selection.kind === "entity" && selection.id === node.entity.id) &&
+                !related.has(node.entity.id) &&
+                !(query && matches.includes(node.entity.id))
+              }
               onSelect={selectEntity}
             />
           ))}

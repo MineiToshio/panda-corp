@@ -12,14 +12,17 @@ async function renderModel() {
     />,
   );
   await waitForLayout();
-  await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
+  await screen.findByRole("searchbox", { name: "Buscar entidad o atributo" });
   return rendered;
 }
 
 describe("data model independent acceptance", () => {
   it("starts with the complete diagram and compact field tables", async () => {
     await renderModel();
-    expect(screen.getByRole("tab", { name: "Diagrama" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("button", { name: "Diagrama" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(screen.getByRole("application")).toBeVisible();
     expect(screen.getAllByRole("table")).toHaveLength(3);
     const table = screen.getByRole("table", { name: "Atributos Persona" });
@@ -33,7 +36,7 @@ describe("data model independent acceptance", () => {
 
   it("switches to code schema without keeping giant alternative tables", async () => {
     await renderModel();
-    fireEvent.click(screen.getByRole("tab", { name: "Esquema" }));
+    fireEvent.click(screen.getByRole("button", { name: "Esquema" }));
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.queryByRole("application")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Persona"));
@@ -54,19 +57,20 @@ describe("data model independent acceptance", () => {
       "aria-pressed",
       "true",
     );
-    fireEvent.click(screen.getByRole("tab", { name: "Esquema" }));
+    fireEvent.click(screen.getByRole("button", { name: "Esquema" }));
     expect(screen.queryByText(/model Persona \{/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Tarea"));
     expect(screen.getByText(/model Tarea \{/)).toBeVisible();
     fireEvent.change(input, { target: { value: "does-not-exist" } });
-    expect(screen.getByRole("status")).toHaveTextContent(/sin coincidencias/i);
+    expect(screen.getByRole("status")).toHaveTextContent(/ninguna entidad coincide/i);
     fireEvent.change(input, { target: { value: "" } });
     fireEvent.click(screen.getByText("Persona"));
     expect(screen.getByText(/model Persona \{/)).toBeVisible();
   });
 
-  it("preserves independently selectable parallel and self edges without duplicate inspector controls", async () => {
+  it("keeps parallel and self relations individually selectable from the list without duplicate inspector controls", async () => {
     await renderModel();
+    fireEvent.click(screen.getByText(/^Relaciones/));
     const review = screen.getByRole("button", { name: "Ver relación Revisión" });
     fireEvent.click(review);
     expect(review).toHaveAttribute("aria-pressed", "true");
@@ -92,6 +96,6 @@ describe("data model independent acceptance", () => {
   ] satisfies [DataModelResult, RegExp][])("renders explicit state %j", (result, message) => {
     render(<DataModelViewer result={result} />);
     expect(screen.getByText(message)).toBeVisible();
-    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Esquema" })).not.toBeInTheDocument();
   });
 });

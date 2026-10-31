@@ -40,7 +40,7 @@ afterEach(cleanup);
 it("AC-02-015.11: an equal RSC payload keeps the ready diagram, its element and its zoom", async () => {
   const { rerender } = render(<DataModelViewer result={readyFixture()} />);
   await waitForLayout();
-  const canvas = screen.getByRole("application", { name: "Diagrama del modelo de datos" });
+  const canvas = screen.getByRole("application", { name: /^Diagrama de entidades/ });
   const before = zoomText();
   fireEvent.click(screen.getByRole("button", { name: "Acercar" }));
   await waitFor(() => expect(zoomText()).not.toBe(before));
@@ -48,22 +48,24 @@ it("AC-02-015.11: an equal RSC payload keeps the ready diagram, its element and 
   rerender(<DataModelViewer result={readyFixture()} />);
   expect(screen.queryByText(COPY.loading)).toBeNull();
   await waitForLayout();
-  expect(screen.getByRole("application", { name: "Diagrama del modelo de datos" })).toBe(canvas);
+  expect(screen.getByRole("application", { name: /^Diagrama de entidades/ })).toBe(canvas);
   expect(zoomText()).toBe(zoomed);
 });
 
 it("AC-02-015.6: an equal RSC payload keeps the expanded model on its native fullscreen host", async () => {
   const { rerender } = render(<DataModelViewer result={readyFixture()} />);
   await waitForLayout();
-  fireEvent.click(screen.getByRole("button", { name: "Ver en pantalla completa" }));
+  fireEvent.click(screen.getByRole("button", { name: "Pantalla completa" }));
   const host = fullscreenElement;
   expect(host).not.toBeNull();
-  const dialog = screen.getByRole("dialog");
+  const toolbarExit = screen.getByRole("button", { name: "Salir de pantalla completa" });
   rerender(<DataModelViewer result={readyFixture()} />);
   expect(screen.queryByText(COPY.loading)).toBeNull();
   await waitForLayout();
   expect(host?.isConnected).toBe(true);
-  expect(screen.getByRole("dialog")).toBe(dialog);
+  expect(fullscreenElement).toBe(host);
+  expect(screen.getByRole("button", { name: "Salir de pantalla completa" })).toBe(toolbarExit);
+  expect(screen.queryByRole("dialog")).toBeNull();
 });
 
 it("control: a really changed model still lays out again", async () => {

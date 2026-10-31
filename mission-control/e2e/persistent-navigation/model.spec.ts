@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { gotoHydrated } from "../_hydration";
 
-test("model schema entity and search restore; search replaces history and expanded paste never requests native fullscreen", async ({
+test("AC-25-011.1: model schema entity and search restore; search replaces history and expanded paste never requests native fullscreen", async ({
   page,
   browser,
 }) => {
@@ -9,8 +9,8 @@ test("model schema entity and search restore; search replaces history and expand
     "/portfolio/mission-control/architecture?model=schema&schemaTable=users&entity=users&modelQuery=email";
   await gotoHydrated(page, href, { selector: '[data-testid="data-model-viewer"] input' });
   const viewer = page.getByTestId("data-model-viewer");
-  await expect(viewer.getByRole("tab", { name: "Esquema", exact: true })).toHaveAttribute(
-    "aria-selected",
+  await expect(viewer.getByRole("button", { name: "Esquema", exact: true })).toHaveAttribute(
+    "aria-pressed",
     "true",
   );
   await expect(viewer.locator('details[aria-label="users"]')).toHaveAttribute("open", "");
@@ -21,15 +21,15 @@ test("model schema entity and search restore; search replaces history and expand
   await viewer.getByRole("searchbox").fill("users");
   await expect.poll(() => new URL(page.url()).searchParams.get("modelQuery")).toBe("users");
   expect(await page.evaluate(() => history.length)).toBe(beforeSearch);
-  await viewer.getByRole("tab", { name: "Diagrama", exact: true }).click();
+  await viewer.getByRole("button", { name: "Diagrama", exact: true }).click();
   await page.goBack();
-  await expect(viewer.getByRole("tab", { name: "Esquema", exact: true })).toHaveAttribute(
-    "aria-selected",
+  await expect(viewer.getByRole("button", { name: "Esquema", exact: true })).toHaveAttribute(
+    "aria-pressed",
     "true",
   );
   await page.goForward();
-  await expect(viewer.getByRole("tab", { name: "Diagrama", exact: true })).toHaveAttribute(
-    "aria-selected",
+  await expect(viewer.getByRole("button", { name: "Diagrama", exact: true })).toHaveAttribute(
+    "aria-pressed",
     "true",
   );
   const expanded = new URL(page.url());

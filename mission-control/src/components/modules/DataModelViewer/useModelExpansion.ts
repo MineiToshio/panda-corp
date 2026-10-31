@@ -1,77 +1,36 @@
-import type { KeyboardEvent, MouseEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { flushSync } from "react-dom";
+import type { KeyboardEvent } from "react";
+import { useEffect, useRef } from "react";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { useUrlState } from "@/lib/navigation/useUrlState";
 
-/** Native browser fullscreen with a model-only full-window fallback and modal focus lifecycle. */
+/** Fullscreen is entered only by a gesture; a restored URL never replays it. */
 export function useModelExpansion() {
-  const [expandedKey, setExpandedKey] = useUrlState("expanded", "");
-  const [gestureExpanded, setGestureExpanded] = useState(false);
-  const expanded = expandedKey === "1" && gestureExpanded;
-  const setExpanded = useCallback(
-    (next: boolean) => {
-      setGestureExpanded(next);
-      setExpandedKey(next ? "1" : "");
-    },
-    [setExpandedKey],
-  );
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLSpanElement>(null);
-  const enteredNative = useRef(false);
-  const restoreIcon = useRef(false);
   const native = useFullscreen(surfaceRef);
+  const enteredNative = useRef(false);
+  const [, setExpandedKey] = useUrlState("expanded", "");
+  useEffect(() => {
+    if (native.isFullscreen) {
+      enteredNative.current = true;
+      setExpandedKey("1", true);
+    } else if (enteredNative.current) {
+      enteredNative.current = false;
+      setExpandedKey("", true);
+    }
+  }, [native.isFullscreen, setExpandedKey]);
   useEffect(() => {
     function restoreInline() {
-      enteredNative.current = false;
-      setGestureExpanded(false);
       if (native.isFullscreen) native.toggle();
     }
     window.addEventListener("popstate", restoreInline);
     return () => window.removeEventListener("popstate", restoreInline);
   }, [native.isFullscreen, native.toggle]);
-  useEffect(() => {
-    if (native.isFullscreen) enteredNative.current = true;
-    else if (enteredNative.current) {
-      enteredNative.current = false;
-      setExpanded(false);
-    }
-  }, [native.isFullscreen, setExpanded]);
-  useEffect(() => {
-    if (!expanded) return;
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    dialog.showModal();
-    dialog.querySelector<HTMLButtonElement>('[data-testid="model-close"]')?.focus();
-    return () => {
-      dialog.close();
-      document.body.style.overflow = previousOverflow;
-      const trigger = restoreIcon.current
-        ? triggerRef.current
-            ?.closest('[data-testid="data-model-viewer"]')
-            ?.querySelector<HTMLButtonElement>('[data-testid="model-fullscreen"]')
-        : triggerRef.current?.querySelector("button");
-      trigger?.focus();
-    };
-  }, [expanded]);
-  function open(event?: MouseEvent<HTMLElement>) {
-    restoreIcon.current = event?.currentTarget.getAttribute("data-testid") === "model-fullscreen";
-    // Mount the model host within the gesture before the browser consumes transient activation.
-    flushSync(() => setExpanded(true));
-    native.toggle();
-  }
-  function close() {
-    if (native.isFullscreen) native.toggle();
-    setExpanded(false);
-  }
-  function onKeyDown(event: KeyboardEvent<HTMLDialogElement>) {
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!native.isFullscreen) return;
     if (event.key === "Escape") {
       event.preventDefault();
-      close();
-      return;
+      native.toggle();
+      setExpandedKey("", true);
     }
     if (event.key !== "Tab") return;
     const focusable = [
@@ -84,11 +43,10 @@ export function useModelExpansion() {
     if (event.shiftKey && document.activeElement === first) {
       event.preventDefault();
       last?.focus();
-    }
-    if (!event.shiftKey && document.activeElement === last) {
+    } else if (!event.shiftKey && document.activeElement === last) {
       event.preventDefault();
       first?.focus();
     }
   }
-  return { expanded, dialogRef, surfaceRef, triggerRef, open, close, onKeyDown };
+  return { expanded: native.isFullscreen, surfaceRef, open: native.toggle, onKeyDown };
 }

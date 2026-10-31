@@ -105,8 +105,8 @@ describe("FRD-25 whole-contract boundary probes (LESSON-0450, LESSON-0185)", () 
     );
     render(<DataModelViewer result={readyFixture()} />);
     expect(
-      await screen.findByRole("tab", { name: /^Esquema$/ }, { timeout: 10_000 }),
-    ).toHaveAttribute("aria-selected", "true");
+      await screen.findByRole("button", { name: /^Esquema$/ }, { timeout: 10_000 }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByLabelText("Entry")).toHaveAttribute("open");
   });
 
@@ -139,7 +139,7 @@ describe("FRD-25 whole-contract boundary probes (LESSON-0450, LESSON-0185)", () 
       window.history.replaceState({}, "", "/portfolio/second/architecture?expanded=1&entity=entry");
       const viewer = render(<DataModelViewer result={readyFixture()} />);
       expect(
-        await screen.findByRole("tab", { name: /^Diagrama$/ }, { timeout: 10_000 }),
+        await screen.findByRole("button", { name: /^Diagrama$/ }, { timeout: 10_000 }),
       ).toBeVisible();
       expect(request).not.toHaveBeenCalled();
       expect.soft(showModal).not.toHaveBeenCalled();

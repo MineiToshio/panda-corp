@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { GRAPH_COPY } from "./copy.es";
+import { IconButton } from "@/components/core/Button/IconButton";
+import { Icon } from "@/components/core/Icon/Icon";
+import { GRAPH_COPY } from "./copy";
 import styles from "./graphControls.module.css";
 
 interface GraphControlsProps {
@@ -44,7 +46,7 @@ export function GraphControls({
         title={GRAPH_COPY.zoomOut}
         onClick={onZoomOut}
       >
-        <i className="ti ti-zoom-out" aria-hidden="true" />
+        <Icon name="minus" />
       </button>
       <button
         type="button"
@@ -63,7 +65,7 @@ export function GraphControls({
         title={GRAPH_COPY.zoomIn}
         onClick={onZoomIn}
       >
-        <i className="ti ti-zoom-in" aria-hidden="true" />
+        <Icon name="plus" />
       </button>
       <button
         type="button"
@@ -72,8 +74,9 @@ export function GraphControls({
         title={GRAPH_COPY.fitTitle}
         onClick={onFit}
       >
-        <i className="ti ti-zoom-scan" aria-hidden="true" />
+        <Icon name="maximize" />
       </button>
+      <IconButton icon="rotate" label={resetLabel} onClick={onReset} />
       {onPan && (
         <button
           type="button"
@@ -82,7 +85,7 @@ export function GraphControls({
           aria-expanded={panOpen}
           onClick={() => setPanOpen((open) => !open)}
         >
-          <i className="ti ti-arrows-move" aria-hidden="true" />
+          <Icon name="map" />
         </button>
       )}
       <span className={styles.divider} aria-hidden="true" />
@@ -94,7 +97,7 @@ export function GraphControls({
         aria-pressed={isFullscreen}
         onClick={onToggleFullscreen}
       >
-        <i className={`ti ${isFullscreen ? "ti-minimize" : "ti-maximize"}`} aria-hidden="true" />
+        <Icon name={isFullscreen ? "x" : "external"} />
       </button>
       {onPan && panOpen && (
         <div className={styles.panPad}>
@@ -104,7 +107,7 @@ export function GraphControls({
             aria-label={GRAPH_COPY.up}
             onClick={() => onPan(0, 64)}
           >
-            <i className="ti ti-arrow-up" aria-hidden="true" />
+            <Icon name="arrow" />
           </button>
           <button
             type="button"
@@ -112,7 +115,7 @@ export function GraphControls({
             aria-label={GRAPH_COPY.left}
             onClick={() => onPan(64, 0)}
           >
-            <i className="ti ti-arrow-left" aria-hidden="true" />
+            <Icon name="back" />
           </button>
           <button
             type="button"
@@ -120,7 +123,7 @@ export function GraphControls({
             aria-label={GRAPH_COPY.down}
             onClick={() => onPan(0, -64)}
           >
-            <i className="ti ti-arrow-down" aria-hidden="true" />
+            <Icon name="arrow" />
           </button>
           <button
             type="button"
@@ -128,7 +131,7 @@ export function GraphControls({
             aria-label={GRAPH_COPY.right}
             onClick={() => onPan(-64, 0)}
           >
-            <i className="ti ti-arrow-right" aria-hidden="true" />
+            <Icon name="arrow" />
           </button>
         </div>
       )}
