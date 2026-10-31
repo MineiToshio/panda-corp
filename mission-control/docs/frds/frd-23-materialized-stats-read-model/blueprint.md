@@ -52,6 +52,12 @@ primary path, and the reference the writer + equivalence test derive against.
 
 ## 3. Modules
 
+- **`portadaFile.ts`** owns `portadaPath` and the parse-only `readParsedPortada` boundary shared by
+  the reader, aggregate join and writer. Only the render reader checks freshness; the join retains
+  parseable stale entries. Missing and malformed snapshots remain distinct results, and unexpected
+  filesystem errors propagate. The seal uses the read-only `runGit` boundary with a 10-second timeout.
+  The resolver copies factory transition arrays rather than asserting away readonly types.
+
 - **`src/lib/achievements/read-model/statsReader.ts`** (new) — `readStatsPortada(projectPath): PortadaResult`
   and `readStatsAggregate(): AggregateResult`. Fail-loud (DR-078): parse the JSON with a Zod schema; on a
   malformed/unrecognised shape return an explicit error variant. `PortadaResult = {ok:true; value: StatsPortada}

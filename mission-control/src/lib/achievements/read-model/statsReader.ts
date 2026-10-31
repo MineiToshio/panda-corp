@@ -14,17 +14,9 @@
  */
 
 import fs from "node:fs";
-import path from "node:path";
+import { readParsedPortada } from "./portadaFile";
 import { currentSeal, isFresh } from "./seal";
-import {
-  parseStatsAggregate,
-  parseStatsPortada,
-  type StatsAggregate,
-  type StatsPortada,
-} from "./statsSchema";
-
-/** The materialized portada file, relative to a project root. */
-const STATS_FILENAME = "stats.json";
+import { parseStatsAggregate, type StatsAggregate, type StatsPortada } from "./statsSchema";
 
 /**
  * The result of reading one project's portada (DR-078 discriminated union).
@@ -40,11 +32,6 @@ export type AggregateResult =
   | { readonly ok: true; readonly value: StatsAggregate }
   | { readonly ok: false; readonly reason: "missing" | "unparseable" };
 
-/** Absolute path to a project's materialized portada. */
-function portadaPath(projectPath: string): string {
-  return path.join(projectPath, ".pandacorp", STATS_FILENAME);
-}
-
 /**
  * Read one project's materialized portada, validating its freshness seal against live git.
  *
@@ -56,33 +43,9 @@ function portadaPath(projectPath: string): string {
  * @returns A `PortadaResult` the caller branches on (`ok` → use the numbers; else fall back).
  */
 export function readStatsPortada(projectPath: string): PortadaResult {
-  const filePath = portadaPath(projectPath);
-
-  let raw: string;
-  try {
-    raw = fs.readFileSync(filePath, "utf-8");
-  } catch (error) {
-    // ENOENT → the portada was never written for this project (AC-23-001.2). Any OTHER read
-    // error (permissions, I/O) is genuinely unexpected — surface it, don't swallow it.
-    if (isNotFound(error)) {
-      return { ok: false, reason: "missing" };
-    }
-    throw error;
-  }
-
-  let json: unknown;
-  try {
-    json = JSON.parse(raw);
-  } catch {
-    // Malformed JSON — fail loud (AC-23-001.4), never a silent empty.
-    return { ok: false, reason: "unparseable" };
-  }
-
-  const portada = parseStatsPortada(json);
-  if (portada === null) {
-    // Well-formed JSON but an unrecognised shape — fail loud (AC-23-001.4).
-    return { ok: false, reason: "unparseable" };
-  }
+  const result = readParsedPortada(projectPath);
+  if (!result.ok) return result;
+  const portada = result.value;
 
   if (!isFresh(portada, currentSeal(projectPath))) {
     // Seal mismatch (or git unavailable) → stale → fall back to live git (AC-23-001.3).

@@ -13,7 +13,7 @@ import { now as clockNow } from "@/lib/clock/clock";
  * READS the aggregate (via `readStatsAggregate`, WO-23-001).
  *
  * Fail-loud (DR-078): `syncStatsAggregate` reads each project's portada through the fail-loud reader
- * (`readStatsPortada`) — a missing or corrupt portada is SKIPPED with an explicit reason (never a
+ * (`readParsedPortada`) — a missing or corrupt portada is SKIPPED with an explicit reason (never a
  * silent empty poisoning the whole join), and the aggregate reader itself throws / returns an
  * explicit error on a malformed aggregate (AC-23-003.2). The write is ATOMIC (tmp + rename) so a
  * crash mid-write never leaves a half-written, corrupt index a reader could pick up.
@@ -21,7 +21,8 @@ import { now as clockNow } from "@/lib/clock/clock";
 
 import fs from "node:fs";
 import path from "node:path";
-import { parseStatsPortada, type StatsAggregate, type StatsPortada } from "./statsSchema";
+import { readParsedPortada } from "./portadaFile";
+import type { StatsAggregate, StatsPortada } from "./statsSchema";
 
 /** The default aggregate index filename (under the factory root's `.pandacorp/`). */
 export const STATS_AGGREGATE_FILENAME = "stats-aggregate.json";
@@ -110,19 +111,6 @@ export type AggregateSyncProject = {
   readonly projectPath: string;
 };
 
-/** The materialized portada file, relative to a project root. */
-const STATS_FILENAME = "stats.json";
-
-/** True when a filesystem error is a "file not found" (ENOENT) — a real absence, not corruption. */
-function isNotFound(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "ENOENT"
-  );
-}
-
 /**
  * Parse-only read of one project's portada for the JOIN (no seal validation, by design — see
  * `AggregateSkipReason`). Fail-loud (DR-078): a discriminated result, never a silent empty.
@@ -136,30 +124,8 @@ type JoinReadResult =
   | { readonly ok: false; readonly reason: AggregateSkipReason };
 
 function readPortadaForJoin(projectPath: string): JoinReadResult {
-  const filePath = path.join(projectPath, ".pandacorp", STATS_FILENAME);
-
-  let raw: string;
-  try {
-    raw = fs.readFileSync(filePath, "utf-8");
-  } catch (error) {
-    if (isNotFound(error)) {
-      return { ok: false, reason: "missing" };
-    }
-    throw error;
-  }
-
-  let json: unknown;
-  try {
-    json = JSON.parse(raw);
-  } catch {
-    return { ok: false, reason: "unparseable" };
-  }
-
-  const portada = parseStatsPortada(json);
-  if (portada === null) {
-    return { ok: false, reason: "unparseable" };
-  }
-  return { ok: true, portada };
+  const result = readParsedPortada(projectPath);
+  return result.ok ? { ok: true, portada: result.value } : result;
 }
 
 /**

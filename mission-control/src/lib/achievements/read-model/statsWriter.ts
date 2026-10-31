@@ -1,4 +1,5 @@
 import { now as clockNow } from "@/lib/clock/clock";
+
 /**
  * lib/achievements/read-model/statsWriter.ts — the single portada writer (FRD-23, WO-23-002, REQ-23-002).
  *
@@ -25,11 +26,9 @@ import path from "node:path";
 import { woVerifiedSeries } from "../report/flowSeries";
 import { reportScalars } from "../report/scalars";
 import type { ReportResult, WoVerifiedSeries } from "../report/types";
+import { portadaPath } from "./portadaFile";
 import { currentSeal } from "./seal";
 import type { ProjectScalars, StatsPortada } from "./statsSchema";
-
-/** The materialized portada file, relative to a project's `.pandacorp/`. */
-const STATS_FILENAME = "stats.json";
 
 /**
  * The live-derived report values the portada materializes — exactly the shapes the report readers
@@ -116,11 +115,6 @@ export function gatherLiveValues(projectPath: string): LiveReportValues {
   };
 }
 
-/** Absolute path to a project's materialized portada. */
-function portadaPath(projectPath: string): string {
-  return path.join(projectPath, ".pandacorp", STATS_FILENAME);
-}
-
 /**
  * Write a serialized portada to `filePath` ATOMICALLY (AC-23-002.2): serialize to a sibling temp
  * file in the SAME directory (so `rename` is a same-filesystem atomic swap), then `fs.rename` it
@@ -136,7 +130,10 @@ export function writePortadaAtomic(filePath: string, portada: StatsPortada): voi
   fs.mkdirSync(dir, { recursive: true });
   // A unique temp name in the SAME dir keeps the rename on one filesystem (atomic) and avoids
   // collisions if two writers race — each renames its own temp over the target (last wins, whole).
-  const tmpPath = path.join(dir, `.${STATS_FILENAME}.${process.pid}.${clockNow().getTime()}.tmp`);
+  const tmpPath = path.join(
+    dir,
+    `.${path.basename(filePath)}.${process.pid}.${clockNow().getTime()}.tmp`,
+  );
   const serialized = `${JSON.stringify(portada, null, 2)}\n`;
   try {
     fs.writeFileSync(tmpPath, serialized, "utf-8");
