@@ -8,6 +8,7 @@
   letter-spacing: -0.02em;
 }
 .eyebrow {
+  line-height: 1.2;
   font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -34,7 +35,7 @@
 .head {
   margin-bottom: var(--s4);
 }
-.head h3 {
+.head :is(h2, h3, h4) {
   font-size: var(--fs-h3);
 }
 .row {

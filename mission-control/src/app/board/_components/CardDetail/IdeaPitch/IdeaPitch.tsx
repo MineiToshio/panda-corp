@@ -1,14 +1,4 @@
-/**
- * IdeaPitch (CMP-02-idea-pitch) — the native "Propuesta" memo of an idea card.
- *
- * A FAITHFUL port of the owner-approved HTML (docs/proposals/10b-sample-idea-memo.html), re-themed to
- * the Atelier tokens. Full-width tinted blocks; both "De un vistazo" and "Profundizar" render as
- * label|content rows. Driven by `parsePitch(body)` — the card `.md` is the source of truth. Prose flows
- * through the shared <Markdown>; critical-text colour (red risk / green ok / amber ask) is applied via
- * the `.pitch-*` helper classes in globals.css (the inline-styled Markdown can't colour bold itself).
- *
- * Traceability: CMP-02-idea-pitch → REQ-02-009 (AC-02-009.1/.5).
- */
+/** Native proposal memo, preserving authored content through the shared report primitives. */
 
 import { Chip } from "@/components/core/Chip/Chip";
 import type { Tone } from "@/components/core/Chip/vocabulary";
@@ -24,18 +14,15 @@ import {
   parsePitch,
   parseRiskMitigation,
   type RiskMitigation,
-  type ScorecardAxis,
 } from "@/lib/pitch/pitch";
+import { proposalSummary } from "@/lib/pitch/proposalSummary";
+import styles from "./IdeaPitch.module.css";
 import {
   ASK_STYLE,
   CHECK_OK_ICON_STYLE,
   CHECK_WARN_ICON_STYLE,
   CHECKITEM_STYLE,
   CONTAINER_STYLE,
-  DETAILS_STYLE,
-  EVIDENCE_BODY_STYLE,
-  EVIDENCE_LINK_STYLE,
-  EVIDENCE_SRC_STYLE,
   FEAT_DESC_STYLE,
   FEAT_STYLE,
   FEAT_TITLE_STYLE,
@@ -54,17 +41,12 @@ import {
   ROW_KEY_HOT_STYLE,
   ROW_STYLE,
   SCORE_LIST_STYLE,
-  SCORE_NAME_STYLE,
-  SCORE_ROW_STYLE,
-  SCORE_TRACK_STYLE,
-  SCORE_VAL_STYLE,
   SUBPANEL_STYLE,
   SUBPANEL_TITLE_STYLE,
-  SUMMARY_STYLE,
-  scoreFillStyle,
   TWOCOL_STYLE,
   VISION_FRAME_STYLE,
 } from "./IdeaPitch.styles";
+import { EffortChart, Evidence, ScoreBar } from "./PitchDecision";
 
 const PREMORTEM_RE = /red team|pre.?mortem/i;
 const ASK_RE = /\bask\b/i;
@@ -188,7 +170,7 @@ function VisionContent({
   }
   return (
     <>
-      <div style={FEATS_STYLE}>
+      <div style={FEATS_STYLE} className={styles.features}>
         {feats.map((f) => (
           <div key={f.title} style={FEAT_STYLE}>
             <span style={FEAT_TITLE_STYLE}>{f.title}</span>
@@ -244,12 +226,14 @@ function RiskCards({
   resolveLink?: LinkResolver;
 }): React.JSX.Element[] {
   return pairs.map((p) => (
-    <div key={p.risk} style={RM_STYLE} data-testid="pitch-rm">
+    <div key={p.risk} style={RM_STYLE} className={styles.risk} data-testid="pitch-rm">
       <div style={RM_RISK_STYLE} className="pitch-danger pitch-rowbody">
         <Markdown resolveLink={resolveLink}>{p.risk}</Markdown>
       </div>
       <div style={RM_MIT_STYLE} className="pitch-ok pitch-rowbody">
-        <Markdown resolveLink={resolveLink}>{`**Mitigación**: ${p.mitigation}`}</Markdown>
+        <Markdown
+          resolveLink={resolveLink}
+        >{`**${t("idea.pitch.mitigation")}**\n\n${p.mitigation}`}</Markdown>
       </div>
     </div>
   ));
@@ -279,8 +263,10 @@ function ColdRow({
     );
   } else if (rm.length > 0) {
     content = (
-      <div className="pitch-ok">
-        <Markdown resolveLink={resolveLink}>{stripTableLines(section.markdown)}</Markdown>
+      <div>
+        <div className="pitch-ok">
+          <Markdown resolveLink={resolveLink}>{stripTableLines(section.markdown)}</Markdown>
+        </div>
         <RiskCards pairs={rm} resolveLink={resolveLink} />
       </div>
     );
@@ -293,131 +279,6 @@ function ColdRow({
       <div style={ROW_KEY_COLD_STYLE}>{section.heading}</div>
       <div className={tone}>{content}</div>
     </div>
-  );
-}
-
-/** One scorecard axis as a labelled bar (the cell text is the honest caption). */
-function ScoreBar({ axis }: { axis: ScorecardAxis }): React.JSX.Element {
-  return (
-    <div style={SCORE_ROW_STYLE} data-testid="pitch-score-bar">
-      <span style={SCORE_NAME_STYLE}>{axis.axis}</span>
-      <span style={SCORE_TRACK_STYLE}>
-        <i style={scoreFillStyle(axis.level)} />
-      </span>
-      <span style={SCORE_VAL_STYLE}>{axis.value}</span>
-    </div>
-  );
-}
-
-const LEVEL_VALUE: Record<string, number> = { high: 1, mid: 0.55, low: 0.25 };
-
-function effortPos(scorecard: ScorecardAxis[]): number {
-  const e = scorecard.find((a) => /esfuerzo/i.test(a.axis));
-  if (!e) return 0.5;
-  const t = e.value.toLowerCase();
-  if (/micro/.test(t)) return 0.22;
-  if (/peque|small|1-2|semana/.test(t)) return 0.5;
-  if (/grande|large|mes/.test(t)) return 0.82;
-  return 0.5;
-}
-
-function valuePos(scorecard: ScorecardAxis[]): number {
-  const axes = scorecard.filter((a) => /founder-fit|demanda|retorno/i.test(a.axis));
-  if (axes.length === 0) return 0.55;
-  const sum = axes.reduce((s, a) => s + (LEVEL_VALUE[a.level] ?? 0.55), 0);
-  return sum / axes.length;
-}
-
-/** Esfuerzo-vs-valor quadrant chart (HTML: the second .panel). */
-function EffortChart({ scorecard }: { scorecard: ScorecardAxis[] }): React.JSX.Element {
-  const x = 44 + effortPos(scorecard) * (360 - 44);
-  const y = 14 + (1 - valuePos(scorecard)) * (180 - 14);
-  return (
-    <svg
-      viewBox="0 0 380 220"
-      width="100%"
-      fontFamily="ui-monospace, monospace"
-      fontSize="11"
-      style={{ marginTop: "8px" }}
-      role="img"
-      aria-label={t("idea.pitch.chartAria", {
-        effort: Math.round(effortPos(scorecard) * 100),
-        value: Math.round(valuePos(scorecard) * 100),
-      })}
-      data-testid="pitch-chart"
-    >
-      <rect
-        x="44"
-        y="14"
-        width="150"
-        height="92"
-        fill="color-mix(in srgb, var(--green) var(--tint), transparent)"
-        opacity="0.5"
-      />
-      <line x1="44" y1="14" x2="44" y2="180" stroke="var(--line)" />
-      <line x1="44" y1="180" x2="360" y2="180" stroke="var(--line)" />
-      <text x="120" y="198" fill="var(--text-3)" textAnchor="middle">
-        {t("idea.pitch.tickMicro")}
-      </text>
-      <text x="240" y="198" fill="var(--text-3)" textAnchor="middle">
-        {t("idea.pitch.tickSmall")}
-      </text>
-      <text x="330" y="198" fill="var(--text-3)" textAnchor="middle">
-        {t("idea.pitch.tickLarge")}
-      </text>
-      <text x="200" y="214" fill="var(--violet)" textAnchor="middle">
-        {t("idea.pitch.axisEffort")}
-      </text>
-      <text x="14" y="100" fill="var(--violet)" textAnchor="middle" transform="rotate(-90 14 100)">
-        {t("idea.pitch.axisValue")}
-      </text>
-      <text x="60" y="30" fill="var(--green)" opacity="0.8" fontSize="10">
-        {t("idea.pitch.sweetSpot")}
-      </text>
-      <circle cx={x} cy={y} r="9" fill="var(--violet)" />
-      <text x={x + 14} y={y + 4} fill="var(--text)">
-        {t("idea.pitch.thisIdea")}
-      </text>
-    </svg>
-  );
-}
-
-const EVIDENCE_ITEM_RE = /^(.*?)\s*[—–-]\s*\[([^\]]+)\]\(([^)]+)\)\s*$/;
-
-/** One evidence source: plain "descripción — link" (NOT Markdown, so it's tight and only the source is a link). */
-function EvidenceSrc({ item }: { item: string }): React.JSX.Element {
-  const m = item.match(EVIDENCE_ITEM_RE);
-  return (
-    <div className="pitch-src" style={EVIDENCE_SRC_STYLE} data-testid="pitch-src">
-      {m?.[2] != null && m[3] != null ? (
-        <>
-          {m[1]}:{" "}
-          <a href={m[3]} style={EVIDENCE_LINK_STYLE} target="_blank" rel="noreferrer noopener">
-            {m[2]}
-          </a>
-        </>
-      ) : (
-        item
-      )}
-    </div>
-  );
-}
-
-/** The collapsible Evidencia section (HTML: details/summary + .src rows). */
-function Evidence({ section }: { section: DeepSection }): React.JSX.Element {
-  const items = section.markdown
-    .split("\n")
-    .map((l) => l.replace(/^[-*]\s+/, "").trim())
-    .filter((l) => l.length > 0 && !l.startsWith("|") && !l.startsWith("("));
-  return (
-    <details style={DETAILS_STYLE} data-testid="pitch-evidence">
-      <summary style={SUMMARY_STYLE}>{t("idea.pitch.evidence")}</summary>
-      <div style={EVIDENCE_BODY_STYLE}>
-        {items.map((it) => (
-          <EvidenceSrc key={it} item={it} />
-        ))}
-      </div>
-    </details>
   );
 }
 
@@ -438,6 +299,7 @@ export function IdeaPitch({
   resolveLink,
 }: IdeaPitchProps): React.JSX.Element {
   const pitch = parsePitch(body);
+  const summary = proposalSummary(body);
   const metaChips = projectMetaChips(projectType, targetPlatforms);
   // Drop the opaque "build" verdict badge — the "qué es" meta chips replace it (owner rule).
   const badges = pitch.badges.filter((b) => b.tone !== "build");
@@ -448,21 +310,31 @@ export function IdeaPitch({
     <article
       data-testid="card-detail-pitch"
       style={CONTAINER_STYLE}
+      className={styles.pitch}
       aria-label={t("idea.tabs.propuesta")}
     >
       <DigestHero
         eyebrow={t("idea.pitch.eyebrow")}
-        title={title}
-        lead={pitch.laApuesta}
+        title={pitch.hasStructured ? "" : title}
         chips={
           <>
-            {metaChips.map((chip) => (
+            {metaChips.map((chip, index) => (
               <span data-testid="pitch-meta-chip" key={chip.label}>
-                <Chip tone="slate">{chip.label}</Chip>
+                <Chip
+                  tone="slate"
+                  variant="plain"
+                  icon={projectType && index === 0 ? "cube" : "columns"}
+                >
+                  {chip.label}
+                </Chip>
               </span>
             ))}
             {badges.map((badge) => (
-              <Chip key={badge.label} tone={BADGE_TONES[badge.tone]}>
+              <Chip
+                key={badge.label}
+                tone={BADGE_TONES[badge.tone]}
+                variant={badge.tone === "neutral" ? "plain" : "tint"}
+              >
                 {badge.label}
               </Chip>
             ))}
@@ -471,34 +343,41 @@ export function IdeaPitch({
       />
 
       {!pitch.hasStructured && (
-        <div style={INNER_STYLE}>
-          <div style={{ paddingTop: "18px" }}>
-            <Markdown resolveLink={resolveLink}>{body}</Markdown>
-          </div>
+        <div className={styles.paper}>
+          {summary ? (
+            <Markdown resolveLink={resolveLink}>{summary}</Markdown>
+          ) : (
+            <p role="status">{t("idea.pitch.empty")}</p>
+          )}
         </div>
       )}
 
       {pitch.glance.length > 0 && (
-        <ReportBand title={t("idea.pitch.glance")} tone="amber">
+        <ReportBand title={t("idea.pitch.glance")} tone="teal" icon="flame" level={2}>
           {pitch.glance.map((item) => (
             <GlanceRow key={item.label} item={item} resolveLink={resolveLink} />
           ))}
         </ReportBand>
       )}
       {coldRows.length > 0 && (
-        <ReportBand title={t("idea.pitch.deep")} tone="teal">
+        <ReportBand title={t("idea.pitch.deep")} tone="blue" icon="layers" level={2}>
           {coldRows.map((section) => (
             <ColdRow key={section.heading} section={section} resolveLink={resolveLink} />
           ))}
         </ReportBand>
       )}
       {(pitch.scorecard.length > 0 || evidence != null) && (
-        <ReportBand title={t("idea.pitch.board")} tone="violet">
+        <ReportBand
+          title={t("idea.pitch.board")}
+          tone="violet"
+          icon="gauge"
+          level={pitch.hasStructured ? 2 : 3}
+        >
           <div style={INNER_STYLE}>
             {pitch.scorecard.length > 0 && (
-              <div style={TWOCOL_STYLE}>
+              <div style={TWOCOL_STYLE} className={styles.panels}>
                 <div style={SUBPANEL_STYLE}>
-                  <b style={SUBPANEL_TITLE_STYLE}>{t("idea.pitch.scorecard")}</b>
+                  <h3 style={SUBPANEL_TITLE_STYLE}>{t("idea.pitch.scorecard")}</h3>
                   <div style={SCORE_LIST_STYLE}>
                     {pitch.scorecard.map((axis) => (
                       <ScoreBar key={axis.axis} axis={axis} />
@@ -506,12 +385,12 @@ export function IdeaPitch({
                   </div>
                 </div>
                 <div style={SUBPANEL_STYLE}>
-                  <b style={SUBPANEL_TITLE_STYLE}>{t("idea.pitch.effortValue")}</b>
+                  <h3 style={SUBPANEL_TITLE_STYLE}>{t("idea.pitch.effortValue")}</h3>
                   <EffortChart scorecard={pitch.scorecard} />
                 </div>
               </div>
             )}
-            {evidence != null && <Evidence section={evidence} />}
+            {evidence != null && <Evidence section={evidence} resolveLink={resolveLink} />}
           </div>
         </ReportBand>
       )}

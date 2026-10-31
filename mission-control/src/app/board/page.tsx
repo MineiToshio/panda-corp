@@ -16,8 +16,8 @@ import { listWorkOrders } from "@/lib/work-orders/work-orders";
 export default async function BoardPage({
   searchParams,
 }: {
-  searchParams?: Promise<RouteQuery>;
-} = {}): Promise<React.JSX.Element> {
+  searchParams: Promise<RouteQuery>;
+}): Promise<React.JSX.Element> {
   const href = normalizeLegacyNavigation(routeHref("/board", [], (await searchParams) ?? {}));
   const cards: BoardCardEntry[] = readIdeas().map((card) => {
     const project = card.project ? readStatus(resolveProjectPath(card.project)) : null;

@@ -338,3 +338,19 @@ interface; every live FRD-02 AC (56) plus AC-11-005.3 is owned by exactly one li
 (see `work-orders/README.md` § AC coverage); `dependsOn` is acyclic and names live work orders only; the W3 and W4
 artifacts above are disjoint; the foundation (WO-13-010..012, WO-19-002) supplies every primitive the FRD-02 mocks
 use; no open clarification marker survives in FRD-02's documents; no API contract is owed (no backend change).
+
+## Proposal close-out implementation (2026-10-31)
+
+`IdeaPitch` reuses `DigestHero` with an empty title for structured memos; the shared hero omits
+an empty heading. The route-scoped CSS module owns proposal typography and responsive grids.
+`proposalSummary` selects the first paragraph of a recognized legacy solution section, otherwise
+the first prose paragraph, without altering source data or the structured pitch parser. Evidence
+uses the shared Markdown renderer and its link policy. Board count tint is scoped to BoardColumn.
+
+### Independent review corrections (2026-10-31)
+
+`PitchDecision.tsx` contains the score row, effort chart and Evidence disclosure, keeping IdeaPitch
+below the 500-line ceiling. Evidence accepts and forwards `resolveLink`; CardDetail's existing
+resolver remains the only link classifier. Missing prose maps to `idea.pitch.empty` at rendering.
+`ReportBand.level` is optional (default 3); structured proposal bands select 2. The board page
+requires the Next.js `searchParams` promise; direct test invocations pass an explicit empty query.

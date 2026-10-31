@@ -16,7 +16,7 @@ export function DigestHero({
   return (
     <header className={`dhero ${styles.hero}`}>
       <p className={styles.eyebrow}>{eyebrow}</p>
-      <h2>{title}</h2>
+      {title && <h2>{title}</h2>}
       {lead && <div className={styles.lead}>{lead}</div>}
       <div className={styles.chips}>{chips}</div>
     </header>

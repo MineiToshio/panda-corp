@@ -14,7 +14,7 @@
 }
 .title h1 {
   font-size: var(--fs-h2);
-  line-height: 1.2;
+  line-height: 1.25;
   overflow-wrap: anywhere;
 }
 .meta {
@@ -45,10 +45,22 @@
   display: none;
 }
 @media (max-width: 759px) {
+  .actions,
+  .buttons {
+    flex-wrap: nowrap;
+  }
   .longLabel {
     display: none;
   }
   .shortLabel {
     display: inline;
   }
+}
+
+.actions [data-testid="favorite-button"] {
+  width: var(--s10);
+  height: var(--s10);
+}
+.actions a[data-size="sm"] {
+  min-height: var(--s8);
 }

@@ -362,7 +362,7 @@ it("AC-02-009.4: board legacy URLs preserve document and expanded selections at 
 
 it("AC-02-016.5: the real board requests the separate idea page by public identity", async () => {
   window.history.replaceState(null, "", "/board");
-  render(await BoardPage());
+  render(await BoardPage({ searchParams: Promise.resolve({}) }));
   fireEvent.click(screen.getByRole("link", { name: "Readable idea title" }));
   expect(router.push).toHaveBeenCalledWith("/board/public-idea");
   expect(screen.queryByTestId("card-detail")).not.toBeInTheDocument();

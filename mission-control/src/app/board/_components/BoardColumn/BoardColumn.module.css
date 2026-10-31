@@ -59,3 +59,8 @@
     flex-basis: 84%;
   }
 }
+
+/* Phase totals use the pale surface tint from the approved board. */
+.head [data-testid="chip"] {
+  background: color-mix(in srgb, var(--tone) var(--tint), var(--surface));
+}

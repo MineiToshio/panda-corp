@@ -1,0 +1,112 @@
+.pitch {
+  min-width: 0;
+}
+.pitch [data-testid="pitch-meta-chip"] {
+  display: inline-flex;
+}
+.pitch [class~="dhero"] > div {
+  gap: calc(var(--s1) * 1.5);
+}
+.pitch [class~="dhero"] > p {
+  text-transform: uppercase;
+}
+.pitch [class~="pitch-rowbody"] {
+  min-width: 0;
+}
+.pitch [class~="pitch-rowbody"] > [class~="pc-markdown"],
+.pitch [class~="pitch-rowbody"] [class~="pc-markdown"] {
+  font-size: var(--fs-base) !important;
+  line-height: 1.65 !important;
+}
+.pitch [class~="pitch-rowbody"] [class~="pc-markdown"] p {
+  line-height: inherit !important;
+}
+.pitch [class~="pitch-ask"] strong {
+  color: var(--blue) !important;
+}
+.pitch [class~="pitch-row"] {
+  border-color: var(--line-strong);
+}
+.paper {
+  padding: var(--s8) var(--s10);
+  margin-top: var(--s6);
+  background: var(--surface);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--r-xl);
+}
+.features {
+  min-width: 0;
+}
+.pitch .risk [class~="pc-markdown"] {
+  font-size: var(--fs-sm) !important;
+}
+.pitch .risk [class~="pc-markdown"] p {
+  margin-bottom: var(--s1) !important;
+}
+.evidence summary::marker,
+.evidence summary::-webkit-details-marker {
+  display: none;
+  content: "";
+}
+.evidence summary:focus-visible {
+  outline: var(--rule) solid var(--focus);
+  outline-offset: var(--s1);
+}
+.pitch .evidence [class~="pc-markdown"] {
+  font-size: var(--fs-sm) !important;
+}
+@media (max-width: 1179px) {
+  .paper {
+    padding: var(--s6);
+  }
+}
+@media (max-width: 759px) {
+  .pitch [class~="pitch-row"] {
+    gap: var(--s1) !important;
+  }
+  .features,
+  .risk,
+  .panels {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .risk > :last-child {
+    border-left: 0 !important;
+  }
+  .score {
+    grid-template-columns: calc(var(--s10) * 2) minmax(0, 1fr) !important;
+  }
+  .score > :last-child {
+    grid-column: 1 / -1;
+  }
+  .paper {
+    padding: var(--s5) var(--s4);
+    border-radius: var(--r-lg);
+  }
+  .pitch .paper [class~="pc-markdown"] {
+    font-size: var(--fs-base) !important;
+  }
+}
+
+.chart {
+  width: 100%;
+  height: auto;
+}
+.tick,
+.cap {
+  font: 600 var(--fs-xs) var(--font-mono);
+}
+.tick {
+  fill: var(--text-3);
+}
+.cap {
+  fill: var(--teal);
+  text-anchor: middle;
+}
+.sweetText {
+  fill: var(--green);
+  font: 600 var(--fs-xs) var(--font-body);
+}
+.ideaText {
+  fill: var(--text);
+  font: 600 var(--fs-sm) var(--font-body);
+}

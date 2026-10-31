@@ -142,3 +142,37 @@ prototype_blessed_at: 0e6b7191
 Idea-header metadata occupies the second grid column below the title. Phone actions use the existing short translated labels and an icon-only discard action with its accessible name preserved. Spec bands use flag/search/book icons, blue PRD and teal Research hues, source-document actions through the embedding reader resolver, and an amber decision list with a mixed-opacity border. Oracle: `prototype.css:1521,1637-1638,778`; `prototype.js:703-705,885,936,973-975`. The possible `.pitch-ok` 8 px overflow is not confirmed and its implementation is unchanged pending browser measurement.
 
 Component tests and static checks are recorded in the decision log. Browser fidelity, themes and overflow still require the attended Claude reviewer; no visual baseline was edited.
+
+## Proposal and board fidelity close-out (2026-10-31)
+
+The approved prototype wins for the proposal presentation. A structured memo has no second title
+or repeated lead: its uppercase eyebrow precedes neutral app/platform chips with icons. The three
+report bands are teal/flame, blue/layers and violet/gauge. Row labels use Inter, uppercase, bold,
+and the band hue mixed with secondary text. Vision uses three equal columns at desktop width,
+then one on phones. Risk and mitigation occupy two tinted cells on desktop and stack on phones;
+the mitigation label is separate from its prose. The decision band has two equal panels, with
+score rows laid out as label, bar and wrapping caption. On phones the caption occupies the next
+row, and the two panels stack. Evidence is a violet text disclosure with working Markdown links.
+
+Legacy cards without a memo skeleton show a title, metadata and a paper summary derived from
+the solution paragraph, falling back to the first prose paragraph. Do not publish all legacy
+headings in Propuesta or invent a pitch. Documentos preserves the complete card. The idea header
+keeps metadata beneath the title. Long titles wrap; phone actions stay on one line. Phase count
+chips use the pale `--tint` mixed with `--surface`, retaining their phase colour.
+
+### Independent review corrections (2026-10-31)
+
+- Proposal bands use level-2 headings; score panels are level 3. Other ReportBand callers retain
+  their default level 3. The shared hero eyebrow has line-height 1.2; proposal metadata chips
+  use the oracle 6px gap and inline-flex wrappers so they do not add baseline height. CardDetail adds no flex gap
+  after the tab wrapper: its own bottom margin supplies the spacing before the hero. The header
+  favourite is 40px and small navigation actions retain their 32px height, producing the oracle
+  action-row height of 40px. These targets exceed the WCAG AA 24px minimum.
+- The decision chart matches the oracle: 80-high, radius-6 ideal zone at 14% green; ticks start at
+  x=70/180/300. Ticks and captions use 600-weight 12px mono; ideal-zone and idea labels use body type.
+  Score labels use secondary text. The Evidence disclosure uses the measured 14px body token.
+- Legacy summary papers use padding `--s8 --s10`, radius `--r-xl`, and a `--s6` gap after the hero.
+  At widths <=1179px padding becomes `--s6`; at <=759px it is `--s5 --s4`, radius `--r-lg`, with
+  15px paragraph text. An empty summary is an explicit localized status, never an empty paper.
+- Evidence inherits the reader resolver. Archived factory files that the reader cannot surface
+  are neutral text with an unavailable-reader explanation; do not invent app routes for them.

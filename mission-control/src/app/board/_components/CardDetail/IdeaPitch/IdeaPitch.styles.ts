@@ -1,10 +1,4 @@
-/**
- * Styles for IdeaPitch — a FAITHFUL port of the owner-approved HTML
- * (docs/proposals/10b-sample-idea-memo.html), RE-THEMED to the Atelier tokens. Token-based colours
- * only. The hot/cold blocks are FULL-WIDTH tinted bands (content centred via INNER_STYLE); the
- * inline-coloured emphasis (red/green/amber bold) lives in globals.css `.pitch-*` helpers, since the
- * shared <Markdown> renders bold white and can't be styled inline.
- */
+/** Token-based styles for the approved proposal memo. */
 
 import type { ScoreLevel } from "@/lib/pitch/pitch";
 
@@ -13,129 +7,124 @@ export const CONTAINER_STYLE: React.CSSProperties = { width: "100%" };
 /** Centres each block's content at a readable measure inside the full-width band. */
 export const INNER_STYLE: React.CSSProperties = { width: "100%", minWidth: 0 };
 
-// --- Rows (HTML: .row 138px|1fr, gap 18, dashed, 15px) -----------------
 // borderBottom lives in the `.pitch-row` CSS class (globals.css) so `:last-child` can drop it.
 export const ROW_STYLE: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "138px 1fr",
-  gap: "18px",
-  padding: "12px 0",
-  fontSize: "15px",
+  gridTemplateColumns: "calc(var(--s10) * 3 + var(--s5)) minmax(0, 1fr)",
+  gap: "var(--s6)",
+  padding: "var(--s3) 0",
+  fontSize: "var(--fs-base)",
   alignItems: "start",
 };
 function rowKey(color: string): React.CSSProperties {
   return {
-    fontFamily: "var(--font-mono, ui-monospace, monospace)",
-    fontSize: "12px",
+    fontFamily: "var(--font-body)",
+    fontSize: "var(--fs-xs)",
     textTransform: "uppercase",
-    letterSpacing: "0.5px",
+    letterSpacing: "0.08em",
+    fontWeight: 700,
     color,
-    paddingTop: "3px",
+    paddingTop: "calc(var(--s1) * 0.75)",
     lineHeight: 1.4,
   };
 }
-// Row labels muted to the Spec tab's grey (was warn/info) — owner request.
-export const ROW_KEY_HOT_STYLE = rowKey("var(--text-3)");
-export const ROW_KEY_COLD_STYLE = rowKey("var(--text-3)");
+// Labels inherit their report band hue.
+export const ROW_KEY_HOT_STYLE = rowKey("color-mix(in srgb, var(--tone) 65%, var(--text-2))");
+export const ROW_KEY_COLD_STYLE = rowKey("color-mix(in srgb, var(--tone) 65%, var(--text-2))");
 
 export const QUOTE_STYLE: React.CSSProperties = {
-  borderLeft: "var(--hairline) solid var(--line)",
-  padding: "8px 14px",
-  margin: "10px 0 0",
-  background: "var(--surface-2)",
-  borderRadius: "0 var(--r-md) var(--r-md) 0",
+  border: "var(--hairline) solid color-mix(in srgb, var(--teal) 35%, var(--line))",
+  padding: "var(--s3) var(--s4)",
+  margin: "var(--s3) 0 0",
+  background: "var(--surface)",
+  borderRadius: "var(--r)",
   fontStyle: "italic",
-  fontSize: "14px",
+  fontSize: "var(--fs-md)",
   color: "var(--text-2)",
 };
 
 // la visión → feature grid (HTML .feats / .feat)
 export const VISION_FRAME_STYLE: React.CSSProperties = {
-  border: "1px solid var(--line-strong)",
-  background: "var(--surface-2)",
+  border: "var(--hairline) solid var(--line-strong)",
+  background: "var(--surface)",
   borderRadius: "var(--r)",
-  padding: "12px 16px",
+  padding: "var(--s3) var(--s4)",
 };
-// "La visión" feature cards mirror the Spec tab's "Usuarios" role cards (SpecDigest.styles
-// ROLE_CARD/ROLE_TITLE/ROLE_DESC) — same grid, padding, title colour (info) and desc — for
-// cross-section visual coherence (factory/standards/design.md).
 export const FEATS_STYLE: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-  gap: "10px",
+  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+  gap: "var(--s3)",
 };
 export const FEAT_STYLE: React.CSSProperties = {
-  background: "var(--surface-2)",
-  border: "1px solid var(--line)",
+  background: "var(--surface)",
+  border: "var(--hairline) solid var(--line)",
   borderRadius: "var(--r)",
-  padding: "12px 14px",
+  padding: "var(--s3) calc(var(--s3) + var(--s1) / 2)",
 };
 export const FEAT_TITLE_STYLE: React.CSSProperties = {
   display: "block",
-  fontSize: "13px",
-  fontWeight: 700,
-  color: "var(--blue)",
-  marginBottom: "4px",
+  fontSize: "var(--fs-md)",
+  fontWeight: 650,
+  color: "var(--text)",
+  marginBottom: "var(--s1)",
 };
 export const FEAT_DESC_STYLE: React.CSSProperties = {
   margin: 0,
-  fontSize: "13px",
+  fontSize: "var(--fs-sm)",
   lineHeight: 1.45,
   color: "var(--text-2)",
 };
 
 // la visión → mock preview (HTML .mock / .checkitem)
 export const MOCK_STYLE: React.CSSProperties = {
-  marginTop: "12px",
-  background: "var(--bg)",
-  border: "1px solid var(--line)",
+  marginTop: "var(--s3)",
+  background: "var(--surface-2)",
+  border: "var(--hairline) solid var(--line)",
   borderRadius: "var(--r-lg)",
-  padding: "16px",
+  padding: "var(--s4)",
   fontFamily: "var(--font-mono, ui-monospace, monospace)",
 };
 export const MOCK_BAR_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "6px",
-  marginBottom: "12px",
+  gap: "calc(var(--s1) * 1.5)",
+  marginBottom: "var(--s3)",
 };
 export const MOCK_DOT_STYLE: React.CSSProperties = {
-  width: "10px",
-  height: "10px",
+  width: "calc(var(--s2) + var(--s1) / 2)",
+  height: "calc(var(--s2) + var(--s1) / 2)",
   borderRadius: "50%",
   background: "var(--line-strong)",
   flexShrink: 0,
 };
 export const MOCK_URL_STYLE: React.CSSProperties = {
-  marginLeft: "6px",
-  fontSize: "11px",
+  marginLeft: "calc(var(--s1) * 1.5)",
+  fontSize: "var(--fs-xs)",
   color: "var(--text-3)",
 };
 export const CHECKITEM_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "10px",
-  padding: "8px 10px",
+  gap: "var(--s3)",
+  padding: "var(--s2) var(--s3)",
   borderRadius: "var(--r-md)",
-  marginBottom: "6px",
-  fontSize: "13px",
-  background: "var(--surface-2)",
-  border: "1px solid var(--line)",
+  marginBottom: "calc(var(--s1) * 1.5)",
+  fontSize: "var(--fs-sm)",
+  background: "var(--surface)",
+  border: "var(--hairline) solid var(--line)",
   color: "var(--text)",
 };
 function checkIcon(ok: boolean): React.CSSProperties {
   return {
-    width: "22px",
-    height: "22px",
+    width: "var(--s4)",
+    height: "var(--s4)",
     borderRadius: "var(--r-xs)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-    fontSize: "13px",
-    background: ok
-      ? "color-mix(in srgb, var(--green) var(--tint), transparent)"
-      : "color-mix(in srgb, var(--coral) var(--tint), transparent)",
+    fontSize: "var(--fs-sm)",
+    background: "transparent",
     color: ok ? "var(--green)" : "var(--coral)",
   };
 }
@@ -144,83 +133,82 @@ export const CHECK_WARN_ICON_STYLE = checkIcon(false);
 
 // red team → pre-mortem box (HTML .premortem)
 export const PREMORTEM_STYLE: React.CSSProperties = {
-  background: "color-mix(in srgb, var(--coral) var(--tint), transparent)",
-  border: "1px solid var(--coral)",
+  background: "color-mix(in srgb, var(--coral) var(--tint), var(--surface))",
+  border: "var(--hairline) solid color-mix(in srgb, var(--coral) 45%, transparent)",
   borderRadius: "var(--r)",
-  padding: "14px 16px",
-  marginTop: "2px",
-  fontSize: "14px",
+  padding: "var(--s3) var(--s4)",
+  marginTop: "calc(var(--s1) / 2)",
+  fontSize: "var(--fs-md)",
 };
 // el ask → highlighted box (HTML .ask)
 export const ASK_STYLE: React.CSSProperties = {
-  background: "color-mix(in srgb, var(--violet) var(--tint-strong), transparent)",
-  border: "1px solid var(--violet)",
+  background: "color-mix(in srgb, var(--blue) var(--tint), var(--surface))",
+  border: "var(--hairline) solid color-mix(in srgb, var(--blue) 45%, transparent)",
   borderRadius: "var(--r-lg)",
-  padding: "16px 20px",
-  fontSize: "15px",
+  padding: "var(--s3) var(--s4)",
+  fontSize: "var(--fs-base)",
   color: "var(--text)",
-  marginTop: "2px",
+  marginTop: "calc(var(--s1) / 2)",
 };
 
 // risk ↔ mitigation pairs (HTML .rm / .ri red / .mi green)
 export const RM_STYLE: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  border: "1px solid var(--line)",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
   borderRadius: "var(--r)",
   overflow: "hidden",
-  marginTop: "10px",
+  marginTop: "calc(var(--s2) + var(--s1) / 2)",
 };
 export const RM_RISK_STYLE: React.CSSProperties = {
-  padding: "12px 14px",
-  background: "color-mix(in srgb, var(--coral) var(--tint), transparent)",
-  fontSize: "13px",
+  padding: "var(--s3) calc(var(--s3) + var(--s1) / 2)",
+  background: "color-mix(in srgb, var(--coral) var(--tint-strong), var(--surface))",
+  fontSize: "var(--fs-sm)",
   color: "var(--text)",
 };
 export const RM_MIT_STYLE: React.CSSProperties = {
-  padding: "12px 14px",
-  background: "color-mix(in srgb, var(--green) var(--tint), transparent)",
-  borderLeft: "1px solid var(--line)",
-  fontSize: "13px",
+  padding: "var(--s3) calc(var(--s3) + var(--s1) / 2)",
+  background: "color-mix(in srgb, var(--green) var(--tint-strong), var(--surface))",
+  borderLeft: "var(--hairline) solid var(--line)",
+  fontSize: "var(--fs-sm)",
   color: "var(--text)",
 };
 
 // --- Decision board: scorecard + chart (HTML .twocol / .panel) ---------
 export const TWOCOL_STYLE: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: "16px",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "var(--s4)",
 };
 export const SUBPANEL_STYLE: React.CSSProperties = {
   background: "var(--surface)",
-  border: "1px solid var(--line)",
+  border: "var(--hairline) solid var(--line)",
   borderRadius: "var(--r-lg)",
-  padding: "18px",
+  padding: "var(--s4)",
 };
 export const SUBPANEL_TITLE_STYLE: React.CSSProperties = {
-  fontSize: "14px",
+  fontSize: "var(--fs-md)",
   fontWeight: 700,
   color: "var(--text)",
 };
 
 // scorecard bars (HTML .scab)
-export const SCORE_LIST_STYLE: React.CSSProperties = { marginTop: "14px" };
+export const SCORE_LIST_STYLE: React.CSSProperties = { marginTop: "var(--s3)" };
 export const SCORE_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
+  display: "grid",
+  gridTemplateColumns: "calc(var(--s10) * 2 + var(--s5)) minmax(var(--s12), 1fr) minmax(0, 1.3fr)",
   alignItems: "center",
-  gap: "8px",
-  marginBottom: "7px",
+  gap: "var(--s3)",
+  marginBottom: "var(--s2)",
 };
 export const SCORE_NAME_STYLE: React.CSSProperties = {
-  width: "84px",
-  flexShrink: 0,
+  minWidth: 0,
   fontFamily: "var(--font-mono, ui-monospace, monospace)",
-  fontSize: "11px",
-  color: "var(--text-3)",
+  fontSize: "var(--fs-xs)",
+  color: "var(--text-2)",
 };
 export const SCORE_TRACK_STYLE: React.CSSProperties = {
   flex: 1,
-  height: "12px",
+  height: "var(--s2)",
   background: "var(--surface-3)",
   borderRadius: "var(--r-xs)",
   overflow: "hidden",
@@ -228,9 +216,9 @@ export const SCORE_TRACK_STYLE: React.CSSProperties = {
 const SCORE_FILL_COLOR: Record<ScoreLevel, string> = {
   high: "var(--green)",
   mid: "var(--amber)",
-  low: "var(--blue)",
+  low: "var(--coral)",
 };
-const SCORE_FILL_WIDTH: Record<ScoreLevel, string> = { high: "92%", mid: "56%", low: "28%" };
+const SCORE_FILL_WIDTH: Record<ScoreLevel, string> = { high: "92%", mid: "55%", low: "25%" };
 export function scoreFillStyle(level: ScoreLevel): React.CSSProperties {
   return {
     display: "block",
@@ -240,39 +228,28 @@ export function scoreFillStyle(level: ScoreLevel): React.CSSProperties {
   };
 }
 export const SCORE_VAL_STYLE: React.CSSProperties = {
-  minWidth: "84px",
-  textAlign: "right",
-  fontFamily: "var(--font-mono, ui-monospace, monospace)",
-  fontSize: "11px",
+  minWidth: 0,
+  overflowWrap: "anywhere",
+  fontFamily: "var(--font-body)",
+  fontSize: "var(--fs-xs)",
   color: "var(--text-2)",
 };
 
 // evidence collapsible (HTML details/summary/.src)
 export const DETAILS_STYLE: React.CSSProperties = {
   background: "var(--surface)",
-  border: "1px solid var(--line)",
+  border: "var(--hairline) solid var(--line)",
   borderRadius: "var(--r)",
-  padding: "4px 16px",
-  marginTop: "8px",
+  padding: "var(--s2) var(--s4)",
+  marginTop: "var(--s2)",
 };
 export const SUMMARY_STYLE: React.CSSProperties = {
   cursor: "pointer",
-  fontFamily: "var(--font-mono, ui-monospace, monospace)",
-  fontSize: "12.5px",
+  fontFamily: "var(--font-body)",
+  fontWeight: 600,
+  fontSize: "var(--fs-md)",
   color: "var(--violet)",
-  padding: "8px 0",
+  padding: "var(--s1) 0",
+  listStyle: "none",
 };
-export const EVIDENCE_BODY_STYLE: React.CSSProperties = { padding: "4px 0 6px" };
-// each source row: plain "descripción — link" (NO Markdown wrapper → no <p> margin, tight & small).
-// the dashed separator lives in the `.pitch-src` class so :last-child drops it.
-export const EVIDENCE_SRC_STYLE: React.CSSProperties = {
-  fontSize: "13px",
-  lineHeight: 1.5,
-  color: "var(--text-2)",
-  padding: "5px 0",
-};
-export const EVIDENCE_LINK_STYLE: React.CSSProperties = {
-  color: "var(--violet)",
-  textDecoration: "underline",
-  textUnderlineOffset: "2px",
-};
+export const EVIDENCE_BODY_STYLE: React.CSSProperties = { padding: "var(--s1) 0 var(--s2)" };

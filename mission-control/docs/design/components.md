@@ -234,3 +234,20 @@ an optional `icon` while its existing `ariaLabel` names an icon-only use.
 ProjectCard, ProjectNavItem, ProjectSwitcher and both workspace hero variants show the number of
 unread work-order files when the strict published plan is incomplete. Portfolio comparison uses the
 same count and underlines error links. No numeric total/ring is derived from the tolerant reader.
+
+## Board and proposal close-out (2026-10-31)
+
+- `IdeaPitch` reuses `DigestHero`, `ReportBand`, `Chip` and `Markdown`: structured pitches omit the
+  hero title/lead; legacy cards show a solution summary paper. Type/platform chips retain icons.
+- `DigestHero` omits its heading when `title` is empty, preserving existing nonempty callers.
+- Proposal rows use Inter and their band hue; Vision, risk and score grids stack on phones.
+- `BoardColumn` count chips use `--tint` mixed with `--surface`, matching the approved pale counts.
+
+### Proposal review refinements (2026-10-31)
+
+`ReportBand` accepts `level?: 2 | 3 | 4` (default 3); structured IdeaPitch bands use 2. `DigestHero`
+eyebrows use line-height 1.2 across callers, matching the shared oracle. IdeaPitch's decision widgets
+live in its scoped `PitchDecision.tsx`; Evidence forwards the host reader resolver. Legacy summary
+papers follow the shared paper geometry and expose a localized empty state when prose is absent.
+IdeaHeader scopes the oracle 40px favourite and 32px small navigation actions to the idea header;
+other FavouriteButton and ButtonLink consumers retain their current sizing.

@@ -5,7 +5,7 @@
  * Evidencia, and the fallback. Faithful to the approved HTML (10b).
  */
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { IdeaPitch } from "../IdeaPitch";
 
@@ -57,9 +57,39 @@ Micro-app de 2-3 días.
 `;
 
 describe("IdeaPitch", () => {
+  it("degrades an unsurfaced relative evidence document instead of linking to an app 404", () => {
+    render(
+      <IdeaPitch
+        title="X"
+        body={`${MEMO}\n[Archived source](_drafts/archive/source.md)`}
+        resolveLink={() => null}
+      />,
+    );
+    fireEvent.click(screen.getByText(/Evidencia y fuentes/));
+    expect(screen.queryByRole("link", { name: "Archived source" })).not.toBeInTheDocument();
+    expect(screen.getByText("Archived source")).toHaveAttribute(
+      "title",
+      "Documento no disponible en el lector",
+    );
+  });
+
+  it("shows an explicit empty proposal when there is no authored prose to summarize", () => {
+    render(<IdeaPitch title="X" body="# X\n\n## Solución propuesta\n" />);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Esta idea todavía no tiene un resumen de propuesta.",
+    );
+  });
+
+  it("gives the structured proposal bands second-level headings", () => {
+    render(<IdeaPitch title="X" body={MEMO} />);
+    expect(
+      screen.getByRole("heading", { level: 2, name: "De un vistazo · el sueño" }),
+    ).toBeInTheDocument();
+  });
+
   it("renders the hero with the explicit badges (full text, not truncated)", () => {
     render(<IdeaPitch title="PandaCheck" body={MEMO} />);
-    expect(screen.getByRole("heading", { name: "PandaCheck" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "PandaCheck" })).not.toBeInTheDocument();
     expect(screen.getByText("painkiller · viral")).toBeInTheDocument();
     expect(screen.getByText("cubeta: MICRO · 2–3 días")).toBeInTheDocument();
     expect(screen.getByText("retorno: oportunidad + personal")).toBeInTheDocument();
@@ -112,11 +142,24 @@ describe("IdeaPitch", () => {
     render(<IdeaPitch title="X" body={MEMO} />);
     expect(screen.getByTestId("pitch-evidence")).toBeInTheDocument();
     expect(screen.getByText(/Evidencia y fuentes/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "CNN", hidden: true })).toHaveAttribute(
+      "href",
+      "https://www.cnn.com/2025/08/24/business/fake-labubus-pop-mart",
+    );
   });
 
-  it("falls back to raw markdown when the body has no memo skeleton", () => {
-    render(<IdeaPitch title="X" body={"## Plain heading\n\nJust prose, no structure."} />);
-    expect(screen.getByRole("heading", { name: /Plain heading/ })).toBeInTheDocument();
+  it("summarizes a legacy proposal in a paper card without repeating its sections", () => {
+    render(
+      <IdeaPitch
+        title="X"
+        body={
+          "# X\n\n## Problema\n\nScattered state.\n\n## Solución propuesta\n\nOne dashboard.\n\n## Notas\n\nInternal migration details."
+        }
+      />,
+    );
+    expect(screen.getByText("One dashboard.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Problema" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Internal migration details.")).not.toBeInTheDocument();
     expect(screen.queryAllByTestId("pitch-glance-row")).toHaveLength(0);
   });
 

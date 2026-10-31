@@ -450,6 +450,7 @@
     },
     "pitch": {
       "eyebrow": "Memo-pitch de idea",
+      "empty": "Esta idea todavía no tiene un resumen de propuesta.",
       "noType": "Sin tipo",
       "glance": "De un vistazo · el sueño",
       "deep": "Profundizar · el criterio",

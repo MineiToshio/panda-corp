@@ -62,6 +62,14 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   mobile / responsive) — and SHALL **omit the opaque verdict ("build") badge** (it conveys the kill/build
   decision, not what the product is). The same chips appear in the Spec hero (AC-02-011.2); both reuse a
   single `projectMetaChips` helper so they never drift.
+  The structured pitch SHALL omit its repeated title and lead, retain the uppercase memo eyebrow,
+  and show icon-bearing type/platform chips. Cards without a structured memo SHALL show a
+  summary paper derived from their solution section (or first prose paragraph); their full source
+  remains in Documentos. If no authored summary can be derived, the paper SHALL show an explicit
+  localized empty state. Evidence SHALL use the document reader's link resolver: surfaced documents
+  open in the reader, external links remain links, and unavailable reader targets become neutral
+  text with the reader's unavailable-document explanation instead of app routes that return 404.
+  Structured memo band headings SHALL be level 2.
 - **AC-02-009.2** — WHEN the owner clicks a tab, THE system SHALL show that tab's body and mark only that
   tab active; **Propuesta** SHALL render the idea's memo-pitch (AC-02-009.5), **Documentos** SHALL
   render the existing document navigator (summary + key points + the idea's docs, unchanged behavior of

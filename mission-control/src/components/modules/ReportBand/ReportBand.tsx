@@ -12,6 +12,7 @@ export interface ReportRow {
 /** Shared tinted report band; supplied rows use a fixed label column and preserve authored content. */
 export function ReportBand({
   title,
+  level = 3,
   icon,
   action,
   tone = "slate",
@@ -20,6 +21,7 @@ export function ReportBand({
   testId,
 }: {
   readonly title: string;
+  readonly level?: 2 | 3 | 4;
   readonly icon?: IconName;
   readonly action?: ReactNode;
   readonly tone?: Tone;
@@ -30,7 +32,7 @@ export function ReportBand({
   return (
     <section className={`band ${styles.band}`} data-tone={tone} data-testid={testId}>
       <div className={`band-head ${styles.head}`}>
-        <CardHeader title={title} level={3} icon={icon} action={action} />
+        <CardHeader title={title} level={level} icon={icon} action={action} />
       </div>
       {rows.map((row) => (
         <div className={`brow ${styles.row}`} key={row.id}>

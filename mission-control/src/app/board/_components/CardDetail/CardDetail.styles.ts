@@ -3,7 +3,7 @@ export const ROOT_STYLE: React.CSSProperties = {
   position: "relative",
   display: "flex",
   flexDirection: "column",
-  gap: "var(--s4)",
+  gap: 0,
   minWidth: 0,
 };
 /** Internal section heading stays available without duplicating the host's visible title. */

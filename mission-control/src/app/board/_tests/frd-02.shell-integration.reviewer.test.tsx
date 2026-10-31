@@ -50,7 +50,7 @@ afterAll(() => {
 
 async function mountBoard(): Promise<void> {
   window.history.replaceState(null, "", "/board");
-  render(await BoardPage());
+  render(await BoardPage({ searchParams: Promise.resolve({}) }));
 }
 
 describe("FRD-02 shell · the board hands the card to its own route", () => {
