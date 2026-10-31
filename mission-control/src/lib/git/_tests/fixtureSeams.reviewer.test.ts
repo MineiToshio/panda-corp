@@ -3,7 +3,6 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { readPending } from "@/lib/pendingMerge/pendingMerge";
 import { readWorktreesByRepo } from "@/lib/pendingMerge/worktreesByRepo";
 import { readSnapshotGap } from "@/lib/snapshot/gap";
 import { runGit } from "../git";
@@ -122,10 +121,13 @@ describe("WO-01-010 fixture mode against the real git-state.json and real reader
     }
   });
 
-  it("the pending-merge reader takes its repository from the factory-root cwd", () => {
-    const result = readPending(FACTORY_ROOT, CLOCK);
-    expect(result.kind).toBe("ok");
-    expect(result.kind === "ok" && result.items.map((item) => item.branch)).toContain(
+  it("the worktrees reader takes the factory row from the factory-root cwd", () => {
+    const [factory] = readWorktreesByRepo(
+      [{ id: "factory", name: "factory", path: FACTORY_ROOT }],
+      CLOCK,
+    );
+    expect(factory?.kind).toBe("ok");
+    expect(factory?.kind === "ok" && factory.branches.map((item) => item.name)).toContain(
       "wt/stats-seal-refresh",
     );
   });

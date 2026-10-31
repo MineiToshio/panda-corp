@@ -123,11 +123,11 @@ const TEXT_BASE: React.CSSProperties = {
   color: "var(--text)",
 };
 
+// A narrow row wraps instead of hiding the command's arguments behind an ellipsis.
 const TEXT_STYLE: React.CSSProperties = {
   ...TEXT_BASE,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
+  whiteSpace: "normal",
+  overflowWrap: "anywhere",
 };
 
 // Modes variant: never ellipsize the flag away — wrap instead so the copied command is fully visible.

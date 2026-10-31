@@ -1,10 +1,9 @@
-import type { IconName } from "@/components/core/Icon/iconData";
-
-("use client");
+"use client";
 
 import { useEffect } from "react";
 import { IdeaDocs } from "@/app/board/_components/IdeaDocs/IdeaDocs";
 import type { Tone } from "@/components/core/Chip/vocabulary";
+import type { IconName } from "@/components/core/Icon/iconData";
 import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
 import { Tabs } from "@/components/core/Tabs/Tabs";
 import { CampaignPipeline } from "@/components/modules/CampaignPipeline/CampaignPipeline";

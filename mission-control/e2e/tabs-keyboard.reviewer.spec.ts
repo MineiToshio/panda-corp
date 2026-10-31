@@ -21,9 +21,12 @@ async function focusedTabIsVisible(page: Page): Promise<void> {
         if (box.left < strip.left - 1 || box.right > strip.right + 1) {
           return `clipped: tab ${box.left}-${box.right}, strip ${strip.left}-${strip.right}`;
         }
+        // Both edges, not the centre: an overflow arrow may hide half a tab and still pass a midpoint.
         const y = box.top + box.height / 2;
-        const x = box.left + box.width / 2;
-        return tab.contains(document.elementFromPoint(x, y)) ? "visible" : `covered at x=${x}`;
+        for (const x of [box.left + 1, box.right - 1]) {
+          if (!tab.contains(document.elementFromPoint(x, y))) return `covered at x=${x}`;
+        }
+        return "visible";
       }, LIST),
     )
     .toBe("visible");

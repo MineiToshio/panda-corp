@@ -59,14 +59,16 @@ function panelControls(tab: TabDef, prefix?: string): string | undefined {
 }
 
 const OVERFLOW_CONTROL_WIDTH = 28;
+/** Keeps a revealed tab's edge off the control: scrollBy rounds, so an exact fit can land under it. */
+const OVERFLOW_CONTROL_CLEARANCE = OVERFLOW_CONTROL_WIDTH + 2;
 
 function revealTab(list: HTMLDivElement, button: HTMLButtonElement): void {
   const strip = list.getBoundingClientRect();
   const tab = button.getBoundingClientRect();
-  const visibleLeft = strip.left + (list.scrollLeft > 1 ? OVERFLOW_CONTROL_WIDTH : 0);
+  const visibleLeft = strip.left + (list.scrollLeft > 1 ? OVERFLOW_CONTROL_CLEARANCE : 0);
   const visibleRight =
     strip.right -
-    (list.scrollLeft + list.clientWidth < list.scrollWidth - 1 ? OVERFLOW_CONTROL_WIDTH : 0);
+    (list.scrollLeft + list.clientWidth < list.scrollWidth - 1 ? OVERFLOW_CONTROL_CLEARANCE : 0);
   const offset =
     tab.left < visibleLeft ? tab.left - visibleLeft : Math.max(0, tab.right - visibleRight);
   if (offset) list.scrollBy?.({ left: offset, behavior: "auto" });
@@ -149,6 +151,7 @@ export function Tabs({
         ref={listRef}
         className={`tabs ${styles.tabs}`}
         data-testid="tabs-root"
+        data-scroll-x="intentional"
         data-level={level}
         role="tablist"
         aria-label={ariaLabel}

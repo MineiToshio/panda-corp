@@ -47,6 +47,7 @@ export function IdeaBoardView({
         id="board-scroller"
         className={`kanban ideas ${styles.scroller}`}
         data-testid="board-scroll-container"
+        data-scroll-x="intentional"
         aria-label={t("tablero.boardAria")}
         // biome-ignore lint/a11y/noNoninteractiveTabindex: horizontal scroll region must be keyboard reachable
         tabIndex={0}

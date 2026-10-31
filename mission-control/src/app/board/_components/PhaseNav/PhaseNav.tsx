@@ -19,7 +19,11 @@ export function PhaseNav({ phases }: { phases: readonly Phase[] }): React.JSX.El
     });
   }
   return (
-    <nav className={`phase-nav ${styles.nav}`} aria-label={t("tablero.phaseNavAria")}>
+    <nav
+      className={`phase-nav ${styles.nav}`}
+      aria-label={t("tablero.phaseNavAria")}
+      data-scroll-x="intentional"
+    >
       {phases.map((phase) => (
         <button type="button" key={phase.id} onClick={() => jump(phase.id)}>
           {phase.step} {phase.label}{" "}

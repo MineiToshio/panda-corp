@@ -187,11 +187,12 @@ describe("FRD-03 page assembly (reviewer)", () => {
 
   it("no business snapshot, rail row or last-sync chip survives on a launched project", async () => {
     mocks.items = [
-      project("shipped", {
-        stage: "release",
+      {
+        ...project("shipped", { stage: "release" }),
+        // Fields the reader no longer carries: a stray copy must still render nothing.
         lastSync: "2026-06-15",
         snapshot: { users: "742", returnMetric: "$1 900 MRR", verdict: "double-down" },
-      }),
+      } as ProjectListItem,
     ];
     await renderPage();
     expect(screen.queryByText("$1 900 MRR")).toBeNull();

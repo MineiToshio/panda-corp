@@ -82,7 +82,7 @@
     grid-template-columns: var(--rail) minmax(0, 1fr);
   }
   .sidebar {
-    padding: var(--s3) var(--s2);
+    padding: var(--s3) var(--s1);
   }
   .brand {
     justify-content: center;
@@ -118,17 +118,13 @@
     transition: transform 220ms var(--ease);
   }
   .scrim {
-    display: block;
     position: fixed;
     inset: 0;
     z-index: 65;
     background: var(--backdrop);
-    opacity: 0;
-    pointer-events: none;
   }
   .scrim[data-open="true"] {
-    opacity: 1;
-    pointer-events: auto;
+    display: block;
   }
   .topbar {
     display: flex;

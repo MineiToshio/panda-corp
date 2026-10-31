@@ -277,6 +277,11 @@
     min-height: 0;
   }
 }
+@media (max-width: 359px) {
+  .station {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .active .cast img,
   .active .walker {

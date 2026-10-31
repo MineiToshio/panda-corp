@@ -13,7 +13,7 @@ export function RadarChart({ axes }: { axes: Attributes }): React.JSX.Element {
   const values = entries.map(([key, value]) => `${t(`logros.radar.${key}`)} ${value}`).join(" · ");
   return (
     <svg
-      className={`radar ${styles.chart}`}
+      className={`radar ${styles.chart} ${styles.radar}`}
       viewBox="0 0 240 220"
       role="img"
       aria-label={t("logros.radar.aria", { values })}

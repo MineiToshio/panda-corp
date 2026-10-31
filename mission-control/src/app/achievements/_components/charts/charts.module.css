@@ -5,6 +5,10 @@
   overflow: visible;
   color: var(--text-2);
 }
+.radar {
+  max-inline-size: calc(var(--s10) * 7.5);
+  margin-inline: auto;
+}
 .chart text {
   fill: var(--text-2);
   font: var(--fs-xs) var(--font-body);

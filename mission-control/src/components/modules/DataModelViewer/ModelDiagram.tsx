@@ -51,6 +51,7 @@ export function ModelDiagram({
         ref={viewport.canvasRef}
         id="diagram"
         data-testid="model-viewport"
+        data-scroll-x="intentional"
         className={`${styles.canvas} ${expanded ? styles.expandedCanvas : ""}`}
         // biome-ignore lint/a11y/noNoninteractiveTabindex: Arrow-key pan requires a focusable graph viewport.
         tabIndex={0}

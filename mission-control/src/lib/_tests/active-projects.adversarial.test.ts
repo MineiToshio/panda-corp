@@ -9,12 +9,9 @@
  *
  * Coverage gaps targeted (none of these appear in the implementer suite):
  *   1. Authoritative-over-advisory precedence: status.yaml phase MUST override a conflicting
- *      portfolio `phase` cell (status=architecture beats portfolio=shipped) — and the snapshot
- *      gating follows the AUTHORITATIVE phase, not the portfolio cell.
- *   2. Snapshot is gated on the resolved `stage === "release"` (DR-085 folded `operation` into
- *      the launched `release` phase), so portfolio snapshot cells on a non-release row must be
- *      dropped; and an authoritative `release` phase pulls the snapshot from the portfolio row
- *      even when the portfolio `phase` cell disagrees.
+ *      portfolio `phase` cell (status=architecture beats portfolio=shipped).
+ *   2. The v1 business snapshot and last-sync fields are retired (FRD-03 REQ-03-003, WO-13-013): the
+ *      reader never carries them, whatever the row's resolved stage or its portfolio cells say.
  *   3. `building` advisory keyword → implementation (the human alias the FRD names but the
  *      implementer never fallback-tested without a status.yaml).
  *   4. Mixed-case advisory phase cell is normalized.
@@ -42,10 +39,8 @@ const S = "|---|---|---|---|---|---|---|---|---|";
 // (1) Authoritative status.yaml phase OVERRIDES a conflicting portfolio cell.
 // proj-architecture's real status.yaml says `architecture`. We hand it a portfolio
 // row that LIES and says `shipped` with snapshot cells. The resolved stage must be
-// `architecture` (status wins) and — critically — NO snapshot must appear, because
-// snapshot is gated on the AUTHORITATIVE phase, not the portfolio cell.
-// A mutant that read `entry.phase` first, or gated the snapshot on the portfolio
-// cell, would be caught here.
+// `architecture` (status wins) and NO retired snapshot field may appear. A mutant that
+// read `entry.phase` first would be caught here.
 // ---------------------------------------------------------------------------
 
 describe("frd-03 adversarial: activeProjects — status.yaml phase beats a conflicting portfolio cell", () => {
@@ -63,7 +58,6 @@ describe("frd-03 adversarial: activeProjects — status.yaml phase beats a confl
   });
 
   it("does NOT attach a snapshot even though the (lying) portfolio row has snapshot cells", async () => {
-    // Snapshot is gated on the resolved stage (architecture), not the portfolio 'shipped' cell.
     await withFactoryRoot(FIXTURE_FULL, () => {
       const content = [
         H,
@@ -71,22 +65,22 @@ describe("frd-03 adversarial: activeProjects — status.yaml phase beats a confl
         "| proj-architecture | projects/proj-architecture | r | i | shipped | 777 | $9 MRR | win | x |",
       ].join("\n");
       const item = activeProjects(content).find((p) => p.name === "proj-architecture");
-      expect(item?.snapshot).toBeUndefined();
+      expect(item).toBeDefined();
+      expect(item).not.toHaveProperty("snapshot");
+      expect(item).not.toHaveProperty("lastSync");
     });
   });
 });
 
 // ---------------------------------------------------------------------------
-// (2) Authoritative `release` pulls the snapshot from the portfolio row even when
-// the portfolio `phase` cell disagrees. proj-operation's status.yaml = release (DR-085);
-// we give it a portfolio row claiming `implementation` but carrying snapshot cells.
-// Resolved stage must be release (status wins) AND the snapshot must be populated
-// from the portfolio columns. A mutant that gated the snapshot on the portfolio cell
-// (which says implementation) would drop the snapshot and be caught.
+// (2) Authoritative `release` beats the portfolio `phase` cell. proj-operation's
+// status.yaml = release (DR-085); we give it a portfolio row claiming `implementation`
+// and carrying the old snapshot cells. Resolved stage must be release (status wins) and
+// the retired fields stay absent on a launched row, the case that used to populate them.
 // ---------------------------------------------------------------------------
 
-describe("frd-03 adversarial: activeProjects — authoritative release snapshot from portfolio row", () => {
-  it("attaches the portfolio snapshot when status says release but the portfolio cell says implementation", async () => {
+describe("frd-03 adversarial: activeProjects — authoritative release over the portfolio cell", () => {
+  it("resolves release from status and carries no snapshot when the portfolio cell says implementation", async () => {
     await withFactoryRoot(FIXTURE_FULL, () => {
       const content = [
         H,
@@ -95,15 +89,14 @@ describe("frd-03 adversarial: activeProjects — authoritative release snapshot 
       ].join("\n");
       const item = activeProjects(content).find((p) => p.name === "proj-operation");
       expect(item?.stage).toBe("release");
-      expect(item?.snapshot).toEqual({ users: "500", returnMetric: "$1 MRR", verdict: "dd" });
+      expect(item).not.toHaveProperty("snapshot");
     });
   });
 });
 
 // ---------------------------------------------------------------------------
-// (2b) Snapshot is dropped for a NON-release authoritative phase even when the
-// portfolio row carries snapshot cells. proj-a status = implementation; portfolio
-// row lies with snapshot cells → must NOT produce a snapshot. (DR-085)
+// (2b) A NON-release authoritative phase with old snapshot cells. proj-a status =
+// implementation; the row lies with snapshot cells → no snapshot, real running flag.
 // ---------------------------------------------------------------------------
 
 describe("frd-03 adversarial: activeProjects — no snapshot on a non-release phase despite portfolio cells", () => {
@@ -116,7 +109,7 @@ describe("frd-03 adversarial: activeProjects — no snapshot on a non-release ph
       ].join("\n");
       const item = activeProjects(content).find((p) => p.name === "proj-a");
       expect(item?.stage).toBe("implementation");
-      expect(item?.snapshot).toBeUndefined();
+      expect(item).not.toHaveProperty("snapshot");
       // running comes from the real status.yaml (running: true) — strict boolean (B1').
       expect(item?.running).toBe(true);
       expect(typeof item?.running).toBe("boolean");
@@ -224,13 +217,12 @@ describe("frd-03 adversarial: activeProjects — running undefined (not coerced)
 });
 
 // ---------------------------------------------------------------------------
-// (7) Partial snapshot: only the present columns survive; placeholder cells are
-// omitted (not emitted as "—"). A mutant that copied the raw placeholder string
-// into the snapshot would be caught.
+// (7) A launched row with placeholder cells: the retired snapshot never appears, not
+// even as an empty object or the raw placeholder string.
 // ---------------------------------------------------------------------------
 
-describe("frd-03 adversarial: activeProjects — partial snapshot omits placeholder columns", () => {
-  it("emits only the non-placeholder snapshot fields for a launched (release) row", () => {
+describe("frd-03 adversarial: activeProjects — placeholder snapshot cells on a launched row", () => {
+  it("keeps the launched row and carries no snapshot field at all", () => {
     const content = [
       H,
       S,
@@ -238,9 +230,7 @@ describe("frd-03 adversarial: activeProjects — partial snapshot omits placehol
     ].join("\n");
     const item = activeProjects(content).find((p) => p.name === "part-op");
     expect(item?.stage).toBe("release");
-    expect(item?.snapshot).toEqual({ users: "5" });
-    // The dropped fields are genuinely absent, never the placeholder string.
-    expect(item?.snapshot?.returnMetric).toBeUndefined();
-    expect(item?.snapshot?.verdict).toBeUndefined();
+    expect(item).not.toHaveProperty("snapshot");
+    expect(JSON.stringify(item)).not.toContain("—");
   });
 });

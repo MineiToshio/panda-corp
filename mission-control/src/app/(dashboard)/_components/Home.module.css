@@ -91,6 +91,12 @@
   font-size: var(--fs-sm);
   color: var(--text-2);
 }
+@media (max-width: 359px) {
+  .funnelRow {
+    grid-template-columns: calc(var(--s12) + var(--s10)) minmax(0, 1fr) calc(var(--s6) + var(--s1));
+    gap: var(--s2);
+  }
+}
 .funnelRow b {
   text-align: right;
   font-variant-numeric: tabular-nums;

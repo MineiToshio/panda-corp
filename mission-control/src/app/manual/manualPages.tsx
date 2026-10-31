@@ -1,8 +1,4 @@
-import type { Tone } from "@/components/core/Chip/vocabulary";
-import { Icon } from "@/components/core/Icon/Icon";
-import type { IconName } from "@/components/core/Icon/iconData";
-
-("use client");
+"use client";
 
 /**
  * app/manual/manualPages.tsx — FRD-08 Manual page registry (the faithful readers)
@@ -27,7 +23,10 @@ import type React from "react";
 import { Card } from "@/components/core/Card/Card";
 import { Chip } from "@/components/core/Chip/Chip";
 import { CountPill } from "@/components/core/Chip/CountPill";
+import type { Tone } from "@/components/core/Chip/vocabulary";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 import { ArchDiagram } from "@/components/modules/manual-diagrams/ArchDiagram";
 import { DownArrow, IconRow } from "@/components/modules/manual-diagrams/atoms";
 import { ChannelsDiagram } from "@/components/modules/manual-diagrams/ChannelsDiagram";

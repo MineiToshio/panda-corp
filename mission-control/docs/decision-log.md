@@ -1,5 +1,13 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 — FRD-13 final gate on WO-13-013: scope grant recorded, gate not passed
+
+The orchestrator granted WO-13-013 scope to migrate the Manual, its diagrams, CampaignPipeline, command modes and any remaining live v1-layer consumer, superseding the WO's stop-on-live-consumer clause ([WO-13-013](frds/frd-13-visual-system-accessibility/work-orders/wo-13-013-retire-v1-skin.md)). The grant explains why the delivery touches files outside the original artifact list.
+
+The first real responsive gate ran at 320, 375, 768 and 1280 on all 14 surfaces in both Playwright projects, through `e2e/responsive-widths.reviewer.spec.ts`, because the verbatim template spec only visits blessed routes at 390. `.sr-only` findings were proven false (327 hits, every one a 1 px absolute box under `clip-path: inset(50%)`), so the project copy of the helper exempts exactly that shape, ahead of the factory fix BL-0259.
+
+WO-13-010 to WO-13-013 stay IN_REVIEW. The gate left RED suites on the branch for a patch round: REQ-13-003, REQ-13-004, REQ-13-005, AC-13-010.1, AC-13-010.2, AC-13-010.4, undeclared custom properties and the first mobile baselines. `target_platforms: responsive` is therefore not yet proven on `main`.
+
 ## 2026-10-31 — Wave 6 batch: filled sidebar, kept-reader seams and the statistics report
 
 The batch combines [WO-19-003](frds/frd-19-app-shell/work-orders/wo-19-003-sidebar-contents.md), [WO-01-011](frds/frd-01-data-reading/work-orders/wo-01-011-adopt-seams.md) and [WO-10-017](frds/frd-10-achievements-hall/work-orders/wo-10-017-logros-estadisticas-orbita.md). `readBuildTimeline` stays with main's Últimos avances wiring and now reads git through `runGit`.

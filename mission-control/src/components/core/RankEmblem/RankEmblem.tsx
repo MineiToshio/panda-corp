@@ -90,8 +90,8 @@ export function RankEmblem({
         aria-hidden="true"
         style={{
           position: "absolute",
-          right: "-4px",
-          bottom: "-4px",
+          right: 0,
+          bottom: 0,
           fontFamily: "var(--font-display)",
           fontSize: `${Math.max(10, Math.round(size * 0.42))}px`,
           lineHeight: 1,

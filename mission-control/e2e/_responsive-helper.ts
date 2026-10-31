@@ -72,12 +72,26 @@ async function detectOverflow(page: Page): Promise<{ overflowing: string[]; clip
         return `${tag}${id}${cls}`;
       };
       const isOptedOut = (el: Element): boolean => Boolean(el.closest(optOutSelector));
+      // Screen-reader-only text (BL-0259): a 1px absolutely-positioned box clipped to nothing paints
+      // no pixel, so its overflow hides nothing from anyone. A real clipped box keeps its size.
+      const isVisuallyHidden = (el: Element): boolean => {
+        const box = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        const clippedAway =
+          style.clipPath === "inset(50%)" || style.clip === "rect(0px, 0px, 0px, 0px)";
+        return (
+          clippedAway &&
+          style.position === "absolute" &&
+          box.width <= 1 + tolerance &&
+          box.height <= 1 + tolerance
+        );
+      };
 
       const overflowing: string[] = [];
       const clipped: string[] = [];
       for (const el of Array.from(document.querySelectorAll<HTMLElement>("*"))) {
         if (el.scrollWidth <= el.clientWidth + tolerance) continue;
-        if (isOptedOut(el)) continue; // author-declared intentional scroll-x — not a defect
+        if (isOptedOut(el) || isVisuallyHidden(el)) continue; // declared scroll-x or sr-only text
         const overflowX = getComputedStyle(el).overflowX;
         if (overflowX === "hidden" || overflowX === "clip") {
           // content is CLIPPED off-canvas (what MC actually shipped) — silent data loss

@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { ChangeQueueItem, ChangeQueueStatus } from "@/lib/changes/changes";
@@ -85,7 +85,7 @@ it("REQ-04-008: confirmation replaces detail, cancels on Escape and sends option
     "project",
     "Duplicate",
   );
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 });
 it("REQ-04-007: malformed sources are named without claiming an empty queue", () => {
   render(

@@ -16,6 +16,7 @@ export function WorktreesTable({
   return (
     <section
       className={`wt-table ${styles.table}`}
+      data-scroll-x="intentional"
       aria-label={t("states.scrollable.tableAria")}
       // biome-ignore lint/a11y/noNoninteractiveTabindex: horizontal scroll region must be keyboard reachable
       tabIndex={0}

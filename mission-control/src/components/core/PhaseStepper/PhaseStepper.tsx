@@ -36,7 +36,8 @@ export function PhaseStepper({ phase, compact = false }: PhaseStepperProps): Rea
         return (
           <li key={id} className={styles.step} data-state={state} data-tone={tone} data-tip={tip}>
             <span className={styles.line} aria-hidden="true" />
-            <span className={styles.label} aria-hidden="true">
+            {/* Ellipsized by design; the tooltip and the sr-only label keep the full name. */}
+            <span className={styles.label} aria-hidden="true" data-scroll-x="intentional">
               {label}
             </span>
             <span className="sr-only">

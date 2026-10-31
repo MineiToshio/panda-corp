@@ -4,14 +4,13 @@
  * Written by the reviewer (Opus 4.8), NOT the implementer. WO-13-001 removed the
  * fictitious `guild` agent role and WO-13-002 removed `--color-agent-guild` from
  * the globals.css `@theme` block. The implementer's own suite checked the FORWARD
- * direction (every AGENT_COLOR key has a CSS var; guild is gone from @theme) but
+ * direction (every role had a CSS var; guild was gone from @theme) but
  * never the REVERSE: that no production code still references a now-deleted
  * `--color-agent-*` custom property.
  *
- * IF-13-agent-colors is the single synced source: tokens.ts AGENT_COLOR ⟷ globals.css
- * @theme. A dangling `var(--color-agent-X)` in a consuming component resolves to an
- * undefined custom property — a real visual regression that `vitest --changed` cannot
- * catch (the consuming source file wasn't touched, so its tests don't run on the gate).
+ * WO-13-013 then retired every per-role colour (REQ-13-008): a dangling `var(--color-agent-X)`
+ * in a consuming component resolves to an undefined custom property, a real visual regression
+ * that `vitest --changed` cannot catch because the consuming file was not touched.
  *
  * Scope: this probe targets the CANONICAL role set only (AGENT_ROLES). Pre-existing
  * fallback references to non-canonical names (librarian/orchestrator/unknown) are out
@@ -45,17 +44,7 @@ function collectSourceFiles(dir: string): string[] {
   return out;
 }
 
-/** Every --color-agent-<role> token the @theme block declares. */
-function declaredAgentTokens(): Set<string> {
-  const css = readFileSync(GLOBALS_CSS, "utf8");
-  const tokens = new Set<string>();
-  for (const m of css.matchAll(/--color-agent-([a-z-]+)\s*:/g)) {
-    tokens.add(`--color-agent-${m[1]}`);
-  }
-  return tokens;
-}
-
-describe("FRD-13 reviewer — agent-color tokens stay in sync after Party realignment", () => {
+describe("FRD-13 reviewer — per-role colour stays retired", () => {
   it("no production code references a --color-agent-<removed-role> after WO-13-001/002 removed it", () => {
     const files = collectSourceFiles(SRC_ROOT);
     const offenders: string[] = [];
@@ -76,20 +65,18 @@ describe("FRD-13 reviewer — agent-color tokens stay in sync after Party realig
     ).toEqual([]);
   });
 
-  it("the canonical AGENT_ROLES set and the @theme --color-agent-* declarations are in exact sync (both directions)", () => {
-    const declared = declaredAgentTokens();
-    const expected = new Set(AGENT_ROLES.map((r) => `--color-agent-${r}`));
+  it("no per-role colour survives anywhere: REQ-13-008 leaves sprite and tier as the only identity", () => {
+    const css = readFileSync(GLOBALS_CSS, "utf8");
+    expect(css).not.toMatch(/--color-agent-/);
+    const offenders = collectSourceFiles(SRC_ROOT)
+      .filter((file) => /--color-agent-/.test(readFileSync(file, "utf8")))
+      .map((file) => path.relative(SRC_ROOT, file));
+    expect(offenders).toEqual([]);
+  });
 
-    const missingInCss = [...expected].filter((t) => !declared.has(t));
-    const extraInCss = [...declared].filter((t) => !expected.has(t));
-
-    expect(
-      missingInCss,
-      `Roles in AGENT_ROLES with no @theme CSS var: ${missingInCss.join(", ")}`,
-    ).toEqual([]);
-    expect(
-      extraInCss,
-      `Orphan @theme CSS vars with no matching role: ${extraInCss.join(", ")}`,
-    ).toEqual([]);
+  it("the roster stays the thirteen real roles and never the fictitious guild aggregate", () => {
+    expect(AGENT_ROLES).toHaveLength(13);
+    expect(new Set(AGENT_ROLES).size).toBe(13);
+    expect(AGENT_ROLES).not.toContain("guild" as never);
   });
 });

@@ -192,6 +192,29 @@ consumer count before deleting it).
 
 ## Status Note
 
+### 2026-10-31 — FRD-13 final gate: NOT READY, patch-first, status stays IN_REVIEW
+
+Independent reviewer, branch `orch/s7`. WO-13-010 to WO-13-013 stay IN_REVIEW; `reopen_count` unchanged.
+
+Reconciled (no behaviour test dropped): removed the three derogated suites plus the subject-only
+root-observability, StateBadge and CelebrationSurface suites and `globals.css.adversarial2.test.ts`, whose
+subject (the fenced v1 block) is gone. Surviving cases were re-authored in
+`src/lib/gamification/_tests/gamification.guild-survivors.reviewer.test.tsx`,
+`src/components/core/Chip/_tests/state-shapes.reviewer.test.tsx` and
+`src/app/_tests/agentColorTokens.integration.reviewer.test.ts`. Rewrote `fixtureSeams.reviewer`,
+`active-projects.adversarial` and `frd-03-page-assembly.reviewer`. FRD-21's kept suites are untouched.
+
+Gate-applied production edits: the parenthesised `"use client"` in `manualPages.tsx` and `CardDetail.tsx`
+(it broke the build while tsc, Biome and Vitest passed; now guarded by
+`src/app/_tests/client-directive.reviewer.test.ts`) and the small overflow, clipping and occlusion repairs
+behind the responsive gate. `e2e/_responsive-helper.ts` gained the visually-hidden exemption of BL-0259 and
+now differs from the verbatim stack template until BL-0259 lands.
+
+Open RED, owed by a patch round: `src/app/_tests/frd13.source-contracts.reviewer.test.ts` (10 cases) and
+`e2e/frd-13-visual-gate.reviewer.spec.ts` (tabular figures on every route, La Fragua contrast in light),
+`e2e/responsive-widths.reviewer.spec.ts` (card link below 24 px at 375), the desktop workspace baseline and
+the first mobile baselines. Details and the traceability table are in the gate report.
+
 ### 2026-10-31 — S7 round 2; retirement implemented, awaiting reviewer reconciliation
 
 The explicit scope grant above resolves the previous round's live-consumer blocker. Set

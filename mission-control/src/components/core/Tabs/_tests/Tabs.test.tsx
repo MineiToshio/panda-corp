@@ -218,9 +218,9 @@ it("keeps keyboard-focused tabs clear of both overflow arrows", () => {
   first.focus();
   fireEvent.keyDown(strip, { key: "ArrowRight" });
   expect(second).toHaveFocus();
-  expect(scrollBy).toHaveBeenLastCalledWith({ left: 18, behavior: "auto" });
+  expect(scrollBy).toHaveBeenLastCalledWith({ left: 20, behavior: "auto" });
   fireEvent.keyDown(strip, { key: "ArrowLeft" });
   expect(first).toHaveFocus();
-  expect(scrollBy).toHaveBeenLastCalledWith({ left: -18, behavior: "auto" });
+  expect(scrollBy).toHaveBeenLastCalledWith({ left: -20, behavior: "auto" });
   vi.restoreAllMocks();
 });
