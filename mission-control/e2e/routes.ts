@@ -60,6 +60,15 @@ export const SURFACES: readonly Surface[] = [
     name: "Logros",
     blessed: true,
   },
+  // Smoke only: the statistics figures come from git and the event stream, so no pixel baseline.
+  {
+    id: "logros-statistics",
+    frd: "frd-10-achievements-hall",
+    path: "/achievements/statistics",
+    name: "Logros: estadísticas",
+    blessed: true,
+    visualBaseline: false,
+  },
   {
     id: "documentacion",
     frd: "frd-08-documentation",

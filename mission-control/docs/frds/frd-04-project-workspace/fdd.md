@@ -108,3 +108,7 @@ prototype_blessed_at: 409a0564
 `workspace-desktop` first blessed 2026-10-31 in the wave 4-5 batch, once WO-04-010 and WO-04-011 mounted the frame and Resumen, judged against `docs/design/prototype/index.html#portfolio?project=mission-control&tab=summary` at 1280. It had no predecessor. Layer-B: hero, Fragua, next step, Avance por FRD, Decisiones, Tu turno and Últimos avances are present and recognizably match; cosmetic gaps go to the close-out oracle. It proves consistency only.
 
 prototype_blessed_at: 0e6b7191
+
+`workspace-desktop` re-blessed 2026-10-31 in the wave 6 batch after WO-19-003 filled the sidebar (counts, Proyectos, guild card, Colapsar, theme button), viewed against its wave 4-5 predecessor and `docs/design/prototype/index.html#portfolio?project=mission-control&tab=summary`. Reviewer sign-off: only the sidebar moved, the hero, Fragua and Resumen cards are unchanged, no console error. The pending pill carries `data-volatile`, because it is live git data that streams in late, so the baseline omits it. It proves consistency only; the close-out oracle pass judges fidelity.
+
+prototype_blessed_at: 0e6b7191

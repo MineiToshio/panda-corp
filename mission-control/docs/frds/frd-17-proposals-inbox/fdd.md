@@ -100,3 +100,7 @@ prototype_blessed_at: 0e6b7191
 - **Oracle entries (`fidelity.config.json`, `frd-17-proposals-inbox`):** `proposals-summary`, `proposals-memory`, `proposals-lesson-dialog`.
 - **Reference files:** `docs/design/freeze/packs/frd-17.md`, `docs/design/freeze/reconciliation.md` (C-17), `docs/design/freeze/m1-decisions.md`, root `DESIGN.md`.
 - **components.md rows:** `PageHead`, `Tabs`, `Card`/`CardHeader`, `CommandBox`, `Chip` family, `MoreBar`, `Dialog`, `NavItem`, `AppShell`.
+
+`propuestas-desktop` re-blessed 2026-10-31 in the wave 6 batch after WO-19-003 filled the sidebar (counts, Proyectos, guild card, Colapsar, theme button), viewed against its wave 4-5 predecessor and `docs/design/prototype/index.html#propuestas`. Reviewer sign-off: only the sidebar moved, the header and tabs are unchanged; the panels stay `data-volatile`, no console error. The pending pill carries `data-volatile`, because it is live git data that streams in late, so the baseline omits it. It proves consistency only; the close-out oracle pass judges fidelity.
+
+prototype_blessed_at: 0e6b7191

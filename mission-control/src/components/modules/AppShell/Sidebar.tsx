@@ -118,8 +118,9 @@ html[data-projects-open="false"] #sidebar .projnav[data-ready="false"] #projlist
   #app[data-sidebar="collapsed"], html[data-sidebar-pref="collapsed"] #app:not([data-hydrated="true"]) { grid-template-columns: var(--rail-c) minmax(0, 1fr); }
   #app[data-sidebar="collapsed"] #sidebar, html[data-sidebar-pref="collapsed"] #app:not([data-hydrated="true"]) #sidebar { width: var(--rail-c); padding-inline: var(--s2); overflow-x: hidden; }
   #app[data-sidebar="collapsed"] #sidebar[data-float="true"] { width: var(--sidebar); padding-inline: var(--s3); box-shadow: var(--shadow-panel); }
-  #app[data-sidebar="collapsed"] #sidebar:not([data-float="true"]) :is(.brand > div,.navlabel > span,.navlabel > svg,.navitem .lbl,.navitem .count,.projnav .meta,.guildcard .gtext,.guildcard .bar,.plugin-pill .lbl,.side-toggle .lbl,.see-all),
-  html[data-sidebar-pref="collapsed"] #app:not([data-hydrated="true"]) #sidebar :is(.brand > div,.navlabel > span,.navlabel > svg,.navitem .lbl,.navitem .count,.projnav .meta,.guildcard .gtext,.guildcard .bar,.plugin-pill .lbl,.side-toggle .lbl,.see-all) { display: none; }
+  #app[data-sidebar="collapsed"] #sidebar:not([data-float="true"]) :is(.brand > div,.navlabel > span,.navlabel > svg,.navitem .count,.projnav .meta,.guildcard .gtext,.guildcard .bar,.plugin-pill .lbl,.side-toggle .lbl,.see-all),
+  html[data-sidebar-pref="collapsed"] #app:not([data-hydrated="true"]) #sidebar :is(.brand > div,.navlabel > span,.navlabel > svg,.navitem .count,.projnav .meta,.guildcard .gtext,.guildcard .bar,.plugin-pill .lbl,.side-toggle .lbl,.see-all) { display: none; }
+  #app[data-sidebar="collapsed"] #sidebar:not([data-float="true"]) .navitem .lbl, html[data-sidebar-pref="collapsed"] #app:not([data-hydrated="true"]) #sidebar .navitem .lbl { position: absolute; width: var(--hairline); height: var(--hairline); overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   #app[data-sidebar="collapsed"] #sidebar:not([data-float="true"]) :is(.brand,.navitem,.plugin-pill,.side-toggle,.guildcard > div) { justify-content: center; padding-inline: 0; }
   #app[data-sidebar="collapsed"] #sidebar:not([data-float="true"]) .guildcard { padding: var(--s2); }
   #app[data-sidebar="collapsed"] #sidebar:not([data-float="true"]) .navlabel { justify-content: center; padding: var(--s2) 0 var(--s1); }

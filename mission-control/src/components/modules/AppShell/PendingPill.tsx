@@ -29,6 +29,7 @@ export function PendingPill({
       href={`/#${WORKTREES_CARD_ID}`}
       className="plugin-pill pending-pill"
       data-tone={alert ? "coral" : "slate"}
+      data-volatile
       title={title}
     >
       <Icon name={alert ? "alert" : "branch"} />

@@ -105,3 +105,7 @@ prototype_blessed_at: 0e6b7191
 - **Oracle entries** (`docs/design/freeze/fidelity.config.json`, `states["frd-08-documentation"]`): the nine ids above.
 - **Reference files:** root `DESIGN.md` (responsive thresholds, shared component rules), `docs/design/design-tokens.json`, `docs/design/freeze/m1-decisions.md`, `docs/design/freeze/reconciliation.md`, `docs/design/prototype/prototype.css`.
 - **components.md rows:** `PageHead`, `Crumbs`, `DocsGroupCard` / `DocsSteps`, `DocIndex` / `DocItem`, `SearchField` / `SelectField`, `Markdown`, `CommandBox`, `Avatar`, `EmptyState` / `Notice`.
+
+`documentacion-desktop` re-blessed 2026-10-31 in the wave 6 batch after WO-19-003 filled the sidebar (counts, Proyectos, guild card, Colapsar, theme button), viewed against its wave 4-5 predecessor and `docs/design/prototype/index.html#documentacion`. Reviewer sign-off: only the sidebar moved, the home cards are unchanged, no console error. The pending pill carries `data-volatile`, because it is live git data that streams in late, so the baseline omits it. It proves consistency only; the close-out oracle pass judges fidelity.
+
+prototype_blessed_at: 0e6b7191
