@@ -464,7 +464,7 @@ describe("frd-04: TabSummary — data-testid coverage (test-writer contract)", (
       />,
     );
     // Core structure
-    expect(screen.getByTestId("tab-summary")).toBeDefined();
+    expect(screen.getByTestId("summary-panel")).toBeDefined();
     expect(screen.getByTestId("summary-section")).toBeDefined();
     expect(screen.getByTestId("summary-text")).toBeDefined();
     expect(screen.getByTestId("key-points-list")).toBeDefined();

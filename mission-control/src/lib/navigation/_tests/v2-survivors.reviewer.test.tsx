@@ -42,7 +42,7 @@ describe("FRD-25 boundary probes closing surviving mutants (LESSON-0185)", () =>
     );
     render(
       <TabBar
-        activeTab="observabilidad"
+        activeTab="observability"
         navigationBaseHref="/portfolio/second/observability?wo=WO-01-001&woview=full&keep=1"
       />,
     );

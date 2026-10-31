@@ -26,6 +26,7 @@ export default async function PersistentProject({
         params={Promise.resolve({ slug })}
         searchParams={Promise.resolve(query)}
         routeState={routeState}
+        requestHref={href}
       />
     </NavigationSeedProvider>
   );

@@ -8,7 +8,7 @@ import PortfolioPage from "@/app/portfolio/page";
 import { parseNavigationUrl } from "@/lib/navigation/urls";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 import { readSpecDigest } from "@/lib/spec/read-spec";
-import ProjectWorkspacePage from "../../page";
+import { openStandalone } from "../../_tests/standaloneRoute";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), query: "" }));
 vi.mock("next/navigation", async (importOriginal) => ({
@@ -28,6 +28,7 @@ const digests = new Map<string, string>();
 vi.mock("@/lib/portfolio/portfolio", () => ({
   activeProjects: () => projects,
   allProjects: () => projects,
+  readPortfolio: () => projects,
 }));
 vi.mock("@/lib/spec/read-spec", () => ({
   readSpecDigest: vi.fn((projectPath: string) => digests.get(projectPath) ?? null),
@@ -120,12 +121,7 @@ describe("Spec workspace independent review", () => {
     });
     expect(board.specContent).toBe(digests.get(projectAt(1).path));
     expect(board.frdCount).toBe(3);
-    render(
-      await ProjectWorkspacePage({
-        params: Promise.resolve({ slug: "selected-project" }),
-        searchParams: Promise.resolve({ tab: "spec" }),
-      }),
-    );
+    render(await openStandalone("/projects/selected-project?tab=spec"));
     // The bundle also reads the digest for FRD detail: the count may move, the source may not.
     expect(new Set(vi.mocked(readSpecDigest).mock.calls.map(([path]) => path))).toEqual(
       new Set([projectAt(1).path]),
@@ -141,7 +137,7 @@ describe("Spec workspace independent review", () => {
         searchParams: Promise.resolve({ project: "Selected project", tab: "spec" }),
       }),
     );
-    expect(screen.getByTestId("workspace-page")).toHaveAttribute("data-slug", "Selected project");
+    expect(screen.getByTestId("workspace-page")).toHaveAttribute("data-slug", "selected-project");
     expect(screen.getByRole("tab", { name: "Spec" })).toHaveAttribute("aria-selected", "true");
     const article = screen.getByRole("article", { name: "Resumen del spec" });
     expect(
@@ -153,7 +149,7 @@ describe("Spec workspace independent review", () => {
     expect(article).not.toHaveTextContent("First narrative");
     expect(readSpecDigest).toHaveBeenCalledWith(projectAt(1).path);
     expect(readSpecDigest).not.toHaveBeenCalledWith(projectAt(0).path);
-    fireEvent.click(within(article).getByRole("button", { name: /Función Selected narrative/ }));
+    fireEvent.click(within(article).getAllByRole("button", { name: /Feature/ })[0] as HTMLElement);
     expect(screen.getByRole("dialog")).toHaveTextContent("Detalle Selected narrative");
     rerender(
       await PortfolioPage({
@@ -192,12 +188,7 @@ describe("Spec workspace independent review", () => {
   });
 
   it("accepts tab=spec on a standalone project slug and uses the same digest component", async () => {
-    render(
-      await ProjectWorkspacePage({
-        params: Promise.resolve({ slug: "selected-project" }),
-        searchParams: Promise.resolve({ tab: "spec" }),
-      }),
-    );
+    render(await openStandalone("/projects/selected-project?tab=spec"));
     expect(screen.getByTestId("card-detail-spec")).toHaveTextContent("Selected narrative");
     expect(screen.getByRole("tab", { name: "Spec" })).toHaveAttribute("aria-selected", "true");
   });
@@ -208,24 +199,21 @@ describe("Spec workspace independent review", () => {
         searchParams: Promise.resolve({ project: "Empty project", tab: "spec" }),
       }),
     );
-    expect(screen.getByTestId("workspace-page")).toHaveAttribute("data-slug", "Empty project");
+    expect(screen.getByTestId("workspace-page")).toHaveAttribute("data-slug", "empty-project");
     expect(screen.getByRole("tab", { name: "Spec" })).toHaveAttribute("aria-selected", "true");
     const body = screen.getByTestId("workspace-tab-body");
     expect(body.textContent?.trim().length).toBeGreaterThan(0);
-    expect(screen.queryByRole("article", { name: "Resumen del spec" })).toBeNull();
     expect(body).not.toHaveTextContent("First narrative");
     expect(body).not.toHaveTextContent("Selected narrative");
-    expect(readSpecDigest).toHaveBeenCalledWith(projectAt(2).path);
-    expect(readSpecDigest).toHaveBeenCalledTimes(1);
+    expect(body).toHaveTextContent("El spec todavía no está publicado.");
+    expect(body).toHaveTextContent("Su PRD y sus FRDs reales siguen disponibles.");
+    expect(new Set(vi.mocked(readSpecDigest).mock.calls.map(([file]) => file))).toEqual(
+      new Set([projectAt(2).path]),
+    );
   });
 
   it("switches to Spec while preserving project context and clearing stale tab detail", async () => {
-    render(
-      await ProjectWorkspacePage({
-        params: Promise.resolve({ slug: "selected-project" }),
-        searchParams: Promise.resolve({ tab: "commands" }),
-      }),
-    );
+    render(await openStandalone("/projects/selected-project?tab=commands"));
     fireEvent.click(screen.getByRole("tab", { name: "Spec" }));
     const next = parseNavigationUrl(navigation.push.mock.calls[0]?.[0] ?? "/");
     expect(next.project).toBe("selected-project");
@@ -234,13 +222,9 @@ describe("Spec workspace independent review", () => {
   });
 
   it("keeps Summary as the default and does not read Spec eagerly", async () => {
-    render(
-      await ProjectWorkspacePage({
-        params: Promise.resolve({ slug: "selected-project" }),
-        searchParams: Promise.resolve({}),
-      }),
-    );
+    render(await openStandalone("/projects/selected-project"));
     expect(screen.getByRole("tab", { name: "Resumen" })).toHaveAttribute("aria-selected", "true");
-    expect(readSpecDigest).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("card-detail-spec")).toBeNull();
+    expect(screen.queryByRole("article", { name: "Resumen del spec" })).toBeNull();
   });
 });

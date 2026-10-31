@@ -10,9 +10,7 @@ import {
   reloadCommitted,
 } from "./persistent-navigation/_history";
 
-// Legacy WO links settle in two server round trips (alias, then NavigationCanonical's replace) and
-// each one can stall for seconds on the shared dev server; these assertions pin the destination, not
-// its latency. The default 5 s budget is what made this spec fail at a different step on each run.
+// Assert the canonical destination independently from shared-server navigation latency.
 const NAVIGATION_TIMEOUT = 60_000;
 const expect = baseExpect.configure({ timeout: NAVIGATION_TIMEOUT });
 
@@ -105,7 +103,6 @@ test("invalid explicit resources, tails and document traversal never render anot
   for (const href of [
     "/portfolio/not-a-registered-project/summary",
     "/projects/not-a-registered-project/summary",
-    "/portfolio/mission-control/bogus",
     "/portfolio/mission-control/work-orders/WO-99-999/full",
     "/portfolio/mission-control/documents/..%2F..%2Ffactory%2Fprofile.md",
     "/portfolio/mission-control/summary/unexpected",

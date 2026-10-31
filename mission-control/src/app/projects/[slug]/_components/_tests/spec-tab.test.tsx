@@ -1,7 +1,8 @@
 import path from "node:path";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ProjectWorkspace, resolveWorkspaceTab } from "@/app/projects/[slug]/ProjectWorkspace";
+import { TabSpec } from "../tab-spec";
 import { TabBar } from "../tabbar";
 
 const push = vi.fn();
@@ -12,6 +13,19 @@ vi.mock("next/navigation", () => ({
 
 const status = { present: false, malformed: false, status: null } as const;
 const project = path.resolve("e2e/fixtures/factory-root/mission-control");
+vi.mock("@/lib/portfolio/portfolio", () => ({
+  allProjects: () => [
+    { name: "Fixture", path: project, stage: "architecture", status, exists: true },
+    {
+      name: "Unpublished",
+      path: path.join(project, "no-spec-project"),
+      stage: "product",
+      status,
+      exists: false,
+    },
+  ],
+  readPortfolio: () => [],
+}));
 const selection = {
   activeTab: "spec",
   docParam: undefined,
@@ -20,6 +34,14 @@ const selection = {
 } as const;
 
 describe("workspace shared Spec", () => {
+  it("keeps both unpublished lines in order in one notice without FRDs", () => {
+    render(<TabSpec body="" title="Unpublished" project="unpublished" nodes={[]} frds={[]} />);
+    const notice = screen.getByRole("status");
+    const title = within(notice).getByText("El spec todavía no está publicado.");
+    const body = within(notice).getByText("Su PRD y sus FRDs reales siguen disponibles.");
+    expect(title.compareDocumentPosition(body) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("accepts a Spec deep link and keeps Summary as the default", () => {
     expect(resolveWorkspaceTab("spec")).toBe("spec");
     expect(resolveWorkspaceTab(undefined)).toBe("summary");
@@ -48,10 +70,10 @@ describe("workspace shared Spec", () => {
       "FRDs · las piezas del v1 (1)",
     );
     const link = screen.getByRole("link", { name: "Documento del producto" });
-    const query = new URLSearchParams(link.getAttribute("href") ?? "");
-    expect(query.get("project")).toBe("Fixture");
-    expect(query.get("tab")).toBe("documents");
-    expect(query.get("doc")).toBeTruthy();
+    expect(link).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^\/portfolio\/fixture\/documents\//),
+    );
   });
 
   it("shows a useful pending state without inventing a digest", () => {
@@ -67,7 +89,7 @@ describe("workspace shared Spec", () => {
         selection={selection}
       />,
     );
-    expect(screen.getByText("Todavía no hay una especificación publicada.")).toBeVisible();
-    expect(screen.queryByRole("article", { name: "Resumen del spec" })).not.toBeInTheDocument();
+    expect(screen.getByText("El spec todavía no está publicado.")).toBeVisible();
+    expect(screen.getByText("Su PRD y sus FRDs reales siguen disponibles.")).toBeVisible();
   });
 });

@@ -20,7 +20,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- Mock Next.js router — TabBar uses useRouter for URL-driven navigation ---
 
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation", async (original) => ({
+  ...(await original<typeof import("next/navigation")>()),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => "/projects/demo",
   useSearchParams: () => new URLSearchParams(),
@@ -28,9 +29,18 @@ vi.mock("next/navigation", () => ({
 
 // --- Mock the lib readers so the page resolves a synthetic project ---------
 
-vi.mock("@/lib/portfolio/portfolio", () => ({
-  activeProjects: () => [{ name: "demo", path: "/tmp/demo", stage: "implementation" }],
-}));
+vi.mock("@/lib/portfolio/portfolio", () => {
+  const projects = [
+    {
+      name: "demo",
+      path: "/tmp/demo",
+      exists: true,
+      stage: "implementation",
+      status: { present: true, malformed: false, status: { phase: "implementation" } },
+    },
+  ];
+  return { allProjects: () => projects, readPortfolio: () => projects };
+});
 
 vi.mock("@/lib/status/status", () => ({
   readStatus: () => ({
@@ -47,7 +57,8 @@ vi.mock("@/lib/status/status", () => ({
   }),
 }));
 
-vi.mock("@/lib/docs/tree", () => ({
+vi.mock("@/lib/docs/tree", async (original) => ({
+  ...(await original<typeof import("@/lib/docs/tree")>()),
   listProjectDocs: () => [
     { id: "product/prd", label: "prd.md", group: "Product", relPath: "docs/product/prd.md" },
     {
@@ -70,14 +81,11 @@ vi.mock("@/lib/work-orders/work-orders", async (importOriginal) => ({
   listWorkOrders: () => [],
 }));
 
-import ProjectWorkspacePage from "../page";
+import { openStandalone } from "./standaloneRoute";
 
 function renderPage(searchParams: Record<string, string> = {}) {
-  // The page is an async Server Component; render its resolved element.
-  return ProjectWorkspacePage({
-    params: Promise.resolve({ slug: "demo" }),
-    searchParams: Promise.resolve(searchParams),
-  });
+  const query = new URLSearchParams(searchParams);
+  return openStandalone(`/projects/demo${query.size ? `?${query}` : ""}`);
 }
 
 describe("FRD-04 workspace page — Commands tab integration (AC-04-005.1/.2)", () => {

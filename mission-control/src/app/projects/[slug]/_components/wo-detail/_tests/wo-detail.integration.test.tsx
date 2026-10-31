@@ -96,7 +96,20 @@ vi.mock("next/navigation", async (actual) => ({
 }));
 
 vi.mock("@/lib/portfolio/portfolio", () => ({
-  activeProjects: () => [{ name: "demo", path: "/tmp/demo", stage: "implementation" }],
+  allProjects: () => [
+    {
+      name: "demo",
+      path: "/tmp/demo",
+      stage: "implementation",
+      exists: false,
+      status: {
+        present: true,
+        malformed: false,
+        status: { phase: "implementation", project: "demo" },
+      },
+    },
+  ],
+  readPortfolio: () => [],
 }));
 
 vi.mock("@/lib/status/status", () => ({
@@ -154,12 +167,20 @@ vi.mock("@/hooks/useLiveSnapshot", () => ({
   useLiveSnapshot: () => ({ snapshot: null, connected: false, lastEventAt: null }),
 }));
 
+import { parseNavigationUrl } from "@/lib/navigation/urls";
 import ProjectWorkspacePage from "../../../page";
+import { workspaceHref, workspaceSelection } from "../../../workspace-route";
 
 function renderPage(searchParams: Record<string, string> = {}) {
+  const selection = workspaceSelection(searchParams);
+  const href = workspaceHref("/projects", searchParams, "demo", selection);
   return ProjectWorkspacePage({
     params: Promise.resolve({ slug: "demo" }),
-    searchParams: Promise.resolve(searchParams),
+    searchParams: Promise.resolve(
+      Object.fromEntries(new URL(href, "http://localhost").searchParams),
+    ),
+    routeState: parseNavigationUrl(href),
+    requestHref: href,
   });
 }
 

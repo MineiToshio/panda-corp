@@ -1,0 +1,29 @@
+.hero {
+  display: flex;
+  align-items: center;
+  gap: var(--s5);
+  flex-wrap: wrap;
+  padding: var(--s4) var(--s5);
+  margin-block: var(--s4);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  border: var(--hairline) solid var(--line);
+  min-width: 0;
+}
+.hero h1,
+.hero h2 {
+  font-size: var(--fs-h2);
+}
+.step {
+  flex: 1 1 260px;
+  min-width: 160px;
+}
+@media (max-width: 759px) {
+  .hero {
+    gap: var(--s3);
+    padding: var(--s3) var(--s4);
+  }
+  .step {
+    display: none;
+  }
+}

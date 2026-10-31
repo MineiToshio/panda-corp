@@ -5,16 +5,15 @@
  * the SHARED <ProjectWorkspace> (the same body the Portfolio right pane embeds — prototype projectPane,
  * DEC-4). The page column (#pcapp, centered 1240px maximum) supplied by the shell frames it in normal flow.
  *
- * URL-driven selection (AC-04-001.2): ?tab / ?doc / ?wo / ?wotab. Absent/invalid tab → "summary".
+ * URL-driven selection (AC-04-001.2): ?tab / ?doc / ?wo / ?wotab. Absent tab → "summary"; unknown tabs stay in the workspace frame.
  *
  * Traceability: CMP-04-workspace → REQ-04-001/002; IF-04-status, IF-03-activeProjects.
  */
 
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getProjectNavigation, resolveProjectNavigation } from "@/lib/navigation/identities";
-import { NavigationCanonical } from "@/lib/navigation/NavigationCanonical";
 import { routeHref } from "@/lib/navigation/routeState";
-import { activeProjects } from "@/lib/portfolio/portfolio";
+import { allProjects } from "@/lib/portfolio/portfolio";
 import { ProjectWorkspace } from "./ProjectWorkspace";
 import { workspaceHref, workspaceSelection } from "./workspace-route";
 
@@ -22,12 +21,14 @@ interface PageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
   routeState?: Record<string, string>;
+  requestHref?: string;
 }
 
 export default async function ProjectWorkspacePage({
   params,
   searchParams,
   routeState = {},
+  requestHref,
 }: PageProps): Promise<React.JSX.Element> {
   const { slug } = await params;
   const rawQuery = await searchParams;
@@ -38,7 +39,7 @@ export default async function ProjectWorkspacePage({
   // The dashboard/portfolio links route to a kebab slug (nameToSlug), so match on
   // that; tolerate a raw-name slug too for older/direct links. (Without the slug
   // match, every project deep-link 404s — the links are kebab, names are not.)
-  const item = resolveProjectNavigation(routeState.project ?? slug, activeProjects());
+  const item = resolveProjectNavigation(routeState.project ?? slug, allProjects());
   if (item === undefined) {
     notFound();
   }
@@ -50,10 +51,8 @@ export default async function ProjectWorkspacePage({
     getProjectNavigation(item.path, item.name).slug,
     selection,
   );
-  return (
-    <>
-      <NavigationCanonical href={href} />
-      <ProjectWorkspace item={item} selection={selection} navigationBaseHref={href} />
-    </>
-  );
+  // Resolve aliases before mounting interactive children, preserving their focus ownership.
+  const requested = requestHref ?? routeHref("/projects", [slug], rawQuery);
+  if (requested !== href) redirect(href);
+  return <ProjectWorkspace item={item} selection={selection} navigationBaseHref={href} />;
 }

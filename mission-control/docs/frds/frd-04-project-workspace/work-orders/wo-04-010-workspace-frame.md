@@ -6,8 +6,7 @@ title: 'WO-04-010 — Workspace frame: eight tabs, heroes, panel contract, Spec/
 status: ACTIVE
 parent: FRD-04
 foundation: false
-implementation_status: PLANNED
-blocked_reason:
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -32,7 +31,7 @@ artifacts:
   - 'e2e/persistent-navigation/workspace.spec.ts'
 source_requirements: [REQ-04-001, REQ-04-002, REQ-04-003, REQ-04-012, REQ-04-013, REQ-04-014, REQ-12-006]
 dependsOn: [WO-19-002, WO-03-007, WO-02-017, WO-02-018, WO-26-001, WO-25-001, WO-13-012, WO-06-013, WO-04-013, WO-02-020, WO-12-007]
-last_updated: 2026-10-22
+last_updated: 2026-10-31
 change_ref: e2e-workspace-tabs-stale.md
 ---
 
@@ -59,8 +58,9 @@ target. The other five panels are wired to their current v1 content until their 
   documents, ADRs, open changes = `countOpenChanges`, last commit = `getLastCommit()`), `build` = the value
   of `buildSignal()` (`src/lib/fragua/build-signal.ts`, WO-06-013; no second derivation from
   `lib/status/liveness`), `services` = `projectServiceRows(getServicesDirectory(), id).length` (WO-26-001),
-  FRD names through `listProjectFrds()` (`src/lib/frds/frd-index.ts`, WO-12-007), `countPendingDecisions`,
-  `nextStep`. The same item feeds the `ProjectSwitcher` list.
+  `countPendingDecisions` and `nextStep`. Spec and Architecture read FRD identities only inside their
+  own artifact bundles; the frame does not load unused FRDs or read their digests. The same item feeds
+  the `ProjectSwitcher` list.
 - Project resolution: `page.tsx` resolves the project through `allProjects()` (every phase, WO-03-007), not
   `activeProjects()`, so a `product` / `design` project listed in Portafolio does not 404 on the standalone
   route (REQ-03-001); an unknown project stays the route not-found.
@@ -247,3 +247,143 @@ The ACs above met with tests that fail without the change; the removal list full
 clean); `.pandacorp/verify.sh` green; Status Note filled.
 
 ## Status Note
+
+### 2026-10-31 — S4A round 2 review patches
+
+- Decodes unknown raw section names once at the shared workspace boundary, retaining malformed
+  percent sequences as text. Both route families have canonical fixed-point tests; standalone
+  integration cases render the unknown-section card for spaces and malformed encodings.
+- Keeps the unpublished Spec title and explanatory line in order inside one workspace notice,
+  including projects without FRDs. The shared board digest retains its default notice.
+- Moves `WorkspaceSelection` into `_panels/types.ts`, removing the panel-to-frame type cycle.
+  Removes the unused frame FRD read/result fields and uppercases project initials.
+- Uses the event emitter's folder identity consistently for list, detail and DAG live subscriptions;
+  keeps navigation links on the stable project slug. Integration tests use different folder/slug
+  identities. Renames the summary content test id to `summary-panel`, leaving `tab-summary` unique
+  to the tab button, and corrects both hero paths in the component inventory.
+- Leaves all patches uncommitted on `orch/s4a`, per the round 2 brief. No reviewer test, blessed
+  baseline, navigation implementation, decision log or `.pandacorp` state was edited.
+- All commands ran from this worktree root with `export PORT=3973 PANDACORP_E2E_PORT=3973`:
+  - `pnpm --dir mission-control exec tsc --noEmit` — PASS, exit 0.
+  - `pnpm --dir mission-control exec knip` — PASS, exit 0; nine configuration hints remain.
+  - `pnpm --dir mission-control exec biome check 'src/app/projects/[slug]' src/components/modules/ServicesDirectory src/app/board/_components/CardDetail/SpecDigest/SpecDigest.tsx`
+    — PASS, exit 0; 159 files checked.
+  - `pnpm --dir mission-control exec madge --circular --extensions ts,tsx --ts-config tsconfig.json src`
+    — RED, exit 1; no workspace cycle remains. The only reported cycles are
+    `IdeaBoardView.tsx → boardPhases.ts → IdeaBoardView.tsx` and
+    `IdeaBoardView.tsx → BoardColumn.tsx → IdeaBoardView.tsx`, outside this patch's scope.
+  - `pnpm --dir mission-control exec vitest run 'src/app/projects/[slug]' src/components/modules/ServicesDirectory src/app/board/_components/CardDetail/SpecDigest --maxWorkers=2`
+    — PASS, exit 0; 71 files, 715 tests. This run started before the final live-identity patch;
+    the final scoped run is recorded next.
+  - `pnpm --dir mission-control exec vitest run 'src/app/projects/[slug]' src/components/modules/ServicesDirectory --maxWorkers=2`
+    — PASS, exit 0; final snapshot: 70 files, 706 tests, including reviewer-owned suites unchanged.
+  - `pnpm --dir mission-control exec vitest run 'src/app/projects/[slug]/_tests/workspace-frame.integration.test.tsx' --maxWorkers=2`
+    — PASS, exit 0; 29 tests after the live-identity patch.
+- Browser rendering, real SSE delivery, Playwright and the full `.pandacorp/verify.sh` were not run;
+  this is scoped patch verification, not a green whole-project gate.
+
+
+### 2026-10-31 — S4A scope refresh against the landed tree
+
+- FRD-25 already supplies the eight labels in `e2e/_workspaceTabs.ts`, URL aliases, canonical paths and
+  the standalone catch-all route. These are retained; the frame does not rebuild the navigation codec.
+  The codec still exposes the compatibility selection key `observabilidad`; the workspace boundary
+  translates it to its canonical `observability` tab id without changing `src/lib/navigation/**`.
+- The starting workspace still mounted `WorkspaceHeader`, `ObjectivesBar`, the transitional
+  `ServicesDirectory`, and dropped the digest bundles' live FRDs, work orders, source errors,
+  construction phase and route context. The digest components and shared readers now exist and are
+  reused through the real workspace mount.
+- Actual dependency contracts checked: `ProjectAccounts({ data, projectId })`,
+  `getProjectOverview()` (including its `buildSignal()` result and last commit), `listProjectFrds()`,
+  `readSpecArtifacts()` and `readArchitectureArtifacts()`. `allProjects()` supports the early phases.
+  The known observability `frd` query-value mismatch remains owned by WO-05-008.
+
+### 2026-10-31 — Implementation facts
+
+- Added the shared request-scoped `WorkspaceProject` resolver and `PanelProps` / `WorkspaceRoute`, all
+  eight default-exported panel adapters, the `WoDetail({ project, woId, view })` seam, and the
+  client-side link adapters. `ProjectWorkspace` retains its public props. Panel state is keyed by
+  project path; route context carries all decoded selections for the later panel work orders.
+- Added full and compact project heroes, shared project switching, signal-backed build chips, honest
+  missing-version/plan/orders states, progress/count stats and a clamped, expandable subtitle. Counts
+  and build state come from the overview rather than stored counters or the running flag alone.
+- The tab strip uses shared `Tabs` with icons, hues, positive-count badges, project-specific accessible
+  naming, keyboard/overflow behavior and the prototype's label-valued `data-tabval` hooks. Failed
+  change/service reads remain unknown and do not produce badges or zero stats.
+- Spec and Architecture now receive the shared bundles' `sourceErrors`, `frds`, `workOrders`, explicit
+  `constructionStarted` and project-scoped navigation context. Digest modal navigation uses the
+  workspace root; authored document links preserve the full route context. Unpublished Spec retains
+  its real PRD and FRDs. Architecture keeps the shared partial/none/error states and model viewer.
+- Standalone aliases canonicalize with a server redirect before interactive children mount. This
+  removes the delayed client canonicalization remount from `/projects/<slug>` and is covered by a
+  redirect-boundary integration test. Browser-level focus behavior is still unverified here.
+- Retired all production code and implementer tests under `_party/**` and
+  `src/components/modules/party/**`, plus `workspace-header.tsx`, `objectives-bar.tsx` and the
+  `ServicesDirectory` facade/copy/test. No production importer of the retired Party module remained
+  outside these artifacts. All reviewer-owned suites were preserved unchanged, per the worker brief;
+  their removal/rewrite is consequently still required before the full gate can turn green.
+- Updated the implementer shell, navigation, Spec, route and work-order-detail integration suites,
+  and the four owned e2e specs. The already-current eight-label helper needed no edit. No visual
+  baseline, shared shell/board/home/configuration/achievements code, decision log or `.pandacorp`
+  state was changed. No commit, merge, push or merge-queue operation was performed.
+
+### 2026-10-31 — Acceptance evidence and verification
+
+- `src/app/projects/[slug]/_tests/workspace-frame.integration.test.tsx` runs through the actual
+  `ProjectWorkspace` and its real panels/digests/readers. Its 24 cases cite every AC in this work
+  order (including the cross-reference AC-02-015.7): full/compact frames, tab order, live counts,
+  Spec modal/focus and document routes in both families, published/unpublished sources, malformed
+  FRDs/work orders/env/ADRs/models, distinct none/missing models, per-phase standalone architecture,
+  project changes and model search reset, build liveness, no version/plan/orders and malformed changes.
+  The portfolio entry list and Next client router are test boundaries; the projection, readers and
+  rendered panels are real. Copied fixture `PENDING` was normalized to `PLANNED` only in the temporary
+  test copy, because the shared strict digest reader correctly rejects the old fixture value.
+- Initial acceptance run was RED on the missing hero, unpublished Spec contract and canonical tab id;
+  those probes now pass. Test-created managed-state files are removed individually; their directories
+  are not bulk-deleted.
+- Every command below ran with `export PORT=3973 PANDACORP_E2E_PORT=3973`, from this worktree root:
+  - `pnpm --dir mission-control exec vitest run 'src/app/projects/[slug]' src/components/modules/ServicesDirectory --exclude '**/*review*' --maxWorkers=2`
+    — PASS, exit 0: 47 suites, 481 tests.
+  - `pnpm --dir mission-control exec vitest run 'src/app/projects/[slug]' src/components/modules/ServicesDirectory --maxWorkers=2`
+    — RED: 65 suites pass, 11 fail; 643 tests pass, 12 fail, plus 8 suite import failures. All failing
+    suites are reviewer-owned and listed below. This is not a green full verification.
+  - `pnpm --dir mission-control exec tsc --noEmit` — RED, exit 2: 45 diagnostics, all in the 11 unchanged
+    reviewer files importing retired modules or passing the retired `observabilidad` TabBar id.
+  - `pnpm --dir mission-control exec knip` — RED, exit 1: 24 unresolved imports, all in unchanged
+    reviewer suites for retired Party/objectives modules. No unused production export remains.
+  - `pnpm --dir mission-control exec biome check 'src/app/projects/[slug]' src/components/modules/ServicesDirectory e2e/logical-data-model.spec.ts e2e/persistent-navigation.spec.ts e2e/portfolio-spec.spec.ts e2e/persistent-navigation/workspace.spec.ts`
+    — PASS, exit 0: 167 files checked; no fixes applied.
+- Playwright, the preview smoke/fidelity gate, responsive browser behavior and the full
+  `.pandacorp/verify.sh` were not run (the worker brief explicitly excludes Playwright). The e2e edits
+  are authored coverage, not browser execution evidence. The existing component inventory still uses
+  flat hero paths; its path reconciliation is outside this worker's owned artifacts.
+
+### Reviewer-owned suites that must move (unchanged by S4A)
+
+Retire with the deleted subject:
+
+- `src/app/projects/[slug]/_party/PartyTab/_tests/PartyTab.integration.reviewer.test.tsx`
+- `src/app/projects/[slug]/_party/_tests/fragua-snapshot.reviewer.test.ts`
+- `src/app/projects/[slug]/_party/_tests/frd-06-gate.reviewer.test.ts`
+- `src/app/projects/[slug]/_party/_tests/frd-06-integration.reviewer.test.tsx`
+- `src/app/projects/[slug]/_party/_tests/frd-06-realdata.reviewer.test.ts`
+- `src/app/projects/[slug]/_party/_tests/frd-06-scene.gate.reviewer.test.tsx`
+- `src/app/projects/[slug]/_party/event-vm/_tests/event-vm.uipassskipped.review.test.ts`
+- `src/app/_design/tokens/_tests/frd13-wo06-09.adversarial.reviewer.test.tsx`
+- `src/app/_design/tokens/_tests/frd13-wo07-09.adversarial.reviewer2.test.tsx`
+
+Rewrite for the current mount contract:
+
+- `src/app/projects/[slug]/_tests/page.reviewer.integration.test.tsx`: removed objectives bar / v1 header.
+- `src/app/projects/[slug]/_tests/page.reviewer.test.tsx`: `allProjects`/overview and canonical route boundary.
+- `src/app/projects/[slug]/_components/_tests/spec-workspace.reviewer.test.tsx`: source bundles, portfolio
+  mocks, unpublished Spec and pre-mount standalone redirects. Shared FRD identity lookup legitimately
+  reads digest names even on the frame; panel content remains lazy.
+- `src/app/projects/[slug]/_tests/workspace-route.empty.reviewer.test.ts`: unknown section card instead of 404.
+- `src/lib/navigation/_tests/v2-survivors.reviewer.test.tsx`: canonical `observability` TabBar id
+  (caught by TypeScript; its runtime suite was not rerun separately).
+
+Browser suites flagged by the Before-W4 plan, to verify/reconcile on the reviewer side (not run here):
+
+- `e2e/frd25-gate-regressions.reviewer.spec.ts`
+- `e2e/frd-25-persistent-navigation.behaviour.spec.ts`

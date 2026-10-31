@@ -620,7 +620,7 @@ export function TabSummary({
       ? formatRelative(status.supervisorHeartbeat ?? "", now)
       : undefined;
   return (
-    <main data-testid="tab-summary" aria-label="Resumen del proyecto" style={ROOT_STYLE}>
+    <main data-testid="summary-panel" aria-label="Resumen del proyecto" style={ROOT_STYLE}>
       {/* FRD-20 — overlay-freshness badge: "al día con la fábrica" or the /pandacorp:upgrade
           prompt when this project's overlay is behind. Omitted entirely on the unknown verdict. */}
       {overlayFreshness !== undefined && <VersionFreshness state={overlayFreshness} />}

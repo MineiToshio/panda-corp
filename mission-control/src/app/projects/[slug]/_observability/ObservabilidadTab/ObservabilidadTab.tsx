@@ -38,7 +38,9 @@ export interface ObservabilidadTabProps {
   workOrders: WorkOrder[];
   /** Durable build timeline, read server-side from `.pandacorp/track.jsonl`. */
   timeline: BuildTimeline;
-  /** Project slug — scopes the live-refresh subscription. */
+  /** Project folder name used by the live event transport; defaults to project. */
+  liveProject?: string;
+  /** Project slug for navigation. */
   project: string;
 }
 
@@ -63,6 +65,7 @@ export function ObservabilidadTab({
   workOrders: staticOrders,
   timeline,
   project,
+  liveProject = project,
 }: ObservabilidadTabProps): React.JSX.Element {
   // View state: "timeline" (default) or "dag" (AC-12-002.3)
   const [rawView, setView] = useUrlState("view", "timeline");
@@ -71,7 +74,7 @@ export function ObservabilidadTab({
   return (
     <div data-testid="obs-shell" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
       {/* Live updater (AC-12-005): re-reads track.jsonl on each SSE event. */}
-      <WoLiveRefresh project={project} />
+      <WoLiveRefresh project={liveProject} />
 
       {/* ── Header strip (prototype: panel + eyebrow + toggle) ── */}
       <div
@@ -139,7 +142,7 @@ export function ObservabilidadTab({
             <TimelineView timeline={timeline} project={project} />
           </div>
         ) : (
-          <WoDag workOrders={staticOrders} project={project} />
+          <WoDag workOrders={staticOrders} project={liveProject} />
         )}
       </div>
     </div>

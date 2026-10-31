@@ -1,111 +1,109 @@
 "use client";
-
-/** URL-driven workspace navigation shared by Portfolio and standalone project routes. */
-
 import { useRouter, useSearchParams } from "next/navigation";
-import { SubTabs } from "@/components/core/Tabs/Tabs";
-import { servicesCopy } from "@/components/modules/ServicesDirectory/copy";
+import { useEffect, useRef } from "react";
+import { Tabs, type TabsProps } from "@/components/core/Tabs/Tabs";
+import { t } from "@/lib/copy/copy";
 import { navigationHref } from "@/lib/navigation/urls";
+import type { WorkspaceProject } from "../_panels/workspaceProject";
 
 export type TabId =
   | "summary"
   | "spec"
+  | "observability"
   | "architecture"
+  | "accounts"
   | "changes"
-  | "observabilidad"
   | "documents"
-  | "commands"
-  | "accounts";
-
-/** Ordered list fed into the shared SubTabs primitive. */
+  | "commands";
 const WORKSPACE_TABS = [
-  { id: "summary", label: "Resumen" },
-  { id: "spec", label: "Spec" },
-  { id: "observabilidad", label: "Observabilidad" },
-  { id: "architecture", label: "Arquitectura" },
-  { id: "accounts", label: servicesCopy.accountsTab },
-  { id: "changes", label: "Cambios" },
-  { id: "documents", label: "Documentos" },
-  { id: "commands", label: "Comandos" },
-] as const satisfies ReadonlyArray<{ id: TabId; label: string }>;
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
-
+  { id: "summary", label: t("common.workspaceTabs.resumen"), icon: "home", tone: "violet" },
+  { id: "spec", label: t("common.workspaceTabs.spec"), icon: "book", tone: "blue" },
+  {
+    id: "observability",
+    label: t("common.workspaceTabs.observabilidad"),
+    icon: "activity",
+    tone: "green",
+  },
+  {
+    id: "architecture",
+    label: t("common.workspaceTabs.arquitectura"),
+    icon: "cube",
+    tone: "amber",
+  },
+  { id: "accounts", label: t("common.workspaceTabs.cuentas"), icon: "lock", tone: "teal" },
+  { id: "changes", label: t("common.workspaceTabs.cambios"), icon: "branch", tone: "pink" },
+  { id: "documents", label: t("common.workspaceTabs.documentos"), icon: "file", tone: "blue" },
+  { id: "commands", label: t("common.workspaceTabs.comandos"), icon: "terminal", tone: "slate" },
+] as const satisfies TabsProps["tabs"];
 export interface TabBarProps {
-  /**
-   * The currently active tab id.
-   * Derived by page.tsx from the ?tab= search param; defaults to "summary"
-   * when the param is absent or invalid (AC-04-001.2).
-   */
-  activeTab: TabId;
+  activeTab: TabId | "unknown";
   navigationBaseHref?: string;
+  projectName?: string;
+  counts?: WorkspaceProject["counts"];
 }
-
-// ---------------------------------------------------------------------------
-// Container style — only for positioning; SubTabs handles the pill visuals.
-// ---------------------------------------------------------------------------
-
-const WRAPPER_STYLE: React.CSSProperties = {
-  padding: "0 14px 10px",
-};
-
-// ---------------------------------------------------------------------------
-// TabBar component
-// ---------------------------------------------------------------------------
-
-/**
- * CMP-04-tabbar — URL-driven tab bar for the project workspace.
- *
- * "use client" directive is at the top of this file. All other workspace shell
- * components (header, objectives bar, page) are Server Components.
- *
- * Tab navigation is URL-driven: onChange calls router.push("?tab=<id>") so
- * the server re-reads the ?tab= search param and renders the right tab body.
- * The active tab is determined server-side and passed in as the `activeTab` prop.
- *
- * Uses the shared SubTabs primitive (DR-062 — the one tab pattern, level="sub").
- */
-export function TabBar({ activeTab, navigationBaseHref }: TabBarProps): React.JSX.Element {
+export function TabBar({
+  activeTab,
+  navigationBaseHref,
+  projectName = "",
+  counts,
+}: TabBarProps): React.JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  function handleTabChange(id: string) {
-    // Merge into the CURRENT query so the embedding context survives (e.g. ?project= in Portfolio);
-    // reset the per-tab sub-selection (doc/wo) when switching tabs.
-    const next = new URLSearchParams(searchParams.toString());
-    next.set("tab", id);
-    next.delete("doc");
-    next.delete("wo");
-    next.delete("wotab");
-    next.delete("woview");
+  const wrapper = useRef<HTMLElement>(null);
+  const badges = {
+    observability: counts?.orders,
+    accounts: counts?.services,
+    changes: counts?.openChanges,
+    documents: counts?.documents,
+  };
+  const tabs = WORKSPACE_TABS.map((tab) => {
+    const count = tab.id in badges ? badges[tab.id as keyof typeof badges] : null;
+    return { ...tab, count: count != null && count > 0 ? count : undefined };
+  });
+  useEffect(() => {
+    for (const button of wrapper.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ??
+      []) {
+      button.dataset.tabkey = "tab";
+      const id = button.dataset.testid?.replace(/^tab-/, "");
+      button.dataset.tabval = WORKSPACE_TABS.find((tab) => tab.id === id)?.label ?? "";
+    }
+  }, []);
+  function handleTabChange(id: string): void {
+    const patch = {
+      tab: id,
+      doc: null,
+      wo: null,
+      wotab: null,
+      woview: null,
+      specFrd: null,
+      architectureFrd: null,
+      adr: null,
+      raw: null,
+    };
     const liveHref = `${window.location.pathname}${window.location.search}`;
-    const baseHref = /^\/(portfolio|projects)\//.test(liveHref) ? liveHref : navigationBaseHref;
-    router.push(
-      baseHref
-        ? navigationHref(baseHref, {
-            tab: id,
-            doc: null,
-            wo: null,
-            wotab: null,
-            woview: null,
-          })
-        : `?${next.toString()}`,
-    );
+    const base = /^\/(portfolio|projects)\//.test(liveHref) ? liveHref : navigationBaseHref;
+    const next = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === null) next.delete(key);
+      else next.set(key, value);
+    }
+    router.push(base ? navigationHref(base, patch) : `?${next}`);
   }
-
   return (
-    <nav data-testid="tabbar" aria-label="Pestañas del espacio de trabajo">
-      <div style={WRAPPER_STYLE}>
-        <SubTabs
-          tabs={WORKSPACE_TABS as unknown as Array<{ id: string; label: string }>}
-          active={activeTab}
-          onChange={handleTabChange}
-          ariaLabel="Pestañas del espacio de trabajo"
-          testIdPrefix="tab-"
-        />
-      </div>
+    <nav
+      ref={wrapper}
+      data-testid="tabbar"
+      aria-label={t("portafolio.tabsAria", { project: projectName })}
+      style={{ minWidth: 0 }}
+    >
+      <Tabs
+        tabs={tabs}
+        active={activeTab}
+        onChange={handleTabChange}
+        ariaLabel={t("portafolio.tabsAria", { project: projectName })}
+        tabIdPrefix="workspace-tab-"
+        panelIdPrefix="workspace-panel-"
+      />
     </nav>
   );
 }

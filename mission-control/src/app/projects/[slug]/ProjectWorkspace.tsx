@@ -1,233 +1,66 @@
-import { ServicesDirectory } from "@/components/modules/ServicesDirectory/ServicesDirectory";
-import { getProjectNavigation } from "@/lib/navigation/identities";
-import { getServicesDirectory } from "@/lib/services/services";
-/**
- * ProjectWorkspace — the shared project workspace body (CMP-04-workspace).
- *
- * Shared by standalone project deep links and explicit Portfolio project selections.
- * Both callers resolve the project and supply the URL-driven tab selection; the Portfolio overview
- * is replaced by this full-width workspace. Tab-specific data is read lazily, and the snapshot panel
- * belongs to Summary rather than the shared chrome.
- *
- * Traceability: CMP-04-workspace → REQ-04-001/002; FRD-03 (projectPane embed), WS-2/WS-3.
- */
-
-import { notFound } from "next/navigation";
-import { ArchitectureDigest } from "@/app/board/_components/CardDetail/ArchitectureDigest/ArchitectureDigest";
-import { readArchitectureArtifacts } from "@/lib/architecture/read-artifacts";
-
-import { readBuildTimeline } from "@/lib/build-track/build-track";
-import { readChangeQueue } from "@/lib/changes/changes";
-import { resolveProjectPath } from "@/lib/config/config";
-import { readActivityLog, readDecisions } from "@/lib/docs/activity";
-import { countFrdFolders, listProjectDocs, readDoc } from "@/lib/docs/tree";
-import { readIdeas } from "@/lib/ideas/ideas";
-import { getOverlayFreshness } from "@/lib/overlay-freshness/overlay-freshness";
-import { readPending } from "@/lib/pendingMerge/pendingMerge";
+import { Crumbs } from "@/components/core/Crumbs/Crumbs";
+import { t } from "@/lib/copy/copy";
+import { normalizeLegacyNavigation } from "@/lib/navigation/aliases";
+import { navigationHref, parseNavigationUrl } from "@/lib/navigation/urls";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
-import { buildSnapshot } from "@/lib/snapshot/snapshot";
-import { readSpecDigest } from "@/lib/spec/read-spec";
-import { type Phase, type ProjectStatus, readStatus } from "@/lib/status/status";
-import { aggregateProgress, listWorkOrders, readWorkOrderDoc } from "@/lib/work-orders/work-orders";
-import { ObjectivesBar } from "./_components/objectives-bar";
-import { TabChanges } from "./_components/tab-changes/tab-changes";
-import { TabCommands } from "./_components/tab-commands/tab-commands";
-import { TabDocuments } from "./_components/tab-documents/tab-documents";
-import { TabSpec } from "./_components/tab-spec";
-import { TabSummary } from "./_components/tab-summary/tab-summary";
-import { TabWorkOrders } from "./_components/tab-work-orders/tab-work-orders";
-import { WoLiveRefresh } from "./_components/tab-work-orders/wo-live-refresh";
+import { ProjectHero } from "./_components/ProjectHero/ProjectHero";
+import { ProjectHeroCompact } from "./_components/ProjectHeroCompact/ProjectHeroCompact";
 import { TabBar, type TabId } from "./_components/tabbar";
 import { WorkspaceNavigationProvider } from "./_components/WorkspaceNavigation";
-import { type WoDetailTab, WorkOrderDetail } from "./_components/wo-detail/wo-detail";
-import { WorkspaceHeader } from "./_components/workspace-header";
-import { ObservabilidadTab } from "./_observability/ObservabilidadTab/ObservabilidadTab";
+import ArquitecturaPanel from "./_panels/ArquitecturaPanel";
+import CambiosPanel from "./_panels/CambiosPanel";
+import ComandosPanel from "./_panels/ComandosPanel";
+import CuentasPanel from "./_panels/CuentasPanel";
+import DocumentosPanel from "./_panels/DocumentosPanel";
+import ObservabilidadPanel from "./_panels/ObservabilidadPanel";
+import ResumenPanel from "./_panels/ResumenPanel";
+import { SectionNotFound } from "./_panels/SectionNotFound";
+import SpecPanel from "./_panels/SpecPanel";
+import type { PanelProps, WorkspaceRoute, WorkspaceSelection } from "./_panels/types";
+import { loadWorkspaceProject } from "./_panels/workspaceProject";
 
-// ---------------------------------------------------------------------------
-// Selection (URL-derived; resolved by the caller from its own searchParams)
-// ---------------------------------------------------------------------------
-
-export interface WorkspaceSelection {
-  activeTab: TabId;
-  docParam: string | undefined;
-  woParam: string | undefined;
-  woTabParam: WoDetailTab;
-}
-
-const VALID_TABS = new Set<string>([
+const VALID_TABS: ReadonlySet<string> = new Set([
   "summary",
   "spec",
+  "observability",
   "architecture",
+  "accounts",
   "changes",
-  "observabilidad",
   "documents",
   "commands",
-  "accounts",
 ]);
-
-/** Resolve the active tab id from a raw `?tab=` param (default: summary). */
-export function resolveWorkspaceTab(raw: string | string[] | undefined): TabId {
-  return typeof raw === "string" && VALID_TABS.has(raw) ? (raw as TabId) : "summary";
+function isTab(value: string): value is TabId {
+  return VALID_TABS.has(value);
 }
 
+/** Reuse the alias table; the codec's compatibility key is translated only at this boundary. */
+export function resolveWorkspaceTab(raw: string | string[] | undefined): TabId | "unknown" {
+  if (raw === undefined) return "summary";
+  if (typeof raw !== "string") return "unknown";
+  const href = normalizeLegacyNavigation(
+    `/portfolio?project=selection&tab=${encodeURIComponent(raw)}`,
+  );
+  const value = parseNavigationUrl(href).tab;
+  const tab = value === "observabilidad" ? "observability" : value;
+  return tab !== undefined && isTab(tab) ? tab : "unknown";
+}
 export interface ProjectWorkspaceProps {
-  /**
-   * Resolved active-project entry (caller does the lookup so it owns the not-found policy). Carries
-   * the already-resolved `status` (StatusResult from the portfolio enrichment) — we reuse it instead
-   * of re-reading, and resolve `path` against the factory root for the per-tab file reads.
-   */
   item: ProjectListItem;
-  /** URL-derived tab + sub-selection. */
   selection: WorkspaceSelection;
-  /** Title heading level — 1 standalone (default), 2 when embedded under Portfolio's h1. */
   headingLevel?: 1 | 2;
   navigationBaseHref?: string;
 }
-
-// ---------------------------------------------------------------------------
-// Per-tab body resolvers (lazy reads stay co-located with the branch that owns them)
-// ---------------------------------------------------------------------------
-
-/** Reuse the board's complete Spec digest and canonical live FRD-count resolver. */
-function renderSpecTab(
-  projectPath: string,
-  title: string,
-  targetPlatforms: string | undefined,
-  navigationBaseHref?: string,
-): React.JSX.Element {
-  const body = readSpecDigest(projectPath);
-  if (body === null) {
-    return <p>Todavía no hay una especificación publicada.</p>;
-  }
-  const nodes = listProjectDocs(projectPath);
-  const card = resolveProjectCard(projectPath);
-  return (
-    <div style={{ overflowX: "clip" }}>
-      <TabSpec
-        key={projectPath}
-        body={body}
-        title={title}
-        project={title}
-        navigationBaseHref={navigationBaseHref}
-        nodes={nodes}
-        projectType={card?.projectType}
-        targetPlatforms={targetPlatforms}
-        frdCount={countFrdFolders(nodes)}
-      />
-    </div>
-  );
-}
-
-function renderWorkOrdersTab(
-  projectPath: string,
-  slug: string,
-  selection: WorkspaceSelection,
-  navigationBaseHref?: string,
-): React.JSX.Element {
-  const { woParam, woTabParam } = selection;
-  const orders = listWorkOrders(projectPath);
-  const selectedOrder =
-    woParam !== undefined ? (orders.find((o) => o.id === woParam) ?? null) : null;
-  if (woParam !== undefined && selectedOrder === null) notFound();
-  if (selectedOrder !== null) {
-    const woContent = readWorkOrderDoc(projectPath, selectedOrder.relPath);
-    // Mount the invisible live refresher alongside the detail pane so a backward
-    // WO transition (IN_REVIEW→PLANNED) re-reads this Server Component and the
-    // detail's status badge updates live — same transport, no second SSE sub.
-    return (
-      <>
-        <WoLiveRefresh project={slug} />
-        <WorkOrderDetail
-          order={selectedOrder}
-          content={woContent}
-          activeWoTab={woTabParam}
-          navigationBaseHref={navigationBaseHref}
-        />
-      </>
-    );
-  }
-  return <TabWorkOrders orders={orders} project={slug} navigationBaseHref={navigationBaseHref} />;
-}
-
-/** Match the idea's canonical project pointer once for shared summary and Spec metadata. */
-function resolveProjectCard(projectPath: string) {
-  return readIdeas().find(
-    (c) => c.project != null && resolveProjectPath(c.project) === projectPath,
-  );
-}
-
-function resolveProjectSummary(projectPath: string, fallback: string): string {
-  const body = resolveProjectCard(projectPath)?.body.trim();
-  return body !== undefined && body.length > 0 ? body : fallback;
-}
-
-function renderDocumentsTab(
-  projectPath: string,
-  slug: string,
-  docParam: string | undefined,
-  navigationBaseHref?: string,
-): React.JSX.Element {
-  const nodes = listProjectDocs(projectPath);
-  const firstNodeId = nodes[0]?.id ?? null;
-  if (docParam !== undefined && !nodes.some((node) => node.id === docParam)) notFound();
-  const selectedId =
-    nodes.find((n) => n.id === docParam) !== undefined ? (docParam ?? null) : firstNodeId;
-  const content =
-    selectedId !== null
-      ? readDoc(projectPath, nodes.find((n) => n.id === selectedId)?.relPath ?? selectedId)
-      : null;
-  return (
-    <TabDocuments
-      nodes={nodes}
-      selectedId={selectedId}
-      content={content}
-      project={slug}
-      navigationBaseHref={navigationBaseHref}
-    />
-  );
-}
-
-/**
- * Summary tab body (WS-2, prototype projResumen). The summary text is the idea-card markdown
- * body — the SAME content the board card-detail shows — falling back to the title when there
- * is no card/body.
- */
-function renderSummaryTab(options: {
-  projectPath: string;
-  slug: string;
-  status: Partial<ProjectStatus>;
-  snapshot: React.ComponentProps<typeof TabSummary>["snapshot"];
-}): React.JSX.Element {
-  const { projectPath, slug, status, snapshot } = options;
-  const activityLog = readActivityLog(projectPath);
-  const decisions = readDecisions(projectPath);
-  const pendingDecisions = decisions.filter((dp) => !dp.resolved).length;
-  const summary = resolveProjectSummary(projectPath, status.project ?? slug);
-  // FRD-20 — is this project's overlay at the factory's current OVERLAY_VERSION, or behind?
-  const overlayFreshness = getOverlayFreshness(status.overlayVersion);
-  // FRD-21 — this project's un-merged worktrees/branches (read live from git; fail-loud).
-  const pendingMerge = readPending(projectPath);
-  return (
-    <TabSummary
-      summary={summary}
-      keyPoints={[]}
-      activityLog={activityLog}
-      decisions={decisions}
-      pendingDecisions={pendingDecisions}
-      slug={slug}
-      snapshot={snapshot}
-      status={status}
-      deployTarget={status.deployTarget}
-      deployUrl={status.deployUrl}
-      overlayFreshness={overlayFreshness}
-      pendingMerge={pendingMerge}
-    />
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ProjectWorkspace
-// ---------------------------------------------------------------------------
+const PANELS = {
+  summary: ResumenPanel,
+  spec: SpecPanel,
+  observability: ObservabilidadPanel,
+  architecture: ArquitecturaPanel,
+  accounts: CuentasPanel,
+  changes: CambiosPanel,
+  documents: DocumentosPanel,
+  commands: ComandosPanel,
+  unknown: SectionNotFound,
+};
 
 export function ProjectWorkspace({
   item,
@@ -235,122 +68,52 @@ export function ProjectWorkspace({
   headingLevel = 1,
   navigationBaseHref,
 }: ProjectWorkspaceProps): React.JSX.Element {
-  const slug = item.name;
-  // Resolve against the factory root (item.path is the raw portfolio cell, relative to that root —
-  // NOT to the app's cwd) before any file read, then read status from the SAME resolved location.
-  const projectPath = resolveProjectPath(item.path);
-  const statusResult = readStatus(projectPath);
-  const status = statusResult.present && statusResult.status !== null ? statusResult.status : {};
-
-  // Full project name for the header title. The portfolio "Proyecto" cell (item.name) is the
-  // FULL name the board card-detail shows (e.g. "Pandacorp (Mission Control)"); status.project
-  // can be a shorter label (e.g. "Pandacorp"), so prefer item.name and fall back to status.project.
-  const title = item.name.trim().length > 0 ? item.name : (status.project ?? slug);
-  const stage = (status.phase ?? item.stage ?? "implementation") as Phase;
-  const deployTarget = status.deployTarget;
-  const version = status.version ?? "0.0.0";
-  const running = item.running === true || status.running === true;
-
-  // Work-order progress DERIVED from the real work orders (DR-092 single source — the same
-  // aggregateProgress the Kanban uses), NOT the stored status.yaml counters, which drift the moment a
-  // work order is added/reopened. total = all WOs, done = VERIFIED.
-  const woProgress = aggregateProgress(listWorkOrders(projectPath));
-  const woDone = woProgress.done;
-  // undefined when there are no work orders → the objectives bar is omitted (AC-04-002.2), same as
-  // the old "no count" behavior; a number once any WO exists.
-  const woTotal = woProgress.total > 0 ? woProgress.total : undefined;
-
-  // FRD-14 snapshot — null when last_green_sha is absent (AC-14-001.3). Rendered inside Summary.
-  const snapshot = buildSnapshot(slug, status, Date.now());
-
-  const { activeTab, docParam } = selection;
-
-  let body: React.JSX.Element;
-  switch (activeTab) {
-    case "accounts": {
-      const data = getServicesDirectory();
-      const accountHref = `/portfolio/${encodeURIComponent(getProjectNavigation(item.path, item.name).slug)}/accounts`;
-      const projectId = data.allocations.find((row) => row.projectHref === accountHref)?.projectId;
-      body = <ServicesDirectory data={data} projectId={projectId ?? "unregistered-project"} />;
-      break;
-    }
-    case "spec":
-      body = renderSpecTab(projectPath, title, status.targetPlatforms, navigationBaseHref);
-      break;
-    case "architecture": {
-      const architecture = readArchitectureArtifacts(projectPath);
-      body = (
-        <div style={{ overflowX: "clip" }}>
-          <ArchitectureDigest
-            key={projectPath}
-            title={title}
-            body={architecture.architectureContent ?? ""}
-            dataModel={architecture.dataModel}
-            workOrders={architecture.workOrders}
-            envVars={architecture.envVars}
-            adrs={architecture.adrs}
-            project={slug}
-          />
-        </div>
-      );
-      break;
-    }
-    case "changes":
-      body = (
-        <TabChanges result={readChangeQueue(projectPath)} projectPath={projectPath} slug={slug} />
-      );
-      break;
-    case "observabilidad": {
-      const workOrders = renderWorkOrdersTab(projectPath, slug, selection, navigationBaseHref);
-      if (selection.woParam) {
-        body = workOrders;
-        break;
-      }
-      const obsOrders = listWorkOrders(projectPath);
-      const timeline = readBuildTimeline(projectPath, obsOrders);
-      body = (
-        <>
-          {workOrders}
-          <div data-testid="tab-observabilidad-body" style={{ padding: "12px 16px" }}>
-            <ObservabilidadTab workOrders={obsOrders} timeline={timeline} project={slug} />
-          </div>
-        </>
-      );
-      break;
-    }
-    case "documents":
-      body = renderDocumentsTab(projectPath, slug, docParam, navigationBaseHref);
-      break;
-    case "commands":
-      body = <TabCommands phase={stage} slug={slug} />;
-      break;
-    default:
-      body = renderSummaryTab({ projectPath, slug, status, snapshot });
-  }
-
+  const project = loadWorkspaceProject(item);
+  const href =
+    navigationBaseHref ??
+    navigationHref("/portfolio", {
+      project: project.slug,
+      tab: selection.rawTab ?? selection.activeTab,
+    });
+  const route: WorkspaceRoute = {
+    ...selection,
+    navigationBaseHref: href,
+    state: parseNavigationUrl(href),
+  };
+  const Panel = PANELS[selection.activeTab];
+  const props: PanelProps = { project, route };
   return (
-    <WorkspaceNavigationProvider href={navigationBaseHref}>
-      <section data-testid="workspace-page" data-slug={slug}>
-        {/* Header + objectives bar live in ONE rounded panel (prototype compactProjectHeader).
-          The objectives bar is passed as children so it renders inside that same panel. */}
-        <WorkspaceHeader
-          title={title}
-          stage={stage}
-          deployTarget={deployTarget}
-          version={version}
-          running={running}
-          headingLevel={headingLevel}
+    <WorkspaceNavigationProvider href={href}>
+      <section data-testid="workspace-page" data-slug={project.slug}>
+        <Crumbs
+          items={[
+            { label: t("shell.nav.portafolio"), href: "/portfolio" },
+            { label: project.name },
+          ]}
+        />
+        {selection.activeTab === "summary" ? (
+          <ProjectHero project={project} headingLevel={headingLevel} />
+        ) : (
+          <ProjectHeroCompact project={project} headingLevel={headingLevel} />
+        )}
+        <TabBar
+          activeTab={selection.activeTab}
+          navigationBaseHref={href}
+          projectName={project.name}
+          counts={project.counts}
+        />
+        <div
+          key={project.projectPath}
+          data-testid="workspace-tab-body"
+          role="tabpanel"
+          id={`workspace-panel-${selection.activeTab}`}
+          aria-labelledby={
+            selection.activeTab === "unknown" ? undefined : `workspace-tab-${selection.activeTab}`
+          }
+          style={{ minWidth: 0, overflowX: "clip" }}
         >
-          <ObjectivesBar done={woDone} total={woTotal} />
-        </WorkspaceHeader>
-
-        {/* Breathing room between the header panel and the tabs (prototype: panel margin-bottom:12px).
-          The tabs are NOT flush against the header; TabBar owns its own bottom padding. */}
-        <div style={{ marginTop: "12px" }}>
-          <TabBar activeTab={activeTab} navigationBaseHref={navigationBaseHref} />
+          {Panel(props)}
         </div>
-
-        <div data-testid="workspace-tab-body">{body}</div>
       </section>
     </WorkspaceNavigationProvider>
   );

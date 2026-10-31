@@ -14,7 +14,7 @@ vi.mock("../ProjectWorkspace", () => {
   ]);
   return {
     resolveWorkspaceTab: (tab: unknown) =>
-      typeof tab === "string" && tabs.has(tab) ? tab : "summary",
+      typeof tab === "string" && tabs.has(tab) ? tab : "unknown",
   };
 });
 
@@ -27,7 +27,10 @@ describe("FRD-25 legacy aliases with no selected project (empty Portfolio)", () 
     expect(() => workspaceSelection({ tab })).not.toThrow();
   });
 
-  it("AC-25-008.1: an unknown tab stays rejected", () => {
-    expect(() => workspaceSelection({ tab: "bogus" })).toThrow("NEXT_HTTP_ERROR_FALLBACK;404");
+  it("AC-25-008.1: an unknown tab keeps its bounded raw label instead of opening a project", () => {
+    expect(workspaceSelection({ tab: "bogus" })).toMatchObject({
+      activeTab: "unknown",
+      rawTab: "bogus",
+    });
   });
 });

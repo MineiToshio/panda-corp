@@ -8,8 +8,10 @@ test("AC-02-015.3 AC-02-015.6 AC-02-015.10: portfolio reuses Architecture after 
   await gotoHydrated(page, "/portfolio/mission-control/architecture", {
     selector: '[data-testid="data-model-viewer"] input',
   });
-  const tabs = page.getByRole("navigation", { name: "Pestañas del espacio de trabajo" });
-  await expect(tabs.getByRole("tab")).toHaveText([...WORKSPACE_TAB_LABELS]);
+  const tabs = page.getByRole("navigation", { name: "Secciones de Mission Control" });
+  expect(
+    (await tabs.getByRole("tab").allTextContents()).map((label) => label.replace(/\d+$/u, "")),
+  ).toEqual([...WORKSPACE_TAB_LABELS]);
   await expect(page.getByTestId("arch-data-model")).toContainText("Modelo de datos");
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),

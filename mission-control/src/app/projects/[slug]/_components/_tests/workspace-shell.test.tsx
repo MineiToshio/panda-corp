@@ -1,270 +1,39 @@
-/**
- * WO-04-004 — Workspace shell tests (CMP-04-workspace, CMP-04-header,
- * CMP-04-objectives-bar, CMP-04-tabbar)
- *
- * RED → GREEN → refactor.
- *
- * Acceptance criteria covered:
- *   AC-04-012.1 — exactly eight tabs in order: Resumen, Spec, Observabilidad, Arquitectura,
- *                 Cuentas, Cambios, Documentos, Comandos
- *   AC-04-001.2 — defaults to Resumen/summary when ?tab= is absent; reflects
- *                 ?tab=documents when present
- *   AC-04-002.1 — header shows title/stage/version (the status.yaml `progress`
- *                 line was removed — dead field, no writer; DR-092/DR-115)
- *   AC-04-002.2 — objectives bar shows "2 / 7 · 29%" for those counts;
- *                 omitted when total is 0 or absent
- *   AC-04-002.3 — header + objectives bar present on every tab
- */
-
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { ObjectivesBar } from "../objectives-bar";
 import { TabBar } from "../tabbar";
-import { WorkspaceHeader } from "../workspace-header";
 
-// Mock Next.js router — TabBar uses useRouter for URL-driven tab navigation.
+const push = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
-  usePathname: () => "/projects/demo",
+  useRouter: () => ({ push }),
   useSearchParams: () => new URLSearchParams(),
 }));
-
-// ---------------------------------------------------------------------------
-// CMP-04-header
-// ---------------------------------------------------------------------------
-
-describe("WorkspaceHeader (CMP-04-header)", () => {
-  it("AC-04-002.1 — renders title, stage and version", () => {
-    render(<WorkspaceHeader title="Mission Control" stage="implementation" version="1.2.0" />);
-    expect(screen.getByTestId("workspace-header")).toBeTruthy();
-    expect(screen.getByTestId("workspace-header-title").textContent).toBe("Mission Control");
-    // Stage label is shown in Spanish (architecture §7) — "Implementación"
-    expect(screen.getByTestId("workspace-header-stage").textContent).toMatch(/implementaci/i);
-    expect(screen.getByTestId("workspace-header-version").textContent).toMatch(/1\.2\.0/);
+describe("workspace tab strip", () => {
+  it("AC-04-014.2: positive counts get badges; zero and unknown counts do not", () => {
+    render(
+      <TabBar
+        activeTab="summary"
+        projectName="Demo"
+        counts={{ orders: 12, services: 2, openChanges: null, documents: 0, frds: 4, adrs: 1 }}
+      />,
+    );
+    expect(screen.getByRole("tab", { name: "Observabilidad 12" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Cuentas 2" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Cambios" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Documentos" })).toBeVisible();
+    expect(screen.getByRole("tablist", { name: "Secciones de Demo" })).toBeVisible();
   });
-
-  it("AC-04-002.1 — title is visible regardless of stage", () => {
-    const phases = ["product", "design", "architecture", "implementation", "release"] as const;
-    for (const phase of phases) {
-      const { unmount } = render(<WorkspaceHeader title="Any" stage={phase} version="1.0" />);
-      expect(screen.getByTestId("workspace-header-title").textContent).toBe("Any");
-      unmount();
-    }
-  });
-
-  it("AC-04-002.1 — stage label is shown in Spanish", () => {
-    render(<WorkspaceHeader title="P" stage="implementation" version="1.0" />);
-    // The stage element exists and has a non-empty textContent
-    const stageEl = screen.getByTestId("workspace-header-stage");
-    expect(stageEl.textContent?.trim().length).toBeGreaterThan(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// CMP-04-objectives-bar
-// ---------------------------------------------------------------------------
-
-describe("ObjectivesBar (CMP-04-objectives-bar)", () => {
-  it("AC-04-002.2 — shows 'X / Y · Z%' for done=2, total=7", () => {
-    render(<ObjectivesBar done={2} total={7} />);
-    const bar = screen.getByTestId("objectives-bar");
-    expect(bar).toBeTruthy();
-    // "2 / 7" and "29%" should both appear
-    const text = bar.textContent ?? "";
-    expect(text).toContain("2");
-    expect(text).toContain("7");
-    expect(text).toContain("29");
-  });
-
-  it("AC-04-002.2 — percentage is floor(2/7*100) = 28 when done=2, total=7", () => {
-    render(<ObjectivesBar done={2} total={7} />);
-    const text = screen.getByTestId("objectives-bar").textContent ?? "";
-    // floor(2/7*100) = 28 (exact) – but blueprint example says 29%
-    // AC says "2 / 7 · 29%" so we accept floor OR round
-    expect(text).toMatch(/2[89]%|28%|29%/);
-  });
-
-  it("AC-04-002.2 — omitted when total is 0", () => {
-    render(<ObjectivesBar done={0} total={0} />);
-    expect(screen.queryByTestId("objectives-bar")).toBeNull();
-  });
-
-  it("AC-04-002.2 — omitted when total is absent (undefined)", () => {
-    render(<ObjectivesBar done={0} total={undefined} />);
-    expect(screen.queryByTestId("objectives-bar")).toBeNull();
-  });
-
-  it("AC-04-002.2 — renders progress bar element (visual fill)", () => {
-    render(<ObjectivesBar done={3} total={10} />);
-    expect(screen.getByTestId("objectives-bar-fill")).toBeTruthy();
-  });
-
-  it("AC-04-002.2 — 100% when done === total", () => {
-    render(<ObjectivesBar done={5} total={5} />);
-    const text = screen.getByTestId("objectives-bar").textContent ?? "";
-    expect(text).toContain("100");
-  });
-
-  it("AC-04-002.2 — done=0, total=10 shows 0%", () => {
-    render(<ObjectivesBar done={0} total={10} />);
-    const text = screen.getByTestId("objectives-bar").textContent ?? "";
-    expect(text).toContain("0");
-  });
-
-  it("AC-04-002.2 — tabular-nums on counts", () => {
-    render(<ObjectivesBar done={2} total={7} />);
-    // The counts wrapper should use tabular-nums (either via className or inline style)
-    const counts = screen.getByTestId("objectives-bar-counts");
-    // Check either inline style or class
-    const style = window.getComputedStyle(counts);
-    const hasTabularNums =
-      style.fontVariantNumeric === "tabular-nums" ||
-      counts.className?.includes("tabular-nums") ||
-      (counts as HTMLElement).style?.fontVariantNumeric === "tabular-nums";
-    expect(hasTabularNums).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// CMP-04-tabbar ("use client")
-// AC-04-012.1 — eight workspace tabs in the approved v2 order.
-// ---------------------------------------------------------------------------
-
-describe("TabBar (CMP-04-tabbar)", () => {
-  const TAB_ORDER = [
-    "summary",
-    "spec",
-    "observabilidad",
-    "architecture",
-    "accounts",
-    "changes",
-    "documents",
-    "commands",
-  ] as const;
-
-  it("AC-04-012.1 — renders exactly eight workspace tabs", () => {
-    render(<TabBar activeTab="summary" />);
-    const tabs = screen.getAllByRole("tab");
-    expect(tabs).toHaveLength(8);
-  });
-
-  it("AC-04-012.1 — renders the approved workspace tab order", () => {
-    render(<TabBar activeTab="summary" />);
-    const tabs = screen.getAllByRole("tab");
-    const ids = tabs.map((t) => t.getAttribute("data-tab") ?? t.getAttribute("data-testid"));
-    expect(ids).toEqual(TAB_ORDER.map((id) => `tab-${id}`));
-  });
-
-  it("AC-04-001.1 — tablist role is present", () => {
-    render(<TabBar activeTab="summary" />);
-    expect(screen.getByRole("tablist")).toBeTruthy();
-  });
-
-  it("AC-04-001.2 — Summary tab is aria-selected when activeTab='summary'", () => {
-    render(<TabBar activeTab="summary" />);
-    const summaryTab = screen.getByTestId("tab-summary");
-    expect(summaryTab.getAttribute("aria-selected")).toBe("true");
-  });
-
-  it("AC-04-001.2 — other seven tabs are NOT aria-selected when summary is active", () => {
-    render(<TabBar activeTab="summary" />);
-    const nonActive = TAB_ORDER.filter((id) => id !== "summary");
-    for (const id of nonActive) {
-      const tab = screen.getByTestId(`tab-${id}`);
-      expect(tab.getAttribute("aria-selected")).toBe("false");
-    }
-  });
-
-  it("AC-04-001.2 — reflects activeTab='observabilidad'", () => {
-    render(<TabBar activeTab="observabilidad" />);
-    expect(screen.getByTestId("tab-observabilidad").getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByTestId("tab-summary").getAttribute("aria-selected")).toBe("false");
-  });
-
-  it("AC-04-001.2 — reflects activeTab='documents'", () => {
-    render(<TabBar activeTab="documents" />);
-    expect(screen.getByTestId("tab-documents").getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByTestId("tab-summary").getAttribute("aria-selected")).toBe("false");
-  });
-
-  it("AC-04-001.2 — reflects activeTab='changes'", () => {
-    render(<TabBar activeTab="changes" />);
-    expect(screen.getByTestId("tab-changes").getAttribute("aria-selected")).toBe("true");
-  });
-
-  it("AC-04-001.2 — reflects activeTab='commands'", () => {
-    render(<TabBar activeTab="commands" />);
-    expect(screen.getByTestId("tab-commands").getAttribute("aria-selected")).toBe("true");
-  });
-
-  it("AC-04-001.1 — each tab has a data-testid of tab-<id>", () => {
-    render(<TabBar activeTab="summary" />);
-    for (const id of TAB_ORDER) {
-      expect(screen.getByTestId(`tab-${id}`)).toBeTruthy();
-    }
-  });
-
-  it("AC-04-001.1 — each tab has Spanish label text", () => {
-    render(<TabBar activeTab="summary" />);
-    const tabs = screen.getAllByRole("tab");
-    for (const tab of tabs) {
-      expect(tab.textContent?.trim().length).toBeGreaterThan(0);
-    }
-  });
-
-  it("AC-04-001.1 — Observabilidad tab label is in Spanish", () => {
-    render(<TabBar activeTab="summary" />);
-    const obsTab = screen.getByTestId("tab-observabilidad");
-    expect(obsTab.textContent?.trim()).toBe("Observabilidad");
-  });
-
-  it("AC-04-002.3 — tabbar data-testid is present", () => {
-    render(<TabBar activeTab="summary" />);
-    expect(screen.getByTestId("tabbar")).toBeTruthy();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Integration: header + objectives bar visible on every tab (AC-04-002.3)
-// AC-04-002.3 is enforced structurally by the page rendering both before the
-// TabBar — tested here by rendering them side-by-side and confirming presence.
-// ---------------------------------------------------------------------------
-
-describe("AC-04-002.3 — header + objectives bar visible on all tabs", () => {
-  const TABS = [
-    "summary",
-    "spec",
-    "observabilidad",
-    "architecture",
-    "accounts",
-    "changes",
-    "documents",
-    "commands",
-  ] as const;
-
-  it("WorkspaceHeader renders regardless of active tab", () => {
-    for (const tab of TABS) {
-      const { unmount } = render(
-        <>
-          <WorkspaceHeader title="X" stage="implementation" version="1.0" />
-          <TabBar activeTab={tab} />
-        </>,
-      );
-      expect(screen.getByTestId("workspace-header")).toBeTruthy();
-      unmount();
-    }
-  });
-
-  it("ObjectivesBar renders regardless of active tab (when total > 0)", () => {
-    for (const tab of TABS) {
-      const { unmount } = render(
-        <>
-          <ObjectivesBar done={3} total={10} />
-          <TabBar activeTab={tab} />
-        </>,
-      );
-      expect(screen.getByTestId("objectives-bar")).toBeTruthy();
-      unmount();
-    }
+  it("AC-04-012.1 AC-04-013.1: shared tabs carry prototype hooks and support keyboard selection", () => {
+    render(
+      <TabBar activeTab="summary" navigationBaseHref="/projects/demo/summary" projectName="Demo" />,
+    );
+    const summary = screen.getByRole("tab", { name: "Resumen" });
+    summary.focus();
+    fireEvent.keyDown(summary, { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "Spec" })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement ?? summary, { key: "Enter" });
+    expect(push).toHaveBeenCalledWith("/projects/demo/spec");
+    expect(summary).toHaveAttribute("data-tabkey", "tab");
+    expect(summary).toHaveAttribute("data-tabval", "Resumen");
+    expect(summary).toHaveAttribute("aria-controls", "workspace-panel-summary");
   });
 });

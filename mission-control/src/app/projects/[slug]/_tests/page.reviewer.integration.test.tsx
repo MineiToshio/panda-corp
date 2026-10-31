@@ -12,8 +12,7 @@
  *   - `?doc=` traversal / unlisted path through the page must NOT leak file
  *     content (security boundary of readDoc, surfaced end-to-end).
  *   - `?doc=` to a node that exists in the tree but is a SYMLINK must not be read.
- *   - objectives bar omitted when listWorkOrders() is empty (no live WOs); rendered
- *     + clamped when done>total.
+ *   - compact header falls back when listWorkOrders() is empty, never showing 0/0.
  *   - all-resolved decisions (pendingDecisions === 0) → no warning treatment.
  *   - unknown phase string survives to the Commands tab without throwing and
  *     yields the safe fallback command, never a misleading building command.
@@ -49,13 +48,22 @@ const statusState = {
   version: "1.0.0",
 };
 
-/** Work orders returned by the mocked listWorkOrders() — objectives-bar source (DR-092/DR-115). */
+/** Work orders returned by the mocked listWorkOrders(), the header progress source (DR-115). */
 let mockWorkOrders: { id: string; title: string; frd: string; state: string; relPath: string }[] =
   [];
 
-vi.mock("@/lib/portfolio/portfolio", () => ({
-  activeProjects: () => [{ name: "demo", path: fixtureRoot, stage: "implementation" }],
-}));
+vi.mock("@/lib/portfolio/portfolio", () => {
+  const projects = () => [
+    {
+      name: "demo",
+      path: fixtureRoot,
+      exists: true,
+      stage: statusState.phase,
+      status: { present: true, malformed: false, status: { ...statusState } },
+    },
+  ];
+  return { allProjects: projects, readPortfolio: projects };
+});
 
 vi.mock("@/lib/status/status", () => ({
   readStatus: () => ({
@@ -75,7 +83,7 @@ vi.mock("@/lib/work-orders/work-orders", async (importOriginal) => ({
   readWorkOrderDoc: () => null,
 }));
 
-/** Build N "done" + M "todo" work orders for the objectives-bar edge-case tests. */
+/** Build N "done" + M "todo" work orders for the header progress edge-case tests. */
 function buildWorkOrders(done: number, total: number) {
   const orders: { id: string; title: string; frd: string; state: string; relPath: string }[] = [];
   for (let i = 0; i < total; i++) {
@@ -90,9 +98,8 @@ function buildWorkOrders(done: number, total: number) {
   return orders;
 }
 
-import { ObjectivesBar } from "../_components/objectives-bar";
 // Imported AFTER the mocks above so the page picks them up.
-import ProjectWorkspacePage from "../page";
+import { openStandalone } from "./standaloneRoute";
 
 beforeAll(() => {
   fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "frd04-int-"));
@@ -135,10 +142,8 @@ beforeEach(() => {
 });
 
 function renderPage(searchParams: Record<string, string> = {}) {
-  return ProjectWorkspacePage({
-    params: Promise.resolve({ slug: "demo" }),
-    searchParams: Promise.resolve(searchParams),
-  });
+  const query = new URLSearchParams(searchParams);
+  return openStandalone(`/projects/demo${query.size ? `?${query}` : ""}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -207,25 +212,21 @@ describe("FRD-04 reviewer — Summary tab real comms integration", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Header / objectives — numeric edge cases (0, absent, overflow)
+// Compact header: numeric edges (no orders, and real progress)
 // ---------------------------------------------------------------------------
 
-describe("FRD-04 reviewer — header + objectives numeric edges", () => {
-  it("objectives bar is OMITTED when listWorkOrders() returns none (AC-04-002.2)", async () => {
+describe("FRD-04 reviewer: compact header numeric edges", () => {
+  it("shows the no-orders fallback, never 0/0, when no work order exists (AC-04-014.1)", async () => {
     mockWorkOrders = [];
     render(await renderPage({ tab: "commands" }));
-    expect(screen.queryByTestId("objectives-bar")).toBeNull();
+    const header = screen.getByTestId("project-hero-compact");
+    expect(header.textContent).not.toContain("0/0");
+    expect(header).toHaveTextContent("Sin work orders");
   });
 
-  it("objectives bar clamps to 100% when done > total (defensive — the page can't produce this now)", () => {
-    // The page derives done/total from aggregateProgress() where done ≤ total always, so done > total
-    // is no longer reachable through it (FRD-21). The clamp stays as a defensive guarantee in
-    // ObjectivesBar, tested here directly at the component level.
-    render(<ObjectivesBar done={9} total={4} />);
-    const pct = screen.getByTestId("objectives-bar-pct").textContent ?? "";
-    expect(pct).toContain("100%");
-    // aria-label must not claim a >100% completion
-    expect(screen.getByTestId("objectives-bar").getAttribute("aria-label")).toContain("100%");
+  it("derives n/m WO and pct from the real orders (AC-04-014.1)", async () => {
+    render(await renderPage({ tab: "commands" }));
+    expect(screen.getByTestId("project-hero-compact").textContent).toMatch(/2\/4 WO . 50\s?%/);
   });
 });
 

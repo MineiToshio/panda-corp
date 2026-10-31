@@ -62,16 +62,6 @@ export const FIXTURE_EVENTS_EMPTY_NDJSON: string = path.join(
 );
 
 /**
- * NDJSON with enriched AgentWorking events carrying {frd, wo, phase, activity, mode, role}.
- * Used for toFraguaSnapshot tests (WO-06-005 La Fragua redesign).
- * Contains 9 valid events (including 2 achievements/VERIFIED), 1 malformed line.
- */
-export const FIXTURE_EVENTS_ENRICHED_NDJSON: string = path.join(
-  FIXTURE_EVENTS_DIR,
-  "dashboard-events-enriched.ndjson",
-);
-
-/**
  * NDJSON mixing one project's build events ("alpha", 3 events, earliest) with
  * another project's session noise ("beta", 6 later events). Pins the
  * readEvents project filter running BEFORE the tail cap (FRD-01, 2026-07-01).

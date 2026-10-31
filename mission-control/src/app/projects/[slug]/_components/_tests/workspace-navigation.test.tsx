@@ -96,23 +96,16 @@ describe("persistent project workspace navigation", () => {
     );
   });
 
-  it("restores standalone detail paths with the same shared workspace", async () => {
+  it("canonicalizes standalone legacy detail paths before mounting interactive controls", async () => {
     setUrl("/projects/selected-project/work-orders/WO-01-001/full");
-    render(
-      await ProjectWorkspacePage({
+    await expect(
+      ProjectWorkspacePage({
         params: Promise.resolve({ slug: "selected-project" }),
         searchParams: Promise.resolve({}),
         routeState: { tab: "work-orders", wo: order.id, wotab: "full" },
+        requestHref: "/projects/selected-project/work-orders/WO-01-001/full",
       }),
-    );
-    expect(screen.getByRole("tab", { name: "Documento completo" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(screen.getByRole("link", { name: "Volver al tablero de work orders" })).toHaveAttribute(
-      "href",
-      "/projects/selected-project/work-orders",
-    );
+    ).rejects.toThrow("NEXT_REDIRECT");
   });
 
   it("never selects the first project for an explicit unknown or duplicate project parameter", async () => {
@@ -130,26 +123,30 @@ describe("persistent project workspace navigation", () => {
     const item = projects[1];
     if (!item) throw new Error("Missing project fixture");
     expect(() =>
-      ProjectWorkspace({
-        item,
-        selection: {
-          activeTab: "observabilidad",
-          woParam: "WO-missing",
-          woTabParam: "summary",
-          docParam: undefined,
-        },
-      }),
+      render(
+        ProjectWorkspace({
+          item,
+          selection: {
+            activeTab: "observability",
+            woParam: "WO-missing",
+            woTabParam: "summary",
+            docParam: undefined,
+          },
+        }),
+      ),
     ).toThrow("404");
     expect(() =>
-      ProjectWorkspace({
-        item,
-        selection: {
-          activeTab: "documents",
-          woParam: undefined,
-          woTabParam: "summary",
-          docParam: "../../private",
-        },
-      }),
+      render(
+        ProjectWorkspace({
+          item,
+          selection: {
+            activeTab: "documents",
+            woParam: undefined,
+            woTabParam: "summary",
+            docParam: "../../private",
+          },
+        }),
+      ),
     ).toThrow("404");
   });
 
@@ -157,7 +154,7 @@ describe("persistent project workspace navigation", () => {
     setUrl("/portfolio/selected-project/work-orders?state=done&frd=frd-01-x");
     render(
       <TabBar
-        activeTab="observabilidad"
+        activeTab="observability"
         navigationBaseHref="/portfolio/selected-project/work-orders"
       />,
     );

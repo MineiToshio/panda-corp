@@ -22,6 +22,8 @@ import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { BlockContent } from "./BlockContent";
 
 export interface SpecDigestProps {
+  /** Hide the default notice when the workspace provides its linked notice. */
+  readonly showUnpublishedNotice?: boolean;
   readonly body: string;
   readonly title: string;
   readonly projectType?: string;
@@ -39,6 +41,7 @@ export interface SpecDigestProps {
 /** Shared native Spec report; authored narrative and live artifact state have separate inputs. */
 export function SpecDigest({
   body,
+  showUnpublishedNotice = true,
   title,
   projectType,
   targetPlatforms,
@@ -65,7 +68,7 @@ export function SpecDigest({
         projectType={projectType}
         targetPlatforms={targetPlatforms}
       />
-      {!spec.hasContent && !frds?.length && (
+      {showUnpublishedNotice && !spec.hasContent && !frds?.length && (
         <Notice icon="book">{t("workspace.spec.notPublished.title")}</Notice>
       )}
       {spec.prd && spec.prd.blocks.length > 0 && (

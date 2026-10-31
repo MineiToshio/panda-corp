@@ -1,10 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { routeHref, workspaceRouteState } from "@/lib/navigation/routeState";
 import { parseNavigationUrl } from "@/lib/navigation/urls";
 import { workspaceHref, workspaceSelection } from "../workspace-route";
-
-vi.mock("../ProjectWorkspace", () => ({
-  resolveWorkspaceTab: (tab: string | undefined) => tab ?? "summary",
-}));
 
 describe("workspace compatibility boundary", () => {
   it.each([
@@ -20,7 +17,7 @@ describe("workspace compatibility boundary", () => {
     const legacy = { project: "second", tab: "work-orders", wo: "WO-01-001", wotab: "full" };
     const selection = workspaceSelection(legacy);
     expect(selection).toMatchObject({
-      activeTab: "observabilidad",
+      activeTab: "observability",
       woParam: "WO-01-001",
       woTabParam: "full",
     });
@@ -29,5 +26,22 @@ describe("workspace compatibility boundary", () => {
     expect(parseNavigationUrl(canonical)).toMatchObject({ wo: "WO-01-001", woview: "full" });
     expect(canonical).not.toContain("wotab");
     expect(workspaceSelection(parseNavigationUrl(canonical))).toEqual(selection);
+  });
+});
+
+describe.each(["/portfolio", "/projects"] as const)("unknown sections in %s", (family) => {
+  it.each([
+    "foo%20bar",
+    "foo%25bar",
+    "foo%2520bar",
+    "foo%",
+    "%E0%A4%A",
+  ])("keeps %s stable across route selection and canonicalization", (raw) => {
+    const href = routeHref(family, ["second", raw], {});
+    const segments = new URL(href, "http://localhost").pathname.split("/").slice(2);
+    const params = workspaceRouteState(href, segments);
+    const selection = workspaceSelection(params);
+    expect(selection.activeTab).toBe("unknown");
+    expect(workspaceHref(family, params, "second", selection)).toBe(href);
   });
 });
