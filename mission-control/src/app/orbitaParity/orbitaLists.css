@@ -1,0 +1,254 @@
+/* biome-ignore-all lint/style/noDescendingSpecificity: rule order is the prototype's own cascade, ported verbatim. */
+body .guild-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--s6);
+  align-items: center;
+  padding: var(--s6);
+  border-radius: var(--r-xl);
+  margin-bottom: var(--s6);
+  background: radial-gradient(
+    100% 160% at 0% 0%,
+    color-mix(in srgb, var(--gold) 20%, var(--surface)),
+    var(--surface) 60%
+  );
+  border: var(--hairline) solid color-mix(in srgb, var(--gold) 30%, var(--line));
+}
+body .trophy {
+  display: grid;
+  gap: var(--s2);
+  align-content: start;
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: var(--hairline) solid color-mix(in srgb, var(--tone) 35%, var(--line));
+  text-align: left;
+  color: inherit;
+}
+body .trophy .ticon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r);
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) var(--tint-strong), transparent);
+}
+body .trophy.locked {
+  border-style: dashed;
+  border-color: var(--line-strong);
+}
+body .trophy.locked .ticon {
+  color: var(--text-3);
+  background: var(--surface-2);
+}
+body .trophy b {
+  font: 700 var(--fs-md) / 1.3 var(--font-display);
+}
+body .trophy small {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  line-height: 1.4;
+}
+body dialog .dsheet .brow {
+  grid-template-columns: 128px minmax(0, 1fr);
+  gap: var(--s4);
+}
+body dialog .dsheet .brow:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+@media (max-width: 899px) {
+  body .frd-row > summary {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  body .frd-row > summary .stackbar {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+  body .frd-row > summary .fpct {
+    display: none;
+  }
+  body .guild-hero {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  body .guild-hero > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 759px) {
+  body .frd-row > summary {
+    gap: 10px;
+    padding: var(--s3);
+  }
+  body .guild-hero {
+    padding: var(--s4);
+    gap: var(--s4);
+  }
+}
+@media (max-width: 759px) {
+  body .hero.compact .switcher {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+body .frd-rows {
+  grid-template-columns: minmax(0, 1fr);
+}
+body .lrow .grow small.clamp-2,
+body .lrow .grow strong.clamp-2 {
+  display: -webkit-box;
+}
+body .frdc .stackbar {
+  flex: 1;
+}
+body .idea-head {
+  display: grid;
+  gap: 6px;
+  margin-bottom: var(--s4);
+}
+body .idea-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+body .idea-title h1 {
+  font-size: var(--fs-h2);
+}
+body .idea-title .badge-icon {
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) var(--tint-strong), transparent);
+}
+body .star-toggle[aria-pressed="true"] {
+  color: var(--gold);
+}
+body .star-toggle[aria-pressed="true"] .i {
+  fill: currentColor;
+}
+body .dhero {
+  display: grid;
+  gap: 10px;
+  padding: var(--s4) 0 var(--s6);
+}
+body .dhero .eyebrow {
+  font: 700 var(--fs-xs) / 1.2 var(--font-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+body .dhero h2 {
+  font-size: var(--fs-h1);
+  letter-spacing: -0.02em;
+}
+body .dhero .chip {
+  font-weight: 600;
+}
+/* The bleed is painted, not laid out: negative margins would count as horizontal overflow at every ancestor. */
+body .band {
+  --shadow-band: 0 0 0 var(--gutter) color-mix(in srgb, var(--tone) 6%, var(--bg));
+  padding: var(--s6) 0;
+  background: color-mix(in srgb, var(--tone) 6%, var(--bg));
+  box-shadow: var(--shadow-band);
+  clip-path: inset(0 calc(-1 * var(--gutter)));
+  border-top: var(--hairline) solid var(--line);
+  min-width: 0;
+}
+body .brow {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: var(--s6);
+  padding: var(--s3) 0;
+  border-top: var(--hairline) dashed var(--line-strong);
+}
+body .brow:first-of-type,
+body .band-head + .brow {
+  border-top: 0;
+}
+body .feat {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 12px 14px;
+  border-radius: var(--r);
+  background: var(--surface);
+  border: var(--hairline) solid var(--line);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-2);
+}
+body .feat b {
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 650;
+}
+body .pbox {
+  padding: 12px 16px;
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--tone) var(--tint), var(--surface));
+  border: var(--hairline) solid color-mix(in srgb, var(--tone) 45%, transparent);
+}
+body .pbox .md > :last-child {
+  margin-bottom: 0;
+}
+body .checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px 20px;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+body .checks li {
+  position: relative;
+  padding-left: 20px;
+}
+body .checks li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--green);
+  font-weight: 800;
+}
+body .frdc {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 14px;
+  border-radius: var(--r);
+  background: var(--surface);
+  border: var(--hairline) solid var(--line);
+  transition: transform var(--dur);
+}
+body .frdc:has(.frdc-open:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+body .frdc .frdc-go {
+  color: var(--tone);
+}
+@media (hover: hover) {
+  body .frdc:hover {
+    border-color: color-mix(in srgb, var(--tone) 45%, var(--line));
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+}
+body .frdc b {
+  font: 700 var(--fs-md) / 1.3 var(--font-display);
+}
+@media (max-width: 759px) {
+  body .brow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  body .dhero h2 {
+    font-size: var(--fs-h1s);
+  }
+}
+body .band .faint {
+  color: var(--text-2);
+}

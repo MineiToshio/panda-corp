@@ -1,0 +1,220 @@
+/* biome-ignore-all lint/style/noDescendingSpecificity: rule order is the prototype's own cascade, ported verbatim. */
+@media (max-width: 1023px) {
+  body .acc-table .copy-text {
+    margin-left: -8px;
+    overflow-wrap: anywhere;
+  }
+}
+@media (max-width: 759px) {
+  body .ask-row > .btn {
+    grid-column: 2;
+    justify-self: start;
+  }
+  body .ask-row strong.clamp-2 {
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+  }
+}
+@media (max-width: 899px) {
+  body .fr-cast {
+    height: auto;
+    justify-content: center;
+  }
+  body .fr-cast img {
+    width: 40px;
+    height: 40px;
+  }
+  body .fr-cast img + img {
+    margin-left: -10px;
+  }
+  body .fr-plate {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "name count" "sub count" "toks toks";
+    justify-items: start;
+    align-items: center;
+    column-gap: var(--s3);
+    row-gap: 2px;
+    text-align: left;
+    padding: var(--s3);
+  }
+  body .fr-plate > b {
+    grid-area: name;
+  }
+  body .fr-plate > .fr-count {
+    grid-area: count;
+    font-size: var(--fs-h2);
+  }
+  body .fr-plate > .xs {
+    grid-area: sub;
+  }
+  body .fr-plate > .tokens {
+    grid-area: toks;
+    justify-content: flex-start;
+    margin-top: var(--s2);
+  }
+  body .fr-plate > .tokens {
+    min-height: 0;
+  }
+  body .fr-plate > .tokens.is-empty {
+    margin-top: 2px;
+  }
+}
+body .dag-list .lrow.is-focus {
+  background: color-mix(in srgb, var(--teal) var(--tint), transparent);
+}
+body .dag-list .lrow.dim {
+  opacity: 0.5;
+}
+body .cfg-row .copy-text {
+  flex: none;
+  white-space: nowrap;
+}
+@media (min-width: 760px) {
+  body .lrow .ask-cmd code {
+    white-space: nowrap;
+  }
+  body .lrow .ask-cmd {
+    flex: none;
+  }
+}
+@media (max-width: 759px) {
+  body .lrow:has(> .chip, > .ask-cmd, > .copy-text) {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  body .lrow:has(> .chip, > .ask-cmd, > .copy-text) > .grow {
+    flex: 1 1 calc(100% - 52px);
+  }
+  body .lrow > :not(.grow):first-child ~ .grow + :is(.chip, .ask-cmd, .copy-text) {
+    margin-left: 40px;
+  }
+  body .lrow:has(> .chip) > .i:last-child {
+    margin-left: auto;
+  }
+  body .lrow .ask-cmd {
+    flex: 1 1 100%;
+    margin-left: 40px;
+  }
+  body .lrow .chip + .ask-cmd {
+    margin-left: 40px;
+  }
+  body .lrow[data-standard] > .chip.plain {
+    display: none;
+  }
+  body .lrow.cfg-row > .chip.plain {
+    order: 5;
+  }
+}
+@media (max-width: 759px) {
+  body .docs-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+body
+  :is(
+    .num,
+    .hero-stats .st b,
+    .state-tile b,
+    .pa-facts dd,
+    .lf-step b,
+    .mpct,
+    .kpi b,
+    .hstat b,
+    .fr-count
+  ) {
+  font-variant-numeric: normal;
+}
+body .hero.compact .switcher > span {
+  flex: 1;
+  text-align: left;
+}
+body .cfg-row .copy-text {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+}
+@media (max-width: 899px) {
+  body .lrow[data-standard] > .chip.plain {
+    display: none;
+  }
+}
+body .state-tile {
+  grid-template-rows: 1fr auto;
+}
+body .state-tile .lbl {
+  align-self: start;
+}
+@media (max-width: 759px) {
+  body .state-strip > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+body .idea-title {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 12px;
+  row-gap: 6px;
+}
+body .idea-title > .row {
+  grid-column: 2;
+}
+body .card-intro {
+  margin-bottom: var(--s3);
+  max-width: 76ch;
+}
+body .fname .drift-chip {
+  margin-left: var(--s2);
+  vertical-align: middle;
+}
+body .frd-row .drift-note {
+  margin: var(--s2) var(--s3) 0;
+}
+body .snap-sha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}
+
+body .sbul {
+  margin: 0;
+  padding-left: 1.1em;
+  display: grid;
+  gap: 6px;
+}
+body .sbul li::marker {
+  color: var(--tone, var(--text-3));
+}
+body .muted-pill {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  border: var(--hairline) solid var(--line);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+body ul.decs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+body .decs li {
+  position: relative;
+  padding: 8px 0 8px 22px;
+  border-top: var(--hairline) dashed color-mix(in srgb, var(--amber) 35%, transparent);
+  font-size: var(--fs-sm);
+}
+body .decs li:first-child {
+  border-top: 0;
+}
+body .decs li::before {
+  content: "◆";
+  position: absolute;
+  left: 2px;
+  color: var(--amber);
+}
+body .band-head .card-head {
+  flex-wrap: nowrap;
+}
