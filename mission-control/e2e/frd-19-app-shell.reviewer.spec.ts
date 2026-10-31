@@ -25,6 +25,9 @@ const TRANSIENT_NESTED_MAIN: Readonly<Record<string, number>> = {
   "/configuration": 1, // WO-07-006
 };
 
+// The first client navigation to a route compiles it in `next dev`, far slower under a loaded gate.
+const NAVIGATION_TIMEOUT_MS = 15_000;
+
 async function open(page: Page, width: number, path: string): Promise<void> {
   await page.route("**/api/live**", (route) => route.abort());
   await page.setViewportSize({ width, height: 900 });
@@ -131,9 +134,11 @@ test("AC-19-001.4: every sidebar destination navigates client-side", async ({ pa
     await expect(link).toHaveAttribute("href", destination.path);
     await link.click();
     await expect
-      .poll(() => new URL(page.url()).pathname)
+      .poll(() => new URL(page.url()).pathname, { timeout: NAVIGATION_TIMEOUT_MS })
       .toMatch(new RegExp(`^${destination.path === "/" ? "/$" : destination.path}(/|$)`));
-    await expect(link).toHaveAttribute("aria-current", "page");
+    await expect(link).toHaveAttribute("aria-current", "page", {
+      timeout: NAVIGATION_TIMEOUT_MS,
+    });
   }
   expect(await page.evaluate(() => Reflect.get(window, "shellSentinel"))).toBe(true);
 });
