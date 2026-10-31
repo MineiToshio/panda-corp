@@ -24,7 +24,7 @@ import { resolveFactoryRoot } from "../config/config";
 // ---------------------------------------------------------------------------
 
 /** Where the skill is used: inside the factory or inside a project. */
-export type RunsIn = "factory" | "project" | "unknown";
+type RunsIn = "factory" | "project" | "unknown";
 
 /**
  * One entry in the skills catalog.
@@ -67,6 +67,8 @@ export type AgentRef = {
   name: string | null;
   description: string | null;
   model: string;
+  tools?: string[];
+  effort?: "high" | "medium" | "low" | null;
   body: string;
 };
 
@@ -260,17 +262,14 @@ function inferAgents(body: string): string[] {
  *
  * Returns [] when the directory is absent (AC-07-001.5).
  */
-export function readSkills(): SkillRef[] {
+function collectSkills(report: (source: string) => void): SkillRef[] {
   const skillsDir = pluginSkillsDir();
-
-  if (!fs.existsSync(skillsDir)) {
-    return [];
-  }
 
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(skillsDir, { withFileTypes: true });
   } catch {
+    report(skillsDir);
     return [];
   }
 
@@ -287,6 +286,7 @@ export function readSkills(): SkillRef[] {
 
     const parsed = parsePluginFile(skillFile);
     if (parsed === null) {
+      report(skillFile);
       console.warn(`[reference] Skipped malformed SKILL.md: ${skillFile}`);
       continue;
     }
@@ -296,13 +296,14 @@ export function readSkills(): SkillRef[] {
     // `description` is required (AC-07-001.2).
     const description = typeof fm.description === "string" ? fm.description.trim() : null;
     if (!description) {
+      report(skillFile);
       console.warn(`[reference] Skipped skill "${slug}": missing description frontmatter`);
       continue;
     }
 
     const body = typeof parsed.content === "string" ? parsed.content.trim() : "";
     const runsIn = inferRunsIn(description, body);
-    const internal = inferInternal(description);
+    const internal = fm["user-invocable"] === false || inferInternal(description);
     const produces = inferProduces(description, body);
     const agents = inferAgents(body);
 
@@ -328,17 +329,39 @@ export function readSkills(): SkillRef[] {
  * Defensive: a totally malformed file (unparseable YAML) is skipped with a warning,
  * never throws (AC-07-002.2). Returns [] when the directory is absent (AC-07-002.4).
  */
-export function readAgents(): AgentRef[] {
-  const agentsDir = pluginAgentsDir();
+function agentFromFile(id: string, parsed: matter.GrayMatterFile<string>): AgentRef {
+  const fm = parsed.data as Record<string, unknown>;
 
-  if (!fs.existsSync(agentsDir)) {
-    return [];
-  }
+  // For agents: missing fields get typed defaults (AC-07-002.2).
+  const name: string | null = typeof fm.name === "string" ? fm.name : null;
+  const description: string | null = typeof fm.description === "string" ? fm.description : null;
+  const model: string = typeof fm.model === "string" ? fm.model : "unknown";
+
+  const body = typeof parsed.content === "string" ? parsed.content.trim() : "";
+
+  const tools =
+    typeof fm.tools === "string"
+      ? fm.tools
+          .split(",")
+          .map((tool) => tool.trim())
+          .filter(Boolean)
+      : Array.isArray(fm.tools)
+        ? fm.tools.filter((tool): tool is string => typeof tool === "string")
+        : [];
+  const rawEffort = typeof fm.effort === "string" ? fm.effort.toLowerCase() : "";
+  const effort =
+    rawEffort === "high" || rawEffort === "medium" || rawEffort === "low" ? rawEffort : null;
+  return { id, name, description, model, tools, effort, body };
+}
+
+function collectAgents(report: (source: string) => void): AgentRef[] {
+  const agentsDir = pluginAgentsDir();
 
   let entries: string[];
   try {
     entries = fs.readdirSync(agentsDir);
   } catch {
+    report(agentsDir);
     return [];
   }
 
@@ -353,21 +376,49 @@ export function readAgents(): AgentRef[] {
 
     const parsed = parsePluginFile(filePath);
     if (parsed === null) {
+      report(filePath);
       console.warn(`[reference] Skipped malformed agent file: ${filePath}`);
       continue;
     }
 
-    const fm = parsed.data as Record<string, unknown>;
-
-    // For agents: missing fields get typed defaults (AC-07-002.2).
-    const name: string | null = typeof fm.name === "string" ? fm.name : null;
-    const description: string | null = typeof fm.description === "string" ? fm.description : null;
-    const model: string = typeof fm.model === "string" ? fm.model : "unknown";
-
-    const body = typeof parsed.content === "string" ? parsed.content.trim() : "";
-
-    agents.push({ id, name, description, model, body });
+    agents.push(agentFromFile(id, parsed));
   }
 
   return agents;
+}
+
+/** A catalog is empty only when its source was successfully interpreted. */
+export type CatalogResult<T> =
+  | { ok: true; data: T[] }
+  | { ok: false; source: string; reason: string };
+
+function collectCatalog<T>(
+  read: (report: (source: string) => void) => T[],
+  tolerant: boolean,
+): CatalogResult<T> {
+  let source: string | undefined;
+  const data = read((failed) => {
+    source ??= failed;
+  });
+  return source && !tolerant
+    ? { ok: false, source, reason: "Source could not be read or parsed" }
+    : { ok: true, data };
+}
+/** Read skills with an explicit source error; tolerant mode preserves the legacy array contract. */
+export function readSkillCatalog(tolerant = false): CatalogResult<SkillRef> {
+  return collectCatalog(collectSkills, tolerant);
+}
+/** Read agents with an explicit source error; tolerant mode preserves the legacy array contract. */
+export function readAgentCatalog(tolerant = false): CatalogResult<AgentRef> {
+  return collectCatalog(collectAgents, tolerant);
+}
+/** Legacy tolerant skills view for other consumers. */
+export function readSkills(): SkillRef[] {
+  const result = readSkillCatalog(true);
+  return result.ok ? result.data : [];
+}
+/** Legacy tolerant agents view for other consumers. */
+export function readAgents(): AgentRef[] {
+  const result = readAgentCatalog(true);
+  return result.ok ? result.data : [];
 }

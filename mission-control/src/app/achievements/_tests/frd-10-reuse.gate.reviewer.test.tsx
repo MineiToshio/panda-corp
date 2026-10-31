@@ -1,168 +1,69 @@
 /**
- * FRD-10 reviewer GATE test — DR-057 / DR-062 reuse-before-create cohesion (Opus 4.8).
- *
- * Written by the REVIEWER (a different model from the implementers) at the FRD gate.
- * "Reuse before create" is VERIFIED here, not assumed (DR-057). The living inventory
- * `docs/design/components.md` is the contract:
- *
- *   - line 42 : `Tabs`/`SubTabs` is "The ONE tab pattern (DR-062)" — aliases include
- *               `.stab`, `SubTabs`, `logrosTabs`; explicit reuse target "WO/config/
- *               **logros sub-tabs**"; "no ad-hoc switcher per screen".
- *   - line 209: "One banner, one chip, one panel, **one tab** … the aliases noted in
- *               each row (`.stab`/…) are the same primitive named differently across
- *               FDDs — collapse to the canonical row, **never fork**."
- *   - line 120: `HallTabs` is the 4-tab Achievements Hall shell.
- *
- * The WO-10-005 scope itself (wo-10-005-hall-surfaces.md, "Scope") lists
- * `Tabs`/`SubTabs` (core) — "the four `.stab` sub-tabs" — as a primitive to REUSE.
- *
- * The Achievements Hall sub-tab bar (Resumen · Misiones · Trofeos · Estadísticas) is
- * exactly the canonical `logrosTabs` alias of the ONE `Tabs` primitive. It must
- * therefore render through the SHARED `Tabs`/`SubTabs` primitive — NOT a hand-rolled
- * `role="tablist"` with a private `stabStyle()`. A near-duplicate of an existing
- * primitive is a defect, not a feature (DR-057); sibling surfaces must converge on
- * the one pattern (DR-062 cohesion). This is the SAME defect class that reopened
- * FRD-05 (WoDetail hand-rolled tablist) and FRD-07 (SectionTabs hand-rolled tablist).
- *
- * Detection contract (the primitive stamps its own testid):
- *   - `Tabs`/`SubTabs` → `<div data-testid="tabs-root" role="tablist">` with
- *                        `<button role="tab">` (src/components/core/Tabs/Tabs.tsx)
- *
- * Anchored in: DR-057, DR-062, components.md rows for Tabs/HallTabs + the WO-10-005
- * scope. EARS bullet "four `.stab` sub-tabs: Resumen · Misiones · Trofeos · Estadísticas".
- *
- * Stack: Vitest + @testing-library/react + jsdom.
+ * FRD-10 reuse gate (DR-057/DR-062), reconciled for WO-10-016: the hall's tab bar is the ONE Tabs
+ * primitive, the category filter is the shared FilterChip, and paging and dialogs reuse MoreBar
+ * and the shared dialog rather than forks.
  */
-
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-
-import type { ChainState, Secret, Unique } from "@/lib/achievements/achievements";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { Unique } from "@/lib/achievements/achievements";
 import type { ReaderData } from "@/lib/achievements/stats";
 import { HallTabs } from "../_components/HallTabs";
-import { UniquesSection } from "../UniquesSection/UniquesSection";
 
-// ── Minimal fixtures (the page already verifies the data pipeline; this gate is
-//    purely about WHICH primitive renders the tab bar) ─────────────────────────
-
-const CHAIN: ChainState = {
-  statKey: "shipped",
-  label: "Productos lanzados",
-  currentTierIndex: 0,
-  currentTierName: "Bronce",
-  nextTier: { name: "Plata", threshold: 3 },
-  pctToNext: 40,
-  lowerIsBetter: false,
-  unlocks: [{ tier: 0, date: "2026-01-15", project: "demo" }],
-};
-
-const UNIQUE: Unique = {
-  name: "El primer ladrillo",
+const READER_DATA: ReaderData = { ideas: [], statuses: [], eventsSnapshot: null };
+const locked = (index: number): Unique => ({
+  name: `Trofeo ${index}`,
   category: "Discovery",
   rarity: "Común",
-  unlocked: true,
-  date: "2026-01-15",
-  project: "demo",
-  condition: "Lanza tu primer producto.",
-};
-
-const SECRET: Secret = {
-  hint: "Una sombra entre las ideas…",
   unlocked: false,
-};
+  condition: "Condición real.",
+});
 
-const READER_DATA: ReaderData = {
-  ideas: [],
-  statuses: [],
-  eventsSnapshot: null,
-};
-
-function renderHall() {
+function renderHall(uniques: readonly Unique[]) {
   return render(
     <HallTabs
-      chains={[CHAIN]}
-      uniques={[UNIQUE]}
-      secrets={[SECRET]}
+      chains={[]}
+      uniques={uniques}
+      secrets={[]}
       readerData={READER_DATA}
-      trophiesCount={1}
-      trophiesTotal={1}
-      missionsActive={1}
-      hero={<div data-testid="guild-hero" />}
+      trophiesCount={0}
+      trophiesTotal={uniques.length}
+      missionsActive={0}
+      hero={<div />}
       level={{ level: 3, title: "Buscador del Alba II", xp: 200, next: 450, pctToNext: 30 }}
     />,
   );
 }
+function visit(href: string): void {
+  act(() => {
+    window.history.replaceState(null, "", href);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+}
 
-describe("frd-10 GATE (DR-062): the Achievements Hall sub-tab bar is the ONE Tabs primitive", () => {
-  it("frd-10: HallTabs renders the shared Tabs primitive (data-testid=tabs-root), not a hand-rolled role=tablist", () => {
-    renderHall();
-    expect(
-      screen.queryByTestId("tabs-root"),
-      "HallTabs must use the shared Tabs/SubTabs primitive (DR-062 'no ad-hoc switcher per screen'); " +
-        "the inventory (components.md:42) lists `logrosTabs` as an alias of the ONE Tabs primitive and " +
-        "the WO-10-005 scope lists Tabs/SubTabs as the four .stab sub-tabs to reuse. A private stabStyle() " +
-        "role=tablist is a fork (the same defect that reopened FRD-05/FRD-07).",
-    ).not.toBeNull();
+beforeEach(() => visit("/achievements/trophies"));
+afterEach(cleanup);
+
+describe("frd-10 GATE (DR-057, DR-062)", () => {
+  it("the five tabs live inside the shared Tabs root", () => {
+    renderHall([locked(1)]);
+    expect(within(screen.getByTestId("tabs-root")).getAllByRole("tab")).toHaveLength(5);
   });
 
-  it("frd-10: the four sub-tabs are tab buttons inside the shared Tabs primitive", () => {
-    renderHall();
-    const tabsRoot = screen.queryByTestId("tabs-root");
-    expect(
-      tabsRoot,
-      "the four .stab sub-tabs (Resumen · Misiones · Trofeos · Estadísticas) must live inside the shared Tabs primitive",
-    ).not.toBeNull();
-  });
-});
-
-// ── UniquesSection category filter — DR-057/DR-062 (second defect in reopening) ──────────────
-
-const UNIQUE_DISCOVERY: Unique = {
-  name: "El explorador",
-  category: "Discovery",
-  rarity: "Común",
-  unlocked: false,
-  condition: "Crea tu primera idea.",
-};
-const UNIQUE_SPEED: Unique = {
-  name: "El rápido",
-  category: "Speed",
-  rarity: "Poco común",
-  unlocked: false,
-  condition: "Lanza en 48 horas.",
-};
-
-describe("frd-10 GATE (DR-057): UniquesSection category filter uses the shared Tabs primitive", () => {
-  /**
-   * The WO-10-005 reopening finding (2026-06-21) explicitly names a SECOND defect:
-   * UniquesSection hand-rolls a role="tablist" + inline pill buttons for the category
-   * filter chips, instead of composing the shared Tabs/SubTabs (the ONE tab/pill pattern,
-   * DR-062).  The fix must render through the shared Tabs primitive (data-testid="tabs-root").
-   *
-   * Detection: the shared Tabs stamps data-testid="tabs-root" on its wrapper div.
-   * A hand-rolled role="tablist" does NOT carry this testid.
-   */
-  it("frd-10: UniquesSection category filter renders through the shared Tabs primitive (tabs-root present)", () => {
-    render(<UniquesSection uniques={[UNIQUE_DISCOVERY, UNIQUE_SPEED]} />);
-    // The shared Tabs primitive stamps data-testid="tabs-root" on its container.
-    // If the filter uses a hand-rolled role=tablist this will be null → RED.
-    expect(
-      screen.queryByTestId("tabs-root"),
-      "UniquesSection's category filter must use the shared Tabs/SubTabs primitive (DR-062 'no ad-hoc " +
-        "switcher per screen'); a private role=tablist + inline pill styles is a fork of the ONE Tabs " +
-        "pattern. The WO-10-005 reopening finding (2026-06-21) explicitly requires this fix.",
-    ).not.toBeNull();
+  it("category chips are pressed-state buttons, not a second tablist", () => {
+    renderHall([locked(1)]);
+    const group = screen.getByRole("group", { name: "Categoría" });
+    expect(within(group).queryByRole("tab")).toBeNull();
+    expect(within(group).getByRole("button", { name: /^Todos/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(group).getAllByRole("button")).toHaveLength(9);
   });
 
-  it("frd-10: UniquesSection category filter chip buttons are inside the shared Tabs primitive", () => {
-    render(<UniquesSection uniques={[UNIQUE_DISCOVERY, UNIQUE_SPEED]} />);
-    const tabsRoot = screen.queryByTestId("tabs-root");
-    // Filter tabs (buttons with role="tab") must live inside the shared Tabs wrapper
-    expect(tabsRoot, "shared Tabs wrapper must be present").not.toBeNull();
-    const tabButtons = tabsRoot?.querySelectorAll('[role="tab"]');
+  it("paging is the shared dashed MoreBar", () => {
+    renderHall(Array.from({ length: 40 }, (_, index) => locked(index)));
     expect(
-      tabButtons?.length ?? 0,
-      "category filter tabs must be role=tab buttons inside the shared Tabs primitive",
-    ).toBeGreaterThan(0);
+      screen.getByRole("button", { name: /^Mostrar \d+ más · quedan \d+$/ }).className,
+    ).toContain("morebtn");
   });
 });

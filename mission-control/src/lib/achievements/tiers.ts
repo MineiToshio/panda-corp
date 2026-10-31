@@ -44,26 +44,6 @@ export function rarityColor(rarity: Rarity): string {
   return tierColor(rarityIndex(rarity));
 }
 
-/** A short estimated-difficulty blurb for a rarity grade (docs/achievements.md §2). */
-export function rarityBlurb(rarity: Rarity): string {
-  switch (rarity) {
-    case "Común":
-      return "logro común — un primer paso";
-    case "Poco común":
-      return "poco común — requiere algo de empeño";
-    case "Raro":
-      return "raro — una hazaña notable";
-    case "Épico":
-      return "épico — difícil, de excelencia sostenida";
-    case "Leyenda":
-      return "de leyenda — pocos lo alcanzan";
-    default: {
-      const _exhaustive: never = rarity;
-      return _exhaustive;
-    }
-  }
-}
-
 /**
  * Rarity name for a 0-based tier index. Indices are clamped into [0, 4]; callers
  * decide what to show for "no tier yet" (currentTierIndex < 0) — pass that case

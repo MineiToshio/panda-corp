@@ -33,6 +33,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import type { CatalogResult } from "@/lib/reference/reference";
 import { resolveFactoryRoot } from "../config/config";
 
 // ---------------------------------------------------------------------------
@@ -41,7 +42,7 @@ import { resolveFactoryRoot } from "../config/config";
 
 type StandardSeverity = "MUST" | "SHOULD" | "MAY";
 type StandardEnforcement = "lint" | "CI" | "checklist" | "human gate" | string;
-export type StandardDomain =
+type StandardDomain =
   | "Programming"
   | "Architecture"
   | "Design"
@@ -232,12 +233,13 @@ type ParsedFrontmatter = {
  * `{ excerpt: false }` so gray-matter skips its internal LRU cache, which can
  * return stale/empty results when two files share identical content in tests.
  */
-function parseStandardFrontmatter(raw: string): ParsedFrontmatter {
+function parseStandardFrontmatter(raw: string, strict: boolean): ParsedFrontmatter {
   let parsed: matter.GrayMatterFile<string>;
   let frontmatterMalformed = false;
   try {
     parsed = matter(raw, { excerpt: false });
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     // Malformed YAML frontmatter — treat as if no frontmatter (option B/default).
     frontmatterMalformed = true;
     parsed = {
@@ -294,7 +296,11 @@ function resolveMetadata(
 }
 
 /** Parse a single standards file into a Standard, or null when unreadable. */
-function parseStandardFile(standardsDir: string, filename: string): Standard | null {
+function parseStandardFile(
+  standardsDir: string,
+  filename: string,
+  strict: boolean,
+): Standard | null {
   const filePath = path.join(standardsDir, filename);
   let raw: string;
   try {
@@ -303,7 +309,8 @@ function parseStandardFile(standardsDir: string, filename: string): Standard | n
     return null;
   }
 
-  const { fm, body, hasFrontmatter } = parseStandardFrontmatter(raw);
+  if (strict && !raw.trim()) throw new Error("Empty standard source");
+  const { fm, body, hasFrontmatter } = parseStandardFrontmatter(raw, strict);
   const title = extractTitle(body);
   const { domain, severity, enforcement } = resolveMetadata(filename, fm, hasFrontmatter);
 
@@ -314,18 +321,17 @@ function parseStandardFile(standardsDir: string, filename: string): Standard | n
   return { id: filename, title, body, domain, severity, enforcement, summary };
 }
 
-export function readStandards(factoryRoot: string = resolveFactoryRoot()): Standard[] {
+export function readStandardCatalog(
+  factoryRoot: string = resolveFactoryRoot(),
+  tolerant = false,
+): CatalogResult<Standard> {
   const standardsDir = path.join(factoryRoot, "factory", "standards");
-
-  if (!fs.existsSync(standardsDir)) {
-    return [];
-  }
 
   let entries: string[];
   try {
     entries = fs.readdirSync(standardsDir);
   } catch {
-    return [];
+    return { ok: false, source: standardsDir, reason: "Source could not be read" };
   }
 
   const results: Standard[] = [];
@@ -336,11 +342,27 @@ export function readStandards(factoryRoot: string = resolveFactoryRoot()): Stand
       continue;
     }
 
-    const standard = parseStandardFile(standardsDir, filename);
+    let standard: Standard | null;
+    try {
+      standard = parseStandardFile(standardsDir, filename, !tolerant);
+      if (!standard && !tolerant) throw new Error("Unreadable standard");
+    } catch (error) {
+      return {
+        ok: false,
+        source: path.join(standardsDir, filename),
+        reason: error instanceof Error ? error.message : "Invalid standard",
+      };
+    }
     if (standard !== null) {
       results.push(standard);
     }
   }
 
-  return results;
+  return { ok: true, data: results };
+}
+
+/** Legacy tolerant array view. */
+export function readStandards(factoryRoot: string = resolveFactoryRoot()): Standard[] {
+  const result = readStandardCatalog(factoryRoot, true);
+  return result.ok ? result.data : [];
 }

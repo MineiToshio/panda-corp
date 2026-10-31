@@ -1,0 +1,71 @@
+.hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--s6);
+  align-items: center;
+  padding: var(--s6);
+  border-radius: var(--r-xl);
+  border: var(--hairline) solid color-mix(in srgb, var(--gold) 35%, var(--line));
+  background: linear-gradient(
+    115deg,
+    color-mix(in srgb, var(--gold) 8%, var(--surface)),
+    var(--surface)
+  );
+}
+.crest {
+  display: grid;
+  place-items: center;
+}
+.body {
+  min-width: 0;
+  display: grid;
+  gap: var(--s2);
+}
+.body h2 {
+  font: 700 var(--fs-h1s) / 1.15 var(--font-display);
+  color: var(--text);
+  margin: 0;
+}
+.body p {
+  color: var(--text-2);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.body .kicker {
+  color: var(--gold);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.counts {
+  display: flex;
+  gap: var(--s5);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.counts > div {
+  display: grid;
+  gap: var(--s1);
+}
+.counts b {
+  font: 700 var(--fs-h2) / 1.2 var(--font-display);
+}
+.counts small {
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+@media (max-width: 1023px) {
+  .hero {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .counts {
+    grid-column: 1 / -1;
+    justify-content: space-around;
+  }
+}
+@media (max-width: 759px) {
+  .hero {
+    padding: var(--s4);
+    gap: var(--s3);
+  }
+}

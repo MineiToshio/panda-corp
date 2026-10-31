@@ -1,333 +1,181 @@
 "use client";
-/**
- * WO-07-005 — ConfigurationShell (CMP-07-config-page, shell + section mount)
- * WO-07-006 — wires SkillsSection into the skills tab
- * WO-07-007 — wires AgentList + AgentDetail into the agents tab
- * WO-07-008 — wires DecisionRulesSection into the rules tab
- * WO-07-009 — wires StandardsSection into the standards tab
- *
- * Client Component: owns the active-section state and renders:
- *   1. SectionTabs — the four-tab navigation bar.
- *   2. The active section's panel (all four sections now real, no placeholders).
- *
- * State: `activeSection` — defaults to "skills" (AC-07-005.2).
- * Renders one panel at a time; the others are unmounted (not just hidden) so
- * future section components can initialize their own data reads on mount.
- *
- * Each panel:
- *   - role="tabpanel" (a11y)
- *   - aria-labelledby="config-tab-id-<sectionId>" (links to the tab button's id)
- *   - data-testid="config-section-<sectionId>"
- *   - ZERO hardcoded colors — CSS custom properties only (FRD-13 / AC-07-005.3)
- *
- * Traceability:
- *   CMP-07-config-page -> FRD-07
- *   AC-07-005.1, AC-07-005.2, AC-07-005.3, AC-07-005.4
- *   CMP-07-skill-list, CMP-07-skill-detail, CMP-07-flow-diagram -> AC-07-006.1..5
- *   CMP-07-agent-list, CMP-07-agent-detail -> AC-07-007.1..3
- *   CMP-07-rules-list, CMP-07-rule-detail -> AC-07-008.1..4
- *   CMP-07-standards-list, CMP-07-standard-detail -> AC-07-009.1..5
- */
 
-import type React from "react";
-import { PageTitle } from "@/components/core/PageTitle/PageTitle";
-import type { AgentLevelResult } from "@/lib/gamification/agents";
-import { updateNavigation, useCanonicalSelection, useUrlState } from "@/lib/navigation/useUrlState";
-import type { AgentRef, SkillRef } from "@/lib/reference/reference";
-import type { DecisionRule } from "@/lib/registry/registry";
-import type { Standard } from "@/lib/standards/standards";
-import { DecisionRulesSection } from "./_rules/DecisionRulesSection/DecisionRulesSection";
-import { AgentDetail } from "./AgentDetail";
-import { AgentList } from "./AgentList";
-import { type SectionId, SectionTabs } from "./SectionTabs";
-import { SkillsSection } from "./SkillsSection";
-import { StandardsSection } from "./StandardsSection/StandardsSection";
+import { notFound } from "next/navigation";
+import { SearchField } from "@/components/core/Field/Field";
+import { Notice } from "@/components/core/Notice/Notice";
+import { PageHead } from "@/components/core/PageHead/PageHead";
+import { Tabs } from "@/components/core/Tabs/Tabs";
+import { t } from "@/lib/copy/copy";
+import { updateNavigation, useUrlSearch, useUrlState } from "@/lib/navigation/useUrlState";
+import type { ConfigurationCatalogs } from "@/lib/reference/configurationCatalogs";
+import { AgentsCatalog } from "./_components/AgentsCatalog";
+import { CatalogDialog } from "./_components/CatalogDialog";
+import { ConfigHub } from "./_components/ConfigHub";
+import { type CatalogSection, LABELS, SECTIONS, TONES } from "./_components/catalogViews";
+import { RulesCatalog } from "./_components/RulesCatalog";
+import { SkillsCatalog } from "./_components/SkillsCatalog";
+import { StandardsCatalog } from "./_components/StandardsCatalog";
+import styles from "./configuration.module.css";
 
-// ---------------------------------------------------------------------------
-// AgentsData — pre-computed by the Server Component (page.tsx)
-// ---------------------------------------------------------------------------
-
-/**
- * Pre-computed agents data passed from the Server Component.
- * Agents list + their computed XP levels (from computeAgentLevel over events).
- * Exported so page.tsx and tests share the same type.
- */
-export type AgentsData = {
-  agents: AgentRef[];
-  levels: Record<string, AgentLevelResult>;
-};
-
-// ---------------------------------------------------------------------------
-// Styles — CSS custom properties only, zero hardcoded colors (FRD-13)
-// ---------------------------------------------------------------------------
-
-const SHELL_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  height: "100%",
-  background: "var(--color-surface, Canvas)",
-  color: "var(--color-text, currentColor)",
-};
-
-const HEADER_STYLE: React.CSSProperties = {
-  flexShrink: 0,
-  padding: "calc(var(--spacing, 0.25rem) * 5) calc(var(--spacing, 0.25rem) * 8)",
-  borderBottom: "var(--hairline, 1px) solid var(--color-border)",
-};
-
-const PANEL_STYLE: React.CSSProperties = {
-  flex: 1,
-  overflow: "auto",
-  padding: "calc(var(--spacing, 0.25rem) * 6) calc(var(--spacing, 0.25rem) * 8)",
-};
-
-const AGENTS_PANEL_STYLE: React.CSSProperties = {
-  flex: 1,
-  overflow: "auto",
-  display: "flex",
-  flexDirection: "column",
-  gap: "calc(var(--spacing, 0.25rem) * 6)",
-  padding: "calc(var(--spacing, 0.25rem) * 6) calc(var(--spacing, 0.25rem) * 8)",
-};
-
-// ---------------------------------------------------------------------------
-// Section panels — one per tab. Module-scope helpers (hoisted, never nested)
-// so the shell's render stays flat and under the complexity budget.
-// ---------------------------------------------------------------------------
-
-interface SkillsPanelProps {
-  skills: SkillRef[];
-  onAgentClick: (role: string) => void;
-  selectedSkillSlug: string | null;
-  onClearCrossNav: () => void;
-}
-
-function SkillsPanel({
-  skills,
-  onAgentClick,
-  selectedSkillSlug,
-  onClearCrossNav,
-}: SkillsPanelProps): React.JSX.Element {
-  return (
-    <div
-      role="tabpanel"
-      data-testid="config-section-skills"
-      aria-labelledby="config-tab-id-skills"
-      style={PANEL_STYLE}
-    >
-      <SkillsSection
-        skills={skills}
-        onAgentClick={onAgentClick}
-        selectedSkillSlug={selectedSkillSlug}
-        onClearCrossNav={onClearCrossNav}
-      />
-    </div>
-  );
-}
-
-interface AgentsPanelProps {
-  agents: AgentRef[];
-  levels: Record<string, AgentLevelResult>;
-  selectedAgentId: string | null;
-  onSelectAgent: (id: string) => void;
-  selectedAgent: AgentRef | null;
-  selectedLevel: AgentLevelResult | null;
-  /** Skills that reference the currently selected agent (for reverse cross-nav). */
-  usingSkills: string[];
-  /** Called when the owner clicks a using-skill chip to jump to that skill's detail. */
-  onSkillClick: (slug: string) => void;
-}
-
-function AgentsPanel({
-  agents,
-  levels,
-  selectedAgentId,
-  onSelectAgent,
-  selectedAgent,
-  selectedLevel,
-  usingSkills,
-  onSkillClick,
-}: AgentsPanelProps): React.JSX.Element {
-  return (
-    <div
-      role="tabpanel"
-      data-testid="config-section-agents"
-      aria-labelledby="config-tab-id-agents"
-      style={AGENTS_PANEL_STYLE}
-    >
-      {/* Agent list — always visible; empty = honest zero state */}
-      <AgentList
-        agents={agents}
-        levels={levels}
-        selectedAgentId={selectedAgentId}
-        onSelectAgent={onSelectAgent}
-      />
-      {/* Agent detail — shown when a card is selected (AC-07-007.2) */}
-      {selectedAgent !== null && selectedLevel !== null ? (
-        <AgentDetail
-          agent={selectedAgent}
-          level={selectedLevel}
-          usingSkills={usingSkills}
-          onSkillClick={onSkillClick}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function RulesPanel({ rules }: { rules: DecisionRule[] }): React.JSX.Element {
-  return (
-    <div
-      role="tabpanel"
-      data-testid="config-section-rules"
-      aria-labelledby="config-tab-id-rules"
-      style={PANEL_STYLE}
-    >
-      <DecisionRulesSection rules={rules} />
-    </div>
-  );
-}
-
-function StandardsPanel({ standards }: { standards: Standard[] }): React.JSX.Element {
-  return (
-    <div
-      role="tabpanel"
-      data-testid="config-section-standards"
-      aria-labelledby="config-tab-id-standards"
-      style={PANEL_STYLE}
-    >
-      <StandardsSection standards={standards} />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// ConfigurationShell — main export (CMP-07-config-page)
-// ---------------------------------------------------------------------------
-
-export interface ConfigurationShellProps {
-  /** Skills from readSkills() — passed from the Server Component (WO-07-006). */
-  skills?: SkillRef[];
-  /**
-   * Pre-computed agents + XP levels — passed from the Server Component (WO-07-007).
-   * When omitted, the agents panel renders an empty list (honest zero state).
-   */
-  agentsData?: AgentsData;
-  /** Decision rules from readDecisionRules() — passed from the Server Component. */
-  rules?: DecisionRule[];
-  /** Standards from readStandards() — passed from the Server Component (WO-07-009). */
-  standards?: Standard[];
-}
-
-/**
- * ConfigurationShell — client shell for the /configuration route.
- *
- * Owns the active-section useState (default: "skills", AC-07-005.2).
- * Owns the selected-agent useState for the agents detail panel (AC-07-007.2).
- * Renders SectionTabs + the active panel, unmounting inactive ones.
- *
- * WO-07-006: accepts `skills` prop to pass to SkillsSection.
- * WO-07-007: accepts `agentsData` prop to pass to AgentList / AgentDetail.
- * WO-07-008: accepts `rules` prop to pass to DecisionRulesSection.
- * WO-07-009: accepts `standards` prop to pass to StandardsSection.
- */
-function resolveSection(value: string): SectionId {
-  switch (value) {
-    case "agents":
-    case "rules":
-    case "standards":
-      return value;
-    default:
-      return "skills";
-  }
-}
-
+/** Configuration's URL-controlled hub, catalogs, filters and native definitions. */
 export function ConfigurationShell({
-  skills = [],
-  agentsData,
-  rules = [],
-  standards = [],
-}: ConfigurationShellProps): React.JSX.Element {
-  const [sectionValue] = useUrlState("configSection", "skills");
-  const activeSection = resolveSection(sectionValue);
-  useCanonicalSelection("configuration", "configSection", activeSection);
-  const [itemId, setItemId] = useUrlState("configItem", "");
-  const selectedAgentId = activeSection === "agents" ? itemId : null;
-  const crossNavSkillSlug = activeSection === "skills" ? itemId : null;
-
-  // Resolve agents + levels from the prop (empty defaults = honest zero state, AC-07-007.3)
-  const agents = agentsData?.agents ?? [];
-  const levels = agentsData?.levels ?? {};
-
-  // Find the selected agent's full ref + level for the detail panel
-  const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? null;
-  const selectedLevel = selectedAgentId ? (levels[selectedAgentId] ?? null) : null;
-
-  // Derive using-skills for the selected agent: invert skills[].agents (derive-don't-sync).
-  // Returns only the slugs of skills that explicitly reference the selected agent.
-  const usingSkills: string[] =
-    selectedAgentId !== null
-      ? skills.filter((s) => (s.agents ?? []).includes(selectedAgentId)).map((s) => s.slug)
-      : [];
-
-  function handleSectionChange(id: SectionId): void {
-    updateNavigation({ configSection: id, configItem: null, standardView: null });
+  catalogs,
+}: {
+  catalogs: ConfigurationCatalogs;
+}): React.JSX.Element {
+  const [section] = useUrlState("configSection", "summary");
+  const [item, setItem] = useUrlState("configItem", "");
+  const [query, setQuery] = useUrlSearch("q");
+  const [type, setType] = useUrlState("type", "all");
+  const [approval, setApproval] = useUrlState("approval", "all");
+  const [severity, setSeverity] = useUrlState("severity", "all");
+  const [domain, setDomain] = useUrlState("domain", "");
+  function handleOpen(next: CatalogSection, id = ""): void {
+    updateNavigation({ configSection: next, configItem: id || null, standardView: null });
   }
-
-  function handleAgentCrossNav(role: string): void {
-    updateNavigation({ configSection: "agents", configItem: role });
+  function handleTab(next: string): void {
+    updateNavigation({
+      configSection: next === "summary" ? null : next,
+      configItem: null,
+      q: null,
+      type: null,
+      approval: null,
+      severity: null,
+      domain: null,
+      standardView: null,
+    });
   }
-
-  function handleSkillCrossNav(slug: string): void {
-    updateNavigation({ configSection: "skills", configItem: slug });
-  }
-
-  function handleClearCrossNav(): void {
-    setItemId("");
-  }
-
+  if (!validSelection(section, type, approval, severity)) return notFound();
+  const active = section as keyof typeof LABELS;
+  const source = active === "summary" ? null : catalogs[active];
+  const missingItem =
+    item &&
+    source?.ok &&
+    !source.data.some((entry) => ("slug" in entry ? entry.slug : entry.id) === item);
+  if (missingItem) return notFound();
+  const searchKey = active === "summary" ? "hub" : active;
   return (
-    <div data-testid="config-shell" style={SHELL_STYLE}>
-      {/* Page header — PageTitle (DR-062: ONE title block) */}
-      <div style={HEADER_STYLE}>
-        <PageTitle
-          icon="ti-settings"
-          title="Configuración"
-          subtitle="Vista de lectura de la fábrica: habilidades, agentes, reglas y estándares."
+    <div data-testid="configuration-page" className={styles.page}>
+      <PageHead title={t("configuracion.title")} subtitle={t("configuracion.subtitle")} />
+      <Tabs
+        tabs={(["summary", ...SECTIONS] as const).map((id) => ({
+          id,
+          label: t(LABELS[id]),
+          tone: TONES[id],
+          count: id === "summary" ? undefined : catalogs[id].ok ? catalogs.counts[id] : undefined,
+        }))}
+        active={active}
+        onChange={handleTab}
+        ariaLabel={t("configuracion.tabs.aria")}
+        testIdPrefix="config-tab-"
+        tabIdPrefix="config-tab-"
+        panelIdPrefix="config-panel-"
+      />
+      <div
+        role="tabpanel"
+        id={`config-panel-${active}`}
+        aria-labelledby={`config-tab-${active}`}
+        className={styles.stack}
+      >
+        <SearchField
+          label={
+            active === "summary"
+              ? t("configuracion.search.hubAria")
+              : t(`configuracion.search.${searchKey}`)
+          }
+          placeholder={t(`configuracion.search.${searchKey}`)}
+          value={query}
+          onChange={setQuery}
         />
+        <ReadErrors catalogs={catalogs} active={active} />
+        {active === "summary" ? (
+          <ConfigHub catalogs={catalogs} query={query} onOpen={handleOpen} />
+        ) : null}
+        {active === "skills" && catalogs.skills.ok ? (
+          <SkillsCatalog
+            skills={catalogs.skills.data}
+            query={query}
+            type={type}
+            onType={setType}
+            onOpen={(id) => handleOpen("skills", id)}
+          />
+        ) : null}
+        {active === "agents" && catalogs.agents.ok ? (
+          <AgentsCatalog
+            agents={catalogs.agents.data}
+            query={query}
+            onOpen={(id) => handleOpen("agents", id)}
+          />
+        ) : null}
+        {active === "rules" && catalogs.rules.ok ? (
+          <RulesCatalog
+            key={`${query}/${approval}`}
+            rules={catalogs.rules.data}
+            query={query}
+            approval={approval}
+            selected={item}
+            onApproval={setApproval}
+            onOpen={setItem}
+          />
+        ) : null}
+        {active === "standards" && catalogs.standards.ok ? (
+          <StandardsCatalog
+            standards={catalogs.standards.data}
+            domains={catalogs.domains}
+            query={query}
+            severity={severity}
+            domain={domain}
+            onSeverity={setSeverity}
+            onDomain={setDomain}
+            onOpen={(id) => handleOpen("standards", id)}
+          />
+        ) : null}
       </div>
-
-      {/* Tab bar — always visible (AC-07-005.1) */}
-      <SectionTabs activeSection={activeSection} onSectionChange={handleSectionChange} />
-
-      {selectedAgentId && !selectedAgent && (
-        <p role="status">El agente solicitado no está disponible.</p>
-      )}
-
-      {/* Active section panel — only one mounted at a time (AC-07-005.2) */}
-      {activeSection === "skills" ? (
-        <SkillsPanel
-          skills={skills}
-          onAgentClick={handleAgentCrossNav}
-          selectedSkillSlug={crossNavSkillSlug}
-          onClearCrossNav={handleClearCrossNav}
-        />
-      ) : activeSection === "agents" ? (
-        <AgentsPanel
-          agents={agents}
-          levels={levels}
-          selectedAgentId={selectedAgentId}
-          onSelectAgent={setItemId}
-          selectedAgent={selectedAgent}
-          selectedLevel={selectedLevel}
-          usingSkills={usingSkills}
-          onSkillClick={handleSkillCrossNav}
-        />
-      ) : activeSection === "rules" ? (
-        <RulesPanel rules={rules} />
-      ) : (
-        <StandardsPanel standards={standards} />
-      )}
+      <CatalogDialog
+        catalogs={catalogs}
+        section={active}
+        item={item}
+        onOpen={handleOpen}
+        onClose={() => setItem("")}
+      />
     </div>
+  );
+}
+
+function ReadErrors({
+  catalogs,
+  active,
+}: {
+  catalogs: ConfigurationCatalogs;
+  active: string;
+}): React.JSX.Element {
+  return (
+    <>
+      {SECTIONS.filter((id) => (active === "summary" || active === id) && !catalogs[id].ok).map(
+        (id) => {
+          const failed = catalogs[id];
+          return !failed.ok ? (
+            <Notice key={id} icon="alert" kind="error">
+              <code>{failed.source}</code>
+              <p>{failed.reason}</p>
+            </Notice>
+          ) : null;
+        },
+      )}
+    </>
+  );
+}
+
+function validSelection(
+  section: string,
+  type: string,
+  approval: string,
+  severity: string,
+): boolean {
+  return (
+    Object.hasOwn(LABELS, section) &&
+    ["all", "owner", "internal"].includes(type) &&
+    ["all", "auto", "human"].includes(approval) &&
+    ["all", "MUST", "SHOULD", "MAY"].includes(severity)
   );
 }

@@ -1,0 +1,29 @@
+.chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  color: var(--text-2);
+}
+.chart text {
+  fill: var(--text-2);
+  font: var(--fs-xs) var(--font-body);
+}
+.grid {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.area {
+  fill: color-mix(in srgb, var(--gold) 20%, transparent);
+  stroke: var(--gold);
+  stroke-width: 2;
+}
+.column {
+  fill: var(--blue);
+}
+.line {
+  fill: none;
+  stroke: var(--teal);
+  stroke-width: 2;
+}

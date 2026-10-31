@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { normalizeLegacyNavigation } from "@/lib/navigation/aliases";
 import { type RouteQuery, routeHref } from "@/lib/navigation/routeState";
 import { NavigationSeedProvider } from "@/lib/navigation/useUrlState";
 import ConfigurationPage from "../page";
@@ -17,7 +18,7 @@ export default async function PersistentPage({
     !["skills", "agents", "rules", "standards"].includes(segments[0] ?? "")
   )
     notFound();
-  const href = routeHref("/configuration", segments, await searchParams);
+  const href = normalizeLegacyNavigation(routeHref("/configuration", segments, await searchParams));
   return (
     <NavigationSeedProvider href={href}>
       <ConfigurationPage />

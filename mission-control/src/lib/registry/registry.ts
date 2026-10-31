@@ -28,6 +28,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
+import type { CatalogResult } from "@/lib/reference/reference";
 import { resolveFactoryRoot } from "../config/config";
 
 // ---------------------------------------------------------------------------
@@ -131,7 +132,7 @@ function parseEntry(entry: unknown): DecisionRule | null {
  *
  * @returns Typed `DecisionRule[]`; never throws.
  */
-export function readDecisionRules(): DecisionRule[] {
+export function readDecisionRuleCatalog(tolerant = false): CatalogResult<DecisionRule> {
   const filePath = registryPath();
 
   // Read file — missing or unreadable → [] (AC-07-003.4).
@@ -139,11 +140,11 @@ export function readDecisionRules(): DecisionRule[] {
   try {
     raw = fs.readFileSync(filePath, "utf-8");
   } catch {
-    return [];
+    return { ok: false, source: filePath, reason: "Source could not be read or parsed" };
   }
 
   if (!raw.trim()) {
-    return [];
+    return { ok: false, source: filePath, reason: "Source could not be read or parsed" };
   }
 
   // Parse YAML — malformed → [] (AC-07-003.4).
@@ -151,29 +152,37 @@ export function readDecisionRules(): DecisionRule[] {
   try {
     parsed = parseYaml(raw);
   } catch {
-    return [];
+    return { ok: false, source: filePath, reason: "Source could not be read or parsed" };
   }
 
   // The top-level structure must be an object with a `decisiones` array.
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return [];
+    return { ok: false, source: filePath, reason: "Source could not be read or parsed" };
   }
 
   const top = parsed as Record<string, unknown>;
   const decisiones = top.decisiones;
 
   if (!Array.isArray(decisiones)) {
-    return [];
+    return { ok: false, source: filePath, reason: "Source could not be read or parsed" };
   }
 
   // Parse each entry, skipping any that are malformed (AC-07-003.4 graceful).
   const rules: DecisionRule[] = [];
   for (const entry of decisiones) {
     const rule = parseEntry(entry);
+    if (rule === null && !tolerant)
+      return { ok: false, source: filePath, reason: "Invalid decision rule" };
     if (rule !== null) {
       rules.push(rule);
     }
   }
 
-  return rules;
+  return { ok: true, data: rules };
+}
+
+/** Legacy tolerant array view. */
+export function readDecisionRules(): DecisionRule[] {
+  const result = readDecisionRuleCatalog(true);
+  return result.ok ? result.data : [];
 }

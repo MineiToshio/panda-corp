@@ -45,12 +45,19 @@ test("read-only details restore in Manual, Configuration and Proposals without r
 }) => {
   for (const target of [
     {
-      href: "/configuration/standards/quality.md?standardView=detail",
+      href: "/configuration/standards/quality.md?severity=MUST",
       id: "standard-markdown-body",
       text: "Quality",
+      selected: "config-tab-standards",
+    },
+    {
+      href: "/configuration/agents/reviewer",
+      id: "agent-dialog-modal",
+      text: "Herramientas:",
+      selected: "config-tab-agents",
     },
   ]) {
-    await page.goto(target.href);
+    await gotoHydrated(page, target.href, { selector: `[data-testid="${target.selected}"]` });
     await expect(page.getByTestId(target.id)).toContainText(target.text);
     await page.reload();
     await expect(page.getByTestId(target.id)).toContainText(target.text);

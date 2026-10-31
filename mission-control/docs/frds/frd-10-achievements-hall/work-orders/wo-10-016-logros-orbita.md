@@ -6,7 +6,7 @@ title: 'WO-10-016 — Logros: hero, Resumen, Misiones, Trofeos, Rangos'
 status: ACTIVE
 parent: FRD-10
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -36,7 +36,7 @@ artifacts:
   - 'e2e/persistent-navigation/achievements.spec.ts'
 source_requirements: [REQ-10-028]
 dependsOn: [WO-13-012, WO-25-001, WO-23-006, WO-01-010]
-last_updated: '2026-10-22'
+last_updated: '2026-10-30'
 ---
 
 # WO-10-016 Logros: hero, Resumen, Misiones, Trofeos, Rangos
@@ -138,3 +138,14 @@ Reconciliation 2026-10-22: this work order also updates `e2e/persistent-navigati
 WO-13-012 (composite primitives), WO-25-001 (URL codec; the Logros tab segments plus the filter keys), WO-23-006 (the composed Informe reader that `page.tsx` wired last, so the page file is free before this WO rewrites it), WO-01-010 (the frozen clock `now()` for the recency rules). Consumed by WO-10-017 (charts, statistics seam) and WO-13-013.
 
 ## Status Note
+
+- 2026-10-30 (S4C round 2 verification): Scoped Vitest completed with 58 passing files, 2 failing files, 490 passing tests and 2 failing tests (492 total), using --maxWorkers=2. The remaining frozen reviewer failures are selector conflicts: frd-10.s4c-blockers rejects the substring `0 XP` inside the valid `Faltan 40 XP` next-rank text although the threshold now reads Inicio; frd07.gate-opus queries the internal skill by an unanchored name matching both its detail and its newly required copy button. No reviewer file was changed. Knip exited 0 (nine configuration hints), tsc --noEmit exited 0 including generated Next page types, scoped Biome checked 154 files without fixes, and git diff --check passed. The 12 desktop/mobile Playwright cases could not launch Chromium (sandbox permission denial); browser interaction and mobile overflow remain unverified.
+
+- 2026-10-30 (S4C round 2): Patched mobile single-column grids, retained the spotlight in its saga, ordered untouched missions using value/tier instead of percentage, restored goal/record wording and tier-coloured bars, counted all paged locked trophies, moved earned secrets into Conquistados, formatted trophy dates with their project, and labelled the first rank Inicio. Zero attributes name neither a strongest nor weakest axis; the highest rank displays an explicit terminal message. Removed dead GuildHero properties and private-interface exports. HallTabs retains optional legacy count props solely for frozen reviewer callers; production callers no longer pass them.
+- 2026-10-30 (S4C round 2): Updated implementer expectations for the spotlight and per-card model chips and added zero-attribute/highest-rank coverage. Scoped the rank e2e disclosure locator to the page tabpanel. Reviewer tests, blessed visual baselines and engine formulas remain unchanged. Work remains uncommitted on orch/s4c. HTTP /achievements rendered 200 with its page marker; mobile overflow, light/dark fidelity and browser interaction remain unverified because Chromium launch is denied by the sandbox (MachPortRendezvousServer).
+
+- 2026-10-30: Built the persistent hero/five-tab frame, summary cards and radar, saga mission cards, category-filtered trophies with 12 + 24 reveal, read-only trophy dialog and URL-expanded rank eras. Removed the v1 ChainCard, UniquesSection and SecretsPanel modules and their implementer tests, rarity blurb, roster, crown and summit treatment. Unlocked secrets use ordinary tiles with their real condition and no invented rarity/date. Engine and Informe files remain unchanged.
+- 2026-10-30: Created the request-cached `loadStatisticsData` and `StatisticsTab` adapters over the existing report assembly. The retained statistics panel and Informe tests passed. The page uses the frozen `now()` seam, contains no main landmark and derives counts from the engine; fixtures use temporary roots and isolated event paths (LESSON-0450). AC-10-028.1/.2/.3/.4 are cited by the view-rule, surface, chart, page and rank tests.
+- 2026-10-30: Final owned test run: 16 files and 166 tests passed across both WOs; rank suite rerun after a type-only correction: 1 passed. Scoped Biome: 80 files, green. Full touched-folder Vitest: 16 files passed, 10 reviewer files failed (168 tests passed, 29 failed; four reviewer suites cannot collect). Production-only TypeScript passes; full TypeScript is red on exactly five removed-module imports in reviewer suites. Knip is red on those same imports plus `getSkillFlow` outside this WO's scope (WO-13-013 retirement).
+- 2026-10-30: Reviewer suites left unchanged and requiring reconciliation: `_tests/frd-10-gate-opus.reviewer.test.tsx` and `_tests/frd-10-reuse.gate.reviewer.test.tsx` import removed UniquesSection; `_tests/frd-10-gate.reviewer.test.tsx` imports removed ChainCard; `_tests/frd-10-integration.reviewer.test.tsx` imports removed ChainCard/SecretsPanel. `_tests/page.ledger-hermeticity.reviewer.test.tsx` has two failures on retired XpBar test hooks; preserve its zero-XP invariant while moving it to ProgressBar.
+- 2026-10-30: Browser behavior, responsive/light-dark fidelity and pixel comparisons are unverified: no Playwright was run, as instructed. Behavior specs were added/updated without writing e2e fixtures. Changes remain uncommitted on `orch/s4c`; no reviewer tests, blessed baselines, `.pandacorp` state or decision log were changed.

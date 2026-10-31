@@ -103,18 +103,14 @@ async function renderPage() {
 }
 
 describe("WO-09-006 ledger must not inflate the honest-zero XP bar (DR-073 RED)", () => {
-  it("empty factory → XP bar fill width is 0% (no fabricated ledger floor)", async () => {
+  it("empty factory → the hero progressbar value is 0 (no fabricated ledger floor)", async () => {
     await renderPage();
     const hero = screen.getByTestId("guild-hero");
-    const fill = within(hero).getByTestId("xp-bar-fill");
-    expect((fill as HTMLElement).style.width).toBe("0%");
+    expect(within(hero).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0");
   });
 
-  it("empty factory → XP bar aria-valuenow is 0 (honest progressbar)", async () => {
+  it("empty factory → the hero XP line reads zero XP", async () => {
     await renderPage();
-    const hero = screen.getByTestId("guild-hero");
-    const track = within(hero).getByTestId("xp-bar-track");
-    expect(track.getAttribute("role")).toBe("progressbar");
-    expect(track.getAttribute("aria-valuenow")).toBe("0");
+    expect(within(screen.getByTestId("guild-hero")).getByText(/^0 XP · /)).toBeInTheDocument();
   });
 });

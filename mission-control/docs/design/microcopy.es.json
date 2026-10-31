@@ -1472,7 +1472,8 @@
       "shape": "Tu forma como gremio: <b>{strong}</b> es lo más fuerte; {weak}.",
       "seeStats": "Ver todas las estadísticas",
       "radarWeakZero": "{list} aún sin datos",
-      "radarWeakLowest": "{label} lo que más puede crecer"
+      "radarWeakLowest": "{label} lo que más puede crecer",
+      "noAttributes": "Aún no hay datos para destacar un atributo del gremio."
     },
     "radar": {
       "produccion": "producción",
@@ -1495,7 +1496,8 @@
       "from": "desde Nv {level}",
       "progressAria": "XP hacia {name}",
       "left": "Faltan <b>{xp} XP</b>. Se gana XP construyendo: cada work order verificada, fase completada y lanzamiento suma.",
-      "ladder": "Ver el escalafón"
+      "ladder": "Ver el escalafón",
+      "highest": "Has alcanzado el rango más alto del gremio."
     },
     "lastAchievement": {
       "fresh": "Nuevo logro",
@@ -1516,6 +1518,8 @@
       },
       "oneStep": "A un paso de subir",
       "noTier": "Sin tier",
+      "goal": "→ {next} · {value} / {threshold}",
+      "recordGoal": "récord {value}d → ≤{threshold}d",
       "lowerIsBetter": " · menos es mejor",
       "allTiers": "Todos los tiers",
       "chainComplete": "cadena completa",
@@ -1633,6 +1637,7 @@
     "ranks": {
       "intro": "El escalafón del gremio: tu nivel sube con XP y cada rango cubre un tramo de niveles. Cada nivel cuesta más que el anterior; la cima está lejos a propósito.",
       "here": "Estás aquí",
+      "start": "Inicio",
       "achieved": "Conseguido",
       "left": "Faltan {xp} XP para {name}",
       "eraRange": "{levels} · {count} rangos",
@@ -1808,6 +1813,7 @@
     "agents": {
       "empty": "Ningún agente coincide.",
       "effort": "esfuerzo {level}",
+      "defaultEffort": "esfuerzo por defecto",
       "effortLevels": {
         "high": "alto",
         "medium": "medio",

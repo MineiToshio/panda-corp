@@ -17,7 +17,7 @@
  *   - `void` secret must NOT unlock while the idea base still has active ideas
  *     (AC-10-004.3 verifiable, no false trophy).
  *   - Engine purity: identical input → identical output (AC-10-001.4 pure/no clock).
- *   - ChainCard renders a maxed chain at 100% with no next-tier label (no stuck bar).
+ *   - MissionCard renders a maxed chain at 100%, with no crown (reconciled for WO-10-016).
  */
 
 import { render, screen } from "@testing-library/react";
@@ -27,7 +27,7 @@ import { computeStats, type ReaderData } from "@/lib/achievements/stats";
 import type { Event, EventsSnapshot } from "@/lib/events/events";
 import type { IdeaCard } from "@/lib/ideas/ideas";
 import type { ProjectStatus, StatusResult } from "@/lib/status/status";
-import { ChainCard } from "../ChainCard/ChainCard";
+import { MissionCard } from "../_components/missions/MissionCard";
 
 // ─── Fixture builders ─────────────────────────────────────────────────────────
 
@@ -154,21 +154,6 @@ describe("FRD-10 [reviewer]: shipped unlock dates are verifiable, never fabricat
     // … but with no verifiable date, the engine must NOT emit an unlock with date:"".
     expect(shipped?.unlocks.every((u) => u.date.length > 0)).toBe(true);
   });
-
-  it("ChainCard never renders an empty/blank date for a dated-less shipped unlock", () => {
-    const data: ReaderData = {
-      ideas: [],
-      statuses: [mkStatus({ phase: "release", project: "ghost" })],
-      eventsSnapshot: mkSnapshot([]),
-    };
-    const shipped = computeChains(computeStats(data)).find((c) => c.statKey === "shipped");
-    if (!shipped) throw new Error("shipped chain missing");
-    render(<ChainCard chain={shipped} />);
-    // No unlock row claims an empty/fabricated date.
-    for (const row of screen.queryAllByTestId("chain-unlock-item")) {
-      expect(row.textContent?.trim().length).toBeGreaterThan(0);
-    }
-  });
 });
 
 // ─── AC-10-004.3 — secret 'void' must not unlock while active ideas exist ─────
@@ -221,20 +206,18 @@ describe("FRD-10 [reviewer]: engine is pure — identical input yields identical
   });
 });
 
-// ─── ChainCard: maxed chain has no next-tier label and a full bar ─────────────
+// ─── MissionCard: maxed chain keeps the one layout with a full bar ───────────
 
-describe("FRD-10 [reviewer]: ChainCard renders a maxed chain honestly", () => {
-  it("a maxed shipped chain shows no 'Siguiente' label and a non-empty tier badge", () => {
+describe("FRD-10 [reviewer]: MissionCard renders a maxed chain honestly", () => {
+  it("a maxed shipped chain has a full bar, its rarity word and no crown", () => {
     const shipped = computeChains(withStat(EMPTY, "shipped", 999)).find(
       (c) => c.statKey === "shipped",
     );
     if (!shipped) throw new Error("shipped chain missing");
-    render(<ChainCard chain={shipped} />);
-    // Maxed → next-tier-name node absent (AC-10-006.1 boundary).
-    expect(screen.queryByTestId("chain-next-tier-name")).toBeNull();
-    // Tier badge present with the legend label (state not by color alone).
-    const badge = screen.getByTestId("chain-tier-badge");
-    expect(badge.getAttribute("data-tier")).toBe("5");
-    expect(badge.textContent?.trim().length).toBeGreaterThan(0);
+    render(<MissionCard chain={shipped} />);
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100");
+    expect(screen.getByText("Leyenda")).toBeInTheDocument();
+    expect(screen.getByText("999 acumulado")).toBeInTheDocument();
+    expect(screen.queryByText(/Cadena legendaria completada/)).toBeNull();
   });
 });

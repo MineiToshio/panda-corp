@@ -12,8 +12,8 @@
  *     `if (secret?.unlocked)`), so they never assert the unlock is honest.
  *   - AC-10-001.3 / §5: empty factory → honest empty, never fabricated trophies.
  *   - AC-10-002.3: endowed progress is honest (real achieved, never inflated/stuck).
- *   - Real integration: computeStats → computeChains → ChainCard / AlmostThere,
- *     computeSecrets → SecretsPanel.
+ *   - Real integration: computeStats → computeChains → MissionCard / AlmostThere,
+ *     computeSecrets → TrophiesTab (reconciled for WO-10-016).
  */
 
 import { render, screen } from "@testing-library/react";
@@ -23,9 +23,9 @@ import { computeStats, type ReaderData } from "@/lib/achievements/stats";
 import type { Event, EventsSnapshot } from "@/lib/events/events";
 import type { IdeaCard } from "@/lib/ideas/ideas";
 import type { StatusResult } from "@/lib/status/status";
+import { MissionCard } from "../_components/missions/MissionCard";
+import { TrophiesTab } from "../_components/trophies/TrophiesTab";
 import { AlmostThere } from "../AlmostThere";
-import { ChainCard } from "../ChainCard/ChainCard";
-import { SecretsPanel } from "../SecretsPanel/SecretsPanel";
 
 // ─── Fixture builders (mirror the real reader shapes) ────────────────────────
 
@@ -174,7 +174,7 @@ describe("FRD-10 [reviewer]: endowed progress is honest (AC-10-002.3)", () => {
 // ─── Real integration: engine output renders honestly in the components ──────
 
 describe("FRD-10 [reviewer]: engine → component integration", () => {
-  it("ChainCard renders the real unlock date+project from computeStats(shipped)", () => {
+  it("MissionCard shows the real tier and accumulated value, with no per-tier date (Out of v2)", () => {
     const data: ReaderData = {
       ideas: [],
       statuses: [
@@ -188,12 +188,13 @@ describe("FRD-10 [reviewer]: engine → component integration", () => {
     expect(shipped).toBeDefined();
     if (!shipped) return;
 
-    render(<ChainCard chain={shipped} />);
-    const unlocks = screen.getAllByTestId("chain-unlock-item");
-    expect(unlocks.length).toBeGreaterThanOrEqual(1);
-    // The first tier (1 shipped) unlocked by the EARLIEST shipped project — honest.
-    expect(unlocks[0]?.textContent).toContain("alpha");
-    expect(unlocks[0]?.textContent).toContain("2026-02-01");
+    render(<MissionCard chain={shipped} />);
+    expect(screen.getByText("2 acumulado")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent(
+      shipped.currentTierName ?? "",
+    );
+    expect(document.body.textContent).not.toContain("2026-02-01");
+    expect(document.body.textContent).not.toContain("alpha");
   });
 
   it("AlmostThere never shows a maxed chain and uses no false-urgency language", () => {
@@ -204,26 +205,22 @@ describe("FRD-10 [reviewer]: engine → component integration", () => {
     };
     const chains = computeChains(computeStats(data));
     render(<AlmostThere chains={chains} />);
-    const section = screen.getByTestId("almost-there");
-    const text = section.textContent ?? "";
+    const text = document.body.textContent ?? "";
     // No countdowns / urgency (AC-10-006.4 negative AC).
     expect(/urgente|¡rápido|ahora mismo|hoy|countdown|cuenta atrás/i.test(text)).toBe(false);
-    // Items shown must not be maxed.
-    for (const item of screen.queryAllByTestId("almost-there-item")) {
-      const key = item.getAttribute("data-stat-key");
-      const chain = chains.find((c) => c.statKey === key);
-      expect(chain?.pctToNext).toBeLessThan(100);
+    // Items shown must not be maxed: each row is named after a chain that still has a next tier.
+    const shown = screen.getAllByRole("progressbar").map((bar) => bar.getAttribute("aria-label"));
+    expect(shown.length).toBeGreaterThan(0);
+    for (const label of shown) {
+      expect(chains.find((c) => c.label === label)?.nextTier).not.toBeNull();
     }
   });
 
-  it("SecretsPanel keeps a locked secret's criterion hidden end-to-end", () => {
+  it("TrophiesTab keeps a locked secret's criterion hidden end-to-end", () => {
     const secrets = computeSecrets(EMPTY);
-    render(<SecretsPanel secrets={secrets} />);
-    // every rendered item is locked → silhouette shown, no criterion node
-    const items = screen.getAllByTestId("secret-item");
-    expect(items.length).toBe(secrets.length);
-    expect(items.every((i) => i.getAttribute("data-locked") === "true")).toBe(true);
-    expect(screen.queryByTestId("secret-criterion")).toBeNull();
-    expect(screen.getAllByTestId("secret-silhouette").length).toBe(secrets.length);
+    render(<TrophiesTab uniques={[]} secrets={secrets} seals={[]} onOpen={() => undefined} />);
+    for (const secret of secrets) expect(screen.getByText(secret.hint)).toBeInTheDocument();
+    expect(secrets.every((s) => !s.unlocked && s.criterion === undefined)).toBe(true);
+    expect(document.querySelectorAll("[data-trophy]")).toHaveLength(0);
   });
 });

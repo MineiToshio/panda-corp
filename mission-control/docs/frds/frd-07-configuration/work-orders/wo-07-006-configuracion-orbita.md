@@ -6,7 +6,7 @@ title: 'WO-07-006 — Configuración Órbita: hub, catalog tabs, filters, dialog
 status: ACTIVE
 parent: FRD-07
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -18,7 +18,7 @@ artifacts:
   - 'e2e/persistent-navigation/configuration.spec.ts'
 source_requirements: [REQ-07-001, REQ-07-002, REQ-07-003, REQ-07-004, REQ-07-005, REQ-07-006, REQ-07-007, REQ-07-008, REQ-07-009, REQ-07-010, REQ-07-011, REQ-07-012, REQ-07-013]
 dependsOn: [WO-13-012, WO-25-001, WO-07-001, WO-07-003, WO-07-004, WO-08-003]
-last_updated: '2026-10-22'
+last_updated: '2026-10-30'
 ---
 
 # WO-07-006 Configuración Órbita: hub, catalog tabs, filters, dialogs
@@ -121,3 +121,14 @@ None.
 WO-13-012 (composite primitives and framing patterns), WO-25-001 (URL codec: `configSection`, `configItem` plus the filter keys), WO-07-001 / WO-07-003 / WO-07-004 (the readers, extended additively here), WO-08-003 (removes the Documentación Referencia embed of this surface's components before this WO rewrites them, so the tree compiles at every step). Full ordering: the blueprint's Build Plan.
 
 ## Status Note
+
+- 2026-10-30 (S4C round 2 verification): Scoped Vitest completed with 58 passing files, 2 failing files, 490 passing tests and 2 failing tests (492 total), using --maxWorkers=2. The remaining frozen reviewer failures are selector conflicts: frd-10.s4c-blockers rejects the substring `0 XP` inside the valid `Faltan 40 XP` next-rank text although the threshold now reads Inicio; frd07.gate-opus queries the internal skill by an unanchored name matching both its detail and its newly required copy button. No reviewer file was changed. Knip exited 0 (nine configuration hints), tsc --noEmit exited 0 including generated Next page types, scoped Biome checked 154 files without fixes, and git diff --check passed. The 12 desktop/mobile Playwright cases could not launch Chromium (sandbox permission denial); browser interaction and mobile overflow remain unverified.
+
+- 2026-10-30 (S4C round 2): Patched the mobile single-column grid, copy on every skill row, model/effort chips on every agent (undeclared effort reads the catalogue's default-effort key), closed full-definition disclosures, and standard summaries with retained source/enforcement metadata. Filtered counts only appear when a filter is active. The reverse-link index uses a Map and serializes through Object.fromEntries: a null-prototype DTO was rejected by React's Server Component boundary in the HTTP rehearsal. Removed the unused getSkillFlow lookup and its unconsumed data; shared renderer types remain.
+- 2026-10-30 (S4C round 2): The e2e fixture's implement skill contains no agent references, so its journey now checks the existing owner-command chip and opens reviewer from the agents catalogue. Added a required page-props object for Next's generated page validation; the shared unit helper passes an empty object. Reviewer tests and blessed visual baselines remain unchanged. Work remains uncommitted on orch/s4c. Browser journeys could not execute because Chromium launch is denied by the sandbox (MachPortRendezvousServer); HTTP /configuration rendered 200 with its page marker after the serialization fix.
+
+- 2026-10-30: Built the URL-controlled Resumen hub, four catalog tabs, cross-catalog search, filters, progressive rule reveal, bidirectional skill/agent dialogs and standard markdown dialog. Removed v1 mini-flow, creation actions, agent XP and standard SubTabs. Catalog results expose source failures independently; legacy array readers retain tolerant behavior. LESSON-0450: reader and UI fixtures use hermetic temporary roots.
+- 2026-10-30: Reader tests: 99 passed; configuration component/navigation tests: 7 passed. TypeScript and scoped Biome passed after incremental fixes. Browser, pixel fidelity and focus behavior in a real browser are not verified (Playwright excluded by the task). Error notice has source and reason; the frozen catalogue still lacks configuration read-error title/body keys, as the WO's design ledger already records.
+- 2026-10-30: Final verification: 166 owned tests passed across both WOs; 322 tests passed in the earlier configuration/readers/Manual integration run. Final scoped Biome: 80 files, no fixes/errors. Full TypeScript is red only on five removed-module imports in FRD-10 reviewer suites; the production-only TypeScript project passes. Knip is red on those imports and the now-unused `getSkillFlow` export in `src/lib/manual/skill-flows.ts`, whose deletion belongs to WO-13-013 and is outside this WO's artifacts.
+- 2026-10-30: Reviewer suites left unchanged and requiring reconciliation: `_tests/page.integration.reviewer.test.tsx` (async server boundary, v1 XP/card hooks); `_tests/frd07.gate.reviewer.test.tsx` (v1 lists, domain groups and creation actions); `_tests/frd07.gate-opus.reviewer.test.tsx` (mini-flow, produces and per-agent explanations); `_tests/frd07.detail-edges.reviewer.test.tsx` (mini-flow, XP, standard SubTabs); `_tests/frd07.cross-nav-reverse.gate-opus.reviewer.test.tsx` (v1 detail hooks). Their final run reports 27 failures and 2 passes; the new suite covers cross-navigation, native dialogs and URL restoration.
+- 2026-10-30: AC-07-013.1 through AC-07-013.5 are cited in `_tests/orbita.test.tsx`; URL restoration is cited in `_tests/persistentNavigation.test.tsx`. Behavior specs added/updated without writing any e2e fixture. Changes are uncommitted on `orch/s4c`; no reviewer test, baseline, `.pandacorp` state or decision log was modified.

@@ -26,7 +26,7 @@ for (const target of cases) {
     const fresh = await browser.newContext({ viewport: page.viewportSize() ?? undefined });
     try {
       const pasted = await fresh.newPage();
-      await pasted.goto(page.url());
+      await gotoHydrated(pasted, page.url(), { selector: '[data-testid="logros-tab-rangos"]' });
       await assertLocation(pasted, target);
     } finally {
       await fresh.close();
