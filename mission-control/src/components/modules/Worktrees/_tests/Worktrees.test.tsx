@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import type { WorktreesRepo } from "@/lib/pendingMerge/worktreesByRepo";
 import { WorktreesCard } from "../WorktreesCard";
 
@@ -78,4 +78,15 @@ it("AC-21-007.2: row opens branch details, traps focus, Escape closes and restor
   await user.keyboard("{Escape}");
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(trigger).toHaveFocus();
+});
+
+it("AC-21-008.1: a card that streams in after the hash navigation scrolls itself into view", () => {
+  const scroll = vi.fn();
+  Element.prototype.scrollIntoView = scroll;
+  window.history.replaceState(null, "", "/#worktrees-card");
+  render(<WorktreesCard rows={[repository]} />);
+  expect(scroll).toHaveBeenCalledTimes(1);
+  window.history.replaceState(null, "", "/");
+  render(<WorktreesCard rows={[repository]} />);
+  expect(scroll).toHaveBeenCalledTimes(1);
 });

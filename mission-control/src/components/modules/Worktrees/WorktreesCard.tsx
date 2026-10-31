@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardHeader } from "@/components/core/Card/Card";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { Notice } from "@/components/core/Notice/Notice";
@@ -12,8 +12,14 @@ import { WorktreesTable } from "./WorktreesTable";
 /** Render repository rows and open the branch dialog for a selected row. */
 export function WorktreesCard({ rows }: { readonly rows: WorktreesByRepo }): React.JSX.Element {
   const [selected, setSelected] = useState<WorktreesRepo | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  // The card streams in behind Suspense, after the router already tried the hash scroll
+  // against a page that did not have it yet; honour the hash once the card exists.
+  useEffect(() => {
+    if (window.location.hash === `#${WORKTREES_CARD_ID}`) root.current?.scrollIntoView?.();
+  }, []);
   return (
-    <div id={WORKTREES_CARD_ID} className={styles.root} data-testid="factory-worktrees">
+    <div ref={root} id={WORKTREES_CARD_ID} className={styles.root} data-testid="factory-worktrees">
       <Card tone="teal">
         <CardHeader title={t("inicio.worktrees.title")} icon="branch" />
         <p className={styles.muted}>{tRich("inicio.worktrees.intro")}</p>
