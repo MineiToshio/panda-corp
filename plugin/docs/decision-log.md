@@ -1,5 +1,10 @@
 # Decision log — Plugin pandacorp
 
+## v9.146.6 — 2026-10-31 (PATCH): preserve responsive helper fixes through upgrade (BL-0259)
+
+**What:** Back-ported the visually-hidden clipped-text exemption and obscured-target re-measurement to the stack-a responsive helper template.
+**Why:** `/pandacorp:upgrade` overwrites project helpers from this template; the Mission Control fixes must survive upgrades without carrying project-specific behavior.
+
 
 ## v9.146.5 — 2026-10-30 (PATCH): Codex relays survive a later owner question; the plan stays on Claude
 

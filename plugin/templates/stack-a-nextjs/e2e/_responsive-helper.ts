@@ -72,12 +72,25 @@ async function detectOverflow(page: Page): Promise<{ overflowing: string[]; clip
         return `${tag}${id}${cls}`;
       };
       const isOptedOut = (el: Element): boolean => Boolean(el.closest(optOutSelector));
+      // Screen-reader-only text is intentionally clipped and hides no visible content.
+      const isVisuallyHidden = (el: Element): boolean => {
+        const box = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        const clippedAway =
+          style.clipPath === "inset(50%)" || style.clip === "rect(0px, 0px, 0px, 0px)";
+        return (
+          clippedAway &&
+          style.position === "absolute" &&
+          box.width <= 1 + tolerance &&
+          box.height <= 1 + tolerance
+        );
+      };
 
       const overflowing: string[] = [];
       const clipped: string[] = [];
       for (const el of Array.from(document.querySelectorAll<HTMLElement>("*"))) {
         if (el.scrollWidth <= el.clientWidth + tolerance) continue;
-        if (isOptedOut(el)) continue; // author-declared intentional scroll-x — not a defect
+        if (isOptedOut(el) || isVisuallyHidden(el)) continue; // intentional scroll-x or sr-only
         const overflowX = getComputedStyle(el).overflowX;
         if (overflowX === "hidden" || overflowX === "clip") {
           // content is CLIPPED off-canvas (what MC actually shipped) — silent data loss
@@ -94,6 +107,37 @@ async function detectOverflow(page: Page): Promise<{ overflowing: string[]; clip
     },
     { optOutSelector: SCROLL_X_OPT_OUT, tolerance: SUBPIXEL_TOLERANCE_PX },
   );
+}
+
+
+/** Re-measures targets axe flagged only because they straddle an obstruction at the current scroll. */
+async function undersizedAfterScroll(
+  page: Page,
+  violations: readonly {
+    readonly nodes: readonly {
+      readonly target: readonly unknown[];
+      readonly any: readonly { readonly message: string }[];
+    }[];
+  }[],
+): Promise<string[]> {
+  const undersized: string[] = [];
+  for (const node of violations.flatMap((violation) => violation.nodes)) {
+    const selector = node.target.join(" ");
+    const obscured = node.any.some((check) => check.message.includes("partially obscured"));
+    if (obscured) {
+      await page
+        .locator(selector)
+        .first()
+        .evaluate((el) => el.scrollIntoView({ block: "center" }));
+      const again = await new AxeBuilder({ page })
+        .include(selector)
+        .withRules(["target-size"])
+        .analyze();
+      if (again.violations.length === 0) continue;
+    }
+    undersized.push(selector);
+  }
+  return undersized;
 }
 
 /**
@@ -124,6 +168,7 @@ async function detectOcclusion(page: Page): Promise<string | null> {
   });
 }
 
+
 /**
  * Asserts that `url` is responsive-correct at the target viewport — BOTH tiers, BLOCKING. Throws
  * (failing the test) with a precise message naming the offending element and the check that failed.
@@ -153,7 +198,7 @@ export async function assertResponsive(
   // --- Tap targets (axe `target-size`, SC 2.5.8, 24px line — NOT 44px) --------
   const axe = await new AxeBuilder({ page }).withRules(["target-size"]).analyze();
   const targetSize = axe.violations.filter((v) => v.id === "target-size");
-  const tapFailures = targetSize.flatMap((v) => v.nodes.map((n) => n.target.join(" ")));
+  const tapFailures = await undersizedAfterScroll(page, targetSize);
   expect(
     tapFailures,
     `${url} @${width}px — tap targets below 24px (WCAG 2.2 SC 2.5.8):\n${tapFailures.join("\n")}`,

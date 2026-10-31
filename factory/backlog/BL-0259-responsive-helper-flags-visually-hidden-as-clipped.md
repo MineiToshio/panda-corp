@@ -3,10 +3,10 @@ id: BL-0259
 type: bug
 area: templates
 title: "e2e/_responsive-helper.ts (stack-a template) marks every visually-hidden node as \"clipped\" and every carousel without an explicit opt-out marker as a violation"
-status: open
+status: done
 severity: p2
 opened: 2026-10-19
-closed:
+closed: 2026-10-31
 source: "funko-tracker .pandacorp/run/lessons.md 2026-10-18 (agent-inferred), gate FRD-01 — note explicitly flagged as \"Candidato a BL de fábrica\""
 closes:
 links: []
@@ -59,3 +59,7 @@ scroll track).
 
 Any change to the stack-a template's OTHER e2e helpers; this item targets only
 `_responsive-helper.ts`'s clipped-text and carousel-scroll checks.
+
+## Status Note
+
+2026-10-31: Back-ported the visually-hidden exemption and re-measuring of axe targets flagged as partially obscured to the stack-a template. The carousel behavior described in the original plan was not part of this task's acceptance; no carousel behavior was changed. No project-independent helper canary/test was found in the factory. Plugin version bumped to 9.146.6 and manifests regenerated. Verification and commit evidence recorded in the implementation handoff.
