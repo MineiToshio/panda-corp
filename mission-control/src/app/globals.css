@@ -766,3 +766,10 @@ pre,
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
+/* Report bands bleed to the page gutters; the panel must not turn that bleed into horizontal scroll. */
+[id^="card-detail-panel-"],
+[id^="card-detail-panel-"] > article {
+  min-width: 0;
+  overflow-x: clip;
+  overflow-clip-margin: var(--gutter);
+}

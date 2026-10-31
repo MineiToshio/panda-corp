@@ -80,7 +80,11 @@ export function ArchitectureDigest({
   const base = digestNavigationBase(navigationBaseHref, project);
   const notPublished = isNotPublished(arch.hasContent, dataModel);
   return (
-    <article data-testid="card-detail-architecture" aria-label="Resumen de la arquitectura">
+    <article
+      data-testid="card-detail-architecture"
+      data-scroll-x="intentional"
+      aria-label="Resumen de la arquitectura"
+    >
       <ArchitectureHero
         arch={arch}
         title={title}
