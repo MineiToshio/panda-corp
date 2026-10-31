@@ -20,6 +20,10 @@ const item: OwnerTurnItem = {
   context: "Needs storage",
 };
 describe("Tu turno Órbita", () => {
+  it("omits the date separator when an owner item has no date", () => {
+    render(<TuTurno result={{ items: [{ ...item, date: null }], count: 1, errors: [] }} />);
+    expect(screen.getByText(/Example · Decisión/).textContent?.trim()).toBe("Example · Decisión");
+  });
   it("REQ-18-003: calm means no items AND no read errors", () => {
     const { rerender } = render(<TuTurno result={{ items: [], count: 0, errors: [] }} />);
     expect(screen.getByText("Al día")).toBeVisible();

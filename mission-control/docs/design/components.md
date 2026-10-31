@@ -307,3 +307,19 @@ Independent review restored `band-sub` for recent discoveries, the global `grow`
 `clamp-2` lesson-title hooks, and responsive two-column health facts. Summary title
 and subtitle form one wrapping header group; candidates use the card-title type scale
 and keep their hint adjacent to the chevron.
+
+## Shell and portfolio close-out (2026-10-31)
+
+- `ProjectNavItem` carries the current project through nested workspace routes and reuses the raised navigation surface.
+- `TopBar` accepts a streamed location slot; `ShellLocation` derives project identity and tab from canonical navigation and the sidebar project resolver. Project name is the primary line, tab the small uppercase line.
+- `Segmented` options accept optional decorative catalogue icons, without changing button labels or pressed state.
+- `Ring` explicitly disables box shadow so the Tailwind utility sharing its global class cannot add an outline.
+- `AccountsTable` keeps the directory summary compact on phones; identity and organization details stay in the existing account dialog.
+- Inicio card icons and guild rank typography, and Configuration tab icons, command typography and rules-tile hue follow the approved prototype.
+
+### Independent review follow-up (2026-10-31)
+
+- `Avatar`, sidebar and phone location reuse `projectDisplayName`, including full real names with descriptive subtitles.
+- `ProjectSwitcher` supplies `data-compact` through Button: intrinsic Summary width, full phone width only for compact tabs.
+- `Table` positions its scroll wrapper relatively so clipped accessible headers do not increase page width.
+- `Segmented` keeps neutral selected buttons with blue active icons. Hero Rings use a 60 px phone size; the portfolio toolbar has a 44 px separation from its cards.

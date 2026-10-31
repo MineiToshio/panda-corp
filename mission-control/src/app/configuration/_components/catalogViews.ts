@@ -1,3 +1,4 @@
+import type { IconName } from "@/components/core/Icon/iconData";
 import type { CopyKey } from "@/lib/copy/copy";
 import { t } from "@/lib/copy/copy";
 import type { ConfigurationCatalogs } from "@/lib/reference/configurationCatalogs";
@@ -11,6 +12,13 @@ export const LABELS = {
   rules: "configuracion.tabs.reglas",
   standards: "configuracion.tabs.estandares",
 } as const;
+export const ICONS = {
+  summary: "gauge",
+  skills: "bolt",
+  agents: "users",
+  rules: "shield",
+  standards: "book",
+} as const satisfies Record<keyof typeof LABELS, IconName>;
 export const TONES = {
   summary: "slate",
   skills: "violet",

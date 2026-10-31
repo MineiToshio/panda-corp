@@ -78,3 +78,11 @@
     gap: var(--s4);
   }
 }
+
+@media (max-width: 759px) {
+  .stats > span[role="img"] {
+    --size: calc(var(--s12) + var(--s3));
+    --w: calc(var(--s2) - var(--hairline));
+    font-size: var(--fs-base);
+  }
+}

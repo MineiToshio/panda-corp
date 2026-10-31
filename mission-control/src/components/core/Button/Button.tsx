@@ -33,6 +33,7 @@ export interface ButtonProps {
   ariaLabel?: string;
   /** Override the default data-testid ("button"). For callers that need a unique testid. */
   "data-testid"?: string;
+  "data-compact"?: boolean;
 }
 
 /** Shared action button. Use one primary action per screen; danger stays outlined. */
@@ -47,12 +48,14 @@ export function Button({
   ariaLabel,
   icon,
   className,
+  "data-compact": compact,
   "data-testid": testId = "button",
 }: ButtonProps): React.JSX.Element {
   return (
     <button
       className={`btn ${variant} ${size} ${styles.btn} ${className ?? ""}`}
       data-testid={testId}
+      data-compact={compact}
       data-variant={variant}
       data-tone={tone}
       data-size={size}

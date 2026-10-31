@@ -1,4 +1,5 @@
 .wrap {
+  position: relative;
   overflow-x: auto;
   border: var(--hairline) solid var(--line);
   border-radius: var(--r);

@@ -10,6 +10,7 @@ import { DividedList, ListRow } from "@/components/core/ListRow/ListRow";
 import { Modal } from "@/components/core/Modal/Modal";
 import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
 import { t } from "@/lib/copy/copy";
+import { useUrlState } from "@/lib/navigation/useUrlState";
 import type { ProjectOverviewItem } from "@/lib/portfolio/overview";
 import styles from "./ProjectSwitcher.module.css";
 
@@ -20,6 +21,7 @@ export function ProjectSwitcher({
   readonly projects: ProjectOverviewItem[];
   readonly currentId: string;
 }): React.JSX.Element {
+  const [tab] = useUrlState("tab", "summary");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const search = useRef<HTMLDivElement>(null);
@@ -39,9 +41,10 @@ export function ProjectSwitcher({
   return (
     <>
       <Button
+        data-compact={tab !== "summary"}
         variant="default"
         icon="folder"
-        className="switcher"
+        className={`switcher ${styles.trigger}`}
         ariaLabel={t("workspace.hero.switcher.label")}
         onClick={handleOpen}
       >

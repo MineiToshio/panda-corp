@@ -32,3 +32,7 @@
     var(--shadow-sm),
     0 0 0 var(--hairline) var(--line-strong);
 }
+
+.seg button[aria-pressed="true"] svg {
+  color: var(--blue);
+}

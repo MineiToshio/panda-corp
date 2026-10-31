@@ -13,7 +13,7 @@ export function TuTurno({ result }: { readonly result: OwnerTurnResult }): React
     <Card tone="amber">
       <CardHeader
         title={t("inicio.turn.title")}
-        icon="flag"
+        icon="target"
         count={calm ? undefined : result.count}
         action={
           calm ? (

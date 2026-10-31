@@ -111,3 +111,11 @@ prototype_blessed_at: 409a0564
 - **Oracle entries** (`docs/design/freeze/fidelity.config.json`, `states["frd-07-configuration"]`): the twelve ids above.
 - **Reference files:** root `DESIGN.md`, `docs/design/design-tokens.json`, `docs/design/freeze/m1-decisions.md`, `docs/design/freeze/reconciliation.md`, `docs/design/prototype/prototype.css`.
 - **components.md rows:** `PageHead`, `Tabs`, `SearchField` / `SelectField`, `Card` and `CardHeader`, `SectionHeading`, `CommandBox`, `ListRow`, `Chip` family, `Avatar`, `MoreBar`, `Dialog`, `Markdown`.
+
+## Visual close-out (2026-10-31)
+
+Tabs show gauge, bolt, users, shield and book icons. The rules tab remains amber, while the hub rules tile is pink as drawn in the approved prototype. Tus comandos uses the terminal icon and JetBrains Mono command text. Skill and catalog source errors remain visible.
+
+## Independent review corrections (2026-10-31)
+
+The tab strip and search field are separated by s6 (24 px) on desktop and phone.

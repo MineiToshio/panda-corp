@@ -86,3 +86,7 @@ prototype_blessed_at: 409a0564
 - **Oracle entries (`fidelity.config.json`, `frd-18-dashboard`):** `home`, `home-turn-dialog`, `home-in-flight-open`, `home-calm`, `factory-empty`, `build-no-signal`.
 - **Reference files:** `docs/design/freeze/packs/frd-18.md`, `docs/design/freeze/reconciliation.md` (C-18), `docs/design/freeze/m1-decisions.md`, root `DESIGN.md`.
 - **components.md rows:** `PageHead`, `AlertBanner`, `Card`/`CardHeader`, `AskRow`, `CommandBox`, `Dialog`, `ProjectCard`, `PhaseStepper`, `Chip` family, `EmptyState`/`Notice`, `KpiTiles`, `FunnelRow`, `WorktreesTable`, `AppShell`.
+
+## Visual close-out (2026-10-31)
+
+Owner-turn metadata joins only present fields with middle dots, so an absent date has no dangling separator. Header icons follow the approved prototype: target (Tu turno), gauge (Pulso), trophy (Gremio), kanban (Embudo). The guild rank name uses body-size bold display text, not a section-heading size. CamelCase project names use capital initials (PandaSaga = PS).

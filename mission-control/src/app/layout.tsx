@@ -22,6 +22,7 @@ import {
 import { AppShell } from "@/components/modules/AppShell/AppShell";
 import { PendingPill } from "@/components/modules/AppShell/PendingPill";
 import { PluginPill } from "@/components/modules/AppShell/PluginPill";
+import { ShellLocation } from "@/components/modules/AppShell/ShellLocation";
 import { SidebarProjects } from "@/components/modules/AppShell/SidebarProjects";
 import { ThemeToggle } from "@/components/modules/AppShell/ThemeToggle";
 import { GuildCard } from "@/components/modules/GuildBar/GuildCard";
@@ -80,11 +81,15 @@ export default function RootLayout({
         {profileResult.present ? (
           <>
             <AppShell
+              location={
+                <Suspense fallback={<ShellLocation projects={null} />}>
+                  <LocationSlot />
+                </Suspense>
+              }
               counts={{
                 inicio: turn && !turn.errors.length ? turn.count : undefined,
                 tablero: ideas ? ideas.totalIdeas - ideas.ideasDiscarded : undefined,
-                propuestas:
-                  proposals && !proposals.errors.length ? proposals.badgeCount : undefined,
+                propuestas: proposals?.badgeCount,
               }}
               projects={
                 <Suspense fallback={null}>
@@ -138,6 +143,17 @@ function noticeData(): AchievementNotice[] {
       fresh: true,
     }));
 }
+/** Reuse the deferred sidebar resolver so phone identity does not block shell streaming. */
+async function LocationSlot(): Promise<React.JSX.Element> {
+  try {
+    const projects = await getSidebarProjects();
+    return <ShellLocation projects={projects.map(({ id, name }) => ({ id, name }))} />;
+  } catch (error) {
+    console.error("Phone project location unavailable", error);
+    return <ShellLocation projects={null} />;
+  }
+}
+
 /** Project git reads start after the shell can stream. */
 async function ProjectsSlot(): Promise<React.JSX.Element> {
   try {

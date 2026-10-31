@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it } from "vitest";
 import { PROJECT } from "@/components/modules/ProjectCard/_tests/fixture";
@@ -49,4 +49,21 @@ it("AC-03-008.3: picker describes projects without work orders and an empty sear
   await user.type(screen.getByRole("searchbox"), "no-match");
   expect(screen.queryByRole("link")).not.toBeInTheDocument();
   expect(screen.getByRole("searchbox")).toHaveFocus();
+});
+
+it("keeps summary intrinsic and marks only compact tabs for full phone width", () => {
+  window.history.replaceState(null, "", "/portfolio/pandasaga/summary");
+  render(<ProjectSwitcher projects={[]} currentId="pandasaga" />);
+  expect(screen.getByRole("button", { name: "Cambiar proyecto" })).toHaveAttribute(
+    "data-compact",
+    "false",
+  );
+  act(() => {
+    window.history.pushState(null, "", "/portfolio/pandasaga/architecture");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+  expect(screen.getByRole("button", { name: "Cambiar proyecto" })).toHaveAttribute(
+    "data-compact",
+    "true",
+  );
 });

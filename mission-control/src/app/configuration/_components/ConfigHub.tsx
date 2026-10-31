@@ -70,7 +70,7 @@ export function ConfigHub({ catalogs, query, onOpen }: HubProps): React.JSX.Elem
           <button
             type="button"
             className={`cfg-tile ${styles.tile}`}
-            data-tone={TONES[section]}
+            data-tone={section === "rules" ? "pink" : TONES[section]}
             key={section}
             onClick={() => onOpen(section)}
           >
@@ -85,7 +85,11 @@ export function ConfigHub({ catalogs, query, onOpen }: HubProps): React.JSX.Elem
       </div>
       {catalogs.skills.ok ? (
         <Card tone="violet">
-          <CardHeader title={t("configuracion.hub.commands.title")} count={counts.owner} />
+          <CardHeader
+            title={t("configuracion.hub.commands.title")}
+            icon="terminal"
+            count={counts.owner}
+          />
           <p className={styles.muted}>{t("configuracion.hub.commands.intro")}</p>
           <div className={`cmd-grid ${styles.commands}`}>
             {catalogs.ownerCommands.map((skill) => (

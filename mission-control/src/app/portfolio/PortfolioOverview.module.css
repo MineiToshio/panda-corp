@@ -1,9 +1,10 @@
 .overview {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--s4);
+  gap: var(--s5);
 }
 .toolbar {
+  margin-bottom: var(--s6);
   display: flex;
   align-items: center;
   justify-content: space-between;

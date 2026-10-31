@@ -102,3 +102,11 @@ prototype_blessed_at: 409a0564
 - **Oracle entries (`fidelity.config.json`, `frd-19-app-shell`):** `shell-expanded`, `shell-rail-collapsed`, `shell-rail-float`, `shell-projects-folded`, `shell-drawer-open`, `shell-pending-chip`.
 - **Reference files:** `docs/design/freeze/packs/frd-19.md`, `docs/design/freeze/packs/_global.md`, `docs/design/freeze/reconciliation.md` (C-01), `docs/design/freeze/m1-decisions.md`, root `DESIGN.md`.
 - **components.md rows:** `AppShell`, `Nav`, `Sidebar`, `NavItem`, `ProjectNavItem`, `GuildCard`, `PluginPill`, `PendingPill`, `TopBar`, `BottomNav`, `SkipLink`, `Footer`, and the section "AppShell nav contract".
+
+## Visual close-out (2026-10-31)
+
+When a project workspace is active, its sidebar row uses aria-current="page" and the same raised treatment as the navigation. On phones the top bar shows the canonical project name over the active workspace tab, following URL and browser history. The deferred identity slot shares the sidebar project resolver and does not delay the shell. Propuestas continues to use the shared owner-actions badge count; it is not a count of backlog rows.
+
+## Independent review corrections (2026-10-31)
+
+Partial proposal source errors do not suppress the authoritative badgeCount. The same projectDisplayName helper strips a descriptive subtitle introduced by whitespace plus an em dash, en dash, colon or opening parenthesis before generating initials, sidebar text and phone identity. Unknown workspace tabs use the localized missing-section title, never a raw URL identifier.

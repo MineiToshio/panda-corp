@@ -34,9 +34,15 @@ function project(id: string, total: number | null = 10): ProjectOverviewItem {
   };
 }
 
+vi.mock("next/navigation", () => ({ usePathname: () => "/portfolio/Alpha/commands" }));
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.restoreAllMocks());
 describe("AC-19-005.1: sidebar project group", () => {
+  it("marks only the project owning the active nested route", () => {
+    render(<SidebarProjects projects={[project("Alpha"), project("Beta")]} />);
+    expect(screen.getByRole("link", { name: /^Alpha:/ })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: /^Beta:/ })).not.toHaveAttribute("aria-current");
+  });
   it("shows the first five canonical last-commit ordered projects and the complete catalogue link", () => {
     const rows = ["Recent", "Alpha", "Beta", "Gamma", "Delta", "Older"].map((id) => project(id));
     render(<SidebarProjects projects={rows} />);

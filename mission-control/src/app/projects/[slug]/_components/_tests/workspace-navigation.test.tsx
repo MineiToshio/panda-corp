@@ -1,7 +1,7 @@
 import path from "node:path";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import PortfolioPage from "@/app/portfolio/page";
+import { PortfolioContent as PortfolioPage } from "@/app/portfolio/PortfolioContent";
 import { listWorkOrders } from "@/lib/work-orders/work-orders";
 import { ProjectWorkspace } from "../../ProjectWorkspace";
 import ProjectWorkspacePage from "../../page";

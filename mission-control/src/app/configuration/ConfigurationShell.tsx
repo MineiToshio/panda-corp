@@ -11,7 +11,7 @@ import type { ConfigurationCatalogs } from "@/lib/reference/configurationCatalog
 import { AgentsCatalog } from "./_components/AgentsCatalog";
 import { CatalogDialog } from "./_components/CatalogDialog";
 import { ConfigHub } from "./_components/ConfigHub";
-import { type CatalogSection, LABELS, SECTIONS, TONES } from "./_components/catalogViews";
+import { type CatalogSection, ICONS, LABELS, SECTIONS, TONES } from "./_components/catalogViews";
 import { RulesCatalog } from "./_components/RulesCatalog";
 import { SkillsCatalog } from "./_components/SkillsCatalog";
 import { StandardsCatalog } from "./_components/StandardsCatalog";
@@ -62,6 +62,7 @@ export function ConfigurationShell({
           id,
           label: t(LABELS[id]),
           tone: TONES[id],
+          icon: ICONS[id],
           count: id === "summary" ? undefined : catalogs[id].ok ? catalogs.counts[id] : undefined,
         }))}
         active={active}

@@ -7,9 +7,11 @@ import styles from "./AppShell.module.css";
 /** Phone-only sticky identity and drawer opener. */
 export function TopBar({
   active,
+  location,
   open,
   onOpen,
 }: {
+  readonly location?: React.ReactNode;
   readonly active: NavDestinationId | null;
   readonly open: boolean;
   readonly onOpen: React.MouseEventHandler<HTMLButtonElement>;
@@ -28,8 +30,12 @@ export function TopBar({
       />
       <Image src="/brand/pandacorp.png" alt="" width={30} height={30} />
       <div id="where" className={`where ${styles.where}`}>
-        {destination ? t(destination.labelKey) : t("shell.brand.name")}
-        <small>{t("shell.brand.product")}</small>
+        {location ?? (
+          <>
+            {destination ? t(destination.labelKey) : t("shell.brand.name")}
+            <small>{t("shell.brand.product")}</small>
+          </>
+        )}
       </div>
     </header>
   );

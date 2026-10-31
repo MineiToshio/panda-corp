@@ -13,11 +13,17 @@ import { useDrawer } from "./useDrawer";
 import { useSidebarPreference } from "./useSidebarPreference";
 
 export interface AppShellProps extends SidebarSlots {
+  readonly location?: React.ReactNode;
   readonly children: React.ReactNode;
 }
 
 /** Persistent Órbita frame; owns the page main and all responsive navigation. */
-export function AppShell({ children, footer, ...slots }: AppShellProps): React.JSX.Element {
+export function AppShell({
+  children,
+  footer,
+  location,
+  ...slots
+}: AppShellProps): React.JSX.Element {
   const pathname = usePathname() ?? "";
   const active = navActive(pathname);
   const preference = useSidebarPreference();
@@ -60,7 +66,12 @@ export function AppShell({ children, footer, ...slots }: AppShellProps): React.J
           data-open={drawer.open}
         />
         <div className={`main ${styles.main}`}>
-          <TopBar active={active} open={drawer.open} onOpen={drawer.handleOpen} />
+          <TopBar
+            location={location}
+            active={active}
+            open={drawer.open}
+            onOpen={drawer.handleOpen}
+          />
           <main id="content" className={`page ${styles.page}`} tabIndex={-1}>
             {children}
           </main>

@@ -89,6 +89,7 @@ html[data-projects-open="false"] #sidebar .projnav[data-ready="false"] #projlist
 #sidebar .project-nav-item { display: flex; align-items: center; gap: 11px; padding: 0 10px; min-height: 44px; text-decoration: none; border-radius: var(--r-md); color: var(--text-2); font-weight: 550; }
 #sidebar .project-nav-item .meta { display: grid; min-width: 0; line-height: 1.2; }
 #sidebar .project-nav-item .meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#sidebar .project-nav-item[aria-current="page"] { background: var(--surface-2); color: var(--text); box-shadow: inset 0 0 0 var(--hairline) var(--line); }
 #sidebar .project-nav-item small { font-size: var(--fs-xs); color: var(--text-2); }
 #sidebar .see-all { display: block; padding: var(--s2); font-size: var(--fs-xs); color: var(--text-2); }
 #sidebar .plugin-pill { display: flex; align-items: center; gap: var(--s2); min-height: calc(var(--s8) + var(--s1)); padding: 0 10px; border-radius: var(--r-md); text-decoration: none; font-size: var(--fs-sm); font-weight: 650; color: var(--tone); background: color-mix(in srgb, var(--tone) var(--tint-strong), transparent); border: var(--hairline) solid color-mix(in srgb, var(--tone) 45%, transparent); }

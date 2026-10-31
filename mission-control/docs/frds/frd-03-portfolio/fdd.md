@@ -99,3 +99,11 @@ In Lista, an existing project's unknown open-change count is a plain text link "
 FileReadErrors reuses the coral Notice with each relative path and localized reason, wrapping long
 paths on phones. Valid lists remain below the notice. Incomplete project totals show "N archivos sin
 leer" instead of a progress fraction/ring. Lista's source-error links are visibly underlined.
+
+## Visual close-out (2026-10-31)
+
+The view selector uses grid, list and users icons for Tarjetas, Lista and Cuentas, with a standard large stack gap before the view content. Shared progress rings have no box shadow; the Tailwind ring utility must not draw an outer outline in cards or project heroes.
+
+## Independent review corrections (2026-10-31)
+
+The toolbar has a bottom margin of s6 (24 px) in addition to the s5 grid gap, yielding the prototype's 44 px toolbar-to-cards separation. The phone project picker keeps intrinsic width on Summary and fills the compact header on other tabs. Selected segmented icons use blue. The hero ring is 60 px on phones (76 px on desktop).

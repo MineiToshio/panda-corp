@@ -1,7 +1,7 @@
 import { normalizeLegacyNavigation } from "@/lib/navigation/aliases";
 import { type RouteQuery, routeHref, workspaceRouteState } from "@/lib/navigation/routeState";
 import { NavigationSeedProvider } from "@/lib/navigation/useUrlState";
-import PortfolioPage from "../page";
+import { PortfolioContent } from "../PortfolioContent";
 
 /** Resolve persistent portfolio paths without duplicating its workspace. */
 export default async function PersistentPortfolio({
@@ -22,7 +22,7 @@ export default async function PersistentPortfolio({
   );
   return (
     <NavigationSeedProvider href={canonical}>
-      <PortfolioPage searchParams={Promise.resolve(query)} routeState={routeState} />
+      <PortfolioContent searchParams={Promise.resolve(query)} routeState={routeState} />
     </NavigationSeedProvider>
   );
 }

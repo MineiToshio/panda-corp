@@ -132,7 +132,7 @@ describe("root layout sidebar wiring", () => {
     expect(log).toHaveBeenCalled();
     log.mockRestore();
   });
-  it("read errors independently omit counts, projects, guild and notice, preserving other slots", () => {
+  it("partial proposal errors preserve the authoritative badge while unrelated failed slots stay unavailable", () => {
     readers.turn.mockReturnValue({ count: 99, errors: [{ message: "read failed" }] });
     readers.proposals.mockReturnValue({ badgeCount: 99, errors: [{ message: "read failed" }] });
     readers.projects.mockImplementationOnce(() => {
@@ -147,7 +147,7 @@ describe("root layout sidebar wiring", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const tree = RootLayout({ children: "Page" });
     const shell = find<AppShellProps>(tree, AppShell)[0];
-    expect(shell?.props.counts).toEqual({ inicio: undefined, tablero: 2, propuestas: undefined });
+    expect(shell?.props.counts).toEqual({ inicio: undefined, tablero: 2, propuestas: 99 });
     expect(shell?.props.guild).toBeNull();
     expect(find<{ achievements: unknown }>(tree, AchievementToast)[0]?.props.achievements).toEqual(
       [],

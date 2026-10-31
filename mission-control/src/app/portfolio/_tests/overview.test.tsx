@@ -110,7 +110,7 @@ vi.mock("next/navigation", () => ({
 
 import { getProjectOverview } from "@/lib/portfolio/overview";
 import PortfolioNotFound from "../not-found";
-import PortfolioPage from "../page";
+import { PortfolioContent as PortfolioPage } from "../PortfolioContent";
 
 const page = (query = {}, routeState?: Record<string, string>) =>
   PortfolioPage({ searchParams: Promise.resolve(query), routeState });

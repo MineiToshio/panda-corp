@@ -25,11 +25,11 @@
 }
 .table table {
   width: 100%;
-  min-width: calc(var(--s10) * 10);
+  min-width: 0;
   border-collapse: collapse;
   font-size: var(--fs-sm);
 }
-.table :is(th, td) {
+.table table :is(th, td) {
   padding: 9px 6px;
   border-top: var(--hairline) solid var(--line);
   text-align: left;
@@ -39,6 +39,8 @@
   border-top: 0;
   font-size: var(--fs-xs);
   font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
   color: var(--text-3);
 }
 .table td {
@@ -181,4 +183,8 @@ p.hint {
   .root .table table td::before {
     display: none;
   }
+}
+
+.table :is(th, td):last-child {
+  white-space: nowrap;
 }

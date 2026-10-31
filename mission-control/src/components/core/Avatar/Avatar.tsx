@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { AgentRole } from "@/app/_design/tokens/tokens";
 import type { Tone } from "@/components/core/Chip/vocabulary";
+import { projectDisplayName } from "@/lib/portfolio/displayName";
 import styles from "./Avatar.module.css";
 
 export const SPRITE_MAP: Record<AgentRole, string> = {
@@ -39,11 +40,10 @@ export interface AvatarProps {
 
 /** Two letters per name; a single CamelCase word uses its capitals so PandaSaga and PandaCast differ. */
 function initialsOf(identity: string): string {
-  const words = identity.split(/[\s-]+/).filter(Boolean);
+  const head = projectDisplayName(identity);
+  const words = head.split(/[\s-]+/).filter(Boolean);
   const source =
-    words.length > 1
-      ? words.map((word) => word.charAt(0))
-      : (identity.match(/\p{Lu}/gu) ?? [identity]);
+    words.length > 1 ? words.map((word) => word.charAt(0)) : (head.match(/\p{Lu}/gu) ?? [head]);
   return source.join("").slice(0, 2).toUpperCase();
 }
 

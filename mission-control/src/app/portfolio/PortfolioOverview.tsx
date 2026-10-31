@@ -132,9 +132,9 @@ export function PortfolioOverview({
           value={view}
           onChange={setView}
           options={[
-            { value: "tarjetas", label: t("portafolio.views.cards") },
-            { value: "lista", label: t("portafolio.views.list") },
-            { value: "cuentas", label: t("portafolio.views.accounts") },
+            { value: "tarjetas", icon: "grid", label: t("portafolio.views.cards") },
+            { value: "lista", icon: "list", label: t("portafolio.views.list") },
+            { value: "cuentas", icon: "users", label: t("portafolio.views.accounts") },
           ]}
         />
         <span className={styles.hint}>

@@ -10,7 +10,7 @@ export function EmbudoCard({ funnel }: { readonly funnel: FunnelData }): React.J
   const max = Math.max(0, ...funnel.rows.map((row) => row.count));
   return (
     <Card tone="teal">
-      <CardHeader title={t("inicio.funnel.title")} icon="chart" />
+      <CardHeader title={t("inicio.funnel.title")} icon="kanban" />
       <div className={`funnel ${styles.funnel}`}>
         {funnel.rows.map((row) => (
           <FunnelRow key={row.phase} {...row} max={max} />

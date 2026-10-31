@@ -139,3 +139,9 @@ This FRD covers the global shell: persistent identity, seven destinations and re
 ## Persistent navigation integration — FRD-25 (2026-10-17)
 
 The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+
+## Visual close-out acceptance (2026-10-31)
+
+WHEN the owner opens a nested project workspace, the system SHALL mark that project row current and show the canonical project name over its localized active tab in the phone top bar. WHEN the owner uses browser history, both identity and tab SHALL follow the URL.
+
+WHEN proposal sources contain partial read errors, the system SHALL render the shared resolver badgeCount for the available owner actions and SHALL preserve the errors on the Proposals surface.

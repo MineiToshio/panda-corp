@@ -113,3 +113,11 @@ prototype_blessed_at: 409a0564
 - **Oracle table:** `docs/design/prototype/reference/oracle-states.json`, the five entries of `frd-21-pending-merge`.
 - **Reference files:** `docs/design/prototype/reference/computed-styles.json`, `docs/design/prototype/components.html`, root `DESIGN.md`, `docs/design/design-tokens.json`. Styles to match: `.wt-table`, `.skill-line`, `.state-dot`, `.legend`, `p.tbl-hint`, `.plugin-pill`, `.pending-pill` in `docs/design/prototype/prototype.css`.
 - **components.md rows:** `PendingPill`, `PluginPill`, `WorktreesTable`, `Card`, `Table`, `StateDot`, `Chip`, `EmptyState` / `Notice`, `CommandBox`, `Dialog`, `AskRow`, `Sidebar`.
+
+## Visual close-out (2026-10-31)
+
+The worktree table keeps sentence-case headers with normal tracking, including on narrow screens. Its state column never wraps or clips state words; horizontal scrolling remains explicitly labelled and keyboard reachable.
+
+## Independent review corrections (2026-10-31)
+
+The worktree cell padding selector includes the table element so it wins against the shared Table headers and cells, keeping the prototype 9 px by 6 px spacing. Small horizontal overflow is local to the labelled scroll region, never page overflow.

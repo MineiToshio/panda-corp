@@ -177,3 +177,7 @@ cards render those notices beside valid data. Global overview exposes `orderErro
 workspace headers and Lista display the unread-file count instead of a fabricated exact percentage.
 `FileReadErrors` reuses Notice, wraps long paths, and localizes parser reasons through microcopy.
 Lista links to source errors remain underlined at all widths.
+
+## Independent review corrections (2026-10-31)
+
+PortfolioContent owns reusable server composition and accepts internal routeState. App Router page.tsx exports a wrapper with only framework-supported searchParams; the persistent path adapter calls PortfolioContent directly. This removes the pre-existing TS2344 invalid page-props export without changing URL selection.

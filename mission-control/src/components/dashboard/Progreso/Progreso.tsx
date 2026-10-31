@@ -20,7 +20,7 @@ export function Progreso({
 }): React.JSX.Element {
   return (
     <Card tone="gold">
-      <CardHeader title={t("inicio.guild.title")} icon="shield" />
+      <CardHeader title={t("inicio.guild.title")} icon="trophy" />
       <div className={styles.identity}>
         <RankEmblem sprite={level.sprite} grade={level.grade} icon={level.icon} size={56} />
         <div>

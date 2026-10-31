@@ -30,12 +30,17 @@ export function AskRow({
       <div className={styles.content}>
         <strong>{item.title}</strong>
         <small>
-          {item.project} · {t(decision ? "inicio.turn.kindDecision" : "inicio.turn.kindChange")} ·{" "}
-          {!item.date
-            ? null
-            : decision
-              ? item.ageLabel
-              : t("inicio.turn.requestedOn", { date: formatDate(item.date) })}
+          {[
+            item.project,
+            t(decision ? "inicio.turn.kindDecision" : "inicio.turn.kindChange"),
+            !item.date
+              ? null
+              : decision
+                ? item.ageLabel
+                : t("inicio.turn.requestedOn", { date: formatDate(item.date) }),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </small>
         <div className={styles.command}>
           <CommandCompact command={item.command} />

@@ -130,3 +130,11 @@ prototype_blessed_at: 409a0564
 Below 1024 px each account is a two-column row card: service and state share the first line; remaining account metadata spans both columns, with explicit labels for identity, login and environments/projects. Existing required identity/access fields remain present. Oracle: `prototype.css:1391-1400` and AC-26-003.1.
 
 Component tests and static checks are recorded in the decision log. Browser fidelity, themes and overflow still require the attended Claude reviewer; no visual baseline was edited.
+
+## Visual close-out (2026-10-31)
+
+Below the phone breakpoint the global account directory keeps compact service, purpose, login, project and state rows. Provider type, organization and dated access identity remain available in Detalles, avoiding three extra metadata blocks in each compact row. Desktop columns and project account views retain their full table presentation.
+
+## Independent review corrections (2026-10-31)
+
+The shared table scroll wrapper establishes a relative positioning context. Its visually hidden final header stays clipped inside the wrapper instead of extending the global account page beyond the viewport.

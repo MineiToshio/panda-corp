@@ -1,6 +1,9 @@
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 import styles from "./Segmented.module.css";
 
 interface SegmentedOption {
+  readonly icon?: IconName;
   readonly value: string;
   readonly label: string;
 }
@@ -25,6 +28,7 @@ export function Segmented({ label, options, value, onChange }: SegmentedProps): 
           aria-pressed={option.value === value}
           onClick={() => onChange(option.value)}
         >
+          {option.icon ? <Icon name={option.icon} size="sm" /> : null}
           {option.label}
         </button>
       ))}

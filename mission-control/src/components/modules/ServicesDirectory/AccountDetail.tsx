@@ -91,6 +91,7 @@ export function AccountDetail({
 function accountFacts({ provider, account }: DirectoryAccountRow) {
   const unknown = t("portafolio.accounts.toVerify");
   return [
+    { id: "type", label: t("portafolio.accounts.columns.type"), content: provider.type },
     { id: "purpose", label: t("dialogs.account.purpose"), content: provider.purpose },
     {
       id: "email",
