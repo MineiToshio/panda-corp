@@ -12,9 +12,11 @@ export function RadarChart({ axes }: { axes: Attributes }): React.JSX.Element {
   };
   const values = entries.map(([key, value]) => `${t(`logros.radar.${key}`)} ${value}`).join(" · ");
   return (
+    // SVG end-anchored labels extend left of their text origin, inside the viewBox.
     <svg
       className={`radar ${styles.chart} ${styles.radar}`}
       viewBox="-44 0 328 240"
+      data-scroll-x="intentional"
       role="img"
       aria-label={t("logros.radar.aria", { values })}
     >

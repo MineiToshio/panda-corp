@@ -190,3 +190,10 @@ Browser verification at 1280px and 375px confirmed no horizontal overflow, a 230
 The summary radar stacks above its prose at every width and uses a 280px SVG (`calc(var(--s10) * 7)`), constrained by the available width. Its 14px SVG labels therefore render at approximately 12px instead of 9.82px. Accessibility takes precedence over the prototype's compact side-by-side radar. Summary columns use the prototype's flex stacks with a spacing-6 gap and a stretching final card on desktop; seal rows use spacing-2, matching the compact approximately 61px row rhythm. Below 1024px final cards return to intrinsic height. Seal counts and axes use small (13px), tertiary text.
 
 Statistics prose uses proportional figures. Numeric table cells retain the shared `td` tabular-figure rule; the report container does not impose tabular figures on its prose. Shared guild-hero and dashboard progress prose also retain proportional figures.
+
+### Integrated responsive repair (2026-10-31)
+
+RadarChart declares its bounded SVG coordinate surface with the responsive helper exception.
+End-anchored left labels have browser scrollWidth larger than their text-origin clientWidth,
+but their painted bounds remain inside the SVG viewBox and viewport. No clipping, font-size
+reduction or additional scrolling is introduced; the complete value-bearing accessible name remains.

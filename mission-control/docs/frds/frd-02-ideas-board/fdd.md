@@ -221,3 +221,9 @@ The shared FrdCard presents its ID in a violet chip, kind at the opposite edge, 
 Architecture plan introductions use small secondary text and the “Por FRD” label uses secondary text for contrast. FRD card summaries render inline Markdown (including code) instead of exposing source delimiters. Authored punctuation and narrative metadata remain source content. Header hosting/platform chips use the plain variant, hosting includes a cube icon, and the cost uses a green tint.
 
 The real Funko Tracker digest already supplies de-prefixed mosaic titles; its relationship disclosure already has a border and spacing. Neither is normalized from fixture-only observations.
+
+### Integrated responsive repair (2026-10-31)
+
+Phone header actions retain the approved 32px small links and 40px favourite; both action
+groups use spacing-1 gaps so the complete row fits the 288px content area at a 320px viewport.
+Accessible labels and the 24px minimum target floor are unchanged.

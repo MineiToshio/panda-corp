@@ -338,3 +338,10 @@ FrdCard IDs use the mono fcode treatment (violet tint, r-xs, 4px vertical / 7px 
 - `FrdCard`: inline Markdown summaries with inherited small code text.
 - `FileReadErrors`: reused by both report digests for structured work-order errors; diagnostic source strings remain available to nonvisual consumers.
 - `GuildHero` / dashboard `Progreso`: proportional figures in prose; numeric elements opt into tabular figures individually.
+
+### Integrated gate repairs (2026-10-31)
+
+Tabs share the 32px control width with the focus-reveal geometry, plus a 2px rounding clearance.
+IdeaHeader uses spacing-1 action gaps on phones, retaining the approved 32px links. ProposalStream
+allows its candidates summary to wrap. RadarChart marks its bounded SVG coordinate surface for
+the responsive helper: painted labels fit, although end-anchored text metrics report overflow.

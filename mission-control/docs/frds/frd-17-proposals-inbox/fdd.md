@@ -157,3 +157,9 @@ the localized corroboration note, and the memory-upkeep title ends with a period
 ## Live-count reconciliation (2026-10-31)
 
 The frozen prototype uses illustrative populations (16 waiting lessons and 42 signals). Live counts are derived, not copied: the 2026-10-31 audit observed a waiting union of 43 unique lesson IDs (39 proposed promotions plus 4 additional eligible recurring lessons), and an automatic-signal total of 26. The Resumen action, Memoria tab, flow tile and waiting group use the same deduplicated resolver. Other frozen examples, including candidate and active-rule counts, remain capture descriptions rather than constants.
+
+### Integrated responsive repair (2026-10-31)
+
+The candidates disclosure summary wraps its icon, title, count and hint when its available
+width is insufficient, including the 238px summary at a 320px viewport. Content remains visible
+and operable without horizontal clipping or reduced typography.
