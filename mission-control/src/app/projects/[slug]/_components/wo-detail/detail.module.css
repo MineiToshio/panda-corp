@@ -10,6 +10,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--s4);
 }
 .hero h2 {
@@ -33,6 +34,10 @@
   flex-wrap: wrap;
   gap: var(--s2);
   align-items: center;
+  min-width: 0;
+}
+.heroTop .chips > * {
+  white-space: normal;
 }
 .flow {
   display: grid;
