@@ -352,7 +352,7 @@ export function DesatendidaDetail(): React.JSX.Element {
       </Body>
       <Ul>
         <li>El estado de cada work order en el tablero Kanban.</li>
-        <li>Los agentes activos con su estado en el panel Party.</li>
+        <li>Los agentes activos con su estado en La Fragua.</li>
         <li>Los eventos recientes en la línea de tiempo de observabilidad.</li>
         <li>El freshness badge, que indica si los datos son recientes.</li>
       </Ul>

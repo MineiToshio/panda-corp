@@ -54,7 +54,7 @@ const ROWS: readonly Row[] = [
   },
   {
     file: "~/.claude/dashboard-events.ndjson",
-    stores: "eventos en vivo (Party)",
+    stores: "eventos en vivo (La Fragua)",
     writer: "subagentes + SubagentStop",
   },
 ] as const;

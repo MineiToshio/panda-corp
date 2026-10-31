@@ -62,33 +62,27 @@ export function PipelineDetail(): React.JSX.Element {
         <Code>/pandacorp:design</Code>.
       </Body>
       <Body>
-        El motor de generación se elige por situación, con una tabla de ruteo (DR-109): en un
-        proyecto nuevo con acceso al canvas el motor por defecto es{" "}
-        <B weight={500}>Claude Design</B> (claude.ai/design); sin acceso, direcciones HTML hechas a
-        mano; con un visual ya aprobado se extrae fielmente (ADOPT-VISUAL); y en brownfield con UI
-        construida se itera en el repo.
+        El motor de generación se elige por situación (DR-109): en un proyecto nuevo el motor por
+        defecto son direcciones HTML hechas a mano en el repo; con un visual aprobado se extrae
+        fielmente (ADOPT-VISUAL); en brownfield se itera en el repo. El repo es la fuente de verdad
+        y el agente verifica allí cada dirección antes de mostrártela.
       </Body>
       <Body margin="0 0 8px">
-        Con Claude Design el loop lo conduce el agente, con estado en disco:
+        La revisión se hace con <B weight={500}>Artifacts privados</B>, y el agente conduce el loop
+        con estado en disco:
       </Body>
       <Ul>
+        <li>Un tracker enumera desde los FRDs todas las pantallas y evita saltarse una página.</li>
         <li>
-          Un <B weight={500}>tracker</B> enumera desde los FRDs todas las pantallas a generar:
-          saltarse una página es imposible, el gate de avance lo verifica.
+          Cada prototipo se publica como Artifact privado con un enlace estable para toda la fase.
+          Puedes abrirlo y comentarlo desde cualquier dispositivo.
         </li>
         <li>
-          Los prompts viajan por el mejor transporte disponible (el navegador vía claude-in-chrome,
-          o el portapapeles: tu único trabajo por ronda es un Cmd+V).
+          Antes de cada ronda, el agente lee los comentarios, refina el archivo local y lo republica
+          en el mismo enlace. Cada ronda queda registrada en el journal.
         </li>
-        <li>
-          El agente <B weight={500}>detecta solo</B> cuándo terminó el canvas (polling) y revisa
-          cada pantalla contra una rúbrica antes de mostrártela; cada ronda queda registrada en el
-          journal.
-        </li>
-        <li>
-          Al cierre, un barrido reconcilia los componentes usados en las pantallas contra la galería
-          del sistema.
-        </li>
+        <li>Si la sesión no puede publicar Artifacts, se usan archivos locales o capturas.</li>
+        <li>Al cierre, el agente reconcilia los componentes con la galería del sistema.</li>
       </Ul>
       <NotePanel icon="ti-hand-click" iconColor="var(--color-accent)">
         Tú solo tomas decisiones (aprobar, corregir o diferir); nunca haces de mensajero.
@@ -266,7 +260,7 @@ export function PipelineDetail(): React.JSX.Element {
         </li>
         <li>
           El motor además emite los eventos <Code>achievement</Code> y <Code>gate</Code> que
-          alimentan la Bóveda y el tribunal del Party (BL-0020).
+          alimentan la Bóveda y el tribunal de La Fragua (BL-0020).
         </li>
       </Ul>
       <Body margin="14px 0 8px">La habilidad acepta tres modos de construcción:</Body>

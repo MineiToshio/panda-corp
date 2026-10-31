@@ -6,7 +6,7 @@ title: 'WO-08-003 — Documentación UI: home, search, reader, index, not-found'
 status: ACTIVE
 parent: FRD-08
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: medium
 reopen_count: 0
 artifacts:
@@ -122,3 +122,8 @@ Component and unit tests beside the code (`getByRole` first): home blocks and de
 WO-13-012 (composite primitives: `Crumbs`, `Card`, `ListRow`, `EmptyState`, `Markdown`, `Dialog` family) and WO-25-001 (URL codec: `/manual/:group/:page`, `q`, `index`). The page index reader WO-08-001 and the feedback page WO-14-004 are already history. Consumers: WO-04-012 (`DocIndex`, `Paper`), WO-07-006 (waits for this WO's removal of the Referencia embed).
 
 ## Status Note
+
+- 2026-10-30 (S2C): Built the home, lazy full-text results, authored reader, shared DocIndex/Paper, bounded missing-page state and route-boundary legacy redirects. UI Vitest: 5 files, 20 tests passed. AC-08-020.1/2/3 are cited by the UI tests and the authored behavior spec. Biome formatted the owned paths. Full TypeScript currently reports seven obsolete DocReader prop usages in the untouched frd-08-gate-opus and frd-08-reuse reviewer suites; these need reviewer reconciliation. Browser behavior and visual fidelity are unverified (Chromium unavailable by task constraint). Changes remain uncommitted by instruction.
+- 2026-10-30 (S2C final verification): After WO-08-004, the scoped non-reviewer suite passed 247 tests across 21 files and the scoped TypeScript check passed. Search results and home links reuse the shared ListRow/DividedList. A subsequent page.test.tsx run passed all 7 UI tests. Independent reviewer reconciliation is still required: frd-08-gate-opus, frd-08-reuse.gate and manual.reviewer.integration pin the removed v1 contract (20 observed failures). The full typecheck remains red on seven old DocReader prop calls in the first two reviewer suites. Browser behavior, pixel fidelity and the full gate are unverified.
+
+- 2026-10-30 (S2C round 2): Reused core SearchField on the home and shared index, removed the hardcoded search id and duplicate field CSS, restricted the URL index state to `1`, removed unused exports, stripped only the leading Markdown H1, separated block text during search extraction, folded accents in the index filter and corrected concept/workflow hues. Updated the two implementer URL expectations; reviewer suites and visual baselines are unchanged. Scoped Vitest passed 312 tests across 25 files (including reviewer suites), full `pnpm exec tsc --noEmit` passed, and scoped Biome passed 79 files. `pnpm knip` reports only three out-of-scope exported types in core Button/Tabs, with none in this work order. Playwright was attempted on port 3953 using a temporary config to override the fixture port; all 13 desktop cases stopped at Chromium launch with macOS MachPortRendezvousServer permission denial before assertions. Browser behavior, computed width and visual fidelity remain unverified. No commits were created.

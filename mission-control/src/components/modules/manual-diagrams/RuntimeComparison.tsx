@@ -56,7 +56,7 @@ const STATUS_META: Record<Status, StatusMeta> = {
 
 const ROWS: readonly Row[] = [
   {
-    capability: "Manual que carga",
+    capability: "Instrucciones que carga",
     claude: "CLAUDE.md → importa AGENTS.md",
     codex: "AGENTS.md directo (< 32 KB, sin @imports)",
     status: "same",
@@ -110,9 +110,9 @@ const ROWS: readonly Row[] = [
     status: "degrades",
   },
   {
-    capability: "Claude Design",
-    claude: "canvas nativo (DesignSync)",
-    codex: "fallback HTML documentado (DR-058 plan B)",
+    capability: "Revisión de diseño",
+    claude: "Artifacts privados con enlace estable y comentarios",
+    codex: "archivos locales o capturas",
     status: "claude-only",
   },
 ];

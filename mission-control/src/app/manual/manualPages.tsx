@@ -28,7 +28,6 @@ import { DownArrow, IconRow } from "@/components/modules/manual-diagrams/atoms";
 import { ChannelsDiagram } from "@/components/modules/manual-diagrams/ChannelsDiagram";
 import { CockpitDataDiagram } from "@/components/modules/manual-diagrams/CockpitDataDiagram";
 import { DocH } from "@/components/modules/manual-diagrams/DocH";
-import { FlowGraph } from "@/components/modules/manual-diagrams/FlowGraph";
 import { HooksDiagram } from "@/components/modules/manual-diagrams/HooksDiagram";
 import { ModificationGuide } from "@/components/modules/manual-diagrams/ModificationGuide";
 import { MultiRuntimeDiagram } from "@/components/modules/manual-diagrams/MultiRuntimeDiagram";
@@ -52,7 +51,6 @@ import { StateTable } from "@/components/modules/manual-diagrams/StateTable";
 import { TeamBios, TeamDiagram } from "@/components/modules/manual-diagrams/TeamDiagram";
 import { VaultDiagram } from "@/components/modules/manual-diagrams/VaultDiagram";
 import { WorkflowShapeDiagram } from "@/components/modules/manual-diagrams/WorkflowShapeDiagram";
-import { backlogFlow, buildFlow } from "@/lib/manual/workflow-flows";
 import { ArquitecturaDetail } from "./_components/ArquitecturaDetail";
 import { CockpitDetail } from "./_components/CockpitDetail";
 import { DesatendidaDetail } from "./_components/DesatendidaDetail";
@@ -197,7 +195,7 @@ function GuidePage({
 }): React.JSX.Element {
   return (
     <>
-      <DocH title={title} level={1} />
+      <DocH title={title} level={2} />
       {intro != null && <Lead>{intro}</Lead>}
       <Panel>
         {steps.map((step, i) => (
@@ -246,7 +244,7 @@ const LANDING_FEATURES: readonly { icon: string; title: string; body: string }[]
 function ManualLanding(): React.JSX.Element {
   return (
     <>
-      <DocH title="Qué es Pandacorp" level={1} />
+      <DocH title="Qué es Pandacorp" level={2} />
       <Panel>
         <Body size="15px" margin="0 0 8px">
           Operas una <B weight={600}>fábrica de software hecha 100% con IA</B>. Tú traes ideas o
@@ -323,7 +321,7 @@ function ManualLanding(): React.JSX.Element {
       {/* Tour CTA */}
       <NotePanel icon="ti-player-play" iconColor="var(--color-accent-text)">
         <B weight={600}>¿Primera vez? Haz el tour.</B> Sigue UNA idea de punta a punta en ~5 min y
-        mira a tu party construir — está en <B weight={600}>Empezar aquí → Cómo empezar</B>.
+        mira a tu party construir — está en <B weight={600}>Empieza aquí → Cómo empezar</B>.
       </NotePanel>
     </>
   );
@@ -332,7 +330,7 @@ function ManualLanding(): React.JSX.Element {
 function ManualQuickstart(): React.JSX.Element {
   return (
     <>
-      <DocH title="Tu primera misión" level={1} />
+      <DocH title="Tu primera misión" level={2} />
       <Lead>
         En unos minutos vas a llevar <B weight={600}>una idea</B> de cero hasta ver a tu party de
         agentes construyéndola en vivo. Lo único que necesitas: Mission Control abierto y Claude
@@ -369,8 +367,9 @@ function ManualQuickstart(): React.JSX.Element {
         title="¡Construye y MIRA!"
         body={
           <>
-            Lanza la construcción y abre el proyecto en <B weight={600}>Portfolio → Party</B>: vas a
-            ver a tu party de agentes trabajando en el mapa RPG. Esa es tu primera victoria.
+            Lanza la construcción y abre el proyecto desde <B weight={600}>Portafolio</B>. En{" "}
+            <B weight={600}>Resumen</B>, mira <B weight={600}>La Fragua</B> en la parte superior:
+            sus cuatro estaciones muestran el trabajo de los agentes. Esa es tu primera victoria.
           </>
         }
         cmd="/pandacorp:implement"
@@ -466,25 +465,41 @@ function GuideModo(): React.JSX.Element {
       intro={
         <>
           <Code>/pandacorp:implement</Code> acepta un modo según con cuánta potencia quieras
-          construir. Por defecto es Equilibrado. Lo cambias por proyecto en Portfolio → Party.
+          construir. Por defecto es Potente (powerful). Lo cambias en la pestaña Comandos del
+          proyecto o en su ficha de Campaña.
         </>
       }
       steps={[
         <>
-          <B weight={600}>pro</B>: hasta 2 work orders en paralelo, modelos económicos
-          (sonnet/haiku). Más lento, mínimo consumo. Para plan Pro. → <Code>implement pro</Code>
+          <B weight={600}>pro</B>: mínimo consumo, un carril de trabajo.
+          <div>
+            <Code>implement pro</Code>
+          </div>
         </>,
         <>
-          <B weight={600}>balanced</B> (default): hasta 4 work orders en paralelo, juez opus.
-          Pensado para Max 5x. → <Code>implement</Code>
+          <B weight={600}>balanced</B>: construcción equilibrada, revisión con opus.
+          <div>
+            <Code>implement balanced</Code>
+          </div>
         </>,
         <>
-          <B weight={600}>powerful</B>: hasta 8 work orders en paralelo y revisión de FRD en cuatro
-          lentes, avanza más rápido. Para Max 20x. → <Code>implement powerful</Code>
+          <B weight={600}>powerful</B> (default): más capacidad y revisión en cuatro lentes.
+          <div>
+            <Code>implement powerful</Code>
+          </div>
         </>,
         <>
-          <B weight={600}>deep</B>: opus también en los builders (hasta 6 en paralelo) + revisión
-          adversarial extra. Para un proyecto especial. → <Code>implement deep</Code>
+          <B weight={600}>deep</B>: opus también en la construcción, para proyectos especiales.
+          <div>
+            <Code>implement deep</Code>
+          </div>
+        </>,
+        <>
+          El carril rápido construye work orders independientes en worktrees separados. El techo de
+          carriles depende del modo y de las dependencias listas: pro usa uno, balanced hasta dos,
+          powerful y deep hasta cuatro. Usa <Code>--lanes N</Code> para fijar el techo;{" "}
+          <Code>--lanes 1</Code> lo deja secuencial. El motor ajusta la concurrencia en cada ronda.
+          Las oleadas globales pertenecen al carril <Code>classic</Code>.
         </>,
       ]}
       tip={
@@ -510,7 +525,7 @@ function GuideModo(): React.JSX.Element {
 function GuideFeedback(): React.JSX.Element {
   return (
     <>
-      <DocH title="Reportar un bug o responder una decisión" level={1} />
+      <DocH title="Reportar un bug o responder una decisión" level={2} />
       <Lead>
         La puerta única para pedir un cambio es <Code>/pandacorp:change</Code> (ver{" "}
         <B weight={600}>Cómo pedir un cambio</B>); por dentro, esos cambios se atienden por estos{" "}
@@ -520,7 +535,7 @@ function GuideFeedback(): React.JSX.Element {
       <ChannelsDiagram />
       <NotePanel icon="ti-info-circle">
         Mission Control te resalta los puntos de decisión pendientes y los bugs por procesar en
-        Portfolio → Resumen.
+        Portafolio → Resumen.
       </NotePanel>
       <FeedbackDetail />
     </>
@@ -533,7 +548,7 @@ function GuideProbar(): React.JSX.Element {
       title="Probar sin parar al agente"
       intro="El punto seguro es un commit de git, no un estado del agente. Puedes probar la última versión verificada mientras el agente sigue construyendo en su carpeta."
       steps={[
-        "Mission Control te muestra la «última versión verificada · segura para probar» (el último commit del build que pasó todos los gates) en Portfolio → Resumen.",
+        "Mission Control te muestra la «última versión verificada · segura para probar» (el último commit del build que pasó todos los gates) en Portafolio → Resumen.",
         <>
           Copia el comando del snapshot: crea un <Code>git worktree</Code> apuntando a ese commit en
           la carpeta de revisión dedicada (
@@ -599,7 +614,7 @@ function GuidePlugin(): React.JSX.Element {
 function ConceptQueEs(): React.JSX.Element {
   return (
     <>
-      <DocH title="Qué es Pandacorp" level={1} />
+      <DocH title="Qué es Pandacorp" level={2} />
       <Panel>
         <Body>
           Pandacorp es una <B weight={600}>fábrica de software hecha 100% con IA</B>. Tú aportas
@@ -652,7 +667,7 @@ function ConceptQueEs(): React.JSX.Element {
 function ConceptPipeline(): React.JSX.Element {
   return (
     <>
-      <DocH title="El pipeline · de idea a producto" level={1} />
+      <DocH title="El pipeline · de idea a producto" level={2} />
       <Lead>
         Cada idea recorre 6 etapas. La tarjeta avanza cuando apruebas el resultado de cada una; si
         no te gusta, re-corres el mismo comando y sigues puliendo (no avanza hasta tu ok). Copia el
@@ -680,7 +695,7 @@ function ConceptPipeline(): React.JSX.Element {
 function ConceptEquipo(): React.JSX.Element {
   return (
     <>
-      <DocH title="El equipo de agentes" level={1} />
+      <DocH title="El equipo de agentes" level={2} />
       <Lead>
         La fábrica no es un solo agente: es un equipo de obreros especializados que los skills
         delegan según la fase. Cada uno usa el modelo adecuado (opus para juicio, sonnet para tareas
@@ -706,7 +721,7 @@ function ConceptEquipo(): React.JSX.Element {
         es explícita en el código del workflow: no hay comunicación directa entre agentes.
       </Body>
       <NotePanel icon="ti-device-gamepad-2" iconColor="var(--color-accent)">
-        <B weight={500}>En Mission Control,</B> el panel Party muestra a los agentes activos con sus
+        <B weight={500}>En Mission Control,</B> La Fragua muestra a los agentes activos con sus
         avatares animados. Los estados reflejan el trabajo en tiempo real: el agente se mueve cuando
         trabaja, se congela cuando espera y celebra cuando completa una work order.
       </NotePanel>
@@ -717,7 +732,7 @@ function ConceptEquipo(): React.JSX.Element {
 function ConceptEstandares(): React.JSX.Element {
   return (
     <>
-      <DocH title="Estándares y reglas" level={1} />
+      <DocH title="Estándares y reglas" level={2} />
       <Lead>
         El know-how de cómo se construye se inyecta en cada proyecto. Son <B weight={600}>31</B>{" "}
         estándares en <B weight={600}>11 dominios</B> — desde convenciones y arquitectura hasta
@@ -830,7 +845,7 @@ function ConceptEstandares(): React.JSX.Element {
 function ConceptArquitectura(): React.JSX.Element {
   return (
     <>
-      <DocH title="Arquitectura del sistema" level={1} />
+      <DocH title="Arquitectura del sistema" level={2} />
       <Lead>
         La fábrica (este repo) guarda el CÓMO: el know-how, la base de ideas y el portfolio. Los
         productos viven en repos separados, cada uno con su propia documentación. Mission Control
@@ -852,7 +867,7 @@ function ConceptArquitectura(): React.JSX.Element {
 function ConceptCockpit(): React.JSX.Element {
   return (
     <>
-      <DocH title="Mission Control por dentro" level={1} />
+      <DocH title="Mission Control por dentro" level={2} />
       <Lead>
         Mission Control es la interfaz de control de la fábrica: una aplicación Next.js con App
         Router que vive dentro de <Code>panda-corp/mission-control/</Code>. Fue el primer proyecto
@@ -896,7 +911,7 @@ function ConceptCockpit(): React.JSX.Element {
 function ConceptEstado(): React.JSX.Element {
   return (
     <>
-      <DocH title="Estado y archivos · el modelo de datos" level={1} />
+      <DocH title="Estado y archivos · el modelo de datos" level={2} />
       <Lead>
         Todo el estado vive en archivos (no en una BD ni en el chat). Así el avance sobrevive a
         cortes, y la fábrica y Mission Control leen exactamente lo mismo.
@@ -921,7 +936,7 @@ function ConceptEstado(): React.JSX.Element {
 function ConceptHooks(): React.JSX.Element {
   return (
     <>
-      <DocH title="Hooks, gates y seguridad" level={1} />
+      <DocH title="Hooks, gates y seguridad" level={2} />
       <Lead>
         El principio: el modelo propone; <B weight={600}>scripts/CI/hooks verifican</B>. Un agente
         nunca marca sus propios checks.
@@ -1059,7 +1074,7 @@ const RESTORE_STEPS: readonly {
 function ConceptVault(): React.JSX.Element {
   return (
     <>
-      <DocH title="El vault · tu estado personal" level={1} />
+      <DocH title="El vault · tu estado personal" level={2} />
       <Lead>
         Tus ideas, tu perfil, tu portfolio no viven en el repo — son personales y están{" "}
         <B weight={600}>gitignoreados</B>. ¿Dónde viven entonces, y cómo no perderlos? En una
@@ -1170,7 +1185,7 @@ function ConceptVault(): React.JSX.Element {
 function ConceptStacks(): React.JSX.Element {
   return (
     <>
-      <DocH title="Stacks · golden paths" level={1} />
+      <DocH title="Stacks · golden paths" level={2} />
       <Lead>
         3 golden paths documentados (el viejo D —scraping— se plegó en C: era el mismo stack) más
         una lista de <B weight={600}>puntos de partida</B> para casos nuevos. El{" "}
@@ -1188,7 +1203,7 @@ function ConceptDesatendida(): React.JSX.Element {
   const nav = useManualNav();
   return (
     <>
-      <DocH title="Construcción desatendida · técnico" level={1} />
+      <DocH title="Construcción desatendida · técnico" level={2} />
       <Lead>
         Cómo <Code>implement</Code> lanza un workflow dinámico que corre por horas sin babysitting y
         deja siempre un punto probable.
@@ -1266,7 +1281,7 @@ function ConceptDesatendida(): React.JSX.Element {
 function ConceptPlugin(): React.JSX.Element {
   return (
     <>
-      <DocH title="El plugin" level={1} />
+      <DocH title="El plugin" level={2} />
       <Lead>
         El know-how se empaqueta como un plugin de Claude Code, disponible en cualquier carpeta.
       </Lead>
@@ -1336,7 +1351,7 @@ function ConceptPlugin(): React.JSX.Element {
 function ConceptAutoaprendizaje(): React.JSX.Element {
   return (
     <>
-      <DocH title="Autoaprendizaje · cómo la fábrica se vuelve más lista" level={1} />
+      <DocH title="Autoaprendizaje · cómo la fábrica se vuelve más lista" level={2} />
       <Lead>
         La fábrica aprende de cada proyecto: cada problema resuelto, veredicto de librería, truco o
         patrón se guarda como una <B weight={600}>lección reutilizable</B> en{" "}
@@ -1752,7 +1767,7 @@ function NumberedTrail({
 function ConceptArcoEconomico(): React.JSX.Element {
   return (
     <>
-      <DocH title="El arco económico" level={1} />
+      <DocH title="El arco económico" level={2} />
       <Lead>
         No todas las ideas se construyen igual. El pipeline{" "}
         <B weight={600}>
@@ -1836,7 +1851,7 @@ function ConceptArcoEconomico(): React.JSX.Element {
 function ConceptDespuesDeLanzar(): React.JSX.Element {
   return (
     <>
-      <DocH title="Después de lanzar" level={1} />
+      <DocH title="Después de lanzar" level={2} />
       <Lead>
         <B weight={600}>Desplegado ≠ lanzado.</B> Que una versión esté desplegada no significa que
         tenga usuarios ni que funcione el negocio. El ciclo de vida no termina en el deploy:{" "}
@@ -1981,7 +1996,7 @@ const SERVICE_STACK: readonly { concern: string; service: string }[] = [
 function ConceptServiciosSecretos(): React.JSX.Element {
   return (
     <>
-      <DocH title="Servicios, cuentas y secretos" level={1} />
+      <DocH title="Servicios, cuentas y secretos" level={2} />
       <Lead>
         Cuando una app necesita base de datos, correo, pagos o analítica, la fábrica no inventa: usa
         un <B weight={600}>stack de servicios probado</B>, un <B weight={600}>modelo de cuentas</B>{" "}
@@ -2114,7 +2129,7 @@ const HUMAN_GATES: readonly { icon: string; label: React.ReactNode; body: React.
 function ConceptGatesHumanos(): React.JSX.Element {
   return (
     <>
-      <DocH title="Los gates humanos" level={1} />
+      <DocH title="Los gates humanos" level={2} />
       <Lead>
         La fábrica es autónoma, pero hay decisiones que <B weight={600}>solo tú</B> puedes tomar:
         las que tienen consecuencias irreversibles, cuestan dinero o salen al mundo. Todo lo demás
@@ -2169,7 +2184,7 @@ function ConceptGatesHumanos(): React.JSX.Element {
 function ConceptEspinazoDocs(): React.JSX.Element {
   return (
     <>
-      <DocH title="El espinazo de documentos" level={1} />
+      <DocH title="El espinazo de documentos" level={2} />
       <Lead>
         Cada proyecto se documenta con una cadena de documentos enlazados por IDs estables. No es
         burocracia: es la <B weight={600}>trazabilidad</B> que permite saber, para cada línea de
@@ -2266,7 +2281,7 @@ function ConceptEspinazoDocs(): React.JSX.Element {
       </Panel>
       <NotePanel icon="ti-folders" iconColor="var(--color-accent)">
         La estructura es <B weight={500}>feature-céntrica</B> (DR-049): una capa fina de producto +
-        un módulo autocontenido por feature. Las carpetas aparecen bajo demanda. El Manual de
+        un módulo autocontenido por feature. Las carpetas aparecen bajo demanda. La Documentación de
         Mission Control refleja esta misma disciplina (DR-046). <Code>NN</Code> es el número de la
         carpeta del FRD y no cambia una vez asignado; el nombre legible vive en el slug, no en el
         ID.
@@ -2296,7 +2311,7 @@ function ConceptEspinazoDocs(): React.JSX.Element {
 function ConceptTuPerfil(): React.JSX.Element {
   return (
     <>
-      <DocH title="Tu perfil · cómo personaliza la fábrica" level={1} />
+      <DocH title="Tu perfil · cómo personaliza la fábrica" level={2} />
       <Lead>
         La fábrica se personaliza para ti. Un perfil tuyo —intereses, activos y apetito— hace que
         las ideas que te propone encajen contigo en vez de ser genéricas. Vive en{" "}
@@ -2372,7 +2387,7 @@ function ConceptTuPerfil(): React.JSX.Element {
 function ConceptMultiRuntime(): React.JSX.Element {
   return (
     <>
-      <DocH title="Operar desde cualquier agente" level={1} />
+      <DocH title="Operar desde cualquier agente" level={2} />
       <Lead>
         Desde 2026-07-04 (DR-113) la fábrica no vive casada con Claude Code: puedes abrir panda-corp
         —o cualquier proyecto— en la app de <B weight={600}>Codex</B> (o su CLI, Cursor, OpenCode) y
@@ -2515,7 +2530,7 @@ function ConceptMultiRuntime(): React.JSX.Element {
 function GuideAdoptar(): React.JSX.Element {
   return (
     <>
-      <DocH title="Adoptar un proyecto que ya tienes" level={1} />
+      <DocH title="Adoptar un proyecto que ya tienes" level={2} />
       <Lead>
         ¿Tienes un proyecto que NO nació del handoff de Pandacorp —externo, brownfield— y quieres
         meterlo bajo la fábrica? Para eso está <Code>/pandacorp:adopt</Code>: el espejo brownfield
@@ -2596,7 +2611,7 @@ function GuideAdoptar(): React.JSX.Element {
             ),
           },
           {
-            title: <>Registra en la fábrica: ficha (Tablero) y Portfolio, ambas siempre</>,
+            title: <>Registra en la fábrica: ficha (Tablero) y Portafolio, ambas siempre</>,
             body: (
               <>
                 Crea <B weight={500}>siempre</B> una <B weight={500}>ficha de idea retroactiva</B> (
@@ -2622,8 +2637,8 @@ function GuideAdoptar(): React.JSX.Element {
       />
       <NotePanel icon="ti-plug-connected" iconColor="var(--color-accent)">
         Tras adoptar, el proyecto aparece de inmediato en el <B weight={600}>Tablero</B> de Mission
-        Control (por su ficha) y también en el <B weight={600}>Portfolio</B> (por su fila), con su
-        fase inferida, igual que un proyecto nacido del handoff. El Tablero (fichas) y el Portfolio
+        Control (por su ficha) y también en el <B weight={600}>Portafolio</B> (por su fila), con su
+        fase inferida, igual que un proyecto nacido del handoff. El Tablero (fichas) y el Portafolio
         (<Code>portfolio.md</Code>) son dos lecturas distintas, por eso todo proyecto necesita su
         ficha para salir en el Tablero; la ficha guarda en <Code>project:</Code> la ruta que
         entiende <Code>resolveProjectPath</Code> (relativa a la raíz de la fábrica:{" "}
@@ -2641,7 +2656,7 @@ function GuideAdoptar(): React.JSX.Element {
 function GuideSync(): React.JSX.Element {
   return (
     <>
-      <DocH title="Documentar cambios hechos a mano" level={1} />
+      <DocH title="Documentar cambios hechos a mano" level={2} />
       <Lead>
         ¿Editaste el código directamente —para ir rápido, para verlo cambiar en vivo— sin pasar por{" "}
         <Code>/spec</Code>, <Code>/design</Code>, <Code>/implement</Code> o <Code>/change</Code>? El
@@ -2707,13 +2722,14 @@ function GuideSync(): React.JSX.Element {
             ),
           },
           {
-            title: <>Dos capas + el espejo de Claude Design</>,
+            title: <>Dos capas y un espejo externo con procedencia</>,
             body: (
               <>
                 Cada cambio actualiza el doc dueño <B weight={500}>y</B> registra la entrada en{" "}
-                <Code>docs/decision-log.md</Code> (el «porqué» se te pregunta). Si el diseño vive
-                también en Claude Design, sync <B weight={500}>avisa y ofrece</B> re-sincronizar vía{" "}
-                <Code>/design-sync</Code> — nunca empuja solo.
+                <Code>docs/decision-log.md</Code> (el «porqué» se te pregunta). Solo si existe
+                procedencia de un espejo externo de diseño y cambió el sistema compartido, sync{" "}
+                <B weight={500}>avisa y ofrece</B> re-sincronizar vía <Code>/design-sync</Code>.
+                Nunca publica automáticamente; el repo sigue siendo la fuente de verdad.
               </>
             ),
           },
@@ -2735,7 +2751,7 @@ function GuideSync(): React.JSX.Element {
 function GuideCambio(): React.JSX.Element {
   return (
     <>
-      <DocH title="Cómo pedir un cambio" level={1} />
+      <DocH title="Cómo pedir un cambio" level={2} />
       <Lead>
         <Code>/pandacorp:change</Code> es <B weight={600}>la puerta única</B> para pedirle a un
         proyecto CUALQUIER cambio —una feature nueva, un ajuste o un bug—. No tienes que recordar
@@ -2921,7 +2937,7 @@ function EngineCard({
 function WorkflowsOverview(): React.JSX.Element {
   return (
     <>
-      <DocH title="Dynamic Workflows" level={1} />
+      <DocH title="Dynamic Workflows" level={2} />
       <Lead>
         Un <B weight={600}>Dynamic Workflow</B> es un guion de JavaScript que orquesta subagentes de
         forma <B weight={600}>determinista</B>: decide en código qué corre en paralelo, qué espera a
@@ -3061,7 +3077,7 @@ function WorkflowsOverview(): React.JSX.Element {
 function WorkflowBuild(): React.JSX.Element {
   return (
     <>
-      <DocH title="pandacorp-build — el motor de construcción" level={1} />
+      <DocH title="pandacorp-build — el motor de construcción" level={2} />
       <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "10px" }}>
         <Chip tone="accent">
           <Code>/pandacorp:implement</Code>
@@ -3100,10 +3116,6 @@ function WorkflowBuild(): React.JSX.Element {
         cambia).
       </NotePanel>
 
-      <Panel>
-        <FlowGraph flow={buildFlow} />
-      </Panel>
-
       <DocH title="El gate de revisión, ahora en abanico (reviewSplit)" />
       <Body>
         Al cerrar cada feature, antes se pasaba por UN revisor en serie. Ahora, en los modos
@@ -3124,7 +3136,7 @@ function WorkflowBuild(): React.JSX.Element {
         que quedó verde) MIENTRAS el build sigue forjando otras features. Cuando el gate aprueba, el
         motor sella ese work order como VERIFIED en la rama principal de forma serializada (un
         cambio a la vez, sin pisarse); si rechaza, esa feature vuelve a la escalera de recuperación.
-        En el Party lo ves como lo que es: el tribunal <B weight={500}>abre</B> (evento{" "}
+        En La Fragua lo ves como lo que es: el tribunal <B weight={500}>abre</B> (evento{" "}
         <Code>gate</Code>) y <B weight={500}>cierra</B> (evento <Code>GateVerdict</Code>) sin
         congelar la forja, y una orden rechazada camina de vuelta a la forja (↩️{" "}
         <Code>wo_reopen</Code>).
@@ -3210,9 +3222,10 @@ function WorkflowBuild(): React.JSX.Element {
         </Panel>
       </div>
       <Body>
-        En el feed del Party estos momentos tienen icono propio: <B weight={500}>↩️ WO reabierto</B>,{" "}
-        <B weight={500}>🩹 Parche</B>, la <B weight={500}>✅/❌ prueba de humo</B> (el revisor
-        renderiza las rutas de verdad) y el <B weight={500}>🛡️ Endurecimiento</B> del cierre.
+        En el registro de La Fragua estos momentos tienen icono propio:{" "}
+        <B weight={500}>↩️ WO reabierto</B>, <B weight={500}>🩹 Parche</B>, la{" "}
+        <B weight={500}>✅/❌ prueba de humo</B> (el revisor renderiza las rutas de verdad) y el{" "}
+        <B weight={500}>🛡️ Endurecimiento</B> del cierre.
       </Body>
 
       <DocH title="Cómo lo lanzas · el checklist" />
@@ -3224,7 +3237,7 @@ function WorkflowBuild(): React.JSX.Element {
         mano: el skill le pasa también el alcance dirigido (<Code>--frds</Code> o{" "}
         <Code>--change</Code>) y los topes de prueba al launcher, que valida todo antes de tomar el
         candado e imprime una sola llamada JSON segura. Nunca se completa esa llamada a mano. A
-        partir de ahí, mira el Party.
+        partir de ahí, mira La Fragua.
       </Body>
 
       <DocH title="Cómo retoma si se corta" />
@@ -3253,7 +3266,7 @@ function WorkflowBuild(): React.JSX.Element {
 function WorkflowBacklog(): React.JSX.Element {
   return (
     <>
-      <DocH title="pandacorp-backlog — el motor de drenado del backlog" level={1} />
+      <DocH title="pandacorp-backlog — el motor de drenado del backlog" level={2} />
       <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "10px" }}>
         <Chip tone="accent">
           <Code>/pandacorp:implement-backlog</Code> (sin argumentos)
@@ -3275,10 +3288,6 @@ function WorkflowBacklog(): React.JSX.Element {
         serializado), y se vuelve a inspeccionar antes de dejar salir al siguiente. Si uno no pasa
         la inspección, se devuelve a la bahía y sale el resto.
       </NotePanel>
-
-      <Panel>
-        <FlowGraph flow={backlogFlow} />
-      </Panel>
 
       <DocH title="Por qué el merge es de uno en uno" />
       <Body>

@@ -1,0 +1,47 @@
+.head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  margin-bottom: var(--s5);
+}
+.counter {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+.progress {
+  display: flex;
+  gap: var(--s1);
+  margin-bottom: var(--s5);
+}
+.progress span {
+  flex: 1;
+  height: var(--s1);
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+}
+.progress span[data-on="true"] {
+  background: var(--tone);
+}
+.navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  margin-top: var(--s6);
+}
+.card {
+  flex: 1;
+  display: grid;
+  gap: var(--s1);
+  padding: var(--s4);
+  color: var(--text);
+  text-decoration: none;
+  border: var(--hairline) solid color-mix(in srgb, var(--tone) 30%, var(--line));
+  border-radius: var(--r-lg);
+}
+.card small {
+  color: var(--tone);
+  font-size: var(--fs-xs);
+}

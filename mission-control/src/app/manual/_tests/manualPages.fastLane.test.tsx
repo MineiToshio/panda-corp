@@ -6,7 +6,6 @@
 
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { getSkillFlow } from "@/lib/manual/skill-flows";
 import { getManualPageComponent } from "../manualPages";
 
 function renderText(slug: string): string {
@@ -14,64 +13,6 @@ function renderText(slug: string): string {
   if (Component === null) throw new Error(`expected a bespoke renderer for ${slug}`);
   return render(<Component />).container.textContent ?? "";
 }
-
-const FAST_LANE_STEP_TITLES: readonly string[] = [
-  "Lanzar el workflow + fijar el techo",
-  "Construir cada FRD (carril rápido)",
-  "Hito USABLE y gate de revisión por FRD",
-  "Reanudar para varias pasadas + apagado garantizado",
-];
-
-const FLOW = ((): NonNullable<ReturnType<typeof getSkillFlow>> => {
-  const flow = getSkillFlow("implement");
-  if (flow === undefined) throw new Error("expected an implement flow");
-  return flow;
-})();
-
-const FLOW_TEXT = [
-  FLOW.explainer,
-  ...FLOW.steps.flatMap((step) => [step.title, step.detail ?? "", step.note ?? ""]),
-].join("\n");
-
-const FAST_LANE_COPY = [
-  FLOW.explainer,
-  ...FLOW.steps
-    .filter((step) => FAST_LANE_STEP_TITLES.includes(step.title))
-    .flatMap((step) => [step.title, step.detail ?? "", step.note ?? ""]),
-].join("\n");
-
-describe("implement skill flow, fast lane by default", () => {
-  it("promises a USABLE milestone first and the opus review afterwards", () => {
-    expect(FLOW_TEXT).toMatch(/USABLE/);
-    expect(FLOW_TEXT).toMatch(/VERIFIED/);
-    expect(FLOW_TEXT).toMatch(/en segundo plano/);
-  });
-
-  it("names the sensitive features that wait for VERIFIED", () => {
-    expect(FLOW_TEXT).toMatch(/NO son usables hasta quedar VERIFIED/);
-    for (const topic of ["dinero", "datos personales", "secretos", "borrados de datos"]) {
-      expect(FLOW_TEXT).toContain(topic);
-    }
-  });
-
-  it("documents the switches and the clean resume", () => {
-    expect(FLOW_TEXT).toContain("--lane classic");
-    expect(FLOW_TEXT).toContain("--review-budget defer");
-    expect(FLOW_TEXT).toContain("--resume <run-id>");
-  });
-
-  it("keeps the maxAgents rule and the auto option", () => {
-    expect(FLOW_TEXT).toContain("maxAgents");
-    expect(FLOW_TEXT).toMatch(/auto/);
-  });
-
-  it("has every fast-lane step and no em or en dash in the new copy", () => {
-    for (const title of FAST_LANE_STEP_TITLES) {
-      expect(FLOW.steps.map((step) => step.title)).toContain(title);
-    }
-    expect(FAST_LANE_COPY).not.toMatch(/[\u2013\u2014]/);
-  });
-});
 
 describe("unattended-build page, fast lane by default", () => {
   const text = renderText("construccion-desatendida");

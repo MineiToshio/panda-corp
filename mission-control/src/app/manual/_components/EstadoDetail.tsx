@@ -102,12 +102,11 @@ export function EstadoDetail(): React.JSX.Element {
         </li>
       </Ul>
 
-      <DocH title="Eventos del Party: ~/.claude/dashboard-events.ndjson" />
+      <DocH title="Eventos de La Fragua: ~/.claude/dashboard-events.ndjson" />
       <Body>
         Un archivo NDJSON en tu directorio home al que escriben los agentes y los hooks cuando
-        terminan acciones relevantes. Mission Control lo lee para el panel Party y los KPIs en
-        tiempo real. No está versionado (es del usuario local) y <B weight={500}>rota</B>: se lee la
-        cola.
+        terminan acciones relevantes. Mission Control lo lee para La Fragua y los KPIs en tiempo
+        real. No está versionado (es del usuario local) y <B weight={500}>rota</B>: se lee la cola.
       </Body>
 
       <DocH title="La línea de tiempo durable: .pandacorp/track.jsonl" />

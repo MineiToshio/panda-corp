@@ -40,7 +40,7 @@ const HOOKS: readonly Hook[] = [
     icon: "ti-broadcast",
     color: "var(--color-info)",
     name: "Eventos · emit-event.sh",
-    body: "Los subagentes del workflow + el hook SubagentStop escriben a ~/.claude/dashboard-events.ndjson, que Party lee en vivo.",
+    body: "Los subagentes del workflow + el hook SubagentStop escriben a ~/.claude/dashboard-events.ndjson, que La Fragua lee en vivo.",
   },
 ] as const;
 

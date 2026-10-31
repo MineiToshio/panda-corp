@@ -20,7 +20,7 @@ describe("RuntimeComparison", () => {
     expect(screen.getByText("Build (implement)")).toBeTruthy();
     expect(screen.getByText("Subagentes")).toBeTruthy();
     expect(screen.getByText("Enforcement")).toBeTruthy();
-    expect(screen.getByText("Claude Design")).toBeTruthy();
+    expect(screen.getByText("Revisión de diseño")).toBeTruthy();
   });
 
   it("labels each status with readable text, not color alone", () => {

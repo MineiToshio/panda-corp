@@ -66,7 +66,7 @@ export function FeedbackDetail(): React.JSX.Element {
       <NotePanel icon="ti-link">
         <B weight={500}>Enlaces:</B> Mission Control te muestra el último commit en verde y seguro
         para probar (el panel de snapshot) y resalta las <B weight={500}>decisiones pendientes</B>{" "}
-        del workspace en Portfolio → Resumen.
+        del workspace en Portafolio → Resumen.
       </NotePanel>
     </>
   );

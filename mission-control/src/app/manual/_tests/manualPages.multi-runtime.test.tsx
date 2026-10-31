@@ -27,8 +27,8 @@ describe("manualPages — multi-runtime", () => {
     if (Component === null) throw new Error("expected a bespoke renderer for multi-runtime");
     render(<Component />);
 
-    // The page title as an <h1> (first DocH passes level={1}).
-    expect(screen.getByRole("heading", { level: 1, name: /Operar desde cualquier agente/ }));
+    // The reader title is subordinate to the shell heading.
+    expect(screen.getByRole("heading", { level: 2, name: /Operar desde cualquier agente/ }));
     // The four bespoke diagrams are all mounted.
     expect(screen.getByTestId("manual-diagram-multi-runtime")).toBeTruthy();
     expect(screen.getByTestId("manual-diagram-runtime-comparison")).toBeTruthy();

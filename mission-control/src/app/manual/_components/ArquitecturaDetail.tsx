@@ -110,7 +110,7 @@ export function ArquitecturaDetail(): React.JSX.Element {
         </li>
       </Ul>
       <Body margin="10px 0 0">
-        Las rutas de cada sección viven en <Code>app/</Code> (proyectos, party, manual,
+        Las rutas de cada sección viven en <Code>app/</Code> (proyectos, documentación,
         configuración), los lectores de datos en <Code>lib/</Code> y las primitivas reutilizables en{" "}
         <Code>components/</Code>.
       </Body>

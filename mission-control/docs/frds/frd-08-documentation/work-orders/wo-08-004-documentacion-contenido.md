@@ -6,7 +6,7 @@ title: 'WO-08-004 — Documentación content refresh and v2 removals'
 status: ACTIVE
 parent: FRD-08
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: medium
 reopen_count: 0
 change_ref: design-phase-copy-claude-design-sunset.md
@@ -108,3 +108,8 @@ None.
 WO-13-012 (primitives the diagrams use), WO-08-001 (the page index reader, history) and WO-14-004 (the feedback page whose three commands must stay). Runs in W3 beside WO-08-003 on disjoint files.
 
 ## Status Note
+
+- 2026-10-30 (S2C): Refreshed the HTML/private-Artifact design loop, conditional external-mirror explanation, mode/lane guidance and v2 destinations. Read plugin/skills/{implement,sync}/SKILL.md and factory/standards/build-orchestration.md in this checkout before writing the workflow copy. Removed page imports of FlowGraph and deleted workflow-flows.ts; deferred FlowGraph/skill-flows remain intact. Authored page titles now use h2 beneath the shell h1. The existing content stubs required no edits. Guard tests cover all registered renderer extraction, retired phrases, required topics, curated link resolution, no embedded catalogs, and the design review loop.
+- 2026-10-30 (S2C verification): Scoped Vitest excluding the unchanged reviewer suites: 21 files / 247 tests passed. The final shared-ListRow search adjustment was also checked with page.test.tsx: 7 passed. Scoped TypeScript includes the changed folders and behavior specs, excludes the three obsolete reviewer suites, and passes. The three unchanged FRD-08 reviewer suites still have 20 v1 failures (embedded catalogs, automatic first-page selection and old shell); two also carry seven obsolete DocReader prop errors in the full project typecheck. No reviewer files, visual baselines, decision log or .pandacorp state were edited. Playwright and browser fidelity remain unverified by instruction. No commits were created.
+
+- 2026-10-30 (S2C round 2): Rewrote La Fragua as the four-station scene above Resumen, corrected Portafolio and Empieza aquí destinations, removed the retired architecture route label, and separated the four build-mode commands from their prose with an explicit `implement balanced` command. Scoped Vitest passed 312 tests across 25 files (including reviewer suites), full `pnpm exec tsc --noEmit` passed, and scoped Biome passed 79 files. `pnpm knip` reports only three out-of-scope exported types in core Button/Tabs, with none in this work order. Playwright was attempted on port 3953 using a temporary config to override the fixture port; all 13 desktop cases stopped at Chromium launch with macOS MachPortRendezvousServer permission denial before assertions. Browser behavior, computed width and visual fidelity remain unverified. No commits were created.

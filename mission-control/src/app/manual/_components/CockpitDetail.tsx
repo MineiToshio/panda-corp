@@ -16,8 +16,8 @@ import { B, Body, Code, NotePanel, Ul } from "@/components/modules/manual-diagra
 const SECTION_ROWS: readonly (readonly string[])[] = [
   ["Inicio", "/", "Tablero de ideas en columnas Kanban"],
   ["Proyecto", "/projects/[slug]", "Estado detallado de un proyecto activo"],
-  ["Portfolio", "/portfolio", "Lista de todos los proyectos con su fase"],
-  ["Manual", "/manual", "Esta documentación navegable"],
+  ["Portafolio", "/portfolio", "Lista de todos los proyectos con su fase"],
+  ["Documentación", "/manual", "Esta documentación navegable"],
   ["Configuración", "/configuration", "Skills, agentes, reglas y estándares derivados"],
 ];
 
@@ -36,7 +36,10 @@ const READ_MODULE_ROWS: readonly (readonly string[])[] = [
   ["lib/reference/", "plugin/skills/*/SKILL.md + plugin/agents/*.md"],
   ["lib/registry/", "factory/decisions/registry.yaml"],
   ["lib/standards/", "factory/standards/*.md"],
-  ["lib/manual/", "content/manual/**/*.md (el índice de este Manual: título, grupo y orden)"],
+  [
+    "lib/manual/",
+    "content/manual/**/*.md (el índice de esta Documentación: título, grupo y orden)",
+  ],
 ];
 
 /** Sections below the data diagram: what each screen shows and how it reads data. */
@@ -63,7 +66,8 @@ export function CockpitDetail(): React.JSX.Element {
           IN_REVIEW / VERIFIED / BLOCKED).
         </li>
         <li>
-          <B weight={500}>Party:</B> los agentes del equipo animados con su estado en tiempo real.
+          <B weight={500}>La Fragua:</B> los agentes del equipo animados con su estado en tiempo
+          real.
         </li>
         <li>
           <B weight={500}>Observabilidad:</B> el{" "}
@@ -168,38 +172,21 @@ export function CockpitDetail(): React.JSX.Element {
         <Code>docs/frds/frd-23-materialized-stats-read-model/</Code> y ADR-0004.
       </NotePanel>
 
-      <DocH title="El Party panel" />
+      <DocH title="La Fragua" />
       <Body margin="0 0 8px">
-        Muestra a los agentes del equipo con avatares pixel-art animados. Los eventos llegan desde{" "}
-        <Code>~/.claude/dashboard-events.ndjson</Code> (un archivo NDJSON al que escriben los
-        agentes y los hooks). El panel usa un loop de animación para cinco estados:
+        La Fragua es la escena de cuatro estaciones en la parte superior de Resumen del proyecto.
+        Muestra el trabajo de los agentes y su revisión a partir de los eventos del motor y de los
+        hooks. Su estado distingue una construcción en curso de una escena apagada.
       </Body>
-      <Ul>
-        <li>
-          <B weight={500}>Breathing:</B> movimiento de reposo cuando el agente está activo.
-        </li>
-        <li>
-          <B weight={500}>Wander:</B> deambulación aleatoria en su zona.
-        </li>
-        <li>
-          <B weight={500}>Handoff:</B> animación de traspaso entre agentes cuando pasan una work
-          order.
-        </li>
-        <li>
-          <B weight={500}>Achievement:</B> celebración al completar una work order.
-        </li>
-        <li>
-          <B weight={500}>Down:</B> postura de error cuando hay un fallo.
-        </li>
-      </Ul>
 
-      <DocH title="El Manual (esta página)" />
+      <DocH title="La Documentación (esta página)" />
       <Body>
-        El Manual sigue la estructura Diátaxis: Tutorial, Guías, Referencia y Conceptos. Los
-        catálogos de Referencia (comandos, agentes, reglas, estándares) se derivan de la fuente
-        canónica en cada render, nunca se copian a mano (DR-046). Las páginas de Tutorial, Guías y
-        Conceptos se componen en React (<Code>src/app/manual/manualPages.tsx</Code>) y su archivo{" "}
-        <Code>.md</Code> en <Code>content/manual/</Code> solo aporta título, grupo y orden al menú.
+        La Documentación sigue la estructura Diátaxis: Tutorial, Guías, Conceptos y Workflows. Los
+        catálogos de Referencia enlazan a Configuración, donde comandos, agentes, reglas y
+        estándares se derivan de la fuente canónica en cada render, nunca se copian a mano (DR-046).
+        Las páginas de Tutorial, Guías y Conceptos se componen en React (
+        <Code>src/app/manual/manualPages.tsx</Code>) y su archivo <Code>.md</Code> en{" "}
+        <Code>content/manual/</Code> solo aporta título, grupo y orden al menú.
       </Body>
 
       <DocH title="Invariantes de diseño" />

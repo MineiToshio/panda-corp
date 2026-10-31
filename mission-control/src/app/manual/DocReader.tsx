@@ -1,262 +1,90 @@
 "use client";
 
-/**
- * app/manual/DocReader.tsx — WO-08-002 (CMP-08-doc-reader)
- *
- * The reading area for the Manual. Renders:
- *   - An authored page (Tutorial / Guides / Concepts) via react-markdown.
- *   - A Reference catalog view (commands / agents / rules / standards),
- *     derived from the canonical source readers (DR-046 — no hand-copied lists).
- *   - An empty state when nothing is selected.
- *
- * Client Component: receives pre-resolved data as props from the Server
- * Component (page.tsx) so no filesystem access happens here.
- *
- * Design rules (FRD-13 / AGENTS.md):
- *   - ZERO hardcoded colors — CSS custom properties only.
- *   - Spanish aria-labels.
- *   - data-testid on the root and on each catalog view.
- *
- * Traceability:
- *   CMP-08-doc-reader → AC-08-002.1, AC-08-002.3
- *   CMP-08-reference-* → AC-08-002.2 (Reference derived, not hand-copied)
- */
-
-import type React from "react";
-import { DecisionRulesSection } from "@/app/configuration/_rules/DecisionRulesSection/DecisionRulesSection";
-import { AgentDetail } from "@/app/configuration/AgentDetail";
-import { AgentList } from "@/app/configuration/AgentList";
-import { SkillsSection } from "@/app/configuration/SkillsSection";
-import { StandardsSection } from "@/app/configuration/StandardsSection/StandardsSection";
+import { Crumbs } from "@/components/core/Crumbs/Crumbs";
 import { Markdown } from "@/components/core/Markdown/Markdown";
 import { MarkdownAnchorScope } from "@/components/core/Markdown/MarkdownAnchorScope";
-import { DocH } from "@/components/modules/manual-diagrams/DocH";
-import type { AgentLevelResult } from "@/lib/gamification/agents";
-import type { ManualPage } from "@/lib/manual/manual";
-import { useUrlState } from "@/lib/navigation/useUrlState";
-import type { AgentRef, SkillRef } from "@/lib/reference/reference";
-import type { DecisionRule } from "@/lib/registry/registry";
-import type { Standard } from "@/lib/standards/standards";
-import { useManualNav } from "./ManualNavContext";
+import styles from "@/components/modules/DocumentReader/DocumentReader.module.css";
+import { t } from "@/lib/copy/copy";
+import { DOC_GROUPS, groupPages, groupTone, pageHref } from "./_components/DocsHome/model";
+import chrome from "./_components/DocsHome/Reader.module.css";
+import { DocNav } from "./DocNav";
 import { getManualPageComponent } from "./manualPages";
-import type { ReaderActivePage } from "./types";
+import type { DocReaderProps } from "./types";
 
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
-
-export interface DocReaderProps {
-  /**
-   * The currently active page to render.
-   * - null → empty state
-   * - { type: "authored", page } → render page.body via react-markdown
-   * - { type: "reference", catalog } → render the corresponding catalog view
-   */
-  activePage: ReaderActivePage | null;
-  /** Skills catalog (from readSkills()) — for the commands reference view. */
-  skills: SkillRef[];
-  /** Agents catalog (from readAgents()) — for the agents reference view. */
-  agents: AgentRef[];
-  /** Decision rules (from readDecisionRules()) — for the rules reference view. */
-  rules: DecisionRule[];
-  /** Standards (from readStandards()) — for the standards reference view. */
-  standards: Standard[];
-  /** Cross-nav: open this skill's detail in the Commands catalog (set by a flow-graph node). */
-  selectedSkillSlug?: string | null;
-  /** Cross-nav: open this agent's detail in the Agents catalog (set by a flow-graph node). */
-  selectedAgentId?: string | null;
-  /** Clears the skill cross-nav selection (Back inside the skill detail). */
-  onClearSkill?: () => void;
-  /** Clears the agent cross-nav selection (Back inside the agent detail). */
-  onClearAgent?: () => void;
-}
-
-// ---------------------------------------------------------------------------
-// Styles — CSS custom properties only (FRD-13)
-// ---------------------------------------------------------------------------
-
-const READER_STYLE: React.CSSProperties = {
-  flex: 1,
-  height: "100%",
-  overflowY: "auto",
-  padding: "calc(var(--space-base, 1rem) * 2) calc(var(--space-base, 1rem) * 3)",
-  background: "var(--color-surface, Canvas)",
-  color: "var(--color-text, currentColor)",
-};
-
-const EMPTY_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "center",
-  height: "100%",
-  color: "var(--color-text, currentColor)",
-  opacity: 0.45,
-  fontSize: "0.9375rem",
-  gap: "calc(var(--space-base, 1rem) * 0.5)",
-};
-
-// ---------------------------------------------------------------------------
-// Reference catalog views — REUSE the FRD-07 card primitives VERBATIM (DR-046 /
-// DR-057): the Manual Referencia and Configuración stay visually + behaviorally
-// consistent because they render the SAME SkillsSection / AgentList /
-// DecisionRulesSection / StandardsSection — never a forked catalog.
-// ---------------------------------------------------------------------------
-
-/** Zero-state level for the agents catalog (the Manual has no computed XP). */
-const ZERO_AGENT_LEVEL: AgentLevelResult = {
-  level: 1,
-  title: "Apprentice",
-  xp: 0,
-  next: 5,
-  pctToNext: 0,
-};
-
-/**
- * Agents reference catalog — reuses the shared AgentList + AgentDetail (FRD-07).
- * Manages its own selection state since the Manual has no parent shell for it.
- */
-function ReferenceAgentsCatalog({
-  agents,
-  controlledAgentId,
-  onClear,
-}: {
-  agents: AgentRef[];
-  /** Cross-nav override (from a flow-graph agent node); takes precedence over local selection. */
-  controlledAgentId?: string | null;
-  onClear?: () => void;
-}): React.JSX.Element {
-  const [localAgentId, setLocalAgentId] = useUrlState("referenceItem", "");
-  const levels: Record<string, AgentLevelResult> = {};
-  // Derive-don't-sync: controlled cross-nav selection wins over local clicks.
-  const selectedAgentId = controlledAgentId != null ? controlledAgentId : localAgentId;
-  const selectedAgent = selectedAgentId
-    ? (agents.find((a) => a.id === selectedAgentId) ?? null)
-    : null;
-
-  // Any list interaction drops the controlled override so local selection takes over (incl. Back → null).
-  function handleSelect(id: string | null): void {
-    if (id === null) onClear?.();
-    setLocalAgentId(id ?? "");
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "calc(var(--space-base) * 1.5)" }}>
-      {selectedAgentId && !selectedAgent && (
-        <p role="status">El agente solicitado no está disponible.</p>
-      )}
-      <AgentList
-        agents={agents}
-        levels={levels}
-        selectedAgentId={selectedAgentId}
-        onSelectAgent={handleSelect}
-      />
-      {selectedAgent !== null ? (
-        <AgentDetail agent={selectedAgent} level={ZERO_AGENT_LEVEL} />
-      ) : null}
-    </div>
+/** Reader chrome and the single authored body, with navigation confined to the current group. */
+export function DocReader({ page, pages }: DocReaderProps): React.JSX.Element {
+  const siblings = groupPages(pages, page.group);
+  const position = siblings.findIndex((entry) => entry.slug === page.slug);
+  const previous = siblings[position - 1];
+  const next = siblings[position + 1];
+  const group = t(
+    DOC_GROUPS.find((entry) => entry.id === page.group)?.key ?? "documentacion.title",
   );
-}
-
-// ---------------------------------------------------------------------------
-// Prose wrapper for react-markdown output
-// ---------------------------------------------------------------------------
-
-const PROSE_STYLE: React.CSSProperties = {
-  color: "var(--color-text, currentColor)",
-  lineHeight: 1.7,
-  fontSize: "0.9375rem",
-};
-
-/**
- * Render an authored page body.
- *
- * Faithful path: a bespoke React page registered for the slug (composed UI that
- * mirrors the prototype — DocH + Panel cards + CmdRow + chips + concept diagrams).
- * Fallback path: the markdown reader (a DocH-styled title + react-markdown body),
- * so authored pages without a bespoke layout still render and their body still
- * reaches the reader.
- */
-function AuthoredBody({ page }: { page: ManualPage }): React.JSX.Element {
-  const Bespoke = getManualPageComponent(page.slug);
-  if (Bespoke !== null) {
-    return <Bespoke />;
-  }
+  const Renderer = getManualPageComponent(page.slug);
+  const isTutorial = page.group === "tutorial";
+  const vars = { index: position + 1, total: siblings.length };
   return (
-    <>
-      <DocH title={page.title} level={1} />
-      <div style={PROSE_STYLE}>
-        <Markdown>{page.body}</Markdown>
-      </div>
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// DocReader
-// ---------------------------------------------------------------------------
-
-export function DocReader({
-  activePage,
-  skills,
-  agents,
-  rules,
-  standards,
-  selectedSkillSlug,
-  selectedAgentId,
-  onClearSkill,
-  onClearAgent,
-}: DocReaderProps): React.JSX.Element {
-  const nav = useManualNav();
-  return (
-    <main data-testid="doc-reader" aria-label="Área de lectura del Manual" style={READER_STYLE}>
-      {activePage === null ? (
-        /* Empty state — AC-08-002.1 */
-        <div data-testid="doc-reader-empty" style={EMPTY_STYLE}>
-          <span aria-hidden="true" style={{ fontSize: "2rem" }}>
-            📖
+    <div
+      className={`reader ${styles.reader}`}
+      data-testid="doc-reader"
+      data-tone={groupTone(page.group)}
+    >
+      <article className={`paper ${styles.paper}`} data-testid="doc-reader-authored">
+        <div className={chrome.head}>
+          <Crumbs
+            items={[
+              { label: t("documentacion.title"), href: "/manual" },
+              { label: group, href: siblings[0] ? pageHref(siblings[0]) : "/manual" },
+              { label: page.title },
+            ]}
+          />
+          <span className={chrome.counter}>
+            {t(
+              isTutorial ? "documentacion.reader.stepOf" : "documentacion.reader.positionOf",
+              vars,
+            )}
           </span>
-          <span>Selecciona una página del menú para leerla</span>
         </div>
-      ) : activePage.type === "authored" ? (
-        /* Authored page — AC-08-002.3.
-           Faithful path: if the slug has a bespoke React page in the registry
-           (the prototype-faithful composed layout: DocH + Panel cards + CmdRow +
-           chips + concept diagrams), render it. Otherwise fall back to the
-           markdown reader (authored pages without a bespoke layout still render). */
-        <article data-testid="doc-reader-authored">
-          <MarkdownAnchorScope style={{}} className="">
-            <AuthoredBody page={activePage.page} />
-          </MarkdownAnchorScope>
-        </article>
-      ) : (
-        /* Reference catalog view — AC-08-002.3: render derived catalog by REUSING
-           the FRD-07 card primitives verbatim (DR-046 / DR-057), never a fork. */
-        <article data-testid="doc-reader-reference">
-          {activePage.catalog === "commands" && (
-            <SkillsSection
-              selectionKey="referenceItem"
-              skills={skills}
-              selectedSkillSlug={selectedSkillSlug}
-              onClearCrossNav={onClearSkill}
-              onAgentClick={(role) => nav.goToAgent(role)}
-            />
+        {isTutorial ? (
+          <div
+            className={`docs-progress ${chrome.progress}`}
+            role="progressbar"
+            aria-label={t("documentacion.reader.tutorialProgressAria", vars)}
+            aria-valuemin={0}
+            aria-valuemax={siblings.length}
+            aria-valuenow={position + 1}
+          >
+            {siblings.map((entry, index) => (
+              <span key={entry.slug} data-on={index <= position} />
+            ))}
+          </div>
+        ) : null}
+        <MarkdownAnchorScope style={{ minWidth: 0 }} tone={groupTone(page.group)}>
+          {Renderer ? (
+            <Renderer />
+          ) : (
+            <>
+              <h2>{page.title}</h2>
+              <Markdown>{page.body.replace(/^\s*# [^\n]*(?:\n|$)/, "")}</Markdown>
+            </>
           )}
-          {activePage.catalog === "agents" && (
-            <ReferenceAgentsCatalog
-              agents={agents}
-              controlledAgentId={selectedAgentId}
-              onClear={onClearAgent}
-            />
-          )}
-          {activePage.catalog === "rules" && (
-            <DecisionRulesSection rules={rules} selectionKey="referenceItem" />
-          )}
-          {activePage.catalog === "standards" && (
-            <StandardsSection standards={standards} selectionKey="referenceItem" />
-          )}
-        </article>
-      )}
-    </main>
+        </MarkdownAnchorScope>
+        <div className={chrome.navigation}>
+          {previous ? (
+            <a className={`docs-nav ${chrome.card}`} href={pageHref(previous)}>
+              <small>{t("documentacion.reader.previousIn", { group })}</small>
+              <strong>{previous.title}</strong>
+            </a>
+          ) : null}
+          {next ? (
+            <a className={`docs-nav ${chrome.card}`} href={pageHref(next)}>
+              <small>{t("documentacion.reader.nextIn", { group })}</small>
+              <strong>{next.title}</strong>
+            </a>
+          ) : null}
+        </div>
+      </article>
+      <DocNav pages={pages} page={page} />
+    </div>
   );
 }

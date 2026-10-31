@@ -1,9 +1,10 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { normalizeLegacyNavigation } from "@/lib/navigation/aliases";
 import { type RouteQuery, routeHref } from "@/lib/navigation/routeState";
 import { NavigationSeedProvider } from "@/lib/navigation/useUrlState";
 import ManualPage from "../page";
 
-/** Resolve persistent manual paths using the existing shared page. */
+/** Seed authored reader URLs; forward recognized legacy catalog resources to their canonical owner. */
 export default async function PersistentPage({
   params,
   searchParams,
@@ -12,17 +13,13 @@ export default async function PersistentPage({
   searchParams: Promise<RouteQuery>;
 }): Promise<React.JSX.Element> {
   const { segments } = await params;
-  if (
-    !["tutorial", "guides", "concepts", "workflows", "reference"].includes(segments[0] ?? "") ||
-    segments.length > (segments[0] === "reference" ? 3 : 2)
-  )
-    notFound();
-  if (
-    segments[0] === "reference" &&
-    !["commands", "agents", "rules", "standards"].includes(segments[1] ?? "")
-  )
-    notFound();
   const href = routeHref("/manual", segments, await searchParams);
+  if (segments[0] === "reference") {
+    const target = normalizeLegacyNavigation(href);
+    if (target === href) notFound();
+    redirect(target);
+  }
+  if (segments.length > 2) notFound();
   return (
     <NavigationSeedProvider href={href}>
       <ManualPage />
