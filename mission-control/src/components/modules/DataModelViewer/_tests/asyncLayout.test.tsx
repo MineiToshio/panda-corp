@@ -65,7 +65,11 @@ it("AC-02-015.11: changing models cancels old work and isolates late results", a
   vi.mocked(layoutModel).mockReturnValueOnce(previous.promise).mockReturnValueOnce(current.promise);
   const { rerender, unmount } = render(<DataModelViewer result={readyFixture()} />);
   const oldSignal = vi.mocked(layoutModel).mock.calls[0]?.[1];
-  rerender(<DataModelViewer result={readyFixture()} />);
+  const next = readyFixture();
+  if (next.kind !== "ready") throw new Error("Ready fixture required");
+  rerender(
+    <DataModelViewer result={{ ...next, model: { ...next.model, persistence: "document" } }} />,
+  );
   expect(oldSignal?.aborted).toBe(true);
   await act(async () => previous.resolve(geometry));
   expect(screen.getByRole("status")).toHaveTextContent("Organizando modelo");

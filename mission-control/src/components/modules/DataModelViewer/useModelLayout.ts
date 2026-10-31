@@ -9,21 +9,24 @@ type LayoutResult =
 
 /** Isolate asynchronous geometry by model identity, timeout and worker cancellation. */
 export function useModelLayout(model: DataModel): LayoutResult {
-  const [state, setState] = useState<{ model: DataModel; result: LayoutResult } | null>(null);
+  const modelKey = JSON.stringify(model);
+  const [state, setState] = useState<{ modelKey: string; result: LayoutResult } | null>(null);
   useEffect(() => {
+    // Deserialize only for a new payload's content, keeping equal RSC refreshes off the layout path.
+    const layoutInput: DataModel = JSON.parse(modelKey);
     let active = true;
     const controller = new AbortController();
     function settle(result: LayoutResult) {
       if (!active) return;
       active = false;
       clearTimeout(timeout);
-      setState({ model, result });
+      setState({ modelKey, result });
     }
     const timeout = setTimeout(() => {
       settle({ kind: "error" });
       controller.abort();
     }, 20_000);
-    void layoutModel(model, controller.signal).then(
+    void layoutModel(layoutInput, controller.signal).then(
       (layout) => settle({ kind: "ready", layout }),
       () => settle({ kind: "error" }),
     );
@@ -32,6 +35,6 @@ export function useModelLayout(model: DataModel): LayoutResult {
       clearTimeout(timeout);
       controller.abort();
     };
-  }, [model]);
-  return state?.model === model ? state.result : { kind: "loading" };
+  }, [modelKey]);
+  return state?.modelKey === modelKey ? state.result : { kind: "loading" };
 }

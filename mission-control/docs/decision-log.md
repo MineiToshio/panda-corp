@@ -9,6 +9,9 @@
 ## 2026-10-30 — Enforce the persistent-navigation boundary contract
 
 [WO-25-001](frds/frd-25-persistent-navigation/work-orders/wo-25-001-url-contract-v2.md) repairs the independent FRD-25 findings: workspace aliases normalize at route boundaries, invalid Board tails remain intact, every route retains the shell, projects highlight Portfolio, and canonical model modes restore inline. The [blueprint](frds/frd-25-persistent-navigation/blueprint.md) records the override to the earlier surface deferral. Gesture-only expansion remains ephemeral so pasting `expanded=1` cannot reopen a modal. Approved v2 test repairs replace contradictory v1 assertions; independent reviewer probes are restored unchanged.
+## 2026-10-30 — Preserve data-model state across equal RSC payloads
+
+[WO-02-019](frds/frd-02-ideas-board/work-orders/wo-02-019-data-model-layout-flake.md) corrects the earlier harness-only diagnosis: equal model objects restarted layout and unmounted the ready viewer, violating [AC-02-015.11](frds/frd-02-ideas-board/frd.md). Content identity now preserves the task and layout reference. In-flight URL loss moved to change card `nav-client-params-in-flight`. Controlled and reviewer regressions cover the product behavior. The cause of the `navigation.test.tsx:37` sighting is the `visit()`/`subscribe` test race, reproduced at :37:19 under an injected 25 ms scheduler delay and fixed by awaited queries; the natural failure rate was not measured. Existing reviewer waits and removal of expanded e2e hydration timeouts are recorded.
 
 ## 2026-10-30 — Interim Resumen heartbeat exception
 

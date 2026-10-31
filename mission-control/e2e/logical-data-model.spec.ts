@@ -7,7 +7,6 @@ test("portfolio reuses Architecture after Work orders with a draggable compact m
 }) => {
   await gotoHydrated(page, "/portfolio/mission-control/architecture", {
     selector: '[data-testid="data-model-viewer"] input',
-    timeout: 25_000,
   });
   const tabs = page.getByRole("navigation", { name: "Pestañas del espacio de trabajo" });
   await expect(tabs.getByRole("tab")).toHaveText([...WORKSPACE_TAB_LABELS]);
@@ -103,7 +102,6 @@ test("model corner controls match the dependency map and retain a full-window fa
   });
   await gotoHydrated(page, "/portfolio/mission-control/architecture", {
     selector: '[data-testid="data-model-viewer"] input',
-    timeout: 25_000,
   });
   const appearance = (element: HTMLElement | SVGElement) => {
     const style = getComputedStyle(element);

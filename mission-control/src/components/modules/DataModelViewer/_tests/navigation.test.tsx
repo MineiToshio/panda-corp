@@ -51,15 +51,13 @@ describe("persistent logical model location", () => {
     expect(screen.getByRole("tab", { name: "Esquema" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByLabelText("Entry")).toHaveAttribute("open");
     visit("/portfolio/registered/architecture?model=diagram&entity=account");
-    expect(screen.getByRole("button", { name: "Seleccionar entidad Account" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      await screen.findByRole("button", { name: "Seleccionar entidad Account", pressed: true }),
+    ).toHaveAttribute("aria-pressed", "true");
     visit("/portfolio/registered/architecture?relationship=ownership");
-    expect(screen.getByRole("button", { name: "Ver relación Propiedad" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      await screen.findByRole("button", { name: "Ver relación Propiedad", pressed: true }),
+    ).toHaveAttribute("aria-pressed", "true");
   });
   it("AC-25-011.1: restores expanded URLs inline across history without a dialog or native fullscreen", async () => {
     const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "requestFullscreen");
@@ -83,8 +81,9 @@ describe("persistent logical model location", () => {
           expect.soft(screen.queryByRole("dialog")).not.toBeInTheDocument();
           expect
             .soft(
-              within(screen.getByRole("tabpanel")).queryByRole("button", {
+              await within(await screen.findByRole("tabpanel")).findByRole("button", {
                 name: "Seleccionar entidad Entry",
+                pressed: true,
               }),
             )
             .toHaveAttribute("aria-pressed", "true");
