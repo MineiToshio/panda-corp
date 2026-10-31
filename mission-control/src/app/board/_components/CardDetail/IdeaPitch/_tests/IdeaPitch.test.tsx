@@ -122,6 +122,6 @@ describe("IdeaPitch", () => {
 
   it("frames the whole memo as an accessible proposal region", () => {
     render(<IdeaPitch title="X" body={MEMO} />);
-    expect(screen.getByRole("article", { name: "Propuesta de la idea" })).toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "Propuesta" })).toBeInTheDocument();
   });
 });

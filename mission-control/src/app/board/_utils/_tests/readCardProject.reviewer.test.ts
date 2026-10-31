@@ -13,10 +13,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { readCardProject } from "@/app/board/_utils/readCardProject";
+import { readIdeaPage } from "@/app/board/_utils/readIdeaPage";
 import { deriveColumn } from "@/lib/board/board";
 import type { IdeaCard } from "@/lib/ideas/ideas";
 
 let root: string;
+const previousRoot = process.env.PANDACORP_FACTORY_ROOT;
 
 beforeAll(() => {
   root = mkdtempSync(join(tmpdir(), "board-card-project-reviewer-"));
@@ -24,9 +26,24 @@ beforeAll(() => {
   mkdirSync(join(broken, ".pandacorp", "comms"), { recursive: true });
   writeFileSync(join(broken, ".pandacorp", "status.yaml"), "phase: [unclosed\n  running: {\n");
   writeFileSync(join(broken, ".pandacorp", "comms", "spec-resumen.md"), "## Spec\n\nDigest");
+  const orders = join(root, "orders", "docs", "frds", "frd-01-x", "work-orders");
+  mkdirSync(orders, { recursive: true });
+  writeFileSync(join(root, "orders", "docs", "frds", "frd-01-x", "frd.md"), "# X\n");
+  writeFileSync(join(orders, "wo-01-001-x.md"), "---\nimplementation_status: NOPE\n---\n");
+  mkdirSync(join(root, "orders", ".pandacorp", "comms"), { recursive: true });
+  writeFileSync(join(root, "orders", ".pandacorp", "comms", "spec-resumen.md"), "## Spec\n");
+  const ideas = join(root, "factory", "ideas");
+  mkdirSync(ideas, { recursive: true });
+  writeFileSync(
+    join(ideas, "with-project.md"),
+    `---\ntitle: T\nstatus: in-pipeline\nproject: "orders"\n---\nB\n`,
+  );
+  writeFileSync(join(ideas, "no-project.md"), "---\ntitle: N\nstatus: discovered\n---\nB\n");
+  process.env.PANDACORP_FACTORY_ROOT = root;
 });
 
 afterAll(() => {
+  process.env.PANDACORP_FACTORY_ROOT = previousRoot;
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -54,5 +71,34 @@ describe("readCardProject reviewer · stale terminal-card projects", () => {
     expect(data.specContent).toContain("Digest");
     expect(data.architectureContent).toBeUndefined();
     expect(deriveColumn(discarded, data.projectStatus)).toBe("discarded");
+  });
+});
+
+describe("readIdeaPage reviewer · the open idea's request bundle", () => {
+  it("resolves project, canonical links and the live source error of a spec-stage project", () => {
+    const page = readIdeaPage("with-project");
+    expect(page).toMatchObject({
+      navigationSlug: "with-project",
+      forgeHref: "/portfolio/t/summary",
+      navigationBaseHref: "/portfolio/t",
+      constructionStarted: false,
+    });
+    expect(page?.workOrders).toEqual([]);
+    expect(page?.sourceErrors?.workOrders).toContain("invalid implementation_status");
+  });
+
+  it("a card with no project reads nothing and offers no workspace link", () => {
+    expect(readIdeaPage("no-project")).toMatchObject({
+      forgeHref: undefined,
+      navigationBaseHref: undefined,
+      docNodes: undefined,
+      specContent: undefined,
+      constructionStarted: false,
+    });
+  });
+
+  it("an unknown or unsafe token is null, never a thrown route", () => {
+    expect(readIdeaPage("missing")).toBeNull();
+    expect(readIdeaPage("../secret")).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 "use client";
-import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
+import { ButtonLink } from "@/components/core/Button/ButtonLink";
 import { Card, CardHeader } from "@/components/core/Card/Card";
 import { EmptyState } from "@/components/core/EmptyState/EmptyState";
 import { t } from "@/lib/copy/copy";
@@ -23,9 +23,9 @@ export default function PortfolioNotFound(): React.JSX.Element {
             ? t("portafolio.notFoundSection.detail", { tab: view })
             : t("portafolio.subtitle")}
       </EmptyState>
-      <Link href="/portfolio" className="btn default">
+      <ButtonLink href="/portfolio" look="button">
         {t("portafolio.notFoundProject.link")}
-      </Link>
+      </ButtonLink>
     </Card>
   );
 }

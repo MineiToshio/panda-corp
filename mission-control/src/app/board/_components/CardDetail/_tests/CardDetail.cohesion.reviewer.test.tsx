@@ -16,15 +16,25 @@
 
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { CardDetail } from "@/app/board/_components/CardDetail/CardDetail";
 import { Tabs } from "@/components/core/Tabs/Tabs";
 
-function renderDetail(): void {
+function renderDetail(project?: string): void {
   render(
-    <CardDetail slug="my-idea" title="Mi idea" status="discovered" body="Resumen de la idea." />,
+    <CardDetail
+      slug="my-idea"
+      title="Mi idea"
+      status="discovered"
+      body="Resumen de la idea."
+      project={project}
+    />,
   );
 }
+
+beforeEach(() => {
+  window.history.replaceState(null, "", "/");
+});
 
 describe("FRD-02 DR-062 — the card-detail tab row IS the shared Tabs primitive", () => {
   it("the shared Tabs primitive supports arrow-key navigation between tabs (the canonical contract)", async () => {
@@ -52,15 +62,28 @@ describe("FRD-02 DR-062 — the card-detail tab row IS the shared Tabs primitive
     expect(screen.getByRole("tab", { name: "Dos" })).toHaveFocus();
   });
 
-  it("CardDetail's tab row provides the SAME arrow-key navigation as the shared primitive (AC-02-009.1 / DR-062)", async () => {
+  it("CardDetail's tab row provides the SAME arrow-key navigation (AC-02-009.1 / DR-062)", async () => {
     const user = userEvent.setup();
     renderDetail();
     const propuesta = screen.getByTestId("card-detail-tab-propuesta");
     propuesta.focus();
     expect(propuesta).toHaveFocus();
     await user.keyboard("{ArrowRight}");
-    // If the bespoke switcher is used, focus stays put (no arrow-key handler) and this fails —
-    // exactly the DR-062 divergence: a one-off tab look without the canonical keyboard contract.
+    // An idea with no project offers Propuesta and Campaña only.
+    expect(screen.getByTestId("card-detail-tab-campana")).toHaveFocus();
+    await user.keyboard("{ArrowRight}");
+    expect(propuesta).toHaveFocus();
+  });
+
+  it("a linked project's row walks Propuesta, Arquitectura, Documentos, Campaña in order", async () => {
+    const user = userEvent.setup();
+    renderDetail("p");
+    screen.getByTestId("card-detail-tab-propuesta").focus();
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByTestId("card-detail-tab-arquitectura")).toHaveFocus();
+    await user.keyboard("{ArrowRight}");
     expect(screen.getByTestId("card-detail-tab-docs")).toHaveFocus();
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByTestId("card-detail-tab-campana")).toHaveFocus();
   });
 });

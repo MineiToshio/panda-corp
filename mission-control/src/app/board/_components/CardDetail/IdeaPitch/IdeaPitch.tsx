@@ -10,8 +10,14 @@
  * Traceability: CMP-02-idea-pitch → REQ-02-009 (AC-02-009.1/.5).
  */
 
+import { Chip } from "@/components/core/Chip/Chip";
+import type { Tone } from "@/components/core/Chip/vocabulary";
 import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
 import { projectMetaChips } from "@/components/modules/IdeaCard/IdeaCard";
+import { DigestHero } from "@/components/modules/ReportBand/DigestHero";
+import { ReportBand } from "@/components/modules/ReportBand/ReportBand";
+import { t } from "@/lib/copy/copy";
+import type { BadgeTone } from "@/lib/pitch/pitch";
 import {
   type DeepSection,
   type GlanceItem,
@@ -22,14 +28,6 @@ import {
 } from "@/lib/pitch/pitch";
 import {
   ASK_STYLE,
-  BADGES_ROW_STYLE,
-  BLABEL_BOARD_STYLE,
-  BLABEL_COLD_STYLE,
-  BLABEL_HOT_STYLE,
-  BLOCK_COLD_STYLE,
-  BLOCK_HOT_STYLE,
-  BLOCK_PLAIN_STYLE,
-  badgeStyle,
   CHECK_OK_ICON_STYLE,
   CHECK_WARN_ICON_STYLE,
   CHECKITEM_STYLE,
@@ -38,18 +36,15 @@ import {
   EVIDENCE_BODY_STYLE,
   EVIDENCE_LINK_STYLE,
   EVIDENCE_SRC_STYLE,
-  EYEBROW_STYLE,
   FEAT_DESC_STYLE,
   FEAT_STYLE,
   FEAT_TITLE_STYLE,
   FEATS_STYLE,
-  HERO_STYLE,
   INNER_STYLE,
   MOCK_BAR_STYLE,
   MOCK_DOT_STYLE,
   MOCK_STYLE,
   MOCK_URL_STYLE,
-  ONE_LINER_STYLE,
   PREMORTEM_STYLE,
   QUOTE_STYLE,
   RM_MIT_STYLE,
@@ -67,7 +62,6 @@ import {
   SUBPANEL_TITLE_STYLE,
   SUMMARY_STYLE,
   scoreFillStyle,
-  TITLE_STYLE,
   TWOCOL_STYLE,
   VISION_FRAME_STYLE,
 } from "./IdeaPitch.styles";
@@ -255,7 +249,7 @@ function RiskCards({
         <Markdown resolveLink={resolveLink}>{p.risk}</Markdown>
       </div>
       <div style={RM_MIT_STYLE} className="pitch-ok pitch-rowbody">
-        <Markdown resolveLink={resolveLink}>{`**Mitigación** — ${p.mitigation}`}</Markdown>
+        <Markdown resolveLink={resolveLink}>{`**Mitigación**: ${p.mitigation}`}</Markdown>
       </div>
     </div>
   ));
@@ -346,23 +340,26 @@ function EffortChart({ scorecard }: { scorecard: ScorecardAxis[] }): React.JSX.E
       fontSize="11"
       style={{ marginTop: "8px" }}
       role="img"
-      aria-label="Esfuerzo vs valor"
+      aria-label={t("idea.pitch.chartAria", {
+        effort: Math.round(effortPos(scorecard) * 100),
+        value: Math.round(valuePos(scorecard) * 100),
+      })}
       data-testid="pitch-chart"
     >
       <rect x="44" y="14" width="150" height="92" fill="var(--color-ok-bg)" opacity="0.5" />
       <line x1="44" y1="14" x2="44" y2="180" stroke="var(--color-border)" />
       <line x1="44" y1="180" x2="360" y2="180" stroke="var(--color-border)" />
       <text x="120" y="198" fill="var(--color-text3)" textAnchor="middle">
-        MICRO
+        {t("idea.pitch.tickMicro")}
       </text>
       <text x="240" y="198" fill="var(--color-text3)" textAnchor="middle">
-        PEQUEÑA
+        {t("idea.pitch.tickSmall")}
       </text>
       <text x="330" y="198" fill="var(--color-text3)" textAnchor="middle">
-        GRANDE
+        {t("idea.pitch.tickLarge")}
       </text>
       <text x="200" y="214" fill="var(--color-accent-text)" textAnchor="middle">
-        ← más fácil · esfuerzo · más complejo →
+        {t("idea.pitch.axisEffort")}
       </text>
       <text
         x="14"
@@ -371,14 +368,14 @@ function EffortChart({ scorecard }: { scorecard: ScorecardAxis[] }): React.JSX.E
         textAnchor="middle"
         transform="rotate(-90 14 100)"
       >
-        valor →
+        {t("idea.pitch.axisValue")}
       </text>
       <text x="60" y="30" fill="var(--color-ok)" opacity="0.8" fontSize="10">
-        ★ sweet spot
+        {t("idea.pitch.sweetSpot")}
       </text>
       <circle cx={x} cy={y} r="9" fill="var(--color-accent)" />
       <text x={x + 14} y={y + 4} fill="var(--color-text)">
-        esta idea
+        {t("idea.pitch.thisIdea")}
       </text>
     </svg>
   );
@@ -393,7 +390,7 @@ function EvidenceSrc({ item }: { item: string }): React.JSX.Element {
     <div className="pitch-src" style={EVIDENCE_SRC_STYLE} data-testid="pitch-src">
       {m?.[2] != null && m[3] != null ? (
         <>
-          {m[1]} —{" "}
+          {m[1]}:{" "}
           <a href={m[3]} style={EVIDENCE_LINK_STYLE} target="_blank" rel="noreferrer noopener">
             {m[2]}
           </a>
@@ -413,7 +410,7 @@ function Evidence({ section }: { section: DeepSection }): React.JSX.Element {
     .filter((l) => l.length > 0 && !l.startsWith("|") && !l.startsWith("("));
   return (
     <details style={DETAILS_STYLE} data-testid="pitch-evidence">
-      <summary style={SUMMARY_STYLE}>Evidencia y fuentes (lo que sostiene este memo)</summary>
+      <summary style={SUMMARY_STYLE}>{t("idea.pitch.evidence")}</summary>
       <div style={EVIDENCE_BODY_STYLE}>
         {items.map((it) => (
           <EvidenceSrc key={it} item={it} />
@@ -423,6 +420,15 @@ function Evidence({ section }: { section: DeepSection }): React.JSX.Element {
   );
 }
 
+const BADGE_TONES = {
+  build: "teal",
+  warn: "amber",
+  info: "blue",
+  pain: "coral",
+  neutral: "slate",
+} satisfies Record<BadgeTone, Tone>;
+
+/** Render the source memo with shared report primitives and its authored evidence. */
 export function IdeaPitch({
   body,
   title,
@@ -441,40 +447,27 @@ export function IdeaPitch({
     <article
       data-testid="card-detail-pitch"
       style={CONTAINER_STYLE}
-      aria-label="Propuesta de la idea"
+      aria-label={t("idea.tabs.propuesta")}
     >
-      <header style={HERO_STYLE}>
-        <div style={INNER_STYLE}>
-          <p style={EYEBROW_STYLE}>Memo-pitch de idea</p>
-          <h3 style={TITLE_STYLE}>{title}</h3>
-          {pitch.laApuesta != null && <p style={ONE_LINER_STYLE}>{pitch.laApuesta}</p>}
-          {(metaChips.length > 0 || badges.length > 0) && (
-            <div style={BADGES_ROW_STYLE}>
-              {metaChips.map((chip) => (
-                <span
-                  key={`meta-${chip.label}`}
-                  style={badgeStyle("neutral")}
-                  data-testid="pitch-meta-chip"
-                >
-                  {chip.icon != null && (
-                    <i
-                      className={`ti ${chip.icon}`}
-                      aria-hidden="true"
-                      style={{ fontSize: "12px", marginRight: "5px", verticalAlign: "-1px" }}
-                    />
-                  )}
-                  {chip.label}
-                </span>
-              ))}
-              {badges.map((b) => (
-                <span key={b.label} style={badgeStyle(b.tone)}>
-                  {b.label}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </header>
+      <DigestHero
+        eyebrow={t("idea.pitch.eyebrow")}
+        title={title}
+        lead={pitch.laApuesta}
+        chips={
+          <>
+            {metaChips.map((chip) => (
+              <span data-testid="pitch-meta-chip" key={chip.label}>
+                <Chip tone="slate">{chip.label}</Chip>
+              </span>
+            ))}
+            {badges.map((badge) => (
+              <Chip key={badge.label} tone={BADGE_TONES[badge.tone]}>
+                {badge.label}
+              </Chip>
+            ))}
+          </>
+        }
+      />
 
       {!pitch.hasStructured && (
         <div style={INNER_STYLE}>
@@ -485,35 +478,26 @@ export function IdeaPitch({
       )}
 
       {pitch.glance.length > 0 && (
-        <section className="pitch-block" style={BLOCK_HOT_STYLE}>
-          <div style={INNER_STYLE}>
-            <p style={BLABEL_HOT_STYLE}>🔥 De un vistazo · el sueño</p>
-            {pitch.glance.map((item) => (
-              <GlanceRow key={item.label} item={item} resolveLink={resolveLink} />
-            ))}
-          </div>
-        </section>
+        <ReportBand title={t("idea.pitch.glance")} tone="amber">
+          {pitch.glance.map((item) => (
+            <GlanceRow key={item.label} item={item} resolveLink={resolveLink} />
+          ))}
+        </ReportBand>
       )}
-
       {coldRows.length > 0 && (
-        <section className="pitch-block" style={BLOCK_COLD_STYLE}>
-          <div style={INNER_STYLE}>
-            <p style={BLABEL_COLD_STYLE}>❄️ Profundizar · el criterio</p>
-            {coldRows.map((section) => (
-              <ColdRow key={section.heading} section={section} resolveLink={resolveLink} />
-            ))}
-          </div>
-        </section>
+        <ReportBand title={t("idea.pitch.deep")} tone="teal">
+          {coldRows.map((section) => (
+            <ColdRow key={section.heading} section={section} resolveLink={resolveLink} />
+          ))}
+        </ReportBand>
       )}
-
       {(pitch.scorecard.length > 0 || evidence != null) && (
-        <section className="pitch-block" style={BLOCK_PLAIN_STYLE}>
+        <ReportBand title={t("idea.pitch.board")} tone="violet">
           <div style={INNER_STYLE}>
-            <p style={BLABEL_BOARD_STYLE}>📊 El tablero de decisión</p>
             {pitch.scorecard.length > 0 && (
               <div style={TWOCOL_STYLE}>
                 <div style={SUBPANEL_STYLE}>
-                  <b style={SUBPANEL_TITLE_STYLE}>Scorecard</b>
+                  <b style={SUBPANEL_TITLE_STYLE}>{t("idea.pitch.scorecard")}</b>
                   <div style={SCORE_LIST_STYLE}>
                     {pitch.scorecard.map((axis) => (
                       <ScoreBar key={axis.axis} axis={axis} />
@@ -521,14 +505,14 @@ export function IdeaPitch({
                   </div>
                 </div>
                 <div style={SUBPANEL_STYLE}>
-                  <b style={SUBPANEL_TITLE_STYLE}>Esfuerzo vs. valor</b>
+                  <b style={SUBPANEL_TITLE_STYLE}>{t("idea.pitch.effortValue")}</b>
                   <EffortChart scorecard={pitch.scorecard} />
                 </div>
               </div>
             )}
             {evidence != null && <Evidence section={evidence} />}
           </div>
-        </section>
+        </ReportBand>
       )}
     </article>
   );

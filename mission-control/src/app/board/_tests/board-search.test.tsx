@@ -11,10 +11,9 @@
 
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { BoardShell } from "@/app/board/_components/BoardShell/BoardShell";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/types";
-import type { DiscardResult } from "@/lib/discard/discard";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -50,17 +49,13 @@ const BUDGET_CARD = makeEntry({
 
 const ALL_CARDS: BoardCardEntry[] = [FUNKO_CARD, BUDGET_CARD];
 
-const noOpDiscard: (slug: string) => Promise<DiscardResult> = vi
-  .fn()
-  .mockResolvedValue({ ok: true });
-
 // ---------------------------------------------------------------------------
 // BRD-01 — search input presence + behaviour
 // ---------------------------------------------------------------------------
 
 describe("BoardShell BRD-01 — search input", () => {
   it("renders the search input (#pc-q, 'Buscar ideas…')", () => {
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
+    render(<BoardShell cards={ALL_CARDS} />);
     const input = screen.getByRole("searchbox");
     expect(input).toBeInTheDocument();
     expect(input).toHaveAccessibleName("Buscar ideas");
@@ -69,7 +64,7 @@ describe("BoardShell BRD-01 — search input", () => {
 
   it("typing a query filters the board by title (non-matching cards hidden)", async () => {
     const user = userEvent.setup();
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
+    render(<BoardShell cards={ALL_CARDS} />);
 
     await user.type(screen.getByRole("searchbox"), "funko");
 
@@ -80,7 +75,7 @@ describe("BoardShell BRD-01 — search input", () => {
 
   it("the query also matches the card body / summary (not only the title)", async () => {
     const user = userEvent.setup();
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
+    render(<BoardShell cards={ALL_CARDS} />);
 
     // "roommates" appears only in the budget card body.
     await user.type(screen.getByRole("searchbox"), "roommates");
@@ -92,7 +87,7 @@ describe("BoardShell BRD-01 — search input", () => {
 
   it("the search is case-insensitive", async () => {
     const user = userEvent.setup();
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
+    render(<BoardShell cards={ALL_CARDS} />);
 
     await user.type(screen.getByRole("searchbox"), "FUNKO");
 
@@ -107,13 +102,13 @@ describe("BoardShell BRD-01 — search input", () => {
 
 describe("BoardShell BRD-01 — Limpiar reset", () => {
   it("the 'Limpiar' button is hidden when there is no active search or filter", () => {
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
+    render(<BoardShell cards={ALL_CARDS} />);
     expect(screen.queryByRole("button", { name: "Limpiar" })).not.toBeInTheDocument();
   });
 
   it("the 'Limpiar' button appears once a query is typed", async () => {
     const user = userEvent.setup();
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
+    render(<BoardShell cards={ALL_CARDS} />);
 
     await user.type(screen.getByRole("searchbox"), "funko");
     expect(screen.getByRole("button", { name: "Limpiar" })).toBeInTheDocument();
@@ -121,7 +116,7 @@ describe("BoardShell BRD-01 — Limpiar reset", () => {
 
   it("clicking 'Limpiar' clears the query and restores all cards", async () => {
     const user = userEvent.setup();
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
+    render(<BoardShell cards={ALL_CARDS} />);
 
     await user.type(screen.getByRole("searchbox"), "funko");
     const col = screen.getByTestId("board-column-discovered");

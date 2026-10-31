@@ -121,7 +121,12 @@ describe("Órbita campaign", () => {
     expect(screen.getByTestId("build-mode-picker")).toBeInTheDocument();
     await user.click(screen.getByText("Elegir modo de construcción"));
     await user.click(screen.getByRole("button", { name: /Potente/ }));
-    expect(screen.getByText("/pandacorp:implement powerful")).toBeVisible();
+    expect(
+      screen.getByText(
+        (_text, element) =>
+          element?.tagName === "CODE" && element.textContent === "/pandacorp:implement powerful",
+      ),
+    ).toBeVisible();
     expect(localStorage.getItem("mc:build-mode:idea-name")).toBeNull();
     expect(localStorage.getItem("mc:build-mode:undefined")).toBeNull();
   });

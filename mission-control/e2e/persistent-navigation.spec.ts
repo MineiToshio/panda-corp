@@ -105,7 +105,6 @@ test("invalid explicit resources, tails and document traversal never render anot
   for (const href of [
     "/portfolio/not-a-registered-project/summary",
     "/projects/not-a-registered-project/summary",
-    "/board/not-a-registered-idea/spec",
     "/portfolio/mission-control/bogus",
     "/portfolio/mission-control/work-orders/WO-99-999/full",
     "/portfolio/mission-control/documents/..%2F..%2Ffactory%2Fprofile.md",
@@ -116,6 +115,9 @@ test("invalid explicit resources, tails and document traversal never render anot
     const response = await request.get(href);
     expect(response.status(), href).toBe(404);
   }
+  // An unknown idea is the designed recovery card, not a framework 404 (FRD-02 blueprint, AC-25-007.1).
+  const idea = await request.get("/board/not-a-registered-idea/spec");
+  expect(await idea.text()).toContain("Esta idea no existe");
   for (const family of [
     "/",
     "/board",

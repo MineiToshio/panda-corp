@@ -91,7 +91,6 @@ const MINIMAL_CARD = {
   status: "discovered" as IdeaStatus,
   body: "## Summary\n\nThis is a short summary.\n\n- Key point A\n- Key point B",
   phase: undefined,
-  advancePending: undefined,
 };
 
 /** Full in-pipeline card with a rich scoped doc list + a working read action. */
@@ -101,7 +100,6 @@ const IN_PIPELINE_CARD = {
   status: "in-pipeline" as IdeaStatus,
   body: "## Summary\n\nBuilding a great SaaS product.\n\n- Multi-tenant\n- Subscription billing",
   phase: "design" as Phase,
-  advancePending: false,
   docNodes: DOC_NODES,
   project: "projects/my-saas",
   readDocAction: echoReadDoc,
@@ -121,7 +119,6 @@ const SHIPPED_CARD = {
   status: "shipped" as IdeaStatus,
   body: "## Summary\n\nAlready live.",
   phase: "release" as Phase,
-  advancePending: false,
 };
 
 /** Discarded card — terminal state. */
@@ -131,7 +128,6 @@ const DISCARDED_CARD = {
   status: "discarded" as IdeaStatus,
   body: "## Summary\n\nNot pursued.",
   phase: undefined,
-  advancePending: undefined,
 };
 
 // ---------------------------------------------------------------------------
@@ -256,10 +252,10 @@ describe("frd-02: AC-02-004.1 — docs navigator (in-pipeline card with docs)", 
     expect(hasPrd).toBe(true);
   });
 
-  it("frd-02: WHEN docNodes has research THEN a nav item labelled 'Research' is present under Producto", () => {
+  it("frd-02: WHEN docNodes has research THEN a nav item labelled 'Investigación' is present under Producto", () => {
     render(<CardDetail {...IN_PIPELINE_CARD} />);
     const items = screen.getAllByTestId("card-detail-docs-nav-item");
-    const hasResearch = items.some((el) => /research/i.test(el.textContent ?? ""));
+    const hasResearch = items.some((el) => /investigación/i.test(el.textContent ?? ""));
     expect(hasResearch).toBe(true);
     const sections = screen
       .getAllByTestId("card-detail-docs-nav-section")
@@ -409,7 +405,6 @@ describe("frd-02: AC-02-008.1 — all lifecycle statuses render without crash", 
           status={status}
           body="Body content."
           phase={undefined}
-          advancePending={undefined}
         />,
       );
       expect(screen.getByTestId("card-detail")).toBeInTheDocument();
@@ -434,7 +429,6 @@ describe("frd-02: AC-02-008.1 — all pipeline phases render without crash", () 
           status="in-pipeline"
           body="Body."
           phase={phase}
-          advancePending={false}
         />,
       );
       expect(screen.getByTestId("card-detail")).toBeInTheDocument();
@@ -457,7 +451,6 @@ describe("frd-02: regression B1' — undefined phase on in-pipeline card", () =>
         status="in-pipeline"
         body="Some content."
         phase={undefined}
-        advancePending={false}
       />,
     );
     expect(screen.getByTestId("card-detail")).toBeInTheDocument();
@@ -568,12 +561,12 @@ describe("frd-02: accessibility — Spanish aria-label", () => {
 // ---------------------------------------------------------------------------
 
 describe("frd-02: structural order — navigator precedes the reader/summary", () => {
-  it("frd-02: WHEN an in-pipeline card with docs is rendered THEN the navigator appears before the summary reader", () => {
+  it("frd-02: WHEN an in-pipeline card with docs is rendered THEN the reader appears before the right-hand navigator", () => {
     render(<CardDetail {...IN_PIPELINE_CARD} />);
     const nav = screen.getByTestId("card-detail-docs-nav");
     const summary = screen.getByTestId("card-detail-summary");
     // compareDocumentPosition: FOLLOWING means nav precedes summary in the DOM.
-    expect(nav.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(nav.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 });
 

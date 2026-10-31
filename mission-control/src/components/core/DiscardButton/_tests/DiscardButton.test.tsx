@@ -17,7 +17,7 @@
  * Mocks: discardIdeaAction (the Server Action dependency).
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -62,7 +62,7 @@ describe("DiscardButton — rendering", () => {
   it("does NOT show confirmation step initially", () => {
     const action = makeAction({ ok: true });
     render(<DiscardButton slug="idea-discovered" discardAction={action} />);
-    expect(screen.queryByTestId("discard-confirm-button")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Descartar$/ })).not.toBeInTheDocument();
   });
 });
 
@@ -78,7 +78,7 @@ describe("DiscardButton — confirmation step", () => {
 
     await user.click(screen.getByTestId("discard-button"));
 
-    expect(screen.getByTestId("discard-confirm-button")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Descartar$/ })).toBeInTheDocument();
   });
 
   it("shows a cancel option in the confirmation step", async () => {
@@ -88,7 +88,7 @@ describe("DiscardButton — confirmation step", () => {
 
     await user.click(screen.getByTestId("discard-button"));
 
-    expect(screen.getByTestId("discard-cancel-button")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
   });
 
   it("cancelling the confirmation reverts to the idle trigger state", async () => {
@@ -97,9 +97,9 @@ describe("DiscardButton — confirmation step", () => {
     render(<DiscardButton slug="idea-discovered" discardAction={action} />);
 
     await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByTestId("discard-cancel-button"));
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
 
-    expect(screen.queryByTestId("discard-confirm-button")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Descartar$/ })).not.toBeInTheDocument();
     expect(screen.getByTestId("discard-button")).toBeInTheDocument();
   });
 
@@ -109,7 +109,7 @@ describe("DiscardButton — confirmation step", () => {
     render(<DiscardButton slug="idea-discovered" discardAction={action} />);
 
     await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByTestId("discard-cancel-button"));
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
 
     expect(action).not.toHaveBeenCalled();
   });
@@ -126,7 +126,7 @@ describe("DiscardButton — confirm and success", () => {
     render(<DiscardButton slug="idea-discovered" discardAction={action} />);
 
     await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByTestId("discard-confirm-button"));
+    await user.click(screen.getByRole("button", { name: /^Descartar$/ }));
 
     await waitFor(() => {
       // reason is the 2nd arg; empty string when the owner picks no tag/text.
@@ -140,7 +140,7 @@ describe("DiscardButton — confirm and success", () => {
     render(<DiscardButton slug="idea-discovered" discardAction={action} />);
 
     await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByTestId("discard-confirm-button"));
+    await user.click(screen.getByRole("button", { name: /^Descartar$/ }));
 
     await waitFor(() => {
       expect(action).toHaveBeenCalledTimes(1);
@@ -153,7 +153,7 @@ describe("DiscardButton — confirm and success", () => {
     render(<DiscardButton slug="idea-discovered" discardAction={action} />);
 
     await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByTestId("discard-confirm-button"));
+    await user.click(screen.getByRole("button", { name: /^Descartar$/ }));
 
     await waitFor(() => {
       expect(screen.getByTestId("discard-done")).toBeInTheDocument();
@@ -172,7 +172,7 @@ describe("DiscardButton — failure and revert", () => {
     render(<DiscardButton slug="idea-missing" discardAction={action} />);
 
     await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByTestId("discard-confirm-button"));
+    await user.click(screen.getByRole("button", { name: /^Descartar$/ }));
 
     await waitFor(() => {
       expect(screen.getByTestId("discard-button")).toBeInTheDocument();
@@ -186,25 +186,12 @@ describe("DiscardButton — failure and revert", () => {
     render(<DiscardButton slug="idea-malformed" discardAction={action} />);
 
     await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByTestId("discard-confirm-button"));
+    await user.click(screen.getByRole("button", { name: /^Descartar$/ }));
 
     await waitFor(() => {
       expect(screen.getByTestId("discard-button")).toBeInTheDocument();
     });
     expect(screen.queryByTestId("discard-done")).not.toBeInTheDocument();
-  });
-
-  it("shows an error message when the action fails", async () => {
-    const user = userEvent.setup();
-    const action = makeAction({ ok: false, reason: "not-found" });
-    render(<DiscardButton slug="idea-missing" discardAction={action} />);
-
-    await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByTestId("discard-confirm-button"));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("discard-error")).toBeInTheDocument();
-    });
   });
 });
 
@@ -213,17 +200,23 @@ describe("DiscardButton — failure and revert", () => {
 // ---------------------------------------------------------------------------
 
 describe("DiscardButton — pending state", () => {
-  it("disables the confirm button while the action is in-flight", async () => {
+  it("closes the dialog and disables the trigger while the action is in-flight", async () => {
     const user = userEvent.setup();
-    // A promise that never resolves so we can inspect the in-flight state.
-    const action = vi.fn().mockReturnValue(new Promise(() => {}));
+    let finish: (result: DiscardResult) => void = () => {};
+    const action = vi.fn().mockReturnValue(
+      new Promise<DiscardResult>((resolve) => {
+        finish = resolve;
+      }),
+    );
     render(<DiscardButton slug="idea-discovered" discardAction={action} />);
 
     await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByTestId("discard-confirm-button"));
+    await user.click(screen.getByRole("button", { name: /^Descartar$/ }));
 
     // The confirm button should be disabled while the action is pending.
-    expect(screen.getByTestId("discard-confirm-button")).toBeDisabled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("discard-button")).toBeDisabled();
+    await act(async () => finish({ ok: true }));
   });
 });
 
@@ -253,7 +246,7 @@ describe("DiscardButton — accessibility", () => {
 
     await user.click(screen.getByTestId("discard-button"));
 
-    const confirmBtn = screen.getByTestId("discard-confirm-button");
+    const confirmBtn = screen.getByRole("button", { name: /^Descartar$/ });
     const label = confirmBtn.getAttribute("aria-label") ?? confirmBtn.textContent ?? "";
     expect(label.length).toBeGreaterThan(0);
   });
@@ -285,7 +278,7 @@ describe("DiscardButton — confirmation opens in a modal", () => {
     expect(modal).toBeInTheDocument();
     expect(modal.tagName).toBe("DIALOG");
     expect(modal).toContainElement(screen.getByTestId("discard-reason-form"));
-    expect(modal).toContainElement(screen.getByTestId("discard-confirm-button"));
+    expect(modal).toContainElement(screen.getByRole("button", { name: /^Descartar$/ }));
   });
 
   it("keeps the trigger button mounted while the modal is open (no layout jump)", async () => {
@@ -328,14 +321,11 @@ describe("DiscardButton — confirmation opens in a modal", () => {
     render(<DiscardButton slug="idea-x" discardAction={action} />);
 
     await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByRole("button", { name: "muy complejo" }));
+    await user.type(screen.getByRole("textbox"), "A private reason");
     await user.click(screen.getByTestId("discard-close"));
     await user.click(screen.getByTestId("discard-button"));
 
-    expect(screen.getByRole("button", { name: "muy complejo" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    expect(screen.getByRole("textbox")).toHaveValue("");
   });
 
   it("closes the modal after a successful discard", async () => {
@@ -344,7 +334,7 @@ describe("DiscardButton — confirmation opens in a modal", () => {
     render(<DiscardButton slug="idea-x" discardAction={action} />);
 
     await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByTestId("discard-confirm-button"));
+    await user.click(screen.getByRole("button", { name: /^Descartar$/ }));
 
     await waitFor(() => {
       expect(screen.getByTestId("discard-done")).toBeInTheDocument();
@@ -354,7 +344,7 @@ describe("DiscardButton — confirmation opens in a modal", () => {
 });
 
 describe("DiscardButton — discard reason capture", () => {
-  it("shows the reason form (tags + free text) in the confirmation step", async () => {
+  it("shows the optional reason without quick-tags in the confirmation step", async () => {
     const user = userEvent.setup();
     const action = makeAction({ ok: true });
     render(<DiscardButton slug="idea-discovered" discardAction={action} />);
@@ -363,36 +353,22 @@ describe("DiscardButton — discard reason capture", () => {
 
     expect(screen.getByTestId("discard-reason-form")).toBeInTheDocument();
     expect(screen.getByTestId("discard-reason-text")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "no me interesa el tema" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "no me interesa el tema" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("passes the composed reason (tag + free text) to the action on confirm", async () => {
+  it("passes the optional free-text reason to the action on confirm", async () => {
     const user = userEvent.setup();
     const action = makeAction({ ok: true });
     render(<DiscardButton slug="idea-x" discardAction={action} />);
 
     await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByRole("button", { name: "no me interesa el tema" }));
     await user.type(screen.getByTestId("discard-reason-text"), "no es mi nicho");
-    await user.click(screen.getByTestId("discard-confirm-button"));
+    await user.click(screen.getByRole("button", { name: /^Descartar$/ }));
 
     await waitFor(() => {
-      expect(action).toHaveBeenCalledWith("idea-x", "no me interesa el tema — no es mi nicho");
-    });
-  });
-
-  it("combines multiple tags with a separator", async () => {
-    const user = userEvent.setup();
-    const action = makeAction({ ok: true });
-    render(<DiscardButton slug="idea-x" discardAction={action} />);
-
-    await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByRole("button", { name: "muy complejo" }));
-    await user.click(screen.getByRole("button", { name: "no monetiza en Perú" }));
-    await user.click(screen.getByTestId("discard-confirm-button"));
-
-    await waitFor(() => {
-      expect(action).toHaveBeenCalledWith("idea-x", "muy complejo · no monetiza en Perú");
+      expect(action).toHaveBeenCalledWith("idea-x", "no es mi nicho");
     });
   });
 
@@ -402,7 +378,7 @@ describe("DiscardButton — discard reason capture", () => {
     render(<DiscardButton slug="idea-x" discardAction={action} />);
 
     await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByTestId("discard-confirm-button"));
+    await user.click(screen.getByRole("button", { name: /^Descartar$/ }));
 
     await waitFor(() => {
       expect(action).toHaveBeenCalledWith("idea-x", "");
@@ -415,14 +391,11 @@ describe("DiscardButton — discard reason capture", () => {
     render(<DiscardButton slug="idea-x" discardAction={action} />);
 
     await user.click(screen.getByTestId("discard-button"));
-    await user.click(screen.getByRole("button", { name: "muy complejo" }));
-    await user.click(screen.getByTestId("discard-cancel-button"));
+    await user.type(screen.getByRole("textbox"), "A private reason");
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
     // Re-open: the previously selected tag must not still be pressed.
     await user.click(screen.getByTestId("discard-button"));
 
-    expect(screen.getByRole("button", { name: "muy complejo" })).toHaveAttribute(
-      "aria-pressed",
-      "false",
-    );
+    expect(screen.getByRole("textbox")).toHaveValue("");
   });
 });

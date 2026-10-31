@@ -6,110 +6,12 @@
  * shared <Markdown> renders bold white and can't be styled inline.
  */
 
-import type { BadgeTone, ScoreLevel } from "@/lib/pitch/pitch";
+import type { ScoreLevel } from "@/lib/pitch/pitch";
 
 /** The article spans the full panel width so the block tints bleed edge-to-edge. */
 export const CONTAINER_STYLE: React.CSSProperties = { width: "100%" };
 /** Centres each block's content at a readable measure inside the full-width band. */
 export const INNER_STYLE: React.CSSProperties = { width: "100%", minWidth: 0 };
-
-// --- Hero (full-bleed so its bottom border spans the whole width, like the blocks) ----
-export const HERO_STYLE: React.CSSProperties = {
-  marginInline: "calc(50% - 50vw)",
-  paddingTop: "8px",
-  paddingBottom: "26px",
-  paddingInline: "calc(50vw - 50%)",
-  borderBottom: "1px solid var(--color-border)",
-};
-export const EYEBROW_STYLE: React.CSSProperties = {
-  margin: 0,
-  fontFamily: "var(--font-mono, ui-monospace, monospace)",
-  fontSize: "12px",
-  letterSpacing: "1.5px",
-  textTransform: "uppercase",
-  fontWeight: 700,
-  color: "var(--color-accent-text)",
-};
-// Title size + one-liner colour are kept IN SYNC with the Spec tab (SpecDigest.styles)
-// so switching Propuesta ↔ Spec doesn't visually jump (owner request).
-export const TITLE_STYLE: React.CSSProperties = {
-  margin: "12px 0 8px",
-  fontSize: "32px",
-  lineHeight: 1.12,
-  fontWeight: 800,
-  letterSpacing: "-0.4px",
-  color: "var(--color-text)",
-};
-export const ONE_LINER_STYLE: React.CSSProperties = {
-  margin: 0,
-  fontSize: "16px",
-  maxWidth: "720px",
-  color: "var(--color-text2)",
-};
-export const BADGES_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "8px",
-  marginTop: "18px",
-};
-const BADGE_TONE_BG: Record<BadgeTone, string> = {
-  build: "var(--color-ok-bg)",
-  warn: "var(--color-warn-bg)",
-  info: "var(--color-info-bg)",
-  pain: "var(--color-card)",
-  neutral: "var(--color-card)",
-};
-const BADGE_TONE_FG: Record<BadgeTone, string> = {
-  build: "var(--color-ok)",
-  warn: "var(--color-warn)",
-  info: "var(--color-info)",
-  pain: "var(--color-cat-3)",
-  neutral: "var(--color-text2)",
-};
-export function badgeStyle(tone: BadgeTone): React.CSSProperties {
-  return {
-    fontFamily: "var(--font-mono, ui-monospace, monospace)",
-    fontSize: "12px",
-    padding: "5px 12px",
-    borderRadius: "999px",
-    border: "1px solid var(--color-border)",
-    background: BADGE_TONE_BG[tone],
-    color: BADGE_TONE_FG[tone],
-  };
-}
-
-// --- Blocks (FULL-WIDTH tinted bands; HTML: subtle hot/cold tint) -------
-// Block tints matched to the Spec tab: hot ("De un vistazo") = Spec's PRD (info),
-// cold ("Profundizar") = Spec's Research (accent) — owner request for cross-tab consistency.
-const HOT_TINT = "color-mix(in oklab, var(--color-info-bg) 36%, var(--color-base))";
-const COLD_TINT = "color-mix(in oklab, var(--color-accent-bg) 30%, var(--color-base))";
-// FULL-BLEED: the tinted band spans the whole viewport width (margin pulls to the edges, padding pushes
-// the content back), while INNER_STYLE re-centres the content — so no vertical strips on the sides.
-const BLEED = {
-  marginInline: "calc(50% - 50vw)",
-  paddingTop: "24px",
-  paddingBottom: "24px",
-  paddingInline: "calc(50vw - 50%)",
-  borderBottom: "1px solid var(--color-border)",
-} as const;
-export const BLOCK_HOT_STYLE: React.CSSProperties = { ...BLEED, background: HOT_TINT };
-export const BLOCK_COLD_STYLE: React.CSSProperties = { ...BLEED, background: COLD_TINT };
-export const BLOCK_PLAIN_STYLE: React.CSSProperties = { padding: "24px 0" };
-
-function blabel(color: string): React.CSSProperties {
-  return {
-    margin: "0 0 14px",
-    fontFamily: "var(--font-mono, ui-monospace, monospace)",
-    fontSize: "11px",
-    letterSpacing: "2px",
-    textTransform: "uppercase",
-    fontWeight: 700,
-    color,
-  };
-}
-export const BLABEL_HOT_STYLE = blabel("var(--color-info)");
-export const BLABEL_COLD_STYLE = blabel("var(--color-accent-text)");
-export const BLABEL_BOARD_STYLE = blabel("var(--color-accent-text)");
 
 // --- Rows (HTML: .row 138px|1fr, gap 18, dashed, 15px) -----------------
 // borderBottom lives in the `.pitch-row` CSS class (globals.css) so `:last-child` can drop it.

@@ -1,148 +1,120 @@
 /**
  * FRD-02 — AC-02-009.1 (stage-based default tab) — REVIEWER adversarial tests (DR-015).
  *
- * Builder-blind: written by the per-change reviewer, not the implementer. They exercise the
- * default-tab rule at the real seam (`BoardShell` opening `CardDetail`) and at its boundaries:
- *   1. Per-card initialisation — the stage default is derived for EACH opened card; a tab the
- *      owner picked on card A never leaks into card B, and re-opening A re-derives A's default.
- *   2. Fallback boundaries — an empty-string digest counts as absent (release + empty
- *      architecture digest → Spec), a stageless in-pipeline card falls back to research, and a
- *      shipped card with no digests lands on Propuesta (never Documentos/Campaña).
- *   3. Initial-only derivation — a live refresh that advances the card's stage while its detail
- *      is open does NOT yank the owner off the tab they are on (AC-02-009.4).
+ * Builder-blind, through the real idea route over a real factory on disk (the board no longer
+ * embeds the detail, so the seam is the per-idea read):
+ *   1. Per-idea derivation: a tab picked on idea A never leaks into idea B, and a fresh visit to A
+ *      re-derives A's default.
+ *   2. Fallback boundaries: a linked project always has Arquitectura (AC-02-013.1), a blank digest
+ *      counts as absent, a stageless in-pipeline idea stays on Propuesta, Documentos and Campaña
+ *      are never the default.
+ *   3. Initial-only derivation: a stage that advances under an idea whose URL already names a tab
+ *      does not move the owner (AC-02-009.4).
  */
 
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
-import { BoardShell } from "@/app/board/_components/BoardShell/BoardShell";
-import { CardDetail } from "@/app/board/_components/CardDetail/CardDetail";
-import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
-import type { DiscardResult } from "@/lib/discard/discard";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { idea, mountIdea, project, put, resetFactory } from "./ideaRouteFixture";
 
-const SPEC = "## Requisitos\n\n- REQ-01-001 Auth";
-const ARCH = "## Stack\n\nNext.js";
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-function card(overrides: Partial<BoardCardEntry> = {}): BoardCardEntry {
-  return {
-    slug: "idea-a",
-    title: "Idea Alfa",
-    status: "discovered",
-    body: "# Resumen\n\nUna idea.",
-    projectType: "web",
-    returnType: "mixed",
-    score: 70,
-    boardColumn: "discovered",
-    ...overrides,
-  };
-}
+const previousRoot = process.env.PANDACORP_FACTORY_ROOT;
+const root = mkdtempSync(join(tmpdir(), "frd02-stage-tab-"));
+process.env.PANDACORP_FACTORY_ROOT = root;
 
-const okDiscard = async (): Promise<DiscardResult> => ({ ok: true });
+const LINKED = 'title: Idea Alfa\nstatus: in-pipeline\nproject: "demo"';
 
 function selectedTabIds(): string[] {
   return screen
-    .getAllByRole("tab")
-    .filter((t) => t.getAttribute("aria-selected") === "true")
-    .map((t) => t.getAttribute("data-testid") ?? "");
+    .getAllByRole("tab", { selected: true })
+    .map((tab) => tab.getAttribute("data-testid") ?? "");
 }
 
-async function openByTitle(user: ReturnType<typeof userEvent.setup>, title: string): Promise<void> {
-  await user.click(screen.getByRole("link", { name: new RegExp(title, "i") }));
-  await screen.findByTestId("card-detail");
-}
+beforeEach(resetFactory);
+afterEach(cleanup);
+afterAll(() => {
+  rmSync(root, { recursive: true, force: true });
+  process.env.PANDACORP_FACTORY_ROOT = previousRoot;
+});
 
 describe("FRD-02 reviewer · AC-02-009.1 stage default tab", () => {
-  it("derives the default per opened card at the BoardShell seam (no tab carried from A to B)", async () => {
-    const user = userEvent.setup();
-    const cards = [
-      card({
-        slug: "idea-a",
-        title: "Idea Alfa",
-        status: "in-pipeline",
-        phase: "architecture",
-        boardColumn: "architecture",
-        specContent: SPEC,
-        architectureContent: ARCH,
-      }),
-      card({
-        slug: "idea-b",
-        title: "Idea Beta",
-        status: "recommended",
-        boardColumn: "discovered",
-      }),
-    ];
-    render(<BoardShell cards={cards} discardAction={okDiscard} />);
+  it("derives the default per idea (no tab carried from A to B)", async () => {
+    idea("alfa", LINKED);
+    idea("beta", "title: Idea Beta\nstatus: recommended");
+    project("architecture");
 
-    await openByTitle(user, "Idea Alfa");
+    await mountIdea("alfa");
     expect(selectedTabIds()).toEqual(["card-detail-tab-arquitectura"]);
-    await user.click(screen.getByTestId("card-detail-tab-campana"));
+    fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
     expect(selectedTabIds()).toEqual(["card-detail-tab-campana"]);
+    expect(window.location.pathname).toBe("/board/alfa/campaign");
+    cleanup();
 
-    await user.click(screen.getByTestId("card-detail-back"));
-    await openByTitle(user, "Idea Beta");
+    await mountIdea("beta");
     expect(selectedTabIds()).toEqual(["card-detail-tab-propuesta"]);
+    cleanup();
 
-    await user.click(screen.getByTestId("card-detail-back"));
-    await openByTitle(user, "Idea Alfa");
+    await mountIdea("alfa");
     expect(selectedTabIds()).toEqual(["card-detail-tab-arquitectura"]);
   });
 
   it.each([
-    {
-      name: "release + empty-string architecture digest → Spec",
-      props: {
-        status: "in-pipeline",
-        phase: "release",
-        specContent: SPEC,
-        architectureContent: "",
-      },
-      expected: "card-detail-tab-spec",
-    },
-    {
-      name: "in-pipeline with no phase (stageless) + both digests → Propuesta",
-      props: {
-        status: "in-pipeline",
-        phase: undefined,
-        specContent: SPEC,
-        architectureContent: ARCH,
-      },
-      expected: "card-detail-tab-propuesta",
-    },
-    {
-      name: "shipped with no digests → Propuesta (never Documentos/Campaña)",
-      props: {
-        status: "shipped",
-        phase: undefined,
-        specContent: undefined,
-        architectureContent: undefined,
-      },
-      expected: "card-detail-tab-propuesta",
-    },
-  ] as const)("fallback boundary: $name", ({ props, expected }) => {
-    render(<CardDetail slug="idea-a" title="Idea Alfa" body="# Resumen\n\nUna idea." {...props} />);
+    ["product", "card-detail-tab-spec"],
+    ["design", "card-detail-tab-spec"],
+    ["architecture", "card-detail-tab-arquitectura"],
+    ["implementation", "card-detail-tab-arquitectura"],
+    ["release", "card-detail-tab-arquitectura"],
+  ])("at %s the default is %s, and the URL records it", async (phase, expected) => {
+    idea("alfa", LINKED);
+    project(phase);
+    await mountIdea("alfa");
     expect(selectedTabIds()).toEqual([expected]);
+    expect(window.location.pathname).not.toBe("/board/alfa");
   });
 
-  it("a live refresh that advances the open card's stage keeps the owner's current tab", async () => {
-    const user = userEvent.setup();
-    const atDesign = card({
-      status: "in-pipeline",
-      phase: "design",
-      boardColumn: "design",
-      specContent: SPEC,
-    });
-    const { rerender } = render(<BoardShell cards={[atDesign]} discardAction={okDiscard} />);
-    await openByTitle(user, "Idea Alfa");
-    expect(selectedTabIds()).toEqual(["card-detail-tab-spec"]);
+  it("release without an architecture digest still lands on Arquitectura: a linked project owns the tab", async () => {
+    idea("alfa", LINKED);
+    project("release", { digests: false });
+    put("demo/.pandacorp/comms/spec-resumen.md", "## FRDs\n### FRD-01 · Live\nResumen.\n");
+    await mountIdea("alfa");
+    expect(selectedTabIds()).toEqual(["card-detail-tab-arquitectura"]);
+  });
 
-    const atArchitecture = card({
-      status: "in-pipeline",
-      phase: "architecture",
-      boardColumn: "architecture",
-      specContent: SPEC,
-      architectureContent: ARCH,
-    });
-    rerender(<BoardShell cards={[atArchitecture]} discardAction={okDiscard} />);
+  it("product with a blank spec digest counts as absent: no Spec tab, Propuesta default", async () => {
+    idea("alfa", LINKED);
+    project("product", { digests: false });
+    put("demo/.pandacorp/comms/spec-resumen.md", "");
+    await mountIdea("alfa");
+    expect(screen.queryByTestId("card-detail-tab-spec")).toBeNull();
+    expect(selectedTabIds()).toEqual(["card-detail-tab-propuesta"]);
+  });
+
+  it("a stageless in-pipeline idea with both digests stays on Propuesta", async () => {
+    idea("alfa", LINKED);
+    project("product");
+    put("demo/.pandacorp/status.yaml", "project: Demo\n");
+    await mountIdea("alfa");
+    expect(selectedTabIds()).toEqual(["card-detail-tab-propuesta"]);
+  });
+
+  it("a shipped idea with no project lands on Propuesta, never Documentos or Campaña", async () => {
+    idea("alfa", "title: Idea Alfa\nstatus: shipped");
+    await mountIdea("alfa");
+    expect(selectedTabIds()).toEqual(["card-detail-tab-propuesta"]);
+    expect(screen.getAllByRole("tab")).toHaveLength(2);
+  });
+
+  it("a stage that advances keeps the tab the URL already names", async () => {
+    idea("alfa", LINKED);
+    project("design");
+    await mountIdea("alfa/spec");
+    expect(selectedTabIds()).toEqual(["card-detail-tab-spec"]);
+    cleanup();
+    project("architecture");
+    await mountIdea("alfa/spec");
     expect(screen.getByTestId("card-detail-tab-arquitectura")).toBeInTheDocument();
     expect(selectedTabIds()).toEqual(["card-detail-tab-spec"]);
   });

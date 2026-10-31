@@ -98,3 +98,10 @@
     transition: none;
   }
 }
+
+@media (max-width: 640px) {
+  .navigation,
+  .navigation[data-size="sm"] {
+    min-height: 44px;
+  }
+}

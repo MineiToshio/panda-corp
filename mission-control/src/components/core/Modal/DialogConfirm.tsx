@@ -14,6 +14,8 @@ export interface DialogConfirmProps {
   readonly confirmLabel: string;
   /** When set, a labelled reason field is shown and its text is passed to `onConfirm`. */
   readonly reasonLabel?: string;
+  readonly reasonPlaceholder?: string;
+  readonly confirmVariant?: "primary" | "danger";
   readonly onCancel: () => void;
   readonly onConfirm: (reason: string) => void;
   readonly children?: React.ReactNode;
@@ -27,6 +29,8 @@ export function DialogConfirm({
   cancelLabel,
   confirmLabel,
   reasonLabel,
+  reasonPlaceholder,
+  confirmVariant = "primary",
   onCancel,
   onConfirm,
   children,
@@ -51,6 +55,8 @@ export function DialogConfirm({
             {reasonLabel}
           </label>
           <textarea
+            data-testid={`${testIdBase}-reason-text`}
+            placeholder={reasonPlaceholder}
             id={reasonId}
             className={styles.reason}
             value={reason}
@@ -60,7 +66,7 @@ export function DialogConfirm({
       ) : null}
       <div className={styles.actions}>
         <Button onClick={onCancel}>{cancelLabel}</Button>
-        <Button variant="primary" onClick={handleConfirm}>
+        <Button variant={confirmVariant} onClick={handleConfirm}>
           {confirmLabel}
         </Button>
       </div>

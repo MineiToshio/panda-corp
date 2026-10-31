@@ -1,12 +1,23 @@
 import { notFound, redirect } from "next/navigation";
-import { readIdeas } from "@/lib/ideas/ideas";
-import { getIdeaNavigation, resolveIdeaNavigation } from "@/lib/navigation/identities";
+import { IdeaPage } from "@/app/board/_components/IdeaHeader/IdeaPage";
+import { readIdeaPage } from "@/app/board/_utils/readIdeaPage";
+import {
+  discardIdeaAction,
+  restoreIdeaAction,
+  toggleFavoriteAction,
+} from "@/app/board/actions/actions";
+import { readBoardDoc } from "@/app/board/actions/read-doc";
+import { ButtonLink } from "@/components/core/Button/ButtonLink";
+import { Card } from "@/components/core/Card/Card";
+import { PageHead } from "@/components/core/PageHead/PageHead";
+import { t } from "@/lib/copy/copy";
+import { normalizeLegacyNavigation } from "@/lib/navigation/aliases";
+import { NavigationCanonical } from "@/lib/navigation/NavigationCanonical";
 import { type RouteQuery, routeHref } from "@/lib/navigation/routeState";
 import { navigationHref } from "@/lib/navigation/urls";
 import { NavigationSeedProvider } from "@/lib/navigation/useUrlState";
-import BoardPage from "../page";
 
-/** Resolve stable idea URLs independently of mutable card filenames. */
+/** Resolve a stable idea identity and mount only that idea's request-scoped project bundle. */
 export default async function PersistentBoard({
   params,
   searchParams,
@@ -17,17 +28,36 @@ export default async function PersistentBoard({
   const { segments } = await params;
   const [idea, tab, detail] = segments;
   if (!idea) notFound();
-  const cardSlug = resolveIdeaNavigation(idea, readIdeas());
-  if (!cardSlug) notFound();
   if (tab && !["proposal", "spec", "architecture", "documents", "campaign"].includes(tab))
     notFound();
   if (segments.length > 3 || (detail && tab !== "documents")) notFound();
-  const href = routeHref("/board", segments, await searchParams);
-  const canonicalSlug = getIdeaNavigation(cardSlug).slug;
-  if (idea !== canonicalSlug) redirect(navigationHref(href, { idea: canonicalSlug }));
+  const data = readIdeaPage(idea);
+  if (!data)
+    return (
+      <section data-screen="idea" data-testid="idea-not-found">
+        <Card>
+          <PageHead
+            title={t("idea.notFound.title")}
+            subtitle={t("idea.notFound.detail", { id: idea })}
+          />
+          <ButtonLink look="button" href="/board">
+            {t("idea.notFound.back")}
+          </ButtonLink>
+        </Card>
+      </section>
+    );
+  const href = normalizeLegacyNavigation(routeHref("/board", segments, await searchParams));
+  if (idea !== data.navigationSlug) redirect(navigationHref(href, { idea: data.navigationSlug }));
   return (
     <NavigationSeedProvider href={href}>
-      <BoardPage />
+      <NavigationCanonical href={href} />
+      <IdeaPage
+        data={data}
+        discardAction={discardIdeaAction}
+        restoreAction={restoreIdeaAction}
+        favoriteAction={toggleFavoriteAction}
+        readDocAction={readBoardDoc}
+      />
     </NavigationSeedProvider>
   );
 }

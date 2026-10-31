@@ -42,7 +42,10 @@ describe("board detail persistent navigation", () => {
       "aria-selected",
       "true",
     );
-    expect(screen.getByText("La arquitectura todavía no está publicada.")).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Arquitectura" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("loads the pasted document URL and restores readers on popstate without stale responses", async () => {
@@ -77,7 +80,7 @@ describe("board detail persistent navigation", () => {
     const read = vi.fn(async () => "# Published PRD");
     render(<CardDetail {...base} readDocAction={read} />);
     expect(read).not.toHaveBeenCalled();
-    expect(screen.getByText("No se pudo leer este documento.")).toBeVisible();
+    expect(screen.getByText("Tarjeta de la idea")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "PRD" }));
     await waitFor(() => expect(read).toHaveBeenCalled());
     expect(parseNavigationUrl(window.location.href)).toMatchObject({

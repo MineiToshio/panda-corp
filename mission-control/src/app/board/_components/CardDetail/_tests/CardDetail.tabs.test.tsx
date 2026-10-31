@@ -45,18 +45,17 @@ const MINIMAL: {
   status: IdeaStatus;
   body: string;
   phase: Phase | undefined;
-  advancePending: boolean | undefined;
   docNodes?: DocNode[];
   project?: string;
   readDocAction?: (project: string, relPath: string) => Promise<string | null>;
   onEnterForge?: (slug: string) => void;
 } = {
+  project: "projects/p",
   slug: "test-idea",
   title: "Test Idea",
   status: "discovered",
   body: "## Summary\n\nAn idea summary.\n\n- Point A\n- Point B",
   phase: undefined,
-  advancePending: undefined,
 };
 
 const WITH_DOCS: typeof MINIMAL = {
@@ -82,7 +81,7 @@ const WITH_DOCS: typeof MINIMAL = {
 // ---------------------------------------------------------------------------
 
 describe("frd-02: AC-02-009.1 — 3-tab structure, default Propuesta", () => {
-  it("frd-02: WHEN a card detail renders THEN all three tab buttons are present", () => {
+  it("frd-02: WHEN a card detail renders THEN linked project tab buttons are present", () => {
     render(<CardDetail {...MINIMAL} />);
     expect(screen.getByTestId("card-detail-tab-propuesta")).toBeInTheDocument();
     expect(screen.getByTestId("card-detail-tab-docs")).toBeInTheDocument();
@@ -94,9 +93,9 @@ describe("frd-02: AC-02-009.1 — 3-tab structure, default Propuesta", () => {
     expect(screen.queryByTestId("card-detail-tab-comandos")).not.toBeInTheDocument();
   });
 
-  it("frd-02: WHEN a card detail renders THEN exactly 3 tabs are present", () => {
+  it("frd-02: WHEN a card detail renders THEN exactly 4 tabs are present", () => {
     render(<CardDetail {...MINIMAL} />);
-    expect(screen.getAllByRole("tab")).toHaveLength(3);
+    expect(screen.getAllByRole("tab")).toHaveLength(4);
   });
 
   it("frd-02: WHEN card detail renders THEN the Propuesta tab button is active by default", () => {
@@ -119,9 +118,10 @@ describe("frd-02: AC-02-009.1 — 3-tab structure, default Propuesta", () => {
     expect(screen.getByTestId("card-detail-pitch")).toBeInTheDocument();
   });
 
-  it("frd-02: WHEN card detail renders THEN the CampaignPipeline is mounted (always-mounted panels)", () => {
+  it("frd-02: WHEN card detail renders THEN the CampaignPipeline is mounted when selected", () => {
     render(<CardDetail {...MINIMAL} />);
     // All panels are always mounted via the clip technique; Campaña is accessible even when hidden.
+    fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
     expect(screen.getByTestId("campaign-pipeline")).toBeInTheDocument();
   });
 
@@ -254,7 +254,7 @@ describe("frd-02: AC-02-009.4 — active tab persists across re-renders", () => 
     const { rerender } = render(<CardDetail {...MINIMAL} />);
     // Propuesta is the default; switch to Campaña, then re-render.
     fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
-    rerender(<CardDetail {...MINIMAL} advancePending={true} />);
+    rerender(<CardDetail {...MINIMAL} body="Updated campaign body." />);
     expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("aria-selected", "true");
   });
 });
@@ -266,21 +266,25 @@ describe("frd-02: AC-02-009.4 — active tab persists across re-renders", () => 
 describe("frd-02: CampaignPipeline wiring in Campaña tab", () => {
   it("frd-02: WHEN rendered THEN CampaignPipeline receives the correct slug", () => {
     render(<CardDetail {...MINIMAL} />);
+    fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
     expect(screen.getByTestId("campaign-pipeline")).toHaveAttribute("data-slug", "test-idea");
   });
 
   it("frd-02: WHEN card is discovered THEN CampaignPipeline activePhase is 0 (research)", () => {
     render(<CardDetail {...MINIMAL} status="discovered" phase={undefined} />);
+    fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
     expect(screen.getByTestId("campaign-pipeline")).toHaveAttribute("data-active-phase", "0");
   });
 
   it("frd-02: WHEN card is in-pipeline with phase=design THEN CampaignPipeline activePhase is 2", () => {
     render(<CardDetail {...MINIMAL} status="in-pipeline" phase="design" />);
+    fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
     expect(screen.getByTestId("campaign-pipeline")).toHaveAttribute("data-active-phase", "2");
   });
 
   it("frd-02: WHEN card is shipped THEN CampaignPipeline activePhase is 5 (release)", () => {
     render(<CardDetail {...MINIMAL} status="shipped" phase={undefined} />);
+    fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
     expect(screen.getByTestId("campaign-pipeline")).toHaveAttribute("data-active-phase", "5");
   });
 });
@@ -376,7 +380,7 @@ describe("frd-02: AC-02-009.1 — default tab follows the project's stage", () =
     expectActiveTab("arquitectura");
   });
 
-  it("frd-02: WHEN the phase is architecture with a spec digest but no architecture digest THEN Spec is active", () => {
+  it("frd-02: WHEN the phase is architecture with a linked project but no architecture digest THEN Arquitectura is active", () => {
     render(
       <CardDetail
         {...MINIMAL}
@@ -385,12 +389,12 @@ describe("frd-02: AC-02-009.1 — default tab follows the project's stage", () =
         specContent={SPEC_DIGEST}
       />,
     );
-    expectActiveTab("spec");
+    expectActiveTab("arquitectura");
   });
 
-  it("frd-02: WHEN the phase is architecture with neither digest THEN Propuesta is active", () => {
+  it("frd-02: WHEN the phase is architecture with a linked project and neither digest THEN Arquitectura is active", () => {
     render(<CardDetail {...MINIMAL} status="in-pipeline" phase="architecture" />);
-    expectActiveTab("propuesta");
+    expectActiveTab("arquitectura");
   });
 
   it("frd-02: WHEN the phase is product without a spec digest THEN Propuesta is active", () => {

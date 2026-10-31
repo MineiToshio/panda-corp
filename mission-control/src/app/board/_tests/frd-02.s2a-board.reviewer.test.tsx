@@ -8,11 +8,15 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BoardShell } from "@/app/board/_components/BoardShell/BoardShell";
-import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
-import type { DiscardResult } from "@/lib/discard/discard";
+import type { BoardCardEntry } from "@/app/board/IdeaBoardView/types";
+
+const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }));
+vi.mock("next/navigation", async (original) => ({
+  ...(await original<typeof import("next/navigation")>()),
+  useRouter: () => router,
+}));
 
 const STORAGE_KEY = "mission-control:board:hide-empty";
-const discardAction = async (): Promise<DiscardResult> => ({ ok: true });
 
 function card(overrides: Partial<BoardCardEntry> & { slug: string }): BoardCardEntry {
   return {
@@ -42,6 +46,7 @@ const columnIds = () =>
     .filter((id) => id?.startsWith("board-column-"));
 
 beforeEach(() => {
+  router.push.mockClear();
   localStorage.clear();
   window.history.replaceState(null, "", "/board");
 });
@@ -55,7 +60,7 @@ describe("search and category (AC-02-016.1, AC-02-016.4)", () => {
   it("matches body text case-insensitively across columns, and owns the URL with a replace", async () => {
     const user = userEvent.setup();
     const push = vi.spyOn(window.history, "pushState");
-    render(<BoardShell cards={CARDS} discardAction={discardAction} />);
+    render(<BoardShell cards={CARDS} />);
     await user.type(screen.getByRole("searchbox"), "zafiro");
     expect(screen.getAllByTestId("idea-card")).toHaveLength(1);
     expect(screen.getByRole("link", { name: "Alfa" })).toBeInTheDocument();
@@ -69,7 +74,6 @@ describe("search and category (AC-02-016.1, AC-02-016.4)", () => {
     render(
       <BoardShell
         cards={[...CARDS, card({ slug: "gone", title: "Zafiro", status: "discarded" })]}
-        discardAction={discardAction}
       />,
     );
     await user.type(screen.getByRole("searchbox"), "zafiro");
@@ -80,7 +84,7 @@ describe("search and category (AC-02-016.1, AC-02-016.4)", () => {
 
   it("a blank query is no filter: no Limpiar, no match line (the prototype trims first)", async () => {
     const user = userEvent.setup();
-    render(<BoardShell cards={CARDS} discardAction={discardAction} />);
+    render(<BoardShell cards={CARDS} />);
     await user.type(screen.getByRole("searchbox"), "   ");
     expect(screen.queryByRole("button", { name: "Limpiar" })).toBeNull();
     expect(screen.queryByText(/ideas? coincid/)).toBeNull();
@@ -88,7 +92,7 @@ describe("search and category (AC-02-016.1, AC-02-016.4)", () => {
 
   it("the polite live region exists BEFORE the first filter, so the first count is announced", async () => {
     const user = userEvent.setup();
-    const { container } = render(<BoardShell cards={CARDS} discardAction={discardAction} />);
+    const { container } = render(<BoardShell cards={CARDS} />);
     const region = container.ownerDocument.getElementById("board-count");
     expect(region).toHaveAttribute("aria-live", "polite");
     await user.click(screen.getByRole("button", { name: /^CLI 1$/ }));
@@ -99,7 +103,7 @@ describe("search and category (AC-02-016.1, AC-02-016.4)", () => {
 describe("empty markers (REQ-02-014, frozen filterBoard)", () => {
   it("a truly empty phase keeps its own marker while a filter is active", async () => {
     const user = userEvent.setup();
-    render(<BoardShell cards={CARDS} discardAction={discardAction} />);
+    render(<BoardShell cards={CARDS} />);
     await user.type(screen.getByRole("searchbox"), "zafiro");
     expect(within(screen.getByTestId("board-column-design")).getByRole("status")).toHaveTextContent(
       "Sin ideas en esta fase",
@@ -110,7 +114,7 @@ describe("empty markers (REQ-02-014, frozen filterBoard)", () => {
   });
 
   it("an empty board renders six marked columns and no match line", () => {
-    render(<BoardShell cards={[]} discardAction={discardAction} />);
+    render(<BoardShell cards={[]} />);
     expect(columnIds()).toHaveLength(6);
     expect(screen.getAllByText("Sin ideas en esta fase")).toHaveLength(6);
     expect(screen.queryByText(/coinciden/)).toBeNull();
@@ -120,13 +124,13 @@ describe("empty markers (REQ-02-014, frozen filterBoard)", () => {
 describe("hide-empty (AC-02-016.3)", () => {
   it("removes empty phases and their chips and persists the choice", async () => {
     const user = userEvent.setup();
-    const { unmount } = render(<BoardShell cards={CARDS} discardAction={discardAction} />);
+    const { unmount } = render(<BoardShell cards={CARDS} />);
     await user.click(screen.getByRole("switch"));
     expect(columnIds()).toEqual(["board-column-discovered", "board-column-building"]);
     const nav = screen.getByRole("navigation", { name: "Ir a una fase" });
     expect(within(nav).getAllByRole("button")).toHaveLength(2);
     unmount();
-    render(<BoardShell cards={CARDS} discardAction={discardAction} />);
+    render(<BoardShell cards={CARDS} />);
     expect(screen.getByRole("switch")).toHaveAttribute("aria-checked", "true");
     expect(columnIds()).toHaveLength(2);
   });
@@ -134,7 +138,7 @@ describe("hide-empty (AC-02-016.3)", () => {
   it("a phase whose cards are only filtered out is not empty: it stays with «Sin coincidencias»", async () => {
     const user = userEvent.setup();
     localStorage.setItem(STORAGE_KEY, "true");
-    render(<BoardShell cards={CARDS} discardAction={discardAction} />);
+    render(<BoardShell cards={CARDS} />);
     await user.type(screen.getByRole("searchbox"), "no-such-idea");
     expect(columnIds()).toEqual(["board-column-discovered", "board-column-building"]);
     expect(screen.getAllByText("Sin coincidencias")).toHaveLength(2);
@@ -142,13 +146,13 @@ describe("hide-empty (AC-02-016.3)", () => {
 
   it("a garbage stored value and an unavailable localStorage leave the default board", () => {
     localStorage.setItem(STORAGE_KEY, "yes please");
-    const first = render(<BoardShell cards={CARDS} discardAction={discardAction} />);
+    const first = render(<BoardShell cards={CARDS} />);
     expect(columnIds()).toHaveLength(6);
     first.unmount();
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("denied");
     });
-    render(<BoardShell cards={CARDS} discardAction={discardAction} />);
+    render(<BoardShell cards={CARDS} />);
     expect(columnIds()).toHaveLength(6);
   });
 });
@@ -166,7 +170,7 @@ describe("discarded dialog (REQ-02-017)", () => {
 
   it("button always shown at zero, title carries the count, no Descartada column", async () => {
     const user = userEvent.setup();
-    render(<BoardShell cards={CARDS} discardAction={discardAction} />);
+    render(<BoardShell cards={CARDS} />);
     await user.click(screen.getByRole("button", { name: "Descartadas · 0" }));
     expect(screen.getByRole("dialog", { name: "Ideas descartadas · 0" })).toBeInTheDocument();
     expect(screen.queryByTestId("board-column-discarded")).toBeNull();
@@ -174,22 +178,22 @@ describe("discarded dialog (REQ-02-017)", () => {
 
   it("a row shows title, category, restore hint and reason, and opens that idea by public slug", async () => {
     const user = userEvent.setup();
-    render(<BoardShell cards={[...CARDS, discarded]} discardAction={discardAction} />);
+    render(<BoardShell cards={[...CARDS, discarded]} />);
     await user.click(screen.getByRole("button", { name: "Descartadas · 1" }));
     const row = within(screen.getByRole("dialog")).getByRole("button", { name: /Vieja/ });
     expect(row).toHaveTextContent("web · leer propuesta y restaurar");
     expect(row).toHaveTextContent("Motivo: saturado");
     await user.click(row);
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(window.location.href).toContain("public-slug");
+    expect(router.push).toHaveBeenCalledWith("/board/public-slug");
     expect(new URL(window.location.href).searchParams.get("discarded")).toBeNull();
-    expect(await screen.findByTestId("card-detail")).toBeInTheDocument();
+    expect(screen.queryByTestId("card-detail")).toBeNull();
   });
 });
 
 describe("cards (REQ-02-002, REQ-02-005, REQ-02-006, AC-02-012.3)", () => {
   it("no drag, arrow or move control exists on the board", () => {
-    const { container } = render(<BoardShell cards={CARDS} discardAction={discardAction} />);
+    const { container } = render(<BoardShell cards={CARDS} />);
     expect(container.ownerDocument.querySelectorAll('[draggable="true"]')).toHaveLength(0);
     expect(screen.queryByRole("button", { name: /mover|move/i })).toBeNull();
   });
@@ -200,7 +204,6 @@ describe("cards (REQ-02-002, REQ-02-005, REQ-02-006, AC-02-012.3)", () => {
     render(
       <BoardShell
         cards={CARDS}
-        discardAction={discardAction}
         // @ts-expect-error the failure shape is irrelevant to the reverting star
         favoriteAction={favoriteAction}
       />,

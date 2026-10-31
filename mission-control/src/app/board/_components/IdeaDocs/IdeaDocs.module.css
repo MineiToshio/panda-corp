@@ -1,0 +1,51 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s4);
+  align-items: start;
+}
+.rail {
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--r-lg);
+  padding: var(--s4);
+  background: var(--surface);
+  min-width: 0;
+}
+.rail summary {
+  cursor: pointer;
+  min-height: var(--s10);
+}
+.rail h2,
+.rail h3 {
+  font-size: var(--fs-sm);
+  margin-block: var(--s3);
+}
+.rail ul {
+  list-style: none;
+  padding: 0;
+}
+.rail button {
+  display: block;
+  width: 100%;
+  min-height: var(--s10);
+  padding: var(--s2);
+  border: 0;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--text-2);
+  text-align: start;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.rail button[aria-current] {
+  background: color-mix(in srgb, var(--tone) var(--tint-strong), var(--surface));
+  color: var(--tone);
+}
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) calc(var(--s10) * 6);
+  }
+  .rail summary {
+    display: none;
+  }
+}

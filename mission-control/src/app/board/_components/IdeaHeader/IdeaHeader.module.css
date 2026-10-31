@@ -1,0 +1,39 @@
+.header {
+  display: grid;
+  gap: var(--s2);
+  margin-bottom: var(--s4);
+}
+.title,
+.meta,
+.buttons {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  min-width: 0;
+}
+.title h1 {
+  font-size: var(--fs-h2);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.meta {
+  gap: var(--s2);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.stage {
+  margin-inline-start: calc(var(--s8) + var(--s3));
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s2);
+}
+.buttons {
+  gap: var(--s2);
+}

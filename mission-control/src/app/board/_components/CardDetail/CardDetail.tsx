@@ -1,45 +1,8 @@
 "use client";
 
-/**
- * WO-02-007 (reopened) — CardDetail component (CMP-02-card-detail)
- *
- * Traceability:
- *   CMP-02-card-detail → REQ-02-004, REQ-02-008, REQ-02-009, REQ-02-010
- *   AC-02-004.1  WHEN the owner clicks a card, the system SHALL show:
- *                summary, key points, docs navigator. The next-step command now
- *                lives in the campaign ficha (CampaignPipeline), not here.
- *   AC-02-008.1  Idea with no documents → show only the summary, no project docs, no crash.
- *   AC-02-009.1  Three horizontal tabs (Propuesta · Documentos · Campaña); the default tab follows
- *                the project's stage (research → Propuesta, product/design → Spec, later → Arquitectura).
- *                Propuesta renders the idea's hot→cold memo natively (IdeaPitch, discover redesign).
- *   AC-02-009.2  Clicking a tab activates it and shows its body.
- *   AC-02-009.3  Clicking a document entry switches the active tab to Documentos.
- *   AC-02-009.4  Active tab persists across re-renders of the card detail.
- *
- * Documentos tab — navigable docs WITH content (DR-046):
- *   The left rail reads like a file browser: "Resumen" first, then a "Producto"
- *   section (PRD · Research), then one section per FRD (Contrato/Diseño/Implementación).
- *   Selecting "Resumen" shows the card body; selecting a project doc lazily loads
- *   its markdown body via the injected read action (the board ships only the doc
- *   STRUCTURE, so a doc's body is fetched on demand). Both render via <Markdown>.
- *
- * Style constants live in CardDetail.styles.ts (sibling).
- *
- * Design rules (AGENTS.md):
- *   - Zero hardcoded color values — all via CSS custom properties.
- *   - data-testid on every significant element (test-writer contract).
- *   - Spanish copy + aria-labels (single operator, Spanish UI).
- *   - Read-only over the factory: the read action validates relPath against the
- *     discovered set (traversal-safe); no writes, no Claude calls.
- *   - "use client" required: uses useState/useTransition (tab + reader state).
- *
- * Panel visibility strategy:
- *   Inactive panels use the classic "visually hidden but accessible" clip technique
- *   (PANEL_HIDDEN_STYLE) so that getByTestId and getByRole queries in sibling test
- *   files continue to find elements in all panels, not only the active one.
- */
-
 import { useEffect } from "react";
+import { IdeaDocs } from "@/app/board/_components/IdeaDocs/IdeaDocs";
+import type { Tone } from "@/components/core/Chip/vocabulary";
 import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
 import { Tabs } from "@/components/core/Tabs/Tabs";
 import { CampaignPipeline } from "@/components/modules/CampaignPipeline/CampaignPipeline";
@@ -47,31 +10,20 @@ import type { Adr } from "@/lib/architecture/adr";
 import type { DataModelResult } from "@/lib/architecture/data-model/types";
 import type { EnvVar } from "@/lib/architecture/env";
 import { phaseFromStatus } from "@/lib/campaign/campaign";
+import { t } from "@/lib/copy/copy";
 import { classifyDocLink } from "@/lib/docs/links";
 import type { DocNode } from "@/lib/docs/tree";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
 import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
-import type { DeployTarget, Phase } from "@/lib/status/status";
+import type { DigestSourceErrors } from "@/lib/spec/read-artifacts";
+import type { DigestFrd } from "@/lib/spec/read-frds";
+import type { Phase } from "@/lib/status/status";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { ArchitectureDigest } from "./ArchitectureDigest/ArchitectureDigest";
-import {
-  DOCS_NAV_HEADING_STYLE,
-  DOCS_READER_STYLE,
-  DOCS_SIDEBAR_STYLE,
-  docsNavItemStyle,
-  PANEL_HIDDEN_STYLE,
-  PANEL_STYLE,
-  ROOT_STYLE,
-  SUMMARY_STYLE,
-  TITLE_STYLE,
-} from "./CardDetail.styles";
+import { PANEL_HIDDEN_STYLE, PANEL_STYLE, ROOT_STYLE, TITLE_STYLE } from "./CardDetail.styles";
 import { IdeaPitch } from "./IdeaPitch/IdeaPitch";
 import { SpecDigest } from "./SpecDigest/SpecDigest";
 import { useCardDocument } from "./useCardDocument";
-
-// ---------------------------------------------------------------------------
-// Tab definitions (AC-02-009.1)
-// ---------------------------------------------------------------------------
 
 type TabKey = "propuesta" | "spec" | "arquitectura" | "docs" | "campana";
 
@@ -79,28 +31,17 @@ interface TabDef {
   id: TabKey;
   label: string;
   icon?: string;
+  tone?: Tone;
 }
 
-// Order: Propuesta → Spec → Arquitectura → Documentos → Campaña. "Spec" appears once the project
-// has a spec digest (.pandacorp/comms/spec-resumen.md); "Arquitectura" once it has an architecture
-// digest (.pandacorp/comms/arquitectura-resumen.md). Before those phases they're filtered out.
 const ALL_TABS: TabDef[] = [
-  { id: "propuesta", label: "Propuesta", icon: "ti-sparkles" },
-  { id: "spec", label: "Spec", icon: "ti-list-details" },
-  { id: "arquitectura", label: "Arquitectura", icon: "ti-affiliate" },
-  { id: "docs", label: "Documentos", icon: "ti-files" },
-  { id: "campana", label: "Campaña", icon: "ti-map-2" },
+  { id: "propuesta", label: t("idea.tabs.propuesta"), icon: "bulb", tone: "blue" },
+  { id: "spec", label: t("idea.tabs.spec"), icon: "layers", tone: "blue" },
+  { id: "arquitectura", label: t("idea.tabs.arquitectura"), icon: "cube", tone: "amber" },
+  { id: "docs", label: t("idea.tabs.documentos"), icon: "file", tone: "violet" },
+  { id: "campana", label: t("idea.tabs.campana"), icon: "flag", tone: "teal" },
 ];
 
-/**
- * Initial tab for a card, by campaign phase index (0 research … 5 release). A stage tab that has no
- * digest is not rendered, so the default falls back along arquitectura → spec → propuesta.
- *
- * @param activePhase - campaign phase index from `phaseFromStatus`
- * @param hasSpec - whether the Spec tab is rendered
- * @param hasArchitecture - whether the Arquitectura tab is rendered
- * @returns the tab to open on first render
- */
 function defaultTabForPhase(
   activePhase: number,
   hasSpec: boolean,
@@ -111,28 +52,9 @@ function defaultTabForPhase(
   return "propuesta";
 }
 
-/** Stable prefix so the shared Tabs primitive emits this screen's test ids. */
 const TAB_TEST_ID_PREFIX = "card-detail-tab-";
 
-/** Sentinel key for the always-present "Resumen" rail item (vs a doc's relPath). */
 const SUMMARY_KEY = "summary";
-
-const DOCS_NAV_LIST_STYLE: React.CSSProperties = {
-  listStyle: "none",
-  margin: 0,
-  padding: 0,
-  display: "flex",
-  flexDirection: "column",
-  gap: "2px",
-};
-
-const DOCS_NAV_ICON_STYLE: React.CSSProperties = { fontSize: "13px", flexShrink: 0 };
-
-/** Section header inside the rail (a sibling of the rail's top label). */
-const DOCS_NAV_SECTION_STYLE: React.CSSProperties = {
-  ...DOCS_NAV_HEADING_STYLE,
-  margin: "calc(var(--spacing, 0.25rem) * 1.5) 0 calc(var(--spacing, 0.25rem) * 0.5)",
-};
 
 const READER_STATE_STYLE: React.CSSProperties = {
   margin: 0,
@@ -140,53 +62,38 @@ const READER_STATE_STYLE: React.CSSProperties = {
   color: "var(--color-text-muted, var(--color-text2, currentColor))",
 };
 
-// ---------------------------------------------------------------------------
-// Rail model — group the scoped DocNodes into a file-browser-like structure.
-// ---------------------------------------------------------------------------
-
-/** Friendly Spanish label for a per-FRD doc filename. */
 const FRD_FILE_LABEL: Record<string, string> = {
-  "frd.md": "Contrato (frd.md)",
-  "fdd.md": "Diseño (fdd.md)",
-  "blueprint.md": "Implementación (blueprint.md)",
+  "frd.md": t("idea.docs.contract"),
+  "fdd.md": t("idea.docs.design"),
+  "blueprint.md": t("idea.docs.implementation"),
 };
 
 interface DocRailItem {
-  /** Selection key — the doc's relPath (used as selectedDocKey + read arg). */
   relPath: string;
-  /** Display label in the rail. */
+
   label: string;
 }
 
 interface DocRailSection {
-  /** Section header text (uppercase label). */
   heading: string;
   items: DocRailItem[];
 }
 
-/** Strip the "Feature: " prefix from an FRD group to get the bare slug. */
 function frdSlugFromGroup(group: string): string {
   return group.startsWith("Feature: ") ? group.slice("Feature: ".length) : group;
 }
 
-/**
- * Turn the flat scoped DocNode list into rail sections:
- *   "Producto"  — PRD (label "PRD") + Research (label "Research"), if present.
- *   one section per FRD — header = the frd slug; items labelled Contrato/Diseño/Implementación.
- * The page-level scope already excludes architecture.md, the Global group and .pandacorp.
- */
 function buildDocSections(docNodes: readonly DocNode[]): DocRailSection[] {
   const sections: DocRailSection[] = [];
 
-  // --- Producto section (PRD + Research) ---
   const productItems: DocRailItem[] = [];
   const prd = docNodes.find((n) => n.relPath === "docs/product/prd.md");
-  if (prd) productItems.push({ relPath: prd.relPath, label: "PRD" });
+  if (prd) productItems.push({ relPath: prd.relPath, label: t("idea.docs.prd") });
   const research = docNodes.find((n) => n.relPath === "docs/product/research.md");
-  if (research) productItems.push({ relPath: research.relPath, label: "Research" });
-  if (productItems.length > 0) sections.push({ heading: "Producto", items: productItems });
+  if (research) productItems.push({ relPath: research.relPath, label: t("idea.docs.research") });
+  if (productItems.length > 0)
+    sections.push({ heading: t("idea.docs.sectionProduct"), items: productItems });
 
-  // --- One section per FRD (preserve discovery order; stable per group) ---
   const frdOrder: string[] = [];
   const byGroup = new Map<string, DocRailItem[]>();
   for (const node of docNodes) {
@@ -206,12 +113,6 @@ function buildDocSections(docNodes: readonly DocNode[]): DocRailSection[] {
   return sections;
 }
 
-/**
- * Build the card-detail's in-doc link resolver. Unlike the workspace reader (URL-driven),
- * the card-detail navigates by client state, so a link to a doc the reader surfaces resolves
- * to a SELECTION (onSelect → handleSelectDoc); off-app URLs open in a new tab; anything else
- * renders as plain text. Link classification is shared with the workspace (lib/docs/links).
- */
 function makeCardLinkResolver(
   currentRelPath: string,
   knownDocPaths: ReadonlySet<string>,
@@ -233,20 +134,15 @@ function makeCardLinkResolver(
 }
 
 interface DocReaderBodyProps {
-  /** No read action wired (or no project) → graceful "opens in the workspace" fallback. */
   noReader: boolean;
-  /** A doc body load is in flight. */
+
   docLoading: boolean;
-  /** The loaded doc body, or null. */
+
   docContent: string | null;
-  /** In-doc link resolver (shared with the summary). */
+
   resolveLink: LinkResolver;
 }
 
-/**
- * The non-summary reader body — graceful fallback / loading / the doc's markdown. Extracted
- * from CardDetail so that component stays under the cognitive-complexity cap.
- */
 function DocReaderBody({
   noReader,
   docLoading,
@@ -254,142 +150,97 @@ function DocReaderBody({
   resolveLink,
 }: DocReaderBodyProps): React.JSX.Element {
   if (noReader) {
-    return <p style={READER_STATE_STYLE}>El contenido se abre en el workspace del proyecto.</p>;
+    return <p style={READER_STATE_STYLE}>{t("idea.docs.workspace")}</p>;
   }
   if (docLoading) {
     return (
       <p style={READER_STATE_STYLE} aria-live="polite">
-        Cargando…
+        {t("idea.docs.loading")}
       </p>
     );
   }
   if (docContent != null) {
     return <Markdown resolveLink={resolveLink}>{docContent}</Markdown>;
   }
-  return <p style={READER_STATE_STYLE}>No se pudo leer este documento.</p>;
+  return <p style={READER_STATE_STYLE}>{t("idea.docs.readError")}</p>;
 }
 
 function useCardTabs(
   activePhase: number,
   specContent: string | undefined,
-  architectureContent: string | undefined,
-  dataModel: DataModelResult | undefined,
+  project: string | undefined,
 ) {
   const hasSpec = specContent != null && specContent !== "";
-  const hasArchitecture =
-    (architectureContent != null && architectureContent !== "") ||
-    (dataModel !== undefined && dataModel.kind !== "missing");
+  const hasArchitecture = Boolean(project);
   const [tabKey] = useUrlState("boardTab", "");
   const fallbackTab = defaultTabForPhase(activePhase, hasSpec, hasArchitecture);
-  const activeTab = ALL_TABS.find((tab) => tab.id === tabKey)?.id ?? fallbackTab;
   const tabs = ALL_TABS.filter(
     (tab) =>
-      (tab.id !== "spec" || hasSpec || activeTab === "spec") &&
-      (tab.id !== "arquitectura" || hasArchitecture || activeTab === "arquitectura"),
+      (tab.id !== "spec" || hasSpec) &&
+      (tab.id !== "arquitectura" || hasArchitecture) &&
+      (tab.id !== "docs" || Boolean(project)),
   );
+  const activeTab = tabs.find((tab) => tab.id === tabKey)?.id ?? fallbackTab;
   useEffect(() => {
-    if (!ALL_TABS.some((tab) => tab.id === tabKey)) {
-      updateNavigation({ boardTab: fallbackTab }, { replace: true });
+    if (tabKey !== activeTab) {
+      updateNavigation({ boardTab: activeTab }, { replace: true });
     }
-  }, [tabKey, fallbackTab]);
-  return { activeTab, tabs, hasSpec, hasArchitecture };
+  }, [tabKey, activeTab]);
+  return { activeTab, tabs };
 }
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
 
 export interface CardDetailProps {
-  /** Filename without .md — uniquely identifies the card. */
   slug: string;
-  /** Frontmatter `title` field. */
+  readonly sourceErrors?: DigestSourceErrors;
+  readonly frds?: readonly DigestFrd[];
+  readonly navigationBaseHref?: string;
+  readonly constructionStarted?: boolean;
+  readonly forgeHref?: string;
+
   title: string;
-  /** Frontmatter `status` field — validated against the IdeaStatus union. */
+
   status: IdeaStatus;
-  /** Markdown body (summary + key points). Rendered via react-markdown. */
+
   body: string;
-  /** Project phase from the linked project's status.yaml (any project-linked card). */
+
   phase?: Phase;
-  /** Legacy caller compatibility; the campaign no longer displays the deploy target. */
-  deployTarget?: DeployTarget;
-  /** App type (card `project_type`: web / mobile / api …) — a "qué es" tag in Propuesta + Spec. */
+
   projectType?: string;
-  /** Web target platform (status.yaml `target_platforms`: desktop / mobile / responsive) — a "qué es" tag. */
+
   targetPlatforms?: string;
-  /** DR-032: whether a skill has advanced a phase and is waiting for "ok, advance". */
-  advancePending?: boolean;
-  /**
-   * Scoped doc STRUCTURE for the Documentos tab (PRD + research + per-FRD docs),
-   * from listProjectDocs in page.tsx. Absent/empty → the rail lists only "Resumen".
-   * Bodies are NOT included; they load lazily via `readDocAction` on select.
-   */
+
   docNodes?: DocNode[];
-  /**
-   * Real on-disk FRD folder count (from `countFrdFolders`/`listProjectDocs` in page.tsx) —
-   * the Spec tab's "N FRDs" badge. Derived LIVE from disk, never from the spec digest's
-   * prose count (DR-092/DR-115).
-   */
+
   frdCount?: number;
-  /**
-   * Spanish high-level digest of the project's spec (PRD + research + FRDs), read from
-   * `.pandacorp/comms/spec-resumen.md` (any project-linked card once the product phase wrote it).
-   * Absent/empty → the "Spec" tab is hidden (the project hasn't reached that stage).
-   */
+
   specContent?: string;
-  /**
-   * Spanish high-level digest of the project's architecture (stack, data model, services, per-FRD),
-   * read from `.pandacorp/comms/arquitectura-resumen.md` (any project-linked card once the architecture phase wrote it).
-   * Absent/empty → the "Arquitectura" tab is hidden (the project hasn't reached that stage).
-   */
+
   architectureContent?: string;
   dataModel?: DataModelResult;
-  /** Live work orders (listWorkOrders) — the architecture tab's implementation-plan DAG. */
+
   workOrders?: WorkOrder[];
-  /** Live env vars (`.env.example`) — the architecture tab's "Variables de entorno" block. */
+
   envVars?: EnvVar[];
-  /** Live ADRs (`docs/adr/*`) — the architecture tab's "Decisiones" block. */
+
   adrs?: Adr[];
-  /** Portfolio path of the linked project (the read action's first argument). */
+
   project?: string;
-  /**
-   * Read-only action that returns a scoped doc's markdown body on demand.
-   * Optional: when absent (older callers/tests), the reader shows a graceful
-   * "opens in the project workspace" fallback instead of crashing.
-   */
+
   readDocAction?: (project: string, relPath: string) => Promise<string | null>;
-  /** Whether the linked project is actively building; controls the campaign live markers. */
+
   isRunning?: boolean;
-  /**
-   * Legacy caller compatibility until the dedicated idea route supplies a real forge URL.
-   */
-  onEnterForge?: (slug: string) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+function selectedDocument(key: string, nodes?: readonly DocNode[]): string {
+  return (
+    (nodes ?? []).find((node) => node.relPath === key || node.id === key)?.relPath ?? SUMMARY_KEY
+  );
+}
+function documentCount(tab: string, nodes?: readonly DocNode[]): number | undefined {
+  return tab === "docs" ? (nodes ?? []).length : undefined;
+}
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
-/**
- * CardDetail — 3-tab idea card detail (Propuesta · Documentos · Campaña).
- *
- * Tabs:
- *   - Propuesta (default in research): IdeaPitch — the idea's hot→cold memo rendered natively
- *     (the /discover redesign output, plugin v9.9.0). The pitch that makes the owner decide.
- *   - Documentos: a file-browser rail (Resumen · Producto · per-FRD) + a reader.
- *     "Resumen" shows the card body; a project doc lazily loads its body.
- *   - Campaña: CampaignPipeline — the 6-phase La Campaña view. Each phase's ficha
- *     carries its own "Siguiente paso" command.
- *
- * All panels are always mounted; inactive panels are visually hidden
- * via the clip technique (PANEL_HIDDEN_STYLE) so existing getByTestId /
- * getByRole test contracts remain stable regardless of the active tab.
- *
- * "use client" because URL selections and document reads react to browser navigation.
- */
+/** Full-width idea tabs with URL-owned selections and one live project artifact bundle. */
 export function CardDetail({
   slug,
   title,
@@ -409,15 +260,16 @@ export function CardDetail({
   project,
   readDocAction,
   isRunning,
+  sourceErrors,
+  frds,
+  navigationBaseHref,
+  constructionStarted,
+  forgeHref,
 }: CardDetailProps): React.JSX.Element {
   const activePhase = phaseFromStatus({ cardStatus: status, phase });
-  const { activeTab, tabs, hasSpec, hasArchitecture } = useCardTabs(
-    activePhase,
-    specContent,
-    architectureContent,
-    dataModel,
-  );
-  const [selectedDocKey] = useUrlState("doc", SUMMARY_KEY);
+  const { activeTab, tabs } = useCardTabs(activePhase, specContent, project);
+  const [docKey] = useUrlState("doc", SUMMARY_KEY);
+  const selectedDocKey = selectedDocument(docKey, docNodes);
   const { docContent, docLoading } = useCardDocument(
     selectedDocKey,
     docNodes,
@@ -425,12 +277,8 @@ export function CardDetail({
     readDocAction,
   );
 
-  // Build the grouped rail sections (empty when no scoped docs).
   const sections = buildDocSections(docNodes ?? []);
 
-  /**
-   * Select the always-present "Resumen" item: show the card body, keep on Documentos.
-   */
   const handleSelectSummary = () => {
     updateNavigation({ boardTab: "docs", doc: null });
   };
@@ -458,17 +306,13 @@ export function CardDetail({
       });
   };
 
-  /** Return the correct style for a panel — active (visible) or inactive (clipped). */
   const panelStyle = (key: TabKey): React.CSSProperties =>
     activeTab === key ? PANEL_STYLE : PANEL_HIDDEN_STYLE;
 
   const isSummary = selectedDocKey === SUMMARY_KEY;
-  // A doc is selected but no read action is wired (or no project) → graceful fallback.
-  const noReader = !isSummary && (readDocAction == null || project == null);
 
-  // In-doc links resolve to THIS reader (owner: the board had the same broken-link bug as the
-  // portfolio). The base path is the doc being read (the summary has none → relative links there
-  // just neutralize). See makeCardLinkResolver above.
+  const noReader = !readDocAction || !project;
+
   const knownDocPaths = new Set((docNodes ?? []).map((node) => node.relPath));
   const resolveDocLink = makeCardLinkResolver(
     isSummary ? "" : selectedDocKey,
@@ -477,25 +321,31 @@ export function CardDetail({
   );
 
   return (
-    <section data-testid="card-detail" style={ROOT_STYLE} aria-label={`Detalle de idea: ${title}`}>
-      {/* Title (accessible name + visible heading) */}
+    <section
+      data-testid="card-detail"
+      style={ROOT_STYLE}
+      aria-label={t("idea.detailAria", { title })}
+    >
       <h2 style={TITLE_STYLE}>{title}</h2>
 
-      {/* Tab row (AC-02-009.1 / DR-062) — THE shared Tabs primitive (the ONE tab
-          pattern, .stab level), not a bespoke per-screen switcher. testIdPrefix
-          keeps this screen's stable `card-detail-tab-*` test ids. */}
       <Tabs
         level="sub"
-        ariaLabel="Pestañas del detalle de idea"
-        tabs={tabs}
+        ariaLabel={t("idea.tabs.aria")}
+        tabs={tabs.map((tab) => ({
+          ...tab,
+          count: documentCount(tab.id, docNodes),
+        }))}
         active={activeTab}
         onChange={handleTabChange}
+        panelIdPrefix="card-detail-panel-"
+        tabIdPrefix={TAB_TEST_ID_PREFIX}
         testIdPrefix={TAB_TEST_ID_PREFIX}
       />
 
-      {/* ---- Propuesta panel (default, AC-02-009.1) — the native pitch view ---- */}
       <div
+        id="card-detail-panel-propuesta"
         data-testid="card-detail-panel-propuesta"
+        hidden={activeTab !== "propuesta"}
         role="tabpanel"
         aria-labelledby="card-detail-tab-propuesta"
         style={panelStyle("propuesta")}
@@ -509,39 +359,44 @@ export function CardDetail({
         />
       </div>
 
-      {/* ---- Spec panel — the native PRD/research/FRDs digest (only when a digest exists) ---- */}
-      {(hasSpec || activeTab === "spec") && (
+      {activeTab === "spec" && (
         <div
+          id="card-detail-panel-spec"
           data-testid="card-detail-panel-spec"
+          hidden={activeTab !== "spec"}
           role="tabpanel"
           aria-labelledby="card-detail-tab-spec"
           style={panelStyle("spec")}
         >
-          {hasSpec ? (
+          {
             <SpecDigest
               title={title}
               body={specContent}
               projectType={projectType}
               targetPlatforms={targetPlatforms}
               frdCount={frdCount}
+              project={project}
+              workOrders={workOrders}
+              frds={frds}
+              sourceErrors={sourceErrors}
+              navigationBaseHref={navigationBaseHref}
+              constructionStarted={constructionStarted}
               resolveLink={resolveDocLink}
             />
-          ) : (
-            <p style={READER_STATE_STYLE}>El spec todavía no está publicado.</p>
-          )}
+          }
         </div>
       )}
 
-      {/* ---- Arquitectura panel — the native stack/data-model/services/ADR/DAG/per-FRD digest
-              (only when an architecture digest exists) ---- */}
-      {(hasArchitecture || activeTab === "arquitectura") && (
+      {activeTab === "arquitectura" && (
         <div
+          id="card-detail-panel-arquitectura"
           data-testid="card-detail-panel-arquitectura"
+          hidden={activeTab !== "arquitectura"}
           role="tabpanel"
           aria-labelledby="card-detail-tab-arquitectura"
           style={panelStyle("arquitectura")}
         >
-          {hasArchitecture ? (
+          {
             <ArchitectureDigest
               title={title}
               body={architectureContent}
@@ -551,119 +406,67 @@ export function CardDetail({
               workOrders={workOrders}
               envVars={envVars}
               adrs={adrs}
+              frds={frds}
+              sourceErrors={sourceErrors}
+              navigationBaseHref={navigationBaseHref}
+              constructionStarted={constructionStarted}
               project={project}
               resolveLink={resolveDocLink}
             />
-          ) : (
-            <p style={READER_STATE_STYLE}>La arquitectura todavía no está publicada.</p>
-          )}
+          }
         </div>
       )}
 
-      {/* ---- Campaña panel (AC-02-010.1) ---- */}
       <div
+        id="card-detail-panel-campana"
         data-testid="card-detail-panel-campana"
+        hidden={activeTab !== "campana"}
         role="tabpanel"
         aria-labelledby="card-detail-tab-campana"
         style={panelStyle("campana")}
       >
-        <CampaignPipeline
-          slug={slug}
-          project={project}
-          activePhase={activePhase}
-          running={isRunning === true}
-        />
+        {activeTab === "campana" && (
+          <CampaignPipeline
+            slug={slug}
+            project={project}
+            activePhase={activePhase}
+            running={isRunning === true}
+            forgeHref={forgeHref}
+          />
+        )}
       </div>
 
-      {/* ---- Documentos panel — rail (file-browser) + reader ---- */}
       <div
+        id="card-detail-panel-docs"
         data-testid="card-detail-panel-docs"
+        hidden={activeTab !== "docs"}
         role="tabpanel"
         aria-labelledby="card-detail-tab-docs"
         style={panelStyle("docs")}
       >
-        <div className="card-detail-docs-grid">
-          {/* Left rail — navigable, grouped (Resumen · Producto · per-FRD) */}
-          <nav
-            data-testid="card-detail-docs-nav"
-            style={DOCS_SIDEBAR_STYLE}
-            aria-label="Documentos del proyecto"
-          >
-            <p style={DOCS_NAV_HEADING_STYLE}>Documentos</p>
-            <ul style={DOCS_NAV_LIST_STYLE}>
-              <li>
-                <button
-                  type="button"
-                  data-testid="card-detail-docs-nav-resumen"
-                  data-active={isSummary}
-                  aria-current={isSummary ? "true" : undefined}
-                  style={docsNavItemStyle(isSummary)}
-                  onClick={handleSelectSummary}
-                >
-                  <i className="ti ti-list" aria-hidden="true" style={DOCS_NAV_ICON_STYLE} />
-                  Resumen
-                </button>
-              </li>
-            </ul>
-
-            {sections.map((section) => (
-              <div key={section.heading}>
-                <p style={DOCS_NAV_SECTION_STYLE} data-testid="card-detail-docs-nav-section">
-                  {section.heading}
-                </p>
-                <ul style={DOCS_NAV_LIST_STYLE}>
-                  {section.items.map((item) => {
-                    const active = selectedDocKey === item.relPath;
-                    return (
-                      <li key={item.relPath}>
-                        {/* Semantic <button> inside <li> — <li role="button"> is rejected by Biome. */}
-                        <button
-                          type="button"
-                          data-testid="card-detail-docs-nav-item"
-                          data-active={active}
-                          aria-current={active ? "true" : undefined}
-                          style={docsNavItemStyle(active)}
-                          onClick={() => handleSelectDoc(item.relPath)}
-                        >
-                          <i
-                            className="ti ti-file-text"
-                            aria-hidden="true"
-                            style={DOCS_NAV_ICON_STYLE}
-                          />
-                          {item.label}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </nav>
-
-          {/* Reader — the selected document (Resumen body, or a project doc's body) */}
-          <div style={DOCS_READER_STYLE}>
-            {isSummary ? (
-              /* Summary — markdown body (AC-02-004.1) via the shared <Markdown> renderer
-                 (real h1/h2 hierarchy). The component's own title is the clipped <h2>. */
-              <div data-testid="card-detail-summary" style={SUMMARY_STYLE}>
-                <Markdown resolveLink={resolveDocLink}>{body}</Markdown>
-              </div>
-            ) : (
-              <div data-testid="card-detail-doc-reader" style={SUMMARY_STYLE}>
-                <DocReaderBody
-                  noReader={noReader}
-                  docLoading={docLoading}
-                  docContent={docContent}
-                  resolveLink={resolveDocLink}
-                />
-              </div>
-            )}
-          </div>
-        </div>
+        <IdeaDocs
+          sections={sections}
+          selectedDocKey={selectedDocKey}
+          onSelectDoc={handleSelectDoc}
+          onSelectSummary={handleSelectSummary}
+          phase={phase}
+          title={isSummary ? t("idea.docs.ideaCard") : selectedDocKey}
+          path={isSummary ? `${slug}.md` : selectedDocKey}
+        >
+          {isSummary ? (
+            <div data-testid="card-detail-summary">
+              <Markdown resolveLink={resolveDocLink}>{body}</Markdown>
+            </div>
+          ) : (
+            <DocReaderBody
+              noReader={noReader}
+              docLoading={docLoading}
+              docContent={docContent}
+              resolveLink={resolveDocLink}
+            />
+          )}
+        </IdeaDocs>
       </div>
-
-      {/* Hidden metadata for data binding */}
-      <span style={{ display: "none" }} aria-hidden="true" data-slug={slug} />
     </section>
   );
 }

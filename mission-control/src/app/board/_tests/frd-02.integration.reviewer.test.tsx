@@ -23,8 +23,8 @@
  * EARS anchors: AC-02-001.*, AC-02-002.1, AC-02-004.1, AC-02-006.2, AC-02-007.1.
  */
 
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it } from "vitest";
 import { CardDetail } from "@/app/board/_components/CardDetail/CardDetail";
 import type { IdeaCardProps } from "@/components/modules/IdeaCard/IdeaCard";
 import { type BoardColumn, deriveColumn } from "@/lib/board/board";
@@ -238,6 +238,10 @@ describe("FRD-02 integration: board routes deriveColumn output into the right co
 // ---------------------------------------------------------------------------
 
 describe("FRD-02 integration: CardDetail surfaces the real next-step command + copy", () => {
+  beforeEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
+
   it("an architecture-phase card shows /pandacorp:implement with a copy button", () => {
     render(
       <CardDetail
@@ -248,6 +252,7 @@ describe("FRD-02 integration: CardDetail surfaces the real next-step command + c
         phase="architecture"
       />,
     );
+    fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
     // The next-step command now lives in the campaign ficha (the Comandos tab was folded in).
     const nextStep = screen.getByTestId("ficha-next-step");
     // The sheet's own row, plus the same command inside the mode picker.
@@ -259,8 +264,9 @@ describe("FRD-02 integration: CardDetail surfaces the real next-step command + c
     expect(within(nextStep).getAllByTestId("copy-button").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("AC-02-008.1: a card with no docNodes shows the Resumen reader and zero project doc items", () => {
-    render(<CardDetail slug="s" title="T" status="discovered" body="Solo resumen." />);
+  it("AC-02-008.1: a linked card with no docNodes shows the Resumen reader and zero project doc items", () => {
+    render(<CardDetail slug="s" title="T" status="in-pipeline" project="p" body="Solo resumen." />);
+    fireEvent.click(screen.getByTestId("card-detail-tab-docs"));
     expect(screen.getByTestId("card-detail-summary")).toBeTruthy();
     // The rail always lists Resumen; with no project there are no project doc items.
     expect(screen.getByTestId("card-detail-docs-nav-resumen")).toBeTruthy();
@@ -271,6 +277,7 @@ describe("FRD-02 integration: CardDetail surfaces the real next-step command + c
     const c = card({ slug: "n", status: "discovered" });
     expect(deriveColumn(c, null)).toBe("discovered");
     render(<CardDetail slug="n" title="N" status="discovered" body="x" />);
+    fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
     const nextStep = screen.getByTestId("ficha-next-step");
     // CampaignPipeline substitutes the slug into the command, so <idea> → "n".
     expect(within(nextStep).getByText(commandText("/pandacorp:spec n"))).toBeTruthy();

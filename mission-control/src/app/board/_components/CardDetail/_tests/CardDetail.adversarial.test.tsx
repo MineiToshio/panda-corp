@@ -31,7 +31,6 @@ const BASE = {
   status: "in-pipeline" as IdeaStatus,
   body: "## Summary\n\nA body.",
   phase: undefined,
-  advancePending: false,
   project: "projects/p",
 };
 

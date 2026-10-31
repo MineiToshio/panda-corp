@@ -19,6 +19,10 @@
  *
  * EARS anchor: AC-02-007.1 (rewrite status: discarded, preserve the rest — the
  * only write).
+ *
+ * The header form seam (reason, optional blank, restore, refresh of the separate idea route) moved
+ * with the flow to `frd-02.idea-route.gate.reviewer.test.tsx`; this file keeps the action contract.
+ * The action revalidates `/board` only by design, so the idea route refreshes itself on success.
  */
 
 import fs from "node:fs";
@@ -121,6 +125,19 @@ describe("FRD-02 integration: discardIdeaAction → real discardIdea single-writ
     await discardIdeaAction("beta");
     expect(mockRevalidate).toHaveBeenCalledTimes(1);
     expect(mockRevalidate).toHaveBeenCalledWith("/board");
+  });
+
+  it("a blank reason from the form writes status alone, a real one is stored with the prior status", async () => {
+    const blank = writeCard("blank", "---\ntitle: B\nstatus: discovered\n---\nx\n");
+    await discardIdeaAction("blank", "");
+    expect(matter(fs.readFileSync(blank, "utf-8")).data).not.toHaveProperty("discard_reason");
+    const reasoned = writeCard("reasoned", "---\ntitle: R\nstatus: recommended\n---\nx\n");
+    await discardIdeaAction("reasoned", "saturado");
+    expect(matter(fs.readFileSync(reasoned, "utf-8")).data).toMatchObject({
+      status: "discarded",
+      discard_reason: "saturado",
+      status_before_discard: "recommended",
+    });
   });
 
   it("does NOT revalidate when the card does not exist (no spurious board churn)", async () => {

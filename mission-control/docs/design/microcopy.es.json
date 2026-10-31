@@ -406,6 +406,7 @@
     }
   },
   "idea": {
+    "detailAria": "Detalle de idea: {title}",
     "notFound": {
       "title": "Esta idea no existe",
       "detail": "No hay ninguna idea con el identificador «{id}».",
@@ -458,6 +459,9 @@
       "evidence": "Evidencia y fuentes (lo que sostiene este memo)"
     },
     "docs": {
+      "readError": "No se pudo leer este documento.",
+      "loading": "Cargando…",
+      "workspace": "El contenido se abre en el workspace del proyecto.",
       "noProject": "Esta idea todavía no tiene proyecto ni documentos.",
       "railAria": "Documentos de la idea",
       "sectionDocuments": "Documentos",

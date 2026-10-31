@@ -6,7 +6,7 @@ title: WO-02-016 Idea page (header, tabs, Propuesta, Documentos, discard and res
 status: ACTIVE
 parent: FRD-02
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -29,7 +29,7 @@ artifacts:
   - 'src/lib/go-party/**'
 source_requirements: [REQ-02-004, REQ-02-007, REQ-02-008, REQ-02-009, REQ-02-012, REQ-02-015, REQ-02-016]
 dependsOn: [WO-02-017, WO-02-004, WO-02-012, WO-25-001, WO-02-015, WO-02-020, WO-08-003]
-last_updated: '2026-10-22'
+last_updated: '2026-10-30'
 ---
 
 # WO-02-016 Idea page
@@ -244,3 +244,91 @@ The ACs above pass with tests that fail without the change; the board no longer 
 only; every string from `t()`; shown content keeps its language (LESSON-0490).
 
 ## Status Note
+
+### 2026-10-31 — S3B round 2 review patch (Codex)
+
+- Extended the existing core `ButtonLink` with Next.js navigation, button sizes and a 44px phone
+  minimum height; applied it to both header links and both recovery links. Updated the component
+  inventory and corrected the `IdeaDocs` path.
+- Moved the four remaining CardDetail strings into the copy catalogue; removed the unused
+  `advancePending` prop, hidden slug span and unused tab-helper return fields. Updated ordinary
+  tests that passed the retired prop, preserving the tab persistence assertion.
+- Discard now uses DialogConfirm's reason field (including its existing placeholder and test hook)
+  and an additive danger confirmation variant; corrected RestoreButton's JSDoc.
+- Tightened CampaignPipeline command queries to compare full code text, including nested flag and
+  slug spans. No reviewer tests or visual baselines were edited.
+- Verification with `PORT=3965 PANDACORP_E2E_PORT=3965`: `pnpm exec knip` and
+  `pnpm exec tsc --noEmit` exited 0. `pnpm exec biome check .` exited 0 (one existing unused
+  suppression warning in a reviewer test and schema-version informational notice).
+- `pnpm exec vitest run src/app/board src/components/core/Button src/components/core/DiscardButton
+  src/components/core/RestoreButton src/components/modules/CampaignPipeline --maxWorkers=2
+  --reporter=json --outputFile=/private/tmp/s3b-r2-final-vitest.json` exited 0: 616 tests passed,
+  zero failed. Changes intentionally remain uncommitted for the orchestrator.
+- Additional browser attempt: `pnpm exec playwright test e2e/frd-02-idea-page.reviewer.spec.ts
+  --config=playwright.s3b.config.ts --grep 'links are drawn'`, using a temporary configuration
+  overriding both server and browser URL to port 3965 with snapshot updates disabled. Next emitted
+  `EMFILE: too many open files, watch`; no test result was produced before interruption (exit 130).
+  Removed the temporary config. Computed link styles and phone target geometry remain unverified
+  in a browser in this session.
+
+
+### 2026-10-30 — S3B implementation handoff (Codex)
+
+- Implemented the dedicated stable-identity idea route, recovery card, canonical alias redirect and legacy board
+  boundary normalization. The board no longer embeds `CardDetail` or loads project documents/digests. It retains
+  status and live work-order reads because board cards render their progress; detail-only entry fields and the
+  unused discard/restore/read-doc, deploy-target and forge-callback inputs were removed.
+- Added the request-scoped `readIdeaPage` resolver over `readCardProject`, the idea header, shared report pitch,
+  curated right-hand/folded document index, shared `Paper`, and `DialogConfirm` discard/restore forms. Existing
+  bounded Server Actions remain unchanged. Successful writes refresh the idea route, because those existing
+  actions revalidate `/board` only. Rejected writes revert the optimistic header. No reason enters the URL.
+- Wired `sourceErrors`, `frds`, `workOrders`, `navigationBaseHref`, `constructionStarted` and `forgeHref` through
+  the real route into the digests/campaign; the detail receives `project`, and its favorite star receives `title`.
+  Removed the unused `src/lib/go-party/` module and its two implementer suites.
+- Added 24 real-route integration cases in
+  `src/app/board/[...segments]/_tests/ideaPage.integration.test.tsx`. These use real project readers and temporary
+  on-disk fixtures, with source/action boundaries controlled by the harness. Coverage includes malformed sources,
+  stale narrative vs live FRDs, planned orders before/after construction, canonical project URLs, document selection,
+  unknown documents/ideas, stage defaults, favorite identity, optimistic rejection and success refresh. Extended
+  `e2e/ideas-board.spec.ts` for page navigation, tab reload, both confirmation dialogs, digest dialogs and the inert
+  pre-hydration discard trigger; no browser run was authorized for this worker.
+
+**Acceptance-criterion traceability.** Every AC ID in this WO's acceptance section is cited in the new integration
+suite: AC-02-009.1/.2/.3/.4/.5/.6/.7/.8, AC-02-011.2, AC-02-012.3, AC-02-015.14 and AC-02-016.5. Mount-debt
+regressions additionally cite AC-02-011.3/.4, AC-02-013.3, AC-02-016.7 and AC-02-010.5.
+
+**Verification environment:** branch `orch/s3b`, this worktree only, with
+`export PORT=3965 PANDACORP_E2E_PORT=3965`; commands run from `mission-control/`:
+
+- `pnpm exec knip`: exit 0; no unused code, nine existing configuration hints.
+- `pnpm exec biome check src/app/board src/components/core/DiscardButton src/components/core/RestoreButton e2e/ideas-board.spec.ts`:
+  exit 0, no errors; one unused suppression warning in untouched `frd-02.s2a-board.reviewer.test.tsx:92`.
+- `pnpm exec tsc --noEmit`: exit 2; 30 errors, all in four untouched reviewer suites which still pass retired
+  `BoardShell` actions, detail fields or `onEnterForge`. Production/implementer typechecking is separately checked
+  by `pnpm exec tsc --noEmit -p /private/tmp/s3b-tsconfig.json` (exit 0); that temporary config extends this
+  checkout's `tsconfig.json` and excludes `node_modules` and `**/*.reviewer.*` only. This is not a green full gate.
+- `pnpm exec vitest run src/app/board src/components/core/DiscardButton src/components/core/RestoreButton --maxWorkers=2 --reporter=json --outputFile=/private/tmp/s3b-final-tests.json`:
+  405 passed, 30 failed, 32 files; every failure belongs to one of the six unchanged reviewer suites listed below.
+- `git diff --check`: exit 0. Reviewer-authored suites and blessed visual baselines remain untouched.
+- Playwright, the hydrated e2e cases, screenshots/fidelity at 1280/768/375 in both themes, and full
+  `.pandacorp/verify.sh` were not run. The FRD-02 integration/visual reviewer gate remains outstanding; this handoff
+  does not declare FRD-02 verified. No commit, merge, push, merge queue, decision-log or `.pandacorp` write occurred.
+
+**Reviewer reconciliation required (no reviewer suite edited):**
+
+| Suite, relative to `src/app/board/` | Required move | Current run |
+|---|---|---|
+| `_components/CardDetail/_tests/CardDetail.frd02-integration.reviewer.test.tsx` | Mount the real idea route, select Campaña for lazy content, replace `onEnterForge`/missing-link assumptions with the canonical forge link | 17 failures; type errors |
+| `_components/CardDetail/_tests/CardDetail.cohesion.reviewer.test.tsx` | Two tabs without a project; supply a linked project when asserting Documentos keyboard behavior | 1 failure |
+| `_tests/frd-02.integration.reviewer.test.tsx` | Select Campaña before asserting its commands; the panel is lazy | 2 failures |
+| `_tests/frd-02.shell-integration.reviewer.test.tsx` | Follow the board's route request and mount the idea page; remove board-injected detail actions | 7 failures; type errors |
+| `_tests/frd-02.stage-default-tab.reviewer.test.tsx` | Drive per-idea route reads instead of embedded board entries carrying digests/phase | 2 failures; type errors |
+| `_tests/frd-02.s2a-board.reviewer.test.tsx` | The discarded-row route request must be followed by the separate idea mount; remove the retired action input | 1 failure; type errors; existing Biome suppression warning |
+| `_utils/_tests/readCardProject.reviewer.test.ts` | Reconcile coverage with the open-idea resolver, live source-error bundle and shared request read | Green; listed by the wave plan for reconciliation |
+| `_tests/discard-write.integration.reviewer.test.ts` | Re-home the board-facing flow assertions at the idea-route form seam while keeping bounded-write checks | Green; listed by the wave plan for reconciliation |
+
+The reviewer-header-marked `CardDetail.adversarial.test.tsx` was preserved and remains green.
+
+**Lesson captured:** (agent-inferred) A never-resolving React form-action promise can leave later tests pending;
+settle deferred actions inside `act` before a test ends. The old pending-state test was patched to do so after a
+later success-state assertion reproduced this leak.

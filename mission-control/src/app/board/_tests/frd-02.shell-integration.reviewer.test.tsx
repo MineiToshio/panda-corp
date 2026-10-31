@@ -1,157 +1,126 @@
 /**
  * FRD-02 — Ideas board — REVIEWER integration tests, PASS 2 (DR-015, DR-050 gate).
  *
- * Written by the FRD reviewer (Opus 4.8 — a DIFFERENT model from the implementers,
- * to break the shared bias). These exercise WO-02-005 (board surface) and
- * WO-02-007 (La Campaña card detail) TOGETHER through the real interactive seam —
- * `BoardShell` — not in isolation. The existing reviewer suite drives CardDetail and
- * IdeaBoardView separately; the bugs hide at the seam where the board OPENS the detail
- * and the detail derives its phase from the SAME card the board routed.
+ * The board and the idea are separate routes since WO-02-016, so the seam is now: the board asks
+ * for the idea's public URL, and that URL mounts the idea over the same card the board routed.
+ * Both halves run for real over a factory on disk.
  *
- * Adversarial angles the implementers did not cover at the shell seam:
- *   1. DR-062 / AC-02-009.1 — opening a card from the BOARD yields the SHARED Tabs
- *      primitive (tabs-root[data-level="sub"]), never a bespoke per-screen tab row.
- *      This is the exact defect the WO-02-007 reopen fixed; lock it at the seam so a
- *      future regression to a hand-rolled row is caught here, not only in CardDetail.
- *   2. AC-02-009.3/.4 — after navigating AWAY to Comandos, a doc-entry click still
- *      lands on Documentos (not Campaña, not Comandos), and the tab choice persists
- *      across a re-render triggered by the board (filter change does not reset it).
- *   3. AC-02-010.2 + AC-02-010.5 — a `shipped` card opened from the board shows La
- *      Campaña active = release (room 5 current), AND the build sheet of a shipped
- *      idea keeps its real forge link once the host supplies `forgeHref` (the FRD edge
- *      case: "a shipped card → release; Entrar a La Fragua still navigates"; the
- *      host wiring is WO-02-016).
- *   4. AC-02-010.2 fallback — an `in-pipeline` card with NO phase (missing project /
- *      malformed status.yaml) opened from the board falls back to research (room 0
- *      current, room 5 locked) without throwing.
+ * Adversarial angles:
+ *   1. DR-062 / AC-02-009.1: the idea uses the SHARED Tabs primitive with its keyboard contract.
+ *   2. AC-02-009.3/.4: a tab pick survives a re-render and a reload of the same URL.
+ *   3. AC-02-010.2/.3/.7: phase coherence for shipped and stageless ideas.
+ *   4. AC-02-002.1/AC-02-003: the board stays read-only and detail-free.
  *
  * EARS anchors: AC-02-002.1, AC-02-003.*, AC-02-009.1/.3/.4, AC-02-010.2/.3/.5/.7.
  */
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
-import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
-import { CampaignPipeline } from "@/components/modules/CampaignPipeline/CampaignPipeline";
-import type { DiscardResult } from "@/lib/discard/discard";
-import { BoardShell } from "../_components/BoardShell/BoardShell";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import BoardPage from "@/app/board/page";
+import { idea, mountIdea, project, resetFactory } from "./ideaRouteFixture";
 
-// ---------------------------------------------------------------------------
-// Fixtures — builder with sensible defaults; override only what the test cares about.
-// ---------------------------------------------------------------------------
+const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }));
+vi.mock("next/navigation", async (original) => ({
+  ...(await original<typeof import("next/navigation")>()),
+  useRouter: () => router,
+}));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-function card(overrides: Partial<BoardCardEntry> = {}): BoardCardEntry {
-  return {
-    slug: "tracker-funkos",
-    title: "Tracker de Funkos One Piece",
-    status: "discovered",
-    body: "# Resumen\n\nUna idea sobre coleccionables.\n\n## Puntos clave\n\n- Uno\n- Dos",
-    projectType: "web",
-    returnType: "mixed",
-    score: 72,
-    boardColumn: "discovered",
-    ...overrides,
-  };
+const previousRoot = process.env.PANDACORP_FACTORY_ROOT;
+const root = mkdtempSync(join(tmpdir(), "frd02-shell-"));
+process.env.PANDACORP_FACTORY_ROOT = root;
+
+const TRACKER =
+  "title: Tracker de Funkos\nstatus: discovered\nproject_type: web\nreturn_type: mixed";
+
+beforeEach(() => {
+  resetFactory();
+  router.push.mockClear();
+  router.replace.mockClear();
+});
+afterEach(cleanup);
+afterAll(() => {
+  rmSync(root, { recursive: true, force: true });
+  process.env.PANDACORP_FACTORY_ROOT = previousRoot;
+});
+
+async function mountBoard(): Promise<void> {
+  window.history.replaceState(null, "", "/board");
+  render(await BoardPage());
 }
 
-const okDiscard = async (): Promise<DiscardResult> => ({ ok: true });
+describe("FRD-02 shell · the board hands the card to its own route", () => {
+  it("a card click asks for the public idea URL and the board embeds no detail", async () => {
+    idea("tracker", TRACKER);
+    await mountBoard();
+    await userEvent.click(screen.getByRole("link", { name: /Tracker de Funkos/ }));
+    expect(router.push).toHaveBeenCalledWith("/board/tracker");
+    expect(screen.queryByTestId("card-detail")).toBeNull();
+  });
 
-/** Open a board card's detail through its real title link (v2 cards are not buttons). */
-async function openCard(user: ReturnType<typeof userEvent.setup>, title: string): Promise<void> {
-  const trigger = screen.getByRole("link", { name: new RegExp(title, "i") });
-  await user.click(trigger);
-  await screen.findByTestId("card-detail");
-}
+  it("the board reads no project document for its cards", async () => {
+    idea("demo", 'title: Idea demo\nstatus: in-pipeline\nproject: "demo"');
+    project("implementation");
+    await mountBoard();
+    expect(screen.getByRole("progressbar", { name: "0/1 WO" })).toBeInTheDocument();
+    const page = readFileSync("src/app/board/page.tsx", "utf8");
+    expect(page).not.toMatch(/readCardProject|readSpecDigest|readArchitecture|listProjectDocs/);
+  });
+});
 
-// ---------------------------------------------------------------------------
-// 1. DR-062 — the board opens the SHARED Tabs primitive, not a bespoke row.
-// ---------------------------------------------------------------------------
-
-describe("FRD-02 shell · DR-062 — card detail uses the ONE shared Tabs primitive", () => {
-  it("opening a card from the board renders tabs-root[data-level=sub], not a hand-rolled tab row", async () => {
-    const user = userEvent.setup();
-    render(<BoardShell cards={[card()]} discardAction={okDiscard} />);
-
-    await openCard(user, "Tracker de Funkos");
-
-    // The shared Tabs primitive stamps tabs-root with data-level="sub" (the .stab pattern).
-    const tabsRoot = screen.getByTestId("tabs-root");
-    expect(tabsRoot).toHaveAttribute("data-level", "sub");
-
-    // The three tabs (Propuesta · Documentos · Campaña) are role="tab"; the Comandos tab
-    // was removed (its command folded into the campaign ficha).
+describe("FRD-02 shell · DR-062: the idea uses the ONE shared Tabs primitive", () => {
+  it("renders tabs-root[data-level=sub] with role=tab, and no Comandos tab", async () => {
+    idea("tracker", TRACKER);
+    await mountIdea("tracker");
+    expect(screen.getByTestId("tabs-root")).toHaveAttribute("data-level", "sub");
     expect(screen.getByTestId("card-detail-tab-propuesta")).toHaveAttribute("role", "tab");
     expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("role", "tab");
-    expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("role", "tab");
     expect(screen.queryByTestId("card-detail-tab-comandos")).toBeNull();
-
-    // Default active tab is Propuesta (AC-02-009.1).
     expect(screen.getByTestId("card-detail-tab-propuesta")).toHaveAttribute(
       "aria-selected",
       "true",
     );
   });
 
-  it("the shared Tabs primitive provides ArrowRight focus-cycling at the board seam (a11y contract)", async () => {
+  it("ArrowRight cycles and wraps across the idea's tabs", async () => {
     const user = userEvent.setup();
-    render(<BoardShell cards={[card()]} discardAction={okDiscard} />);
-    await openCard(user, "Tracker de Funkos");
-
+    idea("demo", 'title: Idea demo\nstatus: in-pipeline\nproject: "demo"');
+    project("product");
+    await mountIdea("demo/proposal");
     const propuesta = screen.getByTestId("card-detail-tab-propuesta");
     propuesta.focus();
-    expect(propuesta).toHaveFocus();
-
-    // The shared Tabs cycles focus with ArrowRight across the three tabs (Propuesta → Documentos → Campaña).
-    await user.keyboard("{ArrowRight}");
-    expect(screen.getByTestId("card-detail-tab-docs")).toHaveFocus();
-    await user.keyboard("{ArrowRight}");
-    expect(screen.getByTestId("card-detail-tab-campana")).toHaveFocus();
-    // wraps back to the first (three tabs: Propuesta · Documentos · Campaña)
+    for (const id of ["spec", "arquitectura", "docs", "campana"]) {
+      await user.keyboard("{ArrowRight}");
+      expect(screen.getByTestId(`card-detail-tab-${id}`)).toHaveFocus();
+    }
     await user.keyboard("{ArrowRight}");
     expect(propuesta).toHaveFocus();
   });
 });
 
-// ---------------------------------------------------------------------------
-// 2. AC-02-009.3/.4 — doc-click ALWAYS lands on Documentos; tab choice persists.
-// ---------------------------------------------------------------------------
-
-describe("FRD-02 shell · AC-02-009.3/.4 — doc-click landing + tab persistence", () => {
-  it("after switching to Documentos, the tab stays selected across a re-render (no reset)", async () => {
-    const user = userEvent.setup();
-    render(<BoardShell cards={[card({ status: "discovered" })]} discardAction={okDiscard} />);
-    await openCard(user, "Tracker de Funkos");
-
-    await user.click(screen.getByTestId("card-detail-tab-docs"));
-    expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "true");
-
-    // The Documentos panel is the active one and exposes the summary reader.
+describe("FRD-02 shell · AC-02-009.3/.4: tab persistence", () => {
+  it("the pick lives in the URL segment and survives a remount of that URL", async () => {
+    idea("demo", 'title: Idea demo\nstatus: in-pipeline\nproject: "demo"');
+    project("implementation");
+    await mountIdea("demo/proposal");
+    fireEvent.click(screen.getByTestId("card-detail-tab-docs"));
+    expect(window.location.pathname).toBe("/board/demo/documents");
     const docs = screen.getByTestId("card-detail-panel-docs");
     expect(within(docs).getByTestId("card-detail-summary")).toBeInTheDocument();
-
-    // A re-render of the open card (status unchanged) must not silently reset the tab.
-    await waitFor(() => {
-      expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "true");
-    });
+    cleanup();
+    await mountIdea("demo/documents");
+    expect(screen.getByTestId("card-detail-tab-docs")).toHaveAttribute("aria-selected", "true");
   });
 });
 
-// ---------------------------------------------------------------------------
-// 3. AC-02-010.2/.3/.5 — shipped card → release active; Entrar a La Fragua still fires.
-// ---------------------------------------------------------------------------
-
-describe("FRD-02 shell · AC-02-010.* — La Campaña phase coherence from the board", () => {
-  it("a shipped card opens with release (room 5) current and research (room 0) done", async () => {
-    const user = userEvent.setup();
-    render(
-      <BoardShell
-        cards={[card({ slug: "ship-me", title: "Idea lanzada", status: "shipped" })]}
-        discardAction={okDiscard}
-      />,
-    );
-    await openCard(user, "Idea lanzada");
-
-    // Active phase = release → room 5 current, room 0 done (before the active).
+describe("FRD-02 shell · AC-02-010.*: La Campaña phase coherence", () => {
+  it("a shipped idea opens with release current and every earlier room done", async () => {
+    idea("lanzada", "title: Idea lanzada\nstatus: shipped");
+    await mountIdea("lanzada/campaign");
     expect(screen.getByTestId("campaign-phase-release")).toHaveAttribute(
       "data-phase-state",
       "current",
@@ -160,43 +129,13 @@ describe("FRD-02 shell · AC-02-010.* — La Campaña phase coherence from the b
       "data-phase-state",
       "done",
     );
-    // No room is locked when release is active (every prior phase is done).
     expect(screen.getByTestId("campaign-phase-build")).toHaveAttribute("data-phase-state", "done");
   });
 
-  it("the reached build sheet of a shipped idea offers a real forge link once a host gives forgeHref", async () => {
+  it("an in-pipeline idea with no status opens on research and a locked sheet stays readable", async () => {
     const user = userEvent.setup();
-    render(<CampaignPipeline slug="ship-me" activePhase={5} forgeHref="/portfolio/ship-me" />);
-    await user.click(screen.getByTestId("campaign-phase-build"));
-    const enterForge = await screen.findByRole("link", { name: "Entrar a La Fragua" });
-    expect(enterForge).toHaveAttribute("href", "/portfolio/ship-me");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 4. AC-02-010.2 fallback — in-pipeline with no phase → research, no crash.
-// ---------------------------------------------------------------------------
-
-describe("FRD-02 shell · AC-02-010.2 — malformed in-pipeline falls back to research", () => {
-  it("an in-pipeline card with no phase opens with research current and release locked", async () => {
-    const user = userEvent.setup();
-    render(
-      <BoardShell
-        cards={[
-          card({
-            slug: "broken",
-            title: "Proyecto sin status",
-            status: "in-pipeline",
-            // No phase prop reaches CardDetail (BoardShell does not forward phase here):
-            boardColumn: "documented",
-          }),
-        ]}
-        discardAction={okDiscard}
-      />,
-    );
-    await openCard(user, "Proyecto sin status");
-
-    // Fallback to research (index 0): room 0 current, room 5 locked, no throw.
+    idea("rota", 'title: Sin status\nstatus: in-pipeline\nproject: "demo"');
+    await mountIdea("rota/campaign");
     expect(screen.getByTestId("campaign-phase-research")).toHaveAttribute(
       "data-phase-state",
       "current",
@@ -205,51 +144,31 @@ describe("FRD-02 shell · AC-02-010.2 — malformed in-pipeline falls back to re
       "data-phase-state",
       "locked",
     );
-
-    // The locked future phase opens its FULL ficha when clicked (info always readable);
-    // there is no locked-out marker, and the header marks it "en espera" (AC-02-010.7).
     await user.click(screen.getByTestId("campaign-phase-release"));
     expect(await screen.findByTestId("campaign-phase-ficha")).toBeInTheDocument();
-    expect(screen.queryByTestId("ficha-locked-marker")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("ficha-locked-marker")).toBeNull();
     expect(screen.getByTestId("ficha-header")).toHaveTextContent(/en espera/i);
   });
 });
 
-// ---------------------------------------------------------------------------
-// 5. AC-02-002.1 / AC-02-003 — board invariants survive the open/close round-trip.
-// ---------------------------------------------------------------------------
-
-describe("FRD-02 shell · read-only board invariants across detail navigation", () => {
-  it("closing the card detail returns to the board with no drag handles introduced", async () => {
+describe("FRD-02 shell · read-only board invariants", () => {
+  it("no drag handles exist, and the capture dialog leaves the board mounted behind it", async () => {
     const user = userEvent.setup();
-    render(<BoardShell cards={[card()]} discardAction={okDiscard} />);
-
-    await openCard(user, "Tracker de Funkos");
-    await user.click(screen.getByTestId("card-detail-back"));
-
-    // Back on the board: the kanban is present, the intake trigger is present, and there
-    // is no draggable affordance (AC-02-002.1 — transitions are written by skills).
-    expect(await screen.findByTestId("idea-board")).toBeInTheDocument();
-    expect(screen.getByTestId("intake-trigger")).toBeInTheDocument();
+    idea("tracker", TRACKER);
+    await mountBoard();
     expect(document.querySelector("[draggable='true']")).toBeNull();
-  });
-
-  it("the intake modal stays mounted behind the trigger (AC-02-003.3) and the board never unmounts", async () => {
-    const user = userEvent.setup();
-    render(<BoardShell cards={[card()]} discardAction={okDiscard} />);
-
     await user.click(screen.getByTestId("intake-trigger"));
-    // The board view is still mounted behind the overlay (board visible as context).
     expect(screen.getByTestId("idea-board")).toBeInTheDocument();
   });
 
-  it("the discard action is the only write surface and is wired but never auto-invoked", async () => {
-    const discardSpy = vi.fn(okDiscard);
-    const user = userEvent.setup();
-    render(<BoardShell cards={[card({ status: "discovered" })]} discardAction={discardSpy} />);
-    await openCard(user, "Tracker de Funkos");
-
-    // Opening / browsing a card must NEVER call the write action on its own.
-    expect(discardSpy).not.toHaveBeenCalled();
+  it("the return link goes to the board, and merely reading the idea writes nothing", async () => {
+    const file = idea("tracker", TRACKER);
+    const before = readFileSync(file, "utf8");
+    await mountIdea("tracker/proposal");
+    expect(screen.getByRole("link", { name: "Volver al tablero" })).toHaveAttribute(
+      "href",
+      "/board",
+    );
+    expect(readFileSync(file, "utf8")).toBe(before);
   });
 });

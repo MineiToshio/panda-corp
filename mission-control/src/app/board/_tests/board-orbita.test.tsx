@@ -24,14 +24,9 @@ const cards: BoardCardEntry[] = [
     isRunning: true,
   },
 ];
-const discardAction = vi.fn().mockResolvedValue({ ok: true });
 function board(entries = cards) {
   return render(
-    <BoardShell
-      cards={entries}
-      discardAction={discardAction}
-      favoriteAction={vi.fn().mockResolvedValue({ ok: false })}
-    />,
+    <BoardShell cards={entries} favoriteAction={vi.fn().mockResolvedValue({ ok: false })} />,
   );
 }
 beforeEach(() => {
@@ -87,7 +82,7 @@ describe("Órbita board", () => {
           finish = resolve;
         }),
     );
-    render(<BoardShell cards={cards} discardAction={discardAction} favoriteAction={action} />);
+    render(<BoardShell cards={cards} favoriteAction={action} />);
     const star = screen.getByRole("button", { name: "Marcar como favorita: Alpha" });
     await userEvent.click(star);
     expect(star).toHaveAttribute("aria-pressed", "true");

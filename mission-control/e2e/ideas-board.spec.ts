@@ -72,3 +72,93 @@ test("AC-02-012.3 AC-02-012.4 star flips without moving a card", async ({ page }
     fs.writeFileSync(fixture, original);
   }
 });
+
+test("AC-02-009.1 AC-02-009.4 AC-02-016.5 idea navigation owns its header and persists the selected tab", async ({
+  page,
+}) => {
+  await gotoHydrated(page, "/board", { selector: '[role="switch"]' });
+  await page.getByRole("link", { name: "AI-powered code review tool" }).click();
+  await expect(page.getByTestId("idea-page")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "AI-powered code review tool" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("board-page")).toHaveCount(0);
+  await page.getByRole("tab", { name: "Campaña" }).click();
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "Campaña" })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("link", { name: "Volver al tablero" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Tablero" })).toBeVisible();
+});
+
+for (const [href, trigger, title] of [
+  ["/board/idea-discovered/proposal", "Descartar idea", "Descartar idea"],
+  ["/board/idea-discarded/proposal", "Restaurar", "Restaurar idea"],
+] as const) {
+  test(`AC-02-016.5 ${title} traps focus, closes on Escape and returns to its trigger`, async ({
+    page,
+  }) => {
+    await gotoHydrated(page, href, { selector: '[data-testid="idea-page"]' });
+    const opener = page.getByRole("button", { name: trigger, exact: true });
+    await opener.click();
+    const dialog = page.getByRole("dialog", { name: title, exact: true });
+    const controls = dialog.locator("button, textarea");
+    await controls.last().focus();
+    await page.keyboard.press("Tab");
+    await expect(controls.first()).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(controls.last()).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(dialog).not.toBeVisible();
+    await expect(opener).toBeFocused();
+  });
+}
+
+test("AC-02-016.5 unknown idea has the designed recovery card", async ({ page }) => {
+  await page.goto("/board/no-such-idea/proposal");
+  await expect(page.getByRole("heading", { name: "Esta idea no existe" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Volver al tablero" })).toHaveAttribute(
+    "href",
+    "/board",
+  );
+});
+
+test("AC-02-016.5 discard is inert before hydration and no reason is sent in the URL", async ({
+  browser,
+  baseURL,
+}) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, baseURL });
+  try {
+    const page = await context.newPage();
+    await page.goto("/board/idea-discovered/proposal");
+    await page.getByRole("button", { name: "Descartar idea", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("textbox")).toHaveCount(0);
+    expect(new URL(page.url()).searchParams.has("reason")).toBe(false);
+  } finally {
+    await context.close();
+  }
+});
+
+for (const tab of ["spec", "architecture"] as const) {
+  test(`AC-02-011.3 AC-02-013.3 ${tab} dialog traps focus and returns it on Escape`, async ({
+    page,
+  }) => {
+    await gotoHydrated(page, `/board/idea-in-pipeline/${tab}`, {
+      selector: '[data-testid="idea-page"]',
+    });
+    const opener =
+      tab === "spec"
+        ? page.getByTestId("spec-frd").first()
+        : page.getByRole("button", { name: /ADR-0001/ });
+    await opener.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    const controls = dialog.locator("button, a[href]");
+    await controls.last().focus();
+    await page.keyboard.press("Tab");
+    await expect(controls.first()).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(dialog).not.toBeVisible();
+    await expect(opener).toBeFocused();
+  });
+}
