@@ -38,3 +38,10 @@ hotlink-ability of the brand's own CDN first (a request with a foreign `Origin`/
 status + `Cross-Origin-Resource-Policy` + cache headers) before writing a scraper or storage pipeline;
 store the source URL + credit + licensing tier per item, never just the downloaded asset; treat anything
 beyond personal/non-commercial display as an owner-gated decision.
+
+**Quantified facet (funko-tracker, 2026-10-30, agent-inferred):** when an item's hotlinked image is
+flagged as too small, retry the SAME `funko.com` URL with a larger value in its `?sw=`-style size
+parameter before reaching for any AI upscale — in this project's run, 31 of 34 size-flagged items were
+cleared this way with zero AI involved. Treat "request a larger size via the CDN's own resize param" as
+the first fallback for an undersized hotlinked image, not AI upscaling, which should be reserved for the
+items the size-param retry genuinely cannot clear.

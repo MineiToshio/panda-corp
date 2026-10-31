@@ -9,15 +9,19 @@ source: "personal-page-v2 .pandacorp/run/lessons.md 2026-07-12 (agent-inferred) 
 Corroborated again (2026-09-09, personal-page-v2): `merge-queue.sh` returned exit 12 (main busy) against a
 leftover UNTRACKED `scratchpad/` directory from a different, unrelated session — confirming the preflight
 treats untracked paths the same as tracked WIP, blocking a clean fast-forward for a reason that does not
-intersect the branch being landed at all."
+intersect the branch being landed at all. Corroborated on a DIFFERENT project (funko-tracker,
+.pandacorp/run/lessons.md 2026-10-30, agent-inferred): the same exit-12 'main busy' failure recurred when
+a Codex worker wrote directly to the repo root (outside any worktree), leaving untracked files in the
+shared main checkout that blocked an unrelated branch's landing — same mechanism (untracked treated as
+busy), new source of the untracked paths (a worker process, not an abandoned session)."
 provenance: agent-inferred
 created: 2026-07-12
-status: candidate
+status: active   # 2026-10-31: cross-project corroboration (personal-page-v2 + funko-tracker) meets the eval-gate bar
 promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0125, BL-0006]
+links: [LESSON-0125, BL-0006, BL-0248]
 ---
 
 **Situation:** the DR-096 worktree-isolation model lands branches through ONE shared main checkout
@@ -47,7 +51,10 @@ what a worktree does NOT inherit; this covers what ALL worktrees still SHARE (th
 **Fix candidate worth flagging (not this lesson's job to file, product-project defect):** the preflight
 could ignore untracked paths that don't intersect the landing branch's own changed paths instead of
 treating any `git status --porcelain` output as blocking — this would remove most of the false-positive
-freezes documented above while keeping the fail-fast guarantee for actually-relevant WIP.
+freezes documented above while keeping the fail-fast guarantee for actually-relevant WIP. This exact fix
+is already tracked as the open factory backlog item `BL-0248` (filed from funko-tracker's architecture
+phase, 2026-10-17); the 2026-10-30 corroboration above is a second occurrence confirming the same bug,
+not a reason to file a second item.
 
 **Further corroboration, generated-file variant (personal-page-v2, 2026-10-06, agent-inferred):** exit 12
 can also be caused by a generated, long-dirty TRACKED file rather than abandoned WIP: `.pandacorp/stats.json`

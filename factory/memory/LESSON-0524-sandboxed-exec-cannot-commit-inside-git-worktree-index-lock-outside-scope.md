@@ -48,3 +48,11 @@ exempt OS-level IPC, not just filesystem writes), bind a database port, or recur
 sandboxed worker (nested image generation). Design the division of labor up front: the sandboxed worker
 does the edit/generation/validation step; the supervising process (full access) performs commit,
 browser-driven gates, DB-touching steps, and anything else outside a plain filesystem write.
+
+**Corroborating instance (funko-tracker, 2026-10-30, agent-inferred):** the same directory-scoped Codex
+sandbox also made Apple Vision's on-device ML background-removal call (`removeBg`, Code 9, an ANECF
+model-load failure) fail outright — the Apple Neural Engine framework needs the same kind of
+sandbox-exempt OS-level access the Chromium/MachPortRendezvous case needed, not just a filesystem write.
+Extend the "plan for it" list above to any on-device ML/Neural-Engine API, not only a real browser or a
+nested sandboxed worker; run that step outside the sandbox (the supervising process, or an unsandboxed
+invocation) instead of trying to grant the sandbox a wider scope.

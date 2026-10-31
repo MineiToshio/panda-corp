@@ -38,3 +38,11 @@ failed to START (`pg_ctl start`, not just `initdb`) without an explicit `LC_ALL=
 build supports) set in the invoking environment. Treat `LANG`/`LC_ALL` as something to pin explicitly for
 BOTH `initdb` and every subsequent `pg_ctl start`/service invocation on this machine, not only the one-time
 init step.
+
+**Third facet (funko-tracker, 2026-10-30, agent-inferred, same project):** starting the cluster with
+custom `-o` options (`pg_ctl start -o "-p <port> ..."`) silently lost the intended port — the cluster
+came up listening on its OWN default/previous port instead of the one passed via `-o`, with no error
+raised. Don't trust a `pg_ctl -o`-passed flag as applied just because `pg_ctl start` exits 0 — after
+starting, verify the actual bound port (e.g. `pg_isready -p <port>` or inspecting `postmaster.pid`)
+before assuming the requested option took effect, and record the exact start command that is known to
+work rather than re-deriving `-o` flags per invocation.
