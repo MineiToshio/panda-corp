@@ -68,7 +68,7 @@ describe("DR-078: an unreadable source is an error at the mount, never an empty 
           "demo/docs/frds/frd-01-live/work-orders/wo-01-002-x.md",
           "---\nimplementation_status: LISTO\n---\n",
         ),
-      /invalid implementation_status/,
+      /wo-01-002-x\.md: implementation_status no es PLANNED, IN_PROGRESS, IN_REVIEW, VERIFIED ni BLOCKED/,
     ],
     [
       "a work-orders folder that is a file",
@@ -100,7 +100,7 @@ describe("DR-078: an unreadable source is an error at the mount, never an empty 
     const alerts = within(panel()).getAllByRole("alert");
     expect(alerts.length).toBeGreaterThanOrEqual(2);
     expect(alerts.map((alert) => alert.textContent).join(" ")).toContain(
-      "invalid implementation_status",
+      "wo-01-002-x.md: implementation_status no es PLANNED",
     );
   });
 
