@@ -42,7 +42,6 @@ export function deriveFlightGroups(projects: readonly ProjectInbox[]): FlightGro
         id: project.id,
         project: project.name,
         title: t("inicio.attention.draft.title", { count }),
-        count,
         href: href("changes"),
       });
   }

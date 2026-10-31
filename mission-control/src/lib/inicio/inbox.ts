@@ -35,8 +35,7 @@ function assertQueueReadable(directory: string): void {
   }
   for (const entry of entries) {
     const target = path.join(directory, entry.name);
-    if (entry.isDirectory() && entry.name === "done") assertQueueReadable(target);
-    else if (entry.isFile() && entry.name.endsWith(".md")) fs.accessSync(target, fs.constants.R_OK);
+    if (entry.isFile() && entry.name.endsWith(".md")) fs.accessSync(target, fs.constants.R_OK);
   }
 }
 /** Read one project's inbox, preserving a named error for every unreadable source. */
@@ -56,7 +55,7 @@ export function readProjectInbox(
   }
   try {
     assertQueueReadable(path.join(project.path, ".pandacorp/inbox/changes"));
-    const queue = readChangeQueue(project.path);
+    const queue = readChangeQueue(project.path, { includeArchived: false });
     changes = queue.items;
     if (queue.errors.length) errors.push({ project: project.name, source: "changes" });
   } catch {

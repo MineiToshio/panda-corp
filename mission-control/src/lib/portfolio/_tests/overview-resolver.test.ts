@@ -143,3 +143,11 @@ describe("AC-03-008.1: canonical overview", () => {
     expect(Object.values(getProjectOverview()[0]?.counts ?? {})).toEqual(Array(7).fill(null));
   });
 });
+
+it("REQ-03-003: displays the approved short project name without changing its source identity", () => {
+  vi.mocked(allProjects).mockReturnValue([project("Pandacorp (Mission Control)")]);
+  const item = getProjectOverview()[0];
+  expect(item?.name).toBe("Mission Control");
+  expect(item?.source.name).toBe("Pandacorp (Mission Control)");
+  expect(item?.id).toBe("pandacorp (mission control)");
+});

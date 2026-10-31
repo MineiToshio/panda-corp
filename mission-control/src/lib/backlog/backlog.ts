@@ -177,7 +177,7 @@ function parseBacklogFile(filePath: string): ParseOutcome {
     return { error: `${id}: invalid or missing status (open|doing|done|discarded)` };
   }
 
-  if (fm.severity != null && !isBacklogSeverity(fm.severity)) {
+  if (fm.severity != null && fm.severity !== "" && !isBacklogSeverity(fm.severity)) {
     return { error: `${id}: invalid severity (p0|p1|p2)` };
   }
 

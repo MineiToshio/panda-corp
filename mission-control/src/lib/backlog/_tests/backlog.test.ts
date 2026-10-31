@@ -303,3 +303,13 @@ it("AC-22-008.1: preserves time precision for native YAML timestamp history", ()
   );
   expect(readBacklog().items.map((item) => item.id)).toEqual(["BL-0022", "BL-0021"]);
 });
+
+it("AC-22-008.1: quoted empty severity is absent, unknown severity still fails loud", () => {
+  writeItem("BL-0001-empty.md", VALID_ITEM.replace("severity: p1", 'severity: ""'));
+  expect(readBacklog()).toMatchObject({ items: [{ id: "BL-0001", severity: null }], errors: [] });
+  writeItem("BL-0001-empty.md", VALID_ITEM.replace("severity: p1", "severity: urgent"));
+  expect(readBacklog()).toMatchObject({
+    items: [],
+    errors: [{ reason: expect.stringContaining("invalid severity") }],
+  });
+});

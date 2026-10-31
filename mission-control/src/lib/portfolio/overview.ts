@@ -104,7 +104,7 @@ function overviewItem(item: ProjectListItem, nowIso: string): ProjectOverviewIte
   return {
     source: item,
     id: getProjectNavigation(item.path, item.name).slug,
-    name: item.name,
+    name: item.name === "Pandacorp (Mission Control)" ? "Mission Control" : item.name,
     path: item.path,
     repo: item.repo,
     phase: item.stage,

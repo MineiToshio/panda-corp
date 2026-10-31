@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readChangeQueue } from "@/lib/changes/changes";
 import { selectLastAchievement } from "../achievement";
 import { deriveFlightGroups } from "../flight";
 import { readProjectInbox } from "../inbox";
@@ -57,7 +58,10 @@ describe("Inicio resolvers", () => {
     });
     change("draft");
     expect(deriveOwnerTurn([inbox()], instant).count).toBe(0);
-    expect(deriveFlightGroups([inbox()])[0]).toMatchObject({ kind: "draft", rows: [{ count: 1 }] });
+    expect(deriveFlightGroups([inbox()])[0]).toMatchObject({
+      kind: "draft",
+      rows: [{ title: "1 cambio en borrador" }],
+    });
   });
   it("REQ-18-003: malformed sources surface named errors instead of a calm queue", () => {
     fs.writeFileSync(
@@ -134,4 +138,37 @@ it.each([
   const result = deriveOwnerTurn([inbox()], instant);
   expect(result.errors).toEqual([]);
   expect(result.count).toBe(status.startsWith("ready") ? 1 : 0);
+});
+
+it("REQ-18-003: malformed archive does not invalidate the live owner count", () => {
+  change("ready");
+  const archive = path.join(root, ".pandacorp/inbox/changes/done/broken.md");
+  fs.mkdirSync(path.dirname(archive), { recursive: true });
+  fs.writeFileSync(archive, "---\ntype: [broken\n---");
+  try {
+    const result = deriveOwnerTurn([inbox()], instant);
+    expect(result.errors).toEqual([]);
+    expect(result.count).toBe(1);
+    expect(readChangeQueue(root).errors).toEqual([
+      { file: "done/broken.md", reason: "malformed YAML frontmatter" },
+    ]);
+  } finally {
+    fs.unlinkSync(archive);
+  }
+});
+
+it("AC-18-022.3: a project draft group contributes one row to the flight badge", () => {
+  change("draft");
+  const project = inbox();
+  const first = project.changes[0];
+  if (!first) throw new Error("Draft fixture missing");
+  const groups = deriveFlightGroups([{ ...project, changes: [first, { ...first, id: "second" }] }]);
+  expect(groups[0]?.rows).toHaveLength(1);
+  expect(groups[0]?.rows[0]?.title).toBe("2 cambios en borrador");
+  expect(
+    groups.reduce(
+      (total, group) => total + group.rows.reduce((sum, row) => sum + (row.count ?? 1), 0),
+      0,
+    ),
+  ).toBe(1);
 });
