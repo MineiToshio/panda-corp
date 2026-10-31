@@ -4,6 +4,8 @@ import { now } from "@/lib/clock/clock";
 import { durableEvents, readLedger } from "@/lib/gamification/ledger";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { inicioGuild } from "@/lib/inicio/guild";
+import { isFreshAchievement } from "./achievementSelection";
+
 export interface LastAchievementData {
   readonly title: string;
   readonly unlockedAt: string | null;
@@ -22,11 +24,10 @@ export function selectLastAchievement(
         (a.date && Number.isFinite(Date.parse(a.date)) ? Date.parse(a.date) : -Infinity),
     )[0];
   if (!unique) return null;
-  const age = unique.date ? Date.parse(nowIso) - Date.parse(unique.date) : NaN;
   return {
     title: unique.name,
     unlockedAt: unique.date ?? null,
-    fresh: unique.isNew === true || (age >= 0 && age <= 7 * 86400000),
+    fresh: isFreshAchievement(unique, nowIso),
   };
 }
 /** Request-cached existing unique predicates, shared by the count and last unlock. */

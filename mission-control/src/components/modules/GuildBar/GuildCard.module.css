@@ -1,0 +1,43 @@
+.card {
+  margin-top: auto;
+  display: block;
+  text-decoration: none;
+  padding: var(--s3);
+  border-radius: var(--r-lg);
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--gold) 14%, var(--surface)),
+    var(--surface)
+  );
+  border: var(--hairline) solid color-mix(in srgb, var(--gold) 26%, var(--line));
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.crest {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: calc(var(--s8) + var(--s1));
+  height: calc(var(--s8) + var(--s1));
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--gold) 22%, transparent);
+  color: var(--gold);
+  font: 800 var(--fs-md) / 1 var(--font-display);
+}
+.card b {
+  font: 700 var(--fs-md) / 1.2 var(--font-display);
+  display: block;
+}
+.card small {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+.card [role="progressbar"] {
+  margin-top: var(--s2);
+}
+.card [role="progressbar"] > span {
+  background: var(--gold);
+}

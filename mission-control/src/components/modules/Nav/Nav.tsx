@@ -8,7 +8,9 @@ import { NavItem } from "./NavItem";
 import { navActive } from "./navActive";
 
 /** The seven persistent destinations; route ownership comes from the canonical resolver. */
-export function Nav(): React.JSX.Element {
+export type NavCounts = Readonly<Partial<Record<"inicio" | "tablero" | "propuestas", number>>>;
+
+export function Nav({ counts = {} }: { readonly counts?: NavCounts }): React.JSX.Element {
   const active = navActive(usePathname() ?? "");
   return (
     <nav
@@ -17,7 +19,16 @@ export function Nav(): React.JSX.Element {
       data-testid="app-nav"
     >
       {NAV_DESTINATIONS.map((item) => (
-        <NavItem key={item.id} item={item} active={active === item.id} />
+        <NavItem
+          key={item.id}
+          item={item}
+          active={active === item.id}
+          count={
+            item.id === "inicio" || item.id === "tablero" || item.id === "propuestas"
+              ? counts[item.id]
+              : undefined
+          }
+        />
       ))}
     </nav>
   );

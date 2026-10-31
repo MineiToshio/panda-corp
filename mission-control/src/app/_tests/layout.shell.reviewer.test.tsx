@@ -63,13 +63,12 @@ describe("FRD-19 RootLayout shell mount", () => {
   it("WO-19-002 removals: the layout has no top-bar import or server read left", () => {
     const source = fs.readFileSync(path.resolve("src/app/layout.tsx"), "utf8");
     for (const retired of [
-      "GuildBar",
+      "GuildBar/GuildBar",
       "ProposalsBadge",
       "PendingMergeBadge",
       "CelebrationWatcher",
       "countOpenProposals",
       "getPendingMerge",
-      "getGuildState",
     ]) {
       expect(source, retired).not.toContain(retired);
     }

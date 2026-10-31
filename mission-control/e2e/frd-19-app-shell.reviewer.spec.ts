@@ -145,12 +145,20 @@ test("AC-19-001.5: keyboard order is skip, brand, nav, with no desktop trap", as
   expect((await skip.boundingBox())?.y).toBeGreaterThanOrEqual(0);
   await page.keyboard.press("Tab");
   await expect(page.locator("aside#sidebar a.brand")).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(page.getByTestId("app-nav-inicio")).toBeFocused();
-  for (let index = 0; index < 7; index += 1) await page.keyboard.press("Tab");
-  expect(await page.evaluate(() => !!document.activeElement?.closest("#sidebar"))).toBe(false);
+  const inSidebar = () => page.evaluate(() => !!document.activeElement?.closest("#sidebar"));
+  // The global pills sit between the brand and the destinations and render only when they apply.
+  await expect
+    .poll(async () => {
+      await page.keyboard.press("Tab");
+      return page.evaluate(() => document.activeElement?.getAttribute("data-testid"));
+    })
+    .toBe("app-nav-inicio");
+  for (let index = 0; index < 40 && (await inSidebar()); index += 1) {
+    await page.keyboard.press("Tab");
+  }
+  expect(await inSidebar()).toBe(false);
   await page.keyboard.press("Shift+Tab");
-  await expect(page.getByTestId("app-nav-configuracion")).toBeFocused();
+  await expect(page.locator("aside#sidebar .theme-btn")).toBeFocused();
 });
 
 test("AC-19-001.5: the skip link moves focus in place on a deep route", async ({ page }) => {
@@ -188,7 +196,7 @@ test.describe("phone drawer", () => {
     await page.locator("#menu").click();
     await expect(page.locator("aside#sidebar a.brand")).toBeFocused();
     await page.keyboard.press("Shift+Tab");
-    await expect(page.getByTestId("app-nav-configuracion")).toBeFocused();
+    await expect(page.locator("aside#sidebar .theme-btn")).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(page.locator("aside#sidebar a.brand")).toBeFocused();
   });

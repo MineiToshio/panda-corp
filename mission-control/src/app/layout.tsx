@@ -12,10 +12,31 @@
  */
 
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
 import { GamificationLedgerSync } from "@/components/dashboard/GamificationLedgerSync/GamificationLedgerSync";
+import {
+  type AchievementNotice,
+  AchievementToast,
+} from "@/components/modules/AchievementToast/AchievementToast";
 import { AppShell } from "@/components/modules/AppShell/AppShell";
+import { PendingPill } from "@/components/modules/AppShell/PendingPill";
+import { PluginPill } from "@/components/modules/AppShell/PluginPill";
+import { SidebarProjects } from "@/components/modules/AppShell/SidebarProjects";
+import { ThemeToggle } from "@/components/modules/AppShell/ThemeToggle";
+import { GuildCard } from "@/components/modules/GuildBar/GuildCard";
+import { now } from "@/lib/clock/clock";
+import { getIdeaCounts } from "@/lib/ideas/ideas";
+import { guildAchievements } from "@/lib/inicio/achievement";
+import { isFreshAchievement } from "@/lib/inicio/achievementSelection";
+import { inicioGuild } from "@/lib/inicio/guild";
+import { ownerTurnItems } from "@/lib/inicio/turn";
+import { summarizeWorktrees } from "@/lib/pendingMerge/pillSummary";
+import { getWorktreesByRepo } from "@/lib/pendingMerge/worktreesByRepo";
+import { getPluginSyncState } from "@/lib/plugin-sync/plugin-sync";
+import { getSidebarProjects } from "@/lib/portfolio/sidebarProjects";
 import { readProfile } from "@/lib/profile/profile";
+import { ownerActions } from "@/lib/proposals/ownerActions";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme/bootScript";
 import "./globals.css";
 
@@ -39,6 +60,9 @@ export default function RootLayout({
   // Path resolved at call-time inside readProfile() so PANDACORP_FACTORY_ROOT env is respected.
   const profileResult = readProfile();
 
+  const { turn, proposals, ideas, guild, plugin, achievement } = readSidebarData(
+    profileResult.present,
+  );
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
@@ -57,7 +81,32 @@ export default function RootLayout({
       <body>
         {profileResult.present ? (
           <>
-            <AppShell>{children}</AppShell>
+            <AppShell
+              counts={{
+                inicio: turn && !turn.errors.length ? turn.count : undefined,
+                tablero: ideas ? ideas.totalIdeas - ideas.ideasDiscarded : undefined,
+                propuestas:
+                  proposals && !proposals.errors.length ? proposals.badgeCount : undefined,
+              }}
+              projects={
+                <Suspense fallback={null}>
+                  <ProjectsSlot />
+                </Suspense>
+              }
+              guild={guild ? <GuildCard level={guild.level} /> : null}
+              pills={
+                <>
+                  <PluginPill state={plugin} />
+                  <Suspense fallback={null}>
+                    <PendingSlot />
+                  </Suspense>
+                </>
+              }
+              footer={<ThemeToggle />}
+            >
+              {children}
+            </AppShell>
+            <AchievementToast achievements={achievement ?? []} />
             {/* Reconcile durable accounting on every route; direct navigation to
                 Logros/Configuración must not depend on visiting Inicio first. */}
             <GamificationLedgerSync />
@@ -68,4 +117,64 @@ export default function RootLayout({
       </body>
     </html>
   );
+}
+
+/** Each optional slot fails independently; unreadable facts never turn into zero counts. */
+function readSlot<T>(name: string, read: () => T): T | null {
+  try {
+    return read();
+  } catch (error) {
+    console.error(`Sidebar ${name} unavailable`, error);
+    return null;
+  }
+}
+function noticeData(): AchievementNotice[] {
+  const nowIso = now().toISOString();
+  return guildAchievements()
+    .filter((item) => item.unlocked && isFreshAchievement(item, nowIso))
+    .sort((a, b) => (Date.parse(b.date ?? "") || 0) - (Date.parse(a.date ?? "") || 0))
+    .map((item) => ({
+      id: item.name,
+      title: item.name,
+      description: item.condition,
+      fresh: true,
+    }));
+}
+/** Project git reads start after the shell can stream. */
+async function ProjectsSlot(): Promise<React.JSX.Element> {
+  try {
+    return <SidebarProjects projects={await getSidebarProjects()} />;
+  } catch (error) {
+    console.error("Sidebar projects unavailable", error);
+    return <SidebarProjects projects={null} />;
+  }
+}
+/** Git traversal streams without delaying the rest of the shell. */
+async function PendingSlot(): Promise<React.JSX.Element | null> {
+  try {
+    return <PendingPill summary={summarizeWorktrees(await getWorktreesByRepo())} />;
+  } catch (error) {
+    console.error("Sidebar worktrees unavailable", error);
+    return <PendingPill summary={{ count: 0, urgent: false, unreadable: 1, hidden: false }} />;
+  }
+}
+
+function readSidebarData(present: boolean) {
+  if (!present)
+    return {
+      turn: null,
+      proposals: null,
+      ideas: null,
+      guild: null,
+      plugin: null,
+      achievement: null,
+    };
+  return {
+    turn: readSlot("owner turn", ownerTurnItems),
+    proposals: readSlot("owner actions", ownerActions),
+    ideas: readSlot("ideas", getIdeaCounts),
+    guild: readSlot("guild", inicioGuild),
+    plugin: readSlot("plugin", getPluginSyncState),
+    achievement: readSlot("achievement", noticeData),
+  };
 }

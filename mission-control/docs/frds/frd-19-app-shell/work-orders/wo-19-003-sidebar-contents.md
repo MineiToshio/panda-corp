@@ -6,8 +6,7 @@ title: 'WO-19-003 — Sidebar contents: projects, counts, collapse rail, theme b
 status: ACTIVE
 parent: FRD-19
 foundation: false
-implementation_status: PLANNED
-blocked_reason:
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -23,7 +22,7 @@ artifacts:
   - "e2e/shell-sidebar.spec.ts"
 source_requirements: [REQ-19-005, REQ-09-008, REQ-15-006, REQ-21-001, AC-19-005.1, AC-19-005.2, AC-19-005.3, AC-19-005.5, AC-09-008.1, AC-09-008.2, AC-15-006.1, AC-21-008.1, AC-21-008.2]
 dependsOn: [WO-19-002, WO-18-002, WO-17-008, WO-21-003, WO-04-013, WO-03-007]
-last_updated: 2026-10-22
+last_updated: 2026-10-31
 ---
 
 # WO-19-003 — Sidebar contents: projects, counts, collapse rail, theme button, guild card, pills, achievement notice
@@ -257,3 +256,81 @@ reader; WO-13-010's theme util and boot seam. Cites LESSON-0310 (float and hover
 pointers; focus opens it too), LESSON-0077 (counts read through one resolver each).
 
 ## Status Note
+
+### 2026-10-31 — S6A round 2 review patches (uncommitted)
+
+- Remains `IN_REVIEW`; no blocked reason. Nav destinations use their rendered desktop/tablet label as the accessible name; positive counts alone render, with an aria-hidden description still referenced by `aria-describedby`.
+- Projects now resolve beneath an independent Suspense boundary. The canonical overview starts after an event-loop yield and its pending/completed promise is reused across requests for five seconds after completion, keyed by factory root and fixture/clock configuration. Failed reads are evicted. PendingSlot and its existing streamed five-second worktree cache are unchanged.
+- The toast receives fresh unlocked trophies in descending date order and selects the newest unseen browser identity. The existing last-achievement resolver and the shell share the same freshness predicate. Tablet guild cards hide the progress bar, and the project fold button remains operable on the rail. Stored folding is applied by the head boot attribute/CSS before hydration, with layout-effect reconciliation before the client paint. PendingPill exposes its explanatory sr-only title without an overriding aria-label.
+- Commands below ran inside this worktree's `mission-control/`, with `export PORT=3991 PANDACORP_E2E_PORT=3991`:
+  - `pnpm exec knip`: exit 0, ten configuration hints.
+  - `pnpm exec biome check .`: exit 0, one existing schema-version information message.
+  - `pnpm exec tsc --noEmit`: exit 0 after isolating the empty generated `.next/dev/types` created by the attempted browser smoke to `/private/tmp/s6a-round2-dev-types`. The first pre-smoke run also passed. `pnpm exec next typegen` regenerated production route types; the intermediate failure came from conflicting empty dev `LayoutRoutes = never`, not application types.
+  - `pnpm exec vitest run src/app/_tests src/components/modules/Nav src/components/modules/AppShell src/components/modules/GuildBar src/components/modules/AchievementToast --maxWorkers=2`: **147 passed, one failed**. The unchanged `nav-counts.gate.reviewer.test.tsx` sees both desktop and mini labels because the default Vitest configuration does not process the Nav CSS module. Log: `/private/tmp/s6a-round2-vitest.log`.
+  - Supplemental identical suite with `--config /private/tmp/s6a-vitest-css.config.mts`: **148/148 passed**, 28 files. This temporary config imports the canonical config and enables CSS processing only for `Nav.module.css`; no repository test configuration or reviewer tests changed. Log: `/private/tmp/s6a-round2-vitest-css.log`. An earlier diagnostic enabling every CSS module instead exposed five AppShell JSDOM viewport failures; narrowing to the affected Nav module passed the complete requested selection.
+  - `pnpm exec vitest run src/lib/portfolio/_tests/sidebarProjects.test.ts src/lib/inicio/_tests/resolvers.test.ts src/lib/theme --maxWorkers=2`: **23/23 passed**, three files, including deferred execution, cross-request deduplication, TTL expiry and rejected-read recovery.
+- Browser verification remains **unverified**: Playwright Chromium could not launch in the sandbox (`bootstrap_check_in ... Permission denied (1100)`); the dev server on 3991 was stopped. No visual baseline, reviewer test, decision log, index or commit was changed. No merge, push or merge queue ran.
+
+
+
+### 2026-10-31 — S6A implementation handoff (orch/s6a, uncommitted)
+
+- Built project rows/folding, described destination counts, the desktop collapse preference and pointer/keyboard float, two-theme footer/drawer control, guild card, runtime-aware plugin warning, pending-worktree pill and a once-per-browser achievement notice. The old three-theme control and its implementer suite are removed. The top-bar GuildBar remains for W7 and its reviewer imports still compile.
+- Browser-local keys: `orbita-sidebar`, `orbita-projects-open`, `orbita-theme`, `orbita-ach-seen` (the prototype's pipe-separated seen-id list). Sidebar/theme hydration uses the boot attributes and server snapshots; CSS paints the saved rail before hydration. Storage failure keeps the active view usable. Float opens for hover-capable pointers and keyboard-visible focus; pointer clicks do not hold it open after leaving.
+- Root-layout facts: `getProjectOverview()` supplies canonical last-commit order/phase/order counts; `ownerTurnItems().count` and `ownerActions().badgeCount` supply attention counts only without source errors; `getIdeaCounts().totalIdeas - ideasDiscarded` supplies the non-discarded board count; `inicioGuild()` validates the ledger before yielding the shared `getGuildState()` level; `getPluginSyncState()` supplies per-runtime drift/version facts. `getWorktreesByRepo()` streams through Suspense and **the existing `summarizeWorktrees()`** supplies the pending-pill summary (the WO's `pendingPillSummary` name is stale). `lastAchievement().fresh` supplies the shared freshness predicate, and `guildAchievements()` supplies title/condition; the catalogue's unique trophy name is its stable seen identity because the public `Unique` contract has no id field. Slot failures do not blank the shell.
+- Every fully qualified AC reference in this WO's acceptance section is cited by an owned test, including the contextual AC-15-002.1 and AC-19-005.4 references. The new browser spec covers rail/focus/hover persistence, phone theme access and the `achievement-new` ledger-overlay recipe. That spec unconditionally restores its absent ledger fixture in setup and teardown; it was **not run** here.
+- CSS for the sidebar contents remains inside the owned `Sidebar.tsx`; no shared AppShell/Nav CSS path was modified. GuildCard and AchievementToast own their module CSS.
+
+Verification from `mission-control/`, with `export PORT=3991 PANDACORP_E2E_PORT=3991`:
+
+```sh
+pnpm exec vitest run src/components/modules/AppShell src/components/modules/Nav src/components/modules/GuildBar src/components/modules/AchievementToast src/app/_tests/layout.sidebar.test.tsx src/app/_tests/layout.guard.test.tsx src/lib/navigation/_tests/v2-boundaries.reviewer.test.tsx src/lib/gamification/_tests/gamification.integration.reviewer.test.tsx --maxWorkers=2
+```
+
+Result: **19 files, 133 tests passed** (including unchanged `layout.guard`, `v2-boundaries.reviewer`, and `gamification.integration.reviewer`).
+
+```sh
+pnpm exec biome check e2e/shell-sidebar.spec.ts src/app/_tests/layout.sidebar.test.tsx src/app/layout.tsx src/components/modules/AchievementToast/AchievementToast.module.css src/components/modules/AchievementToast/AchievementToast.tsx src/components/modules/AchievementToast/_tests/AchievementToast.test.tsx src/components/modules/AppShell/AppShell.tsx src/components/modules/AppShell/PendingPill.tsx src/components/modules/AppShell/PluginPill.tsx src/components/modules/AppShell/Sidebar.tsx src/components/modules/AppShell/SidebarProjects.tsx src/components/modules/AppShell/ThemeToggle.tsx src/components/modules/AppShell/_tests/collapse.test.tsx src/components/modules/AppShell/_tests/pills.test.tsx src/components/modules/AppShell/_tests/sidebar.test.tsx src/components/modules/AppShell/_tests/theme-toggle.test.tsx src/components/modules/AppShell/useSidebarPreference.ts src/components/modules/GuildBar/GuildCard.module.css src/components/modules/GuildBar/GuildCard.tsx src/components/modules/GuildBar/_tests/GuildCard.test.tsx src/components/modules/Nav/Nav.tsx src/components/modules/Nav/NavItem.tsx src/components/modules/Nav/ProjectNavItem.tsx src/components/modules/Nav/_tests/nav-counts.test.tsx src/components/modules/Nav/_tests/project-nav-item.test.tsx
+pnpm exec knip
+pnpm exec tsc --noEmit
+pnpm exec vitest run src/components/core/ThemeToggle --maxWorkers=2
+```
+
+- Biome: **25 files passed**, no fixes required on the final check.
+- Knip: **exit 1**, exactly one unresolved import: `core/ThemeToggle/_tests/ThemeToggle.adversarial.test.tsx:31` imports the retired module. It also prints 10 configuration hints.
+- TypeScript: **exit 2**, exactly one TS2307 at that same preserved reviewer import.
+- Retired ThemeToggle reviewer suite: **exit 1** during collection for that same missing module; no tests collected.
+- Reviewer action required: retire `src/components/core/ThemeToggle/_tests/ThemeToggle.adversarial.test.tsx` with its deleted subject. It was left byte-for-byte unchanged per this task's instruction. No other reviewer suite needs to move based on the executed checks.
+- A temporary TypeScript-resolver import-graph check (`node /private/tmp/s6a-client-boundary.mjs`) traversed 23 modules reachable from all five changed client entries and found **zero `node:` imports**. `git diff --check` passed. No blessed baselines, reviewer tests, `.pandacorp` state, decision log, main checkout or git index were changed.
+- Not verified: Playwright, visual/phone browser rendering, first-paint layout stability, production build, the full verify.sh gate or independent FRD review. No merge/push/commit was run; the protected retired suite must be reconciled by its reviewer before the global gate can turn green.
+
+Explicit WO-19-003 path list (relative to `mission-control/`; `D` = removed, all other paths added/modified):
+
+- `M/A` `docs/frds/frd-19-app-shell/work-orders/wo-19-003-sidebar-contents.md`
+- `M/A` `e2e/shell-sidebar.spec.ts`
+- `M/A` `src/app/_tests/layout.sidebar.test.tsx`
+- `M/A` `src/app/layout.tsx`
+- `D` `src/components/core/ThemeToggle/ThemeToggle.tsx`
+- `D` `src/components/core/ThemeToggle/_tests/ThemeToggle.test.tsx`
+- `M/A` `src/components/modules/AchievementToast/AchievementToast.module.css`
+- `M/A` `src/components/modules/AchievementToast/AchievementToast.tsx`
+- `M/A` `src/components/modules/AchievementToast/_tests/AchievementToast.test.tsx`
+- `M/A` `src/components/modules/AppShell/AppShell.tsx`
+- `M/A` `src/components/modules/AppShell/PendingPill.tsx`
+- `M/A` `src/components/modules/AppShell/PluginPill.tsx`
+- `M/A` `src/components/modules/AppShell/Sidebar.tsx`
+- `M/A` `src/components/modules/AppShell/SidebarProjects.tsx`
+- `M/A` `src/components/modules/AppShell/ThemeToggle.tsx`
+- `M/A` `src/components/modules/AppShell/_tests/collapse.test.tsx`
+- `M/A` `src/components/modules/AppShell/_tests/pills.test.tsx`
+- `M/A` `src/components/modules/AppShell/_tests/sidebar.test.tsx`
+- `M/A` `src/components/modules/AppShell/_tests/theme-toggle.test.tsx`
+- `M/A` `src/components/modules/AppShell/useSidebarPreference.ts`
+- `M/A` `src/components/modules/GuildBar/GuildCard.module.css`
+- `M/A` `src/components/modules/GuildBar/GuildCard.tsx`
+- `M/A` `src/components/modules/GuildBar/_tests/GuildCard.test.tsx`
+- `M/A` `src/components/modules/Nav/Nav.tsx`
+- `M/A` `src/components/modules/Nav/NavItem.tsx`
+- `M/A` `src/components/modules/Nav/ProjectNavItem.tsx`
+- `M/A` `src/components/modules/Nav/_tests/nav-counts.test.tsx`
+- `M/A` `src/components/modules/Nav/_tests/project-nav-item.test.tsx`
