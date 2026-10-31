@@ -1,0 +1,45 @@
+.lesson {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: var(--hairline) solid var(--line);
+  padding: var(--s4) 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.grow strong {
+  font-size: var(--fs-md);
+  display: block;
+}
+.grow small {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  display: block;
+  margin-top: var(--s1);
+}
+.recent {
+  border-top: var(--hairline) solid var(--line);
+  padding-top: var(--s4);
+  margin-top: var(--s4);
+}
+.recent h3 {
+  font-size: var(--fs-sm);
+}
+.intro {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  margin-bottom: var(--s4);
+}
+@media (max-width: 599px) {
+  .lesson {
+    flex-wrap: wrap;
+  }
+}

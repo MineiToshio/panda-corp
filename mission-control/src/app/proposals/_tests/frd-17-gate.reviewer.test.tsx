@@ -10,7 +10,7 @@
  *
  *   gatherSuggestionsInput()  (WO-17-004 wiring, real fs readers)
  *         →  computeSuggestions()                 (WO-17-003)
- *         →  DismissableProposalStream + ProposalCard  (WO-17-004 / WO-17-007)
+ *         →  ProposalStream (WO-17-008)
  *
  * Focus (gaps in the existing suites):
  *   1. The whole gather→compute wiring is fail-soft AND read-only against a REAL
@@ -19,21 +19,20 @@
  *   2. A genuine bottleneck assembled from real board cards surfaces a real
  *      self-suggestion through the live readers — proving the 5 wired derivations
  *      are not dead in production (REQ-17-004), not just "inputs non-empty".
- *   3. Dismiss is not just present but FUNCTIONAL: clicking it removes the card
- *      and the dismissal is remembered (REQ-17-008 / AC-17-007.3) — exercised on
- *      the real DismissableProposalStream, not a mock.
+ *   3. Per-card dismissal is out of v2 (owner decision 2026-10-21), so the rendered
+ *      streams must expose none and remember none.
  */
 
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Lesson } from "@/lib/memory/memory";
 import { gatherSuggestionsInput } from "@/lib/self-suggest/gather";
 import { computeSuggestions } from "@/lib/self-suggest/self-suggest";
 import { withFactoryRoot } from "@/tests/fixtures";
-import { DismissableProposalStream } from "../_components/DismissableProposalStream/DismissableProposalStream";
+import { ProposalStream } from "../_components/ProposalStream/ProposalStream";
 
 // ---------------------------------------------------------------------------
 // Temp factory builder (board cards + memory + portfolio)
@@ -143,11 +142,10 @@ describe("FRD-17 GATE: a real board bottleneck surfaces a live self-suggestion t
 });
 
 // ---------------------------------------------------------------------------
-// 3. Dismiss is FUNCTIONAL end-to-end on the real DismissableProposalStream
-//    (REQ-17-008 / AC-17-007.3) — clicking removes the card AND is remembered
+// 3. Per-card dismissal is out of v2: no stream may expose or remember one
 // ---------------------------------------------------------------------------
 
-const DISMISSABLE_LESSON: Lesson = {
+const CANDIDATE: Lesson = {
   id: "LESSON-0099",
   type: "gotcha",
   domain: "testing",
@@ -163,53 +161,25 @@ const DISMISSABLE_LESSON: Lesson = {
   evalGate: "awaiting-2nd",
 };
 
-describe("FRD-17 GATE: dismissing a proposal removes it and is remembered (REQ-17-008 / AC-17-007.3)", () => {
-  it("clicking Descartar removes the card from the stream", () => {
-    render(<DismissableProposalStream kind="candidate-lesson" lessons={[DISMISSABLE_LESSON]} />);
-
-    // The card is visible with its dismiss affordance.
-    expect(screen.getByTestId("proposal-card")).toBeInTheDocument();
-    const dismiss = screen.getByRole("button", { name: /descartar propuesta: LESSON-0099/i });
-
-    fireEvent.click(dismiss);
-
-    // The card is gone, replaced by the calm empty state — not a blank screen.
-    expect(screen.queryByTestId("proposal-card")).toBeNull();
-    expect(screen.getByTestId("proposal-stream-empty")).toBeInTheDocument();
-  });
-
-  it("a previously-dismissed proposal never flashes in on remount (the dismissal is remembered)", () => {
-    const { unmount } = render(
-      <DismissableProposalStream kind="candidate-lesson" lessons={[DISMISSABLE_LESSON]} />,
+describe("FRD-17 GATE: per-card dismissal stays out of v2 (REQ-17-014, REQ-17-023)", () => {
+  it("candidate and prune streams offer no dismiss control and write no local storage", () => {
+    const setItem = vi.spyOn(Storage.prototype, "setItem");
+    render(
+      <>
+        <ProposalStream kind="candidate-lesson" lessons={[CANDIDATE]} />
+        <ProposalStream kind="prune" lessons={[{ ...CANDIDATE, status: "deprecated" }]} />
+      </>,
     );
-    fireEvent.click(screen.getByRole("button", { name: /descartar propuesta: LESSON-0099/i }));
-    expect(screen.queryByTestId("proposal-card")).toBeNull();
-    unmount();
-
-    // Remount with the SAME lesson still in the source list (the factory never
-    // changed — dismissal is client-local). The card must stay hidden.
-    render(<DismissableProposalStream kind="candidate-lesson" lessons={[DISMISSABLE_LESSON]} />);
-    expect(screen.queryByTestId("proposal-card")).toBeNull();
-    expect(screen.getByTestId("proposal-stream-empty")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /descartar|ocultar|dismiss/i })).toBeNull();
+    expect(setItem).not.toHaveBeenCalled();
   });
 
-  it("the dismiss button is an accessible <button>, not a color-only affordance (a11y, FRD-13)", () => {
-    render(<DismissableProposalStream kind="candidate-lesson" lessons={[DISMISSABLE_LESSON]} />);
-    const dismiss = screen.getByTestId("proposal-dismiss-button");
-    expect(dismiss.tagName).toBe("BUTTON");
-    expect(dismiss).toHaveAttribute("type", "button");
-    // The affordance carries a text label, not color/icon alone.
-    expect(dismiss).toHaveAccessibleName(/descartar/i);
-    // It sits beside (not inside) the card, so the card's own copy button is not
-    // nested under the dismiss control.
-    const row = dismiss.parentElement;
-    expect(row).not.toBeNull();
-    if (row) {
-      const cardCopy = within(row).queryAllByTestId("copy-button");
-      // The dismiss button itself contains no copy button.
-      expect(within(dismiss).queryByTestId("copy-button")).toBeNull();
-      void cardCopy;
-    }
+  it("a lesson row is one accessible button naming the lesson, opening no copy control of its own", () => {
+    render(<ProposalStream kind="prune" lessons={[{ ...CANDIDATE, status: "deprecated" }]} />);
+    const row = screen.getByRole("button", { name: /LESSON-0099/ });
+    expect(row).toHaveAttribute("type", "button");
+    expect(within(row).queryByRole("button")).toBeNull();
+    expect(screen.getAllByRole("button", { name: /^Copiar/ })).toHaveLength(1);
   });
 });
 

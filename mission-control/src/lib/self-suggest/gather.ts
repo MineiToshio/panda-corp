@@ -136,7 +136,7 @@ function deriveEvents(): SuggestEvent[] {
 function deriveCapabilities(): CapabilityRef[] {
   const capabilities: CapabilityRef[] = [];
   try {
-    for (const skill of readSkills()) {
+    for (const skill of readSkills().filter((skill) => !skill.internal)) {
       capabilities.push({ id: skill.slug, kind: "skill" });
     }
   } catch {
@@ -224,7 +224,7 @@ function deriveInboxDecisionLines(): string[] {
  *
  * @returns A populated `SuggestionsInput`. Never throws.
  */
-export function gatherSuggestionsInput(): SuggestionsInput {
+export function gatherSuggestionsInput(lessons?: SuggestionsInput["lessons"]): SuggestionsInput {
   return {
     boardColumnCounts: deriveBoardColumnCounts(),
     portfolioItems: derivePortfolioItems(),
@@ -232,7 +232,7 @@ export function gatherSuggestionsInput(): SuggestionsInput {
     capabilities: deriveCapabilities(),
     decisionRules: deriveDecisionRules(),
     inboxDecisionLines: deriveInboxDecisionLines(),
-    lessons: safeReadLessons(),
+    lessons: lessons ?? safeReadLessons(),
   };
 }
 

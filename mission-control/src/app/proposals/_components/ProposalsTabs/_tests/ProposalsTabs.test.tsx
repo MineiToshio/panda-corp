@@ -5,14 +5,15 @@ import { ProposalsTabs } from "../ProposalsTabs";
 
 describe("ProposalsTabs", () => {
   const panels = {
+    summaryPanel: <div>SUMMARY PANEL CONTENT</div>,
     memoryPanel: <div>MEMORY PANEL CONTENT</div>,
     backlogPanel: <div>BACKLOG PANEL CONTENT</div>,
   };
 
-  it("shows the Memoria panel by default and hides the Backlog panel", () => {
+  it("shows the Resumen panel by default and hides the Backlog panel", () => {
     render(<ProposalsTabs {...panels} backlogOpenCount={3} />);
-    const memoria = screen.getByRole("tab", { name: /memoria/i });
-    expect(memoria).toHaveAttribute("aria-selected", "true");
+    const resumen = screen.getByRole("tab", { name: /resumen/i });
+    expect(resumen).toHaveAttribute("aria-selected", "true");
     // Backlog panel is mounted but hidden.
     const backlogPanel = screen.getByText("BACKLOG PANEL CONTENT").closest("[role='tabpanel']");
     expect(backlogPanel).toHaveAttribute("hidden");

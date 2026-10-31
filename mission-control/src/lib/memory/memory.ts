@@ -363,8 +363,8 @@ export function candidateLessons(): Lesson[] {
  * All lessons with `promotion === "proposed"`.
  * REQ-17-006: durable promotions queue.
  */
-export function promotionQueue(): Lesson[] {
-  return readLessons().filter((l) => l.promotion === "proposed");
+export function promotionQueue(lessons: readonly Lesson[] = readLessons()): Lesson[] {
+  return lessons.filter((l) => l.promotion === "proposed");
 }
 
 /**

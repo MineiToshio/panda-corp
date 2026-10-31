@@ -1,76 +1,75 @@
 /**
- * FRD-17 — REVIEWER composition/integration gate test (DR-015 / DR-050).
+ * FRD-17 — REVIEWER composition gate test (DR-015 / DR-050), rewritten for the v2 surface.
  *
- * The per-WO suites verify each component in isolation (MemoryHealth, PromotionsQueue,
- * the dismiss store) and pass green. But the FRD gate must verify the feature WORKS
- * TOGETHER: the EARS criteria say Mission Control SHALL *show* a memory-health panel
- * (REQ-17-005) and SHALL surface a durable promotions queue (REQ-17-006). A component
- * that renders nowhere does not satisfy a "SHALL show" criterion.
- *
- * These tests render the REAL ProposalsPage (with lib readers mocked) and assert the
- * page actually composes:
- *   - the memory-health panel  (CMP-17-health  → REQ-17-005)
- *   - the promotions queue     (CMP-17-promoqueue → REQ-17-006)
- *
- * They are EXPECTED TO FAIL against the current page (which renders only the four
- * ProposalStream sections and orphans MemoryHealth + PromotionsQueue). They are the
- * RED test the rebuild of WO-17-004 must turn GREEN.
+ * Renders the REAL ProposalsPage over a REAL temporary factory: a "SHALL show" criterion is only
+ * met by what the page composes, not by a component that renders nowhere.
  */
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import type { Lesson } from "@/lib/memory/memory";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import ProposalsPage from "../page";
 
-const PROMOTION_LESSON: Lesson = {
-  id: "LESSON-0003",
-  type: "library-verdict",
-  domain: "testing",
-  context: "resumen de una línea de la lección",
-  status: "active",
-  promotion: "proposed",
-  source: "proj-alpha (WO-02-001), proj-beta (WO-03-002)",
-  links: ["DR-047"],
-  projects: ["proj-alpha", "proj-beta"],
-  body: "Use gray-matter with { excerpt: false } to bypass cache.",
-  trigger: "",
-  appliedIn: [],
-  evalGate: "corroborated",
+let root: string;
+const write = (relative: string, content: string): void => {
+  const file = path.join(root, relative);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, content);
 };
-
-vi.mock("@/lib/memory/memory", () => ({
-  candidateLessons: vi.fn(() => []),
-  promotionQueue: vi.fn(() => [PROMOTION_LESSON]),
-  prunable: vi.fn(() => []),
-}));
-
-vi.mock("@/lib/memory/memory-health", () => ({
-  memoryHealth: vi.fn(() => ({
-    rawNotes: 12,
-    candidates: 1,
-    lastMemoryRunAt: "2026-06-10T00:00:00.000Z",
-    staleDays: 8,
-    lastSweepAt: null,
-    harvestOrphans: [],
-  })),
-}));
-
-vi.mock("@/lib/self-suggest/self-suggest", () => ({
-  computeSuggestions: vi.fn(() => []),
-}));
-
-async function renderPage(): Promise<void> {
-  const { default: ProposalsPage } = await import("../page");
-  render(<ProposalsPage />);
-}
+beforeEach(() => {
+  root = fs.mkdtempSync(path.join(os.tmpdir(), "mc-frd17-page-"));
+  vi.stubEnv("PANDACORP_FACTORY_ROOT", root);
+  vi.stubEnv("MC_CLOCK", "2026-10-30T12:00:00Z");
+  write("factory/memory/_last-sweep", "2026-10-30T00:00:00Z");
+  write(
+    "factory/memory/LESSON-0003.md",
+    "---\nid: LESSON-0003\ntype: gotcha\ndomain: testing\nstatus: active\npromotion: proposed\ncontext: Queued lesson\nsource: proj-alpha (x), proj-beta (y)\n---\n**Situation:** S.\n",
+  );
+  write(
+    "factory/backlog/BL-0001-urgent.md",
+    "---\nid: BL-0001\ntype: bug\nstatus: open\narea: hooks\nseverity: p0\ntitle: Urgent item\n---\n## Problem\nP.\n",
+  );
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+  fs.rmSync(root, { recursive: true, force: true });
+});
 
 describe("FRD-17 gate: the proposals page composes the full feature surface", () => {
-  it("renders the memory-health panel on the page (REQ-17-005 — SHALL show)", async () => {
-    await renderPage();
-    expect(screen.queryByTestId("memory-health-panel")).not.toBeNull();
+  it("mounts three volatile panels, Resumen active, with no nested main (AC-22-002.1..4)", () => {
+    render(<ProposalsPage />);
+    const panels = screen.getAllByRole("tabpanel", { hidden: true });
+    expect(panels).toHaveLength(3);
+    expect(panels.filter((panel) => !panel.hidden)).toHaveLength(1);
+    for (const panel of panels) expect(panel).toHaveAttribute("data-volatile");
+    expect(screen.queryByRole("main")).toBeNull();
+    expect(screen.getByRole("tab", { name: /Resumen/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /Backlog 1/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Memoria 1/ })).toBeInTheDocument();
   });
 
-  it("renders the durable promotions queue on the page (REQ-17-006 — SHALL show)", async () => {
-    await renderPage();
-    expect(screen.queryByTestId("promotions-queue")).not.toBeNull();
+  it("shows the ordered actions with count, command and a link, and the calm strip", () => {
+    render(<ProposalsPage />);
+    const list = screen.getByRole("list");
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows.map((row) => row.querySelector("h3")?.textContent)).toEqual([
+      "1 problema urgente en la fábrica",
+      "1 lección espera tu sí o no",
+    ]);
+    expect(within(rows[0] as HTMLElement).getByRole("link")).toHaveAttribute(
+      "href",
+      "/proposals/backlog",
+    );
+    expect(screen.getByText("La memoria se revisa sola")).toBeVisible();
+  });
+
+  it("an unreadable memory store is a named error on its card, never zero (blueprint Contracts)", () => {
+    fs.rmSync(path.join(root, "factory/memory"), { recursive: true, force: true });
+    write("factory/memory", "not a directory");
+    render(<ProposalsPage />);
+    expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
+    expect(screen.queryByText("La memoria se revisa sola")).toBeNull();
   });
 });

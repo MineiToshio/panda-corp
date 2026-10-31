@@ -6,13 +6,13 @@ title: Propuestas Órbita - Resumen to-do, Memoria lesson flow, tabs, lesson dia
 status: ACTIVE
 parent: FRD-17
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts: ["src/app/proposals/page.tsx", "src/app/proposals/[...segments]/**", "src/app/proposals/_components/{ProposalsTabs,ProposalsSummary,ProposalCard,ProposalActionRow,LessonFlow,SignalGroup,PromotionsQueuePanel,DismissableProposalStream,ProposalStream}/**", "src/app/proposals/_components/{LessonDetail,LessonDetailModal}.tsx", "src/app/proposals/_components/streamMeta.ts", "src/app/proposals/_tests/**", "src/lib/{proposals,self-suggest,memory}/**", "src/components/modules/{PromotionsQueue,MemoryHealth,ProposalsDismiss}/**", "e2e/proposals.spec.ts", "e2e/fixtures/factory-root/factory/memory/LESSON-90*.md", "e2e/persistent-navigation/proposals.spec.ts"]
 source_requirements: [REQ-17-001, REQ-17-009, REQ-17-010, REQ-17-011, REQ-22-002]
 dependsOn: [WO-13-012, WO-25-001, WO-22-002, WO-17-001, WO-17-003, WO-17-005]
-last_updated: '2026-10-22'
+last_updated: '2026-10-30'
 ---
 
 # WO-17-008 Propuestas Órbita
@@ -200,3 +200,11 @@ WO-19-003 (sidebar Propuestas count), WO-13-013.
 
 ## Status Note
 
+- 2026-10-30 (S3C round 2): Kept `IN_REVIEW`. Restored the durable proposed queue through `promotionQueue(lessons)`, including deprecated proposed lessons; retained parsed backlog counts and badge data after individual file errors; summary links now use the mounted tab navigation path. Restored the lesson high-risk badge, pending eval gate, status/source/reference metadata, signal commands and catalogue-backed missing-value copy. Fixture setup/teardown now removes its disposable records without restoring crash leftovers.
+- 2026-10-30 (S3C round 2 verification, PORT=3962 and PANDACORP_E2E_PORT=3962): `pnpm exec knip` and `pnpm exec tsc --noEmit` exited 0 (knip emitted nine configuration hints). `pnpm exec biome check .` exited 0 with the existing schema-version informational notice. `pnpm exec vitest run src/app/proposals src/lib/proposals src/lib/memory src/lib/backlog src/lib/self-suggest src/components/modules/PromotionsQueue --maxWorkers=2` passed 361/362 tests in 31 passing suites; the remaining reviewer failure expects the old filtered-empty sentence for a globally empty backlog. Reviewer files were not edited. Browser verification of both e2e specs was attempted with a temporary port-3962 configuration: the server started after enabling Watchpack polling, but all eight browser cases failed before navigation because Chromium's `bootstrap_check_in` was denied by the sandbox. Real browser navigation/reload behavior remains unverified. No commit, merge, push or decision-log write was performed.
+
+- 2026-10-30 (S3C): Built Resumen, the request-cached data bundle and ownerActions resolver (the badge counts actions, not items), grouped/unreliable signals, the four-step LessonFlow, paged waiting/candidate/prune lists, typed record validation, the lesson dialog, and three mounted volatile tabs. Removed the v1 dismissal, health and stream modules; countOpenProposals was already absent on this branch after WO-19-002.
+- 2026-10-30: The 15 owned ACs are cited by implementer tests. Added e2e behavior and persistent-navigation coverage with byte-for-byte fixture restoration in afterEach. Playwright, browser focus behavior, light/dark responsive fidelity and pixel comparisons were not run, as directed. No baseline, reviewer test, decision log or .pandacorp state was edited. No commit, merge or push was made.
+- 2026-10-30: Verification with PORT=3962 and PANDACORP_E2E_PORT=3962: Biome passed on changed source/spec files. Scoped Vitest including the backlog readers passed 287 tests in 24 suites when excluding derogated reviewer TSX suites; the complete run passed 289 tests and failed 11 tests in eight reviewer suites (five suites fail to import retired modules). TypeScript and knip remain RED on exactly five reviewer imports of retired MemoryHealth/DismissableProposalStream modules; no production-code diagnostic remains in those outputs. The unrelated knip configuration hints remain unchanged.
+- 2026-10-30: Reviewer reconciliation still required, without implementer changes: delete MemoryHealth/_tests/memory-health.wo006.adversarial.reviewer.test.tsx and DismissableProposalStream/_tests/streamShowMore.reviewer.test.tsx with their retired modules; rewrite the six page suites frd-17-gate, frd-17-gate-opus, frd-17-reuse.gate, proposals-composition, proposals-wiring and proposals-integration for the three tabs, owner-actions resolver, LessonFlow, proposed-only queue, no dismissal, and shared paging/dialog contracts. The header-marked lib/memory/memory.adversarial.test.ts suite passed unchanged.
+- 2026-10-30: LESSON-0077 / LESSON-0484 / LESSON-0185 applied: one cached fact resolver, equal-height paired cards, hydration-safe e2e navigation. A missing/malformed/future daily-sweep stamp is shown as unrecorded rather than inventing an elapsed age. The frozen copy catalogue has no dedicated memory-read or discard-failure key; these notices reuse existing catalogue messages and show the affected identity, without introducing out-of-scope catalogue edits.

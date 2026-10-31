@@ -1,96 +1,99 @@
 "use client";
-
-/**
- * ProposalsTabs — the Memoria | Backlog sub-tab switcher (CMP-22-tabs, FRD-22).
- *
- * Both "proposals to change the factory" live on one page (DR-103): the memory
- * self-learning streams and the actionable factory backlog. This client wrapper
- * uses THE one Tabs primitive (core/Tabs, DR-062 — no bespoke switcher) to toggle
- * between the two panels, which are passed in as slots (rendered by the Server
- * Component page so their data reads stay server-side).
- *
- * Both panels stay mounted (toggled with `hidden`) so the memory streams' local
- * dismiss state survives a tab switch. Panels carry `data-volatile` (DR-088) so
- * the visual baseline masks their live, length-varying factory data.
- *
- * Traceability:
- *   CMP-22-tabs → REQ-22-002 (in-page tab split), AC-22-002.x
- */
-
+import Link from "next/link";
+import type { MouseEvent, ReactNode } from "react";
 import { Tabs } from "@/components/core/Tabs/Tabs";
-import { updateNavigation, useCanonicalSelection, useUrlState } from "@/lib/navigation/useUrlState";
-
-type ProposalsTabId = "memoria" | "backlog";
-
-const TAB_ID_PREFIX = "proposals-tab-id-";
-
-const PANEL_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "0",
-};
-
+import { t } from "@/lib/copy/copy";
+import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
+/** Public proposals tabs props contract. */
 export interface ProposalsTabsProps {
-  /** The memory self-learning panel (health + streams + promotions queue). */
-  memoryPanel: React.ReactNode;
-  /** The factory backlog panel (BL-* items grouped by status). */
-  backlogPanel: React.ReactNode;
-  /** Count of open backlog items, shown as the Backlog tab badge. */
-  backlogOpenCount: number;
+  readonly summaryPanel: React.ReactNode;
+  readonly memoryPanel: React.ReactNode;
+  readonly backlogPanel: React.ReactNode;
+  readonly backlogOpenCount?: number;
+  readonly waitingCount?: number;
 }
-
+/** Three shared tabs keep their volatile panels mounted and preserve local state. */
 export function ProposalsTabs({
+  summaryPanel,
   memoryPanel,
   backlogPanel,
   backlogOpenCount,
+  waitingCount,
 }: ProposalsTabsProps): React.JSX.Element {
-  const [activeValue] = useUrlState("proposalsTab", "memoria");
-  const active: ProposalsTabId = activeValue === "backlog" ? "backlog" : "memoria";
-  useCanonicalSelection("proposals", "proposalsTab", active);
-  const [stream] = useUrlState("stream", "");
-  const unknownStream = stream && !["candidate-lesson", "prune", "promotions"].includes(stream);
-
+  const [value] = useUrlState("proposalsTab", "resumen");
+  const active =
+    value === "memory" || value === "memoria"
+      ? "memoria"
+      : value === "backlog"
+        ? "backlog"
+        : "resumen";
+  const panels = { resumen: summaryPanel, memoria: memoryPanel, backlog: backlogPanel };
   return (
     <div>
       <Tabs
-        level="sub"
-        ariaLabel="Memoria o backlog"
+        ariaLabel={t("propuestas.tabs.aria")}
         active={active}
-        onChange={(id) =>
-          updateNavigation({ proposalsTab: id, backlogItem: null, lesson: null, stream: null })
-        }
+        onChange={(id) => updateNavigation({ proposalsTab: id })}
         testIdPrefix="proposals-tab-"
-        tabIdPrefix={TAB_ID_PREFIX}
+        tabIdPrefix="proposals-tab-id-"
+        panelIdPrefix="proposals-panel-"
         tabs={[
-          { id: "memoria", label: "Memoria", icon: "ti-bulb" },
+          { id: "resumen", label: t("propuestas.tabs.resumen"), icon: "list", tone: "amber" },
+          {
+            id: "memoria",
+            label: t("propuestas.tabs.memoria"),
+            icon: "bulb",
+            tone: "teal",
+            count: waitingCount && waitingCount > 0 ? waitingCount : undefined,
+          },
           {
             id: "backlog",
-            label: "Backlog",
-            icon: "ti-checklist",
-            count: backlogOpenCount > 0 ? backlogOpenCount : undefined,
+            label: t("propuestas.tabs.backlog"),
+            icon: "layers",
+            tone: "blue",
+            count: backlogOpenCount && backlogOpenCount > 0 ? backlogOpenCount : undefined,
           },
         ]}
       />
-
-      <div
-        role="tabpanel"
-        aria-labelledby={`${TAB_ID_PREFIX}memoria`}
-        hidden={active !== "memoria"}
-        data-volatile
-        style={active === "memoria" ? PANEL_STYLE : undefined}
-      >
-        {unknownStream ? <p role="status">Esta colección no está disponible.</p> : memoryPanel}
-      </div>
-
-      <div
-        role="tabpanel"
-        aria-labelledby={`${TAB_ID_PREFIX}backlog`}
-        hidden={active !== "backlog"}
-        data-volatile
-        style={active === "backlog" ? PANEL_STYLE : undefined}
-      >
-        {backlogPanel}
-      </div>
+      {(Object.keys(panels) as (keyof typeof panels)[]).map((id) => (
+        <div
+          key={id}
+          id={`proposals-panel-${id}`}
+          role="tabpanel"
+          aria-labelledby={`proposals-tab-id-${id}`}
+          hidden={active !== id}
+          data-volatile
+        >
+          {panels[id]}
+        </div>
+      ))}
     </div>
+  );
+}
+
+/** Tab links preserve the mounted panels through the tab strip's navigation path. */
+export function ProposalsTabLink({
+  href,
+  className,
+  children,
+}: {
+  readonly href: string;
+  readonly className?: string;
+  readonly children: ReactNode;
+}): React.JSX.Element {
+  function handleClick(event: MouseEvent<HTMLAnchorElement>): void {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+      return;
+    event.preventDefault();
+    updateNavigation({ proposalsTab: href === "/proposals/memory" ? "memoria" : "backlog" });
+  }
+  return href === "/proposals/memory" || href === "/proposals/backlog" ? (
+    <a href={href} className={className} onClick={handleClick}>
+      {children}
+    </a>
+  ) : (
+    <Link href={href} className={className}>
+      {children}
+    </Link>
   );
 }

@@ -33,7 +33,7 @@ function makeLesson(over: Partial<Lesson>): Lesson {
 }
 
 describe("LessonDetail — loop v2 fields (WO-17-005)", () => {
-  it("shows the trigger row and the applied-in projects row when present", () => {
+  it("shows the trigger box and applied-in projects when present", () => {
     render(
       <LessonDetail
         lesson={makeLesson({
@@ -44,9 +44,9 @@ describe("LessonDetail — loop v2 fields (WO-17-005)", () => {
     );
 
     const detail = screen.getByTestId("lesson-detail");
-    expect(detail.textContent).toContain("Úsala cuando");
+    expect(detail.textContent).not.toContain("Úsala cuando");
     expect(detail.textContent).toContain("use this when parsing frontmatter with gray-matter@4");
-    expect(detail.textContent).toContain("Aplicada en 3 proyectos");
+    expect(detail.textContent).toContain("Aplicada en: proj-a, proj-b, proj-c");
     expect(detail.textContent).toContain("proj-a, proj-b, proj-c");
   });
 

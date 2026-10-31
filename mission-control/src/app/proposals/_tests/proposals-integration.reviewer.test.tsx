@@ -8,8 +8,7 @@
  *   factory/memory/*.md  →  readLessons() / candidateLessons() / promotionQueue()
  *   / prunable()  (WO-17-001/002)
  *         →  computeSuggestions() (WO-17-003)
- *         →  the proposal streams + cards (WO-17-004)
- *         →  the dismissal store (WO-17-007)
+ *         →  the v2 lesson streams (WO-17-008)
  *
  * Focus: the highest-leverage invariant of the whole feature — the DR-047
  * corroboration gate. A single-project candidate lesson whose `source` is
@@ -22,12 +21,13 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { candidateLessons, promotionQueue, prunable, readLessons } from "@/lib/memory/memory";
 import { computeSuggestions } from "@/lib/self-suggest/self-suggest";
 import { withFactoryRoot } from "@/tests/fixtures";
-import { DismissableProposalStream } from "../_components/DismissableProposalStream/DismissableProposalStream";
+import { PromotionsQueuePanel } from "../_components/PromotionsQueuePanel/PromotionsQueuePanel";
+import { ProposalStream } from "../_components/ProposalStream/ProposalStream";
 
 // ---------------------------------------------------------------------------
 // Temp factory/memory builder
@@ -43,12 +43,6 @@ afterEach(() => {
     }
   }
   tmpRoots = [];
-  // proposalsDismissStore touches localStorage; reset between tests.
-  try {
-    localStorage.clear();
-  } catch {
-    /* jsdom may not always expose it */
-  }
 });
 
 type LessonFm = Record<string, unknown>;
@@ -309,15 +303,15 @@ describe("FRD-17 INTEGRATION: real reader output renders honestly through the st
     const promotions = await withFactoryRoot(root, () => promotionQueue());
     expect(promotions).toHaveLength(1);
 
-    render(<DismissableProposalStream kind="promotion" lessons={promotions} />);
+    render(<PromotionsQueuePanel lessons={promotions} />);
+    fireEvent.click(screen.getByRole("button", { name: /LESSON-0070/ }));
 
     // The exact command is shown and copyable…
-    expect(screen.getByTestId("proposal-card-command")).toHaveTextContent(
-      "/pandacorp:learn LESSON-0070",
-    );
-    expect(screen.getByTestId("copy-button")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Copiar /pandacorp:learn LESSON-0070" }),
+    ).toBeVisible();
 
-    // …and there is NO affordance that would RUN it (read-only, REQ-17-009).
+    // …and there is NO affordance that would RUN it (read-only, REQ-17-024).
     expect(
       screen.queryByRole("button", { name: /ejecutar|aplicar|promover|run|aprobar/i }),
     ).toBeNull();
@@ -335,17 +329,17 @@ describe("FRD-17 INTEGRATION: real reader output renders honestly through the st
 
     render(
       <>
-        <DismissableProposalStream kind="candidate-lesson" lessons={candidates} />
-        <DismissableProposalStream kind="promotion" lessons={promo} />
-        <DismissableProposalStream kind="prune" lessons={prune} />
+        <PromotionsQueuePanel lessons={promo} />
+        <ProposalStream kind="candidate-lesson" lessons={candidates} />
+        <ProposalStream kind="prune" lessons={prune} />
       </>,
     );
 
-    const empties = screen.getAllByTestId("proposal-stream-empty");
-    expect(empties).toHaveLength(3);
-    // Honest, calm copy — no "urgente"/"ahora"/"!" nagging.
-    for (const node of empties) {
-      expect(node.textContent ?? "").not.toMatch(/urgente|ahora mismo|inmediatamente/i);
-    }
+    // The prune card is drawn only with something prunable (AC-17-001.3).
+    expect(screen.queryByRole("heading", { name: /Para podar/ })).toBeNull();
+    expect(screen.getByRole("heading", { name: /Esperan tu decisión/ })).toBeVisible();
+    expect(screen.getByText("Nada necesita tu decisión ahora.")).toBeVisible();
+    // Honest, calm copy — no "urgente"/"ahora mismo"/"!" nagging.
+    expect(document.body.textContent ?? "").not.toMatch(/urgente|ahora mismo|inmediatamente/i);
   });
 });

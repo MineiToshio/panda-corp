@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { resolveFactoryRoot } from "../config/config";
-import { readLessons } from "./memory";
+import { type Lesson, readLessons } from "./memory";
 
 /**
  * memory-health.ts — memoryHealth() computation (WO-17-002, FRD-17, IF-17-memory).
@@ -245,7 +245,7 @@ function isHarvestOrphan(projectPath: string): boolean {
  *
  * @returns MemoryHealth object; never throws.
  */
-export function memoryHealth(): MemoryHealth {
+export function memoryHealth(lessons: readonly Lesson[] = readLessons()): MemoryHealth {
   const factoryRoot = resolveFactoryRoot();
   const dir = path.join(factoryRoot, "factory", "memory");
   const inboxPath = path.join(dir, "_inbox.md");
@@ -257,7 +257,7 @@ export function memoryHealth(): MemoryHealth {
     rawNotes += countNonEmptyLines(path.join(projectPath, ".pandacorp", "run", "lessons.md"));
   }
 
-  const candidates = readLessons().filter((l) => l.status === "candidate").length;
+  const candidates = lessons.filter((l) => l.status === "candidate").length;
   const { lastMemoryRunAt, staleDays } = deriveStaleness(
     mostRecentMtime(collectMtimePaths(dir, inboxPath)),
   );

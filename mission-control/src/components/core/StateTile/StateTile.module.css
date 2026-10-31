@@ -1,0 +1,37 @@
+.tile {
+  text-align: left;
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--r);
+  padding: var(--s4);
+  background: color-mix(in srgb, var(--tone) var(--tint), var(--surface));
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  min-width: 0;
+}
+.tile[aria-pressed="true"] {
+  border-color: var(--text);
+  box-shadow: inset 0 0 0 var(--hairline) var(--text);
+}
+.tile b {
+  font: 700 var(--fs-h1) var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+.tile small {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.label {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: var(--fs-sm);
+}
+.dot {
+  background: var(--tone);
+  width: var(--s2);
+  height: var(--s2);
+  border-radius: var(--r-pill);
+}

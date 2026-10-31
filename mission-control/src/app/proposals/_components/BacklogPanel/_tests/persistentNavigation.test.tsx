@@ -12,7 +12,7 @@ function visit(href: string): void {
 
 describe("persistent global navigation", () => {
   it("restores a completed backlog item and status disclosure independently", () => {
-    visit("/proposals/backlog/BL-0001?backlogGroups=done");
+    visit("/proposals/backlog/BL-0001");
     render(
       <BacklogPanel
         result={{
@@ -37,9 +37,9 @@ describe("persistent global navigation", () => {
       />,
     );
     expect(screen.getByRole("dialog")).toHaveTextContent("BL-0001");
-    expect(screen.getByTestId("backlog-toggle-done")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Hechos y descartados 1")).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(window.location.pathname).toBe("/proposals/backlog");
-    expect(new URLSearchParams(window.location.search).get("backlogGroups")).toBe("done");
+    expect(new URLSearchParams(window.location.search).get("backlogGroups")).toBeNull();
   });
 });

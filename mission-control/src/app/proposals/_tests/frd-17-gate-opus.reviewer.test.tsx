@@ -1,43 +1,17 @@
 /**
- * FRD-17 — REVIEWER FRD-GATE adversarial test (opus, DR-015).
+ * FRD-17 — REVIEWER FRD-GATE adversarial test (opus, DR-015), rewritten for the v2 surface.
  *
- * Written at the FRD gate by a model distinct from the implementers (opus vs the
- * sonnet/haiku worker). These exercise EARS edges the implementers' own tests do
- * NOT assert — the read-only invariant, high-risk display-only, the count-not-by-
- * colour-alone affordance, and the durable promotions-queue filter — through the
- * REAL components (real integration), not isolated unit shims.
- *
- * The DR-057 reuse defect that reopened this WO is locked by
- * frd-17-reuse.gate.reviewer.test.tsx (shared Banner/SectionHead/Panel/Chip/
- * CountBadge). This file closes the "present-but-decorative" gap: it proves the
- * REQUIRED FRD-17 behaviour is real, and is mutation-killing for the read-only
- * and display-only invariants.
- *
- * Traceability: AC-17-004.2 (copy-only, MC never runs), AC-17-004.4 / AC-17-006.5
- * (high-risk display-only), AC-17-006.1 (queue = exactly proposed/rejected),
- * AC-17-007.5 (count not by colour alone), REQ-17-008 (read-only over the factory).
+ * Exercises the EARS edges the implementer's suites do not: the waiting queue contents, the
+ * copy-only invariant, the high-risk display and the eval-gate state, through the real components.
+ * The `ProposalsBadge` cases are retired (derogated by WO-17-008, replaced by WO-19-003's count).
  */
 
-import { render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { PromotionsQueue } from "@/components/modules/PromotionsQueue/PromotionsQueue";
-import { ProposalsBadge } from "@/components/modules/ProposalsBadge/ProposalsBadge";
 import type { Lesson } from "@/lib/memory/memory";
-
-// ProposalsBadge is now the Propuestas destination of the shell nav (FRD-19) → it reads usePathname.
-vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
-
-afterEach(() => {
-  try {
-    localStorage.clear();
-  } catch {
-    /* jsdom may not expose it */
-  }
-});
-
-// ---------------------------------------------------------------------------
-// Lesson fixtures
-// ---------------------------------------------------------------------------
+import { LessonDetail } from "../_components/LessonDetail";
+import { PromotionsQueuePanel } from "../_components/PromotionsQueuePanel/PromotionsQueuePanel";
 
 function lesson(overrides: Partial<Lesson> = {}): Lesson {
   return {
@@ -58,134 +32,70 @@ function lesson(overrides: Partial<Lesson> = {}): Lesson {
   };
 }
 
-// ---------------------------------------------------------------------------
-// AC-17-006.1 — the promotions queue lists EXACTLY proposed + rejected, durably
-// ---------------------------------------------------------------------------
-
-describe("FRD-17 GATE (AC-17-006.1): promotions queue shows exactly proposed/rejected", () => {
-  it("filters out lessons whose promotion is neither proposed nor rejected", () => {
-    const lessons: Lesson[] = [
-      lesson({ id: "LESSON-0001", promotion: "proposed" }),
-      lesson({ id: "LESSON-0002", promotion: "rejected" }),
-      lesson({ id: "LESSON-0003", promotion: "none" }), // must NOT appear
-      lesson({ id: "LESSON-0004", promotion: "approved" }), // must NOT appear
-    ];
-    render(<PromotionsQueue lessons={lessons} />);
-
-    expect(screen.getByTestId("promotion-entry-LESSON-0001")).toBeInTheDocument();
-    expect(screen.getByTestId("promotion-entry-LESSON-0002")).toBeInTheDocument();
-    expect(screen.queryByTestId("promotion-entry-LESSON-0003")).toBeNull();
-    expect(screen.queryByTestId("promotion-entry-LESSON-0004")).toBeNull();
+describe("FRD-17 GATE (REQ-17-021): the waiting queue lists exactly the proposed lessons", () => {
+  it("rejection is out of v2 and approved or settled lessons never appear", () => {
+    render(
+      <PromotionsQueue
+        lessons={[
+          lesson({ id: "LESSON-0001" }),
+          lesson({ id: "LESSON-0002", promotion: "rejected" }),
+          lesson({ id: "LESSON-0003", promotion: "none" }),
+          lesson({ id: "LESSON-0004", promotion: "approved" }),
+        ]}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /LESSON-0001/ })).toBeVisible();
+    for (const id of ["LESSON-0002", "LESSON-0003", "LESSON-0004"])
+      expect(screen.queryByRole("button", { name: new RegExp(id) })).toBeNull();
+    expect(screen.queryByRole("button", { name: /rechazar/i })).toBeNull();
   });
 
-  it("an empty queue shows the calm al-día state, never blank (AC-17-006.6)", () => {
+  it("an empty queue reads the calm sentence, never a blank card", () => {
     render(<PromotionsQueue lessons={[lesson({ promotion: "none" })]} />);
-    expect(screen.getByTestId("promotions-queue-empty")).toBeInTheDocument();
+    expect(screen.getByText("Nada necesita tu decisión ahora.")).toBeVisible();
   });
 });
 
-// ---------------------------------------------------------------------------
-// AC-17-004.2 / REQ-17-008 — read-only: the ONLY affordance is copy, never a run
-// ---------------------------------------------------------------------------
-
-describe("FRD-17 GATE (AC-17-004.2 / REQ-17-008): the promotions queue is copy-only, never runs", () => {
-  it("a proposed entry exposes the /pandacorp:learn command AND a copy button — and no other affordance pretends to run it", () => {
-    render(<PromotionsQueue lessons={[lesson({ id: "LESSON-0001", promotion: "proposed" })]} />);
-
-    const entry = screen.getByTestId("promotion-entry-LESSON-0001");
-    // The exact command is present and carries the lesson id.
-    const cmd = within(entry).getByTestId("promotion-learn-command");
-    expect(cmd.textContent).toBe("/pandacorp:learn LESSON-0001");
-
-    // There is exactly ONE interactive control in the entry, and it is the copy button —
-    // nothing that would harvest/promote (MC never promotes; AC-17-006.3).
-    const buttons = within(entry).getAllByRole("button");
-    expect(buttons).toHaveLength(1);
-    expect(buttons[0]?.getAttribute("data-testid")).toBe("copy-button");
-  });
-
-  it("a rejected entry is state-only — no command, no copy, no run (AC-17-006.4)", () => {
-    render(<PromotionsQueue lessons={[lesson({ id: "LESSON-0002", promotion: "rejected" })]} />);
-
-    const entry = screen.getByTestId("promotion-entry-LESSON-0002");
-    expect(entry).toHaveAttribute("data-promotion-state", "rejected");
-    expect(within(entry).queryByTestId("promotion-learn-command")).toBeNull();
-    expect(within(entry).queryAllByRole("button")).toHaveLength(0);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// AC-17-004.4 / AC-17-006.5 — high-risk proposals are DISPLAY-ONLY with a marker
-// ---------------------------------------------------------------------------
-
-describe("FRD-17 GATE (AC-17-006.5): high-risk targets are flagged AND still display-only", () => {
-  it("a DR-linked lesson carries the high-risk Chip but still only a copy affordance (never auto-applied)", () => {
-    render(
-      <PromotionsQueue
-        lessons={[lesson({ id: "LESSON-0007", promotion: "proposed", links: ["DR-052"] })]}
-      />,
-    );
-    const entry = screen.getByTestId("promotion-entry-LESSON-0007");
-    // High-risk marker present (not colour alone — it has a label).
-    const badge = within(entry).getByTestId("promotion-high-risk-badge");
-    expect(badge.textContent).toContain("Alto riesgo");
-    // Still display-only: the only control is copy.
-    const buttons = within(entry).getAllByRole("button");
-    expect(buttons).toHaveLength(1);
-    expect(buttons[0]?.getAttribute("data-testid")).toBe("copy-button");
-  });
-
-  it("a MUST-domain lesson is treated as high-risk too", () => {
-    render(
-      <PromotionsQueue
-        lessons={[lesson({ id: "LESSON-0008", promotion: "proposed", domain: "must-standard" })]}
-      />,
-    );
+describe("FRD-17 GATE (AC-17-001.2, REQ-17-024): waiting lessons are copy-only", () => {
+  it("a queued row has no command of its own; the dialog carries the single copyable command", () => {
+    render(<PromotionsQueuePanel lessons={[lesson({ id: "LESSON-0001" })]} />);
+    expect(screen.queryByRole("button", { name: /^Copiar/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /LESSON-0001/ }));
     expect(
-      within(screen.getByTestId("promotion-entry-LESSON-0008")).getByTestId(
-        "promotion-high-risk-badge",
-      ),
-    ).toBeInTheDocument();
+      screen.getByRole("button", { name: "Copiar /pandacorp:learn LESSON-0001" }),
+    ).toBeVisible();
+    expect(screen.queryByRole("form")).toBeNull();
   });
 
-  it("a low-risk lesson carries NO high-risk badge (the flag is not always-on)", () => {
+  it("each recently detected lesson shows its own command next to the row", () => {
     render(
       <PromotionsQueue
-        lessons={[lesson({ id: "LESSON-0009", promotion: "proposed", links: [], domain: "react" })]}
+        lessons={[]}
+        recentLessons={[lesson({ id: "LESSON-0005", promotion: "none" })]}
       />,
     );
+    expect(screen.getByText("Nueva")).toBeVisible();
     expect(
-      within(screen.getByTestId("promotion-entry-LESSON-0009")).queryByTestId(
-        "promotion-high-risk-badge",
-      ),
-    ).toBeNull();
+      screen.getByRole("button", { name: "Copiar /pandacorp:learn LESSON-0005" }),
+    ).toBeVisible();
   });
 });
 
-// ---------------------------------------------------------------------------
-// AC-17-007.4 / .5 — badge: count not by colour alone, calm when empty
-// ---------------------------------------------------------------------------
-
-describe("FRD-17 GATE (AC-17-007.4/.5): the proposals badge is honest and count-not-by-colour-alone", () => {
-  it("with open proposals the numeric count is rendered as text inside the shared CountBadge", () => {
-    render(<ProposalsBadge openCount={4} />);
-    const countBadge = screen.getByTestId("count-badge");
-    // The number itself is a text node — a screen reader / colour-blind user reads "4".
-    expect(countBadge.textContent).toContain("4");
-    // CMP-17-badge is now the Propuestas destination of the global shell nav (FRD-19): the link's
-    // accessible name is exactly "Propuestas" (the Shell-Presence Gate matches destinations by exact
-    // label), and the count is conveyed as visible CountBadge text — not by colour alone, and not
-    // folded into the link name.
-    const link = screen.getByTestId("proposals-badge-link");
-    expect(link).toHaveAttribute("href", "/proposals");
-    expect(link).not.toHaveAttribute("aria-label");
-    expect(within(link).getByText("Propuestas")).toBeInTheDocument();
+describe("FRD-17 GATE (REQ-17-021, REQ-17-022, REQ-17-024): the dialog states risk and eval gate", () => {
+  it("a low-risk lesson shows the command only for a proposed promotion", () => {
+    const { rerender } = render(<LessonDetail lesson={lesson()} />);
+    expect(screen.getByText("Promoverla a estándar, regla o skill:")).toBeVisible();
+    rerender(<LessonDetail lesson={lesson({ promotion: "approved" })} />);
+    expect(screen.queryByText("Promoverla a estándar, regla o skill:")).toBeNull();
   });
 
-  it("with zero open proposals there is NO count pill (no zero-badge nag, AC-17-007.4)", () => {
-    render(<ProposalsBadge openCount={0} />);
-    expect(screen.queryByTestId("count-badge")).toBeNull();
-    // The badge still navigates (link present) — calm, not absent.
-    expect(screen.getByTestId("proposals-badge-link")).toHaveAttribute("href", "/proposals");
+  it("a DR-linked proposal carries the high-risk badge in the dialog (REQ-17-021)", () => {
+    render(<LessonDetail lesson={lesson({ links: ["DR-052"] })} />);
+    expect(screen.getByText(/alto riesgo/i)).toBeVisible();
+  });
+
+  it("a lesson that still awaits a second project shows that eval-gate state (REQ-17-022)", () => {
+    render(<LessonDetail lesson={lesson({ status: "candidate", evalGate: "awaiting-2nd" })} />);
+    expect(screen.getByText("Espera un segundo proyecto")).toBeVisible();
   });
 });

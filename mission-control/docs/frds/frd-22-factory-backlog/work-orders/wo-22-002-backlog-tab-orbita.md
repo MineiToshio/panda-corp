@@ -6,13 +6,13 @@ title: Backlog tab Órbita - priority tiles, topic bars, Cómo avanzar, groups, 
 status: ACTIVE
 parent: FRD-22
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: medium
 reopen_count: 0
 artifacts: ["src/app/proposals/_components/{BacklogPanel,AreaBar}/**", "src/app/proposals/_actions/**", "src/components/core/StateTile/**", "e2e/backlog.spec.ts", "e2e/fixtures/factory-root/factory/backlog/BL-90*.md", "e2e/persistent-navigation/proposals.spec.ts"]
 source_requirements: [REQ-22-001, REQ-22-003, REQ-22-004, REQ-22-005, REQ-22-006, REQ-22-007, REQ-22-009, REQ-22-010]
 dependsOn: [WO-22-001, WO-13-012, WO-25-001]
-last_updated: '2026-10-22'
+last_updated: '2026-10-30'
 ---
 
 # WO-22-002 Backlog tab Órbita
@@ -57,6 +57,9 @@ and the count badge are WO-17-008's; this work order exports `BacklogPanel({ res
 - The reader, the area helpers and the write itself: WO-22-001.
 - Creating or editing backlog items; any execution of a command (Mission Control only shows commands).
 
+Owned elsewhere: AC-22-001.1, AC-22-004.1, AC-22-004.3, AC-22-007.2, AC-22-008.1 (WO-22-001); AC-22-002.1 to
+AC-22-002.4 (WO-17-008, the tab shell that mounts this panel).
+
 ### Removals (map §6.C item 20; delete in this work order, with their tests)
 
 - The evidence line (`source` + `links`) on the cards and the source, links and dates block in the dialog.
@@ -90,9 +93,6 @@ REQ-22-001 (grouping and cards), REQ-22-003, REQ-22-004 (panel half), REQ-22-005
 - **AC-22-010.2** — WHEN a bar of "Por tema" (the plain-name areas, with merged areas counted together) is activated, THE backlog SHALL show only that topic; "Quitar filtros" SHALL clear the filters and an empty result SHALL read "Nada abierto con este filtro."
 - **AC-22-010.3** — THE backlog SHALL show a "Cómo avanzar" card with the whole-queue command first ("Todo de una vez.", with its cost warning) and then the one-at-a-time command ("Uno por uno.", recommended), each with where it runs.
 - **AC-22-010.4** — THE open items SHALL be grouped by priority sub-groups (P0 URGENTE, P1 IMPORTANTE, P2 CUANDO HAYA TIEMPO) and paged with "Mostrar N más · quedan M".
-
-Owned elsewhere: AC-22-001.1, AC-22-004.1, AC-22-004.3, AC-22-007.2, AC-22-008.1 (WO-22-001); AC-22-002.1 to
-AC-22-002.4 (WO-17-008, the tab shell that mounts this panel).
 
 Completeness (definition of done beyond the ACs): the empty backlog state (explicit `EmptyState`), the loading
 state is none (server-delivered data, no client skeleton), the typed failure of the write shown inline in the
@@ -178,3 +178,9 @@ wave stays W3). Consumer: WO-17-008. WO-05-008 reuses `StateTile` (ledger reques
 
 ## Status Note
 
+- 2026-10-30 (S3C round 2): Kept `IN_REVIEW`. The individual how-to command now names the first actionable item and singular counts use catalogue plurals. Successful discard closes the URL from an effect after the action transition settles; confirmation kicker/placeholder, file-error formatting, empty-backlog and unknown-item copy were corrected. Added regression assertions for a pasted item URL and a browser discard/reload scenario; disposable BL-90 fixtures are swept before and after each test.
+- 2026-10-30 (S3C round 2 verification, PORT=3962 and PANDACORP_E2E_PORT=3962): `pnpm exec knip`, `pnpm exec tsc --noEmit` and `pnpm exec biome check .` exited 0 (nine knip hints and one existing Biome schema-version informational notice). The requested scoped Vitest run with `--maxWorkers=2` passed 361/362 tests; only `frd-22-gate.reviewer.test.tsx:116` remains red because it expects `Nada abierto con este filtro.` for an empty backlog, while the requested patch renders the dedicated empty-backlog sentence. Reviewer tests and blessed baselines were left untouched. The temporary port-3962 Playwright run of `e2e/backlog.spec.ts` and `e2e/proposals.spec.ts` could not exercise the browser: Chromium failed to launch with sandbox `bootstrap_check_in` permission denied. The initial server attempt also hit Watchpack EMFILE; polling let the server start. Real discard/reload behavior remains unverified in a browser. Changes are uncommitted and unstaged; no queue, merge, push or decision-log write was performed.
+
+- 2026-10-30 (S3C): Built priority/topic/type filters, paged status groups and combined history, native item detail and replacing discard confirmation, bounded reason-aware action, and reusable StateTile. Targeted Vitest: 3 files / 10 tests passed; `pnpm exec tsc --noEmit` passed. Added behavior e2e with per-test fixture restoration; Playwright and visual fidelity are unverified (worker sandbox). Reviewer suites and blessed baselines remain untouched; page-level v1 backlog assertions require reviewer reconciliation. Changes remain uncommitted by owner instruction.
+- 2026-10-30: Final local slice: 3 Vitest suites / 13 tests passed (panel, persistent detail and bounded action); all 18 owned ACs are cited. Cross-WO tab citations were moved to Out of Scope, as required by the W3 plan, to keep this WO's AC gate independent. After WO-17-008's module removals the combined TypeScript/knip gates are RED only on the five untouched reviewer imports listed in that WO; full Vitest has eight derogated reviewer suites RED. No claim of a green full gate is made.
+- 2026-10-30 (agent-inferred): React 19 resets an uncontrolled form after an action resolves even when the result is a typed failure. The reason field is controlled so a failed discard preserves the owner's explanation for retry; the regression test covers the failure followed by a successful retry. The shared SectionedMarkdown renderer is consumed unchanged, including its existing visual section labels; semantic section-heading tags and browser visual/focus fidelity were not independently verified in this slice.

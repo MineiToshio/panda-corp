@@ -1,264 +1,180 @@
 "use client";
-
-/**
- * BacklogPanel — the factory backlog surface (CMP-22-panel, FRD-22, DR-103).
- *
- * Renders the factory's actionable work queue (`factory/backlog/BL-*`) grouped by
- * status: Abiertos (open) → En curso (doing) always visible, ordered by priority then
- * id (REQ-22-008, an invariant of `readBacklog`'s sort — see `lib/backlog/backlog.ts`).
- * Hechos (done) and Descartados (discarded) are hidden behind "Ver hechos (N)" /
- * "Ver descartados (N)" toggles (REQ-22-006, REQ-22-007) so the closed-item history
- * doesn't clutter the actionable view as the backlog accumulates over months.
- *
- * Fail-loud (DR-078): if the reader could not interpret one or more BL files, an
- * error banner names them — the panel never renders a misleadingly-empty backlog.
- *
- * Client Component: clicking a card opens a detail Modal (the shared `Modal` +
- * `Markdown` primitives) showing the item's full, formatted body (REQ-22-005) and,
- * for open/doing items, a discard action (REQ-22-007). The passed BacklogReadResult
- * (incl. each item's markdown `body`) is read server-side. When there is at least
- * one open/doing item, a `/pandacorp:implement-backlog` `CmdRow` renders below the
- * list (REQ-22-009) — the generic, drain-the-whole-queue form of the command the
- * item detail also offers targeted at one id (see `BacklogDetail`).
- *
- * Traceability:
- *   CMP-22-panel → REQ-22-001 (grouped items), REQ-22-003 (read-only note),
- *                  REQ-22-004 (fail-loud error state), REQ-22-005 (detail modal),
- *                  REQ-22-006 (default-hidden Hechos), REQ-22-007 (discard),
- *                  REQ-22-008 (priority ordering), REQ-22-009 (implement command)
- */
-
-import { Chip } from "@/components/core/Chip/Chip";
-import { CmdRow } from "@/components/core/CmdRow/CmdRow";
-import { Modal } from "@/components/core/Modal/Modal";
-import { SectionHead } from "@/components/core/SectionHead/SectionHead";
-import type { BacklogItem, BacklogReadResult, BacklogStatus } from "@/lib/backlog/backlog";
+import { useState } from "react";
+import { Button } from "@/components/core/Button/Button";
+import { Card, CardHeader } from "@/components/core/Card/Card";
+import { FilterChip } from "@/components/core/Chip/FilterChip";
+import { EmptyState } from "@/components/core/EmptyState/EmptyState";
+import { Notice } from "@/components/core/Notice/Notice";
+import { StateTile } from "@/components/core/StateTile/StateTile";
+import { type BacklogAreaKey, backlogAreaKey, countByArea } from "@/lib/backlog/areas";
+import type {
+  BacklogItem,
+  BacklogReadResult,
+  BacklogSeverity,
+  BacklogStatus,
+} from "@/lib/backlog/backlog";
+import { t } from "@/lib/copy/copy";
 import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
-import { BacklogCard } from "./BacklogCard";
-import { BacklogDetail } from "./BacklogDetail";
+import { AreaBar } from "../AreaBar/AreaBar";
+import { BacklogDialog } from "./BacklogDialog";
+import { BacklogGroups, BacklogList } from "./BacklogGroups";
+import styles from "./BacklogPanel.module.css";
+import { PRIORITIES, PRIORITY_TONE, priorityLabel } from "./backlogPresentation";
+import { HowToCard } from "./HowToCard";
 
-// ---------------------------------------------------------------------------
-// Status groups — always-visible (default view) vs toggleable (opt-in reveal)
-// ---------------------------------------------------------------------------
-
-const DEFAULT_GROUPS: readonly { status: BacklogStatus; label: string; icon: string }[] = [
-  { status: "open", label: "Abiertos", icon: "ti-circle-dashed" },
-  { status: "doing", label: "En curso", icon: "ti-progress" },
-];
-
-const TOGGLEABLE_GROUPS: readonly {
-  status: BacklogStatus;
-  label: string;
-  icon: string;
-  toggleLabel: string;
-}[] = [
-  { status: "done", label: "Hechos", icon: "ti-circle-check", toggleLabel: "hechos" },
-  { status: "discarded", label: "Descartados", icon: "ti-trash", toggleLabel: "descartados" },
-];
-
-// ---------------------------------------------------------------------------
-// Styles — CSS custom properties only
-// ---------------------------------------------------------------------------
-
-const NOTE_STYLE: React.CSSProperties = {
-  fontSize: "13px",
-  color: "var(--color-text2)",
-  margin: "14px 2px 18px",
-};
-
-const CARDS_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "9px",
-};
-
-const EMPTY_STYLE: React.CSSProperties = {
-  fontSize: "0.875rem",
-  color: "var(--color-text3)",
-  fontStyle: "italic",
-  padding: "0.75rem 2px",
-};
-
-const ERROR_BANNER_STYLE: React.CSSProperties = {
-  fontSize: "12px",
-  color: "var(--color-danger)",
-  background: "var(--color-danger-bg)",
-  border: "1px solid var(--color-danger)",
-  borderRadius: "var(--radius-md, 12px)",
-  padding: "10px 12px",
-  margin: "0 2px 14px",
-};
-
-const TOGGLES_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  gap: "8px",
-  flexWrap: "wrap",
-  margin: "14px 2px 14px",
-};
-
-const TOGGLE_BTN_STYLE: React.CSSProperties = {
-  fontSize: "11px",
-  padding: "4px 10px",
-  borderRadius: "var(--radius-sm, 8px)",
-  border: "1px solid var(--color-border-strong)",
-  background: "var(--color-card)",
-  color: "var(--color-text2)",
-  cursor: "pointer",
-  fontFamily: "var(--font-display, inherit)",
-};
-
-const CMD_SECTION_STYLE: React.CSSProperties = { margin: "0 2px 18px" };
-
-const CMD_NOTE_STYLE: React.CSSProperties = {
-  fontSize: "11px",
-  color: "var(--color-text3)",
-  margin: "4px 0 0",
-};
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
-/** Group items by status, preserving file order within each group. */
-function byStatus(items: BacklogItem[], status: BacklogStatus): BacklogItem[] {
-  return items.filter((item) => item.status === status);
-}
-
-export function BacklogPanel({ result }: { result: BacklogReadResult }): React.JSX.Element {
-  const { items, errors } = result;
-  const hasItems = items.length > 0;
-  const actionableCount = byStatus(items, "open").length + byStatus(items, "doing").length;
-
-  // Selected item → detail modal (null = closed).
+const HINTS = { p0: "tileUrgentHint", p1: "tileImportantHint", p2: "tileSomedayHint" } as const;
+/** Composes tab-local backlog filters, paged groups, history and the URL-addressed detail. */
+export function BacklogPanel({
+  result,
+}: {
+  readonly result: BacklogReadResult;
+}): React.JSX.Element {
+  const [priority, setPriority] = useState<BacklogSeverity | null>(null);
+  const [area, setArea] = useState<BacklogAreaKey | null>(null);
+  const [type, setType] = useState<"bug" | "change" | null>(null);
+  const [discarded, setDiscarded] = useState<readonly string[]>([]);
+  const [confirming, setConfirming] = useState(false);
+  const items = result.items.map((item) =>
+    discarded.includes(item.id) ? { ...item, status: "discarded" as const } : item,
+  );
+  const actionable = items.filter((x) => x.status === "open" || x.status === "doing");
+  const filtered = items.filter(
+    (x) =>
+      (!priority || x.severity === priority) &&
+      (!area || backlogAreaKey(x.area) === area) &&
+      (!type || x.type === type),
+  );
+  const isHistoryStatus = (status: BacklogStatus): boolean =>
+    status === "done" || status === "discarded";
+  const history = filtered.filter((x) => isHistoryStatus(x.status));
+  const areas = countByArea(actionable);
   const [selectedId] = useUrlState("backlogItem", "");
   const [tab] = useUrlState("proposalsTab", "backlog");
-  const selected =
-    tab === "backlog" ? (items.find((item) => item.id === selectedId) ?? null) : null;
-  const setSelected = (item: BacklogItem | null): void =>
+  const selected = tab === "backlog" ? items.find((x) => x.id === selectedId) : undefined;
+  function select(item: BacklogItem | null): void {
+    setConfirming(false);
     updateNavigation({ proposalsTab: "backlog", backlogItem: item?.id ?? null });
-  // Toggleable groups (Hechos, Descartados) — hidden by default (REQ-22-006, REQ-22-007)
-  // so the active backlog doesn't grow unboundedly cluttered as the factory ages.
-  const [groups, setGroups] = useUrlState("backlogGroups", "");
-  const openToggles = new Set(groups.split(","));
-
-  function toggleGroup(status: BacklogStatus): void {
-    setGroups((prev) => {
-      const next = new Set(prev.split(",").filter(Boolean));
-      if (next.has(status)) next.delete(status);
-      else next.add(status);
-      return [...next].join(",");
-    });
   }
-
-  function handleDiscarded(): void {
-    setSelected(null);
-  }
-
   return (
-    <section data-testid="backlog-panel" aria-label="Backlog de la fábrica">
+    <section
+      data-testid="backlog-panel"
+      aria-label={t("propuestas.summary.backlog.title")}
+      className={styles.panel}
+    >
+      {result.errors.length > 0 && (
+        <Notice kind="error" icon="alert">
+          <strong>{t("propuestas.backlog.errors.title", { count: result.errors.length })}</strong>
+          <ul>
+            {result.errors.map((e) => (
+              <li key={e.file}>
+                <code>{e.file}</code> ({e.reason})
+              </li>
+            ))}
+          </ul>
+          <p>{t("propuestas.backlog.errors.note")}</p>
+        </Notice>
+      )}
       {selectedId && tab === "backlog" && !selected && (
-        <p role="status">El elemento solicitado no está disponible.</p>
+        <Notice icon="alert">{t("propuestas.backlog.unknownItem", { id: selectedId })}</Notice>
       )}
-      {/* Read-only note — how these get worked (REQ-22-003) */}
-      <p style={NOTE_STYLE}>
-        La cola accionable de la fábrica: defectos y cambios a su propio tooling (plugin, motor de
-        build, plantillas). Se trabajan pidiéndoselo a un agente — Mission Control solo los muestra
-        (y te deja descartarlos).
-      </p>
-
-      {/* Generic implement-backlog command — drains the WHOLE open/doing queue (REQ-22-009) */}
-      {actionableCount > 0 && (
-        <div style={CMD_SECTION_STYLE}>
-          <CmdRow command="/pandacorp:implement-backlog" />
-          <p style={CMD_NOTE_STYLE}>
-            Sin id: resuelve todo el backlog abierto/en curso, un subagente por item.
-          </p>
-        </div>
-      )}
-
-      {/* Fail-loud error banner (DR-078) — a malformed item is surfaced, not hidden */}
-      {errors.length > 0 && (
-        <div data-testid="backlog-error-banner" role="alert" style={ERROR_BANNER_STYLE}>
-          <i className="ti ti-alert-triangle" style={{ marginRight: "6px" }} aria-hidden="true" />
-          No se pudieron leer {errors.length} item(s) del backlog:{" "}
-          {errors.map((e) => `${e.file} (${e.reason})`).join("; ")}
-        </div>
-      )}
-
-      {!hasItems ? (
-        <p data-testid="backlog-empty" style={EMPTY_STYLE}>
-          No hay items en el backlog. Cuando surja un defecto o cambio del tooling de la fábrica, se
-          archiva aquí como un BL-*.
-        </p>
-      ) : (
-        <>
-          {DEFAULT_GROUPS.map(({ status, label, icon }) => {
-            const group = byStatus(items, status);
-            if (group.length === 0) return null;
-            return (
-              <div key={status} data-testid={`backlog-group-${status}`}>
-                <SectionHead icon={icon} label={label} count={group.length} />
-                <div style={CARDS_STYLE}>
-                  {group.map((item) => (
-                    <BacklogCard key={item.id} item={item} onSelect={setSelected} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Toggle row — Hechos/Descartados stay hidden until asked for (REQ-22-006,
-              REQ-22-007), so the backlog's history doesn't clutter the default view
-              over months. */}
-          <div style={TOGGLES_ROW_STYLE}>
-            {TOGGLEABLE_GROUPS.map(({ status, toggleLabel }) => {
-              const count = byStatus(items, status).length;
-              if (count === 0) return null;
-              const open = openToggles.has(status);
-              return (
-                <button
-                  key={status}
-                  type="button"
-                  data-testid={`backlog-toggle-${status}`}
-                  onClick={() => toggleGroup(status)}
-                  aria-pressed={open}
-                  style={TOGGLE_BTN_STYLE}
-                >
-                  {open ? "Ocultar" : "Ver"} {toggleLabel} ({count})
-                </button>
-              );
-            })}
-          </div>
-
-          {TOGGLEABLE_GROUPS.map(({ status, label, icon }) => {
-            if (!openToggles.has(status)) return null;
-            const group = byStatus(items, status);
-            if (group.length === 0) return null;
-            return (
-              <div key={status} data-testid={`backlog-group-${status}`}>
-                <SectionHead icon={icon} label={label} count={group.length} />
-                <div style={CARDS_STYLE}>
-                  {group.map((item) => (
-                    <BacklogCard key={item.id} item={item} onSelect={setSelected} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </>
-      )}
-
-      {/* Detail modal — the shared Modal + Markdown primitives (REQ-22-005). */}
-      <Modal
-        open={selected !== null}
-        onClose={() => setSelected(null)}
-        title={selected?.id ?? ""}
-        testIdBase="backlog-detail"
-        badge={selected != null ? <Chip tone="accent">{selected.type}</Chip> : undefined}
-        width={620}
+      <fieldset
+        aria-label={t("propuestas.backlog.priorityAria")}
+        className={`state-strip ${styles.strip}`}
       >
-        {selected != null && <BacklogDetail item={selected} onDiscarded={handleDiscarded} />}
-      </Modal>
+        {PRIORITIES.map((p) => (
+          <StateTile
+            key={p}
+            label={priorityLabel(p)}
+            count={items.filter((x) => x.status === "open" && x.severity === p).length}
+            hint={t(`propuestas.backlog.${HINTS[p]}`)}
+            tone={PRIORITY_TONE[p]}
+            pressed={priority === p}
+            onClick={() => setPriority(priority === p ? null : p)}
+          />
+        ))}
+      </fieldset>
+      <div className={styles.columns}>
+        <Card tone="blue">
+          <CardHeader title={t("propuestas.backlog.byArea.title")} icon="layers" />
+          <p className={styles.intro}>{t("propuestas.backlog.byArea.intro")}</p>
+          <fieldset className="area-bars" aria-label={t("propuestas.backlog.byArea.aria")}>
+            {areas.map((a) => (
+              <AreaBar
+                key={a.key}
+                area={a.key}
+                count={a.count}
+                max={areas[0]?.count ?? 0}
+                pressed={area === a.key}
+                onClick={() => setArea(area === a.key ? null : a.key)}
+              />
+            ))}
+          </fieldset>
+        </Card>
+        <HowToCard count={actionable.length} firstId={actionable[0]?.id} />
+      </div>
+      <div className={styles.toolbar}>
+        <fieldset aria-label={t("propuestas.backlog.typeAria")} className={styles.chips}>
+          {([null, "bug", "change"] as const).map((value) => (
+            <FilterChip
+              key={value ?? "all"}
+              pressed={type === value}
+              onClick={() => setType(value)}
+            >
+              {t(
+                value === null
+                  ? "propuestas.backlog.typeAll"
+                  : value === "bug"
+                    ? "propuestas.backlog.typeBugs"
+                    : "propuestas.backlog.typeChanges",
+              )}{" "}
+              · {actionable.filter((x) => value === null || x.type === value).length}
+            </FilterChip>
+          ))}
+        </fieldset>
+        <span>
+          {t("propuestas.backlog.itemCount", {
+            count: filtered.filter((x) => x.status === "open" || x.status === "doing").length,
+          })}
+        </span>
+        {(priority || area || type) && (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setPriority(null);
+              setArea(null);
+              setType(null);
+            }}
+          >
+            {t("propuestas.backlog.clearFilters")}
+          </Button>
+        )}
+      </div>
+      {items.length === 0 ? (
+        <EmptyState icon="check">{t("propuestas.backlog.empty")}</EmptyState>
+      ) : (
+        <BacklogGroups items={filtered} onSelect={select} />
+      )}
+      {history.length > 0 && (
+        <details className={styles.history}>
+          <summary>
+            {t("propuestas.backlog.history")} {history.length}
+          </summary>
+          <BacklogList items={history} pageSize={15} onSelect={select} />
+        </details>
+      )}
+      {selected && (
+        <BacklogDialog
+          key={selected.id}
+          item={selected}
+          confirming={confirming}
+          onConfirmView={setConfirming}
+          onClose={() => select(null)}
+          onDiscarded={() => {
+            setDiscarded([...discarded, selected.id]);
+            select(null);
+          }}
+        />
+      )}
     </section>
   );
 }

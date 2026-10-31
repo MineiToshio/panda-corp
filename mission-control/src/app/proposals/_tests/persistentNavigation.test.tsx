@@ -16,7 +16,14 @@ function visit(href: string): void {
 describe("persistent global navigation", () => {
   it("restores a directly pasted proposals tab and follows history changes", () => {
     visit("/proposals/backlog");
-    render(<ProposalsTabs memoryPanel="MEMORY" backlogPanel="BACKLOG" backlogOpenCount={2} />);
+    render(
+      <ProposalsTabs
+        summaryPanel="SUMMARY"
+        memoryPanel="MEMORY"
+        backlogPanel="BACKLOG"
+        backlogOpenCount={2}
+      />,
+    );
     expect(screen.getByRole("tab", { name: /backlog/i })).toHaveAttribute("aria-selected", "true");
     fireEvent.click(screen.getByRole("tab", { name: /memoria/i }));
     expect(window.location.pathname).toBe("/proposals/memory");

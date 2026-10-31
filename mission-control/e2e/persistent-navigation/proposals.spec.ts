@@ -4,6 +4,14 @@ import { assertLocation, type LocationCase } from "./_location";
 
 const cases: LocationCase[] = [
   {
+    family: "proposals-summary",
+    href: "/proposals",
+    selected: "proposals-tab-resumen",
+    next: "proposals-tab-memoria",
+    nextPath: "/proposals/memory",
+    content: "proposals-page",
+  },
+  {
     family: "proposals",
     href: "/proposals/backlog",
     selected: "proposals-tab-backlog",
@@ -45,7 +53,7 @@ test("read-only details restore in Manual, Configuration and Proposals without r
 }) => {
   for (const target of [
     {
-      href: "/proposals/backlog/BL-0001?backlogGroups=done",
+      href: "/proposals/backlog/BL-0001",
       id: "backlog-detail-modal",
       text: "BL-0001",
     },

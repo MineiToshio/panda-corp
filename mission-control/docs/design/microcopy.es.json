@@ -1276,6 +1276,7 @@
       }
     },
     "signals": {
+      "where": "Córrelo en la carpeta de la fábrica.",
       "title": "Señales automáticas",
       "intro": "Avisos que la fábrica genera sola. Ya están incluidos arriba cuando piden algo de ti.",
       "board": {
@@ -1354,7 +1355,10 @@
       "howTo": {
         "title": "Cómo avanzar",
         "allAtOnceLabel": "Todo de una vez.",
-        "allAtOnce": "Lanza un agente por ítem ({count} ítems): consume mucho y conviene solo con la cola corta.",
+        "allAtOnce": {
+          "one": "Lanza un agente por ítem ({count} ítem): consume mucho y conviene solo con la cola corta.",
+          "other": "Lanza un agente por ítem ({count} ítems): consume mucho y conviene solo con la cola corta."
+        },
         "oneByOneLabel": "Uno por uno.",
         "oneByOne": "Abre un ítem y copia su comando; empieza por los P0 y P1.",
         "where": "Se corren en la carpeta de la fábrica."
@@ -1372,6 +1376,8 @@
       "open": "Abiertos",
       "noPriority": "Sin prioridad",
       "openEmpty": "Nada abierto con este filtro.",
+      "empty": "No hay ítems en el backlog.",
+      "unknownItem": "El ítem {id} no está en el backlog.",
       "history": "Hechos y descartados",
       "rowBug": "Bug",
       "rowChange": "Mejora",
@@ -1929,6 +1935,10 @@
     },
     "lesson": {
       "kicker": "Lección · {type}",
+      "highRisk": "Alto riesgo",
+      "source": "Origen: {source}",
+      "links": "Referencias: {links}",
+      "status": { "active": "Activa", "candidate": "Candidata", "deprecated": "Obsoleta" },
       "promotion": "Promoción: {state}",
       "appliedIn": "Aplicada en: {list}",
       "promote": "Promoverla a estándar, regla o skill:"

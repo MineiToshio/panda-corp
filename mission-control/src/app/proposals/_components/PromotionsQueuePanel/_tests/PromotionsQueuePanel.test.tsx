@@ -30,40 +30,31 @@ describe("PromotionsQueuePanel — detail modal (FRD-17, AC-17-006.7)", () => {
 
     expect(screen.queryByTestId("lesson-detail")).not.toBeInTheDocument();
 
-    await user.click(
-      screen.getByRole("button", { name: /ver detalle de la promoción LESSON-0042/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /LESSON-0042 ·/i }));
 
     expect(screen.getByTestId("lesson-detail")).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toHaveTextContent("LESSON-0042");
     // Body is the sectioned render, not raw markdown.
-    const body = screen.getByTestId("lesson-detail-body");
+    const body = screen.getByRole("dialog");
     for (const label of ["Situation", "Lesson", "Apply next time"]) {
       expect(within(body).getByText(label)).toBeInTheDocument();
     }
     // The approve command is available inside the detail.
-    const command = screen.getByTestId("lesson-detail-command");
+    const command = screen.getByRole("dialog");
     expect(command).toHaveTextContent("/pandacorp:learn LESSON-0042");
   });
 
-  it("does NOT show the approve command for a rejected promotion", async () => {
-    const user = userEvent.setup();
+  it("omits rejected promotions from the waiting queue", () => {
     render(
       <PromotionsQueuePanel lessons={[makeLesson({ id: "LESSON-0007", promotion: "rejected" })]} />,
     );
-    await user.click(
-      screen.getByRole("button", { name: /ver detalle de la promoción LESSON-0007/i }),
-    );
-    expect(screen.getByTestId("lesson-detail")).toBeInTheDocument();
-    expect(screen.queryByTestId("lesson-detail-command")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /LESSON-0007/ })).not.toBeInTheDocument();
   });
 
   it("closes the detail modal on Escape", async () => {
     const user = userEvent.setup();
     render(<PromotionsQueuePanel lessons={[makeLesson({ id: "LESSON-0009" })]} />);
-    await user.click(
-      screen.getByRole("button", { name: /ver detalle de la promoción LESSON-0009/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /LESSON-0009 ·/i }));
     expect(screen.getByTestId("lesson-detail")).toBeInTheDocument();
     await user.keyboard("{Escape}");
     expect(screen.queryByTestId("lesson-detail")).not.toBeInTheDocument();
