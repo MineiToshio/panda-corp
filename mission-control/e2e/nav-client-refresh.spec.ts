@@ -57,18 +57,15 @@ for (const start of [
     await expectSelection(page, "WO-01-003");
     await expect(page.getByRole("region", { name: "Work order en foco" })).toBeVisible();
 
-    let inFlight = 0;
-    page.on("request", (request) => {
-      if (request.headers().rsc === "1") inFlight += 1;
-    });
-    for (const event of ["requestfinished", "requestfailed"] as const)
-      page.on(event, (request) => {
-        if (request.headers().rsc === "1") inFlight -= 1;
-      });
     await page.getByRole("button", { name: "Abrir work order", exact: true }).click();
     await expect(page.getByRole("tab", { name: "Documento completo" })).toBeVisible();
     await expectSelection(page, "WO-01-003", "WO-01-003");
-    await expect.poll(() => inFlight).toBe(0);
+    // A Back inside the same tick as the detail's last commit is rewritten by Next's own history
+    // sync; this test owns client selections across refresh, not that sub-frame race.
+    await page.waitForLoadState("load");
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 400))),
+    );
     await page.goBack();
     await expectSelection(page, "WO-01-003");
     await expect(page.getByRole("region", { name: "Work order en foco" })).toBeVisible();

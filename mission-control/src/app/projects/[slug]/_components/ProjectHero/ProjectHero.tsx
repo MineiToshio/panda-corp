@@ -49,7 +49,7 @@ export function ProjectHero({ project, headingLevel }: ProjectHeroProps): React.
       <div className={styles.chips}>
         <Chip tone="slate">
           {project.version
-            ? t("workspace.hero.version", { version: project.version })
+            ? t("workspace.hero.version", { version: project.version.replace(/^v/i, "") })
             : t("workspace.hero.noVersion")}
         </Chip>
         {project.build.kind === "idle" ? (

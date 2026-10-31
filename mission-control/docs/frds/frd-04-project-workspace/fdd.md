@@ -8,7 +8,7 @@ parent: FRD-04
 ui: true
 visual_source: docs/design/prototype/index.html
 last_updated: '2026-10-22'
-prototype_blessed_at: '409a0564'
+prototype_blessed_at: '0e6b7191'
 ---
 
 # FDD — FRD-04 Project workspace
@@ -102,3 +102,9 @@ prototype_blessed_at: 409a0564
 - **Oracle states of this FRD (`oracle-states.json`):** `project-summary`, `project-summary-funko`, `project-summary-decisions`, `project-decision-dialog`, `project-spec`, `project-spec-empty`, `project-architecture`, `project-changes`, `project-change-dialog`, `project-change-discard`, `project-documents`, `project-documents-search`, `project-documents-index-open`, `project-tab-not-found`, `project-snapshot`, `project-change-rebuilds`, `model-invalid`.
 - **Reference files:** `docs/design/prototype/reference/computed-styles.json`, `docs/design/prototype/reference/css/` (06-card, 07-chip, 12-command, 13-list-row, 14-empty-notice, 19-page-header, 20-tabs, 21-phase-stepper, 22-inicio, 25-spec, 27-architecture, 28-documents, 29-markdown), `docs/design/prototype/components.html`.
 - **`docs/design/components.md` rows:** `Tabs`, `ProjectHero`, `ProjectHeroCompact`, `ProjectSwitcher`, `FraguaScene`, `SnapshotPanel`, `AskRow`, `ProgressList`, `Dialog`, `Notice`, `CommandBox`, `ListRow`, `Chip` family, `StackBar`, `DigestHero`, `ReportBand`, `FrdCard`, `EnvRow` / `EnvFold`, `AdrRow`, `PlanMosaic`, `ModelDiagram` / `SchemaList`, `DocIndex` / `DocItem`, `Paper`, `Markdown`, `SearchField`.
+
+## Baseline provenance
+
+`workspace-desktop` first blessed 2026-10-31 in the wave 4-5 batch, once WO-04-010 and WO-04-011 mounted the frame and Resumen, judged against `docs/design/prototype/index.html#portfolio?project=mission-control&tab=summary` at 1280. It had no predecessor. Layer-B: hero, Fragua, next step, Avance por FRD, Decisiones, Tu turno and Últimos avances are present and recognizably match; cosmetic gaps go to the close-out oracle. It proves consistency only.
+
+prototype_blessed_at: 0e6b7191

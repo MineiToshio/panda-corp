@@ -79,7 +79,7 @@ export const SURFACES: readonly Surface[] = [
     frd: "frd-04-project-workspace",
     path: "/projects/mission-control",
     name: "mission-control",
-    blessed: false,
+    blessed: true,
   },
   {
     id: "idea",

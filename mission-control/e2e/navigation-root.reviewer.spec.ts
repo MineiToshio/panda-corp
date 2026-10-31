@@ -86,6 +86,7 @@ test("REQ-25: a portfolio filter survives a reload and walks Back", async ({ pag
 test("AC-25-003.1: client model params set before a canonical replace lands stay in the URL", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
   let release: () => void = () => {};
   const gate = new Promise<void>((resolve) => {
     release = resolve;

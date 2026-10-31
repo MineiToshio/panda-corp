@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/core/Button/Button";
 import { Card, CardHeader } from "@/components/core/Card/Card";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
@@ -44,6 +44,7 @@ export function ChangesPanel({
   const [previousSelectedId, setPreviousSelectedId] = useState(selectedId);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const discardDone = useRef(false);
   if (previousSelectedId !== selectedId) {
     setPreviousSelectedId(selectedId);
     setConfirming(false);
@@ -55,12 +56,20 @@ export function ChangesPanel({
     setConfirming(false);
     setError(null);
   }
+  // Closing writes the URL, which would cancel the action's revalidated tree: wait for it to commit.
+  useEffect(() => {
+    if (pending || !discardDone.current) return;
+    discardDone.current = false;
+    setSelected("");
+    setConfirming(false);
+    setError(null);
+  }, [pending, setSelected]);
   function confirm(reason: string): void {
     if (!selected || !canDiscard || pending) return;
     setError(null);
     startTransition(async () => {
       const result = await discardChangeAction(projectPath, selected.id, slug, reason);
-      if (result.ok) close();
+      if (result.ok) discardDone.current = true;
       else setError(discardErrorLabel(result.reason));
     });
   }
