@@ -6,7 +6,7 @@ title: 'WO-05-008 Observabilidad frame: Por FRD, Tablero, Dependencias mount, dr
 status: ACTIVE
 parent: FRD-05
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts:

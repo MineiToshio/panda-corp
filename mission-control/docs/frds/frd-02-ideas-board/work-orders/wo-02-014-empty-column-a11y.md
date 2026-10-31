@@ -6,7 +6,7 @@ title: 'WO-02-014 — Accessible empty-column marker on the ideas board'
 status: SUPERSEDED
 superseded_by: [WO-02-015]
 parent: FRD-02
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: low
 reopen_count: 0
 artifacts:

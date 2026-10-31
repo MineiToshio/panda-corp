@@ -6,7 +6,7 @@ title: 'WO-05-009 Work-order detail: reading summary and full document'
 status: ACTIVE
 parent: FRD-05
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: medium
 reopen_count: 0
 artifacts:

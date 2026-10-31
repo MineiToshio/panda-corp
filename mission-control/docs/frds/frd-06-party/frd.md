@@ -4,7 +4,7 @@ type: frd
 title: FRD-06 — La Fragua (live build view; formerly the Party tab)
 parent: product/prd.md
 status: ACTIVE
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-06-party/mocks/party.html

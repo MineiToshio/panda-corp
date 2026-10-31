@@ -6,7 +6,7 @@ title: 'WO-04-012 — Cambios and Documentos tabs'
 status: ACTIVE
 parent: FRD-04
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: medium
 reopen_count: 0
 artifacts:

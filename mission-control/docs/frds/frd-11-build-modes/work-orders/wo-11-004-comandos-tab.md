@@ -6,7 +6,7 @@ title: 'WO-11-004 Comandos tab'
 status: ACTIVE
 parent: FRD-11
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: medium
 reopen_count: 0
 artifacts:

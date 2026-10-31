@@ -6,7 +6,7 @@ title: 'WO-12-007 Dependencias: deterministic two-level dependency map'
 status: ACTIVE
 parent: FRD-12
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts:

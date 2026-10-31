@@ -3,7 +3,7 @@ id: FRD-05
 type: frd
 title: FRD-05 — Work orders (live view)
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-05-work-orders/mocks/work-orders.html

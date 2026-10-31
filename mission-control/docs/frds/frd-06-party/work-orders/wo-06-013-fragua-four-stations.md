@@ -6,7 +6,7 @@ title: 'WO-06-013 La Fragua four-station scene'
 status: ACTIVE
 parent: FRD-06
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts:

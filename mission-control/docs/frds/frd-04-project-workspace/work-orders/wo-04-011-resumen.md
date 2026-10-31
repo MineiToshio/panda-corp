@@ -6,7 +6,7 @@ title: 'WO-04-011 — Resumen: La Fragua head, tiles, next step, Avance por FRD,
 status: ACTIVE
 parent: FRD-04
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts:

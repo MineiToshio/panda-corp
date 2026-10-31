@@ -6,7 +6,7 @@ title: 'WO-04-009 — Stale workspace e2e specs: ten tabs (Cuentas) and FRD-25 p
 status: SUPERSEDED
 superseded_by: [WO-04-010]
 parent: FRD-04
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: low
 reopen_count: 0
 artifacts:
