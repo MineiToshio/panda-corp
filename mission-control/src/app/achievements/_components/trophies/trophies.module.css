@@ -81,8 +81,8 @@
 }
 .seal small,
 .sealRow small {
-  color: var(--text-2);
-  font-size: var(--fs-xs);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
   font-variant-numeric: tabular-nums;
 }
 .conquered {
@@ -118,6 +118,10 @@
   justify-content: space-between;
   gap: var(--s2);
   font-size: var(--fs-md);
+}
+
+.sealRow .sealHead {
+  line-height: 1.4;
 }
 
 /* Catalogue cards use the approved horizontal, compact trophy layout. */

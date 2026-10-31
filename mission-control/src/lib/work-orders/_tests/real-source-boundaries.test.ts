@@ -91,7 +91,7 @@ it("AC-04-014.2: after quoting the archived scalar, the count includes only the 
 
 it("DR-078: an unreadable discovery root fails the entire read instead of claiming an empty plan", () => {
   write("docs/frds", "not a directory");
-  expect(() => readPublishedWorkOrders(root)).toThrow(/docs\/frds/);
+  expect(() => readPublishedWorkOrders(root)).toThrow(/docs\/frds.*ENOTDIR/);
 });
 
 it("DR-078: empty and invalid-state files are named without affecting a valid sibling", () => {

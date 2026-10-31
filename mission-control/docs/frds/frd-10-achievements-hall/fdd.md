@@ -184,3 +184,9 @@ Catalogue text flexes to the available width. Evidence dates use inline icons an
 The summary radar occupies 230px on desktop, uses medium label text and a 4% visual floor while preserving zero in its accessible data. Rank discs shrink to 52px with 44px sprites on phones. Recent tiles use gold icons and omit the project line; the dialog keeps that evidence. Links use medium semibold text and radar prose uses the small muted style. Shared `GuildHero` remains unchanged.
 
 Browser verification at 1280px and 375px confirmed no horizontal overflow, a 230px radar with approximately 9.82px effective labels, 64/52px rank discs, 56/44px sprites, and medium semibold rank links. At 375px the conquered-card text measures 255px, matching the prototype; slots measure 42/34px, rarity dots 7px and the summary badge 19px. Dialog dismissal, category changes and the empty conquered trophy icon were exercised. These checks do not re-bless the existing screenshot baselines.
+
+### Integration accessibility and typography corrections (2026-10-31)
+
+The summary radar stacks above its prose at every width and uses a 280px SVG (`calc(var(--s10) * 7)`), constrained by the available width. Its 14px SVG labels therefore render at approximately 12px instead of 9.82px. Accessibility takes precedence over the prototype's compact side-by-side radar. Summary columns use the prototype's flex stacks with a spacing-6 gap and a stretching final card on desktop; seal rows use spacing-2, matching the compact approximately 61px row rhythm. Below 1024px final cards return to intrinsic height. Seal counts and axes use small (13px), tertiary text.
+
+Statistics prose uses proportional figures. Numeric table cells retain the shared `td` tabular-figure rule; the report container does not impose tabular figures on its prose. Shared guild-hero and dashboard progress prose also retain proportional figures.

@@ -54,6 +54,15 @@ it("AC-02-013.3 AC-02-013.4: malformed work orders and unreadable ADR/env source
   expect(bundle.sourceErrors.env).toBeTruthy();
   expect(bundle.sourceErrors.adrs).toBeTruthy();
   expect(bundle.sourceErrors.workOrders).toBeTruthy();
+  expect(bundle.sourceErrors.workOrderFiles).toEqual([
+    {
+      file: "docs/frds/frd-01-reader/work-orders/wo-01-001-read.md",
+      reason: "malformed YAML frontmatter",
+    },
+  ]);
+  expect(readSpecArtifacts(dir).sourceErrors.workOrderFiles).toEqual(
+    bundle.sourceErrors.workOrderFiles,
+  );
   expect(bundle.architectureContent).toContain("Next");
 });
 it("AC-02-015.9 AC-02-013.1: the shared architecture reader exposes a structured none state without narrative", () => {

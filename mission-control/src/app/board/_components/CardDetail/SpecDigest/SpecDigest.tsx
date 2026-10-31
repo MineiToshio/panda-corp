@@ -8,6 +8,7 @@ import { Icon } from "@/components/core/Icon/Icon";
 import type { IconName } from "@/components/core/Icon/iconData";
 import type { LinkResolver } from "@/components/core/Markdown/Markdown";
 import { Notice } from "@/components/core/Notice/Notice";
+import { FileReadErrors } from "@/components/modules/FileReadErrors/FileReadErrors";
 import { projectMetaChips } from "@/components/modules/IdeaCard/IdeaCard";
 import { DigestHero } from "@/components/modules/ReportBand/DigestHero";
 import { ReportBand } from "@/components/modules/ReportBand/ReportBand";
@@ -149,11 +150,7 @@ export function SpecDigest({
           </div>
         </ReportBand>
       )}
-      {sourceErrors?.workOrders && (
-        <Notice icon="alert" kind="error">
-          {sourceErrors.workOrders}
-        </Notice>
-      )}
+      <SpecWorkOrderErrors sourceErrors={sourceErrors} />
       {selected && !open && <p role="status">El FRD seleccionado no está disponible.</p>}
       {open && (
         <FrdDetail
@@ -248,4 +245,20 @@ function documentAction(
       {content}
     </ButtonLink>
   );
+}
+
+function SpecWorkOrderErrors({
+  sourceErrors,
+}: {
+  readonly sourceErrors?: DigestSourceErrors;
+}): React.JSX.Element | null {
+  if (sourceErrors?.workOrderFiles?.length)
+    return <FileReadErrors errors={sourceErrors.workOrderFiles} />;
+  if (sourceErrors?.workOrders)
+    return (
+      <Notice icon="alert" kind="error">
+        {sourceErrors.workOrders}
+      </Notice>
+    );
+  return null;
 }

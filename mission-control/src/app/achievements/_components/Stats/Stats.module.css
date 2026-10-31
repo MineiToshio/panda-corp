@@ -4,7 +4,6 @@
   overflow-wrap: anywhere;
   gap: var(--s4);
   color: var(--text);
-  font-variant-numeric: tabular-nums;
 }
 .band {
   display: grid;

@@ -331,3 +331,10 @@ FrdCard uses a violet identity chip, right-aligned kind tag, de-prefixed title a
 ### Lane H independent-review corrections (2026-10-31)
 
 FrdCard IDs use the mono fcode treatment (violet tint, r-xs, 4px vertical / 7px horizontal padding) rather than a rounded Chip. The engine-log heading uses h2, the shared slate BadgeIcon and the shared hide-sm utility. PhaseStepper exposes hideLabelsOnMobile for ProjectHero instead of styling a test identifier. Empty FRD progress rows retain an accessible empty stack track. Workspace Spec uses s6 between its notice and bands, with layers notice icon and flag/search document actions. The green seeAll footer class is isolated from DecisionsCard links.
+
+### Integration corrections (2026-10-31)
+
+- `Tabs`: circular spacing-8 overflow buttons, pill radius, strong hairline border and small shadow, retaining directional edge gradients.
+- `FrdCard`: inline Markdown summaries with inherited small code text.
+- `FileReadErrors`: reused by both report digests for structured work-order errors; diagnostic source strings remain available to nonvisual consumers.
+- `GuildHero` / dashboard `Progreso`: proportional figures in prose; numeric elements opt into tabular figures individually.

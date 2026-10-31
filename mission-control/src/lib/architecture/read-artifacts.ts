@@ -32,6 +32,7 @@ export function readArchitectureArtifacts(projectPath: string) {
     adrs: hasArchitecture ? adrs.value : undefined,
     frds: frds.value,
     sourceErrors: {
+      workOrderFiles: orders.value.errors,
       workOrders:
         orders.error ??
         (orders.value.errors.map((issue) => `${issue.file}: ${issue.reason}`).join("; ") ||

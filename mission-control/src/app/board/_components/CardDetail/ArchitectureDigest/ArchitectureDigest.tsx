@@ -5,6 +5,7 @@ import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown
 import { Modal } from "@/components/core/Modal/Modal";
 import { Notice } from "@/components/core/Notice/Notice";
 import { DataModelViewer } from "@/components/modules/DataModelViewer/DataModelViewer";
+import { FileReadErrors } from "@/components/modules/FileReadErrors/FileReadErrors";
 import { projectMetaChips } from "@/components/modules/IdeaCard/IdeaCard";
 import { AdrRow } from "@/components/modules/ReportBand/AdrRow";
 import { DigestHero } from "@/components/modules/ReportBand/DigestHero";
@@ -181,14 +182,13 @@ export function ArchitectureDigest({
             testId="arch-plan"
             tone="violet"
           >
-            <p>{t("workspace.arquitectura.plan.note")}</p>
-            {sourceErrors?.workOrders ? (
-              <Notice icon="alert" kind="error">
-                {sourceErrors.workOrders}
-              </Notice>
-            ) : (
-              <PlanMosaic workOrders={workOrders} started={started} frds={planFrds} />
-            )}
+            <p className={styles.bandNote}>{t("workspace.arquitectura.plan.note")}</p>
+            <ArchitecturePlan
+              sourceErrors={sourceErrors}
+              workOrders={workOrders}
+              started={started}
+              frds={planFrds}
+            />
             {sourceErrors?.frds && (
               <Notice icon="alert" kind="error">
                 {sourceErrors.frds}
@@ -345,12 +345,14 @@ function ArchitectureHero({
         <>
           {arch.host && (
             <span data-testid="arch-chip-host">
-              <Chip tone="slate">{arch.host}</Chip>
+              <Chip tone="slate" variant="plain" icon="cube">
+                {arch.host}
+              </Chip>
             </span>
           )}
           {arch.coste && (
             <span data-testid="arch-chip-coste">
-              <Chip tone="slate">{arch.coste}</Chip>
+              <Chip tone="green">{arch.coste}</Chip>
             </span>
           )}
           {arch.fase && (
@@ -358,7 +360,9 @@ function ArchitectureHero({
           )}
           {projectMetaChips(projectType, targetPlatforms).map((chip) => (
             <span key={chip.label} data-testid="arch-meta-chip">
-              <Chip tone="slate">{chip.label}</Chip>
+              <Chip tone="slate" variant="plain">
+                {chip.label}
+              </Chip>
             </span>
           ))}
         </>
@@ -397,4 +401,26 @@ function ModelBand({
       )}
     </ReportBand>
   );
+}
+
+function ArchitecturePlan({
+  sourceErrors,
+  workOrders,
+  started,
+  frds,
+}: {
+  readonly sourceErrors?: DigestSourceErrors;
+  readonly workOrders: readonly WorkOrder[];
+  readonly started: boolean;
+  readonly frds: readonly { id: string; title: string }[];
+}): React.JSX.Element {
+  if (sourceErrors?.workOrderFiles?.length)
+    return <FileReadErrors errors={sourceErrors.workOrderFiles} />;
+  if (sourceErrors?.workOrders)
+    return (
+      <Notice icon="alert" kind="error">
+        {sourceErrors.workOrders}
+      </Notice>
+    );
+  return <PlanMosaic workOrders={workOrders} started={started} frds={frds} />;
 }

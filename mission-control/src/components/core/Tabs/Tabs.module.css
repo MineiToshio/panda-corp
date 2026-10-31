@@ -107,14 +107,16 @@
   position: absolute;
   top: var(--s2);
   z-index: 2;
-  width: var(--tabs-control-width);
-  min-height: 30px;
+  width: var(--s8);
+  height: var(--s8);
+  min-height: var(--s8);
   display: grid;
   place-items: center;
-  border: 0;
-  border-radius: var(--r-sm);
+  border: var(--hairline) solid var(--line-strong);
+  border-radius: var(--r-pill);
   background: var(--surface);
-  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-2);
   cursor: pointer;
 }
 .previous {

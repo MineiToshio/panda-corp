@@ -394,3 +394,7 @@ those values to English is a separate CONV-18 change.
 ### Shared FRD card clarification (2026-10-31, lane H)
 
 The shared FrdCard presents its ID in a violet chip, kind at the opposite edge, and title without a repeated FRD ID prefix. Once construction starts, its state stack reads done, review, in_progress, fail, todo, with a done/total count alongside. Workspace-specific four-column placement and digest-header visibility belong to FRD-04. Board Spec retains its existing digest eyebrow.
+
+### File-level report failures (2026-10-31)
+
+Spec and Architecture retain structured work-order read failures alongside their diagnostic source strings. Both render these failures through the shared FileReadErrors component: known reasons are localized into Spanish, file paths remain visible, and valid work orders remain available. Unknown failure reasons remain explicit. Directory-listing failures preserve their operating-system error code for diagnosis.

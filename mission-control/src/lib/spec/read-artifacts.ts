@@ -1,4 +1,4 @@
-import { readPublishedWorkOrders } from "@/lib/work-orders/published";
+import { readPublishedWorkOrders, type WorkOrderReadError } from "@/lib/work-orders/published";
 import { readDigestFrds } from "./read-frds";
 import { readSpecDigest } from "./read-spec";
 
@@ -7,6 +7,7 @@ export interface DigestSourceErrors {
   readonly env?: string;
   readonly adrs?: string;
   readonly workOrders?: string;
+  readonly workOrderFiles?: readonly WorkOrderReadError[];
   readonly frds?: string;
 }
 
@@ -32,6 +33,7 @@ export function readSpecArtifacts(projectPath: string) {
     frdCount: frds.value.length,
     workOrders: orders.value.items,
     sourceErrors: {
+      workOrderFiles: orders.value.errors,
       workOrders:
         orders.error ??
         (orders.value.errors.map((issue) => `${issue.file}: ${issue.reason}`).join("; ") ||

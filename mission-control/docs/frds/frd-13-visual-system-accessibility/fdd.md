@@ -101,3 +101,7 @@ prototype_blessed_at: 409a0564
 - **Mocks:** `docs/frds/frd-13-visual-system-accessibility/mocks/visual-system-accessibility.html`; screenshots `docs/frds/frd-13-visual-system-accessibility/mocks/screenshots/<id>-<width>-<theme>.jpg` (375, 768, 1280; light and dark; viewport captures).
 - **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#inicio`, then the actions listed for each state in `docs/design/freeze/fidelity.config.json` (focus the skip link; scroll to the ring and focus it).
 - **Oracle states of this FRD** (`oracle-states.json`): `a11y-skip-link-focus`, `a11y-ring-tooltip-focus`.
+
+### Tab overflow controls (2026-10-31)
+
+The shared tab overflow buttons use the prototype's 32px circular shape, strong hairline border, secondary text and small shadow. Existing directional edge gradients continue to signal obscured tabs. Controls remain named, keyboard reachable and scroll the tab strip.

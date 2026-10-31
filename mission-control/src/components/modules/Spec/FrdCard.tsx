@@ -1,3 +1,4 @@
+import ReactMarkdown from "react-markdown";
 import { Chip } from "@/components/core/Chip/Chip";
 import {
   WORK_ORDER_STACK_STATES,
@@ -8,6 +9,11 @@ import styles from "@/components/modules/ReportBand/reportBand.module.css";
 import { t } from "@/lib/copy/copy";
 import { frdKind } from "@/lib/spec/frdKind";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
+
+function SummaryText({ children }: { readonly children?: React.ReactNode }): React.JSX.Element {
+  return <span>{children}</span>;
+}
+const SUMMARY_COMPONENTS = { p: SummaryText, a: SummaryText };
 
 /** Whole-area FRD activation, with live progress shown only after construction starts. */
 export function FrdCard({
@@ -55,7 +61,11 @@ export function FrdCard({
         <Chip tone={kind.tone}>{kind.label}</Chip>
       </span>
       <b>{title}</b>
-      {frd.summary && <span>{frd.summary}</span>}
+      {frd.summary && (
+        <span>
+          <ReactMarkdown components={SUMMARY_COMPONENTS}>{frd.summary}</ReactMarkdown>
+        </span>
+      )}
       {started ? (
         workOrders.length > 0 ? (
           <div className={styles.frdProgress}>

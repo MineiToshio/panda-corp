@@ -298,7 +298,7 @@
   margin-top: var(--s5);
   font-size: var(--fs-xs);
   text-transform: uppercase;
-  color: var(--text-3);
+  color: var(--text-2);
 }
 .architecture .frd:focus-visible > b + span {
   display: block;
@@ -352,4 +352,14 @@
   padding: var(--s1) calc(var(--s2) - var(--hairline));
   border-radius: var(--r-xs);
   flex: none;
+}
+
+.bandNote {
+  margin-bottom: var(--s3);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+.frd > span code {
+  font-family: var(--font-mono);
+  font-size: inherit;
 }

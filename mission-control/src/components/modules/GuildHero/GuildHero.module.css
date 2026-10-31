@@ -49,7 +49,6 @@
   color: var(--text-2);
   font-size: var(--fs-sm);
   margin: 0;
-  font-variant-numeric: tabular-nums;
 }
 .body .kicker {
   color: var(--gold);

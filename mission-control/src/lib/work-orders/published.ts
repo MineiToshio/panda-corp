@@ -19,8 +19,9 @@ function entries(folder: string): fs.Dirent[] {
   try {
     return fs.readdirSync(folder, { withFileTypes: true });
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return [];
-    throw new Error(`${folder}: directory could not be listed`, { cause: error });
+    const code = error && typeof error === "object" && "code" in error ? error.code : "unknown";
+    if (code === "ENOENT") return [];
+    throw new Error(`${folder}: directory could not be listed (${code})`, { cause: error });
   }
 }
 function readSource(

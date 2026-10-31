@@ -215,3 +215,9 @@ those values to English is a separate CONV-18 change.
 ### Shared FRD card clarification (2026-10-31, lane H)
 
 The shared FrdCard presents its ID in a violet chip, kind at the opposite edge, and title without a repeated FRD ID prefix. Once construction starts, its state stack reads done, review, in_progress, fail, todo, with a done/total count alongside. Workspace-specific four-column placement and digest-header visibility belong to FRD-04. Board Spec retains its existing digest eyebrow.
+
+### Integration report corrections (2026-10-31)
+
+Architecture plan introductions use small secondary text and the “Por FRD” label uses secondary text for contrast. FRD card summaries render inline Markdown (including code) instead of exposing source delimiters. Authored punctuation and narrative metadata remain source content. Header hosting/platform chips use the plain variant, hosting includes a cube icon, and the cost uses a green tint.
+
+The real Funko Tracker digest already supplies de-prefixed mosaic titles; its relationship disclosure already has a border and spacing. Neither is normalized from fixture-only observations.
