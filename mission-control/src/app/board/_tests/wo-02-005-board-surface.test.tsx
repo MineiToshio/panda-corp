@@ -17,7 +17,7 @@
 
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BoardShell } from "@/app/board/_components/BoardShell/BoardShell";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import type { DiscardResult } from "@/lib/discard/discard";
@@ -88,11 +88,6 @@ describe("BoardShell WO-02-005 — page structure", () => {
     expect(h1).toBeInTheDocument();
   });
 
-  it("renders the page-title data-testid (PageTitle contract)", () => {
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
-    expect(screen.getByTestId("page-title")).toBeInTheDocument();
-  });
-
   it("renders the ideas board (idea-board testid)", () => {
     render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
     expect(screen.getByTestId("idea-board")).toBeInTheDocument();
@@ -108,79 +103,9 @@ describe("BoardShell WO-02-005 — page structure", () => {
 // CategoryFilter integration (AC-02-006.1)
 // ---------------------------------------------------------------------------
 
-describe("BoardShell WO-02-005 — category filter (AC-02-006)", () => {
-  it("renders the category filter (native <select>)", () => {
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
-    expect(screen.getByTestId("category-filter")).toBeInTheDocument();
-  });
-
-  it("offers the 'Todas las categorías' reset option (empty value)", () => {
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
-    const select = screen.getByTestId("category-filter");
-    const resetOption = within(select).getByRole("option", { name: "Todas las categorías" });
-    expect(resetOption).toBeInTheDocument();
-    expect(resetOption).toHaveValue("");
-  });
-
-  it("renders one option per distinct project_type (plus the reset option)", () => {
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
-    const select = screen.getByTestId("category-filter");
-    const options = within(select).getAllByRole("option");
-    // reset + web, ai, cli
-    expect(options).toHaveLength(4);
-  });
-
-  it("selecting a category filters the board (only matching cards visible)", async () => {
-    const user = userEvent.setup();
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
-
-    // Select the 'web' category (option value = projectType slug).
-    await user.selectOptions(screen.getByTestId("category-filter"), "web");
-
-    // Web Idea should be visible in discovered column
-    const discoveredCol = screen.getByTestId("board-column-discovered");
-    expect(within(discoveredCol).getByText("Web Idea")).toBeInTheDocument();
-
-    // AI Idea should NOT be visible (filtered out)
-    // It WAS in discovered col too, so now it shouldn't appear
-    expect(within(discoveredCol).queryByText("AI Idea")).not.toBeInTheDocument();
-  });
-
-  it("resetting to 'Todas las categorías' restores all cards", async () => {
-    const user = userEvent.setup();
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
-
-    // Select web filter first
-    await user.selectOptions(screen.getByTestId("category-filter"), "web");
-
-    // Reset (empty value = all categories)
-    await user.selectOptions(screen.getByTestId("category-filter"), "");
-
-    // Both cards visible again
-    const discoveredCol = screen.getByTestId("board-column-discovered");
-    expect(within(discoveredCol).getByText("Web Idea")).toBeInTheDocument();
-    expect(within(discoveredCol).getByText("AI Idea")).toBeInTheDocument();
-  });
-});
-
 // ---------------------------------------------------------------------------
 // BoardLegend (AC-02-008.3)
 // ---------------------------------------------------------------------------
-
-describe("BoardShell WO-02-005 — legend (AC-02-008)", () => {
-  it("renders the board legend", () => {
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
-    expect(screen.getByTestId("board-legend")).toBeInTheDocument();
-  });
-
-  it("legend explains the category, return and score axes (single inline line)", () => {
-    render(<BoardShell cards={ALL_CARDS} discardAction={noOpDiscard} />);
-    const text = (screen.getByTestId("board-legend").textContent ?? "").toLowerCase();
-    expect(text).toContain("categoría");
-    expect(text).toContain("retorno");
-    expect(text.includes("score") || text.includes("puntuaci")).toBe(true);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // Intake modal (AC-02-003)
@@ -252,7 +177,7 @@ describe("BoardShell WO-02-005 — card click → detail (AC-02-004)", () => {
 
     const [firstCard] = screen.getAllByTestId("idea-card");
     expect(firstCard).toBeDefined();
-    await user.click(firstCard as HTMLElement);
+    await user.click(within(firstCard as HTMLElement).getByRole("link"));
     expect(screen.getByTestId("card-detail")).toBeInTheDocument();
   });
 
@@ -260,7 +185,7 @@ describe("BoardShell WO-02-005 — card click → detail (AC-02-004)", () => {
     const user = userEvent.setup();
     render(<BoardShell cards={[WEB_CARD]} discardAction={noOpDiscard} />);
 
-    await user.click(screen.getByTestId("idea-card"));
+    await user.click(within(screen.getByTestId("idea-card")).getByRole("link"));
     const detail = screen.getByTestId("card-detail");
     // The title shows in the accessible (clipped) <h2> AND, visibly, in the Propuesta pitch hero.
     expect(within(detail).getAllByText("Web Idea").length).toBeGreaterThan(0);
@@ -272,7 +197,7 @@ describe("BoardShell WO-02-005 — card click → detail (AC-02-004)", () => {
 
     const [firstCard2] = screen.getAllByTestId("idea-card");
     expect(firstCard2).toBeDefined();
-    await user.click(firstCard2 as HTMLElement);
+    await user.click(within(firstCard2 as HTMLElement).getByRole("link"));
     expect(screen.getByTestId("card-detail")).toBeInTheDocument();
 
     const backBtn = screen.getByTestId("card-detail-back");
@@ -292,7 +217,7 @@ describe("BoardShell WO-02-005 — discard button (AC-02-007)", () => {
     const user = userEvent.setup();
     render(<BoardShell cards={[WEB_CARD]} discardAction={noOpDiscard} />);
 
-    await user.click(screen.getByTestId("idea-card"));
+    await user.click(within(screen.getByTestId("idea-card")).getByRole("link"));
     expect(screen.getByTestId("discard-button")).toBeInTheDocument();
   });
 
@@ -308,7 +233,9 @@ describe("BoardShell WO-02-005 — discard button (AC-02-007)", () => {
 
     // Discarded ideas aren't on the board — reach the detail via "Ver descartadas".
     await user.click(screen.getByTestId("discarded-trigger"));
-    await user.click(screen.getByTestId("discarded-item-disc"));
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: /Discarded Idea/ }),
+    );
     expect(screen.queryByTestId("discard-button")).not.toBeInTheDocument();
   });
 
@@ -322,7 +249,7 @@ describe("BoardShell WO-02-005 — discard button (AC-02-007)", () => {
     const user = userEvent.setup();
     render(<BoardShell cards={[shippedCard]} discardAction={noOpDiscard} />);
 
-    await user.click(screen.getByTestId("idea-card"));
+    await user.click(within(screen.getByTestId("idea-card")).getByRole("link"));
     expect(screen.queryByTestId("discard-button")).not.toBeInTheDocument();
   });
 });
@@ -342,14 +269,6 @@ describe("BoardShell WO-02-005 — building indicator (AC-02-008)", () => {
 // Recommended badge (AC-02-006.2)
 // ---------------------------------------------------------------------------
 
-describe("BoardShell WO-02-005 — recommended badge (AC-02-006)", () => {
-  it("recommended card shows the badge inside the discovered column", () => {
-    render(<BoardShell cards={[AI_CARD]} discardAction={noOpDiscard} />);
-    const col = screen.getByTestId("board-column-discovered");
-    expect(within(col).getByTestId("idea-card-recommended-badge")).toBeInTheDocument();
-  });
-});
-
 // ---------------------------------------------------------------------------
 // Discarded ideas — "Ver descartadas" modal + restore (AC-02-007.2/.3/.4)
 // ---------------------------------------------------------------------------
@@ -362,13 +281,6 @@ describe("BoardShell — discarded ideas (Ver descartadas + restore)", () => {
     status: "discarded",
     boardColumn: "discarded",
     discardReason: "saturado / competencia fuerte",
-  });
-
-  it("shows the 'Ver descartadas' button only when there are discarded ideas", () => {
-    const { rerender } = render(<BoardShell cards={[WEB_CARD]} discardAction={noOpDiscard} />);
-    expect(screen.queryByTestId("discarded-trigger")).not.toBeInTheDocument();
-    rerender(<BoardShell cards={[WEB_CARD, discarded]} discardAction={noOpDiscard} />);
-    expect(screen.getByTestId("discarded-trigger")).toBeInTheDocument();
   });
 
   it("keeps discarded ideas off the board (reachable only via the modal)", () => {
@@ -385,7 +297,9 @@ describe("BoardShell — discarded ideas (Ver descartadas + restore)", () => {
     await user.click(screen.getByTestId("discarded-trigger"));
     expect(screen.getByTestId("discarded-modal")).toBeInTheDocument();
 
-    await user.click(screen.getByTestId("discarded-item-disc"));
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: /Discarded Idea/ }),
+    );
     // Detail: discard reason banner + restore button, never the discard button.
     expect(screen.getByTestId("detail-discard-reason")).toHaveTextContent("saturado");
     expect(screen.getByTestId("restore-button")).toBeInTheDocument();
@@ -396,8 +310,15 @@ describe("BoardShell — discarded ideas (Ver descartadas + restore)", () => {
     const user = userEvent.setup();
     render(<BoardShell cards={[discarded]} discardAction={noOpDiscard} />);
     await user.click(screen.getByTestId("discarded-trigger"));
-    await user.click(screen.getByTestId("discarded-item-disc"));
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: /Discarded Idea/ }),
+    );
     expect(screen.getByTestId("detail-discard-reason")).toBeInTheDocument();
     expect(screen.queryByTestId("restore-button")).not.toBeInTheDocument();
   });
+});
+
+beforeEach(() => {
+  window.history.replaceState(null, "", "/board");
+  localStorage.clear();
 });

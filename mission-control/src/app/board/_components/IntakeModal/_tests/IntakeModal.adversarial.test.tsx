@@ -124,8 +124,10 @@ describe("adversarial: interactions INSIDE the panel never close the modal", () 
     const onClose = vi.fn();
     render(<IntakeModal open={true} onClose={onClose} />);
 
-    fireEvent.click(screen.getByTestId("intake-command-discover-title"));
-    fireEvent.click(screen.getByTestId("intake-command-recommend-description"));
+    const discover = screen.getByTestId("intake-command-discover");
+    const recommend = screen.getByTestId("intake-command-recommend");
+    fireEvent.click(within(discover).getByRole("heading"));
+    fireEvent.click(within(recommend).getByRole("heading"));
 
     expect(onClose).not.toHaveBeenCalled();
   });

@@ -12,9 +12,10 @@ import { buildModeFlag, buildModeFromFlag, IMPLEMENT_MODES, SPEC_MODES } from "@
 import { BUILD_MODES, DEFAULT_BUILD_MODE } from "@/lib/constants";
 
 describe("command-modes — spec clarification modes", () => {
-  it("offers exactly --ask / --auto / --infer", () => {
+  it("AC-02-010.9 offers exactly --ask / --auto / --infer with one-line hints", () => {
     expect(SPEC_MODES.map((m) => m.flag)).toEqual(["--ask", "--auto", "--infer"]);
     expect(SPEC_MODES.map((m) => m.label)).toEqual(["ask", "auto", "infer"]);
+    for (const mode of SPEC_MODES) expect(mode.hint.trim()).not.toBe("");
   });
 });
 

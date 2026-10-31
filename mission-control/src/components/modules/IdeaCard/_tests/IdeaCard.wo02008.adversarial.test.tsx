@@ -4,9 +4,8 @@
  * Edge cases the implementer did NOT cover for AC-02-008.2:
  *   1. score=0 (falsy) MUST still render with the building indicator — the
  *      `score !== undefined` guard must not be a truthiness check.
- *   2. The building indicator and the recommended badge are mutually exclusive
- *      by status (in-pipeline never recommended), but a defensive check: when
- *      status flips to in-pipeline the recommended badge disappears.
+ *   2. No recommended badge exists in v2, and a stale isRunning on a card that
+ *      is not in-pipeline never shows the building indicator.
  *   3. The accessible label of the indicator is NON-COLOR (text + aria-label +
  *      role) — verify all three a11y affordances together (§7).
  *   4. Indicator does NOT leak into the title or category text (it is its own
@@ -65,9 +64,9 @@ describe("frd-02: AC-02-008.2 — building indicator and recommended badge do no
     expect(screen.queryByTestId("idea-card-recommended-badge")).not.toBeInTheDocument();
   });
 
-  it("frd-02: AC-02-008.2 — recommended (not in-pipeline) shows recommended but NOT building, even with stale isRunning", () => {
+  it("frd-02: AC-02-008.2 — a recommended card shows no badge and NOT building, even with stale isRunning", () => {
     render(<IdeaCard slug="r1" title="Rec" status="recommended" body="x" isRunning={true} />);
-    expect(screen.getByTestId("idea-card-recommended-badge")).toBeInTheDocument();
+    expect(screen.queryByTestId("idea-card-recommended-badge")).not.toBeInTheDocument();
     expect(screen.queryByTestId("idea-card-building-indicator")).not.toBeInTheDocument();
   });
 });
@@ -77,12 +76,11 @@ describe("frd-02: AC-02-008.2 — building indicator and recommended badge do no
 // ---------------------------------------------------------------------------
 
 describe("frd-02: AC-02-008.2 — indicator carries text + aria-label + announcing role together", () => {
-  it("frd-02: AC-02-008.2 — indicator has all three: icon glyph, aria-label, and role=status", () => {
+  it("frd-02: AC-02-008.2 — indicator has all three: visible word, aria-label, and role=status", () => {
     render(<IdeaCard {...IN_PIPELINE_RUNNING} />);
     const ind = screen.getByTestId("idea-card-building-indicator");
-    // Non-color visual cue is the play icon glyph (prototype-faithful), plus the
-    // screen-reader affordances aria-label + role=status (not color alone, §7).
-    expect(ind.className).toMatch(/\bti-player-play\b/);
+    // The non-colour cue is the visible word, plus aria-label + role=status (§7).
+    expect(ind).toHaveTextContent("Construyendo");
     expect((ind.getAttribute("aria-label") ?? "").trim().length).toBeGreaterThan(0);
     expect(ind.getAttribute("role")).toBe("status");
   });

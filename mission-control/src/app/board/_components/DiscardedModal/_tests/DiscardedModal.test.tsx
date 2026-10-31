@@ -28,21 +28,25 @@ describe("DiscardedModal", () => {
   it("lists every discarded idea with its title and reason", () => {
     render(<DiscardedModal open onClose={vi.fn()} cards={CARDS} onSelect={vi.fn()} />);
     expect(screen.getByTestId("discarded-modal")).toBeInTheDocument();
-    expect(screen.getByTestId("discarded-item-alpha")).toHaveTextContent("Idea Alpha");
-    expect(screen.getByTestId("discarded-item-alpha")).toHaveTextContent("saturado · muy complejo");
-    expect(screen.getByTestId("discarded-item-beta")).toHaveTextContent("Sin motivo registrado");
+    expect(screen.getByRole("button", { name: /Idea Alpha/ })).toHaveTextContent("Idea Alpha");
+    expect(screen.getByRole("button", { name: /Idea Alpha/ })).toHaveTextContent(
+      "saturado · muy complejo",
+    );
+    expect(screen.getByRole("button", { name: /Idea Beta/ })).toHaveTextContent(
+      "leer propuesta y restaurar",
+    );
   });
 
   it("shows an empty state when there are no discarded ideas", () => {
     render(<DiscardedModal open onClose={vi.fn()} cards={[]} onSelect={vi.fn()} />);
-    expect(screen.getByTestId("discarded-empty")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Ideas descartadas · 0" })).toBeVisible();
   });
 
   it("calls onSelect with the slug when a row is clicked", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
     render(<DiscardedModal open onClose={vi.fn()} cards={CARDS} onSelect={onSelect} />);
-    await user.click(screen.getByTestId("discarded-item-alpha"));
+    await user.click(screen.getByRole("button", { name: /Idea Alpha/ }));
     expect(onSelect).toHaveBeenCalledWith("alpha");
   });
 

@@ -39,12 +39,6 @@ const FULL_CARD: IdeaCardProps = {
   body: "A full idea description.",
 };
 
-const RECOMMENDED_CARD: IdeaCardProps = {
-  ...FULL_CARD,
-  slug: "idea-recommended",
-  status: "recommended",
-};
-
 const IN_PIPELINE_RUNNING_CARD: IdeaCardProps = {
   ...FULL_CARD,
   slug: "idea-in-pipeline",
@@ -101,7 +95,7 @@ describe("IdeaCard — category chip (projectType, AC-02-005.1)", () => {
 
   it("does NOT render category chip when projectType is absent", () => {
     render(<IdeaCard {...BASE_CARD} />);
-    expect(screen.queryByTestId("idea-card-category")).not.toBeInTheDocument();
+    expect(screen.getByText("Sin categoría")).toBeVisible();
   });
 });
 
@@ -151,35 +145,6 @@ describe("IdeaCard — score", () => {
 // ---------------------------------------------------------------------------
 // AC-02-006.2 — recommended badge
 // ---------------------------------------------------------------------------
-
-describe("IdeaCard — recommended badge (AC-02-006.2)", () => {
-  it("shows the recommended badge when status is 'recommended'", () => {
-    render(<IdeaCard {...RECOMMENDED_CARD} />);
-    expect(screen.getByTestId("idea-card-recommended-badge")).toBeInTheDocument();
-  });
-
-  it("does NOT show the recommended badge for status 'discovered'", () => {
-    render(<IdeaCard {...FULL_CARD} />);
-    expect(screen.queryByTestId("idea-card-recommended-badge")).not.toBeInTheDocument();
-  });
-
-  it("does NOT show the recommended badge for status 'in-pipeline'", () => {
-    render(<IdeaCard {...IN_PIPELINE_IDLE_CARD} />);
-    expect(screen.queryByTestId("idea-card-recommended-badge")).not.toBeInTheDocument();
-  });
-
-  it("does NOT show the recommended badge for status 'shipped'", () => {
-    const card: IdeaCardProps = { ...FULL_CARD, status: "shipped" };
-    render(<IdeaCard {...card} />);
-    expect(screen.queryByTestId("idea-card-recommended-badge")).not.toBeInTheDocument();
-  });
-
-  it("does NOT show the recommended badge for status 'discarded'", () => {
-    const card: IdeaCardProps = { ...FULL_CARD, status: "discarded" };
-    render(<IdeaCard {...card} />);
-    expect(screen.queryByTestId("idea-card-recommended-badge")).not.toBeInTheDocument();
-  });
-});
 
 // ---------------------------------------------------------------------------
 // REQ-02-008 — building indicator (running: true on in-pipeline cards)

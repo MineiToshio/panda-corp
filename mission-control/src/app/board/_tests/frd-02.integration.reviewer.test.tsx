@@ -157,11 +157,11 @@ describe("FRD-02 integration: missing/malformed status falls back coherently (B1
 
 // ---------------------------------------------------------------------------
 // 3. Board routing end-to-end (WO-02-005) using deriveColumn output, with the
-//    recommended badge (AC-02-006.2) and the no-manual-move invariant (AC-02-002.1).
+//    no recommended badge (FRD-02 line 22, Out of v2) and the no-manual-move invariant (AC-02-002.1).
 // ---------------------------------------------------------------------------
 
 describe("FRD-02 integration: board routes deriveColumn output into the right columns", () => {
-  it("a recommended card lands in the discovered column AND shows the recommended badge", () => {
+  it("a recommended card lands in the discovered column WITHOUT a recommended badge", () => {
     const c = card({ slug: "rec", status: "recommended" });
     const entry = toEntry(c, null);
     expect(entry.boardColumn).toBe("discovered");
@@ -171,8 +171,9 @@ describe("FRD-02 integration: board routes deriveColumn output into the right co
     const discovered = screen.getByTestId("board-column-discovered");
     // The card is inside the discovered column.
     expect(within(discovered).getByTestId("idea-card")).toBeTruthy();
-    // AC-02-006.2: the recommended badge is shown (IdeaCard derives it from status).
-    expect(within(discovered).getByTestId("idea-card-recommended-badge")).toBeTruthy();
+    // Out of v2: a recommended card sits in the column with no badge.
+    expect(within(discovered).queryByTestId("idea-card-recommended-badge")).toBeNull();
+    expect(within(discovered).queryByText(/recomendada/i)).toBeNull();
   });
 
   it("cards of every stage bucket into their derived columns simultaneously", () => {

@@ -13,8 +13,8 @@
  * These are authored by the reviewer (the builder may not edit them, DR-080).
  */
 
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import {
   CampaignPipeline,
@@ -24,7 +24,6 @@ import {
 const baseProps = (overrides: Partial<CampaignPipelineProps> = {}): CampaignPipelineProps => ({
   slug: "panda-script",
   activePhase: 0,
-  onEnterForge: vi.fn(),
   ...overrides,
 });
 
@@ -74,12 +73,17 @@ describe("WO-02-013 — <idea> interpolation across every command (AC-02-013.1/.
     expect(panel).not.toHaveTextContent("a<idea>b");
   });
 
-  it("picking a mode folds its flag onto the slug-substituted explore-phase spec command", () => {
+  it("the clarification disclosure folds each flag onto the slug-substituted spec command, with no select", () => {
     render(<CampaignPipeline {...baseProps({ activePhase: 0 })} />);
     const panel = screen.getByTestId("ficha-next-step");
-    const select = within(panel).getByRole("combobox", { name: "Modo del comando" });
-    fireEvent.change(select, { target: { value: "--ask" } });
-    expect(panel).toHaveTextContent("/pandacorp:spec panda-script --ask");
+    expect(within(panel).queryByRole("combobox")).toBeNull();
+    const summary = within(panel).getByText(
+      "Cuántas preguntas te hago antes de generar la documentación",
+    );
+    const disclosure = summary.closest("details");
+    if (!disclosure) throw new Error("spec modes must sit in a native disclosure");
+    for (const flag of ["--ask", "--auto", "--infer"])
+      expect(disclosure).toHaveTextContent(`/pandacorp:spec panda-script ${flag}`);
     expect(panel).not.toHaveTextContent("<idea>");
   });
 });

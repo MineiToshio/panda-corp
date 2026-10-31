@@ -17,9 +17,10 @@
  *      lands on Documentos (not Campaña, not Comandos), and the tab choice persists
  *      across a re-render triggered by the board (filter change does not reset it).
  *   3. AC-02-010.2 + AC-02-010.5 — a `shipped` card opened from the board shows La
- *      Campaña active = release (room 5 current), AND the build room's "Entrar a La
- *      Fragua" STILL fires onEnterForge with the right slug (the FRD edge case:
- *      "a shipped card → release; Entrar a La Fragua still navigates").
+ *      Campaña active = release (room 5 current), AND the build sheet of a shipped
+ *      idea keeps its real forge link once the host supplies `forgeHref` (the FRD edge
+ *      case: "a shipped card → release; Entrar a La Fragua still navigates"; the
+ *      host wiring is WO-02-016).
  *   4. AC-02-010.2 fallback — an `in-pipeline` card with NO phase (missing project /
  *      malformed status.yaml) opened from the board falls back to research (room 0
  *      current, room 5 locked) without throwing.
@@ -31,6 +32,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
+import { CampaignPipeline } from "@/components/modules/CampaignPipeline/CampaignPipeline";
 import type { DiscardResult } from "@/lib/discard/discard";
 import { BoardShell } from "../_components/BoardShell/BoardShell";
 
@@ -54,9 +56,9 @@ function card(overrides: Partial<BoardCardEntry> = {}): BoardCardEntry {
 
 const okDiscard = async (): Promise<DiscardResult> => ({ ok: true });
 
-/** Open the first board card's detail (the card is wrapped in a <button> by IdeaBoardView). */
+/** Open a board card's detail through its real title link (v2 cards are not buttons). */
 async function openCard(user: ReturnType<typeof userEvent.setup>, title: string): Promise<void> {
-  const trigger = screen.getByRole("button", { name: new RegExp(title, "i") });
+  const trigger = screen.getByRole("link", { name: new RegExp(title, "i") });
   await user.click(trigger);
   await screen.findByTestId("card-detail");
 }
@@ -162,27 +164,12 @@ describe("FRD-02 shell · AC-02-010.* — La Campaña phase coherence from the b
     expect(screen.getByTestId("campaign-phase-build")).toHaveAttribute("data-phase-state", "done");
   });
 
-  it("the build room's 'Entrar a La Fragua' still fires onEnterForge for a shipped card", async () => {
+  it("the reached build sheet of a shipped idea offers a real forge link once a host gives forgeHref", async () => {
     const user = userEvent.setup();
-    // BoardShell wires onEnterForge internally; we assert the build-phase ficha exposes
-    // the action and that activating it does not throw / does not navigate away from
-    // the read-only detail (the only depicted communication is the deliverable, AC-02-010.6).
-    render(
-      <BoardShell
-        cards={[card({ slug: "ship-me", title: "Idea lanzada", status: "shipped" })]}
-        discardAction={okDiscard}
-      />,
-    );
-    await openCard(user, "Idea lanzada");
-
-    // Open the BUILD phase ficha (build is "done" for a shipped card, still clickable).
+    render(<CampaignPipeline slug="ship-me" activePhase={5} forgeHref="/portfolio/ship-me" />);
     await user.click(screen.getByTestId("campaign-phase-build"));
-    const enterForge = await screen.findByTestId("ficha-enter-forge");
-    expect(enterForge).toBeInTheDocument();
-
-    // Activating it must be a no-op crash-free read-only action at the shell level.
-    await user.click(enterForge);
-    expect(screen.getByTestId("card-detail")).toBeInTheDocument();
+    const enterForge = await screen.findByRole("link", { name: "Entrar a La Fragua" });
+    expect(enterForge).toHaveAttribute("href", "/portfolio/ship-me");
   });
 });
 

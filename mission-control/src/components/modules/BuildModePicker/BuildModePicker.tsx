@@ -24,7 +24,7 @@ function serverSnapshot(): BuildMode {
 
 /** Project preference scope and notification of the active session choice. */
 export interface BuildModePickerProps {
-  readonly project: string;
+  readonly project?: string;
   readonly onModeChange?: (mode: BuildMode) => void;
 }
 
@@ -33,7 +33,7 @@ export function BuildModePicker({ project, onModeChange }: BuildModePickerProps)
   const [copyResult, setCopyResult] = useState<boolean | null>(null);
   const remembered = useSyncExternalStore(
     subscribe,
-    () => getRememberedMode(project),
+    () => (project ? getRememberedMode(project) : DEFAULT_BUILD_MODE),
     serverSnapshot,
   );
   const [sessionModes, setSessionModes] = useState<Readonly<Record<string, BuildMode>>>({});
@@ -55,13 +55,16 @@ export function BuildModePicker({ project, onModeChange }: BuildModePickerProps)
     }
     return subscribe(handleSessionChange);
   }, []);
-  const mode = Object.hasOwn(sessionModes, project) ? sessionModes[project] : remembered;
+  const sessionKey = project ?? "";
+  const mode = Object.hasOwn(sessionModes, sessionKey) ? sessionModes[sessionKey] : remembered;
   const selected = BUILD_MODES.find((item) => item.id === mode);
   if (!selected) throw new Error(`Missing build mode command: ${mode}`);
   function handleSelect(next: BuildMode): void {
-    setSessionModes((current) => ({ ...current, [project]: next }));
-    rememberMode(project, next);
-    window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: { project, mode: next } }));
+    setSessionModes((current) => ({ ...current, [sessionKey]: next }));
+    if (project) {
+      rememberMode(project, next);
+      window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: { project, mode: next } }));
+    }
     onModeChange?.(next);
   }
   function dismissToast(): void {

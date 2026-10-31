@@ -1,6 +1,6 @@
 /**
- * command-modes — the single source of truth for the inline `<select>` modes that
- * CmdRow renders for commands that carry a flag (DR-092).
+ * command-modes — the shared flag catalog for campaign clarification disclosures and
+ * legacy command selectors (DR-092).
  *
  * Two commands have modes today, consumed in two places each (the board's Campaña
  * ficha and the project workspace Commands tab):
@@ -47,12 +47,7 @@ export const SPEC_MODES: ReadonlyArray<CommandMode> = [
   },
 ];
 
-/** First "no flag" option label for the spec select — the neutral word "default" (NOT the field
- * name, which would read as "I'm choosing questions"); it means "no flag, the skill decides by
- * origin". What the field controls lives in the hover tooltip + the hint line, keeping it narrow. */
-export const SPEC_MODE_DEFAULT_LABEL = "default";
-
-/** Hover tooltip explaining what the spec mode field controls. */
+/** Disclosure summary explaining what the spec modes control. */
 export const SPEC_MODE_TITLE = "Cuántas preguntas te hago antes de generar la documentación";
 
 // ---------------------------------------------------------------------------

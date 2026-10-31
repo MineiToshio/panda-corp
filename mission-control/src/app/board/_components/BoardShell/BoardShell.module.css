@@ -1,0 +1,19 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  margin-bottom: var(--s5);
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.filters {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}

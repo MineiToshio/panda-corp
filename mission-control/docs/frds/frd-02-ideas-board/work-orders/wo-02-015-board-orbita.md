@@ -6,7 +6,7 @@ title: WO-02-015 Tablero Órbita (columns, search, phase chips, hide-empty, filt
 status: ACTIVE
 parent: FRD-02
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: medium
 reopen_count: 0
 artifacts:
@@ -19,7 +19,7 @@ artifacts:
   - 'e2e/ideas-board.spec.ts'
 source_requirements: [REQ-02-001, REQ-02-002, REQ-02-003, REQ-02-005, REQ-02-006, REQ-02-012, REQ-02-014, REQ-02-016]
 dependsOn: [WO-13-012, WO-25-001, WO-02-012]
-last_updated: '2026-10-22'
+last_updated: '2026-10-30'
 ---
 
 # WO-02-015 Tablero Órbita
@@ -184,3 +184,19 @@ spec passes hydrated; `.pandacorp/verify.sh --since <ref>` green; no hardcoded c
 from `t()`.
 
 ## Status Note
+
+- 2026-10-30 (S2A round 3): Added `aria-disabled={pending}` alongside `aria-busy` on FavoriteButton, preserving keyboard focus and the pending re-entry guard. `pnpm exec tsc --noEmit` passed; Biome passed on the four changed TSX files. With `PORT=3951 PANDACORP_E2E_PORT=3951`, the requested FavoriteButton/BuildModePicker/CampaignPipeline Vitest run (`--maxWorkers=2`) returned exit 1: 152 passed and two BuildModePicker reviewer toast tests failed because `findByRole("status")` matched two elements. The dedicated `CampaignPipeline.s2a.reviewer.test.tsx --maxWorkers=2` run passed all 20 tests. Reviewer files and visual baselines remain untouched. No browser/E2E/full verify.sh verification; changes remain unstaged and uncommitted as requested.
+
+- 2026-10-30 (S2A round 2): Patched unfiltered phase totals, hide-empty semantics, permanently mounted empty count region, trimmed filter detection, and focus-preserving busy stars with a pending re-entry guard. Removed the dead corner prop and centralized the hide-empty storage key. Board reviewer suite passes; keyboard focus/re-entry regression passes.
+- 2026-10-30 round-2 verification: with `PORT=3951 PANDACORP_E2E_PORT=3951`, `pnpm exec vitest run src/app/board src/components/modules/IdeaCard src/components/core/FavoriteButton src/components/modules/CampaignPipeline --maxWorkers=2` returned exit 1: 533 passed, one protected reviewer test failed (`CampaignPipeline.s2a.reviewer.test.tsx:152` requires a picker without a project, contradicting the explicit fallback decision). Reviewer files remain untouched. `pnpm exec tsc --noEmit` passed (exit 0). `git diff --name-only -z --relative -- src | xargs -0 pnpm exec biome check` passed on 14 changed source/test files. `pnpm exec knip` returned exit 1 with exactly the baseline findings: unused exported types ButtonVariant, ButtonTone, TabDef, plus configuration hints; no patch-owned findings (`diff -u` of before/final output passed). `git diff --check` passed. Evidence: `/private/tmp/s2a-r2-vitest-final2.log`, `/private/tmp/s2a-r2-tsc-final.log`, `/private/tmp/s2a-r2-knip-final.log`. No browser, visual, E2E or full verify.sh run; no commits or staging, per task scope.
+
+
+
+- 2026-10-30 (S2A): Built the six-column board, neutral category chips, URL-owned title/body search, live match count, phase jump navigation, browser-local hide-empty preference, named optimistic favourite stars and native capture/discarded dialogs. Removed the legend implementation and its implementer suite; its reviewer-owned adversarial suite remains untouched for reviewer retirement. Preserved the transitional detail branch.
+- 2026-10-30: RED evidence: `board-orbita.test.tsx` failed 5/5 against the old surface. Scoped implementation tests: 11 files, 168 tests passed (`/private/tmp/s2a-board-unit3.log`). Browser/visual checks were not run under the worker sandbox. Reviewer reconciliation and final scoped verification are recorded at the end of this note.
+- 2026-10-30 (agent-inferred integration fact): Shared `Chip` requires an explicit tone; all new neutral consumers pass `slate` + `plain` rather than modifying the primitive. This note captures the finding within the stream's authorized documentation paths.
+
+- 2026-10-30: The star keeps a native semantic toggle button with the shared Icon: the current IconButton contract does not forward aria-pressed. Its accessible pressed state is preserved without changing the unowned primitive. The title links reserve room for the 44 px star control.
+
+- 2026-10-30 final S2A evidence: scoped implementation Vitest passed 16 files / 298 tests (`/private/tmp/s2a-vitest-final.log`, exit 0); scoped TypeScript including changed tests and imported dependencies passed (`pnpm exec tsc --noEmit -p /private/tmp/s2a-tsconfig.json`, exit 0); Biome checked all 43 changed TS/TSX/CSS files without fixes/errors (`/private/tmp/s2a-biome-final.log`, exit 0); `git diff --check` passed. Every acceptance ID in both work orders' criteria sections is cited in the existing/new test tree.
+- 2026-10-30 reviewer handoff: the unchanged scoped reviewer run is RED: 8 failed / 2 passed files, 18 failed / 66 passed cases, plus the retired BoardLegend module's import failure (`/private/tmp/s2a-reviewer-drift.log`, exit 1). Reconcile the suites listed in `/private/tmp/s2a-handoff.md`; no reviewer test or blessed baseline was edited. The actual literal-slug defect from that run is fixed and its independent reviewer assertion passes. No full gate, Chromium/Playwright, native-browser focus, responsive visual fidelity or full-project TypeScript was verified. No commit, stage, merge, queue or push was performed.

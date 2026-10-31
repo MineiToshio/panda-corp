@@ -1,37 +1,18 @@
-/**
- * IdeaCard — Read-only idea card component (CMP-02-card).
- *
- * Consumes the IF-01-readIdeas contract (lib/ideas.ts, docs/api.md WO-01-003).
- * Repainted faithful to the prototype `boardView()` card (index.html L797):
- *   - Title 13px (+ a play icon when running).
- *   - A chips row: category chip (Spanish label + icon) + return chip
- *     (Spanish label, coloured tone) — NEVER the raw English enum (BRD-03).
- *   - Score on the right: "Score <N>" (accent number), or "sin score".
- *
- * Spanish labels & tones come from CAT / RETURN_TONE, mirroring the prototype
- * CAT (L185) and RET (L184) maps. The category chip is the neutral `.chip`
- * (secondary tone); the return chip carries its semantic colour via <Chip>.
- *
- * Design rules (FRD-13, AGENTS.md):
- *   - ZERO hardcoded colors — all visual values via CSS custom properties.
- *   - tabular-nums on every number (FRD-13, AC-13-003).
- *   - No drag handles, no move controls (AC-02-002.1 — read-only).
- *   - data-testid on every interactive/significant element (test-writer contract).
- *   - Spanish aria-labels (AGENTS.md — single operator, Spanish UI).
- *
- * Traceability:
- *   CMP-02-card → REQ-02-005, REQ-02-006, REQ-02-008
- *   IF-01-readIdeas (IdeaCard type, docs/api.md WO-01-003)
- */
-
 import { Chip, type ChipTone } from "@/components/core/Chip/Chip";
+import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
+import { t } from "@/lib/copy/copy";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
+import styles from "./IdeaCard.module.css";
 
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
 export interface IdeaCardProps {
+  href?: string;
+  onNavigate?: () => void;
+  ordersDone?: number;
+  ordersTotal?: number;
   /** Filename without .md — uniquely identifies the card. */
   slug: string;
   /** Frontmatter `title` field. */
@@ -55,15 +36,10 @@ export interface IdeaCardProps {
   isRunning?: boolean;
   /**
    * Whether the owner pinned this card as a favourite (`favorite: true` frontmatter, REQ-02-012).
-   * Visual-only: tints the card background gold and is announced in the aria-label. Works in any
+   * Visual-only: the filled star and accessible name indicate the favourite. Works in any
    * column; does NOT change the status or the board column.
    */
   favorite?: boolean;
-  /**
-   * Whether a corner action (the favourite star) is overlaid on this card's top-right corner by the
-   * board (CardSlot). When true, the title reserves space so its text never runs under the star.
-   */
-  reserveCorner?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -129,230 +105,108 @@ export const RETURN_LABELS: Record<ReturnTypeKey, readonly [string, ChipTone]> =
   mixed: ["mixto", "accent"],
 };
 
-// ---------------------------------------------------------------------------
-// Styles — CSS custom properties only; mirrors the prototype `.card` + row.
-// ---------------------------------------------------------------------------
-
-const CARD_STYLE: React.CSSProperties = {
-  background: "var(--color-card)",
-  border: "1px solid var(--color-border)",
-  borderRadius: "10px",
-  padding: "10px 11px",
-  display: "flex",
-  flexDirection: "column",
-  gap: "7px",
-  boxShadow: "var(--shadow-1, none)",
-  fontVariantNumeric: "tabular-nums",
-  minWidth: 0,
-};
-
-/**
- * Favourite overlay on the base card: a gold (`--color-warn`) border + warm tint + soft glow,
- * distinct from the teal accent (recommended / running). Merged over CARD_STYLE when favorite.
- * The colour is reinforcement only — the accessible signal is the aria-label + the star control.
- */
-const FAVORITE_CARD_STYLE: React.CSSProperties = {
-  background: "var(--color-warn-bg)",
-  border: "1px solid var(--color-warn)",
-  boxShadow: "0 0 18px -7px var(--color-warn)",
-};
-
-const TITLE_STYLE: React.CSSProperties = {
-  fontSize: "13px",
-  fontWeight: 500,
-  lineHeight: 1.35,
-  color: "var(--color-text)",
-  margin: 0,
-  display: "flex",
-  alignItems: "center",
-  gap: "5px",
-  wordBreak: "break-word",
-};
-
-/** When a corner star is overlaid (board cards), reserve room so the title never runs under it. */
-const TITLE_RESERVE_CORNER_STYLE: React.CSSProperties = {
-  ...TITLE_STYLE,
-  paddingRight: "24px",
-};
-
-const ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "6px",
-};
-
-const CHIPS_STYLE: React.CSSProperties = {
-  display: "flex",
-  gap: "5px",
-  flexWrap: "wrap",
-  alignItems: "center",
-  minWidth: 0,
-};
-
-const CATEGORY_CHIP_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "3px",
-  fontSize: "11px",
-  padding: "2px 8px",
-  borderRadius: "var(--radius-sm, 8px)",
-  fontWeight: 500,
-  lineHeight: 1.4,
-  whiteSpace: "nowrap",
-  background: "var(--color-secondary, var(--color-card2, var(--color-panel)))",
-  color: "var(--color-text2)",
-};
-
-const CATEGORY_ICON_STYLE: React.CSSProperties = {
-  fontSize: "11px",
-  verticalAlign: "-1px",
-};
-
-const SCORE_STYLE: React.CSSProperties = {
-  fontSize: "11px",
-  color: "var(--color-text3)",
-  whiteSpace: "nowrap",
-  fontVariantNumeric: "tabular-nums",
-};
-
-const SCORE_VALUE_STYLE: React.CSSProperties = {
-  color: "var(--color-accent-text)",
-  fontWeight: 500,
-};
-
-const PLAY_ICON_STYLE: React.CSSProperties = {
-  fontSize: "12px",
-  color: "var(--color-ok)",
-};
-
-const RECOMMENDED_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  fontSize: "11px",
-  padding: "2px 8px",
-  borderRadius: "var(--radius-sm, 8px)",
-  fontWeight: 600,
-  lineHeight: 1.4,
-  whiteSpace: "nowrap",
-  background: "var(--color-accent-bg)",
-  color: "var(--color-accent-text)",
-};
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
-/**
- * Read-only presentational card for a single idea.
- * Server Component safe — no hooks, no browser APIs.
- */
+/** Idea summary with a real navigation link and optional live project progress. */
 export function IdeaCard({
   title,
+  slug,
+  href,
+  onNavigate,
   status,
   projectType,
   returnType,
   score,
   isRunning,
   favorite,
-  reserveCorner,
+  project,
+  ordersDone,
+  ordersTotal,
 }: IdeaCardProps): React.JSX.Element {
-  const isRecommended = status === "recommended";
-  const isFavorite = favorite === true;
-  // AC-02-008.2: building indicator ONLY for in-pipeline cards (status guard).
-  // A stale isRunning=true on discovered/shipped/discarded cards must not show it.
-  const showBuildingIndicator = status === "in-pipeline" && isRunning === true;
-
-  // Category: Spanish label + icon from the map, falling back to the raw value.
-  const categoryEntry = projectType !== undefined ? CATEGORY_LABELS[projectType] : undefined;
-  const categoryLabel = categoryEntry?.[0] ?? projectType;
-  const categoryIcon = categoryEntry?.[1];
-
-  // Return: Spanish label + tone from the map (always mapped — closed union).
-  const returnEntry = returnType !== undefined ? RETURN_LABELS[returnType] : undefined;
-
+  const category = projectType
+    ? (CATEGORY_LABELS[projectType]?.[0] ?? projectType)
+    : t("tablero.card.noCategory");
+  const returnEntry = returnType && RETURN_LABELS[returnType];
   return (
     <article
+      className={`kcard ${styles.card}`}
       data-testid="idea-card"
-      data-favorite={isFavorite ? "true" : undefined}
-      aria-label={isFavorite ? `Idea: ${title} (favorita)` : `Idea: ${title}`}
-      style={isFavorite ? { ...CARD_STYLE, ...FAVORITE_CARD_STYLE } : CARD_STYLE}
+      data-favorite={favorite ? "true" : undefined}
+      aria-label={`Idea: ${title}${favorite ? " (favorita)" : ""}`}
     >
-      {/* Title — 13px, with a play icon when the project is building.
-          Reserve right space for the corner star (board cards) so text never runs under it. */}
-      <h3
-        data-testid="idea-card-title"
-        style={reserveCorner === true ? TITLE_RESERVE_CORNER_STYLE : TITLE_STYLE}
-      >
-        {title}
-        {showBuildingIndicator && (
-          <i
-            data-testid="idea-card-building-indicator"
-            className="ti ti-player-play"
-            style={PLAY_ICON_STYLE}
-            role="status"
-            aria-label="En construcción"
-            title="Construyéndose ahora"
-          />
-        )}
+      <h3 data-testid="idea-card-title">
+        <a
+          className={`title ${styles.title}`}
+          href={href ?? `/board/${encodeURIComponent(slug)}`}
+          onClick={onNavigate ? (event) => navigate(event, onNavigate) : undefined}
+        >
+          {title}
+        </a>
       </h3>
-
-      {/* Chips row + score */}
-      <div style={ROW_STYLE}>
-        <span style={CHIPS_STYLE}>
-          {/* Recommended badge (AC-02-006.2) */}
-          {isRecommended && (
-            <span
-              data-testid="idea-card-recommended-badge"
-              style={RECOMMENDED_STYLE}
-              role="status"
-              aria-label="Recomendada"
-            >
-              Recomendada
-            </span>
-          )}
-
-          {/* Category chip — Spanish label + icon (AC-02-005.1, BRD-03) */}
-          {categoryLabel !== undefined && (
-            <span
-              data-testid="idea-card-category"
-              style={CATEGORY_CHIP_STYLE}
-              title={`Categoría: ${categoryLabel}`}
-            >
-              {categoryIcon != null && (
-                <i
-                  className={`ti ${categoryIcon}`}
-                  style={CATEGORY_ICON_STYLE}
-                  aria-hidden="true"
-                />
-              )}
-              {categoryLabel}
-            </span>
-          )}
-
-          {/* Return chip — Spanish label + semantic tone (AC-02-005.1, BRD-03).
-              inline-flex wrapper so the Chip aligns on the same line as the category
-              chip + score (a plain inline span added a stray line-box offset). */}
-          {returnEntry != null && (
-            <span
-              data-testid="idea-card-return-type"
-              title={`Retorno: ${returnEntry[0]}`}
-              style={{ display: "inline-flex", alignItems: "center" }}
-            >
-              <Chip tone={returnEntry[1]}>{returnEntry[0]}</Chip>
-            </span>
+      <div className={styles.meta}>
+        <span data-testid="idea-card-category">
+          <Chip tone="slate" variant="plain">
+            {category}
+          </Chip>
+        </span>
+        {returnEntry && (
+          <span data-testid="idea-card-return-type">
+            <Chip tone={returnEntry[1]}>{returnEntry[0]}</Chip>
+          </span>
+        )}
+        <span className={styles.score} data-testid={score != null ? "idea-card-score" : undefined}>
+          {score == null ? (
+            t("tablero.card.noScore")
+          ) : (
+            <>
+              {t("tablero.card.score")} {score}
+              <ProgressBar
+                done={score}
+                total={100}
+                tone="teal"
+                ariaLabel={t("tablero.card.score")}
+              />
+            </>
           )}
         </span>
-
-        {/* Score — right-aligned, "Score <N>" (accent number) or "sin score" */}
-        {score !== undefined ? (
-          <span data-testid="idea-card-score" style={SCORE_STYLE} title={`Puntuación: ${score}`}>
-            Score <b style={SCORE_VALUE_STYLE}>{score}</b>
-          </span>
-        ) : (
-          <span style={SCORE_STYLE}>sin score</span>
-        )}
       </div>
+      {project && <ProjectProgress done={ordersDone} total={ordersTotal} />}
+      {status === "in-pipeline" && isRunning && (
+        <span
+          data-testid="idea-card-building-indicator"
+          role="status"
+          aria-label={t("common.build.building")}
+        >
+          <Chip tone="green">{t("common.build.building")}</Chip>
+        </span>
+      )}
     </article>
+  );
+}
+function navigate(event: React.MouseEvent<HTMLAnchorElement>, onNavigate: () => void): void {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+    return;
+  event.preventDefault();
+  onNavigate();
+}
+
+function ProjectProgress({ done, total }: { done?: number; total?: number }): React.JSX.Element {
+  return (
+    <div className={styles.project}>
+      {total != null && total > 0 ? (
+        <>
+          {t("tablero.card.ordersProgress", { done: done ?? 0, total: total })}
+          <ProgressBar
+            done={done ?? 0}
+            total={total}
+            tone="blue"
+            ariaLabel={t("tablero.card.ordersProgress", {
+              done: done ?? 0,
+              total: total,
+            })}
+          />
+        </>
+      ) : (
+        t("tablero.card.projectCreated")
+      )}
+    </div>
   );
 }

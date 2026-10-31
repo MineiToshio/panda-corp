@@ -1,5 +1,5 @@
 /**
- * CampaignPipeline — static phase model.
+ * CampaignPipeline: static phase model.
  *
  * Faithful to party-redesign-spec.md §2 and FRD-02 (REQ-02-010, AC-02-010.4).
  * Each phase defines its key, name, description, LEE (reads), ESCRIBE (writes)
@@ -13,27 +13,26 @@
  *   build         → implementer + reviewer + analytics + security-auditor (DR-085)
  *   release       → devops
  *
- * Pure static data — no side effects. The command modes (spec / implement) come from
+ * Pure static data: no side effects. The command modes (spec / implement) come from
  * the shared command-modes module (DR-092: one source for both this board view and the
  * project workspace Commands tab).
  */
 
 import {
   type CommandMode,
-  IMPLEMENT_MODE_DEFAULT_LABEL,
   IMPLEMENT_MODE_TITLE,
   IMPLEMENT_MODES,
-  SPEC_MODE_DEFAULT_LABEL,
   SPEC_MODE_TITLE,
   SPEC_MODES,
 } from "@/lib/command-modes";
+import { t } from "@/lib/copy/copy";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 /** A specialist in a campaign phase. */
-interface TeamMember {
+export interface PhaseTeamMember {
   /** Machine-readable role key (hyphenated, e.g. "product-manager"). */
   role: string;
   /** Human-readable display label (e.g. "Product Manager"). */
@@ -44,7 +43,7 @@ interface TeamMember {
 
 /** Full definition of one campaign phase. */
 export interface PhaseDefinition {
-  /** Unique key — used for data-testid and logic. */
+  /** Unique key: used for data-testid and logic. */
   key: string;
   /** Display name in Spanish. */
   name: string;
@@ -55,45 +54,42 @@ export interface PhaseDefinition {
   /** Deliverable written for the next phase (ESCRIBE). */
   writes: string;
   /** Entire specialist team for this phase (every member, AC-02-010.4). */
-  team: ReadonlyArray<TeamMember>;
+  team: ReadonlyArray<PhaseTeamMember>;
   /**
-   * The runnable commands at this phase — shown as "Qué puedes correr" in the ficha. The FIRST is the
+   * The runnable commands at this phase: shown as "Qué puedes correr" in the ficha. The FIRST is the
    * advance / recommended step; the rest are this phase's other options. A `<idea>` token in a command
-   * is substituted with the project slug for copy-paste; an optional `hint` adds a one-line note, and
-   * optional `modes` render an inline flag selector that the user folds into the copied command.
+   * is substituted with the idea slug for copy-paste. Optional `modes` render copyable commands in a
+   * disclosure with the `hint`; implement uses the shared picker when a project is available.
    */
   commands: ReadonlyArray<{
     label: string;
     command: string;
     hint?: string;
     modes?: ReadonlyArray<CommandMode>;
-    /** Label of the mode select's first "no flag" option (names the field + the default). */
-    modeDefaultLabel?: string;
-    /** Hover tooltip on the mode select naming the field. */
+    /** Summary of the command-mode disclosure. */
     modeTitle?: string;
   }>;
 }
 
 // ---------------------------------------------------------------------------
-// Static data — index 0–5 maps to these 6 phases in order.
+// Static data: index 0–5 maps to these 6 phases in order.
 // ---------------------------------------------------------------------------
 
 /** The 6 campaign phases in pipeline order (research → release). */
 export const PHASES: ReadonlyArray<PhaseDefinition> = [
   {
     key: "research",
-    name: "Investigación",
+    name: t("common.phases.discovered"),
     description:
       "Exploración del problema, del mercado y de las oportunidades. El researcher sumerge la idea en datos reales antes de tomar ninguna decisión de producto.",
     reads: "Idea inicial (card de la base de ideas)",
-    writes: "research.md — hallazgos, oportunidades y restricciones",
+    writes: "research.md: hallazgos, oportunidades y restricciones",
     commands: [
       {
         label: "Documenta el MVP (research + PRD + FRDs)",
         command: "/pandacorp:spec <idea>",
         hint: "Elige un modo de preguntas, o déjalo así y el skill usa el default por origen.",
         modes: SPEC_MODES,
-        modeDefaultLabel: SPEC_MODE_DEFAULT_LABEL,
         modeTitle: SPEC_MODE_TITLE,
       },
       { label: "Sigue explorando la idea en conversación", command: "/pandacorp:explore <idea>" },
@@ -108,7 +104,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
   },
   {
     key: "product",
-    name: "Producto",
+    name: t("common.phases.product"),
     description:
       "Definición del producto mínimo viable. El product manager transforma los hallazgos en requisitos EARS y criterios de aceptación medibles.",
     reads: "research.md",
@@ -120,7 +116,6 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
         command: "/pandacorp:spec <idea>",
         hint: "Elige un modo de preguntas, o déjalo en default y el skill decide por origen.",
         modes: SPEC_MODES,
-        modeDefaultLabel: SPEC_MODE_DEFAULT_LABEL,
         modeTitle: SPEC_MODE_TITLE,
       },
     ],
@@ -134,9 +129,9 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
   },
   {
     key: "design",
-    name: "Diseño",
+    name: t("common.phases.design"),
     description:
-      "Creación del sistema visual y la microcopia. El designer trabaja en Claude Design y el copywriter aporta la voz, para que el producto sea bello, accesible y coherente en lenguaje.",
+      "Creación del sistema visual y la microcopia. El designer escribe las direcciones de diseño en HTML y las publica como Artifacts privados para que las revises, y el copywriter aporta la voz, para que el producto sea bello, accesible y coherente en lenguaje.",
     reads: "PRD + FRDs",
     writes:
       "Mockups por FRD, components.md (inventario de componentes), design tokens y microcopia",
@@ -148,7 +143,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       {
         role: "designer",
         label: "Designer",
-        what: "Crea los mockups en Claude Design, define los tokens de diseño y el inventario components.md, y asegura la consistencia visual.",
+        what: "Escribe los mockups en HTML y los publica como Artifacts privados para tu revisión, define los tokens de diseño y el inventario components.md, y asegura la consistencia visual.",
       },
       {
         role: "copywriter",
@@ -159,7 +154,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
   },
   {
     key: "architecture",
-    name: "Arquitectura",
+    name: t("common.phases.architecture"),
     description:
       "Diseño técnico de la solución. El arquitecto traduce los requisitos en ADRs, plano de implementación y órdenes de trabajo; planifica la fundación (primitivas compartidas) y los artefactos de archivo de cada work order para que el build pueda paralelizar sin colisiones.",
     reads: "Mockups por FRD, components.md (inventario de componentes), design tokens y microcopia",
@@ -170,7 +165,6 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
         label: "Construye con TDD",
         command: "/pandacorp:implement",
         modes: IMPLEMENT_MODES,
-        modeDefaultLabel: IMPLEMENT_MODE_DEFAULT_LABEL,
         modeTitle: IMPLEMENT_MODE_TITLE,
       },
       { label: "Ajusta la arquitectura / work orders", command: "/pandacorp:architecture" },
@@ -185,19 +179,18 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
   },
   {
     key: "build",
-    name: "Construcción",
+    name: t("common.phases.implementation"),
     description:
       "Implementación con TDD (RED → GREEN → refactor) en el flujo v2: fundación primero, luego oleadas disjuntas serializadas por artefacto de archivo, con un bucle de fidelidad por work order contra el mock. Cada FRD pasa un gate de 4 lentes más juez visual, y las oleadas se commitean con un único escritor (Option-B). Como último paso, el endurecimiento: el security-auditor revisa la seguridad, el reviewer cierra la calidad y analytics instrumenta las métricas.",
     reads:
       "Blueprint + ADRs + Build Plan + fundación (primitivas compartidas) + work orders con sus artefactos de archivo",
-    writes: "Código verificado y endurecido (GREEN) — la app lista para lanzar",
+    writes: "Código verificado y endurecido (GREEN): la app lista para lanzar",
     commands: [
       { label: "Lanza (interno o externo)", command: "/pandacorp:release" },
       {
         label: "Reanuda / continúa el build",
         command: "/pandacorp:implement",
         modes: IMPLEMENT_MODES,
-        modeDefaultLabel: IMPLEMENT_MODE_DEFAULT_LABEL,
         modeTitle: IMPLEMENT_MODE_TITLE,
       },
       { label: "Reporta un bug encontrado probando", command: "/pandacorp:bug" },
@@ -222,13 +215,13 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       {
         role: "security-auditor",
         label: "Security Auditor",
-        what: "Audita seguridad, dependencias y superficie de ataque — el endurecimiento final, último paso de la construcción antes de lanzar.",
+        what: "Audita seguridad, dependencias y superficie de ataque: el endurecimiento final, último paso de la construcción antes de lanzar.",
       },
     ],
   },
   {
     key: "release",
-    name: "Release",
+    name: t("common.phases.release"),
     description:
       "El producto YA está lanzado: desplegado a un host externo (Vercel/AWS) o publicado como herramienta interna en la red. El devops orquesta el despliegue y el plan de lanzamiento; desde aquí se itera con métricas reales.",
     reads: "Código verificado y endurecido (GREEN)",

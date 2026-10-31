@@ -2,7 +2,7 @@
  * AC-02-010.8 — the phase fichas reflect the CURRENT factory.
  *
  * Content-asserting on purpose: the requirement is about what the fichas SAY, so stale copy
- * (written before Claude Design, the foundation, or the v2 build flow) must fail here.
+ * (written before private HTML Artifacts, the foundation, or the v2 build flow) must fail here.
  */
 
 import { describe, expect, it } from "vitest";
@@ -22,8 +22,9 @@ function fichaText(p: PhaseDefinition): string {
 describe("AC-02-010.8 — Design ficha", () => {
   const design = phase("design");
 
-  it("states that design uses Claude Design", () => {
-    expect(fichaText(design)).toContain("claude design");
+  it("states that design publishes private HTML Artifacts", () => {
+    expect(fichaText(design)).toContain("html");
+    expect(fichaText(design)).toContain("artifacts privados");
   });
 
   it("writes components.md, mocks and design tokens", () => {

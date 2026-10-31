@@ -1,40 +1,8 @@
 "use client";
 
-/**
- * BoardShell — Client-side interactive shell for the /board page (CMP-02-board-shell).
- *
- * WO-02-005: Wires the presentational board components with interactive state:
- *   - Search input (filters by title + body) + "Limpiar" reset (BRD-01)
- *   - Category filter (CategoryFilter → filters IdeaBoardView)
- *   - Intake modal (button → IntakeModal overlay)
- *   - Card selection (IdeaCard click → CardDetail panel under a PageTitle, BRD-02)
- *   - Discard action (DiscardButton inside the detail header)
- *   - BoardLegend (static, below the board)
- *   - PageTitle — "Tablero" on the board; the idea's own pageHead on the detail
- *
- * The Server Component (page.tsx) resolves cards (readIdeas + readStatus +
- * deriveColumn), then passes them here. This component is the interactive
- * boundary: "use client" required for useState (search/filter/selection) +
- * DiscardButton (clipboard / Server Action).
- *
- * Traceability:
- *   CMP-02-board-shell → REQ-02-002, REQ-02-003, REQ-02-005, REQ-02-006,
- *                         REQ-02-007, REQ-02-008
- *   AC-02-002 — Wide columns, horizontal scroll, no drag
- *   AC-02-003 — Intake modal overlay with 4 commands
- *   AC-02-005 — Category + return chips on each card
- *   AC-02-006 — Filter by category; recommended badge
- *   AC-02-007 — Discard via Server Action (the only write)
- *   AC-02-008 — Building indicator; legend
- *
- * Design rules (AGENTS.md, FRD-13):
- *   - Zero hardcoded colors — all via CSS custom properties.
- *   - data-testid on every interactive element.
- *   - Spanish copy (single operator, Spanish UI).
- *   - No new shared components created here (reuse order: DR-057).
- */
+/** Board controls and the transitional idea-detail branch. URL selections survive reload/history. */
 
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { CardDetail } from "@/app/board/_components/CardDetail/CardDetail";
 import { DiscardedModal } from "@/app/board/_components/DiscardedModal/DiscardedModal";
 import { IntakeModal } from "@/app/board/_components/IntakeModal/IntakeModal";
@@ -42,17 +10,21 @@ import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import { IdeaBoardView } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import { Button } from "@/components/core/Button/Button";
 import { Chip } from "@/components/core/Chip/Chip";
+import { FilterChip } from "@/components/core/Chip/FilterChip";
 import { DiscardButton } from "@/components/core/DiscardButton/DiscardButton";
 import { FavoriteButton } from "@/components/core/FavoriteButton/FavoriteButton";
+import { SearchField, Switch } from "@/components/core/Field/Field";
+import { PageHead } from "@/components/core/PageHead/PageHead";
 import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { RestoreButton } from "@/components/core/RestoreButton/RestoreButton";
-import { BoardLegend } from "@/components/modules/BoardLegend/BoardLegend";
 import { CATEGORY_LABELS, RETURN_LABELS } from "@/components/modules/IdeaCard/IdeaCard";
 import type { BoardColumn } from "@/lib/board/board";
+import { t } from "@/lib/copy/copy";
 import type { DiscardResult } from "@/lib/discard/discard";
 import type { RestoreResult } from "@/lib/discard/restore";
 import type { FavoriteResult } from "@/lib/favorite/favorite";
 import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
+import styles from "./BoardShell.module.css";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -65,7 +37,7 @@ export interface BoardShellProps {
    */
   cards: BoardCardEntry[];
   /**
-   * Server Action for discarding an idea (the app's only write).
+   * Server Action for discarding an idea.
    * Injected so the component stays testable without Next.js infrastructure.
    */
   discardAction: (slug: string, reason?: string) => Promise<DiscardResult>;
@@ -93,6 +65,8 @@ export interface BoardShellProps {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
+
+const HIDE_EMPTY_STORAGE_KEY = "mission-control:board:hide-empty";
 
 /** Board column → Spanish "Etapa" label for the idea detail pageHead (BRD-02). */
 const COLUMN_STAGE_LABEL: Record<BoardColumn, string> = {
@@ -153,52 +127,6 @@ const CONTENT_STYLE: React.CSSProperties = {
   gap: "calc(var(--spacing, 0.25rem) * 3)",
 };
 
-const FILTER_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-  flexWrap: "wrap",
-};
-
-/** Category <select> — prototype boardView select (canvas bg, bd2 border, inset shadow). */
-const SELECT_STYLE: React.CSSProperties = {
-  padding: "8px 10px",
-  border: "1px solid var(--color-border-strong)",
-  borderRadius: "8px",
-  fontSize: "13px",
-  fontFamily: "inherit",
-  background: "var(--color-base, var(--color-panel))",
-  color: "var(--color-text)",
-  boxShadow: "inset 0 1px 2px rgba(0,0,0,.22)",
-};
-
-const SEARCH_WRAP_STYLE: React.CSSProperties = {
-  position: "relative",
-  flex: 1,
-  minWidth: "170px",
-};
-
-const SEARCH_ICON_STYLE: React.CSSProperties = {
-  position: "absolute",
-  left: "10px",
-  top: "9px",
-  fontSize: "15px",
-  color: "var(--color-text3)",
-  pointerEvents: "none",
-};
-
-const SEARCH_INPUT_STYLE: React.CSSProperties = {
-  width: "100%",
-  padding: "8px 11px 8px 32px",
-  border: "1px solid var(--color-border-strong)",
-  borderRadius: "8px",
-  fontSize: "13px",
-  fontFamily: "inherit",
-  background: "var(--color-base, var(--color-panel))",
-  color: "var(--color-text)",
-  boxShadow: "inset 0 1px 2px rgba(0,0,0,.22)",
-};
-
 const DETAIL_HEADER_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -233,12 +161,6 @@ const SCORE_TAIL_STYLE: React.CSSProperties = {
   fontSize: "11px",
   color: "var(--color-text3)",
   fontVariantNumeric: "tabular-nums",
-};
-
-const HINT_STYLE: React.CSSProperties = {
-  fontSize: "12px",
-  color: "var(--color-text3, var(--color-text-muted, currentColor))",
-  margin: 0,
 };
 
 // ---------------------------------------------------------------------------
@@ -350,12 +272,30 @@ export function BoardShell({
   const setDiscardedOpen = (open: boolean) => setDiscarded(open ? "1" : "");
   const [openSlug] = useUrlState("idea", "");
 
+  const [hideEmpty, setHideEmpty] = useState(false);
+  useLayoutEffect(() => {
+    try {
+      setHideEmpty(localStorage.getItem(HIDE_EMPTY_STORAGE_KEY) === "true");
+    } catch {
+      /* Browser preferences can be unavailable; the board remains usable. */
+    }
+  }, []);
+  function handleHideEmpty(value: boolean): void {
+    setHideEmpty(value);
+    try {
+      localStorage.setItem(HIDE_EMPTY_STORAGE_KEY, String(value));
+    } catch {
+      /* Keep the session preference when browser persistence is unavailable. */
+    }
+  }
+
   // Discarded ideas are NOT a board column — they live behind the "Ver descartadas"
   // button (DiscardedModal). Split them out so the board never shows them.
   const discardedCards = cards.filter((c) => c.status === "discarded");
 
   // Derive the unique categories from the full card list (not filtered).
-  const categories = extractCategories(cards);
+  const visibleCards = cards.filter((card) => card.status !== "discarded");
+  const categories = extractCategories(visibleCards);
 
   // Filtered card list for the board view (search query AND category).
   const normalizedQuery = query.trim().toLowerCase();
@@ -377,7 +317,7 @@ export function BoardShell({
     openCard != null && openCard.status !== "discarded" && openCard.status !== "shipped";
 
   // Whether the "Limpiar" reset is offered (any active search or category).
-  const hasActiveFilter = query !== "" || selectedCategory !== null;
+  const hasActiveFilter = normalizedQuery !== "" || selectedCategory !== null;
 
   // ----------------------------------------------------------
   // Handlers
@@ -426,14 +366,41 @@ export function BoardShell({
       };
 
   return (
-    <PageLayout
-      icon={titleProps.icon}
-      title={titleProps.title}
-      subtitle={titleProps.subtitle}
-      tail={titleProps.tail}
-      testId="board-page"
-      ariaLabel="Tablero de ideas Pandacorp"
-    >
+    <section data-testid="board-page" aria-label="Tablero de ideas Pandacorp">
+      {openCard ? (
+        <PageLayout
+          icon={titleProps.icon}
+          title={titleProps.title}
+          subtitle={titleProps.subtitle}
+          tail={titleProps.tail}
+          ariaLabel="Tablero de ideas Pandacorp"
+        >
+          {null}
+        </PageLayout>
+      ) : (
+        <PageHead
+          title={t("tablero.title")}
+          subtitle={t("tablero.subtitle")}
+          actions={
+            <>
+              <Button
+                variant="default"
+                onClick={() => setDiscardedOpen(true)}
+                data-testid="discarded-trigger"
+              >
+                {t("tablero.actions.discarded", { count: discardedCards.length })}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => setIntakeOpen(true)}
+                data-testid="intake-trigger"
+              >
+                {t("tablero.actions.capture")}
+              </Button>
+            </>
+          }
+        />
+      )}
       {/* Intake modal — fixed overlay; board stays mounted behind (AC-02-003.3) */}
       <IntakeModal open={intakeOpen} onClose={() => setIntakeOpen(false)} />
 
@@ -551,102 +518,53 @@ export function BoardShell({
         ) : (
           /* ---- Board view ---- */
           <>
-            {/* Capture ideas button — standalone, above the filter row (prototype intakePanel).
-                Neutral (secondary) button — card bg + bd2 border + accent-glow hover, like the
-                prototype's default `button`, NOT an accent-filled primary. */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-              <Button
-                variant="secondary"
-                size="sm"
-                data-testid="intake-trigger"
-                onClick={() => setIntakeOpen(true)}
-                ariaLabel="Capturar ideas y oportunidades"
-              >
-                + Capturar ideas / oportunidades
-              </Button>
-              {discardedCards.length > 0 && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  data-testid="discarded-trigger"
-                  onClick={() => setDiscardedOpen(true)}
-                  ariaLabel="Ver ideas descartadas"
-                >
-                  <i
-                    className="ti ti-archive"
-                    aria-hidden="true"
-                    style={{ fontSize: "13px", marginRight: "5px", verticalAlign: "-1px" }}
-                  />
-                  Ver descartadas ({discardedCards.length})
-                </Button>
-              )}
-            </div>
-
-            {/* Filter row: search + category SELECT + Limpiar (AC-02-006.1, BRD-01; prototype boardView) */}
-            <div style={FILTER_ROW_STYLE}>
-              {/* Search input — filters by title + body (BRD-01) */}
-              <div style={SEARCH_WRAP_STYLE}>
-                <i className="ti ti-search" style={SEARCH_ICON_STYLE} aria-hidden="true" />
-                <input
-                  id="pc-q"
-                  data-testid="board-search"
-                  type="search"
+            <div className={`toolbar ${styles.toolbar}`}>
+              <div id="idea-search">
+                <SearchField
+                  label={t("tablero.search.aria")}
+                  placeholder={t("tablero.search.placeholder")}
                   value={query}
-                  onChange={(e) => setQuery(e.target.value, true)}
-                  placeholder="Buscar ideas…"
-                  aria-label="Buscar ideas por título o resumen"
-                  style={SEARCH_INPUT_STYLE}
+                  onChange={(value) => setQuery(value, true)}
                 />
               </div>
-
-              {/* Category filter — native select (prototype boardView <select>) */}
-              <select
-                data-testid="category-filter"
-                aria-label="Filtrar por categoría"
-                value={selectedCategory ?? ""}
-                onChange={(e) => setCategory(e.target.value)}
-                style={SELECT_STYLE}
-              >
-                <option value="">Todas las categorías</option>
+              <fieldset className={styles.filters} aria-label={t("tablero.filters.categoryAria")}>
+                <FilterChip pressed={!selectedCategory} onClick={() => setCategory("")}>
+                  {t("tablero.filters.all")} {visibleCards.length}
+                </FilterChip>
                 {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {CATEGORY_LABELS[cat]?.[0] ?? cat}
-                  </option>
+                  <FilterChip
+                    key={cat}
+                    pressed={selectedCategory === cat}
+                    onClick={() => setCategory(cat)}
+                  >
+                    {CATEGORY_LABELS[cat]?.[0] ?? cat}{" "}
+                    {visibleCards.filter((card) => card.projectType === cat).length}
+                  </FilterChip>
                 ))}
-              </select>
-
-              {/* Limpiar — visible only when there is an active search/category */}
+              </fieldset>
+              <Switch
+                label={t("tablero.filters.hideEmpty")}
+                checked={hideEmpty}
+                onChange={handleHideEmpty}
+              />
               {hasActiveFilter && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  data-testid="board-clear-filters"
-                  onClick={handleClearFilters}
-                  ariaLabel="Limpiar la búsqueda y el filtro"
-                >
-                  Limpiar
-                </Button>
+                <Button onClick={handleClearFilters}>{t("tablero.filters.clear")}</Button>
               )}
+              <p id="board-count" aria-live="polite">
+                {hasActiveFilter && t("tablero.filters.matches", { count: filteredCards.length })}
+              </p>
             </div>
-
-            {/* Read-only hint */}
-            <p style={HINT_STYLE}>
-              Las tarjetas avanzan cuando apruebas el resultado de cada etapa; si no te gusta,
-              re-corres el mismo comando y sigues iterando. Aquí solo lees y decides.
-            </p>
-
-            {/* Kanban board: 7 columns, two-axis routing, horizontal scroll */}
+            {/* Two-axis routing preserves the project phase independently from the card status. */}
             <IdeaBoardView
               cards={filteredCards}
+              allCards={visibleCards}
+              hideEmpty={hideEmpty}
               onCardClick={handleCardClick}
               favoriteAction={favoriteAction}
             />
-
-            {/* Legend: category / return / score (AC-02-008.3) */}
-            <BoardLegend />
           </>
         )}
       </div>
-    </PageLayout>
+    </section>
   );
 }

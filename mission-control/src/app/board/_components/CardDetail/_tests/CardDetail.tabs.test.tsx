@@ -28,20 +28,8 @@ import type { Phase } from "@/lib/status/status";
 
 // Mock CampaignPipeline so the tab-wiring tests are isolated from its internals.
 vi.mock("@/components/modules/CampaignPipeline/CampaignPipeline", () => ({
-  CampaignPipeline: ({
-    onEnterForge,
-    slug,
-    activePhase,
-  }: {
-    onEnterForge: (slug: string) => void;
-    slug: string;
-    activePhase: number;
-  }) => (
-    <div data-testid="campaign-pipeline" data-slug={slug} data-active-phase={activePhase}>
-      <button type="button" data-testid="mock-enter-forge" onClick={() => onEnterForge(slug)}>
-        Entrar a La Fragua
-      </button>
-    </div>
+  CampaignPipeline: ({ slug, activePhase }: { slug: string; activePhase: number }) => (
+    <div data-testid="campaign-pipeline" data-slug={slug} data-active-phase={activePhase}></div>
   ),
 }));
 

@@ -6,7 +6,7 @@ title: WO-02-020 La Campaña Órbita (map, strip, phase sheet, commands, mode pi
 status: ACTIVE
 parent: FRD-02
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: medium
 reopen_count: 0
 artifacts:
@@ -18,7 +18,7 @@ artifacts:
   - 'e2e/persistent-navigation/board.spec.ts'
 source_requirements: [REQ-02-010, REQ-02-016, REQ-11-005]
 dependsOn: [WO-13-012, WO-11-003, WO-25-001]
-last_updated: '2026-10-22'
+last_updated: '2026-10-30'
 change_ref: design-phase-copy-claude-design-sunset.md
 ---
 
@@ -250,3 +250,18 @@ the module; «Claude Design» appears nowhere in `src/components/modules/Campaig
 --since <ref>` green; tokens only; every chrome string from `t()` (phase content stays data in `phases.ts`).
 
 ## Status Note
+
+- 2026-10-30 (S2A round 3): Made BuildModePicker project scope optional: unlinked ideas render the picker and keep selections in component state without reading or writing project preferences. Implement disclosures always use the picker; non-implement command modes retain their existing rendering. Updated the unlinked-idea assertion and checked selection without persistence. `pnpm exec tsc --noEmit` passed; Biome passed on the four changed TSX files. With `PORT=3951 PANDACORP_E2E_PORT=3951`, the requested FavoriteButton/BuildModePicker/CampaignPipeline Vitest run (`--maxWorkers=2`) returned exit 1: 152 passed and two BuildModePicker reviewer toast tests failed because `findByRole("status")` matched two elements. The dedicated `CampaignPipeline.s2a.reviewer.test.tsx --maxWorkers=2` run passed all 20 tests. Reviewer files and visual baselines remain untouched. No browser/E2E/full verify.sh verification; changes remain unstaged and uncommitted as requested.
+
+- 2026-10-30 (S2A round 2): Patched every implement command disclosure, including Architecture, to use the shared picker when a linked project exists. Added optional project forwarding from CardDetail through CampaignPipeline to PhaseSheet; mode memory now uses the project identity. Unlinked ideas show plain copyable modes. Removed dead mode-default metadata, rendered disclosure hints, and updated blueprint C5. Retained implement modes because the unlinked fallback consumes them. New project-scope/fallback regression passes.
+- 2026-10-30 round-2 verification: with `PORT=3951 PANDACORP_E2E_PORT=3951`, `pnpm exec vitest run src/app/board src/components/modules/IdeaCard src/components/core/FavoriteButton src/components/modules/CampaignPipeline --maxWorkers=2` returned exit 1: 533 passed, one protected reviewer test failed (`CampaignPipeline.s2a.reviewer.test.tsx:152` requires a picker without a project, contradicting the explicit fallback decision). Reviewer files remain untouched. `pnpm exec tsc --noEmit` passed (exit 0). `git diff --name-only -z --relative -- src | xargs -0 pnpm exec biome check` passed on 14 changed source/test files. `pnpm exec knip` returned exit 1 with exactly the baseline findings: unused exported types ButtonVariant, ButtonTone, TabDef, plus configuration hints; no patch-owned findings (`diff -u` of before/final output passed). `git diff --check` passed. Evidence: `/private/tmp/s2a-r2-vitest-final2.log`, `/private/tmp/s2a-r2-tsc-final.log`, `/private/tmp/s2a-r2-knip-final.log`. No browser, visual, E2E or full verify.sh run; no commits or staging, per task scope.
+
+
+
+- 2026-10-30 (S2A): Built the six-room snake map on the frozen map tokens, original pixel sprites, delivered corridors, six-segment strip, URL-owned pinned phase sheet, arrows, complete teams, clarification disclosure commands, shared BuildModePicker and conditional real forge link. Removed party imports and retired the party-only implementer pixel-trail suite. CardDetail still accepts the transitional legacy props but no longer forwards them. Building the host forgeHref remains with WO-02-016.
+- 2026-10-30: Updated the Design sheet to the frozen private-HTML-Artifact wording. No removed design-service wording remains in the module or its tests. The existing command catalog retains IMPLEMENT_MODES for its workspace consumer.
+- 2026-10-30: RED evidence: the new campaign suite failed all 6 cases against the old implementation. Focused implementation verification then passed 127/127 tests; joint board/campaign verification passed 295/295 before adding the literal-slug regression cases. Final scoped results follow below. Chromium, browser fidelity and Playwright execution were not available in this worker sandbox.
+- 2026-10-30 (agent-inferred, independently exposed): The unchanged reviewer interpolation test reproduced a real dollar-token replacement defect. Changed substitution to a replacement callback so slugs such as `a$&b` remain literal; added three regression cases. The reviewer test now passes; its old combobox assertion still needs reviewer reconciliation. Also awaited the popstate event in the new history test so a pending Back transition cannot spill into the next test.
+
+- 2026-10-30 final S2A evidence: scoped implementation Vitest passed 16 files / 298 tests (`/private/tmp/s2a-vitest-final.log`, exit 0); scoped TypeScript including changed tests and imported dependencies passed (`pnpm exec tsc --noEmit -p /private/tmp/s2a-tsconfig.json`, exit 0); Biome checked all 43 changed TS/TSX/CSS files without fixes/errors (`/private/tmp/s2a-biome-final.log`, exit 0); `git diff --check` passed. Every acceptance ID in both work orders' criteria sections is cited in the existing/new test tree.
+- 2026-10-30 reviewer handoff: the unchanged scoped reviewer run is RED: 8 failed / 2 passed files, 18 failed / 66 passed cases, plus the retired BoardLegend module's import failure (`/private/tmp/s2a-reviewer-drift.log`, exit 1). Reconcile the suites listed in `/private/tmp/s2a-handoff.md`; no reviewer test or blessed baseline was edited. The actual literal-slug defect from that run is fixed and its independent reviewer assertion passes. No full gate, Chromium/Playwright, native-browser focus, responsive visual fidelity or full-project TypeScript was verified. No commit, stage, merge, queue or push was performed.

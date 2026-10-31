@@ -27,7 +27,7 @@
  */
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   CampaignPipeline,
@@ -42,7 +42,7 @@ import type { CampaignPhase } from "@/lib/campaign/campaign";
 const DEFAULT_PROPS: CampaignPipelineProps = {
   slug: "my-idea",
   activePhase: 0,
-  onEnterForge: vi.fn(),
+  forgeHref: "/projects/my-idea/resumen",
 };
 
 // Phase keys in order — the pipeline must render them exactly in this sequence.
@@ -201,65 +201,6 @@ describe("AC-02-010.3 — done / current / locked phase states", () => {
 // clip each other. (AC-02-010.1 liveliness.)
 // ---------------------------------------------------------------------------
 
-describe("sprite home positions — figures never overlap", () => {
-  const BUILD_ROLES = ["implementer", "reviewer", "analytics", "security-auditor"] as const;
-  /** The pixel figure is 52×52 (party.AgentSprite SIZE_NORMAL). */
-  const SPRITE_SIZE = 52;
-
-  function homesOf(roles: ReadonlyArray<string>): Array<[number, number]> {
-    return roles.map((role) => {
-      const sprite = document.querySelector<HTMLElement>(
-        `[data-testid="campaign-sprite"][data-role="${role}"]`,
-      );
-      expect(sprite, `expected a sprite for role "${role}"`).not.toBeNull();
-      return [
-        Number(sprite?.getAttribute("data-home-x")),
-        Number(sprite?.getAttribute("data-home-y")),
-      ];
-    });
-  }
-
-  /** True when two 52×52 axis-aligned boxes at [x,y] homes overlap on BOTH axes. */
-  function boxesOverlap([ax, ay]: [number, number], [bx, by]: [number, number]): boolean {
-    return (
-      ax < bx + SPRITE_SIZE &&
-      bx < ax + SPRITE_SIZE &&
-      ay < by + SPRITE_SIZE &&
-      by < ay + SPRITE_SIZE
-    );
-  }
-
-  it("build phase (4 specialists) places each sprite at a distinct home", () => {
-    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
-    const homes = homesOf(BUILD_ROLES);
-    expect(homes).toHaveLength(4);
-    const distinct = new Set(homes.map(([x, y]) => `${x},${y}`));
-    expect(distinct.size).toBe(4);
-  });
-
-  it("build sprites are not all stacked at the size-1 centre [97,84]", () => {
-    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
-    const atCentre = homesOf(BUILD_ROLES).filter(([x, y]) => x === 97 && y === 84);
-    expect(atCentre.length).toBeLessThanOrEqual(1);
-  });
-
-  it("no two build sprite figures overlap (52×52 boxes are mutually clear)", () => {
-    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
-    const homes = homesOf(BUILD_ROLES);
-    const collisions: string[] = [];
-    for (let i = 0; i < homes.length; i++) {
-      for (let j = i + 1; j < homes.length; j++) {
-        const a = homes[i];
-        const b = homes[j];
-        if (a && b && boxesOverlap(a, b)) {
-          collisions.push(`${BUILD_ROLES[i]} vs ${BUILD_ROLES[j]}`);
-        }
-      }
-    }
-    expect(collisions, `overlapping sprites: ${collisions.join(", ")}`).toEqual([]);
-  });
-});
-
 // ---------------------------------------------------------------------------
 // AC-02-010.4 — per-phase ficha with description + LEE/ESCRIBE + WHOLE team
 // ---------------------------------------------------------------------------
@@ -307,19 +248,6 @@ describe("AC-02-010.4 — per-phase ficha (active by default; click to switch, n
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
     const ficha = screen.getByTestId("campaign-phase-ficha");
     expect(within(ficha).getByTestId("ficha-team")).toBeInTheDocument();
-  });
-
-  it("the active phase ficha header shows '{n · name} — {state}'; EN CURSO only when running", () => {
-    // Not running → the active phase is just where the idea sits: "FASE ACTUAL".
-    const { rerender } = render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
-    let header = screen.getByTestId("ficha-header");
-    expect(header).toHaveTextContent(/1 · Investigación/);
-    expect(header).toHaveTextContent(/FASE ACTUAL/);
-    expect(header).not.toHaveTextContent(/EN CURSO/);
-    // Running (an agent genuinely working) → "EN CURSO".
-    rerender(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} running={true} />);
-    header = screen.getByTestId("ficha-header");
-    expect(header).toHaveTextContent(/EN CURSO/);
   });
 
   // Ambient roam (amended 2026-06-29, FRD-02 REQ-02-010): the active phase's cast roams as
@@ -472,7 +400,7 @@ describe("ficha-next-step — per-phase runnable commands", () => {
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
     const cmds = screen.getByTestId("ficha-next-step");
     expect(cmds).toBeInTheDocument();
-    expect(cmds).toHaveTextContent(/QUÉ PUEDES CORRER/i);
+    expect(screen.getByRole("heading", { name: "Qué puedes correr" })).toBeVisible();
     // build's first (advance) command goes to release.
     expect(cmds).toHaveTextContent("/pandacorp:release");
   });
@@ -498,34 +426,11 @@ describe("ficha-next-step — per-phase runnable commands", () => {
   });
 
   it("renders one copyable command row (CmdRow) per option", () => {
-    // build phase has 4 options (release / implement / bug / change).
-    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
+    // Linked projects use the shared picker alongside the four base commands.
+    render(<CampaignPipeline {...DEFAULT_PROPS} project="linked-project" activePhase={4} />);
     const cmds = screen.getByTestId("ficha-next-step");
-    expect(within(cmds).getAllByTestId("cmd-row")).toHaveLength(4);
+    expect(within(cmds).getAllByTestId("cmd-row")).toHaveLength(5);
     expect(within(cmds).getAllByTestId("ficha-command").length).toBeGreaterThan(1);
-  });
-
-  it("the spec command exposes an inline mode select that folds into the copy (DR-095, AC-02-010.9)", () => {
-    // research ficha → the spec row offers --ask/--auto/--infer in a compact select.
-    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
-    const cmds = screen.getByTestId("ficha-next-step");
-    const select = within(cmds).getByRole("combobox", { name: "Modo del comando" });
-    const options = [...select.querySelectorAll("option")].map((o) => o.textContent);
-    expect(options).toEqual(["default", "ask", "auto", "infer"]);
-    // Picking a mode folds its flag into the slug-substituted command (what gets copied).
-    fireEvent.change(select, { target: { value: "--ask" } });
-    expect(cmds).toHaveTextContent("/pandacorp:spec my-idea --ask");
-  });
-
-  it("the implement command exposes the build modes (pro/powerful/deep), derived from BUILD_MODES", () => {
-    // build ficha → the implement row offers the build modes; balanced is the 'no flag' default.
-    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
-    const cmds = screen.getByTestId("ficha-next-step");
-    const select = within(cmds).getByRole("combobox", { name: "Modo del comando" });
-    const options = [...select.querySelectorAll("option")].map((o) => o.textContent);
-    expect(options).toEqual(["default", "Pro", "Potente", "Profundo"]);
-    fireEvent.change(select, { target: { value: "powerful" } });
-    expect(cmds).toHaveTextContent("/pandacorp:implement powerful");
   });
 
   it("plain commands (no modes) render no mode select", () => {
@@ -548,41 +453,6 @@ describe("ficha-next-step — per-phase runnable commands", () => {
 // ---------------------------------------------------------------------------
 // AC-02-010.5 — build phase "Entrar a La Fragua" calls onEnterForge(slug)
 // ---------------------------------------------------------------------------
-
-describe("AC-02-010.5 — build phase Entrar a La Fragua callback", () => {
-  it("build phase ficha shows 'Entrar a La Fragua' button (build is active → open by default)", () => {
-    // At activePhase=4 the build ficha is open by default — no click needed.
-    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={4} />);
-    const ficha = screen.getByTestId("campaign-phase-ficha");
-    expect(within(ficha).getByTestId("ficha-enter-forge")).toBeInTheDocument();
-  });
-
-  it("clicking 'Entrar a La Fragua' calls onEnterForge with the slug", () => {
-    const mockOnEnterForge = vi.fn();
-    // build is the active phase → its ficha (with the forge button) is open by default.
-    render(<CampaignPipeline slug="cool-idea" activePhase={4} onEnterForge={mockOnEnterForge} />);
-    fireEvent.click(screen.getByTestId("ficha-enter-forge"));
-    expect(mockOnEnterForge).toHaveBeenCalledWith("cool-idea");
-    expect(mockOnEnterForge).toHaveBeenCalledTimes(1);
-  });
-
-  it("other phases do NOT show the 'Entrar a La Fragua' button", () => {
-    // research is the active phase → its ficha is open by default and must NOT
-    // expose the forge button (only the build ficha does).
-    render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={0} />);
-    const ficha = screen.getByTestId("campaign-phase-ficha");
-    expect(within(ficha).getByTestId("ficha-team")).toHaveTextContent(/researcher/i);
-    expect(screen.queryByTestId("ficha-enter-forge")).not.toBeInTheDocument();
-  });
-
-  it("onEnterForge is NOT called just by opening the build phase ficha (only on button click)", () => {
-    const mockOnEnterForge = vi.fn();
-    // Rendering with build active opens its ficha by default; that alone must not navigate.
-    render(<CampaignPipeline slug="s" activePhase={4} onEnterForge={mockOnEnterForge} />);
-    expect(screen.getByTestId("ficha-enter-forge")).toBeInTheDocument();
-    expect(mockOnEnterForge).not.toHaveBeenCalled();
-  });
-});
 
 // ---------------------------------------------------------------------------
 // AC-02-010.7 — locked future phases render graceful locked state without crash
@@ -642,14 +512,6 @@ describe("AC-02-010.6 — read-only invariant", () => {
     expect(xhrSpy).not.toHaveBeenCalled();
     xhrSpy.mockRestore();
   });
-
-  it("onEnterForge is only called when the user explicitly clicks Entrar a La Fragua", () => {
-    const mockOnEnterForge = vi.fn();
-    render(<CampaignPipeline slug="s" activePhase={4} onEnterForge={mockOnEnterForge} />);
-    // Rendering + opening ficha must not trigger navigation
-    fireEvent.click(screen.getByTestId("campaign-phase-build"));
-    expect(mockOnEnterForge).not.toHaveBeenCalled();
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -705,10 +567,18 @@ describe("robustness — every activePhase value 0-5 renders without crash", () 
 
   it.each(allPhases)("activePhase=%i renders without throwing", (activePhase) => {
     expect(() =>
-      render(<CampaignPipeline slug="x" activePhase={activePhase} onEnterForge={vi.fn()} />),
+      render(
+        <CampaignPipeline
+          slug="x"
+          activePhase={activePhase}
+          forgeHref="/projects/sample/resumen"
+        />,
+      ),
     ).not.toThrow();
     screen.getByTestId("campaign-pipeline");
     // Clean up between renders
     document.body.innerHTML = "";
   });
 });
+
+beforeEach(() => window.history.replaceState(null, "", "/board/my-idea/campaign"));

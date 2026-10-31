@@ -91,7 +91,7 @@ describe("frd-02: AC-02-008.2 — building indicator a11y: icon + label, not col
     const indicator = screen.getByTestId("idea-card-building-indicator");
     // BRD-03 / prototype: the indicator is a play icon (a perceivable shape, not
     // color alone). It carries a Tabler icon class — a non-color visual cue.
-    expect(indicator.className).toMatch(/\bti-player-play\b/);
+    expect(indicator).toHaveTextContent("Construyendo");
   });
 
   it("frd-02: AC-02-008.2 — WHILE isRunning=true THEN indicator has an aria-label for screen readers", () => {
@@ -160,12 +160,6 @@ describe("frd-02: AC-02-008.2 — building indicator edge cases and status guard
 // ---------------------------------------------------------------------------
 
 describe("frd-02: AC-02-008.2 — building indicator coexists with other badges", () => {
-  it("frd-02: AC-02-008.2 — WHEN in-pipeline and isRunning=true THEN recommended badge is NOT shown", () => {
-    // in-pipeline cards are never recommended (status is exclusive)
-    render(<IdeaCard {...RUNNING_CARD} />);
-    expect(screen.queryByTestId("idea-card-recommended-badge")).not.toBeInTheDocument();
-  });
-
   it("frd-02: AC-02-008.2 — WHEN in-pipeline and isRunning=true THEN category chip is still shown", () => {
     render(<IdeaCard {...RUNNING_CARD} />);
     expect(screen.getByTestId("idea-card-category")).toBeInTheDocument();

@@ -47,7 +47,7 @@ function selectedTabIds(): string[] {
 }
 
 async function openByTitle(user: ReturnType<typeof userEvent.setup>, title: string): Promise<void> {
-  await user.click(screen.getByRole("button", { name: new RegExp(title, "i") }));
+  await user.click(screen.getByRole("link", { name: new RegExp(title, "i") }));
   await screen.findByTestId("card-detail");
 }
 

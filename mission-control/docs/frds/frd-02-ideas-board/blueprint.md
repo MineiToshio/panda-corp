@@ -182,11 +182,11 @@ the default view is Diagrama at desktop/tablet and Esquema on phones; `GraphCont
 exports WoDag still imports until WO-05-008 deletes WoDag (W6).
 
 **C5 · Campaña (`IF-02-campaign-props`, WO-02-020; consumer WO-02-016).** `CampaignPipeline({ slug, activePhase,
-running?, forgeHref? })`: `slug` interpolates into every `<idea>` command token; `forgeHref` is the Portafolio →
+project?, running?, forgeHref? })`: `slug` interpolates into every `<idea>` command token; `forgeHref` is the Portafolio →
 project → Resumen URL built server-side by the idea page (FRD-25 codec); the «Entrar a La Fragua» link renders only
 when the build phase is reached and `forgeHref` is present. The pinned phase lives in the `phase` URL key.
 Read-only: no write, no Claude call, no build trigger. The mode picker is FRD-11's `BuildModePicker` (WO-11-003),
-mounted as is.
+mounted as is. Optional `project` passes from CardDetail through CampaignPipeline to PhaseSheet, scopes mode memory to the linked project, and enables the picker on every implement command; without a project, show the plain modes disclosure.
 
 **C6 · Browser-local preferences (not factory writes).** «Ocultar columnas vacías» persists in `localStorage` under
 one namespaced key, read after hydration without layout shift of the default (all columns shown) state; the build

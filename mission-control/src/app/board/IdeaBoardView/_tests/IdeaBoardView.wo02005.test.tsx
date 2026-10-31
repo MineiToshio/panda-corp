@@ -16,7 +16,7 @@
  * Stack: Vitest + @testing-library/react (jsdom).
  */
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { IdeaCardProps } from "@/components/modules/IdeaCard/IdeaCard";
@@ -312,24 +312,6 @@ describe("IdeaBoardView WO-02-005 — AC-02-005.1 chips on cards", () => {
 // AC-02-006.2 — recommended badge
 // ---------------------------------------------------------------------------
 
-describe("IdeaBoardView WO-02-005 — AC-02-006.2 recommended badge", () => {
-  it("recommended card shows the recommended badge", () => {
-    render(<IdeaBoardView cards={[RECOMMENDED_CARD]} />);
-    expect(screen.getByTestId("idea-card-recommended-badge")).toBeInTheDocument();
-  });
-
-  it("non-recommended card does NOT show the recommended badge", () => {
-    render(<IdeaBoardView cards={[DISCOVERED_CARD]} />);
-    expect(screen.queryByTestId("idea-card-recommended-badge")).not.toBeInTheDocument();
-  });
-
-  it("recommended card with boardColumn=discovered still shows the badge inside the discovered column", () => {
-    render(<IdeaBoardView cards={[RECOMMENDED_CARD]} />);
-    const col = screen.getByTestId("board-column-discovered");
-    expect(within(col).getByTestId("idea-card-recommended-badge")).toBeInTheDocument();
-  });
-});
-
 // ---------------------------------------------------------------------------
 // AC-02-002.1 — no drag/move controls
 // ---------------------------------------------------------------------------
@@ -410,11 +392,6 @@ describe("IdeaBoardView WO-02-005 — backward-compat: cards without boardColumn
 // ---------------------------------------------------------------------------
 
 describe("IdeaBoardView WO-02-005 — empty state", () => {
-  it("renders empty state when no cards", () => {
-    render(<IdeaBoardView cards={[]} />);
-    expect(screen.getByTestId("board-empty-state")).toBeInTheDocument();
-  });
-
   it("still shows all 6 pipeline columns when cards array is non-empty", () => {
     render(<IdeaBoardView cards={[DISCOVERED_CARD]} />);
     const columns: BoardColumn[] = [

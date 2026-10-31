@@ -5,12 +5,11 @@
  *   WO-02-007 CardDetail (2-tab shell)
  *     → mounts WO-02-010 CampaignPipeline (real)
  *       → driven by WO-02-011 phaseFromStatus (real, via CardDetail)
- *     → raises onEnterForge wired in WO-02-012 goToParty contract (real callback shape)
  *
  * The implementers' own tests mock CampaignPipeline (CardDetail.tabs.test.tsx) or test each
  * unit in isolation. This file verifies the REAL seam: that the active campaign phase the
  * pipeline renders is the one phaseFromStatus derives from the card's status/phase, that the
- * "Entrar a La Fragua" button bubbles the card's slug back through CardDetail's onEnterForge,
+ * "Entrar a La Fragua" stays a real link supplied by the host, never a CardDetail callback,
  * and edge/abuse cases the isolated suites did not see crossing the seam.
  *
  * Stack: Vitest + @testing-library/react (jsdom). No vi.mock of any FRD-02 unit.
@@ -19,6 +18,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CardDetail } from "@/app/board/_components/CardDetail/CardDetail";
+import { CampaignPipeline } from "@/components/modules/CampaignPipeline/CampaignPipeline";
 import { phaseFromStatus } from "@/lib/campaign/campaign";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
 import type { Phase } from "@/lib/status/status";
@@ -135,45 +135,27 @@ describe("FRD-02 integration — phase-state invariant through CardDetail (AC-02
 });
 
 // ---------------------------------------------------------------------------
-// Seam 3: "Entrar a La Fragua" bubbles the card slug through CardDetail (WO-010↔012↔007)
+// Seam 3: the forge action is a real link owned by the host (AC-02-010.5, IF-02-campaign-props)
 // ---------------------------------------------------------------------------
 
-describe("FRD-02 integration — Entrar a La Fragua bubbles the slug to onEnterForge (AC-02-010.5)", () => {
-  it("clicking the build phase's forge button calls CardDetail.onEnterForge with THE CARD'S slug, not a stale one", () => {
-    // Build phase is only reachable (non-locked) when active. Use an in-pipeline/build card.
-    const { onEnterForge } = renderDetail({
-      slug: "panda-shop",
-      status: "in-pipeline",
-      phase: "implementation",
-    });
-    // build is the current phase → its ficha is open by DEFAULT and exposes the forge button
-    // (sel initialises to the active phase). Clicking build again would toggle it closed.
-    fireEvent.click(screen.getByTestId("ficha-enter-forge"));
-    expect(onEnterForge).toHaveBeenCalledTimes(1);
-    expect(onEnterForge).toHaveBeenCalledWith("panda-shop");
+describe("FRD-02 integration — Entrar a La Fragua is a real link, never a callback (AC-02-010.5)", () => {
+  it("the transitional CardDetail host supplies no forgeHref, so a build-phase card shows no dead action", () => {
+    renderDetail({ slug: "panda-shop", status: "in-pipeline", phase: "implementation" });
+    expect(screen.queryByTestId("ficha-enter-forge")).toBeNull();
+    expect(screen.getByTestId("campaign-phase-ficha")).toBeInTheDocument();
   });
 
-  it("the forge button only exists in the BUILD ficha, never in another phase's ficha (no accidental nav from product)", () => {
-    renderDetail({ slug: "x", status: "shipped" });
-    // open product ficha (done phase) — has team, but no forge button
+  it("the link exists only in the reached BUILD ficha, never in another phase's ficha", () => {
+    render(<CampaignPipeline slug="x" activePhase={5} forgeHref="/portfolio/x" />);
     fireEvent.click(screen.getByTestId("campaign-phase-product"));
     const ficha = screen.getByTestId("campaign-phase-ficha");
     expect(within(ficha).queryByTestId("ficha-enter-forge")).toBeNull();
     expect(within(ficha).getAllByTestId("ficha-team-member").length).toBeGreaterThan(0);
-  });
-
-  it("CardDetail without an onEnterForge prop does NOT crash when the forge button is clicked (default no-op)", () => {
-    render(
-      <CardDetail
-        slug="no-cb"
-        title="Sin callback"
-        status="in-pipeline"
-        phase="implementation"
-        body="x"
-      />,
+    fireEvent.click(screen.getByTestId("campaign-phase-build"));
+    expect(screen.getByRole("link", { name: "Entrar a La Fragua" })).toHaveAttribute(
+      "href",
+      "/portfolio/x",
     );
-    // build is the active phase → its ficha (with the forge button) is open by default.
-    expect(() => fireEvent.click(screen.getByTestId("ficha-enter-forge"))).not.toThrow();
   });
 });
 
@@ -189,7 +171,9 @@ describe("FRD-02 integration — 3 tabs coexist with the real pipeline (AC-02-00
     );
     // The real pipeline (not a mock) is always mounted via the clip technique.
     expect(screen.getByTestId("campaign-pipeline")).toBeInTheDocument();
-    expect(screen.getByText("EL VIAJE DE ESTA IDEA POR LAS 6 FASES")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "El viaje de esta idea por las 6 fases", hidden: true }),
+    ).toBeInTheDocument();
   });
 
   it("a card with no docs shows summary only and still renders the full pipeline (no cross-tab breakage)", () => {

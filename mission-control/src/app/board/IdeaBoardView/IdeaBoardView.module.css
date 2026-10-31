@@ -1,0 +1,8 @@
+.scroller {
+  display: flex;
+  gap: var(--s3);
+  align-items: stretch;
+  overflow-x: auto;
+  padding-bottom: var(--s3);
+  scrollbar-width: thin;
+}

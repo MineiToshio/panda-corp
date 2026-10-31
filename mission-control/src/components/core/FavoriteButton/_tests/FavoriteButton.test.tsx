@@ -14,7 +14,7 @@
  * Stack: Vitest + @testing-library/react (jsdom). The Server Action is injected as a prop.
  */
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { FavoriteButton } from "@/components/core/FavoriteButton/FavoriteButton";
@@ -36,14 +36,14 @@ describe("FavoriteButton — rendering", () => {
     render(<FavoriteButton slug="idea-x" favorite={false} favoriteAction={makeAction()} />);
     const btn = screen.getByTestId("favorite-button");
     expect(btn).toHaveAttribute("aria-pressed", "false");
-    expect(btn).toHaveAccessibleName("Marcar como favorita");
+    expect(btn).toHaveAccessibleName("Marcar como favorita: idea-x");
   });
 
   it("is pressed and labelled 'Quitar de favoritas' when already a favourite", () => {
     render(<FavoriteButton slug="idea-x" favorite={true} favoriteAction={makeAction()} />);
     const btn = screen.getByTestId("favorite-button");
     expect(btn).toHaveAttribute("aria-pressed", "true");
-    expect(btn).toHaveAccessibleName("Quitar de favoritas");
+    expect(btn).toHaveAccessibleName("Quitar de favoritas: idea-x");
   });
 });
 
@@ -62,6 +62,31 @@ describe("FavoriteButton — toggle (AC-02-012.3)", () => {
     render(<FavoriteButton slug="idea-x" favorite={true} favoriteAction={action} />);
     await user.click(screen.getByTestId("favorite-button"));
     await waitFor(() => expect(action).toHaveBeenCalledWith("idea-x", false));
+  });
+
+  it("keeps keyboard focus and ignores re-entry while the action is pending", async () => {
+    let finish: (result: FavoriteResult) => void = () => {};
+    const action = vi.fn(
+      () =>
+        new Promise<FavoriteResult>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    render(<FavoriteButton slug="idea-x" favorite={false} favoriteAction={action} />);
+    const star = screen.getByRole("button", { name: "Marcar como favorita: idea-x" });
+    await user.tab();
+    await user.keyboard(" ");
+    expect(star).toHaveFocus();
+    expect(star).toHaveAttribute("aria-busy", "true");
+    expect(star).toBeEnabled();
+    await user.keyboard("{Enter}");
+    expect(action).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      finish({ ok: true, favorite: true });
+    });
+    expect(star).toHaveFocus();
+    expect(star).toHaveAttribute("aria-busy", "false");
   });
 
   it("optimistically flips aria-pressed to true while the action is in flight", async () => {

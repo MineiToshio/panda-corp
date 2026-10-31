@@ -310,7 +310,7 @@ export interface CardDetailProps {
   body: string;
   /** Project phase from the linked project's status.yaml (any project-linked card). */
   phase?: Phase;
-  /** Deploy target (DR-085) — surfaced in the campaign's Release ficha (internal/external). */
+  /** Legacy caller compatibility; the campaign no longer displays the deploy target. */
   deployTarget?: DeployTarget;
   /** App type (card `project_type`: web / mobile / api …) — a "qué es" tag in Propuesta + Spec. */
   projectType?: string;
@@ -357,12 +357,10 @@ export interface CardDetailProps {
    * "opens in the project workspace" fallback instead of crashing.
    */
   readDocAction?: (project: string, relPath: string) => Promise<string | null>;
-  /** Whether the linked project is actively building (status.yaml running:true) —
-   *  drives "en curso" + roam vs "fase actual" + idle-bob in the campaign. */
+  /** Whether the linked project is actively building; controls the campaign live markers. */
   isRunning?: boolean;
   /**
-   * Host-navigation callback — called when the user activates "Entrar a La Fragua"
-   * in the build phase of CampaignPipeline (AC-02-010.5).
+   * Legacy caller compatibility until the dedicated idea route supplies a real forge URL.
    */
   onEnterForge?: (slug: string) => void;
 }
@@ -370,10 +368,6 @@ export interface CardDetailProps {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function noop(): void {
-  // Default no-op for onEnterForge when the caller does not provide one.
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -402,7 +396,6 @@ export function CardDetail({
   status,
   body,
   phase,
-  deployTarget,
   projectType,
   targetPlatforms,
   docNodes,
@@ -416,7 +409,6 @@ export function CardDetail({
   project,
   readDocAction,
   isRunning,
-  onEnterForge,
 }: CardDetailProps): React.JSX.Element {
   const activePhase = phaseFromStatus({ cardStatus: status, phase });
   const { activeTab, tabs, hasSpec, hasArchitecture } = useCardTabs(
@@ -435,9 +427,6 @@ export function CardDetail({
 
   // Build the grouped rail sections (empty when no scoped docs).
   const sections = buildDocSections(docNodes ?? []);
-
-  // Forge handler: use provided callback or no-op.
-  const handleEnterForge = onEnterForge ?? noop;
 
   /**
    * Select the always-present "Resumen" item: show the card body, keep on Documentos.
@@ -580,10 +569,9 @@ export function CardDetail({
       >
         <CampaignPipeline
           slug={slug}
+          project={project}
           activePhase={activePhase}
           running={isRunning === true}
-          deployTarget={deployTarget}
-          onEnterForge={handleEnterForge}
         />
       </div>
 

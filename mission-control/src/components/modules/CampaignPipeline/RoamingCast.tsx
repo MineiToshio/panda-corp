@@ -1,274 +1,120 @@
 "use client";
+import { useEffect, useRef, useState } from "react";
+import type { PhaseTeamMember } from "./phases";
+import { TeamSprite } from "./TeamMember";
 
-/**
- * RoamingCast — the cast of one campaign phase room (CMP-02-campaign-pipeline).
- *
- * Faithful to party-pipeline.html's roam engine (startRoam, ~L277-311):
- *   - In the ACTIVE room the cast wanders: each member walks to a fresh target
- *     every ~0.9–2.5s (sometimes toward another member to "collaborate"), bobbing
- *     while walking and idling otherwise; the lead carries an accent halo and a
- *     short speech bubble pops when two members meet.
- *   - DONE rooms idle-bob in place (desynced). LOCKED rooms are static + dimmed.
- *
- * The 60 fps loop mutates the DOM imperatively (refs + style/class) so React stays
- * out of the animation frame. Honors prefers-reduced-motion (no roam, no bob — the
- * bob keyframes are also disabled in globals.css under the same media query).
- *
- * "use client": uses refs + requestAnimationFrame + matchMedia.
- *
- * Traceability: CMP-02-campaign-pipeline → REQ-02-010 (AC-02-010.1 liveliness).
- */
-
-import { useEffect, useRef } from "react";
-import { AgentSprite } from "@/components/modules/party/AgentSprite/AgentSprite";
-
-type AgentRole = Parameters<typeof AgentSprite>[0]["agentRole"];
-
-/** A single member of a phase's cast. `lead` carries the accent halo. */
-export interface RoamingCastMember {
-  role: AgentRole;
-  label: string;
-  lead: boolean;
-}
-
-interface RoamingCastProps {
-  /** The phase's specialists (already filtered to valid sprite roles). */
-  members: ReadonlyArray<RoamingCastMember>;
-  /** Sprite home positions [left, top] inside the room, by cast index. */
-  homes: ReadonlyArray<readonly [number, number]>;
-  /** Room state: "current" + running roams; otherwise idle-bobs; "locked" is static + dimmed. */
-  state: "current" | "done" | "locked";
-  /**
-   * Whether an agent is genuinely running. The cast only ROAMS (wanders + halo +
-   * speech) when the current room's agent is actually working; otherwise it just
-   * idle-bobs in place (owner: "quietecito en el centro" until something runs).
-   */
+interface CastProps {
+  members: readonly PhaseTeamMember[];
+  state: "done" | "current" | "locked";
   running: boolean;
+  phase: string;
 }
-
-/** Short in-character lines popped when two members meet (prototype DIALOG). */
-const DIALOG: Record<string, readonly string[]> = {
-  researcher: ["fuente validada ✓", "competidor: $9/mes", "API gratis", "dolor real ✓"],
-  "product-manager": ["criterio EARS ✓", "¿entra al MVP?", "REQ priorizado", "métrica clara"],
-  designer: ["token aplicado", "mockup listo", "¿contraste AA?", "grid resuelto"],
-  copywriter: ["microcopy ✓", "voz: cercana", "CTA más claro", "empty state listo"],
-  architect: ["camino dorado", "ADR escrito", "Build Plan ✓", "modelo de datos"],
-  implementer: ["WO en review", "tests verdes", "contrato listo", "self-test ✓"],
-  reviewer: ["aprobado", "re-corrí tests", "2 notas", "integración ok"],
-  analytics: ["evento listo", "sin PII ✓", "embudo ok", "activación medida"],
-  "security-auditor": ["sin secretos", "OWASP ✓", "deps al día", "auth revisada"],
-  devops: ["deploy a staging", "rollback listo", "CI verde", "infra ok"],
+const HOMES: Readonly<Record<number, readonly (readonly [number, number])[]>> = {
+  1: [[50, 52]],
+  2: [
+    [34, 52],
+    [66, 52],
+  ],
+  4: [
+    [30, 34],
+    [62, 34],
+    [30, 66],
+    [62, 66],
+  ],
 };
-
-/** Per-sprite runtime state for the roam loop (kept off React — mutated each frame). */
-interface SpriteRuntime {
-  el: HTMLDivElement;
-  bob: HTMLElement | null;
-  say: HTMLElement | null;
-  role: string;
-  px: number;
-  py: number;
-  tx: number;
-  ty: number;
-  phase: "pause" | "walk";
-  t0: number;
-  dur: number;
-  meet: SpriteRuntime | null;
-  sayTimer: number;
-}
-
-const SPRITE_W = 56;
-const ROAM_SPEED = 0.5; // px/frame — matches the prototype
-// Roam bounds inside a 250×208 room (prototype pick(): x 16–178, y 74–114).
-const X_MIN = 16;
-const X_MAX = 178;
-const Y_MIN = 74;
-const Y_SPAN = 40;
-const DEFAULT_HOME: readonly [number, number] = [97, 84];
-
-export function RoamingCast({
-  members,
-  homes,
-  state,
-  running,
-}: RoamingCastProps): React.JSX.Element {
-  const wrapperRefs = useRef<(HTMLDivElement | null)[]>([]);
-
+/** Transform-only cast motion. Reduced motion stops timers and every decorative animation. */
+export function RoamingCast({ members, state, running, phase }: CastProps): React.JSX.Element {
+  const homes = HOMES[members.length] ?? HOMES[4] ?? [];
+  const castRef = useRef<HTMLSpanElement>(null);
+  const [reduced, setReduced] = useState(false);
   useEffect(() => {
-    // Ambient roam (2026-06-29): the ACTIVE room's cast wanders as visual liveliness of
-    // "where the idea is now" — for ANY phase, decoupled from `running` (which only the build
-    // sets). The live-work markers stay honest: the lead halo + speech-on-meet render only when
-    // an agent is genuinely running (gated in the JSX below and in `arrive`), so the wander is
-    // ambient but no live-work chatter is fabricated. `running` stays in the dep array so the
-    // effect re-initialises (re-queries the now-present speech spans) when an agent starts.
-    if (state !== "current") return;
-    // jsdom/SSR have no matchMedia — skip the roam loop entirely there (no animation needed).
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    const els = wrapperRefs.current.filter((el): el is HTMLDivElement => el != null);
-    if (els.length === 0) return;
-
-    const sprites: SpriteRuntime[] = els.map((el) => {
-      const hx = Number(el.dataset.homeX ?? 0);
-      const hy = Number(el.dataset.homeY ?? 0);
-      return {
-        el,
-        bob: el.querySelector<HTMLElement>("[data-roam-bob]"),
-        say: el.querySelector<HTMLElement>("[data-roam-say]"),
-        role: el.dataset.role ?? "",
-        px: hx,
-        py: hy,
-        tx: hx,
-        ty: hy,
-        phase: "pause",
-        t0: performance.now(),
-        dur: 600 + Math.random() * 1400,
-        meet: null,
-        sayTimer: 0,
-      };
-    });
-
-    const pick = (s: SpriteRuntime): void => {
-      if (sprites.length > 1 && Math.random() < 0.45) {
-        const others = sprites.filter((o) => o !== s);
-        const o = others[Math.floor(Math.random() * others.length)];
-        if (o != null) {
-          s.tx = Math.max(X_MIN, Math.min(X_MAX, o.px + (s.px < o.px ? -30 : 30)));
-          s.ty = o.py;
-          s.meet = o;
-          return;
-        }
-      }
-      s.tx = X_MIN + Math.random() * (X_MAX - X_MIN);
-      s.ty = Y_MIN + Math.random() * Y_SPAN;
-      s.meet = null;
-    };
-
-    const bubble = (s: SpriteRuntime): void => {
-      const say = s.say;
-      if (say == null) return;
-      const lines = DIALOG[s.role] ?? ["…"];
-      say.textContent = lines[Math.floor(Math.random() * lines.length)] ?? "…";
-      say.classList.add("on");
-      window.clearTimeout(s.sayTimer);
-      s.sayTimer = window.setTimeout(() => say.classList.remove("on"), 2000);
-    };
-
-    // Sprite reached its target: settle, pause, and (if it was a meet) trade bubbles.
-    const arrive = (s: SpriteRuntime, now: number): void => {
-      s.px = s.tx;
-      s.py = s.ty;
-      s.phase = "pause";
-      s.t0 = now;
-      s.dur = 900 + Math.random() * 1500;
-      s.bob?.classList.remove("walking");
-      if (s.meet != null) {
-        // Speech-on-meet is a live-work signal — only when an agent is genuinely running.
-        // Ambient (not-running) wander still lets sprites cluster, but stays silent.
-        if (running) {
-          bubble(s);
-          bubble(s.meet);
-        }
-        s.meet = null;
-      }
-    };
-
-    // One frame's worth of motion for a single sprite (extracted to keep loop simple).
-    const advance = (s: SpriteRuntime, now: number): void => {
-      if (s.phase === "walk") {
-        const dx = s.tx - s.px;
-        const dy = s.ty - s.py;
-        const d = Math.hypot(dx, dy);
-        if (d < 1.3) {
-          arrive(s, now);
-        } else {
-          s.px += (dx / d) * ROAM_SPEED;
-          s.py += (dy / d) * ROAM_SPEED;
-        }
-      } else if (now - s.t0 > s.dur) {
-        pick(s);
-        s.phase = "walk";
-        s.bob?.classList.add("walking");
-      }
-      s.el.style.transform = `translate(${s.px}px, ${s.py}px)`;
-      s.el.style.zIndex = String(Math.round(s.py) + 10);
-    };
-
-    let raf = 0;
-    let alive = true;
-    const loop = (): void => {
-      if (!alive) return;
-      const now = performance.now();
-      for (const s of sprites) advance(s, now);
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-
+    if (!window.matchMedia) return;
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    function update(): void {
+      setReduced(media.matches);
+    }
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    if (reduced || state !== "current") return;
+    const cast = castRef.current;
+    if (!cast) return;
+    let step = 0;
+    let bounds = cast.getBoundingClientRect();
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? undefined
+        : new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (entry) bounds = entry.contentRect;
+          });
+    observer?.observe(cast);
+    const timer = window.setInterval(() => {
+      step += 1;
+      const sprites = Array.from(cast.children);
+      moveSprites(sprites, step, homes, bounds);
+    }, 240);
     return () => {
-      alive = false;
-      cancelAnimationFrame(raf);
-      for (const s of sprites) window.clearTimeout(s.sayTimer);
+      window.clearInterval(timer);
+      observer?.disconnect();
     };
-  }, [state, running]);
-
-  const hasBob = state !== "locked";
+  }, [reduced, state, homes]);
 
   return (
-    <div data-testid="campaign-cast" style={{ position: "absolute", inset: 0, zIndex: 3 }}>
-      {members.map((m, i) => {
-        const home = homes[i] ?? homes[0] ?? DEFAULT_HOME;
-        const lockedStyle =
-          state === "locked"
-            ? { filter: "grayscale(0.9) brightness(0.7)", opacity: 0.72 }
-            : undefined;
+    <span
+      ref={castRef}
+      className="cast"
+      data-testid={`campaign-cast-${phase}`}
+      data-motion={reduced || state === "locked" ? "static" : state === "done" ? "idle" : "roaming"}
+      aria-hidden="true"
+    >
+      {members.map((member, index) => {
+        const home = homes[index] ?? [50, 52];
         return (
-          <div
-            key={m.role}
-            ref={(el) => {
-              wrapperRefs.current[i] = el;
-            }}
+          <span
+            className={`cm cm-${state}`}
             data-testid="campaign-sprite"
-            data-role={m.role}
-            data-home-x={home[0]}
-            data-home-y={home[1]}
-            style={{
-              position: "absolute",
-              left: 0,
-              top: 0,
-              width: SPRITE_W,
-              transform: `translate(${home[0]}px, ${home[1]}px)`,
-              zIndex: Math.round(home[1]) + 3,
-            }}
+            data-role={member.role}
+            key={member.role}
+            style={{ left: `${home[0]}%`, top: `${home[1]}%` }}
           >
-            <div
-              data-roam-bob={hasBob ? "" : undefined}
-              className={hasBob ? "campaign-bob" : undefined}
-              style={{
-                position: "relative",
-                ...(state === "done" ? { animationDelay: `${(-(i * 0.7)).toFixed(2)}s` } : {}),
-              }}
-            >
-              {m.lead && state === "current" && running && (
-                <span
-                  aria-hidden="true"
-                  data-testid="campaign-sprite-halo"
-                  className="campaign-halo"
-                />
-              )}
-              <AgentSprite
-                agentRole={m.role}
-                state="idle"
-                woId={m.label}
-                style={{ position: "relative", ...lockedStyle }}
-              />
-              {state === "current" && running && (
-                <span aria-hidden="true" data-roam-say="" className="campaign-say" />
-              )}
-            </div>
-          </div>
+            {state === "current" && running && index === 0 && (
+              <span className="live-halo" data-testid="campaign-sprite-halo" />
+            )}
+            <TeamSprite role={member.role} />
+            <em>{member.label}</em>
+            {state === "current" && running && (
+              <span className="live-speech" data-testid="campaign-sprite-speech">
+                ···
+              </span>
+            )}
+          </span>
         );
       })}
-    </div>
+    </span>
   );
+}
+
+function moveSprites(
+  sprites: Element[],
+  step: number,
+  homes: readonly (readonly [number, number])[],
+  bounds: Pick<DOMRectReadOnly, "width" | "height">,
+): void {
+  for (const [index, sprite] of sprites.entries()) {
+    if (!(sprite instanceof HTMLElement)) continue;
+    const home = homes[index] ?? [50, 52];
+    const partner = homes[index % 2 === 0 ? index + 1 : index - 1];
+    const meet = step % 16 > 10 && partner !== undefined;
+    const dx = meet
+      ? ((partner[0] - home[0]) * bounds.width) / 200
+      : Math.sin(step / 3 + index) * 8;
+    const dy = meet
+      ? ((partner[1] - home[1]) * bounds.height) / 200
+      : Math.cos(step / 4 + index) * 5;
+    sprite.style.transform = `translate(-50%, -60%) translate(${dx}px, ${dy}px)`;
+    sprite.dataset.meeting = String(meet);
+  }
 }

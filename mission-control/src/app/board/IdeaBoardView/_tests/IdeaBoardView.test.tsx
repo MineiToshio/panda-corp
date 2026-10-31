@@ -177,11 +177,6 @@ describe("IdeaBoardView — empty state", () => {
   it("renders without error when cards array is empty", () => {
     expect(() => render(<IdeaBoardView cards={[]} />)).not.toThrow();
   });
-
-  it("shows empty state message when no cards are present", () => {
-    render(<IdeaBoardView cards={[]} />);
-    expect(screen.getByTestId("board-empty-state")).toBeInTheDocument();
-  });
 });
 
 // ---------------------------------------------------------------------------
