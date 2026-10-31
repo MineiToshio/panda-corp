@@ -6,7 +6,7 @@ title: 'WO-13-011 — Órbita leaf primitives (buttons, chips, command box, fiel
 status: ACTIVE
 parent: FRD-13
 foundation: true
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: medium
 reopen_count: 0
 artifacts:

@@ -6,7 +6,7 @@ title: 'WO-13-013 — Retire the v1 skin and dead v1 code; flip target_platforms
 status: ACTIVE
 parent: FRD-13
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: medium
 reopen_count: 0
 artifacts:

@@ -6,8 +6,7 @@ title: 'WO-13-010 — Órbita tokens, fonts, themes, icons, copy accessor and as
 status: ACTIVE
 parent: FRD-13
 foundation: true
-implementation_status: IN_REVIEW
-blocked_reason:
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts:
