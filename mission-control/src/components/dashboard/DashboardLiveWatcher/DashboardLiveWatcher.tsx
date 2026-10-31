@@ -16,8 +16,7 @@
  *   - `router.refresh()` re-runs the RSC payload for the current route without
  *     a navigation, so the Server Component re-reads `lib/**` and streams fresh
  *     data into the affected sections.
- *   - Digest's `visto_hasta` marker is client-local (localStorage) — it is
- *     preserved across refreshes automatically (no action needed here).
+ *   - Native decision disclosure state is preserved across refreshes by React.
  *   - "use client" required: useLiveSnapshot opens an EventSource.
  *
  * Traceability:
@@ -28,6 +27,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { useLiveSnapshot } from "@/hooks/useLiveSnapshot";
+import { stateVersionMoved } from "@/lib/status/state-version-moved";
 
 /**
  * DashboardLiveWatcher — invisible client component.
@@ -40,17 +40,17 @@ import { useLiveSnapshot } from "@/hooks/useLiveSnapshot";
  */
 export function DashboardLiveWatcher(): null {
   const router = useRouter();
-  const { lastEventAt } = useLiveSnapshot();
+  const { lastEventAt, snapshot } = useLiveSnapshot();
+  const previousVersion = useRef<number | null>(null);
   // Track the previous lastEventAt to detect genuinely new events
   const prevLastEventAt = useRef<string | null>(null);
 
   useEffect(() => {
-    if (lastEventAt === null) return;
-    if (lastEventAt === prevLastEventAt.current) return;
-    prevLastEventAt.current = lastEventAt;
-    // Refresh the Server Component payload: re-runs lib reads + section derivations
-    router.refresh();
-  }, [lastEventAt, router]);
+    const eventMoved = lastEventAt !== null && lastEventAt !== prevLastEventAt.current;
+    const stateMoved = stateVersionMoved(snapshot?.stateVersion, previousVersion);
+    if (eventMoved) prevLastEventAt.current = lastEventAt;
+    if (eventMoved || stateMoved) router.refresh();
+  }, [lastEventAt, snapshot, router]);
 
   return null;
 }

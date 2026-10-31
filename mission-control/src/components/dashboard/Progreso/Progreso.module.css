@@ -1,0 +1,19 @@
+.identity {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-bottom: var(--s3);
+}
+.identity strong {
+  font-family: var(--font-display);
+  font-size: var(--fs-h2);
+}
+.identity p,
+.next {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.next {
+  margin-top: var(--s3);
+}

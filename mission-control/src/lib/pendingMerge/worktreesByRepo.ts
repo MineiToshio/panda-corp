@@ -4,7 +4,7 @@ import { now } from "@/lib/clock/clock";
 import { resolveFactoryRoot, resolveProjectPath } from "@/lib/config/config";
 import { type CopyKey, t } from "@/lib/copy/copy";
 import { pathExists } from "@/lib/fs-utils/fs-utils";
-import { runGit } from "@/lib/git/git";
+import { runGit, runGitAsync } from "@/lib/git/git";
 import { GitError } from "@/lib/git/gitError";
 import { readPortfolio } from "@/lib/portfolio/portfolio";
 import { type RepoState, repoState } from "./repoState";
@@ -85,50 +85,72 @@ function branchOrigin(name: string): WorktreeBranch["origin"] {
   if (name.startsWith("claude/")) return "claude";
   return name.startsWith("codex/") ? "codex" : "manual";
 }
-function readBranch(
+type GitRead = Generator<{ args: readonly string[]; cwd: string }, WorktreesByRepo, string>;
+
+function* gitRead(
+  args: readonly string[],
+  cwd: string,
+): Generator<{ args: readonly string[]; cwd: string }, string, string> {
+  return yield { args, cwd };
+}
+
+function* readBranch(
   name: string,
   repo: string,
   worktrees: readonly Worktree[],
   instant: number,
-): WorktreeBranch {
+): Generator<{ args: readonly string[]; cwd: string }, WorktreeBranch, string> {
   const worktree = worktrees.find((w) => w.branch === name)?.path ?? null;
   // A failed optional branch metric keeps the known unmerged branch visible.
   let ahead = 0;
   let subject = name;
   let uncommitted = 0;
   try {
-    ahead = natural(runGit(["rev-list", "--count", `main..${name}`], repo));
+    ahead = natural(yield* gitRead(["rev-list", "--count", `main..${name}`], repo));
   } catch {
     /* known pending branch retained */
   }
   // Age is required for an honest priority; a failed read makes the repository unreadable.
-  const seconds = natural(runGit(["log", "-1", "--format=%ct", `refs/heads/${name}`], repo));
+  const seconds = natural(
+    yield* gitRead(["log", "-1", "--format=%ct", `refs/heads/${name}`], repo),
+  );
   const ageHours = Math.max(0, (instant - seconds * 1000) / 3_600_000);
   try {
-    subject = runGit(["log", "-1", "--format=%s", `refs/heads/${name}`], repo) || name;
+    subject = (yield* gitRead(["log", "-1", "--format=%s", `refs/heads/${name}`], repo)) || name;
   } catch {
     /* branch name is the honest fallback */
   }
   if (worktree) {
     try {
-      uncommitted = runGit(["status", "--porcelain"], worktree).split("\n").filter(Boolean).length;
+      uncommitted = (yield* gitRead(["status", "--porcelain"], worktree))
+        .split("\n")
+        .filter(Boolean).length;
     } catch {
       /* optional dirty count */
     }
   }
   return { name, subject, origin: branchOrigin(name), ageHours, ahead, uncommitted, worktree };
 }
+function branchNames(raw: string): string[] {
+  const names = (raw === "" ? [] : raw.split("\n"))
+    .filter((ref) => {
+      if (/^\(.*\)$/.test(ref)) return false;
+      if (ref.startsWith("refs/heads/")) return true;
+      throw new Error("Malformed git branch list");
+    })
+    .map((ref) => ref.slice("refs/heads/".length));
+  if (names.some((name) => /\s|^[-+*]|\.\.|[~^:?*[\\]/.test(name)))
+    throw new Error("Malformed git branch list");
+  return names;
+}
 /** Single resolver for both the card and pill (LESSON-0077). Repositories may be injected for isolated tests. */
-export function readWorktreesByRepo(
-  repositories: readonly Repository[],
-  instant = now().getTime(),
-): WorktreesByRepo {
+function* worktreesRead(repositories: readonly Repository[], instant: number): GitRead {
   const seen = new Set<string>();
   const rows: WorktreesRepo[] = [];
   for (const repository of repositories) {
     let errorKey: CopyKey = "inicio.worktrees.readError";
     try {
-      const source = runGit(["worktree", "list", "--porcelain"], repository.path);
+      const source = yield* gitRead(["worktree", "list", "--porcelain"], repository.path);
       errorKey = "inicio.worktrees.worktreeFormatError";
       const worktrees = parseWorktrees(source);
       const first = worktrees[0];
@@ -137,20 +159,15 @@ export function readWorktreesByRepo(
       if (seen.has(identity)) continue;
       seen.add(identity);
       errorKey = "inicio.worktrees.branchReadError";
-      const raw = runGit(["branch", "--no-merged", "main", "--format=%(refname)"], repository.path);
-      const names = (raw === "" ? [] : raw.split("\n"))
-        .filter((ref) => {
-          if (/^\(.*\)$/.test(ref)) return false;
-          if (ref.startsWith("refs/heads/")) return true;
-          throw new Error("Malformed git branch list");
-        })
-        .map((ref) => ref.slice("refs/heads/".length));
-      if (names.some((name) => /\s|^[-+*]|\.\.|[~^:?*[\\]/.test(name)))
-        throw new Error("Malformed git branch list");
-      errorKey = "inicio.worktrees.branchAgeReadError";
-      const branches = [...new Set(names)].map((name) =>
-        readBranch(name, repository.path, worktrees, instant),
+      const raw = yield* gitRead(
+        ["branch", "--no-merged", "main", "--format=%(refname)"],
+        repository.path,
       );
+      const names = branchNames(raw);
+      errorKey = "inicio.worktrees.branchAgeReadError";
+      const branches: WorktreeBranch[] = [];
+      for (const name of new Set(names))
+        branches.push(yield* readBranch(name, repository.path, worktrees, instant));
       const extras = worktrees.slice(1);
       const leftovers = extras.filter(
         (w) => !w.locked && !branches.some((b) => b.name === w.branch),
@@ -186,9 +203,38 @@ export function readWorktreesByRepo(
     );
   });
 }
-/** Read the factory and portfolio repositories once per server request. */
-export const getWorktreesByRepo = cache((): WorktreesByRepo => {
-  const repositories = [
+/** Resolve repository facts synchronously for existing non-streaming callers. */
+export function readWorktreesByRepo(
+  repositories: readonly Repository[],
+  instant = now().getTime(),
+): WorktreesByRepo {
+  const reader = worktreesRead(repositories, instant);
+  let step = reader.next();
+  while (!step.done) {
+    try {
+      step = reader.next(runGit(step.value.args, step.value.cwd));
+    } catch (error) {
+      step = reader.throw(error);
+    }
+  }
+  return step.value;
+}
+
+async function readAsync(repositories: readonly Repository[]): Promise<WorktreesByRepo> {
+  const reader = worktreesRead(repositories, now().getTime());
+  let step = reader.next();
+  while (!step.done) {
+    try {
+      step = reader.next(await runGitAsync(step.value.args, step.value.cwd));
+    } catch (error) {
+      step = reader.throw(error);
+    }
+  }
+  return step.value;
+}
+
+function repositoriesToRead(): Repository[] {
+  return [
     { id: "factory", name: "Fábrica", path: resolveFactoryRoot() },
     ...readPortfolio()
       .map((entry) => ({
@@ -198,5 +244,30 @@ export const getWorktreesByRepo = cache((): WorktreesByRepo => {
       }))
       .filter((entry) => pathExists(entry.path)),
   ];
-  return readWorktreesByRepo(repositories);
+}
+
+/** Synchronous compatibility entry point for non-streaming mounts. */
+export const getWorktreesByRepoSync = cache(
+  (): WorktreesByRepo => readWorktreesByRepo(repositoriesToRead()),
+);
+
+const WORKTREES_CACHE_MS = 5_000;
+let recentRead: { key: string; expires: number; value: Promise<WorktreesByRepo> } | undefined;
+/** Async repository traversal, deduplicated across server refreshes for five seconds. */
+export const getWorktreesByRepo = cache((): Promise<WorktreesByRepo> => {
+  const repositories = repositoriesToRead();
+  const key = JSON.stringify([repositories, process.env.MC_GIT_FIXTURE, process.env.MC_CLOCK]);
+  if (recentRead?.key === key && Date.now() < recentRead.expires) return recentRead.value;
+  const value = readAsync(repositories);
+  const entry = { key, expires: Number.POSITIVE_INFINITY, value };
+  recentRead = entry;
+  void value.then(
+    () => {
+      entry.expires = Date.now() + WORKTREES_CACHE_MS;
+    },
+    () => {
+      if (recentRead === entry) recentRead = undefined;
+    },
+  );
+  return value;
 });

@@ -9,15 +9,15 @@
  *
  *   1. recall step-numbering invariant for "behind" — the constant 2-step recall must be
  *      numbered 1) … 2) …, NEVER carry a 3) (the renumber bug surface) or a commit step.
- *   2. inconsistent server payload: drift=true but reason="in-sync"/"unknown" — banner must
- *      still render (it trusts `drift`, AC-15-004.1/.2) and NOT crash / NOT leak English.
+ *   2. inconsistent server payload: drift=true but reason="in-sync"/"unknown" — no banner
+ *      (AC-15-002.2/.3); a runtime verdict names that runtime's own versions.
  *   3. read-only invariant exercised through the REAL route GET handler (integration):
  *      the handler is a pure read and the banner only ever issues GET.
  *   4. self-clear must survive a transient error poll between two drift states (no false clear).
  *   5. command shown is EXACTLY the canonical string — no trailing whitespace / variant.
  */
 
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PluginSyncBanner } from "@/app/_components/plugin-sync-banner/plugin-sync-banner";
 import { GET } from "@/app/api/plugin-sync/route";
@@ -94,22 +94,49 @@ describe("ADV-2: inconsistent server payload (drift=true with non-drift reason)"
     vi.useFakeTimers();
   });
 
-  it("renders (trusts drift) without crashing when reason='in-sync' but drift=true", async () => {
+  it("shows nothing when reason='in-sync' whatever drift says (AC-15-002.2)", async () => {
     mockFetch(makeState({ drift: true, reason: "in-sync", detail: "incoherente" }));
     render(<PluginSyncBanner />);
     await flush();
-    const banner = screen.getByTestId("plugin-sync-banner");
-    expect(banner).toBeInTheDocument();
-    // The heading is the constant Spanish copy regardless of reason; no English leak.
-    expect(banner).toHaveTextContent(/el plugin instalado está atrás/i);
-    expect(banner).not.toHaveTextContent(/out of sync|behind|uncommitted/i);
+    expect(screen.queryByTestId("plugin-sync-banner")).not.toBeInTheDocument();
   });
 
-  it("renders generic heading when reason='unknown' but drift=true (still no false English)", async () => {
+  it("shows nothing when reason='unknown' whatever drift says (AC-15-002.3)", async () => {
     mockFetch(makeState({ drift: true, reason: "unknown", detail: "raro" }));
     render(<PluginSyncBanner />);
     await flush();
-    expect(screen.getByTestId("plugin-sync-banner")).toHaveTextContent(/plugin/i);
+    expect(screen.queryByTestId("plugin-sync-banner")).not.toBeInTheDocument();
+  });
+
+  it("names the versions of the runtime that is really behind (AC-15-002.1)", async () => {
+    const runtime = (
+      name: "claude" | "codex",
+      installed: string,
+      reason: "behind" | "in-sync",
+    ) => ({
+      runtime: name,
+      installedVersion: installed,
+      sourceVersion: "9.2.0",
+      drift: reason === "behind",
+      reason,
+    });
+    mockFetch(
+      makeState({
+        installedVersion: "9.2.0",
+        sourceVersion: "9.2.0",
+        drift: true,
+        reason: "behind",
+        runtimes: {
+          claude: runtime("claude", "9.2.0", "in-sync"),
+          codex: runtime("codex", "9.1.0", "behind"),
+        },
+      }),
+    );
+    render(<PluginSyncBanner />);
+    await flush();
+    const banner = screen.getByTestId("plugin-sync-banner");
+    expect(within(banner).getByRole("alert")).toHaveTextContent("9.1.0");
+    expect(banner).toHaveTextContent("9.2.0");
   });
 });
 

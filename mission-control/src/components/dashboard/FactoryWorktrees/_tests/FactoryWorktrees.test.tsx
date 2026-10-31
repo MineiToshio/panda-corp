@@ -3,7 +3,7 @@ import { expect, it, vi } from "vitest";
 import { FactoryWorktrees } from "../FactoryWorktrees";
 
 vi.mock("@/lib/pendingMerge/worktreesByRepo", () => ({
-  getWorktreesByRepo: vi.fn(() => [
+  getWorktreesByRepoSync: vi.fn(() => [
     { kind: "error", name: "Fixture", path: "/fixture", reason: "git failed" },
   ]),
 }));

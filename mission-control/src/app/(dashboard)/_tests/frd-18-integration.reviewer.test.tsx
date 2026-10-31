@@ -1,315 +1,250 @@
 /**
- * FRD-18 reviewer integration tests (DR-015) — adversarial, cross-work-order.
+ * FRD-18 reviewer integration tests (DR-015, DR-080), rewritten for the v2 Inicio.
  *
- * Exercises the dashboard derivations of WO-18-001..006 TOGETHER, anchored in the
- * FRD's EARS criteria, probing edges the implementers' unit tests did not assert:
- *
- *   - IF-18-digest marker boundary semantics (REQ-18-006/007): "new" is STRICTLY
- *     newer than the marker; an event at the exact marker ms is NOT new; a refresh
- *     never loses unseen events.
- *   - IF-18-turn exclusion invariant (REQ-18-011): routine progress (running build,
- *     advance_pending, auto-retried failed WO) NEVER enters the queue, whatever the
- *     input; the queue stays urgency-ordered (REQ-18-012).
- *   - IF-18-pulse safety & ≤5 signals (REQ-18-013): conversion is clamped, never NaN,
- *     even when shipped > alive or alive = 0; no-signal builds surface as the alarm.
- *   - IF-18-card freshness/staleness/blocker (REQ-18-016/017/018): live vs no-signal
- *     are mutually exclusive; clock-skew is guarded; blocker reason normalises.
- *   - The page-level integration invariant: pulse.ownerWaiting is fed from the SAME
- *     turn-queue length the operator sees (the two sections cannot disagree).
- *
- * These are reviewer tests: they live beside the feature and consume only the public
- * derivation API (no implementation-detail coupling).
+ * Exercises the Inicio resolvers and surfaces together, through their public API, on the
+ * edges the implementer's suite did not assert: real-shaped decision files, the seven-day
+ * boundaries, the launch bridge, and the honest-calm invariant.
  */
 
-import { describe, expect, it } from "vitest";
-import { computeDigest } from "@/app/_lib/digest";
-import { pulse } from "@/app/_lib/pulse";
-import { deriveCard } from "@/app/(dashboard)/_lib/card";
-import { buildTurnQueue, type TurnInput, type TurnItemKind } from "@/app/(dashboard)/_lib/turn";
-import type { Event } from "@/lib/events/events";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { TuTurno } from "@/components/dashboard/TuTurno/TuTurno";
+import { Pulso } from "@/components/modules/Pulso/Pulso";
+import { deriveColumn } from "@/lib/board/board";
+import { parseDecisionBlocks } from "@/lib/docs/activity";
+import { countLaunched, type IdeaCard } from "@/lib/ideas/ideas";
+import { selectLastAchievement } from "@/lib/inicio/achievement";
+import { deriveFlightGroups } from "@/lib/inicio/flight";
+import { deriveIdeaFunnel } from "@/lib/inicio/funnel";
+import { readProjectInbox } from "@/lib/inicio/inbox";
+import { pulseTiles } from "@/lib/inicio/pulse";
+import { deriveOwnerTurn, type OwnerTurnItem } from "@/lib/inicio/turn";
+import type { ProjectOverviewItem } from "@/lib/portfolio/overview";
+import { EnMarchaCard } from "../_components/EnMarchaCard";
 
-// ---------------------------------------------------------------------------
-// Builders (override only what each test cares about)
-// ---------------------------------------------------------------------------
+const NOW = "2026-10-30T12:00:00Z";
+let root: string;
 
-const NOW = Date.UTC(2026, 5, 18, 12, 0, 0); // 2026-06-18T12:00:00Z
-const HOUR = 60 * 60 * 1000;
+beforeEach(() => {
+  root = fs.mkdtempSync(path.join(os.tmpdir(), "frd-18-reviewer-"));
+  fs.mkdirSync(path.join(root, ".pandacorp/inbox/changes"), { recursive: true });
+});
+afterEach(() => {
+  cleanup();
+  fs.rmSync(root, { recursive: true, force: true });
+});
 
-function ev(overrides: Partial<Event> & { at: string }): Event {
-  return { event: "WorkOrderClosed", ...overrides };
+function decisions(content: string): void {
+  fs.writeFileSync(path.join(root, ".pandacorp/inbox/decisions.md"), content);
 }
-
-function turnInput(overrides: Partial<TurnInput> = {}): TurnInput {
+function queued(name: string, status: string): void {
+  fs.writeFileSync(
+    path.join(root, ".pandacorp/inbox/changes", `${name}.md`),
+    `---\ntype: change\nstatus: ${status}\ndate: '2026-10-20'\n---\n# ${name}\nBody.`,
+  );
+}
+function inbox() {
+  return readProjectInbox({ name: "Example", id: "example", path: root });
+}
+function turnItem(overrides: Partial<OwnerTurnItem>): OwnerTurnItem {
   return {
-    pendingDecisions: 0,
-    inboxDecisionLines: [],
-    shippedAwaitingReview: [],
-    memoryNeedsAttention: false,
-    undiscoveredIdeas: 0,
+    kind: "decision",
+    id: "2026-10-23-1",
+    title: "Pick hosting",
+    project: "Example",
+    projectId: "example",
+    where: "/tmp/example",
+    command: "/pandacorp:decide 2026-10-23-1",
+    date: "2026-10-23",
+    ageDays: 7,
+    ageLabel: "hace 7 días",
     ...overrides,
   };
 }
+function idea(status: IdeaCard["status"], project?: string): IdeaCard {
+  return { status, project } as IdeaCard;
+}
+function overview(phase: string, projectPath: string): ProjectOverviewItem {
+  return {
+    path: projectPath,
+    source: { status: { present: true, malformed: false, status: { phase } } },
+  } as unknown as ProjectOverviewItem;
+}
 
-// ===========================================================================
-// IF-18-digest — REQ-18-006 / REQ-18-007 marker boundary
-// ===========================================================================
-
-describe("FRD-18 digest: visto_hasta marker boundary (REQ-18-007)", () => {
-  it("an event at the EXACT marker timestamp is NOT new (strict >, never re-flags a seen event)", () => {
-    const markerMs = Date.parse("2026-06-18T11:00:00.000Z");
-    const atMarker = ev({ at: "2026-06-18T11:00:00.000Z", event: "PhaseTransition" });
-
-    const res = computeDigest([atMarker], markerMs, NOW);
-
-    expect(res.newEvents).toHaveLength(0);
-    expect(res.atDia).toBe(true);
-    // The seen event still appears in the last-24h fallback (never blank — REQ-18-008).
-    expect(res.last24h).toHaveLength(1);
-  });
-
-  it("one millisecond after the marker IS new (boundary is exclusive on the marker side)", () => {
-    const markerMs = Date.parse("2026-06-18T11:00:00.000Z");
-    const justAfter = ev({ at: "2026-06-18T11:00:00.001Z" });
-
-    const res = computeDigest([justAfter], markerMs, NOW);
-
-    expect(res.newEvents).toHaveLength(1);
-    expect(res.atDia).toBe(false);
-  });
-
-  it("a refresh (recompute with the SAME marker) never loses unseen events (REQ-18-006)", () => {
-    const markerMs = Date.parse("2026-06-18T10:00:00.000Z");
-    const unseen = [
-      ev({ at: "2026-06-18T10:30:00.000Z", event: "WorkOrderClosed" }),
-      ev({ at: "2026-06-18T11:30:00.000Z", event: "DecisionQueued" }),
-    ];
-
-    const first = computeDigest(unseen, markerMs, NOW);
-    const afterRefresh = computeDigest(unseen, markerMs, NOW + HOUR);
-
-    expect(first.newEvents).toHaveLength(2);
-    // Same marker after a refresh → the unseen count is preserved, not advanced away.
-    expect(afterRefresh.newEvents).toHaveLength(2);
-  });
-
-  it("does not mutate the input events array (purity)", () => {
-    const events = [ev({ at: "2026-06-18T09:00:00.000Z" }), ev({ at: "2026-06-18T11:00:00.000Z" })];
-    const snapshot = JSON.stringify(events);
-    computeDigest(events, NOW - HOUR, NOW);
-    expect(JSON.stringify(events)).toBe(snapshot);
-  });
-});
-
-// ===========================================================================
-// IF-18-turn — REQ-18-011 exclusion invariant + REQ-18-012 ordering
-// ===========================================================================
-
-describe("FRD-18 Tu turno: routine progress is NEVER a gate (REQ-18-011)", () => {
-  const FORBIDDEN: ReadonlySet<TurnItemKind> = new Set([
-    "running-build",
-    "advance-pending",
-    "failed-wo",
-  ]);
-
-  it("never emits running-build / advance-pending / failed-wo, even with every gate firing", () => {
-    const queue = buildTurnQueue(
-      turnInput({
-        pendingDecisions: 3,
-        shippedAwaitingReview: [{ name: "alpha", path: "/p/alpha" }],
-        memoryNeedsAttention: true,
-        undiscoveredIdeas: 2,
-      }),
+describe("REQ-18-010: live decisions.md shapes reach Tu turno", () => {
+  it("a valid pending decision survives an unsupported heading in the same file", () => {
+    decisions(
+      "# Bandeja\n\n## 2026-10-20 (PENDIENTE) — Choose hosting\n\n**Qué decidir:** Pick A.\n\n## FRD-25 — Needs the owner\n\n**Estado:** PENDIENTE\n",
     );
-
-    expect(queue.length).toBeGreaterThan(0);
-    for (const item of queue) {
-      expect(FORBIDDEN.has(item.kind)).toBe(false);
-      // Every actionable item surfaces a /pandacorp:* command (REQ-18-002).
-      expect(item.command.startsWith("/pandacorp:")).toBe(true);
-      // Every item navigates somewhere (REQ-18-002).
-      expect(item.href.startsWith("/")).toBe(true);
-    }
+    const result = deriveOwnerTurn([inbox()], NOW);
+    expect(result.items.map((item) => item.title)).toEqual(["Choose hosting"]);
+    expect(result.errors).toEqual([{ project: "Example", source: "decisions" }]);
   });
 
-  it("urgency order is stable: pending-decisions before review-launch before memory before ideas (REQ-18-012)", () => {
-    const queue = buildTurnQueue(
-      turnInput({
-        undiscoveredIdeas: 1,
-        memoryNeedsAttention: true,
-        shippedAwaitingReview: [{ name: "z", path: "/p/z" }],
-        pendingDecisions: 1,
-      }),
+  it("a file holding only resolved `## RESUELTO` blocks (the live Funko Tracker shape) reads calm", () => {
+    decisions(
+      "# Bandeja\n\n## RESUELTO — La construcción se atasca\n\nCerrado.\n\n## RESUELTO: el gate de fidelidad bloquea (2026-10-18)\n\nCerrado.\n",
     );
-    expect(queue.map((i) => i.kind)).toEqual([
-      "pending-decisions",
-      "review-launch",
-      "memory-nudge",
-      "undiscovered-ideas",
-    ]);
+    const result = deriveOwnerTurn([inbox()], NOW);
+    expect(result).toMatchObject({ count: 0, errors: [] });
   });
 
-  it("nothing waiting → empty queue (al-día), no manufactured urgency (REQ-18-003)", () => {
-    expect(buildTurnQueue(turnInput())).toEqual([]);
+  it("keeps the ask and context of the live PersonalPage block, joined across wrapped lines", () => {
+    const [point] = parseDecisionBlocks(
+      "## 2026-09-10 · Copy\n\n**Contexto:** Carlos revisó el sitio\ny dio feedback.\n\n**Qué necesito de ti:** dime si\nlo dejamos.\n",
+    );
+    expect(point).toMatchObject({
+      context: "Carlos revisó el sitio y dio feedback.",
+      ask: "dime si lo dejamos.",
+    });
   });
 
-  it("many shipped projects do not truncate silently (REQ-18-012 edge: many items)", () => {
-    const many = Array.from({ length: 12 }, (_, i) => ({ name: `p${i}`, path: `/p/${i}` }));
-    const queue = buildTurnQueue(turnInput({ shippedAwaitingReview: many }));
-    expect(queue.filter((i) => i.kind === "review-launch")).toHaveLength(12);
+  it("does not let the detail fields change a decision id or its status", () => {
+    const plain = "## 2026-10-20 (PENDIENTE) — Same\n";
+    const rich = `${plain}**Contexto:** Why.\n**Qué decidir:** What.\n`;
+    const [before] = parseDecisionBlocks(plain);
+    const [after] = parseDecisionBlocks(rich);
+    expect(after).toMatchObject({ id: before?.id, status: before?.status });
   });
 });
 
-// ===========================================================================
-// IF-18-pulse — REQ-18-013 / REQ-18-014 safety
-// ===========================================================================
-
-describe("FRD-18 Pulso: safe & honest signals (REQ-18-013/014)", () => {
-  it("fresh factory (no ideas) → 0% conversion, calm, no NaN (REQ-18-013 edge)", () => {
-    const res = pulse({
-      ideasAlive: 0,
-      ideasShipped: 0,
-      inConstructionLive: 0,
-      inConstructionStale: 0,
-      ownerWaiting: 0,
-    });
-    expect(res.conversionPct).toBe(0);
-    expect(Number.isNaN(res.conversionPct)).toBe(false);
-    expect(res.calm).toBe(true);
+describe("REQ-18-011: routine progress never enters the queue", () => {
+  it("excludes engine logs, resolved blocks and every non-ready change, and the count equals the rows", () => {
+    decisions(
+      "## 2026-10-20 (PENDIENTE) — Real\n## 2026-10-20 — 12:30 Engine tick\n## 2026-10-20 (PENDIENTE) — Closed\n- **Estado:** RESUELTO\n",
+    );
+    for (const status of ["building", "draft", "done"]) queued(`c-${status}`, status);
+    const result = deriveOwnerTurn([inbox()], NOW);
+    expect(result.items.map((item) => item.title)).toEqual(["Real"]);
+    expect(result.count).toBe(result.items.length);
   });
 
-  it("clamps impossible ratios: shipped > alive does not exceed 100%", () => {
-    const res = pulse({
-      ideasAlive: 1,
-      ideasShipped: 5,
-      inConstructionLive: 0,
-      inConstructionStale: 0,
-      ownerWaiting: 0,
-    });
-    expect(res.conversionPct).toBeLessThanOrEqual(100);
-    expect(res.conversionPct).toBeGreaterThanOrEqual(0);
-  });
-
-  it("a stale build is itself the alarm: hasStale true → NOT calm (REQ-18-014)", () => {
-    const res = pulse({
-      ideasAlive: 3,
-      ideasShipped: 0,
-      inConstructionLive: 0,
-      inConstructionStale: 1,
-      ownerWaiting: 0,
-    });
-    expect(res.hasStale).toBe(true);
-    expect(res.calm).toBe(false);
-  });
-
-  it("owner-waiting items break the calm state (exception-first)", () => {
-    const res = pulse({
-      ideasAlive: 2,
-      ideasShipped: 0,
-      inConstructionLive: 0,
-      inConstructionStale: 0,
-      ownerWaiting: 1,
-    });
-    expect(res.calm).toBe(false);
+  it("puts the same building and draft changes in En marcha, with canonical deep links", () => {
+    queued("c-building", "building");
+    queued("c-draft", "draft");
+    const groups = deriveFlightGroups([inbox()]);
+    expect(groups.map((group) => group.kind)).toEqual(["building", "draft"]);
+    expect(groups[0]?.rows[0]?.href).toBe("/portfolio/example/changes?change=c-building");
+    expect(groups[1]?.rows[0]).toMatchObject({ count: 1, href: "/portfolio/example/changes" });
   });
 });
 
-// ===========================================================================
-// IF-18-card — REQ-18-016 / REQ-18-017 / REQ-18-018
-// ===========================================================================
+describe("REQ-18-003: calm is only claimed when every source was read", () => {
+  it("an unreadable queue never shows Al día", () => {
+    render(
+      <TuTurno
+        result={{ items: [], count: 0, errors: [{ project: "Example", source: "changes" }] }}
+      />,
+    );
+    expect(screen.queryByText("Al día")).toBeNull();
+    expect(screen.queryByText("Nada espera tu acción ahora mismo.")).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent("Example");
+  });
 
-describe("FRD-18 Cartera card: freshness/staleness/blocker (REQ-18-016/017/018)", () => {
-  function card(overrides: Partial<Parameters<typeof deriveCard>[0]> = {}) {
-    return deriveCard({
-      name: "alpha",
-      phase: "implementation",
-      version: "v1",
-      running: true,
-      workOrdersDone: 4,
-      workOrdersTotal: 8,
-      phaseStartedAt: undefined,
-      lastEventAt: new Date(NOW - 5 * 60 * 1000).toISOString(),
-      failedWoReason: undefined,
-      nowMs: NOW,
-      ...overrides,
-    });
+  it("a truly empty queue shows the message and the badge", () => {
+    render(<TuTurno result={{ items: [], count: 0, errors: [] }} />);
+    expect(screen.getByText("Al día")).toBeVisible();
+    expect(screen.getByText("Nada espera tu acción ahora mismo.")).toBeVisible();
+  });
+
+  it("an empty En marcha draws no card, a read failure still does", () => {
+    const { container, rerender } = render(<EnMarchaCard groups={[]} />);
+    expect(container).toBeEmptyDOMElement();
+    rerender(<EnMarchaCard groups={[]} errors={[{ project: "Example", source: "work-orders" }]} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Example");
+  });
+});
+
+describe("AC-18-022.2: the seven-day boundary of the run sentence", () => {
+  const RUN = /^Corre en la carpeta de Example\./;
+  function openDetails(ageDays: number): HTMLElement {
+    const item = turnItem({ ageDays, ask: "Pick A.", recommendation: "A.", context: "Why." });
+    render(<TuTurno result={{ items: [item], count: 1, errors: [] }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Detalles: Pick hosting" }));
+    return screen.getByRole("dialog");
   }
 
-  it("live and no-signal are mutually exclusive (REQ-18-016)", () => {
-    const live = card({ lastEventAt: new Date(NOW - 60 * 1000).toISOString() });
-    expect(live.isLive).toBe(true);
-    expect(live.isNoSignal).toBe(false);
-
-    const stale = card({ lastEventAt: new Date(NOW - 2 * HOUR).toISOString() });
-    expect(stale.isLive).toBe(false);
-    expect(stale.isNoSignal).toBe(true);
+  it("carries the drawn sentence at exactly seven days", () => {
+    expect(within(openDetails(7)).getByText(RUN)).toBeInTheDocument();
   });
 
-  it("a running build with NO event yet is no-signal, never live (REQ-18-016 edge)", () => {
-    const c = card({ lastEventAt: null });
-    expect(c.isNoSignal).toBe(true);
-    expect(c.isLive).toBe(false);
-  });
-
-  it("a NON-running project is neither live nor no-signal (freshness only applies while building)", () => {
-    const c = card({ running: false, phase: "release", lastEventAt: null });
-    expect(c.isLive).toBe(false);
-    expect(c.isNoSignal).toBe(false);
-    expect(c.isShipped).toBe(true);
-    expect(c.nextCommand).toBe("/pandacorp:review-launch");
-  });
-
-  it("clock skew (future phase start) is guarded → age 0, not negative (REQ-18-017 edge)", () => {
-    const future = new Date(NOW + 5 * 24 * HOUR).toISOString();
-    const c = card({ phaseStartedAt: future });
-    expect(c.ageInStageDays).toBe(0);
-    expect(c.isStalled).toBe(false);
-  });
-
-  it("phase age beyond the staleness threshold → estancado (REQ-18-017)", () => {
-    const old = new Date(NOW - 30 * 24 * HOUR).toISOString();
-    const c = card({ phaseStartedAt: old });
-    expect(c.isStalled).toBe(true);
-    expect(c.ageInStageDays).toBeGreaterThan(7);
-  });
-
-  it("a whitespace-only blocker reason normalises to no blocker (REQ-18-018 edge)", () => {
-    const c = card({ failedWoReason: "   " });
-    expect(c.blockerReason).toBeUndefined();
-  });
-
-  it("a real blocker reason surfaces inline (REQ-18-018)", () => {
-    const c = card({ failedWoReason: "tsc failed in WO-99-001" });
-    expect(c.blockerReason).toBe("tsc failed in WO-99-001");
-  });
-
-  it("WO progress is division-safe with zero total (no NaN)", () => {
-    const c = card({ workOrdersDone: 0, workOrdersTotal: 0 });
-    expect(c.woProgress.pct).toBe(0);
+  it("shows only the command at six days", () => {
+    const dialog = openDetails(6);
+    expect(within(dialog).queryByText(RUN)).toBeNull();
+    expect(dialog).toHaveTextContent("/pandacorp:decide 2026-10-23-1");
   });
 });
 
-// ===========================================================================
-// Cross-WO page-level invariant: Pulso.ownerWaiting === |Tu turno|
-// ===========================================================================
+describe("REQ-18-014 AC-18-022.4: the funnel uses the launch bridge", () => {
+  const LAUNCHED = "/projects/launched";
+  it("counts a launched in-pipeline project once, on the same figure the Logros funnel reads", () => {
+    const ideas = [idea("in-pipeline", LAUNCHED), idea("shipped"), idea("discarded")];
+    const projects = [overview("release", LAUNCHED)];
+    const funnel = deriveIdeaFunnel(ideas, projects);
+    const row = (phase: string) => funnel.rows.find((entry) => entry.phase === phase)?.count;
+    expect(row("release")).toBe(
+      countLaunched(
+        ideas,
+        projects.map((project) => project.source.status),
+      ),
+    );
+    expect(row("release")).toBe(2);
+    expect(row("implementation")).toBe(0);
+    expect(funnel.discarded).toBe(1);
+  });
 
-describe("FRD-18 integration: the two sections cannot disagree on the owner-waiting count", () => {
-  it("ownerWaiting fed into the pulse equals the rendered turn-queue length", () => {
-    const input = turnInput({
-      pendingDecisions: 2,
-      memoryNeedsAttention: true,
-      undiscoveredIdeas: 1,
-    });
-    const queue = buildTurnQueue(input);
-    // page.tsx feeds turnItems.length as pulse.ownerWaiting — pin that contract.
-    const res = pulse({
-      ideasAlive: 4,
-      ideasShipped: 0,
-      inConstructionLive: 1,
-      inConstructionStale: 0,
-      ownerWaiting: queue.length,
-    });
-    expect(res.ownerWaiting).toBe(queue.length);
-    // With real gates waiting the pulse must not claim calm.
-    expect(res.calm).toBe(false);
+  it("agrees with the board for every active idea", () => {
+    const projects = [overview("design", "/projects/design")];
+    const card = idea("in-pipeline", "/projects/design");
+    const funnel = deriveIdeaFunnel([card], projects);
+    expect(deriveColumn(card, projects[0]?.source.status ?? null)).toBe("design");
+    expect(funnel.rows.find((entry) => entry.phase === "design")?.count).toBe(1);
+  });
+
+  it("keeps a zeroed factory visible, never blank", () => {
+    const funnel = deriveIdeaFunnel([], []);
+    expect(funnel.rows).toHaveLength(6);
+    expect(funnel.rows.every((entry) => entry.count === 0)).toBe(true);
+  });
+});
+
+describe("REQ-18-013 AC-12-001.3: the pulse", () => {
+  it("never reads an unknown project count as zero", () => {
+    const counts = { frds: null, ordersVerified: null, ordersTotal: null };
+    const tiles = pulseTiles([{ counts } as unknown as ProjectOverviewItem]);
+    expect(tiles.length).toBeLessThanOrEqual(5);
+    render(<Pulso tiles={tiles} />);
+    expect(screen.getAllByText("?").length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("Gremio: one freshness predicate", () => {
+  const unique = {
+    name: "First",
+    category: "Discovery" as const,
+    rarity: "Común" as const,
+    condition: "",
+    unlocked: true,
+  };
+  it.each([
+    ["2026-10-23T12:00:00Z", true],
+    ["2026-10-23T11:59:59Z", false],
+    ["2026-11-02T12:00:00Z", false],
+  ])("unlocked %s is fresh: %s", (date, fresh) => {
+    expect(selectLastAchievement([{ ...unique, date }], NOW)?.fresh).toBe(fresh);
+  });
+
+  it("orders dated unlocks before undated ones", () => {
+    const picked = selectLastAchievement(
+      [
+        { ...unique, name: "Undated" },
+        { ...unique, name: "Dated", date: "2026-01-01" },
+      ],
+      NOW,
+    );
+    expect(picked?.title).toBe("Dated");
   });
 });

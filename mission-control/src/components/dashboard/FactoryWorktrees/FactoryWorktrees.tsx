@@ -1,5 +1,10 @@
 import { WorktreesCard } from "@/components/modules/Worktrees/WorktreesCard";
-import { getWorktreesByRepo } from "@/lib/pendingMerge/worktreesByRepo";
-export function FactoryWorktrees(): React.JSX.Element {
-  return <WorktreesCard rows={getWorktreesByRepo()} />;
+import { getWorktreesByRepoSync, type WorktreesByRepo } from "@/lib/pendingMerge/worktreesByRepo";
+/** Shared card; streaming callers supply asynchronously resolved rows. */
+export function FactoryWorktrees({
+  rows,
+}: {
+  readonly rows?: WorktreesByRepo;
+} = {}): React.JSX.Element {
+  return <WorktreesCard rows={rows ?? getWorktreesByRepoSync()} />;
 }

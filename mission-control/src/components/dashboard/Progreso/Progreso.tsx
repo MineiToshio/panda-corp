@@ -1,242 +1,49 @@
-/**
- * CMP-18-progress — `Tu progreso` gamification strip (WO-18-005, REQ-18-021)
- *
- * The honest gamification strip for the dashboard "Inicio" page.
- * Shows: guild level/XP, most recent achievement, next milestone with progress.
- *
- * Visual contract — re-anchored to the approved prototype `dashboardView()` foot
- * (index.html ~L736-742, DR-054/DR-062):
- *   - The strip is the RPG embossed `rpgpanel rpggrid` surface (Panel primitive,
- *     variant rpgpanel + grid), NOT a flat var(--color-base) panel.
- *   - The achievement icon sits in a 42px box tinted var(--color-warn-bg) /
- *     var(--color-warn) with a Tabler ICON (never an emoji).
- *   - The guild NV + title render in var(--font-pixel) (the `.px` class).
- *   - Next milestone line: "Próximo hito: <name> (<threshold>)".
- *   - XpBar (size="track": full-width 18px bar) carries the honest fill below the labels.
- *
- * Design constraints (FRD-09 / FRD-13 / REQ-18-021):
- *   - All values passed as pre-computed props (Server Component or parent derives the data).
- *   - No streaks, no false urgency, no leaderboards (FRD-09 White-Hat / AC-18-005.3).
- *   - All values from real outcomes only (AC-18-005.2: no synthetic metrics).
- *   - Fresh factory (no achievements): honest "Tu primer logro te espera" state (AC-18-005.4).
- *   - XP rendered as text nodes → tabular-nums applied via globals.css (AC-18-005.5).
- *   - Zero hardcoded colors — only CSS custom properties from @theme in globals.css (FRD-13).
- *
- * Props:
- *   guildLevel     — computed by computeGuildLevel(outcomes) from lib/gamification/gamification
- *   recentAchievement — most recent unlocked Unique (null for fresh factory)
- *   nextMilestone  — best-progress ChainState (null if all maxed or no chains)
- *
- * Consumes:
- *   CMP-09-xp-bar  — XpBar primitive (honest fill, tabular-nums, accessible)
- *
- * Traceability:
- *   AC-18-005.1 — level/XP, recent achievement, next milestone rendered
- *   AC-18-005.2 — values are exactly the props passed in (no re-derivation, no inflation)
- *   AC-18-005.3 — no streak/timer/false-urgency elements
- *   AC-18-005.4 — honest empty state when recentAchievement and nextMilestone are null
- *   AC-18-005.5 — tabular-nums via text nodes; Spanish; aria-label; no interactive nesting
- *
- * Blueprint: CMP-18-progress → FRD-18 blueprint §3 → WO-18-005
- * Source-of-truth hierarchy: FRD > FDD > design-tokens > blueprint > work order
- */
-
-import { Panel } from "@/components/core/Panel/Panel";
-import { SectionHead } from "@/components/core/SectionHead/SectionHead";
-import { XpBar } from "@/components/core/XpBar/XpBar";
-import type { ChainState, Unique } from "@/lib/achievements/achievements";
-import { type GuildLevel, RANKS } from "@/lib/gamification/gamification";
-
-export type ProgresoProps = {
-  /** Guild level derived by computeGuildLevel (IF-09-guild-xp). */
-  guildLevel: GuildLevel;
-  /**
-   * The most recently unlocked unique achievement (sorted by date, newest first).
-   * Null for a fresh factory with no earned achievements yet.
-   */
-  recentAchievement: Unique | null;
-  /**
-   * The chain closest to its next tier threshold (best honest progress).
-   * Null when all chains are maxed OR when there are no chain definitions.
-   */
-  nextMilestone: ChainState | null;
-};
-
-/**
- * Progreso — honest gamification strip for the dashboard.
- *
- * Server Component (no client state, no I/O — all data derived and passed as props).
- * The parent (dashboard page) calls lib/* readers and computations, then passes results here.
- */
+import Link from "next/link";
+import { LastAchievement } from "@/app/(dashboard)/_components/LastAchievement";
+import { Card, CardFoot, CardHeader } from "@/components/core/Card/Card";
+import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
+import { RankEmblem } from "@/components/core/RankEmblem/RankEmblem";
+import { t } from "@/lib/copy/copy";
+import type { GuildLevel } from "@/lib/gamification/gamification";
+import type { LastAchievementData } from "@/lib/inicio/achievement";
+import styles from "./Progreso.module.css";
+/** Honest guild card, using the shared level and last-achievement resolver. */
 export function Progreso({
-  guildLevel,
-  recentAchievement,
-  nextMilestone,
-}: ProgresoProps): React.JSX.Element {
-  // ── Milestone display ─────────────────────────────────────────────────────
-  // Cases:
-  //   - nextMilestone === null                 → no chains or all maxed
-  //   - nextMilestone.nextTier === null        → this chain is maxed
-  //   - nextMilestone.nextTier !== null        → show name + threshold
-  const hasMilestone = nextMilestone !== null && nextMilestone.nextTier !== null;
-  const milestoneText = hasMilestone
-    ? `Próximo hito: ${nextMilestone.nextTier?.name} (${nextMilestone.nextTier?.threshold})`
-    : "Cadenas al máximo";
-
-  // ── Determine the next rank title for XpBar subtitle ──────────────────────
-  // XpBar shows "faltan N XP para <nextTitle>". level is 1-based; RANKS is 0-based,
-  // so RANKS[level] is the next rank (same pattern as GuildBar).
-  const nextRankEntry = RANKS[guildLevel.level]; // undefined at max rank
-  const nextRankTitle = nextRankEntry?.title ?? guildLevel.title;
-
-  // Achievement icon (Tabler, never emoji). Trophy when unlocked, target when empty.
-  const achievementIcon = recentAchievement ? "ti-trophy" : "ti-target-arrow";
-
+  level,
+  achievement,
+  trophies,
+}: {
+  readonly level: GuildLevel;
+  readonly achievement: LastAchievementData | null;
+  readonly trophies: number;
+}): React.JSX.Element {
   return (
-    <div>
-      {/* SectionHead (CMP-13-sectionhead, DR-062, AC-18-001.10) */}
-      <SectionHead icon="ti-trophy" label="Tu progreso" />
-      {/* RPG embossed rpgpanel rpggrid surface (prototype foot) */}
-      <section data-testid="progreso-strip" aria-label="Tu progreso en el gremio">
-        <Panel variant="rpgpanel" grid>
-          <div
-            style={{
-              display: "flex",
-              gap: "16px",
-              alignItems: "center",
-              flexWrap: "wrap",
-            }}
-          >
-            {/* ── Left: recent achievement icon + text ──────────────────────── */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                flex: "1",
-                minWidth: "240px",
-              }}
-            >
-              {/* Achievement icon badge — warn-bg / warn box with a Tabler icon */}
-              <div
-                aria-hidden="true"
-                style={{
-                  width: "42px",
-                  height: "42px",
-                  flexShrink: 0,
-                  borderRadius: "9px",
-                  background: "var(--color-warn-bg)",
-                  color: "var(--color-warn)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <i className={`ti ${achievementIcon}`} style={{ fontSize: "22px" }} />
-              </div>
-
-              {/* Achievement text */}
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                <span
-                  data-testid="progreso-recent-achievement"
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: 500,
-                    color: "var(--color-text)",
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {recentAchievement
-                    ? `Logro reciente: ${recentAchievement.name}`
-                    : "Tu primer logro te espera"}
-                </span>
-
-                {/* Next milestone line (AC-18-005.1) */}
-                <span
-                  data-testid="progreso-next-milestone"
-                  style={{
-                    fontSize: "11px",
-                    color: "var(--color-text2)",
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {milestoneText}
-                </span>
-              </div>
-            </div>
-
-            {/* ── Right: guild level badge + XP bar ─────────────────────────── */}
-            <div
-              style={{
-                flex: "1",
-                minWidth: "200px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "5px",
-              }}
-            >
-              {/* Guild level + title header — pixel numerals (AC-18-005.1/.5) */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  justifyContent: "space-between",
-                  gap: "8px",
-                }}
-              >
-                <span
-                  className="px"
-                  style={{
-                    display: "flex",
-                    alignItems: "baseline",
-                    gap: "6px",
-                    fontFamily: "var(--font-pixel)",
-                  }}
-                >
-                  <span
-                    data-testid="progreso-guild-level"
-                    style={{ fontSize: "11px", color: "var(--color-text)" }}
-                  >
-                    NV {guildLevel.level}
-                  </span>
-                  <span
-                    data-testid="progreso-guild-title"
-                    style={{ fontSize: "11px", color: "var(--color-text2)" }}
-                  >
-                    {guildLevel.title}
-                  </span>
-                </span>
-
-                {/* XP / next XP (AC-18-005.5: tabular-nums via text nodes) */}
-                <span
-                  style={{
-                    fontSize: "11px",
-                    color: "var(--color-text2)",
-                    lineHeight: 1,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  <span data-testid="progreso-xp">{guildLevel.xp}</span>
-                  {" / "}
-                  {guildLevel.next}
-                  {" XP"}
-                </span>
-              </div>
-
-              {/* CMP-09-xp-bar: full-width 18px track (prototype "Tu progreso" foot, ~L741).
-                  size="track" = the bar only; the NV·title + XP/next labels are rendered above. */}
-              <XpBar
-                xp={guildLevel.xp}
-                next={guildLevel.next}
-                pctToNext={guildLevel.pctToNext}
-                label={guildLevel.title}
-                nextTitle={nextRankTitle}
-                size="track"
-              />
-            </div>
-          </div>
-        </Panel>
-      </section>
-    </div>
+    <Card tone="gold" variant="tinted">
+      <CardHeader title={t("inicio.guild.title")} icon="shield" />
+      <div className={styles.identity}>
+        <RankEmblem sprite={level.sprite} grade={level.grade} icon={level.icon} size={56} />
+        <div>
+          <strong>{level.title}</strong>
+          <p>{t("inicio.guild.level", { level: level.level, xp: level.xp })}</p>
+        </div>
+      </div>
+      <ProgressBar
+        done={level.pctToNext}
+        total={100}
+        tone="gold"
+        ariaLabel={t("inicio.guild.title")}
+      />
+      <p className={styles.next}>
+        {t("inicio.guild.toNext", {
+          xp: Math.max(0, level.next - level.xp),
+          next: level.level + 1,
+          trophies,
+        })}
+      </p>
+      <LastAchievement achievement={achievement} />
+      <CardFoot>
+        <Link href="/achievements">{t("inicio.guild.seeAchievements")}</Link>
+      </CardFoot>
+    </Card>
   );
 }

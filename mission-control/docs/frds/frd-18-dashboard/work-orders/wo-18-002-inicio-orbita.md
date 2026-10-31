@@ -6,13 +6,13 @@ title: Inicio Órbita - two-column command center, Tu turno, En marcha, Pulso, G
 status: ACTIVE
 parent: FRD-18
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts: ["src/app/page.tsx", "src/app/(dashboard)/**", "src/components/dashboard/{TuTurno,Progreso,Cartera,DashboardLiveWatcher}/**", "src/components/modules/{Pulso,Digest}/**", "src/app/_lib/**", "src/app/_components/plugin-sync-banner/**", "src/lib/inicio/**", "src/lib/docs/activity.ts", "src/lib/docs/_tests/activity.turn-detail.test.ts", "src/lib/constants.ts", "src/app/_tests/{page.dashboard,wo-18-001-fixes,wo-18-001-inicio-dashboard}.test.tsx", "e2e/inicio.spec.ts"]
 source_requirements: [REQ-18-001, REQ-18-002, REQ-18-003, REQ-18-004, REQ-18-010, REQ-18-011, REQ-18-012, REQ-18-013, REQ-18-014, REQ-18-015, REQ-18-016, REQ-18-017, REQ-18-021, REQ-18-022, REQ-15-002, REQ-15-004, REQ-15-005, REQ-06-019, REQ-12-001]
 dependsOn: [WO-21-003, WO-03-007, WO-04-013, WO-06-013, WO-13-012, WO-19-002, WO-25-001]
-last_updated: '2026-10-22'
+last_updated: '2026-10-30'
 ---
 
 # WO-18-002 Inicio Órbita
@@ -202,3 +202,145 @@ so this work order's constant removals run after it), WO-25-001 (URL codec). Con
 
 ## Status Note
 
+### 2026-10-30 — S4B implementation handoff
+
+- Built on `orch/s4b`, worktree `orch-s4b`, with `PORT=3967` and `PANDACORP_E2E_PORT=3967`. Changes remain unstaged and uncommitted; no merge, push, merge queue, reviewer-test edits or visual-baseline edits.
+- Replaced the v1 landing page with the two-column composition, native owner-action details, independent Suspense/read-error boundaries, shared compact project cards, in-flight disclosures, three pulse tiles, guild/last achievement and the phase funnel. `AskRow`, `FunnelRow`, `ownerTurnItems({ project? })` and `lastAchievement()` remain available to their later-wave consumers. Preserved the frozen class hooks and the first `[data-turn="0"]` dialog trigger.
+- Added decision `ask`/`context` paragraphs without changing existing IDs/status fields; the FRD-24 library/CLI golden-vector suite passes. Removed the digest/storage marker, v1 turn/card/pulse helpers and their implementer tests. Live refresh now also observes `stateVersion`.
+- Source-backed deviations: retained `MEMORY_RAW_NOTES_THRESHOLD` and `MEMORY_STALE_DAYS_THRESHOLD` because `src/components/modules/MemoryHealth/MemoryHealth.tsx` still imports them on this branch (outside this WO's artifacts). Removed the two legacy Cartera freshness/staleness exports after `rg` confirmed no remaining consumers; the observability selector has its own separate freshness constant.
+
+#### Verification, 2026-10-30
+
+All commands run from the worktree root with `export PORT=3967 PANDACORP_E2E_PORT=3967`:
+
+```sh
+pnpm --dir mission-control exec vitest run src/lib/inicio src/lib/docs/_tests/activity.turn-detail.test.ts src/lib/docs/_tests/decision-id-golden.test.ts src/lib/plugin-sync src/components/dashboard/TuTurno src/components/dashboard/Cartera src/components/dashboard/Progreso src/components/dashboard/DashboardLiveWatcher src/components/modules/Pulso src/app/_tests/page.dashboard.test.tsx src/app/_components/plugin-sync-banner/_tests/plugin-sync-banner.test.tsx --maxWorkers=2
+```
+
+PASS: 12 files, 59 tests. Includes every owned AC, shared freshness/scene verdict, focus return, preserved dialog state across a row update, non-truncated/project-scoped owner counts, corrupt/unreadable source isolation, FRD-24 golden vectors and the existing plugin semver reader tests. Log: `/private/tmp/s4b-owned-final.log`.
+
+```sh
+pnpm --dir mission-control exec vitest run 'src/app/projects/[slug]/_components/tab-summary/_tests/tab-summary.reviewer.test.tsx' 'src/app/projects/[slug]/_components/tab-summary/_tests/frd-04-gate-opus.reviewer.test.tsx' 'src/app/projects/[slug]/_components/tab-summary/_tests/tab-summary.snapshot-liveness.reviewer.test.tsx' 'src/app/projects/[slug]/_tests/page.reviewer.test.tsx' 'src/app/projects/[slug]/_tests/page.reviewer.integration.test.tsx' src/components/modules/Worktrees/_tests/Worktrees.reviewer.test.tsx --maxWorkers=2
+```
+
+PASS: 6 files, 44 tests. Log: `/private/tmp/s4b-neighbors.log`.
+
+```sh
+pnpm --dir mission-control exec vitest run src/lib/inicio src/lib/docs src/components/dashboard src/components/modules/Pulso src/app/_tests/page.dashboard.test.tsx 'src/app/(dashboard)' src/app/_components/plugin-sync-banner --maxWorkers=2
+```
+
+RED: 23 files pass, 3 reviewer-owned suites fail; 390 tests pass, 3 assertions fail, plus one import-failing suite. The reviewers' required migrations are listed below. Log: `/private/tmp/s4b-vitest-final.log`.
+
+```sh
+pnpm --dir mission-control exec tsc --noEmit
+pnpm --dir mission-control exec knip
+```
+
+RED: TypeScript exits 2 with six diagnostics solely in `frd-18-integration.reviewer.test.tsx` (four removed imports plus two consequent implicit-any diagnostics). Knip exits 1 with those same four unresolved reviewer imports; no unused exports remain. Logs: `/private/tmp/s4b-tsc-final.log`, `/private/tmp/s4b-knip-final.log`.
+
+```sh
+python3 - <<'PY_VERIFY'
+from pathlib import Path
+import subprocess
+paths = Path('/private/tmp/s4b-biome-paths.txt').read_text().splitlines()
+raise SystemExit(subprocess.run(['pnpm', 'exec', 'biome', 'check', *paths], cwd='mission-control').returncode)
+PY_VERIFY
+git diff --check
+```
+
+PASS: Biome checked all 41 added/changed TS/TSX/CSS files, no fixes; whitespace check passes. The explicit Biome input is `/private/tmp/s4b-biome-paths.txt`; log `/private/tmp/s4b-biome-final.log`.
+
+#### Reviewer suites that must move (left unchanged)
+
+- `src/app/(dashboard)/_tests/frd-18-integration.reviewer.test.tsx`: replace the removed digest, pulse, card and turn-builder imports/assertions with the v2 resolver/composition contracts. This currently blocks TypeScript, Knip and suite collection.
+- `src/app/_components/plugin-sync-banner/_tests/plugin-sync-banner.reviewer.test.tsx`: two inconsistent-payload assertions demand a banner for `reason: in-sync/unknown` with `drift: true`, contrary to AC-15-002.2/.3. Reconcile those with the behind-only verdict; transient network failures still preserve the last confirmed warning and that existing assertion passes.
+- `src/lib/docs/_tests/activity.resolved-in-file.reviewer.test.ts`: the first PersonalPage-shaped exact-object assertion omits the newly required `context` field. IDs, resolution and the other 42 tests pass. Adapt the full-object expectation to the additive field.
+- The planned `docs.wo04002.reviewer`, Resumen, project-page, FactoryWorktrees and Worktrees reviewer suites pass. The e2e worktrees and FRD-21 specs were not run.
+
+#### Unverified
+
+No Playwright/browser, visual, responsive, axe, pixel comparison or LCP measurement was run, as requested. `e2e/inicio.spec.ts` is supplied but unexecuted; it writes no fixture files. The full project gate remains red until reviewer migration. No `docs/decision-log.md` entry was written under the stream's ownership rule.
+
+#### Explicit path list — WO-18-002 only
+
+Paths are relative to `mission-control/`; the list includes deletions and this work-order status record.
+
+```text
+docs/frds/frd-18-dashboard/work-orders/wo-18-002-inicio-orbita.md
+e2e/inicio.spec.ts
+src/app/(dashboard)/_components/EmbudoCard.tsx
+src/app/(dashboard)/_components/EnMarchaCard.tsx
+src/app/(dashboard)/_components/FlightGroup.tsx
+src/app/(dashboard)/_components/FunnelRow.tsx
+src/app/(dashboard)/_components/Home.module.css
+src/app/(dashboard)/_components/HomeSections.tsx
+src/app/(dashboard)/_components/LastAchievement.tsx
+src/app/(dashboard)/_components/TurnRow.tsx
+src/app/(dashboard)/_lib/_tests/card.test.ts
+src/app/(dashboard)/_lib/_tests/turn.test.ts
+src/app/(dashboard)/_lib/card.ts
+src/app/(dashboard)/_lib/turn.ts
+src/app/_components/plugin-sync-banner/_tests/plugin-sync-banner.test.tsx
+src/app/_components/plugin-sync-banner/plugin-sync-banner.tsx
+src/app/_lib/_tests/digest.pure.test.ts
+src/app/_lib/_tests/pulse.test.ts
+src/app/_lib/digest.ts
+src/app/_lib/pulse.ts
+src/app/_tests/page.dashboard.test.tsx
+src/app/_tests/wo-18-001-fixes.test.tsx
+src/app/_tests/wo-18-001-inicio-dashboard.test.tsx
+src/app/page.tsx
+src/components/dashboard/Cartera/Cartera.module.css
+src/components/dashboard/Cartera/Cartera.tsx
+src/components/dashboard/Cartera/_tests/cartera.test.tsx
+src/components/dashboard/DashboardLiveWatcher/DashboardLiveWatcher.tsx
+src/components/dashboard/DashboardLiveWatcher/_tests/DashboardLiveWatcher.test.tsx
+src/components/dashboard/Progreso/Progreso.module.css
+src/components/dashboard/Progreso/Progreso.tsx
+src/components/dashboard/Progreso/_tests/Progreso.test.tsx
+src/components/dashboard/TuTurno/AskRow.tsx
+src/components/dashboard/TuTurno/TuTurno.module.css
+src/components/dashboard/TuTurno/TuTurno.tsx
+src/components/dashboard/TuTurno/TurnDetailDialog.tsx
+src/components/dashboard/TuTurno/_tests/TuTurno.test.tsx
+src/components/modules/Digest/Digest.tsx
+src/components/modules/Digest/_tests/digest.test.tsx
+src/components/modules/Pulso/Pulso.module.css
+src/components/modules/Pulso/Pulso.tsx
+src/components/modules/Pulso/_tests/pulso.test.tsx
+src/lib/constants.ts
+src/lib/docs/_tests/activity.turn-detail.test.ts
+src/lib/docs/activity.ts
+src/lib/inicio/_tests/guild.test.tsx
+src/lib/inicio/_tests/resolvers.test.ts
+src/lib/inicio/achievement.ts
+src/lib/inicio/flight.ts
+src/lib/inicio/funnel.ts
+src/lib/inicio/guild.ts
+src/lib/inicio/inbox.ts
+src/lib/inicio/pulse.ts
+src/lib/inicio/turn.ts
+```
+
+### 2026-10-30 — S4B round 2 review patches
+
+- B1: Inbox reads preserve supported decisions and report unsupported H2 sections alongside them. Unsupported sections cannot overwrite the preceding decision's status. The shared reader recognizes `RESUELTO:` and `RESUELTO —` headings as resolved; `readDecisions`/pending-count regression and unchanged FRD-24 golden vectors pass. Queue parsing normalizes `obsolete` to closed `discarded`, accepts trailing status comments, and retains fail-loud errors for unknown values.
+- B2: Inicio awaits non-blocking `execFile` git reads under its Worktrees Suspense boundary. Every child has a 10-second timeout, the async git boundary caps concurrent children at four, and the server getter shares pending reads and completed results for five seconds. A shared generator preserves synchronous reader behavior for existing callers; the synchronous FactoryWorktrees mount remains available. Server-rendered stream evidence confirms Tu turno arrives while Worktrees is suspended.
+- Applied the requested watcher docstring, in-flight error filtering/count pill, requested-on date copy, responsive portfolio columns/folder icon, and banner CSS module fixes.
+- `implementation_status` remains `IN_REVIEW`; no `blocked_reason` is present. HEAD remains `6c271eaf` on `orch/s4b`. No commits, staging, merges, pushes, main-checkout writes, reviewer-test changes, visual-baseline changes, or decision-log edits were made.
+
+#### Round 2 verification
+
+Commands run from the worktree root with `export PORT=3967 PANDACORP_E2E_PORT=3967`:
+
+```sh
+pnpm --dir mission-control exec knip
+pnpm --dir mission-control exec tsc --noEmit
+pnpm --dir mission-control exec biome check src/lib/inicio src/lib/docs src/lib/pendingMerge/worktreesByRepo.ts src/lib/pendingMerge/_tests/worktreesByRepo.async.test.ts src/lib/git/git.ts src/lib/git/_tests/git.async.test.ts 'src/app/(dashboard)' src/components/dashboard src/components/modules/Worktrees src/lib/changes/changes.ts src/app/_components/plugin-sync-banner
+pnpm --dir mission-control exec vitest run src/lib/inicio src/lib/docs src/lib/pendingMerge src/lib/git 'src/app/(dashboard)' src/components/dashboard src/components/modules/Worktrees src/app/_components/plugin-sync-banner --maxWorkers=2
+git diff --check
+```
+
+- PASS: all commands exit 0. Biome checks 69 files; Vitest passes 38 files / 542 tests, including unchanged reviewer suites. Knip emits nine configuration hints; golden-vector CLI subprocesses emit Node experimental-loader warnings. Neither produces a failing check.
+- Logs: `/private/tmp/s4b-r2-final-{knip,tsc,biome,vitest}.log`.
+- Not verified: live Next.js first-byte latency, browser visual rendering, or live owner repositories. Streaming, timeout/concurrency and cache behavior are verified by deterministic tests; no visual baselines were changed.

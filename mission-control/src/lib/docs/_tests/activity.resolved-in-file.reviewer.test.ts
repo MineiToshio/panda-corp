@@ -35,6 +35,7 @@ describe("AC-04-014.5 the live PersonalPage v2 shape", () => {
         title:
           "Copy del home/about — 2 de 4 puntos ya resueltos, 2 siguen pendientes (feedback de Carlos)",
         date: "2026-09-10",
+        context: "Carlos revisó el sitio.",
         status: "pending",
         resolved: false,
       },

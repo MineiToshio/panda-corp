@@ -195,7 +195,9 @@ function parseChangeFile(filePath: string, id: string): ParseOutcome {
   if (!isChangeType(fm.type)) {
     return { error: `${id}: invalid or missing type (bug|feature|change)` };
   }
-  if (!isChangeQueueStatus(fm.status)) {
+  const rawStatus = coerceString(fm.status).split(/\s+#/)[0]?.trim();
+  const status = rawStatus === "obsolete" ? "discarded" : rawStatus;
+  if (!isChangeQueueStatus(status)) {
     return {
       error: `${id}: invalid or missing status (ready|draft|building|closing|done|discarded)`,
     };
@@ -211,7 +213,7 @@ function parseChangeFile(filePath: string, id: string): ParseOutcome {
       id,
       type: fm.type,
       cls: isChangeClass(fm.class) ? fm.class : "standard",
-      status: fm.status,
+      status,
       date: coerceString(fm.date),
       frd: coerceString(fm.frd),
       rebuildsVerified: coerceBoolean(fm.rebuilds_verified),

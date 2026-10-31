@@ -1,0 +1,62 @@
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--s3);
+  align-items: start;
+  padding: var(--s3) 0;
+  border-top: var(--hairline) solid var(--line);
+}
+.row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.content {
+  min-width: 0;
+}
+.content strong {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.content small {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  margin-top: calc(var(--s1) / 2);
+}
+.command {
+  margin-top: var(--s1);
+  max-width: 100%;
+  --command-height: var(--s8);
+  --command-padding: 0;
+  --command-font-size: var(--fs-xs);
+  --command-gap: var(--s1);
+}
+.detail {
+  display: grid;
+  gap: var(--s4);
+}
+.detail h3 {
+  font-size: var(--fs-md);
+  margin-bottom: var(--s2);
+}
+.detail summary {
+  cursor: pointer;
+}
+@media (max-width: 600px) {
+  .row {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: var(--s2);
+  }
+  .row > button {
+    grid-column: 2;
+    justify-self: start;
+  }
+}

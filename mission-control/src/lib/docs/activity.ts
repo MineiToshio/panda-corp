@@ -61,6 +61,8 @@ export interface DecisionPoint {
   title: string;
   date: string | null;
   recommendation?: string;
+  ask?: string;
+  context?: string;
   status: "pending" | "resolved" | "obsolete";
   resolved: boolean;
   /** The body resolves a decision whose heading alone would leave it pending. */
@@ -127,8 +129,9 @@ export function readActivityLog(projectPath: string): ActivityLog {
 /**
  * Parse `.pandacorp/inbox/decisions.md` into an array of DecisionPoint objects.
  *
- * Supports two heading conventions, both seen in real `.pandacorp/inbox/decisions.md`
+ * Supports these heading conventions, both seen in real `.pandacorp/inbox/decisions.md`
  * files (DR-078 — parse the actual shape met in production, not just the documented one):
+ *   - **Spanish resolved**: `## RESUELTO: <title>` / `## RESUELTO — <title>`.
  *   - **Legacy explicit-status**: `## OPEN: <title>` / `## CLOSED: <title>` / `## RESOLVED: <title>`.
  *   - **Date-prefixed** (the `/pandacorp:decide` template + what agents write in practice):
  *     `## YYYY-MM-DD (<status phrase>) — <title>` or `## YYYY-MM-DD — <title>`. The status
@@ -229,11 +232,26 @@ function _consumeLine(
       date: heading.date,
       statusPhrase: heading.statusPhrase,
       estado: null,
+      detailField: null,
     };
   }
 
   if (current === null) return current;
 
+  const field =
+    /^\s*(?:[-*+]\s+)?\*{0,2}(Qué necesito de ti|Qué decidir|Contexto)\*{0,2}:\*{0,2}\s*(.*)$/i.exec(
+      line,
+    );
+  if (field) {
+    current.detailField = field[1]?.toLowerCase() === "contexto" ? "context" : "ask";
+    const text = field[2]?.trim();
+    if (text) current[current.detailField] = text;
+  } else if (!line.trim() || /^\s*(?:[-*+]\s+|\*{1,2}|#)/.test(line)) {
+    current.detailField = null;
+  } else if (current.detailField) {
+    const previous = current[current.detailField];
+    current[current.detailField] = previous ? `${previous} ${line.trim()}` : line.trim();
+  }
   const recommendation = _parseRecommendation(line);
   if (recommendation !== undefined) {
     current.recommendation = recommendation;
@@ -275,6 +293,7 @@ export function countPendingDecisions(projectPath: string): number {
 
 // Legacy explicit-status heading: "## OPEN: <title>" / "## CLOSED: <title>" / "## RESOLVED: <title>".
 const LEGACY_HEADING = /^##\s+(OPEN|CLOSED|RESOLVED):\s*(.+)/i;
+const SPANISH_RESOLVED_HEADING = /^##\s+RESUELTO(?:\s*[:—-]\s*|\s+)(.+)$/i;
 // Date-prefixed heading: "## YYYY-MM-DD (<status phrase>) — <title>" or "## YYYY-MM-DD — <title>"
 // or "## YYYY-MM-DD <title>" (no separator). Group 1 = date, group 2 = optional status phrase, group 3 = title.
 const DATED_HEADING = /^##\s+(\d{4}-\d{2}-\d{2})\s*(?:\(([^)]*)\)\s*)?(?:[—-]\s*)?(.+)$/;
@@ -312,14 +331,21 @@ type DecisionBlock = {
   statusPhrase: string | null;
   estado: "pending" | "resolved" | "obsolete" | null;
   recommendation?: string;
+  ask?: string;
+  context?: string;
+  detailField: "ask" | "context" | null;
 };
 
 /**
- * Parse a `##` heading line into a title + optional status phrase + date, trying the
- * legacy convention first (preserves exact historical behavior), then the date-prefixed
- * one. Returns `null` for any other `##` heading (not a decision block).
+ * Parse a `##` heading line into a title + optional status phrase + date, recognizing Spanish
+ * resolved blocks, legacy statuses and the date-prefixed convention. Returns `null` for any other `##` heading (not a decision block).
  */
 function _parseHeading(line: string): ParsedHeading | null {
+  const spanishResolved = SPANISH_RESOLVED_HEADING.exec(line);
+  if (spanishResolved) {
+    const title = spanishResolved[1]?.trim();
+    return title ? { title, statusPhrase: "RESOLVED", date: null } : null;
+  }
   const legacy = LEGACY_HEADING.exec(line);
   if (legacy) {
     const title = (legacy[2] ?? "").trim();
@@ -398,6 +424,8 @@ function _pushDecision(result: DecisionPoint[], block: DecisionBlock | null): vo
   if (block.recommendation !== undefined) {
     dp.recommendation = block.recommendation;
   }
+  if (block.ask) dp.ask = block.ask;
+  if (block.context) dp.context = block.context;
   result.push(dp);
 }
 
