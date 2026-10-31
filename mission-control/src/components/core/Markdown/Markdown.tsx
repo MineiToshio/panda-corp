@@ -321,6 +321,8 @@ function makeAnchor(resolveLink: LinkResolver): NonNullable<Components["a"]> {
 export interface MarkdownProps {
   /** The raw markdown string to render. */
   children: string;
+  /** Optional semantic element overrides for embedded document excerpts. */
+  components?: Components;
   /** Document-type hue and dense embedded presentation. */
   tone?: Tone;
   compact?: boolean;
@@ -346,11 +348,16 @@ export function Markdown({
   children,
   style,
   resolveLink,
+  components: overrides,
   tone,
   compact = false,
   ...rest
 }: MarkdownProps): React.JSX.Element {
-  const components = resolveLink ? { ...COMPONENTS, a: makeAnchor(resolveLink) } : COMPONENTS;
+  const components = {
+    ...COMPONENTS,
+    ...overrides,
+    ...(resolveLink ? { a: makeAnchor(resolveLink) } : {}),
+  };
   return (
     <MarkdownAnchorScope
       className={`pc-markdown md ${styles.markdown} ${compact ? `compact ${styles.compact}` : ""}`}

@@ -3,13 +3,12 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import PortfolioPage from "@/app/portfolio/page";
 import { listWorkOrders } from "@/lib/work-orders/work-orders";
-import { WoDag } from "../../_observability/WoDag/WoDag";
 import { ProjectWorkspace } from "../../ProjectWorkspace";
 import ProjectWorkspacePage from "../../page";
 import { makeLinkResolver } from "../document-links";
 import { TabBar } from "../tabbar";
 import { WorkOrderDetail } from "../wo-detail/wo-detail";
-import { WoFrdFilteredBoard } from "../wo-frd-filtered-board/wo-frd-filtered-board";
+import { WoViews } from "../wo-views/WoViews";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 vi.mock("next/navigation", async (actual) => ({
@@ -57,7 +56,7 @@ describe("persistent project workspace navigation", () => {
       }),
     );
     expect(screen.getByRole("heading", { level: 1, name: "Selected Project" })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Volver al tablero de work orders" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Volver" })).toHaveAttribute(
       "href",
       "/portfolio/selected-project/work-orders?frd=frd-01-x",
     );
@@ -165,21 +164,21 @@ describe("persistent project workspace navigation", () => {
   });
 
   it("restores filters from the URL and updates their work-order links", () => {
-    setUrl("/portfolio/selected-project/work-orders?frd=frd-01-x&state=done");
+    const href = "/portfolio/selected-project/observability?view=tablero&state=done";
+    setUrl(href);
     render(
-      <WoFrdFilteredBoard
+      <WoViews
         orders={orders}
-        navigationBaseHref="/portfolio/selected-project/work-orders"
+        frds={[{ slug: order.frd, code: "FRD-01", title: "Fixture" }]}
+        drifts={{}}
+        href={href}
+        state={{ view: "tablero", state: "done" }}
       />,
     );
-    const link = screen.getByRole("link", { name: `Ver detalle: ${order.title}` });
-    expect(link).toHaveAttribute(
+    expect(screen.getByRole("link", { name: new RegExp(order.id) })).toHaveAttribute(
       "href",
-      "/portfolio/selected-project/work-orders/WO-01-001/summary?frd=frd-01-x&state=done",
+      `/portfolio/selected-project/observability?view=tablero&state=done&wo=${order.id}`,
     );
-    expect(screen.queryByRole("link", { name: /Board view/ })).not.toBeInTheDocument();
-    setUrl("/portfolio/selected-project/work-orders");
-    expect(screen.getAllByRole("link", { name: /Ver detalle:/ })).toHaveLength(orders.length);
   });
 
   it("preserves the standalone origin and a document heading in Markdown reader links", () => {
@@ -202,26 +201,18 @@ describe("persistent project workspace navigation", () => {
     });
   });
 
-  it("restores a pinned DAG work order and updates URL selection on clear", () => {
-    setUrl("/portfolio/selected-project/observability?view=dag&dag-wo=WO-01-001");
-    render(<WoDag workOrders={orders} project="fixture" />);
-    expect(screen.getByRole("button", { name: "limpiar" })).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "limpiar" }));
-    expect(new URLSearchParams(window.location.search).get("dag-wo")).toBeFalsy();
-  });
-
   it("retains filter state in a standalone work-order detail return link", () => {
     render(
       <WorkOrderDetail
         order={order}
         content={null}
         activeWoTab="full"
-        navigationBaseHref="/projects/selected-project/work-orders/WO-01-001/full?state=done"
+        navigationBaseHref="/projects/selected-project/observability?state=done&wo=WO-01-001&woview=full"
       />,
     );
-    expect(screen.getByRole("link", { name: "Volver al tablero de work orders" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Volver" })).toHaveAttribute(
       "href",
-      "/projects/selected-project/work-orders?state=done",
+      "/projects/selected-project/observability?state=done",
     );
   });
 });

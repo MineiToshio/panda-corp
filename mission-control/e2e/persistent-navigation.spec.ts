@@ -103,7 +103,6 @@ test("invalid explicit resources, tails and document traversal never render anot
   for (const href of [
     "/portfolio/not-a-registered-project/summary",
     "/projects/not-a-registered-project/summary",
-    "/portfolio/mission-control/work-orders/WO-99-999/full",
     "/portfolio/mission-control/documents/..%2F..%2Ffactory%2Fprofile.md",
     "/portfolio/mission-control/summary/unexpected",
     "/achievements/ranks/extra",
@@ -115,6 +114,10 @@ test("invalid explicit resources, tails and document traversal never render anot
   // An unknown idea is the designed recovery card, not a framework 404 (FRD-02 blueprint, AC-25-007.1).
   const idea = await request.get("/board/not-a-registered-idea/spec");
   expect(await idea.text()).toContain("Esta idea no existe");
+  // FRD-05 edge case: an unresolved work-order link is the in-tab not-found card, never a 404 page.
+  const unpublished = await request.get("/portfolio/mission-control/work-orders/WO-99-999/full");
+  expect(unpublished.status()).toBe(200);
+  expect(await unpublished.text()).toContain("Esta work order no está publicada");
   for (const family of [
     "/",
     "/board",
@@ -234,7 +237,7 @@ test("post-build registration: a non-first project retains identity through WO S
     const registered = sourceFiles(root, snapshotFiles(root));
     for (const family of ["portfolio", "projects"]) {
       const href = `/${family}/navigation-review-second/observability`;
-      await gotoHydrated(page, href, {
+      await gotoHydrated(page, `${href}?view=tablero`, {
         selector: '[data-testid="tabbar"]',
         timeout: NAVIGATION_TIMEOUT,
       });
@@ -282,7 +285,7 @@ test("post-build registration: a non-first project retains identity through WO S
         await page.getByTestId("tabbar").getByTestId(`tab-${tab}`).click();
         await expect(page).toHaveURL(
           new RegExp(
-            `/${family}/navigation-review-second/${tab}${tab === "documents" ? "/docs%2Fproduct%2Fprd" : ""}$`,
+            `/${family}/navigation-review-second/${tab}${tab === "documents" ? "/docs%2Fproduct%2Fprd" : ""}(\\?view=tablero)?$`,
           ),
         );
         await expect(page.getByTestId("tabbar").getByTestId(`tab-${tab}`)).toHaveAttribute(
@@ -292,7 +295,9 @@ test("post-build registration: a non-first project retains identity through WO S
       }
       await page.getByTestId("doc-nav-item").filter({ hasText: "prd.md" }).click();
       await expect(page).toHaveURL(
-        new RegExp(`/${family}/navigation-review-second/documents/docs%2Fproduct%2Fprd$`),
+        new RegExp(
+          `/${family}/navigation-review-second/documents/docs%2Fproduct%2Fprd(\\?view=tablero)?$`,
+        ),
       );
       await expect(page.getByTestId("documents-body")).toContainText("Second Project");
     }

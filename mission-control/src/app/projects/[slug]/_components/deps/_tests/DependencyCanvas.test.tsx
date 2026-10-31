@@ -137,3 +137,17 @@ describe("two-level dependency view", () => {
     expect(screen.getByRole("combobox")).toHaveValue("");
   });
 });
+
+it.each(["FRD-01", "frd-01-a"])("AC-12-006.1 scopes canonical codes and slugs: %s", (frd) => {
+  window.history.replaceState(
+    null,
+    "",
+    `/portfolio/demo/observability?view=deps&dag=wo&frd=${frd}&focus=WO-01-002`,
+  );
+  render(<DependencyCanvas data={data} />);
+  const graph = screen.getByRole("region", { name: "Grafo de dependencias, desplazable" });
+  expect(within(graph).getAllByRole("button")).toHaveLength(3);
+  expect(within(graph).queryByRole("button", { name: /WO-02-002/ })).not.toBeInTheDocument();
+  expect(screen.getByRole("combobox")).toHaveValue("frd-01-a");
+  expect(screen.getByRole("region", { name: "Work order en foco" })).toBeInTheDocument();
+});

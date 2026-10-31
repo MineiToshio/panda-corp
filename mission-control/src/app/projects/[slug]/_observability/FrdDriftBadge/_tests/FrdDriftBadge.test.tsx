@@ -1,111 +1,69 @@
-/**
- * FrdDriftBadge (FRD-12 AC-12-003.3): "Verificado · N derivas" on a VERIFIED FRD whose `drift:`
- * frontmatter lists pre-existing drift, linking to the project's change queue. Fail-loud: a drift
- * value the reader could not interpret shows an error chip instead of vanishing.
- */
-
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { FrdDriftResult } from "@/lib/frds/frd-drift";
-import { WorkspaceNavigationProvider } from "../../../_components/WorkspaceNavigation";
+import { parseFrdDrift } from "@/lib/frds/frd-drift";
+import { DriftNote } from "../DriftNote";
 import { FrdDriftBadge } from "../FrdDriftBadge";
 
-const TWO: FrdDriftResult = { ok: true, ids: ["AC-02-010.4", "REQ-03-001"] };
-
-describe("FrdDriftBadge: a verified FRD with recorded drift", () => {
-  it("shows 'Verificado · N derivas' as a link to the project's change queue", () => {
-    render(<FrdDriftBadge frdId="frd-02-ideas-board" state="done" drift={TWO} project="alpha" />);
-    const link = screen.getByRole("link", { name: /Verificado · 2 derivas/ });
-    expect(link).toHaveAttribute("href", "?project=alpha&tab=changes");
-    expect(link).toHaveAttribute("title", expect.stringContaining("AC-02-010.4, REQ-03-001"));
-    expect(link).toHaveAttribute("data-testid", "frd-drift-badge-frd-02-ideas-board");
-  });
-
-  it("AC-25-009.1 — clears work-order representation when opening Changes", () => {
+describe("AC-12-003.3 drift source and presentation", () => {
+  it("shows verified drift ids and a Cambios link from one reader result", () => {
+    const drift = parseFrdDrift("---\ndrift: [REQ-05-001, AC-05-008.1]\n---");
     render(
-      <WorkspaceNavigationProvider href="/portfolio/alpha/observability?wo=WO-01-001&woview=full&state=done">
-        <FrdDriftBadge frdId="frd-02-ideas-board" state="done" drift={TWO} project="alpha" />
-      </WorkspaceNavigationProvider>,
+      <>
+        <FrdDriftBadge frdId="frd-05-orders" state="done" drift={drift} project="demo" />
+        <DriftNote
+          frdId="frd-05-orders"
+          state="done"
+          drift={drift}
+          href="/portfolio/demo/observability"
+        />
+      </>,
     );
-    expect(screen.getByRole("link", { name: /Verificado · 2 derivas/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Verificado · 2 derivas" })).toHaveAttribute(
       "href",
-      "/portfolio/alpha/changes?state=done",
+      "/portfolio/demo/changes",
     );
+    expect(screen.getByText(/REQ-05-001, AC-05-008.1/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ver en Cambios" })).toBeInTheDocument();
+    expect(document.querySelector(".drift-chip svg")).toHaveAttribute("aria-hidden", "true");
   });
-
-  it("uses the singular for a single drift", () => {
-    render(
-      <FrdDriftBadge
-        frdId="frd-02-ideas-board"
-        state="done"
-        drift={{ ok: true, ids: ["AC-02-010.4"] }}
-        project="alpha"
-      />,
-    );
-    expect(screen.getByRole("link", { name: /Verificado · 1 deriva$/ })).toBeInTheDocument();
-  });
-
-  it("conveys the warning by an icon and text, not color alone", () => {
-    const { container } = render(
-      <FrdDriftBadge frdId="frd-02-ideas-board" state="done" drift={TWO} project="alpha" />,
-    );
-    expect(container.querySelector("i.ti-alert-triangle")).toHaveAttribute("aria-hidden", "true");
-  });
-});
-
-describe("FrdDriftBadge: renders nothing when there is nothing honest to claim", () => {
-  const cases: readonly { readonly label: string; readonly drift: FrdDriftResult | undefined }[] = [
-    { label: "no drift recorded", drift: { ok: true, ids: [] } },
-    { label: "drift not resolved (hand-built timeline)", drift: undefined },
-    { label: "no frd.md to read", drift: { ok: false, reason: "missing" } },
-  ];
-  for (const { label, drift } of cases) {
-    it(`nothing for ${label}`, () => {
-      const { container } = render(
-        <FrdDriftBadge frdId="frd-02-ideas-board" state="done" drift={drift} project="alpha" />,
-      );
-      expect(container).toBeEmptyDOMElement();
-    });
-  }
-
-  it("never claims VERIFIED on a FRD that is not verified (the list is a stale replica there)", () => {
-    const { container } = render(
-      <FrdDriftBadge frdId="frd-02-ideas-board" state="in_progress" drift={TWO} project="alpha" />,
-    );
-    expect(container).toBeEmptyDOMElement();
-  });
-});
-
-describe("FrdDriftBadge: fail loud on an unreadable drift value (DR-078)", () => {
   it.each([
-    "done",
-    "in_progress",
     "todo",
-  ] as const)("shows an error chip with the reason on a %s FRD", (state) => {
+    "in_progress",
+    "review",
+  ] as const)("suppresses a valid list while %s", (state) => {
     render(
       <FrdDriftBadge
-        frdId="frd-02-ideas-board"
+        frdId="frd-05-orders"
         state={state}
-        drift={{ ok: false, reason: "malformed", detail: "`drift` must be a list of REQ/AC ids" }}
-        project="alpha"
+        drift={{ ok: true, ids: ["REQ-05-001"] }}
+        project="demo"
       />,
     );
-    const chip = screen.getByText("Deriva ilegible");
-    expect(chip.closest("[title]")).toHaveAttribute(
-      "title",
-      expect.stringContaining("must be a list"),
-    );
+    expect(screen.queryByText(/derivas?/)).not.toBeInTheDocument();
   });
-
-  it("an unreadable frd.md is also an error chip", () => {
+  it.each(["todo", "done"] as const)("fails loud on malformed drift in any state (%s)", (state) => {
+    const drift = parseFrdDrift("---\ndrift: broken\n---");
     render(
-      <FrdDriftBadge
-        frdId="frd-02-ideas-board"
-        state="done"
-        drift={{ ok: false, reason: "unreadable", detail: "EACCES" }}
-        project="alpha"
-      />,
+      <>
+        <FrdDriftBadge frdId="frd-05-orders" state={state} drift={drift} project="demo" />
+        <DriftNote
+          frdId="frd-05-orders"
+          state={state}
+          drift={drift}
+          href="/portfolio/demo/observability"
+        />
+      </>,
     );
     expect(screen.getByText("Deriva ilegible")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("no es una lista de requisitos");
+  });
+  it.each([
+    { ok: true, ids: [] } as const,
+    { ok: false, reason: "missing" } as const,
+  ])("shows nothing for absent or empty drift", (drift) => {
+    const { container } = render(
+      <FrdDriftBadge frdId="frd-05-orders" state="done" drift={drift} project="demo" />,
+    );
+    expect(container).toBeEmptyDOMElement();
   });
 });

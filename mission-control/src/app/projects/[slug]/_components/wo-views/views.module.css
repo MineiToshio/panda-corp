@@ -1,0 +1,123 @@
+.wrap {
+  display: grid;
+  gap: var(--s5);
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+}
+.viewSwitch {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.count {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  margin-left: auto;
+}
+.strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  margin: 0;
+}
+.tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--s3);
+}
+.groups {
+  display: grid;
+  gap: 10px;
+}
+.group {
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+.group > summary {
+  list-style: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(120px, 260px) auto auto;
+  gap: var(--s4);
+  align-items: center;
+  padding: 14px var(--s4);
+  min-height: 44px;
+  cursor: pointer;
+}
+.group > summary::-webkit-details-marker {
+  display: none;
+}
+.group[open] > summary > svg {
+  transform: rotate(90deg);
+}
+.name {
+  display: grid;
+  gap: var(--s1);
+}
+.name > code {
+  color: var(--violet);
+  font-size: var(--fs-xs);
+}
+.name > strong {
+  font-size: var(--fs-base);
+}
+.list {
+  border-top: var(--hairline) solid var(--line);
+  padding: 6px;
+}
+.row {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) auto 44px;
+  gap: var(--s3);
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: var(--s2) 10px;
+  border-radius: var(--r-md);
+  text-decoration: none;
+  color: var(--text);
+}
+.row > code {
+  font: 600 var(--fs-xs) / 1 var(--font-mono);
+  color: var(--text-3);
+  display: flex;
+  gap: var(--s1);
+}
+.row > span {
+  overflow-wrap: anywhere;
+}
+.deps {
+  display: flex;
+  gap: var(--s1);
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+}
+.failed {
+  background: color-mix(in srgb, var(--coral) var(--tint), var(--surface));
+  border: var(--hairline) solid color-mix(in srgb, var(--coral) 40%, var(--line));
+}
+@media (max-width: 759px) {
+  .strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .group > summary {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+  }
+  .group > summary > [role="img"] {
+    grid-row: 2;
+    grid-column: 2 / -1;
+  }
+  .row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .row > span:nth-child(2) {
+    grid-row: 2;
+  }
+}

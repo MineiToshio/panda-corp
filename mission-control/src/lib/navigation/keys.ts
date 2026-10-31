@@ -46,7 +46,7 @@ export const NAVIGATION_KEYS: Record<NavigationContext, Record<string, Rule>> = 
   accounts: ACCOUNTS,
   observability: {
     view: ["frd", "tablero", "deps"],
-    frd: /^FRD-\d+$/,
+    frd: /^(?:FRD-\d+|frd-\d+-[a-z0-9]+(?:-[a-z0-9]+)*)$/,
     state: /^(todo|in_progress|review|done|fail)(,(todo|in_progress|review|done|fail))*$/,
     wo: /^WO-\d+-\d+$/,
     woview: ["summary", "full"],

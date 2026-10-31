@@ -1,436 +1,109 @@
-"use client";
-/**
- * WO-05-005 — WorkOrderDetail (CMP-05-detail)
- *
- * Detail view for a single work order. Two tabs:
- *   - Summary: title, FRD chip, state badge, description + a useful body excerpt.
- *   - Full document: rendered markdown via the shared <Markdown> primitive (#23).
- *
- * Both panes render markdown through @/components/core/Markdown (DR-057) so they
- * get the app's one consistent typographic scale instead of a bare, ugly
- * react-markdown dump (the previous Full-document renderer) (#23).
- *
- * Architecture:
- *   The ENTIRE component is "use client" because the tab bar needs click
- *   handlers for switching tabs. State is lifted to the URL via the
- *   parent page (?wotab=summary|full), but in jsdom/test context we use
- *   the `activeWoTab` prop directly. The tab bar updates the URL on click.
- *
- *   Design rule (blueprint §4): "only the tab bar is 'use client'".
- *   In practice, since react-markdown renders fine on the client and the
- *   parent page already reads the tab from the URL server-side, we keep
- *   the component client-only for simplicity while satisfying the constraint
- *   that the tab *bar* (the interactive piece) is client-rendered.
- *
- * Traceability:
- *   CMP-05-detail → REQ-05-003
- *   AC-05-003.1   Summary tab + Full document tab present; role=tablist
- *   AC-05-003.2   Full document tab renders entire work-order markdown
- *
- * Design rules (AGENTS.md / FRD-13):
- *   - ZERO hardcoded colors — CSS custom properties only.
- *   - data-testid on every interactive/significant element.
- *   - Spanish copy (UI-facing text).
- *   - fail/blocked state: icon + label (never color alone).
- *   - tabular-nums on state badge counts.
- */
-
-import { useRouter } from "next/navigation";
+import { Card } from "@/components/core/Card/Card";
 import { Chip } from "@/components/core/Chip/Chip";
+import { statePresentation } from "@/components/core/Chip/vocabulary";
+import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { Crumbs } from "@/components/core/Crumbs/Crumbs";
 import { Markdown } from "@/components/core/Markdown/Markdown";
-import { Tabs } from "@/components/core/Tabs/Tabs";
+import { Paper } from "@/components/modules/DocumentReader/Paper";
+import { t } from "@/lib/copy/copy";
+import type { ProjectFrd } from "@/lib/frds/frd-index";
 import { navigationHref } from "@/lib/navigation/urls";
-import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
+import { extractSections, type WorkOrderSections } from "@/lib/work-orders/sections";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
+import { DetailFacts } from "./DetailFacts";
+import { DetailStory } from "./DetailStory";
+import { DetailTabs } from "./DetailTabs";
+import styles from "./detail.module.css";
+import { WoSteps } from "./WoSteps";
 export type WoDetailTab = "summary" | "full";
-
-/** The two work-order detail tabs, in display order (AC-05-003.1). */
-const WO_DETAIL_TABS: Array<{ id: string; label: string }> = [
-  { id: "summary", label: "Resumen" },
-  { id: "full", label: "Documento completo" },
-];
-
 export interface WorkOrderDetailProps {
-  /** The work order to display. */
   order: WorkOrder;
-  /** Raw markdown content of the work order file, or null when unavailable. */
   content: string | null;
-  /** Active tab — URL-driven (parent reads ?wotab=). Defaults to "summary". */
   activeWoTab: WoDetailTab;
   navigationBaseHref?: string;
+  sections?: WorkOrderSections;
+  dependents?: readonly WorkOrder[];
+  orders?: readonly WorkOrder[];
+  frd?: ProjectFrd;
 }
-
-// ---------------------------------------------------------------------------
-// State labels (Spanish)
-// ---------------------------------------------------------------------------
-
-const STATE_LABEL: Record<WorkOrderState, string> = {
-  todo: "Pendiente",
-  in_progress: "En progreso",
-  review: "En revisión",
-  done: "Hecho",
-  fail: "Falló",
-};
-
-// ---------------------------------------------------------------------------
-// Styles — CSS custom properties only, zero hardcoded colors
-// ---------------------------------------------------------------------------
-
-const ROOT_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  height: "100%",
-  overflow: "hidden",
-  background: "var(--color-surface, Canvas)",
-  color: "var(--color-text, currentColor)",
-};
-
-const HEADER_STYLE: React.CSSProperties = {
-  flexShrink: 0,
-  // No borderBottom (owner: "esa línea yo la borraría"): the SubTabs underline is the only
-  // divider, so the tabs no longer sit glued against a redundant second hairline.
-  padding: "calc(var(--spacing, 0.25rem) * 4) calc(var(--spacing, 0.25rem) * 6) 0",
-};
-
-const BACK_STYLE: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 1.5)",
-  fontSize: "0.8125rem",
-  color: "var(--color-text-muted, currentColor)",
-  textDecoration: "none",
-  marginBottom: "calc(var(--spacing, 0.25rem) * 3)",
-  opacity: 0.7,
-  background: "none",
-  border: "none",
-  cursor: "pointer",
-  padding: 0,
-};
-
-const TITLE_STYLE: React.CSSProperties = {
-  fontSize: "1rem",
-  fontWeight: 600,
-  lineHeight: 1.4,
-  color: "var(--color-text, currentColor)",
-  margin: "0 0 calc(var(--spacing, 0.25rem) * 2)",
-  wordBreak: "break-word",
-};
-
-const META_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  alignItems: "center",
-  gap: "calc(var(--spacing, 0.25rem) * 2)",
-  marginBottom: "calc(var(--spacing, 0.25rem) * 3)",
-};
-
-function stateBadgeStyle(state: WorkOrderState): React.CSSProperties {
-  const base: React.CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "4px",
-    fontSize: "0.6875rem",
-    fontWeight: 600,
-    padding: "2px calc(var(--spacing, 0.25rem) * 2)",
-    borderRadius: "9999px",
-    fontVariantNumeric: "tabular-nums",
-  };
-  if (state === "done") {
-    return {
-      ...base,
-      background: "var(--color-success-bg, oklch(0.3 0.05 150 / 0.15))",
-      color: "var(--color-success-text, var(--color-text-muted, currentColor))",
-    };
-  }
-  if (state === "fail") {
-    return {
-      ...base,
-      background: "var(--color-fail-bg, oklch(0.35 0.05 30 / 0.15))",
-      color: "var(--color-fail-text, var(--color-text-muted, currentColor))",
-    };
-  }
-  if (state === "review") {
-    return {
-      ...base,
-      background: "var(--color-warning-bg, oklch(0.35 0.05 90 / 0.15))",
-      color: "var(--color-warning-text, var(--color-text-muted, currentColor))",
-    };
-  }
-  if (state === "in_progress") {
-    return {
-      ...base,
-      background: "var(--color-accent-bg, oklch(0.35 0.05 250 / 0.12))",
-      color: "var(--color-accent, var(--color-text-muted, currentColor))",
-    };
-  }
-  return {
-    ...base,
-    background: "var(--color-surface-raised, Canvas)",
-    color: "var(--color-text-muted, currentColor)",
-  };
-}
-
-const TABLIST_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "row",
-  gap: 0,
-  marginTop: "calc(var(--spacing, 0.25rem) * 2)",
-};
-
-const PANE_STYLE: React.CSSProperties = {
-  flex: 1,
-  overflowY: "auto",
-  padding: "calc(var(--spacing, 0.25rem) * 6) calc(var(--spacing, 0.25rem) * 6)",
-};
-
-const SUMMARY_SECTION_STYLE: React.CSSProperties = {
-  maxWidth: "68ch",
-};
-
-const SUMMARY_LABEL_STYLE: React.CSSProperties = {
-  fontSize: "0.75rem",
-  fontWeight: 700,
-  letterSpacing: "0.05em",
-  textTransform: "uppercase",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.6,
-  margin: "0 0 calc(var(--spacing, 0.25rem) * 2)",
-};
-
-const SUMMARY_TEXT_STYLE: React.CSSProperties = {
-  fontSize: "0.9375rem",
-  lineHeight: 1.65,
-  color: "var(--color-text, currentColor)",
-  margin: "0 0 calc(var(--spacing, 0.25rem) * 4)",
-  whiteSpace: "pre-wrap",
-};
-
-/** Full-document wrapper — width cap only; <Markdown> owns the typographic scale (#23). */
-const PROSE_WRAP_STYLE: React.CSSProperties = {
-  maxWidth: "72ch",
-};
-
-const LOADING_STYLE: React.CSSProperties = {
-  flex: 1,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  color: "var(--color-text-muted, currentColor)",
-  opacity: 0.5,
-  fontSize: "0.875rem",
-};
-
-// ---------------------------------------------------------------------------
-// State icon helpers (a11y: icon + label, never color alone — FRD-13)
-// ---------------------------------------------------------------------------
-
-function stateIcon(state: WorkOrderState): string {
-  switch (state) {
-    case "done":
-      return "✓";
-    case "fail":
-      return "⚠";
-    case "review":
-      return "◎";
-    case "in_progress":
-      return "◐";
-    default:
-      return "○";
-  }
-}
-
-/** Max characters of the work-order body to show as the summary excerpt (#23). */
-const SUMMARY_EXCERPT_LIMIT = 600;
-
-/**
- * Strip a leading `---\n…\n---` YAML frontmatter block. It is machine metadata, not prose —
- * rendered raw it shows as an `<hr>` line + a stray heading at the top of the document (the
- * "línea extra" the owner flagged in the Full-document tab).
- */
-function stripFrontmatter(content: string): string {
-  return content.replace(/^---\n[\s\S]*?\n---\n?/, "");
-}
-
-/**
- * Build a short, useful markdown excerpt of the work-order body for the Summary
- * tab (#23) — the previous summary only showed the file PATH, which is useless.
- *
- * Strips the YAML frontmatter block and trims to a sensible length so the excerpt
- * renders through <Markdown> with the same typographic scale as the full document.
- * Returns null when there is no body to show (caller then falls back gracefully).
- */
-function summaryExcerpt(content: string | null): string | null {
-  if (content === null) return null;
-  const withoutFrontmatter = stripFrontmatter(content).trim();
-  if (withoutFrontmatter === "") return null;
-  if (withoutFrontmatter.length <= SUMMARY_EXCERPT_LIMIT) return withoutFrontmatter;
-  return `${withoutFrontmatter.slice(0, SUMMARY_EXCERPT_LIMIT).trimEnd()}…`;
-}
-
-// ---------------------------------------------------------------------------
-// WorkOrderDetail — CMP-05-detail
-// ---------------------------------------------------------------------------
-
-/**
- * Work order detail view with Summary / Full document tabs.
- *
- * "use client" is required for the interactive tab switching.
- * The active tab is also URL-driven (parent reads ?wotab= and passes it in).
- *
- * AC-05-003.1: two tabs (Summary, Full document) with role=tablist.
- * AC-05-003.2: Full document tab renders markdown via the shared <Markdown> (#23).
- */
+/** Server-rendered reading summary; the only interactive island is the URL tab strip. */
 export function WorkOrderDetail({
   order,
   content,
   activeWoTab,
   navigationBaseHref,
+  sections = extractSections(content ?? "", order.summary),
+  dependents = [],
+  orders = [],
+  frd,
 }: WorkOrderDetailProps): React.JSX.Element {
-  // Tab switching is URL-driven (?wotab=): the parent page (a Server Component)
-  // reads ?wotab= and renders the correct pane. The shared Tabs primitive (DR-062)
-  // drives selection through onChange; we translate the tab id into a navigation.
-  // No useRouter dependency — so the component renders standalone in any context.
-  const router = useRouter();
-  function handleTabChange(id: string): void {
-    const currentHref =
-      navigationBaseHref ?? `${window.location.pathname}${window.location.search}`;
-    router.push(
-      navigationHref(currentHref, { tab: "work-orders", wo: order.id, wotab: id, woview: null }),
-    );
-  }
-
-  // A useful body excerpt for the Summary tab (#23) — replaces the old file-path.
-  const excerpt = summaryExcerpt(content);
-
+  const href = navigationBaseHref ?? `?wo=${order.id}`;
+  const back = navigationHref(href, { wo: null, woview: null, wotab: null });
+  const full = navigationHref(href, { wo: order.id, woview: "full" });
+  const presentation = statePresentation(order.state === "fail" ? "blocked" : order.state);
+  const frdCode = frd?.code ?? `FRD-${order.frd.match(/^frd-(\d+)/i)?.[1] ?? ""}`;
+  const title = order.title.replace(/^WO-\d+-\d+\s*[—–:·-]?\s*/, "");
+  const metadata = content?.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1];
+  const markdown = (content ?? "").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
   return (
-    <section data-testid="wo-detail" aria-label={`Detalle: ${order.title}`} style={ROOT_STYLE}>
-      {/* Header: back affordance + title + meta + tab bar */}
-      <header style={HEADER_STYLE}>
-        {/* Back to board */}
-        <a
-          data-testid="wo-detail-back"
-          href={
-            navigationBaseHref
-              ? navigationHref(navigationBaseHref, {
-                  tab: "work-orders",
-                  wo: null,
-                  wotab: null,
-                  woview: null,
-                })
-              : "?tab=work-orders"
-          }
-          aria-label="Volver al tablero de work orders"
-          style={BACK_STYLE}
-        >
-          <span aria-hidden="true">←</span>
-          <span>Volver al tablero</span>
-        </a>
-
-        {/* Title */}
-        <h2 style={TITLE_STYLE}>{order.title}</h2>
-
-        {/* Meta row: FRD chip + state badge */}
-        <div style={META_ROW_STYLE}>
-          {/* FRD chip — the ONE shared Chip primitive (DR-057), not a bespoke pill */}
-          <span data-testid="wo-detail-frd-chip" title={`FRD: ${order.frd}`}>
-            <Chip tone="accent">{order.frd}</Chip>
-          </span>
-          <span
-            data-testid="wo-detail-state"
-            style={stateBadgeStyle(order.state)}
-            role="status"
-            aria-label={`Estado: ${STATE_LABEL[order.state]}`}
-          >
-            {/* icon + label — never color alone (FRD-13) */}
-            <span aria-hidden="true">{stateIcon(order.state)}</span>
-            <span>{STATE_LABEL[order.state]}</span>
-          </span>
-        </div>
-
-        {/* Tab bar — AC-05-003.1: the ONE shared Tabs primitive (DR-062), not an
-            ad-hoc role=tablist. testIdPrefix keeps the stable screen-specific ids. */}
-        <div style={TABLIST_STYLE}>
-          <Tabs
-            level="sub"
-            ariaLabel="Pestañas del work order"
-            testIdPrefix="wo-detail-tab-"
-            active={activeWoTab}
-            onChange={handleTabChange}
-            tabs={WO_DETAIL_TABS}
-          />
-        </div>
-      </header>
-
-      {/* Tab pane */}
-      {activeWoTab === "summary" ? (
-        <div
-          data-testid="wo-detail-summary"
-          role="tabpanel"
-          aria-labelledby="wo-detail-tab-summary"
-          style={PANE_STYLE}
-        >
-          <div style={SUMMARY_SECTION_STYLE}>
-            {/* Work order ID */}
-            <p
-              style={{
-                ...SUMMARY_TEXT_STYLE,
-                fontWeight: 600,
-                fontSize: "0.8125rem",
-                opacity: 0.7,
-                margin: "0 0 calc(var(--spacing, 0.25rem) * 1)",
-              }}
-            >
-              {order.id}
-            </p>
-
-            {/* Summary text if available */}
-            {order.summary !== undefined && order.summary !== "" ? (
-              <>
-                <p style={SUMMARY_LABEL_STYLE}>Descripción</p>
-                <p style={SUMMARY_TEXT_STYLE}>{order.summary}</p>
-              </>
-            ) : null}
-
-            {/* Useful body excerpt (#23) — replaces the old, useless file-path line.
-                Rendered via the shared <Markdown> so it reads with the app's scale.
-                The full text lives one tab over ("Documento completo"). */}
-            {excerpt !== null ? (
-              <div data-testid="wo-detail-summary-excerpt">
-                <p style={SUMMARY_LABEL_STYLE}>Resumen del documento</p>
-                <Markdown>{excerpt}</Markdown>
-              </div>
-            ) : null}
+    <section data-testid="wo-detail" className={styles.root}>
+      <Crumbs
+        items={[
+          { label: t("common.workspaceTabs.observabilidad"), href: back },
+          { label: frdCode, href: navigationHref(back, { frd: frd?.slug ?? order.frd }) },
+          { label: order.id },
+        ]}
+      />
+      <Card tone={presentation.tone} variant="tinted">
+        <div className={`wo-hero ${styles.hero}`}>
+          <div className={styles.heroTop}>
+            <div className={styles.chips}>
+              <Chip tone={presentation.tone}>{order.id}</Chip>
+              <Chip tone="slate" variant="plain">
+                {frdCode}
+                {frd ? ` · ${frd.title}` : ""}
+              </Chip>
+            </div>
+            <a href={back} data-testid="wo-detail-back">
+              {t("workspace.observabilidad.detail.back")}
+            </a>
           </div>
+          <h2 className="wo-title">{title}</h2>
+          <WoSteps state={order.state} />
         </div>
-      ) : /* Full document tab — AC-05-003.2 */
-      content !== null ? (
-        <div
-          data-testid="wo-detail-full"
-          role="tabpanel"
-          aria-labelledby="wo-detail-tab-full"
-          style={PANE_STYLE}
-        >
-          <article aria-label="Documento completo del work order" style={PROSE_WRAP_STYLE}>
-            {/* The shared <Markdown> brings the app's typographic scale (#23) — no bespoke
-                prose styling, just a max-width wrapper. Frontmatter stripped so the doc doesn't
-                open with a stray `---` line + heading (owner: "una línea extra"). */}
-            <Markdown>{stripFrontmatter(content)}</Markdown>
-          </article>
-        </div>
-      ) : (
-        <div
-          data-testid="wo-detail-full-loading"
-          role="status"
-          aria-label="Cargando documento"
-          style={LOADING_STYLE}
-        >
-          <span>Cargando documento…</span>
-        </div>
-      )}
+      </Card>
+      <DetailTabs active={activeWoTab} href={href} />
+      <div
+        role="tabpanel"
+        id={`wo-pane-${activeWoTab}`}
+        aria-labelledby={`wo-detail-tab-${activeWoTab}`}
+        data-testid={`wo-detail-${activeWoTab}`}
+      >
+        {activeWoTab === "full" ? (
+          <Paper
+            type={t("workspace.observabilidad.detail.chipLabel")}
+            path={order.relPath}
+            tone="green"
+          >
+            <CopyButton
+              value={content ?? ""}
+              accessibleLabel={t("workspace.observabilidad.detail.copyDocument")}
+            />
+            {metadata && (
+              <details className={styles.more}>
+                <summary>{t("workspace.observabilidad.detail.metadata")}</summary>
+                <Markdown>{`\`\`\`yaml\n${metadata}\n\`\`\``}</Markdown>
+              </details>
+            )}
+            <Markdown>{markdown}</Markdown>
+          </Paper>
+        ) : (
+          <div className={`wo-detail-grid ${styles.grid}`}>
+            <DetailStory order={order} sections={sections} full={full} />
+            <DetailFacts order={order} orders={orders} dependents={dependents} href={href} />
+          </div>
+        )}
+      </div>
     </section>
   );
 }

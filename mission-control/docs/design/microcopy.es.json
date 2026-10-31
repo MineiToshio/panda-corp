@@ -932,6 +932,7 @@
         "viewFull": "Documento completo",
         "chipLabel": "Work order",
         "copyDocument": "Copiar documento",
+        "metadata": "Metadatos del documento",
         "about": "De qué trata",
         "scope": "Qué cambia",
         "outOfScope": "Fuera de alcance",

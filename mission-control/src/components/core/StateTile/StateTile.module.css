@@ -35,3 +35,22 @@
   height: var(--s2);
   border-radius: var(--r-pill);
 }
+.tile progress {
+  width: 100%;
+  height: var(--s1);
+  border: 0;
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  appearance: none;
+  background: var(--surface-3);
+  accent-color: var(--tone);
+}
+.tile progress::-webkit-progress-bar {
+  background: var(--surface-3);
+}
+.tile progress::-webkit-progress-value {
+  background: var(--tone);
+}
+.tile progress::-moz-progress-bar {
+  background: var(--tone);
+}

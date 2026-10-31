@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
+import { selectedFrd } from "../wo-views/selection";
 import type { DependencyMapData } from "./data";
 /** Selection and chain state only; every geometry is supplied by the server. */
 export function useDependencySelection(
@@ -8,10 +9,11 @@ export function useDependencySelection(
   route: { dag?: string; focus?: string; frd?: string },
 ) {
   const [dag, setDag] = useUrlState("dag", route.dag ?? "frd"),
-    [frd, setFrd] = useUrlState("frd", route.frd ?? ""),
+    [frdValue, setFrd] = useUrlState("frd", route.frd ?? ""),
     [selected, setFocus] = useUrlState("focus", route.focus ?? "");
   const [hover, setHover] = useState("");
   const level = dag === "wo" ? "wo" : "frd";
+  const frd = selectedFrd(data.frds, frdValue);
   const geometry = Object.hasOwn(data.workLayouts, frd)
     ? data.workLayouts[frd]
     : data.workLayouts[""];

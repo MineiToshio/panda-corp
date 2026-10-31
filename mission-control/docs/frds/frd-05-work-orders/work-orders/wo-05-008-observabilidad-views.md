@@ -6,8 +6,7 @@ title: 'WO-05-008 Observabilidad frame: Por FRD, Tablero, Dependencias mount, dr
 status: ACTIVE
 parent: FRD-05
 foundation: false
-implementation_status: PLANNED
-blocked_reason:
+implementation_status: IN_REVIEW
 difficulty: high
 reopen_count: 0
 artifacts:
@@ -18,7 +17,7 @@ artifacts:
   - 'e2e/observability.spec.ts'
 source_requirements: [REQ-05-001, REQ-05-002, REQ-05-003, REQ-05-005, REQ-05-006, REQ-05-007, REQ-05-008, REQ-12-002, REQ-12-003, REQ-12-005]
 dependsOn: [WO-04-010, WO-12-007, WO-02-017, WO-05-001, WO-22-002]
-last_updated: 2026-10-22
+last_updated: 2026-10-31
 ---
 
 # WO-05-008 Observabilidad frame: Por FRD, Tablero, Dependencias mount, drift badge, live refresh
@@ -93,6 +92,7 @@ the old Work orders tab body.
 ## Out of Scope
 
 - The work-order detail internals (`wo-detail/**`) and `src/lib/work-orders/**`: WO-05-009 (same wave).
+- The shared build-freshness indicator (AC-12-001.2): FRD-06 and the workspace frame. This panel consumes its signal without independently deriving build progress.
 - The dependency map itself (`_components/deps/**`, `src/lib/deps-layout/**`, the FRD index): WO-12-007.
 - The workspace frame, tab bar, Observabilidad count badge, the legacy `tab=Work orders` alias (AC-12-006.4):
   WO-04-010. La Fragua (AC-12-002.2's positive side): WO-06-013 / WO-04-011.
@@ -120,7 +120,7 @@ REQ-12-005. Owned criteria, copied from the current FRDs:
   **"Deriva ilegible"** error chip on that FRD (any state), never a silent empty list; a FRD folder with no
   `frd.md` shows nothing.
 - **AC-12-005.1** — WHILE the build is running THE views SHALL update **live / event-driven**: the structure comes from the work-order frontmatter and refreshes when the SSE `stateVersion` moves or a newer event arrives in `~/.claude/dashboard-events.ndjson` — not a one-shot snapshot.
-- **AC-12-005.2** — IF no new event has arrived THEN the views SHALL stay consistent with the freshness indicator of AC-12-001.2 (no fabricated progress).
+- **AC-12-005.2** — IF no new event has arrived THEN the views SHALL stay consistent with the shared freshness indicator (no fabricated progress).
 
 Also satisfied here without owning the criterion (prose only): REQ-05-001/002 behaviour drawn in `wo-failed` and
 `wo-failed-row`; the Dependencias view criteria of FRD-12 are WO-12-007's; the detail (AC-05-008.4) is WO-05-009's.
@@ -213,3 +213,15 @@ because this WO imports it, DR-087; the wave stays W6). Builds in W6 in parallel
 artifacts).
 
 ## Status Note
+
+- 2026-10-31: Built the Por FRD / Tablero / Dependencias panel, URL-owned state union and FRD intersection, native collapsed groups, responsive CSS-only 8/4 reveal caps, failed-order variants, drift chips/notes, empty/error states, and the WO-05-009 detail mount. The single relocated live subscriber coalesces refreshes at five seconds, ignores older events, and follows backward stateVersion changes. A native-history observer mounts the server detail after DependencyMap selects an order.
+- 2026-10-31: Reconciled the requested deep-link mismatch with one narrow exception to the navigation ownership boundary: `src/lib/navigation/keys.ts` accepts both canonical FRD codes and safe FRD folder slugs. The panel resolves either spelling against the shared FRD index before mounting the map. AC-12-006.1 is cited by the real-validator and native-navigation tests. No other navigation key changed.
+- 2026-10-31: Removed project TimelineView, ObservabilidadTab, WoDag and its controls/layout/hooks, TabWorkOrders, WoFrdFilteredBoard and their implementer tests. `rg -n 'import.*(TimelineView|ObservabilidadTab|WoDag|useDagZoom|TabWorkOrders|WoFrdFilteredBoard)' 'src/app/projects/[slug]' --glob '!**/_tests/**'` returns no matches. The unmounted global observability code remains owned by WO-13-013.
+- 2026-10-31: Final scoped Vitest run (`--maxWorkers=2`, command and logs in `/tmp/s5b-verification.txt`) passed 15 files / 152 tests. Biome passed all 46 changed TS/TSX/CSS files. `git diff --check` passed. The new e2e spec performs no fixture writes; Playwright, preview smoke, responsive browser rendering and visual fidelity were not executed per the stream brief. No baseline, reviewer test, decision log or .pandacorp file was edited. No commit, merge or push was performed.
+- 2026-10-31: Global gates remain red: `pnpm exec tsc --noEmit --incremental false` exits 2 (51 diagnostics in untouched review/legacy tests); `pnpm exec knip` exits 1 (30 unresolved legacy test imports, unmounted WorkOrderReport outside this stream, and now-unused TLWorkOrder/TLFrd exports outside this stream). The scoped old reviewer run exits 1: 5 failed / 2 passed files, 9 failed / 18 passed tests. These checks do not certify the feature.
+- 2026-10-31: Reviewer reconciliation still required, untouched here: remove `_observability/_tests/frd-12-gate-opus.reviewer.test.tsx`, `_components/_tests/frd-05-state-filter.gate.reviewer.test.tsx`, `_components/_tests/frd-05.reviewer.integration.test.tsx`; rewrite `_components/_tests/frd-05-gate-opus.reviewer.test.tsx` and `frd-05-reuse.gate.reviewer.test.tsx` for v2 selectors, state wording, select/tiles and detail navigation. Also migrate the outside-artifact `_components/_tests/workspace-navigation.test.tsx` (still imports WoDag/WoFrdFilteredBoard), `e2e/frd25-gate-regressions.reviewer.spec.ts` (obs-toggle/WO selectors), and `e2e/persistent-navigation.spec.ts` WO steps. Pre-existing WO-04-010 reviewer imports of retired party/objectives-bar code and the `v2-survivors` tab-id assertion also remain red. The remaining legacy-test reconciliation belongs to the integration owner; the round-2 patch below retires WorkOrderReport and the unused build timeline.
+- 2026-10-31: Moved the non-owned freshness cross-reference to Out of Scope so the work-order AC extractor does not mistake AC-12-001.2 for another deliverable of this stream; AC-12-005.2 retains its no-fabricated-progress requirement and its tests.
+
+- 2026-10-31 (round 2): Under the explicit navigation/build-track grants, `updateNavigation` now passes `null` to both native history methods. Inspected installed Next 16.2.9 `app-router.js`: caller-supplied `__NA` bypasses ACTION_RESTORE; the external shallow form copies the router internals and restores canonicalUrl. Kept NavigationCanonical's router replacement. Added `e2e/nav-client-refresh.spec.ts` with real Next history/RSC/router paths (only SSE transport controlled): canonical and hard-loaded legacy URLs, live refresh preserving view/dag/frd/focus, map-to-detail navigation, and two Back/Forward entries.
+- 2026-10-31 (round 2): Resolved FRD code/slug in the client map hook, treated only ENOENT from the FRD directory as legitimate absence (EACCES still fails loud), moved the desktop board minimum into its grid tracks, colored StateTile progress by its tone, and kept an active zero-count fail tile available to clear a bookmarked filter. Removed the orphan WorkOrderReport, unused readBuildTimeline/TLWorkOrder/TLFrd and their implementer tests; TLState remains. No production caller of the retired reader remains in src; the frozen prototype exporter was not executed or changed.
+- 2026-10-31 (round 2): Scoped Vitest passed 37 files / 263 tests; the separate shared-navigation consumer run passed 125 files / 1498 tests, both with --maxWorkers=2. Global tsc remains red with 45 diagnostics in untouched legacy/reviewer tests; global knip remains red with 24 unresolved imports in 10 untouched test files, with zero findings in the patched scope. Browser execution remains unverified: both Playwright cases failed before executing because the sandbox denied Chromium MachPortRendezvous bootstrap_check_in; native Chrome access was also denied. No visual rendering/fidelity, full verify.sh, merge or push was performed. Exact commands and full file inventory: /tmp/s5b-round2-result.md. Changes remain uncommitted and IN_REVIEW.

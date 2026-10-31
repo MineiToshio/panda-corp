@@ -27,12 +27,19 @@ function heading(folder: string): string | undefined {
     throw error;
   }
 }
-/** Cached folder index. Listing failures propagate; a missing individual frd.md is legitimate. */
+/** Cached folder index. Missing sources are empty; other listing failures propagate. */
 export const listProjectFrds = cache((projectPath: string): ProjectFrd[] => {
   const root = path.join(projectPath, "docs/frds");
-  const folders = fs
-    .readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && /^frd-\d+(?:-|$)/i.test(entry.name));
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(root, { withFileTypes: true });
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return [];
+    throw error;
+  }
+  const folders = entries.filter(
+    (entry) => entry.isDirectory() && /^frd-\d+(?:-|$)/i.test(entry.name),
+  );
   const spec = readSpecDigest(projectPath),
     architecture = readArchitectureDigest(projectPath);
   const specFrds = spec ? parseSpec(spec).frds : [],

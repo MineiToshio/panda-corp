@@ -41,12 +41,12 @@ test("AC-25-002.1/004.1: the dependency view survives view=dag, canonicalization
   page,
 }) => {
   await gotoHydrated(page, `${WORKSPACE}/observability?view=dag`, {
-    selector: '[data-testid="obs-toggle"]',
+    selector: ".seg button",
   });
   await expect.poll(() => queryValue(page, "view")).toBe("deps");
   await page.reload();
-  await expect(page.getByTestId("obs-toggle")).toBeVisible();
-  await expect(page.getByTestId("obs-view-timeline")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Grafo de dependencias" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Línea de tiempo/ })).toHaveCount(0);
 });
 
 test("FRD-25 v2 families: no Party or separate Work orders tab, and every offered tab opens", async ({
@@ -67,7 +67,7 @@ test("AC-25-009.1: Observability keeps the work orders reachable and detail retu
   page,
 }) => {
   test.setTimeout(180_000);
-  await gotoHydrated(page, `${WORKSPACE}/observability`, {
+  await gotoHydrated(page, `${WORKSPACE}/observability?view=tablero`, {
     selector: '[data-testid="tabbar"]',
     timeout: NAVIGATION_TIMEOUT,
   });
@@ -79,6 +79,9 @@ test("AC-25-009.1: Observability keeps the work orders reachable and detail retu
     .poll(() => new URL(page.url()).pathname, { timeout: NAVIGATION_TIMEOUT })
     .toBe(`${WORKSPACE}/observability`);
   await expect.poll(() => queryValue(page, "wo"), { timeout: NAVIGATION_TIMEOUT }).toBeNull();
+  await expect
+    .poll(() => queryValue(page, "view"), { timeout: NAVIGATION_TIMEOUT })
+    .toBe("tablero");
   await expect(page.getByTestId("wo-board")).toBeVisible();
 });
 

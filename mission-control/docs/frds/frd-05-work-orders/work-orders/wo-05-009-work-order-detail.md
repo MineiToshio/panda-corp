@@ -6,8 +6,7 @@ title: 'WO-05-009 Work-order detail: reading summary and full document'
 status: ACTIVE
 parent: FRD-05
 foundation: false
-implementation_status: PLANNED
-blocked_reason:
+implementation_status: IN_REVIEW
 difficulty: medium
 reopen_count: 0
 artifacts:
@@ -16,7 +15,7 @@ artifacts:
   - 'e2e/work-order-detail.spec.ts'
 source_requirements: [REQ-05-004, REQ-05-005, REQ-05-008]
 dependsOn: [WO-04-010, WO-05-002, WO-08-003, WO-12-007]
-last_updated: 2026-10-22
+last_updated: 2026-10-31
 ---
 
 # WO-05-009 Work-order detail: reading summary and full document
@@ -151,3 +150,10 @@ WO-04-010 (W5: frame and the `WoDetail` adapter), WO-05-002 (`aggregateProgress`
 them (DR-087: real upstream); the wave stays W6. Builds in parallel with WO-05-008 (disjoint artifacts).
 
 ## Status Note
+
+- 2026-10-31: Built the source-backed summary and full document, typed missing state, facts, upstream/downstream links, EARS cards and folded Status Note. Added request-scoped reader caching, superseded exclusion and real-path confinement (a regression test demonstrated the old raw reader followed escaping symlinks).
+- 2026-10-31: `PORT=3982 PANDACORP_E2E_PORT=3982 pnpm exec vitest run 'src/app/projects/[slug]/_components/wo-detail' src/lib/work-orders --maxWorkers=2`: 6 files / 124 tests passed. Behaviour spec authored; Playwright and visual fidelity not executed per stream instructions. Reviewer-owned FRD-05 gate/reuse suites require reconciliation of the old detail contract; untouched. Global TypeScript currently reports stale WO-04-010 reviewer imports (party/objectives-bar and v2-survivors); final stream verification follows WO-05-008.
+
+- 2026-10-31: Final stream verification includes the pure shared progress module and the strict `readPublishedWorkOrders` view boundary, which validates through the same cached raw reader before exposing lists; malformed source remains an error rather than an empty plan. The final combined scope passes 15 files / 152 tests and Biome; global tsc/knip and the unreconciled reviewer suites remain red as recorded in WO-05-008. No browser verification or full verify.sh was run. Exact uncommitted paths are listed in `/tmp/s5b-wo-05-009-paths.txt`; no commit was created.
+
+- 2026-10-31 (round 2): Criterion extraction now stops before trailing unindented prose or subheadings while preserving wrapped/indented criterion lines. Bold identifier annotations no longer leave unmatched Markdown delimiters. CriterionList uses the shared Markdown renderer for inline emphasis, code and links while retaining semantic EARS marks. Added the collapsed source YAML metadata fold in the full document and explicit link styles for the missing-order return and full-document links. New regressions reproduced seven failures before the fixes; the scoped final run passes 37 files / 263 tests, including the protected criterion-card reviewer checks. Browser execution and visual layout remain unverified because Chromium could not launch in the sandbox. Global tsc/knip limitations and the exact commands are recorded by WO-05-008 and /tmp/s5b-round2-result.md. No reviewer file, baseline or decision log was changed; no commit was created. Status remains IN_REVIEW.

@@ -1,0 +1,99 @@
+.board {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
+  gap: var(--s3);
+  align-items: start;
+  overflow-x: auto;
+}
+.column {
+  display: grid;
+  gap: var(--s3);
+  min-width: 0;
+}
+.column > header {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--tone);
+}
+.column h3 {
+  font-size: var(--fs-sm);
+  margin: 0;
+  flex: 1;
+}
+.cards {
+  display: grid;
+  gap: var(--s2);
+}
+.cards[data-expanded="false"] > :nth-child(n + 9) {
+  display: none;
+}
+.card {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: var(--s3);
+  text-decoration: none;
+  text-align: left;
+  border-radius: var(--r);
+  background: var(--surface);
+  border: var(--hairline) solid var(--line);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.card > code {
+  color: var(--tone);
+  font: 600 var(--fs-xs) / 1 var(--font-mono);
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+}
+.card strong {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.35;
+}
+.card small,
+.card p {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  margin: 0;
+}
+.failed {
+  background: color-mix(in srgb, var(--coral) var(--tint), var(--surface));
+  border-color: color-mix(in srgb, var(--coral) 40%, var(--line));
+}
+.failed strong {
+  color: var(--coral);
+}
+.empty {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.phone {
+  display: none;
+}
+@media (min-width: 900px) {
+  .board {
+    grid-template-columns: repeat(var(--cols, 4), minmax(180px, 1fr));
+  }
+}
+@media (min-width: 760px) and (max-width: 899px) {
+  .board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 759px) {
+  .board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cards[data-expanded="false"] > :nth-child(n + 5) {
+    display: none;
+  }
+  .desktop {
+    display: none;
+  }
+  .phone {
+    display: block;
+  }
+}

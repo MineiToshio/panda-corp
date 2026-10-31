@@ -42,8 +42,9 @@ export function updateNavigation(patch: NavigationPatch, options?: { replace?: b
   const current = currentHref();
   const next = navigationHref(current, patch);
   if (next === current) return;
-  if (options?.replace) window.history.replaceState(window.history.state, "", next);
-  else window.history.pushState(window.history.state, "", next);
+  // Next copies its history internals and restores canonicalUrl for external shallow updates.
+  if (options?.replace) window.history.replaceState(null, "", next);
+  else window.history.pushState(null, "", next);
   window.dispatchEvent(new Event(NAVIGATION_EVENT));
 }
 

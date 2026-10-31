@@ -17,6 +17,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
+import { cache } from "react";
+import { aggregateProgress as resolveProgress } from "./progress";
+import { extractSections } from "./sections";
 
 export type WorkOrderState = "todo" | "in_progress" | "review" | "done" | "fail";
 
@@ -37,6 +40,12 @@ export interface WorkOrder {
    * dependency graph. Absent/empty when the WO has no declared dependencies.
    */
   dependsOn?: string[];
+  difficulty?: string;
+  reopenCount?: number;
+  lastUpdated?: string;
+  requirements?: string[];
+  artifacts?: string[];
+  blockedReason?: string;
 }
 
 export interface WorkOrderProgress {
@@ -233,13 +242,9 @@ function deriveWorkOrderSummary(content: string): string | undefined {
 }
 
 function parseWorkOrderFile(absPath: string, frdSlug: string, projectPath: string): WorkOrder {
-  let content = "";
-  try {
-    content = fs.readFileSync(absPath, "utf-8");
-  } catch {
-    // unreadable → todo
-  }
+  const content = readWorkOrderDoc(projectPath, path.relative(projectPath, absPath)) ?? "";
 
+  const facts = readFacts(content);
   const lines = content.split("\n");
   const title = deriveTitle(lines, absPath);
   const id = deriveId(title, absPath);
@@ -251,6 +256,7 @@ function parseWorkOrderFile(absPath: string, frdSlug: string, projectPath: strin
   const relPath = path.relative(projectPath, absPath).split(path.sep).join("/");
 
   return {
+    ...facts,
     id: id.trim(),
     title: title.trim(),
     frd: frdSlug.trim(),
@@ -327,12 +333,14 @@ function listWorkOrdersForFrd(frdPath: string, frdSlug: string, projectPath: str
     const woAbsPath = path.join(woDir, woFile);
     if (!isFileSafe(woAbsPath, projectPath)) continue;
 
+    const content = readWorkOrderDoc(projectPath, path.relative(projectPath, woAbsPath));
+    if (content === null || isSuperseded(content)) continue;
     results.push(parseWorkOrderFile(woAbsPath, frdSlug, projectPath));
   }
   return results;
 }
 
-export function listWorkOrders(projectPath: string): WorkOrder[] {
+export const listWorkOrders = cache(function listWorkOrders(projectPath: string): WorkOrder[] {
   if (!projectPath || projectPath.trim() === "") return [];
 
   const frdsDir = path.join(projectPath, "docs", "frds");
@@ -359,7 +367,7 @@ export function listWorkOrders(projectPath: string): WorkOrder[] {
   }
 
   return results;
-}
+});
 
 /**
  * Aggregate progress across a list of work orders.
@@ -370,10 +378,7 @@ export function listWorkOrders(projectPath: string): WorkOrder[] {
  * @returns {done, total, pct} where pct is rounded to 1 decimal place.
  */
 export function aggregateProgress(orders: WorkOrder[]): WorkOrderProgress {
-  const total = orders.length;
-  const done = orders.filter((o) => o.state === "done").length;
-  const pct = total === 0 ? 0 : Math.round((done / total) * 1000) / 10;
-  return { done, total, pct };
+  return resolveProgress(orders);
 }
 
 // ---------------------------------------------------------------------------
@@ -406,7 +411,10 @@ const WO_REL_PATH_PATTERN = /^docs\/frds\/frd-\d[^/]*\/work-orders\/wo-[^/]+\.md
  * @param relPath     - Relative path from the project root (from WorkOrder.relPath).
  * @returns Raw markdown string, or null when the path is invalid / unreadable.
  */
-export function readWorkOrderDoc(projectPath: string, relPath: string): string | null {
+export const readWorkOrderDoc = cache(function readWorkOrderDoc(
+  projectPath: string,
+  relPath: string,
+): string | null {
   // Guard: blank inputs.
   if (!projectPath || !relPath || relPath.trim() === "") return null;
 
@@ -426,8 +434,54 @@ export function readWorkOrderDoc(projectPath: string, relPath: string): string |
   if (!resolvedFile.startsWith(resolvedProject + path.sep)) return null;
 
   try {
+    if (!isFileSafe(absPath, projectPath)) return null;
     return fs.readFileSync(absPath, "utf-8");
   } catch {
     return null;
   }
+});
+
+function frontmatter(content: string): Record<string, unknown> {
+  try {
+    return matter(content, { excerpt: false }).data;
+  } catch {
+    return {};
+  }
 }
+function isSuperseded(content: string): boolean {
+  return frontmatter(content).status === "SUPERSEDED";
+}
+function readFacts(content: string): Partial<WorkOrder> {
+  const data = frontmatter(content);
+  const strings = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  const updated = data.last_updated;
+  return {
+    ...(typeof data.difficulty === "string" ? { difficulty: data.difficulty } : {}),
+    ...(typeof data.reopen_count === "number" ? { reopenCount: data.reopen_count } : {}),
+    ...(typeof updated === "string"
+      ? { lastUpdated: updated }
+      : updated instanceof Date
+        ? { lastUpdated: updated.toISOString().slice(0, 10) }
+        : {}),
+    requirements: strings(data.source_requirements),
+    artifacts: strings(data.artifacts),
+    ...(typeof data.blocked_reason === "string" ? { blockedReason: data.blocked_reason } : {}),
+  };
+}
+/** Path-confined, request-deduplicated detail from the order's own document. */
+export const readWorkOrderDetail = cache((projectPath: string, woId: string) => {
+  const orders = listWorkOrders(projectPath);
+  const order = orders.find((item) => item.id === woId);
+  if (!order) return { kind: "not-found" } as const;
+  const markdown = readWorkOrderDoc(projectPath, order.relPath);
+  if (markdown === null) return { kind: "not-found" } as const;
+  return {
+    kind: "found",
+    order,
+    dependents: orders.filter((item) => item.dependsOn?.includes(woId)),
+    sections: extractSections(markdown, order.summary),
+    relPath: order.relPath,
+    markdown,
+  } as const;
+});
