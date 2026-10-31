@@ -6,7 +6,7 @@ title: 'WO-26-001 — Cuentas: project table and global directory'
 status: ACTIVE
 parent: FRD-26
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: medium
 reopen_count: 0
 artifacts:

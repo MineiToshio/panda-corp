@@ -306,7 +306,7 @@ describe("ProposalsPage — display-only / read-only", () => {
 });
 
 describe("ProposalsPage — Spanish copy and a11y", () => {
-  it("AC-17-004.6: page has a main landmark", async () => {
+  it("AC-17-004.6: page leaves the single main landmark to the persistent shell", async () => {
     const { memory, selfSuggest } = await importMocks();
     vi.mocked(memory.candidateLessons).mockReturnValue([]);
     vi.mocked(memory.promotionQueue).mockReturnValue([]);
@@ -316,7 +316,8 @@ describe("ProposalsPage — Spanish copy and a11y", () => {
     const ProposalsPage = await importPage();
     render(<ProposalsPage />);
 
-    expect(screen.getByRole("main")).toBeInTheDocument();
+    // Rendered alone the page has no main: AppShell owns it, and a second one would nest.
+    expect(screen.queryByRole("main")).not.toBeInTheDocument();
   });
 
   it("AC-17-004.6: page root has data-testid proposals-page", async () => {

@@ -93,6 +93,39 @@ test.describe("Cuentas directory with a real registry", () => {
     expect(foreign).toEqual([]);
   });
 
+  test("AC-26-003.1: the login copy button carries the provider and the login in its name", async ({
+    page,
+  }) => {
+    await gotoHydrated(page, "/portfolio?view=cuentas", { optional: true });
+    await hasRegistry(page);
+    const name = "Copiar el usuario de Neon: owner@example.com";
+    await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Detalles: Main account" }).click();
+    await expect(page.getByRole("dialog").getByRole("button", { name, exact: true })).toBeVisible();
+  });
+
+  test("AC-26-006.1: the project tab mounts the directory and never publishes a login it cannot link", async ({
+    page,
+  }) => {
+    await gotoHydrated(page, "/projects/mission-control/accounts", { optional: true });
+    await expect(page.getByRole("tab", { name: /Cuentas/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByText("Servicios externos del proyecto", { exact: false })).toBeVisible();
+    await expect(page.getByRole("main")).not.toContainText("owner@example.com");
+  });
+
+  test("AC-26-009.1: Documentación derives services from the catalog without any identity", async ({
+    page,
+  }) => {
+    await gotoHydrated(page, "/manual", { optional: true });
+    await page.getByText("Servicios y cuentas", { exact: true }).first().click();
+    const main = page.locator("main#content");
+    await expect(main).toContainText("Neon");
+    await expect(main).not.toContainText("owner@example.com");
+  });
+
   test("AC-26-005.1: search reaches rows and filter counts stay whole", async ({ page }) => {
     await gotoHydrated(page, "/portfolio?view=cuentas", { optional: true });
     await hasRegistry(page);

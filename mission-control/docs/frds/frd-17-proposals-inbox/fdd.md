@@ -91,6 +91,8 @@ Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is t
 
 prototype_blessed_at: 409a0564
 
+`propuestas-desktop` re-blessed 2026-10-30 in the wave 1 batch as a consistency baseline after the Órbita shell (WO-19-002) and primitives, judged against `docs/design/prototype/index.html#propuestas` and the prior baseline. Fidelity to the prototype is judged at the close-out oracle pass, not by this bless.
+
 - **Mocks:** `docs/frds/frd-17-proposals-inbox/mocks/proposals-inbox.html` (sections `proposals-summary`, `proposals-memory`, `proposals-lesson-dialog`); screenshots in `mocks/screenshots/` as `<id>-<width>-<theme>.jpg` at 375, 768 and 1280 (the dialog at 375 and 1280), light and dark.
 - **Binding comparison URLs:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#propuestas`, `…#propuestas?tab=Memoria`, and the dialog after clicking the first `[data-lesson]` on Memoria.
 - **Oracle entries (`fidelity.config.json`, `frd-17-proposals-inbox`):** `proposals-summary`, `proposals-memory`, `proposals-lesson-dialog`.

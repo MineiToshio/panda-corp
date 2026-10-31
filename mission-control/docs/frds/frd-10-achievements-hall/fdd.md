@@ -145,6 +145,8 @@ Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is t
 
 prototype_blessed_at: 409a0564
 
+`logros-desktop` re-blessed 2026-10-30 in the wave 1 batch as a consistency baseline after the Órbita shell (WO-19-002) and primitives, judged against `docs/design/prototype/index.html#logros` and the prior baseline. Fidelity to the prototype is judged at the close-out oracle pass, not by this bless.
+
 - **Mocks:** `docs/frds/frd-10-achievements-hall/mocks/achievements-hall.html`; screenshots `docs/frds/frd-10-achievements-hall/mocks/screenshots/<id>-<width>-<theme>.jpg` (375, 768, 1280; light and dark; the dialog at 375 and 1280).
 - **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#logros` (with `?tab=` as in the config).
 - **Oracle states of this FRD** (`oracle-states.json`): `achievements-summary`, `achievements-missions`, `achievements-trophies`, `achievements-trophy-category`, `achievements-trophy-dialog`, `achievements-stats`, `stats-stream-error`, `achievements-ranks`.

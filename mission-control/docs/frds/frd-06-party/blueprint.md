@@ -5,7 +5,7 @@ slug: la-fragua
 title: FRD-06 La Fragua feature blueprint, v2 Órbita
 status: ACTIVE
 parent: FRD-06
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22

@@ -95,6 +95,8 @@ Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is t
 
 prototype_blessed_at: 409a0564
 
+`documentacion-desktop` re-blessed 2026-10-30 in the wave 1 batch as a consistency baseline after the Órbita shell (WO-19-002) and primitives, judged against `docs/design/prototype/index.html#documentacion` and the prior baseline. Fidelity to the prototype is judged at the close-out oracle pass, not by this bless.
+
 - **Mock:** `docs/frds/frd-08-documentation/mocks/documentation.html` (sections `docs-home`, `docs-search`, `docs-page`, `docs-page-index-open`, `docs-page-not-found`, `docs-page-tutorial`, `docs-page-guide`, `docs-page-team`, `docs-page-multi-runtime`).
 - **Mock screenshots** in `mocks/screenshots/`: `<id>-<width>-<theme>.jpg` at 375, 768 and 1280, light and dark (the index-open state at 375 and 768).
 - **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#documentacion` (pages by `?page=<slug>`).

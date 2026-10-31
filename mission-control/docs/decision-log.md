@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-30 — Wave 1 batch: Órbita frame, primitives and three feature modules
+
+The wave 1 batch combines the FRD-13 primitives, [WO-19-002](frds/frd-19-app-shell/work-orders/wo-19-002-appshell-frame-navigation.md), [WO-26-001](frds/frd-26-services-accounts/work-orders/wo-26-001-cuentas.md), [WO-06-013](frds/frd-06-party/work-orders/wo-06-013-fragua-four-stations.md) and [WO-12-007](frds/frd-12-observability-dataviz/work-orders/wo-12-007-dependency-map.md). WO-26-001 is VERIFIED because its directory, project tab and Documentación pages were seen rendering in a browser. WO-06-013 and WO-12-007 stay IN_REVIEW although nothing else in their FRDs is open: they have no route until WO-04-011 and WO-05-008 mount them, so no gate has seen them render. FRD-13 and FRD-19 keep their remaining work orders open.
+
+The tablero, propuestas, logros and documentacion desktop baselines were re-blessed in this batch because the persistent shell moves every surface. They prove consistency only; the close-out oracle pass judges fidelity to the prototype.
+
 ## 2026-10-30 — Repair shell visibility and retire unused entry points early
 
 [WO-19-002](frds/frd-19-app-shell/work-orders/wo-19-002-appshell-frame-navigation.md) makes drawer visibility immediate on open so focus can enter, and uses the [sidebar stacking token](design/design-tokens.json) to keep navigation above full-bleed content. The phone menu reuses IconButton through additive id/className/ARIA props. Owner instruction moves unused proposal-count and pending-merge wrapper retirement forward from WO-17-008 / WO-13-013; the used pending-merge reader remains. Unused primitive type exports and stale v1 shell CSS are removed without changing reviewer tests or knip configuration.

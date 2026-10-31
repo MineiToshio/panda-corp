@@ -114,6 +114,8 @@ Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is t
 
 prototype_blessed_at: 409a0564
 
+`tablero-desktop` re-blessed 2026-10-30 in the wave 1 batch as a consistency baseline after the Órbita shell (WO-19-002) and primitives, judged against `docs/design/prototype/index.html#tablero` and the prior baseline. Fidelity to the prototype is judged at the close-out oracle pass, not by this bless.
+
 - **Mocks:** `docs/frds/frd-02-ideas-board/mocks/ideas-board.html` (one `mock-screen` section per captured state) and `docs/frds/frd-02-ideas-board/mocks/screenshots/<id>-<width>-<theme>.jpg`.
 - **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#tablero` and `#idea?idea=<slug>&tab=<tab>`; the data-model states use `#portfolio?project=<slug>&tab=Arquitectura&model=<view>`.
 - **Oracle states of this FRD (`oracle-states.json`):** `board`, `board-hide-empty`, `board-search`, `board-category-filter`, `board-favorite`, `board-phase-jump`, `board-capture-dialog`, `board-discarded-dialog`, `idea-pitch`, `idea-spec`, `idea-architecture`, `idea-documents`, `idea-campaign`, `idea-campaign-phase`, `idea-campaign-research`, `idea-campaign-design`, `idea-campaign-build`, `idea-campaign-release`, `idea-frd-dialog`, `idea-adr-dialog`, `idea-architecture-frd-dialog`, `idea-architecture-missing`, `idea-discard-dialog`, `idea-shipped`, `idea-not-found`, `idea-discarded`, `idea-restore-dialog`, `model-diagram`, `model-entity-selected`, `model-zoomed-out`, `model-schema`, `model-none`, `model-invalid`, `idea-discarded-reason`.

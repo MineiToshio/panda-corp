@@ -5,7 +5,7 @@ slug: observability-dataviz
 title: FRD-12 Observability and data visualization feature blueprint, v2 Órbita
 status: ACTIVE
 parent: FRD-12
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22
