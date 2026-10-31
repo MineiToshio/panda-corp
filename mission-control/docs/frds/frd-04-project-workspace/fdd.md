@@ -112,3 +112,7 @@ prototype_blessed_at: 0e6b7191
 `workspace-desktop` re-blessed 2026-10-31 in the wave 6 batch after WO-19-003 filled the sidebar (counts, Proyectos, guild card, Colapsar, theme button), viewed against its wave 4-5 predecessor and `docs/design/prototype/index.html#portfolio?project=mission-control&tab=summary`. Reviewer sign-off: only the sidebar moved, the hero, Fragua and Resumen cards are unchanged, no console error. The pending pill carries `data-volatile`, because it is live git data that streams in late, so the baseline omits it. It proves consistency only; the close-out oracle pass judges fidelity.
 
 prototype_blessed_at: 0e6b7191
+
+`workspace-desktop` re-blessed and `workspace-mobile` first blessed 2026-10-31 at the FRD-13 recheck, viewed against the wave 6 predecessor and `docs/design/prototype/index.html#portfolio?project=mission-control&tab=summary`. Reviewer sign-off: the structure is unchanged at 1280; the "Último movimiento" chip no longer renders as a pale pill over La Fragua, and the command rows and hyphen widths moved with tabular figures. At 390 hero, tabs, Fragua and the Resumen cards are present; the bottom bar mid-image is a full-page capture effect. Consistency only; the next oracle pass judges fidelity.
+
+prototype_blessed_at: 0e6b7191

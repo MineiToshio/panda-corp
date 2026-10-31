@@ -69,7 +69,7 @@ export function ModelSchema({
               <span>{COPY.attributeCount(entity.attributes.length)}</span>
             </summary>
             {entity.description && <p>{entity.description}</p>}
-            <pre>
+            <pre data-scroll-x="intentional">
               <code>{schemaText(model, entity)}</code>
             </pre>
           </details>

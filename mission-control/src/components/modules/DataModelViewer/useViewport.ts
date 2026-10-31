@@ -22,7 +22,7 @@ function initialView(layout: ModelLayout, width: number, height: number) {
     return score(b) - score(a);
   })[0];
   if (!focus) return fittedView(layout, width, height);
-  const zoom = Math.min(0.9, (width - 64) / focus.width, (height - 64) / focus.height);
+  const zoom = Math.min(1, (width - 64) / focus.width, (height - 64) / focus.height);
   return {
     zoom,
     x: width / 2 - (focus.x + focus.width / 2) * zoom,

@@ -85,3 +85,7 @@ prototype_blessed_at: 409a0564
 - **Oracle entries** (`docs/design/freeze/fidelity.config.json`, `states["frd-09-gamification"]`): `guild-achievement-notice`, `guild-rank-ladder`.
 - **Reference files:** root `DESIGN.md`, `docs/design/design-tokens.json`, `docs/design/freeze/m1-decisions.md`, `docs/design/freeze/reconciliation.md` (C-12, B-18), `docs/design/prototype/prototype.css` (`.ach-toast`, `.guildcard`, `.rank`).
 - **components.md rows:** `GuildCard`, `RankRow` / `EraGroup`, `AchievementToast`, `Chip` family.
+
+`logros-mobile` first blessed 2026-10-31 at the FRD-13 recheck, viewed at 390 against `docs/design/prototype/index.html#logros`. Reviewer sign-off: hero, Casi lo tienes, sellos, rango, trofeos and the radar are present, no console error; the bottom bar mid-image is a full-page capture effect. Consistency only; the next oracle pass judges fidelity.
+
+prototype_blessed_at: 0e6b7191

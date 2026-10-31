@@ -19,7 +19,7 @@
 }
 .provenance code {
   overflow-wrap: anywhere;
-  color: var(--text-3);
+  color: var(--text-2);
 }
 .toolbar {
   margin-bottom: calc(var(--model-unit) * 2);

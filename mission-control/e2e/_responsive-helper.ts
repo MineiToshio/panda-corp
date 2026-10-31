@@ -47,7 +47,8 @@ async function settle(page: Page, url: string, options: ResponsiveOptions): Prom
   const { mobileWidth, mobileHeight = 844, liveEndpointGlob = "**/api/live**" } = options;
   await page.setViewportSize({ width: mobileWidth, height: mobileHeight });
   await page.route(liveEndpointGlob, (r) => r.abort());
-  await page.goto(url, { waitUntil: "domcontentloaded" });
+  // `load`, because a streamed segment arriving after `main` paints would otherwise escape every check.
+  await page.goto(url, { waitUntil: "load" });
   await page.evaluate(() => document.fonts.ready);
   await expect(page.locator("main").first()).toBeVisible();
   return mobileWidth;
@@ -139,6 +140,40 @@ async function detectOcclusion(page: Page): Promise<string | null> {
 }
 
 /**
+ * Drops a target axe flagged only because it straddles a fixed bar at the current scroll offset: the
+ * reader scrolls it clear, so it is re-measured centred in the viewport. A target still flagged there
+ * is really undersized. Returns the selectors that stay below the 24 px line.
+ */
+async function undersizedAfterScroll(
+  page: Page,
+  violations: readonly {
+    readonly nodes: readonly {
+      readonly target: readonly unknown[];
+      readonly any: readonly { readonly message: string }[];
+    }[];
+  }[],
+): Promise<string[]> {
+  const undersized: string[] = [];
+  for (const node of violations.flatMap((violation) => violation.nodes)) {
+    const selector = node.target.join(" ");
+    const obscured = node.any.some((check) => check.message.includes("partially obscured"));
+    if (obscured) {
+      await page
+        .locator(selector)
+        .first()
+        .evaluate((el) => el.scrollIntoView({ block: "center" }));
+      const again = await new AxeBuilder({ page })
+        .include(selector)
+        .withRules(["target-size"])
+        .analyze();
+      if (again.violations.length === 0) continue;
+    }
+    undersized.push(selector);
+  }
+  return undersized;
+}
+
+/**
  * Asserts that `url` is responsive-correct at the target viewport — BOTH tiers, BLOCKING. Throws
  * (failing the test) with a precise message naming the offending element and the check that failed.
  */
@@ -167,7 +202,7 @@ export async function assertResponsive(
   // --- Tap targets (axe `target-size`, SC 2.5.8, 24px line — NOT 44px) --------
   const axe = await new AxeBuilder({ page }).withRules(["target-size"]).analyze();
   const targetSize = axe.violations.filter((v) => v.id === "target-size");
-  const tapFailures = targetSize.flatMap((v) => v.nodes.map((n) => n.target.join(" ")));
+  const tapFailures = await undersizedAfterScroll(page, targetSize);
   expect(
     tapFailures,
     `${url} @${width}px — tap targets below 24px (WCAG 2.2 SC 2.5.8):\n${tapFailures.join("\n")}`,

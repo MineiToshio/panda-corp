@@ -435,6 +435,12 @@ body {
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
 }
+/* A component's `font` shorthand resets font-variant-numeric, so inheriting from body cannot hold. */
+*,
+::before,
+::after {
+  font-variant-numeric: tabular-nums !important;
+}
 h1,
 h2,
 h3,

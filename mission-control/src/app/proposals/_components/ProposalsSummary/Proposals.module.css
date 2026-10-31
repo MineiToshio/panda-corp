@@ -152,7 +152,7 @@
 }
 .step small {
   font-size: var(--fs-xs);
-  color: var(--text-3);
+  color: var(--text-2);
 }
 .arrow {
   display: flex;

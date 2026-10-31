@@ -127,3 +127,7 @@ prototype_blessed_at: 0e6b7191
 `tablero-desktop` re-blessed 2026-10-31 in the wave 6 batch after WO-19-003 filled the sidebar (counts, Proyectos, guild card, Colapsar, theme button), viewed against its wave 4-5 predecessor and `docs/design/prototype/index.html#tablero`. Reviewer sign-off: only the sidebar moved, the filters, phase jump and columns are unchanged, no console error. The pending pill carries `data-volatile`, because it is live git data that streams in late, so the baseline omits it. It proves consistency only; the close-out oracle pass judges fidelity.
 
 prototype_blessed_at: 0e6b7191
+
+`tablero-mobile` first blessed 2026-10-31 at the FRD-13 recheck, once `target_platforms: responsive` made the mobile baselines real. Viewed at 390 against `docs/design/prototype/index.html#tablero`. Reviewer sign-off: header, filters, phase jump and columns present, no console error. The fixed bottom bar lands mid-image because the shot is full page; that is a capture effect. It proves consistency only; the next oracle pass judges fidelity.
+
+prototype_blessed_at: 0e6b7191

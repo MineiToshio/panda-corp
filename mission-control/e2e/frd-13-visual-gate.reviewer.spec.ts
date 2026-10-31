@@ -11,7 +11,7 @@ const NUMERIC_TEXT = /^[\d\s.,:/%+-]+$/;
 async function open(page: Page, path: string, theme: (typeof THEMES)[number]): Promise<void> {
   await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
   await page.route("**/api/live**", (route) => route.abort());
-  await page.goto(path, { waitUntil: "domcontentloaded" });
+  await page.goto(path, { waitUntil: "load" });
   await page.evaluate(() => document.fonts.ready);
   await expect(page.locator("main").first()).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
@@ -75,6 +75,17 @@ for (const surface of SURFACES) {
           tabular: style.fontVariantNumeric.includes("tabular-nums"),
         });
       }
+      for (const label of document.querySelectorAll<SVGTextElement>("svg text")) {
+        const matrix = label.getScreenCTM();
+        const style = getComputedStyle(label);
+        if (!matrix || !label.textContent?.trim() || style.visibility === "hidden") continue;
+        found.push({
+          text: label.textContent.trim().slice(0, 30),
+          where: "svg text",
+          size: Number.parseFloat(style.fontSize) * Math.hypot(matrix.a, matrix.b),
+          tabular: style.fontVariantNumeric.includes("tabular-nums"),
+        });
+      }
       return found;
     });
     const small = failures.filter(({ size }) => size < 11.95);
@@ -85,7 +96,6 @@ for (const surface of SURFACES) {
       small.map(({ text, where, size }) => `${size.toFixed(1)}px ${text} in ${where}`),
     ).toEqual([]);
     expect(proportional.map(({ text, where }) => `${text} in ${where}`)).toEqual([]);
-    expect(failures).toEqual([]);
   });
 
   test(`no request leaves the machine · ${surface.id}`, async ({ page, baseURL }) => {

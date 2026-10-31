@@ -109,3 +109,7 @@ prototype_blessed_at: 0e6b7191
 `documentacion-desktop` re-blessed 2026-10-31 in the wave 6 batch after WO-19-003 filled the sidebar (counts, Proyectos, guild card, Colapsar, theme button), viewed against its wave 4-5 predecessor and `docs/design/prototype/index.html#documentacion`. Reviewer sign-off: only the sidebar moved, the home cards are unchanged, no console error. The pending pill carries `data-volatile`, because it is live git data that streams in late, so the baseline omits it. It proves consistency only; the close-out oracle pass judges fidelity.
 
 prototype_blessed_at: 0e6b7191
+
+`documentacion-mobile` first blessed 2026-10-31 at the FRD-13 recheck, viewed at 390 against `docs/design/prototype/index.html#documentacion`. Reviewer sign-off: search, Empieza aquí, Guías and Explorar por tipo are present, no console error; the bottom bar mid-image is a full-page capture effect. Consistency only; the next oracle pass judges fidelity.
+
+prototype_blessed_at: 0e6b7191
