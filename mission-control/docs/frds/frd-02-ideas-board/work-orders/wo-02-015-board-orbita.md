@@ -6,7 +6,7 @@ title: WO-02-015 Tablero Órbita (columns, search, phase chips, hide-empty, filt
 status: ACTIVE
 parent: FRD-02
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: medium
 reopen_count: 0
 artifacts:

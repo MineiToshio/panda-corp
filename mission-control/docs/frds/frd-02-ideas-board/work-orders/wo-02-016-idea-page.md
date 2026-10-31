@@ -6,7 +6,7 @@ title: WO-02-016 Idea page (header, tabs, Propuesta, Documentos, discard and res
 status: ACTIVE
 parent: FRD-02
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts:

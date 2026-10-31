@@ -6,7 +6,7 @@ title: Inicio Órbita - two-column command center, Tu turno, En marcha, Pulso, G
 status: ACTIVE
 parent: FRD-18
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts: ["src/app/page.tsx", "src/app/(dashboard)/**", "src/components/dashboard/{TuTurno,Progreso,Cartera,DashboardLiveWatcher}/**", "src/components/modules/{Pulso,Digest}/**", "src/app/_lib/**", "src/app/_components/plugin-sync-banner/**", "src/lib/inicio/**", "src/lib/docs/activity.ts", "src/lib/docs/_tests/activity.turn-detail.test.ts", "src/lib/constants.ts", "src/app/_tests/{page.dashboard,wo-18-001-fixes,wo-18-001-inicio-dashboard}.test.tsx", "e2e/inicio.spec.ts"]

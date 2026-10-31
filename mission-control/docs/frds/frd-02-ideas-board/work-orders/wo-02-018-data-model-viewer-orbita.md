@@ -6,7 +6,7 @@ title: WO-02-018 Data-model viewer Órbita restyle and v2 removals
 status: ACTIVE
 parent: FRD-02
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts:

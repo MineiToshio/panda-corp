@@ -5,7 +5,7 @@ slug: dashboard
 title: Inicio (the command center)
 status: ACTIVE
 parent: FRD-18
-implementation_status: PLANNED
+implementation_status: VERIFIED
 readiness_gate: passed 2026-10-22
 grounding_gate: passed 2026-10-22
 consistency_gate: passed 2026-10-22

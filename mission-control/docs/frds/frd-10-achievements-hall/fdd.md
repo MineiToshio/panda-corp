@@ -6,7 +6,7 @@ title: Achievements Hall (Logros)
 status: ACTIVE
 parent: FRD-10
 last_updated: '2026-10-22'
-prototype_blessed_at: '409a0564'
+prototype_blessed_at: '0e6b7191'
 ---
 
 # FDD — FRD-10 Achievements Hall (Logros)
@@ -143,9 +143,11 @@ Interface strings are Spanish (the microcopy file is `docs/design/microcopy.es.j
 
 Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is the bar): the component catalogue `docs/design/prototype/components.html`, measured styles `docs/design/prototype/reference/computed-styles.json`, icons and logo `docs/design/prototype/{icons,logo}/`, root `DESIGN.md`, `docs/design/components.md` (rows: `GuildHero`, `NextRankCard`, `MissionCard`, `TrophyCard` / `SecretTile` / `SealTile`, `RankRow` / `EraGroup`, `RadarChart` / `ColumnChart` / `LineChart`, `StatKpi` / `RecordTile` / `LedgerCard` / `TransitionRow`, plus the framing rows `PageHead`, `Tabs`, `SectionHeading`, `CardHeader`, `Chip`, `MoreBar`, `CommandBox`, `Dialog`, `Notice`), `docs/design/freeze/m1-decisions.md` and `docs/design/freeze/reconciliation.md`.
 
-prototype_blessed_at: 409a0564
+prototype_blessed_at: 0e6b7191
 
 `logros-desktop` re-blessed 2026-10-30 in the wave 1 batch as a consistency baseline after the Órbita shell (WO-19-002) and primitives, judged against `docs/design/prototype/index.html#logros` and the prior baseline. Fidelity to the prototype is judged at the close-out oracle pass, not by this bless.
+
+`logros-desktop` re-blessed 2026-10-31 in the wave 3-4 batch after WO-10-016 replaced the Resumen with the guild hero, the tabs below it and the two-column cards, viewed against its wave 1 predecessor and `docs/design/prototype/index.html#logros` at 1280: the same hero, tab row and six cards in the same order. Layer-B sign-off is the reviewer's for this batch; open cosmetic gaps are the seal tiles (the prototype uses flat rows) and the missing right-aligned counts in "Casi lo tienes". Fidelity is judged at the close-out oracle pass, not by this bless.
 
 - **Mocks:** `docs/frds/frd-10-achievements-hall/mocks/achievements-hall.html`; screenshots `docs/frds/frd-10-achievements-hall/mocks/screenshots/<id>-<width>-<theme>.jpg` (375, 768, 1280; light and dark; the dialog at 375 and 1280).
 - **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#logros` (with `?tab=` as in the config).

@@ -3,7 +3,7 @@ id: FRD-07
 type: frd
 title: FRD-07 — Configuration
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-07-configuration/mocks/configuration.html

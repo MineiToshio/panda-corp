@@ -1,5 +1,17 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 — Wave 3-4 batch: idea page, Inicio, Configuración and Logros
+
+The batch combines [WO-02-016](frds/frd-02-ideas-board/work-orders/wo-02-016-idea-page.md), [WO-18-002](frds/frd-18-dashboard/work-orders/wo-18-002-inicio-orbita.md), [WO-07-006](frds/frd-07-configuration/work-orders/wo-07-006-configuracion-orbita.md) and [WO-10-016](frds/frd-10-achievements-hall/work-orders/wo-10-016-logros-orbita.md) on top of the board type move. `BoardCardEntry` keeps its own `types.ts` and drops the detail fields, because the board no longer feeds a detail panel.
+
+**Decision inbox.** The real Mission Control inbox broke the reader: `## RESUELTO (date) — title` kept the date in the title, a later undated section lent its `Estado` line to the block above it, and the live pending block was dropped. `parseDecisionBlocks` now accepts that resolved form and the undated `(necesita propietario)` block, closes a block at any other `##` heading and skips headings quoted inside `<details>`. The FRD-24 id vectors stay green.
+
+**Statistics on phones.** Paired Informe charts and the HeroStat tiles now use `auto-fit` columns, because the fixed `1fr 1fr` scrolled the page sideways by 43 px at 390 and 113 px at 320. WO-10-017 still owns the tab's rebuild.
+
+**Streaming.** A slow-git shim on a production build shows Tu turno at first byte while the worktrees card is still pending past 20 s. First byte itself waits on the synchronous `runGit` in `src/lib/portfolio/lastCommit.ts`, which is unchanged here. The chunk assertion in `e2e/frd-18-gate.reviewer.spec.ts` depended on git speed and now asserts stream order; `src/lib/inicio/_tests/streaming.test.tsx` holds the deterministic proof.
+
+The logros desktop baseline was re-blessed after viewing it against its predecessor and the prototype; the provenance line is in the [FDD](frds/frd-10-achievements-hall/fdd.md). It proves consistency only. `e2e/prod-samples.json` adds seven dynamic and unblessed routes to the production smoke. With a local `target_platforms: responsive` override the responsive gate is red at 390 px on all six blessed routes; WO-13-013 owns that flip.
+
 ## 2026-10-30 — Wave 2-3 batch: board, digests, documentation, portfolio and proposals
 
 The batch combines [WO-02-015](frds/frd-02-ideas-board/work-orders/wo-02-015-board-orbita.md), [WO-02-020](frds/frd-02-ideas-board/work-orders/wo-02-020-campaign-orbita.md), [WO-02-018](frds/frd-02-ideas-board/work-orders/wo-02-018-data-model-viewer-orbita.md), [WO-02-017](frds/frd-02-ideas-board/work-orders/wo-02-017-spec-architecture-digests.md), [WO-08-003](frds/frd-08-documentation/work-orders/wo-08-003-documentacion-ui.md), [WO-08-004](frds/frd-08-documentation/work-orders/wo-08-004-documentacion-contenido.md), [WO-03-007](frds/frd-03-portfolio/work-orders/wo-03-007-portafolio-overview.md), [WO-22-002](frds/frd-22-factory-backlog/work-orders/wo-22-002-backlog-tab-orbita.md) and [WO-17-008](frds/frd-17-proposals-inbox/work-orders/wo-17-008-propuestas-orbita.md). WO-08-003, WO-08-004, WO-03-007 and WO-22-002 are VERIFIED: their FRDs have no other open work order and each was seen rendering in a browser. FRD-02 stays open for WO-02-016. WO-17-008 stays IN_REVIEW: [REQ-17-021](frds/frd-17-proposals-inbox/frd.md) puts the promotion target and rationale in the lesson dialog, and the lesson reader does not parse them, since they sit in a YAML comment on the `promotion:` line.

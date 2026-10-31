@@ -6,7 +6,7 @@ title: WO-02-020 La Campaña Órbita (map, strip, phase sheet, commands, mode pi
 status: ACTIVE
 parent: FRD-02
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: medium
 reopen_count: 0
 artifacts:

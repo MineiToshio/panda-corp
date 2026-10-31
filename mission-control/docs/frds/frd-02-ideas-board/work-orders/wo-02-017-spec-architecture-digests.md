@@ -6,7 +6,7 @@ title: WO-02-017 Spec and Arquitectura digests (shared by the idea page and the 
 status: ACTIVE
 parent: FRD-02
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts:

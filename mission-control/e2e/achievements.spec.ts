@@ -11,9 +11,14 @@ test("AC-10-028.1 AC-10-028.4 summary links onward and distant eras expand persi
     "/achievements/statistics",
   );
   await page.getByRole("link", { name: "Ver el escalafón" }).click();
+  await expect(page).toHaveURL(/\/achievements\/ranks$/);
+  await gotoHydrated(page, "/achievements/ranks", {
+    selector: '#app[data-hydrated="true"]',
+  });
   const era = page.getByRole("tabpanel").getByRole("button", { expanded: false }).first();
   const name = (await era.innerText()).replace(/\s+/g, " ").trim();
   await era.click();
+  await expect(page).toHaveURL(/eras=/);
   await page.reload();
   await expect(page.getByRole("button", { name, expanded: true })).toBeVisible();
 });

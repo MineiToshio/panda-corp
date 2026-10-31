@@ -65,6 +65,15 @@ test("FRD-07 catalogs: dialogs return focus, filters and paging hold in a browse
   expect(errors).toEqual([]);
 });
 
+test("FRD-07 no configuration tab scrolls sideways", async ({ page }) => {
+  for (const tab of ["", "/skills", "/rules", "/standards", "/agents"]) {
+    await gotoHydrated(page, `/configuration${tab}`, {
+      selector: '[data-testid="config-tab-summary"]',
+    });
+    await expectNoSidewaysScroll(page);
+  }
+});
+
 test("FRD-07 an unknown item is a 404 surface, never the first item", async ({ page }) => {
   await page.goto("/configuration/skills/no-such-skill");
   await expect(page.getByRole("dialog")).toHaveCount(0);

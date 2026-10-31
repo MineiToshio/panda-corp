@@ -166,3 +166,40 @@ describe("IF-04-decisions-resolved engine log rule", () => {
     expect(isEngineLogEntry({ title })).toBe(expected);
   });
 });
+
+/** The live Mission Control inbox: a parenthesised resolution date, quoted context, an undated block. */
+const MISSION_CONTROL = `# Decisiones pendientes
+
+## RESUELTO (2026-09-25) — FRD-02 — Contradiciones FRD-vs-construcción
+
+**Resolución:** el propietario reconcilió esto.
+
+<details>
+<summary>Contexto original del bloqueo (referencia)</summary>
+
+## FRD-02 — Contradiciones FRD-vs-construcción (necesita propietario)
+
+**Contexto:** El gate de FRD-02 clasificó un BLOQUEO.
+
+</details>
+
+## FRD-25 — Código rechazado de WO-25-001 no se pudo descartar (necesita propietario)
+
+**Estado:** PENDIENTE
+`;
+
+describe("AC-04-014.5 the live Mission Control shape", () => {
+  it("keeps the undated pending block and never counts the resolved one", () => {
+    expect(parseDecisionBlocks(MISSION_CONTROL).map((d) => [d.status, d.title])).toEqual([
+      ["resolved", "FRD-02 — Contradiciones FRD-vs-construcción"],
+      ["pending", "FRD-25 — Código rechazado de WO-25-001 no se pudo descartar"],
+    ]);
+  });
+
+  it("a foreign section's Estado line does not reach the decision above it", () => {
+    const [decision] = parseDecisionBlocks(
+      "## RESUELTO: Tema\n\n## Notas\n\n**Estado:** PENDIENTE\n",
+    );
+    expect(decision?.status).toBe("resolved");
+  });
+});

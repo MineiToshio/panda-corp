@@ -36,7 +36,9 @@ describe("FRD-07 gate (opus)", () => {
     await renderRealPage();
     const row = screen.getByText(`/pandacorp:${internal?.slug}`).closest("li");
     expect(within(row as HTMLElement).getByText("Motor interno")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(`:${internal?.slug}\\b`) }));
+    fireEvent.click(
+      screen.getByRole("button", { name: new RegExp(`^(?!Copiar ).*:${internal?.slug}\\b`) }),
+    );
     expect(within(screen.getByRole("dialog")).getByText("Motor interno")).toBeInTheDocument();
   });
 

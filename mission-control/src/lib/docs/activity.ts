@@ -131,7 +131,9 @@ export function readActivityLog(projectPath: string): ActivityLog {
  *
  * Supports these heading conventions, both seen in real `.pandacorp/inbox/decisions.md`
  * files (DR-078 — parse the actual shape met in production, not just the documented one):
- *   - **Spanish resolved**: `## RESUELTO: <title>` / `## RESUELTO — <title>`.
+ *   - **Spanish resolved**: `## RESUELTO: <title>` / `## RESUELTO — <title>` /
+ *     `## RESUELTO (<date>) — <title>`.
+ *   - **Owner block**: `## <title> (necesita propietario)`, undated and pending.
  *   - **Legacy explicit-status**: `## OPEN: <title>` / `## CLOSED: <title>` / `## RESOLVED: <title>`.
  *   - **Date-prefixed** (the `/pandacorp:decide` template + what agents write in practice):
  *     `## YYYY-MM-DD (<status phrase>) — <title>` or `## YYYY-MM-DD — <title>`. The status
@@ -139,8 +141,8 @@ export function readActivityLog(projectPath: string): ActivityLog {
  *     owner") matched against resolved/pending keyword sets. An explicit body line
  *     `- **Estado:** PENDIENTE` / `RESUELTO: …` (the template's machine field) takes
  *     priority over the heading phrase when present.
- * A `##` heading that matches neither convention is not a decision block — other headings
- * in the file are ignored, never invented as a phantom decision.
+ * A `##` heading that matches no convention closes the current block and is not a decision,
+ * and headings inside a `<details>` block are skipped, so neither invents a phantom decision.
  *
  * Within a block, an optional recommendation line is captured: `- **Recommendation:**` or
  * the Spanish `**Recomendación…:**` (with or without the leading `- `, as written in practice).
@@ -198,7 +200,14 @@ export function parseDecisionBlocks(content: string): DecisionPoint[] {
 
   let current: DecisionBlock | null = null;
   const idCounters: IdCounters = { byDate: new Map(), legacy: 0 };
+  let inDetails = false;
   for (const line of content.split("\n")) {
+    // A collapsed block quotes earlier context; its headings are not decisions.
+    if (DETAILS_OPEN.test(line)) inDetails = true;
+    if (inDetails) {
+      if (DETAILS_CLOSE.test(line)) inDetails = false;
+      continue;
+    }
     current = _consumeLine(result, current, line, idCounters);
   }
 
@@ -236,6 +245,11 @@ function _consumeLine(
     };
   }
 
+  if (FOREIGN_HEADING.test(line)) {
+    // A later section must not lend its Estado line to the block above it.
+    _pushDecision(result, current);
+    return null;
+  }
   if (current === null) return current;
 
   const field =
@@ -293,7 +307,12 @@ export function countPendingDecisions(projectPath: string): number {
 
 // Legacy explicit-status heading: "## OPEN: <title>" / "## CLOSED: <title>" / "## RESOLVED: <title>".
 const LEGACY_HEADING = /^##\s+(OPEN|CLOSED|RESOLVED):\s*(.+)/i;
-const SPANISH_RESOLVED_HEADING = /^##\s+RESUELTO(?:\s*[:—-]\s*|\s+)(.+)$/i;
+const SPANISH_RESOLVED_HEADING = /^##\s+RESUELTO(?:\s*\([^)]*\))?(?:\s*[:—-]\s*|\s+)(.+)$/i;
+// Undated owner block written by the build engine: "## <title> (necesita propietario)".
+const OWNER_NEEDED_HEADING = /^##\s+(.+?)\s*\(necesita [^)]*\)\s*$/i;
+const FOREIGN_HEADING = /^##\s/;
+const DETAILS_OPEN = /^\s*<details\b/i;
+const DETAILS_CLOSE = /<\/details>/i;
 // Date-prefixed heading: "## YYYY-MM-DD (<status phrase>) — <title>" or "## YYYY-MM-DD — <title>"
 // or "## YYYY-MM-DD <title>" (no separator). Group 1 = date, group 2 = optional status phrase, group 3 = title.
 const DATED_HEADING = /^##\s+(\d{4}-\d{2}-\d{2})\s*(?:\(([^)]*)\)\s*)?(?:[—-]\s*)?(.+)$/;
@@ -360,7 +379,8 @@ function _parseHeading(line: string): ParsedHeading | null {
       ? null
       : { title, statusPhrase: dated[2]?.trim() ?? null, date: dated[1] ?? null };
   }
-  return null;
+  const ownerNeeded = OWNER_NEEDED_HEADING.exec(line);
+  return ownerNeeded?.[1] ? { title: ownerNeeded[1], statusPhrase: "NECESITA", date: null } : null;
 }
 
 /**

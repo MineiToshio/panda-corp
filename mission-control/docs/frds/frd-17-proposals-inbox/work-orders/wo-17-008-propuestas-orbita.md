@@ -6,7 +6,7 @@ title: Propuestas Órbita - Resumen to-do, Memoria lesson flow, tabs, lesson dia
 status: ACTIVE
 parent: FRD-17
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts: ["src/app/proposals/page.tsx", "src/app/proposals/[...segments]/**", "src/app/proposals/_components/{ProposalsTabs,ProposalsSummary,ProposalCard,ProposalActionRow,LessonFlow,SignalGroup,PromotionsQueuePanel,DismissableProposalStream,ProposalStream}/**", "src/app/proposals/_components/{LessonDetail,LessonDetailModal}.tsx", "src/app/proposals/_components/streamMeta.ts", "src/app/proposals/_tests/**", "src/lib/{proposals,self-suggest,memory}/**", "src/components/modules/{PromotionsQueue,MemoryHealth,ProposalsDismiss}/**", "e2e/proposals.spec.ts", "e2e/fixtures/factory-root/factory/memory/LESSON-90*.md", "e2e/persistent-navigation/proposals.spec.ts"]

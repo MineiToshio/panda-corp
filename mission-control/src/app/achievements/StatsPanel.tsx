@@ -767,7 +767,8 @@ export function StatsPanel({ readerData, scalars, records }: StatsPanelProps): R
             flex: 1,
             minWidth: "220px",
             display: "grid",
-            gridTemplateColumns: records === undefined ? "1fr" : "1fr 1fr",
+            gridTemplateColumns:
+              records === undefined ? "1fr" : "repeat(auto-fit, minmax(min(100%, 140px), 1fr))",
             gap: "10px",
           }}
         >

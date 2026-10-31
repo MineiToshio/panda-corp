@@ -137,6 +137,6 @@ describe("FRD-10 Rangos", () => {
     render(<RankLadder level={level} />);
     const [first] = screen.getAllByTestId("rank-row");
     expect(first).toHaveTextContent("Inicio");
-    expect(first).not.toHaveTextContent("0 XP");
+    expect(first).not.toHaveTextContent(/(?<!\d)0 XP/);
   });
 });

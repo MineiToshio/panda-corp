@@ -20,7 +20,6 @@ const ACTIVE: readonly [RegExp, string][] = [
 // entry leaves here with its surface work order; any other surface growing a main is RED.
 const TRANSIENT_NESTED_MAIN: Readonly<Record<string, number>> = {
   "/projects/mission-control": 1, // WO-04-011 (tab-summary)
-  "/configuration": 1, // WO-07-006
 };
 
 // The first client navigation to a route compiles it in `next dev`, far slower under a loaded gate.

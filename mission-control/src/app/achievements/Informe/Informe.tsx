@@ -38,6 +38,9 @@ import {
   type ProjectPhase,
 } from "./informeData";
 
+/** Paired charts stack on phones rather than scrolling the page sideways. */
+const PAIRED_COLUMNS = "repeat(auto-fit, minmax(min(100%, 420px), 1fr))";
+
 // ── Shared card / band style (matches the Hall rpgpanel + sibling tabs, DR-062) ──
 
 const CARD: React.CSSProperties = {
@@ -355,7 +358,7 @@ function TimeBand({ weeklyFlow }: { weeklyFlow: ReportResult<WeeklyFlow> }): Rea
   return (
     <div
       data-testid="informe-time"
-      style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}
+      style={{ display: "grid", gridTemplateColumns: PAIRED_COLUMNS, gap: "14px" }}
     >
       <section style={{ ...CARD, padding: "16px 18px" }}>
         <PanelLabel icon="ti-chart-bar" text="WORK ORDERS VERIFICADOS / SEMANA" />
@@ -484,7 +487,7 @@ function UsageBand({ usage }: { usage: ReportResult<UsageMix> }): React.JSX.Elem
     return (
       <div
         data-testid="informe-usage"
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}
+        style={{ display: "grid", gridTemplateColumns: PAIRED_COLUMNS, gap: "14px" }}
       >
         <section style={{ ...CARD, padding: "16px 18px" }}>
           <PanelLabel icon="ti-stack-2" text="WORKFLOWS / SKILLS MÁS USADOS" />
@@ -505,7 +508,7 @@ function UsageBand({ usage }: { usage: ReportResult<UsageMix> }): React.JSX.Elem
   return (
     <div
       data-testid="informe-usage"
-      style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}
+      style={{ display: "grid", gridTemplateColumns: PAIRED_COLUMNS, gap: "14px" }}
     >
       <section style={{ ...CARD, padding: "16px 18px" }}>
         <PanelLabel icon="ti-stack-2" text="WORKFLOWS / SKILLS MÁS USADOS" />
@@ -683,7 +686,7 @@ function FunnelBand({
   return (
     <div
       data-testid="informe-funnel"
-      style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}
+      style={{ display: "grid", gridTemplateColumns: PAIRED_COLUMNS, gap: "14px" }}
     >
       <section style={{ ...CARD, padding: "16px 18px" }}>
         <PanelLabel icon="ti-filter" text="EMBUDO IDEAS → LANZADO" />
@@ -814,7 +817,7 @@ function HealthBand({
   return (
     <div
       data-testid="informe-health"
-      style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}
+      style={{ display: "grid", gridTemplateColumns: PAIRED_COLUMNS, gap: "14px" }}
     >
       <section style={{ ...CARD, padding: "16px 18px" }}>
         <PanelLabel icon="ti-folders" text="PROYECTOS POR ESTADO" />

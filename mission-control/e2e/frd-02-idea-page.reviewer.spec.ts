@@ -77,9 +77,13 @@ test("AC-02-016.5 the header's links are drawn as its small buttons, above the 2
   const reference = (await discard.boundingBox())?.height ?? 0;
   for (const name of ["Volver al tablero", "Abrir en Portafolio"]) {
     const link = page.getByRole("link", { name });
-    await expect(link).toHaveCSS("display", "inline-flex");
+    // A flex parent blockifies inline-flex, so the computed value depends on the wrapper.
+    await expect(link).toHaveCSS("display", /^(inline-)?flex$/);
     await expect(link).toHaveCSS("border-top-style", "solid");
     expect((await link.boundingBox())?.height ?? 0, name).toBeGreaterThanOrEqual(reference);
+    if (isPhone(page)) {
+      expect((await link.boundingBox())?.height ?? 0, name).toBeGreaterThanOrEqual(44);
+    }
   }
   await page.goto("/board/no-such-idea");
   await expect(page.getByRole("link", { name: "Volver al tablero" })).toHaveCSS(

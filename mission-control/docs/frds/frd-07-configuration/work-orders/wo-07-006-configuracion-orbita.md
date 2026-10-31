@@ -6,7 +6,7 @@ title: 'WO-07-006 — Configuración Órbita: hub, catalog tabs, filters, dialog
 status: ACTIVE
 parent: FRD-07
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: high
 reopen_count: 0
 artifacts:
