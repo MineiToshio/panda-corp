@@ -1941,6 +1941,8 @@
       "status": { "active": "Activa", "candidate": "Candidata", "deprecated": "Obsoleta" },
       "promotion": "Promoción: {state}",
       "appliedIn": "Aplicada en: {list}",
+      "promotionTarget": "Destino: {target}",
+      "promotionRationale": "Justificación: {rationale}",
       "promote": "Promoverla a estándar, regla o skill:"
     },
     "backlogItem": {

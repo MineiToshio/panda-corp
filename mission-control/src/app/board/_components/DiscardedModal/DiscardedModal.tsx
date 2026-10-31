@@ -1,5 +1,5 @@
 "use client";
-import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
+import type { BoardCardEntry } from "@/app/board/IdeaBoardView/types";
 import { ListRow } from "@/components/core/ListRow/ListRow";
 import { Modal } from "@/components/core/Modal/Modal";
 import { CATEGORY_LABELS } from "@/components/modules/IdeaCard/IdeaCard";

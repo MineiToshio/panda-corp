@@ -1,4 +1,4 @@
-import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
+import type { BoardCardEntry } from "@/app/board/IdeaBoardView/types";
 import { Chip } from "@/components/core/Chip/Chip";
 import type { Tone } from "@/components/core/Chip/vocabulary";
 import { FavoriteButton } from "@/components/core/FavoriteButton/FavoriteButton";

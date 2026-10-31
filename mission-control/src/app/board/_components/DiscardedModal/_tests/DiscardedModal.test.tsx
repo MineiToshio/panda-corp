@@ -8,7 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { DiscardedModal } from "@/app/board/_components/DiscardedModal/DiscardedModal";
-import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
+import type { BoardCardEntry } from "@/app/board/IdeaBoardView/types";
 
 function entry(over: Partial<BoardCardEntry> & { slug: string; title: string }): BoardCardEntry {
   return { status: "discarded", body: "", ...over };

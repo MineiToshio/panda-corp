@@ -933,3 +933,36 @@ describe("frd-17: read-only invariant — readLessons never writes to the memory
     expect(mtimeAfter).toBe(mtimeBefore);
   });
 });
+
+describe("promotion review comments", () => {
+  it("preserves the destination and review rationale in a real lesson-shaped comment", async () => {
+    const content = lessonMd(ACTIVE_FM, ACTIVE_BODY).replace(
+      "promotion: none",
+      'promotion: proposed   # 2026-10-23 (librarian review) — target: factory/standards/patterns.md (new "marker/status parsing" review-checklist item). Corroborated across 2 distinct projects with zero contradicting evidence.',
+    );
+    const root = makeTempMemoryDir([{ filename: "LESSON-0001-review.md", content }]);
+    tmpRoots.push(root);
+    const lessons = await withFactoryRoot(root, () => readLessons());
+    expect(lessons[0]?.promotionTarget).toBe("factory/standards/patterns.md");
+    expect(lessons[0]?.promotionRationale).toBe(
+      '(new "marker/status parsing" review-checklist item). Corroborated across 2 distinct projects with zero contradicting evidence.',
+    );
+  });
+
+  it.each([
+    "promotion: proposed # target:   ",
+    "promotion: proposed",
+    "promotion: proposed # review without a destination",
+  ])("tolerates absent or malformed metadata: %s", async (line) => {
+    const content = lessonMd(
+      ACTIVE_FM,
+      "promotion: proposed # target: fake/body.md ignored",
+    ).replace("promotion: none", line);
+    const root = makeTempMemoryDir([{ filename: "LESSON-0001-review.md", content }]);
+    tmpRoots.push(root);
+    const lessons = await withFactoryRoot(root, () => readLessons());
+    expect(lessons).toHaveLength(1);
+    expect(lessons[0]?.promotionTarget).toBeUndefined();
+    expect(lessons[0]?.promotionRationale).toBeUndefined();
+  });
+});

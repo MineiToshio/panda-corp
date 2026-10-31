@@ -19,7 +19,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BoardShell } from "@/app/board/_components/BoardShell/BoardShell";
-import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
+import type { BoardCardEntry } from "@/app/board/IdeaBoardView/types";
 import type { DiscardResult } from "@/lib/discard/discard";
 
 // ---------------------------------------------------------------------------

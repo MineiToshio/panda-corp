@@ -38,6 +38,9 @@ export type Lesson = {
   trigger: string;
   status: LessonStatus;
   promotion: PromotionState;
+  /** Proposed destination and supporting review text from the promotion comment. */
+  promotionTarget?: string;
+  promotionRationale?: string;
   source: string;
   links: string[];
   projects: string[];
@@ -274,6 +277,10 @@ function parseLessonFile(filePath: string): Lesson | null {
 
   // promotion: default "none" if absent or not a valid PromotionState.
   const promotion: PromotionState = isPromotionState(fm.promotion) ? fm.promotion : "none";
+  const promotionComment = parsed.matter.match(/^promotion:[^\r\n]*?\s+#([^\r\n]*)/m)?.[1];
+  const promotionDetails = promotionComment?.match(/\btarget:\s*(\S+)(?:\s+([\s\S]*))?$/);
+  const promotionTarget = promotionDetails?.[1];
+  const promotionRationale = promotionDetails?.[2]?.trim() || undefined;
   const source = coerceSource(fm.source);
   const links = coerceLinks(fm.links);
 
@@ -299,6 +306,8 @@ function parseLessonFile(filePath: string): Lesson | null {
     trigger,
     status,
     promotion,
+    promotionTarget,
+    promotionRationale,
     source,
     links,
     projects,

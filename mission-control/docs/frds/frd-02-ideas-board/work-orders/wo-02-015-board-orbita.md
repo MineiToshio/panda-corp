@@ -185,6 +185,10 @@ from `t()`.
 
 ## Status Note
 
+- 2026-10-31 verification (PORT=3972, PANDACORP_E2E_PORT=3972): `pnpm lint:cycles`, `pnpm exec madge --circular --extensions ts,tsx src`, `pnpm exec knip`, `pnpm exec tsc --noEmit`, and `pnpm exec biome check .` exited 0. `pnpm exec vitest run src/app/board src/lib/memory src/app/proposals --maxWorkers=2` passed 588 tests in 52 files. Tool notices: Madge resolution warnings (1 with tsconfig, 303 without), nine knip configuration hints, Biome schema 2.5.1 versus CLI 2.5.2, Node localStorage experimental warnings. Browser/visual verification was not run.
+
+- 2026-10-31 (W2-W3 fix): Moved BoardCardEntry to IdeaBoardView/types.ts and updated editable consumers; retained the type re-export for unchanged reviewer imports. Both Madge invocations (with and without tsconfig) report zero circular dependencies. Changes left uncommitted as requested.
+
 - 2026-10-30 (S2A round 3): Added `aria-disabled={pending}` alongside `aria-busy` on FavoriteButton, preserving keyboard focus and the pending re-entry guard. `pnpm exec tsc --noEmit` passed; Biome passed on the four changed TSX files. With `PORT=3951 PANDACORP_E2E_PORT=3951`, the requested FavoriteButton/BuildModePicker/CampaignPipeline Vitest run (`--maxWorkers=2`) returned exit 1: 152 passed and two BuildModePicker reviewer toast tests failed because `findByRole("status")` matched two elements. The dedicated `CampaignPipeline.s2a.reviewer.test.tsx --maxWorkers=2` run passed all 20 tests. Reviewer files and visual baselines remain untouched. No browser/E2E/full verify.sh verification; changes remain unstaged and uncommitted as requested.
 
 - 2026-10-30 (S2A round 2): Patched unfiltered phase totals, hide-empty semantics, permanently mounted empty count region, trimmed filter detection, and focus-preserving busy stars with a pending re-entry guard. Removed the dead corner prop and centralized the hide-empty storage key. Board reviewer suite passes; keyboard focus/re-entry regression passes.

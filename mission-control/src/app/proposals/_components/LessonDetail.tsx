@@ -52,6 +52,12 @@ export function LessonDetail({ lesson }: { readonly lesson: Lesson }): React.JSX
           {lesson.trigger}
         </Notice>
       )}
+      {lesson.promotionTarget?.trim() && (
+        <p>{t("dialogs.lesson.promotionTarget", { target: lesson.promotionTarget })}</p>
+      )}
+      {lesson.promotionRationale?.trim() && (
+        <p>{t("dialogs.lesson.promotionRationale", { rationale: lesson.promotionRationale })}</p>
+      )}
       <SectionedMarkdown body={lesson.body} />
       {lesson.appliedIn.length > 0 && (
         <p className={styles.meta}>

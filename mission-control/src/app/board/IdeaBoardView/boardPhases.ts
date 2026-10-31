@@ -1,6 +1,6 @@
 import { PHASE_PRESENTATION } from "@/components/core/Chip/vocabulary";
 import { t } from "@/lib/copy/copy";
-import type { BoardCardEntry } from "./IdeaBoardView";
+import type { BoardCardEntry } from "./types";
 
 /** Canonical board columns reuse the shared phase vocabulary. */
 export const BOARD_PHASES = (

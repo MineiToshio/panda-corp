@@ -27,7 +27,7 @@ import {
   toggleFavoriteAction,
 } from "@/app/board/actions/actions";
 import { readBoardDoc } from "@/app/board/actions/read-doc";
-import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
+import type { BoardCardEntry } from "@/app/board/IdeaBoardView/types";
 import { deriveColumn } from "@/lib/board/board";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { getIdeaNavigation } from "@/lib/navigation/identities";

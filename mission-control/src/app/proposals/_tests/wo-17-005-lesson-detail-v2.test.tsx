@@ -58,3 +58,26 @@ describe("LessonDetail — loop v2 fields (WO-17-005)", () => {
     expect(detail.textContent).not.toContain("Aplicada en");
   });
 });
+
+describe("promotion review metadata", () => {
+  it("shows the target and rationale", () => {
+    render(
+      <LessonDetail
+        lesson={makeLesson({
+          promotionTarget: "factory/standards/patterns.md",
+          promotionRationale: "Corroborated across two projects.",
+        })}
+      />,
+    );
+    expect(screen.getByText("Destino: factory/standards/patterns.md")).toBeVisible();
+    expect(screen.getByText("Justificación: Corroborated across two projects.")).toBeVisible();
+  });
+
+  it.each([undefined, "", "   "])("omits empty metadata labels (%s)", (value) => {
+    render(
+      <LessonDetail lesson={makeLesson({ promotionTarget: value, promotionRationale: value })} />,
+    );
+    expect(screen.queryByText(/Destino:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Justificación:/)).not.toBeInTheDocument();
+  });
+});
