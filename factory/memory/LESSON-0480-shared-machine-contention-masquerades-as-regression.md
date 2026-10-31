@@ -11,8 +11,8 @@ created: 2026-10-21
 status: active   # 2026-10-28 (librarian harvest): already cross-corroborated across 4 distinct projects per this lesson's own source note before this update; 7th instance now (funko-tracker seed.test.ts) adds within-project corroboration only, but the cross-project bar was already met -- activating per the eval-gate (schema-valid, no contradiction, explicit cross-corroboration)
 promotion: proposed   # 2026-10-28 (librarian review) -- target: factory/standards/build-orchestration.md (new "shared-machine contention triage" subsection, or testing.md's close-out checklist) stating the standing rule this lesson's own "Apply next time" already spells out: before trusting any gate/test/mutation failure as a real regression on a machine that may be running other concurrent jobs, (1) name the specific contended resource, (2) re-run isolated/serialized before trusting the failure, (3) fix narrowly (never touch a shared daemon/another job's data), (4) default new shared-machine dependencies to project-isolated instances. Corroborated across 4 distinct projects (mission-control, personal-page-v2, panda-corp, funko-tracker) over 7 independent occurrences and 6 distinct resource-contention mechanisms (port, Postgres pool, mutant-identity, daemon, e2e fixture DB, disk, and now CPU/wall-clock scheduling itself) with zero contradicting evidence -- this is the single richest, most cross-project-corroborated reflection synthesis in the store after LESSON-0125, and a hardcoded-timeout flake (its newest facet) is cheap to misdiagnose as a code regression without this standing triage step.
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [mission-control]
 links: [LESSON-0040, LESSON-0438, LESSON-0458, LESSON-0463, LESSON-0464, LESSON-0479]
 ---
 

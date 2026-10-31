@@ -32,3 +32,11 @@ handoff between runtimes, a report copy, a checksum-sealed JSON relay per LESSON
 verify with a deterministic checksum (FNV, cyrb53, or similar) rather than trusting the model's own claim of
 having copied it — and prefer reading the SOURCE transcript/file directly over asking a model to retype
 large text, especially past a few KB.
+
+**Corroborating data point (2026-10-31, same project — mission-control, agent-inferred):** past a certain
+size the relay does not just quietly degrade (the 8 KB paraphrase above) — it stops working altogether. A
+~132 KB planner answer never crossed the relay at all in the observed run. This suggests the degradation
+curve this lesson tracks has a practical upper bound, not just a growing error rate: a call whose expected
+output is on the order of 100+ KB should be planned to stay on a NATIVE agent from the start (no
+model-mediated relay step), rather than discovered to have failed after the fact. Still single-project
+evidence; the exact size where "degrades" turns into "never completes" is unmeasured.

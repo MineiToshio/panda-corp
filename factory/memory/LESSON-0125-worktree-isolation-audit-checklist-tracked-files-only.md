@@ -137,3 +137,13 @@ can instead masquerade as a plausible-looking UI/functional regression, which is
 invites debugging the wrong layer. Fix applied: link only that one asset folder as step 1 of the project's
 `.pandacorp/worktree-setup.sh`, before the gate runs — and do NOT also symlink `.env.local` if the
 worktree's whole point is to stay isolated from the main checkout's live secrets.
+
+**Twelfth facet — parked salvage inside a lane worktree dies with the lane (mission-control,
+2026-10-30/31, `.pandacorp/run/lessons.md`, agent-inferred):** a fast-lane build's per-lane worktree is a
+disposable scope by design — when a chain parks mid-build and something worth keeping (a partial fix, a
+diagnostic finding) is salvaged INTO that worktree rather than out of it, cleaning up the lane at end of
+run (the normal worktree removal) destroys the salvage along with everything else in that tree. This is
+the SAME root cause facet 9 names (a generic cleanup pass has no reason to treat a worktree's contents as
+anything but disposable) applied to content an agent deliberately put there mid-run rather than to a
+pinned/deployed worktree. Copy any parked salvage OUT of the lane worktree (to the main checkout, the
+scratchpad, or a durable artifact) before the lane is cleaned — never after.

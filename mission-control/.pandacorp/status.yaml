@@ -2,7 +2,7 @@
 # Human-readable Spanish narrative lives in .pandacorp/comms/summary.md (gitignored).
 project: "Pandacorp"
 phase: implementation
-last_harvest: "2026-10-30T14:30:00Z"
+last_harvest: "2026-10-31T14:21:51Z"
 version: v2
 overlay_version: "8.114.4"
 created_with: "6.0.0"

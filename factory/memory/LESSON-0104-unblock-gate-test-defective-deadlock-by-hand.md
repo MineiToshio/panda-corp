@@ -11,8 +11,8 @@ created: 2026-07-07
 status: candidate
 promotion: none
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [mission-control]
 links: [BL-0051, LESSON-0002, DR-080]
 ---
 
@@ -44,3 +44,16 @@ next. This breaks the cycle without touching the build engine itself. When plann
 derogates a blessed contract, prefer folding the re-bless into the SAME work order as the derogation (or
 placing it in a WO that does NOT depend on the derogating one) to avoid creating this deadlock in the
 first place.
+
+**Corroborating occurrence (2026-10-31, same project — mission-control, agent-inferred): WO-02-014
+(frd-02-ideas-board).** The FRD-level oracle went red on contradictory contracts (AC-02-010.4/.8) carried
+by a sibling WO (WO-02-007) that was already `VERIFIED` — the exact deadlocked-contract shape this lesson
+documents, this time traced to a DR-085 drift between the two work orders' contracts rather than a
+deliberately planned derogation. The sharper point this occurrence adds: the automated `deadlocked-
+contract` rung (BL-0051) resolves a deadlock by re-blessing the stale test to the derogated contract — but
+that remedy presumes ONE of the two contradicting contracts is simply stale and the other is the correct,
+current one. When the contradiction instead comes from an unresolved DRIFT (neither side was deliberately
+derogated; they just diverged), re-blessing either one by default is a guess, not a fix — this shape needs
+an explicit OWNER decision on which contract wins before any re-bless, not a reopen of the already-
+`VERIFIED` WO and not an automated pick. Verify which of the two shapes you're in (deliberate derogation vs.
+unresolved drift) before applying the re-bless remedy.
