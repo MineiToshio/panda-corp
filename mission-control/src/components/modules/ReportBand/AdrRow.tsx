@@ -11,10 +11,10 @@ export function AdrRow({
 }): React.JSX.Element {
   return (
     <button type="button" className={`adr-row ${styles.adr}`} onClick={onOpen}>
-      <code>{adr.id}</code>
-      <span>
+      <code className={styles.adrId}>{adr.id}</code>
+      <span className={styles.adrSummary}>
         <b>{adr.title}</b>
-        <span>{adr.decision}</span>
+        <span title={adr.decision}>{adr.decision}</span>
       </span>
       <span aria-hidden="true">→</span>
     </button>

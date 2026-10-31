@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import type { DataModel } from "@/lib/architecture/data-model/types";
+import { t } from "@/lib/copy/copy";
 import { COPY } from "./copy.es";
 import { EntityCard } from "./EntityCard";
 import type { ModelLayout, ModelSelection } from "./layout";
@@ -39,11 +40,15 @@ export function ModelDiagram({
       )
       .flatMap((relation) => [relation.from.entity, relation.to.entity]),
   );
+  const { focusNode } = viewport;
+  const overview = viewport.view.zoom < 1;
   const selectEntity = useCallback(
     (id: string) => {
       onSelect({ kind: "entity", id });
+      const node = layout.nodes.find((item) => item.entity.id === id);
+      if (node && overview) focusNode(node);
     },
-    [onSelect],
+    [onSelect, layout.nodes, overview, focusNode],
   );
   return (
     <>
@@ -63,11 +68,15 @@ export function ModelDiagram({
         <div
           className={styles.stage}
           data-testid="model-stage"
-          style={{
-            width: layout.width,
-            height: layout.height,
-            transform: `translate(${viewport.view.x}px, ${viewport.view.y}px) scale(${viewport.view.zoom})`,
-          }}
+          data-overview={viewport.view.zoom < 1}
+          style={
+            {
+              "--model-scale": viewport.view.zoom,
+              width: layout.width,
+              height: layout.height,
+              transform: `translate(${viewport.view.x}px, ${viewport.view.y}px) scale(${viewport.view.zoom})`,
+            } as React.CSSProperties
+          }
         >
           <ModelEdges layout={layout} selection={selection} />
           {layout.nodes.map((node) => (
@@ -88,6 +97,9 @@ export function ModelDiagram({
           ))}
         </div>
       </div>
+      {viewport.isOverviewClipped && (
+        <p role="status">{t("workspace.arquitectura.dataModel.mapDoesNotFit")}</p>
+      )}
       <p id={helpId} className={styles.srOnly}>
         {COPY.help}
       </p>

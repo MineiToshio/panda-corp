@@ -1,9 +1,9 @@
-import type { KeyboardEvent, PointerEvent } from "react";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import type { FocusEvent, KeyboardEvent, PointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { ModelLayout, ModelNode } from "./layout";
 import { useFrameView } from "./useFrameView";
 
-const MIN_ZOOM = 0.02;
+const MIN_ZOOM = 0.3;
 function fittedView(layout: ModelLayout, width: number, height: number) {
   const zoom = Math.min(
     1,
@@ -11,29 +11,25 @@ function fittedView(layout: ModelLayout, width: number, height: number) {
   );
   return { zoom, x: (width - layout.width * zoom) / 2, y: (height - layout.height * zoom) / 2 };
 }
-function initialView(layout: ModelLayout, width: number, height: number) {
-  const focus = [...layout.nodes].sort((a, b) => {
-    const score = (node: ModelNode) => {
-      const ends = layout.edges
-        .flatMap((edge) => [edge.relationship.from, edge.relationship.to])
-        .filter((endpoint) => endpoint.entity === node.entity.id);
-      return ends.length + new Set(ends.flatMap((endpoint) => endpoint.attributes ?? [])).size * 2;
-    };
-    return score(b) - score(a);
-  })[0];
-  if (!focus) return fittedView(layout, width, height);
-  const zoom = Math.min(1, (width - 64) / focus.width, (height - 64) / focus.height);
+function initialView(layout: ModelLayout, width: number, height: number, entityId = "") {
+  const focus = layout.nodes.find((node) => node.entity.id === entityId);
+  if (!focus) return { zoom: 1, x: 0, y: 0 };
   return {
-    zoom,
-    x: width / 2 - (focus.x + focus.width / 2) * zoom,
-    y: height / 2 - (focus.y + focus.height / 2) * zoom,
+    zoom: 1,
+    x: Math.max(32, (width - focus.width) / 2) - focus.x,
+    y: Math.max(64, (height - focus.height) / 2) - focus.y,
   };
 }
 const MAX_ZOOM = 2;
 const PAN_STEP = 64;
 
 /** Pointer, keyboard and button alternatives for a scrollbar-free graph viewport. */
-export function useViewport(layout: ModelLayout, expanded = false, mode = "diagram") {
+export function useViewport(
+  layout: ModelLayout,
+  expanded = false,
+  mode = "diagram",
+  entityId = "",
+) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     id: number;
@@ -44,7 +40,7 @@ export function useViewport(layout: ModelLayout, expanded = false, mode = "diagr
     moved: boolean;
   } | null>(null);
   const suppressClick = useRef(false);
-  const { view, update: setView } = useFrameView(() => initialView(layout, 900, 440));
+  const { view, update: setView } = useFrameView(() => initialView(layout, 900, 440, entityId));
   function pan(x: number, y: number) {
     setView((old) => ({ ...old, x: old.x + x, y: old.y + y }));
   }
@@ -77,6 +73,7 @@ export function useViewport(layout: ModelLayout, expanded = false, mode = "diagr
           layout,
           canvas.clientWidth || (expanded ? window.innerWidth : 900),
           canvas.clientHeight || (expanded ? window.innerHeight : 440),
+          entityId,
         ),
       );
     resize();
@@ -84,21 +81,32 @@ export function useViewport(layout: ModelLayout, expanded = false, mode = "diagr
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [layout, expanded, mode, setView]);
-  function focusNode(node: ModelNode) {
-    const width = canvasRef.current?.clientWidth || 600;
-    const height = canvasRef.current?.clientHeight || 420;
-    setView({
-      zoom: Math.min(1, (width - 32) / node.width, (height - 32) / node.height),
-      x:
-        width / 2 -
-        (node.x + node.width / 2) *
-          Math.min(1, (width - 32) / node.width, (height - 32) / node.height),
-      y:
-        height / 2 -
-        (node.y + node.height / 2) *
-          Math.min(1, (width - 32) / node.width, (height - 32) / node.height),
-    });
+  }, [layout, expanded, mode, entityId, setView]);
+  const focusNode = useCallback(
+    (node: ModelNode) => {
+      const width = canvasRef.current?.clientWidth || 600;
+      const height = canvasRef.current?.clientHeight || 420;
+      setView({
+        zoom: 1,
+        x: Math.max(32, (width - node.width) / 2) - node.x,
+        y: Math.max(64, (height - node.height) / 2) - node.y,
+      });
+    },
+    [setView],
+  );
+  function restoreNativeScroll() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    if (canvas.scrollLeft) canvas.scrollLeft = 0;
+    if (canvas.scrollTop) canvas.scrollTop = 0;
+  }
+  function handleFocusCapture(event: FocusEvent<HTMLDivElement>) {
+    restoreNativeScroll();
+    if (!(event.target instanceof Element)) return;
+    const id = event.target.closest<HTMLElement>("[data-entity-id]")?.dataset.entityId;
+    const node = layout.nodes.find((item) => item.entity.id === id);
+    // Pointer activation must finish before its target moves beneath the pointer.
+    if (node && event.target.matches(":focus-visible")) focusNode(node);
   }
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
     window.getSelection()?.removeAllRanges();
@@ -201,15 +209,22 @@ export function useViewport(layout: ModelLayout, expanded = false, mode = "diagr
     zoomBy,
     fit,
     focusNode,
+    isOverviewClipped:
+      view.zoom <= MIN_ZOOM &&
+      (layout.width * view.zoom > (canvasRef.current?.clientWidth || 900) - 64 ||
+        layout.height * view.zoom > (canvasRef.current?.clientHeight || 440) - 64),
     reset: () =>
       setView(
         initialView(
           layout,
           canvasRef.current?.clientWidth || 900,
           canvasRef.current?.clientHeight || 440,
+          entityId,
         ),
       ),
     handlers: {
+      onFocusCapture: handleFocusCapture,
+      onScroll: restoreNativeScroll,
       onPointerDown: handlePointerDown,
       onPointerMove: handlePointerMove,
       onPointerUp: handlePointerEnd,

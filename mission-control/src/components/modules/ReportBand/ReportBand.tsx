@@ -14,6 +14,7 @@ export function ReportBand({
   title,
   level = 3,
   icon,
+  count,
   action,
   tone = "slate",
   rows = [],
@@ -23,6 +24,7 @@ export function ReportBand({
   readonly title: string;
   readonly level?: 2 | 3 | 4;
   readonly icon?: IconName;
+  readonly count?: number;
   readonly action?: ReactNode;
   readonly tone?: Tone;
   readonly rows?: readonly ReportRow[];
@@ -32,7 +34,7 @@ export function ReportBand({
   return (
     <section className={`band ${styles.band}`} data-tone={tone} data-testid={testId}>
       <div className={`band-head ${styles.head}`}>
-        <CardHeader title={title} level={level} icon={icon} action={action} />
+        <CardHeader title={title} level={level} icon={icon} count={count} action={action} />
       </div>
       {rows.map((row) => (
         <div className={`brow ${styles.row}`} key={row.id}>

@@ -180,3 +180,131 @@
     padding: var(--s4);
   }
 }
+
+.adrId {
+  flex: none;
+  padding: var(--s1) var(--s2);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  font-size: var(--fs-xs);
+  color: var(--gold);
+}
+.adr > .adrSummary {
+  flex: 1;
+  min-width: 0;
+}
+.adrSummary b,
+.adrSummary > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.adrSummary > span {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.envFold {
+  border-top: var(--hairline) solid var(--line);
+}
+.envFold > summary {
+  cursor: pointer;
+  padding: var(--s3) 0;
+  min-height: calc(var(--s10) + var(--s1));
+  font-weight: 600;
+}
+.stackTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+}
+.stackTable :is(th, td) {
+  padding: var(--s3);
+  border-bottom: var(--hairline) solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.stackTable th {
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+@media (max-width: 759px) {
+  .stackTable :is(th, td) {
+    padding: var(--s2);
+  }
+}
+
+.services {
+  list-style: disc;
+  padding-left: var(--s4);
+  display: grid;
+  gap: var(--s1);
+  font-size: var(--fs-base);
+}
+.services li::marker {
+  color: var(--teal);
+}
+
+.architecture .mosaic > div {
+  display: grid;
+  grid-template-columns: calc(var(--s10) * 3) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--s3);
+  font-size: var(--fs-xs);
+}
+.architecture .tiles {
+  margin: 0;
+  gap: var(--s1);
+}
+.architecture .tile {
+  width: var(--s6);
+  height: calc(var(--s6) + var(--s1));
+  padding: 0;
+  background: var(--tone);
+}
+.architecture .grid {
+  margin-top: var(--s5);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(var(--s10) * 5)), 1fr));
+}
+.architecture .frd > b + span {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.services p {
+  margin: 0;
+}
+.adrSummary b {
+  font-size: var(--fs-md);
+}
+.adr:focus-visible .adrSummary b {
+  white-space: normal;
+}
+.envFold > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+.envFold > summary > span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.planSubtitle {
+  margin-top: var(--s5);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.architecture .frd:focus-visible > b + span {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.envFold[open] > summary > svg {
+  transform: rotate(90deg);
+}

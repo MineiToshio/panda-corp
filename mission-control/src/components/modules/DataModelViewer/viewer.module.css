@@ -356,3 +356,18 @@
   padding: 0 var(--s1);
   border-radius: var(--r-xs);
 }
+
+/* Overview keeps entity names readable; full fields return at 100% or in Schema. */
+.stage[data-overview="true"] .entityHead {
+  height: calc(var(--s10) / var(--model-scale));
+  font-size: calc(var(--model-font) / var(--model-scale));
+}
+.stage[data-overview="true"] .entityHead strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stage[data-overview="true"] .entityHead span,
+.stage[data-overview="true"] .entity table,
+.stage[data-overview="true"] .edge text {
+  display: none;
+}

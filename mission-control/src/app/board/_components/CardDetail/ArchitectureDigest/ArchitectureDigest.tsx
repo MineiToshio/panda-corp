@@ -22,7 +22,7 @@ import type { Adr } from "@/lib/architecture/adr";
 import { parseArchitecture } from "@/lib/architecture/architecture";
 import type { DataModelResult } from "@/lib/architecture/data-model/types";
 import type { EnvVar } from "@/lib/architecture/env";
-import { t } from "@/lib/copy/copy";
+import { t, tRich } from "@/lib/copy/copy";
 import { useUrlState } from "@/lib/navigation/useUrlState";
 import type { DigestSourceErrors } from "@/lib/spec/read-artifacts";
 import type { DigestFrd } from "@/lib/spec/read-frds";
@@ -75,12 +75,17 @@ export function ArchitectureDigest({
         live,
       }))
     : arch.frds.map((frd) => ({ ...frd, live: undefined, ui: undefined }));
+  const planFrds = cards.map((card) => ({
+    id: card.id,
+    title: arch.frds.find((item) => item.id === card.id)?.title ?? card.title,
+  }));
   const open = cards.find((frd) => frd.id === frdId);
   const started = hasConstructionStarted(arch.fase, workOrders, constructionStarted);
   const base = digestNavigationBase(navigationBaseHref, project);
   const notPublished = isNotPublished(arch.hasContent, dataModel);
   return (
     <article
+      className={styles.architecture}
       data-testid="card-detail-architecture"
       data-scroll-x="intentional"
       aria-label="Resumen de la arquitectura"
@@ -97,33 +102,49 @@ export function ArchitectureDigest({
           title={t("workspace.arquitectura.stack.title")}
           tone="blue"
           testId="arch-stack"
-          rows={arch.stackRows.map((row, index) => ({
-            id: `${row.capa}-${index}`,
-            label: row.capa,
-            content: (
-              <>
-                <b>{row.eleccion}</b>
-                <p>{row.porque}</p>
-              </>
-            ),
-          }))}
-        />
+          icon="layers"
+        >
+          <p>{t("workspace.arquitectura.stack.note")}</p>
+          <table className={styles.stackTable}>
+            <thead>
+              <tr>
+                <th scope="col">{t("workspace.arquitectura.stack.layer")}</th>
+                <th scope="col">{t("workspace.arquitectura.stack.choice")}</th>
+                <th scope="col">{t("workspace.arquitectura.stack.why")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {arch.stackRows.map((row) => (
+                <tr key={row.capa}>
+                  <td>{row.capa}</td>
+                  <td>
+                    <b>{row.eleccion}</b>
+                  </td>
+                  <td>{row.porque}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ReportBand>
       )}
       {arch.services.length > 0 && (
         <ReportBand
           title={t("workspace.arquitectura.services.title")}
+          icon="activity"
           tone="teal"
           testId="arch-services"
-          rows={arch.services.map((service, index) => ({
-            id: `${index}`,
-            label: service.desc ? service.title : "",
-            content: (
-              <div data-testid="arch-service">
-                <Markdown resolveLink={resolveLink}>{service.desc || service.title}</Markdown>
-              </div>
-            ),
-          }))}
-        />
+        >
+          <p>{t("workspace.arquitectura.services.note")}</p>
+          <ul className={styles.services}>
+            {arch.services.map((service) => (
+              <li key={service.title} data-testid="arch-service">
+                <Markdown resolveLink={resolveLink}>
+                  {service.desc ? `**${service.title}**: ${service.desc}` : service.title}
+                </Markdown>
+              </li>
+            ))}
+          </ul>
+        </ReportBand>
       )}
       <ModelBand arch={arch} dataModel={dataModel} notPublished={notPublished} />
       {!notPublished && (
@@ -133,9 +154,11 @@ export function ArchitectureDigest({
           )}
           {hasBandContent(adrs.length, sourceErrors?.adrs) && (
             <ReportBand
-              title={t("workspace.arquitectura.adrs.title", { count: adrs.length })}
+              title={t("workspace.arquitectura.adrs.heading")}
+              count={adrs.length}
+              icon="branch"
               testId="arch-adrs"
-              tone="violet"
+              tone="gold"
             >
               {sourceErrors?.adrs ? (
                 <Notice icon="alert" kind="error">
@@ -143,28 +166,35 @@ export function ArchitectureDigest({
                 </Notice>
               ) : (
                 adrs.map((item) => (
-                  <AdrRow key={item.id} adr={item} onOpen={() => setAdrId(item.id)} />
+                  <AdrRow
+                    key={`${item.id}:${item.title}`}
+                    adr={item}
+                    onOpen={() => setAdrId(item.id)}
+                  />
                 ))
               )}
             </ReportBand>
           )}
           <ReportBand
             title={t("workspace.arquitectura.plan.title")}
+            icon="layers"
             testId="arch-plan"
             tone="violet"
           >
+            <p>{t("workspace.arquitectura.plan.note")}</p>
             {sourceErrors?.workOrders ? (
               <Notice icon="alert" kind="error">
                 {sourceErrors.workOrders}
               </Notice>
             ) : (
-              <PlanMosaic workOrders={workOrders} started={started} />
+              <PlanMosaic workOrders={workOrders} started={started} frds={planFrds} />
             )}
             {sourceErrors?.frds && (
               <Notice icon="alert" kind="error">
                 {sourceErrors.frds}
               </Notice>
             )}
+            <h4 className={styles.planSubtitle}>{t("workspace.arquitectura.plan.byFrd")}</h4>
             <div className={styles.grid}>
               {cards.map((frd) => (
                 <FrdCard
@@ -238,9 +268,11 @@ function EnvironmentBand({
   const missing = entries.filter((entry) => entry.described === false || !entry.comment).length;
   return (
     <ReportBand
-      title={t("workspace.arquitectura.env.title", { count: entries.length })}
+      title={t("workspace.arquitectura.env.heading")}
+      count={entries.length}
+      icon="terminal"
       testId="arch-env-block"
-      tone="gold"
+      tone="pink"
     >
       {error ? (
         <Notice icon="alert" kind="error">
@@ -255,8 +287,9 @@ function EnvironmentBand({
                 : t("workspace.arquitectura.env.allDescribed")}
             </Chip>
           )}
-          {[...groups].map(([group, items]) => (
-            <EnvFold key={group} group={group} entries={items} />
+          <p>{tRich("workspace.arquitectura.env.note")}</p>
+          {[...groups].map(([group, items], index) => (
+            <EnvFold key={group} group={group} entries={items} defaultOpen={index === 0} />
           ))}
         </>
       )}
@@ -346,7 +379,8 @@ function ModelBand({
   return (
     <ReportBand
       title={t("workspace.arquitectura.dataModel.title")}
-      tone="teal"
+      icon="database"
+      tone="blue"
       testId="arch-data-model"
     >
       {arch.dataModel?.note && <p>{arch.dataModel.note}</p>}

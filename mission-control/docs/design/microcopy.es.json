@@ -1019,10 +1019,11 @@
         "diagramHint": "Selecciona una entidad para resaltar sus relaciones; vuelve a pulsarla para limpiar la selección.",
         "attributes": "{count} atributos",
         "schemaAria": "Esquema de {name}",
+        "mapDoesNotFit": "El mapa no cabe. Usa la búsqueda o el Esquema",
         "noEntityMatch": "Ninguna entidad coincide."
       },
       "env": {
-        "title": "Variables de entorno · {count}",
+        "heading": "Variables de entorno",
         "empty": "No hay variables documentadas.",
         "note": "Qué es y para qué sirve cada variable, según <code>.env.example</code>. Los valores nunca se muestran.",
         "missingChip": "{missing} de {total} sin descripción",
@@ -1031,7 +1032,7 @@
         "generalGroup": "General"
       },
       "adrs": {
-        "title": "Decisiones · {count}",
+        "heading": "Decisiones",
         "empty": "No hay ADRs publicados."
       },
       "plan": {
@@ -1045,7 +1046,7 @@
           "one": "{count} FRD",
           "other": "{count} FRDs"
         },
-        "mosaicNote": "Cada fila es un FRD y cada cuadro una work order, por su estado; en la app real este bloque es el grafo interactivo de dependencias.",
+        "note": "Cada fila es un FRD y cada cuadro una work order, por su estado. Abre un FRD para ver su plan y sus dependencias.",
         "noOrders": "El plan todavía no tiene work orders publicadas.",
         "byFrd": "Por FRD",
         "tileAria": "{id}: {state}"

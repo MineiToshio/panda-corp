@@ -103,7 +103,7 @@ Composed from the rows above; never re-implement a primitive inside one.
 | `DigestHero` | Report-band hero of the Spec, Arquitectura and Propuesta tabs. | `src/app/board/_components/ReportBand/DigestHero.tsx` | `.dhero` (config: DigestHero) | `eyebrow`, `title`, `lead`, `chips` | new |
 | `ReportBand` | Band with the card header and label \| content rows (`.brow`, 128px labels). Also hosts the Propuesta blocks folded here: features (`.feat`), risks (`.risk`), quote (`.pquote`), checks (`.checks`), score bar (`.score-bar`), decision box (`.pbox`), gauge card (`.gcard`), legal (`.legal`). | `src/app/board/_components/ReportBand/ReportBand.tsx` | `.band`, `.brow` (config: ReportBand) | `tone`, `icon`, `title`, `count`, `rows[]` | new |
 | `FrdCard` | Fully clickable FRD card: code, coloured kind tag (UI pink, Infra slate, Tool/CLI teal, API blue, Data gold), state stack bar once built (planned count before). | `src/components/modules/Spec/FrdCard.tsx` | `.frdc` (config: FrdCard) | `frd`, `kind`, `progress?` | new |
-| `EnvRow` / `EnvFold` | Environment variable as label \| content row grouped by `.env.example` sections, «Sin descripción en .env.example» with a count, groups folded past 12. | `src/app/board/_components/ReportBand/EnvRow.tsx` | `.envrow`, `details.env-fold` (config: EnvRow, EnvFold) | `name`, `text`, `group` | new |
+| `EnvRow` / `EnvFold` | Environment variable as label \| content row grouped by `.env.example` sections, «Sin descripción en .env.example» with a count, first group open, subsequent groups collapsed; count and warning chips in each summary. | `src/components/modules/ReportBand/EnvRow.tsx` | `.envrow`, `details.env-fold` (config: EnvRow, EnvFold) | `name`, `text`, `group` | new |
 | `AdrRow` | Decision (ADR) row opening the ADR dialog. | `src/app/board/_components/ReportBand/AdrRow.tsx` | `.adr-row` (config: AdrRow) | `adr` | new |
 | `PlanMosaic` | State mosaic of the plan (hidden before Construcción). | `src/app/board/_components/ReportBand/PlanMosaic.tsx` | `.mosaic` (config: PlanMosaic) | `rows[]` | new |
 | `CampaignRoom` | Campaña room on the dark map (`--map-*`): pixel-art zone, name tag, cast sprites idling or roaming, active room pulsing, corridors carrying the hand-off artifact. | `src/components/modules/CampaignPipeline/CampaignRoom.tsx` | `.room`, `.corridor` (config: CampaignRoom) | `phase`, `state: "done" \| "current" \| "locked"`, `cast` | restyle (`CampaignPipeline`) |
@@ -257,3 +257,39 @@ other FavouriteButton and ButtonLink consumers retain their current sizing.
 `TrophyCard` (`src/app/achievements/_components/trophies/TrophyCard.tsx`) supports `catalogue` (horizontal rarity-line card), `near` (gold-tinted target with category) and `recent` (vertical chips tile). `SecretTile` renders a compact locked hint row. `NextRankCard` uses 64px dark discs and 56px pixel sprites; `RadarChart` uses teal geometry, radial axes and vertex markers. `GuildHero`'s public API is unchanged.
 
 Independent review refinement (2026-10-31): catalogue cards use flexible text, inline extra-small date evidence, 42px earned / 34px locked slots and 7px rarity dots. Locked cards name their state accessibly. Secret hints use a decorative violet question mark; seal tiles place the axis before the count with gold bars. The summary badge is 19px, rank discs shrink to 52px/44px on phones, and the 230px radar uses medium labels with a 4% visual floor. Recent tiles omit project text; summary links are medium semibold.
+
+
+## Architecture closure contract (2026-10-31)
+
+- `ReportBand` reuses CardHeader's optional `count` as a CountPill alongside the category icon.
+- `AdrRow` preserves the entire decision in its dialog; its inline ID chip and one-line summary
+  keep the report compact. `EnvFold` supports `defaultOpen`; the first group starts open, with count and warning chips in each summary.
+- `ArchitectureDigest` renders stack rows in a semantic three-column table shared by both entries.
+- `ModelDiagram` opens/resets/focuses at 100%, zooms within 30–200%, and uses a readable title-only
+  overview below 100%. Selecting a title returns to detail; Schema remains the complete textual
+  alternative. The ELK layout and canonical data-model artifact remain unchanged.
+
+The architecture plan uses compact state tiles with full work-order labels in accessible names
+and native tooltips. FRD summaries are clamped to three lines in a four-column desktop grid;
+their full content remains in the existing FRD dialog. Integration prose uses a compact bullet list.
+
+
+### Independent review corrections (2026-10-31)
+
+The environment note remains visible above the groups. Each summary exposes its CountPill and a
+missing-description warning; the first group opens by default, as in the approved prototype.
+Plan rows show both the FRD id and its title, followed by the existing POR FRD card grid and a
+short explanation. Compact ADR titles use the medium token; keyboard focus reveals their complete
+text. The stack table declares column-header scope. Duplicate authored ADR ids use composite
+React keys without rewriting the source project.
+
+The model starts at the upper-left graph origin at 100%. An entity URL instead focuses that entity
+at 100%. Focus entering an entity centers its header and cancels native scroll offsets so the camera
+remains the only scroll authority; pointer and keyboard navigation share this behavior. ELK allows
+6 nodes per layer with an aspect ratio of 1.3 to reduce excessive width. If a 30% fit still clips
+the graph, the viewer visibly asks the user to use search or Schema; titles remain at least 12px.
+The existing localized model query values, including `?model=Esquema`, are unchanged; migrating
+those values to English is a separate CONV-18 change.
+
+GraphControls renders its percentage at the 12px minimum and rotates the up/down icons to match
+their directional labels. Keyboard focus reveals complete ADR titles and FRD summaries; activation opens the full ADR document.

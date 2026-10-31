@@ -78,7 +78,13 @@ describe("ArchitectureDigest", () => {
 
   it("AC-02-013.2: renders the stack matrix rows", () => {
     renderDigest();
-    expect(screen.getByText("Framework / UI")).toBeInTheDocument();
+    const stack = screen.getByRole("table");
+    expect(
+      within(stack)
+        .getAllByRole("columnheader")
+        .map((cell) => cell.textContent),
+    ).toEqual(["Capa", "Elección", "Por qué"]);
+    expect(within(stack).getByText("Framework / UI")).toBeInTheDocument();
     expect(screen.getByText("RSC, SSG por ruta")).toBeInTheDocument();
   });
 
@@ -235,4 +241,18 @@ it("shows an unavailable state for an unknown ADR instead of opening another ite
   renderDigest();
   expect(screen.getByRole("status")).toHaveTextContent("El ADR seleccionado no está disponible.");
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+it("shows FRD titles beside mosaic ids and the plan explanation", () => {
+  render(
+    <ArchitectureDigest
+      body={DIGEST_TWO_FRDS}
+      title="p"
+      workOrders={LIVE_WOS}
+      constructionStarted
+    />,
+  );
+  expect(screen.getByText("FRD-01 Site shell")).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Por FRD" })).toBeVisible();
+  expect(screen.getByText(/Cada fila es un FRD y cada cuadro/)).toBeVisible();
 });

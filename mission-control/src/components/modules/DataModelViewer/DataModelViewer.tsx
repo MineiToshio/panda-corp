@@ -138,7 +138,7 @@ function ReadyViewer({
   );
   const expansion = useModelExpansion();
   const isExpanded = expansion.expanded;
-  const viewport = useViewport(layout, isExpanded, mode);
+  const viewport = useViewport(layout, isExpanded, mode, entityId);
   const id = useId();
   const matches = model.entities
     .filter((entity) =>

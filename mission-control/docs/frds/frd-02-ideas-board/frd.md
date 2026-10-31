@@ -353,3 +353,40 @@ The project-owned source is `docs/product/data-model.json`. Contract and reader 
 ## Persistent navigation integration — FRD-25 (2026-10-17)
 
 The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+
+
+### Architecture closure amendment (2026-10-31)
+
+The approved Órbita architecture report is the presentation oracle for both board and portfolio.
+Stack is a semantic three-column table (layer, choice, rationale). Each band carries its category
+icon; environment and ADR totals appear in count chips beside their headings. The first environment
+group starts open and later groups start collapsed; expanding it exposes names and
+descriptions only. ADR rows show an ID chip, title and one-line ellipsized decision; opening a row
+preserves the complete document in its existing dialog. Truncation is presentation only.
+
+The data-model camera starts and resets at 100%, including the 56-entity production model and
+entities taller than the viewport. Tall entities are anchored at their header and remain reachable
+with pointer, directional controls and keyboard panning. Search focuses its matching entity at
+100%. Zoom and fit are bounded to 30–200%. Below 100%, the diagram becomes an overview: readable
+entity titles remain at an effective minimum of 12px, while field tables and cardinality text are
+hidden until returning to detail scale. Selecting an overview entity restores 100%; Schema retains
+all fields and relationships at every zoom. This preserves AC-13-010.2 rather than shrinking product
+text to fit the entire graph. Mobile continues to open Schema and retains diagram/fullscreen access.
+
+
+### Independent review corrections (2026-10-31)
+
+The environment note remains visible above the groups. Each summary exposes its CountPill and a
+missing-description warning; the first group opens by default, as in the approved prototype.
+Plan rows show both the FRD id and its title, followed by the existing POR FRD card grid and a
+short explanation. Compact ADR titles use the medium token; keyboard focus reveals their complete
+text. The stack table declares column-header scope. Duplicate authored ADR ids use composite
+React keys without rewriting the source project.
+
+The model starts at the upper-left graph origin at 100%. An entity URL instead focuses that entity
+at 100%. Focus entering an entity centers its header and cancels native scroll offsets so the camera
+remains the only scroll authority; pointer and keyboard navigation share this behavior. ELK allows
+6 nodes per layer with an aspect ratio of 1.3 to reduce excessive width. If a 30% fit still clips
+the graph, the viewer visibly asks the user to use search or Schema; titles remain at least 12px.
+The existing localized model query values, including `?model=Esquema`, are unchanged; migrating
+those values to English is a separate CONV-18 change.

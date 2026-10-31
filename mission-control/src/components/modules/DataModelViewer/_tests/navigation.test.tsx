@@ -95,3 +95,30 @@ it("shows a bounded unavailable state for an unknown model entity", async () => 
     "true",
   );
 });
+
+it("opens overview entities at readable detail scale without losing URL selection", async () => {
+  visit("/portfolio/registered/architecture?model=diagram");
+  render(<DataModelViewer result={readyFixture()} />);
+  await waitForLayout();
+  const level = screen.getByRole("button", { name: /100%/ });
+  fireEvent.click(screen.getByRole("button", { name: "Alejar" }));
+  expect(level).not.toHaveTextContent("100%");
+  fireEvent.click(screen.getByRole("button", { name: "Seleccionar entidad Entry" }));
+  expect(level).toHaveTextContent("100%");
+  expect(window.location.search).toContain("entity=entry");
+});
+
+it("undoes native focus scrolling and focuses an entity at readable scale", async () => {
+  visit("/portfolio/registered/architecture?model=diagram");
+  render(<DataModelViewer result={readyFixture()} />);
+  await waitForLayout();
+  const canvas = screen.getByRole("application");
+  canvas.scrollLeft = 1033;
+  canvas.scrollTop = 240;
+  fireEvent.scroll(canvas);
+  expect(canvas.scrollLeft).toBe(0);
+  expect(canvas.scrollTop).toBe(0);
+  fireEvent.click(screen.getByRole("button", { name: "Alejar" }));
+  act(() => screen.getByRole("button", { name: "Seleccionar entidad Audit" }).focus());
+  expect(screen.getByRole("button", { name: /Zoom 100%/ })).toBeInTheDocument();
+});

@@ -354,3 +354,40 @@ below the 500-line ceiling. Evidence accepts and forwards `resolveLink`; CardDet
 resolver remains the only link classifier. Missing prose maps to `idea.pitch.empty` at rendering.
 `ReportBand.level` is optional (default 3); structured proposal bands select 2. The board page
 requires the Next.js `searchParams` promise; direct test invocations pass an explicit empty query.
+
+
+## Architecture closure implementation (2026-10-31)
+
+ArchitectureDigest keeps the existing artifact readers and error notices. Its stack is a semantic
+HTML table; ReportBand forwards optional counts to the existing CardHeader/CountPill. AdrRow uses
+CSS ellipsis without changing stored content or its modal. EnvFold uses native details for every
+group, with the first initially open. These changes are shared by portfolio and board.
+
+useViewport centralizes the 0.3–2 camera clamp for wheel, buttons and fit. Initial/reset/focus use
+zoom 1; tall cards start with their heading visible and their remaining fields are reached by pan.
+ModelDiagram exposes its scale as a scoped CSS custom property. Below 1, overview CSS hides field
+tables/cardinality text and inversely scales entity titles to preserve the 12px effective floor.
+Clicking an overview entity uses focusNode to return to detail scale. The layout engine, logical
+model format, readers, URL selection, Schema and fullscreen implementation remain shared.
+
+The architecture plan uses compact state tiles with full work-order labels in accessible names
+and native tooltips. FRD summaries are clamped to three lines in a four-column desktop grid;
+their full content remains in the existing FRD dialog. Integration prose uses a compact bullet list.
+
+
+### Independent review corrections (2026-10-31)
+
+The environment note remains visible above the groups. Each summary exposes its CountPill and a
+missing-description warning; the first group opens by default, as in the approved prototype.
+Plan rows show both the FRD id and its title, followed by the existing POR FRD card grid and a
+short explanation. Compact ADR titles use the medium token; keyboard focus reveals their complete
+text. The stack table declares column-header scope. Duplicate authored ADR ids use composite
+React keys without rewriting the source project.
+
+The model starts at the upper-left graph origin at 100%. An entity URL instead focuses that entity
+at 100%. Focus entering an entity centers its header and cancels native scroll offsets so the camera
+remains the only scroll authority; pointer and keyboard navigation share this behavior. ELK allows
+6 nodes per layer with an aspect ratio of 1.3 to reduce excessive width. If a 30% fit still clips
+the graph, the viewer visibly asks the user to use search or Schema; titles remain at least 12px.
+The existing localized model query values, including `?model=Esquema`, are unchanged; migrating
+those values to English is a separate CONV-18 change.

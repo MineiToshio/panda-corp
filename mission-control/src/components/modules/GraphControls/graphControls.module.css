@@ -39,7 +39,7 @@
   width: auto;
   min-width: calc(var(--graph-unit) * 11);
   padding: 0 var(--graph-unit);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums;
 }
 .divider {
@@ -71,4 +71,11 @@
 }
 .right {
   grid-area: 2 / 3;
+}
+
+.up svg {
+  transform: rotate(-90deg);
+}
+.down svg {
+  transform: rotate(90deg);
 }

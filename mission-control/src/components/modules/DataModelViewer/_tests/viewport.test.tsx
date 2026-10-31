@@ -31,7 +31,36 @@ describe("diagram navigation", () => {
     act(() => result.current.zoomBy(100));
     expect(result.current.view.zoom).toBe(2);
     act(() => result.current.zoomBy(0.001));
-    expect(result.current.view.zoom).toBe(0.02);
+    expect(result.current.view.zoom).toBe(0.3);
+  });
+  it("AC-13-010.2: opens and focuses tall entities at 100%, preserving navigation across 56 entities", async () => {
+    const fixture = modelFixture();
+    const model = {
+      ...fixture,
+      entities: Array.from({ length: 56 }, (_, index) => ({
+        ...fixture.entities[0],
+        id: `entity-${index}`,
+        name: `Entity${index}`,
+        attributes: Array.from({ length: 40 }, (_, field) => ({
+          id: `field-${field}`,
+          name: `field${field}`,
+          type: "text",
+          optional: false,
+        })),
+      })),
+      relationships: [],
+    };
+    const layout = await layoutModel(model);
+    const { result } = renderHook(() => useViewport(layout));
+    expect(result.current.view.zoom).toBe(1);
+    const last = layout.nodes[55];
+    if (!last) throw new Error("Missing 56th entity");
+    act(() => result.current.focusNode(last));
+    expect(result.current.view.zoom).toBe(1);
+    act(() => result.current.fit());
+    expect(result.current.view.zoom).toBeGreaterThanOrEqual(0.3);
+    act(() => result.current.reset());
+    expect(result.current.view.zoom).toBe(1);
   });
   it("AC-02-015.13: does not move during click jitter and moves only beyond the drag threshold", async () => {
     const canvas = document.createElement("div");
@@ -72,4 +101,15 @@ describe("diagram navigation", () => {
     fireEvent.keyDown(button, { key: "ArrowRight" });
     expect(result.current.view.x).toBe(initial.x - 64);
   });
+});
+
+it("opens at the graph origin and restores a deep-linked entity at detail scale", async () => {
+  const layout = await layoutModel(modelFixture());
+  const origin = renderHook(() => useViewport(layout));
+  expect(origin.result.current.view).toEqual({ x: 0, y: 0, zoom: 1 });
+  const linked = renderHook(() => useViewport(layout, false, "diagram", "audit"));
+  const target = layout.nodes.find((node) => node.entity.id === "audit");
+  if (!target) throw new Error("Missing audit entity");
+  expect(linked.result.current.view.x).toBe(450 - target.x - target.width / 2);
+  expect(linked.result.current.view.zoom).toBe(1);
 });

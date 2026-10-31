@@ -27,6 +27,7 @@ function EntityCardContent({
   return (
     <section
       className={`entity ${styles.entity}`}
+      data-entity-id={entity.id}
       data-dimmed={dimmed}
       style={{ left: node.x, top: node.y, width: node.width }}
       data-selected={selected}

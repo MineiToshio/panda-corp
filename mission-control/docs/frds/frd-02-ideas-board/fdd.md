@@ -176,3 +176,38 @@ chips use the pale `--tint` mixed with `--surface`, retaining their phase colour
   15px paragraph text. An empty summary is an explicit localized status, never an empty paper.
 - Evidence inherits the reader resolver. Archived factory files that the reader cannot surface
   are neutral text with an unavailable-reader explanation; do not invent app routes for them.
+
+
+## Architecture closure (2026-10-31)
+
+Both entry points reuse ArchitectureDigest. Stack uses a three-column table; band headers use the
+existing icon tile and CountPill. Environment groups are native accordions: the first starts open, the remainder closed.
+ADR rows keep compact ID chips, a title and an ellipsized one-line summary; the existing modal
+reveals the full authored ADR. No data is discarded to achieve the compact report.
+
+ModelDiagram opens/reset/focus at 100%, not an automatic fit of its tallest entity. Fit and zoom
+stop at 30%. At overview scales, inverse-scaled entity titles remain 12px on screen, fields and
+cardinality labels are suppressed, and clicking an entity returns to full detail. Schema, search,
+keyboard/pointer pan, click-pan and fullscreen remain available for the 56-entity model.
+
+The architecture plan uses compact state tiles with full work-order labels in accessible names
+and native tooltips. FRD summaries are clamped to three lines in a four-column desktop grid;
+their full content remains in the existing FRD dialog. Integration prose uses a compact bullet list.
+
+
+### Independent review corrections (2026-10-31)
+
+The environment note remains visible above the groups. Each summary exposes its CountPill and a
+missing-description warning; the first group opens by default, as in the approved prototype.
+Plan rows show both the FRD id and its title, followed by the existing POR FRD card grid and a
+short explanation. Compact ADR titles use the medium token; keyboard focus reveals their complete
+text. The stack table declares column-header scope. Duplicate authored ADR ids use composite
+React keys without rewriting the source project.
+
+The model starts at the upper-left graph origin at 100%. An entity URL instead focuses that entity
+at 100%. Focus entering an entity centers its header and cancels native scroll offsets so the camera
+remains the only scroll authority; pointer and keyboard navigation share this behavior. ELK allows
+6 nodes per layer with an aspect ratio of 1.3 to reduce excessive width. If a 30% fit still clips
+the graph, the viewer visibly asks the user to use search or Schema; titles remain at least 12px.
+The existing localized model query values, including `?model=Esquema`, are unchanged; migrating
+those values to English is a separate CONV-18 change.

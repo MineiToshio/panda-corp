@@ -16,9 +16,11 @@ export const ORDER_STATES = {
 export function PlanMosaic({
   workOrders,
   started = false,
+  frds = [],
 }: {
   readonly workOrders: readonly WorkOrder[];
   readonly started?: boolean;
+  readonly frds?: readonly { id: string; title: string }[];
 }): React.JSX.Element {
   if (!started)
     return <p>{t("workspace.arquitectura.plan.orders", { count: workOrders.length })}</p>;
@@ -35,7 +37,14 @@ export function PlanMosaic({
     <div className={`mosaic ${styles.mosaic}`}>
       {[...groups].map(([frd, orders]) => (
         <div key={frd}>
-          <b>{frd}</b>
+          <b>
+            {frd.match(/^frd-\d+/i)?.[0].toUpperCase() ?? frd}{" "}
+            {
+              frds.find(
+                (item) => item.id.toLowerCase() === frd.match(/^frd-\d+/i)?.[0].toLowerCase(),
+              )?.title
+            }
+          </b>
           <div className={styles.tiles}>
             {orders.map((order) => (
               <span
@@ -45,10 +54,7 @@ export function PlanMosaic({
                 aria-label={`${order.id} · ${order.title} · ${ORDER_STATES[order.state].label}`}
                 data-tone={ORDER_STATES[order.state].tone}
                 className={styles.tile}
-              >
-                {order.id}
-                <small>{ORDER_STATES[order.state].label}</small>
-              </span>
+              />
             ))}
           </div>
         </div>
