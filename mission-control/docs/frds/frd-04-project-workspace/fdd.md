@@ -127,3 +127,8 @@ prototype_blessed_at: 0e6b7191
 Avance por FRD shows its total and Ver todos footer only when there are more than eight rows, matching `prototype.js:833`. The established upgrade notice, La Fragua and Siguiente paso order is unchanged. Spec uses the shared band headers and source-document actions described by FRD-02.
 
 Component tests and static checks are recorded in the decision log. Browser fidelity, themes and overflow still require the attended Claude reviewer; no visual baseline was edited.
+
+## Re-bless (2026-10-31, independent review)
+
+`workspace-mobile` re-blessed after the structural fidelity corrections, viewed against `docs/design/prototype/index.html` at 375 and 1280 in both themes. Reviewer Layer-B sign-off: only the corrected surfaces moved. The route baselines are consistency guards from `e2e/fixtures/factory-root`.
+prototype_blessed_at: 0e6b7191

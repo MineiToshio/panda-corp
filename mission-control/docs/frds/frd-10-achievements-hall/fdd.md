@@ -163,3 +163,8 @@ prototype_blessed_at: 0e6b7191
 The summary uses the gold-framed crest (96/80 px, 72/60 px on phones, with a 64 px emblem), right-aligned near-mission counters and flat seal rows. The trophy catalog retains seal tiles. Oracle: `prototype.css:400-401,524-525`; `prototype.js:1908-1909`.
 
 Component tests and static checks are recorded in the decision log. Browser fidelity, themes and overflow still require the attended Claude reviewer; no visual baseline was edited.
+
+## Re-bless (2026-10-31, independent review)
+
+`logros-desktop, logros-mobile` re-blessed after the structural fidelity corrections, viewed against `docs/design/prototype/index.html` at 375 and 1280 in both themes. Reviewer Layer-B sign-off: only the corrected surfaces moved. The route baselines are consistency guards from `e2e/fixtures/factory-root`.
+prototype_blessed_at: 0e6b7191
