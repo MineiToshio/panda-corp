@@ -19,6 +19,15 @@ it("REQ-01-011: refuses writes before spawning, including write-like options", (
     ["branch", "-D", "x"],
     ["diff", "--output=x"],
     ["log", "--output", "x"],
+    ["log", "--ext-diff"],
+    ["log", "--textconv"],
+    ["log", "--exec=touch x"],
+    ["log", "-c", "alias.x=!touch x"],
+    ["log", "-C", "/tmp"],
+    ["log", "--git-dir=/tmp"],
+    ["log", "--work-tree=/tmp"],
+    ["log", "--config-env=alias.x=COMMAND"],
+    ["diff", "--no-index"],
   ]) {
     expect(() => runGit(args)).toThrow(expect.objectContaining({ kind: "disallowed" }));
   }
@@ -36,7 +45,7 @@ it("REQ-01-011: runs bounded reads with optional locks disabled; classifies time
       ["status", "--porcelain"],
       expect.objectContaining({
         timeout: 10000,
-        maxBuffer: 1048576,
+        maxBuffer: 256 * 1024 * 1024,
         env: expect.objectContaining({ GIT_OPTIONAL_LOCKS: "0" }),
       }),
     );
@@ -65,4 +74,23 @@ it("REQ-01-011: the real CLI loader imports the git boundary without transpilati
       { cwd: process.cwd(), stdio: "pipe", timeout: 5000 },
     ),
   ).not.toThrow();
+});
+
+it("REQ-01-011: permits bounded history and patch reads used by report consumers", () => {
+  vi.stubEnv("MC_GIT_FIXTURE", undefined);
+  const spy = vi.spyOn(childProcess, "execFileSync").mockReturnValue("history");
+  for (const args of [
+    ["log", "--reverse", "--format=%x00%cI", "-p", "--", "docs/frds"],
+    ["log", "-n", "400", "--format=%cI", "-p"],
+    ["log", "-n", "4000", "--format=%s"],
+  ]) {
+    expect(runGit(args)).toBe("history");
+    expect(spy).toHaveBeenLastCalledWith(
+      "git",
+      args,
+      expect.objectContaining({
+        maxBuffer: 256 * 1024 * 1024,
+      }),
+    );
+  }
 });

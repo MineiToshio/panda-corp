@@ -6,15 +6,14 @@ title: 'WO-11-003 BuildModePicker module'
 status: ACTIVE
 parent: FRD-11
 foundation: false
-implementation_status: IN_REVIEW
-blocked_reason:
+implementation_status: VERIFIED
 difficulty: low
 reopen_count: 0
 artifacts:
   - 'src/components/modules/BuildModePicker/**'
 source_requirements: [REQ-11-001, REQ-11-002, REQ-11-003, REQ-11-005]
 dependsOn: [WO-13-011, WO-11-001]
-last_updated: 2026-10-22
+last_updated: 2026-10-30
 ---
 
 # WO-11-003 BuildModePicker module
@@ -61,8 +60,9 @@ REQ-11-001 (four modes), REQ-11-002 (the exact command), REQ-11-003 (remembered 
 The module proves the criterion in isolation; WO-11-004 mounts it in the Comandos tab (its e2e covers the mounted
 behaviour). The Campaña entry is owned by WO-02-020 (see Out of Scope).
 
-**Completeness and NFRs.** Error path: a storage read or write that fails (private mode, corrupt value) falls back to
-Equilibrado and never throws (the v1 store already guarantees it; test it through the picker). Accessibility: a
+**Completeness and NFRs.** Error path: an initial storage read failure or corrupt value defaults to Equilibrado
+without throwing. Selection lives in per-project session state, so a failed write loses only persistence and the
+callback still receives the selected mode; test this through the picker. Accessibility: a
 group of toggle buttons with `aria-pressed`, Tab reaches each, Space/Enter selects, selection shown by border, tint,
 filled icon AND the command text (never colour alone), the meter has its text name, copy button named «Copiar
 <comando>», 44 px touch target. Performance: no data fetch, no effect loop. Reduced motion: no animation.
@@ -91,7 +91,7 @@ CMP-11-build-mode-picker, CMP-11-build-mode-card; reads IF-11-modes and IF-11-mo
 - Component tests (Vitest + RTL, `getByRole`): four cards in display order with icon, tag, meter name and hint;
   Equilibrado pressed by default and its command without argument; choosing Potente presses it, unpresses the
   previous one and shows `/pandacorp:implement powerful`; choosing Equilibrado again drops the argument; the choice
-  is stored per project and restored for that project only; a failing store falls back to Equilibrado; keyboard
+  is stored per project and restored for that project only; a failing store preserves the active choice and callback while losing only persistence; keyboard
   selection; no hydration warning with a stored mode.
 - No e2e here (no route mounts the module until W3/W6; the Comandos e2e of WO-11-004 covers it). No derogated test.
 
@@ -106,10 +106,25 @@ WO-13-011 (W1, leaf primitives), WO-11-001 (W0, `BUILD_MODES` and the store, VER
 
 ## Status Note
 
+**2026-10-30 reviewer gate (PASS at 6b5cb3229):** D3 to D6 are closed. Real Chromium through `pnpm dev:oracle`
+showed the selected command surviving a full quota and blocked site data, the copied command matching the shown
+one right after a mode change, a 36 px copy button with a 44 px touch hit area, and `project="constructor"`
+rendering, selecting and restoring. Evidence:
+`src/components/modules/BuildModePicker/_tests/BuildModePicker.reviewer.test.tsx`. The gate repair is committed;
+the notes below calling it uncommitted are historical. The mounted Comandos behaviour stays WO-11-004's.
+
+**2026-10-30 prototype-key verification:** `pnpm exec vitest run src/components/modules/BuildModePicker src/lib/git --reporter=dot` passed (6 files, 117 tests, exit 0). `bash .pandacorp/verify.sh --only=biome,tsc,knip` passed (exit 0, partial scope); Biome emitted a schema-version info and knip emitted nine configuration hints. Browser verification was not run.
+
+**2026-10-30 prototype-key repair:** session selection now uses `Object.hasOwn` so inherited object members cannot become build modes. Added regression coverage for `constructor`, `toString` and `__proto__`, including remembered preferences and subsequent session selection. Changes remain uncommitted on `orch/gate-w0`; `implementation_status` remains `IN_REVIEW`. The optional history flags were left unchanged because the current `runGit` allowlist rejects `--no-textconv` and `--no-ext-diff`; accepting them would extend that contract.
+
+**2026-10-30 gate repair:** added per-project session selection independent of storage; browser-local events carry the selected mode to sibling pickers, while storage events refresh the persisted preference. Keying `CmdRow` by command resets clipboard confirmation when changing modes. The command-box copy affordance remains visually 36 px and expands its touch hit area to 44 px with a token-based pseudo-element. Added exported API JSDoc, corrected shared prop documentation and replaced the obsolete inventory ID hook. Verification results follow below; Chromium checks are unavailable in this sandbox. Changes remain uncommitted on `orch/gate-w0`.
+
+**2026-10-30 verification:** `pnpm exec vitest run src/lib/git src/lib/snapshot src/components/modules/BuildModePicker src/components/core/CopyButton --reporter=dot` passed (13 files, 179 tests, exit 0), including the unchanged reviewer suites. React act warnings and Node's experimental localStorage warning remain in the test output. The first partial gate caught a subscription callback signature mismatch, which was corrected before the final rerun. `bash .pandacorp/verify.sh --only=biome,tsc,knip` then passed (exit 0; all three subgates green; partial scope). Biome reported its pre-existing schema-version info and knip reported nine configuration hints. Browser layout/touch hit testing was not run because Chromium is unavailable in the sandbox. No reviewer test, blessed baseline or decision log was modified.
+
 
 **Built:** the shared client `BuildModePicker({ project: string, onModeChange?: (mode: BuildMode) => void })` and `BuildModeCard({ mode: BuildMode, pressed: boolean, onSelect: (mode: BuildMode) => void })`. Display order is balanced/pro/powerful/deep, with power 2/1/3/4. The catalogue supplies every visible label, tag, hint and meter name. Cards reuse `BadgeIcon`; commands reuse `CmdRow`, `CopyButton` and `Toast`.
 
-**Contracts and seams:** consumers mount the picker inside their own card; no route or outer heading is included. `BUILD_MODES` remains the source of exact command strings. `useSyncExternalStore` uses balanced on the server and the existing per-project browser store on the client. Native storage events and the browser-local `mc:build-mode-change` event refresh all mounted pickers. Selection persists before notifying subscribers; the callback receives the actually remembered mode, including balanced when storage fails. Invalid storage retains the existing store's documented preference fallback.
+**Contracts and seams:** consumers mount the picker inside their own card; no route or outer heading is included. `BUILD_MODES` remains the source of exact command strings. `useSyncExternalStore` uses balanced on the server and the existing per-project browser store on the client. Native storage events and the browser-local `mc:build-mode-change` event refresh all mounted pickers. Selection updates session state and attempts persistence before notifying subscribers; the callback receives the active session choice even when storage fails. Invalid storage retains the existing store's documented preference fallback.
 
 **Shared primitive extension:** `CmdRow` gains optional `variant?: "box"`, `copyLabel?: string` and `onCopyResult?: (copied: boolean) => void`, forwarded as optional `accessibleLabel`/`onResult` props to `CopyButton`. Existing callers keep their original label and behavior. This avoids a second command box and lets the picker expose the command-specific copy action and the existing success/failure toast.
 

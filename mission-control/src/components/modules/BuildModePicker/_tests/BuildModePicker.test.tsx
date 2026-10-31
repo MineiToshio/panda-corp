@@ -61,7 +61,7 @@ it("restores only the current project's mode and follows external storage update
   expect(screen.getByRole("button", { name: /^Pro pro/ })).toHaveAttribute("aria-pressed", "true");
 });
 
-it("falls back for corrupt and inaccessible storage, including failed writes", async () => {
+it("defaults for corrupt storage but keeps session selection when storage fails", async () => {
   localStorage.setItem("mc:build-mode:alpha", '{"mode":"deep"}');
   render(<BuildModePicker project="alpha" />);
   expect(screen.getByRole("button", { name: /^Equilibrado/ })).toHaveAttribute(
@@ -75,10 +75,8 @@ it("falls back for corrupt and inaccessible storage, including failed writes", a
     throw new Error("blocked");
   });
   await userEvent.click(screen.getByRole("button", { name: /^Potente/ }));
-  expect(screen.getByRole("button", { name: /^Equilibrado/ })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  expect(screen.getByRole("button", { name: /^Potente/ })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByText("/pandacorp:implement powerful")).toBeInTheDocument();
 });
 
 it("hydrates the default server snapshot without a mismatch then restores the preference", async () => {
@@ -95,4 +93,39 @@ it("hydrates the default server snapshot without a mismatch then restores the pr
   expect(host.textContent).toContain("/pandacorp:implement powerful");
   expect(onRecoverableError).not.toHaveBeenCalled();
   await act(async () => root?.unmount());
+});
+
+it("keeps the selection and callback when the localStorage property itself throws", async () => {
+  const onModeChange = vi.fn();
+  vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
+    throw new DOMException("denied", "SecurityError");
+  });
+  render(<BuildModePicker project="alpha" onModeChange={onModeChange} />);
+  await userEvent.click(screen.getByRole("button", { name: /^Profundo/ }));
+  expect(screen.getByText("/pandacorp:implement deep")).toBeInTheDocument();
+  expect(onModeChange).toHaveBeenCalledWith("deep");
+});
+
+it("refreshes a prior project's session choice when storage changes while another project is open", async () => {
+  const view = render(<BuildModePicker project="alpha" />);
+  await userEvent.click(screen.getByRole("button", { name: /^Potente/ }));
+  view.rerender(<BuildModePicker project="beta" />);
+  act(() => {
+    localStorage.setItem("mc:build-mode:alpha", "deep");
+    window.dispatchEvent(new StorageEvent("storage", { key: "mc:build-mode:alpha" }));
+  });
+  view.rerender(<BuildModePicker project="alpha" />);
+  expect(screen.getByText("/pandacorp:implement deep")).toBeInTheDocument();
+});
+
+it.each([
+  "constructor",
+  "toString",
+  "__proto__",
+])("uses only own session entries for project %s", async (project) => {
+  localStorage.setItem(`mc:build-mode:${project}`, "deep");
+  render(<BuildModePicker project={project} />);
+  expect(screen.getByRole("button", { name: /^Profundo/ })).toHaveAttribute("aria-pressed", "true");
+  await userEvent.click(screen.getByRole("button", { name: /^Potente/ }));
+  expect(screen.getByRole("button", { name: /^Potente/ })).toHaveAttribute("aria-pressed", "true");
 });

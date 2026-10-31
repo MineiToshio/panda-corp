@@ -44,9 +44,11 @@ export interface CmdRowMode {
 export interface CmdRowProps {
   /** The base command string to display and optionally copy. */
   command: string;
-  /** Accessible copy action and result reporting for composed command surfaces. */
+  /** Token-based command box presentation; omitted for the compact row. */
   variant?: "box";
+  /** Accessible name of the copy action. */
   copyLabel?: string;
+  /** Reports whether the clipboard write succeeded. */
   onCopyResult?: (copied: boolean) => void;
   /** If false, suppresses the CopyButton. Defaults to true. */
   copy?: boolean;

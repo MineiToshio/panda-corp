@@ -31,7 +31,7 @@ function isReadOnly(args: readonly string[]): boolean {
     rest.every(
       (arg) =>
         !arg.startsWith("-") ||
-        /^(?:-1|--(?:count|short|verify|show-toplevel|abbrev-ref|is-inside-work-tree|shortstat|stat|name-only|name-status|numstat|no-patch|oneline|reverse|all|date-order|first-parent)|--(?:format|pretty|since|until|max-count|date)=.+|--)$/.test(
+        /^(?:-1|-n|-p|--(?:count|short|verify|show-toplevel|abbrev-ref|is-inside-work-tree|shortstat|stat|name-only|name-status|numstat|no-patch|oneline|reverse|all|date-order|first-parent)|--(?:format|pretty|since|until|max-count|date)=.+|--)$/.test(
           arg,
         ),
     )
@@ -51,7 +51,7 @@ export function runGit(args: readonly string[], cwd = resolveFactoryRoot()): str
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
         timeout: 10_000,
-        maxBuffer: 1024 * 1024,
+        maxBuffer: 256 * 1024 * 1024,
         env: { ...process.env, GIT_OPTIONAL_LOCKS: "0", GIT_PAGER: "cat" },
       })
       .trim();

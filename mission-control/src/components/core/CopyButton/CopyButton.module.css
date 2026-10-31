@@ -1,0 +1,11 @@
+.box {
+  position: relative;
+}
+
+@media (pointer: coarse), (max-width: 640px) {
+  .box::after {
+    content: "";
+    position: absolute;
+    inset: calc(-1 * var(--s1));
+  }
+}

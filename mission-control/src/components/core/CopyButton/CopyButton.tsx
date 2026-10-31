@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Icon } from "@/components/core/Icon/Icon";
+import styles from "./CopyButton.module.css";
 
 /** Duration in milliseconds the "copiado" confirmation is shown before reverting. */
 const REVERT_DELAY_MS = 2_000;
@@ -10,9 +11,11 @@ const REVERT_DELAY_MS = 2_000;
 export interface CopyButtonProps {
   /** The text value to copy to the clipboard when the button is clicked. */
   value: string;
-  /** Accessible action name supplied by command surfaces. */
+  /** Icon-only presentation inside a token-based command box. */
   variant?: "box";
+  /** Accessible action name supplied by command surfaces. */
   accessibleLabel?: string;
+  /** Reports whether the clipboard write succeeded. */
   onResult?: (copied: boolean) => void;
   /** Optional visible label rendered inside the button before the copy icon. */
   label?: string;
@@ -109,6 +112,7 @@ export function CopyButton({
     <button
       type="button"
       data-testid="copy-button"
+      className={variant === "box" ? styles.box : undefined}
       aria-label={copied ? ariaLabel : (accessibleLabel ?? ariaLabel)}
       onClick={handleClick}
       style={

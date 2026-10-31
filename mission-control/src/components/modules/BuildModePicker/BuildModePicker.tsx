@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { Toast } from "@/components/core/Toast/Toast";
 import { getRememberedMode, rememberMode } from "@/lib/build-mode-store";
@@ -10,7 +10,7 @@ import { BuildModeCard, MODE_PRESENTATION } from "./BuildModeCard";
 import styles from "./BuildModePicker.module.css";
 
 const CHANGE_EVENT = "mc:build-mode-change";
-function subscribe(onChange: () => void): () => void {
+function subscribe(onChange: (event: Event) => void): () => void {
   window.addEventListener("storage", onChange);
   window.addEventListener(CHANGE_EVENT, onChange);
   return () => {
@@ -22,6 +22,7 @@ function serverSnapshot(): BuildMode {
   return DEFAULT_BUILD_MODE;
 }
 
+/** Project preference scope and notification of the active session choice. */
 export interface BuildModePickerProps {
   readonly project: string;
   readonly onModeChange?: (mode: BuildMode) => void;
@@ -30,13 +31,38 @@ export interface BuildModePickerProps {
 /** Browser-only preference, shared by the campaign and commands surfaces. */
 export function BuildModePicker({ project, onModeChange }: BuildModePickerProps) {
   const [copyResult, setCopyResult] = useState<boolean | null>(null);
-  const mode = useSyncExternalStore(subscribe, () => getRememberedMode(project), serverSnapshot);
+  const remembered = useSyncExternalStore(
+    subscribe,
+    () => getRememberedMode(project),
+    serverSnapshot,
+  );
+  const [sessionModes, setSessionModes] = useState<Readonly<Record<string, BuildMode>>>({});
+  useEffect(() => {
+    function handleSessionChange(event: Event): void {
+      if (event instanceof CustomEvent) {
+        const { project: changedProject, mode } = event.detail;
+        setSessionModes((current) => ({ ...current, [changedProject]: mode }));
+      } else if (event instanceof StorageEvent) {
+        const key = event.key;
+        if (key !== null && !key.startsWith("mc:build-mode:")) return;
+        setSessionModes((current) => {
+          if (key === null) return {};
+          const next = { ...current };
+          delete next[key.slice("mc:build-mode:".length)];
+          return next;
+        });
+      }
+    }
+    return subscribe(handleSessionChange);
+  }, []);
+  const mode = Object.hasOwn(sessionModes, project) ? sessionModes[project] : remembered;
   const selected = BUILD_MODES.find((item) => item.id === mode);
   if (!selected) throw new Error(`Missing build mode command: ${mode}`);
   function handleSelect(next: BuildMode): void {
+    setSessionModes((current) => ({ ...current, [project]: next }));
     rememberMode(project, next);
-    window.dispatchEvent(new Event(CHANGE_EVENT));
-    onModeChange?.(getRememberedMode(project));
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: { project, mode: next } }));
+    onModeChange?.(next);
   }
   function dismissToast(): void {
     setCopyResult(null);
@@ -59,6 +85,7 @@ export function BuildModePicker({ project, onModeChange }: BuildModePickerProps)
       </fieldset>
       <div className={styles.command} data-testid="mode-cmd">
         <CmdRow
+          key={selected.command}
           variant="box"
           command={selected.command}
           copyLabel={t("common.copy.command", { command: selected.command })}

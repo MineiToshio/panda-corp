@@ -6,6 +6,7 @@ import type { BuildMode } from "@/lib/constants";
 import { t } from "@/lib/copy/copy";
 import styles from "./BuildModePicker.module.css";
 
+/** Display order, icons and power levels for the four build modes. */
 export const MODE_PRESENTATION = [
   { id: "balanced", icon: "layers", power: 2 },
   { id: "pro", icon: "clock", power: 1 },
@@ -13,12 +14,14 @@ export const MODE_PRESENTATION = [
   { id: "deep", icon: "diamond", power: 4 },
 ] as const satisfies readonly { id: BuildMode; icon: IconName; power: number }[];
 
+/** Mode identity, current selection and selection callback for a toggle card. */
 export interface BuildModeCardProps {
   readonly mode: BuildMode;
   readonly pressed: boolean;
   readonly onSelect: (mode: BuildMode) => void;
 }
 
+/** Render one accessible mode toggle using its catalogue labels and presentation. */
 export function BuildModeCard({ mode, pressed, onSelect }: BuildModeCardProps) {
   const presentation = MODE_PRESENTATION.find((item) => item.id === mode);
   if (!presentation) throw new Error(`Unknown build mode: ${mode}`);

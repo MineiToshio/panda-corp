@@ -56,7 +56,7 @@ function snapshotAnswer(
       "log -1 --format=%ct a41c09e2": String(Math.floor(green.getTime() / 1000)),
       "log -1 --format=%cI HEAD": head,
       "log -1 --format=%cI a41c09e2": green.toISOString(),
-      "log -1 --format=%s a41c09e2": "feat(catalog): verified catalog snapshot",
+      "log -1 --format=%s a41c09e2": "feat(catalog): verified catalog snapshot (WO-07-002)",
     };
     const answer = snapshot[command];
     if (answer !== undefined) return answer;

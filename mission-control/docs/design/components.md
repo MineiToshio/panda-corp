@@ -109,7 +109,7 @@ Composed from the rows above; never re-implement a primitive inside one.
 | `PhaseSheet` | Phase sheet below the map: tinted head with number, state chip and prev/next; Descripción; Entra y sale (Lee → Escribe); Equipo; Qué puedes correr with «Siguiente paso · avanza a …». | `src/components/modules/CampaignPipeline/PhaseSheet.tsx` | `.phase-sheet` (config: PhaseSheet) | `phase` | restyle |
 | `TeamMember` | Stage sprite, name, role and one sentence. | `src/components/modules/CampaignPipeline/TeamMember.tsx` | `.tmember` (config: TeamMember) | `member` | new |
 | `BuildModeCard` | Selectable build mode card: icon, tag, 1-4 power meter, hint; Equilibrado preselected (FRD-11). | `src/components/modules/BuildModePicker/BuildModeCard.tsx` | `.mode` (config: BuildModeCard) | `mode`, `pressed` | restyle (`BuildModeSelector`) |
-| `BuildModePicker` | Shared per-project mode cards, remembered browser preference and exact copyable command. | `src/components/modules/BuildModePicker/BuildModePicker.tsx` | `.mode-grid`, `#mode-cmd` | `project`, `onModeChange?`; balanced server snapshot | implemented |
+| `BuildModePicker` | Shared per-project mode cards, session selection with best-effort browser persistence and exact copyable command. Command-box copy stays 36 px visually with a 44 px touch hit area. | `src/components/modules/BuildModePicker/BuildModePicker.tsx` | `.mode-grid`, `[data-testid="mode-cmd"]` | `project`, `onModeChange?`; balanced server snapshot | implemented |
 
 ### Portafolio and project workspace
 

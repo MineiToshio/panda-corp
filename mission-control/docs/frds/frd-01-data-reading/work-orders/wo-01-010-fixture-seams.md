@@ -6,7 +6,7 @@ title: 'WO-01-010 — Fixture seams: injectable clock, git runner and oracle-mod
 status: ACTIVE
 parent: FRD-01
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: low
 reopen_count: 0
 artifacts:
@@ -19,7 +19,7 @@ artifacts:
   - 'package.json'
 source_requirements: [REQ-01-008, REQ-01-011]
 dependsOn: [WO-01-000, WO-01-001]
-last_updated: 2026-10-22
+last_updated: 2026-10-30
 ---
 
 # WO-01-010 Fixture seams: injectable clock, git runner and oracle-mode boot
@@ -186,6 +186,18 @@ WO-01-000 (fixtures harness) and WO-01-001 (`pathExists`, used by the launcher's
 WO-01-011, WO-21-003, WO-03-007, WO-10-016 and every WO that reads time or git.
 
 ## Status Note
+
+**2026-10-30 reviewer gate (PASS at 40c00ab69):** D1 and D2 are closed. `runGit` carried the real
+`docs/frds` patch history (19,385,839 bytes in 1.7 s, identical to git's output after the trim), the
+300 MB fake git stayed bounded as `failed`, and a hanging fake git was classified `timeout` at 10 s. Evidence:
+`src/lib/git/_tests/fixtureSeams.reviewer.test.ts`, `src/lib/clock/_tests/clock.reviewer.test.ts`,
+`src/lib/config/_tests/oracleEnv.reviewer.test.ts`. The gate repair is committed; the note below calling it
+uncommitted is historical. Advisory: `log -p`, like `show`, runs a textconv command the repository's own git
+config defines; flowSeries already does so today, so `runGit` adds no new exposure.
+
+**2026-10-30 gate repair:** the `a41c09e2` fixture subject now carries `WO-07-002`, allowing the snapshot reader to derive FRD-07. The read-only git allowlist admits `-n` and `-p`; the process output bound is 256 MiB, matching the largest report consumer. Expanded boundary tests retain write/escape rejection. Ledger lock acquisition is implemented in `src/app/_actions/snapshotLedger.ts` (before its try/finally), owned by WO-09-006, outside these work orders; it was inspected but not modified, and the live oracle lock lifecycle was not verified without Chromium. Verification results follow below. Changes remain uncommitted on `orch/gate-w0`.
+
+**2026-10-30 verification:** `pnpm exec vitest run src/lib/git src/lib/snapshot src/components/modules/BuildModePicker src/components/core/CopyButton --reporter=dot` passed (13 files, 179 tests, exit 0), including the unchanged reviewer suites. React act warnings and Node's experimental localStorage warning remain in the test output. The first partial gate caught a subscription callback signature mismatch, which was corrected before the final rerun. `bash .pandacorp/verify.sh --only=biome,tsc,knip` then passed (exit 0; all three subgates green; partial scope). Biome reported its pre-existing schema-version info and knip reported nine configuration hints. Browser layout/touch hit testing was not run because Chromium is unavailable in the sandbox. No reviewer test, blessed baseline or decision log was modified.
 
 Implemented dependency-free call-time `now(): Date` / `ClockConfigError`, the read-only
 `runGit(args: readonly string[], cwd?: string): string` boundary and shared `GitError`
