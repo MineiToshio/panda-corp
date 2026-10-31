@@ -1,5 +1,10 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect as baseExpect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+
+// Alias plus canonical replace are two server hops that can exceed 5 s under load; the assertions
+// pin the destination, not its latency.
+const NAVIGATION_TIMEOUT = 60_000;
+const expect = baseExpect.configure({ timeout: NAVIGATION_TIMEOUT });
 
 const WORKSPACE = "/portfolio/mission-control";
 
@@ -47,13 +52,19 @@ test("FRD-25 v2 families: no Party or separate Work orders tab, and every offere
 test("AC-25-009.1: Observability keeps the work orders reachable and detail returns to them", async ({
   page,
 }) => {
-  await gotoHydrated(page, `${WORKSPACE}/observability`, { selector: '[data-testid="tabbar"]' });
+  test.setTimeout(180_000);
+  await gotoHydrated(page, `${WORKSPACE}/observability`, {
+    selector: '[data-testid="tabbar"]',
+    timeout: NAVIGATION_TIMEOUT,
+  });
   await expect(page.getByTestId("wo-board")).toBeVisible();
   await page.getByTestId("wo-card-link").first().click();
   await expect(page.getByTestId("wo-detail")).toBeVisible();
   await page.getByTestId("wo-detail-back").click();
-  await expect.poll(() => new URL(page.url()).pathname).toBe(`${WORKSPACE}/observability`);
-  await expect.poll(() => queryValue(page, "wo")).toBeNull();
+  await expect
+    .poll(() => new URL(page.url()).pathname, { timeout: NAVIGATION_TIMEOUT })
+    .toBe(`${WORKSPACE}/observability`);
+  await expect.poll(() => queryValue(page, "wo"), { timeout: NAVIGATION_TIMEOUT }).toBeNull();
   await expect(page.getByTestId("wo-board")).toBeVisible();
 });
 
