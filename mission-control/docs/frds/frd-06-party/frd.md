@@ -13,7 +13,7 @@ floor: false
 ---
 # FRD-06 — La Fragua (live build view; formerly the Party tab)
 
-A faithful view of the **build** as the v2 engine runs it, shown as the **head of the project's Resumen** (FRD-04). There is no Party tab. The scene has **four stations** (Cola · Taller · Revisión · Bóveda) that hold one **token** per work order, placed by the work order's authoritative frontmatter state; the build agent is a generalist `implementer` orchestrated FRD by FRD by a deterministic script (Dynamic Workflows, DR-013), not a team of specialists chatting live. All communication is by document (the `## Status Note`), never live peer chat. The scene is read-only over the factory.
+A faithful view of the **build** as the v2 engine runs it, shown as the **main scene of the project's Resumen** (FRD-04). There is no Party tab. The scene has **four stations** (Cola · Taller · Revisión · Bóveda) that hold one **token** per work order, placed by the work order's authoritative frontmatter state; the build agent is a generalist `implementer` orchestrated FRD by FRD by a deterministic script (Dynamic Workflows, DR-013), not a team of specialists chatting live. All communication is by document (the `## Status Note`), never live peer chat. The scene is read-only over the factory.
 
 > **Design freeze amendment (2026-10-22, S2.2).** The sprite-per-work-order scene (rooms Forja → Tribunal → Bóveda, parchment, relay, flow strip, bitácora, campamento) was replaced by the approved four-station La Fragua (Órbita iterations 19, 21, 24, 26; contradiction C-08 of `docs/design/freeze/reconciliation.md`). Retired criteria keep their ids in the table below so traceability is preserved; the new behaviour is REQ-06-020. The role/colour set is owned by FRD-13; the pipeline view (La Campaña) by FRD-02.
 
@@ -74,8 +74,8 @@ Stable IDs (DR-049): `REQ-06-MMM` → `AC-06-MMM.K`. The blueprint maps each REQ
 ### REQ-06-019 — Freshness (DR-066)
 - **AC-06-019.7:** THE project's build state SHALL declare its own freshness, never trusting the `running` flag alone (DR-066): WHILE `running` is true and the freshest of the supervisor heartbeat (`status.yaml`) and the latest event is older than the freshness TTL, THE scene, the Inicio card (FRD-18) and the Portafolio card (FRD-03) SHALL replace "Construyendo" with **"Sin señal · último evento hace N"** (state `build-no-signal`, M1 2026-10-22); WHILE the signal is fresh they read as live. The live shell SHALL refresh its RSC-derived structure when the SSE frame's `stateVersion` moves (a build advancing state without emitting an event must not read as dead). The badge is `data-volatile` (DR-088).
 
-### REQ-06-020 — La Fragua at the head of the Resumen (added 2026-10-22, design freeze)
-- **AC-06-020.1** — THE project Resumen SHALL open with the La Fragua scene (there is no Party tab), drawn with the always-dark scene tokens in both light and dark themes.
+### REQ-06-020 — La Fragua as the main scene of the Resumen (added 2026-10-22, design freeze)
+- **AC-06-020.1** — THE Resumen SHALL show the La Fragua scene directly below the upgrade notice (when present) and Siguiente paso, drawn with the always-dark scene tokens in both light and dark themes (there is no Party tab).
 - **AC-06-020.2** — THE scene SHALL state the project verdict as a sentence and a health chip (espera tu decisión, construyendo, en pausa, listo para lanzar or avanzando), and SHALL show a stacked forging bar of verified, review, workshop and queue counts with a text alternative.
 - **AC-06-020.3** — THE scene SHALL show four stations, Cola · Taller · Revisión · Bóveda, each with its count and a sub-label and fixed decorative crews, and SHALL place every work order in the station of its authoritative frontmatter state (AC-06-001.6).
 - **AC-06-020.4** — EACH station SHALL show at most 8 work-order tokens (the FRD number over the order number) followed by "+N", and WHEN a token is hovered or focused THE system SHALL show a card with its code, state, title and FRD.
@@ -102,3 +102,5 @@ Stable IDs (DR-049): `REQ-06-MMM` → `AC-06-MMM.K`. The blueprint maps each REQ
 - Defining the **role colour tokens** themselves (owned by FRD-13) and the shared selectors owned by FRD-12.
 - The **engine event enrichment** itself (the plugin change that emits `frd`/`phase`/`activity`/`mode`) — a documented prerequisite owned by the plugin; this FRD only **consumes** those fields.
 - Any **write / control** of the build: redirecting, pausing or commanding agents happens in the Claude Code app, never here (read-only invariant).
+
+**Sequence reconciliation (2026-10-31).** AC-06-020.1 supersedes the earlier forge-first wording: the approved order is upgrade notice when present, Siguiente paso, La Fragua, then snapshot. La Fragua is the main scene, not the first block.

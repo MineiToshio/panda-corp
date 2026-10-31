@@ -2,7 +2,7 @@
 id: FDD-06
 type: fdd
 slug: la-fragua
-title: La Fragua (live build scene at the head of the project Resumen)
+title: La Fragua (main live build scene of the project Resumen)
 status: ACTIVE
 parent: FRD-06
 ui: true
@@ -16,11 +16,11 @@ prototype_blessed_at: '409a0564'
 
 > Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
 > This is the Órbita design (round 5, iteration 28), frozen from the approved prototype. It describes only what the
-> captured states of `mocks/party.html` draw (DR-130). La Fragua is not a tab: it is the first block of the project
+> captured states of `mocks/party.html` draw (DR-130). La Fragua is not a tab: it is the main scene of the project
 > **Resumen** (FRD-04). The 47 acceptance criteria the FRD retired (the sprite-per-work-order scene, rooms, tribunal,
 > relay, flow strip, parchment, bitácora feed, toast) stay retired and are not specified here.
 
-The scene keeps its own always-dark palette (`--scene-*`, `--map-*`) in both the light and the dark theme (AC-06-020.1). The Resumen content that sits below the scene (the project header, «Siguiente paso», the «Último commit en verde» panel, «Tu turno», «Últimos avances», «Avance por FRD», «Decisiones» and the «Bitácora técnica del motor») belongs to FRD-04 and FRD-14 and is not specified here.
+The scene keeps its own always-dark palette (`--scene-*`, `--map-*`) in both the light and the dark theme (AC-06-020.1). The surrounding Resumen content (the project header, «Siguiente paso» above the scene, the «Último commit en verde» panel, «Tu turno», «Últimos avances», «Avance por FRD», «Decisiones» and the «Bitácora técnica del motor») belongs to FRD-04 and FRD-14 and is not specified here.
 
 ## Screens
 
@@ -28,7 +28,7 @@ One screen: the scene, as the project Resumen draws it. Each row is a captured s
 
 | Screen | Purpose | Oracle state | ACs |
 |---|---|---|---|
-| La Fragua, project with a running build | Answer "how much is left and where" at the top of the Resumen: verdict, forging bar, four stations with tokens, foot chips | `fragua-real` | AC-06-001.6, AC-06-020.1, AC-06-020.2, AC-06-020.3, AC-06-020.4, AC-06-020.7, AC-06-020.8, AC-06-013.4 |
+| La Fragua, project with a running build | Answer "how much is left and where" in the main scene of the Resumen: verdict, forging bar, four stations with tokens, foot chips | `fragua-real` | AC-06-001.6, AC-06-020.1, AC-06-020.2, AC-06-020.3, AC-06-020.4, AC-06-020.7, AC-06-020.8, AC-06-013.4 |
 | La Fragua, running scene | The live cue: crews work and the courier walks between the first and last stations that hold work | `fragua-on` | AC-06-020.6, AC-06-013.3, AC-06-014.1, AC-06-018.5 |
 | La Fragua, token card | Card that opens on a hovered or focused token: code, state, title, one sentence, FRD | `fragua-token-card` | AC-06-002.3, AC-06-020.4 |
 
@@ -60,7 +60,7 @@ From `docs/design/components.md`. Nothing new is introduced by this FRD.
 
 ## Interaction & flow
 
-- Entry: the user opens a project from the Portafolio (FRD-03); the Resumen opens with La Fragua. There is no Party tab (`fragua-real`).
+- Entry: the user opens a project from the Portafolio (FRD-03); La Fragua is the main scene of the Resumen. There is no Party tab (`fragua-real`).
 - The scene is read-only. It has no effort or mode picker and no power, reset, pause or agent control in the shipped view (AC-06-012.1). The prototype's scene-state control is demo-only (DR-061): it is not specified and does not ship. The run effort is not shown on any v2 surface (AC-06-012.3).
 - Station placement follows the work order's frontmatter state, read from the same resolver as Observabilidad (AC-06-001.6); the event stream drives only liveness. A work order sent back by a gate returns to Cola; an event whose work-order field is an FRD id spawns no token and changes no count (AC-06-001.5, behaviour, no picture). In the captured real state the failing order WO-05-005 is drawn in Taller with its «Bloqueado» chip (see `fragua-token-card`).
 - The stacked forging bar (verified, review, workshop, queue) carries a text alternative that lists the four counts (`fragua-real`, AC-06-020.2).

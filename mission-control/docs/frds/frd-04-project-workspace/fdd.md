@@ -18,7 +18,7 @@ prototype_blessed_at: '0e6b7191'
 
 The workspace is what opens from the Portafolio (FRD-03) for one project. Every state below shares one frame: breadcrumb, a project header, the tab bar and the selected tab's content. The header is the full hero on Resumen only and a one-line compact header on every other tab. There are eight tabs, in this order: "Resumen", "Spec", "Observabilidad", "Arquitectura", "Cuentas", "Cambios", "Documentos", "Comandos". There is no Party tab and no work-orders tab.
 
-Owned by other FRDs and only referred to here: La Fragua scene at the head of Resumen (FRD-06), the Observabilidad views (FRD-05 and FRD-12), the Cuentas tab (FRD-26), the Comandos tab and its build-mode picker (FRD-11, captured in FRD-11's `commands` states), the Spec and Arquitectura digests and the data-model viewer (FRD-02).
+Owned by other FRDs and only referred to here: La Fragua scene as the main scene of Resumen (FRD-06), the Observabilidad views (FRD-05 and FRD-12), the Cuentas tab (FRD-26), the Comandos tab and its build-mode picker (FRD-11, captured in FRD-11's `commands` states), the Spec and Arquitectura digests and the data-model viewer (FRD-02).
 
 ## Screens
 
@@ -124,7 +124,7 @@ prototype_blessed_at: 0e6b7191
 
 ## Structural fidelity correction (2026-10-31)
 
-Avance por FRD shows its total and Ver todos footer only when there are more than eight rows, matching `prototype.js:833`. The established upgrade notice, La Fragua and Siguiente paso order is unchanged. Spec uses the shared band headers and source-document actions described by FRD-02.
+Avance por FRD shows its total and Ver todos footer only when there are more than eight rows, matching `prototype.js:833`. The approved order is upgrade notice, right-aligned Siguiente paso, La Fragua and snapshot; this supersedes the earlier forge-first implementation note. Spec uses the shared band headers and source-document actions described by FRD-02.
 
 Component tests and static checks are recorded in the decision log. Browser fidelity, themes and overflow still require the attended Claude reviewer; no visual baseline was edited.
 
@@ -138,3 +138,11 @@ prototype_blessed_at: 0e6b7191
 FileReadErrors reuses the coral Notice with each relative path and localized reason, wrapping long
 paths on phones. Valid lists remain below the notice. Incomplete project totals show "N archivos sin
 leer" instead of a progress fraction/ring. Lista's source-error links are visibly underlined.
+
+### Lane H visual reconciliation (2026-10-31)
+
+Workspace Spec hides the visible digest eyebrow, including unpublished state, and exposes PRD completo as a button-styled document link. Desktop FRD cards form four columns (two on tablet, one on phone), with violet ID, kind on the right, de-prefixed title, and state bar plus done/total count. Bars order done, review, in_progress, fail, todo. Summary uses a terminal badge and trailing raw-log hint in its collapsed log header, uppercase forge eyebrow, green Ver todos with arrow, and mobile hero phase segments without clipped visual labels.
+
+### Independent-review corrections (2026-10-31)
+
+Spec notice and bands are separated by s6. The unpublished notice uses layers and exposes flag PRD completo plus search Research when their documents exist. FRD codes use mono fcode treatment, and progress counts use text-2. The Summary engine log uses a Space Grotesk h2 and slate small BadgeIcon; its hint reuses hide-sm. Ver todos has its own green, base-size, weight-600 class so decision links retain their original treatment. Empty FRD rows keep a zero-state track. Siguiente paso always pairs a command with its when sentence, including pre-build phases and complete construction with queued changes.

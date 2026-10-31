@@ -117,7 +117,7 @@ export function ProjectHero({ project, headingLevel }: ProjectHeroProps): React.
           </div>
         )}
       </div>
-      <PhaseStepper phase={project.phase} />
+      <PhaseStepper phase={project.phase} hideLabelsOnMobile />
     </header>
   );
 }

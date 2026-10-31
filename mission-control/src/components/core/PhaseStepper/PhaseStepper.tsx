@@ -6,6 +6,7 @@ export interface PhaseStepperProps {
   /** Current phase id; an unknown or absent phase leaves every segment pending. */
   readonly phase: string | undefined;
   readonly compact?: boolean;
+  readonly hideLabelsOnMobile?: boolean;
 }
 
 type StepState = "past" | "current" | "next";
@@ -16,13 +17,23 @@ function stateOf(index: number, current: number): StepState {
 }
 
 /** Six-segment phase progress: past, current and pending are told by text (screen readers, tooltip) as well as hue. */
-export function PhaseStepper({ phase, compact = false }: PhaseStepperProps): React.JSX.Element {
+export function PhaseStepper({
+  phase,
+  compact = false,
+  hideLabelsOnMobile = false,
+}: PhaseStepperProps): React.JSX.Element {
   const current = PHASES.indexOf(phase as Phase);
   const currentId = PHASES[current];
   const currentLabel = t(currentId ? PHASE_PRESENTATION[currentId].labelKey : "common.phases.none");
   return (
     <ol
-      className={["stepper", styles.stepper, compact && "compact", compact && styles.compact]
+      className={[
+        "stepper",
+        styles.stepper,
+        hideLabelsOnMobile && styles.mobileSegments,
+        compact && "compact",
+        compact && styles.compact,
+      ]
         .filter(Boolean)
         .join(" ")}
       aria-label={t("common.phaseSteps.aria", { phase: currentLabel })}

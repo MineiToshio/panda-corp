@@ -4,7 +4,7 @@ import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
 import styles from "./reportBand.module.css";
 
 /** Labels and tones follow the live frontmatter state normalized by the work-order reader. */
-export const ORDER_STATES = {
+const ORDER_STATES = {
   todo: { label: t("common.workOrderStates.todo"), tone: "slate" },
   in_progress: { label: t("common.workOrderStates.inProgress"), tone: "blue" },
   review: { label: t("common.workOrderStates.review"), tone: "violet" },

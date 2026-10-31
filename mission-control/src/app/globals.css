@@ -771,3 +771,10 @@ pre,
 [id^="card-detail-panel-"] > article {
   min-width: 0;
 }
+
+/* Shared narrow-screen hint visibility, matching the approved prototype. */
+@media (max-width: 759px) {
+  .hide-sm {
+    display: none !important;
+  }
+}

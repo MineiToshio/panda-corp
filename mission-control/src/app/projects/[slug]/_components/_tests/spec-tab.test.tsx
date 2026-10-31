@@ -36,6 +36,7 @@ const selection = {
 describe("workspace shared Spec", () => {
   it("keeps both unpublished lines in order in one notice without FRDs", () => {
     render(<TabSpec body="" title="Unpublished" project="unpublished" nodes={[]} frds={[]} />);
+    expect(screen.queryByText("Resumen del spec", { exact: true })).toBeNull();
     const notice = screen.getByRole("status");
     const title = within(notice).getByText("El spec todavía no está publicado.");
     const body = within(notice).getByText("Su PRD y sus FRDs reales siguen disponibles.");
@@ -69,6 +70,7 @@ describe("workspace shared Spec", () => {
     expect(screen.getByRole("article", { name: "Resumen del spec" })).toHaveTextContent(
       "FRDs · las piezas del v1 (1)",
     );
+    expect(screen.queryByText("Resumen del spec", { exact: true })).toBeNull();
     const link = screen.getByRole("link", { name: "Documento del producto" });
     expect(link).toHaveAttribute(
       "href",
@@ -92,4 +94,46 @@ describe("workspace shared Spec", () => {
     expect(screen.getByText("El spec todavía no está publicado.")).toBeVisible();
     expect(screen.getByText("Su PRD y sus FRDs reales siguen disponibles.")).toBeVisible();
   });
+});
+
+it("offers a button-styled PRD link when the workspace digest is unpublished", () => {
+  render(
+    <TabSpec
+      body=""
+      title="Unpublished"
+      project="demo"
+      navigationBaseHref="/portfolio/demo/spec"
+      nodes={[
+        { id: "product-prd", label: "prd.md", group: "Product", relPath: "docs/product/prd.md" },
+      ]}
+      frds={[]}
+    />,
+  );
+  expect(screen.getByRole("link", { name: "PRD completo" })).toHaveAttribute("data-size", "sm");
+  expect(screen.queryByText("Resumen del spec", { exact: true })).toBeNull();
+});
+
+it("offers the Research action when an unpublished project has its source document", () => {
+  render(
+    <TabSpec
+      body=""
+      title="Unpublished"
+      project="demo"
+      navigationBaseHref="/portfolio/demo/spec"
+      nodes={[
+        {
+          id: "research",
+          label: "research.md",
+          group: "Product",
+          relPath: "docs/product/research.md",
+        },
+      ]}
+      frds={[]}
+    />,
+  );
+  expect(screen.getByRole("link", { name: "Research" })).toHaveAttribute(
+    "href",
+    "/portfolio/demo/documents/research",
+  );
+  expect(screen.queryByRole("link", { name: "PRD completo" })).toBeNull();
 });

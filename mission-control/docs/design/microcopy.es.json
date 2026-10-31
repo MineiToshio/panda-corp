@@ -98,7 +98,8 @@
       "aria": "Ruta"
     },
     "stackbar": {
-      "item": "{count} {state}"
+      "item": "{count} {state}",
+      "empty": "Sin work orders"
     },
     "newTab": {
       "srSuffix": " (se abre en una pestaña nueva)"
@@ -648,6 +649,9 @@
       "nextStep": {
         "label": "Siguiente paso:",
         "implementOne": "Sigue la construcción: queda 1 work order abierta.",
+        "implementChanges": "Sigue la construcción: hay cambios pendientes de construir.",
+        "implementContinue": "Continúa o reanuda la construcción",
+        "reviewProject": "Revisa el estado del proyecto antes de continuar.",
         "implementMany": "Sigue la construcción: quedan {count} work orders abiertas.",
         "release": "Estable · en operación: revisa cómo va el lanzamiento."
       },

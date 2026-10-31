@@ -60,6 +60,15 @@ export const WORK_ORDER_STATE_PRESENTATION = {
   blocked: { tone: "coral", icon: "alert", labelKey: "common.workOrderStates.blocked" },
 } as const satisfies Record<WorkOrderState, Presentation>;
 
+/** Completed work first in progress stacks; independent of filter/board ordering. */
+export const WORK_ORDER_STACK_STATES = [
+  "done",
+  "review",
+  "in_progress",
+  "blocked",
+  "todo",
+] as const satisfies readonly WorkOrderState[];
+
 const UNKNOWN_STATE = {
   tone: "slate",
   icon: "dot",

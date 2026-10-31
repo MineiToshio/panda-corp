@@ -21,7 +21,11 @@ export function StackBar({ segments }: StackBarProps): React.JSX.Element {
     .map((segment) => t("common.stackbar.item", { count: segment.count, state: segment.label }))
     .join(", ");
   return (
-    <div className={`stackbar ${styles.stack}`} role="img" aria-label={summary}>
+    <div
+      className={`stackbar ${styles.stack}`}
+      role="img"
+      aria-label={summary || t("common.stackbar.empty")}
+    >
       {shown.map((segment) => (
         <span
           key={segment.label}

@@ -1,5 +1,9 @@
 import { Card, CardFoot, CardHeader } from "@/components/core/Card/Card";
-import { WORK_ORDER_STATE_PRESENTATION } from "@/components/core/Chip/vocabulary";
+import {
+  WORK_ORDER_STACK_STATES,
+  WORK_ORDER_STATE_PRESENTATION,
+} from "@/components/core/Chip/vocabulary";
+import { Icon } from "@/components/core/Icon/Icon";
 import { StackBar } from "@/components/core/ProgressBar/StackBar";
 import { t } from "@/lib/copy/copy";
 import type { ProjectFrd } from "@/lib/frds/frd-index";
@@ -54,20 +58,15 @@ export function FrdProgress({
                       <strong>
                         <code>{frd.code}</code> {frd.title}
                       </strong>
-                      {frd.children.length ? (
-                        <StackBar
-                          segments={Object.entries(WORK_ORDER_STATE_PRESENTATION).map(
-                            ([state, presentation]) => ({
-                              label: t(presentation.labelKey),
-                              tone: presentation.tone,
-                              count: frd.children.filter(
-                                (order) =>
-                                  (order.state === "fail" ? "blocked" : order.state) === state,
-                              ).length,
-                            }),
-                          )}
-                        />
-                      ) : null}
+                      <StackBar
+                        segments={WORK_ORDER_STACK_STATES.map((state) => ({
+                          label: t(WORK_ORDER_STATE_PRESENTATION[state].labelKey),
+                          tone: WORK_ORDER_STATE_PRESENTATION[state].tone,
+                          count: frd.children.filter(
+                            (order) => (order.state === "fail" ? "blocked" : order.state) === state,
+                          ).length,
+                        }))}
+                      />
                     </div>
                     <span className={styles.meta}>
                       {frd.done}/{frd.children.length}
@@ -82,10 +81,11 @@ export function FrdProgress({
                   {t("workspace.resumen.frdProgress.total", { count: frds.length })}
                 </span>
                 <a
-                  className={styles.link}
+                  className={styles.seeAll}
                   href={navigationHref(navigationBaseHref, { tab: "observability", frd: null })}
                 >
                   {t("workspace.resumen.frdProgress.seeAll")}
+                  <Icon name="arrow" size="sm" />
                 </a>
               </CardFoot>
             )}

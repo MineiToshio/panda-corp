@@ -339,3 +339,7 @@ mission-control/src/app/projects/[slug]/_components/version-freshness/version-fr
 mission-control/src/app/projects/[slug]/_components/version-freshness/version-freshness.tsx
 mission-control/src/app/projects/[slug]/_panels/ResumenPanel.tsx
 ```
+
+### Superseded sequence ruling (2026-10-31)
+
+The recorded forge-first precedence ruling and copied AC-06-020.1 above are superseded by the reconciled FRD-06 AC-06-020.1: upgrade notice when present, Siguiente paso, La Fragua, snapshot. The work order remains historical evidence; its earlier sequence must not be reused as the current contract. The reviewer-owned e2e/resumen-fragua.reviewer.spec.ts forge-first assertion requires integration review.

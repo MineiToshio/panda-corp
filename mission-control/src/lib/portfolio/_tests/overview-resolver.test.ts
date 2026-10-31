@@ -113,6 +113,7 @@ describe("AC-03-008.1: canonical overview", () => {
   });
   it("advances a completely verified implementation to release", () => {
     vi.mocked(aggregateProgress).mockReturnValue({ done: 5, total: 5, pct: 100 });
+    vi.mocked(countOpenChanges).mockReturnValue({ ok: true, count: 0, errors: [] });
     expect(getProjectOverview()[0]?.nextCommand).toBe("/pandacorp:release");
   });
   it("keeps a missing folder, omits all counts, and never calls project readers or git", () => {
@@ -165,4 +166,9 @@ it("DR-115 DR-078: a partial strict plan exposes file failures and withholds exa
     orderErrors: [{ file: "docs/frds/frd-03/work-orders/wo-03-002.md" }],
     nextCommand: "/pandacorp:implement",
   });
+});
+
+it("keeps verified construction on implement while queued changes remain", () => {
+  vi.mocked(aggregateProgress).mockReturnValue({ done: 5, total: 5, pct: 100 });
+  expect(getProjectOverview()[0]?.nextCommand).toBe("/pandacorp:implement");
 });

@@ -3,6 +3,7 @@ import { resolveProjectPath } from "@/lib/config/config";
 import { t } from "@/lib/copy/copy";
 import { listProjectFrds } from "@/lib/frds/frd-index";
 import { readIdeas } from "@/lib/ideas/ideas";
+import { workspaceCommands } from "@/lib/next-step/next-step";
 import { getProjectOverview, type ProjectOverviewItem } from "@/lib/portfolio/overview";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 import { getServicesDirectory } from "@/lib/services/services";
@@ -90,13 +91,27 @@ export const loadWorkspaceProject = cache((item: ProjectListItem) => {
 });
 export type WorkspaceProject = ReturnType<typeof loadWorkspaceProject>;
 
-function nextSentence(overview: ProjectOverviewItem): string | null {
+function nextSentence(overview: ProjectOverviewItem): string {
   if (overview.phase === "release") return t("workspace.resumen.nextStep.release");
-  const { ordersTotal: total, ordersVerified: done } = overview.counts;
-  if (overview.phase !== "implementation" || total === null || done === null || total <= done)
-    return null;
-  const remaining = total - done;
-  return remaining === 1
-    ? t("workspace.resumen.nextStep.implementOne")
-    : t("workspace.resumen.nextStep.implementMany", { count: remaining });
+  const { ordersTotal: total, ordersVerified: done, openChanges } = overview.counts;
+  if (overview.phase === "implementation" && overview.nextCommand === "/pandacorp:implement") {
+    if (total !== null && done !== null && total > done) {
+      const remaining = total - done;
+      return remaining === 1
+        ? t("workspace.resumen.nextStep.implementOne")
+        : t("workspace.resumen.nextStep.implementMany", { count: remaining });
+    }
+    return t(
+      openChanges
+        ? "workspace.resumen.nextStep.implementChanges"
+        : "workspace.resumen.nextStep.implementContinue",
+    );
+  }
+  if (overview.phase) {
+    const row = workspaceCommands(overview.phase).find(
+      (row) => row.command === overview.nextCommand,
+    );
+    if (row) return row.when;
+  }
+  return t("workspace.resumen.nextStep.reviewProject");
 }

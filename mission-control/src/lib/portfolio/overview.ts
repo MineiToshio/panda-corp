@@ -148,7 +148,9 @@ function overviewItem(item: ProjectListItem, nowIso: string): ProjectOverviewIte
         : item.stage === "implementation" &&
             (counts.ordersTotal === null ||
               counts.ordersVerified === null ||
-              counts.ordersVerified < counts.ordersTotal)
+              counts.ordersVerified < counts.ordersTotal ||
+              counts.openChanges === null ||
+              counts.openChanges > 0)
           ? "/pandacorp:implement"
           : nextStep({ cardStatus: "in-pipeline", phase: item.stage }).command,
   };

@@ -4,9 +4,11 @@
   min-width: 0;
 }
 .next {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: var(--s2);
-  max-width: calc(var(--s12) * 13);
 }
 .next p {
   margin: 0;
@@ -112,4 +114,24 @@
   .action {
     order: -1;
   }
+}
+
+.logTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font: 700 var(--fs-h3) / 1.25 var(--font-display);
+}
+.logHint {
+  margin-left: auto;
+  color: var(--text-2);
+  font-weight: 400;
+}
+.seeAll {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--green);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
 }

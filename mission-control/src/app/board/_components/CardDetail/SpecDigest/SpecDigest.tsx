@@ -29,6 +29,7 @@ import { BlockContent } from "./BlockContent";
 export interface SpecDigestProps {
   /** Hide the default notice when the workspace provides its linked notice. */
   readonly showUnpublishedNotice?: boolean;
+  readonly showEyebrow?: boolean;
   readonly body: string;
   readonly title: string;
   readonly projectType?: string;
@@ -47,6 +48,7 @@ export interface SpecDigestProps {
 export function SpecDigest({
   body,
   showUnpublishedNotice = true,
+  showEyebrow = true,
   title,
   projectType,
   targetPlatforms,
@@ -67,12 +69,15 @@ export function SpecDigest({
   const base = digestNavigationBase(navigationBaseHref, project);
   return (
     <article data-testid="card-detail-spec" aria-label={t("workspace.spec.eyebrow")}>
-      <SpecHero
-        spec={spec}
-        title={title}
-        projectType={projectType}
-        targetPlatforms={targetPlatforms}
-      />
+      {(spec.hasContent || showUnpublishedNotice) && (
+        <SpecHero
+          showEyebrow={showEyebrow}
+          spec={spec}
+          title={title}
+          projectType={projectType}
+          targetPlatforms={targetPlatforms}
+        />
+      )}
       {showUnpublishedNotice && !spec.hasContent && !frds?.length && (
         <Notice icon="book">{t("workspace.spec.notPublished.title")}</Notice>
       )}
@@ -127,7 +132,7 @@ export function SpecDigest({
           tone="violet"
           icon="book"
         >
-          <div className={styles.grid}>
+          <div className={styles.frdGrid}>
             {cards.map((frd) => (
               <FrdCard
                 key={frd.id}
@@ -169,11 +174,13 @@ export function SpecDigest({
 }
 
 function SpecHero({
+  showEyebrow,
   spec,
   title,
   projectType,
   targetPlatforms,
 }: {
+  showEyebrow: boolean;
   spec: ReturnType<typeof parseSpec>;
   title: string;
   projectType?: string;
@@ -181,7 +188,7 @@ function SpecHero({
 }): React.JSX.Element {
   return (
     <DigestHero
-      eyebrow={t("workspace.spec.eyebrow")}
+      eyebrow={showEyebrow ? t("workspace.spec.eyebrow") : undefined}
       title={spec.proyecto ?? title}
       lead={spec.intro}
       chips={

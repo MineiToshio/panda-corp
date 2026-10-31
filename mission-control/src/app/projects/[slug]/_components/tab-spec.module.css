@@ -1,0 +1,12 @@
+.root {
+  display: grid;
+  gap: var(--s6);
+  min-width: 0;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}

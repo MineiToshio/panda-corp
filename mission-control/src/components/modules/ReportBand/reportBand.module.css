@@ -308,3 +308,48 @@
 .envFold[open] > summary > svg {
   transform: rotate(90deg);
 }
+
+.frdGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s3);
+}
+.frdHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+.frdProgress {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.frdProgress > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.frdProgress > :last-child {
+  white-space: nowrap;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+@media (max-width: 1023px) {
+  .frdGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 599px) {
+  .frdGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.fcode {
+  font: 600 var(--fs-xs) / 1 var(--font-mono);
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) var(--tint), transparent);
+  padding: var(--s1) calc(var(--s2) - var(--hairline));
+  border-radius: var(--r-xs);
+  flex: none;
+}

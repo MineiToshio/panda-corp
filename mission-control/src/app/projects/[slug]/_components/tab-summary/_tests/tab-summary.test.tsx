@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 describe("Resumen composition", () => {
-  it("AC-04-014.3 AC-06-020.1: mounts La Fragua from project facts before the copyable next step, without another main", () => {
+  it("AC-04-014.3 AC-06-020.1: mounts La Fragua from project facts after the copyable next step, without another main", () => {
     const project = {
       ...fixture.project(),
       counts: { ...fixture.project().counts, openChanges: 3 },
@@ -51,8 +51,8 @@ describe("Resumen composition", () => {
     expect(screen.getByText(/Último movimiento/)).not.toHaveTextContent("sin registro");
     expect(
       screen
-        .getByText("La Fragua · Display Name")
-        .compareDocumentPosition(screen.getByText("Siguiente paso:")) &
+        .getByText("Siguiente paso:")
+        .compareDocumentPosition(screen.getByText("La Fragua · Display Name")) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
@@ -96,7 +96,9 @@ describe("Resumen composition", () => {
     expect(rows[0]).toHaveTextContent("FRD-02 Feature 2");
     expect(rows[0]).toHaveTextContent("0/1");
     expect(rows[0]).toHaveAttribute("href", "/projects/demo/observability?frd=FRD-02");
-    expect(screen.getByRole("img")).toHaveAccessibleName("1 En revisión");
+    expect(screen.getByRole("img", { name: "1 En revisión" })).toHaveAccessibleName(
+      "1 En revisión",
+    );
     expect(screen.getByText("10 FRDs en total")).toBeVisible();
     expect(screen.getByRole("link", { name: "Ver todos" })).toHaveAttribute(
       "href",
@@ -198,4 +200,45 @@ it("DR-078: malformed source files are named beside valid FRD progress and recen
   expect(screen.getByRole("link", { name: /FRD-01 Reading/ })).toBeVisible();
   expect(screen.getByRole("link", { name: /Valid recent change/ })).toBeVisible();
   expect(screen.queryByText(/19\/25|76%/)).not.toBeInTheDocument();
+});
+
+it("orders mixed FRD stacks from completed to pending", () => {
+  const states = ["todo", "fail", "in_progress", "review", "done"] as const;
+  render(
+    <FrdProgress
+      frds={[{ slug: "frd-01-test", code: "FRD-01", title: "Test" }]}
+      orders={states.map((state, i) => ({
+        id: `WO-01-${i}`,
+        title: state,
+        state,
+        frd: "frd-01-test",
+        relPath: `${i}.md`,
+      }))}
+      navigationBaseHref="/projects/demo/summary"
+    />,
+  );
+  expect(screen.getByRole("img")).toHaveAccessibleName(
+    "1 Verificado, 1 En revisión, 1 En curso, 1 Bloqueado, 1 Planificado",
+  );
+});
+
+it("AC-04-014.3: explains the next command before any orders exist", () => {
+  state.items = [{ ...fixture.item, stage: "architecture" }];
+  const project = fixture.project();
+  expect(project.nextStep).toEqual({
+    command: "/pandacorp:implement",
+    sentence: "Inicia la implementación del proyecto",
+  });
+});
+
+it("AC-04-014.4: keeps an empty state track for an FRD without orders", () => {
+  render(
+    <FrdProgress
+      frds={[{ slug: "frd-01-empty", code: "FRD-01", title: "Empty" }]}
+      orders={[]}
+      navigationBaseHref="/projects/demo/summary"
+    />,
+  );
+  expect(screen.getByRole("img")).toBeVisible();
+  expect(screen.getByText("0/0")).toBeVisible();
 });

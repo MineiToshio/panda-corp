@@ -1,3 +1,4 @@
+import { BadgeIcon } from "@/components/core/BadgeIcon/BadgeIcon";
 import { Card, CardHeader } from "@/components/core/Card/Card";
 import { CountPill } from "@/components/core/Chip/CountPill";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
@@ -62,17 +63,6 @@ export function TabSummary({
       className={styles.root}
     >
       <VersionFreshness state={overlayFreshness} projectName={project.name} />
-      {orders.error ? (
-        <SourceError source={orders.error} />
-      ) : (
-        <FraguaScene
-          project={{ slug: project.slug, name: project.name, path: project.projectPath }}
-          openChanges={project.counts.openChanges}
-          ownerPending={ownerTurn.count}
-          lastActivityAt={project.lastMove}
-          frds={project.frds}
-        />
-      )}
       {project.nextStep.command ? (
         <div className={styles.next}>
           <p>
@@ -85,6 +75,17 @@ export function TabSummary({
           />
         </div>
       ) : null}
+      {orders.error ? (
+        <SourceError source={orders.error} />
+      ) : (
+        <FraguaScene
+          project={{ slug: project.slug, name: project.name, path: project.projectPath }}
+          openChanges={project.counts.openChanges}
+          ownerPending={ownerTurn.count}
+          lastActivityAt={project.lastMove}
+          frds={project.frds}
+        />
+      )}
       <SnapshotPanel
         slug={project.folder}
         projectName={project.name}
@@ -154,11 +155,16 @@ export function TabSummary({
       {activityLog.entries.length ? (
         <details className={styles.log} data-tone="slate">
           <summary>
-            <Icon name="activity" size="sm" />
-            {t("workspace.resumen.engineLog.title")}
-            <CountPill count={activityLog.entries.length} />
+            <h2 className={styles.logTitle}>
+              <BadgeIcon icon="terminal" size="sm" tone="slate" />
+              {t("workspace.resumen.engineLog.title")}
+              <CountPill count={activityLog.entries.length} />
+            </h2>
+            <span className={`hide-sm ${styles.logHint}`}>
+              {t("workspace.resumen.engineLog.hint")}
+            </span>
+            <Icon name="chevD" size="sm" />
           </summary>
-          <p className={styles.meta}>{t("workspace.resumen.engineLog.hint")}</p>
           <ul>
             {logEntries.map(({ id, entry }) => (
               <li key={id}>

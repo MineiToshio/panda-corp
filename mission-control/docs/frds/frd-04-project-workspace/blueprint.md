@@ -24,7 +24,7 @@ The project workspace is what opens for one project from the Portafolio, the sid
 picker. v2 rebuilds it on the Órbita contract: one frame (crumbs, `ProjectHero` on Resumen and
 `ProjectHeroCompact` elsewhere, the eight-tab bar with count badges) and eight panels (Resumen · Spec ·
 Observabilidad · Arquitectura · Cuentas · Cambios · Documentos · Comandos). There is no Party tab (La
-Fragua heads the Resumen, FRD-06) and no Work orders tab (work orders are Observabilidad's views,
+Fragua is the main scene of the Resumen, FRD-06) and no Work orders tab (work orders are Observabilidad's views,
 FRD-05). FRD-04 owns the frame, the panel contract, the Spec / Arquitectura / Cuentas mounts, the Resumen,
 Cambios and Documentos panels and the decision reader fix; Observabilidad (FRD-05/12) and Comandos
 (FRD-11) are mounted through the panel contract and rewritten by their own work orders.
@@ -331,3 +331,7 @@ cards render those notices beside valid data. Global overview exposes `orderErro
 workspace headers and Lista display the unread-file count instead of a fabricated exact percentage.
 `FileReadErrors` reuses Notice, wraps long paths, and localizes parser reasons through microcopy.
 Lista links to source errors remain underlined at all widths.
+
+### Next-command explanation correction (2026-10-31)
+
+The shared overview keeps implement while orders are unfinished, source counts are unknown, or the change queue is non-empty. Only known-complete construction with no open changes recommends release. WorkspaceProject pairs that authoritative command with its phase-command when sentence; construction uses remaining-order or queued-change copy, and no next-command sentence is empty.

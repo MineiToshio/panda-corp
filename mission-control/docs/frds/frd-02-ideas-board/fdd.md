@@ -211,3 +211,7 @@ remains the only scroll authority; pointer and keyboard navigation share this be
 the graph, the viewer visibly asks the user to use search or Schema; titles remain at least 12px.
 The existing localized model query values, including `?model=Esquema`, are unchanged; migrating
 those values to English is a separate CONV-18 change.
+
+### Shared FRD card clarification (2026-10-31, lane H)
+
+The shared FrdCard presents its ID in a violet chip, kind at the opposite edge, and title without a repeated FRD ID prefix. Once construction starts, its state stack reads done, review, in_progress, fail, todo, with a done/total count alongside. Workspace-specific four-column placement and digest-header visibility belong to FRD-04. Board Spec retains its existing digest eyebrow.

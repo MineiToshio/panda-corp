@@ -49,3 +49,9 @@
 .compact .label {
   display: none;
 }
+
+@media (max-width: 759px) {
+  .mobileSegments .label {
+    display: none;
+  }
+}

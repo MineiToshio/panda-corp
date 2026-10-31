@@ -8,14 +8,14 @@ export function DigestHero({
   lead,
   chips,
 }: {
-  readonly eyebrow: string;
+  readonly eyebrow?: string;
   readonly title: string;
   readonly lead?: ReactNode;
   readonly chips?: ReactNode;
 }): React.JSX.Element {
   return (
     <header className={`dhero ${styles.hero}`}>
-      <p className={styles.eyebrow}>{eyebrow}</p>
+      {eyebrow && <p className={styles.eyebrow}>{eyebrow}</p>}
       {title && <h2>{title}</h2>}
       {lead && <div className={styles.lead}>{lead}</div>}
       <div className={styles.chips}>{chips}</div>

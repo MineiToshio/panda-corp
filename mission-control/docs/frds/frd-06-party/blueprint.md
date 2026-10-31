@@ -21,7 +21,7 @@ last_updated: 2026-10-22
 
 ## Purpose
 
-La Fragua v2 is a four-station scene at the head of the project **Resumen** (FRD-04 mounts it; there is no Party
+La Fragua v2 is a four-station scene as the main scene of the project **Resumen** (FRD-04 mounts it; there is no Party
 tab). It answers "how much is left and where": a verdict sentence and health chip, a stacked forging bar, the
 stations **Cola · Taller · Revisión · Bóveda** holding one token per work order placed by its **frontmatter state**
 (the same reader as Observabilidad), live crews and a courier only while the build is live, and foot chips. Events
@@ -132,7 +132,7 @@ Retired criteria (FRD table «Retired by the Órbita redesign») are owned by no
   primitives (WO-13-012, W2) and the clock (WO-01-010, W2) exist; its other edges are VERIFIED or W0.
 - **Disjoint by design:** WO-06-013 writes only `_components/Fragua/**`, `src/lib/fragua/**` and the
   `FreshnessBadge` module; no other W3 work order touches them (map §3.2).
-- **Integration:** WO-04-010 (W5) deletes the v1 scene; WO-04-011 (W6) mounts `FraguaScene` at the head of the
+- **Integration:** WO-04-010 (W5) deletes the v1 scene; WO-04-011 (W6) mounts `FraguaScene` as the main scene of the
   Resumen; WO-18-002 (W5) reuses `buildSignal` / `FreshnessBadge` for AC-06-019.7.
 - **Reconciliation (2026-10-22, binding).** WO-06-013 stays W3 (author C's request to move it to W4 behind
   WO-04-013 is declined: WO-03-007 (W4) and WO-18-002 (W5) consume `buildSignal()` / `FreshnessBadge`, and the move
