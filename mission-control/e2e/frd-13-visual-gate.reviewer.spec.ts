@@ -6,7 +6,10 @@ import { SURFACES } from "./routes";
 // the real surfaces in both themes. Motion is reduced before axe runs, because a card caught mid
 // entrance reports a contrast its settled colour does not have (LESSON-0047).
 const THEMES = ["light", "dark"] as const;
-const NUMERIC_TEXT = /^[\d\s.,:/%+-]+$/;
+// REQ-13-003: figures are tabular only by explicit style; prose and the prototype's display
+// exceptions stay proportional, so neither side may leak through a global rule.
+const TABULAR_REQUIRED = "td, time, .tabular-nums";
+const PROPORTIONAL_REQUIRED = "html, body, main, main p:not(.tabular-nums), .num, .chip";
 
 async function open(page: Page, path: string, theme: (typeof THEMES)[number]): Promise<void> {
   await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
@@ -43,7 +46,7 @@ for (const surface of SURFACES) {
     expect(running).toEqual([]);
   });
 
-  test(`no text below 12 px and tabular figures · ${surface.id}`, async ({ page }) => {
+  test(`no text below 12 px and explicit tabular figures · ${surface.id}`, async ({ page }) => {
     await open(page, surface.path, "dark");
     const failures = await page.evaluate(() => {
       const scaleOf = (element: Element): number => {
@@ -62,7 +65,7 @@ for (const surface of SURFACES) {
         const hidden = style.visibility === "hidden" || style.display === "none";
         return hidden || parent.getBoundingClientRect().width <= 1 ? null : parent;
       };
-      const found: { text: string; where: string; size: number; tabular: boolean }[] = [];
+      const found: { text: string; where: string; size: number }[] = [];
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       while (walker.nextNode()) {
         const parent = rendered(walker.currentNode);
@@ -72,7 +75,6 @@ for (const surface of SURFACES) {
           text: walker.currentNode.textContent?.trim().slice(0, 30) ?? "",
           where: `${parent.tagName}.${parent.className}`,
           size: Number.parseFloat(style.fontSize) * scaleOf(parent),
-          tabular: style.fontVariantNumeric.includes("tabular-nums"),
         });
       }
       for (const label of document.querySelectorAll<SVGTextElement>("svg text")) {
@@ -83,19 +85,34 @@ for (const surface of SURFACES) {
           text: label.textContent.trim().slice(0, 30),
           where: "svg text",
           size: Number.parseFloat(style.fontSize) * Math.hypot(matrix.a, matrix.b),
-          tabular: style.fontVariantNumeric.includes("tabular-nums"),
         });
       }
       return found;
     });
     const small = failures.filter(({ size }) => size < 11.95);
-    const proportional = failures.filter(
-      ({ text, tabular }) => NUMERIC_TEXT.test(text) && /\d/.test(text) && !tabular,
-    );
     expect(
       small.map(({ text, where, size }) => `${size.toFixed(1)}px ${text} in ${where}`),
     ).toEqual([]);
-    expect(proportional.map(({ text, where }) => `${text} in ${where}`)).toEqual([]);
+    const figures = await page.evaluate(
+      ({ tabular, proportional }) => {
+        const named = (element: Element): string =>
+          `${element.tagName}.${element.getAttribute("class") ?? ""}`;
+        const isTabular = (element: Element): boolean =>
+          getComputedStyle(element).fontVariantNumeric.includes("tabular-nums");
+        const withDigits = [...document.querySelectorAll(tabular)].filter((element) =>
+          /\d/.test(element.textContent ?? ""),
+        );
+        return {
+          notTabular: withDigits.filter((element) => !isTabular(element)).map(named),
+          notProportional: [...document.querySelectorAll(proportional)]
+            .filter(isTabular)
+            .map(named),
+        };
+      },
+      { tabular: TABULAR_REQUIRED, proportional: PROPORTIONAL_REQUIRED },
+    );
+    expect(figures.notTabular).toEqual([]);
+    expect(figures.notProportional).toEqual([]);
   });
 
   test(`no request leaves the machine · ${surface.id}`, async ({ page, baseURL }) => {

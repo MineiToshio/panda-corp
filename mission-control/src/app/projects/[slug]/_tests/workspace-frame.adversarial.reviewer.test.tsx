@@ -181,7 +181,7 @@ describe("WO-04-010 digest mounts (DR-078)", () => {
     for (const tab of ["spec", "architecture"]) {
       const { unmount } = render(await openStandalone(`/projects/frame-fixture/${tab}`));
       expect(screen.getByTestId("workspace-tab-body").textContent).toMatch(
-        /unexpected end of the stream/,
+        /docs\/frds\/frd-01-x\/work-orders\/wo-01-001-a\.md: malformed YAML frontmatter/,
       );
       unmount();
     }

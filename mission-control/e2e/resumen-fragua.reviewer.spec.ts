@@ -1,6 +1,6 @@
 /**
  * FRD-04 / FRD-06 / FRD-14 gate (reviewer-authored, DR-015, DR-080): first browser proof of La Fragua
- * at the head of Resumen, plus the mount's liveness, links and limits on both Playwright projects.
+ * in Resumen, right after Siguiente paso, plus the mount's liveness, links and limits on both Playwright projects.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -63,7 +63,7 @@ const scene = (page: Page) => body(page).locator("section.fragua");
 test.beforeEach(restore);
 test.afterEach(restore);
 
-test("AC-06-020.1 REQ-04-004: La Fragua opens the panel body, before Siguiente paso", async ({
+test("AC-06-020.1 REQ-04-004: Siguiente paso opens the panel body, before La Fragua", async ({
   page,
 }) => {
   await open(page);
@@ -72,7 +72,7 @@ test("AC-06-020.1 REQ-04-004: La Fragua opens the panel body, before Siguiente p
     const next = [...panel.querySelectorAll("strong")].find(
       (node) => node.textContent === "Siguiente paso:",
     );
-    return fragua && next ? fragua.compareDocumentPosition(next) & 4 : 0;
+    return fragua && next ? next.compareDocumentPosition(fragua) & 4 : 0;
   });
   expect(order).toBeGreaterThan(0);
 });
@@ -298,6 +298,13 @@ test("AC-20-001.1 AC-20-004.1: a behind overlay shows the copy-only notice with 
   await expect(notice).toContainText("v8.110.0");
   await expect(notice).toContainText("Córrelo en la carpeta de Mission Control");
   await expect(notice.getByRole("button", { name: "Copiar /pandacorp:upgrade" })).toBeVisible();
+  const next = body(page).getByText("Siguiente paso:", { exact: true });
+  await expect(next).toBeVisible();
+  const opensPanel = await notice.evaluate(
+    (node, target) => (target ? node.compareDocumentPosition(target) & 4 : 0),
+    await next.elementHandle(),
+  );
+  expect(opensPanel).toBeGreaterThan(0);
 });
 
 test("AC-20-001.2 AC-20-001.3: an equal, newer or unknown overlay shows nothing", async ({

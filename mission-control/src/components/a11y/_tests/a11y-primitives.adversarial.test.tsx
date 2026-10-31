@@ -445,20 +445,24 @@ describe("ADVERSARIAL R5: LiveRegion announces without stealing focus", () => {
 });
 
 // ---------------------------------------------------------------------------
-// R6 — TABULAR_NUMS integration: the GLOBAL base on html means even an
-//      unclassed number gets tabular figures, but a numeric element that the
-//      app marks with TABULAR_NUMS_CLASS must not be defeated by an inline
-//      override. Pin that the constant is the Tailwind token (so the utility
-//      actually sets the property) and never carries an inline reset.
+// R6 — TABULAR_NUMS integration: prose never inherits tabular figures from a
+//      global rule, and `.num`/`.chip` stay proportional like the prototype. A
+//      numeric element marked with TABULAR_NUMS_CLASS must not be defeated by an
+//      inline override. Pin that the explicit rule sets the property and that
+//      the constant never carries an inline reset.
 // ---------------------------------------------------------------------------
-describe("ADVERSARIAL R6: tabular-nums base + opt-in are not silently defeated", () => {
-  it("globals.css sets font-variant-numeric: tabular-nums on the html base (every number, even unclassed)", () => {
+describe("ADVERSARIAL R6: explicit tabular-nums opt-in is not silently defeated", () => {
+  it("globals.css sets tabular-nums on explicit selectors only, never on the html base or with !important", () => {
     const html = GLOBALS_CSS.match(/html\s*\{[^}]*\}/);
     expect(html, "globals.css must have an html { … } rule").not.toBeNull();
     expect(
-      /font-variant-numeric:\s*tabular-nums/.test(html?.[0] ?? ""),
-      "AC-13-003.1: the html base must set font-variant-numeric: tabular-nums so EVERY number is tabular.",
-    ).toBe(true);
+      /font-variant-numeric/.test(html?.[0] ?? ""),
+      "AC-13-003.1: the html base must not impose tabular figures on prose.",
+    ).toBe(false);
+    expect(GLOBALS_CSS).not.toMatch(/font-variant-numeric:[^;}]*!important/);
+    expect(GLOBALS_CSS).toMatch(
+      /td,\s*time,\s*\.tabular-nums\s*\{\s*font-variant-numeric:\s*tabular-nums/,
+    );
   });
 
   it("a numeric element carrying TABULAR_NUMS_CLASS has no inline font-variant-numeric reset", () => {

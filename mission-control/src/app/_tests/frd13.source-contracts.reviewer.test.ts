@@ -133,10 +133,34 @@ describe("FRD-13 source contracts", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("REQ-13-003: the body's font shorthand does not reset the tabular figures html sets", () => {
+  it("REQ-13-003: tabular figures are explicit, never a global or !important rule", () => {
     const css = CSS.find(({ name }) => name === "app/globals.css")?.text ?? "";
-    const body = /^body \{([\s\S]*?)^\}/m.exec(css)?.[1] ?? "";
-    expect(body).toMatch(/font-variant-numeric:\s*tabular-nums/);
+    const rules = [...css.matchAll(/^([^\s@{}/][^{}]*)\{([^{}]*)\}/gm)].map((match) => ({
+      selectors: (match[1] ?? "").split(",").map((selector) => selector.trim()),
+      body: match[2] ?? "",
+    }));
+    const inRule = (selector: string) =>
+      rules.filter(({ selectors }) => selectors.includes(selector)).map(({ body }) => body);
+    const TABULAR = /font-variant-numeric:\s*tabular-nums/;
+    for (const selector of [
+      "*",
+      "html",
+      "body",
+      "body *",
+      "::before",
+      "::after",
+      ".num",
+      ".chip",
+    ]) {
+      expect(inRule(selector).join("\n"), selector).not.toMatch(TABULAR);
+    }
+    for (const selector of ["td", "time", ".tabular-nums"]) {
+      expect(inRule(selector).join("\n"), selector).toMatch(TABULAR);
+    }
+    const important = CSS.filter(({ text }) =>
+      /font-variant-numeric:[^;}]*!important/.test(text),
+    ).map(({ name }) => name);
+    expect(important).toEqual([]);
   });
 
   it("AC-13-010.2: no inline font-size can fall below the 12 px floor", () => {

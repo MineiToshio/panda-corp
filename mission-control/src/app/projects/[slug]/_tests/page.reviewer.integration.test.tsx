@@ -4,7 +4,7 @@
  * Unlike page.reviewer.test.tsx (which mocks lib/docs, lib/status, lib/portfolio),
  * this suite wires the workspace page to the REAL `lib/docs` readers against a
  * fixture project tree on disk. Only `lib/portfolio` (slug → path) and
- * `lib/status` (status.yaml shape) are mocked, because the reviewer's intent is
+ * `lib/status` (status.yaml shape) are mocked; work orders are real files because the reviewer's intent is
  * to exercise WO-04-001 (docs/tree/activity readers) + WO-04-004/005/006/007
  * (shell + tabs) TOGETHER, through `page.tsx`, the way a real navigation would.
  *
@@ -49,10 +49,6 @@ const statusState = {
   version: "1.0.0",
 };
 
-/** Work orders returned by the mocked listWorkOrders(), the header progress source (DR-115). */
-let mockWorkOrders: { id: string; title: string; frd: string; state: string; relPath: string }[] =
-  [];
-
 vi.mock("@/lib/portfolio/portfolio", () => {
   const projects = () => [
     {
@@ -78,25 +74,19 @@ vi.mock("@/lib/status/status", () => ({
   }),
 }));
 
-vi.mock("@/lib/work-orders/work-orders", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/work-orders/work-orders")>()),
-  listWorkOrders: () => mockWorkOrders,
-  readWorkOrderDoc: () => null,
-}));
-
-/** Build N "done" + M "todo" work orders for the header progress edge-case tests. */
-function buildWorkOrders(done: number, total: number) {
-  const orders: { id: string; title: string; frd: string; state: string; relPath: string }[] = [];
+/** Publish N verified + M planned work orders on disk, the header progress source (DR-115). */
+function writeWorkOrders(done: number, total: number): void {
+  const folder = path.join(fixtureRoot, "docs", "frds", "frd-01-x", "work-orders");
+  fs.rmSync(folder, { recursive: true, force: true });
+  fs.mkdirSync(folder, { recursive: true });
   for (let i = 0; i < total; i++) {
-    orders.push({
-      id: `WO-01-${String(i).padStart(3, "0")}`,
-      title: `WO ${i}`,
-      frd: "frd-01-x",
-      state: i < done ? "done" : "todo",
-      relPath: `docs/frds/frd-01-x/work-orders/wo-01-${String(i).padStart(3, "0")}.md`,
-    });
+    const id = String(i).padStart(3, "0");
+    const state = i < done ? "VERIFIED" : "PLANNED";
+    fs.writeFileSync(
+      path.join(folder, `wo-01-${id}-x.md`),
+      `---\nid: WO-01-${id}\nimplementation_status: ${state}\n---\n# WO-01-${id} — WO ${i}\n`,
+    );
   }
-  return orders;
 }
 
 // Imported AFTER the mocks above so the page picks them up.
@@ -139,7 +129,7 @@ beforeEach(() => {
   statusState.project = "Fixture";
   statusState.phase = "implementation";
   statusState.version = "1.0.0";
-  mockWorkOrders = buildWorkOrders(2, 4);
+  writeWorkOrders(2, 4);
 });
 
 function renderPage(searchParams: Record<string, string> = {}) {
@@ -216,7 +206,7 @@ describe("FRD-04 reviewer — Summary tab real comms integration", () => {
 
 describe("FRD-04 reviewer: compact header numeric edges", () => {
   it("shows the no-orders fallback, never 0/0, when no work order exists (AC-04-014.1)", async () => {
-    mockWorkOrders = [];
+    writeWorkOrders(0, 0);
     render(await renderPage({ tab: "commands" }));
     const header = screen.getByTestId("project-hero-compact");
     expect(header.textContent).not.toContain("0/0");

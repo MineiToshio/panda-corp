@@ -62,7 +62,7 @@ describe("FRD-17 gate: the proposals page composes the full feature surface", ()
       "href",
       "/proposals/backlog",
     );
-    expect(screen.getByText("La memoria se revisa sola")).toBeVisible();
+    expect(screen.getByText("La memoria se revisa sola.")).toBeVisible();
   });
 
   it("an unreadable memory store is a named error on its card, never zero (blueprint Contracts)", () => {
@@ -70,6 +70,6 @@ describe("FRD-17 gate: the proposals page composes the full feature surface", ()
     write("factory/memory", "not a directory");
     render(<ProposalsPage />);
     expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
-    expect(screen.queryByText("La memoria se revisa sola")).toBeNull();
+    expect(screen.queryByText("La memoria se revisa sola.")).toBeNull();
   });
 });

@@ -420,19 +420,21 @@ describe("frd-13/wo-13-003: AC-13-003.1 — parametric: each number category use
 });
 
 // ---------------------------------------------------------------------------
-// 9. AC-13-003.1 — globals.css sets tabular-nums on html {}
-//    The global rule satisfies AC-13-003.1 site-wide (TABULAR_NUMS_CLASS is
-//    an explicit opt-in on top of it, but the base must always be present).
+// 9. AC-13-003.1 — tabular-nums is an explicit style, never the html base
+//    Prose keeps proportional figures (the approved prototype); numbers and
+//    tabular data opt in through `td`, `time` and TABULAR_NUMS_CLASS.
 // ---------------------------------------------------------------------------
 
-describe("frd-13/wo-13-003: AC-13-003.1 — globals.css sets tabular-nums on html {}", () => {
-  it("frd-13: globals.css contains a rule that sets font-variant-numeric: tabular-nums on html", () => {
-    // Matches `html { … font-variant-numeric: tabular-nums … }` — whitespace-tolerant.
-    const hasRule = /html\s*\{[^}]*font-variant-numeric\s*:\s*tabular-nums/s.test(GLOBALS_CSS);
+describe("frd-13/wo-13-003: AC-13-003.1 — tabular-nums is explicit in globals.css", () => {
+  it("frd-13: globals.css keeps html free of tabular-nums and sets it on td, time and the class", () => {
+    expect(GLOBALS_CSS).not.toMatch(/html\s*\{[^}]*font-variant-numeric/s);
+    const hasRule = new RegExp(
+      `td,\\s*time,\\s*\\.${TABULAR_NUMS_CLASS}\\s*\\{\\s*font-variant-numeric\\s*:\\s*tabular-nums`,
+    ).test(GLOBALS_CSS);
     expect(
       hasRule,
-      "globals.css must set `font-variant-numeric: tabular-nums` in the `html {}` rule " +
-        "so every number on the page is tabular site-wide (AC-13-003.1).",
+      "globals.css must set `font-variant-numeric: tabular-nums` on `td`, `time` and " +
+        "`.tabular-nums` so numbers and tabular data stay aligned (AC-13-003.1).",
     ).toBe(true);
   });
 });
