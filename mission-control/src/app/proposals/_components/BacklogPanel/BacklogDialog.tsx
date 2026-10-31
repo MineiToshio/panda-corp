@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/core/Button/Button";
 import { Modal } from "@/components/core/Modal/Modal";
 import { Notice } from "@/components/core/Notice/Notice";
@@ -27,14 +27,13 @@ export function BacklogDialog({
   const [result, action, pending] = useActionState(
     async (_previous: { ok: boolean; reason?: string } | null, data: FormData) => {
       const result = await discardBacklogAction(item.id, data.get("reason"));
+      // Close before the revalidated tree commits: its item-path key would remount this panel.
+      if (result.ok) onDiscarded();
       return result;
     },
     null,
   );
   const error = result && !result.ok ? result.reason : null;
-  useEffect(() => {
-    if (!pending && result?.ok) onDiscarded();
-  }, [pending, result, onDiscarded]);
   return (
     <Modal
       open

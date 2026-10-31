@@ -157,7 +157,7 @@ test("activation: a token opens the order in Observabilidad through the FRD-25 c
 }) => {
   await open(page);
   await scene(page).locator('[data-wo="WO-01-001"]').click();
-  await expect(page).toHaveURL(/\/portfolio\/mission-control\/observability\?(.*&)?wo=WO-01-001/, {
+  await expect(page).toHaveURL(/\/projects\/mission-control\/observability\?(.*&)?wo=WO-01-001/, {
     timeout: 30_000,
   });
   await expect(page.locator("main")).toContainText("WO-01-001");
@@ -202,7 +202,7 @@ test("AC-06-014.1 AC-06-018.5: reduced motion stops crews and courier, keeping a
   await page.setViewportSize({ width: 1280, height: 900 });
   await open(page);
   await expect(scene(page)).toContainText("El equipo está trabajando");
-  await expect(scene(page).getByText("Construyendo ahora")).toBeVisible();
+  await expect(scene(page)).toContainText("construyéndose");
   await expect(scene(page).locator(".fr-route")).toBeHidden();
   await expect(scene(page).locator(".fr-courier")).toBeHidden();
   const names = await scene(page)

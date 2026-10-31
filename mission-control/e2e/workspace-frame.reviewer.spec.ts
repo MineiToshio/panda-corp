@@ -23,7 +23,7 @@ test("WO-04-010: the /projects/<slug> alias settles server-side and keeps keyboa
   await expect(page).toHaveURL(/\/projects\/mission-control\/summary$/);
   const tab = page.getByRole("tab", { name: "Resumen" });
   await tab.focus();
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("load");
   await expect(tab).toBeFocused();
   await expect(page.getByRole("tab", { name: "Resumen" })).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(/\/summary$/);
@@ -35,7 +35,7 @@ test("WO-04-010: the project switcher dialog survives the alias landing", async 
   await page.getByRole("button", { name: "Cambiar proyecto" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("load");
   await expect(dialog).toBeVisible();
   await expect(dialog.locator("input").first()).toBeFocused();
 });

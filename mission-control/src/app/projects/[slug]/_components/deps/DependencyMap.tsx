@@ -18,7 +18,7 @@ export function DependencyMap({
   });
   return (
     <NavigationSeedProvider href={href}>
-      <DependencyCanvas data={loadDependencyMap(project.path)} route={route} />
+      <DependencyCanvas data={loadDependencyMap(project.path)} />
     </NavigationSeedProvider>
   );
 }

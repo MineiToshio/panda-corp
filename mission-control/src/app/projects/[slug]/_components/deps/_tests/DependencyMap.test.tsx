@@ -14,6 +14,7 @@ it("AC-12-004.1: the self-loading map renders real work orders and seeds route s
       path.join(folder, "wo-01-001.md"),
       "---\nid: WO-01-001\nimplementation_status: PLANNED\ndependsOn: []\n---\n# First\n",
     );
+    window.history.replaceState(null, "", "/portfolio/demo/observability?dag=wo&focus=WO-01-001");
     render(
       <DependencyMap
         project={{ slug: "demo", path: root }}

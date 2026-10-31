@@ -10,10 +10,11 @@ import { TabBar } from "../tabbar";
 import { WorkOrderDetail } from "../wo-detail/wo-detail";
 import { WoViews } from "../wo-views/WoViews";
 
-const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
+const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", async (actual) => ({
   ...(await actual<typeof import("next/navigation")>()),
   useRouter: () => navigation,
+  usePathname: () => window.location.pathname,
   useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 vi.mock("@/hooks/useLiveSnapshot", () => ({
@@ -121,12 +122,13 @@ describe("persistent project workspace navigation", () => {
   it("rejects unknown work orders and documents instead of opening an unrelated default", () => {
     const item = projects[1];
     if (!item) throw new Error("Missing project fixture");
+    setUrl("/portfolio/selected-project/observability?wo=WO-01-999");
     render(
       ProjectWorkspace({
         item,
         selection: {
           activeTab: "observability",
-          woParam: "WO-missing",
+          woParam: "WO-01-999",
           woTabParam: "summary",
           docParam: undefined,
         },

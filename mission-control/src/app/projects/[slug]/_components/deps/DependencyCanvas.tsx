@@ -14,14 +14,8 @@ import type { DependencyMapData } from "./data";
 import { useDependencySelection } from "./useDependencySelection";
 
 /** URL-owned selections over server-computed geometry. Highlighting never recomputes placement. */
-export function DependencyCanvas({
-  data,
-  route = {},
-}: {
-  data: DependencyMapData;
-  route?: { dag?: string; focus?: string; frd?: string };
-}): React.JSX.Element {
-  const selection = useDependencySelection(data, route);
+export function DependencyCanvas({ data }: { data: DependencyMapData }): React.JSX.Element {
+  const selection = useDependencySelection(data);
   const {
     level,
     setDag,

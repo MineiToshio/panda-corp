@@ -92,7 +92,7 @@ describe("AC-12-006.1 scoped FRD carried from the Por FRD select into Dependenci
       "",
       "/portfolio/demo/observability?view=deps&dag=wo&frd=FRD-01",
     );
-    render(<DependencyCanvas data={data} route={{ dag: "wo", frd: "frd-01-a" }} />);
+    render(<DependencyCanvas data={data} />);
     expect(screen.getByRole("combobox")).toHaveValue("frd-01-a");
     expect(document.querySelector('[data-wo="WO-02-001"]')).toBeNull();
   });

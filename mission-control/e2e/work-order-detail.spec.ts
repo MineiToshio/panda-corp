@@ -11,6 +11,7 @@ test("AC-05-008.4 source summary, full document, reload and filter-preserving re
   await expect(page.getByRole("heading", { name: "Cómo se comprueba" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Ficha", exact: true })).toBeVisible();
   await expect(page.getByRole("list", { name: "Avance de la work order" })).toBeVisible();
+  await expect(page).toHaveURL(/woview=summary/);
   await page.getByRole("tab", { name: "Documento completo" }).click();
   await expect(page).toHaveURL(/woview=full/);
   await page.reload();

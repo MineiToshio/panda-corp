@@ -41,7 +41,9 @@ test("AC-04-014.5: decision dialog holds context, traps focus and returns it to 
   await gotoHydrated(page, "/projects/mission-control/summary", {
     selector: '[data-testid="tab-summary"] button',
   });
-  const opener = page.getByRole("button", { name: /Should we add Playwright e2e tests/ });
+  const opener = page
+    .getByRole("button", { name: /Should we add Playwright e2e tests/ })
+    .and(page.locator(".lrow"));
   await opener.click();
   const dialog = page.getByRole("dialog", { name: "Should we add Playwright e2e tests?" });
   await expect(dialog).toBeVisible();

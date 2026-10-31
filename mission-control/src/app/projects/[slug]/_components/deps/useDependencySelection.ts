@@ -4,13 +4,10 @@ import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
 import { selectedFrd } from "../wo-views/selection";
 import type { DependencyMapData } from "./data";
 /** Selection and chain state only; every geometry is supplied by the server. */
-export function useDependencySelection(
-  data: DependencyMapData,
-  route: { dag?: string; focus?: string; frd?: string },
-) {
-  const [dag, setDag] = useUrlState("dag", route.dag ?? "frd"),
-    [frdValue, setFrd] = useUrlState("frd", route.frd ?? ""),
-    [selected, setFocus] = useUrlState("focus", route.focus ?? "");
+export function useDependencySelection(data: DependencyMapData) {
+  const [dag, setDag] = useUrlState("dag", "frd"),
+    [frdValue, setFrd] = useUrlState("frd", ""),
+    [selected, setFocus] = useUrlState("focus", "");
   const [hover, setHover] = useState("");
   const level = dag === "wo" ? "wo" : "frd";
   const frd = selectedFrd(data.frds, frdValue);
@@ -36,7 +33,7 @@ export function useDependencySelection(
     setHover("");
   }
   function handleOpen(id: string): void {
-    updateNavigation({ wo: id });
+    updateNavigation({ wo: id, woview: "summary" });
   }
   function handleFrd(slug: string): void {
     updateNavigation({ dag: "wo", frd: slug, focus: null });

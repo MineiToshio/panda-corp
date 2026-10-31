@@ -18,9 +18,6 @@ const ACTIVE: readonly [RegExp, string][] = [
 
 // Transition ledger (blueprint "Risk: nested <main>"): v1 pages not yet rebuilt on PageHead. An
 // entry leaves here with its surface work order; any other surface growing a main is RED.
-const TRANSIENT_NESTED_MAIN: Readonly<Record<string, number>> = {
-  "/projects/mission-control": 1, // WO-04-011 (tab-summary)
-};
 
 // The first client navigation to a route compiles it in `next dev`, far slower under a loaded gate.
 const NAVIGATION_TIMEOUT_MS = 15_000;
@@ -67,7 +64,7 @@ for (const surface of SURFACES) {
       await page.mouse.move(width / 2, 450);
       await page.mouse.wheel(200, 0);
       expect(await page.evaluate(() => window.scrollX)).toBe(0);
-      await expect(page.locator("main main")).toHaveCount(TRANSIENT_NESTED_MAIN[surface.path] ?? 0);
+      await expect(page.locator("main main")).toHaveCount(0);
       expect(errors).toEqual([]);
     });
   }

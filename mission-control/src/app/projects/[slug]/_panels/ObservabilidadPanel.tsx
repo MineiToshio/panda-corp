@@ -9,63 +9,61 @@ import { WoDetail } from "../_components/wo-detail/WoDetail";
 import { WorkOrderEmpty } from "../_components/wo-empty/wo-empty";
 import { selectedFrd } from "../_components/wo-views/selection";
 import { WoNavigationRefresh } from "../_components/wo-views/WoNavigationRefresh";
+import { WoSelection } from "../_components/wo-views/WoSelection";
 import { WoViews } from "../_components/wo-views/WoViews";
 import { WoLiveRefresh } from "../_observability/WoLiveRefresh/wo-live-refresh";
 import type { PanelProps } from "./types";
 /** One server data set and one live subscriber across lists, dependencies and the detail. */
 export default function ObservabilidadPanel({ project, route }: PanelProps): React.JSX.Element {
-  let body: React.ReactNode;
-  if (route.woParam)
-    body = (
-      <WoDetail
-        project={project}
-        woId={route.woParam}
-        view={route.woTabParam === "full" ? "Documento completo" : "Resumen"}
-        navigationBaseHref={route.navigationBaseHref}
-      />
+  const detail = route.woParam ? (
+    <WoDetail
+      project={project}
+      woId={route.woParam}
+      view={route.woTabParam === "full" ? "Documento completo" : "Resumen"}
+      navigationBaseHref={route.navigationBaseHref}
+    />
+  ) : null;
+  let views: React.ReactNode;
+  const orders = readArtifact(() => readPublishedWorkOrders(project.projectPath), []);
+  const frds = readArtifact(() => listProjectFrds(project.projectPath), []);
+  if (orders.error || frds.error)
+    views = (
+      <Notice icon="alert" kind="error">
+        {t("inicio.worktrees.unreadable")}
+        <code>{orders.error ? "docs/frds/*/work-orders/" : "docs/frds/"}</code>
+      </Notice>
     );
+  else if (!orders.value.length) views = <WorkOrderEmpty />;
   else {
-    const orders = readArtifact(() => readPublishedWorkOrders(project.projectPath), []);
-    const frds = readArtifact(() => listProjectFrds(project.projectPath), []);
-    if (orders.error || frds.error)
-      body = (
-        <Notice icon="alert" kind="error">
-          {t("inicio.worktrees.unreadable")}
-          <code>{orders.error ? "docs/frds/*/work-orders/" : "docs/frds/"}</code>
-        </Notice>
-      );
-    else if (!orders.value.length) body = <WorkOrderEmpty />;
-    else {
-      const drifts = Object.fromEntries(
-        frds.value.map((frd) => [frd.slug, readFrdDrift(project.projectPath, frd.slug)]),
-      );
-      body = (
-        <WoViews
-          orders={orders.value}
-          frds={frds.value}
-          drifts={drifts}
-          href={route.navigationBaseHref}
-          state={route.state}
-        >
-          {route.state.view === "deps" && (
-            <DependencyMap
-              project={{ slug: project.slug, path: project.projectPath }}
-              route={{
-                dag: route.state.dag,
-                focus: route.state.focus,
-                frd: selectedFrd(frds.value, route.state.frd) || undefined,
-              }}
-            />
-          )}
-        </WoViews>
-      );
-    }
+    const drifts = Object.fromEntries(
+      frds.value.map((frd) => [frd.slug, readFrdDrift(project.projectPath, frd.slug)]),
+    );
+    views = (
+      <WoViews
+        orders={orders.value}
+        frds={frds.value}
+        drifts={drifts}
+        href={route.navigationBaseHref}
+        state={route.state}
+      >
+        {route.state.view === "deps" && (
+          <DependencyMap
+            project={{ slug: project.slug, path: project.projectPath }}
+            route={{
+              dag: route.state.dag,
+              focus: route.state.focus,
+              frd: selectedFrd(frds.value, route.state.frd) || undefined,
+            }}
+          />
+        )}
+      </WoViews>
+    );
   }
   return (
     <>
       <WoLiveRefresh project={project.folder} />
       <WoNavigationRefresh wo={route.woParam} />
-      {body}
+      <WoSelection wo={route.woParam} detail={detail} views={views} />
     </>
   );
 }

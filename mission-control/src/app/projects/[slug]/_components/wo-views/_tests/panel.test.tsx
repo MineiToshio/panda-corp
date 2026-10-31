@@ -81,6 +81,7 @@ describe("AC-12-002.1 AC-12-002.2 AC-12-002.3 server mounts", () => {
     expect(screen.queryByText(/La Fragua|Línea de tiempo|RPG/)).not.toBeInTheDocument();
   });
   it("mounts the detail with full-view selection and filter context instead of unrelated lists", () => {
+    window.history.replaceState(null, "", "/portfolio/demo/observability?wo=WO-01-001");
     render(
       <ObservabilidadPanel
         {...props}
@@ -96,7 +97,7 @@ describe("AC-12-002.1 AC-12-002.2 AC-12-002.3 server mounts", () => {
       }),
     );
     expect(screen.getAllByTestId("live")).toHaveLength(1);
-    expect(source.orders).not.toHaveBeenCalled();
+    window.history.replaceState(null, "", "/");
   });
   it("fails loud on a malformed work-order source instead of drawing empty or invented data", async () => {
     const { readPublishedWorkOrders: actualReader } = await vi.importActual<

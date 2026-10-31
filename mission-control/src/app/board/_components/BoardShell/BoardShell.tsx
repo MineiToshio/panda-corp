@@ -127,10 +127,10 @@ export function BoardShell({ cards, favoriteAction }: BoardShellProps): React.JS
   // ----------------------------------------------------------
   function handleCardClick(slug: string): void {
     const card = cards.find((entry) => entry.slug === slug);
-    router.push(navigationHref("/board", { idea: card?.navigationSlug ?? slug }));
-    // Close any overlay (only one at a time): intake + the discarded-ideas modal.
+    // Close overlays first: a shallow URL write after router.push would cancel the navigation.
     setIntakeOpen(false);
-    setDiscardedOpen(false);
+    updateNavigation({ discarded: null }, { replace: true });
+    router.push(navigationHref("/board", { idea: card?.navigationSlug ?? slug }));
   }
 
   function handleClearFilters(): void {
