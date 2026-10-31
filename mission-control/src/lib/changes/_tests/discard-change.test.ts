@@ -166,3 +166,28 @@ describe("discardChange — error paths", () => {
     expect(result).toEqual({ ok: false, reason: "not-found" });
   });
 });
+
+it("REQ-04-008: reason and status preserve comments, quotes, body and sibling bytes", () => {
+  const raw =
+    "---\r\n# keep comment\r\nstatus: ready\r\ntitle: 'Keep quotes'\r\n---\r\n\r\n# Body without final newline";
+  const file = writeChange("reason.md", raw);
+  const sibling = writeChange("sibling.md", READY_ITEM);
+  expect(discardChange(projectPath, "reason", ' A "reason"\nnext line ')).toEqual({ ok: true });
+  const result = fs.readFileSync(file, "utf8");
+  expect(result).toContain("# keep comment\r\nstatus: discarded\r\ntitle: 'Keep quotes'");
+  expect(readFrontmatter(file).discard_reason).toBe('A "reason"\nnext line');
+  expect(result).toMatch(/# Body without final newline$/);
+  expect(fs.readFileSync(sibling, "utf8")).toBe(READY_ITEM);
+});
+it("REQ-04-008: reason guards reject oversized and non-string input without writes", () => {
+  const file = writeChange("guard.md", READY_ITEM);
+  expect(discardChange(projectPath, "guard", "x".repeat(2001))).toEqual({
+    ok: false,
+    reason: "parse-error",
+  });
+  expect(discardChange(projectPath, "guard", 12 as unknown as string)).toEqual({
+    ok: false,
+    reason: "parse-error",
+  });
+  expect(fs.readFileSync(file, "utf8")).toBe(READY_ITEM);
+});

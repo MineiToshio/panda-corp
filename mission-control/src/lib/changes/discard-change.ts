@@ -7,8 +7,7 @@ import matter from "gray-matter";
  *
  * One of Mission Control's small, bounded set of writes (architecture §1/§7, ADR-0002):
  * mirrors `lib/discard/discard.ts` (the idea-card discard write) exactly, scoped instead
- * to a project's `.pandacorp/inbox/changes/` queue. Rewrites exactly one frontmatter
- * field — `status: discarded` — of one change-queue item, preserving the body and all
+ * to a project's `.pandacorp/inbox/changes/` queue. Rewrites status and discard metadata in one change-queue item, preserving the body and all
  * other frontmatter fields verbatim. Only `ready`/`draft` items may be discarded; a
  * `done` (already shipped) or already-`discarded` item is refused (`not-discardable`).
  *
@@ -46,34 +45,26 @@ export type DiscardChangeResult =
  *          `{ ok: false, reason: "not-discardable" }` when the item's current status is
  *          `done` or already `discarded`; the file is left untouched.
  */
-export function discardChange(projectPath: string, id: string): DiscardChangeResult {
+export function discardChange(
+  projectPath: string,
+  id: string,
+  reason?: string,
+): DiscardChangeResult {
+  if (typeof projectPath !== "string" || !path.isAbsolute(projectPath))
+    return { ok: false, reason: "not-found" };
   const dir = path.join(projectPath, ".pandacorp", "inbox", "changes");
 
   // Guard: empty id → not-found immediately (no fs access).
-  if (id === "") {
+  if (typeof id !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(id)) {
     return { ok: false, reason: "not-found" };
   }
+
+  if (reason !== undefined && (typeof reason !== "string" || reason.length > 2000))
+    return { ok: false, reason: "parse-error" };
 
   const filePath = path.join(dir, `${id}.md`);
 
-  // Guard: path traversal — the resolved path must stay inside `dir`.
-  const normalizedDir = path.resolve(dir);
-  const normalizedFile = path.resolve(filePath);
-  if (!normalizedFile.startsWith(normalizedDir + path.sep)) {
-    return { ok: false, reason: "not-found" };
-  }
-
-  // Guard: file must exist as a regular file — lstatSync (not statSync) so a symlink
-  // is rejected outright rather than followed (write-isolation invariant).
-  let stat: fs.Stats;
-  try {
-    stat = fs.lstatSync(filePath);
-  } catch {
-    return { ok: false, reason: "not-found" };
-  }
-  if (!stat.isFile()) {
-    return { ok: false, reason: "not-found" };
-  }
+  if (!isQueueFile(projectPath, filePath)) return { ok: false, reason: "not-found" };
 
   let raw: string;
   try {
@@ -97,24 +88,45 @@ export function discardChange(projectPath: string, id: string): DiscardChangeRes
     return { ok: false, reason: "not-discardable" };
   }
 
-  // Record whether the original body ended with a newline before mutating anything.
-  const bodyEndedWithNewline = parsed.content.endsWith("\n");
+  const serialized = discardedContent(raw, priorStatus, reason);
+  if (serialized === null) return { ok: false, reason: "parse-error" };
 
-  parsed.data.status_before_discard = priorStatus;
-  parsed.data.status = "discarded";
-
-  let serialized: string;
   try {
-    serialized = matter.stringify(parsed.content, parsed.data);
+    fs.writeFileSync(filePath, serialized, "utf-8");
   } catch {
     return { ok: false, reason: "parse-error" };
   }
 
-  if (!bodyEndedWithNewline && serialized.endsWith("\n")) {
-    serialized = serialized.slice(0, -1);
-  }
-
-  fs.writeFileSync(filePath, serialized, "utf-8");
-
   return { ok: true };
+}
+
+function isQueueFile(projectPath: string, filePath: string): boolean {
+  let ancestor = projectPath;
+  try {
+    for (const segment of [".pandacorp", "inbox", "changes"]) {
+      ancestor = path.join(ancestor, segment);
+      if (!fs.lstatSync(ancestor).isDirectory()) return false;
+    }
+    return fs.lstatSync(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+function discardedContent(
+  raw: string,
+  priorStatus: "ready" | "draft",
+  reason?: string,
+): string | null {
+  const match = /^(---\r?\n)([\s\S]*?)(\r?\n---(?:\r?\n|$))/.exec(raw);
+  if (!match?.[2]) return null;
+  const statusLine = /^(?:status|"status"|'status'):[^\r\n]*/m;
+  if (!statusLine.test(match[2])) return null;
+  const newline = raw.includes("\r\n") ? "\r\n" : "\n";
+  let frontmatter = match[2].replace(statusLine, "status: discarded");
+  frontmatter = frontmatter
+    .replace(/^status_before_discard:[^\r\n]*(?:\r?\n|$)/m, "")
+    .replace(/^discard_reason:[^\r\n]*(?:\r?\n|$)/m, "");
+  frontmatter += `${newline}status_before_discard: ${priorStatus}`;
+  if (reason?.trim()) frontmatter += `${newline}discard_reason: ${JSON.stringify(reason.trim())}`;
+  return `${match[1]}${frontmatter}${match[3]}${raw.slice(match[0].length)}`;
 }

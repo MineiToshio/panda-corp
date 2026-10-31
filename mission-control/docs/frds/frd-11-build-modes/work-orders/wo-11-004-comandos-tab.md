@@ -6,8 +6,7 @@ title: 'WO-11-004 Comandos tab'
 status: ACTIVE
 parent: FRD-11
 foundation: false
-implementation_status: PLANNED
-blocked_reason:
+implementation_status: IN_REVIEW
 difficulty: medium
 reopen_count: 0
 artifacts:
@@ -16,7 +15,7 @@ artifacts:
   - 'e2e/commands.spec.ts'
 source_requirements: [REQ-11-001, REQ-11-002, REQ-11-003, REQ-11-004, REQ-11-005, REQ-04-006]
 dependsOn: [WO-04-010, WO-11-003, WO-12-007]
-last_updated: 2026-10-22
+last_updated: 2026-10-31
 ---
 
 # WO-11-004 Comandos tab
@@ -141,3 +140,35 @@ WO-04-010 (W5: frame and the `ComandosPanel` stub), WO-11-003 (W2: the picker), 
 added to the map's list because this WO imports it, DR-087; the wave stays W6).
 
 ## Status Note
+
+### S5C implementation handoff — 2026-10-31
+
+- Built after WO-04-012 on `orch/s5c`, port 3983. The async panel reads request-cached FRD/work-order/change targets, retains the shared project phase and next step, and renders four shared cards. The mounted BuildModePicker receives the project preference scope. Targets are available in every phase, exclude verified work orders and closed/closing changes, validate selection against options, clear per project, and never append a mode argument. ModeSelector and its implementer tests are retired.
+- Test citations: `tab-commands/_tests/targets.v2.test.tsx` covers AC-11-005.2 for FRD, work order, queued change and clearing. `ComandosPanel.test.tsx` exercises the real filesystem readers and empty/unparseable input. `tab-commands.test.tsx` covers REQ-04-006 in every phase, deduplication, invalid targets and the mounted picker (AC-11-005.1); fidelity tests cover the shared cards/no nested main. `e2e/commands.spec.ts` cites AC-11-005.2 and restores its one fixture file unconditionally in setup and teardown, but was NOT executed.
+- Reviewer reconciliation (untouched): remove `mode-selector/_tests/mode-selector.reviewer.test.tsx` with its retired module; rewrite `tab-commands/_tests/frd-11-gate.reviewer.test.tsx` and `frd-11-gate-opus.reviewer.test.tsx` for four cards and the shared picker.
+- `rg -n 'ModeSelector' src --glob '!**/_tests/**'` finds only two stale comments in `src/lib/next-step/next-step.ts`; no remaining product import. That file and the unused `IMPLEMENT_BASE_COMMAND`, `IMPLEMENT_MODE_DEFAULT_LABEL`, `IMPLEMENT_DEFAULT_HINT` exports in `src/lib/command-modes.ts` belong to other work orders (W7 retirement), so remain untouched.
+
+Verification executed from `mission-control/` with `PORT=3983 PANDACORP_E2E_PORT=3983`:
+
+- `pnpm exec vitest run 'src/app/projects/[slug]/_components/tab-changes' 'src/app/projects/[slug]/_components/tab-documents' 'src/app/projects/[slug]/_components/tab-commands' 'src/app/projects/[slug]/_components/mode-selector' 'src/app/projects/[slug]/_actions' src/lib/changes src/lib/docs --maxWorkers=2`: 429 passed, 19 failed; 26 suites passed, five reviewer suites failed (two import/collection failures, three obsolete-contract suites). The reviewer files were not edited.
+- The same scoped Vitest command with `--exclude '**/*.reviewer.*' --maxWorkers=2`: GREEN, 22 suites / 353 tests passed. This excludes reviewer-owned contracts awaiting reconciliation; it is not the full gate.
+- `pnpm exec tsc --noEmit`: RED, 47 diagnostics, all in unchanged reviewer suites referring to retired Party/ModeSelector/formatChangeDate/objectives-bar or the former observabilidad tab ID. No diagnostics in S5C implementation or implementer tests.
+- `pnpm exec knip`: RED, 26 unresolved imports in unchanged reviewer suites and three retained command-mode exports reserved for W7.
+- `python3 /private/tmp/s5c-verify-biome.py`: GREEN, exact 27-file explicit-path Biome invocation, no fixes applied. `git diff --check`: GREEN.
+- No Playwright, production build, full verify.sh, baseline blessing or browser fidelity check was run. No commits, staging, pushes, merges, merge queue, decision log or .pandacorp state writes were performed.
+
+Explicit paths for this work order (including removed files):
+
+- `docs/frds/frd-11-build-modes/work-orders/wo-11-004-comandos-tab.md`
+- `e2e/commands.spec.ts`
+- `src/app/projects/[slug]/_components/mode-selector/_tests/mode-selector.fidelity.test.tsx`
+- `src/app/projects/[slug]/_components/mode-selector/_tests/mode-selector.test.tsx`
+- `src/app/projects/[slug]/_components/mode-selector/mode-selector.tsx`
+- `src/app/projects/[slug]/_components/tab-commands/BuildTargetPicker.tsx`
+- `src/app/projects/[slug]/_components/tab-commands/_tests/ComandosPanel.test.tsx`
+- `src/app/projects/[slug]/_components/tab-commands/_tests/tab-commands.fidelity.test.tsx`
+- `src/app/projects/[slug]/_components/tab-commands/_tests/tab-commands.test.tsx`
+- `src/app/projects/[slug]/_components/tab-commands/_tests/targets.v2.test.tsx`
+- `src/app/projects/[slug]/_components/tab-commands/commands.module.css`
+- `src/app/projects/[slug]/_components/tab-commands/tab-commands.tsx`
+- `src/app/projects/[slug]/_panels/ComandosPanel.tsx`

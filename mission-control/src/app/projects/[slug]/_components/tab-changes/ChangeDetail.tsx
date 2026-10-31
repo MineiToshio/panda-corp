@@ -1,143 +1,48 @@
-/**
- * ChangeDetail — the body of a change-queue item's detail modal (CMP-04-change-detail, FRD-04).
- *
- * A metadata strip (type, urgency, status) + meta-lines (date, affected FRD, depends-on,
- * a warn-toned notice when it rebuilds already-VERIFIED work) + the item's body rendered
- * as **titled, colour-coded sections** via the shared `SectionedMarkdown` primitive (same
- * treatment as the backlog and memory-lesson detail views). Ends with a ready-to-copy
- * `/pandacorp:implement change:<id>` command — the existing targeted-build mechanism
- * (ModeSelector's `change:<slug>` variant), pointed at this specific item.
- */
-
-import { Chip, type ChipTone } from "@/components/core/Chip/Chip";
+import { Chip } from "@/components/core/Chip/Chip";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
+import { Notice } from "@/components/core/Notice/Notice";
 import { SectionedMarkdown } from "@/components/modules/SectionedMarkdown/SectionedMarkdown";
-import type { ChangeQueueItem, ChangeQueueStatus } from "@/lib/changes/changes";
-import { discardChangeAction } from "../../_actions/discard-change";
-import { DiscardChangeButton } from "./DiscardChangeButton";
+import type { ChangeQueueItem } from "@/lib/changes/changes";
+import { t, tRich } from "@/lib/copy/copy";
+import { formatDate } from "@/lib/copy/dates";
+import { itemStatusLabel, STATUS_TONES } from "./changePresentation";
+import styles from "./changes.module.css";
 
-const STATUS_META: Record<ChangeQueueStatus, { label: string; tone: ChipTone }> = {
-  ready: { label: "Listo", tone: "ok" },
-  draft: { label: "Borrador", tone: "secondary" },
-  building: { label: "En construcción", tone: "warn" },
-  closing: { label: "Cerrando", tone: "info" },
-  done: { label: "Hecho", tone: "info" },
-  discarded: { label: "Descartado", tone: "secondary" },
-} as const;
-
-/** Only a ready/draft item can be discarded (REQ-04-008) — done/discarded items never show the button. */
-const DISCARDABLE_STATUSES: ReadonlySet<ChangeQueueStatus> = new Set(["ready", "draft"]);
-
-const META_ROW_STYLE: React.CSSProperties = {
-  fontSize: "11px",
-  color: "var(--color-text3)",
-  display: "flex",
-  gap: "5px",
-};
-
-const META_LABEL_STYLE: React.CSSProperties = { color: "var(--color-text2)", flexShrink: 0 };
-
-const WARN_BANNER_STYLE: React.CSSProperties = {
-  fontSize: "12px",
-  color: "var(--color-warn)",
-  background: "var(--color-warn-bg)",
-  border: "1px solid var(--color-warn)",
-  borderRadius: "var(--radius-md, 12px)",
-  padding: "8px 10px",
-  display: "flex",
-  alignItems: "center",
-  gap: "6px",
-};
-
-const CMD_NOTE_STYLE: React.CSSProperties = {
-  fontSize: "11px",
-  color: "var(--color-text3)",
-  margin: "4px 0 0",
-};
-
-/** One "label: value" meta line (date / FRD / depends-on). */
-function MetaLine({ label, value }: { label: string; value: string }): React.JSX.Element {
+/** Change metadata and scoped command; the parent dialog owns confirmation. */
+export function ChangeDetail({ item }: { item: ChangeQueueItem }): React.JSX.Element {
   return (
-    <div style={META_ROW_STYLE}>
-      <span style={META_LABEL_STYLE}>{label}:</span>
-      <span style={{ minWidth: 0, wordBreak: "break-word" }}>{value}</span>
-    </div>
-  );
-}
-
-export interface ChangeDetailProps {
-  item: ChangeQueueItem;
-  /** Absolute path to the project root — threaded to the discard Server Action. */
-  projectPath: string;
-  /** The project's URL slug — threaded to the discard Server Action for revalidation. */
-  slug: string;
-  /** Called after a successful discard (the caller closes the detail modal). */
-  onDiscarded?: () => void;
-}
-
-export function ChangeDetail({
-  item,
-  projectPath,
-  slug,
-  onDiscarded,
-}: ChangeDetailProps): React.JSX.Element {
-  const statusMeta = STATUS_META[item.status];
-
-  return (
-    <div
-      data-testid="change-detail"
-      style={{ display: "flex", flexDirection: "column", gap: "12px" }}
-    >
-      {/* Chips: type, urgency (expedite only), status */}
-      <div style={{ display: "flex", gap: "7px", flexWrap: "wrap", alignItems: "center" }}>
-        <Chip tone="accent">{item.type}</Chip>
-        {item.cls === "expedite" && <Chip tone="danger">Urgente</Chip>}
-        <Chip tone={statusMeta.tone}>{statusMeta.label}</Chip>
+    <div data-testid="change-detail" className={styles.detail}>
+      <div className={styles.chips}>
+        <Chip tone={STATUS_TONES[item.status]}>{itemStatusLabel(item.status)}</Chip>
+        <Chip tone={item.type === "bug" ? "coral" : "pink"}>
+          {t(item.type === "bug" ? "workspace.cambios.typeBug" : "workspace.cambios.typeChange")}
+        </Chip>
+        {item.cls === "expedite" ? (
+          <Chip tone="amber" icon="bolt">
+            {t("dialogs.change.urgent")}
+          </Chip>
+        ) : null}
+        <Chip tone="slate">{item.id}</Chip>
+        {item.frd ? <Chip tone="slate">{item.frd}</Chip> : null}
       </div>
-
-      {/* Provenance + dates */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-        {item.date !== "" && <MetaLine label="Fecha" value={item.date} />}
-        {item.frd !== "" && <MetaLine label="FRD afectado" value={item.frd} />}
-        {item.dependsOn !== "" && <MetaLine label="Depende de" value={item.dependsOn} />}
-        {/* Written only by sync's close-out (status: closing, DR-069 §7) — evidence
-            the owner can check, not just the bare "Cerrando" label. */}
-        {item.closingAt !== "" && <MetaLine label="Cerrando desde" value={item.closingAt} />}
-        {item.implementedSha !== "" && <MetaLine label="Commit" value={item.implementedSha} />}
-      </div>
-
-      {/* Rebuilds-already-verified notice — the owner must not miss this (DR-069) */}
-      {item.rebuildsVerified && (
-        <div data-testid="change-rebuilds-warning" role="alert" style={WARN_BANNER_STYLE}>
-          <i className="ti ti-alert-triangle" aria-hidden="true" />
-          Este cambio reconstruye trabajo ya verificado.
-        </div>
-      )}
-
-      {/* Body — titled colour-coded sections (Qué se quiere / Contexto, or Pasos / Esperado / Actual) */}
-      <SectionedMarkdown data-testid="change-detail-body" body={item.body} />
-
-      {/* Targeted-build command — the existing `implement change:<slug>` mechanism,
-          pointed at THIS item's real id (ModeSelector shows the <slug> placeholder;
-          here it's concrete and ready to copy). */}
-      <div>
-        <CmdRow command={`/pandacorp:implement change:${item.id}`} />
-        <p style={CMD_NOTE_STYLE}>
-          Construye este cambio específico en la próxima corrida del build.
+      {item.date ? <p title={item.date}>{formatDate(item.date)}</p> : null}
+      {item.dependsOn ? (
+        <p>
+          {t("dialogs.change.dependsOn")} {item.dependsOn}
         </p>
-      </div>
-
-      {/* Discard action — only offered for ready/draft items (REQ-04-008); a done or
-          already-discarded item never shows it. */}
-      {DISCARDABLE_STATUSES.has(item.status) && (
-        <DiscardChangeButton
-          projectPath={projectPath}
-          id={item.id}
-          slug={slug}
-          discardAction={discardChangeAction}
-          onDiscarded={onDiscarded}
-        />
-      )}
+      ) : null}
+      {item.rebuildsVerified ? (
+        <Notice icon="alert" tone="amber">
+          <strong>{t("dialogs.change.rebuildsTitle")}</strong>
+          <p>
+            {item.frd
+              ? tRich("dialogs.change.rebuildsBodyFrd", { frd: item.frd })
+              : t("dialogs.change.rebuildsBody")}
+          </p>
+        </Notice>
+      ) : null}
+      <SectionedMarkdown body={item.body} />
+      <CmdRow variant="box" command={`/pandacorp:implement change:${item.id}`} />
     </div>
   );
 }

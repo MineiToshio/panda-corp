@@ -390,7 +390,10 @@ describe("frd-04: listProjectDocs — AC-04-006.1 DocNode shape invariants", () 
     const nodes = docs(PROJ_A);
     for (const node of nodes) {
       const valid =
-        node.group === "Product" || node.group.startsWith("Feature: ") || node.group === "Global";
+        node.group === "Product" ||
+        node.group.startsWith("Feature: ") ||
+        node.group === "Global" ||
+        node.group === "Work orders";
       expect(valid).toBe(true);
     }
   });
@@ -668,10 +671,10 @@ describe("frd-04: readDoc — security: WHEN relPath is NOT in the discovered se
     expect(result).toBeNull();
   });
 
-  it("frd-04: readDoc — WHEN relPath is a work-orders .md (not a surfaced group) THEN returns null", () => {
+  it("frd-04: readDoc — AC-04-014.8: WHEN relPath is a published work order THEN returns its body", () => {
     // Work-orders .md files are NOT surfaced by listProjectDocs (that is FRD-05's scope).
     const result = read(PROJ_A, "docs/frds/frd-01-x/work-orders/wo-01-x-001-reader.md");
-    expect(result).toBeNull();
+    expect(result).toContain("#");
   });
 
   it("frd-04: readDoc — WHEN both projectPath and relPath are empty strings THEN does NOT throw", () => {

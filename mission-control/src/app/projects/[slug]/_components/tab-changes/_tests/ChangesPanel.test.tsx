@@ -1,310 +1,158 @@
-import { render, screen, within } from "@testing-library/react";
-import { userEvent } from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
-import type { ChangeQueueItem, ChangeQueueReadResult } from "@/lib/changes/changes";
+import { act, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, expect, it, vi } from "vitest";
+import type { ChangeQueueItem, ChangeQueueStatus } from "@/lib/changes/changes";
+import { discardChangeAction } from "../../../_actions/discard-change";
 import { ChangesPanel } from "../ChangesPanel";
 
-function makeItem(over: Partial<ChangeQueueItem>): ChangeQueueItem {
+vi.mock("../../../_actions/discard-change", () => ({ discardChangeAction: vi.fn() }));
+beforeEach(() => {
+  window.history.replaceState(null, "", "/portfolio/project/changes");
+  vi.clearAllMocks();
+});
+function item(status: ChangeQueueStatus): ChangeQueueItem {
   return {
-    id: "mc-export-csv",
-    type: "feature",
-    cls: "standard",
-    status: "ready",
-    date: "2026-07-01",
-    frd: "",
-    rebuildsVerified: false,
-    dependsOn: "",
-    implementedSha: "",
-    closingAt: "",
-    title: "Agrega exportar a CSV",
-    body: "## Qué se quiere\nUn botón que exporte a CSV.",
-    ...over,
+    id: status,
+    title: `Change ${status}`,
+    status,
+    type: "bug",
+    cls: "expedite",
+    date: "2026-10-19",
+    frd: "FRD-04",
+    dependsOn: "WO-04-001",
+    rebuildsVerified: true,
+    body: "## Context\nPublished body",
+    implementedSha: "secret-sha",
+    closingAt: "secret-time",
   };
 }
-
-function result(over: Partial<ChangeQueueReadResult>): ChangeQueueReadResult {
-  return { items: [], errors: [], ...over };
+function mount(status: ChangeQueueStatus) {
+  render(
+    <ChangesPanel
+      result={{ items: [item(status)], errors: [] }}
+      projectPath="/tmp/project"
+      slug="project"
+    />,
+  );
 }
+it.each([
+  "ready",
+  "draft",
+  "building",
+  "closing",
+  "done",
+  "discarded",
+] as const)("REQ-04-010: %s dialog scopes build and restricts discard", async (status) => {
+  const user = userEvent.setup();
+  mount(status);
+  if (status === "done" || status === "discarded")
+    await user.click(screen.getByText("Historial 1"));
+  const trigger = screen.getByRole("button", { name: /Change / });
+  await user.click(trigger);
+  const dialog = screen.getByRole("dialog");
+  expect(within(dialog).getByText(`/pandacorp:implement change:${status}`)).toBeInTheDocument();
+  expect(within(dialog).getByText("Rehace trabajo ya verificado")).toBeInTheDocument();
+  expect(within(dialog).getByText("Urgente")).toBeInTheDocument();
+  expect(dialog).not.toHaveTextContent("secret-sha");
+  expect(dialog).not.toHaveTextContent("secret-time");
+  expect(within(dialog).queryByRole("button", { name: "Descartar cambio" }) !== null).toBe(
+    status === "ready" || status === "draft",
+  );
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
+});
+it("REQ-04-008: confirmation replaces detail, cancels on Escape and sends optional reason", async () => {
+  const user = userEvent.setup();
+  mount("ready");
+  await user.click(screen.getByRole("button", { name: /Change ready/ }));
+  await user.click(screen.getByRole("button", { name: "Descartar cambio" }));
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  expect(screen.getByRole("dialog")).not.toHaveTextContent("Published body");
+  await user.keyboard("{Escape}");
+  expect(screen.getByRole("dialog")).toHaveTextContent("Published body");
+  await user.click(screen.getByRole("button", { name: "Descartar cambio" }));
+  await user.type(screen.getByRole("textbox", { name: /Motivo/ }), "Duplicate");
+  vi.mocked(discardChangeAction).mockResolvedValue({ ok: false, reason: "not-discardable" });
+  await user.click(screen.getByRole("button", { name: "Descartar" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("ya no se puede descartar");
+  expect(screen.getByRole("textbox")).toHaveValue("Duplicate");
+  vi.mocked(discardChangeAction).mockResolvedValue({ ok: true });
+  await user.click(screen.getByRole("button", { name: "Descartar" }));
+  expect(discardChangeAction).toHaveBeenLastCalledWith(
+    "/tmp/project",
+    "ready",
+    "project",
+    "Duplicate",
+  );
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+it("REQ-04-007: malformed sources are named without claiming an empty queue", () => {
+  render(
+    <ChangesPanel
+      result={{ items: [], errors: [{ file: "broken.md", reason: "invalid" }] }}
+      projectPath="/tmp/project"
+      slug="project"
+    />,
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent("broken.md");
+  expect(screen.queryByText("No hay cambios abiertos en la cola.")).not.toBeInTheDocument();
+});
+it("REQ-04-009: empty queue still offers the change command", () => {
+  render(
+    <ChangesPanel result={{ items: [], errors: [] }} projectPath="/tmp/project" slug="project" />,
+  );
+  expect(screen.getByText("No hay cambios abiertos en la cola.")).toBeInTheDocument();
+  expect(screen.getByText("/pandacorp:change")).toBeInTheDocument();
+});
 
-/** projectPath/slug are required props (threaded to the discard Server Action); fixed test values. */
-const PANEL_PROPS = { projectPath: "/tmp/proj", slug: "mission-control" } as const;
+it.each([
+  "not-found",
+  "parse-error",
+] as const)("REQ-04-008: %s stays visible inside confirmation", async (reason) => {
+  const user = userEvent.setup();
+  mount("ready");
+  await user.click(screen.getByRole("button", { name: /Change ready/ }));
+  await user.click(screen.getByRole("button", { name: "Descartar cambio" }));
+  vi.mocked(discardChangeAction).mockResolvedValue({ ok: false, reason });
+  await user.click(screen.getByRole("button", { name: "Descartar" }));
+  expect(screen.getByRole("alert")).toBeInTheDocument();
+  expect(screen.getByRole("textbox")).toBeInTheDocument();
+});
 
-describe("ChangesPanel", () => {
-  it("groups ready/draft items by status with a section per non-empty group", () => {
-    render(
-      <ChangesPanel
-        {...PANEL_PROPS}
-        result={result({
-          items: [
-            makeItem({ id: "mc-ready-one", title: "Ready one", status: "ready" }),
-            makeItem({ id: "mc-draft-one", title: "Draft one", status: "draft" }),
-          ],
-        })}
-      />,
-    );
-    expect(screen.getByText("Listos")).toBeInTheDocument();
-    expect(screen.getByText("Borradores")).toBeInTheDocument();
-    expect(screen.getByText("Ready one")).toBeInTheDocument();
-    expect(screen.getByText("Draft one")).toBeInTheDocument();
+it("REQ-04-008: Back from confirmation then opening history shows detail", async () => {
+  const user = userEvent.setup();
+  render(
+    <ChangesPanel
+      result={{ items: [item("ready"), item("done")], errors: [] }}
+      projectPath="/tmp/project"
+      slug="project"
+    />,
+  );
+  await user.click(screen.getByRole("button", { name: /Change ready/ }));
+  await user.click(screen.getByRole("button", { name: "Descartar cambio" }));
+  act(() => {
+    window.history.replaceState(null, "", "/portfolio/project/changes");
+    window.dispatchEvent(new PopStateEvent("popstate"));
   });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await user.click(screen.getByText("Historial 1"));
+  await user.click(screen.getByRole("button", { name: /Change done/ }));
+  expect(screen.getByRole("dialog", { name: "Change done" })).toHaveTextContent("Published body");
+  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+});
 
-  it("hides Hechos/Descartados by default even when they have items (REQ-04-009)", () => {
-    render(
-      <ChangesPanel
-        {...PANEL_PROPS}
-        result={result({
-          items: [
-            makeItem({ id: "mc-ready-one", title: "Ready one", status: "ready" }),
-            makeItem({ id: "mc-done-one", title: "Done one", status: "done" }),
-            makeItem({ id: "mc-discarded-one", title: "Discarded one", status: "discarded" }),
-          ],
-        })}
-      />,
-    );
-    expect(screen.queryByText("Hechos")).not.toBeInTheDocument();
-    expect(screen.queryByText("Descartados")).not.toBeInTheDocument();
-    expect(screen.queryByText("Done one")).not.toBeInTheDocument();
-    expect(screen.queryByText("Discarded one")).not.toBeInTheDocument();
-    // But the toggle buttons name the hidden counts.
-    expect(screen.getByTestId("changes-toggle-done")).toHaveTextContent("Ver hechos (1)");
-    expect(screen.getByTestId("changes-toggle-discarded")).toHaveTextContent("Ver descartados (1)");
-  });
-
-  it("reveals the Hechos group after clicking its toggle, and hides it again on a second click", async () => {
-    const user = userEvent.setup();
-    render(
-      <ChangesPanel
-        {...PANEL_PROPS}
-        result={result({
-          items: [makeItem({ id: "mc-done-one", title: "Done one", status: "done" })],
-        })}
-      />,
-    );
-
-    await user.click(screen.getByTestId("changes-toggle-done"));
-    expect(screen.getByText("Hechos")).toBeInTheDocument();
-    expect(screen.getByText("Done one")).toBeInTheDocument();
-    expect(screen.getByTestId("changes-toggle-done")).toHaveTextContent("Ocultar hechos (1)");
-
-    await user.click(screen.getByTestId("changes-toggle-done"));
-    expect(screen.queryByText("Done one")).not.toBeInTheDocument();
-  });
-
-  it("omits a toggle button entirely when that bucket is empty", () => {
-    render(
-      <ChangesPanel
-        {...PANEL_PROPS}
-        result={result({
-          items: [makeItem({ id: "mc-ready-one", title: "Ready one", status: "ready" })],
-        })}
-      />,
-    );
-    expect(screen.queryByTestId("changes-toggle-done")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("changes-toggle-discarded")).not.toBeInTheDocument();
-  });
-
-  it("shows building/closing items as always-visible in-flight groups, never behind a toggle (DR-069 §7)", () => {
-    render(
-      <ChangesPanel
-        {...PANEL_PROPS}
-        result={result({
-          items: [
-            makeItem({ id: "mc-building-one", title: "Building one", status: "building" }),
-            makeItem({ id: "mc-closing-one", title: "Closing one", status: "closing" }),
-          ],
-        })}
-      />,
-    );
-    expect(screen.getByText("En construcción")).toBeInTheDocument();
-    expect(screen.getByText("Cerrando")).toBeInTheDocument();
-    expect(screen.getByText("Building one")).toBeInTheDocument();
-    expect(screen.getByText("Closing one")).toBeInTheDocument();
-    // Unlike Hechos/Descartados, no toggle gates these groups.
-    expect(screen.queryByTestId("changes-toggle-building")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("changes-toggle-closing")).not.toBeInTheDocument();
-  });
-
-  it("shows the 'En construcción' status chip in the detail modal for a building item", async () => {
-    const user = userEvent.setup();
-    render(
-      <ChangesPanel
-        {...PANEL_PROPS}
-        result={result({
-          items: [
-            makeItem({ id: "mc-building-two", title: "Otro en construcción", status: "building" }),
-          ],
-        })}
-      />,
-    );
-    await user.click(
-      screen.getByRole("button", { name: /ver detalle del cambio: otro en construcción/i }),
-    );
-    expect(
-      within(screen.getByTestId("change-detail")).getByText("En construcción"),
-    ).toBeInTheDocument();
-    // building/closing are not discardable, same as done/discarded.
-    expect(screen.queryByTestId("discard-change-button")).not.toBeInTheDocument();
-  });
-
-  it("shows the commit and closing-since meta lines for a closing item", async () => {
-    const user = userEvent.setup();
-    render(
-      <ChangesPanel
-        {...PANEL_PROPS}
-        result={result({
-          items: [
-            makeItem({
-              id: "mc-closing-two",
-              title: "Cerrando algo",
-              status: "closing",
-              implementedSha: "a1b2c3d4",
-              closingAt: "2026-09-20T10:00:00.000Z",
-            }),
-          ],
-        })}
-      />,
-    );
-    await user.click(
-      screen.getByRole("button", { name: /ver detalle del cambio: cerrando algo/i }),
-    );
-    const detail = screen.getByTestId("change-detail");
-    expect(within(detail).getByText("a1b2c3d4")).toBeInTheDocument();
-    expect(within(detail).getByText("2026-09-20T10:00:00.000Z")).toBeInTheDocument();
-  });
-
-  it("renders a fail-loud error banner when the reader reports errors (DR-078)", () => {
-    render(
-      <ChangesPanel
-        {...PANEL_PROPS}
-        result={result({
-          items: [makeItem({})],
-          errors: [{ file: "mc-broken.md", reason: "malformed YAML frontmatter" }],
-        })}
-      />,
-    );
-    const banner = screen.getByRole("alert");
-    expect(banner).toHaveTextContent("mc-broken.md");
-    expect(banner).toHaveTextContent("malformed YAML frontmatter");
-  });
-
-  it("renders an empty state when there are no items and no errors", () => {
-    render(<ChangesPanel {...PANEL_PROPS} result={result({})} />);
-    expect(screen.getByTestId("changes-empty")).toBeInTheDocument();
-  });
-
-  it("opens a detail modal with the rendered body and the targeted implement command", async () => {
-    const user = userEvent.setup();
-    render(
-      <ChangesPanel
-        {...PANEL_PROPS}
-        result={result({
-          items: [
-            makeItem({
-              id: "mc-fix-pagination",
-              title: "Arregla el paginador",
-              body: "## Pasos para reproducir\n1. Abre la tabla.\n\n## Esperado\nPagina bien.",
-            }),
-          ],
-        })}
-      />,
-    );
-
-    // Closed by default.
-    expect(screen.queryByTestId("change-detail")).not.toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole("button", { name: /ver detalle del cambio: arregla el paginador/i }),
-    );
-
-    expect(screen.getByTestId("change-detail")).toBeInTheDocument();
-    expect(screen.getByRole("dialog")).toHaveTextContent("Arregla el paginador");
-    const body = screen.getByTestId("change-detail-body");
-    expect(body).toHaveTextContent("Pagina bien.");
-    for (const label of ["Pasos para reproducir", "Esperado"]) {
-      expect(within(body).getByText(label)).toBeInTheDocument();
-    }
-
-    // The concrete targeted-build command, pointed at THIS item's real id.
-    expect(screen.getByText("/pandacorp:implement change:mc-fix-pagination")).toBeInTheDocument();
-  });
-
-  it("closes the detail modal on Escape", async () => {
-    const user = userEvent.setup();
-    render(
-      <ChangesPanel
-        {...PANEL_PROPS}
-        result={result({ items: [makeItem({ id: "mc-x", title: "Algo" })] })}
-      />,
-    );
-    await user.click(screen.getByRole("button", { name: /ver detalle del cambio: algo/i }));
-    expect(screen.getByTestId("change-detail")).toBeInTheDocument();
-    await user.keyboard("{Escape}");
-    expect(screen.queryByTestId("change-detail")).not.toBeInTheDocument();
-  });
-
-  it("shows the rebuilds-verified warning only when the item flags it", async () => {
-    const user = userEvent.setup();
-    render(
-      <ChangesPanel
-        {...PANEL_PROPS}
-        result={result({
-          items: [
-            makeItem({ id: "mc-rebuild", title: "Rehace la pantalla", rebuildsVerified: true }),
-          ],
-        })}
-      />,
-    );
-    await user.click(
-      screen.getByRole("button", { name: /ver detalle del cambio: rehace la pantalla/i }),
-    );
-    expect(screen.getByTestId("change-rebuilds-warning")).toBeInTheDocument();
-  });
-
-  it("shows an 'Urgente' chip only for expedite-class items", () => {
-    render(
-      <ChangesPanel
-        {...PANEL_PROPS}
-        result={result({
-          items: [
-            makeItem({ id: "mc-urgent", title: "Urgente item", cls: "expedite" }),
-            makeItem({ id: "mc-normal", title: "Normal item", cls: "standard" }),
-          ],
-        })}
-      />,
-    );
-    expect(screen.getAllByText("Urgente")).toHaveLength(1);
-  });
-
-  it("shows the discard button in the detail modal for a ready item", async () => {
-    const user = userEvent.setup();
-    render(
-      <ChangesPanel
-        {...PANEL_PROPS}
-        result={result({
-          items: [makeItem({ id: "mc-ready", title: "Un cambio listo", status: "ready" })],
-        })}
-      />,
-    );
-    await user.click(
-      screen.getByRole("button", { name: /ver detalle del cambio: un cambio listo/i }),
-    );
-    expect(screen.getByTestId("discard-change-button")).toBeInTheDocument();
-  });
-
-  it("does NOT show the discard button in the detail modal for a done item (via the Hechos toggle)", async () => {
-    const user = userEvent.setup();
-    render(
-      <ChangesPanel
-        {...PANEL_PROPS}
-        result={result({
-          items: [makeItem({ id: "mc-done", title: "Un cambio hecho", status: "done" })],
-        })}
-      />,
-    );
-    await user.click(screen.getByTestId("changes-toggle-done"));
-    await user.click(
-      screen.getByRole("button", { name: /ver detalle del cambio: un cambio hecho/i }),
-    );
-    expect(screen.queryByTestId("discard-change-button")).not.toBeInTheDocument();
-  });
+it("REQ-04-008: cancel clears discard failure and caps the reason", async () => {
+  const user = userEvent.setup();
+  mount("ready");
+  await user.click(screen.getByRole("button", { name: /Change ready/ }));
+  await user.click(screen.getByRole("button", { name: "Descartar cambio" }));
+  expect(screen.getByRole("textbox")).toHaveAttribute("maxlength", "2000");
+  expect(screen.getByRole("button", { name: "Descartar" })).toHaveAttribute("data-tone", "danger");
+  vi.mocked(discardChangeAction).mockResolvedValue({ ok: false, reason: "not-found" });
+  await user.click(screen.getByRole("button", { name: "Descartar" }));
+  expect(screen.getByRole("alert")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Cancelar" }));
+  await user.click(screen.getByRole("button", { name: "Descartar cambio" }));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });

@@ -26,6 +26,10 @@ export const FRD_DIR_PATTERN = /^frd-\d/;
  *   "Global"               — docs/adr/*.md, docs/decision-log.md
  */
 export interface DocNode {
+  /** Optional FRD heading used as the purpose-group label. */
+  purposeLabel?: string;
+  purpose?: "product" | "global" | "feature" | "design" | "analytics" | "reviews" | "workOrders";
+  type?: string;
   /** Stable key unique per project, derived from relPath without the extension. */
   id: string;
   /** Display name (filename), e.g. "prd.md". */
@@ -43,9 +47,10 @@ export interface DocNode {
  *   - Product layer: docs/product/prd.md, docs/product/architecture.md
  *   - Per-FRD layer: docs/frds/frd-NN-<slug>/{frd.md, fdd.md?, blueprint.md?}
  *   - Global layer: docs/adr/*.md, docs/decision-log.md
+ *   - Purpose layers: docs/design, docs/analytics, docs/reviews and per-FRD work orders
  *
  * Fail-soft: absent/unreadable layers → []. Never throws.
- * Read-only: probes existence and reads directory listings only.
+ * Read-only: probes existence, lists directories and reads FRD headings for group labels.
  *
  * @param projectPath - Absolute path to the project root.
  * @returns A genuine JS Array of DocNode; empty when no docs are found.
@@ -55,7 +60,7 @@ export function listProjectDocs(projectPath: string): DocNode[] {
   if (!projectPath || projectPath.trim() === "") {
     return [];
   }
-  if (!pathExists(projectPath)) {
+  if (!pathExists(projectPath) || !safeDirectoryChain(projectPath, "docs")) {
     return [];
   }
 
@@ -64,6 +69,13 @@ export function listProjectDocs(projectPath: string): DocNode[] {
   _collectProductDocs(projectPath, nodes);
   _collectFrdDocs(projectPath, nodes);
   _collectGlobalDocs(projectPath, nodes);
+  for (const [directory, group] of [
+    ["docs/design", "Design"],
+    ["docs/analytics", "Analytics"],
+    ["docs/reviews", "Reviews"],
+  ]) {
+    collectDirectory(projectPath, directory ?? "", group ?? "", nodes);
+  }
   return nodes;
 }
 
@@ -83,10 +95,10 @@ function _collectProductDocs(projectPath: string, nodes: DocNode[]): void {
   }
 }
 
-/** Per-FRD layer: docs/frds/frd-NN-<slug>/{frd,fdd,blueprint}.md. Behavior copied verbatim. */
+/** Per-FRD layer: docs/frds/frd-NN-<slug>/{frd,fdd,blueprint}.md. Includes optional work orders. */
 function _collectFrdDocs(projectPath: string, nodes: DocNode[]): void {
   const frdsDir = path.join(projectPath, "docs", "frds");
-  if (!pathExists(frdsDir) || !statIsDir(frdsDir)) {
+  if (!safeDirectoryChain(projectPath, "docs/frds")) {
     return;
   }
   let frdEntries: string[] = [];
@@ -104,22 +116,26 @@ function _collectFrdDocs(projectPath: string, nodes: DocNode[]): void {
       continue;
     }
     const group = `Feature: ${entry}`;
+    collectDirectory(projectPath, `docs/frds/${entry}/work-orders`, "Work orders", nodes);
     // Surface only the three document files (regression I2: only if present).
     for (const docFile of ["frd.md", "fdd.md", "blueprint.md"] as const) {
       const filePath = path.join(frdDir, docFile);
       if (pathExists(filePath) && statIsFile(filePath)) {
         const relPath = `docs/frds/${entry}/${docFile}`;
-        nodes.push(makeDocNode(relPath, docFile, group));
+        nodes.push({
+          ...makeDocNode(relPath, docFile, group),
+          purposeLabel: frdPurposeLabel(frdDir, entry),
+        });
       }
     }
   }
 }
 
-/** Global layer: docs/adr/*.md + docs/decision-log.md. Behavior copied verbatim. */
+/** Global layer: docs/adr/*.md + docs/decision-log.md. */
 function _collectGlobalDocs(projectPath: string, nodes: DocNode[]): void {
   // docs/adr/*.md files
   const adrDir = path.join(projectPath, "docs", "adr");
-  if (pathExists(adrDir) && statIsDir(adrDir)) {
+  if (safeDirectoryChain(projectPath, "docs/adr")) {
     let adrEntries: string[] = [];
     try {
       adrEntries = fs.readdirSync(adrDir);
@@ -173,7 +189,7 @@ export function countFrdFolders(nodes: readonly DocNode[]): number {
  *
  * Security contract: relPath is validated against the discovered set. Any path
  * not discovered by `listProjectDocs` (including traversal attempts, absolute
- * paths, .pandacorp/ comms, work-orders, etc.) returns null without touching disk.
+ * paths and .pandacorp/ communications) returns null without touching disk.
  *
  * @param projectPath - Absolute path to the project root.
  * @param relPath - Relative path as returned in DocNode.relPath (forward slashes).
@@ -191,7 +207,7 @@ export function readDoc(projectPath: string, relPath: string): string | null {
   const validPaths = new Set(nodes.map((n) => n.relPath));
 
   // Reject any relPath not in the discovered set (traversal, absolute, unlisted, etc.).
-  if (!validPaths.has(relPath)) {
+  if (!validPaths.has(relPath) || !safeDirectoryChain(projectPath, path.dirname(relPath))) {
     return null;
   }
 
@@ -216,7 +232,46 @@ export function readDoc(projectPath: string, relPath: string): string | null {
  */
 function makeDocNode(relPath: string, label: string, group: string): DocNode {
   const id = relPath.replace(/\.[^/.]+$/, "");
-  return { id, label, group, relPath };
+  const purpose = docPurpose(group);
+  const type = docType(relPath, label, purpose);
+  return {
+    id,
+    label,
+    group,
+    relPath,
+    purpose: label === "architecture.md" ? "global" : purpose,
+    type,
+  };
+}
+
+const GROUP_PURPOSES: Readonly<Record<string, NonNullable<DocNode["purpose"]>>> = {
+  Product: "product",
+  Global: "global",
+  Design: "design",
+  Analytics: "analytics",
+  Reviews: "reviews",
+  "Work orders": "workOrders",
+};
+const FILE_TYPES: Readonly<Record<string, string>> = {
+  "prd.md": "PRD",
+  "frd.md": "FRD",
+  "fdd.md": "FDD",
+  "blueprint.md": "Blueprint",
+  "architecture.md": "Blueprint",
+};
+const PURPOSE_TYPES: Readonly<Record<string, string>> = {
+  design: "Diseño",
+  analytics: "Analítica",
+  reviews: "Revisión",
+};
+function docPurpose(group: string): NonNullable<DocNode["purpose"]> {
+  if (group.startsWith("Feature:")) return "feature";
+  return GROUP_PURPOSES[group] ?? "global";
+}
+function docType(relPath: string, label: string, purpose: string): string {
+  if (label.startsWith("wo-")) return "Work order";
+  if (relPath.includes("/adr/")) return "ADR";
+  return FILE_TYPES[label] ?? PURPOSE_TYPES[purpose] ?? "Documento";
 }
 
 /**
@@ -240,8 +295,49 @@ function statIsFile(p: string): boolean {
  */
 function statIsDir(p: string): boolean {
   try {
-    return fs.statSync(p).isDirectory();
+    return fs.lstatSync(p).isDirectory();
   } catch {
     return false;
   }
+}
+
+/** Only descend into real directories, including every ancestor of a document. */
+function safeDirectoryChain(root: string, relative: string): boolean {
+  let current = root;
+  for (const part of relative.split("/")) {
+    current = path.join(current, part);
+    if (!statIsDir(current)) return false;
+  }
+  return true;
+}
+function collectDirectory(root: string, directory: string, group: string, nodes: DocNode[]): void {
+  if (!safeDirectoryChain(root, directory)) return;
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(path.join(root, directory)).sort();
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
+    if (!entry.endsWith(".md") || !statIsFile(path.join(root, directory, entry))) continue;
+    nodes.push(makeDocNode(`${directory}/${entry}`, entry, group));
+  }
+}
+
+function frdPurposeLabel(directory: string, folder: string): string {
+  const match = /^frd-(\d+)-?(.*)/i.exec(folder);
+  const code = `FRD-${match?.[1] ?? ""}`;
+  const file = path.join(directory, "frd.md");
+  try {
+    if (statIsFile(file)) {
+      const heading = fs
+        .readFileSync(file, "utf8")
+        .replace(/^---[\s\S]*?---/, "")
+        .match(/^#\s+(.+)$/m)?.[1];
+      if (heading) return `${code} ${heading.replace(/^FRD[- ]\d+\s*[·:—–-]?\s*/i, "").trim()}`;
+    }
+  } catch {
+    /* Unreadable narrative retains the stable folder identity. */
+  }
+  return `${code} ${match?.[2]?.replaceAll("-", " ") ?? folder}`.trim();
 }

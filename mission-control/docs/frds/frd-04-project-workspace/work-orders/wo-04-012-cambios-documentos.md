@@ -6,8 +6,7 @@ title: 'WO-04-012 — Cambios and Documentos tabs'
 status: ACTIVE
 parent: FRD-04
 foundation: false
-implementation_status: PLANNED
-blocked_reason:
+implementation_status: IN_REVIEW
 difficulty: medium
 reopen_count: 0
 artifacts:
@@ -19,7 +18,7 @@ artifacts:
   - 'src/lib/docs/_tests/{tree,docs.wo04001}*.test.ts'
 source_requirements: [REQ-04-010, REQ-04-011, REQ-04-014]
 dependsOn: [WO-04-010, WO-08-003]
-last_updated: 2026-10-22
+last_updated: 2026-10-31
 ---
 
 # WO-04-012 — Cambios and Documentos tabs
@@ -164,3 +163,95 @@ AC-04-014.8 and the Cambios/Documentos REQ bullets met with tests that fail with
 list gone; `.pandacorp/verify.sh` green; Status Note filled.
 
 ## Status Note
+
+- 2026-10-31 (S5C round 2): Patched review findings. Confirmation now requires a discardable selection, resets on URL selection changes, and clears its error on cancellation. Impossible date-only values fail the UTC round-trip and remain raw; non-ISO prose also remains raw. Duplicate command rows retain non-empty guidance without rendering empty paragraphs. Document filters/search hide empty groups and search both labels and paths. Added optional DocIndex search placeholder and DialogConfirm kicker/confirm-tone props; the discard reason is capped at 2000 characters. Singular change states and discard errors now use the copy catalogue. Updated stale action, tree and command comments. `implementation_status` remains `IN_REVIEW`; no blocked reason is present.
+
+
+- 2026-10-31: Implemented the changes queue, replacement discard confirmation and shared document reader. Scoped Vitest excluding reviewer suites: 18 files / 335 tests passed. Reviewer suites remain untouched; full-gate caveats and final commands are recorded below after S5C verification.
+
+### S5C implementation handoff — 2026-10-31
+
+- Built before WO-11-004 on `orch/s5c`, port 3983. The queue preserves reader identity/status fields, shows the state strip and ordered active cards, combines history, names unreadable files, uses the shared absolute-date formatter and replaces detail with the shared discard confirmation. Discard writes accept an optional reason, validate boundary input and preserve unrelated bytes, including CRLF/comments/quotes. The document reader consumes shared DocIndex/Paper, adds purpose/type discovery and keeps filters/search in reader links.
+- Test citations: `tab-changes/_tests/{changes.v2,ChangesPanel,ChangeCard}.test.tsx` cover REQ-04-007/008/009/010/011; `_actions/_tests/discard-change.test.ts` and `src/lib/changes/_tests/discard-change.test.ts` cover reason validation, expected failures and byte preservation. `tab-documents/_tests/tab-documents{,.wo04005}.test.tsx` and `src/lib/docs/_tests/tree.v2.test.ts` cite AC-04-014.8; document link cases cite AC-04-006.5.
+- Reviewer reconciliation (untouched): remove `src/lib/changes/_tests/formatChangeDate.reviewer.test.ts` with its retired module; rewrite `tab-changes/_tests/ChangesPanel.relativeDate.reviewer.test.tsx`; reconcile `src/lib/docs/_tests/docs.wo04001.reviewer.test.ts` for the expanded discovered set (currently passes its fixture).
+- Shared-contract limitation: DocIndex hardcodes the Documentation search label/placeholder and exposes no override for the project's “Buscar documento…” copy. Its module is outside S5C ownership, so it remains unchanged. DialogConfirm exposes no kicker prop; “Confirmar” is rendered in its content. Browser focus/900px layout and fidelity remain unverified because Playwright was explicitly excluded.
+
+Verification executed from `mission-control/` with `PORT=3983 PANDACORP_E2E_PORT=3983`:
+
+- `pnpm exec vitest run 'src/app/projects/[slug]/_components/tab-changes' 'src/app/projects/[slug]/_components/tab-documents' 'src/app/projects/[slug]/_components/tab-commands' 'src/app/projects/[slug]/_components/mode-selector' 'src/app/projects/[slug]/_actions' src/lib/changes src/lib/docs --maxWorkers=2`: 429 passed, 19 failed; 26 suites passed, five reviewer suites failed (two import/collection failures, three obsolete-contract suites). The reviewer files were not edited.
+- The same scoped Vitest command with `--exclude '**/*.reviewer.*' --maxWorkers=2`: GREEN, 22 suites / 353 tests passed. This excludes reviewer-owned contracts awaiting reconciliation; it is not the full gate.
+- `pnpm exec tsc --noEmit`: RED, 47 diagnostics, all in unchanged reviewer suites referring to retired Party/ModeSelector/formatChangeDate/objectives-bar or the former observabilidad tab ID. No diagnostics in S5C implementation or implementer tests.
+- `pnpm exec knip`: RED, 26 unresolved imports in unchanged reviewer suites and three retained command-mode exports reserved for W7.
+- `python3 /private/tmp/s5c-verify-biome.py`: GREEN, exact 27-file explicit-path Biome invocation, no fixes applied. `git diff --check`: GREEN.
+- No Playwright, production build, full verify.sh, baseline blessing or browser fidelity check was run. No commits, staging, pushes, merges, merge queue, decision log or .pandacorp state writes were performed.
+
+Explicit paths for this work order (including removed files):
+
+- `docs/frds/frd-04-project-workspace/work-orders/wo-04-012-cambios-documentos.md`
+- `src/app/projects/[slug]/_actions/_tests/discard-change.test.ts`
+- `src/app/projects/[slug]/_actions/discard-change.ts`
+- `src/app/projects/[slug]/_components/tab-changes/ChangeCard.tsx`
+- `src/app/projects/[slug]/_components/tab-changes/ChangeDetail.tsx`
+- `src/app/projects/[slug]/_components/tab-changes/ChangesPanel.tsx`
+- `src/app/projects/[slug]/_components/tab-changes/DiscardChangeButton.tsx`
+- `src/app/projects/[slug]/_components/tab-changes/_tests/ChangeCard.test.tsx`
+- `src/app/projects/[slug]/_components/tab-changes/_tests/ChangesPanel.test.tsx`
+- `src/app/projects/[slug]/_components/tab-changes/_tests/DiscardChangeButton.test.tsx`
+- `src/app/projects/[slug]/_components/tab-changes/_tests/changes.v2.test.tsx`
+- `src/app/projects/[slug]/_components/tab-changes/changePresentation.ts`
+- `src/app/projects/[slug]/_components/tab-changes/changes.module.css`
+- `src/app/projects/[slug]/_components/tab-documents/_tests/tab-documents.test.tsx`
+- `src/app/projects/[slug]/_components/tab-documents/_tests/tab-documents.wo04005.test.tsx`
+- `src/app/projects/[slug]/_components/tab-documents/tab-documents.tsx`
+- `src/lib/changes/_tests/discard-change.test.ts`
+- `src/lib/changes/_tests/formatChangeDate.test.ts`
+- `src/lib/changes/discard-change.ts`
+- `src/lib/changes/formatChangeDate.ts`
+- `src/lib/docs/_tests/docs.wo04001.test.ts`
+- `src/lib/docs/_tests/tree.v2.test.ts`
+- `src/lib/docs/tree.ts`
+
+### S5C round 2 verification — 2026-10-31
+
+Executed from `mission-control/`, with `export PORT=3983 PANDACORP_E2E_PORT=3983`:
+
+```sh
+pnpm exec vitest run 'src/app/projects/[slug]/_components/tab-changes' 'src/app/projects/[slug]/_components/tab-documents' 'src/app/projects/[slug]/_components/tab-commands' 'src/app/projects/[slug]/_actions' src/lib/changes src/lib/docs src/lib/copy src/components/modules/DocumentReader src/components/core/Modal --maxWorkers=2
+```
+
+GREEN: 36 suites, 514 tests. Reviewer suites are included and unchanged. The first run exposed the prose-date fallback (`N/A 3`); after fixing it, the final run passes. Regression tests cover Back followed by opening a done card, cancel/error reset, reason cap/danger tone, invalid calendar dates, duplicate guidance and document path search/empty groups.
+
+```sh
+pnpm exec biome check docs/design/microcopy.es.json 'src/app/projects/[slug]/_actions/discard-change.ts' 'src/app/projects/[slug]/_components/tab-changes/ChangesPanel.tsx' 'src/app/projects/[slug]/_components/tab-changes/_tests/ChangesPanel.test.tsx' 'src/app/projects/[slug]/_components/tab-changes/changePresentation.ts' 'src/app/projects/[slug]/_components/tab-commands/_tests/tab-commands.test.tsx' 'src/app/projects/[slug]/_components/tab-commands/tab-commands.tsx' 'src/app/projects/[slug]/_components/tab-documents/_tests/tab-documents.test.tsx' 'src/app/projects/[slug]/_components/tab-documents/tab-documents.tsx' src/components/core/Modal/DialogConfirm.tsx src/components/modules/DocumentReader/DocIndex.tsx src/lib/copy/_tests/copy.test.ts src/lib/copy/dates.ts src/lib/docs/tree.ts src/lib/next-step/next-step.ts
+```
+
+GREEN: 14 source/test files checked, no fixes applied in the final check (the catalogue is ignored by the existing Biome configuration). Earlier formatting passes used the same explicit changed paths with `--write`.
+
+```sh
+pnpm exec knip
+pnpm exec knip --reporter json > /private/tmp/s5c-round2-knip.json
+pnpm exec tsc --noEmit
+```
+
+Global Knip remains RED: 24 unresolved imports in unchanged test files and three unused exports in unchanged `src/lib/command-modes.ts`. Comparing the JSON issue file paths against `git diff --name-only -- mission-control` reports **zero issues in changed files**. TypeScript remains RED: 45 diagnostics in unchanged reviewer/review test files (retired Party modules and the old `observabilidad` tab ID); zero diagnostics in changed files. Full outputs: `/private/tmp/s5c-round2-{knip,tsc}.log`; Vitest: `/private/tmp/s5c-round2-vitest.log`.
+
+`git diff --check`: GREEN. No browser/Playwright, production build or full `verify.sh` run; browser focus, responsive layout and visual fidelity remain unverified. All changes are uncommitted and unstaged on `orch/s5c`; no merge, push, merge queue, reviewer-test/baseline edit, decision-log write or `.pandacorp` state write.
+
+Round 2 changed files (relative to `mission-control/`):
+
+- `docs/design/microcopy.es.json`
+- `docs/frds/frd-04-project-workspace/work-orders/wo-04-012-cambios-documentos.md`
+- `src/app/projects/[slug]/_actions/discard-change.ts`
+- `src/app/projects/[slug]/_components/tab-changes/ChangesPanel.tsx`
+- `src/app/projects/[slug]/_components/tab-changes/_tests/ChangesPanel.test.tsx`
+- `src/app/projects/[slug]/_components/tab-changes/changePresentation.ts`
+- `src/app/projects/[slug]/_components/tab-commands/_tests/tab-commands.test.tsx`
+- `src/app/projects/[slug]/_components/tab-commands/tab-commands.tsx`
+- `src/app/projects/[slug]/_components/tab-documents/_tests/tab-documents.test.tsx`
+- `src/app/projects/[slug]/_components/tab-documents/tab-documents.tsx`
+- `src/components/core/Modal/DialogConfirm.tsx`
+- `src/components/modules/DocumentReader/DocIndex.tsx`
+- `src/lib/copy/_tests/copy.test.ts`
+- `src/lib/copy/dates.ts`
+- `src/lib/docs/tree.ts`
+- `src/lib/next-step/next-step.ts`

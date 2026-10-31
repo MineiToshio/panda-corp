@@ -60,3 +60,14 @@ describe("AC-13-010.2: shared Spanish dates", () => {
     expect(formatRelative("garbage", NOW)).toBe("sin registro");
   });
 });
+
+it.each([
+  "N/A 3",
+  "2026-02-30",
+  "2026-02-29",
+  "2026-04-31",
+])("REQ-04-011: invalid date %s stays raw", (value) => expect(formatDate(value)).toBe(value));
+it("REQ-04-011: a valid leap day is formatted", () => {
+  expect(formatDate("2024-02-29")).toContain("29");
+  expect(formatDate("2024-02-29")).not.toBe("2024-02-29");
+});

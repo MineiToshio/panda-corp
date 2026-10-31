@@ -1073,6 +1073,19 @@
       }
     },
     "cambios": {
+      "itemStates": {
+        "ready": "Listo",
+        "draft": "Borrador",
+        "building": "En construcción",
+        "closing": "Cerrando",
+        "done": "Hecho",
+        "discarded": "Descartado"
+      },
+      "discardErrors": {
+        "not-found": "El cambio no fue encontrado.",
+        "parse-error": "No se pudo procesar el archivo del cambio.",
+        "not-discardable": "Este cambio ya no se puede descartar."
+      },
       "states": {
         "ready": "Listos para construir",
         "draft": "Borradores",

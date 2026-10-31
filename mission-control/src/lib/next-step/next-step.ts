@@ -53,8 +53,8 @@ export interface CommandRow {
 // Construction-phase command rows (implementation)
 // ---------------------------------------------------------------------------
 
-// The /pandacorp:implement command (full + targeted variants) lives in ModeSelector
-// (CMP-11-mode-selector), not here. CommandsBox shows only the non-build commands.
+// BuildModePicker owns the full and targeted /pandacorp:implement variants.
+// TabCommands combines these non-build rows with the current next step.
 const BUILDING_ROWS: readonly CommandRow[] = [
   {
     command: "/pandacorp:release",
@@ -70,7 +70,7 @@ const BUILDING_ROWS: readonly CommandRow[] = [
 // Launched ("release") command rows (DR-085: the old "operation" phase)
 // ---------------------------------------------------------------------------
 
-// implement variants live in ModeSelector (same as building phase).
+// Build variants live in BuildModePicker (same as building phase).
 const RELEASE_ROWS: readonly CommandRow[] = [
   {
     command: "/pandacorp:iterate",

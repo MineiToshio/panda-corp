@@ -32,7 +32,7 @@ describe("discardChangeAction — happy path", () => {
   it("delegates to discardChange with projectPath and id", async () => {
     mockDiscardChange.mockReturnValue({ ok: true });
     await discardChangeAction("/tmp/proj", "mc-export-csv", "mission-control");
-    expect(mockDiscardChange).toHaveBeenCalledWith("/tmp/proj", "mc-export-csv");
+    expect(mockDiscardChange).toHaveBeenCalledWith("/tmp/proj", "mc-export-csv", undefined);
   });
 
   it("revalidates both the project route and the portfolio on success", async () => {
@@ -81,4 +81,25 @@ describe("discardChangeAction — failure paths", () => {
       discardChangeAction("/tmp/proj", "mc-broken", "mission-control"),
     ).resolves.not.toThrow();
   });
+});
+
+it("REQ-04-008: validates action inputs before delegating the bounded write", async () => {
+  vi.clearAllMocks();
+  expect(await discardChangeAction("/tmp/project", "../escape", "project")).toEqual({
+    ok: false,
+    reason: "not-found",
+  });
+  expect(await discardChangeAction("/tmp/project", "change", "project", "x".repeat(2001))).toEqual({
+    ok: false,
+    reason: "parse-error",
+  });
+  expect(mockDiscardChange).not.toHaveBeenCalled();
+  expect(mockRevalidatePath).not.toHaveBeenCalled();
+});
+it("REQ-04-008: forwards an optional reason without changing success revalidation", async () => {
+  vi.clearAllMocks();
+  mockDiscardChange.mockReturnValue({ ok: true });
+  await discardChangeAction("/tmp/project", "change", "project", "Duplicate");
+  expect(mockDiscardChange).toHaveBeenCalledWith("/tmp/project", "change", "Duplicate");
+  expect(mockRevalidatePath).toHaveBeenCalledWith("/projects/project");
 });

@@ -1,0 +1,50 @@
+.stack {
+  display: grid;
+  gap: var(--s5);
+  min-width: 0;
+}
+.strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--s3);
+}
+.strip > div {
+  display: grid;
+  gap: var(--s2);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  padding: var(--s4);
+  color: var(--tone);
+}
+.strip strong {
+  font-size: var(--fs-xl);
+}
+.strip span {
+  font-size: var(--fs-xs);
+}
+.history {
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.history summary {
+  padding: var(--s4);
+  cursor: pointer;
+}
+@media (max-width: 599px) {
+  .strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.detail {
+  display: grid;
+  gap: var(--s4);
+  min-width: 0;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}

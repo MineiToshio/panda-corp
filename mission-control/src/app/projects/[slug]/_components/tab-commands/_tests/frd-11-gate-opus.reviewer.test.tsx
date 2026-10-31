@@ -1,31 +1,29 @@
 /**
- * FRD-11 GATE — Opus reviewer adversarial INTEGRATION tests (DR-015), second pass.
+ * FRD-11 gate, second pass: the mode command, the scoped target and the read-only contract
+ * through the mounted tab.
  *
- * Complements `frd-11-gate.reviewer.test.tsx`. Probes edges through the REAL integration
- * surface (`TabCommands` mounting `<ModeSelector>`, now the compact CmdRow `<select>`):
- *
- *   F. AC-11-002.1 EXACTNESS — balanced's command is `/pandacorp:implement` with NO arg.
- *   G. AC-11-002.2 the active description (the select hint) is the PICKED mode's and CHANGES.
- *   H. DR-061 read/copy invariant — the selector is NOT a build trigger (no run/submit/form).
- *   I. Corrupt persisted value flows safely — falls back to Balanced, never a blank panel.
- *   J. The build-mode CmdRow is ABOVE the stage rows (projComandos order).
+ *   F. REQ-11-002/004 exact command per mode; Equilibrado carries no argument.
+ *   G. AC-11-005.1 card anatomy.
+ *   H. FRD-11 exclusion: copy only, nothing launches a build.
+ *   I. Edge: corrupt or unknown stored value opens on Equilibrado.
+ *   J. AC-11-005.2 the worked example, clearing, forged values and the project reset.
  */
 
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { buildModeFlag } from "@/lib/command-modes";
-import { BUILD_MODES, DEFAULT_BUILD_MODE } from "@/lib/constants";
+import { BUILD_MODES } from "@/lib/constants";
 import { TabCommands } from "../tab-commands";
 
+const TARGETS = [
+  { value: "FRD-01", label: "FRD-01 · Lectura" },
+  { value: "WO-01-003", label: "WO-01-003 · Board" },
+  { value: "change:mc-fix-dates", label: "Cambio · Fechas" },
+];
 const keyFor = (slug: string) => `mc:build-mode:${slug}`;
-
-function getModeSelect(): HTMLSelectElement {
-  return screen.getByRole("combobox", { name: "Modo del comando" }) as HTMLSelectElement;
-}
-
-function pickMode(id: (typeof BUILD_MODES)[number]["id"]): void {
-  fireEvent.change(getModeSelect(), { target: { value: buildModeFlag(id) } });
-}
+const select = () => screen.getByRole("combobox", { name: "Objetivo del build" });
+const copy = (command: string) => screen.queryByRole("button", { name: `Copiar ${command}` });
+const pressed = (name: RegExp) =>
+  within(screen.getByTestId("mode-selector-slot")).getByRole("button", { name });
 
 beforeEach(() => localStorage.clear());
 afterEach(() => {
@@ -33,99 +31,108 @@ afterEach(() => {
   localStorage.clear();
 });
 
-describe("FRD-11 gate (F): AC-11-002.1 command exactness per mode (no arg drift)", () => {
-  it("balanced's command is exactly /pandacorp:implement with NO trailing argument", () => {
-    const balanced = BUILD_MODES.find((m) => m.id === "balanced");
-    expect(balanced?.command).toBe("/pandacorp:implement");
-
+describe("REQ-11-002/004: exact command per mode", () => {
+  it("Equilibrado preselected, no argument, no mode token leaks into the box", () => {
     render(<TabCommands phase="architecture" slug="exact" />);
-    const firstCmdRow = screen.getAllByTestId("cmd-row")[0];
-    const text = (firstCmdRow?.textContent ?? "").trim();
-    expect(text).toContain("/pandacorp:implement");
-    expect(text).not.toContain("/pandacorp:implement balanced");
+    expect(pressed(/^Equilibrado/)).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("mode-cmd").textContent).not.toMatch(/balanced/);
+    expect(BUILD_MODES.find((mode) => mode.id === "balanced")?.command).toBe(
+      "/pandacorp:implement",
+    );
   });
 
-  it("each non-balanced mode shows its EXACT `/pandacorp:implement <id>` command", () => {
+  it.each([
+    ["Pro", "pro"],
+    ["Potente", "powerful"],
+    ["Profundo", "deep"],
+  ])("%s shows /pandacorp:implement %s, and Equilibrado drops it again", (label, argument) => {
     render(<TabCommands phase="architecture" slug="exact2" />);
-    for (const mode of BUILD_MODES) {
-      pickMode(mode.id);
-      const firstCmdRow = screen.getAllByTestId("cmd-row")[0];
-      const text = (firstCmdRow?.textContent ?? "").trim();
-      if (mode.id === "balanced") {
-        expect(text).toContain("/pandacorp:implement");
-        expect(text).not.toContain("implement balanced");
-      } else {
-        expect(text).toContain(`/pandacorp:implement ${mode.id}`);
-      }
-      expect(text).toContain(mode.command);
+    fireEvent.click(pressed(new RegExp(`^${label}\\b`)));
+    expect(screen.getByTestId("mode-cmd")).toHaveTextContent(`/pandacorp:implement ${argument}`);
+    fireEvent.click(pressed(/^Equilibrado/));
+    expect(screen.getByTestId("mode-cmd").textContent).not.toContain(argument);
+  });
+});
+
+describe("AC-11-005.1: four selectable cards", () => {
+  it("each card has its tag and a 1 to 4 power meter", () => {
+    render(<TabCommands phase="implementation" slug="cards" />);
+    const slot = within(screen.getByTestId("mode-selector-slot"));
+    expect(slot.getByRole("button", { name: /^Pro\b.*pro/s })).toBeInTheDocument();
+    expect(slot.getByRole("button", { name: /^Equilibrado.*por defecto/s })).toBeInTheDocument();
+    expect(slot.getByRole("button", { name: /^Potente.*powerful/s })).toBeInTheDocument();
+    expect(slot.getByRole("button", { name: /^Profundo.*deep/s })).toBeInTheDocument();
+    for (const power of [1, 2, 3, 4])
+      expect(slot.getAllByLabelText(new RegExp(`${power} de 4`)).length).toBeGreaterThan(0);
+  });
+});
+
+describe("FRD-11 exclusion: the tab never launches a build", () => {
+  it("no form, submit or run affordance anywhere in the tab", () => {
+    render(<TabCommands phase="implementation" slug="readonly" targets={TARGETS} />);
+    const body = screen.getByTestId("tab-commands-body");
+    expect(within(body).queryByRole("form")).toBeNull();
+    for (const button of within(body).getAllByRole("button")) {
+      const label = button.getAttribute("aria-label") ?? button.textContent ?? "";
+      expect(label).not.toMatch(/ejecut|lanza|iniciar|\brun\b/i);
+      expect(button.getAttribute("type")).not.toBe("submit");
     }
   });
 });
 
-describe("FRD-11 gate (G): AC-11-002.2 active description tracks the picked mode", () => {
-  it("the active description equals the picked mode's description and changes on selection", () => {
-    render(<TabCommands phase="implementation" slug="desc" />);
-
-    const desc = () => screen.getByTestId("cmd-row-hint").textContent ?? "";
-
-    const balancedDesc = desc();
-    expect(balancedDesc.length).toBeGreaterThan(0);
-
-    pickMode("deep");
-    const deepDesc = desc();
-    expect(deepDesc).not.toBe(balancedDesc);
-    expect(deepDesc.toLowerCase()).toMatch(/adversarial|profundo|mejores|todos/);
-
-    pickMode("pro");
-    expect(desc()).not.toBe(deepDesc);
-  });
-});
-
-describe("FRD-11 gate (H): DR-061 read/copy surface, NOT a build trigger", () => {
-  it("the selector slot exposes NO run/play/submit button — only the select + copy", () => {
-    render(<TabCommands phase="implementation" slug="readonly" />);
-    const slot = screen.getByTestId("mode-selector-slot");
-
-    const buttons = within(slot).queryAllByRole("button");
-    for (const btn of buttons) {
-      const label = (btn.getAttribute("aria-label") ?? btn.textContent ?? "").toLowerCase();
-      expect(label).not.toMatch(/ejecut|lanza|construir|run|play|build|iniciar/);
-      expect(btn.getAttribute("type")).not.toBe("submit");
-    }
-    expect(slot.querySelector("form")).toBeNull();
-  });
-});
-
-describe("FRD-11 gate (I): corrupt persisted value is tolerated (FDD Error state)", () => {
-  it("a hostile stored value falls back to Balanced without throwing", () => {
-    localStorage.setItem(keyFor("corrupt"), '{"not":"a-mode"}<script>');
-
+describe("Edge: a project with no valid remembered mode", () => {
+  it.each([
+    '{"not":"a-mode"}<script>',
+    "ultra-deep",
+    "",
+  ])("stored %j opens on Equilibrado", (raw) => {
+    localStorage.setItem(keyFor("corrupt"), raw);
     expect(() => render(<TabCommands phase="design" slug="corrupt" />)).not.toThrow();
-
-    expect(getModeSelect().value).toBe(""); // Balanced (no flag)
-    expect(DEFAULT_BUILD_MODE).toBe("balanced");
-    expect(screen.getAllByTestId("cmd-row").length).toBeGreaterThan(0);
-  });
-
-  it("an unknown-but-string stored mode also falls back to Balanced", () => {
-    localStorage.setItem(keyFor("unknown"), "ultra-deep");
-    render(<TabCommands phase="design" slug="unknown" />);
-    expect(getModeSelect().value).toBe("");
+    expect(pressed(/^Equilibrado/)).toHaveAttribute("aria-pressed", "true");
   });
 });
 
-describe("FRD-11 gate (J): projComandos panel order — selector command above stage rows", () => {
-  it("the first cmd-row in the tab is the build-mode command, not a stage command", () => {
-    render(<TabCommands phase="implementation" slug="order" />);
+describe("AC-11-005.2: scoped target", () => {
+  it("the placeholder box reads <id>; each pick scopes the command", () => {
+    render(<TabCommands phase="release" slug="target" targets={TARGETS} />);
+    expect(copy("/pandacorp:implement <id>")).toBeInTheDocument();
+    expect(within(select()).getAllByRole("option")[0]).toHaveTextContent(
+      "Elige un FRD o work order…",
+    );
+    for (const { value } of TARGETS) {
+      fireEvent.change(select(), { target: { value } });
+      expect(copy(`/pandacorp:implement ${value}`)).toBeInTheDocument();
+    }
+    fireEvent.change(select(), { target: { value: "" } });
+    expect(copy("/pandacorp:implement <id>")).toBeInTheDocument();
+  });
 
-    const selectorSlot = screen.getByTestId("mode-selector-slot");
-    const commandsList = screen.getByTestId("commands-list");
+  it("the mode never joins the target command (worked example)", () => {
+    render(<TabCommands phase="implementation" slug="worked" targets={TARGETS} />);
+    fireEvent.click(pressed(/^Potente/));
+    fireEvent.change(select(), { target: { value: "change:mc-fix-dates" } });
+    expect(copy("/pandacorp:implement change:mc-fix-dates")).toBeInTheDocument();
+    expect(copy("/pandacorp:implement powerful")).toBeInTheDocument();
+    fireEvent.click(pressed(/^Equilibrado/));
+    expect(copy("/pandacorp:implement change:mc-fix-dates")).toBeInTheDocument();
+  });
 
-    expect(
-      selectorSlot.compareDocumentPosition(commandsList) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+  it("a target that vanished from the options falls back to the placeholder", () => {
+    const { rerender } = render(
+      <TabCommands phase="implementation" slug="gone" targets={TARGETS} />,
+    );
+    fireEvent.change(select(), { target: { value: "WO-01-003" } });
+    rerender(<TabCommands phase="implementation" slug="gone" targets={TARGETS.slice(0, 1)} />);
+    expect(copy("/pandacorp:implement <id>")).toBeInTheDocument();
+    expect(copy("/pandacorp:implement WO-01-003")).toBeNull();
+  });
 
-    const firstCmdRow = screen.getAllByTestId("cmd-row")[0];
-    expect(within(selectorSlot).getAllByTestId("cmd-row")[0]).toBe(firstCmdRow);
+  it("switching project resets the view-local target; no targets leaves only the placeholder", () => {
+    const { rerender } = render(<TabCommands phase="implementation" slug="a" targets={TARGETS} />);
+    fireEvent.change(select(), { target: { value: "FRD-01" } });
+    rerender(<TabCommands phase="implementation" slug="b" targets={TARGETS} />);
+    expect(select()).toHaveValue("");
+    rerender(<TabCommands phase="implementation" slug="c" />);
+    expect(within(select()).getAllByRole("option")).toHaveLength(1);
   });
 });

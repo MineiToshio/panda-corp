@@ -7,7 +7,7 @@
  * delegates to the sole write (`discardChange`), revalidates the routes that can render
  * the project workspace, and never throws — every error path is a typed return value.
  *
- * Rule: human-triggered only (via DiscardChangeButton). Never called during a render pass.
+ * Rule: human-triggered only (via ChangesPanel). Never called during a render pass.
  *
  * Traceability:
  *   CMP-04-discard-change-action → REQ-04-008
@@ -36,8 +36,20 @@ export async function discardChangeAction(
   projectPath: string,
   id: string,
   slug: string,
+  reason?: string,
 ): Promise<DiscardChangeResult> {
-  const result = discardChange(projectPath, id);
+  if (
+    typeof projectPath !== "string" ||
+    !projectPath.startsWith("/") ||
+    typeof id !== "string" ||
+    !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(id) ||
+    typeof slug !== "string" ||
+    !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(slug)
+  )
+    return { ok: false, reason: "not-found" };
+  if (reason !== undefined && (typeof reason !== "string" || reason.length > 2000))
+    return { ok: false, reason: "parse-error" };
+  const result = discardChange(projectPath, id, reason);
 
   if (result.ok) {
     revalidatePath(`/projects/${slug}`);

@@ -15,6 +15,7 @@ export interface DialogConfirmProps {
   /** When set, a labelled reason field is shown and its text is passed to `onConfirm`. */
   readonly reasonLabel?: string;
   readonly reasonPlaceholder?: string;
+  readonly kicker?: string;
   readonly confirmVariant?: "primary" | "danger";
   readonly onCancel: () => void;
   readonly onConfirm: (reason: string) => void;
@@ -30,6 +31,7 @@ export function DialogConfirm({
   confirmLabel,
   reasonLabel,
   reasonPlaceholder,
+  kicker,
   confirmVariant = "primary",
   onCancel,
   onConfirm,
@@ -47,7 +49,7 @@ export function DialogConfirm({
     onConfirm(reason);
   }
   return (
-    <Modal open={open} onClose={onCancel} title={title} testIdBase={testIdBase}>
+    <Modal open={open} onClose={onCancel} title={title} testIdBase={testIdBase} kicker={kicker}>
       {children}
       {reasonLabel ? (
         <div>
@@ -57,6 +59,7 @@ export function DialogConfirm({
           <textarea
             data-testid={`${testIdBase}-reason-text`}
             placeholder={reasonPlaceholder}
+            maxLength={2000}
             id={reasonId}
             className={styles.reason}
             value={reason}

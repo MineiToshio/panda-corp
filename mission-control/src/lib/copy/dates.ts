@@ -1,5 +1,6 @@
 import { t } from "./copy";
 
+const ISO_DATE_PREFIX = /^\d{4}-\d{2}-\d{2}(?:$|T)/;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const MS_MINUTE = 60_000;
 const MS_HOUR = 3_600_000;
@@ -22,9 +23,12 @@ const ABSOLUTE_UTC = new Intl.DateTimeFormat("es-PE", {
  * @returns the raw string unchanged when it can not be parsed: never a thrown error, never an invented date.
  */
 export function formatDate(value: string): string {
+  if (!ISO_DATE_PREFIX.test(value)) return value;
   const ms = Date.parse(value);
   if (Number.isNaN(ms)) return value;
-  return (DATE_ONLY.test(value) ? ABSOLUTE_UTC : ABSOLUTE).format(ms);
+  const isDateOnly = DATE_ONLY.test(value);
+  if (isDateOnly && new Date(ms).toISOString().slice(0, 10) !== value) return value;
+  return (isDateOnly ? ABSOLUTE_UTC : ABSOLUTE).format(ms);
 }
 
 /**

@@ -17,6 +17,7 @@ interface DocItemData {
   readonly id: string;
   readonly label: string;
   readonly href: string;
+  readonly path?: string;
   readonly current?: boolean;
 }
 /** An index section with its unfiltered count. */
@@ -30,6 +31,7 @@ export interface DocIndexGroup {
 /** Shared index contract for documentation and project documents. */
 export interface DocIndexProps {
   readonly groups: readonly DocIndexGroup[];
+  readonly searchPlaceholder?: string;
   readonly query: string;
   readonly onQuery: (query: string) => void;
   readonly toggleLabel: string;
@@ -66,6 +68,7 @@ export function DocIndex({
   open,
   onOpenChange,
   typeFilters,
+  searchPlaceholder,
 }: DocIndexProps): React.JSX.Element {
   const trigger = useRef<HTMLButtonElement>(null);
   const id = useId();
@@ -73,6 +76,15 @@ export function DocIndex({
     onOpenChange(false);
     trigger.current?.focus();
   }
+  const search = foldAccents(query.trim());
+  const visibleGroups = groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) =>
+        foldAccents(`${item.label} ${item.path ?? ""}`).includes(search),
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
   return (
     <div className={styles.indexWrap}>
       <button
@@ -100,7 +112,7 @@ export function DocIndex({
       >
         <SearchField
           label={t("documentacion.search.pageAria")}
-          placeholder={t("documentacion.search.pagePlaceholder")}
+          placeholder={searchPlaceholder ?? t("documentacion.search.pagePlaceholder")}
           value={query}
           onChange={onQuery}
         />
@@ -113,17 +125,15 @@ export function DocIndex({
             ))}
           </div>
         ) : null}
-        {groups.map((group) => (
+        {visibleGroups.map((group) => (
           <details key={group.id} open className={`dgroup ${styles.group}`} data-tone={group.tone}>
             <summary>
               {group.label}
               <span className={styles.count}>{group.count}</span>
             </summary>
-            {group.items
-              .filter((item) => foldAccents(item.label).includes(foldAccents(query.trim())))
-              .map((item) => (
-                <DocItem key={item.id} item={item} />
-              ))}
+            {group.items.map((item) => (
+              <DocItem key={item.id} item={item} />
+            ))}
           </details>
         ))}
       </nav>

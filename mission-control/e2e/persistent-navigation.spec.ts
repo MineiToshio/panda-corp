@@ -293,7 +293,9 @@ test("post-build registration: a non-first project retains identity through WO S
           "true",
         );
       }
-      await page.getByTestId("doc-nav-item").filter({ hasText: "prd.md" }).click();
+      const indexToggle = page.locator("button.index-toggle");
+      if (await indexToggle.isVisible()) await indexToggle.click();
+      await page.locator("nav.doc-index a", { hasText: "prd.md" }).click();
       await expect(page).toHaveURL(
         new RegExp(
           `/${family}/navigation-review-second/documents/docs%2Fproduct%2Fprd(\\?view=tablero)?$`,

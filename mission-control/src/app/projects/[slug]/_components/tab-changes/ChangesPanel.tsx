@@ -1,284 +1,165 @@
 "use client";
 
-/**
- * ChangesPanel — the project's change-queue surface (CMP-04-changes-panel, FRD-04).
- *
- * Renders a project's `.pandacorp/inbox/changes/` (+ archived `done/`), grouped by
- * status. Only **Listos (ready)** and **Borradores (draft)** show by default — Hechos
- * and Descartados are hidden behind "Ver hechos (N)" / "Ver descartados (N)" toggles
- * (REQ-04-009), so a project's history doesn't clutter the actionable view as it grows
- * over months. "Listo" heads the default view because it's the most actionable right
- * now — the build drains it next. **En construcción (building)** and **Cerrando
- * (closing)** — the engine-managed in-flight states (DR-069 §7) — always show too,
- * right after Listos/Borradores: they're open but no longer pending, so they never
- * count toward a pending badge, yet the owner should still see the build/sync is
- * actively working them rather than mistake a `building`/`closing` card for a
- * malformed one.
- *
- * Fail-loud (DR-078): if the reader could not interpret one or more files, an error
- * banner names them — the panel never renders a misleadingly-empty queue.
- *
- * Client Component: clicking a card opens a detail Modal (shared `Modal` primitive)
- * showing the item's full body + the targeted `/pandacorp:implement change:<id>`
- * command + (for ready/draft items) a discard action. The passed ChangeQueueReadResult
- * is read server-side.
- *
- * Traceability:
- *   CMP-04-changes-panel → REQ-04-006 (grouped items), REQ-04-007 (fail-loud error state),
- *                          REQ-04-008 (detail modal + targeted command + discard),
- *                          REQ-04-009 (default-hidden Hechos/Descartados)
- */
-
-import { Chip } from "@/components/core/Chip/Chip";
+import { useState, useTransition } from "react";
+import { Button } from "@/components/core/Button/Button";
+import { Card, CardHeader } from "@/components/core/Card/Card";
+import { CmdRow } from "@/components/core/CmdRow/CmdRow";
+import { DialogConfirm } from "@/components/core/Modal/DialogConfirm";
 import { Modal } from "@/components/core/Modal/Modal";
-import { SectionHead } from "@/components/core/SectionHead/SectionHead";
-import type {
-  ChangeQueueItem,
-  ChangeQueueReadResult,
-  ChangeQueueStatus,
-} from "@/lib/changes/changes";
+import { Notice } from "@/components/core/Notice/Notice";
+import type { ChangeQueueReadResult } from "@/lib/changes/changes";
+import { t } from "@/lib/copy/copy";
 import { useUrlState } from "@/lib/navigation/useUrlState";
+import { discardChangeAction } from "../../_actions/discard-change";
 import { ChangeCard } from "./ChangeCard";
 import { ChangeDetail } from "./ChangeDetail";
+import {
+  ACTIVE_STATUSES,
+  discardErrorLabel,
+  STATUS_TONES,
+  statusLabel,
+} from "./changePresentation";
+import styles from "./changes.module.css";
 
-// ---------------------------------------------------------------------------
-// Status groups — always-visible (default view) vs toggleable (opt-in reveal)
-// ---------------------------------------------------------------------------
-
-const DEFAULT_GROUPS: readonly { status: ChangeQueueStatus; label: string; icon: string }[] = [
-  { status: "ready", label: "Listos", icon: "ti-circle-check" },
-  { status: "draft", label: "Borradores", icon: "ti-file-dots" },
-];
-
-/**
- * Engine-managed transient states (DR-069 §7) — the build/sync are actively working
- * these items right now. Always shown (never behind a toggle, unlike Hechos/Descartados)
- * because "in flight" is actionable-adjacent information, but kept visually distinct
- * from the owner-actionable Listos/Borradores groups above.
- */
-const IN_FLIGHT_GROUPS: readonly { status: ChangeQueueStatus; label: string; icon: string }[] = [
-  { status: "building", label: "En construcción", icon: "ti-loader-2" },
-  { status: "closing", label: "Cerrando", icon: "ti-flag-3" },
-];
-
-const TOGGLEABLE_GROUPS: readonly {
-  status: ChangeQueueStatus;
-  label: string;
-  icon: string;
-  toggleLabel: string;
-}[] = [
-  { status: "done", label: "Hechos", icon: "ti-archive", toggleLabel: "hechos" },
-  { status: "discarded", label: "Descartados", icon: "ti-trash", toggleLabel: "descartados" },
-];
-
-// ---------------------------------------------------------------------------
-// Styles — CSS custom properties only
-// ---------------------------------------------------------------------------
-
-const NOTE_STYLE: React.CSSProperties = {
-  fontSize: "13px",
-  color: "var(--color-text2)",
-  margin: "0 2px 18px",
-};
-
-const CARDS_STYLE: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "9px",
-};
-
-const EMPTY_STYLE: React.CSSProperties = {
-  fontSize: "0.875rem",
-  color: "var(--color-text3)",
-  fontStyle: "italic",
-  padding: "0.75rem 2px",
-};
-
-const ERROR_BANNER_STYLE: React.CSSProperties = {
-  fontSize: "12px",
-  color: "var(--color-danger)",
-  background: "var(--color-danger-bg)",
-  border: "1px solid var(--color-danger)",
-  borderRadius: "var(--radius-md, 12px)",
-  padding: "10px 12px",
-  margin: "0 2px 14px",
-};
-
-const TOGGLES_ROW_STYLE: React.CSSProperties = {
-  display: "flex",
-  gap: "8px",
-  flexWrap: "wrap",
-  margin: "14px 2px 14px",
-};
-
-const TOGGLE_BTN_STYLE: React.CSSProperties = {
-  fontSize: "11px",
-  padding: "4px 10px",
-  borderRadius: "var(--radius-sm, 8px)",
-  border: "1px solid var(--color-border-strong)",
-  background: "var(--color-card)",
-  color: "var(--color-text2)",
-  cursor: "pointer",
-  fontFamily: "var(--font-display, inherit)",
-};
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
-/** Group items by status, preserving file order within each group. */
-function byStatus(items: ChangeQueueItem[], status: ChangeQueueStatus): ChangeQueueItem[] {
-  return items.filter((item) => item.status === status);
-}
+const CHANGE_TYPE_KEYS = {
+  bug: "workspace.cambios.typeBug",
+  feature: "workspace.cambios.typeChange",
+  change: "workspace.cambios.typeChange",
+} as const;
 
 export interface ChangesPanelProps {
   result: ChangeQueueReadResult;
-  /** Absolute path to the project root — threaded to the discard Server Action. */
   projectPath: string;
-  /** The project's URL slug — threaded to the discard Server Action for revalidation. */
   slug: string;
 }
-
-export function ChangesPanel({ result, projectPath, slug }: ChangesPanelProps): React.JSX.Element {
-  const { items, errors } = result;
-  const hasItems = items.length > 0;
-
-  // Selected item → detail modal (null = closed).
-  const [selectedKey, setSelectedKey] = useUrlState("change", "");
-  const selected = items.find((item) => item.id === selectedKey) ?? null;
-  function setSelected(item: ChangeQueueItem | null): void {
-    setSelectedKey(item?.id ?? "");
+/** Queue with visible in-flight groups, a single history and mutually exclusive dialogs. */
+export function ChangesPanel({
+  result: { items, errors },
+  projectPath,
+  slug,
+}: ChangesPanelProps): React.JSX.Element {
+  const [selectedId, setSelected] = useUrlState("change", "");
+  const selected = items.find((item) => item.id === selectedId);
+  const [confirming, setConfirming] = useState(false);
+  const [previousSelectedId, setPreviousSelectedId] = useState(selectedId);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  if (previousSelectedId !== selectedId) {
+    setPreviousSelectedId(selectedId);
+    setConfirming(false);
+    setError(null);
   }
-  // Toggleable groups (Hechos, Descartados) — hidden by default (REQ-04-009) so the
-  // active queue doesn't grow unboundedly cluttered as a project ages.
-  const [disclosed, setDisclosed] = useUrlState("change-status", "");
-  const openToggles = new Set(disclosed.split(","));
-
-  function toggleGroup(status: ChangeQueueStatus): void {
-    const next = new Set(openToggles);
-    if (next.has(status)) next.delete(status);
-    else next.add(status);
-    setDisclosed([...next].filter(Boolean).sort().join(","));
+  const history = items.filter((item) => item.status === "done" || item.status === "discarded");
+  function close(): void {
+    setSelected("");
+    setConfirming(false);
+    setError(null);
   }
-
-  function handleDiscarded(): void {
-    setSelected(null);
+  function confirm(reason: string): void {
+    if (!selected || !canDiscard || pending) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await discardChangeAction(projectPath, selected.id, slug, reason);
+      if (result.ok) close();
+      else setError(discardErrorLabel(result.reason));
+    });
   }
-
+  const canDiscard = selected?.status === "ready" || selected?.status === "draft";
+  const showConfirm = canDiscard && confirming;
+  function cancelConfirm(): void {
+    if (pending) return;
+    setConfirming(false);
+    setError(null);
+  }
   return (
-    <section data-testid="changes-panel" aria-label="Cola de cambios del proyecto">
-      <p style={NOTE_STYLE}>
-        Lo que el dueño pidió vía <code>/pandacorp:change</code> (o que reportó como bug): el build
-        lo drena en su próximo punto seguro. Haz clic en una tarjeta para ver el detalle completo.
-      </p>
-
-      {/* Fail-loud error banner (DR-078) — a malformed item is surfaced, not hidden */}
-      {errors.length > 0 && (
-        <div data-testid="changes-error-banner" role="alert" style={ERROR_BANNER_STYLE}>
-          <i className="ti ti-alert-triangle" style={{ marginRight: "6px" }} aria-hidden="true" />
-          No se pudieron leer {errors.length} archivo(s) de la cola de cambios:{" "}
-          {errors.map((e) => `${e.file} (${e.reason})`).join("; ")}
-        </div>
-      )}
-
-      {!hasItems ? (
-        <p data-testid="changes-empty" style={EMPTY_STYLE}>
-          No hay cambios en la cola. Cuando pidas algo con <code>/pandacorp:change</code> (o
-          reportes un bug), aparecerá aquí.
-        </p>
-      ) : (
-        <>
-          {DEFAULT_GROUPS.map(({ status, label, icon }) => {
-            const group = byStatus(items, status);
-            if (group.length === 0) return null;
-            return (
-              <div key={status} data-testid={`changes-group-${status}`}>
-                <SectionHead icon={icon} label={label} count={group.length} />
-                <div style={CARDS_STYLE}>
-                  {group.map((item) => (
-                    <ChangeCard key={item.id} item={item} onSelect={setSelected} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* In-flight groups (building/closing, DR-069 §7) — always visible, never
-              behind a toggle: the owner should see the build/sync is actively working
-              an item, not mistake it for an error or lose track of it. */}
-          {IN_FLIGHT_GROUPS.map(({ status, label, icon }) => {
-            const group = byStatus(items, status);
-            if (group.length === 0) return null;
-            return (
-              <div key={status} data-testid={`changes-group-${status}`}>
-                <SectionHead icon={icon} label={label} count={group.length} />
-                <div style={CARDS_STYLE}>
-                  {group.map((item) => (
-                    <ChangeCard key={item.id} item={item} onSelect={setSelected} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Toggle row — Hechos/Descartados stay hidden until asked for (REQ-04-009),
-              so a project's history doesn't clutter the default view over months. */}
-          <div style={TOGGLES_ROW_STYLE}>
-            {TOGGLEABLE_GROUPS.map(({ status, toggleLabel }) => {
-              const count = byStatus(items, status).length;
-              if (count === 0) return null;
-              const open = openToggles.has(status);
-              return (
-                <button
-                  key={status}
-                  type="button"
-                  data-testid={`changes-toggle-${status}`}
-                  onClick={() => toggleGroup(status)}
-                  aria-pressed={open}
-                  style={TOGGLE_BTN_STYLE}
-                >
-                  {open ? "Ocultar" : "Ver"} {toggleLabel} ({count})
-                </button>
-              );
-            })}
+    <section
+      data-testid="changes-panel"
+      aria-label={t("workspace.cambios.request.title")}
+      className={styles.stack}
+    >
+      {errors.length ? (
+        <Notice kind="error" icon="alert">
+          {t("workspace.cambios.errors", { count: errors.length })}
+          <ul>
+            {errors.map((error) => (
+              <li key={error.file}>{error.file}</li>
+            ))}
+          </ul>
+        </Notice>
+      ) : null}
+      <div className={styles.strip}>
+        {ACTIVE_STATUSES.map((status) => (
+          <div key={status} data-tone={STATUS_TONES[status]}>
+            <strong>{items.filter((item) => item.status === status).length}</strong>
+            <span>{statusLabel(status)}</span>
           </div>
-
-          {TOGGLEABLE_GROUPS.map(({ status, label, icon }) => {
-            if (!openToggles.has(status)) return null;
-            const group = byStatus(items, status);
-            if (group.length === 0) return null;
-            return (
-              <div key={status} data-testid={`changes-group-${status}`}>
-                <SectionHead icon={icon} label={label} count={group.length} />
-                <div style={CARDS_STYLE}>
-                  {group.map((item) => (
-                    <ChangeCard key={item.id} item={item} onSelect={setSelected} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </>
-      )}
-
-      {/* Detail modal — the shared Modal primitive + ChangeDetail. */}
+        ))}
+      </div>
+      {items.every((item) => !ACTIVE_STATUSES.some((status) => status === item.status)) &&
+      !errors.length ? (
+        <p>{t("workspace.cambios.empty")}</p>
+      ) : null}
+      {ACTIVE_STATUSES.map((status) => {
+        const group = items.filter((item) => item.status === status);
+        return group.length ? (
+          <Card key={status} tone={STATUS_TONES[status]} variant="flush">
+            <CardHeader title={statusLabel(status)} count={group.length} icon="layers" />
+            {group.map((item) => (
+              <ChangeCard key={item.id} item={item} onSelect={(item) => setSelected(item.id)} />
+            ))}
+          </Card>
+        ) : null;
+      })}
+      {history.length ? (
+        <details className={styles.history}>
+          <summary>
+            {t("workspace.cambios.history")} {history.length}
+          </summary>
+          {history.map((item) => (
+            <ChangeCard key={item.id} item={item} onSelect={(item) => setSelected(item.id)} />
+          ))}
+        </details>
+      ) : null}
+      <Card tone="pink">
+        <CardHeader title={t("workspace.cambios.request.title")} icon="plus" />
+        <p>{t("workspace.cambios.request.intro")}</p>
+        <CmdRow variant="box" command="/pandacorp:change" />
+      </Card>
       <Modal
-        open={selected !== null}
-        onClose={() => setSelected(null)}
+        open={!!selected && !showConfirm}
+        onClose={close}
         title={selected?.title ?? ""}
+        kicker={
+          selected
+            ? t("dialogs.change.kicker", {
+                type: t(CHANGE_TYPE_KEYS[selected.type]),
+                id: selected.id,
+              })
+            : undefined
+        }
         testIdBase="change-detail-modal"
-        badge={selected != null ? <Chip tone="accent">{selected.id}</Chip> : undefined}
-        width={620}
+        tone="pink"
       >
-        {selected != null && (
-          <ChangeDetail
-            item={selected}
-            projectPath={projectPath}
-            slug={slug}
-            onDiscarded={handleDiscarded}
-          />
-        )}
+        {selected ? <ChangeDetail item={selected} /> : null}
+        {canDiscard ? (
+          <Button onClick={() => setConfirming(true)}>{t("dialogs.change.discard")}</Button>
+        ) : null}
       </Modal>
+      <DialogConfirm
+        open={!!selected && showConfirm}
+        title={t("dialogs.confirm.discardChange.title")}
+        testIdBase="change-discard"
+        reasonLabel={t("dialogs.confirm.reasonLabel")}
+        cancelLabel={t("dialogs.confirm.cancel")}
+        confirmLabel={t("dialogs.confirm.discardChange.verb")}
+        kicker={t("dialogs.confirm.kicker")}
+        confirmVariant="danger"
+        onCancel={cancelConfirm}
+        onConfirm={confirm}
+      >
+        <p>{t("dialogs.confirm.discardChange.text")}</p>
+        {error ? <p role="alert">{error}</p> : null}
+      </DialogConfirm>
     </section>
   );
 }
