@@ -13,7 +13,7 @@ promotion: none
 confidence: low
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0566]
 ---
 
 **Situation:** a redesign replaced `globals.css` wholesale with a new design system's token

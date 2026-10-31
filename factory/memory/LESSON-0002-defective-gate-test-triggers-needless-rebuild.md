@@ -13,7 +13,7 @@ promotion: approved   # 2026-07-01 — codified as the DR-073 two-cause fallback
 confidence: high
 times_applied: 3
 applied_in: [mission-control, panda-corp, funko-tracker]
-links: [BL-0001, BL-0051, DR-073, DR-074, DR-070, DR-072, DR-015, LESSON-0001, LESSON-0104]
+links: [BL-0001, BL-0051, DR-073, DR-074, DR-070, DR-072, DR-015, LESSON-0001, LESSON-0104, LESSON-0559]
 ---
 
 **Situation:** During personal-page-v2's FRD-01 gate, the reviewer found ONE real, bounded CORRECTION

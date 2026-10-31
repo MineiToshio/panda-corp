@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0002, LESSON-0104, LESSON-0559]
+links: [LESSON-0002, LESSON-0104, LESSON-0559, LESSON-0561]
 ---
 
 **Situation:** a global design-token/CSS change (the kind LESSON-0561 documents at the file level) landed

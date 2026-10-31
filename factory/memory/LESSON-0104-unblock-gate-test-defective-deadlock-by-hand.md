@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 1
 applied_in: [mission-control]
-links: [BL-0051, LESSON-0002, DR-080]
+links: [BL-0051, LESSON-0002, DR-080, LESSON-0559]
 ---
 
 **Situation:** a reopened FRD split its fix into two work orders with a `dependsOn` edge: the first

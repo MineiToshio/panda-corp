@@ -8,13 +8,20 @@ trigger: "use this when adding a new shared constant/type/wrapper that a LATER w
 source: "mission-control factory/memory/_inbox.md 2026-10-30 (agent-inferred) — two notes from the same build: a knip fix-forward where knip rejected exports of primitives with no consumers yet, fixed by keeping constants/aux types local and retiring unused wrapper exports; and an exported wrapper for a later-wave consuming WO left knip red in the intermediate tree, fixed by landing the wrapper together with its consumer"
 provenance: agent-inferred
 created: 2026-10-31
-status: candidate
+status: deprecated
 promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
 links: [LESSON-0278, LESSON-0266]
 ---
+
+**Merged 2026-10-31 (librarian review) into LESSON-0278** — this is the same "shared-module shape is a
+live function of consumer count" root cause, applied to a multi-wave build's TEMPORAL axis (zero-consumer
+because the consumer hasn't landed yet) rather than LESSON-0278's three existing facets (two-diverge,
+drop-to-one, narrowed-contract). Folded in as LESSON-0278's fourth rule to keep one retrieval home for
+this pattern family instead of fragmenting it across two files. The content below is preserved as the
+original evidence anchor; retrieve LESSON-0278 going forward.
 
 **Situation:** two related incidents in the same multi-wave build: (1) knip flagged exported
 constants/auxiliary types as unused because the work order that would consume them had not landed yet;

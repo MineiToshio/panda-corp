@@ -9,11 +9,11 @@ source: "synthesis over 3 evidence-anchored candidates across 2 distinct project
 provenance: agent-inferred
 created: 2026-10-01
 status: active
-promotion: proposed   # target: factory/standards/patterns.md (new "Shared-module lifecycle" section) or quality.md's review checklist — rationale: this 3-facet discipline (export-both-when-2-diverge / delete-when-drops-to-1 / derive-a-subset-don't-narrow-the-shared-contract) recurred independently across 2 distinct projects (personal-page-v2, mission-control) via 3 separate incidents, is cheap to state as a review checklist item ("grep every consumer of a shared helper before changing or deleting it"), and closes a real gap: knip/linters only see import counts, never WHY a module exists or whether a change silently narrows it for consumers the author didn't check.
+promotion: proposed   # target: factory/standards/patterns.md (new "Shared-module lifecycle" section) or quality.md's review checklist — rationale: this 4-facet discipline (export-both-when-2-diverge / delete-when-drops-to-1 / derive-a-subset-don't-narrow-the-shared-contract / land-an-export-with-its-wave-consumer-not-ahead-of-it) recurred independently across 2 distinct projects (personal-page-v2, mission-control) via 4 separate incidents, is cheap to state as a review checklist item ("grep every consumer of a shared helper before changing or deleting it; never export a primitive ahead of the wave that consumes it"), and closes a real gap: knip/linters only see import counts, never WHY a module exists, whether a change silently narrows it for consumers the author didn't check, or whether a currently-zero-consumer export is abandoned vs. simply ahead of its wave.
 confidence: medium
 times_applied: 3
 applied_in: [pandasaga, funko-tracker, mission-control]
-links: [LESSON-0252, LESSON-0266, LESSON-0272]
+links: [LESSON-0252, LESSON-0266, LESSON-0272, LESSON-0560]
 ---
 
 **Situation:** three separate incidents across two distinct projects all turned on the same underlying
@@ -33,16 +33,25 @@ extraction time — its justified shape (one export or two, exists or inlined-aw
 narrowed) is a live function of its CURRENT consumer count, and that count silently drifts as unrelated
 changes land at any one of its call sites. No automated tool tracks this: a linter like knip only answers
 "is this still imported at all", never "does the number/nature of its consumers still match the shape this
-module was given." Three concrete rules fall out of the same underlying fact: when a SECOND genuinely
-distinct consumer appears, name and export both meanings rather than inlining a near-duplicate (LESSON-0252);
-when a change drops a module back to a SINGLE consumer, delete it and inline its logic in the SAME change,
-not a later cleanup pass (LESSON-0266); when ONE consumer wants a narrower/different view, derive a new
-subset for that caller rather than narrowing the shared contract every OTHER consumer still depends on
-(LESSON-0272).
+module was given" — and it cannot distinguish a genuinely abandoned zero-consumer export from one that is
+simply AHEAD of the wave that will consume it. Four concrete rules fall out of the same underlying fact:
+when a SECOND genuinely distinct consumer appears, name and export both meanings rather than inlining a
+near-duplicate (LESSON-0252); when a change drops a module back to a SINGLE consumer, delete it and inline
+its logic in the SAME change, not a later cleanup pass (LESSON-0266); when ONE consumer wants a
+narrower/different view, derive a new subset for that caller rather than narrowing the shared contract
+every OTHER consumer still depends on (LESSON-0272); and in a multi-wave build, when a shared
+constant/type/wrapper is added for a work order that will land in a LATER wave, land that export in the
+SAME work order as its first real consumer — not ahead of it — because a zero-current-importer export
+reads to knip exactly like a permanently-abandoned one, with no way to tell "wave N+1 will use this" from
+"no longer needed" (LESSON-0560, mission-control, 2026-10-30: constants/aux types kept local until their
+consuming WO landed; a wrapper component exported for a later-wave consumer was retired and re-landed
+together with that consumer once its wave arrived).
 
 **Apply next time:** before extracting, deleting, or changing the logic of any shared predicate/helper/
 utility module, `grep` every current call site that imports it and ask what EACH one actually needs right
 now — not what the module's original design doc said. Two distinct needs among ≥2 live consumers → export
 both, named explicitly. A change removes what was one of only two consumers → delete the module and inline
 it in that same change. One consumer now wants a narrower/different result than the shared contract
-provides → give that one caller its own derived subset; never narrow the shared contract to fit it.
+provides → give that one caller its own derived subset; never narrow the shared contract to fit it. And
+when planning a multi-wave build: never export a new shared primitive in a WO ahead of the wave that
+consumes it — keep it local/unexported until the consuming WO lands, or land both in the same WO/commit.
