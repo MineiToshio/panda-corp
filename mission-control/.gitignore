@@ -44,3 +44,8 @@ e2e/fixtures/factory-root/factory/gamification-ledger.json
 e2e/fixtures/factory-root/factory/gamification-ledger.json.lock/
 
 .claude/worktrees/
+
+# Item 33 mutation reports and isolated instrumented sources
+.stryker-tmp/
+reports/mutation/
+.mutation-cache/

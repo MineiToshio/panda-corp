@@ -52,6 +52,7 @@ pnpm lint:cycles
 
 # test
 pnpm test                    # unit/component (Vitest)
+bash scripts/mutation/run.sh  # scoped mutation tests (Node >=22; ephemeral pinned Stryker)
 pnpm test:smoke               # e2e smoke (Playwright)
 pnpm verify                   # the full gate: lint + typecheck + tests + e2e
 ```

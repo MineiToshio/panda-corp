@@ -18,6 +18,8 @@ export default defineConfig({
       "e2e/**",
       "**/.claude/worktrees/**",
       ".pandacorp/run/**",
+      ".stryker-tmp/**",
+      ".mutation-cache/**",
     ],
     // Raised from the default 5 000 ms to accommodate:
     //   - WO-13-003 large-list keyboard-nav stress test (1 100 fireEvent × 1 000 items in jsdom)

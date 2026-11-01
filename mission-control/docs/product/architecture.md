@@ -440,7 +440,7 @@ that loads its own data, so tabs are built independently. The component inventor
 
 - **TDD in `src/lib/`**: every reader and pure function gets acceptance-criteria tests with fixtures;
   each reader is tested against a real-shaped fixture and a malformed one that must fail loud.
-- **Component tests** with `@testing-library/react` + `jsdom`, `getByRole` first; tests live in `_tests/`.
+- **Component tests** with `@testing-library/react` + `jsdom`, `getByRole` first; tests live in `_tests/`. Mutation checks require ≥60% per module; [scope, reproduction and measured evidence](../testing/mutation-closeout.md).
 - **Fixtures**, never the live factory: `PANDACORP_FACTORY_ROOT` and the §7 seams point readers at
   fixture trees; the harness keeps the checkout's own root catalog-absent (LESSON-0450).
 - **Gate** (`.pandacorp/verify.sh`, DR-019, fail-closed): Biome → `tsc --noEmit` → knip → madge →
