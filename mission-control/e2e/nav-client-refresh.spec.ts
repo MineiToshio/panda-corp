@@ -1,6 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
-import { controlLiveFrames, emitLiveFrame } from "./persistent-navigation/_live-race";
+import {
+  controlLiveFrames,
+  emitLiveFrame,
+  emitUntilRefresh,
+} from "./persistent-navigation/_live-race";
 
 const BASE = "/portfolio/mission-control/observability";
 const QUERY = "view=deps&dag=wo&frd=FRD-01";
@@ -43,8 +47,7 @@ for (const start of [
       const request = response.request();
       return request.headers().rsc === "1" && new URL(request.url()).pathname === BASE;
     });
-    await emitLiveFrame(page, 2);
-    const response = await refreshed;
+    const response = await emitUntilRefresh(page, 2, refreshed);
     expect(response.ok()).toBe(true);
     expect(new URL(response.url()).searchParams.get("focus")).toBe("WO-01-003");
     await expectSelection(page, "WO-01-003");
