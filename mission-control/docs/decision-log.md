@@ -1,5 +1,9 @@
 # Decision Log — Mission Control
 
+## 2026-11-01 · Re-apply Next 16.4.3 after clearing it of the live refresh flake
+
+The red that withdrew the upgrade reproduced on 16.2.9 too: a remounted live subscriber took the next test frame as its baseline, so the spec never saw a refresh. With the helpers hardened (08fee772) the gate is green on both, so the upgrade and the js-yaml override return. This supersedes the withdrawal entry below; `pnpm audit --prod` drops from 37 to 4 advisories.
+
 ## 2026-10-31 · Upgrade Next.js to 16.4.3 and pin patched js-yaml
 
 Pin `next` exactly at 16.4.3 (was `^16.2.7`, installed 16.2.9) and add the pnpm override
