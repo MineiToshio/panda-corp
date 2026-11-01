@@ -1,10 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useNavigationRouter } from "@/lib/navigation/NavigationProvider";
+import { navigationHref } from "@/lib/navigation/urls";
 import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
 import { selectedFrd } from "../wo-views/selection";
 import type { DependencyMapData } from "./data";
 /** Selection and chain state only; every geometry is supplied by the server. */
 export function useDependencySelection(data: DependencyMapData) {
+  const router = useNavigationRouter();
   const [dag, setDag] = useUrlState("dag", "frd"),
     [frdValue, setFrd] = useUrlState("frd", ""),
     [selected, setFocus] = useUrlState("focus", "");
@@ -33,7 +36,8 @@ export function useDependencySelection(data: DependencyMapData) {
     setHover("");
   }
   function handleOpen(id: string): void {
-    updateNavigation({ wo: id, woview: "summary" });
+    const href = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    router.push(navigationHref(href, { wo: id, woview: "summary" }));
   }
   function handleFrd(slug: string): void {
     updateNavigation({ dag: "wo", frd: slug, focus: null });

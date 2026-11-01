@@ -1,12 +1,15 @@
 import fs from "node:fs";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dependencyChain } from "@/lib/deps-layout/chain";
 import { frdLayout } from "@/lib/deps-layout/frd-layout";
 import { workOrderLayout } from "@/lib/deps-layout/work-order-layout";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { DependencyCanvas } from "../DependencyCanvas";
+
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 const orders: WorkOrder[] = [
   {
@@ -94,8 +97,11 @@ describe("two-level dependency view", () => {
     await user.click(screen.getByRole("button", { name: "Quitar foco" }));
     expect(location.search).not.toContain("focus=");
     await user.click(node);
+    window.history.replaceState(null, "", `${location.pathname}${location.search}#dependency`);
     await user.click(screen.getByRole("button", { name: "Abrir work order" }));
-    expect(location.search).toContain("wo=WO-01-002");
+    expect(push).toHaveBeenCalledWith(
+      "/portfolio/demo/observability?dag=wo&view=deps&focus=WO-01-002&wo=WO-01-002&woview=summary#dependency",
+    );
   });
   it("AC-12-004.2 AC-12-004.6: transient hover, title stripped and clamped with full tooltip", async () => {
     window.history.replaceState(null, "", "/portfolio/demo/observability?dag=wo");

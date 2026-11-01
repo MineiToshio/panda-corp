@@ -109,3 +109,7 @@ The coral FileReadErrors notice names every failed work-order file and its local
 ## Visual close-out clarification (2026-10-31, lane O)
 
 The view switch, FRD selector and count share a wrapping toolbar aligned from the left. The separate expand-all action stays right-aligned. FRD totals and percentages use the muted small regular text treatment from the oracle.
+
+### Dependency detail navigation repair (2026-10-31)
+
+Opening a focused work order uses the coordinated workspace router push, retaining the current FRD folder slug, focus and dependency view in the URL. It requests the server detail in the same navigation rather than depending on a native-history write followed by a background refresh. Reload and Back retain their existing URL semantics.
