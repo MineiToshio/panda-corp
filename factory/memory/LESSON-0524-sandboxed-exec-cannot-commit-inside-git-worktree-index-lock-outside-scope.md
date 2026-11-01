@@ -65,6 +65,16 @@ This gives the sandboxed side a real, controllable browser without needing the s
 Chromium's own process spawn requires — the same "supervising process does the privileged part" shape as
 fix (b) above, applied to the browser case specifically rather than just commit.
 
+**Apply next time (addendum, 2026-11-01, funko-tracker) — a working Postgres-outside-sandbox technique:**
+the same division of labor that works for Chromium also works for a database the sandboxed worker needs
+to query/seed: have the SUPERVISING (unsandboxed) process start/own the native Postgres cluster, then let
+the sandboxed Codex worker connect to it over loopback by passing `network_access` (Codex CLI's sandbox
+flag that permits outbound network calls while filesystem writes stay directory-scoped) — the sandboxed
+side gets a real, queryable database without needing filesystem write access to wherever Postgres's own
+data/socket files live. Same shape as the Chromium `launchServer`/`connect` addendum: the supervising
+process does the privileged part (bind the port, own the data directory, commit), the sandboxed worker
+only connects/reads/writes over the network and edits files inside its own scope.
+
 **Needs reconciliation — possible narrower counter-example (flagged, not resolved):** the SAME project
 (mission-control, 2026-10-31, `.pandacorp/run/lessons.md`) logged two notes claiming `codex exec -s
 workspace-write` CAN commit with `--add-dir <repo>/.git` when the command's `-C` cwd is a subdirectory of
