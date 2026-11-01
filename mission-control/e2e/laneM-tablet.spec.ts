@@ -102,3 +102,24 @@ test("guild summary balances counts and recent trophies at tablet width", async 
   const thirdTrophy = await recent.nth(2).boundingBox();
   expect(thirdTrophy?.y).toBeCloseTo(firstTrophy?.y ?? 0, 0);
 });
+
+const MUTED_STATE = {
+  "/achievements/missions": '[data-untouched="true"]',
+  "/achievements/ranks": '[data-state="locked"]',
+} as const;
+
+for (const route of ["/achievements/missions", "/achievements/ranks"] as const) {
+  for (const theme of ["light", "dark"] as const) {
+    test(`${route} meets AA contrast in ${theme}`, async ({ page }) => {
+      await page.setViewportSize({ width: 768, height: 900 });
+      await page.addInitScript((value) => localStorage.setItem("orbita-theme", value), theme);
+      await page.goto(route, { waitUntil: "load", timeout: 90_000 });
+      await expect(page.locator(MUTED_STATE[route]).first()).toBeVisible();
+      const result = await new AxeBuilder({ page })
+        .include("main")
+        .withRules(["color-contrast"])
+        .analyze();
+      expect(result.violations).toEqual([]);
+    });
+  }
+}

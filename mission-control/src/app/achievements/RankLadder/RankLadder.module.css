@@ -53,9 +53,6 @@
   border-color: var(--gold);
   background: color-mix(in srgb, var(--gold) 6%, var(--surface));
 }
-.row[data-state="locked"] {
-  opacity: 0.55;
-}
 .grow {
   flex: 1;
   min-width: 0;
@@ -127,7 +124,6 @@
   color: var(--text-3);
 }
 .row[data-state="locked"] {
-  opacity: 1;
   background: var(--surface-2);
 }
 .row[data-state="locked"] b {
