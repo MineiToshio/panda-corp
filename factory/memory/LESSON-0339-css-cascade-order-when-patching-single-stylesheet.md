@@ -41,3 +41,14 @@ with an actual screenshot, since a rule losing silently produces no error.
 source-order tie, but a genuine SPECIFICITY gap (one class selector vs. a compound element+class
 selector). Same family of trap, same fix shape: match or raise the overriding selector's specificity
 (`table.t.acc-table td`), and confirm the result in a screenshot rather than by re-reading the CSS.
+
+**Addendum — a cascade-losing rule is a documentation bug even when removing it changes nothing visible
+(mission-control, 2026-10-31, agent-inferred):** a declared rule that is ALREADY losing the cascade to a
+more specific/later rule can be deleted with ZERO visible render difference (before/after screenshots are
+pixel-identical) — exactly because it was never winning in the first place. That makes "did removing it
+change the screenshot?" the WRONG test for whether a declaration is safe to clean up: the actual risk is
+that a design doc/spec (e.g. `DESIGN.md`, an FRD) may still describe the dead rule as being in effect,
+which is now a documentation-correctness defect independent of rendering. Confirming a rule is dead
+requires checking the browser's actual cascade-winner (computed style / devtools "overridden" marker) for
+that property on that element, not just a before/after screenshot diff — and once confirmed dead, the
+doc describing it as active must be corrected too, not just the stylesheet.
