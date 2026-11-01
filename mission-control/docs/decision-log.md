@@ -1,5 +1,37 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 · Lane integration: keep muted states AA-readable
+
+Locked ranks and untouched missions dim only their decoration (emblem image, bar, icon) and keep full-opacity text on `--surface-2` with `--text-2`, matching the prototype. Accessibility takes precedence over a whole-row opacity fade; axe now covers `/achievements/missions` and `/achievements/ranks` in both themes. See [FRD-10 FDD](frds/frd-10-achievements-hall/fdd.md).
+
+## 2026-10-31 · Harden LAN filesystem and transport boundaries
+
+Constrain board document reads and change-discard targets to server-resolved portfolio projects; validate idea-card filenames; centralize data-only frontmatter parsing; allowlist local Host values; bound SSE connections and omit unused identifiers; add passive response headers and image referrer protection. Preserve the missing-idea view while returning HTTP 404 before streaming. Wait for the model-layout terminal state in AC-04-012.5 instead of relying on a one-second DOM lookup.
+
+The unauthenticated home-LAN decision supersedes the old loopback-only threat model. The isolated Next 16.4.3 / js-yaml 3.15.2 candidate was withdrawn after its navigation gate could not be cleared; H-3 remains open and framework causality is not yet isolated from the test environment.
+
+Docs: [architecture](product/architecture.md#7-cross-cutting-concerns), [security review](reviews/security-2026-10-31.md), [data reading](frds/frd-01-data-reading/frd.md), [ideas board](frds/frd-02-ideas-board/frd.md), [workspace](frds/frd-04-project-workspace/frd.md), [backlog](frds/frd-22-factory-backlog/frd.md), [components](design/components.md).
+
+## 2026-10-31 · Repair lane O review regressions and finish reader parity
+
+Rules search now preserves input identity and keyboard focus while query/approval changes reset pagination. Document metadata parsing returns a typed result; invalid YAML retains Paper, navigation and an explicit alert with the original source instead of failing the route. Shared index targets use the existing 40px token, phone document filters scroll on one row, and catalog/mobile/manual details follow the approved prototype. Updated [workspace FRD](frds/frd-04-project-workspace/frd.md), [workspace blueprint](frds/frd-04-project-workspace/blueprint.md), [Configuration FRD](frds/frd-07-configuration/frd.md), [Manual FDD](frds/frd-08-documentation/fdd.md) and [component inventory](design/components.md). Evidence: 23 regression tests, real keyboard checks and measured 40px targets.
+
+## 2026-10-31 · Reconcile lane N with independent review and the approved prototype
+
+Preserved prototype-backed mission goals, gold fills and numeric rank thresholds instead of altering production behavior to satisfy four stale reviewer assertions. Removed their unused catalogue sentences and reconciled [FRD-10](frds/frd-10-achievements-hall/frd.md) and [FDD-10](frds/frd-10-achievements-hall/fdd.md). Fixed visible week labels while retaining full accessible series evidence, distinguished measured zero from unknown in [FRD-03](frds/frd-03-portfolio/frd.md), and removed duplicate ADR document titles in [FRD-04](frds/frd-04-project-workspace/frd.md). Completed the shared report funnel variant, radar and record-header presentation; updated the [component inventory](design/components.md). Four reviewer expectations remain pending independent oracle reconciliation.
+
+## 2026-10-31 · Tablet parity and report contrast
+
+Aligned tablet project collections, portfolio comparison rows, architecture tables and the guild summary with the approved prototype. Preserved accessible headers and corrected compounded-tint contrast using existing tokens and variants. Updated FDDs 02/03/04/09/13/18 and the [component catalogue](design/components.md). Ledger console failures remain visible under sandbox EPERM.
+
+## 2026-10-31 · Fidelity calibration
+
+Add an advisory live-oracle audit and distinguish the frozen target from implemented verification. Three 48-context passes produce zero full L3 passes; defer blocking wiring until complete, stable passing L1-L4 coverage exists. Canonical: [fidelity checklist](design/fidelity-checklist.md), [calibration report](design/fidelity-calibration-2026-10-31.md), FRD-13 `blueprint.md` and `fdd.md`.
+
+## 2026-10-31 · Verify closing logic against a 60% mutation floor
+
+Add pinned isolated tooling and meaningful reader/navigation/viewport tests; use explicit stack mutations because Stryker emits none for its const assertion. Record scores, equivalents and instrumentation limits in [mutation evidence](testing/mutation-closeout.md), linked from [architecture §9](product/architecture.md#9-testing-strategy).
+
 ## 2026-10-31 · Restore 44px touch targets in the phone idea header
 
 Keep the compact 32px navigation links at desktop widths only, and give the phone header's
