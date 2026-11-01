@@ -7,8 +7,8 @@ version: v2
 overlay_version: "8.114.4"
 created_with: "6.0.0"
 target_platforms: responsive  # Blocking mobile checks enabled; four-width verification passed at the FRD-13 gate.
-deploy_target: internal  # internal tool (runs on 127.0.0.1) — no external host (DR-085)
-deploy_url: "http://192.168.18.227:1987"  # MC's internal release on the LAN
+deploy_target: internal  # internal tool served on the LAN without auth (owner decision 2026-10-12) — no external host (DR-085)
+deploy_url: "http://macbook-pro-de-sergio.local:1987"  # MC's internal release on the LAN
 running: false
 run_started_at: "2026-10-31T05:11:22.155Z"
 run_completed_at: "2026-07-07T05:30:00Z"

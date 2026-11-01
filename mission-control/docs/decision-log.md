@@ -1,5 +1,9 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 · Restore second-integration accessibility and navigation contracts
+
+Restore counted document-filter names and the shared reader's 44px touch floor. Preserve proportional text chips inside tabular tables and the 12px screen minimum for weekly series labels from the server render. Dependency work-order navigation now requests the server detail through the shared transition and publishes the committed URL to native-history subscribers. Make tablet checks deterministic with three temporary portfolio entries and restored fixture sources, preserving multi-row geometry and contrast checks. Canonical docs: `docs/design/components.md`, `docs/frds/frd-04-project-workspace/fdd.md`, `docs/frds/frd-08-documentation/fdd.md`, `docs/frds/frd-10-achievements-hall/fdd.md`, `docs/frds/frd-12-observability-dataviz/fdd.md`, `docs/frds/frd-13-visual-system-accessibility/fdd.md`.
+
 ## 2026-10-31 · Serialize pushes after background refresh
 
 Defer imperative navigation while a background refresh is pending, then start it in a separate transition
