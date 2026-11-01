@@ -1,6 +1,7 @@
 /**
- * FRD-10 reviewer gate on WO-10-016: RED until the listed FRD clauses hold. Where the FDD or the
- * mock disagrees with the FRD, the FRD is the oracle (FRD > FDD).
+ * FRD-10 reviewer gate on WO-10-016: RED until the listed clauses hold. The approved prototype
+ * (`docs/design/prototype/prototype.js:1967,1971,2103`, `prototype.css:1016`) outranks the FRD for
+ * visual wording and hue, per the owner's close-out rule.
  */
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -71,12 +72,13 @@ describe("FRD-10 Misiones", () => {
     expect(cards[1]).toHaveAttribute("data-untouched", "true");
   });
 
-  it("FRD-10 chain card: goal row reads «→ <next> · valor / umbral»", () => {
+  it("FRD-10 chain card: goal row separates the next tier from «valor / umbral»", () => {
     render(<MissionCard chain={chain({})} />);
-    expect(document.body.textContent).toContain("→ El fordismo digital · 176 / 200");
+    const value = screen.getByText("176 / 200");
+    expect(value.parentElement).toHaveTextContent(/^El fordismo digital\s*176 \/ 200$/);
   });
 
-  it("FRD-10 chain card: a lower-is-better goal reads «récord Nd → ≤Md»", () => {
+  it("FRD-10 chain card: a lower-is-better goal keeps the prototype's «valor / umbral»", () => {
     render(
       <MissionCard
         chain={chain({
@@ -88,16 +90,17 @@ describe("FRD-10 Misiones", () => {
         })}
       />,
     );
-    expect(document.body.textContent).toContain("récord 22d → ≤14d");
+    const value = screen.getByText("22 / 14");
+    expect(value.parentElement).toHaveTextContent(/^Sprint serio\s*22 \/ 14$/);
   });
 
-  it("FRD-10 chain card: the bar is tier-coloured, the same hue as the rarity chip", () => {
+  it("FRD-10 chain card: the bar stays gold whatever the tier's rarity hue", () => {
     render(
       <MissionCard
         chain={chain({ statKey: "shipped", currentTierIndex: 2, currentTierName: "Raro" })}
       />,
     );
-    expect(screen.getByRole("progressbar")).toHaveAttribute("data-tone", "blue");
+    expect(screen.getByRole("progressbar")).toHaveAttribute("data-tone", "gold");
   });
 });
 
@@ -132,11 +135,11 @@ describe("FRD-10 Trofeos", () => {
 });
 
 describe("FRD-10 Rangos", () => {
-  it("FRD-10 the first rank's XP threshold reads «Inicio», not «0 XP»", () => {
+  it("FRD-10 the first rank's XP threshold reads «0 XP», never a stand-in label", () => {
     const level = { level: 2, title: "x", xp: 20, next: 40, pctToNext: 30 } as GuildLevel;
     render(<RankLadder level={level} />);
     const [first] = screen.getAllByTestId("rank-row");
-    expect(first).toHaveTextContent("Inicio");
-    expect(first).not.toHaveTextContent(/(?<!\d)0 XP/);
+    expect(first).toHaveTextContent(/(?<!\d)0 XP$/);
+    expect(first).not.toHaveTextContent("Inicio");
   });
 });

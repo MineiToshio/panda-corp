@@ -328,6 +328,16 @@ describe("REQ-02-007, REQ-02-008, REQ-02-018: the bounded writes from the real h
 const PRD_SEGMENT = encodeURIComponent("docs/product/prd.md");
 
 describe("REQ-02-009: Documentos through the real reader", () => {
+  // The Server Action reads only registered projects, so the linked project needs its real row.
+  beforeEach(() => {
+    put(
+      "factory/portfolio.md",
+      "| Proyecto | Ruta | Repo | Idea origen | Fase | Usuarios | Retorno | Veredicto | Última sync |\n" +
+        "|---|---|---|---|---|---|---|---|---|\n" +
+        "| Demo Publica | `demo/` | — | demo | implementation | — | — | — | 2026-10-31 |\n",
+    );
+  });
+
   it("a relative link selects the surfaced document; unknown ones stay plain text", async () => {
     const user = userEvent.setup();
     idea("demo", linked);

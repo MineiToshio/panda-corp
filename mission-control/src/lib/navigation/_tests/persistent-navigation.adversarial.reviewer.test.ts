@@ -5,6 +5,8 @@ import { routeHref, workspaceRouteState } from "../routeState";
 import { navigationHref, parseNavigationUrl } from "../urls";
 
 const notFoundDigest = "NEXT_HTTP_ERROR_FALLBACK;404";
+const allowedHost = (url: string): NextRequest =>
+  new NextRequest(url, { headers: { host: "localhost:3000" } });
 
 describe("independent persistent navigation boundary", () => {
   it.each([
@@ -17,18 +19,22 @@ describe("independent persistent navigation boundary", () => {
     "/manual",
     "/configuration",
   ])("rejects duplicate and oversized query input before rendering %s", (family) => {
-    expect(
-      proxy(new NextRequest(`http://localhost${family}?entity=first&entity=second`)).status,
-    ).toBe(400);
-    expect(proxy(new NextRequest(`http://localhost${family}?q=${"x".repeat(2049)}`)).status).toBe(
+    expect(proxy(allowedHost(`http://localhost${family}?entity=first&entity=second`)).status).toBe(
       400,
     );
-    expect(proxy(new NextRequest(`http://localhost${family}?${"x".repeat(81)}=value`)).status).toBe(
+    expect(proxy(allowedHost(`http://localhost${family}?q=${"x".repeat(2049)}`)).status).toBe(400);
+    expect(proxy(allowedHost(`http://localhost${family}?${"x".repeat(81)}=value`)).status).toBe(
       400,
     );
-    expect(proxy(new NextRequest(`http://localhost${family}?${"x".repeat(8200)}`)).status).toBe(
-      414,
-    );
+    expect(proxy(allowedHost(`http://localhost${family}?${"x".repeat(8200)}`)).status).toBe(414);
+    expect(proxy(allowedHost(`http://localhost${family}?entity=one`)).status).toBe(200);
+  });
+
+  it("rejects a foreign or absent Host before it reads any navigation input", () => {
+    const hostile = "http://localhost/?entity=first&entity=second";
+    const foreign = new NextRequest(hostile, { headers: { host: "evil.example" } });
+    expect(proxy(foreign).status).toBe(421);
+    expect(proxy(new NextRequest(hostile)).status).toBe(421);
   });
 
   it.each([

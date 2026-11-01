@@ -1,6 +1,7 @@
 /**
- * FRD-07 reviewer gate on WO-07-006: RED until the listed FRD clauses hold. Where the FDD or the
- * mock disagrees with the FRD, the FRD is the oracle (FRD > FDD).
+ * FRD-07 reviewer gate on WO-07-006: RED until the listed clauses hold. The approved prototype
+ * (`docs/design/prototype/prototype.js:2214,2221,2231`) outranks the FRD for catalog layout, per
+ * the owner's close-out rule.
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -63,26 +64,43 @@ describe("FRD-07 clauses", () => {
     expect(summary.tagName).toBe("SUMMARY");
   });
 
-  it("AC-07-013.2 REQ-07-004 every skill row offers copy, internal ones included", () => {
+  it("AC-07-013.2 REQ-07-004 owner rows offer copy; internal rows show their chip instead", () => {
     renderAt("/configuration/skills");
     expect(screen.getByRole("button", { name: "Copiar /pandacorp:spec" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Copiar /pandacorp:engine" })).toBeInTheDocument();
+    expect(screen.getByText("Motor interno")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Copiar /pandacorp:engine" })).toBeNull();
   });
 
-  it("REQ-07-011 each agent card shows its model chip", () => {
+  it("REQ-07-011 the tier heading names the model and the card repeats no chip for it", () => {
     renderAt("/configuration/agents");
-    const card = screen.getByRole("button", { name: /Reviewer/ });
-    expect(within(card).getByText("Opus")).toBeInTheDocument();
+    const heading = screen.getByRole("heading", { name: /^Opus/ });
+    const tier = heading.closest("section");
+    expect(tier).not.toBeNull();
+    const card = within(tier as HTMLElement).getByRole("button", { name: /Reviewer/ });
+    expect(within(card).queryByText("Opus")).toBeNull();
   });
 
-  it("REQ-07-011 AC-07-013.3 each agent carries an effort chip, also without a declared effort", () => {
+  it("REQ-07-011 the agent dialog keeps its model chip", () => {
+    renderAt("/configuration/agents/reviewer");
+    expect(within(screen.getByRole("dialog")).getByText("Opus")).toBeInTheDocument();
+  });
+
+  it("REQ-07-011 AC-07-013.3 a card shows declared effort and never infers a missing one", () => {
     renderAt("/configuration/agents");
-    const card = screen.getByRole("button", { name: /Plain/ });
-    expect(within(card).getByText(/esfuerzo/i)).toBeInTheDocument();
+    const declared = screen.getByRole("button", { name: /Reviewer/ });
+    expect(within(declared).getByText("esfuerzo alto")).toBeInTheDocument();
+    const plain = screen.getByRole("button", { name: /Plain/ });
+    expect(within(plain).queryByText(/esfuerzo/i)).toBeNull();
   });
 
-  it("REQ-07-002 a standard row carries a real description", () => {
+  it("REQ-07-002 a standard row shows file and enforcement; the dialog keeps the description", () => {
     renderAt("/configuration/standards");
-    expect(screen.getByText(/Every change ships with evidence/)).toBeInTheDocument();
+    expect(screen.getByText("quality.md · CI")).toBeInTheDocument();
+    expect(screen.queryByText(/Every change ships with evidence/)).toBeNull();
+    cleanup();
+    renderAt("/configuration/standards/quality.md");
+    expect(
+      within(screen.getByRole("dialog")).getByText(/Every change ships with evidence/),
+    ).toBeInTheDocument();
   });
 });
