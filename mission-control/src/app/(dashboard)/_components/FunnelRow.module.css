@@ -1,0 +1,20 @@
+.report {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9.5em;
+  align-items: center;
+  gap: calc(var(--s5) / 2);
+  margin-bottom: var(--s2);
+}
+.track {
+  min-width: 0;
+}
+.fill {
+  display: block;
+  height: calc(var(--s5) + var(--s1) / 2);
+  border-radius: var(--r-xs);
+  background: var(--tone);
+}
+.caption {
+  font-size: var(--fs-sm);
+  color: var(--text);
+}

@@ -1550,8 +1550,6 @@
       },
       "oneStep": "A un paso de subir",
       "noTier": "Sin tier",
-      "goal": "→ {next} · {value} / {threshold}",
-      "recordGoal": "récord {value}d → ≤{threshold}d",
       "lowerIsBetter": " · menos es mejor",
       "allTiers": "Todos los tiers",
       "chainComplete": "cadena completa",
@@ -1670,9 +1668,9 @@
     "ranks": {
       "intro": "El escalafón del gremio: tu nivel sube con XP y cada rango cubre un tramo de niveles. Cada nivel cuesta más que el anterior; la cima está lejos a propósito.",
       "here": "Estás aquí",
-      "start": "Inicio",
       "achieved": "Conseguido",
       "left": "Faltan {xp} XP para {name}",
+      "eraLevels": "{levels}",
       "eraRange": "{levels} · {count} rangos",
       "eraDone": "{levels} · completa",
       "eras": {

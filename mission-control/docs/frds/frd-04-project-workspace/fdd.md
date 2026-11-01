@@ -159,3 +159,9 @@ Accessibility refinement: stack layer labels use `--text-2`; the environment
 completeness chip uses the existing outline variant. Stacking its tint over the
 pink report surface produced 4.43:1 contrast in light mode, below AA. The outline
 avoids compounded tints while retaining the semantic tone and readable label.
+
+## Decision and ADR dialog closure, 2026-10-31
+
+Decision details use the existing native Modal with amber context, metadata chips, optional blue recommendation Notice, source note, command and project button in body order. ADR details use the ADR id as kicker, the document title without a repeated id, and amber heading/Markdown treatment. Both retain the shared focus trap, Escape dismissal and connected-trigger focus return. Work-order details remain routed inline in Observabilidad rather than becoming a modal; the prototype follows the same navigation model.
+
+ADR document bodies omit their leading Markdown title because the modal header already supplies it. Metadata and subsequent document sections remain intact (2026-10-31 independent review).

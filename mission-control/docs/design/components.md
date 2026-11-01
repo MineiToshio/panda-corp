@@ -86,7 +86,7 @@ Composed from the rows above; never re-implement a primitive inside one.
 | `FlightGroup` | Collapsible «En marcha» group (Construyéndose ahora, Esperan la revisión, Borradores). | `src/app/(dashboard)/_components/FlightGroup.tsx` | `details.flight-group` (config: FlightGroup) | `title`, `count`, `open` | new |
 | `ProjectCard` | Portfolio overview card: avatar, phase chip, six-step stepper, ring, «Etapa N de 6 · último cambio hace …», counts, «Siguiente · <command>». | `src/components/modules/ProjectCard/ProjectCard.tsx` | `.proj-card` (config: ProjectCard) | `project`, `compact` | new |
 | `KpiTiles` | «Pulso» tiles with display numbers and small labels (Proyectos, FRDs, WO verificados). | `src/components/modules/Pulso/Pulso.tsx` (restyle) | `.pulse` (config: KpiTiles) | `items[]` | restyle |
-| `FunnelRow` | Idea funnel row per phase with bar and count; discarded counted apart. | `src/app/(dashboard)/_components/FunnelRow.tsx` | `.funnel .frow` (config: FunnelRow) | `phase`, `count`, `max` | new |
+| `FunnelRow` | Idea funnel row per phase with bar and count; discarded counted apart. | `src/app/(dashboard)/_components/FunnelRow.tsx` | `.funnel .frow` (config: FunnelRow) | `phase`, `count`, `max`, optional `report: { caption, tone }` | new |
 | `WorktreesTable` | «Árboles de trabajo»: Proyecto · Sin integrar · Sobrantes · Estado, state by the legend rule (Depurar ya · Revisar pronto · Al día · Limpio); a row opens the branch dialog. | `src/components/modules/Worktrees/WorktreesTable.tsx` | `.wt-table` (config: WorktreesTable) | `rows`, `state` | restyle (`FactoryWorktrees`) |
 | `WorktreesCard` | Repository states, scroll hint, read-error notices, legend and cleanup command. | `src/components/modules/Worktrees/WorktreesCard.tsx` | `#worktrees-card` (config: WorktreesCard) | `rows: WorktreesByRepo` | built (WO-21-003) |
 | `WorktreesBranchDialog` | Repository branch details with shared Modal focus lifecycle. | `src/components/modules/Worktrees/WorktreesBranchDialog.tsx` | `worktrees-factory-dialog` | `repository`, `onClose` | built (WO-21-003) |
@@ -367,3 +367,14 @@ uses `outline` to meet AA on its tinted report band in both themes.
 GuildHero moves counts below the identity below 900px, left-aligned. SummaryTab
 recent trophy tiles use an auto-fill 180px minimum (spacing-token calculation),
 fitting three columns at 768px and one on phones.
+
+### Item-35 closure, lane N (2026-10-31)
+
+- `MissionCard` at `src/app/achievements/_components/missions/MissionCard.tsx` retains one chain layout, connected tier nodes and gold bars. Only `spot` exposes the large percentage and blue highlighted header. Untouched phone chains hide nodes/track, retaining their accumulated footer.
+- `RankLadder` at `src/app/achievements/RankLadder/RankLadder.tsx` uses flat era dividers, dark medal discs, neutral grade badges and green/gold state chips; only locked sprites are desaturated.
+- `ColumnChart` / `LineChart` in `src/app/achievements/_components/charts/` show visible week/value labels, teal columns and violet area/point geometry, preserving the full accessible series alternative.
+- `PortfolioOverview` scopes comparison table/card styles locally; no additional Table variant is introduced. Decision/ADR details reuse Modal, Notice and ButtonLink, with amber ADR document treatment.
+
+### Independent review follow-up, lane N (2026-10-31)
+
+FunnelRow's optional report variant reuses the shared metric source in a count-caption bar layout; it leaves Inicio's phase rows unchanged. RecordTile places its metric-level chip alongside the label. Statistics omits the summary-only radar narrative. ColumnChart and LineChart shorten visible ISO weeks while keeping full accessible series descriptions. AdrDocument removes only its leading Markdown title so the modal does not repeat it.

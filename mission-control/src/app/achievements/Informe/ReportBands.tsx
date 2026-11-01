@@ -34,8 +34,8 @@ export function TimeBand({ flow }: { readonly flow: ReportResult<WeeklyFlow> }):
       .join(" · ");
   return (
     <div className={styles.pair}>
-      <Card tone="blue">
-        <CardHeader title={t("logros.stats.ordersPerWeek")} level={3} />
+      <Card tone="teal">
+        <CardHeader title={t("logros.stats.ordersPerWeek")} icon="chart" level={3} />
         {orders.length ? (
           <ColumnChart points={orders} label={alternative(orders, t("logros.stats.ordersUnit"))} />
         ) : (
@@ -49,7 +49,7 @@ export function TimeBand({ flow }: { readonly flow: ReportResult<WeeklyFlow> }):
         </p>
       </Card>
       <Card tone="violet">
-        <CardHeader title={t("logros.stats.ideasPerWeek")} level={3} />
+        <CardHeader title={t("logros.stats.ideasPerWeek")} icon="bulb" level={3} />
         {ideas.length ? (
           <LineChart points={ideas} label={alternative(ideas, t("logros.stats.ideasUnit"))} />
         ) : (
@@ -90,11 +90,11 @@ export function UsageBand({
       ) : null}
       <div className={styles.pair}>
         <Card>
-          <CardHeader title={t("logros.stats.workflows")} level={3} />
+          <CardHeader title={t("logros.stats.workflows")} icon="layers" level={3} />
           <p>{t(failed ? "logros.stats.workflowsErrorEmpty" : "logros.stats.workflowsEmpty")}</p>
         </Card>
         <Card>
-          <CardHeader title={t("logros.stats.effort")} level={3} />
+          <CardHeader title={t("logros.stats.effort")} icon="bolt" level={3} />
           <p>{t(failed ? "logros.stats.workflowsErrorEmpty" : "logros.stats.effortEmpty")}</p>
         </Card>
       </div>
@@ -108,26 +108,42 @@ export function FlowBand({ data }: { readonly data: InformeData }): React.JSX.El
   return (
     <div className={styles.pair}>
       <Card tone="teal">
-        <CardHeader title={t("logros.stats.funnel")} level={3} />
-        <FunnelRow phase="discovered" count={funnel.totalIdeas} max={funnel.totalIdeas} />
+        <CardHeader title={t("logros.stats.funnel")} icon="target" level={3} />
         <FunnelRow
+          phase="discovered"
+          count={funnel.totalIdeas}
+          max={funnel.totalIdeas}
+          report={{ caption: t("logros.stats.funnelCaptured"), tone: "teal" }}
+        />
+        <FunnelRow
+          report={{ caption: t("logros.stats.funnelAlive"), tone: "blue" }}
           phase="product"
           count={funnel.totalIdeas - funnel.byStatus.discarded}
           max={funnel.totalIdeas}
         />
         <FunnelRow
+          report={{ caption: t("logros.stats.funnelPipeline"), tone: "violet" }}
           phase="implementation"
           count={funnel.byStatus["in-pipeline"]}
           max={funnel.totalIdeas}
         />
-        <FunnelRow phase="release" count={funnel.launched} max={funnel.totalIdeas} />
-        <p>
-          {funnel.conversionPct}% · {t("logros.stats.kpiConversion")}
-        </p>
+        <FunnelRow
+          phase="release"
+          count={funnel.launched}
+          max={funnel.totalIdeas}
+          report={{
+            caption: t(
+              funnel.launched === 1
+                ? "logros.stats.funnelLaunchedOne"
+                : "logros.stats.funnelLaunchedMany",
+            ),
+            tone: "green",
+          }}
+        />
         <p className={styles.insight}>{t("logros.stats.funnelInsight")}</p>
       </Card>
       <Card tone="blue">
-        <CardHeader title={t("logros.stats.transitions")} level={3} />
+        <CardHeader title={t("logros.stats.transitions")} icon="branch" level={3} />
         {data.transitions.ok ? (
           <Transitions rows={data.transitions.value} />
         ) : (
@@ -158,7 +174,7 @@ export function HealthBand({ data }: { readonly data: InformeData }): React.JSX.
   return (
     <div className={styles.pair}>
       <Card>
-        <CardHeader title={t("logros.stats.projectsByState")} level={3} />
+        <CardHeader title={t("logros.stats.projectsByState")} icon="folder" level={3} />
         <ul className={`kvlist ${styles.list}`}>
           {data.projectsByPhase.map((row) => {
             const phase = phasePresentation(row.phase);
@@ -172,7 +188,7 @@ export function HealthBand({ data }: { readonly data: InformeData }): React.JSX.
         </ul>
       </Card>
       <Card>
-        <CardHeader title={t("logros.stats.signals")} level={3} />
+        <CardHeader title={t("logros.stats.signals")} icon="shield" level={3} />
         <ul className={`kvlist ${styles.list}`}>
           {rows.map((row) => (
             <li key={row.label}>

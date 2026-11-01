@@ -18,16 +18,24 @@ export function ColumnChart({
     <svg role="img" aria-label={label} className={styles.chart} viewBox="0 0 480 200">
       <title>{label}</title>
       {points.map((point, index) => (
-        <rect
-          key={point.label}
-          x={index * width}
-          y={180 - (Math.max(0, point.value) / max) * 160}
-          width={width * 0.7}
-          height={(Math.max(0, point.value) / max) * 160}
-          className={styles.column}
-        >
-          <title>{`${point.label}: ${point.value}`}</title>
-        </rect>
+        <g key={point.label}>
+          <rect
+            x={index * width + width * 0.15}
+            y={180 - (Math.max(0, point.value) / max) * 160}
+            width={width * 0.7}
+            height={(Math.max(0, point.value) / max) * 160}
+            rx={4}
+            className={styles.column}
+          >
+            <title>{`${point.label}: ${point.value}`}</title>
+          </rect>
+          <text x={index * width + width / 2} y={12} textAnchor="middle">
+            {point.value}
+          </text>
+          <text x={index * width + width / 2} y={198} textAnchor="middle">
+            {point.label.replace(/\b\d{4}-(?:W)?/, "")}
+          </text>
+        </g>
       ))}
     </svg>
   );

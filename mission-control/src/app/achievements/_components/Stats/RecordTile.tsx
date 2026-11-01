@@ -1,3 +1,5 @@
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 import { tierColor } from "@/lib/achievements/tiers";
 import { t } from "@/lib/copy/copy";
 import styles from "./Stats.module.css";
@@ -9,7 +11,9 @@ export function RecordTile({
   sub,
   level,
   noData = false,
+  icon,
 }: {
+  readonly icon?: IconName;
   readonly label: string;
   readonly value: number | null;
   readonly sub: string;
@@ -24,11 +28,11 @@ export function RecordTile({
       data-tone="gold"
       data-no-data={noData}
     >
-      <span>{label}</span>
-      <b>{value === null || noData ? "—" : value}</b>
-      {value === null ? <span>{t("logros.stats.notWired")}</span> : null}
-      <small>
-        {noData ? t("logros.stats.noData") : sub}{" "}
+      <div className={styles.recordHeader}>
+        <span className={styles.recordLabel}>
+          {icon ? <Icon name={icon} size="sm" /> : null}
+          {label}
+        </span>
         {level !== undefined && !noData ? (
           <span className={`nv ${styles.level}`}>
             <span
@@ -40,7 +44,10 @@ export function RecordTile({
             {level === 0 ? t("logros.stats.noLevel") : t("logros.stats.level", { level })}
           </span>
         ) : null}
-      </small>
+      </div>
+      <b>{value === null || noData ? "—" : value}</b>
+      {value === null ? <span>{t("logros.stats.notWired")}</span> : null}
+      <small>{noData ? t("logros.stats.noData") : sub} </small>
     </article>
   );
 }

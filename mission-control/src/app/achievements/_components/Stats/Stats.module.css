@@ -12,14 +12,14 @@
 }
 .heading {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
   gap: var(--s3);
   margin-top: var(--s4);
 }
 .heading h2 {
   margin: 0;
-  font: 700 var(--fs-h3) / 1.3 var(--font-display);
+  font: 700 var(--fs-base) / 1.3 var(--font-display);
 }
 .heading span,
 .foot {
@@ -29,6 +29,7 @@
 .verdict {
   margin: var(--s1) 0 var(--s4);
   font-size: var(--fs-h3);
+  font-weight: 700;
 }
 .kpis {
   display: grid;
@@ -60,7 +61,7 @@
 }
 .top {
   display: grid;
-  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  grid-template-columns: minmax(calc(var(--s10) * 6.5), 0.75fr) minmax(0, 1.25fr);
   gap: var(--s3);
   align-items: stretch;
 }
@@ -215,4 +216,35 @@
   .pair {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+.headingLine {
+  flex: 1;
+  height: var(--hairline);
+  background: var(--line);
+}
+
+.recordLabel {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+}
+.recordLabel svg {
+  color: var(--gold);
+}
+.ledger li > svg {
+  flex: none;
+  color: var(--tone);
+}
+.ledger li b {
+  min-width: var(--s8);
+}
+
+.recordHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
 }

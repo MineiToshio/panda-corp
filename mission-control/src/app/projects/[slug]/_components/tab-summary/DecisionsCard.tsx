@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { ButtonLink } from "@/components/core/Button/ButtonLink";
 import { Card, CardHeader } from "@/components/core/Card/Card";
 import { Chip } from "@/components/core/Chip/Chip";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { DividedList, ListRow } from "@/components/core/ListRow/ListRow";
 import { Modal } from "@/components/core/Modal/Modal";
+import { Notice } from "@/components/core/Notice/Notice";
 import { t, tRich } from "@/lib/copy/copy";
 import { formatDate, formatRelative } from "@/lib/copy/dates";
 import type { DecisionPoint } from "@/lib/docs/activity";
@@ -93,26 +95,27 @@ export function DecisionsCard({
           kicker={t("dialogs.decision.kicker", { project: projectName })}
           tone="amber"
           testIdBase="decision"
-          footer={
-            <a className={styles.link} href={projectHref}>
-              {t("dialogs.decision.openProject", { project: projectName })}
-            </a>
-          }
         >
           <div className={styles.dialogBody}>
             <div className={styles.chips}>
               <Chip tone={selected.resolved ? "green" : "amber"}>{label(selected)}</Chip>
-              <Chip tone="slate">{projectName}</Chip>
-              {selected.date ? <Chip tone="slate">{formatDate(selected.date)}</Chip> : null}
+              <Chip tone="slate" variant="plain">
+                {projectName}
+              </Chip>
+              {selected.date ? (
+                <Chip tone="slate" variant="plain">
+                  {formatDate(selected.date)}
+                </Chip>
+              ) : null}
             </div>
-            <p className={styles.meta}>{tRich("dialogs.decision.note")}</p>
             {selected.recommendation ? (
-              <div>
+              <Notice icon="bulb" tone="blue">
                 <h3>{t("dialogs.decision.recommendation")}</h3>
                 <p>{selected.recommendation}</p>
-              </div>
+              </Notice>
             ) : null}
-            <p>
+            <p className={styles.meta}>{tRich("dialogs.decision.note")}</p>
+            <p className={styles.meta}>
               {t(
                 selected.resolved ? "dialogs.decision.runResolved" : "dialogs.decision.runPending",
               )}
@@ -124,6 +127,9 @@ export function DecisionsCard({
                 command: `/pandacorp:decide ${selected.id}`,
               })}
             />
+            <ButtonLink look="button" href={projectHref}>
+              {t("dialogs.decision.openProject", { project: projectName })}
+            </ButtonLink>
           </div>
         </Modal>
       ) : null}

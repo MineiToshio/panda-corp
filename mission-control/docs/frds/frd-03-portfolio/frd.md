@@ -61,3 +61,7 @@ The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) superse
 ## Read-failure clarification (2026-10-31)
 
 - **AC-03-008.3**: When the open-change total is unknown for an existing project, Lista SHALL show the localized "No se pudo leer" link to `/portfolio/<project>/changes`, where the queue names malformed files. It SHALL NOT show zero, a partial count or an unexplained dash. Missing project folders retain the absent-source placeholder. The canonical count remains `countOpenChanges`, including its strict archive validation (AC-04-014.3).
+
+### List presentation closure (2026-10-31, item 35)
+
+The comparison card has the blue list icon. Project names are phase-toned links without an avatar; work-order evidence is a count above its bar. A measured zero pending-decision count stays `0`; only a null/unknown count uses the empty-cell marker (independent review correction, 2026-10-31). Below 1024px the same table markup becomes cards: project/phase share the first row, work-order evidence spans the full width, and remaining counters use a three-column grid. Read failures remain linked and visible.

@@ -29,6 +29,8 @@ import type { DigestSourceErrors } from "@/lib/spec/read-artifacts";
 import type { DigestFrd } from "@/lib/spec/read-frds";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 
+import dialogStyles from "./adrDialog.module.css";
+
 export interface ArchitectureDigestProps {
   readonly body: string;
   readonly title: string;
@@ -139,7 +141,7 @@ export function ArchitectureDigest({
           <ul className={styles.services}>
             {arch.services.map((service) => (
               <li key={service.title} data-testid="arch-service">
-                <Markdown resolveLink={resolveLink}>
+                <Markdown tone="amber" resolveLink={resolveLink}>
                   {service.desc ? `**${service.title}**: ${service.desc}` : service.title}
                 </Markdown>
               </li>
@@ -215,10 +217,10 @@ export function ArchitectureDigest({
       {adr && (
         <Modal
           open
-          title={`${adr.id} · ${adr.title}`}
+          title={adr.title}
           kicker={adr.id}
           testIdBase="arch-adr"
-          tone="violet"
+          tone="amber"
           onClose={() => setAdrId("")}
         >
           <AdrDocument adr={adr} resolveLink={resolveLink} />
@@ -305,16 +307,17 @@ function AdrDocument({
   resolveLink?: LinkResolver;
 }): React.JSX.Element {
   const metadata = adr.body.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  const body = metadata ? adr.body.slice(metadata[0].length) : adr.body;
   return (
     <>
       {metadata && (
-        <details>
-          <summary>Metadatos del documento</summary>
+        <details className={dialogStyles.metadata}>
+          <summary>{t("workspace.observabilidad.detail.metadata")}</summary>
           <pre>{metadata[1]}</pre>
         </details>
       )}
-      <Markdown resolveLink={resolveLink}>
-        {metadata ? adr.body.slice(metadata[0].length) : adr.body}
+      <Markdown tone="amber" resolveLink={resolveLink}>
+        {body.replace(/^\s*#[ \t]+[^\r\n]*(?:\r?\n|$)/, "")}
       </Markdown>
     </>
   );

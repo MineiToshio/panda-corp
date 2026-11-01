@@ -1,7 +1,10 @@
 import { Card, CardHeader } from "@/components/core/Card/Card";
 import type { Tone } from "@/components/core/Chip/vocabulary";
+import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 import { tierColor } from "@/lib/achievements/tiers";
 import { t } from "@/lib/copy/copy";
+import { statIcon } from "../../_utils/statIcons";
 import styles from "./Stats.module.css";
 
 /** One ledger observation; null means there is no wired source. */
@@ -18,7 +21,9 @@ export function LedgerCard({
   title,
   tone,
   rows,
+  icon,
 }: {
+  readonly icon?: IconName;
   readonly title: string;
   readonly tone: Tone;
   readonly rows: readonly LedgerEntry[];
@@ -31,7 +36,7 @@ export function LedgerCard({
       data-tone={tone}
     >
       <Card tone={tone}>
-        <CardHeader title={title} level={3} />
+        <CardHeader title={title} icon={icon} level={3} />
         <ul>
           {rows.map((row) => (
             <li
@@ -40,6 +45,7 @@ export function LedgerCard({
               key={row.key}
               className={row.noData ? "nodata" : ""}
             >
+              <Icon name={statIcon(row.key)} size="sm" />
               <span className={styles.grow}>{row.label}</span>
               {row.level !== undefined && !row.noData ? (
                 <span className={`nv ${styles.level}`}>

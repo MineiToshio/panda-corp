@@ -25,11 +25,11 @@
   stroke-width: 2;
 }
 .column {
-  fill: var(--blue);
+  fill: var(--teal);
 }
 .line {
   fill: none;
-  stroke: var(--teal);
+  stroke: var(--violet);
   stroke-width: 2;
 }
 
@@ -40,4 +40,13 @@
   font-size: var(--fs-md);
   text-transform: capitalize;
   font-weight: 600;
+}
+
+.lineArea {
+  fill: color-mix(in srgb, var(--violet) 15%, transparent);
+}
+.linePoint {
+  fill: var(--surface);
+  stroke: var(--violet);
+  stroke-width: 2;
 }

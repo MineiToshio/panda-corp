@@ -113,6 +113,7 @@ describe("ArchitectureDigest", () => {
     renderDigest();
     fireEvent.click(screen.getByRole("button", { name: /Approved stack/ }));
     expect(screen.getByText("full body.")).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).getAllByRole("heading")).toHaveLength(1);
   });
 
   it("AC-02-013.5: opens an FRD modal without inventing work orders from digest prose", () => {

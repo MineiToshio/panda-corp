@@ -5,17 +5,23 @@
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s4);
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--s10) * 7), 1fr));
+  gap: var(--s3);
 }
 .heading {
   display: flex;
   gap: var(--s3);
-  align-items: center;
+  align-items: flex-start;
 }
 .heading > div {
   flex: 1;
   min-width: 0;
+}
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--s3) / 2);
 }
 .heading h3 {
   font: 700 var(--fs-md) / 1.3 var(--font-display);
@@ -23,53 +29,151 @@
 }
 .heading p,
 .muted,
-.mission footer {
-  color: var(--text-2);
-  font-size: var(--fs-sm);
-}
-.mission {
-  min-width: 0;
-  font-variant-numeric: tabular-nums;
-}
-.mission[data-untouched="true"] {
-  opacity: 0.55;
-}
-.mission > section {
-  display: grid;
-  gap: var(--s3);
-  height: 100%;
-}
-.ladder {
-  display: flex;
-  list-style: none;
-  gap: var(--s3);
-  padding: 0;
-  color: var(--text-3);
-}
-.ladder li[data-reached="true"] {
-  color: var(--gold);
-}
 .goal {
   color: var(--text-2);
   font-size: var(--fs-sm);
 }
-@media (max-width: 1023px) {
-  .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.heading p {
+  margin: 0;
+}
+.mission {
+  min-width: 0;
+  display: grid;
+  gap: calc(var(--s5) / 2);
+  align-content: start;
+  padding: var(--s4);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: var(--hairline) solid var(--line);
+}
+.mission[data-spot="true"] {
+  padding: var(--s5);
+  background: color-mix(in srgb, var(--blue) 5%, var(--surface));
+  border-color: color-mix(in srgb, var(--blue) 40%, var(--line));
+}
+.mission[data-spot="true"] h3 {
+  font-size: var(--fs-h3);
+}
+.slot {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--s10);
+  height: var(--s10);
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--gold) var(--tint), var(--surface-2));
+  border: var(--hairline) solid color-mix(in srgb, var(--gold) 30%, var(--line));
+  color: var(--gold);
+}
+.mission[data-spot="true"] .slot {
+  width: calc(var(--s12) + var(--s2));
+  height: calc(var(--s12) + var(--s2));
+  color: var(--blue);
+  background: color-mix(in srgb, var(--blue) var(--tint), var(--surface-2));
+  border-color: color-mix(in srgb, var(--blue) 35%, var(--line));
+}
+.ladder {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ladder li {
+  position: relative;
+  flex: 1;
+  height: calc(var(--s5) / 2);
+}
+.ladder li:last-child {
+  flex: none;
+  width: calc(var(--s5) / 2);
+}
+.ladder li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: var(--s1);
+  left: calc(var(--s5) / 2);
+  right: 0;
+  height: calc(var(--hairline) * 2);
+  background: var(--line);
+}
+.ladder li::before {
+  content: "";
+  display: block;
+  width: calc(var(--s5) / 2);
+  height: calc(var(--s5) / 2);
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  border: calc(var(--hairline) * 2) solid var(--line-strong);
+}
+.ladder li[data-reached="true"]::before {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.ladder li[data-current="true"]::before {
+  box-shadow: 0 0 0 calc(var(--s3) / 4) color-mix(in srgb, var(--green) 30%, transparent);
+}
+.goal {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s2);
+}
+.goal > :last-child {
+  white-space: nowrap;
+  color: var(--text);
+}
+.mission > [role="progressbar"] {
+  height: var(--s2);
+}
+.mission > [role="progressbar"] > span {
+  background: var(--gold);
+}
+.mission[data-spot="true"] > [role="progressbar"] {
+  height: calc(var(--s5) / 2);
+}
+.mission footer {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  padding-top: var(--s2);
+  border-top: var(--hairline) solid var(--line);
+}
+.percentage {
+  font: 800 var(--fs-h1) / 1 var(--font-display);
+  color: var(--gold);
+}
+.percentage small {
+  font-size: var(--fs-md);
+}
+.mission[data-untouched="true"] {
+  background: var(--surface-2);
+}
+.mission[data-untouched="true"] .slot {
+  color: var(--text-3);
+  background: var(--surface);
+  border-color: var(--line);
+}
+.mission[data-untouched="true"] h3 {
+  color: var(--text-2);
 }
 @media (max-width: 759px) {
   .grid {
     grid-template-columns: minmax(0, 1fr);
   }
-}
-.percentage {
-  font: 700 var(--fs-h2) / 1.2 var(--font-display);
-  color: var(--gold);
-}
-@media (max-width: 759px) {
+  .mission[data-untouched="true"] {
+    gap: var(--s2);
+    padding: var(--s3);
+  }
   .mission[data-untouched="true"] .ladder,
-  .mission[data-untouched="true"] footer {
+  .mission[data-untouched="true"] > [role="progressbar"] {
     display: none;
   }
+}
+
+.goal > :first-child {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--s1);
+}
+.goal svg {
+  flex: none;
 }

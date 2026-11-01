@@ -1,5 +1,6 @@
 "use client";
 import { notFound } from "next/navigation";
+import { Chip } from "@/components/core/Chip/Chip";
 import { Icon } from "@/components/core/Icon/Icon";
 import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
 import { RankEmblem } from "@/components/core/RankEmblem/RankEmblem";
@@ -28,7 +29,9 @@ export function RankLadder({ level }: { level: GuildLevel }): React.JSX.Element 
     <section className={styles.stack} aria-label={t("logros.tabs.rangos")}>
       <p className={styles.muted}>{t("logros.ranks.intro")}</p>
       {ERAS.map((era, index) => {
-        const collapsed = eraCollapsed(index, currentEra) && !opened.includes(era.id);
+        const collapsible = eraCollapsed(index, currentEra);
+        const collapsed = collapsible && !opened.includes(era.id);
+        const rangeKey = eraRangeKey(current > era.to, collapsible);
         const first = RANKS[era.from];
         const after = RANKS[era.to + 1];
         const levels = `${t("logros.stats.level", { level: first?.minLevel ?? 1 })}${after ? `–${after.minLevel - 1}` : "+"}`;
@@ -36,34 +39,39 @@ export function RankLadder({ level }: { level: GuildLevel }): React.JSX.Element 
         return (
           <section className={`rank-era ${styles.era}`} key={era.id} aria-label={name}>
             <EraHeading
-              collapsible={eraCollapsed(index, currentEra)}
+              collapsible={collapsible}
               className={styles.eraHeader}
               expanded={!collapsed}
               onClick={() => handleEra(era.id)}
             >
+              <b>{name}</b>
+              <span className={styles.line} />
               <span>
-                <b>{name}</b>
-                <small>{t(`logros.ranks.eras.${era.id}.tag`)}</small>
-              </span>
-              <span>
-                {t(current > era.to ? "logros.ranks.eraDone" : "logros.ranks.eraRange", {
+                {t(rangeKey, {
                   levels,
                   count: era.to - era.from + 1,
                 })}
               </span>
-              <Icon name={collapsed ? "chevR" : "chevD"} />
+              {collapsible ? (
+                <span className={collapsed ? undefined : styles.expanded}>
+                  <Icon name="chevD" size="sm" />
+                </span>
+              ) : null}
             </EraHeading>
             {collapsed ? null : (
-              <ol className={styles.list}>
-                {RANKS.slice(era.from, era.to + 1).map((rank, offset) => (
-                  <RankRow
-                    key={rank.title}
-                    index={era.from + offset}
-                    current={current}
-                    level={level}
-                  />
-                ))}
-              </ol>
+              <>
+                <p className={styles.tag}>{t(`logros.ranks.eras.${era.id}.tag`)}</p>
+                <ol className={styles.list}>
+                  {RANKS.slice(era.from, era.to + 1).map((rank, offset) => (
+                    <RankRow
+                      key={rank.title}
+                      index={era.from + offset}
+                      current={current}
+                      level={level}
+                    />
+                  ))}
+                </ol>
+              </>
             )}
           </section>
         );
@@ -99,16 +107,18 @@ function RankRow({
       data-state={state}
       aria-current={isCurrent ? "true" : undefined}
     >
-      <RankEmblem
-        sprite={rank.sprite}
-        icon={rank.icon}
-        grade={rank.grade}
-        size={56}
-        alt={rank.title}
-      />
+      <span className={styles.emblem}>
+        <RankEmblem
+          sprite={rank.sprite}
+          icon={rank.icon}
+          grade={rank.grade}
+          size={56}
+          alt={rank.title}
+        />
+      </span>
       <div className={styles.grow}>
         <b>{rank.title}</b>
-        <small>{flavorFor(rank.sprite)}</small>
+        <small className={styles.flavor}>{flavorFor(rank.sprite)}</small>
         <small>
           {t("logros.stats.level", { level: rank.minLevel })}
           {next ? `–${next.minLevel - 1}` : "+"}
@@ -128,15 +138,17 @@ function RankRow({
         ) : null}
       </div>
       <div className={styles.state}>
-        <span>
-          <Icon name={state === "locked" ? "lock" : "check"} size="sm" />
-          {state === "locked"
-            ? t("logros.stats.level", { level: rank.minLevel })
-            : t(isCurrent ? "logros.ranks.here" : "logros.ranks.achieved")}
-        </span>
-        <small>
-          {index === 0 ? t("logros.ranks.start") : `${threshold.toLocaleString("es")} XP`}
-        </small>
+        {state === "locked" ? (
+          <span>
+            <Icon name="lock" size="sm" />
+            {t("logros.stats.level", { level: rank.minLevel })}
+          </span>
+        ) : (
+          <Chip tone={isCurrent ? "gold" : "green"} icon="check">
+            {t(isCurrent ? "logros.ranks.here" : "logros.ranks.achieved")}
+          </Chip>
+        )}
+        <small>{`${threshold.toLocaleString("es")} XP`}</small>
       </div>
     </li>
   );
@@ -162,4 +174,9 @@ function EraHeading({
   ) : (
     <div className={className}>{children}</div>
   );
+}
+
+function eraRangeKey(done: boolean, collapsible: boolean) {
+  if (done) return "logros.ranks.eraDone";
+  return collapsible ? "logros.ranks.eraRange" : "logros.ranks.eraLevels";
 }

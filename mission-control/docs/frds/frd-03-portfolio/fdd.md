@@ -120,3 +120,9 @@ and phase aligns at the right; work-order count and bar occupy the next full row
 FRD/document/ADR counts and change/decision counts follow in the three-column
 grid. Project and phase omit repeated visual labels while scoped headers remain
 accessible. The same layout applies on phones, as drawn by the prototype.
+
+## List closure, 2026-10-31
+
+`PortfolioOverview` scopes the approved comparison presentation to Lista: blue list heading, phase-toned project links, vertically stacked order count/bar and three-column phone metadata cards. The shared Table's other consumers are unchanged. Missing sources and malformed-file links keep their existing semantics.
+
+A measured zero pending-decision count remains visible as `0`; the absent-source marker is reserved for null/unknown counts. This semantic correction takes precedence over the historical prototype's zero-as-marker rendering (2026-10-31 review).

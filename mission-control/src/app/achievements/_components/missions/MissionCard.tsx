@@ -1,4 +1,3 @@
-import { Card } from "@/components/core/Card/Card";
 import { Chip } from "@/components/core/Chip/Chip";
 import { Icon } from "@/components/core/Icon/Icon";
 import { ProgressBar } from "@/components/core/ProgressBar/ProgressBar";
@@ -7,6 +6,7 @@ import { CHAIN_DEFINITIONS } from "@/lib/achievements/definitions";
 import { type Rarity, tierRarityName } from "@/lib/achievements/tiers";
 import { t } from "@/lib/copy/copy";
 import { rarityPresentation } from "../../_utils/presentation";
+import { statIcon } from "../../_utils/statIcons";
 import styles from "./missions.module.css";
 
 /** One mission layout with honest progress; completed chains retain a full bar. */
@@ -24,61 +24,82 @@ export function MissionCard({
       : null;
   const tiers =
     CHAIN_DEFINITIONS.find((definition) => definition.statKey === chain.statKey)?.tiers ?? [];
+  const title = missionTitle(chain, tiers);
+  const next = chain.nextTier?.name ?? t("logros.missions.end");
   return (
     <article
       className={`mission ${styles.mission}`}
-      data-untouched={chain.currentTierIndex < 0 && !chain.value}
+      data-untouched={!spot && !chain.value}
       data-spot={spot}
       aria-label={chain.label}
     >
-      <Card tone={spot ? "gold" : (rarity?.tone ?? "slate")}>
-        <div className={styles.heading}>
-          <Icon name="target" />
-          <div>
-            <h3>{chain.currentTierName ?? tiers[0]?.name ?? chain.label}</h3>
-            <p>
-              {chain.label}
-              {chain.lowerIsBetter ? t("logros.missions.lowerIsBetter") : ""}
-            </p>
+      <div className={styles.heading}>
+        <span className={styles.slot}>
+          <Icon name={statIcon(chain.statKey)} size={spot ? "lg" : "sm"} />
+        </span>
+        <div>
+          <div className={styles.titleRow}>
+            {spot ? (
+              <Chip tone="blue" icon="bolt">
+                {t("logros.missions.oneStep")}
+              </Chip>
+            ) : null}
+            <h3>{title}</h3>
+            <Chip tone={rarity?.tone ?? "slate"} variant={rarity ? "tint" : "plain"}>
+              {rarity?.label ?? t("logros.missions.noTier")}
+            </Chip>
           </div>
-          <strong className={styles.percentage}>{pct}%</strong>
-          <Chip tone={rarity?.tone ?? "slate"}>{rarity?.label ?? t("logros.missions.noTier")}</Chip>
+          <p>
+            {chain.label}
+            {chain.lowerIsBetter ? t("logros.missions.lowerIsBetter") : ""}
+          </p>
         </div>
-        {spot ? <Chip tone="gold">{t("logros.missions.oneStep")}</Chip> : null}
-        <ol className={`tier-ladder ${styles.ladder}`} aria-label={t("logros.missions.allTiers")}>
-          {tiers.map((tier, index) => (
-            <li
-              key={tier.name}
-              data-reached={index <= chain.currentTierIndex}
-              title={`${tier.name}: ${tier.threshold}`}
-            >
-              <span aria-hidden="true">{index <= chain.currentTierIndex ? "✓" : "○"}</span>
-              <span className="sr-only">
-                {tier.name}: {tier.threshold}
-              </span>
-            </li>
-          ))}
-        </ol>
-        <p className={styles.goal}>{missionGoal(chain)}</p>
-        <ProgressBar
-          tone={rarity?.tone ?? "slate"}
-          done={pct}
-          total={100}
-          ariaLabel={t("logros.missions.progressAria", {
-            title: chain.label,
-            pct,
-            next: chain.nextTier?.name ?? t("logros.missions.end"),
-          })}
-        />
-        <footer>{t("logros.missions.accumulated", { value: chain.value ?? 0 })}</footer>
-      </Card>
+        {spot ? (
+          <strong className={styles.percentage}>
+            {pct}
+            <small>%</small>
+          </strong>
+        ) : null}
+      </div>
+      <ol className={`tier-ladder ${styles.ladder}`} aria-label={t("logros.missions.allTiers")}>
+        {tiers.map((tier, index) => (
+          <li
+            key={tier.name}
+            data-reached={index <= chain.currentTierIndex}
+            data-current={index === chain.currentTierIndex}
+            title={`${tier.name}: ${tier.threshold}`}
+          >
+            <span className="sr-only">
+              {tier.name}: {tier.threshold}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <div className={styles.goal}>
+        <span>
+          <Icon name="arrow" size="sm" /> {next}
+        </span>
+        <span>
+          {chain.nextTier
+            ? `${chain.value ?? 0} / ${chain.nextTier.threshold}`
+            : t("logros.missions.chainComplete")}
+        </span>
+      </div>
+      <ProgressBar
+        tone="gold"
+        done={pct}
+        total={100}
+        ariaLabel={t("logros.missions.progressAria", {
+          title: chain.label,
+          pct,
+          next,
+        })}
+      />
+      <footer>{t("logros.missions.accumulated", { value: chain.value ?? 0 })}</footer>
     </article>
   );
 }
 
-function missionGoal(chain: ChainState): string {
-  if (!chain.nextTier) return t("logros.missions.chainComplete");
-  const vars = { value: chain.value ?? 0, threshold: chain.nextTier.threshold };
-  if (chain.lowerIsBetter) return t("logros.missions.recordGoal", vars);
-  return t("logros.missions.goal", { ...vars, next: chain.nextTier.name });
+function missionTitle(chain: ChainState, tiers: readonly { name: string }[]): string {
+  return chain.currentTierName ?? tiers[0]?.name ?? chain.label;
 }

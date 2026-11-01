@@ -1,0 +1,17 @@
+.metadata {
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--r);
+  padding: var(--s1) var(--s3);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+.metadata summary {
+  cursor: pointer;
+  min-height: var(--s8);
+  display: flex;
+  align-items: center;
+}
+.metadata pre {
+  overflow-x: auto;
+  color: var(--text);
+}

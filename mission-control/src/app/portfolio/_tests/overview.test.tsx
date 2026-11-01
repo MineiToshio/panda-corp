@@ -10,6 +10,21 @@ import { PortfolioOverview } from "../PortfolioOverview";
 beforeEach(() => window.history.replaceState(null, "", "/portfolio"));
 
 describe("portfolio overview", () => {
+  it.each([
+    0,
+    null,
+  ])("preserves a measured zero decision count and only marks null unknown (%s)", (pendingDecisions) => {
+    window.history.replaceState(null, "", "/portfolio?view=lista");
+    render(
+      <PortfolioOverview
+        projects={[{ ...PROJECT, counts: { ...PROJECT.counts, pendingDecisions } }]}
+        directory={servicesFixture()}
+      />,
+    );
+    const cells = within(screen.getByRole("table")).getAllByRole("cell");
+    const decision = cells.find((cell) => cell.getAttribute("data-label") === "Decisiones");
+    expect(decision).toHaveTextContent(pendingDecisions === null ? "—" : "0");
+  });
   it("AC-03-008.3: an unknown change count names the read failure and links to its source", () => {
     window.history.replaceState(null, "", "/portfolio?view=lista");
     render(

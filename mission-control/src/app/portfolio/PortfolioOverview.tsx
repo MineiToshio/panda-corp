@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import { Avatar } from "@/components/core/Avatar/Avatar";
 import { Card, CardHeader } from "@/components/core/Card/Card";
 import { Chip } from "@/components/core/Chip/Chip";
 import { phasePresentation } from "@/components/core/Chip/vocabulary";
@@ -52,10 +51,10 @@ function Comparison({ projects }: { readonly projects: ProjectOverviewItem[] }):
       cells: {
         project: (
           <Link
+            data-tone={tone}
             className={styles.project}
             href={`/portfolio/${encodeURIComponent(project.id)}/summary`}
           >
-            <Avatar name={project.name} tone={tone} size="sm" />
             {project.name}
           </Link>
         ),
@@ -67,6 +66,9 @@ function Comparison({ projects }: { readonly projects: ProjectOverviewItem[] }):
         workOrders:
           c.ordersTotal !== null && c.ordersVerified !== null ? (
             <div className={styles.orders}>
+              <span>
+                {c.ordersVerified}/{c.ordersTotal}
+              </span>
               <ProgressBar
                 done={c.ordersVerified}
                 total={c.ordersTotal}
@@ -76,9 +78,6 @@ function Comparison({ projects }: { readonly projects: ProjectOverviewItem[] }):
                   total: c.ordersTotal,
                 })}
               />
-              <span>
-                {c.ordersVerified}/{c.ordersTotal}
-              </span>
             </div>
           ) : project.orderErrors?.length ? (
             <Link
@@ -110,12 +109,14 @@ function Comparison({ projects }: { readonly projects: ProjectOverviewItem[] }):
     };
   });
   return (
-    <Card variant="flush">
-      <div className={styles.tableHead}>
-        <CardHeader title={t("portafolio.compare.title")} />
-      </div>
-      <Table caption={t("portafolio.compare.aria")} columns={columns} rows={rows} />
-    </Card>
+    <div className={styles.comparison}>
+      <Card tone="blue">
+        <div className={styles.tableHead}>
+          <CardHeader title={t("portafolio.compare.title")} icon="list" />
+        </div>
+        <Table caption={t("portafolio.compare.aria")} columns={columns} rows={rows} />
+      </Card>
+    </div>
   );
 }
 

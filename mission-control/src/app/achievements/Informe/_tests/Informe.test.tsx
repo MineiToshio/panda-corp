@@ -101,6 +101,15 @@ describe("Statistics fixture-factory oracle", () => {
     expect(screen.getAllByText("Sin datos: el registro no se pudo leer.")).toHaveLength(2);
     expect(screen.getByText(data.informeData.verdict)).toBeVisible();
   });
+  it("shows the report funnel as count-caption bars without changing its source totals", () => {
+    const data = loadStatisticsData();
+    render(<StatisticsTab {...data} />);
+    const funnel = within(screen.getByTestId("informe-funnel"));
+    expect(funnel.getByText("capturadas")).toBeVisible();
+    expect(funnel.getByText("vivas")).toBeVisible();
+    expect(funnel.getByText("en pipeline")).toBeVisible();
+    expect(funnel.getByText("lanzada")).toBeVisible();
+  });
   it("AC-10-023.1 AC-10-023.2 AC-10-023.3 AC-10-028.5: real funnel, reopening cues, exactly ten more transitions per press", () => {
     const data = loadStatisticsData();
     render(<StatisticsTab {...data} />);

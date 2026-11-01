@@ -91,3 +91,9 @@ The approved prototype supersedes the earlier forge-first sequence: upgrade noti
 In workspace Spec, omit the visible digest eyebrow and render PRD completo as a button-styled document link even when the digest is unpublished. FRD cards use four columns on desktop, two on tablet and one on phone; violet identity chip, right-aligned kind tag, title without its repeated FRD prefix, and a live state stack with done/total count. State stacks read done, review, in_progress, fail, todo.
 
 **Next-step explanation (2026-10-31).** WHEN a workspace shows a next command, THE Resumen SHALL show its non-empty explanatory sentence beside Siguiente paso. Construction with unfinished orders or queued changes SHALL recommend implement; completely verified construction without queued changes MAY recommend release with its readiness sentence. Early phases SHALL use the command-specific when sentence from the shared phase command map.
+
+### Dialog presentation closure (2026-10-31, item 35)
+
+Decision dialogs order metadata, optional blue recommendation, source note, response command and project action. ADR dialogs show the id in the kicker and the title once, with amber document styling. Both use the shared native modal keyboard lifecycle. Work orders retain the inline routed detail owned by FRD-05; they do not introduce a dialog.
+
+ADR modal content SHALL omit the leading document title while preserving metadata and subsequent section headings; the modal heading is the single title (2026-10-31 independent review).

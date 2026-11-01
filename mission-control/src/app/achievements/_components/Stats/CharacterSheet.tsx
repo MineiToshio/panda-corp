@@ -3,8 +3,9 @@ import { computeChains, metricLevel } from "@/lib/achievements/achievements";
 import { neverRecorded, recordedKinds } from "@/lib/achievements/report/statProvenance";
 import type { ReportScalars } from "@/lib/achievements/report/types";
 import { computeStats, type ReaderData } from "@/lib/achievements/stats";
-import { t, tRich } from "@/lib/copy/copy";
-import { attributeSummary, attributesFor } from "../../_utils/viewRules";
+import { t } from "@/lib/copy/copy";
+import { statIcon } from "../../_utils/statIcons";
+import { attributesFor } from "../../_utils/viewRules";
 import { RadarChart } from "../charts/RadarChart";
 import { LedgerCard, type LedgerEntry } from "./LedgerCard";
 import { RecordTile } from "./RecordTile";
@@ -15,16 +16,19 @@ const COLUMNS = [
   {
     title: "production",
     tone: "gold",
+    icon: "factory",
     keys: ["shipped", "workorders", "phases", "builds", "subagents"],
   },
   {
     title: "quality",
     tone: "teal",
+    icon: "shield",
     keys: ["flawless", "gates", "reviews", "findings", "prds", "adrs"],
   },
   {
     title: "rhythm",
     tone: "violet",
+    icon: "activity",
     keys: ["streak", "activedays", "speed", "ideas", "agents", "modes", "discarded", "iterations"],
   },
 ] as const;
@@ -46,14 +50,6 @@ export function CharacterSheet({
   const kinds = new Set(counterKinds ?? recordedKinds(readerData));
   const value = (key: string): number => byKey.get(key)?.value ?? 0;
   const axes = attributesFor(stats, computeChains(stats));
-  const summary = attributeSummary(axes);
-  const weak = summary.zero.length
-    ? t("logros.summary.radarWeakZero", {
-        list: summary.zero.map((key) => t(`logros.radar.${key}`)).join(", "),
-      })
-    : summary.weak
-      ? t("logros.summary.radarWeakLowest", { label: t(`logros.radar.${summary.weak}`) })
-      : "";
   const recordRows = [
     {
       key: "shipped",
@@ -93,19 +89,15 @@ export function CharacterSheet({
       className={styles.band}
     >
       <div className={`stats-top ${styles.top}`}>
-        <Card tone="teal">
-          <CardHeader title={t("logros.stats.attributes")} level={2} />
+        <Card tone="gold">
+          <CardHeader title={t("logros.stats.attributes")} icon="radar" level={2} />
           <RadarChart axes={axes} />
-          <p className={styles.insight}>
-            {summary.strong
-              ? tRich("logros.summary.shape", { strong: t(`logros.radar.${summary.strong}`), weak })
-              : t("logros.summary.noAttributes")}
-          </p>
         </Card>
         <div className={`hstats ${styles.records}`}>
           {recordRows.map((row) => (
             <RecordTile
               key={row.key}
+              icon={statIcon(row.key)}
               label={t(`logros.stats.hero.${row.label}`)}
               sub={t(`logros.stats.hero.${row.label}Sub`)}
               value={row.value}
@@ -122,6 +114,7 @@ export function CharacterSheet({
             key={column.title}
             title={t(`logros.stats.ledger.${column.title}`)}
             tone={column.tone}
+            icon={column.icon}
             rows={[
               ...column.keys.map((key) => ({
                 key,

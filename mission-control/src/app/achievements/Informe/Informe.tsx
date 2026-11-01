@@ -26,6 +26,7 @@ function BandHeading({
   return (
     <div className={styles.heading}>
       <h2>{title}</h2>
+      <span className={styles.headingLine} aria-hidden="true" />
       {sub ? <span>{sub}</span> : null}
     </div>
   );
@@ -46,7 +47,7 @@ export function InformePulse({ data }: InformeProps): React.JSX.Element {
             label={t("logros.stats.kpiWeek")}
             value={readable ? pulse.woPerWeek : "—"}
             unit={t("logros.stats.kpiWeekUnit")}
-            tone="blue"
+            tone="teal"
             foot={
               readable
                 ? t("logros.stats.kpiWeekFoot", {
@@ -68,7 +69,7 @@ export function InformePulse({ data }: InformeProps): React.JSX.Element {
             label={t("logros.stats.kpiConversion")}
             value={pulse.conversionPct}
             unit={t("logros.stats.kpiConversionUnit")}
-            tone="teal"
+            tone="blue"
             foot={t("logros.stats.kpiConversionFoot", {
               count: pulse.launched,
               launched: pulse.launched,
@@ -79,7 +80,7 @@ export function InformePulse({ data }: InformeProps): React.JSX.Element {
             label={t("logros.stats.kpiLeadTime")}
             value="—"
             unit={t("logros.stats.kpiLeadTimeUnit")}
-            tone="slate"
+            tone="teal"
             foot={t("logros.stats.notWired")}
           />
         </div>
