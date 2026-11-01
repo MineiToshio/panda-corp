@@ -1,5 +1,11 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-01 — retain the sync close-out liveness prose contract
+
+**What:** restore the explicit `running: true` and `supervisor_heartbeat` signals in [sync close-out](../skills/sync/SKILL.md), alongside `last_event_at`, while requiring all liveness reads through the shared lease-aware helper.
+
+**Why:** CI failed `test-change-now-prose.sh` because its active-build refusal assertion requires those signals and `refuse` on the same line. The helper still implements that legacy fallback after checking the fenced lease; documenting both preserves the safety contract without changing or weakening the test.
+
 ## 2026-10-31 — lease-aware readers and bounded snapshot drains (BL-0301 review B1/B2)
 
 **What:** preserve the worker-window projection pause, but make the shared liveness guard consult the fenced lease's `renewed_at` and `ttl_seconds` first (malformed existing leases block mutation). Preflight upgrade guards and sync close-out use that helper. Mission Control carries the lease clock into build signals and snapshots, honors both short and long lease TTLs, and preserves the legacy clock separately during client badge recomputation. Snapshot drains race the stop signal with a referenced keepalive bounded by the renewal stall watchdog. Worker status diffs never qualify as controller-only projection deltas; that exception is restricted to controller snapshots.
