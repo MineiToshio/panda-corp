@@ -1,5 +1,18 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 · Retain the Next.js 16.4.3 upgrade candidate pending live-refresh diagnosis
+
+The isolated `fin/next-16-4-3` candidate passes TypeScript, production build, all 5,562 unit tests,
+and 72 navigation end-to-end tests. `pnpm audit --prod` falls from 37 findings to 4 after upgrading
+Next.js to 16.4.3 and removing the `js-yaml` 3.x override in favor of its patched 3.15.2 release.
+The full suite still has three live-refresh failures (`nav-client-refresh:28` and
+`navigation-root:84`) after roughly 300 tests share one `next dev` process. They do not reproduce
+with neighboring tests or under load. The cause is unconfirmed; server exhaustion or `EMFILE` are
+hypotheses only. No comparison with Next.js 16.2.9 was run. The home-LAN unauthenticated-access
+risk remains accepted by the owner's decision. The candidate commit is on `fin/next-16-4-3`;
+the queued investigation is recorded in the ignored project change inbox. No resolution of the
+three failures is claimed here.
+
 ## 2026-10-31 · Resolve legacy-2: keep and repair FRD-25
 
 The owner delegated resolution and selected KEEP AND REPAIR, without reverting shared-feature code.
