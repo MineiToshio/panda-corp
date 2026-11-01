@@ -113,3 +113,5 @@ The view switch, FRD selector and count share a wrapping toolbar aligned from th
 ### Dependency detail navigation repair (2026-10-31)
 
 Opening a focused work order uses the coordinated workspace router push, retaining the current FRD folder slug, focus and dependency view in the URL. It requests the server detail in the same navigation rather than depending on a native-history write followed by a background refresh. Reload and Back retain their existing URL semantics.
+
+The shared navigation coordinator notifies URL subscribers after the router transition commits. This keeps the URL-selected WO view aligned with the received server detail without an extra refresh or user click.

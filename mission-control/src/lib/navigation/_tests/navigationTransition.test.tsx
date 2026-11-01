@@ -7,6 +7,8 @@ import {
   useNavigationRouter,
 } from "../NavigationProvider";
 
+import { useUrlState } from "../useUrlState";
+
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
@@ -107,4 +109,34 @@ it.each([
   await act(async () => resolve("Destination"));
   expect(await screen.findByText("Destination")).toBeVisible();
   expect(router.refresh).toHaveBeenCalledTimes(stillNeeded ? 1 : 0);
+});
+
+it("notifies URL subscribers after a router push commits without a native history event", async () => {
+  function Selection() {
+    const [wo] = useUrlState("wo", "");
+    return <output aria-label="Selected work order">{wo || "none"}</output>;
+  }
+  function Open() {
+    const navigation = useNavigationRouter();
+    return (
+      <button
+        type="button"
+        onClick={() => navigation.push("/portfolio/demo/observability?wo=WO-01-003")}
+      >
+        Open detail
+      </button>
+    );
+  }
+  router.push.mockImplementation((href: string) => window.history.pushState(null, "", href));
+  render(
+    <NavigationProvider>
+      <Selection />
+      <Open />
+    </NavigationProvider>,
+  );
+  expect(screen.getByLabelText("Selected work order")).toHaveTextContent("none");
+  await act(async () => {
+    fireEvent.click(screen.getByText("Open detail"));
+  });
+  expect(screen.getByLabelText("Selected work order")).toHaveTextContent("WO-01-003");
 });

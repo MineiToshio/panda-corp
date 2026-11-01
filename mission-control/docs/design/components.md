@@ -406,3 +406,5 @@ visual tokens and layout are unchanged; no new component or image-fetch service 
 ### Second integration gate corrections (2026-10-31)
 
 DocIndex toggle, summaries and links retain a 44px target floor across breakpoints. Project document FilterChips use `label · count` names. Chip resets inherited numeric variants to proportional figures (CountPill remains tabular). SeriesSurface compensates series label font size for SVG downscaling through container-relative CSS before hydration, preserving the 12px screen minimum and full accessible series labels.
+
+NavigationProvider publishes the URL-change event when a router transition commits, bridging Next navigation with the existing native-history subscribers used by workspace islands.

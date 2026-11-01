@@ -12,6 +12,8 @@ import {
   useTransition,
 } from "react";
 
+import { NAVIGATION_EVENT } from "./history";
+
 type Router = ReturnType<typeof useRouter>;
 type RefreshCheck = () => boolean;
 type NavigationContextValue = {
@@ -53,6 +55,8 @@ export function NavigationProvider({ children }: { children: ReactNode }): React
   useEffect(() => {
     if (isPending) return;
     pending.current = false;
+    // Next commits the browser URL without popstate; synchronize native-history subscribers.
+    window.dispatchEvent(new Event(NAVIGATION_EVENT));
     const checks = [...queued.current.values()];
     queued.current.clear();
     if (checks.some((check) => check())) router.refresh();
