@@ -54,3 +54,10 @@ The "green" point is the **last build commit that passed all the gates** (tests/
 
 ## Relationship
 It complements La Fragua ([FRD-06](../frd-06-party/frd.md)), the Resumen that hosts the snapshot panel ([FRD-04](../frd-04-project-workspace/frd.md) REQ-04-005) and the work orders ([FRD-05](../frd-05-work-orders/frd.md)). The state is written by the project's gate script, not the agent (see `factory/standards/infra.md`).
+
+## Last-green writer ownership (owner close-out, 2026-10-31)
+
+`last_green_sha` is written by the factory's `stamp-last-green` transition under its fenced
+lease (token and epoch), with commit existence and ancestry validation. Mission Control only
+reads this pointer. The next build updates it through that transition; this documentary
+close-out does not stamp it manually or acquire a build lease.

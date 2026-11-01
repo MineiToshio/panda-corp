@@ -22,6 +22,16 @@ Owner-approved 2026-10-17. This cross-cutting contract supersedes local-only sel
 > the earlier nondiscriminating closure. Queue-card archival remains an integration action; this
 > lane has not archived it.
 
+## Owner close-out decision (2026-10-31)
+
+The owner resolved decision `legacy-2` by choosing **KEEP AND REPAIR; no revert**.
+The original failed-discard incident is retained as history, not an outstanding rollback request.
+The reviewed navigation repair above remains the contract; WO-25-001 already records VERIFIED.
+This documentary close-out does not re-run its gate or change build state.
+The Spanish fixed query values listed below describe the current implementation, not an exception
+to CONV-18. Their migration to English, with compatibility for existing links, is queued separately
+as `english-navigation-query-values.md` in the owner's change queue.
+
 ## Acceptance criteria (EARS)
 
 - **AC-25-001.1** — (renamed from "AC-25-001", amended 2026-10-22, v2 plan) WHEN a user selects an idea/project, tab, document, Work Order, read-only reference/detail, campaign phase, model mode/entity/search, or supported list filter, THEN Mission Control SHALL encode that semantic location in the URL.

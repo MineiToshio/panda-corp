@@ -29,6 +29,14 @@ split) and removes the shell exemption and the viewport-filling model dialog. **
 fixes the intermittent history failure of the oracle e2e spec. It is a W0 work order on purpose: every
 surface depends on it.
 
+## Owner close-out decision (2026-10-31)
+
+Keep and repair the existing navigation implementation; do not revert WO-25-001 or shared-feature
+changes (`legacy-2`). The reviewed refresh/history repair below already documents the correction.
+The Spanish fixed query values in the current codec are tracked for English migration under
+CONV-18 in `english-navigation-query-values.md`; existing URLs need compatible normalization.
+No new gate result or work-order transition is asserted by this documentary decision.
+
 ## Boundaries (kept from v1)
 
 `src/lib/navigation/urls.ts` is the single pure path / query codec. `useUrlState.ts` subscribes to browser

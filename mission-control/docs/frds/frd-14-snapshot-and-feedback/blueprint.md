@@ -127,3 +127,10 @@ Every live REQ maps to a component or interface; every live AC is owned by exact
 no backend contract file; no open clarification marker. Lessons applied: LESSON-0365 (the worktree folder
 is the stable project folder, never the display name), LESSON-0113 (v1 documented a staleness probe that was
 never wired: this plan names the call site, `gap.ts` through `runGit`).
+
+## Last-green writer ownership (owner close-out, 2026-10-31)
+
+`last_green_sha` is written by the factory's `stamp-last-green` transition under its fenced
+lease (token and epoch), with commit existence and ancestry validation. Mission Control only
+reads this pointer. The next build updates it through that transition; this documentary
+close-out does not stamp it manually or acquire a build lease.

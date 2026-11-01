@@ -47,12 +47,16 @@ El AC texto FRD dice: build = implementer+reviewer+analytics; release = security
 
 </details>
 
-## FRD-25 — Código rechazado de WO-25-001 no se pudo descartar (necesita propietario)
+## RESUELTO — FRD-25 — Código rechazado de WO-25-001 no se pudo descartar
 
 **Bloquea:** WO-25-001
 
 **Contexto:** No pude descartar el código rechazado de WO-25-001 (frd-25-persistent-navigation) sin tocar trabajo de otras features: dirty: uncommitted change(s) on target path(s): e2e/persistent-navigation.spec.ts, e2e/persistent-navigation/destinations.spec.ts, e2e/persistent-navigation/model.spec.ts, src/components/modules/Nav/_tests/persistentNavigation.test.tsx — nothing was reverted. Ese código sigue en main y puede romper el gate de otras FRDs.
 
-**Estado:** PENDIENTE
+- **Estado:** RESUELTO: CONSERVAR y corregir FRD-25; no revertir nada (2026-10-31).
 
-**Decisión necesaria:** Decide cómo resolverlo: (a) revertir a mano los commits de esas órdenes resolviendo el conflicto, o (b) conservar el código y corregirlo.
+**Motivo:** decisión del owner, con resolución delegada para este cierre. Conservar evita deshacer trabajo compartido de otras features. FRD-25 y blueprint ya describen la reparación de eventos iniciales, refrescos y navegación canónica; WO-25-001 figura VERIFIED y no requiere desbloqueo. Se conserva el contexto original como historial, no como instrucción vigente.
+
+**Seguimiento:** las URLs con valores fijos en español se capturan por separado en `changes/english-navigation-query-values.md` (CONV-18). No se revierte código ni se cambia el estado del build.
+
+**Pregunta original (ya resuelta):** Decide cómo resolverlo: (a) revertir a mano los commits de esas órdenes resolviendo el conflicto, o (b) conservar el código y corregirlo.

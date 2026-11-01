@@ -1,5 +1,46 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 · Resolve legacy-2: keep and repair FRD-25
+
+The owner delegated resolution and selected KEEP AND REPAIR, without reverting shared-feature code.
+Mark the original main-checkout decision block RESUELTO with that rationale. FRD-25 and its blueprint
+already describe the reviewed refresh/history repair; WO-25-001 is VERIFIED and needs no unblock.
+Record the disposition and the separately queued CONV-18 migration in [FRD-25](frds/frd-25-persistent-navigation/frd.md)
+and its [blueprint](frds/frd-25-persistent-navigation/blueprint.md). No new build verification or status transition is claimed. The real reader returned pending 1 → 0;
+[close-out evidence](reviews/documentary-closeout-2026-10-31/README.md) records the receipt and the
+stale status-cache limitation.
+
+## 2026-10-31 · Accept H-1 for unauthenticated home-LAN access
+
+The owner reconfirms LAN access without authentication because this is a domestic network with no
+confidential information. Allowed Hosts remain unchanged. H-1 is ACCEPTED, not repaired; the Host
+allowlist still does not authenticate peers. Update the [latest security review](reviews/security-2026-10-31.md).
+Internet exposure is outside this acceptance.
+
+## 2026-10-31 · Close fidelity as a report and accept content-dependent architecture height
+
+Do not wire L1–L4 into `verify.sh`: each of three calibration runs had 0/48 full-height L3 passes.
+The 1.5% first-viewport figure is diagnostic only. Keep the 33 double-state entries and 47 entries
+with replay errors as nonblocking report inventories; no passing coverage is asserted for them.
+Accept the recorded Architecture height of 7,210px versus 4,967px because real data differs.
+Update the [fidelity checklist](design/fidelity-checklist.md), [calibration report](design/fidelity-calibration-2026-10-31.md)
+and [Portfolio FDD](frds/frd-03-portfolio/fdd.md). The frozen targets remain reference measurements.
+
+## 2026-10-31 · Keep last-green stamping with its fenced producer
+
+`stamp-last-green` owns `last_green_sha` under a token/epoch lease; the next build updates it.
+Do not manually stamp a new pointer during this documentary close-out. Update [FRD-14](frds/frd-14-snapshot-and-feedback/frd.md)
+and its [blueprint](frds/frd-14-snapshot-and-feedback/blueprint.md).
+
+## 2026-10-31 · Route remaining navigation and factory defects to their queues
+
+Capture the English fixed-query-value migration as a standard-class project change. The provisional
+classifier returns critical rigor because it rebuilds verified work (S10); urgency remains standard.
+Capture factory defects separately: [BL-0299](../../factory/backlog/BL-0299-include-mobile-production-smoke.md)
+for excluded mobile production smoke and [BL-0300](../../factory/backlog/BL-0300-isolate-stop-gate-from-merge-queue-port.md)
+for Stop/queue resource contention. The port collision is observed; attribution to concurrent Stop
+verification is owner-reported and remains to be isolated. No plugin implementation is included.
+
 ## 2026-10-31 · Restore second-integration accessibility and navigation contracts
 
 Restore counted document-filter names and the shared reader's 44px touch floor. Preserve proportional text chips inside tabular tables and the 12px screen minimum for weekly series labels from the server render. Dependency work-order navigation now requests the server detail through the shared transition and publishes the committed URL to native-history subscribers. Make tablet checks deterministic with three temporary portfolio entries and restored fixture sources, preserving multi-row geometry and contrast checks. Canonical docs: `docs/design/components.md`, `docs/frds/frd-04-project-workspace/fdd.md`, `docs/frds/frd-08-documentation/fdd.md`, `docs/frds/frd-10-achievements-hall/fdd.md`, `docs/frds/frd-12-observability-dataviz/fdd.md`, `docs/frds/frd-13-visual-system-accessibility/fdd.md`.

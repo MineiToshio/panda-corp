@@ -1,6 +1,6 @@
 # Fidelity checklist — building Mission Control (Órbita) exactly as designed
 
-Status: frozen with the design (2026-10-22). Read this before building any screen and again before declaring it done. Source-of-truth order: `FRD > FDD + mocks > design tokens > blueprint > work order`. For how things look, the live prototype is the oracle: where a document disagrees with its CSS or JS, the prototype wins.
+Status: design targets frozen 2026-10-22; report-only close-out accepted 2026-10-31. Read this before building any screen and again before declaring it done. Source-of-truth order: `FRD > FDD + mocks > design tokens > blueprint > work order`. For how things look, the live prototype is the oracle: where a document disagrees with its CSS or JS, the prototype wins.
 
 The prototype is Órbita (round 5, iteration 28), approved by the owner on 2026-10-21 and re-anchored on a privacy-safe fixture factory. The M1 decisions of 2026-10-22 (`docs/design/freeze/m1-decisions.md`) bind this document.
 
@@ -36,7 +36,7 @@ The target is layered, measured and the same for every project; the owner approv
 
 - **Comparator pinned: pixelmatch 7.x semantics** (`threshold: 0.1`, `includeAA: false`), exact version in the toolkit's lockfile. pixelmatch 8 changed the colour metric, so the numbers are not comparable across the major.
 - **"Listed" is the toolkit's scope cap** (`scope.mode: pareto`): every state at 1280 light, layout states at 375 touch, dark for the colour properties, component images at 375 + 1280 light. Wider coverage (768 for every state, dark pixels everywhere) goes to `.pandacorp/comms/visual-punch-list.md` unless an FRD needs it. Pixel states that the FDD names at 768 (the tablet icon rail, the by-FRD dependency map) are listed with that width in the oracle table.
-- **Target gate mode: `blocking`** (the factory default, DR-129), pending complete and calibrated project wiring. **Current implementation (2026-10-31): advisory audit only**, see [calibration status](fidelity-calibration-2026-10-31.md). The owner explicitly requires three stable passing runs with complete coverage before enabling a project L1–L4 gate; the uncalibrated 0.5% L3 target must not block integration. Once that prerequisite is met, a measured L1–L4 mismatch blocks the FRD. Judged nits stay advisory per DR-072, and leftovers below the bar go to the punch list for the end-of-build Visual QA. An infrastructure failure (missing prototype, font, image, browser, reference, fixture, lost touch emulation) is always RED.
+- **Owner close-out decision (2026-10-31): report only; no project L1–L4 blocking gate.** Do not wire it into `verify.sh`. Three calibration runs each produced 0/48 full-height L3 passes. The 1.5% first-viewport threshold is diagnostic only; it does not replace the frozen per-slice target or establish a pass. The 33 double entries and 47 entries with replay errors remain report inventories, without blocking close-out or claiming those states passed. See the [calibration report](fidelity-calibration-2026-10-31.md). The protocol below describes the measurement target, not an installed gate. Existing independent verification remains unchanged. Any future blocking integration requires a separate decision and complete calibrated evidence.
 - **No loosening without a measured flake.** A number above is relaxed only after the same render run twice on an unchanged build produced the difference, with both runs recorded. The implementer never edits the prototype, the references, the fixtures, the oracle table, the tolerances or the gate (DR-080).
 - **Product-specific additions (owner decision M1, 2026-10-22):**
   - **Dependency map** (`observability-deps-frd`, `observability-deps-wo`, `observability-deps-focus`, `observability-deps-frd-open`, `observability-deps-list-open`): the build follows the prototype's layouts, "Por FRD" compound boxes and "Por work order" columns by depth. It is pixel-compared (L1 to L4) like any other state.
@@ -88,12 +88,12 @@ Selectors are the prototype's; the build keeps them as semantic hooks (§ 6 sele
 11. **Document paper** (`.paper`): typed reader whose markdown takes the document type's hue (tinted h1 underline and h2, tinted table heads and zebra rows, tinted code), index on the right.
 12. **Dialogs and tooltips render in place**: `dialog#dlg` is `min(680px, 100vw − 32px)`, radius 22px, tinted sticky head with an uppercase kicker; the toolkit shards it with `position: static` (`shard.extras`), so the build's dialog box is compared at the same size; floating panels (the token tooltip, selects, the rail float) render in place, never through a portal or a positioning library.
 
-## How to verify (executable gate)
+## Measurement protocol (target; no installed blocking gate)
 
-An FRD is not done until every check below passes for **every oracle state of that FRD** in `oracle-states.json` (which covers every route and state its FDD lists), at each listed viewport and theme. The gate renders the live prototype as its reference on every run; it never compares the build with its own earlier screenshots (a self-baseline may exist only as a regression guard after the oracle check passed).
+The frozen target below describes measurement for every listed oracle state, viewport and theme. It is not a close-out prerequisite: the owner accepted report-only closure on 2026-10-31. The advisory audit renders the live prototype as reference; existing self-baseline checks are separate regression guards and do not prove oracle equivalence. References to gate failure below describe target semantics, not wiring into the build engine.
 
 **1. Where it runs, and failing closed.**
-- Runs on the local build engine and on the owner's machine, against a checkout that has the whole `docs/design/prototype/` folder (assets, data, fixtures, icons, reference). A worktree gets it through `.pandacorp/worktree-bootstrap.sh`, which must fail when the main checkout lacks it.
+- The advisory audit runs explicitly on the owner's machine, against a checkout that has the whole `docs/design/prototype/` folder (assets, data, fixtures, icons, reference). A worktree gets it through `.pandacorp/worktree-bootstrap.sh`, which must fail when the main checkout lacks it.
 - **Fail closed.** A missing or empty asset pack, prototype, font file, reference file, fixture or browser, a prototype image still incomplete after the settle step, or a lost touch emulation makes the gate RED, never skipped and never a pass.
 
 **2. Render conditions.**
@@ -160,6 +160,6 @@ commands live in [the calibration report](fidelity-calibration-2026-10-31.md).
 
 `.pandacorp/verify.sh` is a factory-managed verbatim file (header lines 2–4); do not add
 a local gate there. Its full Playwright invocation discovers project-owned `e2e/*.spec.ts`,
-which is the available project extension point after calibration and complete L1–L4
-coverage. No blocking spec is installed by this audit. Existing snapshot gates are
+which is a possible extension point for a separately approved future gate. The owner
+chose report-only closure; no wiring is planned by this close-out. No blocking spec is installed. Existing snapshot gates are
 independent checks and do not establish live-prototype equivalence.
