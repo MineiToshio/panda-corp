@@ -133,6 +133,8 @@ function overviewItem(item: ProjectListItem, nowIso: string): ProjectOverviewIte
     build: buildSignal({
       running: item.running,
       supervisorHeartbeat: status.supervisorHeartbeat,
+      leaseRenewedAt: status.leaseRenewedAt,
+      leaseTtlSeconds: status.leaseTtlSeconds,
       lastEventAt: latestBuildEvent(events, eventProject),
       nowMs: Date.parse(nowIso),
     }),

@@ -54,19 +54,34 @@ export function freshnessBand(lastSignalAt: string | null | undefined, nowMs: nu
   return { band: "no-signal", ageMs };
 }
 
-/**
- * DR-066 rule (a): liveness = running AND fresh — never the flag alone.
- *
- * "Fresh" here means the heartbeat is inside the hard TTL (a build between long
- * quiet agents may miss the "live" band but is still alive until the TTL).
- *
- * @param input - `running` + `supervisorHeartbeat` from `readStatus`.
- * @param nowMs - The caller's clock (epoch ms).
- */
+/** Producer clocks accepted by all build liveness surfaces. */
+export interface BuildClocks {
+  supervisorHeartbeat?: string | null;
+  lastEventAt?: string | null;
+  leaseRenewedAt?: string;
+  leaseTtlSeconds?: number;
+}
+
+/** Lease validity uses the producer's own TTL, including TTLs above the legacy status window. */
+export function isLeaseFresh(input: BuildClocks, nowMs: number): boolean {
+  const leaseMs = Date.parse(input.leaseRenewedAt ?? "");
+  return Number.isFinite(leaseMs) && Number.isFinite(input.leaseTtlSeconds) &&
+    (input.leaseTtlSeconds ?? 0) > 0 && nowMs - leaseMs < (input.leaseTtlSeconds ?? 0) * 1000;
+}
+
+/** Freshest producer instant; a lease contributes only within its own TTL. */
+export function latestBuildSignal(input: BuildClocks, nowMs: number): string | null {
+  const freshLease = isLeaseFresh(input, nowMs);
+  const stamps = [input.supervisorHeartbeat, input.lastEventAt, freshLease ? input.leaseRenewedAt : null]
+    .filter((value): value is string => typeof value === "string" && Number.isFinite(Date.parse(value)));
+  return stamps.sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
+}
+
+/** Running crossed with a lease inside its own TTL or a fresh legacy status/event stamp. */
 export function isLive(
-  input: { running?: boolean; supervisorHeartbeat?: string },
+  input: BuildClocks & { running?: boolean },
   nowMs: number,
 ): boolean {
   if (input.running !== true) return false;
-  return freshnessBand(input.supervisorHeartbeat, nowMs).band !== "no-signal";
+  return isLeaseFresh(input, nowMs) || freshnessBand(latestBuildSignal(input, nowMs), nowMs).band !== "no-signal";
 }

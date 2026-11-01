@@ -65,10 +65,17 @@ as the RED baseline of the next bounded pass.
 Worker ownership uses before/after content snapshots, not path-set attribution. During a dispatch,
 lease renewal continues normally, but the heartbeat defers its `status.yaml` projection from
 before the baseline snapshot until after delta inspection. The controller drains any already-queued
-renewal (including its fenced projection) before starting the worker. Otherwise a heartbeat could prepare a
+renewal (including its fenced projection) before starting the worker. The drain is bounded by
+the renewal stall watchdog and races the stop signal; a referenced timer keeps Node alive until
+the watchdog requests stop, avoiding a silent top-level-await exit 13. Otherwise a heartbeat could prepare a
 replacement, the worker could append forbidden state, and the heartbeat's rename could erase that
 evidence before inspection. Status liveness catches up at the next controller projection; the lease
-remains the live heartbeat authority. A change to `status.yaml` is ignored only when the active Codex
+remains the live heartbeat authority. The shared liveness helper checks `renewed_at` against
+`ttl_seconds` before status stamps and fails closed on malformed leases. Upgrade, preflight and
+sync close-out use that helper; Mission Control consumes the same lease clock. The trade-off is
+that status timestamps may remain frozen for a full dispatch, so status alone cannot prove staleness.
+Any status diff inside a worker window belongs to the worker, even an exact lease timestamp.
+Only controller snapshots may ignore a change to `status.yaml`, and only when the active Codex
 token/epoch still passes the fence, the lease is fresh, and the complete diff normalizes to the exact
 lease-derived projection (`phase`, `running`, acquisition time, logical run, runtime, epoch and
 heartbeat), with exactly one occurrence of every field. Any other status value, duplicate projected

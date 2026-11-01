@@ -25,8 +25,8 @@ Brings this project's Pandacorp overlay up to the factory's current version. The
 >   between a WO's self-test and its FRD gate. Tell the owner (in Spanish) the upgrade is deferred until the
 >   build stops, and let the CALLING skill proceed on the current overlay (capture-only skills like
 >   `change`/`bug` work fine on an older overlay).
-> - **`STALE`** (`running: true` but BOTH `supervisor_heartbeat` AND `last_event_at` ≥ 10 min old — the
->   supervisor died) or **`NOT_RUNNING`** (`running: false` / absent) → proceed with the upgrade (the same
+> - **`STALE`** (no fresh lease and `running: true` but BOTH `supervisor_heartbeat` AND `last_event_at` ≥ 10 min old — the
+>   supervisor died) or **`NOT_RUNNING`** (no fresh or malformed existing lease and `running: false` / absent) → proceed with the upgrade (the same
 >   TTL rule as `/pandacorp:implement`'s concurrent-run guard).
 
 ## How it decides

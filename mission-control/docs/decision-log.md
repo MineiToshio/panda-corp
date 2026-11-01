@@ -1,5 +1,9 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 — read the fenced lease during Codex worker windows (BL-0301)
+
+Mission Control reads `renewed_at` and `ttl_seconds` from the build lease alongside status. Shared liveness derivation contributes that clock only until its own TTL expires; build signals, portfolio, Fragua and snapshot liveness therefore remain current while status projection pauses to protect worker ownership evidence. Client badge recomputation preserves the lease clock separately from legacy events so an expired short lease cannot inherit the ten-minute legacy TTL. Malformed lease data is explicit via the existing malformed-status result. The Manual explains the pause and bounded drain. Canonical runtime contract: [runtime-executors.md](../../plugin/docs/runtime-executors.md). No persisted logical schema changes.
+
 ## 2026-10-31 · Restore the whole-FRD oracle in the build workflow explanation
 
 The factory contract suite still read `src/lib/manual/workflow-flows.ts`, deleted by

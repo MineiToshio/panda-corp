@@ -1,5 +1,11 @@
 # Decision log — Plugin pandacorp
 
+## 2026-10-31 — lease-aware readers and bounded snapshot drains (BL-0301 review B1/B2)
+
+**What:** preserve the worker-window projection pause, but make the shared liveness guard consult the fenced lease's `renewed_at` and `ttl_seconds` first (malformed existing leases block mutation). Preflight upgrade guards and sync close-out use that helper. Mission Control carries the lease clock into build signals and snapshots, honors both short and long lease TTLs, and preserves the legacy clock separately during client badge recomputation. Snapshot drains race the stop signal with a referenced keepalive bounded by the renewal stall watchdog. Worker status diffs never qualify as controller-only projection deltas; that exception is restricted to controller snapshots.
+
+**Why:** pausing projection prevents heartbeat renames from erasing forbidden worker writes, at the cost of frozen status timestamps throughout a dispatch. Lease-aware readers preserve liveness without reopening the lost-update race. An unresolved renewal must terminate loudly with a terminal checkpoint instead of hanging or exiting 13. Regression tests exercise stale status/fresh and stale leases, malformed leases, post-delta projection resumption, exact-timestamp worker writes and a stalled renewal at the snapshot drain. Contract: [runtime-executors.md](runtime-executors.md). No version bump or commit in this review repair; the branch keeps its existing 9.148.1 patch version while review repair is uncommitted.
+
 ## 2026-10-31 — preserve ownership evidence across Codex heartbeat renewals (BL-0301)
 
 **What:** defer heartbeat status projection across the worker snapshot/inspection window while continuing fenced lease renewal. Drain prior projections before the baseline. The stderr regression forces a prepared status rename to overlap the worker's forbidden append, using file/mutex signals rather than elapsed-time assumptions; exit 2 and uncertain-dispatch exit 25 remain mandatory.

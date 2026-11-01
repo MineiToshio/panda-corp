@@ -8,7 +8,7 @@
 // Run: node plugin/scripts/test-worktree-sweep.mjs
 
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -112,6 +112,7 @@ try {
   const leased = sweep(["scan", "--repo", repo, "--self", wt("self")]);
   ok(leased.json.items.find((i) => i.path?.endsWith(".pandacorp/run/gate-worktree"))?.reason === "live-build", "a stale (resumable) lease still protects it");
   rmSync(path.join(repo, ".pandacorp/run/build.lease/lease.json"));
+  rmdirSync(path.join(repo, ".pandacorp/run/build.lease")); // Simulate full release; an orphaned lease directory must fail closed.
 
   console.log("recent activity — merged + clean but just used");
   const recent = sweep(["scan", "--repo", repo, "--self", wt("self")], "3");

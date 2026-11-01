@@ -3,8 +3,8 @@
  * three graded bands (change mc-observability-consumer-dr066).
  */
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { buildSignal } from "@/lib/fragua/build-signal";
 import { FreshnessBadge } from "../FreshnessBadge";
@@ -59,4 +59,33 @@ it("AC-06-020.6: idle signal renders nothing, no fabricated live chip", () => {
     />,
   );
   expect(container).toBeEmptyDOMElement();
+});
+
+it("a live lease with a longer TTL stays building through the client recomputation", () => {
+  const nowMs = Date.parse(NOW);
+  const signal = buildSignal({
+    running: true,
+    leaseRenewedAt: new Date(nowMs - 700_000).toISOString(),
+    leaseTtlSeconds: 1200,
+    nowMs,
+  });
+  render(<FreshnessBadge signal={signal} nowIso={NOW} />);
+  expect(screen.getByTestId("freshness-badge")).toHaveTextContent("Construyendo");
+  expect(screen.getByTestId("freshness-badge")).toHaveAttribute("data-band", "aging");
+});
+
+it("client does not extend an expired short lease using its own stamp as a legacy event", () => {
+  vi.useFakeTimers();
+  const perf = vi.spyOn(performance, "now").mockReturnValue(0);
+  try {
+    const nowMs = Date.parse(NOW);
+    const signal = buildSignal({ running: true, supervisorHeartbeat: "2000-01-01T00:00:00Z",
+      leaseRenewedAt: NOW, leaseTtlSeconds: 30, nowMs });
+    render(<FreshnessBadge signal={signal} nowIso={NOW} />);
+    expect(screen.getByTestId("freshness-badge")).toHaveTextContent("Construyendo");
+    perf.mockReturnValue(30_000);
+    act(() => { vi.advanceTimersByTime(30_000); });
+    expect(screen.getByTestId("freshness-badge")).toHaveTextContent("Sin señal");
+    expect(screen.getByTestId("freshness-badge")).toHaveAttribute("data-band", "no-signal");
+  } finally { vi.useRealTimers(); perf.mockRestore(); }
 });

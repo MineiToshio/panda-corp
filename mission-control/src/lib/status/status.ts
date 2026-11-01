@@ -38,6 +38,7 @@
  */
 
 import fs from "node:fs";
+import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { countPendingBugs } from "../changes/changes";
 import { projectStatusPath } from "../config/config";
@@ -93,6 +94,9 @@ export type ProjectStatus = {
   deployUrl?: string;
   /** Supervisor's time-driven heartbeat ISO stamp (DR-066). Consumers cross it with `running`. */
   supervisorHeartbeat?: string;
+  /** Fenced lease clock; status projection can pause during worker inspection. */
+  leaseRenewedAt?: string;
+  leaseTtlSeconds?: number;
   /** ISO stamp of the current/last run's start (DR-066). */
   runStartedAt?: string;
 };
@@ -283,6 +287,19 @@ export function readStatus(projectPath: string): StatusResult {
   // --- Map snake_case → camelCase with per-field type validation ---
   const status = mapStatusFields(parsed as Record<string, unknown>);
 
+  try {
+    const lease = JSON.parse(fs.readFileSync(path.join(projectPath, ".pandacorp/run/build.lease/lease.json"), "utf8"));
+    if (typeof lease.renewed_at !== "string" || !Number.isFinite(Date.parse(lease.renewed_at)) ||
+        typeof lease.ttl_seconds !== "number" || !Number.isFinite(lease.ttl_seconds) || lease.ttl_seconds <= 0) {
+      return { present: true, malformed: true, status };
+    }
+    status.leaseRenewedAt = lease.renewed_at;
+    status.leaseTtlSeconds = lease.ttl_seconds;
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+      return { present: true, malformed: true, status };
+    }
+  }
   return { present: true, malformed: false, status };
 }
 

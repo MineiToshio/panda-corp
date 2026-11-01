@@ -7,6 +7,7 @@
 # upgrade regenerated the engine mid-build).
 #
 # The rule (DR-050 §11 + DR-066 — cross the PRODUCER's own clock, not only the watcher's):
+#   * fresh lease (its own ttl_seconds), or malformed existing lease -> RUNNING (exit 1)
 #   * running != true (or absent)                         -> NOT_RUNNING  (exit 0, safe to proceed)
 #   * running == true AND (supervisor_heartbeat OR last_event_at) < TTL old -> RUNNING (exit 1, abort)
 #   * running == true AND BOTH >= TTL old (or both unparsable/absent)       -> STALE   (exit 2, lock auto-clearable)
@@ -44,6 +45,27 @@ _liv_iso_to_epoch() { # $1 iso timestamp; echoes epoch or empty
 # --- the shared decision. Echoes the verdict, returns the matching exit code. ------------------
 build_liveness() { # $1 status file
   local status="${1:-}"
+  # The fenced lease remains authoritative while worker ownership inspection pauses
+  # status projection. An existing but unreadable/malformed lease blocks mutation too.
+  local lease_dir lease_result
+  lease_dir="$(dirname "$status")/run/build.lease"
+  if [ -e "$lease_dir" ] || [ -L "$lease_dir" ]; then
+    if node - "$lease_dir/lease.json" <<'NODE'
+const fs = require("node:fs");
+try {
+  const lease = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+  const stamp = typeof lease.renewed_at === "string" ? Date.parse(lease.renewed_at) : NaN;
+  if (!Number.isFinite(stamp) || !Number.isFinite(lease.ttl_seconds) || lease.ttl_seconds <= 0) process.exit(2);
+  process.exit(Date.now() - stamp < lease.ttl_seconds * 1000 ? 1 : 0);
+} catch { process.exit(2); }
+NODE
+    then lease_result=0; else lease_result=$?; fi
+    if [ "$lease_result" -ne 0 ]; then
+      [ "$lease_result" -eq 1 ] || echo "build-liveness: unreadable or malformed lease; refusing mutation" >&2
+      echo RUNNING; return 1
+    fi
+  fi
+
   # fail-closed: no readable status file => cannot prove "not running" => abort.
   [ -n "$status" ] && [ -r "$status" ] || { echo RUNNING; return 1; }
 

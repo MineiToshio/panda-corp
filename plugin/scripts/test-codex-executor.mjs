@@ -83,6 +83,7 @@ if(prompt.includes('Implement exactly')){writeFileSync('feature.txt','ok\\n');wr
 if(prompt.includes('Implement exactly')&&scenario==='slow-heartbeat'){for(const t0=Date.now();Date.now()-t0<30000;await new Promise(r=>setTimeout(r,25))){const l=JSON.parse(readFileSync('.pandacorp/run/build.lease/lease.json','utf8'));if(l.renewed_at!==l.acquired_at){appendFileSync('.pandacorp/run/heartbeat-observed','1\\n');break}}}
 if(prompt.includes('Implement exactly')&&scenario==='stalled-renewal'){writeFileSync('.pandacorp/run/stalled-dispatch-started','1\\n');for(const t0=Date.now();Date.now()-t0<12000;await new Promise(r=>setTimeout(r,25)));}
 if(prompt.includes('Implement exactly')&&scenario==='worker-status-race'){const initial=JSON.parse(readFileSync('.pandacorp/run/build.lease/lease.json','utf8')).renewed_at;writeFileSync('.pandacorp/run/status-race-ready','1');for(const deadline=Date.now()+10000;;await new Promise(r=>setTimeout(r,10))){const prepared=existsSync('.pandacorp/run/status-race-prepared'),renewed=JSON.parse(readFileSync('.pandacorp/run/build.lease/lease.json','utf8')).renewed_at!==initial;if(prepared||(renewed&&!existsSync('.pandacorp/run/lease-mutation.lock')))break;if(Date.now()>deadline)throw new Error('status race handshake timed out')}appendFileSync('.pandacorp/status.yaml','worker_owned: true\\n');writeFileSync('.pandacorp/run/status-race-written','1');}
+if(prompt.includes('Implement exactly')&&scenario==='worker-exact-heartbeat'){const l=JSON.parse(readFileSync('.pandacorp/run/build.lease/lease.json','utf8'));writeFileSync('.pandacorp/status.yaml',readFileSync('.pandacorp/status.yaml','utf8').replace(/^supervisor_heartbeat:.*$/m,'supervisor_heartbeat: '+l.renewed_at));}
 if(prompt.includes('Implement exactly')&&scenario==='worker-status-write')appendFileSync('.pandacorp/status.yaml','worker_owned: true\\n');
 if(prompt.includes('Implement exactly')&&scenario==='worker-wo-write')appendFileSync('docs/frds/frd-01-a/work-orders/wo-01.md','worker_owned: true\\n');
 if(prompt.includes('Independently review')&&scenario==='red-review'){mkdirSync('src/__tests__',{recursive:true});writeFileSync('src/__tests__/adversarial.test.js','// preserved red evidence\\n');verdict='red';summary='adversarial failure'}
@@ -239,6 +240,78 @@ await test("a non-zero executor exit always says why on stderr (ownership violat
   ok(ownership.code === 2 && /codex-executor: stopped \(error\): OWNERSHIP implementer touched governed state/.test(ownership.err), await explain(owned.project, ownership));
   const unsure = await fixture(); const uncertain = await execute(unsure, "uncertain");
   ok(uncertain.code === 25 && /codex-executor: stopped \(uncertain\)/.test(uncertain.err), await explain(unsure.project, uncertain));
+});
+
+await test("worker stamping the exact current lease heartbeat is an ownership violation", async () => {
+  const fx = await fixture();
+  const result = await execute(fx, "worker-exact-heartbeat");
+  ok(result.code === 2, await explain(fx.project, result));
+  ok(/OWNERSHIP implementer touched governed state/.test(result.err), result.err);
+});
+
+// Delay the observable child-close boundary, without adding executor-only branches.
+// Drain: hold the start-WO commit response until a renewal is stalled.
+// Resume: hold implementation staging until a post-delta heartbeat projects status.
+const projectionBoundary = async (mode) => {
+  const file = path.join(await mkdtemp(path.join(os.tmpdir(), "pc-projection-boundary-")), "boundary.mjs");
+  await writeFile(file, `import { createRequire, syncBuiltinESMExports } from 'node:module';
+import { readFileSync, writeFileSync } from 'node:fs';
+const req = createRequire(import.meta.url), fsp = req('node:fs/promises'), cp = req('node:child_process');
+if (/executor\\.mjs$/.test(process.argv[1] || '')) {
+  const rename = fsp.rename, spawn = cp.spawn;
+  let armed = false, stalled = false, held = false;
+  fsp.rename = (from, ...rest) => {
+    if (${JSON.stringify(mode)} === 'drain' && armed && String(from).includes('lease.json.tmp')) {
+      stalled = true; writeFileSync('.pandacorp/run/drain-renewal-stalled', '1'); return new Promise(() => {});
+    }
+    return rename(from, ...rest);
+  };
+  cp.spawn = (cmd, args, options) => {
+    const child = spawn(cmd, args, options);
+    const target = cmd === 'git' && !held && (${JSON.stringify(mode)} === 'drain'
+      ? args[0] === 'commit' && args.some(a => a.includes('start work order'))
+      : args[0] === 'add' && args.includes('feature.txt'));
+    if (target) {
+      held = true;
+      const emit = child.emit;
+      child.emit = function(name, ...values) {
+        if (name !== 'close') return emit.call(this, name, ...values);
+        armed = true;
+        const initial = readFileSync('.pandacorp/status.yaml', 'utf8');
+        void (async () => {
+          for (const deadline = Date.now() + 5000; Date.now() < deadline; await new Promise(r => setTimeout(r, 10))) {
+            const body = readFileSync('.pandacorp/status.yaml', 'utf8');
+            if (${JSON.stringify(mode)} === 'drain' ? stalled : body !== initial) {
+              writeFileSync('.pandacorp/run/boundary-observed', '1');
+              emit.call(this, name, ...values); return;
+            }
+          }
+          process.stderr.write('projection boundary timed out\\n'); emit.call(this, name, 1, null);
+        })();
+        return true;
+      };
+    }
+    return child;
+  };
+  syncBuiltinESMExports();
+}
+`);
+  return { NODE_OPTIONS: `${process.env.NODE_OPTIONS || ""} --import=${file}`.trim() };
+};
+await test("status projection resumes after worker delta inspection", async () => {
+  const fx = await fixture();
+  const result = await execute(fx, "success", [], { PANDACORP_LEASE_TTL_SECONDS: "3", PANDACORP_LEASE_RENEW_MS: "100", ...await projectionBoundary("resume") });
+  ok(result.code === 0, await explain(fx.project, result));
+  ok(await read(path.join(fx.project, ".pandacorp/run/boundary-observed")) === "1", "no post-delta heartbeat projection observed");
+});
+await test("snapshot drain of a stalled renewal stops loudly with a terminal checkpoint", async () => {
+  const fx = await fixture(); const startedAt = Date.now();
+  const result = await execute(fx, "success", [], { PANDACORP_LEASE_TTL_SECONDS: "3", PANDACORP_LEASE_RENEW_MS: "100", ...await projectionBoundary("drain") });
+  ok(result.code === 26, await explain(fx.project, result));
+  ok(Date.now() - startedAt < 12000, "snapshot drain hung");
+  ok(/lease renewal stalled/.test(result.err) && /codex-executor: stopped \(stopped\)/.test(result.err), result.err);
+  ok((await checkpoint(fx.project)).terminal_reason === "stopped", "missing stopped checkpoint");
+  ok(await read(path.join(fx.project, ".pandacorp/run/boundary-observed")) === "1", "drain did not overlap stalled renewal");
 });
 
 await test("worker non-liveness status mutation remains an ownership violation", async () => {

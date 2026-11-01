@@ -25,11 +25,14 @@ export function FreshnessBadge(props: FreshnessBadgeProps): React.JSX.Element | 
   const stamp = initial.lastSignalAt;
   const signal = buildSignal({
     running: initial.kind !== "idle",
-    lastEventAt: stamp,
+    lastEventAt: initial.leaseRenewedAt ? initial.legacySignalAt : stamp,
+    leaseRenewedAt: initial.leaseRenewedAt,
+    leaseTtlSeconds: initial.leaseTtlSeconds,
     nowMs: nowMs,
   });
   if (signal.kind === "idle") return null;
-  const band = freshnessBand(stamp, nowMs).band;
+  const freshness = freshnessBand(stamp, nowMs).band;
+  const band = signal.kind === "no-signal" ? "no-signal" : freshness === "no-signal" ? "aging" : freshness;
   const ago = formatSignalAge(signal.ageMinutes);
   return (
     <span data-testid="freshness-badge" data-volatile="" data-band={band}>

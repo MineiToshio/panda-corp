@@ -33,6 +33,8 @@ export const loadFraguaScene = cache((project: FraguaProject) => {
     signal: buildSignal({
       running: status.running,
       supervisorHeartbeat: status.supervisorHeartbeat,
+      leaseRenewedAt: status.leaseRenewedAt,
+      leaseTtlSeconds: status.leaseTtlSeconds,
       lastEventAt,
       nowMs: Date.parse(nowIso),
     }),

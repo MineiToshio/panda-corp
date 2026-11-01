@@ -78,6 +78,8 @@ let renewTimer;
 let activeChild = null;
 let activeClose = null;
 let signalRequested = null;
+let resolveStop;
+const stopRequested = new Promise((resolve) => { resolveStop = resolve; });
 let shutdownStarted = false;
 let state = { version: 2, run_id: runId, budget_started_at: new Date(budgetStartedAt).toISOString(), inflight: null, attempts: {}, implementation_commits: {}, attempt_commits: {}, consecutive_blocks: 0, terminal_reason: null, change_plan_pending: null, active_change_frds: {}, deferred_changes: [] };
 
@@ -180,15 +182,19 @@ async function changedPaths() {
 }
 const statusPath = ".pandacorp/status.yaml";
 const contentAt = async (file) => readFile(path.join(project, file)).then((body) => body.toString("base64")).catch((error) => error.code === "ENOENT" ? null : Promise.reject(error));
-const snapshot = async () => {
+const snapshot = async ({ controller = false } = {}) => {
   // A heartbeat's read/rename of status can erase a concurrent forbidden worker write.
   // Renew only the lease until delta captures the evidence. Drain any projection already
   // started before taking the baseline and allowing a worker to start.
   inspectingWorkerDelta = true;
-  await renewalSettled;
+  const drainBound = setTimeout(() => {}, renewStallMs + 2000);
+  try { await Promise.race([renewalSettled, stopRequested]); } finally { clearTimeout(drainBound); }
+  throwIfStopping();
   const dirty = await changedPaths();
   const files = new Set([...dirty, statusPath]);
-  return new Map(await Promise.all([...files].map(async (file) => [file, await contentAt(file)])));
+  const result = new Map(await Promise.all([...files].map(async (file) => [file, await contentAt(file)])));
+  result.controller = controller;
+  return result;
 };
 const projectionKeys = ["phase", "running", "run_started_at", "build_run_id", "build_runtime", "build_lease_epoch", "supervisor_heartbeat"];
 const parseStatusProjection = (body) => {
@@ -220,7 +226,7 @@ const delta = async (before) => {
     if (runtimePath(file) || heartbeatTempPath(file)) continue;
     const after = await contentAt(file); const prior = before.get(file);
     if (after === prior) continue;
-    if (file === statusPath && await controllerOnlyStatusDelta(prior, after)) continue;
+    if (file === statusPath && before.controller && await controllerOnlyStatusDelta(prior, after)) continue;
     changed.push(file);
   }
   inspectingWorkerDelta = false;
@@ -303,8 +309,8 @@ const normalizeChangeFile = (value) => { const slug = value.replace(/^\.pandacor
 async function readChangeCard(file) { const absolute = path.join(project, file); await assertRealRuntimePath(absolute, "file"); return readFile(absolute, "utf8"); }
 async function changeCards(status) { let names; try { await assertRealRuntimePath(changeDirectory, "directory"); names = await readdir(changeDirectory); } catch (error) { if (error.code === "INVALID_PATH" && !await lstat(changeDirectory).then(() => true).catch(() => false)) return []; throw error; } const cards = []; for (const name of names.filter((item) => /^[a-z0-9-]+\.md$/.test(item) && item !== "README.md").sort()) { const file = `.pandacorp/inbox/changes/${name}`; const body = await readChangeCard(file); if (!status || cardField(body, "status") === status) cards.push({ file, body, class: cardField(body, "class"), type: cardField(body, "type") }); } return cards.sort((a, b) => (a.class === "expedite" ? -1 : 0) - (b.class === "expedite" ? -1 : 0) || a.file.localeCompare(b.file)); }
 const changeCommitPaths = (affectedFrds, mutationPaths = []) => [...new Set([...mutationPaths, ...affectedFrds.flatMap((frd) => [`docs/frds/${frd}/frd.md`, `docs/frds/${frd}/blueprint.md`]), ".pandacorp/status.yaml"])];
-async function applyPendingChangePlan(pending) { const before = await snapshot(); const applied = await applyChangePlan(project, lease.token, lease.epoch, { ...pending.plan, faultAfter: process.env.PANDACORP_TEST_CHANGE_FAULT_AFTER || "" }); const files = [...new Set([...await delta(before), ...changeCommitPaths(applied.affected_frds, applied.mutation_paths)])]; const sha = await commitPaths(`docs(change): integrate ${path.basename(pending.plan.changeFile, ".md")}`, files, "change-plan") || pending.integration_sha; if (!sha) throw Object.assign(new Error("change integration has no canonical commit evidence"), { code: "EVIDENCE" }); await checkpoint({ change_plan_pending: { ...pending, integration_sha: sha } }); await stampChangeIntegration(project, lease.token, lease.epoch, { changeFile: pending.plan.changeFile, sha }); state.active_change_frds[pending.plan.changeFile] = pending.plan.affectedFrds; await checkpoint({ change_plan_pending: null }); await event("change_integrated", { change_file: pending.plan.changeFile, affected_frds: pending.plan.affectedFrds, integration_sha: sha }); return pending.plan.affectedFrds; }
-async function recoverOrphanChangeTransactions() { const before = await snapshot(); const recovered = await recoverChangeTransactions(project, lease.token, lease.epoch); const files = await delta(before); const applies = recovered.filter((item) => item.action === "apply-replayed"); if (applies.length) { const canonical = applies.flatMap((item) => changeCommitPaths(item.affected_frds, item.mutation_paths)); const sha = await commitPaths("docs(change): recover interrupted integration", [...new Set([...files, ...canonical])], "change-plan"); if (!sha) throw Object.assign(new Error("replayed change integration has no canonical commit evidence"), { code: "EVIDENCE" }); for (const item of applies) { await stampChangeIntegration(project, lease.token, lease.epoch, { changeFile: item.change_file, sha }); state.active_change_frds[item.change_file] = item.affected_frds; } await checkpoint(); } return recovered; }
+async function applyPendingChangePlan(pending) { const before = await snapshot({ controller: true }); const applied = await applyChangePlan(project, lease.token, lease.epoch, { ...pending.plan, faultAfter: process.env.PANDACORP_TEST_CHANGE_FAULT_AFTER || "" }); const files = [...new Set([...await delta(before), ...changeCommitPaths(applied.affected_frds, applied.mutation_paths)])]; const sha = await commitPaths(`docs(change): integrate ${path.basename(pending.plan.changeFile, ".md")}`, files, "change-plan") || pending.integration_sha; if (!sha) throw Object.assign(new Error("change integration has no canonical commit evidence"), { code: "EVIDENCE" }); await checkpoint({ change_plan_pending: { ...pending, integration_sha: sha } }); await stampChangeIntegration(project, lease.token, lease.epoch, { changeFile: pending.plan.changeFile, sha }); state.active_change_frds[pending.plan.changeFile] = pending.plan.affectedFrds; await checkpoint({ change_plan_pending: null }); await event("change_integrated", { change_file: pending.plan.changeFile, affected_frds: pending.plan.affectedFrds, integration_sha: sha }); return pending.plan.affectedFrds; }
+async function recoverOrphanChangeTransactions() { const before = await snapshot({ controller: true }); const recovered = await recoverChangeTransactions(project, lease.token, lease.epoch); const files = await delta(before); const applies = recovered.filter((item) => item.action === "apply-replayed"); if (applies.length) { const canonical = applies.flatMap((item) => changeCommitPaths(item.affected_frds, item.mutation_paths)); const sha = await commitPaths("docs(change): recover interrupted integration", [...new Set([...files, ...canonical])], "change-plan"); if (!sha) throw Object.assign(new Error("replayed change integration has no canonical commit evidence"), { code: "EVIDENCE" }); for (const item of applies) { await stampChangeIntegration(project, lease.token, lease.epoch, { changeFile: item.change_file, sha }); state.active_change_frds[item.change_file] = item.affected_frds; } await checkpoint(); } return recovered; }
 async function processChange(card) {
   const status = cardField(card.body, "status"); if (status !== "ready") throw Object.assign(new Error(`target change is ${status || "invalid"}, not ready`), { code: "CHANGE" });
   const before = await snapshot(); const result = await dispatch({ id: `process-change-${path.basename(card.file, ".md")}`, tier: "JUDGE", units: 2, outputSchema: changeSchema, validator: validateChangeResult, prompt: `Integrate queued change ${card.file} through the canonical ${card.type === "bug" ? "bug" : "iterate"} contract. Read the card, PRD, affected FRD/blueprint/Build Plan and WOs. ${card.type === "bug" ? "Plan a regression-test-first WO." : "Plan the minimum canonical FRD/WO change."} Do NOT write files or state. Return complete proposed markdown files in mutations; every new/reopened WO must appear in the authoritative Build Plan DAG with identical dependsOn. affected_frds must be exact. The fenced controller alone applies and stamps the plan.` });
@@ -337,7 +343,7 @@ async function rollback(frd, attempt, testFiles) { await preserveTests(frd, atte
 async function commitAndRevert(files, message) { const sha = await commitPaths(message, files, "implementation"); if (!sha) return; const reverted = await exec("git", ["revert", "--no-edit", sha]); if (reverted.code) await needsOwner(message, `Deterministic rollback failed: ${reverted.err}`); }
 async function recordCommit(frd, sha, implementation = false) { if (!sha) return; state.attempt_commits[frd] = [...(state.attempt_commits[frd] || []), sha]; if (implementation) state.implementation_commits[frd] = [...(state.implementation_commits[frd] || []), sha]; await checkpoint(); }
 async function shutdown(reason) { if (shutdownStarted) return; shutdownStarted = true; stopping = true; clearInterval(renewTimer); if (lease) { try { await quiesce(project, lease.token, lease.epoch); await commitPaths("chore: quiesce Codex build lease", [".pandacorp/status.yaml"], "state"); await finalizeRelease(project, lease.token, lease.epoch); await event("lease_released", { reason }); } catch (error) { await event("lease_release_failed", { reason, error: error.message }); } } }
-for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(signal, () => { if (signalRequested) return; signalRequested = signal; stopping = true; void quiesceActive(signal); });
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(signal, () => { if (signalRequested) return; signalRequested = signal; resolveStop(); stopping = true; void quiesceActive(signal); });
 
 let finalReason = "error";
 try {

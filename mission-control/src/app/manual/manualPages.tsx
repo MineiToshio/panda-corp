@@ -911,7 +911,11 @@ function ConceptEstado(): React.JSX.Element {
       </Card>
       <NotePanel icon="lock" iconColor="var(--violet)">
         Durante un build, <Code>status.yaml</Code> es una proyección controlada por la lease, no un
-        segundo candado. Acquire, heartbeat, sincronización y cierre reponen fase, hora de inicio,
+        segundo candado. Durante un worker de Codex, la proyección se pausa para preservar sus
+        cambios hasta inspeccionarlos. La señal de vida se lee entonces de renewed_at y ttl_seconds
+        en run/build.lease/lease.json; upgrade y sync también consultan ese lease. El drenaje de una
+        renovación atascada termina con el watchdog y publica el motivo de parada.
+        Acquire, heartbeat, sincronización y cierre reponen fase, hora de inicio,
         run lógico, runtime y epoch desde esa única fuente. La reparación de baseline nunca restaura
         ese fichero mientras la lease siga activa; al detenerse conserva la identidad y publica
         <Code>running: false</Code> para el relevo en frío.
