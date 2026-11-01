@@ -1,4 +1,5 @@
 import styles from "./charts.module.css";
+import { SeriesSurface } from "./SeriesSurface";
 /** One observed chart value; the label is its textual alternative. */
 export interface ChartPoint {
   readonly label: string;
@@ -15,7 +16,7 @@ export function ColumnChart({
   const max = Math.max(1, ...points.map((point) => point.value));
   const width = 480 / Math.max(1, points.length);
   return (
-    <svg role="img" aria-label={label} className={styles.chart} viewBox="0 0 480 200">
+    <SeriesSurface label={label}>
       <title>{label}</title>
       {points.map((point, index) => (
         <g key={point.label}>
@@ -37,6 +38,6 @@ export function ColumnChart({
           </text>
         </g>
       ))}
-    </svg>
+    </SeriesSurface>
   );
 }

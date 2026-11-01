@@ -30,7 +30,7 @@
   display: flex;
   align-items: center;
   gap: var(--s2);
-  min-height: var(--s10);
+  min-height: calc(var(--s10) + var(--s1));
   padding: 0 var(--s2);
   cursor: pointer;
   color: var(--tone);
@@ -46,7 +46,7 @@
   display: flex;
   align-items: center;
   gap: var(--s2);
-  min-height: var(--s10);
+  min-height: calc(var(--s10) + var(--s1));
   padding: var(--s2) var(--s3);
   border-radius: var(--r-sm);
   color: var(--text-2);
@@ -141,7 +141,7 @@
 /* Shared index chrome follows the frozen Manual and project-document reader. */
 .group summary {
   list-style: none;
-  min-height: var(--s10);
+  min-height: calc(var(--s10) + var(--s1));
   letter-spacing: 0.05em;
 }
 .group summary::-webkit-details-marker {
@@ -160,7 +160,7 @@
   transform: rotate(90deg);
 }
 .item {
-  min-height: var(--s10);
+  min-height: calc(var(--s10) + var(--s1));
   padding: var(--s1) var(--s3);
   line-height: 1.3;
 }
@@ -182,7 +182,7 @@ fieldset.filters {
     gap: 0;
   }
   .toggle {
-    min-height: var(--s10);
+    min-height: calc(var(--s10) + var(--s1));
     padding: var(--s2) var(--s3);
   }
   .index[data-open="true"] {

@@ -205,3 +205,7 @@ The item-35 pass restores the existing MissionCard spotlight, slot, connected no
 The independent review follow-up closes the shared funnel through an optional count-caption report variant of FunnelRow, removes the summary narrative from the Statistics radar card and moves record level chips to their headers. Weekly axis labels shorten the ISO week while aria-label retains the full year/week evidence. Production series length, transition counts and read-error totals still differ legitimately from the historical prototype.
 
 The four legacy reviewer expectations are not the visual oracle: prototype.js lines 1967 and 1971 show a two-part goal row and generic value/threshold (also lower-is-better); prototype.css line 1016 uses gold fills; prototype.js line 2103 formats the first rank as 0 XP. The unused sentence-format mission goal/recordGoal and rank start catalogue entries are removed. Source-level FRD wording is reconciled in the same change.
+
+### Second integration accessibility repair (2026-10-31)
+
+Weekly column and line labels retain at least the 12px extra-small token in screen pixels as their SVG coordinate system shrinks. SeriesSurface observes its rendered width and compensates label scaling; week labels stay short and full series alternatives remain available. Record values remain in the labelled article, with the level chip alongside its label.

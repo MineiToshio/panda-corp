@@ -131,4 +131,4 @@ so the copyable command keeps the available paper width.
 
 ## Independent review corrections (2026-10-31, lane O)
 
-Phone reader breadcrumbs show the linked group and position counter on one line, with the full trail retained on desktop. The guides footer uses muted small live counts and a semibold teal action. All shared index headings and links have a 40px minimum target height.
+Phone reader breadcrumbs show the linked group and position counter on one line, with the full trail retained on desktop. The guides footer uses muted small live counts and a semibold teal action. All shared index headings and links have a 44px minimum target height.

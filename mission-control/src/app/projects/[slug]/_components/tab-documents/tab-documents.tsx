@@ -123,7 +123,7 @@ export function TabDocuments({
             {filter.tone ? (
               <span aria-hidden="true" className={styles.filterDot} data-tone={filter.tone} />
             ) : null}
-            {filter.label} <span className={styles.filterCount}>{filter.count}</span>
+            {filter.label} · <span className={styles.filterCount}>{filter.count}</span>
           </FilterChip>
         ))}
       </fieldset>

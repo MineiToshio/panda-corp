@@ -1,5 +1,6 @@
 import type { ChartPoint } from "./ColumnChart";
 import styles from "./charts.module.css";
+import { SeriesSurface } from "./SeriesSurface";
 /** Observed time series with a full text alternative, including empty series. */
 export function LineChart({
   points,
@@ -16,7 +17,7 @@ export function LineChart({
     )
     .join(" ");
   return (
-    <svg role="img" aria-label={label} className={styles.chart} viewBox="0 0 480 200">
+    <SeriesSurface label={label}>
       <title>{label}</title>
       <desc>{points.map((point) => `${point.label}: ${point.value}`).join(" · ")}</desc>
       <polygon points={`20,180 ${coords} 460,180`} className={styles.lineArea} />
@@ -36,6 +37,6 @@ export function LineChart({
           </g>
         );
       })}
-    </svg>
+    </SeriesSurface>
   );
 }

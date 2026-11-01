@@ -44,7 +44,7 @@ it("AC-04-014.8: typed paper, purpose index, counted filters and disclosure", as
   expect(toggle).toHaveAttribute("aria-expanded", "false");
   await user.click(toggle);
   expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await user.click(screen.getByRole("button", { name: "Decisión técnica 1" }));
+  await user.click(screen.getByRole("button", { name: "Decisión técnica · 1" }));
   expect(screen.queryByRole("link", { name: "prd.md" })).not.toBeInTheDocument();
   expect(window.location.search).toContain("doc-type=ADR");
   expect(screen.queryByRole("link", { name: "prd.md" })).not.toBeInTheDocument();
@@ -56,7 +56,7 @@ it("AC-04-014.8: typed paper, purpose index, counted filters and disclosure", as
     "href",
     expect.stringContaining("doc-type=ADR"),
   );
-  await user.click(screen.getByRole("button", { name: "Todos 2" }));
+  await user.click(screen.getByRole("button", { name: "Todos · 2" }));
   expect(screen.getByRole("searchbox")).toHaveAttribute("placeholder", "Buscar documento…");
   const length = window.history.length;
   await user.type(screen.getByRole("searchbox"), "prd");
@@ -124,7 +124,7 @@ it("combines FDD and design-source documents under one counted design category",
       project="project"
     />,
   );
-  expect(screen.getByRole("button", { name: "Diseño 2" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Diseño · 2" })).toBeInTheDocument();
 });
 
 it("keeps the paper and index navigable when selected YAML metadata is malformed", async () => {

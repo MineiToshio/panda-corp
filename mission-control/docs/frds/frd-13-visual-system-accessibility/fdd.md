@@ -143,3 +143,7 @@ Local console verification remains qualified: automatic gamification ledger
 reconciliation raises EPERM when this sandbox attempts to create the factory-root
 lock outside its writable checkout. Page rendering succeeds; this audit neither
 suppresses that failure nor changes the external source or its permissions.
+
+### Second integration numeric inheritance repair (2026-10-31)
+
+Text Chips explicitly use proportional figures even inside tabular table cells. CountPill keeps its explicit tabular variant. Shared document index controls have a 44px minimum height across breakpoints; weekly SVG labels retain a 12px screen minimum when scaled down.

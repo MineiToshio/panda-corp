@@ -50,3 +50,7 @@
   stroke: var(--violet);
   stroke-width: 2;
 }
+
+.series text {
+  font-size: calc(var(--fs-xs) * var(--series-label-scale, 1));
+}
