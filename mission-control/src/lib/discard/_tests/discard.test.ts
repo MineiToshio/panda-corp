@@ -50,8 +50,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import matter from "@/lib/fs-utils/parseFrontmatter";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import { withFactoryRoot } from "../../../tests/fixtures";
 
 // The module under test (does not exist yet — tests are RED).

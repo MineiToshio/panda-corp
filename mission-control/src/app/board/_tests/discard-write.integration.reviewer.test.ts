@@ -28,8 +28,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import matter from "@/lib/fs-utils/parseFrontmatter";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 
 // Only next/cache is mocked — discardIdea runs for real against a temp dir.
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));

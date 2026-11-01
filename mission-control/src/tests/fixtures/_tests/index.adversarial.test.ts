@@ -13,10 +13,10 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import matter from "@/lib/fs-utils/parseFrontmatter";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import { resolveFactoryRoot } from "@/lib/config/config";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import { FIXTURE_EVENTS_NDJSON, FIXTURE_FRESH, FIXTURE_FULL, withFactoryRoot } from "../index";
 
 // ---------------------------------------------------------------------------

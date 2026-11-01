@@ -10,9 +10,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import matter from "@/lib/fs-utils/parseFrontmatter";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PersistentBoard from "@/app/board/[...segments]/page";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import { idea, mountIdea, project, put, resetFactory } from "./ideaRouteFixture";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }));

@@ -9,8 +9,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import matter from "@/lib/fs-utils/parseFrontmatter";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import { setFavorite } from "../favorite";
 
 let tmpDir: string;
