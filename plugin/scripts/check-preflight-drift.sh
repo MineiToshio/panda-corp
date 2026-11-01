@@ -52,7 +52,7 @@ EOF
 A1="${A1%$'\n'}"
 
 IFS= read -r -d '' A2 <<'EOF'
-Then, if `overlay_version` in `.pandacorp/status.yaml` is behind the plugin's `OVERLAY_VERSION`, run `/pandacorp:upgrade` first (silent for compatible bumps, DR-048) — **but if a build is running (`bash plugin/scripts/check-build-liveness.sh .pandacorp/status.yaml` returns `RUNNING`, including a fresh fenced lease; malformed leases fail closed) do NOT run `/pandacorp:upgrade` mid-build: it must never regenerate the engine/gates under a live build (its own active-build guard also refuses).**
+Then, if `overlay_version` in `.pandacorp/status.yaml` is behind the plugin's `OVERLAY_VERSION`, run `/pandacorp:upgrade` first (silent for compatible bumps, DR-048) — **but if a build is running (`bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-build-liveness.sh" .pandacorp/status.yaml` returns `RUNNING`, including a fresh fenced lease; malformed leases fail closed) do NOT run `/pandacorp:upgrade` mid-build: it must never regenerate the engine/gates under a live build (its own active-build guard also refuses).**
 EOF
 A2="${A2%$'\n'}"
 
