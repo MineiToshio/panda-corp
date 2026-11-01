@@ -83,8 +83,8 @@ test.describe("statistics operator report", () => {
     const leadTime = page.getByText("Lead time", { exact: true }).locator("..");
     await expect(leadTime).toContainText("—");
     await expect(leadTime).toContainText("no cableado");
-    await expect(page.getByText("Subagentes", { exact: true }).locator("..")).toContainText("0");
-    await expect(page.getByText("Subagentes", { exact: true }).locator("..")).not.toContainText(
+    await expect(page.getByRole("article", { name: "Subagentes", exact: true })).toContainText("0");
+    await expect(page.getByRole("article", { name: "Subagentes", exact: true })).not.toContainText(
       "sin datos aún",
     );
     const command = page.getByRole("button", { name: /^Copiar \/pandacorp:/ });

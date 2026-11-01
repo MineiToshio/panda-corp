@@ -1,5 +1,44 @@
+import fs from "node:fs";
+import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+
+// Seed tablet cases independently of owner data; restore exact fixture bytes after this spec.
+const project = path.resolve("e2e/fixtures/factory-root/mission-control");
+const portfolio = path.resolve("e2e/fixtures/factory-root/factory/portfolio.md");
+const sources = new Map([
+  [
+    portfolio,
+    `${fs.readFileSync(portfolio, "utf8").trimEnd()}\n| Tablet fixture A | lane-m-missing-a | — | — | design | — | personal | active | 2026-10-31 |\n| Tablet fixture B | lane-m-missing-b | — | — | design | — | personal | active | 2026-10-31 |\n`,
+  ],
+  [
+    path.join(project, ".pandacorp/comms/arquitectura-resumen.md"),
+    `---
+proyecto: Mission Control
+fase: arquitectura
+---
+## Stack
+| Capa | Elección | Por qué |
+| --- | --- | --- |
+| Web | Next.js | Lectura local de documentos |
+| Lenguaje | TypeScript | Contratos tipados |
+`,
+  ],
+  [path.join(project, ".env.example"), "# Factory root\nPANDACORP_FACTORY_ROOT=\n"],
+]);
+const original = new Map<string, Buffer | null>();
+test.beforeAll(() => {
+  for (const [file, content] of sources) {
+    original.set(file, fs.existsSync(file) ? fs.readFileSync(file) : null);
+    fs.writeFileSync(file, content);
+  }
+});
+test.afterAll(() => {
+  for (const [file, content] of original) {
+    if (content === null) fs.unlinkSync(file);
+    else fs.writeFileSync(file, content);
+  }
+});
 
 // Approved prototype: the odd final project fills both tablet columns (item 35).
 for (const theme of ["light", "dark"] as const) {
@@ -15,13 +54,19 @@ for (const theme of ["light", "dark"] as const) {
       const cards = page.locator(".proj-card");
       await expect(cards.first()).toBeVisible();
       const count = await cards.count();
-      expect(count).toBeGreaterThan(1);
-      // Even populations already fill the final row without a spanning card.
-      if (count % 2 === 0) continue;
+      expect(count).toBe(3);
+      const first = await cards.nth(0).boundingBox();
+      const second = await cards.nth(1).boundingBox();
+      expect(first).not.toBeNull();
+      expect(second).not.toBeNull();
+      expect(second?.y).toBeCloseTo(first?.y ?? 0, 0);
+      expect(second?.x).toBeGreaterThan((first?.x ?? 0) + (first?.width ?? 0));
       const grid = await cards.first().locator("..").boundingBox();
       const last = await cards.last().boundingBox();
       expect(grid).not.toBeNull();
       expect(last).not.toBeNull();
+      expect(first?.width).toBeLessThan((grid?.width ?? 0) / 2);
+      expect(last?.y).toBeGreaterThan(first?.y ?? 0);
       expect(last?.width).toBeCloseTo(grid?.width ?? 0, 0);
       expect(last?.x).toBeCloseTo(grid?.x ?? 0, 0);
     }
@@ -32,7 +77,7 @@ for (const theme of ["light", "dark"] as const) {
   test(`architecture stack rows read vertically on tablet in ${theme}`, async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 900 });
     await page.addInitScript((value) => localStorage.setItem("orbita-theme", value), theme);
-    await page.goto("/board/funko-tracker/architecture", {
+    await page.goto("/board/idea-in-pipeline/architecture", {
       waitUntil: "domcontentloaded",
       timeout: 90_000,
     });
@@ -73,7 +118,7 @@ for (const theme of ["light", "dark"] as const) {
   test(`architecture table and environment contrast meets AA in ${theme}`, async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 900 });
     await page.addInitScript((value) => localStorage.setItem("orbita-theme", value), theme);
-    await page.goto("/board/funko-tracker/architecture", {
+    await page.goto("/board/idea-in-pipeline/architecture", {
       waitUntil: "load",
       timeout: 90_000,
     });

@@ -52,7 +52,9 @@ test("AC-03-008.2: Lista keeps one comparison row per project at mobile width", 
   });
   const table = page.getByRole("table", { name: "Comparativa de proyectos" });
   const row = table.locator("tbody tr").first();
-  await expect(row).toHaveCSS("display", "block");
+  await expect(row).toHaveCSS("display", "grid");
+  await expect(table.locator("tbody tr")).toHaveCount(1);
+  await expect(row.getByRole("link").first()).toBeVisible();
   await expect(row.locator('[data-label="Decisiones"]')).toBeVisible();
   const bounds = await table.boundingBox();
   expect(bounds?.width).toBeLessThanOrEqual(375);
