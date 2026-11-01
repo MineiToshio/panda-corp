@@ -17,7 +17,7 @@ busy), new source of the untracked paths (a worker process, not an abandoned ses
 provenance: agent-inferred
 created: 2026-07-12
 status: active   # 2026-10-31: cross-project corroboration (personal-page-v2 + funko-tracker) meets the eval-gate bar
-promotion: none
+promotion: proposed   # 2026-11-01 (librarian review) — target: factory/standards/build-orchestration.md, Parallel manual sessions section (alongside the merge-queue.sh procedure): add a troubleshooting note — a landing failing at the preflight ("uncommitted changes"/exit 12) is not necessarily the landing branch's own fault; check for stray WIP left by a DIFFERENT session or worker process in the shared main checkout first, and use the ExitWorktree(keep) -> commit in main -> EnterWorktree recovery sequence when the dirt must be cleared from inside a worktree session. Corroborated across 2 distinct projects (personal-page-v2, 3 independent occurrences; funko-tracker, a worker-process variant) with zero contradicting evidence; the actual preflight fix (ignore untracked paths outside the landing branch's own changed paths) is already tracked separately at BL-0248 — this promotion is for the troubleshooting/diagnosis discipline, not a duplicate of that fix.
 confidence: medium
 times_applied: 0
 applied_in: []

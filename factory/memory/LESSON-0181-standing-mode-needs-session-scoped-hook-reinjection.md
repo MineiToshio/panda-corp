@@ -9,7 +9,7 @@ source: "panda-corp — personal /orchestrate skill enforcement design, factory/
 provenance: agent-inferred
 created: 2026-07-24
 status: active  # cross-project corroboration (panda-corp + mission-control) meets the eval-gate bar (DR-047)
-promotion: none
+promotion: proposed   # 2026-11-01 (librarian review) — target: factory/standards/prompting-conventions.md (new rule for skill/agent design under Claude Code): a skill needing a STANDING behavioral mode across a whole conversation must wire a session-scoped `UserPromptSubmit` hook that re-injects the contract every turn (never rely on skill-body prose alone to persist); key the flag by `$CLAUDE_CODE_SESSION_ID`/the hook's own `.session_id` (never a single global flag — and re-arm on resume, since a resumed session can get a NEW session id); match an exit phrase only against the prompt's WHOLE normalized text (never a substring), to avoid false-triggering on a wrapped subagent hand-back report; the hook must always `exit 0`. Corroborated across 2 distinct projects (panda-corp's personal /orchestrate skill; mission-control, with two added mechanism refinements — resume session-id churn and exit-phrase false-triggering) with zero contradicting evidence.
 confidence: medium
 times_applied: 0
 applied_in: []

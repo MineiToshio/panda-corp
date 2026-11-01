@@ -13,7 +13,7 @@ promotion: none
 confidence: low
 times_applied: 0
 applied_in: []
-links: [DR-141, LESSON-0548]
+links: [DR-141, LESSON-0548, LESSON-0599]
 ---
 
 **Situation:** a DR-141 batch-integration pass hit two distinct shapes of conflict across lanes sharing

@@ -138,3 +138,16 @@ sweeps have corrected rows live so far, per the 2026-09-07/09-21 occurrences abo
 information beyond broadening the affected-project count to three and the affected-direction to both
 forward and backward; folded here per this item's own no-redundancy precedent. Source:
 factory/memory/_inbox.md agent-inferred note (2026-09-23 PASO 0 sweep, harvested 2026-09-25).
+
+**2026-11-01 (`pandacorp-memory-review` PASO 0 sweep) — SEVENTH occurrence, FIRST time three projects
+are stale at once.** `factory/portfolio.md` diverged from `.pandacorp/status.yaml` on THREE projects
+simultaneously: PandaCast (portfolio `design` vs status.yaml `architecture`), funko-tracker (portfolio
+`product` vs status.yaml `release`, a three-phase gap) and PandaSaga (portfolio `product` vs status.yaml
+`architecture`). This is new evidence strengthening hypothesis (c) (fix-plan step 1's third candidate —
+`/pandacorp:sync-portfolio` simply not running on the expected cadence) over a shape-specific read/write
+bug: three structurally different projects drifting in the same sweep, by varying phase-distances (1 to
+3 phases), looks like an accumulated scheduling gap rather than a per-project logic defect. Not
+self-corrected in this pass (read-only, consistent with PASO 0's established restraint). No new
+fix-design step beyond sharpening the (c) prior; folded here per this item's own no-redundancy
+precedent. Source: factory/memory/_inbox.md agent-inferred note (2026-11-01, harvested same day by the
+librarian review pass).
