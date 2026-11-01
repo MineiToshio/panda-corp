@@ -15,8 +15,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
 import { cache } from "react";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import { runGit } from "@/lib/git/git";
 import { resolveFactoryRoot } from "../../config/config";
 import type {

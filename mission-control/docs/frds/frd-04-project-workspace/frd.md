@@ -102,3 +102,10 @@ ADR modal content SHALL omit the leading document title while preserving metadat
 ## Visual close-out clarification (2026-10-31, lane O)
 
 Document type filters appear above the paper/index layout and keep their original type values in the URL. Display labels use the Spanish category vocabulary. Product and selected groups open initially; other groups stay folded until selected or searched. Copy document copies the complete original Markdown including metadata. The rendered body excludes valid YAML frontmatter; malformed YAML produces an in-paper role="alert" with its parse reason and the unchanged source in a code block, including repeated reads. The paper, index and navigation SHALL remain available; invalid document metadata SHALL NOT cause a route-wide 500.
+
+## Security boundary update (2026-10-31)
+
+WHEN a change-discard action is called, it SHALL resolve the project root from the URL slug against
+the server portfolio and ignore the legacy client path. Unknown projects SHALL return not-found
+without a write. IDs and slugs SHALL be bounded to 200 characters. Executable queue frontmatter
+SHALL fail visibly through source errors and remain untouched.

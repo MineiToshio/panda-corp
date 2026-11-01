@@ -397,3 +397,8 @@ keeps its existing content and stacks each phase vertically on phones to preserv
 - DocIndex no longer owns type filters; project filters remain outside it. Toggle icons are configurable (book for Manual, file for project documents), and every item/summary has a spacing-10 target floor.
 - Paper retains path copying when content is unavailable. Document metadata failures use the same Paper and index with an alert plus raw code, rather than replacing the route.
 - RulesCatalog resets reveal state without remounting its search. Standard chips use a spaced wrapper, and Manual uses a compact group breadcrumb on phones.
+
+### Markdown security contract (2026-10-31)
+
+The existing `Markdown` image override sets `referrerPolicy="no-referrer"` for every embed. Its
+visual tokens and layout are unchanged; no new component or image-fetch service is introduced.

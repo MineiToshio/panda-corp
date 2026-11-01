@@ -26,7 +26,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import { resolveFactoryRoot } from "../config/config";
 
 // ---------------------------------------------------------------------------
@@ -74,7 +74,7 @@ export function readProfile(profilePath?: string): ProfileResult {
   }
 
   // --- Parse frontmatter (fail-soft, blueprint §3) ---
-  let parsed: matter.GrayMatterFile<string>;
+  let parsed: ReturnType<typeof matter>;
   try {
     parsed = matter(raw);
   } catch {

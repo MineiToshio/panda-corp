@@ -19,8 +19,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
-import { resolveFactoryRoot } from "../config/config";
+import matter from "@/lib/fs-utils/parseFrontmatter";
+import { isIdeaSlug, resolveFactoryRoot } from "../config/config";
 
 export type RestoreResult =
   | { ok: true; restoredTo: string }
@@ -40,7 +40,7 @@ const VALID_PRIOR = new Set(["discovered", "recommended", "in-pipeline", "shippe
 export function restoreIdea(slug: string, ideasDir?: string): RestoreResult {
   const dir = ideasDir ?? path.join(resolveFactoryRoot(), "factory", "ideas");
 
-  if (slug === "") {
+  if (!isIdeaSlug(slug)) {
     return { ok: false, reason: "not-found" };
   }
 
@@ -72,7 +72,7 @@ export function restoreIdea(slug: string, ideasDir?: string): RestoreResult {
   }
 
   // Pass an option so gray-matter skips its content-keyed cache (see discard.ts).
-  let parsed: matter.GrayMatterFile<string>;
+  let parsed: ReturnType<typeof matter>;
   try {
     parsed = matter(raw, { excerpt: false });
   } catch {

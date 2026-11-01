@@ -391,3 +391,10 @@ remains the only scroll authority; pointer and keyboard navigation share this be
 the graph, the viewer visibly asks the user to use search or Schema; titles remain at least 12px.
 The existing localized model query values, including `?model=Esquema`, are unchanged; migrating
 those values to English is a separate CONV-18 change.
+
+## Security implementation update (2026-10-31)
+
+Use the platform allowlists and shared data-only frontmatter parser described in
+[architecture §7](../../product/architecture.md#7-cross-cutting-concerns). Preserve typed mutation
+failures and source errors. The lazy board document action resolves only portfolio roots; change
+discard resolves its target from the slug in the server. Backlog discard retains its server-owned root.

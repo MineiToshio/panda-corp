@@ -60,3 +60,13 @@ export function projectStatusPath(projectPath: string): string {
 
 /** Filenames inside `IDEAS_DIR` that are NOT idea cards (FRD-01). */
 export const NON_IDEA_FILES: readonly string[] = ["_idea-template.md", "decision-log.md"];
+
+/** Accept only bounded idea-card filenames, excluding the idea directory's metadata. */
+export function isIdeaSlug(slug: unknown): slug is string {
+  return (
+    typeof slug === "string" &&
+    slug.length <= 200 &&
+    /^[a-z0-9][a-z0-9-]*$/.test(slug) &&
+    !NON_IDEA_FILES.includes(`${slug}.md`)
+  );
+}

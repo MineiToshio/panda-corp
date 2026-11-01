@@ -45,3 +45,11 @@ Pandacorp reads the factory's and each project's information from disk, without 
 - IF either event transport is missing, malformed, changed, or deleted THEN phase, work-order state, and build state SHALL remain derived exclusively from canonical project files and SHALL NOT change because of the event stream.
 - WHEN both runtime transports contain events outside file order THEN Mission Control SHALL merge them chronologically before applying the bounded tail cap.
 - IF an event reports only dispatch completion or change reconciliation THEN Mission Control SHALL preserve it as a non-result semantic act and SHALL NOT normalize it as WO completion or change integration.
+
+## Security boundary update (2026-10-31)
+
+WHEN app/API requests arrive from a Host outside loopback, the owner hostname or the approved private
+LAN ranges, the proxy SHALL return 421. WHEN a live transport would exceed 20 simultaneous streams
+in one process, it SHALL return HTTP 429 problem+json and release capacity on cancellation or abort.
+The SSE frame SHALL omit unused session and agent identifiers. WHEN executable frontmatter is
+encountered, parsing SHALL reject it without side effects or cached success on a repeat read.

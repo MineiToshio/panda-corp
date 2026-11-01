@@ -13,6 +13,12 @@ vi.mock("@/lib/changes/discard-change", () => ({
   discardChange: vi.fn(),
 }));
 
+vi.mock("@/lib/portfolio/portfolio", () => ({
+  allProjects: () => [
+    { name: "Mission Control", path: "/tmp/proj" },
+    { name: "Project", path: "/tmp/project" },
+  ],
+}));
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
@@ -102,4 +108,17 @@ it("REQ-04-008: forwards an optional reason without changing success revalidatio
   await discardChangeAction("/tmp/project", "change", "project", "Duplicate");
   expect(mockDiscardChange).toHaveBeenCalledWith("/tmp/project", "change", "Duplicate");
   expect(mockRevalidatePath).toHaveBeenCalledWith("/projects/project");
+});
+
+it("ignores a forged client path and resolves the registered project in the server", async () => {
+  vi.clearAllMocks();
+  mockDiscardChange.mockReturnValue({ ok: true });
+  await discardChangeAction("/victim", "change", "mission-control");
+  expect(mockDiscardChange).toHaveBeenCalledWith("/tmp/proj", "change", undefined);
+  vi.clearAllMocks();
+  expect(await discardChangeAction("/victim", "change", "unregistered")).toEqual({
+    ok: false,
+    reason: "not-found",
+  });
+  expect(mockDiscardChange).not.toHaveBeenCalled();
 });

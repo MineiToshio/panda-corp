@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { waitForLayout } from "@/components/modules/DataModelViewer/_tests/waitForLayout";
 import { parseNavigationUrl } from "@/lib/navigation/urls";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 import { loadWorkspaceProject } from "../_panels/workspaceProject";
@@ -380,7 +381,8 @@ describe("workspace real mount", () => {
     published();
     window.history.replaceState({}, "", "/projects/fixture-project/architecture");
     const view = mount("architecture", "/projects/fixture-project/architecture");
-    const search = await screen.findByRole("searchbox", { name: "Buscar entidad o atributo" });
+    await waitForLayout();
+    const search = screen.getByRole("searchbox", { name: "Buscar entidad o atributo" });
     fireEvent.change(search, { target: { value: "no-matching-entity" } });
     expect(search).toHaveValue("no-matching-entity");
     const secondPath = path.join(root, "second");
@@ -413,9 +415,8 @@ describe("workspace real mount", () => {
         navigationBaseHref="/projects/second-project/architecture"
       />,
     );
-    expect(await screen.findByRole("searchbox", { name: "Buscar entidad o atributo" })).toHaveValue(
-      "",
-    );
+    await waitForLayout();
+    expect(screen.getByRole("searchbox", { name: "Buscar entidad o atributo" })).toHaveValue("");
     fireEvent.click(screen.getByRole("button", { name: "Esquema" }));
     expect(await screen.findByText("SecondModel")).toBeVisible();
     expect(screen.queryByText("no-matching-entity")).toBeNull();

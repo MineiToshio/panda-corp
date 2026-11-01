@@ -26,8 +26,9 @@ builds progress live in La Fragua, wrapped in an honest guild layer (ranks, trop
 The single golden rule that drives every architectural choice: **Mission Control NEVER calls
 Claude and NEVER executes anything.** It only *reads files* from the factory repo, its projects and
 the user's runtime installs, and renders text plus a "next command" to copy. The only writes are a
-small, bounded, human-triggered set of Server Actions, each rewriting one frontmatter field of one
-file (or one owned ledger), listed in §7 "Read-only invariant". They are human decisions, not build steps.
+small, bounded set of explicit owner-decision actions plus the corroborated guild-ledger refresh,
+listed in §7 "Read-only invariant". Guild refresh may materialize its owned ledger during render;
+none of these writes executes a build step.
 
 Consequences that ripple through the whole architecture:
 - No AI SDK, no API key, no subprocess that runs Claude, no "thinking" spinners.
@@ -302,8 +303,8 @@ One owning work order per file per wave.
 
 ## 7. Cross-cutting concerns
 
-- **Read-only invariant.** The complete write set, each a human-triggered Server Action that rewrites
-  one frontmatter field of one file and preserves everything else verbatim:
+- **Read-only invariant.** The complete bounded write set; explicit owner actions preserve unrelated
+  card data, while the guild refresh materializes only its owned ledger:
   1. idea discard / restore, `status` (+ discard bookkeeping): `src/lib/discard/` (FRD-02, ADR-0002);
   2. idea favourite, `favorite`: `src/lib/favorite/` (FRD-02, ADR-0003);
   3. change-queue discard, `status: discarded`: `src/lib/changes/discard-change.ts` (FRD-04);
@@ -317,8 +318,21 @@ One owning work order per file per wave.
   service and needs no secret value; `.env.example` lists only path overrides. MC reads owner data
   already in the local repo and vault (profile, gitignored comms, account identities) and never
   transmits it; there is no outbound network call. Account identities cross the server/client boundary
-  only through the whitelisted FRD-26 DTO. Rate limiting is N/A (no public endpoint). The always-on
-  snapshot's LAN binding is an owner override (§10).
+  only through the whitelisted FRD-26 DTO. The always-on snapshot's unauthenticated LAN binding is
+  an owner override (§10), superseding the old loopback-only security review. The proxy accepts only
+  loopback, the owner's `.local` hostname and private `192.168/16` or `10/8` Host values, including
+  arbitrary valid ports; all other hosts return 421 on app/API routes. This is not authentication.
+  `/api/live` allows 20 simultaneous streams per process, rejects excess with RFC 9457 HTTP 429,
+  and releases slots on abort/cancel. Frames omit unused `session` and `agent` identifiers; raw
+  `session_id` and `agent_id` are not part of the reader DTO. Shared stores own one watcher per file.
+  Board document reads require a resolved portfolio root and a relative path of at most 512 characters.
+  Change discard resolves the root from the slug on the server, ignoring the legacy client path.
+  Idea writers accept only lowercase kebab slugs of at most 200 characters and exclude metadata files.
+  All gray-matter parsing and serialization uses `fs-utils/parseFrontmatter.ts`, with executable
+  engines blocked and caching disabled (`excerpt: false`). Parse errors remain observable.
+  Responses disable the framework banner and apply nosniff, DENY framing, no-referrer and restricted
+  device permissions; CSP is Report-Only, preserving the static theme boot script. Markdown images
+  explicitly use `referrerPolicy="no-referrer"`. Missing board identities receive 404 before streaming.
 - **i18n and copy (Spanish interface; shown content keeps its language).** Every string Mission Control
   itself says (navigation, headings, labels, states, empty states, buttons, `aria-label`s, dialog
   kickers) comes from the frozen catalogue `docs/design/microcopy.es.json` through the typed accessor

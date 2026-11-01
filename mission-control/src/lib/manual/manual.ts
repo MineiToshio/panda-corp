@@ -25,7 +25,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -152,7 +152,7 @@ function parseManualPage(filePath: string, filename: string, group: string): Man
     return null;
   }
 
-  let parsed: matter.GrayMatterFile<string>;
+  let parsed: ReturnType<typeof matter>;
   try {
     parsed = matter(raw, { excerpt: false });
   } catch {

@@ -31,3 +31,16 @@ This file is the canonical instruction set for ANY coding agent. Claude Code rea
 - **Runtime authorization (DR-133, owner decision 2026-10-20): Codex and Claude Code have full read/write permission for every Pandacorp skill and application, including canonical documentation, work orders and build state.** This supersedes DR-120. Use the active runtime’s own available tools; absent orchestration/scheduling tools require attended sequential execution, not a permission refusal or a claim of certified automation. Preserve human gates, independent verification, atomic ownership, one writer per checkout and safe-point-only cold handoff; never take over a live run.
 - The change queue (`.pandacorp/inbox/changes/`) and the decisions inbox are plain files: any runtime files changes by following their templates — never edit product behavior ad hoc.
 - Every rule in this file (language, gates, documentation discipline) is runtime-independent and never degrades.
+
+## Mission Control write and security boundaries
+
+The app never invokes Claude. Its bounded writes are idea discard/restore bookkeeping and favourite
+flags (FRD-02), a change discard under a server-resolved portfolio project (FRD-04), a factory
+backlog discard (FRD-22), and the owned, corroborated guild ledger (`snapshotLedger.ts`, ADR-0005).
+Guild refreshes can materialize that ledger during rendering; other renders remain read-only.
+CLI-generated stats and navigation catalogs are separate from these app writes.
+
+The owner approved unauthenticated home-LAN access on 2026-10-12. Host allowlisting does not replace
+authentication and cannot protect against an untrusted LAN peer using an allowed Host. Never widen
+the file read/write allowlists or execute frontmatter. Framework APIs must be checked against the
+installed `node_modules/next/package.json` and its version-matched `node_modules/next/dist/docs/`.

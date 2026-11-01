@@ -314,3 +314,10 @@ non-owning `v1 AC-01-…` history lines because FRD-01 defines no AC.
 In build order: WO-01-000; then WO-01-001, WO-01-002, WO-01-003, WO-01-004, WO-01-007 (parallel); then
 WO-01-005, WO-01-006, WO-01-008, WO-01-010 (parallel); WO-01-009; WO-01-011. Index with summaries:
 [`work-orders/README.md`](work-orders/README.md).
+
+## Security implementation update (2026-10-31)
+
+Use the platform allowlists and shared data-only frontmatter parser described in
+[architecture §7](../../product/architecture.md#7-cross-cutting-concerns). Preserve typed mutation
+failures and source errors. The lazy board document action resolves only portfolio roots; change
+discard resolves its target from the slug in the server. Backlog discard retains its server-owned root.

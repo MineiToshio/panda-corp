@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 
 /**
  * lib/frds/frd-drift.ts: reader of the `drift:` frontmatter list of a FRD (FRD-12 AC-12-003.3).

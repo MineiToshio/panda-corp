@@ -12,12 +12,27 @@
  * (traversal-safe — rejects .pandacorp, work-orders, absolute paths, traversal).
  */
 
+import path from "node:path";
 import { resolveProjectPath } from "@/lib/config/config";
 import { readDoc } from "@/lib/docs/tree";
+import { readPortfolio } from "@/lib/portfolio/portfolio";
 
 /** Read a scoped project doc on demand for the board card-detail. Read-only;
  *  readDoc validates relPath against the project's discovered doc set (traversal-safe). */
 export async function readBoardDoc(project: string, relPath: string): Promise<string | null> {
-  if (!project || !relPath) return null;
-  return readDoc(resolveProjectPath(project), relPath);
+  if (
+    typeof project !== "string" ||
+    !project ||
+    project.length > 4096 ||
+    typeof relPath !== "string" ||
+    !relPath ||
+    relPath.length > 512
+  )
+    return null;
+  const resolved = path.resolve(resolveProjectPath(project));
+  const entry = readPortfolio().find(
+    (row) => path.resolve(resolveProjectPath(row.path)) === resolved,
+  );
+  if (!entry) return null;
+  return readDoc(resolveProjectPath(entry.path), relPath);
 }

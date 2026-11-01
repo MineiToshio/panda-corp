@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 
 /**
  * lib/changes/discard-change.ts — `discardChange` (FRD-04, REQ-04-008).
@@ -75,7 +75,7 @@ export function discardChange(
 
   // { excerpt: false } bypasses gray-matter's content-keyed cache (a stale empty
   // object after a prior malformed parse in the same process — regression 2026-06-16).
-  let parsed: matter.GrayMatterFile<string>;
+  let parsed: ReturnType<typeof matter>;
   try {
     parsed = matter(raw, { excerpt: false });
   } catch {

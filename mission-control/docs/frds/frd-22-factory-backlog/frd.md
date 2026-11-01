@@ -82,3 +82,9 @@ The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) superse
 ## Severity boundary clarification (2026-10-31)
 
 The supported severity values remain `p0`, `p1`, `p2`, or absent. `p3` is outside the producer template and this FRD's priority model; it SHALL remain an explicit item error, including on historical items. Real-data inspection found one such item, `BL-0220`; its factory-owned metadata requires correction by the factory owner/integrator, not schema expansion or a silent severity mapping in Mission Control.
+
+## Security boundary update (2026-10-31)
+
+Backlog discard SHALL keep its existing server-derived factory root and SHALL accept no client
+filesystem path. Every frontmatter parse and post-write validation SHALL use the shared data-only
+parser; executable frontmatter SHALL return a visible parse-error without mutation.

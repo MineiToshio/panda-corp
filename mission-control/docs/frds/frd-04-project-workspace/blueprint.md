@@ -346,3 +346,10 @@ The current real Funko Tracker checkout yields 174 documents under the same read
 ## Document reader close-out (2026-10-31)
 
 DocumentosPanel reads the source once and parses its rendered body with `documentBody` (gray-matter, `excerpt: false`); the parser returns `{ ok: true, body } | { ok: false, reason }`. Invalid metadata is rendered by TabDocuments inside Paper as an alert and escaped raw-source code block, retaining DocIndex and allowing another document to open. TabDocuments keeps the source for copying, while Paper accepts optional `copyValue` and `icon`, preserving path-copy behavior for other consumers. The shared document presentation maps display categories, icon and hue without changing discovery or URL identities. No new writes or model calls are introduced.
+
+## Security implementation update (2026-10-31)
+
+Use the platform allowlists and shared data-only frontmatter parser described in
+[architecture §7](../../product/architecture.md#7-cross-cutting-concerns). Preserve typed mutation
+failures and source errors. The lazy board document action resolves only portfolio roots; change
+discard resolves its target from the slug in the server. Backlog discard retains its server-owned root.

@@ -240,7 +240,12 @@ const COMPONENTS: Components = {
   td: ({ children }) => <td style={TD_STYLE}>{children}</td>,
   img: ({ src, alt }) => (
     // biome-ignore lint/performance/noImgElement: markdown embeds arbitrary external image URLs; next/image needs known dimensions / allowlisted domains.
-    <img src={typeof src === "string" ? src : undefined} alt={alt} style={IMG_STYLE} />
+    <img
+      src={typeof src === "string" ? src : undefined}
+      alt={alt}
+      referrerPolicy="no-referrer"
+      style={IMG_STYLE}
+    />
   ),
 };
 

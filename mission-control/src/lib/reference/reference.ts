@@ -16,7 +16,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import { resolveFactoryRoot } from "../config/config";
 
 // ---------------------------------------------------------------------------
@@ -83,7 +83,7 @@ export type AgentRef = {
  * Passes `{ excerpt: false }` to bypass gray-matter's content-based cache
  * (regression: gray-matter@4 cache bug 2026-06-16, same fix as lib/memory.ts).
  */
-function parsePluginFile(filePath: string): matter.GrayMatterFile<string> | null {
+function parsePluginFile(filePath: string): ReturnType<typeof matter> | null {
   let raw: string;
   try {
     raw = fs.readFileSync(filePath, "utf-8");
@@ -329,7 +329,7 @@ function collectSkills(report: (source: string) => void): SkillRef[] {
  * Defensive: a totally malformed file (unparseable YAML) is skipped with a warning,
  * never throws (AC-07-002.2). Returns [] when the directory is absent (AC-07-002.4).
  */
-function agentFromFile(id: string, parsed: matter.GrayMatterFile<string>): AgentRef {
+function agentFromFile(id: string, parsed: ReturnType<typeof matter>): AgentRef {
   const fm = parsed.data as Record<string, unknown>;
 
   // For agents: missing fields get typed defaults (AC-07-002.2).

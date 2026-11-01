@@ -241,3 +241,8 @@ Accessibility refinement: stack layer labels use `--text-2`; the environment
 completeness chip uses the existing outline variant. Stacking its tint over the
 pink report surface produced 4.43:1 contrast in light mode, below AA. The outline
 avoids compounded tints while retaining the semantic tone and readable label.
+
+## Route and image security update (2026-10-31)
+
+The existing missing-idea card is retained, with HTTP 404 set by the proxy before shell streaming.
+Markdown image embeds retain their appearance while suppressing the document referrer.

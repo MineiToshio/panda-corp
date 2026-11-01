@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
 import { isScalar, parseDocument } from "yaml";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import { resolveFactoryRoot } from "../config/config";
 
 /** Outcome of a bounded discard write, with an explicit refusal reason on failure. */

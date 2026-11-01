@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import matter from "gray-matter";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { readSpecDigest } from "./read-spec";
 import { parseSpec, type SpecFrd } from "./spec";

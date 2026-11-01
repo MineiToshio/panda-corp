@@ -16,8 +16,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
 import { cache } from "react";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import { aggregateProgress as resolveProgress } from "./progress";
 import { extractSections } from "./sections";
 

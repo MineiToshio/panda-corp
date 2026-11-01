@@ -18,6 +18,9 @@
 
 import { revalidatePath } from "next/cache";
 import { type DiscardChangeResult, discardChange } from "@/lib/changes/discard-change";
+import { resolveProjectPath } from "@/lib/config/config";
+import { resolveProjectNavigation } from "@/lib/navigation/identities";
+import { allProjects } from "@/lib/portfolio/portfolio";
 
 /**
  * Discard a change-queue item by id.
@@ -27,29 +30,31 @@ import { type DiscardChangeResult, discardChange } from "@/lib/changes/discard-c
  * deep-link and the Portfolio's embedded workspace pane — so Next.js re-fetches the
  * updated queue. On failure, returns the result unchanged without revalidating.
  *
- * @param projectPath - Absolute path to the project root.
+ * @param _projectPath - Legacy client argument, ignored; the portfolio resolves the project.
  * @param id          - The change's slug (filename without `.md`).
  * @param slug        - The project's URL slug — used to revalidate `/projects/<slug>`.
  * @returns DiscardChangeResult — `{ ok: true }` on success, `{ ok: false, reason }` on failure.
  */
 export async function discardChangeAction(
-  projectPath: string,
+  _projectPath: string,
   id: string,
   slug: string,
   reason?: string,
 ): Promise<DiscardChangeResult> {
   if (
-    typeof projectPath !== "string" ||
-    !projectPath.startsWith("/") ||
     typeof id !== "string" ||
+    id.length > 200 ||
     !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(id) ||
     typeof slug !== "string" ||
+    slug.length > 200 ||
     !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(slug)
   )
     return { ok: false, reason: "not-found" };
   if (reason !== undefined && (typeof reason !== "string" || reason.length > 2000))
     return { ok: false, reason: "parse-error" };
-  const result = discardChange(projectPath, id, reason);
+  const project = resolveProjectNavigation(slug, allProjects());
+  if (!project) return { ok: false, reason: "not-found" };
+  const result = discardChange(resolveProjectPath(project.path), id, reason);
 
   if (result.ok) {
     revalidatePath(`/projects/${slug}`);

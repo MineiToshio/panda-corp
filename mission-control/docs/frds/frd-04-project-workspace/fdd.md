@@ -175,3 +175,9 @@ Document filters span the workspace before the two-column reader. The selected p
 ## Independent review corrections (2026-10-31, lane O)
 
 On phones, type filters stay on one horizontally scrollable row, with category dots and muted counts. The index toggle includes the file icon. Index headings and links have a 40px minimum target height. Invalid YAML retains the typed Paper and index, displaying an alert with the parse reason followed by an escaped source-code block. Missing content keeps path copying rather than copying an empty string.
+
+## Verification update (2026-10-31)
+
+AC-04-012.5 waits for the existing model-layout terminal state before asserting the searchbox and
+project reset. ELK's cold asynchronous load is not governed by Testing Library's one-second lookup.
+No application or global test timeout is increased. Change discard uses a server-resolved project.

@@ -22,8 +22,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
-import { resolveFactoryRoot } from "../config/config";
+import matter from "@/lib/fs-utils/parseFrontmatter";
+import { isIdeaSlug, resolveFactoryRoot } from "../config/config";
 
 export type DiscardResult = { ok: true } | { ok: false; reason: "not-found" | "parse-error" };
 
@@ -52,7 +52,7 @@ export function discardIdea(slug: string, ideasDir?: string, reason?: string): D
   const dir = ideasDir ?? path.join(resolveFactoryRoot(), "factory", "ideas");
 
   // Guard: empty slug → not-found immediately (no fs access).
-  if (slug === "") {
+  if (!isIdeaSlug(slug)) {
     return { ok: false, reason: "not-found" };
   }
 
@@ -104,7 +104,7 @@ export function discardIdea(slug: string, ideasDir?: string, reason?: string): D
   // `excerpt: false` is the default value, so it's a no-op semantically but typed.
   //
   // Any parse failure leaves the file untouched.
-  let parsed: matter.GrayMatterFile<string>;
+  let parsed: ReturnType<typeof matter>;
   try {
     parsed = matter(raw, { excerpt: false });
   } catch {

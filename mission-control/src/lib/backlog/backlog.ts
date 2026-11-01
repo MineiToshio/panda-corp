@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import { resolveFactoryRoot } from "../config/config";
 
 /**
@@ -155,7 +155,7 @@ function parseBacklogFile(filePath: string): ParseOutcome {
 
   if (!raw.trim()) return { error: "file is empty" };
 
-  let parsed: matter.GrayMatterFile<string>;
+  let parsed: ReturnType<typeof matter>;
   try {
     // { excerpt: false } bypasses gray-matter's content-keyed cache (a stale
     // empty object after a prior malformed parse — regression 2026-06-16).

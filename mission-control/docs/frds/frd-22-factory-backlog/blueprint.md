@@ -186,3 +186,10 @@ Every explicit `REQ-22-001..010` maps to a component or interface above; every `
 by exactly one work order (the AC coverage table in `work-orders/README.md`; AC-22-002.1 to AC-22-002.4 by
 WO-17-008); `dependsOn` is acyclic; WO-22-001 and WO-22-002 are in different waves; the foundation they need is
 FRD-13's; no unresolved question survives in this feature's documents.
+
+## Security implementation update (2026-10-31)
+
+Use the platform allowlists and shared data-only frontmatter parser described in
+[architecture §7](../../product/architecture.md#7-cross-cutting-concerns). Preserve typed mutation
+failures and source errors. The lazy board document action resolves only portfolio roots; change
+discard resolves its target from the slug in the server. Backlog discard retains its server-owned root.

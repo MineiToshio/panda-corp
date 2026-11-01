@@ -32,7 +32,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import type { CatalogResult } from "@/lib/reference/reference";
 import { resolveFactoryRoot } from "../config/config";
 
@@ -234,7 +234,7 @@ type ParsedFrontmatter = {
  * return stale/empty results when two files share identical content in tests.
  */
 function parseStandardFrontmatter(raw: string, strict: boolean): ParsedFrontmatter {
-  let parsed: matter.GrayMatterFile<string>;
+  let parsed: ReturnType<typeof matter>;
   let frontmatterMalformed = false;
   try {
     parsed = matter(raw, { excerpt: false });

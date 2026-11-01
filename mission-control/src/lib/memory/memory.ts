@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import { resolveFactoryRoot } from "../config/config";
 
 /**
@@ -247,7 +247,7 @@ function parseLessonFile(filePath: string): Lesson | null {
   // Empty file → skip (AC-17-001.3).
   if (!raw.trim()) return null;
 
-  let parsed: matter.GrayMatterFile<string>;
+  let parsed: ReturnType<typeof matter>;
   try {
     // Pass { excerpt: false } to bypass gray-matter's internal content-based
     // cache that can cause a malformed parse to pollute the next call with

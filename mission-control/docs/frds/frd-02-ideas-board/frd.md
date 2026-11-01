@@ -398,3 +398,11 @@ The shared FrdCard presents its ID in a violet chip, kind at the opposite edge, 
 ### File-level report failures (2026-10-31)
 
 Spec and Architecture retain structured work-order read failures alongside their diagnostic source strings. Both render these failures through the shared FileReadErrors component: known reasons are localized into Spanish, file paths remain visible, and valid work orders remain available. In Architecture, the per-file notice and the PlanMosaic SHALL render together from the partial valid list, retaining each readable order and its FRD label. Unknown failure reasons remain explicit. Directory-listing failures preserve their operating-system error code for diagnosis.
+
+## Security boundary update (2026-10-31)
+
+WHEN a lazy document read targets a root absent from the resolved portfolio or a relative path
+longer than 512 characters, it SHALL return no document. WHEN an idea mutation receives a non-string,
+non-lowercase-kebab, metadata or oversized slug (over 200 characters), it SHALL refuse the write.
+WHEN an idea identity does not exist, its direct route SHALL return HTTP 404 before the shell streams.
+Markdown image embeds SHALL use no-referrer. Executable frontmatter SHALL never run.

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import matter from "gray-matter";
 import { cache } from "react";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import { NON_IDEA_FILES, resolveFactoryRoot } from "../config/config";
 import type { StatusResult } from "../status/status";
 
@@ -76,7 +76,7 @@ function readNonEmptyString(value: unknown): string | undefined {
  * skipped (unparseable frontmatter, or missing/invalid required fields).
  */
 function parseIdeaCard(filePath: string, slug: string): IdeaCard | null {
-  let parsed: matter.GrayMatterFile<string>;
+  let parsed: ReturnType<typeof matter>;
   try {
     const raw = fs.readFileSync(filePath, "utf-8");
     // gray-matter throws on malformed YAML frontmatter (regression B1, 2026-06-16).
