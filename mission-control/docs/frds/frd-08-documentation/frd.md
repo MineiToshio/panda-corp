@@ -59,3 +59,8 @@ The **"Documentación"** surface: the navigable face of the factory's know-how i
 ## Persistent navigation integration — FRD-25 (2026-10-17)
 
 The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+
+
+## Visual close-out clarification (2026-10-31, lane O)
+
+The home category cards and reader index retain the approved category icons. Reference links keep their canonical Configuration destinations; the phone index remains disclosed above the reader and Escape returns focus to its trigger. Counts derive from the currently authored pages.

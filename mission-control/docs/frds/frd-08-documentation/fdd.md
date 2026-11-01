@@ -118,3 +118,17 @@ prototype_blessed_at: 0e6b7191
 
 Oracle: `docs/design/prototype/index.html` (route shards of `reference/oracle-states.json`), captured at 375 and 1280, light and dark, against `pnpm dev:oracle`. Layer-B sign-off: reviewer viewed the re-blessed baselines; they are consistency guards rendered from `e2e/fixtures/factory-root`, not pixel matches of the oracle (L3 still open, see `.pandacorp/comms/visual-punch-list.md`).
 prototype_blessed_at: 0e6b7191
+
+
+## Visual close-out clarification (2026-10-31, lane O)
+
+Explore cards include the tinted icon tile, small description and bold small count. The guides footer uses the teal arrow action. Reader groups use chevrons and colored item icons, with the same shared DocIndex as project documents.
+
+Authored Manual headings use plain typography without the legacy violet accent bar. The first
+heading uses the reader-title scale; pipeline phases stack label, prose and command on phones
+so the copyable command keeps the available paper width.
+
+
+## Independent review corrections (2026-10-31, lane O)
+
+Phone reader breadcrumbs show the linked group and position counter on one line, with the full trail retained on desktop. The guides footer uses muted small live counts and a semibold teal action. All shared index headings and links have a 40px minimum target height.

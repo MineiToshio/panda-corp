@@ -1,10 +1,10 @@
 "use client";
 
 import { useId, useRef } from "react";
-import { FilterChip } from "@/components/core/Chip/FilterChip";
 import type { Tone } from "@/components/core/Chip/vocabulary";
 import { SearchField } from "@/components/core/Field/Field";
 import { Icon } from "@/components/core/Icon/Icon";
+import type { IconName } from "@/components/core/Icon/iconData";
 import { t } from "@/lib/copy/copy";
 import styles from "./DocumentReader.module.css";
 
@@ -18,6 +18,8 @@ interface DocItemData {
   readonly label: string;
   readonly href: string;
   readonly path?: string;
+  readonly icon?: IconName;
+  readonly tone?: Tone;
   readonly current?: boolean;
 }
 /** An index section with its unfiltered count. */
@@ -26,6 +28,7 @@ export interface DocIndexGroup {
   readonly label: string;
   readonly count: number;
   readonly tone?: Tone;
+  readonly defaultOpen?: boolean;
   readonly items: readonly DocItemData[];
 }
 /** Shared index contract for documentation and project documents. */
@@ -37,13 +40,7 @@ export interface DocIndexProps {
   readonly toggleLabel: string;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
-  readonly typeFilters?: readonly {
-    id: string;
-    label: string;
-    count: number;
-    selected: boolean;
-    onSelect: () => void;
-  }[];
+  readonly toggleIcon?: IconName;
 }
 
 /** A real link supporting paste, history and current-page semantics. */
@@ -51,9 +48,11 @@ function DocItem({ item }: { readonly item: DocItemData }): React.JSX.Element {
   return (
     <a
       className={`ditem ${styles.item}`}
+      data-tone={item.tone}
       href={item.href}
       aria-current={item.current ? "page" : undefined}
     >
+      {item.icon ? <Icon name={item.icon} size="sm" /> : null}
       <span>{item.label}</span>
     </a>
   );
@@ -67,7 +66,7 @@ export function DocIndex({
   toggleLabel,
   open,
   onOpenChange,
-  typeFilters,
+  toggleIcon = "book",
   searchPlaceholder,
 }: DocIndexProps): React.JSX.Element {
   const trigger = useRef<HTMLButtonElement>(null);
@@ -95,7 +94,10 @@ export function DocIndex({
         aria-controls={id}
         onClick={() => (open ? close() : onOpenChange(true))}
       >
-        {toggleLabel}
+        <span className={styles.toggleLabel}>
+          <Icon name={toggleIcon} size="sm" />
+          {toggleLabel}
+        </span>
         <Icon name="chevD" size="sm" />
       </button>
       <nav
@@ -116,18 +118,15 @@ export function DocIndex({
           value={query}
           onChange={onQuery}
         />
-        {typeFilters ? (
-          <div className={styles.filters}>
-            {typeFilters.map((filter) => (
-              <FilterChip key={filter.id} pressed={filter.selected} onClick={filter.onSelect}>
-                {filter.label} · {filter.count}
-              </FilterChip>
-            ))}
-          </div>
-        ) : null}
         {visibleGroups.map((group) => (
-          <details key={group.id} open className={`dgroup ${styles.group}`} data-tone={group.tone}>
+          <details
+            key={group.id}
+            open={!!search || (group.defaultOpen ?? true)}
+            className={`dgroup ${styles.group}`}
+            data-tone={group.tone}
+          >
             <summary>
+              <Icon name="chevR" size="sm" />
               {group.label}
               <span className={styles.count}>{group.count}</span>
             </summary>

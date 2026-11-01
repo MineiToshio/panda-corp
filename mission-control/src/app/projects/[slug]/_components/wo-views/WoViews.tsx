@@ -1,6 +1,5 @@
 "use client";
 import { EmptyState } from "@/components/core/EmptyState/EmptyState";
-import { Icon } from "@/components/core/Icon/Icon";
 import { Segmented } from "@/components/core/Segmented/Segmented";
 import { t } from "@/lib/copy/copy";
 import type { FrdDriftResult } from "@/lib/frds/frd-drift";
@@ -44,16 +43,19 @@ export function WoViews({
   }
   return (
     <div className={styles.wrap}>
-      <div className={`frd-tools ${styles.toolbar}`}>
+      <div className={styles.toolbar}>
         <div className={styles.viewSwitch}>
-          <Icon name={view === "frd" ? "list" : view === "tablero" ? "columns" : "link"} />
           <Segmented
             label={t("workspace.observabilidad.views.aria")}
             value={view}
             options={[
-              { value: "frd", label: t("workspace.observabilidad.views.byFrd") },
-              { value: "tablero", label: t("workspace.observabilidad.views.board") },
-              { value: "deps", label: t("workspace.observabilidad.views.deps") },
+              { value: "frd", icon: "list", label: t("workspace.observabilidad.views.byFrd") },
+              {
+                value: "tablero",
+                icon: "columns",
+                label: t("workspace.observabilidad.views.board"),
+              },
+              { value: "deps", icon: "link", label: t("workspace.observabilidad.views.deps") },
             ]}
             onChange={(value) => navigate({ view: value === "frd" ? null : value })}
           />

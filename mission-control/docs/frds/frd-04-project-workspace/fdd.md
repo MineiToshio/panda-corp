@@ -165,3 +165,13 @@ avoids compounded tints while retaining the semantic tone and readable label.
 Decision details use the existing native Modal with amber context, metadata chips, optional blue recommendation Notice, source note, command and project button in body order. ADR details use the ADR id as kicker, the document title without a repeated id, and amber heading/Markdown treatment. Both retain the shared focus trap, Escape dismissal and connected-trigger focus return. Work-order details remain routed inline in Observabilidad rather than becoming a modal; the prototype follows the same navigation model.
 
 ADR document bodies omit their leading Markdown title because the modal header already supplies it. Metadata and subsequent document sections remain intact (2026-10-31 independent review).
+
+
+## Visual close-out clarification (2026-10-31, lane O)
+
+Document filters span the workspace before the two-column reader. The selected paper and index icon use one document-type hue mapping. The right index uses colored group headings and chevrons; at phone widths its existing disclosure appears above the paper. Existing project content is preserved rather than replaced with the frozen sample.
+
+
+## Independent review corrections (2026-10-31, lane O)
+
+On phones, type filters stay on one horizontally scrollable row, with category dots and muted counts. The index toggle includes the file icon. Index headings and links have a 40px minimum target height. Invalid YAML retains the typed Paper and index, displaying an alert with the parse reason followed by an escaped source-code block. Missing content keeps path copying rather than copying an empty string.

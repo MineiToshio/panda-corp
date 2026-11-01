@@ -378,3 +378,22 @@ fitting three columns at 768px and one on phones.
 ### Independent review follow-up, lane N (2026-10-31)
 
 FunnelRow's optional report variant reuses the shared metric source in a count-caption bar layout; it leaves Inicio's phase rows unchanged. RecordTile places its metric-level chip alongside the label. Statistics omits the summary-only radar narrative. ColumnChart and LineChart shorten visible ISO weeks while keeping full accessible series descriptions. AdrDocument removes only its leading Markdown title so the modal does not repeat it.
+
+
+### Manual, Configuration and workspace reading close-out (2026-10-31, lane O)
+
+- SkillsCatalog reuses Card/CardHeader, BadgeIcon and CopyButton; internal engines have no copy action. AgentsCatalog uses compact tier-colored cards with explicit effort only. RulesCatalog keeps defaults inside the existing accordion; StandardsCatalog keeps filters outside the compact metadata card.
+- DocsHome adds the approved category icon tiles and arrow footer. DocIndex supports optional item icon/tone and group defaultOpen, retaining open-by-default compatibility for Manual and conditional groups for project documents.
+- Paper accepts optional copyValue and icon; existing callers without copyValue still copy the path. Project documents copy their original source and render parsed body text. documentPresentation owns their shared hue/icon and translated category label.
+- WoViews reuses Segmented option icons; its wrapping toolbar is independent from the right-aligned expand-all action.
+
+DocH uses plain token-based heading typography without the legacy accent bar. PipelineDiagram
+keeps its existing content and stacks each phase vertically on phones to preserve command width.
+
+
+### Lane O independent review corrections (2026-10-31)
+
+- CopyButton adds a text variant with shared clipboard feedback; skill rows use it without important overrides.
+- DocIndex no longer owns type filters; project filters remain outside it. Toggle icons are configurable (book for Manual, file for project documents), and every item/summary has a spacing-10 target floor.
+- Paper retains path copying when content is unavailable. Document metadata failures use the same Paper and index with an alert plus raw code, rather than replacing the route.
+- RulesCatalog resets reveal state without remounting its search. Standard chips use a spaced wrapper, and Manual uses a compact group breadcrumb on phones.

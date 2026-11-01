@@ -22,6 +22,14 @@ export function DocNav({ pages, page }: DocReaderProps): React.JSX.Element {
         id: entry.slug,
         label: entry.title,
         href: pageHref(entry),
+        icon:
+          group.id === "tutorial"
+            ? "sparkles"
+            : group.id === "guides"
+              ? "flag"
+              : group.id === "concepts"
+                ? "book"
+                : "bolt",
         current: entry.group === page.group && entry.slug === page.slug,
       })),
     };
@@ -32,6 +40,7 @@ export function DocNav({ pages, page }: DocReaderProps): React.JSX.Element {
     tone: "slate",
     count: 4,
     items: (["commands", "agents", "rules", "standards"] as const).map((catalog) => ({
+      icon: "list",
       id: catalog,
       label: t(`documentacion.referencePages.${catalog}`),
       href: `/configuration/${catalog === "commands" ? "skills" : catalog}`,

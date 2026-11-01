@@ -45,3 +45,29 @@
   color: var(--tone);
   font-size: var(--fs-xs);
 }
+
+.fullCrumbs {
+  flex: 1;
+  min-width: 0;
+}
+.compactCrumb {
+  display: none;
+}
+@media (max-width: 759px) {
+  .head {
+    flex-wrap: nowrap;
+    padding-bottom: var(--s4);
+    margin-bottom: var(--s6);
+    border-bottom: var(--hairline) solid var(--line);
+  }
+  .fullCrumbs {
+    display: none;
+  }
+  .compactCrumb {
+    display: block;
+    color: var(--tone);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    text-decoration: none;
+  }
+}

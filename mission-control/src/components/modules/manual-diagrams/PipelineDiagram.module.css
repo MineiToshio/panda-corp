@@ -1,0 +1,14 @@
+.row {
+  display: flex;
+  gap: var(--s3);
+  align-items: flex-start;
+}
+@media (max-width: 759px) {
+  .row {
+    display: block;
+  }
+  .row > :first-child {
+    width: fit-content;
+    margin-bottom: var(--s2);
+  }
+}

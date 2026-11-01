@@ -98,3 +98,34 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+.group > span:not([class]) {
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+.group b,
+.group small {
+  margin-top: var(--s1);
+}
+.group small {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.pair footer,
+.pair > section > :last-child {
+  font-size: var(--fs-sm);
+}
+.pair > section > :last-child > a {
+  color: var(--teal);
+  display: inline-flex;
+  gap: var(--s2);
+  align-items: center;
+}
+
+.pair .guideCount {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.pair > section > :last-child > a {
+  font-weight: 600;
+}

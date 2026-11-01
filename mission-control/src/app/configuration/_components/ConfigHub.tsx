@@ -7,7 +7,14 @@ import { ListRow } from "@/components/core/ListRow/ListRow";
 import { t } from "@/lib/copy/copy";
 import type { ConfigurationCatalogs } from "@/lib/reference/configurationCatalogs";
 import styles from "../configuration.module.css";
-import { type CatalogSection, LABELS, SECTIONS, searchCatalogs, TONES } from "./catalogViews";
+import {
+  type CatalogSection,
+  firstSentence,
+  LABELS,
+  SECTIONS,
+  searchCatalogs,
+  TONES,
+} from "./catalogViews";
 
 export interface HubProps {
   catalogs: ConfigurationCatalogs;
@@ -100,7 +107,7 @@ export function ConfigHub({ catalogs, query, onOpen }: HubProps): React.JSX.Elem
                   className={`cmd-desc clamp-2 ${styles.description}`}
                   onClick={() => onOpen("skills", skill.slug)}
                 >
-                  {skill.description}
+                  {firstSentence(skill.description)}
                 </button>
               </div>
             ))}

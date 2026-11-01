@@ -156,3 +156,147 @@ fieldset.filters {
 .page > [class~="tabs-wrap"] {
   margin-bottom: 0;
 }
+
+/* Catalog close-out: compact summaries, complete definitions in the existing dialogs. */
+.intro {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  margin: 0 0 var(--s4);
+}
+.skillRow {
+  justify-content: flex-start;
+  padding: var(--s3);
+}
+.skillRow:last-child {
+  border-bottom: 0;
+}
+.skillRow > .description {
+  flex: 1;
+  overflow: hidden;
+  min-height: var(--s6);
+}
+.skillRow .description small {
+  -webkit-line-clamp: 1;
+}
+
+.agent {
+  padding: var(--s3) var(--s4);
+}
+.agent > span {
+  flex: 1;
+  gap: var(--s1);
+}
+.agent strong {
+  font: 700 var(--fs-md) / 1.3 var(--font-display);
+}
+.agent small {
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+.agent .effort {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+.ruleButton {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  min-height: var(--s10);
+  padding: var(--s3) var(--s4);
+  border-bottom: var(--hairline) solid var(--line);
+}
+.ruleId {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  flex: none;
+}
+.ruleTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-md);
+}
+@media (max-width: 759px) {
+  .skillRow {
+    flex-wrap: nowrap;
+  }
+  .ruleTitle {
+    order: 1;
+    flex-basis: 100%;
+  }
+  .ruleId {
+    margin-right: auto;
+  }
+}
+.agent > [role="img"] {
+  width: var(--s10);
+  height: var(--s10);
+  background: transparent;
+  box-shadow: none;
+}
+.agent > [role="img"]:not([data-role]) {
+  background: color-mix(in srgb, var(--tone) var(--tint-strong), transparent);
+}
+.skillRow > .description {
+  font-size: var(--fs-sm);
+}
+.skillRow > .description small {
+  width: 100%;
+}
+.page > header:first-child {
+  margin-bottom: 0;
+}
+.searchToolbar {
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.searchToolbar > :first-child {
+  flex: 1;
+}
+.searchToolbar > span:last-child {
+  margin-left: auto;
+}
+.list > .skillRow + .skillRow {
+  border-top: var(--hairline) solid var(--line);
+}
+@media (max-width: 759px) {
+  .searchToolbar > :first-child {
+    flex-basis: 100%;
+  }
+}
+.list > .skillRow {
+  border-radius: 0;
+}
+.page [class~="card"] > [class~="lrow"] + [class~="lrow"] {
+  border-top: var(--hairline) solid var(--line);
+  border-radius: 0;
+}
+
+.rowChips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+@media (max-width: 759px) {
+  .list > .skillRow {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+  .skillRow > :first-child {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    align-self: center;
+  }
+  .skillRow > .description,
+  .skillRow > :last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .skillRow .description small {
+    -webkit-line-clamp: 2;
+  }
+}

@@ -97,3 +97,8 @@ In workspace Spec, omit the visible digest eyebrow and render PRD completo as a 
 Decision dialogs order metadata, optional blue recommendation, source note, response command and project action. ADR dialogs show the id in the kicker and the title once, with amber document styling. Both use the shared native modal keyboard lifecycle. Work orders retain the inline routed detail owned by FRD-05; they do not introduce a dialog.
 
 ADR modal content SHALL omit the leading document title while preserving metadata and subsequent section headings; the modal heading is the single title (2026-10-31 independent review).
+
+
+## Visual close-out clarification (2026-10-31, lane O)
+
+Document type filters appear above the paper/index layout and keep their original type values in the URL. Display labels use the Spanish category vocabulary. Product and selected groups open initially; other groups stay folded until selected or searched. Copy document copies the complete original Markdown including metadata. The rendered body excludes valid YAML frontmatter; malformed YAML produces an in-paper role="alert" with its parse reason and the unchanged source in a code block, including repeated reads. The paper, index and navigation SHALL remain available; invalid document metadata SHALL NOT cause a route-wide 500.

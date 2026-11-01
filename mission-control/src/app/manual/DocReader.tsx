@@ -31,13 +31,18 @@ export function DocReader({ page, pages }: DocReaderProps): React.JSX.Element {
     >
       <article className={`paper ${styles.paper}`} data-testid="doc-reader-authored">
         <div className={chrome.head}>
-          <Crumbs
-            items={[
-              { label: t("documentacion.title"), href: "/manual" },
-              { label: group, href: siblings[0] ? pageHref(siblings[0]) : "/manual" },
-              { label: page.title },
-            ]}
-          />
+          <div className={chrome.fullCrumbs}>
+            <Crumbs
+              items={[
+                { label: t("documentacion.title"), href: "/manual" },
+                { label: group, href: siblings[0] ? pageHref(siblings[0]) : "/manual" },
+                { label: page.title },
+              ]}
+            />
+          </div>
+          <a className={chrome.compactCrumb} href={siblings[0] ? pageHref(siblings[0]) : "/manual"}>
+            {group}
+          </a>
           <span className={chrome.counter}>
             {t(
               isTutorial ? "documentacion.reader.stepOf" : "documentacion.reader.positionOf",

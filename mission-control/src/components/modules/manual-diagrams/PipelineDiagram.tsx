@@ -15,6 +15,7 @@
 import type React from "react";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { DownArrow } from "./atoms";
+import styles from "./PipelineDiagram.module.css";
 
 // ---------------------------------------------------------------------------
 // Phase data — mirrors the prototype `st` array (name, color token, copy, cmd)
@@ -75,7 +76,7 @@ export function PipelineDiagram(): React.JSX.Element {
     <div data-testid="manual-diagram-pipeline">
       {PHASES.map((phase, i) => (
         <div key={phase.name}>
-          <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
+          <div className={styles.row}>
             {/* Phase label chip (fixed 118px column) */}
             <div style={{ flex: "0 0 118px" }}>
               <div

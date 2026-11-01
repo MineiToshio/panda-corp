@@ -92,12 +92,8 @@ describe("configuration Orbita", () => {
   it("AC-07-013.3 groups models with explanation, explicit effort and inherited fallback", () => {
     visit("/configuration/agents");
     render(<ConfigurationShell catalogs={loadConfigurationCatalogs()} />);
-    expect(
-      within(screen.getByRole("button", { name: /Reviewer/ })).getByText("Opus"),
-    ).toBeInTheDocument();
-    expect(
-      within(screen.getByRole("button", { name: /Other/ })).getByText("Modelo heredado"),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Opus/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Modelo heredado/ })).toBeInTheDocument();
     expect(screen.getByText("esfuerzo alto")).toBeInTheDocument();
     expect(screen.getByText(/Juicio y diseño/)).toBeInTheDocument();
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "none" } });
@@ -154,4 +150,21 @@ it.each([
 it("unknown item URLs are bounded instead of silently selecting the first item", () => {
   visit("/configuration/skills/absent");
   expect(() => render(<ConfigurationShell catalogs={loadConfigurationCatalogs()} />)).toThrow();
+});
+
+it("keeps the rule search focused while typing and resets pagination without remounting", async () => {
+  const user = userEvent.setup();
+  visit("/configuration/rules");
+  render(<ConfigurationShell catalogs={loadConfigurationCatalogs()} />);
+  await user.click(screen.getByRole("button", { name: "Mostrar 18 más · quedan 18" }));
+  const search = screen.getByRole("searchbox");
+  await user.click(search);
+  await user.keyboard("shared");
+  expect(search).toHaveFocus();
+  expect(search).toHaveValue("shared");
+  expect(screen.getByRole("searchbox")).toBe(search);
+  expect(screen.getAllByRole("button", { name: /^DR-/ })).toHaveLength(30);
+  await user.type(search, " evidence", { skipClick: true });
+  expect(search).toHaveFocus();
+  expect(search).toHaveValue("shared evidence");
 });

@@ -93,3 +93,8 @@ The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) superse
 ## Malformed source clarification (2026-10-31)
 
 A syntactically invalid work-order file SHALL produce a visible per-file notice naming its relative path and reason. The other valid work orders SHALL remain available in Observability, Summary FRD progress and recent progress. The invalid document SHALL NOT become a fabricated todo order. Unreadable discovery directories fail the entire source; deliberate absence remains empty. Global progress SHALL show the number of unread files instead of an exact total or percentage when any work order failed to parse.
+
+
+## Visual close-out clarification (2026-10-31, lane O)
+
+Work-order view selection preserves URL ownership and existing FRD/state filters. Each view button has its own decorative icon. Expand/collapse remains local to the FRD list and does not impose its alignment class on the view/filter toolbar.

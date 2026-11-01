@@ -1,22 +1,25 @@
+import { BadgeIcon } from "@/components/core/BadgeIcon/BadgeIcon";
+import { Card, CardHeader } from "@/components/core/Card/Card";
 import { Chip } from "@/components/core/Chip/Chip";
 import { FilterChip } from "@/components/core/Chip/FilterChip";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
-import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { t } from "@/lib/copy/copy";
 import type { SkillRef } from "@/lib/reference/reference";
 import styles from "../configuration.module.css";
-import { matches } from "./catalogViews";
+import { firstSentence, matches } from "./catalogViews";
 
 /** Search and owner/internal facets, preserving undeclared scopes. */
 export function SkillsCatalog({
   skills,
   query,
+  search,
   type,
   onType,
   onOpen,
 }: {
   skills: SkillRef[];
   query: string;
+  search?: React.ReactNode;
   type: string;
   onType: (type: string) => void;
   onOpen: (id: string) => void;
@@ -42,6 +45,12 @@ export function SkillsCatalog({
   );
   return (
     <div className={styles.stack}>
+      <div className={styles.searchToolbar}>
+        {search}
+        <span className={styles.muted}>
+          {t("configuracion.counts.skill", { count: filtered.length })}
+        </span>
+      </div>
       <fieldset aria-label={t("configuracion.skills.typeAria")} className={styles.filters}>
         {filters.map((filter) => (
           <FilterChip
@@ -53,44 +62,48 @@ export function SkillsCatalog({
           </FilterChip>
         ))}
       </fieldset>
-      <p className={styles.muted}>{t("configuracion.counts.skill", { count: filtered.length })}</p>
+
       {(["project", "factory", "unknown"] as const).map((scope) => {
         const group = filtered.filter((skill) => skill.runsIn === scope);
         return group.length ? (
-          <section key={scope}>
-            <SectionHead
-              label={t(`configuracion.skills.scopes.${scope}.label`)}
-              note={t(`configuracion.skills.scopes.${scope}.hint`)}
+          <Card key={scope} tone="violet">
+            <CardHeader
+              title={t(`configuracion.skills.scopes.${scope}.label`)}
               count={group.length}
-              tone="violet"
+              icon={scope === "project" ? "folder" : scope === "factory" ? "factory" : "layers"}
             />
+            <p className={styles.intro}>{t(`configuracion.skills.scopes.${scope}.hint`)}</p>
             <ul className={styles.list}>
               {group.map((skill) => (
                 <li key={skill.slug} className={`lrow cfg-row ${styles.skillRow}`}>
+                  <BadgeIcon icon="bolt" tone="violet" size="sm" />
                   <button
                     type="button"
                     className={styles.description}
                     onClick={() => onOpen(skill.slug)}
                   >
                     <strong className={styles.mono}>/pandacorp:{skill.slug}</strong>
-                    <small>{skill.description}</small>
+                    <small>{firstSentence(skill.description)}</small>
                   </button>
                   {skill.internal ? (
                     <Chip tone="slate" variant="plain">
                       {t("configuracion.skills.internalChip")}
                     </Chip>
                   ) : null}
-                  <CopyButton
-                    value={`/pandacorp:${skill.slug}`}
-                    accessibleLabel={t("common.copy.command", {
-                      command: `/pandacorp:${skill.slug}`,
-                    })}
-                    label={t("configuracion.skills.copy")}
-                  />
+                  {!skill.internal ? (
+                    <CopyButton
+                      variant="text"
+                      value={`/pandacorp:${skill.slug}`}
+                      accessibleLabel={t("common.copy.command", {
+                        command: `/pandacorp:${skill.slug}`,
+                      })}
+                      label={t("configuracion.skills.copy")}
+                    />
+                  ) : null}
                 </li>
               ))}
             </ul>
-          </section>
+          </Card>
         ) : null;
       })}
       {!filtered.length ? <p>{t("configuracion.skills.empty")}</p> : null}

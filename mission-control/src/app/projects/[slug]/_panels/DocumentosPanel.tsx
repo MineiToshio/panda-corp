@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { documentBody } from "@/lib/docs/documentBody";
 import { listProjectDocs, readDoc } from "@/lib/docs/tree";
 import { TabDocuments } from "../_components/tab-documents/tab-documents";
 import type { PanelProps } from "./types";
@@ -8,11 +9,13 @@ export default function DocumentosPanel({ project, route }: PanelProps): React.J
   const selected =
     route.docParam === undefined ? nodes[0] : nodes.find((node) => node.id === route.docParam);
   if (route.docParam !== undefined && !selected) notFound();
+  const content = selected ? readDoc(project.projectPath, selected.relPath) : null;
   return (
     <TabDocuments
       nodes={nodes}
       selectedId={selected?.id ?? null}
-      content={selected ? readDoc(project.projectPath, selected.relPath) : null}
+      content={content}
+      parsedBody={content === null ? undefined : documentBody(content)}
       project={project.slug}
       navigationBaseHref={route.navigationBaseHref}
     />

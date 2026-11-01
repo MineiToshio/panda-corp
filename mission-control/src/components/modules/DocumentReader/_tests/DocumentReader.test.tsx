@@ -5,10 +5,9 @@ import { DocIndex } from "../DocIndex";
 import { Paper } from "../Paper";
 
 describe("shared document reader", () => {
-  it("AC-08-020.3 exposes controlled search, typed filters, current link and disclosure", () => {
+  it("AC-08-020.3 exposes controlled search, current link and disclosure", () => {
     const onQuery = vi.fn();
     const onOpenChange = vi.fn();
-    const onSelect = vi.fn();
     render(
       <DocIndex
         groups={[
@@ -24,14 +23,11 @@ describe("shared document reader", () => {
         open={false}
         onOpenChange={onOpenChange}
         toggleLabel="Elegir documento · 1"
-        typeFilters={[{ id: "frd", label: "FRD", count: 1, selected: true, onSelect }]}
       />,
     );
     expect(screen.getByRole("link", { name: "Feature" })).toHaveAttribute("aria-current", "page");
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "spec" } });
     expect(onQuery).toHaveBeenCalledWith("spec");
-    fireEvent.click(screen.getByRole("button", { name: "FRD · 1" }));
-    expect(onSelect).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Elegir documento · 1" }));
     expect(onOpenChange).toHaveBeenCalledWith(true);
   });

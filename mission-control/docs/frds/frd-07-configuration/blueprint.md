@@ -62,7 +62,7 @@ The factory root is `resolveFactoryRoot()` (FRD-01), overridable by `PANDACORP_F
 - **`CMP-07-config-hub`** — `_components/ConfigHub/`: search, count tiles, «Tus comandos» (`CopyText`), «Resultados». → REQ-07-004, AC-07-013.1.
 - **`CMP-07-skills-catalog`** — `_components/SkillsCatalog/`: search, type chips, three scope groups, rows with copy or «Motor interno». → REQ-07-002, REQ-07-004 to REQ-07-006, AC-07-013.2.
 - **`CMP-07-skill-dialog`** — `_components/SkillDialog/`: kicker, command title, where-it-runs and who-runs-it chips, description, «Agentes:» cross-navigation, command chip, «Definición completa». → REQ-07-003, REQ-07-006 to REQ-07-008, REQ-07-011 (full `SKILL.md` as markdown).
-- **`CMP-07-agents-catalog`** — `_components/AgentsCatalog/`: tier groups with one-line explanation, agent cards with `Avatar` and effort chip. → REQ-07-002, REQ-07-011, AC-07-013.3.
+- **`CMP-07-agents-catalog`** — `_components/AgentsCatalog/`: tier groups with one-line explanation, agent cards with `Avatar` and explicit effort text. → REQ-07-002, REQ-07-011, AC-07-013.3.
 - **`CMP-07-agent-dialog`** — `_components/AgentDialog/`: model and effort chips, «Herramientas:», «Lo usan:» cross-navigation, «Definición completa». → REQ-07-003, REQ-07-008, REQ-07-011.
 - **`CMP-07-rules-catalog`** — `_components/RulesCatalog/`: approval chips, rows with Auto / Tu OK chip, 30 per page with `MoreBar`, inline accordion. → REQ-07-002, REQ-07-003, REQ-07-009, AC-07-013.4.
 - **`CMP-07-standards-catalog`** — `_components/StandardsCatalog/`: mandatory first, severity facets, domain select, enforcement line. → REQ-07-002, REQ-07-010, AC-07-013.5.
@@ -103,7 +103,7 @@ Every reader is `fs.read*` (architecture §7); no write path exists in this feat
 | REQ-07-008 skills ↔ agents cross-navigation | `CMP-07-skill-dialog`, `CMP-07-agent-dialog`, `IF-07-catalogs` (inversion) | WO-07-006 |
 | REQ-07-009 all rules with Auto / Tu OK, accordion (explainer and button out of v2) | `CMP-07-rules-catalog`, `IF-07-registry` | WO-07-006 |
 | REQ-07-010 standards: domain select, severity, enforcement, dialog (button out of v2) | `CMP-07-standards-catalog`, `CMP-07-standard-dialog`, `IF-07-standards` | WO-07-006 |
-| REQ-07-011 agents: avatar, model chip, effort chip (pixel art, level, title out of v2) | `CMP-07-agents-catalog`, `CMP-07-agent-dialog`, `IF-07-reference` | WO-07-006 |
+| REQ-07-011 agents: avatar, group-level model and explicit effort text; model chip in dialog (pixel art, level, title out of v2) | `CMP-07-agents-catalog`, `CMP-07-agent-dialog`, `IF-07-reference` | WO-07-006 |
 | REQ-07-012 (Out of v2: XP bar, model explanation) | none; removed. Model assignment is explained once per tier group (AC-07-013.3) | WO-07-006 (removal) |
 | REQ-07-013 hub, search, tiers, filters (AC-07-013.1 to AC-07-013.5) | `CMP-07-config-hub`, the four catalogs, `IF-07-catalogs` | WO-07-006 |
 

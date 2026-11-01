@@ -54,6 +54,14 @@ export function ConfigurationShell({
     !source.data.some((entry) => ("slug" in entry ? entry.slug : entry.id) === item);
   if (missingItem) return notFound();
   const searchKey = active === "summary" ? "hub" : active;
+  const searchField = (
+    <SearchField
+      label={searchLabel(active)}
+      placeholder={t(`configuracion.search.${searchKey}`)}
+      value={query}
+      onChange={setQuery}
+    />
+  );
   return (
     <div data-testid="configuration-page" className={styles.page}>
       <PageHead title={t("configuracion.title")} subtitle={t("configuracion.subtitle")} />
@@ -78,16 +86,7 @@ export function ConfigurationShell({
         aria-labelledby={`config-tab-${active}`}
         className={styles.stack}
       >
-        <SearchField
-          label={
-            active === "summary"
-              ? t("configuracion.search.hubAria")
-              : t(`configuracion.search.${searchKey}`)
-          }
-          placeholder={t(`configuracion.search.${searchKey}`)}
-          value={query}
-          onChange={setQuery}
-        />
+        {active === "summary" ? searchField : null}
         <ReadErrors catalogs={catalogs} active={active} />
         {active === "summary" ? (
           <ConfigHub catalogs={catalogs} query={query} onOpen={handleOpen} />
@@ -96,6 +95,7 @@ export function ConfigurationShell({
           <SkillsCatalog
             skills={catalogs.skills.data}
             query={query}
+            search={searchField}
             type={type}
             onType={setType}
             onOpen={(id) => handleOpen("skills", id)}
@@ -104,14 +104,15 @@ export function ConfigurationShell({
         {active === "agents" && catalogs.agents.ok ? (
           <AgentsCatalog
             agents={catalogs.agents.data}
+            search={searchField}
             query={query}
             onOpen={(id) => handleOpen("agents", id)}
           />
         ) : null}
         {active === "rules" && catalogs.rules.ok ? (
           <RulesCatalog
-            key={`${query}/${approval}`}
             rules={catalogs.rules.data}
+            search={searchField}
             query={query}
             approval={approval}
             selected={item}
@@ -122,6 +123,7 @@ export function ConfigurationShell({
         {active === "standards" && catalogs.standards.ok ? (
           <StandardsCatalog
             standards={catalogs.standards.data}
+            search={searchField}
             domains={catalogs.domains}
             query={query}
             severity={severity}
@@ -179,4 +181,10 @@ function validSelection(
     ["all", "auto", "human"].includes(approval) &&
     ["all", "MUST", "SHOULD", "MAY"].includes(severity)
   );
+}
+
+function searchLabel(section: keyof typeof LABELS): string {
+  return section === "summary"
+    ? t("configuracion.search.hubAria")
+    : t(`configuracion.search.${section}`);
 }

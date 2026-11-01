@@ -121,3 +121,19 @@
     grid-row: 2;
   }
 }
+
+.group > summary > b,
+.group > summary > span:last-of-type {
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  color: var(--text-3);
+}
+.toolbar > [class~="field"] {
+  flex: 1 1 0;
+  min-width: 0;
+}
+@media (max-width: 759px) {
+  .toolbar > [class~="field"] {
+    flex-basis: 100%;
+  }
+}

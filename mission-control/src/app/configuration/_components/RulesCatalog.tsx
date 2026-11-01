@@ -1,7 +1,8 @@
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import { Card } from "@/components/core/Card/Card";
 import { Chip } from "@/components/core/Chip/Chip";
 import { FilterChip } from "@/components/core/Chip/FilterChip";
-import { ListRow } from "@/components/core/ListRow/ListRow";
 import { MoreBar, pagedReveal } from "@/components/core/MoreBar/MoreBar";
 import { t } from "@/lib/copy/copy";
 import type { DecisionRule } from "@/lib/registry/registry";
@@ -12,6 +13,7 @@ import { matches } from "./catalogViews";
 export function RulesCatalog({
   rules,
   query,
+  search,
   approval,
   selected,
   onApproval,
@@ -19,12 +21,16 @@ export function RulesCatalog({
 }: {
   rules: DecisionRule[];
   query: string;
+  search?: React.ReactNode;
   approval: string;
   selected: string;
   onApproval: (value: string) => void;
   onOpen: (value: string) => void;
 }): React.JSX.Element {
-  const [pressed, setPressed] = useState(0);
+  const [pagination, setPagination] = useState({ key: `${query}/${approval}`, pressed: 0 });
+  const paginationKey = `${query}/${approval}`;
+  if (pagination.key !== paginationKey) setPagination({ key: paginationKey, pressed: 0 });
+  const pressed = pagination.key === paginationKey ? pagination.pressed : 0;
   const searched = rules.filter((rule) =>
     matches(query, rule.id, rule.patron, rule.default, rule.nota),
   );
@@ -34,7 +40,7 @@ export function RulesCatalog({
   );
   const reveal = pagedReveal(filtered.length, pressed, 30, 30);
   function handleApproval(value: string): void {
-    setPressed(0);
+    setPagination({ key: paginationKey, pressed: 0 });
     onApproval(value);
   }
   const selectedIndex = filtered.findIndex((rule) => rule.id === selected);
@@ -42,6 +48,12 @@ export function RulesCatalog({
   const remaining = filtered.length - visible;
   return (
     <div className={styles.stack}>
+      <div className={styles.searchToolbar}>
+        {search}
+        <span className={styles.muted}>
+          {t("configuracion.counts.rule", { count: filtered.length })}
+        </span>
+      </div>
       <fieldset className={styles.filters} aria-label={t("configuracion.rules.approvalAria")}>
         {(["all", "auto", "human"] as const).map((filter) => (
           <FilterChip
@@ -60,49 +72,58 @@ export function RulesCatalog({
           </FilterChip>
         ))}
       </fieldset>
-      <p>{t("configuracion.counts.rule", { count: filtered.length })}</p>
-      <div className={styles.list}>
-        {filtered.slice(0, visible).map((rule) => (
-          <div className="rule-row" key={rule.id}>
-            <button
-              type="button"
-              className={styles.ruleButton}
-              aria-expanded={selected === rule.id}
-              aria-controls={`rule-${rule.id}`}
-              onClick={() => onOpen(selected === rule.id ? "" : rule.id)}
-            >
-              <ListRow
-                title={`${rule.id} · ${rule.patron}`}
-                meta={rule.default}
-                extra={
-                  <Chip tone={rule.requiereHumano ? "amber" : "green"}>
-                    {t(
-                      rule.requiereHumano
-                        ? "configuracion.rules.chipHuman"
-                        : "configuracion.rules.chipAuto",
-                    )}
-                  </Chip>
-                }
-              />
-            </button>
-            {selected === rule.id ? (
-              <section
-                id={`rule-${rule.id}`}
-                data-testid="rule-detail"
-                aria-label={rule.id}
-                className={styles.ruleDetail}
+
+      <Card variant="flush">
+        <div className={styles.list}>
+          {filtered.slice(0, visible).map((rule) => (
+            <div className="rule-row" key={rule.id}>
+              <button
+                type="button"
+                className={styles.ruleButton}
+                aria-expanded={selected === rule.id}
+                aria-controls={`rule-${rule.id}`}
+                onClick={() => onOpen(selected === rule.id ? "" : rule.id)}
               >
-                <p>{rule.default}</p>
-                {rule.nota ? <p>{rule.nota}</p> : null}
-              </section>
-            ) : null}
-          </div>
-        ))}
-      </div>
+                <code className={styles.ruleId}>{rule.id}</code>
+                <span className="sr-only"> · </span>
+                <span className={styles.ruleTitle}>
+                  <ReactMarkdown
+                    allowedElements={["p", "strong", "em", "code"]}
+                    unwrapDisallowed
+                    components={{ p: "span" }}
+                  >
+                    {rule.patron}
+                  </ReactMarkdown>
+                </span>
+                <Chip tone={rule.requiereHumano ? "amber" : "green"}>
+                  {t(
+                    rule.requiereHumano
+                      ? "configuracion.rules.chipHuman"
+                      : "configuracion.rules.chipAuto",
+                  )}
+                </Chip>
+              </button>
+              {selected === rule.id ? (
+                <section
+                  id={`rule-${rule.id}`}
+                  data-testid="rule-detail"
+                  aria-label={rule.id}
+                  className={styles.ruleDetail}
+                >
+                  <p>{rule.default}</p>
+                  {rule.nota ? <p>{rule.nota}</p> : null}
+                </section>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </Card>
       {remaining ? (
         <MoreBar
           label={t("propuestas.showMore", { count: Math.min(30, remaining), remaining })}
-          onClick={() => setPressed(Math.ceil((visible - 30) / 30) + 1)}
+          onClick={() =>
+            setPagination({ key: paginationKey, pressed: Math.ceil((visible - 30) / 30) + 1 })
+          }
         />
       ) : null}
       {!filtered.length ? <p>{t("configuracion.rules.empty")}</p> : null}

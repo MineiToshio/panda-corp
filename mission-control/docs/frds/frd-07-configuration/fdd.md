@@ -27,9 +27,9 @@ The page title block is the shared `PageHead`: one `h1` «Configuración» (equa
 |---|---|---|---|
 | Resumen hub | Entry point: one search across the four catalogs, four count tiles, the owner's commands | `config-hub` | REQ-07-001, AC-07-013.1, REQ-07-004 |
 | Hub search results | The same search typed into: matches from every catalog in one list | `config-hub-search` | AC-07-013.1 |
-| Habilidades catalog | Skills grouped by where they run, with type filter, search and a copy button per row | `config-skills` | REQ-07-002, REQ-07-004, REQ-07-005, REQ-07-006, AC-07-013.2 |
+| Habilidades catalog | Skills grouped by where they run, with type filter, search and copy buttons on owner-command rows | `config-skills` | REQ-07-002, REQ-07-004, REQ-07-005, REQ-07-006, AC-07-013.2 |
 | Skill detail dialog | What a skill is for, where it runs, the agents it uses, its full definition | `config-skill-dialog` | REQ-07-003, REQ-07-006, REQ-07-007, REQ-07-008, REQ-07-004 |
-| Agentes catalog | Agents grouped by model tier, each with avatar, effort chip and description | `config-agents` | REQ-07-002, REQ-07-011, AC-07-013.3 |
+| Agentes catalog | Agents grouped by model tier, each with avatar, explicit effort text and compact description | `config-agents` | REQ-07-002, REQ-07-011, AC-07-013.3 |
 | Agent detail dialog | An agent's model, effort, tools, the skills that use it and its full definition | `config-agent-dialog` | REQ-07-003, REQ-07-008, REQ-07-011 |
 | Reglas de decisión catalog | Every decision rule with its Auto or Tu OK chip, filter, search and paging | `config-rules` | REQ-07-002, REQ-07-009, AC-07-013.4 |
 | Decision rule opened | A rule's default text as an inline accordion | `config-rule-detail` | REQ-07-003, REQ-07-009 |
@@ -44,7 +44,7 @@ The page title block is the shared `PageHead`: one `h1` «Configuración» (equa
 | Hub search active | With a term typed, the tiles and the command card give way to a «Resultados» card with its count. Each hit shows its title, an excerpt of the matching text and a kind chip: «Habilidad», «Agente» or «Regla». | `config-hub-search` | AC-07-013.1 |
 | Skills at rest | Search «Buscar habilidad…» and the count «27 habilidades». The filter group «Tipo de habilidad» with the chips «Todas», «Comandos tuyos» and «Motores internos», each with its count. Three groups under their own headings with a count: «Dentro de un proyecto» («Se corren en la carpeta del proyecto.»), «En la fábrica» («Se corren en la carpeta de panda-corp.») and «Otras». Each row: the command, a one-line description and either the copy button or the chip «Motor interno». | `config-skills` | REQ-07-005, REQ-07-006, REQ-07-004, AC-07-013.2 |
 | Skill dialog open | Dialog kicker «Habilidad», the command as the title, the close button «Cerrar». Chips for where it runs («Dentro de un proyecto») and for who runs it («Comando tuyo»). The description, then «Agentes:» with one chip per agent it uses, then the command chip with its copy button. The full definition sits behind «Definición completa», rendered as markdown. | `config-skill-dialog` | REQ-07-007, REQ-07-006, REQ-07-008, REQ-07-004 |
-| Agents at rest | Search «Buscar agente…» and the count «16 agentes». Groups by model tier, each header with the tier name, its count and one line: «Opus» («5 agentes»), «Sonnet» («10 agentes») and «Modelo heredado» («1 agente», «Usa el modelo de la sesión que lo llama.»). Each agent card: avatar (the agent's sprite, or two-letter initials such as DR, IM, LI and ME), the name, the effort chip «esfuerzo alto» or «esfuerzo medio» where the agent has one, and its description. | `config-agents` | REQ-07-011, AC-07-013.3 |
+| Agents at rest | Search «Buscar agente…» and the count «16 agentes». Groups by model tier, each header with the tier name, its count and one line: «Opus» («5 agentes»), «Sonnet» («10 agentes») and «Modelo heredado» («1 agente», «Usa el modelo de la sesión que lo llama.»). Each agent card: avatar (the agent's sprite, or two-letter initials such as DR, IM, LI and ME), the name, the effort text «esfuerzo alto» or «esfuerzo medio» where the agent declares it, and its description. | `config-agents` | REQ-07-011, AC-07-013.3 |
 | Agent dialog open | Dialog kicker «Agente», the agent's name as the title, «Cerrar». Chips «Opus» and «esfuerzo alto», the description, «Herramientas:» with one chip per tool, «Lo usan:» with one chip per skill that uses the agent, and «Definición completa» with the agent's markdown. | `config-agent-dialog` | REQ-07-011, REQ-07-008, REQ-07-003 |
 | Rules at rest | Search «Buscar regla…». The filter group «Aprobación» with the chips «Todas», «Automáticas» and «Requieren tu OK», each with its count, and the count «48 reglas». One row per rule: its id, the decision it governs, the chip «Auto» or «Tu OK», and its default text. A full-width dashed bar «Mostrar 18 más · quedan 18» closes the page. | `config-rules` | REQ-07-009, AC-07-013.4 |
 | Rules filtered by search | Typing a term narrows the list and the count reads «1 regla». | `config-rules-search` | AC-07-013.4 |
@@ -119,3 +119,13 @@ Tabs show gauge, bolt, users, shield and book icons. The rules tab remains amber
 ## Independent review corrections (2026-10-31)
 
 The tab strip and search field are separated by s6 (24 px) on desktop and phone.
+
+
+## Visual close-out clarification (2026-10-31, lane O)
+
+Skill scopes reuse Card/CardHeader with violet badge icons and divided rows. Agent tiers reuse SectionHead with a separate explanatory paragraph and compact sprite cards. Standards put severity/domain filters before the card and show file/enforcement metadata instead of full extracted prose. Rule rows use a flush card, separate mono ID and inline Markdown title.
+
+
+## Independent review corrections (2026-10-31, lane O)
+
+Phone skill rows keep the icon to the left and stack title, a two-line summary and the copy action/internal chip on the right. The shared CopyButton text variant supplies the action without overrides. Standard domain/severity chips use a wrapping row with token spacing; the filtered result count appears only in the search toolbar.

@@ -6,7 +6,7 @@ import { t } from "@/lib/copy/copy";
 import { modelTier } from "@/lib/reference/modelTier";
 import type { AgentRef } from "@/lib/reference/reference";
 import styles from "../configuration.module.css";
-import { matches } from "./catalogViews";
+import { firstSentence, matches } from "./catalogViews";
 
 /** Explicit effort only; missing effort is never inferred from the model. */
 export function EffortChip({ agent }: { agent: AgentRef }): React.JSX.Element {
@@ -20,6 +20,8 @@ export function EffortChip({ agent }: { agent: AgentRef }): React.JSX.Element {
     </Chip>
   );
 }
+const MODEL_TONES = { opus: "violet", sonnet: "blue", haiku: "teal", unknown: "slate" } as const;
+
 function spriteRole(id: string): AgentRole | undefined {
   return Object.hasOwn(SPRITE_MAP, id) ? (id as AgentRole) : undefined;
 }
@@ -27,10 +29,12 @@ function spriteRole(id: string): AgentRole | undefined {
 export function AgentsCatalog({
   agents,
   query,
+  search,
   onOpen,
 }: {
   agents: AgentRef[];
   query: string;
+  search?: React.ReactNode;
   onOpen: (id: string) => void;
 }): React.JSX.Element {
   const filtered = agents.filter((agent) =>
@@ -38,38 +42,51 @@ export function AgentsCatalog({
   );
   return (
     <div className={styles.stack}>
-      <p className={styles.muted}>{t("configuracion.counts.agent", { count: filtered.length })}</p>
+      <div className={styles.searchToolbar}>
+        {search}
+        <span className={styles.muted}>
+          {t("configuracion.counts.agent", { count: filtered.length })}
+        </span>
+      </div>
+
       {(["opus", "sonnet", "haiku", "unknown"] as const).map((tier) => {
         const group = filtered.filter((agent) => modelTier(agent.model) === tier);
         return group.length ? (
           <section key={tier}>
             <SectionHead
               label={t(`configuracion.agents.models.${tier}.label`)}
-              note={t(`configuracion.agents.models.${tier}.hint`)}
               count={group.length}
-              tone="blue"
+              icon="users"
+              as="h2"
+              tone={MODEL_TONES[tier]}
             />
+            <p className={styles.intro}>{t(`configuracion.agents.models.${tier}.hint`)}</p>
             <div className={`agent-grid ${styles.agents}`}>
               {group.map((agent) => (
                 <button
                   type="button"
-                  className={styles.agent}
+                  className={`agent-card ${styles.agent}`}
+                  data-tone={MODEL_TONES[tier]}
                   key={agent.id}
                   onClick={() => onOpen(agent.id)}
                 >
                   <Avatar
                     agentId={spriteRole(agent.id)}
+                    size="md"
                     name={agent.name ?? agent.id}
                     label={agent.name ?? agent.id}
                     tone="blue"
                   />
                   <span>
                     <strong>{agent.name ?? agent.id}</strong>
-                    <Chip tone="blue">
-                      {t(`configuracion.agents.models.${modelTier(agent.model)}.label`)}
-                    </Chip>
-                    <EffortChip agent={agent} />
-                    <small>{agent.description}</small>
+                    {agent.effort ? (
+                      <small className={styles.effort}>
+                        {t("configuracion.agents.effort", {
+                          level: t(`configuracion.agents.effortLevels.${agent.effort}`),
+                        })}
+                      </small>
+                    ) : null}
+                    <small className="clamp-2">{firstSentence(agent.description)}</small>
                   </span>
                 </button>
               ))}

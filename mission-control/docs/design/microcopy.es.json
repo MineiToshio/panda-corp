@@ -1126,6 +1126,19 @@
       }
     },
     "documentos": {
+      "metadataError": "No se pudieron interpretar los metadatos del documento.",
+      "types": {
+        "PRD": "Producto",
+        "FRD": "Contrato funcional",
+        "FDD": "Diseño",
+        "Blueprint": "Arquitectura",
+        "ADR": "Decisión técnica",
+        "Work order": "Work order",
+        "Diseño": "Diseño",
+        "Analítica": "Analítica",
+        "Revisión": "Revisión",
+        "Documento": "Referencia"
+      },
       "empty": "No hay documentos publicados para este proyecto.",
       "notFound": {
         "title": "Este documento no existe en el proyecto",

@@ -106,3 +106,9 @@ export function searchCatalogs(catalogs: ConfigurationCatalogs, query: string): 
     : [];
   return [...skillHits, ...agentHits, ...ruleHits, ...standardHits];
 }
+
+/** Compact source description used by the approved catalog rows; dialogs retain the full text. */
+export function firstSentence(text: string | null | undefined): string {
+  const sentence = (text ?? "").split(/(?<=[.!?])\s/)[0] ?? "";
+  return sentence.length > 110 ? `${sentence.slice(0, 107)}…` : sentence;
+}

@@ -13,8 +13,8 @@ const REVERT_DELAY_MS = 2_000;
 export interface CopyButtonProps {
   /** The text value to copy to the clipboard when the button is clicked. */
   value: string;
-  /** Icon-only presentation inside a token-based command box. */
-  variant?: "box";
+  /** Shared command-box icon or compact text presentation. */
+  variant?: "box" | "text";
   /** Accessible action name supplied by command surfaces. */
   accessibleLabel?: string;
   /** Reports whether the clipboard write succeeded. */
@@ -129,7 +129,7 @@ export function CopyButton({
       <button
         type="button"
         data-testid="copy-button"
-        className={variant === "box" ? styles.box : undefined}
+        className={variant ? styles[variant] : undefined}
         aria-label={copied ? ariaLabel : (accessibleLabel ?? ariaLabel)}
         onClick={handleClick}
         style={
@@ -147,13 +147,13 @@ export function CopyButton({
                 color: "var(--tone, var(--violet))",
                 cursor: "pointer",
               }
-            : BUTTON_STYLE
+            : variant === "text"
+              ? undefined
+              : BUTTON_STYLE
         }
       >
         {label !== undefined && <span>{label}</span>}
-        {/* Icon-only affordance (prototype `ti-copy`); state via aria-label + icon swap,
-          never a visible "copiar"/"copiado" word. */}
-        <Icon name={copied ? "check" : "copy"} size="sm" />
+        {variant !== "text" ? <Icon name={copied ? "check" : "copy"} size="sm" /> : null}
       </button>
       {result !== null && !onResult ? (
         <Toast

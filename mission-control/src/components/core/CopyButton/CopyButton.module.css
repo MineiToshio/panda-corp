@@ -7,3 +7,16 @@
     --copy-box-size: calc(var(--s10) + var(--s1));
   }
 }
+
+.text {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--s8);
+  padding: var(--s1) var(--s2);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--violet);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}

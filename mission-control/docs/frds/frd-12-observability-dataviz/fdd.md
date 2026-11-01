@@ -104,3 +104,8 @@ prototype_blessed_at: 409a0564
 ## Work-order read error (2026-10-31)
 
 The coral FileReadErrors notice names every failed work-order file and its localized reason, followed by the valid work-order views. Paths wrap within the notice at phone widths. Individual failures never replace the entire list. Global progress shows "N archivos sin leer"; partial FRD counts describe only the readable orders. No total percentage is shown for an incomplete project plan.
+
+
+## Visual close-out clarification (2026-10-31, lane O)
+
+The view switch, FRD selector and count share a wrapping toolbar aligned from the left. The separate expand-all action stays right-aligned. FRD totals and percentages use the muted small regular text treatment from the oracle.

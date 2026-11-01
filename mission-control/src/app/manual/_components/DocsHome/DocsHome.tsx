@@ -66,9 +66,11 @@ export function DocsHome({ pages }: { readonly pages: readonly ManualPage[] }): 
             }))}
           />
           <CardFoot>
-            <span>{t("documentacion.guides.count", { count: guides.length })}</span>
+            <span className={styles.guideCount}>
+              {t("documentacion.guides.count", { count: guides.length })}
+            </span>
             <a href={guides[0] ? pageHref(guides[0]) : "/manual"}>
-              {t("documentacion.guides.seeAll")}
+              {t("documentacion.guides.seeAll")} <Icon name="arrow" size="sm" />
             </a>
           </CardFoot>
         </Card>
@@ -85,6 +87,19 @@ export function DocsHome({ pages }: { readonly pages: readonly ManualPage[] }): 
                 data-tone={group.tone}
                 href={entries[0] ? pageHref(entries[0]) : "/manual"}
               >
+                <span className="cfg-ico">
+                  <Icon
+                    name={
+                      group.id === "tutorial"
+                        ? "sparkles"
+                        : group.id === "guides"
+                          ? "flag"
+                          : group.id === "concepts"
+                            ? "book"
+                            : "bolt"
+                    }
+                  />
+                </span>
                 <b>{t(group.key)}</b>
                 <span>{t(`documentacion.explore.groups.${group.id}.what`)}</span>
                 <small>{t("documentacion.explore.pageCount", { count: entries.length })}</small>
@@ -92,6 +107,9 @@ export function DocsHome({ pages }: { readonly pages: readonly ManualPage[] }): 
             );
           })}
           <a className={`docs-group ${styles.group}`} data-tone="slate" href="/configuration">
+            <span className="cfg-ico">
+              <Icon name="list" />
+            </span>
             <b>{t("documentacion.explore.reference.label")}</b>
             <span>{t("documentacion.explore.reference.what")}</span>
             <small>{t("documentacion.explore.reference.count")}</small>
