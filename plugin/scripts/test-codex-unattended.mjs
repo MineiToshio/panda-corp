@@ -8,7 +8,7 @@ const root = path.resolve(new URL("../..", import.meta.url).pathname);
 const executor = path.join(root, "plugin/runtime/codex/executor.mjs");
 const supervisor = path.join(root, "plugin/runtime/codex/supervisor.mjs");
 const preflight = path.join(root, "plugin/scripts/preflight-codex-unattended.mjs");
-const run = (cmd, args, cwd, env = {}) => new Promise((resolve) => { const child = spawn(cmd, args, { cwd, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] }); let out = "", err = ""; child.stdout.on("data", (d) => out += d); child.stderr.on("data", (d) => err += d); child.on("close", (code, signal) => resolve({ code, signal, out, err })); });
+const run = (cmd, args, cwd, env = {}) => new Promise((resolve) => { const child = spawn(cmd, args, { cwd, env: { ...process.env, ...(args[0] === preflight ? { PANDACORP_CODEX_BIN: path.join(cwd, "fake-codex.mjs") } : {}), ...env }, stdio: ["ignore", "pipe", "pipe"] }); let out = "", err = ""; child.stdout.on("data", (d) => out += d); child.stderr.on("data", (d) => err += d); child.on("close", (code, signal) => resolve({ code, signal, out, err })); });
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const exists = (file) => readFile(file).then(() => true).catch(() => false);
 const read = (file) => readFile(file, "utf8");
@@ -48,6 +48,7 @@ async function fixture({ rethink = false } = {}) {
   const worker = path.join(project, "fake-codex.mjs");
   await writeFile(worker, `#!/usr/bin/env node
 import{appendFileSync,writeFileSync}from'node:fs';
+if(process.argv.includes('--version')){console.log('codex-cli fixture');process.exit(0)}
 const a=process.argv.slice(2),o=a[a.indexOf('--output-last-message')+1],prompt=a[a.length-1],scenario=process.env.R11_SCENARIO||'hang';appendFileSync('.pandacorp/run/dispatches.log',prompt.includes('Implement exactly')?'implement\\n':'other\\n');
 if(['uncertain','usage-limit','network','rate-limit','auth-expired','approval-denied'].includes(scenario)){const diagnostic={uncertain:'PRIVATE_TOKEN=must-never-persist opaque provider failure','usage-limit':'usage limit reached; purchase more credits',network:'network connection reset','rate-limit':'HTTP 429 rate limit','auth-expired':'authentication failed: expired token','approval-denied':'approval denied by policy'}[scenario];console.error(diagnostic);writeFileSync('uncertain-output.txt',scenario+'\\n');process.exit({uncertain:7,'usage-limit':27,network:28,'rate-limit':29,'auth-expired':30,'approval-denied':31}[scenario])}
 if(scenario==='hang')await new Promise(()=>setInterval(()=>{},1000));

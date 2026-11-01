@@ -1,5 +1,11 @@
 # Decision log — Plugin pandacorp
 
+## v9.148.1 — 2026-10-31 (PATCH): repair clean-host engine test prerequisites and fixtures
+
+**What:** declare zsh, pinned real Codex, locked Mission Control dependencies and Chromium in the engine CI job. Isolate launcher/preflight CLI fixtures, configure all Stop-gate fixture commits locally, simulate Linux's sleep inhibitor as well as macOS's, and replace the revocation fixture's startup race with a receipt handshake. Strict config validation uses the real EOF-only app server plus an unknown-field negative control instead of credential/network-dependent `doctor`. The whole-FRD contract suite follows the current Manual renderer and restores its lost policy explanation. No suite, assertion or workflow gate is removed or relaxed.
+
+**Why:** the supplied Ubuntu run ended 41/51, with shared undeclared host dependencies and fixture assumptions. The Manual source was deleted in `519570d1`, but the policy remains explicit in the reviewer/engine and the 2026-07-13 Manual decision. Canonical test contract and local verification limits: [engine-tests.md](engine-tests.md). BL-0301 tracks the remaining Linux CI proof. The local clean-environment run passed 51/51 suites with Codex 0.144.1; Linux behaviour remains to be proven by CI.
+
 ## v9.148.0 — 2026-10-31 (MINOR): full e2e passes can run on a production build (DR-143, BL-0298)
 
 **What:** `verify.sh` builds once through a project's `e2e/prod-server.mjs` and serves both tiers from it. New verbatim `e2e/page-errors.spec.ts`. Projects without the seed, manual runs and `--since` stay on `next dev`. Overlay 8.116.0.

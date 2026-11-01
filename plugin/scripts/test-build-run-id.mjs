@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
-import { access, mkdtemp, mkdir, readFile, realpath, rename, rm, rmdir, unlink, writeFile } from "node:fs/promises";
+import { access, chmod, mkdtemp, mkdir, readFile, realpath, rename, rm, rmdir, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -273,7 +273,10 @@ for (const bad of [["--no-parallel-gates", "--gate-slots", "2"], ["--parallel-ga
   // Proposal 39 / DR-124: the fast lane and its review budget reach the engine through the launcher, never a hand edit.
   const launch = async (extra, maxAgents = "60") => {
     const root = await fixture({ phase: "architecture", running: "false" });
-    const launched = await exec("bash", [claudeLauncherPath, root, "powerful", maxAgents, "auto", ...extra]);
+    // Argument forwarding needs a CLI boundary, never the owner's installed Codex.
+    const bin = path.join(root, "test-bin"); await mkdir(bin);
+    await writeFile(path.join(bin, "codex"), "#!/bin/sh\nexit 0\n"); await chmod(path.join(bin, "codex"), 0o755);
+    const launched = await exec("bash", [claudeLauncherPath, root, "powerful", maxAgents, "auto", ...extra], { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
     await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
     return launched.stdout;
   };

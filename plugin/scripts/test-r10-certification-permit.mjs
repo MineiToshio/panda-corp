@@ -125,16 +125,18 @@ await copyFile(path.join(root, "plugin/scripts/launch-codex-implement.sh"), path
 await writeFile(path.join(launcherRoot, "scripts/resolve-build-run-id.mjs"), 'console.log(JSON.stringify({run_id:"launcher-revoke-run",continuation:false,reason:"test"}));\n');
 await writeFile(path.join(launcherRoot, "scripts/preflight-implement.sh"), "#!/bin/sh\nexit 0\n"); await chmod(path.join(launcherRoot, "scripts/preflight-implement.sh"), 0o755);
 await writeFile(path.join(launcherRoot, "scripts/preflight-codex-unattended.mjs"), "process.exit(0);\n");
-await writeFile(path.join(launcherRoot, "runtime/codex/supervisor.mjs"), "setTimeout(()=>process.exit(0),1500);\n");
+await writeFile(path.join(launcherRoot, "runtime/codex/supervisor.mjs"), "import{existsSync}from'node:fs';const timer=setInterval(()=>{if(existsSync(process.argv[process.argv.indexOf('--project')+1]+'/.pandacorp/run/codex-launch.json')){clearInterval(timer);process.exit(0)}},25);setTimeout(()=>process.exit(93),10000).unref();\n");
 const terminalCount = path.join(base, "terminal-count");
 await writeFile(path.join(launcherRoot, "runtime/codex/certification-permit.mjs"), `import{readFileSync,writeFileSync}from'node:fs';import{spawnSync}from'node:child_process';const f=process.env.PANDACORP_TERMINAL_COUNT;const terminal=process.argv.includes('--mode')&&process.argv[process.argv.indexOf('--mode')+1]==='terminal';let n=0;try{n=Number(readFileSync(f,'utf8'))||0}catch{}if(terminal){n++;writeFileSync(f,String(n));if(n===1)process.exit(91)}const r=spawnSync(process.execPath,[${JSON.stringify(permit)},...process.argv.slice(2)],{stdio:'inherit',env:process.env});process.exit(r.status??92);\n`);
 const launcherBin = path.join(base, "launcher-bin"); await mkdir(launcherBin); await writeFile(path.join(launcherBin, "codex"), "#!/bin/sh\nexit 0\n"); await chmod(path.join(launcherBin, "codex"), 0o755); await writeFile(path.join(launcherBin, "caffeinate"), "#!/bin/sh\npid=${4:-0}\nwhile kill -0 \"$pid\" 2>/dev/null; do sleep 0.1; done\n"); await chmod(path.join(launcherBin, "caffeinate"), 0o755);
+// Linux runners have no system D-Bus sleep service. Fake only the OS inhibitor boundary.
+await writeFile(path.join(launcherBin, "systemd-inhibit"), "#!/bin/sh\nshift 2\nexec \"$@\"\n"); await chmod(path.join(launcherBin, "systemd-inhibit"), 0o755);
 try {
   await exec("bash", [path.join(launcherRoot, "scripts/launch-codex-implement.sh"), launcherProject, "24", "28800", "2", "3", "", r11Frds.join(","), "auto", "foreground", launcherAuthFile], { env: { ...process.env, NODE_ENV: "test", PANDACORP_CANARY_ROOT: canaries, PANDACORP_TERMINAL_COUNT: terminalCount, PATH: `${launcherBin}:${process.env.PATH}` } });
-  ok(false, "foreground launcher fails closed and retries terminal revocation from EXIT after the first revoke fails");
+  ok(false, "foreground launcher unexpectedly succeeded after terminal revocation failed");
 } catch (error) {
   const finalReceipt = JSON.parse(await readFile(path.join(launcherProject, ".pandacorp/run/r11-certification-receipt.json"))); const calls = Number(await readFile(terminalCount, "utf8"));
-  ok(error.code === 3 && calls === 2 && finalReceipt.status === "revoked", "foreground launcher fails closed and retries terminal revocation from EXIT after the first revoke fails");
+  ok(error.code === 3 && calls === 2 && finalReceipt.status === "revoked", `foreground launcher fails closed and retries terminal revocation from EXIT after the first revoke fails (exit=${error.code}, calls=${calls}, status=${finalReceipt.status}; ${error.stderr || ""})`);
 }
 
 await rm(base, { recursive: true, force: true }); console.log(`${passed}/${passed} passed`);

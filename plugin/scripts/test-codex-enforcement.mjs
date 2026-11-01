@@ -145,9 +145,23 @@ await test("both adapters fail closed when jq is absent", async () => {
   await rm(cwd, { recursive: true });
 });
 
-await test("Codex 0.144.1 strict config accepts generated project config", async () => {
-  const result = codexCli(["--strict-config", "doctor", "--summary", "--no-color"], { env: { ...process.env, TERM: process.env.TERM === "dumb" ? "xterm-256color" : process.env.TERM } });
-  ok(result.status === 0 && /config\s+loaded/.test(result.stdout), codexFailure(result, "strict config rejected"));
+await test("Codex 0.144.1 strict config accepts generated config and rejects unknown fields offline", async () => {
+  const home = await mkdtemp(path.join(os.tmpdir(), "pc-strict-config-"));
+  try {
+    // An EOF-only app server parses config without requesting a model or probing provider health.
+    // Load the exact generated content as user config so project trust cannot bypass validation.
+    const config = await readFile(path.join(root, ".codex/config.toml"), "utf8");
+    const file = path.join(home, "config.toml");
+    const options = { input: "", env: { ...process.env, CODEX_HOME: home } };
+    await writeFile(file, config);
+    const valid = codexCli(["--strict-config", "app-server", "--stdio"], options);
+    ok(valid.status === 0, codexFailure(valid, "strict config rejected"));
+    await writeFile(file, `pandacorp_unknown_config_field = true\n${config}`);
+    const invalid = codexCli(["--strict-config", "app-server", "--stdio"], options);
+    ok(invalid.status !== 0 && /unknown configuration field `pandacorp_unknown_config_field`/.test(invalid.stderr), codexFailure(invalid, "strict config accepted an unknown field"));
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
 });
 
 await test("Codex execpolicy forbids destructive command and leaves safe command unmatched", async () => {

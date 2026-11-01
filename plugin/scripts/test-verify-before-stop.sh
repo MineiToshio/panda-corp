@@ -47,6 +47,9 @@ EOF
   # never register as "dirty" to condition (a) — only a REAL working-tree change should.
   printf '.pandacorp/\n' > "$d/.gitignore"
   ( cd "$d" && git init -q \
+      && git config user.email test@pandacorp.local \
+      && git config user.name "Pandacorp Test" \
+      && git config commit.gpgsign false \
       && git add .gitignore \
       && git -c user.email=test@pandacorp.local -c user.name="Pandacorp Test" commit -q -m "fixture baseline" )
   echo "$d"

@@ -8,11 +8,15 @@ name: Factory engine tests
 # remembering (LESSON-0151). Chosen vehicle: GitHub Actions (this repo is public, so Actions
 # minutes are free -- see factory/decision-log.md for the recorded choice).
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
     paths:
       - "plugin/**"
+      - "mission-control/src/app/manual/**"
   schedule:
     # Daily, so environment/date drift (e.g. a hardcoded timestamp fixture going stale) is
     # caught even on a week with no push touching plugin/**.
@@ -27,5 +31,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
+      # Required tools: zsh, Codex config/execpolicy parser, Acorn AST oracle, Chromium CSP fixture.
+      # The suites that require each tool exercise it as configured below.
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: "10.12.1"
+      - name: Install engine test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh
+          npm install --global @openai/codex@0.144.1
+          pnpm --dir mission-control install --frozen-lockfile
+          pnpm --dir mission-control exec playwright install --with-deps chromium
       - name: Run plugin/scripts/test-*.mjs corpus
         run: bash plugin/scripts/run-engine-tests.sh

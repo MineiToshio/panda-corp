@@ -17,7 +17,7 @@ const [reviewer, engine, codex, implementSkill, quality, manual] =
 		read("plugin/runtime/codex/executor.mjs"),
 		read("plugin/skills/implement/SKILL.md"),
 		read("factory/standards/quality.md"),
-		read("mission-control/src/lib/manual/workflow-flows.ts"),
+		read("mission-control/src/app/manual/manualPages.tsx"),
 	]);
 
 const requiredClasses = [

@@ -3128,6 +3128,14 @@ function WorkflowBuild(): React.JSX.Element {
         tracked, pero nunca ese estado controlado mientras el writer siga cercado.
       </NotePanel>
 
+      <DocH title="La revisión cubre el contrato completo" />
+      <Body>
+        Cada gate inventaría requisitos, criterios de aceptación, invariantes, casos límite,
+        límites, errores y exclusiones del FRD. Registra trazabilidad contrato→prueba y exige
+        pruebas adversariales de frontera para los casos y límites aplicables. Un AC verde nunca
+        permite ignorar una contradicción en otra cláusula normativa del FRD aprobado.
+      </Body>
+
       <DocH title="Varios FRDs en revisión a la vez (desde 9.116.0)" />
       <Body>
         Desde la versión 9.116.0 el motor revisa por defecto hasta <Code>gateSlots</Code> FRDs a la

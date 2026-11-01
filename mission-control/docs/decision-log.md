@@ -1,5 +1,14 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 · Restore the whole-FRD oracle in the build workflow explanation
+
+The factory contract suite still read `src/lib/manual/workflow-flows.ts`, deleted by
+`519570d1` during the Manual restructure. Point it at the current bespoke renderer,
+`src/app/manual/manualPages.tsx`, and restore the whole-FRD explanation lost with that
+file. Preserve all three policy assertions (whole contract, contract-to-test traceability,
+and no waiver by passing numbered ACs). Canonical: FRD-08 REQ-08-013; the original
+policy rationale remains in the 2026-07-13 entry below.
+
 ## 2026-10-31 · Restore second-integration accessibility and navigation contracts
 
 Restore counted document-filter names and the shared reader's 44px touch floor. Preserve proportional text chips inside tabular tables and the 12px screen minimum for weekly series labels from the server render. Dependency work-order navigation now requests the server detail through the shared transition and publishes the committed URL to native-history subscribers. Make tablet checks deterministic with three temporary portfolio entries and restored fixture sources, preserving multi-row geometry and contrast checks. Canonical docs: `docs/design/components.md`, `docs/frds/frd-04-project-workspace/fdd.md`, `docs/frds/frd-08-documentation/fdd.md`, `docs/frds/frd-10-achievements-hall/fdd.md`, `docs/frds/frd-12-observability-dataviz/fdd.md`, `docs/frds/frd-13-visual-system-accessibility/fdd.md`.
