@@ -1,5 +1,15 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 · Upgrade Next.js to 16.4.3 and pin patched js-yaml
+
+Pin `next` exactly at 16.4.3 (was `^16.2.7`, installed 16.2.9) and add the pnpm override
+`js-yaml@3` → 3.15.2 for gray-matter's transitive copy, per the exact-pin dependency rule.
+`pnpm audit --prod` drops from 37 findings (1 low, 12 moderate, 19 high, 5 critical) to 4
+(1 moderate, 3 high: browserslist, source-map-js, baseline-browser-mapping, outside this change).
+tsc, biome, knip, vitest (5562) , build and the persistent-navigation, root-history, client-refresh
+and observability Playwright suites (72) pass. Versions updated in [the platform architecture](product/architecture.md#pinned-versions)
+and [ADR-0001](adr/ADR-0001-stack.md). `AGENTS.md` carries the agent-rules block that Next writes.
+
 ## 2026-10-31 · Resolve legacy-2: keep and repair FRD-25
 
 The owner delegated resolution and selected KEEP AND REPAIR, without reverting shared-feature code.
