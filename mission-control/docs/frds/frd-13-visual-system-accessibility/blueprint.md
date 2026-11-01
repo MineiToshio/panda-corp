@@ -256,3 +256,16 @@ AC-13-010.2..4 by WO-13-010 (no gap, no duplicate); `dependsOn` is acyclic and n
 orders; same-wave artifacts are disjoint by design; the foundation (WO-13-010..012) covers every
 primitive of `docs/design/components.md` § Primitives and § Framing patterns; no open clarification
 marker remains.
+
+## Live-oracle calibration (2026-10-31)
+
+The project-owned advisory harness is `scripts/fidelity/audit.mjs`; it reads the frozen
+oracle matrix, captures live prototype and app independently, and keeps failed replay,
+missing doubles, HTTP failures and page errors in the evidence. `analyze.mjs` measures
+same-side repeat noise in three runs; its viewport proposal does not waive full-page
+geometry or the L1/L2 and L4 requirements. See the [calibration report](../../design/fidelity-calibration-2026-10-31.md)
+and [checklist](../../design/fidelity-checklist.md).
+
+The managed `.pandacorp/verify.sh` remains unchanged. A future complete, stable gate
+belongs in a project-owned `e2e/*.spec.ts`, auto-discovered by its full browser stage.
+The audit does not introduce a new product state, component, data model or baseline.

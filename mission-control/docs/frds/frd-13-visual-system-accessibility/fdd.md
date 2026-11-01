@@ -112,3 +112,14 @@ Tabs reserve 32px plus a 2px rounding clearance when revealing a focused tab und
 control. The control width and reveal calculation share the same CSS custom property value,
 so the circular spacing-8 controls cannot cover either focused edge. Arrow/Home/End and manual
 activation behavior are unchanged.
+
+## Measured implementation status (2026-10-31)
+
+The [live-oracle calibration report](../../design/fidelity-calibration-2026-10-31.md)
+distinguishes the frozen visual target from current verification. Three 48-context
+fixture passes produce no full-height L3 pass; sampled L1/L2 hooks, data doubles,
+action replay and axe coverage are not a complete L1–L4 gate. The owner requires
+three stable passing runs before blocking wiring, so the project-owned harness
+remains advisory and the factory-managed verifier stays unchanged. This is an
+implementation gap, not approval to relax the frozen component design. The report
+also retains the 375px keyboard-accessibility findings in shared command overflow.

@@ -36,7 +36,7 @@ The target is layered, measured and the same for every project; the owner approv
 
 - **Comparator pinned: pixelmatch 7.x semantics** (`threshold: 0.1`, `includeAA: false`), exact version in the toolkit's lockfile. pixelmatch 8 changed the colour metric, so the numbers are not comparable across the major.
 - **"Listed" is the toolkit's scope cap** (`scope.mode: pareto`): every state at 1280 light, layout states at 375 touch, dark for the colour properties, component images at 375 + 1280 light. Wider coverage (768 for every state, dark pixels everywhere) goes to `.pandacorp/comms/visual-punch-list.md` unless an FRD needs it. Pixel states that the FDD names at 768 (the tablet icon rail, the by-FRD dependency map) are listed with that width in the oracle table.
-- **Gate mode: `blocking`** (the factory default, DR-129): a measured L1–L4 mismatch blocks the FRD. Judged nits stay advisory per DR-072, and leftovers below the bar go to the punch list for the end-of-build Visual QA. An infrastructure failure (missing prototype, font, image, browser, reference, fixture, lost touch emulation) is always RED.
+- **Target gate mode: `blocking`** (the factory default, DR-129), pending complete and calibrated project wiring. **Current implementation (2026-10-31): advisory audit only**, see [calibration status](fidelity-calibration-2026-10-31.md). The owner explicitly requires three stable passing runs with complete coverage before enabling a project L1–L4 gate; the uncalibrated 0.5% L3 target must not block integration. Once that prerequisite is met, a measured L1–L4 mismatch blocks the FRD. Judged nits stay advisory per DR-072, and leftovers below the bar go to the punch list for the end-of-build Visual QA. An infrastructure failure (missing prototype, font, image, browser, reference, fixture, lost touch emulation) is always RED.
 - **No loosening without a measured flake.** A number above is relaxed only after the same render run twice on an unchanged build produced the difference, with both runs recorded. The implementer never edits the prototype, the references, the fixtures, the oracle table, the tolerances or the gate (DR-080).
 - **Product-specific additions (owner decision M1, 2026-10-22):**
   - **Dependency map** (`observability-deps-frd`, `observability-deps-wo`, `observability-deps-focus`, `observability-deps-frd-open`, `observability-deps-list-open`): the build follows the prototype's layouts, "Por FRD" compound boxes and "Por work order" columns by depth. It is pixel-compared (L1 to L4) like any other state.
@@ -146,3 +146,20 @@ An FRD is not done until every check below passes for **every oracle state of th
 **9. The gate's report** lists, per state and context: the media probe, the host-detection probe, the slice results, the style mismatches (property, expected, actual), the floating-panel offsets (expected, actual) and the mask boxes used.
 
 **Also checked, outside the numbers:** no hardcoded colours (the prototype's own 881 literal px lengths are an acknowledged preflight warning, the build uses the `@theme` tokens); icons come from `docs/design/prototype/icons/*.svg` at the context size and stroke 1.8; strings identical to the prototype plus the confirmed corrections; every state the FDD lists is exercised, including any state specified only in text, built from the frozen components.
+
+## Calibration and gate status (2026-10-31)
+
+The owner-authorized closing audit uses `scripts/fidelity/audit.mjs`, reading the frozen
+`oracle-states.json` directly. It records failures and unmatched data profiles explicitly;
+a screenshot of the default profile does not cover a state that requires a double.
+`analyze.mjs` compares repeated same-side renders before proposing a pixel noise budget.
+The first-viewport distribution is diagnostic and never substitutes for the full-height
+per-slice L3 target. Missing actions, dimensions, doubles, styles and accessibility
+coverage cannot pass by increasing a pixel tolerance. The current report and reproduction
+commands live in [the calibration report](fidelity-calibration-2026-10-31.md).
+
+`.pandacorp/verify.sh` is a factory-managed verbatim file (header lines 2–4); do not add
+a local gate there. Its full Playwright invocation discovers project-owned `e2e/*.spec.ts`,
+which is the available project extension point after calibration and complete L1–L4
+coverage. No blocking spec is installed by this audit. Existing snapshot gates are
+independent checks and do not establish live-prototype equivalence.
