@@ -208,4 +208,4 @@ The four legacy reviewer expectations are not the visual oracle: prototype.js li
 
 ### Second integration accessibility repair (2026-10-31)
 
-Weekly column and line labels retain at least the 12px extra-small token in screen pixels as their SVG coordinate system shrinks. SeriesSurface observes its rendered width and compensates label scaling; week labels stay short and full series alternatives remain available. Record values remain in the labelled article, with the level chip alongside its label.
+Weekly column and line labels retain at least the 12px extra-small token in screen pixels as their SVG coordinate system shrinks. SeriesSurface uses container-relative CSS to compensate label scaling before hydration; week labels stay short and full series alternatives remain available. Record values remain in the labelled article, with the level chip alongside its label.

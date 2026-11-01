@@ -51,6 +51,9 @@
   stroke-width: 2;
 }
 
+.seriesFrame {
+  container-type: inline-size;
+}
 .series text {
-  font-size: calc(var(--fs-xs) * var(--series-label-scale, 1));
+  font-size: max(var(--fs-xs), calc(var(--fs-xs) * 480px / 100cqw));
 }
