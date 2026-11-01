@@ -13,7 +13,10 @@
 }
 .recent {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(
+      auto-fill,
+      minmax(min(100%, calc(var(--s10) * 4 + var(--s5))), 1fr)
+    );
   gap: var(--s3);
 }
 .rankPair {

@@ -146,3 +146,16 @@ Workspace Spec hides the visible digest eyebrow, including unpublished state, an
 ### Independent-review corrections (2026-10-31)
 
 Spec notice and bands are separated by s6. The unpublished notice uses layers and exposes flag PRD completo plus search Research when their documents exist. FRD codes use mono fcode treatment, and progress counts use text-2. The Summary engine log uses a Space Grotesk h2 and slate small BadgeIcon; its hint reuses hide-sm. Ver todos has its own green, base-size, weight-600 class so decision links retain their original treatment. Empty FRD rows keep a zero-state track. Siguiente paso always pairs a command with its when sentence, including pre-build phases and complete construction with queued changes.
+
+### Responsive architecture stack (2026-10-31, lane M)
+
+Below 1024px, the shared architecture stack table presents each row vertically:
+layer, bold technology choice, then rationale, with s1 gaps and s3/s4 row insets.
+Column headers remain available to assistive technology. Desktop retains the
+three-column table. Both entry points use the same ReportBand styles in either
+theme, matching the approved prototype at 768px.
+
+Accessibility refinement: stack layer labels use `--text-2`; the environment
+completeness chip uses the existing outline variant. Stacking its tint over the
+pink report surface produced 4.43:1 contrast in light mode, below AA. The outline
+avoids compounded tints while retaining the semantic tone and readable label.

@@ -31,6 +31,14 @@ function Comparison({ projects }: { readonly projects: ProjectOverviewItem[] }):
   const columns = COLUMN_IDS.map((id) => ({
     id,
     label: t(`portafolio.compare.columns.${id}`),
+    mobileSpan:
+      id === "project"
+        ? ("main" as const)
+        : id === "phase"
+          ? ("end" as const)
+          : id === "workOrders"
+            ? ("full" as const)
+            : undefined,
     mobileLabel:
       id === "project" || id === "phase"
         ? undefined

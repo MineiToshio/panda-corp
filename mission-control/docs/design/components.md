@@ -345,3 +345,25 @@ Tabs share the 32px control width with the focus-reveal geometry, plus a 2px rou
 IdeaHeader uses spacing-1 action gaps on phones, retaining the approved 32px links. ProposalStream
 allows its candidates summary to wrap. RadarChart marks its bounded SVG coordinate surface for
 the responsive helper: painted labels fit, although end-anchored text metrics report overflow.
+
+### Tablet project collection (2026-10-31, lane M)
+
+Cartera and PortfolioOverview share the `proj-cards` collection hook: two columns
+at 760–1179px with an odd final ProjectCard spanning the complete row in either
+theme. ProjectCard itself and its public props remain unchanged.
+
+ArchitectureDigest reuses ReportBand’s stack table: below 1024px each row stacks
+its three cells, with visually clipped (accessible) column headers. Desktop keeps
+the three-column table; both idea and project entry points share this rule.
+
+Table columns accept optional `mobileSpan: main | end | full`. Below 1024px, rows
+using these spans become three-column fact cards; ordinary tables retain their
+existing layout. Portfolio comparison uses this option, with the work-order count
+above its full-width bar.
+
+Architecture stack layer labels use `--text-2`. The environment completeness Chip
+uses `outline` to meet AA on its tinted report band in both themes.
+
+GuildHero moves counts below the identity below 900px, left-aligned. SummaryTab
+recent trophy tiles use an auto-fill 180px minimum (spacing-token calculation),
+fitting three columns at 768px and one on phones.

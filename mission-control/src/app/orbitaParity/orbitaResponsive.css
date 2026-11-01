@@ -218,3 +218,13 @@ body .decs li::before {
 body .band-head .card-head {
   flex-wrap: nowrap;
 }
+
+/* Keep the shared project collection balanced across the tablet rail range. */
+@media (min-width: 760px) and (max-width: 1179px) {
+  body .proj-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  body .proj-cards > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}

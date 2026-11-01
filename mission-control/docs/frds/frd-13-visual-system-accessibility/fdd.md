@@ -123,3 +123,23 @@ three stable passing runs before blocking wiring, so the project-owned harness
 remains advisory and the factory-managed verifier stays unchanged. This is an
 implementation gap, not approval to relax the frozen component design. The report
 also retains the 375px keyboard-accessibility findings in shared command overflow.
+
+## Theme and tablet close-out (2026-10-31, lane M)
+
+The close-out browser matrix covers 36 route states against the approved prototype:
+1280px dark, 768px light and 768px dark, using real factory data. The global account
+directory is checked separately in the same three conditions. This is visual and
+geometry evidence, not an L3 pixel-fidelity sign-off; live data differs from the
+prototype's captured dataset. The 760px shell breakpoint is retained.
+
+Corrections belong to the owning FDDs: balanced project collections (FRD-03/18),
+compact comparison rows (FRD-03), vertically stacked architecture tables and
+accessible environment chips (FRD-02/04), and the tablet guild summary (FRD-09).
+All reuse existing tokens. The global light/dark palette and always-dark scene/map
+palettes are unchanged. The layout/contrast regressions are exercised by
+`e2e/laneM-tablet.spec.ts`; no frozen screenshot or reviewer suite is rewritten.
+
+Local console verification remains qualified: automatic gamification ledger
+reconciliation raises EPERM when this sandbox attempts to create the factory-root
+lock outside its writable checkout. Page rendering succeeds; this audit neither
+suppresses that failure nor changes the external source or its permissions.

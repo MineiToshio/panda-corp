@@ -229,6 +229,44 @@
   text-transform: uppercase;
   color: var(--text-3);
 }
+@media (max-width: 1023px) {
+  .stackTable {
+    position: relative;
+  }
+  .stackTable thead {
+    position: absolute;
+    width: var(--hairline);
+    height: var(--hairline);
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .stackTable,
+  .stackTable tbody {
+    display: block;
+    width: 100%;
+  }
+  .stackTable tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s1);
+    padding: var(--s3) var(--s4);
+    border-top: var(--hairline) solid var(--line);
+  }
+  .stackTable tbody tr:first-child {
+    border-top: 0;
+  }
+  .stackTable tbody td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+  .stackTable tbody td:first-child {
+    font-size: var(--fs-xs);
+    font-weight: 650;
+    text-transform: uppercase;
+    color: var(--text-2);
+  }
+}
 @media (max-width: 759px) {
   .stackTable :is(th, td) {
     padding: var(--s2);

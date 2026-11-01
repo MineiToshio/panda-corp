@@ -73,13 +73,14 @@
   color: var(--text-2);
   font-size: var(--fs-xs);
 }
-@media (max-width: 1023px) {
+@media (max-width: 899px) {
   .hero {
     grid-template-columns: auto minmax(0, 1fr);
   }
   .counts {
     grid-column: 1 / -1;
-    justify-content: space-around;
+    justify-content: flex-start;
+    text-align: left;
   }
 }
 @media (max-width: 759px) {

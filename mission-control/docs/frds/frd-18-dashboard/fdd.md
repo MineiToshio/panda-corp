@@ -90,3 +90,10 @@ prototype_blessed_at: 409a0564
 ## Visual close-out (2026-10-31)
 
 Owner-turn metadata joins only present fields with middle dots, so an absent date has no dangling separator. Header icons follow the approved prototype: target (Tu turno), gauge (Pulso), trophy (Gremio), kanban (Embudo). The guild rank name uses body-size bold display text, not a section-heading size. CamelCase project names use capital initials (PandaSaga = PS).
+
+## Tablet project collection (2026-10-31)
+
+At 760–1179px, project cards use two equal columns. When the collection has an odd
+number of projects, its final card spans both columns, in both themes. Inicio and
+Portafolio share the `proj-cards` hook and the responsive parity rule, matching the
+approved prototype without changing project order or its live source.

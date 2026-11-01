@@ -107,3 +107,16 @@ The view selector uses grid, list and users icons for Tarjetas, Lista and Cuenta
 ## Independent review corrections (2026-10-31)
 
 The toolbar has a bottom margin of s6 (24 px) in addition to the s5 grid gap, yielding the prototype's 44 px toolbar-to-cards separation. The phone project picker keeps intrinsic width on Summary and fills the compact header on other tabs. Selected segmented icons use blue. The hero ring is 60 px on phones (76 px on desktop).
+
+## Tablet project collection (2026-10-31)
+
+At 760–1179px, project cards use two equal columns. When the collection has an odd
+number of projects, its final card spans both columns, in both themes. Inicio and
+Portafolio share the `proj-cards` hook and the responsive parity rule, matching the
+approved prototype without changing project order or its live source.
+
+Below 1024px, comparison rows use three fact columns: project spans the first two
+and phase aligns at the right; work-order count and bar occupy the next full row.
+FRD/document/ADR counts and change/decision counts follow in the three-column
+grid. Project and phase omit repeated visual labels while scoped headers remain
+accessible. The same layout applies on phones, as drawn by the prototype.

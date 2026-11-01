@@ -5,6 +5,7 @@ interface TableColumn {
   readonly label: string;
   readonly title?: string;
   readonly mobileLabel?: string;
+  readonly mobileSpan?: "main" | "end" | "full";
 }
 
 interface TableRow {
@@ -42,7 +43,11 @@ export function Table({ caption, columns, rows }: TableProps): React.JSX.Element
           {rows.map((row) => (
             <tr key={row.id}>
               {columns.map((column) => (
-                <td key={column.id} data-label={column.mobileLabel ?? column.label}>
+                <td
+                  key={column.id}
+                  data-label={column.mobileLabel ?? column.label}
+                  data-span={column.mobileSpan}
+                >
                   {row.cells[column.id]}
                 </td>
               ))}

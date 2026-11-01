@@ -94,3 +94,11 @@ prototype_blessed_at: 0e6b7191
 
 Oracle: `docs/design/prototype/index.html` (route shards of `reference/oracle-states.json`), captured at 375 and 1280, light and dark, against `pnpm dev:oracle`. Layer-B sign-off: reviewer viewed the re-blessed baselines; they are consistency guards rendered from `e2e/fixtures/factory-root`, not pixel matches of the oracle (L3 still open, see `.pandacorp/comms/visual-punch-list.md`).
 prototype_blessed_at: 0e6b7191
+
+## Tablet summary alignment (2026-10-31, lane M)
+
+GuildHero moves its count group below the identity below 900px and keeps the
+counts left-aligned, matching the prototype. Recent trophy tiles use an auto-fill
+grid with a 180px minimum from spacing tokens, fitting three columns at 768px
+while preserving the single-column phone presentation. Both themes share these
+geometry rules; mission and rank bodies are unchanged.

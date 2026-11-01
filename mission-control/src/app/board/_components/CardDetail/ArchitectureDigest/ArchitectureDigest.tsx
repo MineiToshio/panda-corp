@@ -281,7 +281,7 @@ function EnvironmentBand({
       ) : (
         <>
           {entries.length > 0 && (
-            <Chip tone={missing ? "amber" : "teal"}>
+            <Chip tone={missing ? "amber" : "teal"} variant="outline">
               {missing
                 ? t("workspace.arquitectura.env.missingChip", { missing, total: entries.length })
                 : t("workspace.arquitectura.env.allDescribed")}

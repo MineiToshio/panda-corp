@@ -26,7 +26,7 @@ export function Cartera({
         }
       />
       {cards.length ? (
-        <div className={styles.cards}>
+        <div className={`proj-cards ${styles.cards}`}>
           {cards.map((project) => (
             <ProjectCard key={project.id} project={project} compact />
           ))}

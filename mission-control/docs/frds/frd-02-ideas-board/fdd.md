@@ -228,3 +228,16 @@ The real Funko Tracker digest already supplies de-prefixed mosaic titles; its re
 On phones, header actions meet the 44px accessibility touch-target goal, overriding the approved
 32px small-link and 40px favourite sizes. Both action groups use spacing-1 gaps so the complete
 row fits the 288px content area at a 320px viewport. Accessible labels remain unchanged.
+
+### Responsive architecture stack (2026-10-31, lane M)
+
+Below 1024px, the shared architecture stack table presents each row vertically:
+layer, bold technology choice, then rationale, with s1 gaps and s3/s4 row insets.
+Column headers remain available to assistive technology. Desktop retains the
+three-column table. Both entry points use the same ReportBand styles in either
+theme, matching the approved prototype at 768px.
+
+Accessibility refinement: stack layer labels use `--text-2`; the environment
+completeness chip uses the existing outline variant. Stacking its tint over the
+pink report surface produced 4.43:1 contrast in light mode, below AA. The outline
+avoids compounded tints while retaining the semantic tone and readable label.
