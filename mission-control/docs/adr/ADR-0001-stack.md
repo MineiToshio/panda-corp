@@ -35,7 +35,7 @@ in-factory deviations and the already-decided trim).
 
 Adopt **golden path A (Next.js)**, **trimmed** to an internal read-only tool:
 
-- **Next.js `16.4.3`** (exact pin) (App Router) — Server Components read the filesystem on the server.
+- **Next.js `^16.2.7`** (App Router) — Server Components read the filesystem on the server.
 - **TypeScript `^5.9.3`**, `strict` + `noUncheckedIndexedAccess` (factory convention).
 - **React `^19.2.7`** (bundled with Next 16).
 - **Tailwind CSS v4 `^4.1.13`** (CSS-first `@theme`; OKLCH tokens for FRD-13).
