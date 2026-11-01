@@ -101,6 +101,8 @@ const announceStop = (reason, detail = "") => process.stderr.write(`codex-execut
 // later than 5/6 of the TTL, before the lease goes stale; a timer per renewal rather than the next tick keeps that bound exact.
 const renewStallMs = leaseTtlSeconds * 500;
 let renewInFlight = false;
+let renewalSettled = Promise.resolve();
+let inspectingWorkerDelta = false;
 async function onRenewalStalled(startedAt) {
   const stalledMs = Date.now() - startedAt;
   process.stderr.write(`codex-executor: lease renewal stalled for ${stalledMs} ms (limit ${renewStallMs} ms, lease TTL ${leaseTtlSeconds} s): stopping before the lease expires\n`);
@@ -111,11 +113,13 @@ async function onRenewalStalled(startedAt) {
 async function heartbeat() {
   if (renewInFlight) return;
   renewInFlight = true;
+  let settleRenewal;
+  renewalSettled = new Promise((resolve) => { settleRenewal = resolve; });
   const startedAt = Date.now();
   const deadline = setTimeout(() => { void onRenewalStalled(startedAt); }, renewStallMs); deadline.unref();
-  try { await renew(project, lease.token, lease.epoch); }
+  try { await renew(project, lease.token, lease.epoch, { projectStatus: !inspectingWorkerDelta }); }
   catch (error) { await event("lease_lost", { error: error.message }); process.kill(process.pid, "SIGTERM"); }
-  finally { clearTimeout(deadline); renewInFlight = false; }
+  finally { clearTimeout(deadline); renewInFlight = false; settleRenewal(); }
 }
 const notify = (message) => { if (process.platform !== "darwin") return; const child = spawn("osascript", ["-e", `display notification ${JSON.stringify(message)} with title "Pandacorp Codex"`], { stdio: "ignore" }); child.unref(); };
 const killTree = (child, signal = "SIGTERM") => { if (!child?.pid) return; try { if (process.platform === "win32") child.kill(signal); else process.kill(-child.pid, signal); } catch { try { child.kill(signal); } catch {} } };
@@ -177,6 +181,11 @@ async function changedPaths() {
 const statusPath = ".pandacorp/status.yaml";
 const contentAt = async (file) => readFile(path.join(project, file)).then((body) => body.toString("base64")).catch((error) => error.code === "ENOENT" ? null : Promise.reject(error));
 const snapshot = async () => {
+  // A heartbeat's read/rename of status can erase a concurrent forbidden worker write.
+  // Renew only the lease until delta captures the evidence. Drain any projection already
+  // started before taking the baseline and allowing a worker to start.
+  inspectingWorkerDelta = true;
+  await renewalSettled;
   const dirty = await changedPaths();
   const files = new Set([...dirty, statusPath]);
   return new Map(await Promise.all([...files].map(async (file) => [file, await contentAt(file)])));
@@ -214,6 +223,7 @@ const delta = async (before) => {
     if (file === statusPath && await controllerOnlyStatusDelta(prior, after)) continue;
     changed.push(file);
   }
+  inspectingWorkerDelta = false;
   return changed;
 };
 async function commitPaths(message, paths, kind) {

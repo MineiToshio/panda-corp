@@ -1,5 +1,11 @@
 # Decision log — Plugin pandacorp
 
+## 2026-10-31 — preserve ownership evidence across Codex heartbeat renewals (BL-0301)
+
+**What:** defer heartbeat status projection across the worker snapshot/inspection window while continuing fenced lease renewal. Drain prior projections before the baseline. The stderr regression forces a prepared status rename to overlap the worker's forbidden append, using file/mutex signals rather than elapsed-time assumptions; exit 2 and uncertain-dispatch exit 25 remain mandatory.
+
+**Why:** the second Ubuntu run reached 50/51 suites, but this ownership scenario exited 0 with terminal `complete`. The forced interleaving reproduces that exact failure on macOS with the original executor: heartbeat read/rename could erase a forbidden status write. This is a product lost-update race, not a Codex CLI prerequisite or Linux exit-code difference. Contract: [runtime-executors.md](runtime-executors.md). Ubuntu verification remains pending.
+
 ## v9.148.1 — 2026-10-31 (PATCH): repair clean-host engine test prerequisites and fixtures
 
 **What:** declare zsh, pinned real Codex, locked Mission Control dependencies and Chromium in the engine CI job. Isolate launcher/preflight CLI fixtures, configure all Stop-gate fixture commits locally, simulate Linux's sleep inhibitor as well as macOS's, and replace the revocation fixture's startup race with a receipt handshake. Strict config validation uses the real EOF-only app server plus an unknown-field negative control instead of credential/network-dependent `doctor`. The whole-FRD contract suite follows the current Manual renderer and restores its lost policy explanation. No suite, assertion or workflow gate is removed or relaxed.

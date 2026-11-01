@@ -32,3 +32,5 @@ Linux behaviour remains to be proven by CI.
 
 The local clean-environment run passed all 51/51 suites with Codex 0.144.1. Linux
 behaviour remains to be proven by CI.
+
+- 2026-10-31: Second Ubuntu run passed 50/51 suites; the remaining Codex executor failure exposed a real heartbeat/status lost-update race. A deterministic prepared-rename/worker-write handshake reproduces exit 0 on macOS before the repair; fenced lease renewal now defers status projection until worker delta inspection completes. Ubuntu confirmation remains pending.

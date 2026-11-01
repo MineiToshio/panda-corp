@@ -63,7 +63,12 @@ written to durable state. Reviewer tests survive a rollback under `.pandacorp/ru
 as the RED baseline of the next bounded pass.
 
 Worker ownership uses before/after content snapshots, not path-set attribution. During a dispatch,
-lease renewal continues normally. A change to `status.yaml` is ignored only when the active Codex
+lease renewal continues normally, but the heartbeat defers its `status.yaml` projection from
+before the baseline snapshot until after delta inspection. The controller drains any already-queued
+renewal (including its fenced projection) before starting the worker. Otherwise a heartbeat could prepare a
+replacement, the worker could append forbidden state, and the heartbeat's rename could erase that
+evidence before inspection. Status liveness catches up at the next controller projection; the lease
+remains the live heartbeat authority. A change to `status.yaml` is ignored only when the active Codex
 token/epoch still passes the fence, the lease is fresh, and the complete diff normalizes to the exact
 lease-derived projection (`phase`, `running`, acquisition time, logical run, runtime, epoch and
 heartbeat), with exactly one occurrence of every field. Any other status value, duplicate projected

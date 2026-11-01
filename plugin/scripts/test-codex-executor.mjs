@@ -68,7 +68,7 @@ async function fixture({ planDeps = "—", frontmatterDeps = "[]", rethink = fal
   await writeFile(path.join(project, "docs/analytics/events.md"), "# Events\n");
   const fake = path.join(project, "fake-codex.mjs");
   await writeFile(fake, `#!/usr/bin/env node
-import{writeFileSync,mkdirSync,appendFileSync,readFileSync}from'node:fs';import{join}from'node:path';import{spawn}from'node:child_process';
+import{writeFileSync,mkdirSync,appendFileSync,readFileSync,existsSync}from'node:fs';import{join}from'node:path';import{spawn}from'node:child_process';
 const a=process.argv.slice(2),o=a[a.indexOf('--output-last-message')+1],s=a[a.indexOf('--output-schema')+1],prompt=a[a.length-1],scenario=process.env.FAKE_SCENARIO||'success';
 const label=prompt.includes('Integrate queued change')?'process-change':prompt.includes('Implement exactly')?'implement':prompt.includes('Independently review')?'review':prompt.includes('Repair only')?'repair':prompt.includes('READ-ONLY independent final audit')?'hardening-audit':prompt.includes('separate hardening implementer')?'hardening-fix':'other';appendFileSync('.pandacorp/run/fake-calls.log',label+'\\n');
 appendFileSync('.pandacorp/run/fake-schemas.log',label+':'+s.split('/').pop()+'\\n');
@@ -82,6 +82,7 @@ if(prompt.includes('Integrate queued change')){if(scenario==='planner-writes')wr
 if(prompt.includes('Implement exactly')){writeFileSync('feature.txt','ok\\n');writeFileSync('feature.js','export const add = (a, b) => a + b;\\n');if(scenario==='needs-owner'){verdict='needs-owner';summary='owner secret required'}}
 if(prompt.includes('Implement exactly')&&scenario==='slow-heartbeat'){for(const t0=Date.now();Date.now()-t0<30000;await new Promise(r=>setTimeout(r,25))){const l=JSON.parse(readFileSync('.pandacorp/run/build.lease/lease.json','utf8'));if(l.renewed_at!==l.acquired_at){appendFileSync('.pandacorp/run/heartbeat-observed','1\\n');break}}}
 if(prompt.includes('Implement exactly')&&scenario==='stalled-renewal'){writeFileSync('.pandacorp/run/stalled-dispatch-started','1\\n');for(const t0=Date.now();Date.now()-t0<12000;await new Promise(r=>setTimeout(r,25)));}
+if(prompt.includes('Implement exactly')&&scenario==='worker-status-race'){const initial=JSON.parse(readFileSync('.pandacorp/run/build.lease/lease.json','utf8')).renewed_at;writeFileSync('.pandacorp/run/status-race-ready','1');for(const deadline=Date.now()+10000;;await new Promise(r=>setTimeout(r,10))){const prepared=existsSync('.pandacorp/run/status-race-prepared'),renewed=JSON.parse(readFileSync('.pandacorp/run/build.lease/lease.json','utf8')).renewed_at!==initial;if(prepared||(renewed&&!existsSync('.pandacorp/run/lease-mutation.lock')))break;if(Date.now()>deadline)throw new Error('status race handshake timed out')}appendFileSync('.pandacorp/status.yaml','worker_owned: true\\n');writeFileSync('.pandacorp/run/status-race-written','1');}
 if(prompt.includes('Implement exactly')&&scenario==='worker-status-write')appendFileSync('.pandacorp/status.yaml','worker_owned: true\\n');
 if(prompt.includes('Implement exactly')&&scenario==='worker-wo-write')appendFileSync('docs/frds/frd-01-a/work-orders/wo-01.md','worker_owned: true\\n');
 if(prompt.includes('Independently review')&&scenario==='red-review'){mkdirSync('src/__tests__',{recursive:true});writeFileSync('src/__tests__/adversarial.test.js','// preserved red evidence\\n');verdict='red';summary='adversarial failure'}
@@ -208,8 +209,33 @@ await test("a lease renewal that never settles ends the run loudly before the le
   ok(lost.length === 1 && /renewal stalled \d+ ms/.test(lost[0]), `LeaseLost journal lines: ${JSON.stringify(lost)}`);
 });
 
+// Force the lost-update interleaving: the heartbeat has prepared a status replacement,
+// then the worker appends before rename. With lease-only renewal, wait for its mutex
+// release instead. Both paths require a real renewal and a real forbidden worker write.
+const statusWriteRace = async () => {
+  const file = path.join(await mkdtemp(path.join(os.tmpdir(), "pc-status-race-")), "status-race.mjs");
+  await writeFile(file, `import { createRequire, syncBuiltinESMExports } from 'node:module';
+import { existsSync, writeFileSync } from 'node:fs';
+const fsp = createRequire(import.meta.url)('node:fs/promises');
+if (/executor\\.mjs$/.test(process.argv[1] || '')) {
+  const rename = fsp.rename;
+  fsp.rename = async (from, ...rest) => {
+    if (String(from).includes('status.yaml.tmp') && existsSync('.pandacorp/run/status-race-ready') && !existsSync('.pandacorp/run/status-race-written')) {
+      writeFileSync('.pandacorp/run/status-race-prepared', '1');
+      for (const deadline = Date.now() + 10000; !existsSync('.pandacorp/run/status-race-written'); await new Promise(r => setTimeout(r, 10))) {
+        if (Date.now() > deadline) throw new Error('worker write handshake timed out');
+      }
+    }
+    return rename(from, ...rest);
+  };
+  syncBuiltinESMExports();
+}
+`);
+  return { NODE_OPTIONS: `${process.env.NODE_OPTIONS || ""} --import=${file}`.trim() };
+};
+
 await test("a non-zero executor exit always says why on stderr (ownership violation and uncertain dispatch)", async () => {
-  const owned = await fixture(); const ownership = await execute(owned, "worker-status-write", [], { PANDACORP_LEASE_TTL_SECONDS: "3", PANDACORP_LEASE_RENEW_MS: "100" });
+  const owned = await fixture(); const ownership = await execute(owned, "worker-status-race", [], { PANDACORP_LEASE_TTL_SECONDS: "3", PANDACORP_LEASE_RENEW_MS: "100", ...await statusWriteRace() });
   ok(ownership.code === 2 && /codex-executor: stopped \(error\): OWNERSHIP implementer touched governed state/.test(ownership.err), await explain(owned.project, ownership));
   const unsure = await fixture(); const uncertain = await execute(unsure, "uncertain");
   ok(uncertain.code === 25 && /codex-executor: stopped \(uncertain\)/.test(uncertain.err), await explain(unsure.project, uncertain));
