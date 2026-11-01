@@ -111,6 +111,74 @@ it.each([
   expect(router.refresh).toHaveBeenCalledTimes(stillNeeded ? 1 : 0);
 });
 
+it("defers a push during a background refresh until refresh settles and keeps its history entry", async () => {
+  router.refresh.mockClear();
+  router.push.mockClear();
+  let finishRefresh!: () => void;
+  let finishNavigation!: (value: string) => void;
+  const refreshWork = new Promise<void>((resolve) => {
+    finishRefresh = resolve;
+  });
+  const destination = new Promise<string>((resolve) => {
+    finishNavigation = resolve;
+  });
+
+  function Refreshing() {
+    use(refreshWork);
+    return <p>Fresh data</p>;
+  }
+  function Destination() {
+    return <p>{use(destination)}</p>;
+  }
+  function Workspace() {
+    const navigation = useNavigationRouter();
+    const refresh = useBackgroundRefresh();
+    const [refreshing, setRefreshing] = useState(false);
+    const [moved, setMoved] = useState(false);
+    router.refresh.mockImplementation(() => setRefreshing(true));
+    router.push.mockImplementation((href: string) => {
+      window.history.pushState(null, "", href);
+      setMoved(true);
+    });
+    return (
+      <>
+        <button type="button" onClick={refresh}>
+          Background refresh
+        </button>
+        <button type="button" onClick={() => navigation.push("/destination")}>
+          Go to destination
+        </button>
+        {refreshing && <Refreshing />}
+        {moved && <Destination />}
+      </>
+    );
+  }
+
+  window.history.replaceState(null, "", "/source");
+  render(
+    <NavigationProvider>
+      <Suspense fallback={<p>Loading transition</p>}>
+        <Workspace />
+      </Suspense>
+    </NavigationProvider>,
+  );
+  await act(async () => {
+    fireEvent.click(screen.getByText("Background refresh"));
+  });
+  expect(router.refresh).toHaveBeenCalledTimes(1);
+
+  fireEvent.click(screen.getByText("Go to destination"));
+  expect(router.push).not.toHaveBeenCalled();
+  expect(window.location.pathname).toBe("/source");
+
+  await act(async () => finishRefresh());
+  expect(screen.getByText("Go to destination")).toBeVisible();
+  await act(async () => finishNavigation("Destination"));
+  expect(await screen.findByText("Destination")).toBeVisible();
+  expect(window.location.pathname).toBe("/destination");
+  expect(router.push).toHaveBeenCalledTimes(1);
+});
+
 it("notifies URL subscribers after a router push commits without a native history event", async () => {
   function Selection() {
     const [wo] = useUrlState("wo", "");

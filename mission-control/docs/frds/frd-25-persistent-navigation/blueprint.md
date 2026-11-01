@@ -117,6 +117,9 @@ coalescing timer), `FraguaLive` (event/state and expiry timer), `WoNavigationRef
 watcher all use it. `DetailTabs`, `TabBar`, `WoViews`, `FraguaToken` and sidebar `NavigationLink` enter
 that same transition. Links retain Next's prefetch and modifier-click behavior through public onNavigate.
 
+Imperative pushes and replacements received during a background refresh wait for its commit, then run in
+their own transition so the destination receives its own browser-history entry.
+
 Canonical URL renaming through `history.replaceState` with `__NA` is removed: it bypassed Next and
 left canonicalUrl/tree stale. `NavigationCanonical` can only mark an exact current URL, without a URL
 argument. Shallow client selections still use Next's patched native history bridge and a custom

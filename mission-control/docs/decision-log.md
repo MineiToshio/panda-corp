@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-31 · Serialize pushes after background refresh
+
+Defer imperative navigation while a background refresh is pending, then start it in a separate transition
+after the refresh commits. This preserves the destination's browser-history entry when Next would otherwise
+fold the push into the refresh. See the [FRD-25 blueprint](frds/frd-25-persistent-navigation/blueprint.md).
+
 ## 2026-10-31 · Lane integration: keep muted states AA-readable
 
 Locked ranks and untouched missions dim only their decoration (emblem image, bar, icon) and keep full-opacity text on `--surface-2` with `--text-2`, matching the prototype. Accessibility takes precedence over a whole-row opacity fade; axe now covers `/achievements/missions` and `/achievements/ranks` in both themes. See [FRD-10 FDD](frds/frd-10-achievements-hall/fdd.md).

@@ -28,38 +28,56 @@ export function NavigationProvider({ children }: { children: ReactNode }): React
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const pending = useRef(false);
+  const refreshing = useRef(false);
+  const deferred = useRef<(() => void) | null>(null);
   const queued = useRef(new Map<symbol, RefreshCheck>());
-  const value = useMemo<NavigationContextValue>(
-    () => ({
+  const value = useMemo<NavigationContextValue>(() => {
+    // Next collapses a push into an in-flight refresh's commit, losing its history entry.
+    function navigate(run: () => void): void {
+      if (refreshing.current) {
+        deferred.current = run;
+        return;
+      }
+      pending.current = true;
+      startTransition(run);
+    }
+    return {
       router: {
         ...router,
-        push: (...args) => {
-          pending.current = true;
-          startTransition(() => router.push(...args));
-        },
-        replace: (...args) => {
-          pending.current = true;
-          startTransition(() => router.replace(...args));
-        },
+        push: (...args) => navigate(() => router.push(...args)),
+        replace: (...args) => navigate(() => router.replace(...args)),
       },
       request(owner, check) {
-        if (pending.current) queued.current.set(owner, check);
-        else if (check()) router.refresh();
+        if (pending.current || refreshing.current) queued.current.set(owner, check);
+        else if (check()) {
+          refreshing.current = true;
+          startTransition(() => router.refresh());
+        }
       },
       cancel(owner) {
         queued.current.delete(owner);
       },
-    }),
-    [router],
-  );
+    };
+  }, [router]);
   useEffect(() => {
     if (isPending) return;
     pending.current = false;
+    refreshing.current = false;
     // Next commits the browser URL without popstate; synchronize native-history subscribers.
     window.dispatchEvent(new Event(NAVIGATION_EVENT));
+    const navigation = deferred.current;
+    deferred.current = null;
+    if (navigation) {
+      pending.current = true;
+      startTransition(navigation);
+      return;
+    }
     const checks = [...queued.current.values()];
     queued.current.clear();
-    if (checks.some((check) => check())) router.refresh();
+    if (checks.some((check) => check())) {
+      refreshing.current = true;
+      startTransition(() => router.refresh());
+    }
   }, [isPending, router]);
   return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;
 }
