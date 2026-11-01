@@ -1,5 +1,10 @@
 # Decision Log — Factory
 
+## 2026-10-31 — Full e2e passes run on a production build (DR-143 review)
+
+**What:** [DR-143](decisions/registry.yaml) now lets a project serve the full pass from one production build through `e2e/prod-server.mjs`, with a page-error sweep of every surface.
+**Why:** one `next dev` was the bottleneck. On funko-tracker the pass fell from about 470 s to 275-305 s, build included, and went from flaky to 9 of 9 green. Only dev-only React diagnostics are lost; the sweep keeps hydration failures visible on every route.
+
 ## 2026-10-31 — Serial by default, parallel only with evidence (DR-143)
 
 **What:** [DR-143](decisions/registry.yaml) lets a project opt specs into a parallel e2e tier through `e2e/parallel-safe.json`, backed by per-test write evidence. [build-orchestration.md](standards/build-orchestration.md) keeps visual specs on one worker.

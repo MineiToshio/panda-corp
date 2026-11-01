@@ -831,9 +831,9 @@ decisiones:
 
   - id: DR-143
     patron: "making full Playwright passes faster with more than one worker"
-    default: "SERIAL BY DEFAULT, PARALLEL BY EVIDENCE. A full verify.sh run splits into two tiers only when the project ships e2e/parallel-safe.json (project-owned seed, never overwritten): listed specs on PANDACORP_E2E_WORKERS (default 3), then all others on one worker. A spec is listed only with per-test write evidence and repeated green runs at normal machine load. visual.spec.ts is never listed (DR-056). The --since gate and manual runs stay on one worker. Viewport-agnostic gates (shell, headers, hydration) run on desktop only."
+    default: "SERIAL BY DEFAULT, PARALLEL BY EVIDENCE. A full verify.sh run splits into two tiers only when the project ships e2e/parallel-safe.json (project-owned seed, never overwritten): listed specs on PANDACORP_E2E_WORKERS (default 3), then all others on one worker. A spec is listed only with per-test write evidence and repeated green runs at normal machine load. visual.spec.ts is never listed (DR-056). The --since gate and manual runs stay on one worker. Viewport-agnostic gates (shell, headers, hydration) run on desktop only. A project seed e2e/prod-server.mjs makes the full run use one production build for both tiers, plus a page-error sweep of every surface; manual runs, --since and projects without the seed stay on next dev."
     requiere_humano: false
-    nota: "Owner request 2026-10-31. Measured on funko-tracker: 459-475 s serial, 417 s tiered at comparable load, 422 unique tests in both. Under heavy machine load a tiered run was slower (539 s), and one next dev server limits scaling. Review after a production-build e2e server is measured."
+    nota: "Owner request 2026-10-31. Measured on funko-tracker: 459-475 s serial, 417 s tiered at comparable load, 422 unique tests in both. Under heavy machine load a tiered run was slower (539 s), and one next dev server limits scaling. Production server measured the same day: about 470 s warm dev, 275-305 s prod including the build, 9 of 9 green, 4 workers gain under 10 s. The serial tier is now about 75% of the pass."
 
   - id: DR-142
     patron: "running /pandacorp:implement from Claude Code with the delegated workers on the owner's Codex subscription"

@@ -584,6 +584,11 @@ gate_playwright() {
   # never block, so paying the whole serialized suite per FRD bought nothing but wall-clock.
   # DR-143: a project's e2e/parallel-safe.json splits the FULL run into two tiers (two server boots):
   # the listed specs on several workers, then everything else on one. No file, same single run.
+  # A project's e2e/prod-server.mjs serves the FULL run from one production build instead of next dev.
+  if [ -z "$SINCE" ] && [ -f e2e/prod-server.mjs ]; then
+    node e2e/prod-server.mjs build || return $?
+    export PANDACORP_E2E_SERVER=prod
+  fi
   if [ -n "$SINCE" ]; then
     pnpm exec playwright test e2e/smoke.spec.ts e2e/shell.spec.ts
   elif [ -f e2e/parallel-safe.json ]; then

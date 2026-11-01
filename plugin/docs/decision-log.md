@@ -1,5 +1,10 @@
 # Decision log — Plugin pandacorp
 
+## v9.148.0 — 2026-10-31 (MINOR): full e2e passes can run on a production build (DR-143, BL-0298)
+
+**What:** `verify.sh` builds once through a project's `e2e/prod-server.mjs` and serves both tiers from it. New verbatim `e2e/page-errors.spec.ts`. Projects without the seed, manual runs and `--since` stay on `next dev`. Overlay 8.116.0.
+**Why:** measured on funko-tracker, about 470 s fell to 275-305 s with 9 of 9 green runs. BL-0297 closes as not a defect: BL-0288 keeps port-derived URLs on purpose and the merge queue gates the committed file.
+
 ## v9.147.0 — 2026-10-31 (MINOR): optional parallel e2e tier and no repeated viewport-agnostic gates (DR-143, BL-0296)
 
 **What:** the stack-a `playwright.config.ts` reads an optional `e2e/parallel-safe.json` and `verify.sh` runs those specs first on several workers, then the rest on one. `shell`, `headers` and `hydration` run on desktop only, because each sets its own viewport or renders none. A project's `e2e/globalSetup.ts` is wired in when present, so an upgrade no longer drops a test lease. Overlay 8.115.0.

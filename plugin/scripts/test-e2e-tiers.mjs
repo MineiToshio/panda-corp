@@ -14,7 +14,7 @@ const check = (name, ok, detail = '') => {
   if (!ok) failed += 1
 }
 
-function load({ safe, env = {}, globalSetup = false }) {
+function load({ safe, env = {}, globalSetup = false, prodServer = false }) {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'e2e-tiers-'))
   try {
     const stub = path.join(dir, 'node_modules', '@playwright', 'test')
@@ -26,6 +26,7 @@ function load({ safe, env = {}, globalSetup = false }) {
     writeFileSync(path.join(dir, 'playwright.config.ts'), readFileSync(TEMPLATE, 'utf8'))
     writeFileSync(path.join(dir, 'e2e', 'read.spec.ts'), '')
     writeFileSync(path.join(dir, 'e2e', 'visual.spec.ts'), '')
+    if (prodServer) writeFileSync(path.join(dir, 'e2e', 'prod-server.mjs'), '')
     if (globalSetup) writeFileSync(path.join(dir, 'e2e', 'globalSetup.ts'), '')
     if (safe !== undefined) writeFileSync(path.join(dir, 'e2e', 'parallel-safe.json'), JSON.stringify(safe))
     const code = `const { default: c } = await import(${JSON.stringify(path.join(dir, 'playwright.config.ts'))}); console.log(JSON.stringify(c))`
@@ -66,6 +67,12 @@ check('globalSetup seed is wired in', load({ globalSetup: true }).config?.global
 check('stale spec fails loud', !load({ safe: ['gone.spec.ts'] }).ok)
 check('non-array file fails loud', !load({ safe: { a: 1 } }).ok)
 check('visual gate cannot be listed', !load({ safe: ['visual.spec.ts'] }).ok)
+{
+  const { config: c } = load({ prodServer: true, env: { PANDACORP_E2E_SERVER: 'prod' } })
+  check('prod server: the seed serves the run, never reused', c.webServer.command === 'node e2e/prod-server.mjs start 3000' && c.webServer.reuseExistingServer === false)
+}
+check('seed alone keeps next dev', load({ prodServer: true }).config?.webServer.command.startsWith('next dev'))
+check('prod server without the seed fails loud', !load({ env: { PANDACORP_E2E_SERVER: 'prod' } }).ok)
 check('unknown tier fails loud', !load({ env: { PANDACORP_E2E_TIER: 'fast' } }).ok)
 
 console.log(failed ? `RESULT: ${failed} failed` : 'RESULT: all passed')

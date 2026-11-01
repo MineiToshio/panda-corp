@@ -82,7 +82,7 @@ case "$1" in
     ;;
   exec)
     if [ "$2" = "playwright" ]; then
-      if [ -n "${WP08_ARGV_LOG:-}" ]; then printf 'tier=%s\n' "${PANDACORP_E2E_TIER:-none}" >> "$WP08_ARGV_LOG"; fi
+      if [ -n "${WP08_ARGV_LOG:-}" ]; then printf 'tier=%s\nserver=%s\n' "${PANDACORP_E2E_TIER:-none}" "${PANDACORP_E2E_SERVER:-dev}" >> "$WP08_ARGV_LOG"; fi
       if [ "${WP05_FAIL_TIER:-}" = "${PANDACORP_E2E_TIER:-none}" ]; then exit 1; fi
       if [ "${WP05_FAIL_PLAYWRIGHT:-0}" = "1" ]; then
         echo "1) e2e/smoke.spec.ts:10:5 › smoke › FIXTURE forced playwright failure"
@@ -557,6 +557,28 @@ if grep -q '^tier=none$' "$ARGV" && ! grep -q '^tier=parallel$' "$ARGV"; then
   ok "(DR-143) --since keeps its scoped untiered run"
 else
   bad "(DR-143) --since must not tier (rc=$rc)" "$(cat "$ARGV")"
+fi
+echo 'console.log("build:" + process.argv[2]); process.exit(Number(process.env.WP05_FAIL_BUILD || 0))' > "$FX/e2e/prod-server.mjs"
+: > "$ARGV"
+out=$(WP08_ARGV_LOG="$ARGV" run_verify "$FX" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && echo "$out" | grep -q 'build:build' && [ "$(grep -c '^server=prod$' "$ARGV")" = "2" ]; then
+  ok "(DR-143) prod-server.mjs: one build serves both tiers"
+else
+  bad "(DR-143) expected one build and two prod tiers (rc=$rc)" "$(cat "$ARGV")"
+fi
+: > "$ARGV"
+WP08_ARGV_LOG="$ARGV" WP05_FAIL_BUILD=3 run_verify "$FX" >/dev/null 2>&1; rc=$?
+if [ "$rc" -ne 0 ] && ! grep -q '^tier=' "$ARGV"; then
+  ok "(DR-143) a red build reds the gate before any browser run"
+else
+  bad "(DR-143) red build not honoured (rc=$rc)" "$(cat "$ARGV")"
+fi
+: > "$ARGV"
+out=$(WP08_ARGV_LOG="$ARGV" run_verify "$FX" --since deadbeef 2>&1)
+if ! echo "$out" | grep -q 'build:build' && ! grep -q '^server=prod$' "$ARGV"; then
+  ok "(DR-143) --since stays on next dev"
+else
+  bad "(DR-143) --since must not build" "$(cat "$ARGV")"
 fi
 rm -rf "$FX"
 

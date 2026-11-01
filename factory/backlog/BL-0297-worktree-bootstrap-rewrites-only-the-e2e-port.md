@@ -3,12 +3,12 @@ id: BL-0297
 type: bug
 area: templates
 title: "worktree-bootstrap rewrites the e2e PORT but leaves same-origin URLs on the old port"
-status: open
+status: done
 severity: p2
 opened: 2026-10-31
-closed:
+closed: 2026-10-31
 source: "funko-tracker e2e measurement 2026-10-31 (agent-inferred)"
-closes:
+closes: "Not a defect: BL-0288 keeps port-derived URLs on purpose, and merge-queue.sh gates the committed file"
 links: [BL-0154]
 ---
 
