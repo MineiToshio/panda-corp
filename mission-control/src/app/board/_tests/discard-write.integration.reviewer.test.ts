@@ -28,7 +28,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import matter from "gray-matter";
+import matter from "@/lib/fs-utils/parseFrontmatter";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Only next/cache is mocked — discardIdea runs for real against a temp dir.

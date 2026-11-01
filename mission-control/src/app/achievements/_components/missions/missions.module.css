@@ -111,7 +111,7 @@
   border-color: var(--gold);
 }
 .ladder li[data-current="true"]::before {
-  box-shadow: 0 0 0 calc(var(--s3) / 4) color-mix(in srgb, var(--green) 30%, transparent);
+  box-shadow: 0 0 0 var(--rule) color-mix(in srgb, var(--green) 30%, transparent);
 }
 .goal {
   display: flex;
