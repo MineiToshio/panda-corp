@@ -15,12 +15,12 @@ const OPTIONS = {
 };
 
 /** Parse data-only frontmatter, bypassing gray-matter's content cache on every call. */
-export function parseFrontmatter(input: string, _options?: { excerpt: false }) {
+function parseFrontmatter(input: string, _options?: { excerpt: false }) {
   return matter(input, OPTIONS);
 }
 
 /** Serialize data-only frontmatter through the same restricted engine boundary. */
-export function stringifyFrontmatter(content: string, data: object): string {
+function stringifyFrontmatter(content: string, data: object): string {
   return matter.stringify(content, data, OPTIONS);
 }
 
