@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { usePathname } from "next/navigation";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PageHead } from "@/components/core/PageHead/PageHead";
+import { InitialPathnameContext } from "@/lib/navigation/InitialPathnameContext";
 import { AppShell } from "../AppShell";
 
 vi.mock("next/navigation", () => ({
@@ -139,4 +140,22 @@ describe("FRD-19 persistent frame", () => {
 afterEach(() => {
   visibility.remove();
   vi.unstubAllGlobals();
+});
+
+it("keeps the first shell pathname when the live route changes", () => {
+  function view() {
+    return (
+      <AppShell>
+        <InitialPathnameContext.Consumer>
+          {(pathname) => <output aria-label="Initial pathname">{pathname}</output>}
+        </InitialPathnameContext.Consumer>
+      </AppShell>
+    );
+  }
+  vi.mocked(usePathname).mockReturnValue("/board");
+  const rendered = render(view());
+  expect(screen.getByRole("status", { name: "Initial pathname" })).toHaveTextContent("/board");
+  vi.mocked(usePathname).mockReturnValue("/configuration");
+  rendered.rerender(view());
+  expect(screen.getByRole("status", { name: "Initial pathname" })).toHaveTextContent("/board");
 });

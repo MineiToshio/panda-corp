@@ -1,19 +1,21 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useSyncExternalStore } from "react";
+import { useContext, useSyncExternalStore } from "react";
+import { InitialPathnameContext } from "./InitialPathnameContext";
 
 function subscribe(): () => void {
   return () => {};
 }
 
-/** Keep deferred shell islands route-neutral until their own hydration completes. */
+/** Hydrate deferred islands against their original HTML, then follow the live route. */
 export function useHydratedPathname(): string {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
+  const initial = useContext(InitialPathnameContext) ?? pathname;
   const hydrated = useSyncExternalStore(
     subscribe,
     () => true,
     () => false,
   );
-  return hydrated ? (pathname ?? "") : "";
+  return hydrated ? pathname : initial;
 }

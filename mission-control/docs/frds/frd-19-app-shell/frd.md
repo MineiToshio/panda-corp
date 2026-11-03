@@ -150,7 +150,11 @@ WHEN proposal sources contain partial read errors, the system SHALL render the s
 
 WHEN the owner navigates before an asynchronous shell slot hydrates, the system SHALL
 complete client-side navigation without hydration errors or stale current-project attributes.
-The deferred location SHALL render the localized brand during SSR and its first hydration,
-then derive the destination, project identity and tab from the current URL. A deferred project
-row SHALL acquire its current-page attribute after its own hydration. This applies to both themes
-and all responsive layouts; a hydrated shell ancestor does not certify its deferred descendants.
+WHEN a route is loaded with JavaScript disabled, the shell SHALL serve its route-specific title
+(including Tablero on /board and Configuración on /configuration) and SHALL mark the current
+project row with aria-current="page" on nested project routes.
+During SSR and each deferred island's first hydration, the shell SHALL use the pathname captured
+by AppShell's first render, then derive the live destination and current project from the current
+URL after that island hydrates. The captured pathname SHALL remain unchanged across client-side
+navigation. This applies to both themes and all responsive layouts; a hydrated shell ancestor
+does not certify its deferred descendants.

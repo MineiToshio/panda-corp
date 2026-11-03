@@ -1,9 +1,11 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { Icon } from "@/components/core/Icon/Icon";
 import { navActive } from "@/components/modules/Nav/navActive";
 import { t } from "@/lib/copy/copy";
+import { InitialPathnameContext } from "@/lib/navigation/InitialPathnameContext";
 import styles from "./AppShell.module.css";
 import { BottomNav } from "./BottomNav";
 import { Sidebar, type SidebarSlots } from "./Sidebar";
@@ -25,12 +27,13 @@ export function AppShell({
   ...slots
 }: AppShellProps): React.JSX.Element {
   const pathname = usePathname() ?? "";
+  const [initialPathname] = useState(() => pathname);
   const active = navActive(pathname);
   const preference = useSidebarPreference();
   const drawer = useDrawer(pathname);
   const collapsed = preference.collapsed;
   return (
-    <>
+    <InitialPathnameContext.Provider value={initialPathname}>
       <SkipLink />
       <div
         id="app"
@@ -78,7 +81,7 @@ export function AppShell({
           <BottomNav active={active} onOpen={drawer.handleOpen} />
         </div>
       </div>
-    </>
+    </InitialPathnameContext.Provider>
   );
 }
 

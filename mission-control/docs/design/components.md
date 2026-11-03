@@ -310,8 +310,8 @@ and keep their hint adjacent to the chevron.
 
 ## Shell and portfolio close-out (2026-10-31)
 
-- `ProjectNavItem` carries the current project through nested workspace routes and reuses the raised navigation surface. Deferred rows omit `aria-current` during SSR/initial hydration, then read the live route with `useHydratedPathname`.
-- `TopBar` accepts a streamed location slot; `ShellLocation` derives project identity and tab from canonical navigation and the sidebar project resolver. Project name is the primary line, tab the small uppercase line. The streamed location uses the localized brand for SSR/initial hydration, then derives the live pathname via `useHydratedPathname`; navigation can precede hydration of this island.
+- `ProjectNavItem` carries the current project through nested workspace routes and reuses the raised navigation surface. Deferred rows keep SSR `aria-current` using AppShell's captured initial pathname during hydration, then read the live route with `useHydratedPathname`.
+- `TopBar` accepts a streamed location slot; `ShellLocation` derives project identity and tab from canonical navigation and the sidebar project resolver. Project name is the primary line, tab the small uppercase line. The streamed location preserves its route title during SSR/initial hydration via `InitialPathnameContext`, captured once by AppShell, then derives the live pathname via `useHydratedPathname`; navigation can precede hydration of this island.
 - `Segmented` options accept optional decorative catalogue icons, without changing button labels or pressed state.
 - `Ring` explicitly disables box shadow so the Tailwind utility sharing its global class cannot add an outline.
 - `AccountsTable` keeps the directory summary compact on phones; identity and organization details stay in the existing account dialog.

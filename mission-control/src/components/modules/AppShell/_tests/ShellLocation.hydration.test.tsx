@@ -1,7 +1,8 @@
-import { act } from "@testing-library/react";
+import { act, within } from "@testing-library/react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { expect, it, vi } from "vitest";
+import { InitialPathnameContext } from "@/lib/navigation/InitialPathnameContext";
 import { ShellLocation } from "../ShellLocation";
 
 const route = vi.hoisted(() => ({ pathname: "/" }));
@@ -14,11 +15,13 @@ it.each([
 ])("hydrates a deferred location after navigation from %s to %s", async (from, to, title, tab) => {
   route.pathname = from;
   const element = (
-    <ShellLocation
-      projects={[
-        { id: "pandasaga", name: "PandaSaga — recuerda historias y descubre sus conexiones" },
-      ]}
-    />
+    <InitialPathnameContext.Provider value={from}>
+      <ShellLocation
+        projects={[
+          { id: "pandasaga", name: "PandaSaga — recuerda historias y descubre sus conexiones" },
+        ]}
+      />
+    </InitialPathnameContext.Provider>
   );
   const host = document.createElement("div");
   host.innerHTML = renderToString(element);
@@ -35,4 +38,15 @@ it.each([
   } finally {
     await act(async () => root?.unmount());
   }
+});
+
+it.each([
+  ["/board", "Tablero"],
+  ["/configuration", "Configuración"],
+])("serves the route title in SSR on %s", (pathname, title) => {
+  route.pathname = pathname;
+  const html = renderToString(<ShellLocation projects={null} />);
+  const host = document.createElement("div");
+  host.innerHTML = html;
+  expect(within(host).getByTitle(title)).toHaveTextContent(title);
 });

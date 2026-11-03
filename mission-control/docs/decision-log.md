@@ -1,5 +1,19 @@
 # Decision Log — Mission Control
 
+## 2026-11-03 · Preserve SSR identity while hydrating deferred shell slots
+
+Independent owner review rejected the neutral-pathname snapshot in 1e65ce45: it served Pandacorp
+on /board and /configuration and dropped the current-project attribute without JavaScript.
+This supersedes the neutral SSR decision below. AppShell now captures its initial pathname once
+and exposes it through InitialPathnameContext; deferred consumers use that pathname during
+hydration and the live pathname afterwards. SSR unit tests and JavaScript-disabled browser
+tests cover the missing invariant alongside the navigation regression. Updated the
+[FRD](frds/frd-19-app-shell/frd.md#deferred-shell-hydration-2026-11-03),
+[blueprint](frds/frd-19-app-shell/blueprint.md#deferred-route-identity-2026-11-03),
+[component inventory](design/components.md#shell-and-portfolio-close-out-2026-10-31) and
+[investigation](reviews/hydration-2026-11-03.md). The follow-up stays uncommitted for owner review.
+
+
 ## 2026-11-03 · Hydrate deferred shell identity independently of navigation
 
 The root shell's hydration marker did not imply hydration of its streamed location or project
