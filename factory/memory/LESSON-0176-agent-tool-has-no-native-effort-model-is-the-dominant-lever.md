@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 1
 applied_in: [panda-corp]
-links: [LESSON-0175, LESSON-0159, LESSON-0177, LESSON-0186]
+links: [LESSON-0175, LESSON-0159, LESSON-0177, LESSON-0186, LESSON-0500]
 ---
 
 **Situation:** budgeting a fan-out of subagents that could be dispatched either via the Agent tool
