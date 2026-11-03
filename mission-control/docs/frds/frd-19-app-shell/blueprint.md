@@ -197,3 +197,27 @@ REQ-19-001..005 map to the components above; the 19 ACs of FRD-19 are owned once
 4 by WO-19-003); the five cross-FRD ACs hosted here are owned by WO-19-003; `dependsOn` is acyclic and
 names live work orders; same-wave artifacts are disjoint by design; the shell is a foundation WO; no
 open clarification marker remains.
+
+## Deferred route identity (2026-11-03)
+
+`LocationSlot` and `ProjectsSlot` stream beneath independent Suspense boundaries. A router
+transition can update `usePathname` before those islands hydrate, while their HTML still names
+the original route. `AppShell` captures `usePathname()` once with a lazy `useState` initializer and
+exposes it through `InitialPathnameContext` to all streamed descendants. `useHydratedPathname`
+uses that captured pathname during SSR and initial hydration, then Next's live pathname afterwards.
+Without the context, it falls back to the current pathname. The captured value never synchronizes
+to later navigations. Existing URL-state server seeds continue to protect project/tab selection.
+SSR retains the route title and current-project `aria-current`, including without JavaScript. No
+hydration warning is suppressed.
+
+The regression exercises Inicio → Tablero and workspace → Configuration, listening to both
+`pageerror` and console errors. It checks the destination title before asserting no hydration errors.
+Component hydration tests also exercise navigation into a project and verify its canonical name/tab.
+Sibling audit included the synchronous AppShell/Nav and the deferred ProjectNavItem; the latter
+exhibited the same race as an attribute mismatch and uses the same fix. Following LESSON-0185 and
+LESSON-0480, sandbox watcher failures were separated from browser hydration evidence.
+See [investigation evidence](../../reviews/hydration-2026-11-03.md).
+
+SSR regressions additionally cover renderToString route titles and project aria-current, an
+AppShell rerender preserving the original context value, and JavaScript-disabled browser loads.
+The earlier empty-pathname snapshot was rejected because it hid route identity in server HTML.

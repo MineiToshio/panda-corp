@@ -145,3 +145,16 @@ The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) superse
 WHEN the owner opens a nested project workspace, the system SHALL mark that project row current and show the canonical project name over its localized active tab in the phone top bar. WHEN the owner uses browser history, both identity and tab SHALL follow the URL.
 
 WHEN proposal sources contain partial read errors, the system SHALL render the shared resolver badgeCount for the available owner actions and SHALL preserve the errors on the Proposals surface.
+
+## Deferred shell hydration (2026-11-03)
+
+WHEN the owner navigates before an asynchronous shell slot hydrates, the system SHALL
+complete client-side navigation without hydration errors or stale current-project attributes.
+WHEN a route is loaded with JavaScript disabled, the shell SHALL serve its route-specific title
+(including Tablero on /board and Configuración on /configuration) and SHALL mark the current
+project row with aria-current="page" on nested project routes.
+During SSR and each deferred island's first hydration, the shell SHALL use the pathname captured
+by AppShell's first render, then derive the live destination and current project from the current
+URL after that island hydrates. The captured pathname SHALL remain unchanged across client-side
+navigation. This applies to both themes and all responsive layouts; a hydrated shell ancestor
+does not certify its deferred descendants.

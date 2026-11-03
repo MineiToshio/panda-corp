@@ -8,8 +8,8 @@ trigger: use this when verify.sh/e2e in a factory worktree fails with "Symlink [
 source: "mission-control .pandacorp/run/lessons.md 2026-10-03 (agent-inferred) — in a factory worktree, symlinking node_modules back to the main checkout to skip a reinstall worked for vitest/tsc/biome but Next 16's Turbopack webServer refused to start, erroring that the symlink points outside the project's filesystem root"
 provenance: agent-inferred
 created: 2026-10-10
-status: candidate
-promotion: none
+status: active   # 2026-11-01 librarian eval-gate: the 2026-10-21/22 funko-tracker generalization already meets the cross-corroboration bar (mission-control + funko-tracker, 2 distinct projects) — missed at the time it was added
+promotion: proposed   # 2026-11-01 (librarian review) — target: factory/standards/build-orchestration.md (worktree bootstrap section): add a MUST — never symlink a directory from outside the worktree's own root in a worktree-setup.sh when the project's dev/build server runs on Turbopack; install for real (pnpm install --frozen-lockfile, hardlinked from the shared store) or use an APFS clone (cp -cR), never a cross-root symlink. Corroborated across 2 distinct projects (mission-control's node_modules case, funko-tracker's gitignored reference-asset-folder case) with zero contradicting evidence — the same Turbopack filesystem-root containment check fires for ANY cross-root symlink, not just node_modules, so this is a standing worktree-bootstrap rule, not a one-off workaround.
 confidence: medium
 times_applied: 0
 applied_in: []

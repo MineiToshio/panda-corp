@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [DR-141]
+links: [DR-141, LESSON-0599]
 ---
 
 **Situation:** several independently-verified branches were combined into one integration branch using

@@ -49,3 +49,13 @@ new hydration rule or cross-project corroboration. Final canonical receipts unde
 1,493 unit tests in 373 files and 356 browser tests passing (two production-only cases skipped in the
 default development run). A separate optimized production smoke passed two tests; this is not evidence
 that the whole browser suite passed in optimized mode.
+
+**Corroborating instance (mission-control, 2026-10-31, agent-inferred):** e2e interaction probes that
+clicked/pressed filters immediately after navigation hit the same pre-hydration window; the project's own
+fix pattern is a concrete, reusable signal — a client effect sets `data-hydrated="true"` on the app root
+(`#app[data-hydrated="true"]`), and every interaction-probing spec waits for that selector before
+pressing a filter/control (`e2e/_hydration.ts`'s `gotoHydrated` helper, honoring a product-declared
+selector when present). This is the same root cause as this lesson (interactive-looking markup with no
+attached handler yet) with a concrete, shareable implementation: a single boolean DOM attribute flipped
+by a client effect, polled by the test helper, rather than inventing a bespoke readiness probe per
+project.

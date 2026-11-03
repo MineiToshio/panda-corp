@@ -56,3 +56,34 @@ sandbox-exempt OS-level access the Chromium/MachPortRendezvous case needed, not 
 Extend the "plan for it" list above to any on-device ML/Neural-Engine API, not only a real browser or a
 nested sandboxed worker; run that step outside the sandbox (the supervising process, or an unsandboxed
 invocation) instead of trying to grant the sandbox a wider scope.
+
+**Apply next time (addendum, 2026-11-01, mission-control) — a working Chromium-outside-sandbox technique:**
+instead of trying to make Chromium launch INSIDE the sandbox (it can't — see the addendum above), launch
+it OUTSIDE the sandbox via `chromium.launchServer` from an unsandboxed process, then have the sandboxed
+worker connect to it as a remote browser (`chromium.connect` / Playwright's `PW_TEST_CONNECT_WS_ENDPOINT`).
+This gives the sandboxed side a real, controllable browser without needing the sandbox-exempt IPC access
+Chromium's own process spawn requires — the same "supervising process does the privileged part" shape as
+fix (b) above, applied to the browser case specifically rather than just commit.
+
+**Apply next time (addendum, 2026-11-01, funko-tracker) — a working Postgres-outside-sandbox technique:**
+the same division of labor that works for Chromium also works for a database the sandboxed worker needs
+to query/seed: have the SUPERVISING (unsandboxed) process start/own the native Postgres cluster, then let
+the sandboxed Codex worker connect to it over loopback by passing `network_access` (Codex CLI's sandbox
+flag that permits outbound network calls while filesystem writes stay directory-scoped) — the sandboxed
+side gets a real, queryable database without needing filesystem write access to wherever Postgres's own
+data/socket files live. Same shape as the Chromium `launchServer`/`connect` addendum: the supervising
+process does the privileged part (bind the port, own the data directory, commit), the sandboxed worker
+only connects/reads/writes over the network and edits files inside its own scope.
+
+**Needs reconciliation — possible narrower counter-example (flagged, not resolved):** the SAME project
+(mission-control, 2026-10-31, `.pandacorp/run/lessons.md`) logged two notes claiming `codex exec -s
+workspace-write` CAN commit with `--add-dir <repo>/.git` when the command's `-C` cwd is a subdirectory of
+the ORIGIN checkout itself (e.g. `-C mission-control`, which is not a separate `git worktree` — Mission
+Control lives inside the factory repo, sharing its `.git` directly) rather than a true `git worktree add`
+checkout elsewhere. If accurate, this is a DIFFERENT, narrower case than the one this lesson documents (a
+real worktree's commondir redirection to a separate location) — adding the repo's OWN `.git` to a sandboxed
+command already running inside that same repo's tree may simply not hit the commondir-redirection problem
+at all, which would NOT contradict the "doesn't work for a real worktree" finding above. This needs an
+explicit, controlled re-test (true `git worktree add` vs. plain subdirectory of the main checkout) before
+either revising or discarding the original "`--add-dir` does not work" claim — do not treat it as resolved
+either way yet.

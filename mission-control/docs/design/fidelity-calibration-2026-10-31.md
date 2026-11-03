@@ -14,6 +14,14 @@ This report supplies the measured evidence and proposed integration entries inst
 The [checklist](fidelity-checklist.md) and [FRD-13 blueprint](../frds/frd-13-visual-system-accessibility/blueprint.md)
 now distinguish the frozen target from the implemented advisory audit.
 
+## Owner disposition (2026-10-31)
+
+Retain this report; do not wire an L1–L4 gate into `verify.sh`. The three 0/48 calibration
+results do not support a passing gate. The 1.5% proposal remains diagnostic only. The 33
+unachieved double entries and 47 replay-error entries are accepted as a nonblocking report
+inventory, without certifying those states. This disposition supersedes the proposed future
+integration language below for this close-out; any future gate needs a separate decision.
+
 ## Inputs and protocol
 
 - Application commit: `977b9aa2427aa5bc1eda5c26eb760ec93c44cc28`, lane `fin/lane-l`.

@@ -101,6 +101,19 @@ the destructive-command (`rm -r`) matcher on descriptive prose. Workaround for b
 the grep case, and writing the check to a script file first instead of an inline heredoc for the prose
 case. See `factory/memory/LESSON-0105` (13th corroboration) for the generalized workaround.
 
+## Corroborating occurrence (2026-10-31 funko-tracker + 2026-11-01 panda-corp live reproduction) — the `rm -r` matcher, not the redirect scanner
+Two more occurrences of the systemic gap this item's 2026-09-24 note already predicted, now concretely on
+the `rm -r`/broad-recursive-delete matcher (`block-dangerous.sh` lines 130-137 and 213-226) instead of the
+redirect-truncation guard this item was originally scoped to: (1) funko-tracker's `.pandacorp/run/
+lessons.md` (2026-10-31, agent-inferred) reported `block-dangerous.sh` matching a recursive-delete literal
+anywhere in a command's TEXT that also names a path carrying `.pandacorp`, even inside a note or a script
+heredoc. (2) Reproduced LIVE on panda-corp itself during this harvest (2026-11-01): a plain read-only
+`grep -n "rm -rf\|recursive" plugin/scripts/block-dangerous.sh` was BLOCKED — the quoted grep PATTERN
+merely contained the text "rm -rf"/"recursive", with no real delete anywhere in the command, yet the
+matcher (a bare `echo "$cmd" | grep -Eq '<pattern>'` with no quote-stripping at all) read the carrier
+command's own argument text as a real recursive delete. See `factory/memory/LESSON-0105` (14th/15th
+corroboration) for the generalized workaround in the meantime.
+
 ## Root cause
 The redirect scanner (line 101) is a bare textual pattern match with no shell-tokenization/quote-awareness:
 it cannot distinguish an actual redirect operator from a `>` character that is merely PART of an argument

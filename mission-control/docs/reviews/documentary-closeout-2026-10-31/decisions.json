@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-31",
+  "reader": "src/lib/docs/activity.ts",
+  "target": "main checkout Mission Control",
+  "decisions": [
+    {
+      "id": "legacy-1",
+      "status": "resolved",
+      "resolved": true
+    },
+    {
+      "id": "legacy-2",
+      "status": "resolved",
+      "resolved": true
+    }
+  ],
+  "pending": 0
+}

@@ -1,7 +1,14 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
 import type { ProjectOverviewItem } from "@/lib/portfolio/overview";
 import { ProjectNavItem } from "../ProjectNavItem";
+
+const route = vi.hoisted(() => ({ pathname: "/" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => route.pathname,
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+}));
 
 function project(id: string, total: number | null = 10): ProjectOverviewItem {
   return {
@@ -68,4 +75,17 @@ it("DR-078: announces the unread-file count instead of a fabricated percentage",
     screen.getByRole("link", { name: "PersonalPage: Construcción · 1 archivo sin leer" }),
   ).toHaveTextContent("1 archivo sin leer");
   expect(screen.getByRole("link")).not.toHaveTextContent("40%");
+});
+
+it("serves the current project attribute in SSR on its nested route", () => {
+  route.pathname = "/portfolio/mission-control/summary";
+  const html = renderToString(
+    <ProjectNavItem project={{ ...project("mission-control"), name: "Mission Control" }} />,
+  );
+  const host = document.createElement("div");
+  host.innerHTML = html;
+  expect(within(host).getByRole("link", { name: /^Mission Control:/ })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
 });

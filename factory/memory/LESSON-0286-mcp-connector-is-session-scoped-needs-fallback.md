@@ -5,7 +5,7 @@ domain: agent-tooling
 tags: [mcp, posthog, review-launch, unattended, connector-scope, fallback]
 context: a scheduled/unattended routine needs project-scoped external data (analytics, a third-party API) but only has an MCP connector tied to the current session/account
 trigger: use this when designing or debugging a scheduled/unattended routine that reads from an external service via an MCP connector, especially across multiple portfolio projects that may each need a DIFFERENT account/org scope
-source: "panda-corp 2026-10-12, pandacorp-review-launch scheduled sweep — step 2b (PostHog MCP provenance) failed portfolio-wide because the running session had NO PostHog MCP connector configured at all (not even a wrongly-scoped one); every sweep since personal-page-v2's 2026-10-07 launch has fallen back to 'sin datos' even though its events verifiably fire in production; corroborates the personal-memory finding that a PostHog MCP connection, when present, is scoped to one org only (not swappable per-project mid-run)"
+source: "panda-corp 2026-10-12, pandacorp-review-launch scheduled sweep — step 2b (PostHog MCP provenance) failed portfolio-wide because the running session had NO PostHog MCP connector configured at all (not even a wrongly-scoped one); every sweep since personal-page-v2's 2026-10-07 launch has fallen back to 'sin datos' even though its events verifiably fire in production; corroborates the personal-memory finding that a PostHog MCP connection, when present, is scoped to one org only (not swappable per-project mid-run). Corroborating instance: panda-corp 2026-11-03 pandacorp-review-launch sweep — detecting whether a PostHog MCP was connected at all via `ToolSearch` with generic keywords ('posthog', 'analytics insights query project') returned zero/irrelevant hits and pulled unrelated tool schemas (Notion, DesignSync, rea) into context; `mcp__ccd_connectors__session_connectors_status` (no args) listed every connected MCP server directly and settled the detection in one call."
 provenance: agent-inferred
 created: 2026-10-13
 status: candidate
@@ -35,3 +35,11 @@ external data, do not let its only fallback be a silent "sin datos" — detect a
 whether the connector is present and whether it is scoped to the project under review (not just "a
 PostHog connector responded"), and prefer a durable, project-independent fallback (e.g., a per-project
 read-only REST/API-key path) over depending on whatever MCP connector the session happens to carry.
+
+**Corroborating instance (2026-11-03) — the concrete detection mechanism:** when the question is simply
+"is an MCP connector for this service present in THIS session at all", don't probe via `ToolSearch` with
+generic service-name keywords — it is a semantic/fuzzy search that can return zero or irrelevant hits for
+a perfectly legitimate query and pulls unrelated tool schemas into context as noise. Call
+`mcp__ccd_connectors__session_connectors_status` (no args) instead: it lists every connected MCP server
+directly, settling the "present or absent" half of this lesson's detection step in one cheap call, before
+spending any effort on the project-scope half.

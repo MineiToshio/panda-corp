@@ -5,7 +5,7 @@ domain: factory-engineering
 tags: [memory, orchestration, concurrency, librarian, shared-state, serialization]
 context: dispatching more than one librarian/memory-harvest agent in the same sweep when every harvest reads, deltas and commits the SAME shared files (factory/memory/INDEX.md, the inbox)
 trigger: use this when orchestrating multiple agents that each write to and commit the SAME shared store/file (not disjoint per-project files) in one sweep
-source: "panda-corp — pandacorp-memory-review sweep 2026-10-13, factory/memory/_inbox.md agent-inferred note"
+source: "panda-corp — pandacorp-memory-review sweep 2026-10-13, factory/memory/_inbox.md agent-inferred note. Corroborating instance: panda-corp 2026-11-03, a pandacorp-memory-review sweep with a harvest-orphan project (funko-tracker) plus the factory itself pending — the orchestrating session again chose to sequence the factory-target harvest and the project-target harvest one at a time ('en un paso separado') rather than dispatching both librarian agents in parallel, for the identical reason: both would commit LESSON-*.md/INDEX.md deltas to the SAME `factory/memory/` directory inside the one panda-corp repo."
 provenance: agent-inferred
 created: 2026-10-15
 status: candidate

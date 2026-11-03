@@ -1,5 +1,99 @@
 # Decision Log — Mission Control
 
+## 2026-11-03 · Preserve SSR identity while hydrating deferred shell slots
+
+Independent owner review rejected the neutral-pathname snapshot in 1e65ce45: it served Pandacorp
+on /board and /configuration and dropped the current-project attribute without JavaScript.
+This supersedes the neutral SSR decision below. AppShell now captures its initial pathname once
+and exposes it through InitialPathnameContext; deferred consumers use that pathname during
+hydration and the live pathname afterwards. SSR unit tests and JavaScript-disabled browser
+tests cover the missing invariant alongside the navigation regression. Updated the
+[FRD](frds/frd-19-app-shell/frd.md#deferred-shell-hydration-2026-11-03),
+[blueprint](frds/frd-19-app-shell/blueprint.md#deferred-route-identity-2026-11-03),
+[component inventory](design/components.md#shell-and-portfolio-close-out-2026-10-31) and
+[investigation](reviews/hydration-2026-11-03.md). The follow-up stays uncommitted for owner review.
+
+
+## 2026-11-03 · Hydrate deferred shell identity independently of navigation
+
+The root shell's hydration marker did not imply hydration of its streamed location or project
+rows. Navigation could change `usePathname` while React was still hydrating their original HTML:
+Inicio became Tablero, Portafolio became Configuración, and project `aria-current` became stale.
+Use a shared neutral server/initial-hydration pathname snapshot for those two deferred consumers,
+then read Next's live pathname. No warning suppression or styling/copy changes were added.
+The [FRD](frds/frd-19-app-shell/frd.md#deferred-shell-hydration-2026-11-03),
+[blueprint](frds/frd-19-app-shell/blueprint.md#deferred-route-identity-2026-11-03) and
+[component inventory](design/components.md#shell-and-portfolio-close-out-2026-10-31) describe the contract.
+[Evidence](reviews/hydration-2026-11-03.md) records the red/green browser regression and sandbox limits.
+
+
+## 2026-11-01 · Re-apply Next 16.4.3 after clearing it of the live refresh flake
+
+The red that withdrew the upgrade reproduced on 16.2.9 too: a remounted live subscriber took the next test frame as its baseline, so the spec never saw a refresh. With the helpers hardened (08fee772) the gate is green on both, so the upgrade and the js-yaml override return. This supersedes the withdrawal entry below; `pnpm audit --prod` drops from 37 to 4 advisories.
+
+## 2026-10-31 · Upgrade Next.js to 16.4.3 and pin patched js-yaml
+
+Pin `next` exactly at 16.4.3 (was `^16.2.7`, installed 16.2.9) and add the pnpm override
+`js-yaml@3` → 3.15.2 for gray-matter's transitive copy, per the exact-pin dependency rule.
+`pnpm audit --prod` drops from 37 findings (1 low, 12 moderate, 19 high, 5 critical) to 4
+(1 moderate, 3 high: browserslist, source-map-js, baseline-browser-mapping, outside this change).
+tsc, biome, knip, vitest (5562) , build and the persistent-navigation, root-history, client-refresh
+and observability Playwright suites (72) pass. Versions updated in [the platform architecture](product/architecture.md#pinned-versions)
+and [ADR-0001](adr/ADR-0001-stack.md). `AGENTS.md` carries the agent-rules block that Next writes.
+## 2026-10-31 · Retain the Next.js 16.4.3 upgrade candidate pending live-refresh diagnosis
+
+The isolated `fin/next-16-4-3` candidate passes TypeScript, production build, all 5,562 unit tests,
+and 72 navigation end-to-end tests. `pnpm audit --prod` falls from 37 findings to 4 after upgrading
+Next.js to 16.4.3 and removing the `js-yaml` 3.x override in favor of its patched 3.15.2 release.
+The full suite still has three live-refresh failures (`nav-client-refresh:28` and
+`navigation-root:84`) after roughly 300 tests share one `next dev` process. They do not reproduce
+with neighboring tests or under load. The cause is unconfirmed; server exhaustion or `EMFILE` are
+hypotheses only. No comparison with Next.js 16.2.9 was run. The home-LAN unauthenticated-access
+risk remains accepted by the owner's decision. The candidate commit is on `fin/next-16-4-3`;
+the queued investigation is recorded in the ignored project change inbox. No resolution of the
+three failures is claimed here.
+
+## 2026-10-31 · Resolve legacy-2: keep and repair FRD-25
+
+The owner delegated resolution and selected KEEP AND REPAIR, without reverting shared-feature code.
+Mark the original main-checkout decision block RESUELTO with that rationale. FRD-25 and its blueprint
+already describe the reviewed refresh/history repair; WO-25-001 is VERIFIED and needs no unblock.
+Record the disposition and the separately queued CONV-18 migration in [FRD-25](frds/frd-25-persistent-navigation/frd.md)
+and its [blueprint](frds/frd-25-persistent-navigation/blueprint.md). No new build verification or status transition is claimed. The real reader returned pending 1 → 0;
+[close-out evidence](reviews/documentary-closeout-2026-10-31/README.md) records the receipt and the
+stale status-cache limitation.
+
+## 2026-10-31 · Accept H-1 for unauthenticated home-LAN access
+
+The owner reconfirms LAN access without authentication because this is a domestic network with no
+confidential information. Allowed Hosts remain unchanged. H-1 is ACCEPTED, not repaired; the Host
+allowlist still does not authenticate peers. Update the [latest security review](reviews/security-2026-10-31.md).
+Internet exposure is outside this acceptance.
+
+## 2026-10-31 · Close fidelity as a report and accept content-dependent architecture height
+
+Do not wire L1–L4 into `verify.sh`: each of three calibration runs had 0/48 full-height L3 passes.
+The 1.5% first-viewport figure is diagnostic only. Keep the 33 double-state entries and 47 entries
+with replay errors as nonblocking report inventories; no passing coverage is asserted for them.
+Accept the recorded Architecture height of 7,210px versus 4,967px because real data differs.
+Update the [fidelity checklist](design/fidelity-checklist.md), [calibration report](design/fidelity-calibration-2026-10-31.md)
+and [Portfolio FDD](frds/frd-03-portfolio/fdd.md). The frozen targets remain reference measurements.
+
+## 2026-10-31 · Keep last-green stamping with its fenced producer
+
+`stamp-last-green` owns `last_green_sha` under a token/epoch lease; the next build updates it.
+Do not manually stamp a new pointer during this documentary close-out. Update [FRD-14](frds/frd-14-snapshot-and-feedback/frd.md)
+and its [blueprint](frds/frd-14-snapshot-and-feedback/blueprint.md).
+
+## 2026-10-31 · Route remaining navigation and factory defects to their queues
+
+Capture the English fixed-query-value migration as a standard-class project change. The provisional
+classifier returns critical rigor because it rebuilds verified work (S10); urgency remains standard.
+Capture factory defects separately: [BL-0299](../../factory/backlog/BL-0299-include-mobile-production-smoke.md)
+for excluded mobile production smoke and [BL-0300](../../factory/backlog/BL-0300-isolate-stop-gate-from-merge-queue-port.md)
+for Stop/queue resource contention. The port collision is observed; attribution to concurrent Stop
+verification is owner-reported and remains to be isolated. No plugin implementation is included.
+
 ## 2026-10-31 — read the fenced lease during Codex worker windows (BL-0301)
 
 Mission Control reads `renewed_at` and `ttl_seconds` from the build lease alongside status. Shared liveness derivation contributes that clock only until its own TTL expires; build signals, portfolio, Fragua and snapshot liveness therefore remain current while status projection pauses to protect worker ownership evidence. Client badge recomputation preserves the lease clock separately from legacy events so an expired short lease cannot inherit the ten-minute legacy TTL. Malformed lease data is explicit via the existing malformed-status result. The Manual explains the pause and bounded drain. Canonical runtime contract: [runtime-executors.md](../../plugin/docs/runtime-executors.md). No persisted logical schema changes.

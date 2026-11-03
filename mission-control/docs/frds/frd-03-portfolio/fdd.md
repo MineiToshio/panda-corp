@@ -126,3 +126,9 @@ accessible. The same layout applies on phones, as drawn by the prototype.
 `PortfolioOverview` scopes the approved comparison presentation to Lista: blue list heading, phase-toned project links, vertically stacked order count/bar and three-column phone metadata cards. The shared Table's other consumers are unchanged. Missing sources and malformed-file links keep their existing semantics.
 
 A measured zero pending-decision count remains visible as `0`; the absent-source marker is reserved for null/unknown counts. This semantic correction takes precedence over the historical prototype's zero-as-marker rendering (2026-10-31 review).
+
+## Real-data architecture height acceptance (2026-10-31)
+
+The owner accepts the recorded Portfolio Architecture height of 7,210px versus the synthetic
+prototype's 4,967px because the real dataset differs. This is a content-dependent height
+acceptance, not a new pixel tolerance or certification of the remaining fidelity inventory.
