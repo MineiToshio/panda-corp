@@ -1,10 +1,10 @@
 "use client";
-import { usePathname } from "next/navigation";
 import { Avatar } from "@/components/core/Avatar/Avatar";
 import { phasePresentation } from "@/components/core/Chip/vocabulary";
 import { t } from "@/lib/copy/copy";
 import { NavigationLink as Link } from "@/lib/navigation/NavigationLink";
 import { parseNavigationUrl } from "@/lib/navigation/urls";
+import { useHydratedPathname } from "@/lib/navigation/useHydratedPathname";
 import { projectDisplayName } from "@/lib/portfolio/displayName";
 import type { ProjectOverviewItem } from "@/lib/portfolio/overview";
 
@@ -14,7 +14,7 @@ export function ProjectNavItem({
   readonly project: ProjectOverviewItem;
 }): React.JSX.Element {
   const name = projectDisplayName(project.name);
-  const current = parseNavigationUrl(usePathname() ?? "").project === project.id;
+  const current = parseNavigationUrl(useHydratedPathname()).project === project.id;
   const { tone, labelKey } = phasePresentation(project.phase);
   const phase = t(labelKey);
   const { ordersTotal: total, ordersVerified: done } = project.counts;

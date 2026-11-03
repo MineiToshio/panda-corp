@@ -197,3 +197,21 @@ REQ-19-001..005 map to the components above; the 19 ACs of FRD-19 are owned once
 4 by WO-19-003); the five cross-FRD ACs hosted here are owned by WO-19-003; `dependsOn` is acyclic and
 names live work orders; same-wave artifacts are disjoint by design; the shell is a foundation WO; no
 open clarification marker remains.
+
+## Deferred route identity (2026-11-03)
+
+`LocationSlot` and `ProjectsSlot` stream beneath independent Suspense boundaries. A router
+transition can update `usePathname` before those islands hydrate, while their HTML still names
+the original route. `ShellLocation` and `ProjectNavItem` therefore share `useHydratedPathname`: an
+empty pathname in SSR and the hydration render (`useSyncExternalStore` server snapshot), followed
+by Next's live pathname after hydration. No pathname is copied into effect-managed state, and no
+hydration warning is suppressed. Existing `useUrlState` server seeds continue to protect project/tab
+selection. The localized brand is the initial location; project rows initially omit `aria-current`.
+
+The regression exercises Inicio → Tablero and workspace → Configuration, listening to both
+`pageerror` and console errors. It checks the destination title before asserting no hydration errors.
+Component hydration tests also exercise navigation into a project and verify its canonical name/tab.
+Sibling audit included the synchronous AppShell/Nav and the deferred ProjectNavItem; the latter
+exhibited the same race as an attribute mismatch and uses the same fix. Following LESSON-0185 and
+LESSON-0480, sandbox watcher failures were separated from browser hydration evidence.
+See [investigation evidence](../../reviews/hydration-2026-11-03.md).

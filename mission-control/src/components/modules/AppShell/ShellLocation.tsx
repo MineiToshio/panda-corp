@@ -1,8 +1,8 @@
 "use client";
-import { usePathname } from "next/navigation";
 import { navActive } from "@/components/modules/Nav/navActive";
 import { NAV_DESTINATIONS } from "@/lib/constants";
 import { type CopyKey, t } from "@/lib/copy/copy";
+import { useHydratedPathname } from "@/lib/navigation/useHydratedPathname";
 import { useUrlState } from "@/lib/navigation/useUrlState";
 import { projectDisplayName } from "@/lib/portfolio/displayName";
 
@@ -24,7 +24,7 @@ export function ShellLocation({
 }: {
   readonly projects: readonly { readonly id: string; readonly name: string }[] | null;
 }): React.JSX.Element {
-  const pathname = usePathname() ?? "";
+  const pathname = useHydratedPathname();
   const [projectId] = useUrlState("project", "");
   const [tab] = useUrlState("tab", "summary");
   const project = projects?.find((item) => item.id === projectId);

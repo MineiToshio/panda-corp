@@ -1,5 +1,18 @@
 # Decision Log — Mission Control
 
+## 2026-11-03 · Hydrate deferred shell identity independently of navigation
+
+The root shell's hydration marker did not imply hydration of its streamed location or project
+rows. Navigation could change `usePathname` while React was still hydrating their original HTML:
+Inicio became Tablero, Portafolio became Configuración, and project `aria-current` became stale.
+Use a shared neutral server/initial-hydration pathname snapshot for those two deferred consumers,
+then read Next's live pathname. No warning suppression or styling/copy changes were added.
+The [FRD](frds/frd-19-app-shell/frd.md#deferred-shell-hydration-2026-11-03),
+[blueprint](frds/frd-19-app-shell/blueprint.md#deferred-route-identity-2026-11-03) and
+[component inventory](design/components.md#shell-and-portfolio-close-out-2026-10-31) describe the contract.
+[Evidence](reviews/hydration-2026-11-03.md) records the red/green browser regression and sandbox limits.
+
+
 ## 2026-11-01 · Re-apply Next 16.4.3 after clearing it of the live refresh flake
 
 The red that withdrew the upgrade reproduced on 16.2.9 too: a remounted live subscriber took the next test frame as its baseline, so the spec never saw a refresh. With the helpers hardened (08fee772) the gate is green on both, so the upgrade and the js-yaml override return. This supersedes the withdrawal entry below; `pnpm audit --prod` drops from 37 to 4 advisories.

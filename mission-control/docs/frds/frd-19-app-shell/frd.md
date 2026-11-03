@@ -145,3 +145,12 @@ The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) superse
 WHEN the owner opens a nested project workspace, the system SHALL mark that project row current and show the canonical project name over its localized active tab in the phone top bar. WHEN the owner uses browser history, both identity and tab SHALL follow the URL.
 
 WHEN proposal sources contain partial read errors, the system SHALL render the shared resolver badgeCount for the available owner actions and SHALL preserve the errors on the Proposals surface.
+
+## Deferred shell hydration (2026-11-03)
+
+WHEN the owner navigates before an asynchronous shell slot hydrates, the system SHALL
+complete client-side navigation without hydration errors or stale current-project attributes.
+The deferred location SHALL render the localized brand during SSR and its first hydration,
+then derive the destination, project identity and tab from the current URL. A deferred project
+row SHALL acquire its current-page attribute after its own hydration. This applies to both themes
+and all responsive layouts; a hydrated shell ancestor does not certify its deferred descendants.
