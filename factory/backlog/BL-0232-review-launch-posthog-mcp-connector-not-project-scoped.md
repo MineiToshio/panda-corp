@@ -72,3 +72,15 @@ PostHog API key, SOPS+age-stored, read via REST) as the only one of the two opti
 exercised from an unattended run — option (b) (owner paste-back loop) cannot run unattended either. No new
 BL filed; no memory edit needed beyond this corroboration (LESSON-0286 already states the general
 mechanism). Still `status: open`.
+
+## Evidence update (2026-11-03, pandacorp-memory-review scheduled sweep)
+Sharpens Fix plan step 1's "no detection of connector absence" gap with a concrete mechanism: a
+2026-11-03 `pandacorp-review-launch` sweep tried `ToolSearch` with generic keywords ("posthog",
+"analytics insights query project") to check whether a PostHog MCP was connected at all — it returned
+zero/irrelevant hits and pulled unrelated tool schemas (Notion, DesignSync, rea) into context, wasting a
+call without answering the question. `mcp__ccd_connectors__session_connectors_status` (no args) answers
+it directly: it lists every MCP server connected in the current session in one call. Step 1's
+implementation should call this tool first to settle "no PostHog MCP connector this session at all" (vs.
+"connector present but wrong scope", vs. "connector correctly scoped") — not probe for the tool via
+`ToolSearch`. No new BL filed; generalizable technique captured as a corroborating instance in
+LESSON-0286. Still `status: open`.
