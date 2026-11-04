@@ -64,6 +64,7 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 | QUAL-11 | Migrations versioned, reversible, down tested | MUST | quality.md | FRD gate reviewer lens | manual |
 | QUAL-12 | TDD per work order (RED→GREEN→refactor) | MUST | quality.md | engine reads test results per WO | manual |
 | QUAL-13 | E2E hygiene: teardown cleanup, deterministic keys | SHOULD | quality.md | reviewer | manual |
+| QUAL-15 | Behavior on test-owned fixtures; no live-data count/content pins, production volume guards or change-detector tests (DR-144) | MUST | quality.md | reviewer rejection + advisory live-data-asserts scanner | wired |
 | QUAL-14 | Owner-attended live attempts: red-team the FULL prior-failure matrix + prove the rehearsal exercises the real boundary (≥1 non-mocked element, negative corpus RED) before consuming another | MUST | quality.md | NAMED pre-request step in the requesting flow + owner spot-check | manual |
 | DEBUG-1 | Reproduce/obtain the artifact first; establish the timeline (last-known-good, what changed, parallel sessions) | MUST | debugging.md | bug-skill repro capture + BL-item Root cause section | manual |
 | DEBUG-2 | Full data path read; suspects enumerated and discarded one-by-one with direct evidence — ALWAYS incl. parallel writers and the harness/environment itself | MUST | debugging.md | BL-item Root cause section + owner spot-check | manual |

@@ -44,6 +44,11 @@ for (const source of [reviewer, engine]) {
 	);
 	assert.match(source, /traceability/i, "the verdict must record traceability");
 }
+const qualityLens = reviewer.split("## 5 · Quality lens")[1]?.split("## 6 ·")[0];
+assert.ok(qualityLens, "reviewer quality lens must exist");
+for (const requirement of [/REJECT \(DR-144\)/, /counts or contents of live\/curated data/, /hard-coded data volumes/, /change-detector tests/, /LESSON-0569/]) {
+  assert.match(qualityLens, requirement, "reviewer quality lens must reject data pins and change-detector tests");
+}
 assert.match(engine, /function enforceWholeFrdTraceability/);
 assert.match(engine, /waivedFailure/);
 

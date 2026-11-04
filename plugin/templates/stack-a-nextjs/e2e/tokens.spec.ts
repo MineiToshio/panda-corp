@@ -23,7 +23,9 @@ import { BLESSED } from "./routes";
 const GROSS_HARDCODED_COLORS = 20;
 
 test("tokens harness present", () => {
-  expect(BLESSED.length).toBeGreaterThanOrEqual(0);
+  // biome-ignore lint/suspicious/noSkippedTests: explicit gate applicability (DR-144).
+  test.skip(BLESSED.length === 0, "No blessed surfaces yet; token checks begin after blessing.");
+  expect(BLESSED.length).toBeGreaterThan(0);
 });
 
 for (const s of notSkipped(BLESSED)) {

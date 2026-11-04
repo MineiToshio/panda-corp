@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { assertResponsive, reportBreakageOnly } from "./_responsive-helper";
 import { notSkipped } from "./_skip";
 import { MOBILE_WIDTH, TARGET_PLATFORM, TARGETS_MOBILE } from "./_target";
@@ -32,7 +32,9 @@ const DESKTOP_WIDTH = 1280;
 const GATED = notSkipped(BLESSED);
 
 test("responsive harness present", () => {
-  // Fail-closed sentinel: the harness is always present even before any surface is blessed.
+  // biome-ignore lint/suspicious/noSkippedTests: explicit gate applicability (DR-144).
+  test.skip(BLESSED.length === 0, "No blessed surfaces yet; responsive checks begin after blessing.");
+  expect(BLESSED.length).toBeGreaterThan(0);
 });
 
 if (TARGETS_MOBILE) {

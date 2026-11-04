@@ -8,14 +8,16 @@ import { VISUAL_BLESSED } from "./routes";
  * Visual-Fidelity Gate Layer A (DR-056): each blessed surface is diffed against its own blessed
  * baseline at ≥2 viewports (the playwright projects), fonts settled, animations off. VERBATIM stack
  * template (DR-059) — propagated by /pandacorp:architecture, conformance-checked by /pandacorp:upgrade.
- * Fail-closed; the sentinel keeps the suite non-empty while no surface is blessed yet.
+ * Fail-closed; the sentinel explicitly skips with a reason while no surface is blessed yet.
  * Layer B (the VLM mock-judge) is the reviewer's runtime/visual lens, not a script.
  *
  * Quarantine (BL-0011): a route whose work order is `BLOCKED: needs-owner` is held ASIDE via
  * `notSkipped` (engine-driven `PANDACORP_GATE_SKIP_ROUTES`, empty on a normal run — fail-closed).
  */
 test("visual harness present", () => {
-  expect(VISUAL_BLESSED.length).toBeGreaterThanOrEqual(0);
+  // biome-ignore lint/suspicious/noSkippedTests: explicit gate applicability (DR-144).
+  test.skip(VISUAL_BLESSED.length === 0, "No eligible surfaces declared yet; route checks begin when the manifest is populated.");
+  expect(VISUAL_BLESSED.length).toBeGreaterThan(0);
 });
 
 for (const s of notSkipped(VISUAL_BLESSED)) {

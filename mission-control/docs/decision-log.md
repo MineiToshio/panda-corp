@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-11-03 — Explain behavior-testing review (DR-144)
+
+**What:** the Manual's review guide now describes test-owned fixtures, real-file structural checks, reviewer rejection of data-volume pins/change-detector tests and the advisory scanner. Canonical rule: [quality.md](../../factory/standards/quality.md).
+
+**Why:** keep the operable Manual aligned with the owner-stated testing rule; a scanner warning or escape comment never waives semantic review.
+
 ## 2026-11-03 · Preserve SSR identity while hydrating deferred shell slots
 
 Independent owner review rejected the neutral-pathname snapshot in 1e65ce45: it served Pandacorp

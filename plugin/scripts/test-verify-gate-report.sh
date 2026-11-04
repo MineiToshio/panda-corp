@@ -5,7 +5,7 @@
 # RED (before WP-05): a red cheap sub-gate aborted the whole script at the FIRST failure (no way to
 # see two broken gates in one pass) and nothing ever wrote a machine-readable verdict — only human
 # stdout, which Mission Control (or any other reader) would have to scrape.
-# GREEN (proven here): `--report-all` makes the 9 cheap sub-gates accumulate every failure before
+# GREEN (proven here): `--report-all` makes the cheap sub-gates accumulate every failure before
 # aborting once; without the flag, behavior stays fail-fast (only the first offender runs); every
 # run — green or red, flagged or not — writes gate-report.json; a stale report from a prior run
 # never survives into the next one's verdict (LESSON-0155).
@@ -168,6 +168,13 @@ else
 fi
 rm -rf "$FX"
 
+# Gate inventory is configuration, not curated data: derive it from the registered contract.
+expected_count=$(python3 - "$VERIFY" <<'PYCOUNT'
+import re, sys
+source=open(sys.argv[1]).read()
+print(len(re.search(r'^KNOWN_GATES="([^"]+)"', source, re.M).group(1).split()))
+PYCOUNT
+)
 # --- Scenario (c): everything green -> green:true, duration_ms numeric on every subgate.
 FX=$(new_fixture)
 add_playwright_fixtures "$FX"
@@ -178,10 +185,10 @@ if [ "$rc" -eq 0 ] && [ -f "$rf" ]; then
   count=$(json_get "$rf" "len(d['subgates'])")
   numeric=$(json_get "$rf" "all(isinstance(s['duration_ms'], int) and s['duration_ms'] >= 0 for s in d['subgates'])")
   scope=$(json_get "$rf" "d['scope']")
-  if [ "$green" = "True" ] && [ "$numeric" = "True" ] && [ "$count" = "11" ] && [ "$scope" = "full" ]; then
+  if [ "$green" = "True" ] && [ "$numeric" = "True" ] && [ "$count" = "$expected_count" ] && [ "$scope" = "full" ]; then
     ok "(c) all-green: green:true, $count subgates, every duration_ms numeric, scope=full"
   else
-    bad "(c) all-green: expected green=True numeric=True count=11 scope=full — got green=$green numeric=$numeric count=$count scope=$scope" "$out"
+    bad "(c) all-green: expected green=True numeric=True count=$expected_count scope=full — got green=$green numeric=$numeric count=$count scope=$scope" "$out"
   fi
 else
   bad "(c) all-green: expected exit 0 + a written report (rc=$rc, report exists=$([ -f "$rf" ] && echo yes || echo no))" "$out"
@@ -281,7 +288,7 @@ rm -rf "$FX"
 # Written by the reviewer, not by WP-05's implementers.
 # ═══════════════════════════════════════════════════════════════════════════════════════════════
 
-# --- REV-A: the LAST of the 9 cheap gates (madge) is the ONLY red one, everything before it green.
+# --- REV-A: the LAST of the cheap gates (madge) is the ONLY red one, everything before it green.
 # The aggregate abort at the bottom of the cheap block must still exit non-zero (LESSON-0078: the
 # PIPESTATUS capture, not `$?` after the tee pipe) and must NOT let vitest/playwright run.
 FX=$(new_fixture)
@@ -293,13 +300,13 @@ if [ "$rc" -ne 0 ] && [ -f "$rf" ]; then
   count=$(json_get "$rf" "len(d['subgates'])")
   failed_names=$(json_get "$rf" "sorted(s['name'] for s in d['subgates'] if s['exit'] != 0)")
   ran_expensive=$(json_get "$rf" "any(s['name'] in ('vitest','playwright') for s in d['subgates'])")
-  if [ "$green" = "False" ] && [ "$count" = "9" ] && [ "$failed_names" = "['madge']" ] && [ "$ran_expensive" = "False" ]; then
-    ok "(REV-A) --report-all with only the 9th cheap gate red: exit=$rc, green:false, all 9 cheap gates reported, madge the only failure, no expensive layer run"
+  if [ "$green" = "False" ] && [ "$count" = "$((expected_count - 2))" ] && [ "$failed_names" = "['madge']" ] && [ "$ran_expensive" = "False" ]; then
+    ok "(REV-A) --report-all with only the last cheap gate red: exit=$rc, green:false, all cheap gates reported, madge the only failure, no expensive layer run"
   else
-    bad "(REV-A) expected green=False count=9 failed=['madge'] expensive=False — got green=$green count=$count failed=$failed_names expensive=$ran_expensive" "$out"
+    bad "(REV-A) expected green=False count=$((expected_count - 2)) failed=['madge'] expensive=False — got green=$green count=$count failed=$failed_names expensive=$ran_expensive" "$out"
   fi
 else
-  bad "(REV-A) a red 9th cheap gate must still exit non-zero with a written report (rc=$rc, report exists=$([ -f "$rf" ] && echo yes || echo no))" "$out"
+  bad "(REV-A) a red last cheap gate must still exit non-zero with a written report (rc=$rc, report exists=$([ -f "$rf" ] && echo yes || echo no))" "$out"
 fi
 rm -rf "$FX"
 
@@ -431,7 +438,7 @@ else
 fi
 rm -rf "$FX"
 
-# --- Scenario (h): WITHOUT the new flags nothing changes — all 11 sub-gates, scope=full, and the
+# --- Scenario (h): WITHOUT the new flags nothing changes — all all registered sub-gates, scope=full, and the
 # biome/vitest command lines are byte-for-byte the pre-WP-08 ones.
 FX=$(new_fixture)
 add_playwright_fixtures "$FX"
@@ -443,12 +450,12 @@ if [ "$rc" -eq 0 ] && [ -f "$rf" ] && [ -f "$ARGV" ]; then
   scope=$(json_get "$rf" "d['scope']")
   biome_line=$(grep '^pnpm biome' "$ARGV" || true)
   vitest_line=$(grep '^pnpm vitest' "$ARGV" || true)
-  if [ "$count" = "11" ] && [ "$scope" = "full" ] \
+  if [ "$count" = "$expected_count" ] && [ "$scope" = "full" ] \
      && [ "$biome_line" = "pnpm biome check . --error-on-warnings" ] \
      && [ "$vitest_line" = "pnpm vitest run --reporter=dot" ]; then
-    ok "(h) no new flags: 11 sub-gates, scope=full, biome/vitest invoked exactly as before WP-08"
+    ok "(h) no new flags: all registered sub-gates, scope=full, biome/vitest invoked exactly as before WP-08"
   else
-    bad "(h) no new flags: expected count=11 scope=full and the legacy command lines — got count=$count scope=$scope biome:[$biome_line] vitest:[$vitest_line]" "$out"
+    bad "(h) no new flags: expected count=$expected_count scope=full and the legacy command lines — got count=$count scope=$scope biome:[$biome_line] vitest:[$vitest_line]" "$out"
   fi
 else
   bad "(h) no new flags: expected exit 0 + a report + an argv log (rc=$rc)" "$out"

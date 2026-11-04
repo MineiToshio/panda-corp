@@ -30,6 +30,7 @@ source: Pandacorp standard — quality
 - Update tests when behavior changes — stale tests are worse than none.
 
 ## Test discipline
+- **DR-144:** assert behavior on test-owned fixtures; never pin exact counts/contents of live or curated catalogs, seeds, maps or generated files. Real-file reader tests prove structure (LESSON-0569), never volume. Prefer uniqueness, references, idempotency, rollback and preservation of persisted identities unless explicitly retired; production guards also protect contracts, never hard-coded volumes. Reject markup/style/copy change-detector tests: tests signal regressions. `live-data-asserts` warns heuristically; same-line `// live-data-ok: <reason>` documents a legitimate exception.
 - Test observable behavior through the public API, not implementation details — a pure refactor must not require touching the test.
 - Component tests query by accessible role/name (`getByRole`); `getByTestId` is a last resort; `container`/`querySelector` is banned. (E2E may use `data-testid`.)
 - Every test passes in isolation and in any order; no shared mutable state; reset mocks (`restoreMocks: true`); CI runs randomized order so coupling fails loudly.

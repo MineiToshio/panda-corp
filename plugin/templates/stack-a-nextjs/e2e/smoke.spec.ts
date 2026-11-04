@@ -6,14 +6,16 @@ import { BLESSED } from "./routes";
  * Preview Smoke Gate (DR-055): every blessed surface renders real content with no console
  * error / pageerror / non-2xx. VERBATIM stack template (DR-059) — propagated by /pandacorp:architecture
  * and conformance-checked by /pandacorp:upgrade so a project's gate can't silently fall behind.
- * Fail-closed: the harness is always present; the sentinel keeps the suite non-empty while no
+ * Fail-closed: the harness is always present; the sentinel explicitly skips with a reason while no
  * surface is blessed yet (a route becomes REAL once its FRD gate flips `blessed: true` in routes.ts).
  *
  * Quarantine (BL-0011): a route whose work order is `BLOCKED: needs-owner` is held ASIDE via
  * `notSkipped` (engine-driven `PANDACORP_GATE_SKIP_ROUTES`, empty on a normal run — fail-closed).
  */
 test("smoke harness present", () => {
-  expect(BLESSED.length).toBeGreaterThanOrEqual(0);
+  // biome-ignore lint/suspicious/noSkippedTests: explicit gate applicability (DR-144).
+  test.skip(BLESSED.length === 0, "No eligible surfaces declared yet; route checks begin when the manifest is populated.");
+  expect(BLESSED.length).toBeGreaterThan(0);
 });
 
 for (const s of notSkipped(BLESSED)) {

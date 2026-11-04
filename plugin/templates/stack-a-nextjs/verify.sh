@@ -124,7 +124,7 @@ fi
 
 # The canonical sub-gate names — the SAME strings the gate report's `name` field carries, so the
 # engine can feed a report's failing sub-gate straight back in as `--only=<name>`.
-KNOWN_GATES="structure-guard data-layer api-error-contract doc-lint residual-ambiguity biome tsc knip madge vitest playwright"
+KNOWN_GATES="live-data-asserts structure-guard data-layer api-error-contract doc-lint residual-ambiguity biome tsc knip madge vitest playwright"
 gate_selected() {
   if [ -z "$ONLY_GATES" ]; then return 0; fi
   case ",$ONLY_GATES," in
@@ -420,6 +420,58 @@ gate_structure_guard() {
   return 0
 }
 run_cheap_gate structure-guard pathlist gate_structure_guard
+
+# --- Behavior-test hygiene (DR-144): heuristic warning, semantic review blocks ---
+gate_live_data_asserts() {
+  # Keep failures local to this advisory scanner; other gates remain fail-closed.
+  if ! python3 - <<'PY'
+import fnmatch, os, re
+from pathlib import Path
+patterns = os.environ.get('PANDACORP_CURATED_DATA_GLOBS', 'docs/**/*.json,content/**,prisma/seed*,**/*frozen*.json,**/*snapshot*.json').split(',')
+excluded = {'node_modules', '.git', '.next', 'dist', 'coverage', '.pandacorp'}
+def incomplete(error):
+    print(f'WARNING live-data-asserts: analysis incomplete: {error}')
+
+for root, dirs, files in os.walk('.', onerror=incomplete):
+    dirs[:] = [d for d in dirs if d not in excluded]
+    for name in files:
+        if not re.search(r'\.(test|spec)\.[cm]?[jt]sx?$', name):
+            continue
+        path = Path(root) / name
+        if 'src/test/' in path.as_posix():
+            continue
+        try:
+            text = path.read_text(encoding='utf-8')
+        except (OSError, UnicodeError) as error:
+            incomplete(f'{path}: {error}')
+            continue
+        # Direct imports, require and readFile literals only; no claim of data-flow analysis.
+        reads = re.findall(r'''(?:\bfrom\s*|\bimport\s*|\b(?:require|readFileSync|readFile)\s*\(\s*)['"]([^'"\n]+)['"]''', text)
+        def curated(value):
+            value = re.sub(r'^(?:\.\.?/)+', '', value)
+            if value.startswith('src/test/'):
+                return False
+            return any(fnmatch.fnmatch(value, p.strip()) or fnmatch.fnmatch(value, p.strip().replace('**/', '')) for p in patterns if p.strip())
+        if not any(curated(value) for value in reads):
+            continue
+        for assertion in re.finditer(r'\bexpect\s*\([\s\S]*?;', text):
+            tail = text[assertion.end():].split('\n', 1)[0]
+            lines = assertion.group().splitlines()
+            if any(re.search(r'//\s*live-data-ok:\s*\S', line) for line in [*lines, tail]):
+                continue
+            # Ignore quoted strings/comments; numeric strings are not volume literals.
+            code = re.sub(r'''(['"`])(?:\\.|(?!\1)[\s\S])*?\1|//[^\n]*|/\*[\s\S]*?\*/''', '', assertion.group())
+            if any(int(n.replace('_', '')) >= 10 for n in re.findall(r'(?<![\w.])\d[\d_]*(?![\w.])', code)):
+                line = text.count('\n', 0, assertion.start()) + 1
+                print(f'{path}:{line}: WARNING live-data-asserts (DR-144): curated read + numeric assertion; use fixture/structural contracts or same-line // live-data-ok: <reason>')
+PY
+  then
+    echo 'WARNING live-data-asserts: analysis incomplete: internal scanner failure; semantic review required'
+  fi
+  return 0
+}
+run_cheap_gate live-data-asserts pathlist gate_live_data_asserts
+
 
 # --- Data-layer isolation (structure.md STRUCT-2) — DB access only in src/queries/ -------
 # The ORM client is created once (src/lib/prisma.ts) and consumed ONLY by the data layer.

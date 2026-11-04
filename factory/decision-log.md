@@ -1,5 +1,11 @@
 # Decision Log — Factory
 
+## 2026-11-03 — Behavior on owned fixtures (DR-144)
+
+**What:** [quality.md](standards/quality.md) and [DR-144](decisions/registry.yaml) prohibit curated-data pins, production volume guards and change-detector tests; real-file structural reader checks remain required. Catalog and injected rules updated.
+
+**Why:** owner-stated funko-tracker Bleach incident: 12 tests / 3 guards blocked a production merge >1h; deleting 14 change-detector tests saved only 0–5 s. Improve signal, not speed.
+
 ## 2026-10-31 — Full e2e passes run on a production build (DR-143 review)
 
 **What:** [DR-143](decisions/registry.yaml) now lets a project serve the full pass from one production build through `e2e/prod-server.mjs`, with a page-error sweep of every surface.

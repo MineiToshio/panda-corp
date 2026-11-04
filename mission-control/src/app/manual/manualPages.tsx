@@ -3140,6 +3140,14 @@ function WorkflowBuild(): React.JSX.Element {
         permite ignorar una contradicción en otra cláusula normativa del FRD aprobado.
       </Body>
 
+      <DocH title="Behavior tests protect contracts (DR-144)" />
+      <Body>
+        Tests use their own fixtures; real-file reader checks prove structure, never a fixed
+        catalog volume. The reviewer rejects live-data count/content pins, production volume
+        guards and markup/style/copy change-detector tests. The live-data-asserts scanner warns;
+        a justified live-data-ok comment documents a legitimate contract, not a review waiver.
+      </Body>
+
       <DocH title="Varios FRDs en revisión a la vez (desde 9.116.0)" />
       <Body>
         Desde la versión 9.116.0 el motor revisa por defecto hasta <Code>gateSlots</Code> FRDs a la

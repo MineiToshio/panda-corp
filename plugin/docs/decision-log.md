@@ -1,5 +1,13 @@
 # Decision log — Plugin pandacorp
 
+## v9.149.0 — 2026-11-03: behavior contracts, not data pins (DR-144)
+
+**What:** overlay 8.117.0 injects the behavior-testing rule, reviewer rejection and advisory `live-data-asserts` scanner (configurable paths, reasoned inline escapes). Browser sentinel templates now assert applicable manifests or explicitly skip with a reason, preserving route loops; the adjacent token sentinel is repaired too. Manual and prompt contract updated.
+
+**Review repairs:** scanner read/decode/internal failures now warn `analysis incomplete` without reddening normal or report-all runs; production without UI skips the page-error sweep. `tokens.spec.ts` is explicitly included in upgrade and STACK conformance lists. Manual updates are retained under AGENTS.md §Decision log (DR-046: hand-authored Guides/Concepts updated in the same change), reached through learn step 0.
+
+**Why:** canonical [quality standard](../../factory/standards/quality.md) records the owner-stated Bleach incident. Path/number heuristics cannot distinguish valid limits from volume pins, so automated detection warns and semantic review blocks. DR-059 compares canonical template bytes directly; no separate expected hashes are maintained.
+
 ## 2026-11-01 — retain the sync close-out liveness prose contract
 
 **What:** restore the explicit `running: true` and `supervisor_heartbeat` signals in [sync close-out](../skills/sync/SKILL.md), alongside `last_event_at`, while requiring all liveness reads through the shared lease-aware helper.
