@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0552, LESSON-0593, LESSON-0600]
+links: [LESSON-0552, LESSON-0593, LESSON-0600, LESSON-0617]
 ---
 
 **Situation:** funko-tracker tried using a Codex-driven AI image-generation worker to "restore"/clean up

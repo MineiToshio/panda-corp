@@ -13,7 +13,7 @@ promotion: none
 confidence: low
 times_applied: 0
 applied_in: []
-links: [LESSON-0424, LESSON-0451]
+links: [LESSON-0424, LESSON-0451, LESSON-0609]
 ---
 
 **Situation:** in funko-tracker, the owner reviewed and picked/accepted results from a search or sourcing

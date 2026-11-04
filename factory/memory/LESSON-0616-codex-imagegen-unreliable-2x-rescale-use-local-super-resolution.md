@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0552, LESSON-0601]
+links: [LESSON-0552, LESSON-0601, LESSON-0617]
 ---
 
 **Situation:** needed a faithful 2x rescale of a low-resolution (<800px) source photo. Reaching for

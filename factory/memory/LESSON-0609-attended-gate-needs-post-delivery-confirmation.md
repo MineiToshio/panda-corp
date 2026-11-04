@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0602]
 ---
 
 **Situation:** an attended gate's design requires the owner's approval MESSAGE to arrive after the

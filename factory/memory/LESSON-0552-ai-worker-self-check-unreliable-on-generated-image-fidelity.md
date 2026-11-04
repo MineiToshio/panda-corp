@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0069]
+links: [LESSON-0069, LESSON-0617]
 ---
 
 **Situation:** a real product photo was too soft/low-resolution for a catalog's display needs. An AI

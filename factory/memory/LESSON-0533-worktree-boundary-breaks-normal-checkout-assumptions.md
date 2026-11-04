@@ -9,11 +9,11 @@ source: "reflection pass, librarian review 2026-10-25, synthesizing LESSON-0111 
 provenance: agent-inferred
 created: 2026-10-25
 status: active   # cross-corroborated: panda-corp (LESSON-0111) + funko-tracker (LESSON-0478/0523/0524), 2 distinct projects
-promotion: none
+promotion: proposed   # 2026-11-04 (librarian review) — target: factory/standards/build-orchestration.md §2 "Bootstrap on entry" (the DR-096 worktree-isolation section), as the conceptual root-cause framing that precedes LESSON-0125's 10-facet operational checklist (already promotion:proposed to the same section): the three axes a worktree breaks "normal checkout" assumptions on (gitignored state physically absent, a bootstrapped file is a symlink not a real file, git-internal ops resolve to the COMMON .git dir). 2-project corroboration (panda-corp + funko-tracker), high confidence, active, zero contradicting evidence — the owner should decide whether to fold this and LESSON-0125 into one standard section or keep root-cause framing and operational checklist as two subsections.
 confidence: high
 times_applied: 1
 applied_in: [funko-tracker]
-links: [LESSON-0090, LESSON-0102, LESSON-0111, LESSON-0131, LESSON-0478, LESSON-0523, LESSON-0524]
+links: [LESSON-0090, LESSON-0102, LESSON-0111, LESSON-0125, LESSON-0131, LESSON-0478, LESSON-0523, LESSON-0524]
 ---
 
 **Situation:** four independent incidents across two projects (panda-corp, funko-tracker) each broke a
