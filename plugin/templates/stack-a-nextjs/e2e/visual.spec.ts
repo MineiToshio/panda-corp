@@ -16,7 +16,10 @@ import { VISUAL_BLESSED } from "./routes";
  */
 test("visual harness present", () => {
   // biome-ignore lint/suspicious/noSkippedTests: explicit gate applicability (DR-144).
-  test.skip(VISUAL_BLESSED.length === 0, "No eligible surfaces declared yet; route checks begin when the manifest is populated.");
+  test.skip(
+    VISUAL_BLESSED.length === 0,
+    "No eligible surfaces declared yet; route checks begin when the manifest is populated.",
+  );
   expect(VISUAL_BLESSED.length).toBeGreaterThan(0);
 });
 

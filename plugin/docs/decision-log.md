@@ -1,5 +1,11 @@
 # Decision log — Plugin pandacorp
 
+## v9.149.1 — 2026-11-04 (PATCH): make Stack A e2e conform to its own gate (BL-0302)
+
+**What:** overlay 8.117.1 formats the complete Stack A `e2e/` directory (including the prototype screenshot harness), splits token palette collection/sampling into small callbacks without changing the advisory threshold, ports `waitForHydrated` and its no-reload regression from funko-tracker, and excludes `.claude` from the advisory live-data scanner. Other stacks have neither this e2e harness nor this scanner; no cross-stack repair is needed.
+
+**Why:** the 8.117.0 upgrade exposed four template defects: formatter errors, excessive token callback complexity plus an optional-chain warning, a missing hydration export, and duplicate scanner warnings from nested worktrees. Byte conformance alone did not run the template's own Biome rules. The existing engine corpus now discovers [test-template-e2e-conformance.mjs](../scripts/test-template-e2e-conformance.mjs): it runs real Biome on every e2e file under the copied template config, checks hydration imports against exports, and proves both checks reject broken fixtures. Dependency and execution contract: [engine-tests.md](engine-tests.md). No rule, skill flow, or Manual instruction changes; existing generated Reference sources remain authoritative.
+
 ## v9.149.0 — 2026-11-03: behavior contracts, not data pins (DR-144)
 
 **What:** overlay 8.117.0 injects the behavior-testing rule, reviewer rejection and advisory `live-data-asserts` scanner (configurable paths, reasoned inline escapes). Browser sentinel templates now assert applicable manifests or explicitly skip with a reason, preserving route loops; the adjacent token sentinel is repaired too. Manual and prompt contract updated.

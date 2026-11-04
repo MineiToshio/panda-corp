@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 /**
  * Prototype screenshot harness (DR-091 fallback-#2, F5).
  *
@@ -19,15 +22,13 @@
  * --width/--height  Optional viewport (default 1280x900, the visual gate's desktop project).
  */
 import { chromium } from "@playwright/test";
-import { pathToFileURL } from "node:url";
-import path from "node:path";
-import fs from "node:fs";
 
 function parseArgs(argv) {
   const args = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a.startsWith("--")) args[a.slice(2)] = argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[++i] : "true";
+    if (a.startsWith("--"))
+      args[a.slice(2)] = argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[++i] : "true";
   }
   return args;
 }
@@ -44,9 +45,10 @@ if (!fs.existsSync(abs)) {
   process.exit(2);
 }
 const selector = args.selector && args.selector !== "true" ? args.selector : null;
-const out = args.out && args.out !== "true"
-  ? path.resolve(args.out)
-  : path.resolve(`${path.basename(abs).replace(/\.html?$/i, "")}.proto.png`);
+const out =
+  args.out && args.out !== "true"
+    ? path.resolve(args.out)
+    : path.resolve(`${path.basename(abs).replace(/\.html?$/i, "")}.proto.png`);
 const width = Number(args.width) || 1280;
 const height = Number(args.height) || 900;
 
@@ -62,7 +64,9 @@ try {
   } else {
     await page.screenshot({ path: out, fullPage: true });
   }
-  console.log(`screenshot-prototype: wrote ${out}${selector ? ` (shard ${selector})` : " (full page)"}`);
+  console.log(
+    `screenshot-prototype: wrote ${out}${selector ? ` (shard ${selector})` : " (full page)"}`,
+  );
 } finally {
   await browser.close();
 }

@@ -53,8 +53,16 @@ export async function gotoHydrated(
   path: string,
   options: GotoHydratedOptions = {},
 ): Promise<void> {
-  const { selector = "form", timeout = HYDRATION_TIMEOUT_MS, optional = false } = options;
   await page.goto(path, { waitUntil: "domcontentloaded" });
+  await waitForHydrated(page, options);
+}
+
+/** Waits on the current page after a product-driven navigation, without replacing that navigation. */
+export async function waitForHydrated(
+  page: Page,
+  options: GotoHydratedOptions = {},
+): Promise<void> {
+  const { selector = "form", timeout = HYDRATION_TIMEOUT_MS, optional = false } = options;
   await page.waitForFunction(() => document.readyState === "complete", undefined, { timeout });
   if (optional && (await page.locator(selector).count()) === 0) return;
   await expect(page.locator(selector).first()).toBeVisible({ timeout });

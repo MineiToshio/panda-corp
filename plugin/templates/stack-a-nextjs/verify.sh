@@ -428,7 +428,7 @@ gate_live_data_asserts() {
 import fnmatch, os, re
 from pathlib import Path
 patterns = os.environ.get('PANDACORP_CURATED_DATA_GLOBS', 'docs/**/*.json,content/**,prisma/seed*,**/*frozen*.json,**/*snapshot*.json').split(',')
-excluded = {'node_modules', '.git', '.next', 'dist', 'coverage', '.pandacorp'}
+excluded = {'node_modules', '.git', '.next', 'dist', 'coverage', '.pandacorp', '.claude'}
 def incomplete(error):
     print(f'WARNING live-data-asserts: analysis incomplete: {error}')
 

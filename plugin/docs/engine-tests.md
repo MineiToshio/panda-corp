@@ -52,3 +52,17 @@ those checks away or declare the complete runner green. The projection regenerat
 checks can additionally be run in a disposable copy with writable `.codex`, using
 the same committed inputs and real CLI. Ubuntu execution remains required to prove
 the job's dependency installation; macOS results alone cannot certify it.
+
+## Stack A template conformance
+
+`test-template-e2e-conformance.mjs` is auto-discovered by the same runner. It copies
+Stack A's `biome.json` and complete `e2e/` into a disposable Git repository (with
+an empty ignore file, so no factory ignore can hide template files), then runs
+`biome check e2e --error-on-warnings`. It also checks named hydration imports,
+including aliases, against the helper's exported functions. Missing-export and
+formatting negative controls prove both checks fail on regressions.
+
+The Biome binary comes from the existing Mission Control dependency installation;
+`PANDACORP_TEMPLATE_DEPS_DIR` may point to another installed project's directory
+for local verification. Missing Biome fails the test. No install or dependency
+change is needed in CI.

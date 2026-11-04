@@ -109,7 +109,6 @@ async function detectOverflow(page: Page): Promise<{ overflowing: string[]; clip
   );
 }
 
-
 /** Re-measures targets axe flagged only because they straddle an obstruction at the current scroll. */
 async function undersizedAfterScroll(
   page: Page,
@@ -167,7 +166,6 @@ async function detectOcclusion(page: Page): Promise<string | null> {
     return `${offender.tagName.toLowerCase()} (fixed, height ${Math.round(box.height)}px) occludes the top of <main> (scroll-margin-top ${scrollMarginTop}px)`;
   });
 }
-
 
 /**
  * Asserts that `url` is responsive-correct at the target viewport — BOTH tiers, BLOCKING. Throws

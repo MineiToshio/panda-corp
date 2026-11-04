@@ -14,7 +14,10 @@ import { BLESSED } from "./routes";
  */
 test("smoke harness present", () => {
   // biome-ignore lint/suspicious/noSkippedTests: explicit gate applicability (DR-144).
-  test.skip(BLESSED.length === 0, "No eligible surfaces declared yet; route checks begin when the manifest is populated.");
+  test.skip(
+    BLESSED.length === 0,
+    "No eligible surfaces declared yet; route checks begin when the manifest is populated.",
+  );
   expect(BLESSED.length).toBeGreaterThan(0);
 });
 

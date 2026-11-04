@@ -41,41 +41,53 @@ for (const s of notSkipped(BLESSED)) {
       const TRANSPARENT = new Set(["rgba(0, 0, 0, 0)", "transparent", "rgba(0,0,0,0)"]);
       // Build the allowed palette: resolve every :root custom property as BOTH a color and a
       // font-family via a probe element (the browser normalizes var() → computed rgb / stack).
-      const rootStyles = getComputedStyle(document.documentElement);
-      const probe = document.createElement("span");
-      probe.style.position = "absolute";
-      probe.style.opacity = "0";
-      probe.style.pointerEvents = "none";
-      document.body.appendChild(probe);
-      const allowedColors = new Set<string>();
-      const allowedFonts = new Set<string>();
-      for (let i = 0; i < rootStyles.length; i++) {
-        const prop = rootStyles[i];
-        if (!prop || !prop.startsWith("--")) continue;
-        probe.style.color = "";
-        probe.style.color = `var(${prop})`;
-        const c = getComputedStyle(probe).color;
-        if (c && !TRANSPARENT.has(c)) allowedColors.add(c);
-        probe.style.fontFamily = "";
-        probe.style.fontFamily = `var(${prop})`;
-        const f = getComputedStyle(probe).fontFamily;
-        if (f) allowedFonts.add(f);
+      function collectPalette() {
+        const rootStyles = getComputedStyle(document.documentElement);
+        const probe = document.createElement("span");
+        probe.style.position = "absolute";
+        probe.style.opacity = "0";
+        probe.style.pointerEvents = "none";
+        document.body.appendChild(probe);
+        const allowedColors = new Set<string>();
+        const allowedFonts = new Set<string>();
+        Array.from(rootStyles).forEach((prop) => {
+          if (!prop?.startsWith("--")) return;
+          probe.style.color = "";
+          probe.style.color = `var(${prop})`;
+          const c = getComputedStyle(probe).color;
+          if (c && !TRANSPARENT.has(c)) allowedColors.add(c);
+          probe.style.fontFamily = "";
+          probe.style.fontFamily = `var(${prop})`;
+          const f = getComputedStyle(probe).fontFamily;
+          if (f) allowedFonts.add(f);
+        });
+        probe.remove();
+        return { allowedColors, allowedFonts };
       }
-      probe.remove();
 
-      // Sample the rendered tree (bounded) and collect offenders.
-      const els = Array.from(document.querySelectorAll("body *")).slice(0, 600);
-      const colorOffenders = new Set<string>();
-      const fontOffenders = new Set<string>();
-      for (const el of els) {
-        const cs = getComputedStyle(el as Element);
-        for (const v of [cs.color, cs.backgroundColor]) {
-          if (!v || TRANSPARENT.has(v)) continue;
-          if (!allowedColors.has(v)) colorOffenders.add(v);
-        }
-        const ff = cs.fontFamily;
-        if (ff && !allowedFonts.has(ff)) fontOffenders.add(ff);
+      function collectOffenders(
+        els: Element[],
+        allowedColors: Set<string>,
+        allowedFonts: Set<string>,
+      ) {
+        // Sample the rendered tree (bounded) and collect offenders.
+        const colorOffenders = new Set<string>();
+        const fontOffenders = new Set<string>();
+        els.forEach((el) => {
+          const cs = getComputedStyle(el as Element);
+          [cs.color, cs.backgroundColor].forEach((v) => {
+            if (!v || TRANSPARENT.has(v)) return;
+            if (!allowedColors.has(v)) colorOffenders.add(v);
+          });
+          const ff = cs.fontFamily;
+          if (ff && !allowedFonts.has(ff)) fontOffenders.add(ff);
+        });
+        return { colorOffenders, fontOffenders };
       }
+
+      const { allowedColors, allowedFonts } = collectPalette();
+      const els = Array.from(document.querySelectorAll("body *")).slice(0, 600);
+      const { colorOffenders, fontOffenders } = collectOffenders(els, allowedColors, allowedFonts);
       return {
         allowed: allowedColors.size,
         colorOffenders: [...colorOffenders],
