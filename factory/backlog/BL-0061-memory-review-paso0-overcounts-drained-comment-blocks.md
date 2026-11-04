@@ -418,6 +418,18 @@ itself, not the `-->` boundary token this item's earlier annotations covered) �
 LESSON-0008 per the same precedent above, still the same project/routine, no new lesson warranted. No new
 backlog item. Source: factory/memory/_inbox.md agent-inferred note (2026-10-27 harvest PASO 0).
 
+## Corroborating occurrence (2026-11-04) — the tag-anchored regex still undercounts; the marker-anchor technique (2026-10-25) remains the working approach
+
+A further live PASO 0 run confirms two already-established facts with no new design information: the
+tag-anchored regex (`^(gotcha|gap|pattern|lesson|verdict|nota|note)\s*·`, 2026-08-11) still undercounts to
+0 on real files, because live notes are markdown bullets (`- gap · ...`), not lines starting directly with
+the tag — the SAME false-ZERO failure mode the 2026-09-13/10-14/10-21 annotations already proved for other
+bullet shapes, now reproduced again. The technique that worked this sweep was exactly the 2026-10-25
+marker-anchor approach: find each file's LAST `<!-- No live notes pending as of ... -->` (or `<!-- Drained
+... -->`) marker and read/count only the lines after it. No new backlog item; same item, same scope. Source:
+factory/memory/_inbox.md agent-inferred note (2026-11-04 pandacorp-memory-review sweep, harvested
+2026-11-04 during the funko-tracker harvest pass).
+
 ## Note (annotated 2026-10-28) — when the marker is ABSENT entirely, an empty `$LAST` silently makes `tail -n +$((LAST+1))` print the WHOLE file instead of signaling "zero pending"
 
 A further distinct trap in the 2026-10-25 marker-anchor formula's own shell implementation
