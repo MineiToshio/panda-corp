@@ -3,9 +3,10 @@ id: BL-0302
 type: bug
 area: templates
 title: "Make Stack A e2e pass its own template gate"
-status: doing
+status: done
 severity: p1
 opened: 2026-11-04
+closed: 2026-11-04
 source: "Owner-reported funko-tracker upgrade to overlay 8.117.0"
 links: [DR-059, DR-103]
 ---
@@ -45,3 +46,12 @@ The required commit is also blocked: Git cannot create the common-repository
 `index.lock` outside this worktree's writable boundary. Keep this item `doing`
 until the owner can commit the verified repair in an environment allowing Git
 metadata writes. No push or plugin-cache update was attempted.
+
+## Closed — 2026-11-04 (pandacorp-memory-review sweep, status-sync correction)
+
+The verified repair above landed on `main` as commit `485e96b8` ("fix(templates): make
+stack-a e2e files pass the template biome and export waitForHydrated"), matching this
+item's "Done when" criteria exactly (overlay 8.117.1, plugin 9.149.1,
+`plugin/docs/decision-log.md` v9.149.1 entry). The commit simply never flipped this
+file's `status` from `doing` to `done`. Flagged by the funko-tracker harvest this sweep
+(CONV-13 evidence check); corrected here as safe backlog hygiene, not a new fix.
