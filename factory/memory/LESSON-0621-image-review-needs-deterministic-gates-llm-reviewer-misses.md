@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0335, LESSON-0607, LESSON-0552]
+links: [LESSON-0335, LESSON-0607, LESSON-0552, LESSON-0624]
 ---
 
 **Situation:** an image-review pipeline for a product catalog relied on an LLM (vision-model) reviewer to

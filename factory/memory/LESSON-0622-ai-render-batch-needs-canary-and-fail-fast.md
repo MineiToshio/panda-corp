@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0092, LESSON-0260]
+links: [LESSON-0092, LESSON-0260, LESSON-0624]
 ---
 
 **Situation:** a 117-job AI render batch was launched directly at full scale, with no small-scale canary

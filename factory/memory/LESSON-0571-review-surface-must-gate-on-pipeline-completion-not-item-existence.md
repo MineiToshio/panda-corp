@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0326]
+links: [LESSON-0326, LESSON-0624]
 ---
 
 **Situation:** funko-tracker's final review screen showed an "all pieces" section mixing unedited
