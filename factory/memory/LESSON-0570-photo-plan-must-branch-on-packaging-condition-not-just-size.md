@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0425, LESSON-0304, LESSON-0329]
+links: [LESSON-0425, LESSON-0304, LESSON-0329, LESSON-0617]
 ---
 
 **Situation:** a photo-sourcing plan for packaged collectibles (funko-tracker Funko Pop figures)
@@ -32,3 +32,14 @@ good, make the condition branch (boxed artwork vs loose photography) an explicit
 size/resolution check, and gate the AI-render path for boxed items behind an explicit owner yes/no —
 don't let a resolution-only check imply coverage of both pipelines. Name this branch explicitly in the
 plan/skill step that sources the image, not as an implicit assumption.
+
+**Corroborating mechanism (2026-11-05, agent-inferred, funko-tracker):** a generative image worker
+(Codex imagegen) consistently REFUSED loose small-figure render jobs (Bitty Pop, Minis, Mystery Minis,
+soda cans) when the reference material didn't show the whole figure — 0/8 across three separate
+canaries — while the SAME worker succeeded reliably on box renders. This is independent evidence for
+why the condition branch above matters: it is not just that loose items need different tooling by
+policy, but that the AI-render path for the boxed branch and real-photo-sourcing for the loose branch
+are not interchangeable fallbacks — the generative path structurally fails on small loose figures with
+incomplete references (consistent with LESSON-0617's "generative image tools are unreliable for
+faithful transforms" finding). Route small loose figures to real-photo sourcing or native
+acceptance; never retry them through AI generation expecting a different outcome.
