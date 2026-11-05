@@ -337,8 +337,8 @@ learn it — that is why `needs-owner` above stays a description, not a token.
    close-out actually did it, and to say so if it did not.
 5. **DR-141 batch landing:** if several finished, independently verified branches are waiting, follow the project guide’s batch procedure: one integration branch, one combined full queue gate; never invoke the queue per source. Existing production approval still covers the selected batch. The following single-branch instructions apply when only one finished change is waiting. **Land it.** A product project lands through its queue: `bash .pandacorp/merge-queue.sh`. In a **launched** project (`phase: release`, external) `main` is production (DR-138): the queue rebases + gates the branch and hands back with **exit 21**; tell the owner the change is ready on its branch (offer `git push -u origin <branch>` for a Vercel preview) and land it only when they explicitly order it, with `PANDACORP_OWNER_RELEASE_OK=1 bash .pandacorp/merge-queue.sh` (ff-merge + push). Exit 21 is not a failure. The
    factory repo and Mission Control have no merge queue: merge the branch back to `main`
-   directly (solo operator, constitution §11). Then `ExitWorktree(action: remove)`, falling back
-   to `git worktree remove` if the tool no-ops. If the landing hands back (rebase conflict, red
+   directly (solo operator, constitution §11). Then restore the actual session cwd without removal and run
+   the DR-145 session teardown; preserve and report any kept resource. If the landing hands back (rebase conflict, red
    integration gate, busy main), say so in chat immediately per DR-099: the work is on its
    branch, nothing is lost, and here is what is needed.
 6. **One closing line to the owner**, Spanish, for example:

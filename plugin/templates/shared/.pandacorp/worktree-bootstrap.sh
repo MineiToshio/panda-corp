@@ -9,6 +9,10 @@
 set -euo pipefail
 
 WORKTREE="$(git rev-parse --show-toplevel)"
+# DR-145: creator/coordinator registers ownership before workers or dependency installation.
+if [ -n "${PANDACORP_CLEANUP_SESSION:-}" ]; then
+  bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/session-cleanup.sh" register --session "$PANDACORP_CLEANUP_SESSION" --worktree "$WORKTREE" || exit 3
+fi
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 COMMON_DIR="$(cd "$(git rev-parse --git-common-dir)" && pwd)"
 MAIN_WT="$(dirname "$COMMON_DIR")"                       # the .git's parent = the main checkout
@@ -77,6 +81,9 @@ if [ -f "$MAIN_WT/.claude/launch.json" ] && command -v jq >/dev/null 2>&1; then
   # or merge-queue.sh's clean-tree check refuses to land every bootstrapped branch (BL-0288).
   if git -C "$WORKTREE" ls-files --error-unmatch .claude/launch.json >/dev/null 2>&1; then
     git -C "$WORKTREE" update-index --skip-worktree .claude/launch.json 2>/dev/null || true
+  fi
+  if [ -n "${PANDACORP_CLEANUP_SESSION:-}" ]; then
+    bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/session-cleanup.sh" register --session "$PANDACORP_CLEANUP_SESSION" --worktree "$WORKTREE" --generated-file .claude/launch.json
   fi
 fi
 
@@ -162,6 +169,11 @@ if [ -n "$APP_DIR" ] && { grep -q '"name": *"pandacorp"' "$WORKTREE/package.json
    || [ -d "$WORKTREE/../factory" ] || [ -d "$WORKTREE/factory" ]; }; then
   echo "  • PANDACORP_FACTORY_ROOT → $WORKTREE ($APP_DIR/.env.local, gitignored, BL-0160: this worktree's own nested factory)"
   echo "PANDACORP_FACTORY_ROOT=$WORKTREE" > "$APP_DIR/.env.local"
+  if [ -n "${PANDACORP_CLEANUP_SESSION:-}" ]; then
+    cleanup_env_rel="${APP_DIR#"$WORKTREE"/}/.env.local"
+    [ "$APP_DIR" != "$WORKTREE" ] || cleanup_env_rel=".env.local"
+    bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/session-cleanup.sh" register --session "$PANDACORP_CLEANUP_SESSION" --worktree "$WORKTREE" --generated-file "$cleanup_env_rel"
+  fi
 fi
 
 # ── 4. Per-project hook — stateful projects clone their DB here (CREATE DATABASE ... TEMPLATE, §4) ───

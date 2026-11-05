@@ -34,7 +34,7 @@ Changes to this project go through the `/pandacorp:*` skills, not ad-hoc free-ch
 
 Auto-invoking covers **entering** the skill only. The skill's internal human-gates stay intact: deploying to production, spending money, deleting data or external communications still stop and ask for the owner's OK.
 
-**Parallel sessions — self-isolate in a worktree (DR-096).** The owner often runs **several conversations at once**, by hand, to advance things in parallel. Because the gate is whole-program (`tsc`/`knip`/visual read the entire tree), one session's in-flight WIP would RED another's gate. So a session **about to make a non-trivial code change** (the same frontier as the write-gate above — micro-edits stay in-tree) **works in its own git worktree**: it calls `EnterWorktree` itself the moment it goes from planning to executing (isolate *first*, then edit), runs `bash .pandacorp/worktree-bootstrap.sh` to reconstitute deps/launch.json/secrets, and when its work is green lands it (alone if it is the only finished change; otherwise in the DR-141 batch below) with `bash .pandacorp/merge-queue.sh` (serialized rebase → integration gate → ff-merge; the worktree is KEPT — deleting the directory the session stands in dangles its cwd), **then calls `ExitWorktree(action: remove)`** to clean it AND restore the session cwd (outside `git worktree remove` as fallback if the tool no-ops). The owner just sees "done and merged"; no worktree to manage by hand. **Never fix or mask another session's work:** if a gate RED is in files this session did not change (a parallel session's WIP — check `git status`), report it and stop — do NOT edit it or run `--update-snapshots` to force green. Canonical: `factory/standards/build-orchestration.md` ("Parallel manual sessions", DR-096).
+**Parallel sessions — self-isolate in a worktree (DR-096).** The owner often runs **several conversations at once**, by hand, to advance things in parallel. Because the gate is whole-program (`tsc`/`knip`/visual read the entire tree), one session's in-flight WIP would RED another's gate. So a session **about to make a non-trivial code change** (the same frontier as the write-gate above — micro-edits stay in-tree) **works in its own git worktree**: it calls `EnterWorktree` itself the moment it goes from planning to executing (isolate *first*, then edit), runs `bash .pandacorp/worktree-bootstrap.sh` to reconstitute deps/launch.json/secrets, and when its work is green lands it (alone if it is the only finished change; otherwise in the DR-141 batch below) with `bash .pandacorp/merge-queue.sh` (serialized rebase → integration gate → ff-merge; the worktree is KEPT — deleting the directory the session stands in dangles its cwd), **then restores the actual session cwd without removal and runs the DR-145 session teardown below**. The owner just sees "done and merged"; no worktree to manage by hand. **Never fix or mask another session's work:** if a gate RED is in files this session did not change (a parallel session's WIP — check `git status`), report it and stop — do NOT edit it or run `--update-snapshots` to force green. Canonical: `factory/standards/build-orchestration.md` ("Parallel manual sessions", DR-096).
 
 **Direct changes keep the work-order state honest (DR-097).** When you implement a change yourself — a fix or feature you build directly, in OR out of `/implement` — YOU own moving its work order's `implementation_status` to match reality. The board derives the Kanban column from that field, so a stale state shows finished work in the wrong column. While building → `IN_PROGRESS`; the moment the **green gate** (`.pandacorp/verify.sh` — the objective scripts/CI, NOT your own eyeballing) passes clean → `VERIFIED` (the board shows it as **Done**). **Never leave finished, gate-green work stranded at `IN_REVIEW`:** `IN_REVIEW` means *built, awaiting a gate that hasn't run yet* — once the gate is green there is nothing left to wait for. This is consistent with "an agent never checks off its own work" — the GATE is the check; you record its verdict, you don't self-assess. Canonical: `factory/decisions/registry.yaml` (DR-097).
 
@@ -88,3 +88,29 @@ Docs are **feature-centric** (DR-049): a thin **product layer** under `docs/prod
 ## Current phase
 
 See `.pandacorp/status.yaml`. Pipeline: product → design → architecture → implementation → release (launched/terminal; DR-085 folded the old `operation` phase into `release`).
+
+
+## Implementation resource lifecycle (DR-145, BUILD-5)
+
+The coordinator creates an owned cleanup session before dispatch and registers each newly
+created worktree. Follow the installed worktrees skill §Implementation teardown. The thin
+`.pandacorp/session-cleanup.sh` transport invokes the active plugin (`CLAUDE_PLUGIN_ROOT`,
+or set `PANDACORP_PLUGIN_ROOT` under Codex); it never forks the safety algorithm.
+
+For one shell-driven implementation command:
+`bash .pandacorp/session-cleanup.sh run --repo <main-checkout> -- <command> <args...>`.
+The wrapper awaits the command and runs cleanup in finally. It exports a session TMPDIR and
+private npm cache; `worktree-bootstrap.sh` auto-registers worktrees when that session env is
+present. Do not wrap a launcher that just prints a Workflow call. For tool-driven sessions,
+use create/register/finish explicitly as the skill prescribes, including on partial close-out.
+
+After merge, stop/join workers/servers and restore the **actual session cwd** outside the
+worktree WITHOUT deleting it. Then run `bash .pandacorp/session-cleanup.sh finish --session
+<root>` and await final exit, polling a live tool handle for long deletions. This is standing
+authorization, no new owner prompt. The engine removes only owned, merged, clean worktrees
+with matching identities, no private/unknown ignored files, owner state, locks, active cwd,
+deployment or live build; generated dependencies/build caches disappear with the worktree.
+Keep branch refs and all unsafe resources; report kept/failed paths and retained receipt.
+Never force-remove, erase index.lock, sweep other sessions/shared caches or alter sandbox
+permissions. If the coordinator cannot write the shared .git/parents, report that capability
+blocker and preserve work. The rule cannot override native runtime approval or filesystem denial.

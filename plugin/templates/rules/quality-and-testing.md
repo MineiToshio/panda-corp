@@ -62,3 +62,17 @@ source: Pandacorp standard — quality
 - **Production gates unchanged:** explicit owner order covering the selected batch before production merge/push; `PANDACORP_OWNER_RELEASE_OK=1` only for that landing (DR-138). No approval inferred from grouping work. A later authorized retry after exit 21 or an advanced main keeps the queue’s existing full recheck; record it separately, never per source.
 - Preserve source branches and the source-to-integration mapping; squashed sources are not ancestors of main. Do not run the queue again on each source after batch success, or force-delete source branches based on that success.
 - **Verification (landing-session checklist, review-only):** source SHA/green evidence and combined commits are present; queue logs show exactly one full gate before repairs, every later pass linked to an observed red/scoped fix or the existing queue’s exit-21/advanced-main safety retry. A per-source full integration-gate loop fails the checklist. Canonical: `build-orchestration.md`, Parallel manual sessions §5; executable rehearsal: factory `test-batch-integration.sh` (not proof of live-session compliance).
+
+
+## Session teardown (DR-145, BUILD-5)
+- MUST register newly created own worktrees before dispatch, following the installed worktrees
+  skill §Implementation teardown; at close-out stop writers, restore the actual session cwd
+  without removal, run session-cleanup finish and await its final exit/JSON.
+- Eligible own resources are permanently deleted after live merged-ancestor + clean proof;
+  no new owner confirmation. Unknown ignored/private files, owner state, locks, active cwd,
+  deployments, live builds, nested worktrees and other sessions remain protected.
+- Keep branch refs. Never force-remove, erase locks, sweep shared caches/arbitrary /tmp,
+  change sandbox privileges or call a yielded/timed-out remover done. A blocked coordinator
+  reports the capability error and retained receipt/paths; sandbox workers hand off git writes.
+- Deterministic verifier: plugin/scripts/test-session-cleanup.mjs plus the independent
+  adversarial suite; the coordinator's create/register/finish call is a close-out obligation.

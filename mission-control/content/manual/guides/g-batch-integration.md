@@ -27,3 +27,27 @@ after exit 21 or an advanced main. The standards and decision-rule
 Reference catalogs expose the canonical BUILD-4 / DR-141 contract automatically.
 Existing projects receive the guide and always-applicable quality rule through `/pandacorp:upgrade`
 (overlay 8.114.0); no sibling project is modified by this factory change.
+
+
+## Close the session resources (DR-145)
+
+The creating coordinator records each new worktree in its session cleanup receipt before
+workers start. After merge, stop owned writers, restore the actual session cwd without
+removing the directory, then run `.pandacorp/session-cleanup.sh finish --session <root>`.
+Wait for the final JSON and exit; a tool yield is not completion. Eligible own merged, clean
+worktrees disappear permanently, including generated dependencies/build caches and owned
+temporary artifacts, without another owner prompt. Squashed source branches still fail the
+ancestor check and remain listed; private/unknown ignored files, locks, deployments, owner
+state, active processes and other sessions are preserved. Never force-remove or erase locks.
+
+For a shell-driven implementation the helper's `run --repo <repo> -- <command>` uses finally;
+for tool-driven workflows use the explicit create/register/finish protocol in the worktrees
+skill. Sandbox workers return changes; a coordinator with actual shared-git/filesystem write
+access commits, merges and cleans. A permission denial is reported as a capability blocker,
+not resolved by another cleanup authorization. Only the exact cleanup helper is preauthorized;
+raw destructive commands retain their deny rules. Historical unregistered tmp files are left.
+
+Plugin 9.150.0 / overlay 8.118.0 delivers the helper and bootstrap registration on normal
+safe-point upgrades. This source change does not update other live project checkouts or the
+installed plugin. The executable verifier is the real-Git session cleanup regression and
+independent adversarial suites, included in the factory engine corpus.

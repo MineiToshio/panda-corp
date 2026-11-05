@@ -9,6 +9,19 @@ description: Starts and runs the build. Codex and Claude Code have full read/wri
 
 **Service readiness (DR-134).** Read `factory/standards/external-services.md`, public `factory/services/catalog.yaml`, private account directory and project `.pandacorp/accounts/services.yaml` before service work. Use only approved current scope and recorded account/resource IDs; reconcile before retry, verify actual account/budget/access, and keep admin tokens out of runtime. New providers return to the minimal architecture decision and gain a recipe/associations. Never create optional keys/SDKs or migrate resources by default. Recheck the finalized variable contract and `.pandacorp/comms/entrega-entornos.md` against actual consumers and targets, following architecture `references/environment-delivery.md` for missing-value delivery. Preserve existing values. Use exactly three root dotenv files: tracked guide `.env.example`, protected development `.env.local`, protected production handoff `.env.production`. Group by service/destination; local-only entries go last in guide/dev, never production. Different privileges use aliases and explicit target exports, never extra dotenv files or whole-bundle uploads. Verify framework precedence and synthetic isolation before execution; unresolved selection/build bindings remain pending. The handoff is not host configuration. Configured/planned is not runtime-verified or production-ready. Missing API permissions or credits remain actionable pending steps, not proof of tested automation.
 
+## Resource lifecycle — mandatory (DR-145)
+
+Before creating implementation worktrees or temporary repo copies, follow
+`plugin/skills/worktrees/SKILL.md` §Implementation teardown (installed plugin: sibling
+`../worktrees/SKILL.md`). The capable coordinator creates the session receipt, registers
+new worktrees before dispatch and owns commit/merge/cleanup; sandbox workers return file
+changes. At every close-out, after stopping owned writers and restoring the actual session
+cwd WITHOUT removal, run `session-cleanup.mjs finish` and await its final exit. No repeated
+owner approval for eligible merged clean own resources. Report retained/failed resources
+and receipt; never force-remove, erase locks, sweep siblings or claim a timed-out deletion
+succeeded. Shell-only implementations use the automatic `run -- command` finally wrapper;
+a launcher that merely prints a Workflow call is not completion and must not be wrapped.
+
 ## Runtime selection — do this before interpreting the rest of the skill
 
 - **Claude Code:** keep the existing path unchanged. Use `pandacorp-build` + the Claude supervisor, Claude agents/models and the Unattended operation SOP below. Its normal bare/global, targeted and unattended capabilities remain available.

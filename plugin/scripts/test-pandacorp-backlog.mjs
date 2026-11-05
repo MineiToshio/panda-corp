@@ -9,6 +9,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpath
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { create, register, finish } from './session-cleanup.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ENGINE_PATH = path.resolve(HERE, '../../.claude/engines/pandacorp-backlog.js')
@@ -22,6 +23,8 @@ const tmp = mkdtempSync(path.join(os.tmpdir(), 'pandacorp-backlog-r8-'))
 const repo = path.join(tmp, 'factory')
 const backlog = path.join(repo, 'factory/backlog')
 const worktrees = path.join(repo, '.claude/worktrees')
+const cleanupReceipts = new Map()
+const cleanupRoots = []
 let passed = 0
 let failed = 0
 
@@ -96,15 +99,18 @@ async function agent(prompt, opts = {}) {
     try {
       const wt = path.join(worktrees, `bl-${id}`)
       const branch = `bl/${id}`
+      let cleanupSession = ''
       await serializeGit(async () => {
         const isRegistered = existsSync(wt) && git(wt, 'branch', '--show-current') === branch
         if (isRegistered) {
           observations.reused = true
-        } else if (git(repo, 'branch', '--list', branch)) {
-          git(repo, 'worktree', 'add', wt, branch)
         } else {
-          git(repo, 'worktree', 'add', wt, '-b', branch)
+          const receipt = await create(repo); cleanupSession = receipt.root; cleanupRoots.push(receipt.root)
+          if (git(repo, 'branch', '--list', branch)) git(repo, 'worktree', 'add', wt, branch)
+          else git(repo, 'worktree', 'add', wt, '-b', branch)
+          await register(receipt.root, wt)
         }
+        cleanupReceipts.set(id, cleanupSession)
       })
       const common = realpathSync(path.resolve(wt, git(wt, 'rev-parse', '--git-common-dir')))
       observations.ownershipChecks++
@@ -119,7 +125,7 @@ async function agent(prompt, opts = {}) {
       writeFileSync(file, body)
       git(wt, 'add', '.')
       git(wt, 'commit', '-m', `fix(backlog): ${id} — fixture attempt ${attempt}`)
-      return { id, branch, status: 'done', summary: `attempt ${attempt}` }
+      return { id, branch, status: 'done', summary: `attempt ${attempt}`, cleanupSession }
     } finally {
       observations.implementActive--
     }
@@ -145,8 +151,10 @@ async function agent(prompt, opts = {}) {
         observations.redRestored = git(repo, 'rev-parse', 'HEAD')
         return { id, merged: false, validator: 'red', reason: 'fixture validator rejected INVALID' }
       }
-      git(repo, 'worktree', 'remove', wt)
-      git(repo, 'branch', '-d', branch)
+      const receipt = cleanupReceipts.get(id)
+      if (!receipt) return { id, merged: true, validator: 'green', reason: 'CLEANUP-PENDING: reused worktree has no new receipt' }
+      const cleaned = await finish(receipt, { self: repo })
+      assertFixtureCleanup(cleaned, wt)
       return { id, merged: true, validator: 'green' }
     } finally {
       observations.mergeActive--
@@ -154,6 +162,8 @@ async function agent(prompt, opts = {}) {
   }
   throw new Error(`unexpected agent label: ${opts.label}`)
 }
+
+function assertFixtureCleanup(result, wt) { if (result.kept.length || result.failed.length || existsSync(wt)) throw new Error(`cleanup fixture failed: ${JSON.stringify(result)}`) }
 
 async function runOnce() {
   return engine(
@@ -181,7 +191,10 @@ try {
   ok(second.done.map((x) => x.id).join(',') === 'BL-1002', 'relaunch resumes only the still-actionable item')
   ok(second.blocked.length === 0, 'repaired resume finishes green')
   ok(observations.reused, 'resume reuses the validator-red worktree instead of colliding with it')
-  ok(!git(repo, 'branch', '--list', 'bl/BL-1002'), 'green merge removes the resumed branch')
+  ok(Boolean(git(repo, 'branch', '--list', 'bl/BL-1002')) && existsSync(path.join(worktrees, 'bl-BL-1002')), 'reused worktree and branch remain without a new ownership receipt')
+  ok(second.done[0].reason.includes('CLEANUP-PENDING'), 'reuse reports cleanup pending without undoing green merge')
+  ok(!existsSync(path.join(worktrees, 'bl-BL-1001')) && Boolean(git(repo, 'branch', '--list', 'bl/BL-1001')), 'new owned worktree is reclaimed via real cleanup CLI while its branch ref remains')
+  ok(Boolean(first.blocked[0].cleanupSession), 'validator-red result retains its cleanup receipt')
   ok(!readFileSync(path.join(backlog, 'BL-1002-judge.md'), 'utf8').includes('INVALID'), 'repaired content reaches main')
   ok(observations.ownershipChecks === 3, 'every implement attempt verifies worktree ownership')
   ok(observations.validatorRuns === 3, 'validator runs after every merge attempt, including resume')
@@ -206,6 +219,7 @@ try {
   ok(!codexRuntimeFiles.some((name) => /backlog/i.test(name) && /\.(mjs|js|ts)$/.test(name)), 'no partial Codex drain-all executor exists')
   ok(/^status:\s*open$/m.test(bl0025), 'BL-0025 remains honestly open')
 } finally {
+  for (const root of cleanupRoots) rmSync(root, { recursive: true, force: true })
   rmSync(tmp, { recursive: true, force: true })
 }
 
@@ -256,7 +270,7 @@ try {
         replaceStatus(file, 'done')
         git(wt, 'add', '.')
         git(wt, 'commit', '-m', `fix(backlog): ${id} — fixture`)
-        return { id, branch, status: 'done', summary: 'fixture done' }
+        return { id, branch, status: 'done', summary: 'fixture done', cleanupSession: '' }
       }
       if (opts.label?.startsWith('merge:')) {
         const id = opts.label.slice('merge:'.length)
@@ -264,9 +278,7 @@ try {
         const branch = `bl/${id}`
         git(repo2, 'merge', '--ff-only', branch)
         if (!validateMain2()) return { id, merged: false, validator: 'red', reason: 'fixture validator rejected' }
-        git(repo2, 'worktree', 'remove', wt)
-        git(repo2, 'branch', '-d', branch)
-        return { id, merged: true, validator: 'green' }
+        return { id, merged: true, validator: 'green', reason: 'CLEANUP-PENDING: no new receipt in ID-normalization fixture' }
       }
       throw new Error(`BL-0101 regression #1: unexpected agent label: ${opts.label}`)
     }

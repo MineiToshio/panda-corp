@@ -2314,11 +2314,11 @@ branch or a dirty tree = work not yet in main**. `merge-queue.sh` deliberately d
 worktree it merges — the invoking session is standing INSIDE it, and deleting a live session's cwd
 dangles it (the next message dies with "Path … does not exist" and every background task is killed with
 the forced restart; owner-reported, recurring). After a successful merge the script instructs the agent
-to call `ExitWorktree(action: remove)` — the harness-level cleanup that ALSO restores the session cwd;
-if that no-ops (a restarted session lost the binding), the fallback is an outside
-`git worktree remove --force <wt> && git branch -D <branch>`. A fully-merged, clean leftover is
-therefore a harmless session shell: `pending-work.sh` lists it apart as removable and never counts it
-as pending. Three layers turn the invariant
+to restore the actual session cwd without removal, before validated DR-145 cleanup;
+restore the harness/session cwd WITHOUT removing the worktree, stop its writers, then run the
+validated session cleanup below from outside. Never use force removal or force branch deletion.
+A merged clean survivor is cleanup debt, reported separately from unmerged product work.
+Three layers turn the invariant
 into something the owner can't miss:
 
 - **The manifest.** A gitignored registry under `.pandacorp/run/worktrees/` lists live worktrees (branch,
@@ -2399,3 +2399,51 @@ Canonical surfaces: this section; `${CLAUDE_PLUGIN_ROOT}/templates/shared/.panda
 (the queue + loud hand-back) + `worktree-bootstrap.sh` (the reconstitution); `plugin/scripts/verify-before-stop.sh`
 (foreign-red attribution) + `plugin/scripts/warn-adhoc-write.sh` (edit-time isolation nudge); the project
 overlay (`guide.md.tpl`, the self-isolation + conversation-isolation rules); `docs/proposals/18`.
+
+
+## Session resource teardown (BUILD-5, DR-145)
+
+**Rule — MUST; enforcement: session cleanup CLI + coordinator close-out checklist.** Every
+implementation, direct change and backlog fix registers its own newly created worktrees and
+session temporary resources before dispatch. After verification and a successful merge, stop
+owned writers, restore the session/harness cwd outside the worktree WITHOUT deleting it, and
+execute `session-cleanup.mjs finish`. This permanent deletion is preauthorized: do not ask the
+owner again for merged, clean, session-owned generated resources. Never expand this to a glob,
+other sessions, shared package caches or arbitrary `/tmp` files.
+
+The protocol and commands live in `plugin/skills/worktrees/SKILL.md` §Implementation teardown.
+The engine rechecks `merge-base --is-ancestor HEAD <local-default>`, status including untracked
+files, receipt identity, process inventory, locks and owner state immediately before each removal.
+No patch-equivalent/squashed branch qualifies without actual ancestry.
+Independently inspect tracked files hidden by assume-unchanged/skip-worktree against HEAD;
+masked changes (even generated tracked overrides) keep the worktree. The coordinator must
+normalize its verified reproducible overrides through its own gated flow before cleanup. Ignored files are allowed
+only in generated node_modules/.next/dist/build/coverage/.cache/.turbo trees, or exact files
+recorded by their generator with an unchanged SHA-256 receipt (`register --generated-file`).
+Bootstrap records only the launch config and ephemeral env file it actually writes; it never
+labels preexisting private files disposable. Other ignored files
+(including private dotenv files) require preservation and are reported. Never delete any target
+inside `.pandacorp/`, deployed/locked worktrees, nested worktrees, a live/resumable build or a cwd
+in use. Deletion is `git worktree remove` without force, including its generated dependencies and
+caches. Keep branch refs; never clear index.lock/HEAD.lock or treat EPERM as a stale lock.
+
+The coordinator needs actual write access to shared git metadata and worktree parents. A
+sandbox worker implements files and hands its delta back; commit, merge and teardown stay with
+that capable coordinator. The CLI probes shared git write access before allocating a session;
+if it is denied, report the capability blocker, not a request to reauthorize the same cleanup.
+Never change sandbox mode or hook protections to make cleanup pass.
+
+For shell-driven implementation, `session-cleanup.mjs run --repo <repo> -- <command> ...`
+exports an owned TMPDIR/cache and awaits teardown in finally. For tool-driven workflows the
+coordinator performs create/register/finish explicitly, including on partial/error close-out;
+unsafe resources remain with a nonzero report and their receipt. Automation is the wrapper's
+finally; cross-tool invocation remains an explicit skill obligation, not a certified universal
+Stop-hook or a claim that a child shell can change its parent's cwd. Historical unregistered
+temporary repo copies are reported and preserved. Future copies use registered worktrees.
+
+Deletion may take minutes: use a resumable tool process (e.g. Codex exec_command yielding a
+session_id, followed by write_stdin until exit), report progress at least every minute, and
+check the final JSON/exit status and directory absence. Never call a yielded or timed-out removal
+finished, nor start another recursive remover against it. Binary verifier:
+`node plugin/scripts/test-session-cleanup.mjs` plus the independent adversarial suite; scope,
+permission handoff and receipt registration are reviewed at close-out.

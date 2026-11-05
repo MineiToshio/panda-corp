@@ -1,5 +1,20 @@
 # Decision Log — Factory
 
+## 2026-11-05 — Reclaim implementation resources after merge (DR-145, BL-0304)
+
+**What:** [BUILD-5](standards/build-orchestration.md#session-resource-teardown-build-5-dr-145)
+preauthorizes permanent teardown of registered own merged/clean worktrees and allocated session
+temporary artifacts. The canonical CLI rechecks ancestry, status, identity, ignored files, process
+inventory and locks. Other sessions, owner state, deployments, live builds and unknown resources
+remain protected. Shared git writes belong to the capable coordinator, never sandbox workers.
+
+**Why:** owner-reported 17 GB worktrees plus ~3.5 GB temporary residue exposed missing universal
+close-out invocation, unsafe force-removal advice, sandbox git writes and tool timeout handling.
+The shell wrapper runs teardown in finally; tool-driven skill calls remain an explicit close-out
+obligation. [Audit and read-only inventory](../docs/research/worktree-cleanup-2026-11-05.md).
+No real resource was deleted; no commit or runtime privilege change. Overlay rollout is deferred
+to safe-point upgrades. Exact cleanup CLI permission is preauthorized without weakening deny rules.
+
 ## 2026-11-03 — Behavior on owned fixtures (DR-144)
 
 **What:** [quality.md](standards/quality.md) and [DR-144](decisions/registry.yaml) prohibit curated-data pins, production volume guards and change-detector tests; real-file structural reader checks remain required. Catalog and injected rules updated.

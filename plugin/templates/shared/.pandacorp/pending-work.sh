@@ -2,10 +2,10 @@
 # Pandacorp pending-work check (DR-096) — "did I leave a worktree un-merged?"
 #
 # The invariant (2026-07-02): a surviving worktree with an UNMERGED branch (or dirty tree) = pending
-# work. A surviving worktree that is fully MERGED + clean is a session shell merge-queue deliberately
+# work. A surviving worktree that is fully MERGED + clean is cleanup debt, temporarily
 # KEPT (deleting the dir under a live session dangles its cwd — the session's next message dies with
-# "Path does not exist"); it is listed apart as removable, never as pending. Removal belongs to
-# ExitWorktree (which also restores the session cwd) or to an outside `git worktree remove`.
+# "Path does not exist"); it is listed apart from unmerged product work. Removal belongs to
+# validated DR-145 teardown after the actual session cwd is restored without deletion.
 # Two pending signals, unioned:
 #   1. surviving worktrees (other than the main checkout) — pending even if their work is UNCOMMITTED;
 #   2. unmerged branches whose worktree is already gone — `git branch --no-merged` (the branch outlives
@@ -26,7 +26,7 @@ NOW=$(date +%s)
 
 mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo "$NOW"; }
 ROWS=""   # newline-joined "branch|worktree|ahead|ageH|status" (string, not array — bash 3.2 safe)
-LEFTOVERS=""  # merged+clean worktrees a session kept for cwd safety — removable, never pending
+LEFTOVERS=""  # merged+clean worktrees a session kept for cwd safety — cleanup debt, separate from unmerged product work
 TOTAL=0; STALE=0
 
 emit() {  # branch worktree ahead lastTs
@@ -111,9 +111,9 @@ case "$MODE" in
     if [ "$TOTAL" -eq 0 ]; then
       echo "✓ Sin trabajo pendiente: todo está en $DEFAULT_BRANCH."
       if [ -n "$LEFTOVERS" ]; then
-        echo "  ♻ Worktrees ya mergeados (seguro de borrar desde fuera):"
+        echo "  ♻ Worktrees ya mergeados (requieren validación DR-145):"
         printf '%s' "$LEFTOVERS" | sed '/^$/d' | while IFS='|' read -r br wt; do
-          echo "    git worktree remove --force $wt && git branch -D $br"
+          echo "    DR-145: $wt — run session-cleanup finish with its creating session receipt; otherwise /pandacorp:worktrees"
         done
       fi
       exit 0
@@ -127,9 +127,9 @@ case "$MODE" in
     done <<< "$(print_rows)"
     echo; echo "  🔴 estancado  🟡 en curso  🟢 listo (sin mergear). Mergea: cd <worktree> && bash .pandacorp/merge-queue.sh"
     if [ -n "$LEFTOVERS" ]; then
-      echo; echo "  ♻ Worktrees ya MERGEADOS (cascarón de sesión, seguro de borrar desde fuera):"
+      echo; echo "  ♻ Worktrees ya MERGEADOS (limpieza pendiente, requieren validación DR-145):"
       printf '%s' "$LEFTOVERS" | sed '/^$/d' | while IFS='|' read -r br wt; do
-        echo "    git worktree remove --force $wt && git branch -D $br"
+        echo "    DR-145: $wt — run session-cleanup finish with its creating session receipt; otherwise /pandacorp:worktrees"
       done
     fi ;;
 esac

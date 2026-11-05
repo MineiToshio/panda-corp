@@ -71,3 +71,55 @@ Never edit or delete anything under a `.pandacorp/` directory or `factory/{ideas
 ## Other runtimes
 
 The script is runtime-neutral. Without `AskUserQuestion`, ask in chat with the same per-item options. Without `${CLAUDE_PLUGIN_ROOT}`, the engine is at `plugin/scripts/worktree-sweep.mjs` in the factory.
+
+## Implementation teardown (DR-145, BUILD-5)
+
+This is mandatory at the close of **every** implementation, including change --now, direct fixes
+and factory backlog work. It does not run a broad `clean` sweep of other sessions. The owner's
+standing authorization covers permanent deletion of eligible own resources; no new confirmation.
+
+1. **Before dispatch**, the coordinator resolves the active plugin root (`CLAUDE_PLUGIN_ROOT`,
+   or `PANDACORP_PLUGIN_ROOT` under Codex) and runs:
+   `node <plugin-root>/scripts/session-cleanup.mjs create --repo <main-checkout>`.
+   Save the returned `root` as `PANDACORP_CLEANUP_SESSION`. Keep TMPDIR at its original value
+   for this explicit create/register/finish protocol; place generated logs/tars/private caches
+   under `<root>/artifacts`. Do not copy personal state or a standalone repository into it.
+   Use registered Git worktrees for temporary repo copies.
+2. Immediately after creating **each own** worktree, before workers start, run
+   `node <plugin-root>/scripts/session-cleanup.mjs register --session <root> --worktree <path>`.
+   The overlay bootstrap performs this automatically when the session environment is supplied.
+   One coordinator writes the receipt; workers do not register existing foreign worktrees.
+   A producer may add `register --generated-file <relative-file>` immediately after creating
+   an exact reproducible output. The receipt stores its hash, never values; any later edit
+   blocks deletion. Bootstrap does this only for launch/env files it actually generates.
+   Never use this option to classify preexisting private files as generated.
+3. Verify, commit and merge using the existing gates. A workspace-write worker that cannot
+   write `.git` hands its files/diff to its capable coordinator; never erase locks, loosen
+   sandbox/hooks or repeat approval requests for already authorized teardown. If the current
+   environment has no capable coordinator, report the exact capability blocker and keep the
+   receipt/paths. The create command probes access before allocating any temporary files.
+4. Stop/join owned processes and workers. Restore the **actual harness/session cwd** to main
+   WITHOUT removing the worktree (`ExitWorktree` with keep, or the runtime's equivalent).
+   A `cd` in a child shell is insufficient. Then, from outside, run
+   `node <plugin-root>/scripts/session-cleanup.mjs finish --session <root>`.
+   `--dry-run` inventories only. On a partial/error close-out, still run finish: unmerged,
+   dirty, locked, active, stateful, replaced or unknown resources stay listed, exit 3.
+   Do not follow these kept items with a discard/force command.
+5. Await the final process exit, JSON and directory-absence evidence. Large dependency trees
+   can take minutes; use a tool's live process handle and poll it, with progress updates.
+   Never retry a remover still running. Report removed/kept/failed and retained receipt path.
+
+For an implementation wholly driven by one shell command, use
+`node <plugin-root>/scripts/session-cleanup.mjs run --repo <repo> -- <command> <args...>`.
+It exports `PANDACORP_CLEANUP_SESSION`, a session-only TMPDIR/npm cache and plugin transport
+variables inherited from the coordinator, waits for the child and performs finish in finally.
+It preserves nonzero command/cleanup exits. Do not wrap a launcher that only prints a Workflow
+call: its return is not build completion. Tool-driven builds must use the explicit protocol.
+
+This session teardown never removes paths inside `.pandacorp/` (including gate crash evidence),
+shared caches, historical unregistered temporary clones, or worktrees of parallel sessions.
+Use `bash .pandacorp/session-cleanup.sh create|register|finish ...` in projects, and
+`node plugin/scripts/session-cleanup.mjs create|register|finish ...` from factory main;
+these are the exact narrowly preauthorized transports. Never preauthorize arbitrary `run`
+commands. Native permission matching/approval is runtime-owned and remains unverified here;
+restrictions are reported as capability blockers, never silently bypassed.

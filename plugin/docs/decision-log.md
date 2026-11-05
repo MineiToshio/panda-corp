@@ -1,5 +1,29 @@
 # Decision log — Plugin pandacorp
 
+## v9.150.0 — 2026-11-05 (MINOR): session-owned implementation teardown (DR-145, BL-0304)
+
+**What:** `session-cleanup.mjs` creates an ownership receipt, registers new worktrees and removes
+only matched, merged, clean, idle/non-protected resources without force. `run -- command` waits and
+finishes in finally, with session TMPDIR/npm cache; explicit create/register/finish serves tool-driven
+skills. Async worktree removal supports a live tool handle; kept/failed teardown is nonzero and
+retains receipts. No branch force deletion, lock erasure or shared-cache sweep. The existing sweep
+now treats nonzero lsof as unknown, failing closed. Overlay **8.118.0** adds a thin transport,
+bootstrap ownership/output-hash registration, narrow create/register/finish CLI permissions (never arbitrary run commands), guide/rules and replaces force-removal fallback
+advice in merge-queue/pending-work. Existing skills require the common close-out protocol.
+
+**Why:** policy and native filesystem access had been conflated; isolated workers cannot mutate
+shared `.git` in workspace-write. The coordinator probes capabilities and reports a blocker instead
+of reasking for already-granted cleanup authorization. Repeated approval for raw rm is avoided by
+a validated dedicated CLI; raw rm, owner state and deployment protection remain armed. No universal
+Stop-hook/executor certification or real multi-gig cleanup is claimed. The Manual and factory
+registry/standard carry the same contract; existing projects upgrade only at safe points.
+
+**Evidence:** real-Git regression and independent adversarial suites cover dependency removal,
+dirty/unmerged/locked/foreign/active/stateful work, identity replacement, ignored private files,
+repository copies, process-check failure and nested session TMPDIR. Full verification commands
+and read-only inventory are recorded in the [audit](../../docs/research/worktree-cleanup-2026-11-05.md).
+No commit, real worktree deletion, installed-plugin update or live project-overlay rewrite.
+
 ## v9.149.1 — 2026-11-04 (PATCH): make Stack A e2e conform to its own gate (BL-0302)
 
 **What:** overlay 8.117.1 formats the complete Stack A `e2e/` directory (including the prototype screenshot harness), splits token palette collection/sampling into small callbacks without changing the advisory threshold, ports `waitForHydrated` and its no-reload regression from funko-tracker, and excludes `.claude` from the advisory live-data scanner. Other stacks have neither this e2e harness nor this scanner; no cross-stack repair is needed.

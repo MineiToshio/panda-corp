@@ -39,7 +39,7 @@ jobs:
       - name: Install engine test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y zsh
+          sudo apt-get install -y zsh lsof
           npm install --global @openai/codex@0.144.1
           pnpm --dir mission-control install --frozen-lockfile
           pnpm --dir mission-control exec playwright install --with-deps chromium

@@ -18,7 +18,10 @@
       "mcp__Claude_Browser__get_page_text",
       "mcp__claude-in-chrome__find",
       "mcp__claude-in-chrome__get_page_text",
-      "mcp__claude-in-chrome__tabs_context_mcp"
+      "mcp__claude-in-chrome__tabs_context_mcp",
+      "Bash(node plugin/scripts/session-cleanup.mjs create:*)",
+      "Bash(node plugin/scripts/session-cleanup.mjs register:*)",
+      "Bash(node plugin/scripts/session-cleanup.mjs finish:*)"
     ],
     "deny": [
       "Bash(rm -rf:*)",

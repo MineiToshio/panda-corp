@@ -25,6 +25,8 @@ if (typeof args === 'string') {
 const FACTORY_ROOT = (args && args.factoryRoot) || '/Users/Shared/Proyectos/panda-corp'
 const ITEMS_FILTER = (args && args.items) || null
 const MAX_ITEMS = (args && args.maxItems) || Infinity
+// Worker-returned receipt paths are data, never shell syntax.
+const shellQuote = (value) => "'" + String(value).replace(/'/g, "'\\''") + "'"
 
 // BL-0022 discipline, same as pandacorp-build's WORK_FROM: subagents inherit the SESSION's cwd,
 // which may be a DIFFERENT repo than FACTORY_ROOT (harness runs point at a fixture). Without this
@@ -66,10 +68,11 @@ const SCAN_SCHEMA = {
 
 const IMPLEMENT_SCHEMA = {
   type: 'object',
-  required: ['id', 'status'],
+  required: ['id', 'status', 'cleanupSession'],
   properties: {
     id: { type: 'string' },
     branch: { type: 'string' },
+    cleanupSession: { type: 'string' },
     status: { type: 'string', enum: ['done', 'blocked'] },
     reason: { type: 'string' },
     summary: { type: 'string' },
@@ -186,12 +189,14 @@ phase('Implement')
 
 const RECIPE = (item) => `${ANCHOR}Implement and close factory backlog item ${item.id} (proposal 31 T1.1 — dispatched by the pandacorp-backlog engine, replacing a hand-run subagent).
 
+0. DR-145 resource ownership: first inspect the registration conditions in step 1. ONLY after confirming a NEW worktree is needed, run \`node plugin/scripts/session-cleanup.mjs create --repo ${shellQuote(FACTORY_ROOT)}\` as the capable coordinator BEFORE creating a NEW worktree; save its returned root as cleanupSession. If the sandbox cannot write shared .git, return blocked with that capability error; never erase index.lock or ask again for already authorized cleanup. Never claim a preexisting worktree as newly owned: for a reused worktree return cleanupSession empty and preserve it for inspection.
 1. Isolate FIRST, with resume awareness. Let \`WT=${FACTORY_ROOT}/.claude/worktrees/bl-${item.id}\` and \`BRANCH=bl/${item.id}\`.
    - If Git already registers WT for BRANCH, REUSE it: this is a previous red-merge/blocked attempt preserved for inspection. Never recreate or delete it. Re-run the item's tests and validator from that worktree; a prior \`status: done\` inside the branch is not proof that the failed merge is now valid.
    - If BRANCH exists but has no registered worktree, attach it with \`git -C ${FACTORY_ROOT} worktree add $WT $BRANCH\`.
    - If neither exists, create it with \`git -C ${FACTORY_ROOT} worktree add $WT -b $BRANCH\`.
    - If WT exists on disk but Git does not register it to BRANCH, STOP as blocked; never delete an ambiguous directory.
    The \`-C ${FACTORY_ROOT}\` decides WHICH repo owns the worktree — NEVER run worktree add without it (your cwd may be a different repo). Then VERIFY ownership before any work: canonicalize both \`git -C $WT rev-parse --git-common-dir\` and \`git -C ${FACTORY_ROOT} rev-parse --git-common-dir\`; they must be the exact same directory. If they differ, return status: "blocked" with reason "worktree anchored to wrong repo". Do ALL work inside that worktree directory from here on — never touch the main checkout's working tree.
+   For a NEW worktree, before any worker edits, run \`node plugin/scripts/session-cleanup.mjs register --session "$cleanupSession" --worktree "$WT"\`. Keep own logs/caches below <cleanupSession>/artifacts, never arbitrary /tmp copies.
 2. Read the item whole at ${item.path} (already known to you: title "${item.title}"): its Problem (+ Root cause if a bug), Fix plan, Tests, Done when, Out of scope.
 3. Implement EXACTLY the Fix plan — nothing broader, nothing past Out of scope. No drive-by refactors.
 4. Prove it with the item's own Tests section: a unit test, a verify.sh --canary gate canary, a script/CLI assertion, or a documented manual repro when automation is genuinely infeasible. Never skip proof.
@@ -203,7 +208,7 @@ const RECIPE = (item) => `${ANCHOR}Implement and close factory backlog item ${it
 6. Commit INSIDE THE WORKTREE (Conventional Commits, English): "fix(backlog): ${item.id} — <title>" for a bug, "feat(backlog): ${item.id} — <title>" for a change. NEVER merge into main, NEVER touch the main checkout — a separate serialized merge phase does that next.
 7. If you get stuck (missing owner decision, external dependency, genuine technical fault): leave the item's frontmatter status: doing (never silently revert to open), commit whatever partial progress is safe, and report status: blocked with a one-line reason.
 
-Return { id: "${item.id}", branch: "bl/${item.id}", status: "done" or "blocked", reason: <one-line if blocked>, summary: <one-line of what shipped or what's blocking> }.`
+Return { id: "${item.id}", branch: "bl/${item.id}", status: "done" or "blocked", reason: <one-line if blocked>, summary: <one-line of what shipped or what's blocking>, cleanupSession: <the allocated root or empty for preexisting worktrees> }.`
 
 const implementResults = await parallel(
   candidates.map((item) => () => agent(
@@ -218,11 +223,11 @@ for (let i = 0; i < candidates.length; i++) {
   const item = candidates[i]
   const result = implementResults[i]
   if (!result || result.status !== 'done') {
-    blockedFromImplement.push({ id: item.id, reason: (result && result.reason) || 'implement agent returned no usable result' })
-    log(`Implement: ${item.id} did NOT reach done (${(result && result.reason) || 'no result'}) — left as-is, not retried this run.`)
+    blockedFromImplement.push({ id: item.id, reason: (result && result.reason) || 'implement agent returned no usable result', cleanupSession: (result && result.cleanupSession) || '' })
+    log(`Implement: ${item.id} did NOT reach done (${(result && result.reason) || 'no result'}) — left as-is, not retried this run. Cleanup receipt: ${(result && result.cleanupSession) || 'not reported'}`)
     continue
   }
-  succeeded.push({ id: item.id, branch: result.branch || `bl/${item.id}`, summary: result.summary || '' })
+  succeeded.push({ id: item.id, branch: result.branch || `bl/${item.id}`, summary: result.summary || '', cleanupSession: result.cleanupSession || '' })
   log(`Implement: ${item.id} done on branch ${result.branch || `bl/${item.id}`}.`)
 }
 
@@ -243,7 +248,7 @@ for (const item of succeeded) {
    - plugin/docs/decision-log.md: keep BOTH entries, most-recent-on-top (never drop either side's entry).
    - factory/backlog/README.md's open-item count mentions: recount from the actual files after the merge, don't trust either side's stale number.
 4. After the merge lands (ff-only or resolved), run \`bash ${FACTORY_ROOT}/plugin/scripts/validate-backlog.sh\` from ${FACTORY_ROOT}. If it reports errors, capture \`MERGED_SHA=$(git -C ${FACTORY_ROOT} rev-parse HEAD)\` and first re-check ALL ownership assumptions: the canonical common dir is still the exact repo from step 1, main is still the checked-out branch, and HEAD is exactly \`$MERGED_SHA\`. Then run ONE Git-owned rollback operation: \`git -C ${FACTORY_ROOT} reset --keep $PRE_MERGE_SHA\`. Never split rollback into \`update-ref\` followed by \`restore\`: an owner edit arriving between those commands would be overwritten. \`reset --keep\` must ABORT rather than overwrite a concurrent worktree/index edit; if it aborts, return merged:false/validator:red with reason \`ROLLBACK-BLOCKED-BY-CONCURRENT-OWNER-EDIT\`, preserve the owner's files byte-for-byte, leave HEAD/worktree/worktree-branch in place, STOP this item, and let every later item fail the clean-main preflight. If it succeeds, verify HEAD equals \`$PRE_MERGE_SHA\` and the checkout is clean. A revert commit is NOT acceptable here: Git would still consider the item branch merged and a later resume could not land it again. Do NOT proceed to remove the worktree in either red case — leave it for inspection and resume.
-5. If the validator is green: remove the worktree and its branch BEFORE returning — \`git -C ${FACTORY_ROOT} worktree remove ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id}\` then \`git -C ${FACTORY_ROOT} branch -d ${item.branch}\`.
+5. If the validator is green: stop/join owned writers and restore the actual worker session cwd to ${FACTORY_ROOT} WITHOUT removal. DR-145 cleanupSession=${JSON.stringify(item.cleanupSession)}. If nonempty, run \`node plugin/scripts/session-cleanup.mjs finish --session ${shellQuote(item.cleanupSession)}\` from main and await its final exit (poll a live process handle if minutes are needed). Keep branch refs. A nonzero cleanup does not undo a valid merge: return merged:true/validator:green with reason CLEANUP-PENDING plus retained paths/receipt. If no receipt, keep the preexisting worktree and return that CLEANUP-PENDING flag. Never use direct/force removal or clear locks.
 
 Return { id: "${item.id}", merged: true or false, validator: "green" or "red", reason: <one-line if red or not merged, OR the COLLAPSED-VERSION-BUMP flag above even when merged:true/validator:"green"> }.`,
     { label: `merge:${item.id}`, phase: 'Merge', model: 'sonnet', agentType: 'pandacorp:implementer', schema: MERGE_SCHEMA },
@@ -257,8 +262,8 @@ Return { id: "${item.id}", merged: true or false, validator: "green" or "red", r
     merged.push({ id: item.id, summary: flag ? `${item.summary || 'merged'} ${flag}` : item.summary })
     log(`Merge: ${item.id} merged into main, validator green.${flag ? ' ' + flag : ''}`)
   } else {
-    const reason = (mergeResult && mergeResult.reason) || 'merge agent returned no usable result'
-    blockedFromMerge.push({ id: item.id, reason })
+    const reason = ((mergeResult && mergeResult.reason) || 'merge agent returned no usable result') + (item.cleanupSession ? `; cleanup receipt retained: ${item.cleanupSession}` : '')
+    blockedFromMerge.push({ id: item.id, reason, cleanupSession: item.cleanupSession })
     log(`Merge: ${item.id} BLOCKED — ${reason}`)
   }
 }

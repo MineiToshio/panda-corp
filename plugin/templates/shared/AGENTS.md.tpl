@@ -31,3 +31,14 @@ This file is the canonical instruction set for ANY coding agent. Claude Code rea
 - **Runtime authorization (DR-133, owner decision 2026-10-20): Codex and Claude Code have full read/write permission for every Pandacorp skill and application, including canonical documentation, work orders and build state.** This supersedes DR-120. Use the active runtime’s own available tools; absent orchestration/scheduling tools require attended sequential execution, not a permission refusal or a claim of certified automation. Preserve human gates, independent verification, atomic ownership, one writer per checkout and safe-point-only cold handoff; never take over a live run.
 - The change queue (`.pandacorp/inbox/changes/`) and the decisions inbox are plain files: any runtime files changes by following their templates — never edit product behavior ad hoc.
 - Every rule in this file (language, gates, documentation discipline) is runtime-independent and never degrades.
+
+
+## Implementation cleanup (DR-145)
+
+Before dispatch, create a session receipt and register only newly created own worktrees;
+after merge and at partial/error close-out, follow `.pandacorp/guide.md` §Implementation
+resource lifecycle and the installed worktrees skill. Stop owned writers and restore the
+actual session cwd without removal, then run the validated cleanup and await final exit.
+Eligible merged clean generated resources are permanently removed without a new confirmation;
+unsafe/foreign/stateful work stays listed. Sandbox workers hand git writes to the capable
+coordinator. Never bypass locks, hooks or permissions, and never sweep arbitrary /tmp paths.

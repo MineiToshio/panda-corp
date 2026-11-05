@@ -83,9 +83,9 @@ function defaultBranch(root) {
 }
 
 /** cwd of every running process — a worktree somebody stands in is in use (a live session, a dev server). */
-function processCwds() {
+export function processCwds() {
   const r = spawnSync("lsof", ["-d", "cwd", "-Fn"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-  if (r.error) return { ok: false, cwds: [] };
+  if (r.error || r.status !== 0) return { ok: false, cwds: [] };
   return { ok: true, cwds: [...new Set((r.stdout || "").split("\n").filter((l) => l.startsWith("n/")).map((l) => real(l.slice(1))))] };
 }
 

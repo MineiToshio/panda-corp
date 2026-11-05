@@ -167,10 +167,10 @@ fi
 # dangling — the next user message fails with "Path ... does not exist" and every background
 # task dies with the forced session restart (owner-reported, recurring, 2026-07-02). A `cd`
 # here only moves THIS script's cwd, never the session's. Removal belongs to the harness,
-# which also restores the session cwd: the agent calls ExitWorktree(action: "remove") right
-# after this script succeeds. If ExitWorktree no-ops (the session restarted and lost the
-# worktree binding), clean from OUTSIDE the worktree instead:
-#   cd "$MAIN_WT" && git worktree remove --force "$WORKTREE" && git branch -D "$BRANCH"
+# which first restores the session cwd without removal; the coordinator calls session-cleanup right
+# after this script succeeds. If the harness cannot switch cwd (the session restarted and lost the
+# worktree binding), keep the worktree and report the cwd blocker. Once outside, run:
+#   cd "$MAIN_WT" && bash .pandacorp/session-cleanup.sh finish --session "$PANDACORP_CLEANUP_SESSION"
 rm -f "$MAIN_WT/.pandacorp/run/worktrees/$BRANCH.json" 2>/dev/null || true   # drop the manifest entry (worktree-bootstrap writes <branch>.json) (DR-096 §7)
 
 echo "merge-queue: merged $BRANCH → $DEFAULT_BRANCH"
@@ -182,5 +182,5 @@ if [ "$LAUNCHED" = 1 ]; then
   fi
   echo "merge-queue: pushed $DEFAULT_BRANCH to origin — Vercel deploys it to production"
 fi
-echo "merge-queue: worktree KEPT (your session is inside it) — call ExitWorktree(action: remove) now to clean it AND restore the session cwd; if that no-ops, run: cd $MAIN_WT && git worktree remove --force $WORKTREE && git branch -D $BRANCH"
+echo "merge-queue: worktree KEPT (your session is inside it) — restore the session cwd WITHOUT removal, stop owned writers, then run the validated DR-145 cleanup: cd $MAIN_WT && bash .pandacorp/session-cleanup.sh finish --session <session-root>"
 exit 0

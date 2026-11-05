@@ -11,6 +11,19 @@ The mechanism referenced by the backlog's own read-only note ("pídeselo a un ag
 - **one id** (`BL-0007`, anything after it is ignored) → **single-item mode**: implement just that item, directly, in this conversation.
 - **nothing** → **whole-backlog mode**: drain every `open`/`doing` item, one subagent per item.
 
+## Resource lifecycle — mandatory (DR-145)
+
+Before creating implementation worktrees or temporary repo copies, follow
+`plugin/skills/worktrees/SKILL.md` §Implementation teardown (installed plugin: sibling
+`../worktrees/SKILL.md`). The capable coordinator creates the session receipt, registers
+new worktrees before dispatch and owns commit/merge/cleanup; sandbox workers return file
+changes. At every close-out, after stopping owned writers and restoring the actual session
+cwd WITHOUT removal, run `session-cleanup.mjs finish` and await its final exit. No repeated
+owner approval for eligible merged clean own resources. Report retained/failed resources
+and receipt; never force-remove, erase locks, sweep siblings or claim a timed-out deletion
+succeeded. Shell-only implementations use the automatic `run -- command` finally wrapper;
+a launcher that merely prints a Workflow call is not completion and must not be wrapped.
+
 ## Preflight (both modes)
 
 1. Confirm you're in the factory root: `factory/backlog/` exists. If not, STOP — this skill only runs in `panda-corp`, never inside a product project (a project's own defects go through THAT project's `/pandacorp:change`, never here — DR-103 scope).
@@ -27,7 +40,7 @@ The mechanism referenced by the backlog's own read-only note ("pídeselo a un ag
    - `plugin/` changed → bump `plugin/runtime/plugin-metadata.json`'s `version` per semver (CLAUDE.md's PATCH/MINOR/MAJOR rule — this is the SOURCE, DR-113; the two `plugin.json` manifests are generated projections and must NEVER be hand-edited), then run `node plugin/scripts/generate-plugin-manifests.mjs` to regenerate both manifests, commit the source AND the regenerated manifests together, add the entry to `plugin/docs/decision-log.md`, and run `claude plugin validate plugin/`.
    - `factory/standards/`, `factory/decisions/registry.yaml` or the constitution changed → add the entry to `factory/decision-log.md`.
    - `bash plugin/scripts/validate-backlog.sh` once more — the store must stay valid after your own edit.
-6. Commit (Conventional Commits, English): `fix(backlog): BL-NNNN — <title>` for a bug, `feat(backlog): BL-NNNN — <title>` for a change. If you isolated in a worktree, land it (merge into `main`, resolving any conflict by hand the same disciplined way as any other merge), then remove the worktree + its branch.
+6. Commit (Conventional Commits, English): `fix(backlog): BL-NNNN — <title>` for a bug, `feat(backlog): BL-NNNN — <title>` for a change. If you isolated in a worktree, land it (merge into `main`, resolving any conflict by hand the same disciplined way as any other merge), then run the DR-145 session teardown from outside the worktree (keep branch refs).
 7. Report (to the owner, in Spanish) which criteria closed it and what shipped. If you got stuck: leave `status: doing` — **never** silently revert to `open` — and report exactly what's blocking (a missing owner decision, an external dependency, a genuine technical fault) instead of guessing at a fix.
 
 ## Mode: one item — `/pandacorp:implement-backlog BL-NNNN`

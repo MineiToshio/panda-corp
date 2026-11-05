@@ -57,6 +57,15 @@ Brings this project's Pandacorp overlay up to the factory's current version. The
    - Fix internal cross-links broken by the moves (PRD↔FRD, WO→FRD/blueprint references) so they still resolve.
 
 3. **Regenerate the managed layer (non-destructive).**
+   - **Session resource lifecycle (DR-145):** copy `templates/shared/.pandacorp/session-cleanup.sh`
+     with worktree-bootstrap/merge-queue/pending-work and regenerate the guide + AGENTS/rules.
+     The helper delegates to the active plugin root; do not copy/fork the engine.
+     Add only the template’s exact create/register/finish lifecycle allow entries
+     to project settings, preserving every existing deny and project permission. Never preauthorize
+     arbitrary commands through the run wrapper; their native runtime review remains intact. Preserve
+     existing run receipts and state, never infer ownership of old worktrees, never upgrade
+     a live build. Existing projects activate this on their next normal compatible upgrade.
+
    - **`.pandacorp/guide.md` and `.pandacorp/README.md`**: regenerate ENTIRELY from the current template (fully managed — no merge), substituting the template vars from `.pandacorp/status.yaml` + factory paths.
    - **Machinery** (`.claude/engines/pandacorp-build.js` and any factory script the overlay ships): regenerate from the template. **Migrate the engine's home (proposal 31 T0):** the engine moved from `.claude/workflows/` (auto-exposed in the `/` menu) to the unscanned `.claude/engines/`. After regenerating into `.claude/engines/pandacorp-build.js`, **if a leftover `pandacorp-build.js` still sits under `.claude/workflows/`, DELETE that stale copy** (and remove the now-empty `.claude/workflows/` dir) — otherwise the old menu entry keeps polluting the owner's `/` menu.
    - **`CLAUDE.md`**: ensure it imports `@AGENTS.md`, `@docs/rules/README.md` and `@.pandacorp/guide.md`. If the project still has the old fat `CLAUDE.md`, replace the managed sections with the thin import header but **keep everything the owner wrote below the managed line**. Never touch the owner's notes.

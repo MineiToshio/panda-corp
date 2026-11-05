@@ -8,7 +8,7 @@ for missing dependencies.
 ## Dependencies
 
 The Ubuntu job in `.github/workflows/factory-engine-tests.yml` uses Node 24,
-Git, Bash, jq and zsh. zsh is required by the adversarial alias and guarded restore
+Git, Bash, jq, lsof and zsh. zsh is required by the adversarial alias and guarded restore
 regressions; replacing those tests with Bash would lose the owner's shell coverage.
 It installs the real Codex CLI 0.144.1 for strict config parsing and execpolicy.
 The strict config test starts an EOF-only app server in a temporary Codex home,

@@ -12,6 +12,9 @@
 # actively live here. The factory has no .pandacorp/ OVERLAY (no status.yaml — it is not a product
 # project; the DR-062 marker still discriminates), but its runtime dir is real. Never committed.
 .pandacorp/
+# Framework templates are versioned machinery, never owner state.
+!plugin/templates/shared/.pandacorp/
+!plugin/templates/shared/.pandacorp/session-cleanup.sh
 
 # Node / build artefacts (no package.json at root — any node_modules here is accidental)
 node_modules/
