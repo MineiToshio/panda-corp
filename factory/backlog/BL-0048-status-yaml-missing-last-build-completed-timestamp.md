@@ -62,3 +62,14 @@ instead of parsing `safe_to_test` prose. Plugin version bumped for the routine/s
 Does not touch BL-0034's Mission Control path-resolution gap (that is about WHETHER a status.yaml
 resolves at all; this is about WHAT field to compare once it does) — both should land before the
 orphan check is fully trustworthy, but they are independent fixes.
+
+## Corroborating occurrence (2026-11-06)
+PASO 0 sweep (pandacorp-memory-review) on funko-tracker: `last_harvest` had been bumped to
+2026-11-05T14:08:25Z by its own last harvest, yet 13 new notes had already landed in its
+`.pandacorp/run/lessons.md` (dated 2026-11-05/2026-11-06) before the orphan check ran again —
+and `updated_at` was still stamped 2026-10-27T00:04:27Z, untouched by any of that new work. The
+orphan-of-harvest check compares `last_harvest` against `updated_at`, so it read as "not orphaned"
+(the two fields were close enough) despite real unharvested work existing — exactly the root cause
+this item already describes: `updated_at` is a generic bump, not a dedicated build/close-out
+timestamp, so a project can accumulate real pending work without moving it. Concrete, dated evidence
+for the existing fix plan; no new design information, no new item.
