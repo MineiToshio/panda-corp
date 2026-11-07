@@ -44,3 +44,13 @@ that fixed port is already busy, restore the worktree's own PORT on exit). Also 
 the bootstrap rewrites is itself TRACKED with `skip-worktree` (e.g. a committed `launch.json`) — a
 serializing queue that lands other branches must clear only its OWN bootstrap-owned `skip-worktree`
 entries before rebasing, or the rebase blocks on files it never meant to touch.
+
+**Corroborating facet (2026-11-06, agent-inferred, funko-tracker):** a partial manual fix — hand-editing
+only the origin-identity URL (`BETTER_AUTH_URL`) to the worktree's lane port, leaving the data-identity
+URL (`ORACLE_MEDIA_BASE_URL`) on its original port — broke a SEPARATE fixture-validation check that
+asserts the two origins must equal each other (22 vitest reds), even though each URL was individually
+"correct" for its own kind. Apply next time: when a lane/worktree launcher needs to derive a port-fed
+origin, derive every origin that a fixture-validation step expects to match TOGETHER, from the same
+source (e.g. a single `FIDELITY_PORT`-style value the launcher computes once) — patching one origin in
+isolation to "fix" it can break a consistency check that was relying on both staying aligned, even when
+neither individual value is wrong on its own.

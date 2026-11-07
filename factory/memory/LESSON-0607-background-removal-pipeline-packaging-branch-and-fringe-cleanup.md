@@ -5,7 +5,7 @@ domain: image-processing
 tags: [background-removal, apple-vision, codex, imagegen, masking, catalog-photography]
 context: an automated background-removal/upscale pipeline run in batch over per-item product photography (boxed and loose), using a vision-based remover (e.g. Apple Vision) and a generative imagegen worker (e.g. Codex) for upscaling
 trigger: use this when building or debugging a batch background-removal pipeline for product/collectible photography that includes BOTH boxed (box photographed against a background) and loose (out-of-box) items
-source: "funko-tracker .pandacorp/run/lessons.md 2026-11-03/2026-11-04 (agent-inferred + owner-stated): Apple Vision removeBg picks the figure inside a white box photographed on a white background instead of the box, and strips the white teeth of loose figures; a Codex 'faithful' upscale pass can leave stray strokes outside the product that inflate a convex-hull mask; a batch removeBg run that did not branch on packaging and did not merge an item's instances before processing broke 289/568 views on a real catalog (owner-stated: 'the process must be fixed, not just reported')"
+source: "funko-tracker .pandacorp/run/lessons.md 2026-11-03/2026-11-04 (agent-inferred + owner-stated): Apple Vision removeBg picks the figure inside a white box photographed on a white background instead of the box, and strips the white teeth of loose figures; a Codex 'faithful' upscale pass can leave stray strokes outside the product that inflate a convex-hull mask; a batch removeBg run that did not branch on packaging and did not merge an item's instances before processing broke 289/568 views on a real catalog (owner-stated: 'the process must be fixed, not just reported'); 2026-11-05/06 addendum (agent-inferred): ~438px real source photos leave ragged edges on fine details regardless of masking approach"
 provenance: agent-inferred
 created: 2026-11-04
 status: candidate
@@ -45,3 +45,13 @@ inspect for stray strokes/lines the upscale invented outside the product and cle
 Never run the batch pass as a single undifferentiated step across an item's whole photo set — merge/review
 all instances of an item together, and treat a batch run's output as needing an explicit before/after
 fidelity check, not a "ran without erroring" success signal.
+
+**Fourth failure mode (2026-11-05/06, agent-inferred, funko-tracker):** a real source photo at low
+native resolution (~438px) leaves ragged, stair-stepped edges on thin/fine details (hair strands, thin
+weapon accessories) after background removal, REGARDLESS of which masking approach above is used — this
+is a resolution problem, not a masking-algorithm problem, and no amount of tuning the mask fixes an edge
+the source pixels never had the detail to describe. Apply next time: before running removeBg on a real
+(non-AI-generated) source photo, check its native resolution against the item's finest expected detail
+(hair, weapons, thin accessories) and source a higher-resolution original FIRST — treat a sub-threshold
+source resolution as a sourcing problem to fix upstream, not a masking defect to compensate for
+downstream.

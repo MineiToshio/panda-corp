@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0335, LESSON-0607, LESSON-0552, LESSON-0624]
+links: [LESSON-0335, LESSON-0607, LESSON-0552, LESSON-0624, LESSON-0626]
 ---
 
 **Situation:** an image-review pipeline for a product catalog relied on an LLM (vision-model) reviewer to
@@ -44,3 +44,10 @@ as a real/loose photo, (5) sub-native or sub-threshold resolution (a plain metad
 an explicit, exhaustive, scriptable gate the reviewer CANNOT skip, and run it on every image before any
 LLM/human pass — reserve the model/human review for judgment calls the mechanical checks can't make
 (composition, authenticity, overall appeal), not for defects that have a crisp test.
+
+**Sixth defect class (2026-11-05/06, owner-stated, funko-tracker):** low-resolution and off-angle/
+side-on photos of loose items also passed the same selection step — the selection logic checked only
+"does this meet the minimum", not "is this the canonical front-facing framing a catalog image needs."
+Add (6) framing/angle (a simple heuristic or an explicit canonical-angle check, preferring a frontal
+reference over a side/three-quarter one when several candidates exist) to the deterministic-gate list
+above — a photo can clear every other check and still be the wrong angle for a catalog.
