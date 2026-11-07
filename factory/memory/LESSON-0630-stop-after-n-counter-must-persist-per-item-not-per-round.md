@@ -17,7 +17,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0622]
+links: [LESSON-0622, LESSON-0633]
 ---
 
 **Situation:** a pipeline had an explicit rule to stop retrying an item and escalate to the owner after

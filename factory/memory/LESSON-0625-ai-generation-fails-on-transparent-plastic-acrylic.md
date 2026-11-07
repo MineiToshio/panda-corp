@@ -15,7 +15,7 @@ source: "funko-tracker .pandacorp/run/lessons.md 2026-11-05/06 (agent-inferred, 
   own 'after 2 reviewer rejections, stop and escalate to the owner' rule was the intended response"
 provenance: agent-inferred
 created: 2026-11-07
-status: candidate
+status: candidate   # 2026-11-07 (librarian review) — folded as the 4th incident into the LESSON-0617 reflection synthesis (same root cause: a generative model cannot guarantee "I did not invent/alter anything" about its own output), matching this store's convention for reflection facets (LESSON-0552/0601/0616 under LESSON-0617 itself, LESSON-0079 under LESSON-0185): stays its own evidence anchor at its own status, cited by the synthesis rather than deprecated.
 promotion: none
 confidence: medium
 times_applied: 0

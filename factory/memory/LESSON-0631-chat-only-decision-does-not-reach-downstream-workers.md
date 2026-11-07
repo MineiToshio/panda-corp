@@ -19,7 +19,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0622, LESSON-0630]
+links: [LESSON-0622, LESSON-0630, LESSON-0633]
 ---
 
 **Situation:** partway through a multi-batch run, a method decision was agreed in the conversation ("AI

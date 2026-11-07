@@ -18,7 +18,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0622]
+links: [LESSON-0622, LESSON-0633]
 ---
 
 **Situation:** a batch step planned which photo view(s) each item needed before sourcing/generating
