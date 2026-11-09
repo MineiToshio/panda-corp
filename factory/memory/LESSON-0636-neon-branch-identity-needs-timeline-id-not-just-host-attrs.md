@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0635]
+links: [LESSON-0635, LESSON-0656]
 ---
 
 **Situation:** a safety check meant to confirm "connection A and connection B are different actual

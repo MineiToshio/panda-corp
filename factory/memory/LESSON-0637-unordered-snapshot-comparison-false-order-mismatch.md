@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0636]
+links: [LESSON-0636, LESSON-0656]
 ---
 
 **Situation:** a guard asserting "the set of coverage rows is unchanged between snapshot A and snapshot

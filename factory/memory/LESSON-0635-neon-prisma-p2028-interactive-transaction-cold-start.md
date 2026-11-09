@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0431]
+links: [LESSON-0431, LESSON-0656]
 ---
 
 **Situation:** two separate Prisma call sites against a Neon serverless Postgres branch (an Ops CLI

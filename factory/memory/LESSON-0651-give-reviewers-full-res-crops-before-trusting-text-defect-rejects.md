@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0069]
+links: [LESSON-0069, LESSON-0621]
 ---
 
 **Situation:** a reviewer judged a batch of images via a shared, downscaled contact-sheet view (960px

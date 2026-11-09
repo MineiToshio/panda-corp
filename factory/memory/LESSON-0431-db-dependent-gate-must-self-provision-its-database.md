@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0131]
+links: [LESSON-0131, LESSON-0656]
 ---
 
 **Situation (incident 1 — build order):** `scripts/fidelity/gate.mjs` ran `prepareTemplate → buildApp →

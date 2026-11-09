@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0335, LESSON-0607, LESSON-0552, LESSON-0624, LESSON-0626]
+links: [LESSON-0335, LESSON-0607, LESSON-0552, LESSON-0624, LESSON-0626, LESSON-0651, LESSON-0652]
 ---
 
 **Situation:** an image-review pipeline for a product catalog relied on an LLM (vision-model) reviewer to
@@ -51,3 +51,19 @@ side-on photos of loose items also passed the same selection step — the select
 Add (6) framing/angle (a simple heuristic or an explicit canonical-angle check, preferring a frontal
 reference over a side/three-quarter one when several candidates exist) to the deterministic-gate list
 above — a photo can clear every other check and still be the wrong angle for a catalog.
+
+**Seventh defect class (2026-11-07, agent-inferred, funko-tracker, LESSON-0651):** the mechanical gates
+above are not the only place this structural gap shows up — the REVIEWER's own viewing surface can be the
+defect. A review pass on a 960px shared contact sheet (multiple photos side by side) misread a small
+AI-rendered "!" as "I", rejecting a correct image for a text-alteration defect that wasn't real; full-size
+band crops of the same region showed the text was actually correct. Add (7): before accepting a
+text/logo-alteration rejection from a downscaled multi-image review surface, re-check it against a
+full-resolution crop of just that region — a shared low-res contact sheet can manufacture the exact kind
+of defect this lesson's other gates exist to catch, in the reviewer itself rather than in the image.
+
+**Eighth defect class (2026-11-08, agent-inferred, funko-tracker, LESSON-0652):** the resolution check in
+defect (5) above, when implemented as a bare pixel-dimension threshold, still passes a blurry image —
+several retailer sources had been upscaled server-side (e.g. to 1400-1600px from a much smaller original)
+and cleared an 800px-wide rule while looking visibly soft. Add (8): pair the pixel-dimension floor with a
+sharpness/variance check (e.g. Laplacian variance, roughly >=2400 at 800px as a starting threshold) — pixel
+count alone cannot distinguish a genuinely sharp source from an upscaled soft one.

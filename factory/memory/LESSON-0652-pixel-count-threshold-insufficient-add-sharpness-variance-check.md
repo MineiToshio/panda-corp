@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0621]
 ---
 
 **Situation:** a photo-quality gate rejected sources below ~800px wide, on the theory that a wider image
