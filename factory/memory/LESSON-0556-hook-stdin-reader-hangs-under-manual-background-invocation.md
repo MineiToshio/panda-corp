@@ -5,12 +5,12 @@ domain: hooks
 tags: [hooks, stdin, background, manual-invocation, claude-code]
 context: manually invoking (outside the real harness) a script that a Claude Code hook normally runs, which reads its input JSON from stdin, as a background shell call
 trigger: use this when running a hook script by hand (for debugging, a dry run, or a routine simulation) as a background process — before it appears to hang with no output
-source: "mission-control .pandacorp/run/lessons.md 2026-10-29 (agent-inferred): a script that reads hook-payload JSON from stdin hung indefinitely when invoked manually in the background (no real hook harness piping input), because nothing closes stdin for a background shell call — the read blocks forever waiting for input that will never arrive."
+source: "mission-control .pandacorp/run/lessons.md 2026-10-29 (agent-inferred): a script that reads hook-payload JSON from stdin hung indefinitely when invoked manually in the background (no real hook harness piping input), because nothing closes stdin for a background shell call — the read blocks forever waiting for input that will never arrive. CORROBORATED on a DIFFERENT project (funko-tracker .pandacorp/run/lessons.md 2026-11-08, agent-inferred): a background `codex exec` image-generation job waited on stdin until timeout unless run with `< /dev/null` — same mechanism (a background CLI invocation with nothing closing/redirecting stdin hangs on an implicit or explicit stdin read), a different tool (`codex exec` rather than a hook script)."
 provenance: agent-inferred
 created: 2026-10-29
-status: candidate
+status: active   # 2026-11-09 (librarian eval-gate): cross-project corroboration (mission-control + funko-tracker), schema-valid, no contradiction
 promotion: none
-confidence: low
+confidence: medium
 times_applied: 0
 applied_in: []
 links: []
@@ -31,3 +31,8 @@ this particular invocation never supplies."
 stdin — a hook, a pipe-fed tool — always redirect `</dev/null` (if no real input is intended) or pipe the
 actual JSON payload in explicitly. Never background such a call bare; it will hang the session's job list
 rather than fail loud.
+
+**Generalized (funko-tracker corroboration):** this is not specific to hook scripts — ANY CLI tool run as
+a background process (e.g. `codex exec` for an image-generation job) that reads or waits on stdin by
+default will hang the same way. Always run a background CLI call with `< /dev/null` unless you are
+deliberately piping real input to it.

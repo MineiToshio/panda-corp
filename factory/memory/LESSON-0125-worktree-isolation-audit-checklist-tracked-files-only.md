@@ -147,3 +147,16 @@ the SAME root cause facet 9 names (a generic cleanup pass has no reason to treat
 anything but disposable) applied to content an agent deliberately put there mid-run rather than to a
 pinned/deployed worktree. Copy any parked salvage OUT of the lane worktree (to the main checkout, the
 scratchpad, or a durable artifact) before the lane is cleaned — never after.
+
+**Thirteenth facet — a worker's OWN scratch folder inside its OWN worktree pollutes the full-suite glob
+(funko-tracker, 2026-11-08, `.pandacorp/run/lessons.md`, agent-inferred):** facet 5 names a test glob
+sweeping a SIBLING worktree's files; this is the same mechanism one layer closer to home — a worker
+created its own scratch output directory (e.g. `.tmp-review/`) directly inside the worktree it was
+assigned, intending it as throwaway working material, and the project's own full vitest gate (which globs
+the whole worktree tree, not just `src/`) picked those scratch files up as if they were real test
+targets, producing dozens of false FAILs unrelated to the actual change. Nothing about "this is MY
+worktree" exempts scratch output from a whole-tree glob the way it would from `git status` (scratch
+output is usually untracked and ignored there, but a test runner's glob does not consult `.gitignore` by
+default). Keep ALL worker scratch output (even inside your own assigned worktree) outside the worktree
+entirely — the OS-level per-session scratch path, never a folder under the project tree, gitignored or
+not.

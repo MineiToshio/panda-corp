@@ -88,3 +88,21 @@ A TWELFTH corroboration (personal-page-v2, 2026-10-06, agent-inferred): a review
 cited a doc section ("style-guide section Tags") and a test case that did not exist on disk; it retracted
 both when re-run. A subagent's citation of a doc or test is itself a secondary representation: grep the cited
 section/test on disk before acting on, or repeating, a finding built on it.
+
+A THIRTEENTH corroboration (funko-tracker, 2026-11-07, `.pandacorp/run/lessons.md`, agent-inferred): a
+third-party search API (`imageSearch.ts`'s Bing engine) returned the same generic, unrelated result list
+for several different queries (including a literal UPC lookup) while still reporting an "ok" status. The
+call's own success/HTTP status is a secondary signal about the TRANSPORT (the request didn't error), not
+evidence the returned CONTENT actually answers the query — the same trap as a subagent's self-reported
+"done"/"verified" status (facets 1, 6, 12 above), now in the shape of an external API's status field. Spot-
+check the actual returned content against what was asked for before trusting an "ok"/200 response as proof
+the result is relevant or correct.
+
+A FOURTEENTH corroboration (funko-tracker, 2026-11-08, `.pandacorp/run/lessons.md`, agent-inferred): a
+review flow's "giant red text" defect was diagnosed by reading the rendered review's visible TEXT, which
+looked like dozens of real per-item defects — the actual bug was in `reviewRenderer` itself, which glued
+~360 unrelated global change-notes onto the FIRST card inside the red `<ul class=notes>` block. Diagnosing
+from the rendered text summary (a secondary representation of the underlying HTML/data) led straight to
+the wrong layer; opening the real rendered HTML and checking per-card size/structure showed the actual
+defect immediately. Same root cause as facet 12 (a report's claim is secondary evidence) applied to a
+build artifact's own rendered output rather than a subagent's prose.

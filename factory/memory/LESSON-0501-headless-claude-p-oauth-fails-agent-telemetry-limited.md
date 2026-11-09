@@ -11,12 +11,19 @@ trigger: use this when designing a model-calibration benchmark from inside a Cla
 source: "mission-control .pandacorp/run/lessons.md 2026-10-22 (agent-inferred): `claude -p` launched from
   a Bash tool subprocess failed with \"OAuth session expired and could not be refreshed\" (cost 0),
   and the Agent tool reports only combined subagent_tokens (about 100k baseline of shared context) plus
-  duration, no in/out split"
+  duration, no in/out split. CORROBORATED on a DIFFERENT project (funko-tracker .pandacorp/run/lessons.md
+  2026-11-08, agent-inferred): using `claude -p` as an independent photo-review reviewer hit the same
+  \"OAuth session expired\" failure when the CLI's OAuth had lapsed; lead subagents were also refused as
+  reviewers of their own parent's production. The working pattern was a genuinely separate TOP-LEVEL
+  Claude Code session (its own `CLAUDE_CODE_SESSION_ID`, started fresh from the lead, not a subagent and
+  not a bare `claude -p` subprocess) acting as the independent reviewer — same root cause as this lesson
+  (a subprocess/subagent of an active session does not carry a fresh, independently-authenticated identity
+  the way a standalone top-level session does), applied to review-authentication instead of benchmarking."
 provenance: agent-inferred
 created: 2026-10-23
-status: candidate
+status: active   # 2026-11-09 (librarian eval-gate): cross-project corroboration (mission-control + funko-tracker), schema-valid, no contradiction
 promotion: none
-confidence: medium
+confidence: high
 times_applied: 0
 applied_in: []
 links: []
@@ -40,3 +47,11 @@ token/cost accounting; its reported numbers are a rough combined signal, not a b
 for input/output token splits — budget for a coarser signal (wall time, pass/fail outcome, relative
 ordering) from inside a session, or run the comparison from a genuinely separate, freshly-authenticated
 CLI invocation outside any active session if exact cost is required.
+
+**Generalized (funko-tracker corroboration):** the same failure recurs anywhere a flow needs a freshly,
+independently-authenticated Claude identity — not just benchmarking, but also an "independent reviewer"
+step that must not share the producer's own authority. Don't reach for `claude -p` as a bare subprocess of
+the current session, and don't use a subagent of the producer, for a review/verification step that needs
+genuine independence — start a real, separate top-level Claude Code session instead (its own session ID,
+its own fresh OAuth context); that is the only form that reliably passes both an "OAuth still valid" check
+and a "not the producer / not a child of the producer" independence check.
