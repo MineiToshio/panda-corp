@@ -430,6 +430,50 @@ marker-anchor approach: find each file's LAST `<!-- No live notes pending as of 
 factory/memory/_inbox.md agent-inferred note (2026-11-04 pandacorp-memory-review sweep, harvested
 2026-11-04 during the funko-tracker harvest pass).
 
+## Corroborating occurrence (2026-11-08) — a nested bullet list INSIDE the drained block's own prose ("NEW lessons added") false-positives a naive `^- ` count, with no trailing marker at all
+
+A further live PASO 0-style hit, on pandasaga's `.pandacorp/run/lessons.md` this time: a naive
+`grep -c '^- '` over the WHOLE file reported 50 "pending" notes, but the file was entirely drained — all
+50 lines were bullet points INSIDE the last harvest's own `<!-- Drained ... -->` summary comment (a
+"NEW lessons added" list the drain summary itself writes as prose), and the file ends right after that
+comment's closing `-->`, with no trailing `<!-- No live notes pending as of ... -->` marker at all (the
+2026-10-28 annotation below already documents this exact "marker absent" shape for a different reason —
+an empty `$LAST`; this is a second way the same "marker absent" file shape bites, this time a bullet-tag
+count rather than a marker-anchor count). This is the SAME root cause BL-0061 already names — a line-tag
+match (`^- `) with no awareness of whether the matched line sits inside an already-drained comment block
+— applied to a nested bulleted sub-list within the block's own prose rather than the block's closing
+boundary token. Correct technique (verified by hand this session, no new design beyond what is already
+converged above): find the LAST `-->` that actually closes a comment (anchored to line-start per the
+2026-09-26/27/29 annotations' "last occurrence, nearest EOF, excluding quoted mentions" rule), then count
+`^- ` lines strictly after it — not anywhere in the file, and not relying on an explicit "No live notes"
+marker existing (per the 2026-10-28 annotation, its absence must never be read as "count everything").
+Checked against LESSON-0008 (line-anchored-parsing-not-substring-greedy, active, high confidence) per this
+item's own 2026-09-29/10-06/10-26/10-27 precedent: same project/routine incident family, already cited, no
+new lesson warranted. No new backlog item — same item, same scope. Source: factory/memory/_inbox.md
+agent-inferred note (2026-11-08 PASO 0 sweep).
+
+## Corroborating occurrence (2026-11-09) — even "find the last `-->` that closes a comment" lands inside a LIVE note's own prose when that note quotes comment syntax; the working fix needs a line-start `^<!--` anchor on the OPENING token too
+
+A further live PASO 0 hit, this time against `factory/memory/_inbox.md` itself, right after the
+2026-11-08 corroboration above was drafted into this very file: a plain rightmost-`-->`-substring search
+(tried both as shell `grep` and as a Python `str.rfind`, to rule out a tool-specific quirk) landed inside
+the then-most-recent live note's OWN prose (which quoted `` `-->` `` and a worked `<!-- ... -->` example
+in backticks as part of describing this exact bug), reporting a false "0 pending" — the opposite-direction
+mirror of the 2026-09-27 annotation's finding for a LIVE note quoting the token, now reproduced again,
+plus a NEW failure shape: a non-line-anchored `<!--.*?-->` regex scanning the whole file separately
+mis-landed 13 already-drained bullets (sitting, as always, between two older drained comment blocks) as
+"pending," because "outside any comment" is not equivalent to "after the LAST comment" — drained bullets
+are never deleted or moved on drain, so plenty of them structurally sit outside any comment block's span
+while still being fully processed history. The technique that held up under hand verification (2 pending,
+matching a manual read): require `<!--` to match at the START OF A LINE (`^<!--`, MULTILINE+DOTALL) when
+enumerating comment-block OPENINGS (not just closings — this item's prior annotations converged hard on
+anchoring the CLOSING `-->`, but had not yet needed to anchor the opening token the same way), take the
+LAST such block by that anchor, and count `^- ` lines strictly after its end. Checked against LESSON-0008
+(line-anchored-parsing-not-substring-greedy, active, high confidence): this is the same already-cited
+project/routine incident family, generalizing an already-stated principle (anchor to structural position,
+never substring-anywhere) to the block's OPENING delimiter specifically — no new lesson warranted per this
+item's own 2026-09-29/10-06/10-26/10-27/11-08 precedent. No new backlog item — same item, same scope.
+
 ## Note (annotated 2026-10-28) — when the marker is ABSENT entirely, an empty `$LAST` silently makes `tail -n +$((LAST+1))` print the WHOLE file instead of signaling "zero pending"
 
 A further distinct trap in the 2026-10-25 marker-anchor formula's own shell implementation

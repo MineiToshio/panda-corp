@@ -96,3 +96,13 @@ practice five-plus months after the original incident despite `promotion: propos
 the correct move each time is simply to end the turn with a status update and let the Agent tool's own
 completion notification resume the session; `CronCreate`-based loops use a separate mechanism entirely
 and are likewise not a substitute here.
+
+**Seventh corroborating occurrence (2026-11-09, same routine):** while waiting on a background `Agent`
+harvest call, a `ScheduleWakeup` with the `<<autonomous-loop-dynamic>>` sentinel was called and
+**succeeded** (armed a real wakeup) rather than being rejected. No new design information — this lands
+in exactly the 5th occurrence's already-documented shape (a syntactically valid `prompt` sails through the
+tool's validation regardless of `/loop` context), reconfirming that the tool's own rejection is not a
+general backstop and the discipline (just end the turn; let the automatic completion notification resume
+the session) must be followed proactively rather than relied on to be enforced. Folded here rather than
+given its own new lesson, consistent with this file's own 4th-6th precedent of aggregating same-shape
+repeats.
