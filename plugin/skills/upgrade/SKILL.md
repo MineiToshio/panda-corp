@@ -68,8 +68,9 @@ Brings this project's Pandacorp overlay up to the factory's current version. The
 
    - **Certified tree + light Stop gate (DR-146):** copy `templates/shared/.pandacorp/green-stamp.sh`
      verbatim with merge-queue.sh (the stack's `verify.sh`, synced by the gate-config conformance below,
-     calls it and gains `--light`/`--tests`/the printed vitest seed). Until both land, the Stop hook keeps
-     the full gate and the queue always runs it (fail-closed). Never create, copy or edit a
+     calls it and gains `--light`/`--tests`/the printed vitest seed). The Stop hook uses the light gate as soon
+     as the project's `verify.sh` accepts `--light`/`--tests=` (until then it keeps the full gate); without
+     `green-stamp.sh` nothing is ever certified, so the queue always runs the full gate (fail-closed). Never create, copy or edit a
      `.pandacorp/run/green-stamp` by hand, and leave any old `.pandacorp/run/last-green.json` in place
      (nothing reads it any more; runtime state is never bulk-deleted).
 

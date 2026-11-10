@@ -468,7 +468,7 @@ The build engine reviews and tests **per FRD**, not per work order:
   `last-green.json` (written only by the hook, after a full gate that could not finish inside the hook's
   300 s timeout) is retired. The full gate stays mandatory where it protects `main`: the merge queue and
   the engine's close-out. An overlay whose `verify.sh` predates `--light` keeps the full Stop gate;
-  `PANDACORP_STOP_GATE=full` forces it. Reds keep DR-099 attribution unchanged. The companion
+  `PANDACORP_STOP_GATE=full` forces it. Candidate tests come from the session's edit record plus every dirty/untracked path (Codex `apply_patch` headers are recorded), while reds keep DR-099 attribution on the edit record alone. On the default branch, a session with edits and an uncertified tree is told explicitly that the FULL gate has not run and that direct work on `main` needs a full `verify.sh` (or the queue) before push. The companion
   `check-derived-drift.sh` (the plugin-manifest and Codex-mirror drift gate) similarly only re-runs its
   generators when the session touched `plugin/` or `factory/`, or HEAD moved since its last-ok stamp; see
   `plugin/hooks/hooks.json` for the full enforcement roster.
@@ -2288,7 +2288,7 @@ after the gate decision and is never bypassed by a skip. Single-change behavior 
 
 **How it is verified (binary, review-only):** the landing session checks the recorded source
 SHAs/branch-green evidence, the commits including all selected changes, and the queue log: exactly
-one full integration-gate invocation for the assembled batch before any repair, with each further
+one full gate for the assembled batch before any repair (the queue's own `[full-gate]` run, or the full `verify.sh` that certified that exact combined tree, after which the queue logs `[certified-tree]`), with each further
 invocation linked to an observed red and its scoped fix (or the existing queue’s documented
 exit-21/advanced-main safety retry). Per-source queue/full-gate invocations
 fail this checklist. `plugin/scripts/test-batch-integration.sh` rehearses the manual procedure

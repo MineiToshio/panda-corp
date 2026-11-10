@@ -19,6 +19,12 @@ inside a 300 s hook timeout the suite cannot meet, keyed by HEAD so every landin
 Concurrent full gates saturated the CPU and timed out expensive tests. Full verification still
 guards `main` (queue + close-out); every skip requires byte-identical, clean, same-gate evidence.
 
+**Review fixes (same release, nothing shipped):** on the default branch, with own edits and an
+uncertified tree, the hook now says the FULL gate has not run and that direct work on main needs a
+full `verify.sh` (or the queue) before push (stderr + Claude `systemMessage`); candidate tests also
+include dirty/untracked paths (attribution unchanged); `warn-adhoc-write.sh` records Codex
+`apply_patch` Update/Add File targets; DR-141 wording counts the certifying full run as the one gate.
+
 **Evidence:** `test-verify-before-stop.sh` 29/29 (22 red against the previous hook),
 `test-verify-gate-report.sh` 38/38, new `test-merge-queue-certified-tree.sh` 11/11 (8 red against
 the previous queue), `test-batch-integration.sh` and `test-merge-queue-release-gate.sh` green.

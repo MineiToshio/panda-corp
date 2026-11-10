@@ -13,6 +13,9 @@ and [quality.md](standards/quality.md); project rule `quality-and-testing.md` an
 `last-green.json` that only a full green inside the hook's 300 s timeout could advance; ~15 min
 queue re-runs on unchanged trees) showed the gate's cost, not the tests, driving the timeouts the
 owner saw as flakiness. No gate is weakened: every doubt runs the full gate, DR-138 and DR-099 are unchanged.
+Review follow-up: the light gate announces on `main` that the full gate has not run (direct work
+needs a full `verify.sh` or the queue before push); dirty paths and Codex patches feed its test list;
+the DR-141 "one full gate" counts the certifying full run. Known limits are recorded in DR-146.
 
 ## 2026-11-05 — Reclaim implementation resources after merge (DR-145, BL-0304)
 
