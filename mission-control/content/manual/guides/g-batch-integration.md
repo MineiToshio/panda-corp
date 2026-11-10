@@ -23,7 +23,10 @@ lightweight catalog validator are unchanged.
 
 The landing checklist checks source evidence and queue logs: one full combined pass before repairs,
 each later pass linked to an observed red/scoped fix or the existing queue’s safety recheck
-after exit 21 or an advanced main. The standards and decision-rule
+after exit 21 or an advanced main. Since DR-146 that recheck is satisfied without a new run when
+the rebased tree is byte-identical to one a full `verify.sh` already certified green in that
+checkout (logged `[certified-tree]`); any other tree runs the full gate (`[full-gate]`). Commit,
+run `verify.sh`, then the queue, and an unchanged main costs no second full run. The standards and decision-rule
 Reference catalogs expose the canonical BUILD-4 / DR-141 contract automatically.
 Existing projects receive the guide and always-applicable quality rule through `/pandacorp:upgrade`
 (overlay 8.114.0); no sibling project is modified by this factory change.

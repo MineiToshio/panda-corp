@@ -1,5 +1,28 @@
 # Decision log — Plugin pandacorp
 
+## v9.151.0 — 2026-11-10 (MINOR): light Stop gate, certified-tree queue skip, seeded vitest (DR-146)
+
+**What:** `verify-before-stop.sh` now runs `verify.sh --light` plus `--tests=` the test files that
+belong to the session's own edits (cap 50), never Playwright or the whole vitest suite, and skips
+entirely on a tree `green-stamp.sh check` certifies. The rigor classifier, `--since` anchoring and
+the hook-written `last-green.json` are retired. Overlay **8.119.0**: new `.pandacorp/green-stamp.sh`
+(single writer/reader of the certified tree); Stack A `verify.sh` gains `--light`, `--tests=`, a
+FULL-green-on-clean-tree stamp (any red drops it) and a shuffled vitest order with a printed,
+recorded (`vitest_seed`), replayable (`PANDACORP_VITEST_SEED`) seed; `merge-queue.sh` skips its
+post-rebase gate only on a certified identical tree (`[certified-tree]` / `[full-gate]` in its log)
+and hands the stamp to the main checkout. Upgrade/scaffold: deliver `green-stamp.sh`; regenerating
+`docs/rules/README.md` keeps each project-specific rule's existing import choice.
+
+**Why:** funko-tracker measured 1206 Stop gates (8 green, 15.6 h) and a ~15 min queue re-run on
+identical trees; `last-green.json` froze at 2026-10-18 because its only writer was a full green
+inside a 300 s hook timeout the suite cannot meet, keyed by HEAD so every landing invalidated it.
+Concurrent full gates saturated the CPU and timed out expensive tests. Full verification still
+guards `main` (queue + close-out); every skip requires byte-identical, clean, same-gate evidence.
+
+**Evidence:** `test-verify-before-stop.sh` 29/29 (22 red against the previous hook),
+`test-verify-gate-report.sh` 38/38, new `test-merge-queue-certified-tree.sh` 11/11 (8 red against
+the previous queue), `test-batch-integration.sh` and `test-merge-queue-release-gate.sh` green.
+
 ## v9.150.0 — 2026-11-05 (MINOR): session-owned implementation teardown (DR-145, BL-0304)
 
 **What:** `session-cleanup.mjs` creates an ownership receipt, registers new worktrees and removes

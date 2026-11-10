@@ -134,9 +134,20 @@ if [ -f "e2e/server-env.json" ]; then
     fail "committed e2e PORT :$COMMITTED_PORT is busy — stop the dev server / other gate on :$COMMITTED_PORT, then re-run" 14
   fi
 fi
+# DR-146 certified tree: verify.sh is a function of the tree it judges, so when the rebased result is
+# byte-identical (same HEAD^{tree}, clean, no skip-worktree/assume-unchanged entries, same verify.sh,
+# stamp < 12 h old) to a tree a FULL verify.sh already passed in THIS checkout, a second run proves
+# nothing new. green-stamp.sh is the only judge; ANY doubt (no/corrupt stamp, other tree, dirty,
+# changed gate, old stamp) runs the full gate exactly as before. The DR-138 owner check below is
+# untouched: a skip never lands a launched project without PANDACORP_OWNER_RELEASE_OK=1.
 if [ -x ".pandacorp/verify.sh" ]; then
-  if ! bash .pandacorp/verify.sh; then
-    fail "integration gate RED on the rebased result — fix on $BRANCH and re-run (NOT a semantic-conflict pass)" 11
+  if [ -f ".pandacorp/green-stamp.sh" ] && stamp_note=$(bash .pandacorp/green-stamp.sh check 2>&1); then
+    echo "merge-queue: integration gate SKIPPED [certified-tree] — rebased tree is identical to one a full verify.sh passed ($stamp_note)"
+  else
+    echo "merge-queue: running the full integration gate [full-gate] (${stamp_note:-no green-stamp.sh in this overlay})"
+    if ! bash .pandacorp/verify.sh; then
+      fail "integration gate RED on the rebased result — fix on $BRANCH and re-run (NOT a semantic-conflict pass)" 11
+    fi
   fi
 fi
 
@@ -172,6 +183,16 @@ fi
 # worktree binding), keep the worktree and report the cwd blocker. Once outside, run:
 #   cd "$MAIN_WT" && bash .pandacorp/session-cleanup.sh finish --session "$PANDACORP_CLEANUP_SESSION"
 rm -f "$MAIN_WT/.pandacorp/run/worktrees/$BRANCH.json" 2>/dev/null || true   # drop the manifest entry (worktree-bootstrap writes <branch>.json) (DR-096 §7)
+
+# DR-146: main now holds exactly the tree this queue certified, so hand the main checkout the same
+# stamp (its own green-stamp.sh check still re-verifies tree, cleanliness, verify.sh and age there).
+# Best-effort: without it, sessions parked on main just run their normal Stop gate.
+if [ -f ".pandacorp/green-stamp.sh" ] && bash .pandacorp/green-stamp.sh check >/dev/null 2>&1; then
+  MAIN_RUN_DIR="$MAIN_WT/$(git rev-parse --show-prefix).pandacorp/run"
+  mkdir -p "$MAIN_RUN_DIR" 2>/dev/null \
+    && cp .pandacorp/run/green-stamp "$MAIN_RUN_DIR/.green-stamp.tmp" 2>/dev/null \
+    && mv "$MAIN_RUN_DIR/.green-stamp.tmp" "$MAIN_RUN_DIR/green-stamp" 2>/dev/null || true
+fi
 
 echo "merge-queue: merged $BRANCH → $DEFAULT_BRANCH"
 

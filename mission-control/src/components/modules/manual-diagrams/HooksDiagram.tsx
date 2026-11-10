@@ -35,7 +35,7 @@ const HOOKS: readonly Hook[] = [
     icon: "check",
     color: "var(--green)",
     name: "Stop · verify-before-stop.sh",
-    body: "Corre .pandacorp/verify.sh (tests + typecheck + lint). Fail-closed: un agente no puede declarar «terminado» si falla.",
+    body: "Corre .pandacorp/verify.sh --light (lint + typecheck + los tests de los archivos que tocó la sesión; nunca Playwright ni la suite entera). Un árbol ya certificado verde no se repite. Fail-closed: un agente no puede declarar «terminado» si falla. La suite completa la corre merge-queue.",
   },
   {
     icon: "activity",

@@ -458,10 +458,17 @@ The build engine reviews and tests **per FRD**, not per work order:
   parked at that `cwd`). The supervisor keeps a freshness-stamped lock at `.pandacorp/run/build.lock`; the
   Stop hook no-ops while it's fresh and re-engages strictly when the build ends. The engine owns the gate
   during a build; the Stop hook owns it at rest. See `quality.md` (Gates).
-  **At rest, the hook itself now has a fast-path (E3, proposal 37):** a clean tree whose HEAD matches
-  `last-green.json` and an empty `.touched` record skips re-running `verify.sh` entirely, since there is
-  nothing new to verify; any other state still runs the full strict suite. Both branches stay
-  fail-closed: the fast-path is a skip on proven-nothing-changed, never a relaxed check. The companion
+  **At rest the hook is LIGHT (DR-146):** it runs `verify.sh --light` (every cheap static sub-gate over
+  the whole project) plus `--tests=` exactly the test files that belong to the files this session edited
+  (an edited test, or the `_tests/<name>.test.*` siblings of an edited source; capped at 50) — never
+  Playwright, never the whole vitest suite. A clean tree that `green-stamp.sh check` proves is a tree a
+  FULL `verify.sh` already passed (same `HEAD^{tree}`, no skip-worktree entries, same `verify.sh`, stamp
+  under 12 h) skips the hook entirely. The stamp is written by `verify.sh` itself after any full green on
+  a clean tree and handed to the main checkout by `merge-queue.sh`; the former HEAD-keyed
+  `last-green.json` (written only by the hook, after a full gate that could not finish inside the hook's
+  300 s timeout) is retired. The full gate stays mandatory where it protects `main`: the merge queue and
+  the engine's close-out. An overlay whose `verify.sh` predates `--light` keeps the full Stop gate;
+  `PANDACORP_STOP_GATE=full` forces it. Reds keep DR-099 attribution unchanged. The companion
   `check-derived-drift.sh` (the plugin-manifest and Codex-mirror drift gate) similarly only re-runs its
   generators when the session touched `plugin/` or `factory/`, or HEAD moved since its last-ok stamp; see
   `plugin/hooks/hooks.json` for the full enforcement roster.
@@ -2271,7 +2278,13 @@ owner's explicit order for the **selected batch**, and `PANDACORP_OWNER_RELEASE_
 that authorized landing (DR-138). Without it, exit 21 preserves the branch. Never reuse an
 approval for additional changes. The existing queue still rechecks on a later authorized retry after
 exit 21 or an advanced main; record that safety/authorization retry separately, never as a
-per-source gate loop. Single-change behavior and all other human gates remain intact.
+per-source gate loop. **Certified tree (DR-146):** the queue's recheck after its rebase is skipped
+only when `green-stamp.sh check` proves the rebased tree is byte-identical to one a FULL `verify.sh`
+passed in that checkout (clean, no skip-worktree entries, same `verify.sh`, stamp under 12 h); the
+log says `[certified-tree]` or `[full-gate]`. An advanced main, a partial/`--light`/`--since` run, a red
+run (which drops the stamp), a dirty or bootstrap-overridden tree or a stale/corrupt stamp all run the
+full gate. Order the landing as commit → `verify.sh` → queue to benefit. The DR-138 owner check runs
+after the gate decision and is never bypassed by a skip. Single-change behavior and all other human gates remain intact.
 
 **How it is verified (binary, review-only):** the landing session checks the recorded source
 SHAs/branch-green evidence, the commits including all selected changes, and the queue log: exactly

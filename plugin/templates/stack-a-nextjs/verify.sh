@@ -31,6 +31,17 @@
 #   REFUSES to promote a work order to VERIFIED or advance `last_green_sha` on a partial report, so a
 #   scoped run can never be mistaken for a full green by a later reader. A scoped run writes nothing
 #   but the report (which, being partial, is self-describing), so it leaves no other artifact behind.
+#
+# DR-146 additions — SCOPE, ORDER and PROVENANCE only, nothing here ever softens what counts as red:
+#   `--light`: the Stop hook's per-turn gate — every cheap static sub-gate (structure guard through
+#   madge, whole project), NEVER Playwright and NEVER the whole vitest suite. Exclusive with `--only`.
+#   `--tests=<test-file>[,...]`: vitest runs EXACTLY these test files (`vitest run <files>`), nothing
+#   inferred. With `--light` it adds vitest to the light set. Both flags stamp `"scope":"partial"`.
+#   Vitest always runs in a shuffled order with an explicit seed, printed before the run and recorded
+#   as `vitest_seed` in gate-report.json; `PANDACORP_VITEST_SEED=<n>` replays that exact order.
+#   Certified tree: a FULL run (no --since/--only/--files/--light/--tests) that exits 0 on a tree
+#   that was clean when it started records that tree via `.pandacorp/green-stamp.sh`; every red exit
+#   drops the stamp. merge-queue.sh and the Stop hook trust ONLY that stamp to skip a re-run.
 set -euo pipefail
 shopt -s inherit_errexit 2>/dev/null || true  # bash 4.4+; no-op on macOS' bash 3.2 (avoids "invalid shell option")
 
@@ -91,22 +102,28 @@ fi
 REPORT_ALL=0
 ONLY_GATES=""
 SCOPE_FILES=""
+LIGHT=0
+SCOPE_TESTS=""
 _wp08_expect=""
 for _wp05_arg in "$@"; do
   if [ -n "$_wp08_expect" ]; then
     case "$_wp08_expect" in
       only)  ONLY_GATES="$_wp05_arg" ;;
       files) SCOPE_FILES="$_wp05_arg" ;;
+      tests) SCOPE_TESTS="$_wp05_arg" ;;
     esac
     _wp08_expect=""
     continue
   fi
   case "$_wp05_arg" in
     --report-all) REPORT_ALL=1 ;;
+    --light)      LIGHT=1 ;;
     --only=*)     ONLY_GATES="${_wp05_arg#--only=}" ;;
     --files=*)    SCOPE_FILES="${_wp05_arg#--files=}" ;;
+    --tests=*)    SCOPE_TESTS="${_wp05_arg#--tests=}" ;;
     --only)       _wp08_expect="only" ;;
     --files)      _wp08_expect="files" ;;
+    --tests)      _wp08_expect="tests" ;;
   esac
 done
 
@@ -121,10 +138,37 @@ if [ -n "$SCOPE_FILES" ]; then
   done
   IFS="$_wp08_oldifs"
 fi
+SCOPE_TESTS_ARR=()
+if [ -n "$SCOPE_TESTS" ]; then
+  _wp08_oldifs="$IFS"
+  IFS=','
+  for _wp08_f in $SCOPE_TESTS; do
+    if [ -n "$_wp08_f" ]; then SCOPE_TESTS_ARR+=("$_wp08_f"); fi
+  done
+  IFS="$_wp08_oldifs"
+fi
 
 # The canonical sub-gate names — the SAME strings the gate report's `name` field carries, so the
 # engine can feed a report's failing sub-gate straight back in as `--only=<name>`.
 KNOWN_GATES="live-data-asserts structure-guard data-layer api-error-contract doc-lint residual-ambiguity biome tsc knip madge vitest playwright"
+# DR-146 `--light`: derived from KNOWN_GATES (one list, never a second hand-kept copy) — every cheap
+# gate, vitest only for an explicit `--tests` list, never Playwright. `--only` would make the meaning
+# of the run ambiguous, so the combination is refused below (fail-closed), never resolved silently.
+LIGHT_CONFLICT=0
+if [ "$LIGHT" -eq 1 ]; then
+  if [ -n "$ONLY_GATES" ]; then
+    LIGHT_CONFLICT=1
+  else
+    for _dr146_g in $KNOWN_GATES; do
+      case "$_dr146_g" in
+        playwright) ;;
+        vitest) [ "${#SCOPE_TESTS_ARR[@]}" -gt 0 ] && ONLY_GATES="$ONLY_GATES,vitest" ;;
+        *) ONLY_GATES="$ONLY_GATES,$_dr146_g" ;;
+      esac
+    done
+    ONLY_GATES="${ONLY_GATES#,}"
+  fi
+fi
 gate_selected() {
   if [ -z "$ONLY_GATES" ]; then return 0; fi
   case ",$ONLY_GATES," in
@@ -143,12 +187,26 @@ GATE_SCOPE="full"
 [ -n "$SINCE" ] && GATE_SCOPE="since"
 # WP-08: `partial` outranks `since`. It is the WEAKEST claim this script can make about a run, and the
 # engine's certification cage keys on exactly this value — so when both apply, report the weaker one.
-[ -n "$ONLY_GATES$SCOPE_FILES" ] && GATE_SCOPE="partial"
+[ -n "$ONLY_GATES$SCOPE_FILES$SCOPE_TESTS" ] && GATE_SCOPE="partial"
+[ "$LIGHT" -eq 1 ] && GATE_SCOPE="partial"
 # BL-0147: stamp the commit this run verified so a LATER reader (the build engine's close-out/
 # notify-end) can prove a report was produced for the EXACT commit it is about to re-verify, instead
 # of trusting scope+green alone (which say nothing about WHICH commit). Best-effort — a fixture/non-
 # git checkout (or a detached/rebasing tree mid-op) leaves it empty, never fails the gate over it.
 GATE_SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
+# DR-146: the tree a FULL run is about to judge, captured BEFORE any gate and only when it is clean
+# (green-stamp.sh owns what "clean" means). Empty = this run can never certify a tree.
+STAMP_START_TREE=""
+if [ "$GATE_SCOPE" = "full" ] && [ -f .pandacorp/green-stamp.sh ]; then
+  STAMP_START_TREE=$(bash .pandacorp/green-stamp.sh start 2>/dev/null || true)
+fi
+# DR-146: vitest order is always shuffled with an explicit seed so a red caused by test order can be
+# replayed exactly. A malformed replay seed is an invocation error, never silently replaced.
+VITEST_SEED="${PANDACORP_VITEST_SEED:-}"
+VITEST_SEED_USED=""
+if [ -z "$VITEST_SEED" ]; then
+  VITEST_SEED=$(( ((RANDOM << 15) | RANDOM) + 1 ))
+fi
 
 GATE_FRAGMENTS_DIR=$(mktemp -d)
 : > "$GATE_FRAGMENTS_DIR/fragments.jsonl"
@@ -293,11 +351,11 @@ write_gate_report() {
   # provenance for a reader of the report. The engine's close-out reuse no longer accepts a since-scoped
   # report (canary E2 finding 7: last_green_sha is itself published from since-scoped runs, so a since
   # report never adds up to a full one). Empty (never written) on a `full`/`partial` run.
-  python3 - "$GATE_RUN_AT" "$GATE_SCOPE" "$green" "$GATE_SHA" "$SINCE" "$GATE_FRAGMENTS_DIR/fragments.jsonl" "$REPORT_FILE" <<'PY'
+  python3 - "$GATE_RUN_AT" "$GATE_SCOPE" "$green" "$GATE_SHA" "$SINCE" "$GATE_FRAGMENTS_DIR/fragments.jsonl" "$REPORT_FILE" "$VITEST_SEED_USED" <<'PY'
 import json
 import sys
 
-at, scope, green_str, sha, since, frag_path, out_path = sys.argv[1:8]
+at, scope, green_str, sha, since, frag_path, out_path, vitest_seed = sys.argv[1:9]
 subgates = []
 with open(frag_path, "r") as fh:
     for line in fh:
@@ -308,10 +366,23 @@ with open(frag_path, "r") as fh:
 report = {"at": at, "scope": scope, "green": green_str == "true", "sha": sha, "subgates": subgates}
 if since:
     report["since"] = since
+if vitest_seed:
+    report["vitest_seed"] = int(vitest_seed)
 with open(out_path, "w") as fh:
     json.dump(report, fh, indent=2)
     fh.write("\n")
 PY
+  # DR-146 certified tree: only a FULL green that started on a clean tree may certify it (and
+  # green-stamp.sh re-checks the tree is unchanged and still clean); ANY red drops the stamp so a
+  # tree that just failed can never be skipped on the strength of an older green. Best-effort: a
+  # stamp that cannot be written only means the next merge-queue runs the full gate.
+  if [ -f .pandacorp/green-stamp.sh ]; then
+    if [ "$green_exit" -ne 0 ]; then
+      bash .pandacorp/green-stamp.sh invalidate || true
+    elif [ "$GATE_SCOPE" = "full" ] && [ -n "$STAMP_START_TREE" ]; then
+      bash .pandacorp/green-stamp.sh record "$STAMP_START_TREE" || true
+    fi
+  fi
 }
 
 # --- WP-08 `--only` validation — FAIL-CLOSED, before a single gate runs ------------------------
@@ -343,14 +414,33 @@ if [ -n "$ONLY_GATES" ]; then
   fi
 fi
 
+# --- DR-146 `--light` / seed validation — FAIL-CLOSED, before a single gate runs ----------------
+dr146_invocation_error() {
+  local log="$GATE_FRAGMENTS_DIR/log-invocation.txt"
+  echo "✗ $1" | tee "$log"
+  record_gate_result invocation playwright 2 0 "$log"
+  write_gate_report 2
+  exit 2
+}
+if [ "$LIGHT_CONFLICT" -eq 1 ]; then
+  dr146_invocation_error "--light and --only are exclusive (--light already names its sub-gates)"
+fi
+case "$VITEST_SEED" in
+  ''|*[!0-9]*) dr146_invocation_error "PANDACORP_VITEST_SEED must be a positive integer, got '$VITEST_SEED'" ;;
+esac
+
 # --- D5 `--files` validation — FAIL-CLOSED, before a single gate runs --------------------------
 # REV2-G: unlike --only, --files was forwarded VERBATIM into biome's/vitest's argv with no
 # validation at all — a value shaped like a flag (`--files=--write`) turns a read-only biome CHECK
 # into a project-wide `biome check --write` autofix. And a `..`-bearing path could escape the repo
 # entirely. Reject BOTH before any gate runs, the same fail-closed shape as --only above.
-if [ ${#SCOPE_FILES_ARR[@]} -gt 0 ]; then
+# DR-146: `--tests` paths reach vitest's argv the same way, so they get the same two checks.
+_dr146_paths=()
+[ ${#SCOPE_FILES_ARR[@]} -gt 0 ] && _dr146_paths+=("${SCOPE_FILES_ARR[@]}")
+[ ${#SCOPE_TESTS_ARR[@]} -gt 0 ] && _dr146_paths+=("${SCOPE_TESTS_ARR[@]}")
+if [ ${#_dr146_paths[@]} -gt 0 ]; then
   _wp08_root=$(pwd -P)
-  for _wp08_f in "${SCOPE_FILES_ARR[@]}"; do
+  for _wp08_f in "${_dr146_paths[@]}"; do
     case "$_wp08_f" in
       -*)
         _wp08_log="$GATE_FRAGMENTS_DIR/log-invocation.txt"
@@ -593,12 +683,21 @@ fi
 # `--passWithNoTests` is deliberate: a file with no related test must not red a SCOPED run (it is not
 # a failure signal, and the scoped run's `partial` report can never certify anything on its own — the
 # whole-project re-gate remains the only oracle that certifies).
+#
+# DR-146 `--tests`: exactly the named test files (`vitest run <files>`), never a module-graph guess
+# (`related` transforms the whole graph and widens to every spec when a config/package.json is
+# named). The shuffled order + explicit seed apply to every vitest mode.
 if gate_selected vitest; then
 VITEST_RC=0
-if [ "${#SCOPE_FILES_ARR[@]}" -gt 0 ]; then
-  run_gate vitest vitest pnpm vitest related "${SCOPE_FILES_ARR[@]}" --run --reporter=dot --passWithNoTests || VITEST_RC=$?
+VITEST_SEED_USED="$VITEST_SEED"
+VITEST_ORDER=(--sequence.shuffle "--sequence.seed=$VITEST_SEED")
+echo "vitest order: shuffled with seed $VITEST_SEED — replay this exact order: PANDACORP_VITEST_SEED=$VITEST_SEED bash .pandacorp/verify.sh $* (vitest alone: PANDACORP_VITEST_SEED=$VITEST_SEED bash .pandacorp/verify.sh --only=vitest)"
+if [ "${#SCOPE_TESTS_ARR[@]}" -gt 0 ]; then
+  run_gate vitest vitest pnpm vitest run "${SCOPE_TESTS_ARR[@]}" --reporter=dot --passWithNoTests "${VITEST_ORDER[@]}" || VITEST_RC=$?
+elif [ "${#SCOPE_FILES_ARR[@]}" -gt 0 ]; then
+  run_gate vitest vitest pnpm vitest related "${SCOPE_FILES_ARR[@]}" --run --reporter=dot --passWithNoTests "${VITEST_ORDER[@]}" || VITEST_RC=$?
 else
-  run_gate vitest vitest pnpm vitest run --reporter=dot ${SINCE:+--changed "$SINCE"} || VITEST_RC=$?
+  run_gate vitest vitest pnpm vitest run --reporter=dot ${SINCE:+--changed "$SINCE"} "${VITEST_ORDER[@]}" || VITEST_RC=$?
 fi
 if [ "$VITEST_RC" -ne 0 ]; then
   write_gate_report "$VITEST_RC"

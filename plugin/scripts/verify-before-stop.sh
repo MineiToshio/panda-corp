@@ -1,6 +1,8 @@
 #!/bin/bash
 # Pandacorp Stop gate: prevents declaring "done" with a broken project.
-# Runs the project's own .pandacorp/verify.sh if it exists (created by /pandacorp:architecture).
+# Runs the project's own .pandacorp/verify.sh if it exists (created by /pandacorp:architecture) —
+# LIGHT by default (DR-146: static stages + this session's own tests, never Playwright or the whole
+# vitest suite); the full gate is merge-queue's and the build engine's job.
 # Exit 2 = keep working (stderr shown to the model). Exit 0 = allow stop.
 #
 # PHASE-AWARE (DR-063): the strict whole-project suite must NOT run as the gate of EVERY Stop
@@ -86,134 +88,87 @@ if [ "$hook_runtime" = "claude" ] && [ ! -f "$lease" ] && [ -f "$status_yaml" ];
   done
 fi
 
-# FAST-PATH (BL-0044): skip the whole-program verify.sh gate when nothing could have changed
-# since the last GREEN run recorded for this EXACT commit. Three conditions, ALL must hold, or
-# the gate runs exactly as before — any doubt falls through to the real gate (fail-closed):
-#   (a) the working tree is clean (`git status --porcelain` empty — git already excludes
-#       gitignored paths by default, so gitignored runtime state never blocks the fast-path)
-#   (b) HEAD matches the sha of the last GREEN run recorded in last-green.json, written ONLY by
-#       THIS hook below when verify.sh exits 0 (no other writer) — a new commit moves HEAD and
-#       invalidates the fast-path by construction
-#   (c) this session's own .touched marker (DR-099) is absent or empty — a session that wrote
-#       nothing has nothing new for the gate to catch, even if some OTHER session committed.
-#       D8: a MISSING/empty session_id is NOT an empty-touched session — it means the hook cannot
-#       even NAME this session's marker, so it cannot know it wrote nothing. Fail-closed: no sid ⇒
-#       no fast-path, ever (falls through to the real gate below).
-sid=$(echo "$input" | jq -r '.session_id // ""')
-touched="$cwd/.pandacorp/run/sessions/$sid.touched"
-last_green="$cwd/.pandacorp/run/last-green.json"
-fastpath=0
-if [ -z "$(git -C "$cwd" status --porcelain 2>/dev/null)" ] && { [ -n "$sid" ] && [ ! -s "$touched" ]; }; then
-  head_sha=$(git -C "$cwd" rev-parse HEAD 2>/dev/null)
-  if [ -n "$head_sha" ] && [ -f "$last_green" ]; then
-    green_sha=$(jq -er '.sha | select(type == "string" and length > 0)' "$last_green" 2>/dev/null)
-    [ -n "$green_sha" ] && [ "$green_sha" = "$head_sha" ] && fastpath=1
-  fi
-fi
-if [ "$fastpath" = "1" ]; then
-  echo "verify-before-stop: fast-path (clean tree, HEAD==last green ${head_sha})" >&2
+# FAST-PATH (DR-146; replaces BL-0044's HEAD-keyed last-green.json, which only this hook wrote and only
+# after a FULL gate that could not finish inside the hook's own 300 s timeout on a real project, so the
+# anchor froze and every Stop ran the full suite). The certified-tree stamp is written by verify.sh
+# ITSELF after any full green on a clean tree (engine close-out, merge-queue, a manual run) and copied
+# to the main checkout by merge-queue when it lands. green-stamp.sh check is the only judge: same
+# HEAD^{tree}, clean (incl. untracked, no skip-worktree), same verify.sh, < 12 h old — else the gate runs.
+if [ -f "$cwd/.pandacorp/green-stamp.sh" ] && stamp_note=$(cd "$cwd" && bash .pandacorp/green-stamp.sh check 2>/dev/null); then
+  echo "verify-before-stop: fast-path [certified-tree] ($stamp_note)" >&2
   exit 0
 fi
 
-# --- RIGOR-SCOPED GATE (F2, memo docs/proposals/37 §A.1) ----------------------------------------
-# The rigor of THIS session's own diff decides how much of verify.sh runs before a verdict — it
-# NEVER decides whether a red blocks (memo §A.0 principle 3: a red always blocks, in every level).
-# Only in scope when this session actually has uncommitted work of its own: a non-empty .touched
-# marker (DR-099) AND a dirty tree. A clean tree or an empty marker has no diff of THIS session to
-# size a gate to (it may be another session's WIP, or nothing was written) — falls straight through
-# to today's unconditional full gate. The rigor lives in this caller, never inside verify.sh
-# (memo §A.0 principle 1) — a bare `bash verify.sh` with no flags stays the maximum gate.
-HERE="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
-gate_args=()
-gate_scope="full"
+# --- LIGHT STOP GATE (DR-146) ---------------------------------------------------------------------
+# The per-turn gate is LIGHT by default: `verify.sh --light` = every cheap static sub-gate over the
+# whole project (structure guard … tsc, knip, madge; ~10 s) plus `--tests=` the test files that belong
+# to the files THIS session edited (DR-099 `.touched`): an edited test file itself, or the
+# `_tests/<name>.test.*` / `_tests/<name>.*.test.*` / `<name>.test.*` siblings of an edited source
+# file (the project-structure convention). Never Playwright, never the whole vitest suite, never a
+# module-graph guess (`vitest related` transforms the whole graph). The FULL gate stays mandatory where
+# it protects main: merge-queue.sh (skipped only on a certified identical tree) and the build engine.
+# A light run is `scope:partial` — it can never certify anything. Escape hatch: PANDACORP_STOP_GATE=full.
+# An overlay whose verify.sh predates `--light` keeps today's full gate (fail-closed, never a skip).
+sid=$(echo "$input" | jq -r '.session_id // ""')
+touched="$cwd/.pandacorp/run/sessions/$sid.touched"
 gate_rigor="n/a"
 gate_reasons="n/a"
-dirty_now=$(git -C "$cwd" status --porcelain 2>/dev/null)
-if [ -n "$dirty_now" ] && [ -n "$sid" ] && [ -s "$touched" ]; then
-  # Bound the classifier with a real timeout binary only — an unbounded subprocess is exactly the
-  # kind of doubt this design resolves toward MORE rigor, never less (fail-closed).
-  timeout_bin=""
-  command -v timeout >/dev/null 2>&1 && timeout_bin="timeout"
-  [ -z "$timeout_bin" ] && command -v gtimeout >/dev/null 2>&1 && timeout_bin="gtimeout"
-  if [ -n "$timeout_bin" ]; then
-    classify_json=$("$timeout_bin" 20s bash "$HERE/classify-change.sh" --repo "$cwd" --worktree 2>/dev/null)
-    classify_rc=$?
-  else
-    classify_json=""
-    classify_rc=127
+gate_scope="light"
+gate_args=(--light)
+MAX_LIGHT_TESTS=50
+if [ "${PANDACORP_STOP_GATE:-}" = "full" ]; then
+  gate_args=()
+  gate_scope="full"
+  gate_reasons="forced-full"
+elif ! grep -q -- '--light)' "$verify" 2>/dev/null || ! grep -q -- '--tests=\*)' "$verify" 2>/dev/null; then
+  gate_args=()
+  gate_scope="full"
+  gate_reasons="overlay-predates-light-gate"
+  echo "verify-before-stop: this project's verify.sh predates the light Stop gate (DR-146) — running the full gate; /pandacorp:upgrade enables the light gate" >&2
+else
+  related_tests=()
+  if [ -n "$sid" ] && [ -s "$touched" ]; then
+    cwd_phys=$(cd "$cwd" 2>/dev/null && pwd -P)
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      case "$f" in /*) ;; *) f="$cwd/$f" ;; esac
+      case "$f" in
+        "$cwd"/*) rel="${f#"$cwd"/}" ;;
+        "$cwd_phys"/*) rel="${f#"$cwd_phys"/}" ;;
+        *) continue ;;                                   # outside this project: not its test
+      esac
+      case "$rel" in *,*|e2e/*|*/e2e/*|node_modules/*|*/node_modules/*|.pandacorp/*|.claude/*) continue ;; esac
+      case "$rel" in
+        *.test.[cm][jt]s|*.test.[jt]s|*.test.[jt]sx|*.spec.[cm][jt]s|*.spec.[jt]s|*.spec.[jt]sx)
+          [ -f "$cwd/$rel" ] && related_tests+=("$rel")
+          continue ;;
+        *.[cm][jt]s|*.[jt]s|*.[jt]sx) ;;
+        *) continue ;;
+      esac
+      dir=$(dirname "$rel"); base=$(basename "$rel"); base="${base%.*}"
+      pre=""; [ "$dir" = "." ] || pre="$dir/"
+      for cand in "$cwd/${pre}_tests/$base".test.* "$cwd/${pre}_tests/$base".*.test.* "$cwd/${pre}$base".test.*; do
+        [ -f "$cand" ] || continue
+        case "$cand" in *,*) continue ;; esac
+        related_tests+=("${cand#"$cwd"/}")
+      done
+    done < <(sort -u "$touched")
   fi
-  gate_rigor=$(printf '%s' "$classify_json" | jq -er '.rigor | select(. == "micro" or . == "normal" or . == "critical")' 2>/dev/null)
-  if [ "$classify_rc" -ne 0 ] || [ -z "$gate_rigor" ]; then
-    gate_rigor="critical"
-    gate_scope="full"
-    gate_reasons="classifier-failed-closed"
-    echo "verify-before-stop: classify-change.sh produced no usable verdict (exit ${classify_rc}, timeout_bin=${timeout_bin:-none}) — failing closed to the full gate" >&2
-  else
-    gate_reasons=$(printf '%s' "$classify_json" | jq -r '[.reasons[]?.signal] | join(",")' 2>/dev/null)
-    [ -n "$gate_reasons" ] || gate_reasons="none"
-    if [ "$gate_rigor" = "critical" ]; then
-      gate_scope="full"
+  if [ "${#related_tests[@]}" -gt 0 ]; then
+    uniq_tests=$(printf '%s\n' "${related_tests[@]}" | sort -u)
+    n_tests=$(printf '%s\n' "$uniq_tests" | grep -c .)
+    if [ "$n_tests" -le "$MAX_LIGHT_TESTS" ]; then
+      gate_args+=("--tests=$(printf '%s\n' "$uniq_tests" | paste -sd, -)")
+      gate_reasons="tests=$n_tests"
     else
-      # normal AND micro: per memo §A.1, micro has no independently-certifiable narrower scope
-      # today (--only/--files stamp scope:"partial", which can never certify or advance
-      # last-green.json) — so micro is treated exactly like normal until that exists. Anchor to
-      # --since <last_green_sha> only when that sha is a reachable ancestor of HEAD; otherwise the
-      # anchor itself is doubtful, so fall back to full.
-      if [ -f "$last_green" ]; then
-        anchor_sha=$(jq -er '.sha | select(type == "string" and length > 0)' "$last_green" 2>/dev/null)
-        if [ -n "$anchor_sha" ] && git -C "$cwd" merge-base --is-ancestor "$anchor_sha" HEAD 2>/dev/null; then
-          gate_args=(--since "$anchor_sha")
-          gate_scope="since"
-        fi
-      fi
+      gate_reasons="tests-over-cap"
+      echo "verify-before-stop: $n_tests test files belong to this session's edits (cap $MAX_LIGHT_TESTS) — light gate runs the static stages only; the full suite runs at merge-queue" >&2
     fi
-    # D2 (REV3-H): `verify.sh --since` runs ONLY smoke + shell from the browser layer (DR-106) —
-    # visual-fidelity (DR-056) and responsive (DR-074) belong to the FULL run. A manual Stop-gate
-    # session has no close-out to fall back on, so a UI-only diff must never be allowed to ride
-    # --since forever: (1) a diff that touches a UI artifact (S13/S14 in the classifier's own
-    # reasons, OR this session's changed files matching the engine's own UI_ARTIFACT_RE, transcribed
-    # here to grep -E) always escalates to the full gate, whatever rigor was picked; (2) even a
-    # wholly non-UI diff escalates once the anchor itself is stale (> 24h), so the browser layer
-    # periodically re-certifies instead of trusting an ever-aging last-green forever.
-    if [ "$gate_scope" = "since" ]; then
-      ui_escalate=0
-      case ",${gate_reasons}," in *",S13,"*|*",S14,"*) ui_escalate=1 ;; esac
-      if [ "$ui_escalate" = "0" ]; then
-        changed_files=$( { git -C "$cwd" diff --name-only HEAD 2>/dev/null; git -C "$cwd" ls-files --others --exclude-standard 2>/dev/null; } | sort -u)
-        if printf '%s\n' "$changed_files" | grep -E -q '(^|/)(src/app/|src/components/|src/styles/|public/)|\.(tsx|jsx|css|scss|svg|html|mdx)$|design-tokens\.json$|tailwind\.config\.|(^|/)DESIGN\.md$'; then
-          ui_escalate=1
-        fi
-      fi
-      if [ "$ui_escalate" = "1" ]; then
-        gate_args=()
-        gate_scope="full"
-        echo "verify-before-stop: this session's diff touches UI artifacts (reasons: ${gate_reasons}) — escalating to the full gate so DR-056/DR-074 never ride --since [ui-artifacts]" >&2
-      elif [ -f "$last_green" ]; then
-        anchor_at=$(jq -er '.at | select(type == "string" and length > 0)' "$last_green" 2>/dev/null)
-        if [ -n "$anchor_at" ]; then
-          anchor_ts=$(printf '%s' "$anchor_at" | sed -E 's/\.[0-9]+//; s/Z$//')
-          anchor_epoch=$(date -u -d "${anchor_ts}Z" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$anchor_ts" +%s 2>/dev/null || echo "")
-          if [ -n "$anchor_epoch" ]; then
-            now_epoch=$(date -u +%s)
-            if [ $(( now_epoch - anchor_epoch )) -gt 86400 ]; then
-              gate_args=()
-              gate_scope="full"
-              echo "verify-before-stop: last-green anchor is over 24h old — escalating to the full gate to re-arm the browser layer [anchor-stale]" >&2
-            fi
-          fi
-        fi
-      fi
-    fi
-  fi
-  # Escape hatch: PANDACORP_STOP_GATE=full always forces the full gate, whatever the classifier
-  # said — the logged rigor/reasons above still reflect what would otherwise have been chosen.
-  # There is deliberately no "off" value.
-  if [ "${PANDACORP_STOP_GATE:-}" = "full" ]; then
-    gate_args=()
-    gate_scope="full"
+  else
+    gate_reasons="tests=0"
   fi
 fi
-echo "verify-before-stop: rigor=${gate_rigor} scope=${gate_scope} (reasons: ${gate_reasons})" >&2
+echo "verify-before-stop: scope=${gate_scope} (${gate_reasons}) — bash .pandacorp/verify.sh ${gate_args[*]:-}" >&2
 
 # Portable millisecond clock (mirrors .pandacorp/verify.sh's own now_ms: GNU `date +%s%N` first,
 # python3/perl fallback, whole-second last resort) so the StopGate event below carries a real
@@ -307,6 +262,7 @@ if [ "$verify_rc" -ne 0 ]; then
   fi
   echo "Pandacorp verify gate FAILED — you can't finish with a broken project." >&2
   echo "Rule that failed: .pandacorp/verify.sh (tests + typecheck + lint must pass)." >&2
+  echo "Stop gate scope: ${gate_scope} — reproduce with: bash .pandacorp/verify.sh ${gate_args[*]:-}" >&2
   echo "Fix the root cause; do NOT tweak the test to pass or declare it 'done'." >&2
   # This red is attributable to THIS session (a touched file is dirty or blamed) OR could not be
   # attributed (no per-session record) — so it is shown. Still NEVER edit another session's files or
@@ -322,22 +278,6 @@ if [ "$verify_rc" -ne 0 ]; then
   exit 2
 fi
 
-# GREEN: record the commit this run verified so a later Stop on an unchanged, clean tree can
-# fast-path above (BL-0044). Best-effort — a write failure here never blocks the (already-passed)
-# Stop; it just means the next Stop re-runs the gate instead of fast-pathing.
-# F2: ONLY a FULL-scope green may advance this anchor. A `--since` green only proves the CHANGED
-# slice is clean, not the whole tree — writing it here would let a later `--since` run anchor off
-# a commit that was never itself fully verified, silently eroding what "last green" means (memo
-# §A.1: micro/normal reuse the SAME anchor a full run produced, they never mint a new one).
-if [ "$gate_scope" = "full" ]; then
-  green_sha_now=$(git -C "$cwd" rev-parse HEAD 2>/dev/null)
-  if [ -n "$green_sha_now" ]; then
-    mkdir -p "$cwd/.pandacorp/run" 2>/dev/null
-    tmp_lg=$(mktemp "$cwd/.pandacorp/run/.last-green.XXXXXX" 2>/dev/null) && {
-      printf '{"sha":"%s","at":"%s"}\n' "$green_sha_now" "$(date -u +%FT%TZ 2>/dev/null || echo unknown)" > "$tmp_lg" \
-        && mv "$tmp_lg" "$last_green"
-    }
-  fi
-fi
-
+# GREEN. A Stop gate never certifies anything itself: a full green certifies its tree inside verify.sh
+# (DR-146 green-stamp.sh); a light run is partial by construction.
 exit 0

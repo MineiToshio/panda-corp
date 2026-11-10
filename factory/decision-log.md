@@ -1,5 +1,19 @@
 # Decision Log — Factory
 
+## 2026-11-10 — Light Stop gate; never re-run the full gate on a certified tree (DR-146)
+
+**What:** [BUILD-6](standards/rule-registry.md) / [DR-146](decisions/registry.yaml): the Stop hook
+runs `verify.sh --light` plus this session's own tests; the full gate stays at the merge queue and the
+engine close-out; a full `verify.sh` green on a clean tree is stamped by tree hash and lets the queue
+(and the hook) skip only a byte-identical, clean, same-gate tree under 12 h old; vitest runs shuffled
+with a printed, replayable seed. Canonical text: [build-orchestration.md](standards/build-orchestration.md)
+and [quality.md](standards/quality.md); project rule `quality-and-testing.md` and guide via overlay 8.119.0.
+
+**Why:** funko-tracker evidence (1206 Stop gates, 8 green, 15.6 h; a frozen HEAD-keyed
+`last-green.json` that only a full green inside the hook's 300 s timeout could advance; ~15 min
+queue re-runs on unchanged trees) showed the gate's cost, not the tests, driving the timeouts the
+owner saw as flakiness. No gate is weakened: every doubt runs the full gate, DR-138 and DR-099 are unchanged.
+
 ## 2026-11-05 — Reclaim implementation resources after merge (DR-145, BL-0304)
 
 **What:** [BUILD-5](standards/build-orchestration.md#session-resource-teardown-build-5-dr-145)

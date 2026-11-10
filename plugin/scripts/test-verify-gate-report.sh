@@ -439,11 +439,11 @@ fi
 rm -rf "$FX"
 
 # --- Scenario (h): WITHOUT the new flags nothing changes — all all registered sub-gates, scope=full, and the
-# biome/vitest command lines are byte-for-byte the pre-WP-08 ones.
+# biome/vitest command lines are the pre-WP-08 ones (vitest only gains DR-146's seeded shuffle).
 FX=$(new_fixture)
 add_playwright_fixtures "$FX"
 ARGV="$FX/argv.log"
-out=$(WP08_ARGV_LOG="$ARGV" run_verify "$FX"); rc=$?
+out=$(PANDACORP_VITEST_SEED=4242 WP08_ARGV_LOG="$ARGV" run_verify "$FX"); rc=$?
 rf=$(report_path "$FX")
 if [ "$rc" -eq 0 ] && [ -f "$rf" ] && [ -f "$ARGV" ]; then
   count=$(json_get "$rf" "len(d['subgates'])")
@@ -452,8 +452,8 @@ if [ "$rc" -eq 0 ] && [ -f "$rf" ] && [ -f "$ARGV" ]; then
   vitest_line=$(grep '^pnpm vitest' "$ARGV" || true)
   if [ "$count" = "$expected_count" ] && [ "$scope" = "full" ] \
      && [ "$biome_line" = "pnpm biome check . --error-on-warnings" ] \
-     && [ "$vitest_line" = "pnpm vitest run --reporter=dot" ]; then
-    ok "(h) no new flags: all registered sub-gates, scope=full, biome/vitest invoked exactly as before WP-08"
+     && [ "$vitest_line" = "pnpm vitest run --reporter=dot --sequence.shuffle --sequence.seed=4242" ]; then
+    ok "(h) no new flags: all registered sub-gates, scope=full, biome as before WP-08, vitest + seeded shuffle only"
   else
     bad "(h) no new flags: expected count=$expected_count scope=full and the legacy command lines — got count=$count scope=$scope biome:[$biome_line] vitest:[$vitest_line]" "$out"
   fi
@@ -586,6 +586,119 @@ if ! echo "$out" | grep -q 'build:build' && ! grep -q '^server=prod$' "$ARGV"; t
   ok "(DR-143) --since stays on next dev"
 else
   bad "(DR-143) --since must not build" "$(cat "$ARGV")"
+fi
+rm -rf "$FX"
+
+echo ""
+echo "== DR-146: --light, --tests, seeded vitest order, certified-tree stamp =="
+
+# --light: every cheap gate, NO vitest, NO Playwright, scope=partial.
+FX=$(new_fixture); add_playwright_fixtures "$FX"; ARGV="$FX/argv.log"
+out=$(WP08_ARGV_LOG="$ARGV" run_verify "$FX" --light 2>&1); rc=$?
+rf=$(report_path "$FX")
+names=$(json_get "$rf" "','.join(s['name'] for s in d['subgates'])" 2>/dev/null)
+if [ "$rc" -eq 0 ] && [ "$(json_get "$rf" "d['scope']")" = "partial" ] \
+   && ! grep -q '^pnpm vitest' "$ARGV" && ! grep -q '^pnpm exec playwright' "$ARGV" \
+   && echo "$names" | grep -q 'madge' && echo "$names" | grep -q 'biome' && echo "$names" | grep -q 'structure-guard'; then
+  ok "(DR-146) --light: cheap gates only (no vitest, no Playwright), scope=partial"
+else
+  bad "(DR-146) --light expected cheap gates only + partial (rc=$rc names=$names)" "$(cat "$ARGV" 2>/dev/null; echo "$out")"
+fi
+rm -rf "$FX"
+
+# --light --tests: vitest runs EXACTLY the named files with the seeded shuffle; still no Playwright.
+FX=$(new_fixture); add_playwright_fixtures "$FX"; ARGV="$FX/argv.log"
+out=$(PANDACORP_VITEST_SEED=77 WP08_ARGV_LOG="$ARGV" run_verify "$FX" --light --tests=src/_tests/a.test.ts,src/_tests/b.test.ts 2>&1); rc=$?
+rf=$(report_path "$FX")
+vitest_line=$(grep '^pnpm vitest' "$ARGV" || true)
+if [ "$rc" -eq 0 ] && [ "$vitest_line" = "pnpm vitest run src/_tests/a.test.ts src/_tests/b.test.ts --reporter=dot --passWithNoTests --sequence.shuffle --sequence.seed=77" ] \
+   && ! grep -q '^pnpm exec playwright' "$ARGV" && [ "$(json_get "$rf" "d['vitest_seed']")" = "77" ] \
+   && echo "$out" | grep -q 'PANDACORP_VITEST_SEED=77 bash .pandacorp/verify.sh --light --tests='; then
+  ok "(DR-146) --light --tests: exactly the named test files, seeded, seed printed + recorded, no Playwright"
+else
+  bad "(DR-146) --light --tests wrong (rc=$rc vitest:[$vitest_line])" "$(cat "$ARGV" 2>/dev/null; echo "$out")"
+fi
+rm -rf "$FX"
+
+# Fail-closed invocations: --light with --only, a malformed replay seed, a flag-shaped --tests path.
+for bad_case in "--light --only=tsc" "SEED" "--tests=--watch"; do
+  FX=$(new_fixture); add_playwright_fixtures "$FX"; ARGV="$FX/argv.log"
+  if [ "$bad_case" = "SEED" ]; then
+    out=$(PANDACORP_VITEST_SEED=abc WP08_ARGV_LOG="$ARGV" run_verify "$FX" 2>&1); rc=$?
+  else
+    # shellcheck disable=SC2086
+    out=$(WP08_ARGV_LOG="$ARGV" run_verify "$FX" $bad_case 2>&1); rc=$?
+  fi
+  if [ "$rc" -eq 2 ] && [ ! -s "$ARGV" ] && [ "$(json_get "$(report_path "$FX")" "d['green']")" = "False" ]; then
+    ok "(DR-146) invalid invocation [$bad_case]: exit 2, no tool ran, verdict not green"
+  else
+    bad "(DR-146) invalid invocation [$bad_case] not refused (rc=$rc)" "$(cat "$ARGV" 2>/dev/null; echo "$out")"
+  fi
+  rm -rf "$FX"
+done
+
+# Two runs with the same replay seed pass vitest the same order arguments; an unset seed is random.
+FX=$(new_fixture); add_playwright_fixtures "$FX"; ARGV="$FX/argv.log"
+PANDACORP_VITEST_SEED=9 WP08_ARGV_LOG="$ARGV" run_verify "$FX" --only=vitest >/dev/null 2>&1
+PANDACORP_VITEST_SEED=9 WP08_ARGV_LOG="$ARGV" run_verify "$FX" --only=vitest >/dev/null 2>&1
+WP08_ARGV_LOG="$ARGV" run_verify "$FX" --only=vitest >/dev/null 2>&1
+seeds=$(grep '^pnpm vitest' "$ARGV" | sed -E 's/.*--sequence.seed=([0-9]+).*/\1/' | tr '\n' ' ')
+if [ "$(grep -c -- '--sequence.seed=9$' "$ARGV")" = "2" ] && [ "$(grep -c -- '--sequence.shuffle' "$ARGV")" = "3" ]; then
+  ok "(DR-146) PANDACORP_VITEST_SEED replays the same order; every vitest run is shuffled (seeds: $seeds)"
+else
+  bad "(DR-146) seed replay wrong (seeds: $seeds)" "$(cat "$ARGV")"
+fi
+rm -rf "$FX"
+
+# Certified-tree stamp — needs a real git checkout with the project's own copy of verify.sh and the
+# real green-stamp.sh (the stamp binds the hash of .pandacorp/verify.sh).
+STAMP_SH="$HERE/plugin/templates/shared/.pandacorp/green-stamp.sh"
+new_git_fixture() {
+  local d
+  d=$(new_fixture); add_playwright_fixtures "$d"
+  cp "$VERIFY" "$d/.pandacorp/verify.sh"; cp "$STAMP_SH" "$d/.pandacorp/green-stamp.sh"
+  printf '.pandacorp/run/\nargv.log\n' > "$d/.gitignore"
+  ( cd "$d" && git init -q && git add -A && git -c user.email=t@pandacorp.local -c user.name=T -c commit.gpgsign=false commit -qm base )
+  printf '%s\n' "$d"
+}
+run_local_verify() { local d="$1"; shift; ( cd "$d" && PATH="$d/bin:$PATH" bash .pandacorp/verify.sh "$@" ); }
+stamp_ok() { ( cd "$1" && bash .pandacorp/green-stamp.sh check >/dev/null 2>&1 ); }
+
+FX=$(new_git_fixture)
+run_local_verify "$FX" >/dev/null 2>&1; rc=$?
+if [ "$rc" -eq 0 ] && stamp_ok "$FX" \
+   && [ "$(sed -n 's/^tree=//p' "$FX/.pandacorp/run/green-stamp")" = "$(git -C "$FX" rev-parse 'HEAD^{tree}')" ]; then
+  ok "(DR-146) a FULL green on a clean tree certifies exactly HEAD^{tree}"
+else
+  bad "(DR-146) full clean green did not certify the tree (rc=$rc)" "$(cat "$FX/.pandacorp/run/green-stamp" 2>&1)"
+fi
+before=$(cat "$FX/.pandacorp/run/green-stamp")
+run_local_verify "$FX" --light >/dev/null 2>&1
+run_local_verify "$FX" --only=tsc >/dev/null 2>&1
+if [ "$(cat "$FX/.pandacorp/run/green-stamp")" = "$before" ]; then
+  ok "(DR-146) a green partial/--light run neither mints nor rewrites the stamp"
+else
+  bad "(DR-146) a partial run rewrote the stamp" "$(cat "$FX/.pandacorp/run/green-stamp")"
+fi
+WP05_FAIL_TSC=1 run_local_verify "$FX" --only=tsc >/dev/null 2>&1
+if [ ! -f "$FX/.pandacorp/run/green-stamp" ]; then
+  ok "(DR-146) any red run drops the stamp"
+else
+  bad "(DR-146) a red run left the stamp in place"
+fi
+echo dirty > "$FX/src/dirty.ts"
+run_local_verify "$FX" >/dev/null 2>&1; rc=$?
+if [ "$rc" -eq 0 ] && [ ! -f "$FX/.pandacorp/run/green-stamp" ]; then
+  ok "(DR-146) a full green on a DIRTY tree (untracked file) certifies nothing"
+else
+  bad "(DR-146) dirty-tree green minted a stamp (rc=$rc)"
+fi
+rm -f "$FX/src/dirty.ts"
+run_local_verify "$FX" --since HEAD >/dev/null 2>&1
+if [ ! -f "$FX/.pandacorp/run/green-stamp" ]; then
+  ok "(DR-146) a --since green certifies nothing"
+else
+  bad "(DR-146) a --since green minted a stamp"
 fi
 rm -rf "$FX"
 
