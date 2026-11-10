@@ -632,7 +632,7 @@ gate_residual_ambiguity() {
     local flagged=""
     while IFS= read -r f; do
       [ -n "$f" ] || continue
-      if head -n 25 "$f" | grep -Eq '^status:[[:space:]]*ACTIVE'; then flagged="$flagged  $f"$'\n'; fi
+      if grep -Eq '^status:[[:space:]]*ACTIVE' <<<"$(head -n 25 "$f")"; then flagged="$flagged  $f"$'\n'; fi
     done < <(grep -rIl 'NEEDS CLARIFICATION' docs 2>/dev/null || true)
     if [ -n "$flagged" ]; then
       echo "✗ DR-100 readiness: unresolved [NEEDS CLARIFICATION] in ACTIVE docs (resolve → AC / business rule / [ASSUMPTION], or escalate):"

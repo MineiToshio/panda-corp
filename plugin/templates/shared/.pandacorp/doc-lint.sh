@@ -183,7 +183,9 @@ warn_hard() {
 
 # Print the YAML frontmatter block (between the first two `---` lines).
 frontmatter() { awk '/^---[[:space:]]*$/{c++; next} c==1{print} c>=2{exit}' "$1"; }
-has_key() { frontmatter "$1" | grep -qE "^$2:"; }
+# Here-strings, never `producer | grep -q` (DR-146 addendum): under pipefail an early grep exit can
+# SIGPIPE a large producer (a frontmatter with no closing `---` prints the whole file) → false verdict.
+has_key() { grep -qE "^$2:" <<<"$(frontmatter "$1")"; }
 
 # PRD — should carry a type. HARD-ELIGIBLE: deterministic key presence.
 if [ -f docs/product/prd.md ]; then
@@ -210,7 +212,7 @@ for frd in docs/frds/frd-*/frd.md; do
   # A UI FRD (ui: true) MUST have a design oracle (DR-056/091) — the thing whose absence let
   # Mission Control ship 17 un-sharded surfaces that the per-route fidelity check then silently
   # skipped. Require: an fdd.md (the feature design doc) AND a real per-FRD mock OR a visual_source.
-  if frontmatter "$frd" | grep -qE "^ui:[[:space:]]*true"; then
+  if grep -qE "^ui:[[:space:]]*true" <<<"$(frontmatter "$frd")"; then
     dir=$(dirname "$frd")
     [ -f "$dir/fdd.md" ] || warn "$frd is ui:true but has no fdd.md (DR-056 feature design missing)"
     # `… | head -1` makes find SIGPIPE; under `set -o pipefail` that fails the assignment and (with
@@ -233,7 +235,7 @@ for wo in docs/frds/frd-*/work-orders/wo-*.md; do
   done
   reqs=$(frontmatter "$wo" | grep -oE 'REQ-[0-9]{2}-[0-9]{3}' | sort -u || true)
   for req in $reqs; do
-    printf '%s\n' "$all_reqs" | grep -qx "$req" || warn "$wo cites $req, defined in no FRD"
+    grep -qx -- "$req" <<<"$all_reqs" || warn "$wo cites $req, defined in no FRD"
   done
 done
 

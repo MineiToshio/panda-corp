@@ -55,8 +55,9 @@ yaml_val() { # $1 file  $2 key
 LIVENESS_HELPER="$SCRIPT_DIR/check-build-liveness.sh"
 
 # --- doc frontmatter helpers ------------------------------------------------------------------
-fm_has_active() { head -n 25 "$1" 2>/dev/null | grep -Eq '^status:[[:space:]]*ACTIVE'; }
-fm_is_verified() { head -n 25 "$1" 2>/dev/null | grep -Eq '^implementation_status:[[:space:]]*VERIFIED'; }
+# Here-strings: under pipefail `head | grep -q` can SIGPIPE on long lines and misreport (DR-146 addendum).
+fm_has_active() { grep -Eq '^status:[[:space:]]*ACTIVE' <<<"$(head -n 25 "$1" 2>/dev/null)"; }
+fm_is_verified() { grep -Eq '^implementation_status:[[:space:]]*VERIFIED' <<<"$(head -n 25 "$1" 2>/dev/null)"; }
 
 echo "== Pandacorp /implement preflight — $PROJ =="
 

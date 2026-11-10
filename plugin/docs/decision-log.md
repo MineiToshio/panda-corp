@@ -1,5 +1,17 @@
 # Decision log — Plugin pandacorp
 
+## v9.151.1 — 2026-11-10 (PATCH): deterministic canary/doc-lint verdicts under pipefail (BL-0306)
+
+**What:** overlay **8.119.1**. `canary.sh` spec discovery and DR-100 check, `verify.sh` DR-100 check,
+`doc-lint.sh` `has_key`/`ui: true`/REQ lookup and `preflight-implement.sh` frontmatter checks use
+here-strings instead of `producer | grep -q`. New `test-pipefail-readers.sh` (in the engine runner).
+
+**Why:** funko-tracker's 8.119.0 upgrade canary failed 5/5 with `printf: write error: Broken pipe`: a
+`playwright --list` listing over 64 KB, `grep -q` exiting early and pipefail turning SIGPIPE into a
+"spec NOT discovered" rot verdict. Sibling audit and judged-safe instances: BL-0306.
+
+**Evidence:** `test-pipefail-readers.sh` 11/11; against the previous templates 1 passed, 10 failed.
+
 ## v9.151.0 — 2026-11-10 (MINOR): light Stop gate, certified-tree queue skip, seeded vitest (DR-146)
 
 **What:** `verify-before-stop.sh` now runs `verify.sh --light` plus `--tests=` the test files that

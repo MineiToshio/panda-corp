@@ -1,5 +1,12 @@
 # Decision Log — Factory
 
+## 2026-11-10 — Gate verdicts never depend on output size (BL-0306, DR-146 addendum)
+
+**What:** [BL-0306](backlog/BL-0306-pipefail-early-exit-readers.md): gate scripts under pipefail no
+longer pipe a byte-unbounded producer into an early-exiting reader; overlay 8.119.1.
+**Why:** the funko-tracker upgrade canary reported a discovered Playwright spec as missing whenever the
+listing exceeded the 64 KB pipe buffer: a nondeterministic gate verdict, the class the owner removes.
+
 ## 2026-11-10 — Light Stop gate; never re-run the full gate on a certified tree (DR-146)
 
 **What:** [BUILD-6](standards/rule-registry.md) / [DR-146](decisions/registry.yaml): the Stop hook
