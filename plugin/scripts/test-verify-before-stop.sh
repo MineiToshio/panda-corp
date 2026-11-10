@@ -50,7 +50,7 @@ EOF
   printf 'export const bar = 2\n' > "$d/src/lib/bar.ts"
   printf 'test("e2e")\n' > "$d/e2e/smoke.spec.ts"
   printf '.pandacorp/\n' > "$d/.gitignore"   # like real projects: run state never dirties the tree
-  ( cd "$d" && git init -q && git add -A \
+  ( cd "$d" && git init -q -b main && git add -A \
       && git -c user.email=t@pandacorp.local -c user.name=T -c commit.gpgsign=false commit -qm base )
   echo "$d"
 }
@@ -146,6 +146,7 @@ if [ "$rc" = 0 ] && [ "$(args_of "$fx")" = "--light --tests=src/lib/_tests/foo.e
   ok "edited source -> its _tests siblings only (unrelated bar.test, e2e spec and out-of-project paths excluded)"
 else bad "related tests wrong: args=[$(args_of "$fx")]: $out"; fi
 
+git -C "$fx" checkout -q -- src/lib/foo.ts
 mark_touched "$fx" "sid-l" src/lib/_tests/bar.test.ts
 run_hook "$fx" "sid-l" ""
 if [ "$(args_of "$fx")" = "--light --tests=src/lib/_tests/bar.test.ts" ]; then
@@ -167,6 +168,52 @@ all_args=$(cat "$fx/.pandacorp/run/all-args" 2>/dev/null)
 if ! printf '%s\n' "$all_args" | grep -qE -- '--since|--only|--files' && ! printf '%s\n' "$all_args" | grep -qv -- '--light'; then
   ok "every default Stop-gate run is --light (no --since/--only/--files, never the full suite)"
 else bad "a default Stop-gate run left the light gate: [$all_args]"; fi
+rm -rf "$fx"
+
+echo
+echo "== edits the record never saw: dirty tree and Codex apply_patch (DR-146 review R2) =="
+
+fx=$(make_fixture 1)
+echo 'export const foo = 5' > "$fx/src/lib/foo.ts"          # e.g. a Bash `sed -i`: no .touched entry
+run_hook "$fx" "sid-r2" ""
+if [ "$(args_of "$fx")" = "--light --tests=src/lib/_tests/foo.extra.test.ts,src/lib/_tests/foo.test.ts" ]; then
+  ok "no edit record + dirty source -> its tests still run (dirty paths widen what is tested)"
+else bad "dirty-only edit ran no tests: args=[$(args_of "$fx")]: $out"; fi
+git -C "$fx" checkout -q -- src/lib/foo.ts
+
+printf 'project: fx\nphase: implementation\n' > "$fx/.pandacorp/status.yaml"
+patch=$(printf '*** Begin Patch\n*** Update File: src/lib/bar.ts\n@@\n-export const bar = 2\n+export const bar = 3\n*** Add File: %s/src/lib/new.ts\n+export const n = 1\n*** Delete File: src/lib/gone.ts\n*** End Patch\n' "$fx")
+payload=$(jq -cn --arg cwd "$fx" --arg p "$patch" '{cwd:$cwd, session_id:"sid-codex", toolName:"apply_patch", input:{patch:$p}}')
+node "$HERE/plugin/scripts/pandacorp-hook-adapter.mjs" --runtime codex --event pre-tool <<< "$payload" >/dev/null 2>&1
+rec=$(cat "$fx/.pandacorp/run/sessions/sid-codex.touched" 2>/dev/null)
+if [ "$rec" = "$(printf '%s\n%s' "$fx/src/lib/bar.ts" "$fx/src/lib/new.ts")" ]; then
+  ok "Codex apply_patch (through the real hook adapter) records Update/Add File targets, not Delete"
+else bad "apply_patch not recorded: [$rec]"; fi
+rm -rf "$fx"
+
+echo
+echo "== default-branch notice: the light gate never pretends to be the full gate (review R1) =="
+
+fx=$(make_fixture 1)
+echo 'export const foo = 6' > "$fx/src/lib/foo.ts"
+mark_touched "$fx" "sid-n1" src/lib/foo.ts
+run_hook "$fx" "sid-n1" ""
+if [ "$rc" = 0 ] && echo "$out" | grep -q 'FULL gate (whole vitest suite + Playwright) has NOT run for this tree on main' \
+   && echo "$out" | grep -q '"systemMessage":"Pandacorp Stop gate NOTICE (DR-146)'; then
+  ok "edits on main, uncertified -> light gate + explicit full-gate-not-run notice (stderr + systemMessage)"
+else bad "missing default-branch notice (rc=$rc): $out"; fi
+git -C "$fx" checkout -q -b feature-n
+run_hook "$fx" "sid-n1" ""
+if ! echo "$out" | grep -q 'NOTICE'; then ok "same edits on a feature branch -> no notice (merge-queue runs the full gate)"
+else bad "notice printed off the default branch: $out"; fi
+git -C "$fx" checkout -q main; git -C "$fx" checkout -q -- src/lib/foo.ts
+run_hook "$fx" "sid-quiet" ""
+if ! echo "$out" | grep -q 'NOTICE'; then ok "a session with no edits on main -> no notice"
+else bad "notice for a session that edited nothing: $out"; fi
+echo 2 > "$fx/.pandacorp/run/verify-exit-code"; echo 'export const foo = 7' > "$fx/src/lib/foo.ts"
+run_hook "$fx" "sid-n1" ""
+if [ "$rc" = 2 ] && echo "$out" | grep -q 'NOTICE'; then ok "own red on main -> blocked, notice still shown"
+else bad "red-on-main notice/rc wrong (rc=$rc): $out"; fi
 rm -rf "$fx"
 
 echo

@@ -45,6 +45,18 @@ if [ -n "$sid" ] && [ -n "$file" ]; then
   tdir="$root/.pandacorp/run/sessions"
   mkdir -p "$tdir" 2>/dev/null && printf '%s\n' "$file" >> "$tdir/$sid.touched" 2>/dev/null
 fi
+# DR-146: Codex `apply_patch` carries no file_path — its files live in the patch headers. Record each
+# `*** Update File:` / `*** Add File:` target (relative paths resolved against the session cwd) so the
+# Stop gate can attribute reds and pick this session's tests exactly as for a Write/Edit.
+patch_text=$(echo "$input" | jq -r '.tool_input.patch // ""')
+if [ -n "$sid" ] && [ -z "$file" ] && [ -n "$patch_text" ]; then
+  tdir="$root/.pandacorp/run/sessions"
+  printf '%s\n' "$patch_text" | sed -nE 's/^\*\*\* (Update|Add) File: (.+)$/\2/p' | while IFS= read -r pfile; do
+    [ -n "$pfile" ] || continue
+    case "$pfile" in /*) ;; *) pfile="$cwd/$pfile" ;; esac
+    mkdir -p "$tdir" 2>/dev/null && printf '%s\n' "$pfile" >> "$tdir/$sid.touched" 2>/dev/null
+  done
+fi
 
 # A skill is actively driving the change → no nudge (skills may touch this marker)
 [ -f "$root/.pandacorp/run/skill-active" ] && allow

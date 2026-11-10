@@ -127,7 +127,17 @@ elif ! grep -q -- '--light)' "$verify" 2>/dev/null || ! grep -q -- '--tests=\*)'
   echo "verify-before-stop: this project's verify.sh predates the light Stop gate (DR-146) — running the full gate; /pandacorp:upgrade enables the light gate" >&2
 else
   related_tests=()
-  if [ -n "$sid" ] && [ -s "$touched" ]; then
+  # Candidate files = this session's edit record UNION every dirty/untracked path in the tree: an
+  # edit the record never saw (a Bash `sed -i`, a codegen step, a runtime whose write hook carries no
+  # path) still gets its tests run. This only widens what is TESTED; DR-099 attribution below keeps
+  # reading the session's own `.touched` record alone.
+  repo_root_c=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)
+  candidates=$( {
+    [ -n "$sid" ] && [ -s "$touched" ] && cat "$touched"
+    [ -n "$repo_root_c" ] && git -C "$cwd" status --porcelain --untracked-files=all 2>/dev/null \
+      | sed 's/^...//; s/.* -> //' | grep -v '^"' | sed "s#^#${repo_root_c}/#"
+  } | sort -u )
+  if [ -n "$candidates" ]; then
     cwd_phys=$(cd "$cwd" 2>/dev/null && pwd -P)
     while IFS= read -r f; do
       [ -n "$f" ] || continue
@@ -152,7 +162,7 @@ else
         case "$cand" in *,*) continue ;; esac
         related_tests+=("${cand#"$cwd"/}")
       done
-    done < <(sort -u "$touched")
+    done <<< "$candidates"
   fi
   if [ "${#related_tests[@]}" -gt 0 ]; then
     uniq_tests=$(printf '%s\n' "${related_tests[@]}" | sort -u)
@@ -169,6 +179,20 @@ else
   fi
 fi
 echo "verify-before-stop: scope=${gate_scope} (${gate_reasons}) — bash .pandacorp/verify.sh ${gate_args[*]:-}" >&2
+
+# DR-146 honesty notice: the light gate is not the full gate. A session that edited files on the
+# DEFAULT branch (a direct commit, pre-launch) has no merge-queue run in front of it, so say plainly
+# that this tree is uncertified and what certifies it. The hook never runs the full gate itself (it
+# cannot finish a real suite inside its 300 s timeout — the defect DR-146 removed).
+full_gate_notice=""
+if [ "$gate_scope" = "light" ] && [ -n "$sid" ] && [ -s "$touched" ]; then
+  default_branch=$(git -C "$cwd" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
+  [ -n "$default_branch" ] || default_branch="main"
+  if [ "$(git -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null)" = "$default_branch" ]; then
+    full_gate_notice="Pandacorp Stop gate NOTICE (DR-146): only the LIGHT gate ran — the FULL gate (whole vitest suite + Playwright) has NOT run for this tree on ${default_branch}. Certify it with a full 'bash .pandacorp/verify.sh' (or land the work through .pandacorp/merge-queue.sh) before it is pushed."
+    echo "verify-before-stop: $full_gate_notice" >&2
+  fi
+fi
 
 # Portable millisecond clock (mirrors .pandacorp/verify.sh's own now_ms: GNU `date +%s%N` first,
 # python3/perl fallback, whole-second last resort) so the StopGate event below carries a real
@@ -276,6 +300,12 @@ if [ "$verify_rc" -ne 0 ]; then
   echo "--- verify.sh output (last 30 lines) ---" >&2
   echo "$out" | tail -30 >&2
   exit 2
+fi
+
+# A green light gate on the default branch still surfaces the notice to the person (Claude Code shows a
+# Stop hook's JSON `systemMessage`; stderr of an allowed stop is not shown). Other runtimes get stderr.
+if [ -n "$full_gate_notice" ] && [ "$hook_runtime" = "claude" ]; then
+  jq -cn --arg m "$full_gate_notice" '{systemMessage: $m}'
 fi
 
 # GREEN. A Stop gate never certifies anything itself: a full green certifies its tree inside verify.sh
