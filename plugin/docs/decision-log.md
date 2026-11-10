@@ -1,5 +1,23 @@
 # Decision log — Plugin pandacorp
 
+## v9.152.0 — 2026-11-10 (MINOR): the change queue always equals reality (DR-147, BL-0307)
+
+**What:** overlay **8.120.0**. New `templates/shared/.pandacorp/change-reconcile.mjs`: archives a
+`ready`/`draft` card on a `Change: <slug>` trailer or all-VERIFIED `source_change` WOs, marks it
+`discarded` on `Supersedes-Change:`, and only flags weaker evidence (`stale_suspect`; `stale_hint` for a
+moved FRD contract); owner `--confirm-done`/`--supersede`/`--dismiss`. Wired into `merge-queue.sh` (after
+every landing), the engine (pre-loop drain + close-out sweep; drains skip `stale_suspect`, also in the
+scripted safe-point probe), `sync` (trailer + queue reconciliation in warm/cold), `change --now`
+(trailer), `decide` (supersede), `iterate`/`work-orders` (`source_change`), `upgrade` (install + report
+first), the WO template and the project guide.
+
+**Why:** funko-tracker had 8 stale cards out of 9 "Listos para construir": only the engine's own drain ever
+closed a card, nothing linked work landed through other doors back to it.
+
+**Evidence:** `test-change-reconcile.mjs` 18/18; `test-merge-queue-certified-tree.sh` 12/12 (new landing
+case); `test-build-mech.mjs` 398/398 (probe skips `stale_suspect`); replay on a clone of funko-tracker's
+pre-audit queue flags the 3 VERIFIED launch cards and only hints the rest.
+
 ## v9.151.1 — 2026-11-10 (PATCH): deterministic canary/doc-lint verdicts under pipefail (BL-0306)
 
 **What:** overlay **8.119.1**. `canary.sh` spec discovery and DR-100 check, `verify.sh` DR-100 check,

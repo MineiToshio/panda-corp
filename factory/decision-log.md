@@ -1,5 +1,18 @@
 # Decision Log — Factory
 
+## 2026-11-10 — The change queue always equals reality, whatever the door (DR-147, BL-0307)
+
+**What:** [BL-0307](backlog/BL-0307-change-queue-stale-cards.md) / [DR-147](decisions/registry.yaml) /
+[build-orchestration](standards/build-orchestration.md) "Every landing door closes its card": commit trailers
+(`Change:`, `Supersedes-Change:`) and WO `source_change` link work to its card; the overlay reconciler
+`.pandacorp/change-reconcile.mjs` archives on those links and only flags weaker evidence; merge-queue, the build
+drain/close-out, sync, change --now, decide and upgrade run or honour it; Mission Control lists flagged cards
+apart. Overlay 8.120.0, plugin 9.152.0.
+**Why:** funko-tracker showed 9 cards "Listos para construir"; 8 had shipped (directly, or as launch-plan WOs)
+or been superseded. Only the engine's own drain ever closed a card, and nothing tied the other doors' work back
+to it. The owner's rule: the list must show only real pending work, however the work is done. Weak evidence never
+closes a card: measured on funko, the "FRD contract moved" signal would also have hidden 3 pending cards.
+
 ## 2026-11-10 — Gate verdicts never depend on output size (BL-0306, DR-146 addendum)
 
 **What:** [BL-0306](backlog/BL-0306-pipefail-early-exit-readers.md): gate scripts under pipefail no

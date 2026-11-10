@@ -12,6 +12,7 @@ difficulty: medium        # low | medium | high (DR-073). `high` = built on opus
 reopen_count: 0           # incremented by the engine's revert+reopen (DR-072/073); ≥1 escalates the rebuild to opus; the gate resets it to 0 on VERIFIED. Leave at 0 when authoring.
 artifacts: []             # globs of files/dirs this WO writes (DR-060). The engine keeps parallel WOs disjoint: it serializes any WOs whose artifacts overlap into different waves. List every path this WO creates/edits, incl. its own API contract docs/api/WO-NN-MMM.md if backend.
 source_requirements: []   # REQ-NN-MMM ids this WO delivers (traceability)
+source_change: []         # DR-147: slugs of the .pandacorp/inbox/changes/ cards this WO answers ([] when it comes from the original plan). When every WO naming a card is VERIFIED, change-reconcile.mjs archives that card — whichever door built it.
 dependsOn: []             # WO-NN-MMM ids this WO depends on (DR-087) — the machine-readable mirror of the Build Plan / work-orders README "Depends on" column. Real upstream WOs only (a WO can depend on several, across FRDs); [] when it has none. Consumed by Mission Control's dependency DAG; keep it in sync with the README table.
 last_updated: YYYY-MM-DD
 ---

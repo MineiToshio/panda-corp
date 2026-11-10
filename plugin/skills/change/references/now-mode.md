@@ -216,7 +216,8 @@ bash .pandacorp/worktree-bootstrap.sh            # deps, launch.json, secrets
   `--only`/`--files` are allowed inside its own bounded retry loop and nowhere else, because a
   `partial` scope can never promote anything to `VERIFIED` nor advance `last_green_sha`.
 - Commit discipline: `git add` only its own files, never `git add -A` (DR-099); Conventional
-  Commits in English, on the worktree branch, never on `main`.
+  Commits in English, on the worktree branch, never on `main`. Every commit ends with the trailer
+  `Change: <slug>` (DR-147) so the landed history names the card it answers.
 - The output contract, verbatim: the list of files touched, the commit sha, the `rigor` it saw,
   and the path to `.pandacorp/run/gate-report.json` plus its `green` and `scope` values.
 

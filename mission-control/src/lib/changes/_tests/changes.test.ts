@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { readChangeQueue } from "../changes";
+import { isPendingChange, isSuspectedChange, readChangeQueue } from "../changes";
 
 /**
  * changes.ts reader tests (FRD-04, DR-078 fail-loud boundary).
@@ -217,6 +217,32 @@ Lo que pasaba.
     writeChange("mc-export-csv.md", VALID_FEATURE);
     const { items } = readChangeQueue(projectPath);
     expect(items[0]).toMatchObject({ implementedSha: "", closingAt: "" });
+  });
+
+  it("DR-147: reads the reconciler's stale_suspect / stale_hint, and a suspected card is not pending", () => {
+    writeChange(
+      "mc-shipped.md",
+      VALID_FEATURE.replace(
+        "---\n\n",
+        'stale_suspect: "every work order of frd-10 is VERIFIED"\n---\n\n',
+      ),
+    );
+    writeChange(
+      "mc-hinted.md",
+      VALID_FEATURE.replace("---\n\n", 'stale_hint: "frd.md changed"\n---\n\n'),
+    );
+    const { items, errors } = readChangeQueue(projectPath);
+    expect(errors).toEqual([]);
+    const shipped = items.find((item) => item.id === "mc-shipped");
+    const hinted = items.find((item) => item.id === "mc-hinted");
+    expect(shipped).toMatchObject({
+      staleSuspect: "every work order of frd-10 is VERIFIED",
+      staleHint: "",
+    });
+    expect(hinted).toMatchObject({ staleSuspect: "", staleHint: "frd.md changed" });
+    expect(shipped && isSuspectedChange(shipped)).toBe(true);
+    expect(shipped && isPendingChange(shipped)).toBe(false);
+    expect(hinted && isPendingChange(hinted)).toBe(true);
   });
 
   it("skips README.md and template files", () => {

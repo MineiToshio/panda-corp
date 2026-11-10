@@ -1112,6 +1112,13 @@
         "done": "Hechos",
         "discarded": "Descartados"
       },
+      "suspect": {
+        "title": "¿Ya hecho? Revisar",
+        "intro": "La fábrica encontró indicios de que su trabajo ya se entregó o quedó sin efecto. El build no los construye hasta que decidas.",
+        "chip": "¿Ya hecho?",
+        "evidence": "Indicios",
+        "resolve": "Si ya está hecho, ciérralo con la primera orden; si quedó sin efecto, con la segunda; si sigue pendiente, con la tercera."
+      },
       "typeBug": "Bug",
       "typeChange": "Cambio",
       "errors": {

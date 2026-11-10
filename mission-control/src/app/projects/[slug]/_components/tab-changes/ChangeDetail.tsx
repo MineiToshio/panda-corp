@@ -41,6 +41,25 @@ export function ChangeDetail({ item }: { item: ChangeQueueItem }): React.JSX.Ele
           </p>
         </Notice>
       ) : null}
+      {item.staleSuspect || item.staleHint ? (
+        <Notice icon="alert" tone="amber">
+          <strong>{t("workspace.cambios.suspect.evidence")}</strong>
+          <p>{item.staleSuspect || item.staleHint}</p>
+          <p>{t("workspace.cambios.suspect.resolve")}</p>
+          <CmdRow
+            variant="box"
+            command={`node .pandacorp/change-reconcile.mjs --confirm-done ${item.id} --evidence "<commit o motivo>"`}
+          />
+          <CmdRow
+            variant="box"
+            command={`node .pandacorp/change-reconcile.mjs --supersede ${item.id} --reason "<decisión>"`}
+          />
+          <CmdRow
+            variant="box"
+            command={`node .pandacorp/change-reconcile.mjs --dismiss ${item.id}`}
+          />
+        </Notice>
+      ) : null}
       <SectionedMarkdown body={item.body} />
       <CmdRow variant="box" command={`/pandacorp:implement change:${item.id}`} />
     </div>

@@ -16,6 +16,8 @@ function change(id: string, date: string, status: ChangeQueueItem["status"]): Ch
     dependsOn: "",
     implementedSha: "",
     closingAt: "",
+    staleSuspect: "",
+    staleHint: "",
     body: "",
   };
 }

@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-11-10 — Suspected-shipped change cards leave "Listos para construir" (DR-147)
+
+**What:** the change reader exposes the factory reconciler's `stale_suspect`/`stale_hint`; the Cambios tab lists suspected cards in their own "¿Ya hecho? Revisar" group with the evidence and the owner commands, and every pending count/"Tu turno" item ignores them ([FRD-04 REQ-04-015](frds/frd-04-project-workspace/frd.md)). Shared rule: `isPendingChange`/`isSuspectedChange` in `src/lib/changes/changes.ts`.
+
+**Why:** funko-tracker showed 9 cards "Listos para construir" and 8 were already shipped or superseded. The factory now closes cards on strong evidence and only flags doubtful ones (BL-0307); the dashboard must not present a flagged card as buildable work. Mission Control still only reads the queue.
+
 ## 2026-11-03 — Explain behavior-testing review (DR-144)
 
 **What:** the Manual's review guide now describes test-owned fixtures, real-file structural checks, reviewer rejection of data-volume pins/change-detector tests and the advisory scanner. Canonical rule: [quality.md](../../factory/standards/quality.md).

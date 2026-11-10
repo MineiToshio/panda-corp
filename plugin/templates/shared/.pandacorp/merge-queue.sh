@@ -203,5 +203,15 @@ if [ "$LAUNCHED" = 1 ]; then
   fi
   echo "merge-queue: pushed $DEFAULT_BRANCH to origin — Vercel deploys it to production"
 fi
+
+# DR-147: whatever door this work came through, the change queue must now match main. The reconciler
+# reads the landed history (a `Change: <slug>` trailer, all-VERIFIED `source_change` WOs) and archives
+# the cards it answers; doubtful cards are only flagged for the owner. It runs on the MAIN checkout —
+# the inbox is gitignored and lives only there. Best-effort: the landing already succeeded, so a
+# reconciler failure (or a live build, exit 3) is reported, never turned into a failed merge.
+if [ -f "$MAIN_WT/.pandacorp/change-reconcile.mjs" ] && command -v node >/dev/null 2>&1; then
+  node "$MAIN_WT/.pandacorp/change-reconcile.mjs" --apply --project "$MAIN_WT" \
+    || echo "merge-queue: change-reconcile did not complete (exit $?) — run it on $DEFAULT_BRANCH: node .pandacorp/change-reconcile.mjs --apply" >&2
+fi
 echo "merge-queue: worktree KEPT (your session is inside it) — restore the session cwd WITHOUT removal, stop owned writers, then run the validated DR-145 cleanup: cd $MAIN_WT && bash .pandacorp/session-cleanup.sh finish --session <session-root>"
 exit 0

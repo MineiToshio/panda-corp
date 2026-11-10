@@ -914,10 +914,10 @@ function ConceptEstado(): React.JSX.Element {
         segundo candado. Durante un worker de Codex, la proyección se pausa para preservar sus
         cambios hasta inspeccionarlos. La señal de vida se lee entonces de renewed_at y ttl_seconds
         en run/build.lease/lease.json; upgrade y sync también consultan ese lease. El drenaje de una
-        renovación atascada termina con el watchdog y publica el motivo de parada.
-        Acquire, heartbeat, sincronización y cierre reponen fase, hora de inicio,
-        run lógico, runtime y epoch desde esa única fuente. La reparación de baseline nunca restaura
-        ese fichero mientras la lease siga activa; al detenerse conserva la identidad y publica
+        renovación atascada termina con el watchdog y publica el motivo de parada. Acquire,
+        heartbeat, sincronización y cierre reponen fase, hora de inicio, run lógico, runtime y epoch
+        desde esa única fuente. La reparación de baseline nunca restaura ese fichero mientras la
+        lease siga activa; al detenerse conserva la identidad y publica
         <Code>running: false</Code> para el relevo en frío.
       </NotePanel>
       <EstadoDetail />
@@ -2786,6 +2786,14 @@ function GuideCambio(): React.JSX.Element {
             SALTA hasta que lo pases a ready. Mission Control muestra ambos.
           </li>
           <li>
+            <B weight={500}>La cola se cierra sola (DR-147).</B> Llegue por donde llegue el trabajo
+            (el build, una sesión directa, un plan de lanzamiento, una decisión tuya), el commit
+            lleva <Code>Change: &lt;slug&gt;</Code> y el reconciliador{" "}
+            <Code>.pandacorp/change-reconcile.mjs</Code> archiva la tarjeta al aterrizar. Si solo
+            hay indicios, no cierra nada: la tarjeta pasa a <Chip tone="amber">¿Ya hecho?</Chip>, el
+            build no la reconstruye y tú decides.
+          </li>
+          <li>
             <B weight={500}>
               <Code>bug</Code> e <Code>iterate</Code> son los motores internos.
             </B>{" "}
@@ -3142,10 +3150,10 @@ function WorkflowBuild(): React.JSX.Element {
 
       <DocH title="Behavior tests protect contracts (DR-144)" />
       <Body>
-        Tests use their own fixtures; real-file reader checks prove structure, never a fixed
-        catalog volume. The reviewer rejects live-data count/content pins, production volume
-        guards and markup/style/copy change-detector tests. The live-data-asserts scanner warns;
-        a justified live-data-ok comment documents a legitimate contract, not a review waiver.
+        Tests use their own fixtures; real-file reader checks prove structure, never a fixed catalog
+        volume. The reviewer rejects live-data count/content pins, production volume guards and
+        markup/style/copy change-detector tests. The live-data-asserts scanner warns; a justified
+        live-data-ok comment documents a legitimate contract, not a review waiver.
       </Body>
 
       <DocH title="Varios FRDs en revisión a la vez (desde 9.116.0)" />

@@ -104,5 +104,22 @@ if [ "$rc" = 0 ] && main_has "$fx" && git -C "$fx/origin.git" cat-file -e main:f
 else bad "authorized retry: rc=$rc gates=$(gates): $log"; fi
 rm -rf "$fx"
 
+echo "== DR-147: landing closes the change card it answers (on the main checkout's inbox) =="
+fx=$(fixture 'phase: implementation\n'); MQ_PNPM_LOG="$fx/pnpm.log"
+echo ".pandacorp/inbox/" >> "$fx/app/.git/info/exclude"
+cp "$T/shared/.pandacorp/change-reconcile.mjs" "$fx/app/.pandacorp/"
+( cd "$fx/app" && git add .pandacorp/change-reconcile.mjs && git commit -q -m "chore: reconciler" )
+mkdir -p "$fx/app/.pandacorp/inbox/changes"
+printf -- '---\ntype: change\nstatus: ready\ndate: "2026-01-01"\n---\n# Answered\n' > "$fx/app/.pandacorp/inbox/changes/add-x.md"
+printf -- '---\ntype: change\nstatus: ready\ndate: "2026-01-01"\n---\n# Still pending\n' > "$fx/app/.pandacorp/inbox/changes/other.md"
+( cd "$fx/wt" && git commit -q --amend -m "feat: x" -m "Change: add-x" )
+run_mq "$fx/wt"
+if [ "$rc" = 0 ] && main_has "$fx" && [ -f "$fx/app/.pandacorp/inbox/changes/done/add-x.md" ] \
+   && [ ! -f "$fx/app/.pandacorp/inbox/changes/add-x.md" ] && [ -f "$fx/app/.pandacorp/inbox/changes/other.md" ] \
+   && grep -q '^status: done$' "$fx/app/.pandacorp/inbox/changes/done/add-x.md"; then
+  ok "the landed Change: trailer archives its card into done/; the unrelated card stays ready"
+else bad "reconcile after landing: rc=$rc: $log"; fi
+rm -rf "$fx"
+
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = 0 ]

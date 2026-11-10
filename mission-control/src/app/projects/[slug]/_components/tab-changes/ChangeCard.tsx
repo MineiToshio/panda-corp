@@ -29,6 +29,11 @@ export function ChangeCard({
               )}
             </Chip>
             <Chip tone={STATUS_TONES[item.status]}>{itemStatusLabel(item.status)}</Chip>
+            {item.staleSuspect || item.staleHint ? (
+              <Chip tone="amber" icon="alert">
+                {t("workspace.cambios.suspect.chip")}
+              </Chip>
+            ) : null}
           </>
         }
       />

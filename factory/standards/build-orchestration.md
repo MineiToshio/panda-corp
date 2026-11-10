@@ -1878,6 +1878,20 @@ BLOCKED needs-owner"), so it re-surfaces at the next run's drain once the owner 
 `building` change ALL of whose `affected_frds` VERIFIED is archived to `done/`; one whose FRDs are still
 merely building stays in place for a later run.
 
+**Every landing door closes its card — the change-queue reconciler (DR-147).** The archive sweep above only sees
+cards the engine drained itself. Work also lands directly in chat, through a launch plan's own FRDs/WOs, or is made
+moot by an owner decision; each of those left cards `ready`, and the next bare `/implement` would rebuild shipped
+work. So the link travels WITH the work: a commit implementing a card ends with the trailer `Change: <slug>`, one
+recording a decision that makes it moot ends with `Supersedes-Change: <slug>`, and a WO created because of a card
+lists it in `source_change: [<slug>]`. The overlay script `.pandacorp/change-reconcile.mjs` (deterministic) reads
+those links on the default branch: strong links archive (`done/`, or `discarded` in place for a supersede); weaker
+signals — the slug named in a commit or the decision log, the card's FRDs all VERIFIED with WOs planned after the
+card — only stamp `stale_suspect`, which the drain and the safe-point probe skip and Mission Control lists apart as
+"¿Ya hecho?"; a moved FRD contract is a `stale_hint` only. It runs after every `merge-queue.sh` landing (main
+checkout), before the engine's pre-loop drain and inside the close-out sweep (`--in-build`); it refuses to write
+during a live build otherwise, never touches `building`/`closing` cards and never deletes. The owner resolves a
+flag with `--confirm-done`, `--supersede` or `--dismiss` (fingerprinted). Canonical: registry DR-147.
+
 **Why this doesn't overload the build.** The build stays an **orchestrator of specialized subagents over
 deterministic control flow** (DR-013): docs → PM/architect, code → implementer, review → reviewer (a different
 model), design → designer + the owner's gate. The queue adds one deterministic step — *drain → integrate → build →

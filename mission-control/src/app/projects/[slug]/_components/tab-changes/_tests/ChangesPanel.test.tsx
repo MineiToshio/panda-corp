@@ -24,6 +24,8 @@ function item(status: ChangeQueueStatus): ChangeQueueItem {
     body: "## Context\nPublished body",
     implementedSha: "secret-sha",
     closingAt: "secret-time",
+    staleSuspect: "",
+    staleHint: "",
   };
 }
 function mount(status: ChangeQueueStatus) {

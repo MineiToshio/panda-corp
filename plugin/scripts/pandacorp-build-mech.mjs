@@ -489,6 +489,7 @@ function readyChanges(project) {
     const st = fm ? (/^status:[ \t]*([A-Za-z]+)/m.exec(fm[1]) || [])[1] : null
     if (!st) { unreadable.push(f.slice(0, -3)); continue }
     if (st.toLowerCase() !== 'ready') continue
+    if (/^stale_suspect:/m.test(fm[1])) continue   // DR-147: suspected already shipped — the owner resolves it, the build never rebuilds it
     ready.push({ slug: f.slice(0, -3), expedite: /^class:[ \t]*expedite\b/m.test(fm[1]), date: ((/^date:[ \t]*['"]?([0-9-]+)/m.exec(fm[1]) || [])[1]) || '9999' })
   }
   ready.sort((a, b) => (a.expedite !== b.expedite ? (a.expedite ? -1 : 1) : a.date.localeCompare(b.date) || a.slug.localeCompare(b.slug)))

@@ -7,7 +7,7 @@ import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { DialogConfirm } from "@/components/core/Modal/DialogConfirm";
 import { Modal } from "@/components/core/Modal/Modal";
 import { FileReadErrors } from "@/components/modules/FileReadErrors/FileReadErrors";
-import type { ChangeQueueReadResult } from "@/lib/changes/changes";
+import { type ChangeQueueReadResult, isSuspectedChange } from "@/lib/changes/changes";
 import { t } from "@/lib/copy/copy";
 import { useUrlState } from "@/lib/navigation/useUrlState";
 import { discardChangeAction } from "../../_actions/discard-change";
@@ -51,6 +51,10 @@ export function ChangesPanel({
     setError(null);
   }
   const history = items.filter((item) => item.status === "done" || item.status === "discarded");
+  // DR-147: a card the reconciler suspects already shipped is not "ready to build" — it gets its own group.
+  const suspects = items.filter(isSuspectedChange);
+  const inGroup = (status: (typeof ACTIVE_STATUSES)[number]) =>
+    items.filter((item) => item.status === status && !isSuspectedChange(item));
   function close(): void {
     setSelected("");
     setConfirming(false);
@@ -96,7 +100,7 @@ export function ChangesPanel({
       <div className={styles.strip}>
         {ACTIVE_STATUSES.map((status) => (
           <div key={status} data-tone={STATUS_TONES[status]}>
-            <strong>{items.filter((item) => item.status === status).length}</strong>
+            <strong>{inGroup(status).length}</strong>
             <span>{statusLabel(status)}</span>
           </div>
         ))}
@@ -105,8 +109,21 @@ export function ChangesPanel({
       !errors.length ? (
         <p>{t("workspace.cambios.empty")}</p>
       ) : null}
+      {suspects.length ? (
+        <Card tone="amber" variant="flush">
+          <CardHeader
+            title={t("workspace.cambios.suspect.title")}
+            count={suspects.length}
+            icon="alert"
+          />
+          <p>{t("workspace.cambios.suspect.intro")}</p>
+          {suspects.map((item) => (
+            <ChangeCard key={item.id} item={item} onSelect={(item) => setSelected(item.id)} />
+          ))}
+        </Card>
+      ) : null}
       {ACTIVE_STATUSES.map((status) => {
-        const group = items.filter((item) => item.status === status);
+        const group = inGroup(status);
         return group.length ? (
           <Card key={status} tone={STATUS_TONES[status]} variant="flush">
             <CardHeader title={statusLabel(status)} count={group.length} icon="layers" />

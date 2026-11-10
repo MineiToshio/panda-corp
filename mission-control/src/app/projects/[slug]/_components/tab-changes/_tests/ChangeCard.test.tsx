@@ -16,6 +16,8 @@ const item: ChangeQueueItem = {
   rebuildsVerified: false,
   implementedSha: "",
   closingAt: "",
+  staleSuspect: "",
+  staleHint: "",
 };
 it("REQ-04-011: absolute Spanish date retains its raw tooltip", () => {
   render(<ChangeCard item={item} />);

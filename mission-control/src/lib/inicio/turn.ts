@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { isSuspectedChange } from "@/lib/changes/changes";
 import { now } from "@/lib/clock/clock";
 import { t } from "@/lib/copy/copy";
 import { formatRelative } from "@/lib/copy/dates";
@@ -63,7 +64,7 @@ export function deriveOwnerTurn(
   );
   const changes: OwnerTurnItem[] = selected.flatMap((entry) =>
     entry.changes
-      .filter((change) => change.status === "ready")
+      .filter((change) => change.status === "ready" && !isSuspectedChange(change))
       .map((change) => ({
         ...itemBase(entry, change.date || null, nowIso),
         kind: "change" as const,
