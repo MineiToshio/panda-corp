@@ -21,7 +21,10 @@
       "mcp__claude-in-chrome__tabs_context_mcp",
       "Bash(node plugin/scripts/session-cleanup.mjs create:*)",
       "Bash(node plugin/scripts/session-cleanup.mjs register:*)",
-      "Bash(node plugin/scripts/session-cleanup.mjs finish:*)"
+      "Bash(node plugin/scripts/session-cleanup.mjs finish:*)",
+      "Bash(bash plugin/scripts/check-build-liveness.sh:*)",
+      "Bash(bash plugin/scripts/test-change-now-prose.sh:*)",
+      "Bash(bash plugin/scripts/test-merge-queue-certified-tree.sh:*)"
     ],
     "deny": [
       "Bash(rm -rf:*)",
