@@ -8,12 +8,12 @@ trigger: use this when a script invokes `neonctl` non-interactively and parses i
 source: "funko-tracker .pandacorp/run/lessons.md 2026-11-10/11 (agent-inferred): `neonctl projects list` opened an interactive organization picker (instead of returning project data) when the authenticated account belonged to more than one Neon organization, and the ingest script's JSON parse of neonctl's stdout crashed on the picker's prompt text; fixed by pinning NEON_PROJECT_ID (and/or the equivalent org-scoping flag) so neonctl never needs to ask."
 provenance: agent-inferred
 created: 2026-11-11
-status: candidate
-promotion: none
+status: active
+promotion: approved
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [EXT-8, DR-149]
 ---
 
 **Situation:** a script called `neonctl projects list` and parsed the output as JSON. On an account that

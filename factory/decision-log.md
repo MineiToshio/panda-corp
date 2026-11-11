@@ -1,5 +1,19 @@
 # Decision Log — Factory
 
+## 2026-11-11 — Every Neon project declares NEON_PROJECT_ID (EXT-8, DR-149)
+
+**What:** [EXT-8](standards/external-services.md) / [DR-149](decisions/registry.yaml): a project using Neon declares
+`NEON_PROJECT_ID` (empty with its own comment in the local-only block of `.env.example`, real value in `.env.local`,
+never production) and every `neonctl` call passes `--project-id`. The versioned ID stays in
+`.pandacorp/accounts/services.yaml` (`services.neon.shared.project_id`). Operative form in
+`plugin/templates/rules/external-services.md`; architecture `environment-delivery.md` names it; `doc-lint.sh` reports
+a Neon project without it (advisory). Plugin 9.154.0, overlay 8.122.0. Promotes [LESSON-0668](memory/LESSON-0668-neonctl-org-picker-breaks-json-parsing-caller.md).
+**Why:** owner request. In funko-tracker, neonctl opened its interactive organization picker on a multi-org account
+and blocked the ingest/backup scripts. **Context:** red-team of where the value lives: putting the real (non-secret)
+ID in `.env.example` breaks its placeholder-only contract and duplicates the services.yaml record; a new services.yaml
+field would also duplicate it. Chosen: dotenv binding + the existing services.yaml record as the single tracked copy.
+The check is advisory because it lands on projects already in flight.
+
 ## 2026-11-10 — Every decision put to the owner is a card in the chat (CONV-20, DR-148)
 
 **What:** [CONV-20](standards/conventions.md) / [DR-148](decisions/registry.yaml): a decision reaches the owner as

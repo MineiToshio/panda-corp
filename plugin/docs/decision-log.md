@@ -1,5 +1,18 @@
 # Decision log — Plugin pandacorp
 
+## v9.154.0 — 2026-11-11 (MINOR): Neon projects declare NEON_PROJECT_ID (EXT-8, DR-149)
+
+**What:** overlay **8.122.0**. [rules/external-services.md](../templates/rules/external-services.md) gains the EXT-8
+bullet; [doc-lint.sh](../templates/shared/.pandacorp/doc-lint.sh) prints an advisory finding (exit code unchanged)
+when a project uses Neon (services.yaml `provider_id: neon` or a `neon.tech` URL in `.env.example`) and its
+`.env.example` lacks `NEON_PROJECT_ID`; canary [test-doc-lint-neon-project-id.sh](../scripts/test-doc-lint-neon-project-id.sh)
+(4 cases) added to `run-engine-tests.sh`; architecture [environment-delivery.md](../skills/architecture/references/environment-delivery.md)
+puts the variable in the local-only block for new Neon projects.
+
+**Why:** neonctl's interactive organization picker blocked funko-tracker scripts on a multi-org account
+(LESSON-0668); owner asked to make the fix a factory rule. Activation: `claude plugin update pandacorp@panda-corp`
+and restart; projects pick up 8.122.0 on their next skill preflight (compatible, silent upgrade).
+
 ## v9.153.0 — 2026-11-10 (MINOR): decision cards for every decision put to the owner (CONV-20, DR-148)
 
 **What:** overlay **8.121.0**. [AGENTS.md.tpl](../templates/shared/AGENTS.md.tpl) and the project

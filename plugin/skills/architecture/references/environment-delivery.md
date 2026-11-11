@@ -79,6 +79,10 @@ when required by a concrete approved consumer and clearly says **NOT FOR WEB/WOR
 shared protocol fields once and state every authorized consumer. Do not duplicate dotenv keys.
 The last block of `.env.example` and `.env.local` says **LOCAL-ONLY — DO NOT DEPLOY**: smoke/oracle/test,
 Python/browser tool paths and other operator tooling as applicable. These do not enter `.env.production`.
+When Neon is selected, that block always carries `NEON_PROJECT_ID` (EXT-8, DR-149): empty with its own
+comment in `.env.example`, the real project ID (the same value recorded as `services.neon.shared.project_id`
+in `.pandacorp/accounts/services.yaml`) in `.env.local`, never in `.env.production`. Any `neonctl` call the
+project's scripts or skills make passes `--project-id "$NEON_PROJECT_ID"`.
 Do not retain unused variables in that production file simply for completeness; the guide documents names.
 
 **A combined file is storage, not a runtime permission boundary.** Distinct credentials remain distinct:

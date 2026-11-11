@@ -20,6 +20,7 @@
 #     (proposal 37 §A.6), not doc-spine completeness; see the dedicated block below]
 #   - a `.env.example` variable without its own description comment directly above it  [FAIL-LOUD
 #     ON EVERY PROJECT, CONV-16/DR-136; see the dedicated block below]
+#   - a Neon project whose .env.example lacks NEON_PROJECT_ID  [ADVISORY ON EVERY PROJECT, EXT-8/DR-149]
 #   - a standalone project skill without its project namespace [FAIL-LOUD ON EVERY PROJECT,
 #     CONV-17/DR-137; legacy projects are advisory until migration, new projects fail closed]
 # GREENFIELD FAIL-CLOSED (BL-0009): a project born via `/pandacorp:scaffold` (`.pandacorp/status.yaml`
@@ -151,6 +152,20 @@ if [ -f .env.example ]; then
     echo "════════════════════════════════════════════════════════════════════════"
     exit 1
   fi
+fi
+
+# --- Neon project ID binding (EXT-8, DR-149) ------------------------------------------------------
+# A project that uses Neon declares NEON_PROJECT_ID in .env.example so every neonctl call can pass
+# --project-id and never hit neonctl's interactive organization picker on a multi-org account
+# (LESSON-0668). ADVISORY on every project: it prints a finding and never changes the exit code.
+# Neon use = a neon provider in .pandacorp/accounts/services.yaml or a neon.tech URL in .env.example.
+neon_used=0
+if [ -f .pandacorp/accounts/services.yaml ] && grep -Eq '^[[:space:]]*provider_id:[[:space:]]*"?neon"?[[:space:]]*$' .pandacorp/accounts/services.yaml; then neon_used=1; fi
+if [ -f .env.example ] && grep -q 'neon\.tech' .env.example; then neon_used=1; fi
+if [ "$neon_used" = 1 ] && ! { [ -f .env.example ] && grep -Eq '^#*[[:space:]]*(export[[:space:]]+)?NEON_PROJECT_ID[[:space:]]*=' .env.example; }; then
+  echo "⚠ DOC-LINT (advisory, EXT-8): this project uses Neon but .env.example does not declare NEON_PROJECT_ID."
+  echo "    Add it empty with its own one-line comment in the local-only block, put the real ID"
+  echo "    (services.yaml services.neon.shared.project_id) in .env.local, and pass --project-id to neonctl."
 fi
 
 # Project-owned skills must expose the project's namespace (CONV-17 / DR-137).

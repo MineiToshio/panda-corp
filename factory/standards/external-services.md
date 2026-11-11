@@ -1,6 +1,6 @@
 # External services, accounts and secrets
 
-> Domain: Operation · Severity: **MUST** (scope, account identity, secrets, human gates) / **SHOULD** (provider choices) · Enforcement: architecture/release checklist + catalog validator + gitleaks. Operative form: `plugin/templates/rules/external-services.md`. Decisions: DR-035..038, DR-134.
+> Domain: Operation · Severity: **MUST** (scope, account identity, secrets, human gates) / **SHOULD** (provider choices) · Enforcement: architecture/release checklist + catalog validator + gitleaks. Operative form: `plugin/templates/rules/external-services.md`. Decisions: DR-035..038, DR-134, DR-149.
 
 ## 1. Reuse before provisioning
 
@@ -14,7 +14,7 @@ Reuse the authorized account and separate applications with provider-native reso
 
 | Service | Reuse and resource convention |
 |---|---|
-| Neon | One project/application named exactly `resource_slug`; dev/prod branches with separate roles/URLs. Project name and SQL database name are distinct: do not rename an existing SQL database. `DATABASE_URL` pooled; `DATABASE_URL_UNPOOLED` direct when required by the framework/migrations. |
+| Neon | One project/application named exactly `resource_slug`; dev/prod branches with separate roles/URLs. Project name and SQL database name are distinct: do not rename an existing SQL database. `DATABASE_URL` pooled; `DATABASE_URL_UNPOOLED` direct when required by the framework/migrations. Declare `NEON_PROJECT_ID` (EXT-8, below). |
 | Cloudflare R2/DNS | Shared authorized account and existing root zone. Only if files are needed: private `<slug>-dev` and `<slug>-prod` buckets. Real R2 in local dev and production, same adapter/object scheme, different config and scoped credentials. Example `funko-tracker-dev` / `funko-tracker-prod`, variable `R2_BUCKET_PRIVATE`. No routine staging bucket. CORS/lifecycle follow each environment's origins. No custom database backups to R2 in MVP/v1 (DR-012). |
 | Google Cloud OAuth | Default shared PandaTrack project, client per application; same client ID/secret across approved dev/staging/prod callback origins for that app. This is an explicit shared trust boundary, not database isolation. Ask for an app outside that context or a genuine security/provider constraint. No staging environment created by default. |
 | Namecheap | Same authorized registrar account for current/new root domains. New MVP subdomains do not require domain purchases. DNS remains Cloudflare. |
@@ -22,6 +22,8 @@ Reuse the authorized account and separate applications with provider-native reso
 | Resend | Reuse verified shared `pandatrack.app` domain; restricted sending key per app/environment when supported. `hello@pandatrack.app` sender with app display name, app-prefixed subject and contextual Reply-To. No new domain per app by default. |
 | ImprovMX | Shared `hello@pandatrack.app` inbox/forwarding. `hello+<slug>@pandatrack.app` can carry context if the configured wildcard/plus delivery is verified. Mail sent directly to generic hello without subject/context cannot reliably identify an app. Explicit aliases only for a real routing need. |
 | Modal | Optional job compute, selected for Funko Tracker exports after isolated POC. On-demand, scale to zero, no warm fleet; stop new exports on free-credit exhaustion. No card, paid upgrade, higher limit or paid fallback without explicit approval. Verify actual workspace credits/limits rather than assume public pricing applies. |
+
+**Neon project ID binding (EXT-8, DR-149, MUST).** Every project that uses Neon (a `neon` service in `.pandacorp/accounts/services.yaml`, a `neon.tech` connection string, or `neonctl` in its scripts/skills) declares `NEON_PROJECT_ID`: in tracked `.env.example` as an empty placeholder with its own one-line description (CONV-16) in the local-only operator/tooling block, and in `.env.local` with the real value. It never goes to `.env.production`, Vercel or other runtimes: only the owner's machine runs `neonctl`. Every scripted or agent `neonctl` call passes `--project-id "$NEON_PROJECT_ID"` (neonctl does not read the variable by itself) and fails loud when it is empty. The versioned record of the same ID stays `services.yaml` `services.neon.shared.project_id` (the §3 resource-ID record, its single writer); the dotenv value is its runtime binding and must equal it, so no second tracked copy is added. *Why:* on an account that belongs to more than one Neon organization, `neonctl` without a project scope opens an interactive organization picker that hangs non-interactive scripts or corrupts their JSON parsing (LESSON-0668). *Verified by:* `doc-lint.sh` advisory finding when a Neon project's `.env.example` lacks the variable (canary `plugin/scripts/test-doc-lint-neon-project-id.sh`) + architecture environment-delivery checklist.
 
 **Docker is not required (DR-140).** Neon's dev branch serves app development only; automated tests never use Neon (dev or prod) or Docker. They run against a native local Homebrew PostgreSQL on loopback with zero residue (`infra.md` INFRA-9/10).
 
@@ -92,6 +94,7 @@ Preparation produces reviewable inputs, not speculative infrastructure managemen
 
 - `node plugin/scripts/validate-service-catalog.mjs` validates the public provider contract, IDs, dated sources, automation routes and secret-free structure; `node plugin/scripts/test-service-catalog.mjs` proves malformed inputs fail.
 - Architecture step 9b3 and independent review manually check the private report: approved contract/consumer coverage, existing-value preservation, dev/prod separation, untracked/ignored regular mode-600 files, correct targets, exactly three root dotenv files, service/destination grouping, local-only blocks last and absent in production, correct alias exports/no cross-destination or development fallback (synthetic fixtures), no secret output and actionable pending items. This is a manual checklist, not an installed automatic secret-file validator. Architecture checklist also verifies account lookup, scope decisions, resource naming, variable destinations, dated quota evidence and pending steps. Release rechecks only selected services and actual environment readiness. These are manual checks, not a cloud connectivity certificate.
+- `bash plugin/scripts/test-doc-lint-neon-project-id.sh` proves `doc-lint.sh` reports a Neon project whose `.env.example` lacks `NEON_PROJECT_ID` (advisory, never red) and stays quiet for non-Neon projects (EXT-8).
 - Gitleaks checks repository secret leakage; it does not certify private account metadata or provider permissions.
 - `bash factory/standards/check-standards.sh` validates standard registry and operative-form coverage.
 
