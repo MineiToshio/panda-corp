@@ -1,5 +1,33 @@
 # Decision log — Plugin pandacorp
 
+## Unreleased — 2026-11-11 (targets v9.155.0, MINOR): build engine v2 documentation and registry (DR-150..DR-153), revision 2
+
+**What:** the canonical documents of the `pandacorp-build` CLI land before any code: the standard
+[build-engine.md](../../factory/standards/build-engine.md) (BUILD-7..BUILD-15), the CLI reference
+[build-engine-cli.md](build-engine-cli.md), eleven schemas in `runtime/build/schemas/`, `runtime/model-tiers.json` v2
+(builder table, review matrix, thresholds), the session protocol in `skills/implement/references/` (`engine-v2.md`,
+`autonomy.md`, `drive.md`), the v2 sections of the [reviewer](../agents/reviewer.md), [implementer](../agents/implementer.md)
+and [test-writer](../agents/test-writer.md) agents, and the runtime boundary paragraph of
+[agent-portability.md](../../factory/standards/agent-portability.md) (PORT-5). The registry gains DR-150..DR-153, each scoped
+to v2-engine runs so it is true while v1 is the default, and "v2 engine" amendments on DR-015, DR-016, DR-073 and DR-097
+(DR-013, DR-142 and DR-069 are superseded at 10.0.0). `runtime/event-vocabulary.json` gains `review.recorded`,
+`quota.reading`, `engine.failure`, `autonomous.decision`, `build.handoff`, `build.waiting-gate`, `unit.parked`,
+`admit.decision` and `wo.commit` (regenerated into Mission Control, `check-derived-drift.sh` Check 7); `.codex/agents/*.toml`
+are regenerated from the three agents.
+- **Revision 2 truth** (after two independent reviews): one path to `main` (a v2 run never writes a tracked file in a
+  project's main checkout; every tracked write is a CLI commit on `lane/<run_id>`; merge-queue is the only way to `main`);
+  no heartbeat process (lease ttl 1800 s renewed by every coordinator command); r1 = product floor P1-P5 only; N7 only out of
+  quota; `drive` armed whenever Codex login is OK, quota re-read at takeover; an untracked pre-push hook installed by
+  `start --run` in a launched project (and by upgrade in every project from 10.0.0); 13 features deferred (F1-F13, listed in
+  build-engine.md section Deferred).
+- **The default engine is frozen from 9.155.0:** usable as it is, never fixed; its own suites, the Check 5 fragment
+  regeneration and Check 8 leave CI at 9.155.0 (so v1 does not "stay as it is"). `/pandacorp:change` is unchanged until 10.0.0.
+
+**Why:** docs first. v2 is reached only by the owner's keyword `implement v2`; nothing here changes what the default
+`/pandacorp:implement` does, apart from the freeze. The new vocabulary names must exist before the CLI emits them or Mission
+Control shows them as `legacy.*`. No version bump in this entry: the bump, the manifests and the release note belong to the
+release commit (9.155.0). Factory-side rationale: [decision-log](../../factory/decision-log.md) (2026-11-11).
+
 ## v9.154.0 — 2026-11-11 (MINOR): Neon projects declare NEON_PROJECT_ID (EXT-8, DR-149)
 
 **What:** overlay **8.122.0**. [rules/external-services.md](../templates/rules/external-services.md) gains the EXT-8

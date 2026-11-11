@@ -1,0 +1,604 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pandacorp-build/state.schema.json",
+  "title": "Build engine run state (state.json, schema 2)",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 2
+    },
+    "engine": {
+      "const": "v2"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "epoch": {
+      "type": "integer"
+    },
+    "coordinator": {
+      "enum": [
+        "claude-session",
+        "codex-session",
+        "drive"
+      ]
+    },
+    "label": {
+      "enum": [
+        "claude",
+        "codex"
+      ]
+    },
+    "size": {
+      "enum": [
+        "touch",
+        "feature",
+        "giant"
+      ]
+    },
+    "status": {
+      "enum": [
+        "active",
+        "paused",
+        "waiting_owner",
+        "waiting_gate",
+        "finished",
+        "stopped"
+      ]
+    },
+    "status_reason": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tranche": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "index": {
+              "type": "integer"
+            },
+            "of": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "index",
+            "of"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "card": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "frds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "wos": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "out_of_scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "card",
+        "frds",
+        "wos",
+        "out_of_scope"
+      ],
+      "additionalProperties": false
+    },
+    "integration": {
+      "type": "object",
+      "properties": {
+        "branch": {
+          "type": "string"
+        },
+        "worktree": {
+          "type": "string"
+        },
+        "base_sha": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "branch",
+        "worktree",
+        "base_sha"
+      ],
+      "additionalProperties": false
+    },
+    "last_safe_point": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "sha": {
+              "type": "string"
+            },
+            "kind": {
+              "enum": [
+                "wo-commit",
+                "integration-land",
+                "review-record",
+                "batch-landed"
+              ]
+            },
+            "at": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "sha",
+            "kind",
+            "at"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "docs",
+              "tests",
+              "build",
+              "patch",
+              "review",
+              "audit",
+              "doubt-consult",
+              "deferred-review"
+            ]
+          },
+          "wos": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "frd": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "chain": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "zone": {
+            "enum": [
+              "none",
+              "floor",
+              "r1"
+            ]
+          },
+          "risk_rules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "admitted",
+              "running",
+              "reported",
+              "committed",
+              "integrated",
+              "reviewing",
+              "patching",
+              "verified",
+              "landed",
+              "parked",
+              "waiting_gate",
+              "blocked"
+            ]
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "token_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "worker": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "runtime": {
+                    "enum": [
+                      "claude",
+                      "codex"
+                    ]
+                  },
+                  "model": {
+                    "enum": [
+                      "haiku",
+                      "sonnet",
+                      "opus",
+                      "fable",
+                      "luna",
+                      "terra",
+                      "sol",
+                      "astra"
+                    ]
+                  },
+                  "effort": {
+                    "enum": [
+                      "minimal",
+                      "low",
+                      "medium",
+                      "high",
+                      "xhigh",
+                      null
+                    ]
+                  },
+                  "via": {
+                    "enum": [
+                      "agent",
+                      "cli",
+                      "session"
+                    ]
+                  },
+                  "pid": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "worker_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "runtime",
+                  "model",
+                  "effort",
+                  "via",
+                  "pid",
+                  "worker_id"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "worktree": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "branch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pending_answer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "parked": {
+            "enum": [
+              "owner_question",
+              "built_on_assumption",
+              "no_reviewer",
+              null
+            ]
+          },
+          "waiting_gate": {
+            "enum": [
+              "production",
+              "money",
+              "delete",
+              "external",
+              null
+            ]
+          },
+          "evidence_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "doubt_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "test_hashes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "probe_hashes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "review": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "verdict": {
+                    "enum": [
+                      "pass",
+                      "reopen",
+                      "blocked",
+                      "doubt"
+                    ]
+                  },
+                  "reviewer": {
+                    "type": "object",
+                    "properties": {
+                      "runtime": {
+                        "enum": [
+                          "claude",
+                          "codex"
+                        ]
+                      },
+                      "model": {
+                        "enum": [
+                          "haiku",
+                          "sonnet",
+                          "opus",
+                          "fable",
+                          "luna",
+                          "terra",
+                          "sol",
+                          "astra"
+                        ]
+                      },
+                      "effort": {
+                        "enum": [
+                          "minimal",
+                          "low",
+                          "medium",
+                          "high",
+                          "xhigh"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "runtime",
+                      "model",
+                      "effort"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "degraded": {
+                    "enum": [
+                      "quota_90",
+                      "unreachable",
+                      "at_capacity",
+                      "same_model",
+                      null
+                    ]
+                  },
+                  "deferred_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "verdict",
+                  "reviewer",
+                  "degraded",
+                  "deferred_id"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "wos",
+          "frd",
+          "chain",
+          "zone",
+          "risk_rules",
+          "state",
+          "attempt",
+          "token_hash",
+          "worker",
+          "worktree",
+          "branch",
+          "depends_on",
+          "pending_answer",
+          "parked",
+          "waiting_gate",
+          "evidence_hash",
+          "doubt_id",
+          "test_hashes",
+          "probe_hashes",
+          "review"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "jobs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "g2",
+              "land",
+              "worker"
+            ]
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "frd": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "pid": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "cwd": {
+            "type": "string"
+          },
+          "h_slot": {
+            "type": "boolean"
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "running",
+              "done",
+              "dead"
+            ]
+          },
+          "exit": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "worker_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "unit",
+          "frd",
+          "pid",
+          "cwd",
+          "h_slot",
+          "started_at",
+          "state",
+          "exit",
+          "worker_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "handbacks_in_a_row": {
+      "type": "integer"
+    },
+    "doubts_consulted": {
+      "type": "integer"
+    },
+    "answers": {
+      "type": "object"
+    },
+    "quota_at_unit": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object"
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "engine",
+    "run_id",
+    "epoch",
+    "coordinator",
+    "label",
+    "size",
+    "status",
+    "status_reason",
+    "tranche",
+    "scope",
+    "integration",
+    "last_safe_point",
+    "units",
+    "jobs",
+    "handbacks_in_a_row",
+    "doubts_consulted",
+    "answers",
+    "quota_at_unit"
+  ],
+  "additionalProperties": false
+}

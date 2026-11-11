@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pandacorp-build/summary.schema.json",
+  "title": "Run summary and open questions (finish, status, summary)",
+  "type": "object",
+  "required": [
+    "run_id",
+    "status",
+    "need_from_owner",
+    "decided_without_owner",
+    "parked",
+    "reviews",
+    "deferred_pending",
+    "open_questions"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "active",
+        "paused",
+        "waiting_owner",
+        "waiting_gate",
+        "finished",
+        "stopped"
+      ]
+    },
+    "need_from_owner": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "decided_without_owner": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "doubt_id": {
+            "type": "string"
+          },
+          "question": {
+            "type": "string"
+          },
+          "chosen": {
+            "type": "string"
+          },
+          "advised_by": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "confidence": {
+            "enum": [
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "revert_hint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "doubt_id",
+          "question",
+          "chosen",
+          "advised_by",
+          "confidence",
+          "revert_hint"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "parked": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "unit": {
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "owner_question",
+              "built_on_assumption",
+              "no_reviewer",
+              "handback"
+            ]
+          },
+          "question": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "branch": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "unit",
+          "reason",
+          "question",
+          "branch"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "reviews": {
+      "type": "object",
+      "properties": {
+        "cross": {
+          "type": "integer"
+        },
+        "degraded": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "cross",
+        "degraded"
+      ],
+      "additionalProperties": false
+    },
+    "deferred_pending": {
+      "type": "integer"
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "ask",
+              "parked",
+              "gate"
+            ]
+          },
+          "text_es": {
+            "type": "string"
+          },
+          "default_es": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "affects": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "all": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "all"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "frds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "frds"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "wos": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "wos"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "reversible": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "text_es",
+          "default_es",
+          "affects",
+          "reversible"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": true
+}

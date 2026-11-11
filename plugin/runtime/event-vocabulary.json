@@ -143,6 +143,42 @@
     "agent.type-fallback": {
       "display": "MechFallback",
       "aliases": ["MechFallback", "mech_fallback", "agent-type-fallback"]
+    },
+    "review.recorded": {
+      "display": "ReviewRecorded",
+      "aliases": ["ReviewRecorded", "review_recorded", "review-recorded"]
+    },
+    "quota.reading": {
+      "display": "QuotaReading",
+      "aliases": ["QuotaReading", "quota_reading", "quota-reading"]
+    },
+    "engine.failure": {
+      "display": "EngineFailure",
+      "aliases": ["EngineFailure", "engine_failure", "engine-failure"]
+    },
+    "autonomous.decision": {
+      "display": "AutonomousDecision",
+      "aliases": ["AutonomousDecision", "autonomous_decision", "autonomous-decision"]
+    },
+    "build.handoff": {
+      "display": "BuildHandoff",
+      "aliases": ["BuildHandoff", "build_handoff", "build-handoff"]
+    },
+    "build.waiting-gate": {
+      "display": "WaitingGate",
+      "aliases": ["WaitingGate", "waiting_gate", "waiting-gate"]
+    },
+    "unit.parked": {
+      "display": "UnitParked",
+      "aliases": ["UnitParked", "unit_parked", "unit-parked"]
+    },
+    "admit.decision": {
+      "display": "AdmitDecision",
+      "aliases": ["AdmitDecision", "admit_decision", "admit-decision"]
+    },
+    "wo.commit": {
+      "display": "wo_commit",
+      "aliases": ["wo_commit"]
     }
   }
 }

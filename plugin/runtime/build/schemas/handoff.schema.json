@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pandacorp-build/handoff.schema.json",
+  "title": "Handoff request (build/handoff.json)",
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "from_epoch": {
+      "type": "integer"
+    },
+    "reason": {
+      "enum": [
+        "quota95",
+        "limit",
+        "manual",
+        "test"
+      ]
+    },
+    "requested_at": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "from_epoch",
+    "reason",
+    "requested_at"
+  ],
+  "additionalProperties": false
+}

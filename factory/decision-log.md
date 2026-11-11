@@ -1,5 +1,66 @@
 # Decision Log — Factory
 
+## 2026-11-11 — Build engine v2, revision 2: one path to `main`, no heartbeat, honest quota and guard wording (DR-150..DR-153)
+
+**What:** two independent reviews of the first documents found blockers; the binding rulings are applied to the registry,
+the rule rows and the standard. (1) **One path to `main` (D1, D2):** a v2 run never writes a tracked file in the main
+checkout of any project; WO transitions, docs, `track.jsonl` and decision-log entries are CLI commits on `lane/<run_id>`, and
+`land` adds one landing metadata commit (WO `VERIFIED`, `last_green_sha`) before merge-queue judges the tree with G3.
+Consequence, accepted: Mission Control sees a run through the lease and events, and WO columns and `phase` change on `main` only
+at landing. (2) **No heartbeat process (D3):** the lease ttl is 1800 s and every coordinator command renews it; lease silence
+is `drive` trigger (c). (3) **Risk zone (D8):** r1 is exactly the product floor P1-P5 and is the only Astra zone; other floor
+signals get sol high. (4) **Quota (D9, D11):** N7 applies only out of quota; an unreachable company never triggers a Claude
+same-model review (opus authors wait, sonnet and haiku keep a different-model fallback); a `usage_limit` counts as 100 %.
+(5) **`drive` (D10):** armed whenever Codex login is OK regardless of Codex quota, which is re-read at takeover; a Claude limit
+hands off with the lease kept while the standby is alive (else the run pauses at `paused-quota`). (6) **Pre-push (D29):** an untracked hook, installed by `start --run` in a launched project before
+its first v2 run and by upgrade in every project from 10.0.0; the release variable is a flag, not a secret. (7) **The old engine
+(N1):** frozen from 9.155.0 (its own suites leave CI at 9.155.0, which corrects the earlier claim that it "stays as it is"),
+archived at 10.0.0 with a tag and BREAKPOINTS, restored only on "vuelve al viejo", deleted only on "bórralo". The registry
+lists the 13 deferred features F1-F13 ([build-engine.md](standards/build-engine.md) section Deferred).
+**Why:** the first documents promised things the design could not deliver (a heartbeat in a stateless CLI, a N7 review on an
+unreachable reviewer, commits on `main` of launched projects, a pre-push guard whose installer would have needed a tracked file on `main`). Each ruling picks
+the version that is computable and truthful at 9.155.0. Event vocabulary: the 8 new names plus `wo.commit` (the legacy name
+`report` emits); `build_usable` is dropped.
+
+## 2026-11-11 — Build engine v2: one entry, a runtime-neutral CLI, autonomy, one cross-company reviewer, `drive` (DR-150..DR-153)
+
+**What:** four decisions in [registry.yaml](decisions/registry.yaml) and nine rules BUILD-7..BUILD-15 in the new
+[build-engine.md](standards/build-engine.md) (rows in [rule-registry](standards/rule-registry.md), index row in
+[README](standards/README.md)); interfaces in [build-engine-cli.md](../plugin/docs/build-engine-cli.md) and
+`plugin/runtime/build/schemas/`; routing data in `plugin/runtime/model-tiers.json` v2. Every DR is scoped by version,
+so each is true at 9.155.0 while the default engine is still v1.
+- **DR-150** from 9.155.0 the v2 engine is opt-in with the keyword `implement v2`; the default engine (Dynamic Workflows)
+  stays the default but is **frozen**: usable as it is, never fixed, its own suites and the Check 5 fragment
+  regeneration and Check 8 leave CI. From 10.0.0 `/pandacorp:implement` is the single entry and v2 the only engine
+  (supersedes DR-069, DR-013 and DR-142 at that point). Scope is detected in 7 rows and fixed in a cited card; the change
+  queue stays a file format and the engine never drains it; a v2 run never writes a tracked file in the main checkout and
+  merge-queue is the only path to `main`. At 10.0.0 the old engine is archived with a git tag and a BREAKPOINTS list, restored
+  only on "vuelve al viejo" and deleted only on "bórralo".
+- **DR-151** questions are asked once in the first-minute message; later doubts go sources, one cross-company consult,
+  a tie-break consult (caps 3 and 8), decided only inside Dentro and never on anything irreversible or a human gate;
+  otherwise the unit parks and independent work continues.
+- **DR-152** exactly one reviewer, from the other company, one layer above the author; astra high only for the r1 zone
+  (product floor P1-P5); N7, the only same-model review, applies only when the other company is out of quota, and an
+  unreachable company never triggers a Claude same-model review; quota stops at 90 % and hands off at 95 %.
+- **DR-153** the `drive` relay continues a run with Codex only when Claude is out; an untracked pre-push hook keeps any
+  worker from pushing to the default branch of a launched project (installed by `start --run` before the first v2 run in a
+  launched project, by upgrade in every project from 10.0.0).
+- **Amendments (all scoped to v2-engine runs):** DR-015 (N7 by quota only), DR-016 (mutation only at G4 on floor modules),
+  DR-073 (difficulty no longer routes the builder), DR-097 (VERIFIED only in the landing metadata commit, written by the CLI).
+  Rows BUILD-7..BUILD-15 are `manual` until their `test-build-v2-*` suites exist; they flip to `wired` when each is green.
+- Two release points: 9.155.0 adds the CLI and the docs (v1 default but frozen, `/pandacorp:change` unchanged); 10.0.0
+  retires the Dynamic Workflows engine and `/pandacorp:change`.
+
+**Why:** the owner decided N1, N2 and N4-N7 on 2026-11-11 (N3 was left to the designer; the DR notes say which is which): the old
+engine is switched off when the new one exists, the owner says "impleméntalo" and leaves for 2-3 hours, one cross-company
+reviewer. The default engine spent its time in fixed costs (relays, an opus planner, double gates) and needed the owner at the keyboard. Design decisions that were **not**
+owner-decided and are marked so in the registry: the two release points and the freeze, the archive and its tag, one path
+to `main`, the admission constants, the Astra scope (the designer's reading of N2 and N6). **Context:** red-team AA1 found
+that a Codex worker with full access could push to `main` of a launched project (hence the pre-push hook); AA2 limited astra
+to the r1 zone. Human gates, G3 before `main` and the CLI's irreversibility veto are what make the single reviewer and the
+autonomy safe. Not verified until the first real use: the long-running `drive` relay, detached-process survival, sleep and
+notifications.
+
 ## 2026-11-11 — Every Neon project declares NEON_PROJECT_ID (EXT-8, DR-149)
 
 **What:** [EXT-8](standards/external-services.md) / [DR-149](decisions/registry.yaml): a project using Neon declares

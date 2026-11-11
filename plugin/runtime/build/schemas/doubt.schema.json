@@ -1,0 +1,270 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pandacorp-build/doubt.schema.json",
+  "title": "Doubt ladder record (build/doubts/<id>.json)",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "id": {
+      "type": "string"
+    },
+    "unit": {
+      "type": "string"
+    },
+    "opened_at": {
+      "type": "string"
+    },
+    "question": {
+      "type": "string"
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "preferred": {
+      "type": "string"
+    },
+    "why": {
+      "type": "string"
+    },
+    "step": {
+      "enum": [
+        "sources",
+        "consult1",
+        "consult2",
+        "decided",
+        "parked"
+      ]
+    },
+    "consults": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "runtime": {
+            "enum": [
+              "claude",
+              "codex"
+            ]
+          },
+          "model": {
+            "enum": [
+              "haiku",
+              "sonnet",
+              "opus",
+              "fable",
+              "luna",
+              "terra",
+              "sol",
+              "astra"
+            ]
+          },
+          "effort": {
+            "enum": [
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ]
+          },
+          "via": {
+            "enum": [
+              "agent",
+              "cli"
+            ]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "brief_path": {
+            "type": "string"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "rationale": {
+                    "type": "string"
+                  },
+                  "consulted": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "runtime": {
+                            "enum": [
+                              "claude",
+                              "codex"
+                            ]
+                          },
+                          "model": {
+                            "enum": [
+                              "haiku",
+                              "sonnet",
+                              "opus",
+                              "fable",
+                              "luna",
+                              "terra",
+                              "sol",
+                              "astra"
+                            ]
+                          },
+                          "effort": {
+                            "enum": [
+                              "minimal",
+                              "low",
+                              "medium",
+                              "high",
+                              "xhigh"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "runtime",
+                          "model",
+                          "effort"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "confidence": {
+                    "enum": [
+                      "high",
+                      "medium",
+                      "low"
+                    ]
+                  },
+                  "reversible": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "decision",
+                  "rationale",
+                  "consulted",
+                  "confidence",
+                  "reversible"
+                ],
+                "additionalProperties": false,
+                "description": "Field-identical to doubt-answer.schema.json and to doubt.schema.json consults[].answer; the two definitions must stay in sync."
+              }
+            ]
+          }
+        },
+        "required": [
+          "runtime",
+          "model",
+          "effort",
+          "via",
+          "unit",
+          "brief_path",
+          "answer"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "decision": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string"
+            },
+            "why": {
+              "type": "string"
+            },
+            "decided_by": {
+              "enum": [
+                "sources",
+                "consult1",
+                "consult2",
+                "engine",
+                "owner"
+              ]
+            }
+          },
+          "required": [
+            "value",
+            "why",
+            "decided_by"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "assumption": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "option": {
+              "type": "string"
+            },
+            "branch": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "option",
+            "branch"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "id",
+    "unit",
+    "opened_at",
+    "question",
+    "options",
+    "preferred",
+    "why",
+    "step",
+    "consults",
+    "decision",
+    "assumption"
+  ],
+  "additionalProperties": false
+}

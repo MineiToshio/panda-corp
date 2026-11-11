@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pandacorp-build/card-frontmatter.schema.json",
+  "title": "Change card frontmatter (.pandacorp/inbox/changes/<slug>.md)",
+  "type": "object",
+  "required": [
+    "type",
+    "status"
+  ],
+  "properties": {
+    "type": {
+      "enum": [
+        "bug",
+        "feature",
+        "change"
+      ]
+    },
+    "class": {
+      "enum": [
+        "expedite",
+        "standard",
+        "intangible",
+        "fixed-date"
+      ]
+    },
+    "status": {
+      "enum": [
+        "ready",
+        "draft",
+        "building",
+        "closing",
+        "done",
+        "discarded",
+        "obsolete"
+      ],
+      "description": "obsolete is a read alias of discarded (Mission Control maps it); never written."
+    },
+    "date": {
+      "type": "string"
+    },
+    "frd": {
+      "type": "string"
+    },
+    "rebuilds_verified": {
+      "type": "boolean"
+    },
+    "rigor": {
+      "enum": [
+        "micro",
+        "normal",
+        "critical",
+        null
+      ]
+    },
+    "rigor_reasons": {
+      "type": "string"
+    },
+    "depends_on": {
+      "type": "string"
+    },
+    "supersedes": {
+      "type": "string"
+    },
+    "implemented_sha": {
+      "type": "string"
+    },
+    "closing_at": {
+      "type": "string"
+    },
+    "shipped_sha": {
+      "type": "string"
+    },
+    "stale_suspect": {
+      "type": "string"
+    },
+    "stale_hint": {
+      "type": "string"
+    },
+    "engine": {
+      "const": "v2",
+      "description": "Stamped by a v2 run that owns the card."
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Run that owns the card (v2)."
+    },
+    "docs_sha": {
+      "type": "string",
+      "description": "Commit of the docs-before commit (Change-Docs)."
+    },
+    "origin": {
+      "type": "string",
+      "description": "Where the card came from."
+    },
+    "affected_frds": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "description": "v1: FRDs bound by reconcileBuildingChange (list or scalar). v2: FRDs the card touches."
+    },
+    "integration_paths": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "description": "v1 only; never written by v2."
+    },
+    "integration_transaction": {
+      "type": "string",
+      "description": "v1 only; never written by v2."
+    }
+  },
+  "additionalProperties": true
+}

@@ -7,7 +7,7 @@ implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-08-documentation/mocks/documentation.html
-last_updated: '2026-10-22'
+last_updated: '2026-11-11'
 floor: false
 ---
 # FRD-08 — Documentation
@@ -44,6 +44,11 @@ The **"Documentación"** surface: the navigable face of the factory's know-how i
 - **AC-08-020.3** — THE reader SHALL show breadcrumbs, a "Paso X de Y" progress bar on tutorial pages, previous/next links within the page's group, and a page index to the RIGHT of the page with its own search, folded behind a control below 900 px.
 
 **Worked example (AC-08-020.3).** The owner opens the third page of a six-page tutorial: breadcrumbs "Documentación › Tutorial › <page>", the bar reads "Paso 3 de 6", "Anterior" and "Siguiente" move within the tutorial group, and the index on the right lists the group's pages with a search box. At 375 px the index is folded behind a button.
+
+### REQ-08-021 — Build engine v2 pages (added 2026-11-11)
+
+- **REQ-08-021** — (effective at plugin 10.0.0) THE hand-authored Documentación pages that describe unattended building (the pages rendered by `DesatendidaDetail` and `PipelineDetail`, and any page that names the lanes, `maxAgents` or the Dynamic Workflows launch) SHALL be corrected to the v2 truth in the same change that ships 10.0.0 (DR-046, REQ-08-013): one `/pandacorp:implement` entry, the `pandacorp-build` CLI as executor in both runtimes, the lease-based liveness of REQ-04-017 (a 30-minute lease renewed by coordinator commands, no heartbeat process), human gates held while the owner is away, and no queue drain. Pages keep describing v1 until then, so they never describe an engine that is not the default.
+  - **Deferred (F11):** a full rewrite of the Manual prose for v2. Only the minimal factual corrections above ship with 10.0.0. **Reason:** the engine design allows prose after day 1 and a complete rewrite is large, independent of the engine's correctness and better done against the engine as it actually runs; the interim pages are fixed for truth, not polished.
 
 ## Edge cases
 - A page address that does not exist → "Esta página no existe" with "La Documentación no tiene una página «no-existe»." and "Ir al inicio de la Documentación" (FRD-25 owns the not-found contract).

@@ -13,5 +13,344 @@
       "codex": { "model": "gpt-6.1-sol", "effort": "high" }
     }
   },
-  "effort_rank": ["minimal", "low", "medium", "high", "xhigh"]
+  "effort_rank": ["minimal", "low", "medium", "high", "xhigh"],
+  "version": 2,
+  "catalog": {
+    "codex": { "sol": "gpt-6.1-sol", "astra": "gpt-6-astra", "luna": "gpt-6-luna", "terra": "gpt-6.1-terra" },
+    "claude": { "haiku": "haiku", "sonnet": "sonnet", "opus": "opus" }
+  },
+  "model_names": ["haiku", "sonnet", "opus", "fable", "luna", "terra", "sol", "astra"],
+  "disabled": ["terra", "fable"],
+  "never_emit": { "models": ["fable"], "efforts": ["max", "ultra"] },
+  "layers": {
+    "claude": ["haiku", "sonnet", "opus"],
+    "codex": ["luna", "terra", "sol", "astra"]
+  },
+  "builder": [
+    {
+      "id": "docs_touch",
+      "match": { "kind": "docs", "size": ["touch"] },
+      "claude": { "model": "sonnet", "effort": "medium" },
+      "codex": { "model": "sol", "effort": "low" }
+    },
+    {
+      "id": "docs_feature",
+      "match": { "kind": "docs", "size": ["feature", "giant"] },
+      "claude": { "model": "opus", "effort": "high" },
+      "codex": { "model": "sol", "effort": "high" }
+    },
+    {
+      "id": "tests",
+      "match": { "kind": "tests", "zone": ["none", "floor", "r1"] },
+      "claude": { "model": "sonnet", "effort": "high", "agent": "test-writer" },
+      "codex": { "model": "sol", "effort": "medium" },
+      "must_differ_from_builder_agent": true,
+      "note": "tests units exist for floor/r1 units that add ACs and for every type bug card (D16)"
+    },
+    {
+      "id": "escalation",
+      "match": { "kind": ["build", "patch"], "attempt": 3 },
+      "claude": { "model": "opus", "effort": "xhigh" },
+      "codex": { "model": "astra", "effort": "high" }
+    },
+    {
+      "id": "build_reopen",
+      "match": { "kind": "build", "reopen_count_min": 1 },
+      "claude": { "model": "opus", "effort": "high" },
+      "codex": { "model": "sol", "effort": "high" }
+    },
+    {
+      "id": "build_risk_zone",
+      "match": { "kind": "build", "zone": ["floor", "r1"] },
+      "claude": { "model": "sonnet", "effort": "high" },
+      "codex": { "model": "sol", "effort": "medium" }
+    },
+    {
+      "id": "build_default",
+      "match": { "kind": "build" },
+      "claude": { "model": "sonnet", "effort": "medium" },
+      "codex": { "model": "sol", "effort": "low" }
+    },
+    {
+      "id": "patch_bounded",
+      "match": { "kind": "patch", "bounded": true },
+      "bounded_definition": { "max_lines": 30, "off_floor": true, "with_test": true },
+      "claude": { "model": "sonnet", "effort": "high" },
+      "codex": { "model": "sol", "effort": "medium" }
+    },
+    {
+      "id": "patch_unbounded",
+      "match": { "kind": "patch", "bounded": false },
+      "claude": { "model": "opus", "effort": "high" },
+      "codex": { "model": "sol", "effort": "high" }
+    },
+    {
+      "id": "audit",
+      "match": { "kind": "audit", "trigger": "risk.audit", "max_per_build": 1 },
+      "claude": { "model": "opus", "effort": "high" },
+      "codex": { "runtime": "claude", "model": "opus", "effort": "high" },
+      "drive": "deferred",
+      "claude_out": "deferred",
+      "degraded": "quota_90",
+      "deferred_rereview": { "runtime": "claude", "model": "opus", "effort": "high" }
+    }
+  ],
+  "builder_rule": {
+    "match_order": "array order, first match wins",
+    "quota_switch": "a company at or above quota_stop takes no new units; they take the other company's column of the same row; both at or above quota_stop -> paused-quota",
+    "no_repeat": { "repeat": "raise effort one step, cap xhigh; never switch company" }
+  },
+  "review_rule": {
+    "single_reviewer": true,
+    "applies_to_kinds": ["review", "deferred-review"],
+    "principle": "The reviewer is a model of the other company, one layer above the author; at the top layer, its equivalent. The cell is chosen by the real model of the reviewed diff's lines (the dispatch cell of the authoring unit, D12), also when the session wrote them.",
+    "match_order": "array order, first match wins (session touch rows come first)",
+    "review_kinds": ["frd", "touch"],
+    "touch_max_calls": 10,
+    "zones": ["none", "floor", "r1"],
+    "astra_scope": "Astra high reviews only the r1 zone = product-floor P1-P5 (auth/session, payments, persistence of personal data, secrets/env, destructive data operations) built by Claude; every other floor signal (persistence without personal data, CI, oracles, packages, machinery) gets Sol high with the risk lens.",
+    "availability": ["ok", "quota", "unreachable", "at_capacity"],
+    "fallback_when": { "quota": "reading >= quota_stop or usage_limit", "unreachable": "login, CLI or network failure" },
+    "degraded_values": ["quota_90", "unreachable", "at_capacity", "same_model"],
+    "same_model_exception": {
+      "id": "N7",
+      "only_when": "the other company is out of quota (quota_stop or usage_limit) and no stronger model of the author's company exists; for codex astra authors also when Claude is unreachable",
+      "effort": "author_next_capped",
+      "effort_cap": "xhigh",
+      "fresh_context": true,
+      "context": ["diff", "acceptance_criteria", "tests"],
+      "adversarial_brief": "the author is the same model",
+      "degraded": "same_model"
+    },
+    "unreachable_n7": "park",
+    "park_reason": "parked:no_reviewer",
+    "deferred_rereview": "every degraded review is recorded in .pandacorp/run/deferred-reviews.json and re-run with the row's primary cell once the other company is available; a grave finding opens a type bug card",
+    "never_automatic": ["fable"],
+    "max_effort": "xhigh"
+  },
+  "review_matrix": [
+    {
+      "row": 8,
+      "author": { "runtime": "claude", "origin": "session", "model": ["haiku", "sonnet", "opus", "fable"] },
+      "match": { "kind": "touch", "zone": ["none"] },
+      "by_model": {
+        "haiku": {
+          "same_as_row": 2,
+          "primary": { "runtime": "codex", "model": "sol", "effort": "medium" },
+          "on_quota": { "runtime": "claude", "model": "opus", "effort": "high", "degraded": "quota_90" },
+          "on_unreachable": { "runtime": "claude", "model": "opus", "effort": "high", "degraded": "unreachable" }
+        },
+        "sonnet": {
+          "same_as_row": 2,
+          "primary": { "runtime": "codex", "model": "sol", "effort": "medium" },
+          "on_quota": { "runtime": "claude", "model": "opus", "effort": "high", "degraded": "quota_90" },
+          "on_unreachable": { "runtime": "claude", "model": "opus", "effort": "high", "degraded": "unreachable" }
+        },
+        "opus": {
+          "primary": { "runtime": "codex", "model": "sol", "effort": "medium" },
+          "on_quota": { "runtime": "claude", "model": "opus", "effort": "author_next_capped", "same_model_exception": "N7", "degraded": "same_model" },
+          "on_unreachable": "park"
+        },
+        "fable": {
+          "same_as_row": 16,
+          "primary": { "runtime": "codex", "model": "astra", "effort": "high" },
+          "on_quota": "park",
+          "on_unreachable": "park"
+        }
+      },
+      "zone_above_none": "real_model_row"
+    },
+    {
+      "row": 15,
+      "author": { "runtime": "codex", "origin": "session", "model": ["luna", "terra", "sol", "astra"] },
+      "match": { "kind": "touch", "zone": ["none"] },
+      "by_model": {
+        "luna": {
+          "primary": { "runtime": "claude", "model": "opus", "effort": "medium" },
+          "on_quota": { "runtime": "codex", "model": "astra", "effort": "high", "degraded": "quota_90" },
+          "on_unreachable": { "runtime": "codex", "model": "astra", "effort": "high", "degraded": "unreachable" }
+        },
+        "terra": {
+          "same_as_row": 14,
+          "primary": { "runtime": "claude", "model": "opus", "effort": "medium" },
+          "on_quota": { "runtime": "codex", "model": "sol", "effort": "high", "degraded": "quota_90" },
+          "on_unreachable": { "runtime": "codex", "model": "sol", "effort": "high", "degraded": "unreachable" }
+        },
+        "sol": {
+          "primary": { "runtime": "claude", "model": "opus", "effort": "medium" },
+          "on_quota": { "runtime": "codex", "model": "astra", "effort": "high", "degraded": "quota_90" },
+          "on_unreachable": { "runtime": "codex", "model": "astra", "effort": "high", "degraded": "unreachable" }
+        },
+        "astra": {
+          "primary": { "runtime": "claude", "model": "opus", "effort": "medium" },
+          "on_quota": { "runtime": "codex", "model": "astra", "effort": "author_next_capped", "same_model_exception": "N7", "degraded": "same_model" },
+          "on_unreachable": { "runtime": "codex", "model": "astra", "effort": "author_next_capped", "same_model_exception": "N7", "degraded": "same_model" }
+        }
+      },
+      "zone_above_none": "real_model_row"
+    },
+    {
+      "row": 16,
+      "author": { "runtime": "claude", "model": ["fable"] },
+      "match": { "kind": ["frd", "touch"], "zone": ["none", "floor", "r1"] },
+      "primary": { "runtime": "codex", "model": "astra", "effort": "high" },
+      "on_quota": "park",
+      "on_unreachable": "park",
+      "note": "fable is only ever a session model chosen by the owner; never Fable and never a lower Claude model as reviewer"
+    },
+    {
+      "row": 1,
+      "author": { "runtime": "claude", "model": ["sonnet", "haiku"] },
+      "match": { "kind": "frd", "zone": ["none"] },
+      "primary": { "runtime": "codex", "model": "sol", "effort": "high" },
+      "on_quota": { "runtime": "claude", "model": "opus", "effort": "high", "degraded": "quota_90" },
+      "on_unreachable": { "runtime": "claude", "model": "opus", "effort": "high", "degraded": "unreachable" }
+    },
+    {
+      "row": 2,
+      "author": { "runtime": "claude", "model": ["sonnet", "haiku"] },
+      "match": { "kind": "touch", "zone": ["none"] },
+      "primary": { "runtime": "codex", "model": "sol", "effort": "medium" },
+      "on_quota": { "runtime": "claude", "model": "opus", "effort": "high", "degraded": "quota_90" },
+      "on_unreachable": { "runtime": "claude", "model": "opus", "effort": "high", "degraded": "unreachable" }
+    },
+    {
+      "row": 3,
+      "author": { "runtime": "claude", "model": ["sonnet", "haiku"] },
+      "match": { "kind": ["frd", "touch"], "zone": ["floor"] },
+      "primary": { "runtime": "codex", "model": "sol", "effort": "high", "lens": "risk" },
+      "on_quota": { "runtime": "claude", "model": "opus", "effort": "xhigh", "degraded": "quota_90" },
+      "on_unreachable": { "runtime": "claude", "model": "opus", "effort": "xhigh", "degraded": "unreachable" }
+    },
+    {
+      "row": 4,
+      "author": { "runtime": "claude", "model": ["sonnet", "haiku"] },
+      "match": { "kind": ["frd", "touch"], "zone": ["r1"] },
+      "primary": { "runtime": "codex", "model": "astra", "effort": "high" },
+      "on_quota": { "runtime": "claude", "model": "opus", "effort": "xhigh", "degraded": "quota_90" },
+      "on_unreachable": { "runtime": "claude", "model": "opus", "effort": "xhigh", "degraded": "unreachable" }
+    },
+    {
+      "row": 5,
+      "author": { "runtime": "claude", "model": ["opus"], "effort": ["minimal", "low", "medium", "high"] },
+      "match": { "kind": ["frd", "touch"], "zone": ["none", "floor"] },
+      "primary": { "runtime": "codex", "model": "sol", "effort": "high", "lens_on_floor": "risk" },
+      "on_quota": { "runtime": "claude", "model": "opus", "effort": "author_next_capped", "same_model_exception": "N7", "degraded": "same_model" },
+      "on_unreachable": "park"
+    },
+    {
+      "row": 6,
+      "author": { "runtime": "claude", "model": ["opus"], "effort": ["minimal", "low", "medium", "high"] },
+      "match": { "kind": ["frd", "touch"], "zone": ["r1"] },
+      "primary": { "runtime": "codex", "model": "astra", "effort": "high" },
+      "on_quota": { "runtime": "claude", "model": "opus", "effort": "author_next_capped", "same_model_exception": "N7", "degraded": "same_model" },
+      "on_unreachable": "park",
+      "note": "N7 applies on quota without exception in the r1 zone; only unreachable parks"
+    },
+    {
+      "row": 7,
+      "author": { "runtime": "claude", "model": ["opus"], "effort": ["xhigh", "max"] },
+      "match": { "kind": ["frd", "touch"], "zone": ["none", "floor", "r1"] },
+      "primary": { "runtime": "codex", "model": "sol", "effort": "high", "lens_on_floor": "risk" },
+      "primary_by_zone": { "r1": { "runtime": "codex", "model": "astra", "effort": "high" } },
+      "on_quota": { "runtime": "claude", "model": "opus", "effort": "author_next_capped", "same_model_exception": "N7", "degraded": "same_model" },
+      "on_unreachable": "park"
+    },
+    {
+      "row": 9,
+      "author": { "runtime": "codex", "model": ["sol", "luna"] },
+      "match": { "kind": "frd", "zone": ["none"] },
+      "primary": { "runtime": "claude", "model": "opus", "effort": "high" },
+      "on_quota": { "runtime": "codex", "model": "astra", "effort": "high", "degraded": "quota_90" },
+      "on_unreachable": { "runtime": "codex", "model": "astra", "effort": "high", "degraded": "unreachable" }
+    },
+    {
+      "row": 10,
+      "author": { "runtime": "codex", "model": ["sol", "luna"] },
+      "match": { "kind": "touch", "zone": ["none"] },
+      "primary": { "runtime": "claude", "model": "opus", "effort": "medium" },
+      "on_quota": { "runtime": "codex", "model": "astra", "effort": "high", "degraded": "quota_90" },
+      "on_unreachable": { "runtime": "codex", "model": "astra", "effort": "high", "degraded": "unreachable" }
+    },
+    {
+      "row": 11,
+      "author": { "runtime": "codex", "model": ["sol", "luna"] },
+      "match": { "kind": ["frd", "touch"], "zone": ["floor", "r1"] },
+      "primary": { "runtime": "claude", "model": "opus", "effort": "xhigh" },
+      "on_quota": { "runtime": "codex", "model": "astra", "effort": "high", "degraded": "quota_90" },
+      "on_unreachable": { "runtime": "codex", "model": "astra", "effort": "high", "degraded": "unreachable" }
+    },
+    {
+      "row": 12,
+      "author": { "runtime": "codex", "model": ["astra"] },
+      "match": { "kind": ["frd", "touch"], "zone": ["none"] },
+      "primary": { "runtime": "claude", "model": "opus", "effort": "high" },
+      "on_quota": { "runtime": "codex", "model": "astra", "effort": "author_next_capped", "same_model_exception": "N7", "degraded": "same_model" },
+      "on_unreachable": { "runtime": "codex", "model": "astra", "effort": "author_next_capped", "same_model_exception": "N7", "degraded": "same_model" }
+    },
+    {
+      "row": 13,
+      "author": { "runtime": "codex", "model": ["astra"] },
+      "match": { "kind": ["frd", "touch"], "zone": ["floor", "r1"] },
+      "primary": { "runtime": "claude", "model": "opus", "effort": "xhigh" },
+      "on_quota": "park",
+      "on_unreachable": "park"
+    },
+    {
+      "row": 14,
+      "author": { "runtime": "codex", "model": ["terra"] },
+      "match": { "kind": ["frd", "touch"], "zone": ["none", "floor", "r1"] },
+      "primary": { "runtime": "claude", "model": "opus", "effort": "high" },
+      "primary_by_kind": { "touch": { "runtime": "claude", "model": "opus", "effort": "medium" } },
+      "primary_by_zone": {
+        "floor": { "runtime": "claude", "model": "opus", "effort": "xhigh" },
+        "r1": { "runtime": "claude", "model": "opus", "effort": "xhigh" }
+      },
+      "on_quota": { "runtime": "codex", "model": "sol", "effort": "high", "degraded": "quota_90" },
+      "on_unreachable": { "runtime": "codex", "model": "sol", "effort": "high", "degraded": "unreachable" },
+      "note": "terra is disabled as a builder until calibrated; this row covers a terra-authored session diff"
+    }
+  ],
+  "review_modifiers": {
+    "sol_at_capacity": { "first": "resume the same Codex session id once", "then": { "runtime": "codex", "model": "astra", "effort": "high" }, "degraded": "at_capacity", "lesson": "LESSON-0612" },
+    "drive": { "claude": "out", "codex_authored": "on_quota", "claude_authored_pre_handoff": "primary", "degraded": "quota_90" },
+    "codex_app_session": { "claude": "unreachable" }
+  },
+  "shadow": {
+    "status": "deferred (F1)",
+    "sample_one_in": 10,
+    "applies_to_kind": "frd",
+    "only_if_both_below_pct": 70,
+    "reviewer_by_author": {
+      "sonnet": { "runtime": "claude", "model": "opus", "effort": "high" },
+      "sol": { "runtime": "codex", "model": "astra", "effort": "high" }
+    }
+  },
+  "doubt_consult": {
+    "kind": "doubt-consult",
+    "by_origin": {
+      "claude": { "runtime": "codex", "model": "sol", "effort": "high" },
+      "codex": { "runtime": "claude", "model": "opus", "effort": "high" },
+      "drive": { "runtime": "codex", "model": "astra", "effort": "high" },
+      "codex_app": { "runtime": "codex", "model": "astra", "effort": "high" }
+    },
+    "tie_break": {
+      "strongest_not_yet_consulted": [
+        { "runtime": "claude", "model": "opus", "effort": "xhigh" },
+        { "runtime": "codex", "model": "astra", "effort": "high" }
+      ]
+    }
+  },
+  "thresholds": {
+    "quota_stop": 90,
+    "quota_handoff": 95,
+    "shadow_both_below": 70,
+    "codex_probe_age_s": 3600,
+    "codex_probe_min_pct": 70,
+    "claude_reading_max_age_s": 600,
+    "lease_ttl_s": 1800,
+    "drive_silent_s": 1800,
+    "drive_trigger_c_min_pct": 85,
+    "drive_poll_s": 30
+  }
 }

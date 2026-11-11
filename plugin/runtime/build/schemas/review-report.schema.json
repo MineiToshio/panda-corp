@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pandacorp-build/review-report.schema.json",
+  "title": "Reviewer report out (units/<u>/review.json)",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "unit": {
+      "type": "string"
+    },
+    "token": {
+      "type": "string"
+    },
+    "reviewer": {
+      "type": "object",
+      "properties": {
+        "runtime": {
+          "enum": [
+            "claude",
+            "codex"
+          ]
+        },
+        "model": {
+          "enum": [
+            "haiku",
+            "sonnet",
+            "opus",
+            "fable",
+            "luna",
+            "terra",
+            "sol",
+            "astra"
+          ]
+        },
+        "effort": {
+          "enum": [
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ]
+        }
+      },
+      "required": [
+        "runtime",
+        "model",
+        "effort"
+      ],
+      "additionalProperties": false
+    },
+    "verdict": {
+      "enum": [
+        "pass",
+        "reopen",
+        "blocked",
+        "doubt"
+      ]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low"
+            ]
+          },
+          "lens": {
+            "enum": [
+              "correctness",
+              "security",
+              "quality",
+              "runtime",
+              "scope"
+            ]
+          },
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "probe": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "severity",
+          "lens",
+          "file",
+          "line",
+          "summary",
+          "probe"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "probes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "failed_first": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path",
+          "failed_first"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "traceability": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "contract": {
+            "type": "string"
+          },
+          "contract_class": {
+            "enum": [
+              "requirement",
+              "acceptance-criterion",
+              "invariant",
+              "edge-case",
+              "limit",
+              "error",
+              "exclusion"
+            ]
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail",
+              "not-applicable"
+            ]
+          },
+          "tests": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "contract",
+          "contract_class",
+          "status",
+          "tests"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "doubt": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "question": {
+              "type": "string"
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "text"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "preferred": {
+              "type": "string"
+            },
+            "why": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "question",
+            "options",
+            "preferred",
+            "why"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "unit",
+    "token",
+    "reviewer",
+    "verdict",
+    "findings",
+    "probes",
+    "traceability",
+    "doubt"
+  ],
+  "additionalProperties": false
+}

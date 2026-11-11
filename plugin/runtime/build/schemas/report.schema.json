@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pandacorp-build/report.schema.json",
+  "title": "Worker report out (units/<u>/report.json)",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "unit": {
+      "type": "string"
+    },
+    "token": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "done",
+        "blocked",
+        "doubt",
+        "failed"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verification": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "exit_code": {
+            "type": "integer"
+          },
+          "tail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "command",
+          "exit_code",
+          "tail"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "pending": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "doubt": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "question": {
+              "type": "string"
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "text"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "preferred": {
+              "type": "string"
+            },
+            "why": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "question",
+            "options",
+            "preferred",
+            "why"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "diagnosis": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cause": {
+              "enum": [
+                "code",
+                "test-defective",
+                "spec-ambiguous",
+                "env-infra",
+                "dependency"
+              ]
+            },
+            "detail": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cause",
+            "detail"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "gate": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "money",
+                "delete",
+                "external"
+              ]
+            },
+            "detail": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "detail"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "authored_by": {
+      "type": "object",
+      "properties": {
+        "runtime": {
+          "enum": [
+            "claude",
+            "codex"
+          ]
+        },
+        "model": {
+          "enum": [
+            "haiku",
+            "sonnet",
+            "opus",
+            "fable",
+            "luna",
+            "terra",
+            "sol",
+            "astra"
+          ]
+        },
+        "effort": {
+          "enum": [
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh"
+          ]
+        }
+      },
+      "required": [
+        "runtime",
+        "model",
+        "effort"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema",
+    "unit",
+    "token",
+    "status",
+    "summary",
+    "files",
+    "verification",
+    "pending",
+    "doubt",
+    "diagnosis",
+    "gate",
+    "authored_by"
+  ],
+  "additionalProperties": false
+}

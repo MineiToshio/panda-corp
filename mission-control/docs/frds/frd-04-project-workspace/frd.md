@@ -7,7 +7,7 @@ implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-04-project-workspace/mocks/project-workspace.html
-last_updated: '2026-10-22'
+last_updated: '2026-11-11'
 floor: false
 ---
 # FRD-04 — Project workspace
@@ -64,6 +64,24 @@ On opening a project from the Portafolio, its workspace: a **tabs-first** surfac
 - **AC-04-013.3** — WHEN the owner selects Spec, follows its deep link or opens a known document link in the digest, THE system SHALL retain the selected project and route context; known document links SHALL open that project's Documentos reader, external links in a new tab and unknown relative targets as plain text.
 - **AC-04-013.4** — WHEN no nonempty spec digest is available, THE workspace SHALL retain the tab and state **"El spec todavía no está publicado."** with the second line **"Su PRD y sus FRDs reales siguen disponibles."**, without borrowing another project's digest or inventing specification content.
 - **AC-04-013.5** — WHEN the selected project changes, THE Spec view SHALL reset project-local FRD/modal state and read only the new project's digest and real FRD count. Full-bleed digest bands SHALL remain contained in the embedded panel on desktop and mobile.
+
+### REQ-04-016 to REQ-04-019 — Build engine v2 compatibility (added 2026-11-11)
+
+The `/pandacorp:implement` engine is replaced by the `pandacorp-build` CLI (factory plugin 9.155.0 adds it beside v1; 10.0.0 makes it the only entry and removes `/pandacorp:change`). Mission Control only reads files and copies commands, so the deltas below keep its readers honest. Each says when it takes effect.
+
+- **REQ-04-016** — (effective now, plugin 9.155.0) The change-card reader SHALL tolerate the optional frontmatter fields `engine`, `run_id`, `docs_sha`, `origin` and `affected_frds` written by the v2 engine, ignoring any it does not display, and SHALL keep the accepted enum `type: bug | feature | change` and `status: ready | draft | building | closing | done | discarded` unchanged (a new status token would raise the fail-loud card error of REQ-04-006).
+  - **AC-04-016.1** — WHEN a card carries `engine`, `run_id`, `docs_sha`, `origin` or `affected_frds`, THE Cambios tab SHALL list it in the group its `status` selects, with no error banner.
+- **REQ-04-017** — (effective at plugin 9.155.0, the only Mission Control code change of this release; it changes `isLive`) THE Resumen SHALL treat a build as live WHEN the lease `.pandacorp/run/build.lease/lease.json` was renewed within its own `ttl_seconds`, whether or not `status.yaml` says `running: true`, OR `running: true` AND a legacy clock is fresh (`supervisor_heartbeat` or the latest project event under 10 minutes old). A v2 run never sets `running` on `main` and writes no `supervisor_heartbeat`; its lease has `ttl_seconds` 1800 and is renewed by every coordinator command, with no heartbeat process. A missing lease is not an error; a lease that does not parse keeps blanking the status as today. The status keys `build_run_id`, `build_runtime` and `build_lease_epoch` are not read.
+  - **AC-04-017.1** — WHEN `running` is absent, no heartbeat exists and the lease was renewed 90 s ago with `ttl_seconds` 1800, THE project SHALL read as live.
+  - **AC-04-017.2** — WHEN `running` is `true`, the lease is expired and no legacy clock is fresh, THE project SHALL NOT read as live.
+  - **Known limit:** because liveness is lease freshness only, a coordinator session that crashed can keep reading as live for up to 30 minutes (the lease ttl) until the lease expires.
+- **REQ-04-018** — (effective now) THE event reader SHALL accept the v2 event names `review.recorded`, `quota.reading`, `engine.failure`, `autonomous.decision`, `build.handoff`, `build.waiting-gate`, `unit.parked` and `admit.decision` as known vocabulary, not as `legacy.<name>`, once the factory's event vocabulary lists them (the factory owns the list; Mission Control carries a generated copy), and SHALL keep reading `wo_commit` as a legacy event name. The engine emits no `build_usable`. Events keep `project` = the project root's basename. v2 branches are `lane/<run_id>`, `lane/<run_id>/<unit>[-a<n>]` and `lane/<run_id>/assume-<doubt>`, which the pending-merge view already classifies as engine-origin.
+- **REQ-04-019** — (effective at plugin 10.0.0) THE copy-only commands of the Comandos tab, the Cambios tab and the Resumen SHALL stop offering `/pandacorp:change`: the «Cambios y decisiones» card (REQ-04-006) shows `/pandacorp:implement`, `/pandacorp:decide` and `/pandacorp:new-version`, and a queued change is built with `/pandacorp:implement change:<id>` as before. Until 10.0.0 the current commands stay correct and unchanged. `change-reconcile.mjs` commands shown for REQ-04-015 are unaffected.
+
+
+### What a v2 run looks like on `main` (added 2026-11-11)
+
+During a v2 run the engine writes no git-tracked file in the main checkout: work-order columns (`implementation_status`), `phase` and `last_green_sha`/`safe_to_test` change on `main` only when a batch lands (the landing metadata commit), and `track.jsonl` lines arrive with the integration branch. The running build is visible through the lease (REQ-04-017) and the events (REQ-04-018), not through board progress. Items Mission Control does NOT change at this release (deferred, reasons in the decision log of 2026-11-11): readers of `running` other than `isLive` (portfolio columns, Resumen badge), live board progress during a run, the build-mode picker redesign (FRD-11) and the full Documentación rewrite (FRD-08).
 
 ## Edge cases
 - Pending decision already answered in its own file → flagged "ya resuelta en el archivo" and not counted as pending (AC-04-014.5).

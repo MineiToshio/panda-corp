@@ -4,7 +4,7 @@ type: frd
 title: FRD-11 — Per-project build modes
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-10-22'
+last_updated: '2026-11-11'
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-11-build-modes/mocks/build-modes.html
@@ -33,6 +33,11 @@ Lets you choose how much power each project is built with, and shows the command
 - **AC-11-005.3** — THE Construcción phase sheet in La Campaña (FRD-02) SHALL offer the same mode picker behind "Elegir modo de construcción".
 
 **Worked example (AC-11-005.1, AC-11-005.2).** The owner opens Comandos: Equilibrado is selected and the box shows `/pandacorp:implement`. Choosing Potente shows `/pandacorp:implement powerful`. Choosing the queued change "mc-fix-dates" as the target shows `/pandacorp:implement change:mc-fix-dates`. Choosing Equilibrado again drops the mode argument.
+
+### REQ-11-006 — Build modes under engine v2 (added 2026-11-11)
+
+- **REQ-11-006** — (effective at plugin 10.0.0; no change before) WHEN the factory's `/pandacorp:implement` is the v2 `pandacorp-build` engine, the mode words `pro`, `powerful` and `deep` carry no meaning: the engine routes models and parallelism itself, and the CLI tolerates a legacy mode word (ignored with a warning) rather than failing. THE four-card picker SHALL keep working as it does today (the commands it copies still run), and its redesign is **deferred** to a later FRD-11 change.
+  - **Reason for deferral:** removing or renaming the modes is a product behavior change that the engine design does not specify (deferred item F11), the copied commands do not break, and doing it with the engine drop would couple a UI redesign to an unverified runtime release. Until then REQ-11-001 to REQ-11-004 and AC-11-005.1 to AC-11-005.3 describe the interface as shipped, and REQ-11-004 is read as "the skill accepts those modes (ignored with a warning from 10.0.0)".
 
 ## Edge cases
 - Equilibrado is the default and carries no argument, so no mode token is appended (REQ-11-004).

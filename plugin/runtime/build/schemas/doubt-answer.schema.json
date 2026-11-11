@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pandacorp-build/doubt-answer.schema.json",
+  "title": "Doubt consult answer (codex --output-schema)",
+  "description": "Field-identical to doubt-answer.schema.json and to doubt.schema.json consults[].answer; the two definitions must stay in sync.",
+  "type": "object",
+  "properties": {
+    "decision": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rationale": {
+      "type": "string"
+    },
+    "consulted": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "runtime": {
+              "enum": [
+                "claude",
+                "codex"
+              ]
+            },
+            "model": {
+              "enum": [
+                "haiku",
+                "sonnet",
+                "opus",
+                "fable",
+                "luna",
+                "terra",
+                "sol",
+                "astra"
+              ]
+            },
+            "effort": {
+              "enum": [
+                "minimal",
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ]
+            }
+          },
+          "required": [
+            "runtime",
+            "model",
+            "effort"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "confidence": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "reversible": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "decision",
+    "rationale",
+    "consulted",
+    "confidence",
+    "reversible"
+  ],
+  "additionalProperties": false
+}

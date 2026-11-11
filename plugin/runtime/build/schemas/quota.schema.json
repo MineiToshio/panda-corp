@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pandacorp-build/quota.schema.json",
+  "title": "Provider quota readings (build/quota.json)",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "claude": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "const": "claude"
+            },
+            "five_hour_pct": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 100
+            },
+            "weekly_pct": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 100
+            },
+            "five_hour_resets_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "weekly_resets_at": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "status": {
+              "enum": [
+                "ok",
+                "unavailable"
+              ]
+            },
+            "observed_at": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "provider",
+            "five_hour_pct",
+            "weekly_pct",
+            "five_hour_resets_at",
+            "weekly_resets_at",
+            "status",
+            "observed_at"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "codex": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "const": "codex"
+            },
+            "state": {
+              "const": "known"
+            },
+            "used_percent": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "window_minutes": {
+              "type": "integer"
+            },
+            "resets_at": {
+              "type": "string"
+            },
+            "credits": {
+              "type": [
+                "number",
+                "object",
+                "null"
+              ]
+            },
+            "source": {
+              "enum": [
+                "rollout",
+                "probe",
+                "limit"
+              ]
+            },
+            "observed_at": {
+              "type": "string"
+            },
+            "file": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "provider",
+            "state",
+            "used_percent",
+            "window_minutes",
+            "resets_at",
+            "credits",
+            "source",
+            "observed_at",
+            "file"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "const": "codex"
+            },
+            "state": {
+              "const": "unknown"
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "provider",
+            "state",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "claude",
+    "codex"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pandacorp-build/deferred-reviews.schema.json",
+  "title": "Deferred reviews ledger (deferred-reviews.json)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "unit": {
+        "type": "string"
+      },
+      "kind": {
+        "enum": [
+          "review",
+          "audit"
+        ]
+      },
+      "frd": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "sha_range": {
+        "type": "string"
+      },
+      "author": {
+        "type": "object",
+        "properties": {
+          "runtime": {
+            "enum": [
+              "claude",
+              "codex"
+            ]
+          },
+          "model": {
+            "enum": [
+              "haiku",
+              "sonnet",
+              "opus",
+              "fable",
+              "luna",
+              "terra",
+              "sol",
+              "astra"
+            ]
+          },
+          "effort": {
+            "enum": [
+              "minimal",
+              "low",
+              "medium",
+              "high",
+              "xhigh"
+            ]
+          }
+        },
+        "required": [
+          "runtime",
+          "model",
+          "effort"
+        ],
+        "additionalProperties": false
+      },
+      "reviewer_used": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "runtime": {
+                "enum": [
+                  "claude",
+                  "codex"
+                ]
+              },
+              "model": {
+                "enum": [
+                  "haiku",
+                  "sonnet",
+                  "opus",
+                  "fable",
+                  "luna",
+                  "terra",
+                  "sol",
+                  "astra"
+                ]
+              },
+              "effort": {
+                "enum": [
+                  "minimal",
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh"
+                ]
+              }
+            },
+            "required": [
+              "runtime",
+              "model",
+              "effort"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "degraded": {
+        "enum": [
+          "quota_90",
+          "unreachable",
+          "at_capacity",
+          "same_model",
+          null
+        ]
+      },
+      "needed": {
+        "enum": [
+          "claude",
+          "codex"
+        ]
+      },
+      "created_at": {
+        "type": "string"
+      },
+      "status": {
+        "enum": [
+          "pending",
+          "done"
+        ]
+      },
+      "result": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "id",
+      "unit",
+      "kind",
+      "frd",
+      "sha_range",
+      "author",
+      "reviewer_used",
+      "degraded",
+      "needed",
+      "created_at",
+      "status"
+    ],
+    "additionalProperties": false
+  }
+}

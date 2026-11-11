@@ -1,0 +1,592 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pandacorp-build/journal-event.schema.json",
+  "title": "Build engine journal line (journal.jsonl)",
+  "type": "object",
+  "properties": {
+    "v": {
+      "const": 1
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "at": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "epoch": {
+      "type": "integer"
+    },
+    "actor": {
+      "enum": [
+        "cli",
+        "drive"
+      ]
+    },
+    "type": {
+      "enum": [
+        "run_started",
+        "run_resumed",
+        "run_stopped",
+        "run_finished",
+        "unit_queued",
+        "unit_state",
+        "admit",
+        "unit_dispatched",
+        "job_started",
+        "job_finished",
+        "report_received",
+        "wo_committed",
+        "gate",
+        "integrated",
+        "review_recorded",
+        "patch",
+        "escalated",
+        "handback",
+        "safe_point",
+        "batch_landed",
+        "pin_stale",
+        "quota_reading",
+        "doubt_opened",
+        "doubt_consulted",
+        "autonomous_decision",
+        "answer_recorded",
+        "parked",
+        "waiting_gate",
+        "handoff_requested",
+        "drive_armed",
+        "drive_takeover",
+        "deferred_review_queued",
+        "deferred_review_done",
+        "engine_failure",
+        "paused"
+      ]
+    },
+    "data": {
+      "type": "object"
+    },
+    "prev": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      ]
+    }
+  },
+  "required": [
+    "v",
+    "seq",
+    "at",
+    "run_id",
+    "epoch",
+    "actor",
+    "type",
+    "data",
+    "prev"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "unit_state"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "unit": {
+                "type": "string"
+              },
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "unit",
+              "from",
+              "to"
+            ],
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "unit_dispatched"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "cell": {
+                "type": "object",
+                "properties": {
+                  "runtime": {
+                    "enum": [
+                      "claude",
+                      "codex"
+                    ]
+                  },
+                  "model": {
+                    "enum": [
+                      "haiku",
+                      "sonnet",
+                      "opus",
+                      "fable",
+                      "luna",
+                      "terra",
+                      "sol",
+                      "astra"
+                    ]
+                  },
+                  "effort": {
+                    "enum": [
+                      "minimal",
+                      "low",
+                      "medium",
+                      "high",
+                      "xhigh",
+                      null
+                    ]
+                  }
+                },
+                "required": [
+                  "runtime",
+                  "model",
+                  "effort"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "cell"
+            ],
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "run_resumed"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "from"
+            ],
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "run_stopped"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "reason"
+            ],
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "gate"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "tier": {
+                "type": "string"
+              },
+              "exit": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "tier",
+              "exit"
+            ],
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "safe_point"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "sha": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "sha"
+            ],
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "batch_landed"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "sha": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "sha"
+            ],
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "paused"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "reason"
+            ],
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "answer_recorded"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "question": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "ask",
+                  "parked",
+                  "gate"
+                ]
+              },
+              "value": {},
+              "units": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "unit": {
+                      "type": "string"
+                    },
+                    "effect": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "unit",
+                    "effect"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "question",
+              "kind",
+              "value"
+            ],
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": {
+            "const": "review_recorded"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "unit": {
+                "type": "string"
+              },
+              "frd": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "reviewer": {
+                "type": "object",
+                "properties": {
+                  "runtime": {
+                    "enum": [
+                      "claude",
+                      "codex"
+                    ]
+                  },
+                  "model": {
+                    "enum": [
+                      "haiku",
+                      "sonnet",
+                      "opus",
+                      "fable",
+                      "luna",
+                      "terra",
+                      "sol",
+                      "astra"
+                    ]
+                  },
+                  "effort": {
+                    "enum": [
+                      "minimal",
+                      "low",
+                      "medium",
+                      "high",
+                      "xhigh"
+                    ]
+                  }
+                },
+                "required": [
+                  "runtime",
+                  "model",
+                  "effort"
+                ],
+                "additionalProperties": false
+              },
+              "authors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "runtime": {
+                      "enum": [
+                        "claude",
+                        "codex"
+                      ]
+                    },
+                    "model": {
+                      "enum": [
+                        "haiku",
+                        "sonnet",
+                        "opus",
+                        "fable",
+                        "luna",
+                        "terra",
+                        "sol",
+                        "astra"
+                      ]
+                    },
+                    "effort": {
+                      "enum": [
+                        "minimal",
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "runtime",
+                    "model",
+                    "effort"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "cross": {
+                "type": "boolean"
+              },
+              "degraded": {
+                "enum": [
+                  "quota_90",
+                  "unreachable",
+                  "at_capacity",
+                  "same_model",
+                  null
+                ]
+              },
+              "findings": {
+                "type": "object",
+                "properties": {
+                  "critical": {
+                    "type": "integer"
+                  },
+                  "high": {
+                    "type": "integer"
+                  },
+                  "medium": {
+                    "type": "integer"
+                  },
+                  "low": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "critical",
+                  "high",
+                  "medium",
+                  "low"
+                ],
+                "additionalProperties": false
+              },
+              "pair_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "unit",
+              "frd",
+              "reviewer",
+              "authors",
+              "cross",
+              "degraded",
+              "findings",
+              "pair_id"
+            ],
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  ]
+}
