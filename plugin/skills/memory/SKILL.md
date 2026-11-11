@@ -28,7 +28,7 @@ The self-learning loop's operator surface. Runs IN panda-corp. It accumulates du
    optional** whether harvest ran standalone, from the factory, from inside a project, or as part of the
    `/loop` `pandacorp-memory-review` sweep — a harvest that writes and does not commit is incomplete
    (the 2026-08-11 abandoned-harvest incident, BL-0089).
-7. **Report** to the owner (in Spanish): what was harvested, what auto-activated, what awaits their call, and any `library-verdict` worth remembering. Nothing was promoted to a standard/rule/skill — that is `/pandacorp:learn`.
+7. **Report** to the owner (in Spanish): what was harvested, what auto-activated, what awaits their call (each pending call as a decision card, CONV-20), and any `library-verdict` worth remembering. Nothing was promoted to a standard/rule/skill — that is `/pandacorp:learn`.
 
 ## Mode: review / prune (Phase 4) — `/pandacorp:memory review`
 

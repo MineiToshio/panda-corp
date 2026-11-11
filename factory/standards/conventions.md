@@ -35,6 +35,7 @@ When replying to the owner:
 - **Visualize complex mechanisms.** When explaining a flow, a skill's internal steps, an algorithm, or anything with enough moving parts that prose alone would be hard to follow, generate a diagram/widget instead of describing it in paragraphs. Fall back to a numbered-step sketch only if no visual tool is available.
 - **Red-team proposals that require judgment** (a design choice, an architecture call, a plan) — surface the strongest counterargument before agreeing; never rubber-stamp. Skip this for simple statements, questions, or greetings that don't call for analysis.
 - **Human, empathetic tone — but disagreement stays substantive**, not softened into agreement.
+- **Decisions are the exception to "concise by default".** When you put a decision to the owner, completeness beats brevity: use the decision card (CONV-20, next rule below). The formatting rules here (scannable, named referents) still apply inside it.
 
 ## Rule — subagent model selection
 
@@ -63,6 +64,23 @@ Escalate upward, never downward, if a first attempt at a lower tier comes back i
 - **A subagent's report is a claim too.** A fact reported by a delegated agent — especially a cheap-tier scan — is re-verified before the lead agent asserts it to the owner or builds on it (the LESSON-0027 audit-snapshot rule, generalized).
 - **The rule binds BEFORE the assertion, not only at it.** A doc, a past audit finding, a recognized failure pattern, a self-review, a recorded flag: each is a *stand-in* for the live artifact and can silently diverge from it. Before diagnosing a failure, building a fix plan, or declaring something done on top of one, insert one direct, tool-mediated read of the live artifact — the current code/frontmatter/state (not the audit that described it), the actual computed value (not the doc's claim about it), the real HTTP response (not the `phase` flag), a literal fact-by-fact diff (not a confident holistic re-read), and a check from the actual consuming runtime (not the one that built it). Ground truth beats a stand-in for ground truth, always.
 - **Label the unverified.** What could not be verified is said as such ("no lo he verificado") or stated as a hypothesis with the concrete check that would confirm it — never delivered with the same confidence as observed fact. When uncertainty remains, investigate more instead of guessing.
+
+## Rule — decisions presented to the owner: the decision card (CONV-20, DR-148)
+
+> Severity: **MUST** · Enforcement: manual (agent self-check before presenting a decision; owner spot-check; reviewer checklist when a skill's question template is authored). Operative form: `plugin/templates/shared/AGENTS.md.tpl` §Language & interaction (DR-051). Owner-stated 2026-11-10.
+
+**Scope: every decision a skill or agent puts to the owner, in the factory and in every product project, under any runtime** — a choice between two or more reasonable alternatives, or a choice with a cost, risk or irreversibility the owner has not been shown (stack, scope, spending, priorities, a promotion or a discard, a gate that has an alternative). It does NOT cover: a bare go-ahead for one action the owner already asked for and understands; browsing a list the owner asked to see (e.g. `discover` teasers, which keep their own widget); product/UI copy; orchestrator↔subagent traffic. When in doubt it is a decision.
+
+1. **As text in the chat, always.** The decision reaches the owner as ordinary chat text. It may ALSO live in an artifact, a document, a widget, a file or an `AskUserQuestion` picker, but never ONLY there: a link, a file path or a picker is a convenience for reading or answering, never the carrier. The chat text alone must let the owner decide.
+2. **Three parts, in this order, in Spanish** (the owner-interaction language, CONV-1):
+   - **Contexto** — written as if the owner knew nothing about the topic. What the piece is and what it does; how it works today; why it must be decided now; what happens if it is not decided (including any default that would apply). Explain every technical term the first time it appears. Name every product, file or tool exactly (CONV-11). Every figure says whether it was **measured** (source and date) or is a **projection/estimate**, and "not verified" when it is neither (CONV-13).
+   - **Alternativas** — for each: what would be done, what is gained, what it risks or costs (money, time, effort, reversibility, what the owner would have to operate). "Do nothing / defer" is listed when it is a real option.
+   - **Recomendación** — exactly ONE alternative, why, and what would change your mind. "It depends" is not a recommendation; red-team it first (CONV-11).
+3. **Several decisions at once: one card per decision, ordered by urgency** (what blocks work or has a deadline first), preceded by a list with ONE line per decision (number, title, recommendation). Each card stands alone: repeat the context it needs instead of pointing at another card. Never bundle decisions into a single approval ("approve the stack").
+4. **A picker comes after the text, never instead of it.** `AskUserQuestion` (or a widget) carries short option labels, the recommended one first; the context, the alternatives' trade-offs and the recommendation are already in the chat message.
+5. **Persisted copies carry the same three parts** (the decisions inbox, a decision brief, an ADR); a persisted copy never replaces the chat text with a link.
+
+Within a card the CONV-11 formatting still holds (headers, bold, bullets). Completeness is what changes: a decision card is not shortened to stay "concise".
 
 ## Rule — naming
 | Element | Convention | Example |
@@ -164,6 +182,7 @@ Every new or explicitly renamed skill for a product project has the public name 
 - **URLs in English (CONV-18)**: manual — the architecture readiness checklist rejects a non-English route/API path in the route map, blueprints or work orders; the reviewer's quality lens rejects one in code (`app/**` folder names, `ROUTES`, route handlers, query keys); release confirms the live route list.
 - **Naming, handlers, constants, boundary validation**: review-only (`reviewer` quality lens); boundary validation is also exercised indirectly by the adversarial/malformed-input tests (DR-015/DR-078, `quality.md`).
 - **Language (committed=English), Conventional Commits, no force-push**: review-only.
+- **Decision card (CONV-20)**: manual — the agent checks, before sending, that the chat text holds all three parts (context for a novice, alternatives with gain/risk, one recommendation with what would change it) and that nothing lives only in a link or picker; owner spot-check. When a skill's question template is authored or edited, the reviewer checks it against the card (no template may carry the decision only in a tool UI or a file). Not machine-checkable: it is a property of a conversation.
 - **Claims and diagnoses (evidence before assertion)**: manual — agent self-check before asserting *or* before building a diagnosis/fix plan on a stand-in, plus owner spot-check; the build-side counterpart is wired (the Stop gate's `verify.sh` + DR-068's fenced run-state receipts), the chat and diagnosis sides are judgment calls by nature.
 - **Verified traps**: `matter(` called with a single argument is greppable (a lint/CI candidate); the timestamp and `git add` traps are review-only — they are recognized at the moment the symptom appears, not prevented by a gate.
 - **User-facing copy voice**: a `grep` for `—`/`– ` over the copy surface (i18n messages, MDX, generated drafts) is the mechanical check where a content pipeline exists; hand-written copy is reviewer + owner spot-check.

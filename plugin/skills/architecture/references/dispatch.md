@@ -116,8 +116,8 @@ State both to the owner at the start with the plan, scaled to this project's FRD
 
 ## 5. On Codex and other runtimes
 
-- `AskUserQuestion` → ask in chat with the same decision list: the summary table, each decision with its options,
-  the recommended option first, and accept a compact answer ("D1 A, D2 B, el resto como recomiendes").
+- `AskUserQuestion` → ask in chat with the same decision list: the summary table, each decision as a card (CONV-20)
+  with its options, the recommended option first, and accept a compact answer ("D1 A, D2 B, el resto como recomiendes").
 - Parallel `Agent` dispatches → Codex tier workers per §1, one per row of a group when they exist and the runtime
   allows parallel spawns (≤ `max_threads`, depth 1); inside a product project (no `.codex/agents/` there) and on any
   other runtime, sequential, inline, in the table's order. `SendMessage` resume → the re-dispatch rule above.

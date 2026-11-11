@@ -104,11 +104,16 @@ the worktree). One block per decision:
 **Costo de cambiarlo después:** alto (modelo de datos, ~20 work orders).
 ```
 
-Start the file with a one-table summary (decisión · recomendación · costo/mes). The chat message is that table plus
-the link to the file, never the whole brief.
+Start the file with a one-table summary (decisión · recomendación · costo/mes). The chat message carries the same
+summary table AND every decision as a card (CONV-20, DR-148): the block above is that card, so each one reaches the
+owner as chat text, ordered by urgency (what blocks the most downstream work first), never only as a link to the
+file. Write the **Contexto** for a reader who knows nothing of the topic (what the piece is, how it works today, why
+it must be decided now, what happens if it is not, terms explained, figures marked measured or projected). The file
+stays the persisted copy.
 
 ## 5. Asking (one round)
 
+- Cards first, then the picker: the cards are already in the chat (§4); `AskUserQuestion` carries short labels only.
 - `AskUserQuestion`, at most 4 questions per call; send the calls back to back as one round. Each question: a
   short header, 2 to 4 options, the **recommended option first** with "(Recomendada)" in its label, one-line
   descriptions with the cost/risk difference. Other runtimes ask in chat with the same shape.

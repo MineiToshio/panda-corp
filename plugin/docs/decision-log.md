@@ -1,5 +1,27 @@
 # Decision log — Plugin pandacorp
 
+## v9.153.0 — 2026-11-10 (MINOR): decision cards for every decision put to the owner (CONV-20, DR-148)
+
+**What:** overlay **8.121.0**. [AGENTS.md.tpl](../templates/shared/AGENTS.md.tpl) and the project
+[guide](../templates/shared/.pandacorp/guide.md.tpl) carry the rule (a short summary plus the link to
+`factory/standards/conventions.md` CONV-20, the only canonical text). [decide](../skills/decide/SKILL.md) now writes
+the card as chat text and uses `AskUserQuestion` only as a picker afterwards (it used to put the full prose in the
+tool's description, BL-0114). The [inbox template](../templates/docs/decisions-inbox-template.md) gains a
+"Detalle de alternativas" line and asks for novice-level context and the recommendation's change-of-mind condition,
+keeping the field names Mission Control reads. [architecture](../skills/architecture/SKILL.md) decision round: the
+chat message carries every decision as a card, not "the table plus the link" (`decision-round.md` §4, `dispatch.md`
+§5). One-liners in `worktrees`, `adopt`, `design` (visual gate), `release` (production gate), `learn` and `memory`.
+
+**Why:** owner order 2026-11-10: any decision the factory puts to the owner must be complete in the chat itself
+(context for a reader who knows nothing, alternatives, one recommendation), never only in an artifact or a picker.
+
+**Evidence:** `check-standards.sh` exit 0 (182 rules, 0 aspirational, 32 files); `check-derived-drift.sh` 0;
+`generate-codex-agents.mjs --check` 0; `claude plugin validate plugin/` passed; `check-skill-capabilities.mjs` 27/27;
+`check-preflight-drift.sh` 0; `test-preflight-version-skew.sh` 21/21; `test-change-now-prose.sh` 71/71;
+`test-doc-lint-closing.sh` 10/10; `test-doc-lint-env-example.sh` 12/12; `test-architecture-plan.mjs` 63/63;
+`test-architecture-packs.mjs` 29/29; `registry.yaml` parses with a single DR-148. Activation: owner runs `claude plugin update pandacorp@panda-corp` and restarts;
+projects pick up 8.121.0 on their next skill preflight (compatible, silent upgrade).
+
 ## v9.152.0 — 2026-11-10 (MINOR): the change queue always equals reality (DR-147, BL-0307)
 
 **What:** overlay **8.120.0**. New `templates/shared/.pandacorp/change-reconcile.mjs`: archives a

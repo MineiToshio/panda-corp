@@ -1,5 +1,18 @@
 # Decision Log — Factory
 
+## 2026-11-10 — Every decision put to the owner is a card in the chat (CONV-20, DR-148)
+
+**What:** [CONV-20](standards/conventions.md) / [DR-148](decisions/registry.yaml): a decision reaches the owner as
+chat text (an artifact, doc, widget or picker may duplicate it, never replace it) with three parts: Contexto written
+for a reader who knows nothing, Alternativas (what is done, gain, risk or cost) and ONE Recomendacion with why and
+what would change it. Several at once: a one-line-per-decision summary, then one self-contained card each, by
+urgency. Registered as a MUST (manual enforcement) in [rule-registry](standards/rule-registry.md); CONV-11 gains the
+exception to "concise by default". Plugin 9.153.0, overlay 8.121.0.
+**Why:** owner order. Decisions had been presented as short prompts, links or tool pickers that assumed context the
+owner does not have. Supersedes the decision-round line "the chat message is the summary table plus the link, never
+the whole brief" and `decide`'s full-prose-inside-the-picker step. Safe as a MUST from day one: it is conversation
+behaviour, so no gate or in-flight build can break on it.
+
 ## 2026-11-10 — The change queue always equals reality, whatever the door (DR-147, BL-0307)
 
 **What:** [BL-0307](backlog/BL-0307-change-queue-stale-cards.md) / [DR-147](decisions/registry.yaml) /

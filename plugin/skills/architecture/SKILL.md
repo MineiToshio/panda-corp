@@ -90,7 +90,7 @@ a launcher that merely prints a Workflow call is not completion and must not be 
    stance)**; **data ingestion/curation (in-app pipeline vs owner-run agent skills vs manual) and whether an
    admin/operator web UI is needed at all**; external data access and legal; background compute and AI cost; auth and
    deletion promises; email/notifications; backups/retention; and prior art from sibling
-   factory projects ("en <proyecto> lo resolvimos así"). Ask them in ONE round with `AskUserQuestion` (at most 4 per
+   factory projects ("en <proyecto> lo resolvimos así"). Present them as decision cards in the chat (CONV-20, `decision-round.md` §4), then ask in ONE round with `AskUserQuestion` (at most 4 per
    call, recommended option first; other runtimes ask in chat); lock every answer as an ADR + a decision-log entry.
    **Always resolve separate choices, even for an internal or single-language app:** mailing-list need (Kit off by default, now/deferred/excluded); PostHog analytics;
    Sentry error tracking; internationalization scope; and SEO now, including metadata. Use the explicit options and
