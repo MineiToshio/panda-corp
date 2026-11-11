@@ -15,7 +15,9 @@
         "acquired_at": { "type": "string", "format": "date-time" },
         "renewed_at": { "type": "string", "format": "date-time" },
         "quiesced_at": { "type": "string", "format": "date-time" },
-        "ttl_seconds": { "type": "integer", "minimum": 3 }
+        "ttl_seconds": { "type": "integer", "minimum": 3 },
+        "project_phase": { "enum": ["implementation", "release"] },
+        "coordinator": { "enum": ["session", "drive"] }
       },
       "additionalProperties": false
     },

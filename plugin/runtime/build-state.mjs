@@ -11,7 +11,7 @@ const execFileAsync = promisify(execFile);
 const tokenHash = (token) => createHash("sha256").update(String(token)).digest("hex");
 const paths = (project) => {
   const run = path.join(project, ".pandacorp", "run");
-  return { run, leaseDir: path.join(run, "build.lease"), lease: path.join(run, "build.lease", "lease.json"), epoch: path.join(run, "lease-epoch"), mutex: path.join(run, "lease-mutation.lock"), ledger: path.join(run, "run-ledger.json"), audit: path.join(run, "run-ledger.jsonl"), status: path.join(project, ".pandacorp", "status.yaml") };
+  return { run, leaseDir: path.join(run, "build.lease"), lease: path.join(run, "build.lease", "lease.json"), epoch: path.join(run, "lease-epoch"), mutex: path.join(run, "lease-mutation.lock"), buildDir: path.join(run, "build"), tokenFile: path.join(run, "build", "lease-token.json"), buildState: path.join(run, "build", "state.json"), ledger: path.join(run, "run-ledger.json"), audit: path.join(run, "run-ledger.jsonl"), status: path.join(project, ".pandacorp", "status.yaml") };
 };
 const assertSafeLayout = async (project, { allowMissingRun = false } = {}) => {
   const p = paths(project);
@@ -105,26 +105,34 @@ export const assertFence = async (project, token, epoch, { allowQuiesced = false
   return lease;
 };
 export const withFence = async (project, token, epoch, mutation) => { const p = await assertSafeLayout(project); return withMutex(p.mutex, async () => { const lease = await assertFence(project, token, epoch); return mutation(lease); }); };
-async function acquireUnlocked(project, { runtime, runId, ttlSeconds = 3600, token = randomBytes(24).toString("hex") }) {
-  if (!new Set(["claude", "codex"]).has(runtime) || typeof runId !== "string" || !/^[A-Za-z0-9._:-]{1,160}$/.test(runId) || !Number.isInteger(ttlSeconds) || ttlSeconds < 3) throw Object.assign(new Error("invalid acquire arguments"), { code: "USAGE" });
-  const p = paths(project); await mkdir(p.run, { recursive: true }); const priorStatus = await readFile(p.status, "utf8");
+const COORDINATORS = new Set(["session", "drive"]);
+// A token file of a released lease is dead weight: remove it only when it still belongs to that epoch.
+const dropTokenFile = async (p, epoch) => { const held = await parseJson(p.tokenFile).catch(() => null); if (held?.epoch === epoch) await rm(p.tokenFile, { force: true }); };
+// v2 (D4): the raw token is mirrored to one 0600 file so the engine's CLI can authenticate without ever printing it.
+// Written atomically; the lease is the authority, the file is only the holder's credential cache.
+const writeTokenFile = async (p, epoch, token) => { await mkdir(p.buildDir, { recursive: true }); await atomicJson(p.tokenFile, { epoch, token }); };
+async function acquireUnlocked(project, { runtime, runId, ttlSeconds = 3600, token = randomBytes(24).toString("hex"), coordinator, projectStatus = true, tokenFile = projectStatus === false }) {
+  if (!new Set(["claude", "codex"]).has(runtime) || typeof runId !== "string" || !/^[A-Za-z0-9._:-]{1,160}$/.test(runId) || !Number.isInteger(ttlSeconds) || ttlSeconds < 3 || coordinator !== undefined && !COORDINATORS.has(coordinator)) throw Object.assign(new Error("invalid acquire arguments"), { code: "USAGE" });
+  const p = paths(project); await mkdir(p.run, { recursive: true }); const priorStatus = projectStatus ? await readFile(p.status, "utf8") : null;
   try { await mkdir(p.leaseDir); } catch (error) { if (error.code === "EEXIST") throw Object.assign(new Error("lease already held"), { code: "CONTENDED" }); throw error; }
   try {
     const previous = Number.parseInt((await readFile(p.epoch, "utf8").catch(() => "0")).trim(), 10) || 0;
     const epoch = previous + 1; await atomicText(p.epoch, `${epoch}\n`);
-    const now = iso(); const lease = { version: 1, runtime, run_id: runId, token_hash: tokenHash(token), epoch, acquired_at: now, renewed_at: now, ttl_seconds: ttlSeconds, project_phase: "implementation" };
-    await atomicJson(p.lease, lease); await reassertActiveProjection(project, lease);
+    const now = iso(); const lease = { version: 1, runtime, run_id: runId, token_hash: tokenHash(token), epoch, acquired_at: now, renewed_at: now, ttl_seconds: ttlSeconds, project_phase: "implementation", ...(coordinator ? { coordinator } : {}) };
+    await atomicJson(p.lease, lease); if (projectStatus) await reassertActiveProjection(project, lease); if (tokenFile) await writeTokenFile(p, epoch, token);
     return { ...lease, token };
   } catch (error) {
-    try { await atomicText(p.status, priorStatus); }
-    catch (rollbackError) { throw Object.assign(new Error(`lease projection failed and status rollback failed: ${rollbackError.message}`), { code: "ROLLBACK_FAILED", cause: error }); }
+    if (priorStatus !== null) {
+      try { await atomicText(p.status, priorStatus); }
+      catch (rollbackError) { throw Object.assign(new Error(`lease projection failed and status rollback failed: ${rollbackError.message}`), { code: "ROLLBACK_FAILED", cause: error }); }
+    }
     await rm(p.leaseDir, { recursive: true, force: true }); throw error;
   }
 }
 export async function acquire(project, options) { const p = await assertSafeLayout(project, { allowMissingRun: true }); await mkdir(p.run, { recursive: true }); await assertSafeLayout(project); return withMutex(p.mutex, () => acquireUnlocked(project, options)); }
 export async function renew(project, token, epoch, { projectStatus = true } = {}) { return withFence(project, token, epoch, async (lease) => { const next = { ...lease, renewed_at: iso() }; await atomicJson(paths(project).lease, next); if (projectStatus) await reassertActiveProjection(project, next); return next; }); }
-export async function quiesce(project, token, epoch) { return withFence(project, token, epoch, async (lease) => { const next = { ...lease, quiesced_at: iso() }; await atomicJson(paths(project).lease, next); await reassertActiveProjection(project, next, { running: false }); stopCodexWorkers(project); return next; }); }
-export async function finalizeRelease(project, token, epoch) { const p = await assertSafeLayout(project); return withMutex(p.mutex, async () => { const lease = await assertFence(project, token, epoch, { allowQuiesced: true }); if (!lease.quiesced_at) throw Object.assign(new Error("lease must be quiesced before final release"), { code: "INVALID_STATE" }); const tomb = `${p.leaseDir}.released-${lease.epoch}-${process.pid}`; await rename(p.leaseDir, tomb); await rm(tomb, { recursive: true, force: true }); return lease; }); }
+export async function quiesce(project, token, epoch, { projectStatus = true } = {}) { return withFence(project, token, epoch, async (lease) => { const next = { ...lease, quiesced_at: iso() }; await atomicJson(paths(project).lease, next); if (projectStatus) await reassertActiveProjection(project, next, { running: false }); stopCodexWorkers(project); return next; }); }
+export async function finalizeRelease(project, token, epoch) { const p = await assertSafeLayout(project); return withMutex(p.mutex, async () => { const lease = await assertFence(project, token, epoch, { allowQuiesced: true }); if (!lease.quiesced_at) throw Object.assign(new Error("lease must be quiesced before final release"), { code: "INVALID_STATE" }); const tomb = `${p.leaseDir}.released-${lease.epoch}-${process.pid}`; await rename(p.leaseDir, tomb); await rm(tomb, { recursive: true, force: true }); await dropTokenFile(p, lease.epoch); return lease; }); }
 // Compatibility wrapper for callers that do not own a git commit boundary. Certified executors use
 // quiesce -> commit the running:false projection -> finalizeRelease, so no writer-free commit window
 // exists. This wrapper remains fenced but does not provide that stronger commit guarantee.
@@ -140,6 +148,50 @@ export async function reclaim(project, { runtime, runId, ttlSeconds = 3600 }) {
     const tomb = `${p.leaseDir}.stale-${old.epoch}-${process.pid}`; await rename(p.leaseDir, tomb); await rm(tomb, { recursive: true, force: true });
     stopCodexWorkers(project);   // DR-142: a dead run's Codex workers must not keep writing under the new owner
     return acquireUnlocked(project, { runtime, runId, ttlSeconds });
+  });
+}
+const runIdOf = async (p) => (await parseJson(p.buildState).catch(() => null))?.run_id;
+/**
+ * v2 (D4, A10): hand the SAME run to another coordinator without quiescing. Under the lease mutex the caller's raw token
+ * (the one in build/lease-token.json) must match the lease; the new lease keeps run_id, gets epoch+1, a new token,
+ * `ttl_seconds` 1800, `renewed_at` now, the new runtime/coordinator and no `quiesced_at`. Fresh or stale lease alike.
+ * Never projects status, never stops workers: the previous holder is fenced by the epoch at its next mutating command.
+ * @param {string} project main checkout root
+ * @param {{token:string,toRuntime:"claude"|"codex",coordinator:"session"|"drive",epoch?:number}} args `epoch`, when given, must equal the lease epoch
+ * @returns {Promise<{epoch:number,token:string}>}
+ */
+export async function transfer(project, { token, toRuntime, coordinator, epoch }) {
+  if (typeof token !== "string" || !token || !new Set(["claude", "codex"]).has(toRuntime) || !COORDINATORS.has(coordinator)) throw Object.assign(new Error("invalid transfer arguments"), { code: "USAGE" });
+  const p = await assertSafeLayout(project);
+  return withMutex(p.mutex, async () => {
+    const lease = await currentLease(project);
+    if (!lease || lease.token_hash !== tokenHash(token) || epoch !== undefined && lease.epoch !== Number(epoch)) throw Object.assign(new Error("stale or foreign lease fence"), { code: "FENCE" });
+    const bound = await runIdOf(p); if (bound !== undefined && bound !== lease.run_id) throw Object.assign(new Error("lease run_id differs from the run state"), { code: "FENCE" });
+    const recorded = Number.parseInt((await readFile(p.epoch, "utf8").catch(() => "0")).trim(), 10) || 0;
+    const nextEpoch = Math.max(recorded, lease.epoch) + 1; const newToken = randomBytes(24).toString("hex"); const now = iso();
+    const { quiesced_at: _quiesced, ...rest } = lease;
+    const next = { ...rest, epoch: nextEpoch, token_hash: tokenHash(newToken), renewed_at: now, ttl_seconds: 1800, runtime: toRuntime, coordinator };
+    // Commit order: monotonic epoch, then the lease (the fence flips here), then the credential cache.
+    await atomicText(p.epoch, `${nextEpoch}\n`); await atomicJson(p.lease, next); await writeTokenFile(p, nextEpoch, newToken);
+    return { epoch: nextEpoch, token: newToken };
+  });
+}
+/**
+ * v2 (D4): owner-confirmed release of a lease whose owner is dead (`stop --dead`). Requires `isReclaimable`; never projects status.
+ * @param {string} project main checkout root
+ * @param {{ownerConfirmed:true,now?:number}} args
+ * @returns {Promise<object>} the lease that was released
+ */
+export async function forceRelease(project, { ownerConfirmed, now = Date.now() } = {}) {
+  if (ownerConfirmed !== true) throw Object.assign(new Error("force release requires explicit owner confirmation"), { code: "USAGE" });
+  const p = await assertSafeLayout(project);
+  return withMutex(p.mutex, async () => {
+    const old = await currentLease(project); if (!old) throw Object.assign(new Error("no lease to release"), { code: "FENCE" });
+    if (!isReclaimable(old, now)) throw Object.assign(new Error("lease is not reclaimable: its owner may still be alive"), { code: "CONTENDED" });
+    const tomb = `${p.leaseDir}.forced-${old.epoch}-${process.pid}`; await rename(p.leaseDir, tomb); await rm(tomb, { recursive: true, force: true });
+    stopCodexWorkers(project);
+    await dropTokenFile(p, old.epoch);
+    return old;
   });
 }
 const blankLedger = (lease) => ({ version: 1, run_id: lease.run_id, epoch: lease.epoch, dispatch_count: 0, spend_units: 0, consecutive_blocks: 0, dispatches: {}, updated_at: iso() });
@@ -170,7 +222,7 @@ const fmStatus = (body) => body.match(/^implementation_status:\s*(PLANNED|IN_PRO
 const setFmStatus = (body, status) => /^implementation_status:/m.test(body) ? body.replace(/^implementation_status:.*$/m, `implementation_status: ${status}`) : body.replace(/^---\s*$/m, `---\nimplementation_status: ${status}`);
 const setFmKey = (body, key, value) => { const line = `${key}: ${value}`; const re = new RegExp(`^${key}:.*$`, "m"); return re.test(body) ? body.replace(re, line) : body.replace(/^---\s*$/m, `---\n${line}`); };
 const rollup = (states) => states.every((s) => s === "VERIFIED") ? "VERIFIED" : states.some((s) => s === "BLOCKED") ? "BLOCKED" : states.some((s) => s === "PLANNED") ? "PLANNED" : states.some((s) => s === "IN_PROGRESS") ? "IN_PROGRESS" : "IN_REVIEW";
-async function syncRollupsUnlocked(project, lease, correctFolders = null) {
+async function syncRollupsUnlocked(project, lease, correctFolders = null, { projectStatus = true } = {}) {
     const root = path.join(project, "docs", "frds"); const folders = (await readdir(root, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name).sort();
     const counts = { PLANNED: 0, IN_PROGRESS: 0, IN_REVIEW: 0, VERIFIED: 0, BLOCKED: 0 }; let corrected = 0;
     for (const folder of folders) {
@@ -181,28 +233,42 @@ async function syncRollupsUnlocked(project, lease, correctFolders = null) {
       if (!correctFolders || correctFolders.has(folder)) for (const doc of ["frd.md", "blueprint.md"]) { const file = path.join(root, folder, doc); const body = await readFile(file, "utf8"); if (fmStatus(body) !== desired) { await atomicText(file, setFmStatus(body, desired)); corrected++; } }
     }
     const now = iso(); const total = Object.values(counts).reduce((a, b) => a + b, 0);
-    await yamlSet(paths(project).status, { work_orders_total: total, work_orders_done: counts.VERIFIED, work_orders_planned: counts.PLANNED, work_orders_in_progress: counts.IN_PROGRESS, work_orders_in_review: counts.IN_REVIEW, work_orders_blocked: counts.BLOCKED, work_orders_verified: counts.VERIFIED, last_event_at: now, updated_at: now });
-    await reassertActiveProjection(project, lease);
+    const woCounters = { work_orders_total: total, work_orders_done: counts.VERIFIED, work_orders_planned: counts.PLANNED, work_orders_in_progress: counts.IN_PROGRESS, work_orders_in_review: counts.IN_REVIEW, work_orders_blocked: counts.BLOCKED, work_orders_verified: counts.VERIFIED };
+    // A5: without the lease projection only the counters and updated_at are written (no last_event_at, no running/build_* fields).
+    if (projectStatus) { await yamlSet(paths(project).status, { ...woCounters, last_event_at: now, updated_at: now }); await reassertActiveProjection(project, lease); }
+    else await yamlSet(paths(project).status, { ...woCounters, updated_at: now });
     return { corrected, total, counts, at: now };
 }
 export async function syncRollups(project, token, epoch) { return withFence(project, token, epoch, (lease) => syncRollupsUnlocked(project, lease)); }
-export async function transitionWorkOrder(project, token, epoch, { file, to, reason = "" }) {
+// Pure file transform + rollups of one governed WO transition, rooted at `project` (any checkout or worktree).
+// The caller owns fencing; `lease`/`projectStatus` decide whether the lease projection is re-asserted (v1) or not (v2, A5).
+async function applyWoTransition(project, lease, { file, to, reason = "" }, { projectStatus }) {
   const allowed = new Set(["PLANNED", "IN_PROGRESS", "IN_REVIEW", "VERIFIED", "BLOCKED"]);
-  return withFence(project, token, epoch, async (lease) => {
-    const absolute = path.resolve(project, file); const root = path.resolve(project, "docs/frds");
-    if (!absolute.startsWith(`${root}${path.sep}`) || !/\/work-orders\/wo-[^/]+\.md$/.test(absolute) || !allowed.has(to)) throw Object.assign(new Error("invalid governed WO transition"), { code: "INVALID_STATE" });
-    const [actual, actualRoot, entry] = await Promise.all([realpath(absolute), realpath(root), lstat(absolute)]).catch(() => { throw Object.assign(new Error("governed WO path is unavailable"), { code: "INVALID_PATH" }); });
-    const expectedReal = path.join(actualRoot, path.relative(root, absolute));
-    if (entry.isSymbolicLink() || !entry.isFile() || !actual.startsWith(`${actualRoot}${path.sep}`) || actual !== expectedReal) throw Object.assign(new Error("governed WO path must be a real in-tree file"), { code: "INVALID_PATH" });
-    let body = await readFile(actual, "utf8"); const from = fmStatus(body); if (!from) throw Object.assign(new Error("source WO status missing"), { code: "INVALID_STATE" });
-    const transitions = { PLANNED: ["IN_PROGRESS", "BLOCKED"], IN_PROGRESS: ["IN_REVIEW", "BLOCKED", "PLANNED"], IN_REVIEW: ["VERIFIED", "PLANNED", "BLOCKED"], BLOCKED: ["PLANNED"], VERIFIED: [] };
-    if (from !== to && !transitions[from].includes(to)) throw Object.assign(new Error(`illegal WO transition ${from}->${to}`), { code: "INVALID_STATE" });
-    body = setFmStatus(body, to); if (to === "BLOCKED") body = setFmKey(body, "blocked_reason", reason || "error"); else if (/^blocked_reason:/m.test(body)) body = body.replace(/^blocked_reason:.*\n?/m, "");
-    if (to === "PLANNED" && from === "IN_REVIEW") { const current = Number(body.match(/^reopen_count:\s*(\d+)/m)?.[1] || 0); body = setFmKey(body, "reopen_count", current + 1); }
-    if (to === "VERIFIED") body = setFmKey(body, "reopen_count", 0);
-    const folder=path.relative(actualRoot,actual).split(path.sep)[0]; await atomicText(actual, body); const derived = await syncRollupsUnlocked(project, lease, new Set([folder])); return { file, from, to, derived };
-  });
+  const absolute = path.resolve(project, file); const root = path.resolve(project, "docs/frds");
+  if (!absolute.startsWith(`${root}${path.sep}`) || !/\/work-orders\/wo-[^/]+\.md$/.test(absolute) || !allowed.has(to)) throw Object.assign(new Error("invalid governed WO transition"), { code: "INVALID_STATE" });
+  const [actual, actualRoot, entry] = await Promise.all([realpath(absolute), realpath(root), lstat(absolute)]).catch(() => { throw Object.assign(new Error("governed WO path is unavailable"), { code: "INVALID_PATH" }); });
+  const expectedReal = path.join(actualRoot, path.relative(root, absolute));
+  if (entry.isSymbolicLink() || !entry.isFile() || !actual.startsWith(`${actualRoot}${path.sep}`) || actual !== expectedReal) throw Object.assign(new Error("governed WO path must be a real in-tree file"), { code: "INVALID_PATH" });
+  let body = await readFile(actual, "utf8"); const from = fmStatus(body); if (!from) throw Object.assign(new Error("source WO status missing"), { code: "INVALID_STATE" });
+  const transitions = { PLANNED: ["IN_PROGRESS", "BLOCKED"], IN_PROGRESS: ["IN_REVIEW", "BLOCKED", "PLANNED"], IN_REVIEW: ["VERIFIED", "PLANNED", "BLOCKED"], BLOCKED: ["PLANNED"], VERIFIED: [] };
+  if (from !== to && !transitions[from].includes(to)) throw Object.assign(new Error(`illegal WO transition ${from}->${to}`), { code: "INVALID_STATE" });
+  body = setFmStatus(body, to); if (to === "BLOCKED") body = setFmKey(body, "blocked_reason", reason || "error"); else if (/^blocked_reason:/m.test(body)) body = body.replace(/^blocked_reason:.*\n?/m, "");
+  if (to === "PLANNED" && from === "IN_REVIEW") { const current = Number(body.match(/^reopen_count:\s*(\d+)/m)?.[1] || 0); body = setFmKey(body, "reopen_count", current + 1); }
+  if (to === "VERIFIED") body = setFmKey(body, "reopen_count", 0);
+  const folder = path.relative(actualRoot, actual).split(path.sep)[0]; await atomicText(actual, body); const derived = await syncRollupsUnlocked(project, lease, new Set([folder]), { projectStatus }); return { file, from, to, derived };
 }
+export async function transitionWorkOrder(project, token, epoch, { file, to, reason = "" }) {
+  return withFence(project, token, epoch, (lease) => applyWoTransition(project, lease, { file, to, reason }, { projectStatus: true }));
+}
+/**
+ * v2 (D4, A5): the same governed WO transition rooted in any worktree (the integration worktree), never touching the lease
+ * projection: only the WO file, the frd.md/blueprint.md rollups and the work_orders_* counters + updated_at of
+ * `root/.pandacorp/status.yaml` are written. NOT fenced: the caller holds the fence.
+ * @param {string} root worktree root that contains docs/frds and .pandacorp/status.yaml
+ * @param {{file:string,to:string,reason?:string}} change repo-relative WO path, target status, blocked reason
+ * @returns {Promise<{file:string,from:string,to:string,derived:object}>}
+ */
+export async function transitionWorkOrderAt(root, { file, to, reason = "" }) { return applyWoTransition(root, null, { file, to, reason }, { projectStatus: false }); }
 export async function stampLastGreen(project, token, epoch, sha) {
   return withFence(project, token, epoch, async (lease) => {
     if (!/^[0-9a-f]{7,40}$/.test(sha)) throw Object.assign(new Error("invalid git sha"), { code: "INVALID_STATE" });

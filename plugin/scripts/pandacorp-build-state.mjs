@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, isFresh, pauseForOwner, quiesce, readLedger, reclaim, reconcileBuildingChange, recoverChangeTransactions, release, renew, reserveDispatch, setHealth, setProjectPhase, stampChangeIntegration, stampLastGreen, syncRollups, transitionWorkOrder } from "../runtime/build-state.mjs";
+import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, forceRelease, isFresh, pauseForOwner, quiesce, readLedger, reclaim, reconcileBuildingChange, recoverChangeTransactions, release, renew, reserveDispatch, setHealth, setProjectPhase, stampChangeIntegration, stampLastGreen, syncRollups, transfer, transitionWorkOrder } from "../runtime/build-state.mjs";
 import { lstat } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -39,6 +39,8 @@ try {
   else if (command === "quiesce") output(await quiesce(project, token, epoch));
   else if (command === "finalize-release") output(await finalizeRelease(project, token, epoch));
   else if (command === "reclaim") output(await reclaim(project, { runtime: opt("runtime"), runId: opt("run-id"), ttlSeconds: Number(opt("ttl", 3600)) }));
+  else if (command === "transfer") output(await transfer(project, { token, epoch, toRuntime: opt("to-runtime"), coordinator: opt("coordinator") }));
+  else if (command === "force-release") output(await forceRelease(project, { ownerConfirmed: args.includes("--owner-confirmed") }));
   else if (command === "validate") output(await assertFence(project, token, epoch));
   else if (command === "status") { const lease = await currentLease(project); output({ lease, fresh: isFresh(lease) }); }
   else if (command === "inspect-stop") {

@@ -56,11 +56,41 @@ journal as authority; the journal is durable intent, not permission to bypass cu
 Post-integration progress normalization applies only to controller-owned keys in leading YAML
 frontmatter; matching text in Markdown content is never discarded from evidence comparison.
 
+## Same-run transfer and engine v2 primitives
+
+These additions are opt-in and leave every v1 call unchanged.
+
+- `transfer(project, {token, toRuntime, coordinator, epoch?})` hands the SAME run to another coordinator
+  (`coordinator`: `session` or `drive`) without quiescing. Under the lease mutex it requires the caller's
+  raw token to match `token_hash` (and `epoch`, when given, to match the lease), then writes a lease with
+  the same `run_id`, `epoch + 1`, a new token, `ttl_seconds: 1800`, `renewed_at` now, the new `runtime` and
+  `coordinator`, and no `quiesced_at`. It works on a fresh or a stale lease, never projects `status.yaml`
+  and never stops workers; a missing lease, a wrong token or epoch, or a `run_id` that differs from
+  `.pandacorp/run/build/state.json` (when that file exists) is `FENCE`. The previous holder is fenced by the
+  epoch at its next mutating command and can only observe afterwards. The commit order is the monotonic
+  epoch file, then the lease, then the token file, so a crash can never lower the epoch.
+- `forceRelease(project, {ownerConfirmed: true})` removes a lease whose owner is dead. It requires
+  `isReclaimable` (`CONTENDED` otherwise), an explicit `ownerConfirmed: true` (`USAGE` otherwise), and never
+  projects status. The CLI form is `force-release --owner-confirmed`.
+- `transitionWorkOrderAt(root, {file, to, reason})` is the governed WO transition of `transitionWorkOrder`
+  rooted in any worktree. It is not fenced (the caller holds the fence) and writes only the WO file, the
+  `frd.md`/`blueprint.md` rollups and, in `root/.pandacorp/status.yaml`, the `work_orders_*` counters and
+  `updated_at`. It never writes `running`, `build_*`, `supervisor_heartbeat`, `phase` or `last_event_at`.
+- `acquire`, `renew` and `quiesce` accept `projectStatus: false`, which skips every `status.yaml` write
+  (including the rollback copy). `acquire` also accepts an optional `coordinator` stored on the lease.
+  With `projectStatus: false`, `acquire` mirrors the raw token to `.pandacorp/run/build/lease-token.json`
+  (`{epoch, token}`, mode 0600, never printed by the engine); `transfer` rewrites it and `finalizeRelease`
+  and `forceRelease` remove it when it still belongs to the released epoch.
+- A lease may carry an optional `coordinator` (`session` or `drive`). The default v1 `acquire` omits it and
+  writes no token file.
+
 ## CLI exit codes
 
 - `0`: operation accepted.
 - `2`: contention, stale fence, invalid state, spend cap, or another fail-closed rejection.
 - `3`: malformed invocation or unavailable prerequisite.
 
-The CLI prints one JSON object on stdout. Tokens are secrets of the local run and must not be
+`transfer` (`--token --epoch --to-runtime claude|codex --coordinator session|drive`) and
+`force-release --owner-confirmed` are the two added commands; both are fenced commands of the Codex hook
+adapter policy. The CLI prints one JSON object on stdout. Tokens are secrets of the local run and must not be
 committed or emitted to the shared event stream.

@@ -76,6 +76,15 @@ check "empty directory fails loud instead of silently reporting success" 1 "$EMP
 real_output=$(bash "$RUNNER" "$HERE/plugin/scripts" 2>&1)
 real_rc=$?
 mjs_count=$(ls "$HERE"/plugin/scripts/test-*.mjs | wc -l | tr -d ' ')
+# v1 freeze (DR-150): the runner excludes its ENGINE_V1_EXCLUDED suites; read that literal line
+# the same way as EXPLICIT_SH_SUITES and subtract the names that exist on disk.
+excl_line=$(grep -m1 '^ENGINE_V1_EXCLUDED=' "$RUNNER")
+if [ -n "$excl_line" ]; then
+  eval "$excl_line"
+  for _x in "${ENGINE_V1_EXCLUDED[@]}"; do
+    [ -f "$HERE/plugin/scripts/$_x" ] && mjs_count=$((mjs_count - 1))
+  done
+fi
 sh_suite_line=$(grep -m1 '^EXPLICIT_SH_SUITES=' "$RUNNER")
 sh_suites=()
 if [ -n "$sh_suite_line" ]; then

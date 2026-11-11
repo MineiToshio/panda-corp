@@ -12,6 +12,9 @@ set -u
 HERE=$(cd "$(dirname "$0")/../.." && pwd)
 T="$HERE/plugin/templates"
 pass=0; fail=0
+# Engine v10 host heavy-job slot hook: keep the queue off the real ~/.pandacorp/host.
+PANDACORP_HOST_DIR=$(mktemp -d); export PANDACORP_HOST_DIR
+trap 'rm -rf "$PANDACORP_HOST_DIR"' EXIT
 ok()  { echo "  ✓ $1"; pass=$((pass+1)); }
 bad() { echo "  ✗ $1"; fail=$((fail+1)); }
 

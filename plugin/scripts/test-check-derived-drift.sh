@@ -199,16 +199,9 @@ rm "$fx/plugins/pandacorp"; ln -s ../plugin-copy "$fx/plugins/pandacorp"
 check "repo-local marketplace bridge drift goes RED" 2 "$fx"
 rm "$fx/plugins/pandacorp"; ln -s ../plugin "$fx/plugins/pandacorp"
 
-# 4j. BL-0204: a hand-edited deployable engine artifact (not regenerated from its source) → RED
-printf '\n// hand edit\n' >> "$fx/plugin/templates/shared/.claude/engines/pandacorp-build.js"
-check "hand-edited engine artifact goes RED" 2 "$fx"
-cp "$HERE/plugin/templates/shared/.claude/engines/pandacorp-build.js" "$fx/plugin/templates/shared/.claude/engines/"
-
-# 4k. BL-0204: an engine SOURCE edit without regenerating the artifact → RED
-printf '\nconst __driftCanary = 1\n' >> "$fx/plugin/runtime/engine/pandacorp-build.src.js"
-check "engine source edited without regenerating the artifact goes RED" 2 "$fx"
-cp "$HERE/plugin/runtime/engine/pandacorp-build.src.js" "$fx/plugin/runtime/engine/"
-check "restored engine source + artifact pass again" 0 "$fx"
+# (Former cases 4j/4k, hand-edited v1 engine artifact / unregenerated source, removed with Check 8
+# by the v1 freeze, DR-150.)
+check "restored tree passes again" 0 "$fx"
 
 # 5. Broken .agents/skills symlink → RED
 rm "$fx/.agents/skills"; ln -s ../nowhere "$fx/.agents/skills"

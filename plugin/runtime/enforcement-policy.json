@@ -35,7 +35,7 @@
   "fenced_cli": {
     "path_suffix": "plugin/scripts/pandacorp-build-state.mjs",
     "runtime_commands": ["acquire", "reclaim"],
-    "fenced_commands": ["renew", "release", "quiesce", "finalize-release", "validate", "reserve-dispatch", "set-health", "sync-rollups", "transition-wo", "stamp-last-green", "set-phase", "pause-owner", "apply-change-plan", "stamp-change-integration", "reconcile-building-change", "recover-change-transactions", "ledger"]
+    "fenced_commands": ["renew", "release", "quiesce", "finalize-release", "validate", "reserve-dispatch", "set-health", "sync-rollups", "transition-wo", "stamp-last-green", "set-phase", "pause-owner", "apply-change-plan", "stamp-change-integration", "reconcile-building-change", "recover-change-transactions", "ledger", "transfer", "force-release"]
   },
   "execpolicy": [
     { "pattern": ["git", "reset", "--hard"], "decision": "forbidden", "justification": "Pandacorp forbids unfenced destructive resets." },

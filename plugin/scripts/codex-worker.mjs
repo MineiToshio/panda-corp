@@ -13,6 +13,15 @@
 //        every call waits up to --max seconds. Still working → the plain line `CODEX-RUNNING …` (run it again);
 //        a bad prompt copy → `CODEX-PROMPT-MISMATCH …`; finished → ONE sealed line {"r":"<payload JSON>","sum":"<fnv(r)>"}
 //        whose payload is {status:'done', ok, kind, text|answer, detail, model, effort}.
+//   run --direct --project <dir> --id <id> --prompt-file <abs> --codex-model <slug> [--effort e] [--output-schema <abs>]
+//        [--dir <path>] [--access sandbox|full] [--max <seconds>] [--start-hang-s N] [--stall-s N] [--cap-s N]
+//        The v2 build engine's mode (D6, A16): the CLI wrote the prompt file itself, so there is no --sum, no transcript
+//        recovery and no relay; the prompt is passed to Codex verbatim. The model is an explicit Codex catalog slug
+//        (e.g. gpt-6-astra), not a Claude alias. The result is ONE sealed line (same {"r","sum"} envelope) whose payload is
+//        {status:'done', ok, kind, answer|text, detail, limit, model, effort}; the process exit code is never the result.
+//        A detached watchdog kills the worker on start-hang (no output in 120 s), stall (no output for 20 min) or the
+//        wall-clock cap (120 min) and the payload then carries kind 'start-hang' | 'stall' | 'cap'. `read` of a direct
+//        worker that finished (exit file) seals and prints the result itself; still running → CODEX-RUNNING.
 //   fnv  --file <path>   prints the checksum the engine expects for that file (tests and manual runs).
 //   read --project <dir> --id <id>   reprints the final sealed line (the engine's re-read when a copy was garbled).
 //   stop --project <dir> (--id <id> | --all)   kills running Codex workers (a stopped or lost build leaves none behind).
@@ -136,6 +145,18 @@ function promptFromTranscript(id, sum) {
   return null;
 }
 
+/** Starts `codex exec` detached with its stdout/stderr in codex.log; the shell wrapper records the exit code because the
+ *  next `run` may be a different process than the one that spawned Codex. */
+function launch(dir, cwd, args) {
+  const q = (s) => `'${String(s).replaceAll("'", `'"'"'`)}'`;
+  const script = `${[CODEX_BIN, ...args].map(q).join(" ")} < ${q(path.join(dir, "full-prompt.md"))}; echo $? > ${q(path.join(dir, "exit"))}`;
+  const out = openSync(path.join(dir, "codex.log"), "a");
+  const child = spawn("/bin/sh", ["-c", script], { cwd, detached: true, stdio: ["ignore", out, out] });
+  closeSync(out);
+  child.unref();
+  return child;
+}
+
 function start(dir, id) {
   const promptFile = path.join(dir, "prompt.md");
   let recovered = null;
@@ -166,16 +187,84 @@ function start(dir, id) {
     : ["-s", "workspace-write", "-c", "sandbox_workspace_write.network_access=true"];
   const args = ["exec", "--ignore-user-config", "--skip-git-repo-check", "--json", "-C", cwd, ...access,
     "-m", tier.model, "-c", `model_reasoning_effort="${tier.effort}"`, "-o", path.join(dir, "last.md"), "-"];
-  const q = (s) => `'${String(s).replaceAll("'", `'"'"'`)}'`;
-  // The shell wrapper records the exit code: the next `run` may be a different process than the one that spawned Codex.
-  const script = `${[CODEX_BIN, ...args].map(q).join(" ")} < ${q(path.join(dir, "full-prompt.md"))}; echo $? > ${q(path.join(dir, "exit"))}`;
-  const out = openSync(path.join(dir, "codex.log"), "a");
-  const child = spawn("/bin/sh", ["-c", script], { cwd, detached: true, stdio: ["ignore", out, out] });
-  closeSync(out);
-  child.unref();
+  const child = launch(dir, cwd, args);
   writeFileSync(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, model: tier.model, effort: tier.effort, access: opt("access") || "sandbox", startedAt: new Date().toISOString() }));
   telemetry("worker_started", { id, role: opt("role"), model: tier.model, effort: tier.effort, access: opt("access") || "sandbox" });
 }
+
+const SLUG_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
+const DIRECT_EFFORTS = new Set(["low", "medium", "high", "xhigh"]);
+const WATCHDOG_DEFAULTS_S = { "start-hang-s": 120, "stall-s": 20 * 60, "cap-s": 120 * 60 };
+/** Watchdog threshold in seconds: --<name> flag, else PANDACORP_CODEX_<NAME> env (test hook), else the default. */
+const watchdogS = (name) => {
+  const n = Number(opt(name) || process.env[`PANDACORP_CODEX_${name.toUpperCase().replaceAll("-", "_")}`]);
+  return n > 0 ? n : WATCHDOG_DEFAULTS_S[name];
+};
+
+/** v2 direct start: the prompt file is written by the engine CLI and passed to Codex verbatim (no checksum, no relay). */
+function startDirect(dir, id) {
+  const promptSrc = opt("prompt-file");
+  if (!promptSrc || !existsSync(promptSrc)) fail("bad-prompt-file", `missing --prompt-file: ${promptSrc || "(none)"}`);
+  const slug = opt("codex-model");
+  if (!SLUG_RE.test(slug)) fail("bad-model", `--codex-model must be a Codex catalog slug: ${slug || "(none)"}`);
+  const schema = opt("output-schema") ? path.resolve(opt("output-schema")) : "";
+  if (schema && !existsSync(schema)) fail("bad-schema", `--output-schema file does not exist: ${schema}`);
+  const cwd = workDir();
+  if (!existsSync(cwd)) fail("bad-dir", `work dir does not exist: ${cwd}`);
+  const effort = opt("effort") === "minimal" ? "low" : DIRECT_EFFORTS.has(opt("effort")) ? opt("effort") : "medium";
+  const task = readFileSync(promptSrc, "utf8");
+  writeFileSync(path.join(dir, "prompt.md"), task);
+  writeFileSync(path.join(dir, "full-prompt.md"), task);
+  const access = opt("access") === "full"
+    ? ["-s", "danger-full-access"]
+    : ["-s", "workspace-write", "-c", "sandbox_workspace_write.network_access=true"];
+  const args = ["exec", "--ignore-user-config", "--skip-git-repo-check", "--json", "-C", cwd, ...access,
+    "-m", slug, "-c", `model_reasoning_effort="${effort}"`, ...(schema ? ["--output-schema", schema] : []),
+    "-o", path.join(dir, "last.md"), "-"];
+  const child = launch(dir, cwd, args);
+  const wd = Object.fromEntries(Object.keys(WATCHDOG_DEFAULTS_S).map((k) => [k, watchdogS(k)]));
+  writeFileSync(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, model: slug, effort, access: opt("access") || "sandbox", direct: true, json: Boolean(schema) || flag("json-answer"), role: opt("role"), startedAt: new Date().toISOString() }));
+  const watcherArgs = ["watch", "--project", project, "--id", id, ...Object.entries(wd).flatMap(([k, v]) => [`--${k}`, String(v)])];
+  spawn(process.execPath, [fileURLToPath(import.meta.url), ...watcherArgs], { detached: true, stdio: "ignore", env: process.env }).unref();
+  telemetry("worker_started", { id, role: opt("role"), model: slug, effort, access: opt("access") || "sandbox", direct: true });
+}
+
+/** Detached watchdog of one direct worker: kills its process group on start-hang, stall or the wall-clock cap, recording
+ *  the cause in watchdog.json BEFORE the kill (and the exit file, since the killed shell wrapper cannot write it). */
+async function watch() {
+  const dir = workerDir(opt("id"));
+  const startHang = watchdogS("start-hang-s") * 1000;
+  const stall = watchdogS("stall-s") * 1000;
+  const cap = watchdogS("cap-s") * 1000;
+  const poll = Math.max(50, Math.min(2000, Math.floor(Math.min(startHang, stall, cap) / 4)));
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const exitFile = path.join(dir, "exit");
+  for (;;) {
+    const state = readJson(path.join(dir, "state.json"));
+    if (!state || existsSync(exitFile)) return;
+    if (!alive(state.pid)) { await sleep(1000); if (!existsSync(exitFile)) writeFileSync(exitFile, "137\n"); return; }
+    const now = Date.now();
+    const age = now - Date.parse(state.startedAt);
+    let log = null;
+    try { log = statSync(path.join(dir, "codex.log")); } catch { /* not created yet */ }
+    const verdict = age >= cap ? ["cap", `wall-clock cap of ${cap / 1000} s reached`]
+      : !log || log.size === 0 ? (age >= startHang ? ["start-hang", `no output from Codex within ${startHang / 1000} s`] : null)
+      : now - log.mtimeMs >= stall ? ["stall", `no output from Codex for ${stall / 1000} s`] : null;
+    if (verdict) {
+      if (existsSync(exitFile)) return;
+      writeFileSync(path.join(dir, "watchdog.json"), JSON.stringify({ kind: verdict[0], detail: verdict[1], at: new Date().toISOString() }));
+      try { process.kill(-state.pid, "SIGTERM"); } catch { /* already gone */ }
+      for (let i = 0; i < 50 && alive(state.pid); i++) await sleep(100);
+      if (alive(state.pid)) { try { process.kill(-state.pid, "SIGKILL"); } catch { /* already gone */ } }
+      if (!existsSync(exitFile)) writeFileSync(exitFile, "124\n");
+      return;
+    }
+    await sleep(poll);
+  }
+}
+
+/** Direct-mode usage-limit vs rate-limit (429) wording, for the engine's quota handling. */
+const limitKind = (text) => (/rate[ _-]?limit|too many requests|\b429\b/i.test(text) && !/usage limit/i.test(text) ? "rate_limit" : "usage_limit");
 
 function lastJsonObject(text) {
   const trimmed = text.trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
@@ -193,13 +282,23 @@ function finish(dir, state) {
   const last = existsSync(path.join(dir, "last.md")) ? readFileSync(path.join(dir, "last.md"), "utf8") : "";
   const log = existsSync(path.join(dir, "codex.log")) ? readFileSync(path.join(dir, "codex.log"), "utf8") : "";
   const base = { status: "done", model: state.model, effort: state.effort };
+  const watchdog = state.direct ? readJson(path.join(dir, "watchdog.json")) : null;
+  if (watchdog) return { ...base, ok: false, kind: watchdog.kind, detail: `watchdog: ${watchdog.detail}`.slice(0, 600) };
   if (code !== 0 || !last.trim()) {
     const errors = log.split("\n").filter((l) => /error|limit|fail/i.test(l)).slice(-5).join(" | ");
-    return { ...base, ok: false, kind: LIMIT_RE.test(errors) ? "limit" : "error", detail: `codex exit ${code}${last.trim() ? "" : ", no final message"}: ${errors}`.slice(0, 600) };
+    const failed = { ...base, ok: false, kind: LIMIT_RE.test(errors) ? "limit" : "error", detail: `codex exit ${code}${last.trim() ? "" : ", no final message"}: ${errors}`.slice(0, 600) };
+    return state.direct && failed.kind === "limit" ? { ...failed, limit: limitKind(errors) } : failed;
   }
-  if (!flag("json-answer")) return { ...base, ok: true, text: last };
+  if (!(state.direct ? state.json : flag("json-answer"))) return { ...base, ok: true, text: last };
   const answer = lastJsonObject(last);
   return answer ? { ...base, ok: true, answer } : { ...base, ok: false, kind: "bad-answer", detail: `final message is not one JSON object: ${last.slice(0, 300)}` };
+}
+
+/** Seals the finished worker's result into result.line (idempotent for the caller: later runs/reads reprint it). */
+function settle(dir, id, state) {
+  const result = finish(dir, state);
+  writeFileSync(path.join(dir, "result.line"), `${emit(result)}\n`);
+  telemetry("worker_stopped", { id, role: opt("role") || state.role || "", model: state.model, effort: state.effort, ok: result.ok, kind: result.kind || "", seconds: Math.round((Date.now() - Date.parse(state.startedAt)) / 1000) });
 }
 
 async function run() {
@@ -209,7 +308,7 @@ async function run() {
   const resultFile = path.join(dir, "result.line");
   if (existsSync(resultFile)) { process.stdout.write(readFileSync(resultFile, "utf8")); return; }
   let state = readJson(path.join(dir, "state.json"));
-  if (!state) { start(dir, id); state = readJson(path.join(dir, "state.json")); }
+  if (!state) { (flag("direct") ? startDirect : start)(dir, id); state = readJson(path.join(dir, "state.json")); }
   const deadline = Date.now() + Math.min(Number(opt("max")) || 540, 570) * 1000;
   while (!existsSync(path.join(dir, "exit"))) {
     if (!alive(state.pid)) { await new Promise((r) => setTimeout(r, 1000)); if (!existsSync(path.join(dir, "exit"))) writeFileSync(path.join(dir, "exit"), "137\n"); break; }
@@ -217,9 +316,24 @@ async function run() {
     if (Date.now() >= deadline) { process.stdout.write(`CODEX-RUNNING ${id} since ${state.startedAt}: run the same command again\n`); return; }
     await new Promise((r) => setTimeout(r, 2000));
   }
-  const result = finish(dir, state);
-  writeFileSync(resultFile, `${emit(result)}\n`);
-  telemetry("worker_stopped", { id, role: opt("role"), model: state.model, effort: state.effort, ok: result.ok, kind: result.kind || "", seconds: Math.round((Date.now() - Date.parse(state.startedAt)) / 1000) });
+  settle(dir, id, state);
+}
+
+/** `read`: the sealed result. A v1 worker without one is an error; a finished direct worker is sealed here, because the
+ *  engine CLI polls with `read` and no relay re-runs `run`; a direct worker still working answers CODEX-RUNNING. */
+function read() {
+  const id = opt("id");
+  const dir = workerDir(id);
+  const file = path.join(dir, "result.line");
+  if (existsSync(file)) { process.stdout.write(readFileSync(file, "utf8")); return; }
+  const state = readJson(path.join(dir, "state.json"));
+  if (!state?.direct) fail("no-result", `no result for ${id}`);
+  if (!existsSync(path.join(dir, "exit"))) {
+    if (alive(state.pid)) { process.stdout.write(`CODEX-RUNNING ${id} since ${state.startedAt}: read again later\n`); return; }
+    writeFileSync(path.join(dir, "exit"), "137\n");
+  }
+  settle(dir, id, state);
+  process.stdout.write(readFileSync(file, "utf8"));
 }
 
 function stop() {
@@ -230,9 +344,8 @@ function stop() {
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (!isMain) { /* imported by a test: expose the helpers only */ }
 else if (cmd === "run") await run();
-else if (cmd === "read") {
-  const file = path.join(workerDir(opt("id")), "result.line");
-  if (existsSync(file)) process.stdout.write(readFileSync(file, "utf8")); else fail("no-result", `no result for ${opt("id")}`);
-} else if (cmd === "stop") stop();
+else if (cmd === "read") read();
+else if (cmd === "watch") await watch();
+else if (cmd === "stop") stop();
 else if (cmd === "fnv") process.stdout.write(`${fnv(readFileSync(opt("file"), "utf8").trimEnd())}\n`);
 else if (cmd) fail("usage", `unknown command: ${cmd}`);

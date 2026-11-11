@@ -1,0 +1,107 @@
+#!/bin/sh
+# pandacorp-pre-push v1
+#
+# Pandacorp git pre-push hook (D29, BUILD-13, DR-138, DR-153). Installed UNTRACKED by
+# plugin/scripts/install-pre-push.mjs into `git rev-parse --git-path hooks`; never committed in a project.
+#
+# What it does: in a LAUNCHED project (status.yaml `phase: release` and NOT `deploy_target: internal`,
+# the same test as .pandacorp/merge-queue.sh) it rejects any push or delete of the default branch unless
+# PANDACORP_OWNER_RELEASE_OK=1 is set, whichever runtime (Claude Code, Codex, a plain shell) runs git.
+# The default branch is production there (Vercel deploys every push). Anything else exits 0.
+#
+# Honest limits: PANDACORP_OWNER_RELEASE_OK is a FLAG, not a secret. This hook stops an unprompted push
+# by an agent; it does not stop a deliberate bypass (`git push --no-verify`, editing this file, setting
+# the flag). Only the owner's explicit chat order may set the flag; agent briefs forbid it.
+#
+# Fail closed: when the push targets the default branch and the project status cannot be read, the push
+# is rejected. A repository with no .pandacorp/ directory is not a Pandacorp project: nothing to gate.
+#
+# A pre-existing foreign pre-push hook is kept next to this file as `pre-push.pandacorp-chained` and is
+# run after the gate passes, with the same arguments and stdin.
+#
+# POSIX sh (also bash 3.2 as /bin/sh); no bashisms.
+set -u
+
+HOOK_DIR=$(dirname "$0")
+CHAINED="$HOOK_DIR/pre-push.pandacorp-chained"
+REMOTE=${1:-}
+
+# git writes one "<local_ref> <local_sha> <remote_ref> <remote_sha>" line per ref on stdin; it can be
+# read only once, so keep it for the chained hook.
+STDIN_DATA=$(cat)
+
+deny() {
+  echo "pandacorp pre-push: $1" >&2
+  echo "pandacorp pre-push: this project is LAUNCHED, so its default branch is production. Do not push or delete it; ask the owner for an explicit order and re-run with PANDACORP_OWNER_RELEASE_OK=1." >&2
+  echo "pandacorp pre-push: el proyecto esta LANZADO y su rama principal es produccion. Pide la orden explicita del dueno y repite con PANDACORP_OWNER_RELEASE_OK=1." >&2
+  exit 1
+}
+
+# Default branch: remote HEAD of the push remote (then origin, like merge-queue.sh), else main.
+default_branch() {
+  for r in "$REMOTE" origin; do
+    [ -n "$r" ] || continue
+    ref=$(git symbolic-ref --quiet --short "refs/remotes/$r/HEAD" 2>/dev/null) || continue
+    [ -n "$ref" ] || continue
+    printf '%s\n' "${ref#"$r"/}"
+    return 0
+  done
+  printf 'main\n'
+}
+
+DEFAULT=$(default_branch)
+ZERO_SHA=0000000000000000000000000000000000000000
+
+# Does any pushed ref target the default branch? Remember whether it is a delete.
+TARGETS_DEFAULT=0
+IS_DELETE=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/$DEFAULT" ]; then
+    TARGETS_DEFAULT=1
+    case "$local_sha" in "$ZERO_SHA"*) IS_DELETE=1 ;; esac
+  fi
+done <<EOF_REFS
+$STDIN_DATA
+EOF_REFS
+
+if [ "$TARGETS_DEFAULT" = 1 ] && [ "${PANDACORP_OWNER_RELEASE_OK:-}" != "1" ]; then
+  if [ "$IS_DELETE" = 1 ]; then ACTION="delete of '$DEFAULT'"; else ACTION="push to '$DEFAULT'"; fi
+
+  # Status file: the checkout of the default branch, as merge-queue.sh reads it; else this work tree.
+  TOP=$(git rev-parse --show-toplevel 2>/dev/null) || TOP=
+  MAIN_WT=$(git worktree list --porcelain 2>/dev/null | awk -v b="refs/heads/$DEFAULT" '
+    /^worktree /{wt=substr($0,10)} /^branch /{if($2==b) print wt}' | head -1)
+  PROJECT_ROOT=
+  for c in "$MAIN_WT" "$TOP"; do
+    if [ -n "$c" ] && [ -d "$c/.pandacorp" ]; then PROJECT_ROOT=$c; break; fi
+  done
+
+  if [ -z "$PROJECT_ROOT" ]; then
+    # No .pandacorp/ anywhere we can see: either not a Pandacorp project (allow) or git itself failed (deny).
+    [ -n "$TOP" ] || deny "$ACTION rejected: cannot locate the repository (fail closed)."
+  else
+    STATUS="$PROJECT_ROOT/.pandacorp/status.yaml"
+    [ -f "$STATUS" ] && [ -r "$STATUS" ] || deny "$ACTION rejected: cannot read $STATUS (fail closed)."
+    grep -Eq '^phase:[[:space:]]*release([[:space:]]|#|$)' "$STATUS" 2>/dev/null
+    rc_phase=$?
+    grep -Eq '^deploy_target:[[:space:]]*internal([[:space:]]|#|$)' "$STATUS" 2>/dev/null
+    rc_internal=$?
+    if [ "$rc_phase" -gt 1 ] || [ "$rc_internal" -gt 1 ]; then
+      deny "$ACTION rejected: cannot parse $STATUS (fail closed)."
+    fi
+    if [ "$rc_phase" -eq 0 ] && [ "$rc_internal" -ne 0 ]; then
+      deny "$ACTION rejected."
+    fi
+  fi
+fi
+
+# Gate passed: run the foreign hook this one replaced, if any.
+if [ -x "$CHAINED" ]; then
+  if [ -n "$STDIN_DATA" ]; then
+    printf '%s\n' "$STDIN_DATA" | "$CHAINED" "$@"
+  else
+    "$CHAINED" "$@" </dev/null
+  fi
+  exit $?
+fi
+exit 0
