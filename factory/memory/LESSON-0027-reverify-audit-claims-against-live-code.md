@@ -51,3 +51,12 @@ a gap from memory/assumption rather than reading the live schema/code first), ex
 audit finding" to "my own unchecked assumption about what the codebase already has" — the discipline is
 identical: grep/read the live artifact before claiming something is missing, not just before claiming
 something is broken.
+
+**Sixth corroborating instance (funko-tracker, 2026-11, agent-inferred):** before reopening a photo card
+whose scope was defined by an earlier audit/finding, checking the LIVE production state first showed the
+Bitty orientation card's six named boxes had already been fixed in an earlier pass (2026-11-05) — so most
+of the "reopened" scope was already verified-fixed in prod, not actually outstanding work. Apply next
+time: before acting on a reopened/carried-forward scope derived from a past finding, audit the live
+production artifact for that exact scope first — a prior correction pass may have already satisfied part
+or all of it, and re-doing already-done work wastes effort the same way asserting a stale finding wastes
+the owner's trust.

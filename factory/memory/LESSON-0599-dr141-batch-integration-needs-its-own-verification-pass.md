@@ -45,3 +45,11 @@ resolution strategy for every conflict; (3) re-run any check that depends on a c
 boundary (security PoCs, centralized parsing/sanitization, auth checks, global lint rules) against the
 FULLY INTEGRATED tree — treat a per-lane pass of such a check as informative, never as proof it still
 holds after integration.
+
+**Fourth corroborating facet (2026-11-10, funko-tracker, agent-inferred — a new concrete mechanism for
+(3)):** an EXACT call-site pin check (`staticDependencies`/`createRequire` tracking a specific call) was
+correct for its own lane in isolation, but went stale the moment a DIFFERENT lane in the same batch
+removed the call it was pinned to — the staleness only existed once both lanes were combined, and no
+per-lane review could have seen it. Reinforces: run the light gate AND the dependent check suite against
+the fully INTEGRATED batch, not per branch, for any check whose correctness is a property of the combined
+tree rather than any single lane's own diff.

@@ -14,6 +14,8 @@ confidence: medium
 times_applied: 0
 applied_in: []
 links: [LESSON-0177, LESSON-0186]
+# 2026-11-11 (librarian harvest, funko-tracker, agent-inferred): sixth corroboration — a GIT WORKTREE
+# becoming prunable is a third scratchpad-loss trigger alongside restart/long-pause. See body.
 ---
 
 **Situation:** prior sessions' scratchpad directories survive on disk at
@@ -60,3 +62,10 @@ correct response on noticing a restart is to re-launch the needed work from scra
 plainly that nothing from before the restart actually ran — never assume or report that a pre-restart
 background task completed just because it was dispatched; verify its output exists post-restart before
 trusting or citing it (CONV-13).
+
+**Sixth corroboration, a third trigger (2026-11-11, funko-tracker, agent-inferred):** the scratchpad can
+also disappear when the git WORKTREE it lives alongside becomes `prunable` (an environment/worktree-state
+change), not only on a session restart or a long pause — the same "write durable analysis to the repo in
+the SAME turn, never leave it pending in scratch" prescription applies here too, since this is a THIRD
+independent trigger for the same loss, not a new failure mode. Branches themselves persist across this
+trigger (git history survives); only the scratchpad's own files are at risk.

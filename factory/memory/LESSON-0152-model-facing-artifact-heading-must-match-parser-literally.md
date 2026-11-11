@@ -13,6 +13,9 @@ promotion: approved
 confidence: medium
 times_applied: 4
 applied_in: [panda-corp, personal-page-v2, pandasaga, funko-tracker]
+# 2026-11-11 (librarian harvest, funko-tracker, agent-inferred): broadened facet — the same wording-sync
+# gap also happens between a VALIDATION CONSTRAINT and the PROMPT/TEMPLATE instructing its producer. See
+# body for detail.
 links: ["factory/standards/quality.md (QUAL-14, owner-attended live attempts — promoted 2026-07-15, /pandacorp:learn)"]
 ---
 
@@ -38,3 +41,14 @@ applies to TEST FIXTURES authored by hand for a parser's expected input: a fixtu
 wrong label/heading (not the parser's actual published vocabulary) can produce a silently degraded
 result (e.g. a title-only modal) that looks present but isn't populated — verify the fixture's real
 rendered output in a browser, not just that the fixture file exists.
+
+**Sixth corroboration, a broadened facet (2026-11-11, funko-tracker, agent-inferred):** the same
+wording-sync gap also happens between a VALIDATION CONSTRAINT and the prompt/template instructing the
+constraint's producer — not just between a model's output and a deterministic parser. `photo:record`'s
+code required every defect `summary` to be ≤140 characters and in Spanish, but the reviewer runbook's own
+prompt template never told the human/model reviewer about that constraint — so otherwise-valid rejections
+were silently blocked by a rule the producer was never told existed. Apply next time: whenever a
+validation rule (a length cap, a required language, a required field) is added to the code that consumes
+a human- or model-produced string, update the prompt/template/instructions that PRODUCE that string in
+the SAME change — a validator and its producer's instructions are the same two-sided contract LESSON-0152
+already describes for a model-output parser, and they drift apart just as silently.

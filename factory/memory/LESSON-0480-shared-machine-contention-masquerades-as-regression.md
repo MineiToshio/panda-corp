@@ -59,3 +59,17 @@ capacity under the ALREADY-loaded host, and a cleanup step reading state mid-in-
 was test-only (stub the cutout calls, wait explicitly for saves) rather than any app-code change —
 reinforcing that a feature's own legitimate API fan-out can itself become the contended resource once a
 shared host is already busy, not just an external daemon/DB/port another job owns.
+
+**Ninth/tenth instance (2026-11-10, funko-tracker, agent-inferred — within-project, sharpens the
+diagnosis and adds an EIGHTH mechanism):** a legitimately slow test family (12-17s per case: repeated
+`sharp` re-decoding, spawned `tsx` child processes, `pg_dump`) was misdiagnosed as "randomly flaky"
+because its margin against a hardcoded timeout was eaten specifically when MULTIPLE Stop-hook-triggered
+full-gate runs fired concurrently on the same machine — the correct fix combined BOTH optimizing the
+contended work (memoize by content hash, build the fixture once per file, run the trial in-process after
+a seam) AND reducing how often expensive concurrent gates can stack in the first place (DR-146's light
+Stop-hook design), not just widening the timeout. A separate, EIGHTH distinct mechanism surfaced the same
+week: a temporary/fresh git worktree can be missing a native npm binding (`@swc/core`) that the main
+checkout already has — a worktree is not guaranteed to inherit every native build artifact `pnpm install`
+produced elsewhere, so a failure that only reproduces in a fresh worktree should also be checked against
+"is a native binding actually present here," not assumed to be the same contention shape as everything
+else in this lesson.

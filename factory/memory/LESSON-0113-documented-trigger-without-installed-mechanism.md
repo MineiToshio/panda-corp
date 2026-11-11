@@ -30,3 +30,13 @@ as a **forward** obligation on the author of a trigger claim (name the installed
 ship the wiring, or cite a tracked `BL-*` — in the same change), deliberately NOT as a mandate to re-audit
 or re-file the already-tracked instances. It reaches the genuinely untracked ones (R-43, R-47/R-48, R-12,
 R-72) by binding the next edit that touches them.
+
+**Sixth corroboration, a distinct facet (2026-11-10, funko-tracker, agent-inferred):** `boxTurn.ts` is
+DOCUMENTED to abstain from judging Bitty 2-pack blister cards (aspect ratio ~0.8), but its actual code
+does not implement that abstain path — it still read a blister card as "right" with `defect:true` even
+though the left panel was clearly visible. This is the same shape again, just for a documented EXEMPTION
+inside a classifier's own comments/docstring rather than a README's trigger claim: the documentation
+describes a carve-out condition, the enforcing code has no branch that actually checks for it. Apply next
+time: a documented abstain/exemption condition inside a classifier or validator's own code comments needs
+the SAME "find the call site that actually branches on it" verification as any other documented trigger —
+check the live case by eye if the code path is in doubt, don't trust the docstring.
