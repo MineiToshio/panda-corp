@@ -5,7 +5,7 @@ domain: build-orchestration
 tags: [worktree, dr-096, git-common-dir, symlink, reflection, false-red]
 context: any tool, script, or security check that runs inside (or against) a git worktree and silently assumes it is a normal, self-contained single checkout
 trigger: use this when designing, auditing, or debugging anything that runs inside a git worktree and makes ANY of these three assumptions — the gitignored state it needs is physically present, a bootstrapped file behaves like a real (non-symlink) file, or a git-internal operation (lock, hook, ref) happens inside the worktree's own path
-source: "reflection pass, librarian review 2026-10-25, synthesizing LESSON-0111 (panda-corp, 2026-07-07), LESSON-0478 (funko-tracker, 2026-10-21), LESSON-0523 (funko-tracker, 2026-10-24), LESSON-0524 (funko-tracker, 2026-10-24) — 2 distinct projects, 4 independent incidents"
+source: "reflection pass, librarian review 2026-10-25, synthesizing LESSON-0111 (panda-corp, 2026-07-07), LESSON-0478 (funko-tracker, 2026-10-21), LESSON-0523 (funko-tracker, 2026-10-24), LESSON-0524 (funko-tracker, 2026-10-24) — 2 distinct projects, 4 independent incidents; FIFTH corroborating instance (panda-corp, 2026-11-10, DR-147/BL-0307 change-queue-reconciler work): the change inbox (`.pandacorp/inbox/changes/`) is gitignored and exists only in the MAIN checkout — `change-reconcile.mjs` must run against `$MAIN_WT`, never a worktree, or it reconciles an inbox that silently isn't there; wired correctly in `merge-queue.sh` (`node \"$MAIN_WT/.pandacorp/change-reconcile.mjs\" --apply --project \"$MAIN_WT\"`)."
 provenance: agent-inferred
 created: 2026-10-25
 status: active   # cross-corroborated: panda-corp (LESSON-0111) + funko-tracker (LESSON-0478/0523/0524), 2 distinct projects
@@ -34,8 +34,11 @@ checkout along at least THREE independent axes, and code/tooling written against
 mental model breaks on whichever axis it happens to touch, with a symptom that looks exactly like a real
 regression (false-red, silent no-op, mysterious permission failure) rather than an environment gap.
 - **Axis 1 — gitignored state is physically absent** (not just "maybe stale"): anything a worktree needs
-  that is gitignored by design (owner data, `.env.local`, generated codegen output) must be actively
-  provisioned into it; nothing reconstitutes it automatically (LESSON-0090, LESSON-0111, LESSON-0131).
+  that is gitignored by design (owner data, `.env.local`, generated codegen output, a project's
+  `.pandacorp/inbox/changes/` queue) must be actively provisioned into it, or — when the authoritative copy
+  only ever lives in the main checkout by design (a queue a worktree-landed branch never owns) — the
+  reconciling script must explicitly target `$MAIN_WT`, never the worktree's own path; nothing reconstitutes
+  it automatically (LESSON-0090, LESSON-0111, LESSON-0131).
 - **Axis 2 — a bootstrapped file is a symlink, not a real file**: any consumer that opens that path
   defensively (`O_NOFOLLOW`, a stricter security loader) or that treats the symlink/pointer mechanism as
   a general-purpose env-injection point will reject or misuse it; a symlink is cosmetically a file but not
