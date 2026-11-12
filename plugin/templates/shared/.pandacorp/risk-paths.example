@@ -1,0 +1,18 @@
+# Project-specific risk paths (R11). Copy to .pandacorp/risk-paths.
+# All examples are inactive. Inspect the project, propose exact globs to the owner,
+# and activate only the confirmed paths. Never copy another project's paths blindly.
+# One project-relative glob per line. Blank lines and # comments are ignored.
+# risk <glob> raises the zone to floor; low <glob> marks it classified without
+# lowering any risk signal. A bare glob also means risk. No inline machine data.
+#
+# Authentication redirect handler: returnTo / callback URL validation can affect
+# redirect safety even when the built-in classifier misses it (NOTA-1).
+# risk src/app/api/auth/redirect/route.ts
+# risk src/**/redirect-handler.*
+#
+# Other sensitive project boundaries, adapt to the real code layout:
+# risk src/**/permissions/**
+# risk src/**/billing/**
+# risk src/**/data-export/**
+# risk scripts/migrations/**
+# low docs/**

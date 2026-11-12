@@ -3,6 +3,7 @@
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { atomicWriteText, nowIso } from "../fsx.mjs";
+import { finishPerformance } from "../perf.mjs";
 import { buildPaths } from "../paths.mjs";
 import { fencedTwoPhase, readLeaseToken, readState, rebuildState } from "../state.mjs";
 import { DONE_STATES, POLICY, WO_UNIT_KINDS, emitSafely, err, integrationBranchOf, oneLine, woKey } from "./common.mjs";
@@ -52,7 +53,7 @@ function engineMarkdown({ now, cmd, step, failure, runId, epoch, state, bl, noti
     `error: ${failure.code ?? "sin código"}: ${oneLine(failure.message, 500)}`,
     `reintento tras rebuild-state: ${retried ? "sí, y volvió a fallar" : "no, el fallo se confirmó solo"}`,
     `último punto seguro: ${state?.last_safe_point ? `${state.last_safe_point.kind} @ ${String(state.last_safe_point.sha).slice(0, 12)}` : "ninguno registrado"}`,
-    `backlog de la fábrica: ${bl.id ?? `no abierto (${bl.reason})`}${bl.file ? ` (${bl.file})` : ""}`,
+    `${bl.draft ? "borrador local pendiente de revisión" : "backlog de la fábrica"}: ${bl.id ?? `no abierto (${bl.reason})`}${bl.file ? ` (${bl.file})` : ""}`,
     "",
     notice,
     "",
@@ -94,7 +95,7 @@ export async function handleEngineFailure({ project, epoch = null, cmd = null, s
     try {
       await fencedTwoPhase({ project, epoch, deps }, undefined, undefined, async (_result, _intent, ctx) => {
         if (state) { try { await ctx.writeState({ ...state, status: "stopped", status_reason: "engine_failure" }); } catch (e) { note("state.json", e); } }
-        try { await ctx.appendEvent({ type: "engine_failure", data: { reason: "engine_failure", cmd, step, code: failure.code, message: oneLine(sanitize(failure.message, project, deps), 400), retried, bl: bl.id } }); } catch (e) { note("journal", e); }
+        try { await ctx.appendEvent({ type: "engine_failure", data: { reason: "engine_failure", cmd, step, code: failure.code, message: oneLine(sanitize(failure.message, project, deps), 400), retried, bl: bl.id, ...(bl.draft ? { backlog_draft: bl.file } : {}) } }); } catch (e) { note("journal", e); }
       });
     } catch (e) { note("fence (state and journal)", e); }
     try {
@@ -103,6 +104,13 @@ export async function handleEngineFailure({ project, epoch = null, cmd = null, s
       await bs.finalizeRelease(project, token, epoch);
       released = true;
     } catch (e) { note("lease release", e); }
+  }
+
+  if (state && released) {
+    try {
+      const perf = await (deps.finishPerformance ?? finishPerformance)({ project, state: { ...state, status: "stopped", status_reason: "engine_failure" }, outcome: "engine_failure" }, deps);
+      if (perf?.ok === false) note("performance journal", perf.error);
+    } catch (e) { note("performance journal", e); }
   }
 
   const emitted = await emitSafely(deps, "engine.failure", { cmd, step, code: failure.code, bl: bl.id, run_id: runId });

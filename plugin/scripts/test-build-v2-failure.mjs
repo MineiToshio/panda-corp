@@ -122,6 +122,42 @@ await test("PATCH N16: only build and patch units spend the per-WO execution bud
   eq(executionsUsed(mkState(units), ["WO-01-001"]), 2, "patch executions do charge the WO");
   eq(executionsUsed(mkState(units), ["WO-02-001"]), 0, "unrelated WOs do not charge this budget");
 });
+await test("PATCH3 B1: fallback report failures spend only their own three executions", async () => {
+  const healthy = U("healthy", { wos: ["WO-01-001"], state: "verified", attempt: 3 });
+  for (const id of ["u-patch-g3", "u-patch-g2-frd-01-alpha"]) {
+    for (const attempt of [1, 2, 3]) {
+      const unit = U(id, { kind: "patch", wos: healthy.wos, attempt });
+      const d = fn("decideFailure")({ state: mkState([healthy, unit]), unit, failure: { source: "report_failed" }, diagnosis: DIAG(), evidence: EVID() });
+      eq(d.failed_attempt, attempt, "healthy attempt 3 cannot charge the fallback");
+      eq(d.action, attempt === 1 ? "requeue" : attempt === 2 ? "escalate" : "handback", "own retry policy");
+      eq(d.attempt, attempt < 3 ? attempt + 1 : null, "no fourth execution");
+      if (attempt === 3) eq(d.reason_code, "budget_exhausted", "own budget exhausted");
+    }
+  }
+});
+
+await test("PATCH3 B2: exhausted fallback hand-back preserves healthy WOs and retains its allowlist", async () => {
+  const sb = await sandbox();
+  try {
+    const healthy = [U("healthy-list", { wos: ["WO-01-001"], state: "verified", attempt: 3 }), U("healthy-filter", { wos: ["WO-01-002"], state: "verified" })];
+    const patch = U("u-patch-g3", { kind: "patch", wos: healthy.flatMap((u) => u.wos), attempt: 3 });
+    const { lease } = await seedRun(sb, mkState([...healthy, patch]));
+    const woDir = path.join(sb.p.integrationWorktree, "docs/frds/frd-01-alpha/work-orders");
+    const files = (await readdir(woDir)).filter((name) => /^wo-01-00[12]/i.test(name)).sort().map((name) => path.join(woDir, name));
+    eq(files.length, 2, "both healthy WOs exist");
+    const before = await Promise.all(files.map((file) => readFile(file, "utf8")));
+    const transitions = [];
+    sb.deps.buildState = { ...bs, transitionWorkOrderAt: async (...args) => { transitions.push(args[1]); return bs.transitionWorkOrderAt(...args); } };
+    const res = await handBackIn(sb, lease, { unitId: patch.id, cause: "code", reasonCode: "budget_exhausted", reason: "fallback exhausted" });
+    eq(transitions, [], "allowlist WOs are never affected WOs");
+    eq(res.wos_blocked, [], "no healthy WOs blocked"); eq(res.wos_skipped, [], "no attempted healthy transitions");
+    eq(await Promise.all(files.map((file) => readFile(file, "utf8"))), before, "healthy frontmatter unchanged");
+    const st = await readState(sb.project, { env: sb.env });
+    eq(st.units.map((u) => u.state), ["verified", "verified", "blocked"], "only fallback handed back");
+    eq(st.units.at(-1).wos, patch.wos, "allowlist retained in unit state");
+  } finally { await sb.fx.cleanup(); }
+});
+
 const decide = (unitExtra, diagnosis, evidence, extra = {}) => { const unit = U("u-build-WO-01-001", unitExtra); return fn("decideFailure")({ state: mkState([unit]), unit, failure: { source: "report_failed" }, diagnosis, evidence, ...extra }); };
 await test("attempt 1 failed with a code diagnosis -> queue attempt 2, no escalation", async () => {
   const d = decide({ attempt: 1 }, DIAG("code", "off by one"), EVID());
@@ -330,6 +366,10 @@ await test("a repeating fault: exit 8, status stopped at the last safe point, ha
   ok(existsSync(sb.p.engineHandbackFile), "handback/engine.md written");
   eq(await bs.currentLease(sb.project), null, "lease released");
   const after = await readState(sb.project, { env: sb.env });
+  const perf = (await readFile(sb.p.perfJournalFile, "utf8")).trim().split("\n").map(JSON.parse);
+  eq(perf.length, 1, "one host performance record for the engine failure");
+  eq(perf[0].outcome, "engine_failure", "engine failure performance outcome");
+  eq(perf[0].run_id, RUN, "performance record belongs to the stopped run");
   eq(after.status, "stopped", "stopped (resumable), not finished"); eq(after.run_id, RUN, "same run_id");
   eq(after.last_safe_point, safe, "last safe point preserved");
   eq(after.units.map((u) => [u.id, u.attempt]), state.units.map((u) => [u.id, u.attempt]), "no unit attempt consumed");

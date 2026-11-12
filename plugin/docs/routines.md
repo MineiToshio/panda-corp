@@ -136,7 +136,7 @@ Al final entrega un resumen corto: proyecto · veredicto · señal clave · acci
 > The lightweight, recurring version of the 2026-07-05 contradiction audit
 > (`docs/proposals/30-factory-contradiction-sweep.md`). It is the **advisory** third layer of the
 > supersession-completeness gate (`factory/standards/document-consistency.md`): the fresh-set
-> verifier (spec/architecture) and the completeness check (change/iterate/learn) block at the moment
+> verifier (spec/architecture) and the completeness check (implement/learn) block at the moment
 > of change; this catches drift that slips through **between** changes. It NEVER edits and NEVER
 > blocks — it files what it confirms as a `BL-*` item for a fixer to close through the gate. It may
 > also be run on demand as a `/loop` job, or folded into `pandacorp-memory-review`.
@@ -163,7 +163,7 @@ Para cada slice: lista los enunciados load-bearing (reglas, defaults, contratos,
 
 PASO 2 — Deduplica y verifica (critic). Junta los candidatos, quita duplicados, y para cada superviviente CONFIRMA que son de verdad dos enunciados actuales y mutuamente excluyentes (no un caso de la lista de exclusiones de arriba). Descarta los que no.
 
-PASO 3 — Archiva, no edites. Por cada contradicción CONFIRMADA, fíchala en factory/backlog/ como un BL-* (copia factory/backlog/_item-template.md; id con `bash "${CLAUDE_PLUGIN_ROOT}/scripts/validate-backlog.sh"` que imprime el siguiente id libre; type: bug, status: open, source: pandacorp-consistency-sweep) describiendo los dos docs:línea y cuál parece el enunciado viejo. El fixer la cerrará luego pasando por el gate de completitud (change/iterate/learn). NUNCA edites los docs tú.
+PASO 3 — Archiva, no edites. Por cada contradicción CONFIRMADA, fíchala en factory/backlog/ como un BL-* (copia factory/backlog/_item-template.md; id con `bash "${CLAUDE_PLUGIN_ROOT}/scripts/validate-backlog.sh"` que imprime el siguiente id libre; type: bug, status: open, source: pandacorp-consistency-sweep) describiendo los dos docs:línea y cuál parece el enunciado viejo. El fixer la cerrará luego pasando por el gate de completitud (implement/learn). NUNCA edites los docs tú.
 
 PASO 4 — Reporte corto al owner en español: cuántas contradicciones confirmadas, cuáles se ficharon como BL-*, una línea cada una. Si no hay ninguna, dilo en una línea y termina (un barrido limpio es buena noticia pero breve).
 ```

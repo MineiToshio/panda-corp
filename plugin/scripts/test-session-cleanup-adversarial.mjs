@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { create, register, finish } from './session-cleanup.mjs';
+import { scan } from './worktree-sweep.mjs';
 
 const script = fileURLToPath(new URL('./session-cleanup.mjs', import.meta.url));
 const env = { ...process.env, GIT_AUTHOR_NAME: 'Safety fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid', GIT_COMMITTER_NAME: 'Safety fixture', GIT_COMMITTER_EMAIL: 'fixture@example.invalid', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' };
@@ -38,6 +39,38 @@ function engineFixture(relative = 'build/wt/unit') {
   f.engine = path.join(f.repo,'.pandacorp/run',relative);
   git(f.repo,'worktree','add','-qb','lane/test/unit',f.engine);
   return f;
+}
+// Real bootstrap, no session receipt: sweep must be able to verify its own provenance.
+function bootstrapFixture(engine = false) {
+  const f = fixture();
+  f.app=engine?'mission-control/':'';
+  mkdirSync(path.join(f.repo,'.claude'));mkdirSync(path.join(f.repo,'factory'));mkdirSync(path.join(f.repo,f.app,'e2e'),{recursive:true});
+  writeFileSync(path.join(f.repo,'.gitignore'),'.pandacorp/\nnode_modules/\n.env.local\n');
+  writeFileSync(path.join(f.repo,f.app,'package.json'),'{"name":"pandacorp"}');
+  writeFileSync(path.join(f.repo,'.claude/launch.json'),'{"configurations":[{"name":"fixture","port":4037}]}');
+  writeFileSync(path.join(f.repo,f.app,'e2e/server-env.json'),'{"PORT":"4037","OWNER":"original"}');
+  writeFileSync(path.join(f.repo,'factory/seed'),'fixture');
+  git(f.repo,'add','.');git(f.repo,'commit','-qm','bootstrap inputs');
+  if(engine) {
+    mkdirSync(path.join(f.repo,'.pandacorp/run/build'),{recursive:true});
+    writeFileSync(path.join(f.repo,'.pandacorp/status.yaml'),'running: false\n');
+    writeFileSync(path.join(f.repo,'.pandacorp/run/build/state.json'),'{"status":"finished"}');
+  }
+  f.target=engine?path.join(f.repo,'.pandacorp/run/build/wt/bootstrap'):path.join(f.root,'bootstrap');
+  git(f.repo,'worktree','add','-qb',engine?'lane/provenance/unit':'fixture/bootstrap',f.target);
+  const bin=path.join(f.root,'bin');mkdirSync(bin);
+  const pnpm=path.join(bin,'pnpm');writeFileSync(pnpm,'#!/bin/sh\nmkdir -p node_modules\n');
+  spawnSync('chmod',['+x',pnpm]);
+  f.bootEnv={...env,PATH:`${bin}:${process.env.PATH}`,PANDACORP_DISK_FREE_MB:'100000',PANDACORP_E2E_PORT:'39877',PANDACORP_CLEANUP_SESSION:''};
+  f.bootstrap=()=>{
+    const r=spawnSync('bash',[fileURLToPath(new URL('../templates/shared/.pandacorp/worktree-bootstrap.sh',import.meta.url))],{cwd:f.target,env:f.bootEnv,encoding:'utf8'});
+    assert.equal(r.status,0,r.stderr);
+  };
+  f.bootstrap();
+  return f;
+}
+async function verdict(f, target) {
+  return (await scan(f.repo,f.repo,[target])).items.find(i=>i.path===target);
 }
 let failed = 0, total = 0;
 async function probe(name, fn) {
@@ -180,16 +213,56 @@ try {
       const r=await finish(session.root,{self:f.repo});assert.ok(existsSync(f.engine),mode);assert.ok(r.kept.some(i=>i.path===f.engine),mode);
     }
   });
-  await probe('stopped integration accepts only bootstrap skip-worktree overrides', async () => {
-    const f=engineFixture('build/integration'), session=await create(f.repo);roots.push(session.root);
-    mkdirSync(path.join(f.engine,'.claude'));mkdirSync(path.join(f.engine,'app/e2e'),{recursive:true});
-    for(const name of ['.claude/launch.json','app/e2e/server-env.json']) writeFileSync(path.join(f.engine,name),'{}');
-    git(f.engine,'add','.claude/launch.json','app/e2e/server-env.json');git(f.engine,'commit','-qm','bootstrap inputs');
-    for(const name of ['.claude/launch.json','app/e2e/server-env.json']) {git(f.engine,'update-index','--skip-worktree',name);writeFileSync(path.join(f.engine,name),' {"PORT":"1234"}');}
-    writeFileSync(path.join(f.repo,'.pandacorp/run/build/state.json'),JSON.stringify({status:'stopped'}));
-    await register(session.root,f.engine,{generatedFiles:['.claude/launch.json']});
-    const r=await finish(session.root,{self:f.repo});assert.ok(!existsSync(f.engine));assert.ok(r.removed.some(i=>i.path===f.engine));
-    assert.ok(git(f.repo,'rev-parse','--verify','lane/test/unit'));
+  await probe('engine skip-worktree edits without bootstrap proof are retained', async () => {
+    for(const name of ['.claude/launch.json','e2e/server-env.json']) {
+      const f=engineFixture(), session=await create(f.repo);roots.push(session.root);
+      mkdirSync(path.dirname(path.join(f.engine,name)),{recursive:true});writeFileSync(path.join(f.engine,name),'{}');
+      git(f.engine,'add',name);git(f.engine,'commit','-qm','tracked input');
+      git(f.engine,'update-index','--skip-worktree',name);writeFileSync(path.join(f.engine,name),'{"ownerEdit":true}');
+      assert.notEqual((await verdict(f,f.engine)).decision,'safe',name);
+      const r=await finish(session.root,{self:f.repo});assert.ok(r.kept.some(i=>i.path===f.engine));
+    }
+  });
+  await probe('normal worktrees protect run state and every hidden tracked edit', async () => {
+    for(const mode of ['run-state','assume-unchanged','skip-worktree']) {
+      const f=fixture(), session=await create(f.repo);roots.push(session.root);
+      writeFileSync(path.join(f.repo,'.git/info/exclude'),'.pandacorp/\n');
+      if(mode==='run-state') {mkdirSync(path.join(f.wt,'.pandacorp/run'),{recursive:true});writeFileSync(path.join(f.wt,'.pandacorp/run/evidence'),'owner evidence');}
+      else {git(f.wt,'update-index',`--${mode}`,'file.txt');writeFileSync(path.join(f.wt,'file.txt'),'hidden owner edit');}
+      await register(session.root,f.wt);
+      assert.notEqual((await verdict(f,f.wt)).decision,'safe',mode);
+      const r=await finish(session.root,{self:f.repo});assert.ok(r.kept.some(i=>i.path===f.wt),mode);
+    }
+  });
+  await probe('bootstrap provenance permits generated launch, server-env and env files in both cleanups', async () => {
+    for(const engine of [false,true]) {
+      const f=bootstrapFixture(engine), session=await create(f.repo);roots.push(session.root);
+      await register(session.root,f.target);
+      assert.equal((await verdict(f,f.target)).decision,'safe',`engine=${engine}`);
+      const r=await finish(session.root,{self:f.repo});assert.ok(r.removed.some(i=>i.path===f.target));assert.ok(!existsSync(f.target));
+    }
+  });
+  await probe('later owner edits invalidate bootstrap hashes for both engine and ordinary worktrees', async () => {
+    for(const engine of [false,true]) for(const name of ['.claude/launch.json','e2e/server-env.json','.env.local']) {
+      const f=bootstrapFixture(engine), session=await create(f.repo);roots.push(session.root);
+      await register(session.root,f.target);writeFileSync(path.join(f.target,name==='.claude/launch.json'?name:f.app+name),'owner edit after bootstrap');
+      assert.notEqual((await verdict(f,f.target)).decision,'safe',`engine=${engine} ${name}`);
+      const r=await finish(session.root,{self:f.repo});assert.ok(r.kept.some(i=>i.path===f.target));assert.ok(existsSync(f.target));
+    }
+  });
+  await probe('rebootstrap cannot bless owner fields in a PORT-only rewrite', async () => {
+    const f=bootstrapFixture(true), name=path.join(f.target,f.app,'e2e/server-env.json');
+    const json=JSON.parse(readFileSync(name,'utf8'));json.OWNER='later owner edit';writeFileSync(name,JSON.stringify(json));
+    f.bootstrap();
+    assert.notEqual((await verdict(f,f.target)).decision,'safe');
+  });
+  await probe('rebootstrap preserves later owner launch and env edits without recording them', async () => {
+    for(const name of ['.claude/launch.json','mission-control/.env.local']) {
+      const f=bootstrapFixture(true), file=path.join(f.target,name);
+      writeFileSync(file,'later owner content');f.bootstrap();
+      assert.equal(readFileSync(file,'utf8'),'later owner content');
+      assert.notEqual((await verdict(f,f.target)).decision,'safe');
+    }
   });
   await probe('waiting archive, malformed state and orphan lease fail closed', async () => {
     for(const mode of ['archive-waiting','bad-state','orphan-lease','cache-repo']) {

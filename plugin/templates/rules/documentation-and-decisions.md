@@ -30,7 +30,7 @@ The root `README.md` is this repo's front door — never let it drift. If a chan
 
 ## Forbidden pattern — `docs/proposals/` in a project
 - This project **never** has `docs/proposals/` (that pattern exists only in the factory repo). A file there is invisible to the build engine and to Mission Control's change queue — it will never be implemented.
-- A pending change always goes to **`.pandacorp/inbox/changes/`** (via `/pandacorp:change`); anything else fits the table above, the decision log, an ADR, or the inbox.
+- For "write it down", capture a **`status: draft`** card in **`.pandacorp/inbox/changes/`** and validate it with `node <plugin>/scripts/pandacorp-build.mjs card check <path>` (resolve `<plugin>` from `.pandacorp/guide.md`). For "implement it", invoke **`/pandacorp:implement`**, the single build entry. Cards are a file format, never automatically drained; anything else fits the table above, the decision log, an ADR, or the inbox.
 
 ## Two-layer, feature-centric docs
 - A thin **product layer** (`docs/product/`: `prd.md`, `architecture.md`, `research.md`) + one **self-contained module per feature** (`docs/frds/frd-NN-<slug>/`: `frd.md`, optional `fdd.md`+`mocks/`, `blueprint.md`, `work-orders/`).

@@ -8,10 +8,28 @@ import { fileURLToPath } from "node:url";
 const SHIM = "@AGENTS.md\n";
 const MANAGED_IMPORTS = new Set(["@AGENTS.md", "@docs/rules/README.md", "@.pandacorp/guide.md"]);
 const lines = text => text.split(/\r?\n/);
-const ownLines = text => lines(text).filter(line => !MANAGED_IMPORTS.has(line.trim()));
+// Only live imports are managed. Import-shaped examples in Markdown code belong to the owner.
+const ownLines = text => {
+  let fence;
+  return lines(text).filter(line => {
+    if (fence) {
+      const close = /^ {0,3}(`{3,}|~{3,})[ \t]*$/.exec(line);
+      if (close && close[1][0] === fence[0] && close[1].length >= fence.length) fence = undefined;
+      return true;
+    }
+    // Four spaces or a tab (including a tab after up to three spaces) means indented code.
+    if (/^( {4}| {0,3}\t)/.test(line)) return true;
+    const open = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+    if (open && (open[1][0] !== "`" || !open[2].includes("`"))) {
+      fence = open[1];
+      return true;
+    }
+    return !MANAGED_IMPORTS.has(line.trim());
+  });
+};
 const failure = (code, notes_es, exitCode = 3) => Object.assign(new Error(notes_es), { code, notes_es, exitCode });
 
-/** Independent line-level loss guard: only the three exact managed imports may disappear. */
+/** Line-level loss guard: only managed imports outside Markdown code may disappear. */
 export function assertPreserved(oldClaude, nextAgents) {
   const present = new Set(lines(nextAgents));
   const missing = ownLines(oldClaude).filter(line => line.trim() && !present.has(line));

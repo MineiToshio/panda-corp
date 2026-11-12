@@ -75,6 +75,43 @@ for (const runtime of ["claude", "codex"]) {
     } finally { await rm(cwd, { recursive: true, force: true }); }
   });
 
+  await test(`${runtime}: AGFIX literal review writes pass and executable variants block`, async () => {
+    const cwd = await project();
+    try {
+      for (const command of [
+        "printf '%s\\n' 'Review rm -rf and find -delete.' > /tmp/x.txt",
+        "echo 'Review rm -rf.' > '/tmp/x.txt'",
+        "cat <<'EOF' > /tmp/x.txt\nMention rm -rf in the review.\nEOF",
+        "cat > '/tmp/x.txt' <<'EOF'\nMention rm -rf in the review.\nEOF",
+      ]) {
+        const payload = runtime === "claude" ? { cwd, tool_name: "Bash", tool_input: { command } } : { cwd, toolName: "exec_command", input: { cmd: command } };
+        const result = hook(runtime, "pre-tool", payload);
+        ok(result.status === 0, `${command}: expected allow, got ${result.status}: ${result.stderr}`);
+      }
+      for (const command of [
+        `printf '%s\\n' "$(rm -rf ~)" > /tmp/x.txt`,
+        "cat <<EOF > /tmp/x.txt\n$(rm -rf ~)\nEOF",
+        "bash <<'EOF' > /tmp/x.txt\nrm -rf ~\nEOF",
+        "cat <<'EOF' > /tmp/x.txt\nReview rm -rf.\nEOF\nrm -rf ~",
+      ]) {
+        const result = hook(runtime, "pre-tool", { cwd, tool_name: "Bash", tool_input: { command } });
+        ok(result.status === 2, `${command}: expected block, got ${result.status}`);
+      }
+    } finally { await rm(cwd, { recursive: true, force: true }); }
+  });
+
+  await test(`${runtime}: AGFIX internal temporary failure blocks inspected commands`, async () => {
+    const cwd = await project();
+    try {
+      const badTmp = path.join(cwd, "not-a-directory");
+      await writeFile(badTmp, "not a directory\n");
+      for (const command of ["git -C . push --force origin main", "rm -rf ~", "git status"]) {
+        const result = hook(runtime, "pre-tool", { cwd, tool_name: "Bash", tool_input: { command } }, { TMPDIR: badTmp });
+        ok(result.status === 2 && /BLOCKED/.test(result.stderr), `${command}: internal failure returned ${result.status}: ${result.stderr}`);
+      }
+    } finally { await rm(cwd, { recursive: true, force: true }); }
+  });
+
   await test(`${runtime}: invalid payload fails closed`, async () => {
     const result = hook(runtime, "pre-tool", "{not-json");
     ok(result.status === 2 && /invalid JSON/.test(result.stderr), "invalid payload did not fail closed");

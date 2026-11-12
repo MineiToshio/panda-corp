@@ -30,6 +30,16 @@ await test("PATCH parser fixtures: six real verifier formats exclude passing fil
     if (["vitest", "playwright"].includes(name)) assert(out.tests.some((s) => s.includes("empty values")), name);
   }
 });
+await test("PATCH3 N1: normal doc-lint bullet diagnostics before the summary are attributed", async () => {
+  const log = await fixture("doc-lint-bullets");
+  const out = parseGateFailure({ log: `PASS src/healthy.test.ts > healthy\n${log}` });
+  assert.deepEqual(out.checks, ["doc-lint"]);
+  assert.deepEqual(out.paths, ["docs/frds/frd-01-alpha/frd.md"]);
+  const attributed = attributeGateFailure({ evidence: out, units, workOrders: [wo("WO-01-002", ["docs/frds/frd-01-alpha/frd.md"])] });
+  assert.deepEqual(attributed.wos, ["WO-01-002"]);
+  assert.deepEqual(parseGateFailure({ log: "  • docs/unrelated.md exists\nTests 1 passed\n" }).paths, [], "unrecognised bullet lists cannot impersonate doc-lint");
+});
+
 await test("PATCH parser: unknown output, ANSI, absolute paths, traversal and bounded tail", async () => {
   assert.deepEqual(parseGateFailure({ log: await fixture("unknown") }).paths, []);
   assert.deepEqual(parseGateFailure({ root: "/project", log: "\x1b[31m/project/src/alpha/filter.ts(2,1): error TS2322: wrong\x1b[0m\n/outside/src/other.ts(1,1): error TS1\n../src/private.ts(1,1): error TS1" }).paths, ["src/alpha/filter.ts"]);
@@ -65,6 +75,45 @@ await test("PATCH budget and fallback: unrelated exhausted WO does not charge th
 
 const scratch = await mkdtemp(path.join(process.env.PANDACORP_TEST_TMP || os.tmpdir(), "gate-patch-"));
 try {
+  await test("PATCH3 B3: stale epoch, finished job and stale unit set never overwrite gate evidence", async () => {
+    for (const scenario of ["epoch", "job", "units"]) {
+      const dir = path.join(scratch, `stale-${scenario}`); await mkdir(dir);
+      const fx = await createFixture("basic", { dir });
+      const env = fx.env(); const deps = { env };
+      const p = buildPaths(fx.root, deps);
+      const lease = await acquire(fx.root, { runtime: "claude", runId: "run-stale", projectStatus: false });
+      const branch = p.integrationBranch("run-stale"), wt = p.integrationWorktree;
+      git(fx.root, ["worktree", "add", "-q", "-b", branch, wt, "main"]);
+      const job = { id: "j-stale-g2", kind: "g2", unit: null, frd: "frd-01-alpha", cwd: wt, pid: null, started_at: "2026-11-11T12:00:00.000Z", state: "running", exit: null, h_slot: true, worker_id: null };
+      const state = newState({ run_id: "run-stale", epoch: lease.epoch, coordinator: "claude-session", label: "claude", size: "feature", scope: { card: null, frds: [job.frd], wos: ["WO-01-001", "WO-01-002"], out_of_scope: [] }, integration: { branch, worktree: wt, base_sha: fx.sha }, units: units.slice(0, 2).map((u) => ({ ...u, state: "integrated" })), jobs: [job] });
+      await writeState(fx.root, state, deps);
+      await mkdir(p.jobDir(job.id), { recursive: true }); await writeFile(p.jobOutFile(job.id), await fixture("tsc"));
+      const plan = planGatePatch({ state, units: state.units, workOrders, evidence: parseGateFailure({ log: await fixture("tsc") }), gate: "G2", frd: job.frd, job: job.id });
+      const file = path.join(p.unitDir(plan.id), "gate-failure.json");
+      await mkdir(path.dirname(file), { recursive: true }); await writeFile(file, "preserve existing evidence\n");
+      deps.jobs = { pollJob: async () => ({ state: "done", exit: 1 }) };
+      if (scenario !== "epoch") {
+        const realFs = await import("node:fs/promises");
+        let changed = false;
+        deps.fs = { ...realFs, readFile: async (target, ...args) => {
+          if (target === p.jobOutFile(job.id) && !changed) {
+            changed = true;
+            const current = structuredClone(state);
+            if (scenario === "job") current.jobs[0].state = "done";
+            else current.units[0].state = "verified";
+            await writeState(fx.root, current, { env });
+          }
+          return realFs.readFile(target, ...args);
+        } };
+      }
+      const run = { ref: { project: fx.root, epoch: lease.epoch + (scenario === "epoch" ? 1 : 0), deps }, paths: p, d: deps };
+      if (scenario === "epoch") await assert.rejects(() => harvest(run, state, []), { code: "FENCE" });
+      else await harvest(run, state, []);
+      assert.equal(await readFile(file, "utf8"), "preserve existing evidence\n", scenario);
+      assert(!(await readState(fx.root, { env })).units.some((u) => u.kind === "patch"), `${scenario}: no stale patch`);
+    }
+  });
+
   await test("PATCH G2: exact red scope, evidence on disk, patch integration restores G2 readiness and green review keeps healthy work", async () => {
     const fx = await createFixture("basic", { dir: scratch });
     const env = fx.env(); const deps = { env };

@@ -6,6 +6,8 @@ description: "Operates the Pandacorp factory's self-learning memory (factory/mem
 
 # /pandacorp:memory
 
+**Product work routing.** “Impleméntalo” routes to `/pandacorp:implement` in the target project, limited to the requested scope. “Anótalo” only writes `.pandacorp/inbox/changes/<slug>.md` from `${CLAUDE_PLUGIN_ROOT}/templates/docs/change-request-template.md` with `status: draft`, English frontmatter and a Spanish body recording the request, context and explicit Dentro/Fuera boundaries (cite the source request for each Dentro item). Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build.mjs" card check .pandacorp/inbox/changes/<slug>.md` from that project and fix validation errors before reporting capture complete. This never starts a build; the engine does not drain cards automatically. A live build keeps ownership: capture only, without mutating its docs or launching a competing run.
+
 Reached through `/pandacorp:learn` (Step 0); it is not an owner command.
 
 The self-learning loop's operator surface. Runs IN panda-corp. It accumulates durable engineering know-how in `factory/memory/` (read its README) so future builds are smarter and faster — the **harvest → store → retrieve → propose → gate → promote → prune** loop (DR-047). This skill is the loop's front-end (harvest, review); `/pandacorp:learn` is the back-end (promotion). It NEVER promotes a lesson to a standard/rule/skill by itself.

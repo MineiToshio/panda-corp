@@ -97,6 +97,13 @@ try {
   sh(repo,'worktree','add','-q','--detach',archived);
   const suspended=path.join(repo,'.pandacorp/run/build-suspended/old/integration');
   sh(repo,'worktree','add','-q','--detach',suspended);
+  // RV2: ordinary trees must use the same hidden-change and owner-state predicate as finish.
+  sh(repo,'worktree','add','-q','--detach',wt('hidden-owner'));
+  sh(wt('hidden-owner'),'update-index','--assume-unchanged','a.txt');
+  writeFileSync(path.join(wt('hidden-owner'),'a.txt'),'owner change hidden from status');
+  sh(repo,'worktree','add','-q','--detach',wt('run-owner'));
+  mkdirSync(path.join(wt('run-owner'),'.pandacorp/run'),{recursive:true});
+  writeFileSync(path.join(wt('run-owner'),'.pandacorp/run/evidence'),'owner run evidence');
   console.log("scan — read-only classification");
   const s = sweep(["scan", "--repo", repo, "--self", wt("self")]);
   ok(s.code === 0 && s.json, "scan exits 0 with JSON");
@@ -117,6 +124,8 @@ try {
   ok(W("outer")?.decision === "ask" && W("outer").nested.includes(path.join(wt("outer"), "inner")), "a worktree holding a nested worktree is never auto-removed");
   ok(by((i) => i.path === wt("gone"))?.decision === "safe", "a worktree whose directory is gone is safe to prune");
   ok(W("wip")?.decision === "ask", "dirty unmerged worktree is ask");
+  ok(W('hidden-owner')?.decision!=='safe'&&W('hidden-owner')?.reason==='masked-tracked-change','ordinary hidden owner edits are not safe');
+  ok(W('run-owner')?.decision!=='safe'&&W('run-owner')?.ownerState.includes('.pandacorp/run/evidence'),'ordinary run artifacts remain protected state');
 
   console.log("live build — engine-owned worktrees are untouchable");
   writeFileSync(path.join(repo, ".pandacorp/status.yaml"), `phase: implementation\nrunning: true\nsupervisor_heartbeat: ${new Date().toISOString().replace(/\.\d+Z$/, "Z")}\n`);
@@ -147,7 +156,7 @@ try {
   ok(!existsSync(archived)&&existsSync(suspended),'archive tree reclaimed; suspended tree retained');
   ok(!existsSync(path.join(repo, ".pandacorp/run/gate-worktree")), "idle gate worktree removed");
   ok(!sh(repo, "worktree", "list").includes(wt("gone")), "missing-directory entry pruned");
-  for (const n of ["feature", "dirty", "locked", "self", "inuse", "owner", "outer", "wip"]) ok(existsSync(wt(n)), `${n} untouched`);
+  for (const n of ["feature", "dirty", "locked", "self", "inuse", "owner", "outer", "wip", "hidden-owner", "run-owner"]) ok(existsSync(wt(n)), `${n} untouched`);
   ok(existsSync(path.join(wt("owner"), ".pandacorp/inbox/changes/card.md")), "owner-state file intact");
   ok(branches.includes("codex/feature") && branches.includes("codex/picked") && branches.includes("claude/wip"), "unmerged branches untouched");
 

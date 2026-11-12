@@ -57,8 +57,7 @@ import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readd
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { durableUsable } from './build-mech-fast.mjs'
-import { projectCtx } from './build-mech-lib.mjs'
+import { usableCertification } from './wo-revert-usable.mjs'
 import { sealLine } from './drift-seal.mjs'
 
 const PROTECTED_RE = /^(\.pandacorp\/|docs\/frds\/)/
@@ -186,9 +185,10 @@ export function computePlan(opts) {
     return { id, md, headStatus: frontmatterStatus(text ? text.toString('utf8') : null) }
   })
 
-  // Proposal 39 C6: a USABLE FRD (its latest committed build_usable line still holds, durableUsable) keeps its landed
+  // A USABLE FRD (its latest committed build_usable line still holds) keeps its landed
   // code whatever lane asks for the discard (the classic lane has no precheck of its own): the owner decides, set-wide.
-  const usable = durableUsable(projectCtx(opts.project), { frd: opts.frd })[0]
+  const usable = usableCertification({ g, head, frd: opts.frd, prefix, blob, statusOf: frontmatterStatus,
+    workOrders: woFiles.filter((f) => /^wo-.*\.md$/i.test(f)).map((f) => repoPath(`docs/frds/${opts.frd}/work-orders/${f}`)) })
   if (usable) {
     return { status: 'usable', reason: `${opts.frd} is USABLE since ${usable.sha} (a committed build_usable line: its work orders landed and verify.sh was green on that clean sha, proposal 39 C6): its landed code is never discarded automatically — fix it forward, or the owner decides the discard of the whole dependent set; nothing was reverted`, usableSha: usable.sha, head, pinSha, pinValid, wos: wos.map((w) => ({ id: w.id, status: w.headStatus })), files: [], _writes: [] }
   }

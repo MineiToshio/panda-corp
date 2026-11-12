@@ -116,7 +116,7 @@ AgentSprite composition), phase done/current/locked derivation, fichas (LEE/ESCR
 "Entrar a La Fragua" onEnterForge bubbling, read-only invariant — all green in the integration suite
 and the runtime smoke (route 200, 6 rooms + 5 bridges + 3 tabs rendered, zero console errors).
 
-## Status Note — VERIFIED (2026-10-13, close-out `board-card-default-tab-by-phase`, `/pandacorp:change --now`)
+## Status Note — VERIFIED (2026-10-13, close-out `board-card-default-tab-by-phase`, `/pandacorp:implement --now`)
 
 **What changed:** (1) The card detail's initial tab follows the project's stage (AC-02-009.1): research →
 Propuesta, product/design → Spec, architecture onward (incl. shipped) → Arquitectura, falling back
@@ -270,3 +270,8 @@ Own shared GraphControls integration, model-only native browser fullscreen with 
 Scoped direct implementation under the owner's existing authorization; historical build machine-status fields are unchanged. Current contract: [ADR-0009](../../../adr/ADR-0009-architecture-responsive-usability.md). FRD-02 owns relation deselection, diagram-only selection prevention, initially collapsed exclusive schema entities, shared Architecture ordering and fluid digest panels. FRD-04 reuses that complete surface. FRD-19 owns the original centered 1240px maximum outer shell frame (the 2026-10-17 owner clarification restores it while keeping digest panels host-width) and integrated phone/tablet disclosure, all six usable targets and close/focus behavior. Current verification is recorded separately in `docs/reviews/architecture-responsive-usability/delivery.md`; earlier VERIFIED metadata is not evidence for this extension.
 
 Width clarification (2026-10-17): retain the centered 1240px maximum outer app frame; keep tab panels at 100% of their host without the old 920px inner cap. Current scoped evidence: `docs/reviews/bounded-app-width.md`. No machine-state transition.
+
+
+## Day 1 contract supersession (2026-11-12)
+
+This verified work order records the earlier UI delivery. Its build-entry/mode wording is superseded by FRD-02 REQ-02-017, FRD-04 REQ-04-006/019 and FRD-11 REQ-11-007 to -010; it does not certify the replacement. The new command/picker implementation belongs to the MC-CMD batch. See `docs/product/build-engine-v2.md` for pinned producer evidence and integration ownership.

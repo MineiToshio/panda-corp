@@ -7,7 +7,7 @@ implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-05-work-orders/mocks/work-orders.html
-last_updated: '2026-10-22'
+last_updated: '2026-11-12'
 floor: false
 ---
 # FRD-05 — Work orders (live view)
@@ -58,3 +58,13 @@ The first finite event timestamp and machine-state version establish baselines a
 Later advances retain the five-second coalescing policy. A refresh, including a scheduled callback,
 SHALL wait for any pending workspace navigation to commit; it SHALL NOT replace the Summary entry
 created before a Full selection. Unmounted subscribers cancel queued refreshes. See FRD-25.
+
+### REQ-05-009 — In-flight work and durable delivery (Day 1, 2026-11-12)
+
+[The shared read contract](../../product/build-engine-v2.md) defines the producer fields at 540afa2c and the exact live display mapping. This amendment governs REQ-05-005/006 and the older event-only refresh wording.
+
+- **AC-05-009.1** — WHEN a matching run references a published WO through a build/patch unit, THE shared work-order model SHALL overlay its live display state, label it **En el build**, and retain the durable frontmatter state separately; Por FRD, Tablero, Dependencias, Resumen bars and Fragua SHALL use that one model.
+- **AC-05-009.2** — WHEN multiple units/attempts reference the same WO, THE model SHALL apply the latest relevant build/patch work once, preserve unaffected verified WOs and SHALL NOT count review, consultation or gate jobs as extra WOs. WHEN a unit names an unknown WO, THE UI SHALL surface an unresolved-reference notice rather than fabricate a document.
+- **AC-05-009.3** — WHEN a unit is verified only on its branch, THE view SHALL show review pending landing rather than delivered VERIFIED; WHEN the unit lands, THE live model SHALL reconcile with durable frontmatter without duplicating its count. Parked/waiting-gate units SHALL retain their durable column with a reason.
+- **AC-05-009.4** — WHEN run/admission state changes without a new event, including a selective gate reopen, THE views and open detail SHALL refresh using FRD-25's navigation-safe coalescing. Missing state SHALL retain the durable-only board; malformed/mismatched state SHALL show an error and SHALL NOT corrupt that board.
+- **AC-05-009.5** — WHEN the work-order fact sheet offers construction, THE command SHALL select the parent FRD's pending scope (FRD-11 AC-11-008.3), with an explanatory sentence, never an unsupported individual WO target.

@@ -91,11 +91,11 @@ The freeze's checkpoint (DR-129). Plan and rules: `${CLAUDE_PLUGIN_ROOT}/skills/
 | S4 | S4.D Logo export (M2 exception) | MECH·low | M2 | lead | done | 06:45 | 07:18 | prototype/logo/: original PNG bytes + lossless SVG wrapper + README stating the exception |
 | S5 | S5.1 Preflight + incremental regression + gate READY | MECH·low | S4.* | lead shell | done | 07:45 | 07:50 | preflight 0 fail / 1 acked warn; freeze all: every stage up-to-date (no regression); gate READY once S5.2/M3 rows close |
 | S5 | S5.2 Decision log, close tracker, commit | MECH·low | S5.1 | lead | done | 07:50 | 07:55 | caches and logs gitignored (freeze/.gitignore) |
-| S5 | M3 Owner status 3 + advance gate | — | S5.2 | lead | done | 07:55 | 07:55 | no phase change: MC stays in implementation; next is the v2 milestone via /pandacorp:change (owner scope) |
+| S5 | M3 Owner status 3 + advance gate | — | S5.2 | lead | done | 07:55 | 07:55 | no phase change: MC stays in implementation; next is the v2 milestone via the then-current change entry (owner scope) |
 
 ## Notes
 
-- **Context.** This freeze runs for a redesign of a built app: Mission Control stays in `phase: implementation` until the v2 milestone (owner scope: freeze now, then `/pandacorp:change` → new-version). Entry conditions met before the clock, in commits e723b681 and 409a0564: the approved prototype in `docs/design/prototype/`, a privacy-safe fixture (the repo is public), the authored config (a pre-clock task) and self-hosted fonts.
+- **Context.** This freeze runs for a redesign of a built app: Mission Control stays in `phase: implementation` until the v2 milestone (owner scope: freeze now, then the then-current change entry → new-version). Entry conditions met before the clock, in commits e723b681 and 409a0564: the approved prototype in `docs/design/prototype/`, a privacy-safe fixture (the repo is public), the authored config (a pre-clock task) and self-hosted fonts.
 - **preflight-ack literalLengths:** 881 literal px lengths sit outside the token blocks. They are the prototype's component dimensions, captured exactly by `computed-styles.json`; the build implements them through Tailwind tokens. Moving them into prototype tokens adds no fidelity.
 - **Owner decisions in force (decision log, 2026-10-21):**
   - targets desktop, tablet and phone;

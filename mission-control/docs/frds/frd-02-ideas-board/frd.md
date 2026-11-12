@@ -8,7 +8,7 @@ implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-02-ideas-board/mocks/ideas-board.html
-last_updated: '2026-10-22'
+last_updated: '2026-11-12'
 floor: false
 ---
 # FRD-02 — Ideas board
@@ -27,7 +27,7 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
 - **REQ-02-003** — WHEN the owner clicks "Capturar ideas", the system SHALL open a **modal overlay** (dark backdrop + blur) with the four intake commands — `/pandacorp:explore`, `:new-idea`, `:discover` and `:recommend` — each with an icon, title, description and copy-command row. Clicking the backdrop or the ✕ button SHALL close the modal. The board SHALL remain visible behind the modal as context.
 - WHEN the owner clicks a card, the system SHALL show the card: summary, key points, a navigator of the idea's documents, and the next-step command (with a copy button).
 - **REQ-02-005** — EACH card SHALL show two labels besides the score: **category** (`project_type`: web, mobile, desktop, ai, claude-code, prompt-system, automation, cli, rework…) and **return** (`return_type`: monetary, opportunity, personal or mixed). The board SHALL allow **filtering by category**.
-- **REQ-02-006** — WHILE an idea's project has `running: true` (build in progress, phase `implementation` → "building" column), the system SHALL show an indicator on its card that it is being built.
+- **REQ-02-006** — WHILE an idea's project has a live build according to FRD-04 REQ-04-017 (phase still comes from durable status), the system SHALL show an indicator on its card that it is being built.
 - WHEN the owner presses "Descartar idea", the system SHALL rewrite `status: discarded` in the `.md` frontmatter, preserving the rest of the file (one of the app's small, bounded set of human-triggered writes — see REQ-02-012 and architecture §7).
 - **REQ-02-008** — WHEN the owner presses "Descartar idea", the system SHALL open a confirmation **modal** titled "Descartar idea" (the shared `Modal` core, DR-057) that captures an **optional reason** ("Motivo (opcional)" free text; **Out of v2 (owner decision 2026-10-21):** the quick-tags — *saturado/competencia · no me interesa el tema · no apalanca mi canal · muy complejo · no monetiza en Perú · otro*) and SHALL write it to the `discard_reason` frontmatter field alongside `status`. The reason is optional (confirming without one writes only `status`), and the capture is part of the same write. (Owner rule: reveal-more is a modal, never an inline expand-that-pushes-content — the reason capture does **not** expand inline below the trigger. **Out of v2 (owner decision 2026-10-21):** while the write is in flight the modal stays open with a disabled "Descartando…" state; backdrop/✕/Escape are inert until it settles.) This feeds `/pandacorp:discover`'s rejection-pattern learning so it stops proposing ideas the owner keeps rejecting (factory v9.8.0). On discard the system SHALL also record `status_before_discard` (the prior status) so a restore is exact.
 - **REQ-02-017** — The board SHALL NOT render a "Descartado" column. Discarded ideas are reached via a **"Descartadas · N" button** (beside "Capturar ideas", always shown, N = the count of discarded ideas) that opens a **modal** titled "Ideas descartadas · N" listing them (title, category and discard reason, with "leer propuesta y restaurar"); selecting one opens its detail. (Owner rule: no inline expand-that-pushes-content — reveal-more is a modal. The shared `Modal` core, DR-057, powers this and the intake modal.)
@@ -130,14 +130,14 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   into the `<idea>` token (e.g. `/pandacorp:spec <idea>` renders `/pandacorp:spec <slug>`) so it
   copy-pastes directly — never a literal `<idea>` placeholder. The factory-run commands (`spec`,
   `explore`) carry the project name; the in-project commands (`design`, `blueprint`, `implement`,
-  `release`, `iterate`, `bug`, `change`, `review-launch`, `new-version`, `sync`) do not. A command
+  `release`, `review-launch`, `sync`, `decide`) do not. A command
   that has **modes** SHALL NOT render an inline `<select>` (amended 2026-10-22 to the approved
   prototype): the **`spec`** clarification modes (`--ask` / `--auto` / `--infer`, DR-095) SHALL sit
   in a disclosure whose summary reads "Cuántas preguntas te hago antes de generar la documentación"
   and which lists each mode with its own copyable command (the mode's flag folded into the command,
-  e.g. `/pandacorp:spec <slug> --ask`); the **`implement`** build modes are offered by the
-  four-card picker behind "Elegir modo de construcción" (FRD-11 AC-11-005.1). A one-line hint
-  SHALL describe each mode. Commands without modes render as a plain row. Read-only
+  e.g. `/pandacorp:spec <slug> --ask`); the **`implement`** action/target choices are offered by the
+  shared picker behind "Construir o reanudar" (FRD-11 REQ-11-007 to -010). A one-line hint
+  SHALL describe each action. Commands without modes render as a plain row. Read-only
   (AC-02-010.6): showing the command is not running it.
 - **AC-02-010.5** — WHEN the owner activates the **Construcción** (build) phase's "Entrar a La Fragua"
   action, THE system SHALL **navigate the host app** to Portafolio → that project's **Resumen** tab,
@@ -343,7 +343,7 @@ The project-owned source is `docs/product/data-model.json`. Contract and reader 
 ## Does NOT include
 - No live agent chat or simulation backed by real-time events in La Campaña — it is a faithful, read-only depiction of the per-phase team and the document hand-off across time (the live build animation belongs to FRD-06 / La Fragua, fed by `~/.claude/dashboard-events.ndjson`).
 - No new write *from La Campaña*: the tabbed detail and La Campaña add **zero** mutations. The app's writes are the bounded, human-triggered set listed in `docs/product/architecture.md` §7 (amended 2026-10-22, gate fix): idea discard/restore status (REQ-02-007) and the visual favourite flag (REQ-02-012), isolated to this FRD's `lib/discard/` + `lib/favorite/` (ADR-0002, ADR-0003), plus change discard (FRD-04), backlog discard (FRD-22) and the guild ledger (ADR-0005), owned by their own FRDs.
-- No mode selector / pause / reset controls in La Campaña (those are demo-only in the prototype; MC is read-only).
+- No power-mode / pause / reset controls in La Campaña (those are demo-only in the prototype; MC is read-only).
 - No regeneration of room art or new sprites — assets are reused/added by the design phase, not specified here.
 
 ### REQ-02-015 graph-control consistency amendment
@@ -406,3 +406,8 @@ longer than 512 characters, it SHALL return no document. WHEN an idea mutation r
 non-lowercase-kebab, metadata or oversized slug (over 200 characters), it SHALL refuse the write.
 WHEN an idea identity does not exist, its direct route SHALL return HTTP 404 before the shell streams.
 Markdown image embeds SHALL use no-referrer. Executable frontmatter SHALL never run.
+
+### REQ-02-017 — Day 1 build commands and live progress (2026-11-12)
+
+- **AC-02-017.1** — WHEN the Construcción sheet or a linked idea's next action offers building, THE command SHALL use `/pandacorp:implement`, its resume form or the explicit FRD/card target from FRD-11; the disclosure SHALL read **Construir o reanudar** and SHALL NOT expose power-mode words or internal bug/iteration/version engines as alternate build entries.
+- **AC-02-017.2** — WHEN a linked project has a valid matching live run, THE idea activity indicator and implementation mosaic SHALL use the same liveness and live/durable display model as FRD-04/05; main's stale `running` flag SHALL NOT suppress it. Board phase columns SHALL still derive from durable phase, never from a unit state. Missing/malformed run inputs SHALL follow [the shared read contract](../../product/build-engine-v2.md) without hiding the idea card.

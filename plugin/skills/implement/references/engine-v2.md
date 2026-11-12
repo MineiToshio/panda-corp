@@ -1,7 +1,6 @@
 # Engine v2: the session protocol for a `pandacorp-build` run
 
-**Status (R1, plugin 9.157.0): opt-in.** v1 (`SKILL.md`, Dynamic Workflows) stays the default until 10.0.0. Follow
-this file only when the owner says `implement v2`. Policy, thresholds and matrices live in
+**Default and only build engine.** `/pandacorp:implement` follows this protocol for every build and resume. Policy, thresholds and matrices live in
 `factory/standards/build-engine.md` (BUILD-7..15); every command, flag, exit code, file and JSON shape lives in
 `plugin/docs/build-engine-cli.md`. This file says only what the **session** does, in order. Autonomy (first minute,
 doubts, parking, gates) is in `autonomy.md`; the Codex relay in `drive.md`.
@@ -21,7 +20,7 @@ with `via:"session"`.
 2. **Never wait for an owner "sí"** except the first-minute asks (`autonomy.md` §1) and a human gate (§4 there).
    Risk zone, giant size, `phase: release`, a doubt: none of them waits for the owner.
 3. **Never watch by hand and never end the turn while anything runs.** No `tail`, no `sleep`, no shell polling.
-   While any unit, job or worker runs, loop `next --wait 300`: each call also renews the lease (ttl 30 min). A
+   While any unit, job or worker runs, loop `next --wait 60`: each call also renews the lease (ttl 30 min). A
    silent coordinator lets the lease expire, and that is a relay trigger for drive (`drive.md`).
 4. **Human gates are untouched**: production landing, spending money, deleting data, external communications. The
    session never pushes and never runs `merge-queue.sh`; it sets `PANDACORP_OWNER_RELEASE_OK=1` only on the one
@@ -41,8 +40,8 @@ Below, `pb <cmd>` means:
 | Codex | `node "<factory>/plugin/scripts/pandacorp-build.mjs" <cmd> --project <projectDir> …`, `<factory>` = the `Factory:` path in `.pandacorp/guide.md` |
 
 `<projectDir>` is the nearest ancestor of the cwd holding `.pandacorp/status.yaml`. Every fenced call carries
-`--epoch <E>`, the epoch returned by `start --run` or `start --resume`. Run `next --wait 300` with a shell timeout of
-at least 330 s (Claude Code Bash `timeout: 330000`).
+`--epoch <E>`, the epoch returned by `start --run` or `start --resume`. Run `next --wait 60` with a shell timeout of
+at least 90 s (Claude Code Bash `timeout: 90000`).
 
 ## 2. Step 0: project, label, session facts
 
@@ -58,7 +57,7 @@ at least 330 s (Claude Code Bash `timeout: 330000`).
    arguments contain the word `claude`, refuse before calling the CLI (the Codex hook denies any command containing
    that word) with the Spanish line below and stop;
    one builder at a time, no Claude anywhere. Label `claude` in the Codex app is refused: tell the owner "Esto se
-   construye con Claude: ábrelo en Claude Code y escribe `/pandacorp:implement v2 claude`." and stop.
+   construye con Claude: ábrelo en Claude Code y escribe `/pandacorp:implement claude`." and stop.
 4. **Session model.** Note your own model (`sonnet`, `opus`, `haiku`, or `sol`/`astra` in Codex); pass it as
    `--session-model`.
 
@@ -124,7 +123,7 @@ Write the returned `scope` object verbatim to `.pandacorp/run/scope.json` (an in
    pb start --run --scope-json .pandacorp/run/scope.json --label <label> --coordinator claude|codex --session-model <m> [--answers <json>]
    ```
    `--answers` carries only answers the owner already gave in this conversation (question id → value); every other
-   ask starts on its default. Pass `--k`/`--mode` only when the owner asked for them. Keep `run_id`, `epoch`,
+   ask starts on its default. Use BUILD-9 adaptive admission by default; pass `--k`/`--mode` only when the owner explicitly asked for an override. Keep `run_id`, `epoch`,
    `drive{armed, reason}`, `prepush`. Exit 4 → row 1 behavior; exit 5 "re-run preflight" (older than 15 min or another
    scope) → repeat step 3.2 once, then this call; other exit 5 → the scope is not buildable: tell the owner the
    `message` in Spanish and stop; exit 6 → fix the card and retry once.
@@ -140,21 +139,21 @@ Write the returned `scope` object verbatim to `.pandacorp/run/scope.json` (an in
 
 ## 7. Step 5: the loop
 
-Repeat until a terminal action (`done`, `paused-quota`, `paused-infra`, `waiting-owner`, `deadlock`, `stop`) or
+Repeat until a terminal action (`done`, `paused-quota`, `waiting-owner`, `deadlock`, `stop`) or
 `handoff`:
 
 ```
-pb next --epoch <E> --wait 300
+pb next --epoch <E> --wait 60
 ```
 
 | `action` | Do |
 |---|---|
 | `dispatch` | For each unit in `units[]`, print its `dispatch_line` verbatim, then by `via`: `cli` → nothing (the CLI launched the Codex worker and ingests it); `agent` → launch it (below); `session` → do it yourself (below). Launch all `agent` units of one `next` in ONE message, in the background |
-| `wait` | Call `next --epoch <E> --wait 300` again (it returns early when a report, a job, a worker, an answer or a handoff appears). Never end the turn instead |
+| `wait` | Call `next --epoch <E> --wait 60` again (it returns early when a report, a job, a worker, an answer or a handoff appears). For reason `disk`, report the allocation wait and let existing work continue; never bulk-delete state. Never end the turn instead |
 | `land` | The batch is complete: `pb land --epoch <E>` (below) |
 | `handoff` | `drive.md` §3 |
 | `done` | `pb finish --epoch <E>`, then the final report (step 6) |
-| `paused-quota`, `paused-infra`, `waiting-owner`, `deadlock`, `stop` | Already applied by the CLI (state set, lease released, drive standby ended). Do not call `finish`; take the data from `pb summary` and write the final report (step 6) with the reason on top (each company's `resets_at` for quota; the open questions for `waiting-owner`; for `stop`: nothing else can progress), notify, stop |
+| `paused-quota`, `waiting-owner`, `deadlock`, `stop` | Already applied by the CLI (state set, lease released, drive standby ended). Do not call `finish`; take the data from `pb summary` and write the final report (step 6) with the reason on top (each company's `resets_at` for quota; the open questions for `waiting-owner`; for `stop`: nothing else can progress), notify, stop |
 
 `notes_es[]` are owner-facing lines: keep them for the final report, never paraphrase them into English.
 
@@ -210,7 +209,14 @@ policy; the session never switches models or companies by itself.
    - **Revisiones**: cross, degraded and deferred counts, e.g. "3 cruzadas (Codex Sol high), 1 degradada (Opus
      xhigh, mismo modelo)".
    - **Cupo**: each company's last reading and reset.
-4. Capture lessons of the run in `.pandacorp/run/lessons.md` (one line each, project rule 8).
+4. Verify engine close-out with `git -C <projectDir> worktree list --porcelain`: eligible finished unit, assume, G2
+   and integration worktrees are removed, branches retained. A `waiting_gate` run keeps its integration worktree
+   without build caches. Report any retained dirty, locked, live or process-cwd path; never force removal.
+   Follow CONV-21 and `../../worktrees/SKILL.md` §Implementation teardown for session-owned resources: restore
+   the actual session cwd, run `session-cleanup.mjs finish`, await its exit and remove only named own scratch
+   paths. Never delete `.pandacorp/` or another session's resources. Include cleanup and performance-journal
+   warnings from the CLI in the final report; do not promise cleanup that has not completed.
+5. Capture lessons of the run in `.pandacorp/run/lessons.md` (one line each, project rule 8).
 
 ## 9. Exit codes and observer mode
 
@@ -223,7 +229,7 @@ policy; the session never switches models or companies by itself.
 | 5 INVALID_STATE | From `start --run` "re-run preflight": step 3.2 again. From `finish`: units still live, back to the loop. Otherwise `pb rebuild-state --epoch <E>`, retry the same call once; fails again → treat as exit 8 |
 | 6 INVALID_INPUT_OR_RED | A card: fix it. A `report`: the rejection is recorded, continue. An `answer`: `autonomy.md` §1.4 |
 | 7 WAITING_GATE | From `report` (`waiting_gate`), `land` or `finish` (`next` never exits 7): notify (`autonomy.md` §4); after `finish`, write the final report; otherwise continue the loop |
-| 8 ENGINE_FAILURE | The CLI stopped at a safe point, wrote `handback/engine.md` and a BL, released the lease. Notify, final report with that path, stop |
+| 8 ENGINE_FAILURE | The CLI stopped at a safe point, wrote `handback/engine.md` and its backlog note, released the lease. For nested projects the note is a draft under `build/handback/`, listed in `need_from_owner`; never create a factory-main backlog item yourself. Notify, final report with that path, stop |
 | 9 FAILCLOSED | A signal was unreadable; the conservative path applied. Continue; mention it in the report |
 | 10 NOT_A_PROJECT | Step 0.1 message, stop |
 

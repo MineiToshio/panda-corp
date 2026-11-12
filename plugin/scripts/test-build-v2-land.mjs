@@ -510,6 +510,41 @@ await test("PATCH mq 11 unattributed: handback g3_red (exit 6), independent fall
   ok(!st.units.some((u) => u.state === "landed"), "nothing landed"); ok((await readEvents(w)).some((e) => e.type === "patch"), "journal has a patch event"); eq((await readEvents(w)).filter((e) => e.type === "batch_landed").length, 0, "no batch_landed");
   const c = await cardState(w); ok(c.pending && !c.done, "card stays pending"); await assertNoReleaseVar(w); await assertMainUntouched(w, before);
 }));
+await test("PATCH3 N2: G3 attribution reads canonical WOs outside the lease mutex on land and standalone harvest", async () => {
+  for (const standalone of [false, true]) await withWorld(`g3-unlocked-${standalone}`, { scopeCard: null, gateLog: "src/alpha/list.ts(1,1): error TS2322: bad type\n" }, async (w) => {
+    await setMq(w, "11"); eq((await callLand(w)).result, "running", "spawn land job");
+    await w.jobs.runPending();
+    let reads = 0;
+    w.execHooks.push(async ({ cmd, args }) => {
+      if (cmd === "git" && (args[0] === "ls-tree" || (args[0] === "show" && args[1]?.includes("work-orders/")))) {
+        reads++;
+        ok(!existsSync(path.join(w.fx.root, ".pandacorp/run/lease-mutation.lock")), "WO attribution must not hold the lease mutex");
+      }
+    });
+    const res = standalone ? await (await need("land.mjs", "harvestLand"))({ project: w.fx.root, epoch: w.epoch }, w.deps) : await callLand(w);
+    ok(reads > 0, "canonical WOs were actually read");
+    eq(res.output?.reason ?? res.reason, "g3_red", "red applied");
+  });
+});
+
+await test("PATCH3 N2: integration changes during G3 attribution invalidate the prepared plan before writes", async () => withWorld("g3-race", { scopeCard: null, gateLog: "src/alpha/list.ts(1,1): error TS2322: bad type\n" }, async (w) => {
+  await setMq(w, "11"); await callLand(w); await w.jobs.runPending();
+  const before = await snapshot(w);
+  let moved = false;
+  w.execHooks.push(async ({ cmd, args }) => {
+    if (!moved && cmd === "git" && args[0] === "show" && args[1]?.includes("work-orders/")) {
+      moved = true;
+      git(w.wt, ["commit", "--allow-empty", "-q", "-m", "fixture: integration advances during attribution"]);
+    }
+  });
+  const out = await attempt(() => callLand(w));
+  ok(moved, "race was exercised");
+  ok(out.error?.code === "INVALID_STATE" || out.value?.result === "running", "stale prepared plan is refused");
+  eq(await readFile(w.p.stateFile, "utf8"), before.state, "no stale state write");
+  eq(await readFile(w.p.journalFile, "utf8"), before.journal, "no stale journal write");
+  ok(!(await readState(w)).units.some((u) => u.kind === "patch"), "no stale patch");
+}));
+
 await test("PATCH G3: one of three WOs fails, only its unit reopens and its brief carries the gate evidence", async () => withWorld("scope-three", {
   scopeCard: null,
   gateLog: "PASS src/alpha/list.test.ts > healthy\nFAIL src/alpha/filter.test.ts > filters empty values\n  at src/alpha/filter.ts:8:2\n",

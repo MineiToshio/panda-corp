@@ -116,7 +116,7 @@ now renders with its own vocabulary entry instead of falling into the generic fa
   3 tests) + `lib/events/_tests/events.uipassskipped.test.ts` (parser coverage, incl. the
   string/boolean `pass` disambiguation).
 
-**Path:** landed via `/pandacorp:change --now` (canario 2, 2026-09-23) → definitive reclassification on
+**Path:** landed via the retired change-entry command with its immediate-build option (canario 2, 2026-09-23) → definitive reclassification on
 the real diff hit `critical` on two classifier false positives (S3 "any new file under `src/`", S8
 FLOOR on a test's own `rmSync(tmpDir)` cleanup) → hand-back, work preserved on branch
 `change/render-uipassskipped-timeline`, card returned to `draft` with `## Bloqueado`. Fixed in plugin

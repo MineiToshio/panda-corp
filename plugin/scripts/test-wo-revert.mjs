@@ -521,6 +521,28 @@ console.log('(r) a durably USABLE FRD (committed build_usable line) → plan and
   }
 }
 
+console.log('(s) certification uses the project journal at HEAD and validates the whole FRD')
+for (const sub of ['', 'proj']) {
+  const r = mkRepo(sub)
+  try {
+    r.commit('feat(frd-01-alpha): WO-01-001 alpha', { 'src/alpha.ts': 'keep\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+    const built = r.commit('feat(frd-01-alpha): WO-01-002 alpha two', { [WO_A2]: woMd('WO-01-002', 'IN_REVIEW') })
+    const line = `${JSON.stringify({ kind: 'build_usable', frd: 'frd-01-alpha', sha: built })}\n`
+    r.write('.pandacorp/track.jsonl', line)
+    const plan = () => r.run('plan', ...args(r, '--wo', 'WO-01-001'))
+    ok(plan().receipt.status === 'reverted', `${sub || 'flat'}: an uncommitted certificate never prevents discard`)
+    r.commit('chore: certify alpha', { '.pandacorp/track.jsonl': line })
+    r.write('.pandacorp/track.jsonl', '')
+    ok(plan().receipt.status === 'usable', `${sub || 'flat'}: an uncommitted journal edit never removes the committed guard`)
+    r.commit('chore: invalid latest certificate', { '.pandacorp/track.jsonl': `${line}${JSON.stringify({ kind: 'build_usable', frd: 'frd-01-alpha', sha: 'f'.repeat(40) })}\n` })
+    ok(plan().receipt.status === 'reverted', `${sub || 'flat'}: an invalid latest certificate does not revive an older one`)
+    r.commit('chore: certify alpha again', { '.pandacorp/track.jsonl': line })
+    r.commit('chore: dispatch sibling', { [WO_A2]: woMd('WO-01-002', 'IN_PROGRESS') })
+    r.commit('feat(frd-01-alpha): WO-01-002 rebuilt', { [WO_A2]: woMd('WO-01-002', 'IN_REVIEW') })
+    ok(plan().receipt.status === 'reverted', `${sub || 'flat'}: a newer sibling dispatch invalidates the whole FRD certificate`)
+  } finally { r.cleanup() }
+}
+
 // ── fail-closed inputs ────────────────────────────────────────────────────────────────────────────
 console.log('fail-closed inputs')
 {

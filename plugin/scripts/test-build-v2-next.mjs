@@ -422,6 +422,55 @@ await test("integration: when every unit of an FRD is integrated a G2 job is spa
   ok(iIntegrate >= 0 && g2 > iIntegrate, "after integrating the last unit of frd-01-alpha, a jobs.* call naming g2 and frd-01-alpha must follow");
 }));
 
+await test("PATCH2: unattributed gate patch dispatch keeps every WO unchanged", async () => withCase({
+  units: [B("WO-01-001", { state: "verified" }), { id: "u-patch-g3", kind: "patch", frd: null, wos: ["WO-01-001"] }],
+}, async (c) => {
+  await mkdir(c.P.unitDir("u-patch-g3"), { recursive: true });
+  await writeFile(path.join(c.P.unitDir("u-patch-g3"), "gate-failure.json"), JSON.stringify({ attributed: false }));
+  const r = await callNext(c);
+  eq(unitIds(r), ["u-patch-g3"], "fallback dispatched");
+  ok(!c.log.some((e) => e.fn === "transitionWorkOrders"), "fallback must not reopen any WO");
+}));
+
+await test("PATCH2: selective reviews accept healthy verified siblings and explicit null-FRD patch dependencies", async () => {
+  const { buildCandidates } = await import("../runtime/build/next/candidates.mjs");
+  const { newUnit } = await must("state.mjs");
+  for (const nullFrd of [false, true]) {
+    const units = [newUnit(B("WO-01-001", { state: "verified", worker: WORKER({ model: "opus" }) })),
+      newUnit({ id: "u-patch", kind: "patch", frd: nullFrd ? null : "frd-01-alpha", wos: ["WO-01-002"], state: nullFrd ? "integrated" : "reviewing", worker: WORKER() }),
+      newUnit(R(nullFrd ? null : "frd-01-alpha", { depends_on: nullFrd ? ["u-patch"] : [] }))];
+    await withCase({ units }, async (c) => {
+      const state = await c.readState();
+      const routed = [];
+      const d = { env: c.env, routing: { reviewCell: (input) => { routed.push(input); return { used: { runtime: "codex", model: "sol", effort: "high" } }; } } };
+      const run = { d, ref: { project: c.root, epoch: c.epoch, deps: d }, paths: c.P };
+      const out = await buildCandidates(run, state, {}, { ready: [] }, {}, []);
+      eq(out.list.map((x) => x.unit.id), [units[2].id], "selective review is dispatchable");
+      eq(routed[0].authors.map((x) => x.model), ["sonnet"], "review routes from the patch author only");
+      eq((await stateUnit(c, units[2].id)).depends_on, ["u-patch"], "review-record receives the same selective unit set");
+    });
+  }
+});
+
+await test("PATCH2: an integrated null-FRD fallback queues its own review and briefs only the patch diff", async () => withCase({
+  nested: true,
+  units: [B("WO-01-001", { state: "verified", worker: WORKER() }), R("frd-01-alpha", { state: "verified" }),
+    { id: "u-patch-g3", kind: "patch", frd: null, wos: ["WO-01-001"], state: "integrated", worker: WORKER() }],
+}, async (c) => {
+  const root = (await c.readState()).integration.worktree;
+  const before = c.fx.git("-C", root, "rev-parse", "HEAD");
+  await writeFile(path.join(root, "src/alpha/list.ts"), "export const corrected = true;\n");
+  c.fx.git("-C", root, "add", "src/alpha/list.ts");
+  c.fx.git("-C", root, "commit", "-q", "-m", "fix: gate fallback", "-m", "Unit: u-patch-g3");
+  const tip = c.fx.git("-C", root, "rev-parse", "HEAD");
+  const result = await callNext(c);
+  eq(unitIds(result), ["u-review-u-patch-g3"], "fallback receives an independent review");
+  const brief = c.log.find((e) => e.fn === "writeUnitBrief").args[0];
+  eq(brief.extra.review.range, `${before}..${tip}`, "brief excludes earlier FRD work");
+  eq((await stateUnit(c, "u-build-wo-01-001")).state, "verified", "healthy WO stays verified");
+  eq((await stateUnit(c, "u-patch-g3")).state, "integrated", "patch waits for the review verdict");
+}));
+
 // =====================================================================================================================
 // Tests first, scope, the change queue
 // =====================================================================================================================

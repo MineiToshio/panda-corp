@@ -9,25 +9,25 @@
 # canonical HOME of those spans (the single source of truth) AND the RED-on-drift check.
 #
 #   A1 — marker check + adopt/spec routing (the fail-closed "is this a factory project?"
-#        gate). Byte-identical in: change, bug, iterate, new-version, release.
+#        gate). Byte-identical in: bug, iterate, new-version, release.
 #        `sync` is the ONE documented variance: it prepends a *modo fábrica* branch
 #        (route hand-edits under plugin/ or factory/ to /pandacorp:learn), so its
 #        marker-routing text legitimately differs — A1 is NOT asserted for sync (BL-0042
 #        "sync's variant adds a justified modo-fábrica branch").
 #
 #   A2 — upgrade-if-behind + the active-build guard (never regenerate the engine/gates
-#        under a live build; DR-048/DR-066). Byte-identical in ALL carriers: change, bug,
+#        under a live build; DR-048/DR-066). Byte-identical in ALL carriers: bug,
 #        iterate, new-version, sync, release. C8 (this batch) added the guard to
 #        new-version, sync and release so it is now universal, not just the capture family.
 #
 # The per-skill VARIANCE — the "what this skill writes/mutates" lead-in and the
-# capture-proceeds-anyway vs mutate-routes-to-/change follow-on — is intentionally NOT
+# capture-proceeds-anyway vs mutate-routes-to-implement follow-on — is intentionally NOT
 # checked here (that is the documented variance BL-0042 allows).
 #
 # CARRIERS NOT IN THIS SET: architecture and implement also carry a DR-045 marker check,
 # but they are out of THIS canonicalization's scope (architecture is a pre-build phase
-# skill; implement IS the build engine — its preflight is co-owned by preflight-implement.sh
-# and cannot "route around" a build it is itself launching). They are deliberately excluded;
+# skill; implement IS the build entry and owns the CLI session preflight
+# for the run it is itself launching). They are deliberately excluded;
 # adopt is NOT a carrier (it uses its own human-gate idempotence flow, no DR-045 callout).
 #
 # EXIT: 0 = every asserted invariant present byte-identical in every carrier.
@@ -57,8 +57,8 @@ EOF
 A2="${A2%$'\n'}"
 
 # Carriers per anchor.
-A1_CARRIERS="change bug iterate new-version release"
-A2_CARRIERS="change bug iterate new-version sync release"
+A1_CARRIERS="bug iterate new-version release"
+A2_CARRIERS="bug iterate new-version sync release"
 
 drift=0
 

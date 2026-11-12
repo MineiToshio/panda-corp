@@ -140,10 +140,12 @@ and the recommendation reads "Recomendada: <letter>". The file stays the persist
   waive unrelated account/data erasure or the PRD's value hypothesis; state the measurement limitation and ask if
   the success criteria need reconciliation. Preserve baseline translatable strings for single-language scope.
 - An FRD that contradicts an answer is amended by the `product-manager` before step 9 (same rule as step 5).
-- Changing a locked decision later is an owner decision again (`/pandacorp:decide` or `/pandacorp:change`), never a
+- Changing a locked decision later is an owner decision again (`/pandacorp:decide`, or `/pandacorp:implement` on “impleméntalo”), never a
   blueprint author's call. When the owner changes one mid-phase, re-plan only what it touches and run a delta review
   (`gates.md` §5), not a full regeneration.
 
 If native recovery is unavailable, present that limitation plainly. An explicit owner acceptance of the recovery risk may resolve it where no legal obligation forbids it; do not infer that resolution must buy a service or implement backups. Existing implementations are not deleted by this prospective planning rule.
 
 Provider/account defaults and preparation are in `service-preparation.md` (DR-134). Reuse approved accounts; no new organizations to avoid analytics fees. Record current dated plan and shared quota, exact slug and variable destinations before planning.
+
+For “anótalo”, capture the requested revision only as `.pandacorp/inbox/changes/<slug>.md` with `status: draft`, using the change-request template, English frontmatter and Spanish request/context plus cited Dentro/Fuera boundaries. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build.mjs" card check .pandacorp/inbox/changes/<slug>.md` from the project and fix errors before reporting it captured. Do not start a build or assume an automatic queue drain. During a live build, capture only; never mutate its locked decisions concurrently.

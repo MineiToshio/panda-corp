@@ -7,7 +7,7 @@ implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-21-pending-merge/mocks/pending-merge.html
-last_updated: '2026-10-22'
+last_updated: '2026-11-12'
 floor: false
 ---
 # FRD-21 — Pending-merge visibility
@@ -15,8 +15,8 @@ floor: false
 Mission Control surfaces **un-merged parallel work** so the operator, who runs several conversations at
 once and steps away, can never silently strand a forgotten worktree. It is the visibility layer of the
 parallel-isolation flow (factory `build-orchestration.md` "Parallel manual sessions", DR-096): the
-merge-queue removes a worktree **only** on a successful merge, so **a surviving worktree/branch = work not
-yet in main**. Committed work is never *lost* (a branch persists in git past the conversation), but it can
+engine uses persistent branch refs and disposable worktrees; commits outside main prove pending work,
+while worktree existence is a separate cleanup fact. Committed work is never *lost* (a branch persists in git past the conversation), but it can
 be *forgotten* — this makes "forgotten" impossible to miss.
 
 Read-only, like the rest of Mission Control (no writes to the factory, no Claude calls). It composes the
@@ -83,7 +83,7 @@ fall back to the manifest; unreadable → the error state (REQ-21-006).
 
 - No parallel work anywhere → the pill is hidden and the card shows every repository as "Limpio"; nothing
   is faked.
-- A worktree whose branch is already merged (a race) → not pending; excluded.
+- A merged branch → no pending-branch count; its leftover worktree is still counted separately for cleanup.
 - The snapshot is stale (the driver hasn't run) → show the manifest-derived view and a subtle "datos de
   hace X" freshness note (FRD-12 convention), never a confidently-wrong "al día".
 - A repository that cannot be read → its row shows "No se pudo leer" and the pill goes to its alert variant (REQ-21-006, AC-21-008.2).
@@ -96,3 +96,12 @@ fall back to the manifest; unreadable → the error state (REQ-21-006).
 - Writing the `pending-work.json` snapshot (a tiny `--json > file` step in the check's driver) is in scope
   for this feature's work orders so MC has a file to read without shelling out to git.
 - Placement decided with the owner (2026-06-26): global ambient indicator primary — "the fear is *not looking*, so the signal must be global, not buried in one tab" — and confirmed as the sidebar pill at M1 (2026-10-22).
+
+### REQ-21-009 — V2 branches survive disposable worktrees (Day 1, 2026-11-12)
+
+Grounding: `plugin/runtime/build/paths.mjs` at 540afa2c and [the shared read contract](../../product/build-engine-v2.md). Immediate landing/close removal is the pending DENG dependency; MC must work with both the retained-worktree snapshot and the cleanup result.
+
+- **AC-21-009.1** — WHEN a repository has `lane/<run_id>/integration`, `lane/<run_id>/<unit>`, `lane/<run_id>/<unit>-a<n>` or `lane/<run_id>/assume-<doubt>` branches, THE reader SHALL classify each as engine-origin even if its worktree has been removed; pending SHALL depend on commits outside main, not on branch/worktree presence alone.
+- **AC-21-009.2** — WHEN a run closes and its clean worktrees are removed but an unmerged branch remains, THE dialog SHALL retain that branch and its commit evidence with zero corresponding leftovers; WHEN a fully merged branch remains, THE pending count SHALL be zero for that branch.
+- **AC-21-009.3** — WHEN active, suspended, waiting-gate, dirty, locked or process-cwd worktrees remain, THE UI SHALL NOT imply that they are safe to delete or count an absent worktree as lost code; locked trees SHALL remain excluded from the existing leftover total. THE dashboard SHALL copy `/pandacorp:worktrees` only, never remove trees or refs itself.
+- **AC-21-009.4** — WHEN the repo or a required git input cannot be read, THE existing No se pudo leer/alert behavior SHALL remain visible rather than claiming Limpio. Cleanup SHALL NOT change owner-state or branch references.

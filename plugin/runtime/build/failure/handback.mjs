@@ -7,7 +7,7 @@ import { atomicWriteText, defaultExec, nowIso } from "../fsx.mjs";
 import { buildPaths } from "../paths.mjs";
 import { fencedTwoPhase, findUnit } from "../state.mjs";
 import { WO_UNIT_KINDS, emitSafely, err, oneLine, woKey } from "./common.mjs";
-import { commitPlan, envInfraStop, planHandback } from "./policy.mjs";
+import { commitPlan, envInfraStop, isUnattributedPatch, planHandback } from "./policy.mjs";
 import { writeInbox } from "../doubts/integrationLog.mjs";
 import { handbackDecisionEntry, handbackMarkdown, handbackNotice } from "./handbackText.mjs";
 
@@ -118,7 +118,7 @@ export async function handBack(ctx, input, deps = {}) {
 
   // 1. WO BLOCKED in the integration worktree (a dependent's reason names the unit that blocked it).
   const targets = plan.blocked.map((t) => findUnit(state, t.unit));
-  const wosOf = (u) => (WO_UNIT_KINDS.includes(u.kind) ? u.wos : []);
+  const wosOf = (u) => (WO_UNIT_KINDS.includes(u.kind) && !isUnattributedPatch(u) ? u.wos : []);
   const files = await (deps.findWorkOrderFiles ?? findWorkOrderFiles)(integrationRoot, targets.flatMap(wosOf), { fs: deps.fs ?? fsp });
   const wosBlocked = [];
   const wosSkipped = [];

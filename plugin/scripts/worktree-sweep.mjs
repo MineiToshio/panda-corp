@@ -24,7 +24,7 @@
 // branch not merged into it; stale after PANDACORP_STALE_HOURS (default 3) since the last commit.
 //
 // An item is `safe` only when ALL hold: its commits are ancestors of the default branch, it has no
-// uncommitted or untracked files, it has been idle for PANDACORP_STALE_HOURS (or the owner named it), it holds no gitignored owner state (.pandacorp/ outside run/,
+// uncommitted or untracked files, it has been idle for PANDACORP_STALE_HOURS (or the owner named it), it holds no gitignored owner state (.pandacorp/,
 // factory/{ideas,memory,profile.md,portfolio.md}), no other worktree is nested inside it, no running
 // process has its cwd inside it, it is not the caller's own checkout, it is not locked or a
 // deployment, and — when it belongs to the build engine (.pandacorp/run/**, lane/* branches) — no
@@ -34,6 +34,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, lstatSync, unlinkSync, copyFileSync } from "node:fs";
 import os from "node:os";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { currentLease } from "../runtime/build-state.mjs";
@@ -135,38 +136,70 @@ function engineRoot(p, projs) {
   return null;
 }
 
-// Git status conceals skip-worktree / assume-unchanged changes. Only bootstrap's explicit
-// skip-worktree outputs may differ, and no ignored owner state is implicitly disposable.
-function engineCleanReason(wt) {
-  const files = git(wt, ['ls-files', '-v', '-z']);
-  if (!files.ok) return 'status-unreadable';
-  for (const row of files.out.split('\0').filter(row => /^[a-zS] /.test(row))) {
-    const name = row.slice(2), file = path.join(wt, name);
-    if (!existsSync(file) || !lstatSync(file).isFile() || real(file) !== file) return 'masked-tracked-change';
-    const bootstrap = row.startsWith('S ') && /^(?:\.claude\/launch\.json|(?:[^/]+\/)?e2e\/server-env\.json)$/.test(name);
-    const hash = git(wt, ['hash-object', '--no-filters', '--', name]);
-    const head = git(wt, ['rev-parse', '--verify', `HEAD:${name}`]);
-    if (!hash.ok || !head.ok || (!bootstrap && hash.out !== head.out)) return 'masked-tracked-change';
-  }
-  const ignored = git(wt, ['ls-files', '--others', '--ignored', '--exclude-standard', '-z']);
-  if (!ignored.ok) return 'status-unreadable';
-  const caches = /(^|\/)(node_modules|\.next|\.next-fidelity|dist|build|coverage|\.cache|\.turbo|test-results)(\/|$)/;
-  for (const name of ignored.out.split('\0').filter(Boolean)) {
-    if (/(^|\/)(\.git|\.pandacorp)(\/|$)|(^|\/)factory\/(ideas|memory|profile\.md|portfolio\.md)(\/|$)/.test(name)) return 'owner-state';
-    if (!caches.test(name)) return 'unclassified-ignored-files';
-    // Refuse independent repositories hidden inside a generated cache, including bare repos.
-    const file = path.join(wt, name);
-    let dir = lstatSync(file).isDirectory() ? file : path.dirname(file);
-    while (dir !== wt && within(dir, wt)) {
-      if (existsSync(path.join(dir, '.git')) || ['HEAD', 'objects', 'refs', 'config'].every(n => existsSync(path.join(dir, n)))) return 'nested-repository';
-      dir = path.dirname(dir);
+// Bootstrap proofs live in the main checkout, outside the disposable tree, and bind both
+// its path and .git-file identity. A copied/stale proof cannot authorize a replacement tree.
+function bootstrapFiles(wt, mainWt) {
+  try {
+    const id = createHash('sha256').update(wt).digest('hex');
+    const file = path.join(mainWt, '.pandacorp/run/worktrees', `bootstrap-${id}.json`);
+    if (real(file) !== file || !lstatSync(file).isFile()) return {};
+    const data = JSON.parse(readFileSync(file, 'utf8'));
+    const st = lstatSync(path.join(wt, '.git'));
+    const gd = git(wt, ['rev-parse', '--absolute-git-dir']);
+    if (!st.isFile() || data.producer !== 'worktree-bootstrap' || data.version !== 1 || data.path !== wt ||
+        data.identity !== `${st.dev}:${st.ino}:${st.birthtimeMs}` || !gd.ok || data.gitdir !== real(gd.out) ||
+        !data.generated_files || typeof data.generated_files !== 'object' || Array.isArray(data.generated_files)) return {};
+    return Object.fromEntries(Object.entries(data.generated_files).filter(([name, hash]) =>
+      /^(?:\.claude\/launch\.json|(?:[^/]+\/)?(?:e2e\/server-env\.json|\.env\.local))$/.test(name) &&
+      typeof hash === 'string' && /^[a-f0-9]{64}$/.test(hash)));
+  } catch { return {}; } // No provenance is never permission to discard a hidden difference.
+}
+const protectedRelative = name => /(^|\/)(\.git|\.pandacorp)(\/|$)|(^|\/)factory\/(ideas|memory|profile\.md|portfolio\.md)(\/|$)/.test(name);
+function hashMatches(wt, name, expected) {
+  if (typeof expected !== 'string' || !/^[a-f0-9]{64}$/.test(expected)) return false;
+  const file = path.resolve(wt, name);
+  return within(file, wt) && file !== wt && !protectedRelative(name) && real(file) === file && lstatSync(file).isFile() &&
+    createHash('sha256').update(readFileSync(file)).digest('hex') === expected;
+}
+
+// ONE dirty/hidden/protected-state predicate for ALL worktrees, used by sweep and finish.
+// Session receipts can prove ignored generated outputs; hidden tracked differences additionally
+// require the bootstrap's own provenance. Index concealment flags alone authorize nothing.
+function worktreeCleanReason(wt, { bootstrap = {}, generated = {} } = {}) {
+  try {
+    const files = git(wt, ['ls-files', '-v', '-z']);
+    if (!files.ok) return 'status-unreadable';
+    for (const row of files.out.split('\0').filter(row => /^[a-zS] /.test(row))) {
+      const name = row.slice(2), file = path.join(wt, name);
+      if (!existsSync(file) || !lstatSync(file).isFile() || real(file) !== file) return 'masked-tracked-change';
+      const hash = git(wt, ['hash-object', '--no-filters', '--', name]);
+      const head = git(wt, ['rev-parse', '--verify', `HEAD:${name}`]);
+      if (!hash.ok || !head.ok) return 'masked-tracked-change';
+      if (hash.out !== head.out && !(row.startsWith('S ') && hashMatches(wt, name, bootstrap[name]))) return 'masked-tracked-change';
     }
-  }
-  const gd = git(wt, ['rev-parse', '--absolute-git-dir']);
-  const common = git(wt, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
-  if (!gd.ok || !common.ok) return 'status-unreadable';
-  if (['index.lock', 'HEAD.lock'].some(n => existsSync(path.join(gd.out, n))) || ['index.lock', 'packed-refs.lock'].some(n => existsSync(path.join(common.out, n)))) return 'git-lock';
-  return null;
+    for (const [name, hash] of Object.entries(generated)) {
+      if (!hashMatches(wt, name, hash)) return 'generated-output-changed';
+    }
+    const ignored = git(wt, ['ls-files', '--others', '--ignored', '--exclude-standard', '-z']);
+    if (!ignored.ok) return 'status-unreadable';
+    const caches = /(^|\/)(node_modules|\.next|\.next-fidelity|dist|build|coverage|\.cache|\.turbo|test-results)(\/|$)/;
+    for (const name of ignored.out.split('\0').filter(Boolean)) {
+      // In particular, .pandacorp/run in an ordinary worktree is owner state too.
+      if (protectedRelative(name)) return 'owner-state';
+      if (!caches.test(name) && !hashMatches(wt, name, bootstrap[name]) && !hashMatches(wt, name, generated[name])) return 'unclassified-ignored-files';
+      const file = path.join(wt, name);
+      let dir = lstatSync(file).isDirectory() ? file : path.dirname(file);
+      while (dir !== wt && within(dir, wt)) {
+        if (existsSync(path.join(dir, '.git')) || ['HEAD', 'objects', 'refs', 'config'].every(n => existsSync(path.join(dir, n)))) return 'nested-repository';
+        dir = path.dirname(dir);
+      }
+    }
+    const gd = git(wt, ['rev-parse', '--absolute-git-dir']);
+    const common = git(wt, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
+    if (!gd.ok || !common.ok) return 'status-unreadable';
+    if (['index.lock', 'HEAD.lock'].some(n => existsSync(path.join(gd.out, n))) || ['index.lock', 'packed-refs.lock'].some(n => existsSync(path.join(common.out, n)))) return 'git-lock';
+    return null;
+  } catch { return 'status-unreadable'; }
 }
 
 /** Remove only regular manifest files with an absolute path proven absent. Never follow symlinks. */
@@ -239,7 +272,7 @@ function hoursSince(file) {
   try { return Math.max(0, Math.floor((Date.now() - statSync(file).mtimeMs) / 3_600_000)); } catch { return Number.POSITIVE_INFINITY; }
 }
 
-export async function scan(repo, selfDir = process.cwd(), alsoList = []) {
+export async function scan(repo, selfDir = process.cwd(), alsoList = [], { generatedFilesByPath = {} } = {}) {
   const top = git(repo, ["rev-parse", "--show-toplevel"]);
   if (!top.ok) throw new Refusal(`not a git repository: ${repo}`);
   const wts = parsePorcelain(must(top.out, ["worktree", "list", "--porcelain"]));
@@ -269,7 +302,7 @@ export async function scan(repo, selfDir = process.cwd(), alsoList = []) {
     const info = commitInfo(mainWt, rev, def);
     const st = git(w.path, ["status", "--porcelain", "--untracked-files=normal"]);
     const uncommitted = st.ok ? st.out.split("\n").filter(Boolean).length : -1;
-    const ownerState = git(w.path, ["ls-files", "-o", "-i", "--exclude-standard", "--", ...OWNER_STATE_SPECS]).out.split("\n").filter((f) => f && !/(^|\/)\.pandacorp\/run\//.test(f));
+    const ownerState = git(w.path, ["ls-files", "-o", "-i", "--exclude-standard", "--", ...OWNER_STATE_SPECS]).out.split("\n").filter(Boolean);
     const nested = allPaths.filter((o) => o !== p && within(o, p));
     const idleHours = Math.min(info.ageHours, hoursSince(path.join(git(w.path, ["rev-parse", "--absolute-git-dir"]).out, "logs", "HEAD")));
     const recent = idleHours < STALE_HOURS && !also.has(w.branch) && !also.has(p);
@@ -278,7 +311,7 @@ export async function scan(repo, selfDir = process.cwd(), alsoList = []) {
     const engineProject = projs.find((pr) => within(p, pr.runDir));
     const engineOwned = Boolean(engineProject) || base.origin.startsWith("build-");
     const engineLive = engineProject ? engineProject.live : engineOwned && anyLive;
-    const engineReason = engine?.eligible ? engineCleanReason(w.path) : null;
+    const dirtyReason = worktreeCleanReason(w.path, { bootstrap: bootstrapFiles(p, mainWt), generated: generatedFilesByPath[p] || {} });
     const item = { ...base, engineOwned: Boolean(engine), engineManaged: Boolean(engine?.managed), head: w.head, ...info, idleHours, uncommitted, ownerState, nested, inUse, stale: idleHours >= STALE_HOURS };
     let decision; let reason;
     if (w.locked) { decision = "protected"; reason = "locked"; }
@@ -291,7 +324,7 @@ export async function scan(repo, selfDir = process.cwd(), alsoList = []) {
     else if (inUse) { decision = "protected"; reason = "in-use"; }
     else if (!procs.ok) { decision = "ask"; reason = "process-check-unavailable"; }
     else if (uncommitted < 0) { decision = "ask"; reason = "status-unreadable"; }
-    else if (engineReason) { decision = "ask"; reason = engineReason; }
+    else if (dirtyReason) { decision = "ask"; reason = dirtyReason; }
     else if (engine?.eligible && uncommitted === 0 && ownerState.length === 0 && nested.length === 0) { decision = "safe"; reason = "finished-run"; }
     else if (info.merged && uncommitted === 0 && ownerState.length === 0 && nested.length === 0) {
       // merged + clean is provably safe for the DATA, but a session idle < STALE_HOURS may still stand on it (a Codex/Claude
@@ -355,11 +388,11 @@ export async function clean(repo, selfDir, { dryRun = false, also = [] } = {}) {
 }
 
 /** Session finish also reclaims terminal engine worktrees, never unrelated sessions or branches. */
-export async function cleanEngineWorktrees(repo, selfDir, { dryRun = false, excluded = [] } = {}) {
-  const inv = await scan(repo, selfDir);
+export async function cleanEngineWorktrees(repo, selfDir, { dryRun = false, excluded = [], generatedFilesByPath = {} } = {}) {
+  const inv = await scan(repo, selfDir, [], { generatedFilesByPath });
   const removed = [], kept = [], failed = [];
   for (const candidate of inv.items.filter(i => i.kind === 'worktree' && i.engineOwned && !excluded.includes(i.path))) {
-    const fresh = await scan(repo, selfDir);
+    const fresh = await scan(repo, selfDir, [], { generatedFilesByPath });
     const item = fresh.items.find(i => i.kind === 'worktree' && i.path === candidate.path);
     if (!item || item.decision !== 'safe') {
       if (item) kept.push({path: item.path, reason: item.reason});

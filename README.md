@@ -1,7 +1,7 @@
 # Pandacorp — 100% AI software factory
 
 Pandacorp is an **AI-operated software factory**: an assembly line where *you* (the owner)
-steer with a few human gates and specialized Claude agents do the rest —
+steer with a few human gates and specialized AI agents do the rest —
 discovering ideas, writing the PRD/FRDs, designing the UI, defining the architecture, building with TDD,
 reviewing and deploying. The process, the standards and the agents live here; **product code
 never does** — each product is born in its own repo, a sibling of this one.
@@ -15,7 +15,8 @@ a collection of skills (`/pandacorp:*`), agents, hooks and templates.
 
 ## Requirements
 
-- [Claude Code](https://www.claude.com/product/claude-code) (CLI, desktop app, web or IDE extension).
+- Claude Code or Codex, plus Node.js 22 or newer for the shared build CLI.
+- Codex activation: [installation and hook trust](plugin/docs/codex-activation.md).
 - `git`. Optional but recommended: `gh` (GitHub CLI) to create the repos for your projects.
 - Optional: [Obsidian](https://obsidian.md/) to view the idea base as a kanban (`ideas.base`).
 
@@ -51,15 +52,18 @@ generic factory into *your* factory.
 | Ask for an idea ranking/recommendation | `/pandacorp:recommend` |
 | Create the project and document the MVP (handoff) | `/pandacorp:spec <idea>` |
 | Adopt an EXISTING external project (brownfield) — run inside it | `/pandacorp:adopt` |
-| Ask a project for ANY change — feature, adjustment or bug (single front door) | `/pandacorp:change` |
+| Build, resume, or implement a feature, adjustment or bug | `/pandacorp:implement` |
 | Sync the portfolio and detect moved cards | `/pandacorp:sync-portfolio` |
 
 `/pandacorp:spec <idea>` is the **handoff**: it creates the project folder/repo (a sibling of the factory)
 and documents the MVP. The following phases are run **inside the project folder**:
 `/pandacorp:design` → `/pandacorp:architecture` → `/pandacorp:implement` → `/pandacorp:release`, and
-`/pandacorp:iterate` for changes at any time.
+`/pandacorp:implement` for subsequent changes. To record work without building it, create a draft
+card in `.pandacorp/inbox/changes/` and validate it with `pandacorp-build.mjs card check <path>`.
+The queue is a file format, not an automatic drain.
 
-The full flow and the rules are in [CLAUDE.md](CLAUDE.md).
+The full flow and the rules are in [AGENTS.md](AGENTS.md). `CLAUDE.md` is its one-line import shim.
+Both runtimes use the [shared build CLI](plugin/docs/build-engine-cli.md); no engine keyword is needed.
 
 ## Mission Control
 
@@ -85,7 +89,8 @@ panda-corp/
 ├── mission-control/                       the visual interface (Next.js, read-only)
 ├── docs/                          vision, research and proposals (the design rationale)
 ├── DECISION-LOG.md                    index of decision logs
-└── CLAUDE.md                      the factory's operating constitution
+├── AGENTS.md                      canonical instructions for every runtime
+└── CLAUDE.md                      one-line import of AGENTS.md
 ```
 
 ## Making it yours / privacy

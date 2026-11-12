@@ -4,6 +4,8 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { notify } from "../notify.mjs";
 import { readJson } from "../fsx.mjs";
+import { reviewRange } from "../review/range.mjs";
+import { readDeferred } from "../deferred.mjs";
 import { REVIEW_TYPE_KINDS, fencedTwoPhase, findUnit } from "../state.mjs";
 import { dispatchOf } from "../workers.mjs";
 import { AGENT_TYPE, ENV_INFRA_STOP, G2_SCRIPT, VERB_ES } from "./constants.mjs";
@@ -205,7 +207,8 @@ async function prepareGrant(run, current, g) {
   let worktree = null;
   let branch = null;
   if (unit.kind !== "doubt-consult") {
-    if (["build", "patch"].includes(unit.kind) && unit.wos.length) {
+    const gateFailure = unit.kind === "patch" ? await readJson(path.join(paths.unitDir(unit.id), "gate-failure.json"), { fs: d.fs }) : null;
+    if (["build", "patch"].includes(unit.kind) && unit.wos.length && gateFailure?.attributed !== false) {
       await (await sibling(d, "integrate", "transitionWorkOrders"))({ integration: current.integration, runId: current.run_id, wos: unit.wos, to: "IN_PROGRESS", reason: "dispatch", unitId: unit.id }, { ...d, project: ref.project });
     }
     // Work built on an assumption forks from (and integrates into) lane/<run_id>/assume-<doubt> (BUILD-12).
@@ -238,7 +241,10 @@ async function prepareGrant(run, current, g) {
 /** Extra brief sections: the review routing facts, and the default each pending reversible answer runs on (D19). */
 async function briefExtra(run, state, g) {
   const extra = {};
-  if (g.review) extra.review = g.review;
+  if (g.review || g.unit.kind === "audit") {
+    const entry = g.review?.deferred_entry ? (await readDeferred(run.ref.project, run.d)).find((e) => e.id === g.review.deferred_entry) : null;
+    extra.review = { ...g.review, range: entry?.sha_range ?? await reviewRange({ state, review: g.unit }, run.d), scopeLens: Boolean(state.scope?.card) };
+  }
   if (g.pendingDefault) {
     const q = (await readQuestions(run)).get(g.pendingDefault);
     extra.decision = { question: g.pendingDefault, default_es: q?.default_es ?? null, default_action: q?.default_action ?? null, provisional: true };

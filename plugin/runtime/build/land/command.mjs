@@ -4,18 +4,16 @@ import { nowIso, sha256Hex } from "../fsx.mjs";
 import { resolveInside } from "../paths.mjs";
 import { fencedTwoPhase, upsertJob } from "../state.mjs";
 import { assessBatch, cardCompletedBy, setStatusScalars } from "./batch.mjs";
-import { harvestLandJob } from "./harvest.mjs";
+import { harvestLandJob, prepareLandHarvest } from "./harvest.mjs";
 import {
   MERGE_QUEUE, OUTPUT_TAIL_BYTES, RELEASE_VAR, WO_KINDS, assertCleanWorktree, defaultBranchOf, dropLandingMetadata, err, git, gitOk,
   handbackResult, markerLine, nothing, resolveLandDeps, result,
 } from "./common.mjs";
 
 async function phase1(ctx, d) {
-  const harvest = await harvestLandJob(ctx, d);
-  if (harvest.harvested) return { done: { exit: harvest.exit, output: harvest.output } };
   const state = await ctx.readState();
   if (!state) throw err("INVALID_STATE", "no build/state.json: there is no run to land");
-  if (state.jobs.some((j) => j.kind === "land" && j.state === "running")) return { done: result(0, { result: "running" }) };
+  if (state.jobs.some((j) => j.kind === "land" && j.state === "running")) return { harvest: true };
   if (!["active", "waiting_gate"].includes(state.status)) throw err("INVALID_STATE", `cannot land a run in status ${state.status}`);
   const batch = assessBatch(state);
   if (!batch.complete) return { done: nothing("batch_incomplete") };
@@ -160,8 +158,13 @@ export async function land({ project, epoch, actor = "cli" }, deps = {}) {
   const d = resolveLandDeps(deps);
   return fencedTwoPhase({ project, epoch, actor, deps: d },
     (ctx) => phase1(ctx, d),
-    async (intent, ctx) => (intent.done ? intent.done : rebaseOntoMain(intent, ctx, d)),
-    async (work, intent, ctx) => (intent.done ? work : phase2(work, intent, ctx, d)));
+    async (intent, ctx) => (intent.done ? intent.done : intent.harvest ? prepareLandHarvest(ctx, d) : rebaseOntoMain(intent, ctx, d)),
+    async (work, intent, ctx) => {
+      if (intent.done) return work;
+      if (!intent.harvest) return phase2(work, intent, ctx, d);
+      const harvest = await harvestLandJob(ctx, { ...d, landHarvest: work });
+      return harvest.harvested ? { exit: harvest.exit, output: harvest.output } : result(0, { result: "running" });
+    });
 }
 
 /**
@@ -173,5 +176,7 @@ export async function land({ project, epoch, actor = "cli" }, deps = {}) {
  */
 export async function harvestLand({ project, epoch, actor = "cli" }, deps = {}) {
   const d = resolveLandDeps(deps);
-  return fencedTwoPhase({ project, epoch, actor, deps: d }, (ctx) => harvestLandJob(ctx, d));
+  return fencedTwoPhase({ project, epoch, actor, deps: d }, undefined,
+    (_intent, ctx) => prepareLandHarvest(ctx, d),
+    (prepared, _intent, ctx) => harvestLandJob(ctx, { ...d, landHarvest: prepared }));
 }

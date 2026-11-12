@@ -52,7 +52,7 @@ copy-only note. It removes the v1 inline mode `<select>` (`ModeSelector`).
     value `change:<id>`), and a `CommandBox` reading `/pandacorp:implement <id>` until a target is chosen, then
     `/pandacorp:implement FRD-NN`, `/pandacorp:implement WO-NN-MMM` or `/pandacorp:implement change:<id>` (never
     the mode argument). Clearing the select returns to the placeholder. The selection is view state (no URL key).
-  - «Cambios y decisiones»: the three steps «Pedir un cambio o un bug» `/pandacorp:change`, «Responder una
+  - «Cambios y decisiones»: the three steps «Pedir un cambio o un bug» `/pandacorp:implement`, «Responder una
     decisión pendiente» `/pandacorp:decide`, «Paquete grande o rediseño» `/pandacorp:new-version`, and the note
     «Los comandos se copian para pegarlos en Claude Code. Mission Control nunca los ejecuta.».
 - **Removal (map §6.C item 14):** `_components/mode-selector/**` (`ModeSelector`, the inline mode `<select>` /
@@ -76,7 +76,7 @@ REQ-11-001 to REQ-11-005 (the tab is the picker's home), REQ-04-006 (the Comando
 
 REQ-04-006 is built as the oracle draws the v2 tab (`commandsView` in the frozen prototype, mock section
 `commands`): «Construir un objetivo concreto» (FRD, pending work order and queued-change targets for
-`/pandacorp:implement`) is drawn in every phase and is NOT gated by phase, and `/pandacorp:change`,
+`/pandacorp:implement`) is drawn in every phase and is NOT gated by phase, and `/pandacorp:implement`,
 `/pandacorp:decide` and `/pandacorp:new-version` live in «Cambios y decisiones»; the phase-dependent commands
 appear only in «Siguiente paso» (`workspaceCommands(phase)`). The v1 wording of REQ-04-006 (implement and
 change only in `implementation` / `release`, a CommandsBox below the picker with release/iterate) is the
@@ -172,3 +172,8 @@ Explicit paths for this work order (including removed files):
 - `src/app/projects/[slug]/_components/tab-commands/commands.module.css`
 - `src/app/projects/[slug]/_components/tab-commands/tab-commands.tsx`
 - `src/app/projects/[slug]/_panels/ComandosPanel.tsx`
+
+
+## Day 1 contract supersession (2026-11-12)
+
+This verified work order records the earlier UI delivery. Its build-entry/mode wording is superseded by FRD-02 REQ-02-017, FRD-04 REQ-04-006/019 and FRD-11 REQ-11-007 to -010; it does not certify the replacement. The new command/picker implementation belongs to the MC-CMD batch. See `docs/product/build-engine-v2.md` for pinned producer evidence and integration ownership.

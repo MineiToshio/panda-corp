@@ -24,7 +24,12 @@ The judgment of what is safe is NOT yours to make by eye: a script decides it de
    and legacy `run/{lanes/*,gate-worktree*}` are eligible. Current v2 runs must be `finished` or `stopped`;
    archive roots are eligible unless parked at `waiting_gate`. No live/resumable lease, dirty files,
    owner state, nested worktrees, process cwd, Git lock or worktree lock may remain. Only bootstrap's
-   tracked skip-worktree files (`.claude/launch.json`, root/nested `e2e/server-env.json`) may differ.
+   tracked skip-worktree files (`.claude/launch.json`, root/nested `e2e/server-env.json`) may differ,
+   and only while their SHA-256 matches a bootstrap provenance manifest bound to the worktree's
+   path and `.git` identity. Without provenance, a hidden difference always retains the tree.
+   The same dirty/hidden/protected-state checks apply to ordinary worktrees: `.pandacorp/run`
+   inside them is owner state. Ignored launch/env output is reclaimable only with a matching
+   bootstrap hash or the session producer's recorded hash; later edits invalidate that evidence.
    `build-suspended` and every other protected-state path stay protected. Eligible engine roots count
    as `safe` without a merge/idle requirement; all their branch refs are retained. Stale regular
    `.pandacorp/run/worktrees/*.json` manifests are pruned only when their absolute target is absent;

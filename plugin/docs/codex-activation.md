@@ -49,6 +49,18 @@ Pandacorp fixture: a protected-state delete must be denied; a malformed hook pay
 and a red `.pandacorp/verify.sh` must prevent Stop. Record the installed Codex version and canary output
 before changing the capability matrix from source-certified to live-certified.
 
+## Product builds after activation
+
+Read `AGENTS.md` as the canonical instruction set; `CLAUDE.md` only imports it.
+Use `/pandacorp:implement` and the shared `pandacorp-build.mjs` CLI described in
+[runtime-executors.md](runtime-executors.md). No separate Codex project executor
+is installed. Upgrade the project before its next run and never mix plugin
+versions on a project or upgrade while a build is live.
+
+Source-certified hooks do not prove that hooks fire in every headless worker.
+For launched projects the installed Git pre-push guard is the additional
+backstop; only an explicit owner release order authorizes the release flag.
+
 ## Rollback
 
 Disable or remove only `pandacorp@panda-corp` through the Codex plugin CLI, then start a fresh Codex

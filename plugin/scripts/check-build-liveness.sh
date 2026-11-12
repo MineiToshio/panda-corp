@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pandacorp BUILD LIVENESS — the ONE place the "is a build alive?" rule lives (C2+S7).
-# Both /pandacorp:implement's concurrent-run guard (preflight-implement.sh §6) and
+# Both /pandacorp:implement's concurrent-run guard and
 # /pandacorp:upgrade's active-build guard read liveness through THIS helper, so they can
 # never diverge (the bug this fixes: upgrade used to check only supervisor_heartbeat, so a
 # live build with a dead supervisor but a fresh last_event_at read "not running" and the
@@ -25,14 +25,14 @@ TTL="${BUILD_LIVENESS_TTL:-600}"   # 10-min heartbeat/lock TTL (DR-050 §11 stal
 
 # --- tiny YAML scalar reader (status.yaml is a flat, known key: value shape) -------------------
 # Anchors at line start (so `running:` never matches `run_started_at:`), takes the first hit,
-# strips an inline `# comment`, and unquotes. IDENTICAL to preflight-implement.sh's reader.
+# strips an inline `# comment`, and unquotes.
 _liv_yaml_val() { # $1 file  $2 key
   grep -E "^${2}:" "$1" 2>/dev/null | head -1 \
     | sed -E "s/^${2}:[[:space:]]*//; s/[[:space:]]*#.*$//; s/[[:space:]]*$//; s/^\"//; s/\"$//; s/^'//; s/'$//"
 }
 
 # --- ISO-8601 -> epoch seconds (UTC), tolerant of fractional seconds + BSD/GNU date ------------
-# IDENTICAL to preflight-implement.sh's converter. Echoes epoch or empty on unparsable input.
+# Echoes epoch or empty on unparsable input.
 _liv_iso_to_epoch() { # $1 iso timestamp; echoes epoch or empty
   local ts="${1:-}"
   [ -n "$ts" ] || { echo ""; return; }

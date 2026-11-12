@@ -130,6 +130,69 @@ check "APPEND >> to state is safe"         0 "$fx" "echo hi >> myapp/.pandacorp/
 check "redirect to a normal build file"    0 "$fx" "node gen.js > src/out.txt"
 check "git stash push"                     0 "$fx" "git stash push -m wip"
 check "git stash pop"                      0 "$fx" "git stash pop"
+echo "== AGFIX: complete literal text writes =="
+check "AGFIX allow: printf review text" 0 "$fx" "printf '%s\\n' 'Review rm -rf and find -delete.' > /tmp/x.txt"
+check "AGFIX allow: echo review text" 0 "$fx" "echo 'Review rm -rf and find -delete.' > '/tmp/x.txt'"
+check "AGFIX allow: quoted heredoc before redirect" 0 "$fx" "cat <<'EOF' > /tmp/x.txt
+Mention rm -rf in the review.
+EOF"
+check "AGFIX allow: quoted redirect before heredoc" 0 "$fx" "cat > '/tmp/x.txt' <<'EOF'
+Mention rm -rf in the review.
+EOF"
+check "AGFIX allow: double quoted heredoc delimiter" 0 "$fx" 'cat <<"EOF" > /tmp/x.txt
+Mention rm -rf and find -delete.
+EOF'
+check "AGFIX block: printf executable substitution" 2 "$fx" "printf '%s\\n' \"\$(rm -rf ~)\" > /tmp/x.txt"
+check "AGFIX block: printf backtick substitution" 2 "$fx" "printf '%s\\n' \`rm -rf ~\` > /tmp/x.txt"
+check "AGFIX block: echo followed by a command" 2 "$fx" "echo 'Review rm -rf.' > /tmp/x.txt; rm -rf ~"
+check "AGFIX block: unquoted heredoc expands" 2 "$fx" 'cat <<EOF > /tmp/x.txt
+$(rm -rf ~)
+EOF'
+for interpreter in bash sh python3 node; do
+  check "AGFIX block: heredoc fed to $interpreter" 2 "$fx" "$interpreter <<'EOF' > /tmp/x.txt
+rm -rf ~
+EOF"
+done
+check "AGFIX block: executable heredoc redirect" 2 "$fx" "cat <<'EOF' > \"\$(rm -rf ~)\"
+review
+EOF"
+check "AGFIX block: command after terminator" 2 "$fx" "cat <<'EOF' > /tmp/x.txt
+Review rm -rf.
+EOF
+rm -rf ~"
+check "AGFIX block: pipeline after heredoc" 2 "$fx" "cat <<'EOF' > /tmp/x.txt | sh
+rm -rf ~
+EOF"
+check "AGFIX block: mismatched delimiter quotes" 2 "$fx" "cat <<'EOF\" > /tmp/x.txt
+rm -rf ~
+EOF"
+check "AGFIX block: quoted redirect truncates protected state" 2 "$fx" "printf '%s' 'Review rm -rf.' > '$fx/factory/memory/_inbox.md'"
+
+echo "== AGFIX: internal plumbing errors fail closed =="
+# A regular file cannot host shell here-string temporaries, including when tests run as root.
+bad_tmp="$fx/not-a-directory"
+printf 'not a directory\n' > "$bad_tmp"
+for command in 'git -C . push --force origin main' 'rm -rf ~' 'git status'; do
+  # Re-evaluate under the fault rather than relying on the policy's ordinary rejection.
+  rc=$(TMPDIR="$bad_tmp" run_gate "$fx" "$command")
+  if [ "$rc" = 2 ]; then echo "  ✓ AGFIX TMPDIR failure: $command"; pass=$((pass+1)); else echo "  ✗ AGFIX TMPDIR failure: $command (got $rc)"; fail=$((fail+1)); fi
+done
+rm "$bad_tmp"
+# Real helper faults must not look like a harmless no-match inside a conditional pipeline.
+fault_bin="$fx/fault-bin"
+mkdir "$fault_bin"
+for helper in awk sed tr; do
+  printf '#!/bin/bash\nexit 7\n' > "$fault_bin/$helper"
+  chmod +x "$fault_bin/$helper"
+  rc=$(PATH="$fault_bin:$PATH" run_gate "$fx" "rm -rf node_modules")
+  if [ "$rc" = 2 ]; then echo "  ✓ AGFIX helper failure: $helper"; pass=$((pass+1)); else echo "  ✗ AGFIX helper failure: $helper (got $rc)"; fail=$((fail+1)); fi
+  rm "$fault_bin/$helper"
+done
+rmdir "$fault_bin"
+printf -v large_note '%180000s' x
+check "AGFIX block: long recursive-delete input cannot hide behind SIGPIPE" 2 "$fx" "rm -rf ~
+echo '$large_note'"
+unset large_note
 echo "== BL-0120: quoted '>' / non-protected redirect targets must not false-positive =="
 check "redirect to /dev/null"              0 "$fx" 'bash plugin/scripts/validate-backlog.sh >/dev/null 2>&1; echo "done"'
 check "quoted email trailer in commit msg" 0 "$fx" 'git commit -m "Fix thing" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"'

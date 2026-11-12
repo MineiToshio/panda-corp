@@ -318,7 +318,11 @@ export function buildSummary(input, deps = {}) {
   return {
     run_id: state.run_id,
     status: state.status,
-    need_from_owner: open.map((q) => `${sentence(q.text_es)} Si no respondes: ${q.default_es ?? "nada cambia"}.`),
+    need_from_owner: [
+      ...open.map((q) => `${sentence(q.text_es)} Si no respondes: ${q.default_es ?? "nada cambia"}.`),
+      ...unique(asArray(input.events).filter((e) => e.type === "engine_failure" && e.data?.backlog_draft).map((e) => e.data.backlog_draft))
+        .map((file) => `Revisa el borrador local del fallo del motor: ${file}. Está pendiente de llevar a la fábrica.`),
+    ],
     decided_without_owner: decidedWithoutOwner(input.doubts, state.run_id, input.events),
     parked: parkedItems(state, input.doubts, input.events),
     reviews,

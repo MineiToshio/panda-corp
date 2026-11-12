@@ -18,6 +18,43 @@ COMMON_DIR="$(cd "$(git rev-parse --git-common-dir)" && pwd)"
 MAIN_WT="$(dirname "$COMMON_DIR")"                       # the .git's parent = the main checkout
 SLUG="$(echo "$BRANCH" | tr '/' '-' | tr -cd '[:alnum:]-')"
 
+# DSWEEP2: provenance is outside the disposable tree and bound to its .git-file identity.
+# Capture bytes immediately after each producer, before project hooks or later owner edits.
+BOOTSTRAP_ID="$(printf '%s' "$WORKTREE" | shasum -a 256 | awk '{print $1}')"
+BOOTSTRAP_MANIFEST="$MAIN_WT/.pandacorp/run/worktrees/bootstrap-$BOOTSTRAP_ID.json"
+BOOTSTRAP_FILES=()
+bootstrap_record_output() {
+  local relative="${1#"$WORKTREE"/}"
+  local hash
+  hash="$(shasum -a 256 "$1" | awk '{print $1}')"
+  BOOTSTRAP_FILES+=("$relative" "$hash")
+}
+# A PORT-only rewrite must not bless pre-existing owner changes in other fields. Missing proof
+# permits recording only committed input; an earlier proof permits exactly its recorded bytes.
+bootstrap_owned_input() {
+  node --input-type=module - "$WORKTREE" "$1" "$BOOTSTRAP_MANIFEST" <<'NODE'
+import {createHash} from 'node:crypto';
+import {readFileSync,lstatSync,realpathSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import path from 'node:path';
+const [root,file,manifest]=process.argv.slice(2);
+let owned=false;
+try {
+  const hash=b=>createHash('sha256').update(b).digest('hex');
+  if(!lstatSync(file).isFile()||realpathSync(file)!==file) throw new Error('Not an owned regular output');
+  const name=path.relative(root,file), bytes=readFileSync(file);
+  const head=spawnSync('git',['show',`HEAD:${name}`],{cwd:root});
+  owned=head.status===0&&hash(bytes)===hash(head.stdout);
+  if(!owned&&realpathSync(manifest)===manifest) {
+    const proof=JSON.parse(readFileSync(manifest,'utf8')), st=lstatSync(path.join(root,'.git'));
+    owned=proof.producer==='worktree-bootstrap'&&proof.version===1&&proof.path===root&&
+      proof.identity===`${st.dev}:${st.ino}:${st.birthtimeMs}`&&proof.generated_files?.[name]===hash(bytes);
+  }
+} catch { /* Unknown input is retained by cleanup, even if bootstrap can rewrite PORT. */ }
+process.exitCode=owned?0:1;
+NODE
+}
+
 echo "▸ bootstrapping worktree $BRANCH"
 
 # ── 0. Project dir resolution — Mission Control lives NESTED inside the factory's own repo (shares
@@ -94,7 +131,10 @@ fi
 # ── 2. launch.json on autoPort — gitignored, so copy the main one and flip ephemeral ports ──────────
 # Every app server in the worktree runs on an OS-assigned port (autoPort), named *-<slug>, so N parallel
 # worktrees never collide on a fixed port. The main checkout keeps its reserved ports untouched.
-if [ -f "$MAIN_WT/.claude/launch.json" ] && command -v jq >/dev/null 2>&1; then
+# Reuse may refresh known outputs, but must not overwrite or certify later owner edits.
+if [ -f "$MAIN_WT/.claude/launch.json" ] && command -v jq >/dev/null 2>&1 && {
+  { [ ! -e "$WORKTREE/.claude/launch.json" ] && [ ! -L "$WORKTREE/.claude/launch.json" ]; } || bootstrap_owned_input "$WORKTREE/.claude/launch.json";
+}; then
   echo "  • launch.json → autoPort (name suffix -$SLUG)"
   mkdir -p "$WORKTREE/.claude"
   jq --arg s "$SLUG" '
@@ -117,6 +157,7 @@ if [ -f "$MAIN_WT/.claude/launch.json" ] && command -v jq >/dev/null 2>&1; then
   if git -C "$WORKTREE" ls-files --error-unmatch .claude/launch.json >/dev/null 2>&1; then
     git -C "$WORKTREE" update-index --skip-worktree .claude/launch.json 2>/dev/null || true
   fi
+  bootstrap_record_output "$WORKTREE/.claude/launch.json"
   if [ -n "${PANDACORP_CLEANUP_SESSION:-}" ]; then
     bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/session-cleanup.sh" register --session "$PANDACORP_CLEANUP_SESSION" --worktree "$WORKTREE" --generated-file .claude/launch.json
   fi
@@ -160,6 +201,8 @@ if [ "$WORKTREE" != "$MAIN_WT" ] && [ -n "$APP_DIR" ] && [ -f "$SERVER_ENV_FILE"
     done
   fi
   echo "  • e2e/server-env.json PORT → $E2E_PORT (worktree-derived, BL-0154)"
+  SERVER_ENV_PROVEN=0
+  if bootstrap_owned_input "$SERVER_ENV_FILE"; then SERVER_ENV_PROVEN=1; fi
   TMP_SERVER_ENV="$(mktemp "$SERVER_ENV_FILE.XXXXXX")"
   # BL-0288: PORT-only (BL-0154); numeric JSON PORT is supported via tostring. Do NOT move
   # port-derived URLs: some are data identity. funko-tracker's ORACLE_MEDIA_BASE_URL matches
@@ -168,6 +211,7 @@ if [ "$WORKTREE" != "$MAIN_WT" ] && [ -n "$APP_DIR" ] && [ -f "$SERVER_ENV_FILE"
   # Failed jq preserves the input and removes mktemp debris before bootstrap continues.
   if jq --arg p "$E2E_PORT" '.PORT = ($p | tostring)' "$SERVER_ENV_FILE" > "$TMP_SERVER_ENV"; then
     mv "$TMP_SERVER_ENV" "$SERVER_ENV_FILE"
+    [ "$SERVER_ENV_PROVEN" != 1 ] || bootstrap_record_output "$SERVER_ENV_FILE"
   else
     rm -f "$TMP_SERVER_ENV"
   fi
@@ -201,9 +245,12 @@ fi
 #   caveat above) instead of main's real portfolio, unless the owner overrides PANDACORP_FACTORY_ROOT by
 #   hand — never reading another session's in-flight state is worth that inconvenience.
 if [ -n "$APP_DIR" ] && { grep -q '"name": *"pandacorp"' "$WORKTREE/package.json" 2>/dev/null \
-   || [ -d "$WORKTREE/../factory" ] || [ -d "$WORKTREE/factory" ]; }; then
+   || [ -d "$WORKTREE/../factory" ] || [ -d "$WORKTREE/factory" ]; } && {
+  { [ ! -e "$APP_DIR/.env.local" ] && [ ! -L "$APP_DIR/.env.local" ]; } || bootstrap_owned_input "$APP_DIR/.env.local";
+}; then
   echo "  • PANDACORP_FACTORY_ROOT → $WORKTREE ($APP_DIR/.env.local, gitignored, BL-0160: this worktree's own nested factory)"
   echo "PANDACORP_FACTORY_ROOT=$WORKTREE" > "$APP_DIR/.env.local"
+  bootstrap_record_output "$APP_DIR/.env.local"
   if [ -n "${PANDACORP_CLEANUP_SESSION:-}" ]; then
     cleanup_env_rel="${APP_DIR#"$WORKTREE"/}/.env.local"
     [ "$APP_DIR" != "$WORKTREE" ] || cleanup_env_rel=".env.local"
@@ -220,15 +267,23 @@ fi
 # ── 5. Manifest entry (DR-096 §7) — written to the MAIN checkout so every session + MC can read it ──
 MANIFEST_DIR="$MAIN_WT/.pandacorp/run/worktrees"
 mkdir -p "$MANIFEST_DIR"
-cat > "$MANIFEST_DIR/$SLUG.json" <<EOF
-{
-  "branch": "$BRANCH",
-  "path": "$WORKTREE",
-  "slug": "$SLUG",
-  "started_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "task": "${PANDACORP_WORKTREE_TASK:-}"
-}
-EOF
+node --input-type=module - "$WORKTREE" "$BRANCH" "$SLUG" "${PANDACORP_WORKTREE_TASK:-}" "$BOOTSTRAP_MANIFEST" ${BOOTSTRAP_FILES[@]+"${BOOTSTRAP_FILES[@]}"} <<'NODE'
+import {lstatSync,realpathSync,writeFileSync,renameSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import path from 'node:path';
+const [root,branch,slug,task,manifest,...pairs]=process.argv.slice(2);
+const st=lstatSync(path.join(root,'.git'));
+const gd=spawnSync('git',['rev-parse','--absolute-git-dir'],{cwd:root,encoding:'utf8'});
+if(gd.status!==0) throw new Error('Cannot resolve bootstrap worktree identity');
+const generated_files={};
+for(let i=0;i<pairs.length;i+=2) generated_files[pairs[i]]=pairs[i+1];
+const data={version:1,producer:'worktree-bootstrap',branch,path:root,slug,task,
+  started_at:new Date().toISOString(),identity:`${st.dev}:${st.ino}:${st.birthtimeMs}`,
+  gitdir:realpathSync(gd.stdout.trim()),generated_files};
+const temporary=`${manifest}.${process.pid}.tmp`;
+writeFileSync(temporary,JSON.stringify(data,null,2),{flag:'wx',mode:0o600});
+renameSync(temporary,manifest);
+NODE
 
 echo "▸ worktree ready. Other active worktrees:"
 ls "$MANIFEST_DIR" 2>/dev/null | sed 's/\.json$//' | sed 's/^/    - /' || true

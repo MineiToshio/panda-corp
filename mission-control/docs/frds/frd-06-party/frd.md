@@ -8,12 +8,12 @@ implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-06-party/mocks/party.html
-last_updated: '2026-10-22'
+last_updated: '2026-11-12'
 floor: false
 ---
 # FRD-06 — La Fragua (live build view; formerly the Party tab)
 
-A faithful view of the **build** as the v2 engine runs it, shown as the **main scene of the project's Resumen** (FRD-04). There is no Party tab. The scene has **four stations** (Cola · Taller · Revisión · Bóveda) that hold one **token** per work order, placed by the work order's authoritative frontmatter state; the build agent is a generalist `implementer` orchestrated FRD by FRD by a deterministic script (Dynamic Workflows, DR-013), not a team of specialists chatting live. All communication is by document (the `## Status Note`), never live peer chat. The scene is read-only over the factory.
+A faithful view of the **build** as the v2 engine runs it, shown as the **main scene of the project's Resumen** (FRD-04). There is no Party tab. The scene has **four stations** (Cola · Taller · Revisión · Bóveda) that hold one **token** per work order, placed by the shared durable/live work-order model (FRD-05 REQ-05-009); the runtime-neutral CLI dispatches runtime-local units with models and parallelism selected by the engine. All communication is by document (the `## Status Note`), never live peer chat. The scene is read-only over the factory.
 
 > **Design freeze amendment (2026-10-22, S2.2).** The sprite-per-work-order scene (rooms Forja → Tribunal → Bóveda, parchment, relay, flow strip, bitácora, campamento) was replaced by the approved four-station La Fragua (Órbita iterations 19, 21, 24, 26; contradiction C-08 of `docs/design/freeze/reconciliation.md`). Retired criteria keep their ids in the table below so traceability is preserved; the new behaviour is REQ-06-020. The role/colour set is owned by FRD-13; the pipeline view (La Campaña) by FRD-02.
 
@@ -44,13 +44,13 @@ Stable IDs (DR-049): `REQ-06-MMM` → `AC-06-MMM.K`. The blueprint maps each REQ
 
 ### REQ-06-001 — Stations follow the authoritative state
 - **AC-06-001.5:** WHERE an event's work-order field (`wo`) carries **the FRD id itself** (`frd-NN-<slug>`) instead of a real work-order id — emitted for **FRD-level activity** (an agent working the feature as a whole, before/between its work orders) — THE system SHALL NOT treat it as a work order: it spawns **no token**, is **not** added to any station and does **not** inflate any count. Only real work-order ids are work orders in the scene.
-- **AC-06-001.6:** THE station of each work order SHALL agree with the **authoritative work-order state** the Observabilidad views show — the frontmatter `implementation_status` read by `listWorkOrders` (the SAME source, DR-092 single source for derived state), NOT a second derivation: `PLANNED` → **Cola**; `IN_PROGRESS`, `BLOCKED` and `fail` → **Taller** (a blocked or failed work order keeps its token in Taller, drawn with the coral danger token, as `fragua-real` shows for a Bloqueado order); `IN_REVIEW` → **Revisión**; `VERIFIED` → **Bóveda**. The event stream drives only **liveness**; the frontmatter decides the structure. WHEN a gate sends a work order back (`IN_REVIEW → PLANNED`, a `wo_reopen` event), THE scene SHALL move its token back to Cola; a moved `stateVersion` in the SSE frame (a backward transition emits no event) SHALL also refresh the scene.
+- **AC-06-001.6:** THE station of each work order SHALL agree with the **authoritative work-order state** the Observabilidad views show — the shared durable/live model of FRD-05 REQ-05-009 (the SAME source, never a second derivation); without a v2 overlay it uses frontmatter `implementation_status`: `PLANNED` → **Cola**; `IN_PROGRESS`, `BLOCKED` and `fail` → **Taller** (a blocked or failed work order keeps its token in Taller, drawn with the coral danger token, as `fragua-real` shows for a Bloqueado order); `IN_REVIEW` → **Revisión**; `VERIFIED` → **Bóveda**. The event stream triggers refresh; the shared model decides structure and the matching lease/run decides v2 liveness. WHEN a gate sends a work order back (`IN_REVIEW → PLANNED`, a `wo_reopen` event), THE scene SHALL move its token back to Cola; a moved `stateVersion` in the SSE frame (a backward transition emits no event) SHALL also refresh the scene.
 
 ### REQ-06-002 — Token card
 - **AC-06-002.3:** WHEN a token is hovered or focused, THE system SHALL show a card with the work order's **code, state, title and FRD** (see AC-06-020.4).
 
 ### REQ-06-011 — Feeds off real events, read-only, no Claude
-- **AC-06-011.1:** THE system SHALL feed liveness off `AgentWorking` events carrying `{role, wo, frd, phase, activity, mode}` — plus the engine's `gate`/`achievement`/`wo_commit` lines — read from `~/.claude/dashboard-events.ndjson` via `lib/events.ts`, **without calling Claude** (read-only).
+- **AC-06-011.1:** THE system SHALL feed liveness off `AgentWorking` events carrying `{role, wo, frd, phase, activity, mode}` — plus the engine's `gate`/`achievement`/`wo_commit` lines — read from the Claude/Codex transports through the shared vocabulary (see REQ-06-021), **without calling Claude** (read-only).
 - **AC-06-011.2:** (amended 2026-10-22, v2 reconciliation) WHEN an event omits the optional enriched fields (`frd`, `phase`, `activity`, `mode`), THE system SHALL still render gracefully (backward compatibility), falling back to defaults rather than throwing. An event whose `frd` is an **empty string** (FRD-less activity, e.g. the visual-qa pass) or **composite** (several ids joined by comma, a run-level event) SHALL never become the project's current FRD or work order as La Fragua (in the project Resumen) draws it.
 - **AC-06-011.3:** THE event tail SHALL be **scoped to the project** (the emitter's `basename $PWD`) with the filter applied **BEFORE the tail cap** (`readEvents({project})`, same for the SSE `?project=`), so neither another project's build nor any session's hook noise (`SubagentStop`/`SupervisorTick` fire from EVERY Claude conversation) can leak into the scene or crowd this project's events out of the 200-event tail.
 
@@ -63,7 +63,7 @@ Stable IDs (DR-049): `REQ-06-MMM` → `AC-06-MMM.K`. The blueprint maps each REQ
 - **AC-06-013.1:** WHILE **no build is running** (derived from real state), THE system SHALL render the scene idle, with the line "El equipo descansa: no hay un build corriendo.", never a blank screen or a crash.
 - **AC-06-013.2:** THE factory-off state SHALL be **derived from real state**, NOT toggled by any control. (The command that starts a build is carried by the Resumen's "Siguiente paso", FRD-04 AC-04-014.3, not by an overlay line in the scene.)
 - **AC-06-013.3:** WHEN a build becomes active again (events resume), THE system SHALL leave the factory-off state and show "El equipo está trabajando: hay un build corriendo." automatically.
-- **AC-06-013.4:** THE "is a build running" signal SHALL be the project's **authoritative `running` flag from `status.yaml`**, NOT mere presence of events. The event ndjson retains the LAST build's events indefinitely, so when `running` is `false` THE system SHALL render the idle state even though a stale event tail is present. A build that EXISTS but is off SHALL still render its stations with their tokens, NOT the never-built state (AC-06-020.5).
+- **AC-06-013.4:** THE "is a build running" signal SHALL be the shared lease/run resolver of FRD-04 REQ-04-017, never event presence or main's `running` flag alone. A fresh matching active v2 lease enables live cues even with `running: false`; a terminal run remains idle even with an old event tail. A build that EXISTS but is off SHALL still render its stations with their tokens, NOT the never-built state (AC-06-020.5).
 
 ### REQ-06-014 — Reduced motion
 - **AC-06-014.1:** WHEN `prefers-reduced-motion` is set, THE system SHALL disable ALL La Fragua animation (crews, courier), while keeping the scene readable.
@@ -72,15 +72,15 @@ Stable IDs (DR-049): `REQ-06-MMM` → `AC-06-MMM.K`. The blueprint maps each REQ
 - **AC-06-018.5:** WHEN `prefers-reduced-motion` is set, THE liveness cues of AC-06-020.6 SHALL be disabled, each falling back to a sensible **static** state that still communicates "active" — liveness is softened, never reduced to a dead or blank scene.
 
 ### REQ-06-019 — Freshness (DR-066)
-- **AC-06-019.7:** THE project's build state SHALL declare its own freshness, never trusting the `running` flag alone (DR-066): WHILE `running` is true and the freshest of the supervisor heartbeat (`status.yaml`) and the latest event is older than the freshness TTL, THE scene, the Inicio card (FRD-18) and the Portafolio card (FRD-03) SHALL replace "Construyendo" with **"Sin señal · último evento hace N"** (state `build-no-signal`, M1 2026-10-22); WHILE the signal is fresh they read as live. The live shell SHALL refresh its RSC-derived structure when the SSE frame's `stateVersion` moves (a build advancing state without emitting an event must not read as dead). The badge is `data-volatile` (DR-088).
+- **AC-06-019.7:** THE project's build state SHALL declare its own freshness, never trusting the `running` flag alone (DR-066): WHILE the v2 run is active and its lease has expired (legacy-only builds use supervisor/event freshness), THE scene, the Inicio card (FRD-18) and the Portafolio card (FRD-03) SHALL replace "Construyendo" with **"Sin señal · último evento hace N"** (state `build-no-signal`, M1 2026-10-22); WHILE the signal is fresh they read as live. The live shell SHALL refresh its RSC-derived structure when the SSE frame's `stateVersion` moves (a build advancing state without emitting an event must not read as dead). The badge is `data-volatile` (DR-088).
 
 ### REQ-06-020 — La Fragua as the main scene of the Resumen (added 2026-10-22, design freeze)
 - **AC-06-020.1** — THE Resumen SHALL show the La Fragua scene directly below the upgrade notice (when present) and Siguiente paso, drawn with the always-dark scene tokens in both light and dark themes (there is no Party tab).
 - **AC-06-020.2** — THE scene SHALL state the project verdict as a sentence and a health chip (espera tu decisión, construyendo, en pausa, listo para lanzar or avanzando), and SHALL show a stacked forging bar of verified, review, workshop and queue counts with a text alternative.
-- **AC-06-020.3** — THE scene SHALL show four stations, Cola · Taller · Revisión · Bóveda, each with its count and a sub-label and fixed decorative crews, and SHALL place every work order in the station of its authoritative frontmatter state (AC-06-001.6).
+- **AC-06-020.3** — THE scene SHALL show four stations, Cola · Taller · Revisión · Bóveda, each with its count and a sub-label and fixed decorative crews, and SHALL place every work order in the station of its shared durable/live display state (AC-06-001.6).
 - **AC-06-020.4** — EACH station SHALL show at most 8 work-order tokens (the FRD number over the order number) followed by "+N", and WHEN a token is hovered or focused THE system SHALL show a card with its code, state, title and FRD.
 - **AC-06-020.5** — WHEN a station holds no work, THE scene SHALL draw three dashed slots and its empty message ("Nada por empezar", "Nadie construyendo ahora", "Nada esperando revisión", "Aún nada verificado"); WHEN the project has no work orders at all, THE scene SHALL say "Aún no hay work orders: la escena se llena cuando la arquitectura publique el plan."
-- **AC-06-020.6** — (amended 2026-10-22, v2 reconciliation) WHILE the project's build is live, meaning its `running` flag is true AND its signal is fresh (DR-066, AC-06-019.7), THE scene SHALL animate the crews and a courier that walks a gold route between the first and last stations holding work; WHILE the build is not running, or is running without a fresh signal ("Sin señal"), the scene SHALL stay idle.
+- **AC-06-020.6** — (amended 2026-10-22, v2 reconciliation) WHILE the project's build is live, meaning the shared FRD-04 resolver reports a matching active run and fresh lease (legacy-only fallback as specified there) (DR-066, AC-06-019.7), THE scene SHALL animate the crews and a courier that walks a gold route between the first and last stations holding work; WHILE the build is not running, or is running without a fresh signal ("Sin señal"), the scene SHALL stay idle.
 - **AC-06-020.7** — THE scene SHALL end with chips for what is left ("Faltan N", "Falta 1", or "Todo forjado"), the open changes ("N cambios abiertos") and the last movement ("Último movimiento hace …").
 - **AC-06-020.8** — WHERE the viewport is narrower than 900 px, THE scene SHALL stack one station per row.
 
@@ -90,8 +90,8 @@ Stable IDs (DR-049): `REQ-06-MMM` → `AC-06-MMM.K`. The blueprint maps each REQ
 - A FRD-level event (`wo` = the FRD id): no token, no count change (AC-06-001.5).
 - A work order `BLOCKED` or failed mid-build sits in Taller with the coral danger token, never in Cola (AC-06-001.6); its failure also shows in Observabilidad as "Bloqueado" (FRD-05 REQ-05-002).
 - More than 8 work orders in a station: 8 tokens and "+N" (AC-06-020.4); the full list is in Observabilidad.
-- `running` true but the signal stale: "Sin señal · último evento hace N" instead of "Construyendo" (AC-06-019.7).
-- `running` false with a stale event tail: idle scene, no live cue (AC-06-013.4).
+- Active run but its lease expired: "Sin señal · último evento hace N" instead of "Construyendo" (AC-06-019.7).
+- Stopped/finished run with a stale event tail: idle scene, no live cue (AC-06-013.4).
 - Project with a plan that has no work orders yet: the never-built message, all stations empty (AC-06-020.5).
 - Events out of order or an empty latest bucket: the scene degrades to the idle state (AC-06-013.4), never mis-renders.
 
@@ -104,3 +104,12 @@ Stable IDs (DR-049): `REQ-06-MMM` → `AC-06-MMM.K`. The blueprint maps each REQ
 - Any **write / control** of the build: redirecting, pausing or commanding agents happens in the Claude Code app, never here (read-only invariant).
 
 **Sequence reconciliation (2026-10-31).** AC-06-020.1 supersedes the earlier forge-first wording: the approved order is upgrade notice when present, Siguiente paso, La Fragua, then snapshot. La Fragua is the main scene, not the first block.
+
+### REQ-06-021 — Runtime-neutral v2 events (Day 1, 2026-11-12)
+
+Grounding: `plugin/runtime/event-vocabulary.json`, `build/telemetry.mjs`, `build/next/step.mjs` at 540afa2c; field/transport details are in [the shared read contract](../../product/build-engine-v2.md).
+
+- **AC-06-021.1** — WHEN either runtime emits a registered v2 event, THE reader SHALL normalize `review.recorded`, `quota.reading`, `engine.failure`, `autonomous.decision`, `build.handoff`, `build.waiting-gate`, `unit.parked`, `admit.decision` and `build.scaled` as known semantic events, preserving `wo_commit` compatibility through `wo.commit`; project filtering SHALL happen before the tail cap.
+- **AC-06-021.2** — WHEN `build.scaled` (or its `BuildScaled`/`build_scaled` alias) arrives with `{from,to,reason}`, THE UI SHALL identify the step change and reason without interpreting it as a WO completion or changing station counts. Current concurrency SHALL still come from admission state if that best-effort event was missed.
+- **AC-06-021.3** — WHEN no `build_usable` or recent event exists but a valid matching active lease is fresh, THE shared resolver SHALL keep the build live; WHEN the run is terminal, THE scene SHALL remain idle despite old events. A handoff SHALL remain the same run, not a second build or doubled crew.
+- **AC-06-021.4** — WHEN run/admission files move with no event, THE scene SHALL refresh from the same model as Observabilidad, including backwards transitions and explicit waiting/parked reasons; malformed sources SHALL be visible without crashing the scene. Reduced-motion rules SHALL apply to all new live cues.

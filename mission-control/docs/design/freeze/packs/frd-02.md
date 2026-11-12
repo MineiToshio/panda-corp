@@ -1054,7 +1054,7 @@ Extracted from the rendered prototype at 1280 px, light theme (`?demo=off`). The
 - [code] /pandacorp: bug
 - [@aria-label] Copiar /pandacorp:bug
 - [code] /pandacorp: change
-- [@aria-label] Copiar /pandacorp:change
+- [@aria-label] Copiar /pandacorp:implement
 - [p] spec y explore se corren desde la fábrica con el nombre de la idea; el resto, dentro de la carpeta del proyecto.
 - [a] Entrar a La Fragua
 

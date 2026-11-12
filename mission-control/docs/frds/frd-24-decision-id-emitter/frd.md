@@ -5,7 +5,7 @@ title: FRD-24 — Shared decision-id emitter (dedupe Mission Control ↔ the `de
 status: ACTIVE
 implementation_status: VERIFIED
 ui: false
-last_updated: '2026-09-03'
+last_updated: '2026-11-12'
 ---
 # FRD-24 — Shared decision-id emitter (dedupe Mission Control ↔ the `decide` skill)
 
@@ -27,7 +27,7 @@ produce byte-identical id lists. It does **not** touch `plugin/skills/decide/SKI
 lives in the factory repo (`panda-corp`), is out of scope for a Mission Control work order, and is
 tracked as a separate, factory-side follow-up (see Non-goals).
 
-Origin: `factory/backlog/BL-0062` (proposal 33), routed here directly via `/pandacorp:change` per
+Origin: `factory/backlog/BL-0062` (proposal 33), routed here directly via `/pandacorp:implement` per
 `.pandacorp/inbox/changes/decision-id-shared-emitter.md` (worktree-isolated dispatch was ruled out —
 the change queue is gitignored owner state a fresh worktree never materializes).
 
@@ -73,3 +73,7 @@ string instead of a project path. `readDecisions()` becomes a thin wrapper: read
 `parseDecisionBlocks`. A new `scripts/decisions/decision-id-cli.mjs` (reusing the existing
 `scripts/read-model/ts-loader.mjs` resolve hook) reads a `decisions.md` path from argv and prints one
 id per line by calling the same `parseDecisionBlocks`.
+
+## Engine question identifiers (Day 1, 2026-11-12)
+
+WHEN a decision block contains the engine's explicit `- **Id:**` marker, THE shared parser SHALL preserve that identifier verbatim, including when reading `decisions.pending.md`; heading-derived date/legacy IDs SHALL apply only without an explicit identifier. Canonical/mirror merge and resolved-state precedence belong to FRD-04 REQ-04-022. Existing heading-only golden vectors SHALL keep passing. The evidence is `plugin/runtime/build/doubts/texts.mjs`, `doubts/integrationLog.mjs` and `answers/io.mjs` at 540afa2c; the engine's answer lookup keys by the explicit question identifier.

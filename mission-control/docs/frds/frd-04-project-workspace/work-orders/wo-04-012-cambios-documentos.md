@@ -43,7 +43,7 @@ paper at full width, the index on the right from 900 px and behind «Elegir docu
   construcción, Cerrando, Borradores), En construcción and Cerrando never hidden behind the history; done and
   discarded together in one collapsed `details` «Historial N»; each item a `ListRow` (type icon tile, title,
   «slug · fecha · frd», kind chip «Cambio» / «Bug», status chip with its word); «Pedir un cambio» card with
-  `/pandacorp:change`; the `workspace.cambios.empty` sentence when the queue is empty. Renders no `<main>`
+  `/pandacorp:implement`; the `workspace.cambios.empty` sentence when the queue is empty. Renders no `<main>`
   (the shell's `main#content` is the only one).
 - Card date (REQ-04-011): absolute Spanish date («19 oct. 2026») with the raw ISO date as tooltip; an
   unparseable date shown raw in the same slot; through the shared date formatter of the copy layer (ledger
@@ -255,3 +255,8 @@ Round 2 changed files (relative to `mission-control/`):
 - `src/lib/copy/dates.ts`
 - `src/lib/docs/tree.ts`
 - `src/lib/next-step/next-step.ts`
+
+
+## Day 1 contract supersession (2026-11-12)
+
+This verified work order records the earlier UI delivery. Its build-entry/mode wording is superseded by FRD-02 REQ-02-017, FRD-04 REQ-04-006/019 and FRD-11 REQ-11-007 to -010; it does not certify the replacement. The new command/picker implementation belongs to the MC-CMD batch. See `docs/product/build-engine-v2.md` for pinned producer evidence and integration ownership.

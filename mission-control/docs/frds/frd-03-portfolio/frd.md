@@ -7,7 +7,7 @@ implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-03-portfolio/mocks/portfolio.html
-last_updated: '2026-10-22'
+last_updated: '2026-11-12'
 floor: false
 ---
 # FRD-03 — Portfolio and project navigation
@@ -22,7 +22,7 @@ The Portafolio overview lists **every** project, whatever its phase (`product`, 
 ## Acceptance criteria (EARS)
 - **REQ-03-001** — The Portafolio SHALL show an overview of ALL projects, as cards (default) or as a list (REQ-03-008), and SHALL list each project once whatever its phase. The sidebar (FRD-19) lists the five most recent projects.
 - **REQ-03-002** — WHEN a project is re-versioned and returns to `implementation` (building), its card SHALL show the Construcción phase chip and keep its place in the overview.
-- **REQ-03-003** — EACH project card SHALL show its title, its phase and an indicator: "Construyendo" if `running`. **Out of v2 (owner decision 2026-10-21):** a "stopped" indicator on rows when it is not running; in v2 the header says "Sin construcción activa" while no project is building.
+- **REQ-03-003** — EACH project card SHALL show its title, its phase and an indicator: "Construyendo" when the shared FRD-04 REQ-04-017 resolver reports a live active run. **Out of v2 (owner decision 2026-10-21):** a "stopped" indicator on rows when it is not running; in v2 the header says "Sin construcción activa" while no project is building.
 - **REQ-03-004** — **Out of v2 (owner decision 2026-10-21):** EACH project row SHALL show a **pending-decisions count badge** when it has unresolved decisions (count > 0) and a **bugs count badge** when it has bugs awaiting processing (count > 0), so the owner sees what needs attention without opening the workspace. In v2 the rail rows no longer exist; the decisions count is the "Decisiones" column of the Lista view (AC-03-008.2).
 - **REQ-03-005** — WHEN the owner selects a project (a card, a Lista row, a sidebar entry or the picker, AC-03-008.3), the system SHALL show its workspace (FRD-04) taking the full content width.
 - **REQ-03-006** — WHEN no project is selected, the system SHALL show the overview of all projects (cards by default), not a default project's workspace.
@@ -41,6 +41,10 @@ The Portafolio overview lists **every** project, whatever its phase (`product`, 
 - **AC-03-008.3** — WHEN the owner activates "Cambiar de proyecto", THE system SHALL open a dialog (kicker "Portafolio") with a searchable list of projects, in the same order as the overview (last commit first).
 
 **Worked example (AC-03-008.2).** Funko Tracker is building, its last commit was 1 h ago, with 2 open changes and 1 pending decision. In Tarjetas its card reads "Etapa 5 de 6 del pipeline · último cambio hace 1 h". In Lista the same project is one row: Fase "Construcción", Cambios abiertos 2, Decisiones 1. At 768 px the row becomes a card.
+
+## Day 1 liveness (2026-11-12)
+
+WHEN a v2 lease/run is present, THE portfolio cards, Lista and active-project count SHALL use [the shared run contract](../../product/build-engine-v2.md), including explicit paused/waiting/terminal and Sin señal states. A matching fresh active lease SHALL remain visible with `running` absent/false; a terminal run SHALL NOT be revived by a stale main flag or event tail. Durable phase and phase navigation SHALL still come from status.yaml.
 
 ## Edge cases
 - Project whose folder is missing → "Ruta no encontrada" chip with the recovery command or the no-remote warning, the rest of its card intact (state `portfolio-path-missing`).

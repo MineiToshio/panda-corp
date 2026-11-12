@@ -1,7 +1,7 @@
 // Harvest of a finished `land` job: the D24 exit map applied to the state (landed, g3 red patch, production gate).
 import path from "node:path";
 import { archiveCard } from "../card.mjs";
-import { isTrackedPath, nowIso } from "../fsx.mjs";
+import { isTrackedPath, nowIso, sha256Hex } from "../fsx.mjs";
 import { readGatePatch, writeGateFailure } from "../gatefail.mjs";
 import { findUnit, newUnit, upsertJob } from "../state.mjs";
 import { assessBatch, mapMergeQueueExit } from "./batch.mjs";
@@ -70,12 +70,11 @@ async function onLanded(ctx, state, job, mqExit, d) {
   return { state: next, output: { result: "landed", reason: null, mq_exit: mqExit, sha, ...(notes ? { notes_es: notes } : {}) }, exit: 0 };
 }
 
-async function onGateRed(ctx, state, job, d) {
+async function onGateRed(ctx, state, job, plan, d) {
   const root = state.integration.worktree;
   await assertCleanWorktree(d, root);
   await dropLandingMetadata(d, root, ctx.runId);
   const candidates = assessBatch(state).landable;
-  const plan = await readGatePatch({ state, units: candidates, gate: "G3", job, paths: ctx.paths }, d);
   const { id, attempt, fixed } = plan;
   const log = path.relative(ctx.project, ctx.paths.jobOutFile(job.id));
   await writeGateFailure(ctx.paths, plan, d);
@@ -113,9 +112,27 @@ async function onGate(ctx, state) {
   return { state: next, output: { result: "waiting_gate", reason: null, mq_exit: 21, sha: null, notes_es: "main de este proyecto lanzado es producción. Solo se aterriza con tu orden en el chat: PANDACORP_OWNER_RELEASE_OK=1 sobre ese único comando land." }, exit: 7 };
 }
 
+/** Identity of the facts used by a work-phase harvest; any concurrent change invalidates that plan. */
+const harvestFingerprint = (state) => sha256Hex(JSON.stringify({ integration: state.integration, units: state.units, jobs: state.jobs }));
+
+/** Read G3 evidence and canonical WO artifacts outside the lease mutex, pinned to one immutable commit. */
+export async function prepareLandHarvest(ctx, deps = {}) {
+  const d = resolveLandDeps(deps);
+  const state = await ctx.readState();
+  const job = state?.jobs.find((j) => j.kind === "land" && j.state === "running");
+  if (!job) return null;
+  const polled = await pollLandJob(ctx, job, d);
+  const prepared = { job, polled, fingerprint: harvestFingerprint(state), tip: null, plan: null };
+  if (polled.state === "done" && polled.exit === 11) {
+    prepared.tip = await gitOk(d, state.integration.worktree, ["rev-parse", "HEAD"], "rev-parse");
+    prepared.plan = await readGatePatch({ state, units: assessBatch(state).landable, gate: "G3", job, paths: ctx.paths }, { ...d, ref: prepared.tip });
+  }
+  return prepared;
+}
+
 /**
- * Harvest a finished land job under the lease mutex. Called by `land` (phase 1) and by `next`; `ctx` is the
- * mutex-holding context of `fencedTwoPhase`. Records `job_finished`, applies the D24 exit map, archives the card
+ * Harvest a finished land job under the lease mutex. Called by `land` and by `next` (phase 2); `ctx` is the
+ * mutex-holding context of `fencedTwoPhase`; `deps.landHarvest` was prepared in its work phase. Records `job_finished`, applies the D24 exit map, archives the card
  * (A3, idempotent) and writes `state.json`. A still-running job (or none) harvests nothing.
  * @param {object} ctx mutex-holding two-phase context
  * @param {object} [deps] see module header
@@ -128,9 +145,17 @@ export async function harvestLandJob(ctx, deps = {}) {
   if (!state) return { harvested: false };
   const job = state.jobs.find((j) => j.kind === "land" && j.state === "running");
   if (!job) return { harvested: false };
-  const polled = await pollLandJob(ctx, job, d);
+  const prepared = d.landHarvest;
+  if (!prepared || prepared.job.id !== job.id || prepared.fingerprint !== harvestFingerprint(state)) return { harvested: false };
+  const { polled } = prepared;
   if (polled.state === "running") return { harvested: false };
   const root = state.integration.worktree;
+  // Refuse stale evidence before recording job_finished, resetting metadata or writing any evidence.
+  if (polled.state === "done" && polled.exit === 11) {
+    if (!prepared.plan || await gitOk(d, root, ["rev-parse", "HEAD"], "rev-parse") !== prepared.tip) {
+      throw err("INVALID_STATE", "the integration tip moved during G3 attribution; run land again");
+    }
+  }
 
   let mqExit = polled.state === "done" ? polled.exit : null;
   if (polled.state === "dead") {
@@ -161,7 +186,7 @@ export async function harvestLandJob(ctx, deps = {}) {
   let applied;
   try {
     if (mapped.result === "landed") applied = await onLanded(ctx, state, job, mqExit, d);
-    else if (mqExit === 11) applied = await onGateRed(ctx, state, job, d);
+    else if (mqExit === 11) applied = await onGateRed(ctx, state, job, prepared.plan, d);
     else if (mqExit === 21) applied = await onGate(ctx, state);
     else {
       if (mqExit === 10) await ctx.appendEvent({ type: "handback", data: { reason: "rebase_conflict", cause: "landing" } });

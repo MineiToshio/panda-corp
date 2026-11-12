@@ -203,6 +203,46 @@ const withRun = async (opts, fn) => {
 // state + journal untouched by a refused call
 const snapshot = async (c) => JSON.stringify({ state: await c.readState(), events: (await c.events()).length, ledger: await c.ledger() });
 
+await test("PATCH2: deferred patch re-review preserves only the patch commit range", async () => withRun({ reviewer: CELL.opusHigh }, async (c) => {
+  const { writeState } = await sib("state.mjs");
+  const state = await c.readState();
+  const root = c.p.integrationWorktree;
+  await writeFile(path.join(root, "src/alpha/list.ts"), "export const oldWork = true;\n");
+  c.git(root, ["add", "src/alpha/list.ts"]); c.git(root, ["commit", "-q", "-m", "feat: earlier healthy FRD work"]);
+  const base = c.git(root, ["rev-parse", "HEAD"]);
+  await writeFile(path.join(root, "src/alpha/filter.ts"), "export const patch = true;\n");
+  c.git(root, ["add", "src/alpha/filter.ts"]); c.git(root, ["commit", "-q", "-m", "fix: gate patch", "-m", `Unit: ${BUILD_UNIT}`]);
+  const tip = c.git(root, ["rev-parse", "HEAD"]);
+  Object.assign(state.units[0], { kind: "patch", state: "reviewing" });
+  await writeState(c.fx.root, state, { env: c.env });
+  await c.record({ reviewer: CELL.opusHigh }, ROUTE.quota);
+  eq((await c.ledger())[0].sha_range, `${base}..${tip}`, "deferred review excludes the previous FRD diff");
+}));
+
+await test("PATCH2: null-FRD patch pass leaves healthy units untouched and the dispatched range stays pinned", async () => withRun({ mixed: true }, async (c) => {
+  const { writeState } = await sib("state.mjs");
+  const state = await c.readState();
+  Object.assign(state.units[0], { kind: "patch", frd: null, state: "integrated" });
+  state.units[1].state = "verified";
+  state.units.at(-1).depends_on = [BUILD_UNIT];
+  await writeState(c.fx.root, state, { env: c.env });
+  const root = c.p.integrationWorktree;
+  const base = c.git(root, ["rev-parse", "HEAD"]);
+  await writeFile(path.join(root, "src/alpha/filter.ts"), "export const fixed = true;\n");
+  c.git(root, ["add", "src/alpha/filter.ts"]); c.git(root, ["commit", "-q", "-m", "fix: reviewed patch", "-m", `Unit: ${BUILD_UNIT}`]);
+  const tip = c.git(root, ["rev-parse", "HEAD"]);
+  await mkdir(c.p.unitDir(REVIEW_UNIT), { recursive: true });
+  await writeFile(c.p.briefFile(REVIEW_UNIT), `Diff range: ${base}..${tip}\n`);
+  await writeFile(path.join(root, "src/alpha/list.ts"), "export const unrelated = true;\n");
+  c.git(root, ["add", "src/alpha/list.ts"]); c.git(root, ["commit", "-q", "-m", "feat: independent later unit"]);
+  const out = await c.record();
+  eq(out.reviewed_units, [BUILD_UNIT], "only the explicit null-FRD patch is reviewed");
+  eq((await c.unit(BUILD_UNIT)).state, "verified", "patch verified");
+  eq((await c.unit(BUILD_UNIT_2)).state, "verified", "healthy unit unchanged");
+  const { reviewRange } = await sib("review/range.mjs");
+  eq(await reviewRange({ state, review: state.units.at(-1), briefFile: c.p.briefFile(REVIEW_UNIT) }), `${base}..${tip}`, "later commits never widen the dispatched range");
+}));
+
 // =====================================================================================================================
 // Verdicts
 // =====================================================================================================================

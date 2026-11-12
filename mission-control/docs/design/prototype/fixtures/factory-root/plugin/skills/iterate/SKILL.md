@@ -2,7 +2,7 @@
 name: iterate
 description: Internal engine that integrates a feature or a change into a
   Pandacorp project at any time (building or shipped). Reached through the
-  single front door /pandacorp:change (and invoked by the build when it drains
+  single front door the retired change entry (and invoked by the build when it drains
   the queue), not an owner command. The PM decides the minimum scope (one work
   order, a new FRD, or a mini design step) and produces the canonical docs. It
   is the day-to-day iteration engine.

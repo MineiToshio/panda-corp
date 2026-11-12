@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { answerCommand } from "../runtime/build/answers.mjs";
-import { admit, countHostSlots, readHistory } from "../runtime/build/admission.mjs";
+import { admit, countHostSlots, readAdaptive, readHistory } from "../runtime/build/admission.mjs";
 import { cardCheckCommand } from "../runtime/build/card.mjs";
 import { detect } from "../runtime/build/detect.mjs";
 import { doubtCommand } from "../runtime/build/doubts.mjs";
@@ -235,7 +235,7 @@ async function admitView(c) {
   const now = deps.env.PANDACORP_NOW ? Date.parse(deps.env.PANDACORP_NOW) : Date.now();
   const r = await admit({
     class: cls, signalsFile: deps.env.PANDACORP_SIGNALS_FILE || null, history: readHistory({ file: p.admissionFile }), reservations: [], live,
-    readyWidth: 8, caps: {}, runtimeShape: shape, nowMs: now,
+    readyWidth: 8, step: readAdaptive({ file: p.admissionFile }).step, caps: {}, runtimeShape: shape, nowMs: now,
   });
   return { body: r, exit: r.safe_mode ? 9 : 0 };
 }

@@ -41,6 +41,46 @@ try {
     assert.equal(await read(project, "CLAUDE.md"), "@AGENTS.md\n");
     assert.equal(result.json.preserved_lines, 7);
   });
+  for (const eol of ["\n", "\r\n"]) {
+    for (const fence of ["```", "~~~"]) {
+      await test(`AGFIX preserves ${fence} code imports and mixed notes (${JSON.stringify(eol)})`, async () => {
+        const content = ["Owner example:", `${fence}md`, "@AGENTS.md", "@docs/rules/README.md", "@.pandacorp/guide.md", fence];
+        const old = ["@AGENTS.md", "Owner note before.", ...content, "@docs/rules/README.md", "Owner note after.", "@.pandacorp/guide.md"].join(eol);
+        const project = await fixture(old);
+        assert.equal(run(project).status, 0);
+        const agents = await read(project, "AGENTS.md");
+        assert.ok(agents.includes(content.join("\n")), "entire fenced code block survives");
+        assert.ok(agents.includes("Owner note before.")); assert.ok(agents.includes("Owner note after."));
+        for (const managed of ["@AGENTS.md", "@docs/rules/README.md", "@.pandacorp/guide.md"]) {
+          assert.equal(agents.split(/\r?\n/).filter(line => line === managed).length, 1, "only outside imports disappear");
+        }
+        assert.equal(await read(project, "CLAUDE.md"), "@AGENTS.md\n");
+      });
+    }
+    await test(`AGFIX preserves indented imports (${JSON.stringify(eol)})`, async () => {
+      const content = ["    @AGENTS.md", "\t@docs/rules/README.md", "    @.pandacorp/guide.md"];
+      const project = await fixture(["@AGENTS.md", "Example:", "", ...content, "", "Owner note.", "@.pandacorp/guide.md"].join(eol));
+      assert.equal(run(project).status, 0);
+      const agents = await read(project, "AGENTS.md");
+      assert.ok(agents.includes(content.join("\n")));
+      assert.ok(!agents.split(/\r?\n/).includes("@AGENTS.md"));
+    });
+  }
+  await test("AGFIX fences close only with the matching character and sufficient length", async () => {
+    const old = "````md\n```\n~~~\n@AGENTS.md\n````\n@docs/rules/README.md\n";
+    const project = await fixture(old);
+    assert.equal(run(project).status, 0);
+    assert.ok((await read(project, "AGENTS.md")).includes("````md\n```\n~~~\n@AGENTS.md\n````"));
+  });
+  await test("AGFIX loss guard refuses missing imports inside code blocks", async () => {
+    const { assertPreserved } = await import(script);
+    for (const [old, lossy] of [
+      ["~~~md\r\n@AGENTS.md\r\n~~~", "~~~md\n~~~"],
+      ["```\n@docs/rules/README.md\n```", "```\n```"],
+      ["Example:\n\n    @.pandacorp/guide.md", "Example:\n"],
+    ]) assert.throws(() => assertPreserved(old, lossy), error => error.code === "CONTENT_LOSS");
+    assert.doesNotThrow(() => assertPreserved("@AGENTS.md\r\nOwner note.", "Owner note.\n"));
+  });
   await test("second migration is byte-idempotent", async () => {
     const project = await fixture("# Notes\nAn owner rule.\n");
     assert.equal(run(project).status, 0);

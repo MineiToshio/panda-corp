@@ -141,7 +141,7 @@ Extracted from the rendered prototype at 1280 px, light theme (`?demo=off`). The
 - [button] Adopts an EXISTING project that was NOT born from the Pandacorp handoff (a brownfield / external project) i…
 - [@aria-label] Copiar /pandacorp:architecture
 - [button] Architecture phase of a Pandacorp project - input-readiness preflight, an owner decision round (stack, host…
-- [@aria-label] Copiar /pandacorp:change
+- [@aria-label] Copiar /pandacorp:implement
 - [@aria-label] Copiar /pandacorp:decide
 - [@aria-label] Copiar /pandacorp:design
 - [button] UX/UI design phase of a Pandacorp project - visual research, design system with web fonts, brand and logo (…
@@ -200,7 +200,7 @@ Extracted from the rendered prototype at 1280 px, light theme (`?demo=off`). The
 - [small] Architecture phase of a Pandacorp project - input-readiness preflight, an owner decision round (stack, host…
 - [@aria-label] Copiar /pandacorp:architecture
 - [span] Motor interno
-- [@aria-label] Copiar /pandacorp:change
+- [@aria-label] Copiar /pandacorp:implement
 - [@aria-label] Copiar /pandacorp:decide
 - [small] UX/UI design phase of a Pandacorp project - visual research, design system with web fonts, brand and logo (…
 - [@aria-label] Copiar /pandacorp:design

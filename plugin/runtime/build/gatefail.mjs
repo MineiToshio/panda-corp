@@ -30,9 +30,10 @@ export function parseGateFailure({ log = "", root = null } = {}) {
   const clean = String(log).replace(ANSI, "").replace(/\r/g, "");
   const checks = new Set(); const tests = new Set(); const paths = new Set();
   let failedBlock = false; let nextBuild = false; let testFile = null;
+  let docBullets = [];
   for (const line of clean.split("\n")) {
     const text = line.trim();
-    if (/^(?:PASS|✓|✔|> |\$ )/.test(text) || /^Test Files|^Tests\s/.test(text)) { failedBlock = false; testFile = null; continue; }
+    if (/^(?:PASS|✓|✔|> |\$ )/.test(text) || /^Test Files|^Tests\s/.test(text)) { failedBlock = false; testFile = null; docBullets = []; continue; }
     const vitest = /^(?:FAIL\s+|❯\s+)(\S+\.(?:[cm]?[jt]sx?))\b(.*)/.exec(text);
     const pw = /^(?:\d+\)|[✘×]\s*\d+).*?((?:[^\s›]+\/)*[^\s›]+\.spec\.[cm]?[jt]s):\d+:\d+\s*›\s*(.+)/.exec(text);
     const tsc = /\berror TS\d+\b/.test(text);
@@ -46,7 +47,18 @@ export function parseGateFailure({ log = "", root = null } = {}) {
     if (pw) { checks.add("playwright"); tests.add(`${pw[1]} > ${pw[2].replace(/\s+\(\d[\d.]*m?s\)\s*$/, "")}`); failedBlock = true; }
     if (tsc) checks.add("tsc");
     if (biome) checks.add("biome");
-    if (doc) checks.add("doc-lint");
+    // Normal doc-lint prints a contiguous bullet block before its identifying summary.
+    // Buffer only that block: a random list elsewhere in the gate log is not a diagnostic.
+    if (/^•\s+/.test(text)) {
+      for (const match of line.matchAll(FILE)) {
+        const rel = relativeFile(match[0], root);
+        if (rel) docBullets.push(rel);
+      }
+    } else if (doc) {
+      checks.add("doc-lint");
+      for (const rel of docBullets) paths.add(rel);
+      docBullets = [];
+    } else if (text && !/^[═━─=]+$/.test(text)) docBullets = [];
     if (failedBlock && testFile && /^[×✗✖]\s+/.test(text)) tests.add(`${testFile} > ${text.replace(/^[×✗✖]\s+/, "").replace(/\s+\d+(?:\.\d+)?m?s\s*$/, "")}`);
     // Next prints the file on its own line immediately after "Failed to compile".
     if (vitest || pw || tsc || biome || doc || failedBlock || (nextBuild && /^(?:\.\/|src\/|app\/|pages\/)/.test(text))) {

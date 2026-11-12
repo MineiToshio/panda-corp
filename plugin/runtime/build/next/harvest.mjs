@@ -185,10 +185,10 @@ async function harvestG2(run, job, notes) {
   const redPlan = judged && !green && !checked.stale
     ? await readGatePatch({ state: before, units: before.units.filter((u) => FRD_WORK_KINDS.includes(u.kind) && u.frd === job.frd && u.state === "integrated"), gate: "G2", frd: job.frd, job, paths: run.paths }, d)
     : null;
-  if (redPlan) await writeGateFailure(run.paths, redPlan, d);
-  await mutate(run, (s) => {
+  const workSignature = (units) => JSON.stringify(units.filter((u) => FRD_WORK_KINDS.includes(u.kind) && u.frd === job.frd && u.state === "integrated"));
+  await mutate(run, async (s) => {
     const cur = s.jobs.find((j) => j.id === job.id);
-    if (!cur || cur.state !== "running") return {};
+    if (!cur || cur.state !== "running" || JSON.stringify(cur) !== JSON.stringify(before.jobs.find((j) => j.id === job.id))) return {};
     const ended = polled.state === "dead" ? "dead" : "done";
     const events = [{ type: "job_finished", data: { id: job.id, state: ended, exit } }];
     let next = { ...s, jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, state: ended, exit } : j)) };
@@ -199,7 +199,7 @@ async function harvestG2(run, job, notes) {
       return { state: next, events };
     }
     if (!judged) return { state: next, events }; // dead: re-spawned by the G2 rule at this or the next pass
-    const stale = checked.stale || (checked.units !== null && work.some((u) => !checked.units.includes(u.id)));
+    const stale = checked.stale || workSignature(s.units) !== workSignature(before.units) || (checked.units !== null && work.some((u) => !checked.units.includes(u.id)));
     events.push({ type: "gate", data: { tier: "G2", exit, frd: job.frd, ...(pin ? { sha: pin.sha } : {}), ...(stale ? { stale: true } : {}) } });
     if (stale) return { state: next, events }; // judged an older tree of this FRD: the G2 rule re-runs it at the tip
     if (green) {
@@ -218,6 +218,7 @@ async function harvestG2(run, job, notes) {
       }
       return { state: next, events };
     }
+    await writeGateFailure(run.paths, redPlan, d);
     const { attempt, id: patchId } = redPlan;
     if (attempt > MAX_ATTEMPTS || work.length === 0) {
       const exhausted = redPlan.evidence.attributed ? redPlan.fixed : [findUnit(next, patchId)].filter(Boolean);

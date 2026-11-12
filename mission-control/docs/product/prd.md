@@ -15,14 +15,14 @@ Living index of the FRDs (feature-centric docs, DR-049). Each FRD is a self-cont
 | [FRD-01](../frds/frd-01-data-reading/frd.md) | Data reading layer | Reads the factory's and each project's state from disk, read-only, never calling Claude. | Unchanged (no UI). |
 | [FRD-02](../frds/frd-02-ideas-board/frd.md) | Ideas board | The ideas kanban; derives each card's column and handles the idea-card writes (discard / restore `status`, and the visual `favorite` flag), part of the bounded write set in `architecture.md` §7. | **Changed** (+8 ACs, REQ-02-016). Out of v2 items: see non-goals. |
 | [FRD-03](../frds/frd-03-portfolio/frd.md) | Portfolio and project navigation | Lists created projects with their state and links into each project's workspace. | **Changed** (rail replaced by an overview of all projects; +3 ACs, REQ-03-008). Out of v2 items. |
-| [FRD-04](../frds/frd-04-project-workspace/frd.md) | Project workspace | Nine-tab per-project workspace with complete shared Spec and Architecture surfaces, logical data-model viewer, docs, commands and the build-mode selector. | **Changed** (eight tabs; +8 ACs, REQ-04-014; carries the `readDecisions` fix). Out of v2 items. |
+| [FRD-04](../frds/frd-04-project-workspace/frd.md) | Project workspace | Nine-tab per-project workspace with complete shared Spec and Architecture surfaces, logical data-model viewer, docs, commands and build/resume/target selection. | **Changed** (eight tabs; +8 ACs, REQ-04-014; carries the `readDecisions` fix). Out of v2 items. |
 | [FRD-05](../frds/frd-05-work-orders/frd.md) | Work orders (live view) | Read-only kanban of a project's work orders, grouped by FRD, with the full document. | **Changed** (moves inside Observabilidad; +4 ACs, REQ-05-008). |
 | [FRD-06](../frds/frd-06-party/frd.md) | Party (live RPG map) | The live RPG map of the agents building a concrete project. | **Changed** (no Party tab; becomes La Fragua as the main scene of the Resumen; +8 ACs, REQ-06-020). Out of v2 items. |
 | [FRD-07](../frds/frd-07-configuration/frd.md) | Configuration | Factory/agent configuration surface, including agent levels. | **Changed** (+5 ACs, REQ-07-013). Out of v2 items. |
 | [FRD-08](../frds/frd-08-documentation/frd.md) | Documentation | The navigable factory Manual ("Códice del gremio"), Reference derived from the factory. | **Changed** (surface named «Documentación»; +3 ACs, REQ-08-020). Out of v2 items. |
 | [FRD-09](../frds/frd-09-gamification/frd.md) | Gamification (RPG theme) | The honest gamification layer: XP, guild level, the RPG vocabulary. | **Changed** (+2 ACs, AC-09-008.1/.2). Out of v2 items. |
 | [FRD-10](../frds/frd-10-achievements-hall/frd.md) | Achievements Hall | The hall of achievements and growing stats. | **Changed** (+5 ACs, REQ-10-028). Out of v2 items. |
-| [FRD-11](../frds/frd-11-build-modes/frd.md) | Per-project build modes | Per-project build mode selection that defines the team composition. | **Changed** (four-card picker; +3 ACs, REQ-11-005). |
+| [FRD-11](../frds/frd-11-build-modes/frd.md) | Build entry and target selection | Copy Construir / Reanudar / FRD or card commands; engine-owned models and concurrency. | **Day 1 amendment** (REQ-11-007 to -010 supersedes power modes). |
 | [FRD-12](../frds/frd-12-observability-dataviz/frd.md) | Observability and data visualization | KPIs, data freshness, RPG↔timeline toggle and the work-order DAG. | **Changed** (timeline removed; dependency map follows the prototype; +4 ACs, REQ-12-006). Out of v2 items. |
 | [FRD-13](../frds/frd-13-visual-system-accessibility/frd.md) | Visual system and accessibility | OKLCH tokens, rationed accent, restrained motion, accessibility rigor. | **Changed** (tokens re-frozen from Órbita; +4 ACs, REQ-13-010). |
 | [FRD-14](../frds/frd-14-snapshot-and-feedback/frd.md) | Probable snapshot and feedback channels | The "last probable point / building now" panel and decision/bug chips per project. | **Changed** (snapshot panel drawn in the Resumen; rail chips out of v2). |
@@ -58,7 +58,7 @@ A read-only view that shows state + documentation + the next command, wrapped in
 0. Land on a **command center** (the Dashboard / "Inicio") that answers, at a glance, *what needs me now, what changed while I was away, and what's the next command* ([FRD-18](../frds/frd-18-dashboard/frd.md)).
 1. See the state of the whole factory at a glance (ideas, projects, agents).
 2. Read any document without opening files by hand.
-3. Always know the next command, and be able to choose the **build mode** per project.
+3. Always know the next command, and be able to choose **build, resume or a named FRD/card target** per project.
 4. Follow the agents building live, in a fun way (RPG-style **Party**).
 5. Feel progress: **achievements**, **stats** that grow, **guild level** and **agent levels**.
 6. Let another person understand the whole system (internal documentation).
@@ -86,7 +86,7 @@ The scoped visual reference is [the data-model viewer prototype, round 2](../des
 
 ## Backlog (future)
 - Real computation of stats/achievements by reading the factory and the projects (today example data in the prototype).
-- Dynamic Party per mode (more/fewer agents, several of the same role).
+- Further scene detail from the real run's dispatched workers, without a fixed team-size promise.
 - Full-screen moment on level-up; phase transitions as a "cutscene"; weekly streak; meta-achievements (titled Seals); per-agent activity chart.
 - Robust auto-refresh (file-watching) + real event streaming.
 
@@ -133,7 +133,7 @@ The 21 UI FRDs amended by the design freeze (the 79 prototype-drawn ACs are numb
 - **FRD-08 · Documentación** — surface named «Documentación» (short rail label «Docs»): routing home, full-text search with snippets, reader with breadcrumbs, tutorial progress and a right-hand index (AC-08-020.1 to .3). Multi-runtime wording follows DR-133. The Manual page content is refreshed (stale «Portfolio → Party» and wave sizes).
 - **FRD-09 · Gamification** — guild card in the sidebar (crest only on the rails) and the gold achievement notice, once per browser (AC-09-008.1/.2).
 - **FRD-10 · Logros** — five tabs; Resumen with next rank, radar and last trophies; missions by closeness; trophies with «Los más alcanzables»; collapsed far eras; «sin datos aún» distinct from «no cableado» (AC-10-028.1 to .5).
-- **FRD-11 · Build modes** — four mode cards with power meter (Equilibrado preselected), the scoped build target writing `/pandacorp:implement <frd>` or `change:<id>`, and the picker behind «Elegir modo de construcción» in Campaña (AC-11-005.1 to .3).
+- **FRD-11 · Build entry and target selection** — Construir / Reanudar / Objetivo: FRD o tarjeta; no power modes; one shared copy-only picker in Comandos and Campaña (REQ-11-007 to -010, Day 1 amendment).
 - **FRD-12 · Observabilidad** — no timeline; the dependency map at two levels (Por FRD, Por work order) following the prototype's layout, focus card, ordered list below 900 px, legacy `tab=Work orders` links land here (AC-12-006.1 to .4).
 - **FRD-13 · Visual system** — tokens re-frozen from Órbita (Space Grotesk, Inter, JetBrains Mono self-hosted; nothing below 12 px; hover only on hover-capable pointers; scene surfaces always dark) (AC-13-010.1 to .4). Motion stays transform/opacity only (the FRD wins over the prototype).
 - **FRD-14 · Snapshot** — see the owner-decided additions.
@@ -204,7 +204,24 @@ Assumptions:
 - **A-5** `[ASSUMPTION: the review signal has no revenue or usage threshold because the product is personal (DR-042/DR-043) — source: return_type personal]`.
 - **A-6** The 24 non-blocking audit findings go to `.pandacorp/comms/visual-punch-list.md` for the end-of-build Visual QA, not into v2 FRDs.
 
-Open decisions to settle in the planning step (`/pandacorp:change`):
+Open decisions to settle in the planning step (`/pandacorp:implement`):
 1. **FRD-25 amended (resolved 2026-10-22, gate fix).** The URL catalog is aligned with the eight tabs, the Observabilidad views, the Portafolio views and the no-exemption shell (WO-25-001).
 2. **Stale frontmatter.** FRD-22 says `implementation_status: PLANNED` although the backlog panel exists in `src/`, and FRD-02 says `IN_REVIEW`. Reconcile before work orders are cut.
 3. **Short-label copy.** The M1 copy fix says «Documentación» for the surface and FRD-08 REQ-08-001 sets «Docs» for the rail; confirm `components.md` and the Shell-Presence contract (`e2e/shell.ts`) use «Docs».
+
+
+## Build engine Day 1 — plugin 10.0.0 (2026-11-12)
+
+This amendment governs the build-related statements above, including the older Órbita four-card design. It is the contract for the upcoming Mission Control code work; prior VERIFIED stamps and screenshots certify the earlier delivery, not this amendment. Producer facts are grounded at engine commit **540afa2c** in [the shared build read contract](build-engine-v2.md), including the exact input fields, failure behavior and known gaps.
+
+- **One entry and explicit scope:** every product feature, adjustment, bug or milestone starts at `/pandacorp:implement`. The copy-only picker offers Construir, Reanudar, and Objetivo: FRD o tarjeta; mode words, subscription-plan promises and individual-WO commands disappear (FRD-02/04/11). Capture-only intent creates a draft validated by the session, without automatic draining. Existing card readers and bounded discard actions stay.
+- **Live operation:** a shared lease/run resolver powers board, portfolio, Inicio, Resumen, snapshot and Fragua, including when main's `running` flag is absent/false. The Build en curso panel reads `state.json`, `admission.json` and the pending-decision mirror; progress distinguishes En el build from durable delivery, and parked questions/waiting gates remain visible (FRD-04/05/06). A branch-only verified unit is not a landed or safe-to-test commit.
+- **Performance:** a read-only retrospective mini-view uses the machine-local `~/.pandacorp/host/perf/journal.jsonl`, with available RAM, swap, disk, concurrency steps, unit timings and explicit missing-data/error states (FRD-12). Machine readings remain outside git; no dashboard calibration or execution is added.
+- **Git visibility:** `lane/<run_id>/…` branches are engine-origin whether their worktrees remain or have been removed; pending commits and leftover worktrees are separate facts (FRD-21). Immediate close-out removal is DENG's pending dependency at the pinned snapshot, not an already-proven lifecycle fact.
+- **Manual truth:** the full authored Manual and diagrams describe the common CLI, local coordinators, drive, scope, adaptive admission, selective repairs, human gates, instructions source and one path to main. The earlier F11 deferral is retired; derived references follow the shipped catalogs (FRD-08). Events include `build.scaled` through the shared vocabulary (FRD-06).
+
+### Acceptance and invariants
+
+WHEN a fresh matching active v2 lease exists with no main running flag, THE relevant surfaces SHALL agree that it is live; WHEN state/admission changes without a new event, THE shared views SHALL refresh while preserving navigation. WHEN inputs are absent or malformed, THE page SHALL preserve usable documents and distinguish absent data from a named source error. WHEN a question is mirrored, THE UI SHALL count it once using its explicit engine Id and suppress a stale pending copy after resolution. WHEN a run has no completed performance record or no worktree, THE UI SHALL NOT invent success, a merge or lost work.
+
+Mission Control remains copy-only over the engine: no CLI execution, worker launch, lease renewal, file repair, host calibration, worktree cleanup, production approval or additional factory write. All amended EARS criteria live in their owning FRDs. The acceptance checks for the code batches must exercise real-shaped v2 files, malformed/absent inputs, no-event refresh, duplicate/resolved mirrors, branch-only verification and removed-worktree refs. Rendering a panel alone is insufficient evidence.

@@ -221,7 +221,7 @@ column of in-pipeline cards.
 
 ### 4.8 Browser-local UI state (NOT a factory or project write)
 `localStorage` preferences, consistent with the read-only constraint: sidebar collapsed, projects
-group folded, board «Ocultar columnas vacías», theme choice, achievement notice shown-once, build mode
+group folded, board «Ocultar columnas vacías», theme choice and achievement notice shown-once; legacy build-mode preferences are ignored by the Day 1 picker
 per project. v1's `visto_hasta` digest marker is removed in v2 with the digest.
 
 ### 4.9 Designed logical model — `<projectPath>/docs/product/data-model.json`
@@ -611,3 +611,12 @@ the public factory service catalog, private vault identities and per-project int
 ([ADR-0011](../adr/ADR-0011-services-account-directory.md)). Private identities never enter public
 Documentación content. No cloud API, provisioning or persistent write happens on a page read. The global
 directory is the Portafolio **Cuentas** view; each workspace exposes **Cuentas** as one of its eight tabs.
+
+
+## Day 1 engine read-model amendment (2026-11-12)
+
+The additive producer/consumer boundary is [build-engine-v2.md](build-engine-v2.md), grounded at engine **540afa2c**. It governs earlier event-only liveness and frontmatter-only in-flight display statements in this architecture. It is the contract for MC-STATE-A/B, not a statement that the readers already ship.
+
+A shared server-side `build-run` reader consumes the selected portfolio project's `.pandacorp/run/build/{state,admission}.json`, its lease, and canonical/pending decision files; all activity surfaces consume one liveness resolver and one live/durable work-order display model. It never invokes the engine, modifies the lease or rebuilds state. Public projection excludes lease secrets and admission/token hashes. Missing inputs and malformed/mismatched present inputs remain distinct. SSE invalidation includes run/admission/mirror changes under the existing navigation-safe coalescing contract.
+
+The read boundary adds the machine-local `<host>/perf/journal.jsonl` (`~/.pandacorp/host` by default, `PANDACORP_HOST_DIR` override) for retrospective run performance, with a bounded tail and per-line diagnostics. This source is outside repositories and must use fixture-host injection in tests. Basename-only producer identity is a stated ambiguity, not a guessed absolute-project match. No new app write, subprocess execution, dependency, telemetry SDK, deployment service or secret read is authorized. The existing bounded write set in section 7 remains exhaustive.
