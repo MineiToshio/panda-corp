@@ -560,6 +560,111 @@ await test("B6 d-2 answered first (unit released and re-dispatchable), then the 
   assertRejectedAssumptionDiscardsUnit(planAnswer({ state: released, question: D1, value: "b", doubt: doubtRecord() }), "rejection after d-2 was answered");
 });
 
+// ============================================================================================ NB1
+// review-R1b NB1: the synthesized spec-ambiguous doubt offered a non-actionable option `ask-owner`; deciding it re-queued the
+// unit at the SAME attempt ("stop and ask the owner"), the worker blocked again and the cycle looped (no attempt consumed, no
+// owner question) until the quota paused. Correct: deciding "ask the owner" parks the unit as an owner question, and a unit that
+// raises the same doubt again never loops at the same attempt (it parks, is handed back, or consumes an attempt).
+/** One spec-ambiguous cycle through the CLI: serve the build unit, report blocked+spec-ambiguous, answer the doubt's sources step. */
+async function ambiguousCycle(s, epoch, { pick }) {
+  let served = null;
+  for (let i = 0; i < 4 && !served; i++) {
+    const r = s.cli(["next", "--epoch", String(epoch)]);
+    if (r.code !== 0) throw new Error(`next exited ${r.code}: ${r.stdout.slice(0, 300)} ${r.stderr.slice(0, 300)}`);
+    served = (r.json.units || []).find((u) => u.kind === "build") || null;
+  }
+  if (!served) return { served: null };
+  const rep = { schema: 1, unit: served.unit, token: served.token, status: "blocked", summary: "the work order is ambiguous", files: [], verification: [], pending: [], doubt: null, diagnosis: { cause: "spec-ambiguous", detail: "AC-01-001.1 does not say which ordering applies" }, gate: null, authored_by: { runtime: "claude", model: "sonnet", effort: "medium" } };
+  await mkdir(path.dirname(served.report_path), { recursive: true });
+  await writeFile(served.report_path, `${JSON.stringify(rep, null, 2)}\n`);
+  const r = s.cli(["report", "--epoch", String(epoch), "--unit", served.unit, "--token", served.token, "--file", served.report_path]);
+  if (r.code !== 0 && r.code !== 6) throw new Error(`report exited ${r.code}: ${r.stdout.slice(0, 300)} ${r.stderr.slice(0, 300)}`);
+  const st = await readStateOf(s); const u = st.units.find((x) => x.id === served.unit);
+  const P = await pathsFor(s.root);
+  if (!u.doubt_id) return { served, unit: u, doubt: null };
+  const doubt = JSON.parse(await readFile(P.doubtFile(u.doubt_id), "utf8"));
+  const optionIds = (doubt.options || doubt.doubt?.options || []).map((o) => o.id);
+  const choice = pick(optionIds);
+  let answered = null;
+  if (doubt.step === "sources" && choice) {
+    await mkdir(path.dirname(P.doubtSourcesFile(doubt.id)), { recursive: true });
+    await writeFile(P.doubtSourcesFile(doubt.id), `${JSON.stringify({ decision: choice, rationale: "decided by the test, see docs/product/prd.md:1", consulted: null })}\n`);
+    answered = s.cli(["doubt", "answer", "--epoch", String(epoch), "--id", doubt.id, "--file", P.doubtSourcesFile(doubt.id)]);
+  }
+  return { served, unit: (await readStateOf(s)).units.find((x) => x.id === served.unit), doubt, optionIds, choice, answered };
+}
+
+await test("NB1 a doubt whose decision is `ask-owner` parks the unit as an owner question: no re-queue at the same attempt", async () => {
+  const s = await sandbox("basic"); const { start } = await startRun(s, { coordinator: "claude" }); await noteStandby(s);
+  const c = await ambiguousCycle(s, start.epoch, { pick: (ids) => ids.find((id) => /ask.?owner/i.test(id)) || null });
+  ok(c.served, "next must serve a build unit");
+  ok(c.unit.doubt_id, `the spec-ambiguous block must open a doubt (unit is ${c.unit.state})`);
+  if (!c.choice) return; // the engine no longer offers a non-actionable `ask-owner` option (the preferred fix): nothing to decide
+  need(c.answered, "doubt answer (sources step: ask-owner)");
+  const u = c.unit;
+  ok(!(u.state === "queued" && u.attempt === c.served.attempt && !u.parked), `deciding ask-owner re-queued ${u.id} at the same attempt ${u.attempt} instead of parking it (state ${u.state})`);
+  ok(u.state === "parked" || u.parked === "owner_question" || u.state === "blocked", `unit must be parked as an owner question; got state ${u.state} parked ${u.parked}`);
+  if (u.parked) eq(u.parked, "owner_question", "park reason");
+  if (u.state === "parked") eq(u.pending_answer, c.doubt.id, "pending_answer is the doubt id the owner answers");
+});
+
+await test("NB1 a unit that blocks spec-ambiguous again after a decided doubt never loops at the same attempt (parks, hands back or consumes an attempt)", async () => {
+  const s = await sandbox("basic"); const { start } = await startRun(s, { coordinator: "claude" }); await noteStandby(s);
+  // always decide the first listed option (an actionable reading), or `ask-owner` when that is all that is offered
+  const pick = (ids) => ids[0] || null;
+  let unitId = null; const trail = [];
+  for (let i = 0; i < 4; i++) {
+    const c = await ambiguousCycle(s, start.epoch, { pick });
+    if (!c.served) { trail.push(`cycle ${i + 1}: nothing served`); break; }
+    if (unitId && c.served.unit !== unitId) { trail.push(`cycle ${i + 1}: other unit ${c.served.unit}`); continue; }
+    unitId = c.served.unit;
+    const u = c.unit;
+    if (c.answered) need(c.answered, `cycle ${i + 1}: doubt answer`);
+    trail.push(`cycle ${i + 1}: ${u.id} attempt ${c.served.attempt} -> ${u.state}${u.parked ? `:${u.parked}` : ""}${u.doubt_id ? ` ${u.doubt_id}` : ""}`);
+    if (u.state === "parked" || u.parked || u.state === "blocked" || u.attempt > c.served.attempt) { trail.push("bounded"); break; }
+  }
+  const st = await readStateOf(s); const u = st.units.find((x) => x.id === unitId);
+  ok(unitId && u, `no build unit was cycled: ${trail.join(" | ")}`);
+  const decided = (await readJournalOf(s)).filter((e) => e.type === "autonomous_decision" && (e.data?.unit === unitId || !e.data?.unit)).length;
+  const loops = decided >= 2 && u.state === "queued" && !u.parked && u.attempt === 1;
+  ok(!loops, `unbounded loop: ${decided} autonomous decisions on ${unitId} and it is still queued at attempt ${u.attempt} (trail: ${trail.join(" | ")})`);
+});
+
+// ============================================================================================ NB2
+// review-R1b NB2: when creating the G2 pinned snapshot worktree fails and nothing else is running (the last FRD), `next` answered
+// stop/no_progress in the same pass while the note said "se reintenta": the run quiesced and the retry never happened. The failure
+// is injected by making the snapshot root (<build>/g2) a regular file, so creating a worktree under it fails on every attempt.
+await test("NB2 a failing G2 snapshot never stops the run silently: `next` waits and retries (and works once the obstacle is gone), or hands back as env-infra", async () => withRun({ units: (c, h) => g2Units(c, h).slice(0, 2), state: { scope: { card: null, frds: ["frd-01-alpha"], wos: ["WO-01-001", "WO-01-002"], out_of_scope: [] } }, setup: slowVerify }, async (c) => {
+  try {
+    const g2Root = path.join(path.dirname(c.p.integrationWorktree), "g2");
+    await rm(g2Root, { recursive: true, force: true });
+    await writeFile(g2Root, "not a directory: makes every G2 snapshot creation fail\n");
+    const seen = []; let handedBack = false; let waits = 0;
+    for (let i = 0; i < 5 && !handedBack; i++) {
+      const r = nextOnce(c);
+      const text = `${r.stdout} ${r.stderr}`;
+      seen.push(`#${i + 1} exit ${r.code} action ${r.json?.action} reason ${r.json?.reason}`);
+      ok(r.code !== 3, `the run was fenced/ended silently after a G2 snapshot failure: ${seen.join(" ; ")}`);
+      const evs = await c.events();
+      handedBack = evs.some((e) => e.type === "handback");
+      if (handedBack) {
+        ok(/env.?infra|entorno/i.test(`${text} ${JSON.stringify(evs.filter((e) => e.type === "handback"))}`), `a G2 snapshot hand-back must be reported as an environment (env-infra) failure: ${text.slice(0, 400)}`);
+        ok(waits >= 1, `the engine must retry (wait) at least once before handing the FRD back: ${seen.join(" ; ")}`);
+        break; // the hand-back pass may legitimately answer done: nothing left to run
+      }
+      ok(r.json?.action !== "stop", `next stopped (${r.json?.reason}) after a G2 snapshot failure with neither a retry nor a hand-back: ${seen.join(" ; ")}`);
+      eq(r.json?.action, "wait", `a failed G2 snapshot must be retried later (action wait) until the hand-back, got ${seen.join(" ; ")}`);
+      waits++;
+    }
+    if (!handedBack) {
+      await rm(g2Root, { force: true });
+      let jobs = [];
+      for (let i = 0; i < 3 && jobs.length < 1; i++) { nextOnce(c); jobs = await g2Jobs(c); }
+      ok(jobs.length >= 1, `after repeated snapshot failures the engine neither handed back nor retried; jobs ${JSON.stringify((await c.readState()).jobs)}; ${seen.join(" ; ")}`);
+    }
+  } finally { await killJobs(c); }
+}));
+
 // ============================================================================================ END (keep last)
 await cleanupSandboxes();
 console.log(`RESULT: ${passed} passed, ${failed} failed (test-build-v2-review-r1)`);

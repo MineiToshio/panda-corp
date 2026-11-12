@@ -44,6 +44,9 @@ const LAND_RETRY_EXITS = Object.freeze([12, 14, 20]);
 const LAND_RETRY_S = 60;
 // G2 snapshot worktrees (B5): `<build>/g2/<frd>-<pinned sha>`, one per job, never the integration worktree itself.
 const G2_SNAPSHOT_DIR = "g2";
+
+/** Consecutive passes a G2 snapshot may fail to be created before the FRD is handed back as an environment failure (NB2). */
+export const G2_SNAPSHOT_FAIL_MAX = 3;
 const SHA_RE = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 const G2_SNAPSHOT_RE = /^(.+)-([0-9a-f]{40}(?:[0-9a-f]{24})?)$/;
 /** Exit code of a G2 job whose snapshot could not be bootstrapped (`worktree-bootstrap.sh` failed): no verdict, env-infra. */
@@ -198,7 +201,10 @@ async function step(run) {
   state = candidates.state;
   const dispatch = await dispatchRound(run, state, candidates, runParams, signals, quota);
   state = dispatch.state;
-  for (const frd of dispatch.g2Failed ?? []) notes.push(`G2 de ${frd} no arrancó: no se pudo crear su copia de la rama de integración; se reintenta.`);
+  const g2Fails = dispatch.g2Fails ?? {};
+  for (const frd of dispatch.g2Failed ?? []) {
+    notes.push(`G2 de ${frd} no arrancó: no se pudo crear su copia de la rama de integración (fallo ${g2Fails[frd] ?? 1} de ${G2_SNAPSHOT_FAIL_MAX}); ${(g2Fails[frd] ?? 1) >= G2_SNAPSHOT_FAIL_MAX ? "se devuelve por fallo del entorno" : "se reintenta en el siguiente paso"}.`);
+  }
   if (dispatch.units.length) return finish(run, state, { action: "dispatch", units: dispatch.units, admit: dispatch.admit, quota, notes });
 
   // Nothing dispatched: wait while anything runs (A11), else a terminal action.
@@ -206,6 +212,13 @@ async function step(run) {
   if (running.any || landing.waitLand) {
     const reason = running.jobs || landing.waitLand ? "jobs_running" : "workers_running";
     return finish(run, state, { action: "wait", wait: { reason, retry_after_s: landing.waitLand ? LAND_RETRY_S : RETRY_S[reason] }, admit: dispatch.admit, quota, notes });
+  }
+  if ((dispatch.g2Failed ?? []).length) {
+    // A G2 snapshot that could not be created leaves nothing running: wait and retry it at the next call, or hand the FRD
+    // back as an environment failure once it has failed G2_SNAPSHOT_FAIL_MAX passes in a row (never a silent stop: NB2).
+    const retrying = await handBackExhaustedG2(run, state, dispatch.g2Failed, g2Fails, notes);
+    state = await fresh(run);
+    if (retrying.length) return finish(run, state, { action: "wait", wait: { reason: "jobs_running", retry_after_s: RETRY_S.gate }, admit: dispatch.admit, quota, notes });
   }
   const terminal = chooseTerminal(state, { pol, l4: run.l4, plan, candidates, dispatch });
   if (terminal.action === "wait") {
@@ -623,6 +636,49 @@ async function removeG2Snapshot(run, dir, { strict = false } = {}) {
     if (strict) throw error;
     run.d.log(`next: the G2 snapshot ${dir} could not be removed: ${error?.message ?? error}`);
   }
+}
+
+const g2FailuresFile = (paths) => path.join(paths.build, "g2-snapshot-failures.json");
+
+/** `{<frd>: consecutive failed snapshot passes}`, persisted under `<build>/` (untracked) because every `next` call is a new process. */
+async function readG2Failures(run) {
+  try {
+    const counts = await readJson(g2FailuresFile(run.paths), { fs: run.d.fs });
+    return counts && typeof counts === "object" && !Array.isArray(counts) ? counts : {};
+  } catch (error) {
+    if (error.code === "LEDGER_CORRUPT") return {};
+    throw error;
+  }
+}
+
+/** Reset the counter of the FRDs whose snapshot was made and add one to the failed ones; returns the counts of the failed FRDs. */
+async function trackG2SnapshotFailures(run, okFrds, failedFrds) {
+  if (!okFrds.length && !failedFrds.length) return {};
+  const counts = await readG2Failures(run);
+  for (const frd of okFrds) delete counts[frd];
+  for (const frd of failedFrds) counts[frd] = (Number(counts[frd]) || 0) + 1;
+  await atomicWriteJson(g2FailuresFile(run.paths), counts, { fs: run.d.fs });
+  return Object.fromEntries(failedFrds.map((frd) => [frd, counts[frd]]));
+}
+
+/**
+ * Hand back (cause `env-infra`, the unit and its dependents `blocked`, R4) the first integrated work unit of every FRD whose
+ * G2 snapshot has failed `G2_SNAPSHOT_FAIL_MAX` passes in a row, and reset its counter.
+ * @returns {Promise<string[]>} the FRDs that are still retrying (their snapshot failed fewer times)
+ */
+async function handBackExhaustedG2(run, state, failedFrds, fails, notes) {
+  const retrying = [];
+  const counts = await readG2Failures(run);
+  for (const frd of failedFrds) {
+    if ((fails[frd] ?? counts[frd] ?? 1) < G2_SNAPSHOT_FAIL_MAX) { retrying.push(frd); continue; }
+    delete counts[frd];
+    const work = state.units.find((u) => FRD_WORK_KINDS.includes(u.kind) && u.frd === frd && u.state === "integrated");
+    if (!work) continue;
+    const res = await (await sibling(run.d, "failure", "handbackCommand"))({ ...fenceOf(run), unit: work.id, reason: `G2 de ${frd}: no se pudo crear su copia de la rama de integración ${G2_SNAPSHOT_FAIL_MAX} veces seguidas`, cause: "env-infra" }, run.d);
+    if (res?.notice_es) notes.push(res.notice_es);
+  }
+  await atomicWriteJson(g2FailuresFile(run.paths), counts, { fs: run.d.fs });
+  return retrying;
 }
 
 /** The land job is harvested by land.mjs itself (job_finished, D24 exit map, card archive) under its own fence. */
@@ -1169,7 +1225,7 @@ async function dispatchRound(run, state, candidates, params, signals, quota) {
   const blockedDispatch = state.handbacks_in_a_row >= ENV_INFRA_STOP || run.l4?.paused_infra === true;
   const g2 = blockedDispatch ? [] : g2Needed(state);
   const list = blockedDispatch ? [] : candidates.list;
-  if (!g2.length && !list.length) return { state, units: [], admit: null, admissionBlocked: null };
+  if (!g2.length && !list.length) return { state, units: [], admit: null, admissionBlocked: null, g2Failed: [], g2Fails: {} };
   const reservations = await reservationsOf(run, state);
   const hostHeld = d.admission.countHostSlots({ host: paths.hostDir }).held;
 
@@ -1237,6 +1293,7 @@ async function dispatchRound(run, state, candidates, params, signals, quota) {
       // merges move, never a directory another G2 uses. A snapshot that cannot be made skips this G2 (retried next pass).
       let g2 = 0;
       const g2Failed = [];
+      const g2Ok = [];
       for (const frd of intent.g2Grants) {
         let snap;
         try { snap = await createG2Snapshot(run, current, frd); } catch (error) {
@@ -1254,8 +1311,10 @@ async function dispatchRound(run, state, candidates, params, signals, quota) {
           throw error;
         }
         g2 += 1;
+        g2Ok.push(frd);
       }
-      return { prepared, g2, g2Failed };
+      const g2Fails = await trackG2SnapshotFailures(run, g2Ok, g2Failed);
+      return { prepared, g2, g2Failed, g2Fails };
     },
     // Phase 2 (mutex, epoch re-verified): admitted -> running, dispatch journal, worker jobs.
     async (work, intent, ctx) => {
@@ -1290,7 +1349,7 @@ async function dispatchRound(run, state, candidates, params, signals, quota) {
   const admit = result.lastDecision ? { decision: anyGrant ? "grant" : "wait", motivo_limite: result.lastDecision.motivo_limite } : null;
   if (admit) emit(run, state, "admit.decision", { ...admit, unit: result.prepared?.[0]?.unit.id ?? null });
   const units = (result.prepared ?? []).map((p) => unitOutput(state, p));
-  return { state: await fresh(run), units, admit, admissionBlocked: result.blocked ? motivoToWait(result.blocked) : null, g2Failed: result.g2Failed ?? [] };
+  return { state: await fresh(run), units, admit, admissionBlocked: result.blocked ? motivoToWait(result.blocked) : null, g2Failed: result.g2Failed ?? [], g2Fails: result.g2Fails ?? {} };
 }
 
 /** Work phase of one granted unit: WO IN_PROGRESS commit, unit worktree, brief (with the token), Codex launch for `via:"cli"`. */
@@ -1476,7 +1535,9 @@ async function alreadyStopped(run, state) {
   const bs = run.d.buildState ?? await import("../build-state.mjs");
   try {
     const token = await readLeaseToken(run.ref.project, run.ref.epoch, run.d);
-    await bs.quiesce(run.ref.project, token, run.ref.epoch, { projectStatus: false });
+    // A lease already quiesced (the previous `next` crashed between quiesce and release) is only released (NB3).
+    const lease = typeof bs.currentLease === "function" ? await bs.currentLease(run.ref.project) : null;
+    if (!lease?.quiesced_at) await bs.quiesce(run.ref.project, token, run.ref.epoch, { projectStatus: false });
     await bs.finalizeRelease(run.ref.project, token, run.ref.epoch);
   } catch (error) {
     // A finished run whose release already completed has no lease left to fence against: that is the expected idempotent case.

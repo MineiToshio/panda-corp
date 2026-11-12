@@ -31,6 +31,12 @@ export const VETO_REASONS = Object.freeze(["irreversible", "scope", "money", "hu
 /** Ladder steps a doubt can be answered in. */
 const OPEN_STEPS = Object.freeze(["sources", "consult1", "consult2"]);
 
+/** Option id that means "stop and ask the owner": never an autonomous decision, it parks the doubt (NB1). */
+export const ASK_OWNER_OPTION = "ask-owner";
+
+/** Park reasons the engine raises itself (not vetoes, not a ladder outcome): the unit always parks, it never builds on an assumption. */
+const FORCED_PARK_REASONS = Object.freeze(["owner_requested", "repeat_doubt"]);
+
 /** Unit states a doubt can be opened from (a report or review with `status: doubt`, A13). */
 const OPENABLE_STATES = Object.freeze(["running", "reported"]);
 
@@ -411,6 +417,8 @@ const PARK_REASON_ES = Object.freeze({
   no_consultant: "no hay consultor disponible de la otra compañía",
   no_consensus: "las consultas no coincidieron con confianza suficiente",
   consult_irreversible: "un consultor la marcó como irreversible",
+  owner_requested: "se concluyó que la especificación hay que aclararla contigo",
+  repeat_doubt: "la misma duda volvió a aparecer en esa unidad después de decidirse sin ti",
 });
 
 const parkReasonEs = (reasons) => reasons.map((r) => PARK_REASON_ES[r] ?? r).join("; ");
@@ -673,6 +681,7 @@ async function park(ctx, state, record, { reasons, reversible }, deps) {
  */
 async function advance(ctx, state, record, deps) {
   const verdict = tally(record);
+  if (verdict.action === "decide" && verdict.value === ASK_OWNER_OPTION) return parkOut(ctx, state, record, ["owner_requested"], deps);
   if (verdict.action === "decide") {
     const why = verdict.voters.map((c) => `${cellText(c)}: ${c.answer.rationale}`).join(" | ");
     const done = await decide(ctx, state, record, { value: verdict.value, decided_by: verdict.decided_by, why, voters: verdict.voters }, deps);
@@ -687,7 +696,7 @@ async function advance(ctx, state, record, deps) {
 }
 
 async function parkOut(ctx, state, record, reasons, deps) {
-  const reversible = preferredReversible(record, { reason: reasons[0] }) && !reasons.some((r) => VETO_REASONS.includes(r) || r === "consult_irreversible");
+  const reversible = preferredReversible(record, { reason: reasons[0] }) && !reasons.some((r) => VETO_REASONS.includes(r) || FORCED_PARK_REASONS.includes(r) || r === "consult_irreversible");
   const parked = await park(ctx, state, record, { reasons, reversible }, deps);
   return {
     state: parked.state, record: parked.record,
@@ -738,7 +747,8 @@ export async function openDoubt({ project, epoch, unit: unitId, file }, deps = {
         if (existing && existing.step === "parked" && unit.state === "parked") return { existing };
       }
       if (!OPENABLE_STATES.includes(unit.state)) throw err("INVALID_STATE", `unit ${unitId} is ${unit.state}: a doubt is opened from running or reported`);
-      return { unit, root: path.resolve(project, state.integration.worktree) };
+      const previous = unit.doubt_id ? await readDoubt(project, unit.doubt_id, deps) : null;
+      return { unit, root: path.resolve(project, state.integration.worktree), repeat: isRepeatDoubt(previous, doubt) };
     },
     async (intent) => (intent.existing ? null : assessVeto({ project, root: intent.root, unit: intent.unit, doubt }, deps)),
     async (veto, intent, ctx) => {
@@ -758,6 +768,9 @@ export async function openDoubt({ project, epoch, unit: unitId, file }, deps = {
       if (veto.vetoed) {
         const parked = await parkOut(ctx, state, record, veto.reasons.map((r) => r.reason), deps);
         ({ state, record, out } = parked);
+      } else if (intent.repeat) {
+        // The unit raises again what the ladder already decided for it: another autonomous decision would loop with no attempt consumed (NB1).
+        ({ state, record, out } = await parkOut(ctx, state, record, ["repeat_doubt"], deps));
       } else if (sourcesSkipped(state)) {
         ({ state, record, out } = await advance(ctx, state, record, deps));
       }
@@ -765,6 +778,23 @@ export async function openDoubt({ project, epoch, unit: unitId, file }, deps = {
       await ctx.writeState(state);
       return output("open", record, out);
     });
+}
+
+const normalizeQuestion = (text) => String(text ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+const optionKey = (options) => options.map((o) => o.id).sort().join("|");
+
+/**
+ * Is a newly raised doubt the same one a unit already had DECIDED (the same question, or the same option ids with the same
+ * preferred option)? Such a repeat is never given to the ladder again (it parks to the owner): deciding it again would
+ * re-queue the unit at the same attempt and loop for ever (review R1b NB1).
+ * @param {object|null} previous the unit's previous doubt record (`unit.doubt_id`)
+ * @param {{question: string, options: {id: string}[], preferred: string}} doubt the doubt being opened
+ * @returns {boolean}
+ */
+export function isRepeatDoubt(previous, doubt) {
+  if (!previous || previous.step !== "decided") return false;
+  if (normalizeQuestion(previous.question) === normalizeQuestion(doubt.question)) return true;
+  return previous.preferred === doubt.preferred && optionKey(previous.options) === optionKey(doubt.options);
 }
 
 function validateSourcesAnswer(answer, record) {
@@ -838,6 +868,8 @@ export async function answerDoubt({ project, epoch, id, file, token = null }, de
       let next;
       if (filed.decision === null) {
         next = await advance(ctx, state, record, deps);
+      } else if (filed.decision === ASK_OWNER_OPTION) {
+        next = await parkOut(ctx, state, record, ["owner_requested"], deps);
       } else {
         const done = await decide(ctx, state, record, { value: filed.decision, decided_by: "sources", why: filed.rationale, voters: [] }, deps);
         next = { state: done.state, record: done.record, out: { step: "decided", decision: done.decision, warnings: done.warnings } };

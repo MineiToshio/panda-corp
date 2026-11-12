@@ -16,6 +16,7 @@
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { releaseToken } from "./admission.mjs";
+import { ASK_OWNER_OPTION } from "./doubts.mjs";
 import { atomicWriteJson, atomicWriteText, defaultExec, nowIso, sha256Hex, writeTarget } from "./fsx.mjs";
 import { buildPaths } from "./paths.mjs";
 import { REVIEW_TYPE_KINDS, fencedTwoPhase, findUnit, isTerminalUnit, patchUnit, readLeaseToken, readState, rebuildState } from "./state.mjs";
@@ -555,7 +556,7 @@ export function doubtFromDiagnosis(diagnosis) {
   }
   return {
     question: `El trabajador no puede seguir porque la especificación es ambigua: ${detail}. ¿Qué lectura se toma?`,
-    options: [{ id: "conservative", text: "Tomar la lectura más conservadora y reversible y seguir" }, { id: "ask-owner", text: "Parar y pedir al owner que aclare la especificación" }],
+    options: [{ id: "conservative", text: "Tomar la lectura más conservadora y reversible y seguir" }, { id: ASK_OWNER_OPTION, text: "Parar y pedir al owner que aclare la especificación" }],
     preferred: "conservative", why: "la lectura conservadora es reversible y no bloquea al resto de la obra",
   };
 }
@@ -565,7 +566,8 @@ export function doubtFromDiagnosis(diagnosis) {
  * Writes the doubt object to `units/<unit>/doubt.json`, then opens it: under drive or the Codex app the sources step is skipped
  * and the first consult unit is queued; a vetoed doubt parks at once. If the doubt cannot be built or the ladder refuses it
  * (`INVALID_INPUT` / `INVALID_STATE`), the unit is HANDED BACK instead of being left `reported` for good (reason `worker_blocked`).
- * Idempotent: a unit whose doubt is already open returns it with `applied: false`.
+ * Idempotent: a unit whose doubt is already open returns it with `applied: false`. A unit that raises again a doubt the
+ * ladder already decided for it is parked to the owner (`parked.reasons: ["repeat_doubt"]`), never decided twice (NB1).
  * @param {{project: string, epoch: number, unit: string, doubt?: object|null, diagnosis?: object|null, actor?: string}} input
  *   `doubt` is the worker's doubt object; when absent it is built from `diagnosis` ({@link doubtFromDiagnosis})
  * @param {object} [deps] as `doubts.openDoubt`, plus `doubts` (module override)
@@ -587,18 +589,25 @@ export async function openUnitDoubt(input, deps = {}) {
   const file = buildPaths(project, deps).unitDoubtFile(unit);
   await atomicWriteJson(file, doubt, { fs });
   const doubts = deps.doubts ?? await import("./doubts.mjs");
-  try {
-    const res = await doubts.openDoubt({ project, epoch, unit, file }, { ...deps, actor: input.actor ?? deps.actor });
-    return {
-      opened: true, applied: res.applied !== false, doubt_id: res.doubt_id, step: res.step,
-      ...(res.consult ? { consult: res.consult } : {}), ...(res.parked ? { parked: res.parked } : {}),
-      ...(res.notice_es ? { notice_es: res.notice_es } : {}), ...(res.warnings ? { warnings: res.warnings } : {}),
-    };
-  } catch (error) {
-    if (error.code !== "INVALID_INPUT" && error.code !== "INVALID_STATE") throw error;
-    return refused(oneLine(error.message, 200));
+  for (let tries = 0; ; tries += 1) {
+    try {
+      const res = await doubts.openDoubt({ project, epoch, unit, file }, { ...deps, actor: input.actor ?? deps.actor });
+      return {
+        opened: true, applied: res.applied !== false, doubt_id: res.doubt_id, step: res.step,
+        ...(res.consult ? { consult: res.consult } : {}), ...(res.parked ? { parked: res.parked } : {}),
+        ...(res.notice_es ? { notice_es: res.notice_es } : {}), ...(res.warnings ? { warnings: res.warnings } : {}),
+      };
+    } catch (error) {
+      if (error.code !== "INVALID_INPUT" && error.code !== "INVALID_STATE") throw error;
+      // The unit moved between the assessment and the mutation (a harvest settling it): one retry, never a hand-back for a race (NB7).
+      if (tries === 0 && error.code === "INVALID_STATE" && UNIT_RACE_RE.test(error.message)) continue;
+      return refused(oneLine(error.message, 200));
+    }
   }
 }
+
+/** The transient `INVALID_STATE` of `doubts.openDoubt` when its unit changed while the veto was assessed. */
+const UNIT_RACE_RE = /changed while its doubt was assessed/;
 
 async function emitSafely(deps, name, data) {
   if (!deps.emit) return null;
