@@ -5,7 +5,7 @@ import { defaultExec } from "../fsx.mjs";
 import { buildPaths } from "../paths.mjs";
 import { bootstrapIntegrationWorktree } from "./bootstrap.mjs";
 import { err } from "./common.mjs";
-import { assertBranchCreatable, findRegistered, gitIn, listWorktrees, out, realOrResolved, refExists } from "./git.mjs";
+import { abortPendingOperations, assertBranchCreatable, findRegistered, gitIn, listWorktrees, out, realOrResolved, refExists } from "./git.mjs";
 
 /**
  * Create (or re-attach) the integration worktree `.pandacorp/run/build/integration` on `lane/<run_id>/integration`.
@@ -83,23 +83,27 @@ export async function dropBootstrapManifests(project, worktree, deps = {}) {
  * running in it. A worktree on another branch or mid-rebase is left to the next write's own healing; untracked and
  * skip-worktree files (bootstrap-owned) are never touched.
  * @param {{project: string, runId: string}} input
- * @returns {Promise<{healed: boolean, discarded: string[]}>}
- * @throws GIT_FAILED on a git error
+ * A merge, cherry-pick or revert killed before its own abort (an assumption merge that conflicted) is aborted FIRST:
+ * resetting its files would leave `MERGE_HEAD` behind and the next plain commit would record a phantom merge that makes
+ * the unmerged branch look landed. The aborted branch stays unmerged and is retried by the next integration pass.
+ * @returns {Promise<{healed: boolean, discarded: string[], aborted: string[]}>}
+ * @throws GIT_FAILED on a git error (including a failed abort: the worktree is then left for the loud refusal)
  */
 export async function healIntegrationWorktree({ project, runId }, deps = {}) {
   const { exec = defaultExec, fs = fsp } = deps;
   const p = buildPaths(project, deps);
-  const none = { healed: false, discarded: [] };
   const existing = await findRegistered(gitIn(exec, path.resolve(project)), fs, p.integrationWorktree);
-  if (!existing || existing.branch !== p.integrationBranch(runId)) return none;
+  if (!existing || existing.branch !== p.integrationBranch(runId)) return { healed: false, discarded: [], aborted: [] };
   const g = gitIn(exec, existing.path);
+  const aborted = await abortPendingOperations(g);
+  const none = { healed: aborted.length > 0, discarded: [], aborted };
   const changed = out(await g(["diff", "--name-only", "--no-renames", "HEAD"])).split("\n").filter(Boolean);
   if (!changed.length) return none;
   const added = new Set(out(await g(["diff", "--name-only", "--no-renames", "--diff-filter=A", "HEAD"])).split("\n").filter(Boolean));
   await g(["reset", "--quiet", "--", ...changed]);
   const restore = changed.filter((f) => !added.has(f));
   if (restore.length) await g(["checkout", "--quiet", "HEAD", "--", ...restore]);
-  return { healed: true, discarded: changed };
+  return { healed: true, discarded: changed, aborted };
 }
 
 /**

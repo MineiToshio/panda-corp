@@ -91,7 +91,7 @@ export async function alreadyStopped(run, state) {
     : state.status === "waiting_owner" || state.status === "waiting_gate" ? "waiting-owner"
       : state.status === "paused" ? (state.status_reason === "infra_L4" ? "paused-infra" : "paused-quota")
         : state.status_reason === "deadlock" ? "deadlock" : "stop";
-  const bs = run.d.buildState ?? await import("../build-state.mjs");
+  const bs = run.d.buildState ?? await import("../../build-state.mjs");
   try {
     const token = await readLeaseToken(run.ref.project, run.ref.epoch, run.d);
     // A lease already quiesced (the previous `next` crashed between quiesce and release) is only released (NB3).

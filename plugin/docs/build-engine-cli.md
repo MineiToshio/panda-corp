@@ -48,6 +48,8 @@ One Node program is the build engine's only executor, for both runtimes (Claude 
 | `lifecycle.mjs` | effects of `start --run`, `start --resume`, `stop`, `finish`; archive and suspend moves (`git worktree move`) |
 | `schemas/*.schema.json` | 11 files: `state`, `journal-event`, `report`, `review-report`, `doubt`, `doubt-answer`, `handoff`, `deferred-reviews`, `quota`, `card-frontmatter`, `summary` |
 
+The modules `next`, `failure`, `lifecycle`, `planner`, `review`, `doubts`, `answers`, `drive`, `admission`, `integrate`, `land`, `units`, `preflight` and `card` are thin entries; their code lives in the same-named sibling folder (`build/<module>/`). Every module, top-level or in those folders, stays under 500 lines.
+
 Shared infrastructure the CLI reuses and never forks:
 - `plugin/runtime/build-state.mjs`: lease, epoch, fenced transitions. v2 imports it as a module (it never shells out to `plugin/scripts/pandacorp-build-state.mjs`). Exports added for v2 (section 2.3): `transfer`, `forceRelease`, `transitionWorkOrderAt`, and a `projectStatus:false` option on `acquire`, `quiesce` and `renew`.
 - `plugin/scripts/product-floor.mjs`: imported (`productFloor`, `securityDeltaTriggers`).
@@ -767,7 +769,7 @@ reviewCell({authors[], kind, zone, availability{claude, codex: ok|quota|unreacha
 consultCell({origin, consultNo, consulted?[], availability?}) -> {runtime, model, effort} | null   // null = no consult left, the doubt parks
 ```
 
-`routing.mjs` exports `MODEL_STRENGTH` (frozen: `haiku 1, luna 1, sonnet 2, sol 2, terra 2, opus 3, astra 3, fable 4`), the single strength table: `drive.mjs` imports it for the audit-deferral "strongest author" (`review.mjs` still keeps an identical private copy). A repeated execution raises effort one step (cap `xhigh`) and never switches company; only the quota switch of BUILD-11 (or an unreachable label company) changes company (the other company's column of the same builder row). The cells, the 16-row review matrix and the unreachable and same-model rules are policy (BUILD-10) and are generated from the data file; a table test pins them. `start` checks Codex slugs against `codex debug models` and fails loud when a catalog slug is retired.
+`routing.mjs` exports `MODEL_STRENGTH` (frozen: `haiku 1, luna 1, sonnet 2, sol 2, terra 2, opus 3, astra 3, fable 4`), the single strength table: `review/degradation.mjs` (the "strongest author" helper behind the review matrix) and `drive/audit.mjs` (the audit deferral) import it; no module keeps a private copy. A repeated execution raises effort one step (cap `xhigh`) and never switches company; only the quota switch of BUILD-11 (or an unreachable label company) changes company (the other company's column of the same builder row). The cells, the 16-row review matrix and the unreachable and same-model rules are policy (BUILD-10) and are generated from the data file; a table test pins them. `start` checks Codex slugs against `codex debug models` and fails loud when a catalog slug is retired.
 
 ## 9. `drive` relay
 

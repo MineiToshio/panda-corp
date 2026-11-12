@@ -136,8 +136,9 @@ export async function startResume(input, deps = {}) {
   }
   // An engine write that died before its commit left the integration worktree dirty: discard it (never while a land job
   // still runs merge-queue in that worktree).
-  const landAlive = before.jobs.some((j) => j.kind === "land" && j.state === "running" && isAlive(j.pid));
-  const healed = landAlive ? { healed: false, discarded: [] } : await healIntegrationWorktree({ project, runId: before.run_id }, d);
+  // A running land job with no recorded pid is treated as alive (same predicate as drive): a live merge-queue may not be recorded yet.
+  const landAlive = before.jobs.some((j) => j.kind === "land" && j.state === "running" && (!Number.isInteger(j.pid) || isAlive(j.pid)));
+  const healed = landAlive ? { healed: false, discarded: [], aborted: [] } : await healIntegrationWorktree({ project, runId: before.run_id }, d);
 
   const result = await fencedTwoPhase({ project, epoch: got.epoch, deps: d }, undefined, undefined, async (_r, _i, ctx) => {
     const reattached = [];
@@ -171,7 +172,7 @@ export async function startResume(input, deps = {}) {
     // A dead coordinator may also have died between a unit's settle and its token release: no unit outside
     // admitted/running holds an admission reservation after a resume.
     for (const u of units) if (u.state !== "admitted" && u.state !== "running") { try { releaseToken(u.id, { file: p.admissionFile }); } catch { /* the token file may be gone */ } }
-    await ctx.appendEvent({ type: "run_resumed", data: { from: prior, coordinator: COORDINATORS[coordinator], session_model: sessionModel, reattached, requeued, adopted, rebuilt, ...(healed.healed ? { integration_discarded: healed.discarded } : {}) } });
+    await ctx.appendEvent({ type: "run_resumed", data: { from: prior, coordinator: COORDINATORS[coordinator], session_model: sessionModel, reattached, requeued, adopted, rebuilt, ...(healed.healed ? { integration_discarded: healed.discarded, ...(healed.aborted.length ? { integration_aborted: healed.aborted } : {}) } : {}) } });
     for (const ev of events) await ctx.appendEvent(ev);
     await ctx.writeState({ ...state, units, jobs, coordinator: COORDINATORS[coordinator], status: "active", status_reason: null });
     return { reattached, requeued };

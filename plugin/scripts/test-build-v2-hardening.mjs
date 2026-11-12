@@ -673,6 +673,81 @@ await test("S8 CONV-12: Fable is never selected automatically (builder, review a
 });
 
 
+// ============================================================================================ S9 TRIAGE-2 review R2 regressions (B1, B2)
+// B2: the split refactor left `await import("../build-state.mjs")` one level too shallow. Oracle: every relative specifier in a static
+// import, a re-export or a string-literal dynamic import() under runtime/build/** and the CLI entry must resolve to an existing file.
+async function walkMjs(dir) {
+  const out = [];
+  for (const e of await readdir(dir, { withFileTypes: true })) {
+    const f = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...await walkMjs(f)); else if (e.name.endsWith(".mjs")) out.push(f);
+  }
+  return out;
+}
+await test("S9 B2: every relative import / re-export / dynamic import() specifier under runtime/build/** and the CLI resolves to a file", async () => {
+  const files = [...await walkMjs(BUILD), CLI];
+  const re = /(?:\bfrom\s*|\bimport\s*\(\s*|(?:^|[;\n])\s*import\s+)(["'])(\.{1,2}\/[^"'\n]+)\1/g;
+  const broken = []; let checked = 0;
+  for (const f of files) {
+    const text = await readFile(f, "utf8");
+    for (const m of text.matchAll(re)) {
+      checked++;
+      if (!existsSync(path.resolve(path.dirname(f), m[2]))) broken.push(`${path.relative(HERE, f)} -> ${m[2]}`);
+    }
+  }
+  ok(files.length > 30 && checked > 100, `the scan saw the tree (${files.length} files, ${checked} specifiers)`);
+  eq(broken, [], "relative specifiers that do not resolve");
+});
+await test("S9 B2: `next` on a finished (non-active) run with the REAL build-state (no injected deps) does not throw ERR_MODULE_NOT_FOUND", async () => {
+  const s = await sandbox(); const { start } = await quiescedRun(s);
+  need(s.cli(["finish", "--epoch", String(start.epoch)]), "finish");
+  const r = s.cli(["next", "--epoch", String(start.epoch)]);
+  ok(!/ERR_MODULE_NOT_FOUND|Cannot find module/.test(r.stdout + r.stderr), `next hit a missing module: ${(r.stdout + r.stderr).slice(0, 400)}`);
+});
+await test("S9 B2: alreadyStopped(run, state) with no injected buildState reaches the real module (stopped run, lease release path)", async () => {
+  const s = await sandbox(); const { start } = await startRun(s); await noteStandby(s);
+  need(s.cli(["stop", "--epoch", String(start.epoch)]), "stop");
+  const r = s.cli(["next", "--epoch", String(start.epoch)]);
+  ok(!/ERR_MODULE_NOT_FOUND|Cannot find module/.test(r.stdout + r.stderr), `next on a stopped run hit a missing module: ${(r.stdout + r.stderr).slice(0, 400)}`);
+});
+
+// B1: a merge killed before `merge --abort` leaves MERGE_HEAD in the integration worktree. The heal must not turn it into a clean-looking
+// worktree whose next plain `git commit` records a phantom merge (assumption branch becomes an ancestor with none of its changes).
+await test("S9 B1: resume over a conflicted assumption merge (MERGE_HEAD) never lets a later plain commit become a phantom merge", async () => {
+  const { s, wt, rel, file } = await resumeSetup();
+  const branch = gitIn(wt, "rev-parse", "--abbrev-ref", "HEAD");
+  const orig = await readFile(file, "utf8");
+  gitIn(wt, "checkout", "-q", "-b", "assume-h-b1");
+  await writeFile(file, `${orig}\nASSUMED-SIDE\n`); gitIn(wt, "commit", "-q", "-a", "-m", "assume side", "--no-verify");
+  gitIn(wt, "checkout", "-q", branch);
+  await writeFile(file, `${orig}\nINTEGRATION-SIDE\n`); gitIn(wt, "commit", "-q", "-a", "-m", "integration side", "--no-verify");
+  gitIn(wt, "merge", "--no-ff", "-q", "assume-h-b1", "-m", "assume merge");
+  ok(gitIn(wt, "rev-parse", "-q", "--verify", "MERGE_HEAD"), "precondition: a conflicted merge left MERGE_HEAD");
+  const out = resume(s); await noteStandby(s);
+  const mergeHead = gitIn(wt, "rev-parse", "-q", "--verify", "MERGE_HEAD");
+  const loud = out.code !== 0;
+  ok(loud || !mergeHead, `resume must either stop loudly or clear the merge state (exit ${out.code}, MERGE_HEAD=${mergeHead})`);
+  if (!loud) {
+    await writeFile(path.join(wt, "engine-write-h.txt"), "wo\n"); gitIn(wt, "add", "engine-write-h.txt");
+    gitIn(wt, "commit", "-q", "--no-verify", "-m", "engine write");
+    eq(gitIn(wt, "rev-list", "--parents", "-n", "1", "HEAD").split(" ").length, 2, "the engine commit has exactly one parent (no phantom merge)");
+  }
+  const phantom = spawnSync("git", ["merge-base", "--is-ancestor", "assume-h-b1", "HEAD"], { cwd: wt }).status === 0;
+  ok(!phantom || (await readFile(file, "utf8")).includes("ASSUMED-SIDE"), "the assumption branch must not count as merged while its changes are absent (accepted work would be lost)");
+});
+await test("S9 B1: after the heal the accepted assumption branch is still unmerged (so a later pass can merge it, not lost)", async () => {
+  const { s, wt, file } = await resumeSetup();
+  const branch = gitIn(wt, "rev-parse", "--abbrev-ref", "HEAD"); const orig = await readFile(file, "utf8");
+  gitIn(wt, "checkout", "-q", "-b", "assume-h-b1b"); await writeFile(file, `${orig}\nA\n`); gitIn(wt, "commit", "-q", "-a", "-m", "a", "--no-verify");
+  gitIn(wt, "checkout", "-q", branch); await writeFile(file, `${orig}\nB\n`); gitIn(wt, "commit", "-q", "-a", "-m", "b", "--no-verify");
+  gitIn(wt, "merge", "--no-ff", "-q", "assume-h-b1b", "-m", "m");
+  resume(s); await noteStandby(s);
+  if (!gitIn(wt, "rev-parse", "-q", "--verify", "MERGE_HEAD")) { try { gitIn(wt, "commit", "-q", "--allow-empty", "--no-verify", "-m", "engine"); } catch { /* ignore */ } }
+  const merged = spawnSync("git", ["merge-base", "--is-ancestor", "assume-h-b1b", "HEAD"], { cwd: wt }).status === 0;
+  ok(!merged, "assumption branch must remain a not-yet-merged branch after heal plus a plain engine commit");
+});
+
+
 await cleanupSandboxes();
 console.log(`RESULT test-build-v2-hardening: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

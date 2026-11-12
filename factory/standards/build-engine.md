@@ -484,7 +484,8 @@ and its preferred one; the unit stays `reported` with its `doubt_id`):
 2. **Decide** when consult 1 matches the preferred option with confidence ≥ medium. Otherwise
    **consult 2** (tie-break) with the strongest model not yet consulted (opus xhigh or astra high); the
    option with 2 of 3 votes and confidence ≥ medium wins.
-3. **Caps:** ≤3 consult calls per doubt; ≤8 consulted doubts per build; beyond that the doubt parks. A
+2b. **Ladder length (DEC-10):** the ladder asks at most 2 consults; with no 2-of-3 winner after consult 2 the doubt parks `no_consensus`, and a winner is parked `consult_irreversible` when any voter, or any answered non-voting consult that chose it, says `reversible:false`. The file-risk veto fails closed: an unreadable `docs/frds` or work order, or a WO id not found, parks the doubt. "Already built" for a rejected assumption is judged from unit state and doubt-id order; the assumed root that was never rebuilt is re-queued without spending an attempt. A doubt the engine synthesizes is a repeat only by its normalized question (a distinct second ambiguity goes to consult); a reworded repeat is stopped only by the 8-doubt cap.
+3. **Caps:** ≤3 consult calls per doubt (hard cap); ≤8 consulted doubts per build; beyond that the doubt parks. A
    consult that returns no JSON counts as a low-confidence, irreversible non-answer: it counts toward the
    cap and the ladder advances.
 

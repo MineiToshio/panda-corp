@@ -44,6 +44,29 @@ export async function findRegistered(g, fs, wanted) {
   return null;
 }
 
+/** In-progress merge-like operations that leave a pending commit state (`<GIT_DIR>/<HEAD file>`), with their abort command. */
+const PENDING_OPERATIONS = Object.freeze([
+  { name: "merge", head: "MERGE_HEAD" },
+  { name: "cherry-pick", head: "CHERRY_PICK_HEAD" },
+  { name: "revert", head: "REVERT_HEAD" },
+]);
+
+/** Names of the merge/cherry-pick/revert operations still in progress in this worktree (a plain `git commit` would conclude them). */
+export async function pendingOperations(g) {
+  const found = [];
+  for (const op of PENDING_OPERATIONS) {
+    if ((await g(["rev-parse", "-q", "--verify", op.head], { allowFail: true })).code === 0) found.push(op.name);
+  }
+  return found;
+}
+
+/** Abort every in-progress merge/cherry-pick/revert (`git <name> --abort`); returns the names aborted. @throws GIT_FAILED */
+export async function abortPendingOperations(g) {
+  const names = await pendingOperations(g);
+  for (const name of names) await g([name, "--abort"]);
+  return names;
+}
+
 export const refExists = async (g, ref) => (await g(["show-ref", "--verify", "--quiet", ref], { allowFail: true })).code === 0;
 
 /**

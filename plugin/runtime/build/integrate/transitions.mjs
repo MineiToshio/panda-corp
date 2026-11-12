@@ -4,7 +4,7 @@ import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { defaultExec, nowIso, writeTarget } from "../fsx.mjs";
 import { err } from "./common.mjs";
-import { gitIn, out } from "./git.mjs";
+import { gitIn, out, pendingOperations } from "./git.mjs";
 import { indexWorkOrders, workOrderRoute } from "./workOrders.mjs";
 
 /** Track line each reached status produces (shapes read by Mission Control, CLI doc section 10). */
@@ -21,7 +21,8 @@ const TRACK_FILE = ".pandacorp/track.jsonl";
  * Make sure the integration worktree is on its branch with no tracked changes; an interrupted detached rebase of an
  * earlier call is aborted and the branch re-checked-out first. Untracked files are ignored.
  * @returns {Promise<{healed: boolean, tip: string}>}
- * @throws INVALID_STATE when another branch is checked out or tracked files are dirty
+ * @throws INVALID_STATE when another branch is checked out, tracked files are dirty, or a merge/cherry-pick/revert is
+ *   still pending (a plain commit would conclude it as a phantom merge; `start --resume` aborts it)
  */
 export async function prepareIntegration(g, fs, root, branch) {
   let healed = false;
@@ -35,6 +36,8 @@ export async function prepareIntegration(g, fs, root, branch) {
     await g(["checkout", "--quiet", branch]);
     healed = true;
   }
+  const pending = await pendingOperations(g);
+  if (pending.length) throw err("INVALID_STATE", `integration worktree has an unfinished ${pending.join(" + ")}; refusing to commit on top of it`, { hint: "INTEGRATION_DIRTY" });
   const dirty = out(await g(["status", "--porcelain", "--untracked-files=no"]));
   if (dirty) throw err("INVALID_STATE", `integration worktree has uncommitted tracked changes: ${dirty.split("\n").slice(0, 5).join("; ")}`, { hint: "INTEGRATION_DIRTY" });
   return { healed, tip: out(await g(["rev-parse", "HEAD"])) };
