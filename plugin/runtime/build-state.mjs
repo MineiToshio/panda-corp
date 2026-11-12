@@ -56,40 +56,87 @@ const sweepLockLitter = async (p) => {
     await rm(full, { recursive: true, force: true }).catch(() => {});
   }
 };
-// "dead" only when the pid prefixing the owner id is provably gone (ESRCH); "alive" for a live or foreign-permission
-// (EPERM) pid, including this process; "unknown" for a missing or unreadable owner.
-const holderVerdict = (owner) => {
+// Start time (ms since the epoch, whole-second resolution) of the live process `pid`, or null when it cannot be read.
+const processStartMs = async (pid) => {
+  if (pid === process.pid) return performance.timeOrigin;
+  try {
+    const { stdout } = await execFileAsync("ps", ["-o", "lstart=", "-p", String(pid)], { timeout: 2_000, env: { ...process.env, LC_ALL: "C" } });
+    const started = Date.parse(stdout.trim());
+    return Number.isFinite(started) ? started : null;
+  } catch { return null; }
+};
+// A lock this recent is never checked for pid reuse (one `ps` per contended attempt would cost more than the wait).
+const PID_REUSE_CHECK_MS = 2_000;
+/**
+ * Liveness of a lock holder, judged by pid AND process start time: "dead" when the pid is gone (ESRCH) or now belongs
+ * to a process started after `aliveAtMs` (a moment the holder is known to have been alive: it wrote the lock then), so
+ * a reused pid is not mistaken for the holder; "alive" otherwise (EPERM, an unreadable start time and this very process
+ * included, unless this process started after the lock was taken); "unknown" for a missing or unreadable owner.
+ * @param {unknown} owner the owner id `<pid>-<nonce>`
+ * @param {number} aliveAtMs when the holder wrote its lock
+ * @returns {Promise<"dead"|"alive"|"unknown">}
+ */
+const holderVerdict = async (owner, aliveAtMs) => {
   const pid = Number.parseInt(String(owner ?? "").split("-")[0], 10);
   if (!Number.isInteger(pid) || pid <= 0) return "unknown";
-  if (pid === process.pid) return "alive";
-  try { process.kill(pid, 0); return "alive"; } catch (error) { return error.code === "ESRCH" ? "dead" : "alive"; }
+  if (pid !== process.pid) {
+    try { process.kill(pid, 0); } catch (error) { if (error.code === "ESRCH") return "dead"; }
+  }
+  if (Date.now() - aliveAtMs < PID_REUSE_CHECK_MS) return "alive";
+  const started = await processStartMs(pid);
+  // ps truncates to the second: one second of margin keeps a genuine holder from ever reading as "started later".
+  return started !== null && started > aliveAtMs + 1_000 ? "dead" : "alive";
 };
+// A lock held longer than this by a LIVE holder is reported in the CONTENDED error, never taken away from it. An
+// ownerless lock (legacy litter: a born-complete lock always names its holder) older than this is reclaimed.
+const MUTEX_OVERDUE_MS = 60_000;
 /**
- * Reclaim the mutex at `p` when its holder is dead, or when it is older than `staleMs` (a hung or ownerless holder).
- * Reclaimers are serialized per lock INSTANCE: the instance is moved to a tomb named after the inode observed BEFORE its
- * owner was read, and a tomb is kept (non-empty) until the litter sweep. A second reclaimer that judged the same
- * instance renames whatever now sits at `p` onto that existing non-empty tomb, which fails, so a lock acquired after
- * the first reclaim can never be taken away by a late reclaimer (no ABA), and there is no hand-back of a reclaimed lock.
- * The FULL owner record (pid, nonce, acquired_at) moved is compared with the one judged: a mismatch means the judged
- * instance left by a release (only a live, merely old holder can do that) and the move took its successor, which is put
- * back at once (that rename fails if `p` was taken meanwhile; it never makes two holders).
+ * Reclaim the mutex at `p` when its holder is dead (see holderVerdict), or when it is ownerless and older than
+ * MUTEX_OVERDUE_MS. A live holder is never reclaimed, however long it holds the mutex.
+ * Reclaimers are serialized per lock INSTANCE, and the instance is identified by the very owner record that was judged
+ * (pid + nonce + acquired_at; the inode for an ownerless one): it moves to a tomb named after a hash of that record,
+ * kept non-empty until the litter sweep. A dead instance leaves `p` only through such a move, into ITS tomb, so a late
+ * reclaimer of the same instance renames whatever now sits at `p` onto an existing non-empty tomb, and that fails: a
+ * lock acquired after the first reclaim is never taken away (no ABA). The tomb is named after what was judged, never
+ * after an inode read separately: the instance at `p` can change between two reads (a release and a new lock).
+ * @returns {Promise<{pid:number, ageMs:number}|null>} the live holder when it is overdue, else null
  */
-const reclaimStaleMutex = async (p, staleMs) => {
+const reclaimDeadMutex = async (p) => {
+  const before = await stat(p, { bigint: true }).catch(() => null);
+  if (!before) return null;
+  const judged = await readFile(path.join(p, "owner.json"), "utf8").catch(() => null);
+  const judgedAt = Date.now();
+  // Stat AFTER the read: this mtime belongs to the judged instance or a later one, so it is never earlier than a moment
+  // the judged holder was alive (an earlier one could make a live holder's process look "started after its lock").
   const seen = await stat(p, { bigint: true }).catch(() => null);
-  if (!seen) return;
-  const ownerFile = path.join(p, "owner.json");
-  const judged = await readFile(ownerFile, "utf8").catch(() => null);
-  let owner = null;
-  try { owner = judged === null ? null : JSON.parse(judged)?.owner ?? null; } catch { owner = null; }
-  const verdict = holderVerdict(owner);
-  if (verdict !== "dead" && Date.now() - Number(seen.mtimeMs) <= staleMs) return;
-  const tomb = `${p}.stale-i${seen.ino}`;
-  if (await lstat(tomb).then(() => true, () => false)) return;
-  try { await rename(p, tomb); } catch (error) { if (LOCK_RACE_CODES.has(error.code)) return; throw error; }
+  if (!seen) return null;
+  let record = null;
+  try { record = judged === null ? null : JSON.parse(judged); } catch { record = null; }
+  const owner = typeof record?.owner === "string" ? record.owner : null;
+  const aliveAtMs = Math.max(Number(seen.mtimeMs), Date.parse(record?.acquired_at ?? "") || 0);
+  const ageMs = judgedAt - aliveAtMs;
+  const verdict = await holderVerdict(owner, aliveAtMs);
+  if (verdict === "alive") return ageMs > MUTEX_OVERDUE_MS ? { pid: Number.parseInt(owner, 10), ageMs } : null;
+  let identity;
+  if (verdict === "dead") identity = createHash("sha256").update(judged).digest("hex").slice(0, 32);
+  else {
+    if (ageMs <= MUTEX_OVERDUE_MS) return null;
+    // Ownerless: the instance is the inode, provided the same one sat at `p` before and after its owner was read.
+    if (before.ino !== seen.ino) return null;
+    identity = `i${seen.ino}`;
+  }
+  const tomb = `${p}.stale-${identity}`;
+  if (await lstat(tomb).then(() => true, () => false)) return null;
+  // A reclaimer stalled for minutes could outlive the tomb of its instance (litter sweep); it judges again instead.
+  if (Date.now() - judgedAt > MUTEX_OVERDUE_MS) return null;
+  try { await rename(p, tomb); } catch (error) { if (LOCK_RACE_CODES.has(error.code)) return null; throw error; }
   const moved = await readFile(path.join(tomb, "owner.json"), "utf8").catch(() => null);
-  if (moved !== judged) { await rename(tomb, p).catch(() => {}); return; }
+  // Unreachable while every writer follows this protocol; a lock written by an older plugin version could still get
+  // here, and it is put back (a rename that fails when `p` was retaken, so it never makes two holders).
+  if (moved !== judged) { await rename(tomb, p).catch(() => {}); return null; }
   // An ownerless (legacy) instance leaves an empty tomb, which a rename could replace: make it non-empty.
   await writeFile(path.join(tomb, "reclaimed"), `${process.pid}\n`, { mode: 0o600 }).catch(() => {});
+  return null;
 };
 // The lock directory is born complete: its `owner.json` is written inside a private sibling directory which is then
 // renamed onto the lock path, so a directory visible at the lock path always names its holder (a holder killed at any
@@ -98,6 +145,7 @@ const reclaimStaleMutex = async (p, staleMs) => {
 const withMutex = async (p, fn, attempts = 100) => {
   const owner = `${process.pid}-${randomBytes(12).toString("hex")}`;
   const ownerFile = path.join(p, "owner.json");
+  let overdue = null;
   for (let i = 0; i < attempts; i++) {
     const held = await stat(p).then(() => true, () => false);
     let acquired = false;
@@ -125,10 +173,11 @@ const withMutex = async (p, fn, attempts = 100) => {
         }
       }
     }
-    await reclaimStaleMutex(p, 60_000);
+    overdue = await reclaimDeadMutex(p);
     await sleep(10);
   }
-  throw Object.assign(new Error("lease mutation mutex busy"), { code: "CONTENDED" });
+  const detail = overdue ? ` (held by live pid ${overdue.pid} for ${Math.round(overdue.ageMs / 1000)} s; a live holder is never reclaimed)` : "";
+  throw Object.assign(new Error(`lease mutation mutex busy${detail}`), { code: "CONTENDED", ...(overdue ? { holder: overdue } : {}) });
 };
 const yamlSet = async (file, updates) => {
   let body = await readFile(file, "utf8");

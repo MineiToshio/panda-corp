@@ -4,10 +4,12 @@ import { createHash, randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
 import * as fsp from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 import { SCHEMAS_DIR, assertSafeId, resolveInside } from "./paths.mjs";
 
 const err = (code, message, extra = {}) => Object.assign(new Error(message), { code }, extra);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const execFileAsync = promisify(execFile);
 
 /** Lowercase hex sha256 of a string or Buffer. */
 export const sha256Hex = (data) => createHash("sha256").update(data).digest("hex");
@@ -137,42 +139,101 @@ async function sweepLockLitter(lock, fs) {
   }
 }
 
-// "dead" only when the pid prefixing the owner is provably gone (ESRCH); "alive" for a live or foreign-permission pid
-// (this process included); "unknown" for a missing or unreadable owner.
-function holderVerdict(owner) {
-  const pid = Number.parseInt(String(owner ?? "").split("-")[0], 10);
-  if (!Number.isInteger(pid) || pid <= 0) return "unknown";
-  if (pid === process.pid) return "alive";
-  try { process.kill(pid, 0); return "alive"; } catch (error) { return error.code === "ESRCH" ? "dead" : "alive"; }
+// Start time (ms since the epoch, whole-second resolution) of the live process `pid`, or null when it cannot be read.
+async function processStartMs(pid) {
+  if (pid === process.pid) return performance.timeOrigin;
+  try {
+    const { stdout } = await execFileAsync("ps", ["-o", "lstart=", "-p", String(pid)], { timeout: 2_000, env: { ...process.env, LC_ALL: "C" } });
+    const started = Date.parse(stdout.trim());
+    return Number.isFinite(started) ? started : null;
+  } catch {
+    return null;
+  }
 }
 
-// Reclaim an append lock whose holder is dead, or that is older than `staleMs`. Reclaimers are serialized per lock
-// INSTANCE: it moves to a tomb named after the inode observed BEFORE its owner was read, and the tomb stays (non-empty)
-// until the litter sweep, so a late reclaimer of the same instance fails to rename the next holder's lock onto it (no
-// ABA, no hand-back of a reclaimed lock). The FULL owner moved is compared with the one judged; a mismatch (the judged
-// instance was released by a live, merely old holder) puts the successor back, which can never make two holders.
-async function reclaimStaleLock(lock, fs, staleMs) {
-  const seen = await fs.stat(lock, { bigint: true }).catch(() => null);
-  if (!seen) return;
+// A lock this recent is never checked for pid reuse (one `ps` per contended attempt would cost more than the wait).
+const PID_REUSE_CHECK_MS = 2_000;
+// Liveness of a lock holder by pid AND process start time: "dead" when the pid is gone (ESRCH) or now belongs to a
+// process started after `aliveAtMs` (when the holder wrote its lock), so a reused pid is not mistaken for the holder;
+// "alive" otherwise (EPERM, an unreadable start time, this very process unless it started after the lock was taken);
+// "unknown" for a missing or unreadable owner.
+async function holderVerdict(owner, aliveAtMs) {
+  const pid = Number.parseInt(String(owner ?? "").split("-")[0], 10);
+  if (!Number.isInteger(pid) || pid <= 0) return "unknown";
+  if (pid !== process.pid) {
+    try {
+      process.kill(pid, 0);
+    } catch (error) {
+      if (error.code === "ESRCH") return "dead";
+    }
+  }
+  if (Date.now() - aliveAtMs < PID_REUSE_CHECK_MS) return "alive";
+  const started = await processStartMs(pid);
+  // ps truncates to the second: one second of margin keeps a genuine holder from ever reading as "started later".
+  return started !== null && started > aliveAtMs + 1_000 ? "dead" : "alive";
+}
+
+// An ownerless append lock (legacy litter: a born-complete lock always names its holder) older than this is reclaimed;
+// a LIVE holder is never reclaimed, however long it holds the lock (the CONTENDED error reports it instead).
+const APPEND_LOCK_OVERDUE_MS = 30_000;
+
+// Reclaim an append lock whose holder is dead, or that is ownerless and older than APPEND_LOCK_OVERDUE_MS. Reclaimers
+// are serialized per lock INSTANCE, identified by the very owner text that was judged (pid + nonce; the inode for an
+// ownerless lock): the instance moves to a tomb named after a hash of it, kept non-empty until the litter sweep. A dead
+// instance leaves the lock path only through such a move into ITS tomb, so a late reclaimer of the same instance fails
+// to rename the next holder's lock onto that tomb (no ABA). Never name the tomb after an inode read separately: the
+// instance can change between two reads. Returns the live holder when it is overdue, else null.
+async function reclaimDeadLock(lock, fs) {
+  const before = await fs.stat(lock, { bigint: true }).catch(() => null);
+  if (!before) return null;
   const judged = await fs.readFile(path.join(lock, "owner"), "utf8").catch(() => null);
-  if (holderVerdict(judged) !== "dead" && Date.now() - Number(seen.mtimeMs) <= staleMs) return;
-  const tomb = `${lock}.dead-i${seen.ino}`;
-  if (await fs.lstat(tomb).then(() => true, () => false)) return;
-  try { await fs.rename(lock, tomb); } catch (error) { if (LOCK_RACE_CODES.has(error.code)) return; throw error; }
+  const judgedAt = Date.now();
+  // Stat AFTER the read: this mtime belongs to the judged instance or a later one, so it is never earlier than a moment
+  // the judged holder was alive (an earlier one could make a live holder's process look "started after its lock").
+  const seen = await fs.stat(lock, { bigint: true }).catch(() => null);
+  if (!seen) return null;
+  const aliveAtMs = Number(seen.mtimeMs);
+  const ageMs = judgedAt - aliveAtMs;
+  const verdict = await holderVerdict(judged, aliveAtMs);
+  if (verdict === "alive") return ageMs > APPEND_LOCK_OVERDUE_MS ? { pid: Number.parseInt(judged, 10), ageMs } : null;
+  let identity;
+  if (verdict === "dead") identity = sha256Hex(judged).slice(0, 32);
+  else {
+    if (ageMs <= APPEND_LOCK_OVERDUE_MS) return null;
+    // Ownerless: the instance is the inode, provided the same one sat at the lock path before and after the read.
+    if (before.ino !== seen.ino) return null;
+    identity = `i${seen.ino}`;
+  }
+  const tomb = `${lock}.dead-${identity}`;
+  if (await fs.lstat(tomb).then(() => true, () => false)) return null;
+  // A reclaimer stalled for minutes could outlive the tomb of its instance (litter sweep); it judges again instead.
+  if (Date.now() - judgedAt > APPEND_LOCK_OVERDUE_MS) return null;
+  try {
+    await fs.rename(lock, tomb);
+  } catch (error) {
+    if (LOCK_RACE_CODES.has(error.code)) return null;
+    throw error;
+  }
   const moved = await fs.readFile(path.join(tomb, "owner"), "utf8").catch(() => null);
-  if (moved !== judged) { await fs.rename(tomb, lock).catch(() => {}); return; }
+  // Unreachable while every writer follows this protocol (a lock of an older plugin version could get here): put it
+  // back, a rename that fails when the lock was retaken, so it never makes two holders.
+  if (moved !== judged) {
+    await fs.rename(tomb, lock).catch(() => {});
+    return null;
+  }
   // An ownerless (legacy) instance leaves an empty tomb, which a rename could replace: make it non-empty.
   await fs.writeFile(path.join(tomb, "reclaimed"), `${process.pid}\n`).catch(() => {});
+  return null;
 }
 
 // Short cross-process mutex around one append. The lock directory is born WITH its owner file (prepared aside, then
 // renamed into place), so a holder killed at any point (kill -9 of drive mid-append) leaves either no lock or a lock
-// naming a dead pid, which the next appender reclaims at once instead of waiting out the 30-s staleness rule (kept for
-// locks whose owner cannot be read).
+// naming a dead pid, which the next appender reclaims at once (a lock whose owner cannot be read waits out 30 s).
 async function withAppendLock(file, fs, fn) {
   const lock = `${file}.lock`;
   const me = `${process.pid}-${randomBytes(8).toString("hex")}`;
   await fs.mkdir(path.dirname(file), { recursive: true });
+  let overdue = null;
   for (let attempt = 0; attempt < 600; attempt++) {
     const held = await fs.stat(lock).catch(() => null);
     if (!held) {
@@ -201,11 +262,12 @@ async function withAppendLock(file, fs, fn) {
         }
       }
     } else {
-      await reclaimStaleLock(lock, fs, 30_000);
+      overdue = await reclaimDeadLock(lock, fs);
     }
     await sleep(10);
   }
-  throw err("CONTENDED", `journal append lock busy: ${file}`);
+  const detail = overdue ? ` (held by live pid ${overdue.pid} for ${Math.round(overdue.ageMs / 1000)} s; a live holder is never reclaimed)` : "";
+  throw err("CONTENDED", `journal append lock busy: ${file}${detail}`, overdue ? { holder: overdue } : {});
 }
 
 /**
