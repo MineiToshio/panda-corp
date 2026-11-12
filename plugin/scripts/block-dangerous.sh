@@ -7,6 +7,11 @@
 command -v jq >/dev/null 2>&1 || { echo "BLOCKED: Pandacorp safety gate cannot parse its input (jq missing) — fix the environment before running Bash" >&2; exit 2; }
 
 input=$(cat)
+# A NUL byte in the command: bash drops it from $(…) below (so every rule would judge a different string), while
+# zsh truncates the argument at it. Never a legitimate command: block outright, before anything else.
+if printf '%s' "$input" | jq -e '(.tool_input.command // "") | contains("\u0000")' >/dev/null 2>&1; then
+  echo "BLOCKED by Pandacorp policy: the command contains a NUL byte" >&2; exit 2
+fi
 cwd=$(echo "$input" | jq -r '.cwd // "."')
 cmd=$(echo "$input" | jq -r '.tool_input.command // ""')
 
@@ -249,15 +254,25 @@ fi
 # Step 1: the detector. Separate greps (each line-independent), C locale so any control byte is a word boundary.
 _RD_B='(^|[^A-Za-z0-9_])'; _RD_E='([^A-Za-z0-9_]|$)'
 _rd_has() { printf '%s' "$1" | LC_ALL=C grep -Eq -- "$2"; }
-_looks_like_recursive_delete() { # $1 = command text → 0 when it looks like a recursive delete
-  local v raw norm rmw="${_RD_B}[gs]?rm${_RD_E}" unl="${_RD_B}(unlink|rmdir|shred)${_RD_E}"
-  # A whole `--rm` option word (docker run --rm) never runs rm, and neither does the git subcommand (`git rm`,
-  # `git -C <path> rm`: tracked files only, recoverable from git). The -C path may be a literal or ONE plain
-  # variable, never a substitution. Only the detector reads this copy; an rm chained after it still counts.
-  raw=$(printf '%s' "$1" | LC_ALL=C sed -E \
+# Words that contain "rm" but never run it, rewritten away for the detector only (applied to each copy on its own,
+# so a form only one copy recognises stays detected): a whole `--rm` option word (docker run --rm), and the git
+# subcommand `git rm` / `git -C <path> rm` (path literal or ONE plain variable, never a substitution). The git
+# form is exempt only when it cannot lose uncommitted work: `--cached` (index only), or no -f/--force flag cluster
+# and no expansion that could carry one (without force, git refuses to remove a file with local changes).
+_rd_neutral() {
+  LC_ALL=C sed -E \
     -e 's/(^|[[:space:]])--rm([[:space:]=]|$)/\1--x\2/g' \
-    -e 's/(^|[^A-Za-z0-9_])git[[:space:]]+(-C[[:space:]]+([^[:space:];&|$`()<>{}]+|"?\$\{?[A-Za-z_][A-Za-z0-9_]*\}?"?)[[:space:]]+)?rm([[:space:]]|$)/\1GITSUBCMD\4/g')
-  norm=$(printf '%s' "$raw" | tr -d "\"'\\\\")
+    -e 's/(^|[^A-Za-z0-9_])git[[:space:]]+(-C[[:space:]]+([^[:space:];&|$`()<>{}]+|"?\$\{?[A-Za-z_][A-Za-z0-9_]*\}?"?)[[:space:]]+)?rm([[:space:]]|$)/\1GITRMCAND\4/g' \
+    -e 's/GITRMCAND([^;&|]*[[:space:]]--cached)/GITSUBCMD\1/g' \
+    -e 's/GITRMCAND([^;&|]*([[:space:]]-[A-Za-z]*f|[[:space:]]--f|[$`]))/ rm\1/g' \
+    -e 's/GITRMCAND/GITSUBCMD/g'
+}
+_looks_like_recursive_delete() { # $1 = command text → 0 when it looks like a recursive delete
+  local v raw norm joined bsnl=$'\\\n' rmw="${_RD_B}[gs]?rm${_RD_E}" unl="${_RD_B}(unlink|rmdir|shred)${_RD_E}"
+  # The shell deletes backslash-newline before splitting words, even mid-word (r\<NL>m, fi\<NL>nd): join first.
+  joined="${1//"$bsnl"/}"
+  raw=$(printf '%s' "$joined" | _rd_neutral)
+  norm=$(printf '%s' "$joined" | tr -d "\"'\\\\" | _rd_neutral)
   for v in "$raw" "$norm"; do
     if _rd_has "$v" "$rmw"; then
       _rd_has "$v" "${_RD_B}-[A-Za-z]*[rR]" && return 0                                  # -r/-R/-rf/--recursive anywhere
@@ -358,11 +373,18 @@ _wl_verdict() { # $1 = absolute normalised operand → sets wl_reason (empty = a
   _wl_linked_worktree "$r"; wt=$?
   [ "$wt" != 2 ] || { wl_reason="'$r' is a LOCKED git worktree: someone pinned it on purpose, ask the owner"; return; }
   [ "$wt" != 0 ] || return
-  case "$r" in /private/tmp/claude-*/?*) ok=1 ;; esac
+  # /private/tmp/claude-<uid>/<project>/<session>/...: at least 3 levels below claude-* (depth >= 6), so one
+  # project's folder, which holds every session's scratchpad, is never a target.
+  case "$r" in /private/tmp/claude-*/?*) [ "$depth" -ge 6 ] && ok=1 ;; esac
   case "$r" in /private/var/folders/*) [ "$depth" -ge 7 ] && ok=1 ;; esac
   [ -n "$TMPDIR_REAL" ] && case "$r" in "$TMPDIR_REAL"/?*) ok=1 ;; esac
-  case "${r##*/}" in node_modules|.next|dist|build|coverage|.turbo) ok=1 ;; esac
-  [ "$ok" = 1 ] || { wl_reason="'$r' is not a scratch/temp dir, a linked git worktree root or a node_modules/.next/dist/build/coverage/.turbo dir"; return; }
+  # Regenerable output: node_modules/.next by name; the generic names only next to a package.json, so a folder
+  # that merely happens to be called build/dist/out (~/Documents/build) is never deletable by name.
+  case "${r##*/}" in
+    node_modules|.next) ok=1 ;;
+    dist|build|coverage|.turbo|test-results|playwright-report|.vite|.cache|out) [ -f "${r%/*}/package.json" ] && ok=1 ;;
+  esac
+  [ "$ok" = 1 ] || { wl_reason="'$r' is not a scratch/temp dir, a linked git worktree root, node_modules/.next, or build output (dist build coverage .turbo test-results playwright-report .vite .cache out) next to a package.json"; return; }
   if _protected_under "$r"; then
     wl_reason="'$r' contains protected Pandacorp state (.pandacorp/ or factory/{ideas,memory}): archive/move it or ask the owner (BL-0035)"
   fi
@@ -393,7 +415,7 @@ _rm_heredoc_view() {
 }
 _rm_heredoc_view || true
 
-RD_HINT="Allowed without asking: 'rm -rf <literal path>...' or 'cd /abs/dir && rm -rf <name>...' (only && between commands; no variables, globs, ~, .., ;, |, newlines or wrappers), aimed at a scratch/temp dir (/private/tmp/claude-*/..., \$TMPDIR/...), a linked git worktree root, or a node_modules/.next/dist/build/coverage/.turbo dir. Anything else: ask the owner to run it"
+RD_HINT="Allowed without asking: 'rm -rf <literal path>...' or 'cd /abs/dir && rm -rf <name>...' (only && between rm commands; no variables, globs, ~, .., ;, |, newlines or wrappers), aimed at a session scratch/temp dir (/private/tmp/claude-*/<project>/<session>/..., \$TMPDIR/...), a linked git worktree root, node_modules/.next, or build output next to a package.json. Run any follow-up (pnpm install, build...) as a SEPARATE command. For tracked files use 'git rm -r <path>' (recoverable from git). Anything else: ask the owner to run it"
 if _looks_like_recursive_delete "$rm_view"; then
   _wl_parse "$cmd" || block "recursive delete in a form this gate does not verify (find -delete, xargs, loops, nested shells, rsync --delete, variables, globs, ; or newline chains...). $RD_HINT"
   for op in "${wl_ops[@]}"; do

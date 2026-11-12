@@ -102,7 +102,7 @@ check "find without -delete"               0 "$fx" "find . -name x.tmp"
 check "normal push"                        0 "$fx" "git push origin main"
 check "delete feature branch"              0 "$fx" "git branch -D feature-x"
 check "rm -Rf node_modules (capital ok)"   0 "$fx" "rm -Rf node_modules"
-check "rm -rf /tmp/claude-*/x/y (via /tmp)" 0 "$fx" "rm -rf /tmp/claude-501/hookfinal-x/y"
+check "rm -rf /tmp/claude-*/x/y/z (via /tmp)" 0 "$fx" "rm -rf /tmp/claude-501/hookfinal-x/y/z"
 check "APPEND >> to state is safe"         0 "$fx" "echo hi >> myapp/.pandacorp/inbox/decisions.md"
 check "redirect to a normal build file"    0 "$fx" "node gen.js > src/out.txt"
 check "git stash push"                     0 "$fx" "git stash push -m wip"
@@ -286,7 +286,7 @@ check "allow: ./ prefix"                                            0 "$fx" "cd 
 check "allow: separate -r -f flags"                                 0 "$fx" "rm -r -f $SCR/exp1"
 check "allow: deep node_modules (absolute, not existing)"           0 "$fx" "rm -rf /Users/x/proj/node_modules"
 check "allow: deep .next (absolute, not existing)"                  0 "$fx" "rm -rf /Users/x/proj/.next"
-check "allow: regenerable dirs after cd"                            0 "$fx" "cd /Users/x/proj && rm -rf node_modules .next dist build coverage .turbo"
+check "allow: regenerable dirs after cd"                            0 "$fx" "cd /Users/x/proj && rm -rf node_modules .next"
 check "allow: regenerable dirs relative to the session cwd"         0 "$fx" "rm -rf node_modules .next dist build"
 check "allow: non-recursive rm of a quoted variable stays as before" 0 "$fx" 'rm -f "$TMPF"'
 if [ -n "${TMPDIR:-}" ] && [ -d "$TMPDIR" ]; then
@@ -556,6 +556,56 @@ check "block: git rm -r x && rm -rf ~"                              2 "$fx" "git
 check "block: git rm -r x; rm -rf $SCR/exp1 (whitelist still judges)" 2 "$fx" "git rm -r x; rm -rf $SCR/exp1"
 check "block: rm hidden in a git -C substitution"                   2 "$fx" 'git -C "$(rm${IFS}-rf${IFS}~)" rm -r x'
 check "block: rm -rf after git -C <path> rm"                        2 "$fx" "git -C /abs/repo rm -r x && rm -rf /Users/x/proj/src"
+# DR-HOOK5 C1: backslash-newline is deleted by the shell even mid-word, so it must not hide a word from the detector.
+check "C1 block: r\\<NL>m -rf ~"                                     2 "$fx" $'r\\\nm -rf ~'
+check "C1 block: rm -\\<NL>rf ~"                                     2 "$fx" $'rm -\\\nrf ~'
+check "C1 block: rm -\\<NL>r -f /Users/sergio"                       2 "$fx" $'rm -\\\nr -f /Users/sergio'
+check "C1 block: fi\\<NL>nd ~ -delete"                               2 "$fx" $'fi\\\nnd ~ -delete'
+check "C1 block: find ~ -del\\<NL>ete"                               2 "$fx" $'find ~ -del\\\nete'
+check "C1 block: find -exec r\\<NL>m -rf"                            2 "$fx" $'find /Users/sergio -exec r\\\nm -rf {} +'
+check "C1 block: rsy\\<NL>nc --delete"                               2 "$fx" $'rsy\\\nnc -a --delete /tmp/e/ ~/'
+check "C1 block: continuation inside an otherwise allowed form"      2 "$fx" $'rm -rf \\\n'"$SCR/exp1"
+# DR-HOOK5 C2: a FORCED git rm deletes files with uncommitted changes (BL-0202 class): not exempt.
+check "C2 block: git rm -rf ."                                       2 "$fx" "git rm -rf ."
+check "C2 block: git rm -rf myapp"                                   2 "$fx" "git rm -rf myapp"
+check "C2 block: git -C ~ rm -rf ."                                  2 "$fx" "git -C ~ rm -rf ."
+check "C2 block: git rm -r -f :/"                                    2 "$fx" "git rm -r -f :/"
+check "C2 block: git rm -r --force x"                                2 "$fx" "git rm -r --force x"
+check "C2 block: git rm \"-rf\" . (quoted flag)"                     2 "$fx" 'git rm "-rf" .'
+check "C2 block: git rm -r \$F x (flag may come from a variable)"    2 "$fx" 'git rm -r $F x'
+check "C2 block: git -C \"\$TOP\" rm -rf x"                          2 "$fx" 'git -C "$TOP" rm -rf x'
+check "C2 allow: git rm -r --cached .next"                           0 "$fx" "git rm -r --cached .next"
+check "C2 allow: git rm -r src/old"                                  0 "$fx" "git rm -r src/old"
+check "C2 allow: git rm -rf --cached x (index only)"                 0 "$fx" "git rm -rf --cached x"
+check "C2 allow: two unforced git rm -r"                             0 "$fx" "git rm -r a && git rm -r --cached b"
+# DR-HOOK5 C3: a NUL byte is dropped by bash's $(...) but truncates the argument in zsh: blocked outright.
+check_json() { # $1 label, $2 expected rc, $3 cwd, $4 command already JSON-escaped (e.g. containing \u0000)
+  rc=$(printf '{"cwd":"%s","tool_input":{"command":"%s"}}' "$3" "$4" | bash "$GATE" >/dev/null 2>&1; echo $?)
+  if [ "$rc" = "$2" ]; then echo "  ✓ $1"; pass=$((pass+1)); else echo "  ✗ $1 (expected $2, got $rc)"; fail=$((fail+1)); fi
+}
+check_json "C3 block: NUL before /Documents/node_modules"            2 "$fx" 'rm -rf /Users/sergio\u0000/Documents/node_modules'
+check_json "C3 block: NUL in a deep build path"                      2 "$fx" 'rm -rf /Users/sergio\u0000/Documents/x/build'
+check_json "C3 block: NUL after an allowed scratch path"             2 "$fx" "rm -rf $SCR/exp1\\u0000"
+check_json "C3 block: NUL even in a harmless command"                2 "$fx" 'echo a\u0000b'
+check_json "C3 control: the same JSON path without NUL allows"       0 "$fx" "rm -rf $SCR/exp1"
+# DR-HOOK5 non-blocking: generic build-output names only next to a package.json; scratch at least 3 levels below claude-*.
+P=/private/tmp/hookfinal-proj-$$
+mkdir -p "$P/app/dist" "$P/app/build" "$P/noapp/build" "$P/noapp/out"
+echo '{}' > "$P/app/package.json"
+check "allow: build output next to a package.json"                   0 "$fx" "rm -rf $P/app/dist $P/app/build $P/app/coverage $P/app/.turbo $P/app/out"
+check "allow: test/vite/cache output next to a package.json"         0 "$fx" "cd $P/app && rm -rf test-results playwright-report .vite .cache"
+check "block: build with no package.json beside it"                  2 "$fx" "rm -rf $P/noapp/build"
+check "block: out with no package.json beside it"                    2 "$fx" "cd $P/noapp && rm -rf out"
+check "block: ~/Documents/build-like folder (no package.json)"       2 "$fx" "rm -rf /Users/x/Documents/build"
+check "block: dist under a missing project"                          2 "$fx" "rm -rf /Users/x/proj/dist"
+check "allow: node_modules needs no package.json"                    0 "$fx" "rm -rf $P/noapp/node_modules"
+rm -rf "$P"
+check "block: /tmp/claude-501/<project> (every session's scratchpads)" 2 "$fx" "rm -rf /tmp/claude-501/hookfinal-slug"
+check "block: two levels below claude-*"                             2 "$fx" "rm -rf /private/tmp/claude-501/hookfinal-slug/session"
+check "allow: three levels below claude-*"                           0 "$fx" "rm -rf /private/tmp/claude-501/hookfinal-slug/session/scratchpad"
+hint=$(printf '{"cwd":"%s","tool_input":{"command":"rm -rf src/old && pnpm build"}}' "$fx" | bash "$GATE" 2>&1 >/dev/null)
+case "$hint" in *"git rm -r"*"SEPARATE"*|*"SEPARATE"*"git rm -r"*) echo "  ✓ block message suggests git rm -r and a separate follow-up"; pass=$((pass+1)) ;;
+  *) echo "  ✗ block message lacks the git rm -r / separate-command hint: $hint"; fail=$((fail+1)) ;; esac
 rm -rf /private/tmp/claude-501/hookrm-test
 
 echo "== OUT OF SCOPE (expect 0 in a non-Pandacorp dir) =="
