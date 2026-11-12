@@ -74,7 +74,7 @@ export async function applyTerminal(ref, terminal, deps = {}) {
   const token = await readLeaseToken(ref.project, ref.epoch, d);
   await bs.quiesce(ref.project, token, Number(ref.epoch), { projectStatus: false });
   await bs.finalizeRelease(ref.project, token, Number(ref.epoch));
-  // After the release (never under the mutex): the run's G2 snapshots go, except one a still-running G2 job judges (NB5).
+  // After release, reserve the lease mutex across cleanup: the run's G2 snapshots go, except one a still-running G2 job judges (NB5).
   await removeAllG2Snapshots({ project: ref.project, state }, d);
   if (stopped) {
     const runtime = state.coordinator === "codex-session" ? "codex" : "claude";

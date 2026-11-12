@@ -1,5 +1,6 @@
 // One scheduling pass of `next`: renew + one admission reading, harvest, integrate, quota policy, managed units and the
 // planner round, landing, admission and dispatch, then wait or a terminal action (A11).
+import { withRunCleanup } from "../lifecycle/cleanup.mjs";
 import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
 import { bootstrapIntegrationWorktree } from "../integrate.mjs";
 import { recordSample } from "../perf.mjs";
@@ -115,7 +116,7 @@ export async function step(run) {
   }
   notes.push(...terminalNotes(terminal, quota));
   if (terminal.action !== "done") state = await applyTerminal(run.ref, terminal, d);
-  else if (state.units.some(u => u.state === "blocked")) await cleanupRunWorktrees({ project: run.ref.project, state }, d);
+  else if (state.units.some(u => u.state === "blocked")) await withRunCleanup({ project: run.ref.project, state, epoch: run.ref.epoch }, current => cleanupRunWorktrees({ project: run.ref.project, state: current }, d), d);
   return finish(run, state, { action: terminal.action, admit: dispatch.admit, quota, notes });
 }
 

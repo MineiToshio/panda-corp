@@ -56,7 +56,7 @@ at least 90 s (Claude Code Bash `timeout: 90000`).
    label `codex` = the CLI launches `codex exec` workers. Codex app: `--session-runtime codex`, `--coordinator codex`: if the owner's raw
    arguments contain the word `claude`, refuse before calling the CLI (the Codex hook denies any command containing
    that word) with the Spanish line below and stop;
-   one builder at a time, no Claude anywhere. Label `claude` in the Codex app is refused: tell the owner "Esto se
+   concurrency follows the CLI's BUILD-9 adaptive admission, with no special serial ceiling for Codex; no Claude is launched. Label `claude` in the Codex app is refused: tell the owner "Esto se
    construye con Claude: ábrelo en Claude Code y escribe `/pandacorp:implement claude`." and stop.
 4. **Session model.** Note your own model (`sonnet`, `opus`, `haiku`, or `sol`/`astra` in Codex); pass it as
    `--session-model`.

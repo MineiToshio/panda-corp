@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // DR-143: the stack template's playwright.config.ts splits a run into parallel and serial tiers from a
-// project's e2e/parallel-safe.json. Evaluated with a stub @playwright/test, like test-build-mech-lanes.
+// project's e2e/parallel-safe.json. Evaluated with a stub @playwright/test, using isolated fixtures.
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'

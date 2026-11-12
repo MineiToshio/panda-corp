@@ -1,9 +1,7 @@
 name: Factory engine tests
 
-# BL-0069: the factory's own engine correctness (pandacorp-build.js and its dozen
-# plugin/scripts/test-*.mjs suites -- the only proof for load-bearing behavior like DR-117
-# recovery classes, DR-118 gate-worktree lifecycle, DR-060 serialization, R10/R11 runtime-
-# switch contracts) was previously verified ONLY when an agent or the owner manually ran the
+# BL-0069: the factory's own engine correctness (plugin/scripts/test-*.mjs
+# suites covering fenced recovery, worktree lifecycle, admission and runtime continuation) was previously verified ONLY when an agent or the owner manually ran the
 # relevant script. This workflow gives that corpus a trigger that does not depend on anyone
 # remembering (LESSON-0151). Chosen vehicle: GitHub Actions (this repo is public, so Actions
 # minutes are free -- see factory/decision-log.md for the recorded choice).

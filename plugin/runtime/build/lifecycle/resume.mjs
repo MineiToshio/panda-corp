@@ -189,7 +189,7 @@ export async function startResume(input, deps = {}) {
     return { reattached, requeued };
   });
   // Leftover G2 snapshots (a crash between a snapshot and its job) go before the run continues; a running G2 job keeps its own (NB5).
-  await removeAllG2Snapshots({ project }, d);
+  await removeAllG2Snapshots({ project, epoch: got.epoch }, d);
   // Re-attaching a registered worktree is a no-op; a re-created one is bootstrapped (integrate.mjs) before any landing.
   await createIntegrationWorktree({ project, runId: state.run_id }, d);
   const drive = await armDrive({ project, runId: state.run_id, launched, appendEvent: (ev) => journal(p, state.run_id, got.epoch, ev.type, ev.data, d) }, d.driveDeps);

@@ -701,17 +701,32 @@ Archives/suspensions hold run metadata, never moved worktrees; protected leftove
 Verification: `plugin/scripts/test-build-v2-disk.mjs`, `test-build-v2-land.mjs`,
 `test-build-v2-integrate.mjs`, `test-build-v2-cli.mjs`.
 
-Every removal uses `worktreeRemovalReason` from `worktree-sweep.mjs`: preserve dirty or hidden
-changes, protected owner state, a locked checkout, live process cwd, a running unit/job and
-the main checkout; lifecycle eligibility also preserves foreign-run branches, and sweep protects deployments. Hidden differences require identity-bound bootstrap
+Every removal first applies the shared `engineWorktreeOwnershipReason` predicate from
+`worktree-sweep.mjs`: prove the run id, branch and exact canonical checkout path together.
+Detached unit/integration checkouts are retained; a detached G2 checkout is eligible only at
+`g2/<frd>-<sha>` when its HEAD equals that pin and the pin is an ancestor of this run's integration
+ref. Then `worktreeRemovalReason` preserves dirty or hidden changes, protected owner state,
+locks, live process cwd and the main checkout. Shared `runningWorktreePaths` protects every
+running/admitted unit and running job until a positive recorded PID is proven dead, even when
+the coordinator is stopped; absent/null PIDs are not termination evidence. Sweep also protects
+deployments. Hidden differences require identity-bound bootstrap
 hashes; skip-worktree/assume-unchanged flags alone grant nothing, and later owner edits invalidate
 provenance. Legitimately omitted sparse files are distinguished from hidden deletions. An
 unreadable safety signal retains the copy. Session cleanup/sweep remove only the narrow eligible
 engine roots of finished/stopped or archived runs without any held lease; suspended and
 `waiting_gate` runs remain protected. Missing-target manifests are pruned, never owner directories.
-`gc` refuses any held lease and reuses these protections. Verification:
+`gc` and archive/suspend reclamation reserve `withUnleasedProject`, using the same mutex as
+lease acquisition/transfer/reclaim, for the entire cleanup and metadata move. Any lease directory,
+including unreadable, stale or quiesced ownership, refuses maintenance with `CONTENDED`;
+a pre-cleanup lease read alone is insufficient. `gc` carries every first-pass refusal into its
+sweep exclusions, so a second pass cannot override it. Verification:
 `test-session-cleanup.mjs`, `test-session-cleanup-adversarial.mjs`, `test-worktree-sweep.mjs` and
 `test-build-v2-disk.mjs` under `plugin/scripts/`.
+
+Terminal finish/stop/failure cleanup holds the same reservation through all post-release
+deletions and terminal writes, rereading run id and epoch inside it. If a new holder won,
+cleanup returns contention and preserves its copies and state. Active resume snapshot
+cleanup requires the current epoch fence.
 
 **Checkout cost (DEC-17).** Only build/patch/tests unit worktrees may use per-worktree cone sparse
 checkout for docs. Source stays materialized; the unit's FRD, rules, design/product root files and

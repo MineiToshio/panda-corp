@@ -8,6 +8,7 @@ import { dropBootstrapManifests, frdsReadyForG2 } from "../integrate.mjs";
 import { removeWorktree, cleanupRunWorktrees } from "../integrate/worktrees.mjs";
 import { realOrResolved } from "../integrate/git.mjs";
 import { assertSafeId, buildPaths, resolveInside } from "../paths.mjs";
+import { withRunCleanup } from "../lifecycle/cleanup.mjs";
 import { readState } from "../state.mjs";
 import { productPrefix, productRoot } from "../units.mjs";
 import { FRD_WORK_KINDS, G2_SNAPSHOT_DIR, G2_SNAPSHOT_FAIL_MAX, G2_SNAPSHOT_RE, GIT_SHOW_TIMEOUT_MS, SHA_RE } from "./constants.mjs";
@@ -95,12 +96,19 @@ export async function removeG2Snapshot(run, dir, { strict = false } = {}) {
  * Remove every G2 snapshot of the run (`<build>/g2/*`) and its bootstrap manifest entry, except (unless `all`) the snapshot
  * a `running` G2 job of `state` still judges: that one is removed by its own harvest. Called when the run stops (terminal
  * actions, `stop`), finishes, and on `start --resume` (leftovers of a crash between a snapshot and its job). Never runs
- * under the lease mutex; best effort: a failure is logged, never thrown (NB5).
- * @param {{project: string, state?: object|null, all?: boolean}} input `state` defaults to `build/state.json`
+ * without a reservation: terminal cleanup excludes acquire; active resume supplies its epoch (NB5).
+ * @param {{project: string, state?: object|null, all?: boolean, epoch?: number|null}} input `state` defaults to `build/state.json`
  * @param {object} [deps] `fs`, `env`, `homedir`, `log`
  * @returns {Promise<{removed: string[], kept: string[]}>}
  */
-export async function removeAllG2Snapshots({ project, state = null, all = false }, deps = {}) {
+export async function removeAllG2Snapshots({ project, state = null, all = false, epoch = null }, deps = {}) {
+  state ??= await readState(project, deps);
+  if (!state) return { removed: [], kept: [] };
+  if (state.status === "active" && epoch === null) throw err("FENCE", "La limpieza de snapshots activos requiere su epoch.");
+  return withRunCleanup({ project, state, epoch }, current => cleanG2Snapshots({ project, state: current, all }, deps), deps);
+}
+
+async function cleanG2Snapshots({ project, state, all }, deps) {
   const d = resolveDeps(deps);
   const fs = d.fs ?? fsp;
   const run = { ref: { project }, d, paths: buildPaths(project, d) };

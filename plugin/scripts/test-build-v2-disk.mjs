@@ -106,6 +106,81 @@ try {
     const after = await buildState.acquire(c.fx.root, { runtime: 'codex', runId: 'after', projectStatus: false });
     await buildState.release(c.fx.root, after.token, after.epoch);
   });
+  await test('FIX2 terminal reservation rereads both run id and epoch after acquisition', async () => {
+    const { withRunCleanup } = await import('../runtime/build/lifecycle/cleanup.mjs');
+    for (const changed of [{ epoch: 2 }, { run_id: 'replacement' }]) {
+      const c = await setup('state-changed-' + Object.keys(changed)[0]);
+      const prior = stateOf(c, { status: 'finished' });
+      await writeState(c.fx.root, { ...prior, ...changed }, c.deps);
+      let entered = false;
+      await assert.rejects(withRunCleanup({ project: c.fx.root, state: prior }, () => { entered = true; }, c.deps), { code: 'CONTENDED' });
+      assert.equal(entered, false);
+      assert.equal(await exists(c.p.integrationWorktree), true);
+    }
+  });
+  await test('FIX2 active snapshot cleanup requires its current epoch and preserves integration', async () => {
+    const { removeAllG2Snapshots } = await import('../runtime/build/next/g2.mjs');
+    const c = await setup('active-snapshots');
+    const lease = await buildState.acquire(c.fx.root, { runtime: 'claude', runId: 'r-disk', projectStatus: false });
+    await writeState(c.fx.root, stateOf(c, { epoch: lease.epoch }), c.deps);
+    try {
+      await assert.rejects(removeAllG2Snapshots({ project: c.fx.root }, c.deps), { code: 'FENCE' });
+      await assert.rejects(removeAllG2Snapshots({ project: c.fx.root, epoch: lease.epoch + 1 }, c.deps), { code: 'FENCE' });
+      await removeAllG2Snapshots({ project: c.fx.root, epoch: lease.epoch }, c.deps);
+      assert.equal(await exists(c.p.integrationWorktree), true);
+    } finally { await buildState.release(c.fx.root, lease.token, lease.epoch); }
+    await assert.rejects(removeAllG2Snapshots({ project: c.fx.root }, c.deps), { code: 'FENCE' });
+  });
+  for (const terminal of ['finish', 'stop', 'failure']) {
+    for (const winsFirst of [false, true]) {
+      await test(`FIX2 ${terminal}: ${winsFirst ? 'prior acquire preserves copies and state' : 'acquire is excluded throughout terminal cleanup'}`, async () => {
+        const c = await setup(`terminal-${terminal}-${winsFirst}`);
+        const original = await buildState.acquire(c.fx.root, { runtime: 'claude', runId: 'r-disk', projectStatus: false });
+        await writeState(c.fx.root, stateOf(c, { epoch: original.epoch }), c.deps);
+        let acquired = null, attempted = false, before = null;
+        const { defaultExec } = await import('../runtime/build/fsx.mjs');
+        const acquire = async () => {
+          attempted = true;
+          try { acquired = await buildState.acquire(c.fx.root, { runtime: 'codex', runId: 'r-disk', projectStatus: false }); }
+          catch (e) { assert.equal(e.code, 'CONTENDED'); }
+        };
+        const deps = { ...c.deps,
+          buildState: { ...buildState, finalizeRelease: async (...args) => {
+            await buildState.finalizeRelease(...args);
+            if (winsFirst) {
+              await acquire();
+              await writeState(c.fx.root, stateOf(c, { epoch: acquired.epoch }), c.deps);
+              before = await readFile(c.p.stateFile, 'utf8');
+            }
+          } },
+          exec: async (cmd, args, opts) => {
+            if (!winsFirst && !attempted && cmd === 'git' && args[0] === 'worktree' && args[1] === 'list') await acquire();
+            return defaultExec(cmd, args, opts);
+          },
+        };
+        try {
+          const action = () => terminal === 'finish' ? finishRun({ project: c.fx.root, epoch: original.epoch }, deps)
+            : terminal === 'stop' ? stopRun({ project: c.fx.root, epoch: original.epoch }, deps)
+              : handleEngineFailure({ project: c.fx.root, epoch: original.epoch, error: new Error('fixture fault') }, deps);
+          if (winsFirst && terminal !== 'failure') await assert.rejects(action, { code: 'CONTENDED' });
+          else {
+            const result = await action();
+            if (winsFirst) assert.ok(result.warnings.some(w => w.includes('cleanup')));
+          }
+          assert.equal(attempted, true);
+          if (winsFirst) {
+            assert.ok(acquired);
+            assert.equal(await exists(c.p.integrationWorktree), true);
+            assert.equal(await readFile(c.p.stateFile, 'utf8'), before);
+          } else assert.equal(acquired, null, 'acquire entered the terminal reservation');
+        } finally {
+          if (acquired) await buildState.release(c.fx.root, acquired.token, acquired.epoch);
+          const held = await buildState.currentLease(c.fx.root);
+          if (held?.epoch === original.epoch) await buildState.release(c.fx.root, original.token, original.epoch);
+        }
+      });
+    }
+  }
   await test('landing removes finished unit and assume trees but keeps refs and integration', async () => {
     const c = await setup('landing'); const { wt, assume, manifest } = await seedExtra(c); const refs = refsOf(c);
     const state = stateOf(c, { units: [newUnit({ id: 'u-done', kind: 'build', state: 'landed', worktree: wt.worktree })] });

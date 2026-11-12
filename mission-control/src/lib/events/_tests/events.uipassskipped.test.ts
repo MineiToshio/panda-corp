@@ -1,7 +1,7 @@
 /**
  * events — UiPassSkipped field parsing (render-uipassskipped-timeline change).
  *
- * The real emitter (pandacorp-build.js) writes `pass` as a STRING naming which
+ * The historical event producer writes `pass` as a STRING naming which
  * UI pass was skipped ("foundation-gate" | "visual-qa") — a different meaning
  * from PreviewSmoke's `pass` (boolean pass/fail flag). Both share the same raw
  * field name, so the string form is parsed into its own `uiPass` field, keeping

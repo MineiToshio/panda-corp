@@ -53,13 +53,14 @@ One Node program is the build engine's only executor, for both runtimes (Claude 
 The modules `next`, `failure`, `lifecycle`, `planner`, `review`, `doubts`, `answers`, `drive`, `admission`, `integrate`, `land`, `units`, `preflight` and `card` are thin entries; their code lives in the same-named sibling folder (`build/<module>/`). Every module, top-level or in those folders, stays under 500 lines.
 
 Shared infrastructure the CLI reuses and never forks:
-- `plugin/runtime/build-state.mjs`: lease, epoch, fenced transitions. v2 imports it as a module (it never shells out to `plugin/scripts/pandacorp-build-state.mjs`). Exports added for v2 (section 2.3): `transfer`, `forceRelease`, `transitionWorkOrderAt`, and a `projectStatus:false` option on `acquire`, `quiesce` and `renew`.
+- `plugin/runtime/build-state.mjs`: lease, epoch, fenced transitions. v2 imports it as a module (it never shells out to `plugin/scripts/pandacorp-build-state.mjs`). Exports added for v2: `transfer`, `forceRelease`, `transitionWorkOrderAt`, `withUnleasedProject`, and a `projectStatus:false` option on `acquire`, `quiesce` and `renew`. `withUnleasedProject` reserves the lease mutex across maintenance and refuses any existing lease directory (3.24).
 - `plugin/scripts/product-floor.mjs`: imported (`productFloor`, `securityDeltaTriggers`).
 - `plugin/scripts/classify-change.mjs`: never imported (it has no exports and runs at load); run through `execFile(process.execPath, [...])`.
 - `plugin/scripts/codex-worker.mjs`: `run --direct --prompt-file <abs> --codex-model <slug> --output-schema <abs> --dir <unit worktree> --access sandbox` (no `--sum`), `read`; the Codex launcher.
 - `plugin/runtime/event-transport.mjs`, `plugin/runtime/model-tiers.json` (version 2), `plugin/templates/shared/.pandacorp/merge-queue.sh`.
-- `plugin/scripts/worktree-sweep.mjs`: shared `worktreeRemovalReason` safety predicate; lifecycle
-  callers decide run eligibility, session cleanup and `gc` reuse the sweep (5.1).
+- `plugin/scripts/worktree-sweep.mjs`: shared `engineWorktreeOwnershipReason`,
+  `runningWorktreePaths` and `worktreeRemovalReason`; retry, lifecycle cleanup and sweep use
+  the same ownership, worker-termination and data-safety predicates (5.1).
 - Instruction source (DEC-13): `AGENTS.md`; `CLAUDE.md` is the one-line `@AGENTS.md` shim.
   `migrate-instructions.mjs --project <dir> [--dry-run]` performs loss-checked migration, refuses
   `CLAUDE.local.md`, and emits one JSON line. `upgrade` invokes it. Verification:
@@ -627,11 +628,13 @@ Fenced. Regenerates `state.json` by replaying the journal and reading the WO fro
 
 ### 3.24 `gc`
 
-`gc [--project <dir>]`. Idempotent worktree reclamation; no epoch and no tracked writes. Any
-held lease, including stale/quiesced state awaiting release, gives `CONTENDED` (exit 4) before
-cleanup. It combines eligible inactive-run cleanup and the shared engine sweep, excludes recorded
-running paths and keeps branches. Output includes `removed[]`, `kept[]` and sweep details; a second
-call with no eligible copies removes nothing. See 5.1 for holds. Verification:
+`gc [--project <dir>]`. Idempotent worktree reclamation; no epoch and no tracked writes.
+It reserves `withUnleasedProject` on the same mutex used by acquire/transfer/reclaim for both
+cleanup passes. Any lease directory, including unreadable, stale or quiesced ownership, gives
+`CONTENDED` (exit 4). Recorded running paths and every first-pass refusal remain excluded from
+the sweep; all branches survive. `clearBuildDir` uses the same reservation through reclamation
+and the archive/suspend metadata move. Output includes `removed[]`, `kept[]` and sweep details;
+a second call with no eligible copies removes nothing. See 5.1 for holds. Verification:
 `plugin/scripts/test-build-v2-disk.mjs`, `test-build-v2-cli.mjs`.
 
 ## 4. `next` output
@@ -679,7 +682,7 @@ Field notes:
 
 `integrate.mjs` integrates every committed chain into `lane/<run_id>/integration`: rebase the unit branch onto the integration tip, fast-forward, journal `integrated` (an already-integrated unit returns `outcome: already`; a chain that conflicts returns outcome `conflict`, reason `rebase_conflict`, stays `committed` and `next` hands it back), commit WO `IN_REVIEW` on the integration branch (`transitionWorkOrderAt`) and append `track.jsonl` lines there. When all units of an FRD are integrated, a G2 job is spawned: G2 (a detached job in its own snapshot worktree `build/g2/<frd>-<sha>`, created with `git worktree add --detach` at the integration tip `<sha>`; `.pandacorp/worktree-bootstrap.sh` runs inside the job under the H slot, and bootstrap exit 4 maps to reserved job exit 76 (`wait disk`, no verdict, patch or attempt), while other bootstrap failures map to exit 75: an `env-infra` hand-back of the FRD's first integrated unit, no verdict and no patch; it runs `bash .pandacorp/verify.sh --since <integration base sha>`; the `gate` event carries `sha`; the verdict is stale, journaled `stale:true`, re-run at the tip and queuing no patch, only when an integrated unit of that FRD has an `integrated` sha that is not an ancestor of `<sha>`, merges of other FRDs never invalidate it; the snapshot is removed at harvest; nested projects use the product root `<snapshot>/<prefix>`); a red G2 uses the selective attribution and fallback contract of 3.11; a green G2 schedules the FRD's review unit. A patch after a review moves the WO `IN_REVIEW -> PLANNED -> IN_PROGRESS` (bumps `reopen_count`). Integration never touches `main`.
 
-**Integration worktree bootstrap.** `integrate.bootstrapIntegrationWorktree` runs `bash .pandacorp/worktree-bootstrap.sh` in the product root of the integration worktree (10 min timeout, `PANDACORP_OWNER_RELEASE_OK` removed from the child env; no script means `ran:false`). It is called after every `git worktree add` of `createIntegrationWorktree` (never fails `start`) and, in `next`, before `land` is returned (after the batch is complete and the audit settled). A success writes the untracked marker `build/integration-bootstrap.json` `{run_id, root, ok, exit, at, tail}`; the same run and root are not bootstrapped again. A non-zero exit, timeout or spawn failure never throws and writes the marker with `ok:false`. Exit 4 is a disk wait: no hand-back, attempt or gate verdict, retry when capacity returns. Other
+**Integration worktree bootstrap.** `integrate.bootstrapIntegrationWorktree` runs `bash .pandacorp/worktree-bootstrap.sh` in the product root of the integration worktree (10 min timeout, `PANDACORP_OWNER_RELEASE_OK` removed from the child env; no script means `ran:false`). It is called after every `git worktree add` of `createIntegrationWorktree` (never fails `start`), at the beginning of each active `next` before harvesting or integration, and again when landing is considered. Each call resolves the nested product root through the repository prefix; a successful marker makes later calls no-ops. An early exit 4 returns `wait disk` before harvesting. A success writes the untracked marker `build/integration-bootstrap.json` `{run_id, root, ok, exit, at, tail}`; the same run and root are not bootstrapped again. A non-zero exit, timeout or spawn failure never throws and writes the marker with `ok:false`. Exit 4 is a disk wait: no hand-back, attempt or gate verdict, retry when capacity returns. Other
 failures in `next` mean: no `land` action, no land job, no G3 verdict, no patch; the first ready unit of the batch (an FRD work unit by preference) is handed back with cause `env-infra` (it and its dependents `blocked`, R4), `next` returns `wait` with reason `gate`, `retry_after_s` 60, and the next landing attempt re-runs the bootstrap; the 3rd consecutive `env-infra` hand-back stops the run (`env_infra_handbacks`). The non-disk contract matches the G2 snapshot (exit 75; disk uses 76): an environment failure is never a code verdict. A G2 snapshot's manifest in `<main checkout>/.pandacorp/run/worktrees/` is dropped with the snapshot (`integrate.dropBootstrapManifests`, also on `removeWorktree`). Eligible snapshots are removed at harvest, after a failed spawn, on terminal actions, `stop`, `finish` and `resume` (`next.removeAllG2Snapshots`); protected copies remain (5.1). `parkIrreversiblePending` journals `parked` followed by `unit_state queued -> parked`, so `rebuild-state` keeps those units parked.
 
 ## 5. On-disk state
@@ -736,17 +739,23 @@ The only path to `main` is `land` running `merge-queue.sh` from the integration 
 - Resume recreates absent checkouts from retained branches, then applies the existing
   same-attempt resets in 3.4. Metadata archive/suspend first reclaims checkouts, refuses protected
   registered leftovers and never moves worktrees. Start rollback keeps its integration branch.
-- `integrate/worktrees.mjs removeWorktree` calls the same `worktreeRemovalReason` exported by
-  `worktree-sweep.mjs`; callers cannot bypass it with force. Holds include main/self, symlink paths, locks, live process cwd, running unit/job, dirty/hidden changes and owner state.
+- `integrate/worktrees.mjs removeWorktree` first calls the shared `engineWorktreeOwnershipReason`:
+  the run id, branch and exact canonical checkout path must agree. Detached unit/integration
+  checkouts remain protected; a detached G2 checkout requires a matching path/HEAD pin reachable
+  from this run's integration ref. It then calls `worktreeRemovalReason`; force cannot bypass
+  either predicate. Holds include main/self, symlink paths, locks, live process cwd, dirty/hidden
+  changes and owner state. Shared `runningWorktreePaths` protects running/admitted units and
+  running jobs until a positive recorded PID is proven dead, independently of coordinator status;
+  an absent/null PID is not proof of termination.
   Hidden bootstrap differences need path/worktree-identity-bound generated-file hashes, not just
   skip-worktree or assume-unchanged flags; later edits invalidate provenance. Legitimate missing
   cone-sparse files are recognized. Unreadable safety checks preserve the checkout.
 - Session cleanup/sweep only reclaim eligible engine roots in `build/{wt,g2,integration}` and
   `build-archive/<run>/...` (plus the legacy registered lane/gate roots). Any held lease or live
-  build protects them; suspended/`waiting_gate` runs remain protected. Lifecycle cleanup has
-  same-run eligibility; foreign-run branches and running paths remain protected. Sweep also
-  protects deployed checkouts. Missing-target
-  bootstrap manifests are pruned, without deleting protected state directories.
+  build protects them; suspended/`waiting_gate` runs remain protected. Retry, lifecycle cleanup
+  and sweep share the same run/branch/exact-path ownership predicate and worker protections.
+  Sweep also protects deployed checkouts. Missing-target bootstrap manifests are pruned,
+  without deleting protected state directories.
 
 Verification: `plugin/scripts/test-build-v2-disk.mjs`, `test-build-v2-land.mjs`,
 `test-build-v2-integrate.mjs`, `test-build-v2-cli.mjs`, `test-worktree-sweep.mjs`,

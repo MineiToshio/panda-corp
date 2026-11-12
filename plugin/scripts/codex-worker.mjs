@@ -193,7 +193,7 @@ function start(dir, id) {
   // --access sandbox (default): Codex's workspace-write sandbox with network. It keeps every `.git` read-only even
   // under --add-dir (verified 2026-10-29: `git commit` fails on index.lock), so a sandboxed worker can edit and test
   // but never commit. --access full gives the worker the reach of the Claude worker it replaces; it is the owner's
-  // explicit launch choice (launch-implement.sh --codex-access full), never a default this script picks.
+  // explicit CLI choice (--access full), never a default this script picks.
   const access = opt("access") === "full"
     ? ["-s", "danger-full-access"]
     : ["-s", "workspace-write", "-c", "sandbox_workspace_write.network_access=true"];

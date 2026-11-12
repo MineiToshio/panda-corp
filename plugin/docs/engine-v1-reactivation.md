@@ -111,3 +111,26 @@ by this task (including the two new files) are:
 - `plugin/scripts/test-check-derived-drift.sh`
 - `plugin/templates/retired-files.json`
 - `plugin/docs/engine-v1-reactivation.md`
+
+## Retirement checks
+
+Run `node plugin/scripts/check-engine-retirement.mjs .` against the pre-retirement
+`main` merge base (or pass an explicit pre-retirement ref as the third argument).
+It preserves raw G-V1 matches in its JSON output and reports separate `v1`,
+`imports`, `references` and `errors` arrays; every array except `raw` and `deleted`
+must be empty. An empty deletion set fails closed. Do not replace this with a
+deleted-file basename search: the retired change skill shares `SKILL.md` with
+surviving skills, so only resolved complete paths establish an import identity.
+Static imports/exports, literal dynamic imports, require and side-effect imports
+are resolved from each importing file; documentary full paths and shell execution
+references are checked separately. Computed dynamic paths still require review.
+
+The G-V1 exceptions are path-exact: the validated two-entry retirement manifest,
+the historical audit commit fixture, and the planner's negative import assertions.
+Historical decision logs, backlog, memory, proposals, the separate backlog workflow
+and this recovery guide retain their existing exemptions. The manifest is required:
+missing it or changing either retired overlay path fails the check. No import is
+exempted merely because its file is historical. Tests:
+`node plugin/scripts/test-check-engine-retirement.mjs` and
+`bash plugin/scripts/test-run-engine-tests.sh --list-only` (runner fixtures and
+real suite discovery, without executing the whole engine corpus).
