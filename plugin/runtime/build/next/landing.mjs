@@ -18,7 +18,7 @@ export async function landDecision(run, state, pol, deferredEntries, notes = [])
   const audit = await ensureAudit(run, state, pol, deferredEntries);
   if (audit.queued) return { state: audit.state, action: null, waitLand: false };
   const boot = await ensureIntegrationBootstrap(run, state, batch, notes);
-  if (!boot.ok) return { state: await fresh(run), action: null, waitLand: false, bootFailed: true };
+  if (!boot.ok) return { state: await fresh(run), action: null, waitLand: false, bootFailed: true, diskBlocked: boot.disk === true };
   return { state, action: "land", waitLand: false };
 }
 
@@ -35,6 +35,7 @@ async function ensureIntegrationBootstrap(run, state, batch, notes) {
   const { d, ref } = run;
   const boot = await bootstrapIntegrationWorktree({ project: ref.project, runId: state.run_id, root: integrationRoot(run, state) }, d);
   if (boot.ok) return { ok: true };
+  if (boot.exit === 4) return { ok: false, disk: true };
   const ready = batch.ready.map((id) => findUnit(state, id)).filter(Boolean);
   const unit = ready.find((u) => FRD_WORK_KINDS.includes(u.kind)) ?? ready[0];
   const why = `la copia de la rama de integración no se pudo preparar para aterrizar (worktree-bootstrap.sh salió con ${boot.exit ?? "?"})`;

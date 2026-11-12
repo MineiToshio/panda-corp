@@ -17,6 +17,7 @@ import { land } from "../runtime/build/land.mjs";
 import {
   finishRun, planCommand, rebuildStateCommand, requestHandoff, startResume, startRun, statusSnapshot, stopRun,
 } from "../runtime/build/lifecycle.mjs";
+import { gcWorktrees } from "../runtime/build/lifecycle/buildDir.mjs";
 import { next } from "../runtime/build/next.mjs";
 import { buildPaths } from "../runtime/build/paths.mjs";
 import { runPreflight } from "../runtime/build/preflight.mjs";
@@ -59,6 +60,7 @@ const COMMANDS = Object.freeze({
   finish: { bool: [], value: EPOCH, usage: "finish --epoch N" },
   stop: { bool: ["dead", "owner-confirmed"], value: EPOCH, usage: "stop [--epoch N] | --dead --owner-confirmed" },
   status: { bool: [], value: [], usage: "status" },
+  gc: { bool: [], value: [], usage: "gc" },
   summary: { bool: [], value: [], usage: "summary" },
   "rebuild-state": { bool: [], value: EPOCH, usage: "rebuild-state --epoch N" },
 });
@@ -305,6 +307,7 @@ const HANDLERS = {
     const { gaps, ...body } = r;
     return { body: gaps.length ? { ...body, gaps } : body, exit: gaps.length ? 9 : 0 };
   },
+  async gc(c) { return { body: await gcWorktrees({ project: c.project }, c.deps) }; },
   async summary(c) { return { body: await readSummary(c.project, c.deps) }; },
   async "rebuild-state"(c) { return { body: await fenced(c, () => rebuildStateCommand({ project: c.project, epoch: int(c.flags, "epoch", { required: true }) }, c.deps)) }; },
 };

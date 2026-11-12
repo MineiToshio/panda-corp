@@ -1,5 +1,6 @@
 // Harvest of a finished `land` job: the D24 exit map applied to the state (landed, g3 red patch, production gate).
 import path from "node:path";
+import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
 import { archiveCard } from "../card.mjs";
 import { isTrackedPath, nowIso, sha256Hex } from "../fsx.mjs";
 import { readGatePatch, writeGateFailure } from "../gatefail.mjs";
@@ -198,5 +199,8 @@ export async function harvestLandJob(ctx, deps = {}) {
     throw error;
   }
   await ctx.writeState(applied.state);
+  if (applied.output.result === "landed" || applied.output.result === "waiting_gate") {
+    await cleanupRunWorktrees({ project: ctx.project, state: applied.state, mode: applied.output.result === "landed" ? "landed" : "waiting_gate" }, d);
+  }
   return { harvested: true, exit: applied.exit, output: { ok: true, cmd: "land", ...applied.output } };
 }

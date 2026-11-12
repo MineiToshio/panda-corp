@@ -22,8 +22,15 @@ export const SHA_RE = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 export const G2_SNAPSHOT_RE = /^(.+)-([0-9a-f]{40}(?:[0-9a-f]{24})?)$/;
 /** Exit code of a G2 job whose snapshot could not be bootstrapped (`worktree-bootstrap.sh` failed): no verdict, env-infra. */
 export const G2_BOOTSTRAP_EXIT = 75;
+export const G2_DISK_EXIT = 76;
 // The G2 job body: bootstrap the fresh snapshot (deps are not tracked), then the gate. argv: $0 label, $1 integration base sha.
-export const G2_SCRIPT = `if [ -f .pandacorp/worktree-bootstrap.sh ]; then bash .pandacorp/worktree-bootstrap.sh || exit ${G2_BOOTSTRAP_EXIT}; fi
+export const G2_SCRIPT = `if [ -f .pandacorp/worktree-bootstrap.sh ]; then
+  if bash .pandacorp/worktree-bootstrap.sh; then :; else
+    bootstrap_exit=$?
+    [ "$bootstrap_exit" -eq 4 ] && exit ${G2_DISK_EXIT}
+    exit ${G2_BOOTSTRAP_EXIT}
+  fi
+fi
 exec bash .pandacorp/verify.sh --since "$1"`;
 export const WATCH_POLL_MS = 1000;
 export const GIT_SHOW_TIMEOUT_MS = 15_000;

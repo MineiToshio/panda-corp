@@ -14,6 +14,23 @@ HERE=$(cd "$(dirname "$0")/../.." && pwd)
 GATE="$HERE/plugin/scripts/block-dangerous.sh"
 pass=0; fail=0
 
+# Keep the caller's temp environment for explicit real-environment boundary probes below.
+# All fixtures live outside BOTH the hook's TMPDIR and its generic macOS temp allowance.
+HOST_TMPDIR="${TMPDIR:-$(getconf DARWIN_USER_TEMP_DIR 2>/dev/null || printf /tmp)}"
+HOST_TMPDIR=$(cd "$HOST_TMPDIR" && pwd -P) || exit 1
+fixture_base="${PANDACORP_TEST_TMP:-/private/tmp}"
+mkdir -p "$fixture_base" || exit 1
+fixture_base=$(cd "$fixture_base" && pwd -P) || exit 1
+case "$fixture_base" in
+  /private/var/folders|/private/var/folders/*|/private/tmp/claude-*) fixture_base=/private/tmp ;;
+esac
+SUITE_ROOT=$(mktemp -d "$fixture_base/block-dangerous.XXXXXXXX") || exit 1
+trap 'rm -rf "$SUITE_ROOT"' EXIT
+FIXTURE_TMP="$SUITE_ROOT/fixtures"
+mkdir -p "$FIXTURE_TMP" "$SUITE_ROOT/hook-temp" || exit 1
+export TMPDIR="$SUITE_ROOT/hook-temp"
+fixture_dir() { mktemp -d "$FIXTURE_TMP/fixture.XXXXXXXX"; }
+
 run_gate() { # $1 = cwd, $2 = command → echoes exit code
   printf '{"cwd":"%s","tool_input":{"command":%s}}' "$1" "$(printf '%s' "$2" | jq -Rs .)" \
     | bash "$GATE" >/dev/null 2>&1
@@ -27,7 +44,7 @@ check() { # $1 label, $2 expected rc, $3 cwd, $4 cmd
 
 # Fixture: a fake Pandacorp repo with a project dir containing .pandacorp (so parent-delete
 # tests don't depend on this repo's layout) — and a nested subdir for scope walk-up.
-fx=$(mktemp -d)
+fx=$(fixture_dir)
 ( cd "$fx" && git init -q )
 mkdir -p "$fx/myapp/.pandacorp/inbox/changes" "$fx/factory/ideas" "$fx/factory/memory" "$fx/src/deep"
 echo "# Pandacorp" > "$fx/CLAUDE.md"
@@ -48,6 +65,8 @@ echo "existing card" > "$fx/myapp/.pandacorp/inbox/changes/existing-card.md"
 # signal here (no status file). Run every must-block row against this fixture too.
 printf '@AGENTS.md\n' > "$fx/CLAUDE.md"
 echo '# Pandacorp' > "$fx/AGENTS.md"
+# Build-output allow rows must satisfy the package.json rule independently of TMPDIR.
+printf '{}\n' > "$fx/package.json"
 
 echo "== MUST BLOCK (expect 2) =="
 check "vercel --prod"                      2 "$fx" "vercel --prod"
@@ -93,7 +112,7 @@ check "dangerous cmd from repo subdir"     2 "$fx/src/deep" "git push --force or
 
 echo "== DEC-13: scope signals along the whole cwd chain =="
 check "shim-only CLAUDE.md is in scope via AGENTS.md" 2 "$fx/src/deep" "git push --force"
-scopefx=$(mktemp -d)
+scopefx=$(fixture_dir)
 ( cd "$scopefx" && git init -q )
 mkdir -p "$scopefx/project/.pandacorp" "$scopefx/project/src/deep"
 printf '@AGENTS.md\n' > "$scopefx/CLAUDE.md"
@@ -108,6 +127,13 @@ check "legacy intermediate CLAUDE.md stays in scope" 2 "$scopefx/project/src/dee
 rm "$scopefx/project/CLAUDE.md"
 check "shim alone without Pandacorp signal stays out of scope" 0 "$scopefx/project/src/deep" "git push --force"
 rm -rf "$scopefx"
+
+echo "== HOOKTEST: caller TMPDIR never authorizes ordinary user folders =="
+# run_gate only evaluates these command strings; it never executes a deletion.
+for operand in "$HOST_TMPDIR" "${HOME%/}/Documents" "${HOME%/}/Pictures"; do
+  rc=$(TMPDIR="$HOST_TMPDIR" run_gate "$fx" "rm -rf $operand")
+  if [ "$rc" = 2 ]; then echo "  ✓ caller TMPDIR blocks: $operand"; pass=$((pass+1)); else echo "  ✗ caller TMPDIR boundary: $operand (expected 2, got $rc)"; fail=$((fail+1)); fi
+done
 
 echo "== MUST ALLOW (expect 0) =="
 check "reset --hard to explicit sha"       0 "$fx" "git reset --hard 515c5ff"
@@ -228,8 +254,8 @@ echo "== BL-0151: live/locked deployment worktree protection =="
 # repo — one `git worktree lock`ed (simulates the live deploy) and one left unlocked (an ordinary
 # DR-096 disposable worktree). Never touches the real /Users/Shared/local-deployments/panda-corp.
 ( cd "$fx" && git add -A && git commit -q -m init )
-lockedwt=$(mktemp -d)/deploy-wt
-unlockedwt=$(mktemp -d)/scratch-wt
+lockedwt=$(fixture_dir)/deploy-wt
+unlockedwt=$(fixture_dir)/scratch-wt
 git -C "$fx" worktree add -q --detach "$lockedwt" HEAD
 git -C "$fx" worktree add -q --detach "$unlockedwt" HEAD
 git -C "$fx" worktree lock "$lockedwt" --reason "test fixture: simulated live deploy" >/dev/null
@@ -250,7 +276,7 @@ rm -rf "$(dirname "$lockedwt")" "$(dirname "$unlockedwt")"
 echo "== BL-0202: whole-tree git writes in a repository that HOSTS a nested Pandacorp project =="
 # Fixture: a factory-shaped repo (CLAUDE.md says Pandacorp) hosting a nested project with its own
 # .pandacorp/status.yaml — Mission Control inside the factory. Other sessions' WIP lives under plugin/.
-nfx=$(mktemp -d)
+nfx=$(fixture_dir)
 ( cd "$nfx" && git init -q )
 mkdir -p "$nfx/mission-control/.pandacorp" "$nfx/mission-control/src" "$nfx/plugin"
 echo "# Pandacorp" > "$nfx/CLAUDE.md"
@@ -336,7 +362,7 @@ check "block: vercel redeploy"                     2 "$fx" "vercel redeploy http
 check "block: vercel --yes (flags only)"           2 "$fx" "pnpm dlx vercel --yes"
 
 echo "== DR-138: launched project -- GitHub main is production, publishing needs the owner's order =="
-lx=$(mktemp -d)
+lx=$(fixture_dir)
 ( cd "$lx" && git init -q -b main && git commit -q --allow-empty -m init && git branch feature-x )
 mkdir -p "$lx/.pandacorp"
 printf 'project: demo\nphase: release\ndeploy_target: external  # live\n' > "$lx/.pandacorp/status.yaml"
@@ -413,7 +439,7 @@ git -C "$fx" worktree unlock "$WTB/locked-wt" >/dev/null 2>&1
 git -C "$fx" worktree remove -f -f "$WTB/linked-wt" >/dev/null 2>&1
 git -C "$fx" worktree remove -f -f "$WTB/locked-wt" >/dev/null 2>&1
 rm -rf "$WTB"
-wt3=$(mktemp -d)/linked-wt
+wt3=$(fixture_dir)/linked-wt
 git -C "$fx" worktree add -q --detach "$wt3" HEAD
 mkdir -p "$wt3/myapp/.pandacorp"
 check "allow: rm -rf a linked worktree root (checked-out .pandacorp inside)" 0 "$fx" "rm -rf $wt3"
@@ -506,7 +532,7 @@ rm -rf ~"
 check "B2 block: apostrophe comment then rm -rf protected"          2 "$fx" "# remove the agent's scratch
 rm -rf myapp/.pandacorp"
 check "B2 block: ANSI-C quote then rm -rf ~"                        2 "$fx" "echo \$'it\\'s'; rm -rf ~"
-nfx2=$(mktemp -d)
+nfx2=$(fixture_dir)
 ( cd "$nfx2" && git init -q )
 mkdir -p "$nfx2/mission-control/.pandacorp" "$nfx2/plugin"
 echo "# Pandacorp" > "$nfx2/CLAUDE.md"
@@ -696,7 +722,7 @@ case "$hint" in *"git rm -r"*"SEPARATE"*|*"SEPARATE"*"git rm -r"*) echo "  ✓ b
 rm -rf "$TMPDIR/hookrm-test" "$FAKE_HOME"
 
 echo "== OUT OF SCOPE (expect 0 in a non-Pandacorp dir) =="
-plain=$(mktemp -d)
+plain=$(fixture_dir)
 ( cd "$plain" && git init -q )
 check "non-Pandacorp dir allows"           0 "$plain" "git push --force"
 rm -rf "$plain" "$fx"

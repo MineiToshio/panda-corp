@@ -72,7 +72,7 @@ export async function integrateCommitted({ state, runId = state.run_id, appendEv
       units: next.units.map((u) => (u.id === unit.id ? { ...u, state: "integrated" } : u)),
     };
     if (!keepWorktrees && unit.worktree && deps.project) {
-      try { cleanup.push({ unit: unit.id, ...(await removeWorktree({ project: deps.project, worktree: unit.worktree }, deps)) }); }
+      try { cleanup.push({ unit: unit.id, ...(await removeWorktree({ project: deps.project, worktree: unit.worktree, state: next }, deps)) }); }
       catch (e) { cleanup.push({ unit: unit.id, removed: false, worktree: unit.worktree, error: String(e?.message ?? e) }); }
     }
   }

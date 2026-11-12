@@ -6,6 +6,8 @@ import { finishPerformance } from "../perf.mjs";
 import { buildPaths } from "../paths.mjs";
 import { fencedTwoPhase, isTerminalUnit, readLeaseToken, readState, writeState } from "../state.mjs";
 import { readSummary, renderReportEs } from "../summary.mjs";
+import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
+import { gcWorktrees } from "./buildDir.mjs";
 import { bsOf, clockMs, depsOf, emit, err, journal, readStateLoose } from "./common.mjs";
 
 /**
@@ -18,6 +20,7 @@ export async function stopRun({ project, epoch = null, dead = false, ownerConfir
   const bs = bsOf(d);
   if (epoch !== null && epoch !== undefined) {
     const state = await applyTerminal({ project, epoch: Number(epoch), actor: "cli", deps: d }, { action: "stop", status: "stopped", reason }, d);
+    await gcWorktrees({ project }, d);
     return { released: true, run_id: state.run_id };
   }
   if (dead && !ownerConfirmed) throw err("INVALID_INPUT", "`stop --dead` needs --owner-confirmed");
@@ -38,6 +41,7 @@ export async function stopRun({ project, epoch = null, dead = false, ownerConfir
   }
   if (state) await finishPerformance({ project, state: { ...state, status: "stopped" }, outcome: "stopped" }, d);
   if (state) await removeAllG2Snapshots({ project }, d);
+  await gcWorktrees({ project }, d);
   return { released, run_id: state?.run_id ?? null };
 }
 
@@ -102,6 +106,7 @@ export async function finishRun({ project, epoch = null, actor = "cli" }, deps =
   }
   // The run is closed: no G2 snapshot of it is ever harvested again (NB5). A waiting run keeps a still-running G2 job's own.
   await removeAllG2Snapshots({ project, all: !waiting }, d);
+  await cleanupRunWorktrees({ project, mode: waiting ? "waiting_gate" : "close" }, d);
   await finishPerformance({ project, state: await readState(project, d) }, d);
   const summary = await readSummary(project, d);
   const rel = path.join(".pandacorp", "comms", `informe-build-${state0.run_id}.md`);

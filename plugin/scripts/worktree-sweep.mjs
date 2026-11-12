@@ -167,10 +167,15 @@ function hashMatches(wt, name, expected) {
 // require the bootstrap's own provenance. Index concealment flags alone authorize nothing.
 function worktreeCleanReason(wt, { bootstrap = {}, generated = {} } = {}) {
   try {
+    const sparse = git(wt, ['config', '--worktree', '--bool', 'core.sparseCheckout']);
+    const cones = sparse.ok && sparse.out === 'true' ? git(wt, ['sparse-checkout', 'list']) : null;
+    const outsideCone = name => path.posix.dirname(name) !== '.' && cones?.ok && !cones.out.split('\n').filter(Boolean).some(d =>
+      name.startsWith(`${d}/`) || path.posix.dirname(name) === '.' || d.startsWith(`${path.posix.dirname(name)}/`) || path.posix.dirname(name) === d);
     const files = git(wt, ['ls-files', '-v', '-z']);
     if (!files.ok) return 'status-unreadable';
     for (const row of files.out.split('\0').filter(row => /^[a-zS] /.test(row))) {
       const name = row.slice(2), file = path.join(wt, name);
+      if (!existsSync(file) && row.startsWith('S ') && outsideCone(name)) continue;
       if (!existsSync(file) || !lstatSync(file).isFile() || real(file) !== file) return 'masked-tracked-change';
       const hash = git(wt, ['hash-object', '--no-filters', '--', name]);
       const head = git(wt, ['rev-parse', '--verify', `HEAD:${name}`]);
@@ -199,6 +204,29 @@ function worktreeCleanReason(wt, { bootstrap = {}, generated = {} } = {}) {
     if (!gd.ok || !common.ok) return 'status-unreadable';
     if (['index.lock', 'HEAD.lock'].some(n => existsSync(path.join(gd.out, n))) || ['index.lock', 'packed-refs.lock'].some(n => existsSync(path.join(common.out, n)))) return 'git-lock';
     return null;
+  } catch { return 'status-unreadable'; }
+}
+
+/** Shared DATA-safety predicate. Lifecycle callers own run/lease eligibility; no caller may bypass these holds. */
+export function worktreeRemovalReason(worktree, { mainWt, runningPaths = [], generated = {}, processes = processCwds() } = {}) {
+  try {
+    const wt = real(worktree);
+    if (path.resolve(worktree) !== wt) return 'symlink-path';
+    const listed = parsePorcelain(must(mainWt ?? worktree, ['worktree', 'list', '--porcelain']));
+    const entry = listed.find(w => real(w.path) === wt);
+    if (!entry) return 'unregistered-path';
+    const main = real(listed.find(w => !w.bare)?.path ?? '');
+    if (wt === main || within(real(process.cwd()), wt)) return 'self';
+    if (entry.locked) return 'locked';
+    if (!processes.ok) return 'process-check-unavailable';
+    if (processes.cwds.some(c => within(real(c), wt))) return 'in-use';
+    if (runningPaths.some(p => typeof p === 'string' && within(real(p), wt))) return 'running-unit';
+    if (listed.some(w => real(w.path) !== wt && within(real(w.path), wt))) return 'nested-worktree';
+    const hidden = worktreeCleanReason(wt, { bootstrap: bootstrapFiles(wt, mainWt ?? main), generated });
+    if (hidden) return hidden;
+    const status = git(wt, ['status', '--porcelain', '--untracked-files=all']);
+    if (!status.ok) return 'status-unreadable';
+    return status.out ? 'uncommitted-work' : null;
   } catch { return 'status-unreadable'; }
 }
 
@@ -311,7 +339,7 @@ export async function scan(repo, selfDir = process.cwd(), alsoList = [], { gener
     const engineProject = projs.find((pr) => within(p, pr.runDir));
     const engineOwned = Boolean(engineProject) || base.origin.startsWith("build-");
     const engineLive = engineProject ? engineProject.live : engineOwned && anyLive;
-    const dirtyReason = worktreeCleanReason(w.path, { bootstrap: bootstrapFiles(p, mainWt), generated: generatedFilesByPath[p] || {} });
+    const dirtyReason = worktreeRemovalReason(w.path, { mainWt, generated: generatedFilesByPath[p] || {}, processes: procs });
     const item = { ...base, engineOwned: Boolean(engine), engineManaged: Boolean(engine?.managed), head: w.head, ...info, idleHours, uncommitted, ownerState, nested, inUse, stale: idleHours >= STALE_HOURS };
     let decision; let reason;
     if (w.locked) { decision = "protected"; reason = "locked"; }

@@ -1,10 +1,12 @@
-// Moves of build/ (A4): archive, suspend, restore. Registered worktrees move with `git worktree move`.
+// Moves of run metadata (A4): archive, suspend, restore. Disposable worktrees never move.
 import * as fsp from "node:fs/promises";
 import path from "node:path";
-import { readJson } from "../fsx.mjs";
-import { moveWorktreesUnder } from "../integrate.mjs";
+import { defaultExec, readJson } from "../fsx.mjs";
+import { gitIn, listWorktrees } from "../integrate/git.mjs";
 import { buildPaths } from "../paths.mjs";
-import { clockMs, err, git } from "./common.mjs";
+import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
+import { cleanEngineWorktrees } from "../../../scripts/worktree-sweep.mjs";
+import { bsOf, clockMs, err, git } from "./common.mjs";
 
 const exists = (target) => fsp.lstat(target).then(() => true, () => false);
 
@@ -16,11 +18,14 @@ async function mergeMove(src, dst) {
   await fsp.rmdir(src);
 }
 
-/** Move everything of `from` into `to` (worktrees first, then plain entries); `keep` names stay, `drop` names are deleted. */
+/** Reclaim eligible worktrees, refuse any protected remainder, then move run metadata. */
 async function moveBuildDir({ project, from, to, keep = [], drop = [] }, d) {
   if (await exists(to)) throw err("INVALID_STATE", `${to} already exists (run id collision)`);
+  await cleanupRunWorktrees({ project }, d);
+  await gcWorktrees({ project }, d);
+  const remaining = (await listWorktrees(gitIn(d.exec ?? defaultExec, project))).filter(w => w.path === from || w.path.startsWith(`${from}${path.sep}`));
+  if (remaining.length) throw err("INVALID_STATE", "No se puede archivar el build: quedan worktrees protegidos.", { worktrees: remaining.map(w => w.path) });
   await fsp.mkdir(to, { recursive: true });
-  await moveWorktreesUnder({ project, from, to }, d);
   for (const name of await fsp.readdir(from).catch(() => [])) {
     if (keep.includes(name)) continue;
     if (drop.includes(name)) { await fsp.rm(path.join(from, name), { force: true }); continue; }
@@ -32,7 +37,8 @@ export async function restoreSuspended({ project, runId }, d) {
   const p = buildPaths(project, d);
   const from = p.buildSuspendedDir(runId);
   if (!(await exists(from))) throw err("INVALID_STATE", `no suspended run ${runId}`);
-  await moveWorktreesUnder({ project, from, to: p.build }, d);
+  const remaining = (await listWorktrees(gitIn(d.exec ?? defaultExec, project))).filter(w => w.path.startsWith(`${from}${path.sep}`));
+  if (remaining.length) throw err("INVALID_STATE", "El build suspendido conserva worktrees; no se moverán automáticamente.");
   for (const name of await fsp.readdir(from)) await mergeMove(path.join(from, name), path.join(p.build, name));
   await fsp.rmdir(from);
 }
@@ -56,4 +62,16 @@ export async function clearBuildDir(project, p, d) {
   const dest = state.status === "finished" ? p.buildArchiveDir(state.run_id) : p.buildSuspendedDir(state.run_id);
   await moveBuildDir({ project, from: p.build, to: dest, keep: ["preflight.json"], drop: ["lease-token.json"] }, d);
   return { run_id: state.run_id, moved_to: dest };
+}
+
+/** Explicit, idempotent reclamation. The sweep owns the removal predicate; branch refs are never deleted. */
+export async function gcWorktrees({ project }, deps = {}) {
+  if (await bsOf(deps).currentLease(project)) throw err("CONTENDED", "Hay un lease del build vigente; gc espera a que termine.");
+  const state = await readJson(buildPaths(project, deps).stateFile).catch(() => null);
+  const runningPaths = [...(state?.units ?? []).filter(u => ["running", "admitted"].includes(u.state)).map(u => u.worktree).filter(Boolean), ...(state?.jobs ?? []).filter(j => j.state === "running").map(j => j.cwd).filter(Boolean)];
+  const listed = await listWorktrees(gitIn(deps.exec ?? defaultExec, project));
+  const excluded = listed.filter(w => runningPaths.some(p => path.resolve(p) === path.resolve(w.path) || path.resolve(p).startsWith(`${path.resolve(w.path)}${path.sep}`))).map(w => w.path);
+  const active = state && state.status !== "active" ? await cleanupRunWorktrees({ project, state }, deps) : { removed: [], kept: [] };
+  const swept = await cleanEngineWorktrees(project, project, { excluded });
+  return { ...swept, removed: [...active.removed.map(path => ({ path })), ...swept.removed], kept: [...active.kept, ...swept.kept] };
 }

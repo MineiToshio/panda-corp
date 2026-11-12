@@ -1073,6 +1073,38 @@ await test("planRound attaches static zones via risk.staticZones: only WOs that 
 
 await test("module: plugin/runtime/build/next.mjs exists and exports the scheduler entry point", async () => { await loadNext(); });
 
+await test("DENG bootstrap exit 4 from a unit returns wait disk, requeues and releases admission", async () => withCase({ units: [B("WO-01-001")] }, async c => {
+  const unit = (await c.readState()).units[0];
+  const units = fake("units", c.log, { prepareUnitWorktree: async () => ({ worktree: c.P.unitWorktree(unit.id), branch: c.P.unitBranch(RUN, unit.id), bootstrap: { ran: true, exit: 4 } }) }, { strict: true });
+  const r = await callNext(c, {}, { units });
+  eq(r.action, "wait", "action"); eq(r.wait.reason, "disk", "reason"); eq(r.units, [], "no dispatch");
+  eq((await stateUnit(c, unit.id)).state, "queued", "unit requeued"); eq((await stateUnit(c, unit.id)).attempt, 1, "no execution spent");
+  const adm = JSON.parse(await readFile(c.P.admissionFile, "utf8")); ok(!adm.tokens?.[unit.id], "token released");
+}));
+
+await test("DENG integration bootstrap disk refusal waits before integration, never hands back", async () => withCase({ units: [B("WO-01-001")] }, async c => {
+  await mkdir(path.join(c.P.integrationWorktree, ".pandacorp"), { recursive: true });
+  await writeFile(path.join(c.P.integrationWorktree, ".pandacorp/worktree-bootstrap.sh"), "exit 4\n");
+  const r = await callNext(c); eq(r.action, "wait", "action"); eq(r.wait.reason, "disk", "reason");
+  eq((await c.readState()).handbacks_in_a_row, 0, "no env-infra handback"); eq(preparedIds(c), [], "no unit prepared");
+}));
+
+await test("DENG G2 bootstrap disk exit waits without gate verdict, patch or handback", async () => withCase({ units: [B("WO-01-001", { state: "integrated" })] }, async c => {
+  const job = { id: "g2-disk", kind: "g2", unit: null, frd: "frd-01-alpha", pid: null, cwd: c.P.integrationWorktree, h_slot: true, started_at: NOW, state: "running", exit: null, worker_id: null };
+  await c.writeState(s => ({ ...s, jobs: [job] }));
+  const { G2_DISK_EXIT } = await import("../runtime/build/next/constants.mjs");
+  await mkdir(c.P.jobDir(job.id), { recursive: true }); await writeFile(c.P.jobExitFile(job.id), `${G2_DISK_EXIT}\n`);
+  const r = await callNext(c); eq(r.action, "wait", "action"); eq(r.wait.reason, "disk", "reason");
+  const after = await c.readState(); eq(after.units[0].state, "integrated", "work unchanged"); eq(after.handbacks_in_a_row, 0, "no handback");
+  ok(!after.units.some(u => u.kind === "patch"), "no patch"); ok(!(await c.events()).some(e => e.type === "gate"), "no verdict");
+}));
+
+await test("DENG blocked terminal reclaims integration while preserving its branch", async () => withCase({ nested: true, units: [B("WO-01-001", { state: "blocked" })] }, async c => {
+  const r = await callNext(c); eq(r.action, "done", "blocked units are terminal");
+  ok(!existsSync(c.P.integrationWorktree), "integration checkout reclaimed");
+  ok(c.fx.git("for-each-ref", "--format=%(refname)", "refs/heads/").includes(c.P.integrationBranch(RUN)), "branch retained");
+}));
+
 restoreEnv();
 console.log(`RESULT: ${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

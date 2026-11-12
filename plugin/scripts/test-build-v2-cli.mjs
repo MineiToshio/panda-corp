@@ -566,6 +566,16 @@ await test("rebuild-state regenerates state.json from journal + WO frontmatter a
   ok(r.diff_vs_cache && ["changed", "added", "removed"].every((k) => Array.isArray(r.diff_vs_cache[k])), "diff_vs_cache lists");
 });
 
+await test("DENG gc CLI refuses a live lease, is idempotent after stop and preserves branch refs", async () => {
+  const s = await sandbox(); const { start } = await startRun(s);
+  need(s.cli(["gc"]), "gc with held lease", 4);
+  const refs = gitIn(s.root, "for-each-ref", "--format=%(refname)", "refs/heads/");
+  need(s.cli(["stop", "--epoch", String(start.epoch)]), "stop before gc");
+  need(s.cli(["gc"]), "gc after stop"); need(s.cli(["gc"]), "idempotent gc");
+  eq(gitIn(s.root, "for-each-ref", "--format=%(refname)", "refs/heads/"), refs, "all branch refs preserved");
+  ok(!gitIn(s.root, "worktree", "list", "--porcelain").includes("/.pandacorp/run/"), "no run worktree after stop/gc");
+});
+
 await cleanup();
 console.log(`RESULT: ${passed} passed, ${failed} failed (test-build-v2-cli)`);
 process.exit(failed ? 1 : 0);

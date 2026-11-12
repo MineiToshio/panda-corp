@@ -3,6 +3,9 @@ import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { buildPaths } from "../paths.mjs";
 import { err } from "./common.mjs";
+import { readUnitWorkOrders } from "./workOrders.mjs";
+import { readJson, atomicWriteJson } from "../fsx.mjs";
+import { removeWorktree } from "../integrate/worktrees.mjs";
 import { realOrResolved } from "../integrate/git.mjs";
 import { git, productPrefix, productRoot, runnerOf } from "./git.mjs";
 
@@ -34,7 +37,7 @@ function parseWorktreeList(text) {
  * Create (or adopt) the registered git worktree of one unit attempt. Idempotent: an existing registered worktree on
  * the right branch is reused untouched (a `doubt` that was decided resumes in the same attempt and directory).
  * A fresh attempt (n >= 2) always starts a NEW branch `lane/<run>/<unit>-a<n>` from the integration tip; the failed
- * attempt's branch and worktree are preserved (BUILD-15). Reusing an existing branch is refused when it carries the code
+ * attempt's branch is preserved; its eligible worktree is reclaimed (BUILD-15). Reusing an existing branch is refused when it carries the code
  * of an assumption the owner has not accepted (pending or rejected) other than `base` itself (B6, DEC-7): such work may
  * only continue on its own assume branch, and rejected work only on a fresh attempt.
  * @param {{project: string, runId: string, unit: string, attempt?: number, base?: string}} input
@@ -51,6 +54,7 @@ export async function prepareUnitWorktree({ project, runId, unit, attempt = 1, b
   const { branch, worktree } = unitRefs({ project, runId, unitId: unit, attempt }, deps);
   const p = buildPaths(project, deps);
   const baseRef = base ?? p.integrationBranch(runId);
+  for (let previous = 1; previous < attempt; previous++) await removeWorktree({ project, worktree: p.unitWorktree(unit, previous) }, deps);
   const prefix = await productPrefix(project, deps);
   const root = productRoot(worktree, prefix);
   const listed = parseWorktreeList((await git(deps, project, ["worktree", "list", "--porcelain"])).stdout);
@@ -59,7 +63,11 @@ export async function prepareUnitWorktree({ project, runId, unit, attempt = 1, b
   if (known) {
     if (known.branch !== `refs/heads/${branch}`) throw err("INVALID_STATE", `worktree ${worktree} is on ${known.branch}, not ${branch}`);
     await assertNoForeignAssumption({ project, runId, branch, baseRef }, deps);
-    return { worktree, root, branch, base_sha: await mergeBase(deps, root, baseRef), created: false, bootstrap: { ran: false, exit: null, tail: "" } };
+    const marker = path.join(p.unitDir(unit), `bootstrap-${attempt}.json`);
+    const previous = await readJson(marker, { fs }).catch(() => null);
+    const bootstrap = previous?.exit === 4 ? await bootstrapWorktree(root, deps) : { ran: false, exit: null, tail: "" };
+    if (bootstrap.ran) await atomicWriteJson(marker, bootstrap, { fs });
+    return { worktree, root, branch, base_sha: await mergeBase(deps, root, baseRef), created: false, bootstrap };
   }
   const exists = await fs.stat(worktree).then(() => true, () => false);
   if (exists) throw err("INVALID_STATE", `${worktree} exists but is not a registered worktree`);
@@ -72,7 +80,9 @@ export async function prepareUnitWorktree({ project, runId, unit, attempt = 1, b
   if (branchExists) await git(deps, project, ["worktree", "add", registered, branch]);
   else await git(deps, project, ["worktree", "add", "-b", branch, registered, baseRef]);
   const bootstrap = await bootstrapWorktree(root, deps);
-  return { worktree, root, branch, base_sha: await mergeBase(deps, root, baseRef), created: true, bootstrap };
+  if (bootstrap.ran) await atomicWriteJson(path.join(p.unitDir(unit), `bootstrap-${attempt}.json`), bootstrap, { fs });
+  const sparse = bootstrap.exit === 4 ? { enabled: false, reason: "disk" } : await sparseUnitDocs({ project, root, worktree, unit, prefix }, deps);
+  return { worktree, root, branch, sparse, base_sha: await mergeBase(deps, root, baseRef), created: true, bootstrap };
 }
 
 /**
@@ -141,7 +151,11 @@ export async function restoreUnitWorktree({ project, runId, unit, base }, deps =
   const listed = parseWorktreeList((await git(deps, project, ["worktree", "list", "--porcelain"])).stdout);
   let registered = false;
   for (const entry of listed) if (await sameDir(fs, entry.path, worktree)) registered = true;
-  if (!registered) return none;
+  if (!registered) {
+    const refs = unitRefs({ project, runId, unitId: unit.id, attempt: unit.attempt ?? 1 }, deps);
+    if ((await git(deps, project, ["rev-parse", "--verify", "--quiet", `refs/heads/${refs.branch}`], { allowFail: true })).code !== 0) return none;
+    await prepareUnitWorktree({ project, runId, unit: unit.id, attempt: unit.attempt ?? 1, base }, { ...deps, bootstrap: false, sparse: false });
+  }
   const baseRef = base ?? buildPaths(project, deps).integrationBranch(runId);
   const head = (await git(deps, worktree, ["rev-parse", "HEAD"])).stdout.trim();
   const fork = (await git(deps, worktree, ["merge-base", "HEAD", baseRef])).stdout.trim();
@@ -173,6 +187,50 @@ async function bootstrapWorktree(root, deps) {
  * @param {string} integrationBranch `state.integration.branch` (from `paths.integrationBranch`)
  */
 export const unitBase = (root, integrationBranch, deps = {}) => mergeBase(deps, root, integrationBranch);
+
+/**
+ * DEC-17: limit only docs/ in build/patch/tests checkouts. All source directories remain materialized.
+ * Cone mode selects directories (design/product therefore retain their root files). A failed context or light
+ * verification restores a full checkout; sparse configuration is always per worktree.
+ */
+export async function sparseUnitDocs({ project, root, worktree, unit, prefix = "" }, deps = {}) {
+  const fs = deps.fs ?? fsp;
+  const state = await readJson(buildPaths(project, deps).stateFile, { fs }).catch(() => null);
+  const record = typeof unit === "object" ? unit : state?.units?.find(u => u.id === unit);
+  if (!record || !["build", "patch", "tests"].includes(record.kind) || deps.sparse === false) return { enabled: false };
+  try {
+    const orders = await readUnitWorkOrders(root, record.wos ?? [], deps);
+    const docs = prefix ? `${prefix}/docs` : "docs";
+    const tracked = (await git(deps, worktree, ["ls-tree", "-r", "--name-only", "HEAD"])).stdout.split("\n").filter(Boolean);
+    const frds = [...new Set(orders.map(w => path.posix.dirname(path.posix.dirname(w.file))))];
+    const context = [...orders.map(w => w.file), ...frds.flatMap(dir => ["frd.md", "fdd.md", "blueprint.md"].map(f => `${dir}/${f}`)), "docs/rules/README.md", "docs/design/design-tokens.json", "docs/product/architecture.md", "DESIGN.md"];
+    const expected = context.filter(rel => tracked.includes(prefix ? `${prefix}/${rel}` : rel));
+    for (const rel of expected) await fs.access(path.join(root, rel));
+    const verify = path.join(root, ".pandacorp/verify.sh");
+    await fs.access(verify);
+    const directories = new Set();
+    for (const file of tracked) {
+      if (file.startsWith(`${docs}/`)) continue;
+      const parts = file.split("/");
+      if (parts.length < 2) continue;
+      if (prefix && file.startsWith(`${prefix}/`)) {
+        const tail = file.slice(prefix.length + 1).split("/");
+        if (tail.length > 1) directories.add(`${prefix}/${tail[0]}`);
+      } else directories.add(parts[0]);
+    }
+    for (const dir of [...frds, "docs/rules", "docs/design", "docs/product"]) directories.add(prefix ? `${prefix}/${dir}` : dir);
+    await git(deps, worktree, ["config", "extensions.worktreeConfig", "true"]);
+    await git(deps, worktree, ["sparse-checkout", "set", "--cone", "--", ...directories]);
+    for (const rel of expected) await fs.access(path.join(root, rel));
+    const light = await runnerOf(deps)("bash", [".pandacorp/verify.sh", "--light"], { cwd: root, env: deps.env, timeout: BOOTSTRAP_TIMEOUT_MS });
+    if (light.code !== 0) throw new Error(`verify.sh --light exited ${light.code}`);
+    return { enabled: true };
+  } catch (error) {
+    // Fail loudly if even restoring the full tree fails: never dispatch a partial checkout.
+    await git(deps, worktree, ["sparse-checkout", "disable"]);
+    return { enabled: false, reason: String(error.message ?? error) };
+  }
+}
 
 /**
  * Create (or adopt) the unit worktree of one attempt: {@link prepareUnitWorktree} with the unit given as an object.

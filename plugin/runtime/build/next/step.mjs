@@ -1,5 +1,7 @@
 // One scheduling pass of `next`: renew + one admission reading, harvest, integrate, quota policy, managed units and the
 // planner round, landing, admission and dispatch, then wait or a terminal action (A11).
+import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
+import { bootstrapIntegrationWorktree } from "../integrate.mjs";
 import { recordSample } from "../perf.mjs";
 import { ENV_INFRA_STOP, G2_SNAPSHOT_FAIL_MAX, LAND_RETRY_S, RETRY_S } from "./constants.mjs";
 import { admissionCtx, fresh, mutate, sibling } from "./context.mjs";
@@ -35,12 +37,16 @@ export async function step(run) {
   }
   d.adaptiveStep = run.reading?.step ?? d.admission.readAdaptive(admissionCtx(run)).step;
   const notes = [];
+  run.diskBlocked = false;
+  const boot = await bootstrapIntegrationWorktree({ project: run.ref.project, runId: state.run_id, root: state.integration.worktree }, d);
+  if (boot.exit === 4) return finish(run, state, { action: "wait", wait: { reason: "disk", retry_after_s: RETRY_S.disk }, notes });
 
   // (1) harvest finished jobs and workers; (2) integrate committed chains (the G2 spawn rides on admission, step 6).
   await harvest(run, await fresh(run), notes);
   // The land job rebases and fast-forwards the integration branch: nothing else writes it meanwhile (C05).
   if (!landRunning(await fresh(run))) await integrateStep(run, await fresh(run), notes);
   state = await fresh(run);
+  if (run.diskBlocked) return finish(run, state, { action: "wait", wait: { reason: "disk", retry_after_s: RETRY_S.disk }, notes });
 
   // (3) quota policy (the A11 priority is owned by quota.policy): handoff, or the paused-quota terminal action.
   const quota = await quotaView(run, state);
@@ -67,6 +73,7 @@ export async function step(run) {
   // Landing first (priority landing > heavy job > new builder).
   const landing = await landDecision(run, state, pol, deferredEntries, notes);
   state = landing.state;
+  if (landing.diskBlocked) return finish(run, state, { action: "wait", wait: { reason: "disk", retry_after_s: RETRY_S.disk }, quota, notes });
   if (landing.action === "land") return finish(run, state, { action: "land", quota, notes });
   if (landRunning(state)) return finish(run, state, { action: "wait", wait: { reason: "jobs_running", retry_after_s: RETRY_S.jobs_running }, quota, notes });
 
@@ -108,6 +115,7 @@ export async function step(run) {
   }
   notes.push(...terminalNotes(terminal, quota));
   if (terminal.action !== "done") state = await applyTerminal(run.ref, terminal, d);
+  else if (state.units.some(u => u.state === "blocked")) await cleanupRunWorktrees({ project: run.ref.project, state }, d);
   return finish(run, state, { action: terminal.action, admit: dispatch.admit, quota, notes });
 }
 

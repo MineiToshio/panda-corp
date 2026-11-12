@@ -1,7 +1,8 @@
 // Real `git worktree` commands: the integration worktree, unit worktrees, healing, removal and moves (D22, A4).
 import * as fsp from "node:fs/promises";
 import path from "node:path";
-import { defaultExec } from "../fsx.mjs";
+import { worktreeRemovalReason } from "../../../scripts/worktree-sweep.mjs";
+import { defaultExec, readJson } from "../fsx.mjs";
 import { buildPaths } from "../paths.mjs";
 import { bootstrapIntegrationWorktree } from "./bootstrap.mjs";
 import { err } from "./common.mjs";
@@ -62,11 +63,13 @@ export async function dropBootstrapManifests(project, worktree, deps = {}) {
   const common = await gitIn(deps.exec ?? defaultExec, path.resolve(project))(["rev-parse", "--git-common-dir"], { allowFail: true });
   if (common.code !== 0) return [];
   const dir = path.join(path.dirname(path.resolve(project, out(common))), ".pandacorp", "run", "worktrees");
+  if (await realOrResolved(fs, dir) !== path.resolve(dir)) return [];
   const wanted = new Set([path.resolve(worktree), await realOrResolved(fs, worktree)]);
   const dropped = [];
   for (const name of await fs.readdir(dir).catch(() => [])) {
     if (!name.endsWith(".json")) continue;
     const file = path.join(dir, name);
+    if (!(await fs.lstat(file).then(st => st.isFile() && !st.isSymbolicLink(), () => false))) continue;
     let entry;
     try { entry = JSON.parse(await fs.readFile(file, "utf8")); } catch { continue; }
     if (typeof entry?.path !== "string") continue;
@@ -144,16 +147,22 @@ export async function createUnitWorktree({ project, runId, unitId, attempt = 1, 
 
 /**
  * Remove a registered worktree (`git worktree remove`), keeping its branch. A worktree that is not registered is a no-op.
- * @param {{project: string, worktree: string, force?: boolean}} input `force` (default true) also discards untracked files
+ * @param {{project: string, worktree: string, state?: object}} input; `force` is ignored: every removal must pass the shared safety predicate
  * @returns {Promise<{removed: boolean, worktree: string}>}
- * @throws GIT_FAILED when git refuses (for example a locked worktree, or local changes with `force:false`)
+ * @throws GIT_FAILED when git itself refuses a removal that passed the safety predicate
  */
-export async function removeWorktree({ project, worktree, force = true }, deps = {}) {
+export async function removeWorktree({ project, worktree, state = null }, deps = {}) {
   const { exec = defaultExec, fs = fsp } = deps;
   const g = gitIn(exec, path.resolve(project));
   const existing = await findRegistered(g, fs, worktree);
   if (!existing) { await g(["worktree", "prune"]); return { removed: false, worktree }; }
-  await g(["worktree", "remove", ...(force ? ["--force"] : []), existing.path]);
+  const current = state ?? await readJson(buildPaths(project, deps).stateFile, { fs }).catch(() => null);
+  const runningPaths = runningWorktreePaths(current, deps);
+  const reason = worktreeRemovalReason(existing.path, { runningPaths });
+  if (reason) return { removed: false, worktree, reason };
+  // --force is needed for proven generated ignored outputs and bootstrap overrides. The shared predicate
+  // above has just rejected dirty/hidden changes, locks, owner state and every live cwd.
+  await g(["worktree", "remove", "--force", "--", existing.path]);
   await g(["worktree", "prune"]);
   await dropBootstrapManifests(project, existing.path, deps).catch(() => []);
   return { removed: true, worktree };
@@ -189,4 +198,46 @@ export async function moveWorktreesUnder({ project, from, to }, deps = {}) {
     moved.push({ from: item.path, to: dest });
   }
   return { moved };
+}
+
+/** Running work always wins over reclamation, including a job's nested product cwd. */
+export function runningWorktreePaths(state, deps = {}) {
+  const alive = deps.isAlive ?? (pid => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } });
+  const livePid = pid => Number.isInteger(pid) && pid > 0 && alive(pid);
+  return [
+    ...(state?.units ?? []).filter(u => u.state === "running" && (state.status === "active" || livePid(u.worker?.pid))).map(u => u.worktree),
+    ...(state?.jobs ?? []).filter(j => j.state === "running" && (!Number.isInteger(j.pid) || livePid(j.pid))).map(j => j.cwd),
+  ].filter(Boolean);
+}
+
+/** Reclaim this run's registered checkouts only. Every ref survives; protected work is reported and retained. */
+export async function cleanupRunWorktrees({ project, state = null, mode = "close" }, deps = {}) {
+  const fs = deps.fs ?? fsp;
+  const p = buildPaths(project, deps);
+  const current = state ?? await readJson(p.stateFile, { fs }).catch(() => null);
+  if (!current?.run_id) return { removed: [], kept: [] };
+  const g = gitIn(deps.exec ?? defaultExec, project);
+  const root = await realOrResolved(fs, p.build);
+  const integration = await realOrResolved(fs, p.integrationWorktree);
+  const removed = [], kept = [];
+  const waiting = mode === "waiting_gate" || (mode === "close" && current.status === "waiting_gate");
+  for (const entry of await listWorktrees(g)) {
+    const target = await realOrResolved(fs, entry.path);
+    if (!target.startsWith(`${root}${path.sep}`)) continue;
+    if (mode === "landed" && !target.startsWith(`${root}${path.sep}wt${path.sep}`)) continue;
+    if (entry.branch && !entry.branch.startsWith(`lane/${current.run_id}/`)) { kept.push({ path: target, reason: "foreign-run" }); continue; }
+    if (waiting && target === integration) {
+      const reason = worktreeRemovalReason(entry.path, { runningPaths: runningWorktreePaths(current, deps) });
+      if (!reason) {
+        const prefix = out(await g(["rev-parse", "--show-prefix"]));
+        const cache = path.join(target, prefix, ".next");
+        if (await fs.lstat(cache).then(st => st.isDirectory() && !st.isSymbolicLink(), () => false)) await fs.rm(cache, { recursive: true });
+      }
+      kept.push({ path: target, reason: reason ?? "waiting-gate" });
+      continue;
+    }
+    const result = await removeWorktree({ project, worktree: entry.path, state: current }, deps);
+    if (result.removed) removed.push(target); else kept.push({ path: target, reason: result.reason ?? "not-removed" });
+  }
+  return { removed, kept };
 }

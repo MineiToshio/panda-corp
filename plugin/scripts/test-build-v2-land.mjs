@@ -741,6 +741,23 @@ await test("production gate: across 21, 11, 12, 10, 14, 20 the engine never sets
   ok(w.jobs.spawns.length >= 1 && (await readFile(w.log, "utf8")).length > 0, "the queue was exercised");
 }));
 
+await test("DENG successful active landing reclaims unit and assume directories, retains every branch", async () => withWorld("deng-active-cleanup", {}, async w => {
+  const unit = w.p.unitWorktree("u-leftover"), assume = w.p.assumeWorktree("q-leftover");
+  git(w.fx.root, ["worktree", "add", "-b", w.p.unitBranch(w.runId, "u-leftover"), unit, w.branch]);
+  git(w.fx.root, ["worktree", "add", "-b", w.p.assumeBranch(w.runId, "q-leftover"), assume, w.branch]);
+  const refs = git(w.fx.root, ["for-each-ref", "--format=%(refname)", "refs/heads/"]);
+  const { second } = await mqRound(w, "0:ff"); eq(second.result, "landed", "landed");
+  ok(!existsSync(unit) && !existsSync(assume), "both directories reclaimed while lease is held");
+  ok(existsSync(w.wt), "integration retained for next tranche"); eq(git(w.fx.root, ["for-each-ref", "--format=%(refname)", "refs/heads/"]), refs, "all branch refs remain");
+}));
+
+await test("DENG production gate retains integration only and removes its .next", async () => withWorld("deng-gate-cleanup", {}, async w => {
+  const unit = w.p.unitWorktree("u-leftover"); git(w.fx.root, ["worktree", "add", "-b", w.p.unitBranch(w.runId, "u-leftover"), unit, w.branch]);
+  await writeFile(path.join(w.fx.root, ".git/info/exclude"), ".next/\n"); await mkdir(path.join(w.wt, ".next")); await writeFile(path.join(w.wt, ".next/cache"), "cache");
+  const { second } = await mqRound(w, "21"); eq(second.result, "waiting_gate", "gate");
+  ok(!existsSync(unit), "unit directory reclaimed"); ok(existsSync(w.wt), "integration stays"); ok(!existsSync(path.join(w.wt, ".next")), "Next output reclaimed");
+}));
+
 console.log(`RESULT: ${passed} passed, ${failed} failed (${path.basename(fileURLToPath(import.meta.url))})`);
 await rm(SANDBOX, { recursive: true, force: true });
 process.exit(failed === 0 ? 0 : 1);

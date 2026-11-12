@@ -5,7 +5,7 @@ import { atomicWriteJson, readJson } from "../fsx.mjs";
 import { readGatePatch, writeGateFailure } from "../gatefail.mjs";
 import { readJournal } from "../journal.mjs";
 import { REVIEW_TYPE_KINDS, fencedTwoPhase, findUnit, newUnit } from "../state.mjs";
-import { ENV_WORKER_OUTCOMES, FRD_WORK_KINDS, G2_BOOTSTRAP_EXIT, MAX_ATTEMPTS, PLANNED_KINDS, SETTLED_OUTCOME_CODES } from "./constants.mjs";
+import { ENV_WORKER_OUTCOMES, FRD_WORK_KINDS, G2_BOOTSTRAP_EXIT, G2_DISK_EXIT, MAX_ATTEMPTS, PLANNED_KINDS, SETTLED_OUTCOME_CODES } from "./constants.mjs";
 import { admissionCtx, cellOf, err, fenceOf, fresh, gitOk, isLive, maxZone, mutate, sibling, unionWos, unitEvent } from "./context.mjs";
 import { g2PinOf, removeG2Snapshot } from "./g2.mjs";
 import { reviewZone } from "./landing.mjs";
@@ -175,7 +175,7 @@ async function harvestG2(run, job, notes) {
   if (!["running", "done", "dead"].includes(polled?.state)) throw err("ENGINE_FAILURE", `jobs.pollJob returned no job state for ${job.id}`);
   if (polled.state === "running") return;
   const exit = Number.isInteger(polled.exit) ? polled.exit : null;
-  const judged = polled.state === "done" && exit !== null && exit !== G2_BOOTSTRAP_EXIT;
+  const judged = polled.state === "done" && exit !== null && exit !== G2_BOOTSTRAP_EXIT && exit !== G2_DISK_EXIT;
   const pin = g2PinOf(run.paths, job);
   const before = await fresh(run);
   const checked = judged && pin ? await staleCheck(run, before, job.frd, pin.sha) : { stale: false, units: null };
@@ -193,6 +193,7 @@ async function harvestG2(run, job, notes) {
     const events = [{ type: "job_finished", data: { id: job.id, state: ended, exit } }];
     let next = { ...s, jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, state: ended, exit } : j)) };
     const work = next.units.filter((u) => FRD_WORK_KINDS.includes(u.kind) && u.frd === job.frd && u.state === "integrated");
+    if (polled.state === "done" && exit === G2_DISK_EXIT) { run.diskBlocked = true; return { state: next, events }; }
     if (polled.state === "done" && exit === G2_BOOTSTRAP_EXIT) {
       // The snapshot could not be prepared: the environment failed, not the code (D21 env-infra hand-back, no patch).
       handback = work[0] ? { unit: work[0].id, reason: `G2 de ${job.frd} no pudo preparar su copia de trabajo (worktree-bootstrap.sh falló)`, cause: "env-infra" } : null;

@@ -3,6 +3,7 @@
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { atomicWriteText, nowIso } from "../fsx.mjs";
+import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
 import { finishPerformance } from "../perf.mjs";
 import { buildPaths } from "../paths.mjs";
 import { fencedTwoPhase, readLeaseToken, readState, rebuildState } from "../state.mjs";
@@ -113,6 +114,10 @@ export async function handleEngineFailure({ project, epoch = null, cmd = null, s
     } catch (e) { note("performance journal", e); }
   }
 
+  if (state && released) {
+    try { await cleanupRunWorktrees({ project, state: { ...state, status: "stopped" } }, deps); }
+    catch (e) { note("worktree cleanup", e); }
+  }
   const emitted = await emitSafely(deps, "engine.failure", { cmd, step, code: failure.code, bl: bl.id, run_id: runId });
   if (emitted) warnings.push(emitted);
   const file = paths.engineHandbackFile;
