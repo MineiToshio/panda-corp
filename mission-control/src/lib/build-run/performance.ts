@@ -1,10 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import perfSchema from "../../../../plugin/runtime/build/schemas/perf-record.schema.json" with {
-  type: "json",
-};
-import { schemaError } from "./schema";
+import { type Schema, schemaError } from "./schema";
+import { readBuildSchema } from "./schema-source";
 import { parseJson, readBoundedTail } from "./sources";
 import type { BuildSourceError, PerformanceRecord } from "./types";
 
@@ -30,13 +28,23 @@ export function readPerformance(
     errors.push({ path: file, reason: "No se puede leer el historial de rendimiento" });
     return [];
   }
+  const schema = readBuildSchema("perf-record", errors);
+  if (!schema) return [];
+  return parsePerformance(raw, { project, file }, schema, errors);
+}
+function parsePerformance(
+  raw: string,
+  { project, file }: { project: string; file: string },
+  schema: Schema,
+  errors: BuildSourceError[],
+): PerformanceRecord[] {
   const rows: PerformanceRecord[] = [];
   for (const [index, line] of raw.split("\n").entries()) {
     if (!line.trim()) continue;
     const linePath = `${file}:cola:${index + 1}`;
     const value = parseJson(line, linePath, errors);
     if (value === undefined) continue;
-    const reason = schemaError(value, perfSchema);
+    const reason = schemaError(value, schema);
     if (reason) {
       errors.push({ path: linePath, reason });
       continue;

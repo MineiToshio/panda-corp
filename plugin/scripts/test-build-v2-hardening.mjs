@@ -298,30 +298,36 @@ await test("S3 NB4: a quiesced lease still fences a foreign epoch (nothing is wr
 });
 
 // ============================================================================================ S4 NB5 G2 snapshots
-// FIX2-A NB5: every `<build>/g2/*` snapshot (and its bootstrap manifest entry) is removed on stop and on finish.
+// FIX2-A NB5 / BUILD-15: proven engine G2 snapshots and their manifests are removed on stop and finish.
+// An arbitrary detached worktree under g2/ has no ownership proof and must survive those same operations.
 async function plantSnapshot(s) {
   const P = await pathsFor(s.root);
-  const snap = path.join(P.build, "g2", "snap-h1");
-  await mkdir(path.dirname(snap), { recursive: true });
-  gitIn(s.root, "worktree", "add", "--detach", "-q", snap, "HEAD");
+  const { createG2Snapshot } = await mod("next/g2.mjs");
+  const { dir: snap } = await createG2Snapshot({ ref: { project: s.root }, paths: P, d: { env: s.env, log: () => {} } }, await readStateOf(s), "frd-01-alpha");
+  const unproven = path.join(P.build, "g2", "snap-h1");
+  gitIn(s.root, "worktree", "add", "--detach", "-q", unproven, "HEAD");
   const manifestDir = path.join(P.run, "worktrees"); await mkdir(manifestDir, { recursive: true });
   const manifest = path.join(manifestDir, "HEAD.json");
   await writeFile(manifest, `${JSON.stringify({ path: snap, created_at: NOW })}\n`);
+  const unprovenManifest = path.join(manifestDir, "unproven.json");
+  await writeFile(unprovenManifest, `${JSON.stringify({ path: unproven, created_at: NOW })}\n`);
   ok(await exists(snap), "snapshot planted");
-  return { snap, manifest, P };
+  return { snap, manifest, unproven, unprovenManifest, P };
 }
 await test("S4 NB5: `stop --epoch` removes the G2 snapshot worktrees and their manifest entry", async () => {
   const s = await sandbox(); const { start } = await startRun(s); await noteStandby(s);
-  const { snap, manifest } = await plantSnapshot(s);
+  const { snap, manifest, unproven, unprovenManifest } = await plantSnapshot(s);
   need(s.cli(["stop", "--epoch", String(start.epoch)]), "stop --epoch");
   ok(!(await exists(snap)), "G2 snapshot directory removed on stop"); ok(!(await exists(manifest)), "snapshot manifest entry removed on stop");
-  ok(!gitIn(s.root, "worktree", "list", "--porcelain").includes("snap-h1"), "git no longer lists the snapshot worktree");
+  ok(!gitIn(s.root, "worktree", "list", "--porcelain").includes(snap), "git no longer lists the proven snapshot worktree");
+  ok(await exists(unproven) && await exists(unprovenManifest), "unproven detached worktree and its manifest survive stop");
 });
 await test("S4 NB5: `finish` removes the G2 snapshots too", async () => {
   const s = await sandbox(); const { start } = await quiescedRun(s);
-  const { snap, manifest } = await plantSnapshot(s);
+  const { snap, manifest, unproven, unprovenManifest } = await plantSnapshot(s);
   need(s.cli(["finish", "--epoch", String(start.epoch)]), "finish");
   ok(!(await exists(snap)), "G2 snapshot directory removed on finish"); ok(!(await exists(manifest)), "manifest entry removed on finish");
+  ok(await exists(unproven) && await exists(unprovenManifest), "unproven detached worktree and its manifest survive finish");
 });
 
 // ============================================================================================ S5 resume heals the integration worktree

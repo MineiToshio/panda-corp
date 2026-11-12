@@ -2705,6 +2705,11 @@ function WorkflowBacklog(): React.JSX.Element {
         entre cada merge. Antes esto lo improvisaba el skill a mano; ahora es una cinta.
       </Lead>
 
+      <Body>
+        Este workflow solo mantiene las herramientas de la fábrica. Para construir un proyecto, usa{" "}
+        <Code>/pandacorp:implement</Code> y el CLI común.
+      </Body>
+
       <NotePanel icon="home" iconColor="var(--violet)">
         Como un taller de reparación: cada coche averiado entra a su propia bahía (worktree) con un
         mecánico del tamaño del trabajo (haiku para lo trivial, sonnet lo normal, opus lo difícil),

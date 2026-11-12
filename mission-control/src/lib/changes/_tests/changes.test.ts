@@ -2,7 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { isPendingChange, isSuspectedChange, readChangeQueue } from "../changes";
+import { isPendingChange, isSuspectedChange } from "../change-state";
+import { readChangeQueue } from "../changes";
 
 /**
  * changes.ts reader tests (FRD-04, DR-078 fail-loud boundary).

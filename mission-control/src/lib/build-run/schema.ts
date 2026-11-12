@@ -1,4 +1,4 @@
-type Schema = {
+export type Schema = {
   type?: string | string[];
   const?: unknown;
   enum?: unknown[];
@@ -63,4 +63,93 @@ export function schemaError(value: unknown, schema: Schema, at = "$ modelo"): st
     }
   }
   return isObject(value) ? objectError(value, schema, at) : null;
+}
+
+/** Reject malformed or unsupported producer rules before trusting them as a validator. */
+export function parseSchema(value: unknown): Schema {
+  if (
+    !isObject(value) ||
+    value.type !== "object" ||
+    !isObject(value.properties) ||
+    !Array.isArray(value.required) ||
+    value.required.length === 0
+  ) {
+    throw new Error("Invalid root schema");
+  }
+  checkSchema(value);
+  return value as Schema;
+}
+
+function checkSchema(value: unknown): void {
+  if (!isObject(value)) throw new Error("Invalid schema node");
+  const allowed = new Set([
+    "$id",
+    "$schema",
+    "title",
+    "type",
+    "const",
+    "enum",
+    "anyOf",
+    "properties",
+    "required",
+    "additionalProperties",
+    "items",
+    "minimum",
+    "maximum",
+    "pattern",
+  ]);
+  if (Object.keys(value).some((key) => !allowed.has(key)))
+    throw new Error("Unsupported schema rule");
+  checkScalarRules(value);
+  checkNestedRules(value);
+}
+
+function checkScalarRules(value: Record<string, unknown>): void {
+  if (value.type !== undefined) {
+    const types = Array.isArray(value.type) ? value.type : [value.type];
+    if (
+      !types.length ||
+      types.some(
+        (type) =>
+          !["null", "array", "object", "integer", "number", "string", "boolean"].includes(type),
+      )
+    )
+      throw new Error("Invalid schema type");
+  }
+  if (
+    value.required !== undefined &&
+    (!Array.isArray(value.required) || value.required.some((key) => typeof key !== "string"))
+  )
+    throw new Error("Invalid required fields");
+  if (value.enum !== undefined && (!Array.isArray(value.enum) || !value.enum.length))
+    throw new Error("Invalid enum");
+  checkRangeRules(value);
+}
+
+function checkRangeRules(value: Record<string, unknown>): void {
+  if (value.pattern !== undefined) {
+    if (typeof value.pattern !== "string") throw new Error("Invalid pattern");
+    new RegExp(value.pattern);
+  }
+  for (const key of ["minimum", "maximum"]) {
+    if (
+      value[key] !== undefined &&
+      (typeof value[key] !== "number" || !Number.isFinite(value[key]))
+    )
+      throw new Error("Invalid bound");
+  }
+}
+
+function checkNestedRules(value: Record<string, unknown>): void {
+  if (value.properties !== undefined) {
+    if (!isObject(value.properties)) throw new Error("Invalid properties");
+    for (const child of Object.values(value.properties)) checkSchema(child);
+  }
+  if (value.anyOf !== undefined) {
+    if (!Array.isArray(value.anyOf) || !value.anyOf.length) throw new Error("Invalid variants");
+    for (const child of value.anyOf) checkSchema(child);
+  }
+  if (value.items !== undefined) checkSchema(value.items);
+  if (value.additionalProperties !== undefined && typeof value.additionalProperties !== "boolean")
+    checkSchema(value.additionalProperties);
 }

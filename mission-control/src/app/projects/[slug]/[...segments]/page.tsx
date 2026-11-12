@@ -1,7 +1,7 @@
 import { normalizeLegacyNavigation } from "@/lib/navigation/aliases";
 import { type RouteQuery, routeHref, workspaceRouteState } from "@/lib/navigation/routeState";
 import { NavigationSeedProvider } from "@/lib/navigation/useUrlState";
-import ProjectWorkspacePage from "../page";
+import ProjectWorkspacePage from "../ProjectWorkspacePage";
 
 /** Keep standalone workspace deep links in their original presentation context. */
 export default async function PersistentProject({

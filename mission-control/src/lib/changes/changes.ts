@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "@/lib/fs-utils/parseFrontmatter";
+import { isPendingChange } from "./change-state";
 
 /**
  * lib/changes.ts — reader for a project's change queue (FRD-04, DR-069, DR-078).
@@ -295,16 +296,6 @@ export function readChangeQueue(projectPath: string): ChangeQueueReadResult {
 }
 
 /**
- * The statuses ChangesPanel shows by default ("open" — ready + draft; DR-092/DR-115).
- *
- * Deliberately EXCLUDES `building`/`closing`: those are "in flight" (the engine is
- * already draining/closing the item — DR-069 §7), not "pending" (waiting to be picked
- * up). A pending-count badge built on this set must not inflate while the build is
- * simply doing its job.
- */
-const OPEN_STATUSES: ReadonlySet<ChangeQueueStatus> = new Set(["ready", "draft"]);
-
-/**
  * Count the OPEN bugs in a project's change queue (DR-092/DR-115 live derivation).
  *
  * "Open" mirrors ChangesPanel's default-visible groups: `status` is `"ready"` or
@@ -323,18 +314,4 @@ const OPEN_STATUSES: ReadonlySet<ChangeQueueStatus> = new Set(["ready", "draft"]
 export function countPendingBugs(projectPath: string): number {
   const { items } = readChangeQueue(projectPath);
   return items.filter((item) => item.type === "bug" && isPendingChange(item)).length;
-}
-
-/**
- * True when an item is genuinely waiting for the build (DR-092/DR-147): open (`ready`/`draft`)
- * and not suspected by the factory's reconciler of having already shipped (`stale_suspect`).
- * Every pending count and the "Listos para construir"/"Borradores" groups derive from this one rule.
- */
-export function isPendingChange(item: ChangeQueueItem): boolean {
-  return OPEN_STATUSES.has(item.status) && item.staleSuspect === "";
-}
-
-/** An open card the reconciler flagged (`stale_suspect`, DR-147): it waits for the owner, not the build. */
-export function isSuspectedChange(item: ChangeQueueItem): boolean {
-  return OPEN_STATUSES.has(item.status) && item.staleSuspect !== "";
 }

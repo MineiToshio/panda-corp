@@ -1,6 +1,9 @@
 import fs from "node:fs";
 import { type EventsSnapshot, readEvents } from "@/lib/events/events";
 
+/** Shared connection accounting stays outside the Next route export surface. */
+export const liveConnections = new Set<symbol>();
+
 const STORE_DEBOUNCE_MS = 50;
 const SHARED_CAP = 600;
 const EMPTY_SNAPSHOT: EventsSnapshot = { events: [], lastEventAt: null, byProject: {} };
@@ -135,6 +138,7 @@ export function unsubscribeFromStore(store: EventStore, notify: () => void): voi
  * suites that assert per-connection watcher wiring reset it in `beforeEach`.
  */
 export function __resetLiveEventStoresForTest(): void {
+  liveConnections.clear();
   for (const store of eventStores.values()) {
     closeStoreWatcher(store);
     store.subscribers.clear();

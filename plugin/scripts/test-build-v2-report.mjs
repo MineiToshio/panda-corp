@@ -562,11 +562,16 @@ await test("units: createUnitWorktree makes a registered git worktree on lane/<r
   await st.writeState(c.root, { ...s, units: [st.newUnit(buildUnit())] });
   const r1 = await create({ project: c.root, runId: RUN, unit: { id: "u-build-wo-01-001", attempt: 1 }, base: c.branch }, { env: c.env });
   eq(r1.branch, `lane/${RUN}/u-build-wo-01-001`, "attempt 1 branch"); eq(path.resolve(r1.worktree), path.resolve(c.paths.unitWorktree("u-build-wo-01-001", 1)), "attempt 1 worktree (A16)");
+  const registered1 = `worktree ${await realpath(r1.worktree)}`;
+  ok(c.git(c.root, ["worktree", "list", "--porcelain"]).split("\n").includes(registered1), "attempt 1 is a registered worktree before retry");
   const r2 = await create({ project: c.root, runId: RUN, unit: { id: "u-build-wo-01-001", attempt: 2 }, base: c.branch }, { env: c.env });
   eq(r2.branch, `lane/${RUN}/u-build-wo-01-001-a2`, "attempt 2 branch"); eq(path.basename(r2.worktree), "u-build-wo-01-001-a2", "attempt 2 worktree dir");
   const list = c.git(c.root, ["worktree", "list", "--porcelain"]);
-  ok(list.includes(await realpath(r1.worktree)) && list.includes(await realpath(r2.worktree)), "both unit worktrees must be REGISTERED git worktrees (A4 moves use git worktree move)");
+  // BUILD-15 reclaims the eligible previous checkout at retry, preserving its branch for recovery.
+  ok(!existsSync(r1.worktree), "eligible attempt 1 checkout is reclaimed at retry");
+  ok(!list.split("\n").includes(registered1) && list.split("\n").includes(`worktree ${await realpath(r2.worktree)}`), "only the current attempt remains registered");
   eq(c.tip(r1.branch), c.tip(c.branch), "unit branch starts at the integration tip");
+  eq(c.tip(r2.branch), c.tip(c.branch), "retry branch starts at the integration tip");
   c.mainClean();
 }));
 await test("units: the brief holds the unit token, never the lease token, the unit's identity, the never-commit rules, the report path and the allowlist", async () => withRun(async (c) => {

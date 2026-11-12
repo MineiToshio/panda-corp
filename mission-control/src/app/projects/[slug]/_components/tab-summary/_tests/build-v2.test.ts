@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { loadFraguaScene } from "@/lib/fragua/scene-data";
 import { readSummary } from "../readSummary";
@@ -6,6 +8,14 @@ import { summaryFixture } from "./summaryFixture";
 let fixture: ReturnType<typeof summaryFixture>;
 beforeEach(() => {
   fixture = summaryFixture();
+  const schemas = "plugin/runtime/build/schemas";
+  fs.mkdirSync(path.join(fixture.root, schemas), { recursive: true });
+  for (const name of ["state", "perf-record"]) {
+    fs.copyFileSync(
+      path.resolve(process.cwd(), "..", schemas, `${name}.schema.json`),
+      path.join(fixture.root, schemas, `${name}.schema.json`),
+    );
+  }
   vi.stubEnv("PANDACORP_HOST_DIR", `${fixture.root}/host`);
 });
 afterEach(() => {

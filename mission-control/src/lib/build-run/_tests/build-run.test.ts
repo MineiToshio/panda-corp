@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readBuildRun } from "../build-run";
 
 const roots: string[] = [];
@@ -57,6 +57,7 @@ function fixture() {
   };
 }
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true });
 });
 
@@ -246,4 +247,89 @@ it("client clock regrading cannot revive terminal or mismatched v2 signals", asy
     });
     expect(clientSignal.kind).not.toBe("live");
   }
+});
+
+describe("runtime factory schema boundary", () => {
+  const factoryRoot = path.resolve(process.cwd(), "..");
+  const schemaDir = "plugin/runtime/build/schemas";
+
+  it("uses the configured factory root in a snapshot deployment", () => {
+    const f = fixture();
+    const factory = path.join(f.root, "factory-copy");
+    fs.mkdirSync(path.join(factory, schemaDir), { recursive: true });
+    for (const name of ["state", "perf-record"]) {
+      fs.copyFileSync(
+        path.join(factoryRoot, schemaDir, `${name}.schema.json`),
+        path.join(factory, schemaDir, `${name}.schema.json`),
+      );
+    }
+    vi.stubEnv("PANDACORP_FACTORY_ROOT", factory);
+    expect(readBuildRun(f.root, f.options)).toMatchObject({ live: true, errors: [] });
+  });
+
+  it("reports a missing schema as a typed source error, never a valid state", () => {
+    const f = fixture();
+    vi.stubEnv("PANDACORP_FACTORY_ROOT", f.root);
+    const result = readBuildRun(f.root, f.options);
+    expect(result).toMatchObject({ state: null });
+    expect(result.errors).toEqual([
+      { path: path.join(f.root, schemaDir, "state.schema.json"), reason: expect.any(String) },
+    ]);
+  });
+
+  it.each([
+    "{",
+    "null",
+    "{}",
+    '{"type":"object","properties":[],"required":[]}',
+    '{"type":"object","properties":{"run_id":{"pattern":"["}},"required":["run_id"]}',
+  ])("reports malformed schema %s", (raw) => {
+    const f = fixture();
+    const dir = path.join(f.root, schemaDir);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "state.schema.json"), raw);
+    vi.stubEnv("PANDACORP_FACTORY_ROOT", f.root);
+    const result = readBuildRun(f.root, f.options);
+    expect(result).toMatchObject({ state: null });
+    expect(result.errors[0]?.path).toBe(path.join(dir, "state.schema.json"));
+    expect(result.errors[0]?.reason).toMatch(/esquema/i);
+  });
+
+  it("reports a missing performance schema on a present journal", () => {
+    const f = fixture();
+    const dir = path.join(f.root, schemaDir);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.copyFileSync(
+      path.join(factoryRoot, schemaDir, "state.schema.json"),
+      path.join(dir, "state.schema.json"),
+    );
+    f.write("host/perf/journal.jsonl", { run_id: "run-a" });
+    vi.stubEnv("PANDACORP_FACTORY_ROOT", f.root);
+    const result = readBuildRun(f.root, f.options);
+    expect(result.errors).toEqual([
+      { path: path.join(dir, "perf-record.schema.json"), reason: expect.any(String) },
+    ]);
+  });
+});
+
+it("returns a typed error when the runtime schema omits a consumed state container", () => {
+  const f = fixture();
+  const schemaDir = "plugin/runtime/build/schemas";
+  const dir = path.join(f.root, schemaDir);
+  fs.mkdirSync(dir, { recursive: true });
+  const schema = JSON.parse(
+    fs.readFileSync(path.resolve(process.cwd(), "..", schemaDir, "state.schema.json"), "utf8"),
+  );
+  delete schema.properties.units;
+  schema.required = schema.required.filter((key: string) => key !== "units");
+  fs.writeFileSync(path.join(dir, "state.schema.json"), JSON.stringify(schema));
+  const state: Record<string, unknown> = { ...f.state };
+  delete state.units;
+  f.write(".pandacorp/run/build/state.json", state);
+  vi.stubEnv("PANDACORP_FACTORY_ROOT", f.root);
+  const result = readBuildRun(f.root, f.options);
+  expect(result.state).toBeNull();
+  expect(result.errors).toEqual([
+    { path: path.join(f.root, ".pandacorp/run/build/state.json"), reason: expect.any(String) },
+  ]);
 });

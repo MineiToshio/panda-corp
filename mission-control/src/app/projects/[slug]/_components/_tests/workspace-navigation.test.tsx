@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { PortfolioContent as PortfolioPage } from "@/app/portfolio/PortfolioContent";
 import { listWorkOrders } from "@/lib/work-orders/work-orders";
 import { ProjectWorkspace } from "../../ProjectWorkspace";
-import ProjectWorkspacePage from "../../page";
+import ProjectWorkspacePage from "../../ProjectWorkspacePage";
 import { makeLinkResolver } from "../document-links";
 import { TabBar } from "../tabbar";
 import { WorkOrderDetail } from "../wo-detail/wo-detail";

@@ -1,5 +1,8 @@
 {
   "PORT": "3900",
   "PANDACORP_FACTORY_ROOT": "./e2e/fixtures/factory-root",
-  "PANDACORP_EVENTS_FILE": "./e2e/fixtures/factory-root/events.ndjson"
+  "PANDACORP_EVENTS_FILE": "./e2e/fixtures/factory-root/events.ndjson",
+  "PANDACORP_HOST_DIR": "./e2e/fixtures/factory-root/host",
+  "HOME": "./e2e/fixtures/factory-root/host/home",
+  "USERPROFILE": "./e2e/fixtures/factory-root/host/home"
 }

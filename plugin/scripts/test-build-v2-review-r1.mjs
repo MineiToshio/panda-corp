@@ -395,6 +395,14 @@ await test("B4 a second reopen of the same WO yields ONE dispatchable patch unit
     bu({ id: PATCH_UNIT, kind: "patch", chain: null, state: "reviewing", attempt: 2, depends_on: [BUILD_UNIT] }),
     { ...reviewUnit, depends_on: [BUILD_UNIT, PATCH_UNIT] },
   ],
+  setup: async (c) => {
+    // A reviewing patch must have a real integrated commit: PATCH2 pins re-review to that execution's diff.
+    const file = "src/alpha/list.ts";
+    await writeFile(path.join(c.productRoot, file), `${await readFile(path.join(c.productRoot, file), "utf8")}\nexport const archivedItemsExcluded = true;\n`);
+    c.git(c.gitRoot, ["add", file]);
+    c.git(c.gitRoot, ["commit", "-q", "-m", "fix: first filter patch", "-m", `Unit: ${PATCH_UNIT}`]);
+    c.git(c.reviewWt, ["reset", "--hard", c.p.integrationBranch(RUN)]);
+  },
 }, async (c) => {
   const out = await c.record({ verdict: "reopen", findings: [finding("F1", { summary: "the filter still ignores archived items" })] });
   eq(out.verdict, "reopen", "verdict");

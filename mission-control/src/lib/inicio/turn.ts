@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { buildCommand } from "@/lib/build-mode-store";
-import { isSuspectedChange } from "@/lib/changes/changes";
+import { isSuspectedChange } from "@/lib/changes/change-state";
 import { now } from "@/lib/clock/clock";
 import { t } from "@/lib/copy/copy";
 import { formatRelative } from "@/lib/copy/dates";

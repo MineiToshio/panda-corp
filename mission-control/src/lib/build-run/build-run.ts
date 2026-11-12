@@ -1,12 +1,10 @@
 import path from "node:path";
 import { cache } from "react";
-import stateSchema from "../../../../plugin/runtime/build/schemas/state.schema.json" with {
-  type: "json",
-};
 import { now } from "../clock/clock";
 import { isLive } from "../status/liveness";
 import { performanceJournalPath, readPerformance } from "./performance";
 import { schemaError } from "./schema";
+import { readBuildSchema } from "./schema-source";
 import { parseJson, readSource } from "./sources";
 import type { BuildAdmission, BuildRun, BuildRunState, BuildSourceError } from "./types";
 
@@ -16,12 +14,86 @@ function object(value: unknown): value is Record<string, unknown> {
 function stamp(value: unknown): value is string {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
 }
+function text(value: unknown): value is string {
+  return typeof value === "string";
+}
+function texts(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(text);
+}
+function nullableText(value: unknown): boolean {
+  return value === null || text(value);
+}
+function fields(
+  value: unknown,
+  keys: readonly string[],
+  check: (field: unknown) => boolean,
+): boolean {
+  return object(value) && keys.every((key) => check(value[key]));
+}
+function unitShape(value: unknown): boolean {
+  if (!object(value)) return false;
+  return (
+    fields(value, ["id", "kind", "state"], text) &&
+    fields(value, ["frd", "branch", "pending_answer", "parked", "waiting_gate"], nullableText) &&
+    texts(value.wos) &&
+    texts(value.depends_on) &&
+    Number.isSafeInteger(value.attempt) &&
+    (value.worker === null ||
+      (fields(value.worker, ["runtime", "model"], text) &&
+        fields(value.worker, ["effort"], nullableText)))
+  );
+}
+function jobShape(value: unknown): boolean {
+  return (
+    fields(value, ["id", "kind", "state", "started_at"], text) &&
+    fields(value, ["unit", "frd"], nullableText) &&
+    fields(value, ["h_slot"], (field) => typeof field === "boolean")
+  );
+}
+/** The producer schema may evolve independently; check the containers this projection consumes. */
+function stateShape(value: unknown): boolean {
+  if (!object(value)) return false;
+  return (
+    value.schema === 2 &&
+    value.engine === "v2" &&
+    fields(value, ["run_id", "coordinator", "label", "size", "status"], text) &&
+    nullableText(value.status_reason) &&
+    Number.isSafeInteger(value.epoch) &&
+    scopeShape(value.scope) &&
+    fields(value.integration, ["branch"], text) &&
+    Array.isArray(value.units) &&
+    value.units.every(unitShape) &&
+    Array.isArray(value.jobs) &&
+    value.jobs.every(jobShape) &&
+    stateMetadataShape(value)
+  );
+}
+function scopeShape(value: unknown): boolean {
+  return (
+    fields(value, ["card"], nullableText) && fields(value, ["frds", "wos", "out_of_scope"], texts)
+  );
+}
+function stateMetadataShape(value: Record<string, unknown>): boolean {
+  return (
+    (value.tranche === null || fields(value.tranche, ["index", "of"], Number.isSafeInteger)) &&
+    (value.last_safe_point === null || fields(value.last_safe_point, ["sha", "kind", "at"], text))
+  );
+}
 function readState(raw: string, file: string, errors: BuildSourceError[]): BuildRunState | null {
   const value = parseJson(raw, file, errors);
   if (value === undefined) return null;
-  const reason = schemaError(value, stateSchema);
+  const schema = readBuildSchema("state", errors);
+  if (!schema) return null;
+  const reason = schemaError(value, schema);
   if (reason) {
     errors.push({ path: file, reason });
+    return null;
+  }
+  if (!stateShape(value)) {
+    errors.push({
+      path: file,
+      reason: "Estructura del estado incompatible con el lector de builds",
+    });
     return null;
   }
   const state = value as BuildRunState;

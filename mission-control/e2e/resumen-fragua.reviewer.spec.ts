@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { fixtureLedger, settleLedgerPage, waitForLedgerIdle } from "./_ledger";
 
 const projectRoot = path.resolve("e2e/fixtures/factory-root/mission-control");
 const statusFile = path.join(projectRoot, ".pandacorp/status.yaml");
@@ -18,6 +19,20 @@ const looseOrder = path.join(projectRoot, "docs/frds/frd-01-x/work-orders/wo-01-
 const originalLooseOrder = fs.readFileSync(looseOrder, "utf8");
 const overlayFile = path.resolve("e2e/fixtures/factory-root/plugin/templates/OVERLAY_VERSION");
 const ROUTE = "/projects/mission-control/summary";
+const extraChange = path.join(changesDir, "gate-extra-change.md");
+let originalLedger: Buffer | null;
+let originalOverlay: Buffer | null;
+let originalChange: Buffer | null;
+let originalOrders: Map<string, Buffer | null>;
+
+function readOptional(file: string): Buffer | null {
+  return fs.existsSync(file) ? fs.readFileSync(file) : null;
+}
+
+function restoreOptional(file: string, content: Buffer | null): void {
+  if (content === null) fs.rmSync(file, { force: true });
+  else fs.writeFileSync(file, content);
+}
 
 const running = (heartbeatAgeMs: number | null): string =>
   `${originalStatus.replace(/^running:.*$/m, "running: true")}${
@@ -48,11 +63,10 @@ function restore(): void {
   fs.writeFileSync(statusFile, originalStatus);
   fs.writeFileSync(eventsFile, originalEvents);
   fs.writeFileSync(looseOrder, originalLooseOrder);
-  fs.rmSync(overlayFile, { force: true });
-  for (const file of fs.readdirSync(ordersDir)) {
-    if (file.includes("gate-extra")) fs.unlinkSync(path.join(ordersDir, file));
-  }
-  fs.rmSync(changesDir, { recursive: true, force: true });
+  restoreOptional(overlayFile, originalOverlay);
+  for (const [file, content] of originalOrders) restoreOptional(file, content);
+  restoreOptional(extraChange, originalChange);
+  restoreOptional(fixtureLedger, originalLedger);
 }
 
 const open = (page: Page) =>
@@ -60,8 +74,26 @@ const open = (page: Page) =>
 const body = (page: Page) => page.getByTestId("workspace-tab-body");
 const scene = (page: Page) => body(page).locator("section.fragua");
 
-test.beforeEach(restore);
-test.afterEach(restore);
+test.beforeEach(async ({ page }) => {
+  await waitForLedgerIdle();
+  originalLedger = readOptional(fixtureLedger);
+  originalOverlay = readOptional(overlayFile);
+  originalChange = readOptional(extraChange);
+  originalOrders = new Map(
+    Array.from({ length: 7 }, (_, index) => {
+      const file = path.join(ordersDir, `wo-01-${100 + index}-gate-extra.md`);
+      return [file, readOptional(file)];
+    }),
+  );
+  // EventSource treats 204 as an intentional end of stream. Aborting emits a browser
+  // console error, invalidating the preview smoke even when the page is healthy.
+  await page.route("**/api/live**", (route) => route.fulfill({ status: 204 }));
+});
+test.afterEach(async ({ page }) => {
+  // Stop render/prefetch/action writers before restoring their canonical inputs and ledger.
+  await settleLedgerPage(page);
+  restore();
+});
 
 test("AC-06-020.1 REQ-04-004: Siguiente paso opens the panel body, before La Fragua", async ({
   page,

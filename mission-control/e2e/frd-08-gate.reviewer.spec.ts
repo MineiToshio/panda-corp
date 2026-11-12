@@ -96,7 +96,9 @@ test.describe("REQ-08-001 REQ-08-002 AC-08-020.3 reader", () => {
   test("a markdown page renders its title once", async ({ page }) => {
     await gotoHydrated(page, "/manual/guides/g-implement-parcial", { selector: READER });
     await expect(
-      page.getByTestId("doc-reader-authored").getByRole("heading", { name: /^Build parcial/ }),
+      page
+        .getByTestId("doc-reader-authored")
+        .getByRole("heading", { name: "Construir un FRD o una tarjeta", exact: true }),
     ).toHaveCount(1);
   });
 });
