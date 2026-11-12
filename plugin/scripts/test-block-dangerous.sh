@@ -270,6 +270,97 @@ printf 'project: demo\nphase: implementation\n' > "$lx/.pandacorp/status.yaml"
 check "allow: pre-launch project pushes main"      0 "$lx" "git push origin main"
 rm -rf "$lx"
 
+echo "== HOOK-RM: agents may delete what they created (scratch, worktrees, build output); broad deletes stay blocked =="
+SCR=/private/tmp/claude-501/hookrm-test/scratchpad
+mkdir -p "$SCR/exp1" "$SCR/exp2"
+# Allowed: specific deep targets, however the path is spelled.
+check "allow: rm -rf \"\$S/exp1\" \"\$S/exp2\" (S assigned in the command)" 0 "$fx" "S=$SCR; rm -rf \"\$S/exp1\" \"\$S/exp2\""
+check "allow: rm -rf \"\$S/exp1\" \"\$S/exp2\" (S not provably set)"         0 "$fx" 'rm -rf "$S/exp1" "$S/exp2"'
+check "allow: cd <scratchpad> && rm -rf exp1 exp2"                           0 "$fx" "cd $SCR && rm -rf exp1 exp2"
+check "allow: cd \"\$S\" && rm -rf exp1 exp2 (S unknown)"                    0 "$fx" 'cd "$S" && rm -rf exp1 exp2'
+check "allow: absolute scratchpad paths"                                     0 "$fx" "rm -rf $SCR/exp1 $SCR/exp2"
+check "allow: -- before the operands"                                        0 "$fx" "rm -rf -- $SCR/exp1"
+check "allow: --recursive --force long flags"                                0 "$fx" "rm --recursive --force $SCR/exp1"
+check "allow: \$TMPDIR/<name>"                                               0 "$fx" 'rm -rf "$TMPDIR/some-scratch"'
+check "allow: mktemp variable"                                               0 "$fx" 'd=$(mktemp -d); rm -rf "$d"'
+check "allow: for-loop over named dirs"                                      0 "$fx" "S=$SCR; for d in exp1 exp2; do rm -rf \"\$S/\$d\"; done"
+check "allow: bash -c with cd + relative name"                               0 "$fx" "bash -c 'cd $SCR && rm -rf exp1'"
+check "allow: regenerable dirs"                                              0 "$fx" "rm -rf node_modules .next dist build"
+check "allow: deep non-tmp path (a worktree dir)"                            0 "$fx" "rm -rf /Users/Shared/Proyectos/some-engine-wt"
+check "allow: deep path under \$HOME"                                        0 "$fx" 'rm -rf "$HOME/Documents/scratch-run"'
+check "allow: ~/.claude/projects/x/memory file (not factory/memory)"         0 "$fx" "rm -rf ~/.claude/projects/x/memory/old.md"
+check "allow: glob under a specific dir"                                     0 "$fx" "rm -rf $SCR/exp*/out src/deep/*"
+check "allow: prefixed glob directly in a temp root"                         0 "$fx" "rm -rf /tmp/claude-*"
+check "allow: stderr redirect after the operands"                            0 "$fx" "rm -rf $SCR/exp1 2>/dev/null"
+check "allow: stderr redirect with a space"                                  0 "$fx" "rm -rf $SCR/exp1 2> /dev/null"
+check "allow: relative .. sibling with a name"                               0 "$fx" "rm -rf ../some-sibling-run"
+# Allowed: the words rm -rf inside text (heredoc bodies, quoted strings) are not a command.
+heredoc_note="cat > ~/.claude/projects/x/memory/note.md <<'EOF'
+Lesson: never run rm -rf on factory/memory or .pandacorp.
+rm -rf /
+EOF"
+check "allow: heredoc body mentioning rm -rf + a memory path"                0 "$fx" "$heredoc_note"
+check "allow: commit message mentioning rm -rf factory/memory"               0 "$fx" 'git commit -m "docs: rm -rf factory/memory is blocked; rm -rf / too"'
+check "allow: echo of a dangerous-looking string"                            0 "$fx" 'echo "rm -rf /; rm -rf ~"'
+check "allow: grep for rm -rf"                                               0 "$fx" 'grep -rn "rm -rf /" plugin'
+check "allow: quoted semicolon does not start a new command"                 0 "$fx" 'git commit -m "x; rm -rf ~ ; git clean -fdx"'
+# Still blocked: genuinely broad targets.
+check "block: rm -rf /"                                    2 "$fx" "rm -rf /"
+check "block: rm -rf /*"                                   2 "$fx" "rm -rf /*"
+check "block: rm -fr / (flag order)"                       2 "$fx" "rm -fr /"
+check "block: rm -r -f / (split flags)"                    2 "$fx" "rm -r -f /"
+check "block: rm --recursive --force /"                    2 "$fx" "rm --recursive --force /"
+check "block: rm -rf -- /"                                 2 "$fx" "rm -rf -- /"
+check "block: rm -rf ~/"                                   2 "$fx" "rm -rf ~/"
+check "block: rm -rf \$HOME"                               2 "$fx" 'rm -rf $HOME'
+check "block: rm -rf \"\$HOME/\""                          2 "$fx" 'rm -rf "$HOME/"'
+check "block: rm -rf ~/*"                                  2 "$fx" "rm -rf ~/*"
+check "block: rm -rf ~/Documents (top-level home dir)"     2 "$fx" "rm -rf ~/Documents"
+check "block: rm -rf /Users"                               2 "$fx" "rm -rf /Users"
+check "block: rm -rf /Users/Shared/Proyectos"              2 "$fx" "rm -rf /Users/Shared/Proyectos"
+check "block: rm -rf /private"                             2 "$fx" "rm -rf /private"
+check "block: rm -rf /usr/local/lib (system path)"         2 "$fx" "rm -rf /usr/local/lib"
+check "block: rm -rf /tmp (temp root itself)"              2 "$fx" "rm -rf /tmp"
+check "block: rm -rf /private/tmp"                         2 "$fx" "rm -rf /private/tmp"
+check "block: rm -rf /tmp/* (shallow glob)"                2 "$fx" "rm -rf /tmp/*"
+check "block: rm -rf \$TMPDIR (temp root itself)"          2 "$fx" 'rm -rf "$TMPDIR"'
+check "block: rm -rf .."                                   2 "$fx" "rm -rf .."
+check "block: rm -rf ../.."                                2 "$fx" "rm -rf ../.."
+check "block: rm -rf ."                                    2 "$fx" "rm -rf ."
+check "block: rm -rf ./"                                   2 "$fx" "rm -rf ./"
+check "block: rm -rf * wipes protected project folders"    2 "$fx" "rm -rf *"
+check "block: rm -rf * in a temp root"                     2 "$fx" "cd /tmp && rm -rf *"
+check "block: bare unresolved variable"                    2 "$fx" 'rm -rf "$X"'
+check "block: unresolved variable + trailing slash"        2 "$fx" 'rm -rf "$X/"'
+check "block: unresolved variable + glob"                  2 "$fx" 'rm -rf "$X/*"'
+check "block: unresolved variable + glob component"        2 "$fx" 'rm -rf "$X/exp*"'
+check "block: unresolved variable + system folder"         2 "$fx" 'rm -rf "$X/Users"'
+check "block: braced default expansion"                    2 "$fx" 'rm -rf "${X:-/}"'
+check "block: command substitution operand"                2 "$fx" 'rm -rf "$(pwd)"'
+check "block: bash -c wrapper"                             2 "$fx" "bash -c 'rm -rf /'"
+check "block: sudo wrapper"                                2 "$fx" "sudo rm -rf /"
+check "block: second command of a chain"                   2 "$fx" "echo ok && rm -rf ~"
+check "block: cd / then a top-level name"                  2 "$fx" "cd / && rm -rf Users"
+check "block: for-loop over a dangerous item"              2 "$fx" 'for d in / ; do rm -rf "$d"; done'
+check "block: protected path still blocked in a temp dir"  2 "$fx" "rm -rf $fx/myapp/.pandacorp/inbox"
+check "block: find / -delete"                              2 "$fx" "find / -name x -delete"
+check "block: git clean -fdx as a real command after text" 2 "$fx" 'echo "ok" && git clean -fdx'
+shell_heredoc="bash <<'EOF'
+rm -rf /
+EOF"
+check "block: a heredoc fed to a SHELL is code, not text"                    2 "$fx" "$shell_heredoc"
+check "block: heredoc piped into bash"                                       2 "$fx" "cat <<'EOF' | bash
+rm -rf ~
+EOF"
+wt3=$(mktemp -d)/linked-wt
+git -C "$fx" worktree add -q --detach "$wt3" HEAD
+mkdir -p "$wt3/myapp/.pandacorp"
+check "allow: rm -rf a linked worktree root (checked-out .pandacorp inside)" 0 "$fx" "rm -rf $wt3"
+check "block: rm -rf the .pandacorp INSIDE that worktree"                    2 "$fx" "rm -rf $wt3/myapp/.pandacorp"
+check "block: rm -rf the main checkout (a real .git directory)"              2 "$fx" "rm -rf $fx"
+git -C "$fx" worktree remove -f -f "$wt3" >/dev/null 2>&1; rm -rf "$(dirname "$wt3")"
+rm -rf /private/tmp/claude-501/hookrm-test
+
 echo "== OUT OF SCOPE (expect 0 in a non-Pandacorp dir) =="
 plain=$(mktemp -d)
 check "non-Pandacorp dir allows"           0 "$plain" "git push --force"

@@ -99,6 +99,16 @@ Within a card the CONV-11 formatting still holds (bold title, bullets, no walls 
 
 Amended 2026-11-12 (owner-stated): context is ONE punctual paragraph for a novice, options are lettered A, B, C, D (each may carry its own context), the recommendation names its letter (DR-148 addendum).
 
+## Rule — clean up after yourself (CONV-21)
+
+> Severity: **MUST** · Enforcement: manual (agent self-check at task close; owner spot-check) plus the `block-dangerous.sh` gate, which lets a recursive delete of a specific named path through and still blocks broad targets. Operative form: `plugin/templates/shared/AGENTS.md.tpl` §Language & interaction. Owner-stated 2026-11-12.
+
+**Scope: every agent in the factory and in every product project, under any runtime, when a task closes.**
+
+- **Remove what you created and no longer need, without asking the owner to run anything.** The git worktrees you made (`git worktree remove <path>`, or `ExitWorktree` with `remove`; the branches stay, so no work is lost) and every scratch, research, experiment or temporary file or folder (the session scratchpad, `/tmp/...`, throwaway clones, build output). Do it yourself, in the same turn that closes the task; never hand the owner a list of `rm`/`git worktree remove` commands to run.
+- **Never another session's work.** Do not delete a worktree you did not create, a worktree that is locked or serves a local deployment (DR-089), a path holding uncommitted or unmerged work, or anything under the protected state layer (`.pandacorp/`, `factory/{ideas,memory,profile,portfolio}`, BL-0035). When ownership or cleanliness is unclear, check (`git status`, `git worktree list`) before deleting; if still unclear, leave it and say so.
+- **The gate is not the permission boundary.** `block-dangerous.sh` allows a recursive delete of a specific, named path (a deep path, a relative name after `cd`, a temp or scratch dir, a worktree, `node_modules`, `.next`, `dist`, `build`) and blocks a broad one (`/`, `~`, `..`, a temp root or shallow folder, a shallow glob, an unresolved variable with nothing after it). A block means the target was too broad: name the specific directory, do not ask the owner to run it.
+
 ## Rule — naming
 | Element | Convention | Example |
 |---|---|---|
@@ -200,6 +210,7 @@ Every new or explicitly renamed skill for a product project has the public name 
 - **Naming, handlers, constants, boundary validation**: review-only (`reviewer` quality lens); boundary validation is also exercised indirectly by the adversarial/malformed-input tests (DR-015/DR-078, `quality.md`).
 - **Language (committed=English), Conventional Commits, no force-push**: review-only.
 - **Decision card (CONV-20)**: manual — the agent checks, before sending, that the chat text holds all three parts (one-paragraph context for a novice, lettered options A, B, C… each with gain/risk, "Recomendada: <letter>" with why and what would change it) and that nothing lives only in a link or picker; owner spot-check. When a skill's question template is authored or edited, the reviewer checks it against the card (no template may carry the decision only in a tool UI or a file). Not machine-checkable: it is a property of a conversation.
+- **Clean up after yourself (CONV-21)**: manual — the agent checks at task close that the worktrees and scratch/research/temp files it created are gone and that nothing of another session was touched; owner spot-check. The delete gate in `block-dangerous.sh` is covered by `plugin/scripts/test-block-dangerous.sh` (HOOK-RM section: each allowed and each still-blocked form).
 - **Claims and diagnoses (evidence before assertion)**: manual — agent self-check before asserting *or* before building a diagnosis/fix plan on a stand-in, plus owner spot-check; the build-side counterpart is wired (the Stop gate's `verify.sh` + DR-068's fenced run-state receipts), the chat and diagnosis sides are judgment calls by nature.
 - **Verified traps**: `matter(` called with a single argument is greppable (a lint/CI candidate); the timestamp and `git add` traps are review-only — they are recognized at the moment the symptom appears, not prevented by a gate.
 - **User-facing copy voice**: a `grep` for `—`/`– ` over the copy surface (i18n messages, MDX, generated drafts) is the mechanical check where a content pipeline exists; hand-written copy is reviewer + owner spot-check.

@@ -1,5 +1,10 @@
 # Decision Log — Factory
 
+## 2026-11-12 — Clean up after yourself (CONV-21) and a delete gate that tells named paths from broad ones
+
+**What:** new rule [CONV-21](standards/conventions.md): when a task closes the agent removes the git worktrees and the scratch/research/temp files it created, without asking the owner to run commands (never another session's live or locked worktree, uncommitted work or the protected state layer). `block-dangerous.sh` was rewritten to match: recursive `rm`, `find -delete` and `git clean` are read from the executable part only (heredoc bodies and quoted strings are ignored) and each `rm` operand is resolved to an absolute physical path, so specific deep paths, scratch/temp dirs, worktrees and regenerable dirs pass while `/`, `~`, `..`, temp roots, shallow folders and globs and bare unresolved variables stay blocked. Operative copies in `AGENTS.md.tpl` and root `AGENTS.md`; rule-registry row; plugin 9.157.0 (unreleased, no new bump).
+**Why:** owner request 2026-11-12 (owner-stated): the gate blocked `rm -rf "$S/exp1" "$S/exp2"` and `cd <scratchpad> && rm -rf exp1 exp2` (the old rule grepped the WHOLE command text for any `-r` flag plus any bare `/`, `~` or `..` token) and a heredoc that only mentioned `rm -rf` and a `memory` path (the protected-state rule took operands from every later line of the command), forcing the owner to run cleanup commands by hand.
+
 ## 2026-11-12 — Decision card v2: one-paragraph context, lettered options, named recommendation (CONV-20, DR-148 addendum)
 
 **What:** [CONV-20](standards/conventions.md) amended in place ([DR-148](decisions/registry.yaml) addendum, no new rule):
