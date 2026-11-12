@@ -10,6 +10,7 @@ default `/pandacorp:implement` is unchanged (Dynamic Workflows, frozen); v2 is r
 `implement v2` (DR-150, standard BUILD-7..BUILD-15). `source-graph.json` gains the `build_engine_v2` fact and the
 `routing.mjs`/`quota.mjs` consumers of `model_tiers`; Mission Control's liveness accepts a fresh lease (FRD-04 REQ-04-017).
 Manifests regenerated at 9.155.0 (Claude and Codex), Codex agent mirrors regenerated.
+**Concurrency fixes (same 9.155.0):** `start --resume` waits for a fenced drive and refuses with CONTENDED after 60 s rather than resetting a worktree under it; a drive that loses the lease yields cleanly and stops its unrecorded workers; the lease-mutation lock and the journal append lock are born with an owner record, reclaim a dead holder at once, and serialize reclaimers per lock instance with a tombstone (not a `.reclaim` sub-lock, which has its own dead-holder race); path comparison is symlink-safe; `test-build-v2-lock-stress.mjs` added. Known residuals: a >60 s live holder releasing mid-reclaim, very old empty locks, mixed plugin versions sharing a lock. Rationale: build decisions DEC-11, DEC-12.
 **Rulings taken during the build (details in the build's decisions file):** DEC-1 pressure veto: critical memory pressure
 always, levels 2-3 only with a rising swap trend (the owner's Mac idles at level 2). DEC-2 the integration branch is
 `lane/<run_id>/integration` (git cannot hold `lane/<run>` and `lane/<run>/<unit>`); unit ids `integration` and `assume-*`

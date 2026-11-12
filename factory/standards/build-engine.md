@@ -590,8 +590,9 @@ deterministic steps and the Codex quota reader.
 - **Resume and return to Claude (D32).** `start --resume` accepts a `paused`, `waiting_owner`,
   `waiting_gate` or `stopped` run: lease present → `transfer` back to the caller immediately (epoch+1);
   absent → `acquire`; units whose worker or job pid is alive are re-attached, the others re-queued; `drive`
-  is re-armed. A running `drive` gets exit 3 at its next phase 2 and exits. Only a stale lease held by a `session` coordinator of the other runtime needs `--owner-confirmed`; a lease held by `drive` (fresh or stale, e.g. after `kill -9`) is transferred back without it. `start --resume` names the new coordinator (`--coordinator claude|codex`). Accepted consequence: if Codex runs out during the relay the build waits for
+  is re-armed. A running `drive` gets exit 3 at its next phase 2 and exits, stopping the Codex workers it launched that the state does not record; `start --resume` waits up to 60 s for a still-active drive to yield before any worktree reset or heal, and refuses with CONTENDED (exit 4, retry) if it has not (never resets a worktree under a live drive). Only a stale lease held by a `session` coordinator of the other runtime needs `--owner-confirmed`; a lease held by `drive` (fresh or stale, e.g. after `kill -9`) is transferred back without it. `start --resume` names the new coordinator (`--coordinator claude|codex`). Accepted consequence: if Codex runs out during the relay the build waits for
   the owner even if Claude has renewed (automatic return: phase D).
+- **Locks.** The lease-mutation lock and the journal append lock are born with an owner record, reclaimed at once from a dead holder (60 s / 30 s bounds otherwise), and reclaimed by one process per lock instance through a per-lock tombstone (`test-build-v2-lock-stress.mjs`). Residual windows are listed in the CLI doc.
 - Log: `build/drive/drive.log`, rotated at 5 MB. `--handoff-after N` exists for tests only.
 
 ## Rule — failure policy (BUILD-15)
