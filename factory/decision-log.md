@@ -1,5 +1,20 @@
 # Decision Log — Factory
 
+## 2026-11-12 — Decision card v2: one-paragraph context, lettered options, named recommendation (CONV-20, DR-148 addendum)
+
+**What:** [CONV-20](standards/conventions.md) amended in place ([DR-148](decisions/registry.yaml) addendum, no new rule):
+**Contexto** is ONE punctual paragraph for a reader who knows nothing (the completeness requirements stay), the
+alternatives become options lettered **A., B., C., D.** (each punctual with gain and risk/cost, and each allowed its own
+context), and the recommendation reads **Recomendada: [letter]** with why and what would change it. The rule gains a
+short canonical example card and a formatting clause; multi-decision rules (summary list, one card each, urgency order)
+are unchanged. Operative copies updated: `AGENTS.md.tpl`, project `guide.md.tpl`, decisions-inbox template (field
+names Mission Control and `decide` read are kept), `decide`, architecture `decision-round.md`, `learn`, `worktrees`, root
+`AGENTS.md`, rule-registry and standards README rows. Plugin 9.156.0, overlay 8.123.0.
+**Why:** owner request 2026-11-12 (owner-stated): the first version produced long, unbounded blocks; he wants every
+decision, in the factory and in every project, with a punctual novice-level paragraph, lettered options he can answer
+with one letter, the recommendation named, and good formatting. Supersedes the "Alternativas / Recomendación" wording of
+the 2026-11-10 entry. The constitution and root `CLAUDE.md` carry no CONV-20 text, so they need no change.
+
 ## 2026-11-11 — Every Neon project declares NEON_PROJECT_ID (EXT-8, DR-149)
 
 **What:** [EXT-8](standards/external-services.md) / [DR-149](decisions/registry.yaml): a project using Neon declares

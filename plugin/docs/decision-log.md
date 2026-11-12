@@ -1,5 +1,20 @@
 # Decision log — Plugin pandacorp
 
+## v9.156.0 — 2026-11-12 (MINOR): decision card v2, lettered options (CONV-20, DR-148 addendum)
+
+**What:** overlay **8.123.0**. The owner-facing decision card changes shape: Contexto is one punctual paragraph for a
+novice, options are lettered A/B/C/D (each may carry its own context), and the recommendation is "Recomendada: [letter]".
+[AGENTS.md.tpl](../templates/shared/AGENTS.md.tpl) and the project [guide](../templates/shared/.pandacorp/guide.md.tpl)
+carry the short form (canonical text and example: `factory/standards/conventions.md` CONV-20). The
+[inbox template](../templates/docs/decisions-inbox-template.md) keeps the field names Mission Control and
+[decide](../skills/decide/SKILL.md) read and asks for lettered options and "Recomendada: [letra]". Architecture
+[decision-round.md](../skills/architecture/references/decision-round.md) brief example is now lettered bullets instead of a
+table; `learn` and `worktrees` one-liners updated. No skill hardcodes the old "Alternativas" shape any more (grep clean
+outside dated history). Version skips 9.155.0, reserved by the separate engine branch.
+
+**Why:** owner request 2026-11-12. Existing projects get the new `AGENTS.md` text through `/pandacorp:upgrade` (overlay
+8.123.0, compatible bump: silent on their next skill preflight).
+
 ## v9.154.0 — 2026-11-11 (MINOR): Neon projects declare NEON_PROJECT_ID (EXT-8, DR-149)
 
 **What:** overlay **8.122.0**. [rules/external-services.md](../templates/rules/external-services.md) gains the EXT-8
