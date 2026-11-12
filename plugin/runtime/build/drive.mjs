@@ -251,7 +251,7 @@ export async function armDrive({ project, runId, launched, transcript = null, ap
   try { login = await d.exec(codexBin, loginArgs, { cwd: project }); } catch (error) { login = { code: 1, stderr: error.message }; }
   if (login?.code !== 0) return { armed: false, pid: null, reason: "codex_login_failed" };
 
-  if (launched ?? isLaunchedProject(project, d)) {
+  if (launched ?? await isLaunchedProject(project, d)) {
     let check;
     try {
       check = typeof d.prePushCheck === "function"
@@ -293,16 +293,13 @@ export async function armDrive({ project, runId, launched, transcript = null, ap
   return { armed: true, pid, reason: null };
 }
 
-// Launched = status.yaml `phase: release` with a `deploy_target` other than `internal` (the rule of detect.mjs).
-// An unreadable status.yaml counts as launched: the pre-push hook is then required (fail closed).
-function isLaunchedProject(project, d) {
-  let yaml;
-  try { yaml = nodeFs.readFileSync(pathsOf(project, d).statusYaml, "utf8"); } catch { return true; }
-  const scalar = (key) => {
-    const m = new RegExp(`^${key}:[ \\t]*(.*)$`, "m").exec(yaml);
-    return m ? m[1].replace(/\s+#.*$/, "").trim().replace(/^(["'])(.*)\1$/, "$2") || null : null;
-  };
-  return scalar("phase") === "release" && scalar("deploy_target") !== "internal";
+// Launched = detect.mjs `signals.launched` (the one implementation of the rule). Anything detect cannot read counts as
+// launched: the pre-push hook is then required (fail closed).
+async function isLaunchedProject(project, d) {
+  try {
+    const { detect } = await import("./detect.mjs");
+    return (await detect({ project }, { env: d.env, homedir: d.homedir })).signals?.launched === true;
+  } catch { return true; }
 }
 
 // ----------------------------------------------------------------------------------------------- triggers

@@ -35,6 +35,14 @@ const atomicText = async (file, value) => {
   const tmp = `${file}.tmp-${process.pid}-${randomBytes(4).toString("hex")}`;
   await writeFile(tmp, value, { mode: 0o600 }); await rename(tmp, file);
 };
+// The holder of a mutex is the process whose pid prefixes `owner.json`'s owner id. Returns that pid only when it is
+// provably dead (ESRCH); a live, foreign-permission (EPERM), own, unreadable or not yet written owner returns null.
+const deadHolderPid = async (dir) => {
+  const held = await parseJson(path.join(dir, "owner.json")).catch(() => null);
+  const pid = Number.parseInt(String(held?.owner ?? "").split("-")[0], 10);
+  if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) return null;
+  try { process.kill(pid, 0); return null; } catch (error) { return error.code === "ESRCH" ? pid : null; }
+};
 const withMutex = async (p, fn, attempts = 100) => {
   const owner = `${process.pid}-${randomBytes(12).toString("hex")}`;
   const ownerFile = path.join(p, "owner.json");
@@ -49,8 +57,9 @@ const withMutex = async (p, fn, attempts = 100) => {
       }
     } catch (error) {
       if (error.code !== "EEXIST") throw error;
+      const dead = await deadHolderPid(p);
       const age = Date.now() - Number((await stat(p).catch(() => ({ mtimeMs: Date.now() }))).mtimeMs);
-      if (age > 60_000) {
+      if (dead !== null || age > 60_000) {
         const tomb = `${p}.stale-${owner}`;
         try { await rename(p, tomb); await rm(tomb, { recursive: true, force: true }); } catch (reclaimError) { if (!new Set(["ENOENT", "EEXIST"]).has(reclaimError.code)) throw reclaimError; }
       }

@@ -82,6 +82,7 @@ export const NEXT_SIBLING_CONTRACT = Object.freeze({
   "workers.pollWorker": "({project, workerId, unit, schemaFile, reportFile, epoch}, deps) -> {state: 'running'|'done'|'error', outcome, report?, limit?}",
   "report.ingestReport": "({project, epoch, unit, token, file}, deps) (fenced; G1, commit)",
   "review.reviewRecord": "({project, epoch, unit, token, file}, deps) (fenced)",
+  "answers.answerNotes": "(state, unit, {questions}) -> string[] (the owner's recorded answers a unit's brief carries: gate OK, answered asks)",
   "doubts.pendingConsult": "(project, unit, deps) -> {runtime, model, effort, via, model_slug, brief_path, report_path, schema_path, answered}",
   "doubts.answerDoubt": "({project, epoch, id, file, token: null}, deps) (fenced; a via:'cli' consult answer)",
   "failure.handbackCommand": "({project, epoch, unit, reason, cause}, deps) (fenced; blocks dependents)",
@@ -351,7 +352,7 @@ async function harvestWorker(run, job, notes) {
   if (consult) {
     if (h.outcome === "report" && h.report && typeof h.report === "object") await atomicWriteJson(reportFile, { ...h.report, consulted: cellOf(unit.worker) }, { fs: d.fs });
     else await atomicWriteJson(reportFile, { decision: null, rationale: "consultant returned no answer", consulted: cellOf(unit.worker), confidence: "low", reversible: false }, { fs: d.fs });
-    await settle(async () => (await sibling(d, "doubts", "answerDoubt"))({ ...fenceOf(run), id: unit.doubt_id, file: reportFile, token: null }, d));
+    await settle(run, unit.id, async () => (await sibling(d, "doubts", "answerDoubt"))({ ...fenceOf(run), id: unit.doubt_id, file: reportFile, token: null }, d));
     return finishJob(run, job, jobEnd);
   }
   if (h.outcome !== "report" || !h.report || typeof h.report !== "object") {
@@ -365,14 +366,24 @@ async function harvestWorker(run, job, notes) {
   if (!h.reportFile) await atomicWriteJson(reportFile, h.report, { fs: d.fs });
   await finishJob(run, job, jobEnd);
   const call = reviewType ? await sibling(d, "review", "reviewRecord") : await sibling(d, "report", "ingestReport");
-  await settle(() => call({ ...fenceOf(run), unit: unit.id, token: typeof h.report.token === "string" ? h.report.token : "", file: reportFile }, d));
+  await settle(run, unit.id, () => call({ ...fenceOf(run), unit: unit.id, token: typeof h.report.token === "string" ? h.report.token : "", file: reportFile }, d));
 }
 
-// A sibling that rejects a report (exit-6/7 class codes) has already settled the unit; fences and faults propagate.
-async function settle(fn) {
+// A sibling that rejects a report with a thrown exit-6/7 class code has usually settled the unit (a verdict recorded,
+// the unit parked or re-queued). The exception is a refusal raised BEFORE anything was written (a rejected token, an
+// invalid review report): the unit is then still live with its job already closed, and swallowing it would leave the
+// unit running forever. Such a refusal is routed, never ignored: a unit the D21 policy can fail (docs, tests, build,
+// patch) is failed through `failure.failUnit` (worker_failed, cause `code`); any other kind raises ENGINE_FAILURE.
+// Fences and faults propagate.
+async function settle(run, unitId, fn) {
   try { return await fn(); } catch (error) {
-    if (SETTLED_OUTCOME_CODES.includes(error?.code)) return { settled: error.code };
-    throw error;
+    if (!SETTLED_OUTCOME_CODES.includes(error?.code)) throw error;
+    const unit = findUnit(await fresh(run), unitId);
+    if (!unit || !isLive(unit)) return { settled: error.code };
+    const detail = `el informe de ${unit.id} fue rechazado sin registrarse (${error.code}): ${String(error.message ?? "").slice(0, 300)}`;
+    if (!PLANNED_KINDS.includes(unit.kind)) throw err("ENGINE_FAILURE", `next: ${detail}; the ${unit.kind} unit is still ${unit.state} and nothing settled it`, { cause: error });
+    await (await sibling(run.d, "failure", "failUnit"))({ ...fenceOf(run), unit: unit.id, attempt: unit.attempt, cause: "code", detail, command: null, tail: String(error.message ?? "") }, run.d);
+    return { refused: error.code, failed: unit.id };
   }
 }
 
@@ -1149,6 +1160,9 @@ async function briefExtra(run, state, g) {
     extra.decision = { question: g.pendingDefault, default_es: q?.default_es ?? null, default_action: q?.default_action ?? null, provisional: true };
   }
   if (g.unit.kind === "doubt-consult") extra.doubt = { id: g.unit.doubt_id };
+  // The owner's recorded answers that concern the unit (the gate OK of `g-<unit>`, answered first-minute asks): CLI 3.13.
+  const notes = (await sibling(run.d, "answers", "answerNotes"))(state, g.unit, { questions: await readQuestions(run) });
+  if (notes.length) extra.notes = notes;
   return extra;
 }
 

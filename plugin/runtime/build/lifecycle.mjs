@@ -243,9 +243,8 @@ export async function startRun(input, deps = {}) {
 
     let state = newState({
       run_id: runId, epoch: lease.epoch, coordinator: COORDINATORS[coordinator], label, size,
-      // A card with no work orders yet owns only the WOs its docs unit creates (source_change): listing its FRD would pull in every
-      // other pending WO of that FRD through the planner's FRD rule.
-      scope: { ...scope, frds: scope.card && scope.wos.length === 0 ? [] : scope.frds, out_of_scope: [] }, integration: { branch, worktree: root, base_sha: created.base_sha },
+      // The detect scope verbatim (D33): the planner owns the rule that a card with no work orders yet owns only the WOs its docs unit creates.
+      scope: { ...scope, out_of_scope: [] }, integration: { branch, worktree: root, base_sha: created.base_sha },
     });
     const queued = [];
     if (scope.card && scope.wos.length === 0) queued.push(newUnit({ id: `u-docs-${scope.card}`, kind: "docs", frd: taken.card?.frd || null }));

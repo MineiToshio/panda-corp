@@ -13,7 +13,8 @@ import path from "node:path";
 import { releaseToken, verifyToken } from "./admission.mjs";
 import { createCard } from "./card.mjs";
 import { completeDeferred, enqueueDeferred, entryForUnit, readDeferred } from "./deferred.mjs";
-import { assertValid, atomicWriteJson, atomicWriteText, defaultExec, loadSchema, nowIso, sha256Hex } from "./fsx.mjs";
+import { assertValid, atomicWriteJson, defaultExec, loadSchema, nowIso, sha256Hex } from "./fsx.mjs";
+import { handBack as failureHandBack } from "./failure.mjs";
 import { readJournal } from "./journal.mjs";
 import { resolveInside } from "./paths.mjs";
 import { reviewCell } from "./routing.mjs";
@@ -242,39 +243,35 @@ export function pickReopenWos(reviewed, findings, workOrders) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Default hand-back, bug card
+// Hand-back, bug card
 // ---------------------------------------------------------------------------------------------
 
 /**
- * Minimal hand-back used when `deps.handback` is not injected: writes `build/handback/<unit>.md` (Spanish) and sets
- * each unit's WOs `BLOCKED` with the reason in the integration worktree (committed by the caller). The full hand-back
- * (decisions.md entry, parking of dependents) belongs to failure.mjs: inject it as `deps.handback`.
- * @param {{paths: object}} ctx
- * @param {{units: object[], reason: string, review_unit: string, findings: object[], workOrders: object[], root: string, transition: Function}} input
- * @param {{fs?: object}} deps
- * @returns {Promise<{paths: string[]}>}
+ * Hand the reviewed units back through the one real hand-back (failure.mjs `handBack`: `handback/<unit>.md`, the pending
+ * `decisions.md` entry, WO `BLOCKED` + a commit, the unit and every non-terminal dependent `blocked`, R4). `handBack`
+ * works on the ctx's state, but review phase 2 keeps its own working copy (`next`) and writes it once at the end, so the
+ * ctx handed to `handBack` is a view over that copy: it reads `next`, applies the plan's unit changes to it in place
+ * (the review unit's own state is review's to set) and collects the plan's events into `events`.
+ * @param {{ctx: object, next: object, events: object[], review: object, units: object[], reason: string, reasonCode: string, findings: object[], cause: string, effects: {handed_back: string[]}, deps: object}} c
+ *   `deps.handback` replaces `failure.handBack` (same `(ctx, input, deps)` shape)
  */
-async function defaultHandback(ctx, input, deps) {
-  const fs = deps.fs ?? fsp;
-  const written = [];
-  for (const unit of input.units) {
-    for (const wo of unit.wos) {
-      const found = input.workOrders.find((w) => w.id === wo.toLowerCase());
-      if (!found) throw err("INVALID_STATE", `work order ${wo} has no file in the integration worktree`);
-      await input.transition(input.root, { file: found.rel, to: "BLOCKED", reason: input.reason });
-    }
-    const lines = input.findings.map((f) => `- [${f.severity}] ${f.file}${f.line === null ? "" : `:${f.line}`}: ${f.summary}`);
-    const text = [
-      `# Devuelta: ${unit.id}`, "", `- Unidad: ${unit.id} (intento ${unit.attempt})`, `- Órdenes de trabajo: ${unit.wos.join(", ") || "ninguna"}`,
-      `- Causa: la revisión ${input.review_unit} bloqueó la unidad`, `- Motivo: ${input.reason}`, "", "## Hallazgos", ...lines, "",
-      "## Qué se conserva", "- El trabajo de la unidad sigue en su rama; nada se borró.", "",
-      "## Opciones", "1. Revisar los hallazgos y pedir un cambio dirigido (recomendada).", "2. Descartar la unidad.", "",
-    ].join("\n");
-    const file = ctx.paths.handbackFile(unit.id);
-    await atomicWriteText(file, text, { fs });
-    written.push(file);
+async function handBackReviewed(c) {
+  const { ctx, next, events, review, units, reason, reasonCode, cause, findings, effects, deps } = c;
+  const handBack = deps.handback ?? failureHandBack;
+  const view = {
+    ...ctx,
+    readState: async () => next,
+    writeState: async (plan) => {
+      for (const u of plan.units) if (u.id !== review.id) Object.assign(findUnit(next, u.id), u);
+      next.handbacks_in_a_row = plan.handbacks_in_a_row;
+    },
+    appendEvent: async (event) => { if (!(event.type === "unit_state" && event.data?.unit === review.id)) events.push(event); },
+  };
+  const tail = findings.map((f) => `[${f.severity}] ${f.file}${f.line === null ? "" : `:${f.line}`}: ${f.summary}`).join("\n");
+  for (const u of units) {
+    await handBack(view, { unitId: u.id, cause, reasonCode, reason, failure: { command: null, tail } }, deps);
+    effects.handed_back.push(u.id);
   }
-  return { paths: written };
 }
 
 // The card check demands a quoted citation in every Dentro item; the finding summary is the quote.
@@ -467,14 +464,7 @@ export async function reviewRecord(input, deps = {}) {
     } else if (report.verdict === "blocked" && touchesUnits) {
       const targets = reviewed.filter((x) => REVIEWED_FROM.includes(x.state));
       const reason = report.findings.map((f) => f.summary).join("; ").slice(0, 300);
-      const workOrders = await scanWorkOrders(root, fs);
-      const handback = deps.handback ?? ((c, i) => defaultHandback(c, i, deps));
-      await handback(ctx, { units: targets, reason, review_unit: review.id, findings: report.findings, workOrders, root, transition });
-      for (const u of targets) {
-        setState(u, "blocked");
-        events.push({ type: "handback", data: { unit: u.id, reason, cause: "review", review_unit: review.id } });
-        effects.handed_back.push(u.id);
-      }
+      await handBackReviewed({ ctx, next, events, review, units: targets, reason, reasonCode: "review_blocked", cause: "owner", findings: report.findings, effects, deps });
       next.handbacks_in_a_row = 0;
       await stageTrackedChanges(exec, root);
       await commitStaged(exec, root, `chore(engine): hand back ${targets.map((u) => u.id).join(", ")} after review ${review.id}`, [`Unit: ${review.id}`, ...unique(targets.flatMap((u) => u.wos)).map((w) => `WO: ${w}`)]);
@@ -532,13 +522,7 @@ async function applyReopen(c) {
   const attempt = Math.max(...fixed.map((u) => u.attempt)) + 1;
   if (attempt > 3) {
     const reason = "presupuesto de 3 ejecuciones agotado; la revisión sigue encontrando fallos";
-    const handback = deps.handback ?? ((cx, i) => defaultHandback(cx, i, deps));
-    await handback(ctx, { units: fixed, reason, review_unit: review.id, findings: report.findings, workOrders, root, transition });
-    for (const u of fixed) {
-      setState(u, "blocked");
-      events.push({ type: "handback", data: { unit: u.id, reason, cause: "budget", review_unit: review.id } });
-      effects.handed_back.push(u.id);
-    }
+    await handBackReviewed({ ctx, next, events, review, units: fixed, reason, reasonCode: "budget_exhausted", cause: "code", findings: report.findings, effects, deps });
     next.handbacks_in_a_row = 0;
   } else {
     const wos = wanted.filter((id) => fixed.some((u) => u.wos.some((w) => w.toLowerCase() === id)));
