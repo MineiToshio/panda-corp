@@ -262,24 +262,27 @@ await test("risk zone is announced (provisional) but never asked: floor scope vs
   await risky.fx.cleanup(); await plain.fx.cleanup();
 });
 
-await test("launched project without a hook: the install is attempted, the hook is verified, drive stays armable, nothing written on main", async () => {
+await test("launched project without a hook: preflight only checks (R2), reports will_install and drive armable, writes nothing", async () => {
   const { fx, run } = await setup("launched");
   const hooks = path.join(fx.root, ".git", "hooks", "pre-push");
   let missing = false; try { await stat(hooks); } catch { missing = true; }
   ok(missing, "fixture should start without a pre-push hook");
   const res = await run(); collectQuestions(res);
-  const content = await readFile(hooks, "utf8").catch(() => "");
-  ok(/# pandacorp-pre-push v\d+/.test(content), "preflight did not install the pre-push hook in a launched project (D29)");
-  eq(execFileSync(process.execPath, [INSTALLER, "--project", fx.root, "--check"], { stdio: "pipe" }).length >= 0, true, "installer --check must exit 0 after the install");
+  let stillMissing = false; try { await stat(hooks); } catch { stillMissing = true; }
+  ok(stillMissing, "preflight must stay read-only: the pre-push hook is installed by start --run, not by preflight (R2)");
   const pp = check(res, "phase.prepush_missing");
-  ok(!pp || pp.status === "pass", `no prepush ask once installed: ${JSON.stringify(pp)}`);
+  ok(!pp || pp.status !== "ask", `a missing-but-installable hook must not ask the owner: ${JSON.stringify(pp)}`);
+  const ph = check(res, "phase.prepush");
+  if (ph) eq(ph.status === "fail", false, "installable hook must not fail");
   ok(res.announce.launched_project_line_es && SPANISH_WORD.test(res.announce.launched_project_line_es), "launched_project_line_es must be a Spanish line in a launched project");
   ok(check(res, "phase.launched"), "phase.launched check missing in a launched project");
-  eq(res.drive_armable, true, "drive armable once the hook is verified");
-  eq(fx.git("status", "--porcelain"), "", "the install must not dirty the tracked tree");
+  eq(res.prepush && res.prepush.will_install, true, "prepush.will_install must be true when the hook is missing");
+  eq(res.drive_armable, true, "drive armable: the hook will be installed by start --run");
+  eq(fx.git("status", "--porcelain"), "", "preflight must not dirty the tracked tree");
   eq(fx.git("rev-parse", "HEAD"), fx.sha, "nothing may be committed on main by the preflight");
   const again = await run();
-  eq(again.drive_armable, true, "second preflight (idempotent install)");
+  eq(again.drive_armable, true, "second preflight (idempotent)");
+  eq(again.prepush && again.prepush.will_install, true, "second preflight will_install");
   await fx.cleanup();
 });
 

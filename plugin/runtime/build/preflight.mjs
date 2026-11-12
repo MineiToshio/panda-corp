@@ -29,7 +29,7 @@ import {
 } from "./quota.mjs";
 import { builderCell, reviewCell } from "./routing.mjs";
 import { computeRisk as realComputeRisk } from "./risk.mjs";
-import { buildAnnounce, describeCell } from "./summary.mjs";
+import { buildAnnounce, describeCell, GATE_LABELS_ES } from "./summary.mjs";
 
 /** `start --run` reuses a preflight at most this old (D19). */
 export const PREFLIGHT_MAX_AGE_MS = 15 * 60 * 1000;
@@ -208,7 +208,7 @@ function scopeChecks({ card, scope, size, signals, versionScale }) {
     : mk("scope", "scope.summary_citation", "pass", "Cada punto de Dentro cita tu mensaje."));
 
   checks.push(size === "giant"
-    ? mk("scope", "scope.giant", "ask", `Alcance gigante: ${frds.length} FRDs, ${scope.wos.length} tareas.`, ask(
+    ? mk("scope", "scope.giant", "ask", `El alcance es gigante: ${frds.length} FRDs y ${scope.wos.length} tareas.`, ask(
       "scope.giant",
       `El alcance es gigante (${frds.length} FRDs, ${scope.wos.length} tareas${signals.first_impl ? ", primera implementación del proyecto" : ""}).`,
       "lo construyo en tandas de 2 FRDs y el resto queda en cola",
@@ -252,14 +252,14 @@ async function conflictChecks({ project, ctx, row, scope, card, signals }) {
     const other = await readCard(project, half.slug, {}, ctx).catch(() => null);
     const frds = other ? [other.frd, ...other.affected_frds].filter(Boolean) : [];
     const shared = frds.filter((f) => wanted.has(f));
-    if (shared.length > 0 || (!card && frds.length === 0)) clashes.push({ slug: half.slug, shared });
+    clashes.push({ slug: half.slug, shared });
   }
   checks.push(clashes.length > 0
-    ? mk("conflict", "conflict.half_cards", "ask", "Hay tarjetas a medio construir sobre los mismos FRDs.", ask(
+    ? mk("conflict", "conflict.half_cards", "ask", "Hay tarjetas a medio construir en el proyecto.", ask(
       "conflict.half_cards",
-      `Hay tarjetas a medio construir sobre los mismos FRDs: ${clashes.map((c) => c.slug).join(", ")}.`,
+      `Hay tarjetas a medio construir sin un build vivo: ${clashes.map((c) => c.slug).join(", ")}.`,
       "no las toco y construyo solo este alcance", "leave_half_cards",
-      affectsFrds(unique(clashes.flatMap((c) => c.shared))), true))
+      clashes.some((c) => c.shared.length > 0) ? affectsFrds(unique(clashes.flatMap((c) => c.shared))) : { all: true }, true))
     : mk("conflict", "conflict.half_cards", "pass", "Ninguna tarjeta a medio construir choca con este alcance."));
   return checks;
 }
@@ -269,24 +269,25 @@ async function conflictChecks({ project, ctx, row, scope, card, signals }) {
 async function phaseChecks({ project, launched, deps, unevaluated }) {
   const launchedCheck = mk("phase", "phase.launched", "pass", launched ? "Proyecto lanzado: `main` es producción." : "Proyecto no lanzado.");
   if (!launched) {
-    return { checks: [launchedCheck, mk("phase", "phase.prepush_missing", "pass", "El candado de push no aplica: el proyecto no está lanzado.")], prepush: { status: "not_needed", code: null, verified: true } };
+    return { checks: [launchedCheck, mk("phase", "phase.prepush_missing", "pass", "El candado de push no aplica: el proyecto no está lanzado.")], prepush: { status: "not_needed", code: null, verified: true, will_install: false } };
   }
   const install = deps.installPrePush ?? realInstallPrePush;
   let installed;
-  let verified;
   try {
-    installed = await install({ project, check: false });
-    verified = installed.code === 0 ? await install({ project, check: true }) : null;
+    installed = await install({ project, check: true });
   } catch (error) {
     unevaluated.push("phase.prepush_missing");
     return {
-      checks: [launchedCheck, mk("phase", "phase.prepush_missing", "fail", `No pude instalar el candado de push (${clip(error?.message ?? error, 100)}).`)],
-      prepush: { status: "error", code: null, verified: false },
+      checks: [launchedCheck, mk("phase", "phase.prepush_missing", "fail", `No pude comprobar el candado de push (${clip(error?.message ?? error, 100)}).`)],
+      prepush: { status: "error", code: null, verified: false, will_install: false },
     };
   }
-  const ok = installed.code === 0 && verified?.code === 0;
-  const prepush = { status: installed.status, code: installed.code, verified: ok };
-  if (ok) return { checks: [launchedCheck, mk("phase", "phase.prepush_missing", "pass", "Candado de push instalado y verificado.")], prepush };
+  // R2: the preflight only CHECKS; `start --run` installs. Exit 1 (missing or stale) is installable at start.
+  const verified = installed.code === 0;
+  const willInstall = installed.code === 1;
+  const prepush = { status: installed.status, code: installed.code, verified, will_install: willInstall };
+  if (verified) return { checks: [launchedCheck, mk("phase", "phase.prepush_missing", "pass", "Candado de push instalado y al día.")], prepush };
+  if (willInstall) return { checks: [launchedCheck, mk("phase", "phase.prepush_missing", "pass", "El candado de push se instala al arrancar el build.")], prepush };
   if (installed.code === 3) {
     return {
       checks: [launchedCheck, mk("phase", "phase.prepush_missing", "ask", "No puedo instalar el candado de push: el proyecto versiona sus hooks de git.", ask(
@@ -406,7 +407,7 @@ async function diskCheck({ project, ctx, deps }) {
   const gib = (free / 1024 ** 3).toFixed(1);
   if (free < DISK_FAIL_BYTES) return { check: mk("access", "access.disk", "fail", `Quedan ${gib} GiB libres: el build puede fallar. Libera espacio.`) };
   if (free < DISK_WARN_BYTES) return { check: mk("access", "access.disk", "warn", `Quedan ${gib} GiB libres: libera espacio si puedes.`) };
-  return { check: mk("access", "access.disk", "pass", `${gib} GiB libres.`) };
+  return { check: mk("access", "access.disk", "pass", `Hay ${gib} GiB libres en el disco.`) };
 }
 
 async function ramCheck({ ctx, deps, run }) {
@@ -555,7 +556,7 @@ export async function runPreflight(input, deps = {}) {
   const deferredPending = asArray(deferredLedger).filter((e) => e.status === "pending").length;
 
   const loginOk = codexLogin.ok === true;
-  const prepushOk = phase.prepush.verified === true;
+  const prepushOk = phase.prepush.verified === true || phase.prepush.will_install === true;
   const driveArmable = loginOk && prepushOk;
   const blockCodes = [];
   if (!loginOk) blockCodes.push("codex_login");
@@ -574,7 +575,7 @@ export async function runPreflight(input, deps = {}) {
     driveArmable
       ? mk("mac", "mac.drive_armed", "pass", "El relevo a Codex se puede armar.")
       : mk("mac", "mac.drive_armed", "warn", `El relevo a Codex no se puede armar: ${driveBlockReason}.`),
-    mk("gates", "gates.foreseen", "pass", gates.lines.length > 0 ? `Compuertas previsibles: ${gates.kinds.join(", ")}.` : "Ninguna compuerta previsible.", undefined),
+    mk("gates", "gates.foreseen", gates.lines.length > 0 ? "warn" : "pass", gates.lines.length > 0 ? `Hay compuertas previsibles: ${gates.kinds.map((k) => GATE_LABELS_ES[k] ?? k).join(", ")}.` : "Ninguna compuerta previsible.", undefined),
     mk("deferred", "deferred.pending", "pass", `${deferredPending} revisión(es) diferida(s) pendiente(s).`),
   ].map((c) => (c.id === "gates.foreseen" ? { ...c, kinds: gates.kinds } : c));
 

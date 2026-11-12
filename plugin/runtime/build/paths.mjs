@@ -107,6 +107,8 @@ export function buildPaths(project, deps = {}) {
     integrationBranch: (runId) => `lane/${assertSafeId(runId, "run id")}/integration`,
     unitBranch: (runId, unitId, attempt = 1) => `lane/${assertSafeId(runId, "run id")}/${unitSegment(unitId, attempt)}`,
     assumeBranch: (runId, doubtId) => `lane/${assertSafeId(runId, "run id")}/assume-${assertSafeId(doubtId, "doubt id")}`,
+    /** Worktree of an assumption branch (DEC-2): `<build>/wt/assume-<doubt>`, never colliding with a unit worktree (`assume-*` ids are reserved). */
+    assumeWorktree: (doubtId) => path.join(build, "wt", `assume-${assertSafeId(doubtId, "doubt id")}`),
     // Unit worktrees and per-unit files (A16).
     unitWorktreesDir: path.join(build, "wt"),
     unitWorktree: (unitId, attempt = 1) => path.join(build, "wt", unitSegment(unitId, attempt)),

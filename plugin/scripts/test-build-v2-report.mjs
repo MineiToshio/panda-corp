@@ -159,6 +159,7 @@ const withRun = async (fn) => {
         async integrateFile(rel, text) {
           const f = path.join(paths.integrationWorktree, rel); await mkdir(path.dirname(f), { recursive: true }); await writeFile(f, text);
           git(paths.integrationWorktree, ["add", "--", rel]); git(paths.integrationWorktree, ["commit", "-q", "-m", `integrated ${rel}`]);
+          ctx.intTipAtStart = git(root, ["rev-parse", branch]);
           return sha256(text);
         },
         async write(u, files) { for (const [rel, text] of Object.entries(files)) { const f = path.join(u.wt, rel); await mkdir(path.dirname(f), { recursive: true }); await writeFile(f, text); } },
@@ -474,12 +475,42 @@ await test("report: status doubt leaves the unit reported, consumes NO attempt, 
   eq(c.adm.verifyToken(u.id, u.token, { file: c.paths.admissionFile }).ok, false, "token released on a doubt");
   eq(c.tip(u.branch), c.tip(c.branch), "no commit on a doubt");
 }));
-await test("report: status blocked is surfaced as outcome blocked and commits nothing", async () => withRun(async (c) => {
+await test("report: status blocked with a dependency diagnosis is an immediate hand-back: unit blocked, no commit on the unit branch (D21, R4)", async () => withRun(async (c) => {
   const u = await c.dispatch(buildUnit());
+  const forkTip = c.tip(u.branch);
   const res = await c.submit(u, c.report(u, { status: "blocked", summary: "missing secret", diagnosis: { cause: "dependency", detail: "STRIPE key absent" } }));
+  eq((await c.unit(u.id)).state, "blocked", "dependency => immediate hand-back, unit blocked (D21, R4)");
   eq(res.outcome, "blocked", "outcome"); ok(!res.commit, "no commit");
   ok((await c.unit(u.id)).state !== "committed", "unit must not be committed");
-  eq(c.tip(u.branch), c.tip(c.branch), "no commit on blocked");
+  eq(c.tip(u.branch), forkTip, "no commit on the unit branch on blocked");
+}));
+await test("report: a diff touching a deploy path (S8) opens an external gate (D28): commit kept on the unit branch, resumes to committed only after the owner's OK", async () => withRun(async (c) => {
+  const u = await c.dispatch(buildUnit());
+  const forkTip = c.tip(u.branch);
+  const DEPLOY_LINE = ["// vercel", "deploy --prod"].join(" ");
+  await c.write(u, { "src/alpha/list.ts": `export const value = 17;\n${DEPLOY_LINE}\n` });
+  const res = await c.submit(u, c.report(u, { files: ["src/alpha/list.ts"] }));
+  eq(res.outcome, "waiting_gate", "S8/deploy diff => waiting_gate");
+  if (res.gate) eq(res.gate.kind, "external", "gate kind external for a deploy command");
+  let unit = await c.unit(u.id);
+  eq(unit.state, "waiting_gate", "unit state"); eq(unit.waiting_gate, "external", "unit.waiting_gate"); eq(unit.attempt, 1, "a gate consumes no attempt");
+  ok(c.tip(u.branch) !== forkTip, "the unit commit is KEPT on the unit branch while the gate is open");
+  const keptTip = c.tip(u.branch);
+  const jr1 = await c.journal();
+  ok(!jr1.some((e) => e.type === "wo_committed" && e.data?.unit === u.id), "no wo_committed before the owner's answer");
+  ok(jr1.some((e) => e.type === "waiting_gate" && e.data?.unit === u.id && e.data?.kind === "external"), "journal waiting_gate {unit, kind: external}");
+  c.mainClean();
+  eq(c.tip(c.branch), c.intTipAtStart, "no answer: nothing lands on the integration branch");
+  // the owner answers g-<unit> true: the unit is queued again (A13) and re-dispatched on the same worktree/branch
+  const tok = c.adm.issueToken(u.id, "B", { file: c.paths.admissionFile });
+  const s = await c.state();
+  await c.st.writeState(c.root, { ...s, answers: { ...(s.answers ?? {}), [`g-${u.id}`]: true },
+    units: s.units.map((x) => (x.id === u.id ? { ...x, state: "running", waiting_gate: null, token_hash: tok.token_hash } : x)) });
+  const u2 = { ...u, token: tok.token };
+  const res2 = await c.submit(u2, c.report(u2, { files: ["src/alpha/list.ts"] }));
+  eq(res2.outcome, "committed", "after the owner's OK the same report resumes to committed");
+  unit = await c.unit(u.id);
+  eq(unit.state, "committed", "unit committed"); eq(c.tip(u.branch), keptTip, "resumed from the kept commit (no second commit)");
 }));
 
 // =====================================================================================================================

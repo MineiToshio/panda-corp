@@ -140,12 +140,15 @@ function availabilityCandidates(hint) {
  * @param {object} [deps] `deps.tiers` replaces model-tiers.json (tests)
  * @returns {{matched: boolean, degraded: string|null, deferred: object|null, primary: object|null, row: number|null}}
  */
+/** Keep only the quota picture's claude/codex fields. */
+const normalizeHint = (a) => (a ? { claude: a.claude, codex: a.codex } : undefined);
+
 export function inferDegradation({ authors, kind, zone, reviewer, hint, shapes = [undefined] }, deps = {}) {
   if (authors.length === 0) return { matched: true, degraded: null, deferred: null, primary: null, row: null };
   for (const shape of shapes) {
     for (const availability of availabilityCandidates(hint)) {
       let result;
-      try { result = reviewCell({ authors, kind, zone, availability, ...(shape ? { shape } : {}) }, deps); } catch (error) {
+      try { result = (deps.routing?.reviewCell ?? deps.reviewCell ?? reviewCell)({ authors, kind, zone, availability, ...(shape ? { shape } : {}) }, deps); } catch (error) {
         if (error?.code === "ROUTING") continue;
         throw error;
       }
@@ -351,6 +354,20 @@ export async function reviewRecord(input, deps = {}) {
     const check = verifyToken(unitId, token, { file: ctx.paths.admissionFile, fs: deps.admissionFs });
     if (!check.ok) throw err("INVALID_INPUT", `unit token rejected (${check.reason})`);
     const report = await validateReviewReport(await loadReport(input, fs), { unit: unitId, token }, deps);
+    const w = unit.worker;
+    if (w && (w.runtime !== report.reviewer.runtime || w.model !== report.reviewer.model)) throw err("INVALID_INPUT", "report reviewer differs from the dispatch cell");
+    if (unit.kind === "review") {
+      const authors = authorsOf(reviewedUnits(state, unit));
+      const rv = w ?? report.reviewer;
+      if (authors.some((a) => a.runtime === rv.runtime && a.model === rv.model)) {
+        const d = inferDegradation({
+          authors, kind: state.size === "touch" ? "touch" : "frd", zone: unit.zone,
+          reviewer: { runtime: rv.runtime, model: rv.model, effort: rv.effort ?? report.reviewer.effort },
+          hint: normalizeHint(deps.availability), shapes: state.coordinator === "drive" ? ["drive", undefined] : [undefined],
+        }, deps);
+        if (d.degraded !== "same_model") throw err("INVALID_INPUT", "an author never reviews its own unit outside the N7 exception");
+      }
+    }
     return { report };
   };
 
@@ -408,7 +425,7 @@ export async function reviewRecord(input, deps = {}) {
     let degradation = { matched: true, degraded: null, deferred: null, primary: null, row: null };
     if (review.kind === "review") {
       degradation = inferDegradation({
-        authors, kind: state.size === "touch" ? "touch" : "frd", zone: review.zone, reviewer, hint: deps.availability,
+        authors, kind: state.size === "touch" ? "touch" : "frd", zone: review.zone, reviewer, hint: normalizeHint(deps.availability),
         shapes: state.coordinator === "drive" ? ["drive", undefined] : [undefined],
       }, deps);
     }
@@ -467,7 +484,7 @@ export async function reviewRecord(input, deps = {}) {
     }
 
     // 4. Review unit, events, state.
-    nextReview.review = report.verdict === "doubt" ? nextReview.review : { verdict: report.verdict, reviewer: asSchemaCell(reviewer), degraded: degradation.degraded, deferred_id: deferredId };
+    nextReview.review = { verdict: report.verdict, reviewer: asSchemaCell(reviewer), degraded: degradation.degraded, deferred_id: deferredId };
     nextReview.probe_hashes = { ...(review.probe_hashes ?? {}), ...probeHashes };
     nextReview.token_hash = null;
     const finalState = report.verdict === "doubt" ? "reported" : "verified";

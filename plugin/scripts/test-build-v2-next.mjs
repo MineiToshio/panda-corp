@@ -19,17 +19,26 @@
 //   deps convention (same as state.mjs): `deps.env` = the PANDACORP_* hooks (the test also sets process.env); `deps.<stem>` replaces the sibling
 //     module `<stem>.mjs` as a namespace object: buildState (plugin/runtime/build-state.mjs), quota, admission, routing, risk, planner, units,
 //     jobs, workers, report, integrate, review, deferred, failure, park, doubts, telemetry, card. The test passes SPIES around the REAL Wave B
-//     modules (buildState, quota, admission) and FAKES for every Wave C module:
-//       planner.planRound(input, deps) -> {round:[unit ids], ready:[unit ids], units:[], deadlock:boolean}   (same names as T-C01)
-//          the fake IGNORES input and reads state.json from disk; `round`/`ready` hold the ids it offers (tests may force naive/duplicate/deadlock)
-//       units.createUnitWorktree({project, runId, unit}, deps) -> {worktree, branch}    units.writeBrief({project, runId, unit, token, cell, via}, deps) -> {file}
-//          (same names as T-C03); next derives report_path = paths.reportFile(unit), schema_path = schemas/report.schema.json (build/tests/patch/docs),
-//          review-report.schema.json (review/audit/deferred-review) and "" for a doubt-consult unit.
+//     modules (buildState, quota, admission) and FAKES for the Wave C modules, named and shaped like the REAL exports of those modules (R6/R7, deps last):
+//       planner.plan(input, deps) -> {units, now, ready, round, rounds?, deadlock: null | {wos, units, waits, cycles}}   (the fake IGNORES input and
+//          reads state.json from disk; `round`/`ready` hold the ids it offers; tests may force naive/duplicate/deadlock)
+//       planner.readPlanWorkOrders(root, deps) -> {wos, frds, frd_acs, errors}
+//       units.prepareUnitWorktree({project, runId, unit: <id string>, attempt}) -> {worktree, root, branch, base_sha, created, bootstrap}
+//       units.writeUnitBrief({project, state, unit: <unit object>, cell, agentType, token, schemaPath, ...}) -> {brief_path, report_path, text}
+//          next derives schema_path = schemas/report.schema.json (build/tests/patch/docs), review-report.schema.json (review/audit/deferred-review)
+//          and "" for a doubt-consult unit (CLI doc 4; the consult answer file is answer.json, A7).
+//       doubts.pendingConsult(project, unit, deps) -> {doubt_id, unit, runtime, model, effort, via, model_slug, brief_path, report_path, schema_path, answered}
+//       jobs.startJob({project, epoch, kind, frd, ...}) -> the job item; jobs.pollJob(project, job) -> {state: running|done|dead, exit, pid}
+//       workers.launchWorker({project, unit, dir, ...}) -> {ok:true, workerId, pid, job, ...}; workers.pollWorker({project, workerId}) -> {state: running|done|error, ...}
+//       integrate.integrateCommitted({state, runId}, deps) -> {state, integrated, conflicts, events, cleanup}; integrate.transitionWorkOrders(...)
+//       report.ingestReport({project, epoch, unit, token, file}) -> {ok, cmd:"report", unit, attempt, outcome, next_attempt}
+//       telemetry.emitEvent(project, {runtime, runId, name, data}) -> {ok, payload}
+//       These fakes are STRICT: next calling a sibling export the test does not fake fails loudly. review/deferred/failure/park/card/risk-other are lenient
+//       (logged), and the D21 case wraps the REAL failure.mjs in a spy.
 //       risk.computeRisk(input, deps) -> {zone, audit, ...}; and `.pandacorp/run/build/preflight.json` carries `questions[]` (D19 shape:
 //          {id,text_es,default_es,default_action,affects,reversible}) and `risk:{zone,audit}`: next reads reversibility / audit from either.
-//       integrate.* , jobs.* , workers.* , report.* , review.* , deferred.* , failure.* , park.* , doubts.* , telemetry.* , card.*: LENIENT fakes
-//          (any function name; logged; returns {} or, for workers/jobs, {worker_id, pid, id}). integrate.* may be told to answer
-//          {integrated:[{unit, sha}]} so a committed chain counts as integrated.
+//       Running Codex workers are tracked as `state.jobs[]` items of kind "worker" (workers.mjs launchWorker `job`); step 1 polls them.
+//       The fake integrate answers with `integrateAnswer` units as integrated so a committed chain counts as integrated.
 //   State shape: schemas/state.schema.json; the planner is offered only units in state `queued`. A dispatched unit moves to `admitted` or `running`
 //     with token_hash = sha256(token), worker, worktree and branch set; the raw token is returned once and persisted nowhere but the brief.
 //   Quota: next reads build/quota.json (and the rollout tail under CODEX_HOME) through quota.mjs; the test writes quota.json with the real
@@ -121,7 +130,7 @@ const spyModule = (name, mod, log, replace = {}) => {
 /** A fake module: functions in `impl` do the work; others are lenient (logged, `fallback`) or, when strict, a loud failure. */
 const fake = (name, log, impl = {}, { strict = false, fallback = () => ({}) } = {}) => new Proxy({}, {
   get(_t, key) {
-    if (typeof key === "symbol" || key === "then") return undefined;
+    if (typeof key === "symbol" || key === "then" || key === "toJSON") return undefined;
     if (impl[key]) return async (...args) => { log.push({ mod: name, fn: key, args }); return impl[key](...args); };
     if (strict) return async () => { throw new Error(`ASSUMED INTERFACE: next called ${name}.${key}(), but the test fakes only ${Object.keys(impl).join(", ")}`); };
     return async (...args) => { log.push({ mod: name, fn: key, args }); return fallback(key, ...args); };
@@ -209,32 +218,42 @@ function makeDeps(c, over = {}) {
     const all = await readUnits();
     const queued = all.filter((u) => u.state === "queued");
     let round;
-    if (c.plannerMode === "deadlock") return { round: [], ready: [], units: [], deadlock: true };
+    if (c.plannerMode === "deadlock") return { round: [], ready: [], units: [], now: [], deadlock: { wos: [], units: queued.map((u) => u.id), waits: [], cycles: [] } };
     if (c.plannerRound) round = c.plannerRound;
     else if (c.plannerMode === "naive") round = queued.map((u) => u.id).reverse();
     else round = queued.filter((u) => satisfied(u, all)).map((u) => u.id);
-    return { round, ready: round, units: [], deadlock: false };
+    return { round, ready: round, units: [], now: [], deadlock: null };
   };
-  const createUnitWorktree = async ({ unit }) => {
-    const attempt = unit.attempt ?? 1;
-    return { worktree: c.P.unitWorktree(unit.id, attempt), branch: c.P.unitBranch(RUN, unit.id, attempt) };
+  const readPlanWorkOrders = async () => ({ wos: [], frds: [], frd_acs: {}, errors: [] });
+  const prepareUnitWorktree = async ({ unit, attempt = 1 }) => ({ worktree: c.P.unitWorktree(unit, attempt), root: c.P.unitWorktree(unit, attempt), branch: c.P.unitBranch(RUN, unit, attempt), base_sha: c.fx.sha, created: true, bootstrap: { ran: false, exit: null, tail: "" } });
+  const writeUnitBrief = async ({ unit }) => { await mkdir(c.P.unitDir(unit.id), { recursive: true }); await writeFile(c.P.briefFile(unit.id), `# brief ${unit.id}\n`); return { brief_path: c.P.briefFile(unit.id), report_path: c.P.reportFile(unit.id), text: `# brief ${unit.id}\n` }; };
+  const pendingConsult = async (_p, unit) => ({ doubt_id: unit.doubt_id, unit: unit.id, runtime: "claude", model: "opus", effort: "high", via: "agent", model_slug: null, brief_path: c.P.briefFile(unit.id), report_path: c.P.unitAnswerFile(unit.id), schema_path: c.P.schemaFile("doubt-answer"), answered: false });
+  const launchWorker = async (input) => ({ ok: true, workerId: `w-${input.unit}`, dir: input.dir, pid: process.pid, startedAt: NOW, reused: false, argv: [], settled: null, job: { id: `w-${input.unit}`, kind: "worker", unit: input.unit, frd: input.frd ?? null, pid: process.pid, cwd: input.dir, h_slot: false, started_at: NOW, state: "running", exit: null, worker_id: `w-${input.unit}` } });
+  const pollWorker = async ({ workerId }) => ({ state: "running", workerId });
+  const pollJob = async (_p, job) => (existsSync(c.P.jobExitFile(job.id)) ? { state: "done", exit: Number((await readFile(c.P.jobExitFile(job.id), "utf8")).trim()), pid: job.pid ?? null } : { state: "running", exit: null, pid: job.pid ?? null });
+  const startJob = async (input) => ({ id: `j-${input.kind}-${input.frd ?? input.unit ?? "x"}`, kind: input.kind, unit: input.unit ?? null, frd: input.frd ?? null, pid: process.pid, cwd: input.cwd ?? c.root, h_slot: input.kind === "g2", started_at: NOW, state: "running", exit: null, worker_id: null });
+  const integrateCommitted = async ({ state }) => {
+    const integrated = (c.integrateAnswer ?? []).map((i) => ({ outcome: "integrated", ...i }));
+    const ids = new Set(integrated.map((i) => i.unit));
+    return { state: { ...state, units: state.units.map((u) => (ids.has(u.id) ? { ...u, state: "integrated" } : u)) }, integrated, conflicts: [], events: [], cleanup: [] };
   };
-  const writeBrief = async ({ unit }) => { await mkdir(c.P.unitDir(unit.id), { recursive: true }); await writeFile(c.P.briefFile(unit.id), `# brief ${unit.id}\n`); return { file: c.P.briefFile(unit.id) }; };
-  const lenientWorker = (k, input) => ({ worker_id: `w-${input?.unit?.id ?? input?.unit ?? "x"}`, pid: process.pid, id: `j-${k}` });
+  const transitionWorkOrders = async ({ wos = [] }) => ({ transitioned: wos, skipped: [] });
+  const ingestReport = async ({ unit }) => ({ ok: true, cmd: "report", unit, attempt: 1, outcome: "accepted", next_attempt: null });
+  const emitEvent = async () => ({ ok: true, payload: {} });
   const deps = {
     env: c.env,
     buildState: spyModule("buildState", c.bs, log),
     quota: spyModule("quota", c.quotaMod, log),
     admission: spyModule("admission", c.admissionMod, log),
     risk: fake("risk", log, { computeRisk: async () => c.riskResult }),
-    planner: fake("planner", log, { planRound }, { strict: true }),
-    units: fake("units", log, { createUnitWorktree, writeBrief }, { strict: true }),
-    jobs: fake("jobs", log, {}, { fallback: lenientWorker }),
-    workers: fake("workers", log, {}, { fallback: lenientWorker }),
-    integrate: fake("integrate", log, {}, { fallback: () => (c.integrateAnswer ? { integrated: c.integrateAnswer } : { integrated: [] }) }),
-    report: fake("report", log, {}, { fallback: () => ({ ingested: [] }) }),
+    planner: fake("planner", log, { plan: planRound, readPlanWorkOrders }, { strict: true }),
+    units: fake("units", log, { prepareUnitWorktree, writeUnitBrief }, { strict: true }),
+    jobs: fake("jobs", log, { startJob, pollJob }, { strict: true }),
+    workers: fake("workers", log, { launchWorker, pollWorker }, { strict: true }),
+    integrate: fake("integrate", log, { integrateCommitted, transitionWorkOrders }, { strict: true }),
+    report: fake("report", log, { ingestReport }, { strict: true }),
     review: fake("review", log), deferred: fake("deferred", log), failure: fake("failure", log), park: fake("park", log),
-    doubts: fake("doubts", log), telemetry: fake("telemetry", log), card: fake("card", log),
+    doubts: fake("doubts", log, { pendingConsult }), telemetry: fake("telemetry", log, { emitEvent }, { strict: true }), card: fake("card", log),
     ...over,
   };
   return deps;
@@ -254,7 +273,7 @@ async function callNext(c, input = {}, depsOver = {}, { clean = true } = {}) {
 }
 const unitIds = (r) => (r.units ?? []).map((u) => u.unit).sort();
 const dispatchedIds = async (c) => (await c.events()).filter((e) => e.type === "unit_dispatched").map((e) => e.data.unit);
-const preparedIds = (c) => c.log.filter((e) => e.mod === "units" && e.fn === "createUnitWorktree").map((e) => e.args[0].unit.id);
+const preparedIds = (c) => c.log.filter((e) => e.mod === "units" && e.fn === "prepareUnitWorktree").map((e) => e.args[0].unit);
 const stateUnit = async (c, id) => (await c.readState()).units.find((u) => u.id === id);
 
 /** Asserts a terminal action arrived APPLIED (D32 / A11). */
@@ -350,12 +369,15 @@ await test("width: with clean signals the ceiling is 2: two of three ready units
 }));
 
 await test("order of work (PLAN 3.3): harvest, then integrate, then quota and planner, then admission, then units", async () => withCase({
-  units: [B("WO-01-001", { state: "committed", worker: WORKER() }), B("WO-01-002", { state: "integrated", worker: WORKER() }), B("WO-02-001")],
+  units: [B("WO-01-001", { state: "committed", worker: WORKER() }), B("WO-01-002", { state: "integrated", worker: WORKER() }), B("WO-02-001"),
+    B("WO-02-002", { state: "running", token_hash: sha256("t"), worker: WORKER({ runtime: "codex", model: "sol", via: "cli", pid: process.pid, worker_id: "w-u-build-wo-02-002" }) })],
+  jobs: [{ id: "w-u-build-wo-02-002", kind: "worker", unit: "u-build-wo-02-002", frd: "frd-02-beta", pid: process.pid, cwd: "/tmp/x", h_slot: false, started_at: NOW, state: "running", exit: null, worker_id: "w-u-build-wo-02-002" }],
 }, async (c) => {
   c.integrateAnswer = [{ unit: "u-build-wo-01-001", sha: "a".repeat(40) }];
   const r = await callNext(c);
   const first = (pred) => c.log.findIndex(pred);
-  const iHarvest = first((e) => ["jobs", "workers", "report"].includes(e.mod));
+  // Harvest = polling running jobs/workers and ingesting reports; `jobs.startJob` (the G2 spawn, after integration, ruling G2) is not harvest.
+  const iHarvest = first((e) => (e.mod === "jobs" && e.fn === "pollJob") || (e.mod === "workers" && e.fn === "pollWorker") || e.mod === "report");
   const iIntegrate = first((e) => e.mod === "integrate");
   const iQuota = first((e) => e.mod === "quota");
   const iPlan = first((e) => e.mod === "planner");
@@ -363,7 +385,8 @@ await test("order of work (PLAN 3.3): harvest, then integrate, then quota and pl
   const iPrepare = first((e) => e.mod === "units");
   ok(iIntegrate >= 0, "a committed chain must go through integrate.* (step 2)");
   ok(iPlan >= 0 && iQuota >= 0 && iDecide >= 0 && iPrepare >= 0, `planner, quota, admission.decide and units.* must all run (indexes ${[iPlan, iQuota, iDecide, iPrepare]})`);
-  if (iHarvest >= 0) ok(iHarvest < iIntegrate, "step 1 (harvest) runs before step 2 (integrate)");
+  ok(iHarvest >= 0, `step 1 must poll the running Codex worker job of u-build-wo-02-002 (jobs.pollJob or workers.pollWorker); calls: ${c.log.map((e) => `${e.mod}.${e.fn}`).join(" ")}`);
+  ok(iHarvest < iIntegrate, "step 1 (harvest) runs before step 2 (integrate)");
   ok(iIntegrate < iPlan, "integrate runs before the planner round");
   ok(iQuota < iPlan, "the quota policy (step 3) runs before the planner round (steps 5)");
   ok(iPlan < iDecide, "the planner round precedes admission (step 6)");
@@ -518,7 +541,7 @@ await test("admission: exactly one reading is recorded per call (dispatch and wa
     eq(c.log.filter((e) => e.mod === "admission" && e.fn === "recordReading").length, n, `after call ${n}: one recordReading per call`);
     eq(JSON.parse(await readFile(c.P.admissionFile, "utf8")).history.length, Math.min(n, 3), `after call ${n}: history length`);
   }
-  await c.writeState((s) => { s.units.push(c.stateMod.newUnit(B("WO-02-001"))); });
+  await c.writeState((s) => { s.units.push(c.stateMod.newUnit(B("WO-02-001"))); s.scope.wos.push("WO-02-001"); s.scope.frds.push("frd-02-beta"); });
   const before = c.log.filter((e) => e.fn === "recordReading").length;
   const r = await callNext(c);
   eq(r.action, "dispatch", "a queued unit appears: dispatch");
@@ -684,6 +707,55 @@ await test("A11: a running G2 job keeps the run waiting (jobs_running) even when
 }));
 
 // =====================================================================================================================
+// Built on assumption (BUILD-12, DG-5) and the land job (RULINGS-C1 doubt 7)
+// =====================================================================================================================
+const DOUBT = "d-0042";
+const assumed = (wo, over = {}) => B(wo, { parked: "built_on_assumption", pending_answer: DOUBT, doubt_id: DOUBT, ...over });
+
+await test("assumption: a queued built_on_assumption unit IS dispatched, from paths.assumeBranch(run, doubt); the flag survives dispatch; other units get no base", async () => withCase({
+  units: [assumed("WO-01-001"), B("WO-02-001")],
+}, async (c) => {
+  const r = await callNext(c);
+  eq(unitIds(r), ["u-build-wo-01-001", "u-build-wo-02-001"], "both units dispatched");
+  const prep = (id) => c.log.find((e) => e.mod === "units" && e.fn === "prepareUnitWorktree" && e.args[0].unit === id)?.args[0];
+  eq(prep("u-build-wo-01-001")?.base, c.P.assumeBranch(RUN, DOUBT), "assumed unit forks from the assume branch");
+  ok(!prep("u-build-wo-02-001")?.base, "a normal unit gets no explicit base");
+  eq((await stateUnit(c, "u-build-wo-01-001")).parked, "built_on_assumption", "the flag stays until the owner answers");
+}));
+
+await test("assumption: the unit that is never the only blocker: a run whose only queued unit is built_on_assumption is not waiting-owner or deadlock, it dispatches", async () => withCase({
+  units: [assumed("WO-01-001")],
+}, async (c) => {
+  const r = await callNext(c);
+  eq(r.action, "dispatch", "action");
+  eq(unitIds(r), ["u-build-wo-01-001"], "dispatched");
+}));
+
+await test("assumption: an FRD whose units are integrated but one is built_on_assumption gets NO G2 job (G2 runs after acceptance); the control FRD does", async () => withCase({
+  units: [assumed("WO-01-001", { state: "integrated", worker: WORKER() }), B("WO-01-002", { state: "integrated", worker: WORKER() }), B("WO-02-001", { state: "integrated", worker: WORKER() })],
+}, async (c) => {
+  await callNext(c);
+  const g2 = (frd) => c.log.some((e) => e.mod === "jobs" && e.fn === "startJob" && /g2/i.test(JSON.stringify(e.args)) && JSON.stringify(e.args).includes(frd));
+  ok(!g2("frd-01-alpha"), "no g2 job for the FRD holding assumption work");
+  ok(g2("frd-02-beta"), "control: the other FRD, fully integrated, does get its G2 job");
+}));
+
+await test("land job: while a land job runs, next neither integrates nor dispatches and returns wait jobs_running (nothing applied)", async () => withCase({
+  units: [B("WO-01-001", { state: "committed", worker: WORKER() }), B("WO-02-001")],
+  jobs: [{ id: "j-land-1", kind: "land", unit: null, frd: null, pid: process.pid, cwd: "/tmp/x", h_slot: false, started_at: NOW, state: "running", exit: null, worker_id: null }],
+}, async (c) => {
+  c.integrateAnswer = [{ unit: "u-build-wo-01-001", sha: "b".repeat(40) }];
+  const r = await callNext(c);
+  eq([r.action, r.wait?.reason], ["wait", "jobs_running"], "action and reason");
+  eq(r.units ?? [], [], "no unit dispatched");
+  ok(!c.log.some((e) => e.mod === "integrate" && e.fn === "integrateCommitted"), "the integration step did not run");
+  ok(!c.log.some((e) => e.mod === "units" && e.fn === "prepareUnitWorktree"), "no worktree prepared");
+  eq((await stateUnit(c, "u-build-wo-02-001")).state, "queued", "the queued unit stays queued");
+  eq((await stateUnit(c, "u-build-wo-01-001")).state, "committed", "the committed unit stays committed");
+  await expectNotApplied(c);
+}));
+
+// =====================================================================================================================
 // --wait: long poll, early return, lease renewal
 // =====================================================================================================================
 const runningUnit = (over = {}) => B("WO-01-001", { state: "running", worker: WORKER(), token_hash: sha256("t"), ...over });
@@ -728,6 +800,28 @@ await test("--wait: an answer_recorded journal event, a job exit file and handof
     });
   }
 });
+
+// =====================================================================================================================
+// Worker failure policy (D21)
+// =====================================================================================================================
+await test("D21: a Codex worker that returns no valid report is RETRIED as the same unit at attempt 2, never handed back, run not stopped", async () => withCase({
+  units: [B("WO-01-001", { state: "running", attempt: 1, token_hash: sha256("t"), worker: WORKER({ runtime: "codex", model: "sol", via: "cli", pid: process.pid, worker_id: "w-u-build-wo-01-001" }) })],
+  jobs: [{ id: "w-u-build-wo-01-001", kind: "worker", unit: "u-build-wo-01-001", frd: "frd-01-alpha", pid: process.pid, cwd: "/tmp/x", h_slot: false, started_at: NOW, state: "running", exit: null, worker_id: "w-u-build-wo-01-001" }],
+}, async (c) => {
+  const realFailure = await must("failure.mjs");
+  const exit = c.P.jobExitFile("w-u-build-wo-01-001");
+  await mkdir(path.dirname(exit), { recursive: true }); await writeFile(exit, "0\n");
+  const workers = fake("workers", c.log, {
+    launchWorker: async (input) => ({ ok: true, workerId: `w-${input.unit}`, dir: input.dir, pid: process.pid, startedAt: NOW, reused: false, argv: [], settled: null, job: { id: `w-${input.unit}`, kind: "worker", unit: input.unit, frd: input.frd ?? null, pid: process.pid, cwd: input.dir, h_slot: false, started_at: NOW, state: "running", exit: null, worker_id: `w-${input.unit}` } }),
+    pollWorker: async ({ workerId }) => ({ state: "done", workerId, outcome: "bad_report", kind: "no_answer", detail: "the worker returned no JSON answer", errors: [{ path: "", message: "no JSON answer" }], model: "sol", effort: "high" }),
+  }, { strict: true });
+  const r = await callNext(c, {}, { workers, failure: spyModule("failure", realFailure, c.log) });
+  ok(!["stop", "deadlock", "waiting-owner"].includes(r.action), `a first failed execution does not end the run, got ${r.action}`);
+  eq(c.log.filter((e) => e.mod === "failure" && e.fn === "handbackCommand").length, 0, "D21: a failed report on attempt 1 is not a hand-back");
+  const u = await stateUnit(c, "u-build-wo-01-001");
+  ok(!["blocked", "parked"].includes(u.state), `the unit must not be blocked or parked, got ${u.state}`);
+  eq(u.attempt, 2, "the same unit is re-queued at attempt+1");
+}));
 
 // =====================================================================================================================
 // via:"session" (A12)

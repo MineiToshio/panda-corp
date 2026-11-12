@@ -66,7 +66,7 @@ const sandbox = async (preset = "basic") => {
 const mkState = (units, extra = {}) => newState({
   run_id: RUN, epoch: 1, coordinator: "claude-session", label: "claude", size: "feature",
   scope: { card: null, frds: ["frd-01-alpha"], wos: [], out_of_scope: [] },
-  integration: { branch: `lane/${RUN}/integration`, worktree: "/nonexistent/integration", base_sha: "0".repeat(40) },
+  integration: { branch: buildPaths("/nonexistent/project").integrationBranch(RUN), worktree: "/nonexistent/integration", base_sha: "0".repeat(40) },
   units, ...extra,
 });
 const U = (id, extra = {}) => newUnit({ id, kind: "build", wos: [id.replace("u-build-", "")], frd: "frd-01-alpha", state: "running", ...extra });
@@ -76,7 +76,7 @@ const evHash = (evidence, cause = "code") => fn("buildEvidence")({ ...evidence, 
 /** A run on disk: state.json, a run_started journal line, a lease held by this process, and a real integration worktree. */
 const seedRun = async (sb, state) => {
   const lease = await bs.acquire(sb.project, { runtime: "claude", runId: RUN, ttlSeconds: 1800, projectStatus: false, coordinator: "session" });
-  const branch = `lane/${RUN}/integration`; const worktree = sb.p.integrationWorktree;
+  const branch = sb.p.integrationBranch(RUN); const worktree = sb.p.integrationWorktree;
   git(sb.project, ["worktree", "add", "-b", branch, worktree, "main"]);
   const st = { ...state, epoch: lease.epoch, integration: { branch, worktree, base_sha: git(sb.project, ["rev-parse", "main"]) } };
   await writeState(sb.project, st, { env: sb.env });
@@ -86,7 +86,7 @@ const seedRun = async (sb, state) => {
 const handBackIn = (sb, lease, input) => fencedTwoPhase({ project: sb.project, epoch: lease.epoch, deps: sb.deps }, undefined, undefined, (_r, _i, ctx) => fn("handBack")(ctx, input, sb.deps));
 const OUTPUT = Array.from({ length: 100 }, (_, i) => `output line ${i + 1}`).join("\n");
 const HB_UNIT = "u-build-WO-01-001";
-const HB_STATE = () => mkState([U(HB_UNIT, { attempt: 3, state: "reported", branch: `lane/${RUN}/${HB_UNIT}-a3` }), U("u-build-WO-01-002", { state: "queued", depends_on: [HB_UNIT], wos: ["WO-01-002"] })]);
+const HB_STATE = (sb) => mkState([U(HB_UNIT, { attempt: 3, state: "reported", branch: sb.p.unitBranch(RUN, HB_UNIT, 3) }), U("u-build-WO-01-002", { state: "queued", depends_on: [HB_UNIT], wos: ["WO-01-002"] })]);
 const HB_INPUT = (extra = {}) => ({
   unitId: HB_UNIT, cause: "code", reasonCode: "budget_exhausted", reason: "tercer intento fallido",
   failure: { command: "pnpm vitest run t/a.test.ts", tail: OUTPUT },
@@ -181,12 +181,13 @@ await test("a non-env-infra hand-back resets the env-infra counter", async () =>
 
 // ---------------------------------------------------------------- handback file (Spanish, safe on the lane branch)
 await test("handBack writes handback/<unit>.md in Spanish: lane branch safe, last 40 output lines, evidence, diagnosis, numbered options with a recommendation", async () => {
-  const sb = await sandbox(); const { lease } = await seedRun(sb, HB_STATE());
+  const sb = await sandbox(); const { lease } = await seedRun(sb, HB_STATE(sb));
+  git(sb.project, ["branch", sb.p.unitBranch(RUN, HB_UNIT, 3), "main"]);
   const res = await handBackIn(sb, lease, HB_INPUT());
   eq(res.path, sb.p.handbackFile(HB_UNIT), "path is build/handback/<unit>.md");
   const text = await readFile(res.path, "utf8");
-  ok(text.includes(HB_UNIT), "unit id"); ok(text.includes(`lane/${RUN}/${HB_UNIT}-a3`), "the lane branch holding the work");
-  ok(/a salvo/i.test(text), "must say the work is safe (a salvo)");
+  ok(text.includes(HB_UNIT), "unit id"); ok(text.includes(sb.p.unitBranch(RUN, HB_UNIT, 3)), "the lane branch holding the work");
+  ok(/a salvo|preservad|conservad/i.test(text), "must say the work is preserved");
   ok(/intento\s*3|3\s*(de|\/)\s*3|intento:?\s*3/i.test(text), "attempt number");
   ok(text.includes("pnpm vitest run t/a.test.ts"), "failing command");
   ok(text.includes("output line 100") && text.includes("output line 61"), "the last 40 lines of the output are present");
@@ -200,7 +201,7 @@ await test("handBack writes handback/<unit>.md in Spanish: lane branch safe, las
   await sb.fx.cleanup();
 });
 await test("handBack adds a pending entry to .pandacorp/inbox/decisions.md, parks the dependent, leaves the lease held and the main checkout clean", async () => {
-  const sb = await sandbox(); const { lease } = await seedRun(sb, HB_STATE());
+  const sb = await sandbox(); const { lease } = await seedRun(sb, HB_STATE(sb));
   const before = git(sb.project, ["status", "--porcelain"]);
   await handBackIn(sb, lease, HB_INPUT());
   const dec = path.join(sb.project, ".pandacorp/inbox/decisions.md");
@@ -215,12 +216,74 @@ await test("handBack adds a pending entry to .pandacorp/inbox/decisions.md, park
   await sb.fx.cleanup();
 });
 await test("handbackCommand rejects a unit id that is unsafe as a path segment", async () => {
-  const sb = await sandbox(); const { lease } = await seedRun(sb, HB_STATE()); let threw = false; let res; const cmd = fn("handbackCommand");
+  const sb = await sandbox(); const { lease } = await seedRun(sb, HB_STATE(sb)); let threw = false; let res; const cmd = fn("handbackCommand");
   try { res = await cmd({ project: sb.project, epoch: lease.epoch, unit: "../../etc/passwd", reason: "x" }, sb.deps); } catch { threw = true; }
   ok(threw || (res && res.ok === false), "path traversal in the unit id must be refused");
   ok(!existsSync(path.join(sb.project, ".pandacorp/etc")), "nothing written outside the handback dir");
   await sb.fx.cleanup();
 });
+
+// ---------------------------------------------------------------- failUnit (a worker ended without a valid report, RULINGS-C2 FAIL-M2)
+const FU_UNIT = "u-build-WO-01-001";
+const FU_STATE = (attempt, sb) => mkState([U(FU_UNIT, { attempt, state: "running", branch: sb.p.unitBranch(RUN, FU_UNIT, attempt) }), U("u-build-WO-01-002", { state: "queued", depends_on: [FU_UNIT], wos: ["WO-01-002"] }), U("u-build-WO-01-003", { state: "running", wos: ["WO-01-003"] })]);
+await test("failUnit: attempt 1 without a valid report is requeued at attempt 2, the run continues (no hand-back, dependents and independents untouched, lease held)", async () => {
+  const sb = await sandbox(); const { lease } = await seedRun(sb, FU_STATE(1, sb));
+  const res = await fn("failUnit")({ project: sb.project, epoch: lease.epoch, unit: FU_UNIT, attempt: 1, cause: "env-infra", detail: "el proceso del trabajador murio", command: "codex exec", tail: "boom" }, sb.deps);
+  eq(res.ok, true, "ok"); eq(res.cmd, "fail", "cmd"); eq(res.applied, true, "applied"); eq(res.action, "requeue", "action"); eq(res.next_attempt, 2, "next_attempt");
+  ok(!res.handback, "no hand-back on attempt 1");
+  const st = await readState(sb.project, { env: sb.env });
+  const u = st.units.find((x) => x.id === FU_UNIT);
+  eq([u.state, u.attempt], ["queued", 2], "same unit requeued at attempt 2");
+  eq(st.units.find((x) => x.id === "u-build-WO-01-002").state, "queued", "dependent keeps waiting, not blocked");
+  eq(st.units.find((x) => x.id === "u-build-WO-01-003").state, "running", "independent unit keeps running");
+  const cur = await bs.currentLease(sb.project); ok(cur && cur.epoch === lease.epoch, "the run (lease) continues");
+  ok(!existsSync(sb.p.handbackFile(FU_UNIT)), "no handback file");
+  const again = await fn("failUnit")({ project: sb.project, epoch: lease.epoch, unit: FU_UNIT, attempt: 1, cause: "env-infra", detail: "replay" }, sb.deps);
+  eq(again.applied, false, "replaying the same failed attempt is idempotent"); eq(again.reason, "already_applied", "reason");
+  await sb.fx.cleanup();
+});
+await test("failUnit: at the attempt budget (attempt 3) it hands back: unit and dependents blocked, independent unit untouched (R4)", async () => {
+  const sb = await sandbox(); const { lease } = await seedRun(sb, FU_STATE(3, sb));
+  git(sb.project, ["branch", sb.p.unitBranch(RUN, FU_UNIT, 3), "main"]);
+  const res = await fn("failUnit")({ project: sb.project, epoch: lease.epoch, unit: FU_UNIT, attempt: 3, cause: "code", detail: "sin informe valido", command: "codex exec", tail: "boom" }, sb.deps);
+  eq(res.action, "handback", "action"); ok(res.next_attempt === null || res.next_attempt === undefined, `no attempt 4 (next_attempt=${res.next_attempt})`);
+  ok(res.handback && res.handback.path, "hand-back result carries the handback path");
+  const st = await readState(sb.project, { env: sb.env });
+  eq(st.units.find((x) => x.id === FU_UNIT).state, "blocked", "unit blocked");
+  eq(st.units.find((x) => x.id === "u-build-WO-01-002").state, "blocked", "dependent blocked");
+  eq(st.units.find((x) => x.id === "u-build-WO-01-003").state, "running", "independent unit untouched");
+  ok(existsSync(sb.p.handbackFile(FU_UNIT)), "handback/<unit>.md written");
+  await sb.fx.cleanup();
+});
+await test("failUnit: usage errors (no unit, no detail) are rejected before touching state", async () => {
+  const sb = await sandbox(); const { lease } = await seedRun(sb, FU_STATE(1, sb));
+  for (const bad of [{ attempt: 1, detail: "x" }, { unit: FU_UNIT, attempt: 1, detail: "  " }]) {
+    let threw = null; try { await fn("failUnit")({ project: sb.project, epoch: lease.epoch, ...bad }, sb.deps); } catch (e) { threw = e; }
+    ok(threw && threw.code === "USAGE", `expected USAGE, got ${threw && (threw.code || threw.message)}`);
+  }
+  eq((await readState(sb.project, { env: sb.env })).units.find((x) => x.id === FU_UNIT).state, "running", "state untouched");
+  await sb.fx.cleanup();
+});
+
+// ---------------------------------------------------------------- owner-facing Spanish reason texts (RULINGS-C2 FAIL-M3)
+const REASON_TEXTS = {
+  worker_blocked: "el trabajador se declaró bloqueado y no puede seguir sin ti",
+  worker_failed: "el trabajador falló sin informe válido en sus intentos",
+  answer_rework_budget: "tu respuesta pedía rehacer una unidad que ya agotó sus 3 ejecuciones",
+  owner_refused_gate: "el owner rechazó la puerta humana",
+};
+for (const [code, text] of Object.entries(REASON_TEXTS)) {
+  await test(`handBack reason ${code}: the owner-facing handback and notice carry the Spanish text, no em/en dashes in it`, async () => {
+    const sb = await sandbox(); const { lease } = await seedRun(sb, HB_STATE(sb));
+    const res = await handBackIn(sb, lease, HB_INPUT({ reasonCode: code, reason: "" }));
+    const md = await readFile(res.path, "utf8");
+    ok(md.includes(text), `handback md must say: ${text}`);
+    ok(!/[\u2013\u2014]/.test(text), "the reason text has no em/en dashes");
+    ok(!md.includes(`motivo: ${code}`), "the raw code is not shown to the owner");
+    if (res.notice_es) ok(!/[\u2013\u2014]/.test(res.notice_es), "notice_es has no em/en dashes");
+    await sb.fx.cleanup();
+  });
+}
 
 // ---------------------------------------------------------------- engine failure
 const engineFault = () => Object.assign(new Error("simulated engine fault"), { code: "EIO" });

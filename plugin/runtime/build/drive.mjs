@@ -15,16 +15,17 @@
 //     the relay yields and exits cleanly). Only Codex units launched by the CLI (`via:"cli"`) are accepted.
 // Everything time- or process-related is injected (clock, sleep, spawn, isAlive, exec) so tests run on fixture clocks.
 // Sibling engine modules (next, land, finish, workers, failure) are injected by the dispatcher, never imported here.
-import { spawn as nodeSpawn } from "node:child_process";
+import { execFile, spawn as nodeSpawn } from "node:child_process";
 import nodeFs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { atomicWriteJson, defaultExec, readJson, validate, loadSchema } from "./fsx.mjs";
+import { atomicWriteJson, readJson, validate, loadSchema } from "./fsx.mjs";
 import { readJournal } from "./journal.mjs";
 import { notifyOwner } from "./notify.mjs";
 import { buildPaths } from "./paths.mjs";
 import { classifyLimitText, effective, limitResetsAt, loadThresholds, readCodexQuota, readQuotaFile, resetsAtOf } from "./quota.mjs";
 import { fencedTwoPhase, isTerminalUnit, readLeaseToken, readState } from "./state.mjs";
+import { enqueueDeferred } from "./deferred.mjs";
 
 /** The CLI entry the standby process is spawned through (`node pandacorp-build.mjs drive --standby --run R`). */
 export const CLI_ENTRY = fileURLToPath(new URL("../../scripts/pandacorp-build.mjs", import.meta.url));
@@ -58,21 +59,32 @@ const defaultIsAlive = (pid) => {
  */
 export function driveDeps(overrides = {}) {
   const env = overrides.env ?? process.env;
+  const clock = typeof overrides.clock === "function" ? overrides.clock : null;
   return {
     env,
     platform: process.platform,
     pid: process.pid,
     execPath: process.execPath,
-    now: () => (env.PANDACORP_NOW ? Date.parse(env.PANDACORP_NOW) : Date.now()),
+    // The engine clock: `PANDACORP_NOW` wins (as everywhere in the engine), then an injected `clock() -> Date`.
+    now: () => (env.PANDACORP_NOW ? Date.parse(env.PANDACORP_NOW) : clock ? new Date(clock()).getTime() : Date.now()),
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     spawn: nodeSpawn,
     isAlive: defaultIsAlive,
-    exec: defaultExec,
+    exec: envExec(env),
+    // An injected `exec` also runs `osascript` (notify.mjs); otherwise notify uses its own runner with a timeout.
+    notifyExec: overrides.notifyExec ?? overrides.exec ?? null,
     buildState: null,
     maxPolls: Number.POSITIVE_INFINITY,
     ...overrides,
   };
 }
+
+// `execFile` with the drive's own env (the fake codex of the tests reads its switches from it); never rejects.
+const envExec = (env) => (cmd, args, { cwd } = {}) => new Promise((resolve) => {
+  execFile(cmd, args, { cwd, env, encoding: "utf8", timeout: 60_000, maxBuffer: 4 * 1024 * 1024 }, (error, stdout, stderr) => {
+    resolve({ code: error ? (typeof error.code === "number" ? error.code : 127) : 0, stdout: stdout ?? "", stderr: stderr ?? "" });
+  });
+});
 
 const withDefaults = (deps) => (deps?.__drive ? deps : { ...driveDeps(deps ?? {}), __drive: true });
 const nowMs = (d) => d.now();
@@ -116,7 +128,7 @@ export function driveLog(project, line, deps) {
 const say = async (event, data, d) => {
   try {
     if (typeof d.notify === "function") return await d.notify(event, data);
-    return await notifyOwner(event, data, { env: d.env, platform: d.platform });
+    return await notifyOwner(event, data, { env: d.env, platform: d.platform, ...(typeof d.notifyExec === "function" ? { exec: d.notifyExec } : {}) });
   } catch (error) {
     return { sent: false, reason: error.message };
   }
@@ -211,7 +223,7 @@ export function standbyArgs(runId, { transcript } = {}) {
  * @param {object} [deps] `exec` (codex login), `prePushCheck(project) -> {code}`, `spawn`, `isAlive`, `execPath`, `env`
  * @returns {Promise<{armed: boolean, pid: number|null, reason: string|null}>}
  */
-export async function armDrive({ project, runId, launched = false, transcript = null, appendEvent } = {}, deps) {
+export async function armDrive({ project, runId, launched, transcript = null, appendEvent } = {}, deps) {
   const d = withDefaults(deps);
   if (!project || !runId) throw err("USAGE", "armDrive needs project and runId");
   const paths = pathsOf(project, d);
@@ -228,7 +240,7 @@ export async function armDrive({ project, runId, launched = false, transcript = 
   try { login = await d.exec(codexBin, loginArgs, { cwd: project }); } catch (error) { login = { code: 1, stderr: error.message }; }
   if (login?.code !== 0) return { armed: false, pid: null, reason: "codex_login_failed" };
 
-  if (launched) {
+  if (launched ?? isLaunchedProject(project, d)) {
     let check;
     try {
       check = typeof d.prePushCheck === "function"
@@ -270,6 +282,18 @@ export async function armDrive({ project, runId, launched = false, transcript = 
   return { armed: true, pid, reason: null };
 }
 
+// Launched = status.yaml `phase: release` with a `deploy_target` other than `internal` (the rule of detect.mjs).
+// An unreadable status.yaml counts as launched: the pre-push hook is then required (fail closed).
+function isLaunchedProject(project, d) {
+  let yaml;
+  try { yaml = nodeFs.readFileSync(pathsOf(project, d).statusYaml, "utf8"); } catch { return true; }
+  const scalar = (key) => {
+    const m = new RegExp(`^${key}:[ \\t]*(.*)$`, "m").exec(yaml);
+    return m ? m[1].replace(/\s+#.*$/, "").trim().replace(/^(["'])(.*)\1$/, "$2") || null : null;
+  };
+  return scalar("phase") === "release" && scalar("deploy_target") !== "internal";
+}
+
 // ----------------------------------------------------------------------------------------------- triggers
 
 const pendingWork = (state) => state.units.some((u) => !isTerminalUnit(u)) || state.jobs.some((j) => j.state === "running");
@@ -285,27 +309,28 @@ async function readHandoff(paths, runId) {
   return { file: true, valid: true, value };
 }
 
-// Trigger (b): Claude's usage-limit text. A Codex limit is next's business (it records Codex at 100 % and switches
-// columns), never a reason to take a healthy run away from the session, so worker output counts only when it carries
-// Claude's own envelope; unit reports count only for in-flight units a Claude agent or session is writing.
+// Trigger (b) (DEC-3): Claude's usage-limit text only. Codex's own limit is quota.policy's business (R3), never a
+// reason to take a run from the session. Sources: the report of an in-flight unit a Claude agent or session is
+// writing, a worker output of THIS run (state units/jobs) that carries Claude's envelope (`usage limit reached|<ts>`),
+// and the optional transcript.
+const limitHit = (file) => { const text = readText(file); return Boolean(text) && classifyLimitText(text) === "usage_limit"; };
+const claudeEnvelope = (file) => Boolean(limitResetsAt(readText(file) ?? ""));
+
 function claudeLimitSeen(project, state, transcript, d) {
   const paths = pathsOf(project, d);
   for (const unit of state.units) {
     if (!IN_FLIGHT.has(unit.state)) continue;
-    const byClaude = unit.worker?.runtime === "claude" || unit.worker?.via === "agent" || unit.worker?.via === "session";
-    if (byClaude) {
-      const text = readText(paths.reportFile(unit.id));
-      if (text && classifyLimitText(text) === "usage_limit") return `report ${unit.id}`;
-    }
-    if (unit.worker?.worker_id) {
-      const text = readText(path.join(paths.codexWorkerDir(unit.worker.worker_id), "last.md"));
-      if (text && limitResetsAt(text)) return `worker ${unit.worker.worker_id}`;
-    }
+    const w = unit.worker;
+    const byClaude = w && (w.runtime === "claude" || w.via === "agent" || w.via === "session");
+    if (byClaude && limitHit(paths.reportFile(unit.id))) return `report ${unit.id}`;
   }
-  if (transcript) {
-    const text = readText(transcript);
-    if (text && classifyLimitText(text) === "usage_limit") return "transcript";
+  const workerIds = new Set([...state.units.map((u) => u.worker?.worker_id), ...state.jobs.map((j) => j.worker_id)].filter((id) => typeof id === "string" && id));
+  for (const id of workerIds) {
+    let file;
+    try { file = path.join(paths.codexWorkerDir(id), "last.md"); } catch { continue; }
+    if (claudeEnvelope(file)) return `worker ${id}`;
   }
+  if (transcript && limitHit(transcript)) return "transcript";
   return null;
 }
 
@@ -435,7 +460,7 @@ export async function takeOver({ project, runId, trigger, detail = null }, deps)
 
   const resets = { claude: resetsAtOf(claudeReading), codex: resetsAtOf(codex.reading) };
   // From here drive holds the lease: a failure must carry the epoch so the failure path can release it.
-  const intent = await withEpoch(epoch, () => fencedTwoPhase({ project, epoch, actor: "drive", deps: stateDeps(d, bs) }, async (ctx) => {
+  const intent = await withEpoch(epoch, () => fencedTwoPhase({ project, epoch, actor: "drive", deps: stateDeps(d, bs) }, undefined, undefined, async (_result, _intent, ctx) => {
     const state = await ctx.readState();
     if (!state) throw err("INVALID_STATE", "state.json disappeared during takeover");
     const requeued = [];
@@ -515,7 +540,46 @@ function codexOnlyWorkers(workers) {
   });
 }
 
-const landJobAlive = (state) => state.jobs.some((j) => j.kind === "land" && j.state === "running");
+// A land job counts as alive while it is recorded running and its pid (when known) is alive.
+const landJobAlive = (state, d) => state.jobs.some((j) => j.kind === "land" && j.state === "running" && (!Number.isInteger(j.pid) || d.isAlive(j.pid)));
+
+const STRENGTH = Object.freeze({ haiku: 1, luna: 1, sonnet: 2, terra: 2, sol: 3, opus: 4, astra: 4, fable: 5 });
+const SCHEMA_EFFORTS = new Set(["minimal", "low", "medium", "high", "xhigh"]);
+
+/**
+ * Default deferral of a security audit that reached drive (BUILD-14: never run under drive): append a pending
+ * `deferred-reviews.json` entry for Claude (opus high, `degraded: quota_90`), mark the audit unit `verified` as a
+ * review-type terminal (its real verdict comes from the deferred re-review) and journal it, all under drive's epoch.
+ * @param {{project: string, epoch: number, unit: object}} input `unit` = the dispatch cell `next` returned
+ * @param {object} [deps]
+ * @returns {Promise<{entry: object}>}
+ */
+export async function deferAuditUnit({ project, epoch, unit }, deps) {
+  const d = withDefaults(deps);
+  const bs = await buildStateOf(d);
+  return fencedTwoPhase({ project, epoch, actor: "drive", deps: stateDeps(d, bs) }, undefined, undefined, async (_r, _i, ctx) => {
+    const state = await ctx.readState();
+    if (!state) throw err("INVALID_STATE", "no state.json");
+    const record = state.units.find((u) => u.id === unit.unit) ?? null;
+    const authors = state.units.map((u) => u.worker).filter((w) => w && ["claude", "codex"].includes(w.runtime) && STRENGTH[w.model]);
+    const strongest = authors.reduce((best, a) => (!best || STRENGTH[a.model] > STRENGTH[best.model] ? a : best), null);
+    // Without a recorded builder the author is drive's own column (Codex); the ledger requires one.
+    const author = strongest
+      ? { runtime: strongest.runtime, model: strongest.model, effort: SCHEMA_EFFORTS.has(strongest.effort) ? strongest.effort : "high" }
+      : { runtime: "codex", model: "sol", effort: "high" };
+    const base = state.integration?.base_sha ?? "HEAD";
+    const { entry } = await enqueueDeferred(project, {
+      unit: unit.unit, kind: "audit", frd: record?.frd ?? unit.frd ?? null, sha_range: `${base}..${pathsOf(project, d).integrationBranch(state.run_id)}`,
+      author, reviewer_used: null, degraded: "quota_90", needed: "claude",
+    }, { env: d.env, homedir: d.homedir, clock: () => new Date(nowMs(d)) });
+    await ctx.appendEvent({ type: "deferred_review_queued", data: { id: entry.id, unit: unit.unit, frd: entry.frd, needed: "claude", degraded: "quota_90", reviewer_used: null } });
+    if (record && !isTerminalUnit(record)) {
+      await ctx.appendEvent({ type: "unit_state", data: { unit: record.id, from: record.state, to: "verified", reason: "audit_deferred_to_claude" } });
+      await ctx.writeState({ ...state, units: state.units.map((u) => (u.id === record.id ? { ...u, state: "verified", token_hash: null, worker: null } : u)) });
+    }
+    return { entry };
+  });
+}
 
 /**
  * The active relay loop for the run at `epoch` (drive holds the lease). Ends at a terminal action (already applied by
@@ -526,12 +590,13 @@ const landJobAlive = (state) => state.jobs.some((j) => j.kind === "land" && j.st
  */
 export async function driveLoop({ project, epoch }, deps) {
   const d = withDefaults(deps);
+  const deferAudit = typeof d.deferAudit === "function" ? d.deferAudit : (input) => deferAuditUnit(input, d);
   for (const name of ["next", "land", "finish"]) if (typeof d[name] !== "function") throw err("USAGE", `drive loop needs deps.${name}`);
   const bs = await buildStateOf(d);
   const limits = loadThresholds({ thresholds: d.thresholds });
   const pollMs = limits.drive_poll_s * 1000;
   const engineDeps = { ...(d.engineDeps ?? {}), ...(d.workers ? { workers: codexOnlyWorkers(d.workers) } : {}) };
-  const ref = { project, epoch, actor: "drive" };
+  const ref = { project, epoch, actor: "drive", coordinator: "drive" };
 
   for (let i = 0; i < d.maxPolls; i++) {
     let out;
@@ -546,8 +611,8 @@ export async function driveLoop({ project, epoch }, deps) {
         case "dispatch": {
           for (const unit of out.units ?? []) {
             if (unit.runtime === "codex" && unit.via === "cli") { driveLog(project, `dispatch: ${unit.unit} ${unit.kind} codex ${unit.model} ${unit.effort}`, d); continue; }
-            if (unit.kind === "audit" && typeof d.deferAudit === "function") {
-              await d.deferAudit({ ...ref, unit }, engineDeps);
+            if (unit.kind === "audit") {
+              await deferAudit({ ...ref, unit }, engineDeps);
               driveLog(project, `dispatch: security audit ${unit.unit} deferred to a Claude re-review (opus high)`, d);
               continue;
             }
@@ -560,7 +625,7 @@ export async function driveLoop({ project, epoch }, deps) {
           break;
         case "land": {
           const state = await readState(project, { env: d.env, homedir: d.homedir });
-          if (state && landJobAlive(state)) { await d.sleep(pollMs); break; }
+          if (state && landJobAlive(state, d)) { await d.sleep(pollMs); break; }
           let landed;
           try { landed = await d.land(ref, engineDeps); } catch (error) {
             if (error?.code !== "WAITING_GATE") throw error;
@@ -587,7 +652,12 @@ export async function driveLoop({ project, epoch }, deps) {
         default:
           if (TERMINAL_ACTIONS.has(out?.action)) {
             driveLog(project, `terminal: ${out.action} (applied by next)`, d);
-            await say(out.action, { project }, d);
+            let event = out.action;
+            if (out.action === "waiting-owner") {
+              const after = await readState(project, { env: d.env, homedir: d.homedir }).catch(() => null);
+              if (after?.status === "waiting_gate") event = "waiting-gate";
+            }
+            await say(event, { project }, d);
             await setOwnStandbyState(project, "stopped", d);
             return { outcome: out.action, action: out.action, exitCode: 0 };
           }
@@ -604,6 +674,23 @@ export async function driveLoop({ project, epoch }, deps) {
   }
   driveLog(project, "loop: poll budget exhausted (test bound)", d);
   return { outcome: "poll_budget", action: null, exitCode: 0 };
+}
+
+/**
+ * The active loop under its contract name (`{project, runId?, epoch}`); `runId`, when given, must match state.json.
+ * @param {{project: string, runId?: string, epoch: number}} input
+ * @param {object} deps as `driveLoop`
+ */
+export async function runLoop({ project, runId, epoch }, deps) {
+  if (runId) {
+    const d = withDefaults(deps);
+    const state = await readState(project, { env: d.env, homedir: d.homedir }).catch(() => null);
+    if (state && state.run_id !== runId) {
+      driveLog(project, `loop: run ${runId} is not the current run (${state.run_id}); nothing to do`, d);
+      return { outcome: "run_changed", action: null, exitCode: 0 };
+    }
+  }
+  return driveLoop({ project, epoch }, deps);
 }
 
 async function engineFailure(project, epoch, error, d, engineDeps) {

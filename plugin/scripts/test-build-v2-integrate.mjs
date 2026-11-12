@@ -23,14 +23,12 @@
 //   integrateCommitted({state, runId?, appendEvent?, keepWorktrees?}, deps) -> {state, integrated, conflicts, events, cleanup}
 //   transitionWorkOrders({integration, runId, wos, to, unitId?}, deps) -> {commit, steps, track}
 //   writeProjectFile({project, integration, runId, relPath, text, mode?, subject?}, deps) -> {tracked, file, commit}
-// Assumption kept from the contract (not in any JSDoc): the integration branch of a run is NOT `lane/<run_id>` (git cannot hold
-// `lane/<run>` next to `lane/<run>/<unit>`); the module uses `lane/<run_id>/integration`. The tests read the branch from
-// createIntegrationWorktree's result and never hard-code it. (paths.mjs `integrationBranch()` still returns `lane/<run_id>`: see the report.)
 import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { buildPaths } from "../runtime/build/paths.mjs";
 import { createFixture, git as fxGit, testEnv } from "./fixtures/build-v2/make-fixture.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -71,7 +69,7 @@ async function sandbox(preset = "basic") {
   const sb = { dir, fx, deps, g, snap, before: snap(), integration: null, done: () => rm(dir, { recursive: true, force: true }) };
   return sb;
 }
-const branchOf = (unitId) => `lane/${RUN}/${unitId}`;
+const branchOf = (unitId) => buildPaths("/nonexistent/project").unitBranch(RUN, unitId);
 
 /** Creates the integration worktree through the module under test; returns {branch, worktree}. */
 async function ensure(sb) {
@@ -414,6 +412,162 @@ await test("removeIntegrationWorktree: git worktree remove, branch kept, no prun
     const again = await api("removeIntegrationWorktree")({ project: sb.fx.root, worktree: sb.integration.worktree }, sb.deps);
     eq(again.removed, false, "removing an unregistered worktree is a no-op");
     assertMainUntouched(sb, "after remove");
+  } finally { await sb.done(); }
+});
+
+// ---------------------------------------------------------------------------------------------
+// built on assumption (BUILD-12, DG-5, RULINGS-C2 INT-M1; behaviour addendum C12). Names come from paths.mjs helpers only.
+const DOUBT = "d-0042";
+const OPTION = "opt-no";
+const pathsOf = (sb) => buildPaths(sb.fx.root, { env: sb.deps.env });
+const writeDoubt = async (sb, { decision = null, unit = "u-build-wo-01-001" } = {}) => {
+  const P = pathsOf(sb);
+  await mkdir(P.doubtsDir, { recursive: true });
+  await writeFile(P.doubtFile(DOUBT), `${JSON.stringify({ schema: 1, id: DOUBT, unit, opened_at: "2026-11-11T12:00:00.000Z", question: "Paginate?", options: [{ id: "opt-yes", text: "yes" }, { id: OPTION, text: "no" }], preferred: OPTION, why: "silent", step: decision ? "decided" : "parked", consults: [], decision, assumption: { option: OPTION, branch: P.assumeBranch(RUN, DOUBT) } }, null, 2)}\n`);
+};
+const decided = (value) => ({ value, decided_by: "owner", at: "2026-11-11T12:05:00.000Z" });
+const mkAssumeBranch = (sb) => { const b = pathsOf(sb).assumeBranch(RUN, DOUBT); sb.g(sb.fx.root, "branch", b, sb.integration.branch); return b; };
+/** A committed unit built on the assumption branch (cut from it), flagged parked built_on_assumption. */
+const assumedUnit = async (sb, assumeBranch, over = {}) => {
+  const u = await makeUnit(sb, { id: "u-build-wo-01-001", frd: A.frd, wos: ["WO-01-001"], files: { "src/alpha/list.ts": "export const value = 2;\n" }, base: assumeBranch });
+  return { ...u, parked: "built_on_assumption", pending_answer: DOUBT, doubt_id: DOUBT, ...over };
+};
+const stateOf = async (sb, units) => {
+  const { newState, newUnit } = await import(pathToFileURL(path.join(HERE, "..", "runtime", "build", "state.mjs")).href);
+  return newState({ run_id: RUN, epoch: 1, coordinator: "claude-session", label: "claude", size: "normal", scope: {}, integration: { ...sb.integration, base_sha: sb.before.head }, units: units.map((u) => newUnit({ ...u })) });
+};
+const runCommitted = (sb, state) => api("integrateCommitted")({ state, runId: RUN }, { ...sb.deps, project: sb.fx.root });
+const isAncestor = (sb, a, b) => { try { sb.g(sb.fx.root, "merge-base", "--is-ancestor", a, b); return true; } catch { return false; } };
+
+await test("assumption: a committed unit flagged built_on_assumption integrates CODE ONLY into lane/<run>/assume-<doubt>: integration tip, WO state and last_safe_point untouched, no safe_point", async () => {
+  const sb = await sandbox();
+  try {
+    await ensure(sb); await writeDoubt(sb);
+    const ab = mkAssumeBranch(sb);
+    const u = await assumedUnit(sb, ab);
+    const tipBefore = tipOf(sb);
+    const r = await runCommitted(sb, await stateOf(sb, [u]));
+    eq(r.state.units.find((x) => x.id === u.id).state, "integrated", "unit integrated");
+    eq(tipOf(sb), tipBefore, "the integration branch did not move");
+    ok(sb.g(sb.fx.root, "log", "--format=%B", `${tipBefore}..${ab}`).includes(`Unit: ${u.id}`), "the unit commit landed on the assume branch");
+    ok(woStatusAt(sb, ab, A.frd, "WO-01-001") !== "IN_REVIEW", "no WO transition on the assume branch (code only)");
+    ok(woStatusAt(sb, sb.integration.branch, A.frd, "WO-01-001") !== "IN_REVIEW", "no WO transition on the integration branch");
+    const ev = r.events.filter((e) => e.type === "integrated");
+    ok(ev.length === 1 && ev[0].data.unit === u.id && ev[0].data.assumption === DOUBT, `one integrated event carrying assumption ${DOUBT}: ${JSON.stringify(ev)}`);
+    ok(!r.events.some((e) => e.type === "safe_point"), "no safe_point for assumption work");
+    ok(!r.state.last_safe_point, "last_safe_point stays unset");
+    assertRegistryConsistent(sb, "assume integration"); assertMainUntouched(sb, "assume integration");
+  } finally { await sb.done(); }
+});
+
+await test("assumption: a flagged committed unit without pending_answer fails loud (INVALID_STATE), nothing moves", async () => {
+  const sb = await sandbox();
+  try {
+    await ensure(sb); await writeDoubt(sb);
+    const ab = mkAssumeBranch(sb);
+    const u = await assumedUnit(sb, ab, { pending_answer: null, doubt_id: null });
+    const tipBefore = tipOf(sb);
+    let err = null; try { await runCommitted(sb, await stateOf(sb, [u])); } catch (e) { err = e; }
+    ok(err && err.code === "INVALID_STATE", `expected INVALID_STATE, got ${err?.code ?? "no error"}`);
+    eq(tipOf(sb), tipBefore, "integration tip unchanged");
+  } finally { await sb.done(); }
+});
+
+await test("assumption: an unanswered or REJECTED doubt never merges its assume branch (and the branch is kept)", async () => {
+  for (const decision of [null, decided("opt-yes")]) {
+    const sb = await sandbox();
+    try {
+      await ensure(sb); await writeDoubt(sb, { decision });
+      const ab = mkAssumeBranch(sb);
+      const u = await assumedUnit(sb, ab);
+      const r1 = await runCommitted(sb, await stateOf(sb, [u]));
+      const tip = tipOf(sb);
+      const r2 = await runCommitted(sb, { ...r1.state, units: r1.state.units.map((x) => ({ ...x, parked: null, pending_answer: null })) });
+      eq(tipOf(sb), tip, `decision ${JSON.stringify(decision?.value ?? null)}: the integration tip does not move`);
+      ok(!(r2.merged ?? []).length, "no merged[] entry");
+      ok(!isAncestor(sb, ab, sb.integration.branch), "assume branch not an ancestor of the integration branch");
+      sb.g(sb.fx.root, "rev-parse", "--verify", ab);
+    } finally { await sb.done(); }
+  }
+});
+
+await test("assumption ACCEPTED: the next pass merges the assume branch --no-ff into the integration branch (Doubt: trailer), WOs go to IN_REVIEW, integrated{unit:null,doubt}+safe_point, idempotent", async () => {
+  const sb = await sandbox();
+  try {
+    await ensure(sb); await writeDoubt(sb);
+    const ab = mkAssumeBranch(sb);
+    const u = await assumedUnit(sb, ab);
+    const r1 = await runCommitted(sb, await stateOf(sb, [u]));
+    await writeDoubt(sb, { decision: decided(OPTION) });
+    const answered = { ...r1.state, units: r1.state.units.map((x) => ({ ...x, parked: null, pending_answer: null })) };
+    const r2 = await runCommitted(sb, answered);
+    const tip = tipOf(sb);
+    const mergeSha = sb.g(sb.fx.root, "log", "--merges", "-1", "--format=%H", tip);
+    ok(/^[0-9a-f]{40}$/.test(mergeSha), "the integration branch has a --no-ff merge commit");
+    eq(sb.g(sb.fx.root, "rev-list", "--parents", "-n", "1", mergeSha).split(" ").length, 3, "the merge commit has two parents");
+    ok(/^Doubt: d-0042$/m.test(sb.g(sb.fx.root, "log", "-1", "--format=%B", mergeSha)), "merge commit carries a Doubt: trailer");
+    ok(isAncestor(sb, ab, sb.integration.branch), "assume branch is now an ancestor of the integration branch");
+    eq(woStatusAt(sb, sb.integration.branch, A.frd, "WO-01-001"), "IN_REVIEW", "the WO of the assumed unit is IN_REVIEW on the integration branch");
+    const merged = r2.events.find((e) => e.type === "integrated" && e.data.unit === null);
+    ok(merged && merged.data.doubt === DOUBT && /^[0-9a-f]{40}$/.test(merged.data.sha), `integrated{unit:null,doubt,sha}: ${JSON.stringify(r2.events)}`);
+    ok(r2.events.some((e) => e.type === "safe_point" && e.data.kind === "integration-land"), "safe_point integration-land recorded");
+    eq(r2.state.last_safe_point?.kind, "integration-land", "last_safe_point updated");
+    const r3 = await runCommitted(sb, r2.state);
+    eq(tipOf(sb), tip, "second pass: nothing re-merged");
+    ok(!r3.events.some((e) => e.type === "integrated"), "second pass records no integrated event");
+    assertRegistryConsistent(sb, "after accept merge"); assertMainUntouched(sb, "after accept merge"); wtClean(sb, "after accept merge");
+  } finally { await sb.done(); }
+});
+
+await test("assumption ACCEPTED: after the merge the flag is cleared, so a later committed unit integrates into the integration branch normally (WO IN_REVIEW, safe_point)", async () => {
+  const sb = await sandbox();
+  try {
+    await ensure(sb); await writeDoubt(sb);
+    const ab = mkAssumeBranch(sb);
+    const u = await assumedUnit(sb, ab);
+    const r1 = await runCommitted(sb, await stateOf(sb, [u]));
+    await writeDoubt(sb, { decision: decided(OPTION) });
+    const later = await makeUnit(sb, { id: "u-build-wo-02-001", frd: B.frd, wos: ["WO-02-001"], files: { "src/beta/view.ts": "export const value = 4;\n" } });
+    const st = { ...r1.state, units: [...r1.state.units.map((x) => ({ ...x, parked: null, pending_answer: null })), (await stateOf(sb, [later])).units[0]] };
+    const r2 = await runCommitted(sb, st);
+    eq(r2.state.units.find((x) => x.id === later.id).state, "integrated", "later unit integrated");
+    eq(woStatusAt(sb, sb.integration.branch, B.frd, "WO-02-001"), "IN_REVIEW", "normal integration transitions its WO");
+    ok(isAncestor(sb, ab, sb.integration.branch), "assume branch merged along the way");
+  } finally { await sb.done(); }
+});
+
+await test("assumption ACCEPTED but the merge conflicts: reported as a conflict on the doubting unit with doubt set, integration branch unchanged, nothing left mid-merge", async () => {
+  const sb = await sandbox();
+  try {
+    await ensure(sb); await writeDoubt(sb);
+    const ab = mkAssumeBranch(sb);
+    const u = await assumedUnit(sb, ab);
+    const r1 = await runCommitted(sb, await stateOf(sb, [u]));
+    // the integration branch moves with a conflicting change to the same file
+    await writeFile(path.join(sb.integration.worktree, "src/alpha/list.ts"), "export const value = 77;\n");
+    sb.g(sb.integration.worktree, "add", "-A"); sb.g(sb.integration.worktree, "commit", "-q", "-m", "feat: conflicting");
+    await writeDoubt(sb, { decision: decided(OPTION) });
+    const tip = tipOf(sb);
+    const r2 = await runCommitted(sb, { ...r1.state, units: r1.state.units.map((x) => ({ ...x, parked: null, pending_answer: null })) });
+    eq(tipOf(sb), tip, "integration tip unchanged");
+    const c = (r2.conflicts ?? []).find((x) => x.doubt === DOUBT);
+    ok(c && c.outcome === "conflict" && c.unit === "u-build-wo-01-001", `conflict entry with doubt and unit: ${JSON.stringify(r2.conflicts)}`);
+    wtClean(sb, "after conflicted merge");
+    let mid = true; try { sb.g(sb.integration.worktree, "rev-parse", "-q", "--verify", "MERGE_HEAD"); } catch { mid = false; }
+    ok(!mid, "no MERGE_HEAD left behind");
+  } finally { await sb.done(); }
+});
+
+await test("assumption: frdsReadyForG2 skips an FRD while any of its units is built_on_assumption (G2 runs after acceptance)", async () => {
+  const sb = await sandbox();
+  try {
+    await ensure(sb);
+    const mk = (id, wo, over = {}) => ({ id, kind: "build", frd: A.frd, wos: [wo], chain: `c-${wo.toLowerCase()}`, attempt: 1, state: "integrated", ...over });
+    const flagged = await stateOf(sb, [mk("u-build-wo-01-001", "WO-01-001", { parked: "built_on_assumption", pending_answer: DOUBT }), mk("u-build-wo-01-002", "WO-01-002")]);
+    const plain = await stateOf(sb, [mk("u-build-wo-01-001", "WO-01-001"), mk("u-build-wo-01-002", "WO-01-002")]);
+    const ready = (s) => api("frdsReadyForG2")(s).map((x) => (typeof x === "string" ? x : x.frd ?? x.id));
+    ok(!ready(flagged).includes(A.frd), `FRD with an assumption unit must not be G2-ready: ${JSON.stringify(ready(flagged))}`);
+    ok(ready(plain).includes(A.frd), `control: the same FRD without the flag is G2-ready: ${JSON.stringify(ready(plain))}`);
   } finally { await sb.done(); }
 });
 

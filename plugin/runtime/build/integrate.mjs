@@ -13,6 +13,9 @@ import { buildPaths } from "./paths.mjs";
 
 const err = (code, message, extra = {}) => Object.assign(new Error(message), { code }, extra);
 const tail = (text, n = 240) => String(text ?? "").trim().slice(-n);
+const escapeRegExp = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** A unit built on an assumption that the owner has not accepted yet (BUILD-12): it integrates on its assume branch. */
+const isAssumed = (u) => u?.parked === "built_on_assumption";
 
 /** Unit kinds whose branches carry commits that reach the integration branch. */
 export const INTEGRABLE_KINDS = Object.freeze(["docs", "tests", "build", "patch"]);
@@ -456,8 +459,9 @@ export async function writeProjectFile({ project, integration, runId, relPath, t
  * patch id) are not replayed, and work orders already IN_REVIEW are not rewritten.
  * A rebase conflict is NEVER resolved: the rebase is aborted, the integration branch is unchanged and the outcome is
  * `conflict` (reason `rebase_conflict`) for the caller to hand back.
- * @param {{unit: object, integration: {branch: string, worktree: string}, runId: string}} input `unit` = a state unit
- *   (`id`, `kind`, `wos`, `branch`; `attempt` derives the branch name when `branch` is null)
+ * @param {{unit: object, integration: {branch: string, worktree: string}, runId: string, workOrders?: boolean}} input `unit` = a state unit
+ *   (`id`, `kind`, `wos`, `branch`; `attempt` derives the branch name when `branch` is null); `workOrders:false` integrates
+ *   the code only (an assume branch: its WOs move to IN_REVIEW on the integration branch once the owner accepts)
  * @param {{exec?: Function, fs?: object, env?: object, clock?: Function, homedir?: string, transitionWorkOrderAt?: Function}} [deps]
  * @returns {Promise<{outcome: "integrated"|"already", unit: string, code_sha: string, sha: string, commits: number, rebased: boolean,
  *     healed: boolean, transitions: object[], track: object, wo_commit: string|null}
@@ -465,7 +469,7 @@ export async function writeProjectFile({ project, integration, runId, relPath, t
  *   `code_sha` = integration tip right after the chain, `sha` = tip after the metadata commit
  * @throws INVALID_STATE (unit branch missing or empty, dirty worktree), GIT_FAILED
  */
-export async function integrateUnit({ unit, integration, runId }, deps = {}) {
+export async function integrateUnit({ unit, integration, runId, workOrders = true }, deps = {}) {
   const { exec = defaultExec, fs = fsp } = deps;
   const root = path.resolve(integration.worktree);
   const g = gitIn(exec, root);
@@ -476,7 +480,11 @@ export async function integrateUnit({ unit, integration, runId }, deps = {}) {
   const unitTip = out(await g(["rev-parse", `refs/heads/${unitBranch}`]));
   const base = out(await g(["merge-base", branch, unitBranch]));
   const commits = Number(out(await g(["rev-list", "--count", `${base}..${unitBranch}`])));
-  if (commits === 0) throw err("INVALID_STATE", `unit ${unit.id} is committed but its branch ${unitBranch} has no commits beyond the integration branch`);
+  // A resumed call after a no-op rebase + ff: the unit branch is already an ancestor and its tip is the unit commit.
+  const alreadyIn = commits === 0
+    && (await exec("git", ["merge-base", "--is-ancestor", unitTip, branch], { cwd: root })).code === 0
+    && new RegExp(`^Unit: ${escapeRegExp(unit.id)}$`, "m").test(out(await g(["log", "-1", "--format=%B", unitTip])));
+  if (commits === 0 && !alreadyIn) throw err("INVALID_STATE", `unit ${unit.id} is committed but its branch ${unitBranch} has no commits beyond the integration branch`);
   const pending = out(await g(["cherry", branch, unitBranch])).split("\n").filter((l) => l.startsWith("+"));
 
   let rebased = false;
@@ -500,7 +508,7 @@ export async function integrateUnit({ unit, integration, runId }, deps = {}) {
   const codeSha = out(await g(["rev-parse", "HEAD"]));
 
   let wo = { commit: null, steps: [], track: { ok: true, lines: 0 } };
-  if (WO_KINDS.has(unit.kind) && unit.wos?.length) {
+  if (workOrders && WO_KINDS.has(unit.kind) && unit.wos?.length) {
     wo = await transitionWorkOrders({ integration, runId, wos: unit.wos, to: "IN_REVIEW", unitId: unit.id }, deps);
   }
   return {
@@ -531,17 +539,126 @@ export function committedUnits(state) {
   return ordered;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Assumption branches (BUILD-12, D19): work built on an unaccepted assumption lives on lane/<run_id>/assume-<doubt>
+// ---------------------------------------------------------------------------------------------
+
 /**
- * Integrate every committed chain of a run into `lane/<run_id>/integration` (phase 2 of `next`, CLI doc 4.1), sequentially. A unit that
- * conflicts stays `committed` and is reported in `conflicts` (its dependents are skipped this round); the caller hands it
- * back. Integrated units get state `integrated`, and the state's `last_safe_point` becomes `{sha, kind: "integration-land"}`.
- * Journal events are returned and, when `appendEvent` is given, appended in order as each unit lands:
- * `integrated {unit, sha}`, `unit_state {unit, from: "committed", to: "integrated"}`, `safe_point {sha, kind}`.
+ * The assumption branches of a run that exist as refs, with their doubt record (read from `build/doubts/<doubt>.json`).
+ * Names come only from `paths.assumeBranch`. `accepted` = the owner's decision equals the assumed option.
+ * @param {{project: string, runId: string, root: string}} input `root` = any checkout of the repository (refs are shared)
+ * @param {{exec?: Function, fs?: object, env?: object, homedir?: string}} [deps]
+ * @returns {Promise<{doubt: string, branch: string, record: object|null, accepted: boolean}[]>}
+ */
+export async function assumptionBranches({ project, runId, root }, deps = {}) {
+  const { exec = defaultExec, fs = fsp } = deps;
+  const p = buildPaths(project, deps);
+  const probe = "x";
+  const prefix = p.assumeBranch(runId, probe).slice(0, -probe.length);
+  const g = gitIn(exec, root);
+  const names = out(await g(["for-each-ref", "--format=%(refname:short)", `refs/heads/${prefix}*`])).split("\n").filter(Boolean).sort();
+  const items = [];
+  for (const branch of names) {
+    const doubt = branch.slice(prefix.length);
+    let canonical = null;
+    try { canonical = p.assumeBranch(runId, doubt); } catch { canonical = null; }
+    if (canonical !== branch) continue;
+    let record = null;
+    try { record = JSON.parse(await fs.readFile(p.doubtFile(doubt), "utf8")); } catch (e) { if (e.code !== "ENOENT") throw err("INVALID_STATE", `doubt record ${doubt} is unreadable: ${e.message}`); }
+    const decided = record?.decision && Object.hasOwn(record.decision, "value") ? record.decision.value : undefined;
+    const accepted = Boolean(record?.assumption) && decided !== undefined && JSON.stringify(decided) === JSON.stringify(record.assumption.option);
+    items.push({ doubt, branch, record, accepted });
+  }
+  return items;
+}
+
+/**
+ * The worktree of an assumption branch (`paths.assumeWorktree(doubt)`), created on demand on the EXISTING branch
+ * (`git worktree add <wt> <branch>`, never `-b`). Idempotent; a detached HEAD left by an interrupted rebase is accepted
+ * (the integration step heals it).
+ * @param {{project: string, runId: string, doubt: string}} input
+ * @returns {Promise<{branch: string, worktree: string, created: boolean}>}
+ * @throws INVALID_STATE when the branch is missing, `paths.assumeWorktree` does not exist, or the path holds something else
+ */
+export async function assumeIntegration({ project, runId, doubt }, deps = {}) {
+  const { exec = defaultExec, fs = fsp } = deps;
+  const p = buildPaths(project, deps);
+  if (typeof p.assumeWorktree !== "function") throw err("INVALID_STATE", "paths.assumeWorktree is missing: cannot place the assumption worktree");
+  const branch = p.assumeBranch(runId, doubt);
+  const worktree = p.assumeWorktree(doubt);
+  const g = gitIn(exec, p.project);
+  if (!(await refExists(g, `refs/heads/${branch}`))) throw err("INVALID_STATE", `assumption branch ${branch} does not exist`);
+  const existing = await findRegistered(g, fs, worktree);
+  if (existing) {
+    if (existing.branch !== branch && !existing.detached) throw err("INVALID_STATE", `assumption worktree ${worktree} is on ${existing.branch}, expected ${branch}`);
+    return { branch, worktree, created: false };
+  }
+  await g(["worktree", "prune"]);
+  if (await fs.stat(worktree).then(() => true, () => false)) throw err("INVALID_STATE", `${worktree} exists but is not a registered worktree; refusing to touch it`);
+  await fs.mkdir(path.dirname(worktree), { recursive: true });
+  await g(["worktree", "add", worktree, branch]);
+  return { branch, worktree, created: true };
+}
+
+/**
+ * Merge every ACCEPTED assumption branch that is not yet an ancestor of the integration branch (`git merge --no-ff`,
+ * trailer `Doubt:`), then move the work orders of the units built there to IN_REVIEW on the integration branch. A
+ * discarded branch (decision != assumed option) is never merged and never deleted. A conflict aborts the merge.
+ * @returns {Promise<{merged: object[], conflicts: object[]}>}
+ */
+async function mergeAcceptedAssumptions({ state, runId, integration, emit }, deps) {
+  const { exec = defaultExec, fs = fsp } = deps;
+  const root = path.resolve(integration.worktree);
+  const g = gitIn(exec, root);
+  const merged = [];
+  const conflicts = [];
+  for (const item of await assumptionBranches({ project: deps.project, runId, root }, deps)) {
+    if (!item.accepted) continue;
+    if ((await exec("git", ["merge-base", "--is-ancestor", item.branch, integration.branch], { cwd: root })).code === 0) continue;
+    await prepareIntegration(g, fs, root, integration.branch);
+    const bodies = out(await g(["log", "--format=%B%x00", `${integration.branch}..${item.branch}`]));
+    const unitIds = [...new Set([...bodies.matchAll(/^Unit: (\S+)\s*$/gm)].map((m) => m[1]))];
+    const res = await exec("git", ["-c", "commit.gpgsign=false", "merge", "--no-ff", "--no-verify", "--quiet",
+      "-m", `chore(build): accept assumption ${item.doubt}`, "-m", `Doubt: ${item.doubt}\nEngine-Run: ${runId}`, item.branch], { cwd: root });
+    if (res.code !== 0) {
+      const files = out(await g(["diff", "--name-only", "--diff-filter=U"], { allowFail: true })).split("\n").filter(Boolean);
+      await g(["merge", "--abort"], { allowFail: true });
+      conflicts.push({ outcome: "conflict", doubt: item.doubt, unit: item.record?.unit ?? null, reason: "rebase_conflict", files, branch: item.branch });
+      continue;
+    }
+    const mergeSha = out(await g(["rev-parse", "HEAD"]));
+    const transitions = [];
+    for (const id of unitIds) {
+      const u = state.units.find((x) => x.id === id);
+      if (!u || !WO_KINDS.has(u.kind) || !u.wos?.length || !INTEGRATED_OR_LATER.has(u.state)) continue;
+      transitions.push(...(await transitionWorkOrders({ integration, runId, wos: u.wos, to: "IN_REVIEW", unitId: u.id }, deps)).steps);
+    }
+    const sha = out(await g(["rev-parse", "HEAD"]));
+    merged.push({ doubt: item.doubt, branch: item.branch, merge_sha: mergeSha, sha, units: unitIds, transitions });
+    await emit("integrated", { unit: null, doubt: item.doubt, sha });
+    await emit("safe_point", { sha, kind: "integration-land" });
+  }
+  return { merged, conflicts };
+}
+
+/**
+ * Integrate every committed chain of a run into `lane/<run_id>/integration` (phase 2 of `next`, CLI doc 4.1), sequentially.
+ * First, every accepted assumption branch not merged yet is merged into the integration branch (`--no-ff`, trailer
+ * `Doubt:`; listed in `merged`, events `integrated {unit: null, doubt, sha}` + `safe_point`); a merge conflict is reported
+ * in `conflicts` as `{doubt, unit: <doubting unit>, reason: "rebase_conflict", files}` and the doubting unit and its
+ * dependents are not integrated this round. Then each committed unit integrates: a unit still built on an assumption
+ * (`parked: built_on_assumption`) into its `lane/<run_id>/assume-<doubt>` branch (worktree `paths.assumeWorktree`, code
+ * only, no WO transition, no safe point; item `assumption: <doubt>`), every other unit into the integration branch. A unit
+ * that conflicts stays `committed` and is reported in `conflicts` (its dependents are skipped this round); the caller hands
+ * it back. Integrated units get state `integrated`; an integration-branch unit moves `last_safe_point` to
+ * `{sha, kind: "integration-land"}`. Journal events are returned and, when `appendEvent` is given, appended in order:
+ * `integrated {unit, sha[, assumption]}`, `unit_state {unit, from: "committed", to: "integrated"}`, `safe_point {sha, kind}`.
  * Unit worktrees of integrated units are removed (their branches are kept) unless `keepWorktrees`.
  * @param {{state: object, runId?: string, appendEvent?: (event: {type: string, data: object}) => Promise<any>, keepWorktrees?: boolean}} input
  *   `state.integration` supplies branch and worktree; the input state is not mutated
- * @param {object} [deps] see `integrateUnit`; `project` (main checkout root) is needed for worktree removal and unit-branch naming
- * @returns {Promise<{state: object, integrated: object[], conflicts: object[], events: {type: string, data: object}[], cleanup: object[]}>}
+ * @param {object} [deps] see `integrateUnit`; `project` (main checkout root) is needed for doubt records, assumption
+ *   worktrees, worktree removal and unit-branch naming (without it no assumption work is merged or integrated)
+ * @returns {Promise<{state: object, integrated: object[], merged: object[], conflicts: object[], events: {type: string, data: object}[], cleanup: object[]}>}
  */
 export async function integrateCommitted({ state, runId = state.run_id, appendEvent, keepWorktrees = false }, deps = {}) {
   const integration = state.integration;
@@ -556,17 +673,38 @@ export async function integrateCommitted({ state, runId = state.run_id, appendEv
     events.push(event);
     if (appendEvent) await appendEvent(event);
   };
+  let merged = [];
+  if (deps.project) {
+    const res = await mergeAcceptedAssumptions({ state, runId, integration, emit }, deps);
+    merged = res.merged;
+    for (const c of res.conflicts) {
+      conflicts.push(c);
+      if (c.unit) blocked.add(c.unit);
+    }
+    // Everything downstream of a doubting unit whose branch did not merge waits for its hand-back (it builds on that code).
+    for (let grew = blocked.size > 0; grew;) {
+      grew = false;
+      for (const u of state.units) if (!blocked.has(u.id) && (u.depends_on ?? []).some((d) => blocked.has(d))) { blocked.add(u.id); grew = true; }
+    }
+    if (merged.length) next = { ...next, last_safe_point: { sha: merged.at(-1).sha, kind: "integration-land", at: nowIso(deps) } };
+  }
+  const assumeTargets = new Map();
   for (const unit of committedUnits(state)) {
-    if ((unit.depends_on ?? []).some((d) => blocked.has(d))) { blocked.add(unit.id); continue; }
-    const res = await integrateUnit({ unit, integration, runId }, deps);
-    if (res.outcome === "conflict") { conflicts.push(res); blocked.add(unit.id); continue; }
-    integrated.push(res);
-    await emit("integrated", { unit: unit.id, sha: res.sha });
+    if (blocked.has(unit.id) || (unit.depends_on ?? []).some((d) => blocked.has(d))) { blocked.add(unit.id); continue; }
+    const doubt = isAssumed(unit) ? unit.pending_answer : null;
+    if (isAssumed(unit) && !doubt) throw err("INVALID_STATE", `unit ${unit.id} is built on an assumption but names no doubt (pending_answer)`);
+    if (doubt && !deps.project) { blocked.add(unit.id); continue; }
+    if (doubt && !assumeTargets.has(doubt)) assumeTargets.set(doubt, await assumeIntegration({ project: deps.project, runId, doubt }, deps));
+    const target = doubt ? assumeTargets.get(doubt) : integration;
+    const res = await integrateUnit({ unit, integration: { branch: target.branch, worktree: target.worktree }, runId, workOrders: !doubt }, deps);
+    if (res.outcome === "conflict") { conflicts.push(doubt ? { ...res, assumption: doubt } : res); blocked.add(unit.id); continue; }
+    integrated.push(doubt ? { ...res, assumption: doubt } : res);
+    await emit("integrated", { unit: unit.id, sha: res.sha, ...(doubt ? { assumption: doubt } : {}) });
     await emit("unit_state", { unit: unit.id, from: "committed", to: "integrated" });
-    await emit("safe_point", { sha: res.sha, kind: "integration-land" });
+    if (!doubt) await emit("safe_point", { sha: res.sha, kind: "integration-land" });
     next = {
       ...next,
-      last_safe_point: { sha: res.sha, kind: "integration-land", at: nowIso(deps) },
+      ...(doubt ? {} : { last_safe_point: { sha: res.sha, kind: "integration-land", at: nowIso(deps) } }),
       units: next.units.map((u) => (u.id === unit.id ? { ...u, state: "integrated" } : u)),
     };
     if (!keepWorktrees && unit.worktree && deps.project) {
@@ -574,12 +712,13 @@ export async function integrateCommitted({ state, runId = state.run_id, appendEv
       catch (e) { cleanup.push({ unit: unit.id, removed: false, worktree: unit.worktree, error: String(e?.message ?? e) }); }
     }
   }
-  return { state: next, integrated, conflicts, events, cleanup };
+  return { state: next, integrated, merged, conflicts, events, cleanup };
 }
 
 /**
  * FRDs that need a G2 run now (CLI doc 4.1): every work-carrying unit of the FRD (docs/tests/build/patch) is integrated or
- * later, and at least one is exactly `integrated` (not yet under review). Pure.
+ * later, and at least one is exactly `integrated` (not yet under review). An FRD with a unit still built on an unaccepted
+ * assumption is skipped: that code is not on the integration branch yet (its G2 runs after the owner accepts). Pure.
  * @param {object} state a state.json object
  * @returns {string[]} FRD ids in state order
  */
@@ -589,5 +728,7 @@ export function frdsReadyForG2(state) {
     if (!u.frd || !INTEGRABLE_KINDS.includes(u.kind)) continue;
     byFrd.set(u.frd, [...(byFrd.get(u.frd) ?? []), u]);
   }
-  return [...byFrd].filter(([, units]) => units.every((u) => INTEGRATED_OR_LATER.has(u.state)) && units.some((u) => u.state === "integrated")).map(([frd]) => frd);
+  return [...byFrd]
+    .filter(([, units]) => units.every((u) => INTEGRATED_OR_LATER.has(u.state) && !isAssumed(u)) && units.some((u) => u.state === "integrated"))
+    .map(([frd]) => frd);
 }

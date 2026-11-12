@@ -137,9 +137,12 @@ export async function prepareUnitWorktree({ project, runId, unit, attempt = 1, b
   const exists = await fs.stat(worktree).then(() => true, () => false);
   if (exists) throw err("INVALID_STATE", `${worktree} exists but is not a registered worktree`);
   await fs.mkdir(path.dirname(worktree), { recursive: true });
+  // Register the on-disk spelling of the directory (git keeps the path as given; on a case-insensitive volume or behind a
+  // symlink the spelling in `paths` can differ from the one `git worktree list` prints for the main checkout).
+  const registered = path.join(await fs.realpath(path.dirname(worktree)), path.basename(worktree));
   const branchExists = (await git(deps, project, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { allowFail: true })).code === 0;
-  if (branchExists) await git(deps, project, ["worktree", "add", worktree, branch]);
-  else await git(deps, project, ["worktree", "add", "-b", branch, worktree, baseRef]);
+  if (branchExists) await git(deps, project, ["worktree", "add", registered, branch]);
+  else await git(deps, project, ["worktree", "add", "-b", branch, registered, baseRef]);
   const bootstrap = await bootstrapWorktree(root, deps);
   return { worktree, root, branch, base_sha: await mergeBase(deps, root, baseRef), created: true, bootstrap };
 }
@@ -447,9 +450,20 @@ export function extractAcLines(frdText, ids) {
   return out;
 }
 
+/** The decision (or assumption) of the unit's doubt, as the brief states it; `null` when the unit has no doubt. */
+async function decidedDoubt(project, unit, deps) {
+  if (!unit.doubt_id) return null;
+  const { briefDecision, readDoubt } = await import("./doubts.mjs");
+  const record = await readDoubt(project, unit.doubt_id, deps);
+  const picked = briefDecision(record);
+  if (!picked) return null;
+  return { question: record.question ?? "", decision: picked.text || picked.value, rationale: picked.why };
+}
+
 /**
  * Gather everything a brief needs and write `build/units/<unit>/brief.md` (mode 0600: it holds the unit token).
- * The unit worktree must already exist (see {@link prepareUnitWorktree}).
+ * The unit worktree is normally created first (see {@link prepareUnitWorktree}); without one, a worker unit's brief names
+ * the worktree path of its attempt and the documents are read from the integration worktree.
  * @param {object} input
  * @param {string} input.project absolute project root
  * @param {object} input.state current `state.json` object
@@ -469,17 +483,19 @@ export async function writeUnitBrief({ project, state, unit, cell, agentType, to
   const fs = deps.fs ?? fsp;
   const p = buildPaths(project, deps);
   const prefix = await productPrefix(project, deps);
-  const wt = worktree ?? unit.worktree;
+  const wt = worktree ?? unit.worktree ?? (REVIEW_KINDS.includes(unit.kind) || unit.kind === "doubt-consult" ? null : p.unitWorktree(unit.id, unit.attempt));
   if (!wt) throw err("INVALID_STATE", `unit ${unit.id} has no worktree yet`);
   const root = productRoot(wt, prefix);
   const isReview = REVIEW_KINDS.includes(unit.kind);
   const outPath = reportPath ?? (isReview ? p.reviewFile(unit.id) : unit.kind === "doubt-consult" ? p.unitAnswerFile(unit.id) : p.reportFile(unit.id));
 
-  const workOrders = unit.kind === "doubt-consult" ? [] : await readUnitWorkOrders(root, unit.wos, { ...deps, bootstrap: false });
+  // A brief regenerated before its worktree exists (or for a dry run) reads the documents from the integration worktree.
+  const readRoot = (await fs.stat(root).then(() => true, () => false)) || !state.integration?.worktree ? root : productRoot(path.resolve(project, state.integration.worktree), prefix);
+  const workOrders = unit.kind === "doubt-consult" ? [] : await readUnitWorkOrders(readRoot, unit.wos, { ...deps, bootstrap: false });
   const artifacts = artifactsOf(workOrders);
   const dir = frdDir(workOrders);
   const acIds = [...new Set(workOrders.flatMap((w) => w.text.match(AC_ID_RE) ?? []))];
-  const frdText = dir ? await readIfExists(fs, path.join(root, dir, "frd.md")) : null;
+  const frdText = dir ? await readIfExists(fs, path.join(readRoot, dir, "frd.md")) : null;
   const acLines = frdText ? extractAcLines(frdText, acIds) : [];
 
   let card = null;
@@ -488,7 +504,7 @@ export async function writeUnitBrief({ project, state, unit, cell, agentType, to
     if (parsed) card = { dentro: parsed.dentro.map((i) => i.text), fuera: parsed.fuera.map((i) => i.text) };
   }
 
-  const abs = (rel) => path.join(root, rel);
+  const abs = (rel) => path.join(readRoot, rel);
   const contextPack = [];
   if (dir) for (const f of ["frd.md", "fdd.md", "blueprint.md"]) if ((await readIfExists(fs, abs(path.posix.join(dir, f)))) !== null) contextPack.push(abs(path.posix.join(dir, f)));
   for (const w of workOrders) contextPack.push(abs(w.file));
@@ -504,13 +520,82 @@ export async function writeUnitBrief({ project, state, unit, cell, agentType, to
   }
   await archiveStaleReports(project, unit.id, unit.attempt, deps);
 
+  const decision = extra.decision ?? await decidedDoubt(project, unit, deps);
+  const notes = [...(extra.notes ?? []), ...(extra.questionDefaults ?? []).map((q) => `Owner question pending, working default: ${typeof q === "string" ? q : JSON.stringify(q)}`)];
   const text = renderBrief({
     unit, cell, agentType, roleFile: agentRoleFile(agentType, deps.pluginRoot), card, acLines,
     allowlist: allowlistPatterns(unit.kind, artifacts), contextPack, root, reportPath: outPath, schemaPath, token,
     verification: extra.verification ?? ["bash .pandacorp/verify.sh --light", "bash .pandacorp/verify.sh --light --tests=<the test files you changed>"],
-    readOnlyPaths: [...hashed].sort(), previous, findings: extra.findings, decision: extra.decision, notes: extra.notes,
+    readOnlyPaths: [...hashed].sort(), previous, findings: extra.findings, decision, notes,
     review: extra.review, doubt: extra.doubt, sourcesSkipped: extra.sourcesSkipped,
   });
   await atomicWriteText(p.briefFile(unit.id), text, { fs });
   return { brief_path: p.briefFile(unit.id), report_path: outPath, text, written_at: nowIso(deps) };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Entry points used by `next` and the CLI
+// ---------------------------------------------------------------------------------------------------------------
+
+const AGENT_OF_KIND = Object.freeze({
+  docs: "pandacorp:implementer", build: "pandacorp:implementer", patch: "pandacorp:implementer", tests: "pandacorp:test-writer",
+  review: "pandacorp:reviewer", "deferred-review": "pandacorp:reviewer", audit: "pandacorp:security-auditor", "doubt-consult": "general-purpose",
+});
+
+/**
+ * Create (or adopt) the unit worktree of one attempt: {@link prepareUnitWorktree} with the unit given as an object.
+ * @param {{project: string, runId: string, unit: string|{id: string, attempt?: number}, attempt?: number, base?: string}} input
+ * @param {object} [deps] see {@link prepareUnitWorktree}
+ * @returns {Promise<{worktree: string, root: string, branch: string, base_sha: string, created: boolean, bootstrap: object}>}
+ */
+export function createUnitWorktree({ project, runId, unit, attempt, base }, deps = {}) {
+  const id = typeof unit === "string" ? unit : unit.id;
+  return prepareUnitWorktree({ project, runId, unit: id, attempt: attempt ?? (typeof unit === "string" ? 1 : unit.attempt ?? 1), base }, deps);
+}
+
+/**
+ * Write the brief of a unit from the run's current `state.json` ({@link writeUnitBrief} with the agent type and schema
+ * derived from the unit kind). The unit worktree may not exist yet: documents are then read from the integration worktree.
+ * @param {{project: string, runId?: string, unit: object, token: string, cell: object, via?: string, agentType?: string,
+ *   worktree?: string, reportPath?: string, extra?: object}} input `runId` and `via` are informational
+ * @param {object} [deps] see {@link writeUnitBrief}; `readState` is imported lazily
+ * @returns {Promise<{file: string, brief_path: string, report_path: string, text: string}>}
+ */
+export async function writeBrief({ project, unit, token, cell, agentType, worktree, reportPath, extra }, deps = {}) {
+  const { readState } = await import("./state.mjs");
+  const state = await readState(project, deps);
+  if (!state) throw err("INVALID_STATE", "no build state: cannot write a brief", { hint: "rebuild-state" });
+  const p = buildPaths(project, deps);
+  const reviewType = REVIEW_KINDS.includes(unit.kind);
+  const schemaPath = unit.kind === "doubt-consult" ? "" : p.schemaFile(reviewType ? "review-report" : "report");
+  const out = await writeUnitBrief({ project, state, unit, cell, agentType: agentType ?? AGENT_OF_KIND[unit.kind], token, schemaPath, worktree, reportPath, extra }, deps);
+  return { ...out, file: out.brief_path };
+}
+
+/**
+ * The `units.prepare` sibling of `next` (NEXT_SIBLING_CONTRACT): worktree plus brief of one dispatched unit, outside the
+ * mutex. A consult has no worktree (its brief was written by `doubt open`/`doubt answer`); a review-type unit reads the
+ * integration tip's worktree for its probes.
+ * @param {{project: string, state: object, unit: object, cell: object, via: string, token: string, attempt?: number,
+ *   review?: object|null, consult_brief?: string|null, question_defaults?: object[]}} input
+ * @param {object} [deps] see {@link writeUnitBrief}
+ * @returns {Promise<{worktree: string|null, branch: string|null, brief_path: string, report_path: string, schema_path: string}>}
+ */
+export async function prepare({ project, state, unit, cell, via, token, attempt, review = null, consult_brief: consultBrief = null, question_defaults: questionDefaults = [] }, deps = {}) {
+  const p = buildPaths(project, deps);
+  const runId = state.run_id;
+  if (unit.kind === "doubt-consult") {
+    return { worktree: null, branch: null, brief_path: consultBrief ?? p.briefFile(unit.id), report_path: p.unitAnswerFile(unit.id), schema_path: via === "cli" ? p.schemaFile("doubt-answer") : "" };
+  }
+  const reviewType = REVIEW_KINDS.includes(unit.kind);
+  const n = attempt ?? unit.attempt ?? 1;
+  const refs = reviewType
+    ? { worktree: path.resolve(project, state.integration.worktree), branch: state.integration.branch }
+    : await createUnitWorktree({ project, runId, unit: unit.id, attempt: n, base: state.integration.branch }, deps);
+  const brief = await writeUnitBrief({
+    project, state, unit: { ...unit, attempt: n }, cell, agentType: AGENT_OF_KIND[unit.kind], token,
+    schemaPath: p.schemaFile(reviewType ? "review-report" : "report"), worktree: refs.worktree,
+    extra: { review, questionDefaults },
+  }, deps);
+  return { worktree: refs.worktree, branch: refs.branch, brief_path: brief.brief_path, report_path: brief.report_path, schema_path: p.schemaFile(reviewType ? "review-report" : "report") };
 }

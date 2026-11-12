@@ -524,6 +524,16 @@ await test("replay: report_received stores test_hashes on the unit; integrated s
   const u2 = s.units.find((x) => x.id === "u-build-wo-01-002"); eq(u2.state, "parked", "parked unit state"); eq(u2.parked, "owner_question", "parked reason"); eq(u2.pending_answer, "q-1", "pending_answer = the question id");
   });
 }));
+await test("replay: review_recorded restores probe_hashes on the review unit", async () => withTmp("rb", async (dir) => {
+  await withReplayRoot(async (root) => {
+  const rebuildState = await need("state.mjs", "rebuildState");
+  const reviewer = { runtime: "claude", model: "opus", effort: "high" };
+  await appendAll(dir, [...replayEvents(), ev("review_recorded", { unit: "u-build-wo-01-001", verdict: "pass", frd: null, reviewer, authors: [], cross: false, degraded: null, findings: { critical: 0, high: 0, medium: 0, low: 0 }, pair_id: null, deferred_id: null, probe_hashes: { "probes/p.test.ts": "a".repeat(64) } })]);
+  const { state: s } = await rebuildState({ project: dir, integrationRoot: root });
+  const u = s.units.find((x) => x.id === "u-build-wo-01-001");
+  eq(u.probe_hashes, { "probes/p.test.ts": "a".repeat(64) }, "probe_hashes"); eq(u.review.verdict, "pass", "review still folded");
+  });
+}));
 await test("replay: with no events past run_started the rebuilt state equals the initial state; with no journal it fails loud", async () => withTmp("rb", async (dir) => {
   const rebuildState = await need("state.mjs", "rebuildState");
   await rejectsWith(() => rebuildState({ project: dir }), ["INVALID_STATE", "LEDGER_CORRUPT", "JOURNAL_CHAIN"], "no journal to rebuild from");

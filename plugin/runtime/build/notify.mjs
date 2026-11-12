@@ -1,11 +1,11 @@
 // Owner notifications of the v2 build engine (BUILD-13 human gates, BUILD-14 drive): one macOS notification
 // through `osascript`, sent by `drive` (and any other CLI path) when the owner must know something while away:
 // a takeover by the Codex relay, a human gate reached, a terminal state of the run, an engine failure.
-// A no-op off macOS and when `PANDACORP_NOTIFY=off` (every test sets it). The AppleScript is written to the
-// child's stdin, never to its argv, so no message text (a project name, a reason) ever appears in a command line.
-// Never throws: a notification that cannot be delivered is reported in the result, never fatal to the build.
+// A no-op off macOS and when `PANDACORP_NOTIFY=off` (every test sets it). Runs `osascript -e <script>` through an
+// injectable `exec`; the text is escaped into AppleScript string literals (quotes, backslashes, newlines) so it can
+// never break out of them. Never throws: a notification that cannot be delivered is reported in the result, never fatal to the build.
 // Owner-facing strings are Spanish without dashes. Node builtins only; no sibling imports.
-import { spawn as nodeSpawn } from "node:child_process";
+import { execFile } from "node:child_process";
 import path from "node:path";
 
 const OSASCRIPT = "osascript";
@@ -56,38 +56,37 @@ export function notifyEnabled({ env = process.env, platform = process.platform }
   return { enabled: true, reason: null };
 }
 
+// Default runner: `execFile` with a timeout; resolves `{code}` and never rejects.
+const defaultExec = (cmd, args, { timeout } = {}) => new Promise((resolve) => {
+  execFile(cmd, args, { timeout, encoding: "utf8" }, (error) => {
+    resolve({ code: error ? (typeof error.code === "number" ? error.code : 1) : 0 });
+  });
+});
+
+const exitCodeOf = (result) => {
+  if (!result || typeof result !== "object") return 0;
+  for (const key of ["code", "status", "exitCode"]) if (typeof result[key] === "number") return result[key];
+  return 0;
+};
+
 /**
- * Send one notification. Never throws.
+ * Send one notification: `osascript -e <script>`. Never throws.
  * @param {{title: string, message: string}} note owner-facing text
- * @param {{env?: object, platform?: string, spawn?: Function, timeoutMs?: number}} [deps] `spawn` replaces child_process.spawn
+ * @param {{env?: object, platform?: string, exec?: Function, timeoutMs?: number}} [deps] `exec(cmd, args, opts)`
+ *   replaces the real runner (it may return a value or a promise; a numeric `code`/`status`/`exitCode` != 0 is a failure)
  * @returns {Promise<{sent: boolean, reason: string|null}>}
  */
 export async function notify(note, deps = {}) {
   const gate = notifyEnabled(deps);
   if (!gate.enabled) return { sent: false, reason: gate.reason };
-  const spawn = deps.spawn ?? nodeSpawn;
-  const timeoutMs = deps.timeoutMs ?? SPAWN_TIMEOUT_MS;
-  return new Promise((resolve) => {
-    let settled = false;
-    const done = (value) => { if (!settled) { settled = true; resolve(value); } };
-    let child;
-    try {
-      child = spawn(OSASCRIPT, [], { stdio: ["pipe", "ignore", "ignore"] });
-    } catch (error) {
-      done({ sent: false, reason: `spawn_failed: ${error.message}` });
-      return;
-    }
-    const timer = setTimeout(() => { try { child.kill("SIGKILL"); } catch { /* already gone */ } done({ sent: false, reason: "timeout" }); }, timeoutMs);
-    timer.unref?.();
-    child.on?.("error", (error) => { clearTimeout(timer); done({ sent: false, reason: `spawn_failed: ${error.message}` }); });
-    child.on?.("close", (code) => { clearTimeout(timer); done(code === 0 ? { sent: true, reason: null } : { sent: false, reason: `osascript_exit_${code}` }); });
-    try {
-      child.stdin?.end(notificationScript(note));
-    } catch (error) {
-      clearTimeout(timer);
-      done({ sent: false, reason: `stdin_failed: ${error.message}` });
-    }
-  });
+  const exec = typeof deps.exec === "function" ? deps.exec : defaultExec;
+  try {
+    const result = await exec(OSASCRIPT, ["-e", notificationScript(note ?? {})], { timeout: deps.timeoutMs ?? SPAWN_TIMEOUT_MS });
+    const code = exitCodeOf(result);
+    return code === 0 ? { sent: true, reason: null } : { sent: false, reason: `osascript_exit_${code}` };
+  } catch (error) {
+    return { sent: false, reason: `exec_failed: ${error?.message ?? String(error)}` };
+  }
 }
 
 /**

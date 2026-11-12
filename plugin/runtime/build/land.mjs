@@ -88,6 +88,7 @@ export function assessBatch(state) {
 export function cardCompletedBy(state, landable) {
   const slug = state.scope?.card ?? null;
   if (!slug || !SLUG_RE.test(slug)) return null;
+  if (state.tranche && state.tranche.index < state.tranche.of) return null;
   const carried = new Set(landable.map((u) => u.id));
   const open = state.units.some((u) => !carried.has(u.id) && !REVIEW_TYPE_KINDS.includes(u.kind) && u.state !== "landed");
   return open ? null : slug;
@@ -166,15 +167,9 @@ async function assertCleanWorktree(d, root) {
 }
 
 async function pollLandJob(ctx, job, d) {
-  if (d.jobs?.pollJob) {
-    const polled = await d.jobs.pollJob(job.id, { project: ctx.project, job });
-    const state = typeof polled === "string" ? polled : polled?.state;
-    return { state, exit: typeof polled === "object" ? polled.exit ?? null : null };
-  }
-  const exitText = await d.fs.readFile(ctx.paths.jobExitFile(job.id), "utf8").catch((e) => (e.code === "ENOENT" ? null : Promise.reject(e)));
-  const code = exitText === null ? Number.NaN : Number.parseInt(exitText.trim(), 10);
-  if (Number.isInteger(code)) return { state: "done", exit: code };
-  return { state: job.pid && d.isAlive(job.pid) ? "running" : "dead", exit: null };
+  const jobs = d.jobs ?? (await import("./jobs.mjs"));
+  const polled = await jobs.pollJob(ctx.project, job, d);
+  return { state: polled.state, exit: polled.exit ?? null };
 }
 
 const maxZone = (units) => ZONES[Math.max(0, ...units.map((u) => ZONES.indexOf(u.zone)))];
@@ -233,7 +228,7 @@ async function onLanded(ctx, state, job, mqExit, d) {
   const batch = assessBatch(state);
   let next = await moveUnits(ctx, state, batch.landable, "landed", { waiting_gate: null });
   const card = where.changeSlug && where.changeSlug === state.scope?.card ? await archiveLandedCard(ctx.project, where.changeSlug, sha, d) : null;
-  const notes = mqExit === 13 ? "El aterrizaje llegó a main pero el push a origin falló: producción NO se actualizó. Arregla el remoto y vuelve a hacer push de main." : null;
+  const notes = mqExit === 13 ? "El aterrizaje llegó a main pero el push falló (origin): producción NO se actualizó. Arregla el remoto y vuelve a hacer push de main." : null;
   await ctx.appendEvent({ type: "batch_landed", data: { sha, units: batch.landable.map((u) => u.id), mq_exit: mqExit, card, ...(notes ? { notes_es: notes } : {}) } });
   await ctx.appendEvent({ type: "safe_point", data: { kind: "batch-landed", sha } });
   next = { ...next, last_safe_point: { sha, kind: "batch-landed", at: nowIso(d) } };
@@ -256,7 +251,18 @@ async function onGateRed(ctx, state, job, d) {
   const log = path.relative(ctx.project, ctx.paths.jobOutFile(job.id));
   if (attempt > 3) {
     await ctx.appendEvent({ type: "handback", data: { reason: "g3_red", cause: "landing", patch: "budget_exhausted", log } });
-    return { state, output: { result: "handback", reason: "g3_red", mq_exit: 11, sha: null, patch_unit: null }, exit: 6 };
+    // The finished job must be on disk before failure.handBack re-reads the state (BUILD-15, R4: units and dependents go `blocked`).
+    await ctx.writeState(state);
+    const failure = d.failure ?? (await import("./failure.mjs"));
+    const outLog = await d.fs.readFile(ctx.paths.jobOutFile(job.id), "utf8").catch(() => "");
+    const tail = outLog.split("\n").slice(-40).join("\n");
+    for (const unit of fixed) {
+      await failure.handBack(ctx, {
+        unitId: unit.id, cause: "code", reasonCode: "budget_exhausted", reason: "G3 rojo con el presupuesto de 3 ejecuciones agotado",
+        failure: { command: "bash .pandacorp/merge-queue.sh", tail },
+      }, d);
+    }
+    return { state: await ctx.readState(), output: { result: "handback", reason: "g3_red", mq_exit: 11, sha: null, patch_unit: null }, exit: 6 };
   }
   const patch = newUnit({
     id, kind: "patch", wos: [...new Set(fixed.flatMap((u) => u.wos))], frd: single ? frds[0] : null,
@@ -440,10 +446,10 @@ function landJobEnv(env, actor) {
 async function spawnLandJob(ctx, state, root, d) {
   const jobs = d.jobs ?? (await import("./jobs.mjs"));
   const seq = state.jobs.filter((j) => j.kind === "land").length + 1;
-  const spec = { project: ctx.project, id: `land-${ctx.epoch}-${seq}`, kind: "land", cmd: ["bash", MERGE_QUEUE], cwd: root, hSlot: false, env: landJobEnv(d.env, ctx.actor) };
-  const rec = await jobs.spawnJob(spec, { project: ctx.project });
+  const spec = { project: ctx.project, kind: "land", cmd: ["bash", MERGE_QUEUE], cwd: root, jobId: `land-${ctx.epoch}-${seq}` };
+  const rec = await jobs.spawnJob(spec, { ...d, env: landJobEnv(d.env, ctx.actor) });
   return {
-    id: rec?.id ?? spec.id, kind: "land", unit: null, frd: null, pid: rec?.pid ?? null, cwd: rec?.cwd ?? root, h_slot: false,
+    id: rec?.id ?? spec.jobId, kind: "land", unit: null, frd: null, pid: rec?.pid ?? null, cwd: rec?.cwd ?? root, h_slot: false,
     started_at: rec?.started_at ?? nowIso(d), state: "running", exit: null, worker_id: null,
   };
 }

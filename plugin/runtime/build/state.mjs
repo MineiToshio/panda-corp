@@ -290,6 +290,7 @@ export function foldJournal(events) {
         break;
       case "review_recorded": {
         const u = findUnit(state, d.unit);
+        if (u && d.probe_hashes && typeof d.probe_hashes === "object") u.probe_hashes = clone(d.probe_hashes);
         if (u && d.verdict) u.review = { verdict: d.verdict, reviewer: clone(d.reviewer), degraded: d.degraded ?? null, deferred_id: d.deferred_id ?? null };
         break;
       }

@@ -9,18 +9,23 @@
 //   - the change queue (`.pandacorp/inbox/changes/`) is never read nor drained here; no unit outside the run scope is
 //     ever returned;
 //   - the A11 quota priority lives in `quota.policy({..., driveAlive})`; this module applies it and never re-derives it.
-// Sibling modules (planner, integrate, jobs, workers, report, review, doubts, failure, land, units, deferred,
-// telemetry) are injected through `deps`; their expected shapes are listed in `NEXT_SIBLING_CONTRACT`.
+// Sibling modules are injected as namespaces `deps.<stem>` (default: the real `./<stem>.mjs`, imported lazily so a missing
+// sibling fails only the step that needs it); the functions used are listed in `NEXT_SIBLING_CONTRACT`. Pure readers of
+// sibling modules (`frdsReadyForG2`, `readDeferred`, `productPrefix`) are imported statically.
+import { execFile } from "node:child_process";
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import * as admissionModule from "./admission.mjs";
+import { readDeferred } from "./deferred.mjs";
 import { atomicWriteJson, readJson } from "./fsx.mjs";
+import { frdsReadyForG2 } from "./integrate.mjs";
 import { readJournal } from "./journal.mjs";
 import { buildPaths } from "./paths.mjs";
 import * as quotaModule from "./quota.mjs";
 import * as riskModule from "./risk.mjs";
 import * as routingModule from "./routing.mjs";
 import { REVIEW_TYPE_KINDS, fencedTwoPhase, findUnit, isTerminalUnit, newUnit, readLeaseToken, readState } from "./state.mjs";
+import { productPrefix, productRoot } from "./units.mjs";
 
 const err = (code, message, extra = {}) => Object.assign(new Error(message), { code }, extra);
 
@@ -37,12 +42,14 @@ const RETRY_S = Object.freeze({ ram: 30, cpu_H: 30, workers_running: 30, jobs_ru
 const LAND_RETRY_EXITS = Object.freeze([12, 14, 20]);
 const LAND_RETRY_S = 60;
 const WATCH_POLL_MS = 1000;
+const GIT_SHOW_TIMEOUT_MS = 15_000;
 const MAX_ATTEMPTS = 3;
 const LIVE_STATES = Object.freeze(["admitted", "running"]);
 const FRD_WORK_KINDS = Object.freeze(["build", "patch", "tests"]);
 const PLANNED_KINDS = Object.freeze(["docs", "tests", "build", "patch"]);
-const REPORT_KINDS = Object.freeze(["docs", "tests", "build", "patch"]);
 const OWNER_PARKS = Object.freeze(["owner_question", "built_on_assumption"]);
+// Worker outcomes (workers.pollWorker) that mean the environment, not the code, failed the unit.
+const ENV_WORKER_OUTCOMES = Object.freeze(["worker_error", "watchdog"]);
 // Report/review/doubt outcomes the sibling modules signal by throwing: the unit was already settled (rejected,
 // re-queued or handed back) by that module, so the harvest goes on.
 const SETTLED_OUTCOME_CODES = Object.freeze(["INVALID_INPUT", "EVIDENCE", "INVALID_PATH", "GATE_RED", "WAITING_GATE"]);
@@ -58,27 +65,30 @@ const VERB_ES = Object.freeze({
 });
 
 /**
- * Functions `next` calls on its injected siblings (Wave C). Every call is `fn(input, deps)` with `deps` = the deps
- * object given to `next`. Each mutating sibling runs its own fenced two-phase operation (`fencedTwoPhase`).
- * Listed so the assembler (Wave D) can wire or adapt them; `next` validates their presence lazily (only when used).
+ * Sibling functions `next` calls, by their real exports (every one deps-last). `deps.<stem>` replaces the module
+ * namespace; each mutating sibling runs its own fenced two-phase operation, so `next` calls it outside its own mutex.
  */
 export const NEXT_SIBLING_CONTRACT = Object.freeze({
-  "planner.round": "({state, root, live: string[]}) -> {add: Unit[], ready: string[] (priority order, non-overlapping), deadlock: boolean}",
-  "integrate.integrate": "({project, epoch, actor}) -> {integrated: [{unit, sha}], notes_es?: string[]} (fenced; also patching->integrated, assumption merges)",
-  "integrate.markInProgress": "optional ({project, epoch, actor, root, unit, wos}) inside next's phase 2 (the mutex is held): WO IN_PROGRESS commit on lane/<run_id>",
-  "jobs.spawn": "({project, kind:'g2', cmd: string[], cwd, hSlot: true, frd, unit: null}) -> jobs[] item (A18), detached, not yet in state",
-  "jobs.poll": "({project, job}) -> {state: 'running'|'done'|'dead', exit: number|null}",
-  "workers.launch": "({project, unit, kind, worktree, prompt_file, model_slug, output_schema, report_path}) -> {worker_id, pid}",
-  "workers.harvest": "({project, worker_id, unit}) -> {state: 'running'} | {state: 'done'|'dead', exit, report: object|null, limit: 'usage_limit'|'rate_limit'|null, limit_resets_at: string|null}",
-  "report.ingest": "({project, epoch, actor, unit, token, file, via: 'cli'}) -> report outcome (fenced, two-phase, G1)",
-  "review.record": "({project, epoch, actor, unit, token, file, via: 'cli'}) -> review-record outcome (fenced)",
-  "doubts.answer": "({project, epoch, actor, id, unit, file, token: null, via: 'cli'}) -> doubt step (fenced)",
-  "failure.handback": "({project, epoch, actor, unit, reason}) -> {path} (fenced; parks dependents)",
-  "land.harvest": "({project, epoch, actor, job}) -> {result, reason, mq_exit, sha, notes_es?} (fenced; maps the merge-queue exit, archives the card)",
-  "units.prepare": "({project, state, unit, cell, via, token, attempt, review, question_defaults}) -> {worktree, branch, brief_path, report_path?, schema_path?} (worktree + brief with the token; outside the mutex)",
-  "deferred.list": "optional ({project}) -> deferred-reviews.json items (default: read the file)",
-  "deferred.queue": "({project, epoch, actor, entry}) -> entry (an audit that cannot run now, BUILD-14)",
-  "telemetry.emit": "optional ({project, coordinator, name, data}) (bulkhead: a failure is logged to stderr, never fatal)",
+  "planner.readPlanWorkOrders": "(root, deps) -> {wos[], frds[], frd_acs, errors[]}",
+  "planner.plan": "({wos, scope, units, label, size, questions, frd_acs, quota, shape, coordinator, session_model}, deps) -> {units[], now[], ready[], round[], deadlock: null|object}",
+  "integrate.integrateCommitted": "({state, runId}, deps + {project}) -> {integrated: [{unit, sha, assumption?}], merged: [{doubt, sha}], conflicts: [{unit, doubt?}]} (git work only; next records the state)",
+  "integrate.transitionWorkOrders": "({integration, runId, wos, to: 'IN_PROGRESS', reason, unitId}, deps) -> WO commit on lane/<run_id>",
+  "units.prepareUnitWorktree": "({project, runId, unit, attempt, base?}, deps) -> {worktree, branch} (base = the assume branch for work built on an assumption)",
+  "units.writeUnitBrief": "({project, state, unit, cell, agentType, token, schemaPath, worktree, reportPath, extra}, deps) -> {brief_path, report_path}",
+  "jobs.startJob": "({project, epoch, actor, kind: 'g2', cmd, cwd, frd, unit: null}, deps) -> jobs[] item (fenced; records the job)",
+  "jobs.pollJob": "(project, job, deps) -> {state: 'running'|'done'|'dead', exit}",
+  "workers.launchWorker": "({project, runId, unit, attempt, frd, cell, schemaFile, dir, briefFile}, deps) -> {ok, workerId, pid, job} | {ok:false, kind, detail}",
+  "workers.pollWorker": "({project, workerId, unit, schemaFile, reportFile, epoch}, deps) -> {state: 'running'|'done'|'error', outcome, report?, limit?}",
+  "report.ingestReport": "({project, epoch, unit, token, file}, deps) (fenced; G1, commit)",
+  "review.reviewRecord": "({project, epoch, unit, token, file}, deps) (fenced)",
+  "doubts.pendingConsult": "(project, unit, deps) -> {runtime, model, effort, via, model_slug, brief_path, report_path, schema_path, answered}",
+  "doubts.answerDoubt": "({project, epoch, id, file, token: null}, deps) (fenced; a via:'cli' consult answer)",
+  "failure.handbackCommand": "({project, epoch, unit, reason, cause}, deps) (fenced; blocks dependents)",
+  "failure.failUnit": "({project, epoch, unit, attempt, cause, detail, command, tail}, deps) (fenced; D21 policy for a worker with no valid report)",
+  "land.harvestLand": "({project, epoch, actor}, deps) -> {harvested, exit?, output?} (fenced; finishes the land job)",
+  "deferred.enqueueDeferred": "(project, entry, deps) -> {entry, created} (an audit that cannot run now, BUILD-14)",
+  "risk.computeRisk": "({root, range}, deps) -> {zone, rules, audit, irreversible, ...}",
+  "telemetry.emitEvent": "(project, {runtime, runId, name, data}, deps) (never throws; bulkhead)",
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -122,10 +132,11 @@ export async function next(input = {}, deps = {}) {
 // ---------------------------------------------------------------------------------------------
 
 async function step(run) {
-  const { d, paths } = run;
+  const { d } = run;
   // (0) renew + the call's single admission reading (phase 1 of a fenced step).
   const signals = await readSignalsSafe(run);
-  let state = await mutate(run, (s) => {
+  let state = await mutate(run, (s, ctx) => {
+    run.leaseRuntime = ctx.lease?.runtime ?? run.leaseRuntime ?? null;
     if (signals.value && !run.recorded) {
       run.l4 = d.admission.recordReading(signals.value, admissionCtx(run));
       run.recorded = true;
@@ -135,20 +146,31 @@ async function step(run) {
   if (state.status !== "active") return { out: await alreadyStopped(run, state), watch: [] };
   const notes = [];
 
-  // (1) harvest finished jobs and workers; (2) integrate committed chains, G2 bookkeeping.
-  await harvest(run, state, notes);
-  const integ = await sibling(d, "integrate", "integrate")({ project: run.ref.project, epoch: run.ref.epoch, actor: run.ref.actor }, d);
-  notes.push(...(integ?.notes_es ?? []));
+  // (1) harvest finished jobs and workers; (2) integrate committed chains (the G2 spawn rides on admission, step 6).
+  await harvest(run, await fresh(run), notes);
+  // The land job rebases and fast-forwards the integration branch: nothing else writes it meanwhile (C05).
+  if (!landRunning(await fresh(run))) await integrateStep(run, await fresh(run), notes);
   state = await fresh(run);
 
-  // (3) quota policy (A11 priority owned by quota.policy).
+  // (3) quota policy (the A11 priority is owned by quota.policy): handoff, or the paused-quota terminal action.
   const quota = await quotaView(run, state);
   const pol = quota.policy;
+  if (pol.handoff) {
+    notes.push(`Claude al ${quota.out.claude.pct ?? "?"} %: relevo a drive.`);
+    return finish(run, state, { action: "handoff", quota, notes });
+  }
+  if (pol.paused) {
+    if (runningSummary(state).any) return finish(run, state, { action: "wait", wait: { reason: "quota", retry_after_s: RETRY_S.quota }, quota, notes });
+    const terminal = { action: "paused-quota", status: "paused", reason: quota.bothOut ? "quota" : "quota_claude_no_drive" };
+    notes.push(...terminalNotes(terminal, quota));
+    state = await applyTerminal(run.ref, terminal, d);
+    return finish(run, state, { action: terminal.action, quota, notes });
+  }
 
-  // (4)(5) schedule next-managed units (deferred reviews, parked reviews), planner round, pending answers.
+  // (4)(5) deferred reviews first, planner round, pending answers (D19).
   const deferredEntries = await listDeferred(run);
   state = await scheduleManagedUnits(run, state, pol, deferredEntries);
-  const plan = await planRound(run, state);
+  const plan = await planRound(run, state, pol);
   state = plan.state;
   state = await parkIrreversiblePending(run, state);
 
@@ -156,23 +178,20 @@ async function step(run) {
   const landing = await landDecision(run, state, pol, deferredEntries);
   state = landing.state;
   if (landing.action === "land") return finish(run, state, { action: "land", quota, notes });
-  if (pol.handoff) {
-    notes.push(`Claude al ${quota.out.claude.pct ?? "?"} %: relevo a drive.`);
-    return finish(run, state, { action: "handoff", quota, notes });
-  }
+  if (landRunning(state)) return finish(run, state, { action: "wait", wait: { reason: "jobs_running", retry_after_s: RETRY_S.jobs_running }, quota, notes });
 
   // (6)(7) admission and dispatch.
   const runParams = await readRunParams(run);
   const candidates = await buildCandidates(run, state, pol, plan, runParams, deferredEntries);
   state = candidates.state;
-  const dispatch = await dispatchRound(run, state, candidates, pol, runParams, signals);
+  const dispatch = await dispatchRound(run, state, candidates, runParams, signals, quota);
   state = dispatch.state;
   if (dispatch.units.length) return finish(run, state, { action: "dispatch", units: dispatch.units, admit: dispatch.admit, quota, notes });
 
   // Nothing dispatched: wait while anything runs (A11), else a terminal action.
   const running = runningSummary(state);
   if (running.any || landing.waitLand) {
-    const reason = pol.paused ? "quota" : running.jobs || landing.waitLand ? "jobs_running" : "workers_running";
+    const reason = running.jobs || landing.waitLand ? "jobs_running" : "workers_running";
     return finish(run, state, { action: "wait", wait: { reason, retry_after_s: landing.waitLand ? LAND_RETRY_S : RETRY_S[reason] }, admit: dispatch.admit, quota, notes });
   }
   const terminal = chooseTerminal(state, { pol, l4: run.l4, plan, candidates, dispatch });
@@ -225,9 +244,17 @@ function nowMs(d) {
 }
 const nowIsoOf = (d) => new Date(nowMs(d)).toISOString();
 
-function sibling(d, name, fn) {
-  const f = d[name]?.[fn];
-  if (typeof f !== "function") throw err("INVALID_STATE", `next: sibling ${name}.${fn} is not wired (assembler)`);
+/** The sibling function `<stem>.<fn>`: `deps.<stem>` when injected, else the real module (imported on first use). */
+async function sibling(d, stem, fn) {
+  let ns = d[stem];
+  if (!ns) {
+    try { ns = await import(`./${stem}.mjs`); } catch (error) {
+      throw err("ENGINE_FAILURE", `next: sibling module ${stem}.mjs cannot be loaded: ${String(error?.message ?? error).split("\n")[0]}`);
+    }
+    d[stem] = ns;
+  }
+  const f = ns[fn];
+  if (typeof f !== "function") throw err("ENGINE_FAILURE", `next: sibling ${stem}.${fn} is not a function`);
   return f;
 }
 
@@ -248,8 +275,11 @@ async function mutate(run, fn) {
     for (const event of out.events ?? []) await ctx.appendEvent(event);
     if (out.state) await ctx.writeState(out.state);
     return out.value !== undefined ? out.value : (out.state ?? state);
-  });
+  }, passIntent);
 }
+
+// `fencedTwoPhase` returns the work step's result when phase 2 is omitted: a phase-1-only mutation passes its intent through.
+const passIntent = (intent) => intent;
 
 async function fresh(run) {
   const state = await readState(run.ref.project, run.d);
@@ -260,6 +290,10 @@ async function fresh(run) {
 const unitEvent = (unit, from, to) => ({ type: "unit_state", data: { unit, from, to } });
 const integrationRoot = (run, state) => path.resolve(run.ref.project, state.integration?.worktree ?? run.paths.integrationWorktree);
 const isLive = (u) => LIVE_STATES.includes(u.state);
+/** A unit built on an assumption the owner has not answered (BUILD-12): dispatchable, never landed until accepted. */
+const isAssumed = (u) => u?.parked === "built_on_assumption";
+/** Built-on-assumption work that can still run (not integrated on its assume branch yet). */
+const assumedRunnable = (u) => isAssumed(u) && !["integrated", "reviewing", "patching", "verified", "landed"].includes(u.state);
 
 // ---------------------------------------------------------------------------------------------
 // (1) Harvest
@@ -269,8 +303,8 @@ async function harvest(run, state, notes) {
   for (const job of state.jobs.filter((j) => j.state === "running")) {
     if (job.kind === "worker") await harvestWorker(run, job, notes);
     else if (job.kind === "g2") await harvestG2(run, job, notes);
-    else if (job.kind === "land") await harvestLand(run, job, notes);
   }
+  if (state.jobs.some((j) => j.kind === "land" && j.state === "running")) await harvestLand(run, notes);
 }
 
 async function finishJob(run, job, { state: jobState, exit }) {
@@ -284,40 +318,53 @@ async function finishJob(run, job, { state: jobState, exit }) {
   });
 }
 
+const fenceOf = (run) => ({ project: run.ref.project, epoch: run.ref.epoch });
+
+/** One CLI-launched worker (`via:"cli"`): poll it with `read`; a sealed result is ingested like a session report. */
 async function harvestWorker(run, job, notes) {
   const { d, ref, paths } = run;
-  const h = await sibling(d, "workers", "harvest")({ project: ref.project, worker_id: job.worker_id, unit: job.unit }, d);
-  if (!h || h.state === "running") return;
+  const state0 = await fresh(run);
+  const unit0 = findUnit(state0, job.unit);
+  const reviewType = unit0 ? REVIEW_TYPE_KINDS.includes(unit0.kind) && unit0.kind !== "doubt-consult" : false;
+  const consult = unit0?.kind === "doubt-consult";
+  const reportFile = !unit0 ? null : consult ? paths.unitAnswerFile(unit0.id) : reviewType ? paths.reviewFile(unit0.id) : paths.reportFile(unit0.id);
+  const schemaFile = !unit0 ? null : paths.schemaFile(consult ? "doubt-answer" : reviewType ? "review-report" : "report");
+  const h = await (await sibling(d, "workers", "pollWorker"))({ project: ref.project, workerId: job.worker_id, unit: job.unit, schemaFile, reportFile, epoch: ref.epoch }, d);
+  if (!["running", "done", "error"].includes(h?.state)) throw err("ENGINE_FAILURE", `workers.pollWorker returned no worker state for ${job.worker_id}`);
+  if (h.state === "running") return;
+  if (h.state === "error") {
+    // The `read` itself failed (timeout, unreadable seal): the worker is not settled; the next pass polls again.
+    d.log(`next: worker ${job.worker_id} could not be read (${h.kind ?? "error"}): ${h.detail ?? ""}`);
+    return;
+  }
   const state = await fresh(run);
   const unit = findUnit(state, job.unit);
-  const jobEnd = { state: h.state === "dead" ? "dead" : "done", exit: Number.isInteger(h.exit) ? h.exit : null };
+  const jobEnd = { state: h.outcome === "worker_error" && h.kind === "dead" ? "dead" : "done", exit: Number.isInteger(h.exit) ? h.exit : null };
   if (!unit || !isLive(unit)) return finishJob(run, job, jobEnd);
-  const base = { project: ref.project, epoch: ref.epoch, actor: ref.actor };
 
-  if (h.limit) {
-    await requeueAfterLimit(run, unit, job, h, jobEnd);
+  if (h.outcome === "limit") {
+    await requeueAfterLimit(run, unit, job, jobEnd);
     notes.push(h.limit === "usage_limit" ? `Codex llegó a su límite de uso; ${unit.id} vuelve a la cola sin gastar intento.` : `Codex limitó la frecuencia; ${unit.id} vuelve a la cola sin gastar intento.`);
     return;
   }
-  if (unit.kind === "doubt-consult") {
-    const answer = h.report && typeof h.report === "object"
-      ? { ...h.report, consulted: cellOf(unit.worker) }
-      : { decision: null, rationale: "consultant returned no answer", consulted: cellOf(unit.worker), confidence: "low", reversible: false };
-    const file = paths.unitAnswerFile(unit.id);
-    await atomicWriteJson(file, answer, { fs: d.fs });
-    await settle(() => sibling(d, "doubts", "answer")({ ...base, id: unit.doubt_id, unit: unit.id, file, token: null, via: "cli" }, d));
+  if (consult) {
+    if (h.outcome === "report" && h.report && typeof h.report === "object") await atomicWriteJson(reportFile, { ...h.report, consulted: cellOf(unit.worker) }, { fs: d.fs });
+    else await atomicWriteJson(reportFile, { decision: null, rationale: "consultant returned no answer", consulted: cellOf(unit.worker), confidence: "low", reversible: false }, { fs: d.fs });
+    await settle(async () => (await sibling(d, "doubts", "answerDoubt"))({ ...fenceOf(run), id: unit.doubt_id, file: reportFile, token: null }, d));
     return finishJob(run, job, jobEnd);
   }
-  if (!h.report || typeof h.report !== "object") {
-    await sibling(d, "failure", "handback")({ ...base, unit: unit.id, reason: "worker returned no report" }, d);
-    return finishJob(run, job, jobEnd);
+  if (h.outcome !== "report" || !h.report || typeof h.report !== "object") {
+    const cause = ENV_WORKER_OUTCOMES.includes(h.outcome) ? "env-infra" : "code";
+    await finishJob(run, job, jobEnd);
+    // A failed execution, not a hand-back: the D21 policy decides (attempt 1 -> attempt 2 on the same unit).
+    const detail = `el worker de Codex no entregó un informe válido (${h.outcome ?? "?"}${h.kind ? `: ${h.kind}` : ""})${h.detail ? `: ${String(h.detail).slice(0, 300)}` : ""}`;
+    await (await sibling(d, "failure", "failUnit"))({ ...fenceOf(run), unit: unit.id, attempt: unit.attempt, cause, detail, command: null, tail: String(h.detail ?? "") }, d);
+    return;
   }
-  const reviewType = REVIEW_TYPE_KINDS.includes(unit.kind);
-  const file = reviewType ? paths.reviewFile(unit.id) : paths.reportFile(unit.id);
-  await atomicWriteJson(file, h.report, { fs: d.fs });
-  const call = reviewType ? sibling(d, "review", "record") : sibling(d, "report", "ingest");
-  await settle(() => call({ ...base, unit: unit.id, token: typeof h.report.token === "string" ? h.report.token : "", file, via: "cli" }, d));
-  return finishJob(run, job, jobEnd);
+  if (!h.reportFile) await atomicWriteJson(reportFile, h.report, { fs: d.fs });
+  await finishJob(run, job, jobEnd);
+  const call = reviewType ? await sibling(d, "review", "reviewRecord") : await sibling(d, "report", "ingestReport");
+  await settle(() => call({ ...fenceOf(run), unit: unit.id, token: typeof h.report.token === "string" ? h.report.token : "", file: reportFile }, d));
 }
 
 // A sibling that rejects a report (exit-6/7 class codes) has already settled the unit; fences and faults propagate.
@@ -328,18 +375,13 @@ async function settle(fn) {
   }
 }
 
-async function requeueAfterLimit(run, unit, job, h, jobEnd) {
-  const { d, paths } = run;
-  let reading = null;
-  if (h.limit === "usage_limit") {
-    reading = d.quota.recordLimit({ provider: "codex", resetsAt: h.limit_resets_at ?? null }, { file: paths.quotaFile, deps: quotaDeps(d) });
-  }
+/** A usage or rate limit consumes no attempt: the unit returns to the queue with its token released (pollWorker already recorded the reading). */
+async function requeueAfterLimit(run, unit, job, jobEnd) {
+  const { d } = run;
   d.admission.releaseToken(unit.id, admissionCtx(run));
   await mutate(run, (s) => {
     const u = findUnit(s, unit.id);
-    const events = [];
-    if (reading) events.push({ type: "quota_reading", data: { provider: "codex", source: "limit", reading } });
-    events.push({ type: "job_finished", data: { id: job.id, state: jobEnd.state, exit: jobEnd.exit } });
+    const events = [{ type: "job_finished", data: { id: job.id, state: jobEnd.state, exit: jobEnd.exit } }];
     let units = s.units;
     if (u && isLive(u)) {
       events.push(unitEvent(u.id, u.state, "queued"));
@@ -352,8 +394,9 @@ async function requeueAfterLimit(run, unit, job, h, jobEnd) {
 
 async function harvestG2(run, job, notes) {
   const { d, ref } = run;
-  const polled = await sibling(d, "jobs", "poll")({ project: ref.project, job }, d);
-  if (!polled || polled.state === "running") return;
+  const polled = await (await sibling(d, "jobs", "pollJob"))(ref.project, job, d);
+  if (!["running", "done", "dead"].includes(polled?.state)) throw err("ENGINE_FAILURE", `jobs.pollJob returned no job state for ${job.id}`);
+  if (polled.state === "running") return;
   const exit = Number.isInteger(polled.exit) ? polled.exit : null;
   const green = polled.state === "done" && exit === 0;
   let handbackUnit = null;
@@ -361,9 +404,10 @@ async function harvestG2(run, job, notes) {
   await mutate(run, (s) => {
     const cur = s.jobs.find((j) => j.id === job.id);
     if (!cur || cur.state !== "running") return {};
-    const events = [{ type: "job_finished", data: { id: job.id, state: polled.state === "dead" ? "dead" : "done", exit } }];
-    let next = { ...s, jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, state: polled.state === "dead" ? "dead" : "done", exit } : j)) };
-    if (polled.state === "dead") return { state: next, events }; // re-spawned by the G2 rule at this or the next pass
+    const ended = polled.state === "dead" ? "dead" : "done";
+    const events = [{ type: "job_finished", data: { id: job.id, state: ended, exit } }];
+    let next = { ...s, jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, state: ended, exit } : j)) };
+    if (polled.state === "dead" || exit === null) return { state: next, events }; // re-spawned by the G2 rule at this or the next pass
     events.push({ type: "gate", data: { tier: "G2", exit, frd: job.frd } });
     const work = next.units.filter((u) => FRD_WORK_KINDS.includes(u.kind) && u.frd === job.frd && u.state === "integrated");
     if (green) {
@@ -400,19 +444,104 @@ async function harvestG2(run, job, notes) {
     return { state: next, events };
   });
   if (handbackUnit) {
-    await sibling(d, "failure", "handback")({ project: ref.project, epoch: ref.epoch, actor: ref.actor, unit: handbackUnit, reason: `G2 en rojo en ${job.frd} tras agotar los ${MAX_ATTEMPTS} intentos` }, d);
+    await (await sibling(d, "failure", "handbackCommand"))({ ...fenceOf(run), unit: handbackUnit, reason: `G2 en rojo en ${job.frd} tras agotar los ${MAX_ATTEMPTS} intentos`, cause: "code" }, d);
   }
-  if (!green && polled.state !== "dead") notes.push(`G2 en rojo en ${job.frd}: se encola una corrección.`);
+  if (!green && polled.state !== "dead" && exit !== null) notes.push(`G2 en rojo en ${job.frd}: se encola una corrección.`);
 }
 
-async function harvestLand(run, job, notes) {
+/** The land job is harvested by land.mjs itself (job_finished, D24 exit map, card archive) under its own fence. */
+async function harvestLand(run, notes) {
   const { d, ref } = run;
-  const polled = await sibling(d, "jobs", "poll")({ project: ref.project, job }, d);
-  if (!polled || polled.state === "running") return;
-  const res = await sibling(d, "land", "harvest")({ project: ref.project, epoch: ref.epoch, actor: ref.actor, job }, d);
-  notes.push(...(res?.notes_es ?? []));
-  await finishJob(run, job, { state: polled.state === "dead" ? "dead" : "done", exit: Number.isInteger(polled.exit) ? polled.exit : null });
+  const res = await (await sibling(d, "land", "harvestLand"))({ project: ref.project, epoch: ref.epoch, actor: ref.actor }, d);
+  if (res?.harvested && res.output?.notes_es) notes.push(...res.output.notes_es);
 }
+
+// ---------------------------------------------------------------------------------------------
+// (2) Integration (CLI doc 4.1): git work outside the mutex, state and journal under it
+// ---------------------------------------------------------------------------------------------
+
+async function integrateStep(run, state, notes) {
+  const { d, ref } = run;
+  const committed = state.units.some((u) => u.state === "committed" && PLANNED_KINDS.includes(u.kind));
+  if (!committed && !(await acceptedAssumptionPending(run, state))) return;
+  const res = await fencedTwoPhase(run.ref,
+    async (ctx) => {
+      const s = await ctx.readState();
+      if (!s || s.run_id !== ctx.runId) throw err("FENCE", "state does not belong to the lease run");
+      return s;
+    },
+    async (s) => (await sibling(d, "integrate", "integrateCommitted"))({ state: s, runId: s.run_id }, { ...d, project: ref.project }),
+    async (result, _intent, ctx) => {
+      const s = await ctx.readState();
+      const done = (Array.isArray(result?.integrated) ? result.integrated : []).filter((x) => x && typeof x.unit === "string");
+      const merged = (Array.isArray(result?.merged) ? result.merged : []).filter((x) => x && typeof x.doubt === "string");
+      const events = [];
+      let units = s.units;
+      let safe = s.last_safe_point;
+      const safePoint = (sha) => {
+        events.push({ type: "safe_point", data: { kind: "integration-land", sha } });
+        safe = { sha, kind: "integration-land", at: nowIsoOf(d) };
+      };
+      // Accepted assumption branches merged first (they precede the chains integrated after them).
+      for (const m of merged) {
+        events.push({ type: "integrated", data: { unit: null, doubt: m.doubt, sha: m.sha ?? null } });
+        if (typeof m.sha === "string") safePoint(m.sha);
+      }
+      for (const item of done) {
+        const u = findUnit(s, item.unit);
+        if (!u || u.state !== "committed") continue;
+        units = units.map((x) => (x.id === u.id ? { ...x, state: "integrated" } : x));
+        const onAssumption = typeof item.assumption === "string" ? item.assumption : null;
+        events.push({ type: "integrated", data: { unit: u.id, sha: item.sha ?? null, ...(onAssumption ? { assumption: onAssumption } : {}) } });
+        events.push(unitEvent(u.id, "committed", "integrated"));
+        // A chain integrated on an assume branch is not a safe point of the integration branch.
+        if (typeof item.sha === "string" && !onAssumption) safePoint(item.sha);
+      }
+      for (const ev of events) await ctx.appendEvent(ev);
+      if (events.length) await ctx.writeState({ ...s, units, last_safe_point: safe });
+      return { conflicts: Array.isArray(result?.conflicts) ? result.conflicts : [] };
+    });
+  for (const c of res.conflicts) {
+    const unitId = c?.unit?.id ?? c?.unit;
+    if (typeof unitId !== "string") continue;
+    const reason = typeof c.doubt === "string"
+      ? `conflicto al unir la rama de la suposición aceptada (${c.doubt}) con la rama de integración`
+      : typeof c.assumption === "string"
+        ? `conflicto al integrar la cadena en la rama de la suposición ${c.assumption}`
+        : "conflicto al integrar la cadena en la rama de integración";
+    await (await sibling(d, "failure", "handbackCommand"))({ ...fenceOf(run), unit: unitId, reason, cause: "code" }, d);
+    notes.push(typeof c.doubt === "string" ? `La suposición aceptada ${c.doubt} chocó al unirse: se devuelve ${unitId}.` : `${unitId} chocó al integrarse: se devuelve.`);
+  }
+}
+
+/**
+ * Is there an assumption the owner accepted whose branch is not merged into the integration branch yet? Reads the doubt
+ * records of the answered questions (`state.answers`) and checks ancestry with git; integrate.mjs does the merge (C10).
+ */
+async function acceptedAssumptionPending(run, state) {
+  const branchOf = state.integration?.branch;
+  if (!branchOf) return false;
+  for (const id of Object.keys(state.answers ?? {})) {
+    let file;
+    try { file = run.paths.doubtFile(id); } catch { continue; }
+    const record = await readJson(file, { fs: run.d.fs }).catch(() => null);
+    if (!record?.assumption || !record.decision || !Object.hasOwn(record.decision, "value")) continue;
+    if (JSON.stringify(record.decision.value) !== JSON.stringify(record.assumption.option)) continue;
+    const branch = run.paths.assumeBranch(state.run_id, id);
+    if (!(await gitOk(integrationRoot(run, state), ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]))) continue;
+    if (!(await gitOk(integrationRoot(run, state), ["merge-base", "--is-ancestor", branch, branchOf]))) return true;
+  }
+  return false;
+}
+
+/** `git <args>` exit 0? (read-only checks; a git error reads as false). */
+function gitOk(cwd, args) {
+  return new Promise((resolve) => {
+    execFile("git", args, { cwd, timeout: GIT_SHOW_TIMEOUT_MS }, (error) => resolve(!error));
+  });
+}
+
+const landRunning = (state) => state.jobs.some((j) => j.kind === "land" && j.state === "running");
 
 // ---------------------------------------------------------------------------------------------
 // (3) Quota
@@ -448,11 +577,9 @@ const shapeOf = (state) => (state.coordinator === "codex-session" ? "R-B" : stat
 // (4)(5) Units managed by next, planner round, pending answers
 // ---------------------------------------------------------------------------------------------
 
+/** The deferred-review ledger (missing file = empty; an invalid one fails loud through deferred.readDeferred). */
 async function listDeferred(run) {
-  const { d, paths, ref } = run;
-  const list = typeof d.deferred?.list === "function" ? await d.deferred.list({ project: ref.project }, d) : await readJson(paths.deferredReviewsFile, { fs: d.fs });
-  if (list !== null && !Array.isArray(list)) throw err("LEDGER_CORRUPT", "deferred-reviews.json is not an array", { hint: "rebuild-state" });
-  return list ?? [];
+  return readDeferred(run.ref.project, { fs: run.d.fs, env: run.d.env });
 }
 
 const deferredUnitId = (entryId) => `u-deferred-review-${entryId}`;
@@ -473,10 +600,39 @@ async function scheduleManagedUnits(run, state, pol, entries) {
   });
 }
 
-async function planRound(run, state) {
+/** Product root of the integration worktree (the project may live under a prefix of its git repository). */
+async function integrationProductRoot(run, state) {
+  const root = integrationRoot(run, state);
+  if (run.prefix === undefined) run.prefix = await productPrefix(run.ref.project, { env: run.d.env });
+  return productRoot(root, run.prefix);
+}
+
+/** `git show <rev>:<rel>` text, or null when the path does not exist at that revision. */
+function gitShow(cwd, rev, rel) {
+  return new Promise((resolve) => {
+    execFile("git", ["show", `${rev}:${rel}`], { cwd, timeout: GIT_SHOW_TIMEOUT_MS, maxBuffer: 8 * 1024 * 1024 }, (error, stdout) => resolve(error ? null : stdout));
+  });
+}
+
+/**
+ * (5) One planner round over the integration worktree's work orders: queue the new units that are ready now (in scope
+ * only) and return the dispatchable round. The FRD AC ids come from `integration.base_sha` (A13 tests-first trigger).
+ */
+async function planRound(run, state, pol) {
   const { d } = run;
-  const plan = await sibling(d, "planner", "round")({ state, root: integrationRoot(run, state), live: state.units.filter(isLive).map((u) => u.id) }, d);
-  const add = (plan?.add ?? []).filter((u) => inScope(state, u));
+  const root = await integrationProductRoot(run, state);
+  const base = state.integration?.base_sha;
+  const prefix = run.prefix ?? "";
+  const readFrd = base ? (frd) => gitShow(root, base, `${prefix}docs/frds/${frd}/frd.md`) : undefined;
+  const read = await (await sibling(d, "planner", "readPlanWorkOrders"))(root, { ...d, ...(readFrd ? { readFrd } : {}) });
+  const questions = [...(await readQuestions(run)).values()].filter((q) => !(q.id in (state.answers ?? {})));
+  const params = await readRunParams(run);
+  const plan = await (await sibling(d, "planner", "plan"))({
+    wos: read?.wos ?? [], frd_acs: read?.frd_acs ?? {}, scope: state.scope, units: state.units, label: state.label, size: state.size,
+    questions, quota: pol, shape: shapeOf(state), coordinator: state.coordinator, session_model: params.sessionModel,
+  }, d);
+  const nowIds = Array.isArray(plan?.now) ? new Set(plan.now) : null;
+  const add = (plan?.units ?? []).filter((u) => u && (!nowIds || nowIds.has(u.id)) && inScope(state, u));
   let next = state;
   if (add.length) {
     next = await mutate(run, (s) => {
@@ -485,14 +641,16 @@ async function planRound(run, state) {
       return { state: { ...s, units: [...s.units, ...fresh] }, events: fresh.map((u) => ({ type: "unit_queued", data: u })) };
     });
   }
-  return { state: next, ready: Array.isArray(plan?.ready) ? plan.ready : [], deadlock: plan?.deadlock === true };
+  const round = Array.isArray(plan?.round) ? plan.round : Array.isArray(plan?.ready) ? plan.ready : [];
+  return { state: next, ready: [...new Set(round)], deadlock: Boolean(plan?.deadlock) };
 }
 
-/** First-minute questions (`build/preflight.json`), by id: `{reversible, default_es, default_action}`. */
+/** First-minute questions (`build/preflight.json` `questions[]`, D19), by id: `{id, reversible, affects, default_es, default_action}`. */
 async function readQuestions(run) {
   const preflight = await readJson(run.paths.preflightFile, { fs: run.d.fs });
   const out = new Map();
-  for (const check of preflight?.checks ?? []) if (check?.question?.id) out.set(check.question.id, check.question);
+  for (const q of preflight?.questions ?? []) if (q?.id) out.set(q.id, q);
+  for (const check of preflight?.checks ?? []) if (check?.question?.id && !out.has(check.question.id)) out.set(check.question.id, check.question);
   return out;
 }
 
@@ -525,7 +683,8 @@ async function parkIrreversiblePending(run, state) {
  * @returns {{all: Set<string>, ownerRoots: object[]}}
  */
 export function blockedClosure(state) {
-  const roots = state.units.filter((u) => !isTerminalUnit(u) && (u.parked || u.state === "waiting_gate" || u.state === "parked"));
+  // Work built on an assumption is progress while it can still run; it becomes an owner root once integrated (C10).
+  const roots = state.units.filter((u) => !isTerminalUnit(u) && ((u.parked && !assumedRunnable(u)) || u.state === "waiting_gate" || u.state === "parked"));
   const blocked = new Set(roots.map((u) => u.id));
   for (const review of roots.filter((u) => u.kind === "review" && u.frd)) {
     for (const u of state.units) if (FRD_WORK_KINDS.includes(u.kind) && u.frd === review.frd && !isTerminalUnit(u)) blocked.add(u.id);
@@ -549,6 +708,7 @@ const landReady = (u) => (FRD_WORK_KINDS.includes(u.kind) && u.state === "verifi
  * @returns {{complete: boolean, ready: string[]}}
  */
 export function batchState(state) {
+  state = scopedState(state);
   const { all } = blockedClosure(state);
   const active = state.units.filter((u) => !isTerminalUnit(u) && !all.has(u.id));
   const ready = active.filter(landReady);
@@ -580,9 +740,12 @@ async function ensureAudit(run, state, pol, deferredEntries) {
   const { d, ref } = run;
   const cell = d.routing.builderCell({ kind: "audit", size: state.size, zone: risk.zone, attempt: 1 }, { label: state.label, zone: risk.zone, attempt: 1, quota: pol, shape: shapeOf(state), coordinator: state.coordinator }, routingDeps(d));
   if (cell.deferred) {
-    await sibling(d, "deferred", "queue")({
-      project: ref.project, epoch: ref.epoch, actor: ref.actor,
-      entry: { unit: id, kind: "audit", frd: null, sha_range: `${state.integration.base_sha}..${state.integration.branch}`, needed: cell.deferred.runtime, reviewer: cell.deferred, degraded: cell.degraded ?? "quota_90" },
+    // No company can audit now (BUILD-14): the audit waits in the deferred ledger; the batch lands without it.
+    const author = state.units.filter((u) => u.worker && u.worker.effort && FRD_WORK_KINDS.includes(u.kind)).map((u) => cellOf(u.worker)).at(-1);
+    if (!author) throw err("INVALID_STATE", "the deferred audit needs an author cell and no build unit has one", { hint: "rebuild-state" });
+    await (await sibling(d, "deferred", "enqueueDeferred"))(ref.project, {
+      unit: id, kind: "audit", frd: null, sha_range: `${state.integration.base_sha}..${state.integration.branch}`, author,
+      reviewer_used: null, degraded: cell.degraded ?? "quota_90", needed: cell.deferred.runtime,
     }, d);
     return { queued: false, state };
   }
@@ -592,7 +755,7 @@ async function ensureAudit(run, state, pol, deferredEntries) {
 }
 
 async function runRisk(run, state) {
-  return run.d.risk.computeRisk({ root: integrationRoot(run, state), range: `${state.integration.base_sha}..HEAD` }, run.d.riskDeps ?? {});
+  return run.d.risk.computeRisk({ root: await integrationProductRoot(run, state), range: `${state.integration.base_sha}..HEAD` }, run.d.riskDeps ?? {});
 }
 
 async function reviewZone(run, state) {
@@ -619,7 +782,11 @@ async function readRunParams(run) {
   return params;
 }
 
-/** A unit is in scope unless it touches an out-of-scope WO/FRD, or (no card) a WO outside `scope.wos`. */
+/**
+ * Is a unit inside the run scope? Never when it touches an out-of-scope WO or FRD. With a card, everything else is in.
+ * Without a card, each of its WOs must be listed in `scope.wos` or belong to an FRD of `scope.frds` (a WO a docs unit
+ * created inside an in-scope FRD); units without WOs (reviews, the audit, consults) are in scope.
+ */
 export function inScope(state, unit) {
   const scope = state.scope ?? { card: null, wos: [], frds: [], out_of_scope: [] };
   const out = new Set((scope.out_of_scope ?? []).map((x) => String(x).toLowerCase()));
@@ -627,8 +794,17 @@ export function inScope(state, unit) {
   if (wos.some((w) => out.has(w)) || (unit.frd && out.has(String(unit.frd).toLowerCase()))) return false;
   if (scope.card) return true;
   const allowed = new Set((scope.wos ?? []).map((w) => String(w).toLowerCase()));
-  return wos.every((w) => allowed.has(w));
+  const frds = new Set((scope.frds ?? []).map((f) => String(f).toLowerCase()));
+  const frdIn = unit.frd && frds.has(String(unit.frd).toLowerCase());
+  return wos.every((w) => allowed.has(w) || frdIn);
 }
+
+/** The state restricted to the units of the run scope: out-of-scope units are never pending work (CLI 4). */
+const scopedState = (state) => ({ ...state, units: state.units.filter((u) => inScope(state, u)) });
+
+const DEPS_DONE = Object.freeze(["integrated", "reviewing", "patching", "verified", "landed"]);
+/** Every `depends_on` unit is integrated or later (D16: a build unit waits for its tests unit). Unknown ids are not met. */
+const depsMet = (state, unit) => (unit.depends_on ?? []).every((id) => DEPS_DONE.includes(findUnit(state, id)?.state));
 
 /** reopen_count per WO id (lowercase), from the integration worktree frontmatter. */
 async function readReopenCounts(root, fs = fsp) {
@@ -668,7 +844,7 @@ async function buildCandidates(run, state, pol, plan, params, deferredEntries) {
   let quotaBlocked = false;
   const toParkNoReviewer = [];
   const toUnpark = [];
-  const queued = (u) => u.state === "queued" && !u.parked && inScope(state, u);
+  const queued = (u) => u.state === "queued" && (!u.parked || isAssumed(u)) && inScope(state, u);
 
   for (const u of state.units.filter((x) => x.kind === "deferred-review" && queued(x))) {
     const entry = deferredEntries.find((e) => deferredUnitId(e.id) === u.id);
@@ -680,12 +856,14 @@ async function buildCandidates(run, state, pol, plan, params, deferredEntries) {
     out.push({ unit: u, cell: cellOnly(cell), via: viaOf(cell), review: { deferred_entry: entry.id } });
   }
 
+  // A consult is dispatched exactly once, with the cell, via and brief its doubt record announced (CLI 3.12).
   for (const u of state.units.filter((x) => x.kind === "doubt-consult" && queued(x))) {
-    const record = u.doubt_id ? await readJson(run.paths.doubtFile(u.doubt_id), { fs: d.fs }) : null;
-    const n = Number(u.id.match(/-c(\d+)$/)?.[1] ?? 0);
-    const consult = record?.consults?.[n - 1];
-    if (!consult) throw err("INVALID_STATE", `consult unit ${u.id} has no consult ${n} in its doubt record`, { hint: "rebuild-state" });
-    out.push({ unit: u, cell: { runtime: consult.runtime, model: consult.model, effort: consult.effort }, via: consult.via, consultBrief: consult.brief_path ?? null });
+    const consult = await (await sibling(d, "doubts", "pendingConsult"))(run.ref.project, u, d);
+    if (!consult || typeof consult.runtime !== "string" || typeof consult.model !== "string" || !["agent", "cli"].includes(consult.via)) {
+      throw err("INVALID_STATE", `consult unit ${u.id} has no consult in its doubt record`, { hint: "rebuild-state" });
+    }
+    if (consult.answered) continue;
+    out.push({ unit: u, cell: { runtime: consult.runtime, model: consult.model, effort: consult.effort ?? null }, via: consult.via, consult });
   }
 
   for (const u of state.units.filter((x) => x.kind === "review" && (queued(x) || x.parked === "no_reviewer") && inScope(state, x))) {
@@ -706,17 +884,17 @@ async function buildCandidates(run, state, pol, plan, params, deferredEntries) {
   }
 
   const readyIds = new Set(plan.ready);
-  const planned = plan.ready.map((id) => findUnit(state, id)).filter((u) => u && PLANNED_KINDS.includes(u.kind) && queued(u) && readyIds.has(u.id));
+  const planned = plan.ready.map((id) => findUnit(state, id)).filter((u) => u && PLANNED_KINDS.includes(u.kind) && queued(u) && readyIds.has(u.id) && depsMet(state, u));
   const ordered = [...planned.filter((u) => u.kind === "tests"), ...planned.filter((u) => u.kind !== "tests")];
   const last = ordered.filter((u) => u.pending_answer && !(u.pending_answer in state.answers));
   const first = ordered.filter((u) => !last.includes(u));
-  const reopen = ordered.some((u) => u.kind === "build" || u.kind === "patch") ? await readReopenCounts(integrationRoot(run, state), d.fs) : new Map();
+  const reopen = ordered.some((u) => u.kind === "build" || u.kind === "patch") ? await readReopenCounts(await integrationProductRoot(run, state), d.fs) : new Map();
   for (const u of [...first, ...last]) {
     const reopenCount = Math.max(0, ...u.wos.map((w) => reopen.get(String(w).toLowerCase()) ?? 0));
     const previousCell = u.attempt > 1 ? cellOf(u.worker) : null;
     const cell = d.routing.builderCell({ kind: u.kind, size: state.size, zone: u.zone, attempt: u.attempt }, { ...ctx, zone: u.zone, attempt: u.attempt, reopen_count: reopenCount, previousCell }, routingDeps(d));
     if (cell.paused || cell.deferred) { quotaBlocked = true; continue; }
-    out.push({ unit: u, cell: cellOnly(cell), via: cell.via, pendingDefault: last.includes(u) ? u.pending_answer : null });
+    out.push({ unit: u, cell: cellOnly(cell), via: cell.via, pendingDefault: last.includes(u) && !isAssumed(u) ? u.pending_answer : null });
   }
 
   let next = state;
@@ -741,15 +919,8 @@ function dedupeCells(cells) {
   return cells.filter((c) => { const key = `${c.runtime}/${c.model}/${c.effort}/${c.origin}`; if (seen.has(key)) return false; seen.add(key); return true; });
 }
 
-/** FRDs whose build/patch/tests units are all integrated and have no live G2 job: they need a G2 (D7, D22). */
-export function frdsNeedingG2(state) {
-  const frds = [...new Set(state.units.filter((u) => FRD_WORK_KINDS.includes(u.kind) && u.frd).map((u) => u.frd))];
-  return frds.filter((frd) => {
-    const work = state.units.filter((u) => FRD_WORK_KINDS.includes(u.kind) && u.frd === frd && u.state !== "blocked" && u.state !== "landed");
-    if (!work.length || !work.every((u) => u.state === "integrated")) return false;
-    return !state.jobs.some((j) => j.kind === "g2" && j.frd === frd && j.state === "running");
-  });
-}
+/** FRDs that need a G2 now (integrate.frdsReadyForG2, CLI 4.1) and have no live G2 job. */
+const g2Needed = (state) => frdsReadyForG2(state).filter((frd) => !state.jobs.some((j) => j.kind === "g2" && j.frd === frd && j.state === "running"));
 
 // ---------------------------------------------------------------------------------------------
 // (6)(7) Admission and dispatch (one fenced two-phase transaction)
@@ -785,17 +956,17 @@ async function reservationsOf(run, state) {
 
 const motivoToWait = (motivo) => (motivo === "cpu_H" ? "cpu_H" : "ram");
 
-async function dispatchRound(run, state, candidates, pol, params, signals) {
+async function dispatchRound(run, state, candidates, params, signals, quota) {
   const { d, ref, paths } = run;
-  const blockedDispatch = pol.paused || state.handbacks_in_a_row >= ENV_INFRA_STOP || run.l4?.paused_infra === true;
-  const g2 = blockedDispatch ? [] : frdsNeedingG2(state);
+  const blockedDispatch = state.handbacks_in_a_row >= ENV_INFRA_STOP || run.l4?.paused_infra === true;
+  const g2 = blockedDispatch ? [] : g2Needed(state);
   const list = blockedDispatch ? [] : candidates.list;
   if (!g2.length && !list.length) return { state, units: [], admit: null, admissionBlocked: null };
   const reservations = await reservationsOf(run, state);
   const hostHeld = d.admission.countHostSlots({ host: paths.hostDir }).held;
-  const quotaNow = { claude: null, codex: null };
 
   const result = await fencedTwoPhase(ref,
+    // Phase 1 (mutex): one admission decision per candidate, a token per granted unit, units -> admitted.
     async (ctx) => {
       const s = await ctx.readState();
       if (!s || s.run_id !== ctx.runId) throw err("FENCE", "state does not belong to the lease run");
@@ -808,6 +979,7 @@ async function dispatchRound(run, state, candidates, pol, params, signals) {
       const events = [];
       const grants = [];
       const g2Grants = [];
+      const granted = new Set();
       let lastDecision = null;
       let blocked = null;
       const admitEvent = (unitId, decision, cls) => {
@@ -826,17 +998,19 @@ async function dispatchRound(run, state, candidates, pol, params, signals) {
       let units = s.units;
       for (let i = 0; i < list.length; i++) {
         const c = list[i];
+        if (granted.has(c.unit.id)) continue;
         const cur = findUnit(s, c.unit.id);
-        const eligible = cur && (cur.state === "queued") && (!cur.parked || (c.unit.kind === "review" && cur.parked === "no_reviewer"));
+        const eligible = cur && cur.state === "queued" && (!cur.parked || isAssumed(cur) || (c.unit.kind === "review" && cur.parked === "no_reviewer"));
         if (!eligible) continue;
         const decision = d.admission.decide({ ...base, live, heavyQueued: heavyLeft, readyWidth: list.length - i, want: "B", candidate: REVIEW_TYPE_KINDS.includes(c.unit.kind) ? "reviewer" : "builder" });
         lastDecision = decision;
         admitEvent(c.unit.id, decision, "B");
         if (decision.grant !== "B") { blocked = blocked ?? decision.motivo_limite; break; }
         const issued = d.admission.issueToken(c.unit.id, "B", adm);
-        grants.push({ ...c, token: issued.token, token_hash: issued.token_hash });
+        granted.add(c.unit.id);
+        grants.push({ ...c, unit: { ...cur, ...(c.unit.kind === "review" ? { parked: null } : {}) }, token: issued.token, token_hash: issued.token_hash });
         events.push(unitEvent(c.unit.id, cur.state, "admitted"));
-        units = units.map((u) => (u.id === c.unit.id ? { ...u, state: "admitted", parked: null, token_hash: issued.token_hash } : u));
+        units = units.map((u) => (u.id === c.unit.id ? { ...u, state: "admitted", parked: isAssumed(u) ? u.parked : null, token_hash: issued.token_hash } : u));
         live.B += 1;
         if (REVIEW_TYPE_KINDS.includes(c.unit.kind)) live.R += 1;
         res.push(c.via === "cli" ? { class: "B", origin: "cli", runtime: "codex", started_ms: nowMs(d), rss_gib: 0 } : { class: "B", origin: "agent", started_ms: nowMs(d) });
@@ -845,87 +1019,114 @@ async function dispatchRound(run, state, candidates, pol, params, signals) {
       if (grants.length) await ctx.writeState({ ...s, units });
       return { grants, g2Grants, blocked, lastDecision };
     },
+    // Work (no mutex): WO IN_PROGRESS on lane/<run_id>, unit worktree, brief, Codex launch, G2 jobs.
     async (intent) => {
-      if (!intent.grants.length && !intent.g2Grants.length) return { prepared: [], jobs: [] };
+      if (!intent.grants.length && !intent.g2Grants.length) return { prepared: [] };
       const current = await fresh(run);
-      const root = integrationRoot(run, current);
       const prepared = [];
-      for (const g of intent.grants) {
-        const slug = g.cell.runtime === "codex" ? d.routing.modelSlug(g.cell, routingDeps(d)) : null;
-        const prep = await sibling(d, "units", "prepare")({
-          project: ref.project, state: current, unit: findUnit(current, g.unit.id), cell: g.cell, via: g.via, token: g.token,
-          attempt: g.unit.attempt, review: g.review ?? null, consult_brief: g.consultBrief ?? null,
-          question_defaults: g.pendingDefault ? [g.pendingDefault] : [],
-        }, d);
-        const files = unitFiles(paths, g.unit, g.via, prep);
-        let worker = null;
-        if (g.via === "cli") {
-          worker = await sibling(d, "workers", "launch")({
-            project: ref.project, unit: g.unit.id, kind: g.unit.kind, worktree: prep.worktree, prompt_file: files.brief_path,
-            model_slug: slug, output_schema: files.schema_path, report_path: files.report_path,
-          }, d);
-        }
-        prepared.push({ ...g, slug, prep, files, worker });
-      }
-      const jobs = [];
+      for (const g of intent.grants) prepared.push(await prepareGrant(run, current, g));
       for (const frd of intent.g2Grants) {
-        const job = await sibling(d, "jobs", "spawn")({ project: ref.project, kind: "g2", cmd: ["bash", ".pandacorp/verify.sh", "--since", current.integration.base_sha], cwd: root, hSlot: true, frd, unit: null }, d);
-        jobs.push({ ...job, kind: "g2", frd, unit: null, h_slot: true, state: job.state ?? "running", exit: job.exit ?? null, worker_id: null });
+        await (await sibling(d, "jobs", "startJob"))({
+          project: ref.project, epoch: ref.epoch, actor: ref.actor, kind: "g2",
+          cmd: ["bash", ".pandacorp/verify.sh", "--since", current.integration.base_sha], cwd: await integrationProductRoot(run, current), frd, unit: null,
+        }, d);
       }
-      return { prepared, jobs, root };
+      return { prepared, g2: intent.g2Grants.length };
     },
+    // Phase 2 (mutex, epoch re-verified): admitted -> running, dispatch journal, worker jobs.
     async (work, intent, ctx) => {
-      if (!work.prepared.length && !work.jobs.length) return { ...intent, ...work };
+      if (!work.prepared.length) return { ...intent, ...work };
       const s = await ctx.readState();
       const events = [];
       let units = s.units;
       let jobs = s.jobs;
       const quotaAtUnit = { ...s.quota_at_unit };
+      const startQuota = { claude: quota.out.claude.pct, codex: quota.out.codex.pct, at: nowIsoOf(d) };
       for (const p of work.prepared) {
         const cur = findUnit(s, p.unit.id);
         if (!cur || cur.state !== "admitted" || cur.token_hash !== p.token_hash) throw err("INVALID_STATE", `unit ${p.unit.id} changed during dispatch`, { hint: "rebuild-state" });
-        const worker = { ...p.cell, via: p.via, pid: p.worker?.pid ?? null, worker_id: p.worker?.worker_id ?? null };
-        units = units.map((u) => (u.id === cur.id ? { ...u, state: "running", worker, worktree: p.prep.worktree ?? null, branch: p.prep.branch ?? null } : u));
+        const worker = { ...p.cell, via: p.via, pid: p.launched?.pid ?? null, worker_id: p.launched?.workerId ?? null };
+        units = units.map((u) => (u.id === cur.id ? { ...u, state: "running", worker, worktree: p.worktree, branch: p.branch } : u));
         events.push(unitEvent(cur.id, "admitted", "running"));
-        events.push({ type: "unit_dispatched", data: { unit: cur.id, cell: p.cell, via: p.via, worktree: p.prep.worktree ?? null, branch: p.prep.branch ?? null, token_hash: p.token_hash, worker_id: worker.worker_id, pid: worker.pid } });
-        if (p.via === "cli") {
-          const job = { id: `w-${p.worker.worker_id}`, kind: "worker", unit: cur.id, frd: null, pid: p.worker.pid ?? null, cwd: p.prep.worktree, h_slot: false, started_at: nowIsoOf(d), state: "running", exit: null, worker_id: p.worker.worker_id };
-          jobs = [...jobs, job];
+        events.push({ type: "unit_dispatched", data: { unit: cur.id, cell: p.cell, via: p.via, worktree: p.worktree, branch: p.branch, token_hash: p.token_hash, worker_id: worker.worker_id, pid: worker.pid } });
+        if (p.launched) {
+          const job = { ...p.launched.job, kind: "worker", unit: cur.id, h_slot: false, state: "running", exit: null, worker_id: p.launched.workerId };
+          jobs = [...jobs.filter((j) => j.id !== job.id), job];
           events.push({ type: "job_started", data: job });
         }
-        quotaAtUnit[cur.id] = { ...(quotaAtUnit[cur.id] ?? {}), start: { claude: quotaNow.claude, codex: quotaNow.codex, at: nowIsoOf(d) } };
-        if (typeof d.integrate?.markInProgress === "function" && ["build", "patch"].includes(cur.kind) && cur.wos.length) {
-          await d.integrate.markInProgress({ project: ref.project, epoch: ref.epoch, actor: ref.actor, root: work.root, unit: cur.id, wos: cur.wos }, d);
-        }
-      }
-      for (const job of work.jobs) {
-        jobs = [...jobs, job];
-        events.push({ type: "job_started", data: job });
+        quotaAtUnit[cur.id] = { ...(quotaAtUnit[cur.id] ?? {}), start: startQuota };
       }
       for (const ev of events) await ctx.appendEvent(ev);
       await ctx.writeState({ ...s, units, jobs, quota_at_unit: quotaAtUnit });
       return { ...intent, ...work };
     });
 
-  for (const p of result.prepared ?? []) emit(run, state, "AgentWorking", { role: AGENT_TYPE[p.unit.kind], model: p.cell.model, unit: p.unit.id });
-  const admit = result.lastDecision ? { decision: result.prepared?.length || result.jobs?.length ? "grant" : "wait", motivo_limite: result.lastDecision.motivo_limite } : null;
-  if (admit) emit(run, state, "AdmitDecision", { ...admit, unit: result.prepared?.[0]?.unit.id ?? null });
+  for (const p of result.prepared ?? []) emit(run, state, "agent.working", { role: AGENT_TYPE[p.unit.kind], model: p.cell.model, unit: p.unit.id });
+  const anyGrant = (result.prepared?.length ?? 0) > 0 || (result.g2 ?? 0) > 0;
+  const admit = result.lastDecision ? { decision: anyGrant ? "grant" : "wait", motivo_limite: result.lastDecision.motivo_limite } : null;
+  if (admit) emit(run, state, "admit.decision", { ...admit, unit: result.prepared?.[0]?.unit.id ?? null });
   const units = (result.prepared ?? []).map((p) => unitOutput(state, p));
-  return { state: await fresh(run), units, admit, admissionBlocked: result.blocked && !units.length ? motivoToWait(result.blocked) : (result.blocked ? motivoToWait(result.blocked) : null), g2Spawned: (result.jobs ?? []).length };
+  return { state: await fresh(run), units, admit, admissionBlocked: result.blocked ? motivoToWait(result.blocked) : null };
 }
 
-function unitFiles(paths, unit, via, prep) {
+/** Work phase of one granted unit: WO IN_PROGRESS commit, unit worktree, brief (with the token), Codex launch for `via:"cli"`. */
+async function prepareGrant(run, current, g) {
+  const { d, ref, paths } = run;
+  const unit = findUnit(current, g.unit.id);
+  const files = unitFiles(paths, unit, g.via);
+  const slug = g.via === "cli" ? (g.consult?.model_slug ?? d.routing.modelSlug(g.cell, routingDeps(d))) : null;
+  let worktree = null;
+  let branch = null;
+  if (unit.kind !== "doubt-consult") {
+    if (["build", "patch"].includes(unit.kind) && unit.wos.length) {
+      await (await sibling(d, "integrate", "transitionWorkOrders"))({ integration: current.integration, runId: current.run_id, wos: unit.wos, to: "IN_PROGRESS", reason: "dispatch", unitId: unit.id }, { ...d, project: ref.project });
+    }
+    // Work built on an assumption forks from (and integrates into) lane/<run_id>/assume-<doubt> (BUILD-12).
+    const base = isAssumed(unit) ? paths.assumeBranch(current.run_id, unit.pending_answer) : undefined;
+    const wt = await (await sibling(d, "units", "prepareUnitWorktree"))({ project: ref.project, runId: current.run_id, unit: unit.id, attempt: unit.attempt, ...(base ? { base } : {}) }, d);
+    worktree = wt?.worktree ?? null;
+    branch = wt?.branch ?? null;
+  }
+  let briefPath = g.consult?.brief_path ?? null;
+  if (!briefPath) {
+    const brief = await (await sibling(d, "units", "writeUnitBrief"))({
+      project: ref.project, state: current, unit: { ...unit, worktree }, cell: g.cell, agentType: AGENT_TYPE[unit.kind], token: g.token,
+      schemaPath: files.schema_path, worktree, reportPath: files.report_path, extra: await briefExtra(run, current, g),
+    }, d);
+    briefPath = brief?.brief_path ?? paths.briefFile(unit.id);
+  }
+  let launched = null;
+  if (g.via === "cli") {
+    const dir = worktree ?? await integrationProductRoot(run, current);
+    const res = await (await sibling(d, "workers", "launchWorker"))({
+      project: ref.project, runId: current.run_id, unit: unit.id, attempt: unit.attempt, frd: unit.frd ?? null,
+      cell: g.cell, schemaFile: files.schema_path || null, dir, briefFile: briefPath,
+    }, d);
+    if (!res?.ok) throw err("ENGINE_FAILURE", `the Codex worker of ${unit.id} did not start (${res?.kind ?? "unknown"}): ${res?.detail ?? ""}`);
+    launched = res;
+  }
+  return { ...g, unit, slug, worktree, branch, files: { ...files, brief_path: briefPath }, launched };
+}
+
+/** Extra brief sections: the review routing facts, and the default each pending reversible answer runs on (D19). */
+async function briefExtra(run, state, g) {
+  const extra = {};
+  if (g.review) extra.review = g.review;
+  if (g.pendingDefault) {
+    const q = (await readQuestions(run)).get(g.pendingDefault);
+    extra.decision = { question: g.pendingDefault, default_es: q?.default_es ?? null, default_action: q?.default_action ?? null, provisional: true };
+  }
+  if (g.unit.kind === "doubt-consult") extra.doubt = { id: g.unit.doubt_id };
+  return extra;
+}
+
+function unitFiles(paths, unit, via) {
   const reviewType = ["review", "audit", "deferred-review"].includes(unit.kind);
   const consult = unit.kind === "doubt-consult";
-  const defaults = {
+  return {
     brief_path: paths.briefFile(unit.id),
     report_path: consult ? paths.unitAnswerFile(unit.id) : reviewType ? paths.reviewFile(unit.id) : paths.reportFile(unit.id),
     schema_path: consult ? (via === "cli" ? paths.schemaFile("doubt-answer") : "") : paths.schemaFile(reviewType ? "review-report" : "report"),
-  };
-  return {
-    brief_path: prep?.brief_path ?? defaults.brief_path,
-    report_path: prep?.report_path ?? defaults.report_path,
-    schema_path: prep?.schema_path ?? defaults.schema_path,
   };
 }
 
@@ -935,7 +1136,7 @@ function unitOutput(state, p) {
     unit: u.id, kind: u.kind, attempt: u.attempt, token: p.token,
     runtime: p.cell.runtime, model: p.cell.model, model_slug: p.via === "cli" ? p.slug : null, effort: p.cell.effort ?? null,
     budget_calls: u.kind === "review" && state.size === "touch" ? 10 : null,
-    worktree: p.prep.worktree ?? null, brief_path: p.files.brief_path, report_path: p.files.report_path, schema_path: p.files.schema_path,
+    worktree: p.worktree, brief_path: p.files.brief_path, report_path: p.files.report_path, schema_path: p.files.schema_path,
     agent_type: AGENT_TYPE[u.kind], via: p.via, dispatch_line: dispatchLine(u, p.cell, p.slug),
   };
 }
@@ -950,11 +1151,11 @@ export function dispatchLine(unit, cell, slug = null) {
   return `→ ${who} · ${cell.effort ?? "sesión"} · ${VERB_ES[unit.kind] ?? unit.kind} ${target}`;
 }
 
+/** Telemetry is a bulkhead: emitted in the background to the coordinator company's events file, never fatal. */
 function emit(run, state, name, data) {
-  const f = run.d.telemetry?.emit;
-  if (typeof f !== "function") return;
+  const runtime = run.leaseRuntime ?? (state.coordinator === "codex-session" ? "codex" : "claude");
   Promise.resolve()
-    .then(() => f({ project: run.ref.project, coordinator: state.coordinator, name, data }, run.d))
+    .then(async () => (await sibling(run.d, "telemetry", "emitEvent"))(run.ref.project, { runtime, runId: state.run_id, name, data }, run.d))
     .catch((error) => run.d.log(`next: telemetry ${name} failed: ${error?.message ?? error}`));
 }
 
@@ -974,6 +1175,7 @@ function runningSummary(state) {
  * @returns {{action: string, status?: string, reason: string}} `action:"wait"` (admission blocked) carries a wait reason
  */
 export function chooseTerminal(state, { pol, l4, plan, candidates, dispatch }) {
+  state = scopedState(state);
   const bothOut = pol && !pol.claude_new_units && !pol.codex_new_units;
   if (pol?.paused) return { action: "paused-quota", status: "paused", reason: bothOut ? "quota" : "quota_claude_no_drive" };
   if (l4?.paused_infra) return { action: "paused-infra", status: "paused", reason: "infra_L4" };
@@ -986,7 +1188,7 @@ export function chooseTerminal(state, { pol, l4, plan, candidates, dispatch }) {
     const gatesOnly = ownerRoots.every((u) => u.state === "waiting_gate" || u.waiting_gate);
     return { action: "waiting-owner", status: gatesOnly ? "waiting_gate" : "waiting_owner", reason: gatesOnly ? "gate" : "owner_answer" };
   }
-  const queued = nonTerminal.some((u) => u.state === "queued" && !u.parked);
+  const queued = nonTerminal.some((u) => u.state === "queued" && (!u.parked || isAssumed(u)));
   if (queued && (plan?.deadlock || !candidates?.quotaBlocked)) return { action: "deadlock", status: "stopped", reason: "deadlock" };
   return { action: "stop", status: "stopped", reason: "no_progress" };
 }
@@ -1024,14 +1226,16 @@ export async function applyTerminal(ref, terminal, deps = {}) {
     const next = { ...s, status: terminal.status, status_reason: terminal.reason };
     await ctx.writeState(next);
     return next;
-  });
+  }, passIntent);
   const bs = d.buildState ?? await import("../build-state.mjs");
   const token = await readLeaseToken(ref.project, ref.epoch, d);
   await bs.quiesce(ref.project, token, Number(ref.epoch), { projectStatus: false });
   await bs.finalizeRelease(ref.project, token, Number(ref.epoch));
-  if (stopped && typeof d.telemetry?.emit === "function") {
-    await Promise.resolve(d.telemetry.emit({ project: ref.project, coordinator: state.coordinator, name: "BuildStopped", data: { reason: terminal.reason } }, d))
-      .catch((error) => d.log(`next: telemetry BuildStopped failed: ${error?.message ?? error}`));
+  if (stopped) {
+    const runtime = state.coordinator === "codex-session" ? "codex" : "claude";
+    await Promise.resolve()
+      .then(async () => (await sibling(d, "telemetry", "emitEvent"))(ref.project, { runtime, runId: state.run_id, name: "build.stopped", data: { reason: terminal.reason } }, d))
+      .catch((error) => d.log(`next: telemetry build.stopped failed: ${error?.message ?? error}`));
   }
   return state;
 }

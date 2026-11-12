@@ -52,14 +52,16 @@ export function pendingUnits(state) {
 }
 
 /**
- * How much pending work a parked unit drags through `depends_on` (the unit itself counts as dragged).
+ * How much pending work a parked unit drags through `depends_on`: its pending transitive dependents over every pending
+ * unit (the doubting unit counts in the denominator, never in the numerator). A lone unit with no dependents drags 0 %,
+ * so it is never a root block, including in a single-unit scope (it parks `owner_question`).
  * @param {{units: object[]}} state
  * @param {string} unitId
  * @returns {{dragged: string[], pending: number, ratio: number, isRoot: boolean}} `isRoot` = ratio > 0.5
  */
 export function rootBlock(state, unitId) {
   const pending = new Set(pendingUnits(state).map((u) => u.id));
-  const dragged = [unitId, ...dependentsOf(state, unitId)].filter((id) => pending.has(id));
+  const dragged = dependentsOf(state, unitId).filter((id) => pending.has(id));
   const ratio = pending.size ? dragged.length / pending.size : 0;
   return { dragged, pending: pending.size, ratio, isRoot: ratio > ROOT_BLOCK_RATIO };
 }

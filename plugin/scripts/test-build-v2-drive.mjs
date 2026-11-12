@@ -307,17 +307,29 @@ await test("trigger a: build/handoff.json fires, and polling is read-only", asyn
   ok(existsSync(run.P.handoffFile), "polling must not consume handoff.json (the takeover does)");
   eq(await rawLease(run), leaseBefore, "lease untouched by polling"); eq((await eventsOf(run)).length, eventsBefore, "journal untouched by polling");
 });
-await test("trigger b: a usage-limit text in units/<unit>/report.json fires; benign output does not", async () => {
-  const run = await makeRun(); await mkdir(run.P.unitDir("u-build-wo-01-001"), { recursive: true });
+await test("trigger b: a usage-limit text in the report.json of an in-flight Claude unit fires; benign output does not", async () => {
+  const claudeWorker = { runtime: "claude", model: "sonnet", effort: "medium", via: "agent", pid: null, worker_id: null };
+  const run = await makeRun({ units: [{ ...newUnit({ id: "u-build-wo-01-001", kind: "build", wos: ["WO-01-001"], frd: "frd-01-alpha", state: "running" }), worker: claudeWorker }] });
+  await mkdir(run.P.unitDir("u-build-wo-01-001"), { recursive: true });
   await writeFile(run.P.reportFile("u-build-wo-01-001"), `${JSON.stringify({ status: "done", summary: "all green, tests passed, 429 lines changed? no" })}\n`);
   eq((await poll(run)).trigger, null, "benign report");
   await writeFile(run.P.reportFile("u-build-wo-01-001"), `${JSON.stringify({ status: "blocked", summary: "Claude AI usage limit reached|1731326400" })}\n`);
   eq((await poll(run)).trigger, "b", "usage-limit report");
 });
-await test("trigger b: a usage-limit text in codex-workers/<id>/last.md fires", async () => {
+await test("trigger b (DEC-3): Codex's own limit text in codex-workers/<id>/last.md does NOT fire", async () => {
   const run = await makeRun(); const dir = run.P.codexWorkerDir("w-1"); await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, "last.md"), "ERROR: You've hit your usage limit. Try again at 3:00 PM.\n");
-  eq((await poll(run)).trigger, "b", "worker output with a usage limit");
+  eq((await poll(run)).trigger, null, "Codex limit text must not trigger the Claude takeover");
+});
+await test("trigger b (DEC-3): Claude's envelope in last.md fires only for a worker of the current run", async () => {
+  const job = { id: "j-worker-1", kind: "worker", unit: "u-build-wo-01-001", frd: "frd-01-alpha", pid: null, cwd: "/tmp/x", h_slot: false, started_at: DEFAULT_NOW, state: "running", exit: null, worker_id: "w-1" };
+  const run = await makeRun({ jobs: [job] });
+  const stale = run.P.codexWorkerDir("w-stale"); await mkdir(stale, { recursive: true });
+  await writeFile(path.join(stale, "last.md"), "Claude AI usage limit reached|1731326400\n");
+  eq((await poll(run)).trigger, null, "worker id not in the run's state");
+  const dir = run.P.codexWorkerDir("w-1"); await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, "last.md"), "Claude AI usage limit reached|1731326400\n");
+  eq((await poll(run)).trigger, "b", "worker of this run with Claude's envelope");
 });
 await test("trigger b: the optional coordinator transcript is scanned", async () => {
   const run = await makeRun(); const transcript = path.join(run.dir, "transcript.txt");

@@ -81,7 +81,7 @@ const trailerLines = (cwd, rev) => git(cwd, ["interpret-trailers", "--parse"], g
 
 // ---- the stub merge-queue (the real template is never used) --------------------------------------------------------
 // Control file: first line = "<exit>[:opt,opt]" (consumed when more lines follow, else it repeats). Options: ff (ff-merge the worktree tip
-// into main, as a landing), rebased (main moves during the queue; the lane is cherry-picked onto it, so every SHA changes), reconcile
+// into main, as a landing), rebased (main moves during the queue; the queue rebases the branch in place then ff-merges, like the real one, so every SHA changes), reconcile
 // (move the card to changes/done/ without shipped_sha, as the DR-147 reconciler does), reconcilesha (same, with a shipped_sha already set).
 const stubScript = ({ ctl, log, main }) => `#!/bin/bash
 CTL='${ctl}'; LOG='${log}'; MAIN='${main}'
@@ -93,12 +93,12 @@ dirty="$(git status --porcelain | wc -l | tr -d ' ')"
 printf '{"cwd":"%s","branch":"%s","head":"%s","dirty":%s,"owner_ok":"%s","line":"%s"}\\n' "$(pwd -P)" "$(git rev-parse --abbrev-ref HEAD)" "$head_sha" "$dirty" "\${PANDACORP_OWNER_RELEASE_OK-UNSET}" "$line" >> "$LOG"
 case ",$opts," in *,ff,*) git -C "$MAIN" merge --ff-only "$head_sha" >/dev/null 2>&1 || exit 99;; esac
 case ",$opts," in *,rebased,*)
-  base="$(git merge-base main "$head_sha")"
   git -C "$MAIN" commit --allow-empty -q -m "parallel session lands first" || exit 99
-  git -C "$MAIN" cherry-pick "$base..$head_sha" >/dev/null 2>&1 || exit 99;; esac
+  git rebase main >/dev/null 2>&1 || exit 99
+  git -C "$MAIN" merge --ff-only "$(git rev-parse HEAD)" >/dev/null 2>&1 || exit 99;; esac
 CARD="$MAIN/.pandacorp/inbox/changes/add-filter.md"; DONE="$MAIN/.pandacorp/inbox/changes/done"
 case ",$opts," in *,reconcile,*) if [ -f "$CARD" ]; then mkdir -p "$DONE"; sed 's/^status: .*/status: done/' "$CARD" > "$DONE/add-filter.md"; rm -f "$CARD"; fi;; esac
-case ",$opts," in *,reconcilesha,*) if [ -f "$CARD" ]; then mkdir -p "$DONE"; sed 's/^status: .*/status: done/' "$CARD" > "$DONE/add-filter.md"; echo "shipped_sha: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" >> "$DONE/add-filter.md"; rm -f "$CARD"; fi;; esac
+case ",$opts," in *,reconcilesha,*) if [ -f "$CARD" ]; then mkdir -p "$DONE"; sed 's/^status: .*/status: done\\\nshipped_sha: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/' "$CARD" > "$DONE/add-filter.md"; rm -f "$CARD"; fi;; esac
 exit "$code"
 `;
 
@@ -106,13 +106,15 @@ exit "$code"
 function makeJobLayer(w) {
   const table = new Map(); const spawns = []; let n = 0;
   const childEnv = (spec) => (spec.env ? { PATH: w.env.PATH, ...spec.env } : w.env);
-  const spawnJob = async (spec = {}) => {
-    const id = spec.id ?? `job-land-${++n}`;
-    spawns.push({ ...spec, id, childEnv: childEnv(spec) });
+  // jobs.mjs real signatures (R6): spawnJob(input, deps) and pollJob(project, job, deps); env travels in deps, h_slot derives from kind.
+  const spawnJob = async (input = {}, deps = {}) => {
+    const id = input.jobId ?? `job-land-${++n}`;
+    const spec = { ...input, id, env: deps.env, hSlot: input.kind === "g2" };
+    spawns.push({ ...spec, childEnv: childEnv(spec) });
     table.set(id, { spec, state: "running", exit: null, pid: 910000 + n });
-    return { id, pid: 910000 + n, state: "running", dir: w.p.jobDir(id) };
+    return { id, kind: input.kind, unit: null, frd: null, pid: 910000 + n, cwd: input.cwd, h_slot: input.kind === "g2", started_at: NOW, state: "running", exit: null, worker_id: null };
   };
-  const pollJob = async (id) => { const j = table.get(id); if (!j) return { state: "dead", exit: null }; return { state: j.state, exit: j.exit }; };
+  const pollJob = async (_project, job) => { const j = table.get(job.id); if (!j) return { state: "dead", exit: null }; return { state: j.state, exit: j.exit }; };
   const runPending = async () => {
     for (const [id, j] of table) {
       if (j.state !== "running") continue;
@@ -164,7 +166,7 @@ async function makeWorld(label, o = {}) {
   const card = await import(pathToFileURL(path.join(BUILD, "card.mjs")).href);
   const dir = await mkdtemp(path.join(SCRATCH_ROOT, `pc-c05-${label}-`));
   const fx = await createFixture({ preset: "launched", card: true }, { dir });
-  const runId = o.runId ?? "run-c05"; const branch = `lane/${runId}`;
+  const runId = o.runId ?? "run-c05"; const bp = (await need("paths.mjs", "buildPaths"))(fx.root); const branch = bp.integrationBranch(runId);
   const env = fx.env({ ...IDENT, ...(o.env || {}) });
   const ctl = path.join(dir, "mq-control"); const log = path.join(dir, "mq-log.jsonl");
   await writeFile(ctl, `${o.mq ?? "0:ff"}\n`); await writeFile(log, "");
@@ -195,7 +197,7 @@ async function makeWorld(label, o = {}) {
   }
   const frds = ["frd-01-alpha"]; const wos = ["WO-01-001", "WO-01-002"];
   let units = o.extraUnits ?? [
-    baseUnit({ attempt: o.attempt ?? 1, test_hashes: hashed, probe_hashes: {}, branch: `${branch}/u-build-wo-01-001` }),
+    baseUnit({ attempt: o.attempt ?? 1, test_hashes: hashed, probe_hashes: {}, branch: bp.unitBranch(runId, "u-build-wo-01-001") }),
     baseUnit({ id: "u-review-frd-01-alpha", kind: "review", wos: [], chain: null, probe_hashes: probes }),
   ];
   if (o.secondFrd === "parked") {
@@ -214,14 +216,14 @@ async function makeWorld(label, o = {}) {
   if (o.scopeCard !== null) await card.markCardBuilding(fx.root, "add-filter", { runId });
   const w = { dir, fx, env, p, runId, branch, wt, base, ctl, log, epoch: lease.epoch, token: lease.token, bs, remote0: fx.remote ? git(fx.remote, ["rev-parse", "main"]) : null };
   w.jobs = makeJobLayer(w); const ex = makeExec(w); w.exec = ex.exec; w.execCalls = ex.calls; w.execHooks = ex.hooks;
-  w.deps = { env, exec: ex.exec, spawnJob: w.jobs.spawnJob, pollJob: w.jobs.pollJob, jobs: { spawnJob: w.jobs.spawnJob, pollJob: w.jobs.pollJob } };
+  w.deps = { env, exec: ex.exec, jobs: { spawnJob: w.jobs.spawnJob, pollJob: w.jobs.pollJob } };
   w.cleanup = async () => { await rm(dir, { recursive: true, force: true }); };
   return w;
 }
 const withWorld = async (label, o, fn) => { const w = await makeWorld(label, o); try { return await fn(w); } finally { await w.cleanup(); } };
 
 // ---- driving the module --------------------------------------------------------------------------------------------
-const callLand = async (w, { epoch = w.epoch } = {}) => (await need("land.mjs", "land"))({ project: w.fx.root, epoch }, w.deps);
+const callLand = async (w, { epoch = w.epoch } = {}) => { const r = await (await need("land.mjs", "land"))({ project: w.fx.root, epoch }, w.deps); return r.output ? { ...r.output, exit: r.exit } : r; };
 const attempt = async (fn) => { try { return { value: await fn() }; } catch (error) { return { error }; } };
 const setMq = (w, ...lines) => writeFile(w.ctl, `${lines.join("\n")}\n`);
 /** spawn (call 1, must answer running), release the held job, harvest (call 2). */
@@ -478,7 +480,7 @@ await test("mq 0 (ff): landed, sha = new main tip, units landed, batch_landed {s
 
 await test("mq 0 with main moved during the queue: landed on the REBASED tip, pin_stale journaled, shipped_sha = the new main tip", async () => withWorld("pinstale", {}, async (w) => {
   const before = await snapshot(w); const { second } = await mqRound(w, "0:rebased");
-  eq(second.result, "landed", "result"); eq(second.sha, mainTip(w), "sha is the NEW main tip"); ok(second.sha !== laneTip(w), "the SHAs changed (rebased by the queue)");
+  eq(second.result, "landed", "result"); eq(second.sha, mainTip(w), "sha is the NEW main tip");
   const ev = await readEvents(w); eq(ev.filter((e) => e.type === "pin_stale").length, 1, "pin_stale journaled once (last_green_sha is not an ancestor of main)"); eq(ev.filter((e) => e.type === "batch_landed").length, 1, "batch_landed still journaled");
   const lg = mdSha(await readFile(path.join(w.fx.root, ".pandacorp/status.yaml"), "utf8"), "last_green_sha"); ok(lg && gitTry(w.fx.root, ["merge-base", "--is-ancestor", lg, "main"]).ok === false, "the stale pin really is not an ancestor");
   eq(shippedSha((await cardState(w)).text), second.sha, "shipped_sha"); await assertNoReleaseVar(w); await assertMainUntouched(w, before, { stubMovedMain: true });
@@ -513,6 +515,21 @@ await test("mq 11: the patch attempt follows the highest attempt of the run's un
   eq((await readState(w)).units.find((u) => u.kind === "patch").attempt, 3, "attempt 2 + 1");
 }));
 
+await test("T-C05 mq 11 with the 3-execution budget exhausted (build attempt 3): hand-back, units AND dependents blocked (R4), WO BLOCKED on the lane, no patch unit, decisions entry pending, main untouched", async () => withWorld("exit11c", { attempt: 3 }, async (w) => {
+  const before = await snapshot(w);
+  const { second } = await mqRound(w, "11");
+  eq(second.result, "handback", "result"); eq(second.reason, "g3_red", "reason"); eq(second.mq_exit, 11, "mq_exit"); if (exitKey(second) !== undefined) eq(exitKey(second), 6, "land exit");
+  eq(second.patch_unit ?? null, null, "patch_unit is null: no budget left for a patch");
+  const st = await readState(w);
+  ok(!st.units.some((u) => u.kind === "patch"), "no patch unit queued");
+  eq(unitOf(st, "u-build-wo-01-001").state, "blocked", "the fixed build unit is blocked, never left verified (next would land again) nor parked (R4)");
+  ok(!st.units.some((u) => u.kind === "build" && (u.state === "verified" || u.state === "landed")), "no build unit stays verified or landed");
+  ok(/^implementation_status:\s*BLOCKED\s*$/m.test(await readFile(path.join(w.wt, woPath("frd-01-alpha", "WO-01-001")), "utf8")), "the WO is BLOCKED on the lane");
+  const dec = await readFile(path.join(w.fx.root, ".pandacorp/inbox/decisions.md"), "utf8"); ok(/pending|pendiente/i.test(dec), "a pending entry was added to decisions.md");
+  eq((await readEvents(w)).filter((e) => e.type === "batch_landed").length, 0, "no batch_landed");
+  await assertNoReleaseVar(w); await assertMainUntouched(w, before);
+}));
+
 for (const [code, reason] of [[12, "busy_main"], [14, "port_busy"]]) {
   await test(`mq ${code}: nothing_to_land ${reason} (exit 0), NOT a handback and no patch; retried at the next safe point without a second metadata commit; then lands`, async () => withWorld(`exit${code}`, {}, async (w) => {
     const before = await snapshot(w); const { second } = await mqRound(w, `${code}`);
@@ -522,7 +539,7 @@ for (const [code, reason] of [[12, "busy_main"], [14, "port_busy"]]) {
     const tipAfterFirst = laneTip(w);
     const { second: later } = await mqRound(w, "0:ff");   // next safe point: the engine tries again
     eq(w.jobs.spawns.length, 2, "a new land job at the next safe point"); eq(later.result, "landed", "the retry lands"); eq(changeCount(w), 1, "a retry never stacks a second Change: commit");
-    eq(git(w.wt, ["rev-parse", "HEAD"]), tipAfterFirst, "the existing metadata commit is reused while main did not move"); await assertNoReleaseVar(w);
+    eq(git(w.wt, ["rev-parse", "HEAD~1"]), git(w.wt, ["rev-parse", `${tipAfterFirst}~1`]), "only the metadata commit is rewritten, on the same code tip"); await assertNoReleaseVar(w);
   }));
 }
 

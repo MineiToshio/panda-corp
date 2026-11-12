@@ -146,7 +146,9 @@ function buildModel(input = {}, deps = {}) {
   const unitOfWo = new Map();
   for (const u of units) if (u.kind === "build" || u.kind === "patch") for (const w of u.wos ?? []) unitOfWo.set(norm(w), u.id);
   const claimed = new Set(unitOfWo.keys());
-  const stalled = units.filter((u) => STALLED_STATES.has(u.state) && PLANNED_KINDS.has(u.kind));
+  // Work built on an unaccepted assumption lives on `lane/<run>/assume-<doubt>`, not on the integration branch: its WOs are
+  // roots that hold new dependents until the owner answers (they would be built without that code).
+  const stalled = units.filter((u) => (STALLED_STATES.has(u.state) || isAssumed(u)) && PLANNED_KINDS.has(u.kind));
   const blockedRoots = uniq([...stalled.flatMap((u) => u.wos ?? []).map(norm), ...[...nodes.values()].filter((n) => n.status === "BLOCKED").map((n) => n.id)]).filter((id) => nodes.has(id));
 
   const open = input.questions ?? null;
@@ -209,10 +211,10 @@ function makeDepth(m) {
 
 function routeCell(m, kind, wos) {
   const { label, size, quota, shape, coordinator, sessionModel } = m.route;
-  if (!label) return null;
+  if (!label && !m.deps.cellOf) return null;
   const zone = maxZone(wos.map((n) => n.zone));
   const reopen = Math.max(0, ...wos.map((n) => n.reopen));
-  const unit = { kind, size, zone, reopen_count: reopen, attempt: 1 };
+  const unit = { kind, size, zone, reopen_count: reopen, attempt: 1, wos: wos.map((n) => n.id) };
   const ctx = { label, zone, reopen_count: reopen, attempt: 1, quota, shape, coordinator, sessionModel };
   return m.deps.cellOf ? m.deps.cellOf(unit, ctx) : builderCell(unit, ctx, m.deps.routing);
 }
@@ -387,11 +389,23 @@ function unitDep(m, sim, depId) {
 
 function candidateReady(m, sim, cand) {
   const { unit } = cand;
-  if (unit.parked || (cand.existing && pendingIrreversible(m, unit))) return false;
+  if ((unit.parked && !isAssumed(unit)) || (cand.existing && pendingIrreversible(m, unit))) return false;
   if (!unit.depends_on.every((d) => unitDep(m, sim, d) === true)) return false;
   if (!cand.existing || !["build", "patch", "tests"].includes(unit.kind)) return true;
   const inside = new Set((unit.wos ?? []).map(norm));
-  return [...inside].every((id) => { const n = m.nodes.get(id); return n !== undefined && depsMet(m, sim, n, inside); });
+  // A unit built on an assumption also counts the WOs already built on the SAME assumption branch as done.
+  if (isAssumed(unit)) for (const id of m.unitOfWo.keys()) if (assumedDoneOn(m, sim, id, unit.pending_answer)) inside.add(id);
+  return [...(unit.wos ?? []).map(norm)].every((id) => { const n = m.nodes.get(id); return n !== undefined && depsMet(m, sim, n, inside); });
+}
+
+/** A unit built on an assumption (BUILD-12): dispatchable from its assume branch, never landed until the owner answers. */
+const isAssumed = (u) => u?.parked === "built_on_assumption";
+
+/** Is WO `woId` built (unit integrated-or-later) by a unit on the assumption branch of `doubt`? */
+function assumedDoneOn(m, sim, woId, doubt) {
+  const id = m.unitOfWo.get(woId);
+  const u = id && m.unitById.get(id);
+  return Boolean(u && isAssumed(u) && u.pending_answer === doubt && (UNIT_DONE.has(u.state) || sim.unitDone.has(u.id)));
 }
 
 function pendingIrreversible(m, unit) {

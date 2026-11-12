@@ -47,6 +47,8 @@ export async function readDeferred(project, deps = {}) {
  */
 export async function writeDeferred(project, entries, deps = {}) {
   const { fs = fsp } = deps;
+  const lease = await (deps.buildState?.currentLease ?? (await import("../build-state.mjs")).currentLease)(project);
+  if (!lease) throw Object.assign(new Error("deferred-reviews.json is written only inside a run"), { code: "INVALID_STATE" });
   assertValid(await loadSchema("deferred-reviews", { fs }), entries, { label: "deferred-reviews.json", code: "INVALID_STATE" });
   await atomicWriteJson(buildPaths(project, deps).deferredReviewsFile, entries, { fs });
   return entries;

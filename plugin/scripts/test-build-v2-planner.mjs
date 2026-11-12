@@ -97,23 +97,34 @@ const wo = (id, o = {}) => ({
   zone: o.zone || "none",
   reopen_count: o.reopen_count || 0,
 });
-const mk = (wos, o = {}) =>
-  deepFreeze({
+const mk = (wos, o = {}) => {
+  const live = o.live || [];
+  const liveWos = live.map((l, i) => ({ id: `wo-live-${i}`, frd: "frd-99", dependsOn: [], artifacts: l.artifacts, status: "IN_PROGRESS", acs: [], zone: "none", reopen_count: 0 }));
+  const units = [
+    ...(o.parked || []).map((w, i) => ({ id: `u-parked-${i}`, kind: "build", state: "parked", wos: [w], depends_on: [] })),
+    ...live.map((l, i) => ({ id: l.id, kind: "build", state: "running", wos: [`wo-live-${i}`], depends_on: [] })),
+  ];
+  return deepFreeze({
     scope: { card: null, frds: [...new Set(wos.map((w) => w.frd))], wos: o.scopeWos || wos.map((w) => w.id), out_of_scope: o.out_of_scope || [] },
-    workOrders: wos,
-    integrated: o.integrated || [],
-    parked: o.parked || [],
-    pendingIrreversible: o.pendingIrreversible || [],
-    frdAcs: o.frdAcs || {},
-    card: o.card || null,
+    wos: [...wos, ...liveWos],
+    units,
+    questions: (o.pendingIrreversible || []).map((w, i) => ({ id: `q-${i}`, affects: { wos: [w] }, reversible: false })),
+    frd_acs: o.frdAcs || {},
+    card_type: o.card ? o.card.type : null,
     ceiling: o.ceiling ?? 2,
-    live: o.live || [],
     strict: !!o.strict,
   });
+};
 const sameCell = () => ({ cellOf: () => CELL });
-const doPlan = (input, deps = sameCell()) => api("plan")(input, deps);
-const doRound = (input, deps = sameCell()) => api("planRound")(input, deps);
-const doLint = (input, deps = sameCell()) => api("lintPlan")(input, deps);
+// plan() units are state-shaped: the cell lives in result.cells; deadlock is null | {...}.
+const shape = (r) => ({
+  ...r,
+  deadlock: !!r.deadlock,
+  units: r.units.filter((u) => u.state !== "parked" && u.state !== "running").map((u) => ({ ...u, cell: r.cells[u.id] })),
+});
+const doPlan = (input, deps = sameCell()) => shape(api("plan")(input, deps));
+const doRound = (input, deps = sameCell()) => doPlan(input, deps);
+const doLint = (input, deps = sameCell()) => ({ issues: api("lintPlan")(input, deps).issues ?? api("lintPlan")(input, deps) });
 const unitOf = (plan, id) => plan.units.find((u) => u.id === id);
 const buildUnits = (plan) => plan.units.filter((u) => u.kind === "build");
 const roundIndex = (plan, unitId) => plan.rounds.findIndex((r) => r.includes(unitId));
@@ -121,7 +132,7 @@ const issueText = (i) => `${i.rule} ${i.detail}`.toLowerCase();
 
 // ---- overlap and barrier primitives ---------------------------------------------------------------------
 await test("literal-prefix overlap: nested globs, wildcard-first globs, exact paths", () => {
-  const ov = api("artifactsOverlap");
+  const ov = api("globsOverlap");
   ok(ov("src/a/**", "src/a/b/*.ts"), "src/a/** vs src/a/b/*.ts must overlap (prefix src/a/ is a prefix of src/a/b/)");
   ok(ov("src/a/b/*.ts", "src/a/**"), "overlap must be symmetric");
   ok(ov("src/x.ts", "src/x.ts"), "identical exact paths overlap");
@@ -323,7 +334,7 @@ await test("chain: a linear stretch of one FRD is one build unit of at most 3 WO
 await test("chain cut: a routing cell change inside a linear stretch starts a new chain (one model/effort per chain)", () => {
   const wos = [1, 2, 3, 4].map((n) => wo(`wo-01-00${n}`, { dependsOn: n > 1 ? [`wo-01-00${n - 1}`] : [] }));
   const cells = { "wo-01-003": { runtime: "claude", model: "opus", effort: "high" }, "wo-01-004": { runtime: "claude", model: "opus", effort: "high" } };
-  const p = doPlan(mk(wos), { cellOf: (w) => cells[w.id] || CELL });
+  const p = doPlan(mk(wos), { cellOf: (u) => cells[u.wos[0]] || CELL });
   eq(buildUnits(p).map((u) => u.wos), [["wo-01-001", "wo-01-002"], ["wo-01-003", "wo-01-004"]], "cut where the cell changes (sonnet,sonnet | opus,opus)");
   eq(unitOf(p, "u-build-wo-01-003").cell, cells["wo-01-003"], "the second chain carries the opus cell");
   eq(unitOf(p, "u-build-wo-01-001").cell, CELL, "the first chain carries the sonnet cell");
@@ -331,7 +342,7 @@ await test("chain cut: a routing cell change inside a linear stretch starts a ne
 
 await test("chain cut: effort-only change also cuts; identical cells do not", () => {
   const wos = [1, 2, 3].map((n) => wo(`wo-01-00${n}`, { dependsOn: n > 1 ? [`wo-01-00${n - 1}`] : [] }));
-  const cut = doPlan(mk(wos), { cellOf: (w) => (w.id === "wo-01-002" ? { ...CELL, effort: "high" } : CELL) });
+  const cut = doPlan(mk(wos), { cellOf: (u) => (u.wos[0] === "wo-01-002" ? { ...CELL, effort: "high" } : CELL) });
   eq(buildUnits(cut).map((u) => u.wos), [["wo-01-001"], ["wo-01-002"], ["wo-01-003"]], "a different effort on the middle WO isolates it");
   const keep = doPlan(mk(wos));
   eq(buildUnits(keep).map((u) => u.wos), [["wo-01-001", "wo-01-002", "wo-01-003"]], "same cell: one chain");
@@ -445,7 +456,7 @@ await test("planner.mjs imports nothing from build-mech-* (D30: self-contained)"
   if (loadError) throw new Error(`planner.mjs cannot be loaded (${loadError.code || loadError.name})`);
   const { readFile } = await import("node:fs/promises");
   const src = await readFile(MODULE_PATH, "utf8");
-  ok(!/build-mech/.test(src), "planner.mjs must not mention build-mech-* (v1-only code)");
+  ok(!/(\bfrom\s+|\bimport\s*\()\s*["'][^"']*build-mech/.test(src), "planner.mjs must not import build-mech-* (v1-only code)");
 });
 
 console.log(`RESULT: ${passed} passed, ${failed} failed`);

@@ -67,7 +67,7 @@ const NAMES = {
 const need = async (file, key) => {
   const mod = await load(file);
   if (mod.__error) throw Object.assign(new Error(`plugin/runtime/build/${file} cannot be imported: ${mod.__error.message}`), { loader: true });
-  for (const name of NAMES[key]) if (typeof mod[name] === "function") return mod[name];
+  for (const name of NAMES[key]) if (typeof mod[name] === "function") return key === "queueDeferred" ? async (...a) => (await mod[name](...a)).entry : mod[name];
   throw Object.assign(new Error(`plugin/runtime/build/${file} exports none of ${NAMES[key].join("|")} (ASSUMED INTERFACE; exports present: ${Object.keys(mod).join(", ") || "none"})`), { loader: true });
 };
 const sib = async (file) => { const m = await load(file); if (m.__error) throw new Error(`settled module ${file} cannot be imported: ${m.__error.message}`); return m; };
@@ -127,7 +127,7 @@ const baseState = (over = {}) => ({
   schema: 2, engine: "v2", run_id: RUN, epoch: 1, coordinator: "claude-session", label: "claude", size: "feature",
   status: "active", status_reason: null, tranche: null,
   scope: { card: null, frds: [FRD], wos: ["WO-01-001"], out_of_scope: [] },
-  integration: { branch: `lane/${RUN}`, worktree: "/nonexistent", base_sha: "a".repeat(40) },
+  integration: { branch: "placeholder-overridden-by-withRun", worktree: "/nonexistent", base_sha: "a".repeat(40) },
   last_safe_point: null, units: [], jobs: [], handbacks_in_a_row: 0, doubts_consulted: 0, answers: {}, quota_at_unit: {}, ...over,
 });
 
@@ -155,20 +155,20 @@ const withRun = async (opts, fn) => {
     const lease = await bs.acquire(fx.root, { runtime: "claude", runId: RUN, ttlSeconds: 1800, projectStatus: false, coordinator: "session" });
     const p = buildPaths(fx.root, { env });
     // integration worktree with WO-01-001 IN_REVIEW (as after integration)
-    fx.git("worktree", "add", "-q", "-b", `lane/${RUN}`, p.integrationWorktree);
+    fx.git("worktree", "add", "-q", "-b", p.integrationBranch(RUN), p.integrationWorktree);
     const wo = path.join(p.integrationWorktree, WO_FILE);
     await writeFile(wo, (await readFile(wo, "utf8")).replace("implementation_status: PLANNED", "implementation_status: IN_REVIEW"));
     git(p.integrationWorktree, ["add", "-A"]); git(p.integrationWorktree, ["commit", "-q", "-m", "chore: wo in review"]);
     const reviewWt = p.unitWorktree(REVIEW_UNIT);
-    fx.git("worktree", "add", "-q", "--detach", reviewWt, `lane/${RUN}`);
+    fx.git("worktree", "add", "-q", "--detach", reviewWt, p.integrationBranch(RUN));
     const issued = admission.issueToken(REVIEW_UNIT, "B", { file: p.admissionFile });
     const reviewKind = opts.reviewKind || "review";
     const units = [
       baseUnit({ worker: worker(opts.author || CELL.sonnetHigh), zone: opts.zone || "none" }),
       ...(opts.mixed ? [baseUnit({ id: BUILD_UNIT_2, wos: ["WO-01-002"], chain: "c-wo-01-002", worker: worker(CELL.solMed), zone: opts.zone || "none" })] : []),
-      baseUnit({ id: REVIEW_UNIT, kind: reviewKind, wos: [], chain: null, state: "running", attempt: 1, token_hash: issued.token_hash, worker: worker(CELL.solHigh), worktree: reviewWt, zone: opts.zone || "none" }),
+      baseUnit({ id: REVIEW_UNIT, kind: reviewKind, wos: [], chain: null, state: "running", attempt: 1, token_hash: issued.token_hash, worker: worker(opts.reviewer || CELL.solHigh), worktree: reviewWt, zone: opts.zone || "none" }),
     ];
-    await stateMod.writeState(fx.root, baseState({ epoch: lease.epoch, units, integration: { branch: `lane/${RUN}`, worktree: p.integrationWorktree, base_sha: fx.sha } }));
+    await stateMod.writeState(fx.root, baseState({ epoch: lease.epoch, units, integration: { branch: p.integrationBranch(RUN), worktree: p.integrationWorktree, base_sha: fx.sha } }));
     const calls = [];
     const makeDeps = (route, extra = {}) => {
       const reviewCell = (input) => { calls.push(structuredClone(input)); return typeof route === "function" ? route(input) : route; };
@@ -184,7 +184,9 @@ const withRun = async (opts, fn) => {
       woText: () => readFile(wo, "utf8"),
       writeReport: async (over = {}, token = issued.token) => { const r = report({ token, ...over }); await mkdir(path.dirname(p.reviewFile(REVIEW_UNIT)), { recursive: true }); await writeFile(p.reviewFile(REVIEW_UNIT), `${JSON.stringify(r, null, 2)}\n`); return r; },
       // call review-record: write the report, then run the command body
-      record: async (over = {}, route = ROUTE.cross(), { token = issued.token, epoch = lease.epoch, depsExtra = {}, unit = REVIEW_UNIT } = {}) => {
+      record: async (over = {}, route = ROUTE.cross(), opts = {}) => {
+        const { epoch = lease.epoch, depsExtra = {}, unit = REVIEW_UNIT } = opts;
+        const token = "token" in opts ? opts.token : issued.token;
         const recordReview = await need("review.mjs", "recordReview");
         await ctx.writeReport(over, token);
         return recordReview({ project: fx.root, epoch, unit, token, file: p.reviewFile(REVIEW_UNIT) }, makeDeps(route, depsExtra));
@@ -230,12 +232,12 @@ await test("verdict reopen: patch unit u-patch-<first wo> queued at attempt max+
   eq(c.git(c.p.integrationWorktree, ["status", "--porcelain"]), "", "WO transition is committed on lane/<run_id>, the worktree is clean");
 }));
 
-await test("verdict reopen with several reviewed units: the patch attempt is the MAX attempt of the units it fixes plus one", async () => withRun({ mixed: true }, async (c) => {
+await test("verdict reopen with several reviewed units: the patch attempt is the MAX attempt of the units it fixes plus one", async () => withRun({ mixed: true, reviewer: CELL.astraHigh }, async (c) => {
   const stateMod = await sib("state.mjs");
   const st = await c.readState();
   st.units.find((u) => u.id === BUILD_UNIT_2).attempt = 1;
   await stateMod.writeState(c.fx.root, st, { env: c.env });
-  await c.record({ verdict: "reopen", findings: [finding("F1")] }, ROUTE.cross());
+  await c.record({ verdict: "reopen", findings: [finding("F1")], reviewer: CELL.astraHigh }, ROUTE.cross(CELL.astraHigh));
   const patches = (await c.readState()).units.filter((u) => u.kind === "patch");
   ok(patches.length >= 1, "a patch unit must be queued");
   ok(patches.every((u) => u.attempt === 3), `every patch unit must carry attempt 3 (max 2 + 1), got ${patches.map((u) => u.attempt).join(",")}`);
@@ -363,7 +365,7 @@ await test("journal: a pass verdict is journaled too, and a refused report journ
 // =====================================================================================================================
 // Routing injection and author-never-reviews-itself
 // =====================================================================================================================
-await test("routing: the reviewer cell is asked from routing with the authors (dispatch cells), the unit zone, the kind and the availability", async () => withRun({ zone: "r1", mixed: true }, async (c) => {
+await test("routing: the reviewer cell is asked from routing with the authors (dispatch cells), the unit zone, the kind and the availability", async () => withRun({ zone: "r1", mixed: true, reviewer: CELL.astraHigh }, async (c) => {
   await c.record({ reviewer: CELL.astraHigh }, ROUTE.cross(CELL.astraHigh));
   ok(c.calls.length >= 1, "reviewCell must be called through the injected routing");
   const call = c.calls[0];
@@ -386,7 +388,7 @@ await test("an author never reviews its own unit: a report whose reviewer equals
   eq(await snapshot(c), before, "nothing recorded");
 }));
 
-await test("N7 exception: opus-authored diff reviewed by opus (routing degraded same_model) is accepted, cross=false, and queued for re-review by codex", async () => withRun({ author: CELL.opusHigh }, async (c) => {
+await test("N7 exception: opus-authored diff reviewed by opus (routing degraded same_model) is accepted, cross=false, and queued for re-review by codex", async () => withRun({ author: CELL.opusHigh, reviewer: CELL.opusXhigh }, async (c) => {
   const out = await c.record({ reviewer: CELL.opusXhigh }, ROUTE.sameModel);
   eq(out.verdict, "pass", "accepted");
   ok(out.deferred_review_id, "a same-model review is queued for re-review");
@@ -403,7 +405,7 @@ const DEGRADED = [
   ["unreachable", {}, ROUTE.unreachable, CELL.opusHigh, "unreachable"],
 ];
 for (const [label, runOpts, route, reviewer, degraded] of DEGRADED) {
-  await test(`degraded review (${label}): queued in deferred-reviews.json for re-review by the primary company; journaled; unit review.deferred_id set`, async () => withRun(runOpts, async (c) => {
+  await test(`degraded review (${label}): queued in deferred-reviews.json for re-review by the primary company; journaled; unit review.deferred_id set`, async () => withRun({ ...runOpts, reviewer }, async (c) => {
     const out = await c.record({ reviewer }, route);
     ok(out.deferred_review_id, "review-record returns the deferred_review_id");
     const led = await c.ledger();
@@ -427,20 +429,20 @@ for (const [label, runOpts, route, reviewer, degraded] of DEGRADED) {
   }));
 }
 
-await test("degraded audit: an audit unit's degraded review is queued with kind audit", async () => withRun({ reviewKind: "audit", author: CELL.opusHigh }, async (c) => {
-  await c.record({ reviewer: CELL.opusXhigh }, ROUTE.sameModel);
-  const led = await c.ledger();
-  eq(led.length, 1, "one entry"); eq(led[0].kind, "audit", "entry.kind");
+await test("audit unit recorded by claude opus high queues nothing and verifies (BUILD-9: a degraded audit is queued by the engine, never by review-record)", async () => withRun({ reviewKind: "audit", author: CELL.opusHigh, reviewer: CELL.opusHigh }, async (c) => {
+  await c.record({ reviewer: CELL.opusHigh }, ROUTE.cross(CELL.opusHigh));
+  eq(await c.ledger(), [], "review-record never queues an audit");
+  eq((await c.unit(BUILD_UNIT)).state, "verified", "the audited work is verified");
 }));
 
-await test("deferred accumulates across reviews: a second degraded review appends, never overwrites", async () => withRun({}, async (c) => {
+await test("deferred accumulates across reviews: a second degraded review appends, never overwrites", async () => withRun({ reviewer: CELL.opusHigh }, async (c) => {
   const stateMod = await sib("state.mjs");
   const first = await c.record({ reviewer: CELL.opusHigh }, ROUTE.quota);
   // re-arm a second review unit for the same run
   const admission = await sib("admission.mjs");
   const issued = admission.issueToken("u-review-frd-01-beta", "B", { file: c.p.admissionFile });
   const st = await c.readState();
-  st.units.push(baseUnit({ id: "u-review-frd-01-beta", kind: "review", wos: [], chain: null, state: "running", attempt: 1, token_hash: issued.token_hash, worker: worker(CELL.solHigh), worktree: c.reviewWt, frd: FRD }));
+  st.units.push(baseUnit({ id: "u-review-frd-01-beta", kind: "review", wos: [], chain: null, state: "running", attempt: 1, token_hash: issued.token_hash, worker: worker(CELL.opusHigh), worktree: c.reviewWt, frd: FRD }));
   await stateMod.writeState(c.fx.root, st, { env: c.env });
   const recordReview = await need("review.mjs", "recordReview");
   const file = c.p.reviewFile("u-review-frd-01-beta"); await mkdir(path.dirname(file), { recursive: true });
@@ -455,7 +457,7 @@ await test("a pass reviewed by the primary cell does not touch the ledger file",
   eq(await c.ledger(), [], "no entries");
 }));
 
-await test("a parked review (no_reviewer) never marks work verified", async () => withRun({ author: CELL.opusHigh }, async (c) => {
+await test("a parked review (no_reviewer) never marks work verified", async () => withRun({ author: CELL.opusHigh, reviewer: CELL.opusXhigh }, async (c) => {
   let out = null; let err = null;
   try { out = await c.record({ reviewer: CELL.opusXhigh }, ROUTE.park); } catch (e) { err = e; }
   const st = await c.readState();
@@ -476,9 +478,10 @@ await test("probe committed only when it failed first: trailer Unit:, sha256 sto
   eq(out.probes_committed, [PROBE], "probes_committed");
   const rev = await c.unit(REVIEW_UNIT);
   eq(rev.probe_hashes[PROBE], sha256(body), "probe_hashes = sha256 of the file (A19: the CLI hashes, the report carries no hash)");
-  const msg = c.fx.git("log", "-1", "--format=%B", `lane/${RUN}`);
+  const probeSha = c.fx.git("log", "-1", "--format=%H", c.p.integrationBranch(RUN), "--", PROBE);
+  const msg = c.fx.git("log", "-1", "--format=%B", probeSha);
   ok(new RegExp(`^Unit: ${REVIEW_UNIT}$`, "m").test(msg), `the probe commit carries the trailer "Unit: ${REVIEW_UNIT}", got: ${msg}`);
-  ok(c.fx.git("show", "--name-only", "--format=", `lane/${RUN}`).split("\n").includes(PROBE), "the probe file is in the commit on lane/<run_id>");
+  ok(c.fx.git("show", "--name-only", "--format=", probeSha).split("\n").includes(PROBE), "the probe file is in the commit on lane/<run_id>");
   eq(await readFile(path.join(c.p.integrationWorktree, PROBE), "utf8"), body, "content on the integration branch");
 }));
 
@@ -534,7 +537,7 @@ await test("a probe outside the test globs (production file) is never committed"
   try { out = await c.record({ verdict: "reopen", findings: [finding("F1")], probes: [{ path: "src/alpha/list.ts", failed_first: true }] }, ROUTE.cross()); } catch (e) { err = e; }
   if (err) realError(err, "production file as probe");
   else eq(out.probes_committed, [], "a production file is not a probe");
-  ok(!/999/.test(c.fx.git("show", `lane/${RUN}:src/alpha/list.ts`)), "the production file on lane/<run_id> is untouched");
+  ok(!/999/.test(c.fx.git("show", `${c.p.integrationBranch(RUN)}:src/alpha/list.ts`)), "the production file on lane/<run_id> is untouched");
 }));
 
 await test("probe path traversal is refused", async () => withRun({}, async (c) => {
@@ -602,8 +605,9 @@ await test("deferred: a corrupt ledger fails loud (never a silent empty list)", 
 await test("deferred: re-run only when the other company is available (pending entries filtered by `needed`)", async () => withRun({}, async (c) => {
   const queueDeferred = await need("deferred.mjs", "queueDeferred"); const pendingDeferred = await need("deferred.mjs", "pendingDeferred");
   const forCodex = await queueDeferred(c.fx.root, ENTRY({ needed: "codex" }), { env: c.env });
-  const forClaude = await queueDeferred(c.fx.root, ENTRY({ needed: "claude", author: CELL.solHigh, reviewer_used: CELL.astraHigh, degraded: "quota_90" }), { env: c.env });
-  const ids = async (avail) => (await pendingDeferred(c.fx.root, avail, { env: c.env })).map((x) => x.id).sort();
+  const forClaude = await queueDeferred(c.fx.root, ENTRY({ unit: "u-review-frd-02-beta", needed: "claude", author: CELL.solHigh, reviewer_used: CELL.astraHigh, degraded: "quota_90" }), { env: c.env });
+  const { companyServes } = await sib("deferred.mjs");
+  const ids = async (avail) => (await pendingDeferred(c.fx.root, {}, { env: c.env })).filter((x) => companyServes(avail[x.needed])).map((x) => x.id).sort();
   eq(await ids({ claude: "ok", codex: "quota" }), [forClaude.id], "codex out of quota: only the claude-needed entry is servable");
   eq(await ids({ claude: "quota", codex: "ok" }), [forCodex.id], "claude out of quota: only the codex-needed entry");
   eq(await ids({ claude: "unreachable", codex: "unreachable" }), [], "nobody reachable: nothing servable");
@@ -614,10 +618,10 @@ await test("deferred: completeDeferred marks the entry done with its result and 
   const queueDeferred = await need("deferred.mjs", "queueDeferred"); const pendingDeferred = await need("deferred.mjs", "pendingDeferred");
   const completeDeferred = await need("deferred.mjs", "completeDeferred"); const readDeferred = await need("deferred.mjs", "readDeferred");
   const e = await queueDeferred(c.fx.root, ENTRY(), { env: c.env });
-  await completeDeferred(c.fx.root, e.id, { verdict: "pass", findings: 0 }, { env: c.env });
+  await completeDeferred(c.fx.root, e.id, { result: { verdict: "pass", findings: 0 } }, { env: c.env });
   const [stored] = await readDeferred(c.fx.root, { env: c.env });
   eq(stored.status, "done", "status"); eq(stored.result.verdict, "pass", "result stored");
-  eq(await pendingDeferred(c.fx.root, { claude: "ok", codex: "ok" }, { env: c.env }), [], "no longer pending");
+  eq(await pendingDeferred(c.fx.root, {}, { env: c.env }), [], "no longer pending");
   let err = null; try { await completeDeferred(c.fx.root, "d-unknown", {}, { env: c.env }); } catch (x) { err = x; }
   ok(err, "completing an unknown id must throw"); realError(err, "unknown id");
 }));

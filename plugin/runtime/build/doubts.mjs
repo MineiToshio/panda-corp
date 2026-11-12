@@ -187,7 +187,7 @@ export async function pendingConsult(project, unit, deps = {}) {
   return {
     doubt_id: record.id, unit: unit.id, runtime: consult.runtime, model: consult.model, effort: consult.effort, via: consult.via,
     model_slug: consult.via === "cli" ? modelSlug(consult, deps.tiers ? { tiers: deps.tiers } : undefined) : null,
-    brief_path: consult.brief_path, report_path: paths.reportFile(unit.id), schema_path: paths.schemaFile("doubt-answer"), answered: consult.answer !== null,
+    brief_path: consult.brief_path, report_path: paths.unitAnswerFile(unit.id), schema_path: paths.schemaFile("doubt-answer"), answered: consult.answer !== null,
   };
 }
 
@@ -490,10 +490,21 @@ async function writeInbox(project, integrationRoot, entry, deps) {
   return { rel, tracked };
 }
 
+/**
+ * Stage paths in the integration worktree. A force-tracked file under a gitignored directory (decisions.md under
+ * .pandacorp/inbox) is refused by a plain `git add`: use `git add -u`, then `git add -f` (code-conventions trap).
+ */
+async function gitAddTracked(exec, root, files) {
+  const plain = await exec("git", ["add", "-u", "--", ...files], { cwd: root });
+  const untracked = await exec("git", ["ls-files", "--others", "--", ...files], { cwd: root });
+  if (plain.code === 0 && untracked.code === 0 && !untracked.stdout.trim()) return plain;
+  return exec("git", ["add", "-f", "--", ...files], { cwd: root });
+}
+
 async function commitIntegration(root, files, message, deps) {
   const exec = deps.exec ?? defaultExec;
   if (!files.length) return null;
-  const add = await exec("git", ["add", "--", ...files], { cwd: root });
+  const add = await gitAddTracked(exec, root, files);
   if (add.code !== 0) throw err("FAILCLOSED", `git add failed in the integration worktree: ${oneLine(add.stderr, 200)}`);
   const commit = await exec("git", ["commit", "-q", "-m", message, "--", ...files], { cwd: root });
   if (commit.code !== 0) throw err("FAILCLOSED", `git commit failed in the integration worktree: ${oneLine(commit.stderr || commit.stdout, 200)}`);
@@ -583,7 +594,7 @@ async function queueConsult(ctx, state, record, no, deps) {
   const via = cell.runtime === "codex" ? "cli" : "agent";
   const consult = { runtime: cell.runtime, model: cell.model, effort: cell.effort, via, unit: unitId, brief_path: ctx.paths.briefFile(unitId), answer: null };
   const consultUnit = newUnit({ id: unitId, kind: "doubt-consult", frd: unit?.frd ?? null, doubt_id: record.id, zone: "none" });
-  await consultBrief({ project: ctx.project, state, record, unit, consult, no, origin, reportPath: ctx.paths.reportFile(unitId) }, deps);
+  await consultBrief({ project: ctx.project, state, record, unit, consult, no, origin, reportPath: ctx.paths.unitAnswerFile(unitId) }, deps);
   const nextRecord = { ...record, step: no === 1 ? "consult1" : "consult2", consults: [...record.consults, consult] };
   const nextState = { ...state, units: [...state.units, consultUnit], doubts_consulted: (state.doubts_consulted ?? 0) + (no === 1 ? 1 : 0) };
   await ctx.appendEvent({ type: "unit_queued", data: consultUnit });
@@ -816,7 +827,7 @@ export async function ingestConsultAnswer(ctx, state, { doubtId, answer }, deps 
 export async function answerDoubt({ project, epoch, id, file, token = null }, deps = {}) {
   if (!id) throw err("USAGE", "--id is required");
   const answer = await readInputFile(file, deps);
-  return fencedTwoPhase({ project, epoch, actor: deps.actor ?? "cli", deps }, async (ctx) => {
+  return fencedTwoPhase({ project, epoch, actor: deps.actor ?? "cli", deps }, undefined, undefined, async (_result, _intent, ctx) => {
     const state = await ctx.readState();
     if (!state) throw err("INVALID_STATE", "no run state: start the run first");
     const record = await readDoubt(project, id, deps);

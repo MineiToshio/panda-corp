@@ -82,8 +82,8 @@ export function buildAnnounce(input = {}) {
   const card = input.card ?? null;
   const lines = [];
   lines.push(card ? `Tarjeta: ${clip(card.title)} (${card.slug})` : "Plan pendiente del proyecto, sin tarjeta nueva");
-  lines.push(frds.length ? `FRDs: ${frds.join(", ")}` : "FRDs: los que defina el primer paso de documentos");
-  lines.push(wos.length ? `Tareas: ${wos.length} pendientes` : "Tareas: las crea el primer paso de documentos");
+  lines.push(frds.length ? `Los FRDs del alcance son: ${frds.join(", ")}` : "Los FRDs los define el primer paso de documentos");
+  lines.push(wos.length ? `Hay ${wos.length} tareas pendientes en el alcance` : "Las tareas las crea el primer paso de documentos");
   const dentro = asArray(card?.dentro);
   if (dentro.length) {
     const preview = dentro.slice(0, SCOPE_PREVIEW_ITEMS).map((i) => clip(i.text, 70)).join("; ");
@@ -208,7 +208,9 @@ function collectOpenQuestions({ state, preflight, doubts, degradedPending }) {
 
 // ------------------------------------------------------------------------------------------- decisions, parked, reviews
 
-function decidedWithoutOwner(doubts, runId) {
+const ITEM_KEYS = ["doubt_id", "question", "chosen", "advised_by", "confidence", "revert_hint"];
+
+function decidedWithoutOwner(doubts, runId, events) {
   const out = [];
   for (const d of asArray(doubts)) {
     if (d.step !== "decided" || !d.decision || d.decision.decided_by === "owner") continue;
@@ -229,19 +231,31 @@ function decidedWithoutOwner(doubts, runId) {
       revert_hint: `Pide una tarjeta nueva que revierta la decisión ${d.id} (entrada "Decidido sin el owner" en docs/decision-log.md de lane/${runId}).`,
     });
   }
+  const seen = new Set(out.map((d) => d.doubt_id));
+  for (const ev of asArray(events)) {
+    const data = ev?.type === "autonomous_decision" ? ev.data : null;
+    if (!data || seen.has(data.doubt_id) || !ITEM_KEYS.every((k) => data[k] !== undefined)) continue;
+    seen.add(data.doubt_id);
+    out.push(Object.fromEntries(ITEM_KEYS.map((k) => [k, data[k]])));
+  }
   return out;
 }
 
 function parkedItems(state, doubts, events) {
   const byId = new Map(asArray(doubts).map((d) => [d.id, d]));
   const handbackReason = new Map();
-  for (const ev of asArray(events)) if (ev.type === "handback" && ev.data?.unit) handbackReason.set(ev.data.unit, ev.data.reason ?? null);
+  const parkedText = new Map();
+  for (const ev of asArray(events)) {
+    if (ev.type === "handback" && ev.data?.unit) handbackReason.set(ev.data.unit, ev.data.reason ?? null);
+    // The `parked` event carries the question id (park.mjs); free text is accepted too when no doubt record exists.
+    if (ev.type === "parked" && ev.data?.unit && /\s/.test(String(ev.data.question ?? ""))) parkedText.set(ev.data.unit, ev.data.question);
+  }
   const out = [];
   for (const unit of asArray(state.units)) {
     if (unit.state === "parked" && unit.parked) {
       const doubt = byId.get(unit.pending_answer ?? unit.doubt_id);
       const branch = unit.parked === "built_on_assumption" ? doubt?.assumption?.branch ?? unit.branch ?? null : unit.branch ?? null;
-      out.push({ unit: unit.id, reason: unit.parked, question: doubt?.question ? clip(doubt.question, 300) : null, branch });
+      out.push({ unit: unit.id, reason: unit.parked, question: doubt?.question ? clip(doubt.question, 300) : parkedText.has(unit.id) ? clip(parkedText.get(unit.id), 300) : null, branch });
     } else if (unit.state === "blocked") {
       const reason = handbackReason.get(unit.id);
       out.push({ unit: unit.id, reason: "handback", question: reason ? clip(reason, 300) : null, branch: unit.branch ?? null });
@@ -260,7 +274,7 @@ function reviewTotals(events, deferred) {
   const degraded = [];
   for (const [unit, data] of latest) {
     if (data.cross === true) cross += 1;
-    if (data.degraded && !reReviewed.has(unit) && !reReviewed.has(data.frd)) degraded.push(`${data.frd ?? unit}: ${data.degraded}`);
+    if (data.degraded && !reReviewed.has(unit) && !reReviewed.has(data.frd)) degraded.push(String(data.degraded));
   }
   return { cross, degraded };
 }
@@ -288,10 +302,13 @@ const unitsByState = (state) => {
  *   quota?: {claude?: object|null, codex?: object|null}|null}} input `state` is `build/state.json`, `events` the verified
  *   journal, `doubts` the `build/doubts/<id>.json` records, `preflight` the run's preflight result (`questions[]` or
  *   `checks[]`), `deferred` the deferred-reviews ledger, `quota` the stored readings.
- * @returns {object} `{run_id, status, need_from_owner[], decided_without_owner[], parked[], reviews, deferred_pending,
+ *   Given `{project}` instead of `state`, it loads the run's files through `readSummary` and returns a Promise of the validated object.
+ * @param {object} [deps] forwarded to `readSummary` (`fs`, `env`, `homedir`) in the `{project}` form
+ * @returns {object|Promise<object>} `{run_id, status, need_from_owner[], decided_without_owner[], parked[], reviews, deferred_pending,
  *   open_questions[], status_reason, done, quota, units_by_state}`; `need_from_owner[]` are the numbered lines of "Necesito de ti"
  */
-export function buildSummary(input) {
+export function buildSummary(input, deps = {}) {
+  if (input && !input.state && typeof input.project === "string") return readSummary(input.project, deps);
   const state = input?.state;
   if (!state || typeof state !== "object") throw Object.assign(new Error("buildSummary needs the run state"), { code: "INVALID_STATE" });
   const reviews = reviewTotals(input.events, input.deferred);
@@ -301,7 +318,7 @@ export function buildSummary(input) {
     run_id: state.run_id,
     status: state.status,
     need_from_owner: open.map((q) => `${sentence(q.text_es)} Si no respondes: ${q.default_es ?? "nada cambia"}.`),
-    decided_without_owner: decidedWithoutOwner(input.doubts, state.run_id),
+    decided_without_owner: decidedWithoutOwner(input.doubts, state.run_id, input.events),
     parked: parkedItems(state, input.doubts, input.events),
     reviews,
     deferred_pending: deferredPending,
