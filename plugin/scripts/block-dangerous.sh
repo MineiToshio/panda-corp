@@ -8,59 +8,7 @@ command -v jq >/dev/null 2>&1 || { echo "BLOCKED: Pandacorp safety gate cannot p
 
 input=$(cat)
 cwd=$(echo "$input" | jq -r '.cwd // "."')
-
-# ── Executable-part extraction (HOOK-RM) ─────────────────────────────────────────────────────────────
-# Every rule below reads what the shell would EXECUTE, never prose: heredoc bodies (`cat > f <<'EOF' … EOF`,
-# `git commit -m "$(cat <<'EOF' … EOF)"`) and the insides of quoted strings are text, not commands. A heredoc
-# fed to a SHELL (`bash <<EOF`, `… | sh`) is the one exception: that body IS code, so it is kept.
-_strip_heredocs() {
-  awk '
-    BEGIN { tag = ""; keep = 0 }
-    {
-      if (tag != "") {
-        line = $0; sub(/^[ \t]+/, "", line)
-        if (line == tag) tag = ""
-        else if (keep) print
-        next
-      }
-      print
-      if (match($0, /<<-?[ \t]*\\?["\047]?[A-Za-z_][A-Za-z0-9_]*["\047]?/)) {
-        t = substr($0, RSTART, RLENGTH); gsub(/^<<-?[ \t]*/, "", t); gsub(/["\047\\]/, "", t); tag = t
-        keep = ($0 ~ /(^|[ \t;&|(])(ba|z|da|k)?sh([ \t]|$)|(^|[ \t;&|])(eval|source)[ \t]/)
-      }
-    }'
-}
-
-# Splits a command line into simple commands (one per output line) on ; & | && || and newlines, but ONLY
-# outside quotes — `git commit -m "fix; rm -rf x"` is one command, not two.
-_exec_segments() {
-  awk 'BEGIN { RS = "\001"; sq = "\047"; dq = "\042" }
-  {
-    s = $0; n = length(s); q = ""; out = ""
-    for (i = 1; i <= n; i++) {
-      c = substr(s, i, 1); nx = substr(s, i + 1, 1)
-      if (q != "") {
-        if (c == q) q = ""
-        else if (q == dq && c == "\\") { out = out c nx; i++; continue }
-        if (c == "\n") c = " "
-        out = out c; continue
-      }
-      if (c == "\\") { if (nx == "\n") out = out " "; else out = out c nx; i++; continue }
-      if (c == sq || c == dq) { q = c; out = out c; continue }
-      if (c == "\n" || c == ";") { print out; out = ""; continue }
-      if (c == "&" || c == "|") {
-        pv = substr(s, i - 1, 1)
-        if (c == "&" && (nx == ">" || pv == ">")) { out = out c; continue }
-        if (nx == c) i++
-        print out; out = ""; continue
-      }
-      out = out c
-    }
-    print out
-  }'
-}
-
-cmd=$(echo "$input" | jq -r '.tool_input.command // ""' | _strip_heredocs)
+cmd=$(echo "$input" | jq -r '.tool_input.command // ""')
 
 # Scope: act in Pandacorp folders — a project (.pandacorp/status.yaml, incl. adopted ones) OR the
 # factory (Pandacorp in CLAUDE.md). Resolve from the REPO ROOT, not just the hook cwd: a session
@@ -176,10 +124,10 @@ while IFS= read -r seg; do
   if [ "$at_root" = 1 ]; then
     block "whole-tree 'git $verb' at the root of a repository that hosts a nested Pandacorp project (${nested% }): it would overwrite other sessions' uncommitted work outside your project. Name explicit paths under your project (git $verb … -- <project>/<path>), or ask the owner (BL-0202)"
   fi
-done < <(printf '%s\n' "$cmd" | _exec_segments)
+done < <(printf '%s\n' "$cmd" | awk '{ gsub(/&&|\|\||[;|&]/, "\n"); print }')
 git_cmd="$cmd$git_norm"
 
-# (Broad recursive deletes are handled by the executable-part scan below, next to the protected-state rules.)
+# (The broad recursive-delete rule sits below, after the helpers the narrow allow exception needs.)
 
 # Protected state paths (BL-0035, incident 2026-07-04: mission-control/.pandacorp wiped, the
 # gitignored inbox lost for good — no git history by design). A recursive delete or an
@@ -195,7 +143,7 @@ git_cmd="$cmd$git_norm"
 _protected_under() { # $1 = a path operand; returns 0 if it IS/CONTAINS/IS-INSIDE a protected path
   local p="$1" abs
   case "$p" in -*) return 1 ;; ""|"/"|"~") return 0 ;; esac   # bare /, ~ handled by the broad rule above
-  case "$p" in /*) abs="$p" ;; "~/"*) abs="$HOME/${p#\~/}" ;; *) abs="${base_dir:-$cwd}/$p" ;; esac
+  case "$p" in /*) abs="$p" ;; "~/"*) abs="$HOME/${p#\~/}" ;; *) abs="$cwd/$p" ;; esac
   abs="${abs%/}"
   # Direct mention or inside a protected subtree
   case "$abs" in
@@ -203,9 +151,6 @@ _protected_under() { # $1 = a path operand; returns 0 if it IS/CONTAINS/IS-INSID
     */factory/ideas|*/factory/ideas/*|*/factory/memory|*/factory/memory/*) return 0 ;;
     */factory/profile.md|*/factory/portfolio.md) return 0 ;;
   esac
-  # A LINKED git worktree root (its .git is a FILE) only holds checked-out copies — the gitignored state
-  # layer lives in the main checkout — so deleting the worktree itself is routine cleanup (HOOK-RM).
-  [ -f "$abs/.git" ] && return 1
   # Parent-directory delete: the target exists and CONTAINS a protected dir/file
   if [ -d "$abs" ]; then
     [ -e "$abs/.pandacorp" ] && return 0
@@ -258,106 +203,48 @@ if echo "$cmd" | grep -Eq '(^|[[:space:];&|])git[[:space:]]+worktree[[:space:]]+
   done
 fi
 
-# ── Recursive deletes: `rm -r…` and `find … -delete` (HOOK-RM; supersedes the old text-grep rules) ──────
-# Policy (owner 2026-11-12): agents must be free to delete the specific things they created — scratchpad
-# and research folders, git worktrees, build output — without asking the owner to run anything, while a
-# delete that is BROAD stays blocked. Each `rm` in COMMAND position is analysed on its own, with the
-# working directory tracked through `cd`, and every operand is resolved to an absolute physical path:
-#   ALLOWED  anything strictly inside a temp root (/tmp, /private/tmp, /var/tmp, /var/folders/*/T, $TMPDIR),
-#            a regenerable dir by name (node_modules .next dist build tmp .turbo coverage .cache target out),
-#            any other DEEP named path (>= 4 components, or >= 2 below $HOME): a worktree, a research dir,
-#            a relative named subdirectory after `cd` into a non-root dir (`cd "$S" && rm -rf exp1 exp2`),
-#            `"$VAR/named/sub"` where nothing proves VAR set (an empty VAR leaves one literal top-level
-#            name, never a glob nor the root), and variables assigned in the same command line.
-#   BLOCKED  /, $HOME or ~ itself, `.` / `..` as the target, a temp root itself, a system path (/usr /etc
-#            /Library /private /var …), a shallow path (/Users/x, ~/Documents, /Users/Shared/Proyectos),
-#            globs whose parent is shallow (`/tmp/*`, `~/*`, a bare `*` in $HOME), a bare or trailing-slash
-#            unresolved variable (`rm -rf "$X"`, `"$X/"`, `"$X/*"`: an empty value reaches /, the cwd or a
-#            glob), `$(…)` operands other than mktemp, then the protected state layer and deploy
-#            worktrees (BL-0035, BL-0151).
-_is_sys_top() { case "$1" in Users|etc|usr|bin|sbin|var|Library|System|Applications|opt|home|private|Volumes|tmp|dev|root|cores|mnt|srv|nix) return 0 ;; esac; return 1; }
-
-# Lexical normalisation of an absolute path ("/" for the root).
+# ── HOOK-RM: a NARROW allow exception to the recursive-delete rules (fail-closed) ───────────────────────
+# Policy (owner 2026-11-12): agents may delete the specific things they created (scratch/research dirs,
+# worktrees, build output) without asking the owner to run commands. DESIGN: the delete rules below keep
+# their historical blocking behaviour on the RAW command text, and every other gate in this file still reads
+# the raw text too. Only two shapes are lifted out of the delete rules, each parsed STRICTLY — anything that
+# does not parse falls back to the old (blocking) behaviour:
+#   1. the whole command is `cat > FILE <<'WORD'` + body + the terminator line, nothing after it: the body is
+#      data (quoted delimiter), so words like "rm -rf" in it are not a command (rm_view = the first line only);
+#   2. the whole command is simple `rm` invocations, optionally after `cd /abs/path` and `VAR=/abs/path`,
+#      separated by `&&`, `;` or newlines, whose every operand is a LITERAL path (no `$` except a same-command
+#      VAR prefix, no backtick, glob, ~, .., redirect, pipe, brace, backslash, comment or subshell) that resolves
+#      to an allowed place and is not protected state. A clean parse whose operand is too broad is BLOCKED here.
+# Allowed place: inside a temp root, a regenerable dir by name (node_modules .next dist build tmp .turbo
+# coverage .cache target out), a linked worktree root, or any other path with >= 4 components (>= 2 below $HOME).
 _norm_path() { local IFS=/ c out=""; set -f; for c in $1; do case "$c" in ""|.) ;; ..) out="${out%/*}" ;; *) out="$out/$c" ;; esac; done; set +f; printf '%s' "${out:-/}"; }
-
-# Resolve symlinks through the deepest EXISTING ancestor (macOS: /tmp and /var are symlinks into /private).
-_phys_path() {
+_phys_path() { # resolve symlinks through the deepest EXISTING ancestor (macOS /tmp, /var are links into /private)
   local d="$1" rest="" r
   while [ "$d" != "/" ] && [ ! -d "$d" ]; do rest="/${d##*/}$rest"; d="${d%/*}"; [ -n "$d" ] || d="/"; done
   r=$(cd "$d" 2>/dev/null && pwd -P) || r="$d"
   if [ "$r" = "/" ]; then printf '%s' "${rest:-/}"; else printf '%s' "$r$rest"; fi
 }
-
 HOME_REAL=$(cd "$HOME" 2>/dev/null && pwd -P || printf '%s' "$HOME")
 TMPDIR_REAL=""; [ -n "${TMPDIR:-}" ] && TMPDIR_REAL=$(cd "$TMPDIR" 2>/dev/null && pwd -P)
-base_dir=""; case "$cwd" in /*) base_dir=$(_norm_path "$cwd") ;; esac
-rm_vars="HOME=$HOME"$'\n'; [ -n "${TMPDIR:-}" ] && rm_vars="${rm_vars}TMPDIR=${TMPDIR%/}"$'\n'
-rm_reason=""; rm_path=""
-
-_var_get() { # $1 = name → value on stdout; status 1 if unknown
-  local line val="" found=1
-  while IFS= read -r line; do
-    [ "${line%%=*}" = "$1" ] || continue
-    val="${line#*=}"; found=0
-  done <<< "$rm_vars"
-  [ "$found" = 0 ] && [ "$val" != "@@UNKNOWN" ] || return 1
-  printf '%s' "$val"
-}
-
-# Substitute known variables anywhere in $1; an unknown one becomes the marker @U@. Echoes the result.
-_expand_vars() {
-  local t="$1" re='^(.*)\$(\{?)([A-Za-z_][A-Za-z0-9_]*)(\}?)(.*)$' pre name br cl rest val
-  while [[ $t =~ $re ]]; do
-    pre="${BASH_REMATCH[1]}"; br="${BASH_REMATCH[2]}"; name="${BASH_REMATCH[3]}"; cl="${BASH_REMATCH[4]}"; rest="${BASH_REMATCH[5]}"
-    if [ "$br" = "{" ] && [ -z "$cl" ]; then t="${pre}@U@"; continue; fi   # ${X:-…}, ${X%…}: not modelled
-    if val=$(_var_get "$name"); then t="$pre$val$rest"; else t="$pre@U@$rest"; fi
-  done
-  printf '%s' "$t"
-}
-
-_record_assign() { # $1 = NAME=value token
-  local name="${1%%=*}" v="${1#*=}"
-  v="${v//\"/}"; v="${v//\'/}"
-  case "$v" in
-    '$(mktemp'*|'`mktemp'*) v="/private/tmp/@mktemp" ;;
-    '~') v="$HOME" ;;
-    '~/'*) v="$HOME/${v#\~/}" ;;
-    *) v=$(_expand_vars "$v")
-       case "$v" in *'@U@'*|*'$'*|*'`'*) v="@@UNKNOWN" ;; /*) ;; *) if [ -n "$base_dir" ]; then v="$base_dir/$v"; else v="@@UNKNOWN"; fi ;; esac ;;
-  esac
-  rm_vars="${rm_vars}${name}=${v}"$'\n'
-}
-
-_set_cwd() { # $1 = the cd target
-  local t="$1"
-  t="${t//\"/}"; t="${t//\'/}"
-  case "$t" in ""|"~") base_dir="$HOME"; return ;; "~/"*) t="$HOME/${t#\~/}" ;; "-") base_dir=""; return ;; esac
-  t=$(_expand_vars "$t")
-  case "$t" in
-    *'@U@'*|*'$'*|*'`'*) base_dir="" ;;
-    /*) base_dir=$(_norm_path "$t") ;;
-    *) if [ -n "$base_dir" ]; then base_dir=$(_norm_path "$base_dir/$t"); else base_dir=""; fi ;;
-  esac
-}
-
-# Verdict on a normalised physical absolute path: sets rm_reason when it is too broad to delete.
-_path_verdict() { # $1 = path, $2 = 1 when a temp root itself is acceptable (glob container of a prefixed glob)
-  local p="$1" allow_root="${2:-0}" root slashes rel
+rm_reason=""
+_path_verdict() { # $1 = normalised physical absolute path → sets rm_reason when too broad to delete
+  local p="$1" root slashes rel
+  rm_reason=""
   [ "$p" != "/" ] || { rm_reason="the filesystem root"; return; }
   for root in /tmp /private/tmp /var/tmp /private/var/tmp "$TMPDIR_REAL"; do
     [ -n "$root" ] || continue
-    if [ "$p" = "$root" ]; then [ "$allow_root" = 1 ] || rm_reason="a temp root itself ($root): name the specific subdirectory"; return; fi
+    [ "$p" != "$root" ] || { rm_reason="a temp root itself ($root): name the specific subdirectory"; return; }
     case "$p" in "$root"/*) return ;; esac
   done
   case "$p" in
-    /var/folders/*/T|/private/var/folders/*/T) [ "$allow_root" = 1 ] || rm_reason="a temp root itself ($p)"; return ;;
+    /var/folders/*/T|/private/var/folders/*/T) rm_reason="a temp root itself ($p)"; return ;;
     /var/folders/*/T/*|/private/var/folders/*/T/*) return ;;
     /System|/System/*|/usr|/usr/*|/bin|/bin/*|/sbin|/sbin/*|/etc|/etc/*|/private|/private/*|/var|/var/*|/Library|/Library/*|/Applications|/Applications/*|/opt|/opt/*|/Volumes|/Volumes/*|/dev|/dev/*|/cores|/cores/*)
       rm_reason="a system path ($p)"; return ;;
   esac
   slashes="${p//[^\/]/}"
   case "${p##*/}" in node_modules|.next|dist|build|tmp|.turbo|coverage|.cache|target|out) [ "${#slashes}" -ge 2 ] && return ;; esac
-  if [ "$p" = "$HOME_REAL" ]; then rm_reason="your home directory"; return; fi
+  [ "$p" != "$HOME_REAL" ] || { rm_reason="your home directory"; return; }
   case "$p" in
     "$HOME_REAL"/*)
       rel="${p#"$HOME_REAL"}"; slashes="${rel//[^\/]/}"
@@ -366,199 +253,168 @@ _path_verdict() { # $1 = path, $2 = 1 when a temp root itself is acceptable (glo
   esac
 }
 
-# Resolves ONE rm operand. Sets rm_reason (non-empty = too broad) and rm_path (best-known lexical absolute
-# path, for the protected-state checks). Operands arrive with quotes still on.
-_rm_operand_reason() {
-  local t="$1" unk=0 last first gdir container pre rest allow_root=0 abs
-  rm_reason=""; rm_path=""
-  t="${t//\"/}"; t="${t//\'/}"
-  while :; do case "$t" in *')'|*'}') t="${t%?}" ;; *) break ;; esac; done
-  [ -n "$t" ] || return 0
-  case "$t" in
-    '$('*|'`'*)
-      case "$t" in '$(mktemp'*|'`mktemp'*) rm_path="/private/tmp/@mktemp"; return 0 ;; esac
-      rm_reason="a command substitution (the target cannot be known): assign it with mktemp or spell the path out"; return 0 ;;
-    "~") t="$HOME" ;;
-    "~/"*) t="$HOME/${t#\~/}" ;;
-    "~"*) rm_reason="a ~user path"; return 0 ;;
-  esac
-  t=$(_expand_vars "$t")
-  case "$t" in
-    '@U@'*) unk=1; t="${t#@U@}" ;;
-  esac
-  case "$t" in *'@U@'*) t="${t%%@U@*}" ;; esac          # a variable mid-path: assume it is empty (worst case)
-  case "$t" in *'$'*|*'`'*) t="${t%%[\$\`]*}" ;; esac    # positional/special parameters: same
-  if [ "$unk" = 1 ]; then
-    case "$t" in
-      /?*) ;;
-      *) rm_reason="an unresolved variable with nothing after it (an empty value would delete the root, the cwd or a glob): set it in the same command or spell the path out"; return 0 ;;
-    esac
-    first="${t#/}"; first="${first%%/*}"
-    case "$first" in
-      ""|.|..|*[\*\?\[]*) rm_reason="an unresolved variable followed by a glob or dot component"; return 0 ;;
-    esac
-    if _is_sys_top "$first"; then rm_reason="an unresolved variable followed by a system folder name ($first)"; return 0; fi
-    case "$t" in */..|*/../*) rm_reason="a path that climbs with .. below an unresolved variable"; return 0 ;; esac
-    rm_path="$t"; return 0
-  fi
-  while :; do case "$t" in ./*) t="${t#./}" ;; *) break ;; esac; done
-  [ -n "$t" ] || { rm_reason="the working directory itself"; return 0; }
-  last="${t%/}"; last="${last##*/}"
-  case "$last" in .|..) rm_reason="'.' or '..' (the directory itself or its parent)"; return 0 ;; esac
-  case "$t" in
-    /*) abs="$t" ;;
-    *) if [ -n "$base_dir" ]; then abs="$base_dir/$t"
-       else
-         first="${t%%/*}"
-         case "$first" in ""|.|..|*[\*\?\[]*) rm_reason="a glob or dot path relative to an unknown directory"; return 0 ;; esac
-         case "$t" in *..*) rm_reason="a .. path relative to an unknown directory"; return 0 ;; esac
-         rm_path="/@unknown-dir/$t"; return 0
-       fi ;;
-  esac
-  abs=$(_norm_path "$abs"); rm_path="$abs"
-  case "$abs" in
-    *[\*\?\[]*)
-      gdir="${abs%%[\*\?\[]*}"; container="${gdir%/*}"; pre="${gdir##*/}"; rest="${abs#"$gdir"}"
-      [ -n "$container" ] || container="/"
-      # `/tmp/claude-*`: a glob only in the LAST component with a >=3-char literal prefix may sit directly in a temp root.
-      case "$rest" in */*) ;; *) [ "${#pre}" -ge 3 ] && allow_root=1 ;; esac
-      abs=$(_norm_path "$container") ;;
-  esac
-  abs=$(_phys_path "$abs")
-  _path_verdict "$abs" "$allow_root"
-}
-
-_check_rm_operand() { # $1 = operand
-  local op="$1"
-  [ -n "$op" ] || return 0
-  _rm_operand_reason "$op"
-  [ -n "$rm_reason" ] || [ -n "$rm_path" ] || return 0
-  if [ -n "$rm_reason" ]; then
-    block "broad recursive delete: '$op' is $rm_reason. Delete the specific, named directory instead (an explicit deep path, a relative name after cd into a non-root dir); scratch/temp dirs, git worktrees, node_modules, .next, dist and build are always allowed"
-  fi
-  # A glob operand: the protected-state check must see what it ACTUALLY matches (`rm -rf *` at a repo root
-  # removes every project folder, and those contain .pandacorp).
-  case "$rm_path" in
-    *[\*\?\[]*)
-      local m n=0
-      set +f
-      for m in $rm_path; do
-        [ -e "$m" ] || continue
-        n=$((n + 1)); [ "$n" -le 200 ] || break
-        if _protected_under "$m"; then
-          block "recursive delete of '$op' matches a protected Pandacorp state path ('$m') — this layer has no git history; archive/move instead, or ask the owner (BL-0035)"
-        fi
-      done ;;
-  esac
-  if _protected_under "$rm_path"; then
-    block "recursive delete reaching a protected Pandacorp state path (.pandacorp/, factory/{ideas,memory,profile,portfolio} — directly or inside '$op') — this layer has no git history; archive/move instead, or ask the owner (BL-0035)"
-  fi
-  if _is_protected_deploy_path "$rm_path"; then
-    block "recursive delete reaching a live/locked deployment worktree ('$op') — a raw rm bypasses git's own lock check entirely; local-deployments/ hosts launchd-served always-on copies (DR-089), use 'git worktree remove' or ask the owner (BL-0151)"
-  fi
-}
-
-_scan_exec() { # $1 = command text, $2 = nesting depth (bash -c / eval re-enter once per level, max 3)
-  local seg k n ci tk cmdw a prev_redir noopt rec has_del idx inner saved_dir saved_vars
-  local -a toks args ops paths
-  while IFS= read -r seg; do
-    [ -n "${seg//[[:space:]]/}" ] || continue
-    read -ra toks <<< "$seg"
-    n=${#toks[@]}; ci=-1
-    for ((k = 0; k < n; k++)); do
-      tk="${toks[$k]#[({]}"
-      case "$tk" in
-        then|do|else|'!'|time|command|exec|sudo|nohup|env|'') continue ;;
-        [A-Za-z_]*=*) _record_assign "$tk"; continue ;;
-        -*) continue ;;
-        for) break ;;
-        *) ci=$k; break ;;
-      esac
-    done
-    if [ "$k" -lt "$n" ] && [ "${toks[$k]}" = "for" ] && [ "${toks[$((k + 2))]:-}" = "in" ]; then
-      # `for NAME in items`: model NAME as a named literal unless an item looks dangerous.
-      a="loopitem"; idx=$((k + 3))
-      while [ "$idx" -lt "$n" ]; do
-        tk="${toks[$idx]//\"/}"; tk="${tk//\'/}"
-        case "$tk" in /*|'~'*|.|..|*[\*\?\[]*|*'$'*) a="$tk"; break ;; esac
-        idx=$((idx + 1))
-      done
-      case "$a" in *'$'*) a="@@UNKNOWN" ;; esac
-      rm_vars="${rm_vars}${toks[$((k + 1))]}=${a}"$'\n'
+# Shape 1: `cat > FILE <<'WORD'` … WORD, and nothing else. Sets rm_view to the first line.
+rm_view="$cmd"; rm_exempt=0
+_rm_heredoc_view() {
+  local first rest re="^cat[[:space:]]+>>?[[:space:]]*[A-Za-z0-9._/~@+=,:-]+[[:space:]]+(<<-?)[[:space:]]*(['\"])([A-Za-z_][A-Za-z0-9_]*)(['\"])[[:space:]]*\$"
+  local op word line found=0
+  first="${cmd%%$'\n'*}"; [ "$first" != "$cmd" ] || return 1
+  rest="${cmd#*$'\n'}"
+  [[ $first =~ $re ]] || return 1
+  op="${BASH_REMATCH[1]}"; word="${BASH_REMATCH[3]}"
+  [ "${BASH_REMATCH[2]}" = "${BASH_REMATCH[4]}" ] || return 1
+  while IFS= read -r line; do
+    if [ "$found" = 1 ]; then
+      case "$line" in *[![:space:]]*) return 1 ;; esac   # anything executable after the terminator: not this shape
       continue
     fi
-    [ "$ci" -ge 0 ] || continue
-    cmdw="${toks[$ci]//\"/}"; cmdw="${cmdw//\'/}"; cmdw="${cmdw#\\}"; cmdw="${cmdw##*/}"
-    args=("${toks[@]:$((ci + 1))}")
-    case "$cmdw" in
-      cd|pushd)
-        for a in "${args[@]}"; do case "$a" in -*) ;; *) _set_cwd "$a"; break ;; esac; done ;;
+    [ "$op" = "<<-" ] && line="${line#"${line%%[!$'\t']*}"}"
+    [ "$line" = "$word" ] && found=1
+  done <<< "$rest"
+  [ "$found" = 1 ] || return 1
+  rm_view="$first"
+}
+
+# Shape 2: only simple, literal rm invocations. Returns 0 = exempt, 1 = not recognised (old rules decide).
+# A clean parse whose recursive-delete operand is broad or protected is blocked right here.
+_rm_literal_ok() { case "$1" in ""|*[!A-Za-z0-9._/@+=,:-]*) return 1 ;; esac; return 0; }
+_rm_unquote() { # strips ONE matching quote pair; fails on any other quote
+  local t="$1"
+  case "$t" in
+    \"*\") t="${t#\"}"; t="${t%\"}" ;;
+    \'*\') t="${t#\'}"; t="${t%\'}" ;;
+  esac
+  case "$t" in *\"*|*\'*) return 1 ;; esac
+  printf '%s' "$t"
+}
+_rm_classify() {
+  local text="$1" t seg a op abs name val dir rec noopt nrm=0 re='^\$([A-Za-z_][A-Za-z0-9_]*)(/.*)?$' vars="" line wtroot
+  local -a segs toks ops
+  case "$text" in
+    *'`'*|*'$('*|*'<'*|*'>'*|*'|'*|*'('*|*')'*|*'{'*|*'}'*|*'\'*|*'#'*|*'!'*|*'*'*|*'?'*|*'['*|*'~'*) return 1 ;;
+  esac
+  t="${text//&&/;}"
+  case "$t" in *'&'*) return 1 ;; esac
+  t="${t//$'\n'/;}"
+  dir=""; case "$cwd" in /*) dir=$(_norm_path "$cwd") ;; *) return 1 ;; esac
+  IFS=';' read -ra segs <<< "$t"
+  for seg in "${segs[@]}"; do
+    seg="${seg#"${seg%%[![:space:]]*}"}"; seg="${seg%"${seg##*[![:space:]]}"}"
+    [ -n "$seg" ] || continue
+    read -ra toks <<< "$seg"
+    case "${toks[0]}" in
+      cd)
+        [ "${#toks[@]}" -eq 2 ] || return 1
+        a=$(_rm_unquote "${toks[1]}") || return 1
+        _rm_literal_ok "$a" || return 1
+        case "$a" in /*) ;; *) return 1 ;; esac
+        case "/$a/" in */../*) return 1 ;; esac
+        dir=$(_norm_path "$a") ;;
+      [A-Za-z_]*=*)
+        [ "${#toks[@]}" -eq 1 ] || return 1
+        name="${toks[0]%%=*}"; val="${toks[0]#*=}"
+        case "$name" in *[!A-Za-z0-9_]*) return 1 ;; esac
+        val=$(_rm_unquote "$val") || return 1
+        _rm_literal_ok "$val" || return 1
+        case "$val" in /*) ;; *) return 1 ;; esac
+        case "/$val/" in */../*) return 1 ;; esac
+        vars="${vars}${name}=$(_norm_path "$val")"$'\n' ;;
       rm)
-        rec=0; noopt=0; prev_redir=0; ops=()
-        for a in "${args[@]}"; do
-          if [ "$prev_redir" = 1 ]; then prev_redir=0; continue; fi
-          case "$a" in
-            [0-9]'>'|[0-9]'>>'|'>'|'>>'|'&>'|'<') prev_redir=1; continue ;;
-            [0-9]'>'*|'>'*|'&>'*|'<'*) continue ;;
-          esac
+        nrm=$((nrm + 1)); rec=0; noopt=0; ops=()
+        for a in "${toks[@]:1}"; do
           if [ "$noopt" = 0 ]; then
             case "$a" in
               --) noopt=1; continue ;;
               --recursive) rec=1; continue ;;
-              --*) continue ;;
-              -*[rR]*) rec=1; continue ;;
-              -*) continue ;;
+              --force|--verbose|--dir|--interactive) continue ;;
+              --*) return 1 ;;
+              -*) case "$a" in -[A-Za-z]*) ;; *) return 1 ;; esac
+                  case "$a" in *[!A-Za-z-]*) return 1 ;; esac
+                  case "$a" in *[rR]*) rec=1 ;; esac
+                  continue ;;
             esac
           fi
-          ops+=("$a")
+          op=$(_rm_unquote "$a") || return 1
+          if [[ $op =~ $re ]]; then
+            name="${BASH_REMATCH[1]}"; val=""
+            while IFS= read -r line; do [ "${line%%=*}" = "$name" ] && val="${line#*=}"; done <<< "$vars"
+            [ -n "$val" ] || return 1
+            op="$val${BASH_REMATCH[2]}"
+          fi
+          _rm_literal_ok "$op" || return 1
+          case "/$op/" in */../*) return 1 ;; esac
+          case "${op%/}" in .|*/.) return 1 ;; esac
+          ops+=("$op")
         done
         [ "$rec" = 1 ] || continue
-        for a in "${ops[@]}"; do _check_rm_operand "$a"; done ;;
-      find)
-        has_del=0; paths=(); noopt=0; idx=0
-        for a in "${args[@]}"; do
-          case "$a" in
-            -delete) has_del=1 ;;
-            -exec|-execdir) [ "${args[$((idx + 1))]:-}" = "rm" ] && has_del=1 ;;
-          esac
-          case "$a" in -*|'('|'!') noopt=1 ;; esac
-          [ "$noopt" = 0 ] && paths+=("$a")
-          idx=$((idx + 1))
-        done
-        [ "$has_del" = 1 ] || continue
-        for a in "${paths[@]}"; do
-          _rm_operand_reason "$a"
-          if [ "$rm_path" = "/" ] || [ "$rm_path" = "$HOME" ] || [ "$rm_path" = "$HOME_REAL" ]; then
-            block "broad recursive delete: find -delete on '$a' (the root or your home)"
+        for op in "${ops[@]}"; do
+          case "$op" in /*) abs="$op" ;; *) abs="$dir/$op" ;; esac
+          abs=$(_norm_path "$abs")
+          wtroot=0; [ -f "$abs/.git" ] && wtroot=1
+          abs=$(_phys_path "$abs")
+          _path_verdict "$abs"
+          [ -z "$rm_reason" ] || block "broad recursive delete: '$op' is $rm_reason. Delete the specific, named directory instead (an explicit deep path, or a relative name after cd into a non-root dir); scratch/temp dirs, git worktrees, node_modules, .next, dist and build are always allowed"
+          if [ "$wtroot" = 1 ]; then
+            # A LINKED worktree root only holds checked-out copies (its .git is a file): deleting it is routine
+            # cleanup; textual state paths (.pandacorp/, factory/memory ...) are still refused below.
+            case "$abs" in *"/.pandacorp"|*"/.pandacorp/"*|*/factory/ideas|*/factory/ideas/*|*/factory/memory|*/factory/memory/*) wtroot=0 ;; esac
           fi
-          if _protected_under "$rm_path"; then
-            block "find -delete/-exec rm on a protected Pandacorp state path ('$a') — this layer has no git history; archive/move instead, or ask the owner (BL-0035)"
+          if [ "$wtroot" = 0 ] && _protected_under "$abs"; then
+            block "recursive delete reaching a protected Pandacorp state path (.pandacorp/, factory/{ideas,memory,profile,portfolio} — directly or inside '$op') — this layer has no git history; archive/move instead, or ask the owner (BL-0035)"
+          fi
+          if _is_protected_deploy_path "$abs"; then
+            block "recursive delete reaching a live/locked deployment worktree ('$op') — a raw rm bypasses git's own lock check entirely; local-deployments/ hosts launchd-served always-on copies (DR-089), use 'git worktree remove' or ask the owner (BL-0151)"
           fi
         done ;;
-      bash|sh|zsh|dash|ksh|eval)
-        [ "${2:-0}" -lt 3 ] || continue
-        inner=""
-        if [ "$cmdw" = "eval" ]; then inner="${args[*]}"
-        else
-          idx=0
-          for a in "${args[@]}"; do
-            idx=$((idx + 1))
-            case "$a" in -c|-lc|-ec|-cl) inner="${args[*]:$idx}"; break ;; esac
-          done
-        fi
-        [ -n "$inner" ] || continue
-        case "$inner" in \"*\") inner="${inner#\"}"; inner="${inner%\"}" ;; \'*\') inner="${inner#\'}"; inner="${inner%\'}" ;; esac
-        saved_dir="$base_dir"; saved_vars="$rm_vars"
-        _scan_exec "$inner" $(( ${2:-0} + 1 ))
-        base_dir="$saved_dir"; rm_vars="$saved_vars" ;;
+      *) return 1 ;;
     esac
-  done < <(printf '%s\n' "$1" | _exec_segments)
+  done
+  [ "$nrm" -ge 1 ]
 }
-_scan_exec "$cmd" 0
+if _rm_heredoc_view; then :; elif _rm_classify "$cmd"; then rm_exempt=1; fi
 
+# Broad recursive delete of a filesystem-root-ish target (/, ~, ..), ANY flag order/casing.
+# BSD/macOS `rm` treats -R as the canonical recursive flag, so the match must be case-insensitive
+# on the flag (WS-A F1 — `rm -Rf /` used to sail past the lowercase-only literal).
+if [ "$rm_exempt" != 1 ] \
+   && echo "$rm_view" | grep -Eq "(^|[[:space:];&|(\"'])rm[[:space:]]" \
+   && echo "$rm_view" | grep -Eq '(^|[[:space:]])-[a-zA-Z]*[rR]|--recursive' \
+   && echo "$rm_view" | grep -Eq "[[:space:]\"'(](/|~|\\.\\.|\\\$HOME|\\\$\\{HOME\\})[\"')]*([[:space:];&|]|\$)"; then
+  block "broad recursive delete (rm -r of /, ~ or ..)"
+fi
+
+# rm with a recursive flag anywhere (before OR after the paths): inspect every path operand.
+if [ "$rm_exempt" != 1 ] && echo "$rm_view" | grep -Eq '(^|[[:space:];&|])rm[[:space:]]' && echo "$rm_view" | grep -Eq '(^|[[:space:]])-[a-zA-Z]*[rR]|--recursive'; then
+  # Extract the rm invocation's operands (up to a separator), drop flags, test each path.
+  rm_args=$(printf '%s' "$rm_view" | sed -E 's/.*(^|[;&|])[[:space:]]*rm[[:space:]]+//; s/[;&|].*$//')
+  for tok in $rm_args; do
+    tok="${tok%\"}"; tok="${tok#\"}"; tok="${tok%\'}"; tok="${tok#\'}"
+    if _protected_under "$tok"; then
+      block "recursive delete reaching a protected Pandacorp state path (.pandacorp/, factory/{ideas,memory,profile,portfolio} — directly or inside '$tok') — this layer has no git history; archive/move instead, or ask the owner (BL-0035)"
+    fi
+    if _is_protected_deploy_path "$tok"; then
+      block "recursive delete reaching a live/locked deployment worktree ('$tok') — a raw rm bypasses git's own lock check entirely; local-deployments/ hosts launchd-served always-on copies (DR-089), use 'git worktree remove' or ask the owner (BL-0151)"
+    fi
+  done
+fi
+# find … -delete / -exec rm aimed at a protected path
+if echo "$rm_view" | grep -Eq '(^|[[:space:];&|])find[[:space:]]' && echo "$rm_view" | grep -Eq '\-delete|-(exec|execdir|ok|okdir)[[:space:]]+([^[:space:]]*/)?(rm|unlink|rmdir)([[:space:]]|$)'; then
+  find_args=$(printf '%s' "$rm_view" | sed -E 's/.*(^|[;&|])[[:space:]]*find[[:space:]]+//; s/[;&|].*$//')
+  for tok in $find_args; do
+    case "$tok" in -*) break ;; esac   # first flag ends the path list
+    ftok="${tok//\"/}"; ftok="${ftok//\'/}"
+    # A shallow start path (/, /Users, /Users/x, ~, ~/Documents, $HOME, ..) makes -delete a mass delete.
+    if printf '%s\n' "$ftok" | grep -Eq '^(/[^/]+){0,2}/?$|^~(/[^/]*)?/?$|^\$\{?HOME\}?(/[^/]*)?/?$|^\.\.(/\.\.)*/?$'; then
+      block "find -delete/-exec rm on a broad start path ('$tok'): name a specific, deeper directory"
+    fi
+    if _protected_under "$tok"; then
+      block "find -delete/-exec rm on a protected Pandacorp state path ('$tok') — this layer has no git history; archive/move instead, or ask the owner (BL-0035)"
+    fi
+  done
+fi
 # git clean with an ignored-files flag, either case: -x (ignored + untracked) OR -X (ignored ONLY,
 # which targets PRECISELY the gitignored .pandacorp layer). Case-insensitive per WS-A F2.
-if printf '%s\n' "$git_norm" | grep -Eq '^git clean[[:space:]]([^;&|]*[[:space:]])?-[a-zA-Z]*[xX]'; then
+if echo "$git_cmd" | grep -Eq '(^|[[:space:];&|])git[[:space:]]+clean[[:space:]][^;&|]*-[a-zA-Z]*[xX]'; then
   block "git clean -x/-X removes gitignored files — the .pandacorp state layer (inbox/comms) would be lost with no git history; use plain 'git clean -fd' (keeps ignored) or ask the owner (BL-0035)"
 fi
 

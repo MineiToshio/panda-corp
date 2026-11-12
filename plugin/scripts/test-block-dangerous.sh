@@ -270,95 +270,127 @@ printf 'project: demo\nphase: implementation\n' > "$lx/.pandacorp/status.yaml"
 check "allow: pre-launch project pushes main"      0 "$lx" "git push origin main"
 rm -rf "$lx"
 
-echo "== HOOK-RM: agents may delete what they created (scratch, worktrees, build output); broad deletes stay blocked =="
+echo "== HOOK-RM: narrow allow for literal rm / cat-heredoc; every other delete shape keeps its blocking behaviour =="
 SCR=/private/tmp/claude-501/hookrm-test/scratchpad
 mkdir -p "$SCR/exp1" "$SCR/exp2"
-# Allowed: specific deep targets, however the path is spelled.
-check "allow: rm -rf \"\$S/exp1\" \"\$S/exp2\" (S assigned in the command)" 0 "$fx" "S=$SCR; rm -rf \"\$S/exp1\" \"\$S/exp2\""
-check "allow: rm -rf \"\$S/exp1\" \"\$S/exp2\" (S not provably set)"         0 "$fx" 'rm -rf "$S/exp1" "$S/exp2"'
-check "allow: cd <scratchpad> && rm -rf exp1 exp2"                           0 "$fx" "cd $SCR && rm -rf exp1 exp2"
-check "allow: cd \"\$S\" && rm -rf exp1 exp2 (S unknown)"                    0 "$fx" 'cd "$S" && rm -rf exp1 exp2'
-check "allow: absolute scratchpad paths"                                     0 "$fx" "rm -rf $SCR/exp1 $SCR/exp2"
-check "allow: -- before the operands"                                        0 "$fx" "rm -rf -- $SCR/exp1"
-check "allow: --recursive --force long flags"                                0 "$fx" "rm --recursive --force $SCR/exp1"
-check "allow: \$TMPDIR/<name>"                                               0 "$fx" 'rm -rf "$TMPDIR/some-scratch"'
-check "allow: mktemp variable"                                               0 "$fx" 'd=$(mktemp -d); rm -rf "$d"'
-check "allow: for-loop over named dirs"                                      0 "$fx" "S=$SCR; for d in exp1 exp2; do rm -rf \"\$S/\$d\"; done"
-check "allow: bash -c with cd + relative name"                               0 "$fx" "bash -c 'cd $SCR && rm -rf exp1'"
-check "allow: regenerable dirs"                                              0 "$fx" "rm -rf node_modules .next dist build"
-check "allow: deep non-tmp path (a worktree dir)"                            0 "$fx" "rm -rf /Users/Shared/Proyectos/some-engine-wt"
-check "allow: deep path under \$HOME"                                        0 "$fx" 'rm -rf "$HOME/Documents/scratch-run"'
-check "allow: ~/.claude/projects/x/memory file (not factory/memory)"         0 "$fx" "rm -rf ~/.claude/projects/x/memory/old.md"
-check "allow: glob under a specific dir"                                     0 "$fx" "rm -rf $SCR/exp*/out src/deep/*"
-check "allow: prefixed glob directly in a temp root"                         0 "$fx" "rm -rf /tmp/claude-*"
-check "allow: stderr redirect after the operands"                            0 "$fx" "rm -rf $SCR/exp1 2>/dev/null"
-check "allow: stderr redirect with a space"                                  0 "$fx" "rm -rf $SCR/exp1 2> /dev/null"
-check "allow: relative .. sibling with a name"                               0 "$fx" "rm -rf ../some-sibling-run"
-# Allowed: the words rm -rf inside text (heredoc bodies, quoted strings) are not a command.
+# Allowed: only simple rm invocations (optionally after cd /abs and VAR=/abs) with literal operands.
+check "allow: S=/abs; rm -rf \"\$S/exp1\" \"\$S/exp2\""            0 "$fx" "S=$SCR; rm -rf \"\$S/exp1\" \"\$S/exp2\""
+check "allow: rm -rf \"\$S/exp1\" \"\$S/exp2\" (S from the shell)"  0 "$fx" 'rm -rf "$S/exp1" "$S/exp2"'
+check "allow: cd <abs scratchpad> && rm -rf exp1 exp2"             0 "$fx" "cd $SCR && rm -rf exp1 exp2"
+check "allow: cd \"\$S\" && rm -rf exp1 exp2 (S from the shell)"   0 "$fx" 'cd "$S" && rm -rf exp1 exp2'
+check "allow: multi-line cd then two rm"                           0 "$fx" "cd $SCR
+rm -rf exp1
+rm -rf exp2"
+check "allow: absolute scratchpad paths"                           0 "$fx" "rm -rf $SCR/exp1 $SCR/exp2"
+check "allow: -- before the operands"                              0 "$fx" "rm -rf -- $SCR/exp1"
+check "allow: long flags"                                          0 "$fx" "rm --recursive --force $SCR/exp1"
+check "allow: trailing flag"                                       0 "$fx" "rm $SCR/exp1 -rf"
+check "allow: deep non-tmp path (a worktree dir)"                  0 "$fx" "rm -rf /Users/Shared/Proyectos/some-engine-wt"
+check "allow: regenerable dirs"                                    0 "$fx" "rm -rf node_modules .next dist build"
 heredoc_note="cat > ~/.claude/projects/x/memory/note.md <<'EOF'
 Lesson: never run rm -rf on factory/memory or .pandacorp.
 rm -rf /
-EOF"
-check "allow: heredoc body mentioning rm -rf + a memory path"                0 "$fx" "$heredoc_note"
-check "allow: commit message mentioning rm -rf factory/memory"               0 "$fx" 'git commit -m "docs: rm -rf factory/memory is blocked; rm -rf / too"'
-check "allow: echo of a dangerous-looking string"                            0 "$fx" 'echo "rm -rf /; rm -rf ~"'
-check "allow: grep for rm -rf"                                               0 "$fx" 'grep -rn "rm -rf /" plugin'
-check "allow: quoted semicolon does not start a new command"                 0 "$fx" 'git commit -m "x; rm -rf ~ ; git clean -fdx"'
-# Still blocked: genuinely broad targets.
-check "block: rm -rf /"                                    2 "$fx" "rm -rf /"
-check "block: rm -rf /*"                                   2 "$fx" "rm -rf /*"
-check "block: rm -fr / (flag order)"                       2 "$fx" "rm -fr /"
-check "block: rm -r -f / (split flags)"                    2 "$fx" "rm -r -f /"
-check "block: rm --recursive --force /"                    2 "$fx" "rm --recursive --force /"
-check "block: rm -rf -- /"                                 2 "$fx" "rm -rf -- /"
-check "block: rm -rf ~/"                                   2 "$fx" "rm -rf ~/"
-check "block: rm -rf \$HOME"                               2 "$fx" 'rm -rf $HOME'
-check "block: rm -rf \"\$HOME/\""                          2 "$fx" 'rm -rf "$HOME/"'
-check "block: rm -rf ~/*"                                  2 "$fx" "rm -rf ~/*"
-check "block: rm -rf ~/Documents (top-level home dir)"     2 "$fx" "rm -rf ~/Documents"
-check "block: rm -rf /Users"                               2 "$fx" "rm -rf /Users"
-check "block: rm -rf /Users/Shared/Proyectos"              2 "$fx" "rm -rf /Users/Shared/Proyectos"
-check "block: rm -rf /private"                             2 "$fx" "rm -rf /private"
-check "block: rm -rf /usr/local/lib (system path)"         2 "$fx" "rm -rf /usr/local/lib"
-check "block: rm -rf /tmp (temp root itself)"              2 "$fx" "rm -rf /tmp"
-check "block: rm -rf /private/tmp"                         2 "$fx" "rm -rf /private/tmp"
-check "block: rm -rf /tmp/* (shallow glob)"                2 "$fx" "rm -rf /tmp/*"
-check "block: rm -rf \$TMPDIR (temp root itself)"          2 "$fx" 'rm -rf "$TMPDIR"'
-check "block: rm -rf .."                                   2 "$fx" "rm -rf .."
-check "block: rm -rf ../.."                                2 "$fx" "rm -rf ../.."
-check "block: rm -rf ."                                    2 "$fx" "rm -rf ."
-check "block: rm -rf ./"                                   2 "$fx" "rm -rf ./"
-check "block: rm -rf * wipes protected project folders"    2 "$fx" "rm -rf *"
-check "block: rm -rf * in a temp root"                     2 "$fx" "cd /tmp && rm -rf *"
-check "block: bare unresolved variable"                    2 "$fx" 'rm -rf "$X"'
-check "block: unresolved variable + trailing slash"        2 "$fx" 'rm -rf "$X/"'
-check "block: unresolved variable + glob"                  2 "$fx" 'rm -rf "$X/*"'
-check "block: unresolved variable + glob component"        2 "$fx" 'rm -rf "$X/exp*"'
-check "block: unresolved variable + system folder"         2 "$fx" 'rm -rf "$X/Users"'
-check "block: braced default expansion"                    2 "$fx" 'rm -rf "${X:-/}"'
-check "block: command substitution operand"                2 "$fx" 'rm -rf "$(pwd)"'
-check "block: bash -c wrapper"                             2 "$fx" "bash -c 'rm -rf /'"
-check "block: sudo wrapper"                                2 "$fx" "sudo rm -rf /"
-check "block: second command of a chain"                   2 "$fx" "echo ok && rm -rf ~"
-check "block: cd / then a top-level name"                  2 "$fx" "cd / && rm -rf Users"
-check "block: for-loop over a dangerous item"              2 "$fx" 'for d in / ; do rm -rf "$d"; done'
-check "block: protected path still blocked in a temp dir"  2 "$fx" "rm -rf $fx/myapp/.pandacorp/inbox"
-check "block: find / -delete"                              2 "$fx" "find / -name x -delete"
-check "block: git clean -fdx as a real command after text" 2 "$fx" 'echo "ok" && git clean -fdx'
-shell_heredoc="bash <<'EOF'
-rm -rf /
-EOF"
-check "block: a heredoc fed to a SHELL is code, not text"                    2 "$fx" "$shell_heredoc"
-check "block: heredoc piped into bash"                                       2 "$fx" "cat <<'EOF' | bash
 rm -rf ~
 EOF"
+check "allow: cat > file <<'EOF' whose body only mentions rm -rf + memory" 0 "$fx" "$heredoc_note"
+check "allow: same with <<-\"EOF\" and trailing blank lines"       0 "$fx" "cat >> notes.md <<-\"EOF\"
+	rm -rf ~
+	EOF
+
+"
 wt3=$(mktemp -d)/linked-wt
 git -C "$fx" worktree add -q --detach "$wt3" HEAD
 mkdir -p "$wt3/myapp/.pandacorp"
 check "allow: rm -rf a linked worktree root (checked-out .pandacorp inside)" 0 "$fx" "rm -rf $wt3"
-check "block: rm -rf the .pandacorp INSIDE that worktree"                    2 "$fx" "rm -rf $wt3/myapp/.pandacorp"
-check "block: rm -rf the main checkout (a real .git directory)"              2 "$fx" "rm -rf $fx"
+check "block: rm -rf the .pandacorp INSIDE that worktree"          2 "$fx" "rm -rf $wt3/myapp/.pandacorp"
+check "block: rm -rf the main checkout (a real .git directory)"    2 "$fx" "rm -rf $fx"
 git -C "$fx" worktree remove -f -f "$wt3" >/dev/null 2>&1; rm -rf "$(dirname "$wt3")"
+# Blocked: a clean parse of a broad literal, and the old broad rule for everything else.
+check "block: rm -rf /"                                            2 "$fx" "rm -rf /"
+check "block: rm -fr /"                                            2 "$fx" "rm -fr /"
+check "block: rm -rf -- /"                                         2 "$fx" "rm -rf -- /"
+check "block: rm -r -f ~"                                          2 "$fx" "rm -r -f ~"
+check "block: rm -rf .."                                           2 "$fx" "rm -rf .."
+check "block: rm -rf /tmp (temp root itself)"                      2 "$fx" "rm -rf /tmp"
+check "block: rm -rf /private/tmp"                                 2 "$fx" "rm -rf /private/tmp"
+check "block: rm -rf /Users"                                       2 "$fx" "rm -rf /Users"
+check "block: rm -rf /Users/Shared/Proyectos"                      2 "$fx" "rm -rf /Users/Shared/Proyectos"
+check "block: rm -rf /usr/local/lib (system path)"                 2 "$fx" "rm -rf /usr/local/lib"
+check "block: cd / then a top-level name"                          2 "$fx" "cd / && rm -rf Users"
+check "block: protected state in a literal rm after cd"            2 "$fx" "cd $fx && rm -rf myapp/.pandacorp/inbox"
+check "block: rm -rf * wipes protected project folders"            2 "$fx" "rm -rf *"
+check "block: rm -rf \$HOME"                                       2 "$fx" 'rm -rf $HOME ; echo x'
+# Review B1: here-strings / quoted <<WORD must not hide later lines from ANY rule.
+check "B1 block: <<< then git push -f"                             2 "$fx" "tr a b <<< done
+git push -f"
+check "B1 block: <<< then vercel --prod"                           2 "$fx" "tr a b <<< done
+vercel --prod"
+check "B1 block: cat <<< x then force push"                        2 "$fx" "cat <<< \"x\"
+git push --force origin main
+x"
+check "B1 block: quoted <<EOF in a message then reset --hard"      2 "$fx" "git commit -m \"doc <<EOF usage\"
+git reset --hard HEAD~3"
+check "B1 block: cat <<< x then rm -rf ~"                          2 "$fx" "cat <<< \"x\"
+rm -rf ~
+x"
+check "B1 block: quoted <<EOF in a message then rm -rf ~"          2 "$fx" "git commit -m \"explain <<EOF heredocs\"
+rm -rf ~"
+check "B1 block: cat > f <<'EOF' with a command AFTER the terminator" 2 "$fx" "cat > f.txt <<'EOF'
+text
+EOF
+rm -rf ~"
+check "B1 block: unquoted delimiter (expansions run) is not the safe shape" 2 "$fx" "cat > f.txt <<EOF
+rm -rf ~
+EOF"
+check "B1 block: heredoc fed to bash"                              2 "$fx" "bash <<'EOF'
+rm -rf ~
+EOF"
+check "B1 block: force push inside a cat heredoc body is still raw-matched" 2 "$fx" "cat > f.txt <<'EOF'
+git push --force origin main
+EOF"
+# Review B2: an apostrophe in a comment / ANSI-C string must not swallow the rest.
+check "B2 block: apostrophe comment then rm -rf ~"                 2 "$fx" "# clean up (don't keep it)
+rm -rf ~"
+check "B2 block: apostrophe comment then rm -rf protected"         2 "$fx" "# remove the agent's scratch
+rm -rf myapp/.pandacorp"
+check "B2 block: ANSI-C quote then rm -rf ~"                       2 "$fx" "echo \$'it\\'s'; rm -rf ~"
+nfx2=$(mktemp -d)
+( cd "$nfx2" && git init -q )
+mkdir -p "$nfx2/mission-control/.pandacorp" "$nfx2/plugin"
+echo "# Pandacorp" > "$nfx2/CLAUDE.md"
+echo "phase: implementation" > "$nfx2/mission-control/.pandacorp/status.yaml"
+check "B2 block: apostrophe comment then git checkout . (BL-0202)" 2 "$nfx2" "# don't touch others
+git checkout ."
+check "B2 block: apostrophe comment then git clean -fd (BL-0202)"  2 "$nfx2" "# don't
+git clean -fd"
+rm -rf "$nfx2"
+# Review B3: wrappers, keywords, subshells hiding rm.
+check "B3 block: if rm -rf ~"                                      2 "$fx" "if rm -rf ~; then echo ok; fi"
+check "B3 block: if rm -rf protected"                              2 "$fx" "if rm -rf myapp/.pandacorp; then :; fi"
+check "B3 block: while rm -rf ~"                                   2 "$fx" "while rm -rf ~; do :; done"
+check "B3 block: nice rm -rf ~"                                    2 "$fx" "nice rm -rf ~"
+check "B3 block: nice -n 5 rm -rf factory"                         2 "$fx" "nice -n 5 rm -rf factory"
+check "B3 block: timeout 60 rm -rf ~"                              2 "$fx" "timeout 60 rm -rf ~"
+check "B3 block: timeout 5 rm -rf myapp"                           2 "$fx" "timeout 5 rm -rf myapp"
+check "B3 block: sudo -u root rm -rf ~"                            2 "$fx" "sudo -u root rm -rf ~"
+check "B3 block: exec -a x rm -rf ~"                               2 "$fx" "exec -a x rm -rf ~"
+check "B3 block: (cd ~ && rm -rf Documents)"                       2 "$fx" "(cd ~ && rm -rf Documents)"
+check "B3 block: (cd / && rm -rf Users)"                           2 "$fx" "(cd / && rm -rf Users)"
+check "B3 block: sh -c wrapper"                                    2 "$fx" "sh -c 'rm -rf ~'"
+check "B3 block: eval wrapper"                                     2 "$fx" "eval 'rm -rf ~'"
+check "B3 block: a wrapper in front of an otherwise-simple rm is not exempt" 2 "$fx" "sudo rm -rf myapp"
+# Review B4: xargs rm.
+check "B4 block: echo ~ | xargs rm -rf"                            2 "$fx" "echo ~ | xargs rm -rf"
+check "B4 block: echo myapp | xargs rm -rf"                        2 "$fx" "echo myapp | xargs rm -rf"
+check "B4 block: find . -name x | xargs rm -rf"                    2 "$fx" "find . -name x | xargs rm -rf"
+# Review B5: find -delete / -exec rm.
+check "B5 block: find /Users -delete"                              2 "$fx" "find /Users -delete"
+check "B5 block: find ~/Documents -delete"                         2 "$fx" "find ~/Documents -delete"
+check "B5 block: find /Users -exec rm -rf {} +"                    2 "$fx" "find /Users -exec rm -rf {} +"
+check "B5 block: find ~ -exec /bin/rm -rf {} +"                    2 "$fx" "find ~ -exec /bin/rm -rf {} +"
+check "B5 block: find myapp -exec /bin/rm -rf {} +"                2 "$fx" "find myapp -exec /bin/rm -rf {} +"
+check "B5 block: find \$HOME -delete"                              2 "$fx" 'find "$HOME" -delete'
+check "B5 allow: find a deep scratch dir by name -delete"          0 "$fx" "find $SCR -name '*.tmp' -delete"
 rm -rf /private/tmp/claude-501/hookrm-test
 
 echo "== OUT OF SCOPE (expect 0 in a non-Pandacorp dir) =="
