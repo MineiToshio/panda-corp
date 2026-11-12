@@ -1,7 +1,7 @@
 // Real `git worktree` commands: the integration worktree, unit worktrees, healing, removal and moves (D22, A4).
 import * as fsp from "node:fs/promises";
 import path from "node:path";
-import { worktreeRemovalReason } from "../../../scripts/worktree-sweep.mjs";
+import { engineWorktreeOwnershipReason, runningWorktreePaths, worktreeRemovalReason } from "../../../scripts/worktree-sweep.mjs";
 import { defaultExec, readJson } from "../fsx.mjs";
 import { buildPaths } from "../paths.mjs";
 import { bootstrapIntegrationWorktree } from "./bootstrap.mjs";
@@ -147,18 +147,18 @@ export async function createUnitWorktree({ project, runId, unitId, attempt = 1, 
 
 /**
  * Remove a registered worktree (`git worktree remove`), keeping its branch. A worktree that is not registered is a no-op.
- * @param {{project: string, worktree: string, state?: object}} input; `force` is ignored: every removal must pass the shared safety predicate
+ * @param {{project: string, worktree: string, state?: object, runId?: string}} input; ownership uses the explicit run or state.run_id; `force` cannot bypass safety
  * @returns {Promise<{removed: boolean, worktree: string}>}
  * @throws GIT_FAILED when git itself refuses a removal that passed the safety predicate
  */
-export async function removeWorktree({ project, worktree, state = null }, deps = {}) {
+export async function removeWorktree({ project, worktree, state = null, runId = null }, deps = {}) {
   const { exec = defaultExec, fs = fsp } = deps;
   const g = gitIn(exec, path.resolve(project));
   const existing = await findRegistered(g, fs, worktree);
   if (!existing) { await g(["worktree", "prune"]); return { removed: false, worktree }; }
   const current = state ?? await readJson(buildPaths(project, deps).stateFile, { fs }).catch(() => null);
   const runningPaths = runningWorktreePaths(current, deps);
-  const reason = worktreeRemovalReason(existing.path, { runningPaths });
+  const reason = engineWorktreeOwnershipReason(existing, { build: buildPaths(project, deps).build, runId: runId ?? current?.run_id }) ?? worktreeRemovalReason(existing.path, { runningPaths });
   if (reason) return { removed: false, worktree, reason };
   // --force is needed for proven generated ignored outputs and bootstrap overrides. The shared predicate
   // above has just rejected dirty/hidden changes, locks, owner state and every live cwd.
@@ -200,15 +200,7 @@ export async function moveWorktreesUnder({ project, from, to }, deps = {}) {
   return { moved };
 }
 
-/** Running work always wins over reclamation, including a job's nested product cwd. */
-export function runningWorktreePaths(state, deps = {}) {
-  const alive = deps.isAlive ?? (pid => { try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } });
-  const livePid = pid => Number.isInteger(pid) && pid > 0 && alive(pid);
-  return [
-    ...(state?.units ?? []).filter(u => u.state === "running" && (state.status === "active" || livePid(u.worker?.pid))).map(u => u.worktree),
-    ...(state?.jobs ?? []).filter(j => j.state === "running" && (!Number.isInteger(j.pid) || livePid(j.pid))).map(j => j.cwd),
-  ].filter(Boolean);
-}
+export { runningWorktreePaths } from "../../../scripts/worktree-sweep.mjs";
 
 /** Reclaim this run's registered checkouts only. Every ref survives; protected work is reported and retained. */
 export async function cleanupRunWorktrees({ project, state = null, mode = "close" }, deps = {}) {
@@ -225,7 +217,8 @@ export async function cleanupRunWorktrees({ project, state = null, mode = "close
     const target = await realOrResolved(fs, entry.path);
     if (!target.startsWith(`${root}${path.sep}`)) continue;
     if (mode === "landed" && !target.startsWith(`${root}${path.sep}wt${path.sep}`)) continue;
-    if (entry.branch && !entry.branch.startsWith(`lane/${current.run_id}/`)) { kept.push({ path: target, reason: "foreign-run" }); continue; }
+    const ownership = engineWorktreeOwnershipReason(entry, { build: p.build, runId: current.run_id });
+    if (ownership) { kept.push({ path: target, reason: ownership }); continue; }
     if (waiting && target === integration) {
       const reason = worktreeRemovalReason(entry.path, { runningPaths: runningWorktreePaths(current, deps) });
       if (!reason) {

@@ -35,7 +35,7 @@ function engineFixture(relative = 'build/wt/unit') {
   git(f.repo,'add','.gitignore');git(f.repo,'commit','-qm','engine ignores');
   mkdirSync(path.join(f.repo,'.pandacorp/run/build'),{recursive:true});
   writeFileSync(path.join(f.repo,'.pandacorp/status.yaml'),'running: false\n');
-  writeFileSync(path.join(f.repo,'.pandacorp/run/build/state.json'),JSON.stringify({status:'finished'}));
+  writeFileSync(path.join(f.repo,'.pandacorp/run/build/state.json'),JSON.stringify({run_id:'test',status:'finished'}));
   f.engine = path.join(f.repo,'.pandacorp/run',relative);
   git(f.repo,'worktree','add','-qb','lane/test/unit',f.engine);
   return f;
@@ -54,10 +54,10 @@ function bootstrapFixture(engine = false) {
   if(engine) {
     mkdirSync(path.join(f.repo,'.pandacorp/run/build'),{recursive:true});
     writeFileSync(path.join(f.repo,'.pandacorp/status.yaml'),'running: false\n');
-    writeFileSync(path.join(f.repo,'.pandacorp/run/build/state.json'),'{"status":"finished"}');
+    writeFileSync(path.join(f.repo,'.pandacorp/run/build/state.json'),'{"run_id":"provenance","status":"finished"}');
   }
   f.target=engine?path.join(f.repo,'.pandacorp/run/build/wt/bootstrap'):path.join(f.root,'bootstrap');
-  git(f.repo,'worktree','add','-qb',engine?'lane/provenance/unit':'fixture/bootstrap',f.target);
+  git(f.repo,'worktree','add','-qb',engine?'lane/provenance/bootstrap':'fixture/bootstrap',f.target);
   const bin=path.join(f.root,'bin');mkdirSync(bin);
   const pnpm=path.join(bin,'pnpm');writeFileSync(pnpm,'#!/bin/sh\nmkdir -p node_modules\n');
   spawnSync('chmod',['+x',pnpm]);

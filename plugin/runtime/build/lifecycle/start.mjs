@@ -50,7 +50,7 @@ async function rollbackStart({ project, p, runId, lease, branch, worktree, marke
   const bs = bsOf(d);
   const soft = (fn) => fn().catch(() => {});
   if (markedCard) await soft(() => resetCardReady(project, markedCard, "run could not start", d));
-  await soft(() => removeWorktree({ project, worktree }, d));
+  await soft(() => removeWorktree({ project, runId, worktree }, d));
   await soft(() => bs.quiesce(project, lease.token, lease.epoch, { projectStatus: false }));
   await soft(() => bs.finalizeRelease(project, lease.token, lease.epoch));
   await soft(() => fsp.rm(p.stateFile, { force: true }));

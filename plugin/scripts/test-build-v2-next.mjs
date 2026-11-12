@@ -1106,5 +1106,14 @@ await test("DENG blocked terminal reclaims integration while preserving its bran
 }));
 
 restoreEnv();
+await test("DFIX nested integration root resolves bootstrap and preserves wait disk", async () => withCase({ nested: true, units: [B("WO-01-001")] }, async c => {
+  const s = await c.readState();
+  await writeFile(path.join(s.integration.worktree, ".pandacorp/worktree-bootstrap.sh"), "exit 4\n");
+  await c.writeState(state => { state.integration.worktree = c.P.integrationWorktree; });
+  const r = await callNext(c);
+  eq(r.action, "wait", "action"); eq(r.wait.reason, "disk", "nested bootstrap disk reason");
+  eq(r.units, [], "nothing dispatched before bootstrap succeeds");
+}));
+
 console.log(`RESULT: ${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

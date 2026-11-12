@@ -72,8 +72,8 @@ export async function createG2Snapshot(run, state, frd) {
 }
 
 /**
- * Remove one G2 snapshot (`git worktree remove --force`, then prune; a stray unregistered directory under `<build>/g2/` is
- * deleted). Cleanup after a harvest is best effort: a failure is logged and the leftover is replaced at the next spawn.
+ * Remove one registered G2 snapshot through the shared ownership and safety checks. Unregistered directories stay
+ * protected. Cleanup after a harvest is best effort; a protected leftover makes the next spawn refuse it.
  */
 export async function removeG2Snapshot(run, dir, { strict = false } = {}) {
   const fs = run.d.fs ?? fsp;

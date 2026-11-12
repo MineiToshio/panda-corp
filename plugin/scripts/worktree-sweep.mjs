@@ -37,7 +37,7 @@ import os from "node:os";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { currentLease } from "../runtime/build-state.mjs";
+import { currentLease, withUnleasedProject } from "../runtime/build-state.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STALE_HOURS = Number(process.env.PANDACORP_STALE_HOURS ?? 3);
@@ -111,8 +111,39 @@ async function projects(mainWt) {
 }
 
 
+/** Running/admitted work needs positive termination evidence, independently of coordinator status. */
+export function runningWorktreePaths(state, deps = {}) {
+  const alive = deps.isAlive ?? (pid => { try { process.kill(pid, 0); return true; } catch (e) { return e.code !== 'ESRCH'; } });
+  const provenDead = pid => Number.isInteger(pid) && pid > 0 && alive(pid) === false;
+  return [
+    ...(state?.units ?? []).filter(u => ['running', 'admitted'].includes(u.state) && !provenDead(u.worker?.pid)).map(u => u.worktree),
+    ...(state?.jobs ?? []).filter(j => j.state === 'running' && !provenDead(j.pid)).map(j => j.cwd),
+  ].filter(Boolean);
+}
+
+/** ONE ownership predicate for retry, close and sweep: run + branch + canonical exact checkout path.
+ * Detached G2 snapshots additionally need their exact pin reachable from this run's integration ref;
+ * a detached integration/unit is never reclaimed (its unique commit may have no surviving ref).
+ */
+export function engineWorktreeOwnershipReason(entry, { build, runId } = {}) {
+  if (!build || typeof runId !== 'string' || !/^[A-Za-z0-9._:-]{1,160}$/.test(runId)) return 'run-ownership-unproven';
+  const root = real(build), target = real(entry.path);
+  if (path.resolve(build) !== root || path.resolve(entry.path) !== target) return 'symlink-path';
+  if (!entry.branch) {
+    const pin = /^g2\/([A-Za-z0-9._:-]+)-([a-f0-9]{40,64})$/.exec(path.relative(root, target).split(path.sep).join('/'));
+    if (!pin || entry.head !== pin[2] || !git(entry.path, ['merge-base', '--is-ancestor', pin[2], `refs/heads/lane/${runId}/integration`]).ok) return 'detached-ownership-unproven';
+    return null;
+  }
+  const prefix = `lane/${runId}/`;
+  if (!entry.branch.startsWith(prefix)) return 'foreign-run';
+  const segment = entry.branch.slice(prefix.length);
+  if (!/^[A-Za-z0-9._:-]+$/.test(segment)) return 'worktree-path-mismatch';
+  const expected = segment === 'integration' ? path.join(root, 'integration') : path.join(root, 'wt', segment);
+  return target === expected ? null : 'worktree-path-mismatch';
+}
+
 // The only protected-state exception. Match worktree ROOTS, never an arbitrary descendant.
-function engineRoot(p, projs) {
+function engineRoot(p, projs, entry) {
   for (const project of projs) {
     const run = path.join(project.dir, '.pandacorp/run');
     if (!within(p, run) || real(run) !== run) continue;
@@ -131,7 +162,9 @@ function engineRoot(p, projs) {
     catch (e) { if (!archive || e.code !== 'ENOENT') return { project, managed: true, eligible: false, reason: 'run-state-unreadable' }; state = {}; }
     if (state.status === 'waiting_gate' || Object.values(state.units || {}).some(u => u?.state === 'waiting_gate' || u?.status === 'waiting_gate')) return { project, managed: true, eligible: false, reason: 'waiting-gate' };
     if (!archive && !['finished', 'stopped'].includes(state.status)) return { project, managed: true, eligible: false, reason: 'unfinished-run' };
-    return { project, managed: true, eligible: true };
+    if (runningWorktreePaths(state).some(cwd => within(real(cwd), p))) return { project, managed: true, eligible: false, reason: 'running-unit' };
+    const ownership = engineWorktreeOwnershipReason(entry, { build: root, runId: state.run_id });
+    return { project, managed: true, eligible: !ownership, reason: ownership };
   }
   return null;
 }
@@ -335,7 +368,7 @@ export async function scan(repo, selfDir = process.cwd(), alsoList = [], { gener
     const idleHours = Math.min(info.ageHours, hoursSince(path.join(git(w.path, ["rev-parse", "--absolute-git-dir"]).out, "logs", "HEAD")));
     const recent = idleHours < STALE_HOURS && !also.has(w.branch) && !also.has(p);
     const inUse = procs.cwds.some((c) => within(c, p));
-    const engine = engineRoot(p, projs);
+    const engine = engineRoot(p, projs, w);
     const engineProject = projs.find((pr) => within(p, pr.runDir));
     const engineOwned = Boolean(engineProject) || base.origin.startsWith("build-");
     const engineLive = engineProject ? engineProject.live : engineOwned && anyLive;
@@ -404,7 +437,10 @@ export async function clean(repo, selfDir, { dryRun = false, also = [] } = {}) {
         : a === "delete-branch" ? ["branch", "-d", it.branch]
         : ["worktree", "prune"];
       if (dryRun) { done.push({ action: a, branch: it.branch, path: it.path, dryRun: true }); continue; }
-      const r = git(root, args);
+      const project = a === "remove-worktree" && inv.projects.find(p => within(it.path, path.join(p.dir, '.pandacorp/run')));
+      let r;
+      try { r = project ? await withUnleasedProject(project.dir, () => git(root, args)) : git(root, args); }
+      catch (error) { if (error.code !== 'CONTENDED') throw error; r = { ok: false, err: 'live-build' }; }
       (r.ok ? done : failed).push({ action: a, branch: it.branch, path: it.path, ...(r.ok ? {} : { error: r.err }) });
       if (!r.ok) break; // a refused removal keeps its branch too — never escalate to --force/-D
     }
@@ -420,16 +456,21 @@ export async function cleanEngineWorktrees(repo, selfDir, { dryRun = false, excl
   const inv = await scan(repo, selfDir, [], { generatedFilesByPath });
   const removed = [], kept = [], failed = [];
   for (const candidate of inv.items.filter(i => i.kind === 'worktree' && i.engineOwned && !excluded.includes(i.path))) {
-    const fresh = await scan(repo, selfDir, [], { generatedFilesByPath });
-    const item = fresh.items.find(i => i.kind === 'worktree' && i.path === candidate.path);
-    if (!item || item.decision !== 'safe') {
-      if (item) kept.push({path: item.path, reason: item.reason});
-      continue;
-    }
-    if (dryRun) { removed.push({path: item.path, dryRun: true}); continue; }
-    const result = git(inv.repo, ['worktree', 'remove', '--', item.path]);
-    if (result.ok && !existsSync(item.path)) removed.push({path: item.path});
-    else failed.push({path: item.path, error: result.err || 'directory remains'});
+    const project = inv.projects.find(p => within(candidate.path, path.join(p.dir, '.pandacorp/run')));
+    const remove = async () => {
+      const fresh = await scan(repo, selfDir, [], { generatedFilesByPath });
+      const item = fresh.items.find(i => i.kind === 'worktree' && i.path === candidate.path);
+      if (!item || item.decision !== 'safe') {
+        if (item) kept.push({path: item.path, reason: item.reason});
+        return;
+      }
+      if (dryRun) { removed.push({path: item.path, dryRun: true}); return; }
+      const result = git(inv.repo, ['worktree', 'remove', '--', item.path]);
+      if (result.ok && !existsSync(item.path)) removed.push({path: item.path});
+      else failed.push({path: item.path, error: result.err || 'directory remains'});
+    };
+    try { if (project) await withUnleasedProject(project.dir, remove); else await remove(); }
+    catch (error) { if (error.code !== 'CONTENDED') throw error; kept.push({ path: candidate.path, reason: 'live-build' }); }
   }
   const manifestsPruned = pruneManifests(inv.projects.map(p => p.dir), {dryRun});
   return {removed, kept, failed, manifestsPruned};

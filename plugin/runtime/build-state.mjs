@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
 import { lstat, mkdir, open, readFile, readdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
@@ -228,6 +229,22 @@ export const assertFence = async (project, token, epoch, { allowQuiesced = false
   return lease;
 };
 export const withFence = async (project, token, epoch, mutation) => { const p = await assertSafeLayout(project); return withMutex(p.mutex, async () => { const lease = await assertFence(project, token, epoch); return mutation(lease); }); };
+// Maintenance holds the SAME mutex as acquire/transfer/reclaim until every deletion/move is finished.
+// Async-local nesting lets gc call the shared sweep without trying to reacquire its own reservation.
+const maintenance = new AsyncLocalStorage();
+export async function withUnleasedProject(project, mutation) {
+  const p = await assertSafeLayout(project, { allowMissingRun: true });
+  await mkdir(p.run, { recursive: true });
+  const key = await realpath(p.run);
+  if (maintenance.getStore()?.has(key)) return mutation();
+  return withMutex(p.mutex, async () => {
+    // An unreadable/orphan lease directory is still owned, never permission to clean.
+    if (await lstat(p.leaseDir).then(() => true, error => { if (error.code === "ENOENT") return false; throw error; })) {
+      throw Object.assign(new Error("Hay un lease del build vigente; la limpieza espera a que termine."), { code: "CONTENDED" });
+    }
+    return maintenance.run(new Set([...(maintenance.getStore() ?? []), key]), mutation);
+  });
+}
 const COORDINATORS = new Set(["session", "drive"]);
 // A token file of a released lease is dead weight: remove it only when it still belongs to that epoch.
 const dropTokenFile = async (p, epoch) => { const held = await parseJson(p.tokenFile).catch(() => null); if (held?.epoch === epoch) await rm(p.tokenFile, { force: true }); };

@@ -61,9 +61,9 @@ try {
   const engine = path.join(repo, '.pandacorp/run/build');
   mkdirSync(engine, {recursive:true});
   writeFileSync(path.join(repo,'.pandacorp/status.yaml'),'running: false\n');
-  const state = status => writeFileSync(path.join(engine,'state.json'), JSON.stringify({status}));
+  const state = status => writeFileSync(path.join(engine,'state.json'), JSON.stringify({run_id:'finished',status}));
   const terminalWt = path.join(engine,'wt/u-finished');
-  git(repo,'worktree','add','-qb','lane/finished/unit',terminalWt);
+  git(repo,'worktree','add','-qb','lane/finished/u-finished',terminalWt);
   // Terminal runs may contain commits absent from main; their branch must survive reclamation.
   writeFileSync(path.join(terminalWt,'unit-output'),'completed attempt');
   git(terminalWt,'add','unit-output');git(terminalWt,'commit','-qm','unit attempt');
@@ -78,7 +78,9 @@ try {
   const waiting=await finish(engineSession.root,{dryRun:true,self:repo});
   check(waiting.kept.some(i=>i.path===terminalWt),'waiting_gate retains engine worktrees');
   state('finished');
-  const g2=path.join(engine,'g2/snapshot');git(repo,'worktree','add','-q','--detach',g2);
+  const pin=git(repo,'rev-parse','HEAD');
+  git(repo,'branch','lane/finished/integration',pin);
+  const g2=path.join(engine,`g2/frd-alpha-${pin}`);git(repo,'worktree','add','-q','--detach',g2,pin);
   const leaseDir=path.join(repo,'.pandacorp/run/build.lease');mkdirSync(leaseDir);
   writeFileSync(path.join(leaseDir,'lease.json'),JSON.stringify({renewed_at:new Date().toISOString(),ttl_seconds:1800}));
   const leased=await finish(engineSession.root,{dryRun:true,self:repo});
@@ -87,7 +89,7 @@ try {
   const finished=await finish(engineSession.root,{self:repo});
   check(finished.removed.some(i=>i.path===terminalWt)&&!existsSync(terminalWt),'finished v2 worktree is reclaimed after registration');
   check(!existsSync(g2)&&finished.removed.some(i=>i.path===g2),'unregistered finished G2 worktree is discovered and removed');
-  check(Boolean(git(repo,'rev-parse','--verify','lane/finished/unit')),'finished run keeps unmerged branch refs');
+  check(Boolean(git(repo,'rev-parse','--verify','lane/finished/u-finished')),'finished run keeps unmerged branch refs');
   check(!existsSync(path.join(manifests,'stale.json'))&&!existsSync(path.join(manifests,'live.json'))&&existsSync(path.join(manifests,'invalid.json')),'prunes missing-path manifests and retains malformed evidence');
   console.log(`${count} passed, 0 failed`);
 } finally {

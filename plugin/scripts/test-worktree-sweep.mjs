@@ -83,9 +83,9 @@ try {
 
   const engineRoot=path.join(repo,'.pandacorp/run/build');mkdirSync(engineRoot,{recursive:true});
   const engineWt=path.join(engineRoot,'wt/finished');
-  sh(repo,'worktree','add','-q','-b','lane/finished/unit',engineWt);
+  sh(repo,'worktree','add','-q','-b','lane/finished/finished',engineWt);
   commit(engineWt,'finished.txt','unmerged finished attempt');
-  const state=status=>writeFileSync(path.join(engineRoot,'state.json'),JSON.stringify({status}));
+  const state=status=>writeFileSync(path.join(engineRoot,'state.json'),JSON.stringify({run_id:'finished',status}));
   state('waiting_gate');
   const waiting=sweep(['scan','--repo',repo,'--self',wt('self')]);
   ok(waiting.json.items.find(i=>i.path===engineWt)?.decision==='protected','waiting_gate engine worktree protected');
@@ -152,8 +152,8 @@ try {
   ok(c2.code === 0, "clean exits 0");
   const branches = sh(repo, "branch", "--format=%(refname:short)").split("\n");
   ok(!branches.includes("claude/merged") && !branches.includes("old-merged"), "merged branches deleted with -d");
-  ok(!existsSync(engineWt)&&branches.includes('lane/finished/unit'),'clean reclaims terminal engine tree and keeps its unmerged branch');
-  ok(!existsSync(archived)&&existsSync(suspended),'archive tree reclaimed; suspended tree retained');
+  ok(!existsSync(engineWt)&&branches.includes('lane/finished/finished'),'clean reclaims terminal engine tree and keeps its unmerged branch');
+  ok(existsSync(archived)&&existsSync(suspended),'detached archive without provenance and suspended tree retained');
   ok(!existsSync(path.join(repo, ".pandacorp/run/gate-worktree")), "idle gate worktree removed");
   ok(!sh(repo, "worktree", "list").includes(wt("gone")), "missing-directory entry pruned");
   for (const n of ["feature", "dirty", "locked", "self", "inuse", "owner", "outer", "wip", "hidden-owner", "run-owner"]) ok(existsSync(wt(n)), `${n} untouched`);

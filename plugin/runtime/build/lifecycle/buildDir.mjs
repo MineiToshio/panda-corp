@@ -1,4 +1,5 @@
 // Moves of run metadata (A4): archive, suspend, restore. Disposable worktrees never move.
+import { withUnleasedProject } from "../../build-state.mjs";
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { defaultExec, readJson } from "../fsx.mjs";
@@ -21,7 +22,6 @@ async function mergeMove(src, dst) {
 /** Reclaim eligible worktrees, refuse any protected remainder, then move run metadata. */
 async function moveBuildDir({ project, from, to, keep = [], drop = [] }, d) {
   if (await exists(to)) throw err("INVALID_STATE", `${to} already exists (run id collision)`);
-  await cleanupRunWorktrees({ project }, d);
   await gcWorktrees({ project }, d);
   const remaining = (await listWorktrees(gitIn(d.exec ?? defaultExec, project))).filter(w => w.path === from || w.path.startsWith(`${from}${path.sep}`));
   if (remaining.length) throw err("INVALID_STATE", "No se puede archivar el build: quedan worktrees protegidos.", { worktrees: remaining.map(w => w.path) });
@@ -56,22 +56,26 @@ export async function nextRunId(project, p, d) {
 
 /** Terminal run in build/ goes to the archive, a non-terminal non-active one to build-suspended/; an active one is refused. */
 export async function clearBuildDir(project, p, d) {
-  const state = await readJson(p.stateFile).catch(() => { throw err("INVALID_STATE", "build/state.json is unreadable: stop or rebuild the run first", { hint: "rebuild-state" }); });
-  if (!state) return null;
-  if (state.status === "active") throw err("INVALID_STATE", "a run is active: resume or stop the run first");
-  const dest = state.status === "finished" ? p.buildArchiveDir(state.run_id) : p.buildSuspendedDir(state.run_id);
-  await moveBuildDir({ project, from: p.build, to: dest, keep: ["preflight.json"], drop: ["lease-token.json"] }, d);
-  return { run_id: state.run_id, moved_to: dest };
+  return withUnleasedProject(project, async () => {
+    const state = await readJson(p.stateFile).catch(() => { throw err("INVALID_STATE", "build/state.json is unreadable: stop or rebuild the run first", { hint: "rebuild-state" }); });
+    if (!state) return null;
+    if (state.status === "active") throw err("INVALID_STATE", "a run is active: resume or stop the run first");
+    const dest = state.status === "finished" ? p.buildArchiveDir(state.run_id) : p.buildSuspendedDir(state.run_id);
+    await moveBuildDir({ project, from: p.build, to: dest, keep: ["preflight.json"], drop: ["lease-token.json"] }, d);
+    return { run_id: state.run_id, moved_to: dest };
+  });
 }
 
 /** Explicit, idempotent reclamation. The sweep owns the removal predicate; branch refs are never deleted. */
 export async function gcWorktrees({ project }, deps = {}) {
   if (await bsOf(deps).currentLease(project)) throw err("CONTENDED", "Hay un lease del build vigente; gc espera a que termine.");
-  const state = await readJson(buildPaths(project, deps).stateFile).catch(() => null);
-  const runningPaths = [...(state?.units ?? []).filter(u => ["running", "admitted"].includes(u.state)).map(u => u.worktree).filter(Boolean), ...(state?.jobs ?? []).filter(j => j.state === "running").map(j => j.cwd).filter(Boolean)];
-  const listed = await listWorktrees(gitIn(deps.exec ?? defaultExec, project));
-  const excluded = listed.filter(w => runningPaths.some(p => path.resolve(p) === path.resolve(w.path) || path.resolve(p).startsWith(`${path.resolve(w.path)}${path.sep}`))).map(w => w.path);
-  const active = state && state.status !== "active" ? await cleanupRunWorktrees({ project, state }, deps) : { removed: [], kept: [] };
-  const swept = await cleanEngineWorktrees(project, project, { excluded });
-  return { ...swept, removed: [...active.removed.map(path => ({ path })), ...swept.removed], kept: [...active.kept, ...swept.kept] };
+  return withUnleasedProject(project, async () => {
+    const state = await readJson(buildPaths(project, deps).stateFile).catch(() => null);
+    const runningPaths = [...(state?.units ?? []).filter(u => ["running", "admitted"].includes(u.state)).map(u => u.worktree).filter(Boolean), ...(state?.jobs ?? []).filter(j => j.state === "running").map(j => j.cwd).filter(Boolean)];
+    const listed = await listWorktrees(gitIn(deps.exec ?? defaultExec, project));
+    const excluded = listed.filter(w => runningPaths.some(p => path.resolve(p) === path.resolve(w.path) || path.resolve(p).startsWith(`${path.resolve(w.path)}${path.sep}`))).map(w => w.path);
+    const active = state && state.status !== "active" ? await cleanupRunWorktrees({ project, state }, deps) : { removed: [], kept: [] };
+    const swept = await cleanEngineWorktrees(project, project, { excluded: [...excluded, ...active.kept.map(k => k.path)] });
+    return { ...swept, removed: [...active.removed.map(path => ({ path })), ...swept.removed], kept: [...active.kept, ...swept.kept] };
+  });
 }

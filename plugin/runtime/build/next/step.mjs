@@ -38,7 +38,7 @@ export async function step(run) {
   d.adaptiveStep = run.reading?.step ?? d.admission.readAdaptive(admissionCtx(run)).step;
   const notes = [];
   run.diskBlocked = false;
-  const boot = await bootstrapIntegrationWorktree({ project: run.ref.project, runId: state.run_id, root: state.integration.worktree }, d);
+  const boot = await bootstrapIntegrationWorktree({ project: run.ref.project, runId: state.run_id }, d);
   if (boot.exit === 4) return finish(run, state, { action: "wait", wait: { reason: "disk", retry_after_s: RETRY_S.disk }, notes });
 
   // (1) harvest finished jobs and workers; (2) integrate committed chains (the G2 spawn rides on admission, step 6).

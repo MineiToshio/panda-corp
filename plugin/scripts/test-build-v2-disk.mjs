@@ -27,6 +27,7 @@ const setup = async name => {
   const p = buildPaths(fx.root, deps);
   await mkdir(p.build, { recursive: true });
   await createIntegrationWorktree({ project: fx.root, runId: 'r-disk' }, deps);
+  await writeFile(p.stateFile, JSON.stringify({ run_id: 'r-disk', status: 'stopped', units: [], jobs: [] }));
   return { fx, deps, p };
 };
 const stateOf = (c, fields = {}) => newState({ run_id: 'r-disk', epoch: 1, coordinator: 'claude-session', label: 'claude', size: 'feature', scope: { card: null, frds: [], wos: [], out_of_scope: [] }, integration: { branch: c.p.integrationBranch('r-disk'), worktree: c.p.integrationWorktree, base_sha: c.fx.sha }, ...fields });
@@ -42,6 +43,69 @@ const seedExtra = async c => {
   return { wt, assume, g2, manifest: path.join(manifests, 'unit.json') };
 };
 try {
+  await test('DFIX retry never removes a foreign run at the previous attempt path', async () => {
+    const c = await setup('foreign-retry');
+    const one = await prepareUnitWorktree({ project: c.fx.root, runId: 'r-disk', unit: 'u-retry' }, c.deps);
+    git(one.worktree, ['switch', '-c', 'lane/foreign/u-retry']);
+    await prepareUnitWorktree({ project: c.fx.root, runId: 'r-disk', unit: 'u-retry', attempt: 2 }, c.deps);
+    assert.equal(await exists(one.worktree), true);
+  });
+  await test('DFIX close refuses detached foreign commits and exact-path mismatches', async () => {
+    const c = await setup('foreign-close');
+    const detached = c.p.unitWorktree('u-detached');
+    git(c.fx.root, ['worktree', 'add', '--detach', detached, 'HEAD']);
+    await writeFile(path.join(detached, 'foreign.txt'), 'unique foreign work');
+    git(detached, ['add', 'foreign.txt']); git(detached, ['commit', '-m', 'foreign detached work']);
+    const sha = git(detached, ['rev-parse', 'HEAD']);
+    const wrong = c.p.unitWorktree('u-wrong');
+    git(c.fx.root, ['worktree', 'add', '-b', 'lane/r-disk/u-other', wrong, 'HEAD']);
+    const result = await cleanupRunWorktrees({ project: c.fx.root, state: stateOf(c, { status: 'stopped' }) }, c.deps);
+    assert.equal(await exists(detached), true, JSON.stringify(result));
+    assert.equal(git(detached, ['rev-parse', 'HEAD']), sha);
+    assert.equal(await exists(wrong), true, JSON.stringify(result));
+  });
+  await test('DFIX gc keeps foreign-run and detached refusals across both passes', async () => {
+    const c = await setup('foreign-gc');
+    const wt = c.p.unitWorktree('u-foreign');
+    git(c.fx.root, ['worktree', 'add', '-b', 'lane/foreign/u-foreign', wt, 'HEAD']);
+    const detached = c.p.unitWorktree('u-detached'); git(c.fx.root, ['worktree', 'add', '--detach', detached, 'HEAD']);
+    await writeState(c.fx.root, stateOf(c, { status: 'finished' }), c.deps);
+    for (let i = 0; i < 2; i++) {
+      const result = await gcWorktrees({ project: c.fx.root }, c.deps);
+      assert.equal(await exists(wt), true, JSON.stringify(result));
+      assert.equal(await exists(detached), true, JSON.stringify(result));
+      assert.ok(result.kept.some(k => k.path === wt));
+    }
+  });
+  await test('DFIX stopped running/admitted native units without a PID stay protected', async () => {
+    for (const status of ['running', 'admitted']) {
+      const c = await setup(`native-${status}`);
+      const wt = await prepareUnitWorktree({ project: c.fx.root, runId: 'r-disk', unit: 'u-native' }, c.deps);
+      const unit = newUnit({ id: 'u-native', kind: 'build', state: status, worktree: wt.worktree, worker: { runtime: 'claude', via: 'session', pid: null } });
+      const result = await cleanupRunWorktrees({ project: c.fx.root, state: stateOf(c, { status: 'stopped', units: [unit] }) }, c.deps);
+      assert.equal(await exists(wt.worktree), true, JSON.stringify(result));
+    }
+  });
+  await test('DFIX gc excludes acquire for the entire removal, then releases its reservation', async () => {
+    const c = await setup('lease-race');
+    await writeState(c.fx.root, stateOf(c, { status: 'finished' }), c.deps);
+    let attempted = false, acquired = null;
+    const { defaultExec } = await import('../runtime/build/fsx.mjs');
+    try {
+      await gcWorktrees({ project: c.fx.root }, { ...c.deps, exec: async (cmd, args, opts) => {
+        if (!attempted && cmd === 'git' && args[0] === 'worktree' && args[1] === 'list') {
+          attempted = true;
+          try { acquired = await buildState.acquire(c.fx.root, { runtime: 'codex', runId: 'other', projectStatus: false }); }
+          catch (e) { assert.equal(e.code, 'CONTENDED'); }
+        }
+        return defaultExec(cmd, args, opts);
+      } });
+      assert.equal(attempted, true);
+      assert.equal(acquired, null, 'acquire must not enter while gc removes worktrees');
+    } finally { if (acquired) await buildState.release(c.fx.root, acquired.token, acquired.epoch); }
+    const after = await buildState.acquire(c.fx.root, { runtime: 'codex', runId: 'after', projectStatus: false });
+    await buildState.release(c.fx.root, after.token, after.epoch);
+  });
   await test('landing removes finished unit and assume trees but keeps refs and integration', async () => {
     const c = await setup('landing'); const { wt, assume, manifest } = await seedExtra(c); const refs = refsOf(c);
     const state = stateOf(c, { units: [newUnit({ id: 'u-done', kind: 'build', state: 'landed', worktree: wt.worktree })] });
@@ -68,7 +132,7 @@ try {
   await test('stop removes dead checkouts and resume recreates branches with existing reset semantics', async () => {
     const c = await setup('resume'); const wt = await prepareUnitWorktree({ project: c.fx.root, runId: 'r-disk', unit: 'u-resume' }, c.deps);
     await writeFile(path.join(wt.worktree, 'src/alpha/list.ts'), '// unreported engine commit\n'); git(wt.worktree, ['add', 'src/alpha/list.ts']); git(wt.worktree, ['commit', '-m', 'unreported unit output']);
-    const unit = newUnit({ id: 'u-resume', kind: 'build', state: 'running', worktree: wt.worktree, branch: wt.branch });
+    const unit = newUnit({ id: 'u-resume', kind: 'build', state: 'running', worktree: wt.worktree, branch: wt.branch, worker: { runtime: 'claude', model: 'sonnet', effort: 'high', via: 'session', pid: 99999999, worker_id: null } });
     await writeState(c.fx.root, stateOf(c, { status: 'stopped', units: [unit] }), c.deps); const refs = refsOf(c);
     await stopRun({ project: c.fx.root }, c.deps);
     assert.equal(await exists(wt.worktree), false); assert.equal(await exists(c.p.integrationWorktree), false); assert.equal(refsOf(c), refs);
@@ -108,7 +172,7 @@ try {
   });
   await test('sparse omitted files are safe to reclaim, hidden tracked edits are retained', async () => {
     const c = await setup('sparse-clean'); const record = newUnit({ id: 'u-sparse', kind: 'tests', wos: ['WO-01-001'] });
-    await writeFile(c.p.stateFile, JSON.stringify({ units: [record] }));
+    await writeFile(c.p.stateFile, JSON.stringify({ run_id: 'r-disk', units: [record] }));
     const wt = await prepareUnitWorktree({ project: c.fx.root, runId: 'r-disk', unit: record.id }, c.deps);
     assert.equal(wt.sparse.enabled, true); assert.equal((await removeWorktree({ project: c.fx.root, worktree: wt.worktree }, c.deps)).removed, true);
     const hidden = await prepareUnitWorktree({ project: c.fx.root, runId: 'r-disk', unit: 'u-hidden' }, c.deps);
@@ -138,7 +202,7 @@ try {
   await test('finished fixture gc leaves no run worktree, keeps all branches and is idempotent', async () => {
     const { fx, deps, p } = await setup('gc');
     await prepareUnitWorktree({ project: fx.root, runId: 'r-disk', unit: 'u-done' }, deps);
-    await writeFile(p.stateFile, JSON.stringify({ status: 'finished', units: [], jobs: [] }));
+    await writeFile(p.stateFile, JSON.stringify({ run_id: 'r-disk', status: 'finished', units: [], jobs: [] }));
     const refs = git(fx.root, ['for-each-ref', '--format=%(refname)', 'refs/heads/']);
     const first = await gcWorktrees({ project: fx.root }, deps);
     assert.equal(first.failed.length, 0);
@@ -150,7 +214,7 @@ try {
   await test('unit cone checkout keeps source and context, omits other FRD, full fallback on red light', async () => {
     const { fx, deps, p } = await setup('sparse');
     const record = { id: 'u-build', kind: 'build', wos: ['WO-01-001'], attempt: 1 };
-    await writeFile(p.stateFile, JSON.stringify({ units: [record] }));
+    await writeFile(p.stateFile, JSON.stringify({ run_id: 'r-disk', units: [record] }));
     const wt = await prepareUnitWorktree({ project: fx.root, runId: 'r-disk', unit: record.id }, deps);
     assert.equal(wt.sparse.enabled, true);
     assert.equal(await exists(path.join(wt.root, 'src/beta/view.ts')), true);
