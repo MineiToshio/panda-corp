@@ -28,7 +28,9 @@ export async function createIntegrationWorktree({ project, runId, baseRef = "HEA
   const worktree = p.integrationWorktree;
   const existing = await findRegistered(g, fs, worktree);
   if (existing) {
-    if (existing.branch !== branch) throw err("INVALID_STATE", `integration worktree ${worktree} is on ${existing.branch ?? "a detached HEAD"}, expected ${branch}`);
+    // A detached HEAD is an integration step's rebase (live, or killed mid-way): the next write's prepareIntegration
+    // aborts it and re-checks-out the branch, so a re-attach (`start --resume`) must not refuse it. Another branch is refused.
+    if (existing.branch !== branch && !existing.detached) throw err("INVALID_STATE", `integration worktree ${worktree} is on ${existing.branch ?? "a detached HEAD"}, expected ${branch}`);
     return { branch, worktree, base_sha: null, created: false };
   }
   await g(["worktree", "prune"]);

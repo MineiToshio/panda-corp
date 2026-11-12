@@ -283,7 +283,9 @@ async function scenarioA() {
     check(sc, "handoff writes handoff.json", h.code === 0 && !!h.json?.handoff_path, txt(h.json));
     const took = await waitFor(async () => { const l = await lease(sc); return l?.coordinator === "drive" && l.epoch === E + 1 ? l : null; }, 75_000);
     check(sc, "trigger (a): drive took over (epoch+1, lease coordinator drive, same run)", took && took.run_id === sc.runId, `${txt(await lease(sc))} ${await driveLogTail(sc)}`);
-    check(sc, "handoff.json consumed by drive", !existsSync(sc.p.handoffFile), "");
+    // handoff.json is renamed right after the transfer that moved the lease: wait for it, never read once.
+    const consumed = await waitFor(() => !existsSync(sc.p.handoffFile), 20_000, 250);
+    check(sc, "handoff.json consumed by drive", !!consumed, await driveLogTail(sc));
     const loser = await cli(sc, ["next", "--epoch", String(E)]);
     check(sc, "the session (loser of the transfer) gets exit 3 on next", loser.code === 3, `exit ${loser.code} ${txt(loser.json)}`);
     const fin = await waitFor(async () => { const s = await cli(sc, ["status"]); return s.json?.status === "finished" ? s : null; }, Math.max(30_000, SUITE_DEADLINE_MS - (Date.now() - T_START) - 20_000), 3000);
@@ -314,8 +316,9 @@ async function scenarioB() {
     await writeFile(agentUnits[0].report_path, CLAUDE_LIMIT_TEXT);
     const took = await waitFor(async () => { const l = await lease(sc); return l?.coordinator === "drive" && l.epoch === E + 1 ? l : null; }, 45_000);
     check(sc, "trigger (b): the Claude-written limit text makes drive take over (epoch+1)", !!took, `${txt(await lease(sc))} ${await driveLogTail(sc)}`);
-    const j = await readJournal(sc);
-    check(sc, "journal records drive_takeover", j.some((e) => e.type === "drive_takeover"), "");
+    // The lease moves (transfer) before the takeover's own fenced step journals it: wait for the event, never read once.
+    const tk = await waitFor(async () => (await readJournal(sc)).some((e) => e.type === "drive_takeover"), 20_000, 250);
+    check(sc, "journal records drive_takeover", !!tk, await driveLogTail(sc));
     const busy = await waitFor(async () => (await readJournal(sc)).some((e) => e.actor === "drive" && ["unit_dispatched", "job_started"].includes(e.type)), 45_000);
     check(sc, "drive dispatches work after the takeover", !!busy, await driveLogTail(sc));
     const dpid = await standbyPid(sc);

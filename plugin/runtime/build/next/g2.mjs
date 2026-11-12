@@ -5,6 +5,7 @@ import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { atomicWriteJson, readJson } from "../fsx.mjs";
 import { dropBootstrapManifests, frdsReadyForG2 } from "../integrate.mjs";
+import { realOrResolved } from "../integrate/git.mjs";
 import { assertSafeId, buildPaths, resolveInside } from "../paths.mjs";
 import { readState } from "../state.mjs";
 import { productPrefix, productRoot } from "../units.mjs";
@@ -47,8 +48,7 @@ async function gitOut(cwd, args) {
 async function registeredWorktrees(run) {
   const out = await gitOut(run.ref.project, ["worktree", "list", "--porcelain"]);
   const fs = run.d.fs ?? fsp;
-  const real = async (p) => { try { return await fs.realpath(p); } catch { return path.resolve(p); } };
-  return Promise.all(out.split("\n").filter((l) => l.startsWith("worktree ")).map((l) => real(l.slice(9))));
+  return Promise.all(out.split("\n").filter((l) => l.startsWith("worktree ")).map((l) => realOrResolved(fs, l.slice(9))));
 }
 
 /**

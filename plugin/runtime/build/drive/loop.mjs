@@ -25,6 +25,11 @@ function codexOnlyWorkers(workers) {
 // A land job counts as alive while it is recorded running and its pid (when known) is alive.
 const landJobAlive = (state, d) => state.jobs.some((j) => j.kind === "land" && j.state === "running" && (!Number.isInteger(j.pid) || d.isAlive(j.pid)));
 
+// The FENCE error when the lease token no longer names `epoch` (another coordinator took the run), else null.
+async function leaseLost(project, epoch, d) {
+  try { await readLeaseToken(project, epoch, { env: d.env, homedir: d.homedir }); return null; } catch (error) { return isFenceError(error) ? error : null; }
+}
+
 /**
  * The active relay loop for the run at `epoch` (drive holds the lease). Ends at a terminal action (already applied by
  * `next`), `done` (then `finish`), a fence (the owner resumed: yield, exit 0) or an engine failure (exit 8).
@@ -108,8 +113,12 @@ export async function driveLoop({ project, epoch }, deps) {
           throw err("ENGINE_FAILURE", `next returned an unknown action: ${String(out?.action)}`);
       }
     } catch (error) {
-      if (isFenceError(error)) {
-        driveLog(project, `yield: fenced at epoch ${epoch} (${error.message}); the owner's session holds the run now`, d);
+      // A `start --resume` transfers the lease while drive may be inside a work phase (outside the mutex), and its
+      // integration-worktree heal can then break drive's in-flight git step. Once the lease names another epoch, any
+      // failure is the loser's: yield like a fence instead of reporting an engine failure for a run drive no longer holds.
+      const lost = isFenceError(error) ? error : await leaseLost(project, epoch, d);
+      if (lost) {
+        driveLog(project, `yield: fenced at epoch ${epoch} (${lost.message}${lost === error ? "" : `; after: ${error?.code ?? "ERROR"}: ${error?.message ?? String(error)}`}); the owner's session holds the run now`, d);
         await setOwnStandbyState(project, "stopped", d);
         return { outcome: "yielded", action: out?.action ?? null, exitCode: 0 };
       }

@@ -3,13 +3,13 @@ import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { buildPaths } from "../paths.mjs";
 import { err } from "./common.mjs";
+import { realOrResolved } from "../integrate/git.mjs";
 import { git, productPrefix, productRoot, runnerOf } from "./git.mjs";
 
 const BOOTSTRAP_TIMEOUT_MS = 10 * 60 * 1000;
 
 const sameDir = async (fs, a, b) => {
-  const real = async (p) => { try { return await fs.realpath(p); } catch { return path.resolve(p); } };
-  return (await real(a)) === (await real(b));
+  return (await realOrResolved(fs, a)) === (await realOrResolved(fs, b));
 };
 
 /**

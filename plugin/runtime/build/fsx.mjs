@@ -116,25 +116,61 @@ async function readLastLine(file, fs) {
   }
 }
 
-// Short cross-process mutex around one append (mkdir lock, stale after 30 s).
+// The pid that holds an append lock when it is provably dead (ESRCH), else null (live, foreign, unreadable, legacy).
+async function deadLockHolder(lock, fs) {
+  const owner = await fs.readFile(path.join(lock, "owner"), "utf8").catch(() => "");
+  const pid = Number.parseInt(owner.split("-")[0], 10);
+  if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) return null;
+  try { process.kill(pid, 0); return null; } catch (error) { return error.code === "ESRCH" ? { pid, owner } : null; }
+}
+
+// Short cross-process mutex around one append. The lock directory is born WITH its owner file (prepared aside, then
+// renamed into place), so a holder killed at any point (kill -9 of drive mid-append) leaves either no lock or a lock
+// naming a dead pid, which the next appender reclaims at once instead of waiting out the 30-s staleness rule (kept for
+// locks whose owner cannot be read).
 async function withAppendLock(file, fs, fn) {
   const lock = `${file}.lock`;
+  const me = `${process.pid}-${randomBytes(8).toString("hex")}`;
   await fs.mkdir(path.dirname(file), { recursive: true });
   for (let attempt = 0; attempt < 600; attempt++) {
-    try {
-      await fs.mkdir(lock);
-    } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-      const st = await fs.stat(lock).catch(() => null);
-      if (st && Date.now() - st.mtimeMs > 30_000) await fs.rm(lock, { recursive: true, force: true }).catch(() => {});
-      await sleep(10);
-      continue;
+    const held = await fs.stat(lock).catch(() => null);
+    if (!held) {
+      const fresh = `${lock}.new-${me}`;
+      await fs.mkdir(fresh, { recursive: true });
+      await fs.writeFile(path.join(fresh, "owner"), me);
+      let acquired = true;
+      try { await fs.rename(fresh, lock); } catch (error) {
+        if (!["EEXIST", "ENOTEMPTY", "EISDIR", "ENOTDIR"].includes(error.code)) throw error;
+        acquired = false;
+      }
+      if (acquired) {
+        try {
+          return await fn();
+        } finally {
+          const current = await fs.readFile(path.join(lock, "owner"), "utf8").catch(() => null);
+          // Renamed away first so the lock path frees atomically (a kill during the removal leaves litter, never a lock).
+          if (current === me) {
+            const done = `${lock}.done-${me}`;
+            if (await fs.rename(lock, done).then(() => true, () => false)) await fs.rm(done, { recursive: true, force: true }).catch(() => {});
+          }
+        }
+      }
+      await fs.rm(fresh, { recursive: true, force: true }).catch(() => {});
+    } else {
+      const dead = await deadLockHolder(lock, fs);
+      if (dead || Date.now() - held.mtimeMs > 30_000) {
+        const tomb = `${lock}.dead-${me}`;
+        try {
+          await fs.rename(lock, tomb);
+          // A lock taken over between the check and the rename is handed back to its live holder.
+          const moved = await fs.readFile(path.join(tomb, "owner"), "utf8").catch(() => null);
+          if (dead && moved !== dead.owner) await fs.rename(tomb, lock).catch(() => {});
+          else await fs.rm(tomb, { recursive: true, force: true }).catch(() => {});
+        } catch { /* another appender reclaimed it first */ }
+        continue;
+      }
     }
-    try {
-      return await fn();
-    } finally {
-      await fs.rm(lock, { recursive: true, force: true }).catch(() => {});
-    }
+    await sleep(10);
   }
   throw err("CONTENDED", `journal append lock busy: ${file}`);
 }

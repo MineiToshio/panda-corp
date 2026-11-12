@@ -14,8 +14,20 @@ export function gitIn(exec, cwd) {
 }
 export const out = (res) => res.stdout.trim();
 
+/**
+ * Canonical form of a path that may no longer exist: the real path of its deepest existing ancestor plus the missing tail,
+ * so a removed worktree under a symlinked prefix (macOS `/var` -> `/private/var`) still compares equal to its real path.
+ */
 export async function realOrResolved(fs, p) {
-  try { return await fs.realpath(p); } catch { return path.resolve(p); }
+  let head = path.resolve(p);
+  const tail = [];
+  for (;;) {
+    try { return path.join(await fs.realpath(head), ...tail); } catch { /* climb to the parent */ }
+    const parent = path.dirname(head);
+    if (parent === head) return path.resolve(p);
+    tail.unshift(path.basename(head));
+    head = parent;
+  }
 }
 
 /** Parse `git worktree list --porcelain` into `[{path, head, branch|null, locked, detached}]`. */

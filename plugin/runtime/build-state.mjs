@@ -43,28 +43,53 @@ const deadHolderPid = async (dir) => {
   if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) return null;
   try { process.kill(pid, 0); return null; } catch (error) { return error.code === "ESRCH" ? pid : null; }
 };
+// The lock directory is born complete: its `owner.json` is written inside a private sibling directory which is then
+// renamed onto the lock path, so a directory visible at the lock path always names its holder (a holder killed at any
+// instant leaves either no lock or an owned one, never an empty one that a peer could mistake for a dead holder).
+// Renaming onto an existing non-empty directory fails (ENOTEMPTY/EEXIST), which is the "already held" signal.
 const withMutex = async (p, fn, attempts = 100) => {
   const owner = `${process.pid}-${randomBytes(12).toString("hex")}`;
   const ownerFile = path.join(p, "owner.json");
   for (let i = 0; i < attempts; i++) {
-    try {
-      await mkdir(p);
-      await atomicJson(ownerFile, { owner, acquired_at: iso() });
+    const held = await stat(p).then(() => true, () => false);
+    let acquired = false;
+    if (!held) {
+      const fresh = `${p}.new-${owner}`;
+      await mkdir(fresh);
+      try {
+        await writeFile(path.join(fresh, "owner.json"), `${JSON.stringify({ owner, acquired_at: iso() }, null, 2)}\n`, { mode: 0o600 });
+        await rename(fresh, p);
+        acquired = true;
+      } catch (error) {
+        await rm(fresh, { recursive: true, force: true }).catch(() => {});
+        if (!new Set(["EEXIST", "ENOTEMPTY", "EISDIR", "ENOTDIR"]).has(error.code)) throw error;
+      }
+    }
+    if (acquired) {
       try { return await fn(); }
       finally {
         const current = await parseJson(ownerFile).catch(() => null);
-        if (current?.owner === owner) await rm(p, { recursive: true, force: true });
+        if (current?.owner === owner) {
+          // Renamed away first so the lock path frees atomically (a kill during the removal leaves litter, never a lock).
+          const done = `${p}.done-${owner}`;
+          if (await rename(p, done).then(() => true, () => false)) await rm(done, { recursive: true, force: true }).catch(() => {});
+        }
       }
-    } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-      const dead = await deadHolderPid(p);
-      const age = Date.now() - Number((await stat(p).catch(() => ({ mtimeMs: Date.now() }))).mtimeMs);
-      if (dead !== null || age > 60_000) {
-        const tomb = `${p}.stale-${owner}`;
-        try { await rename(p, tomb); await rm(tomb, { recursive: true, force: true }); } catch (reclaimError) { if (!new Set(["ENOENT", "EEXIST"]).has(reclaimError.code)) throw reclaimError; }
-      }
-      await sleep(10);
     }
+    const dead = await deadHolderPid(p);
+    const age = Date.now() - Number((await stat(p).catch(() => ({ mtimeMs: Date.now() }))).mtimeMs);
+    if (dead !== null || age > 60_000) {
+      const tomb = `${p}.stale-${owner}`;
+      try {
+        await rename(p, tomb);
+        // A mutex taken over between the check and the rename is handed back to its live holder.
+        const moved = await parseJson(path.join(tomb, "owner.json")).catch(() => null);
+        const movedPid = Number.parseInt(String(moved?.owner ?? "").split("-")[0], 10);
+        if (dead !== null && movedPid !== dead && moved) await rename(tomb, p).catch(() => {});
+        else await rm(tomb, { recursive: true, force: true });
+      } catch (reclaimError) { if (!new Set(["ENOENT", "EEXIST", "ENOTEMPTY"]).has(reclaimError.code)) throw reclaimError; }
+    }
+    await sleep(10);
   }
   throw Object.assign(new Error("lease mutation mutex busy"), { code: "CONTENDED" });
 };
