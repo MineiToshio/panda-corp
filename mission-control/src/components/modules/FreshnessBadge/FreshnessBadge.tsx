@@ -32,7 +32,8 @@ export function FreshnessBadge(props: FreshnessBadgeProps): React.JSX.Element | 
   });
   if (signal.kind === "idle") return null;
   const freshness = freshnessBand(stamp, nowMs).band;
-  const band = signal.kind === "no-signal" ? "no-signal" : freshness === "no-signal" ? "aging" : freshness;
+  const band =
+    signal.kind === "no-signal" ? "no-signal" : freshness === "no-signal" ? "aging" : freshness;
   const ago = formatSignalAge(signal.ageMinutes);
   return (
     <span data-testid="freshness-badge" data-volatile="" data-band={band}>
