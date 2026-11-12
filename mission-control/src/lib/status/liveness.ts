@@ -63,7 +63,7 @@ export interface BuildClocks {
 }
 
 /** Typed verdict on the v2 lease clocks (REQ-04-017). */
-export type LeaseVerdict =
+type LeaseVerdict =
   | { kind: "absent" }
   | { kind: "fresh" }
   | { kind: "expired" }
@@ -73,7 +73,7 @@ export type LeaseVerdict =
  * Classify the lease clocks. Both fields absent is "absent" (not an error); exactly one
  * present, an unparseable stamp or a non-positive TTL is "malformed" (never read as absent).
  */
-export function classifyLease(input: BuildClocks, nowMs: number): LeaseVerdict {
+function classifyLease(input: BuildClocks, nowMs: number): LeaseVerdict {
   const { leaseRenewedAt, leaseTtlSeconds } = input;
   if (leaseRenewedAt === undefined && leaseTtlSeconds === undefined) return { kind: "absent" };
   const leaseMs = Date.parse(leaseRenewedAt ?? "");
@@ -90,7 +90,7 @@ export function classifyLease(input: BuildClocks, nowMs: number): LeaseVerdict {
 }
 
 /** Lease validity uses the producer's own TTL, including TTLs above the legacy status window. */
-export function isLeaseFresh(input: BuildClocks, nowMs: number): boolean {
+function isLeaseFresh(input: BuildClocks, nowMs: number): boolean {
   return classifyLease(input, nowMs).kind === "fresh";
 }
 
