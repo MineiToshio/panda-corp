@@ -72,7 +72,24 @@ const load = (rel) => import(pathToFileURL(path.join(RUNTIME, rel)).href);
 const scratch = await mkdtemp(path.join(process.env.PANDACORP_TEST_TMP || os.tmpdir(), "pc-c13-"));
 const tracked = new Set(); // every pid this test may have caused (wrapper, command)
 const orphans = []; // pids that the safety net had to kill (a failure of the documented stop path)
-const reap = () => { for (const pid of tracked) if (alive(pid)) { orphans.push(pid); try { process.kill(pid, "SIGKILL"); } catch { /* gone */ } } };
+// A wrapper that has written its exit file but not yet been reaped by this process is a zombie (ps STAT Z): it has exited.
+const psStat = (pid) => new Promise((resolve) => execFile("ps", ["-o", "stat=", "-p", String(pid)], (e, out) => resolve(e ? "" : String(out).trim())));
+const liveNow = async (pid) => { if (!alive(pid)) return false; const s = await psStat(pid); return s !== "" && !s.startsWith("Z"); };
+// Waits up to `ms` (polling every 50 ms) for every tracked pid to exit; returns the ones still really alive.
+const settle = async (ms = 2000) => {
+  const end = Date.now() + ms;
+  for (;;) {
+    const live = [];
+    for (const pid of tracked) if (await liveNow(pid)) live.push(pid);
+    if (!live.length || Date.now() >= end) return live;
+    await sleep(50);
+  }
+};
+const reap = async () => {
+  const live = await settle();
+  for (const pid of live) { orphans.push(pid); try { process.kill(pid, "SIGKILL"); } catch { /* gone */ } }
+  return live;
+};
 const track = (...pids) => { for (const p of pids) if (Number.isInteger(p) && p > 0) tracked.add(p); };
 const pidOfFile = async (f) => { const t = await readText(f); const n = Number.parseInt(String(t ?? "").trim(), 10); return Number.isInteger(n) ? n : null; };
 
@@ -114,7 +131,7 @@ const sandbox = async () => {
     },
     pidfilePid: async () => { const n = await pidOfFile(pidfile); track(n); return n; },
     jobsInState: async () => (await sb.readState()).jobs,
-    cleanup: async () => { reap(); await fx.cleanup().catch(() => {}); },
+    cleanup: async () => { await reap(); await fx.cleanup().catch(() => {}); },
   };
   return sb;
 };
@@ -354,12 +371,11 @@ await test("kill -9 of a running job's wrapper (no exit file): pollJob reads dea
 
 // ---- 11. nothing left behind ----------------------------------------------------------------------------------------
 await test("no orphan process is left by any case (the documented stop path cleaned every hang job)", async () => {
-  const stray = [...tracked].filter((pid) => alive(pid));
-  reap();
+  const stray = await reap();
   ok(stray.length === 0 && orphans.length === 0, `processes still alive after the cases (the safety net had to SIGKILL them): ${[...new Set([...stray, ...orphans])].join(", ")}`);
 });
 
-reap();
+await reap();
 await rm(scratch, { recursive: true, force: true }).catch(() => {});
 console.log(`RESULT ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
