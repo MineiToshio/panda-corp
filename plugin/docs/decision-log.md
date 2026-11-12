@@ -22,6 +22,8 @@ assumption are re-queued on a fresh branch (attempt+1; at attempt 3 a hand-back)
 cross-company reviewer and a single path to `main`. R1 ships the engine opt-in so it can be proven on real builds before it
 becomes the only engine at 10.0.0 (R2); nothing in the default path changes except the v1 freeze.
 
+**Hardening round after the second review (same 9.155.0):** the integration worktree is bootstrapped (`worktree-bootstrap.sh`) on creation and before every landing, and a failed bootstrap is an `env-infra` hand-back, never a G3 verdict (the G2 exit-75 contract); `finish` on a quiesced lease closes the state before releasing; G2 snapshots and their manifests are removed on stop, finish, resume and every terminal action; `start --resume` runs worktree resets outside the 1 s mutex and discards uncommitted engine writes in the integration worktree (`run_resumed.data.integration_discarded`); no worker or drive child inherits `PANDACORP_OWNER_RELEASE_OK`; worker prompt copies are 0600; `MODEL_STRENGTH` is one table in `routing.mjs`; admission slots are reclaimed by atomic rename. DEC-10: doubt ladder capped at 2 consults, fail-closed file-risk veto, state-based "already built" for rejected assumptions, content-based repeat detection for engine-synthesized doubts. Recorded limit (N18): the pre-push hook does not gate a project nested under a repository prefix (only Mission Control, internal). Docs: build-engine-cli.md 3.4, 3.11-3.14, 3.19, 3.20, 4.1, 5, 8.3, 11.5, 12; standard BUILD-12.
+
 ## 2026-11-11 (documentation stage of v9.155.0): build engine v2 documentation and registry (DR-150..DR-153), revision 2
 
 **What:** the canonical documents of the `pandacorp-build` CLI land before any code: the standard

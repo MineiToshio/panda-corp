@@ -24,7 +24,7 @@ a launcher that merely prints a Workflow call is not completion and must not be 
 
 ## Engine v2 pointer (R1)
 
-The v2 build engine is used ONLY when the owner says the keyword `implement v2`; then follow `plugin/docs/build-engine-cli.md` (installed plugin: `docs/build-engine-cli.md`). Without that keyword the default path stays v1, unchanged, until day 1.
+The v2 build engine is used ONLY when the owner says the keyword `implement v2`; then follow the session procedure `references/engine-v2.md` (with `references/autonomy.md` and `references/drive.md`) and the CLI reference `plugin/docs/build-engine-cli.md` (installed plugin: `docs/build-engine-cli.md`). Without that keyword the default path stays v1, unchanged, until day 1.
 
 ## Runtime selection — do this before interpreting the rest of the skill
 
