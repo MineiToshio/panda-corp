@@ -91,14 +91,12 @@ the worktree). One block per decision:
 ```markdown
 ### D3 · Imágenes de producto: guardar, enlazar o servir por proxy
 
-**Contexto:** por qué importa en ESTE producto (FRD-02 AC-02-003.1 muestra la foto; FRD-05 la usa en el póster).
-**Alternativas:**
-| Opción | Costo/mes | Riesgo (incl. legal) | Esfuerzo | Qué operas tú |
-|---|---|---|---|---|
-| A · Enlazar la URL oficial (recomendada) | 0 | medio: sin licencia, mitigado con crédito y retiro a pedido | bajo | nada |
-| B · Proxy del mismo origen | 0 | igual que A | medio | nada |
-| C · Copiar a R2 | ~0,5 USD | alto: copia sin licencia | alto | nada |
-**Recomendación:** A, porque ... (y B si un host bloquea el embebido).
+**Contexto:** un párrafo puntual para quien no sabe nada del tema: qué es la pieza, cómo funciona hoy, por qué importa en ESTE producto (FRD-02 AC-02-003.1 muestra la foto; FRD-05 la usa en el póster), qué pasa si no se decide.
+**Opciones:**
+- **A. Enlazar la URL oficial.** Costo 0, esfuerzo bajo, nada que operar; riesgo medio: sin licencia, mitigado con crédito y retiro a pedido.
+- **B. Proxy del mismo origen.** Costo 0, esfuerzo medio, nada que operar; riesgo igual que A.
+- **C. Copiar a R2.** ~0,5 USD/mes, esfuerzo alto, nada que operar; riesgo alto: copia sin licencia.
+**Recomendada: A,** porque ... (y B si un host bloquea el embebido).
 **Hechos verificados (2026-10-17):** `curl -sI <url>` → 200, sin `cross-origin-resource-policy`; términos: <URL>.
 **Precedente:** en OP Character Dex enlazamos las imágenes de Bandai por un proxy del mismo origen.
 **Costo de cambiarlo después:** alto (modelo de datos, ~20 work orders).
@@ -107,15 +105,16 @@ the worktree). One block per decision:
 Start the file with a one-table summary (decisión · recomendación · costo/mes). The chat message carries the same
 summary table AND every decision as a card (CONV-20, DR-148): the block above is that card, so each one reaches the
 owner as chat text, ordered by urgency (what blocks the most downstream work first), never only as a link to the
-file. Write the **Contexto** for a reader who knows nothing of the topic (what the piece is, how it works today, why
-it must be decided now, what happens if it is not, terms explained, figures marked measured or projected). The file
-stays the persisted copy.
+file. Write the **Contexto** as ONE punctual paragraph for a reader who knows nothing of the topic (what the piece is,
+how it works today, why it must be decided now, what happens if it is not, terms explained, figures marked measured
+or projected); options are lettered A, B, C… (the cost/risk/effort/ops comparison goes inside each option's bullet),
+and the recommendation reads "Recomendada: <letter>". The file stays the persisted copy.
 
 ## 5. Asking (one round)
 
 - Cards first, then the picker: the cards are already in the chat (§4); `AskUserQuestion` carries short labels only.
 - `AskUserQuestion`, at most 4 questions per call; send the calls back to back as one round. Each question: a
-  short header, 2 to 4 options, the **recommended option first** with "(Recomendada)" in its label, one-line
+  short header, 2 to 4 options, the **recommended option first** with "(Recomendada)" in its label and the same letter as the card ("A. <name>"), one-line
   descriptions with the cost/risk difference. Other runtimes ask in chat with the same shape.
 - "Como recomiendes" accepts every recommendation. A question the owner skips or declines takes the
   recommendation, recorded as "por defecto, el owner no eligió", **except the five unconditional decisions**:

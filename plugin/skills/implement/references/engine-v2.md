@@ -1,6 +1,6 @@
 # Engine v2: the session protocol for a `pandacorp-build` run
 
-**Status (R1, plugin 9.155.0): opt-in.** v1 (`SKILL.md`, Dynamic Workflows) stays the default until 10.0.0. Follow
+**Status (R1, plugin 9.157.0): opt-in.** v1 (`SKILL.md`, Dynamic Workflows) stays the default until 10.0.0. Follow
 this file only when the owner says `implement v2`. Policy, thresholds and matrices live in
 `factory/standards/build-engine.md` (BUILD-7..15); every command, flag, exit code, file and JSON shape lives in
 `plugin/docs/build-engine-cli.md`. This file says only what the **session** does, in order. Autonomy (first minute,

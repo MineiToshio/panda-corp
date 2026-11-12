@@ -1,6 +1,8 @@
 # Decision log — Plugin pandacorp
 
-## 9.155.0 — 2026-11-11 (MINOR): build engine v2 behind the keyword `implement v2` (R1 cut)
+## v9.157.0 — 2026-11-12 (MINOR): build engine v2 behind the keyword `implement v2` (R1 cut)
+
+**Merge note (2026-11-12):** this release was drafted as 9.155.0 on the `feat/implement-engine-v10` branch; `main` took 9.156.0 (decision card v2, CONV-20) first, so the engine ships as 9.157.0 (overlay 8.124.0: the engine adds `pre-push` and `merge-queue.sh` template changes on top of 8.123.0). 9.155.0 was never published.
 
 **What:** the `pandacorp-build` CLI (`plugin/scripts/pandacorp-build.mjs`) and its modules under `plugin/runtime/build/`
 (paths, fsx, journal, state, quota, admission, routing, risk, detect, card, planner, next, units, report, review, integrate,
@@ -9,8 +11,8 @@ extensions (transfer, forceRelease, transitionWorkOrderAt), `codex-worker.mjs --
 default `/pandacorp:implement` is unchanged (Dynamic Workflows, frozen); v2 is reached only by the owner's keyword
 `implement v2` (DR-150, standard BUILD-7..BUILD-15). `source-graph.json` gains the `build_engine_v2` fact and the
 `routing.mjs`/`quota.mjs` consumers of `model_tiers`; Mission Control's liveness accepts a fresh lease (FRD-04 REQ-04-017).
-Manifests regenerated at 9.155.0 (Claude and Codex), Codex agent mirrors regenerated.
-**Concurrency fixes (same 9.155.0):** `start --resume` waits for a fenced drive and refuses with CONTENDED after 60 s rather than resetting a worktree under it; a drive that loses the lease yields cleanly and stops its unrecorded workers; the lease-mutation lock and the journal append lock are born with an owner record, reclaim a dead holder at once, and serialize reclaimers per lock instance with a tombstone (not a `.reclaim` sub-lock, which has its own dead-holder race); path comparison is symlink-safe; `test-build-v2-lock-stress.mjs` added. Known residuals: a >60 s live holder releasing mid-reclaim, very old empty locks, mixed plugin versions sharing a lock. Rationale: build decisions DEC-11, DEC-12.
+Manifests regenerated at 9.157.0 (Claude and Codex), Codex agent mirrors regenerated.
+**Concurrency fixes (same 9.157.0):** `start --resume` waits for a fenced drive and refuses with CONTENDED after 60 s rather than resetting a worktree under it; a drive that loses the lease yields cleanly and stops its unrecorded workers; the lease-mutation lock and the journal append lock are born with an owner record, reclaim a dead holder at once, and serialize reclaimers per lock instance with a tombstone (not a `.reclaim` sub-lock, which has its own dead-holder race); path comparison is symlink-safe; `test-build-v2-lock-stress.mjs` added. Known residuals: a >60 s live holder releasing mid-reclaim, very old empty locks, mixed plugin versions sharing a lock. Rationale: build decisions DEC-11, DEC-12.
 **Rulings taken during the build (details in the build's decisions file):** DEC-1 pressure veto: critical memory pressure
 always, levels 2-3 only with a rising swap trend (the owner's Mac idles at level 2). DEC-2 the integration branch is
 `lane/<run_id>/integration` (git cannot hold `lane/<run>` and `lane/<run>/<unit>`); unit ids `integration` and `assume-*`
@@ -23,11 +25,11 @@ assumption are re-queued on a fresh branch (attempt+1; at attempt 3 a hand-back)
 cross-company reviewer and a single path to `main`. R1 ships the engine opt-in so it can be proven on real builds before it
 becomes the only engine at 10.0.0 (R2); nothing in the default path changes except the v1 freeze.
 
-**Hardening round after the second review (same 9.155.0):** the integration worktree is bootstrapped (`worktree-bootstrap.sh`) on creation and before every landing, and a failed bootstrap is an `env-infra` hand-back, never a G3 verdict (the G2 exit-75 contract); `finish` on a quiesced lease closes the state before releasing; G2 snapshots and their manifests are removed on stop, finish, resume and every terminal action; `start --resume` runs worktree resets outside the 1 s mutex and discards uncommitted engine writes in the integration worktree (`run_resumed.data.integration_discarded`); no worker or drive child inherits `PANDACORP_OWNER_RELEASE_OK`; worker prompt copies are 0600; `MODEL_STRENGTH` is one table in `routing.mjs`; admission slots are reclaimed by atomic rename. DEC-10: doubt ladder capped at 2 consults, fail-closed file-risk veto, state-based "already built" for rejected assumptions, content-based repeat detection for engine-synthesized doubts. Recorded limit (N18): the pre-push hook does not gate a project nested under a repository prefix (only Mission Control, internal). Docs: build-engine-cli.md 3.4, 3.11-3.14, 3.19, 3.20, 4.1, 5, 8.3, 11.5, 12; standard BUILD-12.
+**Hardening round after the second review (same 9.157.0):** the integration worktree is bootstrapped (`worktree-bootstrap.sh`) on creation and before every landing, and a failed bootstrap is an `env-infra` hand-back, never a G3 verdict (the G2 exit-75 contract); `finish` on a quiesced lease closes the state before releasing; G2 snapshots and their manifests are removed on stop, finish, resume and every terminal action; `start --resume` runs worktree resets outside the 1 s mutex and discards uncommitted engine writes in the integration worktree (`run_resumed.data.integration_discarded`); no worker or drive child inherits `PANDACORP_OWNER_RELEASE_OK`; worker prompt copies are 0600; `MODEL_STRENGTH` is one table in `routing.mjs`; admission slots are reclaimed by atomic rename. DEC-10: doubt ladder capped at 2 consults, fail-closed file-risk veto, state-based "already built" for rejected assumptions, content-based repeat detection for engine-synthesized doubts. Recorded limit (N18): the pre-push hook does not gate a project nested under a repository prefix (only Mission Control, internal). Docs: build-engine-cli.md 3.4, 3.11-3.14, 3.19, 3.20, 4.1, 5, 8.3, 11.5, 12; standard BUILD-12.
 
 Engine modules split into sibling folders (pure refactor, same exports); every module under 500 lines.
 
-## 2026-11-11 (documentation stage of v9.155.0): build engine v2 documentation and registry (DR-150..DR-153), revision 2
+## 2026-11-11 (documentation stage of v9.157.0): build engine v2 documentation and registry (DR-150..DR-153), revision 2
 
 **What:** the canonical documents of the `pandacorp-build` CLI land before any code: the standard
 [build-engine.md](../../factory/standards/build-engine.md) (BUILD-7..BUILD-15), the CLI reference
@@ -47,12 +49,27 @@ are regenerated from the three agents.
   quota; `drive` armed whenever Codex login is OK, quota re-read at takeover; an untracked pre-push hook installed by
   `start --run` in a launched project (and by upgrade in every project from 10.0.0); 13 features deferred (F1-F13, listed in
   build-engine.md section Deferred).
-- **The default engine is frozen from 9.155.0:** usable as it is, never fixed; its own suites, the Check 5 fragment
-  regeneration and Check 8 leave CI at 9.155.0 (so v1 does not "stay as it is"). `/pandacorp:change` is unchanged until 10.0.0.
+- **The default engine is frozen from 9.157.0:** usable as it is, never fixed; its own suites, the Check 5 fragment
+  regeneration and Check 8 leave CI at 9.157.0 (so v1 does not "stay as it is"). `/pandacorp:change` is unchanged until 10.0.0.
 
 **Why:** docs first. v2 is reached only by the owner's keyword `implement v2`; nothing here changes what the default
 `/pandacorp:implement` does, apart from the freeze. The new vocabulary names must exist before the CLI emits them or Mission
-Control shows them as `legacy.*`. The version bump, the manifests and the release note are in the 9.155.0 entry above. Factory-side rationale: [decision-log](../../factory/decision-log.md) (2026-11-11).
+Control shows them as `legacy.*`. The version bump, the manifests and the release note are in the 9.157.0 entry above. Factory-side rationale: [decision-log](../../factory/decision-log.md) (2026-11-11).
+
+## v9.156.0 — 2026-11-12 (MINOR): decision card v2, lettered options (CONV-20, DR-148 addendum)
+
+**What:** overlay **8.123.0**. The owner-facing decision card changes shape: Contexto is one punctual paragraph for a
+novice, options are lettered A/B/C/D (each may carry its own context), and the recommendation is "Recomendada: [letter]".
+[AGENTS.md.tpl](../templates/shared/AGENTS.md.tpl) and the project [guide](../templates/shared/.pandacorp/guide.md.tpl)
+carry the short form (canonical text and example: `factory/standards/conventions.md` CONV-20). The
+[inbox template](../templates/docs/decisions-inbox-template.md) keeps the field names Mission Control and
+[decide](../skills/decide/SKILL.md) read and asks for lettered options and "Recomendada: [letra]". Architecture
+[decision-round.md](../skills/architecture/references/decision-round.md) brief example is now lettered bullets instead of a
+table; `learn` and `worktrees` one-liners updated. No skill hardcodes the old "Alternativas" shape any more (grep clean
+outside dated history). Version skips 9.155.0, reserved by the separate engine branch (which shipped later as 9.157.0 after merging this change).
+
+**Why:** owner request 2026-11-12. Existing projects get the new `AGENTS.md` text through `/pandacorp:upgrade` (overlay
+8.123.0, compatible bump: silent on their next skill preflight).
 
 ## v9.154.0 — 2026-11-11 (MINOR): Neon projects declare NEON_PROJECT_ID (EXT-8, DR-149)
 

@@ -1,5 +1,20 @@
 # Decision Log — Factory
 
+## 2026-11-12 — Decision card v2: one-paragraph context, lettered options, named recommendation (CONV-20, DR-148 addendum)
+
+**What:** [CONV-20](standards/conventions.md) amended in place ([DR-148](decisions/registry.yaml) addendum, no new rule):
+**Contexto** is ONE punctual paragraph for a reader who knows nothing (the completeness requirements stay), the
+alternatives become options lettered **A., B., C., D.** (each punctual with gain and risk/cost, and each allowed its own
+context), and the recommendation reads **Recomendada: [letter]** with why and what would change it. The rule gains a
+short canonical example card and a formatting clause; multi-decision rules (summary list, one card each, urgency order)
+are unchanged. Operative copies updated: `AGENTS.md.tpl`, project `guide.md.tpl`, decisions-inbox template (field
+names Mission Control and `decide` read are kept), `decide`, architecture `decision-round.md`, `learn`, `worktrees`, root
+`AGENTS.md`, rule-registry and standards README rows. Plugin 9.156.0, overlay 8.123.0.
+**Why:** owner request 2026-11-12 (owner-stated): the first version produced long, unbounded blocks; he wants every
+decision, in the factory and in every project, with a punctual novice-level paragraph, lettered options he can answer
+with one letter, the recommendation named, and good formatting. Supersedes the "Alternativas / Recomendación" wording of
+the 2026-11-10 entry. The constitution and root `CLAUDE.md` carry no CONV-20 text, so they need no change.
+
 ## 2026-11-11 — Build engine v2, revision 2: one path to `main`, no heartbeat, honest quota and guard wording (DR-150..DR-153)
 
 **What:** two independent reviews of the first documents found blockers; the binding rulings are applied to the registry,
@@ -14,13 +29,15 @@ same-model review (opus authors wait, sonnet and haiku keep a different-model fa
 (5) **`drive` (D10):** armed whenever Codex login is OK regardless of Codex quota, which is re-read at takeover; a Claude limit
 hands off with the lease kept while the standby is alive (else the run pauses at `paused-quota`). (6) **Pre-push (D29):** an untracked hook, installed by `start --run` in a launched project before
 its first v2 run and by upgrade in every project from 10.0.0; the release variable is a flag, not a secret. (7) **The old engine
-(N1):** frozen from 9.155.0 (its own suites leave CI at 9.155.0, which corrects the earlier claim that it "stays as it is"),
+(N1):** frozen from 9.157.0 (its own suites leave CI at 9.157.0, which corrects the earlier claim that it "stays as it is"),
 archived at 10.0.0 with a tag and BREAKPOINTS, restored only on "vuelve al viejo", deleted only on "bórralo". The registry
 lists the 13 deferred features F1-F13 ([build-engine.md](standards/build-engine.md) section Deferred).
 **Why:** the first documents promised things the design could not deliver (a heartbeat in a stateless CLI, a N7 review on an
 unreachable reviewer, commits on `main` of launched projects, a pre-push guard whose installer would have needed a tracked file on `main`). Each ruling picks
-the version that is computable and truthful at 9.155.0. Event vocabulary: the 8 new names plus `wo.commit` (the legacy name
+the version that is computable and truthful at 9.157.0. Event vocabulary: the 8 new names plus `wo.commit` (the legacy name
 `report` emits); `build_usable` is dropped.
+
+**Merge note (2026-11-12):** the engine's release number moved from 9.155.0 to 9.157.0 when `main` took 9.156.0 (CONV-20 v2); the overlay is 8.124.0 (the engine's `pre-push` and `merge-queue.sh` template changes on top of main's 8.123.0). Every "9.157.0" in the registry and the standards means the release that ships the engine.
 
 ## 2026-11-11 — Build engine v2: one entry, a runtime-neutral CLI, autonomy, one cross-company reviewer, `drive` (DR-150..DR-153)
 
@@ -28,8 +45,8 @@ the version that is computable and truthful at 9.155.0. Event vocabulary: the 8 
 [build-engine.md](standards/build-engine.md) (rows in [rule-registry](standards/rule-registry.md), index row in
 [README](standards/README.md)); interfaces in [build-engine-cli.md](../plugin/docs/build-engine-cli.md) and
 `plugin/runtime/build/schemas/`; routing data in `plugin/runtime/model-tiers.json` v2. Every DR is scoped by version,
-so each is true at 9.155.0 while the default engine is still v1.
-- **DR-150** from 9.155.0 the v2 engine is opt-in with the keyword `implement v2`; the default engine (Dynamic Workflows)
+so each is true at 9.157.0 while the default engine is still v1.
+- **DR-150** from 9.157.0 the v2 engine is opt-in with the keyword `implement v2`; the default engine (Dynamic Workflows)
   stays the default but is **frozen**: usable as it is, never fixed, its own suites and the Check 5 fragment
   regeneration and Check 8 leave CI. From 10.0.0 `/pandacorp:implement` is the single entry and v2 the only engine
   (supersedes DR-069, DR-013 and DR-142 at that point). Scope is detected in 7 rows and fixed in a cited card; the change
@@ -48,7 +65,7 @@ so each is true at 9.155.0 while the default engine is still v1.
 - **Amendments (all scoped to v2-engine runs):** DR-015 (N7 by quota only), DR-016 (mutation only at G4 on floor modules),
   DR-073 (difficulty no longer routes the builder), DR-097 (VERIFIED only in the landing metadata commit, written by the CLI).
   Rows BUILD-7..BUILD-15 are `manual` until their `test-build-v2-*` suites exist; they flip to `wired` when each is green.
-- Two release points: 9.155.0 adds the CLI and the docs (v1 default but frozen, `/pandacorp:change` unchanged); 10.0.0
+- Two release points: 9.157.0 adds the CLI and the docs (v1 default but frozen, `/pandacorp:change` unchanged); 10.0.0
   retires the Dynamic Workflows engine and `/pandacorp:change`.
 
 **Why:** the owner decided N1, N2 and N4-N7 on 2026-11-11 (N3 was left to the designer; the DR notes say which is which): the old

@@ -8,10 +8,10 @@ decision (scope, plan, admission, routing, quota, gates, integration, landing, s
 BUILD-7..BUILD-15 live here and only here; every other document links to them instead of restating
 them.
 
-**Applicability.** These rules govern every run started by the v2 CLI. From plugin 9.155.0 the v2
+**Applicability.** These rules govern every run started by the v2 CLI. From plugin 9.157.0 the v2
 engine is opt-in: the owner says `implement v2` (the only opt-in; there is no `--engine` flag). From
 10.0.0 (DR-150) v2 is the only build engine. The default (Dynamic Workflows) engine is **frozen from
-9.155.0**: usable as it is, never fixed; only its own suites, the Check 5 fragment regeneration and
+9.157.0**: usable as it is, never fixed; only its own suites, the Check 5 fragment regeneration and
 Check 8 leave CI. At 10.0.0 it is archived under `plugin/archive/engine-v1/` with the git tag
 `archive/engine-dynamic-workflows-v9.153.0` and a BREAKPOINTS list; it is restored only on the
 owner's "vuelve al viejo" and deleted only on the owner's "bórralo"; nobody sends reminders. Until
@@ -672,7 +672,7 @@ The CLI is Mission Control's only build producer; it never changes a reader's in
 | Surface | What the CLI writes | Reader constraint |
 |---|---|---|
 | `status.yaml` | nothing on `main` during a run; `last_green_sha`, `safe_to_test` and `phase` arrive with the landing metadata commit. v2 never writes `running` nor a per-tick `supervisor_heartbeat` | key types unchanged |
-| `build.lease/lease.json` | valid `renewed_at` (ISO) and `ttl_seconds` 1800, renewed by every coordinator command | Mission Control's `isLive` treats a lease renewed within its own ttl as live without `running: true` (task D06, effective at 9.155.0); any other lease shape blanks its status |
+| `build.lease/lease.json` | valid `renewed_at` (ISO) and `ttl_seconds` 1800, renewed by every coordinator command | Mission Control's `isLive` treats a lease renewed within its own ttl as live without `running: true` (task D06, effective at 9.157.0); any other lease shape blanks its status |
 | Events (`event-transport.mjs`, emitter runtime = the coordinator's company) | always `project = basename(project root)`; existing `BuildLaunch`, `AgentWorking`/`AgentDone` (`role, model, unit, result green\|red`), `wo_commit` (legacy name, emitted by `report`), `GateVerdict{frd, verdict}`, `BuildComplete`, `BuildStopped`, `worker_started/stopped`; new vocabulary entries `review.recorded`, `quota.reading`, `engine.failure`, `autonomous.decision`, `build.handoff`, `build.waiting-gate`, `unit.parked`, `admit.decision`. No `build_usable` | unknown names display as `legacy.*`, so every new name is in `event-vocabulary.json` before it is emitted |
 | `track.jsonl` (written only on the integration branch, reaches `main` with the landing) | `{kind:"wo_start",frd,wo,at}`, `{kind:"wo_end",frd,wo,at,state:in_review\|verified\|failed}`, `{kind:"review_start",frd,at}`, `{kind:"review_end",frd,at,verdict:pass\|reject}`, `{kind:"frd_end",frd,at}` | unknown kinds skipped |
 | Branches | `lane/<run_id>/integration`, `lane/<run_id>/<unit>-a<n>`, `lane/<run_id>/assume-<doubt>` | `lane/` is classified as engine-origin |

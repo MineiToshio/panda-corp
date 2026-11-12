@@ -23,13 +23,13 @@
 > el owner confirmó que no hace falta responder) — ninguno de los dos se borra.
 
 ## YYYY-MM-DD — Título corto de la decisión
-<!-- Decision card (CONV-20): the same three parts the owner reads in the chat. Keep the existing field
+<!-- Decision card (CONV-20): the same three parts, with the same lettered options, the owner reads in the chat. Keep the existing field
      names: Mission Control and /pandacorp:decide read "Qué decidir", "Contexto", "Opciones" and
      "Recomendación". -->
 - **Qué decidir:** la pregunta, en una frase.
-- **Contexto / por qué:** escrito para quien no sabe nada del tema: qué es la pieza y qué hace, cómo funciona hoy, por qué hay que decidir ahora, qué pasa si no se decide (y qué valor se aplicaría por defecto). Términos técnicos explicados la primera vez; cada cifra dice si es medida (fuente y fecha) o proyección.
-- **Opciones:** A) … · B) …  <!-- one line, short labels: /pandacorp:decide builds its picker from this -->
-- **Detalle de alternativas:** por cada opción, qué se haría, qué se gana y qué se arriesga o cuesta (dinero, tiempo, reversibilidad).
-- **Recomendación (del agente):** UNA opción, por qué, y qué haría cambiar de opinión.
+- **Contexto / por qué:** UN párrafo puntual escrito para quien no sabe nada del tema: qué es la pieza y qué hace, cómo funciona hoy, por qué hay que decidir ahora, qué pasa si no se decide (y qué valor se aplicaría por defecto). Términos técnicos explicados la primera vez; cada cifra dice si es medida (fuente y fecha) o proyección.
+- **Opciones:** A) … · B) … · C) …  <!-- one line, lettered short labels: /pandacorp:decide builds its picker from this -->
+- **Detalle de alternativas:** una viñeta por letra (**A.**, **B.**…): qué se haría, qué se gana y qué se arriesga o cuesta (dinero, tiempo, reversibilidad); una opción puede llevar su propio contexto si lo necesita.
+- **Recomendación (del agente):** «Recomendada: <letra>» (UNA), por qué, y qué haría cambiar de opinión.
 - **Bloquea:** el WO/feature en espera (id), si aplica.
 - **Estado:** PENDIENTE  <!-- → RESUELTO: <respuesta> (YYYY-MM-DD) | OBSOLETO: <motivo> (YYYY-MM-DD) -->
