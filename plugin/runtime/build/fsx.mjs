@@ -404,7 +404,7 @@ export async function isTrackedPath(project, relPath, { exec = defaultExec } = {
 
 /**
  * Where a write of `relPath` must go (D1): the main checkout when the path is untracked, the integration
- * worktree when it is tracked there. The caller commits tracked writes on `lane/<run_id>`.
+ * worktree when it is tracked there. The caller commits tracked writes on `lane/<run_id>/integration`.
  * @param {string} project main checkout root
  * @param {string} relPath repo-relative path
  * @param {{integrationRoot: string, exec?: Function}} opts integrationRoot = the integration worktree

@@ -23,6 +23,20 @@ export function assertSafeId(value, label = "id") {
 }
 
 /**
+ * Validate a unit id: a safe id that cannot collide with the other `lane/<run_id>/...` branch names.
+ * `integration` and ids starting with `assume-` are reserved (integration and assumption branches).
+ * @param {string} value candidate unit id
+ * @returns {string} the id, unchanged
+ */
+export function assertUnitId(value) {
+  assertSafeId(value, "unit id");
+  if (value === "integration" || value.startsWith("assume-")) {
+    throw Object.assign(new Error(`reserved unit id: ${value}`), { code: "INVALID_PATH" });
+  }
+  return value;
+}
+
+/**
  * Host-level locations (independent of any project).
  * @param {{env?: Record<string,string|undefined>, homedir?: string}} [deps] test hooks
  */
@@ -63,7 +77,7 @@ export function buildPaths(project, deps = {}) {
   const driveDir = path.join(build, "drive");
   const codexWorkersDir = path.join(run, "codex-workers");
   const attemptSuffix = (attempt) => (Number(attempt) >= 2 ? `-a${Number(attempt)}` : "");
-  const unitSegment = (unitId, attempt) => `${assertSafeId(unitId, "unit id")}${attemptSuffix(attempt)}`;
+  const unitSegment = (unitId, attempt) => `${assertUnitId(unitId)}${attemptSuffix(attempt)}`;
   return Object.freeze({
     ...hostPaths(deps),
     project: root,
@@ -89,19 +103,20 @@ export function buildPaths(project, deps = {}) {
     deferredReviewsFile: path.join(run, "deferred-reviews.json"),
     // Integration worktree (every tracked write of the engine lands here, D1).
     integrationWorktree: path.join(build, "integration"),
-    integrationBranch: (runId) => `lane/${assertSafeId(runId, "run id")}`,
+    /** Integration branch: `lane/<run_id>/integration` (a ref cannot be both a branch and a prefix directory). */
+    integrationBranch: (runId) => `lane/${assertSafeId(runId, "run id")}/integration`,
     unitBranch: (runId, unitId, attempt = 1) => `lane/${assertSafeId(runId, "run id")}/${unitSegment(unitId, attempt)}`,
     assumeBranch: (runId, doubtId) => `lane/${assertSafeId(runId, "run id")}/assume-${assertSafeId(doubtId, "doubt id")}`,
     // Unit worktrees and per-unit files (A16).
     unitWorktreesDir: path.join(build, "wt"),
     unitWorktree: (unitId, attempt = 1) => path.join(build, "wt", unitSegment(unitId, attempt)),
     unitsDir,
-    unitDir: (unitId) => path.join(unitsDir, assertSafeId(unitId, "unit id")),
-    briefFile: (unitId) => path.join(unitsDir, assertSafeId(unitId, "unit id"), "brief.md"),
-    reportFile: (unitId) => path.join(unitsDir, assertSafeId(unitId, "unit id"), "report.json"),
-    reviewFile: (unitId) => path.join(unitsDir, assertSafeId(unitId, "unit id"), "review.json"),
-    unitDoubtFile: (unitId) => path.join(unitsDir, assertSafeId(unitId, "unit id"), "doubt.json"),
-    unitAnswerFile: (unitId) => path.join(unitsDir, assertSafeId(unitId, "unit id"), "answer.json"),
+    unitDir: (unitId) => path.join(unitsDir, assertUnitId(unitId)),
+    briefFile: (unitId) => path.join(unitsDir, assertUnitId(unitId), "brief.md"),
+    reportFile: (unitId) => path.join(unitsDir, assertUnitId(unitId), "report.json"),
+    reviewFile: (unitId) => path.join(unitsDir, assertUnitId(unitId), "review.json"),
+    unitDoubtFile: (unitId) => path.join(unitsDir, assertUnitId(unitId), "doubt.json"),
+    unitAnswerFile: (unitId) => path.join(unitsDir, assertUnitId(unitId), "answer.json"),
     doubtsDir,
     doubtFile: (doubtId) => path.join(doubtsDir, `${assertSafeId(doubtId, "doubt id")}.json`),
     doubtSourcesFile: (doubtId) => path.join(doubtsDir, `${assertSafeId(doubtId, "doubt id")}.sources.json`),
@@ -115,7 +130,7 @@ export function buildPaths(project, deps = {}) {
     codexWorkerDir: (workerId) => path.join(codexWorkersDir, assertSafeId(workerId, "worker id")),
     // Hand-backs.
     handbackDir,
-    handbackFile: (unitId) => path.join(handbackDir, `${assertSafeId(unitId, "unit id")}.md`),
+    handbackFile: (unitId) => path.join(handbackDir, `${assertUnitId(unitId)}.md`),
     engineHandbackFile: path.join(handbackDir, "engine.md"),
     // Drive.
     driveDir,
