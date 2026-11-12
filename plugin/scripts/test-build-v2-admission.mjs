@@ -1,34 +1,8 @@
 #!/usr/bin/env node
-// test-build-v2-admission.mjs — T-B03: pins plugin/runtime/build/admission.mjs (D31, D4 tokens, D7 host slots,
-// PLAN §3.16 A1 host H-slot protocol, A22 constants, standard BUILD-9). Written from the contracts only.
-//
-// ASSUMED INTERFACE (CLI doc §8.2 gives names and shapes; everything below is an assumption to reconcile):
-//  1. readSignals({exec, signalsFile}) -> {L, swapouts, swap_used_mb, A_gib, A_cons_gib}; async-or-sync.
-//     `exec(cmd, args)` is the injected fake from make-fixture `signalsExec` (preferred route). A_gib =
-//     (free+inactive+speculative+purgeable) pages * page size in GiB (BUILD-9); A_cons_gib is only checked to be a
-//     finite number <= A_gib. Garbled output throws an Error named "SignalError" (message/code not pinned).
-//     The `signalsFile` route: the fixture author INVENTED the PANDACORP_SIGNALS_FILE JSON as
-//     {sysctl_pressure, vm_stat, swapusage} (raw command outputs); I assume readSignals reads it through the
-//     `signalsFile` option with the same parsing as the exec route (one case, isolated).
-//  2. decide({signals, history, reservations, live:{B,H}, heavyQueued, readyWidth, caps:{K_TECHO,kOwner,kReactive},
-//     runtimeShape}) -> {grant:"B"|"H"|null, motivo_limite, techo, suelo, A_ef, P}. `history` = array of prior readings
-//     (oldest first) shaped like signals, with CUMULATIVE `swapouts` (the veto looks at the delta between consecutive
-//     readings, "swapout delta > 0 in >=2 of the last 3"). `reservations` = array of
-//     {unit, class, reserved_gib, pending_gib} where A_ef = A_gib - sum(pending_gib); `signals: null` = the caller's
-//     safe mode after a SignalError (B=1, H=1, motivo senal_fallida). runtimeShape "R-B" = Codex app session (B=1,H=1).
-//     When both classes are possible with a heavy job queued, which class wins is not pinned beyond "heavy has priority
-//     when it fits" (BUILD-9 "landing > heavy job > new builder").
-//  3. Token functions take an extra trailing options object naming where admission.json lives, because the doc
-//     signature has none: issueToken(unit, cls, opts) / verifyToken(unit, token, opts) / releaseToken(unit, opts) with
-//     opts = {file, admissionFile, dir, buildDir} all pointing at <tmp>/build[/admission.json]. issueToken returns the
-//     raw token (string) or {token}. verifyToken: truthy / {ok:true} = accepted; false, {ok:false} or a throw = rejected.
-//     admission.json is {tokens:{<sha256(token)>:{unit,class,reserved_gib,at}}, history:[...]} and never holds the raw token.
-//  4. Host slots: acquireHostSlot({host, max, kind, project, pid?}) with host = the HOST dir (slots live in
-//     <host>/h-slots/slot-<i>; `dir` would mean the slots dir itself, per the coordinator); `host` omitted -> $PANDACORP_HOST_DIR (read from process.env). Returns {slot, release()};
-//     a full pool returns null/undefined/{slot:null} or throws (not pinned). The H_max function is not named in the docs:
-//     one of hostSlotMax | hMax | hostMax | maxHostSlots | hostSlotLimit | H_max taking ncpu (number or {ncpu}).
-//  5. The module never kills: no exported function matches /kill|terminate|evict/, and process.kill is only ever called
-//     with signal 0 (the dead-owner probe) during every call below.
+// ADM: adaptive admission decisions, parsed real-shaped signals, single-use tokens and host heavy slots.
+// The ladder evolves through recordReading (test-build-v2-perf.mjs); decide is pure and caps the current step
+// by ready width, owner k and reactive quota. Critical pressure and unreadable signals keep 1+1 possible.
+// RAM reservations estimate heavy jobs only. Tests isolate host state and permit process.kill only as a probe.
 import { mkdtemp, mkdir, readFile, readdir, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -57,7 +31,7 @@ const need = (name) => {
   return adm[name];
 };
 
-const ENUM = ["ancho", "ram", "ram_reservada_H", "veto_presion", "veto_swap", "cpu_H", "techo", "owner_k", "reactivo_contencion", "reactivo_codex", "cupo_limite", "senal_fallida", "pausa_L4", "sin_token"];
+const ENUM = ["ancho", "ram", "ram_reservada_H", "veto_presion", "veto_swap", "cpu_H", "techo", "owner_k", "reactivo_contencion", "reactivo_codex", "cupo_limite", "senal_fallida", "disco", "sin_token"];
 const tmpRoot = await mkdtemp(path.join(os.tmpdir(), "pc-adm-"));
 let seq = 0;
 const sandbox = async () => { const d = path.join(tmpRoot, `t${++seq}`); await mkdir(d, { recursive: true }); return d; };
@@ -70,7 +44,7 @@ process.kill = (pid, sig) => { if (sig !== 0 && sig !== undefined) { badKills.pu
 const deepFreeze = (o) => { if (o && typeof o === "object" && !Object.isFrozen(o)) { Object.freeze(o); for (const v of Object.values(o)) deepFreeze(v); } return o; };
 const sig = (over = {}) => ({ L: 1, swapouts: 100, swap_used_mb: 0, A_gib: 9.5, A_cons_gib: 8, ...over });
 const calm = (n = 3, swapouts = 100) => Array.from({ length: n }, () => ({ L: 1, swapouts, swap_used_mb: 0, A_gib: 9.5, A_cons_gib: 8 }));
-const input = (over = {}) => ({ signals: sig(), history: calm(), reservations: [], live: { B: 0, H: 0 }, heavyQueued: false, readyWidth: 5, caps: { K_TECHO: 2, kOwner: 8, kReactive: 8 }, runtimeShape: "R-A", ...over });
+const input = (over = {}) => ({ signals: sig(), history: calm(), reservations: [], live: { B: 0, H: 0 }, heavyQueued: false, readyWidth: 5, caps: { kOwner: 8, kReactive: 8 }, runtimeShape: "R-A", ...over });
 const run = async (over) => { const decide = need("decide"); const r = await decide(deepFreeze(input(over))); ok(r && typeof r === "object", "decide returned no object"); ok(ENUM.includes(r.motivo_limite), `motivo_limite "${r.motivo_limite}" is not in the closed enum`); ok(r.grant === null || r.grant === "B" || r.grant === "H", `grant must be "B"|"H"|null, got ${JSON.stringify(r.grant)}`); return r; };
 
 // =================================================== readSignals ==================================================
@@ -111,96 +85,48 @@ await test("readSignals {signalsFile} route reads the fixture's raw-output JSON 
   const r = await need("readSignals")({ signalsFile: f }); eq(r.L, 2, "L from file"); near(r.swap_used_mb, 300, 0.01, "swap from file");
 });
 
-// ====================================================== decide ====================================================
-await test("decide clean: grants a builder, ceiling 2 and floor 2", async () => {
-  const r = await run({}); eq(r.grant, "B", "grant"); eq(r.techo, 2, "techo (K_TECHO)"); eq(r.suelo, 2, "suelo"); near(r.P, 9.5 - 3, 0.01, "P = A_ef - COLCHON(3)"); near(r.A_ef, 9.5, 0.01, "A_ef");
-});
-await test("decide clean: second builder granted while live B < 2, third refused with motivo techo", async () => {
-  eq((await run({ live: { B: 1, H: 0 } })).grant, "B", "second builder");
-  const r = await run({ live: { B: 2, H: 0 } }); eq(r.grant, null, "third builder"); eq(r.motivo_limite, "techo", "motivo at the ceiling"); eq(r.techo, 2, "techo never above 2");
-});
-await test("decide ceiling never exceeds 2 even with a huge ready width and large caps", async () => {
-  const r = await run({ readyWidth: 40, live: { B: 2, H: 0 }, caps: { K_TECHO: 2, kOwner: 50, kReactive: 50 } }); eq(r.grant, null, "grant"); ok(r.techo <= 2, `techo ${r.techo} > 2`);
-});
-await test("decide ready width limits the ceiling (motivo ancho)", async () => {
-  const r = await run({ readyWidth: 0, live: { B: 1, H: 0 } }); eq(r.grant, null, "grant"); eq(r.motivo_limite, "ancho", "motivo"); eq(r.techo, 1, "techo = width + live");
-  const g = await run({ readyWidth: 1, live: { B: 0, H: 0 } }); eq(g.grant, "B", "one ready unit, nothing live");
-});
-await test("decide owner k and reactive caps lower the ceiling with their own motivo", async () => {
-  const o = await run({ live: { B: 1, H: 0 }, caps: { K_TECHO: 2, kOwner: 1, kReactive: 8 } }); eq(o.grant, null, "owner k"); eq(o.motivo_limite, "owner_k", "owner_k"); eq(o.techo, 1, "techo");
-  const r = await run({ live: { B: 1, H: 0 }, caps: { K_TECHO: 2, kOwner: 8, kReactive: 1 } }); eq(r.grant, null, "reactive"); ok(["reactivo_contencion", "reactivo_codex"].includes(r.motivo_limite), `reactive motivo, got ${r.motivo_limite}`);
-  eq((await run({ live: { B: 0, H: 0 }, caps: { K_TECHO: 2, kOwner: 1, kReactive: 1 } })).grant, "B", "k never below 1: the first builder is always allowed");
-});
-const rising = [{ L: 2, swapouts: 100 }, { L: 2, swapouts: 1000 }, { L: 2, swapouts: 1800 }].map((h) => ({ swap_used_mb: 0, A_gib: 9.5, A_cons_gib: 8, ...h }));
-const flat = (L) => Array.from({ length: 3 }, () => ({ L, swapouts: 100, swap_used_mb: 0, A_gib: 9.5, A_cons_gib: 8 }));
-await test("decide DEC-1: L=2 or 3 with flat swap is NOT a veto (ceiling 2 reachable, floor 2)", async () => {
-  for (const L of [2, 3]) {
-    const s = sig({ L, swapouts: 100 });
-    const one = await run({ signals: s, history: flat(L), live: { B: 1, H: 0 } }); eq(one.grant, "B", `L=${L} flat swap: second builder`); ok(!/^veto/.test(one.motivo_limite), `L=${L} flat swap must not veto, got ${one.motivo_limite}`); eq(one.techo, 2, "techo"); eq(one.suelo, 2, "suelo");
-    const two = await run({ signals: s, history: flat(L), live: { B: 2, H: 0 } }); eq(two.grant, null, "third builder"); eq(two.motivo_limite, "techo", "ceiling, not veto");
+// Adaptive admission contract (ADM). Trend evolution is covered by test-build-v2-perf.mjs.
+await test("default step 5 reaches five builders despite low available RAM or stable swap usage", async () => {
+  for (const L of [1, 2, 3]) {
+    const r = await run({ signals: sig({ L, A_gib: 0.1, swap_used_mb: 8000 }), live: { B: 4, H: 0 }, readyWidth: 10 });
+    eq(r.grant, "B", "fifth builder"); eq(r.techo, 5, "default ceiling");
   }
+  eq((await run({ live: { B: 5, H: 0 } })).grant, null, "sixth waits");
 });
-await test("decide DEC-1: L=2/3 with fewer than 3 stored readings: no veto, stays at the floor", async () => {
-  for (const hist of [[], calm(1), calm(2)]) {
-    const s = sig({ L: 2, swapouts: 100 });
-    const r = await run({ signals: s, history: hist, live: { B: 1, H: 0 } }); ok(!/^veto/.test(r.motivo_limite), `${hist.length} readings: no veto, got ${r.motivo_limite}`); eq(r.grant, "B", "floor builder still granted"); eq(r.suelo, 2, "floor");
-    const t = await run({ signals: s, history: hist, live: { B: 2, H: 0 } }); eq(t.grant, null, "never above the floor/ceiling of 2"); ok(t.techo <= 2, "techo");
-  }
+await test("ready width, explicit k and reactive quota each cap the current step", async () => {
+  eq((await run({ readyWidth: 0, live: { B: 1, H: 0 } })).motivo_limite, "ancho", "ready width");
+  const own = await run({ caps: { kOwner: 1 }, live: { B: 1, H: 0 } }); eq(own.grant, null, "owner cap"); eq(own.motivo_limite, "owner_k", "owner reason");
+  const q = await run({ caps: { kReactive: 2, kReactiveReason: "reactivo_codex" }, live: { B: 2, H: 0 } }); eq(q.grant, null, "reactive cap"); eq(q.motivo_limite, "reactivo_codex", "reactive reason");
 });
-await test("decide DEC-1: L=2 with swapouts rising in >=2 of the last 3 deltas vetoes (series)", async () => {
-  const s = sig({ L: 2, swapouts: 2600, swap_used_mb: 1500 });
-  const first = await run({ signals: s, history: rising, live: { B: 0, H: 0 } }); eq(first.grant, "B", "first builder under veto"); eq(first.suelo, 1, "floor drops to 1");
-  const second = await run({ signals: s, history: rising, live: { B: 1, H: 0 } }); eq(second.grant, null, "no second builder"); ok(/^veto_/.test(second.motivo_limite), `veto motivo, got ${second.motivo_limite}`);
-  const heavy = await run({ signals: s, history: rising, live: { B: 1, H: 0 }, heavyQueued: true }); ok(heavy.grant !== "B", "no builder beyond the first"); ok(heavy.grant === "H" || heavy.grant === null, "at most the one heavy job");
-  const both = await run({ signals: s, history: rising, live: { B: 1, H: 1 }, heavyQueued: true }); eq(both.grant, null, "one of each class alive"); ok(/^veto_/.test(both.motivo_limite), "veto motivo");
+await test("a downshift never kills live workers; excess workers finish and a new worker waits", async () => {
+  const r = await run({ step: 3, live: { B: 5, H: 1 } }); eq(r.grant, null, "wait for live workers"); eq(r.techo, 3, "lower ceiling"); eq(badKills.length, 0, "no signal");
+  eq((await run({ step: 3, live: { B: 2, H: 0 } })).grant, "B", "one free slot");
 });
-await test("decide DEC-1: L=4 is always a veto (pausa_L4) even with flat swap and an empty history", async () => {
-  for (const history of [flat(4), []]) { const r = await run({ signals: sig({ L: 4, swapouts: 100, A_gib: 9.5 }), history, live: { B: 0, H: 0 } }); eq(r.grant, null, "nothing launches at L=4"); eq(r.motivo_limite, "pausa_L4", "motivo"); }
+await test("critical pressure always allows one builder and one heavy job, including with no RAM", async () => {
+  const signals = sig({ L: 4, A_gib: 0.1 });
+  eq((await run({ signals, live: { B: 0, H: 0 } })).grant, "B", "one builder");
+  eq((await run({ signals, live: { B: 1, H: 0 } })).grant, null, "second builder waits");
+  eq((await run({ signals, live: { B: 1, H: 0 }, heavyQueued: 1 })).grant, "H", "one heavy");
+  eq((await run({ signals, live: { B: 1, H: 1 }, heavyQueued: 1 })).grant, null, "second heavy waits");
 });
-await test("decide veto by swap (swapouts growing in >=2 of the last 3 readings) even at L=1", async () => {
-  const hist = [{ L: 1, swapouts: 100 }, { L: 1, swapouts: 1000 }, { L: 1, swapouts: 1800 }].map((h) => ({ swap_used_mb: 0, A_gib: 9.5, A_cons_gib: 8, ...h }));
-  const s = sig({ L: 1, swapouts: 2600, swap_used_mb: 1500 });
-  const a = await run({ signals: s, history: hist, live: { B: 1, H: 0 } }); eq(a.grant, null, "second builder must wait"); eq(a.motivo_limite, "veto_swap", "motivo"); eq(a.suelo, 1, "floor 1 under veto");
-  eq((await run({ signals: s, history: hist, live: { B: 0, H: 0 } })).grant, "B", "series still starts the first builder");
+await test("unreadable signals stay at 1+1; k cannot lift safe mode", async () => {
+  eq((await run({ signals: null })).grant, "B", "safe builder");
+  const r = await run({ signals: null, live: { B: 1, H: 0 } }); eq(r.grant, null, "second waits"); eq(r.motivo_limite, "senal_fallida", "reason");
+  eq((await run({ signals: null, live: { B: 1, H: 0 }, heavyQueued: 1 })).grant, "H", "safe heavy");
 });
-await test("decide a single swapout growth among the last 3 is not a veto", async () => {
-  const hist = [{ L: 1, swapouts: 100 }, { L: 1, swapouts: 100 }, { L: 1, swapouts: 100 }].map((h) => ({ swap_used_mb: 0, A_gib: 9.5, A_cons_gib: 8, ...h }));
-  eq((await run({ signals: sig({ swapouts: 150 }), history: hist, live: { B: 1, H: 0 } })).grant, "B", "one growing reading is below the veto threshold");
+await test("reviewer sub-cap is 2 even when the adaptive step is 8", async () => {
+  eq((await run({ step: 8, candidate: "reviewer", live: { B: 2, R: 2, H: 0 } })).grant, null, "third reviewer waits");
+  eq((await run({ step: 8, candidate: "builder", live: { B: 2, R: 2, H: 0 } })).grant, "B", "builder can continue");
 });
-await test("decide L=4 launches nothing (pausa_L4) and kills nothing", async () => {
-  const r = await run({ signals: sig({ L: 4, swapouts: 9000, swap_used_mb: 3500, A_gib: 0.55 }), live: { B: 2, H: 1 }, heavyQueued: true });
-  eq(r.grant, null, "grant"); eq(r.motivo_limite, "pausa_L4", "motivo");
-  const none = await run({ signals: sig({ L: 4, A_gib: 0.55 }), live: { B: 0, H: 0 } }); eq(none.grant, null, "no builder at L=4 even when nothing runs");
-  ok(!Object.keys(r).some((k) => /kill|terminate|stop|evict/i.test(k)), "the decision exposes no kill/stop action");
-  eq(badKills.length, 0, "process.kill was used with a real signal");
+await test("heavy jobs use CPU cap but at most one at step 2 or lower; RAM estimates gate only the second heavy", async () => {
+  for (const step of [1, 2]) eq((await run({ step, ncpu: 12, heavyQueued: 1, live: { B: 0, H: 1 }, want: "H" })).grant, null, "low step heavy cap");
+  eq((await run({ step: 3, ncpu: 12, heavyQueued: 1, live: { B: 0, H: 1 }, want: "H" })).grant, "H", "second heavy with RAM");
+  const low = { signals: sig({ A_gib: 1 }), heavyQueued: 1, live: { B: 1, H: 1 } };
+  eq((await run({ ...low, want: "H" })).grant, null, "second heavy without estimated RAM");
+  eq((await run({ ...low, want: "B", reservations: [{ pending_gib: 100 }] })).grant, "B", "builder ignores RAM reservations");
 });
-await test("decide garbled/failed signals = safe mode: B=1 H=1 with motivo senal_fallida", async () => {
-  const a = await run({ signals: null, live: { B: 0, H: 0 } }); eq(a.motivo_limite, "senal_fallida", "motivo"); eq(a.grant, "B", "one builder is allowed");
-  const b = await run({ signals: null, live: { B: 1, H: 0 } }); eq(b.grant, null, "second builder refused in safe mode"); eq(b.motivo_limite, "senal_fallida", "motivo kept"); eq(b.techo, 1, "techo 1");
-  const h = await run({ signals: null, live: { B: 1, H: 1 }, heavyQueued: true }); eq(h.grant, null, "second heavy job refused in safe mode");
-});
-await test("decide low RAM drops the floor to 1 (motivo ram) and reservations count against A_ef", async () => {
-  const low = await run({ signals: sig({ A_gib: 2 }), live: { B: 1, H: 0 } }); eq(low.suelo, 1, "floor"); eq(low.grant, null, "second builder without RAM"); eq(low.motivo_limite, "ram", "motivo");
-  eq((await run({ signals: sig({ A_gib: 2 }), live: { B: 0, H: 0 } })).grant, "B", "at least one builder always stays possible while ready work exists");
-  const res = [{ unit: "u-build-WO-01-001", class: "B", reserved_gib: 1.5, pending_gib: 1.5 }, { unit: "u-build-WO-02-001", class: "B", reserved_gib: 1.5, pending_gib: 1.5 }];
-  const r = await run({ signals: sig({ A_gib: 5 }), reservations: res, live: { B: 1, H: 0 } });
-  near(r.A_ef, 2, 0.01, "A_ef = A - sum(pending)"); eq(r.suelo, 1, "floor after reservations"); eq(r.grant, null, "pending reservations block another builder");
-});
-await test("decide heavy job: starts when P >= c_h (3.5), has priority over a new builder, and is not granted twice", async () => {
-  const r = await run({ heavyQueued: true, live: { B: 1, H: 0 } }); eq(r.grant, "H", "heavy job with RAM");
-  const dup = await run({ heavyQueued: true, live: { B: 0, H: 1 }, signals: sig({ A_gib: 5 }) }); ok(dup.grant !== "H", "no second heavy job while one is alive and P < c_h");
-});
-await test("decide runtime shape R-B (Codex app session) is B=1, H=1 always", async () => {
-  const r = await run({ runtimeShape: "R-B", live: { B: 1, H: 0 } }); eq(r.grant, null, "second builder in R-B"); eq(r.techo, 1, "techo");
-  eq((await run({ runtimeShape: "R-B", live: { B: 0, H: 0 } })).grant, "B", "first builder in R-B");
-  const h = await run({ runtimeShape: "R-B", heavyQueued: true, live: { B: 0, H: 1 } }); ok(h.grant !== "H", "second heavy job in R-B");
-});
-await test("decide is pure: frozen inputs are not mutated and results are deterministic", async () => {
-  const a = await run({}); const b = await run({}); eq(JSON.stringify(a), JSON.stringify(b), "same input, same decision");
-});
-await test("decide result carries no token and only enum motivos across a sweep of conditions", async () => {
-  const conds = [{}, { live: { B: 2, H: 0 } }, { signals: null }, { signals: sig({ L: 4 }) }, { signals: sig({ L: 2 }), live: { B: 1, H: 0 } }, { readyWidth: 0, live: { B: 1, H: 0 } }];
-  for (const c of conds) { const r = await run(c); ok(!JSON.stringify(r).match(/token/i), "a decision must not carry a token"); }
+await test("decide is pure, deterministic and exposes no token", async () => {
+  const a = await run({}), b = await run({}); eq(JSON.stringify(a), JSON.stringify(b), "deterministic"); ok(!JSON.stringify(a).includes("token"), "no token");
 });
 
 // ================================================= module-level guards =============================================

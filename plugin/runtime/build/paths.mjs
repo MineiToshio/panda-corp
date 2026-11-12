@@ -46,6 +46,7 @@ export function hostPaths({ env = process.env, homedir = os.homedir() } = {}) {
   const hSlotsDir = path.join(hostDir, "h-slots");
   return {
     hostDir,
+    perfJournalFile: path.join(hostDir, "perf", "journal.jsonl"),
     hSlotsDir,
     /** Host heavy-tool slot directory `slot-<i>` (admission protocol, PLAN A1). */
     hSlotDir: (index) => path.join(hSlotsDir, `slot-${Number(index)}`),
@@ -97,6 +98,8 @@ export function buildPaths(project, deps = {}) {
     scopeFile: path.join(run, "scope.json"),
     quotaFile: path.join(build, "quota.json"),
     admissionFile: path.join(build, "admission.json"),
+    perfSamplesFile: path.join(build, "perf-samples.jsonl"),
+    perfMetaFile: path.join(build, "perf-rollup.json"),
     handoffFile: path.join(build, "handoff.json"),
     /** Consumed handoff: renamed by drive after it takes over (CLI doc section 5). */
     handoffConsumedFile: (epoch) => path.join(build, `handoff.consumed-${Number(epoch)}.json`),

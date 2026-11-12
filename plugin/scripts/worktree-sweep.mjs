@@ -29,10 +29,10 @@
 // process has its cwd inside it, it is not the caller's own checkout, it is not locked or a
 // deployment, and — when it belongs to the build engine (.pandacorp/run/**, lane/* branches) — no
 // build of that project is live or resumable. Anything that fails a hard rule is `protected` (never
-// offered); everything else is `ask` (the owner decides). Exit: 0 ok · 2 bad input · 3 refused.
+// offered); finished engine roots use the shared terminal-run predicate below and retain branch refs. Everything else is `ask` (the owner decides). Exit: 0 ok · 2 bad input · 3 refused.
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, copyFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, lstatSync, unlinkSync, copyFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -97,16 +97,97 @@ async function projects(mainWt) {
   for (const dir of dirs) {
     const status = path.join(dir, ".pandacorp", "status.yaml");
     const runDir = path.join(dir, ".pandacorp", "run");
-    if (!existsSync(status)) continue;
+    if (!existsSync(status) && !existsSync(runDir)) continue;
     // fail-closed: the shared liveness rule (the same helper /pandacorp:implement's preflight reads) — unreadable = RUNNING
     const r = spawnSync("bash", [path.join(HERE, "check-build-liveness.sh"), status], { encoding: "utf8" });
     const liveness = (r.stdout || "").trim() || "RUNNING";
     let lease = null;
     try { lease = await currentLease(dir); } catch { lease = { unreadable: true }; }
-    const live = liveness !== "NOT_RUNNING" || lease !== null;
+    const live = liveness !== "NOT_RUNNING" || lease !== null || existsSync(path.join(runDir, "build.lease"));
     out.push({ dir: real(dir), runDir: real(runDir), liveness, lease: lease !== null, live });
   }
   return out;
+}
+
+
+// The only protected-state exception. Match worktree ROOTS, never an arbitrary descendant.
+function engineRoot(p, projs) {
+  for (const project of projs) {
+    const run = path.join(project.dir, '.pandacorp/run');
+    if (!within(p, run) || real(run) !== run) continue;
+    const rel = path.relative(run, p).split(path.sep).join('/');
+    if (/^build-suspended(?:\/|$)/.test(rel)) return { project, eligible: false, reason: 'suspended-run' };
+    const archive = /^build-archive\/[^/]+\/(?:wt\/[^/]+|g2\/[^/]+|integration)$/.test(rel);
+    const v2 = /^build\/(?:wt\/[^/]+|g2\/[^/]+|integration)$/.test(rel);
+    const legacy = /^(?:lanes\/[^/]+|gate-worktree[^/]*)$/.test(rel);
+    if (!archive && !v2 && !legacy) return { project, eligible: false, reason: 'protected-path' };
+    if (project.live) return { project, managed: true, eligible: false, reason: 'live-build' };
+    if (legacy) return { project, managed: true, eligible: true };
+    const root = archive ? path.join(run, ...rel.split('/').slice(0, 2)) : path.join(run, 'build');
+    if (real(root) !== root) return { project, managed: true, eligible: false, reason: 'protected-path' };
+    let state;
+    try { state = JSON.parse(readFileSync(path.join(root, 'state.json'), 'utf8')); }
+    catch (e) { if (!archive || e.code !== 'ENOENT') return { project, managed: true, eligible: false, reason: 'run-state-unreadable' }; state = {}; }
+    if (state.status === 'waiting_gate' || Object.values(state.units || {}).some(u => u?.state === 'waiting_gate' || u?.status === 'waiting_gate')) return { project, managed: true, eligible: false, reason: 'waiting-gate' };
+    if (!archive && !['finished', 'stopped'].includes(state.status)) return { project, managed: true, eligible: false, reason: 'unfinished-run' };
+    return { project, managed: true, eligible: true };
+  }
+  return null;
+}
+
+// Git status conceals skip-worktree / assume-unchanged changes. Only bootstrap's explicit
+// skip-worktree outputs may differ, and no ignored owner state is implicitly disposable.
+function engineCleanReason(wt) {
+  const files = git(wt, ['ls-files', '-v', '-z']);
+  if (!files.ok) return 'status-unreadable';
+  for (const row of files.out.split('\0').filter(row => /^[a-zS] /.test(row))) {
+    const name = row.slice(2), file = path.join(wt, name);
+    if (!existsSync(file) || !lstatSync(file).isFile() || real(file) !== file) return 'masked-tracked-change';
+    const bootstrap = row.startsWith('S ') && /^(?:\.claude\/launch\.json|(?:[^/]+\/)?e2e\/server-env\.json)$/.test(name);
+    const hash = git(wt, ['hash-object', '--no-filters', '--', name]);
+    const head = git(wt, ['rev-parse', '--verify', `HEAD:${name}`]);
+    if (!hash.ok || !head.ok || (!bootstrap && hash.out !== head.out)) return 'masked-tracked-change';
+  }
+  const ignored = git(wt, ['ls-files', '--others', '--ignored', '--exclude-standard', '-z']);
+  if (!ignored.ok) return 'status-unreadable';
+  const caches = /(^|\/)(node_modules|\.next|\.next-fidelity|dist|build|coverage|\.cache|\.turbo|test-results)(\/|$)/;
+  for (const name of ignored.out.split('\0').filter(Boolean)) {
+    if (/(^|\/)(\.git|\.pandacorp)(\/|$)|(^|\/)factory\/(ideas|memory|profile\.md|portfolio\.md)(\/|$)/.test(name)) return 'owner-state';
+    if (!caches.test(name)) return 'unclassified-ignored-files';
+    // Refuse independent repositories hidden inside a generated cache, including bare repos.
+    const file = path.join(wt, name);
+    let dir = lstatSync(file).isDirectory() ? file : path.dirname(file);
+    while (dir !== wt && within(dir, wt)) {
+      if (existsSync(path.join(dir, '.git')) || ['HEAD', 'objects', 'refs', 'config'].every(n => existsSync(path.join(dir, n)))) return 'nested-repository';
+      dir = path.dirname(dir);
+    }
+  }
+  const gd = git(wt, ['rev-parse', '--absolute-git-dir']);
+  const common = git(wt, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
+  if (!gd.ok || !common.ok) return 'status-unreadable';
+  if (['index.lock', 'HEAD.lock'].some(n => existsSync(path.join(gd.out, n))) || ['index.lock', 'packed-refs.lock'].some(n => existsSync(path.join(common.out, n)))) return 'git-lock';
+  return null;
+}
+
+/** Remove only regular manifest files with an absolute path proven absent. Never follow symlinks. */
+export function pruneManifests(projectDirs, { dryRun = false } = {}) {
+  const pruned = [];
+  for (const project of projectDirs) {
+    const dir = path.join(project, '.pandacorp/run/worktrees');
+    if (!existsSync(dir) || real(dir) !== dir) continue;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+      const file = path.join(dir, entry.name);
+      try {
+        const data = JSON.parse(readFileSync(file, 'utf8'));
+        if (typeof data.path !== 'string' || !path.isAbsolute(data.path)) continue;
+        try { lstatSync(data.path); continue; } catch (e) { if (e.code !== 'ENOENT') continue; }
+        if (!dryRun) unlinkSync(file);
+        pruned.push(file);
+      } catch { /* Unreadable evidence stays. */ }
+    }
+  }
+  return pruned;
 }
 
 function origin(branch, wtPath) {
@@ -192,19 +273,26 @@ export async function scan(repo, selfDir = process.cwd(), alsoList = []) {
     const nested = allPaths.filter((o) => o !== p && within(o, p));
     const idleHours = Math.min(info.ageHours, hoursSince(path.join(git(w.path, ["rev-parse", "--absolute-git-dir"]).out, "logs", "HEAD")));
     const recent = idleHours < STALE_HOURS && !also.has(w.branch) && !also.has(p);
-    const inUse = procs.cwds.some((c) => within(c, p) && !nested.some((n) => within(c, n)));
+    const inUse = procs.cwds.some((c) => within(c, p));
+    const engine = engineRoot(p, projs);
     const engineProject = projs.find((pr) => within(p, pr.runDir));
     const engineOwned = Boolean(engineProject) || base.origin.startsWith("build-");
     const engineLive = engineProject ? engineProject.live : engineOwned && anyLive;
-    const item = { ...base, head: w.head, ...info, idleHours, uncommitted, ownerState, nested, inUse, stale: idleHours >= STALE_HOURS };
+    const engineReason = engine?.eligible ? engineCleanReason(w.path) : null;
+    const item = { ...base, engineOwned: Boolean(engine), engineManaged: Boolean(engine?.managed), head: w.head, ...info, idleHours, uncommitted, ownerState, nested, inUse, stale: idleHours >= STALE_HOURS };
     let decision; let reason;
     if (w.locked) { decision = "protected"; reason = "locked"; }
+    else if (path.resolve(w.path) !== p) { decision = "protected"; reason = "symlink-path"; }
+    else if (!engine && /(^|\/)\.pandacorp(\/|$)|\/factory\/(ideas|memory)(\/|$)/.test(p)) { decision = "protected"; reason = "protected-path"; }
     else if (base.origin === "deployment") { decision = "protected"; reason = "deployment"; }
     else if (self && p === self) { decision = "protected"; reason = "self"; }
     else if (engineOwned && engineLive) { decision = "protected"; reason = "live-build"; }
+    else if (engine && !engine.eligible) { decision = "protected"; reason = engine.reason; }
     else if (inUse) { decision = "protected"; reason = "in-use"; }
     else if (!procs.ok) { decision = "ask"; reason = "process-check-unavailable"; }
     else if (uncommitted < 0) { decision = "ask"; reason = "status-unreadable"; }
+    else if (engineReason) { decision = "ask"; reason = engineReason; }
+    else if (engine?.eligible && uncommitted === 0 && ownerState.length === 0 && nested.length === 0) { decision = "safe"; reason = "finished-run"; }
     else if (info.merged && uncommitted === 0 && ownerState.length === 0 && nested.length === 0) {
       // merged + clean is provably safe for the DATA, but a session idle < STALE_HOURS may still stand on it (a Codex/Claude
       // session lsof can't see between commands): it is only auto-removed once idle, or when the owner named it (--also).
@@ -213,7 +301,7 @@ export async function scan(repo, selfDir = process.cwd(), alsoList = []) {
     else { decision = "ask"; reason = info.merged ? "merged-but-not-clean" : "unmerged"; }
     item.decision = decision;
     item.reason = reason;
-    if (decision === "safe") item.actions = ["remove-worktree", ...(w.branch && info.merged ? ["delete-branch"] : [])];
+    if (decision === "safe") item.actions = ["remove-worktree", ...(w.branch && info.merged && !engine ? ["delete-branch"] : [])];
     if (decision === "ask") { item.suggestion = suggest(item); item.integrateVia = mergeQueue ? "merge-queue" : "direct-merge"; }
     if (w.locked) item.lockReason = w.lockReason;
     items.push(item);
@@ -224,7 +312,7 @@ export async function scan(repo, selfDir = process.cwd(), alsoList = []) {
     if (b === def || checkedOut.has(b)) continue;
     const info = commitInfo(mainWt, `refs/heads/${b}`, def);
     const item = { kind: "branch", path: null, branch: b, detached: false, origin: origin(b, null), ...info, idleHours: info.ageHours, uncommitted: 0, ownerState: [], nested: [], inUse: false, stale: info.ageHours >= STALE_HOURS };
-    if (item.origin === "build-lane" && anyLive) { item.decision = "protected"; item.reason = "live-build"; }
+    if (item.origin === "build-lane") { item.decision = "protected"; item.reason = anyLive ? "live-build" : "retained-engine-ref"; }
     else if (info.merged) { item.decision = "safe"; item.reason = "merged"; item.actions = ["delete-branch"]; }
     else { item.decision = "ask"; item.reason = "unmerged"; item.suggestion = suggest(item); item.integrateVia = mergeQueue ? "merge-queue" : "direct-merge"; }
     items.push(item);
@@ -246,7 +334,10 @@ export async function clean(repo, selfDir, { dryRun = false, also = [] } = {}) {
   const inv = await scan(repo, selfDir, also);
   const done = []; const failed = [];
   const root = inv.repo;
-  for (const it of inv.items.filter((i) => i.decision === "safe")) {
+  for (const candidate of inv.items.filter((i) => i.decision === "safe")) {
+    const fresh = await scan(repo, selfDir, also);
+    const it = fresh.items.find(i => i.kind === candidate.kind && i.path === candidate.path && i.branch === candidate.branch);
+    if (!it || it.decision !== 'safe') continue;
     for (const a of it.actions) {
       const args = a === "remove-worktree" ? ["worktree", "remove", it.path]
         : a === "delete-branch" ? ["branch", "-d", it.branch]
@@ -258,8 +349,29 @@ export async function clean(repo, selfDir, { dryRun = false, also = [] } = {}) {
     }
   }
   if (!dryRun) git(root, ["worktree", "prune"]); // only drops entries whose directory is gone; skips locked
+  const manifestsPruned = pruneManifests(inv.projects.map(p => p.dir), { dryRun });
   const after = dryRun ? inv : await scan(repo, selfDir, also);
-  return { repo: root, dryRun, removed: done, failed, remaining: after.summary, ask: after.items.filter((i) => i.decision === "ask"), protected: after.items.filter((i) => i.decision === "protected") };
+  return { repo: root, dryRun, manifestsPruned, removed: done, failed, remaining: after.summary, ask: after.items.filter((i) => i.decision === "ask"), protected: after.items.filter((i) => i.decision === "protected") };
+}
+
+/** Session finish also reclaims terminal engine worktrees, never unrelated sessions or branches. */
+export async function cleanEngineWorktrees(repo, selfDir, { dryRun = false, excluded = [] } = {}) {
+  const inv = await scan(repo, selfDir);
+  const removed = [], kept = [], failed = [];
+  for (const candidate of inv.items.filter(i => i.kind === 'worktree' && i.engineOwned && !excluded.includes(i.path))) {
+    const fresh = await scan(repo, selfDir);
+    const item = fresh.items.find(i => i.kind === 'worktree' && i.path === candidate.path);
+    if (!item || item.decision !== 'safe') {
+      if (item) kept.push({path: item.path, reason: item.reason});
+      continue;
+    }
+    if (dryRun) { removed.push({path: item.path, dryRun: true}); continue; }
+    const result = git(inv.repo, ['worktree', 'remove', '--', item.path]);
+    if (result.ok && !existsSync(item.path)) removed.push({path: item.path});
+    else failed.push({path: item.path, error: result.err || 'directory remains'});
+  }
+  const manifestsPruned = pruneManifests(inv.projects.map(p => p.dir), {dryRun});
+  return {removed, kept, failed, manifestsPruned};
 }
 
 function slug(s) { return s.replace(/^\/+/, "").replace(/[^A-Za-z0-9._-]+/g, "-").slice(-80); }

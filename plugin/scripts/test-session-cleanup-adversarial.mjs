@@ -2,7 +2,7 @@
 // Independent DR-145 safety probes. Mutations are limited to disposable synthetic repositories.
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,8 +28,20 @@ function fixture() {
   git(repo, 'worktree', 'add', '-q', '-b', 'fixture/original', wt);
   return { root, repo, wt };
 }
-let failed = 0;
+function engineFixture(relative = 'build/wt/unit') {
+  const f = fixture();
+  writeFileSync(path.join(f.repo,'.gitignore'),'.pandacorp/\nnode_modules/\n');
+  git(f.repo,'add','.gitignore');git(f.repo,'commit','-qm','engine ignores');
+  mkdirSync(path.join(f.repo,'.pandacorp/run/build'),{recursive:true});
+  writeFileSync(path.join(f.repo,'.pandacorp/status.yaml'),'running: false\n');
+  writeFileSync(path.join(f.repo,'.pandacorp/run/build/state.json'),JSON.stringify({status:'finished'}));
+  f.engine = path.join(f.repo,'.pandacorp/run',relative);
+  git(f.repo,'worktree','add','-qb','lane/test/unit',f.engine);
+  return f;
+}
+let failed = 0, total = 0;
 async function probe(name, fn) {
+  total++;
   try { await fn(); console.log(`PASS ${name}`); }
   catch (e) { failed++; console.error(`FAIL ${name}: ${e.message}`); }
 }
@@ -142,6 +154,60 @@ try {
     const { result } = await backlogFixture({ id: 'BL-1001', branch: 'bl/BL-1001', status: 'done', cleanupSession }, { id: 'BL-1001', merged: false, validator: 'red', reason: 'fixture gate red' });
     assert.equal(result.blocked[0].cleanupSession, cleanupSession);
   });
+  await probe('terminal engine worktree with dirty files survives finish', async () => {
+    const f=engineFixture(), session=await create(f.repo);roots.push(session.root);
+    writeFileSync(path.join(f.engine,'file.txt'),'owner edits');
+    const r=await finish(session.root,{self:f.repo});
+    assert.ok(existsSync(f.engine));assert.ok(r.kept.some(i=>i.path===f.engine));
+  });
+  await probe('process cwd inside a terminal engine worktree survives finish', async () => {
+    const f=engineFixture(), session=await create(f.repo);roots.push(session.root);
+    const sleeper=spawn('sleep',['60'],{cwd:f.engine,stdio:'ignore'});
+    try {
+      await new Promise((resolve,reject)=>{sleeper.once('spawn',resolve);sleeper.once('error',reject);});
+      const r=await finish(session.root,{self:f.repo});
+      assert.ok(existsSync(f.engine));assert.ok(r.kept.some(i=>i.path===f.engine&&i.reason==='in-use'));
+    } finally {sleeper.kill();}
+  });
+  await probe('terminal engine worktrees preserve hidden edits, private files and locks', async () => {
+    for(const mode of ['masked','private','owner','locked','git-lock']) {
+      const f=engineFixture(), session=await create(f.repo);roots.push(session.root);
+      if(mode==='masked') {git(f.engine,'update-index','--assume-unchanged','file.txt');writeFileSync(path.join(f.engine,'file.txt'),'hidden edit');}
+      if(mode==='private') {writeFileSync(path.join(f.repo,'.git/info/exclude'),'.env.local\n');writeFileSync(path.join(f.engine,'.env.local'),'SYNTHETIC=private');}
+      if(mode==='owner') {mkdirSync(path.join(f.engine,'.pandacorp/inbox'),{recursive:true});writeFileSync(path.join(f.engine,'.pandacorp/inbox/note'),'owner');}
+      if(mode==='locked') git(f.repo,'worktree','lock',f.engine);
+      if(mode==='git-lock') writeFileSync(path.join(git(f.engine,'rev-parse','--absolute-git-dir'),'index.lock'),'fixture');
+      const r=await finish(session.root,{self:f.repo});assert.ok(existsSync(f.engine),mode);assert.ok(r.kept.some(i=>i.path===f.engine),mode);
+    }
+  });
+  await probe('stopped integration accepts only bootstrap skip-worktree overrides', async () => {
+    const f=engineFixture('build/integration'), session=await create(f.repo);roots.push(session.root);
+    mkdirSync(path.join(f.engine,'.claude'));mkdirSync(path.join(f.engine,'app/e2e'),{recursive:true});
+    for(const name of ['.claude/launch.json','app/e2e/server-env.json']) writeFileSync(path.join(f.engine,name),'{}');
+    git(f.engine,'add','.claude/launch.json','app/e2e/server-env.json');git(f.engine,'commit','-qm','bootstrap inputs');
+    for(const name of ['.claude/launch.json','app/e2e/server-env.json']) {git(f.engine,'update-index','--skip-worktree',name);writeFileSync(path.join(f.engine,name),' {"PORT":"1234"}');}
+    writeFileSync(path.join(f.repo,'.pandacorp/run/build/state.json'),JSON.stringify({status:'stopped'}));
+    await register(session.root,f.engine,{generatedFiles:['.claude/launch.json']});
+    const r=await finish(session.root,{self:f.repo});assert.ok(!existsSync(f.engine));assert.ok(r.removed.some(i=>i.path===f.engine));
+    assert.ok(git(f.repo,'rev-parse','--verify','lane/test/unit'));
+  });
+  await probe('waiting archive, malformed state and orphan lease fail closed', async () => {
+    for(const mode of ['archive-waiting','bad-state','orphan-lease','cache-repo']) {
+      const relative=mode==='archive-waiting'?'build-archive/old/integration':'build/wt/unit';
+      const f=engineFixture(relative), session=await create(f.repo);roots.push(session.root);
+      if(mode==='archive-waiting') writeFileSync(path.join(f.engine,'../state.json'),JSON.stringify({status:'waiting_gate'}));
+      if(mode==='bad-state') writeFileSync(path.join(f.repo,'.pandacorp/run/build/state.json'),'invalid');
+      if(mode==='orphan-lease') mkdirSync(path.join(f.repo,'.pandacorp/run/build.lease'));
+      if(mode==='cache-repo') {mkdirSync(path.join(f.engine,'node_modules'));git(f.repo,'clone','-q',f.repo,path.join(f.engine,'node_modules/source'));}
+      const r=await finish(session.root,{self:f.repo});assert.ok(existsSync(f.engine),mode);assert.ok(r.kept.some(i=>i.path===f.engine),mode);
+    }
+  });
+  await probe('suspended and unrelated protected-state worktrees survive finish', async () => {
+    for(const relative of ['build-suspended/old/wt/unit','preserved-tests/unit','build/units/unit']) {
+      const f=engineFixture(relative), session=await create(f.repo);roots.push(session.root);
+      const r=await finish(session.root,{self:f.repo});assert.ok(existsSync(f.engine),relative);assert.ok(r.kept.some(i=>i.path===f.engine),relative);
+    }
+  });
   await probe('generated output registration refuses escapes, symlinks and Git metadata', async () => {
     const f = fixture(), session = await create(f.repo); roots.push(session.root);
     const outside = path.join(f.root, 'outside.txt'); writeFileSync(outside, 'synthetic outside value');
@@ -180,5 +246,5 @@ try {
 } finally {
   for (const root of roots.reverse()) rmSync(root, { recursive: true, force: true });
 }
-console.log(`Adversarial probes: ${14 - failed}/14 passed`);
+console.log(`Adversarial probes: ${total - failed}/${total} passed`);
 process.exitCode = failed ? 1 : 0;

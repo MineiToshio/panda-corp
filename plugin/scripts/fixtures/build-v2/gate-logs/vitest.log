@@ -1,0 +1,8 @@
+> pnpm vitest run src/alpha/list.test.ts src/alpha/filter.test.ts
+ ✓ src/alpha/list.test.ts (2 tests) 10ms
+ ❯ src/alpha/filter.test.ts (2 tests | 1 failed) 11ms
+   × filter > drops empty values 8ms
+ FAIL  src/alpha/filter.test.ts > filter > drops empty values
+AssertionError: expected []
+ ❯ src/alpha/filter.ts:12:3
+ PASS src/beta/view.test.ts > renders

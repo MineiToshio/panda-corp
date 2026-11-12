@@ -140,7 +140,14 @@ describe("v2 track.jsonl through readBuildTimeline", () => {
   it("skips unknown kinds, admission-style lines and lines with a bad timestamp; tolerates extra keys", () => {
     const project = writeTrack([
       { kind: "admit_decision", frd: FRD, at: at(0), limit: "ram" },
-      { kind: "wo_start", frd: FRD, wo: "WO-01-001", at: at(1), run_id: "run-1", unit: "u-build-WO-01-001" },
+      {
+        kind: "wo_start",
+        frd: FRD,
+        wo: "WO-01-001",
+        at: at(1),
+        run_id: "run-1",
+        unit: "u-build-WO-01-001",
+      },
       { kind: "wo_end", frd: FRD, wo: "WO-01-001", at: "not-a-date", state: "verified" },
       { kind: "wo_end", frd: FRD, wo: "WO-01-001", at: at(7), state: "verified", sha: "abc1234" },
     ]);
@@ -158,7 +165,11 @@ describe("v2 track.jsonl through readBuildTimeline", () => {
 });
 
 describe("v2 events through readEvents", () => {
-  function payload(event: string, data: Record<string, unknown>, over: Record<string, unknown> = {}) {
+  function payload(
+    event: string,
+    data: Record<string, unknown>,
+    over: Record<string, unknown> = {},
+  ) {
     return {
       at: "2026-11-11T12:00:00.000Z",
       runtime: "claude",
@@ -182,7 +193,12 @@ describe("v2 events through readEvents", () => {
     const file = writeEvents(path.join(tmpRoot, "events.ndjson"), [
       payload("BuildLaunch", { mode: "v2" }),
       payload("AgentWorking", { role: "implementer", unit: "u-build-WO-01-001" }),
-      payload("AgentDone", { role: "implementer", model: "sonnet", unit: "u-build-WO-01-001", result: "green" }),
+      payload("AgentDone", {
+        role: "implementer",
+        model: "sonnet",
+        unit: "u-build-WO-01-001",
+        result: "green",
+      }),
       payload("wo_commit", { wo: "WO-01-001", frd: FRD }),
       payload("GateVerdict", { frd: FRD, verdict: "PASS" }),
       payload("BuildComplete", {}),
@@ -197,7 +213,12 @@ describe("v2 events through readEvents", () => {
       "BuildComplete",
     ]);
     const done = events.find((e) => e.event === "AgentDone");
-    expect(done).toMatchObject({ result: "green", role: "implementer", runId: "run-1", project: "demo" });
+    expect(done).toMatchObject({
+      result: "green",
+      role: "implementer",
+      runId: "run-1",
+      project: "demo",
+    });
     expect(events.find((e) => e.event === "GateVerdict")).toMatchObject({ verdict: "PASS" });
   });
 
@@ -249,5 +270,7 @@ describe("v2 lease-only liveness (task D06)", () => {
   it.todo(
     "isLive treats a lease renewed within its ttl_seconds as live without status.yaml running:true (liveness.ts, after D06)",
   );
-  it.todo("a lease with a malformed renewed_at or ttl_seconds <= 0 blanks the live status (liveness.ts, after D06)");
+  it.todo(
+    "a lease with a malformed renewed_at or ttl_seconds <= 0 blanks the live status (liveness.ts, after D06)",
+  );
 });

@@ -15,15 +15,25 @@ fi
 cwd=$(echo "$input" | jq -r '.cwd // "."')
 cmd=$(echo "$input" | jq -r '.tool_input.command // ""')
 
-# Scope: act in Pandacorp folders — a project (.pandacorp/status.yaml, incl. adopted ones) OR the
-# factory (Pandacorp in CLAUDE.md). Resolve from the REPO ROOT, not just the hook cwd: a session
-# parked in a subdirectory (mission-control/src/…) is still inside a Pandacorp repo and must not
-# disarm the gate (Fable-audit 2026-07-04 #9).
-scope_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || echo "$cwd")
+# Scope: any project status or Pandacorp instruction file at the repo root or
+# along the cwd's ancestor chain. CLAUDE.md may be only @AGENTS.md (DEC-13).
+# Intermediate project roots matter when a monorepo's own root has no marker.
+scope_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)
+scope_boundary=${scope_root:-/}
+scope_root=$(cd "${scope_root:-$cwd}" 2>/dev/null && pwd -P)
+scope_boundary=$(cd "$scope_boundary" 2>/dev/null && pwd -P)
 in_scope=0
-for d in "$cwd" "$scope_root"; do
-  [ -f "$d/.pandacorp/status.yaml" ] && in_scope=1
-  grep -qs "Pandacorp" "$d/CLAUDE.md" 2>/dev/null && in_scope=1
+_scope_at() {
+  [ -f "$1/.pandacorp/status.yaml" ] ||
+    grep -qs "Pandacorp" "$1/AGENTS.md" 2>/dev/null ||
+    grep -qs "Pandacorp" "$1/CLAUDE.md" 2>/dev/null
+}
+_scope_at "$scope_root" && in_scope=1
+d=$(cd "$cwd" 2>/dev/null && pwd -P) || d="$scope_root"
+while :; do
+  _scope_at "$d" && in_scope=1
+  if [ "$d" = "$scope_boundary" ] || [ "$d" = / ]; then break; fi
+  d=$(dirname "$d")
 done
 [ "$in_scope" = "1" ] || exit 0
 

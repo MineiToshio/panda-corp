@@ -32,9 +32,10 @@ for (const skill of matrix.skills) for (const runtime of ["claude", "codex"]) {
   const expected = { ...policy.defaults[runtime], ...policy.overrides[skill.slug]?.[runtime] };
   if (JSON.stringify(skill.runtimes[runtime]) !== JSON.stringify(expected)) fail(`${skill.slug}/${runtime} projection drift`);
 }
-const executor = ownership.capabilities?.codex_product_executor;
-const implementCodex = matrix.skills.find((skill) => skill.slug === "implement")?.runtimes.codex;
-if (executor?.authorization !== "FULL_NATIVE_ATTENDED" || executor.authorized_by !== "DR-133") fail("Codex ownership lacks native attended authority");
-if (executor.profile !== implementCodex.profile || executor.scope !== implementCodex.scope || executor.certification !== implementCodex.status) fail("Codex automation policy/ownership drift");
-if (implementCodex.status === "PROVEN") fail("DR-133 owner permission alone must not claim automation certification");
+const executor = ownership.capabilities?.product_build_orchestration;
+if (executor?.canonical !== "plugin/scripts/pandacorp-build.mjs" || executor.runtime_owner !== "shared") fail("Product build ownership must name the shared v2 CLI");
+if (!existsSync(path.join(root, executor.canonical))) fail("Shared v2 build CLI is missing");
+for (const retired of ["codex_product_executor", "codex_unattended_certification", "codex_certification_authority", "sequential_runtime_switch"]) {
+  if (ownership.capabilities?.[retired]) fail(`Retired executor ownership returned: ${retired}`);
+}
 console.log(`PASS  exact skill capability coverage ${slugs.length}/${dirs.length}`);

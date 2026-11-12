@@ -120,7 +120,7 @@ async function setup(name, { launched = false, plan = {}, rollout = "normal" } =
   await writeSignalsFile(env.PANDACORP_SIGNALS_FILE, "clean");
   await writeRolloutSample(env.CODEX_HOME, rollout);
   await writeWorkerPlan(env.PANDACORP_FAKE_WORKER_PLAN, plan);
-  const sc = { name, dir, fx, root, env, now: DEFAULT_NOW, calls: [], shape: [], p: buildPaths(root), pids: new Set(), children: [], baseline: fx.git("rev-parse", "HEAD"), reflog0: reflogMain(root).length };
+  const sc = { name, dir, fx, root, env, now: DEFAULT_NOW, calls: [], shape: [], p: buildPaths(root, { env }), pids: new Set(), children: [], baseline: fx.git("rev-parse", "HEAD"), reflog0: reflogMain(root).length };
   sc.fixCrash = await readFile(path.join(root, ".pandacorp", "inbox", "changes", "fix-crash.md"), "utf8");
   return sc;
 }
@@ -239,6 +239,7 @@ async function cleanup(sc) {
   const sb = await standbyPid(sc); if (sb) sc.pids.add(sb);
   try { const cp = Number((await readFile(sc.p.driveCaffeinatePidFile, "utf8")).trim()); if (cp) sc.pids.add(cp); } catch { /* none */ }
   for (const pid of sc.pids) killOwned(pid);
+  await Promise.all(sc.children.map((c) => c.exitCode !== null || c.signalCode !== null ? null : new Promise((resolve) => c.once("exit", resolve))));
 }
 
 // ---- scenarios -------------------------------------------------------------------------------------------------------
@@ -248,6 +249,8 @@ async function scenarioS1() {
     startGuard(sc);
     const { r } = await startRun(sc, { label: "claude" });
     check(sc, "start --run: drive armed in standby, prepush not_needed (unlaunched)", r.json.drive?.armed === true && r.json.prepush === "not_needed", txt(r.json));
+    const admission = await readJson(sc.p.admissionFile);
+    check(sc, "ADM: a new host starts at step 5", admission?.ladder?.start_step === 5, txt(admission));
     const res = await sessionLoop(sc, sc.epoch);
     check(sc, "session loop reaches done and finish succeeds", res.stop === "done" && res.finish?.code === 0, `${res.stop} ${txt(res.next?.json || res.land?.json || res.finish?.json)}`);
     check(sc, "land results stay within running|landed (merge-queue exit 0)", (sc.lands || []).length > 0 && sc.lands.every((l) => ["running", "landed"].includes(l.json?.result)), txt((sc.lands || []).map((l) => l.json)));
@@ -256,6 +259,9 @@ async function scenarioS1() {
     checkGuard(sc, "S1"); await checkLanded(sc, "S1");
     const st = await cli(sc, ["status"]);
     check(sc, "status after finish: finished, lease released", st.json?.status === "finished" && (!existsSync(sc.p.leaseFile) || st.json?.lease?.live === false), txt(st.json));
+    const records = (await readFile(sc.p.perfJournalFile, "utf8")).trim().split("\n").map(JSON.parse);
+    check(sc, "ADM: finish writes one basename-only performance record", records.length === 1 && records[0].run_id === sc.runId && records[0].project === path.basename(sc.root) && !JSON.stringify(records).includes(sc.root), txt(records));
+    check(sc, "ADM: status and summary expose step and motivo", Number.isInteger(st.json?.admission?.step) && typeof res.finish?.json?.summary?.admission?.motivo === "string", txt(st.json?.admission));
     const ev = await readFile(sc.env.PANDACORP_EVENTS_FILE, "utf8").catch(() => "");
     check(sc, "events go to the test events file only (BuildLaunch present)", /BuildLaunch/.test(ev), ev.slice(0, 200));
   } finally { await cleanup(sc); }
@@ -461,6 +467,6 @@ for (const sc of scs) results.push({ sc: sc.name, name: "every CLI call printed 
 let failed = 0;
 for (const r of results) { if (!r.ok) failed++; (r.ok ? console.log : console.error)(`${r.ok ? "PASS" : "FAIL"}  [${r.sc}] ${r.name}${r.ok ? "" : `: ${r.detail}`}`); }
 if (failed) for (const sc of scs) if (results.some((r) => r.sc === sc.name && !r.ok)) console.error(`\n--- ${sc.name} last CLI calls ---\n${sc.calls.slice(-12).join("\n")}`);
-if (!process.env.PANDACORP_E2E_KEEP) await rm(SANDBOX, { recursive: true, force: true }); else console.error(`sandbox kept: ${SANDBOX}`);
+if (!process.env.PANDACORP_E2E_KEEP) await rm(SANDBOX, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }); else console.error(`sandbox kept: ${SANDBOX}`);
 console.log(`\nRESULT test-build-v2-e2e: ${results.length - failed}/${results.length} passed, ${failed} failed (${Math.round((Date.now() - T_START) / 1000)} s)`);
 process.exit(failed ? 1 : 0);

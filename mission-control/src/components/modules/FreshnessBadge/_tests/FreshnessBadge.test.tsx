@@ -79,13 +79,23 @@ it("client does not extend an expired short lease using its own stamp as a legac
   const perf = vi.spyOn(performance, "now").mockReturnValue(0);
   try {
     const nowMs = Date.parse(NOW);
-    const signal = buildSignal({ running: true, supervisorHeartbeat: "2000-01-01T00:00:00Z",
-      leaseRenewedAt: NOW, leaseTtlSeconds: 30, nowMs });
+    const signal = buildSignal({
+      running: true,
+      supervisorHeartbeat: "2000-01-01T00:00:00Z",
+      leaseRenewedAt: NOW,
+      leaseTtlSeconds: 30,
+      nowMs,
+    });
     render(<FreshnessBadge signal={signal} nowIso={NOW} />);
     expect(screen.getByTestId("freshness-badge")).toHaveTextContent("Construyendo");
     perf.mockReturnValue(30_000);
-    act(() => { vi.advanceTimersByTime(30_000); });
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
     expect(screen.getByTestId("freshness-badge")).toHaveTextContent("Sin señal");
     expect(screen.getByTestId("freshness-badge")).toHaveAttribute("data-band", "no-signal");
-  } finally { vi.useRealTimers(); perf.mockRestore(); }
+  } finally {
+    vi.useRealTimers();
+    perf.mockRestore();
+  }
 });

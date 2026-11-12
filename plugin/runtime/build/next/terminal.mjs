@@ -1,5 +1,6 @@
 // Terminal actions (A11, D32): what is still running, the first-match terminal choice, its Spanish notes, applying it
 // (status, journal, quiesce + finalizeRelease) and finishing the release of a run that already stopped.
+import { finishPerformance } from "../perf.mjs";
 import { fencedTwoPhase, isTerminalUnit, readLeaseToken } from "../state.mjs";
 import { ENV_INFRA_STOP } from "./constants.mjs";
 import { err, isAssumed, isLive, passIntent, resolveDeps, sibling } from "./context.mjs";
@@ -21,7 +22,6 @@ export function chooseTerminal(state, { pol, l4, plan, candidates, dispatch }) {
   state = scopedState(state);
   const bothOut = pol && !pol.claude_new_units && !pol.codex_new_units;
   if (pol?.paused) return { action: "paused-quota", status: "paused", reason: bothOut ? "quota" : "quota_claude_no_drive" };
-  if (l4?.paused_infra) return { action: "paused-infra", status: "paused", reason: "infra_L4" };
   if (state.handbacks_in_a_row >= ENV_INFRA_STOP) return { action: "stop", status: "stopped", reason: "env_infra_handbacks" };
   if (state.units.every(isTerminalUnit)) return { action: "done", status: state.status, reason: "done" };
   if (dispatch?.admissionBlocked) return { action: "wait", reason: dispatch.admissionBlocked };
@@ -39,7 +39,6 @@ export function chooseTerminal(state, { pol, l4, plan, candidates, dispatch }) {
 export function terminalNotes(terminal, quota) {
   switch (terminal.action) {
     case "paused-quota": return [`Pausa por cupo: Claude al ${quota.out.claude.pct ?? "?"} %, Codex al ${quota.out.codex.pct ?? "?"} %. Claude vuelve ${quota.resets.claude ?? "sin fecha conocida"}; Codex vuelve ${quota.resets.codex ?? "sin fecha conocida"}.`];
-    case "paused-infra": return ["Pausa por presión de memoria crítica durante más de 10 minutos."];
     case "waiting-owner": return [terminal.status === "waiting_gate" ? "Todo lo que queda espera tu firma en una puerta humana." : "Todo lo que queda espera tu respuesta."];
     case "deadlock": return ["El plan no puede avanzar: hay unidades en cola sin dependencias resolubles."];
     case "stop": return [terminal.reason === "env_infra_handbacks" ? "Me detengo: tres devoluciones seguidas por fallos del entorno." : "Me detengo: nada más puede avanzar."];
@@ -70,6 +69,7 @@ export async function applyTerminal(ref, terminal, deps = {}) {
     await ctx.writeState(next);
     return next;
   }, passIntent);
+  if (state.status === "stopped" || state.status === "waiting_gate") await finishPerformance({ project: ref.project, state }, d);
   const bs = d.buildState ?? await import("../../build-state.mjs");
   const token = await readLeaseToken(ref.project, ref.epoch, d);
   await bs.quiesce(ref.project, token, Number(ref.epoch), { projectStatus: false });
@@ -89,7 +89,7 @@ export async function applyTerminal(ref, terminal, deps = {}) {
 export async function alreadyStopped(run, state) {
   const action = state.status === "finished" ? "done"
     : state.status === "waiting_owner" || state.status === "waiting_gate" ? "waiting-owner"
-      : state.status === "paused" ? (state.status_reason === "infra_L4" ? "paused-infra" : "paused-quota")
+      : state.status === "paused" ? "paused-quota"
         : state.status_reason === "deadlock" ? "deadlock" : "stop";
   const bs = run.d.buildState ?? await import("../../build-state.mjs");
   try {

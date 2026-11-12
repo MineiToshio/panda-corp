@@ -111,6 +111,17 @@ await test("buildEvidence hash: stable under key and array order, changes with a
 });
 
 // ---------------------------------------------------------------- attempt budget (D21)
+await test("PATCH N16: only build and patch units spend the per-WO execution budget", async () => {
+  const { executionsUsed } = await import("../runtime/build/failure/policy.mjs");
+  const units = [U("builder", { wos: ["WO-01-001"], attempt: 1 }),
+    ...["tests", "docs", "review", "audit", "doubt-consult"].map((kind) => U(`u-${kind}`, { kind, wos: ["wo-01-001"], attempt: 3 }))];
+  eq(executionsUsed(mkState(units), ["WO-01-001"]), 1, "non-build executions do not charge the WO");
+  const decision = fn("decideFailure")({ state: mkState(units), wos: ["WO-01-001"], failure: { source: "g3_red" }, evidence: EVID() });
+  eq(decision.attempt, 2, "a tests attempt 3 cannot exhaust the first build's budget");
+  units.push(U("patch", { kind: "patch", wos: ["WO-01-001"], attempt: 2 }));
+  eq(executionsUsed(mkState(units), ["WO-01-001"]), 2, "patch executions do charge the WO");
+  eq(executionsUsed(mkState(units), ["WO-02-001"]), 0, "unrelated WOs do not charge this budget");
+});
 const decide = (unitExtra, diagnosis, evidence, extra = {}) => { const unit = U("u-build-WO-01-001", unitExtra); return fn("decideFailure")({ state: mkState([unit]), unit, failure: { source: "report_failed" }, diagnosis, evidence, ...extra }); };
 await test("attempt 1 failed with a code diagnosis -> queue attempt 2, no escalation", async () => {
   const d = decide({ attempt: 1 }, DIAG("code", "off by one"), EVID());

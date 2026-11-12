@@ -44,6 +44,11 @@ echo "existing decision" > "$fx/myapp/.pandacorp/inbox/decisions.md"
 echo "existing inbox entry" > "$fx/factory/memory/_inbox.md"
 echo "existing card" > "$fx/myapp/.pandacorp/inbox/changes/existing-card.md"
 
+# DEC-13: the only CLAUDE.md content is the shim. AGENTS.md is the sole scope
+# signal here (no status file). Run every must-block row against this fixture too.
+printf '@AGENTS.md\n' > "$fx/CLAUDE.md"
+echo '# Pandacorp' > "$fx/AGENTS.md"
+
 echo "== MUST BLOCK (expect 2) =="
 check "vercel --prod"                      2 "$fx" "vercel --prod"
 check "flyctl deploy"                      2 "$fx" "flyctl deploy"
@@ -85,6 +90,24 @@ check "gh repo delete"                     2 "$fx" "gh repo delete foo"
 check "delete main branch"                 2 "$fx" "git branch -D main"
 echo "== SCOPE WALK-UP (expect 2 from a repo SUBDIR) =="
 check "dangerous cmd from repo subdir"     2 "$fx/src/deep" "git push --force origin main"
+
+echo "== DEC-13: scope signals along the whole cwd chain =="
+check "shim-only CLAUDE.md is in scope via AGENTS.md" 2 "$fx/src/deep" "git push --force"
+scopefx=$(mktemp -d)
+( cd "$scopefx" && git init -q )
+mkdir -p "$scopefx/project/.pandacorp" "$scopefx/project/src/deep"
+printf '@AGENTS.md\n' > "$scopefx/CLAUDE.md"
+printf 'phase: implementation\n' > "$scopefx/project/.pandacorp/status.yaml"
+check "intermediate status.yaml scopes nested cwd" 2 "$scopefx/project/src/deep" "git push --force"
+rm "$scopefx/project/.pandacorp/status.yaml"
+printf '# Pandacorp\n' > "$scopefx/project/AGENTS.md"
+check "intermediate AGENTS.md scopes nested cwd" 2 "$scopefx/project/src/deep" "git push --force"
+rm "$scopefx/project/AGENTS.md"
+printf '# Pandacorp\n' > "$scopefx/project/CLAUDE.md"
+check "legacy intermediate CLAUDE.md stays in scope" 2 "$scopefx/project/src/deep" "git push --force"
+rm "$scopefx/project/CLAUDE.md"
+check "shim alone without Pandacorp signal stays out of scope" 0 "$scopefx/project/src/deep" "git push --force"
+rm -rf "$scopefx"
 
 echo "== MUST ALLOW (expect 0) =="
 check "reset --hard to explicit sha"       0 "$fx" "git reset --hard 515c5ff"
@@ -270,11 +293,12 @@ check "allow: pre-launch project pushes main"      0 "$lx" "git push origin main
 rm -rf "$lx"
 
 echo "== HOOK-FINAL: recursive deletes pass ONLY the strict whitelist ([cd ABS &&] rm FLAGS OPERANDS [&& rm ...]) into allowed places =="
-SCR=/private/tmp/claude-501/hookrm-test/deep/scratchpad
-rm -rf /private/tmp/claude-501/hookrm-test
+SCR="$TMPDIR/hookrm-test/deep/scratchpad"
 mkdir -p "$SCR/exp1" "$SCR/exp2" "$SCR/proj"
-ln -s "$HOME" "$SCR/homelink"
-ln -s "$HOME" "$SCR/proj/node_modules"
+FAKE_HOME="$(dirname "$TMPDIR")/hookfake-home-$$"
+mkdir -p "$FAKE_HOME"
+ln -s "$FAKE_HOME" "$SCR/homelink"
+ln -s "$FAKE_HOME" "$SCR/proj/node_modules"
 ln -s "$fx/myapp" "$SCR/applink"
 # Must allow: the owner's routine cleanups.
 check "allow: two absolute scratchpad paths"                        0 "$fx" "rm -rf $SCR/exp1 $SCR/exp2"
@@ -306,7 +330,7 @@ check "allow: same with <<-\"EOF\" and trailing blank lines"       0 "$fx" "cat 
 
 "
 # Linked worktree roots OUTSIDE every temp root (so only the worktree rule can allow them).
-WTB=/private/tmp/hookfinal-wt-$$
+WTB="$(dirname "$TMPDIR")/hookfinal-wt-$$"
 mkdir -p "$WTB/plain"
 git -C "$fx" worktree add -q --detach "$WTB/linked-wt" HEAD
 git -C "$fx" worktree add -q --detach "$WTB/locked-wt" HEAD
@@ -315,7 +339,7 @@ mkdir -p "$WTB/linked-wt/myapp/.pandacorp"
 git init -q "$WTB/mainrepo"
 check "allow: a linked worktree root outside temp roots"           0 "$fx" "rm -rf $WTB/linked-wt"
 check "allow: cd <parent> && rm -rf <linked worktree>"              0 "$fx" "cd $WTB && rm -rf linked-wt"
-check "allow: /tmp spelling of the linked worktree root"            0 "$fx" "rm -rf /tmp/hookfinal-wt-$$/linked-wt"
+check "allow: /tmp spelling of the linked worktree root"            0 "$fx" "rm -rf $WTB/linked-wt"
 check "block: a plain dir next to it (not an allowed place)"        2 "$fx" "rm -rf $WTB/plain"
 check "block: a MAIN worktree outside temp roots"                   2 "$fx" "rm -rf $WTB/mainrepo"
 check "block: a LOCKED linked worktree"                             2 "$fx" "rm -rf $WTB/locked-wt"
@@ -589,7 +613,7 @@ check_json "C3 block: NUL after an allowed scratch path"             2 "$fx" "rm
 check_json "C3 block: NUL even in a harmless command"                2 "$fx" 'echo a\u0000b'
 check_json "C3 control: the same JSON path without NUL allows"       0 "$fx" "rm -rf $SCR/exp1"
 # DR-HOOK5 non-blocking: generic build-output names only next to a package.json; scratch at least 3 levels below claude-*.
-P=/private/tmp/hookfinal-proj-$$
+P="$(dirname "$TMPDIR")/hookfinal-proj-$$"
 mkdir -p "$P/app/dist" "$P/app/build" "$P/noapp/build" "$P/noapp/out"
 echo '{}' > "$P/app/package.json"
 check "allow: build output next to a package.json"                   0 "$fx" "rm -rf $P/app/dist $P/app/build $P/app/coverage $P/app/.turbo $P/app/out"
@@ -606,10 +630,11 @@ check "allow: three levels below claude-*"                           0 "$fx" "rm
 hint=$(printf '{"cwd":"%s","tool_input":{"command":"rm -rf src/old && pnpm build"}}' "$fx" | bash "$GATE" 2>&1 >/dev/null)
 case "$hint" in *"git rm -r"*"SEPARATE"*|*"SEPARATE"*"git rm -r"*) echo "  ✓ block message suggests git rm -r and a separate follow-up"; pass=$((pass+1)) ;;
   *) echo "  ✗ block message lacks the git rm -r / separate-command hint: $hint"; fail=$((fail+1)) ;; esac
-rm -rf /private/tmp/claude-501/hookrm-test
+rm -rf "$TMPDIR/hookrm-test" "$FAKE_HOME"
 
 echo "== OUT OF SCOPE (expect 0 in a non-Pandacorp dir) =="
 plain=$(mktemp -d)
+( cd "$plain" && git init -q )
 check "non-Pandacorp dir allows"           0 "$plain" "git push --force"
 rm -rf "$plain" "$fx"
 

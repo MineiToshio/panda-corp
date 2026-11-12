@@ -2,18 +2,28 @@
   "facts": {
     "plugin_identity": {
       "source": "plugin/runtime/plugin-metadata.json",
-      "outputs": ["plugin/.claude-plugin/plugin.json", "plugin/.codex-plugin/plugin.json"],
+      "outputs": [
+        "plugin/.claude-plugin/plugin.json",
+        "plugin/.codex-plugin/plugin.json"
+      ],
       "generator": "plugin/scripts/generate-plugin-manifests.mjs",
       "contract": "Runtime-compatible fields are projected independently; Codex plugin.json never registers hooks."
     },
     "repo_local_codex_marketplace": {
       "source": "plugin/runtime/plugin-metadata.json",
-      "outputs": [".agents/plugins/marketplace.json", "plugins/pandacorp"],
+      "outputs": [
+        ".agents/plugins/marketplace.json",
+        "plugins/pandacorp"
+      ],
       "contract": "The catalog exposes one local Pandacorp entry; Codex resolves ./plugins/pandacorp from the repository root, whose relative symlink points to canonical plugin/ and never copies plugin content."
     },
     "model_tiers": {
       "source": "plugin/runtime/model-tiers.json",
-      "consumers": ["plugin/scripts/generate-codex-agents.mjs", "plugin/runtime/build/routing.mjs", "plugin/runtime/build/quota.mjs"]
+      "consumers": [
+        "plugin/scripts/generate-codex-agents.mjs",
+        "plugin/runtime/build/routing.mjs",
+        "plugin/runtime/build/quota.mjs"
+      ]
     },
     "shared_agents": {
       "source_glob": "plugin/agents/*.md",
@@ -24,7 +34,6 @@
         ".codex/agents/copywriter.toml",
         ".codex/agents/designer.toml",
         ".codex/agents/devops.toml",
-        ".codex/agents/drift-finder.toml",
         ".codex/agents/frontend-dev.toml",
         ".codex/agents/implementer.toml",
         ".codex/agents/librarian.toml",
@@ -45,11 +54,15 @@
     },
     "skill_capabilities": {
       "source": "plugin/runtime/skill-runtime-policy.json",
-      "outputs": ["plugin/runtime/skill-capabilities.json"]
+      "outputs": [
+        "plugin/runtime/skill-capabilities.json"
+      ]
     },
     "codex_enforcement": {
       "source": "plugin/runtime/enforcement-policy.json",
-      "consumers": ["plugin/scripts/pandacorp-hook-adapter.mjs"],
+      "consumers": [
+        "plugin/scripts/pandacorp-hook-adapter.mjs"
+      ],
       "registration_owner": ".codex/config.toml plus plugin/hooks/codex-hooks.json (outside plugin.json)",
       "outputs": [
         ".codex/config.toml",
@@ -61,76 +74,85 @@
     },
     "neutral_build_state": {
       "source": "plugin/runtime/build-state.mjs",
-      "consumers": ["plugin/scripts/pandacorp-build-state.mjs"]
-    },
-    "codex_sequential_executor": {
-      "source": "plugin/runtime/codex/executor.mjs",
-      "consumers": ["plugin/runtime/codex/supervisor.mjs", "plugin/scripts/test-codex-executor.mjs"]
-    },
-    "codex_result_contract": {
-      "source": "plugin/runtime/codex/result.schema.json",
-      "consumers": ["plugin/runtime/codex/executor.mjs"]
+      "consumers": [
+        "plugin/scripts/pandacorp-build-state.mjs"
+      ]
     },
     "product_change_queue_transactions": {
       "source": "plugin/runtime/build-state.mjs",
-      "contracts": ["plugin/runtime/codex/change-result.schema.json"],
-      "consumers": ["plugin/runtime/codex/executor.mjs", "plugin/scripts/test-build-state.mjs", "plugin/scripts/test-codex-executor.mjs"]
-    },
-    "codex_supervision": {
-      "source": "plugin/runtime/codex/supervisor.mjs",
-      "consumers": ["plugin/scripts/launch-codex-implement.sh", "plugin/scripts/preflight-codex-unattended.mjs", "plugin/scripts/test-codex-unattended.mjs"]
-    },
-    "codex_certification_authority": {
-      "source": "plugin/runtime/codex/certification-permit.mjs",
-      "contracts": ["factory/standards/agent-portability.md", "plugin/runtime/codex/R10-CERTIFICATION.md", "plugin/runtime/codex/R11-CERTIFICATION.md"],
-      "consumers": ["plugin/scripts/launch-codex-implement.sh", "plugin/runtime/codex/executor.mjs", "plugin/scripts/collect-codex-unattended-evidence.mjs", "plugin/scripts/test-r10-certification-permit.mjs"]
-    },
-    "codex_unattended_evidence": {
-      "source": "plugin/runtime/codex/R11-CERTIFICATION.md",
-      "consumers": ["plugin/scripts/collect-codex-unattended-evidence.mjs", "plugin/scripts/run-codex-live-short-canary.mjs"]
-    },
-    "runtime_switch_certification": {
-      "source": "plugin/scripts/test-runtime-switch.mjs",
-      "consumers": ["plugin/runtime/codex/R10-CERTIFICATION.md", "plugin/runtime/capability-ownership.json"]
-    },
-    "logical_build_run_resolution": {
-      "source": "plugin/scripts/resolve-build-run-id.mjs",
-      "consumers": ["plugin/scripts/preflight-implement.sh", "plugin/scripts/launch-implement.sh", "plugin/scripts/launch-codex-implement.sh", "plugin/skills/implement/SKILL.md", "plugin/scripts/test-build-run-id.mjs"]
+      "consumers": [
+        "plugin/scripts/test-build-state.mjs"
+      ]
     },
     "event_vocabulary": {
       "source": "plugin/runtime/event-vocabulary.json",
-      "outputs": ["mission-control/src/lib/events/event-vocabulary.json"],
-      "consumers": ["plugin/runtime/event-transport.mjs", "mission-control/src/lib/events/event-contract.ts"]
+      "outputs": [
+        "mission-control/src/lib/events/event-vocabulary.json"
+      ],
+      "consumers": [
+        "plugin/runtime/event-transport.mjs",
+        "mission-control/src/lib/events/event-contract.ts"
+      ]
     },
     "runtime_event_transport": {
       "source": "plugin/runtime/event-transport.mjs",
-      "consumers": ["plugin/runtime/codex/executor.mjs"]
-    },
-    "build_engine": {
-      "source": "plugin/runtime/engine/pandacorp-build.src.js",
-      "outputs": ["plugin/templates/shared/.claude/engines/pandacorp-build.js"],
-      "generator": "plugin/scripts/generate-engine.mjs",
-      "contract": "The readable source is the only file anyone edits; the deployable artifact is the same token stream with comments dropped and whitespace collapsed, generated to stay under the Workflow tool's 524288-byte script limit (BL-0204). test-engine-artifact.mjs proves AST identity and runs every engine scenario against the artifact."
+      "consumers": [
+        "plugin/runtime/build/telemetry.mjs"
+      ]
     },
     "build_engine_v2": {
-      "contract_docs": ["plugin/docs/build-engine-cli.md", "factory/standards/build-engine.md"],
+      "contract_docs": [
+        "plugin/docs/build-engine-cli.md",
+        "factory/standards/build-engine.md"
+      ],
       "schemas": "plugin/runtime/build/schemas/",
-      "consumers": ["plugin/scripts/pandacorp-build.mjs", "plugin/runtime/build/lifecycle.mjs", "plugin/runtime/build/next.mjs", "plugin/runtime/build/planner.mjs", "plugin/runtime/build/routing.mjs", "plugin/runtime/build/quota.mjs", "plugin/runtime/build/admission.mjs", "plugin/runtime/build/drive.mjs", "plugin/runtime/build/state.mjs", "plugin/runtime/build-state.mjs", "plugin/runtime/build/next/", "plugin/runtime/build/failure/", "plugin/runtime/build/lifecycle/", "plugin/runtime/build/planner/", "plugin/runtime/build/review/", "plugin/runtime/build/doubts/", "plugin/runtime/build/answers/", "plugin/runtime/build/drive/", "plugin/runtime/build/admission/", "plugin/runtime/build/integrate/", "plugin/runtime/build/land/", "plugin/runtime/build/units/", "plugin/runtime/build/preflight/", "plugin/runtime/build/card/"],
-      "contract": "The v2 engine (BUILD-7..BUILD-15, opt-in by the keyword `implement v2` from 9.157.0) is a runtime-neutral CLI: the CLI reference and the schemas are the interface truth, factory/standards/build-engine.md the policy, model-tiers.json v2 the routing data. Every module under plugin/runtime/build/ takes injected deps, imports no v1 engine file and never writes a tracked file in a project's main checkout."
-    },
-    "sync_rollup_prompt": {
-      "source": "plugin/runtime/prompts/sync-rollups.md",
-      "consumers": ["plugin/runtime/engine/pandacorp-build.src.js"]
+      "consumers": [
+        "plugin/scripts/pandacorp-build.mjs",
+        "plugin/runtime/build/lifecycle.mjs",
+        "plugin/runtime/build/next.mjs",
+        "plugin/runtime/build/planner.mjs",
+        "plugin/runtime/build/routing.mjs",
+        "plugin/runtime/build/quota.mjs",
+        "plugin/runtime/build/admission.mjs",
+        "plugin/runtime/build/drive.mjs",
+        "plugin/runtime/build/state.mjs",
+        "plugin/runtime/build-state.mjs",
+        "plugin/runtime/build/next/",
+        "plugin/runtime/build/failure/",
+        "plugin/runtime/build/lifecycle/",
+        "plugin/runtime/build/planner/",
+        "plugin/runtime/build/review/",
+        "plugin/runtime/build/doubts/",
+        "plugin/runtime/build/answers/",
+        "plugin/runtime/build/drive/",
+        "plugin/runtime/build/admission/",
+        "plugin/runtime/build/integrate/",
+        "plugin/runtime/build/land/",
+        "plugin/runtime/build/units/",
+        "plugin/runtime/build/preflight/",
+        "plugin/runtime/build/card/"
+      ],
+      "contract": "The default build engine is the runtime-neutral v2 CLI. The CLI reference and schemas define its interface; factory/standards/build-engine.md owns policy and model-tiers.json owns routing. Modules use injected dependencies and import no retired engine files.",
+      "source": "plugin/runtime/build/lifecycle.mjs"
     },
     "whole_frd_gate_oracle": {
       "source": "plugin/agents/reviewer.md",
-      "consumers": ["plugin/scripts/generate-build-prompt-fragments.mjs", "plugin/runtime/engine/pandacorp-build.src.js", "plugin/runtime/codex/executor.mjs"],
-      "contract": "The marked canonical block is generated into Claude's engine prompt, read directly by Codex and included in the generated reviewer TOML; runtime gates never maintain an independent policy copy."
+      "consumers": [
+        "plugin/runtime/build/units/render.mjs",
+        "plugin/scripts/generate-codex-agents.mjs"
+      ],
+      "contract": "The reviewer agent is the canonical gate policy, read into v2 unit briefs and projected into the generated reviewer TOML."
     },
     "durable_gamification_accounting": {
       "source": "mission-control/src/lib/gamification/ledger.ts",
-      "outputs": ["factory/gamification-ledger.json"],
-      "consumers": ["mission-control/src/lib/gamification/guildState.ts", "mission-control/src/lib/achievements/readerData.ts", "mission-control/src/app/configuration/page.tsx"],
+      "outputs": [
+        "factory/gamification-ledger.json"
+      ],
+      "consumers": [
+        "mission-control/src/lib/gamification/guildState.ts",
+        "mission-control/src/lib/achievements/readerData.ts",
+        "mission-control/src/app/configuration/page.tsx"
+      ],
       "single_writer": "mission-control/src/app/_actions/snapshotLedger.ts"
     }
   }

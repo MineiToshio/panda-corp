@@ -45,6 +45,7 @@ exit 0
 EOF
 chmod +x "$FAKE_BIN/pnpm"
 export PATH="$FAKE_BIN:$PATH"
+export PANDACORP_DISK_FREE_MB=100000
 
 pnpm_call_count() { [ -f "$PNPM_LOG" ] && wc -l < "$PNPM_LOG" | tr -d ' ' || echo 0; }
 pnpm_last_cwd() { tail -1 "$PNPM_LOG" 2>/dev/null; }
@@ -71,7 +72,7 @@ git_q -C "$NEST_MAIN" worktree add --detach "$NEST_WT" main
 
 # (a1) invoked from the WORKTREE ROOT (mirrors the engine's literal "cd into it, run
 # .pandacorp/worktree-bootstrap.sh" instruction against the toplevel) via the nested script's real path.
-( cd "$NEST_WT" && bash mission-control/.pandacorp/worktree-bootstrap.sh >/tmp/wtb-a1.log 2>&1 )
+( cd "$NEST_WT" && bash mission-control/.pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-a1.log" 2>&1 )
 rc_a1=$?
 ok "$([ "$rc_a1" = 0 ] && echo 1 || echo 0)" "(a1) bootstrap exits 0 when invoked from the worktree root"
 ok "$([ -d "$NEST_WT/mission-control/node_modules" ] && echo 1 || echo 0)" "(a1) node_modules lands in the NESTED project dir, not the worktree root"
@@ -87,7 +88,7 @@ git_q -C "$NEST_MAIN" worktree add --detach "$NEST_WT" main
 
 # (a2) invoked from WITHIN the nested dir itself — must resolve the identical $APP_DIR via
 # `git rev-parse --show-toplevel`, not by CWD, so this is behaviorally identical to (a1).
-( cd "$NEST_WT/mission-control" && bash .pandacorp/worktree-bootstrap.sh >/tmp/wtb-a2.log 2>&1 )
+( cd "$NEST_WT/mission-control" && bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-a2.log" 2>&1 )
 rc_a2=$?
 ok "$([ "$rc_a2" = 0 ] && echo 1 || echo 0)" "(a2) bootstrap exits 0 when invoked from inside the nested dir"
 ok "$([ -d "$NEST_WT/mission-control/node_modules" ] && echo 1 || echo 0)" "(a2) same result (node_modules in the nested dir) regardless of invocation CWD"
@@ -98,15 +99,15 @@ ok "$([ "$(pnpm_call_count)" = "1" ] && echo 1 || echo 0)" "(a2) pnpm installed 
 # reinstall (BL-0149's guard), now correctly keyed under $APP_DIR/node_modules instead of the
 # worktree root's (nonexistent, for a nested project) node_modules.
 # ═══════════════════════════════════════════════════════════════════════════════════════════════
-( cd "$NEST_WT/mission-control" && bash .pandacorp/worktree-bootstrap.sh >/tmp/wtb-c.log 2>&1 )
+( cd "$NEST_WT/mission-control" && bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-c.log" 2>&1 )
 rc_c=$?
 ok "$([ "$rc_c" = 0 ] && echo 1 || echo 0)" "(c) re-bootstrap exits 0"
 ok "$([ "$(pnpm_call_count)" = "1" ] && echo 1 || echo 0)" "(c) unchanged lockfile -> pnpm NOT invoked again (still 1 total call)"
-ok "$(grep -q "skipped" /tmp/wtb-c.log && echo 1 || echo 0)" "(c) the skip is logged, not silent"
+ok "$(grep -q "skipped" $TMPROOT/wtb-c.log && echo 1 || echo 0)" "(c) the skip is logged, not silent"
 
 # (c2) touching the lockfile must force a real reinstall — the guard isn't a permanent no-op
 echo 'lockfileVersion: 10 # changed' > "$NEST_WT/mission-control/pnpm-lock.yaml"
-( cd "$NEST_WT/mission-control" && bash .pandacorp/worktree-bootstrap.sh >/tmp/wtb-c2.log 2>&1 )
+( cd "$NEST_WT/mission-control" && bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-c2.log" 2>&1 )
 ok "$([ "$(pnpm_call_count)" = "2" ] && echo 1 || echo 0)" "(c2) a changed lockfile DOES trigger a real reinstall (2 total calls)"
 
 git_q -C "$NEST_MAIN" worktree remove --force "$NEST_WT"
@@ -126,7 +127,7 @@ mkdir -p "$FLAT_MAIN/.pandacorp"
 
 FLAT_WT="$TMPROOT/flat-gate-worktree"
 git_q -C "$FLAT_MAIN" worktree add --detach "$FLAT_WT" main
-( cd "$FLAT_WT" && bash .pandacorp/worktree-bootstrap.sh >/tmp/wtb-b.log 2>&1 )
+( cd "$FLAT_WT" && bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-b.log" 2>&1 )
 rc_b=$?
 ok "$([ "$rc_b" = 0 ] && echo 1 || echo 0)" "(b) non-nested bootstrap exits 0"
 ok "$([ -d "$FLAT_WT/node_modules" ] && echo 1 || echo 0)" "(b) node_modules lands at the worktree root (project IS the root — no regression)"
@@ -134,7 +135,7 @@ ok "$([ "$(pnpm_call_count)" = "1" ] && echo 1 || echo 0)" "(b) pnpm installed e
 ok "$([ "$(pnpm_last_cwd)" = "$FLAT_WT" ] && echo 1 || echo 0)" "(b) pnpm ran WITH cwd = the worktree root itself (got: $(pnpm_last_cwd))"
 
 # (b) idempotency too, same guard path as (c) above
-( cd "$FLAT_WT" && bash .pandacorp/worktree-bootstrap.sh >/tmp/wtb-b2.log 2>&1 )
+( cd "$FLAT_WT" && bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-b2.log" 2>&1 )
 ok "$([ "$(pnpm_call_count)" = "1" ] && echo 1 || echo 0)" "(b) re-bootstrap with unchanged lockfile still skips (1 total call)"
 
 git_q -C "$FLAT_MAIN" worktree remove --force "$FLAT_WT"
@@ -171,21 +172,21 @@ PORT_WT3="$TMPROOT/port-wt3"
 git_q -C "$PORT_MAIN" worktree add --detach "$PORT_WT1" main
 git_q -C "$PORT_MAIN" worktree add --detach "$PORT_WT3" main
 
-( cd "$PORT_WT1" && bash mission-control/.pandacorp/worktree-bootstrap.sh >/tmp/wtb-d1.log 2>&1 )
+( cd "$PORT_WT1" && bash mission-control/.pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-d1.log" 2>&1 )
 rc_d1=$?
 D1_PORT="$(port_of "$PORT_WT1/mission-control/e2e/server-env.json")"
 ok "$([ "$rc_d1" = 0 ] && echo 1 || echo 0)" "(d1) bootstrap exits 0 when server-env.json is present"
 ok "$([ -n "$D1_PORT" ] && [ "$D1_PORT" -ge 3900 ] && [ "$D1_PORT" -lt 4000 ] 2>/dev/null && echo 1 || echo 0)" "(d1) the worktree gets a hash-derived PORT inside [3900,3999] written to server-env.json (got: ${D1_PORT:-<empty>})"
 
 # (d2) re-bootstrap the SAME worktree -> the SAME port (deterministic, not re-randomized each run)
-( cd "$PORT_WT1" && bash mission-control/.pandacorp/worktree-bootstrap.sh >/tmp/wtb-d1b.log 2>&1 )
+( cd "$PORT_WT1" && bash mission-control/.pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-d1b.log" 2>&1 )
 D1_PORT_REBOOT="$(port_of "$PORT_WT1/mission-control/e2e/server-env.json")"
 ok "$([ "$D1_PORT_REBOOT" = "$D1_PORT" ] && echo 1 || echo 0)" "(d2) re-bootstrapping the SAME worktree reproduces the SAME port ($D1_PORT_REBOOT vs $D1_PORT)"
 
 # (d3) PANDACORP_E2E_PORT overrides the derivation outright, on a SECOND worktree, to a value
 # outside the reserved [3900,3999) range — so it is GUARANTEED to differ from (d1)'s port, proving
 # "two different worktrees -> two different ports" without a flaky hash-collision assumption.
-( cd "$PORT_WT3" && PANDACORP_E2E_PORT=39877 bash mission-control/.pandacorp/worktree-bootstrap.sh >/tmp/wtb-d3.log 2>&1 )
+( cd "$PORT_WT3" && PANDACORP_E2E_PORT=39877 bash mission-control/.pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-d3.log" 2>&1 )
 D3_PORT="$(port_of "$PORT_WT3/mission-control/e2e/server-env.json")"
 ok "$([ "$D3_PORT" = "39877" ] && echo 1 || echo 0)" "(d3) PANDACORP_E2E_PORT overrides the derived port (got: ${D3_PORT:-<empty>})"
 ok "$([ "$D3_PORT" != "$D1_PORT" ] && echo 1 || echo 0)" "(d3) two DIFFERENT worktrees end up with two DIFFERENT ports ($D1_PORT vs $D3_PORT)"
@@ -237,7 +238,7 @@ JSON
   && git add -A && git_q commit -qm seed )
 URL_WT="$TMPROOT/url-wt"
 git_q -C "$URL_MAIN" worktree add --detach "$URL_WT" main
-( cd "$URL_WT" && PANDACORP_E2E_PORT=3964 bash .pandacorp/worktree-bootstrap.sh >/tmp/wtb-f1.log 2>&1 )
+( cd "$URL_WT" && PANDACORP_E2E_PORT=3964 bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-f1.log" 2>&1 )
 URL_ENV="$URL_WT/e2e/server-env.json"
 f_key() { jq -r --arg k "$2" '.[$k] // empty' "$1" 2>/dev/null; }
 ok "$([ "$(f_key "$URL_ENV" BETTER_AUTH_URL)" = "http://127.0.0.1:4037" ] && echo 1 || echo 0)" "(f1) a bare loopback origin on the own PORT stays unchanged (got: $(f_key "$URL_ENV" BETTER_AUTH_URL))"
@@ -251,7 +252,7 @@ ok "$([ "$(f_key "$URL_ENV" EMBEDDED_URL)" = "origin=http://127.0.0.1:4037" ] &&
 ok "$([ "$(f_key "$URL_ENV" DATABASE_URL)" = "postgresql://postgres:dev@localhost:4032/ft_gate" ] && echo 1 || echo 0)" "(f2) a loopback URL on a DIFFERENT port (the DB) is untouched"
 ok "$([ "$(f_key "$URL_ENV" NEXT_PUBLIC_PRODUCT_URL)" = "https://funkotracker.example" ] && echo 1 || echo 0)" "(f2) a remote URL is untouched"
 ok "$([ "$(f_key "$URL_ENV" LONGER_PORT_URL)" = "http://127.0.0.1:40370" ] && echo 1 || echo 0)" "(f2) a port that merely starts with the own PORT digits is untouched"
-( cd "$URL_WT" && PANDACORP_E2E_PORT=3964 bash .pandacorp/worktree-bootstrap.sh >/tmp/wtb-f3.log 2>&1 )
+( cd "$URL_WT" && PANDACORP_E2E_PORT=3964 bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-f3.log" 2>&1 )
 ok "$([ "$(f_key "$URL_ENV" PORT)" = "3964" ] && [ "$(f_key "$URL_ENV" BETTER_AUTH_URL)" = "http://127.0.0.1:4037" ] && echo 1 || echo 0)" "(f3) a re-bootstrap changes PORT alone and preserves URLs (got: $(f_key "$URL_ENV" PORT) / $(f_key "$URL_ENV" BETTER_AUTH_URL))"
 ok "$([ "$(f_key "$URL_MAIN/e2e/server-env.json" BETTER_AUTH_URL)" = "http://127.0.0.1:4037" ] && echo 1 || echo 0)" "(f4) the MAIN checkout keeps its committed own-origin URL"
 ok "$([ -z "$(cd "$URL_WT" && git status --porcelain -- e2e/server-env.json)" ] && echo 1 || echo 0)" "(f5) the rewritten file stays hidden from \`git status\` (skip-worktree)"
@@ -315,7 +316,7 @@ FR_SHA="$(git -C "$FR_MAIN" rev-parse main)"
 # bug only shows at TWO hops, case (e2) below — but the fix must not regress this simpler case either).
 FR_WT1="$TMPROOT/fr-wt1"
 git_q -C "$FR_MAIN" worktree add --detach "$FR_WT1" main
-( cd "$FR_WT1" && bash mission-control/.pandacorp/worktree-bootstrap.sh >/tmp/wtb-e1.log 2>&1 )
+( cd "$FR_WT1" && bash mission-control/.pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-e1.log" 2>&1 )
 E1_ROOT="$(grep '^PANDACORP_FACTORY_ROOT=' "$FR_WT1/mission-control/.env.local" 2>/dev/null | cut -d= -f2-)"
 ok "$([ "$E1_ROOT" = "$FR_WT1" ] && echo 1 || echo 0)" "(e1) a single-level nested worktree's PANDACORP_FACTORY_ROOT is ITS OWN root (got: ${E1_ROOT:-<empty>}, want: $FR_WT1)"
 ok "$([ "$E1_ROOT" != "$FR_MAIN" ] && echo 1 || echo 0)" "(e1) ...and is NEVER the main checkout ($FR_MAIN)"
@@ -326,7 +327,7 @@ ok "$([ "$E1_ROOT" != "$FR_MAIN" ] && echo 1 || echo 0)" "(e1) ...and is NEVER t
 # same ultimate main checkout — this is the case (e1) alone cannot catch.
 FR_GATE="$TMPROOT/fr-gate-worktree"
 git_q -C "$FR_WT1/mission-control" worktree add --detach "$FR_GATE" "$FR_SHA"
-( cd "$FR_GATE" && bash mission-control/.pandacorp/worktree-bootstrap.sh >/tmp/wtb-e2.log 2>&1 )
+( cd "$FR_GATE" && bash mission-control/.pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-e2.log" 2>&1 )
 E2_ROOT="$(grep '^PANDACORP_FACTORY_ROOT=' "$FR_GATE/mission-control/.env.local" 2>/dev/null | cut -d= -f2-)"
 ok "$([ "$E2_ROOT" = "$FR_GATE" ] && echo 1 || echo 0)" "(e2) a gate-worktree NESTED INSIDE another worktree resolves PANDACORP_FACTORY_ROOT to ITS OWN root (got: ${E2_ROOT:-<empty>}, want: $FR_GATE)"
 ok "$([ "$E2_ROOT" != "$FR_MAIN" ] && echo 1 || echo 0)" "(e2) ...NEVER the factory's real main checkout ($FR_MAIN) — the BL-0160 contamination bug"
@@ -347,8 +348,86 @@ mkdir -p "$FR_FLAT_MAIN/.pandacorp"
   && git add -A && git_q commit -qm seed )
 FR_FLAT_WT="$TMPROOT/fr-flat-wt"
 git_q -C "$FR_FLAT_MAIN" worktree add --detach "$FR_FLAT_WT" main
-( cd "$FR_FLAT_WT" && bash .pandacorp/worktree-bootstrap.sh >/tmp/wtb-e3.log 2>&1 )
+( cd "$FR_FLAT_WT" && bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/wtb-e3.log" 2>&1 )
 ok "$([ ! -f "$FR_FLAT_WT/.env.local" ] && echo 1 || echo 0)" "(e3) a sibling (non-nested-factory) project gets NO .env.local at all — untouched, as before BL-0160"
+git_q -C "$FR_FLAT_MAIN" worktree remove --force "$FR_FLAT_WT"
+
+
+# DBOOT: exercise the real installer with deterministic failures and disk readings.
+git_q -C "$FR_FLAT_MAIN" worktree add --detach "$FR_FLAT_WT" main
+cat > "$FAKE_BIN/pnpm" <<'STUB'
+#!/bin/bash
+echo "$*" >> "$DBOOT_ARGS"
+mkdir -p node_modules/.bin
+case "${DBOOT_MODE:-green}:$*" in
+  green:*) exit 0 ;;
+  fallback:*--prefer-offline*) exit 0 ;;
+  plain:"install") printf '\nupdated: true\n' >> pnpm-lock.yaml; exit 0 ;;
+esac
+exit 9
+STUB
+chmod +x "$FAKE_BIN/pnpm"
+export DBOOT_ARGS="$TMPROOT/args"
+for scenario in green fallback unchanged plain; do
+  : > "$DBOOT_ARGS"
+  rm -f "$FR_FLAT_WT/node_modules/.pandacorp-lock-sha"
+  cp "$FR_FLAT_MAIN/pnpm-lock.yaml" "$FR_FLAT_WT/pnpm-lock.yaml"
+  [ "$scenario" != plain ] || echo changed >> "$FR_FLAT_WT/pnpm-lock.yaml"
+  ( cd "$FR_FLAT_WT" && DBOOT_MODE="$scenario" bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/install-$scenario.log" 2>&1 )
+  rc=$?
+  expected='install --offline --frozen-lockfile'
+  [ "$scenario" = green ] || expected="$expected
+install --prefer-offline --frozen-lockfile"
+  [ "$scenario" != plain ] || expected="$expected
+install"
+  ok "$([ "$(cat "$DBOOT_ARGS")" = "$expected" ] && echo 1 || echo 0)" "DBOOT $scenario: exact install order"
+  if [ "$scenario" = unchanged ]; then
+    ok "$([ "$rc" != 0 ] && [ ! -f "$FR_FLAT_WT/node_modules/.pandacorp-lock-sha" ] && echo 1 || echo 0)" "DBOOT unchanged lock: frozen failures cannot fall back to plain install"
+  else
+    ok "$([ "$rc" = 0 ] && echo 1 || echo 0)" "DBOOT $scenario: install succeeds"
+  fi
+done
+ok "$([ "$(cat "$FR_FLAT_WT/node_modules/.pandacorp-lock-sha")" = "$(shasum -a 256 "$FR_FLAT_WT/pnpm-lock.yaml" | awk '{print $1}')" ] && echo 1 || echo 0)" "DBOOT marker hashes the installed lockfile after plain fallback"
+for free in 15360 16859 16860; do
+  rm -f "$FR_FLAT_WT/node_modules/.pandacorp-lock-sha"
+  : > "$DBOOT_ARGS"
+  ( cd "$FR_FLAT_WT" && PANDACORP_DISK_FREE_MB="$free" DBOOT_MODE=green bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/disk-$free.log" 2>&1 )
+  rc=$?
+  if [ "$free" -lt 16860 ]; then
+    ok "$([ "$rc" = 4 ] && [ ! -s "$DBOOT_ARGS" ] && echo 1 || echo 0)" "DBOOT disk $free MiB: exit 4 before pnpm"
+  else
+    ok "$([ "$rc" = 0 ] && [ -s "$DBOOT_ARGS" ] && echo 1 || echo 0)" "DBOOT disk at exact floor plus budget: allowed"
+  fi
+done
+
+# df and du probes make the clone warning threshold independent of host disk noise.
+cat > "$FAKE_BIN/df" <<'STUB'
+#!/bin/bash
+count=0
+[ ! -f "$DBOOT_DF_COUNT" ] || count=$(cat "$DBOOT_DF_COUNT")
+echo $((count + 1)) > "$DBOOT_DF_COUNT"
+free=100000000
+[ "$count" = 0 ] || free=$((free - DBOOT_DELTA_KB))
+printf 'Filesystem 1024-blocks Used Available Capacity Mounted\nprobe 200000000 0 %s 0%% /\n' "$free"
+STUB
+printf '#!/bin/bash\necho "1000 node_modules"\n' > "$FAKE_BIN/du"
+chmod +x "$FAKE_BIN/df" "$FAKE_BIN/du"
+export DBOOT_DF_COUNT="$TMPROOT/df-count"
+for delta in 150 151; do
+  rm -f "$DBOOT_DF_COUNT" "$FR_FLAT_WT/node_modules/.pandacorp-lock-sha"
+  ( cd "$FR_FLAT_WT" && DBOOT_MODE=green DBOOT_DELTA_KB="$delta" bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/clone-$delta.log" 2>&1 )
+  rc=$?
+  warned=0
+  grep -q '15%' "$TMPROOT/clone-$delta.log" && warned=1
+  expected=0; [ "$delta" = 150 ] || expected=1
+  ok "$([ "$rc" = 0 ] && [ "$warned" = "$expected" ] && echo 1 || echo 0)" "DBOOT clone delta $delta of 1000 KiB: warning strictly above 15%, nonfatal"
+done
+rm -f "$FAKE_BIN/df" "$FAKE_BIN/du"
+rm -f "$FR_FLAT_WT/node_modules/.pandacorp-lock-sha"
+: > "$DBOOT_ARGS"
+( cd "$FR_FLAT_WT" && PANDACORP_MIN_FREE_MB=100 PANDACORP_WT_NEED_MB=50 PANDACORP_DISK_FREE_MB=150 DBOOT_MODE=green bash .pandacorp/worktree-bootstrap.sh >"$TMPROOT/custom-floor.log" 2>&1 )
+ok "$([ "$?" = 0 ] && [ -s "$DBOOT_ARGS" ] && echo 1 || echo 0)" "DBOOT configurable floor and budget allow equality"
+
 git_q -C "$FR_FLAT_MAIN" worktree remove --force "$FR_FLAT_WT"
 
 echo "RESULT: $pass passed, $fail failed"

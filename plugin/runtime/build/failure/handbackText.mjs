@@ -20,10 +20,10 @@ const reasonEs = (code) => REASON_ES[code] ?? String(code);
 
 const OPTIONS_ES = Object.freeze({
   dependency: ["Aportar el secreto, la cuenta o el servicio que falta y reanudar (recomendada: es lo único que bloquea).", "Cambiar el work order para que no dependa de ello."],
-  "test-defective": ["Corregir la prueba discutida con /pandacorp:change y reanudar (recomendada: el código no se toca).", "Mantener la prueba y reescribir el work order."],
+  "test-defective": ["Corregir la prueba discutida con /pandacorp:implement y reanudar (recomendada: el código no se toca).", "Mantener la prueba y reescribir el work order."],
   "env-infra": ["Arreglar el entorno (red, disco, herramienta) y reanudar (recomendada).", "Dejar la unidad bloqueada y seguir con lo que no depende de ella."],
   gate: ["Reformular el work order sin la acción protegida (recomendada).", "Aprobar la puerta con /pandacorp:decide si de verdad quieres esa acción."],
-  default: ["Revisar el diagnóstico y ajustar el work order o la especificación con /pandacorp:change, luego reanudar (recomendada).", "Revertir a mano los commits de la unidad (solo tú decides un revert)."],
+  default: ["Revisar el diagnóstico y ajustar el work order o la especificación con /pandacorp:implement, luego reanudar (recomendada).", "Revertir a mano los commits de la unidad (solo tú decides un revert)."],
 });
 
 function decisionHeading(date, text) {

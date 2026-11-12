@@ -14,6 +14,7 @@ set -u
 HERE=$(cd "$(dirname "$0")/../.." && pwd)
 MQ="$HERE/plugin/templates/shared/.pandacorp/merge-queue.sh"
 pass=0; fail=0
+DBOOT_REAL_RM=$(command -v rm); export DBOOT_REAL_RM
 ok()  { echo "  ✓ $1"; pass=$((pass+1)); }
 bad() { echo "  ✗ $1"; fail=$((fail+1)); }
 
@@ -40,6 +41,8 @@ out="$VERIFY_OUT"; mkdir -p "$out"
 common=$(cd "$(git rev-parse --git-common-dir)" && pwd -P)
 lock="$common/pandacorp-merge.lock"
 host="${PANDACORP_HOST_DIR:-$HOME/.pandacorp/host}"
+mkdir -p .next .next-fidelity test-results
+touch .next/generated .next-fidelity/generated test-results/generated
 echo 1 > "$out/started"
 date +%s > "$out/started-at"
 [ -d "$lock" ] && echo 1 > "$out/lock-exists-at-start"
@@ -68,6 +71,17 @@ fixture() {
   git clone -q "$root/origin.git" "$root/app" 2>/dev/null
   mkdir -p "$root/app/.pandacorp"
   printf '%b' "$1" > "$root/app/.pandacorp/status.yaml"
+  printf ".next/\n.next-fidelity/\ntest-results/\n" > "$root/app/.gitignore"
+  # Observe the slot state when artifact deletion starts, without changing rm behavior.
+  mkdir -p "$root/app/bin"
+  cat > "$root/app/bin/rm" <<'REMOVE'
+#!/bin/bash
+if [ "$*" = "-rf -- .next .next-fidelity test-results" ]; then
+  find "$PANDACORP_HOST_DIR/h-slots" -name 'slot-*' -type d > "$VERIFY_OUT/slots-at-cleanup"
+fi
+exec "$DBOOT_REAL_RM" "$@"
+REMOVE
+  chmod +x "$root/app/bin/rm"
   cp "$MQ" "$root/app/.pandacorp/merge-queue.sh"
   printf '%s' "$PROBE" > "$root/app/.pandacorp/verify.sh"
   chmod +x "$root/app/.pandacorp/verify.sh"
@@ -82,7 +96,7 @@ LAUNCHED='project: demo\nphase: release\ndeploy_target: external\n'
 # run_mq <fx> [ENV=VAL ...] -> sets rc, log (foreground)
 run_mq() {
   local fx="$1"; shift
-  log=$( cd "$fx/wt" && env PANDACORP_HOST_DIR="$fx/host" VERIFY_OUT="$fx/out" "$@" bash .pandacorp/merge-queue.sh 2>&1 ); rc=$?
+  log=$( cd "$fx/wt" && env PATH="$fx/wt/bin:$PATH" PANDACORP_HOST_DIR="$fx/host" VERIFY_OUT="$fx/out" "$@" bash .pandacorp/merge-queue.sh 2>&1 ); rc=$?
 }
 main_has_feature() { git -C "$1/app" cat-file -e main:feature.txt 2>/dev/null; }
 slots_left() { ls "$1/host/h-slots" 2>/dev/null | grep -c '^slot-' || true; }
@@ -128,6 +142,9 @@ if [ -f "$oj" ] && jq -e '(.pid|type)=="number" and .pid>0 and .kind=="merge-que
 else bad "owner.json missing or wrong shape: $(cat "$oj" 2>/dev/null)"; fi
 grep -q alive "$fx/out/owner-liveness" 2>/dev/null && ok "owner pid is alive while verify runs" || bad "owner pid not alive during verify: $(cat "$fx/out/owner-liveness" 2>/dev/null)"
 [ "$(slots_left "$fx")" = 0 ] && ok "slot released after success" || bad "slot left behind after success"
+[ ! -e "$fx/wt/.next" ] && [ ! -e "$fx/wt/.next-fidelity" ] && [ ! -e "$fx/wt/test-results" ] && ok "DBOOT green: gate artifacts removed" || bad "DBOOT green: gate artifacts retained"
+[ -f "$fx/out/slots-at-cleanup" ] && [ ! -s "$fx/out/slots-at-cleanup" ] && ok "DBOOT green: heavy slot released before artifact cleanup" || bad "DBOOT green: cleanup started before slot release"
+
 [ -d "$fx/host/h-slots" ] && ok "slots live under PANDACORP_HOST_DIR/h-slots" || bad "no h-slots dir in PANDACORP_HOST_DIR"
 rm -rf "$fx"
 
@@ -147,6 +164,9 @@ run_mq "$fx" VERIFY_EXIT=1
 [ "$rc" = 11 ] && ok "red verify -> exit 11" || bad "expected 11, got $rc: $log"
 [ "$(cat "$fx/out/slots" 2>/dev/null)" = "slot-0" ] && ok "slot held while the red verify ran" || bad "slot not held during verify"
 [ "$(slots_left "$fx")" = 0 ] && ok "slot released after a red verify" || bad "slot left behind after a red verify"
+[ ! -e "$fx/wt/.next" ] && [ ! -e "$fx/wt/.next-fidelity" ] && [ ! -e "$fx/wt/test-results" ] && ok "DBOOT red: gate artifacts removed" || bad "DBOOT red: gate artifacts retained"
+[ -f "$fx/out/slots-at-cleanup" ] && [ ! -s "$fx/out/slots-at-cleanup" ] && ok "DBOOT red: heavy slot released before artifact cleanup" || bad "DBOOT red: cleanup started before slot release"
+
 main_has_feature "$fx" && bad "a red verify landed the change" || ok "main untouched"
 [ ! -d "$fx/app/.git/pandacorp-merge.lock" ] && ok "lock released" || bad "lock left behind"
 rm -rf "$fx"

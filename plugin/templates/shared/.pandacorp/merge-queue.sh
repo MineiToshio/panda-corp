@@ -235,11 +235,16 @@ if [ -x ".pandacorp/verify.sh" ]; then
     echo "merge-queue: running the full integration gate [full-gate] (${stamp_note:-no green-stamp.sh in this overlay})"
     start_lock_refresh
     acquire_host_slot
-    if ! bash .pandacorp/verify.sh; then
+    GATE_RC=0
+    bash .pandacorp/verify.sh || GATE_RC=$?
+    release_host_slot
+    # Generated gate output belongs to this integration checkout only. Release the heavy
+    # slot first, on both green and red; preserve the gate verdict after cleanup.
+    rm -rf -- .next .next-fidelity test-results
+    stop_lock_refresh
+    if [ "$GATE_RC" -ne 0 ]; then
       fail "integration gate RED on the rebased result — fix on $BRANCH and re-run (NOT a semantic-conflict pass)" 11
     fi
-    release_host_slot
-    stop_lock_refresh
   fi
 fi
 

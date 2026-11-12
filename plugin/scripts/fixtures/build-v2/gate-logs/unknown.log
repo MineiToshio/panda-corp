@@ -1,0 +1,3 @@
+> verify.sh src/alpha/list.ts
+✓ src/alpha/list.test.ts
+unexpected verifier failure: exit 1

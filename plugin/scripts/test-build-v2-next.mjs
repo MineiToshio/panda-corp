@@ -43,7 +43,7 @@
 //     with token_hash = sha256(token), worker, worktree and branch set; the raw token is returned once and persisted nowhere but the brief.
 //   Quota: next reads build/quota.json (and the rollout tail under CODEX_HOME) through quota.mjs; the test writes quota.json with the real
 //     recordClaude/recordCodex. Drive standby: build/drive/standby.json {pid, armed_at, run_id, state}.
-//   Terminal-action status mapping (D32/A11): paused-quota and paused-infra -> status `paused`; waiting-owner -> `waiting_owner` (or `waiting_gate`
+//   Terminal-action status mapping (D32/A11): paused-quota -> status `paused`; waiting-owner -> `waiting_owner` (or `waiting_gate`
 //     when every blocker is a gate); stop -> `stopped`; deadlock -> any non-active status; journal `paused{reason}` / `run_stopped{reason}`.
 //   `deferred reviews`, `harvest` internals and the G2 spawn are only pinned through the call order and one jobs.* call (see the cases).
 import { cp, mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
@@ -102,7 +102,7 @@ const at = (ms, base = NOW) => new Date(Date.parse(base) + ms).toISOString();
 const RUN = "run-c02";
 const CATALOG_KEYS = ["haiku", "sonnet", "opus", "luna", "sol", "astra"];
 const EFFORTS = ["low", "medium", "high", "xhigh"];
-const TERMINAL = ["done", "paused-quota", "paused-infra", "waiting-owner", "deadlock", "stop"];
+const TERMINAL = ["done", "paused-quota", "waiting-owner", "deadlock", "stop"];
 
 // ---- unit and state builders ------------------------------------------------------------------------------------------
 const frdOf = (wo) => (wo.startsWith("WO-01") ? "frd-01-alpha" : "frd-02-beta");
@@ -378,12 +378,12 @@ await test("dispatch: output shape, token hygiene, state and journal after one c
   eq(leaks, [], "the raw unit token must never be persisted (state, journal, admission.json, events)");
 }));
 
-await test("width: with clean signals the ceiling is 2: two of three ready units are dispatched, never three", async () => withCase({ units: [B("WO-01-001"), B("WO-01-002"), B("WO-02-001")] }, async (c) => {
+await test("width: with clean signals step 5 dispatches all three independent ready units", async () => withCase({ units: [B("WO-01-001"), B("WO-01-002"), B("WO-02-001")] }, async (c) => {
   const r = await callNext(c);
-  eq(r.units.length, 2, "admission ceiling (K_TECHO = 2) bounds one call");
+  eq(r.units.length, 3, "step 5 allows all three ready units");
   eq(r.admit.decision, "grant", "admit");
   const queued = (await c.readState()).units.filter((u) => u.state === "queued");
-  eq(queued.length, 1, "the third unit stays queued");
+  eq(queued.length, 0, "all ready units were dispatched");
 }));
 
 await test("order of work (PLAN 3.3): harvest, then integrate, then quota and planner, then admission, then units", async () => withCase({
@@ -490,7 +490,7 @@ await test("D19: a unit with a pending reversible answer goes LAST: the others t
   units: [B("WO-02-001", { pending_answer: "q-risk-paths" }), B("WO-01-001"), B("WO-01-002")], questions: QUESTIONS,
 }, async (c) => {
   c.plannerRound = ["u-build-wo-02-001", "u-build-wo-01-001", "u-build-wo-01-002"];
-  const r1 = await callNext(c);
+  const r1 = await callNext(c, { k: 2 });
   eq(unitIds(r1), ["u-build-wo-01-001", "u-build-wo-01-002"], "the two answer-free units take both slots; the pending unit is not first");
   eq((await stateUnit(c, "u-build-wo-02-001")).state, "queued", "the pending unit waits");
   await c.setUnitState("u-build-wo-01-001", "landed"); await c.setUnitState("u-build-wo-01-002", "landed");
@@ -566,20 +566,38 @@ await test("admission: exactly one reading is recorded per call (dispatch and wa
   eq(c.log.filter((e) => e.fn === "recordReading").length - before, 1, "a dispatching call records one reading too, not one per candidate");
 }));
 
-await test("L4 pressure: sustained > 10 min -> paused-infra, applied; 5 min -> no terminal action, nothing dispatched", async () => {
-  await withCase({ units: [B("WO-01-001")], signals: "critical", admission: { tokens: {}, history: [{ L: 4, swapouts: 9000, at: at(-12 * 60e3) }], l4_since: at(-11 * 60e3) } }, async (c) => {
-    const statusYaml = await readFile(c.P.statusYaml, "utf8");
-    const r = await callNext(c);
-    await expectApplied(c, r, { action: "paused-infra", status: "paused", journal: ["paused"], statusYamlBefore: statusYaml });
-  });
-  await withCase({ units: [B("WO-01-001")], signals: "critical", admission: { tokens: {}, history: [{ L: 4, swapouts: 9000, at: at(-6 * 60e3) }], l4_since: at(-5 * 60e3) } }, async (c) => {
-    const r = await callNext(c);
-    ok(!TERMINAL.includes(r.action), `L=4 for 5 min is not terminal, got ${r.action}`);
-    eq(r.action, "wait", "a critical reading denies the grant: wait");
-    eq(r.units ?? [], [], "nothing is dispatched at L=4");
-    await expectNotApplied(c);
+await test("L4 pressure: critical for any duration lowers to 1, dispatches one and preserves the lease", async () => {
+  await withCase({ units: [B("WO-01-001"), B("WO-02-001")], signals: "critical" }, async (c) => {
+    const r = await callNext(c); eq(r.action, "dispatch", "never a memory pause"); eq(r.units.length, 1, "one builder");
+    eq((await c.readState()).status, "active", "active"); ok(await c.leaseNow(), "lease kept");
+    eq(JSON.parse(await readFile(c.P.admissionFile, "utf8")).ladder.step, 1, "critical step");
+    eq(c.log.filter((e) => e.fn === "emitEvent" && e.args?.[1]?.name === "build.scaled").length, 1, "scale event emitted once");
   });
 });
+
+await test("disk: low space returns wait disk, no token/worktree, Spanish note and one notification across retries", async () => withCase({ units: [B("WO-01-001")] }, async (c) => {
+  c.env.PANDACORP_DISK_FREE_GIB = "16.49"; const notices = [];
+  for (let i = 0; i < 2; i++) {
+    const r = await callNext(c, {}, { notify: (n) => notices.push(n) });
+    eq(r.action, "wait", "wait"); eq(r.wait.reason, "disk", "reason"); eq(r.admit.motivo_limite, "disco", "motivo");
+    ok(r.notes_es.some((n) => n.includes("Disco")), "Spanish note");
+  }
+  eq(notices.length, 1, "one notification");
+  eq(Object.keys(JSON.parse(await readFile(c.P.admissionFile, "utf8")).tokens).length, 0, "no tokens");
+  ok(!c.log.some((e) => e.fn === "prepareUnitWorktree"), "no worktree creation");
+}));
+
+await test("disk: existing attempt worktree requeue is allowed even with zero free space", async () => withCase({ units: [B("WO-01-001")] }, async (c) => {
+  c.env.PANDACORP_DISK_FREE_GIB = "0";
+  const wt = c.P.unitWorktree("u-build-wo-01-001", 1); await mkdir(wt, { recursive: true }); await writeFile(path.join(wt, ".git"), "gitdir: fixture");
+  const r = await callNext(c); eq(r.action, "dispatch", "existing worktree reused"); eq(r.units.length, 1, "one unit");
+}));
+
+await test("disk: G2 needing a fresh snapshot waits without a job or env-infra handback", async () => withCase({ units: [B("WO-01-001", { state: "integrated" })] }, async (c) => {
+  c.env.PANDACORP_DISK_FREE_GIB = "16";
+  const r = await callNext(c); eq(r.action, "wait", "wait"); eq(r.wait.reason, "disk", "G2 disk wait");
+  ok(!c.log.some((e) => e.fn === "startJob" || e.fn === "handbackCommand"), "no G2 job or handback");
+}));
 
 // =====================================================================================================================
 // Quota (D9, A11)
@@ -698,10 +716,9 @@ await test("terminal: queued units but the planner can make no progress and nobo
   await expectApplied(c, r, { action: "deadlock", status: ["paused", "stopped", "waiting_owner"], journal: ["paused", "run_stopped"], statusYamlBefore: statusYaml });
 }));
 
-await test("A11 priority: paused-quota beats paused-infra and stop; paused-infra beats stop", async () => {
-  const sustainedL4 = { tokens: {}, history: [{ L: 4, swapouts: 9000, at: at(-12 * 60e3) }], l4_since: at(-11 * 60e3) };
-  await withCase({ units: [B("WO-01-001")], quota: { claude: 95, codex: 95 }, signals: "critical", admission: sustainedL4, handbacks: 3 }, async (c) => eq((await callNext(c)).action, "paused-quota", "quota first"));
-  await withCase({ units: [B("WO-01-001")], signals: "critical", admission: sustainedL4, handbacks: 3 }, async (c) => eq((await callNext(c)).action, "paused-infra", "infra before stop"));
+await test("A11 priority: quota still pauses; critical memory never masks an env-infra stop", async () => {
+  await withCase({ units: [B("WO-01-001")], quota: { claude: 95, codex: 95 }, signals: "critical", handbacks: 3 }, async (c) => eq((await callNext(c)).action, "paused-quota", "quota first"));
+  await withCase({ units: [B("WO-01-001")], signals: "critical", handbacks: 3 }, async (c) => eq((await callNext(c)).action, "stop", "env-infra stops"));
 });
 
 await test("A11: a terminal action is returned only when nothing runs: with a running unit it is `wait` (workers_running) and nothing is applied", async () => {

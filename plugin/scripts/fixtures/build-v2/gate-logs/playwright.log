@@ -1,0 +1,6 @@
+Running 3 tests using 2 workers
+  ✓  1 [chromium] › e2e/list.spec.ts:3:1 › healthy list (201ms)
+  1) [chromium] › e2e/filter.spec.ts:12:1 › filters empty values
+    Error: expect(locator).toHaveText(expected) failed
+    at e2e/filter.spec.ts:14:21
+  1 failed

@@ -1,7 +1,7 @@
 // Failure policy (pure, D21): evidence identity, the per-unit execution budget, the failure decision and the state plans
 // of a requeue and a hand-back. No I/O here; ../failure.mjs is the public entry.
 import { sha256Hex } from "../fsx.mjs";
-import { REVIEW_TYPE_KINDS, findUnit, isTerminalUnit } from "../state.mjs";
+import { findUnit, isTerminalUnit } from "../state.mjs";
 import { EVIDENCE_SOURCES, POLICY, err, oneLine, uniqSorted, woKey } from "./common.mjs";
 
 /**
@@ -17,7 +17,7 @@ export function buildEvidence({ tests = [], command = null, files = [], diagnosi
 }
 
 /**
- * Highest attempt already spent on any of the given work orders (build, patch and tests units; review-type units do not count).
+ * Highest attempt already spent on any of the given work orders (build and patch units only).
  * The 3-execution budget is counted per WO as this maximum (A13).
  * @param {object} state run state
  * @param {string[]} wos work order ids
@@ -27,7 +27,9 @@ export function executionsUsed(state, wos) {
   const wanted = new Set((wos ?? []).map(woKey));
   let used = 0;
   for (const unit of state.units) {
-    if (REVIEW_TYPE_KINDS.includes(unit.kind) || !unit.wos.some((wo) => wanted.has(woKey(wo)))) continue;
+    if (!["build", "patch"].includes(unit.kind) || !unit.wos.some((wo) => wanted.has(woKey(wo)))) continue;
+    // Unattributed gate patches have their own budget, never the batch's WO budget.
+    if (unit.id === "u-patch-g3" || unit.id.startsWith("u-patch-g2-")) continue;
     used = Math.max(used, unit.attempt);
   }
   return used;

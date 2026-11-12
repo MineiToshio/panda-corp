@@ -2,15 +2,15 @@
 // layout, unit-kind groups, the agent types and Spanish verbs of a dispatch, and the sibling contract.
 
 /** Every action `next` can return (CLI doc section 4). */
-export const NEXT_ACTIONS = Object.freeze(["dispatch", "wait", "handoff", "land", "done", "paused-quota", "paused-infra", "waiting-owner", "deadlock", "stop"]);
+export const NEXT_ACTIONS = Object.freeze(["dispatch", "wait", "handoff", "land", "done", "paused-quota", "waiting-owner", "deadlock", "stop"]);
 /** Terminal actions (A11); all but `done` arrive already applied. */
-export const TERMINAL_ACTIONS = Object.freeze(["done", "paused-quota", "paused-infra", "waiting-owner", "deadlock", "stop"]);
+export const TERMINAL_ACTIONS = Object.freeze(["done", "paused-quota", "waiting-owner", "deadlock", "stop"]);
 /** `--wait` upper bound in seconds (BUILD-7 constants). */
 export const MAX_WAIT_S = 300;
 /** Consecutive `env-infra` hand-backs that stop the run (D21). */
 export const ENV_INFRA_STOP = 3;
 
-export const RETRY_S = Object.freeze({ ram: 30, cpu_H: 30, workers_running: 30, jobs_running: 30, gate: 60, quota: 60 });
+export const RETRY_S = Object.freeze({ disk: 30, ram: 30, cpu_H: 30, workers_running: 30, jobs_running: 30, gate: 60, quota: 60 });
 export const LAND_RETRY_EXITS = Object.freeze([12, 14, 20]);
 export const LAND_RETRY_S = 60;
 // G2 snapshot worktrees (B5): `<build>/g2/<frd>-<pinned sha>`, one per job, never the integration worktree itself.

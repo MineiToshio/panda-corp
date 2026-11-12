@@ -1,5 +1,8 @@
 // (6)(7) Admission and dispatch: one fenced two-phase transaction (admit, prepare and launch, record), the G2 jobs
 // on their snapshots, the dispatch output and its one-line Spanish announcement.
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { notify } from "../notify.mjs";
 import { readJson } from "../fsx.mjs";
 import { REVIEW_TYPE_KINDS, fencedTwoPhase, findUnit } from "../state.mjs";
 import { dispatchOf } from "../workers.mjs";
@@ -36,32 +39,38 @@ async function reservationsOf(run, state) {
   return out;
 }
 
-const motivoToWait = (motivo) => (motivo === "cpu_H" ? "cpu_H" : "ram");
+const motivoToWait = (motivo) => (motivo === "disco" ? "disk" : motivo === "cpu_H" ? "cpu_H" : "ram");
 
 export async function dispatchRound(run, state, candidates, params, signals, quota) {
   const { d, ref, paths } = run;
-  const blockedDispatch = state.handbacks_in_a_row >= ENV_INFRA_STOP || run.l4?.paused_infra === true;
+  const blockedDispatch = state.handbacks_in_a_row >= ENV_INFRA_STOP;
   const g2 = blockedDispatch ? [] : g2Needed(state);
   const list = blockedDispatch ? [] : candidates.list;
   if (!g2.length && !list.length) return { state, units: [], admit: null, admissionBlocked: null, g2Failed: [], g2Fails: {} };
+  const diskFreeGib = d.admission.readDiskFreeGib(ref.project, d);
+  const existing = new Set(list.filter((c) => c.unit.kind === "doubt-consult" || existsSync(path.join(paths.unitWorktree(c.unit.id, c.unit.attempt), ".git"))).map((c) => c.unit.id));
   const reservations = await reservationsOf(run, state);
   const hostHeld = d.admission.countHostSlots({ host: paths.hostDir }).held;
 
   const result = await fencedTwoPhase(ref,
-    (ctx) => admitPhase(run, ctx, { g2, list, reservations, hostHeld, signals, params }),
+    (ctx) => admitPhase(run, ctx, { g2, list, reservations, hostHeld, signals, params, diskFreeGib, existing, reactive: quota.policy }),
     (intent) => launchPhase(run, intent),
     (work, intent, ctx) => recordPhase(run, work, intent, ctx, quota));
 
+  if (result.notifyDisk) {
+    const note = { title: "Build esperando espacio", message: "No hay espacio suficiente para otra copia de trabajo. El trabajo en curso sigue; libera disco para continuar." };
+    try { await (d.notify ?? ((n) => notify(n, { env: d.env, ...(d.notifyExec ? { exec: d.notifyExec } : {}) })))(note); } catch { /* notification bulkhead */ }
+  }
   for (const p of result.prepared ?? []) emit(run, state, "agent.working", { role: AGENT_TYPE[p.unit.kind], model: p.cell.model, unit: p.unit.id });
   const anyGrant = (result.prepared?.length ?? 0) > 0 || (result.g2 ?? 0) > 0;
   const admit = result.lastDecision ? { decision: anyGrant ? "grant" : "wait", motivo_limite: result.lastDecision.motivo_limite } : null;
   if (admit) emit(run, state, "admit.decision", { ...admit, unit: result.prepared?.[0]?.unit.id ?? null });
   const units = (result.prepared ?? []).map((p) => unitOutput(state, p));
-  return { state: await fresh(run), units, admit, admissionBlocked: result.blocked ? motivoToWait(result.blocked) : null, g2Failed: result.g2Failed ?? [], g2Fails: result.g2Fails ?? {} };
+  return { state: await fresh(run), units, admit, admissionBlocked: result.blocked ? motivoToWait(result.blocked) : null, g2Failed: result.g2Failed ?? [], g2Fails: result.g2Fails ?? {}, diskBlocked: result.diskBlocked === true };
 }
 
 /** Phase 1 of a dispatch round (mutex): one admission decision per candidate, a token per granted unit, units -> admitted. */
-async function admitPhase(run, ctx, { g2, list, reservations, hostHeld, signals, params }) {
+async function admitPhase(run, ctx, { g2, list, reservations, hostHeld, signals, params, diskFreeGib, existing, reactive }) {
   const { d } = run;
   const s = await ctx.readState();
   if (!s || s.run_id !== ctx.runId) throw err("FENCE", "state does not belong to the lease run");
@@ -70,21 +79,26 @@ async function admitPhase(run, ctx, { g2, list, reservations, hostHeld, signals,
   const prior = run.recorded && signals.value ? history.slice(0, -1) : history;
   const live = { B: s.units.filter(isLive).length, H: hostHeld, R: s.units.filter((u) => isLive(u) && REVIEW_TYPE_KINDS.includes(u.kind)).length };
   const res = [...reservations];
-  const base = { signals: signals.value, history: prior, reservations: res, caps: { kOwner: params.k ?? undefined }, runtimeShape: shapeOf(s), nowMs: nowMs(d) };
+  const base = { signals: signals.value, history: prior, reservations: res, step: run.reading?.step ?? d.admission.readAdaptive(adm).step, caps: { kOwner: params.k ?? undefined, kReactive: reactive?.kReactive, kReactiveReason: reactive?.kReactiveReason }, runtimeShape: shapeOf(s), nowMs: nowMs(d) };
   const events = [];
   const grants = [];
   const g2Grants = [];
   const granted = new Set();
   let lastDecision = null;
   let blocked = null;
+  let diskBlocked = false;
+  let diskLeft = diskFreeGib;
+  const disk = (needsWorktree) => d.admission.diskDecision({ project: run.ref.project, freeGib: diskLeft, needsWorktree });
   const admitEvent = (unitId, decision, cls) => {
     events.push({ type: "admit", data: { unit: unitId, class: cls, decision: decision.grant ? "grant" : "wait", motivo_limite: decision.motivo_limite, techo: decision.techo, suelo: decision.suelo, A_ef: decision.A_ef, P: decision.P, signals: signals.value, safe_mode: decision.safe_mode === true } });
   };
   for (let i = 0; i < g2.length; i++) {
-    const decision = d.admission.decide({ ...base, live, heavyQueued: g2.length - i, readyWidth: list.length, want: "H" });
+    let decision = d.admission.decide({ ...base, live, heavyQueued: g2.length - i, readyWidth: list.length, want: "H" });
     lastDecision = decision;
+    if (decision.grant === "H" && !disk(true).ok) { diskBlocked = true; decision = { ...decision, grant: null, motivo_limite: "disco" }; lastDecision = decision; }
     admitEvent(`g2-${g2[i]}`, decision, "H");
     if (decision.grant !== "H") { blocked = decision.motivo_limite; break; }
+    diskLeft -= d.admission.ADMISSION.WT_NEED_GIB;
     g2Grants.push(g2[i]);
     live.H += 1;
     res.push({ class: "H", origin: "cli", started_ms: nowMs(d), rss_gib: 0 });
@@ -97,10 +111,13 @@ async function admitPhase(run, ctx, { g2, list, reservations, hostHeld, signals,
     const cur = findUnit(s, c.unit.id);
     const eligible = cur && cur.state === "queued" && (!cur.parked || isAssumed(cur) || (c.unit.kind === "review" && cur.parked === "no_reviewer"));
     if (!eligible) continue;
-    const decision = d.admission.decide({ ...base, live, heavyQueued: heavyLeft, readyWidth: list.length - i, want: "B", candidate: REVIEW_TYPE_KINDS.includes(c.unit.kind) ? "reviewer" : "builder" });
+    let decision = d.admission.decide({ ...base, live, heavyQueued: heavyLeft, readyWidth: list.length - i, want: "B", candidate: REVIEW_TYPE_KINDS.includes(c.unit.kind) ? "reviewer" : "builder" });
     lastDecision = decision;
+    const needsWorktree = !existing.has(c.unit.id);
+    if (decision.grant === "B" && !disk(needsWorktree).ok) { diskBlocked = true; decision = { ...decision, grant: null, motivo_limite: "disco" }; lastDecision = decision; }
     admitEvent(c.unit.id, decision, "B");
-    if (decision.grant !== "B") { blocked = blocked ?? decision.motivo_limite; break; }
+    if (decision.grant !== "B") { blocked = blocked ?? decision.motivo_limite; if (decision.motivo_limite === "disco") continue; break; }
+    if (needsWorktree) diskLeft -= d.admission.ADMISSION.WT_NEED_GIB;
     const issued = d.admission.issueToken(c.unit.id, "B", adm);
     granted.add(c.unit.id);
     grants.push({ ...c, unit: { ...cur, ...(c.unit.kind === "review" ? { parked: null } : {}) }, token: issued.token, token_hash: issued.token_hash });
@@ -112,7 +129,7 @@ async function admitPhase(run, ctx, { g2, list, reservations, hostHeld, signals,
   }
   for (const ev of events) await ctx.appendEvent(ev);
   if (grants.length) await ctx.writeState({ ...s, units });
-  return { grants, g2Grants, blocked, lastDecision };
+  return { grants, g2Grants, blocked, lastDecision, diskBlocked, notifyDisk: (diskBlocked || diskFreeGib >= d.admission.ADMISSION.DISK_FLOOR_GIB + d.admission.ADMISSION.WT_NEED_GIB) ? d.admission.recordDiskWait(diskBlocked, adm) : false };
 }
 
 /** Work of a dispatch round (no mutex): WO IN_PROGRESS on lane/<run_id>, unit worktree, brief, Codex launch, G2 jobs. */

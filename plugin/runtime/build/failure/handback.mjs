@@ -3,11 +3,12 @@
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { releaseToken } from "../admission.mjs";
-import { atomicWriteText, defaultExec, nowIso, writeTarget } from "../fsx.mjs";
+import { atomicWriteText, defaultExec, nowIso } from "../fsx.mjs";
 import { buildPaths } from "../paths.mjs";
 import { fencedTwoPhase, findUnit } from "../state.mjs";
 import { WO_UNIT_KINDS, emitSafely, err, oneLine, woKey } from "./common.mjs";
 import { commitPlan, envInfraStop, planHandback } from "./policy.mjs";
+import { writeInbox } from "../doubts/integrationLog.mjs";
 import { handbackDecisionEntry, handbackMarkdown, handbackNotice } from "./handbackText.mjs";
 
 async function findWorkOrderFiles(root, ids, { fs = fsp } = {}) {
@@ -30,18 +31,6 @@ async function findWorkOrderFiles(root, ids, { fs = fsp } = {}) {
   return found;
 }
 
-async function insertDecisionEntry(project, integrationRoot, entry, deps) {
-  const rel = ".pandacorp/inbox/decisions.md";
-  const { abs, tracked } = await writeTarget(project, rel, { integrationRoot, exec: deps.exec });
-  const fs = deps.fs ?? fsp;
-  let current = "";
-  try { current = await fs.readFile(abs, "utf8"); } catch (error) { if (error.code !== "ENOENT") throw error; }
-  // Most recent on top: before the first decision heading, or at the end when there is none.
-  const firstHeading = current.search(/^## /m);
-  const next = !current.trim() ? `# Decisiones pendientes\n\n${entry}` : firstHeading < 0 ? `${current.replace(/\s*$/, "\n\n")}${entry}` : `${current.slice(0, firstHeading)}${entry}\n${current.slice(firstHeading)}`;
-  await atomicWriteText(abs, next, { fs, mode: 0o644 });
-  return { rel, tracked };
-}
 
 async function branchTips(project, runId, unit, deps) {
   const paths = buildPaths(project, deps);
@@ -155,7 +144,7 @@ export async function handBack(ctx, input, deps = {}) {
     attempts: input.attempts ?? await journalTimeline(project, unit.id, deps), preserved: await branchTips(project, ctx.runId, unit, deps),
     blockedUnits: plan.blocked.map((t) => t.unit), skippedWos: wosSkipped,
   };
-  const inbox = await insertDecisionEntry(project, integrationRoot, handbackDecisionEntry(info), deps);
+  const inbox = await writeInbox(project, integrationRoot, handbackDecisionEntry(info), deps);
   await atomicWriteText(handbackPath, handbackMarkdown(info), { fs: deps.fs ?? fsp });
 
   // 3. One commit on the integration branch with every tracked file touched (WOs, rollups, a tracked decisions inbox).

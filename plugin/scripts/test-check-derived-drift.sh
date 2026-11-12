@@ -5,6 +5,9 @@
 #   bash plugin/scripts/test-check-derived-drift.sh
 
 set -u
+# Scratch fixtures may live inside the factory worktree. Do not let git discover
+# the enclosing checkout when a fixture deliberately has no repository of its own.
+export GIT_CEILING_DIRECTORIES="${TMPDIR:-/tmp}${GIT_CEILING_DIRECTORIES:+:$GIT_CEILING_DIRECTORIES}"
 HERE=$(cd "$(dirname "$0")/../.." && pwd)
 GATE="$HERE/plugin/scripts/check-derived-drift.sh"
 pass=0; fail=0
@@ -12,6 +15,17 @@ pass=0; fail=0
 check() { # $1 label, $2 expected rc, $3 root
   local output
   output=$(bash "$GATE" "$3" 2>&1)
+  rc=$?
+  if [ "$rc" = "$2" ]; then
+    echo "  ✓ $1"; pass=$((pass+1))
+  else
+    echo "  ✗ $1 (expected rc=$2, got rc=$rc): $output"; fail=$((fail+1))
+  fi
+}
+
+check_source() { # direct source gate must share the linked-worktree ledger exception
+  local output rc
+  output=$(env -u PANDACORP_SKIP_LEDGER_OUTPUT_CHECK node "$HERE/plugin/scripts/check-runtime-sources.mjs" "$3" 2>&1)
   rc=$?
   if [ "$rc" = "$2" ]; then
     echo "  ✓ $1"; pass=$((pass+1))
@@ -81,27 +95,15 @@ make_fixture() { # builds a minimal factory-shaped tree from the real repo
   cp "$HERE/plugin/scripts/check-runtime-sources.mjs" "$d/plugin/scripts/"
   cp "$HERE/plugin/scripts/generate-skill-capabilities.mjs" "$d/plugin/scripts/"
   cp "$HERE/plugin/scripts/check-skill-capabilities.mjs" "$d/plugin/scripts/"
-  cp "$HERE/plugin/scripts/generate-build-prompt-fragments.mjs" "$d/plugin/scripts/"
-  cp "$HERE/plugin/scripts/generate-engine.mjs" "$d/plugin/scripts/"
-  cp "$HERE/plugin/scripts/check-rollup-writer-boundary.mjs" "$d/plugin/scripts/"
   cp "$HERE/plugin/scripts/generate-codex-enforcement.mjs" "$d/plugin/scripts/"
   cp "$HERE/plugin/scripts/generate-event-vocabulary.mjs" "$d/plugin/scripts/"
-  cp "$HERE/plugin/scripts/test-runtime-switch.mjs" "$d/plugin/scripts/"
-  cp "$HERE/plugin/scripts/resolve-build-run-id.mjs" "$d/plugin/scripts/"
-  cp "$HERE/plugin/scripts/launch-codex-implement.sh" "$d/plugin/scripts/"
-  cp "$HERE/plugin/scripts/collect-codex-unattended-evidence.mjs" "$d/plugin/scripts/"
-  cp "$HERE/plugin/scripts/test-r10-certification-permit.mjs" "$d/plugin/scripts/"
   cp "$HERE"/plugin/runtime/*.json "$d/plugin/runtime/"
   cp "$HERE/plugin/runtime/build-state.mjs" "$d/plugin/runtime/"
   cp "$HERE/plugin/runtime/event-transport.mjs" "$d/plugin/runtime/"
-  mkdir -p "$d/plugin/runtime/codex"
-  cp "$HERE/plugin/runtime/codex/"{attended-permit.mjs,certification-permit.mjs,executor.mjs,failure-diagnostics.mjs,schema-contract.mjs,supervisor.mjs,change-result.schema.json,result.schema.json,review-result.schema.json} "$d/plugin/runtime/codex/"
-  cp "$HERE/plugin/runtime/codex/"{R10-CERTIFICATION.md,R11-CERTIFICATION.md} "$d/plugin/runtime/codex/"
-  cp "$HERE/factory/standards/agent-portability.md" "$d/factory/standards/"
-  mkdir -p "$d/plugin/runtime/prompts" "$d/plugin/runtime/engine" "$d/plugin/templates/shared/.claude/engines"
-  cp "$HERE/plugin/runtime/prompts/sync-rollups.md" "$d/plugin/runtime/prompts/"
-  cp "$HERE/plugin/runtime/engine/pandacorp-build.src.js" "$d/plugin/runtime/engine/"
-  cp "$HERE/plugin/templates/shared/.claude/engines/pandacorp-build.js" "$d/plugin/templates/shared/.claude/engines/"
+  # Retirement regression: a clean v2 fixture has no v1 runtime or generator.
+  mkdir -p "$d/plugin/runtime/build"
+  : > "$d/plugin/runtime/build/lifecycle.mjs"
+  : > "$d/plugin/scripts/pandacorp-build.mjs"
   cp "$HERE"/plugin/agents/*.md "$d/plugin/agents/"
   cp "$HERE/plugin/.claude-plugin/plugin.json" "$d/plugin/.claude-plugin/"
   cp "$HERE/plugin/.codex-plugin/plugin.json" "$d/plugin/.codex-plugin/"
@@ -115,6 +117,7 @@ make_fixture() { # builds a minimal factory-shaped tree from the real repo
   printf '{}\n' > "$d/factory/gamification-ledger.json"
   cp -R "$HERE/plugin/skills" "$d/plugin/skills"
   ln -s ../plugin/skills "$d/.agents/skills"
+  ( cd "$d" && node plugin/scripts/generate-skill-capabilities.mjs >/dev/null 2>&1 )
   # generate a fresh, in-sync .codex/agents
   ( cd "$d" && node plugin/scripts/generate-codex-agents.mjs >/dev/null 2>&1 )
   ( cd "$d" && node plugin/scripts/generate-codex-enforcement.mjs >/dev/null 2>&1 )
@@ -130,7 +133,20 @@ rm -rf "$plain"
 
 # 1. Clean fixture → GREEN
 fx=$(make_fixture)
-check "clean tree passes" 0 "$fx"
+check "v2-only tree without retired engine or generators passes" 0 "$fx"
+
+# E01: the default shared executor must exist and cannot silently revert to v1.
+rm "$fx/plugin/scripts/pandacorp-build.mjs"
+check "missing shared v2 CLI goes RED" 2 "$fx"
+: > "$fx/plugin/scripts/pandacorp-build.mjs"
+jq '.capabilities.product_build_orchestration.runtime_owner = "claude"' "$fx/plugin/runtime/capability-ownership.json" > "$fx/tmp.json" \
+  && mv "$fx/tmp.json" "$fx/plugin/runtime/capability-ownership.json"
+check "runtime-exclusive product build ownership goes RED" 2 "$fx"
+cp "$HERE/plugin/runtime/capability-ownership.json" "$fx/plugin/runtime/"
+jq '.capabilities.codex_product_executor = {"canonical":"retired"}' "$fx/plugin/runtime/capability-ownership.json" > "$fx/tmp.json" \
+  && mv "$fx/tmp.json" "$fx/plugin/runtime/capability-ownership.json"
+check "retired executor ownership goes RED" 2 "$fx"
+cp "$HERE/plugin/runtime/capability-ownership.json" "$fx/plugin/runtime/"
 
 # 2. Manifest version divergence → RED
 jq '.version = "0.0.1-drift"' "$fx/plugin/.codex-plugin/plugin.json" > "$fx/tmp.json" \
@@ -199,8 +215,6 @@ rm "$fx/plugins/pandacorp"; ln -s ../plugin-copy "$fx/plugins/pandacorp"
 check "repo-local marketplace bridge drift goes RED" 2 "$fx"
 rm "$fx/plugins/pandacorp"; ln -s ../plugin "$fx/plugins/pandacorp"
 
-# (Former cases 4j/4k, hand-edited v1 engine artifact / unregenerated source, removed with Check 8
-# by the v1 freeze, DR-150.)
 check "restored tree passes again" 0 "$fx"
 
 # 5. Broken .agents/skills symlink → RED
@@ -237,6 +251,7 @@ wx=$(make_fixture)
 wt=$(mktemp -d) && rm -rf "$wt"
 ( cd "$wx" && git worktree add -q "$wt" -b bl-0121-test-worktree >/dev/null 2>&1 )
 check "linked worktree without ledger PASSES (was wrongly RED)" 0 "$wt"
+check_source "direct source gate accepts linked worktree without ledger" 0 "$wt"
 cp "$wx/factory/gamification-ledger.json" "$wt/factory/gamification-ledger.json"
 check "linked worktree WITH ledger present still passes" 0 "$wt"
 rm "$wt/factory/gamification-ledger.json"
@@ -245,6 +260,7 @@ check "linked worktree without ledger still passes after removal" 0 "$wt"
 rm -rf "$wt"
 rm "$wx/factory/gamification-ledger.json"
 check "main checkout without ledger still REDs (unchanged, real signal)" 2 "$wx"
+check_source "direct source gate rejects main checkout without ledger" 2 "$wx"
 rm -rf "$wx"
 
 # 9. BL-0082: session-attribution guard on a dirty plugin-metadata.json (parallel-session

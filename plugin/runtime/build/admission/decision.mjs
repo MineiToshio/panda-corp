@@ -1,4 +1,4 @@
-// Pure admission decision: reservations, swap-trend veto, ceilings, safe mode and the read-only `admit` (split from admission.mjs).
+// Pure admission decision: adaptive ceilings, heavy-job estimates, safe mode and read-only admit.
 import { ADMISSION, REACTIVE_MOTIVOS, SignalError, cpuCount, hMax, round3 } from './constants.mjs'
 import { readSignals } from './signals.mjs'
 
@@ -20,124 +20,26 @@ export function pendingGib(res, nowMs) {
 }
 
 
-function swapDeltas(history, signals) {
-  const seq = [...history.map((h) => h.swapouts), signals.swapouts].slice(-(ADMISSION.HISTORY_LEN + 1))
-  const out = []
-  for (let i = 1; i < seq.length; i++) out.push(Math.max(0, seq[i] - seq[i - 1])) // a counter that went down was reset
-  return out
-}
-
-/**
- * DEC-1 veto: L == 4 is handled before this (pausa_L4). Otherwise only the swap TREND vetoes: swapouts rose in >= 2 of the
- * last 3 deltas. L 2 with flat swap, or too few readings to tell, is no veto. `veto` is 'swap' at L == 1 and 'presion'
- * when the trend is corroborated by L >= 2.
- */
-function readVeto(history, signals) {
-  const deltas = swapDeltas(history, signals)
-  const rising = deltas.filter((d) => d > 0).length >= 2
-  return { veto: rising ? (signals.L >= 2 ? 'presion' : 'swap') : null, deltas }
-}
-
-/** Calm = L == 1 and zero swapouts across the last 3 readings (needed to rise above the floor). */
-function isCalm(history, signals, deltas) {
-  const lastThree = [...history, signals].slice(-ADMISSION.HISTORY_LEN)
-  return deltas.length === ADMISSION.HISTORY_LEN && deltas.every((d) => d === 0) && lastThree.every((r) => r.L === 1)
-}
-
-const vetoMotivo = (veto) => (veto === 'swap' ? 'veto_swap' : 'veto_presion')
-
-function ceilingTerms({ readyWidth, liveB, caps, runtimeShape }) {
-  const reactive = caps.kReactive ?? (runtimeShape === 'R-C' || runtimeShape === 'drive' ? ADMISSION.K_REACTIVE_CODEX_START : Infinity)
-  const reactiveMotivo = REACTIVE_MOTIVOS.includes(caps.kReactiveReason) ? caps.kReactiveReason : 'reactivo_contencion'
-  const kTecho = runtimeShape === 'R-B' ? 1 : (caps.K_TECHO ?? ADMISSION.K_TECHO)
-  return [
-    ['ancho', readyWidth + liveB],
-    ['techo', kTecho],
-    ['owner_k', caps.kOwner ?? Infinity],
-    [reactiveMotivo, reactive],
-  ]
-}
-
-function decideHeavy(ctx) {
-  const { live, veto, P, hMaxBase, runtimeShape } = ctx
-  const hCap = veto || runtimeShape === 'R-B' ? 1 : hMaxBase
-  const base = { A_ef: ctx.A_ef, P, veto, h_max: hCap }
-  if (live.H >= hCap) {
-    return { ...base, grant: null, motivo_limite: veto ? vetoMotivo(veto) : 'cpu_H', waitsForRam: false }
-  }
-  if (P >= ADMISSION.C_H_GIB || live.H === 0) {
-    const limiter = veto ? vetoMotivo(veto) : 'cpu_H'
-    return { ...base, grant: 'H', motivo_limite: limiter, waitsForRam: false }
-  }
-  return { ...base, grant: null, motivo_limite: 'ram', waitsForRam: true }
-}
-
-/**
- * One admission decision (pure). Grants at most one slot; the caller increments `live`/reservations and calls again.
- *
- * Veto (DEC-1): L == 4 launches nothing (pausa_L4); otherwise only a rising swap trend (>= 2 of the last 3 swapout deltas)
- * vetoes, which means series (1 builder + 1 heavy). L 2 with flat swap is no veto.
- *
- * `motivo_limite` on a grant names the binding ceiling (B: the ceiling term that equals `techo`; H: `cpu_H`, or the
- * veto that lowered H_max); on a wait it names why nothing was granted.
- *
- * @param {object} input
- * @param {{L:1|2|4, swapouts:number, A_gib:number}|null} input.signals current reading; null/missing = safe mode (SignalError upstream)
- * @param {{L:number, swapouts:number}[]} [input.history] previous readings, oldest first (last 3 are used)
- * @param {object[]} [input.reservations] live units, see {@link pendingGib}
- * @param {{B:number, H:number, R?:number}} input.live live builder-class units (R = live reviewers among them) and host-wide heavy slots in use
- * @param {number} [input.heavyQueued] heavy jobs waiting
- * @param {number} [input.readyWidth] ready, non-overlapping units not yet live (from the planner)
- * @param {{K_TECHO?:number, kOwner?:number, kReactive?:number, kReactiveReason?:string, colchonGib?:number}} [input.caps]
- * @param {'R-A'|'R-B'|'R-C'|'drive'} [input.runtimeShape] R-B is B = 1, H = 1 always
- * @param {'B'|'H'|null} [input.want] restrict the grant to one class (admit --class); null = either, heavy first
- * @param {'builder'|'reviewer'} [input.candidate] a reviewer is also bounded by the reviewer sub-cap
- * @param {number} [input.nowMs] @param {number} [input.ncpu]
- * @returns {{grant:'B'|'H'|null, motivo_limite:string, techo:number|null, suelo:number|null, A_ef:number, P:number, veto:null|'presion'|'swap', h_max:number|null, safe_mode:false}}
- */
-export function decide({
-  signals, history = [], reservations = [], live, heavyQueued = 0, readyWidth = 1, caps = {},
-  runtimeShape = 'R-A', want = null, candidate = 'builder', nowMs = Date.now(), ncpu = cpuCount(),
+/** One pure admission decision. RAM reservations estimate heavy jobs, never veto builders. */
+export function decide({ signals, reservations = [], live, heavyQueued = 0, readyWidth = 1, caps = {},
+  step = ADMISSION.K_START_DEFAULT, want = null, candidate = 'builder', nowMs = Date.now(), ncpu = cpuCount(),
 }) {
   if (!signals) return safeModeDecision({ live, heavyQueued, readyWidth, want, caps })
+  const currentStep = signals.L === 4 ? 1 : step
   const sumPending = reservations.reduce((s, r) => s + pendingGib(r, nowMs), 0)
   const A_ef = round3(signals.A_gib - sumPending)
-  if (signals.L === 4) {
-    return { grant: null, motivo_limite: 'pausa_L4', techo: null, suelo: null, A_ef, P: round3(A_ef - ADMISSION.COLCHON_GIB), veto: 'presion', h_max: null, safe_mode: false }
-  }
-  const colchon = Math.max(ADMISSION.COLCHON_MIN_GIB, caps.colchonGib ?? ADMISSION.COLCHON_GIB)
-  const { veto, deltas } = readVeto(history, signals)
-  const calm = isCalm(history, signals, deltas)
-  const P0 = round3(A_ef - colchon)
-
-  const heavy = heavyQueued > 0 ? decideHeavy({ live, veto, P: P0, A_ef, hMaxBase: hMax(ncpu), runtimeShape }) : null
-  if (want !== 'B' && heavy?.grant === 'H') {
-    return { grant: 'H', motivo_limite: heavy.motivo_limite, techo: null, suelo: null, A_ef, P: P0, veto, h_max: heavy.h_max, safe_mode: false }
-  }
-  // A heavy job waiting for RAM sets its c_h aside (it does not freeze builders); waiting for CPU sets nothing aside.
-  const asideH = Boolean(heavy?.waitsForRam)
-  const P = round3(asideH ? P0 - ADMISSION.C_H_GIB : P0)
-
-  if (want === 'H') {
-    const motivo = heavy ? heavy.motivo_limite : 'ancho'
-    return { grant: null, motivo_limite: motivo, techo: null, suelo: null, A_ef, P, veto, h_max: heavy?.h_max ?? null, safe_mode: false }
-  }
-
-  const terms = ceilingTerms({ readyWidth, liveB: live.B, caps, runtimeShape })
-  const techo = Math.min(...terms.map(([, v]) => v))
-  const bound = terms.find(([, v]) => v === techo)[0]
-  const suelo = !veto && P >= 0 ? ADMISSION.SUELO : 1
-  const out = (grant, motivo_limite) => ({ grant, motivo_limite, techo, suelo, A_ef, P, veto, h_max: heavy?.h_max ?? null, safe_mode: false })
-
+  const P = round3(A_ef - Math.max(ADMISSION.COLCHON_MIN_GIB, caps.colchonGib ?? ADMISSION.COLCHON_GIB))
+  const hCap = currentStep <= 2 ? 1 : hMax(ncpu)
+  const reactiveMotivo = REACTIVE_MOTIVOS.includes(caps.kReactiveReason) ? caps.kReactiveReason : 'reactivo_contencion'
+  const terms = [['ancho', readyWidth + live.B], ['techo', currentStep], ['owner_k', caps.kOwner ?? Infinity], [reactiveMotivo, caps.kReactive ?? Infinity]]
+  const techo = Math.min(...terms.map(([, n]) => n))
+  const bound = terms.find(([, n]) => n === techo)[0]
+  const out = (grant, motivo_limite) => ({ grant, motivo_limite, step: currentStep, techo, suelo: 1, A_ef, P, veto: null, h_max: hCap, safe_mode: false })
+  if (want !== 'B' && heavyQueued > 0 && live.H < hCap && (live.H === 0 || P >= ADMISSION.C_H_GIB)) return out('H', 'cpu_H')
+  if (want === 'H') return out(null, live.H >= hCap ? 'cpu_H' : heavyQueued > 0 ? 'ram' : 'ancho')
   if (candidate === 'reviewer' && (live.R ?? 0) >= ADMISSION.REVIEWER_SUBCAP) return out(null, 'techo')
   if (live.B >= techo) return out(null, bound)
-  if (live.B < suelo) return out('B', bound)
-  if (veto) return out(null, vetoMotivo(veto))
-  if (P >= ADMISSION.C_B_GIB + ADMISSION.HYSTERESIS_GIB && calm) return out('B', bound)
-  // Held at the floor: not calm (L != 1, any swapout in the window, or fewer than 3 readings). Not a veto.
-  if (P >= ADMISSION.C_B_GIB + ADMISSION.HYSTERESIS_GIB) return out(null, 'ram')
-  const wouldFitWithoutAside = asideH && P0 >= ADMISSION.C_B_GIB + ADMISSION.HYSTERESIS_GIB
-  return out(null, wouldFitWithoutAside ? 'ram_reservada_H' : 'ram')
+  return out('B', bound)
 }
 
 /**

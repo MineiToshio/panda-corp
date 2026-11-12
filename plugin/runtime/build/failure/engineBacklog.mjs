@@ -1,7 +1,7 @@
 // Factory backlog item filed after an engine failure (DR-103). ../failure.mjs is the public entry.
 import * as fsp from "node:fs/promises";
 import path from "node:path";
-import { nowIso } from "../fsx.mjs";
+import { assertNotTracked, atomicWriteText, defaultExec, nowIso } from "../fsx.mjs";
 import { integrationBranchOf, oneLine } from "./common.mjs";
 
 export const sanitize = (text, project, deps) => {
@@ -73,6 +73,28 @@ function backlogBody({ id, title, date, failure, project, deps }) {
 export async function fileBacklogNote({ project, failure, deps }) {
   const fs = deps.fs ?? fsp;
   const factory = await readFactoryRoot(project, deps);
+  const top = await (deps.exec ?? defaultExec)("git", ["rev-parse", "--show-toplevel"], { cwd: project });
+  if (top.code !== 0) throw Object.assign(new Error("cannot determine repository root for engine backlog"), { code: "FAILCLOSED" });
+  const repoRoot = await fs.realpath(top.stdout.trim());
+  const projectRoot = await fs.realpath(project);
+  const factoryRoot = factory ? await fs.realpath(factory).catch((error) => {
+    if (error.code === "ENOENT") return path.resolve(factory);
+    throw error;
+  }) : null;
+  if (projectRoot !== repoRoot || factoryRoot === repoRoot) {
+    const run = String(failure.runId ?? "unknown");
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(run)) throw Object.assign(new Error("invalid engine backlog run id"), { code: "INVALID_PATH" });
+    const rel = `.pandacorp/run/build/handback/engine-backlog-${run}.md`;
+    await assertNotTracked(project, rel, deps);
+    const file = path.join(project, rel);
+    const body = backlogBody({ id: 0, title: "Engine failure draft", date: nowIso(deps).slice(0, 10), failure, project, deps }).replace(/^---\n[\s\S]*?\n---\n/, "");
+    await atomicWriteText(file, `# Engine backlog draft
+
+Not filed in the factory backlog (DEC-16).
+
+${body}`, { fs });
+    return { id: null, file, reason: `borrador local pendiente de revisión: ${file}`, draft: true };
+  }
   if (!factory) return { id: null, file: null, reason: "no se encontró la ruta de la fábrica en .pandacorp/guide.md" };
   const dir = path.join(factory, "factory", "backlog");
   const date = nowIso(deps).slice(0, 10);

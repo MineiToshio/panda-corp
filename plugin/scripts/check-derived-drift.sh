@@ -151,12 +151,12 @@ fi
 node "$ROOT/plugin/scripts/check-runtime-sources.mjs" "$ROOT" \
   || red "runtime source graph, tier mapping, or full manifest projection is invalid. Regenerate manifests with: node plugin/scripts/generate-plugin-manifests.mjs"
 
-# --- Check 1: manifest versions in sync (CLAUDE.md §Plugin maintenance step 1) ---
+# --- Check 1: manifest versions in sync (AGENTS.md §Claude Code › Plugin maintenance step 1) ---
 v_claude=$(jq -r '.version // empty' "$CLAUDE_MANIFEST" 2>/dev/null)
 v_codex=$(jq -r '.version // empty' "$CODEX_MANIFEST" 2>/dev/null)
 [ -n "$v_claude" ] || red "cannot read version from $CLAUDE_MANIFEST"
 [ -n "$v_codex" ] || red "cannot read version from $CODEX_MANIFEST (the Codex mirror must exist and carry the same version)"
-[ "$v_claude" = "$v_codex" ] || red "manifest versions diverged — .claude-plugin=$v_claude vs .codex-plugin=$v_codex. Set BOTH to the same version (CLAUDE.md §Plugin maintenance step 1)."
+[ "$v_claude" = "$v_codex" ] || red "manifest versions diverged — .claude-plugin=$v_claude vs .codex-plugin=$v_codex. Set BOTH to the same version (AGENTS.md §Claude Code › Plugin maintenance step 1)."
 
 # --- Check 2: .agents/skills symlink integrity (proposal 25 D2) ---
 link="$ROOT/.agents/skills"
@@ -183,7 +183,7 @@ drift=$(diff -rq "$tmp/.codex/agents" "$ROOT/.codex/agents" 2>&1)
 if [ -n "$drift" ]; then
   echo "--- drift detail ---" >&2
   echo "$drift" >&2
-  red ".codex/agents/*.toml is stale vs plugin/agents/*.md. Regenerate: node plugin/scripts/generate-codex-agents.mjs (CLAUDE.md §Plugin maintenance step 2)"
+  red ".codex/agents/*.toml is stale vs plugin/agents/*.md. Regenerate: node plugin/scripts/generate-codex-agents.mjs (AGENTS.md §Claude Code › Plugin maintenance step 2)"
 fi
 
 # --- Check 4: exact 25-skill capability projection --------------------------------------------
@@ -194,12 +194,6 @@ cmp -s "$tmp/plugin/runtime/skill-capabilities.json" "$ROOT/plugin/runtime/skill
   || red "skill-capabilities.json is stale; run node plugin/scripts/generate-skill-capabilities.mjs"
 node "$ROOT/plugin/scripts/check-skill-capabilities.mjs" "$ROOT" >/dev/null 2>&1 \
   || red "skill capability coverage/evidence is invalid"
-
-# --- Check 5: rollup writer boundary ----------------------------------------------------------
-# v1 freeze (DR-150): the generated-fragment regeneration into the v1 engine source is no longer
-# gated (the v1 engine is frozen, not maintained); only the writer-boundary check is kept.
-node "$ROOT/plugin/scripts/check-rollup-writer-boundary.mjs" "$ROOT" >/dev/null 2>&1 \
-  || red "rollup writer boundary is invalid or retired prose returned"
 
 # --- Check 6: generated Codex enforcement registration/config/rules ---------------------------
 mkdir -p "$tmp/plugin/runtime" "$tmp/plugin/scripts"
@@ -223,9 +217,6 @@ cp "$ROOT/plugin/scripts/generate-event-vocabulary.mjs" "$tmp/plugin/scripts/" |
 node "$tmp/plugin/scripts/generate-event-vocabulary.mjs" >/dev/null 2>&1 || red "event vocabulary generator failed"
 cmp -s "$tmp/mission-control/src/lib/events/event-vocabulary.json" "$ROOT/mission-control/src/lib/events/event-vocabulary.json" \
   || red "Mission Control event vocabulary is stale; run node plugin/scripts/generate-event-vocabulary.mjs"
-
-# (Check 8, the v1 deployable engine artifact == generate-engine(source), was removed by the v1
-# freeze, DR-150: the v1 engine is not maintained, so its artifact is no longer gated.)
 
 # CLEAN: record the commit every check above just verified so a later Stop on an unchanged tree
 # (nothing under plugin/ touched or dirty) can fast-path above (BL-0044). Best-effort — a write

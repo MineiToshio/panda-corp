@@ -81,6 +81,22 @@ try {
   mkdirSync(path.join(wt("wip"), ".pandacorp/inbox"), { recursive: true });
   writeFileSync(path.join(wt("wip"), ".pandacorp/inbox/note.md"), "owner note\n");
 
+  const engineRoot=path.join(repo,'.pandacorp/run/build');mkdirSync(engineRoot,{recursive:true});
+  const engineWt=path.join(engineRoot,'wt/finished');
+  sh(repo,'worktree','add','-q','-b','lane/finished/unit',engineWt);
+  commit(engineWt,'finished.txt','unmerged finished attempt');
+  const state=status=>writeFileSync(path.join(engineRoot,'state.json'),JSON.stringify({status}));
+  state('waiting_gate');
+  const waiting=sweep(['scan','--repo',repo,'--self',wt('self')]);
+  ok(waiting.json.items.find(i=>i.path===engineWt)?.decision==='protected','waiting_gate engine worktree protected');
+  state('finished');
+  const terminal=sweep(['scan','--repo',repo,'--self',wt('self')],'3');
+  const engineItem=terminal.json.items.find(i=>i.path===engineWt);
+  ok(engineItem?.decision==='safe'&&!engineItem.actions.includes('delete-branch'),'finished unmerged engine worktree safe even recent, branch retained');
+  const archived=path.join(repo,'.pandacorp/run/build-archive/old/integration');
+  sh(repo,'worktree','add','-q','--detach',archived);
+  const suspended=path.join(repo,'.pandacorp/run/build-suspended/old/integration');
+  sh(repo,'worktree','add','-q','--detach',suspended);
   console.log("scan — read-only classification");
   const s = sweep(["scan", "--repo", repo, "--self", wt("self")]);
   ok(s.code === 0 && s.json, "scan exits 0 with JSON");
@@ -127,6 +143,8 @@ try {
   ok(c2.code === 0, "clean exits 0");
   const branches = sh(repo, "branch", "--format=%(refname:short)").split("\n");
   ok(!branches.includes("claude/merged") && !branches.includes("old-merged"), "merged branches deleted with -d");
+  ok(!existsSync(engineWt)&&branches.includes('lane/finished/unit'),'clean reclaims terminal engine tree and keeps its unmerged branch');
+  ok(!existsSync(archived)&&existsSync(suspended),'archive tree reclaimed; suspended tree retained');
   ok(!existsSync(path.join(repo, ".pandacorp/run/gate-worktree")), "idle gate worktree removed");
   ok(!sh(repo, "worktree", "list").includes(wt("gone")), "missing-directory entry pruned");
   for (const n of ["feature", "dirty", "locked", "self", "inuse", "owner", "outer", "wip"]) ok(existsSync(wt(n)), `${n} untouched`);

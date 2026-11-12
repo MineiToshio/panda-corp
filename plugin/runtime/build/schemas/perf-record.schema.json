@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pandacorp-build/perf-record.schema.json",
+  "title": "Machine-local build performance record",
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^[^/\\\\]+$"
+    },
+    "plugin_version": {
+      "type": "string"
+    },
+    "start": {
+      "type": "string"
+    },
+    "end": {
+      "type": "string"
+    },
+    "outcome": {
+      "type": "string"
+    },
+    "units_by_kind": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "p50_s": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "p90_s": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "count",
+          "p50_s",
+          "p90_s"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "workers_over_time": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string"
+          },
+          "step": {
+            "enum": [
+              1,
+              2,
+              3,
+              5,
+              8
+            ]
+          },
+          "live_b": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "live_h": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "t",
+          "step",
+          "live_b",
+          "live_h"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "ram_gib": {
+      "type": "object",
+      "properties": {
+        "min": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "max": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "additionalProperties": false
+    },
+    "swap_mb": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "peak": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "end": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "start",
+        "peak",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "scale_events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "from": {
+            "enum": [
+              1,
+              2,
+              3,
+              5,
+              8
+            ]
+          },
+          "to": {
+            "enum": [
+              1,
+              2,
+              3,
+              5,
+              8
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "from",
+          "to",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "start_step": {
+      "enum": [
+        1,
+        2,
+        3,
+        5,
+        8
+      ]
+    },
+    "sustained_step": {
+      "enum": [
+        null,
+        1,
+        2,
+        3,
+        5,
+        8
+      ]
+    },
+    "recommended_start": {
+      "enum": [
+        1,
+        2,
+        3,
+        5,
+        8
+      ]
+    },
+    "disk_free_gib": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "end": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "run_id",
+    "project",
+    "plugin_version",
+    "start",
+    "end",
+    "outcome",
+    "units_by_kind",
+    "workers_over_time",
+    "ram_gib",
+    "swap_mb",
+    "scale_events",
+    "start_step",
+    "sustained_step",
+    "recommended_start",
+    "disk_free_gib"
+  ],
+  "additionalProperties": false
+}

@@ -97,6 +97,8 @@ export async function writeUnitBrief({ project, state, unit, cell, agentType, to
     if (raw !== null) previous.push(JSON.parse(raw));
   }
   await archiveStaleReports(project, unit.id, unit.attempt, deps);
+  const gateRaw = unit.kind === "patch" ? await readIfExists(fs, path.join(p.unitDir(unit.id), "gate-failure.json")) : null;
+  const gateFailure = gateRaw === null ? null : JSON.parse(gateRaw);
 
   const decision = extra.decision ?? await decidedDoubt(project, unit, deps);
   const notes = [...(extra.notes ?? []), ...(extra.questionDefaults ?? []).map((q) => `Owner question pending, working default: ${typeof q === "string" ? q : JSON.stringify(q)}`)];
@@ -105,7 +107,7 @@ export async function writeUnitBrief({ project, state, unit, cell, agentType, to
     allowlist: allowlistPatterns(unit.kind, artifacts), contextPack, root, reportPath: outPath, schemaPath, token,
     verification: extra.verification ?? ["bash .pandacorp/verify.sh --light", "bash .pandacorp/verify.sh --light --tests=<the test files you changed>"],
     readOnlyPaths: [...hashed].sort(), previous, findings: extra.findings, decision, notes,
-    review: extra.review, doubt: extra.doubt, sourcesSkipped: extra.sourcesSkipped,
+    review: extra.review, doubt: extra.doubt, sourcesSkipped: extra.sourcesSkipped, gateFailure,
   });
   await atomicWriteText(p.briefFile(unit.id), text, { fs });
   return { brief_path: p.briefFile(unit.id), report_path: outPath, text, written_at: nowIso(deps) };

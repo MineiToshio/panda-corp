@@ -10,22 +10,29 @@ export interface BuildSignal {
   readonly legacySignalAt?: string | null;
 }
 /** Authoritative running flag crossed with the freshest producer instant and the hard TTL. */
-export function buildSignal(input: BuildClocks & {
-  running?: boolean;
-  nowMs: number;
-}): BuildSignal {
+export function buildSignal(
+  input: BuildClocks & {
+    running?: boolean;
+    nowMs: number;
+  },
+): BuildSignal {
   const lastSignalAt = latestBuildSignal(input, input.nowMs);
   const freshness = freshnessBand(lastSignalAt, input.nowMs);
   return {
     kind: input.running !== true ? "idle" : isLive(input, input.nowMs) ? "live" : "no-signal",
-    ...(input.leaseRenewedAt ? {
-      leaseRenewedAt: input.leaseRenewedAt,
-      leaseTtlSeconds: input.leaseTtlSeconds,
-      legacySignalAt: latestBuildSignal({
-        supervisorHeartbeat: input.supervisorHeartbeat,
-        lastEventAt: input.lastEventAt,
-      }, input.nowMs),
-    } : {}),
+    ...(input.leaseRenewedAt
+      ? {
+          leaseRenewedAt: input.leaseRenewedAt,
+          leaseTtlSeconds: input.leaseTtlSeconds,
+          legacySignalAt: latestBuildSignal(
+            {
+              supervisorHeartbeat: input.supervisorHeartbeat,
+              lastEventAt: input.lastEventAt,
+            },
+            input.nowMs,
+          ),
+        }
+      : {}),
     lastSignalAt,
     ageMinutes: freshness.ageMs === null ? null : Math.floor(freshness.ageMs / 60000),
   };

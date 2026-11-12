@@ -75,6 +75,15 @@ await test("module loads and exports emitEvent, trackLine, trackLineForTransitio
 });
 
 // ---------------------------------------------------------------- events
+await test("build.scaled is registered and emits from/to/reason without becoming legacy", async () => {
+  const sb = await sandbox();
+  const r = await fn("emitEvent")(sb.project, run(sb, { name: "build.scaled", data: { from: 5, to: 3, reason: "swapouts" } }), sb.deps);
+  ok(r.ok, JSON.stringify(r));
+  const body = await readFile(sb.env.PANDACORP_EVENTS_FILE, "utf8");
+  ok(body.includes("build.scaled") && body.includes("swapouts"), "scaled event and reason persisted");
+  ok(!body.includes("legacy."), "registered semantic event");
+});
+
 await test("emitEvent writes one ndjson line to PANDACORP_EVENTS_FILE with project = basename and a registered name", async () => {
   const sb = await sandbox();
   const res = await fn("emitEvent")(sb.project, run(sb, { name: "BuildLaunch", data: { mode: "v2" } }), sb.deps);

@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Gate failure evidence",
+  "type": "object",
+  "required": [
+    "schema",
+    "gate",
+    "job",
+    "checks",
+    "tests",
+    "paths",
+    "tail",
+    "attributed",
+    "wos",
+    "allowlist_wos",
+    "fixes"
+  ],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "gate": {
+      "enum": [
+        "G2",
+        "G3"
+      ]
+    },
+    "job": {
+      "type": "string",
+      "minLength": 1
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "vitest",
+          "playwright",
+          "tsc",
+          "biome",
+          "next-build",
+          "doc-lint"
+        ]
+      }
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tail": {
+      "type": "string",
+      "description": "Last 40 lines, bounded to 12000 characters by the parser."
+    },
+    "attributed": {
+      "type": "boolean"
+    },
+    "wos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "allowlist_wos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fixes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,6 @@
+> next build
+Creating an optimized production build ...
+Failed to compile.
+./src/alpha/filter.ts
+Type error: Property 'filter' does not exist on type 'never'.
+Next.js build worker exited with code: 1 and signal: null

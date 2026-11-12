@@ -2,6 +2,7 @@
 import path from "node:path";
 import { assertNotTracked, atomicWriteText } from "../fsx.mjs";
 import { applyTerminal, removeAllG2Snapshots } from "../next.mjs";
+import { finishPerformance } from "../perf.mjs";
 import { buildPaths } from "../paths.mjs";
 import { fencedTwoPhase, isTerminalUnit, readLeaseToken, readState, writeState } from "../state.mjs";
 import { readSummary, renderReportEs } from "../summary.mjs";
@@ -35,6 +36,7 @@ export async function stopRun({ project, epoch = null, dead = false, ownerConfir
     await writeState(project, { ...state, status: "stopped", status_reason: dead ? "dead_owner" : reason }, d);
     await emit(project, state, "build.stopped", { reason: dead ? "dead_owner" : reason }, d);
   }
+  if (state) await finishPerformance({ project, state: { ...state, status: "stopped" }, outcome: "stopped" }, d);
   if (state) await removeAllG2Snapshots({ project }, d);
   return { released, run_id: state?.run_id ?? null };
 }
@@ -100,6 +102,7 @@ export async function finishRun({ project, epoch = null, actor = "cli" }, deps =
   }
   // The run is closed: no G2 snapshot of it is ever harvested again (NB5). A waiting run keeps a still-running G2 job's own.
   await removeAllG2Snapshots({ project, all: !waiting }, d);
+  await finishPerformance({ project, state: await readState(project, d) }, d);
   const summary = await readSummary(project, d);
   const rel = path.join(".pandacorp", "comms", `informe-build-${state0.run_id}.md`);
   await assertNotTracked(project, rel, { exec: d.exec });

@@ -1,7 +1,8 @@
 // One scheduling pass of `next`: renew + one admission reading, harvest, integrate, quota policy, managed units and the
 // planner round, landing, admission and dispatch, then wait or a terminal action (A11).
+import { recordSample } from "../perf.mjs";
 import { ENV_INFRA_STOP, G2_SNAPSHOT_FAIL_MAX, LAND_RETRY_S, RETRY_S } from "./constants.mjs";
-import { admissionCtx, fresh, mutate } from "./context.mjs";
+import { admissionCtx, fresh, mutate, sibling } from "./context.mjs";
 import { buildCandidates } from "./candidates.mjs";
 import { dispatchRound, readSignalsSafe } from "./dispatch.mjs";
 import { handBackExhaustedG2 } from "./g2.mjs";
@@ -16,15 +17,23 @@ export async function step(run) {
   const { d } = run;
   // (0) renew + the call's single admission reading (phase 1 of a fenced step).
   const signals = await readSignalsSafe(run);
-  let state = await mutate(run, (s, ctx) => {
+  const diskFreeGib = d.admission.readDiskFreeGib(run.ref.project, d);
+  let state = await mutate(run, async (s, ctx) => {
     run.leaseRuntime = ctx.lease?.runtime ?? run.leaseRuntime ?? null;
-    if (signals.value && !run.recorded) {
-      run.l4 = d.admission.recordReading(signals.value, admissionCtx(run));
+    if (!run.recorded && s.status === "active") {
+      run.reading = d.admission.recordReading(signals.value, admissionCtx(run));
+      await recordSample({ project: run.ref.project, state: s, reading: run.reading, signals: signals.value, diskFreeGib }, d);
       run.recorded = true;
     }
     return { value: s };
   });
   if (state.status !== "active") return { out: await alreadyStopped(run, state), watch: [] };
+  if (run.reading?.scale_event && !run.scaledEmitted) {
+    const { from, to, reason } = run.reading.scale_event;
+    try { await (await sibling(d, "telemetry", "emitEvent"))(run.ref.project, { runtime: run.leaseRuntime ?? (state.coordinator === "codex-session" ? "codex" : "claude"), runId: state.run_id, name: "build.scaled", data: { from, to, reason } }, d); } catch (error) { d.log(`next: scale telemetry failed: ${error.message}`); }
+    run.scaledEmitted = true;
+  }
+  d.adaptiveStep = run.reading?.step ?? d.admission.readAdaptive(admissionCtx(run)).step;
   const notes = [];
 
   // (1) harvest finished jobs and workers; (2) integrate committed chains (the G2 spawn rides on admission, step 6).
@@ -71,8 +80,10 @@ export async function step(run) {
   for (const frd of dispatch.g2Failed ?? []) {
     notes.push(`G2 de ${frd} no arrancó: no se pudo crear su copia de la rama de integración (fallo ${g2Fails[frd] ?? 1} de ${G2_SNAPSHOT_FAIL_MAX}); ${(g2Fails[frd] ?? 1) >= G2_SNAPSHOT_FAIL_MAX ? "se devuelve por fallo del entorno" : "se reintenta en el siguiente paso"}.`);
   }
+  if (dispatch.diskBlocked) notes.push("Disco insuficiente: espero a que haya al menos 15 GiB libres tras reservar 1,5 GiB para una copia nueva. El trabajo en curso sigue.");
   if (dispatch.units.length) return finish(run, state, { action: "dispatch", units: dispatch.units, admit: dispatch.admit, quota, notes });
 
+  if (dispatch.diskBlocked) return finish(run, state, { action: "wait", wait: { reason: "disk", retry_after_s: RETRY_S.disk }, admit: dispatch.admit, quota, notes });
   // Nothing dispatched: wait while anything runs (A11), else a terminal action.
   const running = runningSummary(state);
   if (running.any || landing.waitLand) {
@@ -91,7 +102,7 @@ export async function step(run) {
     // ENV_INFRA_STOP streak of hand-backs ends the run through chooseTerminal (FIX-D-4).
     return finish(run, state, { action: "wait", wait: { reason: "gate", retry_after_s: RETRY_S.gate }, admit: dispatch.admit, quota, notes });
   }
-  const terminal = chooseTerminal(state, { pol, l4: run.l4, plan, candidates, dispatch });
+  const terminal = chooseTerminal(state, { pol, plan, candidates, dispatch });
   if (terminal.action === "wait") {
     return finish(run, state, { action: "wait", wait: { reason: terminal.reason, retry_after_s: RETRY_S[terminal.reason] }, admit: dispatch.admit, quota, notes });
   }

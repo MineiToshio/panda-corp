@@ -3,7 +3,7 @@
 # (git checks out tracked files only: no node_modules, no gitignored .claude/launch.json, no secrets).
 # Run it ONCE right after entering a fresh worktree, before editing.
 #
-# It is cheap by design: pnpm hardlinks from the shared store (sub-second), secrets are referenced not
+# It is cheap by design: pnpm makes APFS clones from the shared store, secrets are referenced not
 # copied (SOPS lives outside the repo), data is referenced not copied (PANDACORP_FACTORY_ROOT). A project
 # with its own state (a DB) adds the heavy bit in the per-project hook `.pandacorp/worktree-setup.sh`.
 set -euo pipefail
@@ -31,7 +31,7 @@ for candidate in "$WORKTREE/mission-control" "$WORKTREE"; do
   if [ -f "$candidate/package.json" ]; then APP_DIR="$candidate"; break; fi
 done
 
-# ── 1. Dependencies — hardlink from the shared store (never symlink node_modules; .next stays local) ─
+# ── 1. Dependencies — APFS clones from the shared store (never symlink node_modules; .next stays local) ─
 # Idempotent (BL-0149): a re-run of this script (e.g. the gate worktree re-bootstraps on every reuse,
 # ensureGateWorktree) must not pay a full reinstall when node_modules is already present and
 # pnpm-lock.yaml hasn't moved since the last bootstrap in THIS worktree — skip via a lockfile-hash
@@ -50,9 +50,44 @@ if [ -n "$APP_DIR" ] && command -v pnpm >/dev/null 2>&1; then
   if [ -d "$APP_DIR/node_modules" ] && [ -n "$LOCK_SHA" ] && [ -f "$LOCK_MARKER" ] && [ "$(cat "$LOCK_MARKER" 2>/dev/null)" = "$LOCK_SHA" ]; then
     echo "  • pnpm install skipped ($APP_DIR/node_modules present, pnpm-lock.yaml unchanged)"
   else
-    echo "  • pnpm install ($APP_DIR, hardlinks from the global store)"
-    ( cd "$APP_DIR" && pnpm install --prefer-offline >/dev/null 2>&1 || pnpm install )
-    [ -n "$LOCK_SHA" ] && mkdir -p "$APP_DIR/node_modules" && echo "$LOCK_SHA" > "$LOCK_MARKER"
+    # Measure the target volume, not the sealed system volume. The override is a test hook.
+    FREE_KB="$(df -Pk "$APP_DIR" | awk 'NR==2 {print $4}')"
+    FREE_MB="${PANDACORP_DISK_FREE_MB:-$(( FREE_KB / 1024 ))}"
+    MIN_FREE_MB="${PANDACORP_MIN_FREE_MB:-15360}"
+    WT_NEED_MB="${PANDACORP_WT_NEED_MB:-1500}"
+    if [ "$FREE_MB" -lt $(( MIN_FREE_MB + WT_NEED_MB )) ]; then
+      echo "Disco insuficiente: ${FREE_MB} MiB libres; se requieren $(( MIN_FREE_MB + WT_NEED_MB )) MiB para instalar." >&2
+      exit 4
+    fi
+    MAIN_APP_DIR="$MAIN_WT${APP_DIR#"$WORKTREE"}"
+    LOCK_DIFFERS=0
+    # Missing locks on both sides are not a change. A newly added/deleted lock is.
+    if [ -f "$APP_DIR/pnpm-lock.yaml" ] || [ -f "$MAIN_APP_DIR/pnpm-lock.yaml" ]; then
+      cmp -s "$APP_DIR/pnpm-lock.yaml" "$MAIN_APP_DIR/pnpm-lock.yaml" || LOCK_DIFFERS=1
+    fi
+    echo "  • pnpm install ($APP_DIR, clones APFS desde el almacén global)"
+    (
+      cd "$APP_DIR"
+      if ! pnpm install --offline --frozen-lockfile >/dev/null 2>&1; then
+        if ! pnpm install --prefer-offline --frozen-lockfile; then
+          if [ "$LOCK_DIFFERS" = 1 ]; then
+            pnpm install
+          else
+            echo "No se pudo instalar con el lockfile congelado; el lockfile coincide con el checkout principal." >&2
+            exit 1
+          fi
+        fi
+      fi
+    )
+    AFTER_KB="$(df -Pk "$APP_DIR" | awk 'NR==2 {print $4}')"
+    MODULES_KB="$(du -sk "$APP_DIR/node_modules" 2>/dev/null | awk '{print $1}')" || MODULES_KB=0
+    if [ "${MODULES_KB:-0}" -gt 0 ] && [ $(( (FREE_KB - AFTER_KB) * 100 )) -gt $(( MODULES_KB * 15 )) ]; then
+      echo "Aviso: la instalación consumió más del 15% de du node_modules; pnpm podría estar copiando en vez de clonar. Revisa el volumen del almacén." >&2
+    fi
+    # A permitted plain install can rewrite the lock; stamp its final bytes.
+    LOCK_SHA=""
+    [ ! -f "$APP_DIR/pnpm-lock.yaml" ] || LOCK_SHA="$(shasum -a 256 "$APP_DIR/pnpm-lock.yaml" | awk '{print $1}')"
+    [ -z "$LOCK_SHA" ] || { mkdir -p "$APP_DIR/node_modules"; echo "$LOCK_SHA" > "$LOCK_MARKER"; }
   fi
 fi
 

@@ -1,19 +1,36 @@
 // (1) Harvest: finished CLI workers (reports, reviews, consult answers, limits), G2 verdicts pinned to their snapshot
 // sha (B5) and the land job; a refused report is routed, never swallowed.
+import path from "node:path";
 import { atomicWriteJson, readJson } from "../fsx.mjs";
+import { readGatePatch, writeGateFailure } from "../gatefail.mjs";
 import { readJournal } from "../journal.mjs";
-import { REVIEW_TYPE_KINDS, findUnit, newUnit } from "../state.mjs";
+import { REVIEW_TYPE_KINDS, fencedTwoPhase, findUnit, newUnit } from "../state.mjs";
 import { ENV_WORKER_OUTCOMES, FRD_WORK_KINDS, G2_BOOTSTRAP_EXIT, MAX_ATTEMPTS, PLANNED_KINDS, SETTLED_OUTCOME_CODES } from "./constants.mjs";
 import { admissionCtx, cellOf, err, fenceOf, fresh, gitOk, isLive, maxZone, mutate, sibling, unionWos, unitEvent } from "./context.mjs";
 import { g2PinOf, removeG2Snapshot } from "./g2.mjs";
 import { reviewZone } from "./landing.mjs";
 
 export async function harvest(run, state, notes) {
+  await restorePatchedUnits(run, state);
   for (const job of state.jobs.filter((j) => j.state === "running")) {
     if (job.kind === "worker") await harvestWorker(run, job, notes);
     else if (job.kind === "g2") await harvestG2(run, job, notes);
   }
   if (state.jobs.some((j) => j.kind === "land" && j.state === "running")) await harvestLand(run, notes);
+}
+
+/** Once a gate patch is integrated, its superseded executions can participate in the next G2/review again. */
+async function restorePatchedUnits(run, state) {
+  const fixes = new Set();
+  for (const patch of state.units.filter((u) => u.kind === "patch" && u.state === "integrated")) {
+    const evidence = await readJson(path.join(run.paths.unitDir(patch.id), "gate-failure.json"), { fs: run.d.fs });
+    for (const id of evidence?.fixes ?? []) if (id !== patch.id) fixes.add(id);
+  }
+  if (!state.units.some((u) => fixes.has(u.id) && u.state === "patching")) return;
+  await mutate(run, (s) => {
+    const restored = s.units.filter((u) => fixes.has(u.id) && u.state === "patching");
+    return { state: { ...s, units: s.units.map((u) => (restored.includes(u) ? { ...u, state: "integrated" } : u)) }, events: restored.map((u) => unitEvent(u.id, u.state, "integrated")) };
+  });
 }
 
 async function finishJob(run, job, { state: jobState, exit }) {
@@ -165,6 +182,10 @@ async function harvestG2(run, job, notes) {
   const green = judged && !checked.stale && exit === 0;
   let handback = null;
   const zone = green ? await reviewZone(run, before, pin?.sha) : null;
+  const redPlan = judged && !green && !checked.stale
+    ? await readGatePatch({ state: before, units: before.units.filter((u) => FRD_WORK_KINDS.includes(u.kind) && u.frd === job.frd && u.state === "integrated"), gate: "G2", frd: job.frd, job, paths: run.paths }, d)
+    : null;
+  if (redPlan) await writeGateFailure(run.paths, redPlan, d);
   await mutate(run, (s) => {
     const cur = s.jobs.find((j) => j.id === job.id);
     if (!cur || cur.state !== "running") return {};
@@ -197,25 +218,30 @@ async function harvestG2(run, job, notes) {
       }
       return { state: next, events };
     }
-    const attempt = Math.max(0, ...work.map((u) => u.attempt)) + 1;
+    const { attempt, id: patchId } = redPlan;
     if (attempt > MAX_ATTEMPTS || work.length === 0) {
-      handback = work[0] ? { unit: work[0].id, reason: `G2 en rojo en ${job.frd} tras agotar los ${MAX_ATTEMPTS} intentos`, cause: "code" } : null;
+      const exhausted = redPlan.evidence.attributed ? redPlan.fixed : [findUnit(next, patchId)].filter(Boolean);
+      handback = exhausted.map((u) => ({ unit: u.id, reason: `G2 en rojo en ${job.frd} tras agotar los ${MAX_ATTEMPTS} intentos`, cause: "code", reasonCode: "budget_exhausted" }));
       return { state: next, events };
     }
-    const patchId = `u-patch-${job.frd}`;
-    const existing = findUnit(next, patchId);
-    if (existing) {
-      events.push(unitEvent(patchId, existing.state, "queued"));
-      next = { ...next, units: next.units.map((u) => (u.id === patchId ? { ...u, state: "queued", attempt, token_hash: null } : u)) };
-    } else {
-      const patch = newUnit({ id: patchId, kind: "patch", frd: job.frd, wos: unionWos(work), zone: maxZone(work.map((u) => u.zone)), attempt });
-      next = { ...next, units: [...next.units, patch] };
-      events.push({ type: "unit_queued", data: patch });
-    }
+    const patch = newUnit({ id: patchId, kind: "patch", frd: job.frd, wos: redPlan.wos, zone: maxZone((redPlan.fixed.length ? redPlan.fixed : work).map((u) => u.zone)), attempt });
+    const fixedIds = new Set(redPlan.fixed.map((u) => u.id));
+    for (const u of work.filter((u) => fixedIds.has(u.id) && u.id !== patchId)) events.push(unitEvent(u.id, u.state, "patching"));
+    next = { ...next, units: [...next.units.filter((u) => u.id !== patchId).map((u) => (fixedIds.has(u.id) ? { ...u, state: "patching" } : u)), patch] };
+    events.push({ type: "unit_queued", data: patch });
+    events.push({ type: "patch", data: { unit: patchId, reason: "g2_red", fixes: redPlan.evidence.fixes, wos: redPlan.evidence.wos, attempt, log: run.paths.jobOutFile(job.id) } });
     return { state: next, events };
   });
   if (pin) await removeG2Snapshot(run, pin.dir);
-  if (handback) await (await sibling(d, "failure", "handbackCommand"))({ ...fenceOf(run), ...handback }, d);
+  if (handback) for (const item of [].concat(handback)) {
+    if (item.reasonCode === "budget_exhausted") {
+      const handBack = await sibling(d, "failure", "handBack");
+      await fencedTwoPhase(run.ref, undefined, undefined, (_work, _intent, ctx) => handBack(ctx, {
+        unitId: item.unit, cause: item.cause, reasonCode: item.reasonCode, reason: item.reason,
+        failure: { command: "bash .pandacorp/verify.sh", tail: redPlan.evidence.tail },
+      }, d));
+    } else await (await sibling(d, "failure", "handbackCommand"))({ ...fenceOf(run), ...item }, d);
+  }
   if (checked.stale) notes.push(`G2 de ${job.frd} juzgó ${pin.sha.slice(0, 12)}, pero el FRD cambió después: se repite sobre la rama actual.`);
   else if (judged && exit !== 0) notes.push(`G2 en rojo en ${job.frd}: se encola una corrección.`);
 }

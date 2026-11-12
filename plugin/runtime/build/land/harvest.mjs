@@ -2,10 +2,11 @@
 import path from "node:path";
 import { archiveCard } from "../card.mjs";
 import { isTrackedPath, nowIso } from "../fsx.mjs";
+import { readGatePatch, writeGateFailure } from "../gatefail.mjs";
 import { findUnit, newUnit, upsertJob } from "../state.mjs";
 import { assessBatch, mapMergeQueueExit } from "./batch.mjs";
 import {
-  WO_KINDS, assertCleanWorktree, defaultBranchOf, dropLandingMetadata, err, git, gitOk, markerLine, maxZone, pollLandJob, resolveLandDeps, tipMessage,
+  assertCleanWorktree, defaultBranchOf, dropLandingMetadata, err, git, gitOk, markerLine, maxZone, pollLandJob, resolveLandDeps, tipMessage,
 } from "./common.mjs";
 
 /** Move units to a state, journaling each transition; returns the new state (pure on `state`). */
@@ -73,20 +74,19 @@ async function onGateRed(ctx, state, job, d) {
   const root = state.integration.worktree;
   await assertCleanWorktree(d, root);
   await dropLandingMetadata(d, root, ctx.runId);
-  const fixed = assessBatch(state).landable.filter((u) => WO_KINDS.includes(u.kind));
-  const frds = [...new Set(fixed.map((u) => u.frd).filter(Boolean))];
-  const single = frds.length === 1 && fixed.every((u) => u.frd === frds[0]);
-  const id = single ? `u-patch-${frds[0]}` : "u-patch-g3";
-  const attempt = Math.max(1, ...fixed.map((u) => u.attempt), findUnit(state, id)?.attempt ?? 1) + 1;
+  const candidates = assessBatch(state).landable;
+  const plan = await readGatePatch({ state, units: candidates, gate: "G3", job, paths: ctx.paths }, d);
+  const { id, attempt, fixed } = plan;
   const log = path.relative(ctx.project, ctx.paths.jobOutFile(job.id));
+  await writeGateFailure(ctx.paths, plan, d);
   if (attempt > 3) {
     await ctx.appendEvent({ type: "handback", data: { reason: "g3_red", cause: "landing", patch: "budget_exhausted", log } });
     // The finished job must be on disk before failure.handBack re-reads the state (BUILD-15, R4: units and dependents go `blocked`).
     await ctx.writeState(state);
     const failure = d.failure ?? (await import("../failure.mjs"));
-    const outLog = await d.fs.readFile(ctx.paths.jobOutFile(job.id), "utf8").catch(() => "");
-    const tail = outLog.split("\n").slice(-40).join("\n");
-    for (const unit of fixed) {
+    const tail = plan.evidence.tail;
+    const exhausted = plan.evidence.attributed ? fixed : [findUnit(state, id)].filter(Boolean);
+    for (const unit of exhausted) {
       await failure.handBack(ctx, {
         unitId: unit.id, cause: "code", reasonCode: "budget_exhausted", reason: "G3 rojo con el presupuesto de 3 ejecuciones agotado",
         failure: { command: "bash .pandacorp/merge-queue.sh", tail },
@@ -95,12 +95,12 @@ async function onGateRed(ctx, state, job, d) {
     return { state: await ctx.readState(), output: { result: "handback", reason: "g3_red", mq_exit: 11, sha: null, patch_unit: null }, exit: 6 };
   }
   const patch = newUnit({
-    id, kind: "patch", wos: [...new Set(fixed.flatMap((u) => u.wos))], frd: single ? frds[0] : null,
-    zone: maxZone(fixed.length ? fixed : [{ zone: "none" }]), risk_rules: [...new Set(fixed.flatMap((u) => u.risk_rules))], attempt,
+    id, kind: "patch", wos: plan.wos, frd: plan.frd,
+    zone: maxZone((fixed.length ? fixed : candidates).concat({ zone: "none" })), risk_rules: [...new Set((fixed.length ? fixed : candidates).flatMap((u) => u.risk_rules))], attempt,
   });
   await ctx.appendEvent({ type: "handback", data: { reason: "g3_red", cause: "landing", log } });
   await ctx.appendEvent({ type: "unit_queued", data: patch });
-  await ctx.appendEvent({ type: "patch", data: { unit: id, reason: "g3_red", fixes: fixed.map((u) => u.id), attempt, log } });
+  await ctx.appendEvent({ type: "patch", data: { unit: id, reason: "g3_red", fixes: fixed.map((u) => u.id), wos: plan.evidence.wos, attempt, log } });
   const others = state.units.filter((u) => u.id !== id);
   let next = { ...state, units: [...others, patch] };
   next = await moveUnits(ctx, next, fixed.filter((u) => u.id !== id), "patching");

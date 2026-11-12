@@ -8,27 +8,41 @@ import { isLive } from "../liveness";
 import { readStatus } from "../status";
 
 const dirs: string[] = [];
-afterEach(() => { for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true }); });
+afterEach(() => {
+  for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true });
+});
 it("fresh lease keeps a worker live across stale status stamps, and expires at its own TTL", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-lease-")); dirs.push(dir);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-lease-"));
+  dirs.push(dir);
   fs.mkdirSync(path.join(dir, ".pandacorp/run/build.lease"), { recursive: true });
-  fs.writeFileSync(path.join(dir, ".pandacorp/status.yaml"), 'running: true\nsupervisor_heartbeat: "2000-01-01T00:00:00Z"\nlast_green_sha: abc123\n');
-  const renewedAt = "2026-10-31T12:00:00Z", nowMs = Date.parse(renewedAt);
-  fs.writeFileSync(path.join(dir, ".pandacorp/run/build.lease/lease.json"), JSON.stringify({ renewed_at: renewedAt, ttl_seconds: 30 }));
+  fs.writeFileSync(
+    path.join(dir, ".pandacorp/status.yaml"),
+    'running: true\nsupervisor_heartbeat: "2000-01-01T00:00:00Z"\nlast_green_sha: abc123\n',
+  );
+  const renewedAt = "2026-10-31T12:00:00Z",
+    nowMs = Date.parse(renewedAt);
+  fs.writeFileSync(
+    path.join(dir, ".pandacorp/run/build.lease/lease.json"),
+    JSON.stringify({ renewed_at: renewedAt, ttl_seconds: 30 }),
+  );
   const result = readStatus(dir);
   expect(result.present && !result.malformed).toBe(true);
   if (!result.present) throw new Error("status absent");
   const status = result.status;
   expect(status.leaseRenewedAt).toBe(renewedAt);
   expect(isLive(status, nowMs)).toBe(true);
-  expect(buildSignal({ ...status, nowMs })).toMatchObject({ kind: "live", lastSignalAt: renewedAt });
+  expect(buildSignal({ ...status, nowMs })).toMatchObject({
+    kind: "live",
+    lastSignalAt: renewedAt,
+  });
   expect(buildSnapshot("fixture", status, nowMs)).toMatchObject({ buildingNow: "building now" });
   expect(isLive(status, nowMs + 30_000)).toBe(false);
   expect(buildSignal({ ...status, nowMs: nowMs + 30_000 }).kind).toBe("no-signal");
   expect(buildSnapshot("fixture", status, nowMs + 30_000)).toMatchObject({ noSignal: true });
 });
 it("malformed lease is explicit rather than silently treated as absent", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-lease-")); dirs.push(dir);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-lease-"));
+  dirs.push(dir);
   fs.mkdirSync(path.join(dir, ".pandacorp/run/build.lease"), { recursive: true });
   fs.writeFileSync(path.join(dir, ".pandacorp/status.yaml"), "running: true\n");
   fs.writeFileSync(path.join(dir, ".pandacorp/run/build.lease/lease.json"), "{}");
@@ -45,11 +59,16 @@ it("lease TTL above ten minutes remains authoritative until its own expiry", () 
 });
 
 it("v2 lease alone (no running key, no heartbeat) reads live while fresh and not live once expired", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-lease-")); dirs.push(dir);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-lease-"));
+  dirs.push(dir);
   fs.mkdirSync(path.join(dir, ".pandacorp/run/build.lease"), { recursive: true });
   fs.writeFileSync(path.join(dir, ".pandacorp/status.yaml"), "last_green_sha: abc123\n");
-  const renewedAt = "2026-11-11T12:00:00Z", nowMs = Date.parse(renewedAt) + 90_000;
-  fs.writeFileSync(path.join(dir, ".pandacorp/run/build.lease/lease.json"), JSON.stringify({ renewed_at: renewedAt, ttl_seconds: 1800 }));
+  const renewedAt = "2026-11-11T12:00:00Z",
+    nowMs = Date.parse(renewedAt) + 90_000;
+  fs.writeFileSync(
+    path.join(dir, ".pandacorp/run/build.lease/lease.json"),
+    JSON.stringify({ renewed_at: renewedAt, ttl_seconds: 1800 }),
+  );
   const result = readStatus(dir);
   expect(result.present && !result.malformed).toBe(true);
   if (!result.present) throw new Error("status absent");
@@ -58,7 +77,8 @@ it("v2 lease alone (no running key, no heartbeat) reads live while fresh and not
 });
 
 it("missing lease file is not an error and does not make a project live", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-lease-")); dirs.push(dir);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-lease-"));
+  dirs.push(dir);
   fs.mkdirSync(path.join(dir, ".pandacorp"), { recursive: true });
   fs.writeFileSync(path.join(dir, ".pandacorp/status.yaml"), "last_green_sha: abc123\n");
   const result = readStatus(dir);
@@ -68,9 +88,13 @@ it("missing lease file is not an error and does not make a project live", () => 
 });
 
 it("lease with a non-parseable renewed_at is reported malformed, never silently live", () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-lease-")); dirs.push(dir);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-lease-"));
+  dirs.push(dir);
   fs.mkdirSync(path.join(dir, ".pandacorp/run/build.lease"), { recursive: true });
   fs.writeFileSync(path.join(dir, ".pandacorp/status.yaml"), "last_green_sha: abc123\n");
-  fs.writeFileSync(path.join(dir, ".pandacorp/run/build.lease/lease.json"), JSON.stringify({ renewed_at: "garbage", ttl_seconds: 1800 }));
+  fs.writeFileSync(
+    path.join(dir, ".pandacorp/run/build.lease/lease.json"),
+    JSON.stringify({ renewed_at: "garbage", ttl_seconds: 1800 }),
+  );
   expect(readStatus(dir)).toMatchObject({ present: true, malformed: true });
 });
