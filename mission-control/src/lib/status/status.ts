@@ -288,9 +288,16 @@ export function readStatus(projectPath: string): StatusResult {
   const status = mapStatusFields(parsed as Record<string, unknown>);
 
   try {
-    const lease = JSON.parse(fs.readFileSync(path.join(projectPath, ".pandacorp/run/build.lease/lease.json"), "utf8"));
-    if (typeof lease.renewed_at !== "string" || !Number.isFinite(Date.parse(lease.renewed_at)) ||
-        typeof lease.ttl_seconds !== "number" || !Number.isFinite(lease.ttl_seconds) || lease.ttl_seconds <= 0) {
+    const lease = JSON.parse(
+      fs.readFileSync(path.join(projectPath, ".pandacorp/run/build.lease/lease.json"), "utf8"),
+    );
+    if (
+      typeof lease.renewed_at !== "string" ||
+      !Number.isFinite(Date.parse(lease.renewed_at)) ||
+      typeof lease.ttl_seconds !== "number" ||
+      !Number.isFinite(lease.ttl_seconds) ||
+      lease.ttl_seconds <= 0
+    ) {
       return { present: true, malformed: true, status };
     }
     status.leaseRenewedAt = lease.renewed_at;
