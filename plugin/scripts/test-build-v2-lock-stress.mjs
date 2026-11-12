@@ -7,7 +7,7 @@
 //     and holds exactly the records the appenders reported written;
 //   - a finished holder's lock never reappears at the lock path (a hand-back of a released lock), which would stall
 //     every caller until the staleness bound.
-// Bounded to a time budget (default 11 s; PANDACORP_LOCK_STRESS_BUDGET_MS). PANDACORP_LOCK_STRESS_PLUGIN points the
+// Guaranteed MIN_ROUNDS rounds per sub-test (hard cap 120 s), plus extra rounds within a time budget (default 11 s; PANDACORP_LOCK_STRESS_BUDGET_MS). PANDACORP_LOCK_STRESS_PLUGIN points the
 // processes at another plugin root (e.g. an older revision, to show the test catches its races);
 // PANDACORP_LOCK_STRESS_WORKERS / _ITERS / _PLANTERS size each round.
 import { spawn } from "node:child_process";
@@ -110,12 +110,22 @@ const roots = [];
 const base = await mkdtemp(path.join(os.tmpdir(), "pc-lock-stress-"));
 roots.push(base);
 const started = Date.now();
-const timeLeft = (share) => Date.now() - started < budgetMs * share;
+// The budget only bounds EXTRA rounds: every sub-test first completes MIN_ROUNDS rounds whatever the wall clock (a loaded
+// machine must not turn "slow" into "did not run"); only the hard cap fails loud, when even the minimum cannot finish.
+const MIN_ROUNDS = knob("PANDACORP_LOCK_STRESS_MIN_ROUNDS", 1);
+const hardCapMs = knob("PANDACORP_LOCK_STRESS_HARD_CAP_MS", 120_000);
+const keepGoing = (testStart, share, total) => {
+  const rounds = total.planted > 0 && total.ok > 0 ? total.rounds : Math.min(total.rounds, MIN_ROUNDS - 1);
+  const elapsed = Date.now() - testStart;
+  if (elapsed >= hardCapMs) return false;
+  return rounds < MIN_ROUNDS || Date.now() - started < budgetMs * share;
+};
 
 await test("lease-mutation mutex: dead holders + racing reclaimers never give two holders, never resurrect a released lock", async () => {
   const { acquire } = await import(BUILD_STATE);
   const total = { ok: 0, viol: 0, cont: 0, reappear: 0, planted: 0, rounds: 0 };
-  while (timeLeft(0.55)) {
+  const testStart = Date.now();
+  while (keepGoing(testStart, 0.55, total)) {
     const project = path.join(base, `m-${total.rounds}`);
     await mkdir(path.join(project, ".pandacorp", "run"), { recursive: true });
     await writeFile(path.join(project, ".pandacorp", "status.yaml"), "phase: implementation\nrunning: false\n");
@@ -131,7 +141,7 @@ await test("lease-mutation mutex: dead holders + racing reclaimers never give tw
     if (total.viol || total.reappear) break;
   }
   console.log(`      mutex: ${JSON.stringify(total)}`);
-  ok(total.rounds > 0 && total.planted > 0 && total.ok > 0, "the stress did not run (no round, no planted dead lock or no successful fence)");
+  ok(total.rounds >= MIN_ROUNDS && total.planted > 0 && total.ok > 0, "the stress did not run (fewer than the minimum rounds within the hard cap, no round, no planted dead lock or no successful fence)");
   ok(total.viol === 0, `two processes were inside the mutex at once ${total.viol} time(s)`);
   ok(total.reappear === 0, `a released mutex reappeared at the lock path ${total.reappear} time(s)`);
 });
@@ -140,7 +150,8 @@ await test("journal append lock: dead holders + racing reclaimers keep the chain
   const { readChainedJsonl } = await import(FSX);
   const total = { ok: 0, cont: 0, reappear: 0, planted: 0, rounds: 0, records: 0 };
   let chainError = null;
-  while (timeLeft(1)) {
+  const testStart = Date.now();
+  while (keepGoing(testStart, 1, total)) {
     const dir = path.join(base, `j-${total.rounds}`);
     await mkdir(dir, { recursive: true });
     const file = path.join(dir, "journal.jsonl");
@@ -160,7 +171,7 @@ await test("journal append lock: dead holders + racing reclaimers keep the chain
     if (chainError || total.reappear) break;
   }
   console.log(`      journal: ${JSON.stringify(total)}`);
-  ok(total.rounds > 0 && total.planted > 0 && total.ok > 0, "the stress did not run");
+  ok(total.rounds >= MIN_ROUNDS && total.planted > 0 && total.ok > 0, "the stress did not run (fewer than the minimum rounds within the hard cap)");
   ok(!chainError, `two appenders held the journal lock at once: ${chainError}`);
   ok(total.reappear === 0, `a released journal lock reappeared at the lock path ${total.reappear} time(s)`);
 });
