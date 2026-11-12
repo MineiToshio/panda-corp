@@ -1,10 +1,10 @@
 import { Icon } from "@/components/core/Icon/Icon";
 /**
- * manual-diagrams/WorkflowShapeDiagram.tsx — FRD-08 Workflows overview ("La forma que se repite")
+ * manual-diagrams/WorkflowShapeDiagram.tsx : FRD-08 Workflows overview ("La forma que se repite")
  *
- * The fan-out → gate silhouette shared by every Dynamic Workflow: many subagents work in parallel
+ * The fan-out → gate silhouette shared by every ejecutor determinista: many subagents work in parallel
  * (fan-out row), then a review gate funnels the result before it's let through (the newspaper
- * analogy — many reporters write sections in parallel, but everything passes the editor's desk
+ * analogy : many reporters write sections in parallel, but everything passes the editor's desk
  * before printing; a "split" gate is four specialists instead of one editor).
  *
  * Tokens only · light+dark first-class · meaning never by color alone (labels carry the meaning).
@@ -16,10 +16,10 @@ import type React from "react";
 import { DownArrow } from "./atoms";
 
 // ---------------------------------------------------------------------------
-// Fan-out row — N parallel worker chips
+// Fan-out row : N parallel worker chips
 // ---------------------------------------------------------------------------
 
-const WORKERS: readonly string[] = ["Reportero A", "Reportero B", "Reportero C", "Reportero D"];
+const WORKERS: readonly string[] = ["Unidad lista A", "Unidad lista B"];
 
 const GATE_LENSES: readonly string[] = ["Hechos", "Legal", "Estilo", "Maqueta"];
 
@@ -98,10 +98,10 @@ export function WorkflowShapeDiagram(): React.JSX.Element {
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: "12.5px", fontWeight: 600, color: "var(--text)" }}>
-            La compuerta — el jefe de redacción
+            Revisión independiente · otra compañía
           </div>
           <div style={{ fontSize: "11.5px", color: "var(--text-2)", marginTop: "4px" }}>
-            Verifica antes de dejar pasar. En "split" son varios especialistas a la vez:
+            Un único revisor contrasta el contrato y la evidencia con estas lentes:
           </div>
           <div style={{ display: "flex", gap: "6px", marginTop: "6px", flexWrap: "wrap" }}>
             {GATE_LENSES.map((label) => (
@@ -124,7 +124,7 @@ export function WorkflowShapeDiagram(): React.JSX.Element {
           color: "var(--green)",
         }}
       >
-        Solo lo confirmado se imprime
+        Integración verificada → merge-queue → main
       </div>
     </div>
   );

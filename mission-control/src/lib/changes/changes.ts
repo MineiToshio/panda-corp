@@ -7,8 +7,7 @@ import matter from "@/lib/fs-utils/parseFrontmatter";
  *
  * Reads `.pandacorp/inbox/changes/*.md` (pending) and `.../changes/done/*.md`
  * (archived) into typed `ChangeQueueItem` objects. The queue is written by
- * `/pandacorp:change`, `/pandacorp:bug` and `/pandacorp:iterate` (the build's
- * drain engine) — Mission Control only reads it.
+ * the build session through `/pandacorp:implement` — Mission Control only reads it.
  *
  * Fail-loud read boundary (DR-078): a malformed change file (unparseable YAML,
  * an invalid/missing `type` or `status`, or a body with no H1 title) is NOT

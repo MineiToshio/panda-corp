@@ -18,13 +18,7 @@
  * project workspace Commands tab).
  */
 
-import {
-  type CommandMode,
-  IMPLEMENT_MODE_TITLE,
-  SPEC_MODE_TITLE,
-  SPEC_MODES,
-} from "@/lib/command-modes";
-import { BUILD_MODES, DEFAULT_BUILD_MODE } from "@/lib/constants";
+import { type CommandMode, SPEC_MODE_TITLE, SPEC_MODES } from "@/lib/command-modes";
 import { t } from "@/lib/copy/copy";
 
 // ---------------------------------------------------------------------------
@@ -74,14 +68,6 @@ export interface PhaseDefinition {
 // ---------------------------------------------------------------------------
 // Static data: index 0–5 maps to these 6 phases in order.
 // ---------------------------------------------------------------------------
-
-const CAMPAIGN_BUILD_MODES: readonly CommandMode[] = BUILD_MODES.filter(
-  (mode) => mode.id !== DEFAULT_BUILD_MODE,
-).map((mode) => ({
-  flag: mode.id,
-  label: t(mode.label),
-  hint: t(mode.description),
-}));
 
 /** The 6 campaign phases in pipeline order (research → release). */
 export const PHASES: ReadonlyArray<PhaseDefinition> = [
@@ -172,8 +158,6 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       {
         label: "Construye con TDD",
         command: "/pandacorp:implement",
-        modes: CAMPAIGN_BUILD_MODES,
-        modeTitle: IMPLEMENT_MODE_TITLE,
       },
       { label: "Ajusta la arquitectura / work orders", command: "/pandacorp:architecture" },
     ],
@@ -189,7 +173,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
     key: "build",
     name: t("common.phases.implementation"),
     description:
-      "Implementación con TDD (RED → GREEN → refactor) en el flujo v2: fundación primero, luego oleadas disjuntas serializadas por artefacto de archivo, con un bucle de fidelidad por work order contra el mock. Cada FRD pasa un gate de 4 lentes más juez visual, y las oleadas se commitean con un único escritor (Option-B). Como último paso, el endurecimiento: el security-auditor revisa la seguridad, el reviewer cierra la calidad y analytics instrumenta las métricas.",
+      "Implementación con TDD y revisión independiente entre compañías. El motor ajusta la concurrencia según el rendimiento, aparca las dudas sin resolver y continúa el trabajo independiente. Los cambios se integran en una rama del build y llegan a main por la cola de merge. El endurecimiento final revisa seguridad, calidad y métricas.",
     reads:
       "Blueprint + ADRs + Build Plan + fundación (primitivas compartidas) + work orders con sus artefactos de archivo",
     writes: "Código verificado y endurecido (GREEN): la app lista para lanzar",
@@ -198,11 +182,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       {
         label: "Reanuda / continúa el build",
         command: "/pandacorp:implement",
-        modes: CAMPAIGN_BUILD_MODES,
-        modeTitle: IMPLEMENT_MODE_TITLE,
       },
-      { label: "Reporta un bug encontrado probando", command: "/pandacorp:bug" },
-      { label: "Encola un cambio para el build", command: "/pandacorp:change" },
     ],
     team: [
       {
@@ -235,7 +215,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
     reads: "Código verificado y endurecido (GREEN)",
     writes: "App lanzada (interna o externa) + plan de lanzamiento",
     commands: [
-      { label: "Agrega una feature o cambio", command: "/pandacorp:iterate" },
+      { label: "Agrega una feature o cambio", command: "/pandacorp:implement" },
       {
         label: "Revisa métricas vs hipótesis (kill/hold/double-down)",
         command: "/pandacorp:review-launch",

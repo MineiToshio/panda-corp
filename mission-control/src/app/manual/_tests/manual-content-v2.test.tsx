@@ -35,13 +35,20 @@ describe("WO-08-004 v2 authored documentation", () => {
       expect(indexed.has(slug), slug).toBe(true);
     expect(pages.filter((page) => page.group === "tutorial")).toHaveLength(2);
     expect(pages.filter((page) => page.group === "concepts")).toHaveLength(22);
-    expect(pages.filter((page) => page.group === "workflows")).toHaveLength(3);
+    expect(pages.filter((page) => page.group === "workflows").map((page) => page.slug)).toEqual([
+      "wf-pandacorp-backlog",
+    ]);
   });
   it.each(
     manualPageSlugs(),
   )("REQ-08-013 extracts every registered renderer without throwing: %s", (slug) => {
     const copy = text(slug);
     expect(copy.length).toBeGreaterThan(100);
+    const Renderer = getManualPageComponent(slug);
+    if (!Renderer) throw new Error(slug);
+    const html = renderToStaticMarkup(createElement(Renderer));
+    expect(html).not.toMatch(/href="\/manual\/workflows\/(que-es-un-workflow|wf-pandacorp-build)"/);
+
     expect(copy).not.toMatch(RETIRED);
     expect(copy).not.toMatch(/en un proyecto nuevo.*motor por defecto.*Claude Design/i);
     expect(copy).not.toContain("Con Claude Design el loop");
@@ -76,7 +83,8 @@ describe("WO-08-004 v2 authored documentation", () => {
     const mode = text("g-modo");
     expect(mode).toContain("Comandos");
     expect(mode).toContain("Campaña");
-    expect(mode).toContain("--lanes");
+    expect(mode).toContain("--resume");
+    expect(mode).not.toMatch(/implement (balanced|powerful|deep|pro)|--lanes/);
     expect(mode).not.toMatch(/hasta [248] work orders|oleadas de [248]/);
     expect(text("como-empezar")).toContain("Portafolio");
     expect(text("como-empezar")).toContain("La Fragua");

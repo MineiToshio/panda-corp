@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
+import { getBuildRun } from "@/lib/build-run/build-run";
+import { buildWorkOrderDisplay } from "@/lib/build-run/display";
 import { readBuildTimeline } from "@/lib/build-track/build-track";
 import { readChangeQueue } from "@/lib/changes/changes";
 import { readActivityLog, readDecisionSource } from "@/lib/docs/activity";
@@ -19,6 +21,20 @@ function readChanges(projectPath: string) {
   }
   const queue = readChangeQueue(projectPath);
   return queue;
+}
+
+/** A nested engine handback remains a local draft; never execute or file it. */
+function readHandbackDrafts(projectPath: string): string[] {
+  const relative = ".pandacorp/run/build/handback";
+  try {
+    return fs
+      .readdirSync(path.join(projectPath, relative))
+      .filter((name) => /^engine-backlog-[a-zA-Z0-9_-]+\.md$/.test(name))
+      .map((name) => `${relative}/${name}`);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
+    throw error;
+  }
 }
 
 /** Read each independent source explicitly; a failed card never impersonates an empty one. */
@@ -51,6 +67,32 @@ export function readSummary(projectPath: string) {
     error: orderSource.error,
     fileErrors: orderSource.value.errors,
   };
+  const handbacks = readArtifact(() => readHandbackDrafts(projectPath), []);
+  const resolvedRun = getBuildRun(projectPath);
+  const buildRun = {
+    ...resolvedRun,
+    errors: [
+      ...resolvedRun.errors,
+      ...(source.value.errors ?? []),
+      ...(handbacks.error
+        ? [{ path: ".pandacorp/run/build/handback", reason: handbacks.error }]
+        : []),
+    ],
+  };
+  const display = buildWorkOrderDisplay(orders.value, buildRun);
+  orders.value = display.items;
+  orders.fileErrors = [
+    ...(orders.fileErrors ?? []),
+    ...display.errors.map((error) => ({ file: error.path, reason: error.reason })),
+  ];
   const timeline = readArtifact(() => readBuildTimeline(projectPath, orders.value), null);
-  return { decisions, changes, orders, timeline, activityLog: readActivityLog(projectPath) };
+  return {
+    buildRun,
+    handbackDrafts: handbacks.value,
+    decisions,
+    changes,
+    orders,
+    timeline,
+    activityLog: readActivityLog(projectPath),
+  };
 }

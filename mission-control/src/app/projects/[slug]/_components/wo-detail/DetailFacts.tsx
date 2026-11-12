@@ -3,6 +3,8 @@ import { Chip } from "@/components/core/Chip/Chip";
 import { statePresentation } from "@/components/core/Chip/vocabulary";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { KeyValue } from "@/components/core/KeyValue/KeyValue";
+import { buildCommand } from "@/lib/build-mode-store";
+import { BUILD_ENTRY_COPY } from "@/lib/constants";
 import { t } from "@/lib/copy/copy";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { DependencyButton } from "./DependencyButton";
@@ -21,6 +23,8 @@ export function DetailFacts({
   dependents: readonly WorkOrder[];
   href: string;
 }): React.JSX.Element {
+  const frd = order.frd.match(/^frd-(\d+)(?:-|$)/i)?.[1];
+  const command = frd ? buildCommand("target", `FRD-${frd.padStart(2, "0")}`) : null;
   const meta = statePresentation(order.state === "fail" ? "blocked" : order.state);
   const difficulty = DIFFICULTIES.find((value) => value === order.difficulty);
   const items = [
@@ -110,10 +114,13 @@ export function DetailFacts({
           );
         })}
       </Card>
-      <Card tone="violet">
-        <CardHeader title={t("workspace.observabilidad.detail.build.title")} icon="terminal" />
-        <CmdRow variant="box" command={`/pandacorp:implement ${order.id}`} />
-      </Card>
+      {command && (
+        <Card tone="violet">
+          <CardHeader title={t("workspace.observabilidad.detail.build.title")} icon="terminal" />
+          <p>{BUILD_ENTRY_COPY.frdScope}</p>
+          <CmdRow variant="box" command={command} />
+        </Card>
+      )}
     </aside>
   );
 }

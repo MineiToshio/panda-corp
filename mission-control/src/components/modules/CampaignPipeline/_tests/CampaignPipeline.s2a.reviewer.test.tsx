@@ -141,14 +141,12 @@ describe("commands (AC-02-010.9/.10)", () => {
   it("every implement sheet offers the picker the frozen prototype draws (AC-02-010.9)", () => {
     render(<CampaignPipeline slug="x" activePhase={3} />);
     expect(commands()[0]).toContain("/pandacorp:implement");
-    expect(within(sheet()).getByText("Elegir modo de construcción")).toBeInTheDocument();
+    expect(within(sheet()).getByText("Construir o reanudar")).toBeInTheDocument();
   });
 
   it("the build sheet offers the shared picker and never a select (AC-11-005.3)", () => {
     render(<CampaignPipeline slug="x" activePhase={4} />);
-    expect(
-      within(sheet()).getByText("Elegir modo de construcción").closest("details"),
-    ).toBeTruthy();
+    expect(within(sheet()).getByText("Construir o reanudar").closest("details")).toBeTruthy();
     expect(within(sheet()).getByTestId("build-mode-picker")).toBeInTheDocument();
     expect(within(sheet()).queryByRole("combobox")).toBeNull();
   });

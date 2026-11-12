@@ -1,7 +1,7 @@
 import { Icon } from "@/components/core/Icon/Icon";
 import type { IconName } from "@/components/core/Icon/iconData";
 /**
- * manual-diagrams/RuntimeComparison.tsx — FRD-08 ("Operar desde cualquier agente")
+ * manual-diagrams/RuntimeComparison.tsx : FRD-08 ("Operar desde cualquier agente")
  *
  * The per-capability Claude Code vs Codex comparison (PORT-1..6). Each row states
  * a capability, what each runtime provides, and a labelled status badge:
@@ -11,7 +11,7 @@ import type { IconName } from "@/components/core/Icon/iconData";
  * A highlighted final row states what is IDENTICAL across runtimes (the governance
  * floor: change queue, decisions, docs, human gates, Spanish).
  *
- * Status is NEVER conveyed by color alone — every badge pairs an icon + a text
+ * Status is NEVER conveyed by color alone : every badge pairs an icon + a text
  * label + a data-status attribute. Tokens only · light+dark first-class.
  *
  * Traceability: CMP-08-diagrams (multi-runtime).
@@ -71,20 +71,20 @@ const ROWS: readonly Row[] = [
   },
   {
     capability: "Build (implement)",
-    claude: "background + paralelo, motor dinámico",
-    codex: "acceso completo; sesión nativa o launcher foreground con alcance probado (DR-133)",
+    claude: "CLI común + trabajadores locales; lectura/escritura",
+    codex: "CLI común + trabajadores locales; acceso completo",
     status: "degrades",
   },
   {
     capability: "Construcción nocturna",
-    claude: "desatendida, corre por horas sin owner",
-    codex: "sesión atendida; sin promesa de automatización nocturna",
+    claude: "continuidad solo con un mecanismo observado",
+    codex: "sesión atendida o drive autorizado; continuidad por verificar",
     status: "claude-only",
   },
   {
     capability: "Subagentes",
     claude: "modelo elegido al vuelo por subtarea",
-    codex: ".codex/agents/*.toml (modelo fijo) · tiers mech/standard/judge",
+    codex: ".codex/agents/*.toml (modelo fijo) · tiers mecánico/estándar/juicio",
     status: "degrades",
   },
   {
@@ -101,13 +101,13 @@ const ROWS: readonly Row[] = [
   },
   {
     capability: "Fragua / telemetría",
-    claude: "eventos completos (hooks + motor)",
+    claude: "eventos del CLI + hooks disponibles; archivos como autoridad",
     codex: "transporte propio + progreso/track; archivos siguen siendo verdad",
     status: "degrades",
   },
   {
     capability: "Notificaciones",
-    claude: "push al escritorio + móvil",
+    claude: "solo si el runtime ofrece un mecanismo verificado",
     codex: "progreso y resultados en chat; notificaciones si el runtime las ofrece",
     status: "degrades",
   },

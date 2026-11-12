@@ -39,9 +39,12 @@ describe("AC-05-008.4 work-order reading summary", () => {
     expect(screen.getByText("Hidden block").closest("details")).not.toHaveAttribute("open");
     expect(screen.getByText("Archivos que toca")).toBeInTheDocument();
     expect(screen.getByText("src/reader.ts")).toBeInTheDocument();
+    expect(
+      screen.getByText("El comando construye el trabajo pendiente del FRD completo."),
+    ).toBeInTheDocument();
     expect(screen.getByText("Media")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Copiar /pandacorp:implement WO-05-001" }),
+      screen.getByRole("button", { name: "Copiar /pandacorp:implement FRD-05" }),
     ).toBeInTheDocument();
     expect(
       screen

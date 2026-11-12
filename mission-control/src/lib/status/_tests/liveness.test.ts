@@ -93,9 +93,9 @@ describe("isLive — fresh v2 lease without running (REQ-04-017, AC-04-017.1/.2)
     expect(isLive({ running: true, ...lease(1_801_000) }, NOW)).toBe(false);
   });
 
-  it("running:true + legacy fresh heartbeat still live when the lease is expired", () => {
+  it("an expired v2 lease cannot be revived by a fresh legacy heartbeat", () => {
     expect(
       isLive({ running: true, supervisorHeartbeat: ago(30_000), ...lease(1_801_000) }, NOW),
-    ).toBe(true);
+    ).toBe(false);
   });
 });

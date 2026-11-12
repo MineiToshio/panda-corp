@@ -6,6 +6,6 @@ order: 8
 
 # Hooks, gates y seguridad
 
-Los gates y hooks que hacen pasar por un humano o un script las acciones irreversibles o costosas.
+Los gates deterministas y la revisión independiente verifican el trabajo. Los cambios versionados se escriben en integración y pasan por merge-queue para llegar a main; producción requiere la orden del propietario.
 
 > El cuerpo de esta página se compone en React (`src/app/manual/manualPages.tsx`). Este markdown solo respalda el índice del Manual (título, grupo y orden): no edites su prosa aquí.

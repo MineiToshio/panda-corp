@@ -1,0 +1,57 @@
+.root {
+  display: grid;
+  gap: var(--s4);
+  min-width: 0;
+}
+.root p {
+  margin: 0;
+}
+.meta {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s4);
+  margin: 0;
+}
+.facts div {
+  min-width: 0;
+}
+.facts dt {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.root ul {
+  padding-left: var(--s5);
+}
+.root li {
+  overflow-wrap: anywhere;
+}
+.root h3 {
+  font-size: var(--fs-h3);
+}
+.root summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.scroll {
+  overflow-x: auto;
+  min-width: 0;
+}
+.table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--fs-sm);
+}
+.table th,
+.table td {
+  padding: var(--s2);
+  text-align: left;
+  border-bottom: var(--hairline) solid var(--line);
+}

@@ -5,7 +5,7 @@
  * added to `plugin/agents/` without a card here.
  */
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { readAgents } from "@/lib/reference/reference";
 import { getManualPageComponent } from "../manualPages";
@@ -29,15 +29,20 @@ describe("el-equipo page", () => {
     }
   });
 
-  it("explains the drift-finder in the owner's language, including when it runs", () => {
+  it("REQ-08-019 has no extra or retired bio cards", () => {
     renderTeamPage();
-    const card = screen.getByRole("region", { name: "drift-finder" });
-    expect(within(card).getByRole("heading", { level: 3, name: "drift-finder" })).toBeTruthy();
-    expect(card.textContent).toMatch(/deriva/i);
-    expect(card.textContent).toMatch(/digested/);
-    expect(card.textContent).toMatch(/--drift-finder on/);
-    expect(card.textContent).toMatch(/no es el valor por defecto|no es el default/i);
-    expect(card.textContent).toMatch(/solo propone/i);
+    expect(
+      screen
+        .getAllByRole("region")
+        .map((region) => region.getAttribute("aria-labelledby")?.replace("team-bio-", ""))
+        .sort(),
+    ).toEqual(
+      readAgents()
+        .map((agent) => agent.id)
+        .sort(),
+    );
+    expect(screen.queryByRole("region", { name: "drift-finder" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "mech" })).toBeNull();
   });
 
   it("keeps the phase-grouped diagram (one avatar card per agent)", () => {

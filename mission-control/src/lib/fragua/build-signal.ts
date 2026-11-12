@@ -1,4 +1,10 @@
-import { type BuildClocks, freshnessBand, isLive, latestBuildSignal } from "@/lib/status/liveness";
+import {
+  type BuildClocks,
+  freshnessBand,
+  hasActiveBuild,
+  isLive,
+  latestBuildSignal,
+} from "@/lib/status/liveness";
 /** Serializable build liveness, shared by every project surface. */
 export interface BuildSignal {
   readonly kind: "idle" | "live" | "no-signal";
@@ -16,14 +22,21 @@ export function buildSignal(
     nowMs: number;
   },
 ): BuildSignal {
-  const lastSignalAt = latestBuildSignal(input, input.nowMs);
+  const live = isLive(input, input.nowMs);
+  // A client regrades only public clocks. Withhold invalid/terminal v2 clocks so it cannot revive them.
+  const blockedV2 = input.buildRun?.present && !live;
+  const lastSignalAt = blockedV2 ? null : latestBuildSignal(input, input.nowMs);
+  const leaseRenewedAt = blockedV2
+    ? undefined
+    : (input.buildRun?.lease?.renewed_at ?? input.leaseRenewedAt);
+  const leaseTtlSeconds = input.buildRun?.lease?.ttl_seconds ?? input.leaseTtlSeconds;
   const freshness = freshnessBand(lastSignalAt, input.nowMs);
   return {
-    kind: input.running !== true ? "idle" : isLive(input, input.nowMs) ? "live" : "no-signal",
-    ...(input.leaseRenewedAt
+    kind: live ? "live" : hasActiveBuild(input) ? "no-signal" : "idle",
+    ...(leaseRenewedAt
       ? {
-          leaseRenewedAt: input.leaseRenewedAt,
-          leaseTtlSeconds: input.leaseTtlSeconds,
+          leaseRenewedAt,
+          leaseTtlSeconds,
           legacySignalAt: latestBuildSignal(
             {
               supervisorHeartbeat: input.supervisorHeartbeat,

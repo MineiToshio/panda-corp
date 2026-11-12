@@ -1,5 +1,6 @@
 "use client";
 import { PHASE_PRESENTATION } from "@/components/core/Chip/vocabulary";
+import type { BuildTarget } from "@/lib/build-mode-store";
 import type { CampaignPhase } from "@/lib/campaign/campaign";
 import { t, tRich } from "@/lib/copy/copy";
 import { useUrlState } from "@/lib/navigation/useUrlState";
@@ -10,6 +11,7 @@ import { PHASES } from "./phases";
 export interface CampaignPipelineProps {
   slug: string;
   project?: string;
+  targets?: readonly BuildTarget[];
   activePhase: CampaignPhase;
   running?: boolean;
   forgeHref?: string;
@@ -26,6 +28,7 @@ const HANDOFF = [
 export function CampaignPipeline({
   slug,
   project,
+  targets,
   activePhase,
   running = false,
   forgeHref,
@@ -96,6 +99,7 @@ export function CampaignPipeline({
         active={activePhase}
         slug={slug}
         project={project}
+        targets={targets}
         tone={PRESENTATION[selected]?.tone ?? "slate"}
         forgeHref={forgeHref}
         onSelect={select}

@@ -1,4 +1,5 @@
 import { Chip } from "@/components/core/Chip/Chip";
+import { COPY } from "@/components/modules/BuildRunPanel/copy";
 import { FileReadErrors } from "@/components/modules/FileReadErrors/FileReadErrors";
 import { t } from "@/lib/copy/copy";
 import { formatRelative } from "@/lib/copy/dates";
@@ -73,6 +74,7 @@ export function FraguaScene({
             {t(verdict.presentation.labelKey)}
           </Chip>
         </div>
+        <BuildProvenance live={data.buildRun?.live} />
         {data.orders.length ? (
           <>
             <div
@@ -152,4 +154,12 @@ export function FraguaScene({
       </section>
     </FraguaLive>
   );
+}
+
+function BuildProvenance({ live }: { readonly live?: boolean }): React.JSX.Element | null {
+  return live ? (
+    <p>
+      {COPY.inBuild}. {COPY.durable}
+    </p>
+  ) : null;
 }

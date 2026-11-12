@@ -28,11 +28,11 @@ describe("stateVersionMoved", () => {
     expect(ref.current).toBe(1500);
   });
 
-  it("an equal or lower version is NOT movement (and does not lower the ref)", () => {
+  it("equal fingerprints do not move; lower fingerprints do move", () => {
     const ref = { current: 1500 as number | null };
     expect(stateVersionMoved(1500, ref)).toBe(false);
-    expect(stateVersionMoved(1200, ref)).toBe(false);
-    expect(ref.current).toBe(1500);
+    expect(stateVersionMoved(1200, ref)).toBe(true);
+    expect(ref.current).toBe(1200);
   });
 
   it("tracks a monotonic sequence: baseline, then each genuine advance", () => {

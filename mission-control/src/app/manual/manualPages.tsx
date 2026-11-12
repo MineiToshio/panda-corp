@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * app/manual/manualPages.tsx — FRD-08 Manual page registry (the faithful readers)
+ * app/manual/manualPages.tsx : FRD-08 Manual page registry (the faithful readers)
  *
  * Maps a Manual page `slug` → a React render function that reproduces the
  * prototype's corresponding page (index.html `manualLanding()`,
@@ -68,7 +68,6 @@ import { PipelineDetail } from "./_components/PipelineDetail";
 import { PluginDetail } from "./_components/PluginDetail";
 import { QueEsDetail } from "./_components/QueEsDetail";
 import { StacksDetail } from "./_components/StacksDetail";
-import { useManualNav } from "./ManualNavContext";
 
 // ---------------------------------------------------------------------------
 // Shared building blocks for the page bodies
@@ -216,7 +215,7 @@ const LANDING_FEATURES: readonly { icon: IconName; title: string; body: string }
   {
     icon: "eye",
     title: "Solo-lectura",
-    body: "nunca llama a Claude — solo lee archivos; el trabajo lo paga tu suscripción Max",
+    body: "nunca llama a Claude : lee archivos; la ejecución ocurre en tu runtime autorizado",
   },
   {
     icon: "map",
@@ -238,7 +237,7 @@ function ManualLanding(): React.JSX.Element {
         <Body size="15px" margin="0 0 8px">
           Operas una <B weight={600}>fábrica de software hecha 100% con IA</B>. Tú traes ideas o
           problemas; un equipo de agentes los investiga, documenta, diseña, arquitecta y construye
-          como apps reales — con intervención humana mínima.
+          como apps reales : con intervención humana mínima.
         </Body>
         <p
           style={{
@@ -250,8 +249,8 @@ function ManualLanding(): React.JSX.Element {
         >
           <B weight={600}>Pandacorp (Mission Control) es el tablero de mando:</B> te muestra el
           estado de todo y te dice exactamente <B weight={600}>qué comando pegar en Claude Code</B>{" "}
-          para avanzar. Operar una fábrica así por terminal es árido; esto lo vuelve legible — y
-          hasta divertido.
+          para avanzar. Operar una fábrica así por terminal es árido; esto lo vuelve legible y hasta
+          divertido.
         </p>
         {/* Feature cards */}
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", margin: "0 0 16px" }}>
@@ -309,7 +308,7 @@ function ManualLanding(): React.JSX.Element {
       {/* Tour CTA */}
       <NotePanel icon="arrow" iconColor="var(--violet)">
         <B weight={600}>¿Primera vez? Haz el tour.</B> Sigue UNA idea de punta a punta en ~5 min y
-        mira a tu party construir — está en <B weight={600}>Empieza aquí → Cómo empezar</B>.
+        mira a tu party construir : está en <B weight={600}>Empieza aquí → Cómo empezar</B>.
       </NotePanel>
     </>
   );
@@ -323,7 +322,7 @@ function ManualQuickstart(): React.JSX.Element {
         En unos minutos vas a llevar <B weight={600}>una idea</B> de cero hasta ver a tu party de
         agentes construyéndola en vivo. Lo único que necesitas: Mission Control abierto y Claude
         Code al lado.{" "}
-        <i>Recuerda — Mission Control solo muestra; los comandos los pegas en Claude Code.</i>
+        <i>Recuerda : Mission Control solo muestra; los comandos los pegas en Claude Code.</i>
       </Lead>
       <EmpezarPrereqs />
       <QuickStep
@@ -363,7 +362,7 @@ function ManualQuickstart(): React.JSX.Element {
         cmd="/pandacorp:implement"
       />
       <NotePanel icon="bulb" iconColor="var(--amber)">
-        <B weight={600}>Lo que acabas de ver:</B> Mission Control nunca llamó a Claude — solo leyó
+        <B weight={600}>Lo que acabas de ver:</B> Mission Control nunca llamó a Claude : solo leyó
         archivos y te dio el comando de cada paso; todo el trabajo salió de tu suscripción. ¿Quieres
         entender el porqué? Ve a <B weight={600}>Conceptos</B>. ¿Una tarea puntual? Mira las{" "}
         <B weight={600}>Guías</B>.
@@ -404,7 +403,7 @@ function GuideCapturar(): React.JSX.Element {
         <>
           Las fichas viven en <Code>factory/ideas/</Code>. El estado de cada idea vive SOLO en su
           frontmatter; el Tablero solo lo lee. El título siempre combina un nombre comercial
-          creativo y una descripción breve: <Code>Nombre — qué hace</Code> (DR-127). Así puedes
+          creativo y una descripción breve: <Code>Nombre : qué hace</Code> (DR-127). Así puedes
           reconocer su propósito meses después. La descripción cubre el producto general, no solo su
           primer catálogo; al renombrar se conserva también la descripción.
         </>
@@ -425,7 +424,7 @@ function GuideHandoff(): React.JSX.Element {
         </>,
         <>
           Se crea la carpeta/repo del proyecto y se copian las plantillas de la fábrica (overlay:
-          CLAUDE.md, status.yaml…).
+          AGENTS.md, CLAUDE.md como import de una línea, status.yaml…).
         </>,
         <>
           Un equipo de researchers investiga (competencia, fuentes, viabilidad) y el product-manager
@@ -449,59 +448,33 @@ function GuideHandoff(): React.JSX.Element {
 function GuideModo(): React.JSX.Element {
   return (
     <GuidePage
-      title="Elegir modo de construcción"
-      intro={
-        <>
-          <Code>/pandacorp:implement</Code> acepta un modo según con cuánta potencia quieras
-          construir. Por defecto es Potente (powerful). Lo cambias en la pestaña Comandos del
-          proyecto o en su ficha de Campaña.
-        </>
-      }
+      title="Construir, reanudar y elegir objetivo"
+      intro="En Comandos o Campaña eliges Construir, Reanudar u Objetivo: FRD o tarjeta. La concurrencia se adapta a los recursos medidos."
       steps={[
         <>
-          <B weight={600}>pro</B>: mínimo consumo, un carril de trabajo.
-          <div>
-            <Code>implement pro</Code>
-          </div>
+          Construir el plan pendiente: <Code>/pandacorp:implement</Code>. Una petición conversada
+          fija su alcance en una tarjeta citada antes de ejecutar.
         </>,
         <>
-          <B weight={600}>balanced</B>: construcción equilibrada, revisión con opus.
-          <div>
-            <Code>implement balanced</Code>
-          </div>
+          Objetivo por FRD: <Code>/pandacorp:implement frd-05-settings</Code>. Objetivo por tarjeta:{" "}
+          <Code>/pandacorp:implement change:mc-fix-pagination</Code>. Se comprueban las dependencias
+          antes de construir.
         </>,
         <>
-          <B weight={600}>powerful</B> (default): más capacidad y revisión en cuatro lentes.
-          <div>
-            <Code>implement powerful</Code>
-          </div>
+          Reanudar el mismo run: <Code>/pandacorp:implement --resume &lt;run-id&gt;</Code>. El CLI
+          verifica la propiedad de la lease; nunca toma un run ajeno activo.
         </>,
         <>
-          <B weight={600}>deep</B>: opus también en la construcción, para proyectos especiales.
-          <div>
-            <Code>implement deep</Code>
-          </div>
-        </>,
-        <>
-          El carril rápido construye work orders independientes en worktrees separados. El techo de
-          carriles depende del modo y de las dependencias listas: pro usa uno, balanced hasta dos,
-          powerful y deep hasta cuatro. Usa <Code>--lanes N</Code> para fijar el techo;{" "}
-          <Code>--lanes 1</Code> lo deja secuencial. El motor ajusta la concurrencia en cada ronda.
-          Las oleadas globales pertenecen al carril <Code>classic</Code>.
+          El motor no drena otras tarjetas. Para guardar una idea sin construir, pide un borrador
+          draft y que la sesión ejecute <Code>card check</Code>.
         </>,
       ]}
       tip={
         <>
-          Siempre es <B weight={600}>reanudable</B>: si se corta, vuelves a correr{" "}
-          <Code>implement</Code> y continúa desde la feature (FRD) pendiente.
-          <br />
-          <B weight={600}>Build parcial:</B> también puedes construir solo un FRD (
-          <Code>implement frd-05-settings</Code>, o varios separados por espacio) o una change de la
-          cola (<Code>implement change:&lt;nombre&gt;</Code>, que debe estar en{" "}
-          <Code>status: ready</Code>). Antes de arrancar verifica que las dependencias estén
-          VERIFIED y, si no, te lista qué implementar primero. El detalle está en la guía{" "}
+          La escalera 1/2/3/5/8 limita las unidades simultáneas según memoria, swap y disco. El paso
+          es un techo, no el número de agentes activos. El detalle de objetivos está en{" "}
           <ManualLink group="guides" slug="g-implement-parcial">
-            Build parcial: por FRD o por change
+            Build parcial: por FRD o tarjeta
           </ManualLink>
           .
         </>
@@ -515,16 +488,11 @@ function GuideFeedback(): React.JSX.Element {
     <>
       <DocH title="Reportar un bug o responder una decisión" level={2} />
       <Lead>
-        La puerta única para pedir un cambio es <Code>/pandacorp:change</Code> (ver{" "}
-        <B weight={600}>Cómo pedir un cambio</B>); por dentro, esos cambios se atienden por estos{" "}
-        <B weight={600}>tres canales</B>, todos por archivos, que el agente revisa en su próximo
-        punto seguro, sin que tengas que pararlo.
+        Una petición nueva se construye con <Code>/pandacorp:implement</Code> y alcance explícito.
+        Las preguntas del run se responden con <Code>/pandacorp:decide</Code>; no amplían
+        automáticamente el trabajo en marcha.
       </Lead>
       <ChannelsDiagram />
-      <NotePanel icon="circle">
-        Mission Control te resalta los puntos de decisión pendientes y los bugs por procesar en
-        Portafolio → Resumen.
-      </NotePanel>
       <FeedbackDetail />
     </>
   );
@@ -536,12 +504,12 @@ function GuideProbar(): React.JSX.Element {
       title="Probar sin parar al agente"
       intro="El punto seguro es un commit de git, no un estado del agente. Puedes probar la última versión verificada mientras el agente sigue construyendo en su carpeta."
       steps={[
-        "Mission Control te muestra la «última versión verificada · segura para probar» (el último commit del build que pasó todos los gates) en Portafolio → Resumen.",
+        "Mission Control te muestra la «última versión verificada · segura para probar» (el snapshot verificado y aterrizado en main) en Portafolio → Resumen.",
         <>
           Copia el comando del snapshot: crea un <Code>git worktree</Code> apuntando a ese commit en
           la carpeta de revisión dedicada (
           <Code>/Users/Shared/review-worktrees/&lt;proyecto&gt;</Code>, fuera de{" "}
-          <Code>Proyectos/</Code> — DR-090).
+          <Code>Proyectos/</Code> : DR-090).
         </>,
         "Pruebas ahí, en paz, mientras el agente sigue en la suya. Da igual si está a medias: no tocas su carpeta.",
       ]}
@@ -549,8 +517,8 @@ function GuideProbar(): React.JSX.Element {
         <>
           El motor <B weight={600}>repara antes de bloquear</B>: si un WO o el gate de revisión
           falla, intenta repararlo. Si no puede, lo marca BLOCKED con motivo y sigue con las
-          features independientes; HEAD queda siempre en el último verde verificado. Nada terminado
-          se pierde.
+          unidades independientes. El snapshot seguro conserva su identidad; HEAD en una rama en
+          construcción puede contener trabajo pendiente de verificar.
         </>
       }
     />
@@ -569,7 +537,7 @@ function GuideTraspaso(): React.JSX.Element {
           <Code>.pandacorp/comms/progress.md</Code>.
         </>,
         <>
-          El know-how (estándares, agentes, comandos) llega por el <B weight={600}>plugin</B> — no
+          El know-how (estándares, agentes, comandos) llega por el <B weight={600}>plugin</B> : no
           hay que copiar nada de la fábrica al proyecto.
         </>,
         "La otra persona instala el plugin, abre el proyecto y Mission Control le da el contexto completo: el flujo, los comandos y el estado.",
@@ -587,7 +555,7 @@ function GuidePlugin(): React.JSX.Element {
       steps={[
         "Commitea los cambios del plugin.",
         "Corre el comando de actualización (instala la versión = SHA del commit).",
-        "Reinicia la sesión de Claude Code — los cambios aplican al reiniciar.",
+        "Reinicia la sesión de Claude Code : los cambios aplican al reiniciar.",
       ]}
       tip="Mission Control te AVISA con un banner cuando editaste el plugin pero no lo actualizaste (compara el SHA instalado con el último commit del plugin)."
       extraCmd="claude plugin update pandacorp@panda-corp"
@@ -607,7 +575,7 @@ function ConceptQueEs(): React.JSX.Element {
         <Body>
           Pandacorp es una <B weight={600}>fábrica de software hecha 100% con IA</B>. Tú aportas
           ideas o problemas; la fábrica los investiga, documenta, diseña, arquitecta y construye
-          como aplicaciones reales — con intervención humana mínima.
+          como aplicaciones reales : con intervención humana mínima.
         </Body>
         <div
           style={{
@@ -643,7 +611,7 @@ function ConceptQueEs(): React.JSX.Element {
         <Divider />
         <div style={{ fontSize: "12px", color: "var(--text-2)" }}>
           <B weight={500}>Esta app (Mission Control) es solo-lectura:</B> muestra el estado y te
-          dice qué comando ejecutar. Nunca llama a Claude — el trabajo lo haces pegando los comandos
+          dice qué comando ejecutar. Nunca llama a Claude : el trabajo lo haces pegando los comandos
           en Claude Code, así sale de tu suscripción.
         </div>
       </Card>
@@ -671,7 +639,7 @@ function ConceptPipeline(): React.JSX.Element {
       </NotePanel>
       <NotePanel icon="rotate" iconColor="var(--violet)">
         <B weight={500}>Iterar sin avanzar:</B> ¿no te gusta el output de una etapa? Vuelve a correr
-        el mismo comando y sigues puliendo — la tarjeta no avanza hasta tu visto bueno. Tu feedback
+        el mismo comando y sigues puliendo : la tarjeta no avanza hasta tu visto bueno. Tu feedback
         se guarda en <Code>.pandacorp/comms/iteration.md</Code>, así retomas aunque pierdas la
         conversación (otra sesión, otra compu, el celular).
       </NotePanel>
@@ -686,8 +654,9 @@ function ConceptEquipo(): React.JSX.Element {
       <DocH title="El equipo de agentes" level={2} />
       <Lead>
         La fábrica no es un solo agente: es un equipo de obreros especializados que los skills
-        delegan según la fase. Cada uno usa el modelo adecuado (opus para juicio, sonnet para tareas
-        mecánicas). Su ficha completa está en <B weight={600}>Referencia → Agentes</B>.
+        delegan según la fase. Cada uno usa el modelo adecuado (el tier de juicio para decisiones,
+        el estándar para trabajo real y el mecánico para pasos sin juicio). Su ficha completa está
+        en <B weight={600}>Referencia → Agentes</B>.
       </Lead>
       <Card>
         <TeamDiagram />
@@ -703,10 +672,10 @@ function ConceptEquipo(): React.JSX.Element {
 
       <DocH title="Cómo se orquesta el equipo" />
       <Body>
-        El motor de <Code>implement</Code> asigna las work orders a los agentes según el tipo de
-        tarea. Cada oleada toma las work orders listas de todos los FRDs y las construye en paralelo
-        hasta el tope del modo (en potente, 8 a la vez) cuando no dependen entre sí. La coordinación
-        es explícita en el código del workflow: no hay comunicación directa entre agentes.
+        El CLI <Code>pandacorp-build.mjs</Code> asigna unidades listas a trabajadores del runtime
+        local. La concurrencia sigue la escalera 1/2/3/5/8 y las dependencias. Cada unidad de
+        revisión tiene un único revisor de la otra compañía, una capa por encima del autor. El CLI
+        registra los resultados y cerca las escrituras mediante lease y epoch.
       </Body>
       <NotePanel icon="grid" iconColor="var(--violet)">
         <B weight={500}>En Mission Control,</B> La Fragua muestra a los agentes activos con sus
@@ -723,7 +692,7 @@ function ConceptEstandares(): React.JSX.Element {
       <DocH title="Estándares y reglas" level={2} />
       <Lead>
         El know-how de cómo se construye se inyecta en cada proyecto. Son <B weight={600}>31</B>{" "}
-        estándares en <B weight={600}>11 dominios</B> — desde convenciones y arquitectura hasta
+        estándares en <B weight={600}>11 dominios</B> : desde convenciones y arquitectura hasta
         manejo de errores, resiliencia, auth, modelado de datos, disciplina de implementación con
         IA, la investigación de incidentes (<Code>debugging.md</Code>: reproducir primero,
         sospechosos con evidencia, guardas de atribución) y las convenciones de prompting de la
@@ -776,7 +745,7 @@ function ConceptEstandares(): React.JSX.Element {
           reglas con su estado real de enforcement: <Chip tone="green">wired</Chip> un script/gate
           la verifica solo · <Chip tone="amber">manual</Chip> un paso humano NOMBRADO ·{" "}
           <Chip tone="coral">aspirational</Chip> nada la verifica (un MUST aspiracional es un
-          defecto — hoy hay <B weight={600}>cero</B>). <Code>check-standards.sh</Code> valida la
+          defecto : hoy hay <B weight={600}>cero</B>). <Code>check-standards.sh</Code> valida la
           plantilla, deriva los conteos en vivo y avisa si reaparece uno.{" "}
           <B weight={500}>Sesión de promoción de memoria (2026-09-03):</B> 7 reglas nuevas nacidas
           de lecciones corroboradas del store, todas <Chip tone="amber">manual</Chip>: CONV-14
@@ -797,7 +766,7 @@ function ConceptEstandares(): React.JSX.Element {
         <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.6 }}>
           <B weight={500}>Fuente única de verdad (DR-115, 2026-07-05):</B> cada hecho (un conteo, un
           estado, un nivel) tiene <B weight={600}>un solo escritor</B>; todo lo demás{" "}
-          <B weight={600}>deriva</B> a través de un único resolver — nunca duplica. Un valor
+          <B weight={600}>deriva</B> a través de un único resolver : nunca duplica. Un valor
           derivado solo puede almacenarse como <B weight={600}>cache honesto</B> (escritor único
           nombrado + re-derivación en puntos seguros + documentado como réplica), y ninguna
           superficie de display lo lee si existe un resolver vivo. Una segunda derivación
@@ -807,22 +776,22 @@ function ConceptEstandares(): React.JSX.Element {
         <Divider />
         <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.6 }}>
           <B weight={500}>
-            Consistencia documental — el gate de supersesión completa (DR-116, 2026-07-05):
+            Consistencia documental : el gate de supersesión completa (DR-116, 2026-07-05):
           </B>{" "}
           ninguna regla puede sobrevivir en las sombras. Si cambias una regla en un doc pero su
-          enunciado viejo sigue vivo en otro, dos agentes leen dos verdades y se desvían — el patrón
+          enunciado viejo sigue vivo en otro, dos agentes leen dos verdades y se desvían : el patrón
           raíz de las ~21 contradicciones que encontró la auditoría (el motor construyó DOS cambios
           cuando pediste UNO). El gate <B weight={600}>nunca bloquea el cambio</B>, solo su
           propagación INCOMPLETA. Dos casos: un <B weight={600}>set recién generado</B> (PRD+FRDs de{" "}
           <Code>spec</Code>, blueprint+WOs de <Code>architecture</Code>) lo revisa un verificador
-          FRESCO — una contradicción interna dura <B weight={600}>bloquea el cierre de la fase</B>{" "}
+          FRESCO : una contradicción interna dura <B weight={600}>bloquea el cierre de la fase</B>{" "}
           (como un <Code>[NEEDS CLARIFICATION]</Code> pendiente); una{" "}
-          <B weight={600}>edición al corpus existente</B> (<Code>change</Code>/<Code>iterate</Code>/
-          <Code>learn</Code>) exige que la supersesión sea COMPLETA — declaras qué regla vieja
-          reemplazas y el verificador confirma que ningún doc la sigue afirmando y que el porqué
-          quedó registrado (las dos escrituras). Un <B weight={500}>barrido advisory semanal</B>{" "}
-          caza la deriva que se cuele — reporta y ficha como <Code>BL-*</Code>, nunca edita ni
-          bloquea. Canónico: <Code>document-consistency.md</Code>.
+          <B weight={600}>edición al corpus existente</B> (<Code>implement</Code>/<Code>learn</Code>
+          ) exige que la supersesión sea COMPLETA : declaras qué regla vieja reemplazas y el
+          verificador confirma que ningún doc la sigue afirmando y que el porqué quedó registrado
+          (las dos escrituras). Un <B weight={500}>barrido advisory semanal</B> caza la deriva que
+          se cuele : reporta y ficha como <Code>BL-*</Code>, nunca edita ni bloquea. Canónico:{" "}
+          <Code>document-consistency.md</Code>.
         </div>
       </Card>
       <EstandaresDetail />
@@ -844,7 +813,7 @@ function ConceptArquitectura(): React.JSX.Element {
       </Card>
       <NotePanel>
         <B weight={500}>Regla de oro:</B> cada dato vive en UN solo lugar; el otro lado guarda un
-        puntero. El proyecto nunca necesita leer la fábrica para trabajar — los estándares llegan
+        puntero. El proyecto nunca necesita leer la fábrica para trabajar : los estándares llegan
         por el plugin.
       </NotePanel>
       <ArquitecturaDetail />
@@ -910,15 +879,11 @@ function ConceptEstado(): React.JSX.Element {
         </div>
       </Card>
       <NotePanel icon="lock" iconColor="var(--violet)">
-        Durante un build, <Code>status.yaml</Code> es una proyección controlada por la lease, no un
-        segundo candado. Durante un worker de Codex, la proyección se pausa para preservar sus
-        cambios hasta inspeccionarlos. La señal de vida se lee entonces de renewed_at y ttl_seconds
-        en run/build.lease/lease.json; upgrade y sync también consultan ese lease. El drenaje de una
-        renovación atascada termina con el watchdog y publica el motivo de parada. Acquire,
-        heartbeat, sincronización y cierre reponen fase, hora de inicio, run lógico, runtime y epoch
-        desde esa única fuente. La reparación de baseline nunca restaura ese fichero mientras la
-        lease siga activa; al detenerse conserva la identidad y publica
-        <Code>running: false</Code> para el relevo en frío.
+        La señal de vida viene de la lease de <Code>.pandacorp/run/build/</Code>, renovada por
+        comandos durante 30 minutos. <Code>state.json</Code> es un caché del trabajo en vuelo y{" "}
+        <Code>admission.json</Code> explica el paso y motivo actuales. Una lease caducada muestra
+        Sin señal. El estado durable de main avanza al aterrizar; verificado en una rama no
+        significa entregado ni seguro para probar.
       </NotePanel>
       <EstadoDetail />
     </>
@@ -948,17 +913,17 @@ function ConceptHooks(): React.JSX.Element {
       <NotePanel icon="database" iconColor="var(--violet)">
         <B weight={600}>Backup automático en cada SessionStart</B> a{" "}
         <Code>pandacorp-vault/backups/</Code> (una carpeta por día, 30 días de retención). Es{" "}
-        <B weight={500}>aditivo dentro del día</B> — un borrado parcial en el origen nunca encoge el
-        snapshot — y emite una línea-resumen visible (nº de ficheros + fallos), para que un backup
+        <B weight={500}>aditivo dentro del día</B> : un borrado parcial en el origen nunca encoge el
+        snapshot : y emite una línea-resumen visible (nº de ficheros + fallos), para que un backup
         roto no se disfrace de backup sano. Dónde vive todo este estado personal y cómo restaurarlo
         en una máquina nueva: ver <B weight={500}>«El vault · tu estado personal»</B>.
       </NotePanel>
       <NotePanel icon="shield" iconColor="var(--amber)">
         <B weight={600}>Rutas protegidas en el gate de comandos.</B> <Code>block-dangerous.sh</Code>{" "}
-        bloquea el borrado recursivo que ALCANCE una ruta protegida — también el borrado del{" "}
+        bloquea el borrado recursivo que ALCANCE una ruta protegida : también el borrado del{" "}
         <B weight={500}>directorio padre</B> (<Code>rm -rf mi-app</Code> contiene su{" "}
         <Code>.pandacorp</Code> sin nombrarlo), el flag al final (<Code>rm ruta -r</Code>) y{" "}
-        <Code>find … -delete</Code> — y es fail-closed si su propio parser (jq) falta. Probado por
+        <Code>find … -delete</Code> : y es fail-closed si su propio parser (jq) falta. Probado por
         una matriz canary de 36 casos (<Code>test-block-dangerous.sh</Code>).
       </NotePanel>
       <HooksDetail />
@@ -1023,7 +988,7 @@ const RESTORE_STEPS: readonly {
     body: (
       <>
         Clona <Code>panda-corp</Code> (código y framework). Ojo: los archivos personales están
-        gitignoreados, así que <B weight={600}>vuelven vacíos</B> aquí — los rellena el paso 3.
+        gitignoreados, así que <B weight={600}>vuelven vacíos</B> aquí : los rellena el paso 3.
       </>
     ),
     cmd: "git clone <panda-corp> ~/Proyectos/panda-corp",
@@ -1068,7 +1033,7 @@ function ConceptVault(): React.JSX.Element {
     <>
       <DocH title="El vault · tu estado personal" level={2} />
       <Lead>
-        Tus ideas, tu perfil, tu portfolio no viven en el repo — son personales y están{" "}
+        Tus ideas, tu perfil, tu portfolio no viven en el repo : son personales y están{" "}
         <B weight={600}>gitignoreados</B>. ¿Dónde viven entonces, y cómo no perderlos? En una
         carpeta hermana: el <B weight={600}>vault</B>.
       </Lead>
@@ -1089,10 +1054,10 @@ function ConceptVault(): React.JSX.Element {
       <NotePanel icon="circle" iconColor="var(--blue)">
         <B weight={600}>¿Por qué al lado y no fuera, como los deployments?</B> La regla de «mantener
         cosas fuera de <Code>Proyectos/</Code>» existe para que una herramienta no confunda un{" "}
-        <B weight={500}>servidor que corre</B> (un deployment) con código fuente — es sobre cosas
+        <B weight={500}>servidor que corre</B> (un deployment) con código fuente : es sobre cosas
         que <i>se ejecutan</i>. El vault no ejecuta nada (git estático + respaldos), así que se
-        queda junto al código para que lo encuentres fácil. Lo que sí corre —{" "}
-        <Code>local-deployments/</Code> — se queda fuera.
+        queda junto al código para que lo encuentres fácil. Lo que sí corre :{" "}
+        <Code>local-deployments/</Code> : se queda fuera.
       </NotePanel>
 
       <DocH title="Una carpeta, dos repos" />
@@ -1143,7 +1108,7 @@ function ConceptVault(): React.JSX.Element {
       <NotePanel icon="alert" iconColor="var(--amber)">
         <B weight={600}>Pendiente (recuperación ante desastre real):</B> hoy los backups son SOLO
         locales. Para sobrevivir a la pérdida del equipo necesitan una{" "}
-        <B weight={600}>copia en la nube</B> — mientras no la haya, solo el overlay está a salvo
+        <B weight={600}>copia en la nube</B> : mientras no la haya, solo el overlay está a salvo
         offsite, no el estado de los proyectos hermanos.
       </NotePanel>
 
@@ -1158,14 +1123,14 @@ function ConceptVault(): React.JSX.Element {
       <NotePanel icon="external" iconColor="var(--violet)">
         Las <B weight={600}>dos fuentes que deben estar vivas FUERA del equipo</B> para que esto
         funcione: el <B weight={500}>remoto privado del overlay</B> (paso 3) y una{" "}
-        <B weight={500}>copia offsite de los backups</B> (paso 4). El vault en disco es local — y
+        <B weight={500}>copia offsite de los backups</B> (paso 4). El vault en disco es local : y
         muere con el disco.
       </NotePanel>
 
       <DocH title="Y las llaves, ¿dónde?" />
       <NotePanel icon="lock" iconColor="var(--amber)">
         <B weight={600}>Los secretos NO van en el vault.</B> La llave <Code>age</Code> de SOPS vive
-        en <Code>~/.config/pandacorp/</Code> — tu carpeta de usuario, privada — por dos razones:{" "}
+        en <Code>~/.config/pandacorp/</Code> : tu carpeta de usuario, privada : por dos razones:{" "}
         <Code>/Users/Shared/</Code> es multi-usuario en macOS (lugar equivocado para una llave
         privada), y <Code>~/.config/</Code> es donde las herramientas la buscan por defecto (XDG).
         Se restaura desde tu gestor de contraseñas, nunca desde un repo.
@@ -1179,10 +1144,10 @@ function ConceptStacks(): React.JSX.Element {
     <>
       <DocH title="Stacks · golden paths" level={2} />
       <Lead>
-        3 golden paths documentados (el viejo D —scraping— se plegó en C: era el mismo stack) más
+        3 golden paths documentados (el viejo D :scraping: se plegó en C: era el mismo stack) más
         una lista de <B weight={600}>puntos de partida</B> para casos nuevos. El{" "}
         <B weight={600}>architect</B> elige el que encaja (lo apruebas en el blueprint) y puede
-        proponer algo mejor con trade-offs. Son combinables — el caso Funkos = C para recolectar + A
+        proponer algo mejor con trade-offs. Son combinables : el caso Funkos = C para recolectar + A
         para mostrar.
       </Lead>
       <StacksTable />
@@ -1192,79 +1157,23 @@ function ConceptStacks(): React.JSX.Element {
 }
 
 function ConceptDesatendida(): React.JSX.Element {
-  const nav = useManualNav();
   return (
     <>
       <DocH title="Construcción desatendida · técnico" level={2} />
       <Lead>
-        Cómo <Code>implement</Code> lanza un workflow dinámico que corre por horas sin babysitting y
-        deja siempre un punto probable.
+        El mismo CLI determinista coordina a Claude Code y Codex. La sesión usa sus propias
+        herramientas y solo promete continuidad cuando existe un mecanismo observado.
       </Lead>
-      <div style={{ marginBottom: "10px" }}>
-        <Card>
-          <Ul>
-            <li>
-              <B weight={500}>Auto mode</B> (permisos): el agente deja de preguntar «¿continúo?»;
-              solo para cuando necesita al owner o alcanza un freno de salud/presupuesto.
-            </li>
-            <li>
-              <B weight={500}>Repara antes de bloquear</B>: si un WO o el gate de revisión falla, el
-              motor sube una escalera — diagnostica primero (puntual · arquitectónico ·
-              gate-test-defectuoso · punto muerto), parchea informado, y si no converge revierte
-              solo la costura tocada. Cada paso queda en un diario durable (
-              <Code>build-journal.jsonl</Code>). Solo si de verdad necesita al owner marca BLOCKED
-              con motivo (needs-owner | external | error) y sigue con features independientes.
-            </li>
-            <li>
-              <B weight={500}>Frenos de salud/presupuesto</B>: tope de presupuesto, demasiados
-              bloqueos seguidos (freno de salud), nada que construir. No hay freeze-on-red directo.
-            </li>
-            <li>
-              <B weight={500}>Punto seguro = commit por FRD:</B> el gate escribe{" "}
-              <Code>last_green_sha</Code> y <Code>safe_to_test</Code> mediante dos commits: primero
-              el snapshot verificado y luego un commit solo de metadatos que apunta a ese ancestro.
-            </li>
-            <li>
-              <B weight={500}>El workflow ES el loop</B> (corre hasta vaciar la cola y para solo,
-              reanudable); <Code>/loop</Code> self-paced solo para correr en continuo. Background
-              tasks + TaskStop para procesos largos.
-            </li>
-          </Ul>
-        </Card>
-      </div>
-      <div
-        style={{
-          fontSize: "12px",
-          fontWeight: 500,
-          color: "var(--text-2)",
-          marginBottom: "6px",
-        }}
-      >
-        Probar un snapshot sin parar al agente
-      </div>
+      <WorkflowShapeDiagram />
+      <DesatendidaDetail />
       <Card>
         <SnapshotMini />
       </Card>
-      <DesatendidaDetail />
-      <NotePanel icon="branch" iconColor="var(--violet)">
-        El mecanismo del motor (oleadas globales, gate en abanico, supervisor) está detallado en{" "}
-        <button
-          type="button"
-          onClick={() => nav.goToManual("workflows", "wf-pandacorp-build")}
-          style={{
-            background: "none",
-            border: "none",
-            padding: 0,
-            margin: 0,
-            font: "inherit",
-            color: "var(--violet)",
-            textDecoration: "underline",
-            cursor: "pointer",
-          }}
-        >
-          Dynamic Workflows → pandacorp-build
-        </button>
-        .
+      <NotePanel>
+        <ManualLink group="guides" slug="g-implement-parcial">
+          Motor de construcción v2
+        </ManualLink>
+        : alcance, revisión y aterrizaje por el mismo camino.
       </NotePanel>
     </>
   );
@@ -1348,7 +1257,7 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
       <Lead>
         La fábrica aprende de cada proyecto: cada problema resuelto, veredicto de librería, truco o
         patrón se guarda como una <B weight={600}>lección reutilizable</B> en{" "}
-        <Code>factory/memory/</Code>. Los agentes la consultan en el siguiente proyecto — así la
+        <Code>factory/memory/</Code>. Los agentes la consultan en el siguiente proyecto : así la
         fábrica se vuelve más lista y construye más rápido con el uso, sin reentrenar ningún modelo.
       </Lead>
       <Card>
@@ -1380,7 +1289,7 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
                 }}
               >
                 Lee la bandeja y los rastros del proyecto y escribe las lecciones limpias. No lo
-                llamas tú — trabaja por dentro cuando el comando se lo pide.
+                llamas tú : trabaja por dentro cuando el comando se lo pide.
               </div>
             </div>
           </div>
@@ -1438,7 +1347,7 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
                 lineHeight: 1.5,
               }}
             >
-              Convierte una lección en standard / regla / skill — eso cambia cómo se construye TODO,
+              Convierte una lección en standard / regla / skill : eso cambia cómo se construye TODO,
               así que siempre pasa por tu visto bueno.
             </div>
           </div>
@@ -1456,7 +1365,7 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
       >
         No depende de construir software: en{" "}
         <B weight={600}>cualquier skill o incluso conversando</B>, si aparece algo durable (un
-        arreglo, un veredicto, un truco) se apunta solo a una bandeja —{" "}
+        arreglo, un veredicto, un truco) se apunta solo a una bandeja :{" "}
         <B weight={600}>en el mismo turno en que ocurre</B>, nunca "al final de la sesión" (loop v2:
         diferir la captura es perderla). Una regla en <Code>.pandacorp/guide.md</Code> y en el{" "}
         <Code>CLAUDE.md</Code> de la fábrica lo dispara; un hook de cierre re-escanea la
@@ -1478,7 +1387,7 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
         <Ul>
           <li>
             <B weight={500}>Dedup A.U.D.N.:</B> cada nota se resuelve en AÑADIR / ACTUALIZAR /
-            FUSIONAR / IGNORAR — capturar mucho no engorda el cuaderno.
+            FUSIONAR / IGNORAR : capturar mucho no engorda el cuaderno.
           </li>
           <li>
             <B weight={500}>Procedencia:</B> cada lección marca quién la dijo (tú &gt; verificado
@@ -1492,7 +1401,7 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
           </li>
           <li>
             <B weight={500}>Uso medido, no prometido:</B> los agentes citan la lección (LESSON-NNNN)
-            en el documento que escriben y un script cuenta esas citas — los contadores nunca se
+            en el documento que escriben y un script cuenta esas citas : los contadores nunca se
             editan a mano. La poda por "nunca usada" está congelada hasta que haya medición real de
             ≥3 proyectos.
           </li>
@@ -1510,7 +1419,7 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
           >
             <Icon name="alert" size="sm" />
           </span>{" "}
-          Lección del research: <B weight={500}>capturar de más no es mejor</B> — un agente que se
+          Lección del research: <B weight={500}>capturar de más no es mejor</B> : un agente que se
           fía de sus propias reflexiones envenena la memoria. Por eso solo se capturan notas
           ancladas a evidencia, nunca opiniones. Desde 2026-07-09 esto es una regla dura con
           verificador: el <Code>source:</Code> de una lección debe citar un localizador comprobable
@@ -1528,8 +1437,8 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
           lineHeight: 1.6,
         }}
       >
-        Cuando <Code>review</Code> cree que una lección merece ser regla — o cuando{" "}
-        <B weight={600}>3 proyectos la citaron</B> (el escalador automático del loop v2) — se marca{" "}
+        Cuando <Code>review</Code> cree que una lección merece ser regla : o cuando{" "}
+        <B weight={600}>3 proyectos la citaron</B> (el escalador automático del loop v2) : se marca{" "}
         <Code>promotion: proposed</Code> y queda guardada en su propio archivo, no en la
         conversación. La ves en el <B weight={500}>buzón de Propuestas</B> de Mission Control o en
         el reporte de la rutina diaria, el día que quieras, sin presión. Apruebas →{" "}
@@ -1756,7 +1665,7 @@ function ConceptArcoEconomico(): React.JSX.Element {
           se bifurca según el <Code>return_type</Code>
         </B>{" "}
         de la idea y adapta lo que hace en cada fase: no es un pipeline único con forma de «app que
-        cobra» — lee el tipo de retorno y se ajusta (DR-042).
+        cobra» : lee el tipo de retorno y se ajusta (DR-042).
       </Lead>
 
       <DocH title="Los cuatro tipos de retorno" />
@@ -1788,7 +1697,7 @@ function ConceptArcoEconomico(): React.JSX.Element {
       </Body>
       <NotePanel icon="alert" iconColor="var(--coral)">
         Si la señal falta o contradice la idea,{" "}
-        <B weight={600}>para y recomienda matar/pivotar — NO crea el proyecto</B> (matar aquí no
+        <B weight={600}>para y recomienda matar/pivotar : NO crea el proyecto</B> (matar aquí no
         deja un repo huérfano). Es la pieza que evita invertir diseño y construcción en una idea
         monetaria sin validar.
       </NotePanel>
@@ -1797,13 +1706,13 @@ function ConceptArcoEconomico(): React.JSX.Element {
       <Card>
         <Ul>
           <li>
-            <B weight={500}>Unit-economics</B> — precio propuesto (anclado a los competidores que
+            <B weight={500}>Unit-economics</B> : precio propuesto (anclado a los competidores que
             cobran) + coste variable por usuario activo (Polar ~4%+$0.40, Vercel Pro, tiers de
             Neon/R2/Resend/PostHog) + break-even de servilleta. El blueprint rellena el lado del
             coste.
           </li>
           <li>
-            <B weight={500}>Kill-signals</B> — señales de muerte con umbrales numéricos (p. ej.{" "}
+            <B weight={500}>Kill-signals</B> : señales de muerte con umbrales numéricos (p. ej.{" "}
             <Code>&lt; N usuarios activos</Code> o <Code>$0 de ingresos a los 60 días</Code> →
             revisión formal). Para <Code>opportunity</Code>, la métrica de oportunidad.
           </li>
@@ -1814,12 +1723,12 @@ function ConceptArcoEconomico(): React.JSX.Element {
       <Body>
         <Code>/pandacorp:release</Code> es consciente del retorno: para <Code>monetary</Code>/
         <Code>mixed</Code>/<Code>opportunity</Code> produce además <Code>docs/launch-plan.md</Code>{" "}
-        — el canal de adquisición principal + 3-5 borradores de posts para que tú publiques, bajo el
+        : el canal de adquisición principal + 3-5 borradores de posts para que tú publiques, bajo el
         gate de comunicaciones externas (DR-008). Para <Code>personal</Code>, se salta.
       </Body>
       <NotePanel icon="rocket" iconColor="var(--violet)">
         <B weight={600}>Desplegado ≠ lanzado:</B> una app sin usuarios no genera nada. El cierre del
-        arco lo hace <Code>review-launch</Code> (kill / hold / double-down) — ver{" "}
+        arco lo hace <Code>review-launch</Code> (kill / hold / double-down) : ver{" "}
         <B weight={600}>Después de lanzar</B>.
       </NotePanel>
     </>
@@ -1837,7 +1746,7 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
       <Lead>
         <B weight={600}>Desplegado ≠ lanzado.</B> Que una versión esté desplegada no significa que
         tenga usuarios ni que funcione el negocio. El ciclo de vida no termina en el deploy:{" "}
-        <Code>release</Code> es la fase en la que la idea <B weight={600}>YA está lanzada</B> — y
+        <Code>release</Code> es la fase en la que la idea <B weight={600}>YA está lanzada</B> : y
         desde ahí se itera. No hay una fase «operación» aparte: operar (leer métricas y decidir) es
         lo que haces estando ya en <Code>release</Code>.
       </Lead>
@@ -1868,7 +1777,7 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
         </ChipFlow>
         <Divider />
         <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.6 }}>
-          La <B weight={500}>auditoría —seguridad, calidad y métricas/telemetría—</B> es el{" "}
+          La <B weight={500}>auditoría :seguridad, calidad y métricas/telemetría:</B> es el{" "}
           <B weight={500}>último paso de la construcción</B> (<Code>implementation</Code>), no del
           release. Cuando una versión llega a <Code>release</Code> ya está endurecida y desplegada;{" "}
           <Code>release</Code> significa «ya está lanzado», y desde ahí iteras.
@@ -1878,14 +1787,14 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
       <DocH title="Interno vs externo · el mismo release" />
       <Lead>
         La distinción real no es lanzar-vs-operar, sino <B weight={600}>dónde se despliega</B> (el
-        campo <Code>deploy_target</Code>). Es el mismo concepto —un release de un producto de
-        software—; solo cambia el destino.
+        campo <Code>deploy_target</Code>). Es el mismo concepto :un release de un producto de
+        software:; solo cambia el destino.
       </Lead>
       <Card>
         <ChipDefRow chip="internal" tone="blue" isFirst>
           Herramienta interna: vive sin servidor externo (como el propio Mission Control en{" "}
           <Code>127.0.0.1</Code>). <Code>/pandacorp:release</Code> aquí significa correrla en local
-          — sin deploy a la nube ni gate de producción.
+          : sin deploy a la nube ni gate de producción.
         </ChipDefRow>
         <ChipDefRow chip="external" tone="green" isFirst={false}>
           Producto desplegado fuera (Vercel, AWS, etc.), con su gate humano de producción. Hasta el
@@ -1906,8 +1815,8 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
       <NotePanel icon="shield" iconColor="var(--amber)">
         <B weight={600}>Antes de leer un solo número, dos asertos de procedencia</B> (los datos del
         proyecto equivocado son peores que ningún dato): que exista la telemetría de ESTE proyecto (
-        <Code>docs/analytics/events.md</Code> — si falta, se detiene con «sin telemetría:
-        instrumenta primero vía <Code>/pandacorp:change</Code>» y NO emite veredicto), y que el
+        <Code>docs/analytics/events.md</Code> : si falta, se detiene con «sin telemetría:
+        instrumenta primero vía <Code>/pandacorp:implement</Code>» y NO emite veredicto), y que el
         proyecto de PostHog conectado sea el de esta app (si no coincide o no hay conexión, no lee
         de otra org: deja las consultas escritas para que las corras y reporta «sin datos para este
         proyecto»). Nunca inventa números.
@@ -1929,8 +1838,8 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
       <Card>
         <ChipDefRow chip="DOUBLE DOWN" tone="green" isFirst>
           La hipótesis se sostuvo (o va bien): recomienda el siguiente paso (encolar la próxima
-          feature por la puerta única <Code>/pandacorp:change</Code>, o empujar la distribución de{" "}
-          <Code>docs/launch-plan.md</Code>).
+          feature por la puerta única <Code>/pandacorp:implement</Code>, o empujar la distribución
+          de <Code>docs/launch-plan.md</Code>).
         </ChipDefRow>
         <ChipDefRow chip="HOLD" tone="amber" isFirst={false}>
           No concluyente / demasiado pronto: seguir midiendo; fija la próxima fecha de revisión.
@@ -1945,11 +1854,11 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
         <B weight={600}>No mata por su cuenta.</B> review-launch lee, recomienda y solo escribe las
         columnas de negocio + una nota. Matar, archivar, desplegar o gastar siguen siendo{" "}
         <B weight={500}>gates humanos</B>: el bucle produce la recomendación, tú decides. Es
-        consciente del retorno — una herramienta <Code>personal</Code> que usas a diario es un éxito
+        consciente del retorno : una herramienta <Code>personal</Code> que usas a diario es un éxito
         aunque facture $0.
       </NotePanel>
       <NotePanel icon="grid" iconColor="var(--violet)">
-        Alimenta el portfolio con columnas de negocio —Usuarios / Retorno / Veredicto— para ver
+        Alimenta el portfolio con columnas de negocio :Usuarios / Retorno / Veredicto: para ver
         ganadores vs zombies. Una idea matada realimenta a <Code>recommend</Code>, para que no
         vuelva a proponer la misma apuesta muerta. Puede correr a demanda, en sesión atendida como
         un job <Code>/loop</Code> (se auto-expira a los 7 días), o de forma durable vía la rutina
@@ -2000,7 +1909,7 @@ function ConceptServiciosSecretos(): React.JSX.Element {
         <B weight={600}>Por defecto: UNA cuenta/org compartida por servicio</B>, separando cada app
         por su <B weight={600}>primitivo nativo</B>. El aislamiento no viene de tener cuentas
         separadas: viene de un proyecto de Neon (= BD física aislada), un bucket de R2, un dominio
-        de Resend, una org de PostHog, un producto de Polar — cada uno con su credencial. Basta para
+        de Resend, una org de PostHog, un producto de Polar : cada uno con su credencial. Basta para
         producción real con datos personales (GDPR).
       </Body>
       <NotePanel icon="shield" iconColor="var(--green)">
@@ -2014,7 +1923,7 @@ function ConceptServiciosSecretos(): React.JSX.Element {
       <Card>
         <Ul>
           <li>
-            <B weight={500}>Runtime</B> — tres archivos: <Code>.env.example</Code> sin valores,{" "}
+            <B weight={500}>Runtime</B> : tres archivos: <Code>.env.example</Code> sin valores,{" "}
             <Code>.env.local</Code> para desarrollo y <Code>.env.production</Code> para producción
             (ambos privados). Variables por servicio y destino; las locales van al final de la guía
             y desarrollo, nunca en producción. Se exporta solo el destino que corresponda, sin
@@ -2053,8 +1962,8 @@ function ConceptServiciosSecretos(): React.JSX.Element {
       <NotePanel icon="alert" iconColor="var(--amber)">
         Vercel Hobby (gratis) es <B weight={500}>no comercial</B>: cualquier cobro, anuncio o
         donación cuenta como comercial. Si una versión cobra, requiere{" "}
-        <B weight={500}>Vercel Pro</B> ($20/mes por asiento — un asiento = toda la fábrica).{" "}
-        <B weight={500}>No bloquea</B> (no es un gate): la fábrica solo AVISA en 3 momentos —al
+        <B weight={500}>Vercel Pro</B> ($20/mes por asiento : un asiento = toda la fábrica).{" "}
+        <B weight={500}>No bloquea</B> (no es un gate): la fábrica solo AVISA en 3 momentos :al
         definir el PRD, en el blueprint y en el release (DR-035).
       </NotePanel>
 
@@ -2177,15 +2086,15 @@ function ConceptEspinazoDocs(): React.JSX.Element {
       <DocH title="Qué es cada documento" />
       <Card>
         <KvRow label="PRD" isFirst>
-          <Code>docs/product/prd.md</Code> — la visión, usuarios, métricas y alcance + una tabla
+          <Code>docs/product/prd.md</Code> : la visión, usuarios, métricas y alcance + una tabla
           VIVA de «feature landscape» (el mapa de FRDs).
         </KvRow>
         <KvRow label="FRD" isFirst={false}>
-          <Code>docs/frds/frd-NN-&lt;slug&gt;/frd.md</Code> — el contrato de usuario:{" "}
+          <Code>docs/frds/frd-NN-&lt;slug&gt;/frd.md</Code> : el contrato de usuario:{" "}
           <Code>REQ-NN-MMM</Code> + <Code>AC-NN-MMM.K</Code> (EARS, testeable).
         </KvRow>
         <KvRow label="FDD" isFirst={false}>
-          <Code>frd-NN-&lt;slug&gt;/fdd.md</Code> — el diseño de la feature. Condicional: solo si
+          <Code>frd-NN-&lt;slug&gt;/fdd.md</Code> : el diseño de la feature. Condicional: solo si
           tiene UI.
         </KvRow>
         <KvRow label="Blueprint" isFirst={false}>
@@ -2193,10 +2102,10 @@ function ConceptEspinazoDocs(): React.JSX.Element {
           feature (<Code>frd-NN-&lt;slug&gt;/blueprint.md</Code>, por FRD). Nunca se fusionan.
         </KvRow>
         <KvRow label="ADR" isFirst={false}>
-          <Code>docs/adr/</Code> — decisiones técnicas a nivel de plataforma (cross-feature).
+          <Code>docs/adr/</Code> : decisiones técnicas a nivel de plataforma (cross-feature).
         </KvRow>
         <KvRow label="Work order" isFirst={false}>
-          <Code>frd-NN-&lt;slug&gt;/work-orders/wo-NN-MMM-&lt;slug&gt;.md</Code> — una rebanada
+          <Code>frd-NN-&lt;slug&gt;/work-orders/wo-NN-MMM-&lt;slug&gt;.md</Code> : una rebanada
           gruesa (una vista/capacidad); copia sus AC en línea.
         </KvRow>
       </Card>
@@ -2246,12 +2155,12 @@ function ConceptEspinazoDocs(): React.JSX.Element {
         </Body>
         <Ul>
           <li>
-            <B weight={500}>Actualizar el documento canónico</B> (la verdad de ahora) — el que{" "}
+            <B weight={500}>Actualizar el documento canónico</B> (la verdad de ahora) : el que{" "}
             <i>posee</i> ese hecho.
           </li>
           <li>
             <B weight={500}>Registrar la decisión</B> en <Code>docs/decision-log.md</Code> (la
-            historia) — fecha, qué, por qué, enlazando el documento tocado.
+            historia) : fecha, qué, por qué, enlazando el documento tocado.
           </li>
         </Ul>
         <Divider />
@@ -2278,9 +2187,10 @@ function ConceptEspinazoDocs(): React.JSX.Element {
           procesar.
         </Body>
         <div style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.6 }}>
-          Un cambio pendiente siempre va a <Code>.pandacorp/inbox/changes/</Code>, por{" "}
-          <Code>/pandacorp:change</Code>. Si tienes una idea o un cambio para un proyecto, úsalo: no
-          crees un documento de propuesta dentro de <Code>docs/</Code>.
+          Un cambio pendiente siempre va a <Code>.pandacorp/inbox/changes/</Code>, como borrador
+          validado con <Code>card check</Code> si solo quieres anotarlo. Para construir usa{" "}
+          <Code>/pandacorp:implement</Code>: no crees un documento de propuesta dentro de{" "}
+          <Code>docs/</Code>.
         </div>
       </Card>
     </>
@@ -2296,7 +2206,7 @@ function ConceptTuPerfil(): React.JSX.Element {
     <>
       <DocH title="Tu perfil · cómo personaliza la fábrica" level={2} />
       <Lead>
-        La fábrica se personaliza para ti. Un perfil tuyo —intereses, activos y apetito— hace que
+        La fábrica se personaliza para ti. Un perfil tuyo :intereses, activos y apetito: hace que
         las ideas que te propone encajen contigo en vez de ser genéricas. Vive en{" "}
         <Code>factory/profile.md</Code> (personal, gitignored).
       </Lead>
@@ -2304,8 +2214,8 @@ function ConceptTuPerfil(): React.JSX.Element {
       <DocH title="El onboarding lo arranca" />
       <Body>
         <Code>/pandacorp:onboarding</Code> es el primer paso al clonar la fábrica. Te entrevista a
-        fondo —nombre, objetivos, intereses, hobbies, gustos, <B weight={600}>activos/palancas</B>,
-        apetito de monetización, tipos de proyecto y cómo trabajas— y guarda el perfil en{" "}
+        fondo :nombre, objetivos, intereses, hobbies, gustos, <B weight={600}>activos/palancas</B>,
+        apetito de monetización, tipos de proyecto y cómo trabajas: y guarda el perfil en{" "}
         <Code>factory/profile.md</Code>. Puede arrancarlo desde tus conversaciones pasadas. Nunca
         inventa datos: lo que no digas, lo deja vacío.
       </Body>
@@ -2317,18 +2227,18 @@ function ConceptTuPerfil(): React.JSX.Element {
       </Lead>
       <Card>
         <KvRow label="Fase 1" isFirst>
-          <B weight={500}>Barrido teaser</B> (barato y ancho): lentes de caza — app-enhancement
+          <B weight={500}>Barrido teaser</B> (barato y ancho): lentes de caza : app-enhancement
           (quejas de apps conocidas → extensiones), tus otras identidades, own-itch/QoL, challenger
-          de incumbentes (rebuild AI-first / unbundling 80-20) — y 8-12 teasers presentados como un{" "}
+          de incumbentes (rebuild AI-first / unbundling 80-20) : y 8-12 teasers presentados como un{" "}
           <B weight={500}>widget de decisión inline</B>, cada uno con el problema, la solución
           propuesta y una primera lectura de viabilidad técnica, sobre evidencia de fuentes
           verificadas (playbook sources.md).
         </KvRow>
         <KvRow label="Fase 2" isFirst={false}>
           <B weight={500}>Deep-dive</B> (caro y estrecho): tú eliges los 2-3 que te chispean y solo
-          esos pasan por los gates duros —incluido un{" "}
+          esos pasan por los gates duros :incluido un{" "}
           <B weight={500}>spike de viabilidad técnica</B> que confirma que el dato/capacidad crítica
-          se puede conseguir antes de construir— y el memo-pitch. Tus reacciones al resto se
+          se puede conseguir antes de construir: y el memo-pitch. Tus reacciones al resto se
           destilan como patrones de atracción/rechazo en tu perfil (DR-053).
         </KvRow>
       </Card>
@@ -2373,7 +2283,7 @@ function ConceptMultiRuntime(): React.JSX.Element {
       <DocH title="Operar desde cualquier agente" level={2} />
       <Lead>
         Desde 2026-07-04 (DR-113) la fábrica no vive casada con Claude Code: puedes abrir panda-corp
-        —o cualquier proyecto— en la app de <B weight={600}>Codex</B> (o su CLI, Cursor, OpenCode) y
+        :o cualquier proyecto: en la app de <B weight={600}>Codex</B> (o su CLI, Cursor, OpenCode) y
         leer, editar y construir con las mismas reglas, los mismos skills y el mismo estado
         (DR-133). Nadie elige runtime con un switch:{" "}
         <B weight={600}>cada herramienta se auto-selecciona por lo que es capaz de leer</B>.
@@ -2394,20 +2304,14 @@ function ConceptMultiRuntime(): React.JSX.Element {
         seguro.
       </NotePanel>
       <NotePanel icon="clock" iconColor="var(--amber)">
-        <B weight={600}>Permiso no significa automatización certificada.</B> Si faltan Workflow,
-        programación o subagentes, Codex trabaja en la sesión, secuencialmente. El launcher
-        automático conserva su alcance probado: un FRD o cambio, foreground y hasta dos horas. No se
-        promete ejecución nocturna ni se toma control de un proceso de Claude.
+        <B weight={600}>Permiso no significa automatización certificada.</B> Ambos runtimes usan{" "}
+        <Code>pandacorp-build.mjs</Code> con sus trabajadores locales. Sin programación disponible,
+        la ejecución sigue atendida y secuencial; no se promete ejecución nocturna sin evidencia.{" "}
+        <Code>drive</Code> es el relevo exclusivo de Codex: transfiere el mismo run mediante epoch,
+        no toma un run ajeno sin autorización. Su supervivencia nocturna y las notificaciones
+        requieren prueba real.
       </NotePanel>
-      <NotePanel icon="branch" iconColor="var(--amber)">
-        En Claude, el launcher entrega al Workflow la ruta absoluta y validada del escritor de
-        estado como <Code>stateCli</Code>. Los subagentes usan esa capacidad explícita para renovar,
-        sincronizar y cerrar; nunca intentan reconstruirla desde <Code>CLAUDE_PLUGIN_ROOT</Code>,
-        porque ese entorno no está garantizado dentro de un Workflow instalado. Una ruta ausente o
-        relativa detiene el engine antes de lanzar agentes.
-      </NotePanel>
-
-      <DocH title="Qué funciona igual y qué degrada" />
+      <DocH title="Qué funciona igual y qué depende del runtime" />
       <Lead>
         La regla es honesta: donde un mecanismo no porta, la gobernanza sigue vinculando como
         instrucción. Un runtime más débil es más lento y más manual,{" "}
@@ -2477,7 +2381,7 @@ function ConceptMultiRuntime(): React.JSX.Element {
             body: (
               <>
                 Abre panda-corp en la app de Codex → debe hablarte en <B weight={500}>español</B> y
-                listar los 26 skills (<Code>/skills</Code>).
+                descubrir los skills del catálogo activo (<Code>/skills</Code>).
               </>
             ),
           },
@@ -2495,8 +2399,9 @@ function ConceptMultiRuntime(): React.JSX.Element {
             title: <>Claude, su motor nativo</>,
             body: (
               <>
-                El build corre vía <Code>/pandacorp:implement</Code>: motor background, supervisor y
-                Fragua completa, como siempre.
+                El build corre vía <Code>/pandacorp:implement</Code> con el CLI común, las mismas
+                verificaciones y revisión independiente. Una sesión sin programación permanece
+                atendida.
               </>
             ),
           },
@@ -2515,7 +2420,7 @@ function GuideAdoptar(): React.JSX.Element {
     <>
       <DocH title="Adoptar un proyecto que ya tienes" level={2} />
       <Lead>
-        ¿Tienes un proyecto que NO nació del handoff de Pandacorp —externo, brownfield— y quieres
+        ¿Tienes un proyecto que NO nació del handoff de Pandacorp :externo, brownfield: y quieres
         meterlo bajo la fábrica? Para eso está <Code>/pandacorp:adopt</Code>: el espejo brownfield
         de <Code>scaffold</Code>. En vez de crear un proyecto vacío,{" "}
         <B weight={600}>envuelve lo que ya existe</B>. Se corre <B weight={600}>DENTRO</B> de la
@@ -2549,8 +2454,8 @@ function GuideAdoptar(): React.JSX.Element {
             title: <>La fase se DERIVA de gates de calidad documental (DR-119)</>,
             body: (
               <>
-                Adopt ya no <B weight={500}>estampa</B> la fase del código: corre —una vez, de abajo
-                arriba hasta el techo— las <B weight={500}>mismas baterías</B> que los skills de
+                Adopt ya no <B weight={500}>estampa</B> la fase del código: corre :una vez, de abajo
+                arriba hasta el techo: las <B weight={500}>mismas baterías</B> que los skills de
                 cada fase (producto: contradicciones DR-116 + sin <Code>[NEEDS CLARIFICATION]</Code>{" "}
                 + campos agent-critical; diseño: axe-core + Playwright + entregables + lectura
                 anti-omisión §1c). La <B weight={500}>primera batería que falla topa la fase</B>. La
@@ -2567,11 +2472,11 @@ function GuideAdoptar(): React.JSX.Element {
                 <Code>phase</Code> + <Code>advance_pending: true</Code> y para (DR-032). App{" "}
                 <B weight={500}>viva</B> (<Code>release</Code>) → mantiene{" "}
                 <Code>phase: release</Code> (no se degrada el tablero) y cada batería fallida se
-                archiva como tarjeta de <Code>/change</Code>, enrutando a{" "}
+                anota como tarjeta draft validada con card check, enrutando a{" "}
                 <Code>/pandacorp:design</Code> + <Code>/pandacorp:review-launch</Code>. Tras tu
                 confirmación, adopt puede{" "}
                 <B weight={500}>ofrecerte lanzar ese siguiente skill en la misma conversación</B>{" "}
-                (un solo salto, nunca directo a <Code>/pandacorp:implement</Code>) — solo lo lanza
+                (un solo salto, nunca directo a <Code>/pandacorp:implement</Code>) : solo lo lanza
                 si respondes que sí.
               </>
             ),
@@ -2580,10 +2485,9 @@ function GuideAdoptar(): React.JSX.Element {
             title: <>Inyecta el overlay SIN pisar</>,
             body: (
               <>
-                Copia las plantillas (<Code>CLAUDE.md</Code>, <Code>AGENTS.md</Code>,{" "}
-                <Code>.pandacorp/</Code>) pero nunca sobrescribe: si ya tienes{" "}
-                <Code>CLAUDE.md</Code>, <B weight={500}>añade</B> las líneas de import sin tocar tu
-                contenido.
+                Conserva las instrucciones existentes al migrarlas a <Code>AGENTS.md</Code>.{" "}
+                <Code>CLAUDE.md</Code> queda como import de una línea. Si existe{" "}
+                <Code>CLAUDE.local.md</Code>, se requiere reconciliarlo antes de continuar.
               </>
             ),
           },
@@ -2599,10 +2503,10 @@ function GuideAdoptar(): React.JSX.Element {
               <>
                 Crea <B weight={500}>siempre</B> una <B weight={500}>ficha de idea retroactiva</B> (
                 <Code>factory/ideas/&lt;slug&gt;.md</Code>, <Code>status: in-pipeline</Code>) y la
-                copia a <Code>.pandacorp/idea-origin.md</Code> — esa ficha es lo que hace que el
+                copia a <Code>.pandacorp/idea-origin.md</Code> : esa ficha es lo que hace que el
                 proyecto salga en el <B weight={500}>Tablero</B>. Añade también la fila a{" "}
                 <Code>factory/portfolio.md</Code> <B weight={500}>en el momento de adoptar</B>, sea
-                cual sea la fase inferida — igual que <Code>scaffold</Code>/<Code>spec</Code> la
+                cual sea la fase inferida : igual que <Code>scaffold</Code>/<Code>spec</Code> la
                 registran al nacer.
               </>
             ),
@@ -2641,9 +2545,9 @@ function GuideSync(): React.JSX.Element {
     <>
       <DocH title="Documentar cambios hechos a mano" level={2} />
       <Lead>
-        ¿Editaste el código directamente —para ir rápido, para verlo cambiar en vivo— sin pasar por{" "}
-        <Code>/spec</Code>, <Code>/design</Code>, <Code>/implement</Code> o <Code>/change</Code>? El
-        código se adelantó a los documentos. <Code>/pandacorp:sync</Code> es el{" "}
+        ¿Editaste el código directamente :para ir rápido, para verlo cambiar en vivo: sin pasar por{" "}
+        <Code>/spec</Code>, <Code>/design</Code>, <Code>/implement</Code> o <Code>/implement</Code>?
+        El código se adelantó a los documentos. <Code>/pandacorp:sync</Code> es el{" "}
         <B weight={600}>flujo inverso</B>: del <B weight={600}>código a los documentos</B>, no al
         revés. Es <Code>/pandacorp:iterate</Code> al revés, y se corre <B weight={600}>DENTRO</B>{" "}
         del proyecto.
@@ -2677,7 +2581,7 @@ function GuideSync(): React.JSX.Element {
               <>
                 Solo documenta lo que el código hace de <B weight={500}>más</B>. Si el doc tiene
                 razón, no lo degrada: un <B weight={500}>bug</B> (el código contradice un doc
-                correcto) se deriva a <Code>/pandacorp:change</Code>; una feature{" "}
+                correcto) se deriva a <Code>/pandacorp:implement</Code>; una feature{" "}
                 <B weight={500}>documentada pero no construida</B>, se marca pendiente. La
                 especificación nunca se rebaja para describir un código roto.
               </>
@@ -2719,9 +2623,9 @@ function GuideSync(): React.JSX.Element {
         ]}
       />
       <NotePanel icon="back" iconColor="var(--violet)">
-        Complementa a <Code>/pandacorp:change</Code>: <B weight={600}>sync</B> documenta lo que el
-        código hizo de <B weight={600}>más</B>; <Code>change</Code>/<Code>bug</Code> arregla lo que
-        el código hace de <B weight={600}>menos</B>.
+        Complementa a <Code>/pandacorp:implement</Code>: <B weight={600}>sync</B> documenta lo que
+        el código hizo de <B weight={600}>más</B>; <Code>implement</Code> arregla lo que el código
+        hace de <B weight={600}>menos</B>.
       </NotePanel>
     </>
   );
@@ -2736,538 +2640,57 @@ function GuideCambio(): React.JSX.Element {
     <>
       <DocH title="Cómo pedir un cambio" level={2} />
       <Lead>
-        <Code>/pandacorp:change</Code> es <B weight={600}>la puerta única</B> para pedirle a un
-        proyecto CUALQUIER cambio —una feature nueva, un ajuste o un bug—. No tienes que recordar
-        qué es: lo describes en lenguaje normal y el skill lo clasifica, le da una clase de urgencia
-        y lo deja en la cola de cambios <Code>.pandacorp/inbox/changes/</Code>.
+        <Code>/pandacorp:implement</Code> es la puerta única para construir una feature, un ajuste,
+        un bug o un hito. Describe el resultado en lenguaje normal; el CLI detecta el alcance antes
+        de iniciar.
       </Lead>
-      <NotePanel icon="shield" iconColor="var(--green)">
-        <B weight={600}>Es seguro por diseño (DR-069).</B> <Code>change</Code> solo captura +
-        clasifica + escribe un fichero a la cola. No edita docs/work-orders/código y no tiene lógica
-        de detección de build, así que no puede confundirse sobre si hay un build corriendo y
-        corromperlo.
-      </NotePanel>
-      <Card>
-        <div
-          style={{
-            fontSize: "12px",
-            fontWeight: 500,
-            color: "var(--text-2)",
-            marginBottom: "6px",
-          }}
-        >
-          Cómo viaja un cambio
-        </div>
-        <ChipFlow>
-          <Chip tone="violet">/change</Chip>
-          {RIGHT_ARROW}
-          <Chip tone="blue">cola de cambios</Chip>
-          {RIGHT_ARROW}
-          <Chip tone="amber">punto seguro del build</Chip>
-          {RIGHT_ARROW}
-          <Chip tone="green">mismo gate de revisión/test</Chip>
-        </ChipFlow>
-      </Card>
       <Card>
         <Ul>
           <li>
-            <B weight={500}>El build drena la cola en su punto seguro</B> (entre features, nunca a
-            mitad de una). Si no hay build, <Code>/pandacorp:implement</Code> la vacía cuando lo
-            corres.
+            <B>Construir ahora:</B> la petición conversada se fija en una tarjeta citada. Un FRD o
+            una tarjeta nombrados delimitan el objetivo; sin objetivo, se construye el plan
+            pendiente.
           </li>
           <li>
-            <B weight={500}>Clase de servicio:</B> <Chip tone="coral">expedite</Chip> (urgente /
-            rompe algo / bloquea pruebas → salta al frente) o <Chip tone="slate">standard</Chip>{" "}
-            (default, FIFO).
+            <B>Anotarlo para después:</B> se escribe una tarjeta <Code>draft</Code> en{" "}
+            <Code>.pandacorp/inbox/changes/</Code>. La sesión ejecuta{" "}
+            <Code>
+              node &lt;factory&gt;/plugin/scripts/pandacorp-build.mjs card check &lt;ruta&gt;
+            </Code>{" "}
+            y termina sin construir.
           </li>
           <li>
-            <B weight={500}>draft vs ready:</B> <Chip tone="green">ready</Chip> = completo, el build
-            lo construye; <Chip tone="slate">draft</Chip> = lo aparcas para visibilidad, el build lo
-            SALTA hasta que lo pases a ready. Mission Control muestra ambos.
+            <B>Alcance cerrado:</B> el motor no drena la cola ni incorpora otros pedidos durante el
+            run. Las tarjetas son un formato de archivo, no otra puerta de ejecución.
           </li>
           <li>
-            <B weight={500}>La cola se cierra sola (DR-147).</B> Llegue por donde llegue el trabajo
-            (el build, una sesión directa, un plan de lanzamiento, una decisión tuya), el commit
-            lleva <Code>Change: &lt;slug&gt;</Code> y el reconciliador{" "}
-            <Code>.pandacorp/change-reconcile.mjs</Code> archiva la tarjeta al aterrizar. Si solo
-            hay indicios, no cierra nada: la tarjeta pasa a <Chip tone="amber">¿Ya hecho?</Chip>, el
-            build no la reconstruye y tú decides.
+            <B>Objetivo explícito:</B> <Code>/pandacorp:implement frd-05-settings</Code> o{" "}
+            <Code>/pandacorp:implement change:mc-fix-pagination</Code>. Las dependencias deben estar
+            verificadas.
           </li>
           <li>
-            <B weight={500}>
-              <Code>bug</Code> e <Code>iterate</Code> son los motores internos.
-            </B>{" "}
-            Tú solo recuerdas <Code>/change</Code>; siguen existiendo como alias directos.
-          </li>
-          <li>
-            <B weight={500}>¿Es un hito, no un cambio suelto?</B> Un rediseño grande o un paquete de
-            cambios con su propio mini-PRD NO va a la cola: <Code>change</Code> lo clasifica como
-            hito, te lo explica y —solo con tu OK explícito en esa misma conversación— lo pasa al
-            motor <Code>new-version</Code> (DR-069 §5). Si lo prefieres más chico, vuelve a la
-            clasificación normal feature/cambio.
+            <B>Reanudar:</B> <Code>/pandacorp:implement --resume &lt;run-id&gt;</Code>. Los motores
+            internos de planificación se eligen dentro del flujo; no son comandos de construcción
+            separados.
           </li>
         </Ul>
       </Card>
-      <NotePanel icon="circle" iconColor="var(--amber)">
-        ¿Te preguntó algo el build? Eso NO es un cambio (va en sentido contrario) → usa{" "}
-        <Code>/pandacorp:decide</Code>.
-      </NotePanel>
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// WORKFLOWS: Qué es un Dynamic Workflow (overview)
-// ---------------------------------------------------------------------------
-
-const SKILL_TABLE_TH_STYLE: React.CSSProperties = {
-  textAlign: "left",
-  padding: "6px 8px",
-  borderBottom: "1px solid var(--line)",
-  color: "var(--text-2)",
-  fontWeight: 500,
-};
-
-const SKILL_TABLE_TD_STYLE: React.CSSProperties = {
-  padding: "6px 8px",
-  borderBottom: "1px solid var(--line)",
-  verticalAlign: "top",
-};
-
-const SKILL_VS_WORKFLOW_ROWS: ReadonlyArray<{
-  label: string;
-  skill: string;
-  workflow: string;
-}> = [
-  {
-    label: "Qué es",
-    skill: "Instrucciones que el modelo lee e interpreta",
-    workflow: "Un guion JS que ejecuta pasos fijos",
-  },
-  {
-    label: "Orquestación",
-    skill: "La improvisa el modelo cada vez",
-    workflow: "Determinista: paralelo/gates/topes en código",
-  },
-  {
-    label: "Cuándo brilla",
-    skill: "Trabajo conversacional, con matices, único",
-    workflow: "Fan-out repetitivo + checkpoints + reanudable",
-  },
-  {
-    label: 'En el menú "/"',
-    skill: "Sí (aparece como comando)",
-    workflow: "No — vive en .claude/engines/, lo lanza un skill",
-  },
-] as const;
-
-/** One engine card in the overview's "Los motores que existen hoy" section — links to its sub-page. */
-function EngineCard({
-  icon,
-  title,
-  body,
-  group,
-  slug,
-}: {
-  icon: IconName;
-  title: React.ReactNode;
-  body: React.ReactNode;
-  group: string;
-  slug: string;
-}): React.JSX.Element {
-  const nav = useManualNav();
-  return (
-    <button
-      type="button"
-      onClick={() => nav.goToManual(group, slug)}
-      style={{
-        display: "block",
-        width: "100%",
-        textAlign: "left",
-        background: "none",
-        border: "none",
-        padding: 0,
-        cursor: "pointer",
-        fontFamily: "inherit",
-        marginBottom: "8px",
-      }}
-    >
-      <Card>
-        <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
-          <span
-            aria-hidden="true"
-            style={{ fontSize: "18px", color: "var(--violet)", marginTop: "1px" }}
-          >
-            <Icon name={icon} size="sm" />
-          </span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)" }}>{title}</div>
-            <div
-              style={{
-                fontSize: "12px",
-                color: "var(--text-2)",
-                marginTop: "3px",
-                lineHeight: 1.5,
-              }}
-            >
-              {body}
-            </div>
-          </div>
-          <span
-            aria-hidden="true"
-            style={{ fontSize: "16px", color: "var(--text-3)", flex: "0 0 auto" }}
-          >
-            <Icon name="chevR" size="sm" />
-          </span>
-        </div>
-      </Card>
-    </button>
-  );
-}
-
-function WorkflowsOverview(): React.JSX.Element {
-  return (
-    <>
-      <DocH title="Dynamic Workflows" level={2} />
-      <Lead>
-        Un <B weight={600}>Dynamic Workflow</B> es un guion de JavaScript que orquesta subagentes de
-        forma <B weight={600}>determinista</B>: decide en código qué corre en paralelo, qué espera a
-        qué, dónde hay un control de calidad, cuántos agentes como mucho y cómo retomar si algo se
-        corta. No es un agente que improvisa — es una cinta de montaje con estaciones fijas.
-      </Lead>
-
-      <NotePanel icon="shield" iconColor="var(--amber)">
-        Las señales de parada no dependen del shell. El motor inspecciona
-        <Code>.pandacorp/run/stop</Code> mediante un recibo Node determinista, inmune a aliases como
-        <Code>test=npm test</Code>. Si sale antes del planner, el cierre es un comando mecánico
-        cercado: rechaza cambios de producto, solo puede publicar <Code>status.yaml</Code> y
-        devuelve el recibo de rutas permitidas antes de liberar la lease.
-      </NotePanel>
-
-      <NotePanel icon="settings" iconColor="var(--violet)">
-        Piensa en la diferencia entre un <B weight={600}>cocinero</B> y una{" "}
-        <B weight={600}>cadena de montaje</B>.
-        <Ul>
-          <li>
-            Un <B weight={500}>skill</B> es el cocinero: lee la receta y se organiza de cabeza. Es
-            flexible y conversa contigo, pero cada vez lo hace un poco distinto.
-          </li>
-          <li>
-            Un <B weight={500}>dynamic workflow</B> es la cadena de montaje: la cinta y las
-            estaciones están soldadas en su sitio. Procesa cien piezas iguales sin cansarse, cada
-            una pasa por los mismos controles, y si se va la luz, al volver sigue por donde iba — no
-            reempieza.
-          </li>
-        </Ul>
-        Cuando hay MUCHAS piezas iguales y controles estrictos, quieres la cadena, no al cocinero
-        improvisando.
-      </NotePanel>
-
-      <DocH title="Skill vs Workflow" />
-      <Card>
-        <div style={{ overflowX: "auto" }}>
-          <table
-            data-testid="workflows-skill-vs-workflow-table"
-            style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}
-          >
-            <thead>
-              <tr>
-                <th style={SKILL_TABLE_TH_STYLE} />
-                <th style={SKILL_TABLE_TH_STYLE}>Skill</th>
-                <th style={SKILL_TABLE_TH_STYLE}>Dynamic Workflow</th>
-              </tr>
-            </thead>
-            <tbody>
-              {SKILL_VS_WORKFLOW_ROWS.map((row) => (
-                <tr key={row.label}>
-                  <td style={{ ...SKILL_TABLE_TD_STYLE, color: "var(--text-2)" }}>{row.label}</td>
-                  <td style={{ ...SKILL_TABLE_TD_STYLE, color: "var(--text-3)" }}>{row.skill}</td>
-                  <td style={{ ...SKILL_TABLE_TD_STYLE, color: "var(--text)" }}>{row.workflow}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <DocH title="La forma que se repite: fan-out → compuerta" />
-      <Body>
-        Casi todos los workflows tienen la misma silueta: <B weight={500}>se abren en abanico</B>{" "}
-        (muchos subagentes trabajando a la vez) y luego <B weight={500}>embudo</B> por una compuerta
-        que verifica antes de dejar pasar. Es como un periódico: muchos reporteros escriben
-        secciones en paralelo, pero todo pasa por la mesa del editor antes de imprimir. Si la
-        compuerta es "split", en vez de un editor hay cuatro especialistas (hechos, legal, estilo,
-        maqueta) leyendo a la vez, y un jefe de redacción firma solo lo que sobrevive.
-      </Body>
-      <Card>
-        <WorkflowShapeDiagram />
-      </Card>
-
-      <DocH title="Por qué determinista (y no dejar que el modelo improvise)" />
-      <Card>
-        <Ul>
-          <li>
-            <B weight={500}>Fiabilidad</B>: el merge se hace de uno en uno, siempre; nunca dos a la
-            vez pisándose.
-          </li>
-          <li>
-            <B weight={500}>Velocidad</B>: lo independiente corre de verdad en paralelo, no en fila.
-          </li>
-          <li>
-            <B weight={500}>Reanudable</B>: el estado vive en disco (el frontmatter de cada work
-            order), así que relanzar = leer dónde te quedaste. Nunca se rehace algo ya verificado.
-          </li>
-        </Ul>
-      </Card>
-
-      <DocH title="Los motores que existen hoy" />
-      <EngineCard
-        icon="factory"
-        title="pandacorp-build — el motor de construcción"
-        body={
-          <>
-            Levanta un proyecto entero, feature por feature, en oleadas. Lo lanza{" "}
-            <Code>/pandacorp:implement</Code>.
-          </>
-        }
-        group="workflows"
-        slug="wf-pandacorp-build"
-      />
-      <EngineCard
-        icon="branch"
-        title="pandacorp-backlog — el motor de drenado del backlog"
-        body={
-          <>
-            Resuelve los BL-* en paralelo y los mergea de uno en uno. Lo lanza{" "}
-            <Code>/pandacorp:implement-backlog</Code> (sin argumentos).
-          </>
-        }
-        group="workflows"
-        slug="wf-pandacorp-backlog"
-      />
-
-      <NotePanel icon="eye" iconColor="var(--text-2)">
-        Los dos viven en <Code>.claude/engines/</Code> — una carpeta que el menú "/" NO escanea,
-        para que estos motores internos no aparezcan como comandos sueltos. Los invoca siempre un
-        skill, nunca tú a mano.
-      </NotePanel>
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// WORKFLOWS: pandacorp-build — el motor de construcción
-// ---------------------------------------------------------------------------
-
-function WorkflowBuild(): React.JSX.Element {
-  return (
-    <>
-      <DocH title="pandacorp-build — el motor de construcción" level={2} />
-      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "10px" }}>
-        <Chip tone="violet">
-          <Code>/pandacorp:implement</Code>
-        </Chip>
-        <Chip tone="slate">corre en el proyecto</Chip>
-        <Chip tone="green">segundo plano · reanudable</Chip>
-      </div>
-      <Lead>
-        Es la joya de la corona: construye un proyecto entero leyendo las FRDs y sus work orders, y
-        no para hasta terminar (o hasta que topa con presupuesto, salud, o algo que solo tú puedes
-        decidir). En el carril classic construye en <B weight={600}>oleadas globales</B>: cada
-        oleada agarra los work orders LISTOS de TODAS las features a la vez (los que tienen sus
-        dependencias hechas y no chocan de archivos), así las features independientes avanzan en
-        paralelo.
-      </Lead>
-
-      <NotePanel icon="factory" iconColor="var(--violet)">
-        Como levantar un edificio: no puedes construir el piso 3 antes del 2, pero dentro de un piso
-        hay muchos obreros a la vez, y cada piso se inspecciona antes de subir al siguiente. La
-        inspección es la compuerta de revisión — y esa inspección ahora la hacen varios
-        especialistas en paralelo.
-      </NotePanel>
-
-      <NotePanel icon="bolt" iconColor="var(--violet)">
-        <B weight={500}>Por defecto, carril rápido (desde 9.119.0, DR-124).</B> Cada feature la
-        construye un solo agente, como uno suelto, y queda <B weight={500}>USABLE</B> (código en
-        main, verify.sh en verde, aviso al celular) en minutos; la revisión con opus corre después,
-        en segundo plano, hasta VERIFIED. Las features sensibles (login, dinero, datos personales,
-        secretos, borrados de datos) esperan su VERIFIED. Todo lo que sigue sobre oleadas globales
-        describe el carril <Code>classic</Code> (<Code>--lane classic</Code>); con{" "}
-        <Code>--review-budget defer</Code> se detiene en USABLE, y si un límite de uso corta la
-        corrida se pausa limpio y se reanuda con <Code>--resume &lt;run-id&gt;</Code>. Desde la
-        9.120.0 (DR-125) el carril rápido usa además carriles en paralelo: las work orders
-        independientes se construyen a la vez en copias aparte del proyecto (2 por defecto, hasta 4
-        en powerful, 1 cuando el árbol de dependencias es estrecho; <Code>--lanes N</Code> lo
-        cambia).
-      </NotePanel>
-
-      <DocH title="El gate de revisión, ahora en abanico (reviewSplit)" />
-      <Body>
-        Al cerrar cada feature, antes se pasaba por UN revisor en serie. Ahora, en los modos
-        potentes (powerful/deep), la revisión se{" "}
-        <B weight={500}>abre en cuatro lentes en paralelo</B> — corrección, seguridad, calidad y
-        runtime/visual — se deduplican los hallazgos, cada hallazgo se{" "}
-        <B weight={500}>verifica de forma adversarial</B> (un escéptico intenta refutarlo; si no
-        puede anclarlo, muere), y un revisor de cierre (Opus) firma solo lo confirmado. Si no cabe
-        en el tope de agentes, cae con elegancia al revisor en serie de siempre. En los modos
-        ligeros (pro/balanced) sigue siendo el revisor en serie, idéntico a antes.
-      </Body>
-
-      <DocH title="La revisión y la construcción ahora se solapan" />
-      <Body>
-        Antes, el motor se PARABA a revisar cada feature: mientras el juez deliberaba, nadie
-        construía. Ahora una feature lista para revisión se juzga en un{" "}
-        <B weight={500}>worktree congelado</B> (una copia del proyecto anclada al commit exacto en
-        que quedó verde) MIENTRAS el build sigue forjando otras features. Cuando el gate aprueba, el
-        motor sella ese work order como VERIFIED en la rama principal de forma serializada (un
-        cambio a la vez, sin pisarse); si rechaza, esa feature vuelve a la escalera de recuperación.
-        En La Fragua lo ves como lo que es: el tribunal <B weight={500}>abre</B> (evento{" "}
-        <Code>gate</Code>) y <B weight={500}>cierra</B> (evento <Code>GateVerdict</Code>) sin
-        congelar la forja, y una orden rechazada camina de vuelta a la forja (↩️{" "}
-        <Code>wo_reopen</Code>).
-      </Body>
       <NotePanel>
-        Si un corte deja el worktree de un gate a medias, el motor no lo borra: puede ser la única
-        evidencia del gate interrumpido. Solo lo reutiliza cuando Git reconoce exactamente ese
-        worktree y está limpio; si está sucio, huérfano o ambiguo, conserva todo y ejecuta el gate
-        síncrono sobre el árbol principal.
+        Si el build te hace una pregunta, responde con <Code>/pandacorp:decide &lt;id&gt;</Code>.
+        Producción, gasto, borrado y comunicaciones externas conservan sus gates humanos.
       </NotePanel>
-      <NotePanel icon="shield" iconColor="var(--violet)">
-        La lease también es la fuente de la proyección activa. Acquire, renovación,{" "}
-        <Code>sync-rollups</Code> y cierre reponen fase, run lógico, runtime, epoch y hora de inicio
-        en <Code>status.yaml</Code>. El cierre cambia únicamente la actividad a{" "}
-        <Code>running: false</Code>. El reparador de baseline puede restaurar otros residuos
-        tracked, pero nunca ese estado controlado mientras el writer siga cercado.
-      </NotePanel>
-
-      <DocH title="La revisión cubre el contrato completo" />
-      <Body>
-        Cada gate inventaría requisitos, criterios de aceptación, invariantes, casos límite,
-        límites, errores y exclusiones del FRD. Registra trazabilidad contrato→prueba y exige
-        pruebas adversariales de frontera para los casos y límites aplicables. Un AC verde nunca
-        permite ignorar una contradicción en otra cláusula normativa del FRD aprobado.
-      </Body>
-
-      <DocH title="Behavior tests protect contracts (DR-144)" />
-      <Body>
-        Tests use their own fixtures; real-file reader checks prove structure, never a fixed catalog
-        volume. The reviewer rejects live-data count/content pins, production volume guards and
-        markup/style/copy change-detector tests. The live-data-asserts scanner warns; a justified
-        live-data-ok comment documents a legitimate contract, not a review waiver.
-      </Body>
-
-      <DocH title="Varios FRDs en revisión a la vez (desde 9.116.0)" />
-      <Body>
-        Desde la versión 9.116.0 el motor revisa por defecto hasta <Code>gateSlots</Code> FRDs a la
-        vez (2 de fábrica), cada uno fijado a su propio worktree (<Code>gate-worktree-1</Code>,{" "}
-        <Code>gate-worktree-2</Code>, etc.) en vez de compartir uno solo. Solo se juntan FRDs con
-        artefactos que no se pisan; uno que depende de otro espera a revisarse junto a su FRD base
-        pero aterriza después. El aterrizaje a main sigue siendo de <B weight={500}>uno en uno</B>,
-        por orden de llegada, con una revalidación si main se movió mientras tanto: paraleliza el
-        tiempo de revisión, nunca el punto de escritura. Se apaga con{" "}
-        <Code>--no-parallel-gates</Code> si quieres volver al camino de un solo worktree.
-      </Body>
-      <NotePanel icon="layers" iconColor="var(--amber)">
-        Este paralelismo cuesta agentes, no tiempo extra por gate: si vas a revisar varios FRDs a la
-        vez, dale presupuesto de sobra. Regla práctica medida: <Code>maxAgents</Code> ≈ 8 de base,
-        más 4 a 6 por work order, más unas 20 por cada FRD a revisar (24 con el buscador de deriva);
-        un FRD con 3 work orders y una reapertura gastó unas 48 unidades. El conteo pesa por costo,
-        no por cuántos agentes corren en simultáneo (un agente opus pesa unas 3 unidades). Si no
-        quieres calcularlo, <Code>maxAgents auto</Code> lo dimensiona tras el plan; para una noche
-        desatendida pasa igualmente un número tuyo. Con poco margen, el segundo gate simplemente
-        espera turno en vez de fallar.
-      </NotePanel>
-
-      <DocH title="Cuando el código ya se movió (deriva, DR-122)" />
-      <Body margin="0 0 10px">
-        El gate no solo mira el diff de esta feature: también puede notar que el código de un FRD ya{" "}
-        <B weight={500}>verificado antes</B> se alejó de su propio contrato, por un cambio hecho en
-        otra parte del proyecto. Eso nunca bloquea el gate actual: se anota como <Code>drift:</Code>{" "}
-        en el FRD afectado y queda una tarjeta en la cola de cambios para que decidas qué hacer.
-        Solo si esa deriva rompe de verdad el contrato ya verificado (un ciclo real, no ruido de
-        lectura) el motor reabre la work order. Quien la busca es un agente dedicado (
-        <B weight={500}>Drift Finder</B>), y por defecto solo participa cuando el gate usa evidencia{" "}
-        <Code>digested</Code>; el modo por defecto sigue siendo <Code>explore</Code> (los canarios
-        F1/F2 midieron que <Code>digested</Code> pierde hallazgos reales), así que en la mayoría de
-        gates el Drift Finder no corre a menos que lo enciendas a mano.
-      </Body>
-
-      <DocH title="Si algo falla: repara antes de bloquear (la escalera)" />
-      <Body>
-        Un fallo ya no para el build ni lo marca BLOCKED a la primera. El motor sube una{" "}
-        <B weight={500}>escalera de recuperación</B>, y cada peldaño queda anotado en un diario
-        durable (<Code>.pandacorp/build-journal.jsonl</Code>, committeado — sobrevive a un corte):
-      </Body>
-      <div style={{ marginBottom: "10px" }}>
-        <Card>
-          <Ul>
-            <li>
-              <B weight={500}>Diagnostica primero.</B> Antes de tocar nada, clasifica el fallo:
-              puntual (un test, un borde), arquitectónico (el diseño no da), gate-test-defective (el
-              test del gate es el que está mal, no el código) o contrato en punto muerto.
-            </li>
-            <li>
-              <B weight={500}>Parchea informado.</B> Aplica un arreglo guiado por el diagnóstico
-              (hasta 2 intentos), no un palo de ciego.
-            </li>
-            <li>
-              <B weight={500}>Revierte solo la costura.</B> Si no converge, deshace SOLO la parte
-              tocada (revert parcial de la costura), no toda la feature.
-            </li>
-            <li>
-              <B weight={500}>Bloquea temprano y con motivo.</B> Si de verdad necesita al owner,
-              marca BLOCKED con la razón (needs-owner | external | error) y sigue con las features
-              independientes — nunca se queda dando vueltas.
-            </li>
-          </Ul>
-        </Card>
-      </div>
-      <Body>
-        En el registro de La Fragua estos momentos tienen icono propio:{" "}
-        <B weight={500}>↩️ WO reabierto</B>, <B weight={500}>🩹 Parche</B>, la{" "}
-        <B weight={500}>✅/❌ prueba de humo</B> (el revisor renderiza las rutas de verdad) y el{" "}
-        <B weight={500}>🛡️ Endurecimiento</B> del cierre.
-      </Body>
-
-      <DocH title="Cómo lo lanzas · el checklist" />
-      <Body>
-        <Code>/pandacorp:implement</Code> corre dos guiones antes de soltar el motor de noche:{" "}
-        <Code>preflight-implement.sh</Code> comprueba que todo esté listo (el último verde, que no
-        haya otro build corriendo — el candado de un-build-a-la-vez —, presupuesto y salud) y{" "}
-        <Code>launch-implement.sh</Code> arranca el motor junto a su supervisor. Tú no corres nada a
-        mano: el skill le pasa también el alcance dirigido (<Code>--frds</Code> o{" "}
-        <Code>--change</Code>) y los topes de prueba al launcher, que valida todo antes de tomar el
-        candado e imprime una sola llamada JSON segura. Nunca se completa esa llamada a mano. A
-        partir de ahí, mira La Fragua.
-      </Body>
-
-      <DocH title="Cómo retoma si se corta" />
-      <Body>
-        El estado vive en el frontmatter de cada work order (<Code>implementation_status</Code>).
-        Relanzar el motor = volver a leer el disco: nunca reconstruye un work order VERIFIED, y uno
-        que quedó IN_REVIEW pasa directo a su gate. No hay "run id" mágico — la memoria es el árbol
-        de archivos.
-      </Body>
-
-      <DocH title="El supervisor" />
-      <Body margin="0">
-        Nunca se lanza solo: junto al motor va un supervisor (Monitor + ScheduleWakeup +
-        PushNotification) que vigila el latido, te avisa al móvil si se atasca o termina, y relanza
-        el motor pasada tras pasada hasta que no queda nada. Por eso puedes lanzarlo de noche y
-        desentenderte.
-      </Body>
     </>
   );
 }
 
 // ---------------------------------------------------------------------------
-// WORKFLOWS: pandacorp-backlog — el motor de drenado del backlog
+// WORKFLOWS: pandacorp-backlog : el motor de drenado del backlog
 // ---------------------------------------------------------------------------
 
 function WorkflowBacklog(): React.JSX.Element {
   return (
     <>
-      <DocH title="pandacorp-backlog — el motor de drenado del backlog" level={2} />
+      <DocH title="pandacorp-backlog : el motor de drenado del backlog" level={2} />
       <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "10px" }}>
         <Chip tone="violet">
           <Code>/pandacorp:implement-backlog</Code> (sin argumentos)
@@ -3295,7 +2718,7 @@ function WorkflowBacklog(): React.JSX.Element {
         El fan-out del trabajo es paralelo, pero el merge NO: dos merges a la vez se pisarían justo
         en los sitios calientes (la versión del plugin, el decision-log, el contador del README).
         Serializar el merge y correr el validador entre cada uno es exactamente lo que un modelo
-        improvisa mal — por eso está soldado en código.
+        improvisa mal : por eso está soldado en código.
       </Body>
 
       <DocH title="Modo un-ítem vs drenar-todo" />
@@ -3360,7 +2783,7 @@ const MANUAL_PAGE_COMPONENTS: Record<string, () => React.JSX.Element> = {
   "construccion-desatendida": ConceptDesatendida,
   "el-plugin": ConceptPlugin,
   autoaprendizaje: ConceptAutoaprendizaje,
-  // Concepts — audit-gap additions
+  // Concepts : audit-gap additions
   "el-arco-economico": ConceptArcoEconomico,
   "despues-de-lanzar": ConceptDespuesDeLanzar,
   "servicios-cuentas-secretos": ConceptServiciosSecretos,
@@ -3370,8 +2793,6 @@ const MANUAL_PAGE_COMPONENTS: Record<string, () => React.JSX.Element> = {
   "multi-runtime": ConceptMultiRuntime,
   "vault-y-respaldos": ConceptVault,
   // Workflows
-  "que-es-un-workflow": WorkflowsOverview,
-  "wf-pandacorp-build": WorkflowBuild,
   "wf-pandacorp-backlog": WorkflowBacklog,
 };
 

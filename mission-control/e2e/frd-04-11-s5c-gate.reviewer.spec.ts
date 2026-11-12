@@ -96,7 +96,13 @@ test.describe("Cambios", () => {
     ] as const) {
       await row(page, id).click();
       const dialog = page.getByRole("dialog");
-      await expect(dialog).toContainText(`/pandacorp:implement change:${PREFIX}${id}`);
+      if (id === "building") await expect(dialog).toContainText("/pandacorp:implement --resume");
+      else if (id === "ready" || id === "draft")
+        await expect(dialog).toContainText(`/pandacorp:implement change:${PREFIX}${id}`);
+      else
+        await expect(
+          dialog.getByRole("button", { name: /^Copiar \/pandacorp:implement/ }),
+        ).toHaveCount(0);
       await expect(dialog.getByRole("button", { name: "Descartar cambio" })).toHaveCount(
         offered ? 1 : 0,
       );
@@ -285,87 +291,58 @@ test.describe("Comandos", () => {
   const goto = (page: Page): Promise<void> =>
     gotoHydrated(page, COMMANDS_URL, { selector: '[data-testid="tab-commands-body"]' });
 
-  test("REQ-11-003: mode survives remount by tab navigation and reload, keyed by project", async ({
+  test("REQ-11-007/009: build and resume are copy-only, legacy preferences are ignored on reload", async ({
     page,
   }) => {
-    await goto(page);
-    const box = page.getByTestId("mode-cmd");
-    await expect(box).toContainText("/pandacorp:implement");
-    await expect(box).not.toContainText("powerful");
-    await page.getByRole("button", { name: /Potente/ }).click();
-    await expect(box).toContainText("/pandacorp:implement powerful");
-    expect(await page.evaluate(() => localStorage.getItem("mc:build-mode:mission-control"))).toBe(
-      "powerful",
+    await page.addInitScript(() =>
+      localStorage.setItem("mc:build-mode:mission-control", "powerful"),
     );
-    await page.getByRole("tab", { name: /Cambios/ }).click();
-    await expect(page).toHaveURL(/\/changes/);
-    await page.getByRole("tab", { name: /Comandos/ }).click();
-    await expect(page.getByTestId("mode-cmd")).toContainText("/pandacorp:implement powerful");
+    await goto(page);
+    const picker = page.getByTestId("build-mode-picker");
+    await expect(picker.getByRole("button", { name: "Construir", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await picker.getByRole("button", { name: "Reanudar", exact: true }).click();
+    await expect(
+      picker.getByRole("button", { name: "Copiar /pandacorp:implement --resume" }),
+    ).toBeVisible();
     await page.reload();
-    await expect(page.getByRole("button", { name: /Potente/ })).toHaveAttribute(
+    await expect(picker.getByRole("button", { name: "Construir", exact: true })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    await page.getByRole("button", { name: /Equilibrado/ }).click();
-    await expect(page.getByTestId("mode-cmd").locator("code, .cmd").first()).toHaveText(
-      "/pandacorp:implement",
-    );
+    await expect(
+      picker.getByRole("button", { name: "Copiar /pandacorp:implement", exact: true }),
+    ).toBeVisible();
   });
 
-  test("REQ-11-003: another project's stored mode never leaks and corrupt storage falls back", async ({
+  test("REQ-11-008/010: explicit targets exclude WOs and an empty selection has no copy command", async ({
     page,
   }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem("mc:build-mode:other-project", "deep");
-      localStorage.setItem("mc:build-mode:mission-control", "bogus");
-    });
     await goto(page);
-    await expect(page.getByRole("button", { name: /Equilibrado/ })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-  });
-
-  test("REQ-04-006: card layout at the 1024 px boundary, actionable cards first below", async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 1024, height: 800 });
-    await goto(page);
-    const title = (name: string) => page.getByRole("heading", { name, exact: true });
-    const at = async (name: string) => (await title(name).boundingBox()) ?? { x: 0, y: 0 };
-    const [next, mode, target, changes] = [
-      await at("Siguiente paso"),
-      await at("Modo de construcción"),
-      await at("Construir un objetivo concreto"),
-      await at("Cambios y decisiones"),
-    ];
-    expect(mode.x).toBe(next.x);
-    expect(mode.y).toBeGreaterThan(next.y);
-    expect(changes.x).toBe(target.x);
-    expect(target.x).toBeGreaterThan(next.x);
-    await page.setViewportSize({ width: 1023, height: 800 });
-    await expect
-      .poll(async () => (await at("Construir un objetivo concreto")).x)
-      .toBe((await at("Siguiente paso")).x);
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    );
-    expect(overflow).toBeLessThanOrEqual(0);
-  });
-
-  test("REQ-04-006: verified work orders are not targets; nothing executes", async ({ page }) => {
-    await goto(page);
-    const target = page.getByRole("combobox", { name: "Objetivo del build" });
-    await expect(target.locator("option").first()).toHaveText("Elige un FRD o work order…");
-    await expect(target.locator('option[value="WO-01-001"]')).toHaveCount(0);
-    await expect(target.locator('option[value="WO-01-003"]')).toHaveCount(1);
-    await expect(target.locator('option[value="FRD-01"]')).toContainText("FRD-01 · ");
-    await expect(page.getByRole("heading", { name: "Cambios y decisiones" })).toBeVisible();
-    for (const command of ["/pandacorp:change", "/pandacorp:decide", "/pandacorp:new-version"])
-      await expect(
-        page.getByRole("button", { name: `Copiar ${command}`, exact: true }),
-      ).toBeVisible();
-    await expect(page.getByTestId("tab-commands-body").locator("form")).toHaveCount(0);
+    const picker = page.getByTestId("build-mode-picker");
+    await picker.getByRole("button", { name: "Objetivo: FRD o tarjeta" }).click();
+    const target = picker.getByRole("combobox", { name: "Objetivo del build" });
+    await expect(picker.getByRole("button", { name: /^Copiar/ })).toHaveCount(0);
+    await expect(target.locator('option[value^="WO-"]')).toHaveCount(0);
+    await target.selectOption("FRD-01");
+    await expect(
+      picker.getByRole("button", { name: "Copiar /pandacorp:implement FRD-01" }),
+    ).toBeVisible();
+    await target.selectOption("");
+    await expect(picker.getByRole("button", { name: /^Copiar/ })).toHaveCount(0);
+    await expect(picker).toContainText("Mission Control nunca lo ejecuta");
+    for (const width of [320, 768, 1280]) {
+      await page.setViewportSize({ width, height: 800 });
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+          ),
+        )
+        .toBeLessThanOrEqual(0);
+    }
   });
 });
 

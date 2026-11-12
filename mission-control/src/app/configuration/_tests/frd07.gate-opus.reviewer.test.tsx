@@ -65,6 +65,7 @@ describe("FRD-07 gate (opus)", () => {
     visit("/configuration/agents");
     await renderRealPage();
     expect(screen.getByText(/Juicio y diseño/)).toBeInTheDocument();
-    expect(screen.getByText("Usa el modelo de la sesión que lo llama.")).toBeInTheDocument();
+    expect(screen.queryByText("Usa el modelo de la sesión que lo llama.")).not.toBeInTheDocument();
+    expect(screen.queryByText("mech", { exact: true })).not.toBeInTheDocument();
   });
 });

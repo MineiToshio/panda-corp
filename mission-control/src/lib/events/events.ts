@@ -2,11 +2,19 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { readBoundedTail } from "../build-run/sources";
 import { normalizeEventName } from "./event-contract";
 import { isNewerTimestamp } from "./event-time";
-import type { Event, EventActivity, EventMode, EventPhase, EventRuntime } from "./event-types";
+import type {
+  Event as BaseEvent,
+  EventActivity,
+  EventMode,
+  EventPhase,
+  EventRuntime,
+} from "./event-types";
 
-export type { Event } from "./event-types";
+/** V2 payload fields retain semantic names and can be consumed without raw transport data. */
+export type Event = BaseEvent & { from?: number; to?: number; unit?: string; model?: string };
 
 /**
  * Event stream reader for Mission Control's Party panel (FRD-01, CMP-01-events).
@@ -20,15 +28,6 @@ export type { Event } from "./event-types";
 
 /** Default cap for the events tail (architecture §3/§5). */
 const DEFAULT_CAP = 200;
-
-/**
- * Upper bound on bytes read from the NDJSON file (stream hygiene, 2026-07-07).
- * The dashboard stream grows unbounded (every Claude session appends); reading
- * the whole file just to keep the last ~200 events is wasteful and grows without
- * limit. We tail the last 256 KB — comfortably more than DEFAULT_CAP lines — and
- * discard the first (partial) line so no truncated JSON reaches the parser.
- */
-const MAX_TAIL_BYTES = 256 * 1024;
 
 /** Bucket key for events that carry no `project` field (legacy/global events). */
 const GLOBAL_BUCKET = "__global__";
@@ -100,23 +99,7 @@ function defaultCodexEventsPath(): string {
  * Uses one fd (open → fstat → read → close) so size and content are consistent.
  */
 export function readTailUtf8(filePath: string): string {
-  const fd = fs.openSync(filePath, "r");
-  try {
-    const { size } = fs.fstatSync(fd);
-    if (size <= MAX_TAIL_BYTES) {
-      return fs.readFileSync(fd, "utf-8");
-    }
-    const start = size - MAX_TAIL_BYTES;
-    const buf = Buffer.allocUnsafe(MAX_TAIL_BYTES);
-    const bytesRead = fs.readSync(fd, buf, 0, MAX_TAIL_BYTES, start);
-    const text = buf.toString("utf-8", 0, bytesRead);
-    // Drop everything up to and including the first newline — the tail window
-    // almost certainly starts mid-line, and that partial line is not valid JSON.
-    const firstNl = text.indexOf("\n");
-    return firstNl === -1 ? "" : text.slice(firstNl + 1);
-  } finally {
-    fs.closeSync(fd);
-  }
+  return readBoundedTail(filePath);
 }
 
 /**
@@ -149,7 +132,7 @@ function resolveCap(cap: number | undefined): number {
 /**
  * Resolve the source object for the enriched fields.
  *
- * The REAL plugin emitter (`plugin/templates/shared/.claude/workflows/pandacorp-build.js`)
+ * The runtime-neutral event transport
  * writes the enriched fields NESTED under a `data` object:
  *
  *   {"event":"AgentWorking","at":"…","project":"…",
@@ -262,6 +245,13 @@ function applyResultNumberFields(src: Record<string, unknown>, ev: Event): void 
   }
 }
 
+function applyV2Fields(src: Record<string, unknown>, ev: Event): void {
+  if (typeof src.unit === "string") ev.unit = src.unit;
+  if (typeof src.model === "string") ev.model = src.model;
+  if (typeof src.from === "number" && [1, 2, 3, 5, 8].includes(src.from)) ev.from = src.from;
+  if (typeof src.to === "number" && [1, 2, 3, 5, 8].includes(src.to)) ev.to = src.to;
+}
+
 function applyResultFields(obj: Record<string, unknown>, ev: Event): void {
   const src = enrichedSource(obj);
 
@@ -271,6 +261,7 @@ function applyResultFields(obj: Record<string, unknown>, ev: Event): void {
   if (typeof src.wos === "string") ev.wos = src.wos;
   if (typeof src.frds === "string") ev.frds = src.frds;
   if (typeof src.reason === "string") ev.reason = src.reason;
+  applyV2Fields(src, ev);
   if (typeof src.stage === "string") ev.stage = src.stage;
   if (typeof src.outcome === "string") ev.outcome = src.outcome;
   if (typeof src.pass === "boolean") ev.pass = src.pass;

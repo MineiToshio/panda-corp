@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import ComandosPanel from "../../../_panels/ComandosPanel";
 import type { PanelProps } from "../../../_panels/types";
@@ -11,7 +11,7 @@ afterEach(() => {
   if (root) fs.rmSync(root, { recursive: true, force: true });
   root = undefined;
 });
-it("AC-11-005.2: real readers load FRDs, pending orders and ready/draft/building changes only", async () => {
+it("REQ-11-008: pending FRDs and eligible cards reach the selector", async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "s5c-commands-"));
   function write(file: string, body: string): void {
     const dest = path.join(root ?? "", file);
@@ -34,6 +34,16 @@ it("AC-11-005.2: real readers load FRDs, pending orders and ready/draft/building
       `---\ntype: change\nstatus: ${status}\n---\n# ${status}`,
     );
   write(".pandacorp/inbox/changes/broken.md", "broken");
+  write(
+    ".pandacorp/inbox/changes/stale.md",
+    "---\ntype: change\nstatus: ready\nstale_suspect: shipped\n---\n# Stale",
+  );
+  write("docs/frds/frd-02-done/frd.md", "# FRD-02 · Done feature");
+  write(
+    "docs/frds/frd-02-done/work-orders/wo-02-001.md",
+    "---\nid: WO-02-001\nimplementation_status: VERIFIED\n---\n# Done",
+  );
+  write("docs/frds/frd-03-empty/frd.md", "# FRD-03 · No work");
   const project = {
     projectPath: root,
     slug: "project",
@@ -41,16 +51,9 @@ it("AC-11-005.2: real readers load FRDs, pending orders and ready/draft/building
     nextStep: { command: "/pandacorp:design", sentence: "Next" },
   } as unknown as PanelProps["project"];
   render(await ComandosPanel({ project } as PanelProps));
+  fireEvent.click(screen.getByRole("button", { name: "Objetivo: FRD o tarjeta" }));
   const options = screen.getAllByRole("option").map((option) => option.getAttribute("value"));
-  expect(options).toEqual([
-    "",
-    "FRD-01",
-    "WO-01-001",
-    "WO-01-003",
-    "change:building",
-    "change:draft",
-    "change:ready",
-  ]);
+  expect(options).toEqual(["", "FRD-01", "change:draft", "change:ready"]);
   expect(screen.getByRole("option", { name: "FRD-01 · Test feature" })).toBeInTheDocument();
 });
 it("AC-11-005.2: no documents or queue gives only a target placeholder and no phase command", async () => {
@@ -62,6 +65,7 @@ it("AC-11-005.2: no documents or queue gives only a target placeholder and no ph
     nextStep: { command: null, sentence: null },
   } as unknown as PanelProps["project"];
   render(await ComandosPanel({ project } as PanelProps));
+  fireEvent.click(screen.getByRole("button", { name: "Objetivo: FRD o tarjeta" }));
   expect(screen.getAllByRole("option")).toHaveLength(1);
   expect(screen.getByText("No hay comandos de fase para este proyecto.")).toBeInTheDocument();
 });

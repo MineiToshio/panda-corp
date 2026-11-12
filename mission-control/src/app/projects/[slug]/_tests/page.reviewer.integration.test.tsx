@@ -231,13 +231,12 @@ function nextStepCard(): HTMLElement {
 }
 
 describe("FRD-04 reviewer — Commands tab phase robustness", () => {
-  it("release phase shows iterate + new-version (implement lives in ModeSelector, not CommandsBox)", async () => {
+  it("release phase offers the single build entry", async () => {
     statusState.phase = "release";
     render(await renderPage({ tab: "commands" }));
     const body = nextStepCard();
-    expect(body).toHaveTextContent("/pandacorp:new-version");
-    expect(body).toHaveTextContent("/pandacorp:iterate");
-    expect(body).not.toHaveTextContent("/pandacorp:implement");
+    expect(body).toHaveTextContent("/pandacorp:implement");
+    expect(body).not.toHaveTextContent("/pandacorp:iterate");
   });
 
   it("an UNKNOWN phase string survives to the Commands tab → safe fallback, never a building command", async () => {

@@ -32,10 +32,12 @@ describe("WO-08-004 REQ-08-013 retired surfaces, all pages", () => {
 });
 
 describe("WO-08-004 REQ-08-013 build mode guide matches the installed engine", () => {
-  it("each mode's command selects that mode; the bare command is the default, powerful", () => {
+  it("REQ-08-021.1 selects scope or resumes without retired power modes", () => {
     const guide = text("g-modo");
-    expect(guide).toContain("implement balanced");
-    expect(guide).toContain("implement powerful");
+    expect(guide).toContain("implement frd-05-settings");
+    expect(guide).toContain("implement change:mc-fix-pagination");
+    expect(guide).toContain("--resume");
+    expect(guide).not.toMatch(/implement (balanced|powerful|deep|pro)/);
     expect(guide).not.toMatch(/(?:hasta|oleadas de) [248] work orders/);
   });
 

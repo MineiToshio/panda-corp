@@ -2,14 +2,26 @@ import { Chip } from "@/components/core/Chip/Chip";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { Notice } from "@/components/core/Notice/Notice";
 import { SectionedMarkdown } from "@/components/modules/SectionedMarkdown/SectionedMarkdown";
+import { buildCommand } from "@/lib/build-mode-store";
 import type { ChangeQueueItem } from "@/lib/changes/changes";
+import { isSuspectedChange } from "@/lib/changes/changes";
+import { BUILD_ENTRY_COPY } from "@/lib/constants";
 import { t, tRich } from "@/lib/copy/copy";
 import { formatDate } from "@/lib/copy/dates";
 import { itemStatusLabel, STATUS_TONES } from "./changePresentation";
 import styles from "./changes.module.css";
 
+function changeCommand(item: ChangeQueueItem): string | null {
+  return item.status === "building"
+    ? buildCommand("resume")
+    : ["ready", "draft"].includes(item.status) && !isSuspectedChange(item)
+      ? buildCommand("target", `change:${item.id}`)
+      : null;
+}
+
 /** Change metadata and scoped command; the parent dialog owns confirmation. */
 export function ChangeDetail({ item }: { item: ChangeQueueItem }): React.JSX.Element {
+  const command = changeCommand(item);
   return (
     <div data-testid="change-detail" className={styles.detail}>
       <div className={styles.chips}>
@@ -61,7 +73,8 @@ export function ChangeDetail({ item }: { item: ChangeQueueItem }): React.JSX.Ele
         </Notice>
       ) : null}
       <SectionedMarkdown body={item.body} />
-      <CmdRow variant="box" command={`/pandacorp:implement change:${item.id}`} />
+      {item.status === "draft" && <p>{BUILD_ENTRY_COPY.draft}</p>}
+      {command && <CmdRow variant="box" command={command} />}
     </div>
   );
 }

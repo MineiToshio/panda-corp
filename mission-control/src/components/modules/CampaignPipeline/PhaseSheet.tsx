@@ -4,6 +4,8 @@ import { Chip } from "@/components/core/Chip/Chip";
 import type { Tone } from "@/components/core/Chip/vocabulary";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { BuildModePicker } from "@/components/modules/BuildModePicker/BuildModePicker";
+import type { BuildTarget } from "@/lib/build-mode-store";
+import { BUILD_ENTRY_COPY } from "@/lib/constants";
 import { t } from "@/lib/copy/copy";
 import { phaseState, stateLabel } from "./CampaignRoom";
 import styles from "./PhaseSheet.module.css";
@@ -15,6 +17,7 @@ interface SheetProps {
   active: number;
   slug: string;
   project?: string;
+  targets?: readonly BuildTarget[];
   tone: Tone;
   forgeHref?: string;
   onSelect: (index: number) => void;
@@ -23,36 +26,41 @@ function Command({
   entry,
   slug,
   project,
+  targets,
 }: {
   entry: PhaseDefinition["commands"][number];
   slug: string;
   project?: string;
+  targets?: readonly BuildTarget[];
 }): React.JSX.Element {
   const command = entry.command.replaceAll("<idea>", () => slug);
   const implement = command === "/pandacorp:implement";
   return (
     <div className="ps-mode" data-testid="ficha-command">
-      <CmdRow command={command} variant="box" copyLabel={t("common.copy.command", { command })} />
-      {entry.modes && (
+      {implement ? (
         <details>
-          <summary>{implement ? t("idea.campaign.sheet.chooseMode") : entry.modeTitle}</summary>
+          <summary>{BUILD_ENTRY_COPY.title}</summary>
+          <BuildModePicker project={project} targets={targets} />
+        </details>
+      ) : (
+        <CmdRow command={command} variant="box" copyLabel={t("common.copy.command", { command })} />
+      )}
+      {!implement && entry.modes && (
+        <details>
+          <summary>{entry.modeTitle}</summary>
           {entry.hint && <p>{entry.hint}</p>}
-          {implement ? (
-            <BuildModePicker project={project} />
-          ) : (
-            entry.modes.map((mode) => (
-              <div className="ps-mode" key={mode.flag}>
-                <p>
-                  <b>{mode.label}</b> · {mode.hint}
-                </p>
-                <CmdRow
-                  command={`${command} ${mode.flag}`}
-                  variant="box"
-                  copyLabel={t("common.copy.command", { command: `${command} ${mode.flag}` })}
-                />
-              </div>
-            ))
-          )}
+          {entry.modes.map((mode) => (
+            <div className="ps-mode" key={mode.flag}>
+              <p>
+                <b>{mode.label}</b> · {mode.hint}
+              </p>
+              <CmdRow
+                command={`${command} ${mode.flag}`}
+                variant="box"
+                copyLabel={t("common.copy.command", { command: `${command} ${mode.flag}` })}
+              />
+            </div>
+          ))}
         </details>
       )}
     </div>
@@ -65,6 +73,7 @@ export function PhaseSheet({
   active,
   slug,
   project,
+  targets,
   tone,
   forgeHref,
   onSelect,
@@ -148,7 +157,7 @@ export function PhaseSheet({
                 {next && t("idea.campaign.sheet.advanceTo", { name: next.name })}
               </p>
               <b>{first.label}</b>
-              <Command entry={first} slug={slug} project={project} />
+              <Command entry={first} slug={slug} project={project} targets={targets} />
             </div>
           )}
           {rest.length > 0 && (
@@ -158,7 +167,7 @@ export function PhaseSheet({
                 {rest.map((entry) => (
                   <div key={entry.command}>
                     <p>{entry.label}</p>
-                    <Command entry={entry} slug={slug} project={project} />
+                    <Command entry={entry} slug={slug} project={project} targets={targets} />
                   </div>
                 ))}
               </div>

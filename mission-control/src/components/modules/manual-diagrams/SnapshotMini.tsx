@@ -1,8 +1,8 @@
 /**
- * manual-diagrams/SnapshotMini.tsx — FRD-08 ("Probar sin parar al agente")
+ * manual-diagrams/SnapshotMini.tsx : FRD-08 ("Probar sin parar al agente")
  *
  * Two side-by-side boxes (agent building / you testing) over a shared
- * "git · historial compartido" bar — the safe-point-is-a-commit picture.
+ * "git · historial compartido" bar : the safe-point-is-a-commit picture.
  *
  * Faithful recreation of the prototype `snapshotMini()` (index.html L1071-1072).
  *
@@ -50,7 +50,7 @@ export function SnapshotMini(): React.JSX.Element {
         >
           <div style={{ fontSize: "13px", fontWeight: 500 }}>Tú probando</div>
           <div style={{ fontSize: "11px", opacity: 0.9, marginTop: "2px" }}>
-            otra carpeta · último verde, congelado
+            otra carpeta · snapshot verificado y aterrizado
           </div>
         </div>
       </div>
@@ -79,7 +79,7 @@ export function SnapshotMini(): React.JSX.Element {
           git · historial compartido
         </div>
         <div style={{ fontSize: "11px", color: "var(--text-2)", marginTop: "2px" }}>
-          solo cruzan los commits verdes · el agente nunca para
+          merge-queue lleva el trabajo verificado a main · una rama verde aún no es entrega
         </div>
       </div>
     </div>

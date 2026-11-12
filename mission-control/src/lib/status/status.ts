@@ -38,12 +38,14 @@
  */
 
 import fs from "node:fs";
-import path from "node:path";
 import { parse as parseYaml } from "yaml";
+import { getBuildRun } from "../build-run/build-run";
+import type { BuildRun } from "../build-run/types";
 import { countPendingBugs } from "../changes/changes";
 import { projectStatusPath } from "../config/config";
 import { countPendingDecisions } from "../docs/activity";
 import { pathExists } from "../fs-utils/fs-utils";
+import { hasActiveBuild } from "./liveness";
 
 // ---------------------------------------------------------------------------
 // Types (exported — consumed by FRD-02, FRD-03, FRD-04/05)
@@ -63,6 +65,8 @@ type DeployTarget = "internal" | "external";
 type TargetPlatform = "desktop" | "mobile" | "responsive";
 
 export type ProjectStatus = {
+  /** Shared v2 source results; durable YAML remains independent of source errors. */
+  buildRun?: BuildRun;
   project: string;
   phase: Phase;
   version: string;
@@ -242,7 +246,7 @@ export function readStatus(projectPath: string): StatusResult {
   const ABSENT: StatusResult = { present: false, malformed: false, status: null };
 
   // --- Guard: empty/blank path ---
-  if (!projectPath || projectPath.trim() === "") {
+  if (!projectPath || projectPath.trim() === "" || projectPath.includes("\0")) {
     return ABSENT;
   }
 
@@ -251,7 +255,14 @@ export function readStatus(projectPath: string): StatusResult {
 
   // --- Absence check (pathExists, REQ-01-010) ---
   if (!pathExists(yamlPath)) {
-    return ABSENT;
+    const buildRun = getBuildRun(projectPath, "status");
+    return buildRun.present
+      ? {
+          present: true,
+          malformed: false,
+          status: { buildRun, running: buildRun.state?.status === "active" || buildRun.live },
+        }
+      : ABSENT;
   }
 
   // --- Read file ---
@@ -276,7 +287,7 @@ export function readStatus(projectPath: string): StatusResult {
   // --- Handle null/non-object parse result (empty file, "null" yaml, etc.) ---
   if (parsed === null || parsed === undefined) {
     // Empty file parses to null — valid YAML, not malformed; status is empty.
-    return { present: true, malformed: false, status: {} };
+    parsed = {};
   }
 
   if (typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -287,27 +298,22 @@ export function readStatus(projectPath: string): StatusResult {
   // --- Map snake_case → camelCase with per-field type validation ---
   const status = mapStatusFields(parsed as Record<string, unknown>);
 
-  try {
-    const lease = JSON.parse(
-      fs.readFileSync(path.join(projectPath, ".pandacorp/run/build.lease/lease.json"), "utf8"),
-    );
-    if (
-      typeof lease.renewed_at !== "string" ||
-      !Number.isFinite(Date.parse(lease.renewed_at)) ||
-      typeof lease.ttl_seconds !== "number" ||
-      !Number.isFinite(lease.ttl_seconds) ||
-      lease.ttl_seconds <= 0
-    ) {
-      return { present: true, malformed: true, status };
-    }
-    status.leaseRenewedAt = lease.renewed_at;
-    status.leaseTtlSeconds = lease.ttl_seconds;
-  } catch (error) {
-    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
-      return { present: true, malformed: true, status };
-    }
-  }
-  return { present: true, malformed: false, status };
+  return statusWithRun(projectPath, status);
+}
+
+function statusWithRun(projectPath: string, status: Partial<ProjectStatus>): StatusResult {
+  const buildRun = getBuildRun(projectPath, "status");
+  if (!buildRun.present) return { present: true, malformed: false, status };
+  const next: Partial<ProjectStatus> = {
+    ...status,
+    buildRun,
+    running: hasActiveBuild({ buildRun }),
+    ...(buildRun.lease
+      ? { leaseRenewedAt: buildRun.lease.renewed_at, leaseTtlSeconds: buildRun.lease.ttl_seconds }
+      : {}),
+  };
+  const malformed = !buildRun.state && buildRun.errors.some((e) => e.path.endsWith("lease.json"));
+  return { present: true, malformed, status: next };
 }
 
 /**

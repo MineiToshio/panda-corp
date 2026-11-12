@@ -6,63 +6,39 @@ order: 19
 
 # La Fragua: el build en vivo
 
-**La Fragua** aparece en la parte superior de **Resumen** de cada proyecto. Sus cuatro
-estaciones, **Cola · Taller · Revisión · Bóveda**, muestran las órdenes de trabajo según su
-estado real. Abre el proyecto desde **Portafolio** para seguir la construcción.
+La Fragua, en Resumen del proyecto, muestra las estaciones Cola, Taller, Revisión y Bóveda.
+Los tokens representan órdenes reales; la decoración no cuenta agentes ni mediciones.
 
-## Una orden, una estación
+## Trabajo en curso y trabajo entregado
 
-Cada orden tiene un token con su número de FRD y su número de orden. Al pasar el ratón o
-recibir foco, el token muestra el código, el título, el estado y el FRD de esa orden.
+El frontmatter conserva el estado duradero. Durante un run activo y coincidente, las unidades
+de build y patch aportan una capa marcada **En el build** para sus órdenes. Las revisiones y
+consultas no crean órdenes adicionales. Los contadores, barras y estaciones usan el mismo modelo.
 
-| Estación | Órdenes que contiene | Fuente |
-|---|---|---|
-| **Cola** | Trabajo planificado, todavía sin empezar | Frontmatter `implementation_status: PLANNED` |
-| **Taller** | Trabajo en construcción, bloqueado o fallido | Frontmatter `IN_PROGRESS`, `BLOCKED` o `fail` |
-| **Revisión** | Trabajo construido que espera o pasa el gate de su FRD | Frontmatter `IN_REVIEW` |
-| **Bóveda** | Trabajo verificado | Frontmatter `VERIFIED` |
+Trabajo admitido o ejecutándose pasa a Taller; reportado, integrado o verificado en rama queda
+en Revisión hasta llegar a main. Lo planificado o en parche vuelve a Cola; lo bloqueado conserva
+su aviso. Una pregunta aparcada o un gate conserva la columna duradera con su motivo.
+Una unidad landed permite mostrar lo verificado en Bóveda. Verificar una rama no demuestra
+que el snapshot de main sea seguro para probar.
 
-Una orden bloqueada o fallida permanece en Taller con el color de peligro. Si una revisión
-devuelve una orden a `PLANNED`, su token vuelve a Cola. Los eventos no deciden la estación:
-la fuente de verdad es el frontmatter, el mismo que lee Observabilidad.
+## Señal de vida
 
-Cada estación enseña hasta ocho tokens y un «+N» cuando hay más. El contador incluye todas
-las órdenes de esa estación; la lista completa se consulta en Observabilidad. Una estación
-vacía muestra tres huecos y su mensaje de vacío. Si aún no hay órdenes, la escena explica
-que se llenará cuando Arquitectura publique el plan. En el teléfono las estaciones se apilan.
+Una lease válida, renovada y coincidente con un run activo permite mostrar actividad. Una bandera
+running en main no basta: puede quedar atrás durante el build. La lease se renueva con comandos,
+tiene un plazo de 30 minutos y no depende de un proceso heartbeat separado. Tras perder la señal,
+la vista indica **Sin señal**; un coordinador caído puede parecer vivo hasta vencer la lease.
+Los eventos son observaciones, nunca autoridad para revivir un run terminado.
 
-## La decoración nunca finge medición
+## Recursos y preguntas
 
-Los equipos decorativos de cada estación son fijos: no representan agentes individuales ni
-multiplican las órdenes de trabajo. Los tokens y contadores sí representan datos reales.
-La comunicación entre agentes queda en documentos, incluido el **Status Note** de cada orden.
+Build en curso muestra unidades por estado, agentes activos, escalón y motivo de concurrencia,
+espera por disco, preguntas y gates. El escalón es un techo, no el número de agentes activos.
+La escalera 1/2/3/5/8 empieza en 5 sin historial, baja con presión y se recupera con estabilidad;
+8 requiere evidencia previa. La presión crítica baja a 1, no a 0. Esperar disco impide nuevas
+asignaciones sin detener lo que ya trabaja.
 
-La escena anima los equipos y un mensajero solo cuando el build está encendido y hay señal
-reciente. El mensajero recorre una ruta dorada entre la primera y la última estación con
-trabajo. Si el build está apagado o sin señal, la escena queda en reposo y conserva los tokens.
-
-## Frescura: en vivo, datos antiguos, sin señal
-
-El indicador de frescura permite distinguir un build activo de una bandera sin respaldo.
-La señal reciente procede del heartbeat del supervisor o de los eventos del build. Un estado
-«corriendo» sin señal reciente no basta para animar la escena.
-
-Esta es la regla DR-066: un monitor nunca presenta una bandera auto-reportada como prueba
-de vida. Si la señal envejece, revisa el build antes de confiar en su actividad.
-
-## Por qué la escena se actualiza
-
-Dos canales alimentan la vista:
-
-1. **Eventos:** las transiciones del motor refrescan la actividad y su frescura.
-2. **Estado en disco:** el transporte observa `status.yaml` y el frontmatter de las órdenes.
-   Cuando cambian, vuelve a leer la estructura aunque no haya llegado un evento.
-
-Un evento antiguo no enciende un build apagado. La actividad exige que `status.yaml` indique
-que está corriendo y que la señal sea reciente; las estaciones siguen derivándose de las órdenes.
-
-## Para profundizar
-
-- Requisitos de las cuatro estaciones: `docs/frds/frd-06-party/frd.md` (REQ-06-020).
-- Diseño técnico: `docs/frds/frd-06-party/blueprint.md`.
-- Productores de eventos y heartbeat: `factory/standards/observability.md`.
+El historial de rendimiento procede del registro local `~/.pandacorp/host/perf/journal.jsonl`.
+Resume RAM disponible, swap, agentes y tiempos por run; puede faltar en un run aún abierto.
+**Sin datos** no significa cero. El dashboard lee esos datos y no calibra ni ejecuta el motor.
+Los cambios en state.json, admission.json y las preguntas refrescan la vista aunque no haya
+eventos nuevos. Un archivo presente pero malformado muestra su error, nunca un éxito vacío.

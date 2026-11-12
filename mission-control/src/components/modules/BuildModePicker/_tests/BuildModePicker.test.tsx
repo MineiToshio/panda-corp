@@ -1,131 +1,63 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { hydrateRoot } from "react-dom/client";
-import { renderToString } from "react-dom/server";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { expect, it } from "vitest";
 import { BuildModePicker } from "../BuildModePicker";
 
-beforeEach(() => localStorage.clear());
-afterEach(() => vi.restoreAllMocks());
-
-it("AC-11-005.1: ordered mode cards expose icons, tags, power, hints and keyboard selection", async () => {
-  const onModeChange = vi.fn();
-  const user = userEvent.setup();
-  render(<BuildModePicker project="alpha" onModeChange={onModeChange} />);
-  const cards = within(screen.getByRole("group", { name: "Modo de construcción" })).getAllByRole(
-    "button",
-  );
-  const labels = ["Equilibrado", "Pro", "Potente", "Profundo"];
-  const powers = [2, 1, 3, 4];
-  cards.forEach((card, index) => {
-    expect(card).toHaveTextContent(labels[index] ?? "missing label");
-    expect(card.querySelector("svg")).toBeTruthy();
-    expect(card.querySelector("small")?.textContent).toBeTruthy();
-    expect(
-      within(card).getByRole("img", { name: `Potencia ${powers[index]} de 4` }),
-    ).toBeInTheDocument();
-  });
-  for (const tag of ["por defecto", "pro", "powerful", "deep"])
-    expect(screen.getByText(tag, { exact: true })).toBeInTheDocument();
-  expect(cards[0]).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByText("/pandacorp:implement", { exact: true })).toBeInTheDocument();
-  await user.tab();
-  await user.tab();
-  await user.tab();
-  expect(cards[2]).toHaveFocus();
-  await user.keyboard(" ");
-  expect(cards[2]).toHaveAttribute("aria-pressed", "true");
-  expect(cards[0]).toHaveAttribute("aria-pressed", "false");
-  expect(screen.getByText("/pandacorp:implement powerful")).toBeInTheDocument();
-  expect(localStorage.getItem("mc:build-mode:alpha")).toBe("powerful");
-  expect(onModeChange).toHaveBeenCalledWith("powerful");
-  await user.click(screen.getByRole("button", { name: "Copiar /pandacorp:implement powerful" }));
-  expect(await navigator.clipboard.readText()).toBe("/pandacorp:implement powerful");
-  await user.click(screen.getByRole("button", { name: /^Equilibrado/ }));
-  expect(screen.getByText("/pandacorp:implement", { exact: true })).toBeInTheDocument();
-});
-
-it("restores only the current project's mode and follows external storage updates", () => {
-  localStorage.setItem("mc:build-mode:alpha", "deep");
-  const view = render(<BuildModePicker project="alpha" />);
-  expect(screen.getByRole("button", { name: /^Profundo/ })).toHaveAttribute("aria-pressed", "true");
-  view.rerender(<BuildModePicker project="beta" />);
-  expect(screen.getByRole("button", { name: /^Equilibrado/ })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  act(() => {
-    localStorage.setItem("mc:build-mode:beta", "pro");
-    window.dispatchEvent(new StorageEvent("storage"));
-  });
-  expect(screen.getByRole("button", { name: /^Pro pro/ })).toHaveAttribute("aria-pressed", "true");
-});
-
-it("defaults for corrupt storage but keeps session selection when storage fails", async () => {
-  localStorage.setItem("mc:build-mode:alpha", '{"mode":"deep"}');
-  render(<BuildModePicker project="alpha" />);
-  expect(screen.getByRole("button", { name: /^Equilibrado/ })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-    throw new Error("blocked");
-  });
-  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-    throw new Error("blocked");
-  });
-  await userEvent.click(screen.getByRole("button", { name: /^Potente/ }));
-  expect(screen.getByRole("button", { name: /^Potente/ })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByText("/pandacorp:implement powerful")).toBeInTheDocument();
-});
-
-it("hydrates the default server snapshot without a mismatch then restores the preference", async () => {
+it("AC-11-007/010: keyboard selection copies exact build and resume commands, ignoring legacy storage", async () => {
   localStorage.setItem("mc:build-mode:alpha", "powerful");
-  const element = <BuildModePicker project="alpha" />;
-  const host = document.createElement("div");
-  host.innerHTML = renderToString(element);
-  expect(host.textContent).not.toContain("/pandacorp:implement powerful");
-  const onRecoverableError = vi.fn();
-  let root: ReturnType<typeof hydrateRoot> | undefined;
-  await act(async () => {
-    root = hydrateRoot(host, element, { onRecoverableError });
-  });
-  expect(host.textContent).toContain("/pandacorp:implement powerful");
-  expect(onRecoverableError).not.toHaveBeenCalled();
-  await act(async () => root?.unmount());
+  const user = userEvent.setup();
+  render(<BuildModePicker project="alpha" />);
+  const group = screen.getByRole("group", { name: "Acción de construcción" });
+  expect(within(group).getAllByRole("button")).toHaveLength(3);
+  expect(screen.getByRole("button", { name: "Construir" })).toHaveAttribute("aria-pressed", "true");
+  await user.tab();
+  await user.tab();
+  await user.keyboard(" ");
+  expect(screen.getByRole("button", { name: "Reanudar" })).toHaveAttribute("aria-pressed", "true");
+  await user.click(screen.getByRole("button", { name: "Copiar /pandacorp:implement --resume" }));
+  expect(await navigator.clipboard.readText()).toBe("/pandacorp:implement --resume");
+  expect(screen.queryByRole("img", { name: /Potencia/ })).toBeNull();
+  expect(screen.getByText(/Mission Control nunca lo ejecuta/)).toBeVisible();
 });
 
-it("keeps the selection and callback when the localStorage property itself throws", async () => {
-  const onModeChange = vi.fn();
-  vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
-    throw new DOMException("denied", "SecurityError");
-  });
-  render(<BuildModePicker project="alpha" onModeChange={onModeChange} />);
-  await userEvent.click(screen.getByRole("button", { name: /^Profundo/ }));
-  expect(screen.getByText("/pandacorp:implement deep")).toBeInTheDocument();
-  expect(onModeChange).toHaveBeenCalledWith("deep");
+it("AC-11-008: excludes unsupported/terminal targets and clears the executable command", async () => {
+  const user = userEvent.setup();
+  render(
+    <BuildModePicker
+      targets={[
+        { value: "FRD-01", label: "FRD-01" },
+        { value: "WO-01-001", label: "Individual work" },
+        { value: "change:fix", label: "Fix", status: "draft" },
+        { value: "change:stale", label: "Stale", status: "ready", staleSuspect: "Already shipped" },
+        ...["building", "closing", "done", "discarded"].map((status) => ({
+          value: `change:${status}`,
+          label: status,
+          status,
+        })),
+      ]}
+    />,
+  );
+  await user.click(screen.getByRole("button", { name: "Objetivo: FRD o tarjeta" }));
+  const select = screen.getByRole("combobox", { name: "Objetivo del build" });
+  expect(within(select).getAllByRole("option")).toHaveLength(3);
+  expect(screen.queryByRole("button", { name: /^Copiar/ })).toBeNull();
+  for (const value of ["FRD-01", "change:fix"]) {
+    await user.selectOptions(select, value);
+    expect(
+      screen.getByRole("button", { name: `Copiar /pandacorp:implement ${value}` }),
+    ).toBeVisible();
+  }
+  expect(screen.getByText(/valida el alcance del borrador/)).toBeVisible();
+  await user.selectOptions(select, "");
+  expect(screen.queryByRole("button", { name: /^Copiar/ })).toBeNull();
 });
 
-it("refreshes a prior project's session choice when storage changes while another project is open", async () => {
+it("AC-11-009.2: project switches reset action and targets", async () => {
+  const user = userEvent.setup();
   const view = render(<BuildModePicker project="alpha" />);
-  await userEvent.click(screen.getByRole("button", { name: /^Potente/ }));
+  await user.click(screen.getByRole("button", { name: "Reanudar" }));
   view.rerender(<BuildModePicker project="beta" />);
-  act(() => {
-    localStorage.setItem("mc:build-mode:alpha", "deep");
-    window.dispatchEvent(new StorageEvent("storage", { key: "mc:build-mode:alpha" }));
-  });
+  expect(screen.getByRole("button", { name: "Construir" })).toHaveAttribute("aria-pressed", "true");
   view.rerender(<BuildModePicker project="alpha" />);
-  expect(screen.getByText("/pandacorp:implement deep")).toBeInTheDocument();
-});
-
-it.each([
-  "constructor",
-  "toString",
-  "__proto__",
-])("uses only own session entries for project %s", async (project) => {
-  localStorage.setItem(`mc:build-mode:${project}`, "deep");
-  render(<BuildModePicker project={project} />);
-  expect(screen.getByRole("button", { name: /^Profundo/ })).toHaveAttribute("aria-pressed", "true");
-  await userEvent.click(screen.getByRole("button", { name: /^Potente/ }));
-  expect(screen.getByRole("button", { name: /^Potente/ })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.queryByRole("button", { name: "Copiar /pandacorp:implement --resume" })).toBeNull();
 });

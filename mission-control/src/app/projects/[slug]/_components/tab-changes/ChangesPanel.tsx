@@ -146,7 +146,7 @@ export function ChangesPanel({
       <Card tone="pink">
         <CardHeader title={t("workspace.cambios.request.title")} icon="plus" />
         <p>{t("workspace.cambios.request.intro")}</p>
-        <CmdRow variant="box" command="/pandacorp:change" />
+        <CmdRow variant="box" command="/pandacorp:implement" />
       </Card>
       <Modal
         open={!!selected && !showConfirm}

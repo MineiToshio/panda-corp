@@ -84,18 +84,19 @@ export function EstandaresDetail(): React.JSX.Element {
         calidad es de programa completo (<Code>tsc</Code>, <Code>knip</Code> y las pruebas visuales
         leen todo el árbol), así que el trabajo a medias de una sesión haría fallar el gate de otra.
         Es transparente: tú hablas normal y dices «ejecuta»; el agente crea el worktree, trabaja y,
-        cuando todo está verde, lo <B weight={500}>fusiona solo a la rama principal</B> por una cola
-        serializada (un merge a la vez). Solo te enteras si hay un conflicto que no se puede
-        resolver automáticamente. <Code>/implement</Code> es distinto: ya evita colisiones por
-        construcción y no usa worktrees.
+        cuando todo está verde, lo lleva a main por una cola serializada (un merge a la vez). Solo
+        te enteras si hay un conflicto que no se puede resolver automáticamente. Un proyecto lanzado
+        espera tu orden de aterrizaje. <Code>/implement</Code> también usa worktrees aislados: toda
+        escritura versionada va a integración y pasa por merge-queue.
       </Body>
       <Body>
-        <B weight={500}>No se pierde nada por olvido.</B> Un worktree que sobrevive es trabajo sin
-        mergear, y lo ves de tres formas: el comando <Code>pending-work.sh</Code> (lista lo
-        no-mergeado con su antigüedad), el indicador global «⎇ N pendientes» en la barra de Mission
-        Control y el detalle por proyecto en su resumen. Aunque cierres la conversación, el trabajo
-        vive en su rama de git y se recupera. El detalle está en <Code>build-orchestration.md</Code>{" "}
-        («Parallel manual sessions»).
+        <B weight={500}>No se pierde nada por olvido.</B> Las ramas con commits fuera de main
+        conservan el trabajo pendiente aunque el worktree se haya retirado. Lo ves de tres formas:
+        el comando <Code>pending-work.sh</Code> (lista lo no-mergeado con su antigüedad), el
+        indicador global «⎇ N pendientes» en la barra de Mission Control y el detalle por proyecto
+        en su resumen. Aunque cierres la conversación, el trabajo vive en su rama de git y se
+        recupera. El detalle está en <Code>build-orchestration.md</Code> («Parallel manual
+        sessions»).
       </Body>
       <Body margin="0 0 8px">
         <B weight={500}>Cuando terminas tú, queda en «Hecho» (DR-097).</B> Si implementas un cambio

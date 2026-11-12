@@ -1,6 +1,6 @@
 import type { IconName } from "@/components/core/Icon/iconData";
 /**
- * manual-diagrams/ChannelsDiagram.tsx — FRD-08 ("Cómo operas a diario")
+ * manual-diagrams/ChannelsDiagram.tsx : FRD-08 ("Cómo operas a diario")
  *
  * The three feedback channels (bug / iterate / decide): each a Panel row with a
  * leading status icon, a mono command + headline, and a one-line description.
@@ -17,7 +17,7 @@ import { Card } from "@/components/core/Card/Card";
 import { IconRow } from "./atoms";
 
 // ---------------------------------------------------------------------------
-// Channel data — mirrors the prototype `ch` array.
+// Channel data : mirrors the prototype `ch` array.
 // ---------------------------------------------------------------------------
 
 type Channel = {
@@ -32,16 +32,16 @@ const CHANNELS: readonly Channel[] = [
   {
     icon: "alert",
     color: "var(--coral)",
-    cmd: "/pandacorp:bug",
+    cmd: "/pandacorp:implement",
     headline: "Algo está roto",
-    body: "Lo dejas en la bandeja; la construcción lo recoge y lo arregla con un test de regresión. No para al agente.",
+    body: "Describe el bug y fija su alcance. Los tests de regresión preceden al arreglo; no se amplía otro run.",
   },
   {
     icon: "branch",
     color: "var(--blue)",
-    cmd: "/pandacorp:iterate",
+    cmd: "Anótalo: draft + card check",
     headline: "Un cambio o módulo nuevo",
-    body: "El PM triagea: ajuste chico se encola; cambio fuerte te muestra el impacto y pide pausar.",
+    body: "Guarda el pedido sin construir y valida su tarjeta. Más adelante selecciona ese objetivo con implement.",
   },
   {
     icon: "check",
