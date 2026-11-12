@@ -1,5 +1,94 @@
 # Decision log — Plugin pandacorp
 
+## v10.0.0 — 2026-11-12 (MAJOR): Day 1 CLI-only builds, overlay 9.0.0
+
+**What:** [metadata](../runtime/plugin-metadata.json) and generated runtime manifests become **10.0.0**;
+[OVERLAY_VERSION](../templates/OVERLAY_VERSION) becomes **9.0.0**. The breaking changes retire the former
+product build engine, its public change door, obsolete options/agents and project engine copies. The factory backlog
+workflow remains independent. [DR-150/154..157](../../factory/decisions/registry.yaml) and the
+[rule registry](../../factory/standards/rule-registry.md) now point to the shared CLI contract, with obsolete defaults
+amended rather than left active beside the new rules. Sources for the consolidated handoff are PLAN-E2 and the
+2026-11-12 worker reports; canonical code/doc links below retain the durable record.
+
+**Why:** owner decisions 3–13, the additional disk requirement and DEC-13..18 authorize Day 1 before the first real
+implementation. Memory pressure should reduce concurrency while safe work continues; spare disk and protected owner
+state must survive. This supersedes the earlier opt-in staging order, archive directory/BREAKPOINTS plan and DEC-1
+pause/veto. No production, spending, personal-data or external-communication gate is relaxed.
+
+- **E01, E03, E06, WOREVERT:** delete the obsolete product executor/launchers/suites and the public change skill;
+  internal bug/iterate/new-version engines route through implement. `wo-revert` now uses its own retained library,
+  permitting removal of the six remaining obsolete helpers. The backlog suite tolerates the removed runtime directory.
+  [Recovery](engine-v1-reactivation.md) uses tag `archive/engine-dynamic-workflows-v9.157.0` at `1477e9a5`,
+  with explicit path restoration on owner order; no archive folder or reactivation script is shipped.
+- **E02, E04a/b, E05:** [implement](../skills/implement/SKILL.md) is the single scope-fixed entry. Saving work for later
+  writes a draft validated by `card check`; nothing drains it automatically. Skills/templates, new-version routing,
+  upgrade/decide and the preflight carriers follow that distinction. Projects are created/migrated AGENTS-first;
+  onboarding adds the personal Spanish machine section. The commented [risk example](../templates/shared/.pandacorp/risk-paths.example)
+  and upgrade prompt require owner confirmation of project globs; NOTA-1 does not resurrect risk rules R4–R10 or lower r1.
+- **AG, AGFIX:** [AGENTS.md](../../AGENTS.md) holds every instruction including the Claude Code section;
+  CLAUDE.md is exactly its one-line import. [Migration](../scripts/migrate-instructions.mjs) preserves project text,
+  Markdown and literal writes, refuses unreconciled CLAUDE.local.md and fails closed on errors.
+  Explicit read lists accompany imports. Gate scope detection recognizes import-only shims in both runtimes.
+  Canonical portability/maintenance and Manual are reconciled; regression coverage is in
+  `test-migrate-instructions.mjs`, `test-block-dangerous.sh` and `test-codex-enforcement.mjs`.
+- **ADM:** [BUILD-9](../../factory/standards/build-engine.md) and `admission/ladder.mjs` use steps `[1,2,3,5,8]`,
+  default 5, critical pressure 1, a 512 MB swap-growth trigger and 120 s upshift cooldown. RAM reservations govern
+  heavy jobs, not an extra builder veto. Step 8 needs journal evidence. `perf.mjs` records bounded run samples,
+  worker/duration/RAM/swap/disk data and one host-local performance journal record outside the lease mutex;
+  CLI status/summary and scaling events expose the current step. Nested failure drafts reach `need_from_owner`.
+- **PATCH, PATCH2, PATCH3:** [BUILD-15 and CLI 3.11](build-engine-cli.md) count build/patch executions only (N16),
+  attribute G2/G3 reds to implicated WOs, persist fenced `gate-failure.json`, and hand a fresh patch its red evidence.
+  Healthy WOs stay settled; an unattributed fallback has an independent three-execution budget and no healthy
+  frontmatter reopening. Selective review readiness, nullable-FRD patches and the latest patch diff are handled.
+  Follow-up fixes align budget exhaustion, hand-back allowlists, parser bullet paths, evidence fencing and G3 phases.
+- **N17:** DEC-14/16 [nested failure drafts](../runtime/build/failure/engineBacklog.mjs) stay untracked under the local
+  run handback directory; standalone factory backlog behavior remains. Tracked decision inboxes mirror entries and
+  answers into untracked `decisions.pending.md` for main-checkout readers. Spanish reports distinguish local drafts.
+- **DSWEEP/2, DBOOT, DENG/2:** [BUILD-5/15](../../factory/standards/build-engine.md) reclaim eligible checkout copies
+  at landing, retry and close while preserving branch refs, reports and owner state. Archives contain metadata,
+  not relocated worktrees. Shared dirty/hidden/protected-state predicates require identity-bound bootstrap hashes;
+  later owner edits invalidate provenance. Missing-target manifests are pruned; unsafe legacy copies remain.
+  New copies reserve 1.5 GiB and leave 15 GiB; shell bootstrap uses 15360 + 1500 MiB and exit 4 is wait/disk
+  (G2 exit 76), never a failed code gate. Resume reconstructs retained refs with the existing reset semantics;
+  failed-start rollback retains its branch. Sparse docs applies only to build/patch/tests with full fallback.
+  pnpm uses shared-store clones and offline/frozen then prefer-offline/frozen installation, never node_modules
+  symlinks. G3 releases H before clearing `.next`, `.next-fidelity` and `test-results` on green and red.
+- **DFIX:** shared run/branch/exact-path ownership and detached G2 pin/ancestry checks prevent foreign checkout
+  removal. Running/admitted workers remain protected without positive termination evidence, even after coordinator
+  stop. gc/archive reserve the lease mutex through reclamation/metadata moves and carry refusals into sweep;
+  nested bootstrap resolves the product root and retains disk waits. See `test-build-v2-disk.mjs` and shared cleanup suites.
+- **FIX2:** [terminal cleanup](../runtime/build/lifecycle/terminate.mjs) reserves through post-release writes,
+  revalidates run/epoch and fences active G2 cleanup. A new holder prevents deletion. The
+  [retirement gate](../scripts/check-engine-retirement.mjs) replaces PLAN-E2 basename greps with full-path import
+  resolution and separate live-reference checks, validates the exact retirement manifest and preserves raw evidence.
+  Narrow historical fixtures and negative probes remain explicit; `test-check-engine-retirement.mjs` proves them.
+- **FIX-MUTEX3:** lock liveness is PID plus process start time; live holders are never stolen. Owner-record hash
+  tombs serialize reclaimers, replacing inode-only tombs; ownerless legacy locks alone retain age/inode fallback.
+  `test-build-v2-lock-stress.mjs` covers the contention contract. Decision 6 remains documentation-only: never mix
+  plugin versions on one project; update then restart/close sessions, without claiming a new mixed-version guard.
+- **HOOKTEST, E07, E08, DOC:** isolate gate tests from host TMPDIR, preserve the safety policy, and reconcile the
+  CLI-only standards, constitution, portability, engine-tests documentation and README. CONV-21 now describes
+  the strict literal-delete whitelist and provenance-based teardown. The [engine standard](../../factory/standards/build-engine.md)
+  and [CLI reference](build-engine-cli.md) fold all engine, disk, patch and nested-write handoffs plus DFIX/FIX2.
+  Deleted basenames such as SKILL.md are not proof of a live import; the retirement gate checks full identities.
+- **MCD, MC-CMD, MC-FIX, MC-STATE-A/B, MC-MAN-TSX/MD, MC-MANFIX:** specify and implement the
+  [Mission Control Day 1 contract](../../mission-control/docs/product/build-engine-v2.md) across the PRD/architecture
+  and FRD-02/03/04/05/06/08/11/12/18/21/24. Replace power modes with build/resume/FRD-or-card commands;
+  wire the selector, canonical lease/run/admission reader, live-versus-landed WO progress, pending-question mirror,
+  local drafts and per-run performance history. Lease TTL and malformed signals govern freshness;
+  monotonic telemetry events are separate from state changes. JSON imports use explicit attributes.
+  Full Manual concepts/guides/diagrams/catalogs reflect the CLI, current team and retained backlog workflow;
+  FRD-08 AC-08-021 and FRD-02 AC-02-017 govern the corrected guides. Existing VERIFIED metadata is historical,
+  not self-certification of the amended contract. The card reader remains supported.
+
+**Integration:** canonical metadata projects both manifests; `generate-codex-agents.mjs` removes retired mirrors and
+`generate-skill-capabilities.mjs` derives current skill coverage. The factory engine CI runs the current corpus without
+old exclusions and checks canonical/derived contracts plus retirement against the pinned pre-Day-1 tree, retaining raw
+retirement evidence. This entry consolidates every FOR_INTEGRATOR log handoff, including DOC, DFIX and FIX2;
+[factory rationale](../../factory/decision-log.md) records the policy amendments. Source-compatible fixture tests are
+not proof of live unattended relay survival, sleep or notifications; first real use and post-merge project upgrades
+remain separate rollout evidence.
+
 ## v9.157.0 — 2026-11-12 (MINOR): build engine v2 behind the keyword `implement v2` (R1 cut)
 
 **Merge note (2026-11-12):** this release was drafted as 9.155.0 on the `feat/implement-engine-v10` branch; `main` took 9.156.0 (decision card v2, CONV-20) first, so the engine ships as 9.157.0 (overlay 8.124.0: the engine adds `pre-push` and `merge-queue.sh` template changes on top of 8.123.0). 9.155.0 was never published.
