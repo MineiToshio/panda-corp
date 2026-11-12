@@ -459,5 +459,17 @@ await test("planner.mjs imports nothing from build-mech-* (D30: self-contained)"
   ok(!/(\bfrom\s+|\bimport\s*\()\s*["'][^"']*build-mech/.test(src), "planner.mjs must not import build-mech-* (v1-only code)");
 });
 
+// ---- Judge-3 addition (RULINGS-D1 PL-M1): a card scope is "that card", never every pending WO of its FRDs ----
+await test("card scope: scope.card set with frds listed and wos empty plans only the WOs whose source_change names the card", async () => {
+  const withSource = (w, source) => ({ ...w, source_change: source });
+  const wos = [withSource(wo("wo-a", { frd: "frd-01" }), ["add-filter"]), withSource(wo("wo-b", { frd: "frd-01" }), [])];
+  const base = mk(wos);
+  const input = deepFreeze({ ...base, wos, scope: { card: "add-filter", frds: ["frd-01"], wos: [], out_of_scope: [] } });
+  const p = doPlan(input);
+  eq([...new Set(p.units.flatMap((u) => u.wos))].sort(), ["wo-a"], "only the card's WO is planned, wo-b of the same FRD is not pulled in");
+  const control = deepFreeze({ ...base, wos, scope: { card: null, frds: ["frd-01"], wos: [], out_of_scope: [] } });
+  eq([...new Set(doPlan(control).units.flatMap((u) => u.wos))].sort(), ["wo-a", "wo-b"], "control: without a card the FRD-wide rule still applies");
+});
+
 console.log(`RESULT: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

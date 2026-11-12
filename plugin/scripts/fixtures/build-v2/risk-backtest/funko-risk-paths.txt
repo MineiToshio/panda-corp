@@ -1,0 +1,4 @@
+# funko-tracker manifest declared at architecture time
+risk src/lib/storage/safePath.ts
+low src/components/**
+low *.css

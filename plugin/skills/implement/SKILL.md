@@ -22,6 +22,10 @@ and receipt; never force-remove, erase locks, sweep siblings or claim a timed-ou
 succeeded. Shell-only implementations use the automatic `run -- command` finally wrapper;
 a launcher that merely prints a Workflow call is not completion and must not be wrapped.
 
+## Engine v2 pointer (R1)
+
+The v2 build engine is used ONLY when the owner says the keyword `implement v2`; then follow `plugin/docs/build-engine-cli.md` (installed plugin: `docs/build-engine-cli.md`). Without that keyword the default path stays v1, unchanged, until day 1.
+
 ## Runtime selection — do this before interpreting the rest of the skill
 
 - **Claude Code:** keep the existing path unchanged. Use `pandacorp-build` + the Claude supervisor, Claude agents/models and the Unattended operation SOP below. Its normal bare/global, targeted and unattended capabilities remain available.

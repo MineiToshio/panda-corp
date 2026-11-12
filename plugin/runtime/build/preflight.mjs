@@ -4,9 +4,8 @@
  * Computes, with no LLM and well under 60 s, every question the owner must answer before leaving: one batch of
  * checks (groups scope, conflict, phase, access, mac, gates, deferred), each ask carrying an id (`q-<check id>`), a
  * conservative default, `affects` and `reversible`. Writes `build/preflight.json` (mode 0600; `start --run` reuses it
- * when at most 15 minutes old for the same row and scope, see `loadFreshPreflight`). In a launched project it installs
- * the untracked pre-push hook through `install-pre-push.mjs` (exits 1-4 mean the hook is not verified, so `drive`
- * is not armable). Codex availability comes from `codex login status` and, only when the reading is old and high, the
+ * when at most 15 minutes old for the same row and scope, see `loadFreshPreflight`). In a launched project it only checks
+ * the untracked pre-push hook (`start --run` installs it; a missing hook means `drive` is not armable). Codex availability comes from `codex login status` and, only when the reading is old and high, the
  * injected quota probe.
  *
  * Pure with respect to its inputs: every effect goes through `deps` (`fs`, `env`, `homedir`, `now`, `exec`,

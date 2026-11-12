@@ -13,7 +13,7 @@
     },
     "model_tiers": {
       "source": "plugin/runtime/model-tiers.json",
-      "consumers": ["plugin/scripts/generate-codex-agents.mjs"]
+      "consumers": ["plugin/scripts/generate-codex-agents.mjs", "plugin/runtime/build/routing.mjs", "plugin/runtime/build/quota.mjs"]
     },
     "shared_agents": {
       "source_glob": "plugin/agents/*.md",
@@ -111,6 +111,12 @@
       "outputs": ["plugin/templates/shared/.claude/engines/pandacorp-build.js"],
       "generator": "plugin/scripts/generate-engine.mjs",
       "contract": "The readable source is the only file anyone edits; the deployable artifact is the same token stream with comments dropped and whitespace collapsed, generated to stay under the Workflow tool's 524288-byte script limit (BL-0204). test-engine-artifact.mjs proves AST identity and runs every engine scenario against the artifact."
+    },
+    "build_engine_v2": {
+      "contract_docs": ["plugin/docs/build-engine-cli.md", "factory/standards/build-engine.md"],
+      "schemas": "plugin/runtime/build/schemas/",
+      "consumers": ["plugin/scripts/pandacorp-build.mjs", "plugin/runtime/build/lifecycle.mjs", "plugin/runtime/build/next.mjs", "plugin/runtime/build/planner.mjs", "plugin/runtime/build/routing.mjs", "plugin/runtime/build/quota.mjs", "plugin/runtime/build/admission.mjs", "plugin/runtime/build/drive.mjs", "plugin/runtime/build/state.mjs", "plugin/runtime/build-state.mjs"],
+      "contract": "The v2 engine (BUILD-7..BUILD-15, opt-in by the keyword `implement v2` from 9.155.0) is a runtime-neutral CLI: the CLI reference and the schemas are the interface truth, factory/standards/build-engine.md the policy, model-tiers.json v2 the routing data. Every module under plugin/runtime/build/ takes injected deps, imports no v1 engine file and never writes a tracked file in a project's main checkout."
     },
     "sync_rollup_prompt": {
       "source": "plugin/runtime/prompts/sync-rollups.md",

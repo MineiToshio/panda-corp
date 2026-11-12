@@ -17,7 +17,7 @@ with `via:"session"`.
    jobs, handoff, quota, doubt records), not WO frontmatter, not `status.yaml`. The only files you write under
    `.pandacorp/run/` are `.pandacorp/run/scope.json`, unit reports at `report_path`, `build/units/<unit>/doubt.json`,
    `build/units/<unit>/answer.json` and `build/doubts/<id>.sources.json`. **Never commit in the main checkout**: every
-   tracked change of a run is a CLI commit on `lane/<run_id>`, and `land` (merge-queue) is the only path to `main`.
+   tracked change of a run is a CLI commit on `lane/<run_id>/integration`, and `land` (merge-queue) is the only path to `main`.
 2. **Never wait for an owner "sí"** except the first-minute asks (`autonomy.md` §1) and a human gate (§4 there).
    Risk zone, giant size, `phase: release`, a doubt: none of them waits for the owner.
 3. **Never watch by hand and never end the turn while anything runs.** No `tail`, no `sleep`, no shell polling.
@@ -80,7 +80,7 @@ Write a card **only** if, in THIS conversation, the owner described or accepted 
    owner its slug, and stop. No build.
 
 The docs this card needs (FRD delta, WOs, decision-log line) are written by the run's first `docs` unit on
-`lane/<run_id>` (commit `Change-Docs: <slug>`), never by the session and never on `main`.
+`lane/<run_id>/integration` (commit `Change-Docs: <slug>`), never by the session and never on `main`.
 
 ## 4. Step 2: detect
 
@@ -97,7 +97,7 @@ Act on `row` (1-7, first match wins; full table in `build-engine-cli.md`):
 | 3 target card | `ready` → build it. `draft` → complete Dentro/Fuera from the card itself, `card check`, ask in the first minute (default: se construye como quedó completada) |
 | 4 target FRDs | Build their pending WOs. Unmet cross-FRD deps → hand-back; tell the owner which deps, never pull them in |
 | 5 session card | Build only what was conversed |
-| 6 pending plan WOs | Build them; launched project → everything waits on `lane/<run_id>` for the owner's order |
+| 6 pending plan WOs | Build them; launched project → everything waits on `lane/<run_id>/integration` for the owner's order |
 | 7 nothing | List `cards` (ready/draft) and `cards_half` to the owner in Spanish and stop |
 
 Write the returned `scope` object verbatim to `.pandacorp/run/scope.json` (an input file, not state); it is the
@@ -206,7 +206,7 @@ policy; the session never switches models or companies by itself.
      re-reviewed) and the defaults applied because nobody answered ("apliqué el default X porque no respondiste").
    - **Decidí sin ti (N)**: one line per autonomous decision (question, choice, who advised, how to revert).
    - **Aparcado**: units parked and why; work built on an assumption and its branch.
-   - **Hecho**: FRDs/WOs landed on `main`, or waiting on `lane/<run_id>` for the owner's order; the report path.
+   - **Hecho**: FRDs/WOs landed on `main`, or waiting on `lane/<run_id>/integration` for the owner's order; the report path.
    - **Revisiones**: cross, degraded and deferred counts, e.g. "3 cruzadas (Codex Sol high), 1 degradada (Opus
      xhigh, mismo modelo)".
    - **Cupo**: each company's last reading and reset.
@@ -231,6 +231,6 @@ policy; the session never switches models or companies by itself.
 
 Pick a model, effort or reviewer; queue another attempt (the CLI queues attempt 3 itself); build outside
 `scope`; drain other cards; edit state files, frontmatter or `status.yaml`; commit, push or reset anything
-(the CLI commits on `lane/<run_id>`); land except on `action: "land"` or the owner's order; set
+(the CLI commits on `lane/<run_id>/integration`); land except on `action: "land"` or the owner's order; set
 `PANDACORP_OWNER_RELEASE_OK` without that order; kill a process (BL-0223); spawn or stop `drive` (`drive.md`); ask
 the owner anything after the first-minute message except through `autonomy.md` §3 and §4.

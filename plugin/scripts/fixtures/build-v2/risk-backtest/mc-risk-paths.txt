@@ -1,0 +1,12 @@
+# Mission Control seed manifest (G-final 3.1 R11)
+risk src/proxy.ts
+risk src/lib/discard/**
+risk src/lib/changes/**
+risk src/lib/backlog/**
+risk src/lib/fs-utils/parseFrontmatter.ts
+risk src/app/board/actions/read-doc.ts
+risk src/app/_actions/**
+low src/components/**
+low src/app/**/_components/**
+low messages/**
+low *.css

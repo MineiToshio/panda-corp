@@ -46,7 +46,7 @@
 //   Terminal-action status mapping (D32/A11): paused-quota and paused-infra -> status `paused`; waiting-owner -> `waiting_owner` (or `waiting_gate`
 //     when every blocker is a gate); stop -> `stopped`; deadlock -> any non-active status; journal `paused{reason}` / `run_stopped{reason}`.
 //   `deferred reviews`, `harvest` internals and the G2 spawn are only pinned through the call order and one jobs.* call (see the cases).
-import { mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -144,6 +144,21 @@ const restoreEnv = () => { for (const k of Object.keys(process.env)) if (!(k in 
 const deadPid = () => spawnSync(process.execPath, ["-e", ""]).pid;
 
 /**
+ * Mission-Control-like fixture: the project (its .pandacorp/) lives in `<outer repo>/mission-control`, the git root is the parent.
+ * Returns a fixture-shaped object {root, sha, git, cleanup} where root is the PROJECT dir and git runs in the OUTER repo.
+ */
+async function nestedFixture(dir) {
+  const f = await fixturesMod();
+  const seed = await f.createFixture("basic", { dir: path.join(dir, "seed-parent") });
+  const outer = path.join(dir, "outer"); const prefix = "mission-control";
+  await mkdir(path.join(outer, prefix), { recursive: true });
+  await cp(seed.root, path.join(outer, prefix), { recursive: true, filter: (src) => path.basename(src) !== ".git" });
+  f.git(outer, ["init", "-q", "-b", "main"]); f.git(outer, ["add", "-A"]); f.git(outer, ["commit", "-q", "-m", "fixture: nested initial"]);
+  await seed.cleanup();
+  return { root: path.join(outer, prefix), outer, prefix, sha: f.git(outer, ["rev-parse", "HEAD"]), git: (...a) => f.git(outer, a), cleanup: async () => { await rm(outer, { recursive: true, force: true }); } };
+}
+
+/**
  * Builds a fixture project, acquires a real lease (projectStatus:false), writes state.json, the signals file, optional quota,
  * preflight and admission files. Returns the case context `c`.
  */
@@ -153,7 +168,7 @@ async function setup(o = {}) {
   const pathsMod = await must("paths.mjs"); const stateMod = await must("state.mjs"); const fsx = await must("fsx.mjs");
   const quotaMod = await must("quota.mjs"); const admissionMod = await must("admission.mjs"); const journalMod = await must("journal.mjs");
   const dir = await mkdtemp(path.join(SCRATCH_ROOT, "pc-c02-"));
-  const fx = await createFixture(o.preset ?? "basic", { dir });
+  const fx = o.nested ? await nestedFixture(dir) : await createFixture(o.preset ?? "basic", { dir });
   const env = testEnv(dir);
   if (o.realClock) delete env.PANDACORP_NOW;
   for (const [k, v] of Object.entries(env)) process.env[k] = v;
@@ -165,14 +180,17 @@ async function setup(o = {}) {
   const label = o.label ?? (coordinator === "codex-session" ? "codex" : "claude");
   const lease = await bs.acquire(fx.root, { runtime: coordinator === "codex-session" ? "codex" : "claude", runId: RUN, ttlSeconds: 1800, projectStatus: false, coordinator: "session" });
   const P = pathsMod.buildPaths(fx.root, { env });
-  await mkdir(P.integrationWorktree, { recursive: true });
+  let productRoot = P.integrationWorktree;
+  if (o.nested) {
+    fx.git("worktree", "add", "-q", "-b", P.integrationBranch(RUN), P.integrationWorktree, "main"); productRoot = path.join(P.integrationWorktree, fx.prefix);
+  } else await mkdir(P.integrationWorktree, { recursive: true });
   const units = (o.units ?? []).map((u) => stateMod.newUnit(u));
   const wos = o.scope?.wos ?? [...new Set(units.flatMap((u) => u.wos))];
   const frds = o.scope?.frds ?? [...new Set(units.map((u) => u.frd).filter(Boolean))];
   const state = stateMod.newState({
     run_id: RUN, epoch: lease.epoch, coordinator, label, size: o.size ?? "feature", status: o.status ?? "active",
     scope: { card: null, frds, wos, out_of_scope: o.scope?.out_of_scope ?? [] },
-    integration: { branch: `lane/${RUN}`, worktree: P.integrationWorktree, base_sha: fx.sha },
+    integration: { branch: o.nested ? P.integrationBranch(RUN) : `lane/${RUN}`, worktree: productRoot, base_sha: fx.sha },
     units, jobs: o.jobs ?? [], handbacks_in_a_row: o.handbacks ?? 0, answers: o.answers ?? {},
   });
   await stateMod.writeState(fx.root, state, { env });
@@ -936,6 +954,57 @@ await test("fence: a missing or foreign lease-token file is refused", async () =
 }));
 
 // ---- a missing module is one clear failure, not a crash --------------------------------------------------------------------
+// =====================================================================================================================
+// Judge-3 additions (RULINGS-D1): nested product root, static zones in planRound
+//   ASSUMED INTERFACE: next calls planner.readPlanWorkOrders(root, {readFrd}) with root = state.integration.worktree (the PRODUCT root) and
+//   readFrd(<frd id>) returning the FRD text at integration.base_sha (git show <base>:<prefix>docs/frds/...); then planner.plan(input) where
+//   input.wos carries `zone`/`risk_rules`; zones come from risk.staticZones(wos, root, deps?) -> wos with zone/risk_rules.
+// =====================================================================================================================
+const planCapture = (c, readImpl) => {
+  const captured = { reads: [], plans: [] };
+  const base = makeDeps(c).planner;
+  const planner = fake("planner", c.log, {
+    plan: async (input, d) => { captured.plans.push(input); return base.plan(input, d); },
+    readPlanWorkOrders: async (root, d) => { captured.reads.push({ root, deps: d }); return readImpl(root, d); },
+  }, { strict: true });
+  return { captured, planner };
+};
+
+await test("nested product root: the first next does not deadlock, reads the FRDs from the product root, and readFrd resolves the FRD at base_sha", async () => withCase({ nested: true, units: [B("WO-01-001"), B("WO-02-001")] }, async (c) => {
+  const productRoot = path.join(c.P.integrationWorktree, "mission-control");
+  const { captured, planner } = planCapture(c, async () => ({ wos: [], frds: [], frd_acs: {}, errors: [] }));
+  const r = await callNext(c, {}, { planner });
+  ok(r.action !== "deadlock", `first next in a nested project must not deadlock, got ${r.action}`);
+  eq(r.action, "dispatch", "action");
+  ok(captured.reads.length >= 1, "next must read the work orders through planner.readPlanWorkOrders");
+  eq(path.resolve(captured.reads[0].root), path.resolve(productRoot), "readPlanWorkOrders root is the PRODUCT root (the prefix applied exactly once)");
+  const readFrd = captured.reads[0].deps?.readFrd;
+  ok(typeof readFrd === "function", "readPlanWorkOrders must receive deps.readFrd (FRD text at base_sha)");
+  const text = await readFrd("frd-01-alpha");
+  ok(typeof text === "string" && text.includes("AC-01-001.1"), `readFrd must return the FRD text at base_sha for a nested project (the repo-relative path carries the prefix); got ${JSON.stringify(text)?.slice(0, 80)}`);
+}));
+
+await test("planRound attaches static zones via risk.staticZones: only WOs that are neither VERIFIED nor already in a unit are classified; unit WOs reuse the unit's zone", async () => withCase({ units: [B("WO-01-002", { zone: "floor", risk_rules: ["R2"] }), B("WO-02-001")] }, async (c) => {
+  const woRow = (id, frd, status, artifacts) => ({ id, frd, file: `${id}.md`, status, deps: [], artifacts, order: 0, reopen_count: 0, acs: [], source_change: [] });
+  const read = { wos: [woRow("wo-01-001", "frd-01-alpha", "VERIFIED", ["src/alpha/list.ts"]), woRow("wo-01-002", "frd-01-alpha", "PLANNED", ["src/alpha/filter.ts"]), woRow("wo-02-001", "frd-02-beta", "PLANNED", ["src/beta/view.ts"]), woRow("wo-02-002", "frd-02-beta", "PLANNED", ["src/lib/auth/session.ts"])], frds: ["frd-01-alpha", "frd-02-beta"], frd_acs: {}, errors: [] };
+  const { captured, planner } = planCapture(c, async () => structuredClone(read));
+  const zoneCalls = [];
+  const risk = fake("risk", c.log, {
+    computeRisk: async () => c.riskResult,
+    staticZones: async (wos) => { zoneCalls.push(wos.map((w) => w.id)); return wos.map((w) => ({ ...w, zone: w.artifacts?.some((a) => a.includes("auth")) ? "r1" : "none", risk_rules: w.artifacts?.some((a) => a.includes("auth")) ? ["R1"] : [] })); },
+  });
+  await callNext(c, {}, { planner, risk });
+  ok(zoneCalls.length >= 1, "next.planRound must call risk.staticZones before planner.plan (NX-M2)");
+  const asked = [...new Set(zoneCalls.flat().map((id) => String(id).toLowerCase()))].sort();
+  eq(asked, ["wo-02-002"], "only the WO that is neither VERIFIED nor in a unit is classified (wo-02-001 is covered by its unit, wo-01-002 too, wo-01-001 is VERIFIED)");
+  ok(captured.plans.length >= 1, "planner.plan was called");
+  const wos = captured.plans[0].wos ?? captured.plans[0].workOrders;
+  const byId = Object.fromEntries(wos.map((w) => [String(w.id).toLowerCase(), w]));
+  eq(byId["wo-02-002"].zone, "r1", "the classified WO carries the static zone r1 into planner.plan");
+  eq(byId["wo-01-002"].zone, "floor", "a WO already in a unit keeps that unit's zone");
+  eq(byId["wo-01-002"].risk_rules, ["R2"], "and its risk_rules");
+}));
+
 await test("module: plugin/runtime/build/next.mjs exists and exports the scheduler entry point", async () => { await loadNext(); });
 
 restoreEnv();

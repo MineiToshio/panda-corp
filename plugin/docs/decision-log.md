@@ -1,6 +1,27 @@
 # Decision log — Plugin pandacorp
 
-## Unreleased — 2026-11-11 (targets v9.155.0, MINOR): build engine v2 documentation and registry (DR-150..DR-153), revision 2
+## 9.155.0 — 2026-11-11 (MINOR): build engine v2 behind the keyword `implement v2` (R1 cut)
+
+**What:** the `pandacorp-build` CLI (`plugin/scripts/pandacorp-build.mjs`) and its modules under `plugin/runtime/build/`
+(paths, fsx, journal, state, quota, admission, routing, risk, detect, card, planner, next, units, report, review, integrate,
+land, failure, doubts, answers, park, jobs, drive, notify, telemetry, summary, preflight, lifecycle) plus `build-state.mjs`
+extensions (transfer, forceRelease, transitionWorkOrderAt), `codex-worker.mjs --direct` and `install-pre-push.mjs`. The
+default `/pandacorp:implement` is unchanged (Dynamic Workflows, frozen); v2 is reached only by the owner's keyword
+`implement v2` (DR-150, standard BUILD-7..BUILD-15). `source-graph.json` gains the `build_engine_v2` fact and the
+`routing.mjs`/`quota.mjs` consumers of `model_tiers`; Mission Control's liveness accepts a fresh lease (FRD-04 REQ-04-017).
+Manifests regenerated at 9.155.0 (Claude and Codex), Codex agent mirrors regenerated.
+**Rulings taken during the build (details in the build's decisions file):** DEC-1 pressure veto: critical memory pressure
+always, levels 2-3 only with a rising swap trend (the owner's Mac idles at level 2). DEC-2 the integration branch is
+`lane/<run_id>/integration` (git cannot hold `lane/<run>` and `lane/<run>/<unit>`); unit ids `integration` and `assume-*`
+are reserved. DEC-3 drive trigger (b) counts only usage-limit text written by Claude. DEC-4 a Claude audit reaching drive is
+deferred to Claude. DEC-5 preflight asks about any `building` card without a live run. DEC-6 an owner answer differing from the
+default already used at attempt 3 hands the unit back (unit and dependents `blocked`). DEC-7 units built on a rejected
+assumption are re-queued on a fresh branch (attempt+1; at attempt 3 a hand-back).
+**Why:** one runtime-neutral engine for Claude and Codex, autonomous within the owner's first-minute answers, one
+cross-company reviewer and a single path to `main`. R1 ships the engine opt-in so it can be proven on real builds before it
+becomes the only engine at 10.0.0 (R2); nothing in the default path changes except the v1 freeze.
+
+## 2026-11-11 (documentation stage of v9.155.0): build engine v2 documentation and registry (DR-150..DR-153), revision 2
 
 **What:** the canonical documents of the `pandacorp-build` CLI land before any code: the standard
 [build-engine.md](../../factory/standards/build-engine.md) (BUILD-7..BUILD-15), the CLI reference
@@ -15,7 +36,7 @@ to v2-engine runs so it is true while v1 is the default, and "v2 engine" amendme
 `admit.decision` and `wo.commit` (regenerated into Mission Control, `check-derived-drift.sh` Check 7); `.codex/agents/*.toml`
 are regenerated from the three agents.
 - **Revision 2 truth** (after two independent reviews): one path to `main` (a v2 run never writes a tracked file in a
-  project's main checkout; every tracked write is a CLI commit on `lane/<run_id>`; merge-queue is the only way to `main`);
+  project's main checkout; every tracked write is a CLI commit on `lane/<run_id>/integration`; merge-queue is the only way to `main`);
   no heartbeat process (lease ttl 1800 s renewed by every coordinator command); r1 = product floor P1-P5 only; N7 only out of
   quota; `drive` armed whenever Codex login is OK, quota re-read at takeover; an untracked pre-push hook installed by
   `start --run` in a launched project (and by upgrade in every project from 10.0.0); 13 features deferred (F1-F13, listed in
@@ -25,8 +46,7 @@ are regenerated from the three agents.
 
 **Why:** docs first. v2 is reached only by the owner's keyword `implement v2`; nothing here changes what the default
 `/pandacorp:implement` does, apart from the freeze. The new vocabulary names must exist before the CLI emits them or Mission
-Control shows them as `legacy.*`. No version bump in this entry: the bump, the manifests and the release note belong to the
-release commit (9.155.0). Factory-side rationale: [decision-log](../../factory/decision-log.md) (2026-11-11).
+Control shows them as `legacy.*`. The version bump, the manifests and the release note are in the 9.155.0 entry above. Factory-side rationale: [decision-log](../../factory/decision-log.md) (2026-11-11).
 
 ## v9.154.0 — 2026-11-11 (MINOR): Neon projects declare NEON_PROJECT_ID (EXT-8, DR-149)
 

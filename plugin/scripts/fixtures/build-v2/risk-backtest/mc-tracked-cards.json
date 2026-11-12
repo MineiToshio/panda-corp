@@ -1,0 +1,60 @@
+{
+  "source": "mission-control/.pandacorp/inbox/changes/done/canario-d-paralelismo-portfolio-board-changes-wo.md",
+  "project": "mission-control",
+  "riskPaths": "mc-risk-paths.txt",
+  "mode": "files",
+  "base": {
+    "package.json": "{\"name\":\"fx\",\"version\":\"1.0.0\"}\n",
+    "src/lib/util.ts": "export const one = 1;\n",
+    "src/proxy.ts": "export function proxy(req: Request) {\n  return req;\n}\n",
+    "src/lib/discard/discard.ts": "export function discardIdea(id: string) {\n  return id;\n}\n",
+    "src/lib/fs-utils/parseFrontmatter.ts": "export function parseFrontmatter(raw: string) {\n  return { data: {}, body: raw };\n}\n",
+    "src/app/board/actions/read-doc.ts": "export async function readBoardDoc(rel: string) {\n  return rel;\n}\n",
+    "src/app/_actions/snapshotLedger.ts": "export async function snapshotLedger() {\n  return 1;\n}\n",
+    "src/lib/portfolio/portfolio.ts": "export const portfolio = [];\n",
+    "src/components/modules/PortfolioTable/PortfolioTable.tsx": "export function PortfolioTable() {\n  return null;\n}\n"
+  },
+  "cases": [
+    {
+      "id": "mc-card-d-1-portfolio-last-sync",
+      "files": [
+        "src/lib/portfolio/formatLastSync.ts",
+        "src/lib/portfolio/_tests/formatLastSync.test.ts",
+        "src/components/modules/PortfolioTable/PortfolioTable.tsx"
+      ],
+      "expect": {
+        "zone_not": "r1"
+      }
+    },
+    {
+      "id": "mc-card-d-2-board-empty-column",
+      "files": [
+        "src/app/board/IdeaBoardView/IdeaBoardView.tsx"
+      ],
+      "expect": {
+        "zone_not": "r1"
+      }
+    },
+    {
+      "id": "mc-card-d-3-change-date",
+      "files": [
+        "src/lib/changes/formatChangeDate.ts",
+        "src/lib/changes/_tests/formatChangeDate.test.ts",
+        "src/app/projects/[slug]/_components/tab-changes/ChangeCard.tsx"
+      ],
+      "expect": {
+        "zone": "floor"
+      }
+    },
+    {
+      "id": "mc-card-d-4-wo-state-filter",
+      "files": [
+        "src/app/projects/[slug]/_components/wo-state-filter/wo-state-filter.tsx",
+        "src/app/projects/[slug]/_components/wo-frd-filtered-board/wo-frd-filtered-board.tsx"
+      ],
+      "expect": {
+        "zone_not": "r1"
+      }
+    }
+  ]
+}

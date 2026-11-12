@@ -451,6 +451,14 @@
                   "null"
                 ]
               },
+              "verdict": {
+                "enum": [
+                  "pass",
+                  "reopen",
+                  "blocked",
+                  "doubt"
+                ]
+              },
               "reviewer": {
                 "type": "object",
                 "properties": {

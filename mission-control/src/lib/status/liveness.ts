@@ -62,26 +62,62 @@ export interface BuildClocks {
   leaseTtlSeconds?: number;
 }
 
+/** Typed verdict on the v2 lease clocks (REQ-04-017). */
+export type LeaseVerdict =
+  | { kind: "absent" }
+  | { kind: "fresh" }
+  | { kind: "expired" }
+  | { kind: "malformed"; reason: string };
+
+/**
+ * Classify the lease clocks. Both fields absent is "absent" (not an error); exactly one
+ * present, an unparseable stamp or a non-positive TTL is "malformed" (never read as absent).
+ */
+export function classifyLease(input: BuildClocks, nowMs: number): LeaseVerdict {
+  const { leaseRenewedAt, leaseTtlSeconds } = input;
+  if (leaseRenewedAt === undefined && leaseTtlSeconds === undefined) return { kind: "absent" };
+  const leaseMs = Date.parse(leaseRenewedAt ?? "");
+  if (!Number.isFinite(leaseMs))
+    return { kind: "malformed", reason: "lease renewed_at is missing or not a timestamp" };
+  if (
+    typeof leaseTtlSeconds !== "number" ||
+    !Number.isFinite(leaseTtlSeconds) ||
+    leaseTtlSeconds <= 0
+  ) {
+    return { kind: "malformed", reason: "lease ttl_seconds is missing or not a positive number" };
+  }
+  return nowMs - leaseMs < leaseTtlSeconds * 1000 ? { kind: "fresh" } : { kind: "expired" };
+}
+
 /** Lease validity uses the producer's own TTL, including TTLs above the legacy status window. */
 export function isLeaseFresh(input: BuildClocks, nowMs: number): boolean {
-  const leaseMs = Date.parse(input.leaseRenewedAt ?? "");
-  return Number.isFinite(leaseMs) && Number.isFinite(input.leaseTtlSeconds) &&
-    (input.leaseTtlSeconds ?? 0) > 0 && nowMs - leaseMs < (input.leaseTtlSeconds ?? 0) * 1000;
+  return classifyLease(input, nowMs).kind === "fresh";
 }
 
 /** Freshest producer instant; a lease contributes only within its own TTL. */
 export function latestBuildSignal(input: BuildClocks, nowMs: number): string | null {
   const freshLease = isLeaseFresh(input, nowMs);
-  const stamps = [input.supervisorHeartbeat, input.lastEventAt, freshLease ? input.leaseRenewedAt : null]
-    .filter((value): value is string => typeof value === "string" && Number.isFinite(Date.parse(value)));
+  const stamps = [
+    input.supervisorHeartbeat,
+    input.lastEventAt,
+    freshLease ? input.leaseRenewedAt : null,
+  ].filter(
+    (value): value is string => typeof value === "string" && Number.isFinite(Date.parse(value)),
+  );
   return stamps.sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
 }
 
-/** Running crossed with a lease inside its own TTL or a fresh legacy status/event stamp. */
-export function isLive(
-  input: BuildClocks & { running?: boolean },
-  nowMs: number,
-): boolean {
+/**
+ * Live ⇔ a lease inside its own TTL (whether or not `running` is set: a v2 run never sets it),
+ * OR `running: true` with a fresh legacy clock (heartbeat / latest event).
+ *
+ * @throws Error when the lease clocks are malformed: the reader rejects such a lease before
+ *   this point, so reaching here with one is a broken invariant that must not read as "not live".
+ */
+export function isLive(input: BuildClocks & { running?: boolean }, nowMs: number): boolean {
+  const lease = classifyLease(input, nowMs);
+  if (lease.kind === "malformed") throw new Error(`isLive: malformed lease: ${lease.reason}`);
+  if (lease.kind === "fresh") return true;
   if (input.running !== true) return false;
-  return isLeaseFresh(input, nowMs) || freshnessBand(latestBuildSignal(input, nowMs), nowMs).band !== "no-signal";
+  return freshnessBand(latestBuildSignal(input, nowMs), nowMs).band !== "no-signal";
 }

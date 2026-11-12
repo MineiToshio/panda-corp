@@ -1,0 +1,5 @@
+{
+  "status": "pending",
+  "note": "Owner-labeled risky/non-risky sample (G 5 acceptance: 0 false negatives on the 8 rows plus an owner sample). Not provided yet: add cases here in the same shape as r1-floor-split.json with the owner's verdict as expect.zone; the test reports PENDING and never fails on an empty set.",
+  "cases": []
+}

@@ -137,7 +137,7 @@ function buildModel(input = {}, deps = {}) {
     card: input.scope?.card ? norm(input.scope.card) : null, out: (input.scope?.out_of_scope ?? []).map(norm),
   };
   const inScope = (n) => !scope.out.includes(n.id) && !scope.out.includes(n.frd) && (
-    scope.wos.includes(n.id) || (scope.card !== null && n.sourceChange.includes(scope.card)) || (scope.wos.length === 0 && scope.frds.includes(n.frd)));
+    scope.wos.includes(n.id) || (scope.card !== null && n.sourceChange.includes(scope.card)) || (scope.card === null && scope.wos.length === 0 && scope.frds.includes(n.frd)));
   const units = input.units ?? [];
   const frdOrder = uniq([...nodes.values()].map((n) => n.frd)).sort(naturalCompare);
   const children = new Map([...nodes.keys()].map((id) => [id, []]));

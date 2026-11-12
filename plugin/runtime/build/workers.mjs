@@ -58,17 +58,28 @@ const fnvOf = (deps) =>
   });
 
 /**
- * Worker id of a unit attempt: `w-<run id>-<unit id>[-a<n>]` (the run id keeps a later run from re-reading an older
- * run's sealed result, which `codex-worker.mjs run` would reprint verbatim).
- * @param {{runId?: string, unit: string, attempt?: number}} input
+ * Worker id of one dispatch of a unit attempt: `w-<run id>-<unit id>[-a<n>][-d<dispatch>]`. The run id keeps a later
+ * run from re-reading an older run's sealed result, which `codex-worker.mjs run` would reprint verbatim; `dispatch`
+ * (the first hex digits of the dispatch's token hash) does the same between two dispatches of the SAME attempt (a
+ * resume requeue, a limit requeue, a decided doubt, an approved gate), whose admission tokens differ: an earlier
+ * dispatch's result carries a token the later dispatch can never ingest.
+ * @param {{runId?: string, unit: string, attempt?: number, dispatch?: string|null}} input
  * @returns {string} a safe id of at most 120 characters
  */
-export function workerIdFor({ runId, unit, attempt = 1 }) {
-  const suffix = Number(attempt) >= 2 ? `-a${Number(attempt)}` : "";
+export function workerIdFor({ runId, unit, attempt = 1, dispatch = null }) {
+  if (dispatch !== null && dispatch !== undefined && !/^[0-9a-z]{1,16}$/.test(String(dispatch))) throw new WorkersError("USAGE", `dispatch discriminator must be 1-16 lowercase alphanumeric characters: ${dispatch}`);
+  const suffix = `${Number(attempt) >= 2 ? `-a${Number(attempt)}` : ""}${dispatch ? `-d${dispatch}` : ""}`;
   const id = `w-${runId ? `${assertSafeId(runId, "run id")}-` : ""}${assertSafeId(unit, "unit id")}${suffix}`;
   if (id.length > WORKER_ID_MAX) throw new WorkersError("USAGE", `worker id longer than ${WORKER_ID_MAX} characters: ${id}`);
   return assertSafeId(id, "worker id");
 }
+
+/**
+ * The dispatch discriminator of {@link workerIdFor}: the first 8 hex digits of the dispatch's admission token hash.
+ * @param {string|null|undefined} tokenHash `units[].token_hash` (sha256 hex) of the dispatch
+ * @returns {string|null} null when there is no usable token hash
+ */
+export const dispatchOf = (tokenHash) => (typeof tokenHash === "string" && /^[0-9a-f]{8}/.test(tokenHash) ? tokenHash.slice(0, 8) : null);
 
 /** True when a composed argv value contains the word the Codex hook adapter blocks. */
 export const containsForbiddenWord = (value) => FORBIDDEN_WORD.test(String(value));
@@ -219,7 +230,8 @@ const jobItem = ({ workerId, unit, frd, pid, cwd, startedAt, state = "running", 
  * not started again, so a resume that re-adopts it cannot double-run it). Waits only for the launcher, never for Codex.
  * @param {{project: string, runId?: string, unit: string, attempt?: number, frd?: string|null,
  *          cell: {runtime: string, model: string, effort: string}, schemaFile?: string|null, dir: string,
- *          briefFile?: string, workerId?: string}} input `dir` = the unit worktree
+ *          briefFile?: string, workerId?: string, dispatch?: string|null}} input `dir` = the unit worktree; `dispatch`
+ *          = the dispatch discriminator of {@link workerIdFor}
  * @param {object} [deps]
  * @returns {Promise<{ok: true, workerId: string, dir: string, pid: number|null, startedAt: string|null, job: object,
  *                    reused: boolean, argv: string[], settled: object|null} | {ok: false, kind: string, detail: string}>}
@@ -228,7 +240,7 @@ const jobItem = ({ workerId, unit, frd, pid, cwd, startedAt, state = "running", 
 export async function launchWorker(input, deps) {
   const { project, unit, frd = null, dir } = input;
   const paths = buildPaths(project);
-  const workerId = input.workerId ?? workerIdFor({ runId: input.runId, unit, attempt: input.attempt });
+  const workerId = input.workerId ?? workerIdFor({ runId: input.runId, unit, attempt: input.attempt, dispatch: input.dispatch ?? null });
   const fs = fsOf(deps);
   const promptFile = input.briefFile ?? paths.briefFile(unit);
   if (!fs.existsSync(promptFile)) return { ok: false, kind: "brief_missing", detail: `unit brief not found: ${promptFile}` };

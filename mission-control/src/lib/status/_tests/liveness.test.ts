@@ -70,3 +70,32 @@ describe("isLive — running AND fresh, never the flag alone (DR-066 rule a)", (
     expect(isLive({}, NOW)).toBe(false);
   });
 });
+
+describe("isLive — fresh v2 lease without running (REQ-04-017, AC-04-017.1/.2)", () => {
+  const lease = (agoMs: number, ttl = 1800) => ({
+    leaseRenewedAt: ago(agoMs),
+    leaseTtlSeconds: ttl,
+  });
+
+  it("no running flag, no heartbeat, lease renewed 90 s ago with ttl 1800 → live", () => {
+    expect(isLive(lease(90_000), NOW)).toBe(true);
+  });
+
+  it("running:false + fresh lease → live (v2 never sets running on main)", () => {
+    expect(isLive({ running: false, ...lease(90_000) }, NOW)).toBe(true);
+  });
+
+  it("lease older than its own ttl → NOT live", () => {
+    expect(isLive(lease(1_801_000), NOW)).toBe(false);
+  });
+
+  it("running:true + expired lease + no fresh legacy clock → NOT live", () => {
+    expect(isLive({ running: true, ...lease(1_801_000) }, NOW)).toBe(false);
+  });
+
+  it("running:true + legacy fresh heartbeat still live when the lease is expired", () => {
+    expect(
+      isLive({ running: true, supervisorHeartbeat: ago(30_000), ...lease(1_801_000) }, NOW),
+    ).toBe(true);
+  });
+});

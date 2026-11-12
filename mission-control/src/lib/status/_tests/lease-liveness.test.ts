@@ -43,3 +43,34 @@ it("lease TTL above ten minutes remains authoritative until its own expiry", () 
   expect(buildSignal({ ...input, nowMs }).kind).toBe("live");
   expect(buildSignal({ ...input, nowMs: Date.parse(renewedAt) + 1200_000 }).kind).toBe("no-signal");
 });
+
+it("v2 lease alone (no running key, no heartbeat) reads live while fresh and not live once expired", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-lease-")); dirs.push(dir);
+  fs.mkdirSync(path.join(dir, ".pandacorp/run/build.lease"), { recursive: true });
+  fs.writeFileSync(path.join(dir, ".pandacorp/status.yaml"), "last_green_sha: abc123\n");
+  const renewedAt = "2026-11-11T12:00:00Z", nowMs = Date.parse(renewedAt) + 90_000;
+  fs.writeFileSync(path.join(dir, ".pandacorp/run/build.lease/lease.json"), JSON.stringify({ renewed_at: renewedAt, ttl_seconds: 1800 }));
+  const result = readStatus(dir);
+  expect(result.present && !result.malformed).toBe(true);
+  if (!result.present) throw new Error("status absent");
+  expect(isLive(result.status, nowMs)).toBe(true);
+  expect(isLive(result.status, Date.parse(renewedAt) + 1_800_000)).toBe(false);
+});
+
+it("missing lease file is not an error and does not make a project live", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-lease-")); dirs.push(dir);
+  fs.mkdirSync(path.join(dir, ".pandacorp"), { recursive: true });
+  fs.writeFileSync(path.join(dir, ".pandacorp/status.yaml"), "last_green_sha: abc123\n");
+  const result = readStatus(dir);
+  expect(result.present && !result.malformed).toBe(true);
+  if (!result.present) throw new Error("status absent");
+  expect(isLive(result.status, Date.now())).toBe(false);
+});
+
+it("lease with a non-parseable renewed_at is reported malformed, never silently live", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mc-lease-")); dirs.push(dir);
+  fs.mkdirSync(path.join(dir, ".pandacorp/run/build.lease"), { recursive: true });
+  fs.writeFileSync(path.join(dir, ".pandacorp/status.yaml"), "last_green_sha: abc123\n");
+  fs.writeFileSync(path.join(dir, ".pandacorp/run/build.lease/lease.json"), JSON.stringify({ renewed_at: "garbage", ttl_seconds: 1800 }));
+  expect(readStatus(dir)).toMatchObject({ present: true, malformed: true });
+});

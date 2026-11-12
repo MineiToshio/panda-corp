@@ -26,6 +26,7 @@ import * as riskModule from "./risk.mjs";
 import * as routingModule from "./routing.mjs";
 import { REVIEW_TYPE_KINDS, fencedTwoPhase, findUnit, isTerminalUnit, newUnit, readLeaseToken, readState } from "./state.mjs";
 import { productPrefix, productRoot } from "./units.mjs";
+import { dispatchOf } from "./workers.mjs";
 
 const err = (code, message, extra = {}) => Object.assign(new Error(message), { code }, extra);
 
@@ -602,9 +603,12 @@ async function scheduleManagedUnits(run, state, pol, entries) {
 
 /** Product root of the integration worktree (the project may live under a prefix of its git repository). */
 async function integrationProductRoot(run, state) {
-  const root = integrationRoot(run, state);
+  // `state.integration.worktree` is already the PRODUCT root (lifecycle stores `<git worktree>/<prefix>`); the prefix is still
+  // computed because repo-relative reads (`git show <base>:<prefix>docs/...`) need it.
   if (run.prefix === undefined) run.prefix = await productPrefix(run.ref.project, { env: run.d.env });
-  return productRoot(root, run.prefix);
+  return state.integration?.worktree
+    ? path.resolve(run.ref.project, state.integration.worktree)
+    : productRoot(run.paths.integrationWorktree, run.prefix);
 }
 
 /** `git show <rev>:<rel>` text, or null when the path does not exist at that revision. */
@@ -625,10 +629,11 @@ async function planRound(run, state, pol) {
   const prefix = run.prefix ?? "";
   const readFrd = base ? (frd) => gitShow(root, base, `${prefix}docs/frds/${frd}/frd.md`) : undefined;
   const read = await (await sibling(d, "planner", "readPlanWorkOrders"))(root, { ...d, ...(readFrd ? { readFrd } : {}) });
+  const wos = await withZones(run, state, read?.wos ?? [], root);
   const questions = [...(await readQuestions(run)).values()].filter((q) => !(q.id in (state.answers ?? {})));
   const params = await readRunParams(run);
   const plan = await (await sibling(d, "planner", "plan"))({
-    wos: read?.wos ?? [], frd_acs: read?.frd_acs ?? {}, scope: state.scope, units: state.units, label: state.label, size: state.size,
+    wos, frd_acs: read?.frd_acs ?? {}, scope: state.scope, units: state.units, label: state.label, size: state.size,
     questions, quota: pol, shape: shapeOf(state), coordinator: state.coordinator, session_model: params.sessionModel,
   }, d);
   const nowIds = Array.isArray(plan?.now) ? new Set(plan.now) : null;
@@ -643,6 +648,33 @@ async function planRound(run, state, pol) {
   }
   const round = Array.isArray(plan?.round) ? plan.round : Array.isArray(plan?.ready) ? plan.ready : [];
   return { state: next, ready: [...new Set(round)], deadlock: Boolean(plan?.deadlock) };
+}
+
+/**
+ * Static risk zones on the work orders the planner may still plan (floor/r1 chain cuts, `floor_frds`, A13 tests-first).
+ * VERIFIED WOs never matter to the planner; a WO already in a build/patch unit reuses that unit's `zone`/`risk_rules`, so
+ * the classifier (`risk.staticZones`, one spawn per WO) runs only on the rest.
+ */
+async function withZones(run, state, readWos, root) {
+  const { d } = run;
+  const covered = new Map(state.units.filter((u) => u.kind === "build" || u.kind === "patch")
+    .flatMap((u) => (u.wos ?? []).map((w) => [String(w).toLowerCase(), u])));
+  const isCovered = (w) => covered.has(String(w.id).toLowerCase());
+  const need = readWos.filter((w) => w.status !== "VERIFIED" && !isCovered(w));
+  let zoned = new Map();
+  if (need.length) {
+    const fn = typeof d.risk.staticZones === "function" ? d.risk.staticZones : riskModule.staticZones;
+    if (typeof fn !== "function") throw err("ENGINE_FAILURE", "risk.staticZones is missing: work orders cannot get their static zones");
+    const res = await fn(need, root, d.riskDeps ?? {});
+    if (!Array.isArray(res)) throw err("ENGINE_FAILURE", "risk.staticZones returned no work-order list");
+    zoned = new Map(res.map((w) => [w.id, w]));
+  }
+  return readWos.map((w) => {
+    if (zoned.has(w.id)) return zoned.get(w.id);
+    if (!isCovered(w)) return w;
+    const u = covered.get(String(w.id).toLowerCase());
+    return { ...w, zone: u.zone ?? "none", risk_rules: u.risk_rules ?? [] };
+  });
 }
 
 /** First-minute questions (`build/preflight.json` `questions[]`, D19), by id: `{id, reversible, affects, default_es, default_action}`. */
@@ -1100,7 +1132,7 @@ async function prepareGrant(run, current, g) {
     const dir = worktree ?? await integrationProductRoot(run, current);
     const res = await (await sibling(d, "workers", "launchWorker"))({
       project: ref.project, runId: current.run_id, unit: unit.id, attempt: unit.attempt, frd: unit.frd ?? null,
-      cell: g.cell, schemaFile: files.schema_path || null, dir, briefFile: briefPath,
+      cell: g.cell, schemaFile: files.schema_path || null, dir, briefFile: briefPath, dispatch: dispatchOf(g.token_hash),
     }, d);
     if (!res?.ok) throw err("ENGINE_FAILURE", `the Codex worker of ${unit.id} did not start (${res?.kind ?? "unknown"}): ${res?.detail ?? ""}`);
     launched = res;

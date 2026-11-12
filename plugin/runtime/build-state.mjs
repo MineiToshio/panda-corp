@@ -6,6 +6,9 @@ import { promisify } from "node:util";
 import { stopCodexWorkers } from "./codex-workers.mjs";
 
 const iso = () => new Date().toISOString();
+// Lease clock: PANDACORP_NOW replaces the wall clock for lease stamps and freshness checks (CLI 2.7).
+const leaseNowMs = () => { const t = Date.parse(process.env.PANDACORP_NOW ?? ""); return Number.isFinite(t) ? t : Date.now(); };
+const leaseIso = () => new Date(leaseNowMs()).toISOString();
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const execFileAsync = promisify(execFile);
 const tokenHash = (token) => createHash("sha256").update(String(token)).digest("hex");
@@ -86,7 +89,7 @@ async function reassertActiveProjection(project, lease, { running = true } = {})
   });
 }
 export const currentLease = async (project) => { try { return await parseJson(paths(project).lease); } catch { return null; } };
-export const isFresh = (lease, now = Date.now()) => Boolean(lease && Number.isFinite(Date.parse(lease.renewed_at)) && now - Date.parse(lease.renewed_at) < lease.ttl_seconds * 1000);
+export const isFresh = (lease, now = leaseNowMs()) => Boolean(lease && Number.isFinite(Date.parse(lease.renewed_at)) && now - Date.parse(lease.renewed_at) < lease.ttl_seconds * 1000);
 // BL-0153: crossing the TTL boundary the instant it happens is not, by itself, evidence the owning
 // run died — a build phase dominated by back-to-back gate/repair attempts with no intervening
 // safe-point (Canary C: 56.6 min with zero renewals, first renewal at its own first safe-point) can
@@ -97,7 +100,7 @@ export const isFresh = (lease, now = Date.now()) => Boolean(lease && Number.isFi
 // gone, so a run that merely outran ONE TTL width mid-gate is not raced out from under itself by an
 // owner or another runtime reading "stale" as "dead" too eagerly.
 const RECLAIM_GRACE_CYCLES = 2; // total tolerated silence before reclaim = ttl_seconds * RECLAIM_GRACE_CYCLES
-export const isReclaimable = (lease, now = Date.now()) => Boolean(lease && Number.isFinite(Date.parse(lease.renewed_at)) && now - Date.parse(lease.renewed_at) >= lease.ttl_seconds * 1000 * RECLAIM_GRACE_CYCLES);
+export const isReclaimable = (lease, now = leaseNowMs()) => Boolean(lease && Number.isFinite(Date.parse(lease.renewed_at)) && now - Date.parse(lease.renewed_at) >= lease.ttl_seconds * 1000 * RECLAIM_GRACE_CYCLES);
 export const assertFence = async (project, token, epoch, { allowQuiesced = false } = {}) => {
   const lease = await currentLease(project);
   if (!lease || typeof token !== "string" || lease.token_hash !== tokenHash(token) || lease.epoch !== Number(epoch)) throw Object.assign(new Error("stale or foreign lease fence"), { code: "FENCE" });
@@ -118,7 +121,7 @@ async function acquireUnlocked(project, { runtime, runId, ttlSeconds = 3600, tok
   try {
     const previous = Number.parseInt((await readFile(p.epoch, "utf8").catch(() => "0")).trim(), 10) || 0;
     const epoch = previous + 1; await atomicText(p.epoch, `${epoch}\n`);
-    const now = iso(); const lease = { version: 1, runtime, run_id: runId, token_hash: tokenHash(token), epoch, acquired_at: now, renewed_at: now, ttl_seconds: ttlSeconds, project_phase: "implementation", ...(coordinator ? { coordinator } : {}) };
+    const now = leaseIso(); const lease = { version: 1, runtime, run_id: runId, token_hash: tokenHash(token), epoch, acquired_at: now, renewed_at: now, ttl_seconds: ttlSeconds, project_phase: "implementation", ...(coordinator ? { coordinator } : {}) };
     await atomicJson(p.lease, lease); if (projectStatus) await reassertActiveProjection(project, lease); if (tokenFile) await writeTokenFile(p, epoch, token);
     return { ...lease, token };
   } catch (error) {
@@ -130,8 +133,8 @@ async function acquireUnlocked(project, { runtime, runId, ttlSeconds = 3600, tok
   }
 }
 export async function acquire(project, options) { const p = await assertSafeLayout(project, { allowMissingRun: true }); await mkdir(p.run, { recursive: true }); await assertSafeLayout(project); return withMutex(p.mutex, () => acquireUnlocked(project, options)); }
-export async function renew(project, token, epoch, { projectStatus = true } = {}) { return withFence(project, token, epoch, async (lease) => { const next = { ...lease, renewed_at: iso() }; await atomicJson(paths(project).lease, next); if (projectStatus) await reassertActiveProjection(project, next); return next; }); }
-export async function quiesce(project, token, epoch, { projectStatus = true } = {}) { return withFence(project, token, epoch, async (lease) => { const next = { ...lease, quiesced_at: iso() }; await atomicJson(paths(project).lease, next); if (projectStatus) await reassertActiveProjection(project, next, { running: false }); stopCodexWorkers(project); return next; }); }
+export async function renew(project, token, epoch, { projectStatus = true } = {}) { return withFence(project, token, epoch, async (lease) => { const next = { ...lease, renewed_at: leaseIso() }; await atomicJson(paths(project).lease, next); if (projectStatus) await reassertActiveProjection(project, next); return next; }); }
+export async function quiesce(project, token, epoch, { projectStatus = true } = {}) { return withFence(project, token, epoch, async (lease) => { const next = { ...lease, quiesced_at: leaseIso() }; await atomicJson(paths(project).lease, next); if (projectStatus) await reassertActiveProjection(project, next, { running: false }); stopCodexWorkers(project); return next; }); }
 export async function finalizeRelease(project, token, epoch) { const p = await assertSafeLayout(project); return withMutex(p.mutex, async () => { const lease = await assertFence(project, token, epoch, { allowQuiesced: true }); if (!lease.quiesced_at) throw Object.assign(new Error("lease must be quiesced before final release"), { code: "INVALID_STATE" }); const tomb = `${p.leaseDir}.released-${lease.epoch}-${process.pid}`; await rename(p.leaseDir, tomb); await rm(tomb, { recursive: true, force: true }); await dropTokenFile(p, lease.epoch); return lease; }); }
 // Compatibility wrapper for callers that do not own a git commit boundary. Certified executors use
 // quiesce -> commit the running:false projection -> finalizeRelease, so no writer-free commit window
@@ -168,7 +171,7 @@ export async function transfer(project, { token, toRuntime, coordinator, epoch }
     if (!lease || lease.token_hash !== tokenHash(token) || epoch !== undefined && lease.epoch !== Number(epoch)) throw Object.assign(new Error("stale or foreign lease fence"), { code: "FENCE" });
     const bound = await runIdOf(p); if (bound !== undefined && bound !== lease.run_id) throw Object.assign(new Error("lease run_id differs from the run state"), { code: "FENCE" });
     const recorded = Number.parseInt((await readFile(p.epoch, "utf8").catch(() => "0")).trim(), 10) || 0;
-    const nextEpoch = Math.max(recorded, lease.epoch) + 1; const newToken = randomBytes(24).toString("hex"); const now = iso();
+    const nextEpoch = Math.max(recorded, lease.epoch) + 1; const newToken = randomBytes(24).toString("hex"); const now = leaseIso();
     const { quiesced_at: _quiesced, ...rest } = lease;
     const next = { ...rest, epoch: nextEpoch, token_hash: tokenHash(newToken), renewed_at: now, ttl_seconds: 1800, runtime: toRuntime, coordinator };
     // Commit order: monotonic epoch, then the lease (the fence flips here), then the credential cache.
@@ -182,7 +185,7 @@ export async function transfer(project, { token, toRuntime, coordinator, epoch }
  * @param {{ownerConfirmed:true,now?:number}} args
  * @returns {Promise<object>} the lease that was released
  */
-export async function forceRelease(project, { ownerConfirmed, now = Date.now() } = {}) {
+export async function forceRelease(project, { ownerConfirmed, now = leaseNowMs() } = {}) {
   if (ownerConfirmed !== true) throw Object.assign(new Error("force release requires explicit owner confirmation"), { code: "USAGE" });
   const p = await assertSafeLayout(project);
   return withMutex(p.mutex, async () => {

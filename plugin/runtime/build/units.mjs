@@ -147,6 +147,37 @@ export async function prepareUnitWorktree({ project, runId, unit, attempt = 1, b
   return { worktree, root, branch, base_sha: await mergeBase(deps, root, baseRef), created: true, bootstrap };
 }
 
+/**
+ * Restore the registered worktree of a unit attempt that is requeued at the SAME attempt because its coordinator
+ * changed (`start --resume`, drive takeover): the output of the dispatch that lost the run can never be accepted (its
+ * token is released and its late report is fenced), so the next dispatch must not inherit it. Discards the commits
+ * the unit branch carries since its fork point (an engine commit whose report never reached phase 2) and the
+ * worktree's uncommitted changes; ignored files (bootstrap output) stay. A missing or unregistered worktree is left
+ * alone (the next dispatch creates it).
+ * @param {{project: string, runId: string, unit: {id: string, attempt?: number, worktree?: string|null}, base?: string}} input
+ *   `base` defaults to `paths.integrationBranch(runId)` (pass the assume branch for work built on an assumption)
+ * @param {object} [deps] `exec`, `fs`, `env`
+ * @returns {Promise<{reset: boolean, discarded_commits: number, dirty: boolean, head: string|null}>}
+ */
+export async function restoreUnitWorktree({ project, runId, unit, base }, deps = {}) {
+  const fs = deps.fs ?? fsp;
+  const none = { reset: false, discarded_commits: 0, dirty: false, head: null };
+  const worktree = unit.worktree ?? unitRefs({ project, runId, unitId: unit.id, attempt: unit.attempt ?? 1 }, deps).worktree;
+  const listed = parseWorktreeList((await git(deps, project, ["worktree", "list", "--porcelain"])).stdout);
+  let registered = false;
+  for (const entry of listed) if (await sameDir(fs, entry.path, worktree)) registered = true;
+  if (!registered) return none;
+  const baseRef = base ?? buildPaths(project, deps).integrationBranch(runId);
+  const head = (await git(deps, worktree, ["rev-parse", "HEAD"])).stdout.trim();
+  const fork = (await git(deps, worktree, ["merge-base", "HEAD", baseRef])).stdout.trim();
+  const ahead = Number((await git(deps, worktree, ["rev-list", "--count", `${fork}..HEAD`])).stdout.trim()) || 0;
+  const dirty = (await git(deps, worktree, ["status", "--porcelain=v1", "--untracked-files=all"])).stdout.trim() !== "";
+  if (!ahead && !dirty) return { ...none, head };
+  await git(deps, worktree, ["reset", "--quiet", "--hard", ahead ? fork : "HEAD"]);
+  if (dirty) await git(deps, worktree, ["clean", "-f", "-d", "--quiet"]);
+  return { reset: true, discarded_commits: ahead, dirty, head };
+}
+
 async function mergeBase(deps, root, baseRef) {
   const res = await git(deps, root, ["merge-base", "HEAD", baseRef]);
   return res.stdout.trim();

@@ -335,6 +335,16 @@ await test("a call is read-only: the fixture work tree is unchanged by assessing
   });
 });
 
+await test("staticZones: zone and rules per WO with artifacts, r1 on a throwing classifier, no artifacts untouched", async () => {
+  const { staticZones } = await import(MODULE_URL);
+  ok(typeof staticZones === "function", "staticZones export");
+  const input = [{ id: "a", artifacts: ["src/lib/auth/x.ts"] }, { id: "b", artifacts: ["src/ui/y.ts"] }, { id: "c", artifacts: ["boom.ts"] }, { id: "d" }];
+  const computeRisk = async ({ files }) => { if (files[0] === "boom.ts") throw new Error("classifier down"); return files[0].includes("auth") ? { zone: "r1", rules: ["R1"] } : { zone: "none", rules: [] }; };
+  const out = await staticZones(input, "/x", { computeRisk });
+  eq(out.map((w) => [w.id, w.zone ?? null, w.risk_rules ?? null]), [["a", "r1", ["R1"]], ["b", "none", []], ["c", "r1", ["R1"]], ["d", null, null]], "zones");
+  ok(input[0].zone === undefined, "input not mutated");
+});
+
 function createFixtureEnv(dir) { return { PATH: process.env.PATH, HOME: path.join(dir, "home"), GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1", PANDACORP_NOW: "2026-11-11T12:00:00.000Z" }; }
 
 console.log(`RESULT: ${passed} passed, ${failed} failed (${path.basename(fileURLToPath(import.meta.url))})`);

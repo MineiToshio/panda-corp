@@ -1,0 +1,188 @@
+{
+  "source": "design/G-final.md 3.1 (F 2.3 counterexamples) judged by D8",
+  "cases": [
+    {
+      "id": "g31-1-proxy-host-allowlist",
+      "source": "G 3.1 #1 (MC)",
+      "rules_hint": "R3+R10+R11",
+      "project": "mission-control",
+      "riskPaths": "mc-risk-paths.txt",
+      "base": {
+        "package.json": "{\"name\":\"fx\",\"version\":\"1.0.0\"}\n",
+        "src/lib/util.ts": "export const one = 1;\n",
+        "src/proxy.ts": "export function proxy(req: Request) {\n  return req;\n}\n",
+        "src/lib/discard/discard.ts": "export function discardIdea(id: string) {\n  return id;\n}\n",
+        "src/lib/fs-utils/parseFrontmatter.ts": "export function parseFrontmatter(raw: string) {\n  return { data: {}, body: raw };\n}\n",
+        "src/app/board/actions/read-doc.ts": "export async function readBoardDoc(rel: string) {\n  return rel;\n}\n",
+        "src/app/_actions/snapshotLedger.ts": "export async function snapshotLedger() {\n  return 1;\n}\n",
+        "src/lib/portfolio/portfolio.ts": "export const portfolio = [];\n",
+        "src/components/modules/PortfolioTable/PortfolioTable.tsx": "export function PortfolioTable() {\n  return null;\n}\n"
+      },
+      "head": {
+        "src/proxy.ts": "const ALLOWED_HOSTS = new Set([\"127.0.0.1\", \"localhost\"]);\nexport function proxy(req: Request) {\n  const host = new URL(req.url).hostname;\n  if (!ALLOWED_HOSTS.has(host)) return new Response(null, { status: 421 });\n  return req;\n}\n"
+      },
+      "expect": {
+        "zone": "floor",
+        "audit": true
+      }
+    },
+    {
+      "id": "g31-2-discards-by-fs",
+      "source": "G 3.1 #2 (MC)",
+      "rules_hint": "R9+R11",
+      "project": "mission-control",
+      "riskPaths": "mc-risk-paths.txt",
+      "base": {
+        "package.json": "{\"name\":\"fx\",\"version\":\"1.0.0\"}\n",
+        "src/lib/util.ts": "export const one = 1;\n",
+        "src/proxy.ts": "export function proxy(req: Request) {\n  return req;\n}\n",
+        "src/lib/discard/discard.ts": "export function discardIdea(id: string) {\n  return id;\n}\n",
+        "src/lib/fs-utils/parseFrontmatter.ts": "export function parseFrontmatter(raw: string) {\n  return { data: {}, body: raw };\n}\n",
+        "src/app/board/actions/read-doc.ts": "export async function readBoardDoc(rel: string) {\n  return rel;\n}\n",
+        "src/app/_actions/snapshotLedger.ts": "export async function snapshotLedger() {\n  return 1;\n}\n",
+        "src/lib/portfolio/portfolio.ts": "export const portfolio = [];\n",
+        "src/components/modules/PortfolioTable/PortfolioTable.tsx": "export function PortfolioTable() {\n  return null;\n}\n"
+      },
+      "head": {
+        "src/lib/discard/discard.ts": "import { rename, rm } from \"node:fs/promises\";\nexport async function discardIdea(file: string, trash: string) {\n  await rename(file, trash);\n  await rm(file, { force: true });\n}\n"
+      },
+      "expect": {
+        "zone": "floor"
+      }
+    },
+    {
+      "id": "g31-3-parse-frontmatter",
+      "source": "G 3.1 #3 (MC)",
+      "rules_hint": "R10+R11",
+      "project": "mission-control",
+      "riskPaths": "mc-risk-paths.txt",
+      "base": {
+        "package.json": "{\"name\":\"fx\",\"version\":\"1.0.0\"}\n",
+        "src/lib/util.ts": "export const one = 1;\n",
+        "src/proxy.ts": "export function proxy(req: Request) {\n  return req;\n}\n",
+        "src/lib/discard/discard.ts": "export function discardIdea(id: string) {\n  return id;\n}\n",
+        "src/lib/fs-utils/parseFrontmatter.ts": "export function parseFrontmatter(raw: string) {\n  return { data: {}, body: raw };\n}\n",
+        "src/app/board/actions/read-doc.ts": "export async function readBoardDoc(rel: string) {\n  return rel;\n}\n",
+        "src/app/_actions/snapshotLedger.ts": "export async function snapshotLedger() {\n  return 1;\n}\n",
+        "src/lib/portfolio/portfolio.ts": "export const portfolio = [];\n",
+        "src/components/modules/PortfolioTable/PortfolioTable.tsx": "export function PortfolioTable() {\n  return null;\n}\n"
+      },
+      "head": {
+        "src/lib/fs-utils/parseFrontmatter.ts": "import matter from \"gray-matter\";\nexport function parseFrontmatter(raw: string) {\n  const parsed = matter(raw, { excerpt: false });\n  return { data: parsed.data, body: parsed.content };\n}\n"
+      },
+      "expect": {
+        "zone": "floor"
+      }
+    },
+    {
+      "id": "g31-4-readboarddoc-allowlist",
+      "source": "G 3.1 #4 (MC)",
+      "rules_hint": "R3(fs-path-join)+R10+R11",
+      "project": "mission-control",
+      "riskPaths": "mc-risk-paths.txt",
+      "base": {
+        "package.json": "{\"name\":\"fx\",\"version\":\"1.0.0\"}\n",
+        "src/lib/util.ts": "export const one = 1;\n",
+        "src/proxy.ts": "export function proxy(req: Request) {\n  return req;\n}\n",
+        "src/lib/discard/discard.ts": "export function discardIdea(id: string) {\n  return id;\n}\n",
+        "src/lib/fs-utils/parseFrontmatter.ts": "export function parseFrontmatter(raw: string) {\n  return { data: {}, body: raw };\n}\n",
+        "src/app/board/actions/read-doc.ts": "export async function readBoardDoc(rel: string) {\n  return rel;\n}\n",
+        "src/app/_actions/snapshotLedger.ts": "export async function snapshotLedger() {\n  return 1;\n}\n",
+        "src/lib/portfolio/portfolio.ts": "export const portfolio = [];\n",
+        "src/components/modules/PortfolioTable/PortfolioTable.tsx": "export function PortfolioTable() {\n  return null;\n}\n"
+      },
+      "head": {
+        "src/app/board/actions/read-doc.ts": "import path from \"node:path\";\nimport { readFile } from \"node:fs/promises\";\nexport async function readBoardDoc(root: string, rel: string) {\n  const abs = path.join(root, rel);\n  return readFile(abs, \"utf8\");\n}\n"
+      },
+      "expect": {
+        "zone": "floor",
+        "audit": true
+      }
+    },
+    {
+      "id": "g31-5-snapshot-ledger",
+      "source": "G 3.1 #5 (MC)",
+      "rules_hint": "R2+R3",
+      "project": "mission-control",
+      "riskPaths": "mc-risk-paths.txt",
+      "base": {
+        "package.json": "{\"name\":\"fx\",\"version\":\"1.0.0\"}\n",
+        "src/lib/util.ts": "export const one = 1;\n",
+        "src/proxy.ts": "export function proxy(req: Request) {\n  return req;\n}\n",
+        "src/lib/discard/discard.ts": "export function discardIdea(id: string) {\n  return id;\n}\n",
+        "src/lib/fs-utils/parseFrontmatter.ts": "export function parseFrontmatter(raw: string) {\n  return { data: {}, body: raw };\n}\n",
+        "src/app/board/actions/read-doc.ts": "export async function readBoardDoc(rel: string) {\n  return rel;\n}\n",
+        "src/app/_actions/snapshotLedger.ts": "export async function snapshotLedger() {\n  return 1;\n}\n",
+        "src/lib/portfolio/portfolio.ts": "export const portfolio = [];\n",
+        "src/components/modules/PortfolioTable/PortfolioTable.tsx": "export function PortfolioTable() {\n  return null;\n}\n"
+      },
+      "head": {
+        "src/app/_actions/snapshotLedger.ts": "\"use server\";\nimport { writeFile } from \"node:fs/promises\";\nexport async function snapshotLedger(root: string, body: string) {\n  await writeFile(`${root}/guild-ledger.json`, body);\n  return 1;\n}\n"
+      },
+      "expect": {
+        "zone": "floor",
+        "audit": true
+      }
+    },
+    {
+      "id": "g31-6-safepath-funko",
+      "source": "G 3.1 #6 (funko)",
+      "rules_hint": "R10+R11",
+      "project": "funko-tracker",
+      "riskPaths": "funko-risk-paths.txt",
+      "base": {
+        "package.json": "{\"name\":\"fx\",\"version\":\"1.0.0\"}\n",
+        "src/lib/util.ts": "export const one = 1;\n"
+      },
+      "head": {
+        "src/lib/storage/safePath.ts": "import path from \"node:path\";\nexport function safePath(root: string, rel: string) {\n  const abs = path.resolve(root, rel);\n  if (!abs.startsWith(root)) throw new Error(\"outside root\");\n  return abs;\n}\n"
+      },
+      "expect": {
+        "zone": "floor"
+      }
+    },
+    {
+      "id": "g31-7-pending-action-resumer-funko",
+      "source": "G 3.1 #7 (funko)",
+      "rules_hint": "R10",
+      "project": "funko-tracker",
+      "riskPaths": "funko-risk-paths.txt",
+      "base": {
+        "package.json": "{\"name\":\"fx\",\"version\":\"1.0.0\"}\n",
+        "src/lib/util.ts": "export const one = 1;\n"
+      },
+      "head": {
+        "src/components/PendingActionResumer.tsx": "\"use client\";\nimport { useEffect } from \"react\";\nexport function PendingActionResumer({ returnTo }: { returnTo: string }) {\n  useEffect(() => {\n    window.location.href = returnTo;\n  }, [returnTo]);\n  return null;\n}\n"
+      },
+      "expect": {
+        "zone_not": "r1"
+      },
+      "known_gap": "D8 retired R10 (sensitive identifiers) and the funko manifest does not list this component: unredirected returnTo lands in zone none. G 3.1 #7 asks for coverage."
+    },
+    {
+      "id": "g31-8-refactor-150-400-lines",
+      "source": "G 3.1 #8",
+      "rules_hint": "R6 (retired by D8: size is not a zone)",
+      "project": "mission-control",
+      "riskPaths": "mc-risk-paths.txt",
+      "base": {
+        "package.json": "{\"name\":\"fx\",\"version\":\"1.0.0\"}\n",
+        "src/lib/util.ts": "export const one = 1;\n",
+        "src/proxy.ts": "export function proxy(req: Request) {\n  return req;\n}\n",
+        "src/lib/discard/discard.ts": "export function discardIdea(id: string) {\n  return id;\n}\n",
+        "src/lib/fs-utils/parseFrontmatter.ts": "export function parseFrontmatter(raw: string) {\n  return { data: {}, body: raw };\n}\n",
+        "src/app/board/actions/read-doc.ts": "export async function readBoardDoc(rel: string) {\n  return rel;\n}\n",
+        "src/app/_actions/snapshotLedger.ts": "export async function snapshotLedger() {\n  return 1;\n}\n",
+        "src/lib/portfolio/portfolio.ts": "export const row0 = 0;\nexport const row1 = 1;\nexport const row2 = 2;\nexport const row3 = 3;\nexport const row4 = 4;\nexport const row5 = 5;\nexport const row6 = 6;\nexport const row7 = 7;\nexport const row8 = 8;\nexport const row9 = 9;\nexport const row10 = 10;\nexport const row11 = 11;\nexport const row12 = 12;\nexport const row13 = 13;\nexport const row14 = 14;\nexport const row15 = 15;\nexport const row16 = 16;\nexport const row17 = 17;\nexport const row18 = 18;\nexport const row19 = 19;\nexport const row20 = 20;\nexport const row21 = 21;\nexport const row22 = 22;\nexport const row23 = 23;\nexport const row24 = 24;\nexport const row25 = 25;\nexport const row26 = 26;\nexport const row27 = 27;\nexport const row28 = 28;\nexport const row29 = 29;\nexport const row30 = 30;\nexport const row31 = 31;\nexport const row32 = 32;\nexport const row33 = 33;\nexport const row34 = 34;\nexport const row35 = 35;\nexport const row36 = 36;\nexport const row37 = 37;\nexport const row38 = 38;\nexport const row39 = 39;\nexport const row40 = 40;\nexport const row41 = 41;\nexport const row42 = 42;\nexport const row43 = 43;\nexport const row44 = 44;\nexport const row45 = 45;\nexport const row46 = 46;\nexport const row47 = 47;\nexport const row48 = 48;\nexport const row49 = 49;\nexport const row50 = 50;\nexport const row51 = 51;\nexport const row52 = 52;\nexport const row53 = 53;\nexport const row54 = 54;\nexport const row55 = 55;\nexport const row56 = 56;\nexport const row57 = 57;\nexport const row58 = 58;\nexport const row59 = 59;\nexport const row60 = 60;\nexport const row61 = 61;\nexport const row62 = 62;\nexport const row63 = 63;\nexport const row64 = 64;\nexport const row65 = 65;\nexport const row66 = 66;\nexport const row67 = 67;\nexport const row68 = 68;\nexport const row69 = 69;\nexport const row70 = 70;\nexport const row71 = 71;\nexport const row72 = 72;\nexport const row73 = 73;\nexport const row74 = 74;\nexport const row75 = 75;\nexport const row76 = 76;\nexport const row77 = 77;\nexport const row78 = 78;\nexport const row79 = 79;\nexport const row80 = 80;\nexport const row81 = 81;\nexport const row82 = 82;\nexport const row83 = 83;\nexport const row84 = 84;\nexport const row85 = 85;\nexport const row86 = 86;\nexport const row87 = 87;\nexport const row88 = 88;\nexport const row89 = 89;\nexport const row90 = 90;\nexport const row91 = 91;\nexport const row92 = 92;\nexport const row93 = 93;\nexport const row94 = 94;\nexport const row95 = 95;\nexport const row96 = 96;\nexport const row97 = 97;\nexport const row98 = 98;\nexport const row99 = 99;\nexport const row100 = 100;\nexport const row101 = 101;\nexport const row102 = 102;\nexport const row103 = 103;\nexport const row104 = 104;\nexport const row105 = 105;\nexport const row106 = 106;\nexport const row107 = 107;\nexport const row108 = 108;\nexport const row109 = 109;\nexport const row110 = 110;\nexport const row111 = 111;\nexport const row112 = 112;\nexport const row113 = 113;\nexport const row114 = 114;\nexport const row115 = 115;\nexport const row116 = 116;\nexport const row117 = 117;\nexport const row118 = 118;\nexport const row119 = 119;\nexport const row120 = 120;\nexport const row121 = 121;\nexport const row122 = 122;\nexport const row123 = 123;\nexport const row124 = 124;\nexport const row125 = 125;\nexport const row126 = 126;\nexport const row127 = 127;\nexport const row128 = 128;\nexport const row129 = 129;\nexport const row130 = 130;\nexport const row131 = 131;\nexport const row132 = 132;\nexport const row133 = 133;\nexport const row134 = 134;\nexport const row135 = 135;\nexport const row136 = 136;\nexport const row137 = 137;\nexport const row138 = 138;\nexport const row139 = 139;\nexport const row140 = 140;\nexport const row141 = 141;\nexport const row142 = 142;\nexport const row143 = 143;\nexport const row144 = 144;\nexport const row145 = 145;\nexport const row146 = 146;\nexport const row147 = 147;\nexport const row148 = 148;\nexport const row149 = 149;\nexport const row150 = 150;\nexport const row151 = 151;\nexport const row152 = 152;\nexport const row153 = 153;\nexport const row154 = 154;\nexport const row155 = 155;\nexport const row156 = 156;\nexport const row157 = 157;\nexport const row158 = 158;\nexport const row159 = 159;\nexport const row160 = 160;\nexport const row161 = 161;\nexport const row162 = 162;\nexport const row163 = 163;\nexport const row164 = 164;\nexport const row165 = 165;\nexport const row166 = 166;\nexport const row167 = 167;\nexport const row168 = 168;\nexport const row169 = 169;\nexport const row170 = 170;\nexport const row171 = 171;\nexport const row172 = 172;\nexport const row173 = 173;\nexport const row174 = 174;\nexport const row175 = 175;\nexport const row176 = 176;\nexport const row177 = 177;\nexport const row178 = 178;\nexport const row179 = 179;\nexport const row180 = 180;\nexport const row181 = 181;\nexport const row182 = 182;\nexport const row183 = 183;\nexport const row184 = 184;\nexport const row185 = 185;\nexport const row186 = 186;\nexport const row187 = 187;\nexport const row188 = 188;\nexport const row189 = 189;\nexport const row190 = 190;\nexport const row191 = 191;\nexport const row192 = 192;\nexport const row193 = 193;\nexport const row194 = 194;\nexport const row195 = 195;\nexport const row196 = 196;\nexport const row197 = 197;\nexport const row198 = 198;\nexport const row199 = 199;\nexport const row200 = 200;\nexport const row201 = 201;\nexport const row202 = 202;\nexport const row203 = 203;\nexport const row204 = 204;\nexport const row205 = 205;\nexport const row206 = 206;\nexport const row207 = 207;\nexport const row208 = 208;\nexport const row209 = 209;\nexport const row210 = 210;\nexport const row211 = 211;\nexport const row212 = 212;\nexport const row213 = 213;\nexport const row214 = 214;\nexport const row215 = 215;\nexport const row216 = 216;\nexport const row217 = 217;\nexport const row218 = 218;\nexport const row219 = 219;\nexport const row220 = 220;\nexport const row221 = 221;\nexport const row222 = 222;\nexport const row223 = 223;\nexport const row224 = 224;\nexport const row225 = 225;\nexport const row226 = 226;\nexport const row227 = 227;\nexport const row228 = 228;\nexport const row229 = 229;\nexport const row230 = 230;\nexport const row231 = 231;\nexport const row232 = 232;\nexport const row233 = 233;\nexport const row234 = 234;\nexport const row235 = 235;\nexport const row236 = 236;\nexport const row237 = 237;\nexport const row238 = 238;\nexport const row239 = 239;\nexport const row240 = 240;\nexport const row241 = 241;\nexport const row242 = 242;\nexport const row243 = 243;\nexport const row244 = 244;\nexport const row245 = 245;\nexport const row246 = 246;\nexport const row247 = 247;\nexport const row248 = 248;\nexport const row249 = 249;\nexport const row250 = 250;\nexport const row251 = 251;\nexport const row252 = 252;\nexport const row253 = 253;\nexport const row254 = 254;\nexport const row255 = 255;\nexport const row256 = 256;\nexport const row257 = 257;\nexport const row258 = 258;\nexport const row259 = 259;\nexport const row260 = 260;\nexport const row261 = 261;\nexport const row262 = 262;\nexport const row263 = 263;\nexport const row264 = 264;\nexport const row265 = 265;\nexport const row266 = 266;\nexport const row267 = 267;\nexport const row268 = 268;\nexport const row269 = 269;\nexport const row270 = 270;\nexport const row271 = 271;\nexport const row272 = 272;\nexport const row273 = 273;\nexport const row274 = 274;\nexport const row275 = 275;\nexport const row276 = 276;\nexport const row277 = 277;\nexport const row278 = 278;\nexport const row279 = 279;\nexport const row280 = 280;\nexport const row281 = 281;\nexport const row282 = 282;\nexport const row283 = 283;\nexport const row284 = 284;\nexport const row285 = 285;\nexport const row286 = 286;\nexport const row287 = 287;\nexport const row288 = 288;\nexport const row289 = 289;\nexport const row290 = 290;\nexport const row291 = 291;\nexport const row292 = 292;\nexport const row293 = 293;\nexport const row294 = 294;\nexport const row295 = 295;\nexport const row296 = 296;\nexport const row297 = 297;\nexport const row298 = 298;\nexport const row299 = 299;\n",
+        "src/components/modules/PortfolioTable/PortfolioTable.tsx": "export function PortfolioTable() {\n  return null;\n}\n"
+      },
+      "head": {
+        "src/lib/portfolio/portfolio.ts": "export const entry0 = 1;\nexport const entry1 = 2;\nexport const entry2 = 3;\nexport const entry3 = 4;\nexport const entry4 = 5;\nexport const entry5 = 6;\nexport const entry6 = 7;\nexport const entry7 = 8;\nexport const entry8 = 9;\nexport const entry9 = 10;\nexport const entry10 = 11;\nexport const entry11 = 12;\nexport const entry12 = 13;\nexport const entry13 = 14;\nexport const entry14 = 15;\nexport const entry15 = 16;\nexport const entry16 = 17;\nexport const entry17 = 18;\nexport const entry18 = 19;\nexport const entry19 = 20;\nexport const entry20 = 21;\nexport const entry21 = 22;\nexport const entry22 = 23;\nexport const entry23 = 24;\nexport const entry24 = 25;\nexport const entry25 = 26;\nexport const entry26 = 27;\nexport const entry27 = 28;\nexport const entry28 = 29;\nexport const entry29 = 30;\nexport const entry30 = 31;\nexport const entry31 = 32;\nexport const entry32 = 33;\nexport const entry33 = 34;\nexport const entry34 = 35;\nexport const entry35 = 36;\nexport const entry36 = 37;\nexport const entry37 = 38;\nexport const entry38 = 39;\nexport const entry39 = 40;\nexport const entry40 = 41;\nexport const entry41 = 42;\nexport const entry42 = 43;\nexport const entry43 = 44;\nexport const entry44 = 45;\nexport const entry45 = 46;\nexport const entry46 = 47;\nexport const entry47 = 48;\nexport const entry48 = 49;\nexport const entry49 = 50;\nexport const entry50 = 51;\nexport const entry51 = 52;\nexport const entry52 = 53;\nexport const entry53 = 54;\nexport const entry54 = 55;\nexport const entry55 = 56;\nexport const entry56 = 57;\nexport const entry57 = 58;\nexport const entry58 = 59;\nexport const entry59 = 60;\nexport const entry60 = 61;\nexport const entry61 = 62;\nexport const entry62 = 63;\nexport const entry63 = 64;\nexport const entry64 = 65;\nexport const entry65 = 66;\nexport const entry66 = 67;\nexport const entry67 = 68;\nexport const entry68 = 69;\nexport const entry69 = 70;\nexport const entry70 = 71;\nexport const entry71 = 72;\nexport const entry72 = 73;\nexport const entry73 = 74;\nexport const entry74 = 75;\nexport const entry75 = 76;\nexport const entry76 = 77;\nexport const entry77 = 78;\nexport const entry78 = 79;\nexport const entry79 = 80;\nexport const entry80 = 81;\nexport const entry81 = 82;\nexport const entry82 = 83;\nexport const entry83 = 84;\nexport const entry84 = 85;\nexport const entry85 = 86;\nexport const entry86 = 87;\nexport const entry87 = 88;\nexport const entry88 = 89;\nexport const entry89 = 90;\nexport const entry90 = 91;\nexport const entry91 = 92;\nexport const entry92 = 93;\nexport const entry93 = 94;\nexport const entry94 = 95;\nexport const entry95 = 96;\nexport const entry96 = 97;\nexport const entry97 = 98;\nexport const entry98 = 99;\nexport const entry99 = 100;\nexport const entry100 = 101;\nexport const entry101 = 102;\nexport const entry102 = 103;\nexport const entry103 = 104;\nexport const entry104 = 105;\nexport const entry105 = 106;\nexport const entry106 = 107;\nexport const entry107 = 108;\nexport const entry108 = 109;\nexport const entry109 = 110;\nexport const entry110 = 111;\nexport const entry111 = 112;\nexport const entry112 = 113;\nexport const entry113 = 114;\nexport const entry114 = 115;\nexport const entry115 = 116;\nexport const entry116 = 117;\nexport const entry117 = 118;\nexport const entry118 = 119;\nexport const entry119 = 120;\nexport const entry120 = 121;\nexport const entry121 = 122;\nexport const entry122 = 123;\nexport const entry123 = 124;\nexport const entry124 = 125;\nexport const entry125 = 126;\nexport const entry126 = 127;\nexport const entry127 = 128;\nexport const entry128 = 129;\nexport const entry129 = 130;\nexport const entry130 = 131;\nexport const entry131 = 132;\nexport const entry132 = 133;\nexport const entry133 = 134;\nexport const entry134 = 135;\nexport const entry135 = 136;\nexport const entry136 = 137;\nexport const entry137 = 138;\nexport const entry138 = 139;\nexport const entry139 = 140;\nexport const entry140 = 141;\nexport const entry141 = 142;\nexport const entry142 = 143;\nexport const entry143 = 144;\nexport const entry144 = 145;\nexport const entry145 = 146;\nexport const entry146 = 147;\nexport const entry147 = 148;\nexport const entry148 = 149;\nexport const entry149 = 150;\nexport const entry150 = 151;\nexport const entry151 = 152;\nexport const entry152 = 153;\nexport const entry153 = 154;\nexport const entry154 = 155;\nexport const entry155 = 156;\nexport const entry156 = 157;\nexport const entry157 = 158;\nexport const entry158 = 159;\nexport const entry159 = 160;\nexport const entry160 = 161;\nexport const entry161 = 162;\nexport const entry162 = 163;\nexport const entry163 = 164;\nexport const entry164 = 165;\nexport const entry165 = 166;\nexport const entry166 = 167;\nexport const entry167 = 168;\nexport const entry168 = 169;\nexport const entry169 = 170;\nexport const entry170 = 171;\nexport const entry171 = 172;\nexport const entry172 = 173;\nexport const entry173 = 174;\nexport const entry174 = 175;\nexport const entry175 = 176;\nexport const entry176 = 177;\nexport const entry177 = 178;\nexport const entry178 = 179;\nexport const entry179 = 180;\nexport const entry180 = 181;\nexport const entry181 = 182;\nexport const entry182 = 183;\nexport const entry183 = 184;\nexport const entry184 = 185;\nexport const entry185 = 186;\nexport const entry186 = 187;\nexport const entry187 = 188;\nexport const entry188 = 189;\nexport const entry189 = 190;\nexport const entry190 = 191;\nexport const entry191 = 192;\nexport const entry192 = 193;\nexport const entry193 = 194;\nexport const entry194 = 195;\nexport const entry195 = 196;\nexport const entry196 = 197;\nexport const entry197 = 198;\nexport const entry198 = 199;\nexport const entry199 = 200;\nexport const entry200 = 201;\nexport const entry201 = 202;\nexport const entry202 = 203;\nexport const entry203 = 204;\nexport const entry204 = 205;\nexport const entry205 = 206;\nexport const entry206 = 207;\nexport const entry207 = 208;\nexport const entry208 = 209;\nexport const entry209 = 210;\nexport const entry210 = 211;\nexport const entry211 = 212;\nexport const entry212 = 213;\nexport const entry213 = 214;\nexport const entry214 = 215;\nexport const entry215 = 216;\nexport const entry216 = 217;\nexport const entry217 = 218;\nexport const entry218 = 219;\nexport const entry219 = 220;\nexport const entry220 = 221;\nexport const entry221 = 222;\nexport const entry222 = 223;\nexport const entry223 = 224;\nexport const entry224 = 225;\nexport const entry225 = 226;\nexport const entry226 = 227;\nexport const entry227 = 228;\nexport const entry228 = 229;\nexport const entry229 = 230;\nexport const entry230 = 231;\nexport const entry231 = 232;\nexport const entry232 = 233;\nexport const entry233 = 234;\nexport const entry234 = 235;\nexport const entry235 = 236;\nexport const entry236 = 237;\nexport const entry237 = 238;\nexport const entry238 = 239;\nexport const entry239 = 240;\nexport const entry240 = 241;\nexport const entry241 = 242;\nexport const entry242 = 243;\nexport const entry243 = 244;\nexport const entry244 = 245;\nexport const entry245 = 246;\nexport const entry246 = 247;\nexport const entry247 = 248;\nexport const entry248 = 249;\nexport const entry249 = 250;\nexport const entry250 = 251;\nexport const entry251 = 252;\nexport const entry252 = 253;\nexport const entry253 = 254;\nexport const entry254 = 255;\nexport const entry255 = 256;\nexport const entry256 = 257;\nexport const entry257 = 258;\nexport const entry258 = 259;\nexport const entry259 = 260;\nexport const entry260 = 261;\nexport const entry261 = 262;\nexport const entry262 = 263;\nexport const entry263 = 264;\nexport const entry264 = 265;\nexport const entry265 = 266;\nexport const entry266 = 267;\nexport const entry267 = 268;\nexport const entry268 = 269;\nexport const entry269 = 270;\nexport const entry270 = 271;\nexport const entry271 = 272;\nexport const entry272 = 273;\nexport const entry273 = 274;\nexport const entry274 = 275;\nexport const entry275 = 276;\nexport const entry276 = 277;\nexport const entry277 = 278;\nexport const entry278 = 279;\nexport const entry279 = 280;\nexport const entry280 = 281;\nexport const entry281 = 282;\nexport const entry282 = 283;\nexport const entry283 = 284;\nexport const entry284 = 285;\nexport const entry285 = 286;\nexport const entry286 = 287;\nexport const entry287 = 288;\nexport const entry288 = 289;\nexport const entry289 = 290;\nexport const entry290 = 291;\nexport const entry291 = 292;\nexport const entry292 = 293;\nexport const entry293 = 294;\nexport const entry294 = 295;\nexport const entry295 = 296;\nexport const entry296 = 297;\nexport const entry297 = 298;\nexport const entry298 = 299;\nexport const entry299 = 300;\n"
+      },
+      "expect": {
+        "zone": "none"
+      },
+      "known_gap": "R6 (size) retired by D8: a 150-400 line refactor is zone none by design. G 3.1 #8 asks for coverage."
+    }
+  ]
+}

@@ -363,3 +363,31 @@ export async function computeRisk(input, deps = {}) {
     unclassified,
   };
 }
+
+const STATIC_ZONE_CONCURRENCY = 4;
+
+/**
+ * Attach the static risk zone of each work order's artifacts (the planner expects `zone` and `risk_rules`).
+ * A work order without artifacts is returned unchanged; a classifier failure is zone r1 with rule R1.
+ * @param {Array<{artifacts?: string[]}>} wos work orders (not mutated)
+ * @param {string} root product root the artifacts are relative to
+ * @param {{computeRisk?: Function}} [deps] injected last (R7); `computeRisk` overrides the classifier
+ * @returns {Promise<object[]>} copies of `wos` with `zone`/`risk_rules` set where artifacts exist
+ */
+export async function staticZones(wos, root, deps = {}) {
+  const run = deps.computeRisk ?? computeRisk;
+  const out = wos.map((w) => ({ ...w }));
+  let at = 0;
+  const worker = async () => {
+    while (at < out.length) {
+      const wo = out[at++];
+      if (!Array.isArray(wo.artifacts) || wo.artifacts.length === 0) continue;
+      try {
+        const r = await run({ root, files: wo.artifacts }, {});
+        wo.zone = r.zone; wo.risk_rules = r.rules ?? [];
+      } catch { wo.zone = "r1"; wo.risk_rules = ["R1"]; }
+    }
+  };
+  await Promise.all(Array.from({ length: STATIC_ZONE_CONCURRENCY }, worker));
+  return out;
+}

@@ -26,6 +26,7 @@ import { buildPaths } from "./paths.mjs";
 import { classifyLimitText, effective, limitResetsAt, loadThresholds, readCodexQuota, readQuotaFile, resetsAtOf } from "./quota.mjs";
 import { fencedTwoPhase, isTerminalUnit, readLeaseToken, readState } from "./state.mjs";
 import { enqueueDeferred } from "./deferred.mjs";
+import { restoreUnitWorktree } from "./units.mjs";
 
 /** The CLI entry the standby process is spawned through (`node pandacorp-build.mjs drive --standby --run R`). */
 export const CLI_ENTRY = fileURLToPath(new URL("../../scripts/pandacorp-build.mjs", import.meta.url));
@@ -85,6 +86,16 @@ const envExec = (env) => (cmd, args, { cwd } = {}) => new Promise((resolve) => {
     resolve({ code: error ? (typeof error.code === "number" ? error.code : 127) : 0, stdout: stdout ?? "", stderr: stderr ?? "" });
   });
 });
+
+/**
+ * The quota thresholds drive uses, with the `PANDACORP_DRIVE_POLL_S` test hook (a positive number of seconds) replacing
+ * `drive_poll_s` for the standby and loop polls (default 30 s from the thresholds file).
+ */
+const limitsOf = (d) => {
+  const limits = loadThresholds({ thresholds: d.thresholds });
+  const poll = Number(d.env?.PANDACORP_DRIVE_POLL_S);
+  return Number.isFinite(poll) && poll > 0 ? { ...limits, drive_poll_s: poll } : limits;
+};
 
 const withDefaults = (deps) => (deps?.__drive ? deps : { ...driveDeps(deps ?? {}), __drive: true });
 const nowMs = (d) => d.now();
@@ -352,7 +363,7 @@ export async function checkTriggers({ project, runId, transcript = null, handoff
   const d = withDefaults(deps);
   const bs = await buildStateOf(d);
   const paths = pathsOf(project, d);
-  const limits = loadThresholds({ thresholds: d.thresholds });
+  const limits = limitsOf(d);
   const none = { trigger: null, exit: null, detail: null };
 
   const state = await readState(project, { env: d.env, homedir: d.homedir });
@@ -429,7 +440,7 @@ export async function takeOver({ project, runId, trigger, detail = null }, deps)
   const d = withDefaults(deps);
   const bs = await buildStateOf(d);
   const paths = pathsOf(project, d);
-  const limits = loadThresholds({ thresholds: d.thresholds });
+  const limits = limitsOf(d);
   const now = nowMs(d);
 
   const lease = await bs.currentLease(project);
@@ -464,12 +475,13 @@ export async function takeOver({ project, runId, trigger, detail = null }, deps)
     const state = await ctx.readState();
     if (!state) throw err("INVALID_STATE", "state.json disappeared during takeover");
     const requeued = [];
-    const units = state.units.map((unit) => {
+    const units = [];
+    for (const unit of state.units) {
       const byClaude = unit.worker && (unit.worker.via === "agent" || unit.worker.via === "session");
-      if (!IN_FLIGHT.has(unit.state) || !byClaude) return unit;
-      requeued.push({ unit: unit.id, from: unit.state, token_hash: unit.token_hash });
-      return { ...unit, state: "queued", token_hash: null, worker: null };
-    });
+      if (!IN_FLIGHT.has(unit.state) || !byClaude) { units.push(unit); continue; }
+      requeued.push({ unit: unit.id, from: unit.state, token_hash: unit.token_hash, worktree: unit.worktree ?? null, attempt: unit.attempt, parked: unit.parked ?? null, pending_answer: unit.pending_answer ?? null });
+      units.push({ ...unit, state: "queued", token_hash: null, worker: null });
+    }
     const next = { ...state, units, coordinator: "drive" };
     for (const r of requeued) await ctx.appendEvent({ type: "unit_state", data: { unit: r.unit, from: r.from, to: "queued", reason: "drive_takeover" } });
     await ctx.appendEvent({
@@ -487,6 +499,11 @@ export async function takeOver({ project, runId, trigger, detail = null }, deps)
   }));
 
   if (intent.requeued.length) await releaseRequeuedTokens(project, intent.requeued, d);
+  // Same attempt, new dispatch: the Claude dispatch's output can never be accepted (its token is released, its late
+  // report fenced), so neither its uncommitted edits nor the engine commit of a report fenced before phase 2 may reach
+  // drive's worker on that branch (it would be rejected as "the worker committed" and charged an attempt). Done
+  // before drive's first dispatch; drive is the only coordinator from here.
+  for (const r of intent.requeued) await restoreRequeued(project, runId, { id: r.unit, worktree: r.worktree, attempt: r.attempt, parked: r.parked, pending_answer: r.pending_answer }, d);
   const requeued = intent.requeued.map((r) => r.unit);
   driveLog(project, `takeover: trigger ${trigger}${detail ? ` (${detail})` : ""}, epoch ${lease.epoch} -> ${epoch}, codex ${codex.eff.state === "known" ? `${codex.eff.pct} %` : "unknown"}${requeued.length ? `, requeued ${requeued.join(",")}` : ""}`, d);
 
@@ -501,6 +518,18 @@ export async function takeOver({ project, runId, trigger, detail = null }, deps)
   }
   await say("takeover", { project }, d);
   return { outcome: "loop", epoch, codex: codex.eff, requeued };
+}
+
+/** Restore the worktree of a unit requeued by the takeover (units.restoreUnitWorktree); the outcome goes to drive.log. */
+async function restoreRequeued(project, runId, unit, d) {
+  const p = pathsOf(project, d);
+  const base = unit.parked === "built_on_assumption" && unit.pending_answer ? p.assumeBranch(runId, unit.pending_answer) : undefined;
+  try {
+    const reset = await restoreUnitWorktree({ project, runId, unit, base }, { exec: d.exec, env: d.env });
+    if (reset.reset) driveLog(project, `takeover: worktree of ${unit.id} restored (${reset.discarded_commits} commit(s) discarded, dirty ${reset.dirty}, head was ${reset.head})`, d);
+  } catch (error) {
+    driveLog(project, `takeover: worktree of ${unit.id} NOT restored: ${error.message}`, d);
+  }
 }
 
 const withEpoch = async (epoch, fn) => {
@@ -593,7 +622,7 @@ export async function driveLoop({ project, epoch }, deps) {
   const deferAudit = typeof d.deferAudit === "function" ? d.deferAudit : (input) => deferAuditUnit(input, d);
   for (const name of ["next", "land", "finish"]) if (typeof d[name] !== "function") throw err("USAGE", `drive loop needs deps.${name}`);
   const bs = await buildStateOf(d);
-  const limits = loadThresholds({ thresholds: d.thresholds });
+  const limits = limitsOf(d);
   const pollMs = limits.drive_poll_s * 1000;
   const engineDeps = { ...(d.engineDeps ?? {}), ...(d.workers ? { workers: codexOnlyWorkers(d.workers) } : {}) };
   const ref = { project, epoch, actor: "drive", coordinator: "drive" };
@@ -715,7 +744,7 @@ async function engineFailure(project, epoch, error, d, engineDeps) {
  */
 export async function runStandby({ project, runId, transcript = null, handoffAfter = null }, deps) {
   const d = withDefaults(deps);
-  const limits = loadThresholds({ thresholds: d.thresholds });
+  const limits = limitsOf(d);
   const current = await readStandby(project, d);
   await writeStandby(project, { pid: d.pid, armed_at: current?.pid === d.pid ? current.armed_at : isoAt(nowMs(d)), run_id: runId, state: "standby" }, d);
   try { await keepAwake(project, d.pid, d); } catch (error) { driveLog(project, `standby: keep-awake failed: ${error.message}`, d); }

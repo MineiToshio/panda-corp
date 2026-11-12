@@ -116,7 +116,7 @@ A builder or planner returns `status: "doubt"` (`report` → `outcome: doubt`); 
      cap). Never `handback` a `doubt-consult` unit.
 4. **`step: decided`**: done. The CLI decided (consult 1 agrees with the preferred option at confidence ≥ medium, or
    2 of 3 agree at ≥ medium after the tie-break) and wrote the "Decidido sin el owner" entry in the project's
-   `docs/decision-log.md` on `lane/<run_id>` (question, options, choice, who advised, confidence, card, commit, how
+   `docs/decision-log.md` on `lane/<run_id>/integration` (question, options, choice, who advised, confidence, card, commit, how
    to revert) and the `autonomous_decision` journal event. Keep the line for "Decidí sin ti".
 5. **`step: parked`**: §3. A doubt whose cap is exhausted also comes back as `parked` (exit 0).
 
@@ -154,7 +154,7 @@ script, message text) so the owner's OK is one word.
 2. **Money, deletion, external communication**: the owner's OK or refusal is `pb answer` kind `gate` (§1.4); the CLI
    releases the unit with the OK in its brief. The session never performs a gated action itself.
 3. **Production** (launched project: `phase: release` and `deploy_target` not `internal`; landing on the default
-   branch is production, DR-138): the run ends on `lane/<run_id>` with its gates green and waits for "aterriza". The
+   branch is production, DR-138): the run ends on `lane/<run_id>/integration` with its gates green and waits for "aterriza". The
    question "¿aterrizo?" lists the degraded reviews not yet re-reviewed; landing with some pending is the owner's
    informed choice. Only on the owner's chat order for that landing:
    `PANDACORP_OWNER_RELEASE_OK=1 pb land --epoch <E>` (the variable on that one command only). If the run is not

@@ -4,7 +4,7 @@
 
 **What:** two independent reviews of the first documents found blockers; the binding rulings are applied to the registry,
 the rule rows and the standard. (1) **One path to `main` (D1, D2):** a v2 run never writes a tracked file in the main
-checkout of any project; WO transitions, docs, `track.jsonl` and decision-log entries are CLI commits on `lane/<run_id>`, and
+checkout of any project; WO transitions, docs, `track.jsonl` and decision-log entries are CLI commits on `lane/<run_id>/integration`, and
 `land` adds one landing metadata commit (WO `VERIFIED`, `last_green_sha`) before merge-queue judges the tree with G3.
 Consequence, accepted: Mission Control sees a run through the lease and events, and WO columns and `phase` change on `main` only
 at landing. (2) **No heartbeat process (D3):** the lease ttl is 1800 s and every coordinator command renews it; lease silence
