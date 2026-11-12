@@ -44,6 +44,8 @@ export class WorkersError extends Error {
 
 const fsOf = (deps) => deps?.fs ?? nodeFs;
 const envOf = (deps) => deps?.env ?? process.env;
+// The owner's production-release token must never reach a worker or a child process (D1 guard).
+const workerEnv = (deps) => { const env = { ...process.env, ...envOf(deps) }; delete env.PANDACORP_OWNER_RELEASE_OK; return env; };
 
 /** FNV-1a 32-bit over UTF-16 code units: the checksum codex-worker.mjs seals results with. */
 const fnvOf = (deps) =>
@@ -254,7 +256,7 @@ export async function launchWorker(input, deps) {
     const state = readJsonSync(path.join(workerDir, "state.json"), deps);
     return adopted(existing.pid, state?.startedAt ?? null, null);
   }
-  const wait = await runCapture(bin, args, { cwd: paths.project, env: { ...process.env, ...envOf(deps) }, timeoutMs: deps?.launchTimeoutMs ?? LAUNCH_WAIT_S * 1000 + LAUNCH_GRACE_MS, isWorkerItself: fake ? (launcherPid) => readJsonSync(path.join(workerDir, "state.json"), deps)?.pid === launcherPid : null }, deps);
+  const wait = await runCapture(bin, args, { cwd: paths.project, env: workerEnv(deps), timeoutMs: deps?.launchTimeoutMs ?? LAUNCH_WAIT_S * 1000 + LAUNCH_GRACE_MS, isWorkerItself: fake ? (launcherPid) => readJsonSync(path.join(workerDir, "state.json"), deps)?.pid === launcherPid : null }, deps);
   const state = readJsonSync(path.join(workerDir, "state.json"), deps);
   const startedAt = state?.startedAt ?? null;
   const pid = Number.isInteger(state?.pid) ? state.pid : null;
@@ -334,7 +336,7 @@ export async function pollWorker(input, deps) {
   assertArgvClean(argv.slice(prefix.length));
   let sealed = null;
   for (let attempt = 0; attempt <= SEAL_RETRIES; attempt++) {
-    const out = await runCapture(bin, argv, { cwd: paths.project, env: { ...process.env, ...envOf(deps) }, timeoutMs: deps?.readTimeoutMs ?? READ_TIMEOUT_MS }, deps);
+    const out = await runCapture(bin, argv, { cwd: paths.project, env: workerEnv(deps), timeoutMs: deps?.readTimeoutMs ?? READ_TIMEOUT_MS }, deps);
     if (out.timedOut) { killGroup(out.pid, deps); releaseChild(out.child); return { state: "error", workerId, kind: "read_timeout", detail: "worker read did not return" }; }
     releaseChild(out.child);
     const line = lastLine(out.stdout);

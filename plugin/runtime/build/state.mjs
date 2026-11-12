@@ -283,6 +283,7 @@ export function foldJournal(events) {
       }
       case "waiting_gate": unitOrThrow(state, d.unit, ev.type).waiting_gate = d.kind ?? null; break;
       case "safe_point": state.last_safe_point = { sha: d.sha, kind: d.kind, at: ev.at }; break;
+      case "doubt_opened": unitOrThrow(state, d.unit, ev.type).doubt_id = d.doubt_id; break;
       case "doubt_consulted": state.doubts_consulted += 1; break;
       case "handback": state.handbacks_in_a_row = isEnvInfra(d) ? state.handbacks_in_a_row + 1 : 0; break;
       case "answer_recorded":

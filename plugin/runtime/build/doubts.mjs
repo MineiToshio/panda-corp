@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { releaseToken, verifyToken } from "./admission.mjs";
 import { atomicWriteJson, atomicWriteText, defaultExec, loadSchema, nowIso, readJson, validate, writeTarget } from "./fsx.mjs";
 import { assumeUnits, createAssumeBranch, parkOrAssume, parkUnits } from "./park.mjs";
+import { readJournal } from "./journal.mjs";
 import { buildPaths } from "./paths.mjs";
 import { computeRisk } from "./risk.mjs";
 import { consultCell, modelSlug } from "./routing.mjs";
@@ -21,6 +22,13 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 /** Caps (BUILD-12 constants). */
 export const DOUBT_CAPS = Object.freeze({ CONSULTS_PER_DOUBT: 3, CONSULTED_DOUBTS_PER_BUILD: 8 });
+
+/**
+ * Consults the ladder itself asks for: consult 1 and the consult 2 tie-break (BUILD-12 steps 1-2; routing has no third
+ * consult cell). `CONSULTS_PER_DOUBT` stays the hard cap on recorded consults; after consult 2 without a 2-of-3 winner
+ * the doubt parks `no_consensus` (N13).
+ */
+const LADDER_CONSULTS = 2;
 
 /** Confidence levels that may decide (BUILD-12: "confidence >= medium"). */
 export const DECIDING_CONFIDENCE = Object.freeze(["high", "medium"]);
@@ -33,6 +41,13 @@ const OPEN_STEPS = Object.freeze(["sources", "consult1", "consult2"]);
 
 /** Option id that means "stop and ask the owner": never an autonomous decision, it parks the doubt (NB1). */
 export const ASK_OWNER_OPTION = "ask-owner";
+
+/**
+ * Option ids of the doubts the engine SYNTHESIZES from a worker diagnosis (`failure.doubtFromDiagnosis`): every
+ * test-defective dispute and every spec-ambiguous doubt shares these ids and preferred option, so only the question
+ * (which carries the worker's own detail) tells two of them apart (DR1c-N1).
+ */
+export const SYNTHESIZED_OPTION_IDS = Object.freeze({ dispute: Object.freeze(["fix-test", "keep-test"]), ambiguity: Object.freeze(["conservative", ASK_OWNER_OPTION]) });
 
 /** Park reasons the engine raises itself (not vetoes, not a ladder outcome): the unit always parks, it never builds on an assumption. */
 const FORCED_PARK_REASONS = Object.freeze(["owner_requested", "repeat_doubt"]);
@@ -149,14 +164,23 @@ async function writeDoubt(project, record, deps) {
   await atomicWriteJson(buildPaths(project, deps).doubtFile(record.id), record, { fs: deps.fs ?? fsp });
 }
 
+/**
+ * Next free doubt id: one above the highest id seen in the record files AND in the journal's `doubt_opened` events
+ * (N12: the journal, the inbox entry and an assume branch are written before the record, so a kill between them must
+ * not hand the same id to a second doubt).
+ */
 async function nextDoubtId(project, deps) {
+  const paths = buildPaths(project, deps);
+  const fs = deps.fs ?? fsp;
   let names = [];
-  try { names = await (deps.fs ?? fsp).readdir(buildPaths(project, deps).doubtsDir); } catch (error) { if (error.code !== "ENOENT") throw error; }
-  const max = names.reduce((m, n) => {
-    const hit = n.match(/^d-(\d{4,})\.json$/);
-    return hit ? Math.max(m, Number(hit[1])) : m;
-  }, 0);
-  return `d-${String(max + 1).padStart(4, "0")}`;
+  try { names = await fs.readdir(paths.doubtsDir); } catch (error) { if (error.code !== "ENOENT") throw error; }
+  const ids = names.map((n) => n.match(/^d-(\d{4,})\.json$/)?.[1]).filter(Boolean).map(Number);
+  const { events } = await readJournal(paths.journalFile, { fs, validate: false });
+  for (const ev of events) {
+    const hit = ev.type === "doubt_opened" ? String(ev.data?.doubt_id ?? "").match(DOUBT_ID_RE) : null;
+    if (hit) ids.push(Number(hit[1]));
+  }
+  return `d-${String(Math.max(0, ...ids) + 1).padStart(4, "0")}`;
 }
 
 /**
@@ -234,37 +258,63 @@ async function registryText(project, deps) {
 }
 
 /**
- * The `artifacts` of the given WOs, read from the frontmatter of `docs/frds/<frd>/work-orders/*.md` under `root`.
+ * The `artifacts` of the given WOs, read from the frontmatter of `docs/frds/<frd>/work-orders/*.md` under `root`. Both
+ * YAML list forms are read: the block form (`artifacts:` then `  - a` lines) and the inline form (`artifacts: [a, b]`).
+ * Fail-closed inputs (N10b): a WO that cannot be found, a missing `docs/frds`, or a directory/file that cannot be read
+ * is listed in `missing`/`unreadable`, and the veto treats the risk of the unit's files as unknown.
  * @param {string} root worktree root (the integration worktree)
  * @param {string[]} wos WO ids
- * @returns {Promise<{artifacts: string[], missing: string[]}>}
+ * @returns {Promise<{artifacts: string[], missing: string[], unreadable: string[]}>}
  */
 export async function readWoArtifacts(root, wos, deps = {}) {
   const fs = deps.fs ?? fsp;
   const wanted = new Map(wos.map((w) => [String(w).toLowerCase(), w]));
   const artifacts = new Set();
   const found = new Set();
+  const unreadable = [];
   let frds = [];
-  try { frds = (await fs.readdir(path.join(root, "docs", "frds"))).filter((n) => n.startsWith("frd-")); } catch { frds = []; }
+  try {
+    frds = (await fs.readdir(path.join(root, "docs", "frds"))).filter((n) => n.startsWith("frd-"));
+  } catch (error) {
+    unreadable.push(`docs/frds: ${error.code ?? oneLine(error.message, 80)}`);
+  }
   for (const frd of frds) {
     const dir = path.join(root, "docs", "frds", frd, "work-orders");
     let names = [];
-    try { names = (await fs.readdir(dir)).filter((n) => /^wo-.*\.md$/i.test(n)); } catch { continue; }
+    try {
+      names = (await fs.readdir(dir)).filter((n) => /^wo-.*\.md$/i.test(n));
+    } catch (error) {
+      if (error.code !== "ENOENT" && error.code !== "ENOTDIR") unreadable.push(`docs/frds/${frd}/work-orders: ${error.code ?? oneLine(error.message, 80)}`);
+      continue;
+    }
     for (const name of names) {
-      const raw = await fs.readFile(path.join(dir, name), "utf8");
+      const lower = name.toLowerCase();
+      let raw;
+      try {
+        raw = await fs.readFile(path.join(dir, name), "utf8");
+      } catch (error) {
+        unreadable.push(`docs/frds/${frd}/work-orders/${name}: ${error.code ?? oneLine(error.message, 80)}`);
+        continue;
+      }
       const fm = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
       const id = (fm.match(/^id:\s*["']?([^"'\s]+)/m)?.[1] ?? name.replace(/\.md$/i, "")).toLowerCase();
-      const key = wanted.has(id) ? id : [...wanted.keys()].find((w) => name.toLowerCase().startsWith(w));
+      const key = wanted.has(id) ? id : [...wanted.keys()].find((w) => lower.startsWith(w));
       if (!key) continue;
       found.add(key);
-      const block = fm.match(/^artifacts:\s*\r?\n((?:[ \t]+-.*\r?\n?)*)/m)?.[1] ?? "";
-      for (const line of block.split(/\r?\n/)) {
-        const item = line.match(/^\s+-\s*["']?([^"']+?)["']?\s*$/);
-        if (item) artifacts.add(item[1]);
-      }
+      for (const item of frontmatterList(fm, "artifacts")) artifacts.add(item);
     }
   }
-  return { artifacts: [...artifacts], missing: [...wanted.keys()].filter((k) => !found.has(k)).map((k) => wanted.get(k)) };
+  return { artifacts: [...artifacts], missing: [...wanted.keys()].filter((k) => !found.has(k)).map((k) => wanted.get(k)), unreadable };
+}
+
+const unquote = (v) => v.trim().replace(/^["']|["']$/g, "").trim();
+
+/** Items of one top-level YAML list key of a frontmatter, in block (`key:` + `  - a`) or inline (`key: [a, b]`) form. */
+function frontmatterList(fm, key) {
+  const inline = fm.match(new RegExp(`^${key}:[ \\t]*\\[([^\\]]*)\\][ \\t]*$`, "m"));
+  if (inline) return inline[1].split(",").map(unquote).filter(Boolean);
+  const block = fm.match(new RegExp(`^${key}:[ \\t]*\\r?\\n((?:[ \\t]+-.*\\r?\\n?)*)`, "m"))?.[1] ?? "";
+  return block.split(/\r?\n/).map((line) => line.match(/^\s+-\s*(.+?)\s*$/)?.[1]).filter(Boolean).map(unquote).filter(Boolean);
 }
 
 /**
@@ -334,9 +384,14 @@ export function vetoReasons({ unit, doubt, risk = null, text = null, ownerDrs = 
  */
 export async function assessVeto({ project, root, unit, doubt }, deps = {}) {
   const wos = Array.isArray(unit.wos) ? unit.wos : [];
-  const { artifacts } = wos.length ? await (deps.readArtifacts ?? ((r, w) => readWoArtifacts(r, w, deps)))(root, wos) : { artifacts: [] };
+  const read = wos.length ? await (deps.readArtifacts ?? ((r, w) => readWoArtifacts(r, w, deps)))(root, wos) : { artifacts: [] };
+  const artifacts = read.artifacts ?? [];
+  const unknown = [...(read.missing ?? []).map((w) => `${w}: work order not found`), ...(read.unreadable ?? [])];
   let risk = null;
-  if (artifacts.length) {
+  if (unknown.length) {
+    // The files of the unit cannot all be known: their risk is unknown, so the doubt is never decided without the owner.
+    risk = { zone: "r1", irreversible: true, failclosed: true, detail: oneLine(unknown.join("; "), 200) };
+  } else if (artifacts.length) {
     try {
       risk = await (deps.computeRisk ?? computeRisk)({ root, files: artifacts }, deps.riskDeps ?? {});
     } catch (error) {
@@ -364,8 +419,9 @@ export async function assessVeto({ project, root, unit, doubt }, deps = {}) {
 /**
  * What the ladder does after the consults recorded so far (BUILD-12): decide when consult 1 agrees with the preferred
  * option at confidence >= medium; else a tie-break consult; after it, the option with 2 of 3 votes wins (the author's
- * preferred option is one vote; a consult votes only with a non-null decision at confidence >= medium). A consult that
- * calls a winning or preferred option irreversible parks the doubt. Caps are applied by the caller.
+ * preferred option is one vote; a consult votes only with a non-null decision at confidence >= medium); no winner after
+ * consult 2 parks `no_consensus`. Any answered consult (voting or not) that chose the winning or preferred option and
+ * called it irreversible parks the doubt `consult_irreversible`. Caps are applied by the caller.
  * @param {object} record doubt record
  * @returns {{action: "decide", value: string, decided_by: "consult1"|"consult2", voters: object[]}
  *   | {action: "consult", no: number} | {action: "park", reason: string}}
@@ -384,9 +440,10 @@ export function tally(record) {
   const votes = new Map([[record.preferred, 1]]);
   for (const c of voting) votes.set(c.answer.decision, (votes.get(c.answer.decision) ?? 0) + 1);
   const winner = [...votes.entries()].filter(([, count]) => count >= 2).sort((a, b) => b[1] - a[1])[0]?.[0];
-  if (!winner) return n >= DOUBT_CAPS.CONSULTS_PER_DOUBT ? { action: "park", reason: "no_consensus" } : { action: "consult", no: n + 1 };
+  if (!winner) return n >= LADDER_CONSULTS ? { action: "park", reason: "no_consensus" } : { action: "consult", no: n + 1 };
   const voters = voting.filter((c) => c.answer.decision === winner);
   if (voters.some((c) => c.answer.reversible !== true)) return { action: "park", reason: "consult_irreversible" };
+  if (answered.some((c) => c.answer.decision === winner && c.answer.reversible === false)) return { action: "park", reason: "consult_irreversible" };
   return { action: "decide", value: winner, decided_by: n >= 2 ? "consult2" : "consult1", voters };
 }
 
@@ -452,7 +509,7 @@ function inboxEntry({ record, unit, runId, date, status, blocks, effect }) {
   ].join("\n");
 }
 
-function decisionLogEntry({ record, unit, runId, card, date, advisors }) {
+function decisionLogEntry({ record, unit, runId, branch, card, date, advisors }) {
   const chosen = record.decision.value;
   const by = record.decision.decided_by === "sources"
     ? `sources (${record.decision.why})`
@@ -470,7 +527,7 @@ function decisionLogEntry({ record, unit, runId, card, date, advisors }) {
     "",
     `**Decided by:** ${by}. All advisors: ${record.consults.filter((c) => c.answer).map((c) => `${cellText(c)} -> ${c.answer.decision ?? "no answer"} (${c.answer.confidence})`).join("; ") || "none"}.`,
     "",
-    `**Commit:** this entry on \`lane/${runId}\`; the implementation lands with unit \`${unit.id}\`${unit.wos?.length ? ` (${unit.wos.join(", ")})` : ""}.`,
+    `**Commit:** this entry on \`${branch}\`; the implementation lands with unit \`${unit.id}\`${unit.wos?.length ? ` (${unit.wos.join(", ")})` : ""}.`,
     "",
     `**How to revert:** the owner says "Revierte la decisión ${record.id}"; it becomes a new change card (never a hand revert of this run).`,
     "",
@@ -514,7 +571,7 @@ async function commitIntegration(root, files, message, deps) {
   if (!files.length) return null;
   const add = await gitAddTracked(exec, root, files);
   if (add.code !== 0) throw err("FAILCLOSED", `git add failed in the integration worktree: ${oneLine(add.stderr, 200)}`);
-  const commit = await exec("git", ["commit", "-q", "-m", message, "--", ...files], { cwd: root });
+  const commit = await exec("git", ["-c", "commit.gpgsign=false", "commit", "-q", "--no-verify", "-m", message, "--", ...files], { cwd: root });
   if (commit.code !== 0) throw err("FAILCLOSED", `git commit failed in the integration worktree: ${oneLine(commit.stderr || commit.stdout, 200)}`);
   const head = await exec("git", ["rev-parse", "HEAD"], { cwd: root });
   return head.stdout.trim();
@@ -610,13 +667,21 @@ async function queueConsult(ctx, state, record, no, deps) {
   return { state: nextState, record: nextRecord, consult: { unit: unitId, runtime: cell.runtime, model: cell.model, effort: cell.effort, brief_path: consult.brief_path, via } };
 }
 
+/** The doubted unit was settled meanwhile (a hand-back blocked it, N3): the ladder changes nothing on its behalf. */
+const settledUnit = (state, record) => {
+  const unit = findUnit(state, record.unit);
+  return !unit || isTerminalUnit(unit);
+};
+const settledOut = (state, record) => ({ state, record, out: { step: record.step, applied: false, reason: "unit_settled" } });
+
 async function decide(ctx, state, record, { value, decided_by, why, voters }, deps) {
+  if (settledUnit(state, record)) return { state, record, decision: null, sha: null, warnings: [], applied: false };
   const unit = findUnit(state, record.unit);
   const decided = { ...record, step: "decided", decision: { value, why: oneLine(why, 600) || "decided by the ladder", decided_by } };
   const integrationRoot = path.resolve(ctx.project, state.integration.worktree);
   const date = nowIso(deps).slice(0, 10);
   const logAbs = path.join(integrationRoot, "docs", "decision-log.md");
-  await prependEntry(logAbs, decisionLogEntry({ record: decided, unit, runId: ctx.runId, card: state.scope.card, date, advisors: voters }), "# Decision Log", deps);
+  await prependEntry(logAbs, decisionLogEntry({ record: decided, unit, runId: ctx.runId, branch: ctx.paths.integrationBranch(ctx.runId), card: state.scope.card, date, advisors: voters }), "# Decision Log", deps);
   const inbox = await writeInbox(ctx.project, integrationRoot, inboxEntry({
     record: decided, unit, runId: ctx.runId, date, blocks: [],
     status: `RESUELTO: decidido sin el owner, opción ${value} (${date}). Para revertirlo di "Revierte la decisión ${record.id}".`,
@@ -639,6 +704,7 @@ async function decide(ctx, state, record, { value, decided_by, why, voters }, de
 }
 
 async function park(ctx, state, record, { reasons, reversible }, deps) {
+  if (settledUnit(state, record)) return { state, record, mode: null, branch: null, units: [], commit: null, block: { ratio: 0 }, reasons, notice_es: null, warnings: [], applied: false };
   const unit = findUnit(state, record.unit);
   const integrationRoot = path.resolve(ctx.project, state.integration.worktree);
   const date = nowIso(deps).slice(0, 10);
@@ -680,11 +746,13 @@ async function park(ctx, state, record, { reasons, reversible }, deps) {
  * @returns {Promise<{state: object, record: object, out: object}>}
  */
 async function advance(ctx, state, record, deps) {
+  if (settledUnit(state, record)) return settledOut(state, record);
   const verdict = tally(record);
   if (verdict.action === "decide" && verdict.value === ASK_OWNER_OPTION) return parkOut(ctx, state, record, ["owner_requested"], deps);
   if (verdict.action === "decide") {
     const why = verdict.voters.map((c) => `${cellText(c)}: ${c.answer.rationale}`).join(" | ");
     const done = await decide(ctx, state, record, { value: verdict.value, decided_by: verdict.decided_by, why, voters: verdict.voters }, deps);
+    if (done.applied === false) return settledOut(state, record);
     return { state: done.state, record: done.record, out: { step: "decided", decision: done.decision, sha: done.sha, warnings: done.warnings } };
   }
   if (verdict.action === "consult") {
@@ -696,6 +764,7 @@ async function advance(ctx, state, record, deps) {
 }
 
 async function parkOut(ctx, state, record, reasons, deps) {
+  if (settledUnit(state, record)) return settledOut(state, record);
   const reversible = preferredReversible(record, { reason: reasons[0] }) && !reasons.some((r) => VETO_REASONS.includes(r) || FORCED_PARK_REASONS.includes(r) || r === "consult_irreversible");
   const parked = await park(ctx, state, record, { reasons, reversible }, deps);
   return {
@@ -780,13 +849,17 @@ export async function openDoubt({ project, epoch, unit: unitId, file }, deps = {
     });
 }
 
-const normalizeQuestion = (text) => String(text ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+const normalizeQuestion = (text) => String(text ?? "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 const optionKey = (options) => options.map((o) => o.id).sort().join("|");
+const SYNTHESIZED_KEYS = new Set(Object.values(SYNTHESIZED_OPTION_IDS).map((ids) => [...ids].sort().join("|")));
 
 /**
- * Is a newly raised doubt the same one a unit already had DECIDED (the same question, or the same option ids with the same
- * preferred option)? Such a repeat is never given to the ladder again (it parks to the owner): deciding it again would
- * re-queue the unit at the same attempt and loop for ever (review R1b NB1).
+ * Is a newly raised doubt the same one a unit already had DECIDED? Such a repeat is never given to the ladder again (it
+ * parks to the owner): deciding it again would re-queue the unit at the same attempt and loop for ever (review R1b NB1).
+ * The same question (case, accents, punctuation and spacing ignored) is always a repeat. For a worker-authored doubt the
+ * same option ids with the same preferred option is a repeat too; for an engine-synthesized doubt (its option ids are one
+ * of {@link SYNTHESIZED_OPTION_IDS}, shared by every such doubt) only the question counts, so a DISTINCT second ambiguity
+ * goes up the ladder (DR1c-N1). A reworded repeat of a synthesized doubt is bounded by the per-build consult cap.
  * @param {object|null} previous the unit's previous doubt record (`unit.doubt_id`)
  * @param {{question: string, options: {id: string}[], preferred: string}} doubt the doubt being opened
  * @returns {boolean}
@@ -794,7 +867,9 @@ const optionKey = (options) => options.map((o) => o.id).sort().join("|");
 export function isRepeatDoubt(previous, doubt) {
   if (!previous || previous.step !== "decided") return false;
   if (normalizeQuestion(previous.question) === normalizeQuestion(doubt.question)) return true;
-  return previous.preferred === doubt.preferred && optionKey(previous.options) === optionKey(doubt.options);
+  const key = optionKey(doubt.options);
+  if (SYNTHESIZED_KEYS.has(key)) return false;
+  return previous.preferred === doubt.preferred && optionKey(previous.options) === key;
 }
 
 function validateSourcesAnswer(answer, record) {
@@ -872,7 +947,7 @@ export async function answerDoubt({ project, epoch, id, file, token = null }, de
         next = await parkOut(ctx, state, record, ["owner_requested"], deps);
       } else {
         const done = await decide(ctx, state, record, { value: filed.decision, decided_by: "sources", why: filed.rationale, voters: [] }, deps);
-        next = { state: done.state, record: done.record, out: { step: "decided", decision: done.decision, warnings: done.warnings } };
+        next = done.applied === false ? settledOut(state, record) : { state: done.state, record: done.record, out: { step: "decided", decision: done.decision, warnings: done.warnings } };
       }
       await writeDoubt(project, next.record, deps);
       await ctx.writeState(next.state);

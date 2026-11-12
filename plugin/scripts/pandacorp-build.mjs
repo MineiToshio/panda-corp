@@ -204,10 +204,20 @@ async function recordQuota(c) {
   return { body: { sub: "record", reading } };
 }
 
+/** The run state, or null when there is none yet; a corrupt or unreadable state propagates (never read as "no run"). */
+async function readStateOrNull(project, deps) {
+  try {
+    return await readState(project, deps);
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 async function readQuotaView(c) {
   const { project, deps } = c;
   const p = buildPaths(project, deps);
-  const state = await readState(project, deps).catch(() => null);
+  const state = await readStateOrNull(project, deps);
   const coordinator = state?.coordinator ?? "claude-session";
   const r = await readQuota({ file: p.quotaFile, codexHome: p.codexHome, coordinator, probe: c.flags.probe === true }, { ...deps, exec: defaultExec });
   const driveAlive = await isStandbyAlive(project, { runId: state?.run_id }, deps);
@@ -219,7 +229,7 @@ async function admitView(c) {
   if (cls !== "B" && cls !== "H") throw usage("--class debe ser B o H.");
   const { project, deps } = c;
   const p = buildPaths(project, deps);
-  const state = await readState(project, deps).catch(() => null);
+  const state = await readStateOrNull(project, deps);
   const live = { B: (state?.units ?? []).filter((u) => u.state === "admitted" || u.state === "running").length, H: countHostSlots({ host: p.hostDir }).held };
   const shape = !state ? "R-A" : state.coordinator === "codex-session" ? "R-B" : state.coordinator === "drive" ? "drive" : state.label === "codex" ? "R-C" : "R-A";
   const now = deps.env.PANDACORP_NOW ? Date.parse(deps.env.PANDACORP_NOW) : Date.now();

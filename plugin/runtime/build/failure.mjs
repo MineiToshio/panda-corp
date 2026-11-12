@@ -16,7 +16,7 @@
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { releaseToken } from "./admission.mjs";
-import { ASK_OWNER_OPTION } from "./doubts.mjs";
+import { SYNTHESIZED_OPTION_IDS } from "./doubts.mjs";
 import { atomicWriteJson, atomicWriteText, defaultExec, nowIso, sha256Hex, writeTarget } from "./fsx.mjs";
 import { buildPaths } from "./paths.mjs";
 import { REVIEW_TYPE_KINDS, fencedTwoPhase, findUnit, isTerminalUnit, patchUnit, readLeaseToken, readState, rebuildState } from "./state.mjs";
@@ -35,6 +35,10 @@ const oneLine = (text, max = 160) => String(text ?? "").replace(/\s+/g, " ").tri
 const uniqSorted = (list = []) => [...new Set(list.map(String))].sort();
 const lastLines = (text, n = POLICY.TAIL_LINES) => String(text ?? "").replace(/\s+$/, "").split("\n").slice(-n).join("\n");
 const woKey = (wo) => String(wo).toLowerCase();
+/** The run's integration branch (DEC-2) for owner and backlog text; a missing or unsafe run id keeps a placeholder. */
+const integrationBranchOf = (runId) => {
+  try { return buildPaths(".").integrationBranch(runId); } catch { return "lane/<run_id>/integration"; }
+};
 
 // ---------------------------------------------------------------------------------------------
 // Policy (pure)
@@ -151,8 +155,9 @@ export function planRequeue({ state, unitId, decision }) {
 /**
  * State and journal effect of a hand-back (pure): the unit and every non-terminal dependent become `blocked` (the run's
  * terminal state for parked work, A11), their tokens are voided, and the env-infra streak is updated like replay does.
+ * The open `doubt-consult` units of a doubt raised by any of them (same `doubt_id`) are settled `blocked` too (role `consult`).
  * @param {{state: object, unitId: string, cause: string, reasonCode: string, reason: string, path?: string|null}} input
- * @returns {{state: object, events: {type: string, data: object}[], blocked: {unit: string, from: string, role: "self"|"dependent"}[], stop_run: boolean}}
+ * @returns {{state: object, events: {type: string, data: object}[], blocked: {unit: string, from: string, role: "self"|"dependent"|"consult"}[], stop_run: boolean}}
  */
 export function planHandback({ state, unitId, cause, reasonCode, reason, path: handbackPath = null }) {
   const unit = findUnit(state, unitId);
@@ -162,6 +167,12 @@ export function planHandback({ state, unitId, cause, reasonCode, reason, path: h
   for (const id of dependentsOf(state, unitId)) {
     const dep = findUnit(state, id);
     if (!isTerminalUnit(dep)) targets.push({ unit: dep, role: "dependent" });
+  }
+  // N3: a consult of a doubt raised by a handed-back unit has no depends_on edge; it is settled with it, so no
+  // decision of that doubt can re-queue a blocked unit and no consult keeps running for nothing.
+  const doubtIds = new Set(targets.map((t) => t.unit.doubt_id).filter(Boolean));
+  for (const u of state.units) {
+    if (u.kind === "doubt-consult" && doubtIds.has(u.doubt_id) && !isTerminalUnit(u)) targets.push({ unit: u, role: "consult" });
   }
   const ids = new Set(targets.map((t) => t.unit.id));
   const streak = cause === "env-infra" ? (state.handbacks_in_a_row ?? 0) + 1 : 0;
@@ -333,7 +344,7 @@ async function commitIntegration(root, files, message, deps) {
   // inbox): plain `git add` refuses those (code-conventions, verified trap), so force the add of exactly these paths.
   const add = await exec("git", ["add", "-f", "--", ...files], { cwd: root });
   if (add.code !== 0) throw err("FAILCLOSED", `git add failed in the integration worktree: ${oneLine(add.stderr, 200)}`);
-  const commit = await exec("git", ["commit", "-q", "-m", message, "--", ...files], { cwd: root });
+  const commit = await exec("git", ["-c", "commit.gpgsign=false", "commit", "-q", "--no-verify", "-m", message, "--", ...files], { cwd: root });
   if (commit.code !== 0) throw err("FAILCLOSED", `git commit failed in the integration worktree: ${oneLine(commit.stderr || commit.stdout, 200)}`);
   const head = await exec("git", ["rev-parse", "HEAD"], { cwd: root });
   return head.stdout.trim();
@@ -418,6 +429,13 @@ export async function handBack(ctx, input, deps = {}) {
 
   // 4. State and journal (the caller's phase 2 holds the lease mutex).
   await commitPlan(ctx, plan);
+  const settledConsults = plan.blocked.filter((b) => b.role === "consult").map((b) => findUnit(state, b.unit));
+  for (const c of settledConsults) { try { releaseToken(c.id, { file: paths.admissionFile }); } catch { /* no reservation left */ } }
+  const consultWorkers = settledConsults.filter((c) => c.worker?.worker_id && (c.state === "admitted" || c.state === "running")).map((c) => c.worker.worker_id);
+  if (consultWorkers.length) {
+    const { stopWorkers } = await import("./workers.mjs");
+    stopWorkers(project, consultWorkers, deps);
+  }
   const emitted = await emitSafely(deps, "unit.parked", { unit: unit.id, reason: "handback", cause, wos });
   return { path: handbackPath, already: false, blocked: plan.blocked, wos_blocked: wosBlocked, wos_skipped: wosSkipped, commit, inbox: inbox.rel, stop_run: plan.stop_run, notice_es: handbackNotice(info), ...(emitted ? { warnings: [emitted] } : {}) };
 }
@@ -550,14 +568,14 @@ export function doubtFromDiagnosis(diagnosis) {
   if (diagnosis.cause === "test-defective") {
     return {
       question: `El trabajador discute una prueba de la unidad: ${detail}. ¿Se corrige la prueba o se mantiene y se rehace el código?`,
-      options: [{ id: "fix-test", text: "Corregir la prueba discutida y mantener el código" }, { id: "keep-test", text: "Mantener la prueba y rehacer el código" }],
-      preferred: "fix-test", why: "la prueba discutida se corrige sin tocar el código ya hecho",
+      options: [{ id: SYNTHESIZED_OPTION_IDS.dispute[0], text: "Corregir la prueba discutida y mantener el código" }, { id: SYNTHESIZED_OPTION_IDS.dispute[1], text: "Mantener la prueba y rehacer el código" }],
+      preferred: SYNTHESIZED_OPTION_IDS.dispute[0], why: "la prueba discutida se corrige sin tocar el código ya hecho",
     };
   }
   return {
     question: `El trabajador no puede seguir porque la especificación es ambigua: ${detail}. ¿Qué lectura se toma?`,
-    options: [{ id: "conservative", text: "Tomar la lectura más conservadora y reversible y seguir" }, { id: ASK_OWNER_OPTION, text: "Parar y pedir al owner que aclare la especificación" }],
-    preferred: "conservative", why: "la lectura conservadora es reversible y no bloquea al resto de la obra",
+    options: [{ id: SYNTHESIZED_OPTION_IDS.ambiguity[0], text: "Tomar la lectura más conservadora y reversible y seguir" }, { id: SYNTHESIZED_OPTION_IDS.ambiguity[1], text: "Parar y pedir al owner que aclare la especificación" }],
+    preferred: SYNTHESIZED_OPTION_IDS.ambiguity[0], why: "la lectura conservadora es reversible y no bloquea al resto de la obra",
   };
 }
 
@@ -683,7 +701,7 @@ function backlogBody({ id, title, date, failure, project, deps }) {
     "```",
     stack || "(no stack trace)",
     "```",
-    `Run \`${failure.runId ?? "unknown"}\`, epoch ${failure.epoch ?? "unknown"}. The product work is preserved on the run's \`lane/<run_id>\` branch; the run is resumable once this is fixed. This failure consumed no unit attempt.`,
+    `Run \`${failure.runId ?? "unknown"}\`, epoch ${failure.epoch ?? "unknown"}. The product work is preserved on the run's integration branch \`${integrationBranchOf(failure.runId)}\`; the run is resumable once this is fixed. This failure consumed no unit attempt.`,
     "",
     "## Root cause",
     "Not investigated yet. Reproduce from the run journal (`.pandacorp/run/build/journal.jsonl`) and `handback/engine.md` of the affected project.",
@@ -736,7 +754,7 @@ const doneWorkOrders = (state) => new Set(state?.units?.filter((u) => WO_UNIT_KI
 function engineNotice({ runId, bl, doneWos, failures }) {
   const work = doneWos === null ? "tu trabajo" : `tu trabajo (${doneWos} WOs hechas)`;
   const how = bl.id ? `en la fábrica di 'arregla ${bl.id}'` : `avisa en la fábrica de este fallo (${bl.reason})`;
-  const lines = [`El motor nuevo se ha parado por un fallo suyo, no de tu app. ${work[0].toUpperCase()}${work.slice(1)} está a salvo en la rama \`lane/${runId ?? "<run_id>"}\`. Para seguir: ${how}; luego aquí, \`/pandacorp:implement --resume\`.`];
+  const lines = [`El motor nuevo se ha parado por un fallo suyo, no de tu app. ${work[0].toUpperCase()}${work.slice(1)} está a salvo en la rama \`${integrationBranchOf(runId)}\`. Para seguir: ${how}; luego aquí, \`/pandacorp:implement --resume\`.`];
   if (failures >= POLICY.ENGINE_FAILURES_EXTRA_LINE) lines.push("Si lo consideras un desastre, dilo y se aplica el regreso.");
   return lines.join(" ");
 }

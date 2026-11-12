@@ -11,9 +11,9 @@ import { detect } from "./detect.mjs";
 import { armDrive, readStandby } from "./drive.mjs";
 import { releaseToken } from "./admission.mjs";
 import { atomicWriteJson, atomicWriteText, assertNotTracked, defaultExec, nowIso, readJson, validate, loadSchema } from "./fsx.mjs";
-import { createIntegrationWorktree, moveWorktreesUnder, removeWorktree } from "./integrate.mjs";
+import { createIntegrationWorktree, healIntegrationWorktree, moveWorktreesUnder, removeWorktree } from "./integrate.mjs";
 import { appendEvent } from "./journal.mjs";
-import { applyTerminal, inScope } from "./next.mjs";
+import { applyTerminal, inScope, removeAllG2Snapshots } from "./next.mjs";
 import { buildPaths } from "./paths.mjs";
 import { loadFreshPreflight } from "./preflight.mjs";
 import { lintPlan, plan, planView, readPlanWorkOrders } from "./planner.mjs";
@@ -341,6 +341,12 @@ function resumeVerdict(state, u, project, d) {
   return { kind: "requeue" };
 }
 
+/** Every pid recorded for a unit: its worker and its running jobs. */
+const unitPids = (state, u) => [u.worker?.pid, ...state.jobs.filter((j) => j.unit === u.id && j.state === "running").map((j) => j.pid)];
+
+/** The branch a requeued unit's worktree is reset to: its assumption branch when it was built on one, else the integration branch. */
+const resetBase = (p, state, u) => (u.parked === "built_on_assumption" && u.pending_answer ? p.assumeBranch(state.run_id, u.pending_answer) : undefined);
+
 /** The `running` worker job of an adopted unit (reopened when a harvest had already closed it). */
 function reopenWorkerJob(jobs, u, verdict, project, d) {
   const current = jobs.find((j) => j.kind === "worker" && (j.worker_id === verdict.workerId || j.id === verdict.workerId));
@@ -379,6 +385,25 @@ export async function startResume(input, deps = {}) {
   await reclaimDeadLeaseMutex(p, isAlive);
   const got = await takeLease({ project, p, state, coordinator, ownerConfirmed }, d);
 
+  // Slow git work (orphan stop, worktree reset) runs here, under the lease but OUTSIDE the 1-s lease mutex of the fenced
+  // step below (N2). It is idempotent: a crash before the requeue is journaled leaves the units admitted/running with
+  // dead pids, and the next resume classifies and resets them again (a reset of a reset worktree is a no-op).
+  const before = state;
+  const resets = new Map();
+  const stopped = new Set();
+  for (const u of before.units) {
+    if (u.state !== "admitted" && u.state !== "running") continue;
+    if (unitPids(before, u).some((pid) => isAlive(pid))) continue;
+    const verdict = resumeVerdict(before, u, project, d);
+    if (verdict.kind === "adopt") continue;
+    if (verdict.kind === "orphan") { stopWorkers(project, [verdict.workerId], d); stopped.add(verdict.workerId); }
+    resets.set(u.id, await restoreUnitWorktree({ project, runId: before.run_id, unit: u, base: resetBase(p, before, u) }, d));
+  }
+  // An engine write that died before its commit left the integration worktree dirty: discard it (never while a land job
+  // still runs merge-queue in that worktree).
+  const landAlive = before.jobs.some((j) => j.kind === "land" && j.state === "running" && isAlive(j.pid));
+  const healed = landAlive ? { healed: false, discarded: [] } : await healIntegrationWorktree({ project, runId: before.run_id }, d);
+
   const result = await fencedTwoPhase({ project, epoch: got.epoch, deps: d }, undefined, undefined, async (_r, _i, ctx) => {
     const reattached = [];
     const adopted = [];
@@ -388,8 +413,7 @@ export async function startResume(input, deps = {}) {
     const units = [];
     for (const u of state.units) {
       if (u.state !== "admitted" && u.state !== "running") { units.push(u); continue; }
-      const pids = [u.worker?.pid, ...state.jobs.filter((j) => j.unit === u.id && j.state === "running").map((j) => j.pid)];
-      if (pids.some((pid) => isAlive(pid))) { reattached.push(u.id); units.push(u); continue; }
+      if (unitPids(state, u).some((pid) => isAlive(pid))) { reattached.push(u.id); units.push(u); continue; }
       const verdict = resumeVerdict(state, u, project, d);
       if (verdict.kind === "adopt") {
         // The worker of THIS dispatch finished but its result was never ingested (the coordinator died between the seal
@@ -401,8 +425,10 @@ export async function startResume(input, deps = {}) {
         adopted.push(u.id); reattached.push(u.id); units.push(u);
         continue;
       }
-      if (verdict.kind === "orphan") stopWorkers(project, [verdict.workerId], d);
-      const reset = await restoreUnitWorktree({ project, runId: state.run_id, unit: u, base: u.parked === "built_on_assumption" && u.pending_answer ? p.assumeBranch(state.run_id, u.pending_answer) : undefined }, d);
+      // A unit whose verdict changed since the pass above (its worker files moved in between) is requeued without a reset
+      // (a late orphan is still stopped: a signal is cheap); the next resume or the attempt's report deals with its tree.
+      if (verdict.kind === "orphan" && !stopped.has(verdict.workerId)) stopWorkers(project, [verdict.workerId], d);
+      const reset = resets.get(u.id) ?? { reset: false };
       requeued.push(u.id);
       events.push({ type: "unit_state", data: { unit: u.id, from: u.state, to: "queued", reason: "resume", ...(reset.reset ? { worktree_reset: { discarded_commits: reset.discarded_commits, dirty: reset.dirty, head: reset.head } } : {}), ...(verdict.kind === "orphan" ? { orphan_worker: verdict.workerId } : {}) } });
       units.push({ ...u, state: "queued", token_hash: null, worker: null });
@@ -410,11 +436,14 @@ export async function startResume(input, deps = {}) {
     // A dead coordinator may also have died between a unit's settle and its token release: no unit outside
     // admitted/running holds an admission reservation after a resume.
     for (const u of units) if (u.state !== "admitted" && u.state !== "running") { try { releaseToken(u.id, { file: p.admissionFile }); } catch { /* the token file may be gone */ } }
-    await ctx.appendEvent({ type: "run_resumed", data: { from: prior, coordinator: COORDINATORS[coordinator], session_model: sessionModel, reattached, requeued, adopted, rebuilt } });
+    await ctx.appendEvent({ type: "run_resumed", data: { from: prior, coordinator: COORDINATORS[coordinator], session_model: sessionModel, reattached, requeued, adopted, rebuilt, ...(healed.healed ? { integration_discarded: healed.discarded } : {}) } });
     for (const ev of events) await ctx.appendEvent(ev);
     await ctx.writeState({ ...state, units, jobs, coordinator: COORDINATORS[coordinator], status: "active", status_reason: null });
     return { reattached, requeued };
   });
+  // Leftover G2 snapshots (a crash between a snapshot and its job) go before the run continues; a running G2 job keeps its own (NB5).
+  await removeAllG2Snapshots({ project }, d);
+  // Re-attaching a registered worktree is a no-op; a re-created one is bootstrapped (integrate.mjs) before any landing.
   await createIntegrationWorktree({ project, runId: state.run_id }, d);
   const drive = await armDrive({ project, runId: state.run_id, launched, appendEvent: (ev) => journal(p, state.run_id, got.epoch, ev.type, ev.data, d) }, d.driveDeps);
   return { run_id: state.run_id, epoch: got.epoch, ...result, drive };
@@ -452,6 +481,7 @@ export async function stopRun({ project, epoch = null, dead = false, ownerConfir
     await writeState(project, { ...state, status: "stopped", status_reason: dead ? "dead_owner" : reason }, d);
     await emit(project, state, "build.stopped", { reason: dead ? "dead_owner" : reason }, d);
   }
+  if (state) await removeAllG2Snapshots({ project }, d);
   return { released, run_id: state?.run_id ?? null };
 }
 
@@ -483,10 +513,19 @@ export async function finishRun({ project, epoch = null, actor = "cli" }, deps =
   };
   if (lease) {
     const token = await readLeaseToken(project, epoch, d);
-    // A quiesced lease means a previous finish already closed the state and died before finalizeRelease: the retry
-    // must still release (the contract: finish releases the lease), but fencedTwoPhase refuses a quiesced lease.
-    if (lease.quiesced_at) waiting = state0.status === "waiting_gate";
-    else {
+    // A quiesced lease (a terminal action, or a previous finish that died before finalizeRelease) refuses fencedTwoPhase,
+    // and nothing else can write the run any more: the state is closed unfenced, like the no-lease branch, then the lease
+    // is released (NB4). A retry after a crash finds the state already finished and only releases.
+    if (lease.quiesced_at) {
+      if (Number(epoch) !== lease.epoch) throw err("FENCE", "finish: --epoch does not match the quiesced lease");
+      if (lease.run_id && state0.run_id !== lease.run_id) throw err("FENCE", "state does not belong to the lease run");
+      const mode = decide(state0);
+      // A run a previous finish already closed as waiting_gate is not closed twice (no second `paused` line).
+      if (mode === "finish" || (mode === "waiting" && state0.status !== "waiting_gate")) {
+        const ctx = { appendEvent: (ev) => journal(p, state0.run_id, Number(epoch), ev.type, ev.data, d, actor), writeState: (s) => writeState(project, s, d) };
+        await closeRun(ctx, state0, waiting, d);
+      }
+    } else {
       await fencedTwoPhase({ project, epoch: Number(epoch), actor, deps: d }, undefined, undefined, async (_r, _i, ctx) => {
         const s = await ctx.readState();
         if (!s || s.run_id !== ctx.runId) throw err("FENCE", "state does not belong to the lease run");
@@ -505,6 +544,8 @@ export async function finishRun({ project, epoch = null, actor = "cli" }, deps =
       await closeRun(ctx, state0, waiting, d);
     }
   }
+  // The run is closed: no G2 snapshot of it is ever harvested again (NB5). A waiting run keeps a still-running G2 job's own.
+  await removeAllG2Snapshots({ project, all: !waiting }, d);
   const summary = await readSummary(project, d);
   const rel = path.join(".pandacorp", "comms", `informe-build-${state0.run_id}.md`);
   await assertNotTracked(project, rel, { exec: d.exec });

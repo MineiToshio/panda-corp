@@ -15,6 +15,7 @@ import path from "node:path";
 import { assertValid, loadSchema, readJson } from "./fsx.mjs";
 import { readJournal } from "./journal.mjs";
 import { buildPaths } from "./paths.mjs";
+import { loadThresholds } from "./quota.mjs";
 
 /** Section headings of the final report, exactly as the owner sees them (autonomy.md section 6). */
 export const REPORT_HEADINGS_ES = Object.freeze({
@@ -95,7 +96,7 @@ export function buildAnnounce(input = {}) {
 
   const codex = input.quota?.codex ?? { pct: null, state: "unknown" };
   const claude = input.quota?.claude ?? { pct: null, state: "unknown" };
-  const stop = Number.isFinite(input.quotaStop) ? input.quotaStop : 90;
+  const stop = Number.isFinite(input.quotaStop) ? input.quotaStop : loadThresholds().quota_stop;
   const codexHigh = codex.state === "known" && Number.isFinite(codex.pct) && codex.pct >= stop;
   let driveLine = null;
   if (codexHigh) {
@@ -228,7 +229,7 @@ function decidedWithoutOwner(doubts, runId, events) {
       chosen: clip(optionText(d, d.decision.value) ?? d.decision.value, 300),
       advised_by: advised.length ? advised : ["el motor"],
       confidence,
-      revert_hint: `Pide una tarjeta nueva que revierta la decisión ${d.id} (entrada "Decidido sin el owner" en docs/decision-log.md de lane/${runId}).`,
+      revert_hint: `Pide una tarjeta nueva que revierta la decisión ${d.id} (entrada "Decidido sin el owner" en docs/decision-log.md de la rama ${buildPaths(path.sep).integrationBranch(runId)}).`,
     });
   }
   const seen = new Set(out.map((d) => d.doubt_id));

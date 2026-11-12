@@ -398,6 +398,22 @@ function isStaleSlot(fs, slot, nowMs, isAlive, graceMs) {
  *   `$PANDACORP_HOST_DIR` or `~/.pandacorp/host`.
  * @returns {{slot: string, index: number, release: () => boolean}|null} null when every slot is held.
  */
+/**
+ * Removes a slot directory atomically: `rename` to a unique tomb (only one racer wins the rename; a loser sees ENOENT and
+ * touches nothing, so a slot a faster waiter just re-took is never deleted), then removes the tomb.
+ */
+function removeSlot(fs, slot) {
+  const tomb = `${slot}.tomb-${process.pid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+  try {
+    fs.renameSync(slot, tomb)
+  } catch (e) {
+    if (e.code === 'ENOENT') return false
+    throw e
+  }
+  fs.rmSync(tomb, { recursive: true, force: true })
+  return true
+}
+
 export function acquireHostSlot({
   dir, host, max = hMax(), kind, project, pid = process.pid, now = Date.now, isAlive = defaultIsAlive,
   fs = nodeFs, graceMs = ADMISSION.SLOT_OWNERLESS_GRACE_MS,
@@ -414,7 +430,7 @@ export function acquireHostSlot({
         if (e.code !== 'EEXIST') throw e
         // Re-judge right before deleting so a slot a faster waiter just re-took is never removed.
         if (!isStaleSlot(fs, slot, now(), isAlive, graceMs)) break
-        fs.rmSync(slot, { recursive: true, force: true })
+        removeSlot(fs, slot)
         continue
       }
       const owner = { pid, kind, project, at: new Date(now()).toISOString() }
@@ -424,7 +440,7 @@ export function acquireHostSlot({
       const release = () => {
         const cur = readOwner(fs, slot)
         if (cur && (cur.pid !== owner.pid || cur.at !== owner.at)) return false // reclaimed and re-taken by someone else
-        fs.rmSync(slot, { recursive: true, force: true })
+        removeSlot(fs, slot)
         return true
       }
       return { slot, index: i, release }

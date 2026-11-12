@@ -174,9 +174,19 @@ async function assertNoForeignAssumption({ project, runId, branch, baseRef }, de
     const mb = await git(deps, project, ["merge-base", `refs/heads/${branch}`, `refs/heads/${assume}`], { allowFail: true });
     const fork = String(mb.stdout).trim();
     if (mb.code !== 0 || !fork) continue;
-    if (await isAncestor(fork, baseRef) || await isAncestor(fork, integration)) continue;
+    if (await isAncestor(fork, baseRef) || await isAncestor(fork, integration) || await isAncestor(fork, await defaultBranchOf(project, deps))) continue;
     throw err("INVALID_STATE", `unit branch ${branch} carries commits of ${assume}, an assumption the owner has not accepted: it cannot be reused on ${baseRef}`);
   }
+}
+
+/**
+ * The default branch name, resolved as `merge-queue.sh` does (`origin/HEAD`, else `main`). After a giant-run tranche
+ * landing the fork point of an accepted run lives on it, no longer on the integration branch.
+ */
+async function defaultBranchOf(project, deps) {
+  const res = await git(deps, project, ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], { allowFail: true });
+  const name = String(res.stdout).trim();
+  return res.code === 0 && name ? name.replace(/^origin\//, "") : "main";
 }
 
 async function assumptionAccepted(project, doubtId, deps) {

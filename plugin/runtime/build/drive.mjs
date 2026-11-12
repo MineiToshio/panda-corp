@@ -27,6 +27,10 @@ import { classifyLimitText, effective, limitResetsAt, loadThresholds, readCodexQ
 import { fencedTwoPhase, isTerminalUnit, readLeaseToken, readState } from "./state.mjs";
 import { enqueueDeferred } from "./deferred.mjs";
 import { restoreUnitWorktree } from "./units.mjs";
+import { MODEL_STRENGTH } from "./routing.mjs";
+
+// The owner's production-release token must never reach a spawned child (D1 guard).
+const withoutReleaseOk = (env) => { const e = { ...env }; delete e.PANDACORP_OWNER_RELEASE_OK; return e; };
 
 /** The CLI entry the standby process is spawned through (`node pandacorp-build.mjs drive --standby --run R`). */
 export const CLI_ENTRY = fileURLToPath(new URL("../../scripts/pandacorp-build.mjs", import.meta.url));
@@ -275,7 +279,7 @@ export async function armDrive({ project, runId, launched, transcript = null, ap
     const fd = nodeFs.openSync(paths.driveLogFile, "a", 0o600);
     try {
       // cwd = project: the CLI resolves the project from it, so no project path travels in argv.
-      child = d.spawn(d.execPath, [CLI_ENTRY, ...args], { cwd: project, detached: true, stdio: ["ignore", fd, fd], env: d.env });
+      child = d.spawn(d.execPath, [CLI_ENTRY, ...args], { cwd: project, detached: true, stdio: ["ignore", fd, fd], env: withoutReleaseOk(d.env) });
     } finally {
       nodeFs.closeSync(fd);
     }
@@ -569,7 +573,7 @@ function codexOnlyWorkers(workers) {
 // A land job counts as alive while it is recorded running and its pid (when known) is alive.
 const landJobAlive = (state, d) => state.jobs.some((j) => j.kind === "land" && j.state === "running" && (!Number.isInteger(j.pid) || d.isAlive(j.pid)));
 
-const STRENGTH = Object.freeze({ haiku: 1, luna: 1, sonnet: 2, terra: 2, sol: 3, opus: 4, astra: 4, fable: 5 });
+const STRENGTH = MODEL_STRENGTH;
 const SCHEMA_EFFORTS = new Set(["minimal", "low", "medium", "high", "xhigh"]);
 
 /**

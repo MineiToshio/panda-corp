@@ -18,7 +18,7 @@ import path from "node:path";
 import * as admissionModule from "./admission.mjs";
 import { readDeferred } from "./deferred.mjs";
 import { atomicWriteJson, readJson } from "./fsx.mjs";
-import { frdsReadyForG2 } from "./integrate.mjs";
+import { bootstrapIntegrationWorktree, dropBootstrapManifests, frdsReadyForG2 } from "./integrate.mjs";
 import { readJournal } from "./journal.mjs";
 import { assertSafeId, buildPaths, resolveInside } from "./paths.mjs";
 import * as quotaModule from "./quota.mjs";
@@ -190,7 +190,7 @@ async function step(run) {
   state = await parkIrreversiblePending(run, state);
 
   // Landing first (priority landing > heavy job > new builder).
-  const landing = await landDecision(run, state, pol, deferredEntries);
+  const landing = await landDecision(run, state, pol, deferredEntries, notes);
   state = landing.state;
   if (landing.action === "land") return finish(run, state, { action: "land", quota, notes });
   if (landRunning(state)) return finish(run, state, { action: "wait", wait: { reason: "jobs_running", retry_after_s: RETRY_S.jobs_running }, quota, notes });
@@ -219,6 +219,11 @@ async function step(run) {
     const retrying = await handBackExhaustedG2(run, state, dispatch.g2Failed, g2Fails, notes);
     state = await fresh(run);
     if (retrying.length) return finish(run, state, { action: "wait", wait: { reason: "jobs_running", retry_after_s: RETRY_S.gate }, admit: dispatch.admit, quota, notes });
+  }
+  if (landing.bootFailed && state.handbacks_in_a_row < ENV_INFRA_STOP) {
+    // The landing retries (and re-runs the bootstrap) at the next call: a quiet pass here is not "no progress". The
+    // ENV_INFRA_STOP streak of hand-backs ends the run through chooseTerminal (FIX-D-4).
+    return finish(run, state, { action: "wait", wait: { reason: "gate", retry_after_s: RETRY_S.gate }, admit: dispatch.admit, quota, notes });
   }
   const terminal = chooseTerminal(state, { pol, l4: run.l4, plan, candidates, dispatch });
   if (terminal.action === "wait") {
@@ -632,10 +637,49 @@ async function removeG2Snapshot(run, dir, { strict = false } = {}) {
     if (real && (await registeredWorktrees(run)).includes(real)) await gitOut(run.ref.project, ["worktree", "remove", "--force", real]);
     await gitOut(run.ref.project, ["worktree", "prune"]);
     await fs.rm(dir, { recursive: true, force: true });
+    // The snapshot's bootstrap left a manifest entry in the main checkout (Mission Control lists it as a pending worktree).
+    await dropBootstrapManifests(run.ref.project, real ?? dir, { fs, env: run.d.env });
   } catch (error) {
     if (strict) throw error;
     run.d.log(`next: the G2 snapshot ${dir} could not be removed: ${error?.message ?? error}`);
   }
+}
+
+/**
+ * Remove every G2 snapshot of the run (`<build>/g2/*`) and its bootstrap manifest entry, except (unless `all`) the snapshot
+ * a `running` G2 job of `state` still judges: that one is removed by its own harvest. Called when the run stops (terminal
+ * actions, `stop`), finishes, and on `start --resume` (leftovers of a crash between a snapshot and its job). Never runs
+ * under the lease mutex; best effort: a failure is logged, never thrown (NB5).
+ * @param {{project: string, state?: object|null, all?: boolean}} input `state` defaults to `build/state.json`
+ * @param {object} [deps] `fs`, `env`, `homedir`, `log`
+ * @returns {Promise<{removed: string[], kept: string[]}>}
+ */
+export async function removeAllG2Snapshots({ project, state = null, all = false }, deps = {}) {
+  const d = resolveDeps(deps);
+  const fs = d.fs ?? fsp;
+  const run = { ref: { project }, d, paths: buildPaths(project, d) };
+  const root = g2SnapshotRoot(run.paths);
+  const removed = [];
+  const kept = [];
+  try {
+    const names = await fs.readdir(root).catch((error) => { if (error?.code === "ENOENT") return []; throw error; });
+    if (!names.length) return { removed, kept };
+    let live = new Set();
+    if (!all) {
+      const s = state ?? await readState(project, d).catch(() => null);
+      live = new Set((s?.jobs ?? []).filter((j) => j.kind === "g2" && j.state === "running").map((j) => g2PinOf(run.paths, j)?.dir).filter(Boolean));
+    }
+    for (const name of names) {
+      const dir = path.join(root, name);
+      if (live.has(dir)) { kept.push(dir); continue; }
+      await removeG2Snapshot(run, dir);
+      removed.push(dir);
+    }
+    await gitRun(project, ["worktree", "prune"]);
+  } catch (error) {
+    d.log(`next: the G2 snapshots under ${root} could not be cleaned: ${error?.message ?? error}`);
+  }
+  return { removed, kept };
 }
 
 const g2FailuresFile = (paths) => path.join(paths.build, "g2-snapshot-failures.json");
@@ -673,7 +717,13 @@ async function handBackExhaustedG2(run, state, failedFrds, fails, notes) {
     if ((fails[frd] ?? counts[frd] ?? 1) < G2_SNAPSHOT_FAIL_MAX) { retrying.push(frd); continue; }
     delete counts[frd];
     const work = state.units.find((u) => FRD_WORK_KINDS.includes(u.kind) && u.frd === frd && u.state === "integrated");
-    if (!work) continue;
+    if (!work) {
+      // The FRD left `integrated` since the failed passes (nothing waits on its G2 any more): nothing to hand back, but
+      // the dropped retry is reported, never silent (DR1c-N2).
+      notes.push(`G2 de ${frd}: no se pudo crear su copia de la rama de integración ${G2_SNAPSHOT_FAIL_MAX} veces seguidas, pero ya no queda ninguna unidad integrada que devolver; se deja de reintentar.`);
+      run.d.log(`next: G2 snapshot of ${frd} failed ${G2_SNAPSHOT_FAIL_MAX} times and the FRD has no integrated unit left to hand back`);
+      continue;
+    }
     const res = await (await sibling(run.d, "failure", "handbackCommand"))({ ...fenceOf(run), unit: work.id, reason: `G2 de ${frd}: no se pudo crear su copia de la rama de integración ${G2_SNAPSHOT_FAIL_MAX} veces seguidas`, cause: "env-infra" }, run.d);
     if (res?.notice_es) notes.push(res.notice_es);
   }
@@ -908,9 +958,18 @@ async function withZones(run, state, readWos, root) {
   });
 }
 
-/** First-minute questions (`build/preflight.json` `questions[]`, D19), by id: `{id, reversible, affects, default_es, default_action}`. */
+/**
+ * First-minute questions (D19), by id: `{id, reversible, affects, default_es, default_action}`. The source is the preflight
+ * THIS run started from (`run_started.data.preflight` in its journal); `build/preflight.json` belongs to the latest
+ * `--preflight` and is only the fallback for a journal without it (N5).
+ */
 async function readQuestions(run) {
-  const preflight = await readJson(run.paths.preflightFile, { fs: run.d.fs });
+  if (run.preflight === undefined) {
+    const started = (await readJournal(run.paths.journalFile, run.d)).events.find((ev) => ev.type === "run_started");
+    const journaled = started?.data?.preflight;
+    run.preflight = journaled && typeof journaled === "object" ? journaled : await readJson(run.paths.preflightFile, { fs: run.d.fs });
+  }
+  const preflight = run.preflight;
   const out = new Map();
   for (const q of preflight?.questions ?? []) if (q?.id) out.set(q.id, q);
   for (const check of preflight?.checks ?? []) if (check?.question?.id && !out.has(check.question.id)) out.set(check.question.id, check.question);
@@ -929,7 +988,9 @@ async function parkIrreversiblePending(run, state) {
     const events = [];
     const units = s.units.map((u) => {
       if (!ids.has(u.id) || u.state !== "queued" || u.parked) return u;
+      // `parked` carries the reason, `unit_state` the state: a rebuild-state replays both (N11b).
       events.push({ type: "parked", data: { unit: u.id, reason: "owner_question", question: u.pending_answer } });
+      events.push(unitEvent(u.id, u.state, "parked"));
       return { ...u, parked: "owner_question", state: "parked" };
     });
     return events.length ? { state: { ...s, units }, events } : {};
@@ -978,7 +1039,7 @@ export function batchState(state) {
   return { complete: ready.length > 0 && active.every(landReady), ready: ready.map((u) => u.id) };
 }
 
-async function landDecision(run, state, pol, deferredEntries) {
+async function landDecision(run, state, pol, deferredEntries, notes = []) {
   const jobs = state.jobs.filter((j) => j.kind === "land");
   if (jobs.some((j) => j.state === "running")) return { state, action: null, waitLand: false };
   const batch = batchState(state);
@@ -989,7 +1050,32 @@ async function landDecision(run, state, pol, deferredEntries) {
   }
   const audit = await ensureAudit(run, state, pol, deferredEntries);
   if (audit.queued) return { state: audit.state, action: null, waitLand: false };
+  const boot = await ensureIntegrationBootstrap(run, state, batch, notes);
+  if (!boot.ok) return { state: await fresh(run), action: null, waitLand: false, bootFailed: true };
   return { state, action: "land", waitLand: false };
+}
+
+/**
+ * The land job's G3 (`merge-queue.sh` -> `verify.sh`) runs in the integration worktree, so that checkout must be
+ * bootstrapped before a landing is returned (FIX-D-4). Same contract as a G2 snapshot (exit 75, B5): a failed bootstrap
+ * is an environment failure: no land job, no G3 verdict, no patch; the first ready unit of the batch (an FRD work unit
+ * when there is one) is handed back with cause `env-infra` (it and its dependents `blocked`, R4), which counts toward the
+ * ENV_INFRA_STOP streak. The bootstrap is re-run at the next landing attempt (a successful one is never repeated).
+ * Runs outside the lease mutex.
+ * @returns {Promise<{ok: boolean}>}
+ */
+async function ensureIntegrationBootstrap(run, state, batch, notes) {
+  const { d, ref } = run;
+  const boot = await bootstrapIntegrationWorktree({ project: ref.project, runId: state.run_id, root: integrationRoot(run, state) }, d);
+  if (boot.ok) return { ok: true };
+  const ready = batch.ready.map((id) => findUnit(state, id)).filter(Boolean);
+  const unit = ready.find((u) => FRD_WORK_KINDS.includes(u.kind)) ?? ready[0];
+  const why = `la copia de la rama de integración no se pudo preparar para aterrizar (worktree-bootstrap.sh salió con ${boot.exit ?? "?"})`;
+  if (!unit) throw err("ENGINE_FAILURE", `next: ${why} and the batch has no unit to hand back`);
+  const res = await (await sibling(d, "failure", "handbackCommand"))({ ...fenceOf(run), unit: unit.id, reason: why, cause: "env-infra" }, d);
+  notes.push(`No se aterriza: ${why}. Se devuelve ${unit.id} por fallo del entorno; se reintenta al aterrizar de nuevo.`);
+  if (res?.notice_es) notes.push(res.notice_es);
+  return { ok: false };
 }
 
 const auditUnitId = (state) => `u-audit-${state.run_id}`;
@@ -1517,6 +1603,8 @@ export async function applyTerminal(ref, terminal, deps = {}) {
   const token = await readLeaseToken(ref.project, ref.epoch, d);
   await bs.quiesce(ref.project, token, Number(ref.epoch), { projectStatus: false });
   await bs.finalizeRelease(ref.project, token, Number(ref.epoch));
+  // After the release (never under the mutex): the run's G2 snapshots go, except one a still-running G2 job judges (NB5).
+  await removeAllG2Snapshots({ project: ref.project, state }, d);
   if (stopped) {
     const runtime = state.coordinator === "codex-session" ? "codex" : "claude";
     await Promise.resolve()

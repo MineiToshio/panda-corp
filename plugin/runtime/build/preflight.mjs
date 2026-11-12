@@ -20,6 +20,7 @@ import { readSignals as realReadSignals } from "./admission.mjs";
 import {
   frontmatterList, parseYamlSubset, readCard, resolveDeps, splitFrontmatter,
 } from "./card.mjs";
+import { readDeferred } from "./deferred.mjs";
 import { detect as realDetect, provisionalSize, readWorkOrders } from "./detect.mjs";
 import { atomicWriteJson, readJson } from "./fsx.mjs";
 import { buildPaths } from "./paths.mjs";
@@ -551,7 +552,7 @@ export async function runPreflight(input, deps = {}) {
   const quotaChecksList = quota.checks ?? [mk("access", "access.quota_claude", "fail", "No pude leer el cupo."), mk("access", "access.quota_codex", "fail", "No pude leer el cupo.")];
   const zone = risk.zone ?? "r1";
   const gates = foreseenGates({ card, launched });
-  const deferredLedger = (await readJson(p.deferredReviewsFile, { fs: ctx.fs }).catch(() => null)) ?? [];
+  const deferredLedger = await readDeferred(project, { ...deps, fs: ctx.fs });
   const deferredPending = asArray(deferredLedger).filter((e) => e.status === "pending").length;
 
   const loginOk = codexLogin.ok === true;

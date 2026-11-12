@@ -6,6 +6,7 @@
 // applies it under the lease mutex (state, journal, doubt record, the owner's inbox line, a hand-back on a refused gate).
 import * as fsp from "node:fs/promises";
 import path from "node:path";
+import { releaseToken } from "./admission.mjs";
 import { isDoubtId, readDoubt } from "./doubts.mjs";
 import { atomicWriteJson, atomicWriteText, defaultExec, loadSchema, nowIso, readJson, validate, writeTarget } from "./fsx.mjs";
 import { readJournal } from "./journal.mjs";
@@ -156,24 +157,20 @@ const questionsOf = (preflight) => {
 };
 
 /**
- * The run's first-minute questions by id, from `build/preflight.json`, falling back to the preflight carried by the
- * journal's `run_started` (CLI 3.13: both keep the question set).
+ * The run's first-minute questions by id: the preflight carried by the journal's `run_started` first (it is THIS run's
+ * question set), `build/preflight.json` only when the journal has no `run_started` with a preflight (N5: the file belongs
+ * to the latest `--preflight`, which after a resume is not necessarily this run's).
  * @param {string} project
  * @param {object} [deps] fs, env, homedir
  * @returns {Promise<Map<string, {id: string, text_es: string, default_es: string, default_action: unknown, affects: object, reversible: boolean}>>}
+ * @throws JOURNAL_CHAIN / INVALID_STATE when the journal is corrupt
  */
 export async function readQuestions(project, deps = {}) {
   const paths = buildPaths(project, deps);
-  const fromFile = questionsOf(await readJson(paths.preflightFile, { fs: deps.fs ?? fsp }).catch(() => null));
-  if (fromFile.size) return fromFile;
-  try {
-    const { events } = await readJournal(paths.journalFile, deps);
-    const started = events.find((e) => e.type === "run_started");
-    return questionsOf(started?.data?.preflight);
-  } catch (error) {
-    if (error.code === "ENOENT") return new Map();
-    throw error;
-  }
+  const { events } = await readJournal(paths.journalFile, deps);
+  const started = events.find((e) => e.type === "run_started");
+  if (isPlainObject(started?.data?.preflight)) return questionsOf(started.data.preflight);
+  return questionsOf(await readJson(paths.preflightFile, { fs: deps.fs ?? fsp }).catch(() => null));
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -230,10 +227,25 @@ function planAsk({ state, question, value, q }) {
 }
 
 /**
- * A unit already executed on the assumption (it holds code on a unit branch), as opposed to one never dispatched. A
- * `parked` unit without a branch or worker was parked before dispatch (a dependent), so it holds no code.
+ * A unit already executed on the assumption `question` (it holds code built on it), judged by its STATE and doubt ids
+ * (N14), never by a branch or worker left over from an earlier dispatch. A unit past dispatch (running, reported,
+ * committed...) holds some. A `queued|admitted|parked` unit holds some only when its own doubt was raised AFTER the
+ * assumption (doubt ids are monotonic): it was dispatched on the assumption and raised a second doubt (B6), whether it is
+ * still parked on it or was released by its answer. The assumed root waiting to be rebuilt (`doubt_id` = the assumption)
+ * and a dependent parked or queued before dispatch hold none.
+ * @param {object} u unit @param {string} question the assumption's doubt id
+ * @returns {boolean}
  */
-const wasBuilt = (u) => u.branch !== null || u.worker !== null || ![...NOT_DISPATCHED, "parked"].includes(u.state);
+const wasBuilt = (u, question) => {
+  if (![...NOT_DISPATCHED, "parked"].includes(u.state)) return true;
+  return isDoubtId(u.doubt_id) && isDoubtId(question) && Number(u.doubt_id.slice(2)) > Number(question.slice(2));
+};
+
+/** States in which a unit holds an admission reservation and may have a live worker. */
+const LIVE_STATES = Object.freeze(["admitted", "running"]);
+
+/** Worker ids of a live unit: its own dispatch record and any running worker job of it. */
+const liveWorkers = (state, u) => [...new Set([u.worker?.worker_id, ...(state.jobs ?? []).filter((j) => j.unit === u.id && j.kind === "worker" && j.state === "running").map((j) => j.worker_id)].filter(Boolean))];
 
 /**
  * The owner rejected an assumption (DEC-7): units built on it are re-queued at attempt+1 with a fresh branch (the
@@ -241,16 +253,21 @@ const wasBuilt = (u) => u.branch !== null || u.worker !== null || ![...NOT_DISPA
  * reused); a unit already at attempt 3 is handed back (`answer_rework_budget`, effect `handed_back`). A unit never
  * dispatched only loses its assumption flags and stays at its attempt. Effect `assumption_discarded` otherwise. A
  * target parked meanwhile on another question (its assumption kept in `assumed_on`, B6) is re-queued too: the code that
- * raised that question is the rejected code.
- * @returns {{state: object, events: object[], units: {unit: string, effect: string}[], handbacks: {unitId: string, reason: string, reasonCode: string}[]}}
+ * raised that question is the rejected code. A target that is `admitted|running` loses its admission reservation
+ * (`release`) and its live workers are listed in `stop` for the caller to stop after the fenced phase (N14).
+ * @returns {{state: object, events: object[], units: {unit: string, effect: string}[], handbacks: {unitId: string, reason: string, reasonCode: string}[],
+ *   release: string[], stop: string[]}}
  */
 function discardAssumption(state, targets, question) {
   const changed = new Map();
   const events = [];
   const units = [];
   const handbacks = [];
+  const release = [];
+  const stop = [];
   for (const u of targets) {
-    const built = wasBuilt(u);
+    if (LIVE_STATES.includes(u.state)) { release.push(u.id); stop.push(...liveWorkers(state, u)); }
+    const built = wasBuilt(u, question);
     if (built && u.attempt >= MAX_EXECUTIONS) {
       changed.set(u.id, { ...withoutAssumedOn(u), parked: null, pending_answer: null });
       events.push({ type: "parked", data: { unit: u.id, reason: null, question: null } });
@@ -267,7 +284,7 @@ function discardAssumption(state, targets, question) {
     events.push({ type: "unit_queued", data: requeued });
     units.push({ unit: u.id, effect: "assumption_discarded" });
   }
-  return { state: replace(state, changed), events, units, handbacks };
+  return { state: replace(state, changed), events, units, handbacks, release, stop };
 }
 
 function planParked({ state, question, value, record }) {
@@ -288,11 +305,11 @@ function planParked({ state, question, value, record }) {
       events.push({ type: "parked", data: { unit: u.id, reason: next.parked, question: next.pending_answer } });
       units.push({ unit: u.id, effect: "assumption_accepted" });
     }
-    const plan = accepted ? { state: replace(state, changed), events, units, handbacks: [] } : discardAssumption(state, discarded, question);
+    const plan = accepted ? { state: replace(state, changed), events, units, handbacks: [], release: [], stop: [] } : discardAssumption(state, discarded, question);
     // A unit parked owner_question on this doubt (an assumed root that could not nest a second assumption) is released.
     const released = releaseParked(plan.state, question);
     return {
-      state: released.state, events: [...plan.events, ...released.events], handbacks: plan.handbacks,
+      state: released.state, events: [...plan.events, ...released.events], handbacks: plan.handbacks, release: plan.release, stop: plan.stop,
       units: [...plan.units, ...released.units.map((unit) => ({ unit, effect: "released" }))], record: decided, assumption,
     };
   }
@@ -527,7 +544,7 @@ async function markInboxAnswered(project, integrationRoot, { id, value, date }, 
   let add = await exec("git", ["add", "-u", "--", rel], { cwd: integrationRoot });
   if (add.code !== 0) add = await exec("git", ["add", "-f", "--", rel], { cwd: integrationRoot });
   if (add.code !== 0) throw err("FAILCLOSED", `git add failed in the integration worktree: ${String(add.stderr).trim().slice(0, 200)}`);
-  const commit = await exec("git", ["commit", "-q", "-m", `chore(build): owner answered ${id}\n\nDoubt: ${id}\n`, "--", rel], { cwd: integrationRoot });
+  const commit = await exec("git", ["-c", "commit.gpgsign=false", "commit", "-q", "--no-verify", "-m", `chore(build): owner answered ${id}\n\nDoubt: ${id}\n`, "--", rel], { cwd: integrationRoot });
   if (commit.code !== 0) throw err("FAILCLOSED", `git commit failed in the integration worktree: ${String(commit.stderr || commit.stdout).trim().slice(0, 200)}`);
   const head = await exec("git", ["rev-parse", "HEAD"], { cwd: integrationRoot });
   return { rel, commit: head.stdout.trim() };
@@ -560,7 +577,7 @@ async function isAncestor(root, branch, target, deps) {
  *   the raw JSON text of `--value` (pass `parsed: true` to hand an already parsed value)
  * @param {object} [deps] fs, env, homedir, clock, exec, buildState, emit (passed on to `failure.handBack`)
  * @returns {Promise<{ok: true, cmd: "answer", question: string, kind: "ask"|"parked"|"gate", applied: boolean,
- *   units: {unit: string, effect: string}[], reason: string|null, blocked?: string[], assumption?: object, warnings?: string[]}>}
+ *   units: {unit: string, effect: string}[], reason: string|null, blocked?: string[], assumption?: object, stopped_workers?: string[], warnings?: string[]}>}
  * @throws USAGE (exit 2: missing epoch/question/value, invalid JSON), FENCE (exit 3), INVALID_INPUT (exit 6: unknown
  *   id, value that does not fit, production gate), INVALID_STATE (exit 5: no run state)
  */
@@ -569,7 +586,7 @@ export async function answerCommand({ project, epoch, question, value: raw, pars
   if (typeof question !== "string" || !question.trim()) throw err("USAGE", "--question is required");
   const value = parseAnswerValue(raw, { parsed });
   const kind = classifyQuestion(question);
-  return fencedTwoPhase({ project, epoch, actor: deps.actor ?? "cli", deps }, undefined, undefined, async (_r, _i, ctx) => {
+  const result = await fencedTwoPhase({ project, epoch, actor: deps.actor ?? "cli", deps }, undefined, undefined, async (_r, _i, ctx) => {
     const state = await ctx.readState();
     if (!state) throw err("INVALID_STATE", "no run state: start the run first");
     const questions = kind === "ask" ? await readQuestions(project, deps) : new Map();
@@ -589,6 +606,9 @@ export async function answerCommand({ project, epoch, question, value: raw, pars
     await ctx.writeState(plan.state);
     await ctx.appendEvent({ type: "answer_recorded", data: { question, kind: plan.kind, value, units: plan.units } });
     for (const event of plan.events) await ctx.appendEvent(event);
+    for (const unitId of plan.release ?? []) {
+      try { releaseToken(unitId, { file: ctx.paths.admissionFile }); } catch (error) { warnings.push(`admission token of ${unitId} not released: ${String(error.message).slice(0, 120)}`); }
+    }
 
     const blocked = [];
     if (plan.handbacks.length) {
@@ -611,7 +631,19 @@ export async function answerCommand({ project, epoch, question, value: raw, pars
       ...out,
       ...(blocked.length ? { blocked } : {}),
       ...(plan.assumption ? { assumption: plan.assumption } : {}),
+      ...(plan.stop?.length ? { stopped_workers: plan.stop } : {}),
       ...(warnings.length ? { warnings } : {}),
     };
   });
+  // N14: the live workers of units re-queued or handed back off a rejected assumption are stopped AFTER the fenced phase
+  // (signalling processes never runs under the lease mutex), as resume does for an orphan worker.
+  if (result.stopped_workers?.length) {
+    try {
+      const { stopWorkers } = await import("./workers.mjs");
+      stopWorkers(project, result.stopped_workers, deps);
+    } catch (error) {
+      return { ...result, warnings: [...(result.warnings ?? []), `workers not stopped (${result.stopped_workers.join(", ")}): ${String(error.message).slice(0, 160)}`] };
+    }
+  }
+  return result;
 }

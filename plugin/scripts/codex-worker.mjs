@@ -29,7 +29,7 @@
 // The relay writes the task to <project>/.pandacorp/run/codex-workers/<id>/prompt.md with its Write tool; --sum is
 // the engine's FNV-1a of that text, so a truncated or altered copy is refused (status:error, kind:prompt-mismatch).
 import { spawn, execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, openSync, closeSync } from "node:fs";
+import { chmodSync, appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, openSync, closeSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -147,11 +147,22 @@ function promptFromTranscript(id, sum) {
 
 /** Starts `codex exec` detached with its stdout/stderr in codex.log; the shell wrapper records the exit code because the
  *  next `run` may be a different process than the one that spawned Codex. */
+function writePrivate(file, data) {
+  writeFileSync(file, data, { mode: 0o600 });
+  chmodSync(file, 0o600);
+}
+
+function childEnv() {
+  const env = { ...process.env };
+  delete env.PANDACORP_OWNER_RELEASE_OK;
+  return env;
+}
+
 function launch(dir, cwd, args) {
   const q = (s) => `'${String(s).replaceAll("'", `'"'"'`)}'`;
   const script = `${[CODEX_BIN, ...args].map(q).join(" ")} < ${q(path.join(dir, "full-prompt.md"))}; echo $? > ${q(path.join(dir, "exit"))}`;
   const out = openSync(path.join(dir, "codex.log"), "a");
-  const child = spawn("/bin/sh", ["-c", script], { cwd, detached: true, stdio: ["ignore", out, out] });
+  const child = spawn("/bin/sh", ["-c", script], { cwd, detached: true, stdio: ["ignore", out, out], env: childEnv() });
   closeSync(out);
   child.unref();
   return child;
@@ -162,7 +173,8 @@ function start(dir, id) {
   let recovered = null;
   try { recovered = promptFromTranscript(id, opt("sum")); }
   catch (e) { process.stderr.write(`codex-worker: transcript not usable, falling back to the relay's copy (${e.message})\n`); }
-  if (recovered !== null) writeFileSync(promptFile, recovered);
+  if (recovered !== null) writePrivate(promptFile, recovered);
+  else if (existsSync(promptFile)) chmodSync(promptFile, 0o600);
   const mismatch = (why) => { process.stdout.write(`CODEX-PROMPT-MISMATCH ${why}: rewrite prompt.md exactly, then run the same command again\n`); process.exit(0); };
   if (!existsSync(promptFile)) mismatch(`missing ${promptFile}`);
   const task = readFileSync(promptFile, "utf8").trimEnd();
@@ -176,7 +188,7 @@ function start(dir, id) {
     `# Task\n\n${task}`,
     flag("json-answer") && "# Final answer\n\nYour FINAL message must be exactly ONE JSON object (no prose before or after it, no code fence) that validates against the JSON Schema given in the task.",
   ].filter(Boolean).join("\n\n");
-  writeFileSync(path.join(dir, "full-prompt.md"), full);
+  writePrivate(path.join(dir, "full-prompt.md"), full);
   const tier = codexTier(opt("model"), opt("effort"));
   // --access sandbox (default): Codex's workspace-write sandbox with network. It keeps every `.git` read-only even
   // under --add-dir (verified 2026-10-29: `git commit` fails on index.lock), so a sandboxed worker can edit and test
@@ -213,8 +225,8 @@ function startDirect(dir, id) {
   if (!existsSync(cwd)) fail("bad-dir", `work dir does not exist: ${cwd}`);
   const effort = opt("effort") === "minimal" ? "low" : DIRECT_EFFORTS.has(opt("effort")) ? opt("effort") : "medium";
   const task = readFileSync(promptSrc, "utf8");
-  writeFileSync(path.join(dir, "prompt.md"), task);
-  writeFileSync(path.join(dir, "full-prompt.md"), task);
+  writePrivate(path.join(dir, "prompt.md"), task);
+  writePrivate(path.join(dir, "full-prompt.md"), task);
   const access = opt("access") === "full"
     ? ["-s", "danger-full-access"]
     : ["-s", "workspace-write", "-c", "sandbox_workspace_write.network_access=true"];
@@ -225,7 +237,7 @@ function startDirect(dir, id) {
   const wd = Object.fromEntries(Object.keys(WATCHDOG_DEFAULTS_S).map((k) => [k, watchdogS(k)]));
   writeFileSync(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, model: slug, effort, access: opt("access") || "sandbox", direct: true, json: Boolean(schema) || flag("json-answer"), role: opt("role"), startedAt: new Date().toISOString() }));
   const watcherArgs = ["watch", "--project", project, "--id", id, ...Object.entries(wd).flatMap(([k, v]) => [`--${k}`, String(v)])];
-  spawn(process.execPath, [fileURLToPath(import.meta.url), ...watcherArgs], { detached: true, stdio: "ignore", env: process.env }).unref();
+  spawn(process.execPath, [fileURLToPath(import.meta.url), ...watcherArgs], { detached: true, stdio: "ignore", env: childEnv() }).unref();
   telemetry("worker_started", { id, role: opt("role"), model: slug, effort, access: opt("access") || "sandbox", direct: true });
 }
 

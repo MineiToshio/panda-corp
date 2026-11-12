@@ -23,7 +23,8 @@ const SESSION_EFFORT_FOR_REVIEW = "high";
 const EFFORT_CAP = "xhigh";
 const N7_EFFORT = "author_next_capped";
 // Strength order used only to pick the strictest reviewer for a mixed-author diff (BUILD-10 "strictest applicable row").
-const MODEL_STRENGTH = { haiku: 1, luna: 1, sonnet: 2, sol: 2, terra: 2, opus: 3, astra: 3, fable: 4 };
+/** Single source of truth for model strength; drive (and any other consumer) derives from this table. Fable is ranked but never selected automatically (CONV-12). */
+export const MODEL_STRENGTH = Object.freeze({ haiku: 1, luna: 1, sonnet: 2, sol: 2, terra: 2, opus: 3, astra: 3, fable: 4 });
 
 /** Error thrown on invalid routing input or on data that would break an invariant (code ROUTING). */
 export class RoutingError extends Error {
