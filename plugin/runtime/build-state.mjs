@@ -149,7 +149,9 @@ export async function finalizeRelease(project, token, epoch) { const p = await a
 // quiesce -> commit the running:false projection -> finalizeRelease, so no writer-free commit window
 // exists. This wrapper remains fenced but does not provide that stronger commit guarantee.
 export async function release(project, token, epoch) { await quiesce(project, token, epoch); return finalizeRelease(project, token, epoch); }
-export async function reclaim(project, { runtime, runId, ttlSeconds = 3600 }) {
+// `coordinator`, `projectStatus` and `tokenFile` are the v2 acquire options (A5, D4): a v2 caller passes
+// `projectStatus:false` so the reclaim never writes the tracked status.yaml, and the new holder gets its 0600 token file.
+export async function reclaim(project, { runtime, runId, ttlSeconds = 3600, coordinator, projectStatus, tokenFile }) {
   const p = await assertSafeLayout(project);
   return withMutex(p.mutex, async () => {
     const old = await currentLease(project); if (!old) throw Object.assign(new Error("no lease to reclaim"), { code: "FENCE" });
@@ -159,7 +161,7 @@ export async function reclaim(project, { runtime, runId, ttlSeconds = 3600 }) {
     if (!isReclaimable(old)) throw Object.assign(new Error("lease is stale but within its BL-0153 reclaim grace window — not yet reclaimable"), { code: "CONTENDED" });
     const tomb = `${p.leaseDir}.stale-${old.epoch}-${process.pid}`; await rename(p.leaseDir, tomb); await rm(tomb, { recursive: true, force: true });
     stopCodexWorkers(project);   // DR-142: a dead run's Codex workers must not keep writing under the new owner
-    return acquireUnlocked(project, { runtime, runId, ttlSeconds });
+    return acquireUnlocked(project, { runtime, runId, ttlSeconds, ...(coordinator !== undefined ? { coordinator } : {}), ...(projectStatus !== undefined ? { projectStatus } : {}), ...(tokenFile !== undefined ? { tokenFile } : {}) });
   });
 }
 const runIdOf = async (p) => (await parseJson(p.buildState).catch(() => null))?.run_id;

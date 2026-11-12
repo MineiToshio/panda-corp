@@ -254,7 +254,7 @@ const HANDLERS = {
   },
   next: (c) => fenced(c, async () => ({ body: await next({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), wait: int(c.flags, "wait", { max: 300 }) ?? 0, actor: "cli" }, c.deps) })),
   async report(c) {
-    const r = await fenced(c, () => ingestReport({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), unit: need(c.flags, "unit"), token: need(c.flags, "token"), file: abs(need(c.flags, "file")), actor: "cli" }, c.deps));
+    const r = await fenced(c, () => ingestReport({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), unit: need(c.flags, "unit"), token: need(c.flags, "token"), file: abs(need(c.flags, "file")), actor: "cli", openDoubt: true }, c.deps));
     return { body: r, exit: r.outcome === "rejected" ? 6 : r.outcome === "waiting_gate" ? 7 : 0 };
   },
   "review-record": (c) => fenced(c, async () => ({ body: await reviewRecord({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), unit: need(c.flags, "unit"), token: need(c.flags, "token"), file: abs(need(c.flags, "file")) }, c.deps) })),

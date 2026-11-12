@@ -39,7 +39,7 @@ try {
   else if (command === "quiesce") output(await quiesce(project, token, epoch));
   else if (command === "finalize-release") output(await finalizeRelease(project, token, epoch));
   else if (command === "reclaim") output(await reclaim(project, { runtime: opt("runtime"), runId: opt("run-id"), ttlSeconds: Number(opt("ttl", 3600)) }));
-  else if (command === "transfer") output(await transfer(project, { token, epoch, toRuntime: opt("to-runtime"), coordinator: opt("coordinator") }));
+  else if (command === "transfer") { const { epoch: nextEpoch } = await transfer(project, { token, epoch, toRuntime: opt("to-runtime"), coordinator: opt("coordinator") }); output({ epoch: nextEpoch }); }
   else if (command === "force-release") output(await forceRelease(project, { ownerConfirmed: args.includes("--owner-confirmed") }));
   else if (command === "validate") output(await assertFence(project, token, epoch));
   else if (command === "status") { const lease = await currentLease(project); output({ lease, fresh: isFresh(lease) }); }

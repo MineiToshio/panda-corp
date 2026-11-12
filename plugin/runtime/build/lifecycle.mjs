@@ -312,7 +312,7 @@ async function takeLease({ project, p, state, coordinator, ownerConfirmed }, d) 
   try { token = await readLeaseToken(project, lease.epoch, d); } catch { token = null; }
   if (token) return bs.transfer(project, { token, toRuntime: coordinator, coordinator: "session", epoch: lease.epoch });
   if (!fresh && bs.isReclaimable(lease, clockMs(d))) {
-    const got = await bs.reclaim(project, { runtime: coordinator, runId: state.run_id, ttlSeconds: LEASE_TTL_S });
+    const got = await bs.reclaim(project, { runtime: coordinator, runId: state.run_id, ttlSeconds: LEASE_TTL_S, coordinator: "session", projectStatus: false });
     return { epoch: got.epoch, token: got.token };
   }
   throw err("CONTENDED", "the lease is held by a live run whose token this checkout cannot read");
@@ -372,6 +372,10 @@ export async function startResume(input, deps = {}) {
   }
   if (!RESUMABLE_STATUSES.includes(state.status)) throw err("INVALID_STATE", `nothing to resume: the run is ${state.status}`);
   const prior = state.status;
+  // Same guard as `start --run`: a launched project never resumes unguarded. It runs before any lease mutation so a
+  // refusal leaves the run exactly as it was and the same `start --resume` can simply be retried.
+  const launched = (await detect({ project, args: "", sessionRuntime: coordinator }, d)).signals.launched === true;
+  await ensurePrePush(project, launched);
   await reclaimDeadLeaseMutex(p, isAlive);
   const got = await takeLease({ project, p, state, coordinator, ownerConfirmed }, d);
 
@@ -411,9 +415,7 @@ export async function startResume(input, deps = {}) {
     await ctx.writeState({ ...state, units, jobs, coordinator: COORDINATORS[coordinator], status: "active", status_reason: null });
     return { reattached, requeued };
   });
-  await createIntegrationWorktree({ project, runId: state.run_id }, d).catch(() => {});
-  const launched = (await detect({ project, args: "", sessionRuntime: coordinator }, d)).signals.launched === true;
-  await ensurePrePush(project, launched).catch(() => {});
+  await createIntegrationWorktree({ project, runId: state.run_id }, d);
   const drive = await armDrive({ project, runId: state.run_id, launched, appendEvent: (ev) => journal(p, state.run_id, got.epoch, ev.type, ev.data, d) }, d.driveDeps);
   return { run_id: state.run_id, epoch: got.epoch, ...result, drive };
 }
@@ -481,17 +483,20 @@ export async function finishRun({ project, epoch = null, actor = "cli" }, deps =
   };
   if (lease) {
     const token = await readLeaseToken(project, epoch, d);
-    const mode = await fencedTwoPhase({ project, epoch: Number(epoch), actor, deps: d }, undefined, undefined, async (_r, _i, ctx) => {
-      const s = await ctx.readState();
-      if (!s || s.run_id !== ctx.runId) throw err("FENCE", "state does not belong to the lease run");
-      const m = decide(s);
-      if (m !== "already") await closeRun(ctx, s, waiting, d);
-      return m;
-    });
-    if (mode !== "already") {
+    // A quiesced lease means a previous finish already closed the state and died before finalizeRelease: the retry
+    // must still release (the contract: finish releases the lease), but fencedTwoPhase refuses a quiesced lease.
+    if (lease.quiesced_at) waiting = state0.status === "waiting_gate";
+    else {
+      await fencedTwoPhase({ project, epoch: Number(epoch), actor, deps: d }, undefined, undefined, async (_r, _i, ctx) => {
+        const s = await ctx.readState();
+        if (!s || s.run_id !== ctx.runId) throw err("FENCE", "state does not belong to the lease run");
+        const m = decide(s);
+        if (m !== "already") await closeRun(ctx, s, waiting, d);
+        return m;
+      });
       await bs.quiesce(project, token, Number(epoch), { projectStatus: false });
-      await bs.finalizeRelease(project, token, Number(epoch));
     }
+    await bs.finalizeRelease(project, token, Number(epoch));
   } else {
     if (Number(epoch) !== state0.epoch) throw err("FENCE", "finish: --epoch does not match the run's last epoch");
     const mode = decide(state0);

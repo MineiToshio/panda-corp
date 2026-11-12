@@ -201,6 +201,7 @@ const REASON_ES = Object.freeze({
   owner_refused_gate: "el owner rechazó la puerta humana", manual: "devuelta a mano por la sesión",
   worker_blocked: "el trabajador se declaró bloqueado y no puede seguir sin ti", worker_failed: "el trabajador falló sin informe válido en sus intentos",
   answer_rework_budget: "tu respuesta pedía rehacer una unidad que ya agotó sus 3 ejecuciones",
+  review_blocked: "la revisión independiente bloqueó la unidad (toca algo fuera del alcance o no puede aprobarse)",
 });
 const causeEs = (cause) => CAUSE_ES[cause] ?? String(cause);
 const reasonEs = (code) => REASON_ES[code] ?? String(code);
@@ -337,11 +338,21 @@ async function commitIntegration(root, files, message, deps) {
   return head.stdout.trim();
 }
 
+/** Prefix of `root` inside its git repository ("" at the top, else `dir/`): porcelain output is repository-top relative. */
+async function repoPrefix(root, deps) {
+  const res = await (deps.exec ?? defaultExec)("git", ["rev-parse", "--show-prefix"], { cwd: root });
+  if (res.code !== 0) throw err("FAILCLOSED", `git rev-parse --show-prefix failed in the integration worktree: ${oneLine(res.stderr, 200)}`);
+  const prefix = res.stdout.trim().replace(/\\/g, "/").replace(/\/+$/, "");
+  return prefix ? `${prefix}/` : "";
+}
+
+/** Tracked files the hand-back touched, relative to `root` (the product root, which is below the repository top for a nested project). */
 async function changedTrackedFiles(root, deps) {
   const exec = deps.exec ?? defaultExec;
+  const prefix = await repoPrefix(root, deps);
   const res = await exec("git", ["status", "--porcelain=v1", "-z", "--", "docs/frds", ".pandacorp/status.yaml", ".pandacorp/inbox/decisions.md"], { cwd: root });
   if (res.code !== 0) throw err("FAILCLOSED", `git status failed in the integration worktree: ${oneLine(res.stderr, 200)}`);
-  return res.stdout.split("\0").filter((entry) => entry.length > 3).map((entry) => entry.slice(3));
+  return res.stdout.split("\0").filter((entry) => entry.length > 3).map((entry) => entry.slice(3)).filter((file) => file.startsWith(prefix)).map((file) => file.slice(prefix.length));
 }
 
 /**
@@ -506,13 +517,87 @@ export async function failUnit(input, deps = {}) {
   if (!unit) throw err("USAGE", "fail needs a unit");
   if (!Number.isInteger(Number(attempt)) || attempt === null || attempt === undefined || attempt === "") throw err("USAGE", "fail needs the attempt of the failed execution");
   if (!String(detail ?? "").trim()) throw err("USAGE", "fail needs a detail");
-  return fencedTwoPhase({ project, epoch, deps }, undefined, undefined, async (_result, _intent, ctx) => {
+  const diagnosis = { cause: cause ?? "code", detail };
+  const out = await fencedTwoPhase({ project, epoch, deps }, undefined, undefined, async (_result, _intent, ctx) => {
     const res = await applyUnitFailure(ctx, {
-      unitId: unit, attempt: Number(attempt), source: "worker_failed", diagnosis: { cause: cause ?? "code", detail },
+      unitId: unit, attempt: Number(attempt), source: "worker_failed", diagnosis,
       evidence: { tests: [], command: command ?? null, files: [] }, reasons: [detail], failure: { command, tail },
     }, deps);
     return { ok: true, cmd: "fail", unit, applied: res.applied, reason: res.reason, action: res.action, next_attempt: res.next_attempt, ...(res.handback ? { handback: res.handback } : {}) };
   });
+  // A doubt/dispute decision leaves the unit `reported` with no doubt record: open it now (B2), outside the mutex section.
+  if (out.applied && (out.action === "doubt" || out.action === "dispute")) {
+    const opened = await openUnitDoubt({ project, epoch, unit, diagnosis, actor: deps.actor }, deps);
+    return opened.opened ? { ...out, doubt_opened: opened } : { ...out, action: "handback", next_attempt: null, handback: opened.handback };
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Opening the doubt of a `reported` unit (a Codex worker has no shell to run `doubt open` itself: B2)
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Synthesize the doubt object (`report.schema.json#/properties/doubt`) of a worker diagnosis that the policy turned into a
+ * `doubt` (spec-ambiguous) or a `dispute` (test-defective) action. Two neutral, reversible options; the worker's detail is the evidence.
+ * @param {{cause: string, detail?: string}|null} diagnosis
+ * @returns {{question: string, options: {id: string, text: string}[], preferred: string, why: string}|null} null when the diagnosis has no detail to build from
+ */
+export function doubtFromDiagnosis(diagnosis) {
+  const detail = oneLine(diagnosis?.detail ?? "", 1500);
+  if (!detail) return null;
+  if (diagnosis.cause === "test-defective") {
+    return {
+      question: `El trabajador discute una prueba de la unidad: ${detail}. ¿Se corrige la prueba o se mantiene y se rehace el código?`,
+      options: [{ id: "fix-test", text: "Corregir la prueba discutida y mantener el código" }, { id: "keep-test", text: "Mantener la prueba y rehacer el código" }],
+      preferred: "fix-test", why: "la prueba discutida se corrige sin tocar el código ya hecho",
+    };
+  }
+  return {
+    question: `El trabajador no puede seguir porque la especificación es ambigua: ${detail}. ¿Qué lectura se toma?`,
+    options: [{ id: "conservative", text: "Tomar la lectura más conservadora y reversible y seguir" }, { id: "ask-owner", text: "Parar y pedir al owner que aclare la especificación" }],
+    preferred: "conservative", why: "la lectura conservadora es reversible y no bloquea al resto de la obra",
+  };
+}
+
+/**
+ * Turn a `reported` unit's doubt into an OPENED doubt through `doubts.openDoubt` (fenced; call it OUTSIDE any mutex section).
+ * Writes the doubt object to `units/<unit>/doubt.json`, then opens it: under drive or the Codex app the sources step is skipped
+ * and the first consult unit is queued; a vetoed doubt parks at once. If the doubt cannot be built or the ladder refuses it
+ * (`INVALID_INPUT` / `INVALID_STATE`), the unit is HANDED BACK instead of being left `reported` for good (reason `worker_blocked`).
+ * Idempotent: a unit whose doubt is already open returns it with `applied: false`.
+ * @param {{project: string, epoch: number, unit: string, doubt?: object|null, diagnosis?: object|null, actor?: string}} input
+ *   `doubt` is the worker's doubt object; when absent it is built from `diagnosis` ({@link doubtFromDiagnosis})
+ * @param {object} [deps] as `doubts.openDoubt`, plus `doubts` (module override)
+ * @returns {Promise<{opened: true, applied: boolean, doubt_id: string, step: string, consult?: object, parked?: object, notice_es?: string, warnings?: string[]}
+ *   | {opened: false, handback: {path: string, blocked: string[], stop_run: boolean, notice_es: string, reason_code: string}}>}
+ */
+export async function openUnitDoubt(input, deps = {}) {
+  const { project, epoch, unit, diagnosis = null } = input;
+  const doubt = input.doubt ?? doubtFromDiagnosis(diagnosis);
+  const refused = async (why) => {
+    const res = await fencedTwoPhase({ project, epoch, deps }, undefined, undefined, async (_result, _intent, ctx) => {
+      const back = await handBack(ctx, { unitId: unit, cause: diagnosis?.cause ?? "owner", reasonCode: "worker_blocked", reason: `la duda de ${unit} no se pudo abrir: ${why}`, diagnosis }, deps);
+      return { path: back.path, blocked: back.blocked.map((b) => b.unit), stop_run: back.stop_run, notice_es: back.notice_es, reason_code: "worker_blocked" };
+    });
+    return { opened: false, handback: res };
+  };
+  if (!doubt) return refused("el trabajador no aportó una duda ni un diagnóstico con detalle");
+  const fs = deps.fs ?? fsp;
+  const file = buildPaths(project, deps).unitDoubtFile(unit);
+  await atomicWriteJson(file, doubt, { fs });
+  const doubts = deps.doubts ?? await import("./doubts.mjs");
+  try {
+    const res = await doubts.openDoubt({ project, epoch, unit, file }, { ...deps, actor: input.actor ?? deps.actor });
+    return {
+      opened: true, applied: res.applied !== false, doubt_id: res.doubt_id, step: res.step,
+      ...(res.consult ? { consult: res.consult } : {}), ...(res.parked ? { parked: res.parked } : {}),
+      ...(res.notice_es ? { notice_es: res.notice_es } : {}), ...(res.warnings ? { warnings: res.warnings } : {}),
+    };
+  } catch (error) {
+    if (error.code !== "INVALID_INPUT" && error.code !== "INVALID_STATE") throw error;
+    return refused(oneLine(error.message, 200));
+  }
 }
 
 async function emitSafely(deps, name, data) {

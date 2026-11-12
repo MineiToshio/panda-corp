@@ -1,6 +1,10 @@
 // Parking of v2 build units (BUILD-12, D19, D20): a unit nobody can decide for parks together with every unit that
 // depends on it while everything independent continues; the root-block rule builds a reversible root on an
 // assumption branch `lane/<run_id>/assume-<doubt>` that is never landed until the owner answers.
+// Assumption markers stack (review R1 B6, DEC-7): a unit built on the assumption of doubt A that parks on another question Q
+// keeps A in `assumed_on` while `parked`/`pending_answer` describe Q, and gets A back when Q is answered; `assumptionOf` is
+// the one reader of the marker. An assumed unit never becomes the root of a second assumption (it parks instead), so a
+// unit's code depends on at most one unaccepted assumption and an accepted assume branch never carries another one's code.
 // Pure state transforms return `{state, events}`; the caller applies them inside its fenced phase (state first, then
 // the journal events in order). Only `createAssumeBranch` touches git.
 import { defaultExec } from "./fsx.mjs";
@@ -68,7 +72,9 @@ export function rootBlock(state, unitId) {
 
 /**
  * The root rule: a doubt nobody could decide parks its unit, unless the unit is a root block and the preferred option
- * is reversible; then the work is built on that option on an assumption branch.
+ * is reversible; then the work is built on that option on an assumption branch. A unit already built on another
+ * unaccepted assumption always parks (assumptions never nest: an accepted assume branch must not carry the code of a
+ * pending or rejected one).
  * @param {{units: object[]}} state
  * @param {string} unitId the doubted unit
  * @param {{reversible: boolean}} opts `reversible` = no deterministic veto and no consult said the preferred option is irreversible
@@ -76,7 +82,38 @@ export function rootBlock(state, unitId) {
  */
 export function parkOrAssume(state, unitId, { reversible }) {
   const block = rootBlock(state, unitId);
-  return { mode: reversible === true && block.isRoot ? "assume" : "park", block };
+  const nested = assumptionOf(findUnit(state, unitId)) !== null;
+  return { mode: reversible === true && block.isRoot && !nested ? "assume" : "park", block };
+}
+
+/**
+ * The unaccepted assumption (doubt id) a unit's code is built on, or `null`. While the unit is parked on another question
+ * the id lives in `assumed_on`; otherwise `parked: built_on_assumption` + `pending_answer` carry it.
+ * @param {object|null|undefined} unit state unit
+ * @returns {string|null}
+ */
+export const assumptionOf = (unit) => unit?.assumed_on ?? (unit?.parked === "built_on_assumption" ? unit.pending_answer ?? null : null);
+
+/** The unit without its `assumed_on` key (the key is absent, never null, when the unit carries no stacked assumption). */
+export const withoutAssumedOn = ({ assumed_on: _assumedOn, ...rest }) => rest;
+
+/**
+ * Release one unit parked on an owner question (pure): back to `queued`. A unit that carries an assumption gets its
+ * marker back (`parked: built_on_assumption`, `pending_answer` = that doubt), so it stays off the integration branch.
+ * The `parked` event replays the result (A14 fold; `assumed_on` absent = cleared).
+ * @param {object} unit a `parked` state unit
+ * @returns {{unit: object, events: {type: string, data: object}[]}}
+ */
+export function releasedUnit(unit) {
+  const carried = unit.assumed_on ?? null;
+  const next = { ...withoutAssumedOn(unit), state: "queued", parked: carried ? "built_on_assumption" : null, pending_answer: carried, token_hash: null };
+  return {
+    unit: next,
+    events: [
+      { type: "unit_state", data: { unit: unit.id, from: unit.state, to: "queued" } },
+      { type: "parked", data: { unit: unit.id, reason: next.parked, question: next.pending_answer } },
+    ],
+  };
 }
 
 const replaceUnits = (state, changed) => ({ ...state, units: state.units.map((u) => changed.get(u.id) ?? u) });
@@ -101,10 +138,13 @@ export function parkUnits(state, unitId, { reason, question, dependents = true }
   const skipped = [];
   const events = [];
   const park = (u, role) => {
-    changed.set(u.id, { ...u, state: "parked", parked: reason, pending_answer: question, token_hash: null });
+    // B6: the assumption the unit is built on survives the park (it is NOT the question it now waits for).
+    const carried = assumptionOf(u);
+    const kept = carried && carried !== question ? { assumed_on: carried } : {};
+    changed.set(u.id, { ...withoutAssumedOn(u), state: "parked", parked: reason, pending_answer: question, token_hash: null, ...kept });
     parked.push({ unit: u.id, from: u.state, role });
     events.push({ type: "unit_state", data: { unit: u.id, from: u.state, to: "parked" } });
-    events.push({ type: "parked", data: { unit: u.id, reason, question } });
+    events.push({ type: "parked", data: { unit: u.id, reason, question, ...kept } });
   };
   park(unit, "self");
   for (const id of dependents ? dependentsOf(state, unitId) : []) {
@@ -118,35 +158,48 @@ export function parkUnits(state, unitId, { reason, question, dependents = true }
 /**
  * Mark a root block as built on assumption (pure): the doubted unit goes back to `queued` (its brief carries the
  * assumed option) and it and its non-terminal dependents carry `parked: built_on_assumption` with the doubt id as
- * `pending_answer`, so they stay dispatchable but never land until the owner answers.
+ * `pending_answer`, so they stay dispatchable but never land until the owner answers. Assumptions never nest (B6): a
+ * root that already carries another assumption is parked `owner_question` on this doubt instead (`mode: "park"`, its own
+ * assumption kept), and a dependent that carries another assumption is left as it is (listed in `skipped`).
  * @param {object} state run state (not mutated)
  * @param {string} unitId the doubted unit
  * @param {{question: string}} opts the doubt id
- * @returns {{state: object, units: string[], events: {type: string, data: object}[]}}
+ * @returns {{state: object, units: string[], events: {type: string, data: object}[], mode: "assume"|"park",
+ *   skipped: {unit: string, assumption: string}[], parked?: object[]}}
  * @throws INVALID_STATE for an unknown unit or a unit that is not `reported`/`queued`
  */
 export function assumeUnits(state, unitId, { question }) {
   const unit = findUnit(state, unitId);
   if (!unit) throw err("INVALID_STATE", `unknown unit ${unitId}`);
   if (unit.state !== "reported" && unit.state !== "queued") throw err("INVALID_STATE", `unit ${unitId} cannot be built on assumption from state ${unit.state}`);
+  const own = assumptionOf(unit);
+  if (own !== null && own !== question) {
+    const fallback = parkUnits(state, unitId, { reason: "owner_question", question });
+    return { state: fallback.state, units: fallback.parked.map((p) => p.unit), events: fallback.events, mode: "park", skipped: [], parked: fallback.parked };
+  }
   const changed = new Map();
   const events = [];
+  const skipped = [];
   const mark = (u, to) => {
-    changed.set(u.id, { ...u, state: to, parked: "built_on_assumption", pending_answer: question, ...(to !== u.state ? { token_hash: null } : {}) });
+    changed.set(u.id, { ...withoutAssumedOn(u), state: to, parked: "built_on_assumption", pending_answer: question, ...(to !== u.state ? { token_hash: null } : {}) });
     if (to !== u.state) events.push({ type: "unit_state", data: { unit: u.id, from: u.state, to } });
     events.push({ type: "parked", data: { unit: u.id, reason: "built_on_assumption", question } });
   };
   mark(unit, "queued");
   for (const id of dependentsOf(state, unitId)) {
     const dep = findUnit(state, id);
-    if (!isTerminalUnit(dep) && dep.state !== "parked") mark(dep, dep.state);
+    if (isTerminalUnit(dep) || dep.state === "parked") continue;
+    const carried = assumptionOf(dep);
+    if (carried !== null && carried !== question) skipped.push({ unit: dep.id, assumption: carried });
+    else mark(dep, dep.state);
   }
-  return { state: replaceUnits(state, changed), units: [...changed.keys()], events };
+  return { state: replaceUnits(state, changed), units: [...changed.keys()], events, mode: "assume", skipped };
 }
 
 /**
  * Release the units parked as `owner_question` on one question (pure): back to `queued`, `parked` and
- * `pending_answer` cleared. The replay of the clearing is a `parked` event with `reason: null` (A14 fold).
+ * `pending_answer` cleared, except that a unit carrying an assumption (`assumed_on`) gets its marker back (see
+ * `releasedUnit`). The replay is a `parked` event with the restored reason/question (A14 fold).
  * @param {object} state run state (not mutated)
  * @param {string} question question id (doubt id or ask id)
  * @returns {{state: object, units: string[], events: {type: string, data: object}[]}}
@@ -156,20 +209,21 @@ export function releaseParked(state, question) {
   const events = [];
   for (const u of state.units) {
     if (u.state !== "parked" || u.parked !== "owner_question" || u.pending_answer !== question) continue;
-    changed.set(u.id, { ...u, state: "queued", parked: null, pending_answer: null });
-    events.push({ type: "unit_state", data: { unit: u.id, from: "parked", to: "queued" } });
-    events.push({ type: "parked", data: { unit: u.id, reason: null, question: null } });
+    const released = releasedUnit(u);
+    changed.set(u.id, released.unit);
+    events.push(...released.events);
   }
   return { state: replaceUnits(state, changed), units: [...changed.keys()], events };
 }
 
 /**
- * Units built on the assumption of one doubt (`parked: built_on_assumption`, `pending_answer` = the doubt id).
+ * Units built on the assumption of one doubt (`assumptionOf(unit)` = the doubt id), including those parked meanwhile on
+ * another question.
  * @param {{units: object[]}} state
  * @param {string} doubtId
  * @returns {object[]}
  */
-export const assumptionUnits = (state, doubtId) => state.units.filter((u) => u.parked === "built_on_assumption" && u.pending_answer === doubtId);
+export const assumptionUnits = (state, doubtId) => state.units.filter((u) => assumptionOf(u) === doubtId);
 
 /**
  * Create the assumption branch at the integration tip (idempotent: an existing branch is kept).

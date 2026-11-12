@@ -334,6 +334,9 @@
               "null"
             ]
           },
+          "assumed_on": {
+            "type": "string"
+          },
           "parked": {
             "enum": [
               "owner_question",

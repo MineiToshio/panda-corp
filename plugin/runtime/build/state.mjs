@@ -278,6 +278,7 @@ export function foldJournal(events) {
         const u = unitOrThrow(state, d.unit, ev.type);
         u.parked = d.reason ?? null;
         u.pending_answer = d.question ?? null;
+        if (d.assumed_on) u.assumed_on = d.assumed_on; else delete u.assumed_on;
         break;
       }
       case "waiting_gate": unitOrThrow(state, d.unit, ev.type).waiting_gate = d.kind ?? null; break;

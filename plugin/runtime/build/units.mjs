@@ -111,14 +111,17 @@ function parseWorktreeList(text) {
  * Create (or adopt) the registered git worktree of one unit attempt. Idempotent: an existing registered worktree on
  * the right branch is reused untouched (a `doubt` that was decided resumes in the same attempt and directory).
  * A fresh attempt (n >= 2) always starts a NEW branch `lane/<run>/<unit>-a<n>` from the integration tip; the failed
- * attempt's branch and worktree are preserved (BUILD-15).
+ * attempt's branch and worktree are preserved (BUILD-15). Reusing an existing branch is refused when it carries the code
+ * of an assumption the owner has not accepted (pending or rejected) other than `base` itself (B6, DEC-7): such work may
+ * only continue on its own assume branch, and rejected work only on a fresh attempt.
  * @param {{project: string, runId: string, unit: string, attempt?: number, base?: string}} input
  *   `base` defaults to `paths.integrationBranch(runId)`
  * @param {{exec?: Function, fs?: object, env?: object, bootstrap?: boolean}} [deps] `bootstrap:false` skips the
  *   project's `.pandacorp/worktree-bootstrap.sh`
  * @returns {Promise<{worktree: string, root: string, branch: string, base_sha: string, created: boolean,
  *   bootstrap: {ran: boolean, exit: number|null, tail: string}}>}
- * @throws INVALID_STATE when the path exists but is not the registered worktree of that branch
+ * @throws INVALID_STATE when the path exists but is not the registered worktree of that branch, or the existing branch
+ *   carries unaccepted assumption code
  */
 export async function prepareUnitWorktree({ project, runId, unit, attempt = 1, base }, deps = {}) {
   const fs = deps.fs ?? fsp;
@@ -132,6 +135,7 @@ export async function prepareUnitWorktree({ project, runId, unit, attempt = 1, b
   for (const entry of listed) if (await sameDir(fs, entry.path, worktree)) known = entry;
   if (known) {
     if (known.branch !== `refs/heads/${branch}`) throw err("INVALID_STATE", `worktree ${worktree} is on ${known.branch}, not ${branch}`);
+    await assertNoForeignAssumption({ project, runId, branch, baseRef }, deps);
     return { worktree, root, branch, base_sha: await mergeBase(deps, root, baseRef), created: false, bootstrap: { ran: false, exit: null, tail: "" } };
   }
   const exists = await fs.stat(worktree).then(() => true, () => false);
@@ -141,10 +145,48 @@ export async function prepareUnitWorktree({ project, runId, unit, attempt = 1, b
   // symlink the spelling in `paths` can differ from the one `git worktree list` prints for the main checkout).
   const registered = path.join(await fs.realpath(path.dirname(worktree)), path.basename(worktree));
   const branchExists = (await git(deps, project, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`], { allowFail: true })).code === 0;
+  if (branchExists) await assertNoForeignAssumption({ project, runId, branch, baseRef }, deps);
   if (branchExists) await git(deps, project, ["worktree", "add", registered, branch]);
   else await git(deps, project, ["worktree", "add", "-b", branch, registered, baseRef]);
   const bootstrap = await bootstrapWorktree(root, deps);
   return { worktree, root, branch, base_sha: await mergeBase(deps, root, baseRef), created: true, bootstrap };
+}
+
+/**
+ * Refuse a unit branch that holds commits of an assumption branch whose doubt is not accepted (B6): for every
+ * `lane/<run>/assume-<doubt>` other than `baseRef`, the merge base with the unit branch must already be on `baseRef` or
+ * on the integration branch. An accepted assumption (decision = assumed option) is skipped: its branch is merged into the
+ * integration branch by the next integration. A branch without a readable doubt record counts as not accepted.
+ * @throws INVALID_STATE naming the assumption
+ */
+async function assertNoForeignAssumption({ project, runId, branch, baseRef }, deps) {
+  const p = buildPaths(project, deps);
+  const probe = "x";
+  const prefix = p.assumeBranch(runId, probe).slice(0, -probe.length);
+  const refs = await git(deps, project, ["for-each-ref", "--format=%(refname:short)", `refs/heads/${prefix}*`], { allowFail: true });
+  if (refs.code !== 0) return;
+  const integration = p.integrationBranch(runId);
+  const isAncestor = async (a, b) => (await git(deps, project, ["merge-base", "--is-ancestor", a, b], { allowFail: true })).code === 0;
+  for (const assume of String(refs.stdout).split("\n").map((l) => l.trim()).filter((l) => l.startsWith(prefix))) {
+    if (assume === baseRef) continue;
+    const doubtId = assume.slice(prefix.length);
+    if (await assumptionAccepted(project, doubtId, deps)) continue;
+    const mb = await git(deps, project, ["merge-base", `refs/heads/${branch}`, `refs/heads/${assume}`], { allowFail: true });
+    const fork = String(mb.stdout).trim();
+    if (mb.code !== 0 || !fork) continue;
+    if (await isAncestor(fork, baseRef) || await isAncestor(fork, integration)) continue;
+    throw err("INVALID_STATE", `unit branch ${branch} carries commits of ${assume}, an assumption the owner has not accepted: it cannot be reused on ${baseRef}`);
+  }
+}
+
+async function assumptionAccepted(project, doubtId, deps) {
+  try {
+    const { readDoubt } = await import("./doubts.mjs");
+    const record = await readDoubt(project, doubtId, deps);
+    return Boolean(record?.assumption) && record.decision?.value !== undefined && JSON.stringify(record.decision.value) === JSON.stringify(record.assumption.option);
+  } catch {
+    return false;
+  }
 }
 
 /**

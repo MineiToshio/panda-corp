@@ -177,8 +177,32 @@ async function commitStaged(exec, cwd, subject, trailers) {
   return git(exec, cwd, ["rev-parse", "HEAD"]);
 }
 
+/**
+ * Git reports paths relative to the repository top-level, but a nested project (Mission Control inside the factory
+ * repo) runs every command with the product root as cwd. The prefix of the product root inside its repository
+ * (`mission-control/`, "" for a top-level project) translates between the two spellings.
+ * @param {Function} exec injected command runner
+ * @param {string} root the product root (`state.integration.worktree`)
+ * @returns {Promise<string>} "" or `dir/` with a trailing slash, posix separators
+ */
+export async function repoPrefix(exec, root) {
+  const prefix = (await git(exec, root, ["rev-parse", "--show-prefix"])).replace(/\\/g, "/").replace(/\/+$/, "");
+  return prefix === "" ? "" : `${prefix}/`;
+}
+
+/** Repository-top-relative path (as git prints it) to product-root-relative; a path outside the product stays as is. */
+export const fromRepoPath = (prefix, p) => (prefix && p.startsWith(prefix) ? p.slice(prefix.length) : p);
+
+/** Product-root-relative path to repository-top-relative. */
+export const toRepoPath = (prefix, p) => `${prefix}${p}`;
+
+/** The product root inside a git worktree root (`state.units[].worktree` stores the worktree root, not the product root). */
+export const productRootIn = (worktree, prefix) => (prefix ? path.join(worktree, prefix) : worktree);
+
+// `--relative` makes git print (and limit itself to) paths relative to the cwd, which is the product root, so the
+// `git add` pathspecs below resolve from that same cwd in a nested project.
 async function stageTrackedChanges(exec, cwd) {
-  const changed = (await git(exec, cwd, ["diff", "--name-only"])).split("\n").filter((f) => f && !f.startsWith(".pandacorp/run/"));
+  const changed = (await git(exec, cwd, ["diff", "--name-only", "--relative", "-z"])).split("\0").filter((f) => f && !f.startsWith(".pandacorp/run/"));
   if (changed.length > 0) await git(exec, cwd, ["add", "--", ...changed]);
 }
 
@@ -375,7 +399,7 @@ export async function reviewRecord(input, deps = {}) {
     const branch = await git(exec, root, ["rev-parse", "--abbrev-ref", "HEAD"]);
     if (branch !== state.integration.branch) throw err("INVALID_STATE", `integration worktree is on ${branch}, not ${state.integration.branch}`);
     const tip = await git(exec, root, ["rev-parse", "HEAD"]);
-    const probeRoot = review.worktree ?? ctx.paths.unitWorktree(review.id, review.attempt);
+    const probeRoot = productRootIn(review.worktree ?? ctx.paths.unitWorktree(review.id, review.attempt), await repoPrefix(exec, root));
     const hashes = {};
     for (const p of report.probes.filter((x) => x.failed_first)) hashes[p.path] = await hashFile(fs, resolveInside(probeRoot, p.path));
     return { tip, probeRoot, hashes };
@@ -534,14 +558,15 @@ async function applyReopen(c) {
     }
     const patchId = `u-patch-${wos[0]}`;
     const patch = newUnit({
-      id: patchId, kind: "patch", wos: fixed.flatMap((u) => u.wos).filter((w) => wos.includes(w.toLowerCase())), frd: review.frd ?? fixed[0].frd,
+      id: patchId, kind: "patch", wos: unique(fixed.flatMap((u) => u.wos).filter((w) => wos.includes(w.toLowerCase()))), frd: review.frd ?? fixed[0].frd,
       zone: review.zone, risk_rules: [...(review.risk_rules ?? [])], attempt,
     });
     const at = next.units.findIndex((u) => u.id === patchId);
     if (at >= 0) next.units[at] = patch; else next.units.push(patch);
     events.push({ type: "unit_queued", data: patch });
     events.push({ type: "patch", data: { unit: patchId, source_review: review.id, wos: patch.wos, attempt, findings: report.findings, probes: c.kept } });
-    for (const u of fixed) setState(u, "patching");
+    // A re-reopen of the same WO re-queues `patchId` itself (it is among `fixed`, A13): it must stay `queued` to be dispatched.
+    for (const u of fixed.filter((x) => x.id !== patchId)) setState(u, "patching");
     effects.patch_unit = patchId;
   }
   await stageTrackedChanges(exec, root);

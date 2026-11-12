@@ -20,7 +20,7 @@ import { readDeferred } from "./deferred.mjs";
 import { atomicWriteJson, readJson } from "./fsx.mjs";
 import { frdsReadyForG2 } from "./integrate.mjs";
 import { readJournal } from "./journal.mjs";
-import { buildPaths } from "./paths.mjs";
+import { assertSafeId, buildPaths, resolveInside } from "./paths.mjs";
 import * as quotaModule from "./quota.mjs";
 import * as riskModule from "./risk.mjs";
 import * as routingModule from "./routing.mjs";
@@ -42,6 +42,15 @@ export const ENV_INFRA_STOP = 3;
 const RETRY_S = Object.freeze({ ram: 30, cpu_H: 30, workers_running: 30, jobs_running: 30, gate: 60, quota: 60 });
 const LAND_RETRY_EXITS = Object.freeze([12, 14, 20]);
 const LAND_RETRY_S = 60;
+// G2 snapshot worktrees (B5): `<build>/g2/<frd>-<pinned sha>`, one per job, never the integration worktree itself.
+const G2_SNAPSHOT_DIR = "g2";
+const SHA_RE = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
+const G2_SNAPSHOT_RE = /^(.+)-([0-9a-f]{40}(?:[0-9a-f]{24})?)$/;
+/** Exit code of a G2 job whose snapshot could not be bootstrapped (`worktree-bootstrap.sh` failed): no verdict, env-infra. */
+export const G2_BOOTSTRAP_EXIT = 75;
+// The G2 job body: bootstrap the fresh snapshot (deps are not tracked), then the gate. argv: $0 label, $1 integration base sha.
+const G2_SCRIPT = `if [ -f .pandacorp/worktree-bootstrap.sh ]; then bash .pandacorp/worktree-bootstrap.sh || exit ${G2_BOOTSTRAP_EXIT}; fi
+exec bash .pandacorp/verify.sh --since "$1"`;
 const WATCH_POLL_MS = 1000;
 const GIT_SHOW_TIMEOUT_MS = 15_000;
 const MAX_ATTEMPTS = 3;
@@ -76,16 +85,17 @@ export const NEXT_SIBLING_CONTRACT = Object.freeze({
   "integrate.transitionWorkOrders": "({integration, runId, wos, to: 'IN_PROGRESS', reason, unitId}, deps) -> WO commit on lane/<run_id>",
   "units.prepareUnitWorktree": "({project, runId, unit, attempt, base?}, deps) -> {worktree, branch} (base = the assume branch for work built on an assumption)",
   "units.writeUnitBrief": "({project, state, unit, cell, agentType, token, schemaPath, worktree, reportPath, extra}, deps) -> {brief_path, report_path}",
-  "jobs.startJob": "({project, epoch, actor, kind: 'g2', cmd, cwd, frd, unit: null}, deps) -> jobs[] item (fenced; records the job)",
+  "jobs.startJob": "({project, epoch, actor, kind: 'g2', cmd, cwd, frd, unit: null}, deps) -> jobs[] item (fenced; records the job; cwd = the G2 snapshot <build>/g2/<frd>-<sha>)",
   "jobs.pollJob": "(project, job, deps) -> {state: 'running'|'done'|'dead', exit}",
   "workers.launchWorker": "({project, runId, unit, attempt, frd, cell, schemaFile, dir, briefFile}, deps) -> {ok, workerId, pid, job} | {ok:false, kind, detail}",
   "workers.pollWorker": "({project, workerId, unit, schemaFile, reportFile, epoch}, deps) -> {state: 'running'|'done'|'error', outcome, report?, limit?}",
-  "report.ingestReport": "({project, epoch, unit, token, file}, deps) (fenced; G1, commit)",
-  "review.reviewRecord": "({project, epoch, unit, token, file}, deps) (fenced)",
+  "report.ingestReport": "({project, epoch, unit, token, file, openDoubt: true}, deps) (fenced; G1, commit; opens a doubt outcome: doubt_opened | handback)",
+  "review.reviewRecord": "({project, epoch, unit, token, file, openDoubt: true}, deps) (fenced; a doubt verdict leaves the unit reported)",
   "answers.answerNotes": "(state, unit, {questions}) -> string[] (the owner's recorded answers a unit's brief carries: gate OK, answered asks)",
   "doubts.pendingConsult": "(project, unit, deps) -> {runtime, model, effort, via, model_slug, brief_path, report_path, schema_path, answered}",
   "doubts.answerDoubt": "({project, epoch, id, file, token: null}, deps) (fenced; a via:'cli' consult answer)",
   "failure.handbackCommand": "({project, epoch, unit, reason, cause}, deps) (fenced; blocks dependents)",
+  "failure.openUnitDoubt": "({project, epoch, unit, doubt?, diagnosis?, actor}, deps) -> {opened:true, doubt_id, step, ...} | {opened:false, handback} (fenced)",
   "failure.failUnit": "({project, epoch, unit, attempt, cause, detail, command, tail}, deps) (fenced; D21 policy for a worker with no valid report)",
   "land.harvestLand": "({project, epoch, actor}, deps) -> {harvested, exit?, output?} (fenced; finishes the land job)",
   "deferred.enqueueDeferred": "(project, entry, deps) -> {entry, created} (an audit that cannot run now, BUILD-14)",
@@ -188,6 +198,7 @@ async function step(run) {
   state = candidates.state;
   const dispatch = await dispatchRound(run, state, candidates, runParams, signals, quota);
   state = dispatch.state;
+  for (const frd of dispatch.g2Failed ?? []) notes.push(`G2 de ${frd} no arrancó: no se pudo crear su copia de la rama de integración; se reintenta.`);
   if (dispatch.units.length) return finish(run, state, { action: "dispatch", units: dispatch.units, admit: dispatch.admit, quota, notes });
 
   // Nothing dispatched: wait while anything runs (A11), else a terminal action.
@@ -366,7 +377,44 @@ async function harvestWorker(run, job, notes) {
   if (!h.reportFile) await atomicWriteJson(reportFile, h.report, { fs: d.fs });
   await finishJob(run, job, jobEnd);
   const call = reviewType ? await sibling(d, "review", "reviewRecord") : await sibling(d, "report", "ingestReport");
-  await settle(run, unit.id, () => call({ ...fenceOf(run), unit: unit.id, token: typeof h.report.token === "string" ? h.report.token : "", file: reportFile }, d));
+  // A `via:"cli"` worker has no shell to run `doubt open`: the engine opens its doubt (B2). `openDoubt` asks the sibling to
+  // do it right after settling; `openReportedDoubt` covers whatever is still `reported` without an open doubt.
+  const res = await settle(run, unit.id, () => call({ ...fenceOf(run), unit: unit.id, token: typeof h.report.token === "string" ? h.report.token : "", file: reportFile, openDoubt: true }, d));
+  notes.push(...doubtNotes(unit.id, res?.doubt_opened, res?.handback));
+  await openReportedDoubt(run, unit.id, h.report, notes);
+}
+
+/** Open doubt-ladder steps (`doubt.schema.json` `step`); `parked` and `decided` are closed. */
+const OPEN_DOUBT_STEPS = Object.freeze(["sources", "consult1", "consult2"]);
+
+/**
+ * A unit left `reported` by a worker or reviewer doubt with no open doubt record (B2): open it through
+ * `failure.openUnitDoubt` (fenced; it hands the unit back when the doubt cannot be built or the ladder refuses it), so
+ * the unit never stays `reported` for good. The doubt object is the report's own; a diagnosis-only report (a `blocked`
+ * worker whose policy action was `doubt`/`dispute`) is synthesized from its diagnosis by failure.mjs.
+ */
+async function openReportedDoubt(run, unitId, report, notes) {
+  const { d } = run;
+  const unit = findUnit(await fresh(run), unitId);
+  if (!unit || unit.state !== "reported") return;
+  if (unit.doubt_id) {
+    const record = await readJson(run.paths.doubtFile(unit.doubt_id), { fs: d.fs });
+    if (record && OPEN_DOUBT_STEPS.includes(record.step)) return;
+  }
+  const doubt = report && typeof report.doubt === "object" && report.doubt !== null ? report.doubt : null;
+  const diagnosis = report && typeof report.diagnosis === "object" && report.diagnosis !== null ? report.diagnosis : null;
+  const opened = await (await sibling(d, "failure", "openUnitDoubt"))({ ...fenceOf(run), unit: unitId, doubt, diagnosis, actor: run.ref.actor }, d);
+  if (opened?.opened === false) notes.push(...doubtNotes(unitId, null, opened.handback));
+  else if (opened?.opened) notes.push(...doubtNotes(unitId, opened, null));
+}
+
+/** Owner-facing lines for a doubt the engine opened (or the hand-back that replaced it). */
+function doubtNotes(unitId, opened, handback) {
+  if (handback) return [handback.notice_es ?? `${unitId} se devuelve: su duda no se pudo abrir.`];
+  if (!opened?.doubt_id || opened.applied === false) return [];
+  if (opened.notice_es) return [opened.notice_es];
+  if (opened.step === "sources") return [`${unitId} planteó la duda ${opened.doubt_id}: falta el paso de fuentes (doubt answer con el archivo ${opened.doubt_id}.sources.json).`];
+  return [`${unitId} planteó la duda ${opened.doubt_id}: se consulta (${opened.step}).`];
 }
 
 // A sibling that rejects a report with a thrown exit-6/7 class code has usually settled the unit (a verdict recorded,
@@ -404,24 +452,41 @@ async function requeueAfterLimit(run, unit, job, jobEnd) {
   });
 }
 
+/**
+ * One finished G2 job. Its verdict belongs to the integration sha its snapshot was pinned at (B5): it applies to the FRD
+ * units whose integrated sha is contained in that pin; when one of them is not (it was integrated after the pin), the
+ * verdict is stale and dropped, and the G2 rule re-spawns the gate at the current tip. Merges of OTHER FRDs after the pin
+ * never invalidate it. A job without a pin (spawned before snapshots) keeps the old rule. The snapshot is removed here.
+ */
 async function harvestG2(run, job, notes) {
   const { d, ref } = run;
   const polled = await (await sibling(d, "jobs", "pollJob"))(ref.project, job, d);
   if (!["running", "done", "dead"].includes(polled?.state)) throw err("ENGINE_FAILURE", `jobs.pollJob returned no job state for ${job.id}`);
   if (polled.state === "running") return;
   const exit = Number.isInteger(polled.exit) ? polled.exit : null;
-  const green = polled.state === "done" && exit === 0;
-  let handbackUnit = null;
-  const zone = green ? await reviewZone(run, await fresh(run)) : null;
+  const judged = polled.state === "done" && exit !== null && exit !== G2_BOOTSTRAP_EXIT;
+  const pin = g2PinOf(run.paths, job);
+  const before = await fresh(run);
+  const checked = judged && pin ? await staleCheck(run, before, job.frd, pin.sha) : { stale: false, units: null };
+  const green = judged && !checked.stale && exit === 0;
+  let handback = null;
+  const zone = green ? await reviewZone(run, before, pin?.sha) : null;
   await mutate(run, (s) => {
     const cur = s.jobs.find((j) => j.id === job.id);
     if (!cur || cur.state !== "running") return {};
     const ended = polled.state === "dead" ? "dead" : "done";
     const events = [{ type: "job_finished", data: { id: job.id, state: ended, exit } }];
     let next = { ...s, jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, state: ended, exit } : j)) };
-    if (polled.state === "dead" || exit === null) return { state: next, events }; // re-spawned by the G2 rule at this or the next pass
-    events.push({ type: "gate", data: { tier: "G2", exit, frd: job.frd } });
     const work = next.units.filter((u) => FRD_WORK_KINDS.includes(u.kind) && u.frd === job.frd && u.state === "integrated");
+    if (polled.state === "done" && exit === G2_BOOTSTRAP_EXIT) {
+      // The snapshot could not be prepared: the environment failed, not the code (D21 env-infra hand-back, no patch).
+      handback = work[0] ? { unit: work[0].id, reason: `G2 de ${job.frd} no pudo preparar su copia de trabajo (worktree-bootstrap.sh falló)`, cause: "env-infra" } : null;
+      return { state: next, events };
+    }
+    if (!judged) return { state: next, events }; // dead: re-spawned by the G2 rule at this or the next pass
+    const stale = checked.stale || (checked.units !== null && work.some((u) => !checked.units.includes(u.id)));
+    events.push({ type: "gate", data: { tier: "G2", exit, frd: job.frd, ...(pin ? { sha: pin.sha } : {}), ...(stale ? { stale: true } : {}) } });
+    if (stale) return { state: next, events }; // judged an older tree of this FRD: the G2 rule re-runs it at the tip
     if (green) {
       for (const u of work) events.push(unitEvent(u.id, u.state, "reviewing"));
       next = { ...next, units: next.units.map((u) => (work.includes(u) ? { ...u, state: "reviewing" } : u)) };
@@ -440,7 +505,7 @@ async function harvestG2(run, job, notes) {
     }
     const attempt = Math.max(0, ...work.map((u) => u.attempt)) + 1;
     if (attempt > MAX_ATTEMPTS || work.length === 0) {
-      handbackUnit = work[0]?.id ?? null;
+      handback = work[0] ? { unit: work[0].id, reason: `G2 en rojo en ${job.frd} tras agotar los ${MAX_ATTEMPTS} intentos`, cause: "code" } : null;
       return { state: next, events };
     }
     const patchId = `u-patch-${job.frd}`;
@@ -455,10 +520,109 @@ async function harvestG2(run, job, notes) {
     }
     return { state: next, events };
   });
-  if (handbackUnit) {
-    await (await sibling(d, "failure", "handbackCommand"))({ ...fenceOf(run), unit: handbackUnit, reason: `G2 en rojo en ${job.frd} tras agotar los ${MAX_ATTEMPTS} intentos`, cause: "code" }, d);
+  if (pin) await removeG2Snapshot(run, pin.dir);
+  if (handback) await (await sibling(d, "failure", "handbackCommand"))({ ...fenceOf(run), ...handback }, d);
+  if (checked.stale) notes.push(`G2 de ${job.frd} juzgó ${pin.sha.slice(0, 12)}, pero el FRD cambió después: se repite sobre la rama actual.`);
+  else if (judged && exit !== 0) notes.push(`G2 en rojo en ${job.frd}: se encola una corrección.`);
+}
+
+/**
+ * Is a G2 verdict pinned at `pin` stale for `frd`? Stale iff an integrated unit of the FRD has an `integrated` journal sha
+ * that is not contained in `pin` (pure sha comparison, B5). Returns the unit ids it checked so the harvest can treat a
+ * unit integrated in between as stale too.
+ */
+async function staleCheck(run, state, frd, pin) {
+  const units = state.units.filter((u) => FRD_WORK_KINDS.includes(u.kind) && u.frd === frd && u.state === "integrated");
+  const shaOf = new Map();
+  for (const ev of (await readJournal(run.paths.journalFile, run.d)).events) {
+    if (ev.type === "integrated" && typeof ev.data?.unit === "string" && typeof ev.data.sha === "string") shaOf.set(ev.data.unit, ev.data.sha);
   }
-  if (!green && polled.state !== "dead" && exit !== null) notes.push(`G2 en rojo en ${job.frd}: se encola una corrección.`);
+  for (const u of units) {
+    const sha = shaOf.get(u.id);
+    if (sha && sha !== pin && !(await gitOk(run.ref.project, ["merge-base", "--is-ancestor", sha, pin]))) return { stale: true, units: units.map((x) => x.id) };
+  }
+  return { stale: false, units: units.map((x) => x.id) };
+}
+
+// ---------------------------------------------------------------------------------------------
+// G2 snapshot worktrees (B5): every G2 job judges its own detached checkout of a pinned integration sha
+// ---------------------------------------------------------------------------------------------
+
+const g2SnapshotRoot = (paths) => path.join(paths.build, G2_SNAPSHOT_DIR);
+
+/** `<build>/g2/<frd>-<sha>`: the frd and sha make it unique per job (one live G2 per FRD, A18). */
+function g2SnapshotDir(paths, frd, sha) {
+  if (!SHA_RE.test(sha)) throw err("INVALID_STATE", `G2 pin is not a commit sha: ${JSON.stringify(sha)}`);
+  return resolveInside(g2SnapshotRoot(paths), `${assertSafeId(frd, "frd id")}-${sha}`);
+}
+
+/** The snapshot directory and pinned sha of a G2 job, read back from its `cwd`; null for a job with no snapshot. */
+export function g2PinOf(paths, job) {
+  if (job?.kind !== "g2" || typeof job.cwd !== "string") return null;
+  const root = g2SnapshotRoot(paths);
+  const rel = path.relative(root, path.resolve(job.cwd));
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return null;
+  const top = rel.split(path.sep)[0];
+  const m = G2_SNAPSHOT_RE.exec(top);
+  return m ? { dir: path.join(root, top), frd: m[1], sha: m[2] } : null;
+}
+
+/** `git <args>` in `cwd`; resolves `{code, stdout, stderr}` (never rejects). */
+function gitRun(cwd, args) {
+  return new Promise((resolve) => {
+    execFile("git", args, { cwd, timeout: GIT_SHOW_TIMEOUT_MS * 8 }, (error, stdout, stderr) => resolve({ code: error ? (Number.isInteger(error.code) ? error.code : 1) : 0, stdout: String(stdout ?? ""), stderr: String(stderr ?? "") }));
+  });
+}
+
+async function gitOut(cwd, args) {
+  const res = await gitRun(cwd, args);
+  if (res.code !== 0) throw err("INVALID_STATE", `git ${args.slice(0, 2).join(" ")} failed in ${cwd}: ${res.stderr.trim().split("\n")[0]}`);
+  return res.stdout.trim();
+}
+
+/** Registered worktree paths (realpath spelling) of the project's repository. */
+async function registeredWorktrees(run) {
+  const out = await gitOut(run.ref.project, ["worktree", "list", "--porcelain"]);
+  const fs = run.d.fs ?? fsp;
+  const real = async (p) => { try { return await fs.realpath(p); } catch { return path.resolve(p); } };
+  return Promise.all(out.split("\n").filter((l) => l.startsWith("worktree ")).map((l) => real(l.slice(9))));
+}
+
+/**
+ * Create the detached snapshot worktree of one G2 job at the integration tip (work phase, no mutex). A leftover at the same
+ * path (a dead job of the same FRD and sha) is removed first; nothing outside `<build>/g2/` is ever touched.
+ * @returns {Promise<{dir: string, cwd: string, sha: string}>} `cwd` is the product root inside the snapshot (nested projects)
+ */
+async function createG2Snapshot(run, state, frd) {
+  const fs = run.d.fs ?? fsp;
+  const branch = state.integration?.branch;
+  const viaBranch = branch ? await gitRun(run.ref.project, ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}^{commit}`]) : { code: 1 };
+  const sha = viaBranch.code === 0 ? viaBranch.stdout.trim() : await gitOut(integrationRoot(run, state), ["rev-parse", "--verify", "HEAD^{commit}"]);
+  const dir = g2SnapshotDir(run.paths, frd, sha);
+  await removeG2Snapshot(run, dir, { strict: true });
+  await fs.mkdir(path.dirname(dir), { recursive: true });
+  const registered = path.join(await fs.realpath(path.dirname(dir)), path.basename(dir));
+  await gitOut(run.ref.project, ["worktree", "add", "--detach", registered, sha]);
+  if (run.prefix === undefined) run.prefix = await productPrefix(run.ref.project, { env: run.d.env });
+  return { dir, cwd: productRoot(dir, run.prefix), sha };
+}
+
+/**
+ * Remove one G2 snapshot (`git worktree remove --force`, then prune; a stray unregistered directory under `<build>/g2/` is
+ * deleted). Cleanup after a harvest is best effort: a failure is logged and the leftover is replaced at the next spawn.
+ */
+async function removeG2Snapshot(run, dir, { strict = false } = {}) {
+  const fs = run.d.fs ?? fsp;
+  try {
+    resolveInside(g2SnapshotRoot(run.paths), path.relative(g2SnapshotRoot(run.paths), dir));
+    const real = await fs.realpath(dir).catch(() => null);
+    if (real && (await registeredWorktrees(run)).includes(real)) await gitOut(run.ref.project, ["worktree", "remove", "--force", real]);
+    await gitOut(run.ref.project, ["worktree", "prune"]);
+    await fs.rm(dir, { recursive: true, force: true });
+  } catch (error) {
+    if (strict) throw error;
+    run.d.log(`next: the G2 snapshot ${dir} could not be removed: ${error?.message ?? error}`);
+  }
 }
 
 /** The land job is harvested by land.mjs itself (job_finished, D24 exit map, card archive) under its own fence. */
@@ -797,13 +961,14 @@ async function ensureAudit(run, state, pol, deferredEntries) {
   return { queued: true, state: next };
 }
 
-async function runRisk(run, state) {
-  return run.d.risk.computeRisk({ root: await integrationProductRoot(run, state), range: `${state.integration.base_sha}..HEAD` }, run.d.riskDeps ?? {});
+async function runRisk(run, state, head = "HEAD") {
+  return run.d.risk.computeRisk({ root: await integrationProductRoot(run, state), range: `${state.integration.base_sha}..${head}` }, run.d.riskDeps ?? {});
 }
 
-async function reviewZone(run, state) {
+/** Risk zone of the FRD review: the range the G2 judged (`base..<pinned sha>`), else `base..HEAD`. */
+async function reviewZone(run, state, head) {
   if (!state.integration?.base_sha) return null;
-  const r = await runRisk(run, state);
+  const r = await runRisk(run, state, head ?? "HEAD");
   return { zone: r.zone, rules: r.rules ?? [] };
 }
 
@@ -1068,13 +1233,29 @@ async function dispatchRound(run, state, candidates, params, signals, quota) {
       const current = await fresh(run);
       const prepared = [];
       for (const g of intent.grants) prepared.push(await prepareGrant(run, current, g));
+      // Each G2 judges its own detached snapshot of the integration tip (B5): never the integration worktree that later
+      // merges move, never a directory another G2 uses. A snapshot that cannot be made skips this G2 (retried next pass).
+      let g2 = 0;
+      const g2Failed = [];
       for (const frd of intent.g2Grants) {
-        await (await sibling(d, "jobs", "startJob"))({
-          project: ref.project, epoch: ref.epoch, actor: ref.actor, kind: "g2",
-          cmd: ["bash", ".pandacorp/verify.sh", "--since", current.integration.base_sha], cwd: await integrationProductRoot(run, current), frd, unit: null,
-        }, d);
+        let snap;
+        try { snap = await createG2Snapshot(run, current, frd); } catch (error) {
+          d.log(`next: G2 of ${frd} not started, its snapshot could not be created: ${error?.message ?? error}`);
+          g2Failed.push(frd);
+          continue;
+        }
+        try {
+          await (await sibling(d, "jobs", "startJob"))({
+            project: ref.project, epoch: ref.epoch, actor: ref.actor, kind: "g2",
+            cmd: ["bash", "-c", G2_SCRIPT, "pandacorp-g2", current.integration.base_sha], cwd: snap.cwd, frd, unit: null,
+          }, d);
+        } catch (error) {
+          await removeG2Snapshot(run, snap.dir);
+          throw error;
+        }
+        g2 += 1;
       }
-      return { prepared, g2: intent.g2Grants.length };
+      return { prepared, g2, g2Failed };
     },
     // Phase 2 (mutex, epoch re-verified): admitted -> running, dispatch journal, worker jobs.
     async (work, intent, ctx) => {
@@ -1109,7 +1290,7 @@ async function dispatchRound(run, state, candidates, params, signals, quota) {
   const admit = result.lastDecision ? { decision: anyGrant ? "grant" : "wait", motivo_limite: result.lastDecision.motivo_limite } : null;
   if (admit) emit(run, state, "admit.decision", { ...admit, unit: result.prepared?.[0]?.unit.id ?? null });
   const units = (result.prepared ?? []).map((p) => unitOutput(state, p));
-  return { state: await fresh(run), units, admit, admissionBlocked: result.blocked ? motivoToWait(result.blocked) : null };
+  return { state: await fresh(run), units, admit, admissionBlocked: result.blocked ? motivoToWait(result.blocked) : null, g2Failed: result.g2Failed ?? [] };
 }
 
 /** Work phase of one granted unit: WO IN_PROGRESS commit, unit worktree, brief (with the token), Codex launch for `via:"cli"`. */
@@ -1292,11 +1473,14 @@ async function alreadyStopped(run, state) {
     : state.status === "waiting_owner" || state.status === "waiting_gate" ? "waiting-owner"
       : state.status === "paused" ? (state.status_reason === "infra_L4" ? "paused-infra" : "paused-quota")
         : state.status_reason === "deadlock" ? "deadlock" : "stop";
-  if (state.status !== "finished") {
-    const bs = run.d.buildState ?? await import("../build-state.mjs");
+  const bs = run.d.buildState ?? await import("../build-state.mjs");
+  try {
     const token = await readLeaseToken(run.ref.project, run.ref.epoch, run.d);
     await bs.quiesce(run.ref.project, token, run.ref.epoch, { projectStatus: false });
     await bs.finalizeRelease(run.ref.project, token, run.ref.epoch);
+  } catch (error) {
+    // A finished run whose release already completed has no lease left to fence against: that is the expected idempotent case.
+    if (state.status !== "finished" || error.code !== "FENCE") throw error;
   }
   return { ok: true, cmd: "next", epoch: run.ref.epoch, action, units: [], wait: null, admit: null, quota: null, notes_es: [] };
 }

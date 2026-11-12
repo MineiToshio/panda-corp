@@ -9,7 +9,7 @@ import path from "node:path";
 import { isDoubtId, readDoubt } from "./doubts.mjs";
 import { atomicWriteJson, atomicWriteText, defaultExec, loadSchema, nowIso, readJson, validate, writeTarget } from "./fsx.mjs";
 import { readJournal } from "./journal.mjs";
-import { releaseParked } from "./park.mjs";
+import { assumptionOf, releaseParked, releasedUnit, withoutAssumedOn } from "./park.mjs";
 import { buildPaths } from "./paths.mjs";
 import { fencedTwoPhase, findUnit, isTerminalUnit, newUnit } from "./state.mjs";
 
@@ -191,9 +191,9 @@ function planAsk({ state, question, value, q }) {
   for (const u of state.units) {
     if (u.pending_answer !== question || isTerminalUnit(u)) continue;
     if (u.state === "parked" && u.parked === "owner_question") {
-      changed.set(u.id, { ...u, state: "queued", parked: null, pending_answer: null, token_hash: null });
-      events.push({ type: "unit_state", data: { unit: u.id, from: "parked", to: "queued" } });
-      events.push({ type: "parked", data: { unit: u.id, reason: null, question: null } });
+      const released = releasedUnit(u);
+      changed.set(u.id, released.unit);
+      events.push(...released.events);
       units.push({ unit: u.id, effect: "released" });
     } else if (NOT_DISPATCHED.includes(u.state)) {
       changed.set(u.id, { ...u, pending_answer: null });
@@ -229,14 +229,19 @@ function planAsk({ state, question, value, q }) {
   return { state: next, events, units, handbacks };
 }
 
-/** A unit already executed on the assumption (it holds code on a unit branch), as opposed to one never dispatched. */
-const wasBuilt = (u) => u.branch !== null || u.worker !== null || !NOT_DISPATCHED.includes(u.state);
+/**
+ * A unit already executed on the assumption (it holds code on a unit branch), as opposed to one never dispatched. A
+ * `parked` unit without a branch or worker was parked before dispatch (a dependent), so it holds no code.
+ */
+const wasBuilt = (u) => u.branch !== null || u.worker !== null || ![...NOT_DISPATCHED, "parked"].includes(u.state);
 
 /**
  * The owner rejected an assumption (DEC-7): units built on it are re-queued at attempt+1 with a fresh branch (the
  * branch is derived from the attempt, `lane/<run_id>/<unit>-a<n>`, so the branch holding the rejected code is never
  * reused); a unit already at attempt 3 is handed back (`answer_rework_budget`, effect `handed_back`). A unit never
- * dispatched only loses its assumption flags and stays at its attempt. Effect `assumption_discarded` otherwise.
+ * dispatched only loses its assumption flags and stays at its attempt. Effect `assumption_discarded` otherwise. A
+ * target parked meanwhile on another question (its assumption kept in `assumed_on`, B6) is re-queued too: the code that
+ * raised that question is the rejected code.
  * @returns {{state: object, events: object[], units: {unit: string, effect: string}[], handbacks: {unitId: string, reason: string, reasonCode: string}[]}}
  */
 function discardAssumption(state, targets, question) {
@@ -247,14 +252,14 @@ function discardAssumption(state, targets, question) {
   for (const u of targets) {
     const built = wasBuilt(u);
     if (built && u.attempt >= MAX_EXECUTIONS) {
-      changed.set(u.id, { ...u, parked: null, pending_answer: null });
+      changed.set(u.id, { ...withoutAssumedOn(u), parked: null, pending_answer: null });
       events.push({ type: "parked", data: { unit: u.id, reason: null, question: null } });
       handbacks.push({ unitId: u.id, reasonCode: "answer_rework_budget", reason: `el owner rechazó la suposición de ${question} y la unidad no tiene más ejecuciones` });
       units.push({ unit: u.id, effect: "handed_back" });
       continue;
     }
     const requeued = {
-      ...u, state: "queued", attempt: built ? u.attempt + 1 : u.attempt, parked: null, pending_answer: null,
+      ...withoutAssumedOn(u), state: "queued", attempt: built ? u.attempt + 1 : u.attempt, parked: null, pending_answer: null,
       token_hash: null, worker: null, worktree: null, branch: null, review: null,
     };
     changed.set(u.id, requeued);
@@ -272,22 +277,24 @@ function planParked({ state, question, value, record }) {
   const units = [];
   if (record.assumption) {
     const accepted = value === record.assumption.option;
+    const assumption = { accepted, branch: record.assumption.branch, option: record.assumption.option };
     const discarded = [];
+    // Every unit whose code is built on this assumption, including one parked meanwhile on another question (B6).
     for (const u of state.units) {
-      if (u.parked !== "built_on_assumption" || u.pending_answer !== question || isTerminalUnit(u)) continue;
-      if (accepted) {
-        changed.set(u.id, { ...u, parked: null, pending_answer: null });
-        events.push({ type: "parked", data: { unit: u.id, reason: null, question: null } });
-        units.push({ unit: u.id, effect: "assumption_accepted" });
-      } else {
-        discarded.push(u);
-      }
+      if (assumptionOf(u) !== question || isTerminalUnit(u)) continue;
+      if (!accepted) { discarded.push(u); continue; }
+      const next = u.assumed_on === question ? withoutAssumedOn(u) : { ...withoutAssumedOn(u), parked: null, pending_answer: null };
+      changed.set(u.id, next);
+      events.push({ type: "parked", data: { unit: u.id, reason: next.parked, question: next.pending_answer } });
+      units.push({ unit: u.id, effect: "assumption_accepted" });
     }
-    if (!accepted) {
-      const plan = discardAssumption(state, discarded, question);
-      return { ...plan, record: decided, assumption: { accepted, branch: record.assumption.branch, option: record.assumption.option } };
-    }
-    return { state: replace(state, changed), events, units, handbacks: [], record: decided, assumption: { accepted, branch: record.assumption.branch, option: record.assumption.option } };
+    const plan = accepted ? { state: replace(state, changed), events, units, handbacks: [] } : discardAssumption(state, discarded, question);
+    // A unit parked owner_question on this doubt (an assumed root that could not nest a second assumption) is released.
+    const released = releaseParked(plan.state, question);
+    return {
+      state: released.state, events: [...plan.events, ...released.events], handbacks: plan.handbacks,
+      units: [...plan.units, ...released.units.map((unit) => ({ unit, effect: "released" }))], record: decided, assumption,
+    };
   }
   const released = releaseParked(state, question);
   return { state: released.state, events: released.events, units: released.units.map((unit) => ({ unit, effect: "released" })), handbacks: [], record: decided, assumption: null };

@@ -10,7 +10,7 @@ import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { releaseToken, verifyToken } from "./admission.mjs";
 import { parseYamlSubset, setCardDocsSha, splitFrontmatter } from "./card.mjs";
-import { applyUnitFailure } from "./failure.mjs";
+import { applyUnitFailure, openUnitDoubt } from "./failure.mjs";
 import { loadSchema, sha256Hex, validate } from "./fsx.mjs";
 import { buildPaths } from "./paths.mjs";
 import { fencedTwoPhase, findUnit, patchUnit } from "./state.mjs";
@@ -413,12 +413,15 @@ async function applyVerdict({ ctx, intent, verdict, deps }) {
  * the same unit is re-queued at attempt+1 (`next_attempt`; attempt 3 automatically when attempt 2 carries a diagnosis
  * and NEW evidence), or handed back (`handback`, `next_attempt: null`) which blocks the unit and its dependents.
  *
- * @param {{project: string, epoch: number, unit: string, token?: string, file: string, actor?: "cli"|"drive"}} input
+ * `input.openDoubt: true` (what `next` passes for a worker that cannot run `doubt open` itself, i.e. every Codex worker under drive) also
+ * OPENS the doubt after the report settled: see {@link openDoubtOfResult}. Without it the unit stays `reported` and the caller runs `doubt open`.
+ *
+ * @param {{project: string, epoch: number, unit: string, token?: string, file: string, actor?: "cli"|"drive", openDoubt?: boolean}} input
  * @param {{fs?: object, env?: object, exec?: Function, buildState?: object, homedir?: string, clock?: Function,
  *   g1TimeoutMs?: number}} [deps]
  * @returns {Promise<{ok: true, cmd: "report", unit: string, attempt: number, outcome: string, commit?: string,
  *   g1?: {exit: number, tail: string}, test_hashes?: object, next_attempt: number|null, reasons?: string[],
- *   handback?: object, doubt?: object, gate?: object, warnings?: string[]}>}
+ *   handback?: object, doubt?: object, doubt_opened?: object, gate?: object, warnings?: string[]}>}
  * @throws FENCE/QUIESCED (exit 3); INVALID_INPUT when the token is missing or wrong, or the unit kind is not reportable;
  *   INVALID_STATE for an unknown unit or one that accepts no report; FAILCLOSED when the G1 oracle is missing
  */
@@ -441,7 +444,31 @@ export async function ingestReport(input, deps = {}) {
     const sent = await emitEvent(project, { runtime: emit.runtime, runId: emit.runId, name: event.name, data: event.data }, deps);
     if (!sent.ok) result.warnings = [...(result.warnings ?? []), `event ${event.name} not emitted: ${sent.error}`];
   }
+  if (input.openDoubt === true) return openDoubtOfResult({ project, epoch: Number(epoch), input, result }, deps);
   return result;
+}
+
+/**
+ * Close the gap between a `doubt` outcome and an opened doubt (B2). A `doubt` report, or a failed/rejected report whose policy
+ * action is `doubt`/`dispute`, leaves the unit `reported` with no doubt record; a worker that cannot run `doubt open` itself (a Codex
+ * worker, i.e. everything under drive) needs the engine to do it. Runs after the report's own phase 2, outside its mutex section.
+ * Result gains `doubt_opened` (the `doubt open` output: `doubt_id`, `step`, `consult`, `parked`, `notice_es`), or, when the doubt cannot be
+ * opened, `action: "handback"` + `handback` (the unit and its dependents end `blocked`; a unit is never left `reported`).
+ */
+async function openDoubtOfResult({ project, epoch, input, result }, deps) {
+  const viaDoubt = result.outcome === "doubt";
+  const viaPolicy = result.action === "doubt" || result.action === "dispute";
+  if (!viaDoubt && !viaPolicy) return result;
+  const diagnosis = viaPolicy ? await diagnosisOf(input.file, deps) : null;
+  const opened = await openUnitDoubt({ project, epoch, unit: input.unit, doubt: result.doubt ?? null, diagnosis, actor: input.actor }, deps);
+  return opened.opened ? { ...result, doubt_opened: opened } : { ...result, action: "handback", next_attempt: null, handback: opened.handback };
+}
+
+async function diagnosisOf(file, deps) {
+  try {
+    const diagnosis = JSON.parse(await (deps.fs ?? fsp).readFile(file, "utf8"))?.diagnosis;
+    return diagnosis && typeof diagnosis === "object" ? diagnosis : null;
+  } catch { return null; }
 }
 
 /** Alias of {@link ingestReport} under the name the CLI dispatcher and the tests use. */

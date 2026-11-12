@@ -534,6 +534,17 @@ await test("replay: review_recorded restores probe_hashes on the review unit", a
   eq(u.probe_hashes, { "probes/p.test.ts": "a".repeat(64) }, "probe_hashes"); eq(u.review.verdict, "pass", "review still folded");
   });
 }));
+await test("replay: rebuild keeps a stacked assumption (parked.assumed_on) and drops it when a later parked event omits it", async () => withTmp("rb", async (dir) => {
+  await withReplayRoot(async (root) => {
+  const rebuildState = await need("state.mjs", "rebuildState");
+  await appendAll(dir, [...replayEvents(), ev("parked", { unit: "u-build-wo-01-002", reason: "owner_question", question: "q-2", assumed_on: "d-1" })]);
+  const u = (await rebuildState({ project: dir, integrationRoot: root })).state.units.find((x) => x.id === "u-build-wo-01-002");
+  eq([u.parked, u.pending_answer, u.assumed_on], ["owner_question", "q-2", "d-1"], "stacked marker restored");
+  await appendAll(dir, [ev("parked", { unit: "u-build-wo-01-002", reason: "built_on_assumption", question: "d-1" })]);
+  const u2 = (await rebuildState({ project: dir, integrationRoot: root })).state.units.find((x) => x.id === "u-build-wo-01-002");
+  ok(!("assumed_on" in u2), "marker cleared by a parked event without it");
+  });
+}));
 await test("replay: with no events past run_started the rebuilt state equals the initial state; with no journal it fails loud", async () => withTmp("rb", async (dir) => {
   const rebuildState = await need("state.mjs", "rebuildState");
   await rejectsWith(() => rebuildState({ project: dir }), ["INVALID_STATE", "LEDGER_CORRUPT", "JOURNAL_CHAIN"], "no journal to rebuild from");
