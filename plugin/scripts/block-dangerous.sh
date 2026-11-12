@@ -141,12 +141,14 @@ git_cmd="$cmd$git_norm"
 #       protected path is blocked too;
 #   (c) non-rm deleters: `find <protected> -delete`.
 _protected_under() { # $1 = a path operand; returns 0 if it IS/CONTAINS/IS-INSIDE a protected path
-  local p="$1" abs
+  local p="$1" abs labs
   case "$p" in -*) return 1 ;; ""|"/"|"~") return 0 ;; esac   # bare /, ~ handled by the broad rule above
   case "$p" in /*) abs="$p" ;; "~/"*) abs="$HOME/${p#\~/}" ;; *) abs="$cwd/$p" ;; esac
   abs="${abs%/}"
+  # Textual match on a lower-cased copy: APFS/HFS+ resolve .PANDACORP and Factory/Memory to the real folders.
+  labs=$(printf '%s' "$abs" | tr '[:upper:]' '[:lower:]')
   # Direct mention or inside a protected subtree
-  case "$abs" in
+  case "$labs" in
     *"/.pandacorp"|*"/.pandacorp/"*) return 0 ;;
     */factory/ideas|*/factory/ideas/*|*/factory/memory|*/factory/memory/*) return 0 ;;
     */factory/profile.md|*/factory/portfolio.md) return 0 ;;
@@ -154,8 +156,8 @@ _protected_under() { # $1 = a path operand; returns 0 if it IS/CONTAINS/IS-INSID
   # Parent-directory delete: the target exists and CONTAINS a protected dir/file
   if [ -d "$abs" ]; then
     [ -e "$abs/.pandacorp" ] && return 0
-    find "$abs" -maxdepth 3 -name ".pandacorp" -print -quit 2>/dev/null | grep -q . && return 0
-    case "$abs" in *"/factory") return 0 ;; esac
+    find "$abs" -maxdepth 3 -iname ".pandacorp" -print -quit 2>/dev/null | grep -q . && return 0
+    case "$labs" in *"/factory") return 0 ;; esac
     [ -d "$abs/factory/ideas" ] || [ -d "$abs/factory/memory" ] && return 0
   fi
   return 1
@@ -175,8 +177,8 @@ _is_protected_deploy_path() { # $1 = a path operand; returns 0 if it targets a l
   case "$p" in -*) return 1 ;; ""|"/"|"~") return 1 ;; esac
   case "$p" in /*) abs="$p" ;; "~/"*) abs="$HOME/${p#\~/}" ;; *) abs="$cwd/$p" ;; esac
   abs="${abs%/}"
-  case "$abs" in
-    /Users/Shared/local-deployments|/Users/Shared/local-deployments/*) return 0 ;;
+  case "$(printf '%s' "$abs" | tr '[:upper:]' '[:lower:]')" in
+    /users/shared/local-deployments|/users/shared/local-deployments/*) return 0 ;;
   esac
   # `git worktree list --porcelain` reports the PHYSICAL (symlink-resolved) path — macOS's own
   # /tmp and /var are themselves symlinks into /private, so a raw string match on $abs alone
@@ -289,21 +291,32 @@ _rm_unquote() { # strips ONE matching quote pair; fails on any other quote
 }
 _rm_classify() {
   local text="$1" t seg a op abs name val dir rec noopt nrm=0 re='^\$([A-Za-z_][A-Za-z0-9_]*)(/.*)?$' vars="" line wtroot
-  local -a segs toks ops
+  local -a segs toks ops chunks parts
+  local chunk nchunks
   case "$text" in
     *'`'*|*'$('*|*'<'*|*'>'*|*'|'*|*'('*|*')'*|*'{'*|*'}'*|*'\'*|*'#'*|*'!'*|*'*'*|*'?'*|*'['*|*'~'*) return 1 ;;
   esac
-  t="${text//&&/;}"
+  t="${text//&&/$'\001'}"
   case "$t" in *'&'*) return 1 ;; esac
   t="${t//$'\n'/;}"
   dir=""; case "$cwd" in /*) dir=$(_norm_path "$cwd") ;; *) return 1 ;; esac
-  IFS=';' read -ra segs <<< "$t"
+  # A `;` or newline between commands runs the next one even when an earlier `cd` / assignment FAILED (bash
+  # skips the rest only after `&&`), so once any cd or VAR= appears the chain must be joined by `&&` alone.
+  IFS=';' read -ra chunks <<< "$t"
+  nchunks=0
+  for chunk in "${chunks[@]}"; do case "$chunk" in *[![:space:]]*) nchunks=$((nchunks + 1)) ;; esac; done
+  segs=()
+  for chunk in "${chunks[@]}"; do
+    IFS=$'\001' read -ra parts <<< "$chunk"
+    segs+=("${parts[@]}")
+  done
   for seg in "${segs[@]}"; do
     seg="${seg#"${seg%%[![:space:]]*}"}"; seg="${seg%"${seg##*[![:space:]]}"}"
     [ -n "$seg" ] || continue
     read -ra toks <<< "$seg"
     case "${toks[0]}" in
       cd)
+        [ "$nchunks" -le 1 ] || return 1
         [ "${#toks[@]}" -eq 2 ] || return 1
         a=$(_rm_unquote "${toks[1]}") || return 1
         _rm_literal_ok "$a" || return 1
@@ -311,9 +324,12 @@ _rm_classify() {
         case "/$a/" in */../*) return 1 ;; esac
         dir=$(_norm_path "$a") ;;
       [A-Za-z_]*=*)
+        [ "$nchunks" -le 1 ] || return 1
         [ "${#toks[@]}" -eq 1 ] || return 1
         name="${toks[0]%%=*}"; val="${toks[0]#*=}"
         case "$name" in *[!A-Za-z0-9_]*) return 1 ;; esac
+        # Names that change how the shell itself splits words, resolves cd/commands or reads its own state.
+        case "$name" in IFS|PATH|CDPATH|HOME|PWD|OLDPWD|ENV|BASH_ENV|SHELL|TMPDIR|UID|EUID|PPID|RANDOM|SRANDOM|SECONDS|LINENO|BASHPID|BASHOPTS|SHELLOPTS|HISTCMD|GROUPS|MAIL|MAILPATH|PS4|PROMPT_COMMAND) return 1 ;; esac
         val=$(_rm_unquote "$val") || return 1
         _rm_literal_ok "$val" || return 1
         case "$val" in /*) ;; *) return 1 ;; esac
@@ -334,6 +350,7 @@ _rm_classify() {
                   continue ;;
             esac
           fi
+          case "$a" in *'$'*) case "$a" in \"*\") ;; *) return 1 ;; esac ;; esac   # an unquoted $VAR word-splits
           op=$(_rm_unquote "$a") || return 1
           if [[ $op =~ $re ]]; then
             name="${BASH_REMATCH[1]}"; val=""
@@ -357,7 +374,7 @@ _rm_classify() {
           if [ "$wtroot" = 1 ]; then
             # A LINKED worktree root only holds checked-out copies (its .git is a file): deleting it is routine
             # cleanup; textual state paths (.pandacorp/, factory/memory ...) are still refused below.
-            case "$abs" in *"/.pandacorp"|*"/.pandacorp/"*|*/factory/ideas|*/factory/ideas/*|*/factory/memory|*/factory/memory/*) wtroot=0 ;; esac
+            case "$(printf '%s' "$abs" | tr '[:upper:]' '[:lower:]')" in *"/.pandacorp"|*"/.pandacorp/"*|*/factory/ideas|*/factory/ideas/*|*/factory/memory|*/factory/memory/*) wtroot=0 ;; esac
           fi
           if [ "$wtroot" = 0 ] && _protected_under "$abs"; then
             block "recursive delete reaching a protected Pandacorp state path (.pandacorp/, factory/{ideas,memory,profile,portfolio} — directly or inside '$op') — this layer has no git history; archive/move instead, or ask the owner (BL-0035)"
@@ -377,9 +394,9 @@ if _rm_heredoc_view; then :; elif _rm_classify "$cmd"; then rm_exempt=1; fi
 # BSD/macOS `rm` treats -R as the canonical recursive flag, so the match must be case-insensitive
 # on the flag (WS-A F1 — `rm -Rf /` used to sail past the lowercase-only literal).
 if [ "$rm_exempt" != 1 ] \
-   && echo "$rm_view" | grep -Eq "(^|[[:space:];&|(\"'])rm[[:space:]]" \
+   && echo "$rm_view" | grep -Eq "(^|[[:space:];&|(\"'])\\\\?([A-Za-z0-9_./-]*/)?r\\\\?m[[:space:]]" \
    && echo "$rm_view" | grep -Eq '(^|[[:space:]])-[a-zA-Z]*[rR]|--recursive' \
-   && echo "$rm_view" | grep -Eq "[[:space:]\"'(](/|~|\\.\\.|\\\$HOME|\\\$\\{HOME\\})[\"')]*([[:space:];&|]|\$)"; then
+   && echo "$rm_view" | grep -Eq "[[:space:]\"'(](/|~|\\.\\.|\\\$HOME|\\\$\\{HOME\\})/*[\"')]*([[:space:];&|]|\$)"; then
   block "broad recursive delete (rm -r of /, ~ or ..)"
 fi
 

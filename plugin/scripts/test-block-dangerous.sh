@@ -391,6 +391,28 @@ check "B5 block: find ~ -exec /bin/rm -rf {} +"                    2 "$fx" "find
 check "B5 block: find myapp -exec /bin/rm -rf {} +"                2 "$fx" "find myapp -exec /bin/rm -rf {} +"
 check "B5 block: find \$HOME -delete"                              2 "$fx" 'find "$HOME" -delete'
 check "B5 allow: find a deep scratch dir by name -delete"          0 "$fx" "find $SCR -name '*.tmp' -delete"
+# Review H1: a failing cd before `;`/newline leaves the delete in the ORIGINAL cwd (bash skips the rest only after &&).
+check "H1 block: cd <gone>; rm -rf factory"                        2 "$fx" "cd /tmp/gone-xyz; rm -rf factory"
+check "H1 block: cd <gone> newline rm -rf myapp"                   2 "$fx" "cd /tmp/gone-xyz
+rm -rf myapp"
+check "H1 block: cd <gone> && rm -rf a; rm -rf factory"            2 "$fx" "cd /tmp/gone-xyz && rm -rf a; rm -rf factory"
+check "H1 allow: an all-&& chain after cd stays exempt"            0 "$fx" "cd $SCR && rm -rf exp1 && rm -rf exp2"
+# Review N3: catastrophic forms the pre-rewrite hook also allowed.
+check "N3 block: rm -rf ~/"                                        2 "$fx" "rm -rf ~/"
+check "N3 block: rm -rf \"\${HOME}/\""                              2 "$fx" 'rm -rf "${HOME}/"'
+check "N3 block: rm -rf \$HOME/"                                   2 "$fx" 'rm -rf $HOME/'
+check "N3 block: /bin/rm -rf ~"                                    2 "$fx" "/bin/rm -rf ~"
+check "N3 block: \\rm -rf ~"                                       2 "$fx" '\rm -rf ~'
+check "N3 block: r\\m -rf ~"                                       2 "$fx" 'r\m -rf ~'
+check "N3 block: command rm -rf ~"                                 2 "$fx" "command rm -rf ~"
+# Review N2: macOS volumes are case-insensitive, so protected paths match in any case.
+check "N2 block: rm -rf myapp/.PANDACORP"                          2 "$fx" "rm -rf myapp/.PANDACORP"
+check "N2 block: rm -rf FACTORY/IDEAS"                             2 "$fx" "rm -rf FACTORY/IDEAS"
+check "N2 block: rm -rf Factory/Memory"                            2 "$fx" "rm -rf Factory/Memory"
+check "N2 block: rm -rf factory/MEMORY (literal rm path)"          2 "$fx" "cd $fx && rm -rf factory/MEMORY"
+check "N2 block: rm -rf .Pandacorp/inbox"                          2 "$fx" "rm -rf .Pandacorp/inbox"
+# Review N1: IFS (and other shell-state variables) are never accepted by the literal-rm exemption.
+check "N1 allow: IFS assignment is never exempt, the old rules judge it (no broad target here)" 0 "$fx" "IFS=/ && rm -rf $SCR/exp1"
 rm -rf /private/tmp/claude-501/hookrm-test
 
 echo "== OUT OF SCOPE (expect 0 in a non-Pandacorp dir) =="
