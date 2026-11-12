@@ -292,11 +292,11 @@ _rm_unquote() { # strips ONE matching quote pair; fails on any other quote
 _rm_classify() {
   local text="$1" t seg a op abs name val dir rec noopt nrm=0 re='^\$([A-Za-z_][A-Za-z0-9_]*)(/.*)?$' vars="" line wtroot
   local -a segs toks ops chunks parts
-  local chunk nchunks
+  local chunk nchunks dotdot
   case "$text" in
     *'`'*|*'$('*|*'<'*|*'>'*|*'|'*|*'('*|*')'*|*'{'*|*'}'*|*'\'*|*'#'*|*'!'*|*'*'*|*'?'*|*'['*|*'~'*) return 1 ;;
   esac
-  t="${text//&&/$'\001'}"
+  t="${text//&&/$'\037'}"
   case "$t" in *'&'*) return 1 ;; esac
   t="${t//$'\n'/;}"
   dir=""; case "$cwd" in /*) dir=$(_norm_path "$cwd") ;; *) return 1 ;; esac
@@ -307,7 +307,7 @@ _rm_classify() {
   for chunk in "${chunks[@]}"; do case "$chunk" in *[![:space:]]*) nchunks=$((nchunks + 1)) ;; esac; done
   segs=()
   for chunk in "${chunks[@]}"; do
-    IFS=$'\001' read -ra parts <<< "$chunk"
+    IFS=$'\037' read -ra parts <<< "$chunk"
     segs+=("${parts[@]}")
   done
   for seg in "${segs[@]}"; do
@@ -336,7 +336,7 @@ _rm_classify() {
         case "/$val/" in */../*) return 1 ;; esac
         vars="${vars}${name}=$(_norm_path "$val")"$'\n' ;;
       rm)
-        nrm=$((nrm + 1)); rec=0; noopt=0; ops=()
+        nrm=$((nrm + 1)); rec=0; noopt=0; ops=(); dotdot=""
         for a in "${toks[@]:1}"; do
           if [ "$noopt" = 0 ]; then
             case "$a" in
@@ -359,11 +359,12 @@ _rm_classify() {
             op="$val${BASH_REMATCH[2]}"
           fi
           _rm_literal_ok "$op" || return 1
-          case "/$op/" in */../*) return 1 ;; esac
           case "${op%/}" in .|*/.) return 1 ;; esac
+          case "/$op/" in */../*) dotdot="$op" ;; esac
           ops+=("$op")
         done
         [ "$rec" = 1 ] || continue
+        [ -z "$dotdot" ] || block "broad recursive delete: '$dotdot' climbs with '..' (it can leave the directory you meant): spell the absolute path without .."
         for op in "${ops[@]}"; do
           case "$op" in /*) abs="$op" ;; *) abs="$dir/$op" ;; esac
           abs=$(_norm_path "$abs")
@@ -398,6 +399,16 @@ if [ "$rm_exempt" != 1 ] \
    && echo "$rm_view" | grep -Eq '(^|[[:space:]])-[a-zA-Z]*[rR]|--recursive' \
    && echo "$rm_view" | grep -Eq "[[:space:]\"'(](/|~|\\.\\.|\\\$HOME|\\\$\\{HOME\\})/*[\"')]*([[:space:];&|]|\$)"; then
   block "broad recursive delete (rm -r of /, ~ or ..)"
+fi
+
+# `cd X || rm -r…` runs the delete in the CURRENT folder when the cd fails, and a bare `cd` goes to $HOME: in
+# both the operands are relative to a place the command does not show. Never exempt, always blocked.
+if [ "$rm_exempt" != 1 ] \
+   && echo "$rm_view" | grep -Eq "(^|[[:space:];&|(\"'])\\\\?([A-Za-z0-9_./-]*/)?r\\\\?m[[:space:]]" \
+   && echo "$rm_view" | grep -Eq '(^|[[:space:]])-[a-zA-Z]*[rR]|--recursive' \
+   && echo "$rm_view" | grep -Eq '(^|[;&|[:space:](])cd([[:space:]]|$)' \
+   && { echo "$rm_view" | grep -Eq '\|\|[^;&]*[[:space:]/]r\\?m[[:space:]]|(^|[;&|[:space:](])cd[[:space:]]*(&&|;|\|\||$)'; }; then
+  block "recursive delete after 'cd … ||' or a bare 'cd' (the target folder is not the one shown): use 'cd /abs/path && rm -rf <name>' or an absolute path"
 fi
 
 # rm with a recursive flag anywhere (before OR after the paths): inspect every path operand.

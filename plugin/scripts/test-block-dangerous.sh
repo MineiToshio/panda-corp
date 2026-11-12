@@ -302,6 +302,9 @@ wt3=$(mktemp -d)/linked-wt
 git -C "$fx" worktree add -q --detach "$wt3" HEAD
 mkdir -p "$wt3/myapp/.pandacorp"
 check "allow: rm -rf a linked worktree root (checked-out .pandacorp inside)" 0 "$fx" "rm -rf $wt3"
+check "allow: cd /abs && rm -rf <worktree root> (chain really parsed, old rules alone would block)" 0 "$fx" "cd /tmp && rm -rf $wt3"
+check "allow: W=/abs && rm -rf \"\$W\" (assignment chain really parsed)" 0 "$fx" "W=$wt3 && rm -rf \"\$W\""
+check "block: a ; chain after cd falls back (worktree root, old rules block)" 2 "$fx" "cd /tmp; rm -rf $wt3"
 check "block: rm -rf the .pandacorp INSIDE that worktree"          2 "$fx" "rm -rf $wt3/myapp/.pandacorp"
 check "block: rm -rf the main checkout (a real .git directory)"    2 "$fx" "rm -rf $fx"
 git -C "$fx" worktree remove -f -f "$wt3" >/dev/null 2>&1; rm -rf "$(dirname "$wt3")"
@@ -413,6 +416,24 @@ check "N2 block: rm -rf factory/MEMORY (literal rm path)"          2 "$fx" "cd $
 check "N2 block: rm -rf .Pandacorp/inbox"                          2 "$fx" "rm -rf .Pandacorp/inbox"
 # Review N1: IFS (and other shell-state variables) are never accepted by the literal-rm exemption.
 check "N1 allow: IFS assignment is never exempt, the old rules judge it (no broad target here)" 0 "$fx" "IFS=/ && rm -rf $SCR/exp1"
+# Review R1: a VAR= value substituted into an operand gets the same broad-target verdict as a literal.
+check "R1 block: X=/ && rm -rf \"\$X\""                          2 "$fx" 'X=/ && rm -rf "$X"'
+check "R1 block: X=/Users && rm -rf \"\$X\""                     2 "$fx" 'X=/Users && rm -rf "$X"'
+check "R1 block: X=/tmp && rm -rf \"\$X\""                       2 "$fx" 'X=/tmp && rm -rf "$X"'
+check "R1 block: X=/usr/local && rm -rf \"\$X/lib\""             2 "$fx" 'X=/usr/local && rm -rf "$X/lib"'
+check "R1 block: X=$fx && rm -rf \"\$X/myapp\" (protected parent)" 2 "$fx" "X=$fx && rm -rf \"\$X/myapp\""
+check "R1 allow: X=<scratch> && rm -rf \"\$X/exp1\""             0 "$fx" "X=$SCR && rm -rf \"\$X/exp1\""
+# Review DR-HOOK3: .. segments, cd || rm, bare cd.
+check "DD block: cd /a/b/c && rm -rf ../../.."                    2 "$fx" "cd /a/b/c && rm -rf ../../.."
+check "DD block: rm -rf ../../../.."                              2 "$fx" "rm -rf ../../../.."
+check "DD block: rm -rf ../../../../../"                          2 "$fx" "rm -rf ../../../../../"
+check "DD block: X=/a/b/c/d && rm -rf \"\$X/../..\""             2 "$fx" 'X=/a/b/c/d && rm -rf "$X/../.."'
+check "DD block: .. inside an otherwise deep literal"             2 "$fx" "rm -rf $SCR/exp1/../../.."
+check "CD block: cd /x || rm -rf y"                               2 "$fx" "cd /x || rm -rf y"
+check "CD block: cd $SCR || rm -rf exp1"                          2 "$fx" "cd $SCR || rm -rf exp1"
+check "CD block: bare cd && rm -rf y"                             2 "$fx" "cd && rm -rf y"
+check "CD block: bare cd newline rm -rf y"                        2 "$fx" "cd
+rm -rf y"
 rm -rf /private/tmp/claude-501/hookrm-test
 
 echo "== OUT OF SCOPE (expect 0 in a non-Pandacorp dir) =="
