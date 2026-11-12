@@ -549,6 +549,13 @@ check "allow: cp -r with a variable"                                0 "$fx" 'cp 
 check "allow: grep -rn with a variable"                             0 "$fx" 'grep -rn "$pat" src'
 check "allow: ls -R"                                                0 "$fx" "ls -R src"
 check "allow: git rm of one file"                                   0 "$fx" "git rm src/a.ts"
+check "allow: git rm -r docs/old"                                   0 "$fx" "git rm -r docs/old"
+check "allow: git -C /abs/repo rm -r --cached x"                    0 "$fx" "git -C /abs/repo rm -r --cached x"
+check "allow: git -C \"\$TOP\" rm -r x (plain variable path)"        0 "$fx" 'git -C "$TOP" rm -r x'
+check "block: git rm -r x && rm -rf ~"                              2 "$fx" "git rm -r x && rm -rf ~"
+check "block: git rm -r x; rm -rf $SCR/exp1 (whitelist still judges)" 2 "$fx" "git rm -r x; rm -rf $SCR/exp1"
+check "block: rm hidden in a git -C substitution"                   2 "$fx" 'git -C "$(rm${IFS}-rf${IFS}~)" rm -r x'
+check "block: rm -rf after git -C <path> rm"                        2 "$fx" "git -C /abs/repo rm -r x && rm -rf /Users/x/proj/src"
 rm -rf /private/tmp/claude-501/hookrm-test
 
 echo "== OUT OF SCOPE (expect 0 in a non-Pandacorp dir) =="

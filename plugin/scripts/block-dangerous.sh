@@ -251,8 +251,12 @@ _RD_B='(^|[^A-Za-z0-9_])'; _RD_E='([^A-Za-z0-9_]|$)'
 _rd_has() { printf '%s' "$1" | LC_ALL=C grep -Eq -- "$2"; }
 _looks_like_recursive_delete() { # $1 = command text → 0 when it looks like a recursive delete
   local v raw norm rmw="${_RD_B}[gs]?rm${_RD_E}" unl="${_RD_B}(unlink|rmdir|shred)${_RD_E}"
-  # A whole `--rm` option word (docker run --rm) never runs rm; everything else containing the word counts.
-  raw=$(printf '%s' "$1" | LC_ALL=C sed -E 's/(^|[[:space:]])--rm([[:space:]=]|$)/\1--x\2/g')
+  # A whole `--rm` option word (docker run --rm) never runs rm, and neither does the git subcommand (`git rm`,
+  # `git -C <path> rm`: tracked files only, recoverable from git). The -C path may be a literal or ONE plain
+  # variable, never a substitution. Only the detector reads this copy; an rm chained after it still counts.
+  raw=$(printf '%s' "$1" | LC_ALL=C sed -E \
+    -e 's/(^|[[:space:]])--rm([[:space:]=]|$)/\1--x\2/g' \
+    -e 's/(^|[^A-Za-z0-9_])git[[:space:]]+(-C[[:space:]]+([^[:space:];&|$`()<>{}]+|"?\$\{?[A-Za-z_][A-Za-z0-9_]*\}?"?)[[:space:]]+)?rm([[:space:]]|$)/\1GITSUBCMD\4/g')
   norm=$(printf '%s' "$raw" | tr -d "\"'\\\\")
   for v in "$raw" "$norm"; do
     if _rd_has "$v" "$rmw"; then
