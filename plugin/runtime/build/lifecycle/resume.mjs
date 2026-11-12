@@ -1,6 +1,4 @@
 // `start --resume`: re-enter a non-terminal run (transfer or acquire), re-attach live units, requeue dead ones, re-arm drive.
-import * as fsp from "node:fs/promises";
-import path from "node:path";
 import { releaseToken } from "../admission.mjs";
 import { detect } from "../detect.mjs";
 import { armDrive, readStandby } from "../drive.mjs";
@@ -14,35 +12,20 @@ import { dispatchOf, peekWorker, stopWorkers, workerIdFor } from "../workers.mjs
 import { clearBuildDir, restoreSuspended } from "./buildDir.mjs";
 import { COORDINATORS, LEASE_TTL_S, RESUMABLE_STATUSES, bsOf, clockMs, depsOf, ensurePrePush, err, isAliveDefault, journal, readStateLoose } from "./common.mjs";
 
-/**
- * A lease mutex whose holder died inside it (a kill -9 of drive in the middle of a fenced mutation) would block every
- * command for build-state's 60-s staleness window. It is reclaimed at once when the pid in its `owner.json` is dead.
- * build-state creates the mutex directory with its `owner.json` already inside (atomic rename), so a mutex without a
- * readable owner is never a dead holder's: it is left alone (build-state's own staleness rule applies). A live or
- * foreign-permission owner is left alone too.
- * @returns {Promise<boolean>} true when a dead holder's mutex was removed
- */
-async function reclaimDeadLeaseMutex(p, isAlive) {
-  let owner;
-  try { owner = JSON.parse(await fsp.readFile(path.join(p.leaseMutex, "owner.json"), "utf8")).owner; } catch { return false; }
-  const pid = Number.parseInt(String(owner).split("-")[0], 10);
-  if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid || isAlive(pid)) return false;
-  const tomb = `${p.leaseMutex}.dead-${pid}-${process.pid}`;
-  try { await fsp.rename(p.leaseMutex, tomb); } catch { return false; }
-  await fsp.rm(tomb, { recursive: true, force: true });
-  return true;
-}
-
-// Bound on waiting for a fenced, still-active drive to leave its work phase; past it the resume proceeds as before.
+// Bound on waiting for a fenced, still-active drive to leave its work phase; past it the resume refuses (CONTENDED).
 const DRIVE_YIELD_WAIT_MS = 60_000;
 
 /**
  * A drive that was ACTIVE on this run (it held the lease until `takeLease` fenced it) may still be inside a work phase,
  * running git in the integration and unit worktrees; it only notices the fence at its next phase 2, then marks its
  * standby `stopped` and exits. The resume's worktree resets and heal must not run under it (they break its in-flight git
- * step: `index.lock` busy, a commit with nothing staged), so wait until it stopped, bounded by DRIVE_YIELD_WAIT_MS.
- * A drive in standby, of another run, or dead is not waited for.
+ * step: `index.lock` busy, a commit with nothing staged), so wait until it stopped, bounded by DRIVE_YIELD_WAIT_MS
+ * (`deps.driveYieldWaitMs` overrides it). A drive in standby, of another run, or dead is not waited for. A drive still
+ * active at the bound (a long unit-worktree bootstrap) makes the resume refuse with CONTENDED BEFORE any reset: the
+ * lease already names this session, so the drive yields at its next phase 2 (stopping the workers it launched in that
+ * round), and the same `start --resume` is simply retried.
  * @returns {Promise<boolean>} true when an active drive was seen and has stopped
+ * @throws CONTENDED when the drive is still active at the bound
  */
 async function waitActiveDriveYield(project, runId, isAlive, d) {
   const active = async () => {
@@ -50,12 +33,13 @@ async function waitActiveDriveYield(project, runId, isAlive, d) {
     return !!sb && sb.run_id === runId && sb.state === "active" && Number.isInteger(sb.pid) && sb.pid !== process.pid && isAlive(sb.pid);
   };
   if (!(await active())) return false;
-  const end = Date.now() + DRIVE_YIELD_WAIT_MS;
+  const bound = Number.isFinite(d.driveYieldWaitMs) && d.driveYieldWaitMs >= 0 ? d.driveYieldWaitMs : DRIVE_YIELD_WAIT_MS;
+  const end = Date.now() + bound;
   while (Date.now() < end) {
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, Math.min(200, Math.max(1, end - Date.now()))));
     if (!(await active())) return true;
   }
-  return false;
+  throw err("CONTENDED", "the drive of this run is still in a work phase and has not yielded yet: retry start --resume in a minute");
 }
 
 async function takeLease({ project, p, state, coordinator, ownerConfirmed }, d) {
@@ -144,7 +128,6 @@ export async function startResume(input, deps = {}) {
   // refusal leaves the run exactly as it was and the same `start --resume` can simply be retried.
   const launched = (await detect({ project, args: "", sessionRuntime: coordinator }, d)).signals.launched === true;
   await ensurePrePush(project, launched);
-  await reclaimDeadLeaseMutex(p, isAlive);
   const got = await takeLease({ project, p, state, coordinator, ownerConfirmed }, d);
   await waitActiveDriveYield(project, state.run_id, isAlive, d);
 

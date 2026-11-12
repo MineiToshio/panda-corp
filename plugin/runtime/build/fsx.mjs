@@ -116,12 +116,53 @@ async function readLastLine(file, fs) {
   }
 }
 
-// The pid that holds an append lock when it is provably dead (ESRCH), else null (live, foreign, unreadable, legacy).
-async function deadLockHolder(lock, fs) {
-  const owner = await fs.readFile(path.join(lock, "owner"), "utf8").catch(() => "");
-  const pid = Number.parseInt(owner.split("-")[0], 10);
-  if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) return null;
-  try { process.kill(pid, 0); return null; } catch (error) { return error.code === "ESRCH" ? { pid, owner } : null; }
+// Error codes of a rename that lost a lock race (the target is already held, or the source already moved away).
+const LOCK_RACE_CODES = new Set(["EEXIST", "ENOTEMPTY", "EISDIR", "ENOTDIR", "ENOENT"]);
+// Lock litter (`.new-*` of an appender that died, `.done-*` of a releaser that died, `.dead-*` tombs) older than this
+// is removed by the next holder; a tomb must outlive every reclaimer still racing for its instance (milliseconds).
+const LOCK_LITTER_MS = 10 * 60_000;
+const lastLitterSweep = new Map();
+async function sweepLockLitter(lock, fs) {
+  const now = Date.now();
+  if (now - (lastLitterSweep.get(lock) ?? 0) < 60_000) return;
+  lastLitterSweep.set(lock, now);
+  const base = `${path.basename(lock)}.`;
+  for (const name of await fs.readdir(path.dirname(lock)).catch(() => [])) {
+    if (!name.startsWith(base) || !/^(new|done|dead)-/.test(name.slice(base.length))) continue;
+    const full = path.join(path.dirname(lock), name);
+    const entry = await fs.lstat(full).catch(() => null);
+    // ctime moves on rename, so a tomb's age counts from the reclaim, not from its holder's acquisition.
+    if (!entry?.isDirectory() || now - Math.max(entry.mtimeMs, entry.ctimeMs) < LOCK_LITTER_MS) continue;
+    await fs.rm(full, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+// "dead" only when the pid prefixing the owner is provably gone (ESRCH); "alive" for a live or foreign-permission pid
+// (this process included); "unknown" for a missing or unreadable owner.
+function holderVerdict(owner) {
+  const pid = Number.parseInt(String(owner ?? "").split("-")[0], 10);
+  if (!Number.isInteger(pid) || pid <= 0) return "unknown";
+  if (pid === process.pid) return "alive";
+  try { process.kill(pid, 0); return "alive"; } catch (error) { return error.code === "ESRCH" ? "dead" : "alive"; }
+}
+
+// Reclaim an append lock whose holder is dead, or that is older than `staleMs`. Reclaimers are serialized per lock
+// INSTANCE: it moves to a tomb named after the inode observed BEFORE its owner was read, and the tomb stays (non-empty)
+// until the litter sweep, so a late reclaimer of the same instance fails to rename the next holder's lock onto it (no
+// ABA, no hand-back of a reclaimed lock). The FULL owner moved is compared with the one judged; a mismatch (the judged
+// instance was released by a live, merely old holder) puts the successor back, which can never make two holders.
+async function reclaimStaleLock(lock, fs, staleMs) {
+  const seen = await fs.stat(lock, { bigint: true }).catch(() => null);
+  if (!seen) return;
+  const judged = await fs.readFile(path.join(lock, "owner"), "utf8").catch(() => null);
+  if (holderVerdict(judged) !== "dead" && Date.now() - Number(seen.mtimeMs) <= staleMs) return;
+  const tomb = `${lock}.dead-i${seen.ino}`;
+  if (await fs.lstat(tomb).then(() => true, () => false)) return;
+  try { await fs.rename(lock, tomb); } catch (error) { if (LOCK_RACE_CODES.has(error.code)) return; throw error; }
+  const moved = await fs.readFile(path.join(tomb, "owner"), "utf8").catch(() => null);
+  if (moved !== judged) { await fs.rename(tomb, lock).catch(() => {}); return; }
+  // An ownerless (legacy) instance leaves an empty tomb, which a rename could replace: make it non-empty.
+  await fs.writeFile(path.join(tomb, "reclaimed"), `${process.pid}\n`).catch(() => {});
 }
 
 // Short cross-process mutex around one append. The lock directory is born WITH its owner file (prepared aside, then
@@ -135,15 +176,19 @@ async function withAppendLock(file, fs, fn) {
   for (let attempt = 0; attempt < 600; attempt++) {
     const held = await fs.stat(lock).catch(() => null);
     if (!held) {
-      const fresh = `${lock}.new-${me}`;
-      await fs.mkdir(fresh, { recursive: true });
-      await fs.writeFile(path.join(fresh, "owner"), me);
-      let acquired = true;
-      try { await fs.rename(fresh, lock); } catch (error) {
-        if (!["EEXIST", "ENOTEMPTY", "EISDIR", "ENOTDIR"].includes(error.code)) throw error;
-        acquired = false;
+      const fresh = `${lock}.new-${me}-${attempt}`;
+      let acquired = false;
+      try {
+        await fs.mkdir(fresh);
+        await fs.writeFile(path.join(fresh, "owner"), me);
+        await fs.rename(fresh, lock);
+        acquired = true;
+      } catch (error) {
+        await fs.rm(fresh, { recursive: true, force: true }).catch(() => {});
+        if (!LOCK_RACE_CODES.has(error.code) || error.code === "ENOENT") throw error;
       }
       if (acquired) {
+        await sweepLockLitter(lock, fs);
         try {
           return await fn();
         } finally {
@@ -155,20 +200,8 @@ async function withAppendLock(file, fs, fn) {
           }
         }
       }
-      await fs.rm(fresh, { recursive: true, force: true }).catch(() => {});
     } else {
-      const dead = await deadLockHolder(lock, fs);
-      if (dead || Date.now() - held.mtimeMs > 30_000) {
-        const tomb = `${lock}.dead-${me}`;
-        try {
-          await fs.rename(lock, tomb);
-          // A lock taken over between the check and the rename is handed back to its live holder.
-          const moved = await fs.readFile(path.join(tomb, "owner"), "utf8").catch(() => null);
-          if (dead && moved !== dead.owner) await fs.rename(tomb, lock).catch(() => {});
-          else await fs.rm(tomb, { recursive: true, force: true }).catch(() => {});
-        } catch { /* another appender reclaimed it first */ }
-        continue;
-      }
+      await reclaimStaleLock(lock, fs, 30_000);
     }
     await sleep(10);
   }

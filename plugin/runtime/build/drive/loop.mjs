@@ -6,7 +6,8 @@ import { deferAuditUnit } from "./audit.mjs";
 import { setOwnStandbyState } from "./standby.mjs";
 
 // Workers facade handed to `next`: drive launches Codex workers only, and nothing it passes carries the forbidden word.
-function codexOnlyWorkers(workers) {
+// Every worker it launches is noted in `launched` (the current round's), so a round fenced after the launch can stop it.
+function codexOnlyWorkers(workers, launched) {
   if (!workers) return workers;
   const guard = (input) => {
     const cell = input?.cell ?? {};
@@ -16,10 +17,38 @@ function codexOnlyWorkers(workers) {
   return new Proxy(workers, {
     get(target, prop) {
       const value = target[prop];
-      if (prop === "launchWorker" && typeof value === "function") return (input, deps) => { guard(input); return value.call(target, input, deps); };
+      if (prop === "launchWorker" && typeof value === "function") {
+        return async (input, deps) => {
+          guard(input);
+          const res = await value.call(target, input, deps);
+          if (res?.workerId) launched.set(res.workerId, input?.unit ?? null);
+          return res;
+        };
+      }
       return value;
     },
   });
+}
+
+/**
+ * A round fenced after it launched Codex workers (its phase 2 lost the lease to a `start --resume`) leaves workers no
+ * state records: their tokens are released by the resume and their worktree is reset and reused at the same attempt, so
+ * they must not keep writing into it. Stops every worker of this round that state.json does not record as a unit's
+ * running worker (a recorded one is the new owner's to adopt or stop). Never throws.
+ * @returns {Promise<string[]>} the worker ids stopped
+ */
+async function stopUnrecordedWorkers(project, launched, workers, d, engineDeps) {
+  if (!launched.size || typeof workers?.stopWorkers !== "function") return [];
+  try {
+    const state = await readState(project, { env: d.env, homedir: d.homedir }).catch(() => null);
+    const recorded = new Set((state?.units ?? []).filter((u) => u.state === "running" && u.worker?.worker_id).map((u) => u.worker.worker_id));
+    const ids = [...launched.keys()].filter((id) => !recorded.has(id));
+    if (ids.length) await workers.stopWorkers(project, ids, engineDeps);
+    return ids;
+  } catch (error) {
+    driveLog(project, `yield: stopping the round's workers failed: ${error?.message ?? String(error)}`, d);
+    return [];
+  }
 }
 
 // A land job counts as alive while it is recorded running and its pid (when known) is alive.
@@ -44,11 +73,13 @@ export async function driveLoop({ project, epoch }, deps) {
   const bs = await buildStateOf(d);
   const limits = limitsOf(d);
   const pollMs = limits.drive_poll_s * 1000;
-  const engineDeps = { ...(d.engineDeps ?? {}), ...(d.workers ? { workers: codexOnlyWorkers(d.workers) } : {}) };
+  const launched = new Map();
+  const engineDeps = { ...(d.engineDeps ?? {}), ...(d.workers ? { workers: codexOnlyWorkers(d.workers, launched) } : {}) };
   const ref = { project, epoch, actor: "drive", coordinator: "drive" };
 
   for (let i = 0; i < d.maxPolls; i++) {
     let out;
+    launched.clear();
     try {
       // Renewing first is also how a resumed owner is noticed: the token file now names another epoch -> FENCE.
       const token = await readLeaseToken(project, epoch, { env: d.env, homedir: d.homedir });
@@ -119,6 +150,9 @@ export async function driveLoop({ project, epoch }, deps) {
       const lost = isFenceError(error) ? error : await leaseLost(project, epoch, d);
       if (lost) {
         driveLog(project, `yield: fenced at epoch ${epoch} (${lost.message}${lost === error ? "" : `; after: ${error?.code ?? "ERROR"}: ${error?.message ?? String(error)}`}); the owner's session holds the run now`, d);
+        // Before the standby says `stopped` (what `start --resume` waits for), so no worker of this round outlives the yield.
+        const stoppedIds = await stopUnrecordedWorkers(project, launched, d.workers, d, engineDeps);
+        if (stoppedIds.length) driveLog(project, `yield: stopped ${stoppedIds.length} worker(s) launched in the fenced round: ${stoppedIds.join(", ")}`, d);
         await setOwnStandbyState(project, "stopped", d);
         return { outcome: "yielded", action: out?.action ?? null, exitCode: 0 };
       }
