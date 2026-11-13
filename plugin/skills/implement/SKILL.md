@@ -80,6 +80,17 @@ accounts/resources, preserve environment values and keep admin credentials out o
 
 ## Close-out and cleanup (CONV-21 / DR-145)
 
+Before close-out, check the new/changed e2e specs against both opted-in inventories
+(DR-159): parallel-safe or serial with a reason, and mobile classification with
+viewport evidence in the review document. Require reviewer inspection of changed
+classifications. Read the full gate report's `budget_warnings` and inventory WARNs;
+investigate regressions and report unresolved findings without removing tests or
+auto-raising `.pandacorp/gate-budget.json`. If no baseline exists, have the reviewer
+record the first full-green stage durations as project-owned configuration with
+command/seed/toolchain/host conditions and test counts in the review document.
+Never initialize it from a red or partial run; report pending baseline capture when
+the full gate runs in another environment. Keep Vitest Node/DOM membership current.
+
 Use `finish` or the terminal action's summary, then follow the cleanup procedure in
 `references/engine-v2.md` §8 and `../worktrees/SKILL.md` §Implementation teardown.
 The engine removes eligible finished-run worktrees immediately and keeps branches;

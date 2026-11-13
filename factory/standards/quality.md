@@ -160,3 +160,67 @@ Engineering standard (DR-006 covers the approval gate for destructive changes):
 
 Executable evidence: `test-verify-gate-report.sh`, `test-verify-before-stop.sh`,
 `test-e2e-tiers.mjs`, `test-e2e-diagnostic-phases.mjs` (real scheduler, browser/server-free), and `test-merge-queue-{certified-tree,release-gate,lock-refresh}.sh`.
+
+## Keeping verification fast as suites grow (DR-159)
+
+- Inventory drift is visible on every gate invocation, without changing DR-158 selection.
+  Opt in per axis using `e2e/parallel-safe.json` and `e2e/mobile-specs.json`.
+  Safe specs remain a path array. Explicit serial specs live in `e2e/serial-specs.json`,
+  a `{ "relative.spec.ts": "reason, including shared/transitive writes" }` object.
+  Unlisted specs warn with their paths and remain serial + both platforms. A serial
+  entry documents a verdict; it never changes the scheduler or overrides a safe entry.
+- Every added **or changed** spec requires both classifications and reasons in the
+  mobile inventory's review document (or `docs/reviews/e2e-inventory.md` for parallel-only
+  projects). Review fixture/app writes transitively, viewport-specific behavior and
+  mandatory mobile core. Re-audit changed specs; never bulk-approve new specs as safe.
+  Test-writer/builders maintain inventories, reviewers check them like code, and
+  implement close-out reports unresolved warnings. Legacy projects remain opt-in.
+- Install `stack-a-nextjs/vitest-policy.ts` verbatim as `.pandacorp/vitest-policy.ts`.
+  Project-owned `vitest.config.*` imports `pandacorpVitest`: Node is default, explicit
+  `dom` paths/globs partition Node/DOM projects, `domSetupFiles` loads jest-dom only
+  there, and base config `test.setupFiles` is DOM-free common setup. Per-file environment directives
+  remain authoritative; add DOM-directed files to `dom` to receive DOM setup.
+  Keep `isolate: true`. Preserve aliases/plugins, global setup/teardown, exclusions,
+  assertions, suite membership and timeouts. Root global setup runs once; inline child
+  projects clear globalSetup without inheritance. Review existing projects before migrating this recipe.
+- `PANDACORP_VITEST_MAX_WORKERS` is a positive safe integer. Unset means no new cap:
+  preserve Vitest's default or pass the project's existing `defaultMaxWorkers`.
+  Tune from measured CPU/RAM/DB contention; never impose a machine-specific width.
+  DR-146 shuffle and seed still come from the gate; this helper never changes them.
+- Optional `.pandacorp/gate-budget.json` records a reviewed full-green baseline:
+  `{ "margin": 0.25, "min_delta_ms": 1000, "stages": { "vitest": 80000 } }`.
+  Stage values are milliseconds from `gate-report.json.subgates[].duration_ms`.
+  Record command, seed, toolchain, host conditions and suite counts in the review
+  document. Compare full runs only; a stage warns when it exceeds both its relative
+  margin and minimum absolute delta. Warnings appear in stdout and report
+  `budget_warnings`; invalid budget data warns too. No baseline means no comparison.
+  At the first full-green close-out, have the reviewer record a missing baseline
+  with that provenance; upgrades preserve an existing baseline. When full execution
+  is external, hand off baseline capture explicitly rather than invent timing data.
+  Never replace the baseline automatically: investigate growth, preserve cases and
+  review intentional budget changes. This is observation, never a certification gate.
+
+**Database fixture template by fingerprint (recipe, no domain implementation).**
+Hash migration contents, schema/fixture version and database/toolchain versions.
+Under an advisory lock, reuse only an immutable empty template with that exact
+fingerprint; rebuild on mismatch. Give every file/worker a fresh uniquely owned
+clone and deterministic seed. Cache immutable bytes only, copying mutable trees.
+Use transaction rollback only when **all** queries share that transaction; retain
+full reset/clone semantics for multi-connection/commit/publication tests. Teardown
+always drops owned clones and `db:test:check-clean` verifies zero residue, including
+on failure. Never reuse a dirty clone, omit migrations from the hash, or weaken
+isolation to save time. Measure lock/migrate/clone/reset/body separately first.
+
+Verification: `test-verify-gate-report.sh` exercises advisory inventory/budget behavior
+through the real gate; `test-vitest-policy.mjs` checks partitioning, setup, isolation,
+worker validation and unchanged shuffle/seed defaults. Project migration also runs
+its complete unchanged test corpus and static gates.
+
+DR-159 migration detail: wrap the project's resolved base config with
+`pandacorpVitest(baseConfig, {dom, domSetupFiles, defaultMaxWorkers})`. Preserve its
+original test include/exclude/shared setup and other settings. The helper copies
+shared config into explicit inline projects without `extends:true`: Vitest merges
+inherited include/globalSetup arrays, which would duplicate suites and setup.
+Root global setup runs once. Existing `test.projects` is refused for explicit
+migration, never silently overwritten. DOM globs must stay within the intended
+selection. Validate test identities as well as counts on the installed runner.

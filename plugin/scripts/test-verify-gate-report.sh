@@ -936,13 +936,14 @@ rm -rf "$FX"
 
 # Ignored inputs must invalidate reuse; a mutation DURING certification must prevent recording.
 FX=$(new_git_fixture)
-printf '\n.env.local\nnode_modules/\ne2e/fixtures/\n' >> "$FX/.gitignore"
+printf '\n.env.local\nnode_modules/\ne2e/fixtures/\n.pandacorp/vitest-policy.ts\n' >> "$FX/.gitignore"
 mkdir -p "$FX/node_modules/.pnpm" "$FX/e2e/fixtures"
 printf 'lock\n' > "$FX/pnpm-lock.yaml"
 printf 'deps\n' > "$FX/node_modules/.pnpm/lock.yaml"
 printf 'fixture\n' > "$FX/e2e/fixtures/data.json"
+printf '// managed policy\n' > "$FX/.pandacorp/vitest-policy.ts"
 ( cd "$FX" && git add .gitignore pnpm-lock.yaml && git -c user.email=t@pandacorp.local -c user.name=T commit -qm inputs )
-for input in .env.local node_modules/.pnpm/lock.yaml e2e/fixtures/data.json pnpm-lock.yaml; do
+for input in .env.local node_modules/.pnpm/lock.yaml e2e/fixtures/data.json .pandacorp/vitest-policy.ts pnpm-lock.yaml; do
   run_local_verify "$FX" >/dev/null 2>&1
   printf 'changed\n' >> "$FX/$input"
   if ! stamp_ok "$FX"; then ok "(DR-158) changed $input invalidates stamp"; else bad "(DR-158) stale stamp accepted $input"; fi
@@ -971,6 +972,42 @@ printf '// unknown outside project\n' > "$FX/outside.ts"
 check_affected "$FX/app" run 'untracked outside project retains browser' --affected
 ( cd "$FX" && git add outside.ts )
 check_affected "$FX/app" run 'staged outside project retains browser' --affected
+rm -rf "$FX"
+
+# DR-159: exercise the real gate, not a second implementation of its classifier/budget.
+FX=$(new_fixture); add_playwright_fixtures "$FX"
+mkdir -p "$FX/e2e/nested"
+printf '' > "$FX/e2e/nested/new.spec.ts"
+printf '["smoke.spec.ts"]' > "$FX/e2e/parallel-safe.json"
+printf '{"include":["smoke.spec.ts"],"desktopOnly":[],"review":"docs/reviews/mobile.md"}' > "$FX/e2e/mobile-specs.json"
+out=$(run_verify "$FX" --only=tsc 2>&1); rc=$?
+if [ "$rc" = 0 ] && echo "$out" | grep -q 'unclassified parallel/serial' && echo "$out" | grep -q 'unclassified mobile' && echo "$out" | grep -q 'nested/new.spec.ts'; then
+  ok '(DR-159) nested new spec warns on both axes without changing verdict'
+else bad '(DR-159) missing inventory warnings' "$out"; fi
+python3 - "$FX" <<'PY159'
+import json, pathlib, sys
+root=pathlib.Path(sys.argv[1]); specs=sorted(p.relative_to(root/'e2e').as_posix() for p in (root/'e2e').rglob('*.spec.ts'))
+(root/'e2e/serial-specs.json').write_text(json.dumps({s:'Shared fixture writes; keep isolated' for s in specs if s != 'smoke.spec.ts'}))
+(root/'e2e/mobile-specs.json').write_text(json.dumps({'include':specs,'desktopOnly':[],'review':'docs/reviews/mobile.md'}))
+PY159
+out=$(run_verify "$FX" --only=tsc 2>&1)
+if ! echo "$out" | grep -q 'WARN DR-159'; then ok '(DR-159) classified specs are quiet'; else bad '(DR-159) classified specs warned' "$out"; fi
+rm -f "$FX/e2e/parallel-safe.json" "$FX/e2e/mobile-specs.json" "$FX/e2e/serial-specs.json"
+out=$(run_verify "$FX" --only=tsc 2>&1)
+if ! echo "$out" | grep -q 'WARN DR-159'; then ok '(DR-159) no inventories preserves legacy quiet behavior'; else bad '(DR-159) non-opted project warned' "$out"; fi
+printf '{"margin":0.25,"min_delta_ms":0,"stages":{"tsc":0.001}}' > "$FX/.pandacorp/gate-budget.json"
+out=$(run_verify "$FX" 2>&1); rc=$?
+if [ "$rc" = 0 ] && echo "$out" | grep -q 'WARN DR-159 gate budget: tsc' && grep -q 'budget_warnings' "$FX/.pandacorp/run/gate-report.json"; then ok '(DR-159) slow stage warns and stays green'; else bad '(DR-159) budget warning missing' "$out"; fi
+out=$(run_verify "$FX" --only=tsc 2>&1)
+if ! echo "$out" | grep -q 'gate budget'; then ok '(DR-159) partial timing is not compared to full baseline'; else bad '(DR-159) incomparable partial warned'; fi
+printf '{"margin":0.25,"stages":{"tsc":99999999}}' > "$FX/.pandacorp/gate-budget.json"
+out=$(run_verify "$FX" 2>&1)
+if ! echo "$out" | grep -q 'gate budget'; then ok '(DR-159) stage within budget is quiet'; else bad '(DR-159) within-budget warned'; fi
+printf '{bad' > "$FX/.pandacorp/gate-budget.json"
+out=$(run_verify "$FX" 2>&1); rc=$?
+if [ "$rc" = 0 ] && echo "$out" | grep -q 'invalid gate-budget'; then ok '(DR-159) malformed budget warns without failing certification'; else bad '(DR-159) malformed budget changed verdict'; fi
+out=$(WP05_FAIL_TSC=1 run_verify "$FX" 2>&1); rc=$?
+if [ "$rc" != 0 ] && grep -q '"green": false' "$FX/.pandacorp/run/gate-report.json"; then ok '(DR-159) advisory budget cannot turn a red gate green'; else bad '(DR-159) red gate lost its verdict'; fi
 rm -rf "$FX"
 
 echo "RESULT: $pass passed, $fail failed"

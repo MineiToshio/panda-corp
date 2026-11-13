@@ -347,3 +347,12 @@ Additional verification limit: `test-merge-queue-release-gate.sh` was attempted 
 its real free-port/listener bind failed with `EPERM` (73 checks passed, 4 failed). That suite is
 not green here and requires the unrestricted integrator. The changed gate/config scheduler
 regressions and the full 5538-test Vitest run are green; no product merge-queue code was changed.
+
+## Explicit serial inventory (DR-159)
+
+`e2e/serial-specs.json` now records each existing non-safe spec with its reason.
+Managed gates keep genuine ledger boot coverage, visual owns snapshots, and nested
+navigation covers real actions/extra contexts/races. Other specs retain serial
+because their transitive app/ledger writes lack an audited read-only boundary.
+This makes the existing complement explicit without promoting a spec or changing
+mobile selection. New/changed specs require a fresh classification review.

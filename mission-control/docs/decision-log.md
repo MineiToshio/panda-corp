@@ -1,5 +1,20 @@
 # Decision Log — Mission Control
 
+## 2026-11-13 — Adopt the durable Vitest gate policy (DUR, DR-159)
+
+**What:** adopt overlay **9.2.0**: install the managed Vitest policy and advisory gate/stamp updates, split
+shared private-state mocking from DOM-only setup, and adopt the reviewed DOM inventory.
+The full test corpus, assertions, worker defaults, pool, isolation and gate seed/order
+remain unchanged. The Manual explains classification upkeep and advisory stage budgets.
+
+**Why:** factory improvements must propagate instead of remaining project-local.
+The [platform inventory](reviews/vitest-platform-inventory.md) records conservative
+transitive DOM retention. Explicit inline projects avoid Vitest's inherited array
+merges and duplicate global setup. A pre-existing refresh-harness test could write
+its fixture within the same mtime millisecond; the owned fixture now starts at an old
+fixed timestamp so its real mutation-order assertion remains deterministic.
+The orchestrator runs full browser certification outside this sandbox.
+
 ## 2026-11-13 — Scope live-refresh evidence and complete diagnostic phases (VB)
 
 **What:** both read-only refresh specs now observe new request identities on their own page's main

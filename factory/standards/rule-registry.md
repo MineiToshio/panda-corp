@@ -10,6 +10,9 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 
 | ID | Rule | Sev | File | Enforced by | Status |
 |---|---|---|---|---|---|
+| QUAL-DUR-1 | Inventory drift and stage budgets warn without weakening certification (DR-159) | MUST | quality.md / build-orchestration.md | verify.sh; test-verify-gate-report.sh | wired |
+| QUAL-DUR-2 | Shared Vitest Node/DOM policy preserves isolation, discovery, setup and workers (DR-159) | MUST | quality.md | vitest-policy.ts; test-vitest-policy.mjs with real runner | wired |
+| QUAL-DUR-3 | New/changed specs carry reviewed parallel/serial and mobile reasons (DR-159) | MUST | quality.md / build-orchestration.md | test-writer and builder handoff; reviewer classification checklist; implement close-out | manual |
 | CONV-1 | Language: committed=English / gitignored=Spanish | MUST | conventions.md | reviewer (review-only) | manual |
 | CONV-17 | Project skill public names use project-slug:skill-slug; incremental ingestion uses ingest-delta | MUST | conventions.md | check-project-skills.mjs via doc-lint.sh (new-project hard gate, legacy warnings); scoped strict authoring check; native syntax/plugin/runtime review | wired |
 | CONV-2 | Naming conventions (camelCase files, handle*, use*, is/has) | MUST | conventions.md | reviewer quality lens | manual |

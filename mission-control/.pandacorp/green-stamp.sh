@@ -63,7 +63,7 @@ def add(path):
         raise ValueError('unhashable input')
     h.update(b'\0')
 for path in sorted(set([Path('.pandacorp/verify.sh'), Path('.pandacorp/green-stamp.sh'),
-                       Path('.pandacorp/run/lane.env'),
+                       Path('.pandacorp/run/lane.env'), Path('.pandacorp/vitest-policy.ts'),
                        Path('node_modules/.modules.yaml'), Path('node_modules/.pnpm/lock.yaml'),
                        Path('node_modules/.package-lock.json'), Path('e2e'),
                        Path('playwright.config.ts'), Path('package.json'),

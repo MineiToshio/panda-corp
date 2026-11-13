@@ -1,5 +1,19 @@
 # Decision Log — Factory
 
+## 2026-11-13 — Keep gate speed durable as suites grow (DUR, DR-159)
+
+**What:** Stack A warns with unclassified parallel/serial and mobile spec paths,
+without weakening serial/both-platform fallback. Explicit serial reasons and reviewer
+checks accompany test changes. A shared managed Vitest helper supplies Node/explicit-DOM
+projects, DOM-only setup, validated worker override and unchanged isolation/seed/order;
+project configs remain owned by projects. Full reports optionally warn against reviewed
+stage budgets, never auto-raising baselines. Plugin **10.2.0**, overlay **9.2.0**.
+
+**Why:** safe defaults concealed inventory decay and project-local Vitest optimizations
+had no upgrade path. Real-runner tests also prevent inherited include/globalSetup array
+merges from duplicating tests/setup; the managed helper participates in stamp inputs.
+Canonical: [quality](standards/quality.md), [orchestration](standards/build-orchestration.md), [Stack A recipe](../plugin/templates/stack-a-nextjs/STACK.md), and [DR-159](decisions/registry.yaml).
+
 ## 2026-11-13 — Run every diagnostic browser phase after failures (VB)
 
 **What:** Stack A combined `--no-bail` uses one global worker and no success dependencies,

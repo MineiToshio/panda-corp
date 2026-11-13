@@ -917,6 +917,14 @@ function ConceptHooks(): React.JSX.Element {
         fase anterior. La certificación mantiene tres workers para los tests seguros y se detiene
         pronto (DR-158).
       </Lead>
+      <Lead>
+        Para conservar esa velocidad al crecer la suite, cada spec nueva o modificada lleva una
+        clasificación revisada: paralela o serial, y cobertura móvil. Si falta, el gate avisa y
+        conserva la ejecución serial en ambas plataformas. Vitest usa Node por defecto y carga DOM y
+        jest-dom solo donde se declaran. Un presupuesto por etapa compara el pase completo con una
+        referencia revisada y avisa de las demoras; nunca quita pruebas ni bloquea por tiempo
+        (DR-159).
+      </Lead>
       <HooksDiagram />
       <NotePanel icon="lock">
         Los gates humanos (producción, gastar dinero, borrar datos, comunicaciones externas) se

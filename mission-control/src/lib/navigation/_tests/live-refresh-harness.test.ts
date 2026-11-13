@@ -14,6 +14,8 @@ function fixture() {
   roots.push(root);
   const file = path.join(root, "order.md");
   fs.writeFileSync(file, "---\nstatus: PLANNED\n---\n");
+  // Give the baseline a distinct filesystem tick; an immediate write may share its millisecond.
+  fs.utimesSync(file, new Date(1_000), new Date(1_000));
   return file;
 }
 it("waits for an SSE baseline and arms the RSC listener before changing the real fixture", async () => {

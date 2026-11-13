@@ -129,6 +129,55 @@ REPORT_FILE="$REPORT_DIR/gate-report.json"
 mkdir -p "$REPORT_DIR"
 rm -f "$REPORT_FILE"
 
+# DR-159: inventory drift is advisory; selection remains serial + both platforms.
+# Opt in independently on each axis by keeping its project-owned inventory.
+python3 - <<'INVENTORYPY'
+import json
+from pathlib import Path
+import re
+
+root = Path('e2e')
+specs = sorted(p.relative_to(root).as_posix() for p in root.rglob('*')
+               if p.is_file() and re.search(r'\.(spec|test)\.[cm]?[jt]sx?$', p.name))
+def load(name):
+    return json.loads((root / name).read_text())
+def warn(message):
+    print('WARN DR-159: ' + message)
+if (root / 'parallel-safe.json').exists():
+    try:
+        safe = load('parallel-safe.json')
+        serial = load('serial-specs.json') if (root / 'serial-specs.json').exists() else {}
+        if (not isinstance(safe, list) or any(not isinstance(x, str) for x in safe)
+                or not isinstance(serial, dict)
+                or any(not isinstance(v, str) or not v.strip() for v in serial.values())):
+            raise ValueError('expected parallel array and serial {spec: reason} object')
+        missing = sorted(set(specs) - set(safe) - set(serial))
+        if missing:
+            warn('unclassified parallel/serial specs (kept serial):\n  ' + '\n  '.join(missing)
+                 + '\n  Review transitive writes; update parallel-safe.json or serial-specs.json with reasons.')
+        overlap = sorted(set(safe) & set(serial))
+        if overlap:
+            warn('conflicting parallel/serial classifications: ' + ', '.join(overlap))
+        stale = sorted((set(safe) | set(serial)) - set(specs))
+        if stale:
+            warn('stale parallel/serial entries: ' + ', '.join(stale))
+    except (OSError, ValueError, TypeError) as error:
+        warn('cannot audit parallel/serial inventory: ' + str(error))
+if (root / 'mobile-specs.json').exists():
+    try:
+        mobile = load('mobile-specs.json')
+        included, excluded = mobile['include'], mobile['desktopOnly']
+        if (not isinstance(included, list) or not isinstance(excluded, list)
+                or any(not isinstance(x, str) for x in included + excluded)):
+            raise ValueError('expected include/desktopOnly string arrays')
+        missing = sorted(set(specs) - set(included) - set(excluded))
+        if missing:
+            warn('unclassified mobile specs (kept on both platforms):\n  ' + '\n  '.join(missing)
+                 + '\n  Update mobile-specs.json and its review document with viewport evidence.')
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        warn('cannot audit mobile inventory: ' + str(error))
+INVENTORYPY
+
 # --- Canary mode (DR-079): prove each fail-closed gate STILL goes RED on a broken input ---------
 # `verify.sh --canary` runs the project's deliberately-broken fixtures through the gates and asserts
 # each gate REJECTS its fixture — a gate that stays GREEN on a broken input has rotted (a renamed
@@ -536,6 +585,34 @@ if since:
     report["since"] = since
 if vitest_seed:
     report["vitest_seed"] = int(vitest_seed)
+# Recorded baseline is project-owned, reviewed and never auto-raised by a slow run.
+# Only full runs are comparable; a partial command can have a different workload.
+from pathlib import Path
+import math
+budget_path = Path('.pandacorp/gate-budget.json')
+if scope == 'full' and budget_path.exists():
+    warnings = []
+    try:
+        budget = json.loads(budget_path.read_text())
+        margin = budget.get('margin', 0.25)
+        minimum = budget.get('min_delta_ms', 1000)
+        stages = budget['stages']
+        def number(value):
+            return type(value) in (int, float) and math.isfinite(value)
+        if (not number(margin) or margin < 0 or not number(minimum) or minimum < 0
+                or not isinstance(stages, dict)
+                or any(not number(v) or v <= 0 for v in stages.values())):
+            raise ValueError('expected positive stage milliseconds and non-negative margin/min_delta_ms')
+        for gate in subgates:
+            baseline = stages.get(gate['name'])
+            actual = gate['duration_ms']
+            if baseline and actual > baseline * (1 + margin) and actual - baseline >= minimum:
+                warnings.append(f"{gate['name']}: {actual} ms > baseline {baseline} ms + {margin:.0%}")
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, OverflowError) as error:
+        warnings.append('invalid gate-budget.json: ' + str(error))
+    report['budget_warnings'] = warnings
+    for warning in warnings:
+        print('WARN DR-159 gate budget: ' + warning)
 with open(out_path, "w") as fh:
     json.dump(report, fh, indent=2)
     fh.write("\n")

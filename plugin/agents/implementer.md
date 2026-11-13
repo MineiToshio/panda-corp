@@ -62,3 +62,15 @@ work, CITE its `LESSON-NNNN` in the durable artifact you produce** (the blueprin
 review, the WO Status Note, the progress log) — the close-out's `count-lesson-citations.sh` counts
 those citations and updates `times_applied`/`applied_in` deterministically; NEVER edit those counters
 by hand. The store is the factory's accumulated experience — use it so the same lesson isn't relearned.
+
+## Durable gate performance (DR-159)
+
+For every added or changed e2e spec, re-audit transitive fixture/app writes and
+viewport behavior. Where inventories exist, update `e2e/parallel-safe.json` or
+`e2e/serial-specs.json` (`{spec: reason}`), and `e2e/mobile-specs.json`; record
+per-spec reasons in its review document (`docs/reviews/e2e-inventory.md` when only
+parallel classification is enabled). Review these changes like code. Unclassified
+specs WARN and retain serial + both-platform certification; never suppress coverage
+to silence a warning. Keep Node/DOM membership and DOM-only setup current when unit
+tests change. Read gate budget warnings, investigate cost without dropping cases,
+and report unresolved findings; never auto-raise a baseline.

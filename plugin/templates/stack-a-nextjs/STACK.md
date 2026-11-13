@@ -263,3 +263,45 @@ have no shared writes, including app effects, and tolerate `-parallel` project n
 The combined invocation runs safe projects, then serial desktop and serial mobile. See
 [quality.md](../../../factory/standards/quality.md#verification-cost-without-weaker-certification-dr-158)
 for ownership, fingerprint reuse, diagnostic mode and the always-partial `--affected` contract.
+
+## Versioned Vitest recipe (DR-159, Vitest 4+)
+
+Install `vitest-policy.ts` verbatim as `.pandacorp/vitest-policy.ts`; conformance
+checks this helper, **never** the project's config/setup/inventory files. New projects
+use this recipe. Upgrades audit membership and setup before adopting it; they preserve
+plugins, aliases, exclusions, database setup/teardown, worker caps and all test cases.
+
+```ts
+import { defineConfig } from "vitest/config";
+import { pandacorpVitest } from "./.pandacorp/vitest-policy";
+
+export default defineConfig(pandacorpVitest({
+  // Retain plugins, resolve aliases, global setup/teardown and other project config here.
+  test: {
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    exclude: ["**/node_modules/**", "**/.git/**", "e2e/**", ".pandacorp/**"],
+    globals: true,
+    setupFiles: [], // DOM-free shared setup only
+  },
+}, {
+  dom: ["src/**/*.test.tsx", "src/lib/_tests/browser.test.ts"], // reviewed paths/globs
+  domSetupFiles: ["./src/test/dom-setup.ts"], // imports @testing-library/jest-dom/vitest
+  // defaultMaxWorkers: existingProjectCap, // omit to retain runner/config default
+}));
+```
+
+Use real existing DOM paths, not the example placeholder. Per-file environment
+directives remain valid; put DOM-directed files in `dom` for setup. DOM globs must
+stay within the intended test selection. The helper copies shared config into
+explicit inline projects without `extends:true` (Vitest concatenates inherited
+include/globalSetup arrays, duplicating tests and setup). Root global setup runs
+once; child globalSetup is empty. Existing `test.projects` is refused: migrate it
+explicitly rather than silently discard its behavior. Config functions must resolve
+their base config before calling the helper. The gate owns shuffle and seed,
+unchanged. Never disable isolation or change pool to claim an improvement.
+
+On each new/changed e2e spec, maintain both opted-in inventories and reviewed reasons.
+`serial-specs.json` is a project-owned `{ "example.spec.ts": "reason" }` object; it
+records intent without changing selection. Optional `.pandacorp/gate-budget.json`
+records full-green stage milliseconds, a relative margin (default 25%) and minimum
+absolute delta (default 1000 ms). See quality.md DR-159 for schema and provenance.

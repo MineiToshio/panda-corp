@@ -490,3 +490,18 @@ The scheduler's G1 remains light, G2 remains scoped, and `--affected` is an atte
 option, always partial, never an alternative to the G3 command or a VERIFIED transition.
 The queue's certified-tree decision occurs before its port probe; a live verification owner
 prevents reuse, and exit 75 must not trigger deletion of the active owner's generated artifacts.
+
+## Durable verification cost (DR-159)
+
+Builders and test-writers classify every new/changed e2e spec on both opted-in axes;
+reviewers check the reasons and transitive effects before accepting a unit. The
+canonical [quality standard](quality.md#keeping-verification-fast-as-suites-grow-dr-159)
+owns the inventory formats, Node/DOM Vitest recipe and advisory stage budget.
+The CLI brief repeats this obligation even for general-purpose workers. Inventory
+and associated review-document changes belong in the same review unit as the spec.
+Close-out reads WARNs in gate stdout and `budget_warnings` in the full gate report,
+explains regressions, and reports unresolved findings. A slow stage never triggers
+a patch verdict, waives a test, widens scope or silently raises its own baseline.
+Upgrade manages the shared helper; project configuration and reviewed budgets stay
+project-owned. Verification: `test-verify-gate-report.sh`, `test-vitest-policy.mjs`
+and `test-build-v2-workers.mjs`; classification rationale is review-only.

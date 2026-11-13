@@ -60,6 +60,8 @@ export function renderBrief(input) {
   out.push(`- id: ${unit.id}`, `- kind: ${unit.kind}`, `- work orders: ${unit.wos.length ? unit.wos.join(", ") : "none"}`, `- FRD: ${unit.frd ?? "none"}`);
   out.push(`- attempt: ${unit.attempt}`, `- risk zone: ${unit.zone}${unit.risk_rules?.length ? ` (rules: ${unit.risk_rules.join(", ")})` : ""}`, "");
   if (unit.kind !== "doubt-consult") out.push(...scopeSection(input));
+  if (unit.kind !== "doubt-consult") out.push(
+    "DR-159: For every new/changed e2e spec, re-audit transitive writes and viewport behavior; update opted-in e2e/parallel-safe.json or e2e/serial-specs.json and e2e/mobile-specs.json with per-spec reasons in the inventory review document. Review inventories like code; unknown specs remain serial + both platforms. Report gate budget WARNs; never auto-raise baselines or drop tests.", "");
   out.push(...contextSection(input));
   if (REVIEW_KINDS.includes(unit.kind)) out.push(...reviewSections(input));
   else if (unit.kind === "doubt-consult") out.push(...consultSections(input));

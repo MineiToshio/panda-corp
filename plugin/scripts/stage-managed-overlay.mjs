@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 export const MANAGED_OVERLAY_FILES = Object.freeze([
   'README.md', 'guide.md', 'status.yaml', 'idea-origin.md', 'track.jsonl', 'build-journal.jsonl',
-  'verify.sh', 'canary.sh', 'merge-queue.sh', 'green-stamp.sh', 'change-reconcile.mjs', 'session-cleanup.sh',
+  'verify.sh', 'vitest-policy.ts', 'gate-budget.json', 'canary.sh', 'merge-queue.sh', 'green-stamp.sh', 'change-reconcile.mjs', 'session-cleanup.sh',
   'worktree-bootstrap.sh', 'pending-work.sh', 'serve-once.sh', 'doc-lint.sh', 'check-project-skills.mjs', 'risk-paths',
 ]);
 
