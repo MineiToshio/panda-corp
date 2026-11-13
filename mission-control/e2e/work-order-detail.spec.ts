@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 test("AC-05-008.4 source summary, full document, reload and filter-preserving return", async ({
   page,

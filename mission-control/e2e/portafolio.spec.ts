@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 test("AC-03-008.1 AC-03-008.2: overview, Lista, reload and Back preserve the selected view", async ({
   page,

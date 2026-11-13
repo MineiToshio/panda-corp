@@ -1,5 +1,88 @@
 # Decision Log — Mission Control
 
+## 2026-11-13 — Scope live-refresh evidence and complete diagnostic phases (VB)
+
+**What:** both read-only refresh specs now observe new request identities on their own page's main
+frame, exact origin/path, RSC GET and non-prefetch headers; assertions still judge focus, query,
+response success and rendered state. Their shared controlled SSE helper flushes the baseline
+before selection and handles response-wait rejection without an orphan promise/timer. The
+[platform review](reviews/e2e-platform-inventory.md#diagnostic-follow-up-and-response-oracle-audit)
+records the audit of all 35 safe specs and the limits of the four production error snapshots.
+
+**Why:** the log selected four focus-less RSC responses while all four error snapshots retained
+the selected work order. The old wait accepted any response with an RSC header, including an
+old in-flight request/prefetch; the log does not identify its precise source. The new request
+boundary rejects those without filtering focus itself, so a genuinely wrong refresh still fails.
+No shared writer or cross-worker Page event was found; safelist and 890 case identities remain.
+Diagnostic scheduling now uses one worker with independent projects so red parallel tests do
+not skip 425 serial checks; certification keeps three workers/dependencies/fail-fast. Template
+propagated before overlay 9.1.2 status update. Real browser confirmation and timing remain external.
+
+
+## 2026-11-12 — Populate the reviewed parallel UI tier (VB / VIS3)
+
+**What:** classify every root e2e spec and the nine nested navigation specs in the
+[platform inventory](reviews/e2e-platform-inventory.md#parallel-safety). The project safelist
+expands from 3 to 35 specs with the same three workers and 890 production-discovered identities:
+330 desktop + 135 mobile parallel; 230 desktop + 195 mobile serial. The three VIS3 top candidates
+(responsive-widths, frd-13 visual checks, frd-19 shell) qualify after explicit isolation of the
+invisible boot ledger action. Only their test-fixture imports change; assertions stay intact.
+
+**Why:** ordinary navigation indirectly writes the ledger, so absence of fs calls was insufficient.
+A project-owned [read-only fixture](../e2e/_read-only.ts) identifies only that background action
+from the running manifest, lets the existing client catch handle its isolated rejection, rejects
+other mutation requests, and checks shared fixture bytes + file/directory metadata at teardown.
+Regression tests detect touches, restored writes, transient locks and unsafe safelist additions.
+Ledger/action/history races, shared writers, CSP timing, baselines, nested unguarded contexts and
+managed template integration gates retain the genuine serial path. No template/config fork,
+coverage removal, retry, worker increase or product change. Actual speedup needs the external run.
+
+
+## 2026-11-12 — Correct certification provenance, mobile upgrades and production live harness (RVB)
+
+**What:** fix reviewer B1/B2: hash all ambient environment inputs except explicit invocation/shell
+controls, including MC_CLOCK/MC_GIT_FIXTURE/NAVIGATION_TEST_FACTORY_ROOT and lane.env; retain
+legacy mobile coverage when no reviewed inventory exists. Reviewed inventories name exclusions
+and their review document; unknown specs stay mobile. MC's reviewed classification preserves its
+current distribution. Plugin **10.1.1**, overlay **9.1.1**.
+
+**Why:** the old prefix filter could reuse green evidence with an invalid product clock, and an
+upgrade without a mobile list silently lost coverage. Both failures have RED→GREEN regressions.
+The production frd-05 failure exposed an unobserved SSE-baseline/RSC-listener ordering in the
+harness; it now shares the native SSE/real-file refresh helper with navigation-root, preserving
+URL assertions and zero retries. Exact attribution of the original browser attempt is unverified;
+new failures record SSE/RSC observations. The reported non-test error is Playwright's synthetic
+maxFailures notice, not an additional product exception; no error suppression was added.
+
+Canonical: [platform inventory and production diagnosis](reviews/e2e-platform-inventory.md), [shared live harness](../e2e/_live-refresh.ts).
+
+
+## 2026-11-12 — Faster certification without weakening landing (DR-158)
+
+**What:** certification fails fast (Vitest bail=1, Playwright maxFailures=1); diagnostic
+`--no-bail` / `PANDACORP_VERIFY_NO_BAIL=1` collects failures with the same shuffled seed.
+A kernel-owned checkout lock rejects concurrent verification with exit 75 before report,
+stamp, compiler or port writes. Stop treats contention as infrastructure, never foreign red.
+Green-stamp v2 binds the Git tree, gate, Node version, lockfiles, installed dependency graph
+metadata, environment files/selected runtime inputs and all physical e2e fixtures; inputs
+must also match at completion. Unknown/corrupt/old/changed inputs require a full gate.
+
+Browser certification uses one production build and one owned Next start for every project.
+The optional parallel-safe list executes first; desktop and mobile serial complements run
+in dependency order, with visual baselines and ledger/fixture writers serial. Mobile uses
+an explicit per-file allowlist, retaining smoke, visual and responsive core gates plus
+reviewed project-specific navigation/focus/dialog coverage. `--affected` ports only the
+conservative data-only selector from the divergent branch into today's gate: all other
+checks stay global, uncertain inputs keep the browser, every affected report is partial.
+No old executor code, DR-144 or BL-0302 identifier was imported. G3 before main stays full.
+
+Canonical: [platform inventory](reviews/e2e-platform-inventory.md), [shared gate contract](../../factory/standards/quality.md).
+
+**Why:** owner-selected research option B preserves final coverage while removing redundant
+work and avoidable failures. Browser time savings are hypotheses until an unrestricted
+benchmark measures the same tree/fixtures/host; retries and baseline updates are not acceptance.
+
+
 ## 2026-11-12 — Register workspace derived palette (TOKFIX)
 
 **What:** [Design tokens](design/design-tokens.json) and the Tailwind registry now name

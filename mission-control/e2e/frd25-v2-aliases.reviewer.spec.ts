@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./_read-only";
 
 test("FRD-25 route contract: old Party links restore Summary in both presentation contexts", async ({
   page,

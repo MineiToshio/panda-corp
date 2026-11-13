@@ -8,7 +8,7 @@
 //             3 core.hooksPath points inside the work tree (tracked hooks, e.g. husky: refused),
 //             4 the hooks directory could not be written (install mode only), 64 bad arguments.
 //
-// The installed hook is a full copy of plugin/templates/shared/.pandacorp/hooks/pre-push carrying a
+// The installed hook is a configured copy of plugin/templates/shared/.pandacorp/hooks/pre-push carrying a
 // `# pandacorp-pre-push v<N>` marker. A hook that is not ours is kept next to it as
 // `pre-push.pandacorp-chained`, which the installed hook runs after its own gate. The hook gates by a
 // flag, not a secret: it stops an unprompted push to the default branch of a launched project, not a
@@ -108,10 +108,41 @@ export function installPrePush(opts, deps = {}) {
     );
   }
 
-  const template = fs.readFileSync(templatePath, "utf8");
+  const source = fs.readFileSync(templatePath, "utf8");
+  // Git shares hooks across linked worktrees: persist repository-relative project roots, never an
+  // absolute checkout path. Keep every already registered project when installing another one.
+  const scope = path.relative(realTop, realpathLoose(start)).split(path.sep).join("/") || ".";
+  if (!isInside(realpathLoose(start), realTop) || /[\r\n]/.test(scope)) {
+    return result(EXIT.USAGE, "invalid_project", "project must be inside the repository and contain no newline");
+  }
+  const hookPath = path.join(hooksDir, HOOK_NAME);
+  let registered = [];
+  if (fs.existsSync(hookPath)) {
+    const previous = fs.readFileSync(hookPath, "utf8");
+    const match = /^# pandacorp-projects (.+)$/m.exec(previous);
+    if (markerVersion(previous) !== null && match) {
+      registered = JSON.parse(match[1]);
+      if (!Array.isArray(registered) || registered.some((s) => typeof s !== "string" ||
+          !s || /[\r\n]/.test(s) || path.posix.isAbsolute(s) || s.split("/").includes(".."))) {
+        throw new Error("invalid registered pre-push project scopes");
+      }
+    } else if (markerVersion(previous) === 1) {
+      // v1 implicitly guarded a root product. Installing for a nested project must not drop that
+      // protection, including when its status exists only in the main/another linked worktree.
+      // A factory's runtime-only .pandacorp/ is not a root product: require the status.yaml marker.
+      const worktrees = (git(top, ["worktree", "list", "--porcelain", "-z"]) ?? "")
+        .split("\0").filter((entry) => entry.startsWith("worktree ")).map((entry) => entry.slice(9));
+      if ([top, ...worktrees].some((root) => fs.existsSync(path.join(root, ".pandacorp", "status.yaml")))) {
+        registered = ["."];
+      }
+    }
+  }
+  const scopes = [...new Set([...registered, scope])].sort();
+  const quote = (s) => "'" + s.replaceAll("'", "'\\''") + "'";
+  const template = source.replace("# PANDACORP_PROJECT_SCOPES", () =>
+    `# pandacorp-projects ${JSON.stringify(scopes)}\nPROJECT_SCOPES=${quote(scopes.join("\n"))}`);
   if (markerVersion(template) === null) throw new Error(`template ${templatePath} has no pandacorp-pre-push marker`);
 
-  const hookPath = path.join(hooksDir, HOOK_NAME);
   const chainedPath = path.join(hooksDir, CHAINED_NAME);
   let state = "missing";
   let foreign = false;

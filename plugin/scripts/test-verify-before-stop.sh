@@ -66,7 +66,7 @@ run_hook() { # $1 fixture, $2 session_id, $3 extra env ("" or "K=V") -> $rc $out
 }
 invoked() { [ -s "$1/.pandacorp/run/verify-invocations" ]; }
 args_of() { tail -1 "$1/.pandacorp/run/verify-args" 2>/dev/null; }
-certify() { ( cd "$1" && bash .pandacorp/green-stamp.sh record "$(git rev-parse 'HEAD^{tree}')" >/dev/null ); }
+certify() { ( cd "$1" && bash .pandacorp/green-stamp.sh record "$(bash .pandacorp/green-stamp.sh start)" >/dev/null ); }
 mark_touched() { # $1 fixture, $2 sid, rest = repo-relative paths
   local d="$1" s="$2"; shift 2
   for p in "$@"; do printf '%s/%s\n' "$d" "$p" >> "$d/.pandacorp/run/sessions/$s.touched"; done
@@ -276,6 +276,25 @@ leaked=0
 [ -f "$real_stream" ] && leaked=$(tail -500 "$real_stream" | grep '"event":"StopGate"' | grep -c '"project":"tmp\.' || true)
 if [ "${leaked:-0}" = 0 ]; then ok "no StopGate event from a scratch fixture reached the real stream"
 else bad "$leaked scratch StopGate events leaked into $real_stream"; fi
+
+fx=$(make_fixture)
+certify "$fx"
+python3 - "$fx" <<'BUSYPY' &
+import fcntl, pathlib, sys, time
+root=pathlib.Path(sys.argv[1])/'.pandacorp/run'
+with (root/'verify.lock').open('w') as lock:
+    fcntl.flock(lock, fcntl.LOCK_EX)
+    (root/'owner-ready').touch()
+    while not (root/'owner-release').exists(): time.sleep(.02)
+BUSYPY
+owner=$!
+for i in $(seq 1 150); do [ -f "$fx/.pandacorp/run/owner-ready" ] && break; sleep .02; done
+if (cd "$fx" && bash .pandacorp/green-stamp.sh check >/dev/null 2>&1); then bad 'active verification owner allowed certified-tree reuse'; else ok 'active verification owner refuses certified-tree reuse'; fi
+printf '75\n' > "$fx/.pandacorp/run/verify-exit-code"
+run_hook "$fx" busy-owner
+if [ "$rc" = 2 ] && echo "$out" | grep -q 'another verification owner'; then ok 'Stop treats contention as infrastructure, never foreign-red allow'; else bad "Stop contention was silenced: $out"; fi
+touch "$fx/.pandacorp/run/owner-release"; wait "$owner"
+rm -rf "$fx"
 
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = "0" ]

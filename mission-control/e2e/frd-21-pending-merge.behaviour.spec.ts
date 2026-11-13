@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 test("AC-21-007.2: repository dialog primary flow and keyboard lifecycle", async ({ page }) => {
   await gotoHydrated(page, "/", { selector: "#worktrees-card button" });

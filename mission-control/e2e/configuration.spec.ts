@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 test("AC-07-013.1 AC-07-013.2 AC-07-013.3 AC-07-013.4 AC-07-013.5 configuration catalog journey", async ({
   page,

@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { test } from "./_read-only";
 import { SURFACES } from "./routes";
 
 // Reviewer-authored (DR-080), FRD-13 close: the contracts a stylesheet read cannot prove, measured on

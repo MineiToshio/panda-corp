@@ -4,7 +4,7 @@ project: "Pandacorp"
 phase: implementation
 last_harvest: "2026-11-11T15:07:51Z"
 version: v2
-overlay_version: "9.0.0"
+overlay_version: "9.1.2"
 created_with: "6.0.0"
 target_platforms: responsive  # Blocking mobile checks enabled; four-width verification passed at the FRD-13 gate.
 deploy_target: internal  # internal tool served on the LAN without auth (owner decision 2026-10-12) — no external host (DR-085)

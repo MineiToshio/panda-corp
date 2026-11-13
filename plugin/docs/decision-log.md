@@ -1,5 +1,66 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-13 — Run every diagnostic browser phase after failures (VB)
+
+**What:** Stack A combined `--no-bail` uses one global worker and no success dependencies,
+so a red safe project cannot suppress serial desktop/mobile. Certification keeps its three-worker
+safe tier, ordered dependencies and maxFailures=1. One build/start/invocation and red exit remain.
+Plugin **10.1.2**, overlay **9.1.2**; Mission Control's installed config matches the template.
+
+**Why:** the actual Playwright scheduler skips dependents after a failed project even when
+maxFailures=0: the observed diagnostic run passed 461 / failed 4 and omitted 425. A real-scheduler
+regression reproduces that failure and verifies continuation after parallel and desktop failure,
+serial isolation and certificate fail-fast without starting browsers/servers. Chained teardown
+projects form an ordering cycle in the installed scheduler, so diagnostics deliberately trade
+speed for complete isolated evidence. Canonical: [quality](../../factory/standards/quality.md),
+[orchestration](../../factory/standards/build-orchestration.md), [DR-158](../../factory/decisions/registry.yaml).
+
+
+## 2026-11-12 — Correct certification provenance, mobile upgrades and production live harness (RVB)
+
+**What:** fix reviewer B1/B2: hash all ambient environment inputs except explicit invocation/shell
+controls, including MC_CLOCK/MC_GIT_FIXTURE/NAVIGATION_TEST_FACTORY_ROOT and lane.env; retain
+legacy mobile coverage when no reviewed inventory exists. Reviewed inventories name exclusions
+and their review document; unknown specs stay mobile. MC's reviewed classification preserves its
+current distribution. Plugin **10.1.1**, overlay **9.1.1**.
+
+**Why:** the old prefix filter could reuse green evidence with an invalid product clock, and an
+upgrade without a mobile list silently lost coverage. Both failures have RED→GREEN regressions.
+The production frd-05 failure exposed an unobserved SSE-baseline/RSC-listener ordering in the
+harness; it now shares the native SSE/real-file refresh helper with navigation-root, preserving
+URL assertions and zero retries. Exact attribution of the original browser attempt is unverified;
+new failures record SSE/RSC observations. The reported non-test error is Playwright's synthetic
+maxFailures notice, not an additional product exception; no error suppression was added.
+
+Canonical: [gate provenance](../templates/shared/.pandacorp/green-stamp.sh), [mobile config](../templates/stack-a-nextjs/e2e/playwright.config.ts), [quality](../../factory/standards/quality.md).
+
+
+## 2026-11-12 — Faster certification without weakening landing (DR-158)
+
+**What:** certification fails fast (Vitest bail=1, Playwright maxFailures=1); diagnostic
+`--no-bail` / `PANDACORP_VERIFY_NO_BAIL=1` collects failures with the same shuffled seed.
+A kernel-owned checkout lock rejects concurrent verification with exit 75 before report,
+stamp, compiler or port writes. Stop treats contention as infrastructure, never foreign red.
+Green-stamp v2 binds the Git tree, gate, Node version, lockfiles, installed dependency graph
+metadata, environment files/selected runtime inputs and all physical e2e fixtures; inputs
+must also match at completion. Unknown/corrupt/old/changed inputs require a full gate.
+
+Browser certification uses one production build and one owned Next start for every project.
+The optional parallel-safe list executes first; desktop and mobile serial complements run
+in dependency order, with visual baselines and ledger/fixture writers serial. Mobile uses
+an explicit per-file allowlist, retaining smoke, visual and responsive core gates plus
+reviewed project-specific navigation/focus/dialog coverage. `--affected` ports only the
+conservative data-only selector from the divergent branch into today's gate: all other
+checks stay global, uncertain inputs keep the browser, every affected report is partial.
+No old executor code, DR-144 or BL-0302 identifier was imported. G3 before main stays full.
+
+Canonical: [Stack A](../templates/stack-a-nextjs/STACK.md), [gate](../templates/stack-a-nextjs/verify.sh), [quality](../../factory/standards/quality.md).
+
+**Why:** owner-selected research option B preserves final coverage while removing redundant
+work and avoidable failures. Browser time savings are hypotheses until an unrestricted
+benchmark measures the same tree/fixtures/host; retries and baseline updates are not acceptance.
+
+
 ## v10.0.0 — 2026-11-12 (MAJOR): Day 1 CLI-only builds, overlay 9.0.0
 
 **What:** [metadata](../runtime/plugin-metadata.json) and generated runtime manifests become **10.0.0**;

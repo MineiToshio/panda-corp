@@ -1,5 +1,6 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 /** Collect runtime failures while a journey runs: a surface that throws is not verified by structure. */
 function watchErrors(page: Page): string[] {

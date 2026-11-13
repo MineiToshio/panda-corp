@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 test("AC-21-007.1, AC-21-007.3: worktree card, cleanup command and keyboard scroll region", async ({
   page,

@@ -1,5 +1,6 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 /** Reviewer-authored (DR-080): the wave 6 sidebar contracts read from the real accessibility tree. */
 const HYDRATED = { selector: '#app[data-hydrated="true"]' };

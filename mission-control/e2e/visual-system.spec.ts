@@ -1,4 +1,5 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+import { test } from "./_read-only";
 
 /**
  * WO-13-010 behaviour spec: the boot script paints the theme before hydration, a stored choice wins

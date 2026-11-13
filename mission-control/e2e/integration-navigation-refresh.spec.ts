@@ -1,34 +1,14 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
+import {
+  controlLiveFrames,
+  emitLiveFrame,
+  refreshFromLiveFrame,
+} from "./persistent-navigation/_live-race";
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    class ControlledEventSource extends EventTarget {
-      static sources: ControlledEventSource[] = [];
-      onmessage: ((event: MessageEvent) => void) | null = null;
-      onopen: (() => void) | null = null;
-      constructor(_url: string) {
-        super();
-        ControlledEventSource.sources.push(this);
-        queueMicrotask(() => this.onopen?.());
-      }
-      close() {
-        ControlledEventSource.sources = ControlledEventSource.sources.filter((s) => s !== this);
-      }
-    }
-    Object.assign(window, { EventSource: ControlledEventSource });
-    Object.assign(window, {
-      emitLive: (at: string, stateVersion: number) => {
-        for (const source of ControlledEventSource.sources) {
-          source.onmessage?.(
-            new MessageEvent("message", {
-              data: JSON.stringify({ events: [], lastEventAt: at, stateVersion }),
-            }),
-          );
-        }
-      },
-    });
-  });
+  await controlLiveFrames(page);
 });
 
 for (const start of [
@@ -37,19 +17,11 @@ for (const start of [
 ]) {
   test(`canonical refresh preserves focus from ${start}`, async ({ page }) => {
     await gotoHydrated(page, start, { selector: ".seg button" });
-    await page.clock.install();
-    await page.evaluate(() => {
-      const emit = Reflect.get(window, "emitLive");
-      emit("2098-01-01T00:00:00Z", 1);
-    });
+    // Commit the baseline debounce before selection; an advancing frame must cause a later refresh.
+    await emitLiveFrame(page, 1);
     await page.getByRole("button", { name: /WO-01-003 ·/ }).click();
     await expect(page).toHaveURL(/focus=WO-01-003/);
-    // Commit the baseline debounce before delivering the advancing frame.
-    await page.clock.runFor(200);
-    const refreshed = page.waitForResponse((r) => r.request().headers().rsc === "1");
-    await page.evaluate(() => Reflect.get(window, "emitLive")("2099-01-01T00:00:00Z", 2));
-    await page.clock.runFor(200);
-    const response = await refreshed;
+    const response = await refreshFromLiveFrame(page, 2);
     expect(response.ok()).toBe(true);
     expect(new URL(response.url()).searchParams.get("focus")).toBe("WO-01-003");
     await expect(page).toHaveURL(/view=deps.*dag=wo.*frd=FRD-01.*focus=WO-01-003/);

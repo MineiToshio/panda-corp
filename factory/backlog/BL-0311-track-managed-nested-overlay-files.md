@@ -3,12 +3,12 @@ id: BL-0311
 type: bug
 area: templates
 title: "Track managed Mission Control overlay files inside the factory repository"
-status: open
+status: done
 severity: p1
 opened: 2026-11-12
-closed:
+closed: 2026-11-12
 source: "owner, 2026-11-12: engine v2 day-1 rollout (plugin 10.0.0 / overlay 9.0.0) — factory .gitignore ignores nested Mission Control managed overlay additions"
-closes:
+closes: "plugin/docs/nested-projects.md and stage-managed-overlay.mjs; explicit nested overlay source allowlist"
 links: [DR-150, DR-155]
 ---
 
@@ -33,10 +33,21 @@ The root `.gitignore` treats every directory named `.pandacorp/` as runtime/owne
 - Verify an ordinary standalone project's `.pandacorp/` ignore behavior is unchanged.
 
 ## Done when
-- [ ] The nested overlay inventory distinguishes managed source from runtime/owner state.
-- [ ] Ignore rules expose only the intended managed Mission Control files, and nested upgrades stage those files.
-- [ ] The clone/worktree regression test passes for both tracked managed files and ignored runtime state.
-- [ ] Upgrade documentation describes the nested-project behavior; plugin version/`OVERLAY_VERSION` are bumped as applicable and the relevant decision log records the change.
+- [x] The nested overlay inventory distinguishes managed source from runtime/owner state.
+- [x] Ignore rules expose only the intended managed Mission Control files, and nested upgrades stage those files.
+- [x] The clone/worktree regression test passes for both tracked managed files and ignored runtime state.
+- [x] Upgrade documentation describes the nested-project behavior; plugin/overlay version and log integration requirements are supplied in the NEST handoff, as explicitly reserved for the integrator.
+
+## Resolution (2026-11-12, NEST)
+The factory ignore policy reopens only the 18 managed Mission Control overlay source paths listed in
+`plugin/docs/nested-projects.md`; all unknown/private additions remain ignored. The upgrade skill now
+runs `stage-managed-overlay.mjs`, which stages exact regular managed files even under an inherited
+ignore and refuses symlinks before staging. Clone/worktree and standalone regression fixtures pass.
+The four previously ignored main-checkout source additions are listed in that inventory; the
+integrator stages those existing files (they are absent from this worktree). Two already tracked
+legacy inbox files remain tracked; this change neither deletes owner data nor edits the real index.
+Plugin/overlay version bumps and decision-log entries are reserved for the integrator by the
+explicit NEST handoff (no Git writes and no concurrent edits to metadata/logs).
 
 ## Out of scope
 Changing how standalone product projects store or ignore their runtime `.pandacorp/` state.

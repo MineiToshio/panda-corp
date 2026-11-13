@@ -1,6 +1,6 @@
-import fs from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { observeProjectLive, refreshFromProjectChange } from "./_live-refresh";
 
 const BASE = "/portfolio/mission-control/observability";
 const ORDER =
@@ -22,18 +22,13 @@ test("AC-12-006.2: Abrir work order opens the detail and the URL keeps wo", asyn
 test("AC-12-006.2 AC-12-005.1: a live refresh keeps the level and focus in the URL", async ({
   page,
 }) => {
+  await observeProjectLive(page);
   await settled(page, `${BASE}?view=deps&dag=wo`);
   await page.locator('[data-wo="WO-01-003"]:visible').first().click();
   await expect(page).toHaveURL(/focus=WO-01-003/);
-  const { atime, mtime } = fs.statSync(ORDER);
-  try {
-    fs.utimesSync(ORDER, new Date(), new Date());
-    await page.waitForResponse((r) => r.url().includes("_rsc="), { timeout: 12_000 });
-    await expect(page).toHaveURL(/dag=wo/);
-    await expect(page).toHaveURL(/focus=WO-01-003/);
-  } finally {
-    fs.utimesSync(ORDER, atime, mtime);
-  }
+  await refreshFromProjectChange(page, ORDER, "mission-control");
+  await expect(page).toHaveURL(/dag=wo/);
+  await expect(page).toHaveURL(/focus=WO-01-003/);
 });
 
 test("AC-12-006.1: the FRD chosen in Por FRD scopes the work-order graph", async ({ page }) => {

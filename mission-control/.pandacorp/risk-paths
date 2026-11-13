@@ -1,0 +1,40 @@
+# Project-specific risk paths (R11). Copy to .pandacorp/risk-paths.
+# All examples are inactive. Inspect the project, propose exact globs to the owner,
+# and activate only the confirmed paths. Never copy another project's paths blindly.
+# One project-relative glob per line. Blank lines and # comments are ignored.
+# risk <glob> raises the zone to floor; low <glob> marks it classified without
+# lowering any risk signal. A bare glob also means risk. No inline machine data.
+#
+# Authentication redirect handler: returnTo / callback URL validation can affect
+# redirect safety even when the built-in classifier misses it (NOTA-1).
+# risk src/app/api/auth/redirect/route.ts
+# risk src/**/redirect-handler.*
+#
+# Other sensitive project boundaries, adapt to the real code layout:
+# risk src/**/permissions/**
+# risk src/**/billing/**
+# risk src/**/data-export/**
+# risk scripts/migrations/**
+# low docs/**
+
+# Project boundaries selected under the owner-delegated RISK review.
+# Host/LAN allowlist and response security headers.
+risk src/proxy.ts
+
+# readBoardDoc restricts filesystem reads to portfolio projects.
+risk src/app/board/actions/read-doc.ts
+
+# Document allowlist, traversal and symlink checks backing readBoardDoc.
+risk src/lib/docs/tree.ts
+
+# Bounded discard/restore writes and file target allowlists.
+risk src/lib/{discard/discard,discard/restore,changes/discard-change,backlog/discard-backlog}.ts
+
+# Symlink-safe canonical ledger reads/writes backing snapshotLedger.
+risk src/lib/gamification/ledger.ts
+
+# Environment-controlled factory/project filesystem roots and idea slug validation.
+risk src/lib/config/config.ts
+
+# Disables executable frontmatter engines for filesystem-sourced documents.
+risk src/lib/fs-utils/parseFrontmatter.ts

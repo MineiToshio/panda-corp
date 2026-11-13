@@ -1,5 +1,5 @@
 #!/bin/sh
-# pandacorp-pre-push v1
+# pandacorp-pre-push v2
 #
 # Pandacorp git pre-push hook (D29, BUILD-13, DR-138, DR-153). Installed UNTRACKED by
 # plugin/scripts/install-pre-push.mjs into `git rev-parse --git-path hooks`; never committed in a project.
@@ -14,13 +14,18 @@
 # the flag). Only the owner's explicit chat order may set the flag; agent briefs forbid it.
 #
 # Fail closed: when the push targets the default branch and the project status cannot be read, the push
-# is rejected. A repository with no .pandacorp/ directory is not a Pandacorp project: nothing to gate.
+# is rejected. Nested projects are registered by repo-relative subtree; unrelated factory pushes are allowed.
 #
 # A pre-existing foreign pre-push hook is kept next to this file as `pre-push.pandacorp-chained` and is
 # run after the gate passes, with the same arguments and stdin.
 #
 # POSIX sh (also bash 3.2 as /bin/sh); no bashisms.
 set -u
+
+# Installer replaces this token with registered, repo-relative project roots.
+# Direct template use retains the standalone-project default.
+PROJECT_SCOPES=.
+# PANDACORP_PROJECT_SCOPES
 
 HOOK_DIR=$(dirname "$0")
 CHAINED="$HOOK_DIR/pre-push.pandacorp-chained"
@@ -50,49 +55,73 @@ default_branch() {
 }
 
 DEFAULT=$(default_branch)
-ZERO_SHA=0000000000000000000000000000000000000000
+ZERO_SHA=$(git hash-object --stdin </dev/null 2>/dev/null | sed 's/./0/g')
+[ -n "$ZERO_SHA" ] || ZERO_SHA=0000000000000000000000000000000000000000
 
-# Does any pushed ref target the default branch? Remember whether it is a delete.
-TARGETS_DEFAULT=0
-IS_DELETE=0
-while read -r local_ref local_sha remote_ref remote_sha; do
-  if [ "$remote_ref" = "refs/heads/$DEFAULT" ]; then
-    TARGETS_DEFAULT=1
-    case "$local_sha" in "$ZERO_SHA"*) IS_DELETE=1 ;; esac
+# Test commits as well as the final tree: a change subsequently reverted still touched the project.
+# Creation has no remote base, so inspect all reachable commits. Deletion checks the deleted tree.
+# A non-fast-forward rewind also compares the two trees to catch removed project changes.
+touches_scope() {
+  scope=$1 old=$2 new=$3
+  if [ "$scope" = . ]; then return 0; fi
+  if [ "$new" = "$ZERO_SHA" ]; then
+    names=$(git -C "$TOP" ls-tree --name-only "$old" -- ":(literal)$scope" 2>/dev/null) || return 2
+    [ -n "$names" ]; return $?
   fi
-done <<EOF_REFS
-$STDIN_DATA
-EOF_REFS
+  if [ "$old" = "$ZERO_SHA" ]; then
+    commits=$(git -C "$TOP" rev-list "$new" 2>/dev/null) || return 2
+  else
+    names=$(git -C "$TOP" diff --name-only "$old" "$new" -- ":(literal)$scope" 2>/dev/null) || return 2
+    [ -z "$names" ] || return 0
+    commits=$(git -C "$TOP" rev-list "$old..$new" 2>/dev/null) || return 2
+  fi
+  for commit in $commits; do
+    names=$(git -C "$TOP" diff-tree --root -m --no-commit-id --name-only -r "$commit" -- ":(literal)$scope" 2>/dev/null) || return 2
+    [ -z "$names" ] || return 0
+  done
+  return 1
+}
 
-if [ "$TARGETS_DEFAULT" = 1 ] && [ "${PANDACORP_OWNER_RELEASE_OK:-}" != "1" ]; then
-  if [ "$IS_DELETE" = 1 ]; then ACTION="delete of '$DEFAULT'"; else ACTION="push to '$DEFAULT'"; fi
-
-  # Status file: the checkout of the default branch, as merge-queue.sh reads it; else this work tree.
+if [ "${PANDACORP_OWNER_RELEASE_OK:-}" != "1" ]; then
   TOP=$(git rev-parse --show-toplevel 2>/dev/null) || TOP=
   MAIN_WT=$(git worktree list --porcelain 2>/dev/null | awk -v b="refs/heads/$DEFAULT" '
     /^worktree /{wt=substr($0,10)} /^branch /{if($2==b) print wt}' | head -1)
-  PROJECT_ROOT=
-  for c in "$MAIN_WT" "$TOP"; do
-    if [ -n "$c" ] && [ -d "$c/.pandacorp" ]; then PROJECT_ROOT=$c; break; fi
-  done
 
-  if [ -z "$PROJECT_ROOT" ]; then
-    # No .pandacorp/ anywhere we can see: either not a Pandacorp project (allow) or git itself failed (deny).
+  while read -r local_ref local_sha remote_ref remote_sha; do
+    [ "$remote_ref" = "refs/heads/$DEFAULT" ] || continue
+    if [ "$local_sha" = "$ZERO_SHA" ]; then ACTION="delete of '$DEFAULT'"; else ACTION="push to '$DEFAULT'"; fi
     [ -n "$TOP" ] || deny "$ACTION rejected: cannot locate the repository (fail closed)."
-  else
-    STATUS="$PROJECT_ROOT/.pandacorp/status.yaml"
-    [ -f "$STATUS" ] && [ -r "$STATUS" ] || deny "$ACTION rejected: cannot read $STATUS (fail closed)."
-    grep -Eq '^phase:[[:space:]]*release([[:space:]]|#|$)' "$STATUS" 2>/dev/null
-    rc_phase=$?
-    grep -Eq '^deploy_target:[[:space:]]*internal([[:space:]]|#|$)' "$STATUS" 2>/dev/null
-    rc_internal=$?
-    if [ "$rc_phase" -gt 1 ] || [ "$rc_internal" -gt 1 ]; then
-      deny "$ACTION rejected: cannot parse $STATUS (fail closed)."
-    fi
-    if [ "$rc_phase" -eq 0 ] && [ "$rc_internal" -ne 0 ]; then
-      deny "$ACTION rejected."
-    fi
-  fi
+    while IFS= read -r project; do
+      [ -n "$project" ] || continue
+      touches_scope "$project" "$remote_sha" "$local_sha"
+      touched=$?
+      [ "$touched" != 1 ] || continue
+      [ "$touched" = 0 ] || deny "$ACTION rejected: cannot inspect history for $project (fail closed)."
+      PROJECT_ROOT=
+      for c in "$MAIN_WT" "$TOP"; do
+        if [ -n "$c" ] && [ -d "$c/$project/.pandacorp" ]; then PROJECT_ROOT="$c/$project"; break; fi
+      done
+      # Direct use of the template outside a project remains harmless. Registered nested projects
+      # cannot disappear silently: a relevant push still fails closed if their state is missing.
+      if [ -z "$PROJECT_ROOT" ] && [ "$project" = . ]; then continue; fi
+      STATUS="${PROJECT_ROOT:-$TOP/$project}/.pandacorp/status.yaml"
+      [ -f "$STATUS" ] && [ -r "$STATUS" ] || deny "$ACTION rejected: cannot read $STATUS (fail closed)."
+      grep -Eq '^phase:[[:space:]]*release([[:space:]]|#|$)' "$STATUS" 2>/dev/null
+      rc_phase=$?
+      grep -Eq '^deploy_target:[[:space:]]*internal([[:space:]]|#|$)' "$STATUS" 2>/dev/null
+      rc_internal=$?
+      if [ "$rc_phase" -gt 1 ] || [ "$rc_internal" -gt 1 ]; then
+        deny "$ACTION rejected: cannot parse $STATUS (fail closed)."
+      fi
+      if [ "$rc_phase" -eq 0 ] && [ "$rc_internal" -ne 0 ]; then
+        deny "$ACTION rejected for $project."
+      fi
+    done <<EOF_PROJECTS
+$PROJECT_SCOPES
+EOF_PROJECTS
+  done <<EOF_REFS
+$STDIN_DATA
+EOF_REFS
 fi
 
 # Gate passed: run the foreign hook this one replaced, if any.

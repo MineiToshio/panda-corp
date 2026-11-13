@@ -1,5 +1,6 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 // The shell's boot-time Server Action refresh can drop a router.push issued in the same instant.
 async function clickUntilUrl(page: Page, click: () => Promise<unknown>, url: RegExp) {

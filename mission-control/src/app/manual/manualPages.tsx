@@ -885,6 +885,14 @@ function ConceptEstado(): React.JSX.Element {
         Sin señal. El estado durable de main avanza al aterrizar; verificado en una rama no
         significa entregado ni seguro para probar.
       </NotePanel>
+      <Body>
+        Mission Control comparte Git con la fábrica. Su overlay conserva en Git los archivos
+        gestionados (guía, estado y scripts); run, comms, inbox, cuentas y cachés se excluyen de las
+        nuevas incorporaciones. Los dos archivos antiguos de inbox ya versionados conservan su
+        seguimiento hasta una limpieza explícita del índice. El hook pre-push compartido consulta su
+        estado solo cuando los commits enviados a la rama principal afectan a mission-control. Los
+        cambios que solo tocan la fábrica siguen su curso.
+      </Body>
       <EstadoDetail />
     </>
   );
@@ -897,6 +905,17 @@ function ConceptHooks(): React.JSX.Element {
       <Lead>
         El principio: el modelo propone; <B weight={600}>scripts/CI/hooks verifican</B>. Un agente
         nunca marca sus propios checks.
+      </Lead>
+      <Lead>
+        El Stop usa un pase ligero. Antes de entrar en main hay un pase completo, con un único dueño
+        por carpeta: si otro está verificando, espera a que termine. Un sello solo evita repetirlo
+        cuando el árbol, las dependencias, el entorno y los fixtures siguen idénticos. El navegador
+        comparte un build de producción; sin inventario móvil conserva la cobertura anterior, y solo
+        una revisión permite excluir duplicados. Los tests que escriben datos siguen en serie.{" "}
+        <Code>--affected</Code> sirve para iterar y siempre es parcial. <Code>--no-bail</Code>{" "}
+        recoge los fallos de todas las fases del navegador con un único worker, aunque falle una
+        fase anterior. La certificación mantiene tres workers para los tests seguros y se detiene
+        pronto (DR-158).
       </Lead>
       <HooksDiagram />
       <NotePanel icon="lock">

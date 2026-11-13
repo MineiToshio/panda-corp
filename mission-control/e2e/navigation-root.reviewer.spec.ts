@@ -1,12 +1,9 @@
-import fs from "node:fs";
 import { expect, type Page, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { observeProjectLive as countLiveFrames, refreshFromProjectChange } from "./_live-refresh";
 import { reloadCommitted } from "./persistent-navigation/_history";
 
 const BASE = "/portfolio/mission-control/observability";
-const LIVE_DEBOUNCE_MS = 300;
-const LIVE_TOUCH_MS = 3_000;
-const LIVE_REFRESH_TIMEOUT_MS = 30_000;
 const ORDER =
   "e2e/fixtures/factory-root/mission-control/docs/frds/frd-01-x/work-orders/wo-01-003-board.md";
 
@@ -16,59 +13,8 @@ async function settled(page: Page, href: string) {
   await page.waitForLoadState("load");
 }
 
-/** Count delivered SSE frames and keep the streams, so a test acts only on an open baseline. */
-async function countLiveFrames(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    const Native = window.EventSource;
-    const streams: EventSource[] = [];
-    Reflect.set(window, "liveStreams", streams);
-    Reflect.set(window, "liveFrames", 0);
-    window.EventSource = class extends Native {
-      constructor(url: string | URL, options?: EventSourceInit) {
-        super(url, options);
-        streams.push(this);
-        this.addEventListener("message", () =>
-          Reflect.set(window, "liveFrames", Number(Reflect.get(window, "liveFrames")) + 1),
-        );
-      }
-    };
-  });
-}
-
 async function liveRefresh(page: Page): Promise<void> {
-  // A touch before the first frame would only become that frame's baseline, never a refresh.
-  await expect
-    .poll(
-      () =>
-        page.evaluate(
-          () =>
-            Number(Reflect.get(window, "liveFrames")) > 0 &&
-            (Reflect.get(window, "liveStreams") as EventSource[]).some(
-              (stream) => stream.readyState === EventSource.OPEN,
-            ),
-        ),
-      { timeout: 15_000 },
-    )
-    .toBe(true);
-  // Let the transport's debounce commit that baseline before the state moves.
-  await page.evaluate((ms) => new Promise((resolve) => setTimeout(resolve, ms)), LIVE_DEBOUNCE_MS);
-  const { atime, mtime } = fs.statSync(ORDER);
-  const refreshed = page
-    .waitForResponse((r) => r.url().includes("_rsc="), { timeout: LIVE_REFRESH_TIMEOUT_MS })
-    .then(() => true);
-  try {
-    // A reconnect re-baselines on the touch it missed; only a later state move can refresh.
-    let arrived = false;
-    while (!arrived) {
-      fs.utimesSync(ORDER, new Date(), new Date());
-      arrived = await Promise.race([
-        refreshed,
-        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), LIVE_TOUCH_MS)),
-      ]);
-    }
-  } finally {
-    fs.utimesSync(ORDER, atime, mtime);
-  }
+  await refreshFromProjectChange(page, ORDER, "mission-control");
 }
 
 test("AC-12-006.2: an order opened from the map walks Back and Forward through the URL", async ({

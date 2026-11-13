@@ -8,6 +8,7 @@
 // Run: node plugin/scripts/test-worktree-sweep.mjs
 
 import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -58,7 +59,11 @@ try {
   sh(repo, "worktree", "add", "-q", "-b", "claude/self", wt("self"));
   // 7 a process stands in it
   sh(repo, "worktree", "add", "-q", "--detach", wt("inuse"));
-  sleeper = spawn("sleep", ["60"], { cwd: wt("inuse"), stdio: "ignore" });
+  // Keep this precondition alive for the whole suite: repeated rescans can take over 60 seconds.
+  // IPC also lets the holder exit if the test parent dies before reaching finally.
+  sleeper = spawn(process.execPath, ["-e", "process.on('disconnect', () => process.exit(0)); setInterval(() => {}, 60_000);"], {
+    cwd: wt("inuse"), stdio: ["ignore", "ignore", "ignore", "ipc"],
+  });
   // 8 build-engine gate worktree (live build toggled below)
   sh(repo, "worktree", "add", "-q", "--detach", path.join(repo, ".pandacorp/run/gate-worktree"));
   // 9 gitignored owner state inside a merged worktree
@@ -171,7 +176,11 @@ try {
   const files = ref ? sh(repo, "ls-tree", "-r", "--name-only", ref).split("\n") : [];
   ok(files.includes("w.txt") && files.includes("untracked.txt") && files.includes(".pandacorp/inbox/note.md"), "archive holds the commits, the untracked file and the owner-state file");
 } finally {
-  sleeper?.kill();
+  if (sleeper?.exitCode === null && sleeper?.signalCode === null) {
+    const stopped = once(sleeper, "exit");
+    sleeper.kill();
+    await stopped;
+  }
   rmSync(tmp, { recursive: true, force: true });
 }
 console.log(`\n${pass} passed, ${fail} failed`);

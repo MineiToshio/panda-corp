@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 import { WORKSPACE_TAB_LABELS } from "./_workspaceTabs";
 
 test("AC-02-015.3 AC-02-015.6 AC-02-015.10: portfolio reuses Architecture after Work orders with a draggable compact model", async ({

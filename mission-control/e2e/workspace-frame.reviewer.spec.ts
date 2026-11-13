@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 const WORKSPACE = "/projects/mission-control";
 const TABBAR = { selector: '[data-testid="tabbar"]' };
