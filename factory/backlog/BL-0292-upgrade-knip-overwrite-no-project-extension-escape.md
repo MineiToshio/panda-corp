@@ -71,3 +71,17 @@ chosen.
 Redesigning DR-059 conformance for every other gate-config file (biome.json's newer-than-template path is
 already handled by BL-0003); this item is scoped to knip.json's specific "one file, no extension point"
 shape.
+
+## Corroborating occurrence (2026-11-12, mission-control)
+
+During the overlay 8.114.4→9.0.0 upgrade (commit `127a74eb`), mission-control's own knip.json entries
+(`scripts/navigation/identities.mjs`, `scripts/navigation/*.{ts,mjs}`) were again at risk from the
+unconditional overwrite. Live check (2026-11-13) confirms both entries are still present in
+`mission-control/knip.json` — the overwrite was correctly handled/restored in that same change, so no
+red-lock shipped. The owner explicitly directed (2026-11-12, agent-captured): when a conformance overwrite
+risks consuming a project's own CLI entry/project paths, restore them in the SAME pass before returning the
+upgrade step as done — never leave the shared checkout's Stop gate red from a config overwrite. This item's
+Fix plan (a real merge/extension path) is still the right systemic fix; this occurrence is evidence the
+manual-restore stopgap works but still depends on an agent noticing, which is exactly the risk this item
+exists to remove. Source: `factory/memory/LESSON-0004` addendum (2026-11-12) + mission-control
+`.pandacorp/run/lessons.md` 2026-11-11 notes.

@@ -21,3 +21,16 @@ links: [LESSON-0244, LESSON-0262, DR-146]
 **Lesson:** LESSON-0262 covers a narrower case (a hook bugfix landing mid-session on the global plugin). This is broader: an entire gate's *design* (not a point fix) can change at the factory level, and that redesign does nothing for a project until that project's own `/pandacorp:upgrade` pulls the new overlay in. A project's `overlay_version` being older than the version that shipped a gate redesign is sufficient, on its own, to predict "this project still runs the OLD gate's full behavior" — including blocking a read-only session on unrelated pre-existing drift the newer design was built specifically to exempt.
 
 **Apply next time:** when a gate blocks on content the current session did not touch, check two things before treating it as a live defect or as fresh drift: (1) the project's `.pandacorp/status.yaml` `overlay_version` against the factory's current plugin version and the version that shipped the relevant gate behavior (a decision-log/registry entry names it), and (2) whether `/pandacorp:upgrade` on that project is pending. If the overlay predates the redesign, the block is an overlay-lag artifact, not a new bug — route it as "this project needs `/pandacorp:upgrade`" rather than filing a defect against the gate itself.
+
+**Addendum (2026-11-11, same project, re-corroborated — no status change):** the same incident recurred,
+sharpened with the precise reason DR-099's attribution doesn't silence this case: DR-099's "allow the stop
+silently" path requires a per-session record of files THIS session touched in that project, so it can
+compare the red against that record. A session that opened a project ONLY to hit a pre-existing, already-
+committed red (or one whose cwd is in that project but whose actual edits are elsewhere, e.g. a parallel
+factory worktree) has no such record to compare against — so DR-099's attribution logic has nothing to
+exempt it with, and the pre-DR-146 full gate blocks every turn regardless of what the session did. This is
+consistent with (not a contradiction of) the original lesson: it is the SAME overlay-lag root cause,
+observed from the attribution side rather than the gate-design side. Resolved for mission-control itself on
+2026-11-12 (`/pandacorp:upgrade` ran, `overlay_version` is now 9.2.0, well past DR-146's 8.119.0); the
+durable lesson (check overlay lag before trusting a block as a live defect) still applies to any other
+project that hasn't upgraded yet.

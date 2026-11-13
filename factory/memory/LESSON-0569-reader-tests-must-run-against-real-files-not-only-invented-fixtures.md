@@ -11,8 +11,8 @@ created: 2026-10-31
 status: candidate
 promotion: none
 confidence: medium
-times_applied: 1
-applied_in: [funko-tracker]
+times_applied: 2
+applied_in: [funko-tracker, mission-control]
 links: []
 ---
 

@@ -64,6 +64,17 @@ is a strong signal to merge/skip rather than clobber.
 > this durable lesson (DR-103). The one-off biome 2.5.1 back-port already shipped (OVERLAY 8.52.0, plugin
 > 9.36.1); BL-0003 is the systemic guard so the class can't recur.
 
+**Addendum (2026-11-12, mission-control, owner-stated — no status change):** the same knip.json shape hit
+again during the overlay 8.114.4→9.0.0 upgrade — the project's own CLI entry/project-path additions
+(`scripts/navigation/*`) were at risk from the unconditional knip.json overwrite — and this time the
+owner's own directive sharpened the mitigation: when a conformance overwrite risks consuming a project's
+legitimate custom entries, RESTORE the consumed roots in the SAME pass before declaring the upgrade step
+done, and never return a "partial upgrade" that leaves the shared checkout's Stop gate red. The occurrence
+was handled correctly in practice (mission-control's `knip.json` still carries its custom entries after the
+upgrade). The systemic fix (a merge path or a documented extension point for knip, so this stops depending
+on an agent noticing and manually restoring the diff) remains tracked as the still-open **BL-0292**, now
+carrying this corroborating occurrence.
+
 **Why it matters:** the upgrade is supposed to make the gate runnable, not break it. A conformance step
 that can silently downgrade a correct config and red-lock the baseline undermines the whole fail-closed
 guarantee — and it cost a full build resume (baseline-blocked, manual repair) to discover. Sibling of
