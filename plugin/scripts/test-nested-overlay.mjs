@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import test from 'node:test';
+import { MANAGED_OVERLAY_FILES } from './stage-managed-overlay.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, symlinkSync } from 'node:fs';
@@ -10,9 +11,7 @@ import { fileURLToPath } from 'node:url';
 const factoryIgnore = readFileSync(new URL('../../.gitignore', import.meta.url), 'utf8');
 const projectIgnore = readFileSync(new URL('../../mission-control/.gitignore', import.meta.url), 'utf8');
 const stageScript = fileURLToPath(new URL('./stage-managed-overlay.mjs', import.meta.url));
-const managed = ['README.md', 'guide.md', 'status.yaml', 'idea-origin.md', 'track.jsonl', 'build-journal.jsonl',
-  'verify.sh', 'canary.sh', 'merge-queue.sh', 'green-stamp.sh', 'change-reconcile.mjs', 'session-cleanup.sh',
-  'worktree-bootstrap.sh', 'pending-work.sh', 'serve-once.sh', 'doc-lint.sh', 'check-project-skills.mjs', 'risk-paths'];
+const managed = MANAGED_OVERLAY_FILES;
 const privatePaths = ['run/build/state.json', 'comms/progress.md', 'inbox/decisions.md', 'accounts/services.yaml',
   'stats.json', 'stats-aggregate.json', 'navigation-identity.json', 'hooks/pre-push', 'credentials.env', 'unknown.sh'];
 const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',

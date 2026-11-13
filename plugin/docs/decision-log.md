@@ -1,5 +1,17 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-13 — Keep nested overlay ignores aligned with the managed inventory (FIXIGN)
+
+**What:** Add anchored Mission Control exceptions for `vitest-policy.ts` and `gate-budget.json`,
+restore the Vitest helper verbatim from Stack A, and derive nested regression fixtures from
+`MANAGED_OVERLAY_FILES` instead of a second list. Plugin **10.2.1**.
+
+**Why:** DR-159 added managed paths without ignore exceptions, so the helper was absent from
+main and its config import failed. The budget remains optional: verify only reads an existing
+reviewed baseline, and no template seeds one. No baseline is invented. Canonical:
+[nested overlay inventory](nested-projects.md), factory `.gitignore`, and
+[Stack A helper](../templates/stack-a-nextjs/vitest-policy.ts).
+
 ## 2026-11-13 — Keep gate speed durable as suites grow (DUR, DR-159)
 
 **What:** Stack A warns with unclassified parallel/serial and mobile spec paths,

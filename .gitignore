@@ -47,6 +47,8 @@ factory/ideas/_drafts/**
 !/mission-control/.pandacorp/track.jsonl
 !/mission-control/.pandacorp/build-journal.jsonl
 !/mission-control/.pandacorp/verify.sh
+!/mission-control/.pandacorp/vitest-policy.ts
+!/mission-control/.pandacorp/gate-budget.json
 !/mission-control/.pandacorp/canary.sh
 !/mission-control/.pandacorp/merge-queue.sh
 !/mission-control/.pandacorp/green-stamp.sh

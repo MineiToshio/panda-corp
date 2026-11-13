@@ -56,7 +56,8 @@ at the project root, so child ignore rules cannot expose `.pandacorp/.env.exampl
 | `status.yaml` | Committed machine-state projection, written by the skills/CLI |
 | `idea-origin.md` | Frozen project provenance |
 | `track.jsonl`, `build-journal.jsonl` | Existing durable append-only project history; retained in Git |
-| `verify.sh`, `canary.sh` | Managed verification machinery |
+| `verify.sh`, `canary.sh`, `vitest-policy.ts` | Managed verification machinery; Vitest helper copied verbatim from Stack A |
+| `gate-budget.json` | Optional project-owned reviewed stage baseline; absent until established, never seeded by upgrade or the gate |
 | `merge-queue.sh`, `green-stamp.sh`, `change-reconcile.mjs` | Managed landing/certification machinery |
 | `session-cleanup.sh`, `worktree-bootstrap.sh`, `pending-work.sh`, `serve-once.sh` | Managed session/worktree helpers |
 | `doc-lint.sh`, `check-project-skills.mjs` | Managed documentation/skill checks |
@@ -91,5 +92,5 @@ staging. The helper changes no ignore policy in standalone repositories.
   shared default-worktree state, multi-ref pushes, creation/deletion/rewinds/reverts, chaining and
   tracked hooksPath refusal.
 - `bash plugin/scripts/test-pre-push.sh`: existing standalone contract and real local-remote pushes.
-- `node --test plugin/scripts/test-nested-overlay.mjs`: explicit ignore split, exact upgrade staging,
+- `node --test plugin/scripts/test-nested-overlay.mjs`: every canonical `MANAGED_OVERLAY_FILES` entry is unignored, explicit ignore split, exact upgrade staging,
   inherited ignores, clone/worktree persistence, standalone policy and symlink refusal.
