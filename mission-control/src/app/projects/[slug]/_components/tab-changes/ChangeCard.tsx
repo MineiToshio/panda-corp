@@ -4,6 +4,7 @@ import type { ChangeQueueItem } from "@/lib/changes/changes";
 import { t } from "@/lib/copy/copy";
 import { formatDate } from "@/lib/copy/dates";
 import { itemStatusLabel, STATUS_TONES } from "./changePresentation";
+import styles from "./changes.module.css";
 
 /** Actionable queue row with an absolute date and the original source as a tooltip. */
 export function ChangeCard({
@@ -14,7 +15,13 @@ export function ChangeCard({
   onSelect?: (item: ChangeQueueItem) => void;
 }): React.JSX.Element {
   return (
-    <div data-testid="change-card" data-status={item.status} data-item={item.id} title={item.date}>
+    <div
+      data-testid="change-card"
+      data-status={item.status}
+      data-item={item.id}
+      title={item.date}
+      className={styles.row}
+    >
       <ListRow
         title={item.title}
         meta={[item.id, formatDate(item.date), item.frd].filter(Boolean).join(" · ")}
@@ -22,7 +29,7 @@ export function ChangeCard({
         tone={item.type === "bug" ? "coral" : "pink"}
         onClick={onSelect ? () => onSelect(item) : undefined}
         extra={
-          <>
+          <span className={styles.rowChips}>
             <Chip tone={item.type === "bug" ? "coral" : "pink"}>
               {t(
                 item.type === "bug" ? "workspace.cambios.typeBug" : "workspace.cambios.typeChange",
@@ -34,7 +41,7 @@ export function ChangeCard({
                 {t("workspace.cambios.suspect.chip")}
               </Chip>
             ) : null}
-          </>
+          </span>
         }
       />
     </div>

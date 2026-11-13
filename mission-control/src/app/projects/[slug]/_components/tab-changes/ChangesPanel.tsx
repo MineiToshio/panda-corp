@@ -112,12 +112,14 @@ export function ChangesPanel({
       ) : null}
       {suspects.length ? (
         <Card tone="amber" variant="flush">
-          <CardHeader
-            title={t("workspace.cambios.suspect.title")}
-            count={suspects.length}
-            icon="alert"
-          />
-          <p>{t("workspace.cambios.suspect.intro")}</p>
+          <div className={styles.groupHeading}>
+            <CardHeader
+              title={t("workspace.cambios.suspect.title")}
+              count={suspects.length}
+              icon="alert"
+            />
+            <p>{t("workspace.cambios.suspect.intro")}</p>
+          </div>
           {suspects.map((item) => (
             <ChangeCard key={item.id} item={item} onSelect={(item) => setSelected(item.id)} />
           ))}
@@ -127,7 +129,9 @@ export function ChangesPanel({
         const group = inGroup(status);
         return group.length ? (
           <Card key={status} tone={STATUS_TONES[status]} variant="flush">
-            <CardHeader title={statusLabel(status)} count={group.length} icon="layers" />
+            <div className={styles.groupHeading}>
+              <CardHeader title={statusLabel(status)} count={group.length} icon="layers" />
+            </div>
             {group.map((item) => (
               <ChangeCard key={item.id} item={item} onSelect={(item) => setSelected(item.id)} />
             ))}

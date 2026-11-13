@@ -1,5 +1,16 @@
 # Decision Log — Mission Control
 
+## 2026-11-13 — Align Changes group headings and queue rows
+
+**What:** inset the Changes group headers and description, normalize their spacing,
+and center row chip clusters with token-based gaps. Phone rows place chips below
+the title and retain the chevron alongside it. The [workspace design](frds/frd-04-project-workspace/fdd.md)
+records the layout; shared primitives, copy and queue behavior remain unchanged.
+
+**Why:** flush Cards left headings against the border and inline chip clusters
+aligned icon-bearing pills to a text baseline. Scoped layout rules preserve the
+existing shared card/row treatment without changing sibling surfaces.
+
 ## 2026-11-13 — Adopt the durable Vitest gate policy (DUR, DR-159)
 
 **What:** adopt overlay **9.2.0**: install the managed Vitest policy and advisory gate/stamp updates, split

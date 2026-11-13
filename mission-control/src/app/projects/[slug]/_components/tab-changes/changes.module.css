@@ -48,3 +48,43 @@
   flex-wrap: wrap;
   gap: var(--s2);
 }
+
+.groupHeading {
+  display: grid;
+  gap: var(--s3);
+  padding: var(--s4) var(--s3) var(--s2);
+}
+.groupHeading > div {
+  margin-bottom: 0;
+}
+.row > :is(button, a, div) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+.row strong,
+.row small {
+  overflow-wrap: anywhere;
+}
+.rowChips {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+@media (max-width: 759px) {
+  .row > :is(button, a, div) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .row > :is(button, a, div) > span:last-of-type {
+    grid-column: 2 / -1;
+    grid-row: 2;
+    padding-left: 0;
+    min-width: 0;
+  }
+  .row > :is(button, a, div) > svg {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .rowChips {
+    flex-wrap: wrap;
+  }
+}

@@ -183,3 +183,12 @@ project reset. ELK's cold asynchronous load is not governed by Testing Library's
 No application or global test timeout is increased. Change discard uses a server-resolved project.
 
 Integration gate repair (2026-10-31): type FilterChips preserve the accessible `label · count` format, including Todos and Work order; selecting a type remains URL-owned and document links retain it.
+
+
+### Changes group alignment (2026-11-13)
+
+Changes groups retain the shared flush Card, CardHeader, ListRow and Chip primitives.
+Headers and optional descriptions share the rows' horizontal s3 inset; header blocks
+use s4 top and s2 bottom spacing. Each row centers its icon, wrapping title block,
+chip cluster and chevron. Chips share an s2 gap and centered alignment; on phones
+the chip cluster wraps below the title while the chevron stays on the first line.
