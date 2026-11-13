@@ -44,3 +44,15 @@ real copy elsewhere) instead of a symlink, or moving the symlink's target to liv
 (e.g. under a gitignored subdirectory of the worktree itself) so it never crosses the root boundary
 Turbopack checks. Treat this as a blanket rule for worktree bootstrap scripts: never symlink ANY directory
 from outside the worktree root when the project's dev/build server runs on Turbopack.
+
+**Third mechanism — a WORKER'S OWN ad-hoc "fix" reproduces it, not just a bootstrap shortcut
+(funko-tracker, 2026-11-12, agent-inferred):** a Codex worker, finding its worktree's `node_modules`
+incomplete or misconfigured, "fixed" it itself by symlinking `.bin`/`.pnpm` back to the main checkout —
+the same cross-root symlink Turbopack refuses, this time created mid-build by an agent trying to be
+helpful rather than by a bootstrap script taking a shortcut. The error was generic ("Could not find the
+Next.js package"), not the explicit filesystem-root message, making it harder to trace back to a symlink.
+**Apply next time (addendum):** this is a governance gap, not just a technical one — a worker must never
+be allowed to "repair" a worktree's dependency tree on its own initiative; only the project's own
+`worktree-setup.sh`/the shared bootstrap script may install/link dependencies. State this explicitly in
+any worker brief for a project with a Turbopack dev/build server, and if a worker reports a missing-package
+error, re-run the bootstrap's install step rather than letting the worker invent its own fix.

@@ -31,3 +31,12 @@ actual cause.
 step) non-interactively, always pin the scoping value explicitly (`NEON_PROJECT_ID` / the equivalent
 flag) rather than relying on the CLI resolving a single default on its own — don't wait for a
 multi-org account to surface the gap in production.
+
+**Corroborating facet (funko-tracker, 2026-11-11, agent-inferred):** don't trust a DIFFERENT, apparently
+unambiguous subcommand's output as proof the picker won't fire — `neonctl orgs list` returned exactly
+one organization (reading like the account is effectively single-org), yet `neonctl projects list` run
+right after it, with no `--org-id`/`--project-id`, still opened the interactive picker (it disambiguates
+between the personal account and that one org, a distinction `orgs list` doesn't surface). Pin the
+scoping flag explicitly on EVERY scripted `neonctl` subcommand that can be affected — including
+discovery/listing commands, not only the ones that mutate state — rather than inferring from one
+command's output that another command is safe to run unscoped.

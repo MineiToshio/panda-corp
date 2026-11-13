@@ -4,13 +4,13 @@ type: gotcha
 domain: shell-scripting
 tags: [zsh, bash-tool, word-splitting, set, shell-functions]
 context: writing an inline Bash-tool command (or a MECH shell step) that needs to loop over a space-separated list stored in a single shell variable, on a machine whose default shell is zsh
-trigger: use this when a Bash-tool/shell script loop over pairs or lists built from an unquoted variable (e.g. `set -- $p`) silently processes only one element or the wrong fields
-source: "mission-control .pandacorp/run/lessons.md 2026-10-29 (agent-inferred): the Bash tool runs zsh (not bash) for its underlying shell, so `set -- $p` on an unquoted multi-word string variable does NOT word-split the way it would under bash/sh — zsh's default `SH_WORD_SPLIT` option is off, so the whole string becomes a single positional parameter."
+trigger: use this when a Bash-tool/shell script loop over pairs or lists built from an unquoted variable (e.g. `set -- $p`) silently processes only one element or the wrong fields, or an `echo`/command argument starting with `=` fails with an unexpected "not found" error
+source: "mission-control .pandacorp/run/lessons.md 2026-10-29 (agent-inferred): the Bash tool runs zsh (not bash) for its underlying shell, so `set -- $p` on an unquoted multi-word string variable does NOT word-split the way it would under bash/sh — zsh's default `SH_WORD_SPLIT` option is off, so the whole string becomes a single positional parameter. SECOND distinct project corroborating the zsh-not-bash root cause (funko-tracker `.pandacorp/run/lessons.md` 2026-11-11, agent-inferred): `set -- $pair` reproduced the identical no-word-split symptom, AND a separate command in the same session, `echo ====`, failed with \"=== not found\" — zsh's `=word` expansion (equals-expansion: an unquoted argument beginning with `=` is replaced with the absolute path of the external command named by the rest of the word, if one exists) tried to resolve `===` as a command name and failed, rather than treating it as a literal string."
 provenance: agent-inferred
 created: 2026-10-29
-status: candidate
+status: active   # 2026-11-13 librarian eval-gate: cross-project corroboration met (mission-control + funko-tracker, 2 distinct projects)
 promotion: none
-confidence: low
+confidence: medium
 times_applied: 0
 applied_in: []
 links: []
@@ -30,3 +30,11 @@ syntax error because nothing flags it.
 script on this machine. Use a two-argument shell FUNCTION called once per item instead of building and
 splitting a combined string (`pair() { ...; }; pair "$a" "$b"`), or explicitly set `setopt SH_WORD_SPLIT`
 first if zsh-specific splitting behavior is unavoidable, or use an array (`arr=($p)`) rather than `set --`.
+
+**Second mechanism, same root cause (funko-tracker, 2026-11-11):** any bare word argument beginning with
+`=` (e.g. a separator line like `echo ====`, or any literal string that happens to start with `=`) can
+trigger zsh's `=word` command-path expansion instead of being passed through literally — quote it
+(`echo "===="`) or prefix with `--` where the command supports it, rather than assuming a plain `echo`
+call is always safe. General rule for this machine's Bash tool: never assume bash/POSIX shell semantics
+(word-splitting, `=`-prefixed literals) hold — quote variables and separator strings explicitly, or test
+the exact construct once under `zsh -c` before relying on it in a loop.
