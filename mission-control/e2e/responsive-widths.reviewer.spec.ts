@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+import { test } from "./_read-only";
 import { assertResponsive } from "./_responsive-helper";
 import { SURFACES } from "./routes";
 

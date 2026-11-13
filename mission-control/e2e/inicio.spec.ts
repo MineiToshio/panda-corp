@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 test("AC-18-022.1 AC-18-022.2: Inicio landmarks, narrow reading order and owner dialog focus lifecycle", async ({
   page,

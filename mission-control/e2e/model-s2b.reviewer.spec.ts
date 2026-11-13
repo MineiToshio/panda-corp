@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 const ROUTE = "/portfolio/mission-control/architecture";
 const SELECTOR = '[data-testid="data-model-viewer"] input';

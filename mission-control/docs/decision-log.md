@@ -1,5 +1,24 @@
 # Decision Log — Mission Control
 
+## 2026-11-12 — Populate the reviewed parallel UI tier (VB / VIS3)
+
+**What:** classify every root e2e spec and the nine nested navigation specs in the
+[platform inventory](reviews/e2e-platform-inventory.md#parallel-safety). The project safelist
+expands from 3 to 35 specs with the same three workers and 890 production-discovered identities:
+330 desktop + 135 mobile parallel; 230 desktop + 195 mobile serial. The three VIS3 top candidates
+(responsive-widths, frd-13 visual checks, frd-19 shell) qualify after explicit isolation of the
+invisible boot ledger action. Only their test-fixture imports change; assertions stay intact.
+
+**Why:** ordinary navigation indirectly writes the ledger, so absence of fs calls was insufficient.
+A project-owned [read-only fixture](../e2e/_read-only.ts) identifies only that background action
+from the running manifest, lets the existing client catch handle its isolated rejection, rejects
+other mutation requests, and checks shared fixture bytes + file/directory metadata at teardown.
+Regression tests detect touches, restored writes, transient locks and unsafe safelist additions.
+Ledger/action/history races, shared writers, CSP timing, baselines, nested unguarded contexts and
+managed template integration gates retain the genuine serial path. No template/config fork,
+coverage removal, retry, worker increase or product change. Actual speedup needs the external run.
+
+
 ## 2026-11-12 — Correct certification provenance, mobile upgrades and production live harness (RVB)
 
 **What:** fix reviewer B1/B2: hash all ambient environment inputs except explicit invocation/shell

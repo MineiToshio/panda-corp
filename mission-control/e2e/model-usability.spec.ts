@@ -1,6 +1,7 @@
 /* eslint-disable testing-library/prefer-screen-queries -- Playwright Page/Locator queries are not RTL render-result queries. */
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 async function openModel(page: Page): Promise<Locator> {
   await gotoHydrated(page, "/portfolio?project=Mission%20Control&tab=architecture", {

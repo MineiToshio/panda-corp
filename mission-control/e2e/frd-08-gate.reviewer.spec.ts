@@ -2,8 +2,9 @@
  * FRD-08 gate (WO-08-003, WO-08-004): builder-blind browser oracle for the v2 Documentación.
  * Runs against the pinned fixture server. Desktop-only assertions force their own viewport.
  */
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 const READER = '[data-testid="doc-reader-authored"]';
 const INDEX_NAME = "Índice de la Documentación";

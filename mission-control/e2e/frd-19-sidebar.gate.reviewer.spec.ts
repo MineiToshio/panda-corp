@@ -1,5 +1,6 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 const HYDRATED = { selector: '#app[data-hydrated="true"]' };
 async function open(page: Page, width: number, route = "/"): Promise<void> {

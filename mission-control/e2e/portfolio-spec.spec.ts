@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 import { WORKSPACE_TAB_LABELS } from "./_workspaceTabs";
 
 test("Portfolio Spec reuses the digest, FRD dialog and same-project document links", async ({

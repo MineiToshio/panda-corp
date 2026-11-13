@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 // Reviewer-authored (DR-080): the FDD draws one scrollable four-column table at every width (hint
 // «Desliza la tabla para ver todas las columnas»), never the core Table's stacked cards.

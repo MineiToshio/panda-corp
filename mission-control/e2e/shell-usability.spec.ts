@@ -1,5 +1,6 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 async function shell(page: Page, width: number, theme: string, path = "/board") {
   await page.setViewportSize({ width, height: 900 });

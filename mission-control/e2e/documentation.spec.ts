@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 test("AC-08-020.1 AC-08-020.2 AC-08-020.3 home, full-text search, reader, tutorial and folded index", async ({
   page,

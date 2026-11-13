@@ -1,5 +1,6 @@
-import { expect as baseExpect, type Page, test } from "@playwright/test";
+import { expect as baseExpect, type Page } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 // Alias plus canonical replace are two server hops that can exceed 5 s under load; the assertions
 // pin the destination, not its latency.

@@ -1,5 +1,6 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { test } from "./_read-only";
 
 // Reviewer-authored (DR-080): the roving focus of the shared Tabs primitive has to stay on screen in
 // a real browser, because jsdom has no layout and cannot prove any of this.
