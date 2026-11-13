@@ -9,10 +9,10 @@ source: "mission-control .pandacorp/run/lessons.md 2026-10-31 (agent-inferred) â
 provenance: agent-inferred
 created: 2026-10-31
 status: candidate
-promotion: none
+promotion: proposed
 confidence: medium
-times_applied: 2
-applied_in: [funko-tracker, mission-control]
+times_applied: 3
+applied_in: [funko-tracker, mission-control, personal-page-v2]
 links: []
 ---
 
@@ -35,3 +35,5 @@ the real file surfaces them.
 the artifact currently on disk (not just invented fixtures), and diff its output against what a human
 reading that real file would expect. A reader whose only tests are invented fixtures has proven it matches
 its own author's mental model, not that it correctly parses what actually exists.
+
+**Auto-proposed for promotion** (2026-11-13): cited by 3 projects (funko-tracker, mission-control, personal-page-v2) â€” measured by count-lesson-citations.sh. Target/rationale to be refined by the next `/pandacorp:memory review`; approval is `/pandacorp:learn` + the owner (DR-047 high-risk gate).
