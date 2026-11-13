@@ -256,7 +256,8 @@ Vercel (hobby to start), set up only at `/pandacorp:release` (everything before 
 
 Seed `e2e/prod-server.mjs` when missing; it gives the full browser gate one production
 build and one owned server with identical fixture environment. Preserve an existing project seed.
-`e2e/mobile-specs.json` adds explicit spec paths to mandatory smoke/visual/responsive coverage;
+`e2e/mobile-specs.json` classifies reviewed `{include, desktopOnly, review}` spec paths;
+without it, retain the old all-mobile selection minus shell/headers/hydration. Unknown specs stay mobile;
 review mobile navigation/focus/dialog coverage before adding specs. Parallel-safe specs must
 have no shared writes, including app effects, and tolerate `-parallel` project names.
 The combined invocation runs safe projects, then serial desktop and serial mobile. See

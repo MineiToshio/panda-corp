@@ -56,7 +56,7 @@ run_mq "$fx/wt"
 if [ "$rc" = 0 ] && [ "$before" = 1 ] && [ "$(gates)" = 1 ] && echo "$log" | grep -q 'SKIPPED \[certified-tree\]' && main_has "$fx"; then
   ok "branch verified green on its committed tree, main unchanged -> no second gate, merged"
 else bad "expected a certified skip (rc=$rc gates $before->$(gates)): $log"; fi
-if ( cd "$fx/app" && bash .pandacorp/green-stamp.sh check >/dev/null 2>&1 ); then
+if ( cd "$fx/app" && PATH="$fx/wt/bin:$PATH" bash .pandacorp/green-stamp.sh check >/dev/null 2>&1 ); then
   ok "main checkout received the stamp and its own check accepts it (Stop hooks on main fast-path)"
 else bad "main checkout stamp missing or rejected"; fi
 rm -rf "$fx"

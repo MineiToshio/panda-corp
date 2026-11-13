@@ -131,14 +131,17 @@ Engineering standard (DR-006 covers the approval gate for destructive changes):
   A contender exits 75 with checkout/owner details; wait for completion and retry. Never kill a
   foreign listener or enable server reuse. A crash releases ownership automatically; keep the inode.
 - Green-stamp v2 checks the tree plus lockfiles, installed dependency graph metadata, Node version,
-  `.env*`, relevant runtime inputs and the physical e2e tree, at both ends. Stop and merge-queue
+  `.env*`, all ambient environment inputs (except explicit invocation/shell controls), lane.env and the physical e2e tree, at both ends. Stop and merge-queue
   use this shared judge; any doubt reruns full. Arbitrary node_modules edits or undeclared external
   input roots are outside that fingerprint: invalidate the stamp when modifying them.
 - Full browser gates use the managed `e2e/prod-server.mjs` seed and the same fixture environment
   at build/start: one build and one Next start, real production CSP/page-error checks included.
-- `e2e/mobile-specs.json` explicitly adds viewport-sensitive navigation/dialog/focus files to
-  mandatory smoke/visual/responsive. A file that sets its own phone/tablet widths retains those
-  checks on desktop. Document every spec/platform in the project's e2e platform inventory.
+- Without a reviewed mobile inventory, keep all mobile specs except DR-143's existing
+  shell/headers/hydration exclusions. `e2e/mobile-specs.json` may reduce coverage only with
+  `{include, desktopOnly, review}`: explicit spec paths and an existing `docs/reviews/*.md`
+  inventory. Exclude only named reviewed duplicates; unknown/new specs remain mobile.
+  Smoke/visual/responsive cannot be excluded. Invalid or old bare-array inventories fail loudly.
+  A spec that sets its own phone/tablet widths retains those checks in its desktop project.
 - `e2e/parallel-safe.json` permits only audited whole specs without shared writes, including
   transitive app effects. Combined projects run safe files on up to 3 workers, then serial desktop,
   then serial mobile on one worker; visual and fixture/ledger writers stay serial. Existing manual

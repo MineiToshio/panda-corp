@@ -97,15 +97,32 @@ if (TIER !== undefined && TIER !== "parallel" && TIER !== "serial" && TIER !== "
 const PARALLEL_SAFE = readParallelSafe();
 const PARALLEL_WORKERS = Number(process.env.PANDACORP_E2E_WORKERS) || 3;
 const GLOBAL_SETUP = path.resolve("e2e", "globalSetup.ts");
-// Explicit mobile coverage: mandatory smoke/visual/responsive plus reviewed project additions.
-// Unknown specs start desktop-only; review viewport/focus/dialog/navigation before adding one.
+// An upgrade without a reviewed inventory preserves DR-143's complete mobile selection.
+// Reviewed inventories exclude only named duplicates; unknown/new specs stay on mobile.
 const MOBILE_FILE = path.resolve("e2e", "mobile-specs.json");
 const MOBILE_CORE = ["smoke.spec.ts", "visual.spec.ts", "responsive.spec.ts"];
-const readMobileSpecs = (): string[] => {
-  if (!fs.existsSync(MOBILE_FILE)) return MOBILE_CORE;
-  const specs: unknown = JSON.parse(fs.readFileSync(MOBILE_FILE, "utf8"));
-  if (!Array.isArray(specs)) throw new Error("e2e/mobile-specs.json must be a JSON array");
-  for (const spec of specs) {
+const LEGACY_MOBILE_IGNORE = ["shell.spec.ts", "headers.spec.ts", "hydration.spec.ts"];
+const readMobileExclusions = (): string[] => {
+  if (!fs.existsSync(MOBILE_FILE)) return LEGACY_MOBILE_IGNORE;
+  const inventory: unknown = JSON.parse(fs.readFileSync(MOBILE_FILE, "utf8"));
+  if (!inventory || typeof inventory !== "object" || Array.isArray(inventory))
+    throw new Error(
+      "e2e/mobile-specs.json needs a reviewed {include, desktopOnly, review} inventory",
+    );
+  const { include, desktopOnly, review, ...unknown } = inventory as Record<string, unknown>;
+  if (
+    !Array.isArray(include) ||
+    !Array.isArray(desktopOnly) ||
+    Object.keys(unknown).length ||
+    typeof review !== "string" ||
+    !/^docs\/reviews\/[\w./-]+\.md$/.test(review) ||
+    review.split("/").includes("..") ||
+    !fs.existsSync(path.resolve(review))
+  )
+    throw new Error(
+      "Mobile coverage reductions require a valid review document and classified spec lists",
+    );
+  for (const spec of [...include, ...desktopOnly]) {
     if (
       typeof spec !== "string" ||
       !/^[\w./-]+\.spec\.ts$/.test(spec) ||
@@ -114,9 +131,12 @@ const readMobileSpecs = (): string[] => {
     )
       throw new Error(`Invalid mobile spec: ${String(spec)}`);
   }
-  return [...new Set([...MOBILE_CORE, ...specs])];
+  if (desktopOnly.some((spec) => include.includes(spec) || MOBILE_CORE.includes(spec)))
+    throw new Error("Mobile core and included specs cannot be excluded");
+  return desktopOnly as string[];
 };
-const MOBILE = readMobileSpecs().map((spec) => `**/e2e/${spec}`);
+const MOBILE_IGNORE = readMobileExclusions().map((spec) => `**/e2e/${spec}`);
+const MOBILE_PARALLEL = PARALLEL_SAFE.filter((spec) => !MOBILE_IGNORE.includes(spec));
 const TIER_IGNORE = TIER === "serial" || TIER === "combined" ? PARALLEL_SAFE : [];
 const COMBINED = TIER === "combined" && PARALLEL_SAFE.length > 0;
 const parallelProjects: (Project & { name: string })[] = COMBINED
@@ -128,7 +148,7 @@ const parallelProjects: (Project & { name: string })[] = COMBINED
       },
       {
         name: "mobile-parallel",
-        testMatch: PARALLEL_SAFE.filter((spec) => MOBILE.includes(spec)),
+        testMatch: MOBILE_PARALLEL,
         use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
       },
     ]
@@ -169,9 +189,8 @@ export default defineConfig({
     },
     {
       name: "mobile",
-      testMatch:
-        TIER === "parallel" ? PARALLEL_SAFE.filter((spec) => MOBILE.includes(spec)) : MOBILE,
-      testIgnore: TIER_IGNORE,
+      ...(TIER === "parallel" ? { testMatch: MOBILE_PARALLEL } : {}),
+      testIgnore: [...TIER_IGNORE, ...MOBILE_IGNORE],
       ...(COMBINED ? { dependencies: ["desktop"], workers: 1 } : {}),
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
     },

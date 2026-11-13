@@ -63,6 +63,7 @@ def add(path):
         raise ValueError('unhashable input')
     h.update(b'\0')
 for path in sorted(set([Path('.pandacorp/verify.sh'), Path('.pandacorp/green-stamp.sh'),
+                       Path('.pandacorp/run/lane.env'),
                        Path('node_modules/.modules.yaml'), Path('node_modules/.pnpm/lock.yaml'),
                        Path('node_modules/.package-lock.json'), Path('e2e'),
                        Path('playwright.config.ts'), Path('package.json'),
@@ -76,9 +77,13 @@ controls = {
     'PANDACORP_VERIFY_NO_BAIL', 'PANDACORP_E2E_SERVER', 'PANDACORP_E2E_TIER',
     'PANDACORP_E2E_WORKERS', 'PANDACORP_E2E_CERTIFICATION', 'PANDACORP_STOP_GATE',
     'PANDACORP_EVENTS_LOG', 'PANDACORP_OWNER_RELEASE_OK',
+    # Shell bookkeeping/terminal presentation, never product/test configuration.
+    '_', 'SHLVL', 'PWD', 'OLDPWD', 'PS1', 'PS2', 'TERM', 'COLUMNS', 'LINES',
 }
 for key, value in sorted(os.environ.items()):
-    if key not in controls and (key.startswith(('NEXT_PUBLIC_', 'PANDACORP_', 'PW_')) or key in ('CI', 'HOME', 'USERPROFILE', 'TZ', 'LANG', 'NODE_ENV', 'PORT', 'TEST_DATABASE_URL', 'DATABASE_URL')):
+    # Hash ALL ambient inputs, including unknown future product variables. A name-prefix
+    # allowlist cannot know MC_CLOCK / MC_GIT_FIXTURE / NAVIGATION_TEST_FACTORY_ROOT.
+    if key not in controls:
         h.update(key.encode() + b'=' + value.encode() + b'\0')
 print(h.hexdigest())
 INPUTPY

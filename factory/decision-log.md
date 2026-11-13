@@ -1,5 +1,24 @@
 # Decision Log — Factory
 
+## 2026-11-12 — Correct certification provenance, mobile upgrades and production live harness (RVB)
+
+**What:** fix reviewer B1/B2: hash all ambient environment inputs except explicit invocation/shell
+controls, including MC_CLOCK/MC_GIT_FIXTURE/NAVIGATION_TEST_FACTORY_ROOT and lane.env; retain
+legacy mobile coverage when no reviewed inventory exists. Reviewed inventories name exclusions
+and their review document; unknown specs stay mobile. MC's reviewed classification preserves its
+current distribution. Plugin **10.1.1**, overlay **9.1.1**.
+
+**Why:** the old prefix filter could reuse green evidence with an invalid product clock, and an
+upgrade without a mobile list silently lost coverage. Both failures have RED→GREEN regressions.
+The production frd-05 failure exposed an unobserved SSE-baseline/RSC-listener ordering in the
+harness; it now shares the native SSE/real-file refresh helper with navigation-root, preserving
+URL assertions and zero retries. Exact attribution of the original browser attempt is unverified;
+new failures record SSE/RSC observations. The reported non-test error is Playwright's synthetic
+maxFailures notice, not an additional product exception; no error suppression was added.
+
+Canonical: [DR-158](decisions/registry.yaml), [quality](standards/quality.md).
+
+
 ## 2026-11-12 — Faster certification without weakening landing (DR-158)
 
 **What:** certification fails fast (Vitest bail=1, Playwright maxFailures=1); diagnostic

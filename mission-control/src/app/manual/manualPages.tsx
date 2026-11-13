@@ -909,10 +909,11 @@ function ConceptHooks(): React.JSX.Element {
       <Lead>
         El Stop usa un pase ligero. Antes de entrar en main hay un pase completo, con un único dueño
         por carpeta: si otro está verificando, espera a que termine. Un sello solo evita repetirlo
-        cuando el árbol, las dependencias y los fixtures siguen idénticos. El navegador comparte un
-        build de producción; móvil conserva sus recorridos revisados y los tests que escriben datos
-        siguen en serie. <Code>--affected</Code> sirve para iterar y siempre es parcial.{" "}
-        <Code>--no-bail</Code> recoge todos los fallos para diagnóstico (DR-158).
+        cuando el árbol, las dependencias, el entorno y los fixtures siguen idénticos. El navegador
+        comparte un build de producción; sin inventario móvil conserva la cobertura anterior, y solo
+        una revisión permite excluir duplicados. Los tests que escriben datos siguen en serie.{" "}
+        <Code>--affected</Code> sirve para iterar y siempre es parcial. <Code>--no-bail</Code>{" "}
+        recoge todos los fallos para diagnóstico (DR-158).
       </Lead>
       <HooksDiagram />
       <NotePanel icon="lock">

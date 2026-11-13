@@ -14,7 +14,7 @@ const check = (name, ok, detail = '') => {
   if (!ok) failed += 1
 }
 
-function load({ safe, env = {}, globalSetup = false, prodServer = false }) {
+function load({ safe, mobile, env = {}, globalSetup = false, prodServer = false }) {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'e2e-tiers-'))
   try {
     const stub = path.join(dir, 'node_modules', '@playwright', 'test')
@@ -25,6 +25,11 @@ function load({ safe, env = {}, globalSetup = false, prodServer = false }) {
     writeFileSync(path.join(dir, 'package.json'), '{ "type": "module" }\n')
     writeFileSync(path.join(dir, 'playwright.config.ts'), readFileSync(TEMPLATE, 'utf8'))
     writeFileSync(path.join(dir, 'e2e', 'read.spec.ts'), '')
+    writeFileSync(path.join(dir, 'e2e', 'dialog.spec.ts'), '')
+    writeFileSync(path.join(dir, 'e2e', 'new-dialog.spec.ts'), '')
+    mkdirSync(path.join(dir, 'docs/reviews'), { recursive: true })
+    writeFileSync(path.join(dir, 'docs/reviews/mobile.md'), '# Reviewed inventory')
+    if (mobile !== undefined) writeFileSync(path.join(dir, 'e2e/mobile-specs.json'), JSON.stringify(mobile))
     writeFileSync(path.join(dir, 'e2e', 'visual.spec.ts'), '')
     if (prodServer) writeFileSync(path.join(dir, 'e2e', 'prod-server.mjs'), '')
     if (globalSetup) writeFileSync(path.join(dir, 'e2e', 'globalSetup.ts'), '')
@@ -43,7 +48,7 @@ const GLOB = '**/e2e/read.spec.ts'
   const { config: c } = load({})
   check('no file: one worker, no tier filter', c.workers === 1 && c.testMatch === undefined && project(c, 'desktop').testIgnore.length === 0)
   check('no globalSetup seed: not wired', c.globalSetup === undefined)
-  check('viewport-agnostic gates run on desktop only', project(c, 'mobile').testMatch.includes('**/e2e/smoke.spec.ts') && !project(c, 'mobile').testMatch.includes('**/e2e/read.spec.ts'))
+  check('viewport-agnostic gates run on desktop only', project(c, 'mobile').testIgnore.includes('**/e2e/shell.spec.ts') && project(c, 'mobile').testMatch === undefined)
 }
 {
   const { config: c } = load({ safe: ['read.spec.ts'] })
@@ -61,7 +66,7 @@ const GLOB = '**/e2e/read.spec.ts'
   const { config: c } = load({ safe: ['read.spec.ts'], env: { PANDACORP_E2E_TIER: 'serial' } })
   check('serial tier: complement on one worker, both projects', c.workers === 1 && c.testMatch === undefined
     && project(c, 'desktop').testIgnore.includes(GLOB) && project(c, 'mobile').testIgnore.includes(GLOB)
-    && project(c, 'mobile').testMatch.includes('**/e2e/smoke.spec.ts') && !project(c, 'mobile').testMatch.includes('**/e2e/read.spec.ts'))
+    && project(c, 'mobile').testIgnore.includes('**/e2e/shell.spec.ts') && project(c, 'mobile').testMatch === undefined)
 }
 check('globalSetup seed is wired in', load({ globalSetup: true }).config?.globalSetup === './e2e/globalSetup.ts')
 check('stale spec fails loud', !load({ safe: ['gone.spec.ts'] }).ok)
@@ -82,7 +87,7 @@ check('unknown tier fails loud', !load({ env: { PANDACORP_E2E_TIER: 'fast' } }).
     && project(c, 'desktop').dependencies.includes('desktop-parallel')
     && project(c, 'mobile').dependencies[0] === 'desktop'
     && project(c, 'desktop-parallel').testMatch.includes(GLOB))
-  check('mobile parallel selection is the intersection, never all safe files', project(c, 'mobile-parallel').testMatch.length === 0)
+  check('without reviewed exclusions safe specs retain mobile coverage', project(c, 'mobile-parallel').testMatch.includes(GLOB))
   check('certification bails at one failure and owns server', c.maxFailures === 1 && c.webServer.reuseExistingServer === false)
 }
 check('diagnostics collect every browser failure', load({ env: { PANDACORP_E2E_CERTIFICATION: '1', PANDACORP_VERIFY_NO_BAIL: '1' } }).config?.maxFailures === 0)
@@ -105,6 +110,17 @@ check('diagnostics collect every browser failure', load({ env: { PANDACORP_E2E_C
     check('prod build failure propagates', run(['build'], { FIXTURE_NEXT_EXIT: '7' }).status === 7)
     check('prod rejects invalid start port', run(['start', '--help']).status !== 0)
   } finally { rmSync(dir, { recursive: true, force: true }) }
+}
+
+{
+  const c = load({}).config
+  check('RVB B2: upgrade without mobile inventory keeps existing dialog coverage', c && !project(c, 'mobile').testIgnore.includes('**/e2e/dialog.spec.ts') && project(c, 'mobile').testMatch === undefined)
+  const reviewed = load({ mobile: { include: ['dialog.spec.ts'], desktopOnly: ['read.spec.ts'], review: 'docs/reviews/mobile.md' } }).config
+  check('reviewed exclusions reduce only the classified duplicates', reviewed && project(reviewed, 'mobile').testIgnore.includes(GLOB) && !project(reviewed, 'mobile').testIgnore.includes('**/e2e/dialog.spec.ts'))
+  check('new unclassified viewport spec keeps mobile coverage', reviewed && !project(reviewed, 'mobile').testIgnore.includes('**/e2e/new-dialog.spec.ts') && project(reviewed, 'mobile').testMatch === undefined)
+  check('unreviewed legacy allowlist fails loudly', !load({ mobile: ['read.spec.ts'] }).ok)
+  check('missing review document cannot reduce coverage', !load({ mobile: { include: [], desktopOnly: ['read.spec.ts'], review: 'docs/reviews/missing.md' } }).ok)
+  check('review cannot exclude mandatory visual core', !load({ mobile: { include: [], desktopOnly: ['visual.spec.ts'], review: 'docs/reviews/mobile.md' } }).ok)
 }
 
 console.log(failed ? `RESULT: ${failed} failed` : 'RESULT: all passed')

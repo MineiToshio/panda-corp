@@ -662,7 +662,7 @@ new_git_fixture() {
   printf '%s\n' "$d"
 }
 run_local_verify() { local d="$1"; shift; ( cd "$d" && PATH="$d/bin:$PATH" bash .pandacorp/verify.sh "$@" ); }
-stamp_ok() { ( cd "$1" && bash .pandacorp/green-stamp.sh check >/dev/null 2>&1 ); }
+stamp_ok() { ( cd "$1" && PATH="$1/bin:$PATH" bash .pandacorp/green-stamp.sh check >/dev/null 2>&1 ); }
 
 FX=$(new_git_fixture)
 run_local_verify "$FX" >/dev/null 2>&1; rc=$?

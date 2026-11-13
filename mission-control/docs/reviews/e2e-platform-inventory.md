@@ -18,9 +18,9 @@ critical navigation, dialogs, keyboard/focus, responsive geometry and mixed file
 all nine nested persistent-navigation specs remain on both platforms. Case identity audit uses
 `(spec path, title, platform)` from the Playwright JSON discovery reports.
 
-`e2e/mobile-specs.json` is project-owned. New specs start desktop-only: review viewport/focus/
-dialog/touch/navigation requirements and update this inventory plus the allowlist in the same
-change. File-level selection intentionally retains some viewport-independent cases in mixed files.
+`e2e/mobile-specs.json` is project-owned. The reviewed JSON classifies `{include, desktopOnly, review}`. New/unclassified specs
+retain mobile coverage; review viewport/focus/dialog/touch/navigation requirements before adding
+a named desktop-only exclusion, and update this inventory in the same change. File-level selection intentionally retains some viewport-independent cases in mixed files.
 The desktop column below means the **project**, not a promise of fixed desktop viewport.
 
 ## Execution and shared state
@@ -127,3 +127,31 @@ The research target of 10–15 minutes versus approximately 26 minutes is **unme
 Fail-fast saves nothing on an all-green run; safe parallelism is deliberately small here.
 Green-stamp hashes `.env*`, dependency graph metadata and the entire physical e2e tree;
 ordinary ledger/fixture mutations that do not restore bytes prevent certification reuse.
+
+## RVB follow-up: production live-refresh harness
+
+The unrestricted run reached 241 seconds and stopped after 62 passes and one failing test;
+827 tests did not run. This is a red partial timing, never a successful full-gate benchmark.
+`frd-05-gate.reviewer.spec.ts` ran on the serial desktop project, after the nine safe project
+cases finished. It is absent from `parallel-safe.json`; no fixture-writing spec ran beside it.
+
+The spec waited on any RSC response and touched once without observing an open project SSE
+baseline. The first stateVersion frame deliberately establishes a baseline without refreshing;
+dev file/HMR activity can also produce an unrelated RSC. The old green dev result therefore
+did not establish the required production transport ordering. The original log contains no
+SSE/network trace proving which race happened in that attempt; that exact attribution is unverified.
+
+Both frd-05 and navigation-root now share `_live-refresh.ts`: observe the native EventSource,
+wait for an open project stream with a finite stateVersion and its 150 ms debounce (300 ms guard),
+arm the RSC listener before touching, exclude prefetches/in-flight navigation and require the
+same path/focus/level. Reconnection can cause a later touch within ONE 12-second response wait,
+as navigation-root already did. Tests/retries remain unchanged, filesystem transport stays real,
+and fixture timestamps restore in finally. Failures now retain bounded SSE and RSC diagnostics.
+Unit regressions exercise ordering against a real temporary file and rejection/cleanup without
+orphan promises. Real browser confirmation still belongs to the unrestricted integrator.
+
+The log's “1 error was not a part of any test” is the same fail-fast event, not a second app
+exception: installed Playwright1.61.0 `lib/runner/index.js:5567` emits “Testing stopped early
+...” via reporter.onError, and its list reporter counts that event at line1182. The log has
+exactly this marker at1554 and its summary at1576. No runner error was suppressed or threshold
+changed. Resolving the functional failure removes that early-stop notice on a green run.
