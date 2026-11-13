@@ -481,8 +481,8 @@
       "purpose": "Product analytics when approved",
       "adoption": "optional",
       "dashboard_url": "https://app.posthog.com/",
-      "reuse_policy": "Explicit now/deferred/excluded owner choice. Check current organization/project capacity. Do not create organizations/accounts to bypass paid limits; evaluate optional alternatives only when needed.",
-      "environment_policy": "Only selected scope receives keys/SDKs; isolate events by approved provider project, never mix apps silently.",
+      "reuse_policy": "Explicit now/deferred/excluded owner choice. When now: one organization per app under the existing shared login, free plan without a card, one project per organization; treat each app as a separate company (DR-160). This PostHog-only exception does not authorize new logins or account proliferation for other providers. Reevaluate with the owner upon any PostHog notice, email or alert. Fallback, subject to owner approval: one organization with a card and $0 billing limits, one project per app (up to 6 on pay-as-you-go); Boost at USD 250/month offers unlimited projects. Never activate paid fallback automatically.",
+      "environment_policy": "Choose US/EU region when creating the organization. Isolate app events in its own project; never reuse another app's key. Record organization name/ID, project ID and region in the project .pandacorp/accounts/services.yaml; credentials stay in the approved secret store/dotenv destinations.",
       "automation": {
         "methods": [
           "api",
@@ -490,17 +490,29 @@
         ],
         "status": "documented",
         "steps": [
-          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
-          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
-          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
-          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+          "After scope and consumer contract are final, verify the existing shared login and reconcile this app's recorded organization/project before create or retry; do not create duplicate resources.",
+          "For a new app, create a new organization named after the app under that shared login, select US/EU region at creation, and keep exactly one project on the free plan without a card. Stop and escalate to the owner if a card is requested.",
+          "Record organization name/ID, project ID and region in .pandacorp/accounts/services.yaml; issue/use only this app's project key, never another app's key. Record actual operation evidence separately from recipe documentation.",
+          "On any PostHog notice, email or alert, reevaluate DR-160 with the owner before proceeding; card/paid fallback requires separate owner approval."
         ]
       },
-      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Research/account UI listed one project without card; adding a card could unlock up to six projects with shared product allowances and chargeable overage if enabled. This is not unlimited free capacity. Confirm zero-spend controls for every activated product before selection.",
+      "quota_notes": "Verified 2026-11-13: Free includes 1 project per organization without a card; pay-as-you-go includes 6 projects; Boost USD 250/month includes unlimited projects. Product analytics allowance is 1M events/month per organization, shared by its projects, not multiplied per project. Region US/EU is chosen when creating the organization. Owner consciously accepts the Terms section 2.1(d) risk (terms updated 2026-06-29): intended circumvention of limits is prohibited; multiple organizations are a documented feature with no literal blanket prohibition. This is an accepted risk, not provider approval; reevaluate on any PostHog notice/email/alert. Fallback: one organization, card plus $0 billing limits, one project/app (6 on pay-as-you-go; Boost requires paid approval). Verify controls for every activated product; never assume a global zero-spend guarantee.",
       "sources": [
         {
           "url": "https://posthog.com/pricing",
-          "checked_at": "2026-10-19"
+          "checked_at": "2026-11-13"
+        },
+        {
+          "url": "https://posthog.com/docs/billing/common-questions",
+          "checked_at": "2026-11-13"
+        },
+        {
+          "url": "https://posthog.com/docs/settings/organizations",
+          "checked_at": "2026-11-13"
+        },
+        {
+          "url": "https://posthog.com/terms",
+          "checked_at": "2026-11-13"
         },
         {
           "url": "https://support.google.com/analytics/answer/9303323?hl=en",
@@ -520,10 +532,6 @@
         },
         {
           "url": "https://www.amplitude.com/pricing",
-          "checked_at": "2026-10-19"
-        },
-        {
-          "url": "https://posthog.com/pricing",
           "checked_at": "2026-10-19"
         },
         {

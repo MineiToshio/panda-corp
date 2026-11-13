@@ -126,7 +126,7 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 | STACK-1 | Golden path by default, latest stable | SHOULD | stack.md | blueprint ADR (owner approves) | manual |
 | STACK-2 | Version policy (latest new / stay in-flight / compatible brownfield) | MUST | stack.md | review-only | manual |
 | STACK-3 | Never homemade auth | MUST | stack.md / constitution §12 | blueprint review | manual |
-| EXT-1 | Account model: authorized shared identity, provider-specific app/env separation; no fee evasion | MUST | external-services.md | provisioning playbook checklist | manual |
+| EXT-1 | Account model: authorized shared identity, provider-specific app/env separation; no fee evasion for other providers. PostHog exception (DR-160): one organization per app under the existing shared login, free/no card, one project per organization | MUST | external-services.md / DR-160 | provisioning playbook checklist | manual |
 | EXT-2 | Machine secrets in SOPS+age store outside repos | MUST | external-services.md | convention + gitleaks (repo side) | manual |
 | EXT-3 | Human gates on spend/signup/deletion | MUST | external-services.md / infra.md | deny rules in `.claude/settings.json` + push (DR-038) | wired |
 | EXT-4 | Vercel commercial-use warning at 3 checkpoints | MUST | external-services.md | skill checklists (PRD/blueprint/release) | manual |

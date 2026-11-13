@@ -1,5 +1,11 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-13 — PostHog organization per app under the shared login (DR-160)
+
+**What:** Architecture now provisions one app-named PostHog organization per app under the existing shared login, free/no card, exactly one project; selects US/EU at creation; records organization/project IDs and region; and never reuses another app's key. A card prompt stops provisioning for owner escalation. Update the injected rule and Manual services guide. Independent review also removed the contradictory blanket organization prohibition from the architecture decision-round reference, retaining it for other providers and linking the DR-160 exception. Plugin **10.4.0**, overlay **9.3.0** propagates the compatible rule exception.
+
+**Why:** owner-stated DR-160 replaces the PostHog-only restriction while preserving the general account policy. The owner accepts Terms §2.1(d) risk; any PostHog notice/email/alert triggers reevaluation, and the card/$0-limit or paid Boost fallback requires owner approval. Canonical: [service preparation](../skills/architecture/references/service-preparation.md), [injected rule](../templates/rules/external-services.md), [Manual guide](services-and-accounts.md), [DR-160](../../factory/decisions/registry.yaml).
+
 ## 2026-11-13 — Resume env-blocked units; Codex report dir writable; docs units may amend DESIGN.md (BL-0312/0313/0314)
 
 **What:** New fenced `unblock --epoch E --unit U --reason TEXT` and `start --resume --unblock U --reason TEXT`

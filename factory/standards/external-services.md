@@ -1,6 +1,6 @@
 # External services, accounts and secrets
 
-> Domain: Operation · Severity: **MUST** (scope, account identity, secrets, human gates) / **SHOULD** (provider choices) · Enforcement: architecture/release checklist + catalog validator + gitleaks. Operative form: `plugin/templates/rules/external-services.md`. Decisions: DR-035..038, DR-134, DR-149.
+> Domain: Operation · Severity: **MUST** (scope, account identity, secrets, human gates) / **SHOULD** (provider choices) · Enforcement: architecture/release checklist + catalog validator + gitleaks. Operative form: `plugin/templates/rules/external-services.md`. Decisions: DR-035..038, DR-134, DR-149, DR-160.
 
 ## 1. Reuse before provisioning
 
@@ -29,7 +29,7 @@ Reuse the authorized account and separate applications with provider-native reso
 
 Kit is **off by default**: ask whether the owner wants a mailing list, then resolve now/deferred/excluded. PostHog, Sentry, multilingual i18n and SEO retain separate explicit architecture decisions (DR-131); internal projects are asked too. Deferred/excluded services receive no SDK, stub, credentials, required env validation, gates or work orders. Polar remains a payments policy candidate for the first paid app, not a default MVP resource. Cloudinary is not selected for new MVP storage. Document existing integrations without removing/migrating them.
 
-If quotas are dominated by one application, propose isolating that consumer. If many small consumers exhaust a shared allowance, compare lawful capacity/new shared-account options. Check the provider's policy and obtain owner approval before account creation or spending. Never proliferate accounts/organizations to evade fees, including PostHog organizations. Record dated plan/usage/limits; unknown means pending, not invented capacity.
+If quotas are dominated by one application, propose isolating that consumer. If many small consumers exhaust a shared allowance, compare lawful capacity/new shared-account options. Check the provider's policy and obtain owner approval before account creation or spending. Never proliferate accounts/organizations to evade fees for other providers. **PostHog-only exception (DR-160):** after explicit current-version selection, use one organization named after each app under the existing shared login, free plan without a card and exactly one project; each app is treated as a separate company. Choose US/EU at organization creation, record organization name/ID, project ID and region in the project association, and never reuse another app's key. Stop and escalate if a card is requested. The owner accepts the Terms §2.1(d) risk; reevaluate upon any PostHog notice/email/alert. Fallback subject to owner approval: one organization with a card and $0 billing limits, one project/app (up to 6 on pay-as-you-go; Boost USD 250/month for unlimited projects). Dated limits and official sources live in the catalog; no automatic migration or paid activation. Record dated plan/usage/limits; unknown means pending, not invented capacity.
 
 ## 3. Proportional preparation and evidence
 

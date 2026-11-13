@@ -1,5 +1,11 @@
 # Decision Log — Factory
 
+## 2026-11-13 — PostHog organization per app under the shared login (DR-160)
+
+**What:** DR-160 supersedes the PostHog restriction in DR-036/134: one app-named organization per app under the existing shared login, free/no card, one project, region chosen at creation, app-specific keys and recorded native IDs. Other providers retain the account-proliferation prohibition. The catalog records official limits/sources checked 2026-11-13. Independent review also aligned the EXT-1 rule-registry row and architecture decision-round defaults with the PostHog exception while retaining the prohibition for other providers.
+
+**Why:** owner-stated decision treats each app as a separate company. The owner consciously accepts Terms §2.1(d) risk; any PostHog notice/email/alert triggers reevaluation. Fallback needs owner approval: one organization, card and $0 billing limits, one project/app (6 on pay-as-you-go; Boost USD 250/month unlimited). No automatic migration or paid activation. Canonical: [DR-160](decisions/registry.yaml), [catalog](services/catalog.yaml), [standard](standards/external-services.md). Plugin 10.4.0, overlay 9.3.0.
+
 ## 2026-11-13 — The coordinator lifts env-infra hand-backs; docs units may amend DESIGN.md (BL-0312/0314)
 
 **What:** BUILD-15 gains env-infra re-admission: after fixing the environment the coordinator runs
