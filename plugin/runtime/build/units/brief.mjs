@@ -28,6 +28,22 @@ async function readIfExists(fs, file) {
   try { return await fs.readFile(file, "utf8"); } catch (e) { if (e.code === "ENOENT") return null; throw e; }
 }
 
+/**
+ * BL-0312: an attempt re-admitted by `unblock` after an environment fix resumes where it stopped. The note is read only
+ * for the attempt it was written for (a later attempt starts fresh and never sees it).
+ */
+async function unblockedNote(fs, unitDir, attempt) {
+  const raw = await readIfExists(fs, path.join(unitDir, "unblocked.json"));
+  if (raw === null) return [];
+  let note;
+  try { note = JSON.parse(raw); } catch { return []; }
+  if (note?.attempt !== attempt) return [];
+  return [
+    `Resumed attempt ${attempt}: your previous run of this attempt stopped on an environment failure that the coordinator has now fixed (${note.reason}). Do not redo the work: continue from what is already in your working directory${Number.isInteger(note.worktree_changes) ? ` (${note.worktree_changes} uncommitted changes kept)` : ""}, re-run the verification that failed and finish.`,
+    ...(note.previous_report ? [`Your previous report of this attempt (read-only, for context; write a NEW report to report_path): ${note.previous_report}`] : []),
+  ];
+}
+
 /** The decision (or assumption) of the unit's doubt, as the brief states it; `null` when the unit has no doubt. */
 async function decidedDoubt(project, unit, deps) {
   if (!unit.doubt_id) return null;
@@ -101,7 +117,8 @@ export async function writeUnitBrief({ project, state, unit, cell, agentType, to
   const gateFailure = gateRaw === null ? null : JSON.parse(gateRaw);
 
   const decision = extra.decision ?? await decidedDoubt(project, unit, deps);
-  const notes = [...(extra.notes ?? []), ...(extra.questionDefaults ?? []).map((q) => `Owner question pending, working default: ${typeof q === "string" ? q : JSON.stringify(q)}`)];
+  const resumed = await unblockedNote(fs, p.unitDir(unit.id), unit.attempt);
+  const notes = [...resumed, ...(extra.notes ?? []), ...(extra.questionDefaults ?? []).map((q) => `Owner question pending, working default: ${typeof q === "string" ? q : JSON.stringify(q)}`)];
   const text = renderBrief({
     unit, cell, agentType, roleFile: agentRoleFile(agentType, deps.pluginRoot), card, acLines,
     allowlist: allowlistPatterns(unit.kind, artifacts), contextPack, root, reportPath: outPath, schemaPath, token,

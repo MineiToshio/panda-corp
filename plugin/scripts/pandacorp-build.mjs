@@ -11,7 +11,7 @@ import { cardCheckCommand } from "../runtime/build/card.mjs";
 import { detect } from "../runtime/build/detect.mjs";
 import { doubtCommand } from "../runtime/build/doubts.mjs";
 import { driveDeps, isStandbyAlive, runDrive } from "../runtime/build/drive.mjs";
-import { handbackCommand, handleEngineFailure, withEngineRecovery } from "../runtime/build/failure.mjs";
+import { handbackCommand, handleEngineFailure, unblockCommand, withEngineRecovery } from "../runtime/build/failure.mjs";
 import { defaultExec } from "../runtime/build/fsx.mjs";
 import { land } from "../runtime/build/land.mjs";
 import {
@@ -50,6 +50,7 @@ const COMMANDS = Object.freeze({
   doubt: { subs: ["open", "answer"], bool: [], value: ["epoch", "unit", "id", "file", "token"], usage: "doubt open|answer --epoch N ..." },
   answer: { bool: [], value: ["epoch", "question", "value"], usage: "answer --epoch N --question Q --value JSON" },
   handback: { bool: [], value: ["epoch", "unit", "reason"], usage: "handback --epoch N --unit U --reason TEXT" },
+  unblock: { bool: [], value: ["epoch", "unit", "reason"], usage: "unblock --epoch N --unit U --reason TEXT" },
   quota: {
     subs: ["record", "read"], bool: ["probe"],
     value: ["provider", "five-hour", "weekly", "five-hour-resets-at", "weekly-resets-at", "status", "epoch"], usage: "quota record|read",
@@ -68,7 +69,7 @@ const START_MODES = Object.freeze({
   detect: { bool: [], value: ["args", "session-card", "session-id", "session-runtime"], usage: "start --detect [--args RAW] [--session-card P] [--session-id ID] [--session-runtime R]" },
   preflight: { bool: ["probe-codex"], value: ["row", "scope-json", "label", "session-model"], usage: "start --preflight --row N --scope-json F [--label L] [--session-model M] [--probe-codex]" },
   run: { bool: [], value: ["scope-json", "label", "coordinator", "k", "mode", "session-model", "answers"], usage: "start --run --scope-json F --coordinator C [--label L] [--k N] [--mode M] [--session-model M] [--answers J]" },
-  resume: { bool: ["owner-confirmed"], value: ["coordinator", "session-model", "run"], usage: "start --resume --coordinator C [--session-model M] [--run ID] [--owner-confirmed]" },
+  resume: { bool: ["owner-confirmed"], value: ["coordinator", "session-model", "run", "unblock", "reason"], usage: "start --resume --coordinator C [--session-model M] [--run ID] [--owner-confirmed] [--unblock U --reason TEXT]" },
 });
 
 const usage = (message) => Object.assign(new Error(message), { code: "USAGE" });
@@ -180,6 +181,7 @@ const startHandlers = {
     const r = await startResume({
       project: c.project, coordinator: company(need(c.flags, "coordinator"), "coordinator"), sessionModel: c.flags["session-model"] ?? null,
       runId: c.flags.run ?? null, ownerConfirmed: c.flags["owner-confirmed"] === true,
+      unblock: c.flags.unblock ?? null, reason: c.flags.reason ?? null,
     }, c.deps);
     return { body: { mode: "resume", ...r } };
   },
@@ -284,6 +286,10 @@ const HANDLERS = {
   answer: (c) => fenced(c, async () => ({ body: await answerCommand({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), question: need(c.flags, "question"), value: c.flags.value }, c.deps) })),
   async handback(c) {
     const r = await fenced(c, () => handbackCommand({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), unit: need(c.flags, "unit"), reason: need(c.flags, "reason") }, c.deps));
+    return { body: r };
+  },
+  async unblock(c) {
+    const r = await fenced(c, () => unblockCommand({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), unit: need(c.flags, "unit"), reason: need(c.flags, "reason") }, c.deps));
     return { body: r };
   },
   quota: (c) => (c.positionals[1] === "record" ? recordQuota(c) : c.positionals[1] === "read" ? readQuotaView(c) : Promise.reject(usage("quota admite record o read."))),

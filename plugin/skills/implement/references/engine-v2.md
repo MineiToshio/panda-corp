@@ -188,6 +188,14 @@ merge-queue; `next` harvests it) or `nothing_to_land` (reasons such as `busy_mai
 continue the loop; `landed` → safe point; exit 7 `waiting_gate` → production gate (`autonomy.md` §4), continue;
 exit 6 `handback` → continue, it goes into the report.
 
+**Environment hand-back** (a unit handed back with cause `env-infra`: its sandbox could not reach a service, a
+tool or the disk failed; the hand-back file says "entorno o infraestructura"). Fix the environment first (never the
+unit's files). Then re-admit it: during the run `pb unblock --epoch <E> --unit <unit> --reason "<what you fixed>"`;
+when the run already ended (`next` said `done` and `finish` closed it, or it stopped on three env hand-backs)
+`pb start --resume --coordinator claude|codex --unblock <unit> --reason "<what you fixed>"`, then continue with
+`next`. The unit returns at the same attempt with its preserved worktree and its dependents; it spends no budget.
+Any other hand-back cause is the owner's decision: exit 6 says so, do not retry it.
+
 **At every safe point** (a `committed` report, a `review-record`, a `landed` result): Claude Code only, read
 `get_usage` again and `pb quota record … --epoch <E>`; then continue with `next`. The CLI applies the 90/95 %
 policy; the session never switches models or companies by itself.

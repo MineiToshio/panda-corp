@@ -46,6 +46,7 @@
         "patch",
         "escalated",
         "handback",
+        "unblocked",
         "safe_point",
         "batch_landed",
         "pin_stale",

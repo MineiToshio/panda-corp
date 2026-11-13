@@ -31,7 +31,7 @@ const WATCHDOG_KINDS = new Set(["start-hang", "stall", "cap"]);
 // The Codex hook adapter denies a shell command containing this word, so no value the engine composes may carry it.
 const FORBIDDEN_WORD = /claude/i;
 // argv values that are filesystem paths of the host: they come from the owner's machine, not from the engine.
-const PATH_FLAGS = new Set(["--project", "--prompt-file", "--output-schema", "--dir"]);
+const PATH_FLAGS = new Set(["--project", "--prompt-file", "--output-schema", "--dir", "--writable-dir"]);
 
 /** Error with a stable `code`: USAGE (bad input), INVALID_PATH (unsafe id), FORBIDDEN_WORD, INVALID_STATE. */
 export class WorkersError extends Error {
@@ -108,7 +108,8 @@ function assertArgvClean(args) {
 /**
  * Argv of `codex-worker.mjs run --direct` for one unit (A16): prompt file = the unit brief, `--codex-model` = the catalog
  * slug of the cell, `--output-schema`, `--dir` = the unit worktree, `--access sandbox` (the workspace-write sandbox keeps
- * `.git` read-only, so a worker can edit and test but never commit: the CLI commits), no `--sum`.
+ * `.git` read-only, so a worker can edit and test but never commit: the CLI commits), `--writable-dir` = the unit's
+ * `build/units/<unit>/` (its report_path, BL-0313), no `--sum`.
  * @param {{project: string, workerId: string, unit: string, cell: {runtime: string, model: string, effort: string},
  *          promptFile: string, schemaFile?: string|null, dir: string, maxSeconds?: number}} input
  * @param {object} [deps] {env, tiers}
@@ -129,7 +130,9 @@ export function buildWorkerArgv(input, deps) {
     "run", "--direct", "--project", project, "--id", assertSafeId(workerId, "worker id"), "--unit", assertSafeId(unit, "unit id"),
     "--prompt-file", promptFile, "--codex-model", slug, "--effort", effort,
     ...(schemaFile ? ["--output-schema", schemaFile] : []),
-    "--dir", dir, "--access", "sandbox", "--max", String(Math.max(1, Math.floor(maxSeconds))),
+    // The unit's own build/units/<unit>/ holds report_path, outside the worktree: the workspace-write sandbox must be
+    // allowed to write it (BL-0313). Nothing else outside the worktree becomes writable.
+    "--dir", dir, "--access", "sandbox", "--writable-dir", buildPaths(project).unitDir(unit), "--max", String(Math.max(1, Math.floor(maxSeconds))),
   ];
   assertArgvClean(args);
   return { bin, args: [...prefix, ...args], fake };

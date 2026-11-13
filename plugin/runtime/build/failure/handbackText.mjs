@@ -21,10 +21,16 @@ const reasonEs = (code) => REASON_ES[code] ?? String(code);
 const OPTIONS_ES = Object.freeze({
   dependency: ["Aportar el secreto, la cuenta o el servicio que falta y reanudar (recomendada: es lo único que bloquea).", "Cambiar el work order para que no dependa de ello."],
   "test-defective": ["Corregir la prueba discutida con /pandacorp:implement y reanudar (recomendada: el código no se toca).", "Mantener la prueba y reescribir el work order."],
-  "env-infra": ["Arreglar el entorno (red, disco, herramienta) y reanudar (recomendada).", "Dejar la unidad bloqueada y seguir con lo que no depende de ella."],
+  // BL-0312: the resume is a real command (failure/unblock.mjs), named with the unit so the coordinator can run it.
+  "env-infra": (info) => [
+    `Arreglar el entorno (red, disco, herramienta) y reanudar la unidad en el mismo intento, sin gastar presupuesto ni perder su trabajo: \`unblock --epoch <E> --unit ${info.unit} --reason "<qué se arregló>"\`, o \`start --resume --coordinator <C> --unblock ${info.unit} --reason "<qué se arregló>"\` si la obra ya terminó (recomendada).`,
+    "Dejar la unidad bloqueada y seguir con lo que no depende de ella.",
+  ],
   gate: ["Reformular el work order sin la acción protegida (recomendada).", "Aprobar la puerta con /pandacorp:decide si de verdad quieres esa acción."],
   default: ["Revisar el diagnóstico y ajustar el work order o la especificación con /pandacorp:implement, luego reanudar (recomendada).", "Revertir a mano los commits de la unidad (solo tú decides un revert)."],
 });
+
+const optionsOf = (info) => { const o = OPTIONS_ES[info.cause] ?? OPTIONS_ES.default; return typeof o === "function" ? o(info) : o; };
 
 function decisionHeading(date, text) {
   // The decisions inbox format (decisions-inbox-template.md, parseDecisionBlocks) requires "## YYYY-MM-DD — <title>".
@@ -32,7 +38,7 @@ function decisionHeading(date, text) {
 }
 
 export function handbackDecisionEntry(info) {
-  const options = OPTIONS_ES[info.cause] ?? OPTIONS_ES.default;
+  const options = optionsOf(info);
   return [
     decisionHeading(info.date, `${info.wos.join(", ") || info.unit}: unidad devuelta al owner`),
     `- **Qué decidir:** cómo seguir con la unidad ${info.unit}, que el motor no ha podido terminar.`,
@@ -47,7 +53,7 @@ export function handbackDecisionEntry(info) {
 }
 
 export function handbackMarkdown(info) {
-  const options = OPTIONS_ES[info.cause] ?? OPTIONS_ES.default;
+  const options = optionsOf(info);
   const attempts = info.attempts.length ? info.attempts.map((a, i) => `  ${i + 1}) ${a}`).join("\n") : "  (sin detalle de intentos disponible)";
   return [
     `# Unidad devuelta: ${info.unit}`,

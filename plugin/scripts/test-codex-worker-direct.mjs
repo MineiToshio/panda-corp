@@ -178,6 +178,33 @@ tests.push(test("access modes", async () => {
   ok(!argv.includes("danger-full-access"), "default access never escalates to danger-full-access");
 }));
 
+// 4b. BL-0313: --writable-dir adds the unit's report dir as a writable root (codex --add-dir), sandbox only, guarded.
+tests.push(test("writable report dir", async () => {
+  const unitDir = path.join(project, ".pandacorp/run/build/units/u-test-1");
+  mkdirSync(unitDir, { recursive: true });
+  const addDirs = (argv) => argv.flatMap((a, i) => (a === "--add-dir" ? [argv[i + 1]] : []));
+  await direct("w-wdir", promptFileOf("wdir", "write the report\n"), ["--writable-dir", unitDir]);
+  let argv = execCalls("w-wdir")[0]?.argv ?? [];
+  ok(JSON.stringify(addDirs(argv)) === JSON.stringify([unitDir]), `sandbox access forwards --writable-dir as one --add-dir (got ${JSON.stringify(addDirs(argv))})`);
+  ok(flag(argv, "-s") === "workspace-write" && flag(argv, "-C") === worktree, "the workspace stays the worktree under workspace-write");
+  await direct("w-wdir-none", promptFileOf("wdirnone", "no extra dir\n"));
+  ok(addDirs(execCalls("w-wdir-none")[0]?.argv ?? []).length === 0, "without --writable-dir no --add-dir is passed");
+  await direct("w-wdir-full", promptFileOf("wdirfull", "full\n"), ["--access", "full", "--writable-dir", unitDir]);
+  ok(addDirs(execCalls("w-wdir-full")[0]?.argv ?? []).length === 0, "full access adds no --add-dir");
+  const refused = async (id, dir, why) => {
+    const r = await direct(id, promptFileOf(id, "refused\n"), ["--writable-dir", dir]);
+    const p = seal(r.out).payload;
+    ok(p?.kind === "bad-writable-dir" && execCalls(id).length === 0, `${why} is refused before codex runs (kind ${JSON.stringify(p?.kind)})`);
+  };
+  await refused("w-wdir-rel", "relative/dir", "a relative --writable-dir");
+  await refused("w-wdir-missing", path.join(tmp, "does-not-exist"), "a missing --writable-dir");
+  await refused("w-wdir-proj", project, "the project root as --writable-dir");
+  await refused("w-wdir-parent", tmp, "a parent of the project as --writable-dir");
+  const gitDir = path.join(project, ".git", "hooks");
+  mkdirSync(gitDir, { recursive: true });
+  await refused("w-wdir-git", gitDir, "a dir inside .git");
+}));
+
 // 5. The process exit code of the binary is ignored in favor of the sealed result.
 tests.push(test("exit code ignored", async () => {
   const r = await direct("w-fail", promptFileOf("fail", "this run fails\n"), [], { PANDACORP_FAKE_CODEX_MODE: "fail" });

@@ -1,5 +1,24 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-13 — Resume env-blocked units; Codex report dir writable; docs units may amend DESIGN.md (BL-0312/0313/0314)
+
+**What:** New fenced `unblock --epoch E --unit U --reason TEXT` and `start --resume --unblock U --reason TEXT`
+(the latter also reopens a `finished` run): a unit handed back with cause `env-infra` returns, with the
+dependents that hand-back blocked, to `queued` at the same attempt, reusing its preserved worktree; the
+previous report is kept as `report-a<n>-blocked.json` and named in the next brief. The hand-back text now
+names the real command. The Codex relay passes the unit's `build/units/<unit>/` as `--writable-dir`
+(`codex exec --add-dir`) so a sandboxed worker can write `report_path`. Docs units may write root
+`DESIGN.md`. Plugin **10.3.0**.
+
+**Why:** funko-tracker run `br-2026-11-13-01`: a finished docs unit was blocked by a sandbox that could not
+reach the test Postgres, the run ended `finished`, and no command could bring the unit back although the
+hand-back promised "Arreglar el entorno y reanudar"; the same worker could not write its report outside the
+worktree, and the allowlist forced its DESIGN.md amendment into a side doc. Only env-infra is lifted without
+the owner: it judges the environment, never the work. Canonical: [CLI reference 3.14b](build-engine-cli.md),
+[engine-v2 protocol](../skills/implement/references/engine-v2.md), BUILD-15 in
+[build-engine.md](../../factory/standards/build-engine.md). Tests: `test-build-v2-unblock.mjs`,
+`test-build-v2-workers.mjs`, `test-codex-worker-direct.mjs`.
+
 ## 2026-11-13 — Keep nested overlay ignores aligned with the managed inventory (FIXIGN)
 
 **What:** Add anchored Mission Control exceptions for `vitest-policy.ts` and `gate-budget.json`,

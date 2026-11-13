@@ -14,7 +14,9 @@
 //        a bad prompt copy → `CODEX-PROMPT-MISMATCH …`; finished → ONE sealed line {"r":"<payload JSON>","sum":"<fnv(r)>"}
 //        whose payload is {status:'done', ok, kind, text|answer, detail, model, effort}.
 //   run --direct --project <dir> --id <id> --prompt-file <abs> --codex-model <slug> [--effort e] [--output-schema <abs>]
-//        [--dir <path>] [--access sandbox|full] [--max <seconds>] [--start-hang-s N] [--stall-s N] [--cap-s N]
+//        [--dir <path>] [--access sandbox|full] [--writable-dir <abs dir>]... [--max <seconds>] [--start-hang-s N] [--stall-s N] [--cap-s N]
+//        --writable-dir (repeatable, sandbox access only) adds one more writable root (`codex exec --add-dir`): the
+//        engine passes the unit's own build/units/<unit>/ so the worker can write its report_path (BL-0313).
 //        The v2 build engine's mode (D6, A16): the CLI wrote the prompt file itself, so there is no --sum, no transcript
 //        recovery and no relay; the prompt is passed to Codex verbatim. The model is an explicit Codex catalog slug
 //        (e.g. gpt-6-astra), not a Claude alias. The result is ONE sealed line (same {"r","sum"} envelope) whose payload is
@@ -58,6 +60,8 @@ const argv = process.argv.slice(2);
 const cmd = argv[0];
 const opt = (name) => { const i = argv.indexOf(`--${name}`); return i < 0 ? "" : argv[i + 1] || ""; };
 const flag = (name) => argv.includes(`--${name}`);
+/** Every value of a repeatable flag, in argv order. */
+const opts = (name) => argv.flatMap((a, i) => (a === `--${name}` && argv[i + 1] && !argv[i + 1].startsWith("--") ? [argv[i + 1]] : []));
 
 const emit = (payload) => {
   const r = JSON.stringify(payload);
@@ -213,6 +217,26 @@ const watchdogS = (name) => {
   return n > 0 ? n : WATCHDOG_DEFAULTS_S[name];
 };
 
+/**
+ * Extra writable roots of a sandboxed direct worker (BL-0313): each `--writable-dir` must be an absolute, existing
+ * directory that neither contains the project nor the work dir, and is not inside a `.git` directory.
+ * Under full access the flag is ignored (everything is writable already).
+ */
+function writableDirs(cwd) {
+  if (opt("access") === "full") return [];
+  const out = [];
+  for (const raw of opts("writable-dir")) {
+    if (!path.isAbsolute(raw)) fail("bad-writable-dir", `--writable-dir must be absolute: ${raw}`);
+    const dir = path.resolve(raw);
+    if (!existsSync(dir) || !statSync(dir).isDirectory()) fail("bad-writable-dir", `--writable-dir does not exist: ${dir}`);
+    const inside = (child, parent) => child === parent || child.startsWith(`${parent}${path.sep}`);
+    if (inside(project, dir) || inside(path.resolve(cwd), dir)) fail("bad-writable-dir", `--writable-dir may not contain the project or the work dir: ${dir}`);
+    if (dir.split(path.sep).includes(".git")) fail("bad-writable-dir", `--writable-dir may not be inside a .git directory: ${dir}`);
+    out.push(dir);
+  }
+  return out;
+}
+
 /** v2 direct start: the prompt file is written by the engine CLI and passed to Codex verbatim (no checksum, no relay). */
 function startDirect(dir, id) {
   const promptSrc = opt("prompt-file");
@@ -229,7 +253,7 @@ function startDirect(dir, id) {
   writePrivate(path.join(dir, "full-prompt.md"), task);
   const access = opt("access") === "full"
     ? ["-s", "danger-full-access"]
-    : ["-s", "workspace-write", "-c", "sandbox_workspace_write.network_access=true"];
+    : ["-s", "workspace-write", "-c", "sandbox_workspace_write.network_access=true", ...writableDirs(cwd).flatMap((d) => ["--add-dir", d])];
   const args = ["exec", "--ignore-user-config", "--skip-git-repo-check", "--json", "-C", cwd, ...access,
     "-m", slug, "-c", `model_reasoning_effort="${effort}"`, ...(schema ? ["--output-schema", schema] : []),
     "-o", path.join(dir, "last.md"), "-"];

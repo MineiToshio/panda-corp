@@ -1,5 +1,16 @@
 # Decision Log — Factory
 
+## 2026-11-13 — The coordinator lifts env-infra hand-backs; docs units may amend DESIGN.md (BL-0312/0314)
+
+**What:** BUILD-15 gains env-infra re-admission: after fixing the environment the coordinator runs
+`unblock` (or `start --resume --unblock` for an ended run) and the unit resumes at the same attempt with its
+preserved work; every other hand-back cause stays the owner's. The BUILD docs allowlist adds root `DESIGN.md`.
+DR-151 notes the rule.
+
+**Why:** owner-approved option B after funko-tracker run `br-2026-11-13-01` lost a finished docs unit to a
+sandbox that could not reach the test Postgres. Canonical: [build-engine.md](standards/build-engine.md) BUILD-15,
+[DR-151](decisions/registry.yaml).
+
 ## 2026-11-13 — Keep gate speed durable as suites grow (DUR, DR-159)
 
 **What:** Stack A warns with unclassified parallel/serial and mobile spec paths,

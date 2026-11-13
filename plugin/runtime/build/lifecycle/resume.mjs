@@ -3,6 +3,7 @@ import { releaseToken } from "../admission.mjs";
 import { detect } from "../detect.mjs";
 import { armDrive, readStandby } from "../drive.mjs";
 import { readJson } from "../fsx.mjs";
+import { applyUnblock, checkUnblock } from "../failure/unblock.mjs";
 import { createIntegrationWorktree, healIntegrationWorktree } from "../integrate.mjs";
 import { removeAllG2Snapshots } from "../next.mjs";
 import { buildPaths } from "../paths.mjs";
@@ -105,12 +106,17 @@ function reopenWorkerJob(jobs, u, verdict, project, d) {
 
 /**
  * `start --resume`: re-enter a non-terminal run (transfer or acquire), re-attach live units, requeue dead ones, re-arm drive.
- * @param {{project: string, coordinator: "claude"|"codex", sessionModel?: string|null, runId?: string|null, ownerConfirmed?: boolean}} input
+ * With `unblock` (+ `reason`), BL-0312: also re-admit that env-infra blocked unit at its same attempt (failure/unblock.mjs);
+ * this is the one way back into a run that already ended `finished`, and it is checked BEFORE the lease is taken.
+ * @param {{project: string, coordinator: "claude"|"codex", sessionModel?: string|null, runId?: string|null, ownerConfirmed?: boolean,
+ *   unblock?: string|null, reason?: string|null}} input
  */
 export async function startResume(input, deps = {}) {
   const d = depsOf(deps);
-  const { project, coordinator, sessionModel = null, runId = null, ownerConfirmed = false } = input;
+  const { project, coordinator, sessionModel = null, runId = null, ownerConfirmed = false, unblock = null, reason = null } = input;
   if (!COORDINATORS[coordinator]) throw err("USAGE", "--coordinator debe ser claude o codex");
+  if (unblock && !String(reason ?? "").trim()) throw err("USAGE", "--unblock necesita --reason (qué se arregló en el entorno)");
+  if (!unblock && reason) throw err("USAGE", "--reason solo acompaña a --unblock");
   const p = buildPaths(project, d);
   const isAlive = d.isAlive ?? isAliveDefault;
   const current = await readJson(p.stateFile).catch(() => null);
@@ -122,7 +128,10 @@ export async function startResume(input, deps = {}) {
   if (!state) {
     try { state = (await rebuildState({ project, deps: d })).state; rebuilt = true; } catch { throw err("INVALID_STATE", "nothing to resume: no readable run in build/"); }
   }
-  if (!RESUMABLE_STATUSES.includes(state.status)) throw err("INVALID_STATE", `nothing to resume: the run is ${state.status}`);
+  const reopenable = unblock ? [...RESUMABLE_STATUSES, "finished"] : RESUMABLE_STATUSES;
+  if (!reopenable.includes(state.status)) throw err("INVALID_STATE", `nothing to resume: the run is ${state.status}${state.status === "finished" ? " (a finished run is reopened only to unblock an env-infra unit: --unblock U --reason TEXT)" : ""}`);
+  // Refuse a wrong unblock (not blocked, not env-infra, a dependent) before any lease or worktree is touched.
+  if (unblock) await checkUnblock({ project, state, unitId: unblock, reason }, d);
   const prior = state.status;
   // Same guard as `start --run`: a launched project never resumes unguarded. It runs before any lease mutation so a
   // refusal leaves the run exactly as it was and the same `start --resume` can simply be retried.
@@ -192,6 +201,10 @@ export async function startResume(input, deps = {}) {
   await removeAllG2Snapshots({ project, epoch: got.epoch }, d);
   // Re-attaching a registered worktree is a no-op; a re-created one is bootstrapped (integrate.mjs) before any landing.
   await createIntegrationWorktree({ project, runId: state.run_id }, d);
+  // BL-0312: the WO frontmatter of an unblocked unit lives in the integration worktree, so it runs after (re)creating it.
+  const unblocked = unblock
+    ? await fencedTwoPhase({ project, epoch: got.epoch, deps: d }, undefined, undefined, (_r, _i, ctx) => applyUnblock(ctx, { unitId: unblock, reason }, d))
+    : null;
   const drive = await armDrive({ project, runId: state.run_id, launched, appendEvent: (ev) => journal(p, state.run_id, got.epoch, ev.type, ev.data, d) }, d.driveDeps);
-  return { run_id: state.run_id, epoch: got.epoch, ...result, drive };
+  return { run_id: state.run_id, epoch: got.epoch, ...result, ...(unblocked ? { unblocked } : {}), drive };
 }

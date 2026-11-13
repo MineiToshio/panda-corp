@@ -181,7 +181,7 @@ when the build deviated from the docs.
 **Scope guarantee, by construction:** the run's scope is the WOs with that card's `source_change`
 (or the FRDs/plan of rows 2, 4, 6); `next` never returns a unit outside it; `report` commits with
 its own pathspec-limited `git commit` only after checking that the reported files equal the
-worktree's changes, every file is inside the unit's allowlist (build/patch: its WOs' `artifacts`; docs: `docs/**`, `README.md`, `.env.example` and new WO files born `PLANNED`; tests: test surfaces only), no `**/*-snapshots/**` path, no edit of an existing WO's frontmatter (the body of the unit's own WO only if that file is in `artifacts`), and no change to any hashed test or probe file; schema and migration paths are allowed (G3
+worktree's changes, every file is inside the unit's allowlist (build/patch: its WOs' `artifacts`; docs: `docs/**`, `README.md`, root `DESIGN.md`, `.env.example` and new WO files born `PLANNED`; tests: test surfaces only), no `**/*-snapshots/**` path, no edit of an existing WO's frontmatter (the body of the unit's own WO only if that file is in `artifacts`), and no change to any hashed test or probe file; schema and migration paths are allowed (G3
 gates them). The single reviewer opens a `scope` finding when the diff touches anything in Fuera. A
 dependency outside scope and not `VERIFIED` is a hand-back ("depende de WO-x, ¿la incluyo?"), never
 silently included.
@@ -677,6 +677,13 @@ No automatic revert-and-rebuild, no split gate, no automatic "next pass". Fable 
   its last 40 lines, each attempt's evidence, diagnosis, what is preserved, numbered options with the
   recommended one), a `pending` entry in `.pandacorp/inbox/decisions.md` and a chat notice (DR-099).
 - **Three consecutive `env-infra` hand-backs** stop the run at a safe point.
+- **Env-infra re-admission (BL-0312).** An `env-infra` hand-back judges the environment, never the unit's
+  work, so it is the one cause the coordinator may lift without the owner: after fixing the environment,
+  `unblock --epoch E --unit U --reason TEXT` (or `start --resume --unblock U --reason TEXT` for a run that
+  already ended, `finished` included) returns the root unit and the dependents that hand-back blocked to
+  `queued` at the SAME attempt (no budget spent, streak reset, WOs `BLOCKED -> PLANNED`, preserved
+  worktree reused, previous report kept and named in the brief). Every other cause stays an owner
+  decision. Verification: `plugin/scripts/test-build-v2-unblock.mjs`.
 
 **A red G2/G3 repairs only what failed (owner decision 12).** `gatefail.mjs` parses Vitest,
 Playwright, tsc, Biome, Next build and doc-lint logs (including bullet-path diagnostics), excluding

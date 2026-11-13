@@ -5,7 +5,7 @@ export const CHAIN_MAX = 3;
 /** Default round width: the admission ceiling K_TECHO (BUILD-9). */
 export const DEFAULT_CEILING = 2;
 /** Files a `docs` unit may write (A2); used as its `artifacts` for overlap. */
-export const DOCS_GLOBS = Object.freeze(["docs/**", "README.md", ".env.example"]);
+export const DOCS_GLOBS = Object.freeze(["docs/**", "README.md", "DESIGN.md", ".env.example"]);
 
 export const ZONE_RANK = Object.freeze({ none: 0, floor: 1, r1: 2 });
 export const PENDING = new Set(["PLANNED", "IN_PROGRESS"]);

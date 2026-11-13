@@ -286,6 +286,8 @@ export function foldJournal(events) {
       case "doubt_opened": unitOrThrow(state, d.unit, ev.type).doubt_id = d.doubt_id; break;
       case "doubt_consulted": state.doubts_consulted += 1; break;
       case "handback": state.handbacks_in_a_row = isEnvInfra(d) ? state.handbacks_in_a_row + 1 : 0; break;
+      // BL-0312: the environment was fixed and the unit re-admitted at the same attempt (its unit_state events follow).
+      case "unblocked": state.handbacks_in_a_row = 0; break;
       case "answer_recorded":
         state.answers[d.question] = d.value;
         for (const { unit } of d.units ?? []) { const u = findUnit(state, unit); if (u) u.pending_answer = null; }

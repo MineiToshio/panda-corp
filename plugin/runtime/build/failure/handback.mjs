@@ -11,7 +11,7 @@ import { commitPlan, envInfraStop, isUnattributedPatch, planHandback } from "./p
 import { writeInbox } from "../doubts/integrationLog.mjs";
 import { handbackDecisionEntry, handbackMarkdown, handbackNotice } from "./handbackText.mjs";
 
-async function findWorkOrderFiles(root, ids, { fs = fsp } = {}) {
+export async function findWorkOrderFiles(root, ids, { fs = fsp } = {}) {
   const wanted = new Set(ids.map(woKey));
   const found = new Map();
   const frdsDir = path.join(root, "docs", "frds");
@@ -61,7 +61,7 @@ async function journalTimeline(project, unitId, deps) {
   }
 }
 
-async function commitIntegration(root, files, message, deps) {
+export async function commitIntegration(root, files, message, deps) {
   const exec = deps.exec ?? defaultExec;
   if (!files.length) return null;
   // `files` comes from `git status`, which lists an ignored path only when it is already tracked (a force-tracked decisions
@@ -83,7 +83,7 @@ async function repoPrefix(root, deps) {
 }
 
 /** Tracked files the hand-back touched, relative to `root` (the product root, which is below the repository top for a nested project). */
-async function changedTrackedFiles(root, deps) {
+export async function changedTrackedFiles(root, deps) {
   const exec = deps.exec ?? defaultExec;
   const prefix = await repoPrefix(root, deps);
   const res = await exec("git", ["status", "--porcelain=v1", "-z", "--", "docs/frds", ".pandacorp/status.yaml", ".pandacorp/inbox/decisions.md"], { cwd: root });

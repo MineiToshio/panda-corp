@@ -105,6 +105,9 @@ await test("argv: codex slug, effort, unit worktree as --dir, brief as prompt fi
     eq(val("--prompt-file"), s.paths.briefFile(s.unit), "prompt file must be the unit brief");
     eq(val("--output-schema"), SCHEMA, "output schema");
     eq(val("--id"), workerId, "worker id flag");
+    eq(val("--writable-dir"), s.paths.unitDir(s.unit), "--writable-dir must be the unit's own build/units/<unit>/ (report_path, BL-0313)");
+    eq(args.filter((a) => a === "--writable-dir").length, 1, "exactly one extra writable root");
+    eq(path.dirname(s.paths.reportFile(s.unit)), val("--writable-dir"), "report_path lives in the writable root");
     const hostValues = new Set([s.fx.root, s.wt, s.paths.briefFile(s.unit), SCHEMA, path.resolve(s.fx.root)]);
     const engineValues = args.filter((a) => !hostValues.has(a) && !a.startsWith("/"));
     ok(engineValues.length > 0, "no engine-composed argv values found");
