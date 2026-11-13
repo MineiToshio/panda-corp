@@ -474,6 +474,23 @@ project/routine incident family, generalizing an already-stated principle (ancho
 never substring-anywhere) to the block's OPENING delimiter specifically — no new lesson warranted per this
 item's own 2026-09-29/10-06/10-26/10-27/11-08 precedent. No new backlog item — same item, same scope.
 
+## Corroborating occurrence (2026-11-12) — the exact 2026-11-09 trap (a live note quoting the comment tokens in backticks) reproduced again, in the same session attempting to count this very file
+
+A further live hit, found while this harvest pass itself tried to re-derive the pending count for
+`factory/memory/_inbox.md`: a naive line-count (counting non-empty lines) and a naive unanchored search
+for the last `-->` both broke on the SAME live note already sitting in the file at the time — a note
+which, describing this exact bug class, quoted the three-character HTML comment-close token and a worked
+`<!-- ... -->` example inside backticks. The naive last-`-->` search matched that quoted token inside the
+live note's own prose instead of the real boundary. This is the identical failure shape the 2026-11-09
+annotation above already named and fixed (anchor the OPENING `<!--` to the start of a line too, take the
+LAST such block by that anchor, count bullet lines strictly after its end) — reproduced on the very next
+live note written after that fix was recorded, confirming the trap recurs every time a new live note
+documents the bug by quoting the tokens, not just once. Checked against LESSON-0008
+(line-anchored-parsing-not-substring-greedy, active, high confidence) per this item's own
+2026-09-29/10-06/10-26/10-27/11-08/11-09 precedent: same already-cited project/routine incident family, no
+new lesson warranted. No new backlog item — same item, same scope. Source: factory/memory/_inbox.md
+agent-inferred note (2026-11-12, harvested 2026-11-13).
+
 ## Note (annotated 2026-10-28) — when the marker is ABSENT entirely, an empty `$LAST` silently makes `tail -n +$((LAST+1))` print the WHOLE file instead of signaling "zero pending"
 
 A further distinct trap in the 2026-10-25 marker-anchor formula's own shell implementation
