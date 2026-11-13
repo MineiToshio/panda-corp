@@ -1,5 +1,21 @@
 # Decision Log — Factory
 
+## 2026-11-13 — Run every diagnostic browser phase after failures (VB)
+
+**What:** Stack A combined `--no-bail` uses one global worker and no success dependencies,
+so a red safe project cannot suppress serial desktop/mobile. Certification keeps its three-worker
+safe tier, ordered dependencies and maxFailures=1. One build/start/invocation and red exit remain.
+Plugin **10.1.2**, overlay **9.1.2**; Mission Control's installed config matches the template.
+
+**Why:** the actual Playwright scheduler skips dependents after a failed project even when
+maxFailures=0: the observed diagnostic run passed 461 / failed 4 and omitted 425. A real-scheduler
+regression reproduces that failure and verifies continuation after parallel and desktop failure,
+serial isolation and certificate fail-fast without starting browsers/servers. Chained teardown
+projects form an ordering cycle in the installed scheduler, so diagnostics deliberately trade
+speed for complete isolated evidence. Canonical: [quality](standards/quality.md),
+[orchestration](standards/build-orchestration.md), [DR-158](decisions/registry.yaml).
+
+
 ## 2026-11-12 — Correct certification provenance, mobile upgrades and production live harness (RVB)
 
 **What:** fix reviewer B1/B2: hash all ambient environment inputs except explicit invocation/shell

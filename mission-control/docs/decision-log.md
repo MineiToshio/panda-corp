@@ -1,5 +1,24 @@
 # Decision Log — Mission Control
 
+## 2026-11-13 — Scope live-refresh evidence and complete diagnostic phases (VB)
+
+**What:** both read-only refresh specs now observe new request identities on their own page's main
+frame, exact origin/path, RSC GET and non-prefetch headers; assertions still judge focus, query,
+response success and rendered state. Their shared controlled SSE helper flushes the baseline
+before selection and handles response-wait rejection without an orphan promise/timer. The
+[platform review](reviews/e2e-platform-inventory.md#diagnostic-follow-up-and-response-oracle-audit)
+records the audit of all 35 safe specs and the limits of the four production error snapshots.
+
+**Why:** the log selected four focus-less RSC responses while all four error snapshots retained
+the selected work order. The old wait accepted any response with an RSC header, including an
+old in-flight request/prefetch; the log does not identify its precise source. The new request
+boundary rejects those without filtering focus itself, so a genuinely wrong refresh still fails.
+No shared writer or cross-worker Page event was found; safelist and 890 case identities remain.
+Diagnostic scheduling now uses one worker with independent projects so red parallel tests do
+not skip 425 serial checks; certification keeps three workers/dependencies/fail-fast. Template
+propagated before overlay 9.1.2 status update. Real browser confirmation and timing remain external.
+
+
 ## 2026-11-12 — Populate the reviewed parallel UI tier (VB / VIS3)
 
 **What:** classify every root e2e spec and the nine nested navigation specs in the

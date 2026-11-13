@@ -913,7 +913,9 @@ function ConceptHooks(): React.JSX.Element {
         comparte un build de producción; sin inventario móvil conserva la cobertura anterior, y solo
         una revisión permite excluir duplicados. Los tests que escriben datos siguen en serie.{" "}
         <Code>--affected</Code> sirve para iterar y siempre es parcial. <Code>--no-bail</Code>{" "}
-        recoge todos los fallos para diagnóstico (DR-158).
+        recoge los fallos de todas las fases del navegador con un único worker, aunque falle una
+        fase anterior. La certificación mantiene tres workers para los tests seguros y se detiene
+        pronto (DR-158).
       </Lead>
       <HooksDiagram />
       <NotePanel icon="lock">

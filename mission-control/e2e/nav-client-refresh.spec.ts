@@ -4,7 +4,7 @@ import { test } from "./_read-only";
 import {
   controlLiveFrames,
   emitLiveFrame,
-  emitUntilRefresh,
+  refreshFromLiveFrame,
 } from "./persistent-navigation/_live-race";
 
 const BASE = "/portfolio/mission-control/observability";
@@ -44,11 +44,7 @@ for (const start of [
     await page.getByRole("button", { name: /WO-01-003 ·/ }).click();
     await expectSelection(page, "WO-01-003");
 
-    const refreshed = page.waitForResponse((response) => {
-      const request = response.request();
-      return request.headers().rsc === "1" && new URL(request.url()).pathname === BASE;
-    });
-    const response = await emitUntilRefresh(page, 2, refreshed);
+    const response = await refreshFromLiveFrame(page, 2);
     expect(response.ok()).toBe(true);
     expect(new URL(response.url()).searchParams.get("focus")).toBe("WO-01-003");
     await expectSelection(page, "WO-01-003");

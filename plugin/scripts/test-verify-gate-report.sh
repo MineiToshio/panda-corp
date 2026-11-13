@@ -82,6 +82,7 @@ case "$1" in
     ;;
   exec)
     if [ "$2" = "playwright" ]; then
+      if [ -n "${WP08_ARGV_LOG:-}" ]; then printf "diagnostic=%s\n" "${PANDACORP_VERIFY_NO_BAIL:-0}" >> "$WP08_ARGV_LOG"; fi
       if [ -n "${WP08_ARGV_LOG:-}" ]; then printf 'tier=%s\nserver=%s\n' "${PANDACORP_E2E_TIER:-none}" "${PANDACORP_E2E_SERVER:-dev}" >> "$WP08_ARGV_LOG"; fi
       if [ "${WP05_FAIL_TIER:-}" = "${PANDACORP_E2E_TIER:-none}" ]; then exit 1; fi
       if [ "${WP05_FAIL_PLAYWRIGHT:-0}" = "1" ]; then
@@ -547,6 +548,13 @@ if [ "$rc" -eq 0 ] && [ "$(grep '^tier=' "$ARGV" | tr '\n' ' ')" = "tier=combine
   ok "(DR-143) parallel-safe.json: one combined invocation, ordered projects"
 else
   bad "(DR-143) expected combined projects (rc=$rc)" "$(cat "$ARGV")"
+fi
+: > "$ARGV"
+WP08_ARGV_LOG="$ARGV" WP05_FAIL_TIER=combined run_verify "$FX" --no-bail >/dev/null 2>&1; rc=$?
+if [ "$rc" -ne 0 ] && grep -q '^diagnostic=1$' "$ARGV" && [ "$(grep -c '^tier=combined$' "$ARGV")" = "1" ]; then
+  ok "(VB) --no-bail reaches the combined scheduler and preserves a red browser exit"
+else
+  bad "(VB) --no-bail was lost before browser scheduling (rc=$rc)" "$(cat "$ARGV")"
 fi
 : > "$ARGV"
 WP08_ARGV_LOG="$ARGV" WP05_FAIL_TIER=combined run_verify "$FX" >/dev/null 2>&1; rc=$?

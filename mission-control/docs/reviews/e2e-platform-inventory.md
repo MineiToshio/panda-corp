@@ -62,7 +62,7 @@ create extra contexts); history-race explicitly needs the action/response race. 
 complete integration path without a per-project fork of template machinery (DR-059).
 
 The two serial platform projects depend on safe projects → desktop → mobile, each capped at one
-worker, so fixture writers never overlap readers. Global parallel workers stay at **3**. Safe
+worker, so fixture writers never overlap readers. Certification parallel workers stay at **3**; combined `--no-bail` diagnostics use one global worker and independent projects to accumulate failures without overlap. Safe
 project names carry `-parallel`; mobile inclusion/exclusion and case identities do not change.
 
 | Spec (under e2e/) | Desktop cases | Mobile before → after | Execution | Coverage rationale |
@@ -228,12 +228,12 @@ bodies/assertions remain unchanged; newly parallel files change only the `test` 
 | [hydration.spec.ts](../../e2e/hydration.spec.ts) | Parallel / native | Native reader: intercepted synthetic HTML, isolated context; hydration timing is a lower bound (load cannot make it too fast). |
 | [ideas-board.spec.ts](../../e2e/ideas-board.spec.ts) | Serial | Real favourite/discard/restore actions; writes back shared idea fixture bytes. |
 | [inicio.spec.ts](../../e2e/inicio.spec.ts) | Parallel / isolated | Dashboard/card/dialog reads; commands are displayed/copied, never executed. |
-| [integration-navigation-refresh.spec.ts](../../e2e/integration-navigation-refresh.spec.ts) | Parallel / isolated | Controlled EventSource and virtual clock belong to this context; real RSC refresh, no shared-file change. |
+| [integration-navigation-refresh.spec.ts](../../e2e/integration-navigation-refresh.spec.ts) | Parallel / isolated | Controlled SSE/clock, baseline flushed before selection; new main-frame request identities exclude old RSC/prefetch responses; real RSC refresh, no shared-file change. |
 | [laneM-tablet.spec.ts](../../e2e/laneM-tablet.spec.ts) | Serial | patchFile writes shared project/idea fixtures and restores them; theme storage alone would be local. |
 | [logical-data-model.spec.ts](../../e2e/logical-data-model.spec.ts) | Parallel / isolated | Model tabs/camera/search/fullscreen and history are browser-local. |
 | [model-s2b.reviewer.spec.ts](../../e2e/model-s2b.reviewer.spec.ts) | Parallel / isolated | Model layout at explicit widths; no persistence outside the context. |
 | [model-usability.spec.ts](../../e2e/model-usability.spec.ts) | Parallel / isolated | Graph relationships, selection, zoom/fullscreen and pointer events stay in the page. |
-| [nav-client-refresh.spec.ts](../../e2e/nav-client-refresh.spec.ts) | Parallel / isolated | _live-race controls per-context SSE only; real RSC GET/navigation, no fs touch or server mutation. |
+| [nav-client-refresh.spec.ts](../../e2e/nav-client-refresh.spec.ts) | Parallel / isolated | _live-race controls per-context SSE only; new main-frame RSC GET identities exclude old/prefetch responses, query/focus still asserted; no shared mutation. |
 | [navigation-root.reviewer.spec.ts](../../e2e/navigation-root.reviewer.spec.ts) | Serial | refreshFromProjectChange touches the shared work-order fixture for native live refresh. |
 | [observability.spec.ts](../../e2e/observability.spec.ts) | Parallel / isolated | Work-order views, filters, expansion, focus and detail navigation; no writer/touch helper. |
 | [page-errors.spec.ts](../../e2e/page-errors.spec.ts) | Serial | Managed byte-identical DR-059 gate: real JS navigation invokes the shared ledger. Keep its complete integration path serial; no project-only import fork. |
@@ -298,3 +298,52 @@ FOR_INTEGRATOR: rerun the full production gate, inspect the read-only guard fail
 mutations or manifest mismatch are a real red, never retries/ignored failures), and measure the
 four project durations. Confirm page/console observations on the isolated ledger rejection and
 that the subsequent real serial ledger/history suites remain green. No browser/port was run here.
+
+
+## Diagnostic follow-up and response oracle audit
+
+The unrestricted `--no-bail` run at `35a9154b` took 474 s total: 5535 unit tests green, 461 browser
+passes, 4 failures, 425 not run (the 425 are exactly230 desktop +195 mobile serial cases). This
+is an incomplete red diagnostic, not a full-pass benchmark. All 4 failures were the two integration
+refresh starts on desktop/mobile. Each error-context snapshot still shows WO-01-003 active/pressed
+and the “Work order en foco” region; it does not establish rendered focus loss.
+
+`page.waitForResponse` already belongs to its own Page: it cannot see another worker's Page. The
+controlled EventSource arrays and fake clock are window-local; the parallel cohort has no fixture
+writers (and no read-only fingerprint failure was reported). The old predicate accepted ANY RSC
+response, including delayed requests started before selection or prefetches. The log retains no
+request-start/header trace distinguishing those exact candidates. The confirmed defect is this
+unsound response oracle; exact attribution of the observed response is not proven.
+
+The two affected oracles (`integration-navigation-refresh`, `nav-client-refresh`) now share
+`refreshFromLiveFrame`: arm a Page request listener before emitting; select only a new main-frame
+GET, exact origin/path, RSC and non-prefetch headers; accept its response by Request identity.
+No focus/query parameter filters the candidate: a new wrong-focus refresh still reaches the
+unchanged assertion and fails. Baseline frame+debounce completes BEFORE changing focus, using the
+shared controlled transport. Requests started before arming cannot satisfy the oracle even when
+their responses arrive later. Unit regressions cover those cases, foreign path/origin/frame/POST,
+prefetch variants, timeout cleanup and rejection propagation without an orphan promise.
+
+Re-audit of the other 34 safe specs: nav-client-refresh had the sibling weak matcher and is fixed;
+the remaining 33 have no response-completion oracles. Their route overrides are narrow SSE/static
+JS or per-test synthetic documents. Passive request observations assert egress/document/privacy
+behavior and do not choose refresh completion. No global refresh or shared-write dependency was
+found. The existing classification/safelist and 890 platform identities remain unchanged.
+
+The 425 missing cases were scheduler success dependencies, not maxFailures: the installed runner
+only admits projects whose dependencies are in successfulProjects. Its real browser-free sentinel
+reproduces the skip with maxFailures=0. Combined diagnostics now omit dependencies and use one
+global worker; every project executes after test failures, serial writers cannot overlap readers,
+and the final result remains red. Certification retains three safe workers, success dependencies
+and maxFailures=1. One production build/server/invocation remains in both modes. Diagnostic
+passes will therefore be slower; their complete failure inventory is the purpose.
+
+FOR_INTEGRATOR: rerun the full gate once with the desired mode. A complete no-bail test-failure
+run should report all 890 cases (infrastructure/build failures can still prevent browser startup).
+Confirm the two refresh specs against real production; no browser or socket was started here.
+No speedup is claimed from the474s incomplete run. Patch plugin 10.1.2 / overlay 9.1.2.
+
+Additional verification limit: `test-merge-queue-release-gate.sh` was attempted in the sandbox;
+its real free-port/listener bind failed with `EPERM` (73 checks passed, 4 failed). That suite is
+not green here and requires the unrestricted integrator. The changed gate/config scheduler
+regressions and the full 5538-test Vitest run are green; no product merge-queue code was changed.

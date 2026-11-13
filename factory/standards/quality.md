@@ -144,7 +144,11 @@ Engineering standard (DR-006 covers the approval gate for destructive changes):
   A spec that sets its own phone/tablet widths retains those checks in its desktop project.
 - `e2e/parallel-safe.json` permits only audited whole specs without shared writes, including
   transitive app effects. Combined projects run safe files on up to 3 workers, then serial desktop,
-  then serial mobile on one worker; visual and fixture/ledger writers stay serial. Existing manual
+  then serial mobile on one worker; visual and fixture/ledger writers stay serial. In combined
+  diagnostic mode, use ONE global worker and omit success dependencies: failed projects must not
+  suppress the other platform/serial projects. Preserve one build/server/invocation and a red exit
+  after accumulated failures. Certification keeps its 3-worker safe tier and fail-fast dependencies.
+  Existing manual
   `parallel`/`serial` tier filters remain available; a full certificate uses the combined invocation.
 - `--affected [--since <ref>]` is iteration only and always `partial`, including fallback runs.
   It compares committed, staged, unstaged and nonignored untracked paths with the merge-base
@@ -155,4 +159,4 @@ Engineering standard (DR-006 covers the approval gate for destructive changes):
   Nested projects normalize repository paths; changes outside the project retain browser conservatively. Never use this mode for G3.
 
 Executable evidence: `test-verify-gate-report.sh`, `test-verify-before-stop.sh`,
-`test-e2e-tiers.mjs`, and `test-merge-queue-{certified-tree,release-gate,lock-refresh}.sh`.
+`test-e2e-tiers.mjs`, `test-e2e-diagnostic-phases.mjs` (real scheduler, browser/server-free), and `test-merge-queue-{certified-tree,release-gate,lock-refresh}.sh`.

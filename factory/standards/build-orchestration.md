@@ -483,6 +483,9 @@ Removal may take minutes: use a resumable tool process, report progress at least
 owns the execution policy: full G3 before main; fail-fast with diagnostic replay; one kernel
 verification owner per checkout (contention is infrastructure); fingerprint-bound certified-tree
 reuse; one production artifact/server, explicit mobile coverage and audited parallel-safe specs.
+`--no-bail` browser diagnostics omit success dependencies and use one global worker so every
+project runs after test failures without reader/writer overlap. Certification retains the ordered
+3-worker safe tier and fail-fast dependency chain. Both modes keep one browser invocation.
 The scheduler's G1 remains light, G2 remains scoped, and `--affected` is an attended iteration
 option, always partial, never an alternative to the G3 command or a VERIFIED transition.
 The queue's certified-tree decision occurs before its port probe; a live verification owner

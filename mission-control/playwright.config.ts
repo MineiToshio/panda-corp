@@ -139,6 +139,9 @@ const MOBILE_IGNORE = readMobileExclusions().map((spec) => `**/e2e/${spec}`);
 const MOBILE_PARALLEL = PARALLEL_SAFE.filter((spec) => !MOBILE_IGNORE.includes(spec));
 const TIER_IGNORE = TIER === "serial" || TIER === "combined" ? PARALLEL_SAFE : [];
 const COMBINED = TIER === "combined" && PARALLEL_SAFE.length > 0;
+const DIAGNOSTIC = process.env.PANDACORP_VERIFY_NO_BAIL === "1";
+// Dependencies require SUCCESS, so diagnostics omit them and use one global worker.
+// All projects then run even on red, without overlapping shared-state readers/writers.
 const parallelProjects: (Project & { name: string })[] = COMBINED
   ? [
       {
@@ -159,11 +162,8 @@ export default defineConfig({
   ...(TIER === "parallel" ? { testMatch: PARALLEL_SAFE } : {}),
   ...(fs.existsSync(GLOBAL_SETUP) ? { globalSetup: "./e2e/globalSetup.ts" } : {}),
   fullyParallel: false,
-  workers: TIER === "parallel" || COMBINED ? PARALLEL_WORKERS : 1,
-  maxFailures:
-    process.env.PANDACORP_E2E_CERTIFICATION === "1" && process.env.PANDACORP_VERIFY_NO_BAIL !== "1"
-      ? 1
-      : 0,
+  workers: COMBINED && DIAGNOSTIC ? 1 : TIER === "parallel" || COMBINED ? PARALLEL_WORKERS : 1,
+  maxFailures: process.env.PANDACORP_E2E_CERTIFICATION === "1" && !DIAGNOSTIC ? 1 : 0,
   forbidOnly: isCI,
   retries: 0,
   reporter: [["list"]],
@@ -182,7 +182,12 @@ export default defineConfig({
     {
       name: "desktop",
       ...(COMBINED
-        ? { dependencies: parallelProjects.map((project) => project.name), workers: 1 }
+        ? {
+            workers: 1,
+            ...(DIAGNOSTIC
+              ? {}
+              : { dependencies: parallelProjects.map((project) => project.name) }),
+          }
         : {}),
       testIgnore: TIER_IGNORE,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
@@ -191,7 +196,7 @@ export default defineConfig({
       name: "mobile",
       ...(TIER === "parallel" ? { testMatch: MOBILE_PARALLEL } : {}),
       testIgnore: [...TIER_IGNORE, ...MOBILE_IGNORE],
-      ...(COMBINED ? { dependencies: ["desktop"], workers: 1 } : {}),
+      ...(COMBINED ? { workers: 1, ...(DIAGNOSTIC ? {} : { dependencies: ["desktop"] }) } : {}),
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
     },
   ],

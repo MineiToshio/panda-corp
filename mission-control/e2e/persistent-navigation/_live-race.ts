@@ -1,4 +1,4 @@
-import { expect, type Page, type Response } from "@playwright/test";
+import { expect, type Page, type Request, type Response } from "@playwright/test";
 
 const LIVE_DEBOUNCE_MS = 200;
 const RECONNECT_STEP_MS = 1_000;
@@ -76,13 +76,62 @@ export async function emitUntilRefresh(
   version: number,
   refreshed: Promise<Response>,
 ): Promise<Response> {
-  let response: Response | undefined;
-  void refreshed.then((value) => {
-    response = value;
-  });
-  for (let next = version; !response; next += 1) {
+  let outcome: { response: Response } | { error: unknown } | undefined;
+  // Handle both branches immediately: a success-only .then creates an orphan rejection on timeout.
+  const completed = refreshed.then(
+    (response) => {
+      outcome = { response };
+    },
+    (error: unknown) => {
+      outcome = { error };
+    },
+  );
+  for (let next = version; !outcome; next += 1) {
     await emitLiveFrame(page, next);
-    await Promise.race([refreshed, new Promise((resolve) => setTimeout(resolve, RE_EMIT_MS))]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        completed,
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, RE_EMIT_MS);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
-  return response;
+  if ("error" in outcome) throw outcome.error;
+  return outcome.response;
+}
+
+/** Observe only a NEW, non-prefetch RSC GET issued by this page's main frame for its current route. */
+export async function refreshFromLiveFrame(page: Page, version: number): Promise<Response> {
+  const location = new URL(page.url());
+  const requests = new Set<Request>();
+  function observe(request: Request): void {
+    const headers = request.headers();
+    const target = new URL(request.url());
+    if (
+      request.method() === "GET" &&
+      headers.rsc === "1" &&
+      !("next-router-prefetch" in headers) &&
+      !("next-router-segment-prefetch" in headers) &&
+      !/prefetch/i.test(`${headers.purpose ?? ""} ${headers["sec-purpose"] ?? ""}`) &&
+      target.origin === location.origin &&
+      target.pathname === location.pathname &&
+      request.frame() === page.mainFrame()
+    )
+      requests.add(request);
+  }
+  page.on("request", observe);
+  // Request identity excludes a response whose request began before this listener was armed.
+  // Do not select on focus/query: a genuine wrong-focus refresh must still reach the spec assertion.
+  const refreshed = page.waitForResponse((response) => requests.has(response.request()), {
+    timeout: 12_000,
+  });
+  try {
+    return await emitUntilRefresh(page, version, refreshed);
+  } finally {
+    page.off("request", observe);
+  }
 }

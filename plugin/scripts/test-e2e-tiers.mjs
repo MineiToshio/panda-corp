@@ -90,7 +90,10 @@ check('unknown tier fails loud', !load({ env: { PANDACORP_E2E_TIER: 'fast' } }).
   check('without reviewed exclusions safe specs retain mobile coverage', project(c, 'mobile-parallel').testMatch.includes(GLOB))
   check('certification bails at one failure and owns server', c.maxFailures === 1 && c.webServer.reuseExistingServer === false)
 }
-check('diagnostics collect every browser failure', load({ env: { PANDACORP_E2E_CERTIFICATION: '1', PANDACORP_VERIFY_NO_BAIL: '1' } }).config?.maxFailures === 0)
+{
+  const {config: c} = load({ safe: ['read.spec.ts'], env: {PANDACORP_E2E_TIER:'combined', PANDACORP_E2E_CERTIFICATION:'1',PANDACORP_VERIFY_NO_BAIL:'1'} })
+  check('diagnostics run every browser project despite red predecessors, without overlapping writers', c.maxFailures === 0 && c.workers === 1 && c.projects.every(p => !p.dependencies?.length && !p.teardown))
+}
 
 // Exercise the real production launcher against a fake Next executable: no socket or compiler.
 {
