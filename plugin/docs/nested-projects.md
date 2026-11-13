@@ -12,6 +12,11 @@ roots (`# pandacorp-projects`), not absolute checkout paths. Reinstalling or ins
 preserves registered roots and the foreign chained hook. `--check` requires both current machinery
 and registration of the requested project. An in-worktree `core.hooksPath` is refused as before.
 
+When migrating a v1 hook (which has no explicit registrations), preserve its implicit `.` scope if
+`.pandacorp/status.yaml` exists at the repository root in the invoking or any linked worktree. This
+retains a root product's guard even when installing for a nested project from a checkout missing that
+marker. A factory with only `.pandacorp/run/` and no root product status does not inherit `.`.
+
 For each default-branch update in a multi-ref push, each registered nested project's guard applies
 only when its subtree is affected. Non-default refs do not cause another ref to be guarded:
 
@@ -41,6 +46,9 @@ node /Users/Shared/Proyectos/panda-corp/plugin/scripts/install-pre-push.mjs --pr
 The factory `.gitignore` opens **only** `mission-control/.pandacorp/`, ignores every child by default,
 and explicitly reopens the following regular source files. Other nested projects and factory-root
 runtime state retain the original `.pandacorp/` ignore behavior.
+The trailing `/mission-control/.pandacorp/*/` exclusion prevents a directory named like an allowed
+file from exposing private descendants. Mission Control's `!/.env.example` exception applies only
+at the project root, so child ignore rules cannot expose `.pandacorp/.env.example`.
 
 | Managed and tracked path inside `.pandacorp/` | Classification |
 |---|---|

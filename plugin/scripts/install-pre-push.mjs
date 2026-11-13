@@ -126,6 +126,15 @@ export function installPrePush(opts, deps = {}) {
           !s || /[\r\n]/.test(s) || path.posix.isAbsolute(s) || s.split("/").includes(".."))) {
         throw new Error("invalid registered pre-push project scopes");
       }
+    } else if (markerVersion(previous) === 1) {
+      // v1 implicitly guarded a root product. Installing for a nested project must not drop that
+      // protection, including when its status exists only in the main/another linked worktree.
+      // A factory's runtime-only .pandacorp/ is not a root product: require the status.yaml marker.
+      const worktrees = (git(top, ["worktree", "list", "--porcelain", "-z"]) ?? "")
+        .split("\0").filter((entry) => entry.startsWith("worktree ")).map((entry) => entry.slice(9));
+      if ([top, ...worktrees].some((root) => fs.existsSync(path.join(root, ".pandacorp", "status.yaml")))) {
+        registered = ["."];
+      }
     }
   }
   const scopes = [...new Set([...registered, scope])].sort();

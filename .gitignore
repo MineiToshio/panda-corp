@@ -58,6 +58,8 @@ factory/ideas/_drafts/**
 !/mission-control/.pandacorp/doc-lint.sh
 !/mission-control/.pandacorp/check-project-skills.mjs
 !/mission-control/.pandacorp/risk-paths
+# File exceptions must never reopen directories bearing the same names.
+/mission-control/.pandacorp/*/
 
 # Factory self-learning raw capture inbox (provisional notes; the librarian refines them into committed factory/memory/LESSON-*.md)
 factory/memory/_inbox.md

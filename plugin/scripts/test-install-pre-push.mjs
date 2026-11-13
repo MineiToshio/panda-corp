@@ -119,3 +119,46 @@ test('root and nested registrations retain independent state', t => {
   f.status('mission-control', 'implementation'); f.status('.');
   assert.equal(f.hook(f.line(factory)).status, 1, 'root guard remains active after nested installation');
 });
+
+// Legacy v1 installation marker: it predates explicit pandacorp-projects registration.
+const legacyV1 = '#!/bin/sh\n# pandacorp-pre-push v1\nexit 0\n';
+
+test('v1 migration to a nested scope preserves a launched root product guard', t => {
+  const f = fixture(t); f.status('.'); f.status('nested', 'implementation');
+  writeFileSync(path.join(f.root, '.git/hooks/pre-push'), legacyV1, { mode: 0o755 });
+  const sha = f.commit('factory.md', 'root-only change');
+  assert.equal(installPrePush({ project: path.join(f.root, 'nested') }).code, 0);
+  assert.equal(f.hook(f.line(sha)).status, 1, 'migration must retain root production protection');
+  const hook = readFileSync(path.join(f.root, '.git/hooks/pre-push'), 'utf8');
+  assert.match(hook, /^# pandacorp-projects \["\.","nested"\]$/m);
+  assert.equal(installPrePush({ project: path.join(f.root, 'nested'), check: true }).code, 0);
+  assert.equal(installPrePush({ project: path.join(f.root, 'nested') }).changed, false);
+  const remote = path.join(f.root, 'remote.git');
+  execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote], { env });
+  const push = spawnSync('git', ['-C', f.root, 'push', '-q', remote, 'main'], { env, encoding: 'utf8' });
+  assert.notEqual(push.status, 0, 'real root push must be denied without owner authorization');
+  assert.match(push.stderr, /PANDACORP_OWNER_RELEASE_OK/);
+});
+
+test('v1 migration recognizes a root product in the main worktree when installing from a linked checkout', t => {
+  const f = fixture(t); f.status('.'); f.status('nested', 'implementation');
+  const main = f.commit('.pandacorp/status.yaml', 'phase: release\ndeploy_target: external\n');
+  f.commit('nested/.pandacorp/status.yaml', 'phase: implementation\n');
+  const linked = path.join(f.root, 'linked'); f.git('worktree', 'add', '-qb', 'feature', linked);
+  rmSync(path.join(linked, '.pandacorp/status.yaml'));
+  writeFileSync(path.join(f.root, '.git/hooks/pre-push'), legacyV1, { mode: 0o755 });
+  assert.equal(installPrePush({ project: path.join(linked, 'nested') }).code, 0);
+  assert.equal(f.hook(f.line(main), {}, linked).status, 1, 'root product in main retains its guard');
+});
+
+test('v1 migration does not register factory runtime as a root product', t => {
+  const f = fixture(t); f.status('mission-control'); f.put('.pandacorp/run/session.json', '{}');
+  writeFileSync(path.join(f.root, '.git/hooks/pre-push'), legacyV1, { mode: 0o755 });
+  assert.equal(installPrePush({ project: path.join(f.root, 'mission-control') }).code, 0);
+  const hook = readFileSync(path.join(f.root, '.git/hooks/pre-push'), 'utf8');
+  assert.match(hook, /^# pandacorp-projects \["mission-control"\]$/m);
+  const factory = f.commit('factory.md', 'factory-only change');
+  assert.equal(f.hook(f.line(factory)).status, 0);
+  const touching = f.commit('mission-control/app.txt', 'product change');
+  assert.equal(f.hook(f.line(touching, factory)).status, 1);
+});

@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const factoryIgnore = readFileSync(new URL('../../.gitignore', import.meta.url), 'utf8');
+const projectIgnore = readFileSync(new URL('../../mission-control/.gitignore', import.meta.url), 'utf8');
 const stageScript = fileURLToPath(new URL('./stage-managed-overlay.mjs', import.meta.url));
 const managed = ['README.md', 'guide.md', 'status.yaml', 'idea-origin.md', 'track.jsonl', 'build-journal.jsonl',
   'verify.sh', 'canary.sh', 'merge-queue.sh', 'green-stamp.sh', 'change-reconcile.mjs', 'session-cleanup.sh',
@@ -27,9 +28,10 @@ function fixture(t, nested) {
   const project = nested ? path.join(repo, 'mission-control') : repo;
   const put = (file, value = 'fixture\n') => { mkdirSync(path.dirname(file), { recursive: true }); writeFileSync(file, value); };
   put(path.join(repo, '.gitignore'), nested ? factoryIgnore : '.pandacorp/comms/\n.pandacorp/inbox/\n.pandacorp/run/\n.pandacorp/accounts/\n');
+  if (nested) put(path.join(project, '.gitignore'), projectIgnore);
   for (const file of [...managed, ...privatePaths]) put(path.join(project, '.pandacorp', file));
   if (nested) put(path.join(repo, '.pandacorp/run/session.json'));
-  git('add', '.gitignore'); git('commit', '-qm', 'initial');
+  git('add', '.gitignore', ...(nested ? ['mission-control/.gitignore'] : [])); git('commit', '-qm', 'initial');
   const stage = (...args) => spawnSync(process.execPath, [stageScript, '--project', project, ...args], { env, encoding: 'utf8' });
   return { repo, project, temp, git, stage };
 }
@@ -78,4 +80,28 @@ test('staging refuses symlink machinery instead of exposing private targets', t 
   rmSync(file); symlinkSync('accounts/services.yaml', file);
   assert.notEqual(f.stage().status, 0);
   assert.equal(f.git('diff', '--cached', '--name-only'), '');
+});
+
+
+test('combined factory and project ignores expose only the project-root env example', t => {
+  const f = fixture(t, true);
+  writeFileSync(path.join(f.project, '.env.example'), 'PUBLIC_EXAMPLE=fixture\n');
+  writeFileSync(path.join(f.project, '.pandacorp/.env.example'), 'PRIVATE_EXAMPLE=fixture\n');
+  f.git('add', '-A');
+  assert.deepEqual(f.git('diff', '--cached', '--name-only').split('\n').sort(), [
+    'mission-control/.env.example', ...managed.map(p => 'mission-control/.pandacorp/' + p),
+  ].sort(), 'ordinary staging must exclude overlay .env.example even with the child negation');
+});
+
+test('combined ignore rules reject private descendants of directories named like every allowed source file', t => {
+  const f = fixture(t, true);
+  for (const file of managed) {
+    const name = path.join(f.project, '.pandacorp', file);
+    rmSync(name);
+    mkdirSync(path.join(name, 'accounts'), { recursive: true });
+    writeFileSync(path.join(name, 'accounts/private.key'), 'fake-fixture-key\n');
+    writeFileSync(path.join(name, '.env.example'), 'PRIVATE_EXAMPLE=fixture\n');
+  }
+  f.git('add', '-A');
+  assert.equal(f.git('diff', '--cached', '--name-only'), '', 'allowlisted filenames must not open directories');
 });
