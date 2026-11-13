@@ -8,7 +8,16 @@ trigger: use this when setting maxAgents for a powerful-mode build expecting N-w
 source: "panda-corp — canary D1/D2 (wf_6e88dd68-8e4 / wf_faf48b18-881, mission-control, 2026-09-25, docs/proposals/37 'Canario D', decision-log v9.109.0). D1 (maxAgents:8) collapsed to 1 dispatched WO out of 4 ready/disjoint ones, root-caused to fixed pre-wave overhead (precheck+process-change+plan+foundation-gate, opus-weighted, reaching agentSpawned:11 before the scheduler ever picked a wave) exhausting the budget before any wave-pick, fixed for OBSERVABILITY as BL-0173 (the engine now names the cut reason instead of a generic wave-cap label). D2 (maxAgents:40) achieved genuine concurrency_max:4 real WO parallelism (3 WOs built concurrently, ~5.6min saved) yet still failed its own ≤45min wall-clock bar at 87.5min, because 65.8% of wall-clock (84.9% of cost) was FRD-gate review running in SERIES — a structurally different bottleneck than WO concurrency."
 provenance: agent-inferred
 created: 2026-09-25
-status: candidate
+status: deprecated   # 2026-11-13 (librarian review, scheduled sweep) — superseded by the Day 1 build-engine
+  # rewrite (plugin 10.0.0/overlay 9.0.0, 2026-11-12, DR-150/DR-156): `maxAgents` is no longer a CLI
+  # argument (confirmed absent from plugin/scripts/pandacorp-build.mjs and build-engine-cli.md this
+  # pass) — admission is now adaptive (BUILD-9/DR-156), not a cost-weighted ceiling the caller sets.
+  # `powerful`-mode, wave-cap/agent-budget cut-reasons and the pre-wave fixed-overhead model this lesson
+  # describes belong to the retired engine (recoverable only via the archive/engine-dynamic-workflows
+  # tag, DR-154). The one finding that may still generalize — a serial per-FRD gate/review phase can
+  # dominate wall-clock/cost far more than build-side concurrency — is NOT re-verified against the new
+  # engine's G1..G4 gate model (BUILD-9/10) in this pass; if it resurfaces on a current build, open a
+  # fresh candidate anchored to the new engine rather than reviving this one.
 promotion: none
 confidence: medium
 times_applied: 0

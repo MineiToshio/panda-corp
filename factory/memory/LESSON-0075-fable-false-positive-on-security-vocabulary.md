@@ -45,3 +45,16 @@ proposal 33/36) and this lesson's tier label is now stale terminology while its 
 force an escalation to a costlier tier) likely still holds under whatever tier plays that "cheap" role
 today — or the two docs are describing genuinely different things and are not in conflict. Left as
 `status: candidate`, not deprecated/edited further; flagging only, per DR-047 (reconcile, never erase).
+
+**Reconciled 2026-11-13 (librarian review, scheduled sweep).** Confirmed from the canonical text
+(`factory/standards/agent-portability.md` PORT-2, re-checked live this pass): Fable today names
+Claude's MOST expensive tier, never auto-selected — the opposite of the cheap/fast role this lesson's
+2026-07-05 finding described. This is a confirmed terminology drift across the model-era transition
+(proposal 33/36), not a conflicting claim about the same thing — so the two docs are not actually in
+tension once read with their own era's vocabulary. The underlying finding stands and generalizes:
+**whichever tier plays the cheap/fast delegation role at the time** can have a safety classifier that
+false-positives on the factory's own defensive-security vocabulary ("command gate", "hardening",
+"offensive security") and silently falls back to a costlier tier. Treat "Fable" in this lesson's body as
+a dated codename, not a live tier name — re-verify against the current `agent-portability.md` tier
+table before acting on it. Not re-tested on a current cheap tier this pass (no live repro available);
+left `status: candidate` pending that corroboration.
