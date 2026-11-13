@@ -23,6 +23,8 @@ export const UNBLOCKABLE_KINDS = Object.freeze(["docs", "tests", "build", "patch
 export const UNBLOCK_CAUSE = "env-infra";
 /** File, in the unit's directory, that tells the next brief this attempt resumes after an environment fix. */
 export const UNBLOCK_NOTE = "unblocked.json";
+/** States a WO-less unit (docs/tests) returns to when it was blocked after finishing its own work (BL-0316). */
+export const RESTORABLE_STATES = Object.freeze(["committed", "integrated", "verified"]);
 
 const handbackEvents = (events) => events.filter((e) => e.type === "handback" && Array.isArray(e.data?.blocked));
 /** The latest hand-back that blocked `unitId`, or null. */
@@ -55,16 +57,24 @@ export function planUnblock({ state, events, unitId, reason, at = null }) {
     return lastBlockingHandback(events, id) === hb;
   });
   const set = new Set(ids);
+  // BL-0316: a unit with no work order that was already integrated or later (a docs unit of a batch whose G3 went red
+  // for reasons outside it) returns to that state, so the landing is simply retried; everything else is re-queued.
+  const priorOf = (id) => events.filter((e) => e.type === "unit_state" && e.data?.unit === id && e.data?.to === "blocked").pop()?.data?.from ?? null;
+  const restoredOf = (u) => {
+    const prior = priorOf(u.id);
+    return !WO_UNIT_KINDS.includes(u.kind) && RESTORABLE_STATES.includes(prior) ? prior : "queued";
+  };
+  const restored = new Map(ids.map((id) => [id, restoredOf(findUnit(state, id))]));
   const next = {
     ...state,
     handbacks_in_a_row: 0,
-    units: state.units.map((u) => (set.has(u.id) ? { ...u, state: "queued", token_hash: null, worker: null, parked: null, pending_answer: null, waiting_gate: null } : u)),
+    units: state.units.map((u) => (set.has(u.id) ? { ...u, state: restored.get(u.id), token_hash: null, worker: restored.get(u.id) === "queued" ? null : u.worker, parked: null, pending_answer: null, waiting_gate: null } : u)),
   };
   const planned = [
     { type: "unblocked", data: { unit: unitId, cause: UNBLOCK_CAUSE, attempt: unit.attempt, reason: oneLine(reason, 400), units: ids, handback_seq: hb.seq ?? null, ...(at ? { at } : {}) } },
-    ...ids.map((id) => ({ type: "unit_state", data: { unit: id, from: "blocked", to: "queued", reason: "unblock" } })),
+    ...ids.map((id) => ({ type: "unit_state", data: { unit: id, from: "blocked", to: restored.get(id), reason: "unblock" } })),
   ];
-  return { state: next, events: planned, units: ids, root: unit, handback: hb };
+  return { state: next, events: planned, units: ids, restored: Object.fromEntries(restored), root: unit, handback: hb };
 }
 
 /** Mark the newest pending hand-back entry of the unit in the decisions inbox (and its mirror) as resolved. Best effort. */
@@ -160,9 +170,10 @@ export async function applyUnblock(ctx, { unitId, reason }, deps = {}) {
   for (const event of plan.events) await ctx.appendEvent(event);
   for (const id of plan.units) { try { releaseToken(id, { file: paths.admissionFile }); } catch { /* no reservation left */ } }
   const warning = await emitSafely(deps, "unit.unblocked", { unit: unitId, units: plan.units, attempt: unit.attempt });
-  const notice = `Unidad reanudada: ${unitId} vuelve a la cola en el mismo intento ${unit.attempt} (no gasta presupuesto)${changes ? `, con sus ${changes} cambios sin confirmar conservados` : ""}.${plan.units.length > 1 ? ` También vuelven: ${plan.units.filter((id) => id !== unitId).join(", ")}.` : ""}`;
+  const back = plan.restored[unitId] === "queued" ? "vuelve a la cola" : `vuelve a su estado ${plan.restored[unitId]} (se reintenta el aterrizaje)`;
+  const notice = `Unidad reanudada: ${unitId} ${back} en el mismo intento ${unit.attempt} (no gasta presupuesto)${changes ? `, con sus ${changes} cambios sin confirmar conservados` : ""}.${plan.units.length > 1 ? ` También vuelven: ${plan.units.filter((id) => id !== unitId).join(", ")}.` : ""}`;
   return {
-    unit: unitId, attempt: unit.attempt, units: plan.units, wos_planned: wosPlanned, worktree: unit.worktree ?? null, worktree_changes: changes,
+    unit: unitId, attempt: unit.attempt, units: plan.units, restored: plan.restored, wos_planned: wosPlanned, worktree: unit.worktree ?? null, worktree_changes: changes,
     previous_report: previousReport, commit, notice_es: notice, ...(warning ? { warnings: [warning] } : {}),
   };
 }

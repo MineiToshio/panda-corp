@@ -198,7 +198,7 @@ function hashMatches(wt, name, expected) {
 // ONE dirty/hidden/protected-state predicate for ALL worktrees, used by sweep and finish.
 // Session receipts can prove ignored generated outputs; hidden tracked differences additionally
 // require the bootstrap's own provenance. Index concealment flags alone authorize nothing.
-function worktreeCleanReason(wt, { bootstrap = {}, generated = {} } = {}) {
+function worktreeCleanReason(wt, { bootstrap = {}, generated = {}, disposableIgnored = false } = {}) {
   try {
     const sparse = git(wt, ['config', '--worktree', '--bool', 'core.sparseCheckout']);
     const cones = sparse.ok && sparse.out === 'true' ? git(wt, ['sparse-checkout', 'list']) : null;
@@ -220,6 +220,10 @@ function worktreeCleanReason(wt, { bootstrap = {}, generated = {} } = {}) {
     }
     const ignored = git(wt, ['ls-files', '--others', '--ignored', '--exclude-standard', '-z']);
     if (!ignored.ok) return 'status-unreadable';
+    // BL-0316: an engine-owned detached G2 snapshot (pin proven reachable from its run's integration ref by
+    // engineWorktreeOwnershipReason) is a throwaway checkout of a commit; every ignored file in it was produced by its
+    // bootstrap or verify run, never by a person. Tracked/untracked changes, locks and live cwds still protect it.
+    if (disposableIgnored) ignored.out = '';
     const caches = /(^|\/)(node_modules|\.next|\.next-fidelity|dist|build|coverage|\.cache|\.turbo|test-results)(\/|$)/;
     for (const name of ignored.out.split('\0').filter(Boolean)) {
       // In particular, .pandacorp/run in an ordinary worktree is owner state too.
@@ -241,7 +245,7 @@ function worktreeCleanReason(wt, { bootstrap = {}, generated = {} } = {}) {
 }
 
 /** Shared DATA-safety predicate. Lifecycle callers own run/lease eligibility; no caller may bypass these holds. */
-export function worktreeRemovalReason(worktree, { mainWt, runningPaths = [], generated = {}, processes = processCwds() } = {}) {
+export function worktreeRemovalReason(worktree, { mainWt, runningPaths = [], generated = {}, processes = processCwds(), disposableIgnored = false } = {}) {
   try {
     const wt = real(worktree);
     if (path.resolve(worktree) !== wt) return 'symlink-path';
@@ -255,7 +259,7 @@ export function worktreeRemovalReason(worktree, { mainWt, runningPaths = [], gen
     if (processes.cwds.some(c => within(real(c), wt))) return 'in-use';
     if (runningPaths.some(p => typeof p === 'string' && within(real(p), wt))) return 'running-unit';
     if (listed.some(w => real(w.path) !== wt && within(real(w.path), wt))) return 'nested-worktree';
-    const hidden = worktreeCleanReason(wt, { bootstrap: bootstrapFiles(wt, mainWt ?? main), generated });
+    const hidden = worktreeCleanReason(wt, { bootstrap: bootstrapFiles(wt, mainWt ?? main), generated, disposableIgnored });
     if (hidden) return hidden;
     const status = git(wt, ['status', '--porcelain', '--untracked-files=all']);
     if (!status.ok) return 'status-unreadable';

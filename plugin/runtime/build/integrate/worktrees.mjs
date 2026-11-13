@@ -158,7 +158,9 @@ export async function removeWorktree({ project, worktree, state = null, runId = 
   if (!existing) { await g(["worktree", "prune"]); return { removed: false, worktree }; }
   const current = state ?? await readJson(buildPaths(project, deps).stateFile, { fs }).catch(() => null);
   const runningPaths = runningWorktreePaths(current, deps);
-  const reason = engineWorktreeOwnershipReason(existing, { build: buildPaths(project, deps).build, runId: runId ?? current?.run_id }) ?? worktreeRemovalReason(existing.path, { runningPaths });
+  const owned = engineWorktreeOwnershipReason(existing, { build: buildPaths(project, deps).build, runId: runId ?? current?.run_id });
+  // BL-0316: a proven-owned DETACHED engine checkout is a G2 snapshot of a pinned commit; its ignored files are generated.
+  const reason = owned ?? worktreeRemovalReason(existing.path, { runningPaths, disposableIgnored: !existing.branch });
   if (reason) return { removed: false, worktree, reason };
   // --force is needed for proven generated ignored outputs and bootstrap overrides. The shared predicate
   // above has just rejected dirty/hidden changes, locks, owner state and every live cwd.

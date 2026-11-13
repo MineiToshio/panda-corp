@@ -684,6 +684,12 @@ No automatic revert-and-rebuild, no split gate, no automatic "next pass". Fable 
   `queued` at the SAME attempt (no budget spent, streak reset, WOs `BLOCKED -> PLANNED`, preserved
   worktree reused, previous report kept and named in the brief). Every other cause stays an owner
   decision. Verification: `plugin/scripts/test-build-v2-unblock.mjs`.
+- **Docs-only G3 red (BL-0316).** A batch of only `docs` units cannot turn code checks red: a G3 red with no
+  doc-lint failure and no docs-surface path opens no patch; it retries the landing once per integration tip,
+  then hands the docs units back as `env-infra` (`g3_red_not_from_batch`); `unblock` returns them to `integrated`.
+  A leftover G2 snapshot whose engine ownership is proven (detached, pin reachable from the run's integration
+  ref) is removed despite generated ignored files (DR-157 still keeps it for any tracked/untracked change).
+  Verification: `test-build-v2-land.mjs`, `test-build-v2-g2-leftover.mjs`.
 
 **A red G2/G3 repairs only what failed (owner decision 12).** `gatefail.mjs` parses Vitest,
 Playwright, tsc, Biome, Next build and doc-lint logs (including bullet-path diagnostics), excluding

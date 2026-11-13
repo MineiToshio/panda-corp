@@ -4,6 +4,8 @@ import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
 import { archiveCard } from "../card.mjs";
 import { isTrackedPath, nowIso, sha256Hex } from "../fsx.mjs";
 import { readGatePatch, writeGateFailure } from "../gatefail.mjs";
+import { readJournal } from "../journal.mjs";
+import { isAllowedPath } from "../units/allowlist.mjs";
 import { findUnit, newUnit, upsertJob } from "../state.mjs";
 import { assessBatch, mapMergeQueueExit } from "./batch.mjs";
 import {
@@ -71,11 +73,53 @@ async function onLanded(ctx, state, job, mqExit, d) {
   return { state: next, output: { result: "landed", reason: null, mq_exit: mqExit, sha, ...(notes ? { notes_es: notes } : {}) }, exit: 0 };
 }
 
+/** BL-0316: retries of a docs-only G3 red on the same integration tip before the landing is handed back as env-infra. */
+export const DOCS_ONLY_G3_RETRIES = 1;
+
+/**
+ * A batch made only of docs units cannot make code checks red: a red G3 whose evidence names no docs-surface path and
+ * no doc-lint failure comes from main itself or the machine (a timeout under swap, a flaky test). Pure.
+ */
+export function docsOnlyRedNotFromBatch(candidates, evidence) {
+  if (!candidates.length || !candidates.every((u) => u.kind === "docs")) return false;
+  if ((evidence?.checks ?? []).includes("doc-lint")) return false;
+  return !(evidence?.paths ?? []).some((p) => isAllowedPath("docs", [], p));
+}
+
+async function onDocsOnlyRed(ctx, state, candidates, plan, log, tip, d) {
+  const { events } = await readJournal(ctx.paths.journalFile, d);
+  const earlier = events.filter((e) => e.type === "handback" && e.data?.reason === "g3_red" && e.data?.docs_only === true && e.data?.tip === tip).length;
+  const checks = (plan.evidence.checks ?? []).join(", ") || "sin checks reconocidos";
+  if (earlier < DOCS_ONLY_G3_RETRIES) {
+    await ctx.appendEvent({ type: "handback", data: { reason: "g3_red", cause: "landing", docs_only: true, tip, retry: earlier + 1, checks: plan.evidence.checks ?? [], log } });
+    const notes = `G3 rojo en un lote solo de documentos (${checks}): el fallo no viene del lote; se reintenta la puerta una vez sin abrir un parche.`;
+    return { state, output: { result: "nothing_to_land", reason: "g3_red_docs_only_retry", mq_exit: 11, sha: null, patch_unit: null, notes_es: notes }, exit: 0 };
+  }
+  await ctx.appendEvent({ type: "handback", data: { reason: "g3_red", cause: "landing", docs_only: true, tip, retry: earlier + 1, checks: plan.evidence.checks ?? [], log, handed_back: candidates.map((u) => u.id) } });
+  // The finished job must be on disk before failure.handBack re-reads the state.
+  await ctx.writeState(state);
+  const failure = d.failure ?? (await import("../failure.mjs"));
+  for (const unit of candidates) {
+    await failure.handBack(ctx, {
+      unitId: unit.id, cause: "env-infra", reasonCode: "g3_red_not_from_batch",
+      reason: `G3 rojo dos veces sobre un lote solo de documentos (${checks}); el fallo no viene del lote: revisa main y la máquina, luego reanuda con unblock`,
+      failure: { command: "bash .pandacorp/merge-queue.sh", tail: plan.evidence.tail },
+    }, d);
+  }
+  return { state: await ctx.readState(), output: { result: "handback", reason: "g3_red_not_from_batch", mq_exit: 11, sha: null, patch_unit: null }, exit: 6 };
+}
+
 async function onGateRed(ctx, state, job, plan, d) {
   const root = state.integration.worktree;
   await assertCleanWorktree(d, root);
-  await dropLandingMetadata(d, root, ctx.runId);
   const candidates = assessBatch(state).landable;
+  if (docsOnlyRedNotFromBatch(candidates, plan.evidence)) {
+    // The tip AFTER dropping the run's own landing metadata commit (rewritten on every landing attempt).
+    await dropLandingMetadata(d, root, ctx.runId);
+    const tip = await gitOk(d, root, ["rev-parse", "HEAD"], "rev-parse");
+    return onDocsOnlyRed(ctx, state, candidates, plan, path.relative(ctx.project, ctx.paths.jobOutFile(job.id)), tip, d);
+  }
+  await dropLandingMetadata(d, root, ctx.runId);
   const { id, attempt, fixed } = plan;
   const log = path.relative(ctx.project, ctx.paths.jobOutFile(job.id));
   await writeGateFailure(ctx.paths, plan, d);

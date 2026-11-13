@@ -1,5 +1,18 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-13 — Owned G2 leftovers are removable; docs-only G3 reds open no patch (BL-0316)
+
+**What:** `removeWorktree` treats the ignored files of a proven-owned detached G2 snapshot as generated, so a leftover
+snapshot no longer blocks every later G2 with `unclassified-ignored-files`. A G3 red on a docs-only batch that names no
+doc-lint failure or docs path opens no patch: one retry per integration tip, then an `env-infra` hand-back
+(`g3_red_not_from_batch`); `unblock` returns such WO-less units to `integrated`. Plugin **10.4.2**.
+
+**Why:** funko-tracker run `br-2026-11-13-02` deadlocked twice on its own G2 snapshot (`.env.local`, copied prototype
+assets, `.pandacorp/run/*` from bootstrap and verify) and spent a `u-patch-g3` on a swap timeout its docs batch could not
+cause. The DR-157 predicate is unchanged for branch worktrees and any tracked/untracked change. Canonical:
+[CLI reference](build-engine-cli.md) 3.11 and 3.14b, BUILD-15 in [build-engine.md](../../factory/standards/build-engine.md).
+Tests: `test-build-v2-g2-leftover.mjs`, `test-build-v2-land.mjs` BL-0316 cases.
+
 ## 2026-11-13 — Card-run docs units must bind new work orders to the card (BL-0315)
 
 **What:** In a card run, `report` rejects a docs unit whose new work order lacks `source_change` listing the card,

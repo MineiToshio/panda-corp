@@ -1,5 +1,13 @@
 # Decision Log — Factory
 
+## 2026-11-13 — Docs-only G3 reds and owned G2 leftovers (BL-0316)
+
+**What:** BUILD-15 adds the docs-only G3 rule (retry once, then env-infra hand-back, no patch) and DR-157's predicate
+accepts generated ignored files only in a proven-owned detached G2 snapshot.
+
+**Why:** owner-approved engine fixes after funko-tracker run `br-2026-11-13-02`. Canonical:
+[build-engine.md](standards/build-engine.md) BUILD-15.
+
 ## 2026-11-13 — PostHog organization per app under the shared login (DR-160)
 
 **What:** DR-160 supersedes the PostHog restriction in DR-036/134: one app-named organization per app under the existing shared login, free/no card, one project, region chosen at creation, app-specific keys and recorded native IDs. Other providers retain the account-proliferation prohibition. The catalog records official limits/sources checked 2026-11-13. Independent review also aligned the EXT-1 rule-registry row and architecture decision-round defaults with the PostHog exception while retaining the prohibition for other providers.

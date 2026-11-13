@@ -758,6 +758,56 @@ await test("DENG production gate retains integration only and removes its .next"
   ok(!existsSync(unit), "unit directory reclaimed"); ok(existsSync(w.wt), "integration stays"); ok(!existsSync(path.join(w.wt, ".next")), "Next output reclaimed");
 }));
 
+// ---- BL-0316: a docs-only batch whose G3 goes red for reasons outside it never spends patch attempts ----------------
+const docsOnly = (over = {}) => ({ extraUnits: [baseUnit({ id: "u-docs-add-filter", kind: "docs", wos: [], chain: null, state: "integrated" })], ...over });
+const TIMEOUT_LOG = "FAIL src/lib/ingest/runs/plan.test.ts > classifies a run\nError: Test timed out in 5000ms.\n ❯ planFile src/lib/ingest/runs/plan.ts:315:38\n";
+await test("BL-0316 docs-only G3 red not from the batch: first red retries without a patch, second red on the same tip hands back env-infra; no patch unit ever", async () => withWorld("docs-only-red", docsOnly({ gateLog: TIMEOUT_LOG }), async (w) => {
+  const before = await snapshot(w);
+  const { second: r1 } = await mqRound(w, "11");
+  eq(r1.result, "nothing_to_land", "first red: nothing to land (retry)"); eq(r1.reason, "g3_red_docs_only_retry", "reason");
+  let st = await readState(w);
+  eq(st.units.filter((u) => u.kind === "patch").length, 0, "no patch unit after the first red");
+  eq(unitOf(st, "u-docs-add-filter").state, "integrated", "the docs unit stays integrated");
+  const { second: r2 } = await mqRound(w, "11");
+  eq(r2.result, "handback", "second red: hand-back"); eq(r2.reason, "g3_red_not_from_batch", "reason"); eq(r2.patch_unit, null, "no patch unit");
+  st = await readState(w);
+  eq(st.units.filter((u) => u.kind === "patch").length, 0, "still no patch unit");
+  eq(unitOf(st, "u-docs-add-filter").state, "blocked", "docs unit handed back");
+  const hb = (await readEvents(w)).filter((e) => e.type === "handback" && e.data?.unit === "u-docs-add-filter").pop();
+  eq(hb?.data?.cause, "env-infra", "hand-back cause is env-infra (unblock can lift it)");
+  // BL-0312 + BL-0316: after fixing the machine the coordinator unblocks it and it returns to integrated (the landing is retried, nothing rebuilt).
+  const unblock = await need("failure.mjs", "unblockCommand");
+  const res = await unblock({ project: w.fx.root, epoch: w.epoch, unit: "u-docs-add-filter", reason: "swap freed, flaky test fixed on main" }, w.deps);
+  eq(res.restored?.["u-docs-add-filter"], "integrated", "restored to integrated");
+  st = await readState(w);
+  eq(unitOf(st, "u-docs-add-filter").state, "integrated", "integrated again"); eq(st.handbacks_in_a_row, 0, "streak reset");
+  const { second: r3 } = await mqRound(w, "0:ff");
+  eq(r3.result, "landed", "the retried landing lands");
+  await assertNoReleaseVar(w); void before;
+}));
+await test("BL-0316 a docs-only batch whose G3 red is doc-lint or names a docs path keeps the patch path (the batch caused it)", async () => {
+  for (const [label, log] of [["doclint", "doc-lint: 2 findings\n  - docs/frds/frd-01-alpha/frd.md: missing implementation_status\n"], ["docspath", "FAIL docs/frds/frd-01-alpha/_tests/frd.test.ts > links\n  at docs/frds/frd-01-alpha/frd.md:3:1\n"]]) {
+    await withWorld(`docs-only-${label}`, docsOnly({ gateLog: log }), async (w) => {
+      const { second } = await mqRound(w, "11");
+      eq(second.reason, "g3_red", `${label}: ordinary g3_red`);
+      ok((await readState(w)).units.some((u) => u.kind === "patch"), `${label}: a patch unit is queued`);
+    });
+  }
+});
+await test("BL-0316 a mixed batch (build + docs) keeps the patch path on a code red", async () => withWorld("mixed-red", { gateLog: TIMEOUT_LOG, extraUnits: [baseUnit(), baseUnit({ id: "u-docs-add-filter", kind: "docs", wos: [], chain: null, state: "integrated" })] }, async (w) => {
+  const { second } = await mqRound(w, "11");
+  eq(second.reason, "g3_red", "ordinary g3_red"); ok((await readState(w)).units.some((u) => u.kind === "patch"), "patch queued");
+}));
+await test("BL-0316 docsOnlyRedNotFromBatch (pure)", async () => {
+  const fn = await need("land/harvest.mjs", "docsOnlyRedNotFromBatch");
+  const docs = [{ kind: "docs" }];
+  ok(fn(docs, { checks: ["vitest"], paths: ["src/a.ts"] }), "code red on docs-only batch");
+  ok(!fn(docs, { checks: ["doc-lint"], paths: [] }), "doc-lint red is the batch's");
+  ok(!fn(docs, { checks: [], paths: ["DESIGN.md"] }), "a docs-surface path is the batch's");
+  ok(!fn([{ kind: "docs" }, { kind: "build" }], { checks: ["vitest"], paths: [] }), "mixed batch");
+  ok(!fn([], { checks: [], paths: [] }), "empty batch");
+});
+
 console.log(`RESULT: ${passed} passed, ${failed} failed (${path.basename(fileURLToPath(import.meta.url))})`);
 await rm(SANDBOX, { recursive: true, force: true });
 process.exit(failed === 0 ? 0 : 1);

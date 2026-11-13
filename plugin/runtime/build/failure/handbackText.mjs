@@ -14,6 +14,7 @@ const REASON_ES = Object.freeze({
   worker_blocked: "el trabajador se declaró bloqueado y no puede seguir sin ti", worker_failed: "el trabajador falló sin informe válido en sus intentos",
   answer_rework_budget: "tu respuesta pedía rehacer una unidad que ya agotó sus 3 ejecuciones",
   review_blocked: "la revisión independiente bloqueó la unidad (toca algo fuera del alcance o no puede aprobarse)",
+  g3_red_not_from_batch: "la puerta G3 salió roja dos veces en un lote solo de documentos; el fallo viene de main o de la máquina, no de la unidad",
 });
 const causeEs = (cause) => CAUSE_ES[cause] ?? String(cause);
 const reasonEs = (code) => REASON_ES[code] ?? String(code);
