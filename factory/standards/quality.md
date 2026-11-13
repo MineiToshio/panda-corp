@@ -121,3 +121,35 @@ Engineering standard (DR-006 covers the approval gate for destructive changes):
 - **The primary quality gate is local, not a PR (DR-040).** The solo operator commits and pushes to `main` **directly** — mandatory PRs add no value with a single human (constitution §11). What proves a change is the **`reviewer` in `/pandacorp:implement` + `.pandacorp/verify.sh`** (the fail-closed local gate the engine runs per-FRD and at close-out), not human PR review. A throwaway branch is OPTIONAL, only for big/risky changes the owner may want to abort wholesale; for parallel manual sessions the isolation is a **worktree + `merge-queue.sh`** (DR-096; DR-141 groups several waiting verified branches into one integration branch and one full combined gate), still landing on `main` without a PR.
 - **GitHub Actions / PRs / protected branches are an OPTIONAL external-governance layer, not the default.** Enable them when a project has an external remote or collaborators, or when the owner wants belt-and-suspenders CI: GitHub Actions then re-runs type-check + lint + tests (in parallel) and E2E as an independent check of the same `verify.sh` gate. They never *replace* the local gate and are not required for direct-main projects.
 - Toward main (whether direct or via the optional CI), run **periodically (not on every change, for cost)**: **mutation testing** + **agentic OWASP audit** (DR-017) + generation of **changelog and ADRs** (DR-018, living documentation). These gates are independent of the agent: the model never marks its own checks.
+
+## Verification cost without weaker certification (DR-158)
+
+- Full G3 still runs before main; no affected/partial report certifies a tree. Keep G0/G1 light.
+- Certification bails after the first Vitest/browser failure; diagnostics use `--no-bail` or
+  `PANDACORP_VERIFY_NO_BAIL=1`. Seed/replay and zero retries remain unchanged (DR-146).
+- `verify.sh` takes a kernel advisory lock in `.pandacorp/run/verify.lock` before any report write.
+  A contender exits 75 with checkout/owner details; wait for completion and retry. Never kill a
+  foreign listener or enable server reuse. A crash releases ownership automatically; keep the inode.
+- Green-stamp v2 checks the tree plus lockfiles, installed dependency graph metadata, Node version,
+  `.env*`, relevant runtime inputs and the physical e2e tree, at both ends. Stop and merge-queue
+  use this shared judge; any doubt reruns full. Arbitrary node_modules edits or undeclared external
+  input roots are outside that fingerprint: invalidate the stamp when modifying them.
+- Full browser gates use the managed `e2e/prod-server.mjs` seed and the same fixture environment
+  at build/start: one build and one Next start, real production CSP/page-error checks included.
+- `e2e/mobile-specs.json` explicitly adds viewport-sensitive navigation/dialog/focus files to
+  mandatory smoke/visual/responsive. A file that sets its own phone/tablet widths retains those
+  checks on desktop. Document every spec/platform in the project's e2e platform inventory.
+- `e2e/parallel-safe.json` permits only audited whole specs without shared writes, including
+  transitive app effects. Combined projects run safe files on up to 3 workers, then serial desktop,
+  then serial mobile on one worker; visual and fixture/ledger writers stay serial. Existing manual
+  `parallel`/`serial` tier filters remain available; a full certificate uses the combined invocation.
+- `--affected [--since <ref>]` is iteration only and always `partial`, including fallback runs.
+  It compares committed, staged, unstaged and nonignored untracked paths with the merge-base
+  (default origin/main); only `src/queries/*.ts` / `src/worker/*.ts` may omit browser. UI wins;
+  unknown paths, Git errors, filters, hidden index flags, aliases and gitlinks retain browser.
+  `.pandacorp/verify-affected.json` may only add UI globs, never broaden omission. Static and
+  Vitest gates stay global unless the caller explicitly requests an additional partial scope.
+  Nested projects normalize repository paths; changes outside the project retain browser conservatively. Never use this mode for G3.
+
+Executable evidence: `test-verify-gate-report.sh`, `test-verify-before-stop.sh`,
+`test-e2e-tiers.mjs`, and `test-merge-queue-{certified-tree,release-gate,lock-refresh}.sh`.

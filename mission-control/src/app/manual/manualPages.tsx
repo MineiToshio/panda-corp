@@ -906,6 +906,14 @@ function ConceptHooks(): React.JSX.Element {
         El principio: el modelo propone; <B weight={600}>scripts/CI/hooks verifican</B>. Un agente
         nunca marca sus propios checks.
       </Lead>
+      <Lead>
+        El Stop usa un pase ligero. Antes de entrar en main hay un pase completo, con un único dueño
+        por carpeta: si otro está verificando, espera a que termine. Un sello solo evita repetirlo
+        cuando el árbol, las dependencias y los fixtures siguen idénticos. El navegador comparte un
+        build de producción; móvil conserva sus recorridos revisados y los tests que escriben datos
+        siguen en serie. <Code>--affected</Code> sirve para iterar y siempre es parcial.{" "}
+        <Code>--no-bail</Code> recoge todos los fallos para diagnóstico (DR-158).
+      </Lead>
       <HooksDiagram />
       <NotePanel icon="lock">
         Los gates humanos (producción, gastar dinero, borrar datos, comunicaciones externas) se

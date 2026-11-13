@@ -10,8 +10,8 @@ import { BLESSED } from "./routes";
  * CSP violation, a rendered error boundary, an empty <main> or a page that never hydrates, read only once the page has
  * hydrated and settled (`observeProdPage`). VERBATIM stack template (DR-059).
  *
- * It runs ONLY under PANDACORP_PROD_SMOKE: the build engine's `prod-smoke` step sets it, in a detached worktree at
- * HEAD, in parallel with the visual QA pass. Under `next dev` (every other verify.sh run) it is skipped.
+ * It runs under PANDACORP_PROD_SMOKE or PANDACORP_E2E_SERVER=prod: the build engine's `prod-smoke` step sets it, in a detached worktree at
+ * HEAD, in parallel with the visual QA pass. Under `next dev` it is skipped; full production browser certification includes it.
  *
  * Dynamic routes: list one concrete sample per dynamic route in the optional per-project `e2e/prod-samples.json`
  * (a JSON array of paths, e.g. ["/blog/hello-world"]). With no route at all, `/` is visited.
@@ -29,7 +29,7 @@ const REPORT = process.env.PANDACORP_PROD_SMOKE_REPORT;
 
 // biome-ignore lint/suspicious/noSkippedTests: deliberate env gate, the engine sets PANDACORP_PROD_SMOKE for this step only
 test.skip(
-  !process.env.PANDACORP_PROD_SMOKE,
+  !process.env.PANDACORP_PROD_SMOKE && process.env.PANDACORP_E2E_SERVER !== "prod",
   "the production-build smoke runs only under PANDACORP_PROD_SMOKE (next build && next start)",
 );
 

@@ -236,6 +236,11 @@ gate_green="true"; [ "$verify_rc" -eq 0 ] || gate_green="false"
     >> "$events_log" 2>/dev/null
 } || true
 
+if [ "$verify_rc" -eq 75 ]; then
+  echo "Pandacorp Stop gate: another verification owner is active; wait and retry. $out" >&2
+  exit 2
+fi
+
 if [ "$verify_rc" -ne 0 ]; then
   # The gate is RED. Attribute BEFORE nagging (DR-099): in a SHARED checkout the whole-program gate
   # also fails on ANOTHER session's in-flight WIP. If NONE of the files THIS session edited are

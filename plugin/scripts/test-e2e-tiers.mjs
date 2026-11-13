@@ -2,7 +2,7 @@
 // DR-143: the stack template's playwright.config.ts splits a run into parallel and serial tiers from a
 // project's e2e/parallel-safe.json. Evaluated with a stub @playwright/test, using isolated fixtures.
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -43,7 +43,7 @@ const GLOB = '**/e2e/read.spec.ts'
   const { config: c } = load({})
   check('no file: one worker, no tier filter', c.workers === 1 && c.testMatch === undefined && project(c, 'desktop').testIgnore.length === 0)
   check('no globalSetup seed: not wired', c.globalSetup === undefined)
-  check('viewport-agnostic gates run on desktop only', project(c, 'mobile').testIgnore.includes('**/e2e/shell.spec.ts'))
+  check('viewport-agnostic gates run on desktop only', project(c, 'mobile').testMatch.includes('**/e2e/smoke.spec.ts') && !project(c, 'mobile').testMatch.includes('**/e2e/read.spec.ts'))
 }
 {
   const { config: c } = load({ safe: ['read.spec.ts'] })
@@ -61,7 +61,7 @@ const GLOB = '**/e2e/read.spec.ts'
   const { config: c } = load({ safe: ['read.spec.ts'], env: { PANDACORP_E2E_TIER: 'serial' } })
   check('serial tier: complement on one worker, both projects', c.workers === 1 && c.testMatch === undefined
     && project(c, 'desktop').testIgnore.includes(GLOB) && project(c, 'mobile').testIgnore.includes(GLOB)
-    && project(c, 'mobile').testIgnore.includes('**/e2e/shell.spec.ts'))
+    && project(c, 'mobile').testMatch.includes('**/e2e/smoke.spec.ts') && !project(c, 'mobile').testMatch.includes('**/e2e/read.spec.ts'))
 }
 check('globalSetup seed is wired in', load({ globalSetup: true }).config?.globalSetup === './e2e/globalSetup.ts')
 check('stale spec fails loud', !load({ safe: ['gone.spec.ts'] }).ok)
@@ -74,6 +74,38 @@ check('visual gate cannot be listed', !load({ safe: ['visual.spec.ts'] }).ok)
 check('seed alone keeps next dev', load({ prodServer: true }).config?.webServer.command.startsWith('next dev'))
 check('prod server without the seed fails loud', !load({ env: { PANDACORP_E2E_SERVER: 'prod' } }).ok)
 check('unknown tier fails loud', !load({ env: { PANDACORP_E2E_TIER: 'fast' } }).ok)
+
+{
+  const { config: c } = load({ safe: ['read.spec.ts'], env: { PANDACORP_E2E_TIER: 'combined', PANDACORP_E2E_CERTIFICATION: '1' } })
+  check('one combined run: parallel then serial desktop then serial mobile', c.workers === 3
+    && project(c, 'desktop').workers === 1 && project(c, 'mobile').workers === 1
+    && project(c, 'desktop').dependencies.includes('desktop-parallel')
+    && project(c, 'mobile').dependencies[0] === 'desktop'
+    && project(c, 'desktop-parallel').testMatch.includes(GLOB))
+  check('mobile parallel selection is the intersection, never all safe files', project(c, 'mobile-parallel').testMatch.length === 0)
+  check('certification bails at one failure and owns server', c.maxFailures === 1 && c.webServer.reuseExistingServer === false)
+}
+check('diagnostics collect every browser failure', load({ env: { PANDACORP_E2E_CERTIFICATION: '1', PANDACORP_VERIFY_NO_BAIL: '1' } }).config?.maxFailures === 0)
+
+// Exercise the real production launcher against a fake Next executable: no socket or compiler.
+{
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'prod-server-'))
+  try {
+    mkdirSync(path.join(dir, 'e2e'), { recursive: true })
+    mkdirSync(path.join(dir, 'node_modules/next/dist/bin'), { recursive: true })
+    const seed = new URL('../templates/stack-a-nextjs/e2e/prod-server.mjs', import.meta.url)
+    writeFileSync(path.join(dir, 'e2e/prod-server.mjs'), readFileSync(seed))
+    writeFileSync(path.join(dir, 'e2e/server-env.json'), JSON.stringify({ PANDACORP_FACTORY_ROOT: './e2e/fixtures' }))
+    writeFileSync(path.join(dir, 'node_modules/next/dist/bin/next'), `console.log(JSON.stringify({ args:process.argv.slice(2), fixture:process.env.PANDACORP_FACTORY_ROOT, mode:process.env.NODE_ENV })); process.exit(Number(process.env.FIXTURE_NEXT_EXIT || 0))`)
+    const run = (args, env = {}) => spawnSync(process.execPath, ['e2e/prod-server.mjs', ...args], { cwd: dir, encoding: 'utf8', env: { PATH: process.env.PATH, ...env } })
+    const build = run(['build']); const start = run(['start', '3900'])
+    const built = JSON.parse(build.stdout); const started = JSON.parse(start.stdout)
+    check('prod build/start resolve identical fixture environment', build.status === 0 && start.status === 0 && built.fixture === path.join(realpathSync(dir), 'e2e/fixtures') && built.fixture === started.fixture && built.mode === 'production' && started.mode === 'production')
+    check('prod starts owned loopback origin from existing artifact', started.args.join(' ') === 'start --hostname 127.0.0.1 --port 3900')
+    check('prod build failure propagates', run(['build'], { FIXTURE_NEXT_EXIT: '7' }).status === 7)
+    check('prod rejects invalid start port', run(['start', '--help']).status !== 0)
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+}
 
 console.log(failed ? `RESULT: ${failed} failed` : 'RESULT: all passed')
 process.exit(failed ? 1 : 0)

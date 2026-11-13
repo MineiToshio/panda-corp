@@ -476,3 +476,14 @@ Removal may take minutes: use a resumable tool process, report progress at least
 - Isolation/bootstrap: `test-worktree-bootstrap.sh`, the edit-time nudge and the session's ownership checklist.
 - Cleanup: `test-session-cleanup.mjs`, `test-session-cleanup-adversarial.mjs`, `test-worktree-sweep.mjs`; finished-run eligibility never authorizes deleting owner state or live/dirty worktrees.
 - Standard shape: `bash factory/standards/check-standards.sh`. Policy, doc and Manual propagation are reviewed together before release.
+
+## Verification cost without weaker certification (DR-158)
+
+[Quality: verification cost](quality.md#verification-cost-without-weaker-certification-dr-158)
+owns the execution policy: full G3 before main; fail-fast with diagnostic replay; one kernel
+verification owner per checkout (contention is infrastructure); fingerprint-bound certified-tree
+reuse; one production artifact/server, explicit mobile coverage and audited parallel-safe specs.
+The scheduler's G1 remains light, G2 remains scoped, and `--affected` is an attended iteration
+option, always partial, never an alternative to the G3 command or a VERIFIED transition.
+The queue's certified-tree decision occurs before its port probe; a live verification owner
+prevents reuse, and exit 75 must not trigger deletion of the active owner's generated artifacts.

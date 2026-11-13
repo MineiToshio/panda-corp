@@ -1,5 +1,31 @@
 # Decision Log — Factory
 
+## 2026-11-12 — Faster certification without weakening landing (DR-158)
+
+**What:** certification fails fast (Vitest bail=1, Playwright maxFailures=1); diagnostic
+`--no-bail` / `PANDACORP_VERIFY_NO_BAIL=1` collects failures with the same shuffled seed.
+A kernel-owned checkout lock rejects concurrent verification with exit 75 before report,
+stamp, compiler or port writes. Stop treats contention as infrastructure, never foreign red.
+Green-stamp v2 binds the Git tree, gate, Node version, lockfiles, installed dependency graph
+metadata, environment files/selected runtime inputs and all physical e2e fixtures; inputs
+must also match at completion. Unknown/corrupt/old/changed inputs require a full gate.
+
+Browser certification uses one production build and one owned Next start for every project.
+The optional parallel-safe list executes first; desktop and mobile serial complements run
+in dependency order, with visual baselines and ledger/fixture writers serial. Mobile uses
+an explicit per-file allowlist, retaining smoke, visual and responsive core gates plus
+reviewed project-specific navigation/focus/dialog coverage. `--affected` ports only the
+conservative data-only selector from the divergent branch into today's gate: all other
+checks stay global, uncertain inputs keep the browser, every affected report is partial.
+No old executor code, DR-144 or BL-0302 identifier was imported. G3 before main stays full.
+
+Canonical: [DR-158](decisions/registry.yaml), [quality](standards/quality.md), [orchestration](standards/build-orchestration.md).
+
+**Why:** owner-selected research option B preserves final coverage while removing redundant
+work and avoidable failures. Browser time savings are hypotheses until an unrestricted
+benchmark measures the same tree/fixtures/host; retries and baseline updates are not acceptance.
+
+
 ## 2026-11-12 — Day 1: one CLI, canonical instructions, adaptive resources and safe teardown (DR-150/154..157)
 
 **What:** [registry.yaml](decisions/registry.yaml) makes plugin **10.0.0** / overlay **9.0.0** effective now.

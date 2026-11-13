@@ -11,7 +11,7 @@
 # WP-05 additions — SCOPE and DATA only, nothing here ever softens what counts as red:
 #   `--report-all`: the 9 cheap sub-gates below (structure guard through madge) accumulate ALL
 #   their failures before aborting, instead of stopping at the very first one. vitest and
-#   Playwright are unaffected — they still cut at their own first failure, same as always.
+#   Playwright fail fast by default; --no-bail (or PANDACORP_VERIFY_NO_BAIL=1) accumulates failures.
 #   Without the flag, the cheap gates keep today's exact fail-fast behavior.
 #   ALWAYS (every run, every mode, green or red, with or without `--report-all`) writes
 #   `.pandacorp/run/gate-report.json` — a machine-readable verdict for Mission Control or any other
@@ -33,6 +33,8 @@
 #   but the report (which, being partial, is self-describing), so it leaves no other artifact behind.
 #
 # DR-146 additions — SCOPE, ORDER and PROVENANCE only, nothing here ever softens what counts as red:
+#   `--affected`: iteration only; omit browser ONLY for proven data-only diffs (queries/worker).
+#   UI, unknown paths or uncertain Git keep the browser. Always partial, never certification.
 #   `--light`: the Stop hook's per-turn gate — every cheap static sub-gate (structure guard through
 #   madge, whole project), NEVER Playwright and NEVER the whole vitest suite. Exclusive with `--only`.
 #   `--tests=<test-file>[,...]`: vitest runs EXACTLY these test files (`vitest run <files>`), nothing
@@ -45,6 +47,35 @@
 set -euo pipefail
 shopt -s inherit_errexit 2>/dev/null || true  # bash 4.4+; no-op on macOS' bash 3.2 (avoids "invalid shell option")
 
+# DR-158: one verification owner per physical checkout, BEFORE touching reports/stamps/builds.
+# The kernel releases this advisory lock after the owner and its children exit, including crashes.
+# Keep the inode: unlinking a lock file would let a third owner lock a different inode.
+if [ "${PANDACORP_VERIFY_OWNER_PID:-}" != "$$" ]; then
+  exec python3 - "$0" "$@" <<'OWNERPY'
+import fcntl
+import os
+from pathlib import Path
+import sys
+
+run = Path('.pandacorp/run')
+run.mkdir(parents=True, exist_ok=True)
+lock = os.open(run / 'verify.lock', os.O_RDWR | os.O_CREAT, 0o600)
+try:
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    owner = os.read(lock, 4096).decode(errors='replace').strip() or 'initializing'
+    print(f'verify: verification owner busy in {Path.cwd()}: {owner}; wait for it to exit, then retry (exit 75; no project verdict)', file=sys.stderr)
+    sys.exit(75)
+os.ftruncate(lock, 0)
+os.write(lock, f'pid={os.getpid()} checkout={Path.cwd()}'.encode())
+os.dup2(lock, 9, inheritable=True)
+if lock != 9:
+    os.close(lock)
+os.environ['PANDACORP_VERIFY_OWNER_PID'] = str(os.getpid())
+os.execvp('bash', ['bash', *sys.argv[1:]])
+OWNERPY
+fi
+
 # --- Optional scope: `verify.sh --since <sha>` (the fast per-FRD gate) ----------
 # Runs only the vitest tests CHANGED since <sha>; biome/tsc/knip/madge stay global
 # (fast enough, and they scale). ALSO scopes the browser layer (DR-106): in --since mode
@@ -53,12 +84,32 @@ shopt -s inherit_errexit 2>/dev/null || true  # bash 4.4+; no-op on macOS' bash 
 # end-of-build Visual QA pass (fidelity is ADVISORY at the per-FRD gate, never a block).
 # Before DR-106 every FRD gate ran the WHOLE serialized e2e suite (workers:1) — the single
 # biggest wall-clock cost of a build (11 gates x full Playwright in the personal-page-v2 run).
+AFFECTED=0
+AFFECTED_BASE="origin/main"
+for _affected_arg in "$@"; do
+  [ "$_affected_arg" != "--affected" ] || AFFECTED=1
+done
 SINCE=""
 if [ "${1:-}" = "--since" ] && [ -n "${2:-}" ]; then SINCE="$2"; fi
+# In affected mode --since is the diff base (any argument position); all OTHER gates stay full.
+# Without --affected, preserve the legacy positional --since behavior and command lines exactly.
+if [ "$AFFECTED" -eq 1 ]; then
+  _affected_expect=0
+  for _affected_arg in "$@"; do
+    if [ "$_affected_expect" -eq 1 ]; then
+      AFFECTED_BASE="$_affected_arg"
+      _affected_expect=0
+    elif [ "$_affected_arg" = "--since" ]; then
+      AFFECTED_BASE=""  # Missing/invalid ref makes the classifier retain the full browser layer.
+      _affected_expect=1
+    fi
+  done
+  SINCE=""
+fi
 # D11: --since is ONLY recognised at position $1 (above) — anywhere else it silently no-ops
 # (REV2-H characterised this; the engine's own contract already never emits it elsewhere). Warn so a
 # caller sees why the run went unscoped instead of just noticing scope isn't "since" later.
-if [ "${1:-}" != "--since" ]; then
+if [ "$AFFECTED" -eq 0 ] && [ "${1:-}" != "--since" ]; then
   for _wp11_arg in "$@"; do
     if [ "$_wp11_arg" = "--since" ]; then
       echo "⚠ --since ignored: it must be the first argument"
@@ -99,6 +150,7 @@ fi
 # `--since`'s own detection above is untouched, and this scan never changes what it resolves to.
 # WP-08 rides the SAME scan for `--only` / `--files` (both the `--only=x,y` and the `--only x,y`
 # spelling, so a plausible invocation can never be silently ignored and degrade to a full run).
+NO_BAIL="${PANDACORP_VERIFY_NO_BAIL:-0}"
 REPORT_ALL=0
 ONLY_GATES=""
 SCOPE_FILES=""
@@ -117,6 +169,8 @@ for _wp05_arg in "$@"; do
   fi
   case "$_wp05_arg" in
     --report-all) REPORT_ALL=1 ;;
+    --no-bail) NO_BAIL=1 ;;
+    --affected) AFFECTED=1 ;;
     --light)      LIGHT=1 ;;
     --only=*)     ONLY_GATES="${_wp05_arg#--only=}" ;;
     --files=*)    SCOPE_FILES="${_wp05_arg#--files=}" ;;
@@ -189,6 +243,117 @@ GATE_SCOPE="full"
 # engine's certification cage keys on exactly this value — so when both apply, report the weaker one.
 [ -n "$ONLY_GATES$SCOPE_FILES$SCOPE_TESTS" ] && GATE_SCOPE="partial"
 [ "$LIGHT" -eq 1 ] && GATE_SCOPE="partial"
+[ "$AFFECTED" -eq 1 ] && GATE_SCOPE="partial"
+# DR-158: the ONLY canonical path policy. fnmatchcase globs are repository-relative;
+# '*' includes '/'. UI patterns win; everything outside DATA_ONLY is unknown => browser runs.
+# A project may ADD UI globs in .pandacorp/verify-affected.json (never overwrite on upgrade).
+# Git failures, invalid config and unusual paths all retain the browser gate.
+# Nested projects normalize repo paths; a change outside the project is unknown, never ignored.
+AFFECTED_SKIP=0
+if [ "$AFFECTED" -eq 1 ]; then
+  if python3 - "$AFFECTED_BASE" <<'PY'
+import fnmatch
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+UI = (
+    'src/app/*', 'src/components/*', 'src/hooks/*', 'src/styles/*', 'src/tokens/*',
+    'src/i18n/*', 'src/messages/*', 'messages/*', 'styles/*', 'tokens/*',
+    'e2e/*', 'playwright.config.*', 'next.config.*', 'public/*',
+    'package.json', '*lock*', 'docs/design/*', 'prisma/*',
+    '*.tsx', '*.jsx', '*.css', '*.scss', '*.sass', '*.less', '*.svg',
+)
+DATA_ONLY = ('src/queries/*.ts', 'src/worker/*.ts')
+
+def git(*args, input=None):
+    return subprocess.check_output(['git', *args], input=input, stderr=subprocess.DEVNULL)
+
+def matches(path, patterns):
+    return any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
+
+try:
+    prefix = os.fsdecode(git('rev-parse', '--show-prefix')).strip()
+    repo = os.fsdecode(git('rev-parse', '--show-toplevel')).strip()
+    # Presence is enough: fsmonitor and clean filters can hide physical UI edits.
+    # Exit 1 means absent; any other config error keeps the full suite.
+    for pattern in (r'^core\.fsmonitor$', r'^filter\..*\.clean$'):
+        result = subprocess.run(['git', 'config', '--get-regexp', pattern],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if result.returncode != 1:
+            raise ValueError('configured monitor/filter or config query failure')
+    # Ask Git to resolve attributes (including nested .gitattributes and info/attributes)
+    # for every tracked/non-ignored untracked file, regardless of its apparent diff.
+    files = git('ls-files', '--cached', '--others', '--exclude-standard', '-z')
+    attrs = git('check-attr', '--all', '-z', '--stdin', input=files).split(b'\0')
+    if attrs[-1] != b'' or (len(attrs) - 1) % 3:
+        raise ValueError('invalid attribute response')
+    if b'filter' in attrs[1::3]:
+        raise ValueError('filter attribute makes working-tree changes uncertain')
+    # Diff/status honor these index flags and can silently hide local UI edits.
+    # -v lowercases assume-unchanged entries; S/s marks skip-worktree. Any such
+    # entry invalidates path selection, even if its apparent path is data-only.
+    for entry in git('-C', repo, 'ls-files', '-v', '-z').split(b'\0'):
+        if entry and (entry[:1].islower() or entry[:1] == b'S'):
+            raise ValueError('index flags can hide working-tree changes')
+    ui = list(UI)
+    config = Path('.pandacorp/verify-affected.json')
+    if config.is_symlink():
+        raise ValueError('symlinked config')
+    if config.exists():
+        extra = json.loads(config.read_text())
+        if (not isinstance(extra, dict) or set(extra) != {'ui'}
+                or not isinstance(extra['ui'], list)
+                or any(not isinstance(p, str) or not p or p.startswith(('/', '-'))
+                       or '..' in p.split('/') for p in extra['ui'])):
+            raise ValueError('expected {"ui": ["repo-relative glob", ...]}')
+        ui.extend(extra['ui'])
+    base = git('rev-parse', '--verify', '--end-of-options', sys.argv[1] + '^{commit}').strip().decode('ascii')
+    anchor = git('merge-base', base, 'HEAD').strip().decode('ascii')
+    # A UI symlink can expose ANY data path (including newly added routes). Avoid
+    # dependency/alias resolution entirely: any tracked symlink keeps the full suite.
+    # Inspect BOTH trees plus the index so deleted, staged and dangling links count.
+    # Gitlinks (submodules) can also hide arbitrary nested UI under a data-only path.
+    entries = git('ls-tree', '-r', '-z', '--full-tree', anchor)
+    entries += git('ls-tree', '-r', '-z', '--full-tree', 'HEAD')
+    entries = b'\0'.join(entry for entry in entries.split(b'\0')
+                         if b'\t' in entry and os.fsdecode(entry.split(b'\t', 1)[1]).startswith(prefix))
+    entries += b'\0' + git('ls-files', '--stage', '-z')
+    if any(entry.startswith((b'120000 ', b'160000 ')) for entry in entries.split(b'\0')):
+        raise ValueError('tracked symlink/gitlink makes UI reachability uncertain')
+    # --no-renames includes BOTH sides of renames. Union each Git layer separately:
+    # a staged UI change restored only in the working tree must not cancel out of the diff.
+    diff_options = ('--no-ext-diff', '--no-renames', '--ignore-submodules=none', '--name-only', '-z')
+    paths = git('diff', *diff_options, anchor, 'HEAD', '--')
+    paths += git('diff', *diff_options, '--cached', 'HEAD', '--')
+    paths += git('diff', *diff_options, '--')
+    paths += git('-C', repo, 'ls-files', '--others', '--exclude-standard', '-z')
+    for raw in paths.split(b'\0'):
+        if not raw:
+            continue
+        path = os.fsdecode(raw)
+        if not path.startswith(prefix):
+            raise ValueError('changed path outside nested project')
+        path = path[len(prefix):]
+        if (any(p.is_symlink() for p in (Path(path), *Path(path).parents))
+                or matches(path, ui) or not matches(path, DATA_ONLY)
+                or any(part in ('.', '..') for part in path.split('/'))):
+            raise ValueError('UI or unknown path')
+except (OSError, ValueError, subprocess.SubprocessError):
+    sys.exit(1)  # No successful classification => run the original full browser layer.
+sys.exit(0)
+PY
+  then
+    AFFECTED_SKIP=1
+    GATE_SCOPE="partial"  # Reuse the engine's unconditional no-VERIFIED/no-last_green cage.
+    echo "↷ Playwright omitted by diff against $AFFECTED_BASE (scope: partial; not certification)"
+  else
+    echo "→ --affected: UI/unknown path or classification unavailable; retaining full browser gate"
+  fi
+fi
+
 # BL-0147: stamp the commit this run verified so a LATER reader (the build engine's close-out/
 # notify-end) can prove a report was produced for the EXACT commit it is about to re-verify, instead
 # of trusting scope+green alone (which say nothing about WHICH commit). Best-effort — a fixture/non-
@@ -351,7 +516,7 @@ write_gate_report() {
   # provenance for a reader of the report. The engine's close-out reuse no longer accepts a since-scoped
   # report (canary E2 finding 7: last_green_sha is itself published from since-scoped runs, so a since
   # report never adds up to a full one). Empty (never written) on a `full`/`partial` run.
-  python3 - "$GATE_RUN_AT" "$GATE_SCOPE" "$green" "$GATE_SHA" "$SINCE" "$GATE_FRAGMENTS_DIR/fragments.jsonl" "$REPORT_FILE" "$VITEST_SEED_USED" <<'PY'
+  python3 - "$GATE_RUN_AT" "$GATE_SCOPE" "$green" "$GATE_SHA" "$SINCE" "$GATE_FRAGMENTS_DIR/fragments.jsonl" "$REPORT_FILE" "$VITEST_SEED_USED" "$AFFECTED_SKIP" "$AFFECTED_BASE" <<'PY'
 import json
 import sys
 
@@ -364,6 +529,9 @@ with open(frag_path, "r") as fh:
             subgates.append(json.loads(line))
 
 report = {"at": at, "scope": scope, "green": green_str == "true", "sha": sha, "subgates": subgates}
+if sys.argv[9] == "1":
+    report["scope_reason"] = "affected-no-ui"
+    report["browser"] = {"status": "omitted-by-diff", "base": sys.argv[10]}
 if since:
     report["since"] = since
 if vitest_seed:
@@ -422,6 +590,9 @@ dr146_invocation_error() {
   write_gate_report 2
   exit 2
 }
+case "$NO_BAIL" in 0|1) ;; *) dr146_invocation_error "PANDACORP_VERIFY_NO_BAIL must be 0 or 1" ;; esac
+export PANDACORP_E2E_CERTIFICATION=1
+export PANDACORP_VERIFY_NO_BAIL="$NO_BAIL"
 if [ "$LIGHT_CONFLICT" -eq 1 ]; then
   dr146_invocation_error "--light and --only are exclusive (--light already names its sub-gates)"
 fi
@@ -690,7 +861,7 @@ fi
 if gate_selected vitest; then
 VITEST_RC=0
 VITEST_SEED_USED="$VITEST_SEED"
-VITEST_ORDER=(--sequence.shuffle "--sequence.seed=$VITEST_SEED")
+VITEST_ORDER=("--bail=$((1 - NO_BAIL))" --sequence.shuffle "--sequence.seed=$VITEST_SEED")
 echo "vitest order: shuffled with seed $VITEST_SEED — replay this exact order: PANDACORP_VITEST_SEED=$VITEST_SEED bash .pandacorp/verify.sh $* (vitest alone: PANDACORP_VITEST_SEED=$VITEST_SEED bash .pandacorp/verify.sh --only=vitest)"
 if [ "${#SCOPE_TESTS_ARR[@]}" -gt 0 ]; then
   run_gate vitest vitest pnpm vitest run "${SCOPE_TESTS_ARR[@]}" --reporter=dot --passWithNoTests "${VITEST_ORDER[@]}" || VITEST_RC=$?
@@ -733,8 +904,8 @@ gate_playwright() {
   # DR-072 BLOCKING lenses (routes render clean + the app shell is present). Visual + responsive
   # stay in the FULL run (close-out / Visual QA): fine fidelity is advisory at the gate and may
   # never block, so paying the whole serialized suite per FRD bought nothing but wall-clock.
-  # DR-143: a project's e2e/parallel-safe.json splits the FULL run into two tiers (two server boots):
-  # the listed specs on several workers, then everything else on one. No file, same single run.
+  # DR-143: a project's e2e/parallel-safe.json splits one FULL invocation into ordered projects (one server boot):
+  # the listed specs on several workers, then desktop and mobile serially. No file, same single run.
   # A project's e2e/prod-server.mjs serves the FULL run from one production build instead of next dev.
   if [ -z "$SINCE" ] && [ -f e2e/prod-server.mjs ]; then
     node e2e/prod-server.mjs build || return $?
@@ -743,8 +914,7 @@ gate_playwright() {
   if [ -n "$SINCE" ]; then
     pnpm exec playwright test e2e/smoke.spec.ts e2e/shell.spec.ts
   elif [ -f e2e/parallel-safe.json ]; then
-    PANDACORP_E2E_TIER=parallel pnpm exec playwright test e2e/ || return $?
-    PANDACORP_E2E_TIER=serial pnpm exec playwright test e2e/
+    PANDACORP_E2E_TIER=combined pnpm exec playwright test e2e/
   else
     pnpm exec playwright test e2e/
   fi
@@ -752,7 +922,7 @@ gate_playwright() {
 # Same `set -e` hazard as vitest above: `|| PLAYWRIGHT_RC=$?`, not a bare call.
 # WP-08: the browser layer is NOT file-scopable (`--files` does not touch it) — it is only ever
 # skipped wholesale by an `--only` that does not name it.
-if gate_selected playwright; then
+if gate_selected playwright && [ "$AFFECTED_SKIP" -eq 0 ]; then
 PLAYWRIGHT_RC=0
 run_gate playwright playwright gate_playwright || PLAYWRIGHT_RC=$?
 if [ "$PLAYWRIGHT_RC" -ne 0 ]; then

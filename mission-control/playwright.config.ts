@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices, type Project } from "@playwright/test";
 
 /**
  * Preview Smoke Gate (DR-055) + Visual-Fidelity Gate Layer A (DR-056) + Responsive Gate (DR-074) +
@@ -22,14 +22,14 @@ import { defineConfig, devices } from "@playwright/test";
  *
  * Parallel tier (OPTIONAL, DR-143): a project-local `e2e/parallel-safe.json` — never part of the
  * template, never overwritten by /pandacorp:upgrade — lists the spec files (relative to e2e/) proven
- * to write nothing a sibling spec reads. The full `verify.sh` runs them first on several workers
- * (PANDACORP_E2E_TIER=parallel), then everything else on one (PANDACORP_E2E_TIER=serial). Serial is the
+ * to write nothing a sibling spec reads. The full `verify.sh` uses a single combined run: parallel projects first, then
+ * desktop and mobile serial projects in dependency order, sharing one owned server. Serial is the
  * default: a spec that is not listed keeps the determinism above, and with no file nothing changes.
  * The visual gate may never be listed, because pixel baselines require a single worker (DR-056).
  *
  * Production-build server (OPTIONAL, DR-143): a project-local `e2e/prod-server.mjs` — seed, never
  * overwritten — takes `build` or `start <port>` and owns the project's fixture environment. The full
- * `verify.sh` builds once and sets PANDACORP_E2E_SERVER=prod, so both tiers share one artifact. Manual
+ * `verify.sh` builds once and sets PANDACORP_E2E_SERVER=prod, so every project shares one artifact and one server. Manual
  * and `--since` runs stay on `next dev`, and so does any project without the seed.
  *
  * A project-local `e2e/globalSetup.ts` (optional, seed) is wired in when present, so a project can
@@ -79,6 +79,8 @@ const readParallelSafe = (): string[] => {
     if (typeof spec !== "string" || !fs.existsSync(path.resolve("e2e", spec))) {
       throw new Error(`e2e/parallel-safe.json lists a spec that does not exist: ${String(spec)}`);
     }
+    if (!/^[\w./-]+\.spec\.ts$/.test(spec) || spec.split("/").includes(".."))
+      throw new Error(`Unsafe parallel spec path: ${spec}`);
     if (spec === "visual.spec.ts")
       throw new Error("visual.spec.ts must stay on one worker (DR-056)");
     return `**/e2e/${spec}`;
@@ -89,26 +91,59 @@ if (GATE_PROD && !fs.existsSync(path.resolve("e2e", "prod-server.mjs"))) {
   throw new Error("PANDACORP_E2E_SERVER=prod needs e2e/prod-server.mjs");
 }
 const TIER = process.env.PANDACORP_E2E_TIER;
-if (TIER !== undefined && TIER !== "parallel" && TIER !== "serial") {
+if (TIER !== undefined && TIER !== "parallel" && TIER !== "serial" && TIER !== "combined") {
   throw new Error(`Unknown PANDACORP_E2E_TIER: ${TIER}`);
 }
 const PARALLEL_SAFE = readParallelSafe();
 const PARALLEL_WORKERS = Number(process.env.PANDACORP_E2E_WORKERS) || 3;
 const GLOBAL_SETUP = path.resolve("e2e", "globalSetup.ts");
-// Each of these specs sets its own viewport or never renders one, so a second project repeats them.
-const VIEWPORT_AGNOSTIC = [
-  "**/e2e/shell.spec.ts",
-  "**/e2e/headers.spec.ts",
-  "**/e2e/hydration.spec.ts",
-];
-const TIER_IGNORE = TIER === "serial" ? PARALLEL_SAFE : [];
+// Explicit mobile coverage: mandatory smoke/visual/responsive plus reviewed project additions.
+// Unknown specs start desktop-only; review viewport/focus/dialog/navigation before adding one.
+const MOBILE_FILE = path.resolve("e2e", "mobile-specs.json");
+const MOBILE_CORE = ["smoke.spec.ts", "visual.spec.ts", "responsive.spec.ts"];
+const readMobileSpecs = (): string[] => {
+  if (!fs.existsSync(MOBILE_FILE)) return MOBILE_CORE;
+  const specs: unknown = JSON.parse(fs.readFileSync(MOBILE_FILE, "utf8"));
+  if (!Array.isArray(specs)) throw new Error("e2e/mobile-specs.json must be a JSON array");
+  for (const spec of specs) {
+    if (
+      typeof spec !== "string" ||
+      !/^[\w./-]+\.spec\.ts$/.test(spec) ||
+      spec.split("/").includes("..") ||
+      !fs.existsSync(path.resolve("e2e", spec))
+    )
+      throw new Error(`Invalid mobile spec: ${String(spec)}`);
+  }
+  return [...new Set([...MOBILE_CORE, ...specs])];
+};
+const MOBILE = readMobileSpecs().map((spec) => `**/e2e/${spec}`);
+const TIER_IGNORE = TIER === "serial" || TIER === "combined" ? PARALLEL_SAFE : [];
+const COMBINED = TIER === "combined" && PARALLEL_SAFE.length > 0;
+const parallelProjects: (Project & { name: string })[] = COMBINED
+  ? [
+      {
+        name: "desktop-parallel",
+        testMatch: PARALLEL_SAFE,
+        use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+      },
+      {
+        name: "mobile-parallel",
+        testMatch: PARALLEL_SAFE.filter((spec) => MOBILE.includes(spec)),
+        use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
+      },
+    ]
+  : [];
 
 export default defineConfig({
   testDir: "./e2e",
   ...(TIER === "parallel" ? { testMatch: PARALLEL_SAFE } : {}),
   ...(fs.existsSync(GLOBAL_SETUP) ? { globalSetup: "./e2e/globalSetup.ts" } : {}),
   fullyParallel: false,
-  workers: TIER === "parallel" ? PARALLEL_WORKERS : 1,
+  workers: TIER === "parallel" || COMBINED ? PARALLEL_WORKERS : 1,
+  maxFailures:
+    process.env.PANDACORP_E2E_CERTIFICATION === "1" && process.env.PANDACORP_VERIFY_NO_BAIL !== "1"
+      ? 1
+      : 0,
   forbidOnly: isCI,
   retries: 0,
   reporter: [["list"]],
@@ -123,14 +158,21 @@ export default defineConfig({
     },
   },
   projects: [
+    ...parallelProjects,
     {
       name: "desktop",
+      ...(COMBINED
+        ? { dependencies: parallelProjects.map((project) => project.name), workers: 1 }
+        : {}),
       testIgnore: TIER_IGNORE,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
     {
       name: "mobile",
-      testIgnore: [...TIER_IGNORE, ...VIEWPORT_AGNOSTIC],
+      testMatch:
+        TIER === "parallel" ? PARALLEL_SAFE.filter((spec) => MOBILE.includes(spec)) : MOBILE,
+      testIgnore: TIER_IGNORE,
+      ...(COMBINED ? { dependencies: ["desktop"], workers: 1 } : {}),
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
     },
   ],
@@ -142,7 +184,12 @@ export default defineConfig({
         : `next dev --hostname 127.0.0.1 --port ${PORT}`,
     url: BASE_URL,
     reuseExistingServer:
-      !PROD_SMOKE && !GATE_PROD && !LANE && !isCI && Object.keys(serverEnv).length === 0,
+      process.env.PANDACORP_E2E_CERTIFICATION !== "1" &&
+      !PROD_SMOKE &&
+      !GATE_PROD &&
+      !LANE &&
+      !isCI &&
+      Object.keys(serverEnv).length === 0,
     timeout: PROD_SMOKE ? 600_000 : 180_000,
     env: serverEnv,
   },

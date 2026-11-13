@@ -216,11 +216,6 @@ if [ -f "e2e/server-env.json" ]; then
     fail "integration gate RED on the rebased result — e2e/server-env.json differs from HEAD" 11
   command -v jq >/dev/null 2>&1 || fail "jq is required to read the committed e2e PORT — install jq and re-run" 20 # BL-0288
   COMMITTED_PORT="$(jq -r '.PORT|tostring' e2e/server-env.json)"
-  # BL-0288: refuse to gate against a dev server / another gate already owning the committed
-  # origin. Same loopback /dev/tcp probe as bootstrap; projects without the file skip this check.
-  if (exec 3<>"/dev/tcp/127.0.0.1/$COMMITTED_PORT") 2>/dev/null; then
-    fail "committed e2e PORT :$COMMITTED_PORT is busy — stop the dev server / other gate on :$COMMITTED_PORT, then re-run" 14
-  fi
 fi
 # DR-146 certified tree: verify.sh is a function of the tree it judges, so when the rebased result is
 # byte-identical (same HEAD^{tree}, clean, no skip-worktree/assume-unchanged entries, same verify.sh,
@@ -233,11 +228,20 @@ if [ -x ".pandacorp/verify.sh" ]; then
     echo "merge-queue: integration gate SKIPPED [certified-tree] — rebased tree is identical to one a full verify.sh passed ($stamp_note)"
   else
     echo "merge-queue: running the full integration gate [full-gate] (${stamp_note:-no green-stamp.sh in this overlay})"
+    # A certified identical tree needs no port. Probe only when a full gate is necessary.
+    if [ -n "${COMMITTED_PORT:-}" ]; then
+      # BL-0288: refuse to gate against a dev server / another gate already owning the committed
+      # origin. Same loopback /dev/tcp probe as bootstrap; projects without the file skip this check.
+      if (exec 3<>"/dev/tcp/127.0.0.1/$COMMITTED_PORT") 2>/dev/null; then
+        fail "committed e2e PORT :$COMMITTED_PORT is busy — stop the dev server / other gate on :$COMMITTED_PORT, then re-run" 14
+      fi
+    fi
     start_lock_refresh
     acquire_host_slot
     GATE_RC=0
     bash .pandacorp/verify.sh || GATE_RC=$?
     release_host_slot
+    [ "$GATE_RC" -ne 75 ] || fail "verification owner busy in this checkout; wait and retry (no project verdict)" 14
     # Generated gate output belongs to this integration checkout only. Release the heavy
     # slot first, on both green and red; preserve the gate verdict after cleanup.
     rm -rf -- .next .next-fidelity test-results
