@@ -181,7 +181,7 @@ when the build deviated from the docs.
 **Scope guarantee, by construction:** the run's scope is the WOs with that card's `source_change`
 (or the FRDs/plan of rows 2, 4, 6); `next` never returns a unit outside it; `report` commits with
 its own pathspec-limited `git commit` only after checking that the reported files equal the
-worktree's changes, every file is inside the unit's allowlist (build/patch: its WOs' `artifacts`; docs: `docs/**`, `README.md`, root `DESIGN.md`, `.env.example` and new WO files born `PLANNED`; tests: test surfaces only), no `**/*-snapshots/**` path, no edit of an existing WO's frontmatter (the body of the unit's own WO only if that file is in `artifacts`), and no change to any hashed test or probe file; schema and migration paths are allowed (G3
+worktree's changes, every file is inside the unit's allowlist (build/patch: its WOs' `artifacts`; docs: `docs/**`, `README.md`, root `DESIGN.md`, `.env.example` and new WO files born `PLANNED`, carrying `source_change: [<card>]` in a card run (BL-0315); tests: test surfaces only), no `**/*-snapshots/**` path, no edit of an existing WO's frontmatter (the body of the unit's own WO only if that file is in `artifacts`), and no change to any hashed test or probe file; schema and migration paths are allowed (G3
 gates them). The single reviewer opens a `scope` finding when the diff touches anything in Fuera. A
 dependency outside scope and not `VERIFIED` is a hand-back ("depende de WO-x, ¿la incluyo?"), never
 silently included.

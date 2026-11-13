@@ -6,7 +6,7 @@ const DOCS_RES = [/^docs\//, /^README\.md$/, /^DESIGN\.md$/, /^\.env\.example$/]
 /** Human-readable patterns per kind, as printed in the brief (A2). */
 export function allowlistPatterns(kind, artifacts = []) {
   if (kind === "build" || kind === "patch") return [...artifacts];
-  if (kind === "docs") return ["docs/**", "README.md", "DESIGN.md", ".env.example", "new work orders docs/frds/*/work-orders/wo-*.md (implementation_status: PLANNED)"];
+  if (kind === "docs") return ["docs/**", "README.md", "DESIGN.md", ".env.example", "new work orders docs/frds/*/work-orders/wo-*.md (implementation_status: PLANNED; in a card run also source_change: [<card>])"];
   if (kind === "tests" || kind === "review" || kind === "audit" || kind === "deferred-review") return ["**/_tests/**", "**/*.test.*", "**/*.spec.*", "e2e/**", "src/test/**"];
   return [];
 }

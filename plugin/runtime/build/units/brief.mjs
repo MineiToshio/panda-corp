@@ -118,7 +118,11 @@ export async function writeUnitBrief({ project, state, unit, cell, agentType, to
 
   const decision = extra.decision ?? await decidedDoubt(project, unit, deps);
   const resumed = await unblockedNote(fs, p.unitDir(unit.id), unit.attempt);
-  const notes = [...resumed, ...(extra.notes ?? []), ...(extra.questionDefaults ?? []).map((q) => `Owner question pending, working default: ${typeof q === "string" ? q : JSON.stringify(q)}`)];
+  // BL-0315: a card run plans only the WOs that name the card, so every new WO must carry it (report rejects it otherwise).
+  const cardWoRule = unit.kind === "docs" && state.scope?.card
+    ? [`Every NEW work order you create must have \`source_change: [${state.scope.card}]\` in its frontmatter (with \`implementation_status: PLANNED\`); without it the engine never builds that work order and your report is rejected.`]
+    : [];
+  const notes = [...cardWoRule, ...resumed, ...(extra.notes ?? []), ...(extra.questionDefaults ?? []).map((q) => `Owner question pending, working default: ${typeof q === "string" ? q : JSON.stringify(q)}`)];
   const text = renderBrief({
     unit, cell, agentType, roleFile: agentRoleFile(agentType, deps.pluginRoot), card, acLines,
     allowlist: allowlistPatterns(unit.kind, artifacts), contextPack, root, reportPath: outPath, schemaPath, token,

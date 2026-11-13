@@ -102,7 +102,7 @@ const WO_DIR = `docs/frds/${FRD}/work-orders`;
 const AGENT = { runtime: "claude", model: "sonnet", effort: "medium" };
 
 /** One sandbox: fixture + G1 stub + integration worktree + lease + state + journal. */
-const withRun = async (fn) => {
+const withRun = async (fn, { card = null } = {}) => {
   const dir = await mkdtemp(path.join(SCRATCH_ROOT, "pc-c03-"));
   const { createFixture, testEnv, git } = await fixturesMod();
   const env = { ...testEnv(dir) }; delete env.PANDACORP_NOW;
@@ -132,7 +132,7 @@ const withRun = async (fn) => {
       const lease = await bs.acquire(root, { runtime: "claude", runId: RUN, ttlSeconds: 1800, projectStatus: false, coordinator: "session" });
       const epoch = lease.epoch;
       const state0 = st.newState({ run_id: RUN, epoch, coordinator: "claude-session", label: "claude", size: "feature",
-        scope: { card: null, frds: [FRD], wos: ["WO-01-001", "WO-01-002"], out_of_scope: [] },
+        scope: { card, frds: [FRD], wos: ["WO-01-001", "WO-01-002"], out_of_scope: [] },
         integration: { branch, worktree: paths.integrationWorktree, base_sha: baseSha } });
       await st.writeState(root, state0);
       await jr.appendEvent(paths.journalFile, { run_id: RUN, epoch, actor: "cli", type: "run_started", data: { detect: {}, preflight: {}, state: state0 } });
@@ -366,6 +366,59 @@ await test("report: a docs unit may edit docs/** and CREATE a new work-order fil
   ok(!/^Change:/m.test(c.body(u.branch)), "no Change: trailer on a docs commit");
   c.mainClean();
 }));
+// BL-0315: a card run plans only WOs whose source_change names the card; a docs unit that creates one without it would
+// make the run land the docs and finish with zero build units (funko-tracker br-2026-11-13-02).
+const CARD = "explore-home-alive";
+await test("BL-0315 report: in a card run a docs unit's NEW WO without source_change naming the card is rejected (attempt consumed)", async () => withRun(async (c) => {
+  const u = await c.dispatch(docsUnit());
+  const newWo = `${WO_DIR}/wo-01-003.md`;
+  await c.write(u, { [newWo]: woText("WO-01-003", "PLANNED") });
+  const res = await c.submit(u, c.report(u, { files: [newWo] }));
+  c.integrationTip = c.tip(c.branch); await assertRejected(c, u, res, "new WO without source_change");
+  ok(JSON.stringify(res).includes(`source_change: [${CARD}]`) || JSON.stringify(res.thrown?.message ?? "").includes(CARD), `the rejection names the card: ${JSON.stringify(res).slice(0, 400)}`);
+  await assertAttemptBumped(c, u, 2, "new WO without source_change");
+}, { card: CARD }));
+await test("BL-0315 report: source_change naming ANOTHER card, or an empty list, is rejected too", async () => withRun(async (c) => {
+  for (const [i, sc] of [["4", "source_change: [other-card]\n"], ["5", "source_change: []\n"]]) {
+    const u = await c.dispatch(docsUnit({ id: `u-docs-x${i}` }));
+    const newWo = `${WO_DIR}/wo-01-00${i}.md`;
+    await c.write(u, { [newWo]: woText(`WO-01-00${i}`, "PLANNED").replace("dependsOn: []\n", `dependsOn: []\n${sc}`) });
+    const res = await c.submit(u, c.report(u, { files: [newWo] }));
+    c.integrationTip = c.tip(c.branch); await assertRejected(c, u, res, `new WO with ${sc.trim()}`);
+  }
+}, { card: CARD }));
+await test("BL-0315 report: a card-run docs unit whose new WOs list the card (inline or block list, any case) is committed", async () => withRun(async (c) => {
+  const u = await c.dispatch(docsUnit());
+  const a = `${WO_DIR}/wo-01-003.md`; const b = `${WO_DIR}/wo-01-004.md`;
+  await c.write(u, {
+    [a]: woText("WO-01-003", "PLANNED").replace("dependsOn: []\n", `dependsOn: []\nsource_change: [${CARD}]\n`),
+    [b]: woText("WO-01-004", "PLANNED").replace("dependsOn: []\n", `dependsOn: []\nsource_change:\n  - ${CARD.toUpperCase()}\n`),
+  });
+  const res = await c.submit(u, c.report(u, { files: [a, b] }));
+  eq(res.outcome, "committed", `card-bound WOs are accepted: ${JSON.stringify(res).slice(0, 300)}`);
+}, { card: CARD }));
+await test("BL-0315 report: without a card (FRD/plan scope) a new WO needs no source_change (unchanged)", async () => withRun(async (c) => {
+  const u = await c.dispatch(docsUnit());
+  const newWo = `${WO_DIR}/wo-01-003.md`;
+  await c.write(u, { [newWo]: woText("WO-01-003", "PLANNED") });
+  eq((await c.submit(u, c.report(u, { files: [newWo] }))).outcome, "committed", "no card, no source_change requirement");
+}));
+await test("BL-0315 planner: a card-scope plan schedules a PLANNED WO only when its source_change names the card", async () => {
+  const { plan } = await buildMod("planner.mjs");
+  const wo = (id, sc) => ({ id, frd: FRD, file: `${WO_DIR}/${id.toLowerCase()}.md`, status: "PLANNED", deps: [], artifacts: [`src/alpha/${id}.ts`], acs: [], source_change: sc });
+  const res = plan({ wos: [wo("WO-01-003", []), wo("WO-01-004", [CARD])], frd_acs: {}, scope: { card: CARD, frds: [FRD], wos: [], out_of_scope: [] }, units: [], label: "claude", size: "feature", questions: [], quota: null });
+  const planned = (res.units ?? []).flatMap((u) => u.wos ?? []).map((w) => String(w).toUpperCase());
+  ok(planned.includes("WO-01-004") && !planned.includes("WO-01-003"), `only the card-bound WO is planned: ${JSON.stringify(planned)}`);
+});
+await test("BL-0315 brief: a docs unit of a card run is told to set source_change: [<card>] on every new WO", async () => withRun(async (c) => {
+  const u = await c.dispatch(docsUnit());
+  const st = await buildMod("state.mjs");
+  const state = await st.readState(c.root ?? process.cwd());
+  const { writeUnitBrief } = await buildMod("units.mjs");
+  const unit = state.units.find((x) => x.id === u.id);
+  const brief = await writeUnitBrief({ project: c.root, state, unit, cell: { runtime: "codex", model: "sol", effort: "high" }, agentType: "pandacorp:implementer", token: "t".repeat(64), schemaPath: "" });
+  ok(brief.text.includes(`source_change: [${CARD}]`), "docs brief names the card's source_change rule");
+}, { card: CARD }));
 await test("report: a docs unit creating a new WO that is NOT PLANNED is rejected", async () => withRun(async (c) => {
   const u = await c.dispatch(docsUnit());
   const newWo = `${WO_DIR}/wo-01-003.md`;

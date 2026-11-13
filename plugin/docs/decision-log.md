@@ -1,5 +1,16 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-13 — Card-run docs units must bind new work orders to the card (BL-0315)
+
+**What:** In a card run, `report` rejects a docs unit whose new work order lacks `source_change` listing the card,
+and the docs brief and allowlist text state the rule. Plugin **10.4.1**.
+
+**Why:** funko-tracker run `br-2026-11-13-02` committed WO-01-017/018 without the card, the planner (which plans only
+card-bound WOs in a card run) queued nothing and the run landed the docs with zero build units. Rejecting, not
+auto-stamping, keeps the engine from rewriting worker documents; the rejection names the card for the next attempt.
+Canonical: [CLI reference](build-engine-cli.md) report checks, BUILD-8 in
+[build-engine.md](../../factory/standards/build-engine.md). Tests: `test-build-v2-report.mjs` BL-0315 cases.
+
 ## 2026-11-13 — PostHog organization per app under the shared login (DR-160)
 
 **What:** Architecture now provisions one app-named PostHog organization per app under the existing shared login, free/no card, exactly one project; selects US/EU at creation; records organization/project IDs and region; and never reuses another app's key. A card prompt stops provisioning for owner escalation. Update the injected rule and Manual services guide. Independent review also removed the contradictory blanket organization prohibition from the architecture decision-round reference, retaining it for other providers and linking the DR-160 exception. Plugin **10.4.0**, overlay **9.3.0** propagates the compatible rule exception.

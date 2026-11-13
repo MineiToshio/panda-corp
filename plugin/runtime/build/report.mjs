@@ -9,7 +9,7 @@
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { releaseToken, verifyToken } from "./admission.mjs";
-import { parseYamlSubset, setCardDocsSha, splitFrontmatter } from "./card.mjs";
+import { frontmatterList, parseYamlSubset, setCardDocsSha, splitFrontmatter } from "./card.mjs";
 import { applyUnitFailure, openUnitDoubt } from "./failure.mjs";
 import { loadSchema, sha256Hex, validate } from "./fsx.mjs";
 import { buildPaths } from "./paths.mjs";
@@ -105,7 +105,18 @@ async function readFileText(fs, file) {
 }
 
 /** The violations of the write allowlist, the hashed set and the work-order rules for a set of changes (A2, D28). */
-async function checkChanges({ unit, artifacts, changes, hashed, root, base, deps }) {
+/**
+ * BL-0315: with a card scope the planner only plans the work orders whose `source_change` names the card (or that the
+ * run scope lists), so a new WO a docs unit creates without it is never built: the run would land the docs and finish.
+ */
+export function newWoSourceChangeProblem(card, data) {
+  if (!card) return null;
+  const want = String(card).toLowerCase();
+  const listed = frontmatterList(data?.source_change).map((s) => String(s).toLowerCase());
+  return listed.includes(want) ? null : `a new work order of a card run must list the card in source_change: [${card}] (otherwise the planner never schedules it)`;
+}
+
+async function checkChanges({ unit, artifacts, changes, hashed, root, base, card = null, deps }) {
   const fs = deps.fs ?? fsp;
   const problems = [];
   for (const { rel, status } of changes) {
@@ -119,8 +130,10 @@ async function checkChanges({ unit, artifacts, changes, hashed, root, base, deps
       if (after === null || frontmatterBlock(before.stdout) !== frontmatterBlock(after)) problems.push({ path: rel, why: "the frontmatter of an existing work order must never change" });
     } else if (status !== "D") {
       const text = await readFileText(fs, path.join(root, rel));
-      const planned = parseYamlSubset(splitFrontmatter(text ?? "")?.fm ?? "").data.implementation_status === "PLANNED";
-      if (!planned) problems.push({ path: rel, why: "a new work order must have implementation_status: PLANNED" });
+      const data = parseYamlSubset(splitFrontmatter(text ?? "")?.fm ?? "").data;
+      if (data.implementation_status !== "PLANNED") problems.push({ path: rel, why: "a new work order must have implementation_status: PLANNED" });
+      const missing = newWoSourceChangeProblem(card, data);
+      if (missing) problems.push({ path: rel, why: missing });
     }
   }
   return problems;
@@ -225,7 +238,7 @@ async function evaluateDone({ intent, deps }) {
   if (!changes.length && !reasons.length) reasons.push("nothing to commit: the worktree has no changes");
 
   const workOrders = unit.kind === "build" || unit.kind === "patch" ? await readUnitWorkOrders(root, unit.wos, { ...deps, ref: base }) : [];
-  const problems = await checkChanges({ unit, artifacts: artifactsOf(workOrders), changes, hashed: intent.hashed, root, base, deps });
+  const problems = await checkChanges({ unit, artifacts: artifactsOf(workOrders), changes, hashed: intent.hashed, root, base, card: intent.card, deps });
   for (const p of problems) reasons.push(`${p.path}: ${p.why}`);
   const evidenceFiles = [...new Set([...problems.map((p) => p.path), ...(reasons.length ? changed : [])])];
   if (reasons.length) return rejected(reasons, { evidence: { files: evidenceFiles } });
