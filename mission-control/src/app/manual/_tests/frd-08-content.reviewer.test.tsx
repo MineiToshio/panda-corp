@@ -8,6 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { readManualPages } from "@/lib/manual/manual";
 import { extractPageText } from "../_components/DocsSearch/extract";
+import { buildSearchIndex, searchPages } from "../_components/DocsSearch/search";
 import { getManualPageComponent } from "../manualPages";
 
 const pages = readManualPages(process.cwd());
@@ -32,10 +33,12 @@ describe("WO-08-004 REQ-08-013 retired surfaces, all pages", () => {
 });
 
 describe("WO-08-004 REQ-08-013 build mode guide matches the installed engine", () => {
-  it("each mode's command selects that mode; the bare command is the default, powerful", () => {
+  it("REQ-08-021.1 selects scope or resumes without retired power modes", () => {
     const guide = text("g-modo");
-    expect(guide).toContain("implement balanced");
-    expect(guide).toContain("implement powerful");
+    expect(guide).toContain("implement frd-05-settings");
+    expect(guide).toContain("implement change:mc-fix-pagination");
+    expect(guide).toContain("--resume");
+    expect(guide).not.toMatch(/implement (balanced|powerful|deep|pro)/);
     expect(guide).not.toMatch(/(?:hasta|oleadas de) [248] work orders/);
   });
 
@@ -48,6 +51,24 @@ describe("REQ-08-018 every indexed page has one content source", () => {
   it("indexes only bespoke or real-prose pages", () => {
     for (const page of pages) {
       if (!getManualPageComponent(page.slug)) expect(page.body.trim().length).toBeGreaterThan(200);
+    }
+  });
+});
+
+describe("AC-08-020.2 real Day 1 search content", () => {
+  it("finds project prose across every retained group without joining adjacent blocks", () => {
+    const index = buildSearchIndex(pages, (page) => extractPageText(page, renderToStaticMarkup));
+    const hits = searchPages(index, "proyecto");
+    expect(new Set(hits.map((hit) => hit.group))).toEqual(
+      new Set(["tutorial", "guides", "concepts", "workflows"]),
+    );
+    const backlog = hits.find((hit) => hit.page.slug === "wf-pandacorp-backlog");
+    expect(backlog?.snippet).toContain("proyecto");
+    expect(text("wf-pandacorp-backlog")).toContain("/pandacorp:implement");
+    for (const hit of hits) {
+      expect(hit.snippet.replace(/\b(?:OpenCode|JavaScript)\b/g, "")).not.toMatch(
+        /\p{Ll}[.:]?\p{Lu}\p{Ll}/u,
+      );
     }
   });
 });

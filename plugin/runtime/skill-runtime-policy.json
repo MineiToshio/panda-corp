@@ -32,14 +32,12 @@
     },
     "implement": {
       "codex": {
-        "status": "EXPERIMENTAL",
-        "profile": "attended_foreground",
-        "scope": "targeted-only",
-        "fallback": "Full native attended read/write access to every skill and application (DR-133). Automated launcher supports one exact FRD or ready change, foreground, <=7200 seconds, zero automatic restarts. Other scopes execute natively with available tools and the same governance; no unattended certification is claimed.",
+        "status": "FALLBACK",
+        "fallback": "Follow the canonical implement skill using the shared v2 CLI and runtime-local workers. Full native read/write authority is granted by DR-133; the first real v2 run remains pending validation.",
         "evidence": {
-          "kind": "owner-authorized-native-plus-historical-targeted-canary",
-          "verified_at": "2026-10-20",
-          "verifier": "DR-133; historical installed canary codex-20260715T151508Z-99530"
+          "kind": "static-contract-only",
+          "verified_at": "2026-11-12",
+          "verifier": "plugin/scripts/check-skill-capabilities.mjs"
         }
       }
     },

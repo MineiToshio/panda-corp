@@ -7,7 +7,8 @@ import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { DialogConfirm } from "@/components/core/Modal/DialogConfirm";
 import { Modal } from "@/components/core/Modal/Modal";
 import { FileReadErrors } from "@/components/modules/FileReadErrors/FileReadErrors";
-import { type ChangeQueueReadResult, isSuspectedChange } from "@/lib/changes/changes";
+import { isSuspectedChange } from "@/lib/changes/change-state";
+import type { ChangeQueueReadResult } from "@/lib/changes/changes";
 import { t } from "@/lib/copy/copy";
 import { useUrlState } from "@/lib/navigation/useUrlState";
 import { discardChangeAction } from "../../_actions/discard-change";
@@ -146,7 +147,7 @@ export function ChangesPanel({
       <Card tone="pink">
         <CardHeader title={t("workspace.cambios.request.title")} icon="plus" />
         <p>{t("workspace.cambios.request.intro")}</p>
-        <CmdRow variant="box" command="/pandacorp:change" />
+        <CmdRow variant="box" command="/pandacorp:implement" />
       </Card>
       <Modal
         open={!!selected && !showConfirm}

@@ -1,5 +1,5 @@
 /**
- * manual-diagrams/StateTable.tsx — FRD-08 ("Estado y archivos · el modelo de datos")
+ * manual-diagrams/StateTable.tsx : FRD-08 ("Estado y archivos · el modelo de datos")
  *
  * The state/files table: file path (mono) · what it stores · who writes it.
  * Wrapped by the caller in a Panel with overflow-x:auto.
@@ -16,6 +16,26 @@ import type React from "react";
 type Row = { readonly file: string; readonly stores: string; readonly writer: string };
 
 const ROWS: readonly Row[] = [
+  {
+    file: ".pandacorp/run/build/state.json",
+    stores: "caché de unidades en vuelo; no sustituye al frontmatter",
+    writer: "el CLI cercado por lease y epoch",
+  },
+  {
+    file: ".pandacorp/run/build/admission.json",
+    stores: "paso 1/2/3/5/8, motivo y espera por disco",
+    writer: "el controlador de admisión",
+  },
+  {
+    file: ".pandacorp/inbox/decisions.pending.md",
+    stores: "espejo local de preguntas cuando el inbox está versionado",
+    writer: "el CLI",
+  },
+  {
+    file: "~/.pandacorp/host/perf/journal.jsonl",
+    stores: "rendimiento retrospectivo local, fuera de git",
+    writer: "el CLI",
+  },
   {
     file: "factory/ideas/<slug>.md",
     stores: "frontmatter: status, project_type, score, evidence",
@@ -34,8 +54,8 @@ const ROWS: readonly Row[] = [
   },
   {
     file: "docs/frds/frd-NN-<slug>/work-orders/",
-    stores: "estado de cada WO (todo→done), por feature",
-    writer: "los agentes",
+    stores: "estado durable de cada WO por feature; main avanza al aterrizar",
+    writer: "el CLI y los skills autorizados",
   },
   {
     file: ".pandacorp/inbox/decisions.md",
@@ -44,18 +64,18 @@ const ROWS: readonly Row[] = [
   },
   {
     file: ".pandacorp/inbox/changes/",
-    stores: "cola de cambios: features, ajustes y bugs (tipo bug) por atender",
-    writer: "change / implement",
+    stores: "tarjetas de alcance y borradores; sin drenaje automático",
+    writer: "la sesión / implement",
   },
   {
     file: ".pandacorp/comms/progress.md",
     stores: "bitácora append-only",
-    writer: "los agentes",
+    writer: "el CLI y los skills autorizados",
   },
   {
     file: "~/.claude/dashboard-events.ndjson",
-    stores: "eventos en vivo (La Fragua)",
-    writer: "subagentes + SubagentStop",
+    stores: "observaciones del transporte Claude; Codex usa su propio archivo",
+    writer: "el CLI y los hooks disponibles",
   },
 ] as const;
 

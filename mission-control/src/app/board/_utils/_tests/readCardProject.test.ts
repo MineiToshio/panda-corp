@@ -34,6 +34,16 @@ beforeAll(() => {
   write(projectPath, ".pandacorp/comms/arquitectura-resumen.md", "## Arquitectura\n\nDigest");
   write(projectPath, "docs/product/prd.md", "# PRD");
   write(projectPath, "docs/frds/frd-01-core/frd.md", "# FRD");
+  write(
+    projectPath,
+    "docs/frds/frd-01-core/work-orders/wo-01-001.md",
+    "---\nid: WO-01-001\nimplementation_status: PLANNED\n---\n# Pending",
+  );
+  write(
+    projectPath,
+    ".pandacorp/inbox/changes/next.md",
+    "---\ntype: change\nstatus: draft\n---\n# Next",
+  );
   bareProjectPath = join(root, "bare");
   write(bareProjectPath, ".pandacorp/status.yaml", "project: Bare\nphase: product\n");
 });
@@ -56,6 +66,10 @@ describe("readCardProject", () => {
     );
     expect(data.frdCount).toBe(1);
     expect(data.workOrders).toBeDefined();
+    expect(data.buildTargets?.map((target) => target.value)).toEqual(["FRD-01", "change:next"]);
+    expect(data.buildTargets?.find((target) => target.value === "change:next")?.status).toBe(
+      "draft",
+    );
     expect(data.projectStatus?.present).toBe(true);
   });
 

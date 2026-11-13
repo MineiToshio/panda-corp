@@ -15,7 +15,7 @@
  * FAIL-CLOSED, by construction:
  *   - The ONLY input is `PANDACORP_GATE_SKIP_ROUTES`, a comma-separated list of route paths. The BUILD
  *     ENGINE is the only writer, and it derives the list SOLELY from work orders whose frontmatter is
- *     `implementation_status: BLOCKED` + `blocked_reason: needs-owner` (see pandacorp-build.js). A route
+ *     `implementation_status: BLOCKED` + `blocked_reason: needs-owner` (the gate's route-skip contract). A route
  *     blocked for ANY OTHER reason — a real regression, `error`, `external`, or an unset env var — is
  *     NEVER in the list, so it still reds the gate. There is no way to quarantine a route from the spec
  *     side; the quarantine is proven upstream.

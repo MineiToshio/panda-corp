@@ -52,7 +52,18 @@ it.each([
   const trigger = screen.getByRole("button", { name: /Change / });
   await user.click(trigger);
   const dialog = screen.getByRole("dialog");
-  expect(within(dialog).getByText(`/pandacorp:implement change:${status}`)).toBeInTheDocument();
+  if (status === "building")
+    expect(
+      within(dialog).getByRole("button", { name: "Copiar /pandacorp:implement --resume" }),
+    ).toBeInTheDocument();
+  else if (status === "ready" || status === "draft")
+    expect(
+      within(dialog).getByRole("button", { name: `Copiar /pandacorp:implement change:${status}` }),
+    ).toBeInTheDocument();
+  else
+    expect(
+      within(dialog).queryByRole("button", { name: /^Copiar \/pandacorp:implement/ }),
+    ).toBeNull();
   expect(within(dialog).getByText("Rehace trabajo ya verificado")).toBeInTheDocument();
   expect(within(dialog).getByText("Urgente")).toBeInTheDocument();
   expect(dialog).not.toHaveTextContent("secret-sha");
@@ -105,7 +116,7 @@ it("REQ-04-009: empty queue still offers the change command", () => {
     <ChangesPanel result={{ items: [], errors: [] }} projectPath="/tmp/project" slug="project" />,
   );
   expect(screen.getByText("No hay cambios abiertos en la cola.")).toBeInTheDocument();
-  expect(screen.getByText("/pandacorp:change")).toBeInTheDocument();
+  expect(screen.getByText("/pandacorp:implement")).toBeInTheDocument();
 });
 
 it.each([

@@ -4,7 +4,7 @@
 
 ## 1. What the CLI is
 
-One Node program is the build engine's only executor, for both runtimes (Claude Code and Codex). It holds all state, all arithmetic and all judgment that must not depend on a model's mood: detection, preflight, planning, risk zones, routing, quota, RAM admission, fencing, commits, integration, landing, doubts, parking, handback and the drive relay. The lead session (Claude or Codex) only runs it in a loop, dispatches the units it returns, and reports back. The session never edits state, status, work-order frontmatter, the journal or the lease by hand.
+One Node program is the build engine's only executor, for both runtimes (Claude Code and Codex). It holds all state, all arithmetic and all judgment that must not depend on a model's mood: detection, preflight, planning, risk zones, routing, quota, adaptive memory/disk admission, fencing, commits, integration, landing, doubts, parking, handback and the drive relay. The lead session (Claude or Codex) only runs it in a loop, dispatches the units it returns, and reports back. The session never edits state, status, work-order frontmatter, the journal or the lease by hand.
 
 - Runtime: Node >= 22, ESM `.mjs`, `node:` builtins only, no npm dependencies.
 - Entry point: `plugin/scripts/pandacorp-build.mjs` (dispatcher). Modules live in `plugin/runtime/build/` and self-locate with `import.meta.url`.
@@ -25,8 +25,10 @@ One Node program is the build engine's only executor, for both runtimes (Claude 
 | `risk.mjs` | risk zone `none/floor/r1`, rules, `irreversible`, `audit`; imports `product-floor.mjs`; runs `classify-change.mjs` by `execFile` |
 | `routing.mjs` | builder cell, review cell, doubt consult cell; never emits Fable or `max` |
 | `quota.mjs` | Codex rollout tail reader, Claude reading record, unified limit detector, effective quota, policy |
-| `admission.mjs` | RAM signals, reservations, B/H decision, host H slots, unit token issue/verify/release; no calibration |
-| `planner.mjs` | pure self-contained planner (ready set, barrier, chains, deadlock), `lint-plan`; imports nothing from `build-mech-*` |
+| `admission.mjs` | RAM/disk signals, persisted adaptive ladder, heavy-job estimates, B/H decisions, host H slots and unit tokens |
+| `perf.mjs` | bounded local samples, host performance records and learned start recommendation |
+| `gatefail.mjs` | pure G2/G3 diagnostic parser, canonical-WO attribution and fenced evidence persistence |
+| `planner.mjs` | pure self-contained planner (ready set, barrier, chains, deadlock), `lint-plan`; has no retired-engine dependency |
 | `next.mjs` | scheduler behind `next` (harvest, integrate, G2, deferred reviews, quota policy, admission, dispatch, terminal actions) |
 | `units.mjs` | unit worktrees and branches `lane/<run_id>/<unit>[-a<n>]`, brief generation. Unit ids `integration` and `assume-*` are reserved (they name the integration and assumption branches; `paths.mjs` rejects them) |
 | `report.mjs` | ingest worker reports, G1 re-run, own pathspec-limited commit, tests units, diff gate (S8/deploy), idempotent re-ingest (`resumeCommitted`); failures go through `failure.mjs` `applyUnitFailure` |
@@ -45,18 +47,28 @@ One Node program is the build engine's only executor, for both runtimes (Claude 
 | `notify.mjs` | `osascript` notification; no-op off macOS or when `PANDACORP_NOTIFY=off` |
 | `telemetry.mjs` | events, `track.jsonl` lines on the integration branch; no status projection |
 | `failure.mjs` | failure policy (`decideFailure`, `applyUnitFailure`, fenced `failUnit`), hand-back, engine failure (`handback/engine.md`, BL file, lease release) |
-| `lifecycle.mjs` | effects of `start --run`, `start --resume`, `stop`, `finish`; archive and suspend moves (`git worktree move`) |
-| `schemas/*.schema.json` | 11 files: `state`, `journal-event`, `report`, `review-report`, `doubt`, `doubt-answer`, `handoff`, `deferred-reviews`, `quota`, `card-frontmatter`, `summary` |
+| `lifecycle.mjs` | effects of `start --run`, `start --resume`, `stop`, `finish`; metadata archive/suspend/restore and protected worktree reclamation |
+| `schemas/*.schema.json` | `state`, `journal-event`, `report`, `review-report`, `doubt`, `doubt-answer`, `handoff`, `deferred-reviews`, `quota`, `card-frontmatter`, `summary`, `gate-failure`, `perf-record` |
 
 The modules `next`, `failure`, `lifecycle`, `planner`, `review`, `doubts`, `answers`, `drive`, `admission`, `integrate`, `land`, `units`, `preflight` and `card` are thin entries; their code lives in the same-named sibling folder (`build/<module>/`). Every module, top-level or in those folders, stays under 500 lines.
 
 Shared infrastructure the CLI reuses and never forks:
-- `plugin/runtime/build-state.mjs`: lease, epoch, fenced transitions. v2 imports it as a module (it never shells out to `plugin/scripts/pandacorp-build-state.mjs`). Exports added for v2 (section 2.3): `transfer`, `forceRelease`, `transitionWorkOrderAt`, and a `projectStatus:false` option on `acquire`, `quiesce` and `renew`.
+- `plugin/runtime/build-state.mjs`: lease, epoch, fenced transitions. v2 imports it as a module (it never shells out to `plugin/scripts/pandacorp-build-state.mjs`). Exports added for v2: `transfer`, `forceRelease`, `transitionWorkOrderAt`, `withUnleasedProject`, and a `projectStatus:false` option on `acquire`, `quiesce` and `renew`. `withUnleasedProject` reserves the lease mutex across maintenance and refuses any existing lease directory (3.24).
 - `plugin/scripts/product-floor.mjs`: imported (`productFloor`, `securityDeltaTriggers`).
 - `plugin/scripts/classify-change.mjs`: never imported (it has no exports and runs at load); run through `execFile(process.execPath, [...])`.
 - `plugin/scripts/codex-worker.mjs`: `run --direct --prompt-file <abs> --codex-model <slug> --output-schema <abs> --dir <unit worktree> --access sandbox` (no `--sum`), `read`; the Codex launcher.
 - `plugin/runtime/event-transport.mjs`, `plugin/runtime/model-tiers.json` (version 2), `plugin/templates/shared/.pandacorp/merge-queue.sh`.
-- Never used: `plugin/scripts/pandacorp-build-mech.mjs` and every `build-mech-*.mjs` (v1 only).
+- `plugin/scripts/worktree-sweep.mjs`: shared `engineWorktreeOwnershipReason`,
+  `runningWorktreePaths` and `worktreeRemovalReason`; retry, lifecycle cleanup and sweep use
+  the same ownership, worker-termination and data-safety predicates (5.1).
+- Instruction source (DEC-13): `AGENTS.md`; `CLAUDE.md` is the one-line `@AGENTS.md` shim.
+  `migrate-instructions.mjs --project <dir> [--dry-run]` performs loss-checked migration, refuses
+  `CLAUDE.local.md`, and emits one JSON line. `upgrade` invokes it. Verification:
+  `plugin/scripts/test-migrate-instructions.mjs`, `test-block-dangerous.sh`,
+  `test-codex-enforcement.mjs` (shim scope, literal writes and fail-closed tool errors);
+  `test-block-dangerous.sh` also isolates fixtures from allowed temporary roots.
+- Plugin-version coordination follows BUILD-7: after update, restart or close all sessions on that
+  project before continuing. This is an operating rule (review-only), not a code guard.
 
 ## 2. Conventions
 
@@ -96,7 +108,7 @@ node <plugin>/scripts/pandacorp-build.mjs <cmd> [sub] [--project <dir>] [flags]
 | `--coordinator` | `state.coordinator` | `lease.coordinator` | `lease.runtime` | Admission shape | Doubt origin |
 |---|---|---|---|---|---|
 | `claude` | `claude-session` | `session` | `claude` | `R-A` (label `claude`) or `R-C` (label `codex`) | the author's company |
-| `codex` | `codex-session` | `session` | `codex` | `R-B` (B=1, H=1) | `codex_app` |
+| `codex` | `codex-session` | `session` | `codex` | `R-B` (adaptive BUILD-9) | `codex_app` |
 | (drive) | `drive` | `drive` | `codex` | `drive` | `drive` |
 
 ### 2.5 Exit codes and the error map
@@ -106,11 +118,11 @@ node <plugin>/scripts/pandacorp-build.mjs <cmd> [sub] [--project <dir>] [flags]
 | 0 | OK | done, including "nothing to do" and "asks exist" |
 | 2 | USAGE | bad arguments |
 | 3 | FENCE | stale epoch, foreign token or quiesced lease; the caller becomes an observer |
-| 4 | CONTENDED | the lease is held by a live foreign run |
+| 4 | CONTENDED | foreign/held lease, active-drive resume timeout, or busy live lock; `gc` refuses any held lease |
 | 5 | INVALID_STATE | illegal transition, schema mismatch, corrupt ledger or journal chain (hint: `rebuild-state`) |
 | 6 | INVALID_INPUT_OR_RED | card or report invalid, unit token wrong, evidence missing, a gate is red |
 | 7 | WAITING_GATE | a human gate was reached (production, money, delete, external) |
-| 8 | ENGINE_FAILURE | engine fault; already stopped at a safe point, handback and BL file written, lease released |
+| 8 | ENGINE_FAILURE | engine fault; already stopped at a safe point, handback and BL file or nested local draft written, lease released |
 | 9 | FAILCLOSED | a signal or classifier was unreadable; the conservative path was applied (reported, not fatal for read commands) |
 | 10 | NOT_A_PROJECT | no `.pandacorp/status.yaml` |
 
@@ -140,12 +152,14 @@ All optional. Tests MUST set them; nothing in a test may touch the real `~/.clau
 
 | Variable | Effect |
 |---|---|
-| `PANDACORP_HOST_DIR` | host directory; default `~/.pandacorp/host` (heavy-tool slots) |
+| `PANDACORP_HOST_DIR` | host directory; default `~/.pandacorp/host` (heavy-tool slots and performance journal) |
 | `PANDACORP_EVENTS_FILE` | events ndjson path; default `~/.claude/dashboard-events.ndjson` |
 | `PANDACORP_CODEX_EVENTS_FILE` | events ndjson path for Codex-coordinated runs; the emitter's runtime is the coordinator's company (`event-transport.mjs createRuntimeEventEmitter`) |
 | `CODEX_HOME` | Codex home; default `~/.codex` (rollout tail reader, login) |
 | `PANDACORP_CODEX_BIN` | Codex binary; default `codex` on `PATH` |
 | `PANDACORP_NOW` | ISO-8601 instant that replaces the wall clock everywhere, including the lease timestamps written by `build-state.mjs` (`acquired_at`, `renewed_at`, `quiesced_at`) and the freshness/reclaim checks |
+| `PANDACORP_DISK_FREE_GIB` | non-negative project-volume free GiB override for engine disk admission (`test-build-v2-admission.mjs`, `test-build-v2-disk.mjs`) |
+| `PANDACORP_DISK_FREE_MB` | shell bootstrap free MiB override; `PANDACORP_MIN_FREE_MB` and `PANDACORP_WT_NEED_MB` override its floor/reservation (`test-worktree-bootstrap.sh`) |
 | `PANDACORP_SIGNALS_FILE` | fixture RAM signals: a JSON file `{"sysctl_pressure":"<raw>","vm_stat":"<raw>","swapusage":"<raw>"}` holding the RAW outputs of `sysctl -n kern.memorystatus_vm_pressure_level`, `vm_stat` and `sysctl vm.swapusage`; it goes through the same parsers as the real commands |
 | `PANDACORP_FAKE_WORKER` | an executable used instead of `codex-worker.mjs`: same `run`/`read` argv, same `codex-workers/<id>/` layout (`state.json{pid}`, `exit`, `last.md`), same sealed line; results from `PANDACORP_FAKE_WORKER_PLAN` |
 | `PANDACORP_FAKE_WORKER_PLAN` | JSON file: unit id → the report object the fake worker returns, or `{"limit":"usage_limit"\|"rate_limit"}`, or `{"hang":true}` |
@@ -155,7 +169,7 @@ All optional. Tests MUST set them; nothing in a test may touch the real `~/.clau
 | `PANDACORP_LOCK_REFRESH_SECS` | `merge-queue.sh` only: seconds between refreshes of its lock while `verify.sh` runs (default 60; test hook) |
 | `PANDACORP_CODEX_START_HANG_S`, `PANDACORP_CODEX_STALL_S`, `PANDACORP_CODEX_CAP_S` | `codex-worker.mjs` watchdog thresholds in seconds when the matching flag is absent (11.5; test hooks) |
 
-**Test environment notes.** Path comparisons (worktree registrations, G2 snapshot manifests) use `realOrResolved`, which realpaths the deepest existing ancestor and appends the missing tail, so they are symlink-safe (macOS `/var` is `/private/var`) even after the directory is removed; the suites pass with the default `TMPDIR`. `node plugin/scripts/test-build-v2-lock-stress.mjs` (about 12 s) hammers both locks with parallel holders and dead-lock planters; knobs `PANDACORP_LOCK_STRESS_PLUGIN` (runtime copy to test), `PANDACORP_LOCK_STRESS_BUDGET_MS`, `_WORKERS`, `_ITERS`, `_PLANTERS`. G2 runs in its own bootstrapped snapshot worktree (exit 75 = environment failure, 4.1), so a verify run is never read from the integration worktree.
+**Test environment notes.** Path comparisons (worktree registrations, G2 snapshot manifests) use `realOrResolved`, which realpaths the deepest existing ancestor and appends the missing tail, so they are symlink-safe (macOS `/var` is `/private/var`) even after the directory is removed; the suites pass with the default `TMPDIR`. `node plugin/scripts/test-build-v2-lock-stress.mjs` (about 12 s) hammers both locks with parallel holders and dead-lock planters; knobs `PANDACORP_LOCK_STRESS_PLUGIN` (runtime copy to test), `PANDACORP_LOCK_STRESS_BUDGET_MS`, `_WORKERS`, `_ITERS`, `_PLANTERS`. G2 runs in its own bootstrapped snapshot worktree (exit 75 = environment failure; 76 = bootstrap disk refusal, 4.1), so a verify run is never read from the integration worktree.
 
 ## 3. Subcommands
 
@@ -188,6 +202,7 @@ Legend. **Fenced**: requires `--epoch`. All commands print the common envelope `
 | `stop` | `[--epoch]` or `--dead --owner-confirmed` | with `--epoch` | `released` |
 | `status` / `summary` | | no | run snapshot / summary object |
 | `rebuild-state` | `--epoch` | yes | `units`, `diff_vs_cache` |
+| `gc` | `--project <dir>` | no; refuses a held lease | `removed[]`, `kept[]`, sweep details (3.24) |
 
 Removed and never to be added back: `heartbeat`, `escalate`, `calibrate`, `yield-request`, `--budget`, `--takeover` (resume transfers), `--engine`, `land --chain`. Legacy mode words are described in 3.23.
 
@@ -286,7 +301,8 @@ Arguments: `--scope-json <file>` (the `scope` object of `--detect`; the run buil
 
 Effects, in order:
 1. Reuse `build/preflight.json` when it is at most 15 minutes old and for the same row and scope; otherwise exit 5 with the message "re-run preflight".
-2. A previous run in `build/`: terminal → moved to `.pandacorp/run/build-archive/<run_id>/`; non-terminal and not `active` → moved to `.pandacorp/run/build-suspended/<run_id>/`; `active` → exit 5 ("resume or stop the run first"). `preflight.json` stays in `build/`; registered worktrees are moved with `git worktree move`.
+2. A previous run in `build/`: `finished` → moved to `.pandacorp/run/build-archive/<run_id>/`; non-terminal and not `active` → moved to `.pandacorp/run/build-suspended/<run_id>/`; `active` → exit 5 ("resume or stop the run first"). `preflight.json` stays in `build/`; eligible worktrees are removed first, with branch refs kept. Any protected registered remainder
+   refuses the move. Only metadata is moved (5.1; `test-build-v2-disk.mjs`).
 3. Take the lease (`ttl_seconds` 1800), write `lease-token.json`, create `build/`, the integration branch `lane/<run_id>/integration` and its worktree `.pandacorp/run/build/integration`, write `state.json`, queue the planner's `now` units (later rounds are queued by `next`'s planner round; no duplicates, exit 5 on deadlock or an empty plan). Static zones come from `risk.staticZones(wos, root, deps)` (per-WO `computeRisk` over its `artifacts`; classifier failure = `r1`), also used by `plan`/`lint-plan`.
 4. Card handling (`card.mjs`): a v2 card (`engine: v2`) of this run is resumed; a v2 card of another terminal run goes back to `status: ready` with a note; a v1 card (it has `integration_transaction`) goes through `build-state.mjs reconcileBuildingChange`. The run's card gets `status: building` and `run_id`.
 5. Docs-before: a card with no WOs starts with one `docs` unit on `lane/<run_id>/integration` (3.9).
@@ -312,7 +328,10 @@ Re-enters a non-active run of this project: `state.status` in `paused|waiting_ow
 
 Arguments: `--coordinator claude|codex` (required; table 2.4), optional `--session-model <m>`, `--run <id>` (resume a suspended run: moved back to `build/`; exit 5 when `build/` holds a non-terminal run), `--owner-confirmed`. A lease of the same `run_id` is transferred without confirmation when it is fresh, or stale with `coordinator: drive` or with `runtime` equal to the caller's; `--owner-confirmed` is required only for a stale lease with `coordinator: session` of the other runtime. There is no `--takeover`.
 
-Effects: `start --resume` installs the pre-push hook like `start --run`, and a failed install fails loud (`INVALID_STATE`, same as `start --run`) before any mutation, so a retry is clean (it never reports `prepush:failed`); creating the integration worktree also fails loud (a fresh `git worktree add`, new or re-checked-out branch, runs the project's `.pandacorp/worktree-bootstrap.sh` right away, see 4.1; a failed bootstrap there does not fail `start`, it is re-checked before landing). When a lease is present, `transfer` (same `run_id`, epoch+1, new token file, no quiesce, no Codex-worker kill, no status projection); when absent, `acquire`. The lease-mutation lock (`.pandacorp/run/lease-mutation.lock`) is reclaimed by build-state itself: at once when its owner pid is dead, after 60 s otherwise, so a resume right after a `kill -9` of drive is not CONTENDED. When the run's drive is still `active` (standby pid alive), the resume waits up to 60 s for it to yield; if it has not, `start --resume` exits 4 (CONTENDED) before any orphan stop, reset or heal, and is simply retried (the lease already names the session); the wait never resets a worktree under a live drive. Each `admitted|running` unit whose recorded pids are dead is classified: **re-attach** when its pid or job is alive; **adopt** when it has a recorded `via:"cli"` worker whose worker directory is sealed, exited or running (the unit and its token are kept, its job is reopened as `running` with a `job_started` journal line, the next `next` harvests it under the dispatch's own token, and an interrupted ingest is completed from the engine commit by `resumeCommitted`; adopted units are listed in `reattached` and in `run_resumed.data.adopted`); **orphan** when a live worker derived from the unit's token hash was launched by a dispatch that never reached phase 2 (it is stopped, then the unit is requeued); otherwise **requeue** at the SAME attempt (no attempt is charged: an attempt is consumed only by the worker's own rejected or failed report). A requeued unit's worktree is restored to its fork point, and its orphan worker is stopped, BEFORE the fenced step (the git resets never run under the 1 s lease mutex; phase 2 only recomputes the verdicts and attaches the precomputed `worktree_reset` to the same `unit_state` event; a crash in between leaves the units running with dead pids, so the next resume repeats the idempotent resets) (`reset --hard` to the merge-base with the integration or assumption branch when the branch is ahead, `reset --hard` plus `clean -fd` when dirty; ignored files kept), so a stale engine commit from the dispatch that lost the run is discarded; the `unit_state` event carries `reason:"resume"`, `worktree_reset {discarded_commits, dirty}` and `orphan_worker`. Before phase 2 the integration worktree is healed (`integrate.healIntegrationWorktree`): when the registered worktree is on `lane/<run_id>/integration` and tracked files differ from `HEAD` (an engine write killed between writing a work-order file and its commit), they are unstaged and restored; untracked and skip-worktree (bootstrap-owned) files are never touched, and a pending merge, cherry-pick or revert in the integration worktree is aborted first (`run_resumed.data.integration_aborted`); a worktree mid-rebase, on another branch, or with a live `land` job is left alone (a `land` job with no recorded pid counts as alive, so the heal is skipped). `prepareIntegration` refuses (`INTEGRATION_DIRTY`) while a merge, cherry-pick or revert is pending. What was discarded is journaled in `run_resumed.data.integration_discarded` (paths). Leftover G2 snapshot worktrees (`build/g2/*`, except the one a `running` G2 job still judges) are removed after phase 2, with their bootstrap manifests. A drive takeover applies the same restore to units it requeues from a Claude agent or session. Admission tokens of units outside `admitted|running` are released. Worker ids are per dispatch (`w-<run>-<unit>[-a<n>][-d<dispatch>]`, 11.5), so a requeued dispatch never re-adopts the sealed result of the dispatch that lost the run. Drive is re-armed. `state.json` is rebuilt (3.22) when missing or invalid. Deferred reviews are served first on the next `next`. An owner who returns while `drive` coordinates gets the lease back immediately: drive gets exit 3 at its next phase 2 and exits. A drive that finds it lost the lease (a fence, or any non-fence error after the lease token stopped naming its epoch) yields cleanly (exit 0, standby `stopped`, never an engine failure), and before marking its standby `stopped` it stops every Codex worker it launched in the fenced round that state.json does not record as running.
+Effects: `start --resume` installs the pre-push hook like `start --run`, and a failed install fails loud (`INVALID_STATE`, same as `start --run`) before any mutation, so a retry is clean (it never reports `prepush:failed`); creating the integration worktree also fails loud (a fresh `git worktree add`, new or re-checked-out retained branch, runs the project's `.pandacorp/worktree-bootstrap.sh` right away, see 4.1; a failed bootstrap there does not fail `start`, it is re-checked before landing). When a lease is present, `transfer` (same `run_id`, epoch+1, new token file, no quiesce, no Codex-worker kill, no status projection); when absent, `acquire`. The lease-mutation lock (`.pandacorp/run/lease-mutation.lock`) is reclaimed by build-state itself: at once when the judged owner is dead (pid gone or reused by a later-started process); a live
+holder is never reclaimed, even after 60 s (`CONTENDED.holder` reports overdue pid/ageMs). Only an
+ownerless legacy lock is reclaimed by age. See sections 5/7 and
+`plugin/scripts/test-build-v2-lock-stress.mjs`. When the run's drive is still `active` (standby pid alive), the resume waits up to 60 s for it to yield; if it has not, `start --resume` exits 4 (CONTENDED) before any orphan stop, reset or heal, and is simply retried (the lease already names the session); the wait never resets a worktree under a live drive. Each `admitted|running` unit whose recorded pids are dead is classified: **re-attach** when its pid or job is alive; **adopt** when it has a recorded `via:"cli"` worker whose worker directory is sealed, exited or running (the unit and its token are kept, its job is reopened as `running` with a `job_started` journal line, the next `next` harvests it under the dispatch's own token, and an interrupted ingest is completed from the engine commit by `resumeCommitted`; adopted units are listed in `reattached` and in `run_resumed.data.adopted`); **orphan** when a live worker derived from the unit's token hash was launched by a dispatch that never reached phase 2 (it is stopped, then the unit is requeued); otherwise **requeue** at the SAME attempt (no attempt is charged: an attempt is consumed only by the worker's own rejected or failed report). A requeued unit's worktree is restored to its fork point, and its orphan worker is stopped, BEFORE the fenced step (the git resets never run under the 1 s lease mutex; phase 2 only recomputes the verdicts and attaches the precomputed `worktree_reset` to the same `unit_state` event; a crash in between leaves the units running with dead pids, so the next resume repeats the idempotent resets) (`reset --hard` to the merge-base with the integration or assumption branch when the branch is ahead, `reset --hard` plus `clean -fd` when dirty; ignored files kept), so a stale engine commit from the dispatch that lost the run is discarded; the `unit_state` event carries `reason:"resume"`, `worktree_reset {discarded_commits, dirty}` and `orphan_worker`. Before phase 2 the integration worktree is healed (`integrate.healIntegrationWorktree`): when the registered worktree is on `lane/<run_id>/integration` and tracked files differ from `HEAD` (an engine write killed between writing a work-order file and its commit), they are unstaged and restored; untracked and skip-worktree (bootstrap-owned) files are never touched, and a pending merge, cherry-pick or revert in the integration worktree is aborted first (`run_resumed.data.integration_aborted`); a worktree mid-rebase, on another branch, or with a live `land` job is left alone (a `land` job with no recorded pid counts as alive, so the heal is skipped). `prepareIntegration` refuses (`INTEGRATION_DIRTY`) while a merge, cherry-pick or revert is pending. What was discarded is journaled in `run_resumed.data.integration_discarded` (paths). Leftover G2 snapshot worktrees (`build/g2/*`, except the one a `running` G2 job still judges) are removed after phase 2, with their bootstrap manifests. A drive takeover applies the same restore to units it requeues from a Claude agent or session. Admission tokens of units outside `admitted|running` are released. Worker ids are per dispatch (`w-<run>-<unit>[-a<n>][-d<dispatch>]`, 11.5), so a requeued dispatch never re-adopts the sealed result of the dispatch that lost the run. Drive is re-armed. `state.json` is rebuilt (3.22) when missing or invalid. Deferred reviews are served first on the next `next`. An owner who returns while `drive` coordinates gets the lease back immediately: drive gets exit 3 at its next phase 2 and exits. A drive that finds it lost the lease (a fence, or any non-fence error after the lease token stopped naming its epoch) yields cleanly (exit 0, standby `stopped`, never an engine failure), and before marking its standby `stopped` it stops every Codex worker it launched in the fenced round that state.json does not record as running.
 
 Output: `{"ok":true,"cmd":"start","mode":"resume","run_id":"...","epoch":5,"reattached":["u-build-wo-05-001"],"requeued":[],"drive":{"armed":true,"pid":1,"reason":null}}`.
 
@@ -372,7 +391,7 @@ Procedure:
 1. *Phase 1:* verify the fence and the unit token, renew the lease, validate the file against `schemas/report.schema.json`.
 2. *Checks* (the report is trusted for nothing; the offender pays, i.e. the rejected attempt counts against the unit): `files` equals the changes of the unit worktree; every file is inside the unit's allowlist (glob literal-prefix match): `build`/`patch` = the union of its WOs' `artifacts`; `docs` = `docs/**`, `README.md`, `.env.example`, plus new WO files under `docs/frds/*/work-orders/` whose frontmatter has `implementation_status: PLANNED`; `tests` = `**/_tests/**`, `**/*.test.*`, `**/*.spec.*`, `e2e/**`, `src/test/**` only; no `**/*-snapshots/**`; no change to the frontmatter of an existing WO (the body of the unit's own WO only if that file is in `artifacts`); no change to any path in the run's hashed set (the union of every unit's `test_hashes` and `probe_hashes`); schema and migration paths are allowed (G3 gates them).
 3. *G1*, outside the mutex: `bash .pandacorp/verify.sh --light --tests=<test files among report.files>` in the unit worktree. No e2e in G1.
-4. *Commit* with the CLI's own pathspec-limited `git commit` of the validated files, trailers `Unit: <unit>` and one `WO: <wo id>` per WO, never `Change:`. Nothing from `pandacorp-build-mech.mjs` is used.
+4. *Commit* with the CLI's own pathspec-limited `git commit` of the validated files, trailers `Unit: <unit>` and one `WO: <wo id>` per WO, never `Change:`. The commit path is self-contained.
 5. *Phase 2:* re-verify the epoch, write state (unit `committed`), journal `report_received` and `wo_committed`, emit the legacy event `wo_commit {frd, wo, unit, state:"committed"}`, release the unit token.
 
 Special cases:
@@ -411,7 +430,7 @@ Exit: 0; 6 (`INVALID_INPUT`) when the review file is invalid JSON or schema, the
 
 ### 3.11 `land`
 
-Fenced. Moves the integration branch to `main`; it handles nothing else. Chains reach the integration branch inside `next` (4.1). The session calls `land` when `next` returns `action:"land"` (the batch is complete: all non-parked units of the run, or of the tranche for a giant run). Argument: `--epoch`. There is no `--chain`. `land` returns `{exit, output}`: the exit travels beside the JSON for the result-bearing non-zero exits 6 and 7.
+Fenced. Lands the integration branch through merge-queue and harvests its result. Chains reach the integration branch inside `next` (4.1). The session calls `land` when `next` returns `action:"land"` (the batch is complete: all non-parked units of the run, or of the tranche for a giant run). Argument: `--epoch`. There is no `--chain`. `land` returns `{exit, output}`: the exit travels beside the JSON for the result-bearing non-zero exits 6 and 7.
 
 Phases:
 1. *Phase 1:* verify the fence, renew; if a land job is alive return `result:"running"`; if a land job already finished, harvest it (step 5).
@@ -426,14 +445,41 @@ Phases:
 |---|---|---|---|
 | 0 | `landed` | `null` | 0 |
 | 10 | `handback` | `rebase_conflict` | 6 |
-| 11 | `handback` | `g3_red` (a `patch` unit for the run is queued, attempt +1) | 6 |
+| 11 | `handback` | `g3_red` (evidence-scoped patch; see below) | 6 |
 | 12 | `nothing_to_land` | `busy_main` (retried at the next safe point) | 0 |
 | 14 | `nothing_to_land` | `port_busy` (retried at the next safe point) | 0 |
 | 13 | `landed` | `null`, `notes_es` says "push falló"; only possible with the owner's order | 0 |
 | 20 | `nothing_to_land` | `mq_precondition` (retried at the next safe point; a second consecutive 20 in the run is an engine failure, exit 8) | 0 |
 | 21 | `waiting_gate` | `null`; `waiting_gate:"production"` is stored on the units; the CLI never sets `PANDACORP_OWNER_RELEASE_OK` | 7 |
 
-Other reasons: `handback` `rebase_conflict` from the pre-job rebase (exit 6); `handback` `oracle_changed` (a hashed test or probe file changed since it was recorded, exit 6); `nothing_to_land` (exit 0, nothing is written or journaled): `batch_incomplete` (called before the batch is complete), `no_verified_work`, `land_job_dead` (the job is gone and `main` lacks the branch; retried). The output may also carry `patch_unit` and `notes_es`; the landing metadata commit carries the trailer `Landing-Metadata: <run_id>`. Units are landable when `verified`, or `integrated` for `docs` and `tests` units (they are never reviewed); a unit with any `parked` value is outside the batch, so pending assumption work never blocks landing the independent batch. A retry is idempotent: the run's own landing metadata commit at the tip is dropped and rewritten (no intent is persisted). A G3 red (mq exit 11) moves the reviewed units `verified -> patching`; with the 3-execution budget exhausted the units are handed back instead (`blocked`, dependents too, R4) with reason code `budget_exhausted`.
+Other reasons: `handback` `rebase_conflict` from the pre-job rebase (exit 6); `handback` `oracle_changed` (a hashed test or probe file changed since it was recorded, exit 6); `nothing_to_land` (exit 0, nothing is written or journaled): `batch_incomplete` (called before the batch is complete), `no_verified_work`, `land_job_dead` (the job is gone and `main` lacks the branch; retried). The output may also carry `patch_unit` and `notes_es`; the landing metadata commit carries the trailer `Landing-Metadata: <run_id>`. Units are landable when `verified`, or `integrated` for `docs` and `tests` units (they are never reviewed); a unit with any `parked` value is outside the batch, so pending assumption work never blocks landing the independent batch. A retry is idempotent: the run's own landing metadata commit at the tip is dropped and rewritten (no intent is persisted). A G3 red (mq exit 11) follows selective repair below; it never reopens the entire batch by default.
+
+**Selective G2/G3 repair.** `gatefail.mjs` parses failed Vitest/Playwright blocks, tsc, Biome,
+Next build and doc-lint diagnostics (including bullet paths). PASS output and command echoes do
+not implicate files. Canonical WOs are read from the integration commit; diagnostic paths match
+WO `artifacts` or unit `test_hashes`. Only implicated build/patch units enter `patching`, and
+only those WOs reopen at dispatch. The patch's WOs/allowlist are exactly the implicated WOs.
+Healthy units remain settled. The reviewer brief pins `Diff range: <base>..<tip>` to the latest
+integrated patch execution, excluding earlier FRD work/attempts. Verification:
+`plugin/scripts/test-build-v2-gate-patch.mjs`, `test-build-v2-next.mjs`,
+`test-build-v2-review.mjs`, `test-build-v2-land.mjs`.
+
+`build/units/<patch>/gate-failure.json` (`schemas/gate-failure.schema.json`) is:
+`{schema:1, gate:"G2|G3", job, checks[], tests[], paths[], tail, attributed, wos[], allowlist_wos[], fixes[]}`.
+`tail` is at most 40 lines / 12000 characters. The patch brief includes those checks/test ids and
+paths and the instruction to fix only red checks without rewriting the WO/FRD. Evidence is
+persisted only after fence and job/state checks: G2 inside its mutation, G3 after an outside-mutex
+attribution prepared against a pinned integration tip and checked again at harvest.
+Verification: `test-build-v2-gate-patch.mjs`, `test-build-v2-land.mjs` under `plugin/scripts/`.
+
+With no attribution, `u-patch-g3` or `u-patch-g2-<frd>` has `attributed:false`, empty `wos` in
+evidence, and the candidate union in `allowlist_wos` (also the patch unit's `wos`). These WOs are
+permission boundaries only: no WO reopens or spends an attempt. The fallback has its own three
+executions, independent of prior WO attempts; hand-back blocks the fallback/dependents without
+changing healthy WO frontmatter. Attributed work counts the maximum build/patch attempt per WO;
+tests/docs/reviews/audits/consults never charge that budget (N16). Verification:
+`plugin/scripts/test-build-v2-failure.mjs`, `test-build-v2-gate-patch.mjs`,
+`test-build-v2-next.mjs`, `test-build-v2-land.mjs`.
 
 Output: `{"ok":true,"cmd":"land","result":"landed|waiting_gate|handback|nothing_to_land|running","reason":null,"mq_exit":0,"sha":"<sha>"}` (`mq_exit` and `sha` are `null` when not applicable).
 
@@ -473,7 +519,7 @@ Fenced. The doubt ladder (sources, consult 1, consult 2, decide or park; caps an
 ```
 
 - `consult` is present only when the next step is an external consult. Its `runtime`, `model` and `effort` come from `routing.mjs` (doubt consult routing, BUILD-10). `decision` is `null` until `decided`.
-- `decided`: writes the autonomous decision to the project's `docs/decision-log.md` ("Decidido sin el owner") on the integration branch, appends it to `.pandacorp/inbox/decisions.md` (written in the integration worktree when that file is tracked), journals `autonomous_decision` and emits `AutonomousDecision`; the unit resumes. `parked`: the unit becomes `parked:"owner_question"` with `pending_answer` set to the doubt id (answerable through `answer`, 3.13), the question is written to `decisions.md`, `parked` is journaled and `UnitParked` emitted.
+- `decided`: writes the autonomous decision to the project's `docs/decision-log.md` ("Decidido sin el owner") on the integration branch, appends it to `.pandacorp/inbox/decisions.md` (written in the integration worktree when that file is tracked), journals `autonomous_decision` and emits `AutonomousDecision`; the unit resumes. `parked`: the unit becomes `parked:"owner_question"` with `pending_answer` set to the doubt id (answerable through `answer`, 3.13), the question is written to `decisions.md` (with the untracked mirror below when tracked), `parked` is journaled and `UnitParked` emitted.
 - The ladder asks at most 2 consults: with no 2-of-3 winner after consult 2 the doubt parks `no_consensus` (the hard cap of 3 calls per doubt stays in `queueConsult`). With a winner, the doubt parks `consult_irreversible` when any voter, or any answered non-voting consult that chose the winning option, says `reversible:false`. Doubt ids continue after the highest of the record files and the `doubt_opened` events of the journal (a `kill -9` inside `doubt open` never reuses an id).
 - `isRepeatDoubt`: a doubt the engine synthesizes (`doubts.SYNTHESIZED_OPTION_IDS`: dispute `fix-test`/`keep-test`, ambiguity `conservative`/`ask-owner`) repeats a decided one only when the normalized question (accents removed, lowercase, punctuation collapsed) is equal; a distinct second ambiguity goes up the ladder; a worker-authored doubt keeps the rule of equal option ids plus equal preferred. A reworded repeat is stopped only by the 8-consulted-doubts cap.
 - The doubt file-risk veto fails closed: a missing or unreadable `docs/frds`, an unreadable work-order file, or a WO id not found makes the risk `{zone:"r1", irreversible:true, failclosed:true}` and the doubt parks at once; `artifacts:` is read in block and inline (`[a, b]`) form.
@@ -481,6 +527,13 @@ Fenced. The doubt ladder (sources, consult 1, consult 2, decide or park; caps an
 - Engine commits on the integration branch use `git -c commit.gpgsign=false commit --no-verify` (doubts, hand-backs, owner-answered inbox), so a user hook or a gpg agent never runs inside the 1 s mutex window. The decision-log entry names the branch `lane/<run_id>/integration`.
 - A doubt on a unit whose risk output has `irreversible:true` never reaches `decided`; it parks (deterministic veto). Also never decided autonomously: widening, reducing or reinterpreting Dentro, product scope, DRs with `requiere_humano`, human gates, money (BUILD-12).
 - Exit: 0 (also when the cap is exhausted: the JSON carries `step:"parked"`); 6 invalid file or wrong token.
+
+**Tracked inbox mirror (DEC-14/DEC-16).** `writeInbox` writes canonical tracked
+`.pandacorp/inbox/decisions.md` on integration and also prepends the entry to main-checkout
+`.pandacorp/inbox/decisions.pending.md`, after `assertNotTracked`. `answer` resolves the entry in
+both copies; the mirror is an owner-visible projection, not another source of answers. Standalone
+untracked inbox behavior stays unchanged. Verification: `plugin/scripts/test-build-v2-nested.mjs`,
+`test-build-v2-answer.mjs`, `test-build-v2-doubts.mjs`.
 
 ### 3.13 `answer`
 
@@ -492,7 +545,7 @@ Fenced. The doubt ladder (sources, consult 1, consult 2, decide or park; caps an
 | `parked` | the doubt id of a unit parked as `owner_question` (also the id written to `.pandacorp/inbox/decisions.md`) | an option id of the doubt (a JSON string) | the doubt record gets `decision:{value, why:"owner answer", decided_by:"owner"}` and `step:"decided"`; the parked unit and its dependents leave `parked`. A built-on-assumption park (the doubt has `assumption{option, branch}`): value equal to the option means `assumption_accepted`, anything else `assumption_discarded`. A unit that already carries an assumption (`parked:"built_on_assumption"`) never roots a second one: when it raises another doubt it parks on that doubt (`parked:"owner_question"`, `pending_answer` = the second doubt) and keeps `assumed_on:<first doubt>`; answering the second doubt restores `parked:"built_on_assumption"` from `assumed_on`, and rejecting the first discards every unit carrying it, even one parked on another question (DEC-7: it is re-queued at attempt+1, the second doubt stays open in the inbox and answering it releases nothing; DEC-8). Units built on assumption (`parked:"built_on_assumption"`) are dispatched from and integrated into `lane/<run_id>/assume-<doubt>` (worktree `build/wt/assume-<doubt>`); G2, review and G3 of that work run after acceptance on the integration branch |
 | `gate` | `g-<unit>` of a unit at a `money`, `delete` or `external` `waiting_gate` (listed in `status` and `finish` `open_questions`) | `true` (OK) or `false` (refused) | recorded as the owner's explicit OK; `true`: the unit leaves `waiting_gate`; `false`: the unit is handed back (reason "owner refused gate") |
 
-A question of the `production` gate is not answerable here: landing on the default branch of a launched project is ordered only through `PANDACORP_OWNER_RELEASE_OK=1 ... land --epoch <E>` (BUILD-13); `answer` for it exits 6 with a `message` saying so. An answer given through `/pandacorp:decide` during a live run is also recorded with `answer` (`/pandacorp:decide` itself will do it from 10.0.0; until then the session does it).
+A question of the `production` gate is not answerable here: landing on the default branch of a launched project is ordered only through `PANDACORP_OWNER_RELEASE_OK=1 ... land --epoch <E>` (BUILD-13); `answer` for it exits 6 with a `message` saying so. An answer given through `/pandacorp:decide` during a live run is also recorded with `answer` (the decide skill routes ids in `open_questions` through this command).
 
 Effects, in order: validate id and value; write `state.answers[<id>] = <value>`; journal `answer_recorded` (`data:{question, kind, value, units}`); update every affected unit (table below). `--wait` of a waiting `next` returns early on `answer_recorded`.
 
@@ -529,7 +582,7 @@ Fenced. Writes `build/handback/<unit>.md` (format defined in BUILD-15), writes t
 
 ### 3.16 `admit`
 
-`admit [--class B|H]`. Read-only (a dry run is implied; `--dry-run` is accepted and ignored). Reports the RAM signals and the decision a `next` would take for a unit of class B (builder, default) or H (heavy tool run). Tokens are issued only by `next`. Output: `{"ok":true,"cmd":"admit","decision":"grant|wait","class":"B|H","motivo_limite":"ancho","techo":2,"suelo":2,"A_ef":6.1,"P":2,"signals":{"L":1,"swapouts":0,"swap_used_mb":0,"A_gib":9.2,"A_cons_gib":7.4}}`. `motivo_limite` is the closed enum of 8.2. A `SignalError` returns exit 9 with `"safe_mode":true` (B=1, H=1, `motivo_limite:"senal_fallida"`).
+`admit [--class B|H]`. Read-only (a dry run is implied; `--dry-run` is accepted and ignored). Reports the RAM signals and the persisted-step decision a `next` would take for a unit of class B (builder, default) or H (heavy tool run). Tokens are issued only by `next`. Output: `{"ok":true,"cmd":"admit","decision":"grant|wait","class":"B|H","motivo_limite":"ancho","techo":5,"suelo":1,"A_ef":6.1,"P":3.1,"signals":{"L":1,"swapouts":0,"swap_used_mb":0,"A_gib":9.2,"A_cons_gib":7.4}}`. `motivo_limite` is the closed enum of 8.2. A `SignalError` returns exit 9 with `"safe_mode":true` (B=1, H=1, `motivo_limite:"senal_fallida"`).
 
 ### 3.17 `handoff`
 
@@ -541,18 +594,29 @@ Long-lived process; stdout is not used. `drive --standby --run R`: the detached 
 
 ### 3.19 `finish`
 
-Fenced. `--epoch` is required. When no lease exists (a non-active run whose lease a terminal action released), `finish` accepts only `--epoch` equal to `state.epoch` (else exit 3) and writes without the lease. Closes a run whose status is not `active` or whose units are all terminal. On a lease that is already quiesced (a terminal action, or an earlier `finish`, died between quiesce and release) it still closes the state: `--epoch` must equal `lease.epoch` and `state.run_id` must equal `lease.run_id` (else exit 3, before any write); it then journals `run_finished` and writes `status: finished` (or, for the waiting case, journals `paused {reason:"waiting_gate"}` once and writes `waiting_gate`) and only then releases, so a retry never leaves `state.json` at `stopped` while the report says finished. After closing, leftover G2 snapshots are removed (all of them, unless the run ends `waiting_gate`, which keeps the ones a running G2 job judges). Writes the final report data, sets `status: finished`, always releases the lease, also when `next` already returned the terminal action for a finished run (the CLI never projects `status.yaml`) and emits `BuildComplete`. Output: `{"ok":true,"cmd":"finish","report_path":"/abs/.pandacorp/comms/informe-build-<run_id>.md","summary":{...}}` where `summary` is the `schemas/summary.schema.json` object (3.21). Exit: 0; 5 when the run is `active` with non-terminal units (go back to the loop); 7 when only `waiting_gate` units remain: the lease is released and `status` becomes `waiting_gate` (the run is finished as "waiting", not complete). `finish` on a non-active run closes it for good (`finished` is not resumable); the session protocol never calls `finish` after a terminal action, only after `done`.
+Fenced. `--epoch` is required. When no lease exists (a non-active run whose lease a terminal action released), `finish` accepts only `--epoch` equal to `state.epoch` (else exit 3) and writes without the lease. Closes a run whose status is not `active` or whose units are all terminal. On a lease that is already quiesced (a terminal action, or an earlier `finish`, died between quiesce and release) it still closes the state: `--epoch` must equal `lease.epoch` and `state.run_id` must equal `lease.run_id` (else exit 3, before any write); it then journals `run_finished` and writes `status: finished` (or, for the waiting case, journals `paused {reason:"waiting_gate"}` once and writes `waiting_gate`) and only then releases, so a retry never leaves `state.json` at `stopped` while the report says finished. After closing, eligible run worktrees and G2 snapshots are reclaimed; a waiting run keeps the
+integration checkout (without `.next` when safe) and any copy still protected by a running job.
+Branches and metadata survive. The performance helper attempts one host record outside the mutex.
+Verification: `plugin/scripts/test-build-v2-disk.mjs`, `test-build-v2-cli.mjs`,
+`test-build-v2-perf.mjs`. Writes the final report data, sets `status: finished`, always releases the lease, also when `next` already returned the terminal action for a finished run (the CLI never projects `status.yaml`) and emits `BuildComplete`. Output: `{"ok":true,"cmd":"finish","report_path":"/abs/.pandacorp/comms/informe-build-<run_id>.md","summary":{...}}` where `summary` is the `schemas/summary.schema.json` object (3.21). Exit: 0; 5 when the run is `active` with non-terminal units (go back to the loop); 7 when only `waiting_gate` units remain: the lease is released and `status` becomes `waiting_gate` (the run is finished as "waiting", not complete). `finish` on a non-active run closes it for good (`finished` is not resumable); the session protocol never calls `finish` after a terminal action, only after `done`.
 
 ### 3.20 `stop`
 
-`stop [--epoch <n>]` or `stop --dead --owner-confirmed`. Stops a run at a safe point and releases the lease; emits `BuildStopped`, sets `status: stopped`, journals `run_stopped`. With `--epoch`, fenced. With `--dead --owner-confirmed` and no epoch, `forceRelease` releases a lease whose owner is dead (the lease must be reclaimable, i.e. expired). Output: `{"ok":true,"cmd":"stop","released":true}`. Exit: 0; 6 when `--dead` is passed without `--owner-confirmed` or the lease is live; 3 fence. G2 snapshots are removed after the release (`next.removeAllG2Snapshots`, keeping the one a running G2 job still judges), and so after every terminal action of `next`; `stop --dead` does the same. Running Codex workers are stopped by the quiesce (DR-142); reports of running Claude agents arriving later get exit 3.
+`stop [--epoch <n>]` or `stop --dead --owner-confirmed`. Stops a run at a safe point and releases the lease; emits `BuildStopped`, sets `status: stopped`, journals `run_stopped`. With `--epoch`, fenced. With `--dead --owner-confirmed` and no epoch, `forceRelease` releases a lease whose owner is dead (the lease must be reclaimable, i.e. expired). Output: `{"ok":true,"cmd":"stop","released":true}`. Exit: 0; 6 when `--dead` is passed without `--owner-confirmed` or the lease is live; 3 fence. After release, eligible unit/assumption/integration/G2 copies are reclaimed through the shared
+predicate, including `stop --dead`; protected copies survive. Terminal `next` cleanup uses the
+same lifecycle path. Verification: `plugin/scripts/test-build-v2-disk.mjs`,
+`test-build-v2-next.mjs`. Running Codex workers are stopped by the quiesce (DR-142); reports of running Claude agents arriving later get exit 3.
 
 ### 3.21 `status` and `summary`
 
 Read-only, no epoch.
 
-- `status`: run snapshot `{"run_id","epoch","coordinator":"claude-session|codex-session|drive","status":"active|paused|waiting_owner|waiting_gate|finished|stopped","status_reason":null,"label","size","units_by_state":{},"lease":{"renewed_at","ttl_seconds","live":true},"quota":{"claude":{},"codex":{}},"drive":{"armed":false,"state":"standby|active|stopped"},"deferred_pending":0,"open_questions":[...]}`. `lease` is always an object; with no lease `{"renewed_at":null,"ttl_seconds":null,"live":false}`. Without any run every field is null, `units_by_state:{}`, exit 0. An optional `gaps[]` lists unreadable signals. Exit 9 when a signal was unreadable (snapshot printed with the gap marked). No schema file exists for the snapshot; this file is its definition.
-- `summary`: the owner-report data, the `schemas/summary.schema.json` object, computed from the current journal and state without finishing the run (also what `finish` returns): `{"run_id","status","need_from_owner":[],"decided_without_owner":[],"parked":[],"reviews":{"cross":0,"degraded":[]},"deferred_pending":0,"open_questions":[{"id","kind":"ask|parked|gate","text_es","default_es","affects","reversible"}]}`. `open_questions[].id` are the ids that `answer` accepts.
+- `status`: run snapshot `{"run_id","epoch","coordinator":"claude-session|codex-session|drive","status":"active|paused|waiting_owner|waiting_gate|finished|stopped","status_reason":null,"label","size","units_by_state":{},"lease":{"renewed_at","ttl_seconds","live":true},"quota":{"claude":{},"codex":{}},"drive":{"armed":false,"state":"standby|active|stopped"},"deferred_pending":0,"open_questions":[...],"admission":{"step":5,"motivo":"techo"}}`. `lease` is always an object; with no lease `{"renewed_at":null,"ttl_seconds":null,"live":false}`. Without any run every field is null, `units_by_state:{}`, exit 0. An optional `gaps[]` lists unreadable signals. Exit 9 when a signal was unreadable (snapshot printed with the gap marked). No schema file exists for the snapshot; this file is its definition.
+- `summary`: the owner-report data, the `schemas/summary.schema.json` object, computed from the current journal and state without finishing the run (also what `finish` returns): `{"run_id","status","need_from_owner":[],"decided_without_owner":[],"parked":[],"reviews":{"cross":0,"degraded":[]},"deferred_pending":0,"open_questions":[{"id","kind":"ask|parked|gate","text_es","default_es","affects","reversible"}]}`. `open_questions[].id` are the ids that `answer` accepts. `admission` is null before any adaptive
+  state exists, otherwise `{step,motivo}` (disk waiting overrides motivo to `disco`); `status` exposes
+  the same object. Engine-failure `backlog_draft` event paths also appear in `need_from_owner`, so a
+  nested project's local draft is visible in the Spanish report. Verification:
+  `plugin/scripts/test-build-v2-cli.mjs`, `test-build-v2-nested.mjs`.
 
 ### 3.22 `rebuild-state`
 
@@ -560,7 +624,18 @@ Fenced. Regenerates `state.json` by replaying the journal and reading the WO fro
 
 ### 3.23 Legacy mode words
 
-`pro`, `balanced`, `powerful`, `deep` appearing in `--args` are accepted and ignored; the result carries `"warnings":["legacy mode word ignored"]`. Mission Control's existing buttons keep working until its picker is redesigned. No `--engine` flag exists; the only opt-in to v2 before 10.0.0 is the owner's keyword `implement v2`.
+`pro`, `balanced`, `powerful`, `deep` appearing in `--args` are accepted and ignored; the result carries `"warnings":["legacy mode word ignored"]`. This is compatibility parsing only; the current entry is `implement` with its target. No engine selector or opt-in keyword is required.
+
+### 3.24 `gc`
+
+`gc [--project <dir>]`. Idempotent worktree reclamation; no epoch and no tracked writes.
+It reserves `withUnleasedProject` on the same mutex used by acquire/transfer/reclaim for both
+cleanup passes. Any lease directory, including unreadable, stale or quiesced ownership, gives
+`CONTENDED` (exit 4). Recorded running paths and every first-pass refusal remain excluded from
+the sweep; all branches survive. `clearBuildDir` uses the same reservation through reclamation
+and the archive/suspend metadata move. Output includes `removed[]`, `kept[]` and sweep details;
+a second call with no eligible copies removes nothing. See 5.1 for holds. Verification:
+`plugin/scripts/test-build-v2-disk.mjs`, `test-build-v2-cli.mjs`.
 
 ## 4. `next` output
 
@@ -575,13 +650,13 @@ Order of work inside one call (phase 1 renews the lease; phase 2 writes):
 
 ```json
 {"ok":true,"cmd":"next","epoch":4,
- "action":"dispatch|wait|handoff|land|done|paused-quota|paused-infra|waiting-owner|deadlock|stop",
+ "action":"dispatch|wait|handoff|land|done|paused-quota|waiting-owner|deadlock|stop",
  "units":[{"unit":"u-build-wo-05-002","kind":"docs|tests|build|patch|review|audit|doubt-consult|deferred-review","attempt":1,
    "token":"<opaque, returned once>","runtime":"claude|codex","model":"sonnet|opus|sol|astra (session units: the session model)","model_slug":null,"effort":"low|medium|high|xhigh|null",
    "budget_calls":null,"worktree":"<abs>","brief_path":"<abs>","report_path":"<abs>","schema_path":"<abs>",
    "agent_type":"pandacorp:implementer|pandacorp:reviewer|pandacorp:test-writer|pandacorp:security-auditor|general-purpose",
    "via":"agent|cli|session","dispatch_line":"→ Codex gpt-6.1-sol · high · revisa FRD-05"}],
- "wait":{"reason":"ram|cpu_H|workers_running|jobs_running|gate|quota","retry_after_s":30},
+ "wait":{"reason":"disk|ram|cpu_H|workers_running|jobs_running|gate|quota","retry_after_s":30},
  "admit":{"decision":"grant|wait","motivo_limite":"ancho"},
  "quota":{"claude":{"pct":36,"state":"known"},"codex":{"pct":98,"state":"known"}},
  "notes_es":[]}
@@ -598,16 +673,17 @@ Field notes:
 - `dispatch_line` is the one-line Spanish announcement the session prints.
 - `action:"handoff"` is returned only when the coordinator is `claude-session` and the Claude reading is at or above the handoff threshold (BUILD-11); enforced here, not in prose.
 - `action:"land"`: the batch is complete; the session calls `land` (3.11).
-- Terminal actions are returned only when no unit, job or worker of the run is running (otherwise `wait`). Selection, first match: both companies at the stop threshold → `paused-quota`; `L == 4` for >10 min → `paused-infra`; 3 consecutive `env-infra` hand-backs → `stop`; every unit `landed`, `blocked` or (review-type) `verified` → `done` (the session calls `finish`); nothing can progress and every blocked unit waits on an owner answer or a gate → `waiting-owner` (`state.status` `waiting_gate` when all blockers are gates, else `waiting_owner`); queued units but no planner progress → `deadlock`; any other no-progress state → `stop`. Non-`done` terminal actions arrive already applied: status and reason set, journaled, quiesced and released with `projectStatus:false` (nothing runs, so no worker is stopped); the drive standby exits.
+- Terminal actions are returned only when no unit, job or worker of the run is running (otherwise `wait`). Selection, first match: both companies at the stop threshold → `paused-quota`; 3 consecutive `env-infra` hand-backs → `stop`; every unit `landed`, `blocked` or (review-type) `verified` → `done` (the session calls `finish`); nothing can progress and every blocked unit waits on an owner answer or a gate → `waiting-owner` (`state.status` `waiting_gate` when all blockers are gates, else `waiting_owner`); queued units but no planner progress → `deadlock`; any other no-progress state → `stop`. Non-`done` terminal actions arrive already applied: status and reason set, journaled, quiesced and released with `projectStatus:false` (nothing runs, so no worker is stopped); the drive standby exits.
 - `next` never returns a unit outside the run scope (test-asserted).
 - `--wait` returns early when a report or review file appears, a job or worker `exit` appears, an `answer_recorded` is journaled, or `handoff.json` appears.
-- `wait.reason`: `ram` (admission denied), `cpu_H` (heavy slots taken), `workers_running` (CLI-launched workers pending), `jobs_running` (G2 or land job pending), `gate`, `quota`.
+- `wait.reason`: `disk` (new-worktree admission or bootstrap exit 4; retry after 30 s), `ram` (admission denied), `cpu_H` (heavy slots taken), `workers_running` (CLI-launched workers pending), `jobs_running` (G2 or land job pending), `gate`, `quota`.
 
 ### 4.1 Integration inside `next`
 
-`integrate.mjs` integrates every committed chain into `lane/<run_id>/integration`: rebase the unit branch onto the integration tip, fast-forward, journal `integrated` (an already-integrated unit returns `outcome: already`; a chain that conflicts returns outcome `conflict`, reason `rebase_conflict`, stays `committed` and `next` hands it back), commit WO `IN_REVIEW` on the integration branch (`transitionWorkOrderAt`) and append `track.jsonl` lines there. When all units of an FRD are integrated, a G2 job is spawned: G2 (a detached job in its own snapshot worktree `build/g2/<frd>-<sha>`, created with `git worktree add --detach` at the integration tip `<sha>`; `.pandacorp/worktree-bootstrap.sh` runs inside the job under the H slot, and exit 75 means the bootstrap failed: an `env-infra` hand-back of the FRD's first integrated unit, no verdict and no patch; it runs `bash .pandacorp/verify.sh --since <integration base sha>`; the `gate` event carries `sha`; the verdict is stale, journaled `stale:true`, re-run at the tip and queuing no patch, only when an integrated unit of that FRD has an `integrated` sha that is not an ancestor of `<sha>`, merges of other FRDs never invalidate it; the snapshot is removed at harvest; nested projects use the product root `<snapshot>/<prefix>`); a red G2 queues a `patch` unit for that FRD (attempt +1); a green G2 schedules the FRD's review unit. A patch after a review moves the WO `IN_REVIEW -> PLANNED -> IN_PROGRESS` (bumps `reopen_count`). Integration never touches `main`.
+`integrate.mjs` integrates every committed chain into `lane/<run_id>/integration`: rebase the unit branch onto the integration tip, fast-forward, journal `integrated` (an already-integrated unit returns `outcome: already`; a chain that conflicts returns outcome `conflict`, reason `rebase_conflict`, stays `committed` and `next` hands it back), commit WO `IN_REVIEW` on the integration branch (`transitionWorkOrderAt`) and append `track.jsonl` lines there. When all units of an FRD are integrated, a G2 job is spawned: G2 (a detached job in its own snapshot worktree `build/g2/<frd>-<sha>`, created with `git worktree add --detach` at the integration tip `<sha>`; `.pandacorp/worktree-bootstrap.sh` runs inside the job under the H slot, and bootstrap exit 4 maps to reserved job exit 76 (`wait disk`, no verdict, patch or attempt), while other bootstrap failures map to exit 75: an `env-infra` hand-back of the FRD's first integrated unit, no verdict and no patch; it runs `bash .pandacorp/verify.sh --since <integration base sha>`; the `gate` event carries `sha`; the verdict is stale, journaled `stale:true`, re-run at the tip and queuing no patch, only when an integrated unit of that FRD has an `integrated` sha that is not an ancestor of `<sha>`, merges of other FRDs never invalidate it; the snapshot is removed at harvest; nested projects use the product root `<snapshot>/<prefix>`); a red G2 uses the selective attribution and fallback contract of 3.11; a green G2 schedules the FRD's review unit. A patch after a review moves the WO `IN_REVIEW -> PLANNED -> IN_PROGRESS` (bumps `reopen_count`). Integration never touches `main`.
 
-**Integration worktree bootstrap.** `integrate.bootstrapIntegrationWorktree` runs `bash .pandacorp/worktree-bootstrap.sh` in the product root of the integration worktree (10 min timeout, `PANDACORP_OWNER_RELEASE_OK` removed from the child env; no script means `ran:false`). It is called after every `git worktree add` of `createIntegrationWorktree` (never fails `start`) and, in `next`, before `land` is returned (after the batch is complete and the audit settled). A success writes the untracked marker `build/integration-bootstrap.json` `{run_id, root, ok, exit, at, tail}`; the same run and root are not bootstrapped again. A non-zero exit, timeout or spawn failure never throws and writes the marker with `ok:false`. In `next` it means: no `land` action, no land job, no G3 verdict, no patch; the first ready unit of the batch (an FRD work unit by preference) is handed back with cause `env-infra` (it and its dependents `blocked`, R4), `next` returns `wait` with reason `gate`, `retry_after_s` 60, and the next landing attempt re-runs the bootstrap; the 3rd consecutive `env-infra` hand-back stops the run (`env_infra_handbacks`). The contract matches the G2 snapshot (exit 75): an environment failure is never a code verdict. A G2 snapshot's manifest in `<main checkout>/.pandacorp/run/worktrees/` is dropped with the snapshot (`integrate.dropBootstrapManifests`, also on `removeWorktree`). Snapshots are removed at harvest, after a failed spawn, on every terminal action, `stop`, `finish` and `resume` (`next.removeAllG2Snapshots`, best effort, never under the mutex). `parkIrreversiblePending` journals `parked` followed by `unit_state queued -> parked`, so `rebuild-state` keeps those units parked.
+**Integration worktree bootstrap.** `integrate.bootstrapIntegrationWorktree` runs `bash .pandacorp/worktree-bootstrap.sh` in the product root of the integration worktree (10 min timeout, `PANDACORP_OWNER_RELEASE_OK` removed from the child env; no script means `ran:false`). It is called after every `git worktree add` of `createIntegrationWorktree` (never fails `start`), at the beginning of each active `next` before harvesting or integration, and again when landing is considered. Each call resolves the nested product root through the repository prefix; a successful marker makes later calls no-ops. An early exit 4 returns `wait disk` before harvesting. A success writes the untracked marker `build/integration-bootstrap.json` `{run_id, root, ok, exit, at, tail}`; the same run and root are not bootstrapped again. A non-zero exit, timeout or spawn failure never throws and writes the marker with `ok:false`. Exit 4 is a disk wait: no hand-back, attempt or gate verdict, retry when capacity returns. Other
+failures in `next` mean: no `land` action, no land job, no G3 verdict, no patch; the first ready unit of the batch (an FRD work unit by preference) is handed back with cause `env-infra` (it and its dependents `blocked`, R4), `next` returns `wait` with reason `gate`, `retry_after_s` 60, and the next landing attempt re-runs the bootstrap; the 3rd consecutive `env-infra` hand-back stops the run (`env_infra_handbacks`). The non-disk contract matches the G2 snapshot (exit 75; disk uses 76): an environment failure is never a code verdict. A G2 snapshot's manifest in `<main checkout>/.pandacorp/run/worktrees/` is dropped with the snapshot (`integrate.dropBootstrapManifests`, also on `removeWorktree`). Eligible snapshots are removed at harvest, after a failed spawn, on terminal actions, `stop`, `finish` and `resume` (`next.removeAllG2Snapshots`); protected copies remain (5.1). `parkIrreversiblePending` journals `parked` followed by `unit_state queued -> parked`, so `rebuild-state` keeps those units parked.
 
 ## 5. On-disk state
 
@@ -615,7 +691,7 @@ Everything below is under the gitignored `.pandacorp/run/` of the project unless
 
 | File | Writer | Notes |
 |---|---|---|
-| `build.lease/lease.json` (existing) | `build-state.mjs` only | mkdir lease + born-with-owner mutex `lease-mutation.lock` (`owner.json` is written in a private `.new-*` dir that is renamed into place, so the lock never exists without its owner; reclaimed at once when the owner pid is dead, after 60 s otherwise; one reclaimer per lock instance: the instance is moved to a tomb `.stale-i<inode>` kept until the litter sweep, so a second reclaimer's rename fails; `.new-/.done-/.stale-` litter older than 10 min is removed by the next holder); atomic JSON; v2: `ttl_seconds` 1800, optional `coordinator: session\|drive`, never projects `status.yaml` |
+| `build.lease/lease.json` (existing) | `build-state.mjs` only | mkdir lease + born-with-owner mutex `lease-mutation.lock` (`owner.json` is written in a private `.new-*` dir that is renamed into place, so the lock never exists without its owner; reclaimed at once when the owner is dead (pid gone or reused after the lock); live holders are never reclaimed and overdue holders are reported in `CONTENDED.holder {pid,ageMs}` after 60 s; only ownerless legacy locks use the 60 s age rule; one reclaimer per judged owner record via `.stale-<hash>` (first 32 sha256 hex characters), with stable-inode identity only for ownerless locks, so a second reclaimer's rename fails; `.new-/.done-/.stale-` litter older than 10 min is removed by the next holder); atomic JSON; v2: `ttl_seconds` 1800, optional `coordinator: session\|drive`, never projects `status.yaml` |
 | `lease-epoch` (existing) | `build-state.mjs` | monotonic epoch |
 | `build/lease-token.json` | `acquire`, `transfer` | `{epoch, token}`, mode 0600, never printed |
 | `build/state.json` | CLI (two-phase) | section 6; honest cache, frontmatter wins |
@@ -624,7 +700,7 @@ Everything below is under the gitignored `.pandacorp/run/` of the project unless
 | `build/wt/<unit id>[-a<n>]`, `build/wt/assume-<doubt>` | `units.mjs`, `integrate.mjs` | unit worktrees and assumption-branch worktrees (registered git worktrees; the unit id `assume-*` is reserved so the names cannot collide) |
 | `.pandacorp/run/scope.json` | session | verbatim `scope` of `start --detect`; input of `--preflight`/`--run` |
 | `build/units/<unit>/{doubt.json,answer.json}`, `build/doubts/<id>.sources.json` | session | doubt transport (3.12) |
-| `.pandacorp/run/build-archive/<run_id>/`, `.pandacorp/run/build-suspended/<run_id>/` | `lifecycle.mjs` | terminal / suspended runs (3.3, 3.4) |
+| `.pandacorp/run/build-archive/<run_id>/`, `.pandacorp/run/build-suspended/<run_id>/` | `lifecycle.mjs` | terminal / suspended run metadata only (3.3, 3.4); worktrees reclaimed, never moved |
 | `build/units/<unit>/{brief.md,report.json,review.json}` | brief: CLI; report and review: worker or session (file) | read-only after ingest; validated against schema; token must match |
 | `build/g2/<frd>-<sha>/` | `next` | detached G2 snapshot worktrees (one per G2 job), removed at harvest and by `removeAllG2Snapshots` (4.1) |
 | `build/integration-bootstrap.json` | `integrate.mjs` | untracked marker `{run_id, root, ok, exit, at, tail}` of the integration worktree bootstrap (4.1) |
@@ -633,7 +709,12 @@ Everything below is under the gitignored `.pandacorp/run/` of the project unless
 | `build/handoff.json` | `handoff`; consumed by drive | atomic; consumed by rename to `handoff.consumed-<epoch>.json`; `schemas/handoff.schema.json` |
 | `build/drive/{standby.json,drive.log,caffeinate.pid}` | drive / `start` | `standby.json {pid,armed_at,run_id,state:standby\|active\|stopped}`; log rotates at 5 MB |
 | `build/quota.json` | `quota record/read` | `schemas/quota.schema.json` (8.1) |
-| `build/admission.json` | `next` | `{tokens{<sha256>:{unit,class,reserved_gib,at}},history[3],l4_since}` |
+| `build/admission.json` | `start` initializes, `next` samples/issues tokens; ingest releases | `{tokens{<sha256>:{unit,class,reserved_gib,at}},history[3],ladder{step,start_step,allow8,changed_at,entry_swap_mb,entry_A_gib,history,motivo,scale_event?},disk_waiting?}`; no `l4_since` |
+| `build/perf-samples.jsonl`, `build/perf-meta.json` | `perf.mjs`, called by `next` | last 2000 readings plus whole-run extrema/time totals (8.4) |
+| host `perf/journal.jsonl` | `perf.mjs`, lifecycle/terminal/failure callers | schema `perf-record`, one append per run identity; outside every repository (8.4) |
+| `build/units/<patch>/gate-failure.json` | fenced G2/G3 harvest | schema `gate-failure`; diagnostic evidence and selective attribution (3.11) |
+| `build/handback/engine-backlog-<run>.md` | `failure/engineBacklog.mjs` | untracked nested/factory-root failure draft, never an automatic factory BL write (5.2) |
+| `.pandacorp/inbox/decisions.pending.md` (main checkout) | `doubts/integrationLog.mjs`, `answers/io.mjs` | checked-untracked projection of a tracked canonical inbox; entries and resolutions mirrored |
 | `build/doubts/<id>.json` | `doubts.mjs`, `answers.mjs` | `schemas/doubt.schema.json` |
 | `build/handback/<unit>.md`, `build/handback/engine.md` | `failure.mjs`, `handback` | handback format (BUILD-15) |
 | `deferred-reviews.json` (outlives runs) | `review.mjs`, `deferred.mjs`; written only inside a run | `schemas/deferred-reviews.schema.json` |
@@ -648,6 +729,66 @@ Host paths resolve through `PANDACORP_HOST_DIR`.
 - `track.jsonl` lines (section 10);
 - the landing metadata commit (3.11): WO `VERIFIED`, `status.yaml` `last_green_sha`, `safe_to_test`, `phase`, trailer `Change:`.
 The only path to `main` is `land` running `merge-queue.sh` from the integration worktree. In a launched project `merge-queue.sh` stops at exit 21 and `main` waits for the owner's order. Consequence: Mission Control sees a v2 run through the lease and the events; WO columns, `phase` and `last_green_sha` change on `main` at landing (BUILD-7, BUILD-13).
+
+### 5.1 Worktree lifecycle and safety (BUILD-5/BUILD-15)
+
+- At landing reclaim eligible unit/assumption checkouts; at attempt n+1 reclaim eligible older
+  attempts. At finish, stop, engine failure or blocked cleanup, reclaim eligible integration,
+  unit/assumption and G2 copies. Branch refs, journal/reports and pending owner data survive.
+  `waiting_gate` retains integration; `.next` is removed only after the shared safety check.
+- Resume recreates absent checkouts from retained branches, then applies the existing
+  same-attempt resets in 3.4. Metadata archive/suspend first reclaims checkouts, refuses protected
+  registered leftovers and never moves worktrees. Start rollback keeps its integration branch.
+- `integrate/worktrees.mjs removeWorktree` first calls the shared `engineWorktreeOwnershipReason`:
+  the run id, branch and exact canonical checkout path must agree. Detached unit/integration
+  checkouts remain protected; a detached G2 checkout requires a matching path/HEAD pin reachable
+  from this run's integration ref. It then calls `worktreeRemovalReason`; force cannot bypass
+  either predicate. Holds include main/self, symlink paths, locks, live process cwd, dirty/hidden
+  changes and owner state. Shared `runningWorktreePaths` protects running/admitted units and
+  running jobs until a positive recorded PID is proven dead, independently of coordinator status;
+  an absent/null PID is not proof of termination.
+  Hidden bootstrap differences need path/worktree-identity-bound generated-file hashes, not just
+  skip-worktree or assume-unchanged flags; later edits invalidate provenance. Legitimate missing
+  cone-sparse files are recognized. Unreadable safety checks preserve the checkout.
+- Session cleanup/sweep only reclaim eligible engine roots in `build/{wt,g2,integration}` and
+  `build-archive/<run>/...` (plus the legacy registered lane/gate roots). Any held lease or live
+  build protects them; suspended/`waiting_gate` runs remain protected. Retry, lifecycle cleanup
+  and sweep share the same run/branch/exact-path ownership predicate and worker protections.
+  Sweep also protects deployed checkouts. Missing-target bootstrap manifests are pruned,
+  without deleting protected state directories.
+
+Verification: `plugin/scripts/test-build-v2-disk.mjs`, `test-build-v2-land.mjs`,
+`test-build-v2-integrate.mjs`, `test-build-v2-cli.mjs`, `test-worktree-sweep.mjs`,
+`test-session-cleanup.mjs`, `test-session-cleanup-adversarial.mjs`.
+
+**Sparse docs (DEC-17).** Only build/patch/tests unit checkouts qualify. Cone mode keeps all source
+and the unit FRD folders, `docs/rules`, `docs/design` and `docs/product` root files. Existing brief
+context (including FRD/FDD/blueprint, WO, tokens, architecture and DESIGN) is checked before/after
+sparsifying; `verify.sh --light` must succeed. Any error disables sparse checkout; restoration
+failure refuses dispatch. Integration, G2/G3, docs, review and audit stay full. The accepted
+repo config is `extensions.worktreeConfig=true`; sparse settings stay per worktree.
+Verification: `plugin/scripts/test-build-v2-disk.mjs`.
+
+**Bootstrap and G3 caches.** An unchanged installed lock hash skips installation. Otherwise
+bootstrap checks target-volume capacity (shell constants in BUILD-15; exit 4), tries
+`pnpm install --offline --frozen-lockfile`, then `--prefer-offline --frozen-lockfile`, then plain
+install only if the lock differs from main. `node_modules` stays local, using shared-store APFS
+clones rather than a symlink; `.next` stays local. A volume delta above 15% of `du node_modules`
+warns of copying. After full G3, the queue releases its H slot before deleting `.next`,
+`.next-fidelity` and `test-results`, on green and red. Verification:
+`plugin/scripts/test-worktree-bootstrap.sh`, `test-merge-queue-lock-refresh.sh`,
+`test-merge-queue-certified-tree.sh`, `test-merge-queue-release-gate.sh`.
+
+### 5.2 Engine-failure drafts for nested projects (DEC-14/DEC-16)
+
+`fileBacklogNote` detects a project root below repository top or a factory root equal to repo top.
+It checks `.pandacorp/run/build/handback/engine-backlog-<run>.md` untracked and writes a local draft,
+returning `{draft:true,id:null,file,reason}`. No `factory/backlog` main-checkout file is written.
+The `engine_failure` event carries `backlog_draft`; `summary.need_from_owner` and the Spanish
+report list it for later factory triage. Standalone projects keep the normal numbered BL behavior;
+an unavailable factory returns `{id:null,file:null,reason}`. Performance closure happens outside
+the lease mutex. Verification: `plugin/scripts/test-build-v2-nested.mjs`,
+`test-build-v2-failure.mjs`, `test-build-v2-perf.mjs`.
 
 ## 6. `state.json` (schema `schemas/state.schema.json`, `schema: 2`)
 
@@ -697,7 +838,18 @@ Event data needed by `rebuild-state`: `run_started.data = {detect, preflight, st
 
 `review_recorded.data = {unit, frd, verdict:"pass|reopen|blocked|doubt", reviewer{runtime,model,effort}, authors[{runtime,model,effort}], cross:bool, degraded:"quota_90|unreachable|at_capacity|same_model"|null, findings{critical,high,medium,low}, pair_id|null}`.
 
-**Journal append lock.** `journal.mjs` appends under `<journal>.lock`, the same protocol as the lease-mutation lock: born with its `owner` file (pid, nonce, `acquired_at`) via a private `.new-*` dir renamed into place, released by renaming away before removal, a lock whose owner pid is dead reclaimed at once, an unreadable owner after 30 s, one reclaimer per instance through the tomb `<journal>.lock.dead-i<inode>`. Known residual windows: a live holder older than the bound releasing between a reclaimer's `stat` and rename, and a legacy empty lock; plugin versions that share one lock directory are not supported (upgrade constraint).
+**Journal append lock (FIX-MUTEX3).** `journal.mjs` appends under `<journal>.lock`, born with
+its `owner` file (pid/nonce) through a private `.new-*` rename and released by renaming away.
+Dead means pid gone or reused by a process started after the judged lock; live holders are never
+reclaimed. After 30 s an overdue live holder appears in `CONTENDED.holder {pid,ageMs}`. Only an
+ownerless legacy lock is age-reclaimed after 30 s (lease mutex: 60 s). A single reclaimer wins via
+`<journal>.lock.dead-<hash>` (lease: `.stale-<hash>`), the first 32 hex characters of sha256 of the
+exact judged owner text. Ownerless identity uses a stable inode before/after reading. The liveness
+stat follows the owner read; process start checks have a one-second margin. A reclaimer stalled
+past the age bound re-judges. Litter older than 10 min is swept by the next holder. A hung live
+holder blocks until it exits; mixed plugin versions and legacy empty locks remain unsupported
+race boundaries. Verification: `plugin/scripts/test-build-v2-lock-stress.mjs`,
+`test-build-state.mjs`, `test-build-state-handoff.mjs`.
 
 `answer_recorded.data = {question, kind:"ask|parked|gate", value, units[{unit, effect}]}`. `admit` events carry the admission fields (signals, decision, `motivo_limite`, `techo`, `suelo`, `A_ef`, `P`, `unit`; never the token); `admit` goes to the journal and the events ndjson, not to `track.jsonl`.
 
@@ -722,9 +874,7 @@ effective(reading, now) -> {pct|null, state:"known|unknown", needs_probe:bool}
   needs_probe iff age > codex_probe_age_s and pct >= codex_probe_min_pct
 probeCodex({exec}) -> minimal codex exec (~20k input tokens), preflight only, then readCodexQuota
 classifyLimitText(text) -> "usage_limit" | "rate_limit" | null
-  the single detector. Patterns are copied (v2 imports none of these files) from:
-  plugin/runtime/codex/executor.mjs:262-265, plugin/scripts/codex-worker.mjs LIMIT_RE,
-  plugin/runtime/engine/pandacorp-build.src.js:914
+  the single detector; limit patterns are self-contained and aligned with codex-worker.mjs LIMIT_RE
 policy({claude, codex, coordinator, driveAlive = false, now?, thresholds?}, deps?)
   -> {claude_new_units, codex_new_units, handoff, paused, degrade_reviews_of:{claude_authored, codex_authored}}
   the ONLY owner of the pause/handoff priority (A11): both providers >= quota_stop -> paused, never handoff;
@@ -738,25 +888,43 @@ Limit handling (BUILD-11): a `usage_limit` consumes no attempt and is recorded a
 
 ### 8.2 Admission (`admission.mjs`)
 
-```
-async readSignals({exec, signalsFile, readFile}) -> {L:1|2|4, swapouts, swap_used_mb, A_gib, A_cons_gib}
-  sources: sysctl kern.memorystatus_vm_pressure_level; vm_stat; sysctl vm.swapusage (signalsFile holds their RAW outputs, 2.7)
-  parsePressure accepts 1, 2 and 4 only (3 fails loud); unexpected parse -> throws SignalError (caller: safe mode B=1,H=1, motivo senal_fallida)
-decide({signals, history, reservations, live:{B,H,R?}, heavyQueued, readyWidth,
-        caps:{K_TECHO, kOwner, kReactive}, runtimeShape:"R-A|R-B|R-C|drive"})
-  -> {grant:"B"|"H"|null, motivo_limite, techo, suelo, A_ef, P, veto:null|"presion"|"swap", h_max, safe_mode}
-  (signals null = safe mode; history = the last 3 {L, swapouts} readings, oldest first)
-recordReading(signals, {file}) -> {history, l4_since, l4_sustained_s, paused_infra}   (next calls it once per call)
-readHistory({file}); countHostSlots({dir}).held = live.H
-acquireHostSlot({dir, max}) -> {slot, release()}; waitHostSlot({..., timeoutMs})
-  mkdir + owner.json{pid} + dead-owner reclaim; used by the jobs wrapper and merge-queue.sh
-issueToken(unit, class) / verifyToken(unit, token) / releaseToken(unit)
-  the unit token is the admission token; only `next` issues
+```text
+readSignals({exec, signalsFile, readFile})
+  -> {L:1|2|4, swapouts, swap_used_mb, A_gib, A_cons_gib}; invalid parse throws SignalError
+initializeAdmission({step, allow8}, {file,...}) -> ladder
+recordReading(signals, {file,...}) -> ladder plus history (once per next call)
+readAdaptive({file}) -> persisted ladder, or initialLadder()
+readHistory({file}) -> latest three readings
+admission/ladder.mjs initialLadder({step?, allow8?, at?}) -> adaptive state
+admission/ladder.mjs advanceLadder(previous, signals, at) -> {step,start_step,allow8,changed_at,entry_swap_mb,
+  entry_A_gib,history,motivo,scale_event:{from,to,reason,at}|null}
+decide({signals, reservations, live:{B,H,R?}, heavyQueued, readyWidth, step,
+  caps:{kOwner,kReactive,kReactiveReason,colchonGib}, want?,candidate?,nowMs?,ncpu?})
+  -> {grant:"B"|"H"|null,motivo_limite,step,techo,suelo,A_ef,P,veto:null,h_max,safe_mode}
+readDiskFreeGib(project, deps?) -> project-volume free GiB (statfsSync)
+diskDecision({project,freeGib?,needsWorktree:true}, deps?)
+  -> {ok,disk_free_gib,motivo_limite:null|"disco"}
+recordDiskWait(blocked, {file,...}) -> true only for a new blocked episode's notification
+countHostSlots({dir}).held -> live.H
+acquireHostSlot({dir,max}) -> {slot,release()}; waitHostSlot({...timeoutMs})
+issueToken(unit,class) / verifyToken(unit,token) / releaseToken(unit)
 ```
 
-Veto rule (DEC-1): `L == 4` always launches nothing (`pausa_L4`; sustained more than 10 minutes, tracked by `admission.json` `l4_since`, is `paused-infra`). Below `L == 4` the veto applies only when the swapouts rise (a positive delta) in at least 2 of the last 3 readings (the swap trend): motivo `veto_swap` at `L == 1`, `veto_presion` when the trend is corroborated by `L >= 2`. `L == 2` with flat swap is NOT a veto, and fewer than 3 readings give no veto but keep the floor at 1 (held at the floor, reported as `ram`). A veto means series: at most 1 builder + 1 heavy job. The host directory is `PANDACORP_HOST_DIR` (default `~/.pandacorp/host`) and the slots live in its `h-slots/`.
+Step policy, learned start, cooldowns and disk thresholds live in BUILD-9. There is no zero-ceiling
+critical-pressure mode or memory-pressure terminal pause (DEC-15). `runtimeShape` labels dispatch transport;
+it no longer imposes a special serial B ceiling on Codex. RAM reservations estimate H only; B uses
+the persisted step, ready width, owner cap and reactive cap. Disk admission applies to new unit/G2
+copies, with per-round reservation; bootstrap disk refusal also returns `wait/disk` (4.1).
+Verification: `plugin/scripts/test-build-v2-admission.mjs`, `test-build-v2-next.mjs`,
+`test-build-v2-disk.mjs`, `test-build-v2-cli.mjs`.
 
-`motivo_limite` is the closed enum `ancho`, `ram`, `ram_reservada_H`, `veto_presion`, `veto_swap`, `cpu_H`, `techo`, `owner_k`, `reactivo_contencion`, `reactivo_codex`, `cupo_limite`, `senal_fallida`, `pausa_L4`, `sin_token`. The numeric constants referenced by `decide` (`K_TECHO`, floor, `COLCHON`, `c_b`, `c_h`, Codex surcharge, hysteresis, `H_max`, reviewer sub-cap, `c_tool`, class peaks) are fixed values in the "Admission" row of the Constants table of `factory/standards/build-engine.md`, with the pressure-level, veto and runtime-shape rules in BUILD-9. There is no calibration file and no `calibrate` command. The admission controller never kills a process.
+`motivo_limite` remains the closed interface enum `ancho`, `ram`, `ram_reservada_H`,
+`veto_presion`, `veto_swap`, `cpu_H`, `techo`, `owner_k`, `reactivo_contencion`, `reactivo_codex`,
+`cupo_limite`, `senal_fallida`, `disco`, `sin_token`; legacy veto names are accepted interface values,
+not a separate builder veto. Ladder `motivo` is separate: `techo`, `senal_fallida`,
+`presion_critica`, `swapouts`, `swap_growth` or `estable`. No calibration file or `calibrate`
+command exists. Host slots resolve under `PANDACORP_HOST_DIR` or `~/.pandacorp/host/h-slots`.
+Verification: `plugin/scripts/test-build-v2-admission.mjs`, `test-build-v2-perf.mjs`.
 
 ### 8.3 Routing (`routing.mjs`)
 
@@ -774,6 +942,34 @@ consultCell({origin, consultNo, consulted?[], availability?}) -> {runtime, model
 ```
 
 `routing.mjs` exports `MODEL_STRENGTH` (frozen: `haiku 1, luna 1, sonnet 2, sol 2, terra 2, opus 3, astra 3, fable 4`), the single strength table: `review/degradation.mjs` (the "strongest author" helper behind the review matrix) and `drive/audit.mjs` (the audit deferral) import it; no module keeps a private copy. A repeated execution raises effort one step (cap `xhigh`) and never switches company; only the quota switch of BUILD-11 (or an unreachable label company) changes company (the other company's column of the same builder row). The cells, the 16-row review matrix and the unreachable and same-model rules are policy (BUILD-10) and are generated from the data file; a table test pins them. `start` checks Codex slugs against `codex debug models` and fails loud when a catalog slug is retired.
+
+### 8.4 Performance (`perf.mjs`, DEC-18)
+
+`startRecommendation()` reads the last five host records and returns `{step,allow8}`. Start policy
+is BUILD-9; invalid recommendation data fails loud. `initializePerformance` writes run metadata,
+`recordSample` writes capped readings, and `finishPerformance({project,state,outcome?})` attempts
+a serialized, schema-validated host append outside the lease mutex. It deduplicates by
+`run_id + project + start`; telemetry errors return `{ok:false,error}` without failing lifecycle.
+Verification: `plugin/scripts/test-build-v2-perf.mjs`, `test-build-v2-cli.mjs`.
+
+Files and exact shapes:
+
+- `build/perf-samples.jsonl`: `{t,step,live_b,live_h,L,swap_used_mb,A_gib,disk_free_gib,motivo}`;
+  last 2000 samples. `build/perf-meta.json` retains whole-run extrema, step seconds/counts and
+  scale events even after older samples leave the file.
+- `<host>/perf/journal.jsonl` (`schemas/perf-record.schema.json`):
+  `{run_id,project,plugin_version,start,end,outcome,units_by_kind,workers_over_time,ram_gib,
+  swap_mb,scale_events,start_step,sustained_step,recommended_start,disk_free_gib}`.
+  `project` is basename only; `units_by_kind[kind]={count,p50_s,p90_s}`;
+  `workers_over_time` has at most 200 `{t,step,live_b,live_h}` points;
+  `ram_gib={min,max}`, `swap_mb={start,peak,end}`, `disk_free_gib={start,end}`;
+  `scale_events[]` are `{at,from,to,reason}`. Measurements may be null when unavailable.
+
+Lifecycle/terminal/failure callers close performance at finish, stop, engine failure and
+`waiting_gate`. `status`/`summary` expose `{step,motivo}`, and `build.scaled` publishes
+`{from,to,reason}`. Machine-specific hardware descriptions belong in personal configuration. Verification:
+`plugin/scripts/test-build-v2-perf.mjs`, `test-build-v2-nested.mjs`,
+`test-build-v2-telemetry.mjs`.
 
 ## 9. `drive` relay
 
@@ -801,7 +997,7 @@ Fenced helpers in `plugin/runtime/build-state.mjs` for this relay and for resume
 - `status.yaml` is never written on `main` by the v2 engine. `last_green_sha`, `safe_to_test` and `phase` arrive with the landing metadata commit (3.11). Liveness is the lease (`ttl_seconds` 1800, renewed per coordinator command); Mission Control must see a valid lease JSON (`renewed_at` ISO, `ttl_seconds` > 0) or none.
 - Events, through `event-transport.mjs createRuntimeEventEmitter`, always with `project = basename(project root)` (the emitter's runtime is the coordinator's company):
   - existing: `BuildLaunch`, `AgentWorking`, `AgentDone` (`role, model, unit, result: green|red`), `wo_commit` (legacy name; emitted by `report.mjs`), `GateVerdict{frd, verdict: PASS|FAIL}`, `BuildComplete`, `BuildStopped`, `worker_started`, `worker_stopped` (from `codex-worker`). There is no `build_usable`;
-  - new vocabulary (registered in `plugin/runtime/event-vocabulary.json`): `review.recorded` (`ReviewRecorded`), `quota.reading` (`QuotaReading`), `engine.failure` (`EngineFailure`), `autonomous.decision` (`AutonomousDecision`), `build.handoff` (`BuildHandoff`), `build.waiting-gate` (`WaitingGate`), `unit.parked` (`UnitParked`), `admit.decision` (`AdmitDecision`).
+  - new vocabulary (registered in `plugin/runtime/event-vocabulary.json`): `review.recorded` (`ReviewRecorded`), `quota.reading` (`QuotaReading`), `engine.failure` (`EngineFailure`), `autonomous.decision` (`AutonomousDecision`), `build.handoff` (`BuildHandoff`), `build.waiting-gate` (`WaitingGate`), `unit.parked` (`UnitParked`), `admit.decision` (`AdmitDecision`), `build.scaled` (`BuildScaled`, `{from,to,reason}`).
 - `track.jsonl` (written only on the integration branch, one writer, committed with integration commits). Line shapes read by Mission Control:
   - `{"kind":"wo_start","frd":"...","wo":"...","at":"<iso>"}`
   - `{"kind":"wo_end","frd":"...","wo":"...","at":"<iso>","state":"in_review|verified|failed"}`
@@ -906,7 +1102,7 @@ Variants:
  "doubt":null}
 ```
 
-`line` and `probe` may be `null`. The CLI hashes probe files itself; the review report carries no hashes. `traceability` items are `{contract, contract_class: requirement|acceptance-criterion|invariant|edge-case|limit|error|exclusion, status: pass|fail|not-applicable, tests[]}` (the same items as `plugin/runtime/codex/review-result.schema.json`). A finding with `lens:"scope"` means the diff touches Fuera. `probes[].failed_first` records that the probe failed against the pre-fix code; `verdict:"blocked"` hands the reviewed units back with the finding as reason.
+`line` and `probe` may be `null`. The CLI hashes probe files itself; the review report carries no hashes. `traceability` items are `{contract, contract_class: requirement|acceptance-criterion|invariant|edge-case|limit|error|exclusion, status: pass|fail|not-applicable, tests[]}`. A finding with `lens:"scope"` means the diff touches Fuera. `probes[].failed_first` records that the probe failed against the pre-fix code; `verdict:"blocked"` hands the reviewed units back with the finding as reason.
 
 ### 11.4 Doubt consult answer
 

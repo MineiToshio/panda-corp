@@ -260,6 +260,18 @@ await test("quota record/read and admit: shapes, env-driven (fixture rollout, si
   const bad = s.cli(["admit"]); eq(bad.code, 9, "unreadable RAM signals exit 9"); eq(bad.json.safe_mode, true, "safe_mode");
 });
 
+await test("PATCH2: admit shows the persisted adaptive ceiling without modifying admission", async () => {
+  const s = await sandbox(); const f = await fx();
+  await f.writeSignalsFile(s.env.PANDACORP_SIGNALS_FILE, "clean");
+  const { initializeAdmission } = await import("../runtime/build/admission.mjs");
+  const { buildPaths } = await pathsMod();
+  const file = buildPaths(s.root, { env: s.env }).admissionFile;
+  initializeAdmission({ step: 2, allow8: false }, { file, now: () => Date.parse(NOW) });
+  const before = await readFile(file, "utf8");
+  eq(need(s.cli(["admit"]), "admit persisted step").techo, 2, "persisted step");
+  eq(await readFile(file, "utf8"), before, "admit is read only");
+});
+
 // ============================================================================================ preflight (R2) and start --run
 await test("preflight is read-only (R2): writes only preflight.json (0600), never installs the pre-push guard, main untouched", async () => {
   const s = await sandbox("launched"); const before = mainState(s.root);
@@ -552,6 +564,16 @@ await test("rebuild-state regenerates state.json from journal + WO frontmatter a
   const r = need(s.cli(["rebuild-state", "--epoch", String(start.epoch)]), "rebuild-state");
   eq(r.cmd, "rebuild-state", "cmd"); ok(Number.isInteger(r.units) && r.units > 0, "units count");
   ok(r.diff_vs_cache && ["changed", "added", "removed"].every((k) => Array.isArray(r.diff_vs_cache[k])), "diff_vs_cache lists");
+});
+
+await test("DENG gc CLI refuses a live lease, is idempotent after stop and preserves branch refs", async () => {
+  const s = await sandbox(); const { start } = await startRun(s);
+  need(s.cli(["gc"]), "gc with held lease", 4);
+  const refs = gitIn(s.root, "for-each-ref", "--format=%(refname)", "refs/heads/");
+  need(s.cli(["stop", "--epoch", String(start.epoch)]), "stop before gc");
+  need(s.cli(["gc"]), "gc after stop"); need(s.cli(["gc"]), "idempotent gc");
+  eq(gitIn(s.root, "for-each-ref", "--format=%(refname)", "refs/heads/"), refs, "all branch refs preserved");
+  ok(!gitIn(s.root, "worktree", "list", "--porcelain").includes("/.pandacorp/run/"), "no run worktree after stop/gc");
 });
 
 await cleanup();

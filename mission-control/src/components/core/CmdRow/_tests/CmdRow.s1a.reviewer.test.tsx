@@ -11,7 +11,7 @@ describe("CommandBox independent review (WO-13-011)", () => {
   });
 
   it("lets CommandCompact apply its own smaller frame", () => {
-    render(<CommandCompact command="/pandacorp:change" />);
+    render(<CommandCompact command="/pandacorp:implement" />);
     expect(screen.getByTestId("cmd-row").style.minHeight).not.toBe("44px");
   });
 });

@@ -1,6 +1,6 @@
 /**
  * Pandacorp build engine v2: the planner (BUILD-9, D30, PLAN 3.6, 3.16 A13). Pure and self-contained: it imports nothing
- * from the default engine's `build-mech-*` files. It reads no repository and spawns nothing; the caller hands it the work
+ * from the retired engine's mechanical modules. It reads no repository and spawns nothing; the caller hands it the work
  * orders (as read from the integration worktree), the run's scope and the state units, and gets back units to queue and a
  * dispatch round. The only reader here is `readPlanWorkOrders`, which feeds `plan` / `lint-plan` / `next` from disk.
  *

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { cache } from "react";
+import { buildWorkOrderDisplay } from "@/lib/build-run/display";
 import { countOpenChanges } from "@/lib/changes/openChanges";
 import { now } from "@/lib/clock/clock";
 import { resolveProjectPath } from "@/lib/config/config";
@@ -94,7 +95,10 @@ function readCounts(
   projectPath: string,
   orders: PublishedWorkOrders | null,
 ): ProjectOverviewItem["counts"] {
-  const progress = aggregateProgress(orders?.items ?? []);
+  const run = item.status.present ? item.status.status.buildRun : undefined;
+  const progress = aggregateProgress(
+    run ? buildWorkOrderDisplay(orders?.items ?? [], run).items : (orders?.items ?? []),
+  );
   const docs = listProjectDocs(projectPath);
   return {
     ordersVerified: orders && !orders.errors.length ? progress.done : null,
@@ -132,6 +136,7 @@ function overviewItem(item: ProjectListItem, nowIso: string): ProjectOverviewIte
     stageIndex: item.stage ? STAGE_INDEX[item.stage] : 0,
     build: buildSignal({
       running: item.running,
+      buildRun: status.buildRun,
       supervisorHeartbeat: status.supervisorHeartbeat,
       leaseRenewedAt: status.leaseRenewedAt,
       leaseTtlSeconds: status.leaseTtlSeconds,

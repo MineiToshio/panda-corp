@@ -62,7 +62,7 @@ and continue from step 3 above. Never in a normal build.
 ## 4. Coming back while drive coordinates
 
 Drive never returns to Claude on its own (it cannot read Claude's quota). When the owner reopens a session and
-writes `/pandacorp:implement v2 --resume`:
+writes `/pandacorp:implement --resume`:
 
 1. `pb start --detect --args=--resume …` → row 2.
 2. `pb start --resume --coordinator claude --session-model <m>` → the lease is transferred to this session immediately (epoch + 1) (no `--owner-confirmed`: a run held by drive, even a dead one, is transferred back directly); drive gets exit 3 at its
@@ -83,7 +83,7 @@ If drive already finished or paused, `pb summary` gives the data: write the fina
   has renewed.
 - **Human gates**: `waiting_gate` plus a macOS notification; it never sets `PANDACORP_OWNER_RELEASE_OK`.
 - **Death** (expired Codex session, Mac asleep with the lid closed on battery): the work stays at the last safe
-  point; `/pandacorp:implement v2 --resume` continues it.
+  point; `/pandacorp:implement --resume` continues it.
 - At the end it runs `finish`; the report is in Mission Control and at the path `summary` names.
 
 ## 6. Never

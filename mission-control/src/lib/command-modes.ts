@@ -34,7 +34,3 @@ export const SPEC_MODES: ReadonlyArray<CommandMode> = [
 
 /** Disclosure summary explaining what the spec modes control. */
 export const SPEC_MODE_TITLE = "Cuántas preguntas te hago antes de generar la documentación";
-
-/** Hover tooltip explaining what the implement mode field controls. */
-export const IMPLEMENT_MODE_TITLE =
-  "Modo de construcción — con cuánta potencia se construye el proyecto";

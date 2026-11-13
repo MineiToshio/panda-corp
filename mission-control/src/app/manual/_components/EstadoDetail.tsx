@@ -1,5 +1,5 @@
 /**
- * manual/_components/EstadoDetail.tsx — FRD-08 "Estado y archivos" detail
+ * manual/_components/EstadoDetail.tsx : FRD-08 "Estado y archivos" detail
  *
  * The language rule by git status, the shape of the two state files every project
  * carries (status.yaml, work-order frontmatter), the feeds (progress log, events,
@@ -20,12 +20,12 @@ import {
   Ul,
 } from "@/components/modules/manual-diagrams/prose";
 
-const STATUS_SAMPLE = `phase: build                    # fase actual del pipeline
+const STATUS_SAMPLE = `phase: implementation                    # fase actual del pipeline
 version: "1.0.0"                # versión semántica
 overlay_version: "8.5.0"        # versión del overlay Pandacorp
 last_green_sha: abc1234         # SHA del último commit con verify.sh verde
 safe_to_test: true              # hay snapshot verificado; HEAD es ese snapshot o su hijo de metadatos
-running: false                  # si el motor de implement está activo
+running: false                  # proyección durable; la vida del run viene de la lease
 blocked_work_orders: []         # work orders bloqueadas esperando desbloqueo`;
 
 const WORK_ORDER_SAMPLE = `implementation_status: IN_REVIEW   # PLANNED | IN_PROGRESS | IN_REVIEW | VERIFIED | BLOCKED
@@ -78,9 +78,8 @@ export function EstadoDetail(): React.JSX.Element {
       <DocH title="Comunicación con builds en marcha" />
       <Ul>
         <li>
-          <Code>.pandacorp/inbox/changes/</Code> (gitignoreado): dejar un archivo aquí es suficiente
-          para pedir un cambio o reportar un bug a un <Code>implement</Code> en ejecución; el motor
-          lo recoge en el próximo safe point.
+          <Code>.pandacorp/inbox/changes/</Code>: borradores y tarjetas de alcance. La sesión valida
+          un draft con <Code>card check</Code>; el motor no drena pedidos nuevos durante el run.
         </li>
         <li>
           <Code>.pandacorp/inbox/decisions.md</Code> (gitignoreado): las decisiones pendientes se
@@ -94,7 +93,7 @@ export function EstadoDetail(): React.JSX.Element {
           cruda de una herramienta de gate. El resultado de cada gate es evidencia interna del
           reviewer y del motor; si hay que conservarlo va a un log técnico bajo{" "}
           <Code>.pandacorp/run/</Code>. Contrato completo en{" "}
-          <Code>factory/standards/build-orchestration.md</Code> §7.
+          <Code>factory/standards/build-engine.md</Code>.
         </li>
         <li>
           <Code>.pandacorp/comms/iteration.md</Code>: persistencia de la conversación de diseño y
@@ -104,9 +103,10 @@ export function EstadoDetail(): React.JSX.Element {
 
       <DocH title="Eventos de La Fragua: ~/.claude/dashboard-events.ndjson" />
       <Body>
-        Un archivo NDJSON en tu directorio home al que escriben los agentes y los hooks cuando
-        terminan acciones relevantes. Mission Control lo lee para La Fragua y los KPIs en tiempo
-        real. No está versionado (es del usuario local) y <B weight={500}>rota</B>: se lee la cola.
+        Un archivo NDJSON del runtime (Claude o Codex) al que escriben el CLI y los hooks
+        disponibles cuando terminan acciones relevantes. Mission Control lo lee para La Fragua y los
+        KPIs en tiempo real. No está versionado (es del usuario local) y <B weight={500}>rota</B>:
+        se lee la cola.
       </Body>
 
       <DocH title="La línea de tiempo durable: .pandacorp/track.jsonl" />

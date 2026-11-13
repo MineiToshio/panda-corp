@@ -63,12 +63,12 @@ describe("AC-02-010.8 — Build ficha (v2 build flow)", () => {
   const text = fichaText(phase("build"));
 
   it.each([
-    ["foundation-first", "fundación primero"],
-    ["disjoint waves serialized by file artifact", "artefacto de archivo"],
-    ["per-WO fidelity loop", "bucle de fidelidad"],
+    ["independent cross-company review", "revisión independiente entre compañías"],
+    ["adaptive concurrency", "ajusta la concurrencia"],
+    ["parked questions", "aparca las dudas"],
     ["the 4-lens gate", "4 lentes"],
     ["the visual judge", "juez visual"],
-    ["the Option-B wave commit", "option-b"],
+    ["merge queue landing", "cola de merge"],
   ])("mentions %s", (_label, phrase) => {
     expect(text).toContain(phrase);
   });

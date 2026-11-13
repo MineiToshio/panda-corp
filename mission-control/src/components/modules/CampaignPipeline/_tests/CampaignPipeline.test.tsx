@@ -429,7 +429,7 @@ describe("ficha-next-step — per-phase runnable commands", () => {
     // Linked projects use the shared picker alongside the four base commands.
     render(<CampaignPipeline {...DEFAULT_PROPS} project="linked-project" activePhase={4} />);
     const cmds = screen.getByTestId("ficha-next-step");
-    expect(within(cmds).getAllByTestId("cmd-row")).toHaveLength(5);
+    expect(within(cmds).getAllByTestId("cmd-row")).toHaveLength(2);
     expect(within(cmds).getAllByTestId("ficha-command").length).toBeGreaterThan(1);
   });
 
@@ -441,9 +441,9 @@ describe("ficha-next-step — per-phase runnable commands", () => {
   });
 
   it("clicking a different phase swaps the command set (release → design)", () => {
-    // activePhase=5 (release) is open by default → first command is /pandacorp:iterate.
+    // activePhase=5 (release) is open by default → first command is /pandacorp:implement.
     render(<CampaignPipeline {...DEFAULT_PROPS} activePhase={5} />);
-    expect(screen.getByTestId("ficha-next-step")).toHaveTextContent("/pandacorp:iterate");
+    expect(screen.getByTestId("ficha-next-step")).toHaveTextContent("/pandacorp:implement");
     // Click the (done) design phase → its advance command is /pandacorp:architecture.
     fireEvent.click(screen.getByTestId("campaign-phase-design"));
     expect(screen.getByTestId("ficha-next-step")).toHaveTextContent("/pandacorp:architecture");

@@ -61,8 +61,8 @@ Puedes irte. Te aviso si algo necesita tu firma; el informe estará en Mission C
 
 No asks → replace the first block with the single line "No necesito nada de ti.". Every value comes from
 `announce{}` and `start --run`; never invent one. No em or en dashes. An ask that is a real choice between
-alternatives is written as a compact CONV-20 card inside its numbered item: context in one or two lines, the
-alternatives, the default as the recommendation.
+alternatives is written as a compact CONV-20 card inside its numbered item: one context paragraph for a novice, lettered options A/B/C/D with gain and risk, and
+"Recomendada: <letter>" with why. The explicit default remains visible.
 
 ### 1.4 Later answers: one call
 
@@ -84,7 +84,7 @@ Confirm in one Spanish line ("Aplicado: <resumen>. Sigo.") and continue the loop
 (unknown id, a value that does not fit, or the production gate) → re-read `open_questions[]`, retry once with the
 right id; never guess. The production gate is never answered with `answer` (§4).
 
-Run not live (it finished, paused or waits for the owner): when the owner writes `/pandacorp:implement v2 --resume`,
+Run not live (it finished, paused or waits for the owner): when the owner writes `/pandacorp:implement --resume`,
 run `pb start --resume` first (`engine-v2.md` step 4.2), then the same `answer` call with the new epoch.
 
 ## 2. Doubts during the build: the consult ladder
@@ -133,7 +133,8 @@ output (`irreversible`: login and session, stored data, deletions, the r1 zone) 
 The CLI decides which applies; the session reports and notifies.
 
 - **Park** (`parked: owner_question`): that unit and its dependents wait; everything independent keeps building.
-  The CLI records the question (id = the doubt id) where Mission Control shows it. Claude Code: `PushNotification`
+  The CLI records the question (id = the doubt id) on the integration branch and mirrors pending questions
+  to the untracked `.pandacorp/inbox/decisions.pending.md` where Mission Control can read them. Claude Code: `PushNotification`
   "Aparqué <unidad>: necesito tu decisión. Lo demás sigue.".
 - **Built on assumption**: the parked unit drags more than half of the pending work and the preferred option is
   reversible. The CLI builds everything on that option on `lane/<run_id>/assume-<doubt>`, with its gates, **without

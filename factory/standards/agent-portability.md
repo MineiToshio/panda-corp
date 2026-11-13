@@ -1,33 +1,29 @@
 # Multi-runtime agent portability
 
-> Domain: Factory operation · Severity: **MUST** (portable core) · Enforcement: manual (agent self-check per skill invocation; owner cross-runtime test plan). **factory-internal — not injected** into product projects (the project-facing slice ships via `AGENTS.md.tpl`'s "Other runtimes" section, DR-113). See DR-113, proposal `docs/proposals/25-multi-runtime-portability.md`, and CONV-12/DR-111 (which this generalizes).
+> Domain: Factory operation · Severity: **MUST** (portable core) · Enforcement: CLI fencing, runtime-local hooks and the checks named below; **factory-internal — not injected**. The project-facing slice ships through `AGENTS.md.tpl` (DR-113/DR-133).
 
 ## Purpose & scope
 
-The Pandacorp factory — and, lighter, its product projects — is operable from **any coding agent that reads AGENTS.md and discovers Agent Skills** (`SKILL.md`): Claude Code (native), OpenAI Codex (app + CLI), Cursor, OpenCode. This standard defines the **portable core** (documents + file-state + skills), the **per-runtime capability matrix**, the **neutral model-tier vocabulary**, the **tool translation table**, and the **degradation rules** for the parts that don't port. It never forks the know-how (`factory/` is plain markdown, one canonical copy) and never degrades the Claude Code experience.
+The factory's portable core is its canonical instructions, skills, documents and file state. Claude Code and Codex have equal owner authorization to read and write every skill/application, including plans and build state (DR-133). Tool availability and observed automation evidence are separate from permission.
 
-**The invariant that makes portability possible — durable handoff state lives in files, never only in a session.** Work-order frontmatter (`implementation_status`: `PLANNED → IN_PROGRESS → IN_REVIEW → VERIFIED`), `.pandacorp/status.yaml` (`phase`, machine state), the change queue and the decisions inbox are the cross-session evidence. This is necessary but **not sufficient for live cross-runtime takeover**: the active executor also owns in-memory scheduling, commit serialization, review work, budgets and health brakes that files do not currently reconstruct completely. Therefore a runtime switch is a **cold continuation only after a clean safe point**: the current executor finishes its gate/commit, stops fully and releases ownership before a later runtime reads the files. No runtime may take over another runtime's live run. Only the *execution vehicle* is runtime-specific: Claude uses Dynamic Workflows and its supervisor; Codex may work natively in an attended session, or use the supported runtime-local executor (`plugin/runtime/codex/executor.mjs`). Permission is granted by DR-133; certification describes automation evidence, not an owner-access restriction; it was never a claim that Codex drives Claude's workflow — see PORT-5/PORT-6.
+**One instruction source (DEC-13).** `AGENTS.md` contains all instructions, including its Claude Code section; `CLAUDE.md` is exactly the one-line `@AGENTS.md` shim, never another maintained manual or a symlink. Non-Claude agents explicitly read the files AGENTS.md names because native import expansion is not assumed. `upgrade` migrates existing projects through `migrate-instructions.mjs`; it refuses a `CLAUDE.local.md` until its contents are reconciled.
 
-**Runtime locality is strict.** A Claude session or Dynamic Workflow dispatches only Claude agents/models; a Codex session dispatches only Codex agents/models. The runtimes share canonical files and deterministic contracts, not subagents, messages, transcripts or a live control plane. Deterministic, versioned and test-covered CLIs may be shared as the one writer for a governed transition once their migration slice is certified; Claude invokes them under the Dynamic Workflow's instruction, so the Workflow remains the Claude orchestration decision-maker (constitution §14).
+**One executor.** Both sessions coordinate the runtime-neutral `plugin/scripts/pandacorp-build.mjs` CLI. Durable authority lives in the epoch-fenced lease, journal, work-order frontmatter and run scope; `state.json` is an honest cache. The main checkout's committed projection changes at landing. Do not infer a live run from `status.yaml` alone.
 
-**Permission and automation evidence are separate.** DR-133 grants Codex and Claude Code full access to every skill/application. R10/R11 remain qualification procedures for automated cold continuation and unattended execution, not prerequisites to editing documents or performing native attended work. No new executor or certification is claimed by this policy change.
+**Runtime locality.** Native subagents belong to the active runtime. The CLI is the narrow, deterministic vehicle for cross-company workers; it is not a shared subagent API or permission to launch another runtime's session directly. A Codex session and the Codex-only `drive` relay never call Claude. Safe continuation follows PORT-5, including authorized same-run transfers; arbitrary live takeover is forbidden.
 
 ## Rule — PORT-1 Runtime capability matrix
 
-Which portable-core capability each supported runtime provides. When a cell is absent, the degradation rules (PORT-3/PORT-5/PORT-6) apply.
+| Capability | Claude Code | Codex (app + CLI) | Cursor / OpenCode |
+|---|---|---|---|
+| Canonical instructions | `CLAUDE.md` imports `AGENTS.md` | native `AGENTS.md`; explicitly read named files | read `AGENTS.md`; verify discovery in that runtime |
+| Skills | `plugin/skills/*/SKILL.md` | `.agents/skills` symlink to the same files | discovered skills or explicit file read |
+| Subagents | native `Agent`/`Task` | native subagents / generated `.codex/agents/*.toml` | use available native tool, else sequential |
+| Build executor | session coordinates the shared CLI | same CLI; `drive` is Codex-only | no automated vehicle is qualified; state the limitation |
+| Hooks | `plugin/hooks/hooks.json` | generated adapter/registration; installation and trust are local | no wired equivalent claimed |
+| Design canvas | Claude-native when available | HTML mockup fallback (DR-058) | HTML mockup fallback |
 
-| Capability | Claude Code | Codex (app + CLI) | Cursor | OpenCode |
-|---|---|---|---|---|
-| AGENTS.md read (canonical instructions) | via `@AGENTS.md` import from `CLAUDE.md` | native (walks git root → cwd, concatenates; ~32 KiB budget) | native (editor + CLI) | native |
-| SKILL.md discovery | native (`plugin/`) | `$REPO_ROOT/.agents/skills/` + `~/.agents/skills/` | native (skills support) | `.agents/skills/`, `.claude/skills/`, `.opencode/skills/` |
-| Skill discovery path in this repo | `plugin/skills/` | `.agents/skills` → `plugin/skills` (committed symlink) | same symlink | same symlink |
-| Subagents | native (`Agent`/`Task`, per-spawn model) | `.codex/agents/*.toml` (model baked in, explicit-request-only, depth 1, ≤ `max_threads`) | limited/none | limited/none |
-| Build execution | native Dynamic Workflow: targeted or bare/global, background/unattended, resumable | Full native attended read/write access to all skills; supported automated launcher remains targeted/foreground; no unattended parity claim | none | none |
-| Build executor: `pandacorp-build` CLI (engine v2; opt-in preview from plugin 9.157.0, default from 10.0.0 — the "Build execution" row above describes v1 and stays the default until then) | native: the session calls the CLI; plain Node, no Dynamic Workflow | native: same CLI, same commands; `drive` relay is Codex-only | none | none |
-| Hooks (lifecycle enforcement) | native (`hooks.json` + `${CLAUDE_PLUGIN_ROOT}`) | **source-certified for Codex CLI 0.144.1**: generated `PreToolUse` + `Stop` registration, strict payload adapter and execpolicy; each installation/update still requires explicit plugin install + hook trust | none wired | none wired |
-| MCP | native | native (`.mcp.json`) | native | native |
-
-**Reading the matrix:** Codex and Claude Code have equal owner authorization (DR-133). Capability status describes the mechanism actually available, not permission. Other runtimes follow their owner authorization and honest tool fallback. Subagents absent in a runtime degrade to sequential execution (PORT-3).
+Source-tested Codex hook compatibility is not proof that every Codex app/CLI invocation fires those hooks. Preserve the rules even when a runtime has no enforcement tool, and do not claim unattended continuity without an observed working mechanism.
 
 ## Rule — PORT-2 Neutral model tiers
 
@@ -55,7 +51,7 @@ When a skill's prose references a Claude-native tool, translate it to the runtim
 | Claude tool | Equivalent (Codex / other) | Fallback (no equivalent) |
 |---|---|---|
 | `Agent` / `Task` | Codex subagent (explicit, tier TOMLs) | do it inline, sequentially |
-| `Workflow` | **no equivalent** | do not imitate/take over a live workflow; execute natively, attended and sequentially with the same governance; use an automated executor only within its supported contract |
+| `Workflow` | **no equivalent** | backlog-only workflows stay Claude-local; product builds use the shared CLI and runtime-local workers; if a tool is missing, remain attended |
 | `Monitor` / `ScheduleWakeup` | none | attended run (owner present) |
 | `PushNotification` | `notify` / hooks | tell the owner in-chat |
 | `AskUserQuestion` | — | ask in chat |
@@ -66,126 +62,73 @@ When a skill's prose references a Claude-native tool, translate it to the runtim
 
 ## Rule — PORT-4 Skill invocation protocol (non-Claude runtimes)
 
-When the owner asks for a phase (`/pandacorp:x`, "ejecuta la fase x", `$x`) on a non-Claude runtime:
-1. **Read the skill file** — `plugin/skills/<x>/SKILL.md` (or the discovered skill) — and follow it.
-2. **Apply the tool translation table** (PORT-3) for any Claude-native tool the text references.
-3. **Apply the degradation rules** (PORT-5) where no equivalent exists.
-4. **Human gates, language rules and documentation discipline are runtime-independent and NEVER degrade.** Every human gate (idea selection, design choice, release to production, spending money, external comms, deleting data), the language rule (committed = English / gitignored = Spanish; the interaction with the owner is **always in Spanish**, DR-009), and the two-layer decision-log discipline (canonical doc + area decision log) bind every runtime identically. A runtime that lacks a tool degrades the *mechanism*, never the *governance*.
-5. Internal engine skills (`user-invocable: false`) are visible to other runtimes (they ignore that field); route through `change` exactly as Claude does — AGENTS.md marks which skills are internal.
+When the owner asks for a phase (`/pandacorp:x`, "ejecuta la fase x", `$x`):
 
-## Rule — PORT-5 Build execution and cold runtime continuation
+1. Read `plugin/skills/<x>/SKILL.md` or its discovered equivalent.
+2. Apply PORT-3 to any runtime-specific tool reference.
+3. Apply PORT-5/PORT-6 where mechanisms differ. Describe missing capabilities honestly.
+4. Human gates, independent verification, language and documentation discipline never degrade. Owner interaction is always Spanish; committed artifacts are English (DR-009). Canonical truth and the area's decision log are both required.
+5. Internal engines (`user-invocable: false`) stay internal even when another runtime ignores that metadata. Building a feature/change/bug routes through `implement`; saving it for later creates a draft card validated by `card check`.
 
-### Full owner authorization with runtime-local execution (DR-133)
+## Rule — PORT-5 Runtime-neutral execution and continuation
 
-**Runtime authorization (DR-133, owner decision 2026-10-20): Codex and Claude Code have full read/write permission for every Pandacorp skill and application, including canonical documentation, work orders and build state.** This supersedes DR-120. Use the active runtime’s own available tools; absent orchestration/scheduling tools require attended sequential execution, not a permission refusal or a claim of certified automation. Preserve human gates, independent verification, atomic ownership, one writer per checkout and safe-point-only cold handoff; never take over a live run.
+### Authorization, executor and one writer
 
-**Native attended execution:** documentation-only work uses the phase’s readiness and consistency gates; it does not start a build or require a build lease when no builder is running. Before changing an active plan, inspect ownership, stop signals and the current tree. A running build must first reach a safe point and stop. Preserve unrelated edits. For code/build-state execution, acquire the canonical atomic lease and follow the governed contract below, with review by a separate agent and deterministic verification before VERIFIED. Missing tools change how the work is performed, never authorize bypassing a gate.
+**Full owner authorization (DR-133).** Codex and Claude Code may execute every skill and write project documentation and build state. Documentation-only phase work follows readiness/consistency gates without starting a build lease. Before changing an active plan, inspect the run and ownership; wait for the builder to stop at a safe point. Preserve unrelated edits.
 
-**Supported automated Codex launcher:** `launch-codex-implement.sh` retains its tested `attended_foreground` profile: exactly one FRD or ready change, at most 7200 seconds, zero automatic restarts. These are implementation limits of that launcher, not limits on native Codex authorization. Broad skills and factory-backlog work can execute in the attended session, sequentially when delegation is unavailable. Do not silently widen launcher limits or launch another runtime’s engine.
+**The CLI is the executor in both runtimes.** `node <plugin>/scripts/pandacorp-build.mjs <cmd>` is a deterministic Node program. The session resolves `<plugin>` from the installed plugin/factory path in `.pandacorp/guide.md` and follows CLI-returned actions. The CLI owns scope, lease, plan/admission, routing, transitions, commits, journal and landing. Do not recreate those decisions in the coordinator. Engine policy has one home, [build-engine.md](build-engine.md) BUILD-7..BUILD-15; command/file/schema interfaces live in [build-engine-cli.md](../../plugin/docs/build-engine-cli.md).
 
-**Automation qualification:** R10/R11 procedures below document additional automated handoff/overnight evidence. Historical results remain historical; DR-133 neither declares them passed nor requires them for native attended writes.
+**One path to `main`.** A run never writes a tracked file in the project's main checkout. Workers own isolated unit worktrees; the CLI commits documentation, frontmatter, rollups, tracking and landing metadata on `lane/<run_id>/integration`. Only `.pandacorp/merge-queue.sh` with G3 lands that tree. During a run, a main-checkout reader sees the last landed docs; live progress comes from the CLI status, lease, run snapshot and events. This also applies to projects nested inside the factory.
 
-**R10 Stage 2 — automated cold-handoff qualification.** One installed-canary
-Stage 2 launched by the official Codex foreground launcher with a one-shot owner authorization. The
-permit requires a non-symlink standalone repository below `pandacorp-canaries`, a versioned
-`.pandacorp/certification/r10.json` identity (UUID + seed), exact plugin/overlay/engine pins, one
-exact FRD and limits, authorization tied to the fixture, stage and current HEAD, and a clean Claude
-safe point with no lease and a reachable `last_green_sha`. It is consumed before ownership and
-revoked on every terminal result; a consumed nonce is never retried. This path only produces the
-evidence this section requires and grants no write permission elsewhere.
-The engine pin resolves only the regular, versioned managed-overlay file
-`.claude/engines/pandacorp-build.js`; no `.pandacorp` engine alias or fallback exists. Permit checks
-fail closed on missing, modified or symlinked engine provenance and never print the authorization
-nonce.
-Before authorization can be consumed, the permit also binds the regular Stage-1 evidence to the
-current clean HEAD and requires the released projection to say `phase: implementation`,
-`running: false`, the same Claude logical run, runtime and epoch, plus a non-empty acquisition time.
-It invokes the canonical resolver and accepts only an automatic Claude→Codex cold-continuation verdict.
-Missing or drifted projection fields fail closed before Codex can acquire ownership.
+### Dispatch boundary
 
-**R11 `LIVE_OVERNIGHT` — unattended automation qualification.** One separately authorized foreground run in a non-symlink standalone
-repository below `pandacorp-canaries`. Its committed `.pandacorp/certification/r11.json` marker and
-fresh owner authorization bind the fixture UUID and seed, exact current HEAD, plugin and overlay,
-the SHA-256 of the Codex executor, supervisor and launcher, at least two exact FRDs, and the exact
-spend/duration/retry/block ceilings. The duration ceiling must permit at least three hours. Its
-`pandacorp-r11-certification-receipt` is separate from R10 and is accepted only for stage
-`codex-live-overnight`. The collector, not elapsed narration, decides whether the result qualifies as
-`LIVE_OVERNIGHT`. Full procedure: `plugin/runtime/codex/R11-CERTIFICATION.md`.
+A coordinator dispatches its own runtime's native agents. A Claude coordinator reaches Codex builders/reviewers only through the documented CLI action (`codex-worker.mjs --direct`), never by spawning a Codex session itself. A Codex coordinator and `drive` never launch Claude; unavailability and review degradation follow BUILD-10/BUILD-11, never a silent same-model pass. The Codex app has no Claude vehicle; use the CLI's availability/routing verdict rather than inventing one.
 
-### Runtime-neutral build executor: the `pandacorp-build` CLI (engine v2, additive)
+### Lease, relay and cold continuation
 
-**Status: additive until plugin 10.0.0.** The v1 engine (Dynamic Workflows, `launch-codex-implement.sh`, `executor.mjs`) described elsewhere in this rule **remains the default**, and every statement above and below about it stays in force. v2 is reached only by the owner's keyword `implement v2` from 9.157.0; at 10.0.0 it becomes the default and this paragraph is folded into the final PORT-5 text. Engine policy (routing, quota thresholds, autonomy, `drive` triggers, failure policy) is owned by `factory/standards/build-engine.md`; this paragraph states only the runtime boundary and does not restate that policy.
+- **One lease.** The CLI uses `plugin/runtime/build-state.mjs` directly. Epoch fencing prevents a previous coordinator from mutating current state. Every fenced coordinator command renews ownership (`plugin/runtime/build/state.mjs:191`); there is no separate heartbeat process or second lock based on `running`.
+- **Authorized same-run transfer.** `drive` is armed under BUILD-14 and can continue the already authorized run through `transfer`, keeping the run id and increasing the epoch. Token files stay private and are never printed. A transfer kills no worker and does not release the lease; stale reports and commands are fenced. The owner's `start --resume` transfers control back. Respect contention: do not reset an active relay's worktree when resume returns `CONTENDED`.
+- **Foreign/dead ownership.** A stale foreign lease or a dead-owner release uses the documented owner-confirmed commands. A later runtime may continue released state only after the former executor stopped at a durable safe point. It reads the canonical files and preserves completed work; no runtime may seize another session's live run.
+- **Honest continuity.** `drive` runs Codex workers and deterministic steps only. Fake-worker suite coverage is not a real unattended survival test. Detached-process survival, sleep and notification delivery remain unverified until observed on a live run; report the actual evidence.
 
-- **The CLI is the executor, in both runtimes.** `node <plugin>/scripts/pandacorp-build.mjs <cmd>` is a plain Node program with no LLM of its own: the same commands, files and exit codes under Claude Code and under Codex (the Codex session resolves `<plugin>` through the factory path stamped in `.pandacorp/guide.md`). It is the one writer for governed transitions (lease, state, journal, per-WO commit, landing), per the shared-CLI allowance in "Runtime locality". The session (Claude or Codex) is the coordinator that calls it and dispatches workers, so the Dynamic Workflow is no longer the Claude orchestration decision-maker once v2 is the default. The CLI imports the lease library directly; it keeps the one atomic lease of the contract below and adds no second lock.
-- **One path to `main`, one writer.** A v2 run never writes a git-tracked file in the main checkout. Docs, work-order transitions, rollups, `track.jsonl` lines and the landing metadata (VERIFIED, `last_green_sha`) are CLI commits on an integration branch `lane/<run_id>/integration`, and the only road to `main` is `merge-queue.sh` run from that integration worktree (its full gate, and in a launched project its exit-21 stop). Consequence, stated rather than hidden: during a v2 run `status.yaml`, work-order frontmatter and `phase` on `main` change only at landing; Mission Control sees the run through the lease and events.
-- **Dispatch stays runtime-local, with one narrow vehicle.** A session dispatches its own runtime's agents. A Codex session or `drive` never dispatches Claude (a headless `claude -p` from a subprocess fails OAuth refresh, LESSON-0501). A Claude session reaches a Codex worker (cross-company review, Codex builders) only through the CLI, which launches it itself (`codex-worker.mjs --direct`); the session never invokes Codex directly. This is a deterministic, versioned, test-covered CLI path in the sense of "Runtime locality", not a shared subagent or control plane. It needs no new exception in `plugin/runtime/enforcement-policy.json`: the `runtime_local_dispatch` table is read only by the Codex hook adapter (`pandacorp-hook-adapter.mjs`), and Claude's hooks call `block-dangerous.sh` directly (`plugin/hooks/hooks.json`). The policy change that ships with the CLI is limited to adding `transfer` and `force-release` to the `fenced_cli.fenced_commands` list.
-- **`drive` is Codex-only.** `pandacorp-build drive` is the detached relay that keeps a run going when Claude runs out of usage. It is armed at `start` and idles in standby until a trigger; when it fires it takes over the run, then runs Codex workers and deterministic steps only. It never calls Claude and never claims background continuity beyond what has been observed. The owner returns control by `start --resume` from a session, which transfers the run back and fences `drive` out. Its first real unattended loop is NOT VERIFIED at the time of writing: it is covered by fake-worker suites only, and automation status stays separate from authorization (DR-133).
-- **Two kinds of ownership change, never conflated.** (1) A **transfer** of the *same* run (`transfer`): one lease token file (`.pandacorp/run/build/lease-token.json`, 0600, never printed) and a monotonic epoch; the transfer keeps the run id, raises the epoch, writes a new token file, kills no worker and quiesces nothing, and the previous holder is fenced by the epoch at its next mutating command (exit 3), after which it can only observe. There is no handoff secret: authority is the lease token plus epoch, and the owner's start of the run (with `drive` armed) or the owner's `start --resume` is what authorizes it. It is a transfer inside one owner-authorized run, not a runtime taking over another runtime's live run. (2) A **takeover** of a foreign or dead lease (`start --resume --owner-confirmed` for a stale lease held by a session of the other runtime, `stop --dead --owner-confirmed`) always requires the owner's confirmation; a lease held by `drive` for the same run is a transfer, not a takeover. Any other cross-runtime continuation (a later session picking up released state) remains the cold, safe-point-only continuation of the contract below.
-- **Liveness is the lease.** There is no heartbeat process: every fenced command of the coordinator renews the lease (30-minute ttl), and an expired lease with pending work is one of `drive`'s triggers. A lease is released only by a finished run, an explicit stop, an engine failure or a terminal pause, never by a handoff or a single-provider usage limit.
-- **Human gates and the push guard do not degrade.** A human gate reached while the owner is away parks the unit as `waiting_gate` and notifies; the CLI and `drive` never set `PANDACORP_OWNER_RELEASE_OK`. In a launched project the repository's `pre-push` hook (DR-138) is the backstop (Codex hooks are not trusted to fire in `codex exec`), installed by `start --run` before the first v2 run there, and `drive` is not armed in that project until the hook is verified. Be precise about its strength: `PANDACORP_OWNER_RELEASE_OK=1` is a flag, not a secret or token. The hook stops an unprompted or mistaken push to `main`, not a deliberate bypass, so worker briefs forbid setting it and only the owner's chat order does.
-- **Codex app session.** A Codex app session has no Claude vehicle: Claude is treated as unreachable, so cross-company review falls back to the strongest Codex model with the run marked degraded, never a silent same-model review.
+### Gates, answers and upgrades
 
-### Governed sequential contract (active for native attended execution)
+Review, deterministic verification and landing remain independent of the builder's self-report. The CLI owns VERIFIED transitions; an agent never stamps its own check. A targeted run cannot widen its scope, drain other cards or claim release. Owner questions in `open_questions` are answered through `answer`; `decisions.pending.md` is a reader mirror when canonical decisions are tracked, not a second writer.
 
-- **Same governed state machine.** Build Plan order, `implementation_status` frontmatter (`PLANNED → IN_PROGRESS → IN_REVIEW → VERIFIED`), the same per-FRD gate (fresh reviewer pass + `verify.sh`), the same per-WO commits and safe-point rules.
-- **VERIFIED is never rebuilt.** A cold successor derives pending work from canonical files only after the prior executor stopped and released the atomic lease.
-- **Sequential by default.** No shared-tree parallel writes. Any later parallelism requires its own certified contract/ADR.
-- **One atomic lease.** The certified lease, not the legacy `running` flag alone, fences acquire, heartbeat, stale reclaim and release across runtimes.
-- **One atomic terminal instant.** A terminal checkpoint captures time once and uses that exact value
-  for both `terminal_at` and `updated_at`. Executor completion, lease release, supervisor terminal and
-  any certification-receipt revocation must name the same run/outcome and may not predate that instant;
-  the evidence collector rejects split or causally impossible chains. `LIVE_OVERNIGHT` additionally
-  binds every counted FRD to a JUDGE dispatch, green finish and real result artifact, and binds the
-  complete receipt to its committed marker and owner authorization—starts or partial receipts do not count.
-- **One logical build-run identity per cold continuation.** The shared resolver automatically reuses
-  the prior `build_run_id` only at a released cross-runtime `phase: implementation` safe point, so
-  durable dispatch, spend and health floors carry over without asking the owner for an ID. A
-  same-runtime next pass, `phase: release`, missing/invalid prior state or explicit `new` intent starts
-  a new run. Runtime/process identity stays local.
+Human gates retain their authority. A launched project's landing waits at `waiting_gate` for the owner's explicit production order. Neither the CLI nor `drive` sets `PANDACORP_OWNER_RELEASE_OK`. The untracked git pre-push hook protects the default branch even where runtime hooks are absent; `drive` is not armed in a launched project without a verified guard. The environment flag is a deliberate approval marker, not a secret or protection against intentional bypass. Worker briefs forbid setting it.
 
-**Executor playbook (native attended runs follow their declared scope; the automated launcher retains its supported target limits):**
+Never mix plugin versions on one project. `upgrade` refuses while a build is live. After plugin update, restart or close all sessions working on that project before continuing. The CLI status/lease is the build authority; the overlay's liveness check remains a compatibility check, never an alternative owner lease.
 
-1. **Preflight.** `.pandacorp/status.yaml` exists (else STOP: not a factory project — route to `adopt`/`spec`). `overlay_version` not behind `plugin/templates/OVERLAY_VERSION` (else run `upgrade` first, DR-048). Readiness stamps present on every ACTIVE per-FRD `blueprint.md` (`readiness_gate: passed`, `grounding_gate: passed`) and `grep -rn "NEEDS CLARIFICATION" docs/` empty (DR-100/DR-102) — a plan that never passed its gates is not built.
-2. **Atomic lease.** Acquire the R2 lease using the certified owner-token protocol; a failed acquire restores the prior projection before dropping ownership (and retains the fence if rollback itself cannot complete). Renew at the certified cadence, reclaim stale ownership only through the fenced protocol, and release only with the matching owner token on every exit. The active `phase`, `running`, acquisition time, logical run, runtime and epoch are one controller-owned projection re-derived from the fenced lease at renew, rollup and terminal safe points; duplicate/drifted YAML keys are canonicalized. Legacy status fields never become an independent lock.
-3. **Plan.** Read every FRD's Build Plan + work-order frontmatter; list non-`VERIFIED` FRDs in cross-FRD dependency order. Announce to the owner what will be built and in what order.
-4. **Per work order** (one at a time): stamp `IN_PROGRESS` → implement with TDD per the WO's EARS acceptance criteria → run the WO's own fast self-test → stamp `IN_REVIEW` + write the `## Status Note` hand-off → commit (one commit per WO, conventional message).
-5. **Per-FRD gate** (when all its WOs are `IN_REVIEW`): re-read the feature with fresh eyes (correctness, security, quality, runtime lenses), write at least one adversarial test the implementation didn't anticipate, run `verify.sh` (or `verify.sh --since <last_green>` if available), then run the deterministic FRD mutation seam. For Codex `attended_foreground`, absent, timed-out, unparsable, ambiguous or below-threshold mutation evidence is RED. Green → stamp every WO + the FRD `VERIFIED` and publish the safe point with **two commits**: A contains the complete reviewed snapshot; metadata-only B records `last_green_sha: A` + `safe_to_test: true` only after proving A exists and is an ancestor of HEAD (BL-0066). Never amend A—a commit cannot contain its own hash. Red → fix in place; if genuinely stuck → `BLOCKED` + `blocked_reason` (`needs-owner` | `external` | `error`), log it to `.pandacorp/inbox/decisions.md` when the owner must act, and continue with an independent FRD. **On a REVERT (a `cause: 'code'` reopen), PRESERVE the test evidence (DR-107): MOVE the reviewer-authored / Status-Note-referenced test files to `.pandacorp/run/preserved-tests/` — never delete them — so the rebuild inherits the RED baseline that caught the fault.** **Append the gate's timing to `.pandacorp/track.jsonl`** (`review_start` / `review_end` / `frd_end`, with state — DR-086) so a later cold session (and Mission Control's timeline) can reconstruct the safe-point history from files.
-6. **Safe point** (after each FRD gate): drain `status: ready` items from `.pandacorp/inbox/changes/` (route via the `iterate`/`bug` engine; `draft` is SKIPPED, DR-069) — **but ONLY on a bare, whole-project run: a TARGETED attended run (launched for a specific `change` or a `frds` subset) builds ONLY its target and does NOT drain the other `ready` changes** (they wait for a later bare `implement`); apply answered `decisions.md` entries (flip their BLOCKED WOs back to `PLANNED`); honor the **stop signal — `rethink_pending: true` in `status.yaml` OR the presence of `.pandacorp/run/stop` (equivalent)** — (stop cleanly + tell the owner); append a milestone line to `.pandacorp/comms/progress.md` (what shipped, in owner language — never raw tool output, BL-0014).
-6b. **Feed the live dashboard (best effort, fire-and-forget).** Mission Control's Party reads a plain NDJSON stream any runtime can append to. At each WO start and each FRD gate, append one line to `~/.claude/dashboard-events.ndjson` (schema: `{"event":"<name>","at":"<ISO-UTC>","project":"<project folder basename>","data":{…}}`): `AgentWorking` with `data:{role:"<agent role>",wo:"<WO id>"}` at WO start; `gate` with `data:{frd:"<frd id>",result:"verified"|"reopened"}` at each gate. Never block or fail the build on a write error here — observability is best effort, the file state is the truth.
-7. **Close-out (bare whole-project runs only).** When all global FRDs are `VERIFIED`, a bare run performs the hardening pass per DR-085 — security audit (evidence: `docs/reviews/security-<date>.md`), telemetry verification (evidence: `## Verification` in `docs/analytics/events.md`), full quality suite — BEFORE setting `phase: release`; if hardening can't run in this runtime session, say so explicitly and leave `phase: implementation` (never self-declare release without the evidence). A targeted `frds`/`change` run always terminates after its scoped FRDs verify, quiesces ownership and preserves `phase: implementation`, even when its target was the final global pending work; it has no authority to widen into project hardening/fixes or release. Remind the owner to run the lesson harvest from the factory.
+At close-out, preserve reports and pending owner state, and remove only eligible finished-run worktrees under BUILD-5/CONV-21. Keep owner data, uncommitted work and live/locked/deployed/in-use checkouts. The engine may remove an eligible clean terminal checkout while retaining its branch so resume can reconstruct it; deletion never means its pending work shipped.
 
-These have no cross-runtime analogue and remain Claude-side; the **rules they enforce still bind every runtime as instructions** (stated in AGENTS.md), so governance is never lost — only the automated enforcement mechanism is.
+## Rule — PORT-6 Runtime-local enforcement
 
-| Claude-only capability | Why it doesn't port | What still binds every runtime |
-|---|---|---|
-| Background build engine (`pandacorp-build.js`, Dynamic Workflows) | injected `agent()`/`phase()`/`budget`, `Workflow({...})`, `TaskStop` — no identical non-Claude vehicle | Codex builds with its own tools; never call or take over this Claude engine |
-| Supervisor stack (`Monitor`, `ScheduleWakeup`, `PushNotification`, worktrees) | Claude uses native tools; no certified non-Claude equivalent exists | Codex uses attended execution when scheduling tools are unavailable; never claim background continuity without a working runtime-local mechanism |
-| Hooks enforcement (safety gate, Stop verify-gate, telemetry) | registrations remain runtime-local; Codex uses a generated adapter and must re-trust changed hook definitions | shared policy is source-tested for Codex 0.144.1; hooks enforce the same safety and verification rules; permissions do not imply installed hook trust |
-| Mission Control live telemetry | each runtime emits its own additive stream; Claude transcripts remain Claude-only | Mission Control reads both transports through the canonical vocabulary, while `status.yaml`, WO frontmatter and progress files remain truth |
-| Claude Design canvas (`DesignSync`) | Claude-native tool | documented HTML-mockup fallback (DR-058 Plan B, PORT-3) |
+Registrations remain runtime-local; governance is shared. Claude hooks call the canonical handler scripts; Codex uses generated registration, payload normalization and execpolicy from `plugin/runtime/enforcement-policy.json`. Each installation/update still requires its local hook trust. Absent hooks do not waive verification, protected state, ownership or production gates. The git pre-push guard is the build's cross-runtime production backstop (BUILD-13).
+
+Scheduling and notifications depend on available tools. Use attended execution when they are absent; chat narration is not a scheduler. Mission Control reads the canonical event vocabulary and runtime transports; it never needs another runtime's transcript to establish build authority. Claude Design has the documented HTML fallback (PORT-3).
 
 ## How it is verified
 
-- **PORT-1/PORT-2/PORT-3/PORT-4:** manual — the agent self-checks the translation on each skill invocation under a non-Claude runtime; the injection point is AGENTS.md (always in context), so the worst case is the agent stops and asks. Cross-checked by the owner's Codex test plan (proposal Part 4).
-- **PORT-5:** `plugin/scripts/check-skill-capabilities.mjs` checks full Codex/Claude owner authorization, projection consistency, and honest automation status. `test-codex-executor.mjs` checks the supported targeted launcher and its negative paths; this does not certify native-session or unattended E2E parity. For the v2 CLI paragraph: the `plugin/scripts/test-build-v2-*.mjs` suites (fake workers, fixture projects, no real Codex or Claude calls; `test-build-v2-e2e.mjs` covers handoff, the `drive` standby triggers, fencing of the previous holder and the human-gate stop) plus `test-build-state-handoff.mjs` and `test-pre-push.sh`, all discovered by `plugin/scripts/run-engine-tests.sh`. They ship with the 9.157.0 build; until they land this paragraph is manual. A live `drive` loop remains NOT VERIFIED until a real attended run has exercised it.
-- **PORT-6:** regenerate enforcement from `plugin/runtime/enforcement-policy.json` and run `test-codex-enforcement.mjs`; installation/trust remains runtime-local. No runtime may weaken safety gates because hooks are absent.
+- **PORT-1..PORT-4:** invocation-time tool translation and skill review; `check-skill-capabilities.mjs` validates capability metadata, not live-provider availability.
+- **PORT-5:** `plugin/scripts/test-build-v2-{state,cli,next,drive,e2e,nested,answer}.mjs` cover fixture execution, fencing, relay and nested state/answers. `test-pre-push.sh` covers the guard; live unattended reliability still needs a real run. The retired launcher/executor qualification procedures are historical evidence only, recoverable through the retirement tag described in `plugin/docs/engine-v1-reactivation.md`.
+- **PORT-6:** generate from `enforcement-policy.json` with `generate-codex-enforcement.mjs`; `test-codex-enforcement.mjs` checks source behavior. Installation/trust and actual runtime firing are separate checks. No runtime may weaken a gate because its hooks are absent.
 
 ## Why
 
-The owner explicitly granted both runtimes full access on 2026-10-20. Shared documents and skills avoid artificial permission handoffs. Tool limitations are stated honestly and handled through native attended execution, while single-writer ownership, independent verification and human gates protect the project.
+One CLI and canonical file contract avoid artificial permission handoffs and conflicting executors. Runtime-local agents, epoch fencing, independent verification and human gates protect the work while honest capability reporting keeps automation claims tied to evidence.
 
 ## Maintenance — the single-source-of-truth map
 
 Diagram: `docs/assets/multi-runtime-two-doors.svg` (two doors, one core).
 
-Every piece has exactly ONE source of truth; the "other side" is a link, an import, or a generated artifact — never a hand-maintained copy. **Only one derived copy exists in the whole layer** (the Codex agent TOMLs), and it is script-generated:
+Every piece has exactly ONE source of truth; the "other side" is a link, an import, or a generated artifact — never a hand-maintained copy. **Derived copies are generated**, including agent mirrors, manifests and enforcement registration:
 
 | Piece | Single source | The other side is… |
 |---|---|---|
-| The 25 skills | `plugin/skills/*/SKILL.md` | **symlink** (`.agents/skills → plugin/skills`) — same physical files |
-| The operating manual | `AGENTS.md` (repo root) | **import** (`CLAUDE.md` references it via `@AGENTS.md`; adds the Claude-only layer) |
+| Skills | `plugin/skills/*/SKILL.md` | **symlink** (`.agents/skills → plugin/skills`) — same physical files |
+| The operating manual | `AGENTS.md` (repo root) | **one-line shim** (`CLAUDE.md` contains only `@AGENTS.md`; the Claude Code section lives in AGENTS.md) |
 | Standards, registry, factory docs | `factory/…` | shared as-is (every runtime reads the same file) |
-| The 14 team agents | `plugin/agents/*.md` | **generated** — `.codex/agents/*.toml` via `plugin/scripts/generate-codex-agents.mjs` (provenance header, never hand-edited) |
+| Team agents | `plugin/agents/*.md` | **generated** — `.codex/agents/*.toml` via `plugin/scripts/generate-codex-agents.mjs` (provenance header, never hand-edited) |
 | Plugin manifests | `plugin/runtime/plugin-metadata.json` | both runtime-compatible manifests are projected by `plugin/scripts/generate-plugin-manifests.mjs`; Codex presentation/discovery metadata lives in its runtime extension |
 | Repo-local Codex marketplace | canonical `plugin/` + `plugin/runtime/plugin-metadata.json` | `.agents/plugins/marketplace.json` catalogs `./plugins/pandacorp`; Codex resolves that path from the repository root, where `plugins/pandacorp → ../plugin` exposes the same physical plugin; no plugin files are copied |
 | Cross-runtime enforcement behavior | `plugin/runtime/enforcement-policy.json` + the existing canonical handler scripts it names | runtime-local hook registration/config/rules are generated; Codex registration lives in `.codex/config.toml` + `plugin/hooks/codex-hooks.json`, never in its unsupported `plugin.json`; payload normalization lives only in `pandacorp-hook-adapter.mjs` |
@@ -195,11 +138,11 @@ Every piece has exactly ONE source of truth; the "other side" is a link, an impo
 | You change… | Also do |
 |---|---|
 | A skill (`plugin/skills/*/SKILL.md`) | Nothing for Codex (symlink). For Claude: the normal plugin ritual (`claude plugin update`). Keep `name:` = the directory slug (spec requirement) |
-| An agent (`plugin/agents/*.md`) | `node plugin/scripts/generate-codex-agents.mjs` (regenerates the 14 mirrors + 3 tier workers) |
-| Root `AGENTS.md` | Keep it self-contained (no `@imports` — Codex doesn't expand them) and under ~32 KB (`project_doc_max_bytes`); anything Claude-only goes to `CLAUDE.md` instead |
-| Root `CLAUDE.md` | Nothing — no other runtime reads it |
+| An agent (`plugin/agents/*.md`) | `node plugin/scripts/generate-codex-agents.mjs` (regenerates the agent mirrors and tier workers) |
+| Root `AGENTS.md` | Keep all instructions here, including the Claude Code section; explicitly name files every runtime must read (do not rely on import expansion). Keep within the runtime's document budget; CLAUDE.md stays the one-line shim |
+| Root `CLAUDE.md` | Keep it exactly `@AGENTS.md` plus a newline; migrate project content with `migrate-instructions.mjs`, never add a second instruction source |
 | The plugin version/metadata | Edit `plugin/runtime/plugin-metadata.json`, then run `node plugin/scripts/generate-plugin-manifests.mjs` |
 | Enforcement policy or canonical handler scripts | Regenerate with `node plugin/scripts/generate-codex-enforcement.mjs`; run `node plugin/scripts/test-codex-enforcement.mjs`; never hand-edit `codex-hooks.json`, `.codex/config.toml` or `.codex/rules/pandacorp.rules` |
 | The overlay templates (`plugin/templates/`) | OVERLAY_VERSION bump, as always; the AGENTS.md.tpl "Other runtimes" section is part of the managed layer |
 
-Both derived artifacts (TOMLs, manifest mirror) — plus the `.agents/skills` symlink — are **script-checked for drift**: `plugin/scripts/check-derived-drift.sh` (fail-closed; wired as a Stop hook in the factory repo, self-tested by `test-check-derived-drift.sh`). A stale TOML, a diverged manifest version, or a dangling skills symlink blocks the session from declaring done until regenerated/re-synced.
+The derived artifacts (agent TOMLs, manifests and enforcement registration) — plus the `.agents/skills` symlink — are **script-checked for drift**: `plugin/scripts/check-derived-drift.sh` (fail-closed; wired as a Stop hook in the factory repo, self-tested by `test-check-derived-drift.sh`). A stale TOML, a diverged manifest version, or a dangling skills symlink blocks the session from declaring done until regenerated/re-synced.

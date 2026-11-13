@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { answerCommand } from "../runtime/build/answers.mjs";
-import { admit, countHostSlots, readHistory } from "../runtime/build/admission.mjs";
+import { admit, countHostSlots, readAdaptive, readHistory } from "../runtime/build/admission.mjs";
 import { cardCheckCommand } from "../runtime/build/card.mjs";
 import { detect } from "../runtime/build/detect.mjs";
 import { doubtCommand } from "../runtime/build/doubts.mjs";
@@ -17,6 +17,7 @@ import { land } from "../runtime/build/land.mjs";
 import {
   finishRun, planCommand, rebuildStateCommand, requestHandoff, startResume, startRun, statusSnapshot, stopRun,
 } from "../runtime/build/lifecycle.mjs";
+import { gcWorktrees } from "../runtime/build/lifecycle/buildDir.mjs";
 import { next } from "../runtime/build/next.mjs";
 import { buildPaths } from "../runtime/build/paths.mjs";
 import { runPreflight } from "../runtime/build/preflight.mjs";
@@ -59,6 +60,7 @@ const COMMANDS = Object.freeze({
   finish: { bool: [], value: EPOCH, usage: "finish --epoch N" },
   stop: { bool: ["dead", "owner-confirmed"], value: EPOCH, usage: "stop [--epoch N] | --dead --owner-confirmed" },
   status: { bool: [], value: [], usage: "status" },
+  gc: { bool: [], value: [], usage: "gc" },
   summary: { bool: [], value: [], usage: "summary" },
   "rebuild-state": { bool: [], value: EPOCH, usage: "rebuild-state --epoch N" },
 });
@@ -235,7 +237,7 @@ async function admitView(c) {
   const now = deps.env.PANDACORP_NOW ? Date.parse(deps.env.PANDACORP_NOW) : Date.now();
   const r = await admit({
     class: cls, signalsFile: deps.env.PANDACORP_SIGNALS_FILE || null, history: readHistory({ file: p.admissionFile }), reservations: [], live,
-    readyWidth: 8, caps: {}, runtimeShape: shape, nowMs: now,
+    readyWidth: 8, step: readAdaptive({ file: p.admissionFile }).step, caps: {}, runtimeShape: shape, nowMs: now,
   });
   return { body: r, exit: r.safe_mode ? 9 : 0 };
 }
@@ -305,6 +307,7 @@ const HANDLERS = {
     const { gaps, ...body } = r;
     return { body: gaps.length ? { ...body, gaps } : body, exit: gaps.length ? 9 : 0 };
   },
+  async gc(c) { return { body: await gcWorktrees({ project: c.project }, c.deps) }; },
   async summary(c) { return { body: await readSummary(c.project, c.deps) }; },
   async "rebuild-state"(c) { return { body: await fenced(c, () => rebuildStateCommand({ project: c.project, epoch: int(c.flags, "epoch", { required: true }) }, c.deps)) }; },
 };

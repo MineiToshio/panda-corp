@@ -118,7 +118,7 @@ Extracted from the rendered prototype at 1280 px, light theme (`?demo=off`). The
 - [h2] Cambios y decisiones
 - [p] Pedir un cambio o un bug
 - [code] /pandacorp: change
-- [@aria-label] Copiar /pandacorp:change
+- [@aria-label] Copiar /pandacorp:implement
 - [p] Responder una decisión pendiente
 - [code] /pandacorp: decide
 - [@aria-label] Copiar /pandacorp:decide

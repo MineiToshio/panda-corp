@@ -1,54 +1,61 @@
 ---
 id: FRD-11
 type: frd
-title: FRD-11 — Per-project build modes
+title: FRD-11 — Build entry and target selection
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-11-11'
+last_updated: '2026-11-12'
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-11-build-modes/mocks/build-modes.html
 floor: false
 ---
-# FRD-11 — Per-project build modes
+# FRD-11 — Build entry and target selection
 
-Lets you choose how much power each project is built with, and shows the command to run.
+The Comandos tab and Campaña offer a copy-only choice: **Construir / Reanudar / Objetivo: FRD o tarjeta**. The engine chooses models and concurrency. Effective at plugin 10.0.0; this amendment supersedes the four-card mode picker and its F11 deferral. The directory name remains stable for links.
 
-> **Design freeze amendment (2026-10-22, S2.2).** The approved Órbita prototype is the oracle: the inline `<select>` becomes a four-card mode picker (contradiction C-14 of `docs/design/freeze/reconciliation.md`). Prototype-drawn behaviours are REQ-11-005 (AC-11-005.1 to AC-11-005.3).
+The producer evidence, command table and scope rules are in [the shared read contract](../../product/build-engine-v2.md), inspected at engine commit 540afa2c (`detect.mjs`, `preflight/scope.mjs`). These are criteria for the next MC delivery, not a claim that its UI already implements them.
+
+## Retired criteria (IDs retained, never reused)
+
+- **REQ-11-001** — Retired: selecting one of four power modes.
+- **REQ-11-002** — Retired: mode-dependent command text.
+- **REQ-11-003** — Retired: remembered per-project power mode.
+- **REQ-11-004** — Retired: skill arguments for power modes.
+- **REQ-11-005** / **AC-11-005.1**, **AC-11-005.2**, **AC-11-005.3** — Retired: four mode cards, arbitrary WO targets and mode disclosure.
+- **REQ-11-006** — Retired: deferring the picker redesign.
+
+These IDs are superseded by REQ-11-007 to -010. Legacy browser mode preferences have no build meaning and must not select or alter an action. Prior screenshots remain historical for this changed surface; they do not require power controls in the new UI.
 
 ## Acceptance criteria (EARS)
-- **REQ-11-001** — EACH project SHALL offer (in its Comandos tab) a **build mode** picker of four selectable cards (AC-11-005.1; it replaced the compact inline `<select>` of the `/pandacorp:implement` command row, which had replaced the 4-chip radio panel, owner decision 2026-06-27), with four modes:
-  - **Pro** (`pro`) — 1 agent at a time, economical models (sonnet/haiku). Slower, minimal consumption. "Para el plan Pro."
-  - **Equilibrado** (default, no argument; tagged "por defecto") — a team of ≤3 agents; opus lead, sonnet/haiku workers. "Por defecto, pensado para Max 5x."
-  - **Potente** (`powerful`) — up to 5 agents in parallel, advances faster. "Para Max 20x."
-  - **Profundo** (`deep`) — the best models across the board + extra adversarial review. For a special project.
-- **REQ-11-002** — WHEN the owner chooses a mode, the **exact command to copy** SHALL be shown (`/pandacorp:implement [mode]`) with its description (agents, models, recommended plan).
-- **REQ-11-003** — The chosen mode SHALL be **remembered per project**.
-- **REQ-11-004** — The `/pandacorp:implement` skill SHALL accept those modes as an argument (`pro` | `powerful` | `deep`; no argument = balanced).
 
-### REQ-11-005 — Mode cards, scoped target and Campaña entry (added 2026-10-22, design freeze)
+### REQ-11-007 — Build or resume
 
-- **AC-11-005.1** — THE Comandos tab SHALL present the four build modes as selectable cards, each with its icon, its tag (the literal command argument `pro`, `powerful` or `deep`, and "por defecto" for the default), a power meter from 1 to 4 and a hint, with Equilibrado preselected.
-- **AC-11-005.2** — WHEN the owner picks a target under "Construir un objetivo concreto" (an FRD, a pending work order or a change from the queue), THE command box SHALL show `/pandacorp:implement` scoped to that target: `/pandacorp:implement <id>` for an FRD or a work order and `/pandacorp:implement change:<id>` for a queued change.
-- **AC-11-005.3** — THE Construcción phase sheet in La Campaña (FRD-02) SHALL offer the same mode picker behind "Elegir modo de construcción".
+- **AC-11-007.1** — WHEN the owner opens Comandos, THE picker SHALL offer **Construir**, **Reanudar**, and **Objetivo: FRD o tarjeta**, with Construir selected by default and one copyable command.
+- **AC-11-007.2** — WHEN Construir is selected, THE command SHALL be `/pandacorp:implement`; WHEN Reanudar is selected, THE command SHALL be `/pandacorp:implement --resume`.
+- **AC-11-007.3** — WHEN an action is selected, THE picker SHALL explain it in Spanish and SHALL NOT append power-mode words or the old engine opt-in keyword, show a power meter, recommend a subscription plan, or execute the command. A stored legacy mode SHALL NOT affect the command.
 
-**Worked example (AC-11-005.1, AC-11-005.2).** The owner opens Comandos: Equilibrado is selected and the box shows `/pandacorp:implement`. Choosing Potente shows `/pandacorp:implement powerful`. Choosing the queued change "mc-fix-dates" as the target shows `/pandacorp:implement change:mc-fix-dates`. Choosing Equilibrado again drops the mode argument.
+### REQ-11-008 — Explicit scope
 
-### REQ-11-006 — Build modes under engine v2 (added 2026-11-11)
+- **AC-11-008.1** — WHEN Objetivo is selected, THE picker SHALL offer published FRDs with pending work and buildable ready/draft cards, excluding stale-suspect, closing, done and discarded cards; THE command SHALL be `/pandacorp:implement <FRD-id>` or `/pandacorp:implement change:<card-id>` respectively. Drafts SHALL explain that the session completes and validates the scope before building.
+- **AC-11-008.2** — WHEN no target is selected or none is available, THE picker SHALL show an explanatory placeholder/empty state and SHALL NOT offer to copy an executable command containing `<id>`; WHEN selection is cleared, THE same state SHALL return.
+- **AC-11-008.3** — WHEN a work-order detail offers construction, THE command SHALL target its parent FRD with a sentence explaining the FRD's pending scope, because the engine does not parse individual WO targets.
+- **AC-11-008.4** — WHEN a building v2 card is opened, THE card action SHALL offer to resume its run, never start an unrelated build or silently drain other cards.
 
-- **REQ-11-006** — (effective at plugin 10.0.0; no change before) WHEN the factory's `/pandacorp:implement` is the v2 `pandacorp-build` engine, the mode words `pro`, `powerful` and `deep` carry no meaning: the engine routes models and parallelism itself, and the CLI tolerates a legacy mode word (ignored with a warning) rather than failing. THE four-card picker SHALL keep working as it does today (the commands it copies still run), and its redesign is **deferred** to a later FRD-11 change.
-  - **Reason for deferral:** removing or renaming the modes is a product behavior change that the engine design does not specify (deferred item F11), the copied commands do not break, and doing it with the engine drop would couple a UI redesign to an unverified runtime release. Until then REQ-11-001 to REQ-11-004 and AC-11-005.1 to AC-11-005.3 describe the interface as shipped, and REQ-11-004 is read as "the skill accepts those modes (ignored with a warning from 10.0.0)".
+### REQ-11-009 — Shared Campaña entry
 
-## Edge cases
-- Equilibrado is the default and carries no argument, so no mode token is appended (REQ-11-004).
-- A project with no remembered mode opens with Equilibrado selected (REQ-11-003).
+- **AC-11-009.1** — WHEN the Construcción phase sheet is opened, THE disclosure **Construir o reanudar** SHALL mount the same picker/command resolver as Comandos, with the selected project's identity and targets; it SHALL NOT duplicate a mode-command table.
+- **AC-11-009.2** — WHEN the selected project changes or the page reloads, THE picker SHALL reset transient action/target state to Construir and SHALL NOT retain another project's target or legacy power preference.
 
-## Does NOT include
-- Running the build: the app only shows the command to copy; the mode picker never launches `implement`.
+### REQ-11-010 — Copy-only accessibility
 
-## Future
-The mode will define the **team composition** (how many agents and of what role; e.g. several frontend), and **Party** ([FRD-06](../frd-06-party/frd.md)) will show the real team that is running.
+- **AC-11-010.1** — WHEN the picker is used by keyboard, THE action group and target field SHALL have Spanish accessible names, selected-state semantics and visible focus; the command SHALL remain selectable text and its copy button SHALL name the exact current command.
+- **AC-11-010.2** — WHEN rendered at phone, tablet or desktop width, THE picker SHALL use the shared card/control tokens, wrap command text without page overflow and keep the copy-only note visible. It SHALL expose no run, pause or agent-control action.
 
-## Persistent navigation integration — FRD-25 (2026-10-17)
+## Worked example
 
-The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+Comandos starts with Construir and `/pandacorp:implement`. Reanudar produces `/pandacorp:implement --resume`. Selecting Objetivo then FRD-04 produces `/pandacorp:implement FRD-04`; selecting card `mc-fix-dates` produces `/pandacorp:implement change:mc-fix-dates`. An old stored powerful preference changes none of these strings. No work-order-id command is generated.
+
+## Scope and dependencies
+
+Mission Control never executes the CLI or creates a card. Build detection, card validation and human gates remain session/engine responsibilities. FRD-04 owns the surrounding Comandos and Cambios surfaces; FRD-02 mounts the shared picker. FRD-25 retains workspace URLs and navigation safety; action/target selection remains transient view state. No engine schema or machine profile is written.

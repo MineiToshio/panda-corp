@@ -1,10 +1,10 @@
 import { Icon } from "@/components/core/Icon/Icon";
 import type { IconName } from "@/components/core/Icon/iconData";
 /**
- * manual-diagrams/MultiRuntimeDiagram.tsx — FRD-08 ("Operar desde cualquier agente")
+ * manual-diagrams/MultiRuntimeDiagram.tsx : FRD-08 ("Operar desde cualquier agente")
  *
- * The "dos puertas, un núcleo" picture (DR-113): two doors — Claude Code and Codex
- * — each with its own runtime-specific layer, both opening onto
+ * The "dos puertas, un núcleo" picture (DR-113): two doors : Claude Code and Codex
+ * : each with its own runtime-specific layer, both opening onto
  * the SAME shared core (AGENTS.md + factory/ · plugin/skills · state in files).
  *
  * Faithful to the Manual's diagram visual language (boxed regions + chips + a
@@ -36,7 +36,7 @@ const DOORS: readonly Door[] = [
     subtitle: "runtime nativo",
     accent: "var(--teal)",
     reads: "CLAUDE.md → importa AGENTS.md",
-    layer: ["plugin /pandacorp:* + hooks", "motor background + supervisor"],
+    layer: ["plugin /pandacorp:* + hooks", "CLI común + trabajadores locales"],
   },
   {
     key: "codex",
@@ -52,7 +52,8 @@ const DOORS: readonly Door[] = [
 const CORE_PIECES: readonly string[] = [
   "AGENTS.md + factory/",
   "plugin/skills · SKILL.md",
-  "estado en ficheros",
+  "pandacorp-build.mjs · lease + epoch",
+  "estado en ficheros · drive: relevo Codex",
 ] as const;
 
 function DoorCard({ door }: { door: Door }): React.JSX.Element {
@@ -120,7 +121,7 @@ export function MultiRuntimeDiagram(): React.JSX.Element {
           <DoorCard key={door.key} door={door} />
         ))}
       </div>
-      {/* Connector caption — both open onto the same core */}
+      {/* Connector caption : both open onto the same core */}
       <div
         style={{
           textAlign: "center",

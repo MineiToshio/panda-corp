@@ -3,9 +3,8 @@
 //
 // The FRD gate's reviewer may only PROPOSE that a contradicted contract pre-dates the cycle (a `fail`
 // traceability entry with `claim: "preexisting"` + `evidence_test`, a probe test it wrote). It never
-// decides. The build engine spawns a MECH agent that runs THIS script and hands its single JSON line
-// back verbatim; the ENGINE applies the predicate (pandacorp-build.js, classifyDriftClaim). This script
-// only gathers facts — it classifies nothing:
+// decides. This shared evidence helper returns a sealed JSON line to its caller.
+// The caller owns the verdict; this script only gathers facts and classifies nothing:
 //
 //   prove   For the gate's pin and for `last_green_sha` AS RECORDED AT THAT PIN (the base the gate's own
 //           `verify.sh --since` used), check each probe out in a throwaway detached worktree and run it
@@ -16,7 +15,7 @@
 //           and NEVER copied into the main tree's collected tests.
 //   record  Writes one `draft` change card per engine-confirmed drift into .pandacorp/inbox/changes/
 //           (idempotent on frd::contract), indexes it in the queue README, and appends ONE
-//           GateDriftRecorded event. Draft = never drained by the build: the owner decides direction.
+//           GateDriftRecorded event. Draft = recorded evidence only: the owner decides direction and explicitly scopes a build.
 //
 //   replay  Re-prints a stored `prove` result (`--file`, written by `prove --out`) without re-running any
 //           probe — the engine's cheap second read when the first relay of the line was altered (BL-0206).
@@ -297,7 +296,7 @@ esta card lo deja registrado para que decidas.
 - Dirección que propuso el reviewer: ${direction}.
 
 ## Qué decidir
-- Si **el código** está mal: pasa esta card a \`ready\` con \`/pandacorp:change\` y el build lo arregla con ese test.
+- Si **el código** está mal: pide \`/pandacorp:implement\` citando esta card para arreglarlo con ese test.
 - Si **la especificación** quedó vieja: reconcíliala con \`/pandacorp:sync\` (nunca se rebaja el spec sin decidirlo) y descarta esta card.
 `
 }

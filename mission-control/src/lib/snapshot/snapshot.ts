@@ -20,7 +20,7 @@ import { now as clockNow } from "@/lib/clock/clock";
  * They are exported so callers can reference the documented limit, not a magic number.
  */
 
-import { isLive } from "../status/liveness";
+import { hasActiveBuild, isLive } from "../status/liveness";
 import type { ProjectStatus } from "../status/status";
 
 // ---------------------------------------------------------------------------
@@ -112,15 +112,9 @@ export function buildSnapshot(
   // heartbeat recency, never the self-reported flag alone. A frozen running:true with a
   // stale/absent heartbeat is `noSignal`, not "building now".
   const now = nowMs ?? clockNow().getTime();
-  let buildingNow: string | undefined;
-  let noSignal: true | undefined;
-  if (status.running === true) {
-    if (isLive(status, now)) {
-      buildingNow = "building now";
-    } else {
-      noSignal = true;
-    }
-  }
+  const live = isLive(status, now);
+  const buildingNow = live ? "building now" : undefined;
+  const noSignal = !live && hasActiveBuild(status) ? true : undefined;
 
   return {
     sha,

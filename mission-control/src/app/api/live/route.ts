@@ -40,20 +40,14 @@ import { now as clockNow } from "@/lib/clock/clock";
 import fs from "node:fs";
 import { problem } from "@/lib/problem";
 import {
+  liveConnections as connections,
   getStore,
   readStoreSnapshot,
-  __resetLiveEventStoresForTest as resetStores,
   subscribeToStore,
   unsubscribeFromStore,
 } from "./eventStore";
 
 const MAX_CONNECTIONS = 20;
-const connections = new Set<symbol>();
-/** Reset stores and connection accounting between isolated transport tests. */
-export function __resetLiveEventStoresForTest(): void {
-  connections.clear();
-  resetStores();
-}
 
 import os from "node:os";
 import path from "node:path";

@@ -1,26 +1,23 @@
-/**
- * Manual vs DR-126 (plugin 9.121.0, proposal 41): the fast-lane builder writes its tests with the
- * code under a budget (one behaviour e2e spec per UI feature), gets a per-work-order brief, runs one
- * narrowed self-verify and runs sonnet at effort medium (`--builder-effort default` opts out).
- */
-
-import { render } from "@testing-library/react";
+/** Reconciled to FRD-08 REQ-08-021; the v1 execution flags were retired. */
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { getManualPageComponent } from "../manualPages";
 
-function renderText(slug: string): string {
-  const Component = getManualPageComponent(slug);
-  if (Component === null) throw new Error(`expected a bespoke renderer for ${slug}`);
-  return render(<Component />).container.textContent ?? "";
-}
-
-describe("unattended-build page, lighter fast-lane builder (DR-126)", () => {
-  const text = renderText("construccion-desatendida");
-
-  it("has the builder section, the builderEffort arg and the measured result", () => {
-    expect(text).toContain("Builder más ligero");
-    expect(text).toContain("'medium' (desde 9.121.0)");
-    expect(text).toContain("--builder-effort default");
-    expect(text).toMatch(/43,5 minutos/);
+describe("Day 1: cross-company review and selective repair", () => {
+  it.each(["construccion-desatendida"])("%s explains the current contract", (slug) => {
+    const Page = getManualPageComponent(slug);
+    if (!Page) throw new Error(slug);
+    render(
+      <article aria-label="Explicación">
+        <Page />
+      </article>,
+    );
+    const text = screen.getByRole("article", { name: "Explicación" }).textContent;
+    expect(text).toContain("otra compañía");
+    expect(text).toContain("FRD completo");
+    expect(text).toContain("tres ejecuciones");
+    expect(text).toContain("solo build y patch");
+    expect(text).toContain("conservando el trabajo sano");
+    expect(text).not.toMatch(/--lanes|--lane classic|maxAgents|reviewBudget|builderEffort/);
   });
 });

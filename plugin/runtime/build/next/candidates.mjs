@@ -2,7 +2,8 @@
 // the planner's ready units) with the routing cell each one runs on.
 import * as fsp from "node:fs/promises";
 import path from "node:path";
-import { findUnit } from "../state.mjs";
+import { reviewedUnits } from "../review/degradation.mjs";
+import { findUnit, newUnit } from "../state.mjs";
 import { FRD_WORK_KINDS, PLANNED_KINDS } from "./constants.mjs";
 import { availabilityOf, cellOf, err, integrationProductRoot, isAssumed, mutate, routingDeps, shapeOf, sibling } from "./context.mjs";
 import { deferredUnitId } from "./planning.mjs";
@@ -39,12 +40,30 @@ const authorOf = (worker) => ({ runtime: worker.runtime, model: worker.model, ef
  */
 export async function buildCandidates(run, state, pol, plan, params, deferredEntries) {
   const { d } = run;
+  // A batch-wide G3 fallback has no FRD/G2 to create its review. Queue one after integration.
+  const orphans = state.units.filter((u) => u.kind === "patch" && !u.frd && u.state === "integrated" && inScope(state, u)
+    && !state.units.some((x) => x.id !== u.id && x.frd && x.wos.some((w) => u.wos.includes(w)) && ["integrated", "reviewing"].includes(x.state))
+    && !state.units.some((x) => x.kind === "review" && !["verified", "blocked"].includes(x.state) && reviewedUnits(state, x).some((w) => w.id === u.id)));
+  if (orphans.length) state = await mutate(run, (s) => {
+    const events = [];
+    let units = s.units;
+    for (const patch of orphans) {
+      const id = `u-review-${patch.id}`;
+      const existing = findUnit(s, id);
+      if (existing && existing.state !== "verified") continue;
+      const review = newUnit({ id, kind: "review", frd: null, wos: patch.wos, depends_on: [patch.id], zone: patch.zone, risk_rules: patch.risk_rules });
+      units = [...units.filter((u) => u.id !== id), review];
+      events.push({ type: "unit_queued", data: review });
+    }
+    return events.length ? { state: { ...s, units }, events } : {};
+  });
   const ctx = { label: state.label, quota: pol, shape: shapeOf(state), coordinator: state.coordinator, sessionModel: params.sessionModel };
   const avail = availabilityOf(pol);
   const out = [];
   let quotaBlocked = false;
   const toParkNoReviewer = [];
   const toUnpark = [];
+  const bindings = new Map();
   const queued = (u) => u.state === "queued" && (!u.parked || isAssumed(u)) && inScope(state, u);
 
   for (const u of state.units.filter((x) => x.kind === "deferred-review" && queued(x))) {
@@ -68,14 +87,21 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
   }
 
   for (const u of state.units.filter((x) => x.kind === "review" && (queued(x) || x.parked === "no_reviewer") && inScope(state, x))) {
-    const work = state.units.filter((x) => FRD_WORK_KINDS.includes(x.kind) && x.frd === u.frd && x.state !== "blocked");
-    if (!work.length || !work.every((x) => x.state === "reviewing")) continue;
-    const authors = dedupeCells(work.filter((x) => x.worker).map((x) => authorOf(x.worker)));
+    const named = new Set(u.depends_on ?? []);
+    const work = state.units.filter((x) => FRD_WORK_KINDS.includes(x.kind) && x.state !== "blocked" && (u.frd ? x.frd === u.frd : named.has(x.id)));
+    const wos = new Set([...u.wos, ...work.flatMap((x) => x.wos)]);
+    const pending = state.units.filter((x) => ["build", "patch"].includes(x.kind)
+      && ["reviewing", "integrated"].includes(x.state)
+      && (work.includes(x) || (x.kind === "patch" && !x.frd && x.wos.some((w) => wos.has(w)))));
+    if (!pending.length || !work.every((x) => ["reviewing", "verified", "landed"].includes(x.state) || (x.kind === "patch" && !x.frd && x.state === "integrated"))) continue;
+    const authors = dedupeCells(pending.filter((x) => x.worker).map((x) => authorOf(x.worker)));
     if (!authors.length) throw err("INVALID_STATE", `review ${u.id}: no author cell among its units`, { hint: "rebuild-state" });
     const rc = d.routing.reviewCell({ authors, kind: state.size === "touch" ? "touch" : "frd", zone: u.zone, availability: avail, shape: ctx.shape }, routingDeps(d));
     if (rc.parked) { if (u.parked !== "no_reviewer") toParkNoReviewer.push(u.id); continue; }
     if (u.parked === "no_reviewer") toUnpark.push(u.id);
-    out.push({ unit: { ...u, parked: null, state: "queued" }, cell: cellOnly(rc.used), via: viaOf(rc.used), review: { primary: rc.primary, degraded: rc.degraded, deferred: rc.deferred } });
+    const ids = pending.map((x) => x.id);
+    if (JSON.stringify(u.depends_on) !== JSON.stringify(ids)) bindings.set(u.id, ids);
+    out.push({ unit: { ...u, parked: null, state: "queued", depends_on: ids }, cell: cellOnly(rc.used), via: viaOf(rc.used), review: { primary: rc.primary, degraded: rc.degraded, deferred: rc.deferred } });
   }
 
   for (const u of state.units.filter((x) => x.kind === "audit" && queued(x))) {
@@ -99,10 +125,14 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
   }
 
   let next = state;
-  if (toParkNoReviewer.length || toUnpark.length) {
+  if (toParkNoReviewer.length || toUnpark.length || bindings.size) {
     next = await mutate(run, (s) => {
       const events = [];
       const units = s.units.map((u) => {
+        if (bindings.has(u.id)) {
+          u = { ...u, depends_on: bindings.get(u.id) };
+          events.push({ type: "unit_queued", data: u });
+        }
         if (toParkNoReviewer.includes(u.id) && u.parked !== "no_reviewer") { events.push({ type: "parked", data: { unit: u.id, reason: "no_reviewer", question: null } }); return { ...u, parked: "no_reviewer" }; }
         if (toUnpark.includes(u.id) && u.parked === "no_reviewer") { events.push({ type: "parked", data: { unit: u.id, reason: null, question: null } }); return { ...u, parked: null }; }
         return u;

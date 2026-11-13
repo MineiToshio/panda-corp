@@ -14,13 +14,11 @@
 `supervisor_heartbeat`, `build_run_id`, `build_runtime`, and `build_lease_epoch`. Those fields do not
 own the lease; consumers resolve ownership from `build.lease/lease.json`.
 
-`run_id` is the logical governed build-run identity, not a runtime session or process ID. A cold
-continuation reuses it so dispatch reservations, cumulative spend and health-breaker floors survive
-the runtime change. Both launchers consume `resolve-build-run-id.mjs`: default `auto` inherits the
-canonical ID only at a released cross-runtime `phase: implementation` safe point. Same-runtime next
-passes, `phase: release`, invalid/missing prior state or explicit `new` intent create a genuinely new
-run and ledger. An explicit canonical ID is reserved for mechanical supervisor restart receipts; the
-owner never copies it. Runtime-local process/session identity remains local.
+`run_id` is the logical governed build-run identity, not a runtime session or process ID.
+The product build CLI owns run-id creation and resume selection; same-run continuation retains
+that id and transfers or reacquires epoch-fenced ownership under BUILD-14. See
+`plugin/docs/build-engine-cli.md` sections 3.3 and 3.4 for start/resume behavior. Runtime-local
+process/session identity remains local.
 
 All state snapshots are written through temp-file + rename. Lease reclaim and governed mutation use
 the same owner-stamped `.pandacorp/run/lease-mutation.lock` mutex; stale recovery renames the old

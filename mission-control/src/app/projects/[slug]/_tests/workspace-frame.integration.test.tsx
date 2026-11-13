@@ -8,7 +8,7 @@ import { parseNavigationUrl } from "@/lib/navigation/urls";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 import { loadWorkspaceProject } from "../_panels/workspaceProject";
 import { ProjectWorkspace } from "../ProjectWorkspace";
-import ProjectWorkspacePage from "../page";
+import ProjectWorkspacePage from "../ProjectWorkspacePage";
 import { workspaceSelection } from "../workspace-route";
 import { openStandalone } from "./standaloneRoute";
 

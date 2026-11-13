@@ -73,15 +73,20 @@ check "empty directory fails loud instead of silently reporting success" 1 "$EMP
 # grows, and a bare `test-*.sh` glob here would reintroduce the self-recursion the runner's own
 # header comment documents (this suite matches that glob itself). Read the array the SAME way the
 # runner defines it (a literal assignment line), never re-derive it via a directory listing.
-real_output=$(bash "$RUNNER" "$HERE/plugin/scripts" 2>&1)
-real_rc=$?
+if [ "${1:-}" = "--list-only" ]; then
+  real_output=$(bash "$RUNNER" --list "$HERE/plugin/scripts" 2>&1)
+  real_rc=$?
+else
+  real_output=$(bash "$RUNNER" "$HERE/plugin/scripts" 2>&1)
+  real_rc=$?
+fi
 mjs_count=$(ls "$HERE"/plugin/scripts/test-*.mjs | wc -l | tr -d ' ')
 # v1 freeze (DR-150): the runner excludes its ENGINE_V1_EXCLUDED suites; read that literal line
 # the same way as EXPLICIT_SH_SUITES and subtract the names that exist on disk.
 excl_line=$(grep -m1 '^ENGINE_V1_EXCLUDED=' "$RUNNER")
 if [ -n "$excl_line" ]; then
   eval "$excl_line"
-  for _x in "${ENGINE_V1_EXCLUDED[@]}"; do
+  for _x in "${ENGINE_V1_EXCLUDED[@]+"${ENGINE_V1_EXCLUDED[@]}"}"; do
     [ -f "$HERE/plugin/scripts/$_x" ] && mjs_count=$((mjs_count - 1))
   done
 fi
@@ -94,7 +99,8 @@ if [ -n "$sh_suite_line" ]; then
   done
 fi
 real_count=$((mjs_count + ${#sh_suites[@]}))
-if echo "$real_output" | grep -q "of $real_count suites"; then
+if { [ "${1:-}" = "--list-only" ] && [ "$real_rc" = 0 ] && [ "$(echo "$real_output" | wc -l | tr -d ' ')" = "$real_count" ]; } ||
+   { [ "${1:-}" != "--list-only" ] && echo "$real_output" | grep -q "of $real_count suites"; }; then
   echo "  OK real corpus: runner discovers all $real_count test-*.mjs suites"; pass=$((pass+1))
 else
   echo "  XX real corpus: suite count mismatch (expected $real_count)"
@@ -106,27 +112,31 @@ if [ "$real_rc" != "0" ]; then
   echo "  NOTE real corpus is currently RED -- runner correctly surfaced it: $failed_line"
 fi
 
+for _sh in "${EXPLICIT_SH_SUITES[@]}"; do
+  if [ ! -f "$HERE/plugin/scripts/$_sh" ]; then
+    echo "  XX explicit suite missing: $_sh"; fail=$((fail+1))
+  fi
+done
+
 # The CI workflow itself: valid YAML, wired to push (plugin/** path filter) + schedule +
 # this runner. Cannot exercise a real push/schedule/Actions run from a local script.
-if [ -f "$WORKFLOW" ] && python3 -c "
-import sys, yaml
-with open('$WORKFLOW') as f:
-    doc = yaml.safe_load(f)
-on = doc.get(True, doc.get('on'))
-assert on is not None, 'missing on:'
-assert 'schedule' in on, 'missing schedule trigger'
-assert 'push' in on, 'missing push trigger'
-paths = on['push'].get('paths', [])
-assert any('plugin' in p for p in paths), 'push trigger missing a plugin/** path filter'
-jobs = doc.get('jobs') or {}
-assert jobs, 'no jobs defined'
-found = any('run-engine-tests.sh' in step.get('run', '') for j in jobs.values() for step in j.get('steps', []))
-assert found, 'no step invokes run-engine-tests.sh'
-" > /tmp/bl0069-wf-check.log 2>&1; then
+if [ -f "$WORKFLOW" ] && ruby -r yaml -e '
+doc = YAML.load_file(ARGV[0])
+on = doc[true] || doc["on"]
+raise "missing on:" unless on
+raise "missing schedule trigger" unless on.key?("schedule")
+raise "missing push trigger" unless on.key?("push")
+paths = on["push"]["paths"] || []
+raise "push trigger missing plugin path filter" unless paths.any? { |p| p.include?("plugin") }
+jobs = doc["jobs"] || {}
+raise "no jobs defined" if jobs.empty?
+found = jobs.values.any? { |j| j.fetch("steps", []).any? { |step| step.fetch("run", "").include?("run-engine-tests.sh") } }
+raise "no step invokes runner" unless found
+' "$WORKFLOW" > "$TMP/workflow-check.log" 2>&1; then
   echo "  OK workflow YAML is valid and wires push+schedule+run-engine-tests.sh"; pass=$((pass+1))
 else
   echo "  XX workflow YAML missing or structurally invalid"
-  cat /tmp/bl0069-wf-check.log
+  cat "$TMP/workflow-check.log"
   fail=$((fail+1))
 fi
 

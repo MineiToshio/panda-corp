@@ -38,7 +38,7 @@ test("board and campaign render with no console or page error", async ({ page },
 
 test("a keyboard toggle keeps focus on the star", async ({ page }) => {
   await gotoHydrated(page, "/board", { selector: '[role="switch"]' });
-  const star = page.getByTestId("favorite-button").first();
+  const star = page.getByRole("button", { name: /favorita.*AI-powered code review tool/ });
   const fs = await import("node:fs");
   const fixture = "e2e/fixtures/factory-root/factory/ideas/idea-discovered.md";
   const original = fs.readFileSync(fixture);
@@ -46,13 +46,13 @@ test("a keyboard toggle keeps focus on the star", async ({ page }) => {
     await star.focus();
     await page.keyboard.press("Space");
     await expect(star).toHaveAttribute("aria-pressed", "true");
+    // The optimistic state precedes the Server Action and its revalidated render.
+    await expect(star).toHaveAttribute("aria-busy", "false", { timeout: 15_000 });
+    await expect(star).toHaveAttribute("aria-pressed", "true");
     await expect(star).toBeEnabled();
     await expect(star).toBeFocused();
   } finally {
-    await expect(star).toBeEnabled();
-    if ((await star.getAttribute("aria-pressed")) === "true") await star.click();
-    await expect(star).toHaveAttribute("aria-pressed", "false");
-    await expect(star).toBeEnabled();
+    // Always restore the fixture, including when the action/refresh assertion fails.
     fs.writeFileSync(fixture, original);
   }
 });
@@ -70,16 +70,27 @@ test("the phase jump works and a discarded row opens that idea", async ({ page }
   await expect(page.getByTestId("idea-board")).toBeVisible();
 });
 
-test("every implement sheet offers the build-mode picker", async ({ page }) => {
+test("AC-02-017.1 AC-11-009.1: every implement sheet offers the shared action selector", async ({
+  page,
+}) => {
   await gotoHydrated(page, "/board/idea-in-pipeline/campaign", {
     selector: '[data-testid="campaign-phase-design"]',
   });
   for (const key of ["architecture", "build"] as const) {
     await page.getByTestId(`campaign-phase-${key}`).click();
     const sheet = page.getByTestId("ficha-next-step");
-    await sheet.getByText("Elegir modo de construcción").click();
+    await sheet.getByText("Construir o reanudar", { exact: true }).click();
     const picker = sheet.getByTestId("build-mode-picker");
     await expect(picker).toBeVisible();
-    await expect(picker.getByTestId("build-mode-pro")).toBeVisible();
+    await expect(picker.getByRole("button", { name: "Construir", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await picker.getByRole("button", { name: "Reanudar", exact: true }).click();
+    await expect(
+      picker.getByRole("button", { name: "Copiar /pandacorp:implement --resume", exact: true }),
+    ).toBeVisible();
+    await picker.getByRole("button", { name: "Objetivo: FRD o tarjeta", exact: true }).click();
+    await expect(picker.getByRole("combobox", { name: "Objetivo del build" })).toBeVisible();
   }
 });

@@ -30,19 +30,17 @@ use the version-capable worker fixture. The real CLI parser tests remain real CL
 tests. Git fixtures configure a local author and disable signing, including for
 subsequent commits. Nothing writes the owner's global Git configuration.
 
-The terminal-revocation regression simulates both OS sleep inhibitors (caffeinate
-and systemd-inhibit), keeping Linux CI independent of a system D-Bus session. Its
-supervisor waits for the launch receipt, with a bounded deadline, instead of racing
-a fixed 1.5-second lifetime against the launcher's startup work. The invariant is
-unchanged: first revocation fails, launcher exits 3, EXIT retries, receipt is revoked.
+Product-build suites exercise `plugin/runtime/build/` through fixture projects
+and fake workers, including lease fencing, relay, admission and landing. They
+do not certify real provider reachability or unattended process survival. The
+separate factory backlog Workflow retains its own harness.
 
 ## Whole-FRD documentation oracle
 
-`test-whole-frd-gate-contract.mjs` reads the current bespoke Manual renderer,
-`mission-control/src/app/manual/manualPages.tsx`. The old `workflow-flows.ts` was
-deleted in `519570d1`; the whole-contract, traceability and no-waiver assertions
-remain intact. The explanation lost in that deletion is restored in the renderer
-(REQ-08-013, original decision 2026-07-13).
+The canonical whole-FRD gate policy is `plugin/agents/reviewer.md`. The build
+engine reads that policy into unit briefs, and the Codex reviewer projection is
+generated from the same source. Retired project-executor documentation and
+deleted Manual renderers are not current verification oracles.
 
 ## Restricted local verification
 

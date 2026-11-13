@@ -118,35 +118,6 @@
       }
     },
     {
-      "slug": "change",
-      "source": "plugin/skills/change/SKILL.md",
-      "user_invocable": true,
-      "runtimes": {
-        "claude": {
-          "status": "PROVEN",
-          "fallback": null,
-          "evidence": {
-            "kind": "canonical-runtime",
-            "verified_at": "2026-07-11",
-            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
-          },
-          "authorization": "FULL",
-          "authorized_by": "DR-133"
-        },
-        "codex": {
-          "status": "FALLBACK",
-          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
-          "evidence": {
-            "kind": "static-contract-only",
-            "verified_at": "2026-07-11",
-            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
-          },
-          "authorization": "FULL",
-          "authorized_by": "DR-133"
-        }
-      }
-    },
-    {
       "slug": "decide",
       "source": "plugin/skills/decide/SKILL.md",
       "user_invocable": true,
@@ -279,17 +250,15 @@
           "authorized_by": "DR-133"
         },
         "codex": {
-          "status": "EXPERIMENTAL",
-          "fallback": "Full native attended read/write access to every skill and application (DR-133). Automated launcher supports one exact FRD or ready change, foreground, <=7200 seconds, zero automatic restarts. Other scopes execute natively with available tools and the same governance; no unattended certification is claimed.",
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical implement skill using the shared v2 CLI and runtime-local workers. Full native read/write authority is granted by DR-133; the first real v2 run remains pending validation.",
           "evidence": {
-            "kind": "owner-authorized-native-plus-historical-targeted-canary",
-            "verified_at": "2026-10-20",
-            "verifier": "DR-133; historical installed canary codex-20260715T151508Z-99530"
+            "kind": "static-contract-only",
+            "verified_at": "2026-11-12",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
           },
           "authorization": "FULL",
-          "authorized_by": "DR-133",
-          "profile": "attended_foreground",
-          "scope": "targeted-only"
+          "authorized_by": "DR-133"
         }
       }
     },

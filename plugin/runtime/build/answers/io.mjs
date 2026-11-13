@@ -1,6 +1,7 @@
 // Side effects of the `answer` command outside the run state: the doubt record, the owner's inbox entry and git reads.
 import * as fsp from "node:fs/promises";
-import { atomicWriteJson, atomicWriteText, defaultExec, loadSchema, validate, writeTarget } from "../fsx.mjs";
+import path from "node:path";
+import { assertNotTracked, atomicWriteJson, atomicWriteText, defaultExec, loadSchema, validate, writeTarget } from "../fsx.mjs";
 import { readJournal } from "../journal.mjs";
 import { buildPaths } from "../paths.mjs";
 import { err, es } from "./common.mjs";
@@ -13,23 +14,31 @@ export async function writeDoubtRecord(project, record, deps) {
 
 /**
  * Mark the doubt's entry of `.pandacorp/inbox/decisions.md` as answered (best effort: a missing entry changes nothing).
- * A tracked inbox is written in the integration worktree and committed there (D1).
+ * A tracked inbox is written in the integration worktree and committed there (D1); its main-checkout mirror is also marked (DEC-16).
  */
 export async function markInboxAnswered(project, integrationRoot, { id, value, date }, deps) {
   const fs = deps.fs ?? fsp;
   const rel = ".pandacorp/inbox/decisions.md";
   const { abs, tracked } = await writeTarget(project, rel, { integrationRoot, exec: deps.exec });
-  let text;
-  try { text = await fs.readFile(abs, "utf8"); } catch (error) { if (error.code === "ENOENT") return null; throw error; }
-  const marker = `- **Id:** \`${id}\``;
-  const at = text.indexOf(marker);
-  if (at < 0) return null;
-  const end = text.slice(at).search(/\n## /);
-  const block = end < 0 ? text.slice(at) : text.slice(at, at + end);
-  const status = `- **Estado:** RESUELTO: respondido por el owner, opción ${es(value)} (${date}).`;
-  const updated = block.replace(/^- \*\*Estado:\*\*.*$/m, status);
-  if (updated === block) return null;
-  await atomicWriteText(abs, `${text.slice(0, at)}${updated}${end < 0 ? "" : text.slice(at + end)}`, { fs, mode: 0o644 });
+  const mirrorRel = ".pandacorp/inbox/decisions.pending.md";
+  if (tracked) await assertNotTracked(project, mirrorRel, deps);
+  const mark = async (abs) => {
+    let text;
+    try { text = await fs.readFile(abs, "utf8"); } catch (error) { if (error.code === "ENOENT") return false; throw error; }
+    const marker = `- **Id:** \`${id}\``;
+    const at = text.indexOf(marker);
+    if (at < 0) return false;
+    const end = text.slice(at).search(/\n## /);
+    const block = end < 0 ? text.slice(at) : text.slice(at, at + end);
+    const status = `- **Estado:** RESUELTO: respondido por el owner, opción ${es(value)} (${date}).`;
+    const updated = block.replace(/^- \*\*Estado:\*\*.*$/m, status);
+    if (updated === block) return false;
+    await atomicWriteText(abs, `${text.slice(0, at)}${updated}${end < 0 ? "" : text.slice(at + end)}`, { fs, mode: 0o644 });
+    return true;
+  };
+  const changed = await mark(abs);
+  if (tracked) await mark(path.join(project, mirrorRel));
+  if (!changed) return null;
   if (!tracked) return { rel, commit: null };
   const exec = deps.exec ?? defaultExec;
   let add = await exec("git", ["add", "-u", "--", rel], { cwd: integrationRoot });

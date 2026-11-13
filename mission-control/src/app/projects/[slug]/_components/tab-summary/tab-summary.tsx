@@ -4,6 +4,7 @@ import { CountPill } from "@/components/core/Chip/CountPill";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { Icon } from "@/components/core/Icon/Icon";
 import { Markdown } from "@/components/core/Markdown/Markdown";
+import { BuildRunPanel } from "@/components/modules/BuildRunPanel/BuildRunPanel";
 import { FileReadErrors } from "@/components/modules/FileReadErrors/FileReadErrors";
 import { t } from "@/lib/copy/copy";
 import { formatSignalAge } from "@/lib/fragua/signal-age";
@@ -84,6 +85,13 @@ export function TabSummary({
           ownerPending={ownerTurn.count}
           lastActivityAt={project.lastMove}
           frds={project.frds}
+        />
+      )}
+      {data.buildRun && (
+        <BuildRunPanel
+          run={data.buildRun}
+          decisions={decisions.value}
+          handbackDrafts={data.handbackDrafts}
         />
       )}
       <SnapshotPanel

@@ -1,89 +1,31 @@
-# Dynamic Workflows
+# Factory backlog Workflow
 
-## Shared governed transition seam
+The remaining Claude Code Workflow is `pandacorp-backlog`, stored at
+`.claude/engines/pandacorp-backlog.js`. It operates on factory tooling, not product
+projects. Its owning skill, `/pandacorp:implement-backlog`, launches it when called
+without an item id. Product builds use the shared CLI described in
+[runtime-executors.md](runtime-executors.md).
 
-The Claude workflow remains the orchestration decision-maker. Its derived FRD/blueprint rollups and
-work-order status counts are now written only by the fenced neutral command
-`pandacorp-build-state.mjs sync-rollups`. The launcher resolves that command to an absolute,
-canonical regular file and passes it as `args.stateCli`; Workflow subagents never depend on an
-ambient `CLAUDE_PLUGIN_ROOT`. Missing or relative capabilities fail before any agent spawn, and the
-validated path is shell-quoted in every state command. The prompt text is generated from
-`plugin/runtime/prompts/sync-rollups.md`; `check-rollup-writer-boundary.mjs` rejects a missing command
-or the retired free-form writer prose. Every launch carries a local-only lease token and fencing epoch;
-the supervisor renews at its two-minute tick and every terminal path uses the shared two-phase CLI
-protocol: quiesce while fenced, commit `running:false`, then finalize the lease.
+## Execution
 
-Codex does **not** emulate a Dynamic Workflow. Its experimental sequential controller lives at
-`plugin/runtime/codex/executor.mjs`; R5 deliberately rejected a shared executable orchestration bundle.
-See `plugin/docs/runtime-executors.md` for the binding R7 FALLBACK verdict.
+The backlog Workflow scans open items, implements them in isolated worktrees
+with tier-sized agents, then merges strictly one at a time with validation
+between merges and reports the outcome. Follow the owning skill for the exact
+invocation, model sizing, verification and landing rules.
 
-A **Dynamic Workflow** is a native Claude Code JS script that orchestrates subagents deterministically: what runs in parallel, what waits on what, where a quality gate sits, how many agents at most, and how to resume if the run is cut — all decided in code, not improvised per run by a model reading prose. This is distinct from a **skill** (`plugin/skills/*/SKILL.md`), which the model reads and interprets fresh each time; a skill shines on conversational, nuanced, one-off work, a dynamic workflow on repetitive fan-out with strict checkpoints that must behave the same way every run.
+The script lives under `.claude/engines/` so it is internal machinery rather
+than an automatically exposed slash command under `.claude/workflows/`. Launch
+by `scriptPath` through the owning skill. The script normalizes JSON-string
+`args` before reading fields and rejects malformed JSON instead of silently
+using defaults.
 
-## The two engines
+## Offline verification
 
-Two dynamic workflows exist today, both under `plugin/templates/shared/.claude/engines/` (the project template) or `.claude/engines/` (the factory's own copy) — never hand-invoked, always launched by the skill that owns them:
-
-- **`pandacorp-build`** (`plugin/templates/shared/.claude/engines/pandacorp-build.js`, a GENERATED artifact: edit the readable source `plugin/runtime/engine/pandacorp-build.src.js`, then run `node plugin/scripts/generate-engine.mjs` — the Workflow tool refuses a script over 524288 bytes, so the shipped file is the source with comments stripped, BL-0204) — the project build engine. Launched by `/pandacorp:implement` (`plugin/skills/implement/SKILL.md`), it runs INSIDE a product project: global-wave scheduling across FRDs, a per-FRD review gate (serial, or split into four parallel finder lenses + adversarial verify + an Opus closer under `reviewSplit` — see `PROFILES` in the engine source), and frontmatter-driven resume. See `plugin/skills/implement/SKILL.md` §"The dynamic workflow (pandacorp-build)" for the owner-facing summary.
-- **`pandacorp-backlog`** (`.claude/engines/pandacorp-backlog.js`) — the factory backlog drain engine. Launched by `/pandacorp:implement-backlog` (`plugin/skills/implement-backlog/SKILL.md`) with no arguments, it runs IN the factory root: Scan → Implement (parallel, one isolated worktree per item, tier-sized model) → Merge (strictly serialized, one item at a time, a validator between every merge) → Report. See `plugin/skills/implement-backlog/SKILL.md` §"The dynamic workflow (pandacorp-backlog)".
-
-These are two independent scripts with independent phases — `pandacorp-backlog` is not a mode of `pandacorp-build`.
-
-## Why `.claude/engines/`, not `.claude/workflows/`
-
-Claude Code auto-exposes every script under `.claude/workflows/` (project or `~/.claude/workflows/` user-level) as a `/` slash command. Both engines are internal machinery meant to be launched by their owning skill only — never typed directly by the owner — so they live in `.claude/engines/`, a directory Claude Code does not scan for the menu. A skill launches one by `scriptPath` (never by `name`, which is the form that DOES get menu-exposed):
-
-```js
-Workflow({ scriptPath: '<project-root>/.claude/engines/pandacorp-build.js', args: { mode, maxAgents, projectDir, project, leaseToken: '<from launch-implement.sh>', leaseEpoch: '<from launch-implement.sh>', stateCli: '<absolute path from launch-implement.sh>', frds: ['<optional target>'], maxFrds: 1 } })
+```bash
+node plugin/scripts/test-pandacorp-backlog.mjs
 ```
 
-For `pandacorp-build`, never construct that call by hand: `launch-implement.sh` acquires ownership
-and prints the exact fenced invocation. Its additive `--frds`/`--change` and
-`--max-frds`/`--max-spend` flags project targeted scope and supervised ceilings into JSON-safe args;
-`--frds` and `--change` fail closed when combined. Omitting its lease receipt or manually adding a
-scope the launcher did not print fails the launch contract. The backlog engine
-has its own owning skill and does not use the project-build lease arguments.
-
-## The `args`-as-JSON-string quirk
-
-Empirically, a `scriptPath` launch delivers `args` to the script as a JSON **string**, where a `name` launch used to deliver a plain object. Both engines carry the same normalization shim at the very top of the file, before any `args.*` read:
-
-```js
-if (typeof args === 'string') {
-  try { args = JSON.parse(args) } catch (e) { log('FATAL: args arrived as an unparseable string: ' + e.message); throw e }
-}
-```
-
-An unparseable string fails loud (throws) rather than silently falling back to defaults — a misconfigured run must never look like a normal one.
-
-## Offline test harnesses
-
-Both engines are plain JS executed with injected globals (`agent`, `log`, `budget`, `args`, `phase`, `parallel`) and delegate all real I/O to subagents via `agent(prompt, opts)` — which makes them deterministically simulable without Claude, a filesystem, or git: load the source, strip the single ESM `export`, wrap it in an `AsyncFunction` with the same global set the runtime injects, and run it with stub globals that answer by scripted, schema-conformant responses.
-
-- **`plugin/scripts/test-pandacorp-build.mjs`** — the general `pandacorp-build` harness: 54 scenarios covering the args-string shim, the `maxAgents` brake (including its opus cost-weighting), frontmatter-driven resume, artifact-disjoint wave scheduling, the fail-safe close, the safe-point/change-queue drain and its targeted-build scoping, blocked-dependency handling, and hardening-gated `phase: release`.
-- **`plugin/scripts/test-build-engine.mjs`** — a focused harness for the `reviewSplit` gate alone: powerful mode (split gate, a refuted finding dies, an Opus closer signs off), balanced mode (serial gate, no finder lenses), and a `maxAgents`-exhausted fallback to the serial gate.
-
-Run either with `node plugin/scripts/<file>.mjs`; both report PASS/FAIL per scenario, reject every
-unmatched mock-agent label, and exit non-zero on any failure.
-
-## Going deeper
-
-The canonical, exhaustive spec for both engines' mechanics — wave scheduling, the recovery ladder (patch-first → self-repair → revert+reopen), the concurrent-run guard, the supervisor contract, the change-queue drain, the split gate's contracts — lives in `factory/standards/build-orchestration.md`. This page only orients; it does not duplicate that spec.
-
-## Manual branch landing: batch the full integration gate (DR-141)
-
-Outside the coordinated engines, several finished independently verified branches waiting to land
-are assembled into one integration branch from current main. Follow the project guide's manual
-`git merge --squash <recorded-sha>` + source-mapped commits, resolve conflicts, then call
-`bash .pandacorp/merge-queue.sh` once on the combined result. On red, repair only the attributed
-owning defect and retry once. A single finished change still lands alone. Production release
-requires the owner's explicit order covering the batch and the existing release token.
-This changes the full integration-gate unit; the backlog engine's cheap per-merge
-`validate-backlog.sh` catalog checks and the build engine's per-FRD gates still apply.
-Canonical: `factory/standards/build-orchestration.md`, Parallel manual sessions §5 (BUILD-4).
-
-
-BL-0288: the manual merge queue runs its integration gate with the committed project-relative
-`e2e/server-env.json`, preserving auth/media data identity in the shared gate DB. Its lock serializes
-these gates. If the committed PORT is busy, exit 14 asks you to stop the dev server / other gate
-on that port and re-run. EXIT cleanup unlocks first, then restores local PORT only on failure; success keeps the manifest deleted (BL-0288).
-Bootstrap changes only PORT; it preserves URLs.
+The harness injects Workflow globals and scripted agent responses; it does not
+contact providers. Its green result proves fixture behavior, not unattended
+provider availability. Codex may perform native attended backlog work under
+DR-133; it does not emulate this Claude-local Workflow.

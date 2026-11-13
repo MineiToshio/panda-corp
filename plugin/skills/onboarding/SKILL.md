@@ -88,6 +88,7 @@ Onboarding *bootstraps* the profile from the owner's past conversations; from th
      factory (empty = that default).
    - **Language**: documents and conversation (default Spanish).
    - **Country**: where you're based — conditions which markets/languages are easiest and highest-ROI to launch a product in (used by `spec`'s launch research, DR-041).
+   - **Machine**: operating system, processor/architecture, RAM and available disk space for local builds, plus any constraints the owner states. Ask only for missing facts; label measured versus owner-reported values and leave unknowns empty. No hardware model or capacity is assumed.
    - **How you work**: strengths and weaknesses (e.g. "weak in design").
 
 4. **Write the profile**: copy `factory/profile.example.md` → `factory/profile.md` (if it
@@ -95,6 +96,7 @@ Onboarding *bootstraps* the profile from the owner's past conversations; from th
    `technical_level`, `language`, `goals`, `interests`, `hobbies`, `likes`, `dislikes`,
    `assets`, `monetization_appetite`, `project_types`) and the prose sections with what was
    discussed. Don't invent — leave empty what wasn't said, and say so (see Rules).
+   Add or update a **`## Máquina`** prose section in this personal Spanish profile with the operating system, processor/architecture, RAM, available disk and stated constraints, recording provenance/date for measured values. Machine-specific facts belong only here, never in committed standards, skills or templates; admission policy remains generic and live admission uses current measurements, not stale profile values. Preserve existing profile content on reruns.
    `factory/profile.md` is personal (gitignored) — it is not uploaded.
 
 5. **Portfolio bootstrap**: if `factory/portfolio.md` doesn't exist, create it by copying
@@ -110,7 +112,7 @@ Onboarding *bootstraps* the profile from the owner's past conversations; from th
    - For the factory to go look for ideas aligned with you: `/pandacorp:discover`.
    - To capture an idea of your own: `/pandacorp:new-idea` (or `/pandacorp:explore` if it's fuzzy).
    - To ask for a ranking: `/pandacorp:recommend`.
-   - The full flow is in `CLAUDE.md`.
+   - The full flow is in `AGENTS.md`.
 
 ## Rules
 - **Don't upload personal data**: `factory/profile.md` and `factory/portfolio.md` are gitignored.
@@ -119,6 +121,6 @@ Onboarding *bootstraps* the profile from the owner's past conversations; from th
 - **Nail down the vague**: a concrete profile (interests, assets, appetite) is what makes
   `/discover` and `/recommend` hit the mark. It's worth asking follow-ups.
 - **The profile keeps growing on its own (DR-053)**: don't treat this as the only chance to learn the
-  owner. The continuous-capture rule (panda-corp `CLAUDE.md` + each project's `.pandacorp/guide.md`)
+  owner. The continuous-capture rule (panda-corp `AGENTS.md` + each project's `.pandacorp/guide.md`)
   appends durable personal facts as they come up in any conversation. Onboarding seeds it; daily talk feeds it.
 - It is the only skill meant to be run when cloning; the rest assume there is already a profile.

@@ -1,5 +1,83 @@
 # Decision Log — Factory
 
+## 2026-11-12 — Day 1: one CLI, canonical instructions, adaptive resources and safe teardown (DR-150/154..157)
+
+**What:** [registry.yaml](decisions/registry.yaml) makes plugin **10.0.0** / overlay **9.0.0** effective now.
+[DR-150](decisions/registry.yaml) points all product builds to implement and the shared CLI; [DR-154](decisions/registry.yaml)
+records deletion/recovery via tag `archive/engine-dynamic-workflows-v9.157.0` at `1477e9a5`, no archive folder,
+reactivation script or BREAKPOINTS. The previous public change door is removed; the queue remains a durable card
+format and Mission Control reader, never an automatic drain. Capture is a draft plus `card check`. The factory backlog
+workflow stays separate. [Plugin release record](../plugin/docs/decision-log.md) consolidates the complete PLAN-E2 worker
+handoffs, including DOC/DFIX/FIX2, their canonical changes and regression-test references.
+
+**Why:** owner decision 10 requests Day 1 before the first real implement; decisions 3/11 reject fixed conservative
+concurrency in favor of measured adaptation; the new disk requirement makes immediate safe reclamation part of build
+completion. Decisions 4/12 require attempts to count only build/patch and repair only the red checks. Decisions 7/9
+permit nested Mission Control builds and delegate the single-instruction-source choice. These amend the earlier
+opt-in staging and archive plan; they do not alter production, spending, external communication or owner-data gates.
+
+- **DR-155 / DEC-13 (AG/AGFIX, E04):** [AGENTS.md](../AGENTS.md) is the single instruction source, including
+  Claude Code details; CLAUDE.md is the one-line import shim. Explicit read lists work in runtimes without import
+  expansion. Upgrade migrates project text losslessly, preserves Markdown/literals, refuses unreconciled local
+  instructions and keeps gate scope active for shim-only projects. [Portability Maintenance](standards/agent-portability.md)
+  owns the one-source map and generated mirrors/manifests/registrations.
+- **DR-156 / DEC-15/18 (ADM):** [BUILD-9](standards/build-engine.md) replaces DEC-1 pause/veto with steps
+  1/2/3/5/8, default 5, critical/malformed signal step 1, measured down/up thresholds and sustained evidence before 8.
+  Heavy jobs retain RAM/host-slot checks; quota, disk and human gates still stop unsafe work. Bounded samples and
+  one host-local performance journal record per run guide later starts; machine identity/specifications belong only
+  in the gitignored Spanish personal profile. No absolute machine data is committed as policy.
+- **DR-157 / DR-145 / CONV-21 (DSWEEP/2, DBOOT, DENG/2, DFIX, FIX2):** [BUILD-5](standards/build-orchestration.md)
+  and [BUILD-15](standards/build-engine.md) distinguish durable evidence/branch refs from disposable checkout copies.
+  Reclaim eligible copies at landing/retry/close, never protected parent state, dirty/hidden owner edits, locked,
+  deployed or in-use checkouts. Unknown worker termination evidence retains its copy. Shared ownership proves
+  run/branch/exact path and detached G2 pin ancestry. gc/archive reserve the lease mutex through moves; terminal
+  cleanup reserves through post-release writes and revalidates run/epoch. waiting_gate/suspended runs remain protected.
+  Identity-bound bootstrap hashes justify only known hidden differences; owner edits invalidate provenance.
+  New worktrees must leave 15 GiB after 1.5 GiB reserve; shell bootstrap floor is 15360 + 1500 MiB.
+  Exit 4 / G2 76 is wait/disk, not a patch/code failure. Sparse docs is build/patch/tests only with full fallback;
+  dependencies use shared-store clones and offline/frozen-first installation, never symlinks. G3 releases the heavy
+  slot before clearing generated output on green/red. Cleanup never deletes branches or non-worktree run evidence.
+- **N16 / decision 12 (PATCH/2/3):** [DR-073 and BUILD-15](standards/build-engine.md) replace reopen_count,
+  revert/rebuild and model-budget ladders. Only build/attributed patch executions charge WOs. Selective G2/G3
+  evidence is fenced, healthy WOs remain settled and re-review covers the patch diff. Unattributed patches have
+  a separate three-execution budget, bounded allowlist and no healthy WO reopening/charge. Fallback blockers,
+  bullet-path parsing, nullable-FRD reviews and G3 phase handling are reconciled.
+- **N17 / DEC-14/16:** [DR-103](decisions/registry.yaml) now distinguishes standalone factory backlog filing from
+  an untracked nested/factory-root engine-failure draft surfaced in summary.need_from_owner. Tracked questions and
+  answers are mirrored to untracked decisions.pending.md, visible to main-checkout readers without a tracked write.
+- **Decision 6 / FIX-MUTEX3:** [DR-150/153](decisions/registry.yaml) retains the no-mixed-plugin-versions rule as
+  documentation only. Lock liveness uses PID plus process start time; live holders are never reclaimed by age.
+  Owner-record hash tombs replace inode-only tombs; legacy ownerless locks alone retain age/inode fallback.
+- **NOTA-1 / decision 8 (E05/E04b):** [DR-152](decisions/registry.yaml) and the commented risk-paths example keep
+  project-specific floor additions subject to owner confirmation on upgrade; r1 cannot be lowered, R4–R10 stay retired.
+- **E07/E08/DOC/HOOKTEST:** standards, constitution sections 14/23, runtime portability, CLI documentation and
+  verification guidance reflect the same executor. The [rule registry](standards/rule-registry.md) names current
+  enforcement/tests, strict-whitelist deletes and provenance-based cleanup. Hook fixtures no longer depend on real
+  TMPDIR. Deterministic [retirement checking](../plugin/scripts/check-engine-retirement.mjs) replaces basename greps,
+  retaining raw matches and validating narrow fixture/manifest exceptions rather than hiding live references.
+- **MCD and all MC handoffs:** [Day 1 contract](../mission-control/docs/product/build-engine-v2.md), PRD/architecture
+  and FRD-02/03/04/05/06/08/11/12/18/21/24 replace power modes with build/resume/FRD-or-card commands. The shared
+  reader/panel distinguishes fresh lease/run/admission progress from landed state, shows parked questions/local
+  drafts, branch visibility and host performance history, and separates monotonic telemetry from state changes.
+  The full authored Manual and derived catalogs reflect CLI operation/current roster and retain the card reader.
+  Guide corrections follow FRD-08 AC-08-021 and FRD-02 AC-02-017. This satisfies the operable-surface cascade of DR-046.
+
+**Supersession map:** DR-013/020/069/142 lose their former vehicle/queue-entry authority;
+DR-014/070/123/124/125/126/132 lose fixed modes, projected caps and old scheduling options;
+DR-015/016/060/065/072/073/086/097/106/107/108/117/118/122 take BUILD-7..15 review, failure and write boundaries.
+DR-023/031/050/056/057/063/066/067/068/113/133 align pin publication, document truth,
+fidelity/readiness, phase-aware Stop enforcement, liveness and runtime continuation.
+DR-007/034/040/044/085/103/145/147 align cleanup authorization, metadata source, landing, public routing,
+nested drafts and card reconciliation. Historical research and earlier contracts remain in the dated logs and the
+pre-retirement registry at `1477e9a5`; no active default orders the deleted vehicle. Frontmatter remains atomic truth,
+production authorization remains DR-138 and only merge-queue reaches main.
+
+**Verification boundary:** the generated projections and deterministic gates must pass before landing. Fixture tests
+and a read-only dashboard do not prove live relay survival, sleep, notifications or the first-minute owner interaction.
+Project upgrades U1/U2/U3 and the first real implement remain rollout steps after merge; no real profile, home,
+production checkout or project overlay is changed by this integration. CI keeps current suites, checks retirement
+against the pinned pre-Day-1 tree and preserves its raw evidence.
+
 ## 2026-11-12 — Clean up after yourself (CONV-21) and a delete gate that tells named paths from broad ones
 
 **What:** new rule [CONV-21](standards/conventions.md): when a task closes the agent removes the git worktrees and the scratch/research/temp files it created, without asking the owner to run commands (never another session's live or locked worktree, uncommitted work or the protected state layer). `block-dangerous.sh` gets a NARROW allow exception, fail-closed (an independent review rejected a first parser rewrite: here-strings, comment apostrophes and wrappers hid commands from every gate): all gates read the raw command text as before; only a `cat > FILE <<'WORD'` heredoc with nothing after its terminator, or a command made solely of simple `rm` invocations with literal operands (optionally after `cd /abs`), is lifted out of the delete rules, and a clean parse of a broad literal (`/tmp`, `/Users`, a system path) is blocked outright; anything unparsed keeps the old blocking behaviour. Operative copies in `AGENTS.md.tpl` and root `AGENTS.md`; rule-registry row; plugin 9.157.0 (unreleased, no new bump).

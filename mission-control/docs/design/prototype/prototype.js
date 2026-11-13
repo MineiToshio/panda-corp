@@ -1430,7 +1430,7 @@ function changesView(p) {
     <div class="state-strip">${open.map(s => { const [label, tone, icon] = CHANGE_STATES[s]; return `<div class="state-tile" data-tone="${tone}"><span class="lbl">${ico(icon, 'sm')}${label}</span><b>${items.filter(c => c.status === s).length}</b></div>`; }).join('')}</div>
     ${open.map(s => { const list = items.filter(c => c.status === s); const [label, tone, icon] = CHANGE_STATES[s]; return list.length ? card(`${label} <span class="chip" data-tone="${tone}">${list.length}</span>`, `<div class="divided">${list.map(c => changeRow(p, c)).join('')}</div>`, { icon, tone }) : ''; }).join('') || empty('No hay cambios abiertos en la cola.', 'check')}
     ${history.length ? `<details class="card"><summary class="row between" style="cursor:pointer;list-style:none"><h2 class="row"><span class="badge-icon sm" data-tone="slate">${ico('archive', 'sm')}</span>Historial <span class="chip" data-tone="slate">${history.length}</span></h2>${ico('chevD', 'sm')}</summary><div class="divided" style="margin-top:12px">${history.map(c => changeRow(p, c)).join('')}</div></details>` : ''}
-    ${card('Pedir un cambio', `<p class="small muted card-intro">La puerta única para features, ajustes y bugs. El cambio queda en la cola hasta el siguiente punto seguro del build.</p>${cmd('/pandacorp:change')}`, { icon: 'plus', tone: 'pink' })}</div>`;
+    ${card('Pedir un cambio', `<p class="small muted card-intro">La puerta única para features, ajustes y bugs. El cambio queda en la cola hasta el siguiente punto seguro del build.</p>${cmd('/pandacorp:implement')}`, { icon: 'plus', tone: 'pink' })}</div>`;
 }
 
 /* ---------- Party ---------- */
@@ -1723,7 +1723,7 @@ function commandsView(p) {
     ${card('Modo de construcción', buildModePicker(p), { icon: 'bolt', tone: 'violet' })}
   </div><div class="stack">
     ${card('Construir un objetivo concreto', `<p class="small muted card-intro">Elige un FRD, una work order pendiente o un cambio de la cola para acotar el build.</p><label class="field" style="margin-bottom:12px"><span class="sr-only">Objetivo</span><select id="cmd-target" aria-label="Objetivo del build"><option value="">Elige un FRD o work order…</option>${targets.map(t => `<option value="${esc(t.id)}" ${t.id === target ? 'selected' : ''}>${esc(t.label).slice(0, 90)}</option>`).join('')}</select>${ico('chevD', 'sm')}</label>${cmd(target ? `/pandacorp:implement ${target}` : '/pandacorp:implement <id>')}`, { icon: 'target', tone: 'teal' })}
-    ${card('Cambios y decisiones', `<div class="stack">${step('pink', 'branch', 'Pedir un cambio o un bug', '/pandacorp:change')}${step('amber', 'flag', 'Responder una decisión pendiente', '/pandacorp:decide')}${step('violet', 'rocket', 'Paquete grande o rediseño', '/pandacorp:new-version')}<p class="xs faint row" style="gap:6px">${ico('copy', 'sm')}Los comandos se copian para pegarlos en Claude Code. Mission Control nunca los ejecuta.</p></div>`, { icon: 'branch', tone: 'pink' })}
+    ${card('Cambios y decisiones', `<div class="stack">${step('pink', 'branch', 'Pedir un cambio o un bug', '/pandacorp:implement')}${step('amber', 'flag', 'Responder una decisión pendiente', '/pandacorp:decide')}${step('violet', 'rocket', 'Paquete grande o rediseño', '/pandacorp:new-version')}<p class="xs faint row" style="gap:6px">${ico('copy', 'sm')}Los comandos se copian para pegarlos en Claude Code. Mission Control nunca los ejecuta.</p></div>`, { icon: 'branch', tone: 'pink' })}
   </div></div>`;
 }
 

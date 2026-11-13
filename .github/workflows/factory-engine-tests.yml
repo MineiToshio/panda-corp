@@ -1,9 +1,7 @@
 name: Factory engine tests
 
-# BL-0069: the factory's own engine correctness (pandacorp-build.js and its dozen
-# plugin/scripts/test-*.mjs suites -- the only proof for load-bearing behavior like DR-117
-# recovery classes, DR-118 gate-worktree lifecycle, DR-060 serialization, R10/R11 runtime-
-# switch contracts) was previously verified ONLY when an agent or the owner manually ran the
+# BL-0069: the factory's own engine correctness (plugin/scripts/test-*.mjs
+# suites covering fenced recovery, worktree lifecycle, admission and runtime continuation) was previously verified ONLY when an agent or the owner manually ran the
 # relevant script. This workflow gives that corpus a trigger that does not depend on anyone
 # remembering (LESSON-0151). Chosen vehicle: GitHub Actions (this repo is public, so Actions
 # minutes are free -- see factory/decision-log.md for the recorded choice).
@@ -17,6 +15,12 @@ on:
     paths:
       - "plugin/**"
       - "mission-control/src/app/manual/**"
+      - "factory/standards/**"
+      - "factory/decisions/registry.yaml"
+      - "AGENTS.md"
+      - "CLAUDE.md"
+      - ".codex/agents/**"
+      - ".github/workflows/factory-engine-tests.yml"
   schedule:
     # Daily, so environment/date drift (e.g. a hardcoded timestamp fixture going stale) is
     # caught even on a week with no push touching plugin/**.
@@ -28,10 +32,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
-      # Required tools: zsh, Codex config/execpolicy parser, Acorn AST oracle, Chromium CSP fixture.
+      # Runtime-local tooling and current CLI/gate fixtures; no retired product-engine exclusions.
       # The suites that require each tool exercise it as configured below.
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
@@ -43,5 +49,23 @@ jobs:
           npm install --global @openai/codex@0.144.1
           pnpm --dir mission-control install --frozen-lockfile
           pnpm --dir mission-control exec playwright install --with-deps chromium
-      - name: Run plugin/scripts/test-*.mjs corpus
+      - name: Check canonical and generated contracts
+        run: |
+          bash plugin/scripts/check-derived-drift.sh .
+          bash plugin/scripts/check-preflight-drift.sh
+          node plugin/scripts/check-skill-capabilities.mjs .
+          node plugin/scripts/check-runtime-sources.mjs .
+          bash factory/standards/check-standards.sh
+      # Pin the pre-retirement tree: main itself is no longer a useful diff base after landing.
+      - name: Check Day 1 retirement
+        run: |
+          node plugin/scripts/check-engine-retirement.mjs . 1477e9a5 > /tmp/engine-retirement.json
+      - name: Preserve retirement evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-retirement
+          path: /tmp/engine-retirement.json
+          if-no-files-found: ignore
+      - name: Run current engine corpus
         run: bash plugin/scripts/run-engine-tests.sh

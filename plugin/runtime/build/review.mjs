@@ -20,6 +20,7 @@ import { asSchemaCell, authorsOf, inferDegradation, normalizeHint, reviewedUnits
 import { commitStaged, git, productRootIn, repoPrefix, stageTrackedChanges } from "./review/git.mjs";
 import { extraProbesUsed, hashFile, selectProbes } from "./review/probes.mjs";
 import { countFindings, loadReport, validateReviewReport } from "./review/report.mjs";
+import { reviewRange } from "./review/range.mjs";
 import { applyReopen, fileBugCard, handBackReviewed } from "./review/verdictEffects.mjs";
 
 export { REVIEW_RECORD_KINDS } from "./review/common.mjs";
@@ -85,7 +86,8 @@ export async function reviewRecord(input, deps = {}) {
     const probeRoot = productRootIn(review.worktree ?? ctx.paths.unitWorktree(review.id, review.attempt), await repoPrefix(exec, root));
     const hashes = {};
     for (const p of report.probes.filter((x) => x.failed_first)) hashes[p.path] = await hashFile(fs, resolveInside(probeRoot, p.path));
-    return { tip, probeRoot, hashes };
+    const range = await reviewRange({ state, review, tip, briefFile: ctx.paths.briefFile(review.id) }, deps);
+    return { tip, probeRoot, hashes, range };
   };
 
   const phase2 = async (found, { report }, ctx) => {
@@ -138,7 +140,7 @@ export async function reviewRecord(input, deps = {}) {
     let resultEntry = null;
     if (review.kind === "review" && degradation.degraded && degradation.deferred && authors.length > 0) {
       const { entry } = await enqueueDeferred(project, {
-        unit: review.id, kind: "review", frd: review.frd, sha_range: `${state.integration.base_sha}..${found.tip}`, author: asSchemaCell(strongestAuthor(authors)),
+        unit: review.id, kind: "review", frd: review.frd, sha_range: found.range, author: asSchemaCell(strongestAuthor(authors)),
         reviewer_used: asSchemaCell(reviewer), degraded: degradation.degraded, needed: degradation.deferred.needed, created_at: at,
       }, deps);
       deferredId = entry.id;

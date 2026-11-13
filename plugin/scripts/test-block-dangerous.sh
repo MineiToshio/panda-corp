@@ -14,6 +14,23 @@ HERE=$(cd "$(dirname "$0")/../.." && pwd)
 GATE="$HERE/plugin/scripts/block-dangerous.sh"
 pass=0; fail=0
 
+# Keep the caller's temp environment for explicit real-environment boundary probes below.
+# All fixtures live outside BOTH the hook's TMPDIR and its generic macOS temp allowance.
+HOST_TMPDIR="${TMPDIR:-$(getconf DARWIN_USER_TEMP_DIR 2>/dev/null || printf /tmp)}"
+HOST_TMPDIR=$(cd "$HOST_TMPDIR" && pwd -P) || exit 1
+fixture_base="${PANDACORP_TEST_TMP:-/private/tmp}"
+mkdir -p "$fixture_base" || exit 1
+fixture_base=$(cd "$fixture_base" && pwd -P) || exit 1
+case "$fixture_base" in
+  /private/var/folders|/private/var/folders/*|/private/tmp/claude-*) fixture_base=/private/tmp ;;
+esac
+SUITE_ROOT=$(mktemp -d "$fixture_base/block-dangerous.XXXXXXXX") || exit 1
+trap 'rm -rf "$SUITE_ROOT"' EXIT
+FIXTURE_TMP="$SUITE_ROOT/fixtures"
+mkdir -p "$FIXTURE_TMP" "$SUITE_ROOT/hook-temp" || exit 1
+export TMPDIR="$SUITE_ROOT/hook-temp"
+fixture_dir() { mktemp -d "$FIXTURE_TMP/fixture.XXXXXXXX"; }
+
 run_gate() { # $1 = cwd, $2 = command → echoes exit code
   printf '{"cwd":"%s","tool_input":{"command":%s}}' "$1" "$(printf '%s' "$2" | jq -Rs .)" \
     | bash "$GATE" >/dev/null 2>&1
@@ -27,7 +44,7 @@ check() { # $1 label, $2 expected rc, $3 cwd, $4 cmd
 
 # Fixture: a fake Pandacorp repo with a project dir containing .pandacorp (so parent-delete
 # tests don't depend on this repo's layout) — and a nested subdir for scope walk-up.
-fx=$(mktemp -d)
+fx=$(fixture_dir)
 ( cd "$fx" && git init -q )
 mkdir -p "$fx/myapp/.pandacorp/inbox/changes" "$fx/factory/ideas" "$fx/factory/memory" "$fx/src/deep"
 echo "# Pandacorp" > "$fx/CLAUDE.md"
@@ -43,6 +60,13 @@ printf '.pandacorp/\nfactory/memory/\nfactory/ideas/\n' > "$fx/.gitignore"
 echo "existing decision" > "$fx/myapp/.pandacorp/inbox/decisions.md"
 echo "existing inbox entry" > "$fx/factory/memory/_inbox.md"
 echo "existing card" > "$fx/myapp/.pandacorp/inbox/changes/existing-card.md"
+
+# DEC-13: the only CLAUDE.md content is the shim. AGENTS.md is the sole scope
+# signal here (no status file). Run every must-block row against this fixture too.
+printf '@AGENTS.md\n' > "$fx/CLAUDE.md"
+echo '# Pandacorp' > "$fx/AGENTS.md"
+# Build-output allow rows must satisfy the package.json rule independently of TMPDIR.
+printf '{}\n' > "$fx/package.json"
 
 echo "== MUST BLOCK (expect 2) =="
 check "vercel --prod"                      2 "$fx" "vercel --prod"
@@ -86,6 +110,31 @@ check "delete main branch"                 2 "$fx" "git branch -D main"
 echo "== SCOPE WALK-UP (expect 2 from a repo SUBDIR) =="
 check "dangerous cmd from repo subdir"     2 "$fx/src/deep" "git push --force origin main"
 
+echo "== DEC-13: scope signals along the whole cwd chain =="
+check "shim-only CLAUDE.md is in scope via AGENTS.md" 2 "$fx/src/deep" "git push --force"
+scopefx=$(fixture_dir)
+( cd "$scopefx" && git init -q )
+mkdir -p "$scopefx/project/.pandacorp" "$scopefx/project/src/deep"
+printf '@AGENTS.md\n' > "$scopefx/CLAUDE.md"
+printf 'phase: implementation\n' > "$scopefx/project/.pandacorp/status.yaml"
+check "intermediate status.yaml scopes nested cwd" 2 "$scopefx/project/src/deep" "git push --force"
+rm "$scopefx/project/.pandacorp/status.yaml"
+printf '# Pandacorp\n' > "$scopefx/project/AGENTS.md"
+check "intermediate AGENTS.md scopes nested cwd" 2 "$scopefx/project/src/deep" "git push --force"
+rm "$scopefx/project/AGENTS.md"
+printf '# Pandacorp\n' > "$scopefx/project/CLAUDE.md"
+check "legacy intermediate CLAUDE.md stays in scope" 2 "$scopefx/project/src/deep" "git push --force"
+rm "$scopefx/project/CLAUDE.md"
+check "shim alone without Pandacorp signal stays out of scope" 0 "$scopefx/project/src/deep" "git push --force"
+rm -rf "$scopefx"
+
+echo "== HOOKTEST: caller TMPDIR never authorizes ordinary user folders =="
+# run_gate only evaluates these command strings; it never executes a deletion.
+for operand in "$HOST_TMPDIR" "${HOME%/}/Documents" "${HOME%/}/Pictures"; do
+  rc=$(TMPDIR="$HOST_TMPDIR" run_gate "$fx" "rm -rf $operand")
+  if [ "$rc" = 2 ]; then echo "  ✓ caller TMPDIR blocks: $operand"; pass=$((pass+1)); else echo "  ✗ caller TMPDIR boundary: $operand (expected 2, got $rc)"; fail=$((fail+1)); fi
+done
+
 echo "== MUST ALLOW (expect 0) =="
 check "reset --hard to explicit sha"       0 "$fx" "git reset --hard 515c5ff"
 check "reset --hard long sha"              0 "$fx" "git reset --hard 515c5ff1234abcd"
@@ -107,6 +156,69 @@ check "APPEND >> to state is safe"         0 "$fx" "echo hi >> myapp/.pandacorp/
 check "redirect to a normal build file"    0 "$fx" "node gen.js > src/out.txt"
 check "git stash push"                     0 "$fx" "git stash push -m wip"
 check "git stash pop"                      0 "$fx" "git stash pop"
+echo "== AGFIX: complete literal text writes =="
+check "AGFIX allow: printf review text" 0 "$fx" "printf '%s\\n' 'Review rm -rf and find -delete.' > /tmp/x.txt"
+check "AGFIX allow: echo review text" 0 "$fx" "echo 'Review rm -rf and find -delete.' > '/tmp/x.txt'"
+check "AGFIX allow: quoted heredoc before redirect" 0 "$fx" "cat <<'EOF' > /tmp/x.txt
+Mention rm -rf in the review.
+EOF"
+check "AGFIX allow: quoted redirect before heredoc" 0 "$fx" "cat > '/tmp/x.txt' <<'EOF'
+Mention rm -rf in the review.
+EOF"
+check "AGFIX allow: double quoted heredoc delimiter" 0 "$fx" 'cat <<"EOF" > /tmp/x.txt
+Mention rm -rf and find -delete.
+EOF'
+check "AGFIX block: printf executable substitution" 2 "$fx" "printf '%s\\n' \"\$(rm -rf ~)\" > /tmp/x.txt"
+check "AGFIX block: printf backtick substitution" 2 "$fx" "printf '%s\\n' \`rm -rf ~\` > /tmp/x.txt"
+check "AGFIX block: echo followed by a command" 2 "$fx" "echo 'Review rm -rf.' > /tmp/x.txt; rm -rf ~"
+check "AGFIX block: unquoted heredoc expands" 2 "$fx" 'cat <<EOF > /tmp/x.txt
+$(rm -rf ~)
+EOF'
+for interpreter in bash sh python3 node; do
+  check "AGFIX block: heredoc fed to $interpreter" 2 "$fx" "$interpreter <<'EOF' > /tmp/x.txt
+rm -rf ~
+EOF"
+done
+check "AGFIX block: executable heredoc redirect" 2 "$fx" "cat <<'EOF' > \"\$(rm -rf ~)\"
+review
+EOF"
+check "AGFIX block: command after terminator" 2 "$fx" "cat <<'EOF' > /tmp/x.txt
+Review rm -rf.
+EOF
+rm -rf ~"
+check "AGFIX block: pipeline after heredoc" 2 "$fx" "cat <<'EOF' > /tmp/x.txt | sh
+rm -rf ~
+EOF"
+check "AGFIX block: mismatched delimiter quotes" 2 "$fx" "cat <<'EOF\" > /tmp/x.txt
+rm -rf ~
+EOF"
+check "AGFIX block: quoted redirect truncates protected state" 2 "$fx" "printf '%s' 'Review rm -rf.' > '$fx/factory/memory/_inbox.md'"
+
+echo "== AGFIX: internal plumbing errors fail closed =="
+# A regular file cannot host shell here-string temporaries, including when tests run as root.
+bad_tmp="$fx/not-a-directory"
+printf 'not a directory\n' > "$bad_tmp"
+for command in 'git -C . push --force origin main' 'rm -rf ~' 'git status'; do
+  # Re-evaluate under the fault rather than relying on the policy's ordinary rejection.
+  rc=$(TMPDIR="$bad_tmp" run_gate "$fx" "$command")
+  if [ "$rc" = 2 ]; then echo "  ✓ AGFIX TMPDIR failure: $command"; pass=$((pass+1)); else echo "  ✗ AGFIX TMPDIR failure: $command (got $rc)"; fail=$((fail+1)); fi
+done
+rm "$bad_tmp"
+# Real helper faults must not look like a harmless no-match inside a conditional pipeline.
+fault_bin="$fx/fault-bin"
+mkdir "$fault_bin"
+for helper in awk sed tr; do
+  printf '#!/bin/bash\nexit 7\n' > "$fault_bin/$helper"
+  chmod +x "$fault_bin/$helper"
+  rc=$(PATH="$fault_bin:$PATH" run_gate "$fx" "rm -rf node_modules")
+  if [ "$rc" = 2 ]; then echo "  ✓ AGFIX helper failure: $helper"; pass=$((pass+1)); else echo "  ✗ AGFIX helper failure: $helper (got $rc)"; fail=$((fail+1)); fi
+  rm "$fault_bin/$helper"
+done
+rmdir "$fault_bin"
+printf -v large_note '%180000s' x
+check "AGFIX block: long recursive-delete input cannot hide behind SIGPIPE" 2 "$fx" "rm -rf ~
+echo '$large_note'"
+unset large_note
 echo "== BL-0120: quoted '>' / non-protected redirect targets must not false-positive =="
 check "redirect to /dev/null"              0 "$fx" 'bash plugin/scripts/validate-backlog.sh >/dev/null 2>&1; echo "done"'
 check "quoted email trailer in commit msg" 0 "$fx" 'git commit -m "Fix thing" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"'
@@ -142,8 +254,8 @@ echo "== BL-0151: live/locked deployment worktree protection =="
 # repo — one `git worktree lock`ed (simulates the live deploy) and one left unlocked (an ordinary
 # DR-096 disposable worktree). Never touches the real /Users/Shared/local-deployments/panda-corp.
 ( cd "$fx" && git add -A && git commit -q -m init )
-lockedwt=$(mktemp -d)/deploy-wt
-unlockedwt=$(mktemp -d)/scratch-wt
+lockedwt=$(fixture_dir)/deploy-wt
+unlockedwt=$(fixture_dir)/scratch-wt
 git -C "$fx" worktree add -q --detach "$lockedwt" HEAD
 git -C "$fx" worktree add -q --detach "$unlockedwt" HEAD
 git -C "$fx" worktree lock "$lockedwt" --reason "test fixture: simulated live deploy" >/dev/null
@@ -164,7 +276,7 @@ rm -rf "$(dirname "$lockedwt")" "$(dirname "$unlockedwt")"
 echo "== BL-0202: whole-tree git writes in a repository that HOSTS a nested Pandacorp project =="
 # Fixture: a factory-shaped repo (CLAUDE.md says Pandacorp) hosting a nested project with its own
 # .pandacorp/status.yaml — Mission Control inside the factory. Other sessions' WIP lives under plugin/.
-nfx=$(mktemp -d)
+nfx=$(fixture_dir)
 ( cd "$nfx" && git init -q )
 mkdir -p "$nfx/mission-control/.pandacorp" "$nfx/mission-control/src" "$nfx/plugin"
 echo "# Pandacorp" > "$nfx/CLAUDE.md"
@@ -250,7 +362,7 @@ check "block: vercel redeploy"                     2 "$fx" "vercel redeploy http
 check "block: vercel --yes (flags only)"           2 "$fx" "pnpm dlx vercel --yes"
 
 echo "== DR-138: launched project -- GitHub main is production, publishing needs the owner's order =="
-lx=$(mktemp -d)
+lx=$(fixture_dir)
 ( cd "$lx" && git init -q -b main && git commit -q --allow-empty -m init && git branch feature-x )
 mkdir -p "$lx/.pandacorp"
 printf 'project: demo\nphase: release\ndeploy_target: external  # live\n' > "$lx/.pandacorp/status.yaml"
@@ -270,11 +382,12 @@ check "allow: pre-launch project pushes main"      0 "$lx" "git push origin main
 rm -rf "$lx"
 
 echo "== HOOK-FINAL: recursive deletes pass ONLY the strict whitelist ([cd ABS &&] rm FLAGS OPERANDS [&& rm ...]) into allowed places =="
-SCR=/private/tmp/claude-501/hookrm-test/deep/scratchpad
-rm -rf /private/tmp/claude-501/hookrm-test
+SCR="$TMPDIR/hookrm-test/deep/scratchpad"
 mkdir -p "$SCR/exp1" "$SCR/exp2" "$SCR/proj"
-ln -s "$HOME" "$SCR/homelink"
-ln -s "$HOME" "$SCR/proj/node_modules"
+FAKE_HOME="$(dirname "$TMPDIR")/hookfake-home-$$"
+mkdir -p "$FAKE_HOME"
+ln -s "$FAKE_HOME" "$SCR/homelink"
+ln -s "$FAKE_HOME" "$SCR/proj/node_modules"
 ln -s "$fx/myapp" "$SCR/applink"
 # Must allow: the owner's routine cleanups.
 check "allow: two absolute scratchpad paths"                        0 "$fx" "rm -rf $SCR/exp1 $SCR/exp2"
@@ -306,7 +419,7 @@ check "allow: same with <<-\"EOF\" and trailing blank lines"       0 "$fx" "cat 
 
 "
 # Linked worktree roots OUTSIDE every temp root (so only the worktree rule can allow them).
-WTB=/private/tmp/hookfinal-wt-$$
+WTB="$(dirname "$TMPDIR")/hookfinal-wt-$$"
 mkdir -p "$WTB/plain"
 git -C "$fx" worktree add -q --detach "$WTB/linked-wt" HEAD
 git -C "$fx" worktree add -q --detach "$WTB/locked-wt" HEAD
@@ -315,7 +428,7 @@ mkdir -p "$WTB/linked-wt/myapp/.pandacorp"
 git init -q "$WTB/mainrepo"
 check "allow: a linked worktree root outside temp roots"           0 "$fx" "rm -rf $WTB/linked-wt"
 check "allow: cd <parent> && rm -rf <linked worktree>"              0 "$fx" "cd $WTB && rm -rf linked-wt"
-check "allow: /tmp spelling of the linked worktree root"            0 "$fx" "rm -rf /tmp/hookfinal-wt-$$/linked-wt"
+check "allow: /tmp spelling of the linked worktree root"            0 "$fx" "rm -rf $WTB/linked-wt"
 check "block: a plain dir next to it (not an allowed place)"        2 "$fx" "rm -rf $WTB/plain"
 check "block: a MAIN worktree outside temp roots"                   2 "$fx" "rm -rf $WTB/mainrepo"
 check "block: a LOCKED linked worktree"                             2 "$fx" "rm -rf $WTB/locked-wt"
@@ -326,7 +439,7 @@ git -C "$fx" worktree unlock "$WTB/locked-wt" >/dev/null 2>&1
 git -C "$fx" worktree remove -f -f "$WTB/linked-wt" >/dev/null 2>&1
 git -C "$fx" worktree remove -f -f "$WTB/locked-wt" >/dev/null 2>&1
 rm -rf "$WTB"
-wt3=$(mktemp -d)/linked-wt
+wt3=$(fixture_dir)/linked-wt
 git -C "$fx" worktree add -q --detach "$wt3" HEAD
 mkdir -p "$wt3/myapp/.pandacorp"
 check "allow: rm -rf a linked worktree root (checked-out .pandacorp inside)" 0 "$fx" "rm -rf $wt3"
@@ -419,7 +532,7 @@ rm -rf ~"
 check "B2 block: apostrophe comment then rm -rf protected"          2 "$fx" "# remove the agent's scratch
 rm -rf myapp/.pandacorp"
 check "B2 block: ANSI-C quote then rm -rf ~"                        2 "$fx" "echo \$'it\\'s'; rm -rf ~"
-nfx2=$(mktemp -d)
+nfx2=$(fixture_dir)
 ( cd "$nfx2" && git init -q )
 mkdir -p "$nfx2/mission-control/.pandacorp" "$nfx2/plugin"
 echo "# Pandacorp" > "$nfx2/CLAUDE.md"
@@ -589,7 +702,7 @@ check_json "C3 block: NUL after an allowed scratch path"             2 "$fx" "rm
 check_json "C3 block: NUL even in a harmless command"                2 "$fx" 'echo a\u0000b'
 check_json "C3 control: the same JSON path without NUL allows"       0 "$fx" "rm -rf $SCR/exp1"
 # DR-HOOK5 non-blocking: generic build-output names only next to a package.json; scratch at least 3 levels below claude-*.
-P=/private/tmp/hookfinal-proj-$$
+P="$(dirname "$TMPDIR")/hookfinal-proj-$$"
 mkdir -p "$P/app/dist" "$P/app/build" "$P/noapp/build" "$P/noapp/out"
 echo '{}' > "$P/app/package.json"
 check "allow: build output next to a package.json"                   0 "$fx" "rm -rf $P/app/dist $P/app/build $P/app/coverage $P/app/.turbo $P/app/out"
@@ -606,10 +719,11 @@ check "allow: three levels below claude-*"                           0 "$fx" "rm
 hint=$(printf '{"cwd":"%s","tool_input":{"command":"rm -rf src/old && pnpm build"}}' "$fx" | bash "$GATE" 2>&1 >/dev/null)
 case "$hint" in *"git rm -r"*"SEPARATE"*|*"SEPARATE"*"git rm -r"*) echo "  ✓ block message suggests git rm -r and a separate follow-up"; pass=$((pass+1)) ;;
   *) echo "  ✗ block message lacks the git rm -r / separate-command hint: $hint"; fail=$((fail+1)) ;; esac
-rm -rf /private/tmp/claude-501/hookrm-test
+rm -rf "$TMPDIR/hookrm-test" "$FAKE_HOME"
 
 echo "== OUT OF SCOPE (expect 0 in a non-Pandacorp dir) =="
-plain=$(mktemp -d)
+plain=$(fixture_dir)
+( cd "$plain" && git init -q )
 check "non-Pandacorp dir allows"           0 "$plain" "git push --force"
 rm -rf "$plain" "$fx"
 

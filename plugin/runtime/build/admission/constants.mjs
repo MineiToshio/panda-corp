@@ -1,12 +1,22 @@
 // Fixed constants, the motivo enum, SignalError and the host CPU capacity of the admission module (split from admission.mjs).
 import os from 'node:os'
 
+export const STEPS = Object.freeze([1, 2, 3, 5, 8])
+export const K_START_DEFAULT = 5
+export const SWAP_GROWTH_MB = 512
+export const UP_COOLDOWN_S = 120
+export const WT_NEED_GIB = 1.5
+export const DISK_FLOOR_GIB = 15
+
 export const GIB = 1024 ** 3
 
 /** Fixed constants (BUILD-9 Constants table, A22). GiB unless the name says otherwise. */
 export const ADMISSION = Object.freeze({
-  K_TECHO: 2,
-  SUELO: 2,
+  K_START_DEFAULT,
+  SWAP_GROWTH_MB,
+  UP_COOLDOWN_S,
+  WT_NEED_GIB,
+  DISK_FLOOR_GIB,
   COLCHON_GIB: 3,
   COLCHON_MIN_GIB: 1,
   C_B_GIB: 1.5,
@@ -17,9 +27,7 @@ export const ADMISSION = Object.freeze({
   REVIEWER_SUBCAP: 2,
   H_MAX_CAP: 2,
   AGENT_FRESH_S: 60,
-  L4_PAUSE_S: 600,
   HISTORY_LEN: 3,
-  K_REACTIVE_CODEX_START: 2,
   SLOT_POLL_MS: 5000,
   SLOT_OWNERLESS_GRACE_MS: 60000,
   EXEC_TIMEOUT_MS: 5000,
@@ -28,7 +36,7 @@ export const ADMISSION = Object.freeze({
 /** The closed motivo_limite enum (BUILD-9). */
 export const MOTIVOS = Object.freeze([
   'ancho', 'ram', 'ram_reservada_H', 'veto_presion', 'veto_swap', 'cpu_H', 'techo', 'owner_k',
-  'reactivo_contencion', 'reactivo_codex', 'cupo_limite', 'senal_fallida', 'pausa_L4', 'sin_token',
+  'reactivo_contencion', 'reactivo_codex', 'cupo_limite', 'senal_fallida', 'disco', 'sin_token',
 ])
 
 export const REACTIVE_MOTIVOS = ['reactivo_contencion', 'reactivo_codex', 'cupo_limite']

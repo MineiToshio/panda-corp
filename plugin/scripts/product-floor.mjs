@@ -1,8 +1,8 @@
 /**
- * Pandacorp — the fast lane's PRODUCT-RISK floor (proposal 39 §2 C3/C6), reached through
+ * Pandacorp — the PRODUCT-RISK floor (proposal 39 §2 C3/C6), reached through
  * `classify-change.mjs --product-floor`.
  *
- * WHY A SEPARATE FLOOR. `/pandacorp:change`'s floor (S5-S9, S17) protects the FACTORY: its oracles,
+ * WHY A SEPARATE FLOOR. The change rigor classifier's floor (S5-S9, S17) protects the FACTORY: its oracles,
  * its machinery, every prose mention of a floor domain, any e-mail literal anywhere. Applied to a
  * product FRD it floors virtually every web feature (bench run F-1: a client-only form that only
  * console.logs was floor on `'auth'` in frd.md prose, an e2e fixture e-mail, `next.config.ts` and
@@ -12,7 +12,7 @@
  *   P3 persistence of personal data                  P4 secrets / env handling
  *   P5 destructive data operations
  *
- * OUT OF SCOPE BY DESIGN (never floor here; /change still floors them for itself):
+ * OUT OF SCOPE BY DESIGN (never floor here; the rigor classifier still floors them):
  *   prose (docs/, *.md — a spec mentioning "auth" is not auth code), test surfaces (unit tests,
  *   `src/test/`, `e2e/`, fixtures — an example e-mail in a test is not stored data), framework and
  *   tool config (next.config.*, tsconfig, biome, vitest/playwright config — unless their CODE reads a
@@ -122,7 +122,7 @@ const SECRET_FILE = /(^|\/)(secrets?|credentials?)(\.[^/]*)?$|\.(pem|key|p12|pfx
 const SECRET_NAME = String.raw`(?!(?:NEXT_PUBLIC|PUBLIC|VITE|EXPO_PUBLIC)_)[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE_KEY|API_KEY|APIKEY|ACCESS_KEY|CREDENTIAL)[A-Z0-9_]*`;
 const ENV_SECRET_KEY = new RegExp(String.raw`^\s*(?:export\s+)?(${SECRET_NAME})\s*=`);
 const SECRET_READ = new RegExp(String.raw`\b(?:process\.env|import\.meta\.env|Deno\.env\.get\(\s*['"]|Bun\.env)\s*(?:\.|\[\s*['"])?(${SECRET_NAME})\b`);
-/** Key-shaped literals (the same shapes /change's S7 scans): a real key in code is a leak wherever it lands. */
+/** Key-shaped literals (the same shapes the rigor classifier's S7 scans): a real key in code is a leak wherever it lands. */
 const KEY_LITERAL = [/\bsk_(?:live|test)_[A-Za-z0-9]{8,}/, /\bsk-[A-Za-z0-9_-]{20,}/, /\bAKIA[0-9A-Z]{16}\b/, /-----BEGIN[A-Z ]*PRIVATE KEY-----/, /\bghp_[A-Za-z0-9]{20,}/];
 
 // ── P5 · destructive data operations ──────────────────────────────────────────────────────────

@@ -246,8 +246,7 @@ conformance-checked by `upgrade` (DR-059).
 
 ## 5. Guaranteeing 100% fidelity when AI agents implement (DR-056)
 
-"Use the tokens" is necessary but nowhere near sufficient — and the build engine makes it worse: it
-passes the implementer **only a one-line summary**, never the design. Research on AI design-to-code
+"Use the tokens" is necessary but insufficient. The CLI's brief must carry owned ACs and a materialized design context pack; a one-line summary would leave the implementer blind. Research on AI design-to-code
 (Design2Code, DCGen, UI2Code^N; v0, Builder.io; Anthropic) converges on the same playbook, and because
 the reference IS HTML the agent's job is **translation** (HTML→React+Tailwind+tokens), not
 reconstruction-from-pixels. Four mechanisms, **all required**:
@@ -258,9 +257,7 @@ reconstruction-from-pixels. Four mechanisms, **all required**:
    them). The whole-app prototype's defined home is **`docs/design/prototype/`**.
 2. **Ground / materialize.** The per-FRD `fdd.md` + mock and the work order's **`## Visual reference`**
    (the exact `mocks/<file>`, the **token slice** that screen uses, the `fdd.md` pointer) are
-   **materialized** — because the engine passes only a one-liner, the **WO body IS the agent's design
-   context** (empty = the agent builds blind). The engine **also injects** those refs + the in-loop
-   directive into the implementer/frontend-dev prompt (belt and suspenders).
+   **materialized** in the WO/design artifacts. `plugin/runtime/build/units/brief.mjs` gathers the FRD/FDD/blueprint, WO and token paths; `units/render.mjs` renders the owned ACs and context pack. Builders read the cited visual reference and its assets; a file-path pack alone is not proof they did so.
 3. **In-loop correct.** The builder renders its route, screenshots it, compares to the mock, and
    self-corrects **up to 3 cycles** *before* `IN_REVIEW` — the single biggest lever after scoping.
 4. **Gate (the independent verifier).** The two-layer visual-fidelity gate (§4 + `build-orchestration.md`
@@ -427,14 +424,13 @@ navigation menu at all**, and the visual gate — which proves *consistency* wit
    chrome, the design phase registers it as the `AppShell`/`Nav` foundation component in
    `docs/design/components.md` (`artifacts` include `app/layout.tsx` + the nav). `architecture` schedules it
    in the **foundation wave** (DR-057) so it is built FIRST and every surface route mounts into it; its
-   work order(s) are **`foundation: true`** (build-first ordering). **Don't AUTO-EMIT an orphan
+   work order(s) are **`foundation: true`** with explicit consumer dependencies (build-first ordering). **Don't AUTO-EMIT an orphan
    `frd-NN-app-shell` at greenfield shard time** — it would have no `REQ-NN-MMM` in any PRD and the engine
-   has no "build this FRD between foundation and surfaces" primitive; the foundation-completeness gate
-   enforces "no surface until the shell is green" for free without one. **But a deliberately-authored
+   uses explicit `dependsOn` edges for ordering; architecture must connect each consuming surface to the shell and verify foundation completeness at readiness. **But a deliberately-authored
    app-shell FRD rooted in the PRD is correct and better-documented (DR-076)** — e.g. a brownfield
    re-anchor where the PM writes the shell's user contract (persistent nav, active-state, responsive) as
    real `REQ`/`AC`; its WOs still carry `foundation: true`. The FRD is where the *contract* lives; the
-   `foundation` flag is the *build-first ordering* — both, not either/or. On the brownfield `adopt` path the same capture
+   `foundation` label documents intent; explicit dependency edges enforce the build-first ordering. On the brownfield `adopt` path the same capture
    runs: if the code already has a shell, record its real path; if it lacks the shell the prototype shows
    (MC), record it as an **owed** Group-B reconciliation gap (§8) to build on the re-anchor.
 2. **Verify FIDELITY to the prototype, not self-consistency — the Shell-Presence Gate.** A new shipped,
@@ -615,7 +611,7 @@ the system gallery before the manifest is bridged to `components.md`.
 | Fidelity downstream (templates + skills + dev agents) | `plugin/templates/docs/{frd,blueprint,work-order}-template.md`, `plugin/skills/{spec,architecture,work-orders}/SKILL.md`, `plugin/agents/{implementer,frontend-dev}.md` |
 | Shard the prototype per-FRD + prototype home (DR-056 §1) | `plugin/skills/design/SKILL.md` (Step 8), `plugin/agents/designer.md`, `plugin/skills/adopt/SKILL.md` (step 6) |
 | App shell = captured foundation + Shell-Presence Gate (DR-075 §5b) | `plugin/templates/stack-a-nextjs/e2e/{shell.spec.ts,shell.ts}`, `plugin/templates/stack-a-nextjs/{verify.sh,STACK.md}`, `plugin/skills/design/SKILL.md` (Step 8a), `plugin/skills/{architecture,upgrade,adopt}/SKILL.md`, `plugin/agents/{designer,reviewer}.md`, `factory/standards/{build-orchestration,quality}.md` |
-| Engine injects design refs into the build prompt (DR-056 §2) | `plugin/runtime/engine/pandacorp-build.src.js` (`designRef`; deployed as the generated `plugin/templates/shared/.claude/engines/pandacorp-build.js`) |
+| CLI gathers and renders the design context pack (DR-056 §2) | `plugin/runtime/build/units/{brief,render}.mjs`; the WO's visual reference remains the approved design contract |
 | In-loop render→compare→correct (DR-056 §3) | `plugin/agents/{implementer,frontend-dev}.md` |
 | Two-layer visual-fidelity gate (DR-056 §4) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md` |
 | Runtime/visual verification (smoke) | `plugin/agents/reviewer.md`, `factory/standards/build-orchestration.md` §5, `plugin/templates/stack-a-nextjs/STACK.md`, `plugin/templates/rules/quality-and-testing.md` |
@@ -628,5 +624,5 @@ the system gallery before the manifest is bridged to `components.md`.
 | Web fonts, logo, fidelity hand-off and the mechanical gate (DR-128 §5c) | `plugin/skills/design/SKILL.md` (Steps 2, 2b, 7–9), `plugin/skills/design/references/{brand-and-logo,iteration-loop,freeze-and-fidelity}.md`, `plugin/skills/design/scripts/`, `plugin/templates/docs/{fidelity-checklist-template,fdd-template}.md` |
 | Layered fidelity target, comparator pin, capture conditions (DR-129 §5d) | `plugin/skills/design/scripts/fidelity/` (the toolkit: `freeze.mjs` runs split + tokens, measure, shard, screens, catalog, identity; `lib.mjs` the fail-closed capture protocol; `diff.mjs` the comparator; one config `docs/design/freeze/fidelity.config.json`, schema `config.schema.json`), `plugin/templates/docs/fidelity-checklist-template.md` (`## Fidelity target` + *How to verify*), `plugin/skills/design/references/freeze-and-fidelity.md`, `plugin/agents/reviewer.md` + `factory/standards/build-orchestration.md` §9 (a measured mismatch blocks; judged nits stay advisory) |
 | Prototype contract from round 1 (DR-129 §5e) | `plugin/skills/design/scripts/preflight-round.mjs` (run after every round; JSON at `docs/design/freeze/preflight.json`), `plugin/skills/design/SKILL.md` (iteration steps), `plugin/templates/docs/fdd-template.md` (`## Fidelity references`: mock names and the binding `?demo=off&host=page` URL) |
-| Freeze stop rule, one audit, time box, backlog (DR-129 §5f) | `plugin/skills/design/references/freeze-and-fidelity.md` (staged plan), the freeze tracker template (`plugin/templates/docs/design-freeze-tracker-template.md` → `docs/design/freeze/tracker.md`), `plugin/skills/design/scripts/check-design-gate.mjs` (reads tracker + preflight), `plugin/agents/reviewer.md` + `plugin/runtime/engine/pandacorp-build.src.js` (`visualQaPromptBody`: the end-of-build Visual QA merges and works `.pandacorp/comms/visual-punch-list.md`, DR-072) |
+| Freeze stop rule, one audit, time box, backlog (DR-129 §5f) | `plugin/skills/design/references/freeze-and-fidelity.md` (staged plan), the freeze tracker template (`plugin/templates/docs/design-freeze-tracker-template.md` → `docs/design/freeze/tracker.md`), `plugin/skills/design/scripts/check-design-gate.mjs` (reads tracker + preflight), `plugin/agents/reviewer.md` (bounded visual punch-list polish, DR-072) + `factory/standards/build-engine.md` BUILD-10/BUILD-15 (review/repair scheduling); no retired executor prompt is an active call site |
 | Functional reconciliation prototype ↔ FRD, bidirectional (DR-064) | `plugin/skills/design/SKILL.md`, `plugin/skills/adopt/SKILL.md`, `plugin/agents/designer.md` |

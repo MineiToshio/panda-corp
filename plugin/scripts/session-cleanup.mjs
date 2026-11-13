@@ -7,7 +7,7 @@ import { lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rm, writeFile
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { scan, processCwds } from './worktree-sweep.mjs';
+import { scan, processCwds, cleanEngineWorktrees } from './worktree-sweep.mjs';
 
 const real = p => realpathSync(p);
 const git = (repo, args) => {
@@ -17,6 +17,8 @@ const git = (repo, args) => {
 };
 const inside = (p, parent) => p === parent || p.startsWith(parent + path.sep);
 const protectedPath = p => /(^|\/)\.pandacorp(\/|$)|\/local-deployments(\/|$)|\/factory\/(ideas|memory)(\/|$)|\/factory\/(profile|portfolio)\.md$/.test(p);
+// Validate descendants relative to the owned root, so engine-root ancestry is not itself a veto.
+const protectedWithin = (root, file) => protectedPath(path.join('/owned-worktree', path.relative(root, file)));
 const receipt = root => path.join(root, 'session.json');
 async function load(root) {
   root = await realpath(root);
@@ -44,7 +46,8 @@ export async function create(repo) {
 export async function register(root, target, { generatedFiles = [] } = {}) {
   const data = await load(root); target = real(target);
   const inv = await scan(data.repo, data.repo);
-  if (protectedPath(target) || !inv.items.some(i => i.kind === 'worktree' && real(i.path) === target)) throw new Error('target must be a registered non-protected linked worktree');
+  const item = inv.items.find(i => i.kind === 'worktree' && real(i.path) === target);
+  if (!item || (protectedPath(target) && !item.engineManaged)) throw new Error('target must be a registered non-protected linked worktree');
   // Register immediately on creation, before handing the worktree to any worker. One coordinator writes receipt.
   const branch = git(target, ['rev-parse', '--symbolic-full-name', 'HEAD']);
   const gitdir = real(git(target, ['rev-parse', '--absolute-git-dir']));
@@ -56,7 +59,7 @@ export async function register(root, target, { generatedFiles = [] } = {}) {
   owned.generatedFiles ??= {};
   for (const relative of generatedFiles) {
     const file = path.resolve(target, relative);
-    if (path.isAbsolute(relative) || !inside(file, target) || file === target || protectedPath(file) || /(^|\/)\.git(\/|$)/.test(file) || real(file) !== file || !(await lstat(file)).isFile()) throw new Error('generated output must be a real non-protected file inside its owned worktree');
+    if (path.isAbsolute(relative) || !inside(file, target) || file === target || protectedWithin(target, file) || /(^|\/)\.git(\/|$)/.test(file) || real(file) !== file || !(await lstat(file)).isFile()) throw new Error('generated output must be a real non-protected file inside its owned worktree');
     owned.generatedFiles[path.relative(target, file)] = createHash('sha256').update(await readFile(file)).digest('hex');
   }
   await writeFile(receipt(data.root), JSON.stringify(data, null, 2));
@@ -99,45 +102,12 @@ export async function finish(root, { dryRun = false, self = process.cwd() } = {}
         }
       }
       // Rescan EACH target immediately before removal, including ancestry, status, owner state, lsof and locks.
-      const inv = await scan(data.repo, self, [target]);
+      const inv = await scan(data.repo, self, [target], { generatedFilesByPath: { [target]: owned.generatedFiles || {} } });
       const item = inv.items.find(i => i.kind === 'worktree' && path.resolve(i.path) === target);
       if (!item) { if (existsSync(target)) kept.push({ path: target, reason: 'unregistered-path' }); continue; }
+      if (item.engineManaged) continue; // The engine pass below uses the same scan predicate.
       if (protectedPath(target) || item.decision !== 'safe' || !item.merged || item.uncommitted !== 0) {
         kept.push({ path: target, reason: protectedPath(target) ? 'protected-path' : item.reason }); continue;
-      }
-      let changedOutput = false;
-      for (const [relative, expected] of Object.entries(owned.generatedFiles || {})) {
-        const file = path.resolve(target, relative);
-        if (!inside(file, target) || protectedPath(file) || !existsSync(file) || real(file) !== file || !(await lstat(file)).isFile() || createHash('sha256').update(await readFile(file)).digest('hex') !== expected) { changedOutput = true; break; }
-      }
-      if (changedOutput) { kept.push({ path: target, reason: 'generated-output-changed' }); continue; }
-      // status/remove respect index concealment bits. Inspect those tracked files independently.
-      const concealed = git(target, ['ls-files', '-v', '-z']).split('\0').filter(row => /^[a-zS] /.test(row)).map(row => row.slice(2));
-      let maskedChange = false;
-      for (const relative of concealed) {
-        const file = path.join(target, relative);
-        if (!existsSync(file) || !(await lstat(file)).isFile() || real(file) !== file || git(target, ['hash-object', '--no-filters', '--', relative]) !== git(target, ['rev-parse', '--verify', `HEAD:${relative}`])) { maskedChange = true; break; }
-      }
-      if (maskedChange) { kept.push({ path: target, reason: 'masked-tracked-change' }); continue; }
-      const ignored = git(target, ['ls-files', '--others', '--ignored', '--exclude-standard']);
-      if (ignored.split('\n').some(protectedPath)) { kept.push({ path: target, reason: 'owner-state' }); continue; }
-      const generated = /(^|\/)(node_modules|\.next|dist|build|coverage|\.cache|\.turbo)(\/|$)/;
-      let unknownIgnored = false;
-      for (const f of ignored.split('\n').filter(Boolean)) {
-        if (generated.test(f)) continue;
-        const file = path.join(target, f), expected = owned.generatedFiles?.[f];
-        if (!expected || real(file) !== file || !(await lstat(file)).isFile() || createHash('sha256').update(await readFile(file)).digest('hex') !== expected) { unknownIgnored = true; break; }
-      }
-      if (unknownIgnored) { kept.push({ path: target, reason: 'unclassified-ignored-files' }); continue; }
-      const cacheRoots = new Set(ignored.split('\n').filter(f => f && generated.test(f)).map(f => { const m = generated.exec(f); return f.slice(0, m.index + m[0].length).replace(/\/$/, ''); }));
-      for (const cache of cacheRoots) {
-        const p = path.join(target, cache);
-        if ((await lstat(p)).isDirectory()) await assertArtifacts(p);
-      }
-      const gitdir = git(target, ['rev-parse', '--absolute-git-dir']);
-      const common = git(target, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
-      if (['index.lock', 'HEAD.lock'].some(n => existsSync(path.join(gitdir, n))) || ['index.lock', 'packed-refs.lock'].some(n => existsSync(path.join(common, n)))) {
-        kept.push({ path: target, reason: 'git-lock' }); continue;
       }
       if (dryRun) { removed.push({ path: target, dryRun: true }); continue; }
       process.stderr.write(`session-cleanup: removing ${target}\n`);
@@ -146,6 +116,8 @@ export async function finish(root, { dryRun = false, self = process.cwd() } = {}
       else removed.push({ path: target });
       // Keep refs: no need to erase branch history to reclaim node_modules/.next/cache disk space.
     }
+    const engine = await cleanEngineWorktrees(data.repo, self, { dryRun, excluded: kept.map(i => i.path), generatedFilesByPath: Object.fromEntries(data.worktrees.map(w => [w.path, w.generatedFiles || {}])) });
+    removed.push(...engine.removed); kept.push(...engine.kept); failed.push(...engine.failed);
     const artifacts = path.join(data.root, 'artifacts');
     const a = await lstat(artifacts);
     if (!a.isDirectory() || a.isSymbolicLink()) throw new Error('artifacts must be a real directory');
@@ -156,7 +128,7 @@ export async function finish(root, { dryRun = false, self = process.cwd() } = {}
       await rm(artifacts, { recursive: true }); // session-owned logs/caches only, permanent, no trash
       await rm(receipt(data.root));
     }
-    return { root: data.root, removed, kept, failed, artifactsRemoved: !dryRun && !kept.length && !failed.length };
+    return { root: data.root, removed, kept, failed, manifestsPruned: engine.manifestsPruned, artifactsRemoved: !dryRun && !kept.length && !failed.length };
   } finally {
     if (fd) { await fd.close(); await rm(lock); }
     // Remove only our now-empty container. Failure retains evidence for inspection/retry.

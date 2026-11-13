@@ -1,8 +1,12 @@
 // Engine failure (a fault of the CLI, not of the product): classification, the stop at the last safe point and the
 // retry-once recovery wrapper. ../failure.mjs is the public entry.
+import { withUnleasedProject } from "../../build-state.mjs";
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { atomicWriteText, nowIso } from "../fsx.mjs";
+import { withRunCleanup } from "../lifecycle/cleanup.mjs";
+import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
+import { finishPerformance } from "../perf.mjs";
 import { buildPaths } from "../paths.mjs";
 import { fencedTwoPhase, readLeaseToken, readState, rebuildState } from "../state.mjs";
 import { DONE_STATES, POLICY, WO_UNIT_KINDS, emitSafely, err, integrationBranchOf, oneLine, woKey } from "./common.mjs";
@@ -52,7 +56,7 @@ function engineMarkdown({ now, cmd, step, failure, runId, epoch, state, bl, noti
     `error: ${failure.code ?? "sin código"}: ${oneLine(failure.message, 500)}`,
     `reintento tras rebuild-state: ${retried ? "sí, y volvió a fallar" : "no, el fallo se confirmó solo"}`,
     `último punto seguro: ${state?.last_safe_point ? `${state.last_safe_point.kind} @ ${String(state.last_safe_point.sha).slice(0, 12)}` : "ninguno registrado"}`,
-    `backlog de la fábrica: ${bl.id ?? `no abierto (${bl.reason})`}${bl.file ? ` (${bl.file})` : ""}`,
+    `${bl.draft ? "borrador local pendiente de revisión" : "backlog de la fábrica"}: ${bl.id ?? `no abierto (${bl.reason})`}${bl.file ? ` (${bl.file})` : ""}`,
     "",
     notice,
     "",
@@ -94,7 +98,7 @@ export async function handleEngineFailure({ project, epoch = null, cmd = null, s
     try {
       await fencedTwoPhase({ project, epoch, deps }, undefined, undefined, async (_result, _intent, ctx) => {
         if (state) { try { await ctx.writeState({ ...state, status: "stopped", status_reason: "engine_failure" }); } catch (e) { note("state.json", e); } }
-        try { await ctx.appendEvent({ type: "engine_failure", data: { reason: "engine_failure", cmd, step, code: failure.code, message: oneLine(sanitize(failure.message, project, deps), 400), retried, bl: bl.id } }); } catch (e) { note("journal", e); }
+        try { await ctx.appendEvent({ type: "engine_failure", data: { reason: "engine_failure", cmd, step, code: failure.code, message: oneLine(sanitize(failure.message, project, deps), 400), retried, bl: bl.id, ...(bl.draft ? { backlog_draft: bl.file } : {}) } }); } catch (e) { note("journal", e); }
       });
     } catch (e) { note("fence (state and journal)", e); }
     try {
@@ -105,12 +109,32 @@ export async function handleEngineFailure({ project, epoch = null, cmd = null, s
     } catch (e) { note("lease release", e); }
   }
 
-  const emitted = await emitSafely(deps, "engine.failure", { cmd, step, code: failure.code, bl: bl.id, run_id: runId });
-  if (emitted) warnings.push(emitted);
   const file = paths.engineHandbackFile;
+  const complete = async (current) => {
+    if (state && released) {
+      try {
+        const perf = await (deps.finishPerformance ?? finishPerformance)({ project, state: { ...state, status: "stopped", status_reason: "engine_failure" }, outcome: "engine_failure" }, deps);
+        if (perf?.ok === false) note("performance journal", perf.error);
+      } catch (e) { note("performance journal", e); }
+    }
+
+    if (state && released) {
+      try { await cleanupRunWorktrees({ project, state: current }, deps); }
+      catch (e) { note("worktree cleanup", e); }
+    }
+    const emitted = await emitSafely(deps, "engine.failure", { cmd, step, code: failure.code, bl: bl.id, run_id: runId });
+    if (emitted) warnings.push(emitted);
+    try {
+      await atomicWriteText(file, engineMarkdown({ now, cmd, step, failure, runId, epoch, state, bl, notice, warnings, retried }), { fs });
+    } catch (e) { note("handback/engine.md", e); }
+  };
   try {
-    await atomicWriteText(file, engineMarkdown({ now, cmd, step, failure, runId, epoch, state, bl, notice, warnings, retried }), { fs });
-  } catch (e) { note("handback/engine.md", e); }
+    if (state) await withRunCleanup({ project, state }, complete, deps);
+    else if (!lease) await withUnleasedProject(project, async () => {
+      if (await readState(project, deps)) throw err("CONTENDED", "El run cambió antes del cierre del fallo.");
+      await complete(null);
+    });
+  } catch (e) { note("terminal cleanup", e); }
   return { message: notice, path: file, bl, run_id: runId, warnings, released, failures };
 }
 

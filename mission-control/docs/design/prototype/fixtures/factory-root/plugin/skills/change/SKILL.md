@@ -14,7 +14,7 @@ description: The SINGLE front door to ask a Pandacorp project for ANY change —
   project.
 ---
 
-# /pandacorp:change
+# the retired change entry
 
 **The one command for "I want something changed or fixed."** You don't have to remember whether it's a feature or a bug — describe it, and `change` classifies it, gives it an **urgency class**, and drops it in the **change queue** `.pandacorp/inbox/changes/`. A running build **drains the queue at its next safe point**; if no build is running, `/pandacorp:implement` empties it when you run it. By default, that's where it stops: capture. For a small or medium change with no build running, you can also ask it to skip the wait and implement + close it in the same turn (**`--now`**, `## Fast path` below) — opt-in until the `## Dry run` canary has run green with D2 fixed (`references/now-mode.md`).
 

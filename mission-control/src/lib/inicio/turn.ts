@@ -1,5 +1,6 @@
 import { cache } from "react";
-import { isSuspectedChange } from "@/lib/changes/changes";
+import { buildCommand } from "@/lib/build-mode-store";
+import { isSuspectedChange } from "@/lib/changes/change-state";
 import { now } from "@/lib/clock/clock";
 import { t } from "@/lib/copy/copy";
 import { formatRelative } from "@/lib/copy/dates";
@@ -71,7 +72,7 @@ export function deriveOwnerTurn(
         id: change.id,
         title: change.title,
         body: change.body,
-        command: `/pandacorp:implement change:${change.id}`,
+        command: buildCommand("target", `change:${change.id}`) ?? "",
       })),
   );
   const items = [...decisions, ...changes];

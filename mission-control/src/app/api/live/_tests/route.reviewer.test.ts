@@ -24,7 +24,8 @@ import type { EventsSnapshot } from "@/lib/events/events";
 vi.mock("@/lib/events/events", () => ({ readEvents: vi.fn() }));
 
 import { readEvents } from "@/lib/events/events";
-import { __resetLiveEventStoresForTest, GET } from "../route";
+import { __resetLiveEventStoresForTest } from "../eventStore";
+import { GET } from "../route";
 
 const mockReadEvents = vi.mocked(readEvents);
 

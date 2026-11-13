@@ -1,6 +1,6 @@
 # Document consistency — the supersession-completeness gate
 
-> Domain: Product/Documentation · Severity: **MUST** · Enforcement: fresh-set blocking verifier (spec/architecture phase gates) + supersession-completeness check (change/iterate/learn) + advisory periodic sweep (`pandacorp-consistency-sweep` routine). Policy: DR-116. Companion to the two-layer doc discipline (`documentation.md`, DR-018/DR-049) and the single-writer data law (`single-source-of-truth.md`, DR-115).
+> Domain: Product/Documentation · Severity: **MUST** · Enforcement: fresh-set blocking verifier (spec/architecture phase gates) + supersession-completeness check (implement/internal engines/learn) + advisory periodic sweep (`pandacorp-consistency-sweep` routine). Policy: DR-116. Companion to the two-layer doc discipline (`documentation.md`, DR-018/DR-049) and the single-writer data law (`single-source-of-truth.md`, DR-115).
 
 An autonomous agent trusts the rules it reads. When one document declares a contract with authority and another document silently states the opposite — because it was not updated when the first one changed — two agents reading two docs diverge, and the owner loses trust in the whole rule set. The 2026-07-05 audit (`docs/proposals/30-factory-contradiction-sweep.md`) found ~21 such **accidental** contradictions across `factory/`, `plugin/` and `docs/`; every one had the same root — a rule superseded in one place, its old statement left standing elsewhere. This standard exists to catch that class **before** it lands, without ever standing in the way of a deliberate rule change.
 
@@ -39,7 +39,7 @@ A hard internal contradiction **BLOCKS the close of the phase** — the docs sta
 
 ## Supersession-completeness check — for edits to the existing corpus (`MUST`)
 
-Edits through `change`/`iterate` (a product project) and factory-rule changes through `learn` (a standard, a decision rule, a skill, a constitution/AGENTS.md clause) **do NOT block the change**. Instead the author **declares the supersession** — "I am replacing rule/claim X" — and the verifier confirms the supersession is **complete**:
+Edits through `implement` and its internal engines (a product project) and factory-rule changes through `learn` (a standard, a decision rule, a skill, a constitution/AGENTS.md clause) **do NOT block the change**. Instead the author **declares the supersession** — "I am replacing rule/claim X" — and the verifier confirms the supersession is **complete**:
 
 1. **Every place stating the OLD claim was updated in the same change.** The old statement does not survive anywhere in `factory/`, `plugin/` or `docs/` (excluding dated decision-log history, which is append-only and never back-edited — DR-093).
 2. **The *why* was recorded** — the two-writes discipline (`documentation.md`): the canonical doc now states the new truth AND the decision log carries the entry (date · what · why · doc touched).
@@ -63,7 +63,7 @@ Drift that slips through both gates is caught by a lightweight recurring version
 
 ## How it is verified
 - **Fresh-set:** the `spec` and `architecture` skills spawn a fresh verifier before their advance/flip gate; a hard internal contradiction keeps the set `DRAFT` (checkable: the same evidence-stamp discipline as `readiness_gate`, so a downstream reader can tell the gate ran).
-- **Supersession-completeness:** the `change`/`iterate` and `learn` skills run the check on the edited corpus before the change is considered done; an incomplete propagation is reported back to the author, not silently passed.
+- **Supersession-completeness:** the `implement` flow/internal engines and `learn` skill run the check on the edited corpus before the change is considered done; an incomplete propagation is reported back to the author, not silently passed.
 - **Advisory sweep:** the scheduled routine runs on cadence; its output is a report, never a mutation.
 - **Promise without mechanism:** author self-check at the moment the trigger claim is written (the `path:line` pointer, the shipped wiring, or the cited `BL-*` id is visible in the same diff) + the `reviewer`/sweep flagging an un-pointed trigger claim. The registry's own `aspirational MUST` burn-down (`check-standards.sh`, wired) is the standards-catalog slice of the same check.
 

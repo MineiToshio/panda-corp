@@ -1,0 +1,7 @@
+  • docs/frds/frd-01-alpha/frd.md missing frontmatter key 'status'
+════════════════════════════════════════════════════════════════════════
+✗ DOC-LINT: 1 finding(s) (1 FAIL-CLOSED — greenfield doc spine incomplete).
+    This project was born via /pandacorp:scaffold (created_via: scaffold), so structural
+    findings (missing frontmatter keys, a PRD without 'type') BLOCK the gate. FIX them now
+    — correct the missing frontmatter keys — then re-run. Other findings stay advisory.
+════════════════════════════════════════════════════════════════════════

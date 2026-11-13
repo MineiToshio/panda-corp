@@ -30,5 +30,5 @@ You are Pandacorp's factory librarian — the cronista of the guild. You turn li
    a required fix, **split it**: the actionable defect → a `BL-*` item; only the *generalizable* lesson (the
    durable "why", stripped of the file-by-file fix plan) → memory, with the `BL-*` id in its `links:`. A
    product-project defect (Mission Control, siblings) is NOT the factory's backlog — it belongs in THAT
-   project's `.pandacorp/inbox/changes/` (via `/pandacorp:change`); note it, don't file it here. See
+   project's `.pandacorp/inbox/changes/` (via `the retired change entry`); note it, don't file it here. See
    `factory/backlog/README.md`.

@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import * as nodeFs from 'node:fs'
 import path from 'node:path'
 import { ADMISSION } from './constants.mjs'
+import { advanceLadder, initialLadder } from './ladder.mjs'
 
 /** sha256 hex of a raw token (the value stored in `state.units[].token_hash` and as the admission.json key). */
 export const hashToken = (token) => createHash('sha256').update(String(token)).digest('hex')
@@ -13,7 +14,7 @@ function loadAdmission(ctx) {
   const fs = ctx.fs ?? nodeFs
   let raw
   try { raw = fs.readFileSync(ctx.file, 'utf8') } catch (e) {
-    if (e.code === 'ENOENT') return { tokens: {}, history: [], l4_since: null }
+    if (e.code === 'ENOENT') return { tokens: {}, history: [], ladder: null }
     throw e
   }
   let doc
@@ -21,7 +22,7 @@ function loadAdmission(ctx) {
   if (!doc || typeof doc.tokens !== 'object' || doc.tokens === null || !Array.isArray(doc.history)) {
     throw new Error(`admission.json has an unexpected shape (${ctx.file})`)
   }
-  return { tokens: doc.tokens, history: doc.history, l4_since: doc.l4_since ?? null }
+  return { ...doc, tokens: doc.tokens, history: doc.history }
 }
 
 function saveAdmission(ctx, doc) {
@@ -79,25 +80,36 @@ export function releaseToken(unit, ctx) {
   return { released }
 }
 
-/**
- * Record this `next`'s reading: keeps the last 3 readings (for the swap trend and the hysteresis window) and tracks
- * how long L has been 4 (the `paused-infra` trigger, > 10 min). `next` calls it once per call, never `admit`.
- * @param {{L:number, swapouts:number}} signals
- * @param {{file: string, fs?: object, now?: () => number|string|Date}} ctx
- * @returns {{history: object[], l4_since: string|null, l4_sustained_s: number, paused_infra: boolean}}
- */
-export function recordReading(signals, ctx) {
+/** Initialize the run's learned start under its lease, before any next reading. */
+export function initializeAdmission(input, ctx) {
   const doc = loadAdmission(ctx)
-  const at = isoNow(ctx)
-  doc.history = [...doc.history, { L: signals.L, swapouts: signals.swapouts, at }].slice(-ADMISSION.HISTORY_LEN)
-  doc.l4_since = signals.L === 4 ? (doc.l4_since ?? at) : null
+  doc.ladder = initialLadder({ ...input, at: isoNow(ctx) })
+  doc.history = []
   saveAdmission(ctx, doc)
-  const l4_sustained_s = doc.l4_since ? Math.max(0, (Date.parse(at) - Date.parse(doc.l4_since)) / 1000) : 0
-  return { history: doc.history, l4_since: doc.l4_since, l4_sustained_s, paused_infra: l4_sustained_s > ADMISSION.L4_PAUSE_S }
+  return doc.ladder
 }
 
-/**
- * The stored reading history (oldest first), as {@link decide} expects it. Missing file = no history.
- * @param {{file: string, fs?: object}} ctx
- */
+/** One reading per next call; safe mode and scaling never kill live work. */
+export function recordReading(signals, ctx) {
+  const doc = loadAdmission(ctx)
+  doc.ladder = advanceLadder(doc.ladder, signals, isoNow(ctx))
+  doc.history = doc.ladder.history.slice(-ADMISSION.HISTORY_LEN)
+  delete doc.l4_since
+  saveAdmission(ctx, doc)
+  return { ...doc.ladder, history: doc.history }
+}
+
+/** Read-only adaptive state for admit/status; missing file uses the default start. */
+export const readAdaptive = (ctx) => loadAdmission(ctx).ladder ?? initialLadder()
 export const readHistory = (ctx) => loadAdmission(ctx).history
+
+/** Persist one notification claim per disk-blocked episode, while holding the lease mutex. */
+export function recordDiskWait(blocked, ctx) {
+  const doc = loadAdmission(ctx)
+  const notify = blocked && doc.disk_waiting !== true
+  if (Boolean(doc.disk_waiting) !== blocked) {
+    doc.disk_waiting = blocked
+    saveAdmission(ctx, doc)
+  }
+  return notify
+}

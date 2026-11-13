@@ -2,10 +2,11 @@ import { Card, CardHeader } from "@/components/core/Card/Card";
 import type { Tone } from "@/components/core/Chip/vocabulary";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { BuildModePicker } from "@/components/modules/BuildModePicker/BuildModePicker";
+import { BUILD_ENTRY_COPY } from "@/lib/constants";
 import { t } from "@/lib/copy/copy";
 import { workspaceCommands } from "@/lib/next-step/next-step";
 import type { Phase } from "@/lib/status/status";
-import { type BuildTarget, BuildTargetPicker } from "./BuildTargetPicker";
+import type { BuildTarget } from "./BuildTargetPicker";
 import styles from "./commands.module.css";
 
 export interface TabCommandsProps {
@@ -22,7 +23,7 @@ const PHASE_TONES: Readonly<Record<Phase, Tone>> = {
   release: "green",
 };
 const CHANGE_STEPS = [
-  { key: "requestChange", tone: "pink", command: "/pandacorp:change" },
+  { key: "requestChange", tone: "pink", command: "/pandacorp:implement" },
   { key: "answerDecision", tone: "amber", command: "/pandacorp:decide" },
   { key: "bigPackage", tone: "violet", command: "/pandacorp:new-version" },
 ] as const;
@@ -66,16 +67,10 @@ export function TabCommands({
       </div>
       <div className={styles.mode}>
         <Card tone="violet">
-          <CardHeader title={t("workspace.comandos.buildMode.title")} icon="bolt" />
+          <CardHeader title={BUILD_ENTRY_COPY.title} icon="bolt" />
           <div data-testid="mode-selector-slot">
-            <BuildModePicker project={slug} />
+            <BuildModePicker project={slug} targets={targets} />
           </div>
-        </Card>
-      </div>
-      <div className={styles.target}>
-        <Card tone="teal">
-          <CardHeader title={t("workspace.comandos.target.title")} icon="target" />
-          <BuildTargetPicker key={slug} targets={targets} />
         </Card>
       </div>
       <div className={styles.changes}>

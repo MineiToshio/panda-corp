@@ -1,6 +1,7 @@
 // Writes of the doubt ladder into the integration worktree and the owner's inbox: log entries, the inbox file and commits.
 import * as fsp from "node:fs/promises";
-import { atomicWriteText, defaultExec, writeTarget } from "../fsx.mjs";
+import path from "node:path";
+import { assertNotTracked, atomicWriteText, defaultExec, writeTarget } from "../fsx.mjs";
 import { err, oneLine } from "./common.mjs";
 
 export async function prependEntry(abs, entry, header, deps) {
@@ -14,13 +15,16 @@ export async function prependEntry(abs, entry, header, deps) {
 
 /**
  * Append (on top) an entry of `.pandacorp/inbox/decisions.md`: in the main checkout when the file is untracked, in the
- * integration worktree when it is tracked (D1; the caller commits it).
+ * integration worktree when it is tracked (D1; the caller commits it), mirrored to the untracked main inbox (DEC-16).
  * @returns {Promise<{rel: string, tracked: boolean}>}
  */
 export async function writeInbox(project, integrationRoot, entry, deps) {
   const rel = ".pandacorp/inbox/decisions.md";
   const { abs, tracked } = await writeTarget(project, rel, { integrationRoot, exec: deps.exec });
+  const mirrorRel = ".pandacorp/inbox/decisions.pending.md";
+  if (tracked) await assertNotTracked(project, mirrorRel, deps);
   await prependEntry(abs, entry, "# Decisiones pendientes", deps);
+  if (tracked) await prependEntry(path.join(project, mirrorRel), entry, "# Decisiones pendientes", deps);
   return { rel, tracked };
 }
 

@@ -77,6 +77,7 @@ export function IdeaPage({
         adrs={data.adrs}
         sourceErrors={data.sourceErrors}
         frds={data.frds}
+        buildTargets={data.buildTargets}
         navigationBaseHref={data.navigationBaseHref}
         constructionStarted={data.constructionStarted}
         forgeHref={data.forgeHref}

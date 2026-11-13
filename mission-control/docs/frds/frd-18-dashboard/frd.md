@@ -7,7 +7,7 @@ implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-18-dashboard/mocks/dashboard.html
-last_updated: '2026-10-22'
+last_updated: '2026-11-12'
 floor: false
 ---
 # FRD-18 — Dashboard ("Inicio", the command center)
@@ -46,11 +46,11 @@ It composes existing layers — honest gamification ([FRD-09](../frd-09-gamifica
 ### Pulso (the pulse) and Embudo de ideas
 - **REQ-18-013** — The pulse SHALL present the factory's pulse (Proyectos, FRDs, work orders verificadas) and the funnel "Embudo de ideas" (AC-18-022.4), keeping to ≤5 signals. The **idea→shipped conversion** (the one metric that matters) lives in Logros → Estadísticas (FRD-10), not on Inicio.
 - **REQ-18-014** — **"Shipped" means launched, internal or external (DR-085).** A launch is either a legacy idea card hand-marked `status: "shipped"` with no linked project, or a portfolio project whose `.pandacorp/status.yaml` reports `phase: "release"` — an `in-pipeline` card's project reaching `release` counts as a launch even though the card itself stays `in-pipeline` (it freezes as a pointer, DR-085). The count SHALL come from THE single bridge resolver (`countLaunched`, `lib/ideas/ideas.ts`, DR-115) — the same one the Logros Estadísticas funnel uses — never a local re-filter of ideas by `status: "shipped"` alone, or the two surfaces silently disagree on the same fact.
-- **REQ-18-015** — The "in construction" signal SHALL distinguish live builds from stale ones: WHILE `running` is true and the signal is stale, it SHALL read "Sin señal · último evento hace N" instead of "Construyendo" (FRD-06 AC-06-019.7, state `build-no-signal`, M1 2026-10-22).
+- **REQ-18-015** — The "in construction" signal SHALL distinguish live builds from stale ones: WHILE an active build has an expired signal under FRD-04 REQ-04-017, it SHALL read "Sin señal · último evento hace N" instead of "Construyendo" (FRD-06 AC-06-019.7, state `build-no-signal`, M1 2026-10-22).
 
 ### Tu cartera (build & portfolio)
 - **REQ-18-016** — Per active project (architecture / building) and per shipped project, a card SHALL show phase, work-order progress and the next command. **Out of v2 (owner decision 2026-10-21):** the version and the age-in-stage on the card.
-- **REQ-18-017** — WHEN a running build's last event is older than a freshness threshold, the card SHALL flag it "Sin señal · último evento hace N" (no-signal is itself the alarm); a fresh build SHALL show the "Construyendo" chip.
+- **REQ-18-017** — WHEN an active build's lease is expired (legacy-only builds use the event/heartbeat freshness threshold), the card SHALL flag it "Sin señal · último evento hace N" (no-signal is itself the alarm); a fresh build SHALL show the "Construyendo" chip.
 - **REQ-18-018** — **Out of v2 (owner decision 2026-10-21):** WHEN a project has sat in its current phase beyond a staleness threshold, the card SHALL flag it *estancado* (stalled) with the age.
 - **REQ-18-019** — **Out of v2 (owner decision 2026-10-21):** WHEN a project has open bugs awaiting processing (count > 0), the card SHALL show a **"N bugs" count chip** so the operator sees pending defects at a glance.
 - **REQ-18-020** — **Out of v2 (owner decision 2026-10-21):** WHEN a work order is failing/blocked, the card SHALL surface the blocker reason inline (no need to open logs).
@@ -87,3 +87,7 @@ The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) superse
 ## Visual close-out acceptance (2026-10-31)
 
 WHEN an owner-turn item has no date, the system SHALL omit both the date and its separator from the metadata line.
+
+## Day 1 shared inputs (2026-11-12)
+
+WHEN Inicio derives En marcha, Pulso or Tu turno, THE readers SHALL reuse [the shared run and decision model](../../product/build-engine-v2.md) from FRD-04 REQ-04-017/022: a fresh matching active v2 lease is live with no main running flag, terminal/paused/waiting states are explicit, mirrored questions count once by explicit Id, and a resolved mirror suppresses a stale pending canonical copy. A missing mirror is normal; a present unreadable source SHALL be reported rather than implying zero needs.

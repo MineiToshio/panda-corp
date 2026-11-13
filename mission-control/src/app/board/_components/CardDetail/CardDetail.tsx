@@ -10,6 +10,7 @@ import { CampaignPipeline } from "@/components/modules/CampaignPipeline/Campaign
 import type { Adr } from "@/lib/architecture/adr";
 import type { DataModelResult } from "@/lib/architecture/data-model/types";
 import type { EnvVar } from "@/lib/architecture/env";
+import type { BuildTarget } from "@/lib/build-mode-store";
 import { phaseFromStatus } from "@/lib/campaign/campaign";
 import { t } from "@/lib/copy/copy";
 import { classifyDocLink } from "@/lib/docs/links";
@@ -191,6 +192,7 @@ function useCardTabs(
 }
 
 export interface CardDetailProps {
+  readonly buildTargets?: readonly BuildTarget[];
   slug: string;
   readonly sourceErrors?: DigestSourceErrors;
   readonly frds?: readonly DigestFrd[];
@@ -243,6 +245,7 @@ function documentCount(tab: string, nodes?: readonly DocNode[]): number | undefi
 
 /** Full-width idea tabs with URL-owned selections and one live project artifact bundle. */
 export function CardDetail({
+  buildTargets,
   slug,
   title,
   status,
@@ -430,6 +433,7 @@ export function CardDetail({
           <CampaignPipeline
             slug={slug}
             project={project}
+            targets={buildTargets}
             activePhase={activePhase}
             running={isRunning === true}
             forgeHref={forgeHref}

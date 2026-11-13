@@ -1,7 +1,7 @@
 // Failure policy (pure, D21): evidence identity, the per-unit execution budget, the failure decision and the state plans
 // of a requeue and a hand-back. No I/O here; ../failure.mjs is the public entry.
 import { sha256Hex } from "../fsx.mjs";
-import { REVIEW_TYPE_KINDS, findUnit, isTerminalUnit } from "../state.mjs";
+import { findUnit, isTerminalUnit } from "../state.mjs";
 import { EVIDENCE_SOURCES, POLICY, err, oneLine, uniqSorted, woKey } from "./common.mjs";
 
 /**
@@ -16,8 +16,11 @@ export function buildEvidence({ tests = [], command = null, files = [], diagnosi
   return { ...canon, hash: sha256Hex(JSON.stringify(canon)) };
 }
 
+/** Reserved gate-fallback identities carry batch WOs as an allowlist, never as affected work. */
+export const isUnattributedPatch = (unit) => unit?.kind === "patch" && (unit.id === "u-patch-g3" || unit.id.startsWith("u-patch-g2-"));
+
 /**
- * Highest attempt already spent on any of the given work orders (build, patch and tests units; review-type units do not count).
+ * Highest attempt already spent on any of the given work orders (build and patch units only).
  * The 3-execution budget is counted per WO as this maximum (A13).
  * @param {object} state run state
  * @param {string[]} wos work order ids
@@ -27,7 +30,9 @@ export function executionsUsed(state, wos) {
   const wanted = new Set((wos ?? []).map(woKey));
   let used = 0;
   for (const unit of state.units) {
-    if (REVIEW_TYPE_KINDS.includes(unit.kind) || !unit.wos.some((wo) => wanted.has(woKey(wo)))) continue;
+    if (!["build", "patch"].includes(unit.kind) || !unit.wos.some((wo) => wanted.has(woKey(wo)))) continue;
+    // Unattributed gate patches have their own budget, never the batch's WO budget.
+    if (isUnattributedPatch(unit)) continue;
     used = Math.max(used, unit.attempt);
   }
   return used;
@@ -72,7 +77,7 @@ export function decideFailure(input) {
   const { state, unit = null, failure = {}, diagnosis = null, reviewer_replies: replies = 0, decision_missing: decisionMissing = false, human_gate: humanGate = null } = input;
   const wos = input.wos ?? unit?.wos ?? [];
   const evidence = buildEvidence({ ...(input.evidence ?? {}), diagnosis });
-  const failedAttempt = Math.max(unit?.attempt ?? 0, executionsUsed(state, wos), 1);
+  const failedAttempt = isUnattributedPatch(unit) ? unit.attempt : Math.max(unit?.attempt ?? 0, executionsUsed(state, wos), 1);
   const cause = diagnosis?.cause ?? (humanGate ? "gate" : "code");
   const mode = EVIDENCE_SOURCES.includes(failure.source) ? "patch" : "same";
   const base = { failed_attempt: failedAttempt, unit_mode: mode, cause, reason_code: null, evidence, evidence_hash: evidence.hash };

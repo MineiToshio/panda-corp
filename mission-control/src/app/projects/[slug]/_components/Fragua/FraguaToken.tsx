@@ -2,6 +2,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Chip } from "@/components/core/Chip/Chip";
 import { statePresentation } from "@/components/core/Chip/vocabulary";
+import { COPY } from "@/components/modules/BuildRunPanel/copy";
+import type { DisplayWorkOrder } from "@/lib/build-run/display";
 import { t } from "@/lib/copy/copy";
 import { useNavigationRouter } from "@/lib/navigation/NavigationProvider";
 import { navigationHref } from "@/lib/navigation/urls";
@@ -13,7 +15,7 @@ export function FraguaToken({
   route,
   frdTitle,
 }: {
-  order: WorkOrder;
+  order: WorkOrder & Partial<DisplayWorkOrder>;
   route: string;
   frdTitle?: string;
 }): React.JSX.Element {
@@ -81,6 +83,11 @@ export function FraguaToken({
           <b>{order.id}</b>
           <Chip tone={presentation.tone}>{t(presentation.labelKey)}</Chip>
           <strong>{title}</strong>
+          {order.inBuild && (
+            <span>
+              {COPY.inBuild} · {order.buildUnit?.reason ?? COPY.durable}
+            </span>
+          )}
           {summary && <span>{summary}</span>}
           <span>
             {`FRD-${code?.[1] ?? ""}`}

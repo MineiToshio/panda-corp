@@ -88,8 +88,8 @@ describe("FRD-02 integration: board column and next-step command are coherent", 
     { phase: "architecture", column: "architecture", command: "/pandacorp:implement" },
     { phase: "implementation", column: "building", command: "/pandacorp:release" },
     // DR-085: release is the launched/shipped phase (folds in the old "operation").
-    // It maps to the shipped column and its next command is iterate.
-    { phase: "release", column: "shipped", command: "/pandacorp:iterate" },
+    // It maps to the shipped column and its next command is implement.
+    { phase: "release", column: "shipped", command: "/pandacorp:implement" },
   ];
 
   for (const { phase, column, command } of phaseExpectations) {
@@ -107,9 +107,9 @@ describe("FRD-02 integration: board column and next-step command are coherent", 
   }
 
   // DR-085: implementation is still construction (building column → /pandacorp:release),
-  // but release is now the launched/shipped phase (shipped column → /pandacorp:iterate).
+  // but release is now the launched/shipped phase (shipped column → /pandacorp:implement).
   // The two no longer share a column or command — verify they diverge coherently.
-  it("implementation is construction (building → release) while release is launched (shipped → iterate)", () => {
+  it("implementation is construction (building → release) while release is launched (shipped → implement)", () => {
     const impl = card({ slug: "i", status: "in-pipeline", project: "p" });
     const rel = card({ slug: "r", status: "in-pipeline", project: "p" });
     expect(deriveColumn(impl, present("implementation"))).toBe("building");
@@ -118,7 +118,7 @@ describe("FRD-02 integration: board column and next-step command are coherent", 
       "/pandacorp:release",
     );
     expect(nextStep({ cardStatus: "in-pipeline", phase: "release" }).command).toBe(
-      "/pandacorp:iterate",
+      "/pandacorp:implement",
     );
   });
 });

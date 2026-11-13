@@ -4,6 +4,7 @@ import { ownerTurnItems } from "@/lib/inicio/turn";
 import { getOverlayFreshness } from "@/lib/overlay-freshness/overlay-freshness";
 import { readSnapshotGap } from "@/lib/snapshot/gap";
 import { buildSnapshot } from "@/lib/snapshot/snapshot";
+import { hasActiveBuild } from "@/lib/status/liveness";
 import { readSummary } from "../_components/tab-summary/readSummary";
 import { SourceError } from "../_components/tab-summary/SourceError";
 import { TabSummary } from "../_components/tab-summary/tab-summary";
@@ -13,10 +14,13 @@ import type { PanelProps } from "./types";
 export default function ResumenPanel({ project, route }: PanelProps): React.JSX.Element {
   const turn = ownerTurnItems({ project: project.projectPath });
   const data = readSummary(project.projectPath);
-  const snapshot =
-    project.status.running === true
-      ? buildSnapshot(project.folder, project.status, Date.parse(project.nowIso))
-      : null;
+  const snapshot = hasActiveBuild({ ...project.status, buildRun: data.buildRun })
+    ? buildSnapshot(
+        project.folder,
+        { ...project.status, buildRun: data.buildRun },
+        Date.parse(project.nowIso),
+      )
+    : null;
   const gap = snapshot ? readSnapshotGap(project.projectPath, snapshot.sha) : undefined;
   return (
     <TabSummary

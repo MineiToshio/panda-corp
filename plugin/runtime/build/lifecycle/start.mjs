@@ -1,6 +1,8 @@
 // `start --run`: take the lease, create the run, its integration worktree and its first units.
 import * as fsp from "node:fs/promises";
 import path from "node:path";
+import { initializeAdmission, readDiskFreeGib } from "../admission.mjs";
+import { initializePerformance, startRecommendation } from "../perf.mjs";
 import { applyStartAnswers, readAnswersArg, readQuestions } from "../answers.mjs";
 import { buildingCardAction, cardCheckCommand, markCardBuilding, readCard, resetCardReady } from "../card.mjs";
 import { detect } from "../detect.mjs";
@@ -14,7 +16,7 @@ import { loadFreshPreflight } from "../preflight.mjs";
 import { fencedTwoPhase, newState, newUnit } from "../state.mjs";
 import { productPrefix, productRoot } from "../units.mjs";
 import { clearBuildDir, nextRunId } from "./buildDir.mjs";
-import { COORDINATORS, LEASE_TTL_S, SIZE_RANK, bsOf, depsOf, emit, ensurePrePush, err, git, journal } from "./common.mjs";
+import { COORDINATORS, LEASE_TTL_S, SIZE_RANK, clockMs, bsOf, depsOf, emit, ensurePrePush, err, git, journal } from "./common.mjs";
 import { planInput } from "./plan.mjs";
 
 async function readScope(file) {
@@ -48,8 +50,7 @@ async function rollbackStart({ project, p, runId, lease, branch, worktree, marke
   const bs = bsOf(d);
   const soft = (fn) => fn().catch(() => {});
   if (markedCard) await soft(() => resetCardReady(project, markedCard, "run could not start", d));
-  await soft(() => removeWorktree({ project, worktree }, d));
-  await soft(() => git(d, project, ["branch", "-D", branch]));
+  await soft(() => removeWorktree({ project, runId, worktree }, d));
   await soft(() => bs.quiesce(project, lease.token, lease.epoch, { projectStatus: false }));
   await soft(() => bs.finalizeRelease(project, lease.token, lease.epoch));
   await soft(() => fsp.rm(p.stateFile, { force: true }));
@@ -110,7 +111,8 @@ export async function startRun(input, deps = {}) {
     const answers = await readAnswersArg(input.answers, d);
     const questions = (pre.questions ?? []).filter((q) => !(q.id in answers));
     const { input: pin } = await planInput({ root, state, scope: state.scope, questions, cardType: taken.card?.type, params: { sessionModel: input.sessionModel } }, d);
-    const planned = plan(pin, d);
+    const learned = await startRecommendation(d);
+    const planned = plan({ ...pin, ceiling: learned.step }, d);
     if (planned.deadlock) throw err("INVALID_STATE", `the scope is not buildable: deadlock (${planned.deadlock.wos.join(", ") || planned.deadlock.units.join(", ")})`, { deadlock: planned.deadlock });
     const nowIds = new Set(planned.now);
     const add = planned.units.filter((u) => nowIds.has(u.id) && inScope(state, u)).map((u) => newUnit(u));
@@ -119,7 +121,10 @@ export async function startRun(input, deps = {}) {
     const applied = applyStartAnswers(state, { answers, questions: await readQuestions(project, d) });
     state = applied.state;
 
+    const diskFreeGib = readDiskFreeGib(project, d);
+    await initializePerformance({ project, runId, step: learned.step, diskFreeGib }, d);
     await fencedTwoPhase({ project, epoch: lease.epoch, deps: d }, undefined, undefined, async (_r, _i, fctx) => {
+      initializeAdmission(learned, { file: p.admissionFile, now: () => clockMs(d) });
       await fctx.appendEvent({ type: "run_started", data: { detect: { signals: det.signals, row: pre.row, scope }, preflight: pre, state: { ...state, units: [] }, session_model: input.sessionModel ?? null, k: input.k ?? null, answers: applied.applied } });
       for (const u of state.units) await fctx.appendEvent({ type: "unit_queued", data: u });
       await fctx.writeState(state);

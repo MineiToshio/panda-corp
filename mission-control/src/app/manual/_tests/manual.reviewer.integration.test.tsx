@@ -54,7 +54,7 @@ describe("FRD-08 reviewer: the page wired end to end", () => {
     const home = screen.getByTestId("docs-home");
     expect(within(home).getByText("2 páginas")).toBeInTheDocument();
     expect(within(home).getByText("22 páginas")).toBeInTheDocument();
-    expect(within(home).getByText("3 páginas")).toBeInTheDocument();
+    expect(within(home).getByText("1 página")).toBeInTheDocument();
   });
 
   it("AC-08-020.1 every curated home link resolves to a real page, none silently dropped", () => {
@@ -62,11 +62,12 @@ describe("FRD-08 reviewer: the page wired end to end", () => {
     const home = screen.getByTestId("docs-home");
     expect(within(home).getByRole("link", { name: "El pipeline" })).toBeInTheDocument();
     expect(within(home).getByRole("link", { name: "Los gates humanos" })).toBeInTheDocument();
-    expect(within(home).getByRole("link", { name: "Elegir modo de construcción" })).toHaveAttribute(
-      "href",
-      "/manual/guides/g-modo",
-    );
-    expect(within(home).getByRole("link", { name: /Build parcial/ })).toBeInTheDocument();
+    expect(
+      within(home).getByRole("link", { name: "Construir, reanudar o elegir objetivo" }),
+    ).toHaveAttribute("href", "/manual/guides/g-modo");
+    expect(
+      within(home).getByRole("link", { name: "Construir un FRD o una tarjeta" }),
+    ).toBeInTheDocument();
   });
 
   it("REQ-08-006 a catalog fact defined in the factory never reaches this surface", () => {

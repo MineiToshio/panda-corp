@@ -12,19 +12,20 @@ it("AC-11-005.2: scopes FRD, work order and change commands and resets on cleari
       targets={[
         { value: "FRD-01", label: "FRD-01 · Feature" },
         { value: "WO-01-001", label: "WO-01-001 · Work" },
-        { value: "change:fix", label: "Cambio · Fix" },
+        { value: "change:fix", label: "Cambio · Fix", status: "draft" },
       ]}
     />,
   );
+  await user.click(screen.getByRole("button", { name: "Objetivo: FRD o tarjeta" }));
   const select = screen.getByRole("combobox", { name: "Objetivo del build" });
-  expect(screen.getByText("/pandacorp:implement <id>")).toBeInTheDocument();
-  for (const target of ["FRD-01", "WO-01-001", "change:fix"]) {
+  expect(screen.queryByRole("button", { name: /^Copiar .*<id>/ })).toBeNull();
+  for (const target of ["FRD-01", "change:fix"]) {
     await user.selectOptions(select, target);
     expect(
       screen.getByRole("button", { name: `Copiar /pandacorp:implement ${target}` }),
     ).toBeInTheDocument();
   }
   await user.selectOptions(select, "");
-  expect(screen.getByText("/pandacorp:implement <id>")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Copiar .*<id>/ })).toBeNull();
   expect(screen.queryByRole("main")).not.toBeInTheDocument();
 });

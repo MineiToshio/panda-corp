@@ -1,0 +1,4 @@
+# Runtime caches and telemetry belong to the isolated home, never the frozen fixture.
+*
+!.gitignore
+!.gitkeep

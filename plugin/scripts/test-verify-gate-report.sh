@@ -233,7 +233,7 @@ fi
 rm -rf "$FX"
 
 # ---- BL-0179 ----
-# The close-out reuse check (pandacorp-build.js) can only treat a `scope:"since"` report as
+# A close-out reuse check can only treat a `scope:"since"` report as
 # equivalent to a full one when it can PROVE the `--since` base matches the current last_green_sha —
 # which requires the report to carry that base at all. Before this fix, `write_gate_report` never
 # read $SINCE, so a `since`-scoped report had no way to say what it was scoped FROM.

@@ -8,26 +8,20 @@ description: Upgrades a Pandacorp project's overlay (the .pandacorp/ integration
 
 Brings this project's Pandacorp overlay up to the factory's current version. The `/pandacorp:*` skills always run against the **latest** plugin, so a project born on an older overlay can drift; this closes the gap. Runs IN the project. It touches only the overlay/integration layer — never product code or `docs/`.
 
-> **Active-build guard (HARD, runs before anything else).** Do NOT eyeball the timestamps — run the SHARED
-> liveness helper so this guard and `/pandacorp:implement`'s concurrent-run guard read "is a build alive?"
-> the SAME way (C2+S7; the old prose here checked only `supervisor_heartbeat`, so a live build with a dead
-> supervisor but a fresh `last_event_at` read "not running" and this skill regenerated the engine mid-build):
->
-> ```bash
-> bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-build-liveness.sh" .pandacorp/status.yaml
-> ```
->
-> - **`RUNNING`** (`running: true` AND EITHER `supervisor_heartbeat` OR `last_event_at` < 10 min old — the
->   producer's own clock, DR-066; also the fail-closed verdict when the file can't be read) → **ABORT — do
->   not upgrade.** This skill regenerates `.claude/engines/pandacorp-build.js`, overwrites the
->   conformance-managed gate files (`verify.sh`, `biome.json`, e2e specs) and **commits on its own** — doing
->   that under a live build races the engine's single-git-writer chain (DR-086) and can change gate semantics
->   between a WO's self-test and its FRD gate. Tell the owner (in Spanish) the upgrade is deferred until the
->   build stops, and let the CALLING skill proceed on the current overlay (capture-only skills like
->   `change`/`bug` work fine on an older overlay).
-> - **`STALE`** (no fresh lease and `running: true` but BOTH `supervisor_heartbeat` AND `last_event_at` ≥ 10 min old — the
->   supervisor died) or **`NOT_RUNNING`** (no fresh or malformed existing lease and `running: false` / absent) → proceed with the upgrade (the same
->   TTL rule as `/pandacorp:implement`'s concurrent-run guard).
+## Active-build guard (HARD, before any mutation)
+
+Resolve the active plugin root (`CLAUDE_PLUGIN_ROOT` in Claude Code; the factory/plugin path in `.pandacorp/guide.md` under other runtimes). Run BOTH read-only checks from the project:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build.mjs" status --project .
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-build-liveness.sh" .pandacorp/status.yaml
+```
+
+Parse the top-level CLI JSON: a live `lease.live` or an armed `drive.armed` means **ABORT**, even if the YAML says otherwise. The helper's `RUNNING` (exit 1, including an unreadable status or malformed existing lease) also means **ABORT**. A failed CLI, invalid JSON, reported `gaps`, or any inconclusive ownership signal blocks the upgrade; do not clear a lease or stop a run to get past this guard. Only a successful status without live ownership together with `NOT_RUNNING` (exit 0) or `STALE` (exit 2) permits proceeding. Recheck immediately before changing managed files.
+
+Tell the owner in Spanish that the upgrade is deferred until the build stops. Do not regenerate instructions, gates or hooks, remove retired files, stamp a version or commit under a live build. The calling skill may continue only its already-authorized work on the existing overlay; this refusal never authorizes launching another build.
+
+**Never mix plugin versions on one project (owner decision 6).** After `claude plugin update pandacorp@panda-corp`, restart or close **every** session working on that project before continuing. A new session must resolve the same installed plugin version and root; do not combine an old loaded skill with new scripts or templates. Apply the same restart/close rule after updating the plugin in another runtime.
 
 ## How it decides
 
@@ -75,9 +69,21 @@ Brings this project's Pandacorp overlay up to the factory's current version. The
      (nothing reads it any more; runtime state is never bulk-deleted).
 
    - **`.pandacorp/guide.md` and `.pandacorp/README.md`**: regenerate ENTIRELY from the current template (fully managed — no merge), substituting the template vars from `.pandacorp/status.yaml` + factory paths.
-   - **Machinery** (`.claude/engines/pandacorp-build.js` and any factory script the overlay ships): regenerate from the template. **Migrate the engine's home (proposal 31 T0):** the engine moved from `.claude/workflows/` (auto-exposed in the `/` menu) to the unscanned `.claude/engines/`. After regenerating into `.claude/engines/pandacorp-build.js`, **if a leftover `pandacorp-build.js` still sits under `.claude/workflows/`, DELETE that stale copy** (and remove the now-empty `.claude/workflows/` dir) — otherwise the old menu entry keeps polluting the owner's `/` menu.
-   - **`CLAUDE.md`**: ensure it imports `@AGENTS.md`, `@docs/rules/README.md` and `@.pandacorp/guide.md`. If the project still has the old fat `CLAUDE.md`, replace the managed sections with the thin import header but **keep everything the owner wrote below the managed line**. Never touch the owner's notes.
-   - **`AGENTS.md`**: reconcile the managed block (priority order, the `docs/rules/` pointer, language & interaction, write-gate, stack pointer) with the template; keep project-specific additions. A project on an older overlay that still inlines the long durable-conventions block: replace that block with the `docs/rules/` pointer (the rules now live as files in `docs/rules/`, synced just below) — don't leave two copies.
+   - **Retired machinery (10.0.0):** read `${CLAUDE_PLUGIN_ROOT}/templates/retired-files.json` as the authoritative list of project-relative retired files. Preview the exact existing paths and remove only those named files, using `git rm -- <path>` when tracked. Do not regenerate them, recursively delete their parent directories, expand globs or touch `.pandacorp/` state. Refuse absolute paths, traversal, symlinks or any entry outside the project. If a listed file contains project-specific edits, preserve that content and report it for resolution before removing it. This upgrade retires the old engine; the build CLI stays in the plugin and is never copied into the project.
+   - **Instructions (DEC-13):** before replacing any instruction text, run:
+     ```bash
+     node "${CLAUDE_PLUGIN_ROOT}/scripts/migrate-instructions.mjs" --project . --dry-run
+     node "${CLAUDE_PLUGIN_ROOT}/scripts/migrate-instructions.mjs" --project .
+     ```
+     Inspect the dry-run result (`moves`, `files`, `preserved_lines`) first. The script moves the old `CLAUDE.md` content into `AGENTS.md` under `## Project notes`, preserves existing AGENTS content, and leaves `CLAUDE.md` exactly `@AGENTS.md` plus a newline. **An existing `CLAUDE.local.md` is a blocking refusal**, including on dry run: report it and let the owner resolve its override; never delete or bypass it. Any migration error blocks the upgrade and version stamp.
+   - **`AGENTS.md`**: reconcile only the managed block with `templates/shared/AGENTS.md.tpl`, including the rules and guide pointers and the Claude Code section. Preserve all project-specific additions and migrated notes. `CLAUDE.md` remains the one-line shim; do not put extra imports or notes back into it. Confirm every non-managed line from the old instructions survives before proceeding.
+   - **Pre-push guard (D29):** install in **every** upgraded project, then verify:
+     ```bash
+     node "${CLAUDE_PLUGIN_ROOT}/scripts/install-pre-push.mjs" --project .
+     node "${CLAUDE_PLUGIN_ROOT}/scripts/install-pre-push.mjs" --project . --check
+     ```
+     Both must exit 0 before stamping the overlay version. The installer resolves Git's untracked hooks directory and chains an existing hook. A `core.hooksPath` inside the worktree is refused; report it without overwriting tracked hooks or bypassing the check. Never set `PANDACORP_OWNER_RELEASE_OK` during upgrade. In a launched project this guard blocks an unprompted push or deletion of the default branch; it does not replace the owner's production gate.
+   - **Project risk paths (R11, NOTA-1):** if `.pandacorp/risk-paths` is missing, seed it verbatim from `templates/shared/.pandacorp/risk-paths.example` (all example globs remain commented). Preserve an existing file without overwriting its choices. Inspect the actual project boundaries, especially redirect/callback validation, auth, permissions, payments, persistence, secrets and destructive operations, and propose exact project-relative `risk <glob>` / `low <glob>` lines to the owner in a CONV-20 decision card. Activate only owner-confirmed globs; no answer leaves examples inactive and the proposal pending, never an inferred approval. Never copy another project's paths or use `low` to suppress a built-in risk signal.
    - **`.gitignore` (additive)**: append every entry of `${CLAUDE_PLUGIN_ROOT}/templates/shared/.gitignore` the project's `.gitignore` lacks (e.g. `.claude/worktrees/`, the harness's session worktrees, which otherwise make `merge-queue.sh` see main as busy); never remove, reorder or rewrite the project's own lines.
    - **`docs/rules/` (engineering rules re-sync)**: this is how rule changes reach every project. Read the project's stack from `docs/product/architecture.md`. For each file in `${CLAUDE_PLUGIN_ROOT}/templates/rules/`: if its `applies_when`/`also_applies_when` is `always` or matches a technology the project uses, **copy it in verbatim, overwriting the project's copy** (the plugin is the source of truth for these files); if it no longer applies (a technology was dropped), remove the stale project copy. Leave untouched any file the owner added that has no counterpart in the plugin (project-specific rules). Then **regenerate `docs/rules/README.md`** (canonical spec in the `scaffold` skill), **keeping the project's own import choice for every project-specific file** — imported stays imported, deliberately unlisted (a local supplement loaded through `AGENTS.md`, e.g.) stays unlisted, along with any project-added lines under the managed table. For a pre-rules project (no `docs/rules/`), create it now with the applicable set (first-time adoption). Bumping `OVERLAY_VERSION` whenever a rule file changes is what triggers this on the next skill run (DR-051).
    - **Gate-config conformance check (DR-059)** — catches silent enforcement drift; the gate config propagates VERBATIM, exactly like `docs/rules/`. Read the project's stack from `docs/product/architecture.md` and resolve `${CLAUDE_PLUGIN_ROOT}/templates/stack-<chosen>/`. **Diff** the project's `verify.sh` and `canary.sh` (both in `.pandacorp/`), `biome.json` and `knip.json` (project root) against the stack templates; on **any drift** (or a missing file) **regenerate it from the template, overwriting the project's copy** (the plugin is the source of truth) and note the drift in the report. A pre-DR-079 project gets `.pandacorp/canary.sh` (the gate canary `verify.sh --canary` runs) installed here, and a pre-DR-059 project gets these three files, for the first time. A project's enforcement can never silently fall behind the standard. **Loud back-port detector (DR-094): BEFORE overwriting each diverging file, LOUDLY REPORT the diff with the DR-076 instruction** — the divergence may be an in-place fix the overwrite is about to revert, so back-port it to `plugin/templates/stack-<chosen>/` rather than fix in place. The overwrite still proceeds unconditionally (DR-059's guarantee), but a real in-place fix is now impossible to lose silently. Leave untouched any project-specific lint/knip config the owner added in a **separate** file (only the canonical ones are conformance-checked).
@@ -109,7 +115,7 @@ Brings this project's Pandacorp overlay up to the factory's current version. The
 
 ## Rules
 - **Compatible (same MAJOR) = silent** (DR-048): apply and commit without interrupting; the owner sees it via the commit. **MAJOR = announce** the breaking parts + diff before applying.
-- **Never clobber the owner's content**: managed files (`guide.md`, `README.md`, machinery) regenerate whole; `CLAUDE.md`/`AGENTS.md` merge by managed-section, the owner's notes stay.
+- **Never clobber the owner's content**: managed files (`guide.md`, `README.md`, machinery) regenerate whole; `AGENTS.md` merges by managed section, the owner's notes stay, and `CLAUDE.md` stays the one-line shim.
 - Touch only the overlay/integration layer — never product **code**, and never rewrite the **content** of product docs. The one exception is the DR-049 **feature-centric docs migration** (step 2b): a one-time structural *relocation* of `docs/` files (moves + link fixes, IDs preserved), never a content rewrite. A MAJOR overlay jump that carries this migration is announced first like any breaking change.
 - **Gate config is conformance-checked, not merged (DR-059)** — canonical files overwritten from the template on any drift; `e2e/routes.ts`/`_target.ts`/`shell.ts` are PER-PROJECT and NEVER byte-diffed. Full set, downgrade detector, back-fill exceptions: **step 3**.
 - **Canonical gate files are edited at the SOURCE, never in-place (DR-076)** — a fix made directly in a project's canonical gate file is **silently reverted on the next `/upgrade`** and leaves the template stale for everyone; make it in `plugin/templates/stack-<chosen>/` and back-port in the SAME change (a project-specific exception goes in a SEPARATE never-overwritten file; the `remind-backport-gate-config.sh` hook nudges this). The overwrite is unconditional; the `detect-gate-config-newer.sh` back-port-FIRST guard for a project legitimately ahead of the template is in **step 3**.

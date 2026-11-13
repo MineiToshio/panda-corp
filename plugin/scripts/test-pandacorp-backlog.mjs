@@ -212,7 +212,7 @@ try {
   git(repo, 'reset', '--hard', collisionBoundary)
   const ownership = JSON.parse(readFileSync(path.join(ROOT, 'plugin/runtime/capability-ownership.json'), 'utf8'))
   const policy = JSON.parse(readFileSync(path.join(ROOT, 'plugin/runtime/skill-runtime-policy.json'), 'utf8'))
-  const codexRuntimeFiles = readdirSync(path.join(ROOT, 'plugin/runtime/codex'))
+  const codexRuntimeFiles = existsSync(path.join(ROOT, 'plugin/runtime/codex')) ? readdirSync(path.join(ROOT, 'plugin/runtime/codex')) : []
   const bl0025 = readFileSync(path.join(ROOT, 'factory/backlog/BL-0025-implement-backlog-plugin-version-allocator.md'), 'utf8')
   ok(ownership.capabilities.factory_backlog_orchestration.runtime_owner === 'claude', 'canonical drain-all owner remains Claude')
   ok(/drain-all access/.test(policy.overrides['implement-backlog'].codex.fallback), 'Codex policy authorizes native attended drain-all')

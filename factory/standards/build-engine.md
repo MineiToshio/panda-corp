@@ -8,16 +8,14 @@ decision (scope, plan, admission, routing, quota, gates, integration, landing, s
 BUILD-7..BUILD-15 live here and only here; every other document links to them instead of restating
 them.
 
-**Applicability.** These rules govern every run started by the v2 CLI. From plugin 9.157.0 the v2
-engine is opt-in: the owner says `implement v2` (the only opt-in; there is no `--engine` flag). From
-10.0.0 (DR-150) v2 is the only build engine. The default (Dynamic Workflows) engine is **frozen from
-9.157.0**: usable as it is, never fixed; only its own suites, the Check 5 fragment regeneration and
-Check 8 leave CI. At 10.0.0 it is archived under `plugin/archive/engine-v1/` with the git tag
-`archive/engine-dynamic-workflows-v9.153.0` and a BREAKPOINTS list; it is restored only on the
-owner's "vuelve al viejo" and deleted only on the owner's "bórralo"; nobody sends reminders. Until
-10.0.0 the default engine's runs keep following `build-orchestration.md`. Human gates (production,
-spending money, deleting data, external communication) are identical under both engines and are
-never weakened by anything below.
+**Applicability.** From plugin 10.0.0 this CLI is the only product build engine and
+`/pandacorp:implement` is its single entry. The retired engine is deleted, recoverable through
+`archive/engine-dynamic-workflows-v9.157.0`; no archive directory or reactivation script ships.
+Recovery instructions and the retired-path inventory live in `plugin/docs/engine-v1-reactivation.md`.
+The separate factory-backlog workflow remains. Human gates (production, spending money, deleting
+data, external communication) retain their authority. Verification: `test-check-derived-drift.sh`,
+`check-runtime-sources.mjs` and `test-wo-revert.mjs` under `plugin/scripts/` cover retirement and the
+remaining work-order revert guard; restoring the retired engine requires the owner's order.
 
 **Fact ownership (one home each, DR-115).** Policy, thresholds, matrices and the probe budget: this
 file. Command, file, coordinator-mapping and schema interfaces: `plugin/docs/build-engine-cli.md` +
@@ -56,7 +54,17 @@ goes through `/pandacorp:implement`. The change queue (`.pandacorp/inbox/changes
 format with readers (Mission Control, the DR-147 reconciler, doc-lint, the engine's target card),
 not a door: **the engine never drains the queue** at a safe point or anywhere else. "Write it down
 for later" is a `draft` card validated by `card check` (BUILD-8). `iterate`, `bug` and `new-version`
-are internal engines that `implement` calls; from 10.0.0 `/pandacorp:change` does not exist.
+are internal engines that `implement` calls; the retired change skill is no longer an entry.
+
+**Instruction and version boundary (DEC-13).** `AGENTS.md` is the sole instruction source,
+including the Claude Code section; `CLAUDE.md` is exactly the one-line `@AGENTS.md` shim. Explicit
+read lists accompany imports for runtimes that do not expand them. `upgrade` uses the loss-checked
+migration and refuses `CLAUDE.local.md` until reconciled. Never mix plugin versions on one project:
+after an update, restart or close every session working on that project before continuing. This
+version rule is an operating requirement, not a runtime version guard. Verification:
+`plugin/scripts/test-migrate-instructions.mjs`, `test-block-dangerous.sh` and
+`test-codex-enforcement.mjs` cover migration, shim scope and fail-closed enforcement; version
+coordination is review-only (owner decision 6).
 
 **Label precedence (step 0).** explicit `claude|codex` in the arguments > the orchestrate flag
 `~/.claude/state/orchestrator-mode/$CLAUDE_CODE_SESSION_ID.on` (read-only, never written; absent =
@@ -139,7 +147,7 @@ THIS conversation the owner described or accepted a behaviour **and** gave the o
   `origin: conversation`, `affected_frds`, `engine: v2`; body sections **Dentro** (each item cites the
   owner's message, ≤1 line), **Fuera** (discussed and dropped, other cards, pending plan WOs),
   **Dudas**. The CLI later adds `run_id`, `docs_sha`, `shipped_sha`. v2 never writes
-  `integration_paths` or `integration_transaction` (their meaning belongs to the default engine).
+  `integration_paths` or `integration_transaction` (retired-engine compatibility fields).
   Status values stay inside Mission Control's enum (`ready|draft|building|closing|done|discarded`);
   `obsolete` is read as `discarded` and never written.
 - Born `ready`; `start --run` sets `status: building` and `run_id` once it holds the lease. Validated
@@ -151,7 +159,7 @@ THIS conversation the owner described or accepted a behaviour **and** gave the o
 
 **Card lifecycle (`card.mjs` owns every card read and write).** At `start --run`/`--resume`
 (fenced): a v2 card (`engine: v2`) of this run is resumed; a v2 card of another, terminal run returns
-to `status: ready` with a note; a default-engine card (it carries `integration_transaction`) goes
+to `status: ready` with a note; a legacy card (it carries `integration_transaction`) goes
 through `build-state.mjs` `reconcileBuildingChange`. After the batch landing that completes it, the
 card moves to `done/` with `status: done` and `shipped_sha`. A failed or discarded build returns the
 card to `ready` with a note; on discard, the next `implement` offers in one line to revert `docs_sha`.
@@ -191,8 +199,7 @@ rise, never fall):
 | feature | 2-15 WOs or 1-4 FRDs | planned units, FRD review |
 | giant | first implementation, >4 FRDs or >15 WOs | a feature in **tranches of 2 FRDs**: each tranche is landed with G3 before the next starts; in a launched project the tranche stays on the integration branch, `main` waits for the owner's order and the next tranche continues |
 
-**Planner (D30).** `planner.mjs` is a pure, self-contained function; it imports nothing from the
-default engine's `build-mech-*` files.
+**Planner (D30).** `planner.mjs` is a pure, self-contained function with no retired-engine dependencies.
 - A WO is ready when its status is `PLANNED|IN_PROGRESS`, every `dependsOn` is **integrated on
   `lane/<run_id>/integration`** (not merely reported), its floor wait or `floorWaived` dispensation (DR-132)
   holds, it is not parked and it is not pending the answer to an irreversible question.
@@ -209,43 +216,63 @@ default engine's `build-mech-*` files.
   a `dependsOn` is dangling or cyclic; two WOs with no dependency path between them overlap
   `artifacts`.
 
-**Admission (D31; RAM/CPU, deterministic, evaluated on every `next`).**
-- Signals: `L` = `sysctl -n kern.memorystatus_vm_pressure_level` (1/2/4); swapouts delta from
-  `vm_stat`; `A` = (free + inactive + speculative + purgeable) × page size, in GiB; swap used and the
-  conservative available are telemetry only. `os.freemem()` and `kern.memorystatus_level` are
-  forbidden as inputs. An unexpected parse (including level 3) fails loud (DR-078) and switches to **safe mode** (B = 1,
-  H = 1, `senal_fallida`).
-- Two semaphores: **B** (LLM units: builders, patches, reviewers; reviewers keep a sub-cap of 2) and
-  **H** (heavy jobs: G2 jobs, and merge-queue's `verify.sh` inside the `land` job, which takes the slot itself; the `land` job wrapper takes none). H is **host-wide**: slots under
-  `~/.pandacorp/host/h-slots/slot-<i>/owner.json` (mkdir + pid + dead-owner reclaim), also taken by
-  `merge-queue.sh` around `verify.sh`; `H_max = max(1, min(2, floor(ncpu/4)))`.
-- Reservations: `A_ef = A − Σ pending(u)`. A subagent unit reserves `c_b` for its first 60 s, then
-  `c_tool` while alive; a CLI-launched process reserves `max(0, class peak − rss of its tree)`, class peak = `c_b + 0.35` for a Codex worker and `c_h` for a heavy job.
-- Rule: `L == 4` → launch nothing (`pausa_L4`; >10 min → `paused-infra`). `veto` = only a rising swap
-  trend: a swapout delta > 0 in ≥2 of the last 3 readings (DEC-1; `L == 2` with flat swap is NOT a veto,
-  because the owner's Mac idles at L = 2 with several GB of swap; fewer than 3 readings give no veto but
-  keep the floor at 1) → series (at most 1 builder + 1 heavy job, only if none of that class is alive);
-  motivo `veto_swap` at `L == 1`, `veto_presion` when the trend is corroborated by `L ≥ 2`. Otherwise `P = A_ef − COLCHON`; a queued heavy job starts if
-  `P ≥ c_h` or none is alive, else its `c_h` is set aside; LLM ceiling
-  `techo = min(ready non-overlapping width + live B, K_TECHO, --k, K_reactivo)`; floor `suelo = 2`
-  when no veto and `P ≥ 0`, else 1; grant one token if `live B < techo` and (`live B < suelo` or (no
-  veto and `P ≥ c_b + 0.5`)). Rising above the floor needs the 0.5 GiB band, `L = 1` and zero
-  swapouts in 3 readings; dropping is immediate.
-- `K_reactivo`: −1 on a flaky-contention rerun, a heavy job waiting >5 min for CPU, or a Codex
-  `rate_limit` (BUILD-11); +1 after 3 clean units; never below 1; never raised by quota. For Codex
-  workers it starts at 2.
-- A Codex app session (`codex-session` coordinator) runs B = 1, H = 1 always. Each `codex exec`
-  worker adds 0.35 GiB to its reservation.
-- Priority: landing > heavy job > new builder; at least one builder stays alive while ready work exists.
-- Briefs require one tool at a time per unit (the builder's own checks live inside its `c_b`).
-- Every decision carries `motivo_limite` ∈ {`ancho`, `ram`, `ram_reservada_H`, `veto_presion`,
-  `veto_swap`, `cpu_H`, `techo`, `owner_k`, `reactivo_contencion`, `reactivo_codex`, `cupo_limite`,
-  `senal_fallida`, `pausa_L4`, `sin_token`}. Admission events carry the unit, never the token.
-- **Nothing is ever killed** to relieve pressure (BL-0223): live work finishes, launches pause.
-- **Tokens:** the unit token is the admission token. Only `next` issues it, returns it once, and
-  stores its sha256; `report`, `review-record` and `doubt answer` verify and then release it, so a
-  unit launched outside the CLI never lands. `admit` is read-only: it shows the signals and the
-  decision a `next` would take.
+**Adaptive admission (D31; DEC-15/DEC-18).** Evaluated on every `next`; executable evidence:
+`plugin/scripts/test-build-v2-admission.mjs`, `test-build-v2-next.mjs` and
+`test-build-v2-perf.mjs`.
+
+- Signals: `L` = `sysctl -n kern.memorystatus_vm_pressure_level` (1/2/4); cumulative swapouts from
+  `vm_stat`; `A` = (free + inactive + speculative + purgeable) × page size, in GiB; swap used and
+  conservative available memory are also recorded. `os.freemem()` and `kern.memorystatus_level`
+  are forbidden inputs. Unexpected parsing (including level 3) fails loud and uses safe mode:
+  B = 1, H = 1, `senal_fallida`.
+- Concurrency steps are `[1,2,3,5,8]`, default start 5. The B ceiling is
+  `min(step, ready non-overlapping width + live B, --k, K_reactivo)`. There is no separate RAM
+  reservation veto on builders, nor a special serial ceiling for the Codex app. Reviewers keep a
+  sub-cap of 2. `suelo:1` is a compatibility output, not a promise to launch through other gates.
+- Step down one level when swapouts rise in at least 2 of the last 3 deltas, or swap used grows by
+  at least 512 MB since entering the step. `L == 4` goes directly to step 1. Swap use alone never
+  vetoes. A step change or pressure trigger resets the trend window. No process is killed and
+  existing units above the new ceiling finish; critical pressure never reduces the ceiling to zero.
+- Step up one level after at least 3 calm readings and 120 s since the last change: no swapout
+  growth, no critical pressure, no swap-used growth across the window, and available memory has
+  not fallen more than `c_b` from entry. Step 8 requires a recent host-journal record with step 5
+  or higher sustained and no downscale. With no records start at 5; otherwise use the lower median
+  `recommended_start` of the last 5 records, capped at 5 until that evidence exists.
+- B covers LLM units; H covers G2 and merge-queue's full `verify.sh`. The landing wrapper takes no
+  H slot of its own. Host-wide slots live at `~/.pandacorp/host/h-slots/slot-<i>/owner.json`.
+  `H_max = max(1, min(2, floor(ncpu/4)))`, capped at 1 when the step is at most 2. RAM estimates
+  govern heavy jobs only: `A_ef = A − Σ pending(u)`, `P = A_ef − COLCHON`; an H job can start if
+  none is alive, or if `P ≥ c_h`, within the H ceiling. Agent reservations are `c_b` for 60 s then
+  `c_tool`; CLI reservations are `max(0, class peak − tree RSS)` (Codex peak `c_b + 0.35`, H peak
+  `c_h`). Slot coverage: `test-build-v2-jobs.mjs` and `test-merge-queue-lock-refresh.sh`.
+- `K_reactivo` falls on contention or rate-limit signals and rises after clean units; quota never
+  raises it (BUILD-11). Priority remains landing, heavy work, new builders. Briefs require one heavy
+  tool at a time. Admission emits `motivo_limite` (the CLI reference owns its enum), never tokens.
+- **Disk admission:** a new unit/G2 worktree requires free space on the project's volume minus
+  1.5 GiB to remain at least 15 GiB; reservations accumulate within the admission round. An
+  existing worktree may be reused below that threshold. Refusal means `wait` / `disk`, a Spanish
+  note and one notification per blocked episode; live work continues. Bootstrap exit 4 has the
+  same meaning for unit, integration and G2 copies (G2 translates it to reserved job exit 76).
+  It is no code verdict, patch or `env-infra` hand-back. Verification:
+  `test-build-v2-disk.mjs`, `test-build-v2-next.mjs`, `test-build-v2-jobs.mjs` and
+  `test-worktree-bootstrap.sh`.
+- **Tokens:** only `next` issues the unit admission token and stores its sha256. `report`,
+  `review-record` and `doubt answer` verify and release it; tokenless work cannot land.
+  `admit` is read-only (`test-build-v2-report.mjs`, `test-build-v2-admission.mjs`).
+
+**Performance journal.** Each reading records a bounded sample in the untracked
+`build/perf-samples.jsonl` (last 2000); metadata retains whole-run extrema and step durations.
+At finish, stop, engine failure or `waiting_gate`, `perf.mjs` attempts one host-journal append per
+run identity to `<host>/perf/journal.jsonl`, outside the lease mutex and under its own writer lock.
+The record includes project basename only, plugin version, times/outcome, unit counts and p50/p90
+durations, at most 200 worker-history points, available-RAM min/max, swap start/peak/end, scale
+events, start/sustained/recommended steps and disk start/end. Sustained means at least 120 s and
+3 samples; a downscale bounds the next recommendation. Telemetry failure is reported by the
+helper without failing lifecycle commands; a malformed history fails loud during start learning.
+`status` and `summary` expose step/motivo; `build.scaled` carries `{from,to,reason}`.
+Host data stays outside repositories, resolved by `PANDACORP_HOST_DIR` or `~/.pandacorp/host`.
+Verification: `test-build-v2-perf.mjs`, `test-build-v2-cli.mjs`, `test-build-v2-nested.mjs` and
+`test-build-v2-telemetry.mjs`.
 
 ## Rule — routing and the single cross-company reviewer (BUILD-10)
 
@@ -381,7 +408,12 @@ knowledge for `--files`) and returns
   before dispatch. **Review zone** = max(static zone, diff zone); it only hardens the reviewer.
 - Missing `risk-paths`: unmatched files are listed as `unclassified`; the zone is unchanged. R1 still
   catches auth, money, personal data, secrets and destructive changes. `upgrade` seeds only a commented
-    example; the owner confirms the globs.
+  example; the owner confirms the globs for each project. Use `risk <glob>` to raise a project-specific
+  path to `floor`, or `low <glob>` to classify without raising it; neither weakens R1/R2. A bare glob
+  means `risk`, `#` begins a comment. Project-specific redirect handlers can be listed explicitly:
+  generic size/reopen and open-redirect heuristics are not restored. Verification:
+  `plugin/scripts/test-build-v2-risk.mjs` and `test-build-v2-risk-backtest.mjs`; the latter records
+  known design exclusions, not a proof against every future project.
 - A `normal`-level classifier hit (e.g. S17 "madge is not installed") never raises the zone; its files go to `unclassified`.
 - Rules R4-R10 of the design drafts are retired (F9): size and reopen act through routing, and
   filesystem-destructive changes and sensitive identifiers are covered by S8 and the product floor.
@@ -420,7 +452,7 @@ retry once after 60 s, then `K_reactivo −1`.
 - The CLI stores the % at each unit's start and end so phase D can tune the thresholds; until then 90
   and 95 are constants.
 - **The lease is released only by** `finish`, `stop`, an engine failure and `next`'s terminal actions
-  (`paused-quota`, `paused-infra`, `waiting-owner`, `deadlock`, `stop`); never by a single-provider
+  (`paused-quota`, `waiting-owner`, `deadlock`, `stop`); never by a single-provider
   limit or a handoff.
 
 ## Rule — autonomy: the first minute, doubts and parking (BUILD-12)
@@ -435,7 +467,7 @@ gates (BUILD-13).
 **First minute.** `start --preflight` (no LLM; CLI target ≤60 s on a Mission-Control-sized project;
 the card turn before it is not included) runs these check groups, each with a stable id: `scope.*`
 (non-empty Dudas, summary-only citations, giant, version scale), `conflict.*` (live lease, paused run
-plus card, half-built cards with the same `affected_frds`), `phase.*` (launched, pre-push missing),
+plus card, any half-built card without a live run), `phase.*` (launched, pre-push missing),
 `access.*` (`codex login status` always, both quotas, test database, `.env.local` and pending entries of
 `.pandacorp/comms/entrega-entornos.md` for the named FRDs, disk, RAM), `mac.*` (power via
 `pmset -g batt`, keep-awake, `drive` armed), `gates.foreseen` (classify-change reasons on the card text:
@@ -501,7 +533,11 @@ report. "Revierte la decisión X" from the owner becomes a card.
 **Park.** When nobody is sure: the unit and its `dependsOn` dependents park (`parked: owner_question`
 in state and journal; no new WO frontmatter status); everything independent continues; the question goes
 to `.pandacorp/inbox/decisions.md` as a CONV-20 card (on the integration branch if that file is
-tracked), to the report header, and as a notification.
+tracked), to the report header, and as a notification. When tracked, entries are also mirrored to
+untracked `.pandacorp/inbox/decisions.pending.md` in the main checkout; `answer` marks both copies.
+The mirror is checked untracked before writing; it makes nested-project questions visible without
+writing tracked main-checkout files (DEC-14/DEC-16). Verification:
+`plugin/scripts/test-build-v2-nested.mjs`, `test-build-v2-doubts.mjs`, `test-build-v2-answer.mjs`.
 - **Root block:** when the parked unit drags more than 50 % of pending units through `dependsOn` and its
   preferred option is reversible, everything is built on that option on `lane/<run_id>/assume-<doubt>`
   with G3, **never landed** on its own (`parked: built_on_assumption`). The owner's answer through
@@ -536,10 +572,10 @@ vs degraded) and pending deferred reviews.
   `batch_landed`; if `last_green_sha` is no longer an ancestor of the new `main` (merge-queue re-rebased
   because `main` moved), journal `pin_stale` and the next landing rewrites it (F12).
 - **merge-queue exit map (D24):** 0 → landed; 10 → hand-back (rebase conflict); 11 → G3 red: a `patch`
-  unit for the run (attempt +1); 12 → nothing to land, `busy_main`; 14 → nothing to land, `port_busy`
+  unit scoped by failing evidence (BUILD-15); 12 → nothing to land, `busy_main`; 14 → nothing to land, `port_busy`
   (12 and 14 retried at the next safe point, never hand-backs); 13 → landed with a "push falló" note
   (only possible with the owner's order); 20 → nothing to land, `mq_precondition` (retried at the next safe point; a second consecutive 20 is an engine failure, BUILD-15); 21 → `waiting_gate: production`.
-- Land specifics: `land` also hands back with `oracle_changed` (a hashed test or probe file changed); `docs` and `tests` units land when `integrated` (they are never reviewed); any `parked` unit is outside the batch; a G3 red moves the reviewed units `verified → patching`, and with the 3-execution budget exhausted they are handed back (`budget_exhausted`); a retry is idempotent (the run's own landing metadata commit is dropped and rewritten).
+- Land specifics: `land` also hands back with `oracle_changed` (a hashed test or probe file changed); `docs` and `tests` units land when `integrated` (they are never reviewed); any `parked` unit is outside the batch; a G3 red moves only implicated build/patch units `verified → patching` (BUILD-15), and exhausted implicated work is handed back (`budget_exhausted`); a retry is idempotent (the run's own landing metadata commit is dropped and rewritten).
 - **Launched project** = `status.yaml` `phase: release` and `deploy_target` not `internal` (the same test
   as `merge-queue.sh`). There, building on the branch needs no question and nothing is written on `main`
   (BUILD-7); landing is the production gate: exit 21 → `waiting_gate: production`, and the CLI **never
@@ -592,14 +628,24 @@ deterministic steps and the Codex quota reader.
   absent → `acquire`; units whose worker or job pid is alive are re-attached, the others re-queued; `drive`
   is re-armed. A running `drive` gets exit 3 at its next phase 2 and exits, stopping the Codex workers it launched that the state does not record; `start --resume` waits up to 60 s for a still-active drive to yield before any worktree reset or heal, and refuses with CONTENDED (exit 4, retry) if it has not (never resets a worktree under a live drive). Only a stale lease held by a `session` coordinator of the other runtime needs `--owner-confirmed`; a lease held by `drive` (fresh or stale, e.g. after `kill -9`) is transferred back without it. `start --resume` names the new coordinator (`--coordinator claude|codex`). Accepted consequence: if Codex runs out during the relay the build waits for
   the owner even if Claude has renewed (automatic return: phase D).
-- **Locks.** The lease-mutation lock and the journal append lock are born with an owner record, reclaimed at once from a dead holder (60 s / 30 s bounds otherwise), and reclaimed by one process per lock instance through a per-lock tombstone (`test-build-v2-lock-stress.mjs`). Residual windows are listed in the CLI doc.
+- **Locks (FIX-MUTEX3).** Lease and journal locks are born with their owner record. Dead owners
+  (pid gone or reused by a later-started process) are reclaimed immediately. Live holders are never
+  stolen; overdue holders appear in `CONTENDED.holder` after 60 s / 30 s. Only ownerless legacy
+  locks are reclaimed by age. Tombs identify the hash of the exact judged record (`.stale-<hash>` /
+  `.dead-<hash>`), not an independently read inode; the ownerless path requires a stable inode.
+  Verification: `plugin/scripts/test-build-v2-lock-stress.mjs` and `test-build-state.mjs`.
+  Mixed plugin versions sharing a lock are unsupported; a hung live holder blocks until it exits.
 - Log: `build/drive/drive.log`, rotated at 5 MB. `--handoff-after N` exists for tests only.
 
 ## Rule — failure policy (BUILD-15)
 
 > Severity: **MUST** · Enforcement: `failure.mjs` (attempt budget, evidence identity check, env-infra streak, engine-failure stop), `report` (queues attempt 3 automatically), the journal. See DR-150, DR-103.
 
-**Per unit: at most 3 executions (D21).**
+**Build/patch budget: at most 3 executions (D21, N16).** Count per WO as the maximum attempt of
+its `build` and attributed `patch` units only. Tests, docs, reviews, audits and consults do not
+spend that WO budget. Unattributed gate patches have an independent budget below. Verification:
+`plugin/scripts/test-build-v2-failure.mjs`, `test-build-v2-gate-patch.mjs`.
+
 1. Build.
 2. A **fresh** patch agent (never the resumed builder) with the reviewer's RED tests and probes and ≤2
    internal fix cycles; bounded or unbounded per BUILD-10. Branch `lane/<run_id>/<unit>-a2`.
@@ -625,23 +671,97 @@ No automatic revert-and-rebuild, no split gate, no automatic "next pass". Fable 
   recommended one), a `pending` entry in `.pandacorp/inbox/decisions.md` and a chat notice (DR-099).
 - **Three consecutive `env-infra` hand-backs** stop the run at a safe point.
 
-**Always preserved:** unit commits (a revert is the owner's call), the `lane/<run_id>/<unit>-a<n>`
-branches (no stash), RED tests and probes, the journal, registered worktrees.
+**A red G2/G3 repairs only what failed (owner decision 12).** `gatefail.mjs` parses Vitest,
+Playwright, tsc, Biome, Next build and doc-lint logs (including bullet-path diagnostics), excluding
+PASS lines and command echoes. Paths map to canonical WO `artifacts` and unit `test_hashes`;
+log text never defines a write allowlist. Only implicated build/patch units enter `patching`, and
+only implicated WOs reopen `IN_REVIEW → PLANNED → IN_PROGRESS`. Healthy units stay settled.
+Evidence in `units/<patch>/gate-failure.json` contains checks, test ids, paths, last 40 lines
+(capped at 12000 characters), implicated/allowlist WOs and fixed units. The brief says to fix only
+the red checks without rewriting the WO/FRD; re-review uses the latest integrated patch diff.
+G3 attribution is prepared outside the mutex against a pinned integration commit and applied only
+after fencing and state/tip checks; G2 evidence is persisted only inside its validated fenced
+mutation. Verification: `plugin/scripts/test-build-v2-gate-patch.mjs`, `test-build-v2-land.mjs`,
+`test-build-v2-next.mjs`, `test-build-v2-review.mjs`.
+
+**Unattributed red:** queue `u-patch-g3` or `u-patch-g2-<frd>` with the candidate batch's artifact
+union as its allowlist, no implicated WOs and no WO reopening. It has three executions of its own;
+WO attempts do not charge it, and it never charges healthy WOs. Exhaustion blocks the fallback
+patch and its dependents only, leaving healthy WO frontmatter intact. The batch still needs a
+green gate before landing. Verification: `test-build-v2-failure.mjs`, `test-build-v2-gate-patch.mjs`,
+`test-build-v2-land.mjs` and `test-build-v2-next.mjs` under `plugin/scripts/`.
+
+**Preserved evidence, disposable checkouts (BUILD-5/CONV-21).** Unit commits, every attempt and
+assumption branch, RED tests/probes, reports and the journal survive cleanup. Eligible unit and
+assumption checkouts are reclaimed at landing; older attempt checkouts at retry; integration,
+unit, assumption and G2 copies at close, stop, engine failure or blocked cleanup. `waiting_gate`
+retains integration, with `.next` removed only when safe. No branch is deleted. Resume recreates
+checkouts from retained refs, then applies the existing same-attempt reset semantics (BUILD-14).
+Archives/suspensions hold run metadata, never moved worktrees; protected leftovers refuse archive.
+Verification: `plugin/scripts/test-build-v2-disk.mjs`, `test-build-v2-land.mjs`,
+`test-build-v2-integrate.mjs`, `test-build-v2-cli.mjs`.
+
+Every removal first applies the shared `engineWorktreeOwnershipReason` predicate from
+`worktree-sweep.mjs`: prove the run id, branch and exact canonical checkout path together.
+Detached unit/integration checkouts are retained; a detached G2 checkout is eligible only at
+`g2/<frd>-<sha>` when its HEAD equals that pin and the pin is an ancestor of this run's integration
+ref. Then `worktreeRemovalReason` preserves dirty or hidden changes, protected owner state,
+locks, live process cwd and the main checkout. Shared `runningWorktreePaths` protects every
+running/admitted unit and running job until a positive recorded PID is proven dead, even when
+the coordinator is stopped; absent/null PIDs are not termination evidence. Sweep also protects
+deployments. Hidden differences require identity-bound bootstrap
+hashes; skip-worktree/assume-unchanged flags alone grant nothing, and later owner edits invalidate
+provenance. Legitimately omitted sparse files are distinguished from hidden deletions. An
+unreadable safety signal retains the copy. Session cleanup/sweep remove only the narrow eligible
+engine roots of finished/stopped or archived runs without any held lease; suspended and
+`waiting_gate` runs remain protected. Missing-target manifests are pruned, never owner directories.
+`gc` and archive/suspend reclamation reserve `withUnleasedProject`, using the same mutex as
+lease acquisition/transfer/reclaim, for the entire cleanup and metadata move. Any lease directory,
+including unreadable, stale or quiesced ownership, refuses maintenance with `CONTENDED`;
+a pre-cleanup lease read alone is insufficient. `gc` carries every first-pass refusal into its
+sweep exclusions, so a second pass cannot override it. Verification:
+`test-session-cleanup.mjs`, `test-session-cleanup-adversarial.mjs`, `test-worktree-sweep.mjs` and
+`test-build-v2-disk.mjs` under `plugin/scripts/`.
+
+Terminal finish/stop/failure cleanup holds the same reservation through all post-release
+deletions and terminal writes, rereading run id and epoch inside it. If a new holder won,
+cleanup returns contention and preserves its copies and state. Active resume snapshot
+cleanup requires the current epoch fence.
+
+**Checkout cost (DEC-17).** Only build/patch/tests unit worktrees may use per-worktree cone sparse
+checkout for docs. Source stays materialized; the unit's FRD, rules, design/product root files and
+brief context remain available, and `verify.sh --light` must pass. On any sparse error restore a
+full checkout; if restoration fails, refuse dispatch. Integration, G2/G3, docs, review and audit
+copies remain full. `extensions.worktreeConfig` is accepted repo configuration. Bootstrap uses
+pnpm's shared-store APFS clones, with local `node_modules`/`.next`, not a node_modules symlink;
+unchanged installed lock hashes skip reinstall. Order is offline/frozen, prefer-offline/frozen,
+then plain install only if the lock differs from main. Before an install the shell floor is
+15360 + 1500 MiB, exit 4 when insufficient; warn if volume consumption exceeds 15% of
+`du node_modules`. After full G3, release H then remove `.next`, `.next-fidelity`, `test-results`
+on both green and red. Verification: `test-build-v2-disk.mjs`, `test-worktree-bootstrap.sh`,
+`test-merge-queue-lock-refresh.sh`, `test-merge-queue-certified-tree.sh`,
+`test-merge-queue-release-gate.sh` under `plugin/scripts/`.
 
 **Engine failure** (a fault of the CLI, not of the product): retry the step once after `rebuild-state`;
 if it repeats, stop at the last safe point, exit 8, release the lease, write `handback/engine.md`, open the
-next free `factory/backlog/BL-NNNN` (DR-103), emit `engine_failure`. It consumes no unit attempt and never
-offers another engine. Owner message: "El motor nuevo se ha parado por un fallo suyo, no de tu app. Tu
+next free `factory/backlog/BL-NNNN` for a standalone project (DR-103), emit `engine_failure`.
+For a nested project (root below repo top) or a factory-root run, write only the untracked local
+`handback/engine-backlog-<run>.md` draft after `assertNotTracked`; never write factory backlog in
+the main checkout. Its return is `{draft:true,id:null,file,reason}`; the failure event's
+`backlog_draft` feeds `summary.need_from_owner` and the Spanish report (DEC-14/DEC-16).
+Verification: `plugin/scripts/test-build-v2-nested.mjs`, `test-build-v2-failure.mjs`. It consumes
+no unit attempt and never offers another engine. Standalone owner message: "El motor nuevo se ha parado por un fallo suyo, no de tu app. Tu
 trabajo está a salvo en la rama `lane/<run_id>/integration` (N WOs hechas). Para seguir: en la fábrica di 'arregla
-BL-NNNN'; luego aquí, `/pandacorp:implement --resume`."
-- **Fix and continue:** fixed in the factory on its `main` (never in the build's worktree), PATCH or
+BL-NNNN'; luego aquí, `/pandacorp:implement --resume`." For a local draft the message names its
+path for factory triage instead of inventing a BL id.
+- **Fix and continue:** fixed in the factory through its normal change flow (never in the product build's worktree), PATCH or
   MINOR, plugin update, new session; `--resume` continues the **same** `run_id`.
 - **State compatibility:** `state.json` and every journal line carry a schema version; a PATCH or MINOR
   always reads the previous version's journal (previous-version fixtures in the suite); an incompatible
   state makes `--resume` run `rebuild-state`, losing at most the unit in flight.
 - After 3 engine failures in one build the message adds one informative line ("si lo consideras un
   desastre, dilo y se aplica el regreso").
-- **Run status and terminal actions (D32).** `next` returns a terminal action only when nothing of the run is running. First match: both ≥90 % → `paused-quota`; `L == 4` >10 min → `paused-infra`; 3 consecutive `env-infra` hand-backs → `stop`; everything landed or handed back → `done` (then `finish`); everything left waits on an owner answer or a gate → `waiting-owner` (status `waiting_gate` if only gates); queued work with no planner progress → `deadlock`; other no-progress → `stop`. A non-`done` terminal action arrives applied (status, journal, lease released); the session only reports. `finish` accepts any non-active status; `finish` with only `waiting_gate` units left releases the lease and leaves the run `waiting_gate`.
+- **Run status and terminal actions (D32).** `next` returns a terminal action only when nothing of the run is running. First match: both ≥90 % → `paused-quota`; 3 consecutive `env-infra` hand-backs → `stop`; everything landed or handed back → `done` (then `finish`); everything left waits on an owner answer or a gate → `waiting-owner` (status `waiting_gate` if only gates); queued work with no planner progress → `deadlock`; other no-progress → `stop`. A non-`done` terminal action arrives applied (status, journal, lease released); the session only reports. `finish` accepts any non-active status; `finish` with only `waiting_gate` units left releases the lease and leaves the run `waiting_gate`.
 
 ## Gates G0..G4 (D7)
 
@@ -649,7 +769,7 @@ BL-NNNN'; luego aquí, `/pandacorp:implement --resume`."
 |---|---|---|---|
 | G0 | every session turn (Stop hook, DR-146) | `verify.sh --light` + the session's own tests | nothing |
 | G1 | per unit, synchronous inside `report` (outside the mutex) | `bash .pandacorp/verify.sh --light --tests=<test files among the reported files>` in the unit worktree; no e2e | nothing (the CLI re-runs it: "un hecho es un reporte") |
-| G2 | per FRD, once all its units are integrated | detached job `bash .pandacorp/verify.sh --since <integration base sha>` in its own worktree `build/g2/<frd>-<sha>` pinned to the integration sha, bootstrapped (`.pandacorp/worktree-bootstrap.sh`) inside the job, holding an H slot; bootstrap exit 75 = `env-infra` hand-back (no verdict, no patch); the verdict is stale only if an integrated unit of the same FRD has a sha that is not an ancestor of the pin (DEC-9); red → a `patch` unit for that FRD (attempt +1); green → the FRD's review unit is scheduled | nothing |
+| G2 | per FRD, once all its units are integrated | detached job `bash .pandacorp/verify.sh --since <integration base sha>` in its own worktree `build/g2/<frd>-<sha>` pinned to the integration sha, bootstrapped (`.pandacorp/worktree-bootstrap.sh`) inside the job, holding an H slot; non-disk bootstrap failure maps to job exit 75 = `env-infra` hand-back (no verdict, no patch); the verdict is stale only if an integrated unit of the same FRD has a sha that is not an ancestor of the pin (DEC-9); bootstrap exit 4 is mapped to job exit 76 → `wait disk`, no verdict or attempt; red → an evidence-scoped patch under BUILD-15; green → the FRD's review unit is scheduled | nothing |
 | G3 | per landing batch on `main` | merge-queue's full `verify.sh` once per tree (green-stamp) | the tree |
 | G4 | per version, before `/pandacorp:release` | G3 + responsive + visual + production smoke + **mutation on floor modules only** + approved telemetry | the release |
 
@@ -673,13 +793,17 @@ The CLI is Mission Control's only build producer; it never changes a reader's in
 |---|---|---|
 | `status.yaml` | nothing on `main` during a run; `last_green_sha`, `safe_to_test` and `phase` arrive with the landing metadata commit. v2 never writes `running` nor a per-tick `supervisor_heartbeat` | key types unchanged |
 | `build.lease/lease.json` | valid `renewed_at` (ISO) and `ttl_seconds` 1800, renewed by every coordinator command | Mission Control's `isLive` treats a lease renewed within its own ttl as live without `running: true` (task D06, effective at 9.157.0); any other lease shape blanks its status |
-| Events (`event-transport.mjs`, emitter runtime = the coordinator's company) | always `project = basename(project root)`; existing `BuildLaunch`, `AgentWorking`/`AgentDone` (`role, model, unit, result green\|red`), `wo_commit` (legacy name, emitted by `report`), `GateVerdict{frd, verdict}`, `BuildComplete`, `BuildStopped`, `worker_started/stopped`; new vocabulary entries `review.recorded`, `quota.reading`, `engine.failure`, `autonomous.decision`, `build.handoff`, `build.waiting-gate`, `unit.parked`, `admit.decision`. No `build_usable` | unknown names display as `legacy.*`, so every new name is in `event-vocabulary.json` before it is emitted |
+| Events (`event-transport.mjs`, emitter runtime = the coordinator's company) | always `project = basename(project root)`; existing `BuildLaunch`, `AgentWorking`/`AgentDone` (`role, model, unit, result green\|red`), `wo_commit` (legacy name, emitted by `report`), `GateVerdict{frd, verdict}`, `BuildComplete`, `BuildStopped`, `worker_started/stopped`; new vocabulary entries `review.recorded`, `quota.reading`, `engine.failure`, `autonomous.decision`, `build.handoff`, `build.waiting-gate`, `unit.parked`, `admit.decision`, `build.scaled{from,to,reason}`. No `build_usable` | unknown names display as `legacy.*`, so every new name is in `event-vocabulary.json` before it is emitted |
 | `track.jsonl` (written only on the integration branch, reaches `main` with the landing) | `{kind:"wo_start",frd,wo,at}`, `{kind:"wo_end",frd,wo,at,state:in_review\|verified\|failed}`, `{kind:"review_start",frd,at}`, `{kind:"review_end",frd,at,verdict:pass\|reject}`, `{kind:"frd_end",frd,at}` | unknown kinds skipped |
 | Branches | `lane/<run_id>/integration`, `lane/<run_id>/<unit>-a<n>`, `lane/<run_id>/assume-<doubt>` | `lane/` is classified as engine-origin |
 | WO frontmatter, cards | statuses stay in their existing enums; new card fields (`engine`, `run_id`, `docs_sha`, `origin`) are optional | a new status token is a reader error |
 
-Admission decisions are journal + event only, never `track.jsonl`. Other Mission Control `running`
-readers (portfolio columns, the Resumen badge) and board progress during a run are deferred (F11).
+Admission decisions are journal + event only, never `track.jsonl`. Read-only live surfaces consume
+`build/state.json`, `build/admission.json` (step/motivo), the pending-decisions mirror and the host
+performance journal; readers never execute the engine. The Day 1 Mission Control work replaces
+stale `running`-only views and the old mode picker; F11 is no longer deferred. Producer verification:
+`plugin/scripts/test-build-v2-telemetry.mjs`, `test-build-v2-cli.mjs`, `test-build-v2-nested.mjs`;
+consumer fixtures: `mission-control/src/lib/build-run/_tests/build-run.test.ts`.
 
 ## Constants (single list; change only through a DR)
 
@@ -702,8 +826,11 @@ readers (portfolio columns, the Resumen badge) and board progress during a run a
 | Touch review budget | ≤10 calls | BUILD-10 |
 | Probe budget | 1 per finding + ≤3 more per FRD | BUILD-10 |
 | Bounded patch | ≤30 lines, off-floor, with a test | BUILD-10 |
-| Admission | `K_TECHO` 2; floor 2; veto (rising swap trend, DEC-1) → 1 + 1; `COLCHON` 3 GiB (never <1); `c_b` 1.5 GiB; `c_tool` 1.2 GiB; `c_h` 3.5 GiB; Codex worker +0.35 GiB; hysteresis band 0.5 GiB; reviewer sub-cap 2; `H_max` max(1, min(2, floor(ncpu/4))); `L == 4` pause >10 min → `paused-infra` | BUILD-9 |
-| Executions per unit | 3 | BUILD-15 |
+| Admission ladder | `[1,2,3,5,8]`; default 5; critical/safe mode 1; swap growth 512 MB; calm cooldown 120 s and ≥3 readings; recent journal window 5 runs | BUILD-9 |
+| Heavy-job estimates | `COLCHON` 3 GiB (min 1); `c_b` 1.5 GiB for 60 s then `c_tool` 1.2 GiB; `c_h` 3.5 GiB; Codex +0.35 GiB; reviewer sub-cap 2; `H_max` max(1, min(2, floor(ncpu/4))), capped 1 at step ≤2 | BUILD-9 |
+| New-worktree disk | CLI 15 GiB after reserving 1.5 GiB per new copy; shell bootstrap 15360 + 1500 MiB before install; retry 30 s | BUILD-9/BUILD-15 |
+| Performance bounds | 2000 retained samples; 200 worker-history points; sustained step ≥120 s and ≥3 samples | BUILD-9 |
+| Build/patch executions | 3 per WO; unattributed fallback has its own 3 | BUILD-15 |
 | `env-infra` hand-back streak | 3 | BUILD-15 |
 | Engine failures before the extra line | 3 | BUILD-15 |
 | First minute | CLI ≤60 s | BUILD-12 |
@@ -718,7 +845,6 @@ measurements need keeps being recorded.
 |---|---|---|---|
 | F1 | Shadow review sampling 1 in 10 | needs both companies below 70 % (not true at today's Codex usage); measurement only, non-blocking; `review_recorded` and `Unit:` trailers are kept | phase D |
 | F2 | Escape-attribution report (escapes per reviewer model) | data kept; computation and display belong to Mission Control later | phase D / MC |
-| F3 | `calibrate`, a host calibration file, Jetsam autocorrection, ceiling 3 | phase D (h1-h3); the ceiling stays 2 with fixed constants | phase D |
 | F4 | `--budget <$-eq>` | needs `usage-rollup.mjs` adapted to v2 transcripts; quota thresholds already guard usage | later MINOR |
 | F5 | G1 e2e in a heavy queue | e2e runs per FRD in G2 and in G3 | removed |
 | F6 | Detached heartbeat process | replaced by renew-per-command + ttl 1800 | removed |
@@ -726,7 +852,6 @@ measurements need keeps being recorded.
 | F8 | `drift-proof.mjs` differential for bug cards | replaced by the tests-first unit | replaced |
 | F9 | Risk rules R4-R10 (filesystem-destructive, sensitive identifiers, size as zone) | covered by S8 and the product floor; size and reopen act through routing | retired |
 | F10 | PreToolUse hook on `Agent` for admission tokens | not verified; detection at `report` is enough | phase D |
-| F11 | Mission Control: full Manual rewrite, build-mode picker redesign, `running` readers other than `isLive`, board progress during a run | behaviour changes beyond liveness and buttons are not part of the design; buttons keep working | MC change after 10.0.0 |
 | F12 | Fix for the `last_green_sha` pin race | rare (`main` must move during a landing); journaled `pin_stale`, healed by the next landing | later |
 | F13 | `yield-request` file | replaced by the immediate transfer of `start --resume` | removed |
 
@@ -734,20 +859,20 @@ measurements need keeps being recorded.
 
 - **BUILD-7 (entry, detection, one writer):** `node plugin/scripts/test-build-v2-detect.mjs` (each row; paused run plus card; `source_change` exclusion; label precedence; legacy words; card reference forms), `test-build-v2-state.mjs` (hash chain, per-run archive, `rebuild-state` idempotent, frontmatter wins), `test-build-v2-cli.mjs` (exit 3 on a stale epoch; one JSON line on stdout), `test-build-v2-next.mjs` (never drains the queue; never returns a unit outside scope; `--wait` early returns), `node plugin/scripts/test-build-state-handoff.mjs` (`transfer`, `forceRelease`, no status projection), `test-build-v2-e2e.mjs` (no tracked file of the main checkout changes until merge-queue lands).
 - **BUILD-8 (card, docs before):** `test-build-v2-detect.mjs` (`card check`, Mission Control enum, `obsolete` read alias), `test-build-v2-report.mjs` (own commit, `Unit:`/`WO:` trailers, files outside `artifacts`, snapshots, WO frontmatter edits and hashed-file changes rejected), `test-build-v2-land.mjs` (`Change:` only on the landing metadata commit; card to `done/`); citation fidelity to the conversation is review-only (no machine can check it).
-- **BUILD-9 (sizes, planner, admission):** `test-build-v2-planner.mjs` (cyclic-FRD/acyclic-WO graph, barrier + wide DAG, literal-prefix overlap, out-of-scope never planned, chain cut, deadlock), `test-build-v2-admission.mjs` (signal fixtures: clean, warn, critical, swap rising, garbled → safe mode; `motivo_limite`; host slots; never kills; `admit` read-only), `test-build-v2-report.mjs` (tokenless unit rejected), `test-build-v2-jobs.mjs` (detached jobs, H slot, adoption by the epoch holder), `bash plugin/scripts/test-merge-queue-lock-refresh.sh` (lock refresh + host H slot).
+- **BUILD-9 (sizes, planner, admission):** `test-build-v2-planner.mjs` (cyclic-FRD/acyclic-WO graph, barrier + wide DAG, literal-prefix overlap, out-of-scope never planned, chain cut, deadlock), `test-build-v2-perf.mjs` (learned start, bounded samples/records), `test-build-v2-disk.mjs` (disk waits, sparse fallback, cleanup/ref retention/resume/gc), `test-build-v2-admission.mjs` (signal fixtures: clean, warn, critical, swap rising, garbled → safe mode; `motivo_limite`; host slots; never kills; `admit` read-only), `test-build-v2-report.mjs` (tokenless unit rejected), `test-build-v2-jobs.mjs` (detached jobs, H slot, adoption by the epoch holder), `bash plugin/scripts/test-merge-queue-lock-refresh.sh` (lock refresh + host H slot).
 - **BUILD-10 (routing, single reviewer, risk zone):** `test-build-v2-routing.mjs` (every builder row, all 16 matrix rows × availability {ok, quota, unreachable, at_capacity}, N7 only on quota, unreachable N7 cells park, row 8 haiku/fable, `drive` labels `quota_90`, no-repeat raises effort only, exhaustive guard that Fable and `max` are never emitted), `test-build-v2-review.mjs` (degraded marking, deferred lifecycle, probe commits and hashes, `blocked` → hand-back), `test-build-v2-risk.mjs` (zone mapping, `irreversible`, `audit`, fail-closed, `unclassified`), `test-build-v2-risk-backtest.mjs` (CI-only, `package.json`-only, `plugin/**`-only and query-only diffs give `floor`; a login diff gives `r1`; 0 false negatives on the known set; the owner-labelled sample is pending owner time).
 - **BUILD-11 (quota):** `test-build-v2-quota.mjs` (rollout fixtures 98 %, stale, malformed, primary/secondary max, epoch-to-ISO `resets_at`, `usage_limit` recorded as 100 %, `rate_limit` retry; `policy()` table), `test-build-v2-next.mjs` (95 % → `handoff` with the lease kept; both ≥90 % → `paused-quota` with the lease released).
 - **BUILD-12 (autonomy):** `test-build-v2-preflight.mjs` (every question type appears with its default; `preflight.json` reuse; ≤60 s on a Mission-Control-shaped fixture), `test-build-v2-doubts.mjs` (ladder, sources skipped under drive, caps 3/8, no-JSON consult, never-decide list, deterministic veto, decision-log and `decisions.md` writers incl. the tracked-path rule, >50 % root rule), `test-build-v2-answer.mjs` (kinds ask/parked/gate, assumption accepted/discarded, `pending_answer` effects), `test-build-v2-next.mjs` (`pending_answer` last). The owner-perceived first minute (including the card turn) is measured in the first real use; review-only until then.
 - **BUILD-13 (human gates, landing):** `bash plugin/scripts/test-pre-push.sh` (launched/internal, default/other branch, delete, env OK, chaining, tracked `core.hooksPath` refused, unreadable status), `test-build-v2-land.mjs` (landing metadata commit contents, every merge-queue exit mapped, exit 21 → `waiting_gate` with the release variable never set, `pin_stale`), `test-build-v2-e2e.mjs` (a fake worker's `git push` to `main` is rejected); existing `test-merge-queue-release-gate.sh` and `test-block-dangerous.sh` stay green.
 - **BUILD-14 (drive):** `test-build-v2-drive.mjs` (arming without a quota check, triggers a/b/c with fixture clocks, quota re-check at takeover, takeover fences the session, `kill -9` mid-unit + `--resume`, return by `start --resume`, audit deferred, `paused-quota`), `test-build-v2-workers.mjs` (`codex-worker.mjs run --direct` polling, limit classification), `test-build-state-handoff.mjs`, `test-build-v2-e2e.mjs`. Not verifiable without real runs (stated, not claimed): the real loop with `codex exec`, long-lived Codex auth in a detached process, surviving a Desktop app close, sleep and lid behaviour, notifications reaching the owner.
-- **BUILD-15 (failure):** `test-build-v2-failure.mjs` (3-execution budget, automatic attempt 3, identical evidence → hand-back, hand-back parks dependents, 3 consecutive `env-infra` stop, engine failure: safe-point stop, exit 8, `handback/engine.md`, a BL file valid for `validate-backlog.sh`, Spanish message), `test-build-v2-integrate.mjs` (chain integration, WO transitions on the integration branch, patch path `IN_REVIEW → PLANNED → IN_PROGRESS`), `test-build-v2-e2e.mjs`.
+- **BUILD-15 (failure):** `test-build-v2-gate-patch.mjs` (selective attribution and independent fallback), `test-build-v2-nested.mjs` (local drafts and mirrored questions), `test-build-v2-failure.mjs` (build/patch-only 3-execution budget, automatic attempt 3, identical evidence → hand-back, hand-back blocks dependents, 3 consecutive `env-infra` stop, engine failure: safe-point stop, exit 8, `handback/engine.md`, a BL file valid for `validate-backlog.sh`, Spanish message), `test-build-v2-integrate.mjs` (chain integration, WO transitions on the integration branch, patch path `IN_REVIEW → PLANNED → IN_PROGRESS`), `test-build-v2-e2e.mjs`.
 - **Gates and telemetry:** `test-build-v2-integrate.mjs` (G2 job spawned per fully integrated FRD), `test-build-v2-land.mjs` (`VERIFIED` and `last_green_sha` only in the landing metadata commit), `test-build-v2-telemetry.mjs` + Mission Control `src/lib/build-track/_tests/engine-v2-contract.test.ts` (CLI-produced lines parsed by the real `build-track.ts`, `events.ts` and the lease reader), Mission Control `src/lib/status/_tests/{liveness,lease-liveness}.test.ts` (lease-only liveness, task D06), `bash plugin/scripts/check-derived-drift.sh` Check 7 (event vocabulary projected into Mission Control).
 - **End to end:** `node plugin/scripts/test-build-v2-e2e.mjs` on the 4-WO fixture with fake workers, 0 manual state edits; the whole family runs in `bash plugin/scripts/run-engine-tests.sh` and the CI workflow `factory-engine-tests.yml`.
 - **This file's shape:** `bash factory/standards/check-standards.sh`; consistency with its decisions is checked by the independent reviewer at each release point.
 
 ## Why
 
-The default engine spent its time and quota in fixed costs (relays, an opus planner, double gates)
+The retired engine spent its time and quota in fixed costs (relays, an opus planner, double gates)
 and needed the owner at the keyboard. Moving every deterministic decision into a fenced CLI makes a
 build resumable from disk, portable across runtimes and observable, and lets the owner say
 "impleméntalo" and leave: questions are front-loaded, later doubts are consulted or parked, and the

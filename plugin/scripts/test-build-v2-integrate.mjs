@@ -402,14 +402,14 @@ await test("removeIntegrationWorktree: git worktree remove, branch kept, no prun
     const ua = await makeUnit(sb, { id: "u-build-wo-01-001", frd: A.frd, wos: ["WO-01-001"], files: { "src/alpha/list.ts": "export const value = 2;\n" } });
     eq((await integrate(sb, ua)).outcome, "integrated", "integrate");
     const tip = tipOf(sb);
-    const r = await api("removeIntegrationWorktree")({ project: sb.fx.root, worktree: sb.integration.worktree }, sb.deps);
+    const r = await api("removeIntegrationWorktree")({ project: sb.fx.root, runId: RUN, worktree: sb.integration.worktree }, sb.deps);
     eq(r.removed, true, "removed");
     ok(!existsSync(sb.integration.worktree), "integration worktree dir removed");
     ok(!worktrees(sb).some((w) => w.path.endsWith("/build/integration")), "no longer registered");
     eq(tipOf(sb), tip, "branch kept at its tip (the batch is not lost)");
     assertRegistryConsistent(sb, "after remove");
     eq(sb.g(sb.fx.root, "worktree", "prune", "--dry-run", "-v"), "", "git worktree prune has nothing left to prune");
-    const again = await api("removeIntegrationWorktree")({ project: sb.fx.root, worktree: sb.integration.worktree }, sb.deps);
+    const again = await api("removeIntegrationWorktree")({ project: sb.fx.root, runId: RUN, worktree: sb.integration.worktree }, sb.deps);
     eq(again.removed, false, "removing an unregistered worktree is a no-op");
     assertMainUntouched(sb, "after remove");
   } finally { await sb.done(); }

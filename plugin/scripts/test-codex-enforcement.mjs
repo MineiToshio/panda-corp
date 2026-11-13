@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { spawn, spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
@@ -18,7 +18,7 @@ const ok = (condition, message) => { if (!condition) throw new Error(message); }
 // Every `codex` CLI call is bounded (BL-0221): `codex doctor` was seen to run past 10 minutes, which hung the whole
 // run-engine-tests.sh battery. A timed-out call fails its test loudly with the reason instead of blocking the runner.
 const CODEX_CLI_TIMEOUT_MS = Number(process.env.PANDACORP_CODEX_CLI_TIMEOUT_MS) || 180_000;
-const codexCli = (args, options = {}) => spawnSync("codex", args, { cwd: root, encoding: "utf8", timeout: CODEX_CLI_TIMEOUT_MS, killSignal: "SIGKILL", ...options });
+const codexCli = (args, options = {}) => spawnSync("codex", args, { cwd: root, encoding: "utf8", timeout: CODEX_CLI_TIMEOUT_MS, killSignal: "SIGKILL", ...options, env: { ...process.env, CODEX_HOME: path.join(eventsScratchDir, "codex-home"), ...options.env } });
 const codexFailure = (result, fallback) => (result.error?.code === "ETIMEDOUT" ? `codex timed out after ${CODEX_CLI_TIMEOUT_MS} ms` : result.error ? `codex failed to run: ${result.error.message}` : result.stderr || fallback);
 
 // A "stop" hook run reaches verify-before-stop.sh, which (F2, DR-...) emits a StopGate event and
@@ -29,14 +29,13 @@ const codexFailure = (result, fallback) => (result.error?.code === "ETIMEDOUT" ?
 // see one of these fixtures.
 const eventsScratchDir = await mkdtemp(path.join(os.tmpdir(), "pc-enforcement-events-"));
 const EVENTS_SCRATCH = path.join(eventsScratchDir, "dashboard-events.ndjson");
-const hook = (runtime, event, payload, env) => spawnSync(process.execPath, [adapter, "--runtime", runtime, "--event", event], { input: typeof payload === "string" ? payload : JSON.stringify(payload), encoding: "utf8", env: env ?? { ...process.env, PANDACORP_EVENTS_LOG: EVENTS_SCRATCH } });
-const REAL_EVENTS_LOG = path.join(os.homedir(), ".claude", "dashboard-events.ndjson");
-const realEventsLogBefore = (await readFile(REAL_EVENTS_LOG, "utf8").catch(() => "")) ?? "";
+const hook = (runtime, event, payload, env) => spawnSync(process.execPath, [adapter, "--runtime", runtime, "--event", event], { input: typeof payload === "string" ? payload : JSON.stringify(payload), encoding: "utf8", env: { ...process.env, ...env, PANDACORP_EVENTS_LOG: EVENTS_SCRATCH } });
 const project = async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "pc-enforcement-"));
   await mkdir(path.join(dir, ".pandacorp", "run"), { recursive: true });
   await writeFile(path.join(dir, ".pandacorp", "status.yaml"), "phase: implementation\nrunning: false\nsupervisor_heartbeat: \"\"\n");
-  await writeFile(path.join(dir, "CLAUDE.md"), "# Pandacorp\n");
+  await writeFile(path.join(dir, "CLAUDE.md"), "@AGENTS.md\n");
+  await writeFile(path.join(dir, "AGENTS.md"), "# Pandacorp\n");
   spawnSync("git", ["init", "-q"], { cwd: dir });
   return dir;
 };
@@ -57,6 +56,60 @@ for (const runtime of ["claude", "codex"]) {
     const result = hook(runtime, "pre-tool", { cwd, tool_name: "Bash", tool_input: { command: "rm -rf .pandacorp" } });
     ok(result.status === 2 && /protected Pandacorp state/.test(result.stderr), "protected state was not denied");
     await rm(cwd, { recursive: true });
+  });
+
+  await test(`${runtime}: shim-only CLAUDE.md is in scope without status.yaml`, async () => {
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "pc-shim-"));
+    try {
+      spawnSync("git", ["init", "-q"], { cwd });
+      await writeFile(path.join(cwd, "CLAUDE.md"), "@AGENTS.md\n");
+      await writeFile(path.join(cwd, "AGENTS.md"), "# Pandacorp\n");
+      await mkdir(path.join(cwd, "src/deep"), { recursive: true });
+      for (const command of ["git push --force origin main", "vercel --prod", "git reset --hard HEAD~1", "rm -rf .pandacorp"]) {
+        const payload = runtime === "claude"
+          ? { cwd: path.join(cwd, "src/deep"), tool_name: "Bash", tool_input: { command } }
+          : { cwd: path.join(cwd, "src/deep"), toolName: "exec_command", input: { cmd: command } };
+        const result = hook(runtime, "pre-tool", payload);
+        ok(result.status === 2 && /BLOCKED/.test(result.stderr), `${command}: expected deny, got ${result.status}`);
+      }
+    } finally { await rm(cwd, { recursive: true, force: true }); }
+  });
+
+  await test(`${runtime}: AGFIX literal review writes pass and executable variants block`, async () => {
+    const cwd = await project();
+    try {
+      for (const command of [
+        "printf '%s\\n' 'Review rm -rf and find -delete.' > /tmp/x.txt",
+        "echo 'Review rm -rf.' > '/tmp/x.txt'",
+        "cat <<'EOF' > /tmp/x.txt\nMention rm -rf in the review.\nEOF",
+        "cat > '/tmp/x.txt' <<'EOF'\nMention rm -rf in the review.\nEOF",
+      ]) {
+        const payload = runtime === "claude" ? { cwd, tool_name: "Bash", tool_input: { command } } : { cwd, toolName: "exec_command", input: { cmd: command } };
+        const result = hook(runtime, "pre-tool", payload);
+        ok(result.status === 0, `${command}: expected allow, got ${result.status}: ${result.stderr}`);
+      }
+      for (const command of [
+        `printf '%s\\n' "$(rm -rf ~)" > /tmp/x.txt`,
+        "cat <<EOF > /tmp/x.txt\n$(rm -rf ~)\nEOF",
+        "bash <<'EOF' > /tmp/x.txt\nrm -rf ~\nEOF",
+        "cat <<'EOF' > /tmp/x.txt\nReview rm -rf.\nEOF\nrm -rf ~",
+      ]) {
+        const result = hook(runtime, "pre-tool", { cwd, tool_name: "Bash", tool_input: { command } });
+        ok(result.status === 2, `${command}: expected block, got ${result.status}`);
+      }
+    } finally { await rm(cwd, { recursive: true, force: true }); }
+  });
+
+  await test(`${runtime}: AGFIX internal temporary failure blocks inspected commands`, async () => {
+    const cwd = await project();
+    try {
+      const badTmp = path.join(cwd, "not-a-directory");
+      await writeFile(badTmp, "not a directory\n");
+      for (const command of ["git -C . push --force origin main", "rm -rf ~", "git status"]) {
+        const result = hook(runtime, "pre-tool", { cwd, tool_name: "Bash", tool_input: { command } }, { TMPDIR: badTmp });
+        ok(result.status === 2 && /BLOCKED/.test(result.stderr), `${command}: internal failure returned ${result.status}: ${result.stderr}`);
+      }
+    } finally { await rm(cwd, { recursive: true, force: true }); }
   });
 
   await test(`${runtime}: invalid payload fails closed`, async () => {
@@ -173,12 +226,23 @@ await test("Codex execpolicy forbids destructive command and leaves safe command
   ok(!JSON.parse(allowed.stdout).decision, "safe command unexpectedly decided");
 });
 
+const generatorRoot = path.join(eventsScratchDir, "generator");
+await mkdir(path.join(generatorRoot, "plugin/scripts"), { recursive: true });
+await mkdir(path.join(generatorRoot, "plugin/runtime"), { recursive: true });
+await copyFile(path.join(root, "plugin/scripts/generate-codex-enforcement.mjs"), path.join(generatorRoot, "plugin/scripts/generate-codex-enforcement.mjs"));
+await copyFile(path.join(root, "plugin/runtime/enforcement-policy.json"), path.join(generatorRoot, "plugin/runtime/enforcement-policy.json"));
+const generator = path.join(generatorRoot, "plugin/scripts/generate-codex-enforcement.mjs");
+for (const file of [".codex/config.toml", ".codex/rules/pandacorp.rules", "plugin/templates/shared/.codex/config.toml", "plugin/templates/shared/.codex/rules/pandacorp.rules", "plugin/hooks/codex-hooks.json"]) {
+  await mkdir(path.dirname(path.join(generatorRoot, file)), { recursive: true });
+  await copyFile(path.join(root, file), path.join(generatorRoot, file));
+}
+
 await test("generated Codex enforcement projections are deterministic", async () => {
   const tracked = [".codex/config.toml", ".codex/rules/pandacorp.rules", "plugin/templates/shared/.codex/config.toml", "plugin/templates/shared/.codex/rules/pandacorp.rules", "plugin/hooks/codex-hooks.json"];
-  const before = await Promise.all(tracked.map((file) => readFile(path.join(root, file), "utf8")));
-  const result = spawnSync(process.execPath, [path.join(root, "plugin/scripts/generate-codex-enforcement.mjs")], { cwd: root, encoding: "utf8" });
+  const before = await Promise.all(tracked.map((file) => readFile(path.join(generatorRoot, file), "utf8")));
+  const result = spawnSync(process.execPath, [generator], { cwd: generatorRoot, encoding: "utf8" });
   ok(result.status === 0, result.stderr);
-  const after = await Promise.all(tracked.map((file) => readFile(path.join(root, file), "utf8")));
+  const after = await Promise.all(tracked.map((file) => readFile(path.join(generatorRoot, file), "utf8")));
   ok(before.every((body, index) => body === after[index]), "second generation changed output");
 });
 
@@ -190,7 +254,7 @@ await test("generated Codex enforcement projections are deterministic", async ()
 // generator with concurrent invocations while continuously reading the target file, and fails if
 // any read ever observes anything other than the complete, current content (a torn/partial read).
 await test("concurrent regeneration of .codex/config.toml never exposes a torn read (BL-0169)", async () => {
-  const target = path.join(root, ".codex/config.toml");
+  const target = path.join(generatorRoot, ".codex/config.toml");
   const expected = await readFile(target, "utf8");
   let stop = false;
   let torn = null;
@@ -201,7 +265,7 @@ await test("concurrent regeneration of .codex/config.toml never exposes a torn r
     }
   })();
   const generators = Array.from({ length: 12 }, () => new Promise((resolve) => {
-    const child = spawn(process.execPath, [path.join(root, "plugin/scripts/generate-codex-enforcement.mjs")], { cwd: root, stdio: "ignore" });
+    const child = spawn(process.execPath, [generator], { cwd: generatorRoot, stdio: "ignore" });
     child.on("close", (code) => resolve(code));
   }));
   const statuses = await Promise.all(generators);
@@ -212,17 +276,10 @@ await test("concurrent regeneration of .codex/config.toml never exposes a torn r
   ok((await readFile(target, "utf8")) === expected, "config.toml content changed after concurrent regeneration");
 });
 
-// BL-0146 regression guard: every "stop" hook() call above went through verify-before-stop.sh via
-// the adapter; if any of them ever lost its PANDACORP_EVENTS_LOG override, the real stream would
-// gain a "pc-enforcement-*" fixture line again. The real log is a SHARED, append-only stream that
-// other concurrent Pandacorp sessions legitimately write to while this suite runs, so this asserts
-// on the CONTENT of whatever got appended during the run (no fixture project id in it) rather than
-// on whole-file identity, which would false-positive on any unrelated parallel session's telemetry.
-await test("this suite never wrote a pc-enforcement fixture line into the real dashboard-events.ndjson stream (BL-0146)", async () => {
-  const realEventsLogAfter = (await readFile(REAL_EVENTS_LOG, "utf8").catch(() => "")) ?? "";
-  ok(realEventsLogAfter.startsWith(realEventsLogBefore), "the real dashboard-events.ndjson stream was rewritten (not just appended to) during this run");
-  const appended = realEventsLogAfter.slice(realEventsLogBefore.length);
-  ok(!appended.includes("pc-enforcement-"), `a stop hook() call leaked a fixture line into the real stream: ${appended}`);
+// BL-0146: verify isolation through the hook environment, without reading the live events file.
+await test("hook telemetry stays in the task scratch directory", async () => {
+  const events = await readFile(EVENTS_SCRATCH, "utf8");
+  ok(events.includes("pc-enforcement-"), "fixture StopGate events did not reach scratch telemetry");
 });
 
 await rm(eventsScratchDir, { recursive: true, force: true });

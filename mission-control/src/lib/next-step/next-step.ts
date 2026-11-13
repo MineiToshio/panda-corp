@@ -13,7 +13,7 @@
  *   in-pipeline + design               → /pandacorp:architecture
  *   in-pipeline + architecture         → /pandacorp:implement
  *   in-pipeline + implementation       → /pandacorp:release   (construction done → launch)
- *   in-pipeline + release              → /pandacorp:iterate   (launched → iterate/review, DR-085)
+ *   in-pipeline + release              → /pandacorp:implement   (launched → iterate/review, DR-085)
  *   advancePending: true (any in-pipeline phase) → label carries the "ok, advance" hint (DR-032)
  *   shipped / discarded                → terminal, no pipeline progression command
  *
@@ -61,7 +61,7 @@ const BUILDING_ROWS: readonly CommandRow[] = [
     when: "Cuando todos los work orders estén listos para lanzar",
   },
   {
-    command: "/pandacorp:iterate",
+    command: "/pandacorp:implement",
     when: "Agrega un FRD, ajusta o corrige algo en el proyecto",
   },
 ];
@@ -73,7 +73,7 @@ const BUILDING_ROWS: readonly CommandRow[] = [
 // Build variants live in BuildModePicker (same as building phase).
 const RELEASE_ROWS: readonly CommandRow[] = [
   {
-    command: "/pandacorp:iterate",
+    command: "/pandacorp:implement",
     when: "Itera sobre el proyecto: agrega, ajusta o corrige",
   },
   {
@@ -178,7 +178,7 @@ const CMD_DESIGN = "/pandacorp:design";
 const CMD_ARCHITECTURE = "/pandacorp:architecture";
 const CMD_IMPLEMENT = "/pandacorp:implement";
 const CMD_RELEASE = "/pandacorp:release";
-const CMD_ITERATE = "/pandacorp:iterate";
+const CMD_ITERATE = "/pandacorp:implement";
 
 // ---------------------------------------------------------------------------
 // Phase → command map
@@ -203,7 +203,7 @@ const PHASE_LABELS: Readonly<Record<Phase, string>> = {
 
 // DR-032: advance_pending label suffix — must differ from the non-pending label
 // to surface the pending state to the owner.
-const ADVANCE_PENDING_SUFFIX = " — escribe «ok, advance» para continuar";
+const ADVANCE_PENDING_SUFFIX = "; escribe «ok, advance» para continuar";
 
 // ---------------------------------------------------------------------------
 // Implementation

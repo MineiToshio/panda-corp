@@ -2,9 +2,13 @@
 import path from "node:path";
 import { assertNotTracked, atomicWriteText } from "../fsx.mjs";
 import { applyTerminal, removeAllG2Snapshots } from "../next.mjs";
+import { finishPerformance } from "../perf.mjs";
 import { buildPaths } from "../paths.mjs";
 import { fencedTwoPhase, isTerminalUnit, readLeaseToken, readState, writeState } from "../state.mjs";
 import { readSummary, renderReportEs } from "../summary.mjs";
+import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
+import { withRunCleanup } from "./cleanup.mjs";
+import { gcWorktrees } from "./buildDir.mjs";
 import { bsOf, clockMs, depsOf, emit, err, journal, readStateLoose } from "./common.mjs";
 
 /**
@@ -17,6 +21,7 @@ export async function stopRun({ project, epoch = null, dead = false, ownerConfir
   const bs = bsOf(d);
   if (epoch !== null && epoch !== undefined) {
     const state = await applyTerminal({ project, epoch: Number(epoch), actor: "cli", deps: d }, { action: "stop", status: "stopped", reason }, d);
+    await withRunCleanup({ project, state }, () => gcWorktrees({ project }, d), d);
     return { released: true, run_id: state.run_id };
   }
   if (dead && !ownerConfirmed) throw err("INVALID_INPUT", "`stop --dead` needs --owner-confirmed");
@@ -30,12 +35,19 @@ export async function stopRun({ project, epoch = null, dead = false, ownerConfir
       throw error;
     }
   }
-  if (state && ["active", "paused", "waiting_owner", "waiting_gate"].includes(state.status)) {
-    await journal(p, state.run_id, lease?.epoch ?? state.epoch, "run_stopped", { reason: dead ? "dead_owner" : reason }, d);
-    await writeState(project, { ...state, status: "stopped", status_reason: dead ? "dead_owner" : reason }, d);
-    await emit(project, state, "build.stopped", { reason: dead ? "dead_owner" : reason }, d);
-  }
-  if (state) await removeAllG2Snapshots({ project }, d);
+  const cleanup = async (current) => {
+    if (current && ["active", "paused", "waiting_owner", "waiting_gate"].includes(current.status)) {
+      await journal(p, current.run_id, current.epoch, "run_stopped", { reason: dead ? "dead_owner" : reason }, d);
+      current = { ...current, status: "stopped", status_reason: dead ? "dead_owner" : reason };
+      await writeState(project, current, d);
+      await emit(project, current, "build.stopped", { reason: current.status_reason }, d);
+    }
+    if (current) await finishPerformance({ project, state: { ...current, status: "stopped" }, outcome: "stopped" }, d);
+    if (current) await removeAllG2Snapshots({ project, state: current }, d);
+    await gcWorktrees({ project }, d);
+  };
+  if (state) await withRunCleanup({ project, state }, cleanup, d);
+  else await gcWorktrees({ project }, d);
   return { released, run_id: state?.run_id ?? null };
 }
 
@@ -68,17 +80,13 @@ export async function finishRun({ project, epoch = null, actor = "cli" }, deps =
   if (lease) {
     const token = await readLeaseToken(project, epoch, d);
     // A quiesced lease (a terminal action, or a previous finish that died before finalizeRelease) refuses fencedTwoPhase,
-    // and nothing else can write the run any more: the state is closed unfenced, like the no-lease branch, then the lease
-    // is released (NB4). A retry after a crash finds the state already finished and only releases.
+    // so release it before closing under the exclusive terminal reservation (NB4). A retry after a crash
+    // finds the state already finished and only releases.
     if (lease.quiesced_at) {
       if (Number(epoch) !== lease.epoch) throw err("FENCE", "finish: --epoch does not match the quiesced lease");
       if (lease.run_id && state0.run_id !== lease.run_id) throw err("FENCE", "state does not belong to the lease run");
-      const mode = decide(state0);
-      // A run a previous finish already closed as waiting_gate is not closed twice (no second `paused` line).
-      if (mode === "finish" || (mode === "waiting" && state0.status !== "waiting_gate")) {
-        const ctx = { appendEvent: (ev) => journal(p, state0.run_id, Number(epoch), ev.type, ev.data, d, actor), writeState: (s) => writeState(project, s, d) };
-        await closeRun(ctx, state0, waiting, d);
-      }
+      decide(state0);
+      // Finalize first; any terminal writes below are reserved against a new holder.
     } else {
       await fencedTwoPhase({ project, epoch: Number(epoch), actor, deps: d }, undefined, undefined, async (_r, _i, ctx) => {
         const s = await ctx.readState();
@@ -90,21 +98,25 @@ export async function finishRun({ project, epoch = null, actor = "cli" }, deps =
       await bs.quiesce(project, token, Number(epoch), { projectStatus: false });
     }
     await bs.finalizeRelease(project, token, Number(epoch));
-  } else {
-    if (Number(epoch) !== state0.epoch) throw err("FENCE", "finish: --epoch does not match the run's last epoch");
-    const mode = decide(state0);
-    if (mode !== "already") {
-      const ctx = { appendEvent: (ev) => journal(p, state0.run_id, state0.epoch, ev.type, ev.data, d, actor), writeState: (s) => writeState(project, s, d) };
-      await closeRun(ctx, state0, waiting, d);
-    }
+  } else if (Number(epoch) !== state0.epoch) {
+    throw err("FENCE", "finish: --epoch does not match the run's last epoch");
   }
-  // The run is closed: no G2 snapshot of it is ever harvested again (NB5). A waiting run keeps a still-running G2 job's own.
-  await removeAllG2Snapshots({ project, all: !waiting }, d);
-  const summary = await readSummary(project, d);
-  const rel = path.join(".pandacorp", "comms", `informe-build-${state0.run_id}.md`);
-  await assertNotTracked(project, rel, { exec: d.exec });
-  const reportPath = path.join(project, rel);
-  await atomicWriteText(reportPath, renderReportEs(summary));
-  const warning = waiting ? null : await emit(project, state0, "build.complete", { run_id: state0.run_id, status: "finished" }, d);
-  return { report_path: reportPath, summary, waiting_gate: waiting, ...(warning ? { warnings: [warning] } : {}) };
+  return withRunCleanup({ project, state: state0 }, async (current) => {
+    const mode = decide(current);
+    if (mode !== "already" && !(mode === "waiting" && current.status === "waiting_gate")) {
+      const ctx = { appendEvent: (ev) => journal(p, current.run_id, current.epoch, ev.type, ev.data, d, actor), writeState: (s) => writeState(project, s, d) };
+      current = await closeRun(ctx, current, waiting, d);
+    }
+    // The run is closed: no G2 snapshot of it is ever harvested again (NB5). A waiting run keeps a still-running G2 job's own.
+    await removeAllG2Snapshots({ project, state: current, all: !waiting }, d);
+    await cleanupRunWorktrees({ project, state: current, mode: waiting ? "waiting_gate" : "close" }, d);
+    await finishPerformance({ project, state: await readState(project, d) }, d);
+    const summary = await readSummary(project, d);
+    const rel = path.join(".pandacorp", "comms", `informe-build-${state0.run_id}.md`);
+    await assertNotTracked(project, rel, { exec: d.exec });
+    const reportPath = path.join(project, rel);
+    await atomicWriteText(reportPath, renderReportEs(summary));
+    const warning = waiting ? null : await emit(project, state0, "build.complete", { run_id: state0.run_id, status: "finished" }, d);
+    return { report_path: reportPath, summary, waiting_gate: waiting, ...(warning ? { warnings: [warning] } : {}) };
+  }, d);
 }

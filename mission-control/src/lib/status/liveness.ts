@@ -1,3 +1,5 @@
+import type { BuildRun } from "../build-run/types";
+
 /**
  * DR-066 consumer-side liveness/freshness — the SINGLE derivation (DR-092) every
  * surface uses to decide whether a build is live and how fresh its signal is.
@@ -56,10 +58,19 @@ export function freshnessBand(lastSignalAt: string | null | undefined, nowMs: nu
 
 /** Producer clocks accepted by all build liveness surfaces. */
 export interface BuildClocks {
+  buildRun?: BuildRun;
   supervisorHeartbeat?: string | null;
   lastEventAt?: string | null;
   leaseRenewedAt?: string;
   leaseTtlSeconds?: number;
+}
+
+/** Whether the producer still claims execution; stale active runs show no-signal, terminal runs stay idle. */
+export function hasActiveBuild(input: BuildClocks & { running?: boolean }): boolean {
+  const run = input.buildRun;
+  if (!run?.present) return input.running === true || Boolean(input.leaseRenewedAt);
+  if (run.lease?.quiesced_at || run.lease?.released_at) return false;
+  return run.state ? run.state.status === "active" : Boolean(run.lease);
 }
 
 /** Typed verdict on the v2 lease clocks (REQ-04-017). */
@@ -96,6 +107,7 @@ function isLeaseFresh(input: BuildClocks, nowMs: number): boolean {
 
 /** Freshest producer instant; a lease contributes only within its own TTL. */
 export function latestBuildSignal(input: BuildClocks, nowMs: number): string | null {
+  if (input.buildRun?.present) return input.buildRun.lease?.renewed_at ?? null;
   const freshLease = isLeaseFresh(input, nowMs);
   const stamps = [
     input.supervisorHeartbeat,
@@ -115,9 +127,26 @@ export function latestBuildSignal(input: BuildClocks, nowMs: number): string | n
  *   this point, so reaching here with one is a broken invariant that must not read as "not live".
  */
 export function isLive(input: BuildClocks & { running?: boolean }, nowMs: number): boolean {
+  const run = input.buildRun;
+  if (run?.present) {
+    const lease = run.lease;
+    const invalid = run.errors.some(
+      (e) => e.path.endsWith("state.json") || e.path.endsWith("lease.json"),
+    );
+    return (
+      !invalid &&
+      Boolean(
+        lease &&
+          !lease.quiesced_at &&
+          !lease.released_at &&
+          nowMs - Date.parse(lease.renewed_at) < lease.ttl_seconds * 1000 &&
+          (run.state ? run.matchesLease && run.state.status === "active" : true),
+      )
+    );
+  }
   const lease = classifyLease(input, nowMs);
   if (lease.kind === "malformed") throw new Error(`isLive: malformed lease: ${lease.reason}`);
-  if (lease.kind === "fresh") return true;
+  if (lease.kind !== "absent") return lease.kind === "fresh";
   if (input.running !== true) return false;
   return freshnessBand(latestBuildSignal(input, nowMs), nowMs).band !== "no-signal";
 }

@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
+import { now } from "../clock/clock";
 import { resolveFactoryRoot, resolveProjectPath } from "../config/config";
 import { pathExists } from "../fs-utils/fs-utils";
+import { isLive } from "../status/liveness";
 import { type Phase, readStatusWithLiveInboxCounts, type StatusResult } from "../status/status";
 
 /**
@@ -354,6 +356,9 @@ function resolveStage(entry: PortfolioEntry, statusResult: StatusResult): Phase 
 
 /** Strict boolean from status.running; undefined otherwise (regression B1'). */
 function resolveRunning(statusResult: StatusResult): boolean | undefined {
+  if (statusResult.present && statusResult.status.buildRun?.present) {
+    return isLive(statusResult.status, now().getTime());
+  }
   if (
     statusResult.present &&
     (statusResult.status.running === true || statusResult.status.running === false)

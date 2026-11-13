@@ -1,5 +1,6 @@
 import type { RouteQuery } from "@/lib/navigation/routeState";
 import PersistentProject from "../[...segments]/page";
+import ProjectWorkspaceContent from "../ProjectWorkspacePage";
 import ProjectWorkspacePage from "../page";
 
 const MAX_REDIRECTS = 4;
@@ -31,7 +32,7 @@ async function enter(href: string): Promise<React.JSX.Element> {
     searchParams: Promise.resolve(query),
   });
   const page = seeded.props.children as React.JSX.Element;
-  return ProjectWorkspacePage(page.props);
+  return ProjectWorkspaceContent(page.props);
 }
 
 /** Enter the standalone route as a browser would, following server redirects to a fixed point. */

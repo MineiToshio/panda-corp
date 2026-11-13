@@ -1,5 +1,5 @@
 /**
- * manual-diagrams/PipelineDiagram.tsx — FRD-08 ("El recorrido de una idea")
+ * manual-diagrams/PipelineDiagram.tsx : FRD-08 ("El recorrido de una idea")
  *
  * The 6-phase pipeline trail: each phase is a colored chip (118px) + a
  * description + a CmdRow, separated by a down-arrow connector.
@@ -18,7 +18,7 @@ import { DownArrow } from "./atoms";
 import styles from "./PipelineDiagram.module.css";
 
 // ---------------------------------------------------------------------------
-// Phase data — mirrors the prototype `st` array (name, color token, copy, cmd)
+// Phase data : mirrors the prototype `st` array (name, color token, copy, cmd)
 // ---------------------------------------------------------------------------
 
 type Phase = {
@@ -56,13 +56,13 @@ const PHASES: readonly Phase[] = [
   {
     name: "En construcción",
     color: "var(--pink)",
-    body: "Un workflow dinámico orquesta a los subagentes (TDD), desatendido. Lo sigues en Mission Control. El último paso es el endurecimiento: seguridad, calidad, auditoría y métricas/telemetría.",
+    body: "El CLI común coordina trabajadores locales y revisión de la otra compañía. La concurrencia se adapta. Cierra con seguridad, calidad y telemetría; aterriza mediante merge-queue.",
     cmd: "/pandacorp:implement",
   },
   {
     name: "Lanzada",
     color: "var(--blue)",
-    body: "La versión (ya auditada) se despliega y lanza —interno en local o externo (Vercel/AWS)—; el devops la pone viva con la copy de landing lista. Producción la apruebas tú. Desde aquí iteras: no hay una fase «operación» aparte.",
+    body: "La versión (ya auditada) se despliega y lanza :interno en local o externo (Vercel/AWS):; el devops la pone viva con la copy de landing lista. Producción la apruebas tú. Desde aquí iteras: no hay una fase «operación» aparte.",
     cmd: "/pandacorp:release",
   },
 ] as const;

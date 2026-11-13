@@ -1,6 +1,6 @@
 import type { IconName } from "@/components/core/Icon/iconData";
 /**
- * manual-diagrams/HooksDiagram.tsx — FRD-08 ("Hooks, gates y seguridad")
+ * manual-diagrams/HooksDiagram.tsx : FRD-08 ("Hooks, gates y seguridad")
  *
  * The three hook panels (PreToolUse / Stop / Eventos): each a Panel row with a
  * leading status icon, a mono hook name, and a one-line description.
@@ -41,7 +41,7 @@ const HOOKS: readonly Hook[] = [
     icon: "activity",
     color: "var(--blue)",
     name: "Eventos · emit-event.sh",
-    body: "Los subagentes del workflow + el hook SubagentStop escriben a ~/.claude/dashboard-events.ndjson, que La Fragua lee en vivo.",
+    body: "El CLI y los hooks disponibles emiten eventos en el transporte del runtime. La Fragua deriva el trabajo del estado del run; los eventos son observaciones.",
   },
 ] as const;
 

@@ -7,6 +7,13 @@ export interface WoLiveRefreshProps {
   project: string;
 }
 const REFRESH_INTERVAL_MS = 5000;
+function eventAdvanced(timestamp: string | null, seen: { current: number | null }): boolean {
+  const at = timestamp === null ? NaN : Date.parse(timestamp);
+  if (!Number.isFinite(at)) return false;
+  const advanced = seen.current !== null && at > seen.current;
+  if (seen.current === null || at > seen.current) seen.current = at;
+  return advanced;
+}
 /** One event-driven subscriber; fresh events and backward machine-state moves coalesce at five seconds. */
 export function WoLiveRefresh({ project }: WoLiveRefreshProps): React.JSX.Element {
   const requestRefresh = useBackgroundRefresh(),
@@ -16,8 +23,7 @@ export function WoLiveRefresh({ project }: WoLiveRefreshProps): React.JSX.Elemen
     lastRefresh = useRef<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    const at = lastEventAt === null ? NaN : Date.parse(lastEventAt);
-    const fresh = Number.isFinite(at) && stateVersionMoved(at, event);
+    const fresh = eventAdvanced(lastEventAt, event);
     const moved = stateVersionMoved(snapshot?.stateVersion, version);
     if (!fresh && !moved) return;
     const elapsed =

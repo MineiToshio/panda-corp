@@ -28,7 +28,7 @@
 //
 // CREATE / CLEAN UP:   const fx = await createFixture("card", {dir: tmpDir});  ...  await fx.cleanup();
 //   (cleanup removes only what the fixture created; the caller owns tmpDir: mkdtemp it, rm -rf it.)
-// CLI:  node make-fixture.mjs <preset> --dir <abs dir> [--launched] [--card] [--tracked-decisions]
+// CLI:  node make-fixture.mjs <preset> --dir <abs dir> [--launched] [--card] [--tracked-decisions] [--nested]
 //       node make-fixture.mjs --list | --selftest      (selftest uses its own temp dir and removes it)
 import { execFileSync } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readFile, readdir, rm, stat, utimes, writeFile } from "node:fs/promises";
@@ -77,7 +77,7 @@ const CARDS = {
 function resolveOptions(spec) {
   const o = typeof spec === "string" ? { preset: spec } : { ...spec };
   if (o.preset && !PRESETS.includes(o.preset)) throw new Error(`unknown fixture preset "${o.preset}" (known: ${PRESETS.join(", ")})`);
-  return { card: o.preset === "card" || !!o.card, launched: o.preset === "launched" || !!o.launched, trackedDecisions: o.preset === "tracked-decisions" || !!o.trackedDecisions, trackedHooksPath: !!o.trackedHooksPath, now: o.now || DEFAULT_NOW, preset: o.preset || "custom" };
+  return { card: o.preset === "card" || !!o.card, launched: o.preset === "launched" || !!o.launched, trackedDecisions: o.preset === "tracked-decisions" || !!o.trackedDecisions, nested: !!o.nested, trackedHooksPath: !!o.trackedHooksPath, now: o.now || DEFAULT_NOW, preset: o.preset || "custom" };
 }
 
 /**
@@ -88,9 +88,10 @@ function resolveOptions(spec) {
 export async function createFixture(spec, { dir } = {}) {
   if (!dir || !path.isAbsolute(dir)) throw new Error("createFixture: {dir} must be an absolute caller-provided temp directory");
   const o = resolveOptions(spec);
-  const root = path.join(dir, "project");
+  const repoRoot = path.join(dir, "project");
+  const root = o.nested ? path.join(repoRoot, "nested") : repoRoot;
   await mkdir(root, { recursive: true });
-  git(root, ["init", "-q", "-b", "main"], o.now);
+  git(repoRoot, ["init", "-q", "-b", "main"], o.now);
   await put(root, ".gitignore", ".pandacorp/run/\n.pandacorp/inbox/\n.pandacorp/comms/\nnode_modules/\n");
   await put(root, ".pandacorp/status.yaml", statusYaml(o));
   await put(root, ".pandacorp/verify.sh", "#!/usr/bin/env bash\n# fixture gate stub: always green\nexit 0\n", 0o755);
@@ -119,10 +120,10 @@ export async function createFixture(spec, { dir } = {}) {
     git(root, ["push", "-q", "origin", "main"], o.now);
   }
   const fx = {
-    root, remote, dir, opts: o, sha: git(root, ["rev-parse", "HEAD"], o.now),
+    root, repoRoot, remote, dir, opts: o, sha: git(root, ["rev-parse", "HEAD"], o.now),
     git: (...args) => git(root, args, o.now),
     env: (extra = {}) => testEnv(dir, extra),
-    cleanup: async () => { await rm(root, { recursive: true, force: true }); if (remote) await rm(remote, { recursive: true, force: true }); },
+    cleanup: async () => { await rm(repoRoot, { recursive: true, force: true }); if (remote) await rm(remote, { recursive: true, force: true }); },
   };
   return fx;
 }
@@ -350,8 +351,8 @@ if (isMain) {
   else if (flag("list")) console.log(PRESETS.join("\n"));
   else {
     const preset = argv.find((a) => !a.startsWith("--") && a !== val("dir"));
-    if (!preset || !val("dir")) { console.error("usage: make-fixture.mjs <preset> --dir <abs dir> [--launched] [--card] [--tracked-decisions] | --list | --selftest"); process.exit(2); }
-    const fx = await createFixture({ preset, launched: flag("launched"), card: flag("card"), trackedDecisions: flag("tracked-decisions") }, { dir: val("dir") });
+    if (!preset || !val("dir")) { console.error("usage: make-fixture.mjs <preset> --dir <abs dir> [--launched] [--card] [--tracked-decisions] [--nested] | --list | --selftest"); process.exit(2); }
+    const fx = await createFixture({ preset, launched: flag("launched"), card: flag("card"), trackedDecisions: flag("tracked-decisions"), nested: flag("nested") }, { dir: val("dir") });
     console.log(JSON.stringify({ root: fx.root, remote: fx.remote, sha: fx.sha }));
   }
 }

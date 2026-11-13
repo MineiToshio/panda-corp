@@ -318,7 +318,11 @@ export function buildSummary(input, deps = {}) {
   return {
     run_id: state.run_id,
     status: state.status,
-    need_from_owner: open.map((q) => `${sentence(q.text_es)} Si no respondes: ${q.default_es ?? "nada cambia"}.`),
+    need_from_owner: [
+      ...open.map((q) => `${sentence(q.text_es)} Si no respondes: ${q.default_es ?? "nada cambia"}.`),
+      ...unique(asArray(input.events).filter((e) => e.type === "engine_failure" && e.data?.backlog_draft).map((e) => e.data.backlog_draft))
+        .map((file) => `Revisa el borrador local del fallo del motor: ${file}. Está pendiente de llevar a la fábrica.`),
+    ],
     decided_without_owner: decidedWithoutOwner(input.doubts, state.run_id, input.events),
     parked: parkedItems(state, input.doubts, input.events),
     reviews,
@@ -328,6 +332,7 @@ export function buildSummary(input, deps = {}) {
     done: doneItems(state),
     quota: { claude: input.quota?.claude ?? null, codex: input.quota?.codex ?? null },
     units_by_state: unitsByState(state),
+    admission: input.admission ?? null,
   };
 }
 
@@ -358,8 +363,10 @@ export async function readSummary(project, deps = {}) {
   const started = events.find((e) => e.type === "run_started");
   const preflight = started?.data?.preflight ?? (await readJson(p.preflightFile, { fs }));
   const quota = await readJson(p.quotaFile, { fs });
+  const admission = await readJson(p.admissionFile, { fs });
   const summary = buildSummary({
     state,
+    admission: admission?.ladder ? { step: admission.ladder.step, motivo: admission.disk_waiting ? "disco" : admission.ladder.motivo } : null,
     events,
     doubts: await readDoubts(p.doubtsDir, fs),
     preflight,
@@ -396,6 +403,7 @@ export function renderReportEs(summary) {
   return [
     `# Informe del build ${summary.run_id}`, "",
     `Estado: ${summary.status}${summary.status_reason ? ` (${summary.status_reason})` : ""}`, "",
+    ...(summary.admission ? [`Concurrencia: paso ${summary.admission.step}. Motivo: ${summary.admission.motivo}.`, ""] : []),
     `## ${H.need}`, ...list(asArray(summary.need_from_owner)), "",
     `## ${H.decided} (${asArray(summary.decided_without_owner).length})`, ...bullets(decided), "",
     `## ${H.parked}`, ...bullets(parked), "",

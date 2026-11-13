@@ -30,14 +30,16 @@ export function FraguaLive({
     if (signal.kind !== "live" || !signal.lastSignalAt) return;
     const remaining = Math.max(
       0,
-      Date.parse(signal.lastSignalAt) + NO_SIGNAL_TTL_MS - Date.parse(nowIso),
+      Date.parse(signal.lastSignalAt) +
+        (signal.leaseTtlSeconds ? signal.leaseTtlSeconds * 1000 : NO_SIGNAL_TTL_MS) -
+        Date.parse(nowIso),
     );
     const timer = setTimeout(() => {
       setExpired(true);
       refresh();
     }, remaining);
     return () => clearTimeout(timer);
-  }, [signal.kind, signal.lastSignalAt, nowIso, refresh]);
+  }, [signal.kind, signal.lastSignalAt, signal.leaseTtlSeconds, nowIso, refresh]);
   useEffect(() => {
     if (!snapshot) return;
     const latest = latestBuildEvent(snapshot.events, project);

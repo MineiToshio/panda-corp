@@ -1,6 +1,6 @@
 import type { IconName } from "@/components/core/Icon/iconData";
 /**
- * manual-diagrams/TeamDiagram.tsx — FRD-08 ("El equipo de agentes")
+ * manual-diagrams/TeamDiagram.tsx : FRD-08 ("El equipo de agentes")
  *
  * The agent roster grouped by phase: each group is a label + a wrap of role
  * cards (Avatar + role id + role title), followed by one bio card per agent.
@@ -23,7 +23,7 @@ import { Avatar } from "@/components/core/Avatar/Avatar";
 import { BadgeIcon } from "@/components/core/BadgeIcon/BadgeIcon";
 
 // ---------------------------------------------------------------------------
-// Roster data — mirrors the prototype `groups` array (label + role ids), plus
+// Roster data : mirrors the prototype `groups` array (label + role ids), plus
 // the Spanish bio the owner reads. The role title is the Manual's static label
 // (the prototype reads CONFIG.agents `.rol`; the Manual keeps the same human
 // role names here).
@@ -139,13 +139,7 @@ const GROUPS: readonly Group[] = [
         id: "reviewer",
         role: "Revisión",
         visual: { kind: "sprite", role: "reviewer" },
-        bio: "Valida el trabajo de otros agentes a nivel de FRD. Vuelve a correr toda la evidencia, escribe tests adversariales que el implementer no vio y ejecuta mutation testing. Solo él puede marcar un FRD como VERIFIED.",
-      },
-      {
-        id: "drift-finder",
-        role: "Buscador de deriva",
-        visual: { kind: "icon", icon: "radar" },
-        bio: "Busca deriva en el FRD completo: recorre cada contrato del FRD (requisitos, criterios, componentes e interfaces) contra el código que ya estaba verificado, fuera del diff, para detectar dónde el código se alejó de lo que el FRD promete. Por cada deriva escribe una prueba que la demuestra. Corre junto al gate de cada FRD, pero solo cuando el gate usa evidencia digested, que no es el valor por defecto (el defecto es explore); también puedes encenderlo a mano con --drift-finder on. Solo propone: el reviewer sigue siendo el juez y cada deriva pasa por una prueba diferencial (DR-122) antes de convertirse en tarjeta o en reapertura de una work order. Corre sobre sonnet, con esfuerzo medio y hasta 60 llamadas a herramientas.",
+        bio: "Valida el trabajo de otros agentes a nivel de FRD. Vuelve a correr toda la evidencia, escribe tests adversariales que el implementer no vio y ejecuta mutation testing. El CLI registra su veredicto y aplica las transiciones verificadas.",
       },
       {
         id: "security-auditor",
@@ -163,12 +157,6 @@ const GROUPS: readonly Group[] = [
         role: "Memoria",
         visual: { kind: "icon", icon: "book" },
         bio: "Cosecha las lecciones del inbox de memoria (.pandacorp/run/lessons.md) y las refina en entradas duraderas en factory/memory/. Mantiene la memoria transversal de la fábrica.",
-      },
-      {
-        id: "mech",
-        role: "Ejecutor mecánico",
-        visual: { kind: "icon", icon: "settings" },
-        bio: "Ejecutor mecánico de bajo juicio: solo tiene acceso a Bash y Read, nunca a Write ni Edit, así que no puede tocar código de producto. Corre los pasos de plomería del motor de implement que no requieren decidir nada: el commit por work order, el sello de dispatch de cada oleada, el sync de rollups y la notificación de fin de run (más el archivado de changes cuando leanCloseOut está desactivado; por defecto ese paso vive en el cierre del reviewer). No reemplaza al implementer ni al reviewer: ejecuta exactamente el comando que se le indica y nada más. El safe point se queda en el implementer, porque decidir qué hacer con un ítem drenado es juicio, no un script. Corre sobre el modelo MECH (haiku por defecto, configurable con args.mechModel) con esfuerzo bajo.",
       },
     ],
   },

@@ -4,15 +4,16 @@
 //   1. Signals: macOS pressure level, swapouts, available memory (readSignals); fail loud (SignalError) so the
 //      caller falls back to safe mode (B = 1, H = 1, motivo "senal_fallida").
 //   2. Decision: decide() grants at most one B (LLM unit) or H (heavy tool) slot per call, with a motivo_limite.
-//      Never kills anything: live work finishes, launches pause (BL-0223).
+//      Never kills anything: live work finishes while the adaptive ceiling changes (DEC-15).
 //   3. Host H slots (A1, shared byte-for-byte with merge-queue.sh) and unit tokens (D4: the unit token IS the
 //      admission token; only `next` issues, report/review-record/doubt answer verify and release).
-// There is no calibration file (F3). `admit` is read-only: admit() never writes, reclaims or issues.
+// Machine-local calibration is recorded by perf.mjs. `admit` is read-only: admit() never writes, reclaims or issues.
 // This file is the public entry; the module is split by responsibility under `./admission/` (constants, signals,
 // decision, hostSlots, tokens).
 
-export { ADMISSION, MOTIVOS, SignalError, cpuCount, hMax } from './admission/constants.mjs'
+export { ADMISSION, STEPS, K_START_DEFAULT, SWAP_GROWTH_MB, UP_COOLDOWN_S, WT_NEED_GIB, DISK_FLOOR_GIB, MOTIVOS, SignalError, cpuCount, hMax } from './admission/constants.mjs'
 export { admit, decide, pendingGib, safeModeDecision } from './admission/decision.mjs'
 export { acquireHostSlot, countHostSlots, hSlotsDir, hostDir, waitHostSlot } from './admission/hostSlots.mjs'
 export { defaultExec, readSignals, rssTreeGib } from './admission/signals.mjs'
-export { hashToken, issueToken, readHistory, recordReading, releaseToken, verifyToken } from './admission/tokens.mjs'
+export { hashToken, initializeAdmission, readAdaptive, recordDiskWait, issueToken, readHistory, recordReading, releaseToken, verifyToken } from './admission/tokens.mjs'
+export { diskDecision, readDiskFreeGib } from './admission/disk.mjs'

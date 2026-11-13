@@ -45,6 +45,10 @@
       "display": "BuildLaunch",
       "aliases": ["BuildLaunch", "build_launch", "build-launch", "executor_started"]
     },
+    "build.scaled": {
+      "display": "BuildScaled",
+      "aliases": ["BuildScaled", "build_scaled"]
+    },
     "build.complete": {
       "display": "BuildComplete",
       "aliases": ["BuildComplete", "build_complete", "build-complete", "executor_terminal"]

@@ -1,5 +1,5 @@
 /**
- * manual/_components/PipelineDetail.tsx — FRD-08 "El pipeline" detail
+ * manual/_components/PipelineDetail.tsx : FRD-08 "El pipeline" detail
  *
  * What each stage actually does beyond the stage cards of the diagram: the design
  * engine routing (DR-109), the work-order sizing and the three plan gates
@@ -12,23 +12,9 @@
 
 import type React from "react";
 import { DocH } from "@/components/modules/manual-diagrams/DocH";
-import { ProseTable } from "@/components/modules/manual-diagrams/ProseTable";
+
 import { B, Body, Code, NotePanel, Ul } from "@/components/modules/manual-diagrams/prose";
 import { ManualLink } from "./ManualLink";
-
-const BUILD_MODE_ROWS: readonly (readonly string[])[] = [
-  ["Completo", "/pandacorp:implement", "Todos los FRDs pendientes, en orden de dependencias."],
-  [
-    "Parcial por FRD",
-    "/pandacorp:implement frd-05-settings",
-    "Solo el FRD indicado (o varios separados por espacio). Un gate bloquea si sus dependencias no están VERIFIED.",
-  ],
-  [
-    "Por change",
-    "/pandacorp:implement change:mc-fix-pagination",
-    "Procesa la change, crea o actualiza los FRDs y las work orders, y construye solo los afectados.",
-  ],
-];
 
 /** The per-stage detail, from Design to the reverse flow (code to docs). */
 export function PipelineDetail(): React.JSX.Element {
@@ -170,8 +156,8 @@ export function PipelineDetail(): React.JSX.Element {
         El Build Plan del blueprint lleva una <B weight={500}>tabla DAG obligatoria</B> (WO,
         dependencias, artifacts, foundation, paralelo-con) que el motor lee directamente, y el
         readiness gate verifica además que los <Code>artifacts</Code> declarados sean{" "}
-        <B weight={500}>completos</B>, no solo disjuntos: con las oleadas globales, una omisión
-        puede chocar entre FRDs.
+        <B weight={500}>completos</B>, no solo disjuntos: con trabajo concurrente, una omisión puede
+        chocar entre FRDs.
       </Body>
       <Body margin="0 0 8px">
         Antes de que las work orders pasen a <Code>ACTIVE</Code>, el plan cruza{" "}
@@ -222,62 +208,22 @@ export function PipelineDetail(): React.JSX.Element {
 
       <DocH title="Build (implement)" />
       <Body>
-        El motor de <Code>implement</Code> orquesta subagentes especializados que construyen las
-        work orders con TDD (RED, GREEN, refactor), y el <B weight={500}>reviewer</B> valida cada
-        FRD antes de marcarlo VERIFIED. Si una work order falla la revisión, el motor{" "}
-        <B weight={500}>repara el fallo puntual en sitio antes de reconstruirla</B> y sube el modelo
-        a Opus cuando la work order es difícil o ya falló (DR-073). El mecanismo completo está en{" "}
-        <ManualLink group="workflows" slug="wf-pandacorp-build">
-          pandacorp-build
-        </ManualLink>
-        .
+        <Code>/pandacorp:implement</Code> es la entrada única. El CLI común fija el alcance, admite
+        unidades según recursos y coordina trabajadores locales. Un revisor de la otra compañía
+        contrasta el FRD completo con pruebas trazables y evidencia adversarial.
       </Body>
-      <Body margin="0 0 8px">Reglas del ciclo de rechazo y del gate:</Body>
-      <Ul>
-        <li>
-          <B weight={500}>Presupuesto de convergencia (DR-107):</B> el parche puede corregir los
-          fallos que sus propios edits introdujeron (hasta 2 ciclos internos); si el bloqueador es
-          un test adversarial defectuoso del reviewer (imposible de satisfacer por una
-          implementación correcta), un agente independiente repara el <i>test</i> y nunca se
-          descarta un build correcto (BL-0001); y si aun así hay que revertir, los tests con
-          evidencia se preservan y la work order se reintenta una vez en la misma corrida desde una
-          base limpia antes de diferirse.
-        </li>
-        <li>
-          <B weight={500}>Verificación acotada por FRD (DR-106):</B> vitest solo de lo afectado y,
-          del navegador, solo smoke y shell; la suite e2e completa (visual y responsive) corre una
-          sola vez al cierre.
-        </li>
-        <li>
-          <B weight={500}>Context pack (DR-108):</B> cada builder recibe la ruta de su work order y
-          los criterios EARS que le tocan, extraídos una sola vez por el planner, para construir
-          bien al primer intento en vez de releer todos los documentos.
-        </li>
-        <li>
-          <B weight={500}>Modelos por tarea:</B> los pasos mecánicos (commits, stamps de estado,
-          sync, archivo, avisos) corren en el modelo económico (haiku); el trabajo real mantiene
-          sonnet como piso con escalada a opus (DR-073).
-        </li>
-        <li>
-          El motor además emite los eventos <Code>achievement</Code> y <Code>gate</Code> que
-          alimentan la Bóveda y el tribunal de La Fragua (BL-0020).
-        </li>
-      </Ul>
-      <Body margin="14px 0 8px">La habilidad acepta tres modos de construcción:</Body>
-      <ProseTable
-        label="Modos de construcción de implement"
-        columns={["Modo", "Invocación", "Qué construye"]}
-        rows={BUILD_MODE_ROWS}
-        monoColumns={[1]}
-      />
-      <Body margin="10px 0 0">
-        Los identificadores se normalizan solos: <Code>frd-05-settings</Code>,{" "}
-        <Code>docs/frds/frd-05-settings</Code> y <Code>docs/frds/frd-05-settings/frd.md</Code> son
-        equivalentes, y lo mismo para el nombre de una change (con o sin <Code>.md</Code>, con o sin
-        ruta). Si hay dependencias sin VERIFIED, el motor se detiene antes de escribir código y
-        lista exactamente qué implementar primero. El flujo de cada modo está en la guía{" "}
-        <ManualLink group="guides" slug="g-implement-parcial">
-          Build parcial: por FRD o por change
+      <Body>
+        Un gate rojo repara solo las work orders atribuidas al fallo. Solo build y patch consumen
+        las tres ejecuciones por unidad. Las dudas no resueltas aparcan sus dependientes mientras
+        continúa el resto. Todo cambio versionado va por integración y <Code>merge-queue</Code>; una
+        rama verificada no significa entrega en main.
+      </Body>
+      <Body>
+        En Comandos y Campaña eliges Construir, Reanudar u Objetivo: FRD o tarjeta.{" "}
+        <Code>/pandacorp:implement --resume &lt;run-id&gt;</Code> retoma con las mismas garantías de
+        propiedad. El detalle está en{" "}
+        <ManualLink group="concepts" slug="construccion-desatendida">
+          el motor v2
         </ManualLink>
         .
       </Body>
@@ -296,9 +242,9 @@ export function PipelineDetail(): React.JSX.Element {
 
       <DocH title="Avance entre fases" />
       <Body>
-        El avance es siempre <B weight={500}>explícito</B>: cada skill termina con{" "}
-        <Code>advance_pending: true</Code> y espera tu «ok». Volver a ejecutar la misma skill refina
-        el resultado, no lo regenera ni avanza solo (DR-032). El archivo{" "}
+        El avance de las fases manuales es siempre <B weight={500}>explícito</B>: cada skill termina
+        con <Code>advance_pending: true</Code> y espera tu «ok». Volver a ejecutar la misma skill
+        refina el resultado, no lo regenera ni avanza solo (DR-032). El archivo{" "}
         <Code>.pandacorp/status.yaml</Code> de cada proyecto registra la fase actual, la versión y
         el SHA del último commit verde, y Mission Control lo lee para mostrar el estado en el
         portfolio.
@@ -307,8 +253,9 @@ export function PipelineDetail(): React.JSX.Element {
       <DocH title="Iterar sin retroceder" />
       <Body>
         Puedes añadir funcionalidades o cambiar comportamientos en cualquier momento del pipeline,
-        sin volver a la fase product: se piden por <Code>/pandacorp:change</Code>, que los clasifica
-        y los deja en la cola, y el motor crea las work orders nuevas y las integra en el build.
+        sin volver a la fase product: se piden por <Code>/pandacorp:implement</Code> con un alcance
+        fijo. Para anotarlos sin construir se escribe un draft y la sesión ejecuta{" "}
+        <Code>card check</Code>; no se incorporan a otro run.
       </Body>
 
       <DocH title="El flujo inverso: del código a los documentos" />
@@ -320,7 +267,7 @@ export function PipelineDetail(): React.JSX.Element {
         orders, blueprint, FDD) y a <Code>docs/decision-log.md</Code>. Como el código pasa a ser el
         oráculo, <B weight={500}>documenta pero no verifica</B>: tú aportas la intención en un gate,
         y un bug o una feature documentada pero no construida no se escribe en la especificación: se
-        deriva a <Code>/pandacorp:change</Code>. El detalle está en la guía «Documentar cambios
+        deriva a <Code>/pandacorp:implement</Code>. El detalle está en la guía «Documentar cambios
         hechos a mano».
       </Body>
     </>

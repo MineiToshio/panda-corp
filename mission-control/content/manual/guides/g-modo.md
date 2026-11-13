@@ -1,11 +1,11 @@
 ---
-title: "Elegir modo de construcción"
+title: "Construir, reanudar o elegir objetivo"
 group: guides
 order: 3
 ---
 
-# Elegir modo de construcción
+# Construir, reanudar o elegir objetivo
 
-Cómo elegir el modo de construcción de /pandacorp:implement (pro, balanced, powerful, deep).
+Usa /pandacorp:implement para construir, /pandacorp:implement --resume para reanudar, o añade un FRD o change:<id> como objetivo. El CLI decide los modelos y ajusta la concurrencia; no eliges modos de potencia.
 
 > El cuerpo de esta página se compone en React (`src/app/manual/manualPages.tsx`). Este markdown solo respalda el índice del Manual (título, grupo y orden): no edites su prosa aquí.

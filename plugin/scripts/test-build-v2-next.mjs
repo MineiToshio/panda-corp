@@ -43,7 +43,7 @@
 //     with token_hash = sha256(token), worker, worktree and branch set; the raw token is returned once and persisted nowhere but the brief.
 //   Quota: next reads build/quota.json (and the rollout tail under CODEX_HOME) through quota.mjs; the test writes quota.json with the real
 //     recordClaude/recordCodex. Drive standby: build/drive/standby.json {pid, armed_at, run_id, state}.
-//   Terminal-action status mapping (D32/A11): paused-quota and paused-infra -> status `paused`; waiting-owner -> `waiting_owner` (or `waiting_gate`
+//   Terminal-action status mapping (D32/A11): paused-quota -> status `paused`; waiting-owner -> `waiting_owner` (or `waiting_gate`
 //     when every blocker is a gate); stop -> `stopped`; deadlock -> any non-active status; journal `paused{reason}` / `run_stopped{reason}`.
 //   `deferred reviews`, `harvest` internals and the G2 spawn are only pinned through the call order and one jobs.* call (see the cases).
 import { cp, mkdtemp, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
@@ -102,7 +102,7 @@ const at = (ms, base = NOW) => new Date(Date.parse(base) + ms).toISOString();
 const RUN = "run-c02";
 const CATALOG_KEYS = ["haiku", "sonnet", "opus", "luna", "sol", "astra"];
 const EFFORTS = ["low", "medium", "high", "xhigh"];
-const TERMINAL = ["done", "paused-quota", "paused-infra", "waiting-owner", "deadlock", "stop"];
+const TERMINAL = ["done", "paused-quota", "waiting-owner", "deadlock", "stop"];
 
 // ---- unit and state builders ------------------------------------------------------------------------------------------
 const frdOf = (wo) => (wo.startsWith("WO-01") ? "frd-01-alpha" : "frd-02-beta");
@@ -378,12 +378,12 @@ await test("dispatch: output shape, token hygiene, state and journal after one c
   eq(leaks, [], "the raw unit token must never be persisted (state, journal, admission.json, events)");
 }));
 
-await test("width: with clean signals the ceiling is 2: two of three ready units are dispatched, never three", async () => withCase({ units: [B("WO-01-001"), B("WO-01-002"), B("WO-02-001")] }, async (c) => {
+await test("width: with clean signals step 5 dispatches all three independent ready units", async () => withCase({ units: [B("WO-01-001"), B("WO-01-002"), B("WO-02-001")] }, async (c) => {
   const r = await callNext(c);
-  eq(r.units.length, 2, "admission ceiling (K_TECHO = 2) bounds one call");
+  eq(r.units.length, 3, "step 5 allows all three ready units");
   eq(r.admit.decision, "grant", "admit");
   const queued = (await c.readState()).units.filter((u) => u.state === "queued");
-  eq(queued.length, 1, "the third unit stays queued");
+  eq(queued.length, 0, "all ready units were dispatched");
 }));
 
 await test("order of work (PLAN 3.3): harvest, then integrate, then quota and planner, then admission, then units", async () => withCase({
@@ -420,6 +420,55 @@ await test("integration: when every unit of an FRD is integrated a G2 job is spa
   const iIntegrate = c.log.findIndex((e) => e.mod === "integrate");
   const g2 = c.log.findIndex((e, i) => i > iIntegrate && e.mod === "jobs" && /g2/i.test(JSON.stringify(e.args)) && /frd-01-alpha/.test(JSON.stringify(e.args)));
   ok(iIntegrate >= 0 && g2 > iIntegrate, "after integrating the last unit of frd-01-alpha, a jobs.* call naming g2 and frd-01-alpha must follow");
+}));
+
+await test("PATCH2: unattributed gate patch dispatch keeps every WO unchanged", async () => withCase({
+  units: [B("WO-01-001", { state: "verified" }), { id: "u-patch-g3", kind: "patch", frd: null, wos: ["WO-01-001"] }],
+}, async (c) => {
+  await mkdir(c.P.unitDir("u-patch-g3"), { recursive: true });
+  await writeFile(path.join(c.P.unitDir("u-patch-g3"), "gate-failure.json"), JSON.stringify({ attributed: false }));
+  const r = await callNext(c);
+  eq(unitIds(r), ["u-patch-g3"], "fallback dispatched");
+  ok(!c.log.some((e) => e.fn === "transitionWorkOrders"), "fallback must not reopen any WO");
+}));
+
+await test("PATCH2: selective reviews accept healthy verified siblings and explicit null-FRD patch dependencies", async () => {
+  const { buildCandidates } = await import("../runtime/build/next/candidates.mjs");
+  const { newUnit } = await must("state.mjs");
+  for (const nullFrd of [false, true]) {
+    const units = [newUnit(B("WO-01-001", { state: "verified", worker: WORKER({ model: "opus" }) })),
+      newUnit({ id: "u-patch", kind: "patch", frd: nullFrd ? null : "frd-01-alpha", wos: ["WO-01-002"], state: nullFrd ? "integrated" : "reviewing", worker: WORKER() }),
+      newUnit(R(nullFrd ? null : "frd-01-alpha", { depends_on: nullFrd ? ["u-patch"] : [] }))];
+    await withCase({ units }, async (c) => {
+      const state = await c.readState();
+      const routed = [];
+      const d = { env: c.env, routing: { reviewCell: (input) => { routed.push(input); return { used: { runtime: "codex", model: "sol", effort: "high" } }; } } };
+      const run = { d, ref: { project: c.root, epoch: c.epoch, deps: d }, paths: c.P };
+      const out = await buildCandidates(run, state, {}, { ready: [] }, {}, []);
+      eq(out.list.map((x) => x.unit.id), [units[2].id], "selective review is dispatchable");
+      eq(routed[0].authors.map((x) => x.model), ["sonnet"], "review routes from the patch author only");
+      eq((await stateUnit(c, units[2].id)).depends_on, ["u-patch"], "review-record receives the same selective unit set");
+    });
+  }
+});
+
+await test("PATCH2: an integrated null-FRD fallback queues its own review and briefs only the patch diff", async () => withCase({
+  nested: true,
+  units: [B("WO-01-001", { state: "verified", worker: WORKER() }), R("frd-01-alpha", { state: "verified" }),
+    { id: "u-patch-g3", kind: "patch", frd: null, wos: ["WO-01-001"], state: "integrated", worker: WORKER() }],
+}, async (c) => {
+  const root = (await c.readState()).integration.worktree;
+  const before = c.fx.git("-C", root, "rev-parse", "HEAD");
+  await writeFile(path.join(root, "src/alpha/list.ts"), "export const corrected = true;\n");
+  c.fx.git("-C", root, "add", "src/alpha/list.ts");
+  c.fx.git("-C", root, "commit", "-q", "-m", "fix: gate fallback", "-m", "Unit: u-patch-g3");
+  const tip = c.fx.git("-C", root, "rev-parse", "HEAD");
+  const result = await callNext(c);
+  eq(unitIds(result), ["u-review-u-patch-g3"], "fallback receives an independent review");
+  const brief = c.log.find((e) => e.fn === "writeUnitBrief").args[0];
+  eq(brief.extra.review.range, `${before}..${tip}`, "brief excludes earlier FRD work");
+  eq((await stateUnit(c, "u-build-wo-01-001")).state, "verified", "healthy WO stays verified");
+  eq((await stateUnit(c, "u-patch-g3")).state, "integrated", "patch waits for the review verdict");
 }));
 
 // =====================================================================================================================
@@ -490,7 +539,7 @@ await test("D19: a unit with a pending reversible answer goes LAST: the others t
   units: [B("WO-02-001", { pending_answer: "q-risk-paths" }), B("WO-01-001"), B("WO-01-002")], questions: QUESTIONS,
 }, async (c) => {
   c.plannerRound = ["u-build-wo-02-001", "u-build-wo-01-001", "u-build-wo-01-002"];
-  const r1 = await callNext(c);
+  const r1 = await callNext(c, { k: 2 });
   eq(unitIds(r1), ["u-build-wo-01-001", "u-build-wo-01-002"], "the two answer-free units take both slots; the pending unit is not first");
   eq((await stateUnit(c, "u-build-wo-02-001")).state, "queued", "the pending unit waits");
   await c.setUnitState("u-build-wo-01-001", "landed"); await c.setUnitState("u-build-wo-01-002", "landed");
@@ -566,20 +615,38 @@ await test("admission: exactly one reading is recorded per call (dispatch and wa
   eq(c.log.filter((e) => e.fn === "recordReading").length - before, 1, "a dispatching call records one reading too, not one per candidate");
 }));
 
-await test("L4 pressure: sustained > 10 min -> paused-infra, applied; 5 min -> no terminal action, nothing dispatched", async () => {
-  await withCase({ units: [B("WO-01-001")], signals: "critical", admission: { tokens: {}, history: [{ L: 4, swapouts: 9000, at: at(-12 * 60e3) }], l4_since: at(-11 * 60e3) } }, async (c) => {
-    const statusYaml = await readFile(c.P.statusYaml, "utf8");
-    const r = await callNext(c);
-    await expectApplied(c, r, { action: "paused-infra", status: "paused", journal: ["paused"], statusYamlBefore: statusYaml });
-  });
-  await withCase({ units: [B("WO-01-001")], signals: "critical", admission: { tokens: {}, history: [{ L: 4, swapouts: 9000, at: at(-6 * 60e3) }], l4_since: at(-5 * 60e3) } }, async (c) => {
-    const r = await callNext(c);
-    ok(!TERMINAL.includes(r.action), `L=4 for 5 min is not terminal, got ${r.action}`);
-    eq(r.action, "wait", "a critical reading denies the grant: wait");
-    eq(r.units ?? [], [], "nothing is dispatched at L=4");
-    await expectNotApplied(c);
+await test("L4 pressure: critical for any duration lowers to 1, dispatches one and preserves the lease", async () => {
+  await withCase({ units: [B("WO-01-001"), B("WO-02-001")], signals: "critical" }, async (c) => {
+    const r = await callNext(c); eq(r.action, "dispatch", "never a memory pause"); eq(r.units.length, 1, "one builder");
+    eq((await c.readState()).status, "active", "active"); ok(await c.leaseNow(), "lease kept");
+    eq(JSON.parse(await readFile(c.P.admissionFile, "utf8")).ladder.step, 1, "critical step");
+    eq(c.log.filter((e) => e.fn === "emitEvent" && e.args?.[1]?.name === "build.scaled").length, 1, "scale event emitted once");
   });
 });
+
+await test("disk: low space returns wait disk, no token/worktree, Spanish note and one notification across retries", async () => withCase({ units: [B("WO-01-001")] }, async (c) => {
+  c.env.PANDACORP_DISK_FREE_GIB = "16.49"; const notices = [];
+  for (let i = 0; i < 2; i++) {
+    const r = await callNext(c, {}, { notify: (n) => notices.push(n) });
+    eq(r.action, "wait", "wait"); eq(r.wait.reason, "disk", "reason"); eq(r.admit.motivo_limite, "disco", "motivo");
+    ok(r.notes_es.some((n) => n.includes("Disco")), "Spanish note");
+  }
+  eq(notices.length, 1, "one notification");
+  eq(Object.keys(JSON.parse(await readFile(c.P.admissionFile, "utf8")).tokens).length, 0, "no tokens");
+  ok(!c.log.some((e) => e.fn === "prepareUnitWorktree"), "no worktree creation");
+}));
+
+await test("disk: existing attempt worktree requeue is allowed even with zero free space", async () => withCase({ units: [B("WO-01-001")] }, async (c) => {
+  c.env.PANDACORP_DISK_FREE_GIB = "0";
+  const wt = c.P.unitWorktree("u-build-wo-01-001", 1); await mkdir(wt, { recursive: true }); await writeFile(path.join(wt, ".git"), "gitdir: fixture");
+  const r = await callNext(c); eq(r.action, "dispatch", "existing worktree reused"); eq(r.units.length, 1, "one unit");
+}));
+
+await test("disk: G2 needing a fresh snapshot waits without a job or env-infra handback", async () => withCase({ units: [B("WO-01-001", { state: "integrated" })] }, async (c) => {
+  c.env.PANDACORP_DISK_FREE_GIB = "16";
+  const r = await callNext(c); eq(r.action, "wait", "wait"); eq(r.wait.reason, "disk", "G2 disk wait");
+  ok(!c.log.some((e) => e.fn === "startJob" || e.fn === "handbackCommand"), "no G2 job or handback");
+}));
 
 // =====================================================================================================================
 // Quota (D9, A11)
@@ -698,10 +765,9 @@ await test("terminal: queued units but the planner can make no progress and nobo
   await expectApplied(c, r, { action: "deadlock", status: ["paused", "stopped", "waiting_owner"], journal: ["paused", "run_stopped"], statusYamlBefore: statusYaml });
 }));
 
-await test("A11 priority: paused-quota beats paused-infra and stop; paused-infra beats stop", async () => {
-  const sustainedL4 = { tokens: {}, history: [{ L: 4, swapouts: 9000, at: at(-12 * 60e3) }], l4_since: at(-11 * 60e3) };
-  await withCase({ units: [B("WO-01-001")], quota: { claude: 95, codex: 95 }, signals: "critical", admission: sustainedL4, handbacks: 3 }, async (c) => eq((await callNext(c)).action, "paused-quota", "quota first"));
-  await withCase({ units: [B("WO-01-001")], signals: "critical", admission: sustainedL4, handbacks: 3 }, async (c) => eq((await callNext(c)).action, "paused-infra", "infra before stop"));
+await test("A11 priority: quota still pauses; critical memory never masks an env-infra stop", async () => {
+  await withCase({ units: [B("WO-01-001")], quota: { claude: 95, codex: 95 }, signals: "critical", handbacks: 3 }, async (c) => eq((await callNext(c)).action, "paused-quota", "quota first"));
+  await withCase({ units: [B("WO-01-001")], signals: "critical", handbacks: 3 }, async (c) => eq((await callNext(c)).action, "stop", "env-infra stops"));
 });
 
 await test("A11: a terminal action is returned only when nothing runs: with a running unit it is `wait` (workers_running) and nothing is applied", async () => {
@@ -1007,6 +1073,47 @@ await test("planRound attaches static zones via risk.staticZones: only WOs that 
 
 await test("module: plugin/runtime/build/next.mjs exists and exports the scheduler entry point", async () => { await loadNext(); });
 
+await test("DENG bootstrap exit 4 from a unit returns wait disk, requeues and releases admission", async () => withCase({ units: [B("WO-01-001")] }, async c => {
+  const unit = (await c.readState()).units[0];
+  const units = fake("units", c.log, { prepareUnitWorktree: async () => ({ worktree: c.P.unitWorktree(unit.id), branch: c.P.unitBranch(RUN, unit.id), bootstrap: { ran: true, exit: 4 } }) }, { strict: true });
+  const r = await callNext(c, {}, { units });
+  eq(r.action, "wait", "action"); eq(r.wait.reason, "disk", "reason"); eq(r.units, [], "no dispatch");
+  eq((await stateUnit(c, unit.id)).state, "queued", "unit requeued"); eq((await stateUnit(c, unit.id)).attempt, 1, "no execution spent");
+  const adm = JSON.parse(await readFile(c.P.admissionFile, "utf8")); ok(!adm.tokens?.[unit.id], "token released");
+}));
+
+await test("DENG integration bootstrap disk refusal waits before integration, never hands back", async () => withCase({ units: [B("WO-01-001")] }, async c => {
+  await mkdir(path.join(c.P.integrationWorktree, ".pandacorp"), { recursive: true });
+  await writeFile(path.join(c.P.integrationWorktree, ".pandacorp/worktree-bootstrap.sh"), "exit 4\n");
+  const r = await callNext(c); eq(r.action, "wait", "action"); eq(r.wait.reason, "disk", "reason");
+  eq((await c.readState()).handbacks_in_a_row, 0, "no env-infra handback"); eq(preparedIds(c), [], "no unit prepared");
+}));
+
+await test("DENG G2 bootstrap disk exit waits without gate verdict, patch or handback", async () => withCase({ units: [B("WO-01-001", { state: "integrated" })] }, async c => {
+  const job = { id: "g2-disk", kind: "g2", unit: null, frd: "frd-01-alpha", pid: null, cwd: c.P.integrationWorktree, h_slot: true, started_at: NOW, state: "running", exit: null, worker_id: null };
+  await c.writeState(s => ({ ...s, jobs: [job] }));
+  const { G2_DISK_EXIT } = await import("../runtime/build/next/constants.mjs");
+  await mkdir(c.P.jobDir(job.id), { recursive: true }); await writeFile(c.P.jobExitFile(job.id), `${G2_DISK_EXIT}\n`);
+  const r = await callNext(c); eq(r.action, "wait", "action"); eq(r.wait.reason, "disk", "reason");
+  const after = await c.readState(); eq(after.units[0].state, "integrated", "work unchanged"); eq(after.handbacks_in_a_row, 0, "no handback");
+  ok(!after.units.some(u => u.kind === "patch"), "no patch"); ok(!(await c.events()).some(e => e.type === "gate"), "no verdict");
+}));
+
+await test("DENG blocked terminal reclaims integration while preserving its branch", async () => withCase({ nested: true, units: [B("WO-01-001", { state: "blocked" })] }, async c => {
+  const r = await callNext(c); eq(r.action, "done", "blocked units are terminal");
+  ok(!existsSync(c.P.integrationWorktree), "integration checkout reclaimed");
+  ok(c.fx.git("for-each-ref", "--format=%(refname)", "refs/heads/").includes(c.P.integrationBranch(RUN)), "branch retained");
+}));
+
 restoreEnv();
+await test("DFIX nested integration root resolves bootstrap and preserves wait disk", async () => withCase({ nested: true, units: [B("WO-01-001")] }, async c => {
+  const s = await c.readState();
+  await writeFile(path.join(s.integration.worktree, ".pandacorp/worktree-bootstrap.sh"), "exit 4\n");
+  await c.writeState(state => { state.integration.worktree = c.P.integrationWorktree; });
+  const r = await callNext(c);
+  eq(r.action, "wait", "action"); eq(r.wait.reason, "disk", "nested bootstrap disk reason");
+  eq(r.units, [], "nothing dispatched before bootstrap succeeds");
+}));
+
 console.log(`RESULT: ${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

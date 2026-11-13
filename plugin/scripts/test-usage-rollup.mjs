@@ -9,7 +9,7 @@
 //   (d) a missing --dir (fail loud, no summary line);
 //   (e) an unpriced/unknown model id (tallied, never crashes, flagged — never invents a cost);
 //   (f) a dated-snapshot model id falling back to its family's price.
-// Plain node, no framework — mirrors plugin/scripts/test-build-run-id.mjs's `ok()` idiom.
+// Plain node, no framework — uses a plain `ok()` assertion helper.
 
 import { execFile } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'

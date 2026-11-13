@@ -100,35 +100,29 @@ describe("Órbita campaign", () => {
       "href",
       "/projects/sample/resumen",
     );
-    await user.click(screen.getByText("Elegir modo de construcción"));
-    expect(screen.getByRole("group", { name: /Modo de construcción/ })).toBeVisible();
+    await user.click(screen.getByText("Construir o reanudar"));
+    expect(screen.getByRole("group", { name: /Acción de construcción/ })).toBeVisible();
   });
-  it("uses project mode memory for architecture and build, with session-only modes for unlinked ideas", async () => {
+  it("AC-11-009: campaign shares build/resume and supplied project targets", async () => {
     const user = userEvent.setup();
-    localStorage.clear();
-    const view = render(
-      <CampaignPipeline slug="idea-name" project="linked-project" activePhase={3} />,
+    render(
+      <CampaignPipeline
+        slug="idea"
+        project="project"
+        activePhase={3}
+        targets={[{ value: "FRD-01", label: "Feature" }]}
+      />,
     );
-    await user.click(screen.getByText("Elegir modo de construcción"));
-    await user.click(screen.getByRole("button", { name: /Potente/ }));
-    expect(localStorage.getItem("mc:build-mode:linked-project")).toBe("powerful");
-    expect(localStorage.getItem("mc:build-mode:idea-name")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "5. Construcción: en espera" }));
-    expect(screen.getByTestId("build-mode-picker")).toBeInTheDocument();
-    view.unmount();
-    window.history.replaceState(null, "", "/board/idea-name/campaign");
-    render(<CampaignPipeline slug="idea-name" activePhase={3} />);
-    expect(screen.getByTestId("build-mode-picker")).toBeInTheDocument();
-    await user.click(screen.getByText("Elegir modo de construcción"));
-    await user.click(screen.getByRole("button", { name: /Potente/ }));
+    await user.click(screen.getByText("Construir o reanudar"));
+    await user.click(screen.getByRole("button", { name: "Reanudar" }));
     expect(
-      screen.getByText(
-        (_text, element) =>
-          element?.tagName === "CODE" && element.textContent === "/pandacorp:implement powerful",
-      ),
+      screen.getByRole("button", { name: "Copiar /pandacorp:implement --resume" }),
     ).toBeVisible();
-    expect(localStorage.getItem("mc:build-mode:idea-name")).toBeNull();
-    expect(localStorage.getItem("mc:build-mode:undefined")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Objetivo: FRD o tarjeta" }));
+    await user.selectOptions(screen.getByRole("combobox"), "FRD-01");
+    expect(
+      screen.getByRole("button", { name: "Copiar /pandacorp:implement FRD-01" }),
+    ).toBeVisible();
   });
   it.each([
     "a$&b",

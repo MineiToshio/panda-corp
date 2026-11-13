@@ -1,6 +1,6 @@
 ---
 name: worktrees
-description: Cleans up a repository's git worktrees and leftover branches — the parallel sessions (claude/*, codex/*), review folders, temp checkouts and build-engine lanes/gates that pile up over weeks. It removes on its own ONLY what is provably safe (already merged into the default branch, no uncommitted changes, idle, not in use), never touches a locked/deployed worktree, a live build's lanes and gates, or the checkout the session stands in, and walks the owner through everything else one item at a time in plain Spanish (what it contains, where it came from, how old, commits ahead, uncommitted files) with a recommendation to integrate or discard. Use it inside a Pandacorp project folder or in the factory whenever the owner says "limpia los worktrees", "depura las ramas", "tengo muchos worktrees", "qué ramas quedan sin mergear", "ordena el repo", or Mission Control's Inicio says a project needs `/pandacorp:worktrees`.
+description: Cleans up a repository's git worktrees and leftover branches — the parallel sessions (claude/*, codex/*), review folders, temp checkouts and build-engine lanes/gates that pile up over weeks. It removes on its own ONLY what is provably safe (merged, clean and idle worktrees, or eligible finished-run engine worktrees; never in use), never touches a locked/deployed worktree, a live build's lanes and gates, or the checkout the session stands in, and walks the owner through everything else one item at a time in plain Spanish (what it contains, where it came from, how old, commits ahead, uncommitted files) with a recommendation to integrate or discard. Use it inside a Pandacorp project folder or in the factory whenever the owner says "limpia los worktrees", "depura las ramas", "tengo muchos worktrees", "qué ramas quedan sin mergear", "ordena el repo", or Mission Control's Inicio says a project needs `/pandacorp:worktrees`.
 ---
 
 # /pandacorp:worktrees
@@ -18,6 +18,22 @@ The judgment of what is safe is NOT yours to make by eye: a script decides it de
    node "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-sweep.mjs" scan --repo . --self "$PWD"
    ```
    `--self` is the checkout this session stands in — always pass it, so the script protects it. Every item comes back as `safe`, `ask` or `protected`, with: `branch`/`path`, `origin` (claude, codex, build-lane, build-gate, review, temp, deployment, manual), `subject` (last commit), `ageHours`/`idleHours`, `ahead` (commits not in the default branch), `uncommitted`, `ownerState` (gitignored owner files inside it), `patchEquivalent`, `mergeClean`, and for `ask` a `suggestion` (`integrate | discard | keep | review` + why). `projects[]` says whether a build is live. If the JSON reports `refused`, stop and tell the owner why.
+
+**Finished engine runs.** The same predicate is used here and by session cleanup. Only exact worktree roots
+   `.pandacorp/run/build/{wt/*,g2/*,integration}`, `build-archive/<run>/{wt/*,g2/*,integration}`,
+   and legacy `run/{lanes/*,gate-worktree*}` are eligible. Current v2 runs must be `finished` or `stopped`;
+   archive roots are eligible unless parked at `waiting_gate`. No live/resumable lease, dirty files,
+   owner state, nested worktrees, process cwd, Git lock or worktree lock may remain. Only bootstrap's
+   tracked skip-worktree files (`.claude/launch.json`, root/nested `e2e/server-env.json`) may differ,
+   and only while their SHA-256 matches a bootstrap provenance manifest bound to the worktree's
+   path and `.git` identity. Without provenance, a hidden difference always retains the tree.
+   The same dirty/hidden/protected-state checks apply to ordinary worktrees: `.pandacorp/run`
+   inside them is owner state. Ignored launch/env output is reclaimable only with a matching
+   bootstrap hash or the session producer's recorded hash; later edits invalidate that evidence.
+   `build-suspended` and every other protected-state path stay protected. Eligible engine roots count
+   as `safe` without a merge/idle requirement; all their branch refs are retained. Stale regular
+   `.pandacorp/run/worktrees/*.json` manifests are pruned only when their absolute target is absent;
+   malformed entries and symlinks stay. `--dry-run` reports without deleting.
 
 2. **Remove the safe set without asking** — the owner's standing agreement is that merged + clean + idle goes automatically. The exception is the owner's own words in this request: if they said not to touch anything (else) without asking, or only to report, their instruction wins — list the safe items by name in one question ("ya están en main y limpios, ¿los borro?") and run `clean` only after they say yes.
    ```bash
@@ -66,7 +82,7 @@ The judgment of what is safe is NOT yours to make by eye: a script decides it de
 | `in-use` | some running process has its cwd inside it (another session, a dev server) |
 | `live-build` | a build-engine worktree (`.pandacorp/run/**`) or `lane/*` branch of a project whose build is live or resumable — the same liveness rule `/pandacorp:implement` uses (`check-build-liveness.sh`) plus any atomic lease, stale ones included |
 
-Never edit or delete anything under a `.pandacorp/` directory or `factory/{ideas,memory,profile.md,portfolio.md}` by hand while doing this (PROTECTED STATE PATHS, AGENTS.md): the script already refuses to auto-remove a worktree holding such files and snapshots them on a confirmed discard.
+Except for the engine-root exception above, never edit or delete anything under a `.pandacorp/` directory or `factory/{ideas,memory,profile.md,portfolio.md}` by hand while doing this (PROTECTED STATE PATHS, AGENTS.md): the script already refuses to auto-remove a worktree holding such files and snapshots them on a confirmed discard.
 
 ## Other runtimes
 
@@ -116,8 +132,11 @@ variables inherited from the coordinator, waits for the child and performs finis
 It preserves nonzero command/cleanup exits. Do not wrap a launcher that only prints a Workflow
 call: its return is not build completion. Tool-driven builds must use the explicit protocol.
 
-This session teardown never removes paths inside `.pandacorp/` (including gate crash evidence),
-shared caches, historical unregistered temporary clones, or worktrees of parallel sessions.
+In addition to receipt-owned worktrees, `finish` scans the session repository for eligible finished-run
+engine roots using the exact same predicate as `worktree-sweep`. Engine branches and non-worktree
+run evidence remain intact. Other protected state, shared caches, historical unregistered temporary
+clones and unrelated session worktrees are retained. Kept engine roots are reported with their reasons;
+the receipt remains available for a later retry.
 Use `bash .pandacorp/session-cleanup.sh create|register|finish ...` in projects, and
 `node plugin/scripts/session-cleanup.mjs create|register|finish ...` from factory main;
 these are the exact narrowly preauthorized transports. Never preauthorize arbitrary `run`

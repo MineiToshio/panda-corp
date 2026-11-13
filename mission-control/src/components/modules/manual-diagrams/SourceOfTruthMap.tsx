@@ -1,7 +1,7 @@
 import { Icon } from "@/components/core/Icon/Icon";
 import type { IconName } from "@/components/core/Icon/iconData";
 /**
- * manual-diagrams/SourceOfTruthMap.tsx — FRD-08 ("Operar desde cualquier agente")
+ * manual-diagrams/SourceOfTruthMap.tsx : FRD-08 ("Operar desde cualquier agente")
  *
  * The single-source-of-truth map (agent-portability standard, "Maintenance"):
  * every piece has exactly ONE source; the "other side" is a symlink, an import,
@@ -38,7 +38,7 @@ type Piece = {
 
 const PIECES: readonly Piece[] = [
   {
-    piece: "Los 25 skills",
+    piece: "Los skills activos",
     source: "plugin/skills/*/SKILL.md",
     otherSide: ".agents/skills → plugin/skills · el mismo fichero físico",
     mechanism: "symlink",
@@ -56,7 +56,7 @@ const PIECES: readonly Piece[] = [
     mechanism: "shared",
   },
   {
-    piece: "Los 14 agentes del equipo",
+    piece: "Los agentes del equipo",
     source: "plugin/agents/*.md",
     otherSide: ".codex/agents/*.toml · script generate-codex-agents.mjs (cabecera «do not edit»)",
     mechanism: "generated",

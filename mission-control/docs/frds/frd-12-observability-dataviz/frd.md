@@ -4,7 +4,7 @@ type: frd
 title: FRD-12 — Observability and data visualization
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-10-22'
+last_updated: '2026-11-12'
 ui: true
 visual_source: docs/design/prototype/index.html
 visual_source_mocks: docs/frds/frd-12-observability-dataviz/mocks/observability-dataviz.html
@@ -18,13 +18,13 @@ Pandacorp's "honest" layer: read the factory's state at a glance and understand 
 
 ## Tab placement (canonical)
 
-The analytical views live in the project-level **"Observabilidad" tab**, the work-order section of the workspace: it offers the views **Por FRD (default) · Tablero · Dependencias** (FRD-05 AC-05-008.1, kept in the URL). There is no Party tab (La Fragua heads the Resumen, [FRD-06](../frd-06-party/frd.md)) and no Línea de tiempo view. All three views read the same work-order data.
+The analytical views live in the project-level **"Observabilidad" tab**, the work-order section of the workspace: it offers the views **Por FRD (default) · Tablero · Dependencias** (FRD-05 AC-05-008.1, kept in the URL). There is no Party tab (La Fragua heads the Resumen, [FRD-06](../frd-06-party/frd.md)) and no Línea de tiempo view. All three views read the same work-order data. The retrospective performance mini-view (REQ-12-007) is separate from the dependency graph and does not restore the retired task timeline.
 
 ## Acceptance criteria (EARS)
 
 ### REQ-12-001 — Header KPIs and freshness
 - ~~**AC-12-001.1** — The header SHALL show **≤5 critical KPIs** (e.g. active projects, agents working, XP of the day, builds queued, **failed work orders**), top-left; the detail goes in collapsible sections.~~ **Struck (amended 2026-10-22, v2 plan; retired id, never reused).** **SUPERSEDED (reconciled from code 2026-07-05):** the standalone observability KPI header (`KpiHeader`/`deriveKpis`) was never mounted in production and was **removed** (DR-092/DR-115 — its "failed work orders" metric derived state through a mechanism divergent from `WorkOrder.state`). The operative factory pulse is the Inicio **`Pulso`** section (FRD-18), which is the single source for those cross-cutting signals. This AC no longer describes shipped behaviour.
-- **AC-12-001.2** — The build state SHALL declare its freshness from the **timestamp of the last event** read from `~/.claude/dashboard-events.ndjson` and the supervisor heartbeat (DR-066), so the operator knows whether they're seeing something current or frozen: WHILE `running` is true and the signal is stale, the surfaces read **"Sin señal · último evento hace N"** instead of "Construyendo" (FRD-06 AC-06-019.7, state `build-no-signal`).
+- **AC-12-001.2** — The build state SHALL declare its freshness from the shared v2 lease/run resolver (FRD-04 REQ-04-017), with the event/heartbeat fallback only for legacy-only builds, so the operator knows whether they're seeing something current or frozen: WHILE an active v2 run has an expired lease, the surfaces read **"Sin señal · último evento hace N"** instead of "Construyendo" (FRD-06 AC-06-019.7, state `build-no-signal`).
 - **AC-12-001.3** — THE Inicio **Pulso** section (FRD-18 REQ-18-013) SHALL present at most **5 signals**, so as not to overwhelm the operator (amended 2026-10-22, v2 plan: restated from the generic "any grouping or ranking limited to top-5" rule, since no other v2 surface ranks agents, events or metrics).
 - ~~**AC-12-001.4** — The honest metrics (tasks done vs failed, time per work order, events per minute) SHALL be derived from the same event file, with no extra instrumentation.~~ **Struck (amended 2026-10-22, v2 plan; retired id, never reused):** no v2 surface shows event metrics (the events-per-minute chart and top-N helpers are removed).
 
@@ -57,7 +57,7 @@ The analytical views live in the project-level **"Observabilidad" tab**, the wor
 - **AC-12-004.6** — Each node SHALL keep its text **inside the card**: the title is clamped to ≤2 lines with the full title in a tooltip (never spilling past the card edge), and the redundant `WO-NN-MMM —` id prefix is stripped from the title (the id is shown once).
 
 ### REQ-12-005 — Real-time updates
-- **AC-12-005.1** — WHILE the build is running THE views SHALL update **live / event-driven**: the structure comes from the work-order frontmatter and refreshes when the SSE `stateVersion` moves or a newer event arrives in `~/.claude/dashboard-events.ndjson` — not a one-shot snapshot.
+- **AC-12-005.1** — WHILE the build is running THE views SHALL update **live / event-driven**: the structure comes from the shared durable/live work-order model (FRD-05 REQ-05-009) and refreshes when run/admission/decision files, the SSE state version or either runtime event stream changes — not a one-shot snapshot.
 - **AC-12-005.2** — IF no new event has arrived THEN the views SHALL stay consistent with the freshness indicator of AC-12-001.2 (no fabricated progress).
 
 ### REQ-12-006 — Dependencias levels, focus card, narrow list and legacy link (added 2026-10-22, design freeze)
@@ -98,3 +98,16 @@ A syntactically invalid work-order file SHALL produce a visible per-file notice 
 ## Visual close-out clarification (2026-10-31, lane O)
 
 Work-order view selection preserves URL ownership and existing FRD/state filters. Each view button has its own decorative icon. Expand/collapse remains local to the FRD list and does not impose its alignment class on the view/filter toolbar.
+
+### REQ-12-007 — Machine-local run performance (Day 1, 2026-11-12)
+
+Producer evidence: `plugin/runtime/build/perf.mjs`, `paths.mjs` and `schemas/perf-record.schema.json` at 540afa2c. The exact schema and units are recorded in [the shared read contract](../../product/build-engine-v2.md).
+
+- **AC-12-007.1** — WHEN performance history is available, THE project summary SHALL show a bounded retrospective mini-view from `~/.pandacorp/host/perf/journal.jsonl` (or configured host directory), with run id, version, start/end, outcome and duration; it SHALL filter by producer project basename and run id/start, and SHALL expose basename ambiguity rather than claim unique absolute project attribution.
+- **AC-12-007.2** — WHEN record metrics are available, THE view SHALL show units by kind (count, p50/p90 seconds), concurrency steps/live LLM units/heavy jobs over time, scale reasons, available RAM range, swap start/peak/end, free disk start/end, start/sustained/recommended steps; labels SHALL state units and missing/null metrics SHALL read Sin datos, never zero. `ram_gib` SHALL be labelled RAM disponible, not installed RAM or process consumption.
+- **AC-12-007.3** — WHEN no journal/finished-run record exists, THE view SHALL show Sin datos aún without manufacturing a successful run; WHEN a line is corrupt/unreadable/unsupported, THE view SHALL surface an error and retain valid records. Sampled worker points SHALL NOT be called a complete trace.
+- **AC-12-007.4** — WHEN rendered, THE performance view SHALL remain read-only, use a bounded tail and shared responsive/accessible tokens, and SHALL NOT write measurements to git, change calibration, shell out to the engine or read host secrets.
+
+### REQ-12-008 — Independent freshness sources
+
+- **AC-12-008.1** — WHEN state changes without a newer event, THE views SHALL refresh under FRD-25 navigation-safe coalescing and show the run-file mtime separately from last-event time; THE reader SHALL NOT expect `state.updated_at` or treat `ladder.changed_at` as a heartbeat. A stopped/finished run SHALL NOT become live from an old event or running flag.

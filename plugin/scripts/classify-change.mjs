@@ -404,7 +404,7 @@ function parseArgs(argv) {
   }
   if (!opts.repo) throw new FailClosed("--repo <path> is required");
   if (!opts.mode) throw new FailClosed("one of --range | --staged | --worktree | --files is required");
-  if (opts.productFloor && (opts.card || opts.wo || opts.attempts !== null)) throw new FailClosed("--product-floor takes no --card/--wo/--attempts (it decides product risk, not /change rigor)");
+  if (opts.productFloor && (opts.card || opts.wo || opts.attempts !== null)) throw new FailClosed("--product-floor takes no --card/--wo/--attempts (it decides product risk, not change rigor)");
   if (opts.attempts !== null && !/^\d+$/.test(opts.attempts)) throw new FailClosed(`--attempts must be a non-negative integer, got '${opts.attempts}'`);
   return opts;
 }
@@ -893,8 +893,8 @@ function realOrResolved(p) {
 
 /**
  * `--product-floor` (proposal 39 C3/C6, the fast lane): the PRODUCT-RISK floor of product-floor.mjs
- * instead of /change's rigor. Same input collection and the same FAILCLOSED path; none of the S1-S17
- * signals runs, so /change's verdicts (and its backtests) are untouched by this mode.
+ * instead of the change classifier's rigor. Same input collection and the same FAILCLOSED path; none of the S1-S17
+ * signals runs, so the rigor classifier's verdicts (and its backtests) are untouched by this mode.
  */
 function productVerdict(ctx) {
   if (!ctx.files.length) throw new FailClosed("nothing to classify (a bad range reads exactly like a no-op change)");

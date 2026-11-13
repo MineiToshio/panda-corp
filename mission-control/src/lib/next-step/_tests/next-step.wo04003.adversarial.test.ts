@@ -65,10 +65,10 @@ describe("frd-04 adversarial: each row's 'when' is unique within a phase", () =>
 describe("frd-04 adversarial: iterate row 'when' is context-specific", () => {
   it("the iterate row's 'when' differs between implementation and release phases", () => {
     const buildingIterate = workspaceCommands("implementation").find(
-      (r: Row) => r.command === "/pandacorp:iterate",
+      (r: Row) => r.command === "/pandacorp:implement",
     );
     const releaseIterate = workspaceCommands("release").find(
-      (r: Row) => r.command === "/pandacorp:iterate",
+      (r: Row) => r.command === "/pandacorp:implement",
     );
     expect(buildingIterate).toBeDefined();
     expect(releaseIterate).toBeDefined();
@@ -102,7 +102,7 @@ describe("frd-04 adversarial: malformed phase strings fall back safely", () => {
       const commands = rows.map((r: Row) => r.command);
       expect(commands).not.toContain("/pandacorp:implement");
       expect(commands).not.toContain("/pandacorp:release");
-      expect(commands).not.toContain("/pandacorp:iterate");
+      expect(commands).not.toContain("/pandacorp:implement");
       expect(commands).not.toContain("/pandacorp:new-version");
     });
   }
@@ -142,7 +142,7 @@ describe("frd-04 adversarial: command→when pairing is pinned (mutation kill)",
     // release's 'when' must speak to launching when work orders are done.
     expect(byCmd.get("/pandacorp:release")).toMatch(/work order|lanzar/i);
     // iterate's 'when' must speak to adding/adjusting an FRD.
-    expect(byCmd.get("/pandacorp:iterate")).toMatch(/FRD|ajust|corrig/i);
+    expect(byCmd.get("/pandacorp:implement")).toMatch(/FRD|ajust|corrig/i);
   });
 
   it("release: new-version's 'when' is about a milestone/major version, not iteration", () => {
@@ -150,7 +150,7 @@ describe("frd-04 adversarial: command→when pairing is pinned (mutation kill)",
     const byCmd = new Map(rows.map((r: Row) => [r.command, r.when]));
     expect(byCmd.get("/pandacorp:new-version")).toMatch(/hito|versi[oó]n mayor/i);
     // new-version's 'when' must NOT be the iterate copy (a swap mutant).
-    expect(byCmd.get("/pandacorp:new-version")).not.toBe(byCmd.get("/pandacorp:iterate"));
+    expect(byCmd.get("/pandacorp:new-version")).not.toBe(byCmd.get("/pandacorp:implement"));
   });
 
   it("every returned row has a non-empty command AND a non-empty 'when' (no blank-string mutant)", () => {
@@ -171,7 +171,7 @@ describe("frd-04 adversarial: command→when pairing is pinned (mutation kill)",
     const rel = workspaceCommands("release");
     expect(rel).not.toEqual(impl);
     expect(rel.map((r: Row) => r.command)).toEqual([
-      "/pandacorp:iterate",
+      "/pandacorp:implement",
       "/pandacorp:new-version",
     ]);
   });
@@ -197,7 +197,7 @@ describe("frd-04 adversarial: returned rows must not alias shared module state",
     if (firstRow === undefined) return;
     firstRow.command = "/pandacorp:HACKED";
     const second = workspaceCommands("release");
-    expect(second[0]?.command).toBe("/pandacorp:iterate");
+    expect(second[0]?.command).toBe("/pandacorp:implement");
   });
 
   it("the returned array reference differs between calls (fresh array each time)", () => {

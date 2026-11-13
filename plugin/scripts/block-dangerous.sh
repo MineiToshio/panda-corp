@@ -6,31 +6,106 @@
 # everything when jq is missing is worse than no gate — it looks armed while disarmed.
 command -v jq >/dev/null 2>&1 || { echo "BLOCKED: Pandacorp safety gate cannot parse its input (jq missing) — fix the environment before running Bash" >&2; exit 2; }
 
-input=$(cat)
-# A NUL byte in the command: bash drops it from $(…) below (so every rule would judge a different string), while
-# zsh truncates the argument at it. Never a legitimate command: block outright, before anything else.
-if printf '%s' "$input" | jq -e '(.tool_input.command // "") | contains("\u0000")' >/dev/null 2>&1; then
-  echo "BLOCKED by Pandacorp policy: the command contains a NUL byte" >&2; exit 2
-fi
-cwd=$(echo "$input" | jq -r '.cwd // "."')
-cmd=$(echo "$input" | jq -r '.tool_input.command // ""')
-
-# Scope: act in Pandacorp folders — a project (.pandacorp/status.yaml, incl. adopted ones) OR the
-# factory (Pandacorp in CLAUDE.md). Resolve from the REPO ROOT, not just the hook cwd: a session
-# parked in a subdirectory (mission-control/src/…) is still inside a Pandacorp repo and must not
-# disarm the gate (Fable-audit 2026-07-04 #9).
-scope_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || echo "$cwd")
-in_scope=0
-for d in "$cwd" "$scope_root"; do
-  [ -f "$d/.pandacorp/status.yaml" ] && in_scope=1
-  grep -qs "Pandacorp" "$d/CLAUDE.md" 2>/dev/null && in_scope=1
-done
-[ "$in_scope" = "1" ] || exit 0
+set -o pipefail
 
 block() {
   echo "BLOCKED by Pandacorp policy: $1" >&2
   exit 2
 }
+
+input=$(cat) || block "falló la lectura interna de la entrada"
+# A NUL byte in the command: bash drops it from $(…) below (so every rule would judge a different string), while
+# zsh truncates the argument at it. Never a legitimate command: block outright, before anything else.
+if printf '%s' "$input" | jq -e '(.tool_input.command // "") | contains("\u0000")' >/dev/null 2>&1; then
+  echo "BLOCKED by Pandacorp policy: the command contains a NUL byte" >&2; exit 2
+fi
+cwd=$(printf '%s' "$input" | jq -er '.cwd // "."') || block "falló el análisis interno del directorio"
+cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // ""') || block "falló el análisis interno del comando"
+
+# Scope: any project status or Pandacorp instruction file at the repo root or
+# along the cwd's ancestor chain. CLAUDE.md may be only @AGENTS.md (DEC-13).
+# Intermediate project roots matter when a monorepo's own root has no marker.
+scope_root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)
+scope_boundary=${scope_root:-/}
+scope_root=$(cd "${scope_root:-$cwd}" 2>/dev/null && pwd -P) || block "falló la normalización interna de la ruta de alcance"
+scope_boundary=$(cd "$scope_boundary" 2>/dev/null && pwd -P) || block "falló la normalización interna del límite de alcance"
+in_scope=0
+_scope_at() {
+  local file rc
+  [ -f "$1/.pandacorp/status.yaml" ] && return 0
+  for file in "$1/AGENTS.md" "$1/CLAUDE.md"; do
+    [ -f "$file" ] || continue
+    if grep -qs "Pandacorp" "$file" 2>/dev/null; then return 0; else rc=$?; fi
+    [ "$rc" = 1 ] || block "falló la inspección interna del alcance"
+  done
+  return 1
+}
+_scope_at "$scope_root" && in_scope=1
+d=$(cd "$cwd" 2>/dev/null && pwd -P) || block "falló la normalización interna del directorio"
+while :; do
+  _scope_at "$d" && in_scope=1
+  if [ "$d" = "$scope_boundary" ] || [ "$d" = / ]; then break; fi
+  d=$(dirname "$d") || block "falló la normalización interna del directorio superior"
+done
+[ "$in_scope" = "1" ] || exit 0
+
+# Check plumbing explicitly: Bash suppresses ERR in conditionals, and Bash 3.2 can
+# also fire inherited ERR traps on ordinary no-match predicates inside pipelines.
+# Bash here-strings can fail to create temporaries and silently empty a token array. Check the
+# configured temp location explicitly as well, independent of the host Bash here-string strategy.
+gate_tmp=$(mktemp "${TMPDIR:-/tmp}/pandacorp-gate.XXXXXXXX") || block "falló la creación del archivo temporal interno"
+# An error inside a conditional/subshell cannot rely on ERR propagation. Record it in the
+# shared probe and check again at EXIT, so no suppressed child error can produce an allow.
+_gate_error() {
+  printf 'error\n' >> "$gate_tmp"
+  block "$1"
+}
+_gate_exit() {
+  local rc=$?
+  trap - EXIT
+  if [ "$rc" = 0 ] && { [ ! -f "$gate_tmp" ] || [ -s "$gate_tmp" ]; }; then
+    echo "BLOCKED by Pandacorp policy: falló un paso interno del control de seguridad" >&2
+    rc=2
+  fi
+  rm -f "$gate_tmp" || rc=2
+  exit "$rc"
+}
+trap _gate_exit EXIT
+# grep's no-match exit is a predicate, not a plumbing error. Every other helper failure
+# must survive conditional/pipeline contexts, where Bash deliberately suppresses ERR.
+grep() {
+  local rc arg quiet=0
+  local -a args=()
+  # Drain piped input even after a match. grep -q can close early, making its producer
+  # fail with SIGPIPE under pipefail and turning a positive policy predicate into false.
+  for arg in "$@"; do
+    case "$arg" in
+      -q) quiet=1 ;;
+      -Eq) quiet=1; args+=("-E") ;;
+      -qs) quiet=1; args+=("-s") ;;
+      *) args+=("$arg") ;;
+    esac
+  done
+  if [ "$quiet" = 1 ]; then
+    if command grep "${args[@]}" >/dev/null; then return 0; else rc=$?; fi
+  else
+    if command grep "${args[@]}"; then return 0; else rc=$?; fi
+  fi
+  [ "$rc" = 1 ] || _gate_error "falló la búsqueda interna con grep"
+  return "$rc"
+}
+_checked_helper() {
+  if command "$@"; then return 0; fi
+  _gate_error "falló la herramienta interna: $1"
+}
+sed() { _checked_helper sed "$@"; }
+tr() { _checked_helper tr "$@"; }
+awk() { _checked_helper awk "$@"; }
+pwd() { _checked_helper pwd "$@"; }
+find() { _checked_helper find "$@"; }
+wc() { _checked_helper wc "$@"; }
+dirname() { _checked_helper dirname "$@"; }
+basename() { _checked_helper basename "$@"; }
 
 # ── BL-0202: git invocations, normalized, and whole-tree writes in a SHARED repository ──────────────
 # Every git check below used to match the literal `git <verb>` text, so a global option in between
@@ -52,8 +127,9 @@ _hosts_nested_project() { # $1 = repository toplevel → 0 if some <top>/<dir>/.
 }
 _unquote() { local t="$1"; t="${t%\"}"; t="${t#\"}"; t="${t%\'}"; t="${t#\'}"; printf '%s' "$t"; }
 git_norm=""
+gate_segments=$(printf '%s\n' "$cmd" | awk '{ gsub(/&&|\|\||[;|&]/, "\n"); print }')
 while IFS= read -r seg; do
-  read -ra toks <<< "$seg"
+  read -ra toks <<< "$seg" || _gate_error "falló el análisis interno de los argumentos"
   n=${#toks[@]}; gi=-1
   # Only a git invocation in COMMAND position (after env assignments / a shell keyword or wrapper) — never
   # the word "git" inside prose (a commit message body line, an echo'd sentence).
@@ -129,7 +205,7 @@ while IFS= read -r seg; do
   if [ "$at_root" = 1 ]; then
     block "whole-tree 'git $verb' at the root of a repository that hosts a nested Pandacorp project (${nested% }): it would overwrite other sessions' uncommitted work outside your project. Name explicit paths under your project (git $verb … -- <project>/<path>), or ask the owner (BL-0202)"
   fi
-done < <(printf '%s\n' "$cmd" | awk '{ gsub(/&&|\|\||[;|&]/, "\n"); print }')
+done <<< "$gate_segments"
 git_cmd="$cmd$git_norm"
 
 # (The recursive-delete gate sits below, after the protected-state and deploy-path helpers it uses.)
@@ -178,7 +254,7 @@ _protected_under() { # $1 = a path operand; returns 0 if it IS/CONTAINS/IS-INSID
 #       protection to any other worktree an operator has deliberately pinned, not just the deploy
 #       root, without hardcoding a second project's path (BL-0151's own "Out of scope").
 _is_protected_deploy_path() { # $1 = a path operand; returns 0 if it targets a live/locked deploy worktree
-  local p="$1" abs real
+  local p="$1" abs real locked
   case "$p" in -*) return 1 ;; ""|"/"|"~") return 1 ;; esac
   case "$p" in /*) abs="$p" ;; "~/"*) abs="$HOME/${p#\~/}" ;; *) abs="$cwd/$p" ;; esac
   abs="${abs%/}"
@@ -191,9 +267,13 @@ _is_protected_deploy_path() { # $1 = a path operand; returns 0 if it targets a l
   # still exists; an already-removed target has nothing left to protect via the lock check, but
   # the local-deployments prefix rule above still catches it either way).
   real="$abs"
-  [ -d "$abs" ] && real=$(cd "$abs" 2>/dev/null && pwd -P)
-  git -C "$cwd" worktree list --porcelain 2>/dev/null | awk -v t="$abs" -v r="$real" '
-    /^worktree / { wt=$2 } /^locked/ { if (wt == t || wt == r) found=1 } END { exit(found ? 0 : 1) }'
+  if [ -d "$abs" ]; then
+    real=$(cd "$abs" 2>/dev/null && pwd -P) || _gate_error "falló la normalización interna de la ruta de despliegue"
+  fi
+  # Print a predicate value: awk exit failures are reserved for actual internal errors.
+  locked=$(git -C "$cwd" worktree list --porcelain 2>/dev/null | awk -v t="$abs" -v r="$real" '
+    /^worktree / { wt=$2 } /^locked/ { if (wt == t || wt == r) found=1 } END { print(found ? 1 : 0) }')
+  [ "$locked" = 1 ]
 }
 
 # git worktree remove (incl. --force, which is the ONLY thing that bypasses a git-level lock) on a
@@ -238,11 +318,11 @@ _norm_path() { local IFS=/ c out=""; set -f; for c in $1; do case "$c" in ""|.) 
 _phys_path() { # resolve symlinks through the deepest EXISTING ancestor (macOS /tmp and /var are links into /private)
   local d="$1" rest="" r
   while [ "$d" != "/" ] && [ ! -d "$d" ]; do rest="/${d##*/}$rest"; d="${d%/*}"; [ -n "$d" ] || d="/"; done
-  r=$(cd "$d" 2>/dev/null && pwd -P) || r="$d"
+  r=$(cd "$d" 2>/dev/null && pwd -P) || return 2
   if [ "$r" = "/" ]; then printf '%s' "${rest:-/}"; else printf '%s' "$r$rest"; fi
 }
 _depth() { local s="${1//[^\/]/}"; [ "$1" = "/" ] && { echo 0; return; }; echo "${#s}"; }
-HOME_REAL=$(cd "$HOME" 2>/dev/null && pwd -P || printf '%s' "$HOME")
+HOME_REAL=$(cd "$HOME" 2>/dev/null && pwd -P) || block "falló la normalización interna del directorio personal"
 # $TMPDIR counts only when it is a real, deep, non-home directory (a TMPDIR of / or ~ must never widen anything).
 TMPDIR_REAL=""
 if [ -n "${TMPDIR:-}" ] && [ -d "$TMPDIR" ]; then
@@ -271,8 +351,8 @@ _looks_like_recursive_delete() { # $1 = command text → 0 when it looks like a 
   local v raw norm joined bsnl=$'\\\n' rmw="${_RD_B}[gs]?rm${_RD_E}" unl="${_RD_B}(unlink|rmdir|shred)${_RD_E}"
   # The shell deletes backslash-newline before splitting words, even mid-word (r\<NL>m, fi\<NL>nd): join first.
   joined="${1//"$bsnl"/}"
-  raw=$(printf '%s' "$joined" | _rd_neutral)
-  norm=$(printf '%s' "$joined" | tr -d "\"'\\\\" | _rd_neutral)
+  raw=$(printf '%s' "$joined" | _rd_neutral) || _gate_error "falló la normalización interna del borrado"
+  norm=$(printf '%s' "$joined" | tr -d "\"'\\\\" | _rd_neutral) || _gate_error "falló la normalización interna del borrado"
   for v in "$raw" "$norm"; do
     if _rd_has "$v" "$rmw"; then
       _rd_has "$v" "${_RD_B}-[A-Za-z]*[rR]" && return 0                                  # -r/-R/-rf/--recursive anywhere
@@ -309,7 +389,7 @@ _wl_parse() {
   # The whole command uses only these bytes; anything else (incl. newline, tab, any control or non-ASCII byte) is out.
   [ "$(printf '%s' "$text" | LC_ALL=C tr -d 'A-Za-z0-9._/@+= &"-' | wc -c | tr -d ' ')" = "0" ] || return 1
   case "$cwd" in /*) base="$cwd" ;; *) return 1 ;; esac
-  read -ra toks <<< "$text"
+  read -ra toks <<< "$text" || _gate_error "falló el análisis interno de los argumentos de borrado"
   n=${#toks[@]}; i=0
   [ "$n" -ge 2 ] || return 1
   if [ "${toks[0]}" = "cd" ]; then
@@ -340,18 +420,22 @@ _wl_parse() {
 
 # Step 3: where each operand really lands.
 _wl_linked_worktree() { # $1 = physical dir → 0 = root of a linked unlocked worktree, 2 = linked but locked, 1 = no
-  local p="$1" line phys idx=0 cur=0 hit=0 locked=0
+  local p="$1" line phys listing idx=0 cur=0 hit=0 locked=0
   [ -d "$p" ] && [ -f "$p/.git" ] || return 1
+  listing=$(git -C "$p" worktree list --porcelain 2>/dev/null) || _gate_error "falló la consulta interna de worktrees"
   while IFS= read -r line; do
     case "$line" in
       "worktree "*)
         idx=$((idx + 1)); cur=0
-        phys=$(cd "${line#worktree }" 2>/dev/null && pwd -P) || phys="${line#worktree }"
+        # Git lists stale/prunable entries too. An absent directory cannot match this existing
+        # operand; skip it without treating it as a failed normalization of a live worktree.
+        [ -d "${line#worktree }" ] || continue
+        phys=$(cd "${line#worktree }" 2>/dev/null && pwd -P) || _gate_error "falló la normalización interna de la ruta del worktree"
         # The first entry is always the MAIN worktree, which is never deletable this way.
         [ "$idx" -gt 1 ] && [ "$phys" = "$p" ] && { cur=1; hit=1; } ;;
       locked*) [ "$cur" = 1 ] && locked=1 ;;
     esac
-  done < <(git -C "$p" worktree list --porcelain 2>/dev/null)
+  done <<< "$listing"
   [ "$hit" = 1 ] || return 1
   [ "$locked" = 0 ] || return 2
   return 0
@@ -360,7 +444,8 @@ wl_reason=""
 _wl_verdict() { # $1 = absolute normalised operand → sets wl_reason (empty = allowed)
   local abs="$1" r lower depth wt ok=0
   wl_reason=""
-  r=$(_phys_path "$abs"); depth=$(_depth "$r")
+  r=$(_phys_path "$abs") || _gate_error "falló la normalización interna de la ruta de borrado"
+  depth=$(_depth "$r")
   [ "$depth" -ge 4 ] || { wl_reason="'$r' is too shallow (depth $depth, the minimum is 4)"; return; }
   lower=$(printf '%s' "$r" | tr '[:upper:]' '[:lower:]')
   case "$lower" in
@@ -370,9 +455,9 @@ _wl_verdict() { # $1 = absolute normalised operand → sets wl_reason (empty = a
   if _is_protected_deploy_path "$abs" || _is_protected_deploy_path "$r"; then
     wl_reason="'$r' is a live/locked deployment worktree (DR-089): use 'git worktree remove' only if the owner agrees (BL-0151)"; return
   fi
-  _wl_linked_worktree "$r"; wt=$?
+  if _wl_linked_worktree "$r"; then wt=0; else wt=$?; fi
   [ "$wt" != 2 ] || { wl_reason="'$r' is a LOCKED git worktree: someone pinned it on purpose, ask the owner"; return; }
-  [ "$wt" != 0 ] || return
+  [ "$wt" != 0 ] || return 0
   # /private/tmp/claude-<uid>/<project>/<session>/...: at least 3 levels below claude-* (depth >= 6), so one
   # project's folder, which holds every session's scratchpad, is never a target.
   case "$r" in /private/tmp/claude-*/?*) [ "$depth" -ge 6 ] && ok=1 ;; esac
@@ -390,30 +475,54 @@ _wl_verdict() { # $1 = absolute normalised operand → sets wl_reason (empty = a
   fi
 }
 
-# Shape exempt from DETECTION only: `cat > FILE <<'WORD'` + body + terminator, nothing after it. A quoted
-# delimiter makes the body pure data, so a memory note that mentions "rm -rf" is not a delete. Every other
-# gate in this file still reads the full raw command.
+# Exempt only complete literal text writes from recursive-delete DETECTION. Other policy checks
+# still inspect the raw command (e.g. a force-push canary). Never eval/source/execute the input.
 rm_view="$cmd"
-_rm_heredoc_view() {
-  local first rest re="^cat[[:space:]]+>>?[[:space:]]*[A-Za-z0-9._/~@+=,:-]+[[:space:]]+(<<-?)[[:space:]]*(['\"])([A-Za-z_][A-Za-z0-9_]*)(['\"])[[:space:]]*\$"
-  local op word line found=0
-  first="${cmd%%$'\n'*}"; [ "$first" != "$cmd" ] || return 1
-  rest="${cmd#*$'\n'}"
-  [[ $first =~ $re ]] || return 1
-  op="${BASH_REMATCH[1]}"; word="${BASH_REMATCH[3]}"
-  [ "${BASH_REMATCH[2]}" = "${BASH_REMATCH[4]}" ] || return 1
-  while IFS= read -r line; do
-    if [ "$found" = 1 ]; then
-      case "$line" in *[![:space:]]*) return 1 ;; esac   # anything executable after the terminator: not this shape
-      continue
+_literal_write_view() {
+  local file="([A-Za-z0-9._/~@+=,:-]+|'[A-Za-z0-9._/ ~@+=,:-]+')"
+  local delim="(<<-?)[[:blank:]]*(['\"])([A-Za-z_][A-Za-z0-9_]*)(['\"])"
+  local re first rest op word line found=0 target redirect
+  # printf/echo: every argument is a single-quoted literal, followed by exactly one file redirect.
+  # $, backticks and backslashes INSIDE those quotes are data; outside them no expansion can match.
+  re="^(printf|echo)([[:blank:]]+'[^']*')+[[:blank:]]+(>>?)[[:blank:]]*${file}[[:blank:]]*\$"
+  if [[ "$cmd" != *$'\n'* && "$cmd" != *$'\r'* && $cmd =~ $re ]]; then
+    redirect="${BASH_REMATCH[3]}"; target="${BASH_REMATCH[4]}"
+  else
+    first="${cmd%%$'\n'*}"; [ "$first" != "$cmd" ] || return 1
+    rest="${cmd#*$'\n'}"
+    re="^cat[[:blank:]]+(>>?)[[:blank:]]*${file}[[:blank:]]+${delim}[[:blank:]]*\$"
+    if [[ $first =~ $re ]]; then
+      redirect="${BASH_REMATCH[1]}"; target="${BASH_REMATCH[2]}"
+      op="${BASH_REMATCH[3]}"; word="${BASH_REMATCH[5]}"
+      [ "${BASH_REMATCH[4]}" = "${BASH_REMATCH[6]}" ] || return 1
+    else
+      re="^cat[[:blank:]]+${delim}[[:blank:]]+(>>?)[[:blank:]]*${file}[[:blank:]]*\$"
+      [[ $first =~ $re ]] || return 1
+      op="${BASH_REMATCH[1]}"; word="${BASH_REMATCH[3]}"
+      [ "${BASH_REMATCH[2]}" = "${BASH_REMATCH[4]}" ] || return 1
+      redirect="${BASH_REMATCH[5]}"; target="${BASH_REMATCH[6]}"
     fi
-    [ "$op" = "<<-" ] && line="${line#"${line%%[!$'\t']*}"}"
-    [ "$line" = "$word" ] && found=1
-  done <<< "$rest"
-  [ "$found" = 1 ] || return 1
-  rm_view="$first"
+    while IFS= read -r line; do
+      if [ "$found" = 1 ]; then
+        case "$line" in *[!$' \t']*) return 1 ;; esac
+        continue
+      fi
+      [ "$op" = "<<-" ] && line="${line#"${line%%[!$'\t']*}"}"
+      [ "$line" = "$word" ] && found=1
+    done <<< "$rest"
+    [ "$found" = 1 ] || return 1
+  fi
+  # Quoted redirect targets are stripped by the legacy redirect heuristic below. Check them here
+  # too, so the literal-write exemption never permits truncation of existing protected state.
+  target=$(_unquote "$target") || block "falló la normalización interna del destino literal"
+  local abs="$target"
+  case "$abs" in /*) ;; "~/"*) abs="$HOME/${abs#\~/}" ;; *) abs="$cwd/$abs" ;; esac
+  if [ "$redirect" = ">" ] && [ -e "$abs" ] && _protected_under "$target"; then
+    block "la escritura literal trunca el estado protegido de Pandacorp: '$target'"
+  fi
+  rm_view="literal text write"
 }
-_rm_heredoc_view || true
+_literal_write_view || true
 
 RD_HINT="Allowed without asking: 'rm -rf <literal path>...' or 'cd /abs/dir && rm -rf <name>...' (only && between rm commands; no variables, globs, ~, .., ;, |, newlines or wrappers), aimed at a session scratch/temp dir (/private/tmp/claude-*/<project>/<session>/..., \$TMPDIR/...), a linked git worktree root, node_modules/.next, or build output next to a package.json. Run any follow-up (pnpm install, build...) as a SEPARATE command. For tracked files use 'git rm -r <path>' (recoverable from git). Anything else: ask the owner to run it"
 if _looks_like_recursive_delete "$rm_view"; then
@@ -439,7 +548,7 @@ fi
 # extraction below. Naive quote-stripping (this is a heuristic gate, not a shell parser) is enough:
 # it eliminates the false-positive class without touching the real-redirect detection.
 unquoted_cmd=$(printf '%s' "$cmd" | sed -E "s/\"[^\"]*\"//g; s/'[^']*'//g")
-redirs=$(printf '%s' "$unquoted_cmd" | grep -oE '[^>]>[[:space:]]*[^[:space:]<>|;&]+' | sed -E 's/^[^>]>[[:space:]]*//')
+redirs=$(printf '%s' "$unquoted_cmd" | { grep -oE '[^>]>[[:space:]]*[^[:space:]<>|;&]+' || [ "$?" = 1 ]; } | sed -E 's/^[^>]>[[:space:]]*//')
 for tok in $redirs; do
   tok="${tok%\"}"; tok="${tok#\"}"; tok="${tok%\'}"; tok="${tok#\'}"
   # An empty token is an extraction artifact (e.g. a trailing quote left over), never a real redirect
@@ -503,11 +612,12 @@ fi
 SERVER_KILL_TARGETS='(^|[^a-z0-9])(next|node|nodejs|vite|playwright|pnpm|npm|npx|tsx)([^a-z0-9]|$)'
 SERVER_KILL_HINT="start the server with 'bash .pandacorp/serve-once.sh -- <cmd>' (ephemeral port, own process group, killed exactly on exit) or record its PID (\$!) and stop only that: kill <PID> / kill -- -<PGID> / pkill -P <PID>"
 srv_disc=0
+server_segments=$(printf '%s\n' "$cmd" | awk '{ gsub(/&&|\|\||[;&]/, "\n"); gsub(/\|/, "\n@@PIPE@@"); print }')
 while IFS= read -r seg; do
   srv_pipe=0
   case "$seg" in '@@PIPE@@'*) srv_pipe=1; seg="${seg#@@PIPE@@}" ;; esac
   [ "$srv_pipe" = 1 ] || srv_disc=0
-  read -ra toks <<< "$seg"
+  read -ra toks <<< "$seg" || _gate_error "falló el análisis interno de los argumentos"
   n=${#toks[@]}; srv_cmd=""; srv_ci=-1
   for ((k = 0; k < n; k++)); do
     tk="${toks[$k]#[({]}"
@@ -548,7 +658,7 @@ while IFS= read -r seg; do
     lsof|pgrep|pidof|ps|grep|awk|netstat|ss)
       [ "$srv_own_children" = 1 ] || srv_disc=1 ;;
   esac
-done < <(printf '%s\n' "$cmd" | awk '{ gsub(/&&|\|\||[;&]/, "\n"); gsub(/\|/, "\n@@PIPE@@"); print }')
+done <<< "$server_segments"
 
 # Production deploys are behind the DR-004 HUMAN GATE — mechanically, not just in prose (audit-20 P1-5;
 # infra.md says human gates ship as hard rules, this is that rule). The agent presents the summary and
@@ -575,7 +685,7 @@ while IFS= read -r seg; do
   case "$sub" in
     ""|deploy|redeploy) block "manual Vercel deploy is forbidden (DR-138): deploys run only through the GitHub integration — push to a non-main branch for a preview; production is a merge/push to main, and only on the owner's explicit order once launched" ;;
   esac
-done < <(printf '%s\n' "$cmd" | awk '{ gsub(/&&|\|\||[;|&]/, "\n"); print }')
+done <<< "$gate_segments"
 
 # DR-138 / INFRA-8: once a project is LAUNCHED externally (status.yaml `phase: release` and a
 # deploy_target other than `internal`; a missing deploy_target counts as external, fail-safe), GitHub
@@ -613,7 +723,7 @@ if [ -n "$launched_status" ] \
       done
     fi
     [ "$to_main" = 1 ] && block "this project is LAUNCHED: GitHub main is production and Vercel deploys every push to it (DR-138). Push your branch for a preview instead; publish to main only after the owner's explicit order in chat, then re-run prefixed with PANDACORP_OWNER_RELEASE_OK=1"
-  done < <(printf '%s\n' "$cmd" | awk '{ gsub(/&&|\|\||[;|&]/, "\n"); print }')
+  done <<< "$gate_segments"
 fi
 
 echo "$cmd" | grep -Eq '(^|[[:space:];&|])(flyctl|fly) deploy' && block "production deploy = human gate (DR-004): get the owner's explicit OK first"

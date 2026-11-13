@@ -52,6 +52,7 @@ export async function sibling(d, stem, fn) {
   }
   const f = ns[fn];
   if (typeof f !== "function") throw err("ENGINE_FAILURE", `next: sibling ${stem}.${fn} is not a function`);
+  if (stem === "planner" && fn === "plan") return (input, deps) => f({ ...input, ceiling: d.adaptiveStep ?? admissionModule.ADMISSION.K_START_DEFAULT }, deps);
   return f;
 }
 

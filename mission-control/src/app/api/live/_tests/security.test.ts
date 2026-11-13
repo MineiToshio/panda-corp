@@ -2,7 +2,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, expect, it, vi } from "vitest";
-import { __resetLiveEventStoresForTest, GET } from "../route";
+import { __resetLiveEventStoresForTest } from "../eventStore";
+import { GET } from "../route";
 
 const connections: AbortController[] = [];
 let file: string | undefined;

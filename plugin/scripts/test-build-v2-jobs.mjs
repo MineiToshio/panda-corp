@@ -73,8 +73,22 @@ const scratch = await mkdtemp(path.join(process.env.PANDACORP_TEST_TMP || os.tmp
 const tracked = new Set(); // every pid this test may have caused (wrapper, command)
 const orphans = []; // pids that the safety net had to kill (a failure of the documented stop path)
 // A wrapper that has written its exit file but not yet been reaped by this process is a zombie (ps STAT Z): it has exited.
-const psStat = (pid) => new Promise((resolve) => execFile("ps", ["-o", "stat=", "-p", String(pid)], (e, out) => resolve(e ? "" : String(out).trim())));
-const liveNow = async (pid) => { if (!alive(pid)) return false; const s = await psStat(pid); return s !== "" && !s.startsWith("Z"); };
+const psStat = (pid) => new Promise(resolve => {
+  try { execFile("ps", ["-o", "stat=", "-p", String(pid)], (e, out) => resolve(e ? null : String(out).trim())); }
+  catch { resolve(null); }
+});
+// Sandboxed macOS may deny ps. These fixture processes are Node wrappers/commands and always hold a cwd
+// while alive; lsof independently distinguishes them from exited zombies. An unavailable probe fails loud.
+const cwdAlive = pid => new Promise((resolve, reject) => {
+  try { execFile("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], (e, out) => {
+    if (e && e.code !== 1) reject(e); else resolve(/^fcwd$/m.test(String(out)));
+  }); } catch (e) { reject(e); }
+});
+const liveNow = async pid => {
+  if (!alive(pid)) return false;
+  const s = await psStat(pid);
+  return s === null ? cwdAlive(pid) : s !== "" && !s.startsWith("Z");
+};
 // Waits up to `ms` (polling every 50 ms) for every tracked pid to exit; returns the ones still really alive.
 const settle = async (ms = 2000) => {
   const end = Date.now() + ms;

@@ -123,7 +123,7 @@ function makeJobLayer(w) {
         : spawnSync(cmd[0], cmd.slice(1), { cwd: j.spec.cwd, env: childEnv(j.spec), encoding: "utf8" });
       j.state = "done"; j.exit = r.status ?? 128;
       await mkdir(w.p.jobDir(id), { recursive: true });
-      await writeFile(w.p.jobOutFile(id), `${r.stdout || ""}${r.stderr || ""}`); await writeFile(w.p.jobExitFile(id), `${j.exit}\n`);
+      await writeFile(w.p.jobOutFile(id), `${w.gateLog ?? ""}${r.stdout || ""}${r.stderr || ""}`); await writeFile(w.p.jobExitFile(id), `${j.exit}\n`);
     }
   };
   const kill = (id) => { const j = table.get(id); if (j) { j.state = "dead"; j.exit = null; } };
@@ -214,7 +214,7 @@ async function makeWorld(label, o = {}) {
   await writeState(fx.root, state);
   await appendEvent(p.journalFile, { run_id: runId, epoch: lease.epoch, actor: "cli", type: "run_started", data: { detect: {}, preflight: {}, state: { ...state, units: [] } } });
   if (o.scopeCard !== null) await card.markCardBuilding(fx.root, "add-filter", { runId });
-  const w = { dir, fx, env, p, runId, branch, wt, base, ctl, log, epoch: lease.epoch, token: lease.token, bs, remote0: fx.remote ? git(fx.remote, ["rev-parse", "main"]) : null };
+  const w = { dir, fx, env, p, runId, branch, wt, base, ctl, log, gateLog: o.gateLog, epoch: lease.epoch, token: lease.token, bs, remote0: fx.remote ? git(fx.remote, ["rev-parse", "main"]) : null };
   w.jobs = makeJobLayer(w); const ex = makeExec(w); w.exec = ex.exec; w.execCalls = ex.calls; w.execHooks = ex.hooks;
   w.deps = { env, exec: ex.exec, jobs: { spawnJob: w.jobs.spawnJob, pollJob: w.jobs.pollJob } };
   w.cleanup = async () => { await rm(dir, { recursive: true, force: true }); };
@@ -502,20 +502,107 @@ await test("mq 10: handback rebase_conflict (exit 6): not landed, no card archiv
   ok((await readEvents(w)).some((e) => e.type === "handback"), "journal has a handback event"); await assertNoReleaseVar(w); await assertMainUntouched(w, before);
 }));
 
-await test("mq 11 (G3 red): handback g3_red (exit 6) and a patch unit u-patch-<frd> queued with attempt = max attempt + 1; nothing lands, main untouched", async () => withWorld("exit11", {}, async (w) => {
+await test("PATCH mq 11 unattributed: handback g3_red (exit 6), independent fallback patch at attempt 1; nothing lands, main untouched", async () => withWorld("exit11", {}, async (w) => {
   const before = await snapshot(w); const { second } = await mqRound(w, "11");
   eq(second.result, "handback", "result"); eq(second.reason, "g3_red", "reason"); eq(second.mq_exit, 11, "mq_exit"); if (exitKey(second) !== undefined) eq(exitKey(second), 6, "land exit");
   const st = await readState(w); const patches = st.units.filter((u) => u.kind === "patch"); eq(patches.length, 1, "exactly one patch unit for the run");
-  const pu = patches[0]; eq(pu.id, "u-patch-frd-01-alpha", "A13 id"); eq(pu.state, "queued", "queued"); eq(pu.attempt, 2, "attempt = max attempt of the run's build units (1) + 1"); eq(pu.frd, "frd-01-alpha", "frd");
+  const pu = patches[0]; eq(pu.id, "u-patch-g3", "fallback id"); eq(pu.state, "queued", "queued"); eq(pu.attempt, 1, "fallback owns its three-execution budget"); eq(pu.frd, null, "unattributed G3 is not assigned a FRD");
   ok(!st.units.some((u) => u.state === "landed"), "nothing landed"); ok((await readEvents(w)).some((e) => e.type === "patch"), "journal has a patch event"); eq((await readEvents(w)).filter((e) => e.type === "batch_landed").length, 0, "no batch_landed");
   const c = await cardState(w); ok(c.pending && !c.done, "card stays pending"); await assertNoReleaseVar(w); await assertMainUntouched(w, before);
 }));
-await test("mq 11: the patch attempt follows the highest attempt of the run's units (build attempt 2 -> patch attempt 3)", async () => withWorld("exit11b", { attempt: 2 }, async (w) => {
+await test("PATCH3 N2: G3 attribution reads canonical WOs outside the lease mutex on land and standalone harvest", async () => {
+  for (const standalone of [false, true]) await withWorld(`g3-unlocked-${standalone}`, { scopeCard: null, gateLog: "src/alpha/list.ts(1,1): error TS2322: bad type\n" }, async (w) => {
+    await setMq(w, "11"); eq((await callLand(w)).result, "running", "spawn land job");
+    await w.jobs.runPending();
+    let reads = 0;
+    w.execHooks.push(async ({ cmd, args }) => {
+      if (cmd === "git" && (args[0] === "ls-tree" || (args[0] === "show" && args[1]?.includes("work-orders/")))) {
+        reads++;
+        ok(!existsSync(path.join(w.fx.root, ".pandacorp/run/lease-mutation.lock")), "WO attribution must not hold the lease mutex");
+      }
+    });
+    const res = standalone ? await (await need("land.mjs", "harvestLand"))({ project: w.fx.root, epoch: w.epoch }, w.deps) : await callLand(w);
+    ok(reads > 0, "canonical WOs were actually read");
+    eq(res.output?.reason ?? res.reason, "g3_red", "red applied");
+  });
+});
+
+await test("PATCH3 N2: integration changes during G3 attribution invalidate the prepared plan before writes", async () => withWorld("g3-race", { scopeCard: null, gateLog: "src/alpha/list.ts(1,1): error TS2322: bad type\n" }, async (w) => {
+  await setMq(w, "11"); await callLand(w); await w.jobs.runPending();
+  const before = await snapshot(w);
+  let moved = false;
+  w.execHooks.push(async ({ cmd, args }) => {
+    if (!moved && cmd === "git" && args[0] === "show" && args[1]?.includes("work-orders/")) {
+      moved = true;
+      git(w.wt, ["commit", "--allow-empty", "-q", "-m", "fixture: integration advances during attribution"]);
+    }
+  });
+  const out = await attempt(() => callLand(w));
+  ok(moved, "race was exercised");
+  ok(out.error?.code === "INVALID_STATE" || out.value?.result === "running", "stale prepared plan is refused");
+  eq(await readFile(w.p.stateFile, "utf8"), before.state, "no stale state write");
+  eq(await readFile(w.p.journalFile, "utf8"), before.journal, "no stale journal write");
+  ok(!(await readState(w)).units.some((u) => u.kind === "patch"), "no stale patch");
+}));
+
+await test("PATCH G3: one of three WOs fails, only its unit reopens and its brief carries the gate evidence", async () => withWorld("scope-three", {
+  scopeCard: null,
+  gateLog: "PASS src/alpha/list.test.ts > healthy\nFAIL src/alpha/filter.test.ts > filters empty values\n  at src/alpha/filter.ts:8:2\n",
+  extraUnits: [
+    baseUnit({ wos: ["WO-01-001"] }),
+    baseUnit({ id: "u-build-filter", wos: ["WO-01-002"], test_hashes: { "src/alpha/filter.test.ts": "a".repeat(64) } }),
+    baseUnit({ id: "u-build-beta", wos: ["WO-02-001"], frd: "frd-02-beta", attempt: 3 }),
+  ],
+}, async (w) => {
+  await setWoStatus(w.wt, "frd-02-beta", "WO-02-001", "IN_REVIEW");
+  git(w.wt, ["commit", "-qam", "fixture: beta in review"]);
+  // The hashed file is checked by land before spawning; add the actual bytes and matching hash.
+  await writeFile(path.join(w.wt, "src/alpha/filter.test.ts"), "// immutable test\n");
+  git(w.wt, ["add", "src/alpha/filter.test.ts"]); git(w.wt, ["commit", "-qm", "fixture: hashed test"]);
+  const stateModule = await import("../runtime/build/state.mjs");
+  const beforeState = await readState(w);
+  beforeState.units.find((u) => u.id === "u-build-filter").test_hashes["src/alpha/filter.test.ts"] = sha256("// immutable test\n");
+  await stateModule.writeState(w.fx.root, beforeState);
+  const before = await snapshot(w);
+  const { second } = await mqRound(w, "11");
+  const st = await readState(w); const patch = st.units.find((u) => u.id === second.patch_unit);
+  eq(patch.wos, ["WO-01-002"], "patch allowlist derives only from the failing WO"); eq(patch.attempt, 2, "healthy beta attempt 3 does not exhaust this WO");
+  eq(unitOf(st, "u-build-filter").state, "patching", "only failing unit patches");
+  eq(unitOf(st, "u-build-wo-01-001").state, "verified", "healthy alpha stays verified");
+  eq(unitOf(st, "u-build-beta").state, "verified", "healthy beta stays verified");
+  const { transitionWorkOrders } = await import("../runtime/build/integrate/transitions.mjs");
+  const moved = await transitionWorkOrders({ integration: st.integration, runId: st.run_id, wos: patch.wos, to: "IN_PROGRESS", unitId: patch.id }, w.deps);
+  eq(moved.steps.map((s) => [s.wo, s.to]), [["WO-01-002", "PLANNED"], ["WO-01-002", "IN_PROGRESS"]], "dispatch reopens only the implicated WO");
+  for (const [frd, wo] of [["frd-01-alpha", "WO-01-001"], ["frd-02-beta", "WO-02-001"]]) ok(/^implementation_status: IN_REVIEW$/m.test(await readFile(path.join(w.wt, woPath(frd, wo)), "utf8")), `${wo} unchanged`);
+  const { writeUnitBrief } = await import("../runtime/build/units/brief.mjs");
+  const brief = await writeUnitBrief({ project: w.fx.root, state: st, unit: patch, worktree: w.wt, cell: { runtime: "codex", model: "sol", effort: "high" }, agentType: "pandacorp:implementer", token: "fake-unit-token", schemaPath: w.p.schemaFile("report") }, w.deps);
+  ok(brief.text.includes("vitest") && brief.text.includes("filters empty values") && brief.text.includes("at src/alpha/filter.ts:8:2"), "checks, test id and tail reach the brief");
+  ok(brief.text.includes("Fix only what is red; no rewrite of the WO or FRD."), "patch-only instruction");
+  ok(brief.text.includes("Write allowlist (`artifacts`): `src/alpha/filter.ts`") && !brief.text.includes("`src/alpha/list.ts`"), "brief allowlist is scoped");
+  await assertMainUntouched(w, before);
+}));
+await test("PATCH G3 fallback: exhausted build does not charge it; three patch executions then budget_exhausted", async () => withWorld("fallback-budget", { attempt: 3, scopeCard: null }, async (w) => {
+  const stateModule = await import("../runtime/build/state.mjs");
+  for (const n of [1, 2, 3]) {
+    const { second } = await mqRound(w, "11");
+    eq(second.patch_unit, "u-patch-g3", "unattributed fallback id");
+    const st = await readState(w); const patch = st.units.find((u) => u.id === second.patch_unit);
+    eq(patch.attempt, n, "the fallback pays only its own executions");
+    eq(unitOf(st, "u-build-wo-01-001").state, "verified", "fallback reopens no build unit");
+    for (const wo of ["WO-01-001", "WO-01-002"]) ok(/^implementation_status: IN_REVIEW$/m.test(await readFile(path.join(w.wt, woPath("frd-01-alpha", wo)), "utf8")), "fallback harvest reopens no WO");
+    // Simulate a finished, independently reviewed patch so another G3 can judge it.
+    patch.state = "verified"; await stateModule.writeState(w.fx.root, st);
+  }
+  const { second } = await mqRound(w, "11"); eq(second.patch_unit, null, "no fourth patch execution");
+  eq(unitOf(await readState(w), "u-patch-g3").state, "blocked", "existing governed hand-back blocks the exhausted patch");
+  ok((await readEvents(w)).some((e) => e.type === "handback" && e.data.reason_code === "budget_exhausted"), "budget reason survives");
+}));
+await test("mq 11: the patch attempt follows the highest attempt of the run's units (build attempt 2 -> patch attempt 3)", async () => withWorld("exit11b", { attempt: 2, gateLog: "src/alpha/list.ts(2,1): error TS2322: wrong type\n" }, async (w) => {
   const { second } = await mqRound(w, "11"); eq(second.reason, "g3_red", "reason");
   eq((await readState(w)).units.find((u) => u.kind === "patch").attempt, 3, "attempt 2 + 1");
 }));
 
-await test("T-C05 mq 11 with the 3-execution budget exhausted (build attempt 3): hand-back, units AND dependents blocked (R4), WO BLOCKED on the lane, no patch unit, decisions entry pending, main untouched", async () => withWorld("exit11c", { attempt: 3 }, async (w) => {
+await test("T-C05 mq 11 with the 3-execution budget exhausted (build attempt 3): hand-back, units AND dependents blocked (R4), WO BLOCKED on the lane, no patch unit, decisions entry pending, main untouched", async () => withWorld("exit11c", { attempt: 3, gateLog: "src/alpha/list.ts(2,1): error TS2322: wrong type\n" }, async (w) => {
   const before = await snapshot(w);
   const { second } = await mqRound(w, "11");
   eq(second.result, "handback", "result"); eq(second.reason, "g3_red", "reason"); eq(second.mq_exit, 11, "mq_exit"); if (exitKey(second) !== undefined) eq(exitKey(second), 6, "land exit");
@@ -652,6 +739,23 @@ await test("production gate: across 21, 11, 12, 10, 14, 20 the engine never sets
   }
   eq(mainTip(w), before.main, "main never moved while the queue kept refusing");
   ok(w.jobs.spawns.length >= 1 && (await readFile(w.log, "utf8")).length > 0, "the queue was exercised");
+}));
+
+await test("DENG successful active landing reclaims unit and assume directories, retains every branch", async () => withWorld("deng-active-cleanup", {}, async w => {
+  const unit = w.p.unitWorktree("u-leftover"), assume = w.p.assumeWorktree("q-leftover");
+  git(w.fx.root, ["worktree", "add", "-b", w.p.unitBranch(w.runId, "u-leftover"), unit, w.branch]);
+  git(w.fx.root, ["worktree", "add", "-b", w.p.assumeBranch(w.runId, "q-leftover"), assume, w.branch]);
+  const refs = git(w.fx.root, ["for-each-ref", "--format=%(refname)", "refs/heads/"]);
+  const { second } = await mqRound(w, "0:ff"); eq(second.result, "landed", "landed");
+  ok(!existsSync(unit) && !existsSync(assume), "both directories reclaimed while lease is held");
+  ok(existsSync(w.wt), "integration retained for next tranche"); eq(git(w.fx.root, ["for-each-ref", "--format=%(refname)", "refs/heads/"]), refs, "all branch refs remain");
+}));
+
+await test("DENG production gate retains integration only and removes its .next", async () => withWorld("deng-gate-cleanup", {}, async w => {
+  const unit = w.p.unitWorktree("u-leftover"); git(w.fx.root, ["worktree", "add", "-b", w.p.unitBranch(w.runId, "u-leftover"), unit, w.branch]);
+  await writeFile(path.join(w.fx.root, ".git/info/exclude"), ".next/\n"); await mkdir(path.join(w.wt, ".next")); await writeFile(path.join(w.wt, ".next/cache"), "cache");
+  const { second } = await mqRound(w, "21"); eq(second.result, "waiting_gate", "gate");
+  ok(!existsSync(unit), "unit directory reclaimed"); ok(existsSync(w.wt), "integration stays"); ok(!existsSync(path.join(w.wt, ".next")), "Next output reclaimed");
 }));
 
 console.log(`RESULT: ${passed} passed, ${failed} failed (${path.basename(fileURLToPath(import.meta.url))})`);

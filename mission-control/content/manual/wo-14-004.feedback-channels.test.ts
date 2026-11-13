@@ -1,178 +1,61 @@
-/**
- * content/manual/wo-14-004.feedback-channels.test.ts — WO-14-004
- *
- * Acceptance-criteria tests for the "Feeding an in-progress build" Manual page.
- *
- * Traceability:
- *   REQ-14-006 / AC-14-006.1 — The Manual SHALL document the three feedback channels
- *   (`/pandacorp:bug`, `/pandacorp:iterate`, `/pandacorp:decide`) as file-based, picked up
- *   at the next safe point.
- *
- *   WO-14-004 scope (from work order):
- *   - Section naming the three channels: bug, iterate, decide.
- *   - File-based semantics for each channel.
- *   - "Next safe point" pickup semantics (never interrupts mid-work-order).
- *   - Cross-link to the snapshot panel (CMP-14-snapshot-panel).
- *   - Cross-link to FRD-04 decision points / workspace decisions.
- *   - Consistent with factory/standards/infra.md (state written by gate, not agent).
- */
-
+/** FRD-08 AC-08-021.1/.4 supersede WO-14-004's automatic feedback pickup. */
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { readManualPages } from "@/lib/manual/manual";
 import { renderedManualText } from "@/test/manualPageText";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 const APP_ROOT = path.resolve(__dirname, "../..");
-// FRD-08 re-anchor: the feedback-channels how-to is the prototype's "g-feedback"
-// guide ("Reportar bug o decidir"). It documents the same three channels.
-const FEED_BUILD_SLUG = "g-feedback";
-const FEED_BUILD_FILE = path.join(APP_ROOT, "content", "manual", "guides", `${FEED_BUILD_SLUG}.md`);
-
-function getFeedBuildPage() {
-  const pages = readManualPages(APP_ROOT);
-  return pages.find((p) => p.slug === FEED_BUILD_SLUG);
+const pages = readManualPages(APP_ROOT);
+const page = pages.find((entry) => entry.slug === "g-feedback");
+function feedbackText(): string {
+  if (!page) throw new Error("Missing g-feedback page");
+  return renderedManualText(page).replace(/\s+/g, " ");
 }
 
-// ---------------------------------------------------------------------------
-// File existence
-// ---------------------------------------------------------------------------
-
-describe("AC-14-006.1 — file existence and indexing", () => {
-  it("content/manual/guides/g-feedback.md exists on disk", () => {
-    expect(fs.existsSync(FEED_BUILD_FILE), `File not found: ${FEED_BUILD_FILE}`).toBe(true);
-  });
-
-  it("g-feedback page is indexed by readManualPages()", () => {
-    const page = getFeedBuildPage();
-    expect(page, `Page slug '${FEED_BUILD_SLUG}' not found in readManualPages()`).toBeDefined();
-  });
-
-  it("page is in the 'guides' group", () => {
-    const page = getFeedBuildPage();
+describe("FRD-08 Day 1 feedback: build, capture and answer", () => {
+  it("keeps the authored guide indexed with a real source", () => {
+    expect(fs.existsSync(path.join(APP_ROOT, "content/manual/guides/g-feedback.md"))).toBe(true);
     expect(page?.group).toBe("guides");
+    expect(page?.title.trim()).toBeTruthy();
+    expect(feedbackText().length).toBeGreaterThan(100);
   });
-
-  it("page has a non-empty title", () => {
-    const page = getFeedBuildPage();
-    expect(page?.title.trim()).not.toBe("");
+  it("routes bugs through the single build entry and regression tests", () => {
+    const text = feedbackText();
+    expect(text).toContain("/pandacorp:implement");
+    expect(text).toMatch(/tests de regresión preceden al arreglo/i);
+    expect(text).not.toMatch(/\/pandacorp:(bug|iterate|ch[a]nge)\b/);
   });
-
-  it("page has a non-empty body", () => {
-    const page = getFeedBuildPage();
-    expect(page?.body.trim()).not.toBe("");
+  it("captures a draft for later without widening the current run", () => {
+    const text = feedbackText();
+    expect(text).toContain("draft");
+    expect(text).toContain("card check");
+    expect(text).toMatch(/no se recoge automáticamente ni amplía el run/);
+    expect(text).toMatch(/Más adelante selecciona ese objetivo con implement/);
   });
-});
-
-// ---------------------------------------------------------------------------
-// AC-14-006.1 — the three feedback channels are named
-// ---------------------------------------------------------------------------
-
-describe("AC-14-006.1 — three feedback channels documented", () => {
-  it("page mentions /pandacorp:bug", () => {
-    const page = getFeedBuildPage();
-    expect(page ? renderedManualText(page) : "").toContain("/pandacorp:bug");
+  it("answers explicit question IDs through the CLI and parks only affected work", () => {
+    const text = feedbackText();
+    expect(text).toContain("/pandacorp:decide <id>");
+    expect(text).toMatch(/aplica la respuesta mediante el CLI/);
+    expect(text).toMatch(/aparcan solo el trabajo afectado/);
+    expect(text).toMatch(/unidad aparcada y sus dependientes/);
   });
-
-  it("page mentions /pandacorp:iterate", () => {
-    const page = getFeedBuildPage();
-    expect(page ? renderedManualText(page) : "").toContain("/pandacorp:iterate");
+  it("documents the canonical inbox and tracked-inbox mirror before landing", () => {
+    const text = feedbackText();
+    expect(text).toContain(".pandacorp/inbox/decisions.md");
+    expect(text).toContain(".pandacorp/inbox/decisions.pending.md");
+    expect(text).toMatch(/visibles antes del aterrizaje/);
+    expect(text).toMatch(/copia resuelta del espejo suprime una copia pendiente antigua/);
+    expect(text).not.toMatch(/agente.*escribe.*status\.yaml/i);
   });
-
-  it("page mentions /pandacorp:decide", () => {
-    const page = getFeedBuildPage();
-    expect(page ? renderedManualText(page) : "").toContain("/pandacorp:decide");
+  it("links to the safe testing guide without equating branch verification with delivery", () => {
+    const text = feedbackText();
+    expect(text).toMatch(/snapshot verificado y aterrizado en main/);
+    expect(text).toMatch(/verificado en rama aún no está entregado/);
+    expect(text).toContain("Probar sin parar al agente");
   });
-
-  it("all three channels are described as writing files (file-based semantics)", () => {
-    const page = getFeedBuildPage();
-    const body = page ? renderedManualText(page) : "";
-    // Must mention file-based mechanism (fichero / archivo / file)
-    expect(body.toLowerCase()).toMatch(/ficher|archiv|file/i);
-  });
-
-  it("page explains 'next safe point' pickup semantics", () => {
-    const page = getFeedBuildPage();
-    const body = page ? renderedManualText(page) : "";
-    // Must mention safe point pickup (the build reads channels between work orders)
-    expect(body.toLowerCase()).toMatch(/safe.?point|punto.?seguro/i);
-  });
-
-  it("page states the motor never interrupts mid-work-order", () => {
-    const page = getFeedBuildPage();
-    const body = page ? renderedManualText(page) : "";
-    // Must convey the 'never interrupts mid-work-order' semantics
-    // Key phrase: 'nunca interrumpe' / 'no interrumpe' / 'entre work orders' / 'entre WOs'
-    expect(body.toLowerCase()).toMatch(
-      /nunca.*interrupt|no.*interrupt|entre.*work.?order|entre.*wo\b|next.*safe|al terminar/i,
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// AC-14-006.1 — cross-links
-// ---------------------------------------------------------------------------
-
-describe("AC-14-006.1 — cross-links to snapshot panel and decision points", () => {
-  it("page cross-links to the snapshot panel (CMP-14-snapshot-panel or snapshot section)", () => {
-    const page = getFeedBuildPage();
-    const body = page ? renderedManualText(page) : "";
-    // Must reference the snapshot panel — by name or by reference to 'panel de snapshot',
-    // 'snapshot panel', or the concept of the probable point
-    expect(body.toLowerCase()).toMatch(
-      /snapshot.*panel|panel.*snapshot|punto.*probable|probable.*point|last.*green|último.*verde/i,
-    );
-  });
-
-  it("page cross-links to workspace decision points (FRD-04 pending decisions)", () => {
-    const page = getFeedBuildPage();
-    const body = page ? renderedManualText(page) : "";
-    // Must reference decision points — by mention of 'decisiones pendientes',
-    // 'workspace', 'punto de decisión', or 'decide'
-    expect(body.toLowerCase()).toMatch(
-      /decisi.*pendiente|pending.*decisi|workspace|punto.*decisi|decisions\.md/i,
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Consistency with infra.md — state written by gate, not agent
-// ---------------------------------------------------------------------------
-
-describe("AC-14-006.1 — consistent with infra.md semantics", () => {
-  it("page does NOT say the agent writes status.yaml (state is written by the gate)", () => {
-    const page = getFeedBuildPage();
-    const body = page ? renderedManualText(page) : "";
-    // The agent must NOT be described as writing status.yaml directly —
-    // that is the gate script's job (infra.md). A simple check: must not say
-    // 'el agente escribe status.yaml' or similar
-    expect(body.toLowerCase()).not.toMatch(
-      /agente.*escribe.*status\.yaml|agent.*writes.*status\.yaml/i,
-    );
-  });
-
-  it("page mentions that the motor reads channels between work orders (gate-driven)", () => {
-    const page = getFeedBuildPage();
-    const body = page ? renderedManualText(page) : "";
-    // Safe-point / gate semantics: the motor picks up feedback at the end of a WO
-    expect(body.toLowerCase()).toMatch(
-      /motor.*lee|motor.*recoge|motor.*revisa|revisa.*canal|entre.*work.?order|al.?terminar.*wo|safe.?point/i,
-    );
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Interaction with existing content suite (regression)
-// ---------------------------------------------------------------------------
-
-describe("WO-14-004 does not break WO-08-005 content suite", () => {
-  it("guides group still contains the prototype's 7 how-to guide slugs", () => {
-    const pages = readManualPages(APP_ROOT);
-    const guideSlugs = pages.filter((p) => p.group === "guides").map((p) => p.slug);
+  it("preserves the daily feedback and testing guide destinations", () => {
+    const slugs = pages.filter((entry) => entry.group === "guides").map((entry) => entry.slug);
     for (const slug of [
       "g-capturar",
       "g-handoff",
@@ -181,8 +64,7 @@ describe("WO-14-004 does not break WO-08-005 content suite", () => {
       "g-probar",
       "g-traspaso",
       "g-plugin",
-    ]) {
-      expect(guideSlugs, `Missing guide page: ${slug}`).toContain(slug);
-    }
+    ])
+      expect(slugs).toContain(slug);
   });
 });

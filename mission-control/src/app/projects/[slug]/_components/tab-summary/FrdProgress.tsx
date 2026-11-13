@@ -5,6 +5,7 @@ import {
 } from "@/components/core/Chip/vocabulary";
 import { Icon } from "@/components/core/Icon/Icon";
 import { StackBar } from "@/components/core/ProgressBar/StackBar";
+import { COPY } from "@/components/modules/BuildRunPanel/copy";
 import { t } from "@/lib/copy/copy";
 import type { ProjectFrd } from "@/lib/frds/frd-index";
 import { navigationHref } from "@/lib/navigation/urls";
@@ -25,6 +26,7 @@ export function FrdProgress({
   readonly error?: React.ReactNode;
   readonly issues?: React.ReactNode;
 }): React.JSX.Element {
+  const inBuild = orders.some((order) => "inBuild" in order && order.inBuild);
   const rows = frds
     .map((frd) => {
       const children = orders.filter((order) => order.frd === frd.slug);
@@ -39,6 +41,11 @@ export function FrdProgress({
         count={error ? undefined : frds.length}
         icon="clipboard"
       />
+      {inBuild && (
+        <p className={styles.meta}>
+          {COPY.inBuild}. {COPY.durable}
+        </p>
+      )}
       {issues}
       {error ??
         (rows.length ? (

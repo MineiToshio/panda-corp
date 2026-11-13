@@ -8,9 +8,9 @@ parent: FRD-NN            # the owning FRD
 foundation: false         # true = a Wave-0 foundation/shared-substrate WO (DR-057), built before any feature WO. This marks the wave, NOT the id (the id still uses the owning FRD's number — no `00` FRD).
 implementation_status: PLANNED   # PLANNED | IN_PROGRESS | IN_REVIEW | VERIFIED | BLOCKED
 blocked_reason:           # only when BLOCKED: needs-owner | external | error
-difficulty: medium        # low | medium | high (DR-073). `high` = built on opus a-priori (feature-rich surface, multiple integration seams, ≥5 EARS, novel logic); default medium when absent. Without this field the a-priori escalation never fires.
-reopen_count: 0           # incremented by the engine's revert+reopen (DR-072/073); ≥1 escalates the rebuild to opus; the gate resets it to 0 on VERIFIED. Leave at 0 when authoring.
-artifacts: []             # globs of files/dirs this WO writes (DR-060). The engine keeps parallel WOs disjoint: it serializes any WOs whose artifacts overlap into different waves. List every path this WO creates/edits, incl. its own API contract docs/api/WO-NN-MMM.md if backend.
+difficulty: medium        # low | medium | high (planning metadata); the CLI derives dispatch from size, risk, attempt and provider availability.
+reopen_count: 0           # CLI-managed reopen history; leave at 0 when authoring. Retries use the current dispatch policy, never a fixed model.
+artifacts: []             # globs of files/dirs this WO writes (DR-060). The CLI groups WOs into units and serializes overlapping artifacts. List every path this WO creates/edits, incl. its own API contract docs/api/WO-NN-MMM.md if backend.
 source_requirements: []   # REQ-NN-MMM ids this WO delivers (traceability)
 source_change: []         # DR-147: slugs of the .pandacorp/inbox/changes/ cards this WO answers ([] when it comes from the original plan). When every WO naming a card is VERIFIED, change-reconcile.mjs archives that card — whichever door built it.
 dependsOn: []             # WO-NN-MMM ids this WO depends on (DR-087) — the machine-readable mirror of the Build Plan / work-orders README "Depends on" column. Real upstream WOs only (a WO can depend on several, across FRDs); [] when it has none. Consumed by Mission Control's dependency DAG; keep it in sync with the README table.
@@ -23,7 +23,7 @@ last_updated: YYYY-MM-DD
 > `IN_PROGRESS` work orders and NEVER rebuilds a `VERIFIED` one. The flow is
 > `PLANNED → IN_PROGRESS` (being built) `→ IN_REVIEW` (built, own tests green, awaiting the FRD's
 > review/test gate) `→ VERIFIED` (FRD review + suite green, closed). `BLOCKED` is lateral: the engine
-> reaches it only **after a repair pass fails**, and it carries a **`blocked_reason`** — `needs-owner`
+> records a block when execution cannot continue within the run policy, with a **`blocked_reason`** — `needs-owner`
 > (a human must act: an env var/secret, an external account, a product decision — also logged to
 > `.pandacorp/inbox/decisions.md`), `external` (internet/upstream outage, retried later), or `error`
 > (an unresolved technical fault). Never hand-set `VERIFIED` without the FRD gate passing.
@@ -73,8 +73,8 @@ has to go hunting.
 ## Visual reference
 
 > **UI work orders only (DR-054 + DR-056).** For a non-UI work order this section is **N/A**.
-> **Fill it — do not leave a placeholder.** The build engine hands the implementer only a one-line
-> summary, so this section IS the agent's design context; an empty `## Visual reference` means the
+> **Fill it — do not leave a placeholder.** The CLI includes scoped context in the unit brief, and this
+> section supplies the agent's design references; an empty `## Visual reference` means the
 > agent builds blind. Materialize all three pointers below.
 
 - **Mock screen(s) to reproduce:** the exact `docs/frds/frd-NN-<slug>/mocks/<file>` screen(s) this work

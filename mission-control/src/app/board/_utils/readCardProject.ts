@@ -1,5 +1,7 @@
 import { cache } from "react";
 import { readArchitectureArtifacts } from "@/lib/architecture/read-artifacts";
+import type { BuildTarget } from "@/lib/build-mode-store";
+import { readBuildTargets } from "@/lib/build-targets";
 import { resolveProjectPath } from "@/lib/config/config";
 import { countFrdFolders, type DocNode, listProjectDocs } from "@/lib/docs/tree";
 import type { IdeaCard } from "@/lib/ideas/ideas";
@@ -9,6 +11,7 @@ import { readStatus, type StatusResult } from "@/lib/status/status";
 
 /** The open idea's project artifact bundle (all absent for a card with none). */
 export type CardProjectData = Partial<ReturnType<typeof readArchitectureArtifacts>> & {
+  buildTargets?: readonly BuildTarget[];
   projectStatus: StatusResult | null;
   docNodes: DocNode[] | undefined;
   frdCount: number | undefined;
@@ -66,6 +69,7 @@ const readProject = cache((project: string | undefined): CardProjectData => {
       ? readSpecArtifacts(projectPath)
       : undefined;
   return {
+    buildTargets: readBuildTargets(projectPath),
     projectStatus: readStatus(projectPath),
     docNodes: allDocNodes.filter(isScopedBoardDoc),
     frdCount: countFrdFolders(allDocNodes),

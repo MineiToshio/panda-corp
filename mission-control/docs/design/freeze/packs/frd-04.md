@@ -627,7 +627,7 @@ Extracted from the rendered prototype at 1280 px, light theme (`?demo=off`). The
 - [h2] Pedir un cambio
 - [p] La puerta única para features, ajustes y bugs. El cambio queda en la cola hasta el siguiente punto seguro del build.
 - [code] /pandacorp: change
-- [@aria-label] Copiar /pandacorp:change
+- [@aria-label] Copiar /pandacorp:implement
 
 ### `project-change-dialog`
 

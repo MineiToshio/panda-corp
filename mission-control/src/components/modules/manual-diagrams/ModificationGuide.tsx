@@ -1,6 +1,6 @@
 import { Icon } from "@/components/core/Icon/Icon";
 /**
- * manual-diagrams/ModificationGuide.tsx — FRD-08 ("Operar desde cualquier agente")
+ * manual-diagrams/ModificationGuide.tsx : FRD-08 ("Operar desde cualquier agente")
  *
  * The compact cross-runtime modification guide ("si cambias X, haz también Y")
  * from multi-runtime.md, rendered as a two-column key→action list inside a Panel.
@@ -20,7 +20,7 @@ const CHANGES: readonly Change[] = [
     change: "Un skill (SKILL.md)",
     action: (
       <>
-        Nada para Codex — el symlink lo ve al instante. Claude necesita{" "}
+        Nada para Codex : el symlink lo ve al instante. Claude necesita{" "}
         <Code>claude plugin update</Code> como siempre.
       </>
     ),
@@ -43,8 +43,13 @@ const CHANGES: readonly Change[] = [
     ),
   },
   {
-    change: "La capa Claude (CLAUDE.md)",
-    action: <>Nada para Codex — no lo lee.</>,
+    change: "El import de Claude (CLAUDE.md)",
+    action: (
+      <>
+        Conservar únicamente <Code>@AGENTS.md</Code>. Las instrucciones se editan en{" "}
+        <Code>AGENTS.md</Code>.
+      </>
+    ),
   },
   {
     change: "La versión del plugin",

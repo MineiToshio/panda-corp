@@ -18,7 +18,7 @@ export default async function BoardPage({
   searchParams,
 }: {
   searchParams?: Promise<RouteQuery>;
-} = {}): Promise<React.JSX.Element> {
+}): Promise<React.JSX.Element> {
   const requested = routeHref("/board", [], (await searchParams) ?? {}).replace(
     /^\/board\/(?=\?|$)/,
     "/board",

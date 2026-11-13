@@ -8,68 +8,25 @@ import type { CopyKey } from "@/lib/copy/copy";
  * FRD-11 build-mode catalog: IF-11-modes (blueprint §2).
  */
 
-// ---------------------------------------------------------------------------
-// FRD-11 — Build mode catalog (IF-11-modes)
-// ---------------------------------------------------------------------------
-
-/** Union of all valid build-mode identifiers. */
-export type BuildMode = "pro" | "balanced" | "powerful" | "deep";
-
-/** Full descriptor for a single build mode. */
-export interface BuildModeInfo {
-  /** Stable identifier; never changes between releases. */
-  id: BuildMode;
-  /** i18n key for the mode label shown in the selector. */
-  label: CopyKey;
-  /** i18n key for the mode description (agents, models, recommended plan). */
-  description: CopyKey;
-  /**
-   * The exact command the owner copies into Claude.
-   * Balanced: "/pandacorp:implement" (no argument).
-   * Others:   "/pandacorp:implement <id>".
-   */
-  command: string;
-}
-
-/**
- * Ordered catalog of build modes (AC-11-001.1 — Pro, Balanced, Powerful, Deep).
- * Deep-frozen: Object.freeze on both the outer array and every entry object so that
- * BUILD_MODES[n].id = "…" throws in strict mode (ESM files are strict by default).
- * This ensures the catalog remains the single source of truth with no mutable singletons.
- */
-export const BUILD_MODES: readonly BuildModeInfo[] = Object.freeze(
-  (
-    [
-      {
-        id: "pro",
-        label: "workspace.comandos.buildMode.pro.label",
-        description: "workspace.comandos.buildMode.pro.hint",
-        command: "/pandacorp:implement pro",
-      },
-      {
-        id: "balanced",
-        label: "workspace.comandos.buildMode.balanced.label",
-        description: "workspace.comandos.buildMode.balanced.hint",
-        command: "/pandacorp:implement",
-      },
-      {
-        id: "powerful",
-        label: "workspace.comandos.buildMode.powerful.label",
-        description: "workspace.comandos.buildMode.powerful.hint",
-        command: "/pandacorp:implement powerful",
-      },
-      {
-        id: "deep",
-        label: "workspace.comandos.buildMode.deep.label",
-        description: "workspace.comandos.buildMode.deep.hint",
-        command: "/pandacorp:implement deep",
-      },
-    ] as const satisfies BuildModeInfo[]
-  ).map((m) => Object.freeze(m)),
-);
-
-/** Default mode when no choice has been persisted (AC-11-001.3). */
-export const DEFAULT_BUILD_MODE: BuildMode = "balanced";
+/** Copy-only build entry actions. Legacy power preferences have no meaning. */
+export const BUILD_ENTRY_COPY = {
+  title: "Construir o reanudar",
+  group: "Acción de construcción",
+  build: "Construir",
+  resume: "Reanudar",
+  target: "Objetivo: FRD o tarjeta",
+  buildHint:
+    "Construye el alcance conversado o el plan pendiente. El motor elige modelos y concurrencia.",
+  resumeHint: "Continúa el mismo build desde su último punto seguro.",
+  targetHint: "Construye solo el FRD o la tarjeta elegida.",
+  targetAria: "Objetivo del build",
+  placeholder: "Elige un FRD o tarjeta",
+  empty: "No hay objetivos disponibles para construir.",
+  choose: "Elige un objetivo para obtener el comando.",
+  draft: "La sesión completa y valida el alcance del borrador antes de construir.",
+  note: "Copia el comando y pégalo en tu sesión. Mission Control nunca lo ejecuta.",
+  frdScope: "El comando construye el trabajo pendiente del FRD completo.",
+} as const;
 
 // ---------------------------------------------------------------------------
 // FRD-17 — Self-suggestion thresholds (IF-17-suggest, WO-17-003)

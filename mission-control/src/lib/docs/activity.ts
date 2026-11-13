@@ -59,6 +59,8 @@ export interface ActivityLog {
  */
 export interface DecisionPoint {
   id: string;
+  /** Explicit engine Id, preserved verbatim rather than derived from heading position. */
+  engineId?: true;
   title: string;
   date: string | null;
   recommendation?: string;
@@ -160,35 +162,65 @@ export function readActivityLog(projectPath: string): ActivityLog {
  */
 export function readDecisions(projectPath: string): DecisionPoint[] {
   if (!projectPath.trim()) return [];
-  try {
-    return readDecisionSource(projectPath).decisions;
-  } catch {
-    return [];
+  return readDecisionSource(projectPath).decisions;
+}
+
+function duplicateEngineId(decisions: DecisionPoint[]): boolean {
+  const ids = decisions.filter((d) => d.engineId).map((d) => d.id);
+  return new Set(ids).size !== ids.length;
+}
+function applyExplicitId(current: DecisionBlock, line: string): void {
+  const id = /^\s*(?:[-*+]\s+)?\*{0,2}Id:\*{0,2}\s*`([^`]+)`/i.exec(line)?.[1];
+  if (id) {
+    current.id = id;
+    current.engineId = true;
   }
 }
 
-/** Shared decision source preserves valid blocks alongside malformed-heading errors. */
-export function readDecisionSource(root: string): { decisions: DecisionPoint[]; invalid: boolean } {
-  let raw: string;
-  try {
-    raw = fs.readFileSync(path.join(root, ".pandacorp/inbox/decisions.md"), "utf8");
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT")
-      return { decisions: [], invalid: false };
-    throw error;
-  }
-  let invalid = false;
-  let supported = true;
-  const lines = raw.split("\n").filter((line) => {
-    if (/^##\s/.test(line)) {
-      supported = parseDecisionBlocks(line).length > 0;
-      if (!supported) invalid = true;
+/** Shared canonical/mirror source; resolved copies suppress stale pending entries before counting. */
+export function readDecisionSource(root: string): {
+  decisions: DecisionPoint[];
+  invalid: boolean;
+  errors?: { path: string; reason: string }[];
+} {
+  const errors: { path: string; reason: string }[] = [];
+  const sources = ["decisions.md", "decisions.pending.md"].flatMap((name) => {
+    const file = path.join(root, ".pandacorp/inbox", name);
+    let raw: string;
+    try {
+      raw = fs.readFileSync(file, "utf8");
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+        errors.push({ path: file, reason: "No se puede leer la fuente de decisiones" });
+      }
+      return [];
     }
-    return supported;
+    let inDetails = false;
+    const invalidHeading = raw.split("\n").some((line) => {
+      if (DETAILS_OPEN.test(line)) inDetails = true;
+      if (DETAILS_CLOSE.test(line)) {
+        inDetails = false;
+        return false;
+      }
+      return !inDetails && FOREIGN_HEADING.test(line) && _parseHeading(line) === null;
+    });
+    const decisions = parseDecisionBlocks(raw);
+    if (invalidHeading || (raw.trim() && !decisions.length && !/^#\s/m.test(raw))) {
+      errors.push({ path: file, reason: "Formato de decisiones no reconocido" });
+    }
+    if (duplicateEngineId(decisions))
+      errors.push({ path: file, reason: "Id de decisión duplicado" });
+    return decisions;
   });
-  const decisions = parseDecisionBlocks(lines.join("\n"));
-  if (raw.trim() && !decisions.length && !/^#\s/m.test(raw)) invalid = true;
-  return { decisions, invalid };
+  const merged = new Map<string, DecisionPoint>();
+  for (const decision of sources) {
+    const key = decision.engineId
+      ? `engine:${decision.id}`
+      : `legacy:${decision.id}:${decision.title}`;
+    const previous = merged.get(key);
+    if (!previous?.resolved) merged.set(key, decision);
+  }
+  return { decisions: [...merged.values()], invalid: errors.length > 0, errors };
 }
 
 /**
@@ -262,6 +294,7 @@ function _consumeLine(
     return null;
   }
   if (current === null) return current;
+  applyExplicitId(current, line);
 
   const field =
     /^\s*(?:[-*+]\s+)?\*{0,2}(Qué necesito de ti|Qué decidir|Contexto)\*{0,2}:\*{0,2}\s*(.*)$/i.exec(
@@ -356,6 +389,7 @@ interface ParsedHeading {
 /** Mutable accumulator for the decision block currently being parsed. */
 type DecisionBlock = {
   id: string;
+  engineId?: true;
   title: string;
   date: string | null;
   statusPhrase: string | null;
@@ -444,6 +478,7 @@ function _pushDecision(result: DecisionPoint[], block: DecisionBlock | null): vo
   const status = _resolveStatus(block.statusPhrase, block.estado);
   const dp: DecisionPoint = {
     id: block.id,
+    ...(block.engineId ? { engineId: true as const } : {}),
     title: block.title.replace(/^·\s*/, ""),
     date: block.date,
     status,

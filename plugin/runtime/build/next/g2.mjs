@@ -5,8 +5,10 @@ import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { atomicWriteJson, readJson } from "../fsx.mjs";
 import { dropBootstrapManifests, frdsReadyForG2 } from "../integrate.mjs";
+import { removeWorktree, cleanupRunWorktrees } from "../integrate/worktrees.mjs";
 import { realOrResolved } from "../integrate/git.mjs";
 import { assertSafeId, buildPaths, resolveInside } from "../paths.mjs";
+import { withRunCleanup } from "../lifecycle/cleanup.mjs";
 import { readState } from "../state.mjs";
 import { productPrefix, productRoot } from "../units.mjs";
 import { FRD_WORK_KINDS, G2_SNAPSHOT_DIR, G2_SNAPSHOT_FAIL_MAX, G2_SNAPSHOT_RE, GIT_SHOW_TIMEOUT_MS, SHA_RE } from "./constants.mjs";
@@ -71,19 +73,19 @@ export async function createG2Snapshot(run, state, frd) {
 }
 
 /**
- * Remove one G2 snapshot (`git worktree remove --force`, then prune; a stray unregistered directory under `<build>/g2/` is
- * deleted). Cleanup after a harvest is best effort: a failure is logged and the leftover is replaced at the next spawn.
+ * Remove one registered G2 snapshot through the shared ownership and safety checks. Unregistered directories stay
+ * protected. Cleanup after a harvest is best effort; a protected leftover makes the next spawn refuse it.
  */
 export async function removeG2Snapshot(run, dir, { strict = false } = {}) {
   const fs = run.d.fs ?? fsp;
   try {
     resolveInside(g2SnapshotRoot(run.paths), path.relative(g2SnapshotRoot(run.paths), dir));
-    const real = await fs.realpath(dir).catch(() => null);
-    if (real && (await registeredWorktrees(run)).includes(real)) await gitOut(run.ref.project, ["worktree", "remove", "--force", real]);
-    await gitOut(run.ref.project, ["worktree", "prune"]);
-    await fs.rm(dir, { recursive: true, force: true });
-    // The snapshot's bootstrap left a manifest entry in the main checkout (Mission Control lists it as a pending worktree).
-    await dropBootstrapManifests(run.ref.project, real ?? dir, { fs, env: run.d.env });
+    const result = await removeWorktree({ project: run.ref.project, worktree: dir }, run.d);
+    if (!result.removed && await fs.lstat(dir).then(() => true, () => false)) {
+      if (strict) throw err("INVALID_STATE", `G2 snapshot is protected: ${result.reason ?? "unregistered-path"}`);
+      return false;
+    }
+    return result.removed;
   } catch (error) {
     if (strict) throw error;
     run.d.log(`next: the G2 snapshot ${dir} could not be removed: ${error?.message ?? error}`);
@@ -94,12 +96,19 @@ export async function removeG2Snapshot(run, dir, { strict = false } = {}) {
  * Remove every G2 snapshot of the run (`<build>/g2/*`) and its bootstrap manifest entry, except (unless `all`) the snapshot
  * a `running` G2 job of `state` still judges: that one is removed by its own harvest. Called when the run stops (terminal
  * actions, `stop`), finishes, and on `start --resume` (leftovers of a crash between a snapshot and its job). Never runs
- * under the lease mutex; best effort: a failure is logged, never thrown (NB5).
- * @param {{project: string, state?: object|null, all?: boolean}} input `state` defaults to `build/state.json`
+ * without a reservation: terminal cleanup excludes acquire; active resume supplies its epoch (NB5).
+ * @param {{project: string, state?: object|null, all?: boolean, epoch?: number|null}} input `state` defaults to `build/state.json`
  * @param {object} [deps] `fs`, `env`, `homedir`, `log`
  * @returns {Promise<{removed: string[], kept: string[]}>}
  */
-export async function removeAllG2Snapshots({ project, state = null, all = false }, deps = {}) {
+export async function removeAllG2Snapshots({ project, state = null, all = false, epoch = null }, deps = {}) {
+  state ??= await readState(project, deps);
+  if (!state) return { removed: [], kept: [] };
+  if (state.status === "active" && epoch === null) throw err("FENCE", "La limpieza de snapshots activos requiere su epoch.");
+  return withRunCleanup({ project, state, epoch }, current => cleanG2Snapshots({ project, state: current, all }, deps), deps);
+}
+
+async function cleanG2Snapshots({ project, state, all }, deps) {
   const d = resolveDeps(deps);
   const fs = d.fs ?? fsp;
   const run = { ref: { project }, d, paths: buildPaths(project, d) };
@@ -108,7 +117,6 @@ export async function removeAllG2Snapshots({ project, state = null, all = false 
   const kept = [];
   try {
     const names = await fs.readdir(root).catch((error) => { if (error?.code === "ENOENT") return []; throw error; });
-    if (!names.length) return { removed, kept };
     let live = new Set();
     if (!all) {
       const s = state ?? await readState(project, d).catch(() => null);
@@ -117,13 +125,14 @@ export async function removeAllG2Snapshots({ project, state = null, all = false 
     for (const name of names) {
       const dir = path.join(root, name);
       if (live.has(dir)) { kept.push(dir); continue; }
-      await removeG2Snapshot(run, dir);
-      removed.push(dir);
+      if (await removeG2Snapshot(run, dir)) removed.push(dir); else kept.push(dir);
     }
     await gitRun(project, ["worktree", "prune"]);
   } catch (error) {
     d.log(`next: the G2 snapshots under ${root} could not be cleaned: ${error?.message ?? error}`);
   }
+  const current = state ?? await readState(project, d).catch(() => null);
+  if (current && current.status !== "active") await cleanupRunWorktrees({ project, state: current }, d);
   return { removed, kept };
 }
 

@@ -54,6 +54,10 @@ describe("Manual pages have one source of content", () => {
     const indexed = new Set(pages.map((page) => page.slug));
     const orphans = manualPageSlugs().filter((slug) => !indexed.has(slug));
     expect(orphans).toEqual([]);
+    for (const slug of ["que-es-un-workflow", "wf-pandacorp-build"]) {
+      expect(indexed.has(slug)).toBe(false);
+      expect(getManualPageComponent(slug)).toBeNull();
+    }
   });
 
   it("a page without a component renders its .md body, so that body must be real prose", () => {

@@ -20,48 +20,52 @@ test.afterEach(() => {
   restoreFixture();
 });
 
-test("AC-11-005.2: command cards remember project mode and scope all three target kinds", async ({
+// AC-11-005.2 is superseded by AC-11-007 to -009: transient action + FRD/card scope.
+test("AC-11-005.2 → AC-11-007/008/009: command cards reset and scope FRD/card targets", async ({
   page,
 }) => {
-  await gotoHydrated(page, "/portfolio/mission-control/commands", {
-    selector: '[data-testid="tab-commands-body"]',
+  await page.addInitScript(() => {
+    localStorage.setItem("mc:build-mode:mission-control", "powerful");
   });
-  for (const name of [
-    "Siguiente paso",
-    "Modo de construcción",
-    "Construir un objetivo concreto",
-    "Cambios y decisiones",
-  ]) {
+  await gotoHydrated(page, "/portfolio/mission-control/commands", {
+    selector: '[data-testid="build-mode-picker"]',
+  });
+  for (const name of ["Siguiente paso", "Construir o reanudar", "Cambios y decisiones"]) {
     await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
   }
-  await expect(page.getByRole("button", { name: /Equilibrado/ })).toHaveAttribute(
+  const picker = page.getByTestId("build-mode-picker");
+  await expect(picker.getByRole("button", { name: "Construir", exact: true })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
-  await page.getByRole("button", { name: /Potente/ }).click();
   await expect(
-    page.getByRole("button", { name: "Copiar /pandacorp:implement powerful", exact: true }),
+    picker.getByRole("button", { name: "Copiar /pandacorp:implement", exact: true }),
   ).toBeVisible();
-  await page.reload();
-  await expect(page.getByRole("button", { name: /Potente/ })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  const target = page.getByRole("combobox", { name: "Objetivo del build" });
-  for (const value of ["FRD-01", "WO-01-003", "change:s5c-commands-target"]) {
+  await picker.getByRole("button", { name: "Reanudar", exact: true }).click();
+  await expect(
+    picker.getByRole("button", { name: "Copiar /pandacorp:implement --resume", exact: true }),
+  ).toBeVisible();
+  await picker.getByRole("button", { name: "Objetivo: FRD o tarjeta", exact: true }).click();
+  const target = picker.getByRole("combobox", { name: "Objetivo del build" });
+  await expect(target.locator('option[value^="WO-"]')).toHaveCount(0);
+  await expect(picker.getByRole("button", { name: /^Copiar / })).toHaveCount(0);
+  for (const value of ["FRD-01", "change:s5c-commands-target"]) {
     await target.selectOption(value);
     await expect(
-      page.getByRole("button", { name: `Copiar /pandacorp:implement ${value}`, exact: true }),
+      picker.getByRole("button", { name: `Copiar /pandacorp:implement ${value}`, exact: true }),
     ).toBeVisible();
   }
   await target.selectOption("");
+  await expect(picker.getByRole("button", { name: /^Copiar / })).toHaveCount(0);
+  await target.selectOption("change:s5c-commands-target");
+  await page.reload();
+  await expect(picker.getByRole("button", { name: "Construir", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(picker.getByRole("combobox")).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "Copiar /pandacorp:implement <id>", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText(
-      "Los comandos se copian para pegarlos en Claude Code. Mission Control nunca los ejecuta.",
-    ),
+    picker.getByText("Copia el comando y pégalo en tu sesión. Mission Control nunca lo ejecuta."),
   ).toBeVisible();
   await expect(page.getByRole("main")).toHaveCount(1);
 });

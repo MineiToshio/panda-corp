@@ -394,11 +394,11 @@ describe("REQ-02-009: Documentos through the real reader", () => {
     idea("demo", linked);
     project("implementation");
     const view = await mountIdea("demo/documents");
-    expect(within(panel()).getByText("/pandacorp:iterate")).toBeInTheDocument();
+    expect(within(panel()).getByText("/pandacorp:implement")).toBeInTheDocument();
     view.unmount();
     project("design");
     await mountIdea("demo/documents");
-    expect(within(panel()).queryByText("/pandacorp:iterate")).toBeNull();
+    expect(within(panel()).queryByText("/pandacorp:implement")).toBeNull();
   });
 });
 

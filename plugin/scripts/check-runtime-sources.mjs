@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, lstatSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 
 const root = path.resolve(process.argv[2] || path.join(path.dirname(new URL(import.meta.url).pathname), "..", ".."));
 const read = (rel) => JSON.parse(readFileSync(path.join(root, rel), "utf8"));
@@ -65,9 +66,14 @@ for (const worker of workers.workers || []) {
 
 // BL-0121: factory/gamification-ledger.json is gitignored per-machine state (DR-033) that a
 // linked `git worktree` never inherits. check-derived-drift.sh sets this env var when it has
-// already confirmed (a) the checkout IS a linked worktree and (b) the ledger is absent there —
-// a main checkout missing it still fails below, unchanged.
-const skipLedgerOutputCheck = process.env.PANDACORP_SKIP_LEDGER_OUTPUT_CHECK === "1";
+// already confirmed the checkout is linked. Direct CLI invocation makes the same
+// git-based classification; a main checkout missing the ledger still fails below.
+let linkedWorktree = false;
+try {
+  const gitPath = (flag) => execFileSync("git", ["-C", root, "rev-parse", "--path-format=absolute", flag], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  linkedWorktree = gitPath("--git-common-dir") !== gitPath("--git-dir");
+} catch { /* Non-repository fixtures keep strict output checks. */ }
+const skipLedgerOutputCheck = process.env.PANDACORP_SKIP_LEDGER_OUTPUT_CHECK === "1" || linkedWorktree;
 const LEDGER_OUTPUT = "factory/gamification-ledger.json";
 
 const outputs = new Set();
