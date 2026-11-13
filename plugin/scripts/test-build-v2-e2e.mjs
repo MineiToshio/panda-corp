@@ -410,7 +410,7 @@ async function scenarioL() {
     const { r } = await startRun(sc, { label: "codex" });
     const hooks = gitTry(sc.root, ["rev-parse", "--path-format=absolute", "--git-path", "hooks"]);
     const hook = hooks ? await readFile(path.join(hooks, "pre-push"), "utf8").catch(() => "") : "";
-    check(sc, "launched: start --run installs the untracked pre-push hook and arms drive", r.json.prepush === "installed" && /pandacorp-pre-push v1/.test(hook) && r.json.drive?.armed === true && !gitTry(sc.root, ["ls-files", ".pandacorp/hooks/pre-push"]), `${txt(r.json)} hook=${hook.length}`);
+    check(sc, "launched: start --run installs the untracked pre-push hook and arms drive", r.json.prepush === "installed" && /pandacorp-pre-push v2/.test(hook) && r.json.drive?.armed === true && !gitTry(sc.root, ["ls-files", ".pandacorp/hooks/pre-push"]), `${txt(r.json)} hook=${hook.length}`);
     const res = await sessionLoop(sc, sc.epoch);
     const journal = await readJournal(sc);
     const mq21 = journal.some((e) => (e.type === "job_finished" && e.data?.exit === 21) || (e.type === "gate" && e.data?.exit === 21));

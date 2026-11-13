@@ -885,6 +885,14 @@ function ConceptEstado(): React.JSX.Element {
         Sin señal. El estado durable de main avanza al aterrizar; verificado en una rama no
         significa entregado ni seguro para probar.
       </NotePanel>
+      <Body>
+        Mission Control comparte Git con la fábrica. Su overlay conserva en Git los archivos
+        gestionados (guía, estado y scripts); run, comms, inbox, cuentas y cachés se excluyen de las
+        nuevas incorporaciones. Los dos archivos antiguos de inbox ya versionados conservan su
+        seguimiento hasta una limpieza explícita del índice. El hook pre-push compartido consulta su
+        estado solo cuando los commits enviados a la rama principal afectan a mission-control. Los
+        cambios que solo tocan la fábrica siguen su curso.
+      </Body>
       <EstadoDetail />
     </>
   );

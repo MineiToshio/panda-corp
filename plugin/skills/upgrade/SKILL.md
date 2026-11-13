@@ -82,7 +82,13 @@ Tell the owner in Spanish that the upgrade is deferred until the build stops. Do
      node "${CLAUDE_PLUGIN_ROOT}/scripts/install-pre-push.mjs" --project .
      node "${CLAUDE_PLUGIN_ROOT}/scripts/install-pre-push.mjs" --project . --check
      ```
-     Both must exit 0 before stamping the overlay version. The installer resolves Git's untracked hooks directory and chains an existing hook. A `core.hooksPath` inside the worktree is refused; report it without overwriting tracked hooks or bypassing the check. Never set `PANDACORP_OWNER_RELEASE_OK` during upgrade. In a launched project this guard blocks an unprompted push or deletion of the default branch; it does not replace the owner's production gate.
+     Both must exit 0 before stamping the overlay version. The installer resolves Git's untracked hooks directory and chains an existing hook.
+     For a nested project it registers its repository-relative subtree in the shared hook, preserving
+     other registered projects; it never requires a factory-root status.yaml. Only default-branch
+     updates touching that subtree use its state (including reverted commits, creation history and
+     rewinds; deletion is guarded when the deleted tree contains the subtree). Unknown history fails
+     closed. Status is read from that project's directory in the default-branch worktree, falling back
+     to the pushing worktree. Full contract: `plugin/docs/nested-projects.md`. A `core.hooksPath` inside the worktree is refused; report it without overwriting tracked hooks or bypassing the check. Never set `PANDACORP_OWNER_RELEASE_OK` during upgrade. In a launched project this guard blocks an unprompted push or deletion of the default branch; it does not replace the owner's production gate.
    - **Project risk paths (R11, NOTA-1):** if `.pandacorp/risk-paths` is missing, seed it verbatim from `templates/shared/.pandacorp/risk-paths.example` (all example globs remain commented). Preserve an existing file without overwriting its choices. Inspect the actual project boundaries, especially redirect/callback validation, auth, permissions, payments, persistence, secrets and destructive operations, and propose exact project-relative `risk <glob>` / `low <glob>` lines to the owner in a CONV-20 decision card. Activate only owner-confirmed globs; no answer leaves examples inactive and the proposal pending, never an inferred approval. Never copy another project's paths or use `low` to suppress a built-in risk signal.
    - **`.gitignore` (additive)**: append every entry of `${CLAUDE_PLUGIN_ROOT}/templates/shared/.gitignore` the project's `.gitignore` lacks (e.g. `.claude/worktrees/`, the harness's session worktrees, which otherwise make `merge-queue.sh` see main as busy); never remove, reorder or rewrite the project's own lines.
    - **`docs/rules/` (engineering rules re-sync)**: this is how rule changes reach every project. Read the project's stack from `docs/product/architecture.md`. For each file in `${CLAUDE_PLUGIN_ROOT}/templates/rules/`: if its `applies_when`/`also_applies_when` is `always` or matches a technology the project uses, **copy it in verbatim, overwriting the project's copy** (the plugin is the source of truth for these files); if it no longer applies (a technology was dropped), remove the stale project copy. Leave untouched any file the owner added that has no counterpart in the plugin (project-specific rules). Then **regenerate `docs/rules/README.md`** (canonical spec in the `scaffold` skill), **keeping the project's own import choice for every project-specific file** — imported stays imported, deliberately unlisted (a local supplement loaded through `AGENTS.md`, e.g.) stays unlisted, along with any project-added lines under the managed table. For a pre-rules project (no `docs/rules/`), create it now with the applicable set (first-time adoption). Bumping `OVERLAY_VERSION` whenever a rule file changes is what triggers this on the next skill run (DR-051).
@@ -109,7 +115,20 @@ Tell the owner in Spanish that the upgrade is deferred until the build stops. Do
 
 4. **Bump + record.** Set `overlay_version` to the target in `.pandacorp/status.yaml`. Add a `docs/decision-log.md` entry: "Pandacorp overlay upgraded `<old>` → `<new>`"; if step 2b ran, note the feature-centric docs migration (DR-049) and that it was a pure relocation (IDs preserved, no behavior changed); if the gate-config conformance check (DR-059) regenerated `verify.sh`/`biome.json`/`knip.json`, note which drifted and that enforcement was re-aligned to the standard; if the toolchain check installed missing devDependencies/scripts or fixed `tsconfig`, note that too (the gate is now runnable cold).
 
-5. **Commit on its own**: `chore: upgrade pandacorp overlay <old> → <new>` (moved files + machinery + managed layer + any DR-049 docs relocation from step 2b). Do NOT mix product *behavior* changes into this commit — the docs migration is a structural move, not a content rewrite.
+5. **Stage the managed overlay explicitly, then commit on its own.** Before committing, run:
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/stage-managed-overlay.mjs" --project . --dry-run
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/stage-managed-overlay.mjs" --project .
+   ```
+   The helper resolves both the project and Git repository roots. For nested projects (Mission Control
+   inside the factory), it stages only the named regular managed files even if the parent repository
+   ignores `.pandacorp/`; it never stages `run/`, `comms/`, `inbox/`, accounts, secrets, caches, identities,
+   installed hooks or unknown files. It refuses symlink machinery. See `plugin/docs/nested-projects.md`
+   for the exact inventory. Stage the other changed integration files by their explicit paths; never
+   `git add -f .pandacorp/` or broad repository staging in a shared factory checkout. Existing tracked
+   owner-state files require a separate index cleanup; ignore rules do not untrack them.
+
+   **Commit on its own**: `chore: upgrade pandacorp overlay <old> → <new>` (moved files + machinery + managed layer + any DR-049 docs relocation from step 2b). Do NOT mix product *behavior* changes into this commit — the docs migration is a structural move, not a content rewrite.
 
 6. **Report** (in Spanish): what moved, what was regenerated, and the new version. If a MAJOR jump required a manual decision, surface it explicitly.
 

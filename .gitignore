@@ -35,12 +35,29 @@ factory/ideas/*.md
 factory/ideas/_drafts/**
 !factory/ideas/_drafts/README.md
 
-# Mission Control integration layer — gitignored parts (Spanish comms, inbox, runtime). .pandacorp/status.yaml stays committed.
-mission-control/.pandacorp/comms/
-mission-control/.pandacorp/inbox/
-mission-control/.pandacorp/run/
-# This in-factory project identity belongs to the owner, not the shared framework.
-mission-control/.pandacorp/navigation-identity.json
+# Nested Mission Control overlay: reopen this directory, then expose ONLY managed source files.
+# Inventory: plugin/docs/nested-projects.md; staging: plugin/scripts/stage-managed-overlay.mjs.
+# Unknown additions, run/, comms/, inbox/, accounts/, identities, caches and hooks stay private.
+!/mission-control/.pandacorp/
+/mission-control/.pandacorp/*
+!/mission-control/.pandacorp/README.md
+!/mission-control/.pandacorp/guide.md
+!/mission-control/.pandacorp/status.yaml
+!/mission-control/.pandacorp/idea-origin.md
+!/mission-control/.pandacorp/track.jsonl
+!/mission-control/.pandacorp/build-journal.jsonl
+!/mission-control/.pandacorp/verify.sh
+!/mission-control/.pandacorp/canary.sh
+!/mission-control/.pandacorp/merge-queue.sh
+!/mission-control/.pandacorp/green-stamp.sh
+!/mission-control/.pandacorp/change-reconcile.mjs
+!/mission-control/.pandacorp/session-cleanup.sh
+!/mission-control/.pandacorp/worktree-bootstrap.sh
+!/mission-control/.pandacorp/pending-work.sh
+!/mission-control/.pandacorp/serve-once.sh
+!/mission-control/.pandacorp/doc-lint.sh
+!/mission-control/.pandacorp/check-project-skills.mjs
+!/mission-control/.pandacorp/risk-paths
 
 # Factory self-learning raw capture inbox (provisional notes; the librarian refines them into committed factory/memory/LESSON-*.md)
 factory/memory/_inbox.md

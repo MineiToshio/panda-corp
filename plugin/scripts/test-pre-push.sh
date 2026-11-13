@@ -10,8 +10,8 @@
 #     Exit codes: 0 installed/current (install success), 1 missing or stale (--check), 2 not a git
 #     repository, 3 core.hooksPath points inside the work tree (refused). Idempotent.
 #   - Template at plugin/templates/shared/.pandacorp/hooks/pre-push (only its existence is asserted;
-#     the template text is never read). The installed hook is a full, executable, untracked copy in
-#     `git rev-parse --git-path hooks`, carrying the line `# pandacorp-pre-push v1`.
+#     the template text is never read). The installed hook is a configured, executable, untracked copy in
+#     `git rev-parse --git-path hooks`, carrying the line `# pandacorp-pre-push v2`.
 #   - A foreign pre-push is renamed `pre-push.pandacorp-chained` (same directory) and is called by the
 #     installed hook with git's own arguments and the stdin lines; its failure blocks the push.
 #   - Hook logic: stdin lines `<local_ref> <local_sha> <remote_ref> <remote_sha>`; default branch =
@@ -32,7 +32,7 @@ HERE=$(cd "$(dirname "$0")/../.." && pwd)
 INSTALLER="$HERE/plugin/scripts/install-pre-push.mjs"
 TEMPLATE="$HERE/plugin/templates/shared/.pandacorp/hooks/pre-push"
 FIXMOD="$HERE/plugin/scripts/fixtures/build-v2/make-fixture.mjs"
-MARKER='# pandacorp-pre-push v1'
+MARKER='# pandacorp-pre-push v2'
 ZERO=0000000000000000000000000000000000000000
 
 pass=0; fail=0
@@ -166,11 +166,11 @@ t "hook present after recreating the hooks directory" grep -qF "$MARKER" "$P/.gi
 section "1c. installer: stale version marker"
 mkfx '{"preset":"launched"}'
 inst "$P"; H="$(hookdir "$P")/pre-push"
-sed 's/pandacorp-pre-push v1/pandacorp-pre-push v0/' "$H" > "$H.new" && mv "$H.new" "$H" && chmod +x "$H"
+sed 's/pandacorp-pre-push v2/pandacorp-pre-push v0/' "$H" > "$H.new" && mv "$H.new" "$H" && chmod +x "$H"
 tf "stale hook no longer carries the current marker" grep -qF "$MARKER" "$H"
 inst "$P" --check; eq "--check detects a stale marker (exit 1)" 1 "$IRC"
 inst "$P"; eq "install over a stale hook exits 0" 0 "$IRC"
-t "install refreshed the marker to v1" grep -qF "$MARKER" "$H"
+t "install refreshed the marker to v2" grep -qF "$MARKER" "$H"
 tf "stale pandacorp hook was not preserved as a chained foreign hook" [ -e "$(hookdir "$P")/pre-push.pandacorp-chained" ]
 inst "$P" --check; eq "--check after refresh exits 0" 0 "$IRC"
 # a stale marker with a chained foreign hook keeps the foreign hook intact
@@ -178,7 +178,7 @@ mkfx '{"preset":"launched"}'
 printf '#!/bin/sh\necho FOREIGN-ORIGINAL >/dev/null\nexit 0\n' > "$P/.git/hooks/pre-push"; chmod +x "$P/.git/hooks/pre-push"
 cp "$P/.git/hooks/pre-push" "$D/foreign.orig"
 inst "$P"; H="$P/.git/hooks/pre-push"
-sed 's/pandacorp-pre-push v1/pandacorp-pre-push v0/' "$H" > "$H.new" && mv "$H.new" "$H" && chmod +x "$H"
+sed 's/pandacorp-pre-push v2/pandacorp-pre-push v0/' "$H" > "$H.new" && mv "$H.new" "$H" && chmod +x "$H"
 inst "$P" --check; eq "stale marker with a chained foreign hook: --check exits 1" 1 "$IRC"
 inst "$P"; eq "reinstall over stale + chained exits 0" 0 "$IRC"
 t "chained foreign hook still byte-identical to the original" cmp -s "$D/foreign.orig" "$P/.git/hooks/pre-push.pandacorp-chained"

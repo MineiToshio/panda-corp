@@ -22,7 +22,7 @@
 //     becomes status "paused" with the lease released. Claude >= 95 % alone: "handoff" when the drive standby is alive
 //     (build/drive/standby.json pid alive, state standby), else "paused-quota" (A11).
 //   - `start --run` on an unlaunched project returns prepush "not_needed"; on the `launched` fixture "installed", with the
-//     untracked hook (marker `# pandacorp-pre-push v1`) at `git rev-parse --git-path hooks`/pre-push.
+//     untracked hook (marker `# pandacorp-pre-push v2`) at `git rev-parse --git-path hooks`/pre-push.
 //   - Event BuildLaunch lands in PANDACORP_EVENTS_FILE for a Claude-coordinated run.
 //   - Branch/path names come from plugin/runtime/build/paths.mjs (buildPaths), never hand-built (R1).
 import { spawn, spawnSync } from "node:child_process";
@@ -520,7 +520,7 @@ await test("start --run in a launched project installs the UNTRACKED pre-push gu
   const { start } = await startRun(s);
   eq(start.prepush, "installed", "prepush installed");
   ok(existsSync(hook), "hook file exists at git rev-parse --git-path hooks");
-  const text = await readFile(hook, "utf8"); ok(text.includes("# pandacorp-pre-push v1"), "hook carries the marker");
+  const text = await readFile(hook, "utf8"); ok(text.includes("# pandacorp-pre-push v2"), "hook carries the marker");
   ok(((await stat(hook)).mode & 0o111) !== 0, "hook is executable");
   eq(gitIn(s.root, "ls-files", ".pandacorp/hooks/pre-push"), "", "no tracked copy of the hook");
   eq(mainState(s.root), before, "main unchanged (hook lives in .git)");
