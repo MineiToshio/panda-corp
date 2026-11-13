@@ -140,7 +140,7 @@ body .fr-quest {
   height: 12px;
   border-radius: var(--r-pill);
   overflow: hidden;
-  background: color-mix(in srgb, var(--map-label-fg) 15%, transparent);
+  background: var(--color-scene-track);
 }
 body .fr-quest > span {
   display: block;
@@ -148,7 +148,7 @@ body .fr-quest > span {
   background: var(--tone);
 }
 body .fr-quest > span[data-tone="slate"] {
-  background: color-mix(in srgb, var(--map-label-fg) 30%, transparent);
+  background: var(--color-scene-pending);
 }
 body .fr-cast {
   position: relative;
@@ -210,7 +210,7 @@ body .fr-route {
   pointer-events: none;
 }
 body .token[data-tone="slate"] {
-  background: color-mix(in srgb, var(--map-label-fg) 40%, transparent);
+  background: var(--color-scene-token-pending);
 }
 @media (hover: hover) {
   body .token:hover,

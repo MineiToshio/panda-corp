@@ -93,6 +93,21 @@
 }
 
 @theme inline {
+  --color-phase-past-teal: var(--phase-past-teal);
+  --color-phase-past-blue: var(--phase-past-blue);
+  --color-phase-past-pink: var(--phase-past-pink);
+  --color-phase-past-amber: var(--phase-past-amber);
+  --color-phase-past-violet: var(--phase-past-violet);
+  --color-phase-past-green: var(--phase-past-green);
+  --color-scene-count-slate: var(--scene-count-slate);
+  --color-scene-count-blue: var(--scene-count-blue);
+  --color-scene-count-amber: var(--scene-count-amber);
+  --color-scene-count-green: var(--scene-count-green);
+  --color-scene-track: var(--scene-track);
+  --color-scene-pending: var(--scene-pending);
+  --color-scene-token-pending: var(--scene-token-pending);
+  --color-scene-chip-amber: var(--scene-chip-amber);
+  --color-scene-chip-pink: var(--scene-chip-pink);
   --color-bg: var(--bg);
   --color-bg-2: var(--bg-2);
   --color-surface: var(--surface);
@@ -161,6 +176,21 @@
 
 /* === Raw tokens: light (default) === */
 :root {
+  --phase-past-teal: color-mix(in srgb, var(--teal) 55%, var(--surface-3));
+  --phase-past-blue: color-mix(in srgb, var(--blue) 55%, var(--surface-3));
+  --phase-past-pink: color-mix(in srgb, var(--pink) 55%, var(--surface-3));
+  --phase-past-amber: color-mix(in srgb, var(--amber) 55%, var(--surface-3));
+  --phase-past-violet: color-mix(in srgb, var(--violet) 55%, var(--surface-3));
+  --phase-past-green: color-mix(in srgb, var(--green) 55%, var(--surface-3));
+  --scene-count-slate: color-mix(in srgb, var(--scene-slate) 55%, var(--map-label-fg));
+  --scene-count-blue: color-mix(in srgb, var(--scene-blue) 55%, var(--map-label-fg));
+  --scene-count-amber: color-mix(in srgb, var(--scene-amber) 55%, var(--map-label-fg));
+  --scene-count-green: color-mix(in srgb, var(--scene-green) 55%, var(--map-label-fg));
+  --scene-track: color-mix(in srgb, var(--map-label-fg) 15%, transparent);
+  --scene-pending: color-mix(in srgb, var(--map-label-fg) 30%, transparent);
+  --scene-token-pending: color-mix(in srgb, var(--map-label-fg) 40%, transparent);
+  --scene-chip-amber: color-mix(in srgb, var(--scene-amber) 22%, transparent);
+  --scene-chip-pink: color-mix(in srgb, var(--scene-pink) 22%, transparent);
   color-scheme: light;
   --bg: #f3f4f7;
   --bg-2: #eceef3;
@@ -251,6 +281,12 @@
 
 /* === Raw tokens: dark === */
 :root[data-theme="dark"] {
+  --phase-past-teal: color-mix(in srgb, var(--teal) 55%, var(--surface-3));
+  --phase-past-blue: color-mix(in srgb, var(--blue) 55%, var(--surface-3));
+  --phase-past-pink: color-mix(in srgb, var(--pink) 55%, var(--surface-3));
+  --phase-past-amber: color-mix(in srgb, var(--amber) 55%, var(--surface-3));
+  --phase-past-violet: color-mix(in srgb, var(--violet) 55%, var(--surface-3));
+  --phase-past-green: color-mix(in srgb, var(--green) 55%, var(--surface-3));
   color-scheme: dark;
   --bg: #0c0e13;
   --bg-2: #101319;
@@ -289,6 +325,12 @@
 /* No-JavaScript fallback: the system dark preference when no theme is set. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
+    --phase-past-teal: color-mix(in srgb, var(--teal) 55%, var(--surface-3));
+    --phase-past-blue: color-mix(in srgb, var(--blue) 55%, var(--surface-3));
+    --phase-past-pink: color-mix(in srgb, var(--pink) 55%, var(--surface-3));
+    --phase-past-amber: color-mix(in srgb, var(--amber) 55%, var(--surface-3));
+    --phase-past-violet: color-mix(in srgb, var(--violet) 55%, var(--surface-3));
+    --phase-past-green: color-mix(in srgb, var(--green) 55%, var(--surface-3));
     color-scheme: dark;
     --bg: #0c0e13;
     --bg-2: #101319;

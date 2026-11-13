@@ -1,17 +1,25 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { __resetLiveEventStoresForTest } from "../eventStore";
 import { GET } from "../route";
 
 const connections: AbortController[] = [];
-let file: string | undefined;
+let root: string;
+let file: string;
+beforeEach(() => {
+  root = fs.mkdtempSync(path.join(os.tmpdir(), "sse-security-"));
+  file = path.join(root, "events.ndjson");
+  fs.writeFileSync(file, "");
+  vi.stubEnv("PANDACORP_EVENTS_FILE", file);
+});
 afterEach(() => {
   for (const controller of connections.splice(0)) controller.abort();
   __resetLiveEventStoresForTest();
-  if (file) fs.unlinkSync(file);
   vi.unstubAllEnvs();
+  fs.unlinkSync(file);
+  fs.rmdirSync(root);
 });
 function connect(): Response {
   const controller = new AbortController();
@@ -31,8 +39,6 @@ it("limits simultaneous streams, returns problem+json and releases slots on abor
   expect(connect().status).toBe(200);
 });
 it("does not send unused private session and agent identifiers in the real NDJSON frame", async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "sse-security-"));
-  file = path.join(root, "events.ndjson");
   fs.writeFileSync(
     file,
     `${JSON.stringify({
@@ -44,7 +50,6 @@ it("does not send unused private session and agent identifiers in the real NDJSO
       agent_id: "raw-agent",
     })}\n`,
   );
-  vi.stubEnv("PANDACORP_EVENTS_FILE", file);
   const response = connect();
   const chunk = await response.body?.getReader().read();
   const text = new TextDecoder().decode(chunk?.value);

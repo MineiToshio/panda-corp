@@ -110,7 +110,7 @@
 }
 .count {
   font: 800 var(--fs-h1) / 1 var(--font-display);
-  color: color-mix(in srgb, var(--tone) 55%, var(--map-label-fg));
+  color: var(--station-count);
   font-variant-numeric: tabular-nums;
 }
 .tokens {
@@ -323,4 +323,24 @@
   .active .walker img {
     animation: none;
   }
+}
+
+.station[data-tone="slate"] {
+  --station-count: var(--color-scene-count-slate);
+}
+.station[data-tone="blue"] {
+  --station-count: var(--color-scene-count-blue);
+}
+.station[data-tone="amber"] {
+  --station-count: var(--color-scene-count-amber);
+}
+.station[data-tone="green"] {
+  --station-count: var(--color-scene-count-green);
+}
+
+.scene [data-tone="amber"] {
+  --chip-bg: var(--color-scene-chip-amber);
+}
+.scene [data-tone="pink"] {
+  --chip-bg: var(--color-scene-chip-pink);
 }

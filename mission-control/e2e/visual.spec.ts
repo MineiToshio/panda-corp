@@ -1,7 +1,5 @@
-import fs from "node:fs";
 import { expect, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
-import { fixtureLedger, settleLedgerPage, waitForLedgerIdle } from "./_ledger";
 import { notSkipped } from "./_skip";
 import { TARGETS_MOBILE } from "./_target";
 import { VISUAL_BLESSED } from "./routes";
@@ -10,24 +8,19 @@ import { VISUAL_BLESSED } from "./routes";
  * Visual-Fidelity Gate Layer A (DR-056): each blessed surface is diffed against its own blessed
  * baseline at ≥2 viewports (the playwright projects), fonts settled, animations off. VERBATIM stack
  * template (DR-059) — propagated by /pandacorp:architecture, conformance-checked by /pandacorp:upgrade.
- * Fail-closed; the sentinel keeps the suite non-empty while no surface is blessed yet.
+ * Fail-closed; the sentinel explicitly skips with a reason while no surface is blessed yet.
  * Layer B (the VLM mock-judge) is the reviewer's runtime/visual lens, not a script.
  *
  * Quarantine (BL-0011): a route whose work order is `BLOCKED: needs-owner` is held ASIDE via
  * `notSkipped` (engine-driven `PANDACORP_GATE_SKIP_ROUTES`, empty on a normal run — fail-closed).
  */
-// Each viewport/surface derives guild totals from frozen sources, never a prior spec's maxima.
-test.beforeEach(async () => {
-  await waitForLedgerIdle();
-  fs.rmSync(fixtureLedger, { force: true });
-});
-test.afterEach(async ({ page }) => {
-  await settleLedgerPage(page);
-  fs.rmSync(fixtureLedger, { force: true });
-});
-
 test("visual harness present", () => {
-  expect(VISUAL_BLESSED.length).toBeGreaterThanOrEqual(0);
+  // biome-ignore lint/suspicious/noSkippedTests: explicit gate applicability (DR-144).
+  test.skip(
+    VISUAL_BLESSED.length === 0,
+    "No eligible surfaces declared yet; route checks begin when the manifest is populated.",
+  );
+  expect(VISUAL_BLESSED.length).toBeGreaterThan(0);
 });
 
 for (const s of notSkipped(VISUAL_BLESSED)) {
@@ -44,9 +37,6 @@ for (const s of notSkipped(VISUAL_BLESSED)) {
     // gotoHydrated (optional: a surface may have no form): a screenshot taken before the form hydrates
     // can capture the pre-hydration state and flake the baseline (bench A-1).
     await gotoHydrated(page, s.path, { optional: true });
-    // Drain the mount's ledger action before asserting pixels or starting another capture.
-    await page.waitForLoadState("networkidle");
-    await waitForLedgerIdle();
     await expect(page.locator("main, h1").first()).toBeVisible(); // real content rendered before the shot
     // Exclude environment/data-dependent surfaces from the visual baseline so pixel diffs stay
     // deterministic (each has its own unit/component coverage):

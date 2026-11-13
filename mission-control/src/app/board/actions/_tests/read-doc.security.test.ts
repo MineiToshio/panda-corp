@@ -1,4 +1,4 @@
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/portfolio/portfolio", () => ({
   readPortfolio: () => [{ name: "Allowed", path: "/allowed" }],
@@ -7,6 +7,8 @@ vi.mock("@/lib/docs/tree", () => ({ readDoc: vi.fn(() => "private document") }))
 
 import { readDoc } from "@/lib/docs/tree";
 import { readBoardDoc } from "../read-doc";
+
+beforeEach(() => vi.mocked(readDoc).mockClear());
 
 it("refuses arbitrary filesystem roots and oversized paths before reading", async () => {
   expect(await readBoardDoc("/outside", "docs/product/prd.md")).toBeNull();

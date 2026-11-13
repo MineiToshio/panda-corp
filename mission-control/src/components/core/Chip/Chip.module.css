@@ -11,7 +11,10 @@
   white-space: nowrap;
   line-height: 1;
   color: var(--tone, var(--text-2));
-  background: color-mix(in srgb, var(--tone, var(--slate)) var(--tint-strong), transparent);
+  background: var(
+    --chip-bg,
+    color-mix(in srgb, var(--tone, var(--slate)) var(--tint-strong), transparent)
+  );
 }
 .dot {
   width: 7px;

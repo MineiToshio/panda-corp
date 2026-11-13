@@ -107,7 +107,7 @@ MD
 dr100=""
 while IFS= read -r f; do
   [ -n "$f" ] || continue
-  if head -n 25 "$f" | grep -Eq '^status:[[:space:]]*ACTIVE'; then dr100="found"; fi
+  if grep -Eq '^status:[[:space:]]*ACTIVE' <<<"$(head -n 25 "$f")"; then dr100="found"; fi
 done < <(grep -rIl 'NEEDS CLARIFICATION' docs 2>/dev/null || true)
 if [ -n "$dr100" ]; then pass "DR-100 readiness (marker in an ACTIVE doc)"; else rot "DR-100 readiness (marker in an ACTIVE doc)"; fi
 rm -rf "$SBX_DOCS"
@@ -162,8 +162,10 @@ rm -f "$SBX_SRC/orphan.ts"
 if [ -f playwright.config.ts ]; then
   listing=$(pnpm exec playwright test e2e/ --list 2>/dev/null || true)
   missing=""
+  # Here-string, never `printf … | grep -q`: under pipefail an early grep exit SIGPIPEs printf on a
+  # listing larger than the pipe buffer and the check misreports a discovered spec as missing.
   for spec in smoke visual responsive shell headers; do
-    printf '%s' "$listing" | grep -q "${spec}.spec.ts" || missing="$missing $spec"
+    grep -qF -- "${spec}.spec.ts" <<<"$listing" || missing="$missing $spec"
   done
   if [ -z "$missing" ]; then
     pass "playwright (spec discovery: smoke/visual/responsive/shell/headers)"

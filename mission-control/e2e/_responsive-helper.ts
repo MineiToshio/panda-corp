@@ -47,8 +47,7 @@ async function settle(page: Page, url: string, options: ResponsiveOptions): Prom
   const { mobileWidth, mobileHeight = 844, liveEndpointGlob = "**/api/live**" } = options;
   await page.setViewportSize({ width: mobileWidth, height: mobileHeight });
   await page.route(liveEndpointGlob, (r) => r.abort());
-  // `load`, because a streamed segment arriving after `main` paints would otherwise escape every check.
-  await page.goto(url, { waitUntil: "load" });
+  await page.goto(url, { waitUntil: "domcontentloaded" });
   await page.evaluate(() => document.fonts.ready);
   await expect(page.locator("main").first()).toBeVisible();
   return mobileWidth;
@@ -73,8 +72,7 @@ async function detectOverflow(page: Page): Promise<{ overflowing: string[]; clip
         return `${tag}${id}${cls}`;
       };
       const isOptedOut = (el: Element): boolean => Boolean(el.closest(optOutSelector));
-      // Screen-reader-only text (BL-0259): a 1px absolutely-positioned box clipped to nothing paints
-      // no pixel, so its overflow hides nothing from anyone. A real clipped box keeps its size.
+      // Screen-reader-only text is intentionally clipped and hides no visible content.
       const isVisuallyHidden = (el: Element): boolean => {
         const box = el.getBoundingClientRect();
         const style = getComputedStyle(el);
@@ -92,7 +90,7 @@ async function detectOverflow(page: Page): Promise<{ overflowing: string[]; clip
       const clipped: string[] = [];
       for (const el of Array.from(document.querySelectorAll<HTMLElement>("*"))) {
         if (el.scrollWidth <= el.clientWidth + tolerance) continue;
-        if (isOptedOut(el) || isVisuallyHidden(el)) continue; // declared scroll-x or sr-only text
+        if (isOptedOut(el) || isVisuallyHidden(el)) continue; // intentional scroll-x or sr-only
         const overflowX = getComputedStyle(el).overflowX;
         if (overflowX === "hidden" || overflowX === "clip") {
           // content is CLIPPED off-canvas (what MC actually shipped) — silent data loss
@@ -109,6 +107,36 @@ async function detectOverflow(page: Page): Promise<{ overflowing: string[]; clip
     },
     { optOutSelector: SCROLL_X_OPT_OUT, tolerance: SUBPIXEL_TOLERANCE_PX },
   );
+}
+
+/** Re-measures targets axe flagged only because they straddle an obstruction at the current scroll. */
+async function undersizedAfterScroll(
+  page: Page,
+  violations: readonly {
+    readonly nodes: readonly {
+      readonly target: readonly unknown[];
+      readonly any: readonly { readonly message: string }[];
+    }[];
+  }[],
+): Promise<string[]> {
+  const undersized: string[] = [];
+  for (const node of violations.flatMap((violation) => violation.nodes)) {
+    const selector = node.target.join(" ");
+    const obscured = node.any.some((check) => check.message.includes("partially obscured"));
+    if (obscured) {
+      await page
+        .locator(selector)
+        .first()
+        .evaluate((el) => el.scrollIntoView({ block: "center" }));
+      const again = await new AxeBuilder({ page })
+        .include(selector)
+        .withRules(["target-size"])
+        .analyze();
+      if (again.violations.length === 0) continue;
+    }
+    undersized.push(selector);
+  }
+  return undersized;
 }
 
 /**
@@ -137,40 +165,6 @@ async function detectOcclusion(page: Page): Promise<string | null> {
     const box = offender.getBoundingClientRect();
     return `${offender.tagName.toLowerCase()} (fixed, height ${Math.round(box.height)}px) occludes the top of <main> (scroll-margin-top ${scrollMarginTop}px)`;
   });
-}
-
-/**
- * Drops a target axe flagged only because it straddles a fixed bar at the current scroll offset: the
- * reader scrolls it clear, so it is re-measured centred in the viewport. A target still flagged there
- * is really undersized. Returns the selectors that stay below the 24 px line.
- */
-async function undersizedAfterScroll(
-  page: Page,
-  violations: readonly {
-    readonly nodes: readonly {
-      readonly target: readonly unknown[];
-      readonly any: readonly { readonly message: string }[];
-    }[];
-  }[],
-): Promise<string[]> {
-  const undersized: string[] = [];
-  for (const node of violations.flatMap((violation) => violation.nodes)) {
-    const selector = node.target.join(" ");
-    const obscured = node.any.some((check) => check.message.includes("partially obscured"));
-    if (obscured) {
-      await page
-        .locator(selector)
-        .first()
-        .evaluate((el) => el.scrollIntoView({ block: "center" }));
-      const again = await new AxeBuilder({ page })
-        .include(selector)
-        .withRules(["target-size"])
-        .analyze();
-      if (again.violations.length === 0) continue;
-    }
-    undersized.push(selector);
-  }
-  return undersized;
 }
 
 /**

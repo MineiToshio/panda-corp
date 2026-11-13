@@ -15,7 +15,7 @@ import { HAS_SHELL, NAV_DESTINATIONS, NAV_TOGGLE, SHELL_EXEMPT, SHELL_SELECTOR }
  *
  * It iterates SURFACES (every declared route minus the author-declared SHELL_EXEMPT), NOT BLESSED:
  * the MC failure is a route that shipped BLESSED while the shell was absent, so gating on `blessed`
- * would inherit the same blind spot. Empty NAV_DESTINATIONS ⇒ no shell ⇒ vacuous pass.
+ * would inherit the same blind spot. Empty NAV_DESTINATIONS ⇒ no shell ⇒ explicit not-applicable skip.
  *
  * Quarantine (BL-0011): a route whose work order is `BLOCKED: needs-owner` is held ASIDE via
  * `isSkipped`/`notSkipped` (engine-driven `PANDACORP_GATE_SKIP_ROUTES`, empty on a normal run —
@@ -50,8 +50,10 @@ async function settle(page: Page, url: string): Promise<void> {
 }
 
 test("shell harness present", () => {
-  // Fail-closed sentinel: the harness is always present even before a shell contract is declared.
-  expect(NAV_DESTINATIONS.length).toBeGreaterThanOrEqual(0);
+  // biome-ignore lint/suspicious/noSkippedTests: explicit gate applicability (DR-144).
+  test.skip(!HAS_SHELL, "No persistent shell declared in the prototype contract.");
+  expect(NAV_DESTINATIONS.length).toBeGreaterThan(0);
+  expect(SURFACES.length, "A declared shell needs routes to verify").toBeGreaterThan(0);
 });
 
 if (HAS_SHELL) {
@@ -126,6 +128,7 @@ if (HAS_SHELL) {
   }
 } else {
   test("shell · skipped (no NAV_DESTINATIONS — app has no persistent shell)", () => {
-    // Single-screen tool / landing / API / scraper: vacuous pass by design (DR-075).
+    // biome-ignore lint/suspicious/noSkippedTests: explicit gate applicability (DR-144).
+    test.skip(true, "No NAV_DESTINATIONS: prototype declares no persistent shell (DR-075).");
   });
 }

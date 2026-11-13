@@ -7,9 +7,9 @@
 @code-conventions.md
 @debugging.md
 @documentation-and-decisions.md
-@logical-data-model.md
 @error-handling.md
 @external-services.md
+@logical-data-model.md
 @nextjs.md
 @project-structure.md
 @quality-and-testing.md
@@ -21,23 +21,23 @@
 
 | File | What it covers | Why it's here |
 |---|---|---|
-| `code-conventions.md` | Language, naming, English URLs, strict typing, constants, imports, handlers, comments/commits, env vars, deps, GitHub access through `gh` | `always` |
-| `clean-code.md` | File/function size, complexity, SRP/SoC, DRY (rule of three), dead code, purity, module boundaries, AI-legibility | `always` |
-| `project-structure.md` | Mandatory `src/`, `core/`+`modules/`, single/multi-file folders, `_tests/`, feature-first, promotion | `always` |
-| `quality-and-testing.md` | Green gates, TDD, risk-based coverage, test discipline (getByRole, isolation, no hard waits), test database, owner-attended live-attempt economy, batch integration | `always` |
-| `documentation-and-decisions.md` | Canonical doc + decision log discipline, two-layer docs | `always` |
-| `logical-data-model.md` | Publish and refresh the shared logical model with every schema change (DATA-7) | `always` |
-| `external-services.md` | Approved external-service scope, account reuse, resource names, env-variable preparation and evidence | `always` |
-| `error-handling.md` | Expected vs unexpected taxonomy, typed results, never swallow, honest failure | `always` |
-| `resilience.md` | Timeouts everywhere, single-layer retries, honest fallbacks, bulkheads, background jobs | `always` |
-| `ai-implementation.md` | Comments discipline, no parallel doc trees, no dead code, installed-version grounding, lesson citations | `always` |
-| `debugging.md` | Incident investigation SOP: reproduce-first, timeline, suspects incl. parallel writers/the harness, confirmed-cause criterion, sibling audit, attribution guards | `always` |
-| `typescript.md` | `import type`, `satisfies`, discriminated unions + exhaustive switch, no unsafe `as`, const maps, `readonly` | `typescript` |
-| `react.md` | Composition, prop-drilling limit, list keys, derive-don't-sync, React 19 primitives | `react` |
-| `nextjs.md` | Server Components, Server Actions + authz, optimistic UI, forms, caching/revalidation, streaming, error net | `nextjs` |
-| `api-design.md` | RFC 9457 `problem()` error contract, REST conventions, boundary validation, idempotency keys | `nextjs` |
-| `styling-and-ui.md` | `cn()`, `@theme` tokens (no arbitrary values), light/dark, responsive | `tailwind` |
-| `accessibility.md` | Semantic HTML, keyboard/focus, forms, motion, landmarks, WCAG 2.2 | `web-ui` |
-| `web-performance.md` | Core Web Vitals, no waterfalls/dedup, runtime (long tasks, layout thrash, debounce, virtualization) | `web-ui` |
+| `accessibility.md` | Accessibility — semantic HTML, keyboard & focus management, forms, motion, landmarks, WCAG 2.2 (drag, focus visibility, accessible auth). | `web-ui` |
+| `ai-implementation.md` | AI implementation discipline — comments, in-repo docs, no dead code, grounded APIs, lesson citations. | `always` |
+| `api-design.md` | API design — RFC 9457 error contract, REST conventions, boundary validation. | `nextjs` |
+| `clean-code.md` | Clean-code & maintainability — file/function size, complexity, SRP/SoC, DRY, dead code, purity, module boundaries, AI-legibility. | `always` |
+| `code-conventions.md` | Core code conventions — language, naming, strict typing, constants, imports, handlers, commits, GitHub access through gh CLI. | `always` |
+| `debugging.md` | Debugging and incident investigation — reproduce first, timeline, evidence-discarded suspects (incl. parallel writers and the harness), confirmed-cause criterion, sibling audit, attribution guards. | `always` |
+| `documentation-and-decisions.md` | Documentation discipline — keep the canonical doc current AND log the decision with its why. | `always` |
+| `error-handling.md` | Error handling — expected vs unexpected taxonomy, typed results, never swallow, honest failure. | `always` |
+| `external-services.md` | Approved external-service scope, account reuse, resource names, environment variable preparation and evidence. | `always` |
+| `logical-data-model.md` | Keep the published logical data model current with every schema change, for every stack. | `always` |
+| `nextjs.md` | Next.js App Router patterns — server/client boundaries, Server Actions, optimistic UI, error nets. | `nextjs` |
+| `project-structure.md` | Folder organization, component layering (core/modules), single-file vs multi-file folders, test placement, feature-first code, isolated data layer. | `always` |
+| `quality-and-testing.md` | Definition of done — green quality gates — plus TDD and risk-based test coverage. | `always` |
+| `react.md` | React component composition and rendering rules (framework-agnostic React). | `react` |
+| `resilience.md` | Resilience — timeouts everywhere, single-layer retries, honest fallbacks, bulkheads, background jobs. | `always` |
+| `styling-and-ui.md` | Styling and UI — Tailwind with cn(), design tokens, semantic HTML, accessibility, theming, responsive. | `tailwind` |
+| `typescript.md` | TypeScript idioms beyond strict mode — type-only imports, satisfies, discriminated unions, no unsafe assertions, const maps, readonly. | `typescript` |
+| `web-performance.md` | Web performance — Core Web Vitals plus runtime/data-fetching patterns (no waterfalls, dedup, no barrel imports). | `web-ui` |
 
-> Managed by Pandacorp — regenerated by `/pandacorp:upgrade`; add project-specific rules as new files here and they'll be picked up.
+> Managed by Pandacorp — regenerated by `/pandacorp:upgrade`; add project-specific rules as new files here and import them with an `@file.md` line (the upgrade keeps that choice).

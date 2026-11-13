@@ -19,6 +19,21 @@ import { defineConfig, devices } from "@playwright/test";
  * gate pixels. Values starting with "." resolve against the project root; a `PORT` entry moves the
  * e2e server to its own port. When the file is present the server is NEVER reused — an
  * already-running dev server would read live data instead of the pinned fixture.
+ *
+ * Parallel tier (OPTIONAL, DR-143): a project-local `e2e/parallel-safe.json` — never part of the
+ * template, never overwritten by /pandacorp:upgrade — lists the spec files (relative to e2e/) proven
+ * to write nothing a sibling spec reads. The full `verify.sh` runs them first on several workers
+ * (PANDACORP_E2E_TIER=parallel), then everything else on one (PANDACORP_E2E_TIER=serial). Serial is the
+ * default: a spec that is not listed keeps the determinism above, and with no file nothing changes.
+ * The visual gate may never be listed, because pixel baselines require a single worker (DR-056).
+ *
+ * Production-build server (OPTIONAL, DR-143): a project-local `e2e/prod-server.mjs` — seed, never
+ * overwritten — takes `build` or `start <port>` and owns the project's fixture environment. The full
+ * `verify.sh` builds once and sets PANDACORP_E2E_SERVER=prod, so both tiers share one artifact. Manual
+ * and `--since` runs stay on `next dev`, and so does any project without the seed.
+ *
+ * A project-local `e2e/globalSetup.ts` (optional, seed) is wired in when present, so a project can
+ * hold a machine-wide test lease without forking this file.
  */
 const isCI = Boolean(process.env.CI);
 
@@ -54,10 +69,46 @@ const PROD_SMOKE = Boolean(process.env.PANDACORP_PROD_SMOKE);
 // In a lane (its lane.env, or PANDACORP_LANE in the env) the e2e never reuses a server a sibling lane or main left running.
 const LANE = Boolean(laneEnv.PANDACORP_LANE || process.env.PANDACORP_LANE);
 
+const PARALLEL_SAFE_FILE = path.resolve("e2e", "parallel-safe.json");
+const readParallelSafe = (): string[] => {
+  if (!fs.existsSync(PARALLEL_SAFE_FILE)) return [];
+  const specs: unknown = JSON.parse(fs.readFileSync(PARALLEL_SAFE_FILE, "utf8"));
+  if (!Array.isArray(specs))
+    throw new Error("e2e/parallel-safe.json must be a JSON array of spec paths");
+  return specs.map((spec) => {
+    if (typeof spec !== "string" || !fs.existsSync(path.resolve("e2e", spec))) {
+      throw new Error(`e2e/parallel-safe.json lists a spec that does not exist: ${String(spec)}`);
+    }
+    if (spec === "visual.spec.ts")
+      throw new Error("visual.spec.ts must stay on one worker (DR-056)");
+    return `**/e2e/${spec}`;
+  });
+};
+const GATE_PROD = process.env.PANDACORP_E2E_SERVER === "prod";
+if (GATE_PROD && !fs.existsSync(path.resolve("e2e", "prod-server.mjs"))) {
+  throw new Error("PANDACORP_E2E_SERVER=prod needs e2e/prod-server.mjs");
+}
+const TIER = process.env.PANDACORP_E2E_TIER;
+if (TIER !== undefined && TIER !== "parallel" && TIER !== "serial") {
+  throw new Error(`Unknown PANDACORP_E2E_TIER: ${TIER}`);
+}
+const PARALLEL_SAFE = readParallelSafe();
+const PARALLEL_WORKERS = Number(process.env.PANDACORP_E2E_WORKERS) || 3;
+const GLOBAL_SETUP = path.resolve("e2e", "globalSetup.ts");
+// Each of these specs sets its own viewport or never renders one, so a second project repeats them.
+const VIEWPORT_AGNOSTIC = [
+  "**/e2e/shell.spec.ts",
+  "**/e2e/headers.spec.ts",
+  "**/e2e/hydration.spec.ts",
+];
+const TIER_IGNORE = TIER === "serial" ? PARALLEL_SAFE : [];
+
 export default defineConfig({
   testDir: "./e2e",
+  ...(TIER === "parallel" ? { testMatch: PARALLEL_SAFE } : {}),
+  ...(fs.existsSync(GLOBAL_SETUP) ? { globalSetup: "./e2e/globalSetup.ts" } : {}),
   fullyParallel: false,
-  workers: 1,
+  workers: TIER === "parallel" ? PARALLEL_WORKERS : 1,
   forbidOnly: isCI,
   retries: 0,
   reporter: [["list"]],
@@ -74,19 +125,24 @@ export default defineConfig({
   projects: [
     {
       name: "desktop",
+      testIgnore: TIER_IGNORE,
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
     },
     {
       name: "mobile",
+      testIgnore: [...TIER_IGNORE, ...VIEWPORT_AGNOSTIC],
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
     },
   ],
   webServer: {
-    command: PROD_SMOKE
-      ? `next build && next start --hostname 127.0.0.1 --port ${PORT}`
-      : `next dev --hostname 127.0.0.1 --port ${PORT}`,
+    command: GATE_PROD
+      ? `node e2e/prod-server.mjs start ${PORT}`
+      : PROD_SMOKE
+        ? `next build && next start --hostname 127.0.0.1 --port ${PORT}`
+        : `next dev --hostname 127.0.0.1 --port ${PORT}`,
     url: BASE_URL,
-    reuseExistingServer: !PROD_SMOKE && !LANE && !isCI && Object.keys(serverEnv).length === 0,
+    reuseExistingServer:
+      !PROD_SMOKE && !GATE_PROD && !LANE && !isCI && Object.keys(serverEnv).length === 0,
     timeout: PROD_SMOKE ? 600_000 : 180_000,
     env: serverEnv,
   },

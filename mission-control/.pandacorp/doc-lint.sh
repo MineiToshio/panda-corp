@@ -20,6 +20,7 @@
 #     (proposal 37 §A.6), not doc-spine completeness; see the dedicated block below]
 #   - a `.env.example` variable without its own description comment directly above it  [FAIL-LOUD
 #     ON EVERY PROJECT, CONV-16/DR-136; see the dedicated block below]
+#   - a Neon project whose .env.example lacks NEON_PROJECT_ID  [ADVISORY ON EVERY PROJECT, EXT-8/DR-149]
 #   - a standalone project skill without its project namespace [FAIL-LOUD ON EVERY PROJECT,
 #     CONV-17/DR-137; legacy projects are advisory until migration, new projects fail closed]
 # GREENFIELD FAIL-CLOSED (BL-0009): a project born via `/pandacorp:scaffold` (`.pandacorp/status.yaml`
@@ -153,6 +154,20 @@ if [ -f .env.example ]; then
   fi
 fi
 
+# --- Neon project ID binding (EXT-8, DR-149) ------------------------------------------------------
+# A project that uses Neon declares NEON_PROJECT_ID in .env.example so every neonctl call can pass
+# --project-id and never hit neonctl's interactive organization picker on a multi-org account
+# (LESSON-0668). ADVISORY on every project: it prints a finding and never changes the exit code.
+# Neon use = a neon provider in .pandacorp/accounts/services.yaml or a neon.tech URL in .env.example.
+neon_used=0
+if [ -f .pandacorp/accounts/services.yaml ] && grep -Eq '^[[:space:]]*provider_id:[[:space:]]*"?neon"?[[:space:]]*$' .pandacorp/accounts/services.yaml; then neon_used=1; fi
+if [ -f .env.example ] && grep -q 'neon\.tech' .env.example; then neon_used=1; fi
+if [ "$neon_used" = 1 ] && ! { [ -f .env.example ] && grep -Eq '^#*[[:space:]]*(export[[:space:]]+)?NEON_PROJECT_ID[[:space:]]*=' .env.example; }; then
+  echo "⚠ DOC-LINT (advisory, EXT-8): this project uses Neon but .env.example does not declare NEON_PROJECT_ID."
+  echo "    Add it empty with its own one-line comment in the local-only block, put the real ID"
+  echo "    (services.yaml services.neon.shared.project_id) in .env.local, and pass --project-id to neonctl."
+fi
+
 # Project-owned skills must expose the project's namespace (CONV-17 / DR-137).
 # Run before the docs-only early exit, and preserve failures on adopted projects too.
 if [ -d .claude/skills ]; then
@@ -183,7 +198,9 @@ warn_hard() {
 
 # Print the YAML frontmatter block (between the first two `---` lines).
 frontmatter() { awk '/^---[[:space:]]*$/{c++; next} c==1{print} c>=2{exit}' "$1"; }
-has_key() { frontmatter "$1" | grep -qE "^$2:"; }
+# Here-strings, never `producer | grep -q` (DR-146 addendum): under pipefail an early grep exit can
+# SIGPIPE a large producer (a frontmatter with no closing `---` prints the whole file) → false verdict.
+has_key() { grep -qE "^$2:" <<<"$(frontmatter "$1")"; }
 
 # PRD — should carry a type. HARD-ELIGIBLE: deterministic key presence.
 if [ -f docs/product/prd.md ]; then
@@ -210,7 +227,7 @@ for frd in docs/frds/frd-*/frd.md; do
   # A UI FRD (ui: true) MUST have a design oracle (DR-056/091) — the thing whose absence let
   # Mission Control ship 17 un-sharded surfaces that the per-route fidelity check then silently
   # skipped. Require: an fdd.md (the feature design doc) AND a real per-FRD mock OR a visual_source.
-  if frontmatter "$frd" | grep -qE "^ui:[[:space:]]*true"; then
+  if grep -qE "^ui:[[:space:]]*true" <<<"$(frontmatter "$frd")"; then
     dir=$(dirname "$frd")
     [ -f "$dir/fdd.md" ] || warn "$frd is ui:true but has no fdd.md (DR-056 feature design missing)"
     # `… | head -1` makes find SIGPIPE; under `set -o pipefail` that fails the assignment and (with
@@ -233,7 +250,7 @@ for wo in docs/frds/frd-*/work-orders/wo-*.md; do
   done
   reqs=$(frontmatter "$wo" | grep -oE 'REQ-[0-9]{2}-[0-9]{3}' | sort -u || true)
   for req in $reqs; do
-    printf '%s\n' "$all_reqs" | grep -qx "$req" || warn "$wo cites $req, defined in no FRD"
+    grep -qx -- "$req" <<<"$all_reqs" || warn "$wo cites $req, defined in no FRD"
   done
 done
 

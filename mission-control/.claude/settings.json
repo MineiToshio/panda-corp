@@ -8,6 +8,11 @@
       "Read(.env)",
       "Read(.env.local)",
       "Read(.env.production)"
+    ],
+    "allow": [
+      "Bash(bash .pandacorp/session-cleanup.sh create:*)",
+      "Bash(bash .pandacorp/session-cleanup.sh register:*)",
+      "Bash(bash .pandacorp/session-cleanup.sh finish:*)"
     ]
   }
 }

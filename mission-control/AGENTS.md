@@ -2,6 +2,15 @@
 
 Standards for any AI agent working on this project. It is the source of truth for conventions, aligned with the Pandacorp factory standards. (Claude Code reads `CLAUDE.md`, which imports this file.)
 
+<!-- pandacorp:managed:start -->
+
+## Read first (all runtimes, including Codex)
+
+Before writing or changing code, explicitly read `docs/rules/README.md` and `.pandacorp/guide.md`, then the engineering rule files applicable to the task. Codex must open these files itself; it must not assume that `@` imports are expanded.
+
+@docs/rules/README.md
+@.pandacorp/guide.md
+
 ## Priority order
 User request → this AGENTS.md → the project's **engineering rules** (`docs/rules/`) → the project documents in `docs/` → language defaults.
 
@@ -13,24 +22,51 @@ Git-tracked status decides the language: committed → English (code: variables,
 
 **Interaction style (DR-110, scope: the lead agent's owner-facing replies only — NOT product/UI copy, NOT orchestrator↔subagent communication).** Mark where the real answer begins after any progress narration (`---` + a short bold label). Default concise, scannable, and high-level — headers/bold/bullets over walls of text, technical depth only on request or when the topic demands precision (security, money, data loss, irreversible actions). Prefer storytelling/analogies over jargon; visualize a complex flow or algorithm with a diagram/widget instead of describing it in prose. Red-team a proposal that requires judgment before agreeing — never rubber-stamp — but skip that for simple statements/questions/greetings. Full rule: `factory/standards/conventions.md` (CONV-11).
 
+**Decisions put to the owner (CONV-20, DR-148, scope: every choice between alternatives, or with a cost/risk/irreversibility the owner has not been shown — in any skill or reply).** Present each one as a decision card **as text in the chat**, never only in an artifact, document, widget or picker (those may duplicate it), well formatted (bold title, bullets): **Contexto** = ONE punctual paragraph written for a reader who knows nothing (what it is, how it works today, why now, what happens if undecided, terms explained in plain words, figures marked measured vs projected); **Opciones** lettered **A.**, **B.**, **C.**, **D.**… each punctual with what is done, gain and risk/cost (an option may carry its own context when it cannot be understood without it; "do nothing" is its own letter when real); and **Recomendada: <letter>** (exactly one) with why and what would change it. Several at once: a one-line-per-decision summary first, then one self-contained card per decision, ordered by urgency. Full rule: `factory/standards/conventions.md` (CONV-20).
+
 **Evidence before assertion (CONV-13, scope: every factual claim to the owner about the state of code/data/systems — AND every internal diagnosis, fix plan or "done" declaration built on one, even when nothing is said to the owner).** No fact is asserted from conversation context, training memory or a recorded flag: anchor it to an in-session tool observation (a file read, a command's output, a live query); re-verify recorded state and subagent reports against live signals before repeating them; say "not verified" when it isn't. A doc, a past audit finding, a pattern recognized by sight and your own self-review are all stand-ins for the live artifact — read the artifact before diagnosing or declaring done on top of one. Full rule: `factory/standards/conventions.md` (CONV-13).
+
+**Clean up after yourself (CONV-21, scope: every agent, when a task closes).** Remove the git worktrees (`git worktree remove`; branches kept) and the scratch, research and temp files/folders you created that are no longer needed, yourself and without asking the owner to run commands; never another session's live or locked worktree, uncommitted work or the protected state layer (`.pandacorp/`, `factory/{ideas,memory,profile,portfolio}`). The delete gate allows named-path deletes and blocks broad ones (`/`, `~`, `..`, a temp root, a bare variable): name the specific directory. Full rule: `factory/standards/conventions.md`.
 
 **Subagent model selection (DR-111, scope: ad-hoc delegation only — NOT Pandacorp's own named agents, which already pin their `model:` in frontmatter, NOT the build engine's own escalation, DR-073/DR-108).** When delegating to a subagent (the `Agent` tool, or a `Workflow`'s `agent()`) without an explicit model, calculate the tier from the SUBTASK's complexity — never default to the parent conversation's own tier: haiku for mechanical/zero-judgment work, sonnet as the default floor for real work, opus for genuine judgment/high complexity. Escalate upward, never downward, if a lower tier proves inadequate. Fable is NEVER chosen automatically — only on the owner's explicit request, or after asking for confirmation first. Full rule: `factory/standards/conventions.md` (CONV-12).
 
 ## Changes through skills (write-gate)
-WITH the pandacorp plugin, changes that touch app behavior, a canonical doc (PRD/FRD/blueprint/ADR/DESIGN) or state (`.pandacorp/status.yaml`, work-orders) flow through the `/pandacorp:*` skills — the *assisted* path that keeps the two layers, status, work-orders, TDD and review honest. Exempt (do directly): reading/debugging and micro non-product edits (a typo, local config, a throwaway experiment). When the owner asks for a change, auto-invoke the right skill, announcing it (any feature/change/bug → **`change`**, the single front door (DR-069) — it classifies the change, derives its **rigor** and, by default, queues it (captura); with `--now` it implements and closes a micro/normal change in the same turn (falls back to capture-only on a `critical`/floor-touching change, on an active build, or on `--queue`); never route the owner to `iterate`/`bug` directly, they are its internal engines; a decision → `decide`; big package → `new-version`); auto-invoking enters the skill only — its internal human-gates (production, money, delete, external comms) still ask. WITHOUT the plugin (a fork/clone of just this repo) the skills aren't available — apply the same discipline by hand: when you change behavior, update the matching FRD + `docs/decision-log.md`. Detail in `.pandacorp/guide.md`.
+WITH the pandacorp plugin, changes that touch app behavior, a canonical doc (PRD/FRD/blueprint/ADR/DESIGN) or state (`.pandacorp/status.yaml`, work-orders) flow through the `/pandacorp:*` skills — the *assisted* path that keeps the two layers, status, work-orders, TDD and review honest. Exempt (do directly): reading/debugging and micro non-product edits (a typo, local config, a throwaway experiment). When the owner asks to implement a feature/change/bug, auto-invoke **`implement`**, the single entry for building, resuming and targeting an FRD or card; `iterate` and `bug` are internal engines, never owner entry points. For capture only, write a draft card in `.pandacorp/inbox/changes/` and validate it with `pandacorp-build.mjs card check <path>`. A pending decision goes through `decide`; a large milestone uses the internal `new-version` flow when called for. Auto-invoking enters the skill only; production, money, delete and external-communication gates still apply. WITHOUT the plugin (a fork/clone of just this repo) the skills aren't available — apply the same discipline by hand: when you change behavior, update the matching FRD + `docs/decision-log.md`. Detail in `.pandacorp/guide.md`.
 
 ## This project's stack
 Defined in `docs/product/architecture.md` (the platform architecture, chosen and approved in the architecture phase). See concrete versions and services there; per-feature implementation design lives in each `docs/frds/frd-NN-<slug>/blueprint.md`.
 
 ## Other runtimes (Codex, Cursor, OpenCode…)
 
-This file is the canonical instruction set for ANY coding agent. Claude Code reads it through `CLAUDE.md`'s import and adds the `/pandacorp:*` skills; Codex, Cursor and OpenCode read it natively. If you are NOT Claude Code:
+This file is the canonical instruction set for ANY coding agent. Claude Code reads it through the one-line `CLAUDE.md` shim and uses the **Claude Code** section below; Codex, Cursor and OpenCode read it natively. If you are NOT Claude Code:
 
 - The factory (skills, standards, decision registry) lives at the path stamped in `.pandacorp/guide.md`. To run a lifecycle phase, read `<factory>/plugin/skills/<slug>/SKILL.md` and follow it, applying the runtime translation rules in `<factory>/factory/standards/agent-portability.md` (tool equivalences, model tiers, degradation).
 - **Runtime authorization (DR-133, owner decision 2026-10-20): Codex and Claude Code have full read/write permission for every Pandacorp skill and application, including canonical documentation, work orders and build state.** This supersedes DR-120. Use the active runtime’s own available tools; absent orchestration/scheduling tools require attended sequential execution, not a permission refusal or a claim of certified automation. Preserve human gates, independent verification, atomic ownership, one writer per checkout and safe-point-only cold handoff; never take over a live run.
-- The change queue (`.pandacorp/inbox/changes/`) and the decisions inbox are plain files: any runtime files changes by following their templates — never edit product behavior ad hoc.
+- Product builds use the runtime-neutral `pandacorp-build.mjs` CLI from the factory, with runtime-local workers and the documented drive relay. Keep lease ownership and safe-point-only cold handoffs. Draft cards and the decisions inbox are plain files, governed by their templates.
 - Every rule in this file (language, gates, documentation discipline) is runtime-independent and never degrades.
+
+
+## Implementation cleanup (DR-145)
+
+Before dispatch, create a session receipt and register only newly created own worktrees;
+after merge and at partial/error close-out, follow `.pandacorp/guide.md` §Implementation
+resource lifecycle and the installed worktrees skill. Stop owned writers and restore the
+actual session cwd without removal, then run the validated cleanup and await final exit.
+Eligible merged clean generated resources are permanently removed without a new confirmation;
+unsafe/foreign/stateful work stays listed. Sandbox workers hand git writes to the capable
+coordinator. Never bypass locks, hooks or permissions, and never sweep arbitrary /tmp paths.
+
+## Claude Code
+
+A **Pandacorp** factory project. The whole lifecycle is managed with the `/pandacorp:*` skills.
+
+- The installed plugin exposes skills as `/pandacorp:<slug>`. Internal engines (`user-invocable: false`) are not owner entry points.
+- Canonical agent definitions live in the factory's `plugin/agents/`; Codex mirrors are generated, never edited by hand.
+- Product builds use `pandacorp-build.mjs`, runtime-local workers and the documented drive relay. Respect live leases; never take over another executor mid-run. The backlog workflow is separate.
+- Enforcement hooks are Claude-local; safety gates, verification and documentation discipline bind every runtime even when hooks are unavailable.
+- Load the engineering rules and project guide through the `@` lines in **Read first**, and read the applicable rule files before changing code.
+
+<!-- pandacorp:managed:end -->
 
 ## Mission Control write and security boundaries
 
@@ -54,3 +90,30 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Project notes
+
+# Mission Control
+
+A **Pandacorp** factory project. The whole lifecycle is managed with the `/pandacorp:*` skills.
+
+Conventions (durable, tool-agnostic): @AGENTS.md
+**Engineering rules (read before writing or changing code)**: @docs/rules/README.md
+Pandacorp project guide (origin · how changes are made · documentation map): @.pandacorp/guide.md
+
+<!-- ──────────────────────────────────────────────────────────────────
+     Your own project notes go below this line.
+     Pandacorp manages the two imports above and the `.pandacorp/` folder;
+     `/pandacorp:upgrade` never edits below this line.
+     ────────────────────────────────────────────────────────────────── -->
+
+## Mission Control specifics — it lives INSIDE the factory repo
+
+Unlike a normal Pandacorp project (a sibling folder with its own repo), Mission Control is the factory's own dashboard and lives **inside** the factory repo at `panda-corp/mission-control/`. That changes a few things the build must respect:
+
+- **No own git repo.** It shares the factory's `.git`. Never run `git init` here. Build commits land in the factory repo with the `mission-control` scope, e.g. `feat(mission-control): …`.
+- **Factory data is one level up.** `lib/config.ts` resolves the factory root as `process.cwd()/..` (override with the `PANDACORP_FACTORY_ROOT` env var). It reads `factory/ideas/`, `factory/portfolio.md` and each project's `.pandacorp/status.yaml`.
+- **Internal tool, not a product** (`return_type`: personal). The economic arc does NOT apply: no demand-gate, unit-economics, landing, GTM or market telemetry. `/pandacorp:release` here just means running it locally on `127.0.0.1` — no deploy, no production gate.
+- **Bounded writes over a read-only factory.** The app never calls Claude. Explicit owner decisions can discard/restore one idea card and update its favourite flag (FRD-02), discard one registered project's change (FRD-04), and discard one factory backlog item (FRD-22). The owned guild ledger is materialized by `src/app/_actions/snapshotLedger.ts` from corroborated local evidence (ADR-0005), including render-time guild refreshes. These are the complete app write surfaces; CLI stats/catalog maintenance is separate. See `docs/product/architecture.md` §7.
+- **LAN security.** The owner approved unauthenticated home-LAN access on 2026-10-12. Host validation is a rebinding barrier, not authentication. Only portfolio-registered roots can be read by `readBoardDoc` or targeted by change-discard actions. All frontmatter passes through `src/lib/fs-utils/parseFrontmatter.ts`; executable engines are forbidden.
+- **Events.** The Party panel reads `~/.claude/dashboard-events.ndjson`; until the emitter is namespaced by project, treat events without a `project` field as legacy/global.

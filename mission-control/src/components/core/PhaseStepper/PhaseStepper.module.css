@@ -17,7 +17,7 @@
   background: var(--surface-3);
 }
 .step[data-state="past"] .line {
-  background: color-mix(in srgb, var(--tone) 55%, var(--surface-3));
+  background: var(--phase-past);
 }
 .step[data-state="current"] .line {
   background: var(--tone);
@@ -54,4 +54,23 @@
   .mobileSegments .label {
     display: none;
   }
+}
+
+.step[data-tone="teal"] {
+  --phase-past: var(--color-phase-past-teal);
+}
+.step[data-tone="blue"] {
+  --phase-past: var(--color-phase-past-blue);
+}
+.step[data-tone="pink"] {
+  --phase-past: var(--color-phase-past-pink);
+}
+.step[data-tone="amber"] {
+  --phase-past: var(--color-phase-past-amber);
+}
+.step[data-tone="violet"] {
+  --phase-past: var(--color-phase-past-violet);
+}
+.step[data-tone="green"] {
+  --phase-past: var(--color-phase-past-green);
 }

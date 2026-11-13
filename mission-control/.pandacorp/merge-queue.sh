@@ -69,12 +69,100 @@ acquire() {
   echo "$BRANCH @ $WORKTREE" > "$LOCK/owner"
 }
 release() { rm -rf "$LOCK"; }
+
+# ── Lock refresh (engine v10, A1): a long gate must not let a concurrent waiter reclaim a LIVE lock ──
+# The stale rule above reclaims on mtime > STALE_MIN, and a heavy verify.sh (plus the wait for a host
+# heavy-job slot) can outlast it. A background loop touches the lock dir every 60 s while we hold it.
+# It never recreates a missing lock (`-d` guard) and holds no stdout/stderr, so a caller capturing our
+# output is not kept waiting by it. PANDACORP_LOCK_REFRESH_SECS is a test hook only.
+REFRESH_PID=""
+start_lock_refresh() {
+  local every="${PANDACORP_LOCK_REFRESH_SECS:-60}"
+  (
+    sp=""
+    trap '[ -n "$sp" ] && kill "$sp" 2>/dev/null; exit 0' TERM
+    while :; do
+      sleep "$every" & sp=$!
+      wait "$sp" 2>/dev/null || true
+      if [ -d "$LOCK" ]; then touch "$LOCK" 2>/dev/null || true; fi
+    done
+  ) >/dev/null 2>&1 </dev/null &
+  REFRESH_PID=$!
+}
+stop_lock_refresh() {
+  if [ -n "$REFRESH_PID" ]; then
+    kill "$REFRESH_PID" 2>/dev/null || true
+    wait "$REFRESH_PID" 2>/dev/null || true
+    REFRESH_PID=""
+  fi
+}
+
+# ── Host heavy-job (H) slot (engine v10, A1): same protocol as the Node admission.acquireHostSlot ──
+# Slots are dirs <host>/h-slots/slot-<i>, i = 0..H_max-1, host = $PANDACORP_HOST_DIR or ~/.pandacorp/host,
+# H_max = max(1, min(2, floor(ncpu/4))). Acquire = mkdir in index order then owner.json
+# {"pid","kind":"merge-queue","project","at"}; a slot whose owner pid fails `kill -0`, or with no
+# owner.json and an mtime older than 60 s, is reclaimed (remove, retry); release = remove by its owner;
+# waiters poll every 5 s. Taken only around the full verify.sh, never around a certified-tree skip.
+HSLOT=""
+host_slot_max() {
+  local n h
+  n="$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)"
+  case "$n" in ''|*[!0-9]*) n=1 ;; esac
+  h=$((n / 4)); [ "$h" -gt 2 ] && h=2; [ "$h" -lt 1 ] && h=1
+  echo "$h"
+}
+path_mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0; }
+host_slot_reclaimable() {
+  local slot="$1" pid
+  if [ -f "$slot/owner.json" ]; then
+    pid="$(sed -n 's/.*"pid"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$slot/owner.json" 2>/dev/null | head -1)"
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then return 1; fi
+    return 0
+  fi
+  [ $(( $(date +%s) - $(path_mtime "$slot") )) -gt 60 ]
+}
+acquire_host_slot() {
+  local host="${PANDACORP_HOST_DIR:-$HOME/.pandacorp/host}" max i slot project at
+  local root="$host/h-slots"
+  max="$(host_slot_max)"
+  mkdir -p "$root" 2>/dev/null || return 0     # unusable host dir: never block the landing on the optional semaphore
+  project="$WORKTREE/$(git rev-parse --show-prefix)"; project="${project%/}"
+  project="${project//\\/\\\\}"; project="${project//\"/\\\"}"
+  while :; do
+    i=0
+    while [ "$i" -lt "$max" ]; do
+      slot="$root/slot-$i"
+      if mkdir "$slot" 2>/dev/null; then
+        at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        printf '{"pid":%s,"kind":"merge-queue","project":"%s","at":"%s"}\n' "$$" "$project" "$at" > "$slot/owner.json.tmp" \
+          && mv "$slot/owner.json.tmp" "$slot/owner.json"
+        HSLOT="$slot"
+        return 0
+      fi
+      if host_slot_reclaimable "$slot"; then
+        echo "merge-queue: reclaiming dead host slot $slot" >&2
+        rm -rf "$slot"
+        continue                                 # retry the same index
+      fi
+      i=$((i + 1))
+    done
+    echo "merge-queue: waiting for a host heavy-job slot (all $max busy)" >&2
+    sleep 5
+  done
+}
+release_host_slot() {
+  if [ -n "$HSLOT" ]; then rm -rf "$HSLOT"; fi
+  HSLOT=""
+  return 0
+}
 # BL-0288: restore local config only on nonzero post-restore exits; successful landing drops
 # the manifest permanently. Unlock BEFORE bootstrap (install/hooks need no queue lock), and
 # preserve the original status even if bootstrap fails or leaves committed PORT/unset index bits.
 RESTORE_LOCAL=0
 cleanup() {
   local result=$?
+  stop_lock_refresh
+  release_host_slot
   release
   if [ "$result" -ne 0 ] && [ "$RESTORE_LOCAL" = 1 ] && [ -x ".pandacorp/worktree-bootstrap.sh" ]; then
     if ! bash .pandacorp/worktree-bootstrap.sh; then
@@ -134,9 +222,29 @@ if [ -f "e2e/server-env.json" ]; then
     fail "committed e2e PORT :$COMMITTED_PORT is busy — stop the dev server / other gate on :$COMMITTED_PORT, then re-run" 14
   fi
 fi
+# DR-146 certified tree: verify.sh is a function of the tree it judges, so when the rebased result is
+# byte-identical (same HEAD^{tree}, clean, no skip-worktree/assume-unchanged entries, same verify.sh,
+# stamp < 12 h old) to a tree a FULL verify.sh already passed in THIS checkout, a second run proves
+# nothing new. green-stamp.sh is the only judge; ANY doubt (no/corrupt stamp, other tree, dirty,
+# changed gate, old stamp) runs the full gate exactly as before. The DR-138 owner check below is
+# untouched: a skip never lands a launched project without PANDACORP_OWNER_RELEASE_OK=1.
 if [ -x ".pandacorp/verify.sh" ]; then
-  if ! bash .pandacorp/verify.sh; then
-    fail "integration gate RED on the rebased result — fix on $BRANCH and re-run (NOT a semantic-conflict pass)" 11
+  if [ -f ".pandacorp/green-stamp.sh" ] && stamp_note=$(bash .pandacorp/green-stamp.sh check 2>&1); then
+    echo "merge-queue: integration gate SKIPPED [certified-tree] — rebased tree is identical to one a full verify.sh passed ($stamp_note)"
+  else
+    echo "merge-queue: running the full integration gate [full-gate] (${stamp_note:-no green-stamp.sh in this overlay})"
+    start_lock_refresh
+    acquire_host_slot
+    GATE_RC=0
+    bash .pandacorp/verify.sh || GATE_RC=$?
+    release_host_slot
+    # Generated gate output belongs to this integration checkout only. Release the heavy
+    # slot first, on both green and red; preserve the gate verdict after cleanup.
+    rm -rf -- .next .next-fidelity test-results
+    stop_lock_refresh
+    if [ "$GATE_RC" -ne 0 ]; then
+      fail "integration gate RED on the rebased result — fix on $BRANCH and re-run (NOT a semantic-conflict pass)" 11
+    fi
   fi
 fi
 
@@ -167,11 +275,21 @@ fi
 # dangling — the next user message fails with "Path ... does not exist" and every background
 # task dies with the forced session restart (owner-reported, recurring, 2026-07-02). A `cd`
 # here only moves THIS script's cwd, never the session's. Removal belongs to the harness,
-# which also restores the session cwd: the agent calls ExitWorktree(action: "remove") right
-# after this script succeeds. If ExitWorktree no-ops (the session restarted and lost the
-# worktree binding), clean from OUTSIDE the worktree instead:
-#   cd "$MAIN_WT" && git worktree remove --force "$WORKTREE" && git branch -D "$BRANCH"
+# which first restores the session cwd without removal; the coordinator calls session-cleanup right
+# after this script succeeds. If the harness cannot switch cwd (the session restarted and lost the
+# worktree binding), keep the worktree and report the cwd blocker. Once outside, run:
+#   cd "$MAIN_WT" && bash .pandacorp/session-cleanup.sh finish --session "$PANDACORP_CLEANUP_SESSION"
 rm -f "$MAIN_WT/.pandacorp/run/worktrees/$BRANCH.json" 2>/dev/null || true   # drop the manifest entry (worktree-bootstrap writes <branch>.json) (DR-096 §7)
+
+# DR-146: main now holds exactly the tree this queue certified, so hand the main checkout the same
+# stamp (its own green-stamp.sh check still re-verifies tree, cleanliness, verify.sh and age there).
+# Best-effort: without it, sessions parked on main just run their normal Stop gate.
+if [ -f ".pandacorp/green-stamp.sh" ] && bash .pandacorp/green-stamp.sh check >/dev/null 2>&1; then
+  MAIN_RUN_DIR="$MAIN_WT/$(git rev-parse --show-prefix).pandacorp/run"
+  mkdir -p "$MAIN_RUN_DIR" 2>/dev/null \
+    && cp .pandacorp/run/green-stamp "$MAIN_RUN_DIR/.green-stamp.tmp" 2>/dev/null \
+    && mv "$MAIN_RUN_DIR/.green-stamp.tmp" "$MAIN_RUN_DIR/green-stamp" 2>/dev/null || true
+fi
 
 echo "merge-queue: merged $BRANCH → $DEFAULT_BRANCH"
 
@@ -182,5 +300,15 @@ if [ "$LAUNCHED" = 1 ]; then
   fi
   echo "merge-queue: pushed $DEFAULT_BRANCH to origin — Vercel deploys it to production"
 fi
-echo "merge-queue: worktree KEPT (your session is inside it) — call ExitWorktree(action: remove) now to clean it AND restore the session cwd; if that no-ops, run: cd $MAIN_WT && git worktree remove --force $WORKTREE && git branch -D $BRANCH"
+
+# DR-147: whatever door this work came through, the change queue must now match main. The reconciler
+# reads the landed history (a `Change: <slug>` trailer, all-VERIFIED `source_change` WOs) and archives
+# the cards it answers; doubtful cards are only flagged for the owner. It runs on the MAIN checkout —
+# the inbox is gitignored and lives only there. Best-effort: the landing already succeeded, so a
+# reconciler failure (or a live build, exit 3) is reported, never turned into a failed merge.
+if [ -f "$MAIN_WT/.pandacorp/change-reconcile.mjs" ] && command -v node >/dev/null 2>&1; then
+  node "$MAIN_WT/.pandacorp/change-reconcile.mjs" --apply --project "$MAIN_WT" \
+    || echo "merge-queue: change-reconcile did not complete (exit $?) — run it on $DEFAULT_BRANCH: node .pandacorp/change-reconcile.mjs --apply" >&2
+fi
+echo "merge-queue: worktree KEPT (your session is inside it) — restore the session cwd WITHOUT removal, stop owned writers, then run the validated DR-145 cleanup: cd $MAIN_WT && bash .pandacorp/session-cleanup.sh finish --session <session-root>"
 exit 0

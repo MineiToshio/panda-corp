@@ -25,11 +25,11 @@ source: Pandacorp standard — quality
 
 ## TDD & coverage strategy
 - Write the acceptance-criteria tests BEFORE implementing (RED → GREEN → refactor); a behavior is verified by a test that fails without the change and passes with it.
-- **Fast-lane exception (DR-126):** the build engine's fast-lane builder writes a work order's code and tests together and runs them once (RED-first not required); the AC-citation floor, preserved tests, one behaviour e2e spec per UI feature and the engine's full gate still bound it. Everywhere else, RED-first stands.
 - Don't chase 100%: per change, decide explicitly which of unit/integration/e2e it warrants; prioritize auth, payments, core flows, anything with money or data integrity.
 - Update tests when behavior changes — stale tests are worse than none.
 
 ## Test discipline
+- **DR-144:** assert behavior on test-owned fixtures; never pin exact counts/contents of live or curated catalogs, seeds, maps or generated files. Real-file reader tests prove structure (LESSON-0569), never volume. Prefer uniqueness, references, idempotency, rollback and preservation of persisted identities unless explicitly retired; production guards also protect contracts, never hard-coded volumes. Reject markup/style/copy change-detector tests: tests signal regressions. `live-data-asserts` warns heuristically; same-line `// live-data-ok: <reason>` documents a legitimate exception.
 - Test observable behavior through the public API, not implementation details — a pure refactor must not require touching the test.
 - Component tests query by accessible role/name (`getByRole`); `getByTestId` is a last resort; `container`/`querySelector` is banned. (E2E may use `data-testid`.)
 - Every test passes in isolation and in any order; no shared mutable state; reset mocks (`restoreMocks: true`); CI runs randomized order so coupling fails loudly.
@@ -58,6 +58,26 @@ source: Pandacorp standard — quality
 - **MUST:** when several independently verified finished branches are waiting, assemble them in one integration worktree/branch from current `main`; record source SHAs, owning changes and green branch evidence. Merge each recorded tip with `git merge --squash <sha>` and commit with its source SHA/change; resolve conflicts before committing. Do not run the full gate between source commits. Squash keeps conflict resolutions through the existing queue's plain rebase.
 - Run `bash .pandacorp/merge-queue.sh` **ONCE on the combined branch**, never per source branch. A single finished change still lands alone. Branch verification and per-FRD reviews remain required; unfinished work stays out.
 - On red: attribute the failure to its owning change, repair only that defect, commit and re-run the full queue once on the combined result. Further retries require a fresh observed failure within the repair budget. Unknown attribution/conflict/busy main is an immediate DR-099 hand-back; never mask or sweep unrelated reds.
-- **Production gates unchanged:** explicit owner order covering the selected batch before production merge/push; `PANDACORP_OWNER_RELEASE_OK=1` only for that landing (DR-138). No approval inferred from grouping work. A later authorized retry after exit 21 or an advanced main keeps the queue’s existing full recheck; record it separately, never per source.
+- **Production gates unchanged:** explicit owner order covering the selected batch before production merge/push; `PANDACORP_OWNER_RELEASE_OK=1` only for that landing (DR-138). No approval inferred from grouping work. A later authorized retry after exit 21 or an advanced main keeps the queue’s existing recheck (a full run, or the DR-146 certified-tree match on an unchanged tree); record it separately, never per source.
 - Preserve source branches and the source-to-integration mapping; squashed sources are not ancestors of main. Do not run the queue again on each source after batch success, or force-delete source branches based on that success.
-- **Verification (landing-session checklist, review-only):** source SHA/green evidence and combined commits are present; queue logs show exactly one full gate before repairs, every later pass linked to an observed red/scoped fix or the existing queue’s exit-21/advanced-main safety retry. A per-source full integration-gate loop fails the checklist. Canonical: `build-orchestration.md`, Parallel manual sessions §5; executable rehearsal: factory `test-batch-integration.sh` (not proof of live-session compliance).
+- **Verification (landing-session checklist, review-only):** source SHA/green evidence and combined commits are present; the evidence shows exactly one full gate for the assembled batch before repairs: either the queue's own `[full-gate]` run or the full `verify.sh` that certified that exact combined tree (the queue then logs `[certified-tree]`, DR-146), every later pass linked to an observed red/scoped fix or the existing queue’s exit-21/advanced-main safety retry. A per-source full integration-gate loop fails the checklist. Canonical: `build-orchestration.md`, Parallel manual sessions §5; executable rehearsal: factory `test-batch-integration.sh` (not proof of live-session compliance).
+
+
+## Gate cost: light Stop gate, certified tree, replayable order (DR-146)
+- The per-turn Stop gate runs `verify.sh --light` plus `--tests=` the tests that belong to the files this session edited: cheap static stages, never Playwright or the whole vitest suite. It certifies nothing (`scope: partial`). The full gate runs in `merge-queue.sh` and at the build's close-out. On the default branch it prints that the FULL gate has not run for this tree: work committed directly on `main` MUST be certified with a full `bash .pandacorp/verify.sh` (or landed through `merge-queue.sh`) before it is pushed. Its candidate tests come from this session's edit record plus every dirty/untracked path (Codex `apply_patch` headers are recorded too); only the edit record is used to attribute reds (DR-099).
+- A FULL `verify.sh` that passes on a clean tree records it in `.pandacorp/run/green-stamp` (any red drops it). The queue skips its post-rebase gate, and the Stop hook skips entirely, only when `.pandacorp/green-stamp.sh check` proves the current tree is that exact tree (clean incl. untracked, no skip-worktree entries, same `verify.sh`, under 12 h); any doubt runs the full gate. To land without a second full run: commit, run `bash .pandacorp/verify.sh`, then `bash .pandacorp/merge-queue.sh`. Never hand-write or copy a stamp.
+- Vitest always runs shuffled with an explicit seed, printed by `verify.sh` and recorded as `vitest_seed` in `.pandacorp/run/gate-report.json`. Reproduce an order-dependent red with `PANDACORP_VITEST_SEED=<seed> bash .pandacorp/verify.sh --only=vitest`, then fix the coupling; never add retries.
+
+
+## Session teardown (DR-145, BUILD-5)
+- MUST register newly created own worktrees before dispatch, following the installed worktrees
+  skill §Implementation teardown; at close-out stop writers, restore the actual session cwd
+  without removal, run session-cleanup finish and await its final exit/JSON.
+- Eligible own resources are permanently deleted after live merged-ancestor + clean proof;
+  no new owner confirmation. Unknown ignored/private files, owner state, locks, active cwd,
+  deployments, live builds, nested worktrees and other sessions remain protected.
+- Keep branch refs. Never force-remove, erase locks, sweep shared caches/arbitrary /tmp,
+  change sandbox privileges or call a yielded/timed-out remover done. A blocked coordinator
+  reports the capability error and retained receipt/paths; sandbox workers hand off git writes.
+- Deterministic verifier: plugin/scripts/test-session-cleanup.mjs plus the independent
+  adversarial suite; the coordinator's create/register/finish call is a close-out obligation.

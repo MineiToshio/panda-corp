@@ -1,5 +1,5 @@
 import { Children, isValidElement, type ReactElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AchievementToast } from "@/components/modules/AchievementToast/AchievementToast";
 import { AppShell, type AppShellProps } from "@/components/modules/AppShell/AppShell";
 import { PendingPill } from "@/components/modules/AppShell/PendingPill";
@@ -39,7 +39,8 @@ function find<T>(node: unknown, type: unknown): ReactElement<T>[] {
   ];
 }
 beforeEach(() => {
-  vi.clearAllMocks();
+  // Clearing calls preserves unconsumed Once implementations from deferred slots.
+  for (const reader of Object.values(readers)) reader.mockReset();
   readers.projects.mockReturnValue([]);
   readers.turn.mockReturnValue({ count: 3, errors: [] });
   readers.proposals.mockReturnValue({ badgeCount: 2, errors: [] });
@@ -61,6 +62,7 @@ beforeEach(() => {
     },
   ]);
 });
+afterEach(() => vi.restoreAllMocks());
 describe("root layout sidebar wiring", () => {
   it("AC-19-005.1 AC-19-005.2 AC-09-008.1 AC-09-008.2 AC-15-006.1: forwards canonical facts and mounts exactly one notice", () => {
     const tree = RootLayout({ children: "Page" });

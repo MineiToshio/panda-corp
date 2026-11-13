@@ -1,5 +1,53 @@
 # Decision Log — Mission Control
 
+## 2026-11-12 — Register workspace derived palette (TOKFIX)
+
+**What:** [Design tokens](design/design-tokens.json) and the Tailwind registry now name
+completed-phase fills, forge station counts, forge progress/pending surfaces and forge
+amber/pink chip backgrounds. PhaseStepper, Fragua, Chip and the parity surface rules
+consume these semantic colors. The contract includes light and dark definitions;
+forge colors intentionally remain dark in both modes.
+
+**Why:** the token gate compares computed colors with root custom-property values.
+Component-local `color-mix()` expressions were derived from existing tokens but their
+resolved colors were absent from that palette. The new tokens preserve the exact
+mixes, proportions and theme inputs; no color approximation or visual change is
+intended. Static import-graph auditing found no hardcoded color literals outside the
+registry before or after this change. Browser token counts and visual fidelity remain
+for the orchestrator to verify; the gate threshold and baselines are unchanged.
+
+## 2026-11-12 — Isolate shuffled security, sidebar and navigation tests (FLAKY)
+
+**What:** reset the sidebar reader implementations and router methods before every test,
+clear board-read mock calls, and give every live-security test its own temporary events
+fixture with complete teardown. All existing security and navigation assertions remain.
+Investigation and causal evidence: [FLAKY test isolation](reviews/flaky-test-isolation.md).
+
+**Why:** shuffled order reproduced all four reported failures without a second process:
+an already-unlinked SSE path, an unconsumed one-shot sidebar exception, and retained
+board-reader/router calls. Gate shuffling exposed coupling hidden by the default test
+order. This changes test isolation only; product contracts and the pending managed
+overlay upgrade remain unchanged.
+
+
+
+
+## 2026-11-12 — Preserve navigation CLI roots during overlay upgrade (UP-mission-control follow-up)
+
+**What:** restored the project-owned `scripts/navigation/identities.mjs` entry and `scripts/navigation/*.{ts,mjs}` project scope in [knip.json](../knip.json), keeping the regenerated template settings. `scripts/navigation/registry.ts` imports and calls `isNavigationSlug` and `validateNavigationCatalog`; neither export is dead code. The previous `.claude/**` ignore is not reintroduced because it is not needed by the current analysis.
+
+**Why:** the managed-only configuration omitted the CLI graph and incorrectly classified its exports as unused, leaving the shared checkout's Stop gate red. This owner-authorized project customization must be preserved or supported by future template upgrades; it changes no product behavior. The earlier preparation entry's Knip blocker is superseded by this correction.
+
+**Pre-push scope:** the upgrade skill requires installation for every project and the installer explicitly accepts any path inside a repository, resolves its Git top level and uses that repository's shared hooks directory. Thus invoking it for Mission Control intentionally installs a repository-wide factory hook, not an MC-specific hook. The hook reads `.pandacorp/status.yaml` only at the default-branch checkout root or Git top level; it does not discover `mission-control/.pandacorp/status.yaml`. The factory root currently has `.pandacorp/` but no `.pandacorp/status.yaml`. A read-only invocation of the hook with a synthetic default-branch ref rejected the operation because that status is unreadable. Installing this version would therefore block factory default-branch pushes rather than evaluate MC status. Recommendation: do not install unchanged; resolve nested-root policy in the factory first. No installation was performed under this task's explicit restriction. Full verification and the overlay version stamp remain owned by the orchestrator.
+
+## 2026-11-12 — Overlay 9.0.0 upgrade prepared; stamp deferred (UP-mission-control)
+
+**What:** prepared the managed integration layer for overlay 9.0.0 / plugin 10.0.0. [AGENTS.md](../AGENTS.md) now contains the current managed instructions plus all previous Mission Control notes; [CLAUDE.md](../CLAUDE.md) is the exact one-line shim. Regenerated the [guide](../.pandacorp/guide.md), applicable engineering rules, shared helpers and Next.js gate/e2e templates. The two retired engine files were already absent. Product behavior and per-project route/shell contracts were not changed.
+
+**Why the upgrade remains partial:** the task explicitly prohibits Git writes. The required pre-push hook is missing in the shared factory Git directory, so installation is deferred to the coordinator. Canonical `knip.json` also drops this project's navigation-script entry/project paths and reports two exports as unused; the template requires a coordinator-side back-port before the baseline can be certified. `overlay_version` remains 8.114.4 until the hook, conformance and complete baseline are green. Full browser/server verification is deferred because the task prohibits starting a build or development server. The previous custom gate differences are preserved in the UP-mission-control handoff evidence for review, including the visual ledger fixture hooks.
+
+**Safe defaults:** risk-path examples remain inactive pending owner confirmation. The change reconciler reported only a hint for `english-navigation-query-values`; no queue card was modified. No commit, push, lease mutation or production action was performed.
+
 ## 2026-11-11 — Mission Control contract for the implement engine v2, rev 2
 
 **What:** the canonical docs record how Mission Control follows the factory's `pandacorp-build` engine (plugin 9.157.0 adds it beside v1, 10.0.0 makes it the only entry), per the rev 2 rulings. Effective at 9.157.0 ([FRD-04](frds/frd-04-project-workspace/frd.md)): REQ-04-016 tolerates card fields `engine`, `run_id`, `docs_sha`, `origin`, `affected_frds`; REQ-04-017 makes `isLive` accept a lease renewed within its ttl (1800 s, renewed by every coordinator command, no heartbeat process) whether or not `running` is set; REQ-04-018 lists the v2 event names (`wo_commit` stays legacy, no `build_usable`). Effective at 10.0.0: commands drop `/pandacorp:change` (REQ-04-019), mode words become inert ([FRD-11 REQ-11-006](frds/frd-11-build-modes/frd.md)) and the authored Documentación pages are corrected to v2 ([FRD-08 REQ-08-021](frds/frd-08-documentation/frd.md)). The only Mission Control code change of the engine release is `isLive` (build task D06); this entry changes no code.

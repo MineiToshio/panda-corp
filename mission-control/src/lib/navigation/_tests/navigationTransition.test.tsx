@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Suspense, use, useState } from "react";
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import {
   NavigationProvider,
   useBackgroundRefresh,
@@ -11,6 +11,10 @@ import { useUrlState } from "../useUrlState";
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
+
+beforeEach(() => {
+  for (const method of Object.values(router)) method.mockReset();
+});
 
 it("defers a live refresh until a suspended navigation commits and drops unmounted requests", async () => {
   let resolve!: (value: string) => void;
@@ -68,7 +72,6 @@ it.each([
   true,
   false,
 ])("coalesces queued requests and rechecks the committed predicate (%s)", async (stillNeeded) => {
-  router.refresh.mockClear();
   let resolve!: (value: string) => void;
   const destination = new Promise<string>((done) => {
     resolve = done;
@@ -112,8 +115,6 @@ it.each([
 });
 
 it("defers a push during a background refresh until refresh settles and keeps its history entry", async () => {
-  router.refresh.mockClear();
-  router.push.mockClear();
   let finishRefresh!: () => void;
   let finishNavigation!: (value: string) => void;
   const refreshWork = new Promise<void>((resolve) => {
