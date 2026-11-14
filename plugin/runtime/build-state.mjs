@@ -309,6 +309,15 @@ export async function transfer(project, { token, toRuntime, coordinator, epoch }
     const lease = await currentLease(project);
     if (!lease || lease.token_hash !== tokenHash(token) || epoch !== undefined && lease.epoch !== Number(epoch)) throw Object.assign(new Error("stale or foreign lease fence"), { code: "FENCE" });
     const bound = await runIdOf(p); if (bound !== undefined && bound !== lease.run_id) throw Object.assign(new Error("lease run_id differs from the run state"), { code: "FENCE" });
+    // A drive relay has no access to the original native Agent/session context. Keep its
+    // capable coordinator's authority until that execution's result has been consumed.
+    // This check shares the dispatch fence mutex, including its admitted-before-record window.
+    if (coordinator === "drive") {
+      const state = await parseJson(p.buildState).catch(error => { if (error.code === "ENOENT") return null; throw error; });
+      if (state?.units?.some(u => u.state === "admitted" && !u.worker ||
+        ["admitted", "running", "suspended"].includes(u.state) && ["agent", "session"].includes(u.worker?.via)))
+        throw Object.assign(new Error("native continuation retains its original coordinator"), { code: "NATIVE_CONTINUATION" });
+    }
     const recorded = Number.parseInt((await readFile(p.epoch, "utf8").catch(() => "0")).trim(), 10) || 0;
     const nextEpoch = Math.max(recorded, lease.epoch) + 1; const newToken = randomBytes(24).toString("hex"); const now = leaseIso();
     const { quiesced_at: _quiesced, ...rest } = lease;

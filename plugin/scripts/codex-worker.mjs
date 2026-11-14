@@ -31,13 +31,15 @@
 // The relay writes the task to <project>/.pandacorp/run/codex-workers/<id>/prompt.md with its Write tool; --sum is
 // the engine's FNV-1a of that text, so a truncated or altered copy is refused (status:error, kind:prompt-mismatch).
 import { spawn, execFileSync } from "node:child_process";
-import { chmodSync, appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, openSync, closeSync, renameSync, unlinkSync, linkSync } from "node:fs";
+import { chmodSync, appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, openSync, closeSync, renameSync, fsyncSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { decide, decideCapacity } from "../runtime/capacity.mjs";
 import { stopCodexWorkers } from "../runtime/codex-workers.mjs";
+import * as fsp from "node:fs/promises";
+import { withAppendLock } from "../runtime/build/fsx.mjs";
 import { classifyLimitText } from "../runtime/build/quota.mjs";
 
 const PLUGIN = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -78,7 +80,13 @@ const project = path.resolve(opt("project") || ".");
 const root = path.join(project, ".pandacorp/run/codex-workers");
 const workerDir = (id) => { if (!ID_RE.test(id)) fail("bad-id", `invalid worker id: ${id}`); return path.join(root, id); };
 const readJson = (file) => { try { return JSON.parse(readFileSync(file, "utf8")); } catch { return null; } };
-const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+const alive = (pid) => { if (!Number.isInteger(pid) || pid <= 0) return false; try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } };
+const workerAlive = (state) => {
+  if (alive(state.pid)) return true;
+  // A killed runner may leave its provider in the SAME process group. Never replay that session.
+  if (!state.continuationRunner || !Number.isInteger(state.pid) || state.pid <= 0) return false;
+  try { process.kill(-state.pid, 0); return true; } catch (e) { return e.code === "EPERM"; }
+};
 
 /** Maps the engine's Claude model/effort to the Codex tier of plugin/runtime/model-tiers.json (single source). */
 export function codexTier(model, effort) {
@@ -155,8 +163,10 @@ function promptFromTranscript(id, sum) {
 /** Starts `codex exec` detached with its stdout/stderr in codex.log; the shell wrapper records the exit code because the
  *  next `run` may be a different process than the one that spawned Codex. */
 function writePrivate(file, data) {
-  writeFileSync(file, data, { mode: 0o600 });
-  chmodSync(file, 0o600);
+  const tmp = `${file}.${process.pid}.${randomUUID()}.tmp`;
+  const fd = openSync(tmp, "wx", 0o600);
+  try { writeFileSync(fd, data); fsyncSync(fd); } finally { closeSync(fd); }
+  renameSync(tmp, file);
 }
 
 function childEnv() {
@@ -165,7 +175,7 @@ function childEnv() {
   return env;
 }
 
-function launch(dir, cwd, args, tool = "codex", prompt = path.join(dir, "full-prompt.md")) {
+function launch(dir, cwd, args, tool = "codex", prompt = path.join(dir, "full-prompt.md"), detached = true) {
   const q = (s) => `'${String(s).replaceAll("'", `'"'"'`)}'`;
   const bin = tool === "claude" ? process.env.PANDACORP_CLAUDE_BIN || "claude" : CODEX_BIN;
   const command = `${[bin, ...args].map(q).join(" ")} < ${q(prompt)}`;
@@ -173,9 +183,9 @@ function launch(dir, cwd, args, tool = "codex", prompt = path.join(dir, "full-pr
     ? `{ ${command}; echo $? > ${q(path.join(dir, "provider-exit"))}; } | tee ${q(path.join(dir, "last.md"))}; cat ${q(path.join(dir, "provider-exit"))} > ${q(path.join(dir, "exit"))}`
     : `${command}; echo $? > ${q(path.join(dir, "exit"))}`;
   const out = openSync(path.join(dir, "codex.log"), "a");
-  const child = spawn("/bin/sh", ["-c", script], { cwd, detached: true, stdio: ["ignore", out, out], env: childEnv() });
+  const child = spawn("/bin/sh", ["-c", script], { cwd, detached, stdio: ["ignore", out, out], env: childEnv() });
   closeSync(out);
-  child.unref();
+  if (detached) child.unref();
   return child;
 }
 
@@ -291,7 +301,7 @@ async function watch() {
   for (;;) {
     const state = readJson(path.join(dir, "state.json"));
     if (!state || existsSync(exitFile)) return;
-    if (!alive(state.pid)) { await sleep(1000); if (!existsSync(exitFile)) writeFileSync(exitFile, "137\n"); return; }
+    if (!workerAlive(state)) { await sleep(1000); if (!existsSync(exitFile)) writeFileSync(exitFile, "137\n"); return; }
     const now = Date.now();
     const age = now - Date.parse(state.startedAt);
     let log = null;
@@ -308,8 +318,8 @@ async function watch() {
       if (existsSync(exitFile)) return;
       writeFileSync(path.join(dir, "watchdog.json"), JSON.stringify({ kind: verdict[0], detail: verdict[1], at: new Date().toISOString() }));
       try { process.kill(-state.pid, "SIGTERM"); } catch { /* already gone */ }
-      for (let i = 0; i < 50 && alive(state.pid); i++) await sleep(100);
-      if (alive(state.pid)) { try { process.kill(-state.pid, "SIGKILL"); } catch { /* already gone */ } }
+      for (let i = 0; i < 50 && workerAlive(state); i++) await sleep(100);
+      if (workerAlive(state)) { try { process.kill(-state.pid, "SIGKILL"); } catch { /* already gone */ } }
       if (!existsSync(exitFile)) writeFileSync(exitFile, "124\n");
       return;
     }
@@ -426,7 +436,7 @@ async function run() {
   }
   const deadline = Date.now() + Math.min(Number(opt("max")) || 540, 570) * 1000;
   while (!existsSync(path.join(dir, "exit"))) {
-    if (!alive(state.pid)) { await new Promise((r) => setTimeout(r, 1000)); if (!existsSync(path.join(dir, "exit"))) writeFileSync(path.join(dir, "exit"), "137\n"); break; }
+    if (!workerAlive(state)) { await new Promise((r) => setTimeout(r, 1000)); if (!existsSync(path.join(dir, "exit"))) writeFileSync(path.join(dir, "exit"), "137\n"); break; }
     // Plain text on purpose: the relay only has to spot this word and run the same command again.
     if (Date.now() >= deadline) { process.stdout.write(`CODEX-RUNNING ${id} since ${state.startedAt}: run the same command again\n`); return; }
     await new Promise((r) => setTimeout(r, 2000));
@@ -439,19 +449,8 @@ async function resume() {
   const refuse = (kind, detail) => emit({ status: "error", kind, detail });
   const id = opt("id"), dir = workerDir(id), sequence = Number(opt("resume-sequence"));
   if (!Number.isInteger(sequence) || sequence < 1) return refuse("bad-sequence", "resume requires a positive sequence");
-  const lock = path.join(dir, "resume.lock");
-  const candidate = `${lock}.${process.pid}.${randomUUID()}.tmp`;
-  writeFileSync(candidate, JSON.stringify({ pid: process.pid }), { flag: "wx", mode: 0o600 });
-  try {
-    try { linkSync(candidate, lock); } catch (e) {
-      if (e.code !== "EEXIST") throw e;
-      const holder = readJson(lock);
-      if (!Number.isInteger(holder?.pid) || alive(holder.pid)) return refuse("resume-busy", "another continuation holds this worker");
-      // The hard link publishes a complete owner record atomically, including if the launcher is killed.
-      try { unlinkSync(lock); linkSync(candidate, lock); } catch { return refuse("resume-busy", "another continuation acquired this worker"); }
-    }
-  } finally { unlinkSync(candidate); }
-  try {
+  // The shared crash-recoverable mutex serializes reclaimers as well as ordinary calls.
+  return withAppendLock(path.join(dir, "resume"), fsp, async () => {
     const state = readJson(path.join(dir, "state.json"));
     if (!state) return refuse("missing-state", "cannot resume a worker without its state");
     if ((state.resumeSequence ?? 0) >= sequence) {
@@ -459,7 +458,7 @@ async function resume() {
       else process.stdout.write(`CODEX-RUNNING ${id} continuation ${state.resumeSequence}\n`);
       return;
     }
-    if (alive(state.pid) && !existsSync(path.join(dir, "exit"))) return refuse("still-running", "previous worker has not exited");
+    if (workerAlive(state) && !existsSync(path.join(dir, "exit"))) return refuse("still-running", "previous worker has not exited");
     const log = existsSync(path.join(dir, "codex.log")) ? readFileSync(path.join(dir, "codex.log"), "utf8") : "";
     const sessionId = state.sessionId ?? sessionFromLog(log);
     if (!sessionId) return refuse("missing-session", "limit checkpoint has no provider session; refusing a fresh task");
@@ -478,12 +477,48 @@ async function resume() {
         "-c", "sandbox_workspace_write.network_access=true",
         "-c", `sandbox_workspace_write.writable_roots=${JSON.stringify(state.writableDirs ?? [])}`,
         ...(state.schema ? ["--output-schema", state.schema] : []), "-o", path.join(dir, "last.md"), sessionId, "-"];
-    const child = launch(dir, state.cwd, args, state.tool, prompt);
-    writePrivate(path.join(dir, "state.json"), JSON.stringify({ ...state, sessionId, resumeSequence: sequence, pid: child.pid, startedAt: new Date().toISOString() }));
+    const intentFile = path.join(archive, "intent.json");
+    const receiptFile = path.join(archive, "runner.json");
+    // Intent precedes spawn. A runner cannot execute the provider until its PID and sequence
+    // have been atomically adopted in state.json. A killed launcher leaves an adoptable runner.
+    writePrivate(intentFile, JSON.stringify({ dir, cwd: state.cwd, args, tool: state.tool, prompt, sequence }));
+    let receipt = readJson(receiptFile);
+    if (!receipt || !alive(receipt.pid)) {
+      const child = spawn(process.execPath, [fileURLToPath(import.meta.url), "continue-provider", "--intent", intentFile],
+        { detached: true, stdio: "ignore", env: childEnv() });
+      child.unref();
+      for (let i = 0; i < 500; i++) {
+        receipt = readJson(receiptFile);
+        if (receipt && alive(receipt.pid)) break;
+        await new Promise(r => setTimeout(r, 10));
+      }
+    }
+    if (!receipt || !alive(receipt.pid)) return refuse("resume-busy", "continuation runner not ready; retry the same sequence");
+    writePrivate(path.join(dir, "state.json"), JSON.stringify({ ...state, sessionId, resumeSequence: sequence, continuationRunner: true, pid: receipt.pid, startedAt: receipt.startedAt }));
     if (state.direct) spawn(process.execPath, [fileURLToPath(import.meta.url), "watch", "--project", project, "--id", id,
       ...Object.entries(state.watchdog ?? {}).flatMap(([k,v]) => [`--${k}`, String(v)])], { detached: true, stdio: "ignore", env: childEnv() }).unref();
     process.stdout.write(`CODEX-RUNNING ${id} continuation ${sequence}\n`);
-  } finally { unlinkSync(lock); }
+  });
+}
+
+async function continueProvider() {
+  const intentFile = opt("intent"), intent = readJson(intentFile);
+  if (!intent) throw new Error("missing continuation intent");
+  await withAppendLock(path.join(path.dirname(intentFile), "provider"), fsp, async () => {
+    const receiptFile = path.join(path.dirname(intentFile), "runner.json");
+    const previous = readJson(receiptFile);
+    // A committed sequence may have executed already: never replay it after runner death.
+    if (previous && readJson(path.join(intent.dir, "state.json"))?.resumeSequence >= intent.sequence) return;
+    const receipt = { pid: process.pid, startedAt: new Date().toISOString() };
+    writePrivate(receiptFile, JSON.stringify(receipt));
+    for (;;) {
+      const state = readJson(path.join(intent.dir, "state.json"));
+      if (state?.resumeSequence === intent.sequence && state.pid === process.pid) break;
+      await new Promise(r => setTimeout(r, 25));
+    }
+    const child = launch(intent.dir, intent.cwd, intent.args, intent.tool, intent.prompt, false);
+    await new Promise(resolve => child.once("exit", resolve));
+  });
 }
 
 /** `read`: the sealed result. A v1 worker without one is an error; a finished direct worker is sealed here, because the
@@ -496,7 +531,7 @@ function read() {
   const state = readJson(path.join(dir, "state.json"));
   if (!state?.direct) fail("no-result", `no result for ${id}`);
   if (!existsSync(path.join(dir, "exit"))) {
-    if (alive(state.pid)) { process.stdout.write(`CODEX-RUNNING ${id} since ${state.startedAt}: read again later\n`); return; }
+    if (workerAlive(state)) { process.stdout.write(`CODEX-RUNNING ${id} since ${state.startedAt}: read again later\n`); return; }
     writeFileSync(path.join(dir, "exit"), "137\n");
   }
   settle(dir, id, state);
@@ -512,6 +547,7 @@ const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPat
 if (!isMain) { /* imported by a test: expose the helpers only */ }
 else if (cmd === "run") await run();
 else if (cmd === "resume") await resume();
+else if (cmd === "continue-provider") await continueProvider();
 else if (cmd === "read") read();
 else if (cmd === "watch") await watch();
 else if (cmd === "stop") stop();

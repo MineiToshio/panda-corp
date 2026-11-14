@@ -21,7 +21,20 @@ export function capacityTaskForUnit(unit) {
   const role = unit.role ?? unit.kind;
   const type = /planner|architect|design|docs|doubt-consult/.test(role) ? "design"
     : /review|audit/.test(role) ? "review" : /mechanic/.test(role) ? "mechanical" : "implement";
-  return { id: unit.id, type, risk: unit.zone === "r1" ? "critical" : unit.zone === "floor" ? "delicate" : "normal" };
+  return { id: unit.id, type, risk: unit.kind === "audit" || /security-auditor/.test(role) || unit.zone === "r1" ? "critical" : unit.zone === "floor" ? "delicate" : "normal" };
+}
+
+/** Review eligibility shared by candidate dispatch and capacity wake. */
+export function reviewDemand(state, unit) {
+  const named = new Set(unit.depends_on ?? []);
+  const work = state.units.filter(x => ["build", "patch", "tests"].includes(x.kind) && x.state !== "blocked"
+    && (unit.frd ? x.frd === unit.frd : named.has(x.id)));
+  const wos = new Set([...unit.wos, ...work.flatMap(x => x.wos)]);
+  const pending = state.units.filter(x => ["build", "patch"].includes(x.kind) && ["reviewing", "integrated"].includes(x.state)
+    && (work.includes(x) || x.kind === "patch" && !x.frd && x.wos.some(w => wos.has(w))));
+  const ready = pending.length > 0 && work.every(x => ["reviewing", "verified", "landed"].includes(x.state)
+    || x.kind === "patch" && !x.frd && x.state === "integrated");
+  return { named, work, pending, ready };
 }
 
 /** Error thrown on invalid routing input or on data that would break an invariant (code ROUTING). */
@@ -107,7 +120,7 @@ export function createRouter(tiers) {
         (tool === "claude" ? ["five_hour", "weekly"] : ["weekly"]).map(id => ({ id, scope: "all", applicability: "required", percentUsed: pct,
           resetsAt: new Date(Number(new Date(now)) + 3600000).toISOString() })) }];
     }));
-    const task = { id: unit.id ?? unit.kind, type: capacityTaskForUnit(unit).type, risk: zone === "r1" ? "critical" : zone === "floor" ? "delicate" : "normal" };
+    const task = capacityTaskForUnit({ ...unit, id: unit.id ?? unit.kind, zone });
     const decision = decide({ task, readings, now });
     return { decision, task };
   };

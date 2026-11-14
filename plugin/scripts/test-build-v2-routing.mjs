@@ -69,7 +69,8 @@ test("exhaustive cells are deterministic, catalog-qualified, immutable and never
     const unit = Object.freeze({ kind, zone, size, attempt, bounded }); const ctx = Object.freeze({ label, now, quota: quotaCase, reopen_count });
     const a = builderCell(unit, ctx), b = builderCell(unit, ctx); assert.deepEqual(a, b);
     assert.ok(tiers.catalog[a.runtime][a.model]); assert.ok(!["fable", "terra"].includes(a.model)); assert.notEqual(a.effort, "max");
-    if (zone !== "r1") assert.notEqual(a.model, "astra");
+    if (zone !== "r1" && kind !== "audit") assert.notEqual(a.model, "astra");
+    if (kind === "audit") { assert.ok(["astra", "opus"].includes(a.model)); assert.equal(a.effort, "high"); }
     const r = reviewCell({ authors: [{ runtime: a.runtime, model: a.model, effort: a.effort }], kind: "frd", zone });
     assert.ok(r.used); assert.equal(r.deferred, null); if (zone !== "r1") assert.notEqual(r.used.model, "astra");
   }
@@ -183,7 +184,7 @@ for (const [name, unit, opts] of builderRows) test(`restored builder row: ${name
   for (const label of ["claude", "codex"]) for (const [c, x] of [[20, 20], [100, 20], [20, 100]]) {
     const runtime = x === 100 ? "claude" : c === 100 ? "codex" : type === "design" ? "claude" : "codex";
     const ctx = freeze({ label, now, ...opts, quota: quota(c, x) }), u = freeze({ id: "row", size: "touch", ...unit });
-    checkBuilder(builderCell(u, ctx), expected(type, zone, runtime));
+    checkBuilder(builderCell(u, ctx), expected(type, unit.kind === "audit" ? "r1" : zone, runtime));
   }
 });
 // Old author vocabulary (including historical disabled authors), all effort/origin/kind/zone combinations.
@@ -223,7 +224,7 @@ test("restored exhaustiveness: deep-frozen builder inputs; valid risk floor and 
     const unit = freeze({ kind, size, bounded }), ctx = freeze({ label, zone, attempt, reopen_count, quota: quota(c, x), now });
     const snapshot = structuredClone({ unit, ctx }), a = builderCell(unit, ctx);
     const type = kind === "docs" ? "design" : kind === "audit" ? "review" : "implement";
-    checkBuilder(a, expected(type, zone, x === 100 ? "claude" : c === 100 ? "codex" : type === "design" ? "claude" : "codex"));
+    checkBuilder(a, expected(type, kind === "audit" ? "r1" : zone, x === 100 ? "claude" : c === 100 ? "codex" : type === "design" ? "claude" : "codex"));
     assert.deepEqual(a, builderCell(unit, ctx)); assert.deepEqual({ unit, ctx }, snapshot); n++;
   }
   assert.equal(n, 4860);
@@ -244,7 +245,7 @@ test("restored retry chains: previous effort/model/company never overrides role 
       for (const attempt of [1, 2, 3]) {
         const b = build(kind, zone, { label, previousCell, attempt, reopen_count: 2 });
         const type = kind === "docs" ? "design" : kind === "audit" ? "review" : "implement";
-        checkBuilder(b, expected(type, zone, type === "design" ? "claude" : "codex"));
+        checkBuilder(b, expected(type, kind === "audit" ? "r1" : zone, type === "design" ? "claude" : "codex"));
       }
     }
   }

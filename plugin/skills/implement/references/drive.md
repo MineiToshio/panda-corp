@@ -19,7 +19,13 @@ if armed call `pb handoff --epoch E --reason manual`, then observe. The test-onl
 uses an explicit handoff too. Transfer preserves run id, increases epoch, writes the private lease token,
 and fences the former coordinator; it never quiesces/releases the lease or resets current executions.
 Live and suspended workers retain their cell, session, token, attempt, branch and dirty worktree.
-After transfer, no fenced calls or dispatch from the old session; `pb status` may confirm the coordinator.
+A native agent/session execution cannot transfer to drive. The CLI checks this atomically with the
+lease change, including admitted work whose worker has not yet been recorded. On
+`retry` / `reason: native_continuation`, keep coordinating in the original context: receive its
+report or arm its normal capacity wake, then retry relay after consuming the result. Preserve the
+handoff request and all checkpoint/token/attempt/worktree state; never turn a native Agent ID into
+a CLI session or start a replacement task. No quota question or fresh owner approval is involved.
+After a successful transfer, no fenced calls or dispatch from the old session; `pb status` may confirm the coordinator.
 
 ## 3. Capacity and suspension
 

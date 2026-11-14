@@ -3,7 +3,7 @@
 Session side of BUILD-12/BUILD-13 (`factory/standards/build-engine.md`); calls are specified in
 `plugin/docs/build-engine-cli.md`, `pb <cmd>` as defined in `engine-v2.md` §1. Principle: **the build never stops
 whole for one question.** What needs the owner is said in the first minute; what comes up later is answered from the
-sources, by a consult to the other company, parked, or left waiting at its gate, and everything else keeps going.
+sources, by an independent role/risk consultation, parked, or left waiting at its gate, and everything else keeps going.
 
 The owner waits **at most one minute** after giving the order. After the first-minute message the session never
 asks again and never waits for a reply; later owner contact is notifications, parked questions (§3) and gates (§4).
@@ -99,9 +99,10 @@ A builder or planner returns `status: "doubt"` (`report` → `outcome: doubt`); 
    `build/doubts/<doubt_id>.sources.json` and run `pb doubt answer --epoch <E> --id <doubt_id> --file <that file>` (no token):
    - a source answers: `{"decision": "<option id>", "rationale": "<path:line>", "consulted": null}`;
    - none does, exactly: `{"decision": null, "rationale": "no source answers", "consulted": null}`.
-3. **`step: consult1` / `consult2`.** The CLI picks the consultant (other company at judgment level: Claude origin →
-   Codex Sol `high`; Codex origin → Claude Opus `high`; drive or Codex app → Codex Astra `high`; tie-break → the
-   strongest not yet consulted, Opus `xhigh` or Astra `high`). The `consult` object in the `doubt` output only
+3. **`step: consult1` / `consult2`.** The CLI selects an independent consultation by task role,
+   risk and shared account capacity. Origin, author and attempt never force company or escalate ordinary
+   work to Astra. If no qualified cell fits, preserve the unconsumed consult with resumeAt and automatic
+   wake; never ask the owner about quota. The `consult` object in the `doubt` output only
    announces it: **never dispatch from it.** The one channel is a `next` unit with `kind: "doubt-consult"`:
    - `via: "cli"`: the CLI launches it, files the answer and advances the ladder. Nothing to do.
    - `via: "agent"`: launch it as `engine-v2.md` §7 says, `agent_type` `general-purpose`, no unit or token in the

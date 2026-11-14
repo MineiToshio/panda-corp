@@ -600,9 +600,8 @@ One path per line; all changes remain uncommitted:
 - Real authenticated Claude/Codex/image dispatch, native-agent effort fidelity and provider CLI permission behavior
   were not exercised. Automatic tool approval rejected even `claude --help` because Codex may not dispatch or steer
   the Claude runtime in this environment. Both launch paths and the Claude bridge were verified with fake processes.
-- Historical N7 prose in the reviewer role file remains unchanged (generated agent mirrors are read-only here).
-  Each engine review brief carries the explicit owner DR-162 policy overriding that historical paragraph, and the
-  registry, routing and review-record enforce context independence. Live-model adherence still needs qualification.
+- Reviewer instructions and generated mirrors follow context independence; historical N7 is retired.
+  Live-model adherence still needs qualification.
 - Changes to Mission Control are manual explanatory text only; its app build/browser was not run for this plugin task.
 
 ## Suspension, wake ownership and option B
@@ -659,3 +658,18 @@ CLI 1, disk 10, G2-leftover 5, hardening 2, integrate 2, land 2, next 1, report 
 Main additionally failed one e2e check here; current e2e passed 104/104. Historical scenario assertions
 were updated only for the explicitly superseded pause/release and reversible-owner-wait policies;
 the doubt suite retains 38 named cases. Derived-drift and diff whitespace checks exit 0.
+
+### Final-review continuity corrections
+
+Resume records an intent before spawning a gated runner. The runner publishes its identity under
+an exclusive crash-recoverable mutex and cannot execute a provider until the launcher atomically
+adopts that identity and sequence. A replacement launcher adopts the live runner; it never blindly
+replays the provider. A completed sequence is idempotent. Account waits include capacity-only
+parked reviews, and audit role risk is critical in both dispatch and wake projections.
+
+Drive cannot resume a native Agent or session. The transfer mutex therefore retains the original
+capable coordinator's authority while a native execution (including suspension or an admission
+whose worker is not recorded yet) remains pending. Its lead keeps the automatic wake contract.
+A drive loop presented with that lease yields without consuming results or changing authority.
+After the native result is consumed, relay may proceed normally. Native IDs never become CLI IDs.
+Audits reach verified only through a valid review report; automatic audit deferral is retired.

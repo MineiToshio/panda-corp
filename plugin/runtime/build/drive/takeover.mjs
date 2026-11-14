@@ -36,6 +36,10 @@ export async function takeOver({ project, runId, trigger, detail = null }, deps)
   try {
     moved = await bs.transfer(project, { token: held.token, toRuntime: "codex", coordinator: "drive", epoch: lease.epoch });
   } catch (error) {
+    if (error?.code === "NATIVE_CONTINUATION") {
+      driveLog(project, "takeover: native execution retained by its capable coordinator and wake timer", d);
+      return { outcome: "retry", reason: "native_continuation", epoch: lease.epoch, codex: codex.eff, requeued: [] };
+    }
     if (!isFenceError(error)) throw error;
     driveLog(project, `takeover: transfer fenced (${error.message}), retrying at the next poll`, d);
     return { outcome: "retry", epoch: null, codex: codex.eff, requeued: [] };

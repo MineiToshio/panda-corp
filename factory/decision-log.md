@@ -1,5 +1,9 @@
 # Decision Log — Factory
 
+## 2026-11-14 — Capacity policy references and native relay boundaries
+
+Crash recovery adopts a gated continuation runner under a recoverable mutex; capacity-parked reviews wake; native executions retain their capable coordinator atomically at transfer; audits require real reports and critical risk. Updated [capacity documentation](../../plugin/docs/capacity.md), CLI/role instructions, BUILD-10/11/14 references and the Manual to remove executable threshold, probe and N7 rules. Generator --check is read-only. No production/model qualification is implied.
+
 ## 2026-11-14 — Capacity review: restore safeguards and complete DR-162 supersession
 
 Restored probes/tests-first/hash/worker/session safeguards from bc923770 while retaining only DR-162 routing. Updated BUILD-12/14, constants, verification and registry DR-151/152/153/161; quota is never an owner question or a reason to migrate current work. Canonical: [build-engine.md](standards/build-engine.md), [registry.yaml](decisions/registry.yaml).

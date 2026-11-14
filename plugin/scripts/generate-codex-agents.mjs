@@ -14,7 +14,7 @@
 // plugin/agents/ stays canonical. Regenerate this whenever an agent
 // changes (part of the plugin-maintenance ritual, D4).
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -255,7 +255,15 @@ function buildTierDeveloperInstructions(tierLabel) {
 // ---------------------------------------------------------------------------
 
 function main() {
-  mkdirSync(OUT_DIR, { recursive: true });
+  const check = process.argv.includes("--check");
+  let drift = false;
+  const emitFile = (file, text) => {
+    if (!check) return writeFileSync(file, text, "utf8");
+    if (!existsSync(file) || readFileSync(file, "utf8") !== text) {
+      console.error(`Stale or missing: ${path.relative(REPO_ROOT, file)}`); drift = true;
+    }
+  };
+  if (!check) mkdirSync(OUT_DIR, { recursive: true });
 
   const agentFiles = readdirSync(AGENTS_SRC_DIR)
     .filter((f) => f.endsWith(".md"))
@@ -266,8 +274,11 @@ function main() {
     ...agentFiles.map((file) => `${file.replace(/\.md$/, "")}.toml`),
     ...TIER_WORKERS.map((tier) => `${tier.fileSlug}.toml`),
   ]);
-  for (const existing of readdirSync(OUT_DIR).filter((file) => file.endsWith(".toml"))) {
-    if (!expectedNames.has(existing)) rmSync(path.join(OUT_DIR, existing));
+  for (const existing of (existsSync(OUT_DIR) ? readdirSync(OUT_DIR) : []).filter((file) => file.endsWith(".toml"))) {
+    if (!expectedNames.has(existing)) {
+      if (check) { console.error(`Unexpected generated agent: ${existing}`); drift = true; }
+      else rmSync(path.join(OUT_DIR, existing));
+    }
   }
 
   for (const file of agentFiles) {
@@ -294,7 +305,7 @@ function main() {
     });
 
     const outPath = path.join(OUT_DIR, `${name}.toml`);
-    writeFileSync(outPath, toml, "utf8");
+    emitFile(outPath, toml);
     generated.push({ outPath, name, model, effort, sandboxReadOnly });
   }
 
@@ -309,10 +320,11 @@ function main() {
       developerInstructions,
     });
     const outPath = path.join(OUT_DIR, `${tier.fileSlug}.toml`);
-    writeFileSync(outPath, toml, "utf8");
+    emitFile(outPath, toml);
     generated.push({ outPath, name: tier.name, model: tier.model, effort: tier.effort, sandboxReadOnly: false });
   }
 
+  if (check) { process.exitCode = drift ? 1 : 0; console.log(`Checked ${generated.length} Codex agents; drift=${drift}`); return; }
   console.log(`Generated ${generated.length} Codex agent TOML files in ${path.relative(REPO_ROOT, OUT_DIR)}/`);
   for (const g of generated) {
     const sandboxNote = g.sandboxReadOnly ? " [sandbox_mode=read-only]" : "";

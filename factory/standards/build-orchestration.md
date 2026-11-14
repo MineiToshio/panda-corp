@@ -112,7 +112,7 @@ it. The next agent reads the hand-off instead of re-reading all the prior code.
 
 A builder runs its own fast self-test and writes its Status Note; this is handoff evidence, never independent verification. The CLI owns the WO transitions and commits. Feature review exercises the FRD's WOs together against the complete normative contract: requirements, numbered ACs, invariants, edges, limits, errors and exclusions. Missing contract inventory or applicable boundary coverage is RED. A touch uses the review unit defined by BUILD-10.
 
-Exactly one reviewer is selected under [build-engine.md](build-engine.md) BUILD-10, including its cross-company, quota and degraded-review rules. The reviewer re-runs evidence and writes adversarial tests. Deterministic gates stay fail-closed; `quality.md` and `design.md` own project testing and visual obligations. A green self-test cannot substitute for review or the landing gate.
+Exactly one reviewer is selected under [build-engine.md](build-engine.md) BUILD-10, using shared capacity and a fresh context, even on the author model/company. The reviewer re-runs evidence and writes adversarial tests. Deterministic gates stay fail-closed; `quality.md` and `design.md` own project testing and visual obligations. A green self-test cannot substitute for review or the landing gate.
 
 ## 5a. Concurrent gates and pinned snapshots
 
@@ -140,7 +140,7 @@ Memory pressure reduces admission rather than killing live workers or pausing wo
 
 ## 7. Coordination and the `drive` relay
 
-The session drives CLI-returned actions. `drive` is the Codex-only relay, armed and transferred under BUILD-14; it uses the same run id with a higher lease epoch and fences the previous holder. It never dispatches Claude. A relay is not evidence of unattended survival on a real host: report only what was exercised. Runtime boundaries live in `agent-portability.md` PORT-5.
+The session drives CLI-returned actions. `drive` is the deterministic relay, armed and transferred under BUILD-14; it uses the same run id with a higher lease epoch and fences the previous holder. It executes allocator-selected CLI workers for either tool; native continuations retain their capable lead. A relay is not evidence of unattended survival on a real host: report only what was exercised. Runtime boundaries live in `agent-portability.md` PORT-5.
 
 ## 8. Scoped requests and owner answers
 

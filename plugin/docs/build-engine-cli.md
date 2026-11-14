@@ -64,7 +64,7 @@ One Node program is the build engine's only executor, for both runtimes (Claude 
 | `park.mjs` | parked propagation through `dependsOn`, root-block rule |
 | `answers.mjs` | `answer` kinds `ask\|parked\|gate`, built-on-assumption answers, `applyStartAnswers` |
 | `workers.mjs` | Codex workers through `codex-worker.mjs run --direct`; harvest through `read` or the `exit` file |
-| `drive.mjs` | standby, triggers, quota re-check, transfer, loop, `paused-quota` |
+| `drive.mjs` | standby, safe transfer, CLI execution, capacity wait and fenced wake |
 | `notify.mjs` | `osascript` notification; no-op off macOS or when `PANDACORP_NOTIFY=off` |
 | `telemetry.mjs` | events, `track.jsonl` lines on the integration branch; no status projection |
 | `failure.mjs` | failure policy (`decideFailure`, `applyUnitFailure`, fenced `failUnit`), hand-back, engine failure (`handback/engine.md`, BL file, lease release) |
@@ -201,7 +201,7 @@ Legend. **Fenced**: requires `--epoch`. All commands print the common envelope `
 | Command | Key args | Fenced | Output (beyond `ok`/`cmd`) |
 |---|---|---|---|
 | `start --detect` | `--args "<raw>"`, `--session-card <path>`, `--session-id <id>`, `--session-runtime claude\|codex` | no | `signals`, `row`, `scope`, `size_provisional`, `label`, `label_source` |
-| `start --preflight` | `--row`, `--scope-json <file>`, `--label`, `--coordinator claude\|codex`, `--session-model`, `--probe-codex` | no | `elapsed_ms`, `checks[]`, `need_from_owner[]`, `announce`, `drive_armable`, `drive_block_reason?` |
+| `start --preflight` | `--row`, `--scope-json <file>`, `--label`, `--coordinator claude\|codex`, `--session-model` | no | `elapsed_ms`, `checks[]`, `need_from_owner[]`, `announce`, `drive_armable`, `drive_block_reason?` |
 | `start --run` | `--scope-json <file>`, `--label`, `--coordinator claude\|codex`, `[--k N] [--mode touch\|feature\|giant] [--session-model m] [--answers <json>]` | acquires the lease | `run_id`, `epoch`, `integration`, `drive`, `prepush` |
 | `start --resume` | `--coordinator claude\|codex [--session-model m] [--run <id>] [--owner-confirmed] [--unblock <unit> --reason <text>]` | transfers or acquires | `run_id`, `epoch`, `reattached[]`, `requeued[]`, `drive`, `unblocked?` |
 | `card check <path>` | | no | `errors[]`, `warnings[]`, `fields{}` |
@@ -278,7 +278,7 @@ Output:
 
 Runs the first-minute checks for a detected row and writes `.pandacorp/run/build/preflight.json` (mode 0600). May consume a quota probe or fresh readings; writes no other project state. It only CHECKS: it never installs the pre-push hook (`start --run` does, 3.3); the hook check runs `install-pre-push.mjs --check` and the result feeds `drive_armable`. Target runtime <= 60 s on a Mission-Control-shaped fixture (the LLM card turn is outside this budget).
 
-Arguments: `--row <1..7>`, `--scope-json <file>` (the `scope` object returned by `--detect`), `--label claude|codex`, `--coordinator claude|codex` (the SESSION runtime, as for `start --run`; default `claude`, never inferred from `--label`: a Claude session building with Codex workers is not the Codex app, BL-0319), `--session-model <m>`, `--probe-codex`. The session **always passes** `--probe-codex`; the CLI runs the ~20k-token Codex probe only when `needs_probe` is true (see 8.1).
+Arguments: `--row <1..7>`, `--scope-json <file>` (the `scope` object returned by `--detect`), `--label claude|codex`, `--coordinator claude|codex` (the SESSION runtime, as for `start --run`; default `claude`, never inferred from `--label`: a Claude session building with Codex workers is not the Codex app, BL-0319), `--session-model <m>`. Capacity reads are passive. The legacy `--probe-codex` option is ignored; never launch a model to measure quota.
 
 Output:
 
@@ -439,16 +439,18 @@ Output: `{"ok":true,"cmd":"report","outcome":"committed|rejected|doubt|blocked|f
 
 Fenced. Records a reviewer's verdict for `review`, `deferred-review` and `audit` units. Arguments: `--epoch`, `--unit`, `--token`, `--file <review.json>` (valid against `schemas/review-report.schema.json`).
 
-Effects: verify the token; compute the sha256 of each probe file; commit the probe files that have `failed_first:true` onto `lane/<run_id>/integration` with trailer `Unit: <review unit>` and store them in the review unit's `probe_hashes` (the patch unit's brief lists them as read-only RED tests; `land` re-hashes; the probe budget is in BUILD-10); append `review_recorded` (its `data.verdict` carries the verdict); update the unit (`review.verdict`, `reviewer`, `degraded`). The recorded reviewer is the unit's dispatch cell; `degraded` is inferred by replaying routing `reviewCell` over the availabilities, and the call exits 6 when the report's `reviewer` differs from the dispatch cell or when the reviewer model authored part of the diff and the replay is not `same_model` (N7). `deferred-reviews.json` is written only inside a run. By verdict:
+Effects: verify the token; compute the sha256 of each probe file; commit the probe files that have `failed_first:true` onto `lane/<run_id>/integration` with trailer `Unit: <review unit>` and store them in the review unit's `probe_hashes` (the patch unit's brief lists them as read-only RED tests; `land` re-hashes; the probe budget is in BUILD-10); append `review_recorded` (its `data.verdict` carries the verdict); update the unit (`review.verdict`, `reviewer`, `degraded`). The recorded reviewer is the unit's dispatch cell; `degraded` is null for capacity fallback. The call exits 6 when the report's reviewer differs from the dispatch cell or shares the author's worker context. Same-model fresh-context review is valid. `deferred-reviews.json` is written only inside a run. By verdict:
 - `pass`: the reviewed units become `verified` (they reach `main` with the landing).
 - `reopen`: a `patch` unit is queued; the WO goes `IN_REVIEW -> PLANNED -> IN_PROGRESS` through `transitionWorkOrderAt` (bumps `reopen_count`). (`u-patch-<first wo>`, attempt = max attempt of the reviewed units + 1)
 - `blocked`: the reviewed units are handed back (3.14) with the finding as reason.
 - `doubt`: a `doubt open` follows.
-A review that fell back to another company is queued in `deferred-reviews.json` for a re-review (the matrix and the rules are BUILD-10): one pending entry per review unit and kind, and a newer degraded review of the same unit refreshes it (its `sha_range` covers the older one). `review-record` never queues an `audit`: the audit runs only on Claude opus high, and `next`/`drive` queue it when Claude is out.
+Capacity fallback and same-model independent context create no deferred re-review debt. Historical
+ledger entries remain readable and are processed as real review tasks. Security audits use Astra high
+or Opus high and can become verified only after a valid report; no automatic deferral certifies them.
 
 Output: `{"ok":true,"cmd":"review-record","verdict":"pass|reopen|blocked|doubt","deferred_review_id":null,"probes_committed":["tests/probe-a.test.ts"]}`.
 
-Exit: 0; 6 (`INVALID_INPUT`) when the review file is invalid JSON or schema, the token or unit does not match, `doubt` is set when the verdict is not `doubt` (or missing when it is), a `reopen` or `blocked` verdict carries no finding, a `pass` carries a critical or high finding or a failing traceability entry, a probe path is not an allowed test path, is listed twice, or is named by a finding but absent from `probes[]`, a probe file is missing or changed (hash mismatch) or would overwrite an existing file on the integration branch, the report's `reviewer` differs from the dispatch cell, or an author reviews its own unit outside N7; 5 on an invalid state; 3 on fence. `deferred_review_id` is non-null for a `deferred-review` unit (the ledger entry it serves: the optional `deferredId` input, else matched from the unit id, then by FRD) and for a degraded review that queued an entry; otherwise `null`. Output extras: `deferred_skipped` (`{needed, reason:"quota_conserve"}` when a degraded review's re-review was not queued because the needed company is conserved or out of quota, DR-161), `reviewer`, `degraded`, `reviewed_units`, `patch_unit`, `handed_back`, `bug_card`, `doubt_file`, `probes_skipped`, `last_safe_point`.
+Exit: 0; 6 (`INVALID_INPUT`) when the review file is invalid JSON or schema, the token or unit does not match, `doubt` is set when the verdict is not `doubt` (or missing when it is), a `reopen` or `blocked` verdict carries no finding, a `pass` carries a critical or high finding or a failing traceability entry, a probe path is not an allowed test path, is listed twice, or is named by a finding but absent from `probes[]`, a probe file is missing or changed (hash mismatch) or would overwrite an existing file on the integration branch, the report's `reviewer` differs from the dispatch cell, or the reviewer shares the author worker context; 5 on an invalid state; 3 on fence. `deferred_review_id` is non-null for a `deferred-review` unit (the ledger entry it serves: the optional `deferredId` input, else matched from the unit id, then by FRD) and for a degraded review that queued an entry; otherwise `null`. Historical deferred metadata is read for compatibility only; new capacity assignments create no re-review debt. Output extras: `reviewer`, `degraded`, `reviewed_units`, `patch_unit`, `handed_back`, `bug_card`, `doubt_file`, `probes_skipped`, `last_safe_point`.
 
 ### 3.11 `land`
 
@@ -604,7 +606,7 @@ Fenced. Writes `build/handback/<unit>.md` (format defined in BUILD-15), writes t
 ### 3.15 `quota record` and `quota read`
 
 - `quota record --provider claude [--five-hour <P> --weekly <P>] [--five-hour-resets-at <iso>] [--weekly-resets-at <iso>] [--status ok|unavailable] [--epoch <E>]`: the session calls this at safe points with the percentages it read from `get_usage`. `--status` defaults to `ok`. With `--status ok`, `--five-hour` and `--weekly` are required (missing: exit 2). With `--status unavailable` they are **not** required: the reading is stored with `five_hour_pct:null` and `weekly_pct:null` (and any resets given) and `effective()` reports `state:"unknown"` (reactive-only policy). It writes `build/quota.json` only; it journals `quota_reading` and emits `QuotaReading` only when `--epoch` is given (then it is fenced). Output: `{"ok":true,"cmd":"quota","sub":"record","reading":{"provider":"claude","five_hour_pct":36,"weekly_pct":12,"five_hour_resets_at":"<iso>|null","weekly_resets_at":"<iso>|null","status":"ok|unavailable","observed_at":"<iso>"}}`.
-- `quota read [--probe]`: reads both providers and the derived policy. `--probe` allows the minimal `codex exec` probe (~20k input tokens, preflight use only). Output: `{"ok":true,"cmd":"quota","sub":"read","claude":{...},"codex":{...},"policy":{...}}`. Shapes: section 8.1.
+- `quota read`: passively reads both accounts and the derived compatibility policy. Legacy `--probe` is a no-op; it never invokes a model. Shapes: section 8.1.
 
 ### 3.16 `admit`
 
@@ -668,15 +670,15 @@ a second call with no eligible copies removes nothing. See 5.1 for holds. Verifi
 Order of work inside one call (phase 1 renews the lease; phase 2 writes):
 1. Harvest finished jobs and workers: ingest `via:"cli"` reports through the `report` logic with `openDoubt:true` (a doubt, or a doubt/dispute policy action, is opened by the engine, or the unit is handed back; a review verdict `doubt` of a `via:"cli"` reviewer is opened through `failure.openUnitDoubt`), G2 results, land results.
 2. Integrate committed chains into `lane/<run_id>/integration` (4.1) and any accepted assumption branch not yet merged. While a `land` job is running nothing is integrated or dispatched (the land job owns the integration branch): `next` returns `wait` with reason `jobs_running`. A G2 job for every FRD whose units are all integrated (and none built on an unmerged assumption) is spawned in the admission round (step 6), right after integration, so a heavy job never starts in a RAM-denied pass.
-3. Quota policy (BUILD-11): `next` calls `quota.policy({claude, codex, coordinator, driveAlive})` once and applies its verdict without re-deriving it (8.1): `handoff` if Claude is at the handoff threshold, the coordinator is `claude-session` and the drive standby is alive (`build/drive/standby.json` pid alive, `state: standby`), else `paused-quota`; the terminal `paused-quota` when both companies are at the stop threshold. A unit with `parked:"built_on_assumption"` is dispatchable (base = its assumption branch).
-4. Deferred reviews first, when the other company is below the stop threshold.
+3. Capacity (BUILD-11): project each real task through `capacityTaskForUnit` and `decide`. Use either qualified tool. Only no fitting eligible task yields `waiting` with durable `resumeAt` and retained lease. Include capacity-parked reviews; never apply a global quota veto.
+4. Historical deferred reviews first when their actual role/risk cell fits shared capacity.
 5. Planner round over `queued` units: tests units before their build units; one `audit` unit when `risk.audit` is true and none ran; units with `pending_answer` last on the default when the question is reversible, parked when not.
 6. Admission per candidate (8.2) and one token per unit.
 7. Dispatch.
 
 ```json
 {"ok":true,"cmd":"next","epoch":4,
- "action":"dispatch|wait|handoff|land|done|paused-quota|waiting-owner|deadlock|stop",
+ "action":"dispatch|wait|waiting|handoff|land|done|waiting-owner|deadlock|stop",
  "units":[{"unit":"u-build-wo-05-002","kind":"docs|tests|build|patch|review|audit|doubt-consult|deferred-review","attempt":1,
    "token":"<opaque, returned once>","runtime":"claude|codex","model":"sonnet|opus|sol|astra (session units: the session model)","model_slug":null,"effort":"low|medium|high|xhigh|null",
    "budget_calls":null,"worktree":"<abs>","brief_path":"<abs>","report_path":"<abs>","schema_path":"<abs>",
@@ -697,9 +699,9 @@ Field notes:
 - `via:"session"` is emitted iff size `touch`, kind `build`, attempt 1, static zone `none`, and the label's company equals the coordinator's company; its cell is `{runtime: coordinator runtime, model: --session-model, effort: null}` (routing treats a null session effort as `high`). `budget_calls` is 10 for a touch `review`, otherwise `null`.
 - For a `doubt-consult` unit with `via:"agent"`, `agent_type` is `general-purpose` and its `schema_path` is the empty string (the answer keys are the ones of 3.12, not a JSON Schema file). A `doubt-consult` unit is the one and only dispatch channel of a doubt consult (3.12).
 - `dispatch_line` is the one-line Spanish announcement the session prints.
-- `action:"handoff"` is returned only when the coordinator is `claude-session` and the Claude reading is at or above the handoff threshold (BUILD-11); enforced here, not in prose.
+- Quota never requests handoff. Explicit handoff or silent-lease recovery retains native coordinator authority until native executions finish; CLI executions preserve their pin and checkpoint across relay.
 - `action:"land"`: the batch is complete; the session calls `land` (3.11).
-- Terminal actions are returned only when no unit, job or worker of the run is running (otherwise `wait`). Selection, first match: both companies at the stop threshold → `paused-quota`; 3 consecutive `env-infra` hand-backs → `stop`; every unit `landed`, `blocked` or (review-type) `verified` → `done` (the session calls `finish`); nothing can progress and every blocked unit waits on an owner answer or a gate → `waiting-owner` (`state.status` `waiting_gate` when all blockers are gates, else `waiting_owner`); queued units but no planner progress → `deadlock`; any other no-progress state → `stop`. Non-`done` terminal actions arrive already applied: status and reason set, journaled, quiesced and released with `projectStatus:false` (nothing runs, so no worker is stopped); the drive standby exits.
+- Terminal actions are returned only when no unit, job or worker of the run is running (otherwise `wait`). Selection, first match: 3 consecutive `env-infra` hand-backs → `stop`; every unit `landed`, `blocked` or (review-type) `verified` → `done` (the session calls `finish`); nothing can progress and every blocked unit waits on an owner answer or a gate → `waiting-owner` (`state.status` `waiting_gate` when all blockers are gates, else `waiting_owner`); queued units but no planner progress → `deadlock`; any other no-progress state → `stop`. Non-`done` terminal actions arrive already applied: status and reason set, journaled, quiesced and released with `projectStatus:false` (nothing runs, so no worker is stopped); the drive standby exits.
 - `next` never returns a unit outside the run scope (test-asserted).
 - `--wait` returns early when a report or review file appears, a job or worker `exit` appears, an `answer_recorded` is journaled, or `handoff.json` appears.
 - `wait.reason`: `disk` (new-worktree admission or bootstrap exit 4; retry after 30 s), `ram` (admission denied), `cpu_H` (heavy slots taken), `workers_running` (CLI-launched workers pending), `jobs_running` (G2 or land job pending), `gate`, `quota`.
@@ -862,7 +864,7 @@ Types: `run_started` (carries the detect and preflight result), `run_resumed {fr
 
 Event data needed by `rebuild-state`: `run_started.data = {detect, preflight, state}` (initial state, `units: []`); `unit_queued.data` = the full state unit; `unit_state.data = {unit, from, to}`; `unit_dispatched.data = {unit, cell, via, worktree, branch, token_hash, worker_id, pid}`; `job_started.data` = the `jobs[]` item; `job_finished.data = {id, state, exit}`; `report_received.data = {unit, outcome, commit, test_hashes}`; `integrated.data = {unit, sha}`; `parked.data = {unit, reason, question}`; `waiting_gate.data = {unit, kind}`. `rebuild-state` folds them in order, then applies the integration worktree's WO frontmatter (frontmatter wins). `admit` events are written by `next` only.
 
-`review_recorded.data = {unit, frd, verdict:"pass|reopen|blocked|doubt", reviewer{runtime,model,effort}, authors[{runtime,model,effort}], cross:bool, degraded:"quota_90|unreachable|at_capacity|same_model"|null, findings{critical,high,medium,low}, pair_id|null}`.
+`review_recorded.data = {unit, frd, verdict:"pass|reopen|blocked|doubt", reviewer{runtime,model,effort}, authors[{runtime,model,effort}], cross:bool, degraded:null (historical values remain readable), findings{critical,high,medium,low}, pair_id|null}`.
 
 **Journal append lock (FIX-MUTEX3).** `journal.mjs` appends under `<journal>.lock`, born with
 its `owner` file (pid/nonce) through a private `.new-*` rename and released by renaming away.
@@ -883,35 +885,22 @@ race boundaries. Verification: `plugin/scripts/test-build-v2-lock-stress.mjs`,
 
 Internal contracts (modules call each other; the CLI exposes them through section 3). Constants and thresholds are defined in the Constants table of `factory/standards/build-engine.md` and in `model-tiers.json` (version 2); this file names the parameters only.
 
-### 8.1 Quota (`quota.mjs`)
+### 8.1 Capacity and quota compatibility (`capacity.mjs`, `quota.mjs`)
 
-```
-readCodexQuota({codexHome, now})
-  -> {provider:"codex", used_percent, window_minutes, resets_at, credits, observed_at, file, state:"known", source}
-   | {provider:"codex", state:"unknown", reason}
-  newest rollout by mtime under sessions/YYYY/MM/DD (newest dirs first, <= 3 days), tail read <= 256 KiB,
-  last event_msg/token_count.rate_limits;
-  used_percent = max(primary, secondary when present), window_minutes = that window's,
-  resets_at converted from epoch seconds to an ISO-8601 string; never scan the whole sessions tree
-recordClaude({five_hour_pct, weekly_pct, five_hour_resets_at, weekly_resets_at, status}, {now, file}) -> reading
-  (persists quota.json at `file`; journals quota_reading only with an epoch)
-effective(reading, now) -> {pct|null, state:"known|unknown", needs_probe:bool}
-  claude: known iff age <= claude_reading_max_age_s, or a window >= quota_conserve whose resets_at is in the future (BL-0322); codex: known until resets_at;
-  needs_probe iff age > codex_probe_age_s and pct >= codex_probe_min_pct
-probeCodex({exec}) -> minimal codex exec (~20k input tokens), preflight only, then readCodexQuota
-classifyLimitText(text) -> "usage_limit" | "rate_limit" | null
-  the single detector; limit patterns are self-contained and aligned with codex-worker.mjs LIMIT_RE
-policy({claude, codex, coordinator, driveAlive = false, now?, thresholds?}, deps?)
-  -> {claude_new_units, codex_new_units, claude_conserve, codex_conserve, handoff, paused, degrade_reviews_of:{claude_authored, codex_authored}}
-  *_conserve (DR-161): known reading >= thresholds.quota_conserve (85) and < quota_stop; routing availability `conserve`
-  the ONLY owner of the pause/handoff priority (A11): both providers >= quota_stop -> paused, never handoff;
-  Claude known and >= quota_handoff with a claude-session coordinator -> handoff only when driveAlive, else paused;
-  codex-session and drive coordinators never hand off. driveAlive = build/drive/standby.json pid alive and state "standby"
-```
+`capacity.decide({task,readings,now})` is the only allocation policy. `readCapacity` reads
+Claude's ingested `get_usage` snapshot and Codex rollout telemetry without model execution.
+`quota.readQuota`, `effective` and `policy` remain compatibility projections, never an
+independent routing, threshold, conserve, probe or handoff decision. Legacy probe flags are no-ops.
+Unknown or expired observations cannot confirm renewal. All task kinds, including review,
+security audit and doubt consultation, use role and risk; security audits always have a critical floor.
 
-Limit handling (BUILD-11): a `usage_limit` consumes no attempt and is recorded as a 100 % reading for that provider (`source:"limit"`); a Claude limit with a Claude coordinator means `handoff`; a Codex limit means new units take the Claude column; both at or above the stop threshold means `paused-quota`. A `rate_limit` (429) consumes no attempt: retry once after 60 s, then reduce the reactive parallelism by one. The lease is released only by `finish`, `stop`, an engine failure and `next`'s terminal pauses, never by a single-provider limit or a handoff.
-
-`quota.json` uses `schemas/quota.schema.json`: `{schema:1, claude: null | {provider:"claude", five_hour_pct|null, weekly_pct|null, five_hour_resets_at|null, weekly_resets_at|null, status:"ok|unavailable", observed_at}, codex: null | {provider:"codex", used_percent, window_minutes, resets_at, credits, observed_at, file, state:"known", source:"rollout|probe|limit"} | {provider:"codex", state:"unknown", reason}}`. `quota read` prints the same `claude` and `codex` objects plus the derived `policy` (never stored). Thresholds (stop, handoff, probe age, probe minimum, reading max age, lease ttl, drive silent seconds, drive trigger (c) minimum percent, drive poll seconds) are the `thresholds` object of `model-tiers.json` version 2; their meaning is BUILD-11 and BUILD-14.
+A certified `usage_limit` suspends the same execution with its provider session, pin, token,
+attempt and dirty worktree. `rate_limit` (429/529) retries the same cell after
+60/120/240/480/900 seconds (Retry-After capped at 900). Neither consumes an attempt.
+When no eligible cell fits, persist `waiting`, minimum `resumeAt` and wake generation in state
+and journal, retain the lease, and re-read both accounts at reset+60 seconds. Capacity-only
+`no_reviewer` parking participates in the same wake path. Never ask the owner about quota.
+For the snapshot schema, source normalization and decision interface see [capacity.md](capacity.md).
 
 ### 8.2 Admission (`admission.mjs`)
 
@@ -963,12 +952,16 @@ builderCell(unit, {label, zone, reopen_count, attempt, previousCell, quota, shap
    | {deferred:{runtime,model,effort}, degraded, row} | {paused:"quota", row}
 reviewCell({authors[], kind, zone, availability{claude, codex: ok|quota|unreachable|at_capacity}, shape})
   -> {primary{runtime,model,effort}, used{runtime,model,effort}|null,
-      degraded:null|"quota_90|unreachable|at_capacity|same_model",
+      degraded:null,
       deferred:{needed:"claude|codex", reviewer{}}|null, parked:null|"no_reviewer", row}
 consultCell({origin, consultNo, consulted?[], availability?}) -> {runtime, model, effort} | null   // null = no consult left, the doubt parks
 ```
 
-`routing.mjs` exports `MODEL_STRENGTH` (frozen: `haiku 1, luna 1, sonnet 2, sol 2, terra 2, opus 3, astra 3, fable 4`), the single strength table: `review/degradation.mjs` (the "strongest author" helper behind the review matrix) and `drive/audit.mjs` (the audit deferral) import it; no module keeps a private copy. A repeated execution raises effort one step (cap `xhigh`) and never switches company; only the quota switch of BUILD-11 (or an unreachable label company) changes company (the other company's column of the same builder row). The cells, the 16-row review matrix and the unreachable and same-model rules are policy (BUILD-10) and are generated from the data file; a table test pins them. `start` checks Codex slugs against `codex debug models` and fails loud when a catalog slug is retired.
+`routing.mjs` projects the task through `capacityTaskForUnit`, shared by dispatch and wake.
+Role and risk set the cell; label, author and attempt do not raise or lower the floor. Security
+`audit` and `security-auditor` tasks always require Astra high or Opus high, including zone `floor`.
+Fresh context provides review independence. The old author matrix, N7 and audit deferral are retired.
+`MODEL_STRENGTH` remains a compatibility helper; it does not select capacity cells.
 
 ### 8.4 Performance (`perf.mjs`, DEC-18)
 
@@ -1006,10 +999,10 @@ Behavior and its limits are BUILD-14; the contract:
 |---|---|
 | Arm | `start --run` (and `start --resume`) arms drive whenever `codex login status` is OK and, in a launched project, the pre-push hook is verified (`install-pre-push.mjs --check` exit 0). Codex quota is not checked at arming. It spawns `node pandacorp-build.mjs drive --standby --run R` with `spawn(execPath, args, {detached:true, stdio:["ignore",log,log]}).unref()` (no `setsid` on macOS); drive starts `caffeinate -i -w <own pid>` |
 | Never armed when | launched project without a verified pre-push hook; `codex login status` fails |
-| Standby poll (30 s) | (a) `build/handoff.json` present; (b) Claude's usage-limit text only (DEC-3): `classifyLimitText` = `usage_limit` in `build/units/<id>/report.json` of a unit in `admitted|running` dispatched to Claude (`via: agent|session`), or Claude's envelope (`usage limit reached|<epoch>`) in `codex-workers/<id>/last.md` of a worker of the current run (`state.units[].worker.worker_id` / `state.jobs[].worker_id`), or the optional `--transcript <path>`; Codex's own limit text never fires (b) (`quota.policy` owns that, R3); (c) no lease renewal for `drive_silent_s` AND pending work AND last Claude reading at or above the trigger percent or unknown. Standby exits when `state.status != "active"` |
-| Takeover | at a trigger drive re-reads Codex quota. At or above the stop threshold: `transfer`, then stop at `paused-quota` with both `resets_at` (the lease is released). Otherwise `transfer({token: <current token from lease-token.json>, toRuntime:"codex", coordinator:"drive"})` (semantics in 2.3): epoch+1 on the same `run_id`, new token file, lease `coordinator:"drive"`; journal `drive_takeover`; notification. It does not quiesce, does not stop running Codex workers and never calls Claude. It is not a `--takeover` (no owner confirmation) |
+| Standby poll (30 s) | Explicit current-epoch handoff, or silent lease with pending work. Quota is never a transfer trigger. Native continuations retain the original capable lead and its automatic wake. |
+| Takeover | Under the lease mutex, refuse relay while any native agent/session execution or unrecorded admission is pending. Preserve epoch/token/coordinator and handoff. Otherwise transfer the same run (epoch+1), preserving CLI workers and checkpoints; dispatch uses shared capacity. |
 | Loop | in-process `next` with coordinator `drive` (all builders Codex, reviews per the drive rule of BUILD-10) then `workers.mjs` launch, poll `exit` files every 30 s, then `report`/`review-record`/`land`; drive renews the lease in its own loop. Drive never spawns a landing while a land job is alive |
-| Stops | Codex at or above the stop threshold: `paused-quota` at a safe point; engine failure: exit 8 path; all done: `finish` |
+| Stops | Capacity wait retains the lease and wakes at resumeAt+60s; engine failure follows exit 8; all done calls finish. No quota stop or automatic audit deferral. |
 | Return | the owner's `start --resume` transfers the run back immediately (epoch+1); drive gets exit 3 at its next phase 2 and exits. There is no yield file |
 | Security audit | not run under drive; queued in `deferred-reviews.json` for Claude opus high (an audit unit that reaches drive is deferred and set `verified` so the run can finish; author = the strongest recorded worker cell, else `{codex, sol, high}`; DEC-4) |
 | Doubts | the sources step is skipped; consult Astra high; then park |

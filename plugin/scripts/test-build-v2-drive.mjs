@@ -495,26 +495,25 @@ await test("loop: units already launched by `next` (via cli) cause no spawn by d
   const run = await driveHolds(await makeRun()); const { calls } = await loop(run, { next: [act("dispatch", 2, { units: [unitCell()] }), act("stop")] });
   eq(calls.spawn.length, 0, "spawn calls"); noClaude(calls, run, "dispatch via cli");
 });
-await test("loop: a Claude cell is NEVER dispatched (no spawn/exec with its unit or model, unit not left running)", async () => {
-  const claudeUnit = newUnit({ id: "u-build-wo-01-002", kind: "build", wos: ["WO-01-002"], frd: "frd-01-alpha", state: "admitted" });
-  const run = await driveHolds(await makeRun({ units: [newUnit({ id: "u-build-wo-01-001", kind: "build", wos: ["WO-01-001"], frd: "frd-01-alpha", state: "queued" }), claudeUnit] }));
-  const cell = unitCell({ unit: "u-build-wo-01-002", runtime: "claude", model: "sonnet", model_slug: null, effort: "medium", via: "agent" });
-  const { calls } = await loop(run, { next: [act("dispatch", 2, { units: [cell] }), act("stop")] });
-  for (const argv of argvs(calls)) ok(!argv.some((a) => a.includes("u-build-wo-01-002") || a.includes(cell.token)), `the Claude unit was passed to a process: ${JSON.stringify(argv)}`);
-  noClaude(calls, run, "claude cell"); noReleaseFlag(calls, mkDeps(run).deps, "claude cell");
-  const st = await stateOf(run); ok(st.units.find((u) => u.id === "u-build-wo-01-002").state !== "running", "the Claude unit must not be left running by drive");
+await test("takeover refuses an unrecorded admission and preserves the capable lead", async () => {
+  const unit = newUnit({ id: "u-build-wo-01-002", kind: "build", state: "admitted" });
+  const run = await makeRun({ units: [unit] });
+  const before = await stateOf(run), lease = await rawLease(run);
+  await rejectsWith(() => driveHolds(run), ["NATIVE_CONTINUATION"], "unrecorded native admission");
+  eq(await stateOf(run), before, "admitted work preserved");eq(await rawLease(run), lease, "lead authority preserved");
 });
-await test("loop: a Claude opus `audit` unit is not run under drive; it is queued in deferred-reviews.json for Claude (needed claude, pending)", async () => {
-  const audit = newUnit({ id: "u-audit-frd-01-alpha", kind: "audit", frd: "frd-01-alpha", state: "admitted" });
-  const run = await driveHolds(await makeRun({ units: [newUnit({ id: "u-build-wo-01-001", kind: "build", wos: ["WO-01-001"], frd: "frd-01-alpha", state: "landed" }), audit] }));
-  const cell = unitCell({ unit: "u-audit-frd-01-alpha", kind: "audit", runtime: "claude", model: "opus", model_slug: null, effort: "high", via: "agent", agent_type: "pandacorp:security-auditor" });
-  const { calls } = await loop(run, { next: [act("dispatch", 2, { units: [cell] }), act("stop")] });
-  for (const argv of argvs(calls)) ok(!argv.some((a) => a.includes("u-audit-frd-01-alpha")), `the audit unit was passed to a process: ${JSON.stringify(argv)}`);
-  noClaude(calls, run, "audit under drive");
-  const queue = await readJ(run.P.deferredReviewsFile); const schema = await loadSchema("deferred-reviews");
-  ok(validate(schema, queue).ok, `deferred-reviews.json is invalid: ${JSON.stringify(validate(schema, queue).errors)}`);
-  const entry = queue.find((e) => e.unit === "u-audit-frd-01-alpha"); ok(entry, `no deferred entry for the audit unit: ${JSON.stringify(queue)}`);
-  eq([entry.kind, entry.needed, entry.status], ["audit", "claude", "pending"], "deferred audit entry kind/needed/status");
+await test("audit cannot be deferred or verified without a real report", async () => {
+  const run = await driveHolds(await makeRun({units: []}));
+  const audit = newUnit({ id: "u-audit-frd-01-alpha", kind: "audit", state: "running",
+    worker: {runtime: "claude", model: "opus", effort: "high", via: "agent", pid: null, worker_id: null, session_id: "native-audit"}, token_hash: "a".repeat(64) });
+  await patchState(run, s => ({...s, units: [audit]}));
+  const cell = unitCell({unit:audit.id, kind:"audit", runtime:"claude", model:"opus", effort:"high", via:"agent"});
+  const {r} = await loop(run, {next:[act("dispatch",2,{units:[cell]})]});
+  eq(r.outcome,"engine_failure","an impossible native dispatch fails closed");
+  const after = (await stateOf(run)).units[0];
+  ok(after.state !== "verified", "unexecuted audit was certified");
+  eq(after.worker, audit.worker, "native checkpoint preserved");eq(after.token_hash, audit.token_hash, "report token preserved");
+  ok(!existsSync(run.P.deferredReviewsFile), "no new audit debt ledger");
 });
 await test("loop: never spawns a landing while a land job is alive; lands once when none is", async () => {
   const landJob = { id: "land-1", kind: "land", unit: null, frd: null, pid: 777001, cwd: "/nonexistent", h_slot: false, started_at: DEFAULT_NOW, state: "running", exit: null, worker_id: null };

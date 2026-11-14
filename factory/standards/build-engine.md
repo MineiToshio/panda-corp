@@ -850,3 +850,12 @@ only stops are human gates. Keeping every tracked write on one integration branc
 the single, G3-gated path to `main` in every project. One reviewer in a fresh independent context, allocated by role and risk, replaces double review
 in exchange for quota and simplicity (an accepted risk, measured later through escapes); human gates,
 G3 before `main` and the irreversibility veto are what keep that trade safe.
+
+### Native continuation at a relay boundary
+
+Before transferring to drive, the lease mutex checks pending native agent/session executions,
+including admitted work whose worker is not yet recorded. Such executions retain the original
+capable lead, epoch, credentials and automatic wake until their result is consumed. Drive never
+converts a native ID into a CLI session, replays a fresh task or certifies an audit without evidence.
+Capacity-only reviewer parking participates in the normal resumeAt wake and task risk projection;
+security audit roles always impose the critical floor, even when the changed files classify as floor.

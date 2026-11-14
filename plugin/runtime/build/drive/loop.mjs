@@ -2,7 +2,6 @@
 import { readLeaseToken, readState } from "../state.mjs";
 import { TERMINAL_ACTIONS, err, isFenceError } from "./constants.mjs";
 import { assertNoForbiddenWord, buildStateOf, driveLog, limitsOf, say, withDefaults } from "./context.mjs";
-import { deferAuditUnit } from "./audit.mjs";
 import { setOwnStandbyState } from "./standby.mjs";
 
 // Workers facade handed to `next`: drive launches allocator-selected CLI cells through the shared wrapper.
@@ -68,7 +67,6 @@ async function leaseLost(project, epoch, d) {
  */
 export async function driveLoop({ project, epoch }, deps) {
   const d = withDefaults(deps);
-  const deferAudit = typeof d.deferAudit === "function" ? d.deferAudit : (input) => deferAuditUnit(input, d);
   for (const name of ["next", "land", "finish"]) if (typeof d[name] !== "function") throw err("USAGE", `drive loop needs deps.${name}`);
   const bs = await buildStateOf(d);
   const limits = limitsOf(d);
@@ -82,6 +80,12 @@ export async function driveLoop({ project, epoch }, deps) {
     launched.clear();
     try {
       // Renewing first is also how a resumed owner is noticed: the token file now names another epoch -> FENCE.
+      const lease = await bs.currentLease(project);
+      if (lease?.coordinator !== "drive") {
+        // A denied native takeover must not dispatch, consume reports or certify work under
+        // the original coordinator's credential, even if a caller reuses the current epoch.
+        return { outcome: "yielded", action: "native_coordinator", exitCode: 0 };
+      }
       const token = await readLeaseToken(project, epoch, { env: d.env, homedir: d.homedir });
       await bs.renew(project, token, epoch, { projectStatus: false });
       out = await d.next({ ...ref, wait: 0 }, engineDeps);
@@ -91,12 +95,7 @@ export async function driveLoop({ project, epoch }, deps) {
         case "dispatch": {
           for (const unit of out.units ?? []) {
             if (["codex", "claude"].includes(unit.runtime) && unit.via === "cli") { driveLog(project, `dispatch: ${unit.unit} ${unit.kind} codex ${unit.model} ${unit.effort}`, d); continue; }
-            if (unit.kind === "audit") {
-              await deferAudit({ ...ref, unit }, engineDeps);
-              driveLog(project, `dispatch: security audit ${unit.unit} deferred to a Claude re-review (opus high)`, d);
-              continue;
-            }
-            throw err("ENGINE_FAILURE", `next returned a ${unit.runtime}/${unit.via} unit (${unit.unit}) to drive, which runs Codex only`);
+            throw err("ENGINE_FAILURE", `next returned a ${unit.runtime}/${unit.via} unit (${unit.unit}) to drive, which executes CLI workers only`);
           }
           break;
         }

@@ -151,7 +151,7 @@ await test('worker continuation uses exact saved provider session and worktree; 
  const out=await resumeWorker({project:c.fx.root,workerId:'worker-1',unit:c.unit.id,dir:c.unit.worktree,sequence:1},{env});assert.equal(out.ok,true);
  for(let i=0;i<50;i++){if(await fs.stat(capture).catch(()=>null))break;await new Promise(r=>setTimeout(r,20));}
  const actual=JSON.parse(await fs.readFile(capture,'utf8'));assert.equal(await fs.realpath(actual.cwd),await fs.realpath(c.unit.worktree));assert.ok(actual.argv.includes('thread-1'));assert.equal(actual.argv[1],'resume');assert.ok(actual.argv.includes('gpt-6.1-sol'));
- await fs.writeFile(path.join(wd,'resume.lock'),JSON.stringify({pid:99999999}));
+ await fs.mkdir(path.join(wd,'resume.lock'));await fs.writeFile(path.join(wd,'resume.lock/owner'),'99999999-dead-launcher');
  const again=spawnSync(process.execPath,[script,'resume','--project',c.fx.root,'--id','worker-1','--resume-sequence','1'],{env,encoding:'utf8'});assert.equal(again.status,0);assert.match(again.stdout,/CODEX-RUNNING/);assert.equal(JSON.parse(await fs.readFile(path.join(wd,'state.json'),'utf8')).resumeSequence,1);
 }));
 await test('native Claude limit receipt preserves Agent id and returns the same native continuation',()=>withRun(async c=>{

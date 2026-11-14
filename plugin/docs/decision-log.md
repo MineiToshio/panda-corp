@@ -1,5 +1,9 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-14 — Final-review continuity and policy corrections
+
+Crash recovery adopts a gated continuation runner under a recoverable mutex; capacity-parked reviews wake; native executions retain their capable coordinator atomically at transfer; audits require real reports and critical risk. Updated [capacity documentation](../../plugin/docs/capacity.md), CLI/role instructions, BUILD-10/11/14 references and the Manual to remove executable threshold, probe and N7 rules. Generator --check is read-only. No production/model qualification is implied.
+
 ## 2026-11-14 — Independent capacity review: preserve eligible work and execution identity
 
 Fixed task-specific scheduling/wakes, recoverable unconsumed consultation waits, persisted prelaunch receipts without attempts or false quota, Claude streaming heartbeat, quota-trigger retirement and live takeover preservation, and fail-closed standalone security risk. Restored BUILD-10 safeguards and removed conflicting operational policy. Canonical: [capacity.md](capacity.md), [BUILD-10/11/12/14](../../factory/standards/build-engine.md), [drive](../skills/implement/references/drive.md). Plugin 10.11.1; no commit requested.

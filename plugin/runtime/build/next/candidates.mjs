@@ -1,12 +1,13 @@
 // (6) Candidates and cells: the ordered dispatch candidates (deferred reviews, consults, FRD reviews, the audit, then
 // the planner's ready units) with the routing cell each one runs on.
+import { reviewDemand } from "../routing.mjs";
 import { retryCapacityConsults } from "../doubts/consult.mjs";
 import { logCapacityDecision } from "../../capacity.mjs";
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { reviewedUnits } from "../review/degradation.mjs";
 import { findUnit, newUnit } from "../state.mjs";
-import { FRD_WORK_KINDS, PLANNED_KINDS } from "./constants.mjs";
+import { PLANNED_KINDS } from "./constants.mjs";
 import { availabilityOf, cellOf, err, integrationProductRoot, isAssumed, mutate, routingDeps, shapeOf, sibling } from "./context.mjs";
 import { deferredUnitId } from "./planning.mjs";
 import { continuationDecision, capacityNow, capacityAudit, pinOf } from "../../capacity/scheduler.mjs";
@@ -139,16 +140,11 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
   }
 
   for (const u of state.units.filter((x) => x.kind === "review" && (queued(x) || x.parked === "no_reviewer") && inScope(state, x))) {
-    const named = new Set(u.depends_on ?? []);
-    const work = state.units.filter((x) => FRD_WORK_KINDS.includes(x.kind) && x.state !== "blocked" && (u.frd ? x.frd === u.frd : named.has(x.id)));
+    const { named, work, pending, ready } = reviewDemand(state, u);
     // BL-0317: an FRD review left with nothing to review (no build/patch/tests unit of its FRD that is not blocked, and no
     // named unit) can never be dispatched; settle it so the run reaches its landing instead of a deadlock.
     if (u.frd && !work.length && !named.size && queued(u)) { toSettle.push(u.id); continue; }
-    const wos = new Set([...u.wos, ...work.flatMap((x) => x.wos)]);
-    const pending = state.units.filter((x) => ["build", "patch"].includes(x.kind)
-      && ["reviewing", "integrated"].includes(x.state)
-      && (work.includes(x) || (x.kind === "patch" && !x.frd && x.wos.some((w) => wos.has(w)))));
-    if (!pending.length || !work.every((x) => ["reviewing", "verified", "landed"].includes(x.state) || (x.kind === "patch" && !x.frd && x.state === "integrated"))) continue;
+    if (!ready) continue;
     const authors = dedupeCells(pending.filter((x) => x.worker).map((x) => authorOf(x.worker)));
     if (!authors.length) throw err("INVALID_STATE", `review ${u.id}: no author cell among its units`, { hint: "rebuild-state" });
     const rc = d.routing.reviewCell({ id: u.id, authors, kind: state.size === "touch" ? "touch" : "frd", zone: u.zone, availability: avail, shape: ctx.shape }, routingDeps(d));

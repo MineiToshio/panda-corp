@@ -229,7 +229,7 @@ async function reclaimDeadLock(lock, fs) {
 // Short cross-process mutex around one append. The lock directory is born WITH its owner file (prepared aside, then
 // renamed into place), so a holder killed at any point (kill -9 of drive mid-append) leaves either no lock or a lock
 // naming a dead pid, which the next appender reclaims at once (a lock whose owner cannot be read waits out 30 s).
-async function withAppendLock(file, fs, fn) {
+export async function withAppendLock(file, fs, fn) {
   const lock = `${file}.lock`;
   const me = `${process.pid}-${randomBytes(8).toString("hex")}`;
   await fs.mkdir(path.dirname(file), { recursive: true });

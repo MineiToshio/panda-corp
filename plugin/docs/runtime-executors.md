@@ -36,8 +36,9 @@ A session dispatches its runtime's agents. Cross-company workers are launched
 through the CLI's supported worker vehicle. Exactly one reviewer is selected
 per review unit using the canonical routing and quota policy.
 
-`drive` is the Codex-only relay armed by start when its prerequisites hold. It
-transfers the same run by epoch fencing; it never invokes Claude. Owner resume
+`drive` is the deterministic CLI relay armed by start when its prerequisites hold. It
+transfers the same run by epoch fencing and executes either allocated CLI provider. Native
+continuations retain the original capable lead and automatic wake until their result is consumed. Owner resume
 returns coordination to the session. A foreign/dead lease takeover remains
 subject to the CLI's owner-confirmation requirements. Fake-worker tests do not
 prove real detached-process survival or unattended provider continuity: those

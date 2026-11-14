@@ -52,12 +52,11 @@ at least 90 s (Claude Code Bash `timeout: 90000`).
    `claude` or `codex`); it is **read-only** for this skill: never create, write or delete it. Codex has no flag.
    Pass the raw arguments and the session id; the CLI applies the precedence and returns `label` and `label_source`.
    Legacy words `pro|balanced|powerful|deep` are ignored by the CLI with a warning; never translate them into flags.
-3. **Coordinator.** Claude Code: `--session-runtime claude`, `--coordinator claude`; label `claude` = Claude agents,
-   label `codex` = the CLI launches `codex exec` workers. Codex app: `--session-runtime codex`, `--coordinator codex`: if the owner's raw
-   arguments contain the word `claude`, refuse before calling the CLI (the Codex hook denies any command containing
-   that word) with the Spanish line below and stop;
-   concurrency follows the CLI's BUILD-9 adaptive admission, with no special serial ceiling for Codex; no Claude is launched. Label `claude` in the Codex app is refused: tell the owner "Esto se
-   construye con Claude: ábrelo en Claude Code y escribe `/pandacorp:implement claude`." and stop.
+3. **Coordinator.** Pass the session runtime: Claude Code uses `--session-runtime claude --coordinator claude`;
+   Codex uses `--session-runtime codex --coordinator codex`. Label is preference only. Follow each
+   CLI allocation; cross-company cells use the deterministic worker launcher. Never refuse a label,
+   ask the owner about quota or start another native runtime. Existing native continuations retain
+   the original capable coordinator, its lease and automatic wake until the result is consumed.
 4. **Session model.** Note your own model (`sonnet`, `opus`, `haiku`, or `sol`/`astra` in Codex); pass it as
    `--session-model`.
 
@@ -138,7 +137,7 @@ Write the returned `scope` object verbatim to `.pandacorp/run/scope.json` (an in
 
 ## 7. Step 5: the loop
 
-Repeat until a terminal action (`done`, `paused-quota`, `waiting-owner`, `deadlock`, `stop`) or
+Repeat until a terminal action (`done`, `waiting-owner`, `deadlock`, `stop`) or
 `handoff`:
 
 ```
@@ -147,13 +146,13 @@ pb next --epoch <E> --wait 60
 
 | `action` | Do |
 |---|---|
-| `dispatch` | For each new unit in `units[]`, print its `dispatch_line` verbatim (continuations with `resume:true` stay silent), then by `via`: `cli` → nothing (the CLI launched the Codex worker and ingests it); `agent` → launch it (below); `session` → do it yourself (below). Launch all `agent` units of one `next` in ONE message, in the background |
+| `dispatch` | For each new unit in `units[]`, print its `dispatch_line` verbatim (continuations with `resume:true` stay silent), then by `via`: `cli` → nothing (the CLI launched the allocated provider worker and ingests it); `agent` → launch it (below); `session` → do it yourself (below). Launch all `agent` units of one `next` in ONE message, in the background |
 | `waiting` | Capacity checkpoint, not close-out. Follow SKILL.md "Claude lead wake-up": ScheduleWakeup at `resumeAt+60s`, refresh get_usage, `start --resume --coordinator claude --wake-generation <wake_generation>`. Rearm on `claimed:false, action:waiting`; leave an already-resumed winner running. Drive keeps its loop alive and rereads both shared accounts. No quota questions or detailed chat. |
 | `wait` | Call `next --epoch <E> --wait 60` again (it returns early when a report, a job, a worker, an answer or a handoff appears). For reason `disk`, report the allocation wait and let existing work continue; never bulk-delete state. Never end the turn instead |
 | `land` | The batch is complete: `pb land --epoch <E>` (below) |
 | `handoff` | `drive.md` §3 |
 | `done` | `pb finish --epoch <E>`, then the final report (step 6) |
-| `paused-quota`, `waiting-owner`, `deadlock`, `stop` | Already applied by the CLI (state set, lease released, drive standby ended). Do not call `finish`; take the data from `pb summary` and write the final report (step 6) with the reason on top (each company's `resets_at` for quota; the open questions for `waiting-owner`; for `stop`: nothing else can progress), notify, stop |
+| `waiting-owner`, `deadlock`, `stop` | Already applied by the CLI (state set, lease released, drive standby ended). Do not call `finish`; take the data from `pb summary` and write the final report (step 6) with the reason on top (the open questions for `waiting-owner`; for `stop`: nothing else can progress), notify, stop |
 
 `notes_es[]` are owner-facing lines: keep them for the final report, never paraphrase them into English.
 
@@ -246,7 +245,7 @@ independent new units continue on the other qualified tool. Drive sleeps in leas
 |---|---|
 | 0 | Continue |
 | 2 USAGE | Your call was malformed: fix it from `build-engine-cli.md`; never guess flags |
-| 3 FENCE | **Observer mode**: the lease moved to another epoch (drive took over, or another session resumed). Stop dispatching; never call a fenced command again with this epoch; never retry with a guessed epoch. Agents still running: let them end, do not file their results (the holder re-runs that work). Use only `pb status` and tell the owner in Spanish who holds the run |
+| 3 FENCE | **Observer mode**: the lease moved to another epoch (drive took over, or another session resumed). Stop dispatching; never call a fenced command again with this epoch; never retry with a guessed epoch. Agents still running: preserve their results and checkpoint for the current holder; never re-run completed work. Use only `pb status` and tell the owner in Spanish who holds the run |
 | 4 CONTENDED | A live foreign run holds the lease: row 1 behavior |
 | 5 INVALID_STATE | From `start --run` "re-run preflight": step 3.2 again. From `finish`: units still live, back to the loop. Otherwise `pb rebuild-state --epoch <E>`, retry the same call once; fails again → treat as exit 8 |
 | 6 INVALID_INPUT_OR_RED | A card: fix it. A `report`: the rejection is recorded, continue. An `answer`: `autonomy.md` §1.4 |
