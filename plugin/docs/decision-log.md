@@ -1,5 +1,15 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-14 — Reviews run on their pinned checkout (BL-0323)
+
+**What:** dispatch moves a review worktree to the end of its briefed diff range and verifies HEAD; a review blocked on
+the wrong checkout is `env-infra` `review_checkout`; `unblock` lifts it (and a proven older `review_blocked`) by
+restoring the reviewed work and re-queuing the review. Plugin **10.8.0**.
+
+**Why:** funko-tracker `br-2026-11-14-01` re-dispatched its FRD review onto the first-dispatch checkout (15 files older);
+the reviewer refused and the engine handed the work back to the owner. Canonical: BUILD-15 in
+[build-engine.md](../../factory/standards/build-engine.md).
+
 ## 2026-11-13 — All-Codex mixed reviews and sticky high Claude readings (BL-0322)
 
 **What:** a diff authored by Sol and Astra with Claude out is reviewed by the strongest author's cell (Sol for Astra's

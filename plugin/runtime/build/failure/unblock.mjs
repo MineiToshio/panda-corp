@@ -46,13 +46,19 @@ const handbackEvents = (events) => events.filter((e) => e.type === "handback" &&
 /** The latest hand-back that blocked `unitId`, or null. */
 const lastBlockingHandback = (events, unitId) => handbackEvents(events).filter((e) => e.data.blocked.includes(unitId)).pop() ?? null;
 
+/** The review units whose `blocked` verdict caused this hand-back: named by it, or judging the root's FRD (or the root). */
+function reviewsThatBlocked(state, hb, root) {
+  return state.units.filter((u) => u.kind === "review" && (hb.data.blocked.includes(u.id)
+    || (u.review?.verdict === "blocked" && ((u.depends_on ?? []).includes(root.id) || (root.frd && u.frd === root.frd)))));
+}
+
 /**
  * Decide and plan an unblock (pure). Refuses with INVALID_INPUT (exit 6) anything that is not a `blocked` work unit whose
  * latest hand-back names it as the root with cause `env-infra`.
  * @param {{state: object, events: object[], unitId: string, reason: string, at?: string}} input `events` = the run journal
  * @returns {{state: object, events: object[], units: string[], root: object, handback: object}}
  */
-export function planUnblock({ state, events, unitId, reason, at = null, rejectionText = null }) {
+export function planUnblock({ state, events, unitId, reason, at = null, rejectionText = null, checkoutProof = false }) {
   const unit = findUnit(state, unitId);
   if (!unit) throw err("INVALID_STATE", `unknown unit ${unitId}`);
   if (!UNBLOCKABLE_KINDS.includes(unit.kind)) throw err("INVALID_INPUT", `unit ${unitId} is a ${unit.kind} unit: only docs, tests, build and patch units can be unblocked`);
@@ -62,7 +68,10 @@ export function planUnblock({ state, events, unitId, reason, at = null, rejectio
   if (hb.data.unit !== unitId) throw err("INVALID_INPUT", `unit ${unitId} was blocked as a dependent of ${hb.data.unit}: unblock ${hb.data.unit} instead`, { root: hb.data.unit });
   // BL-0318: a code hand-back whose rejection named only bootstrap-written files was an engine false rejection.
   const bootstrapOnly = hb.data.cause === "code" && rejectionOnlyBootstrap(rejectionText ?? hb.data.reason);
-  if (hb.data.cause !== UNBLOCK_CAUSE && !bootstrapOnly) {
+  // BL-0323: a review that blocked on the wrong checkout judged another tree. Recorded as env-infra `review_checkout`
+  // from 10.8.0; an older `review_blocked` qualifies only with a proof (its checkout HEAD is not its brief's range end).
+  const reviewCheckout = hb.data.reason_code === "review_checkout" || (hb.data.reason_code === "review_blocked" && checkoutProof === true);
+  if (hb.data.cause !== UNBLOCK_CAUSE && !bootstrapOnly && !reviewCheckout) {
     throw err("INVALID_INPUT", `unit ${unitId} was handed back for ${hb.data.cause} (${hb.data.reason_code ?? "?"}), not ${UNBLOCK_CAUSE}: the owner decides it (/pandacorp:decide), unblock only lifts an environment failure`, { cause: hb.data.cause });
   }
   if (Number.isInteger(hb.data.attempt) && hb.data.attempt !== unit.attempt) throw err("INVALID_STATE", `unit ${unitId} is at attempt ${unit.attempt} but was handed back at attempt ${hb.data.attempt}`, { hint: "rebuild-state" });
@@ -80,19 +89,45 @@ export function planUnblock({ state, events, unitId, reason, at = null, rejectio
   const priorOf = (id) => events.filter((e) => e.type === "unit_state" && e.data?.unit === id && e.data?.to === "blocked").pop()?.data?.from ?? null;
   const restoredOf = (u) => {
     const prior = priorOf(u.id);
+    // A review-checkout hand-back says nothing about the reviewed work: it goes back to where it was (reviewing).
+    if (reviewCheckout && ["integrated", "reviewing"].includes(prior)) return prior;
     return !WO_UNIT_KINDS.includes(u.kind) && RESTORABLE_STATES.includes(prior) ? prior : "queued";
   };
   const restored = new Map(ids.map((id) => [id, restoredOf(findUnit(state, id))]));
+  // ...and the review it blocked runs again, on the pinned checkout (dispatch pins it, BL-0323).
+  const reviews = reviewCheckout ? reviewsThatBlocked(state, hb, unit) : [];
+  for (const r of reviews) { if (!set.has(r.id)) { ids.push(r.id); set.add(r.id); } restored.set(r.id, "queued"); }
   const next = {
     ...state,
     handbacks_in_a_row: 0,
-    units: state.units.map((u) => (set.has(u.id) ? { ...u, state: restored.get(u.id), token_hash: null, worker: restored.get(u.id) === "queued" ? null : u.worker, parked: null, pending_answer: null, waiting_gate: null } : u)),
+    units: state.units.map((u) => (set.has(u.id) ? { ...u, state: restored.get(u.id), token_hash: null, worker: restored.get(u.id) === "queued" ? null : u.worker, parked: null, pending_answer: null, waiting_gate: null, ...(u.kind === "review" && reviews.includes(u) ? { review: null } : {}) } : u)),
   };
   const planned = [
-    { type: "unblocked", data: { unit: unitId, cause: bootstrapOnly ? "code" : UNBLOCK_CAUSE, ...(bootstrapOnly ? { bootstrap_only: true } : {}), attempt: unit.attempt, reason: oneLine(reason, 400), units: ids, handback_seq: hb.seq ?? null, ...(at ? { at } : {}) } },
-    ...ids.map((id) => ({ type: "unit_state", data: { unit: id, from: "blocked", to: restored.get(id), reason: "unblock" } })),
+    { type: "unblocked", data: { unit: unitId, cause: bootstrapOnly ? "code" : reviewCheckout && hb.data.cause !== UNBLOCK_CAUSE ? hb.data.cause : UNBLOCK_CAUSE, ...(bootstrapOnly ? { bootstrap_only: true } : {}), ...(reviewCheckout ? { review_checkout: true } : {}), attempt: unit.attempt, reason: oneLine(reason, 400), units: ids, handback_seq: hb.seq ?? null, ...(at ? { at } : {}) } },
+    ...ids.map((id) => ({ type: "unit_state", data: { unit: id, from: findUnit(state, id).state, to: restored.get(id), reason: "unblock" } })),
   ];
-  return { state: next, events: planned, units: ids, restored: Object.fromEntries(restored), root: unit, handback: hb };
+  return { state: next, events: planned, units: ids, restored: Object.fromEntries(restored), root: unit, handback: hb, reviewCheckout };
+}
+
+/**
+ * BL-0323 proof for an older `review_blocked` hand-back: the review unit it blocked was checked out at a HEAD that is not
+ * the end of the diff range its brief named. False when anything is missing (no review, no brief range, no worktree).
+ */
+export async function reviewCheckoutProof({ paths, state, events, unitId }, deps = {}) {
+  const hb = lastBlockingHandback(events, unitId);
+  if (!hb || hb.data.reason_code !== "review_blocked") return false;
+  const review = reviewsThatBlocked(state, hb, findUnit(state, unitId) ?? { id: unitId })[0];
+  if (!review) return false;
+  const fs = deps.fs ?? fsp;
+  const exec = deps.exec ?? defaultExec;
+  const brief = await fs.readFile(paths.briefFile(review.id), "utf8").catch(() => "");
+  const end = /^Diff range: [0-9a-f]{7,64}\.\.([0-9a-f]{7,64})$/m.exec(brief)?.[1];
+  if (!end) return false;
+  const cwd = review.worktree ?? paths.unitWorktree(review.id, review.attempt);
+  const rev = async (r) => { const out = await exec("git", ["rev-parse", "--verify", "--quiet", `${r}^{commit}`], { cwd }); return out.code === 0 ? out.stdout.trim() : null; };
+  const head = await rev("HEAD");
+  const pin = head ? await rev(end) : null;
+  return Boolean(head && pin && head !== pin);
 }
 
 /** The full rejection text of the unit's current attempt (attempt-<n>.json), or null; the journal copy is truncated. */
@@ -158,7 +193,8 @@ export async function applyUnblock(ctx, { unitId, reason }, deps = {}) {
   if (!state) throw err("INVALID_STATE", "no build state: nothing to unblock", { hint: "rebuild-state" });
   const { events } = await readJournal(paths.journalFile, deps);
   const at = nowIso(deps);
-  const plan = planUnblock({ state, events, unitId, reason, at, rejectionText: await attemptReason(paths, findUnit(state, unitId), fs) });
+  const checkoutProof = await reviewCheckoutProof({ paths, state, events, unitId }, deps);
+  const plan = planUnblock({ state, events, unitId, reason, at, rejectionText: await attemptReason(paths, findUnit(state, unitId), fs), checkoutProof });
   const unit = plan.root;
   const integrationRoot = path.resolve(project, state.integration.worktree);
 
@@ -172,7 +208,13 @@ export async function applyUnblock(ctx, { unitId, reason }, deps = {}) {
     for (const wo of wosOf(target)) {
       const file = files.get(woKey(wo));
       if (!file) continue;
-      try { await bs.transitionWorkOrderAt(integrationRoot, { file, to: "PLANNED" }); wosPlanned.push(wo); } catch (error) { if (error.code !== "INVALID_STATE") throw error; }
+      try {
+        await bs.transitionWorkOrderAt(integrationRoot, { file, to: "PLANNED" }); wosPlanned.push(wo);
+        if (["integrated", "reviewing"].includes(plan.restored[target.id])) {
+          await bs.transitionWorkOrderAt(integrationRoot, { file, to: "IN_PROGRESS" });
+          await bs.transitionWorkOrderAt(integrationRoot, { file, to: "IN_REVIEW" });
+        }
+      } catch (error) { if (error.code !== "INVALID_STATE") throw error; }
     }
   }
   await markInboxResolved(project, integrationRoot, { unitId, reason, date: at.slice(0, 10) }, deps);
@@ -209,7 +251,8 @@ export async function applyUnblock(ctx, { unitId, reason }, deps = {}) {
 export async function checkUnblock({ project, state, unitId, reason }, deps = {}) {
   const paths = buildPaths(project, deps);
   const { events } = await readJournal(paths.journalFile, deps);
-  return planUnblock({ state, events, unitId, reason, rejectionText: await attemptReason(paths, findUnit(state, unitId), deps.fs ?? fsp) });
+  const checkoutProof = await reviewCheckoutProof({ paths, state, events, unitId }, deps);
+  return planUnblock({ state, events, unitId, reason, rejectionText: await attemptReason(paths, findUnit(state, unitId), deps.fs ?? fsp), checkoutProof });
 }
 
 /**

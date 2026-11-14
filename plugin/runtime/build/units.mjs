@@ -17,4 +17,4 @@ export { writeUnitBrief } from "./units/brief.mjs";
 export { prepare, writeBrief } from "./units/dispatch.mjs";
 export { defaultRun, git, productPrefix, productRoot, runnerOf } from "./units/git.mjs";
 export { artifactsOf, extractAcLines, frontmatterBlock, isWorkOrderPath, readUnitWorkOrders } from "./units/workOrders.mjs";
-export { createUnitWorktree, prepareUnitWorktree, restoreUnitWorktree, unitBase, unitRefs } from "./units/worktrees.mjs";
+export { createUnitWorktree, pinReviewWorktree, prepareUnitWorktree, restoreUnitWorktree, unitBase, unitRefs } from "./units/worktrees.mjs";

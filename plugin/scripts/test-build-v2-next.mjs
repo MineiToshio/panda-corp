@@ -265,7 +265,7 @@ function makeDeps(c, over = {}) {
     admission: spyModule("admission", c.admissionMod, log),
     risk: fake("risk", log, { computeRisk: async () => c.riskResult }),
     planner: fake("planner", log, { plan: planRound, readPlanWorkOrders }, { strict: true }),
-    units: fake("units", log, { prepareUnitWorktree, writeUnitBrief }, { strict: true }),
+    units: fake("units", log, { prepareUnitWorktree, writeUnitBrief, pinReviewWorktree: async ({ sha }) => ({ moved: false, head: sha }) }, { strict: true }),
     jobs: fake("jobs", log, { startJob, pollJob }, { strict: true }),
     workers: fake("workers", log, { launchWorker, pollWorker }, { strict: true }),
     integrate: fake("integrate", log, { integrateCommitted, transitionWorkOrders }, { strict: true }),
@@ -467,6 +467,8 @@ await test("PATCH2: an integrated null-FRD fallback queues its own review and br
   eq(unitIds(result), ["u-review-u-patch-g3"], "fallback receives an independent review");
   const brief = c.log.find((e) => e.fn === "writeUnitBrief").args[0];
   eq(brief.extra.review.range, `${before}..${tip}`, "brief excludes earlier FRD work");
+  const pin = c.log.find((e) => e.mod === "units" && e.fn === "pinReviewWorktree")?.args[0];
+  eq(pin?.sha, tip, "BL-0323: the review worktree is pinned to the end of the briefed range before launch");
   eq((await stateUnit(c, "u-build-wo-01-001")).state, "verified", "healthy WO stays verified");
   eq((await stateUnit(c, "u-patch-g3")).state, "integrated", "patch waits for the review verdict");
 }));

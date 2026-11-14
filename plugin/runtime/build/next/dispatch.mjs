@@ -224,6 +224,12 @@ async function prepareGrant(run, current, g) {
     worktree = wt?.worktree ?? null;
     branch = wt?.branch ?? null;
     if (wt?.bootstrap?.exit === 4) return { ...g, unit, worktree, branch, disk: true };
+    // BL-0323: a review judges exactly the end of its diff range; a reused checkout is moved there and verified.
+    if (["review", "deferred-review"].includes(unit.kind) && worktree) {
+      const range = await reviewRangeOf(run, current, { ...g, unit });
+      await (await sibling(d, "units", "pinReviewWorktree"))({ project: ref.project, runId: current.run_id, worktree, sha: range.split("..")[1] }, d);
+      g = { ...g, review: { ...g.review, pinned_range: range } };
+    }
   }
   let briefPath = g.consult?.brief_path ?? null;
   if (!briefPath) {
@@ -246,12 +252,18 @@ async function prepareGrant(run, current, g) {
   return { ...g, unit, slug, worktree, branch, files: { ...files, brief_path: briefPath }, launched };
 }
 
+/** The diff range a review-type grant judges: its deferred ledger entry's range, else the computed one. */
+async function reviewRangeOf(run, state, g) {
+  const entry = g.review?.deferred_entry ? (await readDeferred(run.ref.project, run.d)).find((e) => e.id === g.review.deferred_entry) : null;
+  return entry?.sha_range ?? await reviewRange({ state, review: g.unit }, run.d);
+}
+
 /** Extra brief sections: the review routing facts, and the default each pending reversible answer runs on (D19). */
 async function briefExtra(run, state, g) {
   const extra = {};
   if (g.review || g.unit.kind === "audit") {
-    const entry = g.review?.deferred_entry ? (await readDeferred(run.ref.project, run.d)).find((e) => e.id === g.review.deferred_entry) : null;
-    extra.review = { ...g.review, range: entry?.sha_range ?? await reviewRange({ state, review: g.unit }, run.d), scopeLens: Boolean(state.scope?.card) };
+    const { pinned_range: pinned, ...review } = g.review ?? {};
+    extra.review = { ...review, range: pinned ?? await reviewRangeOf(run, state, g), scopeLens: Boolean(state.scope?.card) };
   }
   if (g.pendingDefault) {
     const q = (await readQuestions(run)).get(g.pendingDefault);

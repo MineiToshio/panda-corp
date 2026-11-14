@@ -688,6 +688,10 @@ No automatic revert-and-rebuild, no split gate, no automatic "next pass". Fable 
   its last 40 lines, each attempt's evidence, diagnosis, what is preserved, numbered options with the
   recommended one), a `pending` entry in `.pandacorp/inbox/decisions.md` and a chat notice (DR-099).
 - **Three consecutive `env-infra` hand-backs** stop the run at a safe point.
+- **Review checkout (BL-0323).** A `review` or `deferred-review` worktree is moved to the end of the diff range its
+  brief names and HEAD is verified before the reviewer starts. A `blocked` verdict issued on a checkout that is not
+  that end judged another tree: it is an `env-infra` hand-back (`review_checkout`); `unblock` returns the reviewed work
+  to its prior state and re-queues the review. An older owner `review_blocked` qualifies only with that proof.
 - **Env-infra re-admission (BL-0312).** An `env-infra` hand-back judges the environment, never the unit's
   work, so it is the one cause the coordinator may lift without the owner: after fixing the environment,
   `unblock --epoch E --unit U --reason TEXT` (or `start --resume --unblock U --reason TEXT` for a run that

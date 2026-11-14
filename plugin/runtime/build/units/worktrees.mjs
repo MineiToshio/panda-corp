@@ -242,3 +242,27 @@ export function createUnitWorktree({ project, runId, unit, attempt, base }, deps
   const id = typeof unit === "string" ? unit : unit.id;
   return prepareUnitWorktree({ project, runId, unit: id, attempt: attempt ?? (typeof unit === "string" ? 1 : unit.attempt ?? 1), base }, deps);
 }
+
+/**
+ * BL-0323: put a review-type unit's worktree exactly at `sha` (the end of the diff range its brief names) before the
+ * reviewer starts, and prove it. A re-dispatched review reuses the checkout of its first dispatch, which is older than
+ * the range a later patch produced. Moves only when every commit the branch holds is on the integration branch (a
+ * review never commits its own work), with `reset --keep` so uncommitted files are kept or the move fails loud.
+ * @param {{project: string, runId: string, worktree: string, sha: string}} input
+ * @returns {Promise<{moved: boolean, head: string}>}
+ * @throws INVALID_STATE when the branch holds a commit outside the integration branch or HEAD is not `sha` afterwards
+ */
+export async function pinReviewWorktree({ project, runId, worktree, sha }, deps = {}) {
+  const p = buildPaths(project, deps);
+  const head = async () => (await git(deps, worktree, ["rev-parse", "HEAD"])).stdout.trim();
+  const target = (await git(deps, worktree, ["rev-parse", "--verify", `${sha}^{commit}`])).stdout.trim();
+  const before = await head();
+  if (before === target) return { moved: false, head: before };
+  const integration = p.integrationBranch(runId);
+  const own = (await git(deps, worktree, ["merge-base", "--is-ancestor", before, integration], { allowFail: true })).code === 0;
+  if (!own) throw err("INVALID_STATE", `review worktree ${worktree} holds commits outside ${integration}; it cannot be moved to ${target}`);
+  await git(deps, worktree, ["reset", "--quiet", "--keep", target]);
+  const after = await head();
+  if (after !== target) throw err("INVALID_STATE", `review worktree ${worktree} is at ${after}, not the review pin ${target}`);
+  return { moved: true, head: after };
+}

@@ -295,6 +295,25 @@ await test("verdict blocked: the reviewed units are handed back with the finding
   ok(!st.units.some((u) => u.kind === "patch"), "blocked opens no patch unit");
 }));
 
+await test("BL-0323: a blocked verdict issued on a checkout that is not the range end is env-infra review_checkout, liftable by unblock", async () => withRun({}, async (c) => {
+  // The integration tip moves after the review worktree was checked out (a later patch): the reviewer judged an old tree.
+  await writeFile(path.join(c.p.integrationWorktree, "LATER.md"), "later\n");
+  c.git(c.p.integrationWorktree, ["add", "-A"]); c.git(c.p.integrationWorktree, ["commit", "-q", "-m", "fix: later patch"]);
+  await c.record({ verdict: "blocked", findings: [finding("F1", { severity: "high", summary: "checkout is not at the requested pin", lens: "runtime" })] }, ROUTE.cross());
+  const hb = (await c.events()).filter((e) => e.type === "handback").pop();
+  eq([hb.data.cause, hb.data.reason_code], ["env-infra", "review_checkout"], "classified as an environment failure of the review");
+  const { planUnblock } = await sib("failure/unblock.mjs");
+  const plan = planUnblock({ state: await c.readState(), events: await c.events(), unitId: BUILD_UNIT, reason: "review re-dispatched on its pin" });
+  ok(["integrated", "reviewing"].includes(plan.restored[BUILD_UNIT]), `the reviewed work returns to its prior state, never re-queued for a rebuild: ${plan.restored[BUILD_UNIT]}`);
+  eq(plan.restored[REVIEW_UNIT], "queued", "the review itself runs again");
+}));
+
+await test("BL-0323 control: a blocked verdict on the pinned checkout stays an owner review_blocked", async () => withRun({}, async (c) => {
+  await c.record({ verdict: "blocked", findings: [finding("F1", { severity: "critical", summary: "touches Fuera", lens: "scope" })] }, ROUTE.cross());
+  const hb = (await c.events()).filter((e) => e.type === "handback").pop();
+  eq([hb.data.cause, hb.data.reason_code], ["owner", "review_blocked"], "a real block stays the owner's");
+}));
+
 await test("verdict doubt: nothing verified, no patch unit, no attempt consumed; the verdict is recorded", async () => withRun({}, async (c) => {
   const doubt = { question: "Should the list be paginated?", options: [{ id: "a", text: "yes" }, { id: "b", text: "no" }], preferred: "b", why: "FRD silent" };
   const out = await c.record({ verdict: "doubt", doubt }, ROUTE.cross());

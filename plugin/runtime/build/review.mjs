@@ -98,7 +98,13 @@ export async function reviewRecord(input, deps = {}) {
     const hashes = {};
     for (const p of report.probes.filter((x) => x.failed_first)) hashes[p.path] = await hashFile(fs, resolveInside(probeRoot, p.path));
     const range = await reviewRange({ state, review, tip, briefFile: ctx.paths.briefFile(review.id) }, deps);
-    return { tip, probeRoot, hashes, range };
+    // BL-0323: the checkout the reviewer judged. A HEAD that is not the range end means the verdict judged another tree.
+    const checkout = review.worktree ?? ctx.paths.unitWorktree(review.id, review.attempt);
+    const headOf = async (rev) => { const r = await exec("git", ["rev-parse", "--verify", "--quiet", `${rev}^{commit}`], { cwd: checkout }); return r.code === 0 ? r.stdout.trim() : null; };
+    const checkoutHead = await headOf("HEAD");
+    const pin = checkoutHead ? await headOf(range.split("..")[1]) : null;
+    const checkoutMismatch = Boolean(checkoutHead && pin && checkoutHead !== pin);
+    return { tip, probeRoot, hashes, range, checkoutMismatch, checkoutHead, pin };
   };
 
   const phase2 = async (found, { report }, ctx) => {
@@ -185,8 +191,12 @@ export async function reviewRecord(input, deps = {}) {
       await applyReopen({ state, next, review, reviewed, report, root, fs, transition, events, effects, setState, deps, ctx, kept: probeFiles });
     } else if (report.verdict === "blocked" && touchesUnits) {
       const targets = reviewed.filter((x) => REVIEWED_FROM.includes(x.state));
-      const reason = report.findings.map((f) => f.summary).join("; ").slice(0, 300);
-      await handBackReviewed({ ctx, next, events, review, units: targets, reason, reasonCode: "review_blocked", cause: "owner", findings: report.findings, effects, deps });
+      // BL-0323: a block issued on the wrong checkout says nothing about the work: env-infra, lifted by `unblock`.
+      const wrongCheckout = found.checkoutMismatch === true;
+      const reason = wrongCheckout
+        ? `checkout de revisión en ${found.checkoutHead}, no en el pin ${found.pin}`
+        : report.findings.map((f) => f.summary).join("; ").slice(0, 300);
+      await handBackReviewed({ ctx, next, events, review, units: targets, reason, reasonCode: wrongCheckout ? "review_checkout" : "review_blocked", cause: wrongCheckout ? "env-infra" : "owner", findings: report.findings, effects, deps });
       next.handbacks_in_a_row = 0;
       await stageTrackedChanges(exec, root);
       await commitStaged(exec, root, `chore(engine): hand back ${targets.map((u) => u.id).join(", ")} after review ${review.id}`, [`Unit: ${review.id}`, ...unique(targets.flatMap((u) => u.wos)).map((w) => `WO: ${w}`)]);
