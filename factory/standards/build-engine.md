@@ -345,6 +345,8 @@ Effort cells are extrapolated from calibration and fixed until phase D.
   below 90 %) is not used to review the other company's work: the review stays in the author's company with
   a different model (Codex Sol/Luna → astra high, Astra → sol high, r1 sol xhigh; Claude authors → the quota
   fallback cell), `degraded: conserve`, with no deferred re-review. Builds keep the run label's company.
+  The same review rule applies when that company is out of quota (≥90 %, also less than 15 % left): the
+  `on_conserve` cell, `degraded: quota_90`, no deferred re-review, never `park` for rows 12, 13 and 15 (BL-0321).
 - Degradations made under `drive` are labelled `quota_90`.
 - Sol answering "at capacity": resume the same Codex session id once (LESSON-0612); if it repeats,
   astra high with `degraded: at_capacity`.
@@ -355,12 +357,12 @@ Effort cells are extrapolated from calibration and fixed until phase D.
 in the matrix: the same model reviews in a **fresh context** (diff, ACs and tests only), at the effort
 **after** the author's (cap `xhigh`; an `xhigh` author gets `xhigh` again), with a brief that states
 the author is the same model and asks for adversarial review; the review is recorded
-`degraded: same_model` and queued for a deferred re-review by the other company. It applies inside and
+`degraded: same_model` (no deferred re-review while the other company is out of quota, DR-161). When the row has a different model of the author's company (`on_conserve`), that model reviews instead of N7. It applies inside and
 outside the risk zone. An unreachable (not out-of-quota) other company never triggers a Claude
 same-model review. The Astra analog (rows 12 and 15) also applies when Claude is unreachable. It is
 never applied at a lower effort.
 
-**Deferred re-review.** Every degraded review except a `conserve` one (DR-161) is appended to `.pandacorp/run/deferred-reviews.json`
+**Deferred re-review.** Every degraded review made while the other company still has quota (unreachable, at capacity; never conserve or out of quota, DR-161) is appended to `.pandacorp/run/deferred-reviews.json`
 (outlives runs; written only inside a run; one pending entry per review unit and kind, a newer degraded
 review of the same unit refreshes it; `review-record` never queues an `audit`, the engine does when Claude is out). `next` serves pending entries **first** as soon as the
 needed company is below 85 % (not conserved, DR-161); if the run has finished, the next `implement` preflight runs them before

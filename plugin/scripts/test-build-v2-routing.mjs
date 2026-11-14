@@ -385,14 +385,14 @@ const CODEX_FALLBACK = { quota: "codex/astra/high|quota_90", unreachable: "codex
 row(9, [codex("sol", "high"), codex("luna", "low")], ["frd"], ["none"], { ok: "claude/opus/high", ...CODEX_FALLBACK, at_capacity: "claude/opus/high" });
 row(10, [codex("sol", "medium"), codex("luna", "low")], ["touch"], ["none"], { ok: "claude/opus/medium", ...CODEX_FALLBACK, at_capacity: "claude/opus/medium" });
 row(11, [codex("sol", "high"), codex("luna", "low")], ["frd", "touch"], ["floor", "r1"], { ok: "claude/opus/xhigh", ...CODEX_FALLBACK, at_capacity: "claude/opus/xhigh" });
-row(12, [codex("astra", "high")], ["frd", "touch"], ["none"], { ok: "claude/opus/high", quota: "codex/astra/xhigh|same_model", unreachable: "codex/astra/xhigh|same_model", at_capacity: "claude/opus/high" });
-row(13, [codex("astra", "high")], ["frd", "touch"], ["floor", "r1"], { ok: "claude/opus/xhigh", quota: "PARK", unreachable: "PARK", at_capacity: "claude/opus/xhigh" });
+row(12, [codex("astra", "high")], ["frd", "touch"], ["none"], { ok: "claude/opus/high", quota: "codex/sol/high|quota_90", unreachable: "codex/astra/xhigh|same_model", at_capacity: "claude/opus/high" });
+row(13, [codex("astra", "high")], ["frd", "touch"], ["floor", "r1"], { ok: "claude/opus/xhigh", quota: "codex/sol/xhigh|quota_90", unreachable: "PARK", at_capacity: "claude/opus/xhigh" });
 row(14, [codex("terra", "high")], ["frd"], ["none"], { ok: "claude/opus/high", quota: "codex/sol/high|quota_90", unreachable: "codex/sol/high|unreachable", at_capacity: "claude/opus/high" });
 row(14, [codex("terra", "high")], ["touch"], ["none"], { ok: "claude/opus/medium", quota: "codex/sol/high|quota_90", unreachable: "codex/sol/high|unreachable", at_capacity: "claude/opus/medium" });
 row(14, [codex("terra", "high")], ["frd", "touch"], ["floor", "r1"], { ok: "claude/opus/xhigh", quota: "codex/sol/high|quota_90", unreachable: "codex/sol/high|unreachable", at_capacity: "claude/opus/xhigh" });
 row(15, [session("codex", "luna"), session("codex", "sol")], ["touch"], ["none"], { ok: "claude/opus/medium", ...CODEX_FALLBACK, at_capacity: "claude/opus/medium" });
 row(15, [session("codex", "terra")], ["touch"], ["none"], { ok: "claude/opus/medium", quota: "codex/sol/high|quota_90", unreachable: "codex/sol/high|unreachable", at_capacity: "claude/opus/medium" });
-row(15, [session("codex", "astra")], ["touch"], ["none"], { ok: "claude/opus/medium", quota: "codex/astra/xhigh|same_model", unreachable: "codex/astra/xhigh|same_model", at_capacity: "claude/opus/medium" });
+row(15, [session("codex", "astra")], ["touch"], ["none"], { ok: "claude/opus/medium", quota: "codex/sol/high|quota_90", unreachable: "codex/astra/xhigh|same_model", at_capacity: "claude/opus/medium" });
 row(15, [session("codex", "sol")], ["touch"], ["floor", "r1"], { ok: "claude/opus/xhigh", ...CODEX_FALLBACK, at_capacity: "claude/opus/xhigh" });
 row(16, [claude("fable", "high"), session("claude", "fable")], ["frd", "touch"], ["none", "floor", "r1"], { ok: "codex/astra/high", quota: "PARK", unreachable: "PARK", at_capacity: "codex/astra/high" });
 
@@ -404,7 +404,9 @@ const availFor = (author, which) => {
   a[other] = which;
   return a;
 };
-const checkExpectation = (r, exp, expPrimary) => {
+// DR-161: when the other company has < 15 % left (quota or conserve) a degraded review queues NO deferred re-review.
+const SCARCE = ["quota", "conserve"];
+const checkExpectation = (r, exp, expPrimary, which = "ok") => {
   eq(triplet(r.primary), expPrimary, "primary");
   if (exp === "PARK") {
     eq(r.parked, "no_reviewer", "parked");
@@ -415,7 +417,9 @@ const checkExpectation = (r, exp, expPrimary) => {
   eq(triplet(r.used), cellStr, "used reviewer");
   eq(r.degraded ?? null, degraded, "degraded");
   ok((r.parked ?? null) === null, `unexpected parked=${r.parked}`);
-  if (degraded) {
+  if (degraded && SCARCE.includes(which)) {
+    ok(r.deferred === null || r.deferred === undefined, `a review with the other company scarce must not queue a deferred re-review, got ${JSON.stringify(r.deferred)}`);
+  } else if (degraded) {
     ok(r.deferred && r.deferred.needed === r.primary.runtime && triplet(r.deferred.reviewer) === triplet(r.primary),
       `degraded review must queue a deferred re-review for ${triplet(r.primary)}, got ${JSON.stringify(r.deferred)}`);
   } else {
@@ -431,7 +435,7 @@ for (const spec of ROWS) {
           if (exp.includes("XEFF")) exp = exp.replace("XEFF", nextCapped(author.effort));
           const r = callReview(author, kind, zone, availFor(author, which));
           try {
-            checkExpectation(r, exp, spec.exp.ok.split("|")[0]);
+            checkExpectation(r, exp, spec.exp.ok.split("|")[0], which);
           } catch (e) {
             throw new Error(`[${which}] ${e.message}`);
           }
@@ -465,9 +469,10 @@ const OWNER_RULES = [
   ["Codex unreachable and Sonnet wrote -> Opus, degraded unreachable", claude("sonnet", "high"), "frd", "none", "unreachable", "claude/opus/high|unreachable"],
   ["no Claude (quota) -> Astra reviews Codex-built work", codex("sol", "high"), "frd", "none", "quota", "codex/astra/high|quota_90"],
   ["no Claude (unreachable) -> Astra reviews Codex-built work", codex("sol", "high"), "frd", "none", "unreachable", "codex/astra/high|unreachable"],
-  ["no Claude and Astra built in the risk zone -> park (Astra never reviews Astra there)", codex("astra", "high"), "frd", "r1", "quota", "PARK"],
+  ["no Claude quota and Astra built in the risk zone -> Sol xhigh, another Codex model (DR-161)", codex("astra", "high"), "frd", "r1", "quota", "codex/sol/xhigh|quota_90"],
   ["no Claude and Astra built in the floor -> park", codex("astra", "high"), "touch", "floor", "unreachable", "PARK"],
-  ["no Claude and Astra built outside the risk zone -> Astra xhigh in a fresh context (N7 analog)", codex("astra", "high"), "frd", "none", "quota", "codex/astra/xhigh|same_model"],
+  ["no Claude quota and Astra built outside the risk zone -> Sol high, another Codex model (DR-161)", codex("astra", "high"), "frd", "none", "quota", "codex/sol/high|quota_90"],
+  ["Claude unreachable and Astra built outside the risk zone -> Astra xhigh in a fresh context (N7 analog)", codex("astra", "high"), "frd", "none", "unreachable", "codex/astra/xhigh|same_model"],
   ["Fable session -> Astra high, never Fable", session("claude", "fable"), "touch", "none", "ok", "codex/astra/high"],
   ["Fable session and Codex out -> park (never Opus, never a lower Claude)", session("claude", "fable"), "touch", "none", "quota", "PARK"],
   ["Haiku session behaves as the Sonnet touch row", session("claude", "haiku"), "touch", "none", "ok", "codex/sol/medium"],
@@ -477,7 +482,7 @@ for (const [name, author, kind, zone, which, exp] of OWNER_RULES) {
   await test(`owner rule: ${name}`, () => {
     const r = callReview(author, kind, zone, availFor(author, which));
     const okPrimary = which === "ok" ? exp : triplet(callReview(author, kind, zone, availFor(author, "ok")).primary);
-    checkExpectation(r, exp, okPrimary.split("|")[0]);
+    checkExpectation(r, exp, okPrimary.split("|")[0], which);
   });
 }
 await test("review: a zone other than none takes precedence over the touch/FRD kind", () => {
@@ -558,7 +563,9 @@ function checkReview(r, c, basePrimary) {
       if ((r.primary.model === "sol") !== (r.degraded === "at_capacity")) v.push(`at_capacity degraded flag wrong: ${r.degraded}`);
     }
     if (["quota", "unreachable"].includes(otherAv) && triplet(r.used) === triplet(r.primary)) v.push("other company is out but the primary was used");
-    if (r.degraded) {
+    if (r.degraded && SCARCE.includes(otherAv)) {
+      if (r.deferred) v.push(`deferred re-review queued although ${other} is ${otherAv} (DR-161)`);
+    } else if (r.degraded) {
       if (!(r.deferred && r.deferred.needed === r.primary.runtime && triplet(r.deferred.reviewer) === triplet(r.primary))) v.push(`degraded review without a deferred re-review of ${triplet(r.primary)}: ${JSON.stringify(r.deferred)}`);
     } else if (r.deferred) v.push("deferred set on a non-degraded review");
     const sameModel = r.used.runtime === a.runtime && r.used.model === a.model;
@@ -580,7 +587,11 @@ function checkReview(r, c, basePrimary) {
   if (a.runtime === "codex" && a.model !== "astra" && ["quota", "unreachable"].includes(c.avail.claude) && (parked || !r.used || r.used.runtime !== "codex" || r.used.model !== (a.model === "terra" ? "sol" : "astra"))) {
     v.push(`${a.model} author with Claude out must be reviewed by Codex ${a.model === "terra" ? "sol" : "astra"}, got ${parked ? "park" : triplet(r.used)}`);
   }
-  if (a.model === "astra" && ["quota", "unreachable"].includes(c.avail.claude)) {
+  if (a.model === "astra" && c.avail.claude === "quota") {
+    const want = c.zone === "none" ? "codex/sol/high" : "codex/sol/xhigh";
+    if (parked || triplet(r.used) !== want) v.push(`Astra author with Claude out of quota must get ${want} (DR-161), got ${parked ? "park" : triplet(r.used)}`);
+  }
+  if (a.model === "astra" && c.avail.claude === "unreachable") {
     const withinRisk = c.zone !== "none";
     if (withinRisk && !parked) v.push("Astra author in floor/r1 with Claude out must park");
     if (!withinRisk && (parked || r.used.model !== "astra" || r.used.effort !== nextCapped(a.effort))) v.push(`Astra author in zone none with Claude out must get astra N7, got ${parked ? "park" : triplet(r.used)}`);
@@ -639,7 +650,8 @@ await test("review invariant checker has teeth: deliberately wrong results are f
     ["Sol used at capacity", { author: claude("sonnet", "high"), kind: "frd", zone: "none", avail: { claude: "ok", codex: "at_capacity" } }, { primary: cellOf("codex/sol/high"), used: cellOf("codex/sol/high"), degraded: null, deferred: null, parked: null }],
     ["N7 at a lower effort", { author: claude("opus", "xhigh"), kind: "frd", zone: "none", avail: { claude: "ok", codex: "quota" } }, { primary: cellOf("codex/sol/high"), used: cellOf("claude/opus/high"), degraded: "same_model", deferred: { needed: "codex", reviewer: cellOf("codex/sol/high") }, parked: null }],
     ["Claude reviewer while Claude is out", { author: codex("sol", "high"), kind: "frd", zone: "none", avail: { claude: "quota", codex: "ok" } }, { primary: cellOf("claude/opus/high"), used: cellOf("claude/opus/high"), degraded: null, deferred: null, parked: null }],
-    ["degraded without a deferred re-review", { author: claude("sonnet", "high"), kind: "frd", zone: "none", avail: { claude: "ok", codex: "quota" } }, { primary: cellOf("codex/sol/high"), used: cellOf("claude/opus/high"), degraded: "quota_90", deferred: null, parked: null }],
+    ["degraded without a deferred re-review", { author: claude("sonnet", "high"), kind: "frd", zone: "none", avail: { claude: "ok", codex: "unreachable" } }, { primary: cellOf("codex/sol/high"), used: cellOf("claude/opus/high"), degraded: "unreachable", deferred: null, parked: null }],
+    ["deferred re-review while the other company is out (DR-161)", { author: claude("sonnet", "high"), kind: "frd", zone: "none", avail: { claude: "ok", codex: "quota" } }, { primary: cellOf("codex/sol/high"), used: cellOf("claude/opus/high"), degraded: "quota_90", deferred: { needed: "codex", reviewer: cellOf("codex/sol/high") }, parked: null }],
     ["Astra for a Claude author outside r1", { author: claude("sonnet", "high"), kind: "frd", zone: "none", avail: { claude: "ok", codex: "ok" } }, { primary: cellOf("codex/astra/high"), used: cellOf("codex/astra/high"), degraded: null, deferred: null, parked: null }],
   ];
   for (const [name, ctx, bogus] of cases) ok(checkReview(bogus, ctx, null).length > 0, `negative control not detected: ${name}`);

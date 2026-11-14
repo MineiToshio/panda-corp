@@ -184,7 +184,8 @@
         "astra": {
           "primary": { "runtime": "claude", "model": "opus", "effort": "medium" },
           "on_quota": { "runtime": "codex", "model": "astra", "effort": "author_next_capped", "same_model_exception": "N7", "degraded": "same_model" },
-          "on_unreachable": { "runtime": "codex", "model": "astra", "effort": "author_next_capped", "same_model_exception": "N7", "degraded": "same_model" }
+          "on_unreachable": { "runtime": "codex", "model": "astra", "effort": "author_next_capped", "same_model_exception": "N7", "degraded": "same_model" },
+          "on_conserve": { "runtime": "codex", "model": "sol", "effort": "high", "degraded": "conserve" }
         }
       },
       "zone_above_none": "real_model_row"

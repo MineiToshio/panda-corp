@@ -6,6 +6,7 @@
 import { policy, QUOTA_CONSERVE_DEFAULT } from "../runtime/build/quota.mjs";
 import { builderCell, loadTiers, reviewCell } from "../runtime/build/routing.mjs";
 import { availabilityOf } from "../runtime/build/next/context.mjs";
+import { patchSupersedes } from "../runtime/build/next/harvest.mjs";
 import { availabilityOf as preflightAvailability } from "../runtime/build/preflight/gates.mjs";
 
 let passed = 0; let failed = 0;
@@ -57,12 +58,14 @@ test("Claude conserved: an Astra-built FRD is reviewed by Codex Sol (a different
   eq(r1.parked, null, "an r1 Astra review no longer parks waiting for Claude");
 });
 
-test("controls: Claude available keeps the cross-company reviewer; Claude out (>= 90) keeps N7 with a deferred re-review", () => {
+test("controls: Claude available keeps the cross-company reviewer; Claude out (>= 90) also stays in Codex with another model and no deferred re-review", () => {
   eq(cell(review(SOL, "none", "ok").used).runtime, "claude", "cross-company when Claude has quota");
   const out = review(SOL, "none", "quota");
-  eq(out.degraded, "quota_90", "out of quota is still quota_90"); ok(out.deferred, "out of quota still queues the deferred re-review");
-  const astraOut = review(ASTRA, "none", "quota");
-  eq(astraOut.degraded, "same_model", "Astra on quota keeps the N7 same-model exception");
+  eq([cell(out.used).model, out.degraded, out.deferred], ["astra", "quota_90", null], "Claude out: Astra reviews, no deferred re-review (< 15 % left)");
+  const astraOut = review(ASTRA, "floor", "quota");
+  eq([cell(astraOut.used), astraOut.parked, astraOut.deferred], [{ runtime: "codex", model: "sol", effort: "xhigh" }, null, null], "Astra floor on quota: Sol xhigh, never parked (BL-0321)");
+  const unreach = review(ASTRA, "none", "unreachable");
+  eq(unreach.degraded, "same_model", "Claude unreachable (not quota) keeps the N7 analog with its deferred re-review"); ok(unreach.deferred, "unreachable still defers");
 });
 
 test("symmetric: Codex conserved, a Sonnet-built FRD stays in Claude with a different model and no deferred re-review", () => {
@@ -83,6 +86,18 @@ test("the security audit (pinned to Claude) waits in the deferred ledger while C
   ok(conserved.deferred && !conserved.runtime, `audit deferred, not dispatched on Claude: ${JSON.stringify(conserved)}`);
   const normal = builderCell({ kind: "audit", size: "feature", zone: "r1", attempt: 1 }, { label: "codex", zone: "r1", attempt: 1, quota: { claude: "ok", codex: "ok" } });
   eq(normal.runtime, "claude", "audit on Claude when it has quota");
+});
+
+test("BL-0321: an integrated review-reopen patch supersedes the patching units of its FRD that own its work orders", () => {
+  const units = [
+    { id: "u-build-wo-01-017", kind: "build", frd: "frd-01", state: "patching", wos: ["wo-01-017", "wo-01-018"] },
+    { id: "u-build-wo-01-020", kind: "build", frd: "frd-01", state: "patching", wos: ["wo-01-020"] },
+    { id: "u-build-wo-02-001", kind: "build", frd: "frd-02", state: "patching", wos: ["WO-01-017"] },
+    { id: "u-patch-wo-01-017", kind: "patch", frd: "frd-01", state: "integrated", wos: ["WO-01-017", "wo-01-018"] },
+  ];
+  const patch = units[3];
+  eq(patchSupersedes({ units }, patch, null), ["u-build-wo-01-017"], "same FRD + shared WO (case-insensitive) only");
+  eq(patchSupersedes({ units }, patch, { fixes: ["u-build-wo-01-020", "u-patch-wo-01-017"] }), ["u-build-wo-01-020"], "a gate patch keeps its gate-failure.json list");
 });
 
 console.log(`RESULT: ${passed} passed, ${failed} failed`);

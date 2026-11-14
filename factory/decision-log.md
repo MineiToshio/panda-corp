@@ -1,5 +1,13 @@
 # Decision Log — Factory
 
+## 2026-11-13 — DR-161 covers out-of-quota reviews (BL-0321)
+
+**What:** below 15 % left includes a company at or above 90 %: reviews stay in the author's company with another model,
+never park, never a deferred cross-company re-review. Also fixed: review-reopen patches never reached G2 again.
+
+**Why:** the owner's option A says "less than 15 % left"; the first implementation stopped at 90 %. Canonical: DR-161,
+[build-engine.md](standards/build-engine.md) BUILD-10.
+
 ## 2026-11-13 — Quota conserve below 15 % left (DR-161)
 
 **What:** a company with less than 15 % of its quota left is not used for cross-company reviews, deferred re-reviews or

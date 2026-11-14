@@ -30,14 +30,14 @@ export { PROBE_EXTRA_PER_FRD } from "./review/probes.mjs";
 export { countFindings, isProbePath, validateReviewReport } from "./review/report.mjs";
 export { pickReopenWos, scanWorkOrders } from "./review/workOrders.mjs";
 
-/** DR-161: is `company` currently conserved (known reading >= quota_conserve and < quota_stop)? Any read error: false. */
+/** DR-161: does `company` have < 15 % left (conserved, or out of quota at >= quota_stop)? Any read error: false. */
 async function neededConserved(project, state, company, deps) {
   try {
     const quota = deps.quota ?? await import("./quota.mjs");
     const p = buildPaths(project, deps);
     const q = await quota.readQuota({ file: p.quotaFile, codexHome: p.codexHome, coordinator: state.coordinator }, deps);
     const pol = quota.policy({ claude: q.effective.claude, codex: q.effective.codex, coordinator: state.coordinator, deps });
-    return pol[`${company}_conserve`] === true;
+    return pol[`${company}_conserve`] === true || pol[`${company}_new_units`] === false;
   } catch { return false; }
 }
 

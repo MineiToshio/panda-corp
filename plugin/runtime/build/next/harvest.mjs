@@ -19,12 +19,25 @@ export async function harvest(run, state, notes) {
   if (state.jobs.some((j) => j.kind === "land" && j.state === "running")) await harvestLand(run, notes);
 }
 
-/** Once a gate patch is integrated, its superseded executions can participate in the next G2/review again. */
+/**
+ * The units an integrated patch supersedes (pure, BL-0321): a gate patch names them in its gate-failure.json `fixes`;
+ * a review-reopen patch has no such file and supersedes the `patching` units of its FRD that own one of its work orders.
+ * @param {object} state  @param {object} patch an integrated patch unit  @param {object|null} evidence its gate-failure.json
+ * @returns {string[]} unit ids
+ */
+export function patchSupersedes(state, patch, evidence) {
+  if (evidence) return (evidence.fixes ?? []).filter((id) => id !== patch.id);
+  const wos = new Set(patch.wos.map((w) => w.toLowerCase()));
+  return state.units.filter((u) => u.id !== patch.id && u.state === "patching" && u.frd === patch.frd
+    && u.wos.some((w) => wos.has(w.toLowerCase()))).map((u) => u.id);
+}
+
+/** Once a patch is integrated, its superseded executions can participate in the next G2/review again. */
 async function restorePatchedUnits(run, state) {
   const fixes = new Set();
   for (const patch of state.units.filter((u) => u.kind === "patch" && u.state === "integrated")) {
     const evidence = await readJson(path.join(run.paths.unitDir(patch.id), "gate-failure.json"), { fs: run.d.fs });
-    for (const id of evidence?.fixes ?? []) if (id !== patch.id) fixes.add(id);
+    for (const id of patchSupersedes(state, patch, evidence)) fixes.add(id);
   }
   if (!state.units.some((u) => fixes.has(u.id) && u.state === "patching")) return;
   await mutate(run, (s) => {

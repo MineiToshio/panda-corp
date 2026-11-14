@@ -189,10 +189,11 @@ export function createRouter(tiers) {
     const authorCell = { runtime: company, model, effort };
     const result = { row: r.row, primary, used: null, degraded: null, deferred: null, parked: null };
     let raw = primaryRaw;
-    if (avail === "quota") raw = src.on_quota;
+    // DR-161: the reviewer company has < 15 % left (conserve, or out of quota at >= 90 %): stay in the author's company,
+    // a different model when the row has one (on_conserve), never a deferred cross-company re-review.
+    const scarce = avail === "quota" || avail === "conserve";
+    if (scarce) raw = src.on_conserve ?? src.on_quota;
     else if (avail === "unreachable") raw = src.on_unreachable;
-    // DR-161: the reviewer company has < 15 % left: stay in the author's company with a different model, no deferred re-review.
-    else if (avail === "conserve") raw = src.on_conserve ?? src.on_quota;
     if (raw === undefined) fail(`reviewCell: row ${r.row} lacks a cell for ${avail}`);
     if (raw === "park") return { ...result, parked: "no_reviewer" };
     const used = pick(raw);
@@ -210,11 +211,11 @@ export function createRouter(tiers) {
       Object.assign(used, pick(then));
       degraded = degraded || tiers.review_modifiers.sol_at_capacity.degraded || "at_capacity";
     }
-    if (avail === "conserve" && degraded !== "same_model") degraded = "conserve";
+    if (scarce && degraded !== "same_model") degraded = avail === "quota" ? "quota_90" : "conserve";
     result.used = assertCell(used, `review row ${r.row}`);
     result.degraded = degraded;
     // DR-161: a conserve review queues no cross-company re-review (it would spend the scarce company); at most a note.
-    if (degraded && avail !== "conserve") result.deferred = { needed: primary.runtime, reviewer: { ...primary } };
+    if (degraded && !scarce) result.deferred = { needed: primary.runtime, reviewer: { ...primary } };
     return result;
   };
 

@@ -1,5 +1,14 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-13 — Review-reopen patches return to G2; reviews below 15 % left never park (BL-0321)
+
+**What:** `patchSupersedes` restores the `patching` units a review-reopen patch supersedes (only gate patches were
+restored before); routing uses the `on_conserve` different-model cell also when the other company is out of quota, with
+no deferred re-review (row 15 Astra session gains one). Plugin **10.6.0**.
+
+**Why:** funko-tracker `br-2026-11-14-01` stopped with `no_progress` after its reopen patch integrated, and its Astra floor
+re-review would have parked waiting for Claude at 91 %. The owner's option A (DR-161) covers every case below 15 % left.
+
 ## 2026-11-13 — Quota conserve: reviews stay in the author's company (BL-0320, DR-161)
 
 **What:** `quota_conserve: 85`; `policy()` returns `*_conserve`; routing availability `conserve` with `on_conserve`
