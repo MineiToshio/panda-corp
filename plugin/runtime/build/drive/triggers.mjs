@@ -1,11 +1,8 @@
 // Standby triggers (a) handoff file, (b) Claude usage limit, (c) silent lease: `checkTriggers` (split from drive.mjs).
 import nodeFs from "node:fs";
-import path from "node:path";
 import { loadSchema, readJson, validate } from "../fsx.mjs";
 import { readJournal } from "../journal.mjs";
-import { classifyLimitText, limitResetsAt } from "../quota.mjs";
 import { isTerminalUnit, readState } from "../state.mjs";
-import { IN_FLIGHT } from "./constants.mjs";
 import { buildStateOf, driveLog, limitsOf, nowMs, pathsOf, withDefaults } from "./context.mjs";
 import { readStandby } from "./standby.mjs";
 
@@ -19,31 +16,6 @@ async function readHandoff(paths, runId) {
   const check = validate(await loadSchema("handoff"), value);
   if (!check.ok || value.run_id !== runId) return { file: true, valid: false, value };
   return { file: true, valid: true, value };
-}
-
-// Trigger (b) (DEC-3): Claude's usage-limit text only. Codex's own limit is quota.policy's business (R3), never a
-// reason to take a run from the session. Sources: the report of an in-flight unit a Claude agent or session is
-// writing, a worker output of THIS run (state units/jobs) that carries Claude's envelope (`usage limit reached|<ts>`),
-// and the optional transcript.
-const limitHit = (file) => { const text = readText(file); return Boolean(text) && classifyLimitText(text) === "usage_limit"; };
-const claudeEnvelope = (file) => Boolean(limitResetsAt(readText(file) ?? ""));
-
-function claudeLimitSeen(project, state, transcript, d) {
-  const paths = pathsOf(project, d);
-  for (const unit of state.units) {
-    if (!IN_FLIGHT.has(unit.state)) continue;
-    const w = unit.worker;
-    const byClaude = w && (w.runtime === "claude" || w.via === "agent" || w.via === "session");
-    if (byClaude && limitHit(paths.reportFile(unit.id))) return `report ${unit.id}`;
-  }
-  const workerIds = new Set([...state.units.map((u) => u.worker?.worker_id), ...state.jobs.map((j) => j.worker_id)].filter((id) => typeof id === "string" && id));
-  for (const id of workerIds) {
-    let file;
-    try { file = path.join(paths.codexWorkerDir(id), "last.md"); } catch { continue; }
-    if (claudeEnvelope(file)) return `worker ${id}`;
-  }
-  if (transcript && limitHit(transcript)) return "transcript";
-  return null;
 }
 
 async function committedCount(paths) {
@@ -93,9 +65,7 @@ export async function checkTriggers({ project, runId, transcript = null, handoff
     driveLog(project, "standby: invalid handoff.json ignored", d);
   }
 
-  // (b) Claude's usage-limit text in the run's output.
-  const seen = claudeLimitSeen(project, state, transcript, d);
-  if (seen) return { ...none, trigger: "b", detail: seen };
+  // Provider exhaustion suspends its execution; it never transfers a live coordinator.
 
   // Test-only: the session "hands off" after N committed WOs (`--handoff-after N`).
   if (Number.isInteger(handoffAfter) && handoffAfter >= 0 && (await committedCount(paths)) >= handoffAfter) {

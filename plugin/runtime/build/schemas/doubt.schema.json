@@ -262,6 +262,28 @@
           "additionalProperties": false
         }
       ]
+    },
+    "capacity_wait": {
+      "type": "object",
+      "properties": {
+        "reason": {
+          "const": "capacity"
+        },
+        "resumeAt": {
+          "type": "string"
+        },
+        "no": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2
+        }
+      },
+      "required": [
+        "reason",
+        "resumeAt",
+        "no"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [

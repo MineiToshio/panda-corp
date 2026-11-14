@@ -60,7 +60,7 @@ const baseEnv = {
 function cli(args, extraEnv = {}, timeoutMs = 25000) {
   return new Promise((resolve) => {
     const id = args[args.indexOf("--id") + 1];
-    const child = spawn(process.execPath, [CLI, ...args], { env: { ...baseEnv, PANDACORP_FAKE_CODEX_LOG: logOf(id), ...extraEnv }, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(process.execPath, [CLI, ...args, "--risk", "normal"], { env: { ...baseEnv, PANDACORP_FAKE_CODEX_LOG: logOf(id), ...extraEnv }, stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     let err = "";
     let timedOut = false;
@@ -161,7 +161,7 @@ tests.push(test("no --sum and no recovery", async () => {
 tests.push(test("model slugs", async () => {
   await Promise.all(["gpt-6-astra", "gpt-6-luna", "gpt-6.1-sol"].map(async (slug) => {
     const id = `w-model-${slug.replace(/[^a-z0-9]/gi, "")}`;
-    const r = await direct(id, promptFileOf(id, `slug test ${slug}\n`), ["--codex-model", slug]);
+    const r = await direct(id, promptFileOf(id, `slug test ${slug}\n`), ["--codex-model", slug, "--capacity-task", JSON.stringify({id, type: slug.includes("luna") ? "mechanical" : "implement", risk: slug.includes("astra") ? "critical" : "normal"})]);
     const argv = execCalls(id)[0]?.argv ?? [];
     ok(seal(r.out).payload?.ok === true && (flag(argv, "-m") === slug || flag(argv, "--model") === slug), `--codex-model ${slug} is passed to codex exec unchanged`);
   }));

@@ -170,7 +170,7 @@ export function policy({ claude, codex, readings, now, deps } = {}) {
   const decision = decide({ task, readings, now: ms });
   const can = tool => decide({ task: { ...task, override: tool }, readings, now: ms }).action === "run";
   return { claude_new_units: can("claude"), codex_new_units: can("codex"), claude_conserve: false, codex_conserve: false,
-    handoff: false, paused: decision.action === "wait", decision, resumeAt: decision.resumeAt ?? null, readings, now: ms,
+    handoff: false, paused: false, decision, resumeAt: decision.resumeAt ?? null, readings, now: ms,
     degrade_reviews_of: { claude_authored: false, codex_authored: false } };
 }
 /** Compatibility name only. Passive rollout read, never launches a model. */

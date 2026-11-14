@@ -2337,9 +2337,10 @@ function ConceptMultiRuntime(): React.JSX.Element {
         <B weight={600}>Permiso no significa automatización certificada.</B> Ambos runtimes usan{" "}
         <Code>pandacorp-build.mjs</Code> con sus trabajadores locales. Sin programación disponible,
         la ejecución sigue atendida y secuencial; no se promete ejecución nocturna sin evidencia.{" "}
-        <Code>drive</Code> es el relevo exclusivo de Codex: transfiere el mismo run mediante epoch,
-        no toma un run ajeno sin autorización. Su supervivencia nocturna y las notificaciones
-        requieren prueba real.
+        <Code>drive</Code> coordina el mismo run mediante epoch y reparte nuevas tareas entre las
+        herramientas aptas, conservando la herramienta y sesión de cada ejecución en curso. No toma
+        un run ajeno sin autorización. La autenticación real, su supervivencia nocturna y las
+        notificaciones requieren prueba real.
       </NotePanel>
       <DocH title="Qué funciona igual y qué depende del runtime" />
       <Lead>

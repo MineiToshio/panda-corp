@@ -16,6 +16,14 @@ const EFFORT_CAP = "xhigh";
 /** Single source of truth for model strength; drive (and any other consumer) derives from this table. Fable is ranked but never selected automatically (CONV-12). */
 export const MODEL_STRENGTH = Object.freeze({ haiku: 1, luna: 1, sonnet: 2, sol: 2, terra: 2, opus: 3, astra: 3, fable: 4 });
 
+/** The task/risk projection used for dispatch AND waking queued work. No synthetic global veto. */
+export function capacityTaskForUnit(unit) {
+  const role = unit.role ?? unit.kind;
+  const type = /planner|architect|design|docs|doubt-consult/.test(role) ? "design"
+    : /review|audit/.test(role) ? "review" : /mechanic/.test(role) ? "mechanical" : "implement";
+  return { id: unit.id, type, risk: unit.zone === "r1" ? "critical" : unit.zone === "floor" ? "delicate" : "normal" };
+}
+
 /** Error thrown on invalid routing input or on data that would break an invariant (code ROUTING). */
 export class RoutingError extends Error {
   constructor(message) { super(message); this.name = "RoutingError"; this.code = "ROUTING"; }
@@ -85,13 +93,6 @@ export function createRouter(tiers) {
   };
 
   // Role and deterministic risk zone choose task kind/floor; author and attempt never escalate a cell.
-  const taskType = (unit) => {
-    const role = unit.role ?? unit.kind;
-    if (/planner|architect|design|docs/.test(role)) return "design";
-    if (/review|audit/.test(role)) return "review";
-    if (/mechanic/.test(role)) return "mechanical";
-    return "implement";
-  };
   const select = (unit, ctx = {}) => {
     const zone = ctx.zone ?? unit.zone ?? "none";
     if (!ZONES.includes(zone)) fail(`bad zone ${zone}`);
@@ -106,7 +107,7 @@ export function createRouter(tiers) {
         (tool === "claude" ? ["five_hour", "weekly"] : ["weekly"]).map(id => ({ id, scope: "all", applicability: "required", percentUsed: pct,
           resetsAt: new Date(Number(new Date(now)) + 3600000).toISOString() })) }];
     }));
-    const task = { id: unit.id ?? unit.kind, type: taskType(unit), risk: zone === "r1" ? "critical" : zone === "floor" ? "delicate" : "normal" };
+    const task = { id: unit.id ?? unit.kind, type: capacityTaskForUnit(unit).type, risk: zone === "r1" ? "critical" : zone === "floor" ? "delicate" : "normal" };
     const decision = decide({ task, readings, now });
     return { decision, task };
   };
@@ -145,7 +146,7 @@ export function createRouter(tiers) {
     if (!Number.isInteger(input.consultNo) || input.consultNo < 1) fail("bad consultNo");
     if (input.consultNo > 2) return null;
     const { decision, task } = select({ id: input.id, kind: "architect", zone: input.zone ?? "none" }, input);
-    return decision.action === "run" ? { ...assertCell({ runtime: decision.tool, model: decision.model, effort: decision.effort }, "consult"), capacity: decision, task } : null;
+    return decision.action === "run" ? { ...assertCell({ runtime: decision.tool, model: decision.model, effort: decision.effort }, "consult"), capacity: decision, task } : { paused: "quota", resumeAt: decision.resumeAt, capacity: decision, task };
   };
 
   return { builderCell, reviewCell, consultCell, sessionEligible, nextEffort, modelSlug, companyOf, assertCell, tiers };

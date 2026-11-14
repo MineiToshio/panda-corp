@@ -334,8 +334,16 @@ async function scenarioB() {
     if (!agentUnits.length) throw new Error("no agent unit to carry the Claude limit text");
     await mkdir(path.dirname(agentUnits[0].report_path), { recursive: true });
     await writeFile(agentUnits[0].report_path, CLAUDE_LIMIT_TEXT);
+    await sleep(4000); // two real standby polls: quota must never transfer the live lead.
+    const unchanged = await lease(sc);
+    check(sc, "retired trigger (b): Claude quota preserves live lead and executions", unchanged?.coordinator !== "drive" && unchanged?.epoch === E && !(await readJournal(sc)).some(e => e.type === "drive_takeover"), txt(unchanged));
+    // Finish the fake native executions on their original tool/token, then exercise the still-supported
+    // explicit handover and crash recovery. No work is invalidated or silently rerun by a quota trigger.
+    for (const u of agentUnits) await serveUnit(sc, E, u);
+    const hand = await cli(sc, ["handoff", "--epoch", String(E), "--reason", "test"]);
+    check(sc, "explicit handoff remains available after native results are filed", hand.code === 0, txt(hand.json));
     const took = await waitFor(async () => { const l = await lease(sc); return l?.coordinator === "drive" && l.epoch === E + 1 ? l : null; }, 45_000);
-    check(sc, "trigger (b): the Claude-written limit text makes drive take over (epoch+1)", !!took, `${txt(await lease(sc))} ${await driveLogTail(sc)}`);
+    check(sc, "explicit same-run handoff transfers epoch+1", !!took, `${txt(await lease(sc))} ${await driveLogTail(sc)}`);
     // The lease moves (transfer) before the takeover's own fenced step journals it: wait for the event, never read once.
     const tk = await waitFor(async () => (await readJournal(sc)).some((e) => e.type === "drive_takeover"), 20_000, 250);
     check(sc, "journal records drive_takeover", !!tk, await driveLogTail(sc));

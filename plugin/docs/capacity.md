@@ -6,6 +6,158 @@ Role and deterministic risk choose a cell, independent of author and attempt. On
 use the other qualified tool; only neither fitting parks capacity, persisting `resumeAt` in run state and journal.
 Never ask the owner about quota. Review independence is a fresh context, including on the same model.
 
+## Independent review fixes on phase-3 HEAD (2026-11-14)
+
+Reviewed baseline: `2b92b55e` (`feat/capacity-allocator`), including phase 3; comparison main: `bc923770`.
+All seven blockers in `review-p2.md` remained reproducible on that HEAD. Phase 3 had already fixed
+post-launch suspension, token/session/dirty-tree retention and reset/wake fencing (the existing
+`test-capacity-resume.mjs` passes), but had not removed the pre-candidate veto, consultation conversion,
+prelaunch-result loss, transport watchdog, quota takeover, standalone risk default or normative drift.
+No commit, provider inference or real subscription query is part of this correction.
+
+| Finding | State on HEAD → correction | Regression (`test-capacity-review.mjs`) |
+|---|---|---|
+| H1 global implementation veto | Reproduced → quota is observation only; schedule and wake actual eligible role/risk tasks; takeover cannot veto model-free closing | `H1: next dispatches design…`, `H1: explicit takeover…`, `H1 phase3: wake evaluates actual design…` |
+| H2 consultation becomes an owner question/assumption | Reproduced → persist `capacity_wait` in the doubt without consuming a consult, retain it through scheduler retries and allocate the available alternative | `H2: capacity wait retains pending consult…` checks no inbox, park, assumption or budget charge, then successful scheduling |
+| H3 prelaunch wait becomes worker death | Reproduced → private harvestable `capacity_wait` receipt; dispatch returns queued, releases admission, preserves attempt and emits no false account limit; restart harvest follows the same path | Both `H3` cases exercise real launch/read and dispatcher/harvest, including an audit unit |
+| H4 active Claude worker killed | Reproduced → stream-json with partial messages; tee stdout into heartbeat/final stream; preserve provider exit code and parse only terminal result; monitor both transport files | `H4: Claude stdout progress…` runs beyond start-hang/stall thresholds with a fake provider |
+| H5 quota handoff invalidates healthy native work | Reproduced → retire trigger b and reject stale direct b requests; authorized coordinator transfer preserves live/suspended cells, tokens, attempts and dirty trees | `H5: Claude quota never hands off…`; e2e B checks no quota transfer before a deliberate handoff |
+| H6 security audit silently becomes Sol low | Reproduced → missing standalone risk stays fail-closed critical; security-auditor enforces critical even with normal input; incompatible legacy flags fail before provider launch | `H6: standalone security audit…` also checks unknown risk and explicit low-risk/model refusal |
+| H7 conflicting policy and missing safeguards | Reproduced → restore Probes, Tests-first and Other safeguards verbatim from bc923770; preserve worker/session/recording contracts; update BUILD-12/14, terminal policy, constants, verification, registry and Manual | `H7: canonical non-routing safeguards…` plus independent document review |
+
+The final regression file was also run unchanged against an archived `2b92b55e` snapshot, with the
+original code, to verify RED evidence. All ten named cases fail there and pass with these fixes.
+
+### Expectation migrations (no security, oracle, fencing or production weakening)
+
+| Suite/fixture | Change and reason |
+|---|---|
+| `test-codex-worker.mjs` | Explicit fixture `--risk normal`; ordinary implementation requests/asserts Sol low under DR-162, replacing inherited medium effort. Mechanical fixtures declare `tier-mech` to retain Luna low: a legacy Haiku alias alone is no task classification. Tier-mapping helper checks remain unchanged. |
+| `test-codex-worker-direct.mjs` | Explicit fixture risk; slug cases supply task type/risk (Astra: critical, Luna: mechanical, Sol: ordinary implementation). The existing unchanged slug assertions still prove actual argv. Catalog choice cannot silently lower security risk. |
+| `test-build-v2-hardening.mjs` | The ordinary fake direct worker declares normal risk; its 0600 files and release-variable exclusion checks remain unchanged. Infra hand-back priority is enforced before terminal completion, preserving the pre-existing safety assertion. |
+| `test-capacity.mjs` | Fallback fixture declares normal risk and emits the actual Claude stream-json result envelope; it still checks isolated fallback tool/model/effort and its two audit records. |
+| `test-build-v2-{quota,conserve,next}.mjs` | Quota projection never globally pauses. Actual candidates are planned before waiting; no token is issued when no task fits. A healthy running worker stays active and is reported as workers_running. Lease, resumeAt, token and gate assertions remain. |
+| `test-build-v2-routing.mjs` | Exhausted consultation returns an explicit wait and valid resumeAt instead of null. All 364 named cases, capability, purity, invalid-input and risk controls remain. |
+| `test-build-v2-drive.mjs`, e2e B | Quota reports/transcripts cannot transfer a live lead; takeover leaves capacity to actual candidates. E2e finishes its fake native executions on their original cells/tokens before the explicit handoff, and retains crash/resume/fencing/landing checks. |
+
+Standalone legacy `--codex-model`/`--effort` describe the task's qualified nominal Codex cell and are
+validated, never silently substituted. A capacity fallback may execute the corresponding qualified
+Claude cell. Engine callers use a validated `--capacity-task` pin; new standalone callers should supply
+explicit task type/risk. Unknown risk and a security role never default to normal.
+
+### Final verification and comparison
+
+The table below is generated from observed per-suite logs for this correction, rather than the older
+phase-2/phase-3 historical evidence later in this file. Every fixture/account/temp root is under the
+owner's `scratchpad/tmp-p3fix/`; each suite has isolated `TMPDIR`, `PANDACORP_TEST_TMP`,
+`PANDACORP_TEST_SCRATCH`, `PANDACORP_CAPACITY_DIR`, empty `CODEX_HOME` and host state. Two fixture
+processes run concurrently. Main is an archived snapshot, not the mutable shared checkout.
+
+Final worktree: **42 suites, 1628 passed, 0 failed**, all processes exit 0. Main: **39 suites, 1368 passed, 1 failed**. No new failure against main.
+
+| Command (`node plugin/scripts/…`) | Fixed branch passed/failed | Main passed/failed |
+|---|---:|---:|---:|
+| `test-build-liveness.mjs` | 5/0 | 5/0 |
+| `test-build-state-handoff.mjs` | 25/0 | 25/0 |
+| `test-build-state.mjs` | 33/0 | 33/0 |
+| `test-build-v2-admission.mjs` | 29/0 | 29/0 |
+| `test-build-v2-answer.mjs` | 32/0 | 32/0 |
+| `test-build-v2-cli.mjs` | 36/0 | 36/0 |
+| `test-build-v2-conserve.mjs` | 13/0 | 12/0 |
+| `test-build-v2-detect.mjs` | 46/0 | 46/0 |
+| `test-build-v2-disk.mjs` | 26/0 | 26/0 |
+| `test-build-v2-doubts.mjs` | 38/0 | 38/0 |
+| `test-build-v2-drive.mjs` | 45/0 | 45/0 |
+| `test-build-v2-e2e.mjs` | 107/0 | 111/1 |
+| `test-build-v2-failure.mjs` | 32/0 | 32/0 |
+| `test-build-v2-g2-leftover.mjs` | 5/0 | 5/0 |
+| `test-build-v2-gate-patch.mjs` | 7/0 | 7/0 |
+| `test-build-v2-hardening.mjs` | 38/0 | 38/0 |
+| `test-build-v2-integrate.mjs` | 23/0 | 23/0 |
+| `test-build-v2-jobs.mjs` | 13/0 | 13/0 |
+| `test-build-v2-land.mjs` | 50/0 | 50/0 |
+| `test-build-v2-lock-stress.mjs` | 3/0 | 3/0 |
+| `test-build-v2-nested.mjs` | 9/0 | 9/0 |
+| `test-build-v2-next.mjs` | 68/0 | 67/0 |
+| `test-build-v2-perf.mjs` | 10/0 | 10/0 |
+| `test-build-v2-planner.mjs` | 30/0 | 30/0 |
+| `test-build-v2-preflight.mjs` | 26/0 | 26/0 |
+| `test-build-v2-quota.mjs` | 35/0 | 35/0 |
+| `test-build-v2-report.mjs` | 46/0 | 46/0 |
+| `test-build-v2-review-pin.mjs` | 3/0 | 3/0 |
+| `test-build-v2-review-r1.mjs` | 23/0 | 23/0 |
+| `test-build-v2-review.mjs` | 59/0 | 57/0 |
+| `test-build-v2-risk-backtest.mjs` | 28/0 | 28/0 |
+| `test-build-v2-risk.mjs` | 30/0 | 30/0 |
+| `test-build-v2-routing.mjs` | 364/0 | 174/0 |
+| `test-build-v2-state.mjs` | 76/0 | 76/0 |
+| `test-build-v2-telemetry.mjs` | 23/0 | 23/0 |
+| `test-build-v2-unblock.mjs` | 13/0 | 13/0 |
+| `test-build-v2-workers.mjs` | 16/0 | 16/0 |
+| `test-capacity-resume.mjs` | 10/0 | absent |
+| `test-capacity-review.mjs` | 10/0 | absent |
+| `test-capacity.mjs` | 50/0 | absent |
+| `test-codex-worker-direct.mjs` | 67/0 | 67/0 |
+| `test-codex-worker.mjs` | 26/0 | 26/0 |
+
+The owner-supplied main failure counts (CLI 1, disk 10, G2-leftover 5, hardening 2, integrate 2, land 2, next 1, report 1) did not reproduce under this isolated physical temp-root environment: those suites were green in both snapshots. The measured main-only e2e failure was scenario B, `kill -9 drive: process gone`; the fixed branch passed all 107 e2e assertions. These are observed results, not replacement allowances.
+
+| Additional command/evidence | Result |
+|---|---|
+| Same final `test-capacity-review.mjs` on archived original HEAD | 0 passed / 10 failed (RED for every named case) |
+| Original HEAD `test-codex-worker.mjs` / `test-codex-worker-direct.mjs` | 24/2 and 65/2 reproduced; fixed branch and main 26/0 and 67/0 |
+| `node plugin/scripts/generate-plugin-manifests.mjs` | exit 0, source and both manifests 10.11.1 |
+| `node --check` on changed `.mjs` plus new regression file | 25 files, exit 0 |
+| `bash plugin/scripts/check-derived-drift.sh "$PWD"` | exit 0; only linked-worktree personal ledger existence is skipped by the existing gate |
+| `git diff --check` | exit 0 |
+| Independent document review | H7 approved; original non-routing safeguards retained, retired policy absent |
+
+Limits: no real provider/authentication, native Agent timer, machine sleep or actual subscription-reset canary was run. Those are phase-4 qualification, outside this correction. No application runtime changed in Mission Control; only Manual explanatory text was aligned. No commit or installation update was made. The supplied worktree/branch is retained for the orchestrator.
+
+### Files changed in this correction
+
+- `factory/decision-log.md`
+- `factory/decisions/registry.yaml`
+- `factory/memory/_inbox.md` (gitignored; append-only lesson)
+- `factory/standards/build-engine.md`
+- `mission-control/content/manual/concepts/construccion-desatendida.md`
+- `mission-control/content/manual/concepts/multi-runtime.md`
+- `mission-control/docs/decision-log.md`
+- `mission-control/src/app/manual/_components/DesatendidaDetail.tsx`
+- `mission-control/src/app/manual/manualPages.tsx`
+- `plugin/.claude-plugin/plugin.json`
+- `plugin/.codex-plugin/plugin.json`
+- `plugin/docs/capacity.md`
+- `plugin/docs/decision-log.md`
+- `plugin/runtime/build/doubts/advance.mjs`
+- `plugin/runtime/build/doubts/consult.mjs`
+- `plugin/runtime/build/drive/takeover.mjs`
+- `plugin/runtime/build/drive/triggers.mjs`
+- `plugin/runtime/build/next/candidates.mjs`
+- `plugin/runtime/build/next/dispatch.mjs`
+- `plugin/runtime/build/next/harvest.mjs`
+- `plugin/runtime/build/next/step.mjs`
+- `plugin/runtime/build/next/terminal.mjs`
+- `plugin/runtime/build/quota.mjs`
+- `plugin/runtime/build/routing.mjs`
+- `plugin/runtime/build/schemas/doubt.schema.json`
+- `plugin/runtime/build/workers.mjs`
+- `plugin/runtime/capacity/scheduler.mjs`
+- `plugin/runtime/plugin-metadata.json`
+- `plugin/scripts/codex-worker.mjs`
+- `plugin/scripts/test-build-v2-conserve.mjs`
+- `plugin/scripts/test-build-v2-drive.mjs`
+- `plugin/scripts/test-build-v2-e2e.mjs`
+- `plugin/scripts/test-build-v2-hardening.mjs`
+- `plugin/scripts/test-build-v2-next.mjs`
+- `plugin/scripts/test-build-v2-quota.mjs`
+- `plugin/scripts/test-build-v2-routing.mjs`
+- `plugin/scripts/test-capacity-review.mjs`
+- `plugin/scripts/test-capacity.mjs`
+- `plugin/scripts/test-codex-worker-direct.mjs`
+- `plugin/scripts/test-codex-worker.mjs`
+- `plugin/skills/implement/references/drive.md`
+
 ## Account ingestion and audit
 
 The account state lives in `~/.pandacorp/host/capacity/` (`PANDACORP_CAPACITY_DIR` in tests).
@@ -149,7 +301,7 @@ The redacted fixture in `plugin/scripts/fixtures/capacity-rollout.jsonl` follows
 object observed on 2026-11-14 (weekly 30%, secondary null). It deliberately omits unrelated token counters.
 Acceptance includes quota/routing regressions and real local rollout reading, without provider calls.
 
-## Review corrections and restored coverage (2026-11-14)
+## Historical phase-2 review corrections and restored coverage (2026-11-14)
 
 Compared against `68487c7a` and the phase-2a HEAD `aaf893ee`. No commit is made by this correction.
 Capacity had 31 cases at HEAD; it now has 50, including 19 named review cases (regressions and controls). Before the fixes,
@@ -237,7 +389,7 @@ assertions remain active. No quota probe using a model is reintroduced.
 | BL-0322 mixed Sol+Astra authors → same_model Sol xhigh, park on unreachable, healthy Claude reviews | Current role/risk is independent of author set/order; no parked result while a qualified cell fits |
 | BL-0322 stale Claude at >=85 stays known until reset | TTL applies regardless of percentage; stale/reset/missing-reset/fresh controls are restored without sticky scarcity |
 
-### Current acceptance evidence
+### Historical acceptance evidence
 
 Final current-tree battery: **35 suites, 1,449 passed, 0 failed**. Each command below ran with isolated
 `PANDACORP_CAPACITY_DIR` and empty `CODEX_HOME` per suite, `TMPDIR=/private/tmp` and

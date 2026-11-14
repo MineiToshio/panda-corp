@@ -21,10 +21,8 @@ export function runningSummary(state) {
  */
 export function chooseTerminal(state, { pol, l4, plan, candidates, dispatch }) {
   state = scopedState(state);
-  const bothOut = pol && !pol.claude_new_units && !pol.codex_new_units;
-  if (state.units.every(isTerminalUnit)) return { action: "done", status: state.status, reason: "done" };
-  if (pol?.paused) return { action: "waiting", status: "waiting", reason: "capacity", resumeAt: pol.resumeAt };
   if (state.handbacks_in_a_row >= ENV_INFRA_STOP) return { action: "stop", status: "stopped", reason: "env_infra_handbacks" };
+  if (state.units.every(isTerminalUnit)) return { action: "done", status: state.status, reason: "done" };
   if (dispatch?.admissionBlocked) return { action: "wait", reason: dispatch.admissionBlocked };
   const nonTerminal = state.units.filter((u) => !isTerminalUnit(u));
   const { all, ownerRoots } = blockedClosure(state);

@@ -634,7 +634,7 @@ process.exit(r.status ?? 0);
     const env = { PATH: process.env.PATH, HOME: path.join(dir, "home"), CODEX_HOME: path.join(dir, "codex-home"), PANDACORP_HOST_DIR: path.join(dir, "host"),
       PANDACORP_EVENTS_FILE: path.join(dir, "events.ndjson"), PANDACORP_CODEX_EVENTS_FILE: path.join(dir, "codex-events.ndjson"), PANDACORP_NOW: NOW, PANDACORP_NOTIFY: "off",
       PANDACORP_CODEX_BIN: sh, PANDACORP_FAKE_CODEX_REPORT: report, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1", [RELEASE_VAR]: "1" };
-    const r = spawnSync(process.execPath, [CODEX_WORKER, "run", "--direct", "--project", project, "--id", "w-h8", "--prompt-file", prompt, "--codex-model", "gpt-6.1-sol", "--output-schema", schema, "--dir", wt, "--access", "sandbox", "--max", "20"], { env, encoding: "utf8", timeout: 40000 });
+    const r = spawnSync(process.execPath, [CODEX_WORKER, "run", "--direct", "--risk", "normal", "--project", project, "--id", "w-h8", "--prompt-file", prompt, "--codex-model", "gpt-6.1-sol", "--output-schema", schema, "--dir", wt, "--access", "sandbox", "--max", "20"], { env, encoding: "utf8", timeout: 40000 });
     eq(r.status, 0, `codex-worker exit (stderr ${String(r.stderr).slice(0, 200)})`);
     const wdir = path.join(project, ".pandacorp/run/codex-workers/w-h8");
     const files = (await readdir(wdir)).filter((n) => /prompt/.test(n));

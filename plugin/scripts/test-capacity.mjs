@@ -442,7 +442,7 @@ try {
       PANDACORP_EVENTS_FILE: path.join(dir, "events"), CODEX_WORKER_TRANSCRIPTS: path.join(dir, "no-transcripts") };
     mod.ingestClaude(usage(20), { env, now: NOW });
     const fake = path.join(dir, "fake-claude.sh");
-    await writeFile(fake, '#!/bin/sh\ncat >/dev/null\nprintf "fallback complete\\n"\n', { mode: 0o700 });
+    await writeFile(fake, `#!/bin/sh\ncat >/dev/null\nprintf '%s\\n' '{"type":"result","result":"fallback complete"}'\n`, { mode: 0o700 });
     env.PANDACORP_CLAUDE_BIN = fake;
     const worker = fileURLToPath(new URL("./codex-worker.mjs", import.meta.url));
     const prompt = path.join(dir, "worker-prompt.md"); await writeFile(prompt, "Fixture task");
@@ -451,7 +451,7 @@ try {
       const id = direct ? "direct-fallback" : "alias-fallback";
       if (!direct) { const wd = path.join(dir, ".pandacorp/run/codex-workers", id); await mkdir(wd, { recursive: true }); await writeFile(path.join(wd, "prompt.md"), "Fixture task"); }
       const args = direct ? ["--direct", "--prompt-file", prompt, "--codex-model", "gpt-6.1-sol"] : ["--model", "sonnet", "--sum", fnv("Fixture task")];
-      const r = spawnSync(process.execPath, [worker, "run", "--project", dir, "--id", id, "--max", "3", ...args], { env, encoding: "utf8", timeout: 10000 });
+      const r = spawnSync(process.execPath, [worker, "run", "--risk", "normal", "--project", dir, "--id", id, "--max", "3", ...args], { env, encoding: "utf8", timeout: 10000 });
       assert.equal(r.status, 0, r.stderr); const payload = JSON.parse(JSON.parse(r.stdout.trim()).r);
       assert.equal(payload.ok, true, JSON.stringify(payload)); assert.equal(payload.tool, "claude"); assert.equal(payload.model, "sonnet"); assert.equal(payload.effort, "medium");
     }

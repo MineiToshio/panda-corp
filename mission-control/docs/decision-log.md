@@ -1,5 +1,9 @@
 # Decision Log — Mission Control
 
+## 2026-11-14 — Manual: shared-capacity relay and accepted technical assumptions
+
+Aligned the unattended-build and runtime concepts with DR-162: independent review context, role/risk allocation on both tools, fixed running sessions and accepted reversible technical assumptions. Canonical: manual concepts and DesatendidaDetail explanation; no behavior or design change.
+
 ## 2026-11-14 — Capacity continuation in the Manual
 
 Updated the unattended-build explanation to reflect DR-162 phase 3: retained checkpoints, reset-confirming reads, ScheduleWakeup/drive ownership and reversible technical assumptions. Canonical engine policy: [build-engine.md](../../factory/standards/build-engine.md); Manual explanation: [DesatendidaDetail.tsx](../src/app/manual/_components/DesatendidaDetail.tsx). No dashboard state writer or UI behavior changed.

@@ -33,7 +33,7 @@ chmodSync(fake, 0o755);
 const project = path.join(tmp, "proj");
 mkdirSync(project, { recursive: true });
 const eventsFile = path.join(tmp, "events.ndjson");
-const runCli = (args, env = {}) => execFileSync("node", [CLI, ...args], { encoding: "utf8", env: { ...process.env, PANDACORP_CODEX_BIN: fake, PANDACORP_EVENTS_FILE: eventsFile, ...env } }).trim();
+const runCli = (args, env = {}) => execFileSync("node", [CLI, ...args, "--risk", "normal"], { encoding: "utf8", env: { ...process.env, PANDACORP_CODEX_BIN: fake, PANDACORP_EVENTS_FILE: eventsFile, ...env } }).trim();
 const events = () => readFileSync(eventsFile, "utf8").trim().split("\n").map((l) => JSON.parse(l));
 const unseal = (line) => { const s = JSON.parse(line); return fnv(s.r) === s.sum ? JSON.parse(s.r) : null; };
 const prep = (id, text) => { const dir = path.join(project, ".pandacorp/run/codex-workers", id); mkdirSync(dir, { recursive: true }); writeFileSync(path.join(dir, "prompt.md"), `${text}\n`); return { dir, sum: fnv(text) }; };
@@ -47,11 +47,11 @@ ok(codexTier("sonnet", "minimal").effort === "low" && codexTier("weird-model").m
 // Happy path with a JSON answer.
 {
   const { dir, sum } = prep("w1", "Build the thing.");
-  const p = unseal(runCli(["run", "--project", project, "--id", "w1", "--sum", sum, "--model", "sonnet", "--effort", "medium", "--role", "pandacorp:implementer", "--json-answer", "--max", "20"], { FAKE_MODE: "json" }));
+  const p = unseal(runCli(["run", "--project", project, "--id", "w1", "--sum", sum, "--model", "sonnet", "--effort", "low", "--role", "pandacorp:implementer", "--json-answer", "--max", "20"], { FAKE_MODE: "json" }));
   ok(p && p.status === "done" && p.ok === true && p.answer.done === true && p.answer.sha === "abc123", "a JSON final message after prose → ok with the parsed answer");
   const rec = JSON.parse(readFileSync(path.join(dir, "last.md.argv.json"), "utf8"));
   const a = rec.argv;
-  ok(a[0] === "exec" && a.includes("--ignore-user-config") && a[a.indexOf("-m") + 1] === "gpt-6.1-sol" && a.includes('model_reasoning_effort="medium"') && a.at(-1) === "-", "codex exec argv: ignores the user config, carries model + effort, prompt on stdin");
+  ok(a[0] === "exec" && a.includes("--ignore-user-config") && a[a.indexOf("-m") + 1] === "gpt-6.1-sol" && a.includes('model_reasoning_effort="low"') && a.at(-1) === "-", "codex exec argv: ignores the user config, carries model + effort, prompt on stdin");
   ok(a[a.indexOf("-s") + 1] === "workspace-write" && a.includes("sandbox_workspace_write.network_access=true") && !a.includes("danger-full-access"), "default access is the workspace-write sandbox with network");
   ok(rec.stdin.includes("# Your role") && rec.stdin.includes("# Task\n\nBuild the thing.") && rec.stdin.includes("exactly ONE JSON object"), "the prompt carries the role instructions, the task and the JSON-answer rule");
   ok(path.resolve(rec.cwd) === path.resolve(project) || rec.cwd.endsWith("/proj"), "Codex runs in the project dir by default");
@@ -73,10 +73,10 @@ ok(codexTier("sonnet", "minimal").effort === "low" && codexTier("weird-model").m
   const dir = path.join(project, ".pandacorp/run/codex-workers", "t1");
   mkdirSync(dir, { recursive: true });
   const env = { CODEX_WORKER_TRANSCRIPTS: path.join(project, "..", "transcripts"), FAKE_MODE: "text" };
-  const p = unseal(runCli(["run", "--project", project, "--id", "t1", "--sum", sum, "--model", "haiku", "--max", "20"], env));
+  const p = unseal(runCli(["run", "--project", project, "--id", "t1", "--sum", sum, "--model", "haiku", "--role", "pandacorp:tier-mech", "--max", "20"], env));
   ok(p && p.ok && readFileSync(path.join(dir, "prompt.md"), "utf8") === task, "with no prompt.md the exact task is recovered from the relay transcript");
   mkdirSync(path.join(project, ".pandacorp/run/codex-workers", "t2"), { recursive: true });
-  const wrong = runCli(["run", "--project", project, "--id", "t2", "--sum", fnv("something else"), "--model", "haiku", "--max", "5"], env);
+  const wrong = runCli(["run", "--project", project, "--id", "t2", "--sum", fnv("something else"), "--model", "haiku", "--role", "pandacorp:tier-mech", "--max", "5"], env);
   ok(/^CODEX-PROMPT-MISMATCH /.test(wrong), "no transcript with that id and checksum still asks the relay for the copy");
 }
 // Full access is explicit.
@@ -89,10 +89,10 @@ ok(codexTier("sonnet", "minimal").effort === "low" && codexTier("weird-model").m
 // Text answer, prompt mismatch, limit, long run.
 {
   const { sum } = prep("w3", "Say something.");
-  const p = unseal(runCli(["run", "--project", project, "--id", "w3", "--sum", sum, "--model", "haiku", "--max", "20"], { FAKE_MODE: "text" }));
+  const p = unseal(runCli(["run", "--project", project, "--id", "w3", "--sum", sum, "--model", "haiku", "--role", "pandacorp:tier-mech", "--max", "20"], { FAKE_MODE: "text" }));
   ok(p && p.ok && p.text === "built it\n" && p.model === "gpt-6-luna", "no --json-answer → the final message as text");
   prep("w4", "Original task.");
-  const bad = runCli(["run", "--project", project, "--id", "w4", "--sum", fnv("A different task."), "--model", "haiku", "--max", "5"]);
+  const bad = runCli(["run", "--project", project, "--id", "w4", "--sum", fnv("A different task."), "--model", "haiku", "--role", "pandacorp:tier-mech", "--max", "5"]);
   ok(/^CODEX-PROMPT-MISMATCH /.test(bad), "a prompt.md that differs from the engine's text is refused before Codex starts");
   const { sum: s5 } = prep("w5", "Hit the limit.");
   const lim = unseal(runCli(["run", "--project", project, "--id", "w5", "--sum", s5, "--model", "sonnet", "--max", "20"], { FAKE_MODE: "limit" }));

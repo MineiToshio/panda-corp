@@ -1,98 +1,52 @@
-> **DR-162 (phase 3) supersedes quota routing below:** drive uses the same shared account allocator as
-> the session, can execute an allocated Claude cell through the worker launcher, and only parks capacity
-> when neither qualified tool fits, with resumeAt persisted. There is no 90/95 veto or capacity-triggered
-> mandatory company switch, Astra escalation, same-model degradation or Claude-only audit deferral.
-> Explicit handoff, lease fencing, ownership, human gates and safe-point behavior remain in force.
-> On capacity waiting, the live loop sleeps until resumeAt+60s and requires renewed readings;
-> the Claude lead uses ScheduleWakeup as defined in SKILL.md. Native limits use `pb suspend` with
-> the Agent resume id, never quota-triggered handoff. The quota/timer paragraphs below are historical
-> where they conflict with this phase-3 contract. Real-provider reset/authentication is not certified by fixtures.
+# `drive`: the relay from the session's side
 
-# `drive`: the Codex relay, from the session's side
+Policy: BUILD-14 in `factory/standards/build-engine.md`; interface and exit codes:
+`plugin/docs/build-engine-cli.md`; `pb <cmd>` as in `engine-v2.md` §1.
 
-Policy is BUILD-14 (`factory/standards/build-engine.md`); the command, its files and its exit codes are in
-`plugin/docs/build-engine-cli.md`; `pb <cmd>` as in `engine-v2.md` §1. This file says what the coordinating
-session does before, at and after a handover.
+## 1. Arming and authority
 
-## 1. What drive is
+`start --run` and `start --resume` arm the deterministic Node relay when Codex login is valid and,
+for a launched project, the pre-push guard is verified. The session never spawns/signals it by hand.
+Read `drive{armed,reason}` and report whether it is armed. Quota is not an arming condition.
+If unavailable, keep coordinating with the shared allocator; no quota threshold stops the run.
+The relay keeps the Mac awake with `caffeinate` and logs to `build/drive/drive.log`.
 
-`pb drive` is a Node process of the same CLI with **no LLM of its own and no Claude at all** (`claude -p` fails with
-an expired OAuth from a subprocess, LESSON-0501). `start --run` arms it in standby; when it takes over it continues
-the same run with Codex only: `next` → Codex workers → reports, reviews, landing → `next`, renewing the lease in its
-own loop. It keeps the Mac awake with `caffeinate -i -w <pid>` and logs to `.pandacorp/run/build/drive/drive.log`.
+## 2. Explicit handover and recovery
 
-Takeover is a **transfer of the same run**: epoch + 1, a new lease-token file, no owner confirmation, no quiesce,
-running Codex workers and jobs keep going and are adopted. The session's next fenced call gets exit 3 and the session
-becomes an observer (`engine-v2.md` §9). The lease is never released by a handover.
+Standby polls every 30 seconds for an explicit current-epoch handoff or a silent lease (1800 seconds)
+with pending work. Provider quota is never a handoff trigger. For the owner's `--drive` instruction,
+if armed call `pb handoff --epoch E --reason manual`, then observe. The test-only `--handoff-after N`
+uses an explicit handoff too. Transfer preserves run id, increases epoch, writes the private lease token,
+and fences the former coordinator; it never quiesces/releases the lease or resets current executions.
+Live and suspended workers retain their cell, session, token, attempt, branch and dirty worktree.
+After transfer, no fenced calls or dispatch from the old session; `pb status` may confirm the coordinator.
 
-## 2. Arming (the session never spawns drive)
+## 3. Capacity and suspension
 
-1. `pb start --run` arms drive itself (and `pb start --resume` re-arms it) whenever `codex login status` is OK and,
-   in a launched project, the pre-push hook is verified. **Codex quota is not checked at arming**: drive re-reads it
-   when a trigger fires.
-2. The session only reads `drive{armed, reason}` and writes the "Relevo a Codex" line of the first message:
-   - armed: "Relevo a Codex: armado.";
-   - armed with Codex at or above 90 %: "Relevo a Codex: armado (Codex al <N> %, solo actuará si se renueva antes).";
-   - not armed: "Relevo a Codex: no armado: <reason en llano>." (expired Codex login, or a launched project without
-     the hook). Then the build runs without a relay: at Claude ≥95 % it pauses at a safe point instead.
-3. **Owner option `--drive`** ("construye con Codex y no uses esta sesión"): `start --run` with `--label codex`;
-   if `drive.armed` is true, `pb handoff --epoch <E> --reason manual`, tell the owner "El build lo lleva el relevo
-   de Codex desde ya. Puedes irte.", and become an observer. If drive is not armed, say why and coordinate normally.
+Both session and relay use `decide` for each real task: try the other qualified tool when one has no
+capacity; wait only when no eligible cell fits. Claude CLI cells use the authenticated shared launcher;
+missing authentication is an infrastructure error, never quota. Never ask the owner about quota.
+A running execution never changes tool. Submit a native-agent limit through `pb suspend --epoch E
+--unit U --file RECEIPT` with the exact Agent resume id; CLI workers retain their saved provider session.
+Healthy siblings continue. A prelaunch refusal returns queued without spending an attempt or recording
+false usage-limit telemetry. Reviews, consultants and audits keep their role/risk floor and fresh context.
 
-## 3. Triggers and what the session does
+When all work waits, persist minimum `resumeAt` and keep the lease. Drive sleeps in lease-renewing chunks
+to reset+60 seconds, rereads both sources and uses the fenced wake generation. The open Claude lead uses
+ScheduleWakeup, re-ingests get_usage and calls `pb start --resume --coordinator claude --wake-generation N`.
+No timer available means attended execution. Unknown/stale data never confirms a renewed subscription.
+Real authentication, native timers and actual resets need live qualification, separate from fake suites.
 
-Drive's standby checks every 30 s:
+## 4. Returning and gates
 
-| Trigger | Who causes it | Session action |
-|---|---|---|
-| (a) `build/handoff.json` | the session, when `next` returns `action: "handoff"` (Claude ≥95 % with this session coordinating) or when one of its agents hit Claude's usage limit | below |
-| (b) Claude's usage-limit text in a unit report or Codex worker output of the run | a limit the session could not act on | none (it may already be out of turns) |
-| (c) lease expired (no renew for 30 min) with work pending, independently of quota | a silent coordinator | none |
+`pb start --resume --coordinator claude|codex --session-model M` transfers authority from drive back to
+the caller and fences the old loop. Preserve live work; a still-active relay must yield before healing
+or resetting anything (`CONTENDED` means retry, never reset underneath it). Capacity wake races use
+BUILD-11's conditional transition and never steal the winner. Drive may already dispatch Claude without
+changing coordinator ownership.
 
-At `action: "handoff"`, or when a background agent of yours returns Claude's usage-limit error while you still have a
-turn:
-
-1. Do not dispatch anything new. File any report already returned (`engine-v2.md` §7), then at once
-   `pb handoff --epoch <E> --reason quota95` (or `--reason limit` for a usage-limit error). Do not wait for agents
-   still running: a handover never waits; their results come back after the transfer, are rejected with exit 3 and
-   the work is re-run by drive.
-2. Never `finish`, `stop` or release anything because of a Claude limit: the run stays alive for drive.
-3. Notify. Claude Code: `PushNotification` "Claude se queda sin cupo. El relevo de Codex sigue el build; no tienes
-   que hacer nada." Same line in the chat.
-4. Observer from now on: no fenced call, no dispatch. You may run `pb status` once to confirm `coordinator: drive`,
-   then end the turn.
-
-At takeover drive reads the shared account state. It parks only if neither tool fits and nothing runs, persisting resumeAt; otherwise it continues.
-
-**Forced handoff (test only: the first real use with a forced relay).** When the owner asks for it "tras N
-tareas": count `report` results with `outcome: committed`; after the N-th, `pb handoff --epoch <E> --reason test`
-and continue from step 3 above. Never in a normal build.
-
-## 4. Coming back while drive coordinates
-
-Drive reads the shared Claude snapshot and can dispatch Claude work without changing lease ownership. When the owner reopens a session and
-writes `/pandacorp:implement --resume`:
-
-1. `pb start --detect --args=--resume …` → row 2.
-2. `pb start --resume --coordinator claude --session-model <m>` → the lease is transferred to this session immediately (epoch + 1) (no `--owner-confirmed`: a run held by drive, even a dead one, is transferred back directly); drive gets exit 3 at its
-   next step and exits. Keep the new `epoch` and continue the loop of `engine-v2.md` §7.
-3. Tell the owner "Retomo el build desde el relevo de Codex." Never stop or kill drive by hand.
-
-If drive already finished or paused, `pb summary` gives the data: write the final report of `engine-v2.md` step 6.
-
-## 5. What drive does alone (so the report can explain it)
-
-- **Reviews and audits** use shared capacity by risk, in fresh contexts, including the same model as the author.
-- **Doubts** use design capacity by risk, without an origin/attempt-based Astra escalation.
-- **Quota** switches each new execution to the other qualified tool. Only neither fitting parks capacity with
-  durable resumeAt after current work reaches a safe point; no quota question goes to the owner.
-- **Human gates**: `waiting_gate` plus a macOS notification; it never sets `PANDACORP_OWNER_RELEASE_OK`.
-- **Death** (expired Codex session, Mac asleep with the lid closed on battery): the work stays at the last safe
-  point; `/pandacorp:implement --resume` continues it.
-- At the end it runs `finish`; the report is in Mission Control and at the path `summary` names.
-
-## 6. Never
-
-Spawn, kill or signal the drive process; edit `build/drive/*`, `handoff.json`, the lease or the token file; start
-`drive` by hand (the `--drive` option uses `handoff --reason manual`); release the lease because Claude hit a limit;
-add Claude to anything drive runs; promise the owner that drive returns to Claude by itself.
+The relay uses normal reports, reviews, security audits and landing. It never skips an audit for quota,
+sets `PANDACORP_OWNER_RELEASE_OK`, bypasses a gate or starts a second live landing. Irreversible choices
+keep human gates. Technical reversible assumptions record rationale and reversal and follow normal gates.
+At completion `finish`/`summary` supply the report. Never edit drive state, handoff files, leases or tokens
+by hand, or promise live-provider behavior that only fake transports have verified.

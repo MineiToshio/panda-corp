@@ -82,6 +82,7 @@ export async function queueConsult(ctx, state, record, no, deps) {
     throw err("INVALID_STATE", `doubt consult routing failed: ${error.message}`);
   }
   if (cell?.capacity) logCapacityDecision(cell.task, cell.capacity, { env: deps.env, log: ctx.paths.capacityDecisionsFile });
+  if (cell?.paused) return { wait: { reason: "capacity", resumeAt: cell.resumeAt, no } };
   if (!cell) return { park: "no_consultant" };
   const unitId = `u-doubt-consult-${record.id}-c${no}`;
   if (findUnit(state, unitId)) throw err("INVALID_STATE", `consult unit ${unitId} already exists`);
@@ -89,9 +90,29 @@ export async function queueConsult(ctx, state, record, no, deps) {
   const consult = { runtime: cell.runtime, model: cell.model, effort: cell.effort, via, unit: unitId, brief_path: ctx.paths.briefFile(unitId), answer: null };
   const consultUnit = newUnit({ id: unitId, kind: "doubt-consult", frd: unit?.frd ?? null, doubt_id: record.id, zone: unit?.zone ?? "none" });
   await consultBrief({ project: ctx.project, state, record, unit, consult, no, origin, reportPath: ctx.paths.unitAnswerFile(unitId) }, deps);
-  const nextRecord = { ...record, step: no === 1 ? "consult1" : "consult2", consults: [...record.consults, consult] };
+  const { capacity_wait: _wait, ...readyRecord } = record;
+  const nextRecord = { ...readyRecord, step: no === 1 ? "consult1" : "consult2", consults: [...record.consults, consult] };
   const nextState = { ...state, units: [...state.units, consultUnit], doubts_consulted: (state.doubts_consulted ?? 0) + (no === 1 ? 1 : 0) };
   await ctx.appendEvent({ type: "unit_queued", data: consultUnit });
   if (no === 1) await ctx.appendEvent({ type: "doubt_consulted", data: { doubt_id: record.id, unit: record.unit, consult_unit: unitId, consult_no: no, cell, via } });
   return { state: nextState, record: nextRecord, consult: { unit: unitId, runtime: cell.runtime, model: cell.model, effort: cell.effort, brief_path: consult.brief_path, via } };
+}
+
+/** Retry an unconsumed consult under the scheduler's existing lease mutex. */
+export async function retryCapacityConsults(ctx, state, deps) {
+  const { readDoubt, writeDoubt } = await import("./records.mjs");
+  const waits = [];
+  for (const unit of state.units.filter(u => u.doubt_id && u.kind !== "doubt-consult" && u.state === "reported")) {
+    const record = await readDoubt(ctx.project, unit.doubt_id, deps);
+    if (!record?.capacity_wait) continue;
+    const queued = await queueConsult(ctx, state, record, record.capacity_wait.no, deps);
+    if (queued.wait) {
+      waits.push(queued.wait.resumeAt);
+      await writeDoubt(ctx.project, { ...record, capacity_wait: queued.wait }, deps);
+    } else if (queued.state) {
+      state = queued.state;
+      await writeDoubt(ctx.project, queued.record, deps);
+    } else throw err("INVALID_STATE", `pending capacity consult cannot advance: ${queued.park}`);
+  }
+  return { state, waits };
 }

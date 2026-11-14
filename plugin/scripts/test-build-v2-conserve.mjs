@@ -55,7 +55,7 @@ test("restored: next and preflight map ordinary/unknown/pressure/exhaustion cons
     const expected = { claude: c === 100 ? "quota" : "ok", codex: x === 100 ? "quota" : "ok" };
     eq(availabilityOf(p), expected); eq(preflightAvailability(p, true), expected);
     eq(preflightAvailability(p, false), { ...expected, codex: "unreachable" });
-    eq([p.claude_conserve, p.codex_conserve], [false, false]); eq(p.paused, c === 100 && x === 100);
+    eq([p.claude_conserve, p.codex_conserve], [false, false]); eq(p.paused, false); eq(p.decision.action, c === 100 && x === 100 ? "wait" : "run");
   }
 });
 test("restored: neither unknown nor two pressured providers impose a global stop", () => {

@@ -322,6 +322,7 @@ function killGroup(pid, deps) {
 export function classifyWorkerPayload(payload, { unit, schema = null, now = Date.now() } = {}) {
   const detail = String(payload.detail ?? "").slice(0, 600);
   if (payload.status === "error") return { outcome: "worker_error", kind: String(payload.kind ?? "error"), detail };
+  if (payload.kind === "capacity_wait") return { outcome: "capacity_wait", detail, resumeAt: payload.resumeAt, capacity: payload.capacity };
   const limit = ["usage_limit", "rate_limit"].includes(payload.limit) ? payload.limit : (payload.ok === false ? classifyLimitText(`${payload.kind ?? ""} ${detail}`) : null);
   if (payload.ok === false && limit) {
     const kind = limit === "rate_limit" ? "rate_limit" : "usage_limit";

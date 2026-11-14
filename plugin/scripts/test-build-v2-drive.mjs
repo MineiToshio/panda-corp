@@ -307,21 +307,21 @@ await test("trigger a: build/handoff.json fires, and polling is read-only", asyn
   ok(existsSync(run.P.handoffFile), "polling must not consume handoff.json (the takeover does)");
   eq(await rawLease(run), leaseBefore, "lease untouched by polling"); eq((await eventsOf(run)).length, eventsBefore, "journal untouched by polling");
 });
-await test("trigger b: a usage-limit text in the report.json of an in-flight Claude unit fires; benign output does not", async () => {
+await test("trigger b: a usage-limit report never transfers a live coordinator", async () => {
   const claudeWorker = { runtime: "claude", model: "sonnet", effort: "medium", via: "agent", pid: null, worker_id: null };
   const run = await makeRun({ units: [{ ...newUnit({ id: "u-build-wo-01-001", kind: "build", wos: ["WO-01-001"], frd: "frd-01-alpha", state: "running" }), worker: claudeWorker }] });
   await mkdir(run.P.unitDir("u-build-wo-01-001"), { recursive: true });
   await writeFile(run.P.reportFile("u-build-wo-01-001"), `${JSON.stringify({ status: "done", summary: "all green, tests passed, 429 lines changed? no" })}\n`);
   eq((await poll(run)).trigger, null, "benign report");
   await writeFile(run.P.reportFile("u-build-wo-01-001"), `${JSON.stringify({ status: "blocked", summary: "Claude AI usage limit reached|1731326400" })}\n`);
-  eq((await poll(run)).trigger, "b", "usage-limit report");
+  eq((await poll(run)).trigger, null, "quota never transfers a live lead");
 });
 await test("trigger b (DEC-3): Codex's own limit text in codex-workers/<id>/last.md does NOT fire", async () => {
   const run = await makeRun(); const dir = run.P.codexWorkerDir("w-1"); await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, "last.md"), "ERROR: You've hit your usage limit. Try again at 3:00 PM.\n");
   eq((await poll(run)).trigger, null, "Codex limit text must not trigger the Claude takeover");
 });
-await test("trigger b (DEC-3): Claude's envelope in last.md fires only for a worker of the current run", async () => {
+await test("trigger b (DEC-3): Claude's envelope never transfers a live coordinator", async () => {
   const job = { id: "j-worker-1", kind: "worker", unit: "u-build-wo-01-001", frd: "frd-01-alpha", pid: null, cwd: "/tmp/x", h_slot: false, started_at: DEFAULT_NOW, state: "running", exit: null, worker_id: "w-1" };
   const run = await makeRun({ jobs: [job] });
   const stale = run.P.codexWorkerDir("w-stale"); await mkdir(stale, { recursive: true });
@@ -329,12 +329,12 @@ await test("trigger b (DEC-3): Claude's envelope in last.md fires only for a wor
   eq((await poll(run)).trigger, null, "worker id not in the run's state");
   const dir = run.P.codexWorkerDir("w-1"); await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, "last.md"), "Claude AI usage limit reached|1731326400\n");
-  eq((await poll(run)).trigger, "b", "worker of this run with Claude's envelope");
+  eq((await poll(run)).trigger, null, "current worker quota is not a coordinator handoff");
 });
-await test("trigger b: the optional coordinator transcript is scanned", async () => {
+await test("trigger b: the optional quota transcript cannot transfer a live coordinator", async () => {
   const run = await makeRun(); const transcript = path.join(run.dir, "transcript.txt");
   await writeFile(transcript, "assistant: working...\nClaude usage limit reached|1731326400\n");
-  eq((await poll(run, {}, { transcript })).trigger, "b", "transcript with a limit text");
+  eq((await poll(run, {}, { transcript })).trigger, null, "quota transcript cannot transfer a live lead");
 });
 await test("trigger c: lease silent >= 1800 s + pending work + Claude reading >= 85 % fires; 1799 s does not", async () => {
   const run = await makeRun(); await claudeReading(run, 90);
@@ -402,17 +402,12 @@ await test("takeover keeps running Codex workers alive and does not quiesce or t
   ok(alive(w.pid), "the running fake worker was killed by the takeover"); ok(!existsSync(w.exitFile), "the worker's exit file appeared (it was stopped)");
   const st = await stateOf(run); eq(st.jobs.map((j) => [j.id, j.state, j.pid]), [["w-1", "running", w.pid]], "the worker job record is intact");
 });
-await test("takeover with Codex at exactly 90 %: transfer then paused-quota (state paused, lease released, both resets_at, drive actor), nothing run", async () => {
-  const run = await makeRun(); const { codexResetsAt } = await writeCodexPct(run, 100); await claudeReading(run, 100); await writeHandoff(run);
-  const { calls } = await takeover(run, "a", { notify: true });
-  const st = await stateOf(run); eq(st.status, "waiting", "state.status"); ok(/capacity/i.test(st.status_reason ?? ""), `status_reason must mention quota: ${st.status_reason}`);
-  ok(existsSync(run.P.leaseDir), "capacity waiting retains the epoch fence");
-  const events = await eventsOf(run); const paused = events.find((e) => e.type === "capacity_state"); ok(paused, `journal has no paused event (types: ${events.map((e) => e.type)})`);
-  eq([paused.actor, paused.epoch], ["drive", 2], "paused event actor/epoch (transfer first, so epoch+1)");
-  const blob = JSON.stringify([paused.data, st.status_reason]);
-  eq(st.resumeAt.slice(0, 19), isoAt(T0 + 3600e3).slice(0, 19), "wait until the earliest eligible tool reset");
-  ok(Boolean(st.wake?.generation), `Claude resets_at ${isoAt(T0 + 3600e3)} missing from ${blob}`);
-  eq(osascriptCalls(calls).length >= 0, true, "notification optional here"); noClaude(calls, run, "paused-quota takeover");
+await test("takeover does not pre-veto real tasks even when both implementation cells are exhausted", async () => {
+  const run = await makeRun(); await writeCodexPct(run, 100); await claudeReading(run, 100); await writeHandoff(run);
+  await takeover(run, "a", { notify: true });
+  const st = await stateOf(run); eq(st.status, "active", "scheduler, not takeover, decides eligible capacity");
+  ok(existsSync(run.P.leaseDir), "transfer retains the epoch fence");
+  ok(!(await eventsOf(run)).some(e => e.type === "capacity_state"), "no fictitious global wait event");
 });
 await test("takeover with only Codex exhausted continues on the other tool", async () => {
   const run = await makeRun(); await writeRolloutSample(run.env.CODEX_HOME, "pct98", { now: DEFAULT_NOW }); await writeHandoff(run);

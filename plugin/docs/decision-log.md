@@ -1,5 +1,9 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-14 — Independent capacity review: preserve eligible work and execution identity
+
+Fixed task-specific scheduling/wakes, recoverable unconsumed consultation waits, persisted prelaunch receipts without attempts or false quota, Claude streaming heartbeat, quota-trigger retirement and live takeover preservation, and fail-closed standalone security risk. Restored BUILD-10 safeguards and removed conflicting operational policy. Canonical: [capacity.md](capacity.md), [BUILD-10/11/12/14](../../factory/standards/build-engine.md), [drive](../skills/implement/references/drive.md). Plugin 10.11.1; no commit requested.
+
 ## 2026-11-14 — In-place capacity continuation and autonomous technical assumptions
 
 **What:** DR-162 phase 3 suspends subscription-limited executions without resetting dirty trees, cells,

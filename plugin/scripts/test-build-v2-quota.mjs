@@ -319,7 +319,7 @@ await test("policy: usage limit on claude without a standby -> paused; usage lim
   const codexLimit = await pol(KNOWN(20), KNOWN(100), "claude-session", true);
   eq([codexLimit.codex_new_units, codexLimit.claude_new_units, codexLimit.paused, codexLimit.handoff], [false, true, false, false], "codex limited");
   const both = await pol(KNOWN(100), KNOWN(100), "claude-session", true);
-  eq([both.paused, both.handoff], [true, false], "both limited");
+  eq([both.paused, both.handoff, both.decision.action], [false, false, "wait"], "projection only; scheduler evaluates real tasks");
 });
 
 await test("policy: unknown readings are reactive only (nothing blocked, no handoff, no pause)", async () => {

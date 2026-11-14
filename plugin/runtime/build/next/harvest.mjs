@@ -80,6 +80,16 @@ async function harvestWorker(run, job, notes) {
   const jobEnd = { state: h.outcome === "worker_error" && h.kind === "dead" ? "dead" : "done", exit: Number.isInteger(h.exit) ? h.exit : null };
   if (!unit || !isLive(unit)) return finishJob(run, job, jobEnd);
 
+  if (h.outcome === "capacity_wait") {
+    await finishJob(run, job, jobEnd);
+    await mutate(run, s => {
+      const cur = findUnit(s, unit.id);
+      run.d.admission.releaseToken(cur.id, admissionCtx(run));
+      return { state: { ...s, units: s.units.map(u => u.id === cur.id ? { ...u, state: "queued", worker: null, token_hash: null } : u) },
+        events: [unitEvent(cur.id, cur.state, "queued"), { type: "capacity_state", data: { unit: cur.id, patch: { worker: null, token_hash: null } } }] };
+    });
+    return;
+  }
   if (h.outcome === "limit") {
     await suspendAfterLimit(run, unit, job, jobEnd, h);
     return;

@@ -36,7 +36,7 @@ import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { decideCapacity } from "../runtime/capacity.mjs";
+import { decide, decideCapacity } from "../runtime/capacity.mjs";
 import { stopCodexWorkers } from "../runtime/codex-workers.mjs";
 import { classifyLimitText } from "../runtime/build/quota.mjs";
 
@@ -170,7 +170,7 @@ function launch(dir, cwd, args, tool = "codex", prompt = path.join(dir, "full-pr
   const bin = tool === "claude" ? process.env.PANDACORP_CLAUDE_BIN || "claude" : CODEX_BIN;
   const command = `${[bin, ...args].map(q).join(" ")} < ${q(prompt)}`;
   const script = tool === "claude"
-    ? `${command} > ${q(path.join(dir, "last.md"))}; result=$?; cat ${q(path.join(dir, "last.md"))}; echo "$result" > ${q(path.join(dir, "exit"))}`
+    ? `{ ${command}; echo $? > ${q(path.join(dir, "provider-exit"))}; } | tee ${q(path.join(dir, "last.md"))}; cat ${q(path.join(dir, "provider-exit"))} > ${q(path.join(dir, "exit"))}`
     : `${command}; echo $? > ${q(path.join(dir, "exit"))}`;
   const out = openSync(path.join(dir, "codex.log"), "a");
   const child = spawn("/bin/sh", ["-c", script], { cwd, detached: true, stdio: ["ignore", out, out], env: childEnv() });
@@ -211,7 +211,7 @@ function start(dir, id, allocation) {
   const args = ["exec", "--ignore-user-config", "--skip-git-repo-check", "--json", "-C", cwd, ...access,
     "-m", tier.model, "-c", `model_reasoning_effort="${tier.effort}"`, "-o", path.join(dir, "last.md"), "-"];
   const sessionId = allocation.tool === "claude" ? randomUUID() : null;
-  const actualArgs = allocation.tool === "claude" ? ["-p", "--session-id", sessionId, "--model", allocation.model, "--effort", allocation.effort, "--output-format", "json"] : args;
+  const actualArgs = allocation.tool === "claude" ? ["-p", "--session-id", sessionId, "--model", allocation.model, "--effort", allocation.effort, "--output-format", "stream-json", "--verbose", "--include-partial-messages"] : args;
   const child = launch(dir, cwd, actualArgs, allocation.tool);
   writePrivate(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, tool: allocation.tool, capacity: allocation, sessionId, model: tier.model, effort: tier.effort, access: opt("access") || "sandbox", startedAt: new Date().toISOString() }));
   telemetry("worker_started", { id, role: opt("role"), model: tier.model, effort: tier.effort, access: opt("access") || "sandbox" });
@@ -269,7 +269,7 @@ function startDirect(dir, id, allocation) {
     "-m", slug, "-c", `model_reasoning_effort="${effort}"`, ...(schema ? ["--output-schema", schema] : []),
     "-o", path.join(dir, "last.md"), "-"];
   const sessionId = allocation.tool === "claude" ? randomUUID() : null;
-  const actualArgs = allocation.tool === "claude" ? ["-p", "--session-id", sessionId, "--model", allocation.model, "--effort", allocation.effort, "--output-format", "json"] : args;
+  const actualArgs = allocation.tool === "claude" ? ["-p", "--session-id", sessionId, "--model", allocation.model, "--effort", allocation.effort, "--output-format", "stream-json", "--verbose", "--include-partial-messages"] : args;
   const child = launch(dir, cwd, actualArgs, allocation.tool);
   const wd = Object.fromEntries(Object.keys(WATCHDOG_DEFAULTS_S).map((k) => [k, watchdogS(k)]));
   writePrivate(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, tool: allocation.tool, capacity: allocation, sessionId, schema, writableDirs: writableDirs(cwd), watchdog: wd, model: slug, effort, access: opt("access") || "sandbox", direct: true, json: Boolean(schema) || flag("json-answer"), role: opt("role"), startedAt: new Date().toISOString() }));
@@ -295,7 +295,12 @@ async function watch() {
     const now = Date.now();
     const age = now - Date.parse(state.startedAt);
     let log = null;
-    try { log = statSync(path.join(dir, "codex.log")); } catch { /* not created yet */ }
+    for (const name of state.tool === "claude" ? ["codex.log", "last.md"] : ["codex.log"]) {
+      try {
+        const observed = statSync(path.join(dir, name));
+        if (observed.size > 0 && (!log || observed.mtimeMs > log.mtimeMs)) log = observed;
+      } catch { /* not created yet */ }
+    }
     const verdict = age >= cap ? ["cap", `wall-clock cap of ${cap / 1000} s reached`]
       : !log || log.size === 0 ? (age >= startHang ? ["start-hang", `no output from Codex within ${startHang / 1000} s`] : null)
       : now - log.mtimeMs >= stall ? ["stall", `no output from Codex for ${stall / 1000} s`] : null;
@@ -341,7 +346,14 @@ function finish(dir, state) {
   if (sessionId && !state.sessionId) { state.sessionId = sessionId; writePrivate(path.join(dir, "state.json"), JSON.stringify(state)); }
   let providerError = "";
   if (state.tool === "claude") {
-    try { const envelope = JSON.parse(last); providerError = envelope.is_error ? String(envelope.result ?? envelope.error ?? "") : ""; last = String(envelope.result ?? last); } catch { /* failed provider stderr is classified below */ }
+    // stream-json supplies heartbeats to the watchdog. Only the terminal result is an answer;
+    // progress and partial messages must never become the worker's final report.
+    const envelope = last.split("\n").flatMap(line => { try { return [JSON.parse(line)]; } catch { return []; } })
+      .findLast(event => event.type === "result" || Object.hasOwn(event, "result"));
+    if (envelope) {
+      providerError = envelope.is_error ? String(envelope.result ?? envelope.error ?? "") : "";
+      last = String(envelope.result ?? "");
+    } else last = "";
   }
   const base = { status: "done", tool: state.tool ?? "codex", model: state.model, effort: state.effort, sessionId };
   const watchdog = state.direct ? readJson(path.join(dir, "watchdog.json")) : null;
@@ -373,12 +385,26 @@ function allocate(id) {
   else {
     const role = opt("role");
     const type = /planner|architect|design/.test(role) ? "design" : /review|audit/.test(role) ? "review" : /mechanic|tier-mech/.test(role) ? "mechanical" : "implement";
-    task = { id, type, risk: opt("risk") || "normal" };
+    task = { id, type, ...(opt("risk") ? { risk: opt("risk") } : {}) };
   }
+  // Security is a floor even when an old caller supplies a lower --risk/task risk.
+  if (/security-auditor/.test(opt("role"))) task.risk = "critical";
   // Existing engine run path is authoritative; standalone calls use the host account log.
   const build = path.join(project, ".pandacorp/run/build");
   const log = readJson(path.join(build, "state.json"))?.status === "active" ? path.join(build, "capacity-decisions.jsonl") : undefined;
-  return decideCapacity(task, { log });
+  const allocation = decideCapacity(task, { log });
+  // Explicit legacy model/effort flags must not silently execute a different cell. Engine callers
+  // pass a validated capacity-task pin; standalone callers should migrate to task type/risk.
+  if (allocation.action === "run" && !opt("capacity-task")) {
+    // Legacy Codex flags describe the task's qualified Codex cell, not a provider pin:
+    // a capacity fallback may still execute the corresponding Claude cell.
+    const nominal = decide({ task: { ...task, override: "codex" }, readings: {}, now: process.env.PANDACORP_NOW ?? Date.now() });
+    const tier = allocatedTier(nominal);
+    if (opt("codex-model") && SLUG_RE.test(opt("codex-model")) && opt("codex-model") !== tier.model ||
+        opt("effort") && opt("effort") !== tier.effort)
+      fail("incompatible-cell", "Requested model/effort disagrees with the task/risk allocation; supply a qualified --capacity-task or correct --risk/role");
+  }
+  return allocation;
 }
 
 async function run() {
@@ -391,7 +417,9 @@ async function run() {
   if (!state) {
     const allocation = allocate(id);
     if (allocation.action === "wait") {
-      emit({ status: "done", ok: false, kind: "limit", tool: allocation.tool, limit: "usage_limit", detail: "Shared capacity wait", resumeAt: allocation.resumeAt, capacity: allocation });
+      const receipt = emit({ status: "done", ok: false, kind: "capacity_wait", tool: allocation.tool,
+        detail: "Shared capacity wait before launch", resumeAt: allocation.resumeAt, capacity: allocation });
+      writePrivate(resultFile, `${receipt}\n`);
       return;
     }
     (flag("direct") ? startDirect : start)(dir, id, allocation); state = readJson(path.join(dir, "state.json"));
@@ -444,7 +472,7 @@ async function resume() {
     const prompt = path.join(dir, "resume-prompt.md");
     writePrivate(prompt, "Continue the same unit from the checkpoint. Preserve existing edits and completed work, cell and report token. Follow the original brief and return its required JSON report.\n");
     const args = state.tool === "claude"
-      ? ["-p", "--resume", sessionId, "--model", state.model, "--effort", state.effort, "--output-format", "json"]
+      ? ["-p", "--resume", sessionId, "--model", state.model, "--effort", state.effort, "--output-format", "stream-json", "--verbose", "--include-partial-messages"]
       : ["exec", "resume", "--ignore-user-config", "--skip-git-repo-check", "--json", "-m", state.model,
         "-c", `model_reasoning_effort="${state.effort}"`, "-c", `sandbox_mode="${state.access === "full" ? "danger-full-access" : "workspace-write"}"`,
         "-c", "sandbox_workspace_write.network_access=true",

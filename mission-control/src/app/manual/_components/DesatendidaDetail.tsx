@@ -85,7 +85,7 @@ export function DesatendidaDetail(): React.JSX.Element {
         Todo cambio versionado del run se commitea mediante el CLI en{" "}
         <Code>lane/&lt;run_id&gt;/integration</Code>. Las unidades usan{" "}
         <Code>lane/&lt;run_id&gt;/&lt;unit&gt;</Code>, luego <Code>&lt;unit&gt;-a2</Code> o{" "}
-        <Code>&lt;unit&gt;-a3</Code>; las suposiciones usan <Code>assume-&lt;doubt&gt;</Code>.{" "}
+        <Code>&lt;unit&gt;-a3</Code>; las decisiones técnicas reversibles registran un supuesto con su motivo y cómo revertirlo.{" "}
         <Code>merge-queue</Code> es el único camino a main. En un proyecto lanzado la aprobación
         pendiente se muestra como <Code>waiting_gate</Code>; no detiene trabajo independiente.
       </Body>

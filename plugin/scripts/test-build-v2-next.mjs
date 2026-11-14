@@ -672,7 +672,7 @@ await test("quota: both providers >= 90 %, nothing running -> paused-quota, appl
   eq(await dispatchedIds(c), [], "nothing was dispatched");
   ok(Number.isFinite(Date.parse((await c.readState()).resumeAt)), "resumeAt persisted");
   eq((await c.events()).find(e => e.type === "capacity_state").data.patch.resumeAt, (await c.readState()).resumeAt, "resumeAt journaled");
-  ok(!c.log.some((e) => e.mod === "planner" || (e.mod === "admission" && e.fn === "issueToken")), "no planner round and no token on a quota pause");
+  ok(c.log.some((e) => e.mod === "planner") && !c.log.some((e) => e.mod === "admission" && e.fn === "issueToken"), "evaluate actual tasks, but issue no token while none fits");
 }));
 
 await test("quota: exactly 90 % counts as out (boundary); 89 % does not", async () => {
@@ -685,7 +685,7 @@ await test("quota: exactly 90 % counts as out (boundary); 89 % does not", async 
 
 await test("quota: both >= 90 but a unit is still running -> wait (reason quota), nothing applied", async () => withCase({ units: [B("WO-01-001", { state: "running", worker: WORKER(), token_hash: sha256("t") }), B("WO-02-001")], quota: { claude: 100, codex: 100 } }, async (c) => {
   const r = await callNext(c);
-  eq([r.action, r.wait?.reason], ["wait", "quota"], "terminal actions only when nothing runs");
+  eq([r.action, r.wait?.reason], ["wait", "workers_running"], "terminal actions only when nothing runs");
   eq(r.units ?? [], [], "no new unit while both providers are out");
   await expectNotApplied(c);
 }));

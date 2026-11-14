@@ -21,6 +21,7 @@ export async function advance(ctx, state, record, deps) {
   }
   if (verdict.action === "consult") {
     const queued = await queueConsult(ctx, state, record, verdict.no, deps);
+    if (queued.wait) return { state, record: { ...record, capacity_wait: queued.wait }, out: { step: record.step, wait: queued.wait } };
     if (!queued.park) return { state: queued.state, record: queued.record, out: { step: queued.record.step, consult: queued.consult } };
     return parkOut(ctx, state, record, [queued.park], deps);
   }
@@ -42,6 +43,7 @@ export async function parkOut(ctx, state, record, reasons, deps) {
 export function output(sub, record, out) {
   return {
     ok: true, cmd: "doubt", sub, doubt_id: record.id, step: record.step,
+    ...(out.wait ? { wait: out.wait } : {}),
     ...(out.consult ? { consult: out.consult } : {}),
     decision: record.step === "decided" ? record.decision : null,
     ...(out.parked ? { parked: out.parked } : {}),

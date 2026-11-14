@@ -1,5 +1,9 @@
 # Decision Log — Factory
 
+## 2026-11-14 — Capacity review: restore safeguards and complete DR-162 supersession
+
+Restored probes/tests-first/hash/worker/session safeguards from bc923770 while retaining only DR-162 routing. Updated BUILD-12/14, constants, verification and registry DR-151/152/153/161; quota is never an owner question or a reason to migrate current work. Canonical: [build-engine.md](standards/build-engine.md), [registry.yaml](decisions/registry.yaml).
+
 
 ## 2026-11-14 — DR-162 phase 3: automatic continuation and option B
 

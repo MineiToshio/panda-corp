@@ -1,6 +1,8 @@
 // Capacity continuation shares the build lease mutex; no timer, model or provider API lives here.
 import { decide, readCapacity, logCapacityDecision } from "../capacity.mjs";
 import { fencedTwoPhase } from "../build/state.mjs";
+import { capacityTaskForUnit } from "../build/routing.mjs";
+import { readJson } from "../build/fsx.mjs";
 import { buildPaths } from "../build/paths.mjs";
 
 export const BACKOFF_S = Object.freeze([60, 120, 240, 480, 900]);
@@ -75,10 +77,18 @@ export async function wakeCapacity({ project, epoch, owner = "drive", generation
     const suspended = state.units.filter(u => u.state === "suspended");
     let ready = suspended.some(u => continuationDecision(u, readings, now).ready);
     // Queued independent work may wake on either tool; suspended work may ONLY wake its own pin.
-    if (!ready && state.units.some(u => u.state === "queued" && !u.parked)) {
-      const selected = decide({ task: { id: state.run_id, type: "implement", risk: "normal" }, readings, now });
+    if (!ready) for (const unit of state.units) {
+      let task = unit.state === "queued" && !unit.parked ? capacityTaskForUnit(unit) : null;
+      if (unit.state === "reported" && unit.doubt_id) {
+        const record = await readJson(ctx.paths.doubtFile(unit.doubt_id));
+        if (record?.capacity_wait) task = { ...capacityTaskForUnit(unit), type: "design" };
+      }
+      if (!task) continue;
+      const selected = decide({ task, readings, now });
       const r = selected.readings_used[selected.tool];
-      ready = selected.action === "run" && healthyObservation(r, selected.model) && Date.parse(r.observedAt) >= Date.parse(state.wake.resetAt);
+      if (selected.action === "run" && healthyObservation(r, selected.model) && Date.parse(r.observedAt) >= Date.parse(state.wake.resetAt)) {
+        ready = true; break;
+      }
     }
     capacityAudit(project, state, "wake", { reason: ready ? "capacity_confirmed" : "renewal_unconfirmed", resumeAt: state.resumeAt, owner }, d);
     if (!ready) {

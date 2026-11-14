@@ -38,8 +38,8 @@ for what the engine runs.
 | Company / layer | Anthropic: haiku < sonnet < opus < fable. OpenAI (Codex): luna < terra < sol < astra. Model names everywhere (state, journal, reports, matrix) are these catalog keys; only CLI-launched Codex units carry the catalog slug (`gpt-6-luna`, `gpt-6.1-terra`, `gpt-6.1-sol`, `gpt-6-astra`) |
 | Author | The unit's dispatch cell (runtime, model, effort) as journaled at dispatch; a report's `authored_by` is informational only |
 | Risk zone | `none`, `floor` or `r1`, computed by `risk` (BUILD-10 §Risk zone) |
-| Out of quota / unreachable | Out of quota = a reading ≥90 % or a `usage_limit` response. Unreachable = login, CLI or network failure. The two are never conflated |
-| Degraded review | A review not done by the primary cell: `quota_90`, `unreachable`, `at_capacity` or `same_model` |
+| Out of quota / unreachable | Exhaustion is a certified `usage_limit`; fit for new work is decided per task by `decide`. Unreachable = login, CLI or network failure. They are never conflated |
+| Historical degraded review | Legacy ledger metadata only; capacity fallback and same-model fresh-context review create no degradation or mandatory re-review |
 | G0..G4 | The gate tiers (§Gates) |
 
 **Never automatic:** Fable and effort `max` are never emitted by any table in this file (CONV-12);
@@ -306,6 +306,38 @@ the allocated cell and all ordinary session constraints hold. Once dispatched, t
 for that execution. A new execution may be selected again; an active execution is never migrated mid-task.
 `model-tiers.json` remains the model/capability catalog; its legacy builder/review tables are no longer policy.
 
+### Execution and evidence safeguards
+
+Workers write only inside their unit worktree, never `git commit`/`push`/`reset`, and never set
+`PANDACORP_OWNER_RELEASE_OK`; the CLI commits. Codex slugs are checked against `codex debug models`
+at `start` (fail loud if retired).
+
+A `touch` `build` unit at attempt 1 in static zone `none` may use `via: session` only when the
+coordinator's runtime AND model match the allocated cell. Every other unit gets a separate agent or
+CLI worker. Effort and risk remain those of the allocated cell; the session's model never lowers them.
+
+Every review emits `review_recorded` with `verdict`, the actual `reviewer{runtime,model,effort}`,
+`authors[]` and findings by severity. Commits retain `Unit:` trailers; the final report includes review
+totals and actual cells. Historical `cross`/`degraded` fields are compatibility metadata, never authority
+for a second review or an author-based routing rule. Context independence remains mandatory.
+
+**Probes (D23; the budget lives only here).** One probe per finding plus at most 3 more per FRD,
+permanent only when they failed first. `review-record` commits them onto `lane/<run_id>/integration` (trailer
+`Unit: <review unit>`) and stores their hashes (`probe_hashes`); the patch unit's brief lists them as read-only RED
+tests; `land` re-hashes them. `verdict: blocked` hands back the reviewed units with the finding as the
+reason.
+
+**Tests-first (D16).** For units in zone `floor` or `r1` that add ACs, and for every `type: bug` card,
+a `tests` unit (the test-writer, a different agent and dispatch from the builder) runs before the build
+unit. Its G1 must be RED on the new test files by assertion (not import or syntax) and green on
+everything else; its outcome is `committed`. The CLI hashes those files; the tests unit is integrated
+before the dependent build unit branches; that build unit's `report` rejects any change to a hashed
+file; `land` re-hashes. This replaces the `drift-proof.mjs` differential for bug cards in v2.
+
+**Other safeguards that replace the owner's confirmation in the risk zone** (DR-151): the single strong
+reviewer with the scope lens; one security audit per build when `risk.audit`; G3 before `main`; floor
+mutation at G4; nothing irreversible past its gate.
+
 ### Risk zone (`risk`, input to BUILD-10 and BUILD-12)
 
 `pandacorp-build risk --files … | --range base..head` builds the classifier context itself
@@ -411,8 +443,8 @@ the same row and scope, otherwise it exits 5 ("re-run preflight").
 2. **"Arrancó"**: scope in 4-6 lines, size, who builds, who reviews, provisional risk zone (the final
    one comes from the plan's paths and only changes the reviewer and tests-first, never asks), foreseen
    gates, each company's quota, pending deferred reviews; in a launched project the line "En proyecto
-   lanzado no toco `main`: el código, los documentos y el estado esperan tu orden."; when Codex is ≥90 %
-   at start, "Relevo a Codex: armado (Codex al N %, solo actuará si se renueva antes)".
+   lanzado no toco `main`: el código, los documentos y el estado esperan tu orden."; state whether the
+   relay is armed, without a quota-threshold condition.
 3. Last line: **"Puedes irte. Te aviso si algo necesita tu firma; el informe estará en Mission Control
    y aquí."**, or "No necesito nada de ti." when there are no questions.
 
@@ -438,14 +470,15 @@ and its preferred one; the unit stays `reported` with its `doubt_id`):
    `factory/decisions/registry.yaml`, `factory/memory/INDEX.md`. If one answers, apply it with the
    citation. Under `drive` or a Codex app session this step is skipped and the consult brief tells the
    consultant to check the sources first.
-1. **Consult 1, the other company at judgment level:** Claude-origin doubt → codex sol high;
-   Codex-origin → claude opus high; under `drive` or in the Codex app → codex astra high. Context pack ≤1
-   page: question, options, Dentro/Fuera with citations, ACs and affected files, the owner's priorities
-   (precision > speed > quota), the never-decide list. Answer: option, confidence (high/medium/low),
-   reason, reversible?
+1. **Consult 1:** `decide(type: design, risk: unit risk)` chooses the qualified cell, regardless of
+   origin. Context pack ≤1 page: question, options, Dentro/Fuera with citations, ACs and affected files,
+   the owner's priorities (precision > speed > quota), the never-decide list. Answer: option,
+   confidence (high/medium/low), reason, reversible?
 2. **Decide** when consult 1 matches the preferred option with confidence ≥ medium. Otherwise
-   **consult 2** (tie-break) with the strongest model not yet consulted (opus xhigh or astra high); the
-   option with 2 of 3 votes and confidence ≥ medium wins.
+   **consult 2** (independent tie-break), using the same role/risk allocator. The option with 2 of 3
+   votes and confidence ≥ medium wins. Capacity failure retains a pending unconsumed consult with
+   `resumeAt`; the scheduler re-decides it on each pass and after reset. Never park, assume an answer,
+   spend consult budget or ask the owner because no consultant currently fits.
 2b. **Ladder length (DEC-10):** the ladder asks at most 2 consults; with no 2-of-3 winner after consult 2 a reversible technical doubt uses an engine assumption, and a winner is parked `consult_irreversible` when any voter, or any answered non-voting consult that chose it, says `reversible:false`. The file-risk veto fails closed: an unreadable `docs/frds` or work order, or a WO id not found, parks the doubt. "Already built" for a rejected assumption is judged from unit state and doubt-id order; the assumed root that was never rebuilt is re-queued without spending an attempt. A doubt the engine synthesizes is a repeat only by its normalized question (a distinct second ambiguity goes to consult); a reworded repeat is stopped only by the 8-doubt cap.
 3. **Caps:** ≤3 consult calls per doubt (hard cap); ≤8 consulted doubts per build; beyond that a reversible doubt uses an engine assumption. A
    consult that returns no JSON counts as a low-confidence, irreversible non-answer: it counts toward the
@@ -520,35 +553,34 @@ acceptance is needed. Consult caps bound reasoning cost, not owner dependence. P
 
 > Severity: **MUST** · Enforcement: `drive.mjs` + `build-state.mjs` `transfer` (epoch fencing), `next` (handoff decided in the CLI). See DR-153, DR-133.
 
-`pandacorp-build drive` is a Node process of the same CLI, **with no LLM of its own and never calling
-Claude** (LESSON-0501). It reuses `next`, `codex-worker.mjs` (workers in their own process group), the
-deterministic steps and the Codex quota reader.
+`pandacorp-build drive` is a deterministic Node coordinator with no LLM of its own. It reuses `next`,
+the shared account allocator, isolated CLI workers for either allocated provider, and deterministic steps.
+Authenticated Claude CLI availability must be qualified separately; a missing CLI/login is infrastructure,
+not quota or proof of a working provider (LESSON-0501).
 
-- **Arming (D10).** `start --run` (and `start --resume`) arms `drive` in standby whenever
-  `codex login status` is OK and, in a launched project, the pre-push hook is verified (spawned detached
-  and unref'd; no `setsid` on macOS; `caffeinate -i -w <pid>`). Codex quota is **not** checked at arming.
-  When it cannot be armed, the first-minute message says why.
-- **Triggers** (polled every 30 s): (a) `build/handoff.json`, written by the session when `next`
-  returned `handoff`; (b) Claude's usage-limit text only (DEC-3): `classifyLimitText` matches in the `report.json` of an
-  in-flight Claude unit, in Claude's envelope in `.pandacorp/run/codex-workers/<id>/last.md` of a worker of
-  THIS run, or in an optional coordinator transcript (not verified); Codex's own limit text never fires
-  (b), `quota.policy` governs it; (c) no lease renewal for `drive_silent_s` (1800 s) AND pending work AND the last
-  Claude reading ≥85 % or unknown. Standby exits when the run's state is no longer `active`.
-- **Takeover.** At a trigger `drive` re-reads Codex quota. ≥90 %: `transfer`, then stop at
-  `paused-quota` with both `resets_at` (lease released). Otherwise: `transfer` with coordinator `drive`
-  (same `run_id`, epoch+1, new token file, no quiesce, running Codex workers kept, no owner confirmation:
-  it is the same build) and run the loop; journal `drive_takeover`; notification. The old session is
-  fenced (exit 3) and stays an observer.
-- **Loop:** `next` (all builders codex; reviews per BUILD-10, Claude counted as out) → launch workers and
-  jobs → harvest → `report` / `review-record` / `land` → renew the lease each iteration. Doubts: sources
-  skipped, consult astra high, then park. Security audit: not run, queued as a deferred review for claude
-  opus high (the audit unit is set `verified` so the run can finish; author = the strongest recorded worker
-  cell, else codex sol high). Gates: `waiting_gate` + macOS notification. `drive` never spawns a `land` while a land job is
-  alive.
-- **Capacity waits:** no eligible cell → `waiting` with automatic wake at reset+60s; engine failure → BUILD-15; all done → `finish`.
+- **Arming (D10).** `start --run` and `start --resume` arm standby when `codex login status` is OK
+  and, for a launched project, the pre-push hook is verified. Spawn detached/unref'd, no `setsid` on
+  macOS, `caffeinate -i -w <pid>`. Quota is not checked at arming. Report why when it cannot arm.
+- **Triggers** (every 30 s): (a) explicit `build/handoff.json` from the current epoch; (c) no lease
+  renewal for `drive_silent_s` (1800 s) with pending work. The retired quota trigger (b) never transfers
+  a live lead. A provider limit uses BUILD-11 suspension of that execution, preserving healthy siblings.
+- **Takeover.** `transfer` changes coordinator to `drive`, same run id, epoch+1, new token file, no
+  quiesce or owner confirmation. Preserve every live/suspended execution, worker identity, report token,
+  pin, attempt and dirty worktree. Never reset/requeue them because of quota. Journal `drive_takeover`,
+  notify, fence the old coordinator. Capacity is decided from real eligible units in `next`, never a
+  fictitious global implementation task and never a pre-transfer quota veto.
+- **Loop:** shared `next` → allocated Claude/Codex workers and deterministic jobs → harvest → report /
+  review-record / land, renewing the lease each iteration. Reviews, consultations and security audits
+  keep their role/risk floor and independent contexts. An audit is never skipped to finish a relay.
+  Human gates retain `waiting_gate` and notification; no `land` is spawned while one is alive.
+- **Capacity waits:** only when no eligible cell fits, `waiting` retains the lease and minimum
+  `resumeAt`, automatically waking at reset+60s with renewed readings (BUILD-11). An admission wait
+  before process launch returns queued with no attempt or fabricated usage-limit observation; re-decide
+  immediately on the next pass so another qualified provider can run. Engine failures use BUILD-15;
+  all work complete → `finish`. Deterministic closing/landing needs no model capacity.
 - **Resume and return to Claude (D32).** `start --resume` accepts a `paused`, `waiting_owner`,
   `waiting_gate` or `stopped` run: lease present → `transfer` back to the caller immediately (epoch+1);
-  absent → `acquire`; units whose worker or job pid is alive are re-attached, the others re-queued; `drive`
+  absent → `acquire`; live workers/jobs are re-attached; suspended executions retain their exact cell, session, token, attempt, branch and dirty worktree and continue in place regardless of their exited pid; only other confirmed-ended executions may be re-queued; `drive`
   is re-armed. A running `drive` gets exit 3 at its next phase 2 and exits, stopping the Codex workers it launched that the state does not record; `start --resume` waits up to 60 s for a still-active drive to yield before any worktree reset or heal, and refuses with CONTENDED (exit 4, retry) if it has not (never resets a worktree under a live drive). Only a stale lease held by a `session` coordinator of the other runtime needs `--owner-confirmed`; a lease held by `drive` (fresh or stale, e.g. after `kill -9`) is transferred back without it. `start --resume` names the new coordinator (`--coordinator claude|codex`). Capacity waits use BUILD-11 automatic continuation, without owner involvement.
 - **Locks (FIX-MUTEX3).** Lease and journal locks are born with their owner record. Dead owners
   (pid gone or reused by a later-started process) are reclaimed immediately. Live holders are never
@@ -701,7 +733,7 @@ path for factory triage instead of inventing a BL id.
   state makes `--resume` run `rebuild-state`, losing at most the unit in flight.
 - After 3 engine failures in one build the message adds one informative line ("si lo consideras un
   desastre, dilo y se aplica el regreso").
-- **Run status and terminal actions (D32).** `next` returns a terminal action only when nothing of the run is running. First match: both ≥90 % → `paused-quota`; 3 consecutive `env-infra` hand-backs → `stop`; everything landed or handed back → `done` (then `finish`); everything left waits on an owner answer or a gate → `waiting-owner` (status `waiting_gate` if only gates); queued work with no planner progress → `deadlock`; other no-progress → `stop`. A non-`done` terminal action arrives applied (status, journal, lease released); the session only reports. `finish` accepts any non-active status; `finish` with only `waiting_gate` units left releases the lease and leaves the run `waiting_gate`.
+- **Run status and terminal actions (D32).** Harvest and evaluate real eligible tasks first; deterministic closing/landing never needs model capacity. With nothing running: three consecutive env-infra hand-backs stop; completed/handed-back work is done; only gates/owner answers wait for the owner; no eligible model cell fits means capacity waiting with the minimum resumeAt and lease retained; unresolved dependencies cause deadlock; other no-progress stops. Capacity waiting is automatically resumed under BUILD-11 and cannot be finished or released as a completed run. Other non-done terminal actions apply status/journal and release the lease. Waiting gates keep their human authority; the session reports the applied result.
 
 ## Gates G0..G4 (D7)
 
@@ -749,13 +781,11 @@ consumer fixtures: `mission-control/src/lib/build-run/_tests/build-run.test.ts`.
 
 | Constant | Value | Rule |
 |---|---|---|
-| Quota stop / handoff | 90 % / 95 % (or `usage_limit` = 100 %) | BUILD-11 |
-| Codex reading probe | age >1 h and ≥70 % | BUILD-11 |
+| Codex reading freshness | 1 h, passive rollout read, never a model probe | BUILD-11 |
 | Claude reading freshness | 10 min | BUILD-11 |
 | `rate_limit` retry | Same cell: 60/120/240/480/900 s; Retry-After capped at 900 s | BUILD-11 |
 | `lease_ttl_s` | 1800 | BUILD-7 |
 | `drive_silent_s` (trigger c) | 1800 | BUILD-14 |
-| `drive_trigger_c_min_pct` | 85 | BUILD-14 |
 | `drive_poll_s` | 30 | BUILD-14 |
 | `next --wait` maximum | 300 s | BUILD-7 |
 | Preflight reuse | ≤15 min, same row and scope | BUILD-12 |
@@ -785,12 +815,12 @@ measurements need keeps being recorded.
 |---|---|---|---|
 | F1 | Shadow review sampling 1 in 10 | needs both companies below 70 % (not true at today's Codex usage); measurement only, non-blocking; `review_recorded` and `Unit:` trailers are kept | phase D |
 | F2 | Escape-attribution report (escapes per reviewer model) | data kept; computation and display belong to Mission Control later | phase D / MC |
-| F4 | `--budget <$-eq>` | needs `usage-rollup.mjs` adapted to v2 transcripts; quota thresholds already guard usage | later MINOR |
+| F4 | `--budget <$-eq>` | needs `usage-rollup.mjs` adapted to v2 transcripts; per-task capacity reserves guard usage | later MINOR |
 | F5 | G1 e2e in a heavy queue | e2e runs per FRD in G2 and in G3 | removed |
 | F6 | Detached heartbeat process | replaced by renew-per-command + ttl 1800 | removed |
 | F7 | Public `escalate` command | attempt 3 is automatic | removed |
 | F8 | `drift-proof.mjs` differential for bug cards | replaced by the tests-first unit | replaced |
-| F9 | Risk rules R4-R10 (filesystem-destructive, sensitive identifiers, size as zone) | covered by S8 and the product floor; size and reopen act through routing | retired |
+| F9 | Risk rules R4-R10 (filesystem-destructive, sensitive identifiers, size as zone) | covered by S8 and the product floor; size and reopen never raise a cell | retired |
 | F10 | PreToolUse hook on `Agent` for admission tokens | not verified; detection at `report` is enough | phase D |
 | F12 | Fix for the `last_green_sha` pin race | rare (`main` must move during a landing); journaled `pin_stale`, healed by the next landing | later |
 | F13 | `yield-request` file | replaced by the immediate transfer of `start --resume` | removed |
@@ -800,11 +830,11 @@ measurements need keeps being recorded.
 - **BUILD-7 (entry, detection, one writer):** `node plugin/scripts/test-build-v2-detect.mjs` (each row; paused run plus card; `source_change` exclusion; label precedence; legacy words; card reference forms), `test-build-v2-state.mjs` (hash chain, per-run archive, `rebuild-state` idempotent, frontmatter wins), `test-build-v2-cli.mjs` (exit 3 on a stale epoch; one JSON line on stdout), `test-build-v2-next.mjs` (never drains the queue; never returns a unit outside scope; `--wait` early returns), `node plugin/scripts/test-build-state-handoff.mjs` (`transfer`, `forceRelease`, no status projection), `test-build-v2-e2e.mjs` (no tracked file of the main checkout changes until merge-queue lands).
 - **BUILD-8 (card, docs before):** `test-build-v2-detect.mjs` (`card check`, Mission Control enum, `obsolete` read alias), `test-build-v2-report.mjs` (own commit, `Unit:`/`WO:` trailers, files outside `artifacts`, snapshots, WO frontmatter edits and hashed-file changes rejected), `test-build-v2-land.mjs` (`Change:` only on the landing metadata commit; card to `done/`); citation fidelity to the conversation is review-only (no machine can check it).
 - **BUILD-9 (sizes, planner, admission):** `test-build-v2-planner.mjs` (cyclic-FRD/acyclic-WO graph, barrier + wide DAG, literal-prefix overlap, out-of-scope never planned, chain cut, deadlock), `test-build-v2-perf.mjs` (learned start, bounded samples/records), `test-build-v2-disk.mjs` (disk waits, sparse fallback, cleanup/ref retention/resume/gc), `test-build-v2-admission.mjs` (signal fixtures: clean, warn, critical, swap rising, garbled → safe mode; `motivo_limite`; host slots; never kills; `admit` read-only), `test-build-v2-report.mjs` (tokenless unit rejected), `test-build-v2-jobs.mjs` (detached jobs, H slot, adoption by the epoch holder), `bash plugin/scripts/test-merge-queue-lock-refresh.sh` (lock refresh + host H slot).
-- **BUILD-10 (routing, single reviewer, risk zone):** `test-build-v2-routing.mjs` (every builder row, all 16 matrix rows × availability {ok, quota, unreachable, at_capacity}, N7 only on quota, unreachable N7 cells park, row 8 haiku/fable, `drive` labels `quota_90`, no-repeat raises effort only, exhaustive guard that Fable and `max` are never emitted), `test-build-v2-review.mjs` (degraded marking, deferred lifecycle, probe commits and hashes, `blocked` → hand-back), `test-build-v2-risk.mjs` (zone mapping, `irreversible`, `audit`, fail-closed, `unclassified`), `test-build-v2-risk-backtest.mjs` (CI-only, `package.json`-only, `plugin/**`-only and query-only diffs give `floor`; a login diff gives `r1`; 0 false negatives on the known set; the owner-labelled sample is pending owner time).
-- **BUILD-11 (quota):** `test-build-v2-quota.mjs` (rollout fixtures 98 %, stale, malformed, primary/secondary max, epoch-to-ISO `resets_at`, `usage_limit` recorded as 100 %, `rate_limit` retry; `policy()` table), `test-build-v2-next.mjs` (one exhausted tool uses the other; neither tool fits → `waiting` with the lease retained and reset confirmation).
+- **BUILD-10 (routing, single reviewer, risk):** `test-build-v2-routing.mjs` (role/risk cells, both-provider fallback, stable attempt/author behavior, session eligibility and forbidden cells), `test-build-v2-review.mjs` (fresh-context independence, probe commits/hashes, blocked hand-back), `test-build-v2-risk.mjs` and `test-build-v2-risk-backtest.mjs` (risk zones, audit, fail-closed, known exclusions), `test-codex-worker*.mjs` and `test-capacity-review.mjs` (standalone critical floor, explicit incompatible arguments, transport heartbeat).
+- **BUILD-11 (quota):** `test-capacity.mjs`, `test-build-v2-quota.mjs`, `test-capacity-review.mjs` (real-task fit instead of global veto, unconsumed pending consultation, prelaunch receipt without failure/false exhaustion), `test-capacity-resume.mjs` (same-session continuation, backoff, renewal, single fenced wake, native receipts). Fake providers do not certify authentication or a real subscription reset.
 - **BUILD-12 (autonomy):** `test-build-v2-preflight.mjs` (every question type appears with its default; `preflight.json` reuse; ≤60 s on a Mission-Control-shaped fixture), `test-build-v2-doubts.mjs` (ladder, sources skipped under drive, caps 3/8, no-JSON consult, never-decide list, deterministic veto, decision-log and `decisions.md` writers incl. the tracked-path rule, reversible assumptions without owner acceptance), `test-build-v2-answer.mjs` (kinds ask/parked/gate, assumption accepted/discarded, `pending_answer` effects), `test-build-v2-next.mjs` (`pending_answer` last). The owner-perceived first minute (including the card turn) is measured in the first real use; review-only until then.
 - **BUILD-13 (human gates, landing):** `node --test plugin/scripts/test-install-pre-push.mjs` (nested subtree scopes, multi-ref updates, new/deleted refs, reverts/rewinds and default-worktree state), `bash plugin/scripts/test-pre-push.sh` (launched/internal, default/other branch, delete, env OK, chaining, tracked `core.hooksPath` refused, unreadable status), `test-build-v2-land.mjs` (landing metadata commit contents, every merge-queue exit mapped, exit 21 → `waiting_gate` with the release variable never set, `pin_stale`), `test-build-v2-e2e.mjs` (a fake worker's `git push` to `main` is rejected); existing `test-merge-queue-release-gate.sh` and `test-block-dangerous.sh` stay green.
-- **BUILD-14 (drive):** `test-build-v2-drive.mjs` (arming without a quota check, triggers a/b/c with fixture clocks, quota re-check at takeover, takeover fences the session, `kill -9` mid-unit + `--resume`, return by `start --resume`, audit deferred, `paused-quota`), `test-build-v2-workers.mjs` (`codex-worker.mjs run --direct` polling, limit classification), `test-build-state-handoff.mjs`, `test-build-v2-e2e.mjs`. Not verifiable without real runs (stated, not claimed): the real loop with `codex exec`, long-lived Codex auth in a detached process, surviving a Desktop app close, sleep and lid behaviour, notifications reaching the owner.
+- **BUILD-14 (relay):** `test-build-v2-drive.mjs` (arming, explicit transfer, silent recovery, ownership fencing and gates), `test-capacity-review.mjs` (quota never transfers a live lead, healthy/live and suspended execution retention), `test-build-v2-e2e.mjs` (same-run relay and landing), `test-capacity-resume.mjs` (reset/wake races). Detached survival, native timers and real provider authentication/reset still require live qualification.
 - **BUILD-15 (failure):** `test-build-v2-gate-patch.mjs` (selective attribution and independent fallback), `test-build-v2-nested.mjs` (local drafts and mirrored questions), `test-build-v2-failure.mjs` (build/patch-only 3-execution budget, automatic attempt 3, identical evidence → hand-back, hand-back blocks dependents, 3 consecutive `env-infra` stop, engine failure: safe-point stop, exit 8, `handback/engine.md`, a BL file valid for `validate-backlog.sh`, Spanish message), `test-build-v2-integrate.mjs` (chain integration, WO transitions on the integration branch, patch path `IN_REVIEW → PLANNED → IN_PROGRESS`), `test-build-v2-e2e.mjs`.
 - **Gates and telemetry:** `test-build-v2-integrate.mjs` (G2 job spawned per fully integrated FRD), `test-build-v2-land.mjs` (`VERIFIED` and `last_green_sha` only in the landing metadata commit), `test-build-v2-telemetry.mjs` + Mission Control `src/lib/build-track/_tests/engine-v2-contract.test.ts` (CLI-produced lines parsed by the real `build-track.ts`, `events.ts` and the lease reader), Mission Control `src/lib/status/_tests/{liveness,lease-liveness}.test.ts` (lease-only liveness, task D06), `bash plugin/scripts/check-derived-drift.sh` Check 7 (event vocabulary projected into Mission Control).
 - **End to end:** `node plugin/scripts/test-build-v2-e2e.mjs` on the 4-WO fixture with fake workers, 0 manual state edits; the whole family runs in `bash plugin/scripts/run-engine-tests.sh` and the CI workflow `factory-engine-tests.yml`.
@@ -817,6 +847,6 @@ and needed the owner at the keyboard. Moving every deterministic decision into a
 build resumable from disk, portable across runtimes and observable, and lets the owner say
 "impleméntalo" and leave: questions are front-loaded, later doubts are consulted or parked, and the
 only stops are human gates. Keeping every tracked write on one integration branch makes merge-queue
-the single, G3-gated path to `main` in every project. One cross-company reviewer replaces double review
+the single, G3-gated path to `main` in every project. One reviewer in a fresh independent context, allocated by role and risk, replaces double review
 in exchange for quota and simplicity (an accepted risk, measured later through escapes); human gates,
 G3 before `main` and the irreversibility veto are what keep that trade safe.

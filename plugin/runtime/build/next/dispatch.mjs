@@ -66,12 +66,12 @@ export async function dispatchRound(run, state, candidates, params, signals, quo
     const note = { title: "Build esperando espacio", message: "No hay espacio suficiente para otra copia de trabajo. El trabajo en curso sigue; libera disco para continuar." };
     try { await (d.notify ?? ((n) => notify(n, { env: d.env, ...(d.notifyExec ? { exec: d.notifyExec } : {}) })))(note); } catch { /* notification bulkhead */ }
   }
-  for (const p of (result.prepared ?? []).filter(p => !p.disk)) emit(run, state, "agent.working", { role: AGENT_TYPE[p.unit.kind], model: p.cell.model, unit: p.unit.id });
-  const anyGrant = (result.prepared ?? []).some(p => !p.disk) || (result.g2 ?? 0) > 0;
+  for (const p of (result.prepared ?? []).filter(p => !p.disk && !p.capacityWait)) emit(run, state, "agent.working", { role: AGENT_TYPE[p.unit.kind], model: p.cell.model, unit: p.unit.id });
+  const anyGrant = (result.prepared ?? []).some(p => !p.disk && !p.capacityWait) || (result.g2 ?? 0) > 0;
   const admit = result.lastDecision ? { decision: anyGrant ? "grant" : "wait", motivo_limite: result.lastDecision.motivo_limite } : null;
   if (admit) emit(run, state, "admit.decision", { ...admit, unit: result.prepared?.[0]?.unit.id ?? null });
-  const units = (result.prepared ?? []).filter(p => !p.disk).map((p) => unitOutput(state, p));
-  return { state: await fresh(run), units, admit, admissionBlocked: result.blocked ? motivoToWait(result.blocked) : null, g2Failed: result.g2Failed ?? [], g2Fails: result.g2Fails ?? {}, diskBlocked: result.diskBlocked === true };
+  const units = (result.prepared ?? []).filter(p => !p.disk && !p.capacityWait).map((p) => unitOutput(state, p));
+  return { state: await fresh(run), units, admit, capacityWaits: (result.prepared ?? []).flatMap(p => p.capacityWait ? [p.capacityWait.resumeAt] : []), admissionBlocked: result.blocked ? motivoToWait(result.blocked) : null, g2Failed: result.g2Failed ?? [], g2Fails: result.g2Fails ?? {}, diskBlocked: result.diskBlocked === true };
 }
 
 /** Phase 1 of a dispatch round (mutex): one admission decision per candidate, a token per granted unit, units -> admitted. */
@@ -186,10 +186,15 @@ async function recordPhase(run, work, intent, ctx, quota) {
   for (const p of work.prepared) {
     const cur = findUnit(s, p.unit.id);
     if (!cur || cur.state !== "admitted" || cur.token_hash !== p.token_hash) throw err("INVALID_STATE", `unit ${p.unit.id} changed during dispatch`, { hint: "rebuild-state" });
-    if (p.disk) {
+    if (p.disk || p.capacityWait) {
       releaseToken(cur.id, admissionCtx(run));
       units = units.map(u => u.id === cur.id ? { ...u, state: "queued", token_hash: null, worker: null } : u);
       events.push(unitEvent(cur.id, "admitted", "queued"));
+      if (p.capacityWait) {
+        events.push({ type: "capacity_state", data: { unit: cur.id, patch: { token_hash: null, worker: null } } });
+        capacityAudit(run.ref.project, s, "waiting", { unit: cur.id, reason: "prelaunch_capacity", resumeAt: p.capacityWait.resumeAt,
+          cell: { tool: p.cell.runtime, model: p.cell.model, effort: p.cell.effort } }, d);
+      }
       continue;
     }
     const worker = { ...p.cell, via: p.via, pid: p.launched?.pid ?? null, worker_id: p.launched?.workerId ?? null };
@@ -264,6 +269,8 @@ async function prepareGrant(run, current, g) {
       cell: g.cell, schemaFile: files.schema_path || null, dir, briefFile: briefPath, dispatch: dispatchOf(g.token_hash),
     }, d);
     if (!res?.ok) throw err("ENGINE_FAILURE", `the Codex worker of ${unit.id} did not start (${res?.kind ?? "unknown"}): ${res?.detail ?? ""}`);
+    if (res.settled?.kind === "capacity_wait") return { ...g, unit, slug, worktree, branch,
+      files: { ...files, brief_path: briefPath }, capacityWait: res.settled };
     launched = res;
   }
   return { ...g, unit, slug, worktree, branch, files: { ...files, brief_path: briefPath }, launched };

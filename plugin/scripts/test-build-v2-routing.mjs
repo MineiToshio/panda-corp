@@ -270,7 +270,9 @@ for (const origin of ["claude", "codex", "drive", "codex_app"]) for (const zone 
     assert.deepEqual(pick(r), expected("design", zone, c === 100 ? "codex" : "claude"));
     assert.deepEqual(r, consultCell(input)); assert.deepEqual(input, copy);
   }
-  assert.equal(consultCell({ origin, zone, consultNo: 2, availability: quota(100, 100), now }), null);
+  const waiting = consultCell({ origin, zone, consultNo: 2, availability: quota(100, 100), now });
+  assert.equal(waiting.paused, "quota"); assert.equal(waiting.capacity.action, "wait");
+  assert.ok(Number.isFinite(Date.parse(waiting.resumeAt)));
 });
 
 console.log(`RESULT ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;

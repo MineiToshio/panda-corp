@@ -1,11 +1,9 @@
-import { logCapacityDecision } from "../../capacity.mjs";
 // One scheduling pass of `next`: renew + one admission reading, harvest, integrate, quota policy, managed units and the
 // planner round, landing, admission and dispatch, then wait or a terminal action (A11).
 import { withRunCleanup } from "../lifecycle/cleanup.mjs";
 import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
 import { bootstrapIntegrationWorktree } from "../integrate.mjs";
 import { recordSample } from "../perf.mjs";
-import { isTerminalUnit } from "../state.mjs";
 import { ENV_INFRA_STOP, G2_SNAPSHOT_FAIL_MAX, LAND_RETRY_S, RETRY_S } from "./constants.mjs";
 import { admissionCtx, fresh, mutate, sibling, nowMs } from "./context.mjs";
 import { buildCandidates } from "./candidates.mjs";
@@ -61,18 +59,6 @@ export async function step(run) {
   // (3) quota policy (the A11 priority is owned by quota.policy): handoff, or the paused-quota terminal action.
   const quota = await quotaView(run, state);
   const pol = quota.policy;
-  if (pol.handoff) {
-    notes.push(`Claude al ${quota.out.claude.pct ?? "?"} %: relevo a drive.`);
-    return finish(run, state, { action: "handoff", quota, notes });
-  }
-  if (pol.paused && !(state.units.length && state.units.every(isTerminalUnit))) {
-    if (pol.decision) logCapacityDecision({ id: state.run_id, type: "implement", risk: "normal" }, pol.decision, { env: d.env, now: pol.now, log: run.paths.capacityDecisionsFile });
-    if (runningSummary(state).any) return finish(run, state, { action: "wait", wait: { reason: "quota", retry_after_s: RETRY_S.quota }, quota, notes });
-    const dates = [pol.resumeAt, ...state.units.filter(u => u.state === "suspended").map(u => u.suspension.resumeAt)].filter(Boolean);
-    const terminal = { action: "waiting", status: "waiting", reason: "capacity", resumeAt: dates.sort((a,b) => Date.parse(a)-Date.parse(b))[0] };
-    state = await applyTerminal(run.ref, terminal, d);
-    return finish(run, state, { action: terminal.action, quota, notes });
-  }
 
   // (4)(5) deferred reviews first, planner round, pending answers (D19).
   const deferredEntries = await listDeferred(run);
@@ -104,6 +90,10 @@ export async function step(run) {
   if (dispatch.diskBlocked) return finish(run, state, { action: "wait", wait: { reason: "disk", retry_after_s: RETRY_S.disk }, admit: dispatch.admit, quota, notes });
   // BL-0317: an empty FRD review was settled in this pass; the landing decision ran before it, so retry instead of stopping.
   if (candidates.settled) return finish(run, state, { action: "wait", wait: { reason: "gate", retry_after_s: RETRY_S.gate }, admit: dispatch.admit, quota, notes });
+  // A refused prelaunch pin has not started an execution. Reread and re-decide on the next pass;
+  // another qualified tool may fit now. Preserve the receipt without inventing account exhaustion.
+  if (dispatch.capacityWaits?.length) return finish(run, state, { action: "wait",
+    wait: { reason: "quota", retry_after_s: 1, resumeAt: dispatch.capacityWaits.sort()[0] }, quota, notes });
   // Nothing dispatched: wait while anything runs (A11), else a terminal action.
   const running = runningSummary(state);
   if (running.any || landing.waitLand) {
@@ -122,7 +112,7 @@ export async function step(run) {
     // ENV_INFRA_STOP streak of hand-backs ends the run through chooseTerminal (FIX-D-4).
     return finish(run, state, { action: "wait", wait: { reason: "gate", retry_after_s: RETRY_S.gate }, admit: dispatch.admit, quota, notes });
   }
-  const capacityResumeAt = [...(candidates.capacityWaits ?? [])].sort((a,b) => Date.parse(a)-Date.parse(b))[0];
+  const capacityResumeAt = [...(candidates.capacityWaits ?? []), ...(dispatch.capacityWaits ?? [])].sort((a,b) => Date.parse(a)-Date.parse(b))[0];
   // A transient response is a running loop backoff, not a subscription-reset wait (+60s grace).
   const transient = state.units.filter(u => u.state === "suspended" && u.suspension.reason === "rate_limit")
     .some(u => u.suspension.resumeAt === capacityResumeAt);

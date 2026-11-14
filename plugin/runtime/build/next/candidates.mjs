@@ -1,5 +1,6 @@
 // (6) Candidates and cells: the ordered dispatch candidates (deferred reviews, consults, FRD reviews, the audit, then
 // the planner's ready units) with the routing cell each one runs on.
+import { retryCapacityConsults } from "../doubts/consult.mjs";
 import { logCapacityDecision } from "../../capacity.mjs";
 import * as fsp from "node:fs/promises";
 import path from "node:path";
@@ -64,6 +65,16 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
   const out = [];
   let quotaBlocked = false;
   const capacityWaits = [];
+  // Quota never settles a doubt or consumes a consultation. Re-decide pending demand on
+  // each scheduler pass, so a newly available alternative tool can run it immediately.
+  if (state.units.some(u => u.state === "reported" && u.doubt_id)) {
+    state = await mutate(run, async (s, ctx) => {
+      const retried = await retryCapacityConsults(ctx, s, { ...d, availability: pol });
+      capacityWaits.push(...retried.waits);
+      if (retried.waits.length) quotaBlocked = true;
+      return { state: retried.state };
+    });
+  }
   const toParkNoReviewer = [];
   const toUnpark = [];
   const toSettle = [];
