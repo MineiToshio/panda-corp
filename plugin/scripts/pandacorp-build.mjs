@@ -67,7 +67,7 @@ const COMMANDS = Object.freeze({
 });
 const START_MODES = Object.freeze({
   detect: { bool: [], value: ["args", "session-card", "session-id", "session-runtime"], usage: "start --detect [--args RAW] [--session-card P] [--session-id ID] [--session-runtime R]" },
-  preflight: { bool: ["probe-codex"], value: ["row", "scope-json", "label", "session-model"], usage: "start --preflight --row N --scope-json F [--label L] [--session-model M] [--probe-codex]" },
+  preflight: { bool: ["probe-codex"], value: ["row", "scope-json", "label", "session-model", "coordinator"], usage: "start --preflight --row N --scope-json F [--label L] [--coordinator C] [--session-model M] [--probe-codex]" },
   run: { bool: [], value: ["scope-json", "label", "coordinator", "k", "mode", "session-model", "answers"], usage: "start --run --scope-json F --coordinator C [--label L] [--k N] [--mode M] [--session-model M] [--answers J]" },
   resume: { bool: ["owner-confirmed"], value: ["coordinator", "session-model", "run", "unblock", "reason"], usage: "start --resume --coordinator C [--session-model M] [--run ID] [--owner-confirmed] [--unblock U --reason TEXT]" },
 });
@@ -166,6 +166,7 @@ const startHandlers = {
     const r = await runPreflight({
       project: c.project, row, scopeFile: abs(need(c.flags, "scope-json")), label: company(c.flags.label, "label"),
       sessionModel: c.flags["session-model"] ?? null, probeCodex: c.flags["probe-codex"] === true,
+      ...(c.flags.coordinator === undefined ? {} : { coordinator: company(c.flags.coordinator, "coordinator") }),
     }, c.deps);
     return { body: r, exit: r.failclosed ? 9 : 0 };
   },

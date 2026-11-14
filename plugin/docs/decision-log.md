@@ -1,5 +1,15 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-13 — Preflight takes the coordinator explicitly (BL-0319)
+
+**What:** `start --preflight` accepts `--coordinator claude|codex` and defaults to `claude`; it no longer infers the Codex
+app from `--label codex`. The implement protocol passes the flag. Plugin **10.4.5**.
+
+**Why:** funko-tracker's preflight announced a degraded "Codex Astra (unreachable)" reviewer for a Claude session building
+with Codex workers, while the run correctly routed reviews to Claude (BUILD-10: the other company reviews). The owner read
+the preview as a reachability bug. Canonical: [CLI reference](build-engine-cli.md) 3.2. Tests: `test-build-v2-preflight.mjs`
+BL-0319.
+
 ## 2026-11-13 — Bootstrap-written files are not a worker's changes (BL-0318)
 
 **What:** `report` excludes modified bootstrap outputs (`.claude/launch.json`, `e2e/server-env.json`, `.env.local`) whose

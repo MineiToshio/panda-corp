@@ -323,6 +323,17 @@ await test("every question collected so far: id, default, affects, reversible, S
   }
 });
 
+await test("BL-0319 a Claude session building with Codex workers announces the Claude reviewer the run will use, not a degraded Codex Astra", async () => {
+  const { run } = await setup("basic");
+  const res = await run({ label: "codex" });
+  ok(!/degradada: unreachable/.test(res.announce.reviewers), `label codex must not imply the Codex app: ${res.announce.reviewers}`);
+  ok(/Claude/i.test(res.announce.reviewers), `the reviewer of a Codex author is the other company (Claude): ${res.announce.reviewers}`);
+  const explicit = await run({ label: "codex", coordinator: "claude" });
+  eq(explicit.announce.reviewers, res.announce.reviewers, "absent --coordinator defaults to the Claude session");
+  const app = await run({ label: "codex", coordinator: "codex" });
+  ok(/degradada: unreachable/.test(app.announce.reviewers), `the Codex app (explicit coordinator codex) still has no Claude reviewer: ${app.announce.reviewers}`);
+});
+
 await test("owner-facing preflight strings: Spanish, no em/en dashes (detail_es, announce lines, builders, reviewers)", async () => {
   const { fx, run } = await setup("launched", { PANDACORP_FAKE_CODEX_LOGIN: "out" });
   const res = await run({ scope: SCOPE_RISK });

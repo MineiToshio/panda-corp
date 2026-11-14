@@ -111,7 +111,7 @@ Write the returned `scope` object verbatim to `.pandacorp/run/scope.json` (an in
    Codex skip this. During a run add `--epoch <E>` so the reading is journaled.
 2. **Preflight** (no LLM, CLI target ≤60 s; always pass `--probe-codex`, the CLI probes only when needed):
    ```
-   pb start --preflight --row <row> --scope-json .pandacorp/run/scope.json --label <label> --session-model <m> --probe-codex
+   pb start --preflight --row <row> --scope-json .pandacorp/run/scope.json --label <label> --coordinator claude|codex --session-model <m> --probe-codex
    ```
    Read `checks[]`, `need_from_owner[]`, `announce{}`, `drive_armable`. It also writes `build/preflight.json`.
 3. Build the first-minute message as `autonomy.md` §1 says. Do not send it yet: `start --run` comes first, because

@@ -180,7 +180,7 @@ Legend. **Fenced**: requires `--epoch`. All commands print the common envelope `
 | Command | Key args | Fenced | Output (beyond `ok`/`cmd`) |
 |---|---|---|---|
 | `start --detect` | `--args "<raw>"`, `--session-card <path>`, `--session-id <id>`, `--session-runtime claude\|codex` | no | `signals`, `row`, `scope`, `size_provisional`, `label`, `label_source` |
-| `start --preflight` | `--row`, `--scope-json <file>`, `--label`, `--session-model`, `--probe-codex` | no | `elapsed_ms`, `checks[]`, `need_from_owner[]`, `announce`, `drive_armable`, `drive_block_reason?` |
+| `start --preflight` | `--row`, `--scope-json <file>`, `--label`, `--coordinator claude\|codex`, `--session-model`, `--probe-codex` | no | `elapsed_ms`, `checks[]`, `need_from_owner[]`, `announce`, `drive_armable`, `drive_block_reason?` |
 | `start --run` | `--scope-json <file>`, `--label`, `--coordinator claude\|codex`, `[--k N] [--mode touch\|feature\|giant] [--session-model m] [--answers <json>]` | acquires the lease | `run_id`, `epoch`, `integration`, `drive`, `prepush` |
 | `start --resume` | `--coordinator claude\|codex [--session-model m] [--run <id>] [--owner-confirmed] [--unblock <unit> --reason <text>]` | transfers or acquires | `run_id`, `epoch`, `reattached[]`, `requeued[]`, `drive`, `unblocked?` |
 | `card check <path>` | | no | `errors[]`, `warnings[]`, `fields{}` |
@@ -257,7 +257,7 @@ Output:
 
 Runs the first-minute checks for a detected row and writes `.pandacorp/run/build/preflight.json` (mode 0600). May consume a quota probe or fresh readings; writes no other project state. It only CHECKS: it never installs the pre-push hook (`start --run` does, 3.3); the hook check runs `install-pre-push.mjs --check` and the result feeds `drive_armable`. Target runtime <= 60 s on a Mission-Control-shaped fixture (the LLM card turn is outside this budget).
 
-Arguments: `--row <1..7>`, `--scope-json <file>` (the `scope` object returned by `--detect`), `--label claude|codex`, `--session-model <m>`, `--probe-codex`. The session **always passes** `--probe-codex`; the CLI runs the ~20k-token Codex probe only when `needs_probe` is true (see 8.1).
+Arguments: `--row <1..7>`, `--scope-json <file>` (the `scope` object returned by `--detect`), `--label claude|codex`, `--coordinator claude|codex` (the SESSION runtime, as for `start --run`; default `claude`, never inferred from `--label`: a Claude session building with Codex workers is not the Codex app, BL-0319), `--session-model <m>`, `--probe-codex`. The session **always passes** `--probe-codex`; the CLI runs the ~20k-token Codex probe only when `needs_probe` is true (see 8.1).
 
 Output:
 

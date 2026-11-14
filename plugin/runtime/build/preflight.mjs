@@ -69,13 +69,16 @@ export async function runPreflight(input, deps = {}) {
 
   const p = buildPaths(project, { env: ctx.env, homedir: ctx.homedir });
   const detect = deps.detect ?? realDetect;
-  const signals = (await detect({ project, args: "", resume: row === 2, sessionRuntime: label }, deps)).signals;
+  const signals = (await detect({ project, args: "", resume: row === 2, sessionRuntime: input.coordinator ?? label }, deps)).signals;
   const launched = signals.launched === true;
   const card = scope.card ? await readCard(project, scope.card, { where: "any" }, ctx) : null;
   if (scope.card && !card) throw fail("INVALID_INPUT", `card not found: ${scope.card}`);
   const { wos: allWos, frds: frdDirs } = await readWorkOrders(project, ctx);
   const size = sizeOf({ signals, scope, card, frdDirs });
-  const coordinator = input.coordinator ?? (label === "codex" ? "codex" : "claude");
+  // BL-0319: the coordinator is the SESSION runtime, never inferred from the builder label: a Claude session building with
+  // Codex workers (label codex) is R-C, not the Codex app; inferring it made Claude look unreachable and announced a
+  // degraded Codex Astra reviewer the run never uses.
+  const coordinator = input.coordinator ?? "claude";
   const unevaluated = [];
   const exec = deps.exec ?? execIn(ctx.env);
   const run = makeRunner(exec);
