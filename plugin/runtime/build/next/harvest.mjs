@@ -9,6 +9,7 @@ import { ENV_WORKER_OUTCOMES, FRD_WORK_KINDS, G2_BOOTSTRAP_EXIT, G2_DISK_EXIT, M
 import { admissionCtx, cellOf, err, fenceOf, fresh, gitOk, isLive, maxZone, mutate, sibling, unionWos, unitEvent } from "./context.mjs";
 import { g2PinOf, removeG2Snapshot } from "./g2.mjs";
 import { reviewZone } from "./landing.mjs";
+import { backoffSeconds, capacityAudit, capacityNow, pinOf } from "../../capacity/scheduler.mjs";
 
 export async function harvest(run, state, notes) {
   await restorePatchedUnits(run, state);
@@ -80,8 +81,7 @@ async function harvestWorker(run, job, notes) {
   if (!unit || !isLive(unit)) return finishJob(run, job, jobEnd);
 
   if (h.outcome === "limit") {
-    await requeueAfterLimit(run, unit, job, jobEnd);
-    notes.push(h.limit === "usage_limit" ? `Codex llegó a su límite de uso; ${unit.id} vuelve a la cola sin gastar intento.` : `Codex limitó la frecuencia; ${unit.id} vuelve a la cola sin gastar intento.`);
+    await suspendAfterLimit(run, unit, job, jobEnd, h);
     return;
   }
   if (consult) {
@@ -159,20 +159,27 @@ async function settle(run, unitId, fn) {
   }
 }
 
-/** A usage or rate limit consumes no attempt: the unit returns to the queue with its token released (pollWorker already recorded the reading). */
-async function requeueAfterLimit(run, unit, job, jobEnd) {
+/** Preserve the execution, dirty worktree and report token. Suspended executions occupy no live resource slot. */
+export async function suspendAfterLimit(run, unit, job, jobEnd, h) {
   const { d } = run;
-  d.admission.releaseToken(unit.id, admissionCtx(run));
   await mutate(run, (s) => {
     const u = findUnit(s, unit.id);
-    const events = [{ type: "job_finished", data: { id: job.id, state: jobEnd.state, exit: jobEnd.exit } }];
+    const events = job ? [{ type: "job_finished", data: { id: job.id, state: jobEnd.state, exit: jobEnd.exit } }] : [];
     let units = s.units;
     if (u && isLive(u)) {
-      events.push(unitEvent(u.id, u.state, "queued"));
-      // Same attempt, no previous cell: a limit consumes no attempt and must not raise the effort.
-      units = s.units.map((x) => (x.id === u.id ? { ...x, state: "queued", token_hash: null, worker: null, worktree: null, branch: null } : x));
+      const now = capacityNow(d), rate = h.limit === "rate_limit";
+      const delay = backoffSeconds(u.suspension?.rateAttempts ?? 0, h.retryAfterExplicit === false ? undefined : h.retryAfterS);
+      const resetAt = h.resetsAt ?? h.resumeAt ?? h.recorded?.weekly_resets_at ?? h.recorded?.resets_at ?? new Date(now + 60000).toISOString();
+      const resumeAt = rate ? new Date(now + delay * 1000).toISOString() : resetAt;
+      const patch = { state: "suspended", pin: pinOf(u),
+        worker: { ...u.worker, ...(h.sessionId ? { session_id: h.sessionId } : {}) },
+        suspension: { reason: rate ? "rate_limit" : "usage_limit", at: new Date(now).toISOString(), resetAt, resumeAt,
+          sequence: (u.suspension?.sequence ?? 0) + 1, readRetries: 0, rateAttempts: rate ? (u.suspension?.rateAttempts ?? 0) + 1 : 0 } };
+      events.push({ type: "capacity_state", data: { unit: u.id, patch } });
+      units = s.units.map((x) => (x.id === u.id ? { ...x, ...patch } : x));
+      capacityAudit(run.ref.project, s, "suspended", { unit: u.id, reason: patch.suspension.reason, resumeAt, cell: patch.pin }, d);
     }
-    return { state: { ...s, units, jobs: s.jobs.map((j) => (j.id === job.id ? { ...j, ...jobEnd } : j)) }, events };
+    return { state: { ...s, units, jobs: s.jobs.map((j) => (j.id === job?.id ? { ...j, ...jobEnd } : j)) }, events };
   });
 }
 

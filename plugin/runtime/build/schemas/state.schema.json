@@ -43,7 +43,9 @@
         "waiting_owner",
         "waiting_gate",
         "finished",
-        "stopped"
+        "stopped",
+        "waiting",
+        "resuming"
       ]
     },
     "status_reason": {
@@ -228,7 +230,8 @@
               "landed",
               "parked",
               "waiting_gate",
-              "blocked"
+              "blocked",
+              "suspended"
             ]
           },
           "attempt": {
@@ -292,6 +295,12 @@
                     ]
                   },
                   "worker_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "session_id": {
                     "type": [
                       "string",
                       "null"
@@ -459,6 +468,18 @@
                 "additionalProperties": false
               }
             ]
+          },
+          "pin": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "suspension": {
+            "type": [
+              "object",
+              "null"
+            ]
           }
         },
         "required": [
@@ -587,6 +608,12 @@
         "null"
       ],
       "format": "date-time"
+    },
+    "wake": {
+      "type": [
+        "object",
+        "null"
+      ]
     }
   },
   "required": [

@@ -33,7 +33,9 @@ export async function parkOut(ctx, state, record, reasons, deps) {
   const parked = await park(ctx, state, record, { reasons, reversible }, deps);
   return {
     state: parked.state, record: parked.record,
-    out: { step: "parked", parked: { mode: parked.mode, reasons, units: parked.units, branch: parked.branch, ratio: parked.block.ratio }, notice_es: parked.notice_es, warnings: parked.warnings },
+    out: parked.record.step === "decided"
+      ? { step: "decided", decision: parked.record.decision, warnings: parked.warnings }
+      : { step: "parked", parked: { mode: parked.mode, reasons, units: parked.units, branch: parked.branch, ratio: parked.block.ratio }, notice_es: parked.notice_es, warnings: parked.warnings },
   };
 }
 

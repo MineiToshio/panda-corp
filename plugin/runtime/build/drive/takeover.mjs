@@ -7,6 +7,7 @@ import { restoreUnitWorktree } from "../units.mjs";
 import { IN_FLIGHT, err, isFenceError } from "./constants.mjs";
 import { buildStateOf, driveLog, limitsOf, nowMs, pathsOf, say, stateDeps, withDefaults } from "./context.mjs";
 import { setOwnStandbyState } from "./standby.mjs";
+import { enterCapacityWaiting } from "../../capacity/scheduler.mjs";
 
 const anyRunning = (state) => state.units.some((u) => IN_FLIGHT.has(u.state)) || state.jobs.some((j) => j.state === "running");
 
@@ -63,7 +64,7 @@ export async function takeOver({ project, runId, trigger, detail = null }, deps)
       requeued.push({ unit: unit.id, from: unit.state, token_hash: unit.token_hash, worktree: unit.worktree ?? null, attempt: unit.attempt, parked: unit.parked ?? null, pending_answer: unit.pending_answer ?? null });
       units.push({ ...unit, state: "queued", token_hash: null, worker: null });
     }
-    const next = { ...state, units, coordinator: "drive" };
+    let next = { ...state, units, coordinator: "drive" };
     for (const r of requeued) await ctx.appendEvent({ type: "unit_state", data: { unit: r.unit, from: r.from, to: "queued", reason: "drive_takeover" } });
     await ctx.appendEvent({
       type: "drive_takeover",
@@ -71,10 +72,7 @@ export async function takeOver({ project, runId, trigger, detail = null }, deps)
     });
     const pause = quota.policy.paused && !anyRunning(next);
     if (pause) {
-      next.status = "paused";
-      next.status_reason = "paused-quota";
-      next.resumeAt = quota.policy.resumeAt;
-      await ctx.appendEvent({ type: "paused", data: { reason: "paused-quota", resets_at: resets, resumeAt: quota.policy.resumeAt } });
+      next = await enterCapacityWaiting(ctx, next, quota.policy.resumeAt, d);
     }
     await ctx.writeState(next);
     return { pause, requeued };
@@ -89,15 +87,6 @@ export async function takeOver({ project, runId, trigger, detail = null }, deps)
   const requeued = intent.requeued.map((r) => r.unit);
   driveLog(project, `takeover: trigger ${trigger}${detail ? ` (${detail})` : ""}, epoch ${lease.epoch} -> ${epoch}, codex ${codex.eff.state === "known" ? `${codex.eff.pct} %` : "unknown"}${requeued.length ? `, requeued ${requeued.join(",")}` : ""}`, d);
 
-  if (intent.pause) {
-    await withEpoch(epoch, async () => {
-      await bs.quiesce(project, moved.token, epoch, { projectStatus: false });
-      await bs.finalizeRelease(project, moved.token, epoch);
-    });
-    driveLog(project, "takeover: Neither tool fits, run paused (paused-quota), lease released", d);
-    await say("paused-quota", { project, resets: resets.codex ?? resets.claude ?? null }, d);
-    return { outcome: "paused-quota", epoch, codex: codex.eff, requeued };
-  }
   await say("takeover", { project }, d);
   return { outcome: "loop", epoch, codex: codex.eff, requeued };
 }

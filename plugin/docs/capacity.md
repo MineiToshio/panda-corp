@@ -1,4 +1,4 @@
-# Shared capacity policy — phase 2a
+# Shared capacity policy — phase 3
 
 The build engine, direct/alias worker launcher and image launcher use the shared allocator.
 `build/quota.mjs` preserves its public API as a compatibility adapter; local quota files are projections.
@@ -23,7 +23,7 @@ The CLI accepts `--log` and launchers accept `PANDACORP_CAPACITY_LOG` for an exp
 Worker launches consult once before starting; repeated run/read calls retain their existing execution cell.
 The launcher can execute an allocated Claude cell through the authenticated Claude CLI; engine-assigned
 cells are passed as pins, preserving the execution's tool/model. Real CLI authentication and provider resets
-are not certified by fixture tests. Automatic wake-up, reservations and crash reconciliation remain later phases.
+are not certified by fixture tests. Phase 3 adds in-place continuation and fenced wake-up; concurrent-account reservations remain later work.
 
 ## Inputs and readings
 
@@ -98,7 +98,7 @@ match the qualified task cell; an override cannot lower its risk floor or send i
 A pin is not charged a fresh task estimate, but preserves the 2 pp emergency and applicable weekly image reserve.
 If reserves no longer fit, only this pinned task waits with resumeAt; its tool never changes mid-execution.
 Pins below the current risk floor or conflicting with an explicit override (tool/model/effort) are rejected. The caller
-must retain task identity/scope and persist the returned pin; phase 1 owns no grant ledger or launch receipt.
+must retain task identity/scope and persist the returned pin; no concurrent-account grant ledger is claimed.
 
 Run returns `{action:"run",tool,model,effort,pin,reason,readings_used}`. Wait retains the fixed cell if any,
 includes `resumeAt = min(eligible cells.map(c => max(c.blocking resets)))`, and never changes a pin's tool.
@@ -452,3 +452,58 @@ One path per line; all changes remain uncommitted:
   Each engine review brief carries the explicit owner DR-162 policy overriding that historical paragraph, and the
   registry, routing and review-record enforce context independence. Live-model adherence still needs qualification.
 - Changes to Mission Control are manual explanatory text only; its app build/browser was not run for this plugin task.
+
+## Suspension, wake ownership and option B
+
+A certified provider `usage_limit` suspends the execution, retaining the dirty worktree, branch, report
+token, worker id, provider thread/session id, tool/model/effort pin and attempt. Harvest closes only the
+process job; it never queues a fresh task or removes these references. A bare mention of "quota" is not
+exhaustion. HTTP 429/529 / overloaded errors are `rate_limit`, with same-cell backoff 60,120,240,480,900s
+(capped thereafter); a positive Retry-After is honored up to 900s. Rate limits do not write account exhaustion.
+
+Only that pinned tool can resume a suspended unit. Independent new units still use the other tool. When
+nothing can progress the run becomes `waiting`, retaining its lease, with the minimum eligible `resumeAt`.
+The live drive loop sleeps in <=60s lease-renewal chunks until `resumeAt+60s`, then rereads Codex rollouts
+and the Claude account snapshot. Node does not call Desktop get_usage. A Claude lead with the app open
+uses **ScheduleWakeup**, not an additional CronCreate job, for the same instant, re-ingests get_usage,
+and calls `start --resume --coordinator claude --wake-generation N`. If no scheduler is available the lead
+keeps the attended next loop alive. A single optional owner line announces the wait; details stay in JSONL.
+
+The run's `wake` generation, epoch, owner and claim pid are protected by the existing lease mutex.
+Drive, lead and manual resume conditionally claim `waiting→resuming` once. Losing and stale-generation
+wakes do not transfer ownership. A failed lead claim returns to waiting; a dead claim pid is recoverable.
+A resumed run with a live lease cannot be stolen by another simultaneous manual capacity resume.
+Suspended trees are never reset, including a crash between re-admission and continuation registration.
+The worker relay resumes an explicit provider session (`codex exec resume <id>` / Claude `--resume <id>`),
+never `--last`, with the saved cell, sandbox and schema. A continuation sequence makes a repeated resume
+idempotent. Old process result files are moved individually into `continuations/<sequence>/`.
+A missing provider session refuses a fresh replacement task and retains the checkpoint for diagnosis.
+Native Claude agents enter via `suspend --epoch E --unit U --file RECEIPT`, including the exact Agent
+resume id; `resume:true` dispatches instruct the lead to resume that Agent with its original report token.
+
+Passing the reset time does not invent zero usage. Subscription continuation requires a newer healthy
+observation at/after reset; stale/unknown/expired readings retry after 60,120,240,480,900s. `resumeAt` is
+the earliest retry eligibility; schedulers add 60s. Suspensions, waits, wakes and resumptions append
+`capacity-decisions.jsonl` with reason, cell(s) and resumeAt; `capacity_state` journal events rebuild them.
+
+Option B resolves an inconclusive reversible technical choice as an engine assumption, with rationale
+and reversal in its doubt record, decision log and journal. It proceeds through normal review and
+integration even for a lone unit. It does not need later owner acceptance. Production, money, deletion
+and unauthorized external communication retain their gates; tests retain the veto/gate negative controls.
+
+`test-capacity-resume.mjs` uses fake providers and real local fences/worktrees; it spends no model quota.
+Historical assertions expecting quota release, root-ratio approval or no-consensus owner waits in
+`test-build-v2-{next,cli,drive,e2e,doubts,hardening}.mjs` are updated in-place to the phase-3 contract;
+their scenarios, gate checks and negative controls remain. Live authentication, native Agent timer
+execution, machine sleep and a real subscription reset require the separate phase-4 canary. No live
+provider qualification is inferred from fake transports or a scheduled-instruction document.
+
+### Phase-3 verification, 2026-11-14
+
+Compared in this session against main `bc923770`, from worktree HEAD `05a9fdaf` (no commit).
+`test-capacity-resume.mjs`: **10 passed, 0 failed**; `test-capacity.mjs`: **50 passed, 0 failed**.
+All 34 `test-build-v2-*.mjs` suites: **zero new failures**. Existing failure counts match main:
+CLI 1, disk 10, G2-leftover 5, hardening 2, integrate 2, land 2, next 1, report 1.
+Main additionally failed one e2e check here; current e2e passed 104/104. Historical scenario assertions
+were updated only for the explicitly superseded pause/release and reversible-owner-wait policies;
+the doubt suite retains 38 named cases. Derived-drift and diff whitespace checks exit 0.

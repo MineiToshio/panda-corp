@@ -46,6 +46,14 @@ export async function decide(ctx, state, record, { value, decided_by, why, voter
 
 export async function park(ctx, state, record, { reasons, reversible }, deps) {
   if (settledUnit(state, record)) return { state, record, mode: null, branch: null, units: [], commit: null, block: { ratio: 0 }, reasons, notice_es: null, warnings: [], applied: false };
+  if (reversible === true) {
+    const why = `Reversible technical assumption: ${record.why || record.question}. Evidence was inconclusive (${reasons.join(", ")}). Revert by replacing option ${record.preferred} in unit ${record.unit} through a change card; no protected action is authorized.`;
+    const chosen = await decide(ctx, state, record, { value: record.preferred, decided_by: "engine", why, voters: [] }, deps);
+    const assumed = { ...chosen.record, assumption: { option: record.preferred, branch: state.integration.branch,
+      reversible: true, accepted: true, rationale: why, revert: `Replace option ${record.preferred} in ${record.unit} through a change card.` } };
+    return { ...chosen, record: assumed, mode: "assume", branch: null, units: [record.unit], commit: chosen.sha,
+      block: { ratio: 0 }, reasons, notice_es: null };
+  }
   const unit = findUnit(state, record.unit);
   const integrationRoot = path.resolve(ctx.project, state.integration.worktree);
   const date = nowIso(deps).slice(0, 10);

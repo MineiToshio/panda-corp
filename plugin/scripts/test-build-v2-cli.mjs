@@ -390,7 +390,7 @@ await test("next on a fresh run: exit 0, action in the documented enum, tokens o
   await f.writeSignalsFile(s.env.PANDACORP_SIGNALS_FILE, "clean");
   const r = s.cli(["next", "--epoch", String(start.epoch)]); const j = need(r, "next"); singleJsonLine(r, "next");
   eq(j.cmd, "next", "cmd"); eq(j.epoch, start.epoch, "epoch");
-  oneOf(j.action, ["dispatch", "wait", "handoff", "land", "done", "paused-quota", "paused-infra", "waiting-owner", "deadlock", "stop"], "action");
+  oneOf(j.action, ["dispatch", "waiting", "wait", "handoff", "land", "done", "paused-quota", "paused-infra", "waiting-owner", "deadlock", "stop"], "action");
   if (j.action === "dispatch") {
     ok(Array.isArray(j.units) && j.units.length > 0, "dispatch carries units");
     const stateRaw = await readFile((await pathsMod()).buildPaths(s.root).stateFile, "utf8");
@@ -485,12 +485,12 @@ await test("A11: Claude 95 % and Codex 98 % (both at the stop threshold): next a
   const { start } = await startRun(s);
   need(s.cli(["quota", "record", "--provider", "claude", "--five-hour", "100", "--weekly", "100", "--five-hour-resets-at", "2026-11-12T12:00:00Z", "--weekly-resets-at", "2026-11-14T12:00:00Z"]), "quota record 95");
   const j = need(s.cli(["next", "--epoch", String(start.epoch)]), "next");
-  eq(j.action, "paused-quota", "both companies at the stop threshold");
-  const st = await readState(s); eq(st.status, "paused", "state.status paused");
-  ok(!existsSync((await pathsMod()).buildPaths(s.root).leaseFile), "the terminal action released the lease");
-  eq(s.cli(["next", "--epoch", String(start.epoch)]).code, 3, "next after the terminal action is fenced");
-  const sm = need(s.cli(["status"]), "status after pause"); eq(sm.status, "paused", "status paused"); eq(sm.lease.live, false, "lease not live");
-  const back = need(s.cli(["start", "--resume", "--coordinator", "claude"]), "resume after paused-quota"); ok(back.epoch > start.epoch, "resume reacquires");
+  eq(j.action, "waiting", "both companies at the stop threshold");
+  const st = await readState(s); eq(st.status, "waiting", "state.status paused");
+  ok(existsSync((await pathsMod()).buildPaths(s.root).leaseFile), "capacity wait retains the lease");
+  eq(s.cli(["next", "--epoch", String(start.epoch)]).code, 0, "next can renew while waiting");
+  const sm = need(s.cli(["status"]), "status while waiting"); eq(sm.status, "waiting", "status waiting"); eq(sm.lease.live, true, "lease retained");
+  const back = need(s.cli(["start", "--resume", "--coordinator", "claude"]), "early resume"); eq(back.claimed, false, "no reset confirmation: no resume"); eq(back.epoch, start.epoch, "epoch retained");
 });
 
 await test("A11: Claude >= 95 % alone, no live drive standby: paused-quota (never handoff); with a live standby: handoff and the run stays active", async () => {

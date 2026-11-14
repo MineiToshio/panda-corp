@@ -31,12 +31,14 @@
 // The relay writes the task to <project>/.pandacorp/run/codex-workers/<id>/prompt.md with its Write tool; --sum is
 // the engine's FNV-1a of that text, so a truncated or altered copy is refused (status:error, kind:prompt-mismatch).
 import { spawn, execFileSync } from "node:child_process";
-import { chmodSync, appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, openSync, closeSync } from "node:fs";
+import { chmodSync, appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync, openSync, closeSync, renameSync, unlinkSync, linkSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { decideCapacity } from "../runtime/capacity.mjs";
 import { stopCodexWorkers } from "../runtime/codex-workers.mjs";
+import { classifyLimitText } from "../runtime/build/quota.mjs";
 
 const PLUGIN = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const EVENTS = process.env.PANDACORP_EVENTS_FILE || path.join(os.homedir(), ".claude/dashboard-events.ndjson");
@@ -48,7 +50,7 @@ const TASK_END = "<<<CODEX-TASK-END>>>";
 const TRANSCRIPT_MAX_AGE_MS = 60 * 60 * 1000;
 
 // Codex's own usage-limit / rate-limit wording (an exhausted subscription window, not a defect of the work).
-const LIMIT_RE = /usage limit|rate[ _-]?limit|too many requests|\b429\b|quota|upgrade to (?:plus|pro)|try again (?:at|in)/i;
+const LIMIT_RE = { test: (text) => classifyLimitText(text) !== null };
 
 /** FNV-1a 32-bit over UTF-16 code units — the same function the engine computes (no crypto in a Workflow). */
 export const fnv = (text) => {
@@ -163,10 +165,10 @@ function childEnv() {
   return env;
 }
 
-function launch(dir, cwd, args, tool = "codex") {
+function launch(dir, cwd, args, tool = "codex", prompt = path.join(dir, "full-prompt.md")) {
   const q = (s) => `'${String(s).replaceAll("'", `'"'"'`)}'`;
   const bin = tool === "claude" ? process.env.PANDACORP_CLAUDE_BIN || "claude" : CODEX_BIN;
-  const command = `${[bin, ...args].map(q).join(" ")} < ${q(path.join(dir, "full-prompt.md"))}`;
+  const command = `${[bin, ...args].map(q).join(" ")} < ${q(prompt)}`;
   const script = tool === "claude"
     ? `${command} > ${q(path.join(dir, "last.md"))}; result=$?; cat ${q(path.join(dir, "last.md"))}; echo "$result" > ${q(path.join(dir, "exit"))}`
     : `${command}; echo $? > ${q(path.join(dir, "exit"))}`;
@@ -208,9 +210,10 @@ function start(dir, id, allocation) {
     : ["-s", "workspace-write", "-c", "sandbox_workspace_write.network_access=true"];
   const args = ["exec", "--ignore-user-config", "--skip-git-repo-check", "--json", "-C", cwd, ...access,
     "-m", tier.model, "-c", `model_reasoning_effort="${tier.effort}"`, "-o", path.join(dir, "last.md"), "-"];
-  const actualArgs = allocation.tool === "claude" ? ["-p", "--model", allocation.model, "--effort", allocation.effort, "--output-format", "text"] : args;
+  const sessionId = allocation.tool === "claude" ? randomUUID() : null;
+  const actualArgs = allocation.tool === "claude" ? ["-p", "--session-id", sessionId, "--model", allocation.model, "--effort", allocation.effort, "--output-format", "json"] : args;
   const child = launch(dir, cwd, actualArgs, allocation.tool);
-  writeFileSync(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, tool: allocation.tool, capacity: allocation, model: tier.model, effort: tier.effort, access: opt("access") || "sandbox", startedAt: new Date().toISOString() }));
+  writePrivate(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, tool: allocation.tool, capacity: allocation, sessionId, model: tier.model, effort: tier.effort, access: opt("access") || "sandbox", startedAt: new Date().toISOString() }));
   telemetry("worker_started", { id, role: opt("role"), model: tier.model, effort: tier.effort, access: opt("access") || "sandbox" });
 }
 
@@ -265,10 +268,11 @@ function startDirect(dir, id, allocation) {
   const args = ["exec", "--ignore-user-config", "--skip-git-repo-check", "--json", "-C", cwd, ...access,
     "-m", slug, "-c", `model_reasoning_effort="${effort}"`, ...(schema ? ["--output-schema", schema] : []),
     "-o", path.join(dir, "last.md"), "-"];
-  const actualArgs = allocation.tool === "claude" ? ["-p", "--model", allocation.model, "--effort", allocation.effort, "--output-format", "text"] : args;
+  const sessionId = allocation.tool === "claude" ? randomUUID() : null;
+  const actualArgs = allocation.tool === "claude" ? ["-p", "--session-id", sessionId, "--model", allocation.model, "--effort", allocation.effort, "--output-format", "json"] : args;
   const child = launch(dir, cwd, actualArgs, allocation.tool);
   const wd = Object.fromEntries(Object.keys(WATCHDOG_DEFAULTS_S).map((k) => [k, watchdogS(k)]));
-  writeFileSync(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, tool: allocation.tool, capacity: allocation, model: slug, effort, access: opt("access") || "sandbox", direct: true, json: Boolean(schema) || flag("json-answer"), role: opt("role"), startedAt: new Date().toISOString() }));
+  writePrivate(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, tool: allocation.tool, capacity: allocation, sessionId, schema, writableDirs: writableDirs(cwd), watchdog: wd, model: slug, effort, access: opt("access") || "sandbox", direct: true, json: Boolean(schema) || flag("json-answer"), role: opt("role"), startedAt: new Date().toISOString() }));
   const watcherArgs = ["watch", "--project", project, "--id", id, ...Object.entries(wd).flatMap(([k, v]) => [`--${k}`, String(v)])];
   spawn(process.execPath, [fileURLToPath(import.meta.url), ...watcherArgs], { detached: true, stdio: "ignore", env: childEnv() }).unref();
   telemetry("worker_started", { id, role: opt("role"), model: slug, effort, access: opt("access") || "sandbox", direct: true });
@@ -309,7 +313,14 @@ async function watch() {
 }
 
 /** Direct-mode usage-limit vs rate-limit (429) wording, for the engine's quota handling. */
-const limitKind = (text) => (/rate[ _-]?limit|too many requests|\b429\b/i.test(text) && !/usage limit/i.test(text) ? "rate_limit" : "usage_limit");
+const limitKind = classifyLimitText;
+
+function sessionFromLog(log) {
+  for (const line of log.split("\n")) {
+    try { const e = JSON.parse(line); if (e.type === "thread.started" && typeof e.thread_id === "string") return e.thread_id; } catch { /* stderr */ }
+  }
+  return null;
+}
 
 function lastJsonObject(text) {
   const trimmed = text.trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
@@ -324,13 +335,19 @@ function lastJsonObject(text) {
 
 function finish(dir, state) {
   const code = Number(readFileSync(path.join(dir, "exit"), "utf8").trim());
-  const last = existsSync(path.join(dir, "last.md")) ? readFileSync(path.join(dir, "last.md"), "utf8") : "";
+  let last = existsSync(path.join(dir, "last.md")) ? readFileSync(path.join(dir, "last.md"), "utf8") : "";
   const log = existsSync(path.join(dir, "codex.log")) ? readFileSync(path.join(dir, "codex.log"), "utf8") : "";
-  const base = { status: "done", tool: state.tool ?? "codex", model: state.model, effort: state.effort };
+  const sessionId = state.sessionId ?? sessionFromLog(log);
+  if (sessionId && !state.sessionId) { state.sessionId = sessionId; writePrivate(path.join(dir, "state.json"), JSON.stringify(state)); }
+  let providerError = "";
+  if (state.tool === "claude") {
+    try { const envelope = JSON.parse(last); providerError = envelope.is_error ? String(envelope.result ?? envelope.error ?? "") : ""; last = String(envelope.result ?? last); } catch { /* failed provider stderr is classified below */ }
+  }
+  const base = { status: "done", tool: state.tool ?? "codex", model: state.model, effort: state.effort, sessionId };
   const watchdog = state.direct ? readJson(path.join(dir, "watchdog.json")) : null;
   if (watchdog) return { ...base, ok: false, kind: watchdog.kind, detail: `watchdog: ${watchdog.detail}`.slice(0, 600) };
-  if (code !== 0 || !last.trim()) {
-    const errors = log.split("\n").filter((l) => /error|limit|fail/i.test(l)).slice(-5).join(" | ");
+  if (code !== 0 || !last.trim() || providerError) {
+    const errors = providerError || log.split("\n").filter((l) => /error|limit|fail|429|529/i.test(l)).slice(-5).join(" | ");
     const failed = { ...base, ok: false, kind: LIMIT_RE.test(errors) ? "limit" : "error", detail: `codex exit ${code}${last.trim() ? "" : ", no final message"}: ${errors}`.slice(0, 600) };
     return state.direct && failed.kind === "limit" ? { ...failed, limit: limitKind(errors) } : failed;
   }
@@ -389,6 +406,58 @@ async function run() {
   settle(dir, id, state);
 }
 
+/** Continuation never allocates or reconstructs a prompt/task: it resumes the saved provider session in-place. */
+async function resume() {
+  const refuse = (kind, detail) => emit({ status: "error", kind, detail });
+  const id = opt("id"), dir = workerDir(id), sequence = Number(opt("resume-sequence"));
+  if (!Number.isInteger(sequence) || sequence < 1) return refuse("bad-sequence", "resume requires a positive sequence");
+  const lock = path.join(dir, "resume.lock");
+  const candidate = `${lock}.${process.pid}.${randomUUID()}.tmp`;
+  writeFileSync(candidate, JSON.stringify({ pid: process.pid }), { flag: "wx", mode: 0o600 });
+  try {
+    try { linkSync(candidate, lock); } catch (e) {
+      if (e.code !== "EEXIST") throw e;
+      const holder = readJson(lock);
+      if (!Number.isInteger(holder?.pid) || alive(holder.pid)) return refuse("resume-busy", "another continuation holds this worker");
+      // The hard link publishes a complete owner record atomically, including if the launcher is killed.
+      try { unlinkSync(lock); linkSync(candidate, lock); } catch { return refuse("resume-busy", "another continuation acquired this worker"); }
+    }
+  } finally { unlinkSync(candidate); }
+  try {
+    const state = readJson(path.join(dir, "state.json"));
+    if (!state) return refuse("missing-state", "cannot resume a worker without its state");
+    if ((state.resumeSequence ?? 0) >= sequence) {
+      if (existsSync(path.join(dir, "result.line"))) process.stdout.write(readFileSync(path.join(dir, "result.line"), "utf8"));
+      else process.stdout.write(`CODEX-RUNNING ${id} continuation ${state.resumeSequence}\n`);
+      return;
+    }
+    if (alive(state.pid) && !existsSync(path.join(dir, "exit"))) return refuse("still-running", "previous worker has not exited");
+    const log = existsSync(path.join(dir, "codex.log")) ? readFileSync(path.join(dir, "codex.log"), "utf8") : "";
+    const sessionId = state.sessionId ?? sessionFromLog(log);
+    if (!sessionId) return refuse("missing-session", "limit checkpoint has no provider session; refusing a fresh task");
+    const archive = path.join(dir, "continuations", String(sequence));
+    mkdirSync(archive, { recursive: true });
+    for (const name of ["result.line", "exit", "last.md", "watchdog.json"]) {
+      const file = path.join(dir, name);
+      if (existsSync(file)) renameSync(file, path.join(archive, name));
+    }
+    const prompt = path.join(dir, "resume-prompt.md");
+    writePrivate(prompt, "Continue the same unit from the checkpoint. Preserve existing edits and completed work, cell and report token. Follow the original brief and return its required JSON report.\n");
+    const args = state.tool === "claude"
+      ? ["-p", "--resume", sessionId, "--model", state.model, "--effort", state.effort, "--output-format", "json"]
+      : ["exec", "resume", "--ignore-user-config", "--skip-git-repo-check", "--json", "-m", state.model,
+        "-c", `model_reasoning_effort="${state.effort}"`, "-c", `sandbox_mode="${state.access === "full" ? "danger-full-access" : "workspace-write"}"`,
+        "-c", "sandbox_workspace_write.network_access=true",
+        "-c", `sandbox_workspace_write.writable_roots=${JSON.stringify(state.writableDirs ?? [])}`,
+        ...(state.schema ? ["--output-schema", state.schema] : []), "-o", path.join(dir, "last.md"), sessionId, "-"];
+    const child = launch(dir, state.cwd, args, state.tool, prompt);
+    writePrivate(path.join(dir, "state.json"), JSON.stringify({ ...state, sessionId, resumeSequence: sequence, pid: child.pid, startedAt: new Date().toISOString() }));
+    if (state.direct) spawn(process.execPath, [fileURLToPath(import.meta.url), "watch", "--project", project, "--id", id,
+      ...Object.entries(state.watchdog ?? {}).flatMap(([k,v]) => [`--${k}`, String(v)])], { detached: true, stdio: "ignore", env: childEnv() }).unref();
+    process.stdout.write(`CODEX-RUNNING ${id} continuation ${sequence}\n`);
+  } finally { unlinkSync(lock); }
+}
+
 /** `read`: the sealed result. A v1 worker without one is an error; a finished direct worker is sealed here, because the
  *  engine CLI polls with `read` and no relay re-runs `run`; a direct worker still working answers CODEX-RUNNING. */
 function read() {
@@ -414,6 +483,7 @@ function stop() {
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (!isMain) { /* imported by a test: expose the helpers only */ }
 else if (cmd === "run") await run();
+else if (cmd === "resume") await resume();
 else if (cmd === "read") read();
 else if (cmd === "watch") await watch();
 else if (cmd === "stop") stop();

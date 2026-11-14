@@ -82,8 +82,8 @@ export function rootBlock(state, unitId) {
  */
 export function parkOrAssume(state, unitId, { reversible }) {
   const block = rootBlock(state, unitId);
-  const nested = assumptionOf(findUnit(state, unitId)) !== null;
-  return { mode: reversible === true && block.isRoot && !nested ? "assume" : "park", block };
+  // DR-162 option B: every reversible technical choice proceeds, including a lone unit.
+  return { mode: reversible === true ? "assume" : "park", block };
 }
 
 /**

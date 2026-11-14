@@ -2,6 +2,27 @@
 
 > Audience: the engineers (and agents) who implement, test or call the v2 build engine. This file owns the **interfaces**: commands, arguments, exit codes, JSON output shapes, on-disk files, environment test hooks and the worker brief. It owns no policy. Thresholds, routing and review matrices, admission constants, the autonomy ladder, human-gate rules and the failure policy belong to **`factory/standards/build-engine.md`** (rules BUILD-7 to BUILD-15). Session behavior (what the lead agent does between calls) belongs to `plugin/skills/implement/references/{engine-v2.md,autonomy.md,drive.md}`. JSON Schemas live in `plugin/runtime/build/schemas/`. Where this file says "policy", follow the link, do not copy. Where a design is referred to as `D<n>`, the text is the binding design list of the engine build plan (rev 2); this file restates only its interface consequences.
 
+## Phase-3 capacity continuation interface (DR-162)
+
+- `next` may return `{action:"waiting", resumeAt, wake_generation}`. This is a durable capacity wait,
+  not a terminal release: its epoch/token and all suspended checkpoints remain. Drive keeps its loop
+  alive; the open Claude lead uses ScheduleWakeup at resumeAt+60s and ingests get_usage first.
+- `start --resume --coordinator claude|codex [--wake-generation N]` conditionally claims the waiting
+  generation. `claimed:false, action:waiting` carries the next retry instant; `already_resumed` or
+  `already_resuming` means the other coordinator owns that wake. Do not start a second loop.
+- `suspend --epoch E --unit U --file RECEIPT` bridges a native-agent provider limit. The JSON receipt
+  carries `ok:false`, `limit:usage_limit|rate_limit`, `detail`, exact native `sessionId`, optional
+  `resetsAt` and `retryAfterS` (or Retry-After date). A quota citation without a provider receipt is
+  invalid. The command is fenced and preserves branch, dirty tree, pin, attempt and original report token.
+- A continuation dispatch has `resume:true, session_id, worker_id`. CLI workers are already resumed;
+  a native Claude Agent uses `Agent resume=<session_id>` and its original brief/token. Never run a
+  fresh task or select another cell. `codex-worker resume --id ID --resume-sequence N` is the internal
+  idempotent relay operation, using the saved provider session, schema, sandbox and watchdog.
+- `state.status` adds `waiting|resuming`; unit state adds `suspended`, with `pin` and `suspension`.
+  `wake` stores generation/epoch/owner/claimPid; `capacity_state` journal events replay those facts.
+  `capacity-decisions.jsonl` records suspension/wait/wake/resume reason, cell and resumeAt without chat.
+
+
 ## 1. What the CLI is
 
 One Node program is the build engine's only executor, for both runtimes (Claude Code and Codex). It holds all state, all arithmetic and all judgment that must not depend on a model's mood: detection, preflight, planning, risk zones, routing, quota, adaptive memory/disk admission, fencing, commits, integration, landing, doubts, parking, handback and the drive relay. The lead session (Claude or Codex) only runs it in a loop, dispatches the units it returns, and reports back. The session never edits state, status, work-order frontmatter, the journal or the lease by hand.

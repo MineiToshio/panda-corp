@@ -405,11 +405,11 @@ async function scenarioQ() {
     const q = await cli(sc, ["quota", "record", "--provider", "claude", "--five-hour", "100", "--weekly", "100", "--five-hour-resets-at", "2026-11-12T12:00:00Z", "--weekly-resets-at", "2026-11-14T12:00:00Z", "--epoch", String(E)]);
     check(sc, "quota record Claude 92 %", q.code === 0, txt(q.json));
     const n = await cli(sc, ["next", "--epoch", String(E)]);
-    check(sc, "both companies >= 90 % -> next returns paused-quota", n.code === 0 && n.json?.action === "paused-quota", `exit ${n.code} ${txt(n.json)}`);
+    check(sc, "both companies >= 90 % -> next returns paused-quota", n.code === 0 && n.json?.action === "waiting", `exit ${n.code} ${txt(n.json)}`);
     const st = await cli(sc, ["status"]);
-    check(sc, "paused-quota arrives applied: status paused, lease released", st.json?.status === "paused" && (!existsSync(sc.p.leaseFile) || st.json?.lease?.live === false), `${txt(st.json)} lease=${txt(await lease(sc))}`);
+    check(sc, "paused-quota arrives applied: status paused, lease released", st.json?.status === "waiting" && existsSync(sc.p.leaseFile), `${txt(st.json)} lease=${txt(await lease(sc))}`);
     const again = await cli(sc, ["next", "--epoch", String(E)]);
-    check(sc, "after the release the old epoch is fenced (exit 3)", again.code === 3, `exit ${again.code} ${txt(again.json)}`);
+    check(sc, "capacity waiting keeps the epoch for the scheduled wake", again.code === 0 && again.json?.action === "waiting", `exit ${again.code} ${txt(again.json)}`);
     check(sc, "the drive standby exits on a non-active status", !!(await waitFor(() => !alive(sb), 45_000)), `pid ${sb} ${cmdline(sb)}`);
     stopGuard(sc); checkGuard(sc, "Q");
     check(sc, "main untouched", gitTry(sc.root, ["rev-parse", "main"]) === sc.baseline && reflogMain(sc.root).length === sc.reflog0, "");

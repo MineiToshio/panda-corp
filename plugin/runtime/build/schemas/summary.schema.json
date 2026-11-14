@@ -24,7 +24,9 @@
         "waiting_owner",
         "waiting_gate",
         "finished",
-        "stopped"
+        "stopped",
+        "waiting",
+        "resuming"
       ]
     },
     "need_from_owner": {

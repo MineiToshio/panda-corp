@@ -6,6 +6,7 @@ import { ENV_INFRA_STOP } from "./constants.mjs";
 import { err, isAssumed, isLive, passIntent, resolveDeps, sibling } from "./context.mjs";
 import { removeAllG2Snapshots } from "./g2.mjs";
 import { blockedClosure, scopedState } from "./scope.mjs";
+import { enterCapacityWaiting } from "../../capacity/scheduler.mjs";
 
 export function runningSummary(state) {
   const units = state.units.filter(isLive);
@@ -21,9 +22,9 @@ export function runningSummary(state) {
 export function chooseTerminal(state, { pol, l4, plan, candidates, dispatch }) {
   state = scopedState(state);
   const bothOut = pol && !pol.claude_new_units && !pol.codex_new_units;
-  if (pol?.paused) return { action: "paused-quota", status: "paused", reason: "quota", resumeAt: pol.resumeAt };
-  if (state.handbacks_in_a_row >= ENV_INFRA_STOP) return { action: "stop", status: "stopped", reason: "env_infra_handbacks" };
   if (state.units.every(isTerminalUnit)) return { action: "done", status: state.status, reason: "done" };
+  if (pol?.paused) return { action: "waiting", status: "waiting", reason: "capacity", resumeAt: pol.resumeAt };
+  if (state.handbacks_in_a_row >= ENV_INFRA_STOP) return { action: "stop", status: "stopped", reason: "env_infra_handbacks" };
   if (dispatch?.admissionBlocked) return { action: "wait", reason: dispatch.admissionBlocked };
   const nonTerminal = state.units.filter((u) => !isTerminalUnit(u));
   const { all, ownerRoots } = blockedClosure(state);
@@ -58,6 +59,8 @@ export function terminalNotes(terminal, quota) {
 export async function applyTerminal(ref, terminal, deps = {}) {
   const d = resolveDeps(deps);
   const runRef = { ...ref, deps: d };
+  if (terminal.action === "waiting") return fencedTwoPhase(runRef, async ctx =>
+    enterCapacityWaiting(ctx, await ctx.readState(), terminal.resumeAt, d), passIntent);
   const stopped = terminal.action === "stop" || terminal.action === "deadlock";
   const state = await fencedTwoPhase(runRef, async (ctx) => {
     const s = await ctx.readState();

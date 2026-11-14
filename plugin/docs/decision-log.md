@@ -1,5 +1,23 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-14 — In-place capacity continuation and autonomous technical assumptions
+
+**What:** DR-162 phase 3 suspends subscription-limited executions without resetting dirty trees, cells,
+threads, tokens or attempts. Same-cell transient backoff, a lease-fenced wake generation, reset-confirming
+reads, drive sleep and the Claude lead ScheduleWakeup protocol resume work without quota permission.
+Native Agent receipts use `suspend`; CLI workers resume explicit provider sessions. Reversible technical
+doubts record an engine assumption with rationale/reversal and integrate through normal gates.
+Canonical: [capacity.md](capacity.md), [BUILD-11/12](../../factory/standards/build-engine.md),
+[implement](../skills/implement/SKILL.md); Manual's unattended-build explanation updated in the same change.
+Plugin **10.11.0** (compatible suspend/wake capability); generated manifests refreshed. No commit requested.
+
+**Why:** requeueing after a provider limit discarded identity and edits; releasing the run did not schedule
+its return. Root-ratio/owner-acceptance rules blocked reversible technical work. Conditional wake ownership
+and independent review preserve one execution and protected production/money/deletion/external gates.
+Historical regression scenarios now assert this replacement policy; real reset and native timers remain
+phase-4 evidence, and shared concurrent reservations remain outside this phase.
+
+
 ## 2026-11-14 — Capacity review fixes and routing coverage recovery
 
 **What:** fix the ten phase-1 review findings: pin risk/override/reserve validation, per-window uncertainty,

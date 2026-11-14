@@ -2,7 +2,7 @@
 // layout, unit-kind groups, the agent types and Spanish verbs of a dispatch, and the sibling contract.
 
 /** Every action `next` can return (CLI doc section 4). */
-export const NEXT_ACTIONS = Object.freeze(["dispatch", "wait", "handoff", "land", "done", "paused-quota", "waiting-owner", "deadlock", "stop"]);
+export const NEXT_ACTIONS = Object.freeze(["dispatch", "waiting", "wait", "handoff", "land", "done", "paused-quota", "waiting-owner", "deadlock", "stop"]);
 /** Terminal actions (A11); all but `done` arrive already applied. */
 export const TERMINAL_ACTIONS = Object.freeze(["done", "paused-quota", "waiting-owner", "deadlock", "stop"]);
 /** `--wait` upper bound in seconds (BUILD-7 constants). */

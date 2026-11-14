@@ -10,7 +10,7 @@ export const err = (code, message, extra = {}) => Object.assign(new Error(messag
 export const LEASE_TTL_S = 1800;
 export const COORDINATORS = Object.freeze({ claude: "claude-session", codex: "codex-session" });
 export const SIZE_RANK = Object.freeze({ touch: 0, feature: 1, giant: 2 });
-export const RESUMABLE_STATUSES = Object.freeze(["active", "paused", "waiting_owner", "waiting_gate", "stopped"]);
+export const RESUMABLE_STATUSES = Object.freeze(["active", "waiting", "resuming", "paused", "waiting_owner", "waiting_gate", "stopped"]);
 
 export const depsOf = (deps) => ({ ...deps, env: deps.env ?? process.env });
 export const bsOf = (d) => d.buildState ?? buildStateModule;

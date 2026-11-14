@@ -117,31 +117,29 @@ A builder or planner returns `status: "doubt"` (`report` → `outcome: doubt`); 
    2 of 3 agree at ≥ medium after the tie-break) and wrote the "Decidido sin el owner" entry in the project's
    `docs/decision-log.md` on `lane/<run_id>/integration` (question, options, choice, who advised, confidence, card, commit, how
    to revert) and the `autonomous_decision` journal event. Keep the line for "Decidí sin ti".
-5. **`step: parked`**: §3. A doubt whose cap is exhausted also comes back as `parked` (exit 0).
+5. **No consensus / consult cap**: reversible technical choices become a `decided` engine assumption (§3).
+   Protected/irreversible operations remain `parked` or at their gate (§4).
 
 **Caps (enforced by the CLI, never worked around):** at most 3 consult calls per doubt; at most 8 consulted doubts
-per build, after which every new doubt parks. Never open a consult the CLI did not hand out.
+per build, after which reversible doubts use a recorded assumption and protected operations still park. Never open a consult the CLI did not hand out.
 
 **Never decided this way (the CLI parks them; the session must not decide them either):** widening scope beyond
 Dentro; reducing or reinterpreting a Dentro point; product scope (PRD, epics); DRs with `requiere_humano: true`;
 anything irreversible; human gates; spending money. **Irreversibility is not judged by a model**: the CLI's risk
 output (`irreversible`: login and session, stored data, deletions, the r1 zone) vetoes the ladder.
 
-## 3. Nobody is sure: park, build on assumption, or stop
+## 3. Reversible technical assumptions (option B)
 
-The CLI decides which applies; the session reports and notifies.
+Sources and bounded consultation still provide evidence. If they cannot settle a reversible technical
+choice, the CLI selects the preferred in-scope option, records an engine decision with rationale and a
+concrete reversal path in the doubt record, decision log and journal, and queues the unit for ordinary
+integration. This applies to lone units and small roots too. It does not wait for an owner answer or an
+assumption-branch approval. The independent review and deterministic gates still run.
 
-- **Park** (`parked: owner_question`): that unit and its dependents wait; everything independent keeps building.
-  The CLI records the question (id = the doubt id) on the integration branch and mirrors pending questions
-  to the untracked `.pandacorp/inbox/decisions.pending.md` where Mission Control can read them. Claude Code: `PushNotification`
-  "Aparqué <unidad>: necesito tu decisión. Lo demás sigue.".
-- **Built on assumption**: the parked unit drags more than half of the pending work and the preferred option is
-  reversible. The CLI builds everything on that option on `lane/<run_id>/assume-<doubt>`, with its gates, **without
-  landing**. The owner's answer is `pb answer` kind `parked` (§1.4): the assumed option ("sí") → accepted, the branch
-  joins the run and reaches `main` through the normal `land` (in a launched project it still waits for "aterriza");
-  another option ("no") → discarded, the units are rebuilt with the answer. Report the branch name.
-- **Everything depends on it**: `next` returns `waiting-owner` (already applied: lease released); final report with
-  the question on top, notify, stop. The only case in which nothing advances.
+Production, money, data deletion and unauthorized external communication retain their gates (§4).
+Existing authorized actions reuse the recorded authorization. Do not invent scope or spend money while
+resolving an assumption. Keep diagnostics and bounded retries for failures; never turn a technical
+preference into a new permission request. Historical root-ratio parking is superseded by DR-162.
 
 ## 4. Human gates while the owner is away
 
@@ -183,4 +181,7 @@ wave through `capacity-cli.mjs ingest-claude`; missing tools use the existing ac
 For every new unit/review, the shared allocator chooses a qualified tool and risk floor. When one tool cannot
 fit, continue on the other; running units keep their selected tool. Only neither fitting parks capacity at a safe
 point with `resumeAt` in state and journal. Image work has only Codex and reports a per-task wait with exit 75.
-Automatic wake-up is phase 3. Fresh review context provides independence even with the same model/company.
+The Claude lead schedules ScheduleWakeup at `resumeAt+60s`, refreshes get_usage and invokes
+`start --resume --coordinator claude --wake-generation <N>`; see SKILL.md for the conditional claim,
+stale-reading retries and attended fallback. A real limit suspends the same worker/thread/worktree/pin
+and attempt. Native-agent limits enter through `pb suspend` as described in engine-v2.md. Fresh review context provides independence even with the same model/company.

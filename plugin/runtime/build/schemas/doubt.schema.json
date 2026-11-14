@@ -241,6 +241,18 @@
             },
             "branch": {
               "type": "string"
+            },
+            "reversible": {
+              "type": "boolean"
+            },
+            "accepted": {
+              "type": "boolean"
+            },
+            "rationale": {
+              "type": "string"
+            },
+            "revert": {
+              "type": "string"
             }
           },
           "required": [

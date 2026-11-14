@@ -344,8 +344,8 @@ knowledge for `--files`) and returns
 > adapter, `routing.mjs` and fenced `next` transitions. See DR-162 (supersedes DR-161 thresholds).
 
 Never stop for one tool's quota. Choose the other qualified tool for new work. Only when neither tool fits
-may capacity park a run; finish or harvest current executions first, persist `resumeAt` in state AND its pause
-journal event, then release at the safe point. Never ask the owner about quota. Automatic wake-up is phase 3.
+may capacity put a run in `waiting`; harvest current executions first and persist the minimum eligible
+`resumeAt` in state AND journal, retaining the lease. Never ask the owner about quota.
 Image generation has one qualified tool (Codex); exhaustion returns JSON with `resumeAt` and exit 75.
 
 The account store is `~/.pandacorp/host/capacity/`, overridden by `PANDACORP_CAPACITY_DIR` for tests.
@@ -365,7 +365,25 @@ transient rate limits remain distinct and do not mark the account exhausted.
 Every dispatched decision and capacity wait is JSONL with task id/type/risk, selected cell, reason and
 `readings_used`. Inside a run: `.pandacorp/run/build/capacity-decisions.jsonl` (existing engine run path);
 outside: `~/.pandacorp/host/capacity/decisions.jsonl`. Audit records are not reservations: concurrent-account
-reservation, crash reconciliation, wake scheduling and real subscription reset certification remain later work.
+reservation and real subscription reset certification remain later work.
+
+### Suspension and automatic continuation (phase 3)
+
+A provider subscription limit suspends the exact execution: dirty files, worktree, branch, worker/session,
+pin, token and attempt survive. A quoted word quota is insufficient evidence. Transient 429/529 errors
+retry the same cell after 60/120/240/480/900 seconds; honor Retry-After up to 900 seconds. Suspended
+executions free live admission slots; independent units continue on the other qualified tool.
+
+When all work waits, drive sleeps until resumeAt+60s in lease-renewing chunks and rereads both shared
+accounts. The open Claude lead instead sets ScheduleWakeup at that instant, re-ingests Desktop
+get_usage and calls start --resume --coordinator claude --wake-generation N. No duplicate CronCreate
+job. A single conditional waiting→resuming claim under the lease mutex fences drive, lead and manual
+wakes; generation/epoch/pid permit stale-wake rejection and dead-claim recovery. Unknown telemetry
+never confirms reset: reread after 60/120/240/480/900 seconds until a newer healthy observation exists.
+Native-agent receipts use the fenced suspend command with their exact Agent resume id. CLI workers
+resume their saved provider session and continuation sequence without resetting or preparing the tree.
+Every suspension, wait, wake and continuation is in capacity-decisions.jsonl with reason, resumeAt and
+cell; replay uses capacity_state journal events. No detailed quota chat or owner permission request.
 
 ## Rule — autonomy: the first minute, doubts and parking (BUILD-12)
 
@@ -428,8 +446,8 @@ and its preferred one; the unit stays `reported` with its `doubt_id`):
 2. **Decide** when consult 1 matches the preferred option with confidence ≥ medium. Otherwise
    **consult 2** (tie-break) with the strongest model not yet consulted (opus xhigh or astra high); the
    option with 2 of 3 votes and confidence ≥ medium wins.
-2b. **Ladder length (DEC-10):** the ladder asks at most 2 consults; with no 2-of-3 winner after consult 2 the doubt parks `no_consensus`, and a winner is parked `consult_irreversible` when any voter, or any answered non-voting consult that chose it, says `reversible:false`. The file-risk veto fails closed: an unreadable `docs/frds` or work order, or a WO id not found, parks the doubt. "Already built" for a rejected assumption is judged from unit state and doubt-id order; the assumed root that was never rebuilt is re-queued without spending an attempt. A doubt the engine synthesizes is a repeat only by its normalized question (a distinct second ambiguity goes to consult); a reworded repeat is stopped only by the 8-doubt cap.
-3. **Caps:** ≤3 consult calls per doubt (hard cap); ≤8 consulted doubts per build; beyond that the doubt parks. A
+2b. **Ladder length (DEC-10):** the ladder asks at most 2 consults; with no 2-of-3 winner after consult 2 a reversible technical doubt uses an engine assumption, and a winner is parked `consult_irreversible` when any voter, or any answered non-voting consult that chose it, says `reversible:false`. The file-risk veto fails closed: an unreadable `docs/frds` or work order, or a WO id not found, parks the doubt. "Already built" for a rejected assumption is judged from unit state and doubt-id order; the assumed root that was never rebuilt is re-queued without spending an attempt. A doubt the engine synthesizes is a repeat only by its normalized question (a distinct second ambiguity goes to consult); a reworded repeat is stopped only by the 8-doubt cap.
+3. **Caps:** ≤3 consult calls per doubt (hard cap); ≤8 consulted doubts per build; beyond that a reversible doubt uses an engine assumption. A
    consult that returns no JSON counts as a low-confidence, irreversible non-answer: it counts toward the
    cap and the ladder advances.
 
@@ -442,26 +460,12 @@ options, chosen, who advised with model/company/confidence, card, commit, how to
 `lane/<run_id>/integration`; a journal `autonomous_decision` event; one line under "Decidí sin ti (N)" in the final
 report. "Revierte la decisión X" from the owner becomes a card.
 
-**Park.** When nobody is sure: the unit and its `dependsOn` dependents park (`parked: owner_question`
-in state and journal; no new WO frontmatter status); everything independent continues; the question goes
-to `.pandacorp/inbox/decisions.md` as a CONV-20 card (on the integration branch if that file is
-tracked), to the report header, and as a notification. When tracked, entries are also mirrored to
-untracked `.pandacorp/inbox/decisions.pending.md` in the main checkout; `answer` marks both copies.
-The mirror is checked untracked before writing; it makes nested-project questions visible without
-writing tracked main-checkout files (DEC-14/DEC-16). Verification:
-`plugin/scripts/test-build-v2-nested.mjs`, `test-build-v2-doubts.mjs`, `test-build-v2-answer.mjs`.
-- **Root block:** when the parked unit drags more than 50 % of pending units through `dependsOn` and its
-  preferred option is reversible, everything is built on that option on `lane/<run_id>/assume-<doubt>`
-  with G3, **never landed** on its own (`parked: built_on_assumption`). The owner's answer through
-  `answer`: equal to the option → the branch is merged into `lane/<run_id>/integration` by the next integration and
-  lands through the normal `land` (a launched project still waits for "aterriza"); otherwise the branch
-  is discarded and the units are re-queued at attempt+1 on a fresh branch (never the branch holding the rejected code) with the answer in their brief; at attempt 3 they are handed back (`answer_rework_budget`). Units built on the assumption are dispatched from, and integrated into, the assumption branch; an accepted branch is merged by `integrate.mjs` (`--no-ff`, trailer `Doubt:`) at the next integration pass; its G2, review and G3 run after acceptance on the integration branch, so the owner's "sí" still waits for them before landing. G2 for that FRD runs in its own worktree `build/g2/<frd>-<sha>` pinned to the integration sha (DEC-9; see the gate table).
-- **One assumption per unit (DEC-7, DEC-8).** A unit already built on an assumption (`assume-<d-1>`) that raises a second doubt `d-2` parks on `d-2` (`parked: owner_question`, marker `assumed_on: d-1`); it never starts a second assumption branch, and `d-2` stays open in the inbox. Rejecting `d-1` re-queues every unit built on it, including a unit parked on `d-2`, at attempt+1 on a fresh branch (attempt 3 hands back). If `d-1` is accepted and `d-2` is answered, the unit regains `built_on_assumption` from `assumed_on`.
-- Only when **all** remaining work depends on the answer does the run stop at a safe point
-  (`waiting-owner`, the one case where nothing advances), saying so and notifying.
+**Option B (DR-162).** Inconclusive reversible technical choices become accepted engine assumptions,
+with rationale and reversal recorded in the doubt record, decision log and journal. They queue ordinary
+work and integrate through the existing gates, including lone units and roots below 50%. No later owner
+acceptance is needed. Consult caps bound reasoning cost, not owner dependence. Protected operations
+(production, money, deletion, unauthorized external communication) retain their gates. Never expand scope.
 
-**Final report** opens with "Necesito de ti", "Decidí sin ti (N)", "Aparcado", the review totals (cross
-vs degraded) and pending deferred reviews.
 
 ## Rule — human gates in the owner's absence (BUILD-13)
 
@@ -541,12 +545,11 @@ deterministic steps and the Codex quota reader.
   opus high (the audit unit is set `verified` so the run can finish; author = the strongest recorded worker
   cell, else codex sol high). Gates: `waiting_gate` + macOS notification. `drive` never spawns a `land` while a land job is
   alive.
-- **Stops:** Codex ≥90 % → `paused-quota` at a safe point; engine failure → BUILD-15; all done → `finish`.
+- **Capacity waits:** no eligible cell → `waiting` with automatic wake at reset+60s; engine failure → BUILD-15; all done → `finish`.
 - **Resume and return to Claude (D32).** `start --resume` accepts a `paused`, `waiting_owner`,
   `waiting_gate` or `stopped` run: lease present → `transfer` back to the caller immediately (epoch+1);
   absent → `acquire`; units whose worker or job pid is alive are re-attached, the others re-queued; `drive`
-  is re-armed. A running `drive` gets exit 3 at its next phase 2 and exits, stopping the Codex workers it launched that the state does not record; `start --resume` waits up to 60 s for a still-active drive to yield before any worktree reset or heal, and refuses with CONTENDED (exit 4, retry) if it has not (never resets a worktree under a live drive). Only a stale lease held by a `session` coordinator of the other runtime needs `--owner-confirmed`; a lease held by `drive` (fresh or stale, e.g. after `kill -9`) is transferred back without it. `start --resume` names the new coordinator (`--coordinator claude|codex`). Accepted consequence: if Codex runs out during the relay the build waits for
-  the owner even if Claude has renewed (automatic return: phase D).
+  is re-armed. A running `drive` gets exit 3 at its next phase 2 and exits, stopping the Codex workers it launched that the state does not record; `start --resume` waits up to 60 s for a still-active drive to yield before any worktree reset or heal, and refuses with CONTENDED (exit 4, retry) if it has not (never resets a worktree under a live drive). Only a stale lease held by a `session` coordinator of the other runtime needs `--owner-confirmed`; a lease held by `drive` (fresh or stale, e.g. after `kill -9`) is transferred back without it. `start --resume` names the new coordinator (`--coordinator claude|codex`). Capacity waits use BUILD-11 automatic continuation, without owner involvement.
 - **Locks (FIX-MUTEX3).** Lease and journal locks are born with their owner record. Dead owners
   (pid gone or reused by a later-started process) are reclaimed immediately. Live holders are never
   stolen; overdue holders appear in `CONTENDED.holder` after 60 s / 30 s. Only ownerless legacy
@@ -749,7 +752,7 @@ consumer fixtures: `mission-control/src/lib/build-run/_tests/build-run.test.ts`.
 | Quota stop / handoff | 90 % / 95 % (or `usage_limit` = 100 %) | BUILD-11 |
 | Codex reading probe | age >1 h and ≥70 % | BUILD-11 |
 | Claude reading freshness | 10 min | BUILD-11 |
-| `rate_limit` retry | once after 60 s, then `K_reactivo −1` | BUILD-11 |
+| `rate_limit` retry | Same cell: 60/120/240/480/900 s; Retry-After capped at 900 s | BUILD-11 |
 | `lease_ttl_s` | 1800 | BUILD-7 |
 | `drive_silent_s` (trigger c) | 1800 | BUILD-14 |
 | `drive_trigger_c_min_pct` | 85 | BUILD-14 |
@@ -757,7 +760,7 @@ consumer fixtures: `mission-control/src/lib/build-run/_tests/build-run.test.ts`.
 | `next --wait` maximum | 300 s | BUILD-7 |
 | Preflight reuse | ≤15 min, same row and scope | BUILD-12 |
 | Doubt caps | 3 calls per doubt, 8 doubts per build | BUILD-12 |
-| Root block | >50 % of pending units | BUILD-12 |
+| Reversible assumption | All reversible technical units, including lone units | BUILD-12 |
 | Sizes | touch 0-1 WO; feature 2-15 WOs or 1-4 FRDs; giant >4 FRDs or >15 WOs; tranche 2 FRDs | BUILD-9 |
 | Chain length | ≤3 WOs | BUILD-9 |
 | Touch review budget | ≤10 calls | BUILD-10 |
@@ -798,8 +801,8 @@ measurements need keeps being recorded.
 - **BUILD-8 (card, docs before):** `test-build-v2-detect.mjs` (`card check`, Mission Control enum, `obsolete` read alias), `test-build-v2-report.mjs` (own commit, `Unit:`/`WO:` trailers, files outside `artifacts`, snapshots, WO frontmatter edits and hashed-file changes rejected), `test-build-v2-land.mjs` (`Change:` only on the landing metadata commit; card to `done/`); citation fidelity to the conversation is review-only (no machine can check it).
 - **BUILD-9 (sizes, planner, admission):** `test-build-v2-planner.mjs` (cyclic-FRD/acyclic-WO graph, barrier + wide DAG, literal-prefix overlap, out-of-scope never planned, chain cut, deadlock), `test-build-v2-perf.mjs` (learned start, bounded samples/records), `test-build-v2-disk.mjs` (disk waits, sparse fallback, cleanup/ref retention/resume/gc), `test-build-v2-admission.mjs` (signal fixtures: clean, warn, critical, swap rising, garbled → safe mode; `motivo_limite`; host slots; never kills; `admit` read-only), `test-build-v2-report.mjs` (tokenless unit rejected), `test-build-v2-jobs.mjs` (detached jobs, H slot, adoption by the epoch holder), `bash plugin/scripts/test-merge-queue-lock-refresh.sh` (lock refresh + host H slot).
 - **BUILD-10 (routing, single reviewer, risk zone):** `test-build-v2-routing.mjs` (every builder row, all 16 matrix rows × availability {ok, quota, unreachable, at_capacity}, N7 only on quota, unreachable N7 cells park, row 8 haiku/fable, `drive` labels `quota_90`, no-repeat raises effort only, exhaustive guard that Fable and `max` are never emitted), `test-build-v2-review.mjs` (degraded marking, deferred lifecycle, probe commits and hashes, `blocked` → hand-back), `test-build-v2-risk.mjs` (zone mapping, `irreversible`, `audit`, fail-closed, `unclassified`), `test-build-v2-risk-backtest.mjs` (CI-only, `package.json`-only, `plugin/**`-only and query-only diffs give `floor`; a login diff gives `r1`; 0 false negatives on the known set; the owner-labelled sample is pending owner time).
-- **BUILD-11 (quota):** `test-build-v2-quota.mjs` (rollout fixtures 98 %, stale, malformed, primary/secondary max, epoch-to-ISO `resets_at`, `usage_limit` recorded as 100 %, `rate_limit` retry; `policy()` table), `test-build-v2-next.mjs` (95 % → `handoff` with the lease kept; both ≥90 % → `paused-quota` with the lease released).
-- **BUILD-12 (autonomy):** `test-build-v2-preflight.mjs` (every question type appears with its default; `preflight.json` reuse; ≤60 s on a Mission-Control-shaped fixture), `test-build-v2-doubts.mjs` (ladder, sources skipped under drive, caps 3/8, no-JSON consult, never-decide list, deterministic veto, decision-log and `decisions.md` writers incl. the tracked-path rule, >50 % root rule), `test-build-v2-answer.mjs` (kinds ask/parked/gate, assumption accepted/discarded, `pending_answer` effects), `test-build-v2-next.mjs` (`pending_answer` last). The owner-perceived first minute (including the card turn) is measured in the first real use; review-only until then.
+- **BUILD-11 (quota):** `test-build-v2-quota.mjs` (rollout fixtures 98 %, stale, malformed, primary/secondary max, epoch-to-ISO `resets_at`, `usage_limit` recorded as 100 %, `rate_limit` retry; `policy()` table), `test-build-v2-next.mjs` (one exhausted tool uses the other; neither tool fits → `waiting` with the lease retained and reset confirmation).
+- **BUILD-12 (autonomy):** `test-build-v2-preflight.mjs` (every question type appears with its default; `preflight.json` reuse; ≤60 s on a Mission-Control-shaped fixture), `test-build-v2-doubts.mjs` (ladder, sources skipped under drive, caps 3/8, no-JSON consult, never-decide list, deterministic veto, decision-log and `decisions.md` writers incl. the tracked-path rule, reversible assumptions without owner acceptance), `test-build-v2-answer.mjs` (kinds ask/parked/gate, assumption accepted/discarded, `pending_answer` effects), `test-build-v2-next.mjs` (`pending_answer` last). The owner-perceived first minute (including the card turn) is measured in the first real use; review-only until then.
 - **BUILD-13 (human gates, landing):** `node --test plugin/scripts/test-install-pre-push.mjs` (nested subtree scopes, multi-ref updates, new/deleted refs, reverts/rewinds and default-worktree state), `bash plugin/scripts/test-pre-push.sh` (launched/internal, default/other branch, delete, env OK, chaining, tracked `core.hooksPath` refused, unreadable status), `test-build-v2-land.mjs` (landing metadata commit contents, every merge-queue exit mapped, exit 21 → `waiting_gate` with the release variable never set, `pin_stale`), `test-build-v2-e2e.mjs` (a fake worker's `git push` to `main` is rejected); existing `test-merge-queue-release-gate.sh` and `test-block-dangerous.sh` stay green.
 - **BUILD-14 (drive):** `test-build-v2-drive.mjs` (arming without a quota check, triggers a/b/c with fixture clocks, quota re-check at takeover, takeover fences the session, `kill -9` mid-unit + `--resume`, return by `start --resume`, audit deferred, `paused-quota`), `test-build-v2-workers.mjs` (`codex-worker.mjs run --direct` polling, limit classification), `test-build-state-handoff.mjs`, `test-build-v2-e2e.mjs`. Not verifiable without real runs (stated, not claimed): the real loop with `codex exec`, long-lived Codex auth in a detached process, surviving a Desktop app close, sleep and lid behaviour, notifications reaching the owner.
 - **BUILD-15 (failure):** `test-build-v2-gate-patch.mjs` (selective attribution and independent fallback), `test-build-v2-nested.mjs` (local drafts and mirrored questions), `test-build-v2-failure.mjs` (build/patch-only 3-execution budget, automatic attempt 3, identical evidence → hand-back, hand-back blocks dependents, 3 consecutive `env-infra` stop, engine failure: safe-point stop, exit 8, `handback/engine.md`, a BL file valid for `validate-backlog.sh`, Spanish message), `test-build-v2-integrate.mjs` (chain integration, WO transitions on the integration branch, patch path `IN_REVIEW → PLANNED → IN_PROGRESS`), `test-build-v2-e2e.mjs`.

@@ -17,7 +17,7 @@ function capacityWorkers(workers, launched) {
   return new Proxy(workers, {
     get(target, prop) {
       const value = target[prop];
-      if (prop === "launchWorker" && typeof value === "function") {
+      if (["launchWorker", "resumeWorker"].includes(prop) && typeof value === "function") {
         return async (input, deps) => {
           guard(input);
           const res = await value.call(target, input, deps);
@@ -103,6 +103,12 @@ export async function driveLoop({ project, epoch }, deps) {
         case "wait":
           await d.sleep(Math.min(pollMs, Math.max(1000, (out.wait?.retry_after_s ?? limits.drive_poll_s) * 1000)));
           break;
+        case "waiting": {
+          // Keep the owner lease alive in <=60 s chunks, but do not read/dispatch before reset+60.
+          const due = Date.parse(out.resumeAt) + 60000;
+          await d.sleep(Math.min(60000, Math.max(1, due - d.now())));
+          break;
+        }
         case "land": {
           const state = await readState(project, { env: d.env, homedir: d.homedir });
           if (state && landJobAlive(state, d)) { await d.sleep(pollMs); break; }

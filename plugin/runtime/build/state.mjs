@@ -232,6 +232,10 @@ export function foldJournal(events) {
     const d = ev.data ?? {};
     if (Number.isInteger(ev.epoch) && ev.epoch > (state.epoch ?? 0)) state.epoch = ev.epoch;
     switch (ev.type) {
+      case "capacity_state":
+        if (d.unit) Object.assign(unitOrThrow(state, d.unit, ev.type), clone(d.patch));
+        else Object.assign(state, clone(d.patch));
+        break;
       case "run_resumed":
         if (COORDINATORS.includes(d.coordinator)) state.coordinator = d.coordinator;
         if (state.status !== "finished") { state.status = "active"; state.status_reason = null; state.resumeAt = null; }
@@ -254,6 +258,9 @@ export function foldJournal(events) {
       case "unit_dispatched": {
         const u = unitOrThrow(state, d.unit, ev.type);
         u.worker = { runtime: d.cell.runtime, model: d.cell.model, effort: d.cell.effort ?? null, via: d.via, pid: d.pid ?? null, worker_id: d.worker_id ?? null };
+        if (d.session_id) u.worker.session_id = d.session_id;
+        u.pin = { tool: d.cell.runtime, model: d.cell.model, effort: d.cell.effort ?? null };
+        if (!d.resume) u.suspension = null;
         u.worktree = d.worktree ?? null;
         u.branch = d.branch ?? null;
         u.token_hash = d.token_hash ?? null;

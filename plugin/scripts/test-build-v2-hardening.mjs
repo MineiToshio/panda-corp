@@ -465,10 +465,10 @@ await test("S6 N13 (DEC-10): after 2 consults without a 2-of-3 winner the doubt 
   const s1 = await c.sources(id, SRC_MISS);
   const s2 = await c.consult(id, s1, consultAnswer("opt-yes", "high", CELL.solHigh));
   const out = await c.consultAgent(id, s2, consultAnswer("opt-maybe", "high", CELL.opusXhigh));
-  eq(out.step, "parked", "step"); eq(out.record.consults.length, 2, "exactly two consults were asked (no third)");
+  eq(out.step, "decided", "step"); eq(out.record.consults.length, 2, "exactly two consults were asked (no third)");
   ok(!out.consult, "no pending third consult");
-  ok(hasReason(await c.trace(id), "no_consensus"), "the park reason is no_consensus");
-  const u = await c.unit(U1); eq([u.state, u.parked], ["parked", "owner_question"], "unit parked for the owner");
+  ok(out.record.assumption.rationale && out.record.assumption.revert, "autonomous reason and reversal recorded");
+  const u = await c.unit(U1); eq([u.state, u.parked], ["queued", null], "unit proceeds on reversible assumption");
 }));
 
 await test("S6 N13: a winner chosen with a voter that says reversible:false parks consult_irreversible (never decided)", async () => withDoubts({}, async (c) => {

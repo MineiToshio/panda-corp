@@ -405,13 +405,13 @@ await test("takeover keeps running Codex workers alive and does not quiesce or t
 await test("takeover with Codex at exactly 90 %: transfer then paused-quota (state paused, lease released, both resets_at, drive actor), nothing run", async () => {
   const run = await makeRun(); const { codexResetsAt } = await writeCodexPct(run, 100); await claudeReading(run, 100); await writeHandoff(run);
   const { calls } = await takeover(run, "a", { notify: true });
-  const st = await stateOf(run); eq(st.status, "paused", "state.status"); ok(/quota/i.test(st.status_reason ?? ""), `status_reason must mention quota: ${st.status_reason}`);
-  ok(!existsSync(run.P.leaseDir), "the lease must be released at paused-quota");
-  const events = await eventsOf(run); const paused = events.find((e) => e.type === "paused"); ok(paused, `journal has no paused event (types: ${events.map((e) => e.type)})`);
+  const st = await stateOf(run); eq(st.status, "waiting", "state.status"); ok(/capacity/i.test(st.status_reason ?? ""), `status_reason must mention quota: ${st.status_reason}`);
+  ok(existsSync(run.P.leaseDir), "capacity waiting retains the epoch fence");
+  const events = await eventsOf(run); const paused = events.find((e) => e.type === "capacity_state"); ok(paused, `journal has no paused event (types: ${events.map((e) => e.type)})`);
   eq([paused.actor, paused.epoch], ["drive", 2], "paused event actor/epoch (transfer first, so epoch+1)");
   const blob = JSON.stringify([paused.data, st.status_reason]);
-  ok(blob.includes(codexResetsAt.slice(0, 19)), `Codex resets_at ${codexResetsAt} missing from ${blob}`);
-  ok(blob.includes(isoAt(T0 + 3600e3).slice(0, 19)), `Claude resets_at ${isoAt(T0 + 3600e3)} missing from ${blob}`);
+  eq(st.resumeAt.slice(0, 19), isoAt(T0 + 3600e3).slice(0, 19), "wait until the earliest eligible tool reset");
+  ok(Boolean(st.wake?.generation), `Claude resets_at ${isoAt(T0 + 3600e3)} missing from ${blob}`);
   eq(osascriptCalls(calls).length >= 0, true, "notification optional here"); noClaude(calls, run, "paused-quota takeover");
 });
 await test("takeover with only Codex exhausted continues on the other tool", async () => {

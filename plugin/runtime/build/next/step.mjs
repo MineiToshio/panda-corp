@@ -5,8 +5,9 @@ import { withRunCleanup } from "../lifecycle/cleanup.mjs";
 import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
 import { bootstrapIntegrationWorktree } from "../integrate.mjs";
 import { recordSample } from "../perf.mjs";
+import { isTerminalUnit } from "../state.mjs";
 import { ENV_INFRA_STOP, G2_SNAPSHOT_FAIL_MAX, LAND_RETRY_S, RETRY_S } from "./constants.mjs";
-import { admissionCtx, fresh, mutate, sibling } from "./context.mjs";
+import { admissionCtx, fresh, mutate, sibling, nowMs } from "./context.mjs";
 import { buildCandidates } from "./candidates.mjs";
 import { dispatchRound, readSignalsSafe } from "./dispatch.mjs";
 import { handBackExhaustedG2 } from "./g2.mjs";
@@ -16,6 +17,7 @@ import { landDecision } from "./landing.mjs";
 import { listDeferred, parkIrreversiblePending, planRound, quotaView, readRunParams, scheduleManagedUnits } from "./planning.mjs";
 import { alreadyStopped, applyTerminal, chooseTerminal, runningSummary, terminalNotes } from "./terminal.mjs";
 import { watchList } from "./wait.mjs";
+import { wakeCapacity } from "../../capacity/scheduler.mjs";
 
 export async function step(run) {
   const { d } = run;
@@ -31,6 +33,12 @@ export async function step(run) {
     }
     return { value: s };
   });
+  if (["waiting", "resuming"].includes(state.status)) {
+    await wakeCapacity({ ...run.ref, owner: run.ref.actor === "drive" ? "drive" : "lead" }, d);
+    state = await fresh(run);
+    if (["waiting", "resuming"].includes(state.status)) return finish(run, state, { action: "waiting" });
+  }
+  if (state.status === "resuming") return finish(run, state, { action: "waiting" });
   if (state.status !== "active") return { out: await alreadyStopped(run, state), watch: [] };
   if (run.reading?.scale_event && !run.scaledEmitted) {
     const { from, to, reason } = run.reading.scale_event;
@@ -57,11 +65,11 @@ export async function step(run) {
     notes.push(`Claude al ${quota.out.claude.pct ?? "?"} %: relevo a drive.`);
     return finish(run, state, { action: "handoff", quota, notes });
   }
-  if (pol.paused) {
+  if (pol.paused && !(state.units.length && state.units.every(isTerminalUnit))) {
     if (pol.decision) logCapacityDecision({ id: state.run_id, type: "implement", risk: "normal" }, pol.decision, { env: d.env, now: pol.now, log: run.paths.capacityDecisionsFile });
     if (runningSummary(state).any) return finish(run, state, { action: "wait", wait: { reason: "quota", retry_after_s: RETRY_S.quota }, quota, notes });
-    const terminal = { action: "paused-quota", status: "paused", reason: "quota", resumeAt: pol.resumeAt };
-    notes.push(...terminalNotes(terminal, quota));
+    const dates = [pol.resumeAt, ...state.units.filter(u => u.state === "suspended").map(u => u.suspension.resumeAt)].filter(Boolean);
+    const terminal = { action: "waiting", status: "waiting", reason: "capacity", resumeAt: dates.sort((a,b) => Date.parse(a)-Date.parse(b))[0] };
     state = await applyTerminal(run.ref, terminal, d);
     return finish(run, state, { action: terminal.action, quota, notes });
   }
@@ -114,9 +122,14 @@ export async function step(run) {
     // ENV_INFRA_STOP streak of hand-backs ends the run through chooseTerminal (FIX-D-4).
     return finish(run, state, { action: "wait", wait: { reason: "gate", retry_after_s: RETRY_S.gate }, admit: dispatch.admit, quota, notes });
   }
-  const capacityResumeAt = [...(candidates.capacityWaits ?? [])].sort()[0];
+  const capacityResumeAt = [...(candidates.capacityWaits ?? [])].sort((a,b) => Date.parse(a)-Date.parse(b))[0];
+  // A transient response is a running loop backoff, not a subscription-reset wait (+60s grace).
+  const transient = state.units.filter(u => u.state === "suspended" && u.suspension.reason === "rate_limit")
+    .some(u => u.suspension.resumeAt === capacityResumeAt);
+  if (transient) return finish(run, state, { action: "wait", wait: { reason: "rate_limit",
+    retry_after_s: Math.max(1, Math.ceil((Date.parse(capacityResumeAt) - nowMs(d)) / 1000)) }, quota, notes });
   const terminal = capacityResumeAt
-    ? { action: "paused-quota", status: "paused", reason: "quota", resumeAt: capacityResumeAt }
+    ? { action: "waiting", status: "waiting", reason: "capacity", resumeAt: capacityResumeAt }
     : chooseTerminal(state, { pol, plan, candidates, dispatch });
   if (terminal.action === "wait") {
     return finish(run, state, { action: "wait", wait: { reason: terminal.reason, retry_after_s: RETRY_S[terminal.reason] }, admit: dispatch.admit, quota, notes });
@@ -131,6 +144,7 @@ function finish(run, state, { action, units = [], wait = null, admit = null, quo
   const out = {
     ok: true, cmd: "next", epoch: run.ref.epoch, action, units, wait,
     admit: admit ?? null, quota: quota?.out ?? null, notes_es: notes.filter(Boolean),
+    ...(action === "waiting" ? { resumeAt: state.resumeAt, wake_generation: state.wake?.generation } : {}),
   };
   return { out, watch: watchList(run, state) };
 }

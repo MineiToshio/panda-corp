@@ -1,9 +1,12 @@
-> **DR-162 (phase 2a) supersedes quota routing below:** drive uses the same shared account allocator as
+> **DR-162 (phase 3) supersedes quota routing below:** drive uses the same shared account allocator as
 > the session, can execute an allocated Claude cell through the worker launcher, and only parks capacity
 > when neither qualified tool fits, with resumeAt persisted. There is no 90/95 veto or capacity-triggered
 > mandatory company switch, Astra escalation, same-model degradation or Claude-only audit deferral.
 > Explicit handoff, lease fencing, ownership, human gates and safe-point behavior remain in force.
-> Automatic resumption is phase 3; authenticated real-provider fallback is not certified by fixtures.
+> On capacity waiting, the live loop sleeps until resumeAt+60s and requires renewed readings;
+> the Claude lead uses ScheduleWakeup as defined in SKILL.md. Native limits use `pb suspend` with
+> the Agent resume id, never quota-triggered handoff. The quota/timer paragraphs below are historical
+> where they conflict with this phase-3 contract. Real-provider reset/authentication is not certified by fixtures.
 
 # `drive`: the Codex relay, from the session's side
 

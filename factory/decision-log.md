@@ -1,6 +1,11 @@
 # Decision Log — Factory
 
 
+## 2026-11-14 — DR-162 phase 3: automatic continuation and option B
+
+Extended DR-162 and BUILD-11/12: retain the exact suspended execution; use fresh reset observations and one fenced wake generation; record reversible technical assumptions with reversal instructions. Canonical: [build-engine.md](standards/build-engine.md), [registry.yaml](decisions/registry.yaml). Protected operation gates and model risk floors remain. Fake-provider verification does not qualify real provider resets.
+
+
 ## 2026-11-14 — Never-stop account capacity (DR-162)
 
 The owner replaced threshold/conserve vetoes with per-task shared capacity fallback. BUILD-10/11 now preserve risk floors and fresh-context review, and DR-152 points to DR-162. Account state and pause resumeAt are shared/persisted; automatic wake and reservations remain later phases. Canonical: standards/build-engine.md, decisions/registry.yaml and ../plugin/docs/capacity.md.

@@ -287,6 +287,22 @@ export async function launchWorker(input, deps) {
   return fresh(sealed.payload);
 }
 
+/** Resume the SAME worker id/thread/cell, with an idempotent continuation sequence. Never prepare/reset its tree. */
+export async function resumeWorker({ project, workerId, unit, frd, dir, sequence }, deps = {}) {
+  const { bin, prefix } = workerCommand(deps);
+  const argv = [...prefix, "resume", "--project", project, "--id", assertSafeId(workerId, "worker id"), "--resume-sequence", String(sequence), "--max", "1"];
+  const out = await runCapture(bin, argv, { cwd: project, env: workerEnv(deps), timeoutMs: deps.launchTimeoutMs ?? 15000 }, deps);
+  releaseChild(out.child);
+  if (out.spawnError) return { ok: false, detail: out.spawnError };
+  const line = lastLine(out.stdout);
+  const parsed = parseSealedLine(line, deps);
+  if (!line.startsWith("CODEX-RUNNING") && (!parsed.ok || parsed.payload.status === "error"))
+    return { ok: false, detail: parsed.payload?.detail ?? out.stderr ?? line };
+  const stored = readJsonSync(path.join(buildPaths(project).codexWorkerDir(workerId), "state.json"), deps);
+  return { ok: true, workerId, pid: stored?.pid ?? null,
+    job: jobItem({ workerId, unit, frd, pid: stored?.pid ?? null, cwd: dir, startedAt: stored?.startedAt ?? new Date().toISOString() }) };
+}
+
 function killGroup(pid, deps) {
   if (!Number.isInteger(pid)) return;
   const kill = deps?.kill ?? process.kill;
@@ -303,13 +319,16 @@ function killGroup(pid, deps) {
  * @returns {{outcome: string, report?: object, text?: string, kind?: string, detail?: string, limit?: string,
  *            resetsAt?: string|null, retryAfterS?: number, errors?: object[]}}
  */
-export function classifyWorkerPayload(payload, { unit, schema = null } = {}) {
+export function classifyWorkerPayload(payload, { unit, schema = null, now = Date.now() } = {}) {
   const detail = String(payload.detail ?? "").slice(0, 600);
   if (payload.status === "error") return { outcome: "worker_error", kind: String(payload.kind ?? "error"), detail };
-  const limit = payload.limit ?? (payload.ok === false ? classifyLimitText(`${payload.kind ?? ""} ${detail}`) : null);
-  if (payload.ok === false && (payload.kind === "limit" || limit)) {
+  const limit = ["usage_limit", "rate_limit"].includes(payload.limit) ? payload.limit : (payload.ok === false ? classifyLimitText(`${payload.kind ?? ""} ${detail}`) : null);
+  if (payload.ok === false && limit) {
     const kind = limit === "rate_limit" ? "rate_limit" : "usage_limit";
-    return { outcome: "limit", limit: kind, detail, resetsAt: limitResetsAt(detail), ...(kind === "rate_limit" ? { retryAfterS: RATE_LIMIT_RETRY_S } : {}) };
+    const rawRetry = payload.retryAfterS ?? payload.retryAfter ?? /retry-after\s*[:=]\s*(\d+|[A-Z][^|\n]+)/i.exec(detail)?.[1];
+    const retry = Number.isFinite(Number(rawRetry)) ? Number(rawRetry) : (Date.parse(rawRetry) - new Date(now).getTime()) / 1000;
+    return { outcome: "limit", limit: kind, detail, resetsAt: payload.resetsAt ?? limitResetsAt(detail), resumeAt: payload.resumeAt ?? null,
+      ...(kind === "rate_limit" ? { retryAfterS: Number(retry) > 0 ? Math.min(900, Number(retry)) : RATE_LIMIT_RETRY_S, retryAfterExplicit: Number(retry) > 0 } : {}) };
   }
   if (payload.ok === false && WATCHDOG_KINDS.has(payload.kind)) return { outcome: "watchdog", kind: payload.kind, detail };
   if (payload.ok === false && payload.kind === "bad-answer") return { outcome: "bad_report", kind: "bad_answer", detail, errors: [{ path: "", message: detail }] };
@@ -363,11 +382,13 @@ export async function pollWorker(input, deps) {
     if (peek.state === "running") return { state: "running", workerId };
     return { state: "done", workerId, outcome: "worker_error", kind: "dead", detail: `worker ${workerId} left no sealed result (${peek.state})`, payload };
   }
-  const verdict = classifyWorkerPayload(payload, { unit, schema: readSchema(schemaFile, deps) });
-  const result = { state: "done", workerId, ...verdict, model: payload.model ?? null, effort: payload.effort ?? null };
+  const verdict = classifyWorkerPayload(payload, { unit, schema: readSchema(schemaFile, deps), now: now ?? deps?.env?.PANDACORP_NOW ?? Date.now() });
+  const stored = readJsonSync(path.join(paths.codexWorkerDir(workerId), "state.json"), deps);
+  const result = { state: "done", workerId, ...verdict, model: payload.model ?? null, effort: payload.effort ?? null,
+    sessionId: payload.sessionId ?? stored?.sessionId ?? null };
   if (verdict.outcome === "limit" && verdict.limit === "usage_limit") {
     const record = deps?.recordLimit ?? quotaRecordLimit;
-    result.recorded = record({ provider: payload.tool ?? "codex", resetsAt: verdict.resetsAt ?? null }, { now, file: paths.quotaFile, epoch, deps });
+    result.recorded = record({ provider: payload.tool ?? stored?.tool ?? "codex", resetsAt: verdict.resetsAt ?? null }, { now: now ?? deps?.env?.PANDACORP_NOW, file: paths.quotaFile, epoch, deps });
   }
   if (verdict.outcome === "report" && reportFile) {
     await atomicWriteJson(reportFile, verdict.report);

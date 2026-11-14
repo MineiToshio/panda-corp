@@ -12,6 +12,7 @@ import { restoreUnitWorktree } from "../units.mjs";
 import { dispatchOf, peekWorker, stopWorkers, workerIdFor } from "../workers.mjs";
 import { clearBuildDir, restoreSuspended } from "./buildDir.mjs";
 import { COORDINATORS, LEASE_TTL_S, RESUMABLE_STATUSES, bsOf, clockMs, depsOf, ensurePrePush, err, isAliveDefault, journal, readStateLoose } from "./common.mjs";
+import { wakeCapacity } from "../../capacity/scheduler.mjs";
 
 // Bound on waiting for a fenced, still-active drive to leave its work phase; past it the resume refuses (CONTENDED).
 const DRIVE_YIELD_WAIT_MS = 60_000;
@@ -111,9 +112,9 @@ function reopenWorkerJob(jobs, u, verdict, project, d) {
  * @param {{project: string, coordinator: "claude"|"codex", sessionModel?: string|null, runId?: string|null, ownerConfirmed?: boolean,
  *   unblock?: string|null, reason?: string|null}} input
  */
-export async function startResume(input, deps = {}) {
+async function startResumeInternal(input, deps = {}) {
   const d = depsOf(deps);
-  const { project, coordinator, sessionModel = null, runId = null, ownerConfirmed = false, unblock = null, reason = null } = input;
+  const { project, coordinator, sessionModel = null, runId = null, ownerConfirmed = false, unblock = null, reason = null, wakeGeneration = null } = input;
   if (!COORDINATORS[coordinator]) throw err("USAGE", "--coordinator debe ser claude o codex");
   if (unblock && !String(reason ?? "").trim()) throw err("USAGE", "--unblock necesita --reason (qué se arregló en el entorno)");
   if (!unblock && reason) throw err("USAGE", "--reason solo acompaña a --unblock");
@@ -133,6 +134,17 @@ export async function startResume(input, deps = {}) {
   // Refuse a wrong unblock (not blocked, not env-infra, a dependent) before any lease or worktree is touched.
   if (unblock) await checkUnblock({ project, state, unitId: unblock, reason }, d);
   const prior = state.status;
+  if (prior === "active" && state.wake?.owner && wakeGeneration === null) {
+    const lease = await bsOf(d).currentLease(project);
+    if (lease && bsOf(d).isFresh(lease, clockMs(d))) return { run_id: state.run_id, epoch: lease.epoch, claimed: false, action: "already_resumed" };
+  }
+  if (["waiting", "resuming"].includes(prior) || wakeGeneration !== null) {
+    const lease = await bsOf(d).currentLease(project);
+    if (!lease || lease.run_id !== state.run_id) throw err("CONTENDED", "capacity wake requires the waiting run's lease");
+    const wake = await wakeCapacity({ project, epoch: lease.epoch, owner: wakeGeneration === null ? "manual" : "lead", generation: wakeGeneration, activate: false }, d);
+    if (!wake.claimed) return { run_id: state.run_id, epoch: lease.epoch, ...wake };
+    state = await readStateLoose(project, d);
+  }
   // Same guard as `start --run`: a launched project never resumes unguarded. It runs before any lease mutation so a
   // refusal leaves the run exactly as it was and the same `start --resume` can simply be retried.
   const launched = (await detect({ project, args: "", sessionRuntime: coordinator }, d)).signals.launched === true;
@@ -147,6 +159,7 @@ export async function startResume(input, deps = {}) {
   const resets = new Map();
   const stopped = new Set();
   for (const u of before.units) {
+    if (u.suspension) continue; // A continuation is NEVER reset, including a crash during its re-admission.
     if (u.state !== "admitted" && u.state !== "running") continue;
     if (unitPids(before, u).some((pid) => isAlive(pid))) continue;
     const verdict = resumeVerdict(before, u, project, d);
@@ -168,6 +181,20 @@ export async function startResume(input, deps = {}) {
     let jobs = state.jobs;
     const units = [];
     for (const u of state.units) {
+      if (u.suspension) {
+        if (["admitted", "running"].includes(u.state)) {
+          const workerState = u.worker?.worker_id ? await readJson(p.codexWorkerDir(u.worker.worker_id) + "/state.json").catch(() => null) : null;
+          const continued = workerState?.resumeSequence >= u.suspension.sequence;
+          const patch = { state: continued ? "running" : "suspended" };
+          if (continued) {
+            const reopened = reopenWorkerJob(jobs, u, { workerId: u.worker.worker_id, pid: workerState.pid }, project, d);
+            jobs = reopened.jobs; if (reopened.event) events.push(reopened.event);
+          }
+          events.push({ type: "capacity_state", data: { unit: u.id, patch } });
+          units.push({ ...u, ...patch });
+        } else units.push(u);
+        continue;
+      }
       if (u.state !== "admitted" && u.state !== "running") { units.push(u); continue; }
       if (unitPids(state, u).some((pid) => isAlive(pid))) { reattached.push(u.id); units.push(u); continue; }
       const verdict = resumeVerdict(state, u, project, d);
@@ -191,10 +218,11 @@ export async function startResume(input, deps = {}) {
     }
     // A dead coordinator may also have died between a unit's settle and its token release: no unit outside
     // admitted/running holds an admission reservation after a resume.
-    for (const u of units) if (u.state !== "admitted" && u.state !== "running") { try { releaseToken(u.id, { file: p.admissionFile }); } catch { /* the token file may be gone */ } }
+    for (const u of units) if (u.state !== "admitted" && u.state !== "running" && u.state !== "suspended") { try { releaseToken(u.id, { file: p.admissionFile }); } catch { /* the token file may be gone */ } }
     await ctx.appendEvent({ type: "run_resumed", data: { from: prior, coordinator: COORDINATORS[coordinator], session_model: sessionModel, reattached, requeued, adopted, rebuilt, ...(healed.healed ? { integration_discarded: healed.discarded, ...(healed.aborted.length ? { integration_aborted: healed.aborted } : {}) } : {}) } });
     for (const ev of events) await ctx.appendEvent(ev);
-    await ctx.writeState({ ...state, units, jobs, coordinator: COORDINATORS[coordinator], status: "active", status_reason: null, resumeAt: null });
+    await ctx.writeState({ ...state, units, jobs, coordinator: COORDINATORS[coordinator], status: "active", status_reason: null, resumeAt: null,
+      ...(state.wake ? { wake: { ...state.wake, epoch: got.epoch } } : {}) });
     return { reattached, requeued };
   });
   // Leftover G2 snapshots (a crash between a snapshot and its job) go before the run continues; a running G2 job keeps its own (NB5).
@@ -207,4 +235,21 @@ export async function startResume(input, deps = {}) {
     : null;
   const drive = await armDrive({ project, runId: state.run_id, launched, appendEvent: (ev) => journal(p, state.run_id, got.epoch, ev.type, ev.data, d) }, d.driveDeps);
   return { run_id: state.run_id, epoch: got.epoch, ...result, ...(unblocked ? { unblocked } : {}), drive };
+}
+
+/** A failed lead wake releases its claim without releasing/deleting the checkpoint. A killed process is recovered by wakeCapacity. */
+export async function startResume(input, deps = {}) {
+  try { return await startResumeInternal(input, deps); } catch (error) {
+    const d = depsOf(deps), state = await readStateLoose(input.project, d);
+    if (state?.status === "resuming" && state.wake?.claimPid === process.pid) {
+      const lease = await bsOf(d).currentLease(input.project);
+      if (lease?.run_id === state.run_id) await fencedTwoPhase({ project: input.project, epoch: lease.epoch, deps: d }, async ctx => {
+        const current = await ctx.readState();
+        if (current.status !== "resuming" || current.wake?.claimPid !== process.pid) return;
+        const patch = { status: "waiting", wake: { ...current.wake, owner: null, claimPid: null } };
+        await ctx.appendEvent({ type: "capacity_state", data: { patch } }); await ctx.writeState({ ...current, ...patch });
+      }, x => x).catch(() => {});
+    }
+    throw error;
+  }
 }

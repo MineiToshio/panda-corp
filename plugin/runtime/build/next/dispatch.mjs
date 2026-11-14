@@ -14,6 +14,7 @@ import { AGENT_TYPE, ENV_INFRA_STOP, G2_SCRIPT, VERB_ES } from "./constants.mjs"
 import { admissionCtx, err, fresh, integrationProductRoot, isAssumed, isLive, nowIsoOf, nowMs, routingDeps, shapeOf, sibling, unitEvent } from "./context.mjs";
 import { createG2Snapshot, g2Needed, removeG2Snapshot, trackG2SnapshotFailures } from "./g2.mjs";
 import { readQuestions } from "./planning.mjs";
+import { capacityAudit, pinOf } from "../../capacity/scheduler.mjs";
 
 export async function readSignalsSafe(run) {
   const { d } = run;
@@ -113,17 +114,17 @@ async function admitPhase(run, ctx, { g2, list, reservations, hostHeld, signals,
     const c = list[i];
     if (granted.has(c.unit.id)) continue;
     const cur = findUnit(s, c.unit.id);
-    const eligible = cur && cur.state === "queued" && (!cur.parked || isAssumed(cur) || (c.unit.kind === "review" && cur.parked === "no_reviewer"));
+    const eligible = cur && (cur.state === "queued" || c.resume && cur.state === "suspended") && (!cur.parked || isAssumed(cur) || (c.unit.kind === "review" && cur.parked === "no_reviewer"));
     if (!eligible) continue;
     let decision = d.admission.decide({ ...base, live, heavyQueued: heavyLeft, readyWidth: list.length - i, want: "B", candidate: REVIEW_TYPE_KINDS.includes(c.unit.kind) ? "reviewer" : "builder" });
     lastDecision = decision;
-    const needsWorktree = !existing.has(c.unit.id);
+    const needsWorktree = !c.resume && !existing.has(c.unit.id);
     if (decision.grant === "B" && !disk(needsWorktree).ok) { diskBlocked = true; decision = { ...decision, grant: null, motivo_limite: "disco" }; lastDecision = decision; }
     admitEvent(c.unit.id, decision, "B");
     if (decision.grant !== "B") { blocked = blocked ?? decision.motivo_limite; if (decision.motivo_limite === "disco") continue; break; }
     if (needsWorktree) diskLeft -= d.admission.ADMISSION.WT_NEED_GIB;
     if (c.capacity) logCapacityDecision(c.task, c.capacity, { env: d.env, log: run.paths.capacityDecisionsFile, now: reactive?.now });
-    const issued = d.admission.issueToken(c.unit.id, "B", adm);
+    const issued = c.resume ? { token: null, token_hash: cur.token_hash } : d.admission.issueToken(c.unit.id, "B", adm);
     granted.add(c.unit.id);
     grants.push({ ...c, unit: { ...cur, ...(c.unit.kind === "review" ? { parked: null } : {}) }, token: issued.token, token_hash: issued.token_hash });
     events.push(unitEvent(c.unit.id, cur.state, "admitted"));
@@ -192,9 +193,14 @@ async function recordPhase(run, work, intent, ctx, quota) {
       continue;
     }
     const worker = { ...p.cell, via: p.via, pid: p.launched?.pid ?? null, worker_id: p.launched?.workerId ?? null };
-    units = units.map((u) => (u.id === cur.id ? { ...u, state: "running", worker, worktree: p.worktree, branch: p.branch } : u));
+    if (p.resume) {
+      Object.assign(worker, cur.worker, { pid: p.launched?.pid ?? null });
+      capacityAudit(run.ref.project, s, "resumed", { unit: cur.id, reason: cur.suspension.reason, resumeAt: cur.suspension.resumeAt, cell: pinOf(cur) }, d);
+    }
+    const pin = { tool: p.cell.runtime, model: p.cell.model, effort: p.cell.effort };
+    units = units.map((u) => (u.id === cur.id ? { ...u, state: "running", worker, pin, ...(p.resume ? {} : { suspension: null }), worktree: p.worktree, branch: p.branch } : u));
     events.push(unitEvent(cur.id, "admitted", "running"));
-    events.push({ type: "unit_dispatched", data: { unit: cur.id, cell: p.cell, via: p.via, worktree: p.worktree, branch: p.branch, token_hash: p.token_hash, worker_id: worker.worker_id, pid: worker.pid } });
+    events.push({ type: "unit_dispatched", data: { unit: cur.id, cell: p.cell, via: p.via, worktree: p.worktree, branch: p.branch, token_hash: p.token_hash, worker_id: worker.worker_id, pid: worker.pid, resume: p.resume === true, ...(worker.session_id ? { session_id: worker.session_id } : {}) } });
     if (p.launched) {
       const job = { ...p.launched.job, kind: "worker", unit: cur.id, h_slot: false, state: "running", exit: null, worker_id: p.launched.workerId };
       jobs = [...jobs.filter((j) => j.id !== job.id), job];
@@ -213,6 +219,15 @@ async function prepareGrant(run, current, g) {
   const unit = findUnit(current, g.unit.id);
   const files = unitFiles(paths, unit, g.via);
   const slug = g.via === "cli" ? (g.consult?.model_slug ?? (g.cell.runtime === "codex" ? d.routing.modelSlug(g.cell, routingDeps(d)) : g.cell.model)) : null;
+  if (g.resume) {
+    if (g.via !== "cli" && !unit.worker.session_id) throw err("INVALID_STATE", `native continuation ${unit.id} has no saved session id`);
+    const launched = g.via === "cli" ? await (await sibling(d, "workers", "resumeWorker"))({
+      project: ref.project, workerId: unit.worker.worker_id, unit: unit.id, frd: unit.frd,
+      cell: g.cell, dir: unit.worktree, sequence: unit.suspension.sequence,
+    }, d) : null;
+    if (g.via === "cli" && !launched?.ok) throw err("ENGINE_FAILURE", `could not resume ${unit.id}: ${launched?.detail ?? "unknown worker"}`);
+    return { ...g, unit, slug, worktree: unit.worktree, branch: unit.branch, files, launched };
+  }
   let worktree = null;
   let branch = null;
   if (unit.kind !== "doubt-consult") {
@@ -297,6 +312,7 @@ function unitOutput(state, p) {
     budget_calls: u.kind === "review" && state.size === "touch" ? 10 : null,
     worktree: p.worktree, brief_path: p.files.brief_path, report_path: p.files.report_path, schema_path: p.files.schema_path,
     agent_type: AGENT_TYPE[u.kind], via: p.via, dispatch_line: dispatchLine(u, p.cell, p.slug),
+    ...(p.resume ? { resume: true, session_id: u.worker?.session_id ?? null, worker_id: u.worker?.worker_id ?? null } : {}),
   };
 }
 

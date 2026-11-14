@@ -63,7 +63,8 @@
         "deferred_review_queued",
         "deferred_review_done",
         "engine_failure",
-        "paused"
+        "paused",
+        "capacity_state"
       ]
     },
     "data": {

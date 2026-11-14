@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { answerCommand } from "../runtime/build/answers.mjs";
+import { suspendExecution } from "../runtime/build/capacity.mjs";
 import { admit, countHostSlots, readAdaptive, readHistory } from "../runtime/build/admission.mjs";
 import { cardCheckCommand } from "../runtime/build/card.mjs";
 import { detect } from "../runtime/build/detect.mjs";
@@ -44,6 +45,7 @@ const COMMANDS = Object.freeze({
   "lint-plan": { bool: ["strict"], value: ["scope-json"], usage: "lint-plan [--strict]" },
   risk: { bool: [], value: ["files", "range"], usage: "risk --files a,b | --range base..head" },
   next: { bool: [], value: ["epoch", "wait"], usage: "next --epoch N [--wait S]" },
+  suspend: { bool: [], value: ["epoch", "unit", "file"], usage: "suspend --epoch N --unit U --file PROVIDER_RECEIPT" },
   report: { bool: [], value: FENCED_FILE, usage: "report --epoch N --unit U --token T --file F" },
   "review-record": { bool: [], value: FENCED_FILE, usage: "review-record --epoch N --unit U --token T --file F" },
   land: { bool: [], value: EPOCH, usage: "land --epoch N" },
@@ -69,7 +71,7 @@ const START_MODES = Object.freeze({
   detect: { bool: [], value: ["args", "session-card", "session-id", "session-runtime"], usage: "start --detect [--args RAW] [--session-card P] [--session-id ID] [--session-runtime R]" },
   preflight: { bool: ["probe-codex"], value: ["row", "scope-json", "label", "session-model", "coordinator"], usage: "start --preflight --row N --scope-json F [--label L] [--coordinator C] [--session-model M] [--probe-codex]" },
   run: { bool: [], value: ["scope-json", "label", "coordinator", "k", "mode", "session-model", "answers"], usage: "start --run --scope-json F --coordinator C [--label L] [--k N] [--mode M] [--session-model M] [--answers J]" },
-  resume: { bool: ["owner-confirmed"], value: ["coordinator", "session-model", "run", "unblock", "reason"], usage: "start --resume --coordinator C [--session-model M] [--run ID] [--owner-confirmed] [--unblock U --reason TEXT]" },
+  resume: { bool: ["owner-confirmed"], value: ["coordinator", "session-model", "run", "unblock", "reason", "wake-generation"], usage: "start --resume --coordinator C [--wake-generation N] [--session-model M] [--run ID] [--owner-confirmed] [--unblock U --reason TEXT]" },
 });
 
 const usage = (message) => Object.assign(new Error(message), { code: "USAGE" });
@@ -183,6 +185,7 @@ const startHandlers = {
       project: c.project, coordinator: company(need(c.flags, "coordinator"), "coordinator"), sessionModel: c.flags["session-model"] ?? null,
       runId: c.flags.run ?? null, ownerConfirmed: c.flags["owner-confirmed"] === true,
       unblock: c.flags.unblock ?? null, reason: c.flags.reason ?? null,
+      wakeGeneration: c.flags["wake-generation"] === undefined ? null : int(c.flags, "wake-generation"),
     }, c.deps);
     return { body: { mode: "resume", ...r } };
   },
@@ -268,6 +271,7 @@ const HANDLERS = {
     return { body: r, exit: r.failclosed ? 9 : 0 };
   },
   next: (c) => fenced(c, async () => ({ body: await next({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), wait: int(c.flags, "wait", { max: 300 }) ?? 0, actor: "cli" }, c.deps) })),
+  suspend: (c) => fenced(c, async () => ({ body: await suspendExecution({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), unit: need(c.flags, "unit"), file: abs(need(c.flags, "file")) }, c.deps) })),
   async report(c) {
     const r = await fenced(c, () => ingestReport({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), unit: need(c.flags, "unit"), token: need(c.flags, "token"), file: abs(need(c.flags, "file")), actor: "cli", openDoubt: true }, c.deps));
     return { body: r, exit: r.outcome === "rejected" ? 6 : r.outcome === "waiting_gate" ? 7 : 0 };

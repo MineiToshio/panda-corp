@@ -304,8 +304,10 @@ async function expectApplied(c, r, { action, status, journal = [], statusYamlBef
   ok(typeof state.status_reason === "string" && state.status_reason.length > 0, `status_reason must be set after ${action}`);
   const events = (await c.events()).map((e) => e.type);
   ok(journal.some((t) => events.includes(t)), `the journal must record ${journal.join("|")} after ${action}; has ${events.join(", ") || "nothing"}`);
+  if (action === "waiting") { ok(await c.leaseNow(), "capacity wait keeps the epoch fence"); ok(existsSync(c.P.tokenFile), "capacity wait keeps the token"); } else {
   eq(await c.leaseNow(), null, `${action} must have released the lease (finalizeRelease, D32)`);
   ok(!existsSync(c.P.tokenFile), `${action} must have dropped build/lease-token.json`);
+  }
   if (statusYamlBefore !== undefined) eq(await readFile(c.P.statusYaml, "utf8"), statusYamlBefore, "status.yaml must not be projected (projectStatus:false)");
 }
 /** Asserts the call changed nothing observable: lease still held, status active. */
@@ -655,7 +657,7 @@ await test("disk: G2 needing a fresh snapshot waits without a job or env-infra h
 await test("design-only work parks with resumeAt when neither design cell fits, even if ordinary work could fit", async () => withCase({
   units: [{ id: "u-docs-capacity", kind: "docs", frd: "frd-01-alpha", wos: ["WO-01-001"] }], quota: { claude: 96, codex: 100 },
 }, async c => {
-  const out = await callNext(c); eq(out.action, "paused-quota", "qualified design cells exhausted");
+  const out = await callNext(c); eq(out.action, "waiting", "qualified design cells exhausted");
   ok(Number.isFinite(Date.parse((await c.readState()).resumeAt)), "resumeAt persisted for task-specific wait");
 }));
 
@@ -665,16 +667,16 @@ await test("design-only work parks with resumeAt when neither design cell fits, 
 await test("quota: both providers >= 90 %, nothing running -> paused-quota, applied (status paused, journal, lease released, status.yaml untouched)", async () => withCase({ units: [B("WO-01-001")], quota: { claude: 100, codex: 100 } }, async (c) => {
   const statusYaml = await readFile(c.P.statusYaml, "utf8");
   const r = await callNext(c);
-  await expectApplied(c, r, { action: "paused-quota", status: "paused", journal: ["paused"], statusYamlBefore: statusYaml });
+  await expectApplied(c, r, { action: "waiting", status: "waiting", journal: ["capacity_state"], statusYamlBefore: statusYaml });
   eq([r.quota?.claude?.pct, r.quota?.codex?.pct], [100, 100], "the quota block reports both readings");
   eq(await dispatchedIds(c), [], "nothing was dispatched");
   ok(Number.isFinite(Date.parse((await c.readState()).resumeAt)), "resumeAt persisted");
-  eq((await c.events()).find(e => e.type === "paused").data.resumeAt, (await c.readState()).resumeAt, "resumeAt journaled");
+  eq((await c.events()).find(e => e.type === "capacity_state").data.patch.resumeAt, (await c.readState()).resumeAt, "resumeAt journaled");
   ok(!c.log.some((e) => e.mod === "planner" || (e.mod === "admission" && e.fn === "issueToken")), "no planner round and no token on a quota pause");
 }));
 
 await test("quota: exactly 90 % counts as out (boundary); 89 % does not", async () => {
-  await withCase({ units: [B("WO-01-001")], quota: { claude: 100, codex: 100 } }, async (c) => eq((await callNext(c)).action, "paused-quota", "90 and 90 pause"));
+  await withCase({ units: [B("WO-01-001")], quota: { claude: 100, codex: 100 } }, async (c) => eq((await callNext(c)).action, "waiting", "both exhausted wait"));
   await withCase({ units: [B("WO-01-001")], quota: { claude: 89, codex: 90 } }, async (c) => {
     const r = await callNext(c);
     ok(r.action !== "paused-quota", "Claude at 89 % keeps the run going");
@@ -703,7 +705,7 @@ await test("one-tool pressure needs no standby and never pauses", async () => {
 });
 
 await test("A11 priority: both >= 90 beats the handoff even with a live standby", async () => withCase({ units: [B("WO-01-001")], quota: { claude: 100, codex: 100 }, standby: { state: "standby", pid: "alive" } }, async (c) => {
-  eq((await callNext(c)).action, "paused-quota", "both out -> pause, no handoff");
+  eq((await callNext(c)).action, "waiting", "both out -> wait, no handoff");
 }));
 
 await test("handoff: a codex-session coordinator never hands off, whatever Claude's reading", async () => withCase({ coordinator: "codex-session", units: [B("WO-01-001")], quota: { claude: 97, codex: 40 }, standby: { state: "standby", pid: "alive" } }, async (c) => {
@@ -777,7 +779,7 @@ await test("terminal: queued units but the planner can make no progress and nobo
 }));
 
 await test("A11 priority: quota still pauses; critical memory never masks an env-infra stop", async () => {
-  await withCase({ units: [B("WO-01-001")], quota: { claude: 100, codex: 100 }, signals: "critical", handbacks: 3 }, async (c) => eq((await callNext(c)).action, "paused-quota", "quota first"));
+  await withCase({ units: [B("WO-01-001")], quota: { claude: 100, codex: 100 }, signals: "critical", handbacks: 3 }, async (c) => eq((await callNext(c)).action, "waiting", "quota first"));
   await withCase({ units: [B("WO-01-001")], signals: "critical", handbacks: 3 }, async (c) => eq((await callNext(c)).action, "stop", "env-infra stops"));
 });
 

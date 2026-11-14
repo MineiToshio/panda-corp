@@ -33,7 +33,6 @@ const USAGE_LIMIT_RES = [
   /(?:you've|you have) (?:hit|reached) your (?:usage )?limit/i,
   /upgrade to (?:plus|pro)/i,
   /try again at\b/i,
-  /\bquota\b/i,
 ];
 const RATE_LIMIT_RES = [/rate[ _-]?limit/i, /too many requests/i, /\b(?:429|529)\b/, /overloaded/i, /try again in\b/i];
 

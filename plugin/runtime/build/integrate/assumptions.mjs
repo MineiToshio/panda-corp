@@ -30,7 +30,10 @@ export async function assumptionBranches({ project, runId, root }, deps = {}) {
     let record = null;
     try { record = JSON.parse(await fs.readFile(p.doubtFile(doubt), "utf8")); } catch (e) { if (e.code !== "ENOENT") throw err("INVALID_STATE", `doubt record ${doubt} is unreadable: ${e.message}`); }
     const decided = record?.decision && Object.hasOwn(record.decision, "value") ? record.decision.value : undefined;
-    const accepted = Boolean(record?.assumption) && decided !== undefined && JSON.stringify(decided) === JSON.stringify(record.assumption.option);
+    const autonomous = record?.assumption?.reversible === true && record.assumption.accepted === true
+      && Boolean(record.assumption.rationale?.trim()) && Boolean(record.assumption.revert?.trim()) && record.decision?.decided_by === "engine";
+    const accepted = Boolean(record?.assumption) && decided !== undefined && JSON.stringify(decided) === JSON.stringify(record.assumption.option)
+      && (record.decision?.decided_by !== "engine" || autonomous);
     items.push({ doubt, branch, record, accepted });
   }
   return items;

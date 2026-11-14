@@ -8,6 +8,7 @@ import { findUnit, newUnit } from "../state.mjs";
 import { FRD_WORK_KINDS, PLANNED_KINDS } from "./constants.mjs";
 import { availabilityOf, cellOf, err, integrationProductRoot, isAssumed, mutate, routingDeps, shapeOf, sibling } from "./context.mjs";
 import { deferredUnitId } from "./planning.mjs";
+import { continuationDecision, capacityNow, capacityAudit, pinOf } from "../../capacity/scheduler.mjs";
 import { depsMet, inScope } from "./scope.mjs";
 
 /** reopen_count per WO id (lowercase), from the integration worktree frontmatter. */
@@ -68,6 +69,22 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
   const toSettle = [];
   const bindings = new Map();
   const queued = (u) => u.state === "queued" && (!u.parked || isAssumed(u)) && inScope(state, u);
+
+  for (const u of state.units.filter(u => u.state === "suspended" && inScope(state, u))) {
+    const now = capacityNow(d), verdict = continuationDecision(u, pol.readings, now);
+    if (verdict.ready) {
+      out.push({ unit: u, cell: cellOnly(u.worker), via: u.worker.via, resume: true });
+    } else {
+      quotaBlocked = true; capacityWaits.push(verdict.resumeAt);
+      if (verdict.reason !== "not_due") state = await mutate(run, s => {
+        const cur = findUnit(s, u.id);
+        const patch = { suspension: { ...cur.suspension, resumeAt: verdict.resumeAt, readRetries: (cur.suspension.readRetries ?? 0) + 1 } };
+        capacityAudit(run.ref.project, s, "waiting", { unit: u.id, reason: verdict.reason, resumeAt: verdict.resumeAt, cell: pinOf(u) }, d);
+        return { state: { ...s, units: s.units.map(x => x.id === u.id ? { ...x, ...patch } : x) },
+          events: [{ type: "capacity_state", data: { unit: u.id, patch } }] };
+      });
+    }
+  }
 
   for (const u of state.units.filter((x) => x.kind === "deferred-review" && queued(x))) {
     const entry = deferredEntries.find((e) => deferredUnitId(e.id) === u.id);

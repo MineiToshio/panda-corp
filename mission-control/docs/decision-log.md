@@ -1,5 +1,10 @@
 # Decision Log — Mission Control
 
+## 2026-11-14 — Capacity continuation in the Manual
+
+Updated the unattended-build explanation to reflect DR-162 phase 3: retained checkpoints, reset-confirming reads, ScheduleWakeup/drive ownership and reversible technical assumptions. Canonical engine policy: [build-engine.md](../../factory/standards/build-engine.md); Manual explanation: [DesatendidaDetail.tsx](../src/app/manual/_components/DesatendidaDetail.tsx). No dashboard state writer or UI behavior changed.
+
+
 ## 2026-11-14 — Manual clarifies pinned capacity and reset uncertainty
 
 Updated the [partial implementation guide](../content/manual/guides/g-implement-parcial.md) to explain

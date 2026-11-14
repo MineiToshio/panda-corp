@@ -292,22 +292,23 @@ await test("consult1 disagrees with preferred, consult2 sides with consult1 (2 o
   eq((await c.doubtRec(id)).consults.length, 2, "two consults recorded");
 }));
 
-await test("three-way split (sources miss, consult1 and consult2 disagree with each other): no majority, the doubt parks as owner_question", async () => withRun({}, async (c) => {
+await test("three-way split: reversible preferred option becomes a recorded autonomous assumption", async () => withRun({}, async (c) => {
   const d3 = { ...DOUBT, options: [...DOUBT.options, { id: "opt-maybe", text: "paginate on demand" }] };
   const { doubt_id: id } = await c.open(d3); const s = await c.sources(id, SRC_MISS);
   const s2 = await c.consult(id, s, consultAnswer("opt-yes", "high", CELL.solHigh));
   const out = await c.consultAgent(id, s2, consultAnswer("opt-maybe", "high", CELL.opusXhigh));
-  eq(out.step, "parked", "step"); const u = await c.unit(U1);
-  eq([u.state, u.parked, u.pending_answer], ["parked", "owner_question", id], "unit parked owner_question with pending_answer = doubt id");
+  eq(out.step, "decided", "step"); const u = await c.unit(U1);
+  eq([u.state, u.parked, u.pending_answer], ["queued", null, null], "reversible choice keeps integration unblocked");
+  ok((await c.doubtRec(id)).assumption.revert, "reversal recorded");
 }));
 
-await test("a consult that returned no JSON (decision null, low confidence, reversible false) counts and advances the ladder; two of them park", async () => withRun({}, async (c) => {
+await test("a consult that returned no JSON (decision null, low confidence, reversible false) counts and advances the ladder; two of them choose a reversible assumption", async () => withRun({}, async (c) => {
   const { doubt_id: id } = await c.open(); const s = await c.sources(id, SRC_MISS);
   const none = (cell) => ({ decision: null, rationale: "consultant returned no answer", consulted: cell, confidence: "low", reversible: false });
   const s2 = await c.consult(id, s, none(CELL.solHigh)); eq(s2.step, "consult2", "advances to consult2");
   eq((await c.doubtRec(id)).consults.filter((x) => x.answer !== null).length, 1, "the non-answer is recorded as an answered consult (counts toward the cap)");
   const out = await c.consultAgent(id, s2, none(CELL.opusXhigh));
-  eq(out.step, "parked", "step"); eq((await c.unit(U1)).parked, "owner_question", "unit parked");
+  eq(out.step, "decided", "step"); eq((await c.unit(U1)).parked, null, "unit unblocked by reversible assumption");
 }));
 
 await test("consult answer validation: a consult answer without confidence/reversible violates doubt-answer.schema and is refused", async () => withRun({}, async (c) => {
@@ -327,8 +328,8 @@ await test("sources answer with a decision that is not an option id is refused",
 // caps, veto, never-decide
 // =====================================================================================================================
 await test("cap of 8 consulted doubts per build: with 8 already consulted a new doubt parks at once (drive, so no sources step)", async () => withRun({ coordinator: "drive", doubtsConsulted: 8, units: [doubtingUnit(), mkUnit("u-build-wo-01-002", { state: "queued" })] }, async (c) => {
-  const out = await c.open(); eq(out.step, "parked", "cap exhausted -> parked, exit 0 (no throw)"); ok(!out.consult, "no consult");
-  eq((await c.unit(U1)).parked === "owner_question" || (await c.unit(U1)).parked === "built_on_assumption", true, "unit parked");
+  const out = await c.open(); eq(out.step, "decided", "cap exhausted -> reversible assumption, exit 0"); ok(!out.consult, "no consult");
+  eq((await c.unit(U1)).parked, null, "unit can integrate");
 }));
 
 await test("below the cap (7 consulted) the ladder still consults", async () => withRun({ coordinator: "drive", doubtsConsulted: 7 }, async (c) => {
@@ -385,18 +386,21 @@ await test("decisions.md tracked (Mission Control shape): the entry is written i
 }));
 
 const ROOT_UNITS = (n) => [doubtingUnit(), ...Array.from({ length: n }, (_, i) => mkUnit(`u-build-wo-01-1${i}`, { wos: [`WO-01-1${i}`], depends_on: [i === 0 ? U1 : `u-build-wo-01-1${i - 1}`] })), mkUnit("u-build-wo-02-001", { wos: ["WO-02-001"], frd: "frd-02-beta" })];
-await test("root rule: a reversible parked unit dragging > 50 % of the pending units builds on assumption (assume branch, never landed on its own)", async () => withRun({ coordinator: "drive", doubtsConsulted: 8, units: ROOT_UNITS(4) }, async (c) => {
-  const out = await c.open(); eq(out.step, "parked", "step");
-  const rec = await c.doubtRec(out.doubt_id);
-  eq(rec.assumption, { option: "opt-no", branch: c.p.assumeBranch(RUN, out.doubt_id) }, "assumption = preferred option on lane/<run>/assume-<doubt>");
-  eq((await c.unit(U1)).parked, "built_on_assumption", "root unit parked built_on_assumption");
-  const dec = await c.decisionsFile("main"); ok(dec.includes(out.doubt_id), "the question still reaches decisions.md");
-}));
+await test("option B: large reversible roots proceed with reason and reversal", async () => {
+  for (const count of [4]) await withRun({ coordinator: "drive", doubtsConsulted: 8, units: ROOT_UNITS(count) }, async (c) => {
+    const out = await c.open(); eq(out.step, "decided", "reversible root decided");
+    const rec = await c.doubtRec(out.doubt_id);
+    eq(rec.assumption.option, "opt-no", "preferred option retained");
+    ok(rec.assumption.rationale && rec.assumption.revert, "reason and reversal persisted");
+    eq((await c.unit(U1)).parked, null, "integration unblocked");
+  });
+});
 
-await test("root rule: a park dragging <= 50 % of the pending units stays owner_question with no assumption", async () => withRun({ coordinator: "drive", doubtsConsulted: 8, units: [doubtingUnit(), mkUnit("u-build-wo-01-10", { depends_on: [U1] }), mkUnit("u-build-wo-02-001", { frd: "frd-02-beta" }), mkUnit("u-build-wo-02-002", { frd: "frd-02-beta" }), mkUnit("u-build-wo-02-003", { frd: "frd-02-beta" })] }, async (c) => {
-  const out = await c.open(); eq(out.step, "parked", "step");
-  eq((await c.doubtRec(out.doubt_id)).assumption, null, "no assumption");
-  eq((await c.unit(U1)).parked, "owner_question", "owner_question");
+await test("option B: a small reversible root proceeds without parking independent siblings", async () => withRun({ coordinator: "drive", doubtsConsulted: 8, units: ROOT_UNITS(1) }, async (c) => {
+  const out = await c.open(); eq(out.step, "decided", "small root decided");
+  eq((await c.unit(U1)).parked, null, "small root can integrate");
+  eq((await c.unit("u-build-wo-02-001")).state, "queued", "independent sibling remains available");
+  ok((await c.doubtRec(out.doubt_id)).assumption.revert, "small root reversal recorded");
 }));
 
 await test("root rule: an irreversible root never builds on assumption even when it drags > 50 %", async () => withRun({ coordinator: "drive", doubtsConsulted: 8, units: ROOT_UNITS(4).map((u) => (u.id === U1 ? { ...u, zone: "r1", risk_rules: ["R1"] } : u)) }, async (c) => {
@@ -412,12 +416,12 @@ await test("a doubt-consult unit's own doubt file cannot be opened as a doubt fo
   eq((await c.events("doubt_opened")).length, 0, "nothing journaled");
 }));
 
-await test("a lone doubting unit with NO dependents never builds on assumption: owner_question, both with independent siblings and in a single-unit scope", async () => {
+await test("option B: lone reversible units proceed, with independent siblings and in a single-unit scope", async () => {
   for (const [label, units] of [["siblings", undefined], ["single-unit scope", [doubtingUnit()]]]) {
     await withRun({ coordinator: "drive", doubtsConsulted: 8, ...(units ? { units } : {}) }, async (c) => {
-      const out = await c.open(); eq(out.step, "parked", `${label}: step`);
-      eq((await c.unit(U1)).parked, "owner_question", `${label}: parked owner_question`);
-      eq((await c.doubtRec(out.doubt_id)).assumption, null, `${label}: no assumption`);
+      const out = await c.open(); eq(out.step, "decided", `${label}: step`);
+      eq((await c.unit(U1)).parked, null, `${label}: parked owner_question`);
+      ok((await c.doubtRec(out.doubt_id)).assumption.revert, `${label}: reversal documented`);
     });
   }
 });
@@ -453,11 +457,11 @@ await test("rootBlock: ratio = pending dependents / all pending (root counts in 
   const two = rootBlock(pst([mkUnit("a"), mkUnit("b", { depends_on: ["a"] })]), "a"); eq([two.ratio, two.isRoot], [0.5, false], "exactly 50 % is not more than 50 %");
   const lone = rootBlock(pst([mkUnit("a")]), "a"); eq([lone.dragged, lone.ratio, lone.isRoot], [[], 0, false], "a lone unit drags 0 %");
 });
-await test("parkOrAssume: assume only when the root block is > 50 % AND reversible; otherwise park", async () => {
+await test("parkOrAssume: assume every reversible technical choice; protected actions still park", async () => {
   const parkOrAssume = await pfn("parkOrAssume");
   const big = pst([mkUnit("a"), mkUnit("b", { depends_on: ["a"] }), mkUnit("c", { depends_on: ["b"] })]);
   eq(parkOrAssume(big, "a", { reversible: true }).mode, "assume", "reversible root"); eq(parkOrAssume(big, "a", { reversible: false }).mode, "park", "irreversible root");
-  eq(parkOrAssume(chain(), "a", { reversible: true }).mode, "park", "40 % drag"); eq(parkOrAssume(pst([mkUnit("a")]), "a", { reversible: true }).mode, "park", "lone unit");
+  eq(parkOrAssume(chain(), "a", { reversible: true }).mode, "assume", "40 % drag"); eq(parkOrAssume(pst([mkUnit("a")]), "a", { reversible: true }).mode, "assume", "lone unit");
   ok(parkOrAssume(big, "a", { reversible: true }).block.isRoot === true, "block returned");
 });
 await test("parkUnits: self from reported, dependents only from queued|admitted (a running dependent is skipped), events journaled, input state not mutated", async () => {

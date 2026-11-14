@@ -36,7 +36,7 @@ export async function stopRun({ project, epoch = null, dead = false, ownerConfir
     }
   }
   const cleanup = async (current) => {
-    if (current && ["active", "paused", "waiting_owner", "waiting_gate"].includes(current.status)) {
+    if (current && ["active", "waiting", "resuming", "paused", "waiting_owner", "waiting_gate"].includes(current.status)) {
       await journal(p, current.run_id, current.epoch, "run_stopped", { reason: dead ? "dead_owner" : reason }, d);
       current = { ...current, status: "stopped", status_reason: dead ? "dead_owner" : reason };
       await writeState(project, current, d);
@@ -74,7 +74,7 @@ export async function finishRun({ project, epoch = null, actor = "cli" }, deps =
     if (s.status === "finished") return "already";
     const open = s.units.filter((u) => !isTerminalUnit(u));
     waiting = open.length > 0 && open.every((u) => u.state === "waiting_gate");
-    if (s.status === "active" && open.length > 0 && !waiting) throw err("INVALID_STATE", "the run is active with units not finished: go back to the loop");
+    if (["active", "waiting", "resuming"].includes(s.status) && open.length > 0 && !waiting) throw err("INVALID_STATE", "the run has unfinished units: go back to the loop");
     return waiting ? "waiting" : "finish";
   };
   if (lease) {

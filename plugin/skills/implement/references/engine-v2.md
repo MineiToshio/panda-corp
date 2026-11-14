@@ -147,7 +147,8 @@ pb next --epoch <E> --wait 60
 
 | `action` | Do |
 |---|---|
-| `dispatch` | For each unit in `units[]`, print its `dispatch_line` verbatim, then by `via`: `cli` → nothing (the CLI launched the Codex worker and ingests it); `agent` → launch it (below); `session` → do it yourself (below). Launch all `agent` units of one `next` in ONE message, in the background |
+| `dispatch` | For each new unit in `units[]`, print its `dispatch_line` verbatim (continuations with `resume:true` stay silent), then by `via`: `cli` → nothing (the CLI launched the Codex worker and ingests it); `agent` → launch it (below); `session` → do it yourself (below). Launch all `agent` units of one `next` in ONE message, in the background |
+| `waiting` | Capacity checkpoint, not close-out. Follow SKILL.md "Claude lead wake-up": ScheduleWakeup at `resumeAt+60s`, refresh get_usage, `start --resume --coordinator claude --wake-generation <wake_generation>`. Rearm on `claimed:false, action:waiting`; leave an already-resumed winner running. Drive keeps its loop alive and rereads both shared accounts. No quota questions or detailed chat. |
 | `wait` | Call `next --epoch <E> --wait 60` again (it returns early when a report, a job, a worker, an answer or a handoff appears). For reason `disk`, report the allocation wait and let existing work continue; never bulk-delete state. Never end the turn instead |
 | `land` | The batch is complete: `pb land --epoch <E>` (below) |
 | `handoff` | `drive.md` §3 |
@@ -169,6 +170,15 @@ units come `via:"cli"`; a `via:"agent"` unit names a Claude model the app cannot
 **A `via:"session"` unit** (a touch the coordinator writes itself): read its brief, edit only inside its
 `worktree` and `artifacts`, run the brief's verification commands, never `git commit`, then write the report JSON
 (schema at `schema_path`, `authored_by` = your own model) to `report_path` and file it like any report.
+
+**Native-agent provider limit.** When a Claude Agent reports a real subscription/rate limit, preserve its
+Agent resume id. Write the provider receipt JSON to the unit directory: `{ok:false,limit:"usage_limit"|"rate_limit",
+detail,sessionId,resetsAt?,retryAfterS?}`. A quoted word "quota" is not a provider receipt. Call
+`pb suspend --epoch <E> --unit <unit> --file <receipt.json>` instead of handback/report.
+On a returned dispatch with `resume:true`, use **Agent resume=<session_id>**, with the same cell and
+worktree; never start a fresh Agent or replay the original task. The resumed agent keeps its original
+report token; file the JSON report using that original token (also present in its brief). CLI continuations
+are launched by the engine, using the same worker id and explicit provider session, with no worktree preparation.
 
 **Filing the result** (as each unit returns):
 1. If `report_path` does not exist but the agent's final message is the JSON, write that message **verbatim** to
@@ -199,7 +209,10 @@ Any other hand-back cause is the owner's decision: exit 6 says so, do not retry 
 when available, then continue `next`. `decide()` chooses each new unit by role, risk and account capacity.
 One tool exhausted means use the other; only neither fitting parks capacity with durable `resumeAt`.
 The dispatched cell remains fixed during execution. The former 90/95 veto/handoff and model probe are retired.
-Automatic resumption is phase 3; this phase persists the resume instant without claiming a scheduler.
+Subscription-limited units remain `suspended`; no worktree reset, attempt increment or tool switch occurs.
+Unknown/expired readings cannot resume them. The run stays `waiting` only while all remaining work waits;
+independent new units continue on the other qualified tool. Drive sleeps in lease-renewing chunks until
+`resumeAt+60s`; Claude uses ScheduleWakeup as specified in SKILL.md. Read failures retry with capped backoff.
 
 **Owner messages mid-run.** An answer to an ask, a parked question or a gate → `autonomy.md` §1.4. "Para" or
 "detén el build" → `pb stop --epoch <E>`, then the final report. Anything new (a feature, a bug) → a `draft` card
