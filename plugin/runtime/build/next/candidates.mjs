@@ -63,6 +63,7 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
   let quotaBlocked = false;
   const toParkNoReviewer = [];
   const toUnpark = [];
+  const toSettle = [];
   const bindings = new Map();
   const queued = (u) => u.state === "queued" && (!u.parked || isAssumed(u)) && inScope(state, u);
 
@@ -89,6 +90,9 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
   for (const u of state.units.filter((x) => x.kind === "review" && (queued(x) || x.parked === "no_reviewer") && inScope(state, x))) {
     const named = new Set(u.depends_on ?? []);
     const work = state.units.filter((x) => FRD_WORK_KINDS.includes(x.kind) && x.state !== "blocked" && (u.frd ? x.frd === u.frd : named.has(x.id)));
+    // BL-0317: an FRD review left with nothing to review (no build/patch/tests unit of its FRD that is not blocked, and no
+    // named unit) can never be dispatched; settle it so the run reaches its landing instead of a deadlock.
+    if (u.frd && !work.length && !named.size && queued(u)) { toSettle.push(u.id); continue; }
     const wos = new Set([...u.wos, ...work.flatMap((x) => x.wos)]);
     const pending = state.units.filter((x) => ["build", "patch"].includes(x.kind)
       && ["reviewing", "integrated"].includes(x.state)
@@ -125,10 +129,14 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
   }
 
   let next = state;
-  if (toParkNoReviewer.length || toUnpark.length || bindings.size) {
+  if (toParkNoReviewer.length || toUnpark.length || bindings.size || toSettle.length) {
     next = await mutate(run, (s) => {
       const events = [];
       const units = s.units.map((u) => {
+        if (toSettle.includes(u.id) && u.state === "queued") {
+          events.push({ type: "unit_state", data: { unit: u.id, from: u.state, to: "verified", reason: "nothing_to_review" } });
+          return { ...u, state: "verified", token_hash: null };
+        }
         if (bindings.has(u.id)) {
           u = { ...u, depends_on: bindings.get(u.id) };
           events.push({ type: "unit_queued", data: u });
@@ -140,7 +148,7 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
       return events.length ? { state: { ...s, units }, events } : {};
     });
   }
-  return { list: out, quotaBlocked, state: next };
+  return { list: out, quotaBlocked, state: next, settled: toSettle.length };
 }
 
 const cellOnly = (c) => ({ runtime: c.runtime, model: c.model, effort: c.effort ?? null });

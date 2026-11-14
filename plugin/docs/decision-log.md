@@ -1,5 +1,17 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-13 — No endless green G2 on a docs-only FRD (BL-0317)
+
+**What:** `frdsReadyForG2` no longer lets an integrated docs unit trigger G2; a green G2 with no build/patch/tests work
+queues no review; a queued FRD review with nothing to review is settled and the pass waits so the next one lands.
+Plugin **10.4.3**.
+
+**Why:** funko-tracker run `br-2026-11-13-02` ran 39 green G2 gates at one sha in about two hours: the docs unit stayed
+`integrated` after every green gate (docs are never reviewed), so the FRD was ready again on each pass, and the empty
+review could never be dispatched. Canonical: [CLI reference](build-engine-cli.md) integration and G2,
+[build-engine.md](../../factory/standards/build-engine.md) gate table. Tests: `test-build-v2-integrate.mjs`,
+`test-build-v2-next.mjs` BL-0317 cases.
+
 ## 2026-11-13 — Owned G2 leftovers are removable; docs-only G3 reds open no patch (BL-0316)
 
 **What:** `removeWorktree` treats the ignored files of a proven-owned detached G2 snapshot as generated, so a leftover

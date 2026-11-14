@@ -97,7 +97,9 @@ export function committedUnits(state) {
 
 /**
  * FRDs that need a G2 run now (CLI doc 4.1): every work-carrying unit of the FRD (docs/tests/build/patch) is integrated or
- * later, and at least one is exactly `integrated` (not yet under review). An FRD with a unit still built on an unaccepted
+ * later, and at least one build/patch/tests unit is exactly `integrated` (not yet under review). A `docs` unit never triggers a
+ * G2 on its own: it is never reviewed, so a green G2 leaves it `integrated` and counting it re-ran G2 forever at the same
+ * sha (BL-0317); docs land when integrated and G3 verifies them. An FRD with a unit still built on an unaccepted
  * assumption is skipped: that code is not on the integration branch yet (its G2 runs after the owner accepts). Pure.
  * @param {object} state a state.json object
  * @returns {string[]} FRD ids in state order
@@ -109,6 +111,6 @@ export function frdsReadyForG2(state) {
     byFrd.set(u.frd, [...(byFrd.get(u.frd) ?? []), u]);
   }
   return [...byFrd]
-    .filter(([, units]) => units.every((u) => INTEGRATED_OR_LATER.has(u.state) && !isAssumed(u)) && units.some((u) => u.state === "integrated"))
+    .filter(([, units]) => units.every((u) => INTEGRATED_OR_LATER.has(u.state) && !isAssumed(u)) && units.some((u) => u.state === "integrated" && u.kind !== "docs"))
     .map(([frd]) => frd);
 }

@@ -571,5 +571,21 @@ await test("assumption: frdsReadyForG2 skips an FRD while any of its units is bu
   } finally { await sb.done(); }
 });
 
+await test("BL-0317 frdsReadyForG2: an integrated docs unit never triggers G2 (green G2 leaves it integrated: no endless loop at the same sha)", async () => {
+  const sb = await sandbox();
+  try {
+    await ensure(sb);
+    const unit = (id, kind, state, wos = []) => ({ id, kind, frd: A.frd, wos, chain: wos.length ? `c-${wos[0].toLowerCase()}` : null, attempt: 1, state });
+    const ready = async (units) => api("frdsReadyForG2")(await stateOf(sb, units)).map((x) => (typeof x === "string" ? x : x.frd ?? x.id));
+    eq(await ready([unit("u-docs-x", "docs", "integrated")]), [], "docs-only FRD with its docs unit integrated (the funko br-2026-11-13-02 case)");
+    // The state a green G2 leaves behind: build/tests move to reviewing, the docs unit stays integrated.
+    eq(await ready([unit("u-build-wo-01-001", "build", "reviewing", ["WO-01-001"]), unit("u-docs-x", "docs", "integrated")]), [], "after a green G2 the FRD is not ready again");
+    eq(await ready([unit("u-build-wo-01-001", "build", "verified", ["WO-01-001"]), unit("u-docs-x", "docs", "integrated")]), [], "nor after its review");
+    eq(await ready([unit("u-build-wo-01-001", "build", "integrated", ["WO-01-001"]), unit("u-docs-x", "docs", "integrated")]), [A.frd], "control: integrated build work still triggers G2");
+    eq(await ready([unit("u-tests-wo-01-001", "tests", "integrated", ["WO-01-001"])]), [A.frd], "control: an integrated tests unit still triggers G2");
+    eq(await ready([unit("u-build-wo-01-001", "build", "committed", ["WO-01-001"]), unit("u-docs-x", "docs", "integrated")]), [], "control: unfinished build work keeps waiting");
+  } finally { await sb.done(); }
+});
+
 console.log(`RESULT ${passed} passed, ${failed} failed${failed ? ` (${fails.join("; ")})` : ""}`);
 process.exit(failed ? 1 : 0);

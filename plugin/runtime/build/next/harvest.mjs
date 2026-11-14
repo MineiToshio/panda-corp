@@ -204,6 +204,8 @@ async function harvestG2(run, job, notes) {
     events.push({ type: "gate", data: { tier: "G2", exit, frd: job.frd, ...(pin ? { sha: pin.sha } : {}), ...(stale ? { stale: true } : {}) } });
     if (stale) return { state: next, events }; // judged an older tree of this FRD: the G2 rule re-runs it at the tip
     if (green) {
+      // BL-0317: a green G2 with no build/patch/tests work to review (a docs-only FRD) queues no review: docs units land as integrated.
+      if (!work.length) return { state: next, events };
       for (const u of work) events.push(unitEvent(u.id, u.state, "reviewing"));
       next = { ...next, units: next.units.map((u) => (work.includes(u) ? { ...u, state: "reviewing" } : u)) };
       const reviewId = `u-review-${job.frd}`;

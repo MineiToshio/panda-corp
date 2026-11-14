@@ -92,6 +92,8 @@ export async function step(run) {
   if (dispatch.units.length) return finish(run, state, { action: "dispatch", units: dispatch.units, admit: dispatch.admit, quota, notes });
 
   if (dispatch.diskBlocked) return finish(run, state, { action: "wait", wait: { reason: "disk", retry_after_s: RETRY_S.disk }, admit: dispatch.admit, quota, notes });
+  // BL-0317: an empty FRD review was settled in this pass; the landing decision ran before it, so retry instead of stopping.
+  if (candidates.settled) return finish(run, state, { action: "wait", wait: { reason: "gate", retry_after_s: RETRY_S.gate }, admit: dispatch.admit, quota, notes });
   // Nothing dispatched: wait while anything runs (A11), else a terminal action.
   const running = runningSummary(state);
   if (running.any || landing.waitLand) {

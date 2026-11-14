@@ -1115,5 +1115,33 @@ await test("DFIX nested integration root resolves bootstrap and preserves wait d
   eq(r.units, [], "nothing dispatched before bootstrap succeeds");
 }));
 
+// BL-0317: funko-tracker br-2026-11-13-02 re-ran a green G2 39 times at one sha. A docs unit is never reviewed, so a
+// green G2 left it `integrated`, the FRD looked G2-ready again, and the queued review (with nothing to review) never ran.
+const DOCS = (over = {}) => ({ id: "u-docs-x", kind: "docs", wos: [], frd: "frd-01-alpha", chain: null, state: "integrated", ...over });
+await test("BL-0317 next: a docs-only FRD after a green G2 spawns no further G2 and settles its empty review (no endless loop)", async () => withCase({
+  units: [DOCS(), { id: "u-patch-g3", kind: "patch", frd: null, wos: [], state: "blocked" }, R("frd-01-alpha", { state: "queued" })],
+}, async (c) => {
+  const r1 = await callNext(c);
+  eq(r1.action, "wait", "the pass that settled the empty review waits (it does not stop the run)");
+  const g2Spawns = c.log.filter((e) => e.mod === "jobs" && /g2/i.test(JSON.stringify(e.args)));
+  eq(g2Spawns.length, 0, `no G2 job for a docs-only FRD (calls: ${g2Spawns.map((e) => e.fn).join(", ")})`);
+  eq((await stateUnit(c, "u-review-frd-01-alpha")).state, "verified", "the review with nothing to review is settled");
+  eq((await stateUnit(c, "u-docs-x")).state, "integrated", "the docs unit stays integrated (landable)");
+  const r2 = await callNext(c);
+  eq(c.log.filter((e) => e.mod === "jobs" && /g2/i.test(JSON.stringify(e.args))).length, 0, "a second pass still spawns no G2");
+  ok(r2.action !== "dispatch" || !unitIds(r2).some((id) => id.startsWith("u-review")), "the review is never dispatched");
+  eq(r2.action, "land", `the next pass lands the docs batch (got ${r2.action}: ${JSON.stringify(r2.notes_es)})`);
+}));
+await test("BL-0317 candidates: a queued FRD review WITH reviewable work is not settled (control)", async () => withCase({
+  units: [B("WO-01-001", { state: "reviewing", worker: WORKER() }), DOCS(), R("frd-01-alpha", { state: "queued" })],
+}, async (c) => {
+  const { buildCandidates } = await import("../runtime/build/next/candidates.mjs");
+  const state = await c.readState();
+  const d = { env: c.env, routing: { reviewCell: () => ({ used: { runtime: "codex", model: "sol", effort: "high" } }) } };
+  const out = await buildCandidates({ d, ref: { project: c.root, epoch: c.epoch, deps: d }, paths: c.P }, state, {}, { ready: [] }, {}, []);
+  eq(out.list.map((x) => x.unit.id), ["u-review-frd-01-alpha"], "the review is dispatchable");
+  eq((await stateUnit(c, "u-review-frd-01-alpha")).state, "queued", "not settled");
+}));
+
 console.log(`RESULT: ${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);
