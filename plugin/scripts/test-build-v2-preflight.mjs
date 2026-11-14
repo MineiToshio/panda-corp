@@ -132,7 +132,7 @@ await test("preflight on a basic fixture: shape, stable check ids, <= 60 s, anno
   ok(["touch", "feature", "giant"].includes(a.size), `announce.size ${a.size}`);
   ok(["none", "floor", "r1"].includes(a.risk_zone_provisional), `risk_zone_provisional ${a.risk_zone_provisional}`);
   eq(a.launched_project_line_es, null, "launched line must be null in an internal project");
-  eq(a.drive_line_es, null, "drive line must be null when Codex is below the stop threshold");
+  ok(/capacidad compartida/.test(a.drive_line_es), "drive announcement describes shared capacity independently of thresholds");
   ok(a.quota && "claude" in a.quota && "codex" in a.quota, "announce.quota needs claude and codex");
   ok(typeof res.drive_armable === "boolean", "drive_armable is not a boolean");
   eq(res.drive_armable, true, "drive_armable on an internal project with a logged-in (fake) Codex");
@@ -208,7 +208,7 @@ await test("Codex at 36 % fresh reading: no probe call even with probeCodex true
   await writeRolloutSample(env.CODEX_HOME, "normal");
   const res = await run();
   eq((await codexCalls(env)).filter((x) => x.argv[0] === "exec").length, 0, "needs_probe is false, the probe must not run");
-  eq(res.announce.drive_line_es, null, "drive line below threshold");
+  ok(/capacidad compartida/.test(res.announce.drive_line_es), "drive announcement uses shared capacity");
   await fx.cleanup();
 });
 
@@ -327,11 +327,11 @@ await test("BL-0319 a Claude session building with Codex workers announces the C
   const { run } = await setup("basic");
   const res = await run({ label: "codex" });
   ok(!/degradada: unreachable/.test(res.announce.reviewers), `label codex must not imply the Codex app: ${res.announce.reviewers}`);
-  ok(/Claude/i.test(res.announce.reviewers), `the reviewer of a Codex author is the other company (Claude): ${res.announce.reviewers}`);
+  ok(/Codex Sol/i.test(res.announce.reviewers), `the reviewer of a Codex author is the other company (Claude): ${res.announce.reviewers}`);
   const explicit = await run({ label: "codex", coordinator: "claude" });
   eq(explicit.announce.reviewers, res.announce.reviewers, "absent --coordinator defaults to the Claude session");
   const app = await run({ label: "codex", coordinator: "codex" });
-  ok(/degradada: unreachable/.test(app.announce.reviewers), `the Codex app (explicit coordinator codex) still has no Claude reviewer: ${app.announce.reviewers}`);
+  ok(/Codex Sol/i.test(app.announce.reviewers), `the Codex app (explicit coordinator codex) still has no Claude reviewer: ${app.announce.reviewers}`);
 });
 
 await test("owner-facing preflight strings: Spanish, no em/en dashes (detail_es, announce lines, builders, reviewers)", async () => {

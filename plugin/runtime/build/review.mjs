@@ -73,15 +73,14 @@ export async function reviewRecord(input, deps = {}) {
     const w = unit.worker;
     if (w && (w.runtime !== report.reviewer.runtime || w.model !== report.reviewer.model)) throw err("INVALID_INPUT", "report reviewer differs from the dispatch cell");
     if (unit.kind === "review") {
-      const authors = authorsOf(reviewedUnits(state, unit));
-      const rv = w ?? report.reviewer;
-      if (authors.some((a) => a.runtime === rv.runtime && a.model === rv.model)) {
-        const d = inferDegradation({
-          authors, kind: state.size === "touch" ? "touch" : "frd", zone: unit.zone,
-          reviewer: { runtime: rv.runtime, model: rv.model, effort: rv.effort ?? report.reviewer.effort },
-          hint: normalizeHint(deps.availability), shapes: state.coordinator === "drive" ? ["drive", undefined] : [undefined],
-        }, deps);
-        if (d.degraded !== "same_model") throw err("INVALID_INPUT", "an author never reviews its own unit outside the N7 exception");
+      const route = inferDegradation({ authors: authorsOf(reviewedUnits(state, unit)), kind: state.size === "touch" ? "touch" : "frd",
+        zone: unit.zone, reviewer: w ?? report.reviewer, hint: normalizeHint(deps.availability) }, deps);
+      if (unit.parked === "no_reviewer" || route.parked) throw err("INVALID_INPUT", "review is parked without an allocated reviewer");
+      // DR-162: independence is an execution context, never a company/model comparison.
+      if (w?.via === "session") throw err("INVALID_INPUT", "a review requires an independent worker context");
+      for (const author of reviewedUnits(state, unit)) {
+        if (unit.worktree && author.worktree === unit.worktree || w?.worker_id && author.worker?.worker_id === w.worker_id)
+          throw err("INVALID_INPUT", "review context is shared with its author");
       }
     }
     return { report };

@@ -131,7 +131,7 @@ export async function createFixture(spec, { dir } = {}) {
 /** Env object that points every engine test hook at throwaway paths under `dir` (the sandbox of one test). */
 export function testEnv(dir, extra = {}) {
   return {
-    PATH: process.env.PATH, HOME: path.join(dir, "home"), CODEX_HOME: path.join(dir, "codex-home"), PANDACORP_HOST_DIR: path.join(dir, "host"),
+    PATH: process.env.PATH, HOME: path.join(dir, "home"), CODEX_HOME: path.join(dir, "codex-home"), PANDACORP_HOST_DIR: path.join(dir, "host"), PANDACORP_CAPACITY_DIR: path.join(dir, "host", "capacity"),
     PANDACORP_EVENTS_FILE: path.join(dir, "events.ndjson"), PANDACORP_CODEX_EVENTS_FILE: path.join(dir, "codex-events.ndjson"),
     PANDACORP_ORCHESTRATE_DIR: path.join(dir, "orchestrate"), PANDACORP_NOW: DEFAULT_NOW, PANDACORP_NOTIFY: "off",
     PANDACORP_CODEX_BIN: FAKE_CODEX_BIN, PANDACORP_FAKE_WORKER: FAKE_WORKER_BIN, PANDACORP_FAKE_WORKER_PLAN: path.join(dir, "fake-worker-plan.json"),
@@ -171,7 +171,7 @@ export async function writeRolloutSample(codexHome, kind, { now = DEFAULT_NOW } 
   const dir = path.join(codexHome, "sessions", String(stamp.getUTCFullYear()), String(stamp.getUTCMonth() + 1).padStart(2, "0"), String(stamp.getUTCDate()).padStart(2, "0"));
   const ts = stamp.toISOString();
   const lines = noise(ts);
-  if (kind === "normal" || kind === "stale") lines.push(tokenCount(ts, win(30, 300, iso(2 * 3600e3)), win(12, 10080, iso(5 * 86400e3))), tokenCount(ts, win(36, 300, iso(2 * 3600e3)), win(12, 10080, iso(5 * 86400e3))));
+  if (kind === "normal" || kind === "stale") lines.push(tokenCount(new Date(stamp.getTime() - 1000).toISOString(), win(30, 300, iso(2 * 3600e3)), win(12, 10080, iso(5 * 86400e3))), tokenCount(ts, win(36, 300, iso(2 * 3600e3)), win(12, 10080, iso(5 * 86400e3))));
   else if (kind === "pct98") lines.push(tokenCount(ts, win(41, 300, iso(3 * 3600e3)), win(98, 10080, iso(26 * 3600e3))));
   else if (kind === "rate_limit_reached") lines.push(tokenCount(ts, win(100, 300, iso(1 * 3600e3)), win(40, 10080, iso(4 * 86400e3)), { rate_limit_reached_type: "primary" }));
   else if (kind === "malformed") lines.push('{"timestamp":"' + ts + '","type":"event_msg","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":', "not json at all", '{"type":"event_msg","payload":{"type":"token_count","rate_limits":"oops"}}');

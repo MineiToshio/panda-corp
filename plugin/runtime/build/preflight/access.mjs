@@ -2,7 +2,7 @@
 import path from "node:path";
 import { buildPaths } from "../paths.mjs";
 import {
-  effective, loadThresholds, probeCodex as realProbeCodex, readQuota, recordCodex, resetsAtOf,
+  loadThresholds, readQuota, resetsAtOf,
 } from "../quota.mjs";
 import {
   affectsFrds, ask, CODEX_LOGIN_TIMEOUT_MS, CODEX_PROBE_TIMEOUT_MS, connectsTo, mk, parseDotenv, readText, unique,
@@ -34,21 +34,14 @@ export async function quotaChecks({ project, ctx, deps, exec, input, coordinator
   const qdeps = { env: ctx.env, homedir: () => ctx.homedir, exec };
   const now = ctx.now();
   const thresholds = loadThresholds(qdeps);
-  let q = await readQuota({ file: p.quotaFile, codexHome: p.codexHome, now, coordinator, probe: false }, qdeps);
-  let probed = false;
-  if (input.probeCodex === true && q.needs_probe) {
-    const probe = deps.probeCodex ?? realProbeCodex;
-    const reading = await probe({ ...qdeps, codexHome: p.codexHome, now, cwd: project, timeoutMs: CODEX_PROBE_TIMEOUT_MS });
-    const stored = recordCodex(reading, { now, file: p.quotaFile, deps: qdeps });
-    q = { ...q, codex: stored, effective: { ...q.effective, codex: effective(stored, now, { thresholds }) }, needs_probe: false };
-    probed = true;
-  }
+  const q = await readQuota({ file: p.quotaFile, codexHome: p.codexHome, now, coordinator, probe: false }, qdeps);
+  const probed = false;
   const view = (name, reading, eff) => ({ pct: eff.pct, state: eff.state, resets_at: resetsAtOf(reading), provider: name });
   const claude = view("claude", q.claude, q.effective.claude);
   const codex = view("codex", q.codex, q.effective.codex);
   const line = (name, v) => {
     if (v.state !== "known") return null;
-    if (v.pct >= thresholds.quota_stop) return `${name} está al ${Math.round(v.pct)} %: las piezas nuevas pasan a la otra compañía.`;
+    if (q.policy[`${v.provider}_new_units`] === false) return `${name} está al ${Math.round(v.pct)} %: las piezas nuevas pasan a la otra compañía.`;
     return null;
   };
   const claudeWarn = line("Claude", claude);

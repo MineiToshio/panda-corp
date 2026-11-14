@@ -10,7 +10,7 @@ The factory's portable core is its canonical instructions, skills, documents and
 
 **One executor.** Both sessions coordinate the runtime-neutral `plugin/scripts/pandacorp-build.mjs` CLI. Durable authority lives in the epoch-fenced lease, journal, work-order frontmatter and run scope; `state.json` is an honest cache. The main checkout's committed projection changes at landing. Do not infer a live run from `status.yaml` alone.
 
-**Runtime locality.** Native subagents belong to the active runtime. The CLI is the narrow, deterministic vehicle for cross-company workers; it is not a shared subagent API or permission to launch another runtime's session directly. A Codex session and the Codex-only `drive` relay never call Claude. Safe continuation follows PORT-5, including authorized same-run transfers; arbitrary live takeover is forbidden.
+**Runtime locality.** Native subagents belong to the active runtime. The CLI is the narrow, deterministic vehicle for cross-company workers; it is not a shared subagent API or permission to launch another runtime's session directly. DR-162 permits the deterministic worker launcher to execute an allocated Claude CLI cell; native subagent APIs remain runtime-local. Safe continuation follows PORT-5, including authorized same-run transfers; arbitrary live takeover is forbidden.
 
 ## Rule — PORT-1 Runtime capability matrix
 
@@ -19,7 +19,7 @@ The factory's portable core is its canonical instructions, skills, documents and
 | Canonical instructions | `CLAUDE.md` imports `AGENTS.md` | native `AGENTS.md`; explicitly read named files | read `AGENTS.md`; verify discovery in that runtime |
 | Skills | `plugin/skills/*/SKILL.md` | `.agents/skills` symlink to the same files | discovered skills or explicit file read |
 | Subagents | native `Agent`/`Task` | native subagents / generated `.codex/agents/*.toml` | use available native tool, else sequential |
-| Build executor | session coordinates the shared CLI | same CLI; `drive` is Codex-only | no automated vehicle is qualified; state the limitation |
+| Build executor | session coordinates the shared CLI | same CLI; `drive` uses allocator-selected CLI workers | no automated vehicle is qualified; state the limitation |
 | Hooks | `plugin/hooks/hooks.json` | generated adapter/registration; installation and trust are local | no wired equivalent claimed |
 | Design canvas | Claude-native when available | HTML mockup fallback (DR-058) | HTML mockup fallback |
 
@@ -82,14 +82,14 @@ When the owner asks for a phase (`/pandacorp:x`, "ejecuta la fase x", `$x`):
 
 ### Dispatch boundary
 
-A coordinator dispatches its own runtime's native agents. A Claude coordinator reaches Codex builders/reviewers only through the documented CLI action (`codex-worker.mjs --direct`), never by spawning a Codex session itself. A Codex coordinator and `drive` never launch Claude; unavailability and review degradation follow BUILD-10/BUILD-11, never a silent same-model pass. The Codex app has no Claude vehicle; use the CLI's availability/routing verdict rather than inventing one.
+A coordinator dispatches its own runtime's native agents. Cross-company work uses only the shared deterministic worker launcher (DR-162), which checks account capacity and executes the allocated Codex or authenticated Claude CLI cell. A Codex coordinator never steers a Claude native session. The per-execution pin, independent review context, fenced lease and human gates remain mandatory. A missing CLI/authentication is an infrastructure failure, never evidence of exhausted quota; live-provider qualification is distinct from fixture coverage.
 
 ### Lease, relay and cold continuation
 
 - **One lease.** The CLI uses `plugin/runtime/build-state.mjs` directly. Epoch fencing prevents a previous coordinator from mutating current state. Every fenced coordinator command renews ownership (`plugin/runtime/build/state.mjs:191`); there is no separate heartbeat process or second lock based on `running`.
 - **Authorized same-run transfer.** `drive` is armed under BUILD-14 and can continue the already authorized run through `transfer`, keeping the run id and increasing the epoch. Token files stay private and are never printed. A transfer kills no worker and does not release the lease; stale reports and commands are fenced. The owner's `start --resume` transfers control back. Respect contention: do not reset an active relay's worktree when resume returns `CONTENDED`.
 - **Foreign/dead ownership.** A stale foreign lease or a dead-owner release uses the documented owner-confirmed commands. A later runtime may continue released state only after the former executor stopped at a durable safe point. It reads the canonical files and preserves completed work; no runtime may seize another session's live run.
-- **Honest continuity.** `drive` runs Codex workers and deterministic steps only. Fake-worker suite coverage is not a real unattended survival test. Detached-process survival, sleep and notification delivery remain unverified until observed on a live run; report the actual evidence.
+- **Honest continuity.** `drive` runs allocator-selected CLI workers and deterministic steps. Fake-worker suite coverage is not a real unattended survival test. Detached-process survival, sleep and notification delivery remain unverified until observed on a live run; report the actual evidence.
 
 ### Gates, answers and upgrades
 

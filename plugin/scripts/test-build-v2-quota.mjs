@@ -2,30 +2,7 @@
 // test-build-v2-quota.mjs — T-B02: contract test of plugin/runtime/build/quota.mjs (engine v2, BUILD-11, D9, PLAN 3.11,
 // CLI doc 8.1 / 3.15). Written from the contracts only; the implementation was NOT read.
 //
-// ASSUMED INTERFACE (the orchestrator reconciles test and module; the docs give names but not every signature):
-//  - Module: plugin/runtime/build/quota.mjs, named exports readCodexQuota, recordClaude, effective, classifyLimitText, policy.
-//    Every function may be sync or async: each call is awaited.
-//  - `now` everywhere is an ISO-8601 string (the PANDACORP_NOW convention of fsx.nowIso), never a Date or epoch ms.
-//  - readCodexQuota({codexHome, now}) -> {provider:"codex", used_percent, window_minutes, resets_at (ISO), credits, observed_at,
-//    file, state:"known", source:"rollout"} | {provider:"codex", state:"unknown", reason:string}. Never throws on bad files.
-//    The newest rollout is chosen by mtime; files older than 3 days are not considered; only the last 256 KiB are read.
-//  - recordClaude(input, {now, file}) -> the stored reading (schema quota.schema.json "claude" object).
-//    `file` = absolute path of quota.json (<project>/.pandacorp/run/build/quota.json); coordinator ruling.
-//    Without an epoch it writes quota.json only and journals nothing (no journal file appears).
-//  - effective(reading, now) -> {pct: number|null, state: "known"|"unknown", needs_probe: boolean}. Takes a stored reading in
-//    the quota.schema.json shape (claude object or codex object, or null). Claude pct = max(five_hour_pct, weekly_pct), known
-//    iff status "ok", pcts non-null and age <= 600 s (thresholds.claude_reading_max_age_s). Codex known until resets_at;
-//    needs_probe iff age > 3600 s and pct >= 70 (thresholds.codex_probe_*). A null/unknown reading -> {pct:null, state:"unknown",
-//    needs_probe:false}.
-//  - classifyLimitText(text) -> "usage_limit" | "rate_limit" | null (non-strings and empty text -> null).
-//  - policy({claude, codex, coordinator, driveAlive}): claude/codex are effective() results ({pct, state}); coordinator is
-//    "claude-session" | "codex-session" | "drive"; `driveAlive` is the standby-alive fact of CLI doc 4 step 3 (the docs do not
-//    name the parameter: the test also passes the aliases standbyAlive and drive_standby_alive). Result keys exactly the ones of
-//    CLI doc 8.1: {claude_new_units, codex_new_units, handoff, paused, degrade_reviews_of:{claude_authored, codex_authored}}.
-//    degrade_reviews_of.codex_authored = true when Claude (their reviewer company) is out; claude_authored = true when Codex is out.
-//    Thresholds: out of quota = pct >= 90; handoff threshold = pct >= 95. Unknown readings are reactive only: never out of quota,
-//    never a handoff, never counted toward a pause (a pause needs BOTH readings known and >= 90).
-//  - A usage_limit is a 100 % known reading (source "limit"); it is represented to policy as {pct:100, state:"known"}.
+// DR-162: shared passive readings replace mtime, probes and threshold/handoff policy.
 import { mkdtemp, mkdir, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import os from "node:os";
@@ -49,6 +26,8 @@ const fn = (name) => {
 };
 
 const NOW = DEFAULT_NOW;
+const accountDir = await mkdtemp(path.join(os.tmpdir(), "pc-quota-account-"));
+process.env.PANDACORP_CAPACITY_DIR = accountDir;
 const shift = (ms, base = NOW) => new Date(Date.parse(base) + ms).toISOString();
 const sandboxes = [];
 const sandbox = async () => { const dir = await mkdtemp(path.join(os.tmpdir(), "pc-quota-")); sandboxes.push(dir); const env = testEnv(dir); await mkdir(env.CODEX_HOME, { recursive: true }); return { dir, env, codexHome: env.CODEX_HOME }; };
@@ -57,7 +36,7 @@ const readCodex = async (codexHome, now = NOW) => fn("readCodexQuota")({ codexHo
 const eff = async (reading, now = NOW) => fn("effective")(reading, now);
 
 const claudeReading = (o = {}) => ({ provider: "claude", five_hour_pct: 36, weekly_pct: 12, five_hour_resets_at: shift(2 * 3600e3), weekly_resets_at: shift(5 * 86400e3), status: "ok", observed_at: NOW, ...o });
-const codexReading = (o = {}) => ({ provider: "codex", used_percent: 36, window_minutes: 300, resets_at: shift(2 * 3600e3), credits: null, observed_at: NOW, file: "/fixture/rollout.jsonl", state: "known", source: "rollout", ...o });
+const codexReading = (o = {}) => ({ provider: "codex", used_percent: 36, window_minutes: 10080, resets_at: shift(2 * 3600e3), credits: null, observed_at: NOW, file: "/fixture/rollout.jsonl", state: "known", source: "rollout", ...o });
 
 const rolloutLine = (ts, primary, secondary) => JSON.stringify({ timestamp: ts, type: "event_msg", payload: { type: "token_count", info: {}, rate_limits: { primary, secondary, credits: null, plan_type: "plus" } } });
 const winOf = (used, minutes, resetsIso) => ({ used_percent: used, window_minutes: minutes, resets_at: Math.floor(Date.parse(resetsIso) / 1000) });
@@ -134,22 +113,21 @@ await test("codex: secondary absent -> primary alone; the last token_count of th
   const ts = shift(-600e3);
   await writeRollout(codexHome, "primary-only", [
     rolloutLine(ts, winOf(20, 300, shift(3600e3)), winOf(5, 10080, shift(86400e3))),
-    rolloutLine(ts, winOf(64, 300, shift(7200e3)), null),
+    rolloutLine(shift(-500e3), winOf(64, 10080, shift(7200e3)), null),
   ]);
   const r = await readCodex(codexHome);
-  eq(r.state, "known", "state"); eq(r.used_percent, 64, "used_percent from the LAST token_count, primary only"); eq(r.window_minutes, 300, "window_minutes");
+  eq(r.state, "known", "state"); eq(r.used_percent, 64, "used_percent from the LAST token_count, primary only"); eq(r.window_minutes, 10080, "window_minutes");
   eq(r.resets_at, shift(7200e3), "resets_at");
 });
 
-await test("codex: newest rollout by mtime wins, in either order (not by file name)", async () => {
+await test("codex: conflicting equal-time events stay unknown regardless of mtime", async () => {
   const { codexHome } = await sandbox();
   const a = await writeRolloutSample(codexHome, "pct98", { now: NOW });
   const b = await writeRolloutSample(codexHome, "normal", { now: NOW });
-  const old = new Date(Date.parse(NOW) - 3600e3); const recent = new Date(Date.parse(NOW) - 60e3);
-  await utimes(a.file, old, old); await utimes(b.file, recent, recent);
-  eq((await readCodex(codexHome)).used_percent, 36, "normal is newer");
-  await utimes(a.file, recent, recent); await utimes(b.file, old, old);
-  eq((await readCodex(codexHome)).used_percent, 98, "pct98 is newer");
+  await utimes(a.file, new Date(0), new Date(0));
+  eq((await readCodex(codexHome)).state, "unknown", "same timestamp conflict");
+  await utimes(b.file, new Date(0), new Date(0));
+  eq((await readCodex(codexHome)).state, "unknown", "mtime cannot choose a balance");
 });
 
 await test("codex: tail read only. token_count at the end of a 400 KiB file is found (a partial first line is tolerated)", async () => {
@@ -232,20 +210,20 @@ await test("effective: null reading and a codex unknown reading are unknown with
 
 // ---------------------------------------------------------------------------------------------- effective codex
 await test("effective codex: known until resets_at, unknown from then on (usage resets with the window)", async () => {
-  const r = codexReading({ used_percent: 80, resets_at: shift(3600e3), observed_at: shift(-30 * 60e3) });
+  const r = codexReading({ used_percent: 80, resets_at: shift(3600e3), observed_at: NOW });
   const before = await eff(r, shift(3599e3)); eq(before.state, "known", "before resets_at"); eq(before.pct, 80, "pct");
   const after = await eff(r, shift(3601e3)); eq(after.state, "unknown", "after resets_at"); eq(after.pct, null, "pct after reset");
 });
 
 await test("effective codex: a reading much older than a claude one is still known (valid until resets_at)", async () => {
   const r = codexReading({ used_percent: 50, observed_at: shift(-5 * 3600e3), resets_at: shift(3600e3) });
-  const e = await eff(r); eq(e.state, "known", "state"); eq(e.pct, 50, "pct");
+  const e = await eff(r); eq(e.state, "unknown", "state"); eq(e.pct, null, "pct");
 });
 
 await test("effective codex needs_probe: only when older than 1 h AND >= 70 %", async () => {
   const mk = (pct, ageMs) => codexReading({ used_percent: pct, observed_at: shift(-ageMs), resets_at: shift(4 * 3600e3) });
-  eq((await eff(mk(98, 2 * 3600e3))).needs_probe, true, "98 %, 2 h old");
-  eq((await eff(mk(70, 3601e3))).needs_probe, true, "exactly 70 %, just over 1 h");
+  eq((await eff(mk(98, 2 * 3600e3))).needs_probe, false, "passive only");
+  eq((await eff(mk(70, 3601e3))).needs_probe, false, "passive only");
   eq((await eff(mk(69, 2 * 3600e3))).needs_probe, false, "69 %, 2 h old");
   eq((await eff(mk(36, 2 * 3600e3))).needs_probe, false, "36 %, 2 h old");
   eq((await eff(mk(98, 600e3))).needs_probe, false, "98 %, 10 min old");
@@ -293,24 +271,24 @@ await test("policy: both providers healthy -> everything allowed, nothing degrad
 await test("policy: 90 % stops new units on that provider only (89 % does not; boundary is >= 90)", async () => {
   const codex89 = await pol(KNOWN(36), KNOWN(89)); eq(codex89.codex_new_units, true, "codex 89 %");
   const codex90 = await pol(KNOWN(36), KNOWN(90));
-  eq([codex90.codex_new_units, codex90.claude_new_units, codex90.handoff, codex90.paused], [false, true, false, false], "codex 90 %");
-  eq(codex90.degrade_reviews_of, { claude_authored: true, codex_authored: false }, "codex out: reviews of claude-authored work degrade");
+  eq([codex90.codex_new_units, codex90.claude_new_units, codex90.handoff, codex90.paused], [true, true, false, false], "90 still fits");
+  eq(codex90.degrade_reviews_of, { claude_authored: false, codex_authored: false }, "ordinary review unchanged: reviews of claude-authored work degrade");
   const claude89 = await pol(KNOWN(89), KNOWN(36)); eq(claude89.claude_new_units, true, "claude 89 %");
   const claude90 = await pol(KNOWN(90), KNOWN(36));
-  eq([claude90.claude_new_units, claude90.codex_new_units, claude90.handoff, claude90.paused], [false, true, false, false], "claude 90 %: no handoff below 95");
-  eq(claude90.degrade_reviews_of, { claude_authored: false, codex_authored: true }, "claude out: reviews of codex-authored work degrade");
+  eq([claude90.claude_new_units, claude90.codex_new_units, claude90.handoff, claude90.paused], [true, true, false, false], "90 continues");
+  eq(claude90.degrade_reviews_of, { claude_authored: false, codex_authored: false }, "ordinary review unchanged: reviews of codex-authored work degrade");
 });
 
 await test("policy: claude 94 % with a claude coordinator does not hand off; 95 % does when the drive standby is alive", async () => {
   const p94 = await pol(KNOWN(94), KNOWN(36), "claude-session", true);
-  eq([p94.handoff, p94.paused, p94.claude_new_units], [false, false, false], "94 %");
+  eq([p94.handoff, p94.paused, p94.claude_new_units], [false, false, true], "94 % still fits");
   const p95 = await pol(KNOWN(95), KNOWN(36), "claude-session", true);
-  eq([p95.handoff, p95.paused, p95.claude_new_units, p95.codex_new_units], [true, false, false, true], "95 %, standby alive");
+  eq([p95.handoff, p95.paused, p95.claude_new_units, p95.codex_new_units], [false, false, true, true], "95 % continues without handoff");
 });
 
 await test("policy: claude 95 % with a claude coordinator and NO live drive standby -> paused-quota, no handoff", async () => {
   const p = await pol(KNOWN(95), KNOWN(36), "claude-session", false);
-  eq([p.handoff, p.paused], [false, true], "handoff/paused");
+  eq([p.handoff, p.paused], [false, false], "one-tool pressure never pauses");
 });
 
 await test("policy: claude 95 % but the coordinator is not claude-session -> no handoff and no pause", async () => {
@@ -322,22 +300,22 @@ await test("policy: claude 95 % but the coordinator is not claude-session -> no 
 
 await test("policy: both >= 90 % -> pause (also takes priority over a handoff)", async () => {
   const both90 = await pol(KNOWN(90), KNOWN(90), "claude-session", true);
-  eq([both90.paused, both90.handoff, both90.claude_new_units, both90.codex_new_units], [true, false, false, false], "90/90");
+  eq([both90.paused, both90.handoff, both90.claude_new_units, both90.codex_new_units], [false, false, true, true], "90/90 still fits");
   const claude97 = await pol(KNOWN(97), KNOWN(93), "claude-session", true);
-  eq([claude97.paused, claude97.handoff], [true, false], "97/93: a pause, not a handoff");
+  eq([claude97.paused, claude97.handoff], [false, false], "97/93 still has a qualified tool");
   const codexCoord = await pol(KNOWN(91), KNOWN(99), "codex-session", false);
-  eq(codexCoord.paused, true, "also paused under a codex coordinator");
+  eq(codexCoord.paused, false, "Claude still fits under a Codex coordinator");
 });
 
 await test("policy: usage limit = 100 % reading on claude hands off (standby alive) and the result never releases the lease", async () => {
   const p = await pol(KNOWN(100), KNOWN(36), "claude-session", true);
-  eq([p.handoff, p.paused, p.claude_new_units, p.codex_new_units], [true, false, false, true], "claude limited");
+  eq([p.handoff, p.paused, p.claude_new_units, p.codex_new_units], [false, false, false, true], "Claude limited: fallback without handoff");
   for (const [k, v] of Object.entries(p)) ok(!(/release/i.test(k) && v), `policy must never release the lease (key ${k} = ${JSON.stringify(v)})`);
 });
 
 await test("policy: usage limit on claude without a standby -> paused; usage limit on codex -> new units take claude, no pause", async () => {
   const noStandby = await pol(KNOWN(100), KNOWN(20), "claude-session", false);
-  eq([noStandby.handoff, noStandby.paused], [false, true], "claude limited, no standby");
+  eq([noStandby.handoff, noStandby.paused], [false, false], "Claude limited: no standby required");
   const codexLimit = await pol(KNOWN(20), KNOWN(100), "claude-session", true);
   eq([codexLimit.codex_new_units, codexLimit.claude_new_units, codexLimit.paused, codexLimit.handoff], [false, true, false, false], "codex limited");
   const both = await pol(KNOWN(100), KNOWN(100), "claude-session", true);
@@ -349,9 +327,9 @@ await test("policy: unknown readings are reactive only (nothing blocked, no hand
   eq([bothUnknown.claude_new_units, bothUnknown.codex_new_units, bothUnknown.handoff, bothUnknown.paused], [true, true, false, false], "both unknown");
   eq(bothUnknown.degrade_reviews_of, { claude_authored: false, codex_authored: false }, "nothing degraded");
   const claudeUnknown = await pol(UNKNOWN, KNOWN(92), "claude-session", true);
-  eq([claudeUnknown.claude_new_units, claudeUnknown.codex_new_units, claudeUnknown.handoff, claudeUnknown.paused], [true, false, false, false], "claude unknown, codex 92: no pause without proof for both");
+  eq([claudeUnknown.claude_new_units, claudeUnknown.codex_new_units, claudeUnknown.handoff, claudeUnknown.paused], [true, true, false, false], "claude unknown, codex 92 still fits");
   const codexUnknown = await pol(KNOWN(93), UNKNOWN, "claude-session", true);
-  eq([codexUnknown.claude_new_units, codexUnknown.codex_new_units, codexUnknown.handoff, codexUnknown.paused], [false, true, false, false], "claude 93, codex unknown");
+  eq([codexUnknown.claude_new_units, codexUnknown.codex_new_units, codexUnknown.handoff, codexUnknown.paused], [true, true, false, false], "claude 93 still fits, codex unknown");
 });
 
 await test("policy: end to end from fixture samples (rollout pct98 + claude high usage) -> codex out, claude still ok", async () => {
@@ -362,9 +340,10 @@ await test("policy: end to end from fixture samples (rollout pct98 + claude high
   const claude = await eff(claudeReading({ five_hour_pct: u.five_hour.utilization, weekly_pct: u.seven_day.utilization, five_hour_resets_at: u.five_hour.resets_at, weekly_resets_at: u.seven_day.resets_at }));
   eq(codex.pct, 98, "codex pct"); eq(claude.pct, 93, "claude pct = max(93, 71)");
   const p = await pol(claude, codex, "claude-session", true);
-  eq([p.claude_new_units, p.codex_new_units, p.paused, p.handoff], [false, false, true, false], "93 % and 98 % are both >= 90 -> paused");
+  eq([p.claude_new_units, p.codex_new_units, p.paused, p.handoff], [true, false, false, false], "Codex cannot fit, Claude still fits: continue");
 });
 
+await rm(accountDir, { recursive: true, force: true });
 for (const d of sandboxes) await rm(d, { recursive: true, force: true });
 console.log(`RESULT ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

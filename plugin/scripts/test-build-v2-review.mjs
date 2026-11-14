@@ -546,6 +546,18 @@ await test("a parked review (no_reviewer) never marks work verified", async () =
   eq(await c.ledger(), [], "a parked review is not a degraded review: nothing queued in the ledger");
 }));
 
+await test("DR-162 same model reviews in an independent context without a deferred review", async () => withRun({ author: CELL.solHigh, reviewer: CELL.solHigh }, async c => {
+  const out = await c.record({ reviewer: CELL.solHigh }, ROUTE.cross(CELL.solHigh));
+  eq(out.verdict, "pass", "same model allowed"); eq(await c.ledger(), [], "no mandatory cross-company re-review");
+}));
+
+await test("DR-162 identical worker identity is refused even when the model is otherwise qualified", async () => withRun({}, async c => {
+  const { writeState } = await sib("state.mjs"); const state = await c.readState();
+  for (const u of state.units) if (u.worker) u.worker.worker_id = "same-context";
+  await writeState(c.fx.root, state, { env: c.env });
+  await refused(() => c.record({}, ROUTE.cross()), "same execution context");
+}));
+
 // =====================================================================================================================
 // Probes (D23, A19)
 // =====================================================================================================================

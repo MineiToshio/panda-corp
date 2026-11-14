@@ -63,6 +63,16 @@ The CLI writes it and uses recent runs to tune admission; the session reports ob
 results and warnings, never fabricates calibration evidence. Hardware details belong
 in the owner's personal profile, not in this skill.
 
+## Shared account capacity (DR-162)
+
+At startup and before every wave, the lead calls Desktop `get_usage` and pipes its unchanged JSON to
+`node <plugin-root>/runtime/capacity-cli.mjs ingest-claude`. Never launch a model to measure quota.
+When that tool is unavailable, use the stored account snapshot; the allocator handles unknown readings.
+Never ask the owner about quota. The CLI selects the other qualified tool when one cannot fit; capacity
+parks only when neither fits, at a safe point with `resumeAt` persisted. Automatic wake-up is phase 3.
+Dispatch exactly the returned cell, fixed for the execution. Review independence means a fresh context,
+including for the same model. Capacity switches never force Astra or a later cross-company re-review.
+
 ## Execution, verification and landing
 
 The session follows the CLI's `next` loop, dispatches exactly its model/effort and files

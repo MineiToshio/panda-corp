@@ -1,5 +1,10 @@
 # Decision Log — Mission Control
 
+
+## 2026-11-14 — Manual reflects shared capacity and context independence
+
+Updated the manual team/orchestration explanation from mandatory cross-company review to independent contexts and shared capacity fallback. Reference catalogs continue deriving the canonical skill/standard/registry content. Canonical: ../src/app/manual/manualPages.tsx, ../content/manual/guides/g-implement-parcial.md and ../../factory/standards/build-engine.md (DR-162).
+
 ## 2026-11-13 — Align Changes group headings and queue rows
 
 **What:** inset the Changes group headers and description, normalize their spacing,

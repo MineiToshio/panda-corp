@@ -674,8 +674,11 @@ function ConceptEquipo(): React.JSX.Element {
       <Body>
         El CLI <Code>pandacorp-build.mjs</Code> asigna unidades listas a trabajadores del runtime
         local. La concurrencia sigue la escalera 1/2/3/5/8 y las dependencias. Cada unidad de
-        revisión tiene un único revisor de la otra compañía, una capa por encima del autor. El CLI
+        revisión tiene un único revisor con contexto independiente, incluso si usa el mismo modelo. El CLI
         registra los resultados y cerca las escrituras mediante lease y epoch.
+        El cupo se comparte por cuenta: si una herramienta no tiene margen, las unidades nuevas pasan
+        a la otra. Solo si ninguna puede trabajar se aparca el run con <Code>resumeAt</Code>. El lead
+        actualiza <Code>get_usage</Code> antes de cada ola; leer el cupo no lanza un modelo.
       </Body>
       <NotePanel icon="grid" iconColor="var(--violet)">
         <B weight={500}>En Mission Control,</B> La Fragua muestra a los agentes activos con sus

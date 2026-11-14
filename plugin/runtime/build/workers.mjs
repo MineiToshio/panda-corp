@@ -101,6 +101,11 @@ function workerCommand(deps) {
 function assertArgvClean(args) {
   for (let i = 0; i < args.length; i++) {
     if (i > 0 && PATH_FLAGS.has(args[i - 1])) continue;
+    if (args[i - 1] === "--capacity-task") {
+      const task = JSON.parse(args[i]);
+      if (!task?.pin || !["claude", "codex"].includes(task.pin.tool)) throw new WorkersError("USAGE", "invalid capacity pin");
+      continue; // Structured provider identity, not an executable command or arbitrary shell fragment.
+    }
     if (containsForbiddenWord(args[i])) throw new WorkersError("FORBIDDEN_WORD", `argv value carries a word the Codex hook adapter blocks: ${args[i]}`);
   }
 }
@@ -117,8 +122,8 @@ function assertArgvClean(args) {
  */
 export function buildWorkerArgv(input, deps) {
   const { project, workerId, unit, cell, promptFile, schemaFile = null, dir, maxSeconds = LAUNCH_WAIT_S } = input;
-  if (!cell || cell.runtime !== "codex") throw new WorkersError("USAGE", `a Codex worker needs a codex cell, got ${JSON.stringify(cell)}`);
-  const slug = modelSlug(cell, deps);
+  if (!cell || !["codex", "claude"].includes(cell.runtime)) throw new WorkersError("USAGE", `a Codex worker needs a codex cell, got ${JSON.stringify(cell)}`);
+  const slug = cell.runtime === "codex" ? modelSlug(cell, deps) : cell.model;
   const effort = cell.effort === "max" ? "xhigh" : cell.effort;
   if (!DIRECT_EFFORTS.has(effort)) throw new WorkersError("USAGE", `a Codex worker needs an explicit effort (low|medium|high|xhigh), got ${String(cell.effort)}`);
   for (const [label, value] of [["project", project], ["promptFile", promptFile], ["dir", dir]]) {
@@ -129,6 +134,7 @@ export function buildWorkerArgv(input, deps) {
   const args = [
     "run", "--direct", "--project", project, "--id", assertSafeId(workerId, "worker id"), "--unit", assertSafeId(unit, "unit id"),
     "--prompt-file", promptFile, "--codex-model", slug, "--effort", effort,
+    "--capacity-task", JSON.stringify({ id: unit, type: "implement", risk: "normal", pin: { tool: cell.runtime, model: cell.model, effort } }),
     ...(schemaFile ? ["--output-schema", schemaFile] : []),
     // The unit's own build/units/<unit>/ holds report_path, outside the worktree: the workspace-write sandbox must be
     // allowed to write it (BL-0313). Nothing else outside the worktree becomes writable.
@@ -361,7 +367,7 @@ export async function pollWorker(input, deps) {
   const result = { state: "done", workerId, ...verdict, model: payload.model ?? null, effort: payload.effort ?? null };
   if (verdict.outcome === "limit" && verdict.limit === "usage_limit") {
     const record = deps?.recordLimit ?? quotaRecordLimit;
-    result.recorded = record({ provider: "codex", resetsAt: verdict.resetsAt ?? null }, { now, file: paths.quotaFile, epoch, deps });
+    result.recorded = record({ provider: payload.tool ?? "codex", resetsAt: verdict.resetsAt ?? null }, { now, file: paths.quotaFile, epoch, deps });
   }
   if (verdict.outcome === "report" && reportFile) {
     await atomicWriteJson(reportFile, verdict.report);

@@ -35,6 +35,7 @@ import { chmodSync, appendFileSync, existsSync, mkdirSync, readFileSync, readdir
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { decideCapacity } from "../runtime/capacity.mjs";
 import { stopCodexWorkers } from "../runtime/codex-workers.mjs";
 
 const PLUGIN = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -162,9 +163,13 @@ function childEnv() {
   return env;
 }
 
-function launch(dir, cwd, args) {
+function launch(dir, cwd, args, tool = "codex") {
   const q = (s) => `'${String(s).replaceAll("'", `'"'"'`)}'`;
-  const script = `${[CODEX_BIN, ...args].map(q).join(" ")} < ${q(path.join(dir, "full-prompt.md"))}; echo $? > ${q(path.join(dir, "exit"))}`;
+  const bin = tool === "claude" ? process.env.PANDACORP_CLAUDE_BIN || "claude" : CODEX_BIN;
+  const command = `${[bin, ...args].map(q).join(" ")} < ${q(path.join(dir, "full-prompt.md"))}`;
+  const script = tool === "claude"
+    ? `${command} > ${q(path.join(dir, "last.md"))}; result=$?; cat ${q(path.join(dir, "last.md"))}; echo "$result" > ${q(path.join(dir, "exit"))}`
+    : `${command}; echo $? > ${q(path.join(dir, "exit"))}`;
   const out = openSync(path.join(dir, "codex.log"), "a");
   const child = spawn("/bin/sh", ["-c", script], { cwd, detached: true, stdio: ["ignore", out, out], env: childEnv() });
   closeSync(out);
@@ -172,7 +177,7 @@ function launch(dir, cwd, args) {
   return child;
 }
 
-function start(dir, id) {
+function start(dir, id, allocation) {
   const promptFile = path.join(dir, "prompt.md");
   let recovered = null;
   try { recovered = promptFromTranscript(id, opt("sum")); }
@@ -188,12 +193,12 @@ function start(dir, id) {
   const role = roleInstructions(opt("role"));
   const full = [
     role && `# Your role\n\n${role}`,
-    "# Runtime note\n\nYou are running as a Codex worker dispatched by the Pandacorp build engine. Where the task below mentions Claude tools (Read/Write/Edit/Bash/Grep/Glob), use your own equivalent tools. Do everything the task asks inside the working directory; the engine verifies your result independently.",
+    "# Runtime note\n\nYou are running as an isolated CLI worker dispatched by the Pandacorp build engine. Where the task below mentions Claude tools (Read/Write/Edit/Bash/Grep/Glob), use your own equivalent tools. Do everything the task asks inside the working directory; the engine verifies your result independently.",
     `# Task\n\n${task}`,
     flag("json-answer") && "# Final answer\n\nYour FINAL message must be exactly ONE JSON object (no prose before or after it, no code fence) that validates against the JSON Schema given in the task.",
   ].filter(Boolean).join("\n\n");
   writePrivate(path.join(dir, "full-prompt.md"), full);
-  const tier = codexTier(opt("model"), opt("effort"));
+  const tier = allocatedTier(allocation);
   // --access sandbox (default): Codex's workspace-write sandbox with network. It keeps every `.git` read-only even
   // under --add-dir (verified 2026-10-29: `git commit` fails on index.lock), so a sandboxed worker can edit and test
   // but never commit. --access full gives the worker the reach of the Claude worker it replaces; it is the owner's
@@ -203,8 +208,9 @@ function start(dir, id) {
     : ["-s", "workspace-write", "-c", "sandbox_workspace_write.network_access=true"];
   const args = ["exec", "--ignore-user-config", "--skip-git-repo-check", "--json", "-C", cwd, ...access,
     "-m", tier.model, "-c", `model_reasoning_effort="${tier.effort}"`, "-o", path.join(dir, "last.md"), "-"];
-  const child = launch(dir, cwd, args);
-  writeFileSync(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, model: tier.model, effort: tier.effort, access: opt("access") || "sandbox", startedAt: new Date().toISOString() }));
+  const actualArgs = allocation.tool === "claude" ? ["-p", "--model", allocation.model, "--effort", allocation.effort, "--output-format", "text"] : args;
+  const child = launch(dir, cwd, actualArgs, allocation.tool);
+  writeFileSync(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, tool: allocation.tool, capacity: allocation, model: tier.model, effort: tier.effort, access: opt("access") || "sandbox", startedAt: new Date().toISOString() }));
   telemetry("worker_started", { id, role: opt("role"), model: tier.model, effort: tier.effort, access: opt("access") || "sandbox" });
 }
 
@@ -238,16 +244,18 @@ function writableDirs(cwd) {
 }
 
 /** v2 direct start: the prompt file is written by the engine CLI and passed to Codex verbatim (no checksum, no relay). */
-function startDirect(dir, id) {
+function startDirect(dir, id, allocation) {
   const promptSrc = opt("prompt-file");
   if (!promptSrc || !existsSync(promptSrc)) fail("bad-prompt-file", `missing --prompt-file: ${promptSrc || "(none)"}`);
-  const slug = opt("codex-model");
-  if (!SLUG_RE.test(slug)) fail("bad-model", `--codex-model must be a Codex catalog slug: ${slug || "(none)"}`);
+  const requestedSlug = opt("codex-model");
+  const tier = allocatedTier(allocation);
+  const slug = tier.model;
+  if (!SLUG_RE.test(requestedSlug)) fail("bad-model", `--codex-model must be a Codex catalog slug: ${slug || "(none)"}`);
   const schema = opt("output-schema") ? path.resolve(opt("output-schema")) : "";
   if (schema && !existsSync(schema)) fail("bad-schema", `--output-schema file does not exist: ${schema}`);
   const cwd = workDir();
   if (!existsSync(cwd)) fail("bad-dir", `work dir does not exist: ${cwd}`);
-  const effort = opt("effort") === "minimal" ? "low" : DIRECT_EFFORTS.has(opt("effort")) ? opt("effort") : "medium";
+  const effort = tier.effort;
   const task = readFileSync(promptSrc, "utf8");
   writePrivate(path.join(dir, "prompt.md"), task);
   writePrivate(path.join(dir, "full-prompt.md"), task);
@@ -257,9 +265,10 @@ function startDirect(dir, id) {
   const args = ["exec", "--ignore-user-config", "--skip-git-repo-check", "--json", "-C", cwd, ...access,
     "-m", slug, "-c", `model_reasoning_effort="${effort}"`, ...(schema ? ["--output-schema", schema] : []),
     "-o", path.join(dir, "last.md"), "-"];
-  const child = launch(dir, cwd, args);
+  const actualArgs = allocation.tool === "claude" ? ["-p", "--model", allocation.model, "--effort", allocation.effort, "--output-format", "text"] : args;
+  const child = launch(dir, cwd, actualArgs, allocation.tool);
   const wd = Object.fromEntries(Object.keys(WATCHDOG_DEFAULTS_S).map((k) => [k, watchdogS(k)]));
-  writeFileSync(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, model: slug, effort, access: opt("access") || "sandbox", direct: true, json: Boolean(schema) || flag("json-answer"), role: opt("role"), startedAt: new Date().toISOString() }));
+  writeFileSync(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, tool: allocation.tool, capacity: allocation, model: slug, effort, access: opt("access") || "sandbox", direct: true, json: Boolean(schema) || flag("json-answer"), role: opt("role"), startedAt: new Date().toISOString() }));
   const watcherArgs = ["watch", "--project", project, "--id", id, ...Object.entries(wd).flatMap(([k, v]) => [`--${k}`, String(v)])];
   spawn(process.execPath, [fileURLToPath(import.meta.url), ...watcherArgs], { detached: true, stdio: "ignore", env: childEnv() }).unref();
   telemetry("worker_started", { id, role: opt("role"), model: slug, effort, access: opt("access") || "sandbox", direct: true });
@@ -317,7 +326,7 @@ function finish(dir, state) {
   const code = Number(readFileSync(path.join(dir, "exit"), "utf8").trim());
   const last = existsSync(path.join(dir, "last.md")) ? readFileSync(path.join(dir, "last.md"), "utf8") : "";
   const log = existsSync(path.join(dir, "codex.log")) ? readFileSync(path.join(dir, "codex.log"), "utf8") : "";
-  const base = { status: "done", model: state.model, effort: state.effort };
+  const base = { status: "done", tool: state.tool ?? "codex", model: state.model, effort: state.effort };
   const watchdog = state.direct ? readJson(path.join(dir, "watchdog.json")) : null;
   if (watchdog) return { ...base, ok: false, kind: watchdog.kind, detail: `watchdog: ${watchdog.detail}`.slice(0, 600) };
   if (code !== 0 || !last.trim()) {
@@ -337,6 +346,24 @@ function settle(dir, id, state) {
   telemetry("worker_stopped", { id, role: opt("role") || state.role || "", model: state.model, effort: state.effort, ok: result.ok, kind: result.kind || "", seconds: Math.round((Date.now() - Date.parse(state.startedAt)) / 1000) });
 }
 
+function allocatedTier(decision) {
+  const catalog = JSON.parse(readFileSync(path.join(PLUGIN, "runtime/model-tiers.json"), "utf8")).catalog;
+  return { model: decision.tool === "codex" ? catalog.codex[decision.model] : decision.model, effort: decision.effort };
+}
+function allocate(id) {
+  let task;
+  if (opt("capacity-task")) task = JSON.parse(opt("capacity-task"));
+  else {
+    const role = opt("role");
+    const type = /planner|architect|design/.test(role) ? "design" : /review|audit/.test(role) ? "review" : /mechanic|tier-mech/.test(role) ? "mechanical" : "implement";
+    task = { id, type, risk: opt("risk") || "normal" };
+  }
+  // Existing engine run path is authoritative; standalone calls use the host account log.
+  const build = path.join(project, ".pandacorp/run/build");
+  const log = readJson(path.join(build, "state.json"))?.status === "active" ? path.join(build, "capacity-decisions.jsonl") : undefined;
+  return decideCapacity(task, { log });
+}
+
 async function run() {
   const id = opt("id");
   const dir = workerDir(id);
@@ -344,7 +371,14 @@ async function run() {
   const resultFile = path.join(dir, "result.line");
   if (existsSync(resultFile)) { process.stdout.write(readFileSync(resultFile, "utf8")); return; }
   let state = readJson(path.join(dir, "state.json"));
-  if (!state) { (flag("direct") ? startDirect : start)(dir, id); state = readJson(path.join(dir, "state.json")); }
+  if (!state) {
+    const allocation = allocate(id);
+    if (allocation.action === "wait") {
+      emit({ status: "done", ok: false, kind: "limit", tool: allocation.tool, limit: "usage_limit", detail: "Shared capacity wait", resumeAt: allocation.resumeAt, capacity: allocation });
+      return;
+    }
+    (flag("direct") ? startDirect : start)(dir, id, allocation); state = readJson(path.join(dir, "state.json"));
+  }
   const deadline = Date.now() + Math.min(Number(opt("max")) || 540, 570) * 1000;
   while (!existsSync(path.join(dir, "exit"))) {
     if (!alive(state.pid)) { await new Promise((r) => setTimeout(r, 1000)); if (!existsSync(path.join(dir, "exit"))) writeFileSync(path.join(dir, "exit"), "137\n"); break; }

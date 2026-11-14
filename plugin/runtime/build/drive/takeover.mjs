@@ -1,7 +1,7 @@
 // Takeover of a run by the Codex relay: `takeOver` and its worktree/token cleanup (split from drive.mjs).
 import nodeFs from "node:fs";
 import { readJson } from "../fsx.mjs";
-import { effective, readCodexQuota, readQuotaFile, resetsAtOf } from "../quota.mjs";
+import { readQuota, resetsAtOf } from "../quota.mjs";
 import { fencedTwoPhase } from "../state.mjs";
 import { restoreUnitWorktree } from "../units.mjs";
 import { IN_FLIGHT, err, isFenceError } from "./constants.mjs";
@@ -10,23 +10,10 @@ import { setOwnStandbyState } from "./standby.mjs";
 
 const anyRunning = (state) => state.units.some((u) => IN_FLIGHT.has(u.state)) || state.jobs.some((j) => j.state === "running");
 
-function codexAtTakeover(project, now, limits, d) {
-  const paths = pathsOf(project, d);
-  let stored = null;
-  try { stored = readQuotaFile(paths.quotaFile).codex; } catch { /* corrupt store: rely on the rollout */ }
-  let fresh = null;
-  try { fresh = typeof d.readCodexQuota === "function" ? d.readCodexQuota() : readCodexQuota({ now }, { env: d.env }); } catch { /* unknown */ }
-  const options = { thresholds: limits };
-  const candidates = [fresh, stored].map((reading) => ({ reading, eff: effective(reading, now, options) })).filter((c) => c.eff.state === "known");
-  if (!candidates.length) return { eff: { pct: null, state: "unknown" }, reading: fresh ?? stored };
-  candidates.sort((x, y) => y.eff.pct - x.eff.pct);
-  return candidates[0];
-}
-
 /**
  * Take the run over: re-read Codex quota, `transfer` (A10), set `state.coordinator = "drive"`, requeue the units a
  * Claude agent or session was writing (their late reports are fenced out), journal `drive_takeover`, and either
- * stop at `paused-quota` (Codex >= quota_stop and nothing running: both resets_at, lease released) or hand back to
+ * park at `paused-quota` (neither tool fits and nothing runs: resumeAt persisted, lease released) or hand back to
  * the loop. Never quiesces a running run, never stops workers.
  * @param {{project: string, runId: string, trigger: string, detail?: string|null}} input
  * @param {object} [deps]
@@ -47,11 +34,9 @@ export async function takeOver({ project, runId, trigger, detail = null }, deps)
     return { outcome: "retry", epoch: null, codex: null, requeued: [] };
   }
 
-  const codex = codexAtTakeover(project, now, limits, d);
-  let claude = { pct: null, state: "unknown" };
-  let claudeReading = null;
-  try { claudeReading = readQuotaFile(paths.quotaFile).claude; claude = effective(claudeReading, now, { thresholds: limits }); } catch { /* unknown */ }
-  const codexOut = codex.eff.state === "known" && codex.eff.pct >= limits.quota_stop;
+  const quota = await readQuota({ now, codexHome: paths.codexHome }, { env: d.env });
+  const codex = { eff: quota.effective.codex, reading: quota.codex };
+  const claude = quota.effective.claude, claudeReading = quota.claude;
 
   let moved;
   try {
@@ -84,11 +69,12 @@ export async function takeOver({ project, runId, trigger, detail = null }, deps)
       type: "drive_takeover",
       data: { trigger, detail, from_epoch: lease.epoch, to_epoch: epoch, codex: codex.eff, claude, requeued: requeued.map((r) => r.unit) },
     });
-    const pause = codexOut && !anyRunning(next);
+    const pause = quota.policy.paused && !anyRunning(next);
     if (pause) {
       next.status = "paused";
       next.status_reason = "paused-quota";
-      await ctx.appendEvent({ type: "paused", data: { reason: "paused-quota", resets_at: resets } });
+      next.resumeAt = quota.policy.resumeAt;
+      await ctx.appendEvent({ type: "paused", data: { reason: "paused-quota", resets_at: resets, resumeAt: quota.policy.resumeAt } });
     }
     await ctx.writeState(next);
     return { pause, requeued };
@@ -108,7 +94,7 @@ export async function takeOver({ project, runId, trigger, detail = null }, deps)
       await bs.quiesce(project, moved.token, epoch, { projectStatus: false });
       await bs.finalizeRelease(project, moved.token, epoch);
     });
-    driveLog(project, "takeover: Codex at the stop threshold, run paused (paused-quota), lease released", d);
+    driveLog(project, "takeover: Neither tool fits, run paused (paused-quota), lease released", d);
     await say("paused-quota", { project, resets: resets.codex ?? resets.claude ?? null }, d);
     return { outcome: "paused-quota", epoch, codex: codex.eff, requeued };
   }

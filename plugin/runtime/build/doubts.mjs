@@ -10,7 +10,7 @@
 export { DECIDING_CONFIDENCE, DOUBT_CAPS, ASK_OWNER_OPTION, SYNTHESIZED_OPTION_IDS, VETO_REASONS } from "./doubts/constants.mjs";
 export { consultOrigin, sourcesSkipped } from "./doubts/common.mjs";
 export { validateDoubtObject } from "./doubts/input.mjs";
-export { briefDecision, isDoubtId, pendingConsult, readDoubt } from "./doubts/records.mjs";
+export { briefDecision, isDoubtId, pendingConsult, readDoubt, rerouteConsult } from "./doubts/records.mjs";
 export { assessVeto, classifyText, drsRequiringOwner, readWoArtifacts, vetoReasons } from "./doubts/veto.mjs";
 export { preferredReversible, tally } from "./doubts/ladder.mjs";
 export { isRepeatDoubt } from "./doubts/repeat.mjs";

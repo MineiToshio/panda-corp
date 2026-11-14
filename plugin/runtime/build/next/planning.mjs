@@ -14,7 +14,7 @@ export async function quotaView(run, state) {
   const { d, paths } = run;
   const q = await d.quota.readQuota({ file: paths.quotaFile, codexHome: paths.codexHome, coordinator: state.coordinator }, quotaDeps(d));
   const driveAlive = await driveStandbyAlive(run);
-  const policy = d.quota.policy({ claude: q.effective.claude, codex: q.effective.codex, coordinator: state.coordinator, driveAlive, deps: quotaDeps(d), thresholds: d.thresholds });
+  const policy = d.quota.policy({ claude: q.effective.claude, codex: q.effective.codex, readings: q.readings, coordinator: state.coordinator, driveAlive, deps: quotaDeps(d), thresholds: d.thresholds });
   const view = (e) => ({ pct: e?.pct ?? null, state: e?.state ?? "unknown" });
   return {
     policy, driveAlive, raw: q,
@@ -43,7 +43,7 @@ export const deferredUnitId = (entryId) => `u-deferred-review-${entryId}`;
 /** Deferred reviews whose needed company is below the stop threshold become queued units first (BUILD-10, D11). */
 export async function scheduleManagedUnits(run, state, pol, entries) {
   const avail = availabilityOf(pol);
-  const servable = entries.filter((e) => e.status === "pending" && avail[e.needed] === "ok" && !findUnit(state, deferredUnitId(e.id)));
+  const servable = entries.filter((e) => e.status === "pending" && !pol.paused && !findUnit(state, deferredUnitId(e.id)));
   if (!servable.length) return state;
   return mutate(run, (s) => {
     const add = servable.filter((e) => !findUnit(s, deferredUnitId(e.id))).map((e) => newUnit({

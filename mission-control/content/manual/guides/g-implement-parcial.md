@@ -34,11 +34,16 @@ reconciliación. Una tarjeta en construcción retoma su run; una cerrada no es t
 
 ## Qué ocurre durante el run
 
-El CLI planifica y admite unidades con trabajadores locales. Una revisión independiente de la
-otra compañía y los gates comprueban el contrato completo, con trazabilidad de requisitos a
+El CLI planifica y admite unidades con el asignador de capacidad compartida. Una revisión en
+un contexto independiente, incluso con el mismo modelo, y los gates comprueban el contrato completo, con trazabilidad de requisitos a
 pruebas y evidencia adversarial en los límites. Pasar criterios numerados no permite omitir
 otras cláusulas normativas. Un gate rojo repara solo el alcance atribuido al fallo. Solo las
 ejecuciones de build y patch gastan el presupuesto de tres intentos por unidad.
+
+El cupo se comparte por cuenta. Si una herramienta no tiene margen, la siguiente unidad pasa a la otra;
+una unidad en curso conserva su herramienta. Solo si ninguna puede trabajar, el run se aparca con
+`resumeAt`. El lead actualiza `get_usage` antes de cada ola y no pregunta al propietario por cupos.
+La reanudación automática corresponde a la fase 3.
 
 Las preguntas iniciales incluyen sus valores por defecto. Una duda posterior se consulta;
 si no puede resolverse dentro del alcance autorizado, la unidad y sus dependientes se aparcan

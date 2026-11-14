@@ -115,15 +115,18 @@ await test("argv: codex slug, effort, unit worktree as --dir, brief as prompt fi
   } finally { await s.cleanup(); }
 });
 
-await test("argv: a non-codex cell or a missing effort is refused loudly", async () => {
+await test("argv: unsupported runtimes or missing effort are refused; allocated Claude is admitted", async () => {
   const s = await sandbox();
   try {
     const base = { project: s.fx.root, workerId: "w-x", unit: s.unit, promptFile: s.paths.briefFile(s.unit), schemaFile: SCHEMA, dir: s.wt };
     let threw = 0;
-    for (const cell of [{ runtime: "claude", model: "opus", effort: "high" }, { runtime: "codex", model: "sol" }]) {
+    for (const cell of [{ runtime: "invalid", model: "opus", effort: "high" }, { runtime: "codex", model: "sol" }]) {
       try { W.buildWorkerArgv({ ...base, cell }, s.deps); } catch { threw++; }
     }
     eq(threw, 2, "both invalid cells must throw");
+    const admitted = W.buildWorkerArgv({ ...base, cell: { runtime: "claude", model: "sonnet", effort: "medium" } }, s.deps);
+    const index = admitted.args.indexOf("--capacity-task");
+    eq(JSON.parse(admitted.args[index + 1]).pin, { tool: "claude", model: "sonnet", effort: "medium" }, "Claude pin preserved in structured argv");
   } finally { await s.cleanup(); }
 });
 

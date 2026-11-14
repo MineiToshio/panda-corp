@@ -1,8 +1,10 @@
-import { open, readdir } from "node:fs/promises";
+import fs from "node:fs";
+import os from "node:os";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 
 const TOOLS = ["claude", "codex"];
-const TYPES = ["plan", "design", "judgment", "implement", "review", "mechanical", "images"];
+const TYPES = ["plan", "design", "judgment", "implement", "review", "mechanical", "images", "image"];
 const TTL = { claude: 600, codex: 3600 };
 const TAIL_BYTES = 256 * 1024;
 const PRIORS = {
@@ -33,7 +35,7 @@ function assess(reading, now) {
   const ms = clock(now), observed = timestamp(reading.observedAt);
   let reason = reading.state === "unknown" ? reading.reason : null;
   if (!validTime(observed) || observed > ms + 30000) reason ??= "invalid_timestamp";
-  else if ((ms - observed) / 1000 > TTL[reading.tool]) reason ??= "stale_reading";
+  else if (reading.source !== "usage_limit" && (ms - observed) / 1000 > TTL[reading.tool]) reason ??= "stale_reading";
   const windows = relevant(reading.windows);
   const required = reading.tool === "claude" ? ["five_hour", "weekly"] : ["weekly"];
   if (required.some(id => !windows.some(w => w.id === id && w.applicability === "required"))) reason ??= "missing_window";
@@ -103,14 +105,14 @@ export function normalizeCodexRateLimits(event, now) {
     reason: wrongBucket ? "unrecognized_limit_id" : null, observedAt: validTime(observed) ? iso(observed) : null, windows }, ms);
 }
 
-async function rolloutFiles(dir) {
+function rolloutFiles(dir) {
   let entries;
-  try { entries = await readdir(dir, { withFileTypes: true }); }
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
   catch (error) { if (error.code === "ENOENT") return []; throw error; }
   const files = [];
   for (const entry of entries.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) {
     const file = path.join(dir, entry.name);
-    if (entry.isDirectory()) files.push(...await rolloutFiles(file));
+    if (entry.isDirectory()) files.push(...rolloutFiles(file));
     else if (entry.isFile() && /^rollout-.*\.jsonl$/.test(entry.name)) files.push(file);
   }
   return files;
@@ -121,17 +123,17 @@ async function rolloutFiles(dir) {
  * @param {string} dir Sessions directory, recursively searched; symlinks are not followed.
  * @param {string|number|Date} now Injected clock.
  * @returns {Promise<object>} Normalized reading; no usable events or inaccessible files yield unknown. */
-export async function readCodexFromRollouts(dir, now) {
+export function readCodexFromRolloutsSync(dir, now) {
   const ms = clock(now);
   let latest = null, latestMs = -Infinity, conflict = false;
   try {
-    for (const file of await rolloutFiles(dir)) {
+    for (const file of rolloutFiles(dir)) {
       let handle;
       try {
-        handle = await open(file, "r");
-        const { size } = await handle.stat(), start = Math.max(0, size - TAIL_BYTES);
+        handle = fs.openSync(file, "r");
+        const { size } = fs.fstatSync(handle), start = Math.max(0, size - TAIL_BYTES);
         const buffer = Buffer.alloc(Math.min(size, TAIL_BYTES));
-        const { bytesRead } = await handle.read(buffer, 0, buffer.length, start);
+        const bytesRead = fs.readSync(handle, buffer, 0, buffer.length, start);
         const lines = buffer.subarray(0, bytesRead).toString("utf8").split("\n");
         if (start) lines.shift();
         for (const line of lines) {
@@ -147,12 +149,14 @@ export async function readCodexFromRollouts(dir, now) {
             conflict ||= JSON.stringify(candidate.windows) !== JSON.stringify(latest.windows);
           } else { latest = candidate; latestMs = at; conflict = false; }
         }
-      } finally { await handle?.close(); }
+      } finally { if (handle !== undefined) fs.closeSync(handle); }
     }
   } catch (error) { return unknown("codex", `rollout_read_error:${error.code || "IO"}`); }
   if (!latest) return unknown("codex", "no_rate_limit_event");
   return conflict ? { ...latest, state: "unknown", reason: "conflicting_events" } : latest;
 }
+
+export async function readCodexFromRollouts(dir, now) { return readCodexFromRolloutsSync(dir, now); }
 
 function cellFor(type, risk, tool) {
   if (risk === "critical") return { tool, model: tool === "codex" ? "astra" : "opus", effort: "high" };
@@ -205,7 +209,7 @@ function fit(reading, cell, type, imageReserve, costs, pinned) {
 export function decide({ task, readings = {}, now, costs = {} }) {
   const ms = clock(now);
   if (!task || typeof task.id !== "string" || !task.id || !TYPES.includes(task.type)) throw new TypeError("Invalid task id/type");
-  const risk = task.risk ?? "critical", type = task.type;
+  const risk = task.risk ?? "critical", type = task.type === "image" ? "images" : task.type;
   if (!["normal", "delicate", "critical"].includes(risk) || type === "images" && risk !== "normal") {
     throw new TypeError("Invalid risk; image risk assessment must be a separate task");
   }
@@ -263,4 +267,73 @@ export function explain(decision) {
   const reason = reasons[decision.reason] ?? "decisión de capacidad";
   return decision.action === "wait" ? `Esperar hasta ${decision.resumeAt}: ${reason}.` :
     `Ejecutar en ${decision.tool === "claude" ? "Claude" : "Codex"} ${decision.model}/${decision.effort}: ${reason}.`;
+}
+
+/** Account-wide store: one file per provider/fact, never project-owned policy state. */
+export function capacityDir(env = process.env) {
+  return env.PANDACORP_CAPACITY_DIR || path.join(env.PANDACORP_HOST_DIR || path.join(os.homedir(), ".pandacorp", "host"), "capacity");
+}
+/** Lock-free whole-snapshot replacement: unique exclusive temp + atomic rename, private even after overwrite. */
+export function writeCapacitySnapshot(name, value, { env = process.env } = {}) {
+  if (!["claude", "codex", "claude-limit", "codex-limit"].includes(name)) throw new TypeError("Invalid capacity snapshot");
+  const dir = capacityDir(env), file = path.join(dir, `${name}.json`);
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const tmp = `${file}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(value) + "\n", { flag: "wx", mode: 0o600 });
+    fs.renameSync(tmp, file);
+  } finally { try { fs.unlinkSync(tmp); } catch (e) { if (e.code !== "ENOENT") throw e; } }
+  return value;
+}
+export function readCapacitySnapshot(name, { env = process.env } = {}) {
+  const tool = name.startsWith("claude") ? "claude" : "codex";
+  try {
+    const value = JSON.parse(fs.readFileSync(path.join(capacityDir(env), `${name}.json`), "utf8"));
+    if (value?.schema !== 1 || value.tool !== tool || !Array.isArray(value.windows) || value.windows.some(w => !w || typeof w !== "object"))
+      return unknown(tool, "invalid_snapshot");
+    return value;
+  } catch (e) {
+    return e.code === "ENOENT" ? null : unknown(tool, `snapshot_read_error:${e.code || "JSON"}`);
+  }
+}
+
+export function ingestClaude(json, { now = new Date().toISOString(), env = process.env } = {}) {
+  return writeCapacitySnapshot("claude", normalizeClaudeUsage(json, now), { env });
+}
+/** Reconcile passive observations with a real limit; a newer observation supersedes the limit. */
+export function readCapacity({ env = process.env, now = env.PANDACORP_NOW ?? new Date().toISOString(), codexHome } = {}) {
+  const readings = { claude: readCapacitySnapshot("claude", { env }),
+    codex: readCodexFromRolloutsSync(path.join(codexHome || env.CODEX_HOME || path.join(os.homedir(), ".codex"), "sessions"), now) };
+  const storedCodex = readCapacitySnapshot("codex", { env });
+  if (storedCodex && (!readings.codex?.observedAt || timestamp(storedCodex.observedAt) > timestamp(readings.codex.observedAt))) readings.codex = storedCodex;
+  for (const tool of TOOLS) {
+    const limit = readCapacitySnapshot(`${tool}-limit`, { env });
+    if (limit && Array.isArray(limit.windows) && relevant(limit.windows).some(w => timestamp(w.resetsAt) > clock(now)) &&
+        (!readings[tool]?.observedAt || timestamp(limit.observedAt) >= timestamp(readings[tool].observedAt))) readings[tool] = limit;
+  }
+  return readings;
+}
+function activeRunLog(start = process.cwd()) {
+  for (let dir = path.resolve(start); ; dir = path.dirname(dir)) {
+    const build = path.join(dir, ".pandacorp", "run", "build");
+    try {
+      const state = JSON.parse(fs.readFileSync(path.join(build, "state.json"), "utf8"));
+      if (state?.status === "active" && state.run_id) return path.join(build, "capacity-decisions.jsonl");
+    } catch { /* no active run at this ancestor: host audit remains the fallback */ }
+    if (path.dirname(dir) === dir) return null;
+  }
+}
+export function logCapacityDecision(task, decision, { env = process.env, now = env.PANDACORP_NOW ?? new Date().toISOString(), log } = {}) {
+  const file = log || env.PANDACORP_CAPACITY_LOG || activeRunLog() || path.join(capacityDir(env), "decisions.jsonl");
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  const { id, type, risk, override, pin, imageDemandPp } = task;
+  fs.appendFileSync(file, JSON.stringify({ at: new Date(now).toISOString(), task: { id, type, risk, override, pin, imageDemandPp },
+    decision, reason: decision.reason, readings_used: decision.readings_used }) + "\n", { mode: 0o600 });
+  fs.chmodSync(file, 0o600);
+}
+export function decideCapacity(task, options = {}) {
+  const env = options.env ?? process.env, now = options.now ?? env.PANDACORP_NOW ?? new Date().toISOString();
+  const decision = decide({ task, readings: options.readings ?? readCapacity({ ...options, env, now }), now });
+  logCapacityDecision(task, decision, { ...options, env, now });
+  return decision;
 }

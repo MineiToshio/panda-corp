@@ -1,3 +1,10 @@
+> **DR-162 (phase 2a) supersedes quota routing below:** drive uses the same shared account allocator as
+> the session, can execute an allocated Claude cell through the worker launcher, and only parks capacity
+> when neither qualified tool fits, with resumeAt persisted. There is no 90/95 veto or capacity-triggered
+> mandatory company switch, Astra escalation, same-model degradation or Claude-only audit deferral.
+> Explicit handoff, lease fencing, ownership, human gates and safe-point behavior remain in force.
+> Automatic resumption is phase 3; authenticated real-provider fallback is not certified by fixtures.
+
 # `drive`: the Codex relay, from the session's side
 
 Policy is BUILD-14 (`factory/standards/build-engine.md`); the command, its files and its exit codes are in
@@ -37,7 +44,7 @@ Drive's standby checks every 30 s:
 |---|---|---|
 | (a) `build/handoff.json` | the session, when `next` returns `action: "handoff"` (Claude ≥95 % with this session coordinating) or when one of its agents hit Claude's usage limit | below |
 | (b) Claude's usage-limit text in a unit report or Codex worker output of the run | a limit the session could not act on | none (it may already be out of turns) |
-| (c) lease expired (no renew for 30 min) with work pending and the last Claude reading ≥85 % or unknown | a silent coordinator | none |
+| (c) lease expired (no renew for 30 min) with work pending, independently of quota | a silent coordinator | none |
 
 At `action: "handoff"`, or when a background agent of yours returns Claude's usage-limit error while you still have a
 turn:
@@ -52,8 +59,7 @@ turn:
 4. Observer from now on: no fenced call, no dispatch. You may run `pb status` once to confirm `coordinator: drive`,
    then end the turn.
 
-At takeover drive re-reads Codex quota: at or above 90 % it takes the run only to stop it at `paused-quota` with
-both companies' `resets_at` (lease released); otherwise it continues.
+At takeover drive reads the shared account state. It parks only if neither tool fits and nothing runs, persisting resumeAt; otherwise it continues.
 
 **Forced handoff (test only: the first real use with a forced relay).** When the owner asks for it "tras N
 tareas": count `report` results with `outcome: committed`; after the N-th, `pb handoff --epoch <E> --reason test`
@@ -61,7 +67,7 @@ and continue from step 3 above. Never in a normal build.
 
 ## 4. Coming back while drive coordinates
 
-Drive never returns to Claude on its own (it cannot read Claude's quota). When the owner reopens a session and
+Drive reads the shared Claude snapshot and can dispatch Claude work without changing lease ownership. When the owner reopens a session and
 writes `/pandacorp:implement --resume`:
 
 1. `pb start --detect --args=--resume …` → row 2.
@@ -73,14 +79,10 @@ If drive already finished or paused, `pb summary` gives the data: write the fina
 
 ## 5. What drive does alone (so the report can explain it)
 
-- **Reviews without Claude.** What Claude wrote before the handover keeps its normal Codex reviewer (Sol `high`,
-  Astra `high` in r1). What Codex writes under drive is reviewed by Codex Astra `high`, marked degraded
-  (`quota_90`) and queued in `deferred-reviews.json` for a Claude re-review. The security audit is not run under
-  drive: it is queued for Claude Opus `high`.
-- **Doubts**: no sources step; consult Codex Astra `high`, then park.
-- **Quota**: Codex ≥90 % → nothing new, running workers finish, `paused-quota` at a safe point with both
-  `resets_at`. Accepted consequence: if Codex runs out during the relay, the build waits for the owner even if Claude
-  has renewed.
+- **Reviews and audits** use shared capacity by risk, in fresh contexts, including the same model as the author.
+- **Doubts** use design capacity by risk, without an origin/attempt-based Astra escalation.
+- **Quota** switches each new execution to the other qualified tool. Only neither fitting parks capacity with
+  durable resumeAt after current work reaches a safe point; no quota question goes to the owner.
 - **Human gates**: `waiting_gate` plus a macOS notification; it never sets `PANDACORP_OWNER_RELEASE_OK`.
 - **Death** (expired Codex session, Mac asleep with the lid closed on battery): the work stays at the last safe
   point; `/pandacorp:implement --resume` continues it.

@@ -1,3 +1,4 @@
+import { logCapacityDecision } from "../../capacity.mjs";
 // (6)(7) Admission and dispatch: one fenced two-phase transaction (admit, prepare and launch, record), the G2 jobs
 // on their snapshots, the dispatch output and its one-line Spanish announcement.
 import { existsSync } from "node:fs";
@@ -121,6 +122,7 @@ async function admitPhase(run, ctx, { g2, list, reservations, hostHeld, signals,
     admitEvent(c.unit.id, decision, "B");
     if (decision.grant !== "B") { blocked = blocked ?? decision.motivo_limite; if (decision.motivo_limite === "disco") continue; break; }
     if (needsWorktree) diskLeft -= d.admission.ADMISSION.WT_NEED_GIB;
+    if (c.capacity) logCapacityDecision(c.task, c.capacity, { env: d.env, log: run.paths.capacityDecisionsFile, now: reactive?.now });
     const issued = d.admission.issueToken(c.unit.id, "B", adm);
     granted.add(c.unit.id);
     grants.push({ ...c, unit: { ...cur, ...(c.unit.kind === "review" ? { parked: null } : {}) }, token: issued.token, token_hash: issued.token_hash });
@@ -210,7 +212,7 @@ async function prepareGrant(run, current, g) {
   const { d, ref, paths } = run;
   const unit = findUnit(current, g.unit.id);
   const files = unitFiles(paths, unit, g.via);
-  const slug = g.via === "cli" ? (g.consult?.model_slug ?? d.routing.modelSlug(g.cell, routingDeps(d))) : null;
+  const slug = g.via === "cli" ? (g.consult?.model_slug ?? (g.cell.runtime === "codex" ? d.routing.modelSlug(g.cell, routingDeps(d)) : g.cell.model)) : null;
   let worktree = null;
   let branch = null;
   if (unit.kind !== "doubt-consult") {
@@ -272,6 +274,7 @@ async function briefExtra(run, state, g) {
   if (g.unit.kind === "doubt-consult") extra.doubt = { id: g.unit.doubt_id };
   // The owner's recorded answers that concern the unit (the gate OK of `g-<unit>`, answered first-minute asks): CLI 3.13.
   const notes = (await sibling(run.d, "answers", "answerNotes"))(state, g.unit, { questions: await readQuestions(run) });
+  if (["review", "deferred-review", "audit"].includes(g.unit.kind)) notes.push("Owner policy DR-162 supersedes historical cross-company/N7 paragraphs in the role file: review in a fresh independent context, even on the author's model/company. Keep the allocated cell and effort; same-model/capacity fallback is not degraded and owes no mandatory cross-company re-review. Never inherit the author's conversation.");
   if (notes.length) extra.notes = notes;
   return extra;
 }

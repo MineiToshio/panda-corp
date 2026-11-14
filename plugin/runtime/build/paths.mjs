@@ -96,7 +96,8 @@ export function buildPaths(project, deps = {}) {
     journalFile: path.join(build, "journal.jsonl"),
     preflightFile: path.join(build, "preflight.json"),
     scopeFile: path.join(run, "scope.json"),
-    quotaFile: path.join(build, "quota.json"),
+    quotaFile: path.join(build, "quota.json"), // Compatibility projection only.
+    capacityDecisionsFile: path.join(build, "capacity-decisions.jsonl"),
     admissionFile: path.join(build, "admission.json"),
     perfSamplesFile: path.join(build, "perf-samples.jsonl"),
     perfMetaFile: path.join(build, "perf-rollup.json"),

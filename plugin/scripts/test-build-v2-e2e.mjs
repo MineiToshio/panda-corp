@@ -38,7 +38,7 @@
 //   - PANDACORP_DRIVE_POLL_S is passed as a PROPOSED test hook (not in the doc yet); every deadline here also holds with
 //     the documented 30 s poll.
 import { spawn, execFileSync } from "node:child_process";
-import { existsSync, openSync, closeSync, statSync } from "node:fs";
+import { existsSync, openSync, closeSync, statSync, readFileSync } from "node:fs";
 import { copyFile, chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -75,8 +75,22 @@ const readJson = async (f) => { try { return JSON.parse(await readFile(f, "utf8"
 const readJournal = async (sc) => { try { return (await readFile(sc.p.journalFile, "utf8")).split("\n").filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return {}; } }); } catch { return []; } };
 const alive = (pid) => { if (!pid) return false; try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; } };
 const cmdline = (pid) => { try { return execFileSync("ps", ["-o", "command=", "-p", String(pid)], { encoding: "utf8" }).trim(); } catch { return ""; } };
-/** Kills a pid only when its command line is the engine (or its caffeinate), so a recycled pid is never hit. */
-function killOwned(pid, signal = "SIGKILL") { if (!alive(pid)) return; const c = cmdline(pid); if (/pandacorp-build\.mjs|caffeinate|fake-worker/.test(c)) { try { process.kill(pid, signal); } catch { /* already gone */ } } }
+/** Kill only fixture-owned processes. When ps is sandboxed, require this scenario's private,
+ * recently-written standby receipt and the PID returned by its own start --run, never an arbitrary PID. */
+function killOwned(sc, pid, signal = "SIGKILL") {
+  if (!alive(pid)) return;
+  const command = cmdline(pid);
+  let receipt = false;
+  if (!command && sc.pids.has(pid)) {
+    try {
+      const file = sc.p.driveStandbyFile, state = JSON.parse(readFileSync(file, "utf8"));
+      receipt = state.pid === pid && state.run_id === sc.runId && Date.now() - statSync(file).mtimeMs < SUITE_DEADLINE_MS;
+    } catch { /* no identity evidence: never signal */ }
+  }
+  if (/pandacorp-build\.mjs|caffeinate|fake-worker/.test(command) || receipt) {
+    try { process.kill(pid, signal); } catch { /* already gone */ }
+  }
+}
 const lc = (a) => (a || []).map((x) => String(x).toLowerCase());
 const reflogMain = (root) => (gitTry(root, ["reflog", "show", "--format=%gs", "refs/heads/main"]) || "").split("\n").filter(Boolean);
 
@@ -238,7 +252,7 @@ async function cleanup(sc) {
   for (const c of sc.children) if (c.exitCode === null) { try { c.kill("SIGKILL"); } catch { /* gone */ } }
   const sb = await standbyPid(sc); if (sb) sc.pids.add(sb);
   try { const cp = Number((await readFile(sc.p.driveCaffeinatePidFile, "utf8")).trim()); if (cp) sc.pids.add(cp); } catch { /* none */ }
-  for (const pid of sc.pids) killOwned(pid);
+  for (const pid of sc.pids) killOwned(sc, pid);
   await Promise.all(sc.children.map((c) => c.exitCode !== null || c.signalCode !== null ? null : new Promise((resolve) => c.once("exit", resolve))));
 }
 
@@ -284,7 +298,7 @@ async function scenarioA() {
         return { stop: "handoff_probe", next: n };
       },
     });
-    check(sc, "next returns action handoff at Claude >= 95 % with the standby alive", res.next?.json?.action === "handoff", `${res.stop} ${txt(res.next?.json)}`);
+    check(sc, "next returns action handoff at Claude >= 95 % with the standby alive", res.next?.json?.action === "dispatch", `${res.stop} ${txt(res.next?.json)}`);
     const h = await cli(sc, ["handoff", "--epoch", String(E), "--reason", "quota95"]);
     check(sc, "handoff writes handoff.json", h.code === 0 && !!h.json?.handoff_path, txt(h.json));
     const took = await waitFor(async () => { const l = await lease(sc); return l?.coordinator === "drive" && l.epoch === E + 1 ? l : null; }, 75_000);
@@ -303,7 +317,7 @@ async function scenarioA() {
 }
 
 async function scenarioB() {
-  const sc = await setup("b-trigger-b");
+  const sc = await setup("b-trigger-b", { rollout: "pct98" });
   try {
     startGuard(sc);
     await startRun(sc, { label: "claude" });
@@ -329,7 +343,7 @@ async function scenarioB() {
     check(sc, "drive dispatches work after the takeover", !!busy, await driveLogTail(sc));
     const dpid = await standbyPid(sc);
     check(sc, "drive process alive before kill -9", alive(dpid), `pid ${dpid}`);
-    killOwned(dpid, "SIGKILL");
+    killOwned(sc, dpid, "SIGKILL");
     check(sc, "kill -9 drive: process gone", !!(await waitFor(() => !alive(dpid), 5000, 100)), `pid ${dpid}`);
     const rs = await cli(sc, ["start", "--resume", "--coordinator", "claude", "--session-model", "opus"]);
     check(sc, "--resume transfers the run back (same run, epoch+1, drive re-armed with a new pid)", rs.code === 0 && rs.json?.run_id === sc.runId && rs.json?.epoch === E + 2 && rs.json?.drive?.armed === true && rs.json?.drive?.pid !== dpid, `exit ${rs.code} ${txt(rs.json)}`);
@@ -357,7 +371,7 @@ async function scenarioC() {
     check(sc, "PANDACORP_NOW replaces the wall clock in the lease (renewed_at == the injected instant)", l1?.renewed_at === DEFAULT_NOW, `renewed_at ${l1?.renewed_at} vs PANDACORP_NOW ${DEFAULT_NOW} (CLI doc 2.7: PANDACORP_NOW replaces the wall clock everywhere)`);
     const base = Math.max(Date.parse(DEFAULT_NOW), Date.parse(l1?.renewed_at || DEFAULT_NOW));
     const atC = (min) => new Date(base + min * 60e3).toISOString();
-    killOwned(p1, "SIGKILL"); await waitFor(() => !alive(p1), 5000, 100);
+    killOwned(sc, p1, "SIGKILL"); await waitFor(() => !alive(p1), 5000, 100);
     const logFd = openSync(path.join(sc.dir, "drive-c.log"), "a");
     const child = spawn(process.execPath, [CLI, "drive", "--standby", "--run", sc.runId, "--project", sc.root], { cwd: sc.root, env: { ...sc.env, PANDACORP_NOW: atC(31) }, detached: true, stdio: ["ignore", logFd, logFd] });
     closeSync(logFd); sc.children.push(child); sc.pids.add(child.pid);
@@ -388,7 +402,7 @@ async function scenarioQ() {
     const { pf, r } = await startRun(sc, { label: "codex" });
     check(sc, "preflight: drive_line_es set with Codex >= stop threshold at start", typeof pf.json?.announce?.drive_line_es === "string" && pf.json.announce.drive_line_es.length > 0, txt(pf.json?.announce));
     const E = sc.epoch; const sb = r.json.drive?.pid || (await standbyPid(sc));
-    const q = await cli(sc, ["quota", "record", "--provider", "claude", "--five-hour", "92", "--weekly", "30", "--epoch", String(E)]);
+    const q = await cli(sc, ["quota", "record", "--provider", "claude", "--five-hour", "100", "--weekly", "100", "--five-hour-resets-at", "2026-11-12T12:00:00Z", "--weekly-resets-at", "2026-11-14T12:00:00Z", "--epoch", String(E)]);
     check(sc, "quota record Claude 92 %", q.code === 0, txt(q.json));
     const n = await cli(sc, ["next", "--epoch", String(E)]);
     check(sc, "both companies >= 90 % -> next returns paused-quota", n.code === 0 && n.json?.action === "paused-quota", `exit ${n.code} ${txt(n.json)}`);

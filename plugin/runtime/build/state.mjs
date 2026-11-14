@@ -234,13 +234,13 @@ export function foldJournal(events) {
     switch (ev.type) {
       case "run_resumed":
         if (COORDINATORS.includes(d.coordinator)) state.coordinator = d.coordinator;
-        if (state.status !== "finished") { state.status = "active"; state.status_reason = null; }
+        if (state.status !== "finished") { state.status = "active"; state.status_reason = null; state.resumeAt = null; }
         break;
       case "drive_takeover": state.coordinator = "drive"; break;
       case "run_stopped": state.status = "stopped"; state.status_reason = d.reason ?? null; break;
       case "run_finished": state.status = "finished"; state.status_reason = d.reason ?? null; break;
       case "engine_failure": state.status = "stopped"; state.status_reason = d.reason ?? "engine_failure"; break;
-      case "paused": state.status = STATE_STATUSES.includes(d.status) ? d.status : "paused"; state.status_reason = d.reason ?? null; break;
+      case "paused": state.resumeAt = d.resumeAt ?? null; state.status = STATE_STATUSES.includes(d.status) ? d.status : "paused"; state.status_reason = d.reason ?? null; break;
       case "unit_queued": {
         const at = state.units.findIndex((u) => u.id === d.id);
         if (at >= 0) state.units[at] = clone(d); else state.units.push(clone(d));

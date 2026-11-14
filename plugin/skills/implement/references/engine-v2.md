@@ -104,16 +104,15 @@ Write the returned `scope` object verbatim to `.pandacorp/run/scope.json` (an in
 
 ## 5. Step 3: quota reading, then preflight
 
-1. **Claude quota (Claude Code only).** Call the Desktop tool `get_usage` (`mcp__ccd_session_mgmt__get_usage`). From
-   its `plan` limits: `pb quota record --provider claude --five-hour <P> --weekly <P> --five-hour-resets-at <ISO>
-   --weekly-resets-at <ISO>`. Status `unavailable` or `not_applicable`, or no such tool (terminal Claude Code) →
-   `pb quota record --provider claude --status unavailable` (unknown: reactive only; the first message says so). In
-   Codex skip this. During a run add `--epoch <E>` so the reading is journaled.
-2. **Preflight** (no LLM, CLI target ≤60 s; always pass `--probe-codex`, the CLI probes only when needed):
+1. **Account reading.** At startup and before each wave the lead calls Desktop `get_usage` when available,
+   then pipes the unchanged JSON to `node <plugin-root>/runtime/capacity-cli.mjs ingest-claude`.
+   Without Desktop, use the shared snapshot with its original observation time; never ask about quotas.
+   `quota record` remains a compatibility writer to the same account state. Codex is read passively from rollouts.
+2. **Preflight** (no LLM, no quota probe):
    ```
-   pb start --preflight --row <row> --scope-json .pandacorp/run/scope.json --label <label> --coordinator claude|codex --session-model <m> --probe-codex
+   pb start --preflight --row <row> --scope-json .pandacorp/run/scope.json --label <label> --coordinator claude|codex --session-model <m>
    ```
-   Read `checks[]`, `need_from_owner[]`, `announce{}`, `drive_armable`. It also writes `build/preflight.json`.
+   Read `checks[]`, `need_from_owner[]`, `announce{}`, `drive_armable` and the account-derived routing.
 3. Build the first-minute message as `autonomy.md` §1 says. Do not send it yet: `start --run` comes first, because
    the message says "Arrancó".
 
@@ -196,9 +195,11 @@ when the run already ended (`next` said `done` and `finish` closed it, or it sto
 `next`. The unit returns at the same attempt with its preserved worktree and its dependents; it spends no budget.
 Any other hand-back cause is the owner's decision: exit 6 says so, do not retry it.
 
-**At every safe point** (a `committed` report, a `review-record`, a `landed` result): Claude Code only, read
-`get_usage` again and `pb quota record … --epoch <E>`; then continue with `next`. The CLI applies the 90/95 %
-policy; the session never switches models or companies by itself.
+**Before every wave and at safe points**, refresh Desktop `get_usage` through `capacity-cli ingest-claude`
+when available, then continue `next`. `decide()` chooses each new unit by role, risk and account capacity.
+One tool exhausted means use the other; only neither fitting parks capacity with durable `resumeAt`.
+The dispatched cell remains fixed during execution. The former 90/95 veto/handoff and model probe are retired.
+Automatic resumption is phase 3; this phase persists the resume instant without claiming a scheduler.
 
 **Owner messages mid-run.** An answer to an ask, a parked question or a gate → `autonomy.md` §1.4. "Para" or
 "detén el build" → `pb stop --epoch <E>`, then the final report. Anything new (a feature, a bug) → a `draft` card

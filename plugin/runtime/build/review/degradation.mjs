@@ -55,6 +55,7 @@ export const normalizeHint = (a) => (a ? { claude: a.claude, codex: a.codex } : 
  */
 export function inferDegradation({ authors, kind, zone, reviewer, hint, shapes = [undefined] }, deps = {}) {
   if (authors.length === 0) return { matched: true, degraded: null, deferred: null, primary: null, row: null };
+  let available = false;
   for (const shape of shapes) {
     for (const availability of availabilityCandidates(hint)) {
       let result;
@@ -62,10 +63,11 @@ export function inferDegradation({ authors, kind, zone, reviewer, hint, shapes =
         if (error?.code === "ROUTING") continue;
         throw error;
       }
+      available ||= Boolean(result.used);
       if (result.used && sameCell(result.used, reviewer)) return { matched: true, degraded: result.degraded, deferred: result.deferred, primary: result.primary, row: result.row };
     }
   }
-  return { matched: false, degraded: null, deferred: null, primary: null, row: null };
+  return { matched: false, degraded: null, deferred: null, primary: null, row: null, parked: available ? null : "no_reviewer" };
 }
 
 export const strongestAuthor = (authors) => authors.reduce((best, a) => ((MODEL_STRENGTH[a.model] ?? 0) > (MODEL_STRENGTH[best.model] ?? 0) ? a : best));

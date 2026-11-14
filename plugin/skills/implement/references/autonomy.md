@@ -26,8 +26,7 @@ order. Do not add asks of your own. Map the rest:
 Asks that exist by design (the CLI owns the text): `scope.doubts`, `scope.summary_citation`, `scope.giant`,
 `scope.version`, `conflict.foreign_lease`, `conflict.paused_plus_card`, `conflict.half_cards`, `access.codex_login`
 (an expired login only the owner can fix), `access.test_db`, `access.env_pending` (a value only the owner has), and a
-pre-push hook the CLI cannot install (tracked `core.hooksPath`). A case that would need Fable or Astra outside the
-review matrix is also asked here, never decided (CONV-12).
+pre-push hook the CLI cannot install (tracked `core.hooksPath`). Fable remains disabled. Risk alone governs Astra; author model and attempt do not escalate it.
 
 ### 1.2 Defaults (conservative)
 
@@ -176,3 +175,12 @@ owner's order.
 The final report (`engine-v2.md` step 6) opens with **Necesito de ti** (parked questions, gates, defaults applied
 because nobody answered), then **Decidí sin ti (N)** one line per decision, then **Aparcado**. "Revierte la decisión
 X" from the owner becomes a new card (`engine-v2.md` step 1), never a hand revert.
+
+## Shared capacity autonomy (DR-162)
+
+Never ask the owner for quota decisions. The lead ingests Desktop get_usage JSON at startup and before every
+wave through `capacity-cli.mjs ingest-claude`; missing tools use the existing account snapshot honestly.
+For every new unit/review, the shared allocator chooses a qualified tool and risk floor. When one tool cannot
+fit, continue on the other; running units keep their selected tool. Only neither fitting parks capacity at a safe
+point with `resumeAt` in state and journal. Image work has only Codex and reports a per-task wait with exit 75.
+Automatic wake-up is phase 3. Fresh review context provides independence even with the same model/company.

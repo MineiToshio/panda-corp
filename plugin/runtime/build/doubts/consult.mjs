@@ -1,6 +1,8 @@
 // Consult briefs and the queueing of the next `doubt-consult` unit of a doubt.
 import * as fsp from "node:fs/promises";
 import path from "node:path";
+import { logCapacityDecision } from "../../capacity.mjs";
+import { readQuota } from "../quota.mjs";
 import { atomicWriteText } from "../fsx.mjs";
 import { consultCell } from "../routing.mjs";
 import { findUnit, newUnit } from "../state.mjs";
@@ -18,7 +20,7 @@ async function cardScope(project, slug, deps) {
   }
 }
 
-async function consultBrief({ project, state, record, unit, consult, no, origin, reportPath }, deps) {
+export async function consultBrief({ project, state, record, unit, consult, no, origin, reportPath }, deps) {
   const root = path.resolve(project, state.integration.worktree);
   const scope = await cardScope(project, state.scope.card, deps);
   const frds = [...new Set([unit.frd, ...(state.scope.frds ?? [])].filter(Boolean))];
@@ -75,16 +77,17 @@ export async function queueConsult(ctx, state, record, no, deps) {
   const consulted = record.consults.map((c) => ({ runtime: c.runtime, model: c.model }));
   let cell;
   try {
-    cell = consultCell({ origin, consultNo: no, consulted, availability: deps.availability }, deps.tiers ? { tiers: deps.tiers } : undefined);
+    cell = consultCell({ origin, consultNo: no, consulted, id: `consult-${record.id}-${no}`, zone: unit?.zone ?? "none", availability: deps.availability ?? (await readQuota({}, { env: deps.env })).policy }, deps.tiers ? { tiers: deps.tiers } : undefined);
   } catch (error) {
     throw err("INVALID_STATE", `doubt consult routing failed: ${error.message}`);
   }
+  if (cell?.capacity) logCapacityDecision(cell.task, cell.capacity, { env: deps.env, log: ctx.paths.capacityDecisionsFile });
   if (!cell) return { park: "no_consultant" };
   const unitId = `u-doubt-consult-${record.id}-c${no}`;
   if (findUnit(state, unitId)) throw err("INVALID_STATE", `consult unit ${unitId} already exists`);
-  const via = cell.runtime === "codex" ? "cli" : "agent";
+  const via = cell.runtime === "codex" || ["drive", "codex-session"].includes(state.coordinator) ? "cli" : "agent";
   const consult = { runtime: cell.runtime, model: cell.model, effort: cell.effort, via, unit: unitId, brief_path: ctx.paths.briefFile(unitId), answer: null };
-  const consultUnit = newUnit({ id: unitId, kind: "doubt-consult", frd: unit?.frd ?? null, doubt_id: record.id, zone: "none" });
+  const consultUnit = newUnit({ id: unitId, kind: "doubt-consult", frd: unit?.frd ?? null, doubt_id: record.id, zone: unit?.zone ?? "none" });
   await consultBrief({ project: ctx.project, state, record, unit, consult, no, origin, reportPath: ctx.paths.unitAnswerFile(unitId) }, deps);
   const nextRecord = { ...record, step: no === 1 ? "consult1" : "consult2", consults: [...record.consults, consult] };
   const nextState = { ...state, units: [...state.units, consultUnit], doubts_consulted: (state.doubts_consulted ?? 0) + (no === 1 ? 1 : 0) };

@@ -1,5 +1,15 @@
 # Decision log — Plugin pandacorp
 
+
+## 2026-11-14 — Never-stop shared account capacity (phase 2a)
+
+Connected the build quota adapter, role/risk router and image/direct/alias launchers to the shared allocator.
+The owner explicitly replaced the 85/90/95 veto/conserve and author/attempt escalations with per-dispatch
+fallback; context independence now permits the same review model. Account snapshots are atomic/private,
+quota reads never launch models, decisions are audited, and capacity parking persists resumeAt for phase 3.
+Canonical: [capacity policy](capacity.md), [BUILD-10/11](../../factory/standards/build-engine.md), DR-162 and
+[implement](../skills/implement/SKILL.md). No live provider reset, reservation or automatic wake is claimed.
+
 ## 2026-11-14 — Standalone shared capacity selector, phase 1
 
 **What:** add pure Claude/Codex normalization and per-task decisions, a read-only rollout adapter, JSON CLI,

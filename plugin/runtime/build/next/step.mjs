@@ -1,3 +1,4 @@
+import { logCapacityDecision } from "../../capacity.mjs";
 // One scheduling pass of `next`: renew + one admission reading, harvest, integrate, quota policy, managed units and the
 // planner round, landing, admission and dispatch, then wait or a terminal action (A11).
 import { withRunCleanup } from "../lifecycle/cleanup.mjs";
@@ -57,8 +58,9 @@ export async function step(run) {
     return finish(run, state, { action: "handoff", quota, notes });
   }
   if (pol.paused) {
+    if (pol.decision) logCapacityDecision({ id: state.run_id, type: "implement", risk: "normal" }, pol.decision, { env: d.env, now: pol.now, log: run.paths.capacityDecisionsFile });
     if (runningSummary(state).any) return finish(run, state, { action: "wait", wait: { reason: "quota", retry_after_s: RETRY_S.quota }, quota, notes });
-    const terminal = { action: "paused-quota", status: "paused", reason: quota.bothOut ? "quota" : "quota_claude_no_drive" };
+    const terminal = { action: "paused-quota", status: "paused", reason: "quota", resumeAt: pol.resumeAt };
     notes.push(...terminalNotes(terminal, quota));
     state = await applyTerminal(run.ref, terminal, d);
     return finish(run, state, { action: terminal.action, quota, notes });
@@ -112,7 +114,10 @@ export async function step(run) {
     // ENV_INFRA_STOP streak of hand-backs ends the run through chooseTerminal (FIX-D-4).
     return finish(run, state, { action: "wait", wait: { reason: "gate", retry_after_s: RETRY_S.gate }, admit: dispatch.admit, quota, notes });
   }
-  const terminal = chooseTerminal(state, { pol, plan, candidates, dispatch });
+  const capacityResumeAt = [...(candidates.capacityWaits ?? [])].sort()[0];
+  const terminal = capacityResumeAt
+    ? { action: "paused-quota", status: "paused", reason: "quota", resumeAt: capacityResumeAt }
+    : chooseTerminal(state, { pol, plan, candidates, dispatch });
   if (terminal.action === "wait") {
     return finish(run, state, { action: "wait", wait: { reason: terminal.reason, retry_after_s: RETRY_S[terminal.reason] }, admit: dispatch.admit, quota, notes });
   }

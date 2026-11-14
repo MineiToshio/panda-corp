@@ -435,7 +435,7 @@ async function withDoubts(opts, fn) {
         return { step: rec.step, record: rec, ...(pending ? { consult: pending } : {}) };
       },
       sources: (id, content) => ctx.feed(id, p.doubtSourcesFile(id), content),
-      consult: (id, out, content) => ctx.feed(id, p.unitAnswerFile(out.consult.unit), content),
+      consult: (id, out, content) => out.consult.via === "agent" ? ctx.consultAgent(id, out, content) : ctx.feed(id, p.unitAnswerFile(out.consult.unit), content),
       consultAgent: async (id, out, content) => {
         const issued = admission.issueToken(out.consult.unit, "B", { file: p.admissionFile });
         const st = await stateMod.readState(fx.root, { env });

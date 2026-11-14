@@ -274,126 +274,37 @@ Host data stays outside repositories, resolved by `PANDACORP_HOST_DIR` or `~/.pa
 Verification: `test-build-v2-perf.mjs`, `test-build-v2-cli.mjs`, `test-build-v2-nested.mjs` and
 `test-build-v2-telemetry.mjs`.
 
-## Rule — routing and the single cross-company reviewer (BUILD-10)
+## Rule — shared-capacity routing and independent review (BUILD-10)
 
-> Severity: **MUST** · Enforcement: `routing.mjs` derives every cell from `model-tiers.json` v2; `next` emits the cell; `review-record` records it; the routing table test pins this section. See DR-152, DR-015 (amended), DR-073 (amended).
+> Severity: **MUST** · Enforcement: `capacity.mjs` owns selection; `routing.mjs` adapts unit roles and risk,
+> validates the existing model catalog, and `next` records the dispatch. See DR-152 and DR-162.
 
-### Builder routing (first matching row)
+Each NEW unit uses `decide()` with current account readings. The run label is provenance, not a provider pin.
+Planner/architect/design/docs roles use `design`; builders/implementers/tests/patches use `implement`;
+reviewers/audits use `review`; mechanical roles use `mechanical`. Deterministic CLI operations still use no model.
+Risk from `risk.mjs`: `none` → normal, `floor` → delicate, `r1` → critical (fail-closed remains critical).
 
-| Unit | label `claude` | label `codex` |
+| Task | Preferred | Fallback |
 |---|---|---|
-| `docs`, touch | sonnet medium | sol low |
-| `docs`, feature or giant (plan) | opus high | sol high |
-| `tests` (tests-first, any zone: floor/r1 units whose WOs add AC ids, and every `type: bug` card; a different agent and dispatch from the builder) | sonnet high (test-writer) | sol medium |
-| `build`, `reopen_count ≥ 1` (max over the chain's WOs) | opus high | sol high |
-| `build`, static zone floor or r1 | sonnet high | sol medium |
-| `build`, default | sonnet medium | sol low |
-| `patch` bounded (≤30 lines, off-floor, with a test) | sonnet high | sol medium |
-| `patch` unbounded | opus high | sol high |
-| `build` or `patch` at attempt 3 (escalation, BUILD-15) | opus xhigh | astra high |
-| `audit` (once per build when `risk.audit`) | opus high | opus high |
+| Design/planning/judgment | Claude Opus high | Codex Sol high |
+| Implementation | Codex Sol low | Claude Sonnet medium |
+| Ordinary review | Codex Sol low | Claude Opus low |
+| Mechanical | Codex Luna low | Claude Haiku low |
+| Critical risk | Codex Astra high / Claude Opus high | Same risk floor on the other tool |
 
-- The `audit` is not run under `drive` or while Claude is out of quota or unreachable (Codex app): it is queued as a deferred review for claude opus high (never Astra).
-- `difficulty` never routes (DR-073 amended); it is recorded only. Mechanical steps run inside the
-  CLI with no LLM.
-- **No repeat:** when a row would repeat the previous execution's exact (model, effort) for the same
-  unit, the effort rises one step (cap `xhigh`). A repeat never switches company.
-- **Quota switch** (the only company switch, BUILD-11): when the label's company is out of quota, new
-  units take the other company's column of the same row (an unreachable label company switches the column too). Running units finish where they are.
-- Workers write only inside their unit worktree, never `git commit`/`push`/`reset`, and never set
-  `PANDACORP_OWNER_RELEASE_OK`; the CLI commits. Codex slugs are checked against `codex debug models`
-  at `start` (fail loud if retired).
-- **Session units:** a `touch` `build` unit at attempt 1 in static zone `none`, whose label company equals the coordinator's company, is written by the coordinating session itself (`via: session`); its author cell is the session model with effort unknown (treated as `high` for review routing, so an Opus session's N7 review is `xhigh`). Every other unit is dispatched as an agent or a CLI-launched Codex worker.
+Delicate work uses at least Sol medium / Sonnet medium; design retains its high effort. Astra high is reserved
+for security, money, sensitive data and the conservative r1 classifier result. Author model, reopen count,
+size and execution attempt never force Astra or raise effort. Fable remains disabled.
 
-### Review: one reviewer, the other company, one layer above
+Exactly one reviewer runs in an independent context, including when it uses the author's model or company.
+The reviewer receives bounded evidence and adversarial instructions, never the author's conversation.
+A provider switch for capacity creates no degraded verdict or obligatory cross-company deferred review.
+The security audit also uses the allocator rather than waiting for a Claude-only cell.
 
-Exactly one reviewer per review unit (no double review, also in the risk zone). The cell is chosen by
-the author (the dispatch cell, also when the session wrote the unit) and the zone; a zone other than
-`none` takes precedence over the touch/FRD kind. The reviewer never authored any line of the diff it
-judges, except under the N7 exception below. A mixed-author diff takes the strictest applicable row.
-Effort cells are extrapolated from calibration and fixed until phase D.
-
-| # | Author | Kind / zone | Primary reviewer | Fallback when the other company is out of quota (≥90 % or `usage_limit`) | `degraded` | Deferred re-review |
-|---|---|---|---|---|---|---|
-| 1 | claude sonnet (any effort) | FRD, none | codex sol high | claude opus high | quota_90 | codex sol high |
-| 2 | claude sonnet | touch | codex sol medium | claude opus high | quota_90 | codex sol medium |
-| 3 | claude sonnet | floor | codex sol high + risk lens | claude opus xhigh | quota_90 | codex sol high |
-| 4 | claude sonnet | r1 | codex astra high | claude opus xhigh | quota_90 | codex astra high |
-| 5 | claude opus high | FRD / floor | codex sol high | claude opus xhigh, fresh context, adversarial same-model brief (N7) | same_model | codex sol high |
-| 6 | claude opus high | r1 | codex astra high | as #5 (N7, also in the risk zone) | same_model | codex astra high |
-| 7 | claude opus xhigh | any | codex sol high (r1: astra high) | claude opus xhigh (cap, same effort), fresh context (N7) | same_model | codex (sol high; r1 astra high) |
-| 8 | claude session (touch) | touch | codex sol medium | the row of the session's real model: sonnet or haiku → #2; opus at effort e → opus next(e), cap xhigh (N7); fable → primary codex astra high, fallback **park** (never Fable, never a lower Claude model) | per row | codex |
-| 9 | codex sol or luna | FRD | claude opus high | codex astra high | quota_90 / unreachable | claude opus high |
-| 10 | codex sol or luna | touch | claude opus medium | codex astra high | idem | claude opus medium |
-| 11 | codex sol or luna | floor or r1 | claude opus xhigh | codex astra high | idem | claude opus xhigh |
-| 12 | codex astra high | FRD / touch | claude opus high | codex astra xhigh (N7 analog) | same_model | claude opus high |
-| 13 | codex astra high | floor or r1 | claude opus xhigh | **park** (`parked: no_reviewer`) | — | — |
-| 14 | codex terra (disabled until calibrated) | FRD / touch / risk | claude opus high / medium / xhigh | codex sol high | idem | claude |
-| 15 | codex session (touch) | touch | claude opus medium | the row of the session's real model (luna or sol → astra high; terra → sol high; astra → astra xhigh, N7 analog) | per row | claude |
-| 16 | claude fable (only ever an owner-chosen session model) | any | codex astra high | **park** (never Fable, never a lower Claude model) | — | codex astra high |
-
-**Availability rules (D11).**
-- **Out of quota** triggers the fallback column of every row.
-- **Codex unreachable** (login, CLI, network) is not quota. Rows whose fallback is a different model
-  (Claude sonnet or haiku authors) take that fallback with `degraded: unreachable`. Rows whose
-  fallback is N7 (Claude opus authors, an Opus session) do **not** get a same-model review: the review
-  waits as `parked: no_reviewer`, is retried at every safe point and is listed in the report
-  (`access.codex_login` already asks the owner in the first minute).
-- **Claude out of quota or unreachable** (the Codex app, `drive`) triggers the Codex-author fallback
-  column, including the Astra analog of rows 12 and 15.
-- **Conserve (DR-161):** a company with less than 15 % left (a known reading ≥ `quota_conserve` 85 % and
-  below 90 %) is not used to review the other company's work: the review stays in the author's company with
-  a different model (Codex Sol/Luna → astra high, Astra → sol high, r1 sol xhigh; Claude authors → the quota
-  fallback cell), `degraded: conserve`, with no deferred re-review. Builds keep the run label's company.
-  The same review rule applies when that company is out of quota (≥90 %, also less than 15 % left): the
-  `on_conserve` cell, `degraded: quota_90`, no deferred re-review, never `park` for rows 12, 13 and 15 (BL-0321).
-  When every author model of one company would be the reviewer (Sol and Astra both authored) and the other
-  company is conserved or out, the cell of the strongest author reviews (Sol for Astra's lines), recorded
-  `same_model`, no deferred re-review (BL-0322).
-- Degradations made under `drive` are labelled `quota_90`.
-- Sol answering "at capacity": resume the same Codex session id once (LESSON-0612); if it repeats,
-  astra high with `degraded: at_capacity`.
-- Under `drive` Claude-authored units written before the handoff keep their normal Codex primary.
-
-**N7, the only same-model exception (DR-015 amended).** Only when the other company is out of quota
-(a reading ≥90 % or a `usage_limit` response) and no stronger model of the author's own company exists
-in the matrix: the same model reviews in a **fresh context** (diff, ACs and tests only), at the effort
-**after** the author's (cap `xhigh`; an `xhigh` author gets `xhigh` again), with a brief that states
-the author is the same model and asks for adversarial review; the review is recorded
-`degraded: same_model` (no deferred re-review while the other company is out of quota, DR-161). When the row has a different model of the author's company (`on_conserve`), that model reviews instead of N7. It applies inside and
-outside the risk zone. An unreachable (not out-of-quota) other company never triggers a Claude
-same-model review. The Astra analog (rows 12 and 15) also applies when Claude is unreachable. It is
-never applied at a lower effort.
-
-**Deferred re-review.** Every degraded review made while the other company still has quota (unreachable, at capacity; never conserve or out of quota, DR-161) is appended to `.pandacorp/run/deferred-reviews.json`
-(outlives runs; written only inside a run; one pending entry per review unit and kind, a newer degraded
-review of the same unit refreshes it; `review-record` never queues an `audit`, the engine does when Claude is out). `next` serves pending entries **first** as soon as the
-needed company is below 85 % (not conserved, DR-161); if the run has finished, the next `implement` preflight runs them before
-new work; Mission Control shows the count; the launched-project landing question lists them (landing
-with any pending is the owner's informed choice). A grave finding opens a `type: bug` card.
-
-**Recording.** Every review emits `review_recorded` with `verdict`, `reviewer{runtime,model,effort}` (the unit's dispatch cell; `degraded` is inferred by replaying the routing matrix over the availabilities, and a reviewer that authored part of the diff outside the N7 exception is refused),
-`authors[]`, `cross`, `degraded` and findings by severity; unit commits keep `Unit:` trailers. That data
-is what the deferred escape attribution (F2) and shadow sampling (F1) will use; neither runs now. The
-final report states the totals, e.g. "Revisiones: 3 cruzadas (Codex Sol high), 1 degradada (Opus xhigh,
-mismo modelo)".
-
-**Probes (D23; the budget lives only here).** One probe per finding plus at most 3 more per FRD,
-permanent only when they failed first. `review-record` commits them onto `lane/<run_id>/integration` (trailer
-`Unit: <review unit>`) and stores their hashes (`probe_hashes`); the patch unit's brief lists them as read-only RED
-tests; `land` re-hashes them. `verdict: blocked` hands back the reviewed units with the finding as the
-reason.
-
-**Tests-first (D16).** For units in zone `floor` or `r1` that add ACs, and for every `type: bug` card,
-a `tests` unit (the test-writer, a different agent and dispatch from the builder) runs before the build
-unit. Its G1 must be RED on the new test files by assertion (not import or syntax) and green on
-everything else; its outcome is `committed`. The CLI hashes those files; the tests unit is integrated
-before the dependent build unit branches; that build unit's `report` rejects any change to a hashed
-file; `land` re-hashes. This replaces the `drift-proof.mjs` differential for bug cards in v2.
-
-**Other safeguards that replace the owner's confirmation in the risk zone** (DR-151): the single strong
-reviewer with the scope lens; one security audit per build when `risk.audit`; G3 before `main`; floor
-mutation at G4; nothing irreversible past its gate.
+Selection occurs before `via:session` eligibility. A session may write only when its runtime AND model equal
+the allocated cell and all ordinary session constraints hold. Once dispatched, the persisted worker cell is fixed
+for that execution. A new execution may be selected again; an active execution is never migrated mid-task.
+`model-tiers.json` remains the model/capability catalog; its legacy builder/review tables are no longer policy.
 
 ### Risk zone (`risk`, input to BUILD-10 and BUILD-12)
 
@@ -424,47 +335,37 @@ knowledge for `--files`) and returns
   `plugin/scripts/test-build-v2-risk.mjs` and `test-build-v2-risk-backtest.mjs`; the latter records
   known design exclusions, not a proof against every future project.
 - A `normal`-level classifier hit (e.g. S17 "madge is not installed") never raises the zone; its files go to `unclassified`.
-- Rules R4-R10 of the design drafts are retired (F9): size and reopen act through routing, and
+- Rules R4-R10 of the design drafts are retired (F9): size and reopen do not escalate models, and
   filesystem-destructive changes and sensitive identifiers are covered by S8 and the product floor.
 
-## Rule — quota thresholds (BUILD-11)
+## Rule — never-stop account capacity (BUILD-11)
 
-> Severity: **MUST** · Enforcement: `quota.mjs` (readers, single limit detector, `policy()`), `next` (handoff and terminal pauses decided in the CLI, never in prose). See DR-152.
+> Severity: **MUST** · Enforcement: `capacity.mjs`, its account snapshots and CLI, `quota.mjs` compatibility
+> adapter, `routing.mjs` and fenced `next` transitions. See DR-162 (supersedes DR-161 thresholds).
 
-**Sources.**
-- Codex: the last `token_count.rate_limits` of the newest rollout under
-  `~/.codex/sessions/YYYY/MM/DD` (newest dirs first, ≤3 days), tail read ≤256 KiB, never a full scan;
-  `used_percent = max(primary, secondary when present)`, with that window's `window_minutes` and its
-  `resets_at` converted from epoch seconds to ISO-8601. A reading stays valid at least until its
-  `resets_at` (usage only rises within a window). When it is older than 1 h and ≥70 %, the preflight
-  runs one minimal `codex exec` probe (≈20k input tokens) and re-reads.
-- Claude: the session calls Desktop `get_usage` (5 h and weekly) at start and at every safe point and
-  stores it with `quota record`. Older than 10 min, or `unavailable` (terminal Claude Code, `drive`),
-  = unknown, except a window at or above `quota_conserve` (85 %) with a future `resets_at`: usage only rises
-  within a window, so it stays known until that reset (BL-0322; record the `--*-resets-at` flags).
-- Unknown → reactive only: the single limit detector (`classifyLimitText`, the union of every existing
-  limit pattern, copied, not imported) on worker and report output.
+Never stop for one tool's quota. Choose the other qualified tool for new work. Only when neither tool fits
+may capacity park a run; finish or harvest current executions first, persist `resumeAt` in state AND its pause
+journal event, then release at the safe point. Never ask the owner about quota. Automatic wake-up is phase 3.
+Image generation has one qualified tool (Codex); exhaustion returns JSON with `resumeAt` and exit 75.
 
-**Thresholds** (either window of a provider; fixed until phase D):
+The account store is `~/.pandacorp/host/capacity/`, overridden by `PANDACORP_CAPACITY_DIR` for tests.
+Whole per-provider snapshots use unique temporary files, atomic rename and mode 0600, without a lock or
+shared read-modify-write document. Per-project `quota.json` is a compatibility projection, never authoritative.
+The lead calls Desktop `get_usage` at startup and before each wave and passes the unchanged JSON on stdin to
+`node plugin/runtime/capacity-cli.mjs ingest-claude`. Without that tool the stored reading is used honestly;
+missing, stale or invalid telemetry is unknown, never fabricated zero. No model runs to read quota.
+Codex comes from passive rollout tails; both readers preserve observation times and applicable windows.
 
-| Condition | Action |
-|---|---|
-| Claude out of quota | No new Claude units; new units take the codex column of the same row; reviews of Codex-authored work take the fallback column (astra, degraded) |
-| Claude ≥95 % or `usage_limit`, with `coordinator = claude-session` | `next` returns `handoff` (BUILD-14, trigger a/b) when the `drive` standby is alive, else the terminal `paused-quota`. Enforced in the CLI. A handoff never releases the lease |
-| Codex out of quota | No new Codex units; new units take the claude column of the same row; reviews of Claude-authored work take the fallback column |
-| Both ≥90 % | Terminal `paused-quota` at the last safe point; report with each company's `resets_at` |
-| A company ≥85 % and <90 % (conserve, DR-161) | It still takes its own label's units; reviews of the other company's work, deferred re-reviews and the Claude-pinned audit do not spend it (BUILD-10 conserve); landing is never blocked |
+All new work delegates fit, emergency/image reserves, preference and unknown handling to `decide()`;
+there is no separate 85/90/95 veto, conserve rule, automatic Astra escalation or quota-triggered drive handoff.
+Known healthy readings precede unknown readings; unknown remains usable as a last resort. Existing pins hold
+until an execution completes. A real usage limit is retained account-wide until reset or a newer observation;
+transient rate limits remain distinct and do not mark the account exhausted.
 
-**Limits (D9).** A `usage_limit` consumes no attempt and is recorded as a 100 % reading for that
-provider (`source: "limit"`), after which the table applies. A `rate_limit` (429) consumes no attempt:
-retry once after 60 s, then `K_reactivo −1`.
-
-- Running units always finish. A provider returns only after its `resets_at`.
-- The CLI stores the % at each unit's start and end so phase D can tune the thresholds; until then 90
-  and 95 are constants.
-- **The lease is released only by** `finish`, `stop`, an engine failure and `next`'s terminal actions
-  (`paused-quota`, `waiting-owner`, `deadlock`, `stop`); never by a single-provider
-  limit or a handoff.
+Every dispatched decision and capacity wait is JSONL with task id/type/risk, selected cell, reason and
+`readings_used`. Inside a run: `.pandacorp/run/build/capacity-decisions.jsonl` (existing engine run path);
+outside: `~/.pandacorp/host/capacity/decisions.jsonl`. Audit records are not reservations: concurrent-account
+reservation, crash reconciliation, wake scheduling and real subscription reset certification remain later work.
 
 ## Rule — autonomy: the first minute, doubts and parking (BUILD-12)
 

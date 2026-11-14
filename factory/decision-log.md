@@ -1,5 +1,10 @@
 # Decision Log — Factory
 
+
+## 2026-11-14 — Never-stop account capacity (DR-162)
+
+The owner replaced threshold/conserve vetoes with per-task shared capacity fallback. BUILD-10/11 now preserve risk floors and fresh-context review, and DR-152 points to DR-162. Account state and pause resumeAt are shared/persisted; automatic wake and reservations remain later phases. Canonical: standards/build-engine.md, decisions/registry.yaml and ../plugin/docs/capacity.md.
+
 ## 2026-11-13 — DR-161 covers out-of-quota reviews (BL-0321)
 
 **What:** below 15 % left includes a company at or above 90 %: reviews stay in the author's company with another model,

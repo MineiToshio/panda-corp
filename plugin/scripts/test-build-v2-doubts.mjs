@@ -149,7 +149,7 @@ const withRun = async (opts, fn) => {
         return ctx.consult(id, out, content, { token: issued.token });
       },
       sources: (id, content, o) => ctx.feed(id, p.doubtSourcesFile(id), content, o),
-      consult: (id, out, content, o) => ctx.feed(id, p.unitAnswerFile(out.consult.unit), content, o),
+      consult: (id, out, content, o) => out.consult.via === "agent" && !o?.token ? ctx.consultAgent(id, out, content) : ctx.feed(id, p.unitAnswerFile(out.consult.unit), content, o),
       decisionLog: () => readFile(path.join(p.integrationWorktree, "docs", "decision-log.md"), "utf8"),
       decisionsFile: (where) => readFile(path.join(where === "main" ? fx.root : p.integrationWorktree, ".pandacorp", "inbox", "decisions.md"), "utf8").catch(() => ""),
     };
@@ -240,8 +240,8 @@ await test("sources miss: moves to consult1; consult = codex sol high via cli fo
   const { doubt_id: id } = await c.open();
   const out = await c.sources(id, SRC_MISS);
   eq(out.step, "consult1", "step");
-  eq(out.consult?.unit, `u-doubt-consult-${id}-c1`, "consult unit id"); eq([out.consult?.runtime, out.consult?.model, out.consult?.effort], ["codex", "sol", "high"], "consult cell");
-  eq(out.consult?.via, "cli", "via"); ok(out.consult?.brief_path && await exists(out.consult.brief_path), "brief file written at consult.brief_path");
+  eq(out.consult?.unit, `u-doubt-consult-${id}-c1`, "consult unit id"); eq([out.consult?.runtime, out.consult?.model, out.consult?.effort], ["claude", "opus", "high"], "design cell");
+  eq(out.consult?.via, "agent", "via"); ok(out.consult?.brief_path && await exists(out.consult.brief_path), "brief file written at consult.brief_path");
   eq((await c.doubtRec(id)).step, "consult1", "record step");
   eq((await c.unit(U1)).state, "reported", "unit stays reported while consulting");
 }));
@@ -254,7 +254,7 @@ await test("consult origin: a Codex-authored doubt consults claude opus high via
 
 await test("under drive the sources step is skipped: doubt open returns consult1 (astra high) and the brief tells the consultant to check the sources first", async () => withRun({ coordinator: "drive" }, async (c) => {
   const out = await c.open();
-  eq(out.step, "consult1", "step"); eq([out.consult?.runtime, out.consult?.model, out.consult?.effort], ["codex", "astra", "high"], "consult cell under drive");
+  eq(out.step, "consult1", "step"); eq([out.consult?.runtime, out.consult?.model, out.consult?.effort], ["claude", "opus", "high"], "design cell under drive");
   const brief = await readFile(out.consult.brief_path, "utf8");
   ok(/source|fuente|decision-log|FRD/i.test(brief), "the consult brief must tell the consultant to check the sources first");
   ok(brief.includes(DOUBT.question), "the brief carries the question");
@@ -272,7 +272,7 @@ await test("consult1 agrees with the preferred option at confidence medium: deci
 await test("consult1 agrees but confidence low: not decided, goes to consult2 (claude opus xhigh via agent)", async () => withRun({}, async (c) => {
   const { doubt_id: id } = await c.open(); const s = await c.sources(id, SRC_MISS);
   const out = await c.consult(id, s, consultAnswer("opt-no", "low", CELL.solHigh));
-  eq(out.step, "consult2", "step"); eq([out.consult?.runtime, out.consult?.model, out.consult?.effort, out.consult?.via], ["claude", "opus", "xhigh", "agent"], "consult 2 cell");
+  eq(out.step, "consult2", "step"); eq([out.consult?.runtime, out.consult?.model, out.consult?.effort, out.consult?.via], ["claude", "opus", "high", "agent"], "consult 2: fresh context, stable risk floor");
   eq(out.consult?.unit, `u-doubt-consult-${id}-c2`, "unit id");
 }));
 

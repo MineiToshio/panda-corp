@@ -3,7 +3,7 @@ import nodeFs from "node:fs";
 import path from "node:path";
 import { loadSchema, readJson, validate } from "../fsx.mjs";
 import { readJournal } from "../journal.mjs";
-import { classifyLimitText, effective, limitResetsAt, readQuotaFile } from "../quota.mjs";
+import { classifyLimitText, limitResetsAt } from "../quota.mjs";
 import { isTerminalUnit, readState } from "../state.mjs";
 import { IN_FLIGHT } from "./constants.mjs";
 import { buildStateOf, driveLog, limitsOf, nowMs, pathsOf, withDefaults } from "./context.mjs";
@@ -102,13 +102,8 @@ export async function checkTriggers({ project, runId, transcript = null, handoff
     return { ...none, trigger: "test", detail: `handoff-after ${handoffAfter}` };
   }
 
-  // (c) silent lease AND pending work AND Claude >= drive_trigger_c_min_pct or unknown (A21).
-  if (silent && pendingWork(state)) {
-    let claude = { pct: null, state: "unknown" };
-    try { claude = effective(readQuotaFile(paths.quotaFile).claude, now, { thresholds: limits }); } catch { /* unreadable = unknown */ }
-    if (claude.state === "unknown" || claude.pct >= limits.drive_trigger_c_min_pct) {
-      return { ...none, trigger: "c", detail: `silent ${Math.round(silentMs / 1000)} s, claude ${claude.state === "known" ? `${claude.pct} %` : "unknown"}` };
-    }
-  }
+  // (c) lease recovery is independent of quota. Dispatch after takeover uses the shared allocator.
+  if (silent && pendingWork(state)) return { ...none, trigger: "c", detail: `silent ${Math.round(silentMs / 1000)} s` };
+
   return none;
 }

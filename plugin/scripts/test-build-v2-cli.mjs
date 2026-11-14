@@ -483,7 +483,7 @@ await test("A11: Claude 95 % and Codex 98 % (both at the stop threshold): next a
   const s = await sandbox(); const f = await fx();
   await f.writeRolloutSample(s.env.CODEX_HOME, "pct98"); await f.writeSignalsFile(s.env.PANDACORP_SIGNALS_FILE, "clean");
   const { start } = await startRun(s);
-  need(s.cli(["quota", "record", "--provider", "claude", "--five-hour", "95", "--weekly", "95"]), "quota record 95");
+  need(s.cli(["quota", "record", "--provider", "claude", "--five-hour", "100", "--weekly", "100", "--five-hour-resets-at", "2026-11-12T12:00:00Z", "--weekly-resets-at", "2026-11-14T12:00:00Z"]), "quota record 95");
   const j = need(s.cli(["next", "--epoch", String(start.epoch)]), "next");
   eq(j.action, "paused-quota", "both companies at the stop threshold");
   const st = await readState(s); eq(st.status, "paused", "state.status paused");
@@ -501,7 +501,7 @@ await test("A11: Claude >= 95 % alone, no live drive standby: paused-quota (neve
   const ra = await startRun(a, { env: envNoLogin });
   eq(ra.start.drive.armed, false, "drive not armed without a Codex login");
   need(a.cli(["quota", "record", "--provider", "claude", "--five-hour", "96", "--weekly", "20"], { env: envNoLogin }), "quota record 96");
-  eq(need(a.cli(["next", "--epoch", String(ra.start.epoch)], { env: envNoLogin }), "next without drive").action, "paused-quota", "no standby: paused-quota");
+  eq(need(a.cli(["next", "--epoch", String(ra.start.epoch)], { env: envNoLogin }), "next without drive").action, "dispatch", "no standby required for allocation");
   // with drive
   const b = await sandbox(); await f.writeRolloutSample(b.env.CODEX_HOME, "normal"); await f.writeSignalsFile(b.env.PANDACORP_SIGNALS_FILE, "clean");
   const rb = await startRun(b);
@@ -510,7 +510,7 @@ await test("A11: Claude >= 95 % alone, no live drive standby: paused-quota (neve
   eq(standby.state, "standby", "standby state"); eq(standby.run_id, rb.start.run_id, "standby run_id");
   need(b.cli(["quota", "record", "--provider", "claude", "--five-hour", "96", "--weekly", "20"]), "quota record 96");
   const j = need(b.cli(["next", "--epoch", String(rb.start.epoch)]), "next with drive");
-  eq(j.action, "handoff", "Claude at the handoff threshold with a live standby"); eq((await readState(b)).status, "active", "a handoff keeps the run active");
+  eq(j.action, "dispatch", "pressure dispatches to the other tool"); eq((await readState(b)).status, "active", "a handoff keeps the run active");
 });
 
 // ============================================================================================ launched project: pre-push guard

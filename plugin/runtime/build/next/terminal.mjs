@@ -21,7 +21,7 @@ export function runningSummary(state) {
 export function chooseTerminal(state, { pol, l4, plan, candidates, dispatch }) {
   state = scopedState(state);
   const bothOut = pol && !pol.claude_new_units && !pol.codex_new_units;
-  if (pol?.paused) return { action: "paused-quota", status: "paused", reason: bothOut ? "quota" : "quota_claude_no_drive" };
+  if (pol?.paused) return { action: "paused-quota", status: "paused", reason: "quota", resumeAt: pol.resumeAt };
   if (state.handbacks_in_a_row >= ENV_INFRA_STOP) return { action: "stop", status: "stopped", reason: "env_infra_handbacks" };
   if (state.units.every(isTerminalUnit)) return { action: "done", status: state.status, reason: "done" };
   if (dispatch?.admissionBlocked) return { action: "wait", reason: dispatch.admissionBlocked };
@@ -64,8 +64,8 @@ export async function applyTerminal(ref, terminal, deps = {}) {
     if (!s || s.run_id !== ctx.runId) throw err("FENCE", "state does not belong to the lease run");
     await ctx.appendEvent(stopped
       ? { type: "run_stopped", data: { reason: terminal.reason } }
-      : { type: "paused", data: { reason: terminal.reason, status: terminal.status, action: terminal.action } });
-    const next = { ...s, status: terminal.status, status_reason: terminal.reason };
+      : { type: "paused", data: { reason: terminal.reason, status: terminal.status, action: terminal.action, resumeAt: terminal.resumeAt ?? null } });
+    const next = { ...s, status: terminal.status, status_reason: terminal.reason, resumeAt: terminal.resumeAt ?? null };
     await ctx.writeState(next);
     return next;
   }, passIntent);

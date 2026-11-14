@@ -5,13 +5,13 @@ import { assertNoForbiddenWord, buildStateOf, driveLog, limitsOf, say, withDefau
 import { deferAuditUnit } from "./audit.mjs";
 import { setOwnStandbyState } from "./standby.mjs";
 
-// Workers facade handed to `next`: drive launches Codex workers only, and nothing it passes carries the forbidden word.
+// Workers facade handed to `next`: drive launches allocator-selected CLI cells through the shared wrapper.
 // Every worker it launches is noted in `launched` (the current round's), so a round fenced after the launch can stop it.
-function codexOnlyWorkers(workers, launched) {
+function capacityWorkers(workers, launched) {
   if (!workers) return workers;
   const guard = (input) => {
     const cell = input?.cell ?? {};
-    if (cell.runtime !== undefined && cell.runtime !== "codex") throw err("ENGINE_FAILURE", `drive refused a ${cell.runtime} worker`);
+    if (cell.runtime !== undefined && !["claude", "codex"].includes(cell.runtime)) throw err("ENGINE_FAILURE", `drive refused a ${cell.runtime} worker`);
     assertNoForbiddenWord([cell.model, cell.effort, input?.modelSlug, input?.model_slug, input?.unit, input?.workerId].filter((v) => v != null), "worker argv");
   };
   return new Proxy(workers, {
@@ -74,7 +74,7 @@ export async function driveLoop({ project, epoch }, deps) {
   const limits = limitsOf(d);
   const pollMs = limits.drive_poll_s * 1000;
   const launched = new Map();
-  const engineDeps = { ...(d.engineDeps ?? {}), ...(d.workers ? { workers: codexOnlyWorkers(d.workers, launched) } : {}) };
+  const engineDeps = { ...(d.engineDeps ?? {}), ...(d.workers ? { workers: capacityWorkers(d.workers, launched) } : {}) };
   const ref = { project, epoch, actor: "drive", coordinator: "drive" };
 
   for (let i = 0; i < d.maxPolls; i++) {
@@ -90,7 +90,7 @@ export async function driveLoop({ project, epoch }, deps) {
       switch (out?.action) {
         case "dispatch": {
           for (const unit of out.units ?? []) {
-            if (unit.runtime === "codex" && unit.via === "cli") { driveLog(project, `dispatch: ${unit.unit} ${unit.kind} codex ${unit.model} ${unit.effort}`, d); continue; }
+            if (["codex", "claude"].includes(unit.runtime) && unit.via === "cli") { driveLog(project, `dispatch: ${unit.unit} ${unit.kind} codex ${unit.model} ${unit.effort}`, d); continue; }
             if (unit.kind === "audit") {
               await deferAudit({ ...ref, unit }, engineDeps);
               driveLog(project, `dispatch: security audit ${unit.unit} deferred to a Claude re-review (opus high)`, d);

@@ -346,9 +346,9 @@ await test("trigger c: an unknown Claude reading (none recorded, or status unava
   await recordClaude({ status: "unavailable" }, { now: DEFAULT_NOW, file: run.P.quotaFile, deps: { env: run.env } });
   eq((await poll(run)).trigger, "c", "reading unavailable");
 });
-await test("trigger c: the Claude threshold is 85 % (85 fires, 84 does not)", async () => {
+await test("trigger c: expired-lease recovery is independent of Claude percentages", async () => {
   const run = await makeRun(); await setLeaseAge(run, 2000);
-  await claudeReading(run, 84); eq((await poll(run)).trigger, null, "Claude 84 %");
+  await claudeReading(run, 84); eq((await poll(run)).trigger, "c", "silent recovery ignores quota");
   await claudeReading(run, 85); eq((await poll(run)).trigger, "c", "Claude 85 %");
 });
 await test("trigger c: no pending work (every unit terminal) does not fire", async () => {
@@ -403,7 +403,7 @@ await test("takeover keeps running Codex workers alive and does not quiesce or t
   const st = await stateOf(run); eq(st.jobs.map((j) => [j.id, j.state, j.pid]), [["w-1", "running", w.pid]], "the worker job record is intact");
 });
 await test("takeover with Codex at exactly 90 %: transfer then paused-quota (state paused, lease released, both resets_at, drive actor), nothing run", async () => {
-  const run = await makeRun(); const { codexResetsAt } = await writeCodexPct(run, 90); await claudeReading(run, 96); await writeHandoff(run);
+  const run = await makeRun(); const { codexResetsAt } = await writeCodexPct(run, 100); await claudeReading(run, 100); await writeHandoff(run);
   const { calls } = await takeover(run, "a", { notify: true });
   const st = await stateOf(run); eq(st.status, "paused", "state.status"); ok(/quota/i.test(st.status_reason ?? ""), `status_reason must mention quota: ${st.status_reason}`);
   ok(!existsSync(run.P.leaseDir), "the lease must be released at paused-quota");
@@ -414,12 +414,12 @@ await test("takeover with Codex at exactly 90 %: transfer then paused-quota (sta
   ok(blob.includes(isoAt(T0 + 3600e3).slice(0, 19)), `Claude resets_at ${isoAt(T0 + 3600e3)} missing from ${blob}`);
   eq(osascriptCalls(calls).length >= 0, true, "notification optional here"); noClaude(calls, run, "paused-quota takeover");
 });
-await test("takeover with Codex at 98 % weekly (fixture pct98): paused-quota", async () => {
+await test("takeover with only Codex exhausted continues on the other tool", async () => {
   const run = await makeRun(); await writeRolloutSample(run.env.CODEX_HOME, "pct98", { now: DEFAULT_NOW }); await writeHandoff(run);
-  await takeover(run, "a"); eq((await stateOf(run)).status, "paused", "state.status at Codex 98 %");
-  ok(!existsSync(run.P.leaseDir), "lease released");
-  ok(JSON.stringify((await eventsOf(run)).find((e) => e.type === "paused")?.data ?? {}).includes(ROLLOUT_EXPECT(DEFAULT_NOW).pct98.resets_at.slice(0, 19)), "weekly resets_at carried");
+  await takeover(run, "a"); eq((await stateOf(run)).status, "active", "one tool never pauses");
+  ok(existsSync(run.P.leaseDir), "lease retained");
 });
+
 await test("takeover with Codex at 89 % or unknown (no rollout): the run continues under drive (active)", async () => {
   const a = await makeRun(); await writeCodexPct(a, 89); await writeHandoff(a); await takeover(a, "a");
   eq([(await stateOf(a)).status, (await rawLease(a)).coordinator], ["active", "drive"], "Codex 89 %");
@@ -474,11 +474,10 @@ await test("standby end to end: trigger a at Codex 36 % -> takeover, loop calls 
   if (existsSync(run.P.driveStandbyFile)) eq((await readJ(run.P.driveStandbyFile)).state, "stopped", "standby.json after the loop ended");
   noClaude(calls, run, "standby end to end"); noReleaseFlag(calls, mkDeps(run).deps, "standby end to end");
 });
-await test("standby end to end: trigger a at Codex 98 % -> paused-quota, the loop never runs (no next, no finish), no worker spawned", async () => {
+await test("standby with only Codex exhausted enters the normal allocator loop", async () => {
   const run = await makeRun(); await writeRolloutSample(run.env.CODEX_HOME, "pct98", { now: DEFAULT_NOW }); await writeHandoff(run);
-  const { calls } = await standby(run);
-  eq((await stateOf(run)).status, "paused", "state.status"); eq([calls.next.length, calls.finish.length], [0, 0], "next/finish calls");
-  eq(calls.spawn.filter((c) => base(c.cmd) !== "caffeinate").length, 0, "nothing besides caffeinate was spawned");
+  const { calls } = await standby(run, { next: [act("done", 2)] });
+  eq(calls.next.length, 1, "allocator loop continues"); eq(calls.finish.length, 1, "finish from done");
 });
 
 // ======================================================================================================== active loop (D10)

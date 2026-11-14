@@ -15,7 +15,7 @@ import path from "node:path";
 import { assertValid, loadSchema, readJson } from "./fsx.mjs";
 import { readJournal } from "./journal.mjs";
 import { buildPaths } from "./paths.mjs";
-import { loadThresholds } from "./quota.mjs";
+import { readQuota } from "./quota.mjs";
 
 /** Section headings of the final report, exactly as the owner sees them (autonomy.md section 6). */
 export const REPORT_HEADINGS_ES = Object.freeze({
@@ -96,14 +96,9 @@ export function buildAnnounce(input = {}) {
 
   const codex = input.quota?.codex ?? { pct: null, state: "unknown" };
   const claude = input.quota?.claude ?? { pct: null, state: "unknown" };
-  const stop = Number.isFinite(input.quotaStop) ? input.quotaStop : loadThresholds().quota_stop;
-  const codexHigh = codex.state === "known" && Number.isFinite(codex.pct) && codex.pct >= stop;
-  let driveLine = null;
-  if (codexHigh) {
-    driveLine = input.driveArmable === false
-      ? `Relevo a Codex: no armado: ${input.driveBlockReason ?? "no se pudo verificar"}.`
-      : `Relevo a Codex: armado (Codex al ${Math.round(codex.pct)} %, solo actuará si se renueva antes).`;
-  }
+  const driveLine = input.driveArmable === undefined ? null : input.driveArmable === false
+    ? `Relevo: no armado: ${input.driveBlockReason ?? "no se pudo verificar"}.`
+    : "Relevo: armado; las piezas nuevas usan el asignador de capacidad compartida.";
   return {
     scope_lines_es: lines.slice(0, 6),
     size: input.size ?? "feature",
@@ -362,7 +357,7 @@ export async function readSummary(project, deps = {}) {
   const { events } = await readJournal(p.journalFile, { fs });
   const started = events.find((e) => e.type === "run_started");
   const preflight = started?.data?.preflight ?? (await readJson(p.preflightFile, { fs }));
-  const quota = await readJson(p.quotaFile, { fs });
+  const quota = await readQuota({ codexHome: p.codexHome }, deps);
   const admission = await readJson(p.admissionFile, { fs });
   const summary = buildSummary({
     state,

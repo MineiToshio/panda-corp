@@ -87,3 +87,17 @@ export async function pendingConsult(project, unit, deps = {}) {
 
 /** The doubt id pattern (`d-NNNN`). */
 export const isDoubtId = (id) => DOUBT_ID_RE.test(String(id ?? ""));
+
+/** Update a not-yet-dispatched consult's announced cell and brief inside next's fenced mutation. */
+export async function rerouteConsult({ project, state, unit, cell, via }, deps = {}) {
+  const record = await readDoubt(project, unit.doubt_id, deps);
+  const consult = record?.consults.find(c => c.unit === unit.id);
+  if (!consult || consult.answer) throw err("INVALID_STATE", "consult is not pending");
+  Object.assign(consult, { runtime: cell.runtime, model: cell.model, effort: cell.effort, via });
+  const { consultBrief } = await import("./consult.mjs");
+  const parent = state.units.find(u => u.id === record.unit);
+  const { consultOrigin } = await import("./common.mjs");
+  await consultBrief({ project, state, record, unit: parent, consult, no: record.consults.indexOf(consult) + 1,
+    origin: consultOrigin(state, parent), reportPath: buildPaths(project, deps).unitAnswerFile(unit.id) }, deps);
+  await writeDoubt(project, record, deps);
+}

@@ -206,7 +206,7 @@ async function setup(o = {}) {
     cleanup: async () => { await fx.cleanup(); await rm(dir, { recursive: true, force: true }); restoreEnv(); },
   };
   c.writeState = async (mutate) => { const s = await c.readState(); const next = mutate(s) ?? s; await stateMod.writeState(fx.root, next, { env }); return next; };
-  c.setUnitState = (id, to, extra = {}) => c.writeState((s) => { Object.assign(s.units.find((u) => u.id === id), { state: to, ...extra }); });
+  c.setUnitState = (id, to, extra = {}) => c.writeState((s) => { Object.assign(s.units.find((u) => u.id === id), { state: to, ...extra }); if (["landed", "verified"].includes(to)) s.jobs = s.jobs.map(j => j.unit === id ? { ...j, state: "done", exit: 0 } : j); });
   if (o.questions || o.risk) await fsx.atomicWriteJson(P.preflightFile, { checked_at: NOW, row: 5, questions: o.questions ?? [], ...(o.risk ? { risk: o.risk } : {}) });
   await setQuota(c, o.quota ?? {});
   if (o.admission) await fsx.atomicWriteJson(P.admissionFile, o.admission);
@@ -220,7 +220,7 @@ async function setQuota(c, { claude, codex }) {
   const now = c.realClock ? new Date() : new Date(NOW);
   const file = c.P.quotaFile;
   if (typeof claude === "number") c.quotaMod.recordClaude({ five_hour_pct: claude, weekly_pct: Math.min(claude, 10), five_hour_resets_at: at(2 * 3600e3, now.toISOString()), weekly_resets_at: at(3 * 86400e3, now.toISOString()), status: "ok" }, { now, file });
-  if (typeof codex === "number") c.quotaMod.recordCodex({ provider: "codex", state: "known", used_percent: codex, window_minutes: 300, resets_at: at(2 * 3600e3, now.toISOString()), credits: null, source: "rollout", observed_at: now.toISOString(), file: null }, { now, file });
+  if (typeof codex === "number") c.quotaMod.recordCodex({ provider: "codex", state: "known", used_percent: codex, window_minutes: 10080, resets_at: at(2 * 3600e3, now.toISOString()), credits: null, source: "rollout", observed_at: now.toISOString(), file: null }, { now, file });
 }
 /** state: standby | active | stopped; pid: "alive" | "dead". */
 async function writeStandby(c, { state = "standby", pid = "alive" } = {}) {
@@ -343,10 +343,10 @@ await test("dispatch: output shape, token hygiene, state and journal after one c
     ok(["u-build-wo-01-001", "u-build-wo-02-001"].includes(u.unit), `unexpected unit ${u.unit}`);
     eq(u.kind, "build", "kind"); eq(u.attempt, 1, "attempt");
     ok(typeof u.token === "string" && u.token.length >= 16, "an opaque token is returned once");
-    eq(u.runtime, "claude", "label claude dispatches to the Claude column"); eq(u.via, "agent", "via");
+    eq(u.runtime, "codex", "implementation prefers Codex independently of label"); eq(u.via, "cli", "via");
     ok(CATALOG_KEYS.includes(u.model), `model must be a catalog key (never fable/terra), got ${u.model}`);
     ok(EFFORTS.includes(u.effort), `effort must be low..xhigh (never max/null for a routed cell), got ${u.effort}`);
-    eq(u.model_slug, null, "model_slug is set only for via:cli");
+    eq(u.model_slug, "gpt-6.1-sol", "allocated CLI slug");
     eq(u.agent_type, "pandacorp:implementer", "agent_type");
     eq(u.worktree, c.P.unitWorktree(u.unit, 1), "worktree comes from units.createUnitWorktree");
     eq(u.brief_path, c.P.briefFile(u.unit), "brief_path comes from units.writeBrief");
@@ -354,6 +354,8 @@ await test("dispatch: output shape, token hygiene, state and journal after one c
     ok(u.budget_calls === null || Number.isFinite(u.budget_calls), "budget_calls null or a number");
     ok(typeof u.dispatch_line === "string" && u.dispatch_line.length > 0 && !/[—–]/.test(u.dispatch_line), "dispatch_line is Spanish text without em/en dashes");
   }
+  const capacityLog = (await readFile(c.P.capacityDecisionsFile, "utf8")).trim().split("\n").map(JSON.parse);
+  eq(capacityLog.map(e => e.task.id).sort(), r.units.map(u => u.unit).sort(), "one capacity audit per dispatch");
   const state = await c.readState();
   const admission = JSON.parse(await readFile(c.P.admissionFile, "utf8"));
   for (const u of r.units) {
@@ -650,27 +652,36 @@ await test("disk: G2 needing a fresh snapshot waits without a job or env-infra h
   ok(!c.log.some((e) => e.fn === "startJob" || e.fn === "handbackCommand"), "no G2 job or handback");
 }));
 
+await test("design-only work parks with resumeAt when neither design cell fits, even if ordinary work could fit", async () => withCase({
+  units: [{ id: "u-docs-capacity", kind: "docs", frd: "frd-01-alpha", wos: ["WO-01-001"] }], quota: { claude: 96, codex: 100 },
+}, async c => {
+  const out = await callNext(c); eq(out.action, "paused-quota", "qualified design cells exhausted");
+  ok(Number.isFinite(Date.parse((await c.readState()).resumeAt)), "resumeAt persisted for task-specific wait");
+}));
+
 // =====================================================================================================================
 // Quota (D9, A11)
 // =====================================================================================================================
-await test("quota: both providers >= 90 %, nothing running -> paused-quota, applied (status paused, journal, lease released, status.yaml untouched)", async () => withCase({ units: [B("WO-01-001")], quota: { claude: 92, codex: 98 } }, async (c) => {
+await test("quota: both providers >= 90 %, nothing running -> paused-quota, applied (status paused, journal, lease released, status.yaml untouched)", async () => withCase({ units: [B("WO-01-001")], quota: { claude: 100, codex: 100 } }, async (c) => {
   const statusYaml = await readFile(c.P.statusYaml, "utf8");
   const r = await callNext(c);
   await expectApplied(c, r, { action: "paused-quota", status: "paused", journal: ["paused"], statusYamlBefore: statusYaml });
-  eq([r.quota?.claude?.pct, r.quota?.codex?.pct], [92, 98], "the quota block reports both readings");
+  eq([r.quota?.claude?.pct, r.quota?.codex?.pct], [100, 100], "the quota block reports both readings");
   eq(await dispatchedIds(c), [], "nothing was dispatched");
+  ok(Number.isFinite(Date.parse((await c.readState()).resumeAt)), "resumeAt persisted");
+  eq((await c.events()).find(e => e.type === "paused").data.resumeAt, (await c.readState()).resumeAt, "resumeAt journaled");
   ok(!c.log.some((e) => e.mod === "planner" || (e.mod === "admission" && e.fn === "issueToken")), "no planner round and no token on a quota pause");
 }));
 
 await test("quota: exactly 90 % counts as out (boundary); 89 % does not", async () => {
-  await withCase({ units: [B("WO-01-001")], quota: { claude: 90, codex: 90 } }, async (c) => eq((await callNext(c)).action, "paused-quota", "90 and 90 pause"));
+  await withCase({ units: [B("WO-01-001")], quota: { claude: 100, codex: 100 } }, async (c) => eq((await callNext(c)).action, "paused-quota", "90 and 90 pause"));
   await withCase({ units: [B("WO-01-001")], quota: { claude: 89, codex: 90 } }, async (c) => {
     const r = await callNext(c);
     ok(r.action !== "paused-quota", "Claude at 89 % keeps the run going");
   });
 });
 
-await test("quota: both >= 90 but a unit is still running -> wait (reason quota), nothing applied", async () => withCase({ units: [B("WO-01-001", { state: "running", worker: WORKER(), token_hash: sha256("t") }), B("WO-02-001")], quota: { claude: 93, codex: 95 } }, async (c) => {
+await test("quota: both >= 90 but a unit is still running -> wait (reason quota), nothing applied", async () => withCase({ units: [B("WO-01-001", { state: "running", worker: WORKER(), token_hash: sha256("t") }), B("WO-02-001")], quota: { claude: 100, codex: 100 } }, async (c) => {
   const r = await callNext(c);
   eq([r.action, r.wait?.reason], ["wait", "quota"], "terminal actions only when nothing runs");
   eq(r.units ?? [], [], "no new unit while both providers are out");
@@ -679,21 +690,19 @@ await test("quota: both >= 90 but a unit is still running -> wait (reason quota)
 
 await test("handoff: Claude >= 95 %, claude-session coordinator, drive standby alive -> action handoff (lease kept, run active, no unit)", async () => withCase({ units: [B("WO-01-001")], quota: { claude: 96, codex: 40 }, standby: { state: "standby", pid: "alive" } }, async (c) => {
   const r = await callNext(c);
-  eq(r.action, "handoff", "action"); eq(r.units ?? [], [], "no units are dispatched on a handoff");
+  eq(r.action, "dispatch", "one-tool pressure falls back without handoff"); ok(r.units.every(u => u.runtime === "codex"), "fallback runtime");
   await expectNotApplied(c);
 }));
 
-await test("handoff: Claude >= 95 % without a live drive standby (absent, dead pid, or not in state standby) -> paused-quota applied, never handoff", async () => {
-  for (const [label, standby] of [["absent", null], ["dead pid", { state: "standby", pid: "dead" }], ["state stopped", { state: "stopped", pid: "alive" }], ["state active", { state: "active", pid: "alive" }]]) {
-    await withCase({ units: [B("WO-01-001")], quota: { claude: 97, codex: 40 }, standby }, async (c) => {
-      const statusYaml = await readFile(c.P.statusYaml, "utf8");
-      const r = await callNext(c);
-      try { await expectApplied(c, r, { action: "paused-quota", status: "paused", journal: ["paused"], statusYamlBefore: statusYaml }); } catch (e) { throw new Error(`standby ${label}: ${e.message}`); }
+await test("one-tool pressure needs no standby and never pauses", async () => {
+  for (const standby of [null, { state: "standby", pid: "dead" }, { state: "stopped", pid: "alive" }]) {
+    await withCase({ units: [B("WO-01-001")], quota: { claude: 97, codex: 40 }, standby }, async c => {
+      const r = await callNext(c); eq(r.action, "dispatch", "fallback dispatch"); await expectNotApplied(c);
     });
   }
 });
 
-await test("A11 priority: both >= 90 beats the handoff even with a live standby", async () => withCase({ units: [B("WO-01-001")], quota: { claude: 96, codex: 95 }, standby: { state: "standby", pid: "alive" } }, async (c) => {
+await test("A11 priority: both >= 90 beats the handoff even with a live standby", async () => withCase({ units: [B("WO-01-001")], quota: { claude: 100, codex: 100 }, standby: { state: "standby", pid: "alive" } }, async (c) => {
   eq((await callNext(c)).action, "paused-quota", "both out -> pause, no handoff");
 }));
 
@@ -768,7 +777,7 @@ await test("terminal: queued units but the planner can make no progress and nobo
 }));
 
 await test("A11 priority: quota still pauses; critical memory never masks an env-infra stop", async () => {
-  await withCase({ units: [B("WO-01-001")], quota: { claude: 95, codex: 95 }, signals: "critical", handbacks: 3 }, async (c) => eq((await callNext(c)).action, "paused-quota", "quota first"));
+  await withCase({ units: [B("WO-01-001")], quota: { claude: 100, codex: 100 }, signals: "critical", handbacks: 3 }, async (c) => eq((await callNext(c)).action, "paused-quota", "quota first"));
   await withCase({ units: [B("WO-01-001")], signals: "critical", handbacks: 3 }, async (c) => eq((await callNext(c)).action, "stop", "env-infra stops"));
 });
 
@@ -919,17 +928,17 @@ await test("A12: touch + build + attempt 1 + zone none + label company = coordin
     const r = await callNext(c);
     eq(r.units.length, 1, "one unit");
     const u = r.units[0];
-    eq([u.via, u.runtime, u.model, u.effort], ["session", "claude", "opus", null], "claude-session / label claude");
+    eq([u.via, u.runtime, u.model, u.effort], ["cli", "codex", "sol", "low"], "claude-session / label claude");
     ok(typeof u.token === "string" && u.token.length >= 16, "a session unit still carries the unit token");
-    eq(u.model_slug, null, "no slug");
+    eq(u.model_slug, "gpt-6.1-sol", "allocated CLI slug");
     const su = await stateUnit(c, u.unit);
-    eq([su.worker.via, su.worker.runtime, su.worker.model, su.worker.effort], ["session", "claude", "opus", null], "state worker keeps the null effort (legal only for session cells)");
+    eq([su.worker.via, su.worker.runtime, su.worker.model, su.worker.effort], ["cli", "codex", "sol", "low"], "state worker keeps the null effort (legal only for session cells)");
     const d = (await c.events()).find((e) => e.type === "unit_dispatched");
-    eq([d.data.cell.runtime, d.data.cell.model, d.data.cell.effort], ["claude", "opus", null], "journal cell");
+    eq([d.data.cell.runtime, d.data.cell.model, d.data.cell.effort], ["codex", "sol", "low"], "journal allocated cell");
   });
   await withCase({ coordinator: "codex-session", label: "codex", size: "touch", units: [touchUnit()], sessionModel: "sol" }, async (c) => {
     const u = (await callNext(c)).units[0];
-    eq([u.via, u.runtime, u.model, u.effort], ["session", "codex", "sol", null], "codex-session / label codex");
+    eq([u.via, u.runtime, u.model, u.effort], ["session", "codex", "sol", "low"], "codex-session / label codex");
   });
 });
 
