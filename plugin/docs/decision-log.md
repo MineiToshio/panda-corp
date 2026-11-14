@@ -1,5 +1,17 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-14 — Standalone shared capacity selector, phase 1
+
+**What:** add pure Claude/Codex normalization and per-task decisions, a read-only rollout adapter, JSON CLI,
+optional decision JSONL and fixture-backed tests. Plugin **10.9.0**. Canonical contract:
+[capacity.md](capacity.md). Existing quota/routing and dispatchers remain unchanged.
+
+**Why:** the owner approved SIMPLE-v2 with overriding continuity rules: pressure above 85% also permits
+design fallback, unknown data is a last resort rather than a stop, and Codex's absent five-hour window
+does not apply to this account. A dispatched pin stays fixed; only fresh exhaustion pauses it until reset.
+Delicate work uses Sonnet medium on Claude per the current instruction, including reviews. This phase
+does not implement concurrent grants, runtime dispatch or automatic resumption.
+
 ## 2026-11-14 — Reviews run on their pinned checkout (BL-0323)
 
 **What:** dispatch moves a review worktree to the end of its briefed diff range and verifies HEAD; a review blocked on
