@@ -3,7 +3,7 @@ import { MODEL_STRENGTH, reviewCell } from "../routing.mjs";
 import { findUnit } from "../state.mjs";
 import { REVIEWED_FROM } from "./common.mjs";
 
-const AVAILABILITY_LEVELS = ["ok", "quota", "unreachable", "at_capacity"];
+const AVAILABILITY_LEVELS = ["ok", "quota", "unreachable", "at_capacity", "conserve"];
 
 const isWorkUnit = (u) => u.kind === "build" || u.kind === "patch";
 

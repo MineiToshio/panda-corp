@@ -13,7 +13,7 @@ import path from "node:path";
 import { releaseToken, verifyToken } from "./admission.mjs";
 import { completeDeferred, enqueueDeferred, entryForUnit, readDeferred } from "./deferred.mjs";
 import { atomicWriteJson, defaultExec, nowIso, sha256Hex } from "./fsx.mjs";
-import { resolveInside } from "./paths.mjs";
+import { buildPaths, resolveInside } from "./paths.mjs";
 import { fencedTwoPhase, findUnit } from "./state.mjs";
 import { BLOCKING_SEVERITIES, RECORDABLE_STATES, REVIEWED_FROM, REVIEW_RECORD_KINDS, err, unique } from "./review/common.mjs";
 import { asSchemaCell, authorsOf, inferDegradation, normalizeHint, reviewedUnits, strongestAuthor } from "./review/degradation.mjs";
@@ -29,6 +29,17 @@ export { fromRepoPath, productRootIn, repoPrefix, toRepoPath } from "./review/gi
 export { PROBE_EXTRA_PER_FRD } from "./review/probes.mjs";
 export { countFindings, isProbePath, validateReviewReport } from "./review/report.mjs";
 export { pickReopenWos, scanWorkOrders } from "./review/workOrders.mjs";
+
+/** DR-161: is `company` currently conserved (known reading >= quota_conserve and < quota_stop)? Any read error: false. */
+async function neededConserved(project, state, company, deps) {
+  try {
+    const quota = deps.quota ?? await import("./quota.mjs");
+    const p = buildPaths(project, deps);
+    const q = await quota.readQuota({ file: p.quotaFile, codexHome: p.codexHome, coordinator: state.coordinator }, deps);
+    const pol = quota.policy({ claude: q.effective.claude, codex: q.effective.codex, coordinator: state.coordinator, deps });
+    return pol[`${company}_conserve`] === true;
+  } catch { return false; }
+}
 
 /**
  * Record a reviewer's verdict (CLI `review-record`).
@@ -138,7 +149,9 @@ export async function reviewRecord(input, deps = {}) {
     let deferredId = null;
     let bugCard = null;
     let resultEntry = null;
-    if (review.kind === "review" && degradation.degraded && degradation.deferred && authors.length > 0) {
+    // DR-161: while the company a deferred re-review would need has < 15 % left, it is not queued (never blocks landing).
+    const skipDeferred = review.kind === "review" && degradation.deferred ? await neededConserved(project, state, degradation.deferred.needed, deps) : false;
+    if (review.kind === "review" && degradation.degraded && degradation.deferred && !skipDeferred && authors.length > 0) {
       const { entry } = await enqueueDeferred(project, {
         unit: review.id, kind: "review", frd: review.frd, sha_range: found.range, author: asSchemaCell(strongestAuthor(authors)),
         reviewer_used: asSchemaCell(reviewer), degraded: degradation.degraded, needed: degradation.deferred.needed, created_at: at,
@@ -209,6 +222,8 @@ export async function reviewRecord(input, deps = {}) {
       ok: true, cmd: "review-record", verdict: report.verdict, deferred_review_id: deferredId, probes_committed: probeFiles, reviewer: asSchemaCell(reviewer),
       degraded: degradation.degraded, reviewed_units: reviewed.map((u) => u.id), patch_unit: effects.patch_unit, handed_back: effects.handed_back,
       bug_card: bugCard, doubt_file: effects.doubt_file, probes_skipped: skipped, last_safe_point: next.last_safe_point, ...(resultEntry ? { deferred_result: resultEntry.result } : {}),
+      // DR-161: the optional cross-company follow-up that was NOT queued while its company was conserved.
+      ...(skipDeferred ? { deferred_skipped: { needed: degradation.deferred.needed, reason: "quota_conserve" } } : {}),
     };
   };
 

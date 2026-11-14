@@ -1,5 +1,13 @@
 # Decision Log — Factory
 
+## 2026-11-13 — Quota conserve below 15 % left (DR-161)
+
+**What:** a company with less than 15 % of its quota left is not used for cross-company reviews, deferred re-reviews or
+the audit; reviews stay in the author's company with a different model, landing never waits for them.
+
+**Why:** owner decision, option A of the decision card ("si, vamos por la opcion A"). Canonical:
+[build-engine.md](standards/build-engine.md) BUILD-10/11; registry DR-161; BL-0320.
+
 ## 2026-11-13 — Docs-only G3 reds and owned G2 leftovers (BL-0316)
 
 **What:** BUILD-15 adds the docs-only G3 rule (retry once, then env-infra hand-back, no patch) and DR-157's predicate

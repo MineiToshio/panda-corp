@@ -1,5 +1,14 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-13 — Quota conserve: reviews stay in the author's company (BL-0320, DR-161)
+
+**What:** `quota_conserve: 85`; `policy()` returns `*_conserve`; routing availability `conserve` with `on_conserve`
+cells (Astra-built → Sol high, r1 Sol xhigh; Sol-built → Astra high); no deferred re-review queued or scheduled for a
+conserved company; the Claude-pinned audit waits in the ledger. Plugin **10.5.0**.
+
+**Why:** owner decision (option A) after funko-tracker ran with Claude nearly out of quota: keep Claude for the session,
+never block landing. Canonical: [build-engine.md](../../factory/standards/build-engine.md) BUILD-10/11, DR-161.
+
 ## 2026-11-13 — Preflight takes the coordinator explicitly (BL-0319)
 
 **What:** `start --preflight` accepts `--coordinator claude|codex` and defaults to `claude`; it no longer infers the Codex

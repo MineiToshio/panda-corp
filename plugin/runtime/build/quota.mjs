@@ -400,6 +400,8 @@ export function resetsAtOf(reading) {
 
 const asEffective = (value, now, options) => (isObject(value) && value.provider ? effective(value, now, options) : (value ?? UNKNOWN));
 const isOut = (eff, stop) => eff.state === "known" && eff.pct >= stop;
+/** DR-161 default: a provider with less than 15 % left (a known reading at or above 85 % used) is conserved. */
+export const QUOTA_CONSERVE_DEFAULT = 85;
 
 /**
  * The BUILD-11 table and the A11 priority as a pure function (the one place the priority lives). A provider is
@@ -410,8 +412,10 @@ const isOut = (eff, stop) => eff.state === "known" && eff.pct >= stop;
  * @param {{claude: object, codex: object, coordinator?: string, driveAlive?: boolean, now?: Date|number|string, thresholds?: object, deps?: object}} input
  *   `claude`/`codex` are `effective()` results (`{pct, state}`) or stored readings (converted with `now`);
  *   `driveAlive` (default false): the drive standby is alive (`build/drive/standby.json` pid alive, state standby).
- * @returns {{claude_new_units: boolean, codex_new_units: boolean, handoff: boolean, paused: boolean,
- *   degrade_reviews_of: {claude_authored: boolean, codex_authored: boolean}}}
+ * DR-161: a provider known at or above `quota_conserve` (85) and not yet out is `conserve`: it still takes the units
+ * of its own label, but reviews of the OTHER company's work stay inside that company (BUILD-10 on_conserve cells).
+ * @returns {{claude_new_units: boolean, codex_new_units: boolean, claude_conserve: boolean, codex_conserve: boolean,
+ *   handoff: boolean, paused: boolean, degrade_reviews_of: {claude_authored: boolean, codex_authored: boolean}}}
  */
 export function policy({ claude, codex, coordinator, driveAlive = false, now, thresholds, deps } = {}) {
   const limits = thresholds ?? loadThresholds(deps);
@@ -422,9 +426,12 @@ export function policy({ claude, codex, coordinator, driveAlive = false, now, th
   const codexOut = isOut(codexEff, limits.quota_stop);
   const claudeAtHandoff = coordinator === "claude-session" && claudeEff.state === "known" && claudeEff.pct >= limits.quota_handoff;
   const handoff = !(claudeOut && codexOut) && claudeAtHandoff && driveAlive === true;
+  const conserveAt = Number.isFinite(limits.quota_conserve) ? limits.quota_conserve : QUOTA_CONSERVE_DEFAULT;
   return {
     claude_new_units: !claudeOut,
     codex_new_units: !codexOut,
+    claude_conserve: !claudeOut && isOut(claudeEff, conserveAt),
+    codex_conserve: !codexOut && isOut(codexEff, conserveAt),
     handoff,
     paused: (claudeOut && codexOut) || (claudeAtHandoff && !handoff),
     degrade_reviews_of: { claude_authored: codexOut, codex_authored: claudeOut },

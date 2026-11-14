@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 
 const DEFAULT_TIERS_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "model-tiers.json");
 const COMPANIES = ["claude", "codex"];
-const AVAILABILITY = ["ok", "quota", "unreachable", "at_capacity"];
+const AVAILABILITY = ["ok", "quota", "unreachable", "at_capacity", "conserve"];
 const REVIEW_KINDS = ["frd", "touch"];
 const ZONES = ["none", "floor", "r1"];
 const SHAPES = ["R-A", "R-B", "R-C", "drive"];
@@ -106,12 +106,14 @@ export function createRouter(tiers) {
     if (quota) for (const c of COMPANIES) {
       if (typeof quota[c] === "string") { if (!AVAILABILITY.includes(quota[c])) fail(`bad availability ${c}=${quota[c]}`); out[c] = quota[c]; }
       if (quota[`${c}_new_units`] === false) out[c] = "quota";
+      else if (quota[`${c}_conserve`] === true && out[c] === "ok") out[c] = "conserve";
     }
     if (shape === "drive") out.claude = "quota";
     if (shape === "R-B" && out.claude !== "quota") out.claude = "unreachable";
     return out;
   };
-  const canRun = (a) => a === "ok" || a === "at_capacity";
+  // DR-161: a conserved provider still runs its own label's units; only cross-company reviews avoid it.
+  const canRun = (a) => a === "ok" || a === "at_capacity" || a === "conserve";
 
   /** Builder cell (BUILD-10 builder table, BUILD-11 quota switch, A12 session cells).
    *  @param {{kind: string, size?: string, bounded?: boolean, zone?: string, reopen_count?: number, attempt?: number}} unit
@@ -148,7 +150,9 @@ export function createRouter(tiers) {
     const raw = row[col];
     const runtime = raw.runtime || col;
     const deferredCell = row.deferred_rereview ? pick(row.deferred_rereview) : null;
-    if (!canRun(avail[runtime])) {
+    // DR-161: a row pinned to the OTHER company (the audit) does not spend a conserved company; it waits like Claude out.
+    const conservedCross = runtime !== col && avail[runtime] === "conserve";
+    if (!canRun(avail[runtime]) || conservedCross) {
       // The audit runs on Claude only; with Claude out (quota, unreachable, drive) it waits as a deferred review.
       if (deferredCell && (row.claude_out === "deferred" || (ctx.shape === "drive" && row.drive === "deferred"))) {
         return { deferred: assertCell(deferredCell, `builder ${row.id} deferred`), degraded: row.degraded || "quota_90", row: row.id };
@@ -187,6 +191,8 @@ export function createRouter(tiers) {
     let raw = primaryRaw;
     if (avail === "quota") raw = src.on_quota;
     else if (avail === "unreachable") raw = src.on_unreachable;
+    // DR-161: the reviewer company has < 15 % left: stay in the author's company with a different model, no deferred re-review.
+    else if (avail === "conserve") raw = src.on_conserve ?? src.on_quota;
     if (raw === undefined) fail(`reviewCell: row ${r.row} lacks a cell for ${avail}`);
     if (raw === "park") return { ...result, parked: "no_reviewer" };
     const used = pick(raw);
@@ -194,7 +200,7 @@ export function createRouter(tiers) {
     let degraded = raw === primaryRaw ? null : raw.degraded || null;
     if (sameModel(used, authorCell)) {
       // N7 guard: same-model review only on quota; the Astra analog also on unreachable. Anything else parks.
-      const allowed = avail === "quota" || (avail === "unreachable" && company === "codex" && model === "astra");
+      const allowed = avail === "quota" || avail === "conserve" || (avail === "unreachable" && company === "codex" && model === "astra");
       if (!allowed || raw.same_model_exception !== "N7") return { ...result, parked: "no_reviewer" };
       degraded = "same_model";
     }
@@ -204,9 +210,11 @@ export function createRouter(tiers) {
       Object.assign(used, pick(then));
       degraded = degraded || tiers.review_modifiers.sol_at_capacity.degraded || "at_capacity";
     }
+    if (avail === "conserve" && degraded !== "same_model") degraded = "conserve";
     result.used = assertCell(used, `review row ${r.row}`);
     result.degraded = degraded;
-    if (degraded) result.deferred = { needed: primary.runtime, reviewer: { ...primary } };
+    // DR-161: a conserve review queues no cross-company re-review (it would spend the scarce company); at most a note.
+    if (degraded && avail !== "conserve") result.deferred = { needed: primary.runtime, reviewer: { ...primary } };
     return result;
   };
 

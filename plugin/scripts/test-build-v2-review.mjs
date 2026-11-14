@@ -469,6 +469,25 @@ for (const [label, runOpts, route, reviewer, degraded] of DEGRADED) {
   }));
 }
 
+// DR-161 / BL-0320: the company a deferred re-review would need has < 15 % left -> nothing is queued, never blocks landing.
+const conservedQuota = (company) => ({
+  readQuota: async () => ({ effective: { claude: { state: "known", pct: 10 }, codex: { state: "known", pct: 10 } } }),
+  policy: () => ({ claude_conserve: company === "claude", codex_conserve: company === "codex" }),
+});
+await test("DR-161: a degraded review whose needed company is conserved queues NO deferred re-review and still verifies", async () => withRun({ reviewer: CELL.opusHigh }, async (c) => {
+  const out = await c.record({ reviewer: CELL.opusHigh }, ROUTE.quota, { depsExtra: { quota: conservedQuota("codex") } });
+  eq(out.deferred_review_id, null, "no deferred id");
+  eq(out.deferred_skipped, { needed: "codex", reason: "quota_conserve" }, "the skip is reported in the output");
+  eq(await c.ledger(), [], "nothing queued in deferred-reviews.json");
+  ok(!(await c.events()).some((x) => x.type === "deferred_review_queued"), "no deferred_review_queued event");
+  eq((await c.unit(BUILD_UNIT)).state, "verified", "the reviewed work verifies");
+}));
+await test("DR-161 control: the same degraded review queues its re-review when only the OTHER company is conserved", async () => withRun({ reviewer: CELL.opusHigh }, async (c) => {
+  const out = await c.record({ reviewer: CELL.opusHigh }, ROUTE.quota, { depsExtra: { quota: conservedQuota("claude") } });
+  ok(out.deferred_review_id, "queued"); eq(out.deferred_skipped, undefined, "no skip");
+  eq((await c.ledger()).length, 1, "one entry");
+}));
+
 await test("audit unit recorded by claude opus high queues nothing and verifies (BUILD-9: a degraded audit is queued by the engine, never by review-record)", async () => withRun({ reviewKind: "audit", author: CELL.opusHigh, reviewer: CELL.opusHigh }, async (c) => {
   await c.record({ reviewer: CELL.opusHigh }, ROUTE.cross(CELL.opusHigh));
   eq(await c.ledger(), [], "review-record never queues an audit");

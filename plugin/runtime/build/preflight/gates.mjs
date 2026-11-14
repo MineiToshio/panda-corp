@@ -43,8 +43,8 @@ export async function scopeArtifacts({ project, ctx, scope, allWos }) {
 
 export function availabilityOf(policyView, codexLoginOk) {
   return {
-    claude: policyView?.claude_new_units === false ? "quota" : "ok",
-    codex: codexLoginOk === false ? "unreachable" : policyView?.codex_new_units === false ? "quota" : "ok",
+    claude: policyView?.claude_new_units === false ? "quota" : policyView?.claude_conserve ? "conserve" : "ok",
+    codex: codexLoginOk === false ? "unreachable" : policyView?.codex_new_units === false ? "quota" : policyView?.codex_conserve ? "conserve" : "ok",
   };
 }
 

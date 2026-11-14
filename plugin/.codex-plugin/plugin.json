@@ -1,6 +1,6 @@
 {
   "name": "pandacorp",
-  "version": "10.4.5",
+  "version": "10.5.0",
   "description": "100% AI software factory: idea discovery, PRD/FRDs, UX/UI design, architecture blueprint, work orders, implementation, release and post-launch review.",
   "skills": "./skills/",
   "interface": {

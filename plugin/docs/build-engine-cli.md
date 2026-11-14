@@ -427,7 +427,7 @@ A review that fell back to another company is queued in `deferred-reviews.json` 
 
 Output: `{"ok":true,"cmd":"review-record","verdict":"pass|reopen|blocked|doubt","deferred_review_id":null,"probes_committed":["tests/probe-a.test.ts"]}`.
 
-Exit: 0; 6 (`INVALID_INPUT`) when the review file is invalid JSON or schema, the token or unit does not match, `doubt` is set when the verdict is not `doubt` (or missing when it is), a `reopen` or `blocked` verdict carries no finding, a `pass` carries a critical or high finding or a failing traceability entry, a probe path is not an allowed test path, is listed twice, or is named by a finding but absent from `probes[]`, a probe file is missing or changed (hash mismatch) or would overwrite an existing file on the integration branch, the report's `reviewer` differs from the dispatch cell, or an author reviews its own unit outside N7; 5 on an invalid state; 3 on fence. `deferred_review_id` is non-null for a `deferred-review` unit (the ledger entry it serves: the optional `deferredId` input, else matched from the unit id, then by FRD) and for a degraded review that queued an entry; otherwise `null`. Output extras: `reviewer`, `degraded`, `reviewed_units`, `patch_unit`, `handed_back`, `bug_card`, `doubt_file`, `probes_skipped`, `last_safe_point`.
+Exit: 0; 6 (`INVALID_INPUT`) when the review file is invalid JSON or schema, the token or unit does not match, `doubt` is set when the verdict is not `doubt` (or missing when it is), a `reopen` or `blocked` verdict carries no finding, a `pass` carries a critical or high finding or a failing traceability entry, a probe path is not an allowed test path, is listed twice, or is named by a finding but absent from `probes[]`, a probe file is missing or changed (hash mismatch) or would overwrite an existing file on the integration branch, the report's `reviewer` differs from the dispatch cell, or an author reviews its own unit outside N7; 5 on an invalid state; 3 on fence. `deferred_review_id` is non-null for a `deferred-review` unit (the ledger entry it serves: the optional `deferredId` input, else matched from the unit id, then by FRD) and for a degraded review that queued an entry; otherwise `null`. Output extras: `deferred_skipped` (`{needed, reason:"quota_conserve"}` when a degraded review's re-review was not queued because the needed company is conserved, DR-161), `reviewer`, `degraded`, `reviewed_units`, `patch_unit`, `handed_back`, `bug_card`, `doubt_file`, `probes_skipped`, `last_safe_point`.
 
 ### 3.11 `land`
 
@@ -881,7 +881,8 @@ probeCodex({exec}) -> minimal codex exec (~20k input tokens), preflight only, th
 classifyLimitText(text) -> "usage_limit" | "rate_limit" | null
   the single detector; limit patterns are self-contained and aligned with codex-worker.mjs LIMIT_RE
 policy({claude, codex, coordinator, driveAlive = false, now?, thresholds?}, deps?)
-  -> {claude_new_units, codex_new_units, handoff, paused, degrade_reviews_of:{claude_authored, codex_authored}}
+  -> {claude_new_units, codex_new_units, claude_conserve, codex_conserve, handoff, paused, degrade_reviews_of:{claude_authored, codex_authored}}
+  *_conserve (DR-161): known reading >= thresholds.quota_conserve (85) and < quota_stop; routing availability `conserve`
   the ONLY owner of the pause/handoff priority (A11): both providers >= quota_stop -> paused, never handoff;
   Claude known and >= quota_handoff with a claude-session coordinator -> handoff only when driveAlive, else paused;
   codex-session and drive coordinators never hand off. driveAlive = build/drive/standby.json pid alive and state "standby"

@@ -104,7 +104,10 @@ export function gitOk(cwd, args) {
 
 export const cellOf = (worker) => (worker ? { runtime: worker.runtime, model: worker.model, effort: worker.effort } : null);
 
-export const availabilityOf = (pol) => ({ claude: pol.claude_new_units ? "ok" : "quota", codex: pol.codex_new_units ? "ok" : "quota" });
+export const availabilityOf = (pol) => ({
+  claude: pol.claude_new_units ? (pol.claude_conserve ? "conserve" : "ok") : "quota",
+  codex: pol.codex_new_units ? (pol.codex_conserve ? "conserve" : "ok") : "quota",
+});
 export const shapeOf = (state) => (state.coordinator === "codex-session" ? "R-B" : state.coordinator === "drive" ? "drive" : state.label === "codex" ? "R-C" : "R-A");
 
 /** Product root of the integration worktree (the project may live under a prefix of its git repository). */

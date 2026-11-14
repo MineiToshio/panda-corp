@@ -1,0 +1,89 @@
+#!/usr/bin/env node
+// test-build-v2-conserve.mjs: DR-161 / BL-0320. When the company that would review has less than 15 % of its quota left
+// (a known reading at or above quota_conserve = 85 % used, 5-hour or weekly, and below the 90 % stop), reviews stay in the
+// author's company with a DIFFERENT model (Sol-built -> Astra, Astra-built -> Sol), builds keep the run label's company,
+// and no cross-company deferred re-review is queued. Run: node plugin/scripts/test-build-v2-conserve.mjs
+import { policy, QUOTA_CONSERVE_DEFAULT } from "../runtime/build/quota.mjs";
+import { builderCell, loadTiers, reviewCell } from "../runtime/build/routing.mjs";
+import { availabilityOf } from "../runtime/build/next/context.mjs";
+import { availabilityOf as preflightAvailability } from "../runtime/build/preflight/gates.mjs";
+
+let passed = 0; let failed = 0;
+const test = (name, fn) => { try { fn(); console.log(`PASS  ${name}`); passed++; } catch (e) { console.error(`FAIL  ${name}: ${e.message}`); failed++; } };
+const ok = (v, m) => { if (!v) throw new Error(m); };
+const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: got ${JSON.stringify(a)} expected ${JSON.stringify(b)}`); };
+const known = (pct) => ({ state: "known", pct });
+const cell = (c) => c && { runtime: c.runtime, model: c.model, effort: c.effort };
+const SOL = { runtime: "codex", model: "sol", effort: "medium" };
+const ASTRA = { runtime: "codex", model: "astra", effort: "high" };
+const SONNET = { runtime: "claude", model: "sonnet", effort: "medium" };
+
+test("model-tiers.json carries quota_conserve 85 and the default matches", () => {
+  eq(loadTiers().thresholds.quota_conserve, 85, "threshold in model-tiers.json");
+  eq(QUOTA_CONSERVE_DEFAULT, 85, "code default");
+});
+
+test("policy: conserve from 85 % (inclusive) to below 90 %; out at 90 %; unknown never conserved", () => {
+  for (const [pct, conserve, units] of [[84, false, true], [85, true, true], [89, true, true], [90, false, false], [99, false, false]]) {
+    const p = policy({ claude: known(pct), codex: known(10), coordinator: "claude-session" });
+    eq([p.claude_conserve, p.claude_new_units], [conserve, units], `claude at ${pct} %`);
+  }
+  const unknown = policy({ claude: { state: "unknown", pct: null }, codex: known(86), coordinator: "claude-session" });
+  eq([unknown.claude_conserve, unknown.codex_conserve], [false, true], "unknown claude is not conserved; codex at 86 is");
+  eq(policy({ claude: known(86), codex: known(86), coordinator: "claude-session" }).paused, false, "two conserved providers never pause the run");
+});
+
+test("availability maps conserve for next and for the preflight preview", () => {
+  const pol = policy({ claude: known(87), codex: known(20), coordinator: "claude-session" });
+  eq(availabilityOf(pol), { claude: "conserve", codex: "ok" }, "next/context");
+  eq(preflightAvailability(pol, true), { claude: "conserve", codex: "ok" }, "preflight gates");
+  eq(availabilityOf(policy({ claude: known(95), codex: known(20), coordinator: "claude-session" })).claude, "quota", "out stays quota");
+});
+
+const review = (author, zone, claude) => reviewCell({ authors: [author], kind: "frd", zone, availability: { claude, codex: "ok" } });
+
+test("Claude conserved: a Sol-built FRD is reviewed by Codex Astra high, degraded conserve, NO deferred re-review", () => {
+  const r = review(SOL, "none", "conserve");
+  eq(cell(r.used), { runtime: "codex", model: "astra", effort: "high" }, "reviewer");
+  eq(r.degraded, "conserve", "degraded label"); eq(r.deferred, null, "no cross-company re-review"); eq(r.parked, null, "not parked");
+});
+
+test("Claude conserved: an Astra-built FRD is reviewed by Codex Sol (a different model), never Astra itself", () => {
+  const none = review(ASTRA, "none", "conserve");
+  eq(cell(none.used), { runtime: "codex", model: "sol", effort: "high" }, "none zone");
+  eq(none.deferred, null, "no deferred");
+  const r1 = review(ASTRA, "r1", "conserve");
+  eq(cell(r1.used), { runtime: "codex", model: "sol", effort: "xhigh" }, "r1 zone: Sol xhigh instead of parking for Claude");
+  eq(r1.parked, null, "an r1 Astra review no longer parks waiting for Claude");
+});
+
+test("controls: Claude available keeps the cross-company reviewer; Claude out (>= 90) keeps N7 with a deferred re-review", () => {
+  eq(cell(review(SOL, "none", "ok").used).runtime, "claude", "cross-company when Claude has quota");
+  const out = review(SOL, "none", "quota");
+  eq(out.degraded, "quota_90", "out of quota is still quota_90"); ok(out.deferred, "out of quota still queues the deferred re-review");
+  const astraOut = review(ASTRA, "none", "quota");
+  eq(astraOut.degraded, "same_model", "Astra on quota keeps the N7 same-model exception");
+});
+
+test("symmetric: Codex conserved, a Sonnet-built FRD stays in Claude with a different model and no deferred re-review", () => {
+  const r = reviewCell({ authors: [SONNET], kind: "frd", zone: "none", availability: { claude: "ok", codex: "conserve" } });
+  ok(r.used && r.used.runtime === "claude" && r.used.model !== "sonnet", `reviewer stays in Claude, other model: ${JSON.stringify(r.used)}`);
+  eq(r.deferred, null, "no deferred re-review");
+});
+
+test("builds keep the run label's company when the other company is conserved (and when the label's own company is)", () => {
+  const codexBuild = builderCell({ kind: "build", size: "feature", zone: "none" }, { label: "codex", quota: { claude: "conserve", codex: "ok" } });
+  eq(codexBuild.runtime, "codex", "label codex builds on Codex");
+  const claudeBuild = builderCell({ kind: "build", size: "feature", zone: "none" }, { label: "claude", quota: { claude: "conserve", codex: "ok" } });
+  eq(claudeBuild.runtime, "claude", "a conserved label company still takes its own units (only cross reviews avoid it)");
+});
+
+test("the security audit (pinned to Claude) waits in the deferred ledger while Claude is conserved, and runs when it is not", () => {
+  const conserved = builderCell({ kind: "audit", size: "feature", zone: "r1", attempt: 1 }, { label: "codex", zone: "r1", attempt: 1, quota: { claude: "conserve", codex: "ok" } });
+  ok(conserved.deferred && !conserved.runtime, `audit deferred, not dispatched on Claude: ${JSON.stringify(conserved)}`);
+  const normal = builderCell({ kind: "audit", size: "feature", zone: "r1", attempt: 1 }, { label: "codex", zone: "r1", attempt: 1, quota: { claude: "ok", codex: "ok" } });
+  eq(normal.runtime, "claude", "audit on Claude when it has quota");
+});
+
+console.log(`RESULT: ${passed} passed, ${failed} failed`);
+process.exit(failed === 0 ? 0 : 1);

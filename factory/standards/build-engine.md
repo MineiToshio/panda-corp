@@ -341,6 +341,10 @@ Effort cells are extrapolated from calibration and fixed until phase D.
   (`access.codex_login` already asks the owner in the first minute).
 - **Claude out of quota or unreachable** (the Codex app, `drive`) triggers the Codex-author fallback
   column, including the Astra analog of rows 12 and 15.
+- **Conserve (DR-161):** a company with less than 15 % left (a known reading ≥ `quota_conserve` 85 % and
+  below 90 %) is not used to review the other company's work: the review stays in the author's company with
+  a different model (Codex Sol/Luna → astra high, Astra → sol high, r1 sol xhigh; Claude authors → the quota
+  fallback cell), `degraded: conserve`, with no deferred re-review. Builds keep the run label's company.
 - Degradations made under `drive` are labelled `quota_90`.
 - Sol answering "at capacity": resume the same Codex session id once (LESSON-0612); if it repeats,
   astra high with `degraded: at_capacity`.
@@ -356,10 +360,10 @@ outside the risk zone. An unreachable (not out-of-quota) other company never tri
 same-model review. The Astra analog (rows 12 and 15) also applies when Claude is unreachable. It is
 never applied at a lower effort.
 
-**Deferred re-review.** Every degraded review is appended to `.pandacorp/run/deferred-reviews.json`
+**Deferred re-review.** Every degraded review except a `conserve` one (DR-161) is appended to `.pandacorp/run/deferred-reviews.json`
 (outlives runs; written only inside a run; one pending entry per review unit and kind, a newer degraded
 review of the same unit refreshes it; `review-record` never queues an `audit`, the engine does when Claude is out). `next` serves pending entries **first** as soon as the
-needed company is below 90 %; if the run has finished, the next `implement` preflight runs them before
+needed company is below 85 % (not conserved, DR-161); if the run has finished, the next `implement` preflight runs them before
 new work; Mission Control shows the count; the launched-project landing question lists them (landing
 with any pending is the owner's informed choice). A grave finding opens a `type: bug` card.
 
@@ -443,6 +447,7 @@ knowledge for `--files`) and returns
 | Claude ≥95 % or `usage_limit`, with `coordinator = claude-session` | `next` returns `handoff` (BUILD-14, trigger a/b) when the `drive` standby is alive, else the terminal `paused-quota`. Enforced in the CLI. A handoff never releases the lease |
 | Codex out of quota | No new Codex units; new units take the claude column of the same row; reviews of Claude-authored work take the fallback column |
 | Both ≥90 % | Terminal `paused-quota` at the last safe point; report with each company's `resets_at` |
+| A company ≥85 % and <90 % (conserve, DR-161) | It still takes its own label's units; reviews of the other company's work, deferred re-reviews and the Claude-pinned audit do not spend it (BUILD-10 conserve); landing is never blocked |
 
 **Limits (D9).** A `usage_limit` consumes no attempt and is recorded as a 100 % reading for that
 provider (`source: "limit"`), after which the table applies. A `rate_limit` (429) consumes no attempt:

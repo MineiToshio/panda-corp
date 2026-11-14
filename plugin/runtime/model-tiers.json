@@ -286,7 +286,8 @@
       "match": { "kind": ["frd", "touch"], "zone": ["none"] },
       "primary": { "runtime": "claude", "model": "opus", "effort": "high" },
       "on_quota": { "runtime": "codex", "model": "astra", "effort": "author_next_capped", "same_model_exception": "N7", "degraded": "same_model" },
-      "on_unreachable": { "runtime": "codex", "model": "astra", "effort": "author_next_capped", "same_model_exception": "N7", "degraded": "same_model" }
+      "on_unreachable": { "runtime": "codex", "model": "astra", "effort": "author_next_capped", "same_model_exception": "N7", "degraded": "same_model" },
+      "on_conserve": { "runtime": "codex", "model": "sol", "effort": "high", "degraded": "conserve" }
     },
     {
       "row": 13,
@@ -294,7 +295,8 @@
       "match": { "kind": ["frd", "touch"], "zone": ["floor", "r1"] },
       "primary": { "runtime": "claude", "model": "opus", "effort": "xhigh" },
       "on_quota": "park",
-      "on_unreachable": "park"
+      "on_unreachable": "park",
+      "on_conserve": { "runtime": "codex", "model": "sol", "effort": "xhigh", "degraded": "conserve" }
     },
     {
       "row": 14,
@@ -343,6 +345,7 @@
   },
   "thresholds": {
     "quota_stop": 90,
+    "quota_conserve": 85,
     "quota_handoff": 95,
     "shadow_both_below": 70,
     "codex_probe_age_s": 3600,
