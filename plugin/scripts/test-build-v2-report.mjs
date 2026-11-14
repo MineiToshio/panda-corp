@@ -234,6 +234,62 @@ await test("report: a valid in-scope chain is committed once on the UNIT branch 
   c.mainClean();
 }));
 
+// BL-0318: funko-tracker br-2026-11-14-01 rejected 43 files of correct work because .claude/launch.json and
+// e2e/server-env.json, rewritten by the worktree's own bootstrap (skip-worktree bit lost), looked like worker changes.
+const LAUNCH = ".claude/launch.json";
+const writeBootstrapManifest = async (c, u, files, { pathOverride = null } = {}) => {
+  const { realpathSync, lstatSync, readFileSync } = await import("node:fs");
+  const wt = realpathSync(u.wt);
+  const common = realpathSync(c.git(wt, ["rev-parse", "--path-format=absolute", "--git-common-dir"]));
+  const st = lstatSync(path.join(wt, ".git"));
+  const generated = Object.fromEntries(files.map((f) => [f, sha256(readFileSync(path.join(wt, f)))]));
+  const id = sha256(pathOverride ?? wt);
+  const file = path.join(path.dirname(common), ".pandacorp/run/worktrees", `bootstrap-${id}.json`);
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, JSON.stringify({ producer: "worktree-bootstrap", version: 1, path: pathOverride ?? wt, identity: `${st.dev}:${st.ino}:${st.birthtimeMs}`,
+    gitdir: realpathSync(c.git(wt, ["rev-parse", "--absolute-git-dir"])), generated_files: generated }));
+};
+const bootstrapCase = async (c) => {
+  await c.integrateFile(LAUNCH, `${JSON.stringify({ version: "0.0.1", configurations: [{ name: "app", port: 3000 }] })}\n`);
+  c.integrationTip = c.tip(c.branch);
+  const u = await c.dispatch(buildUnit());
+  await c.write(u, { [LAUNCH]: `${JSON.stringify({ version: "0.0.1", configurations: [{ name: "app-wt", autoPort: true }] })}\n` });
+  return u;
+};
+await test("BL-0318 report: a bootstrap-written file (manifest hash unchanged) is not a worker change: the work is committed without it", async () => withRun(async (c) => {
+  const u = await bootstrapCase(c);
+  await writeBootstrapManifest(c, u, [LAUNCH]);
+  await c.write(u, { "src/alpha/list.ts": "export const value = 4;\n" });
+  const res = await c.submit(u, c.report(u, { files: ["src/alpha/list.ts"] }));
+  eq(res.outcome, "committed", `outcome (${JSON.stringify(res.reasons ?? res.thrown?.message ?? "")})`);
+  eq(c.files(u.branch), ["src/alpha/list.ts"], "the bootstrap file is never committed");
+}));
+await test("BL-0318 adversarial: a worker edit AFTER the bootstrap (hash differs) is still rejected", async () => withRun(async (c) => {
+  const u = await bootstrapCase(c);
+  await writeBootstrapManifest(c, u, [LAUNCH]);
+  await c.write(u, { [LAUNCH]: "{\"tampered\":true}\n", "src/alpha/list.ts": "export const value = 4;\n" });
+  const res = await c.submit(u, c.report(u, { files: ["src/alpha/list.ts"] }));
+  await assertRejected(c, u, res, "worker-edited bootstrap file");
+}));
+await test("BL-0318 adversarial: without a manifest, or with a manifest for another path, the change still counts", async () => {
+  for (const variant of ["none", "foreign"]) {
+    await withRun(async (c) => {
+      const u = await bootstrapCase(c);
+      if (variant === "foreign") await writeBootstrapManifest(c, u, [LAUNCH], { pathOverride: "/elsewhere/wt" });
+      await c.write(u, { "src/alpha/list.ts": "export const value = 4;\n" });
+      const res = await c.submit(u, c.report(u, { files: ["src/alpha/list.ts"] }));
+      await assertRejected(c, u, res, `bootstrap file with ${variant} manifest`);
+    });
+  }
+});
+await test("BL-0318 adversarial: a file outside the bootstrap's own list (src/alpha/filter.ts) is never excused by a manifest", async () => withRun(async (c) => {
+  const u = await c.dispatch(buildUnit());
+  await c.write(u, { "src/alpha/filter.ts": "export const filter = 9;\n", "src/alpha/list.ts": "export const value = 4;\n" });
+  await writeBootstrapManifest(c, u, ["src/alpha/filter.ts"]);
+  const res = await c.submit(u, c.report(u, { files: ["src/alpha/list.ts"] }));
+  await assertRejected(c, u, res, "non-bootstrap path in the manifest");
+}));
+
 await test("report: unit state committed, token released, journal report_received + wo_committed, legacy wo_commit event", async () => withRun(async (c) => {
   const u = await c.dispatch(buildUnit());
   await c.write(u, { "src/alpha/list.ts": "export const value = 3;\n" });

@@ -222,6 +222,52 @@ await test("hand-back text names the real recovery command for env-infra and kee
   ok(!handbackMarkdown(info("code")).includes("unblock"), "a code hand-back never offers unblock");
 });
 
+// ------------------------------------------------------------------------------------------------- BL-0318
+const BOOT_REASON = ".claude/launch.json: changed in the worktree but missing from report.files; e2e/server-env.json: changed in the worktree but missing from report.files; .claude/launch.json: outside the build write allowlist; e2e/server-env.json: outside the build write allowlist";
+const codeHandback = async (sb, lease, reason) => {
+  await writeFile(path.join(sb.p.unitDir(ROOT), "attempt-1.json"), JSON.stringify({ attempt: 1, outcome: "rejected", reason, failing: [], tail: "", diagnosis: null }));
+  return handBackIn(sb, lease, { unitId: ROOT, cause: "code", reasonCode: "no_diagnosis", reason });
+};
+await test("BL-0318 rejectionOnlyBootstrap (pure)", async () => {
+  ok(F.rejectionOnlyBootstrap(BOOT_REASON), "the funko rejection is bootstrap-only");
+  ok(F.rejectionOnlyBootstrap("web/e2e/server-env.json: outside the build write allowlist"), "nested product prefix");
+  ok(F.rejectionOnlyBootstrap(".env.local: changed in the worktree but missing from report.files"), ".env.local");
+  ok(!F.rejectionOnlyBootstrap(`${BOOT_REASON}; src/alpha/list.ts: outside the build write allowlist`), "one real code path makes it a worker failure");
+  ok(!F.rejectionOnlyBootstrap("G1 red: 2 failing tests"), "a gate failure is not bootstrap-only");
+  ok(!F.rejectionOnlyBootstrap(""), "empty is not bootstrap-only");
+  ok(!F.rejectionOnlyBootstrap("e2e/server-env.json.bak: outside the build write allowlist"), "a look-alike path is not bootstrap-only");
+});
+await test("BL-0318 unblock lifts a CODE hand-back whose rejection named only bootstrap files, at the same attempt", async () => {
+  const sb = await sandbox();
+  try {
+    const { lease } = await seedRun(sb, units3());
+    await codeHandback(sb, lease, BOOT_REASON);
+    const res = await unblock(sb, lease, { reason: "bootstrap files restored; report now excludes them (BL-0318)" });
+    eq(res.units.sort(), [ROOT, DEP].sort(), "root and dependent come back"); eq(res.attempt, 1, "same attempt");
+    eq((await readState(sb.project, { env: sb.env })).units.find((u) => u.id === ROOT).state, "queued", "queued again");
+    const { events } = await readJournal(sb.p.journalFile, { env: sb.env });
+    const ev = events.find((e) => e.type === "unblocked");
+    ok(ev?.data?.cause === "code" && ev?.data?.bootstrap_only === true, `journal marks the bootstrap-only lift: ${JSON.stringify(ev?.data)}`);
+  } finally { await sb.fx.cleanup(); }
+});
+await test("BL-0318 adversarial: a CODE hand-back with any non-bootstrap reason stays the owner's decision", async () => {
+  const sb = await sandbox();
+  try {
+    const { lease } = await seedRun(sb, units3());
+    await codeHandback(sb, lease, `${BOOT_REASON}; src/alpha/list.ts: outside the build write allowlist`);
+    await rejects(unblock(sb, lease), "INVALID_INPUT", "mixed rejection", /not env-infra/);
+  } finally { await sb.fx.cleanup(); }
+});
+await test("BL-0318 adversarial: a budget-exhausted CODE hand-back with a bootstrap-looking journal reason but a real attempt reason is refused", async () => {
+  const sb = await sandbox();
+  try {
+    const { lease } = await seedRun(sb, units3());
+    await writeFile(path.join(sb.p.unitDir(ROOT), "attempt-1.json"), JSON.stringify({ attempt: 1, outcome: "rejected", reason: "G1 red: src/alpha/_tests/list.test.ts failed", failing: ["list"], tail: "", diagnosis: null }));
+    await handBackIn(sb, lease, { unitId: ROOT, cause: "code", reasonCode: "budget_exhausted", reason: ".claude/launch.json: outside the build write allowlist" });
+    await rejects(unblock(sb, lease), "INVALID_INPUT", "attempt record wins over the journal text", /not env-infra/);
+  } finally { await sb.fx.cleanup(); }
+});
+
 // ------------------------------------------------------------------------------------------------- CLI end to end
 const cli = (sb, args, env = sb.env) => {
   const r = spawnSync(process.execPath, [CLI, ...args, "--project", sb.project], { env, encoding: "utf8", timeout: 60000 });

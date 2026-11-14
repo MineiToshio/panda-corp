@@ -187,6 +187,22 @@ function bootstrapFiles(wt, mainWt) {
       typeof hash === 'string' && /^[a-f0-9]{64}$/.test(hash)));
   } catch { return {}; } // No provenance is never permission to discard a hidden difference.
 }
+/**
+ * BL-0318: repo-relative paths of a worktree that its own bootstrap generated (manifest-proven, identity-bound) and that
+ * still hold exactly the bytes the bootstrap wrote. The build CLI excludes them from a unit's changes: they are the
+ * worktree's ports/env wiring, never the worker's work. A worker edit changes the hash and the path counts again.
+ * @param {string} worktree the unit worktree (its git toplevel)
+ * @returns {Set<string>}
+ */
+export function bootstrapOwnedUnchanged(worktree) {
+  try {
+    const wt = real(worktree);
+    const common = git(wt, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
+    if (!common.ok) return new Set();
+    const generated = bootstrapFiles(wt, path.dirname(real(common.out)));
+    return new Set(Object.entries(generated).filter(([name, hash]) => hashMatches(wt, name, hash)).map(([name]) => name));
+  } catch { return new Set(); }
+}
 const protectedRelative = name => /(^|\/)(\.git|\.pandacorp)(\/|$)|(^|\/)factory\/(ideas|memory|profile\.md|portfolio\.md)(\/|$)/.test(name);
 function hashMatches(wt, name, expected) {
   if (typeof expected !== 'string' || !/^[a-f0-9]{64}$/.test(expected)) return false;

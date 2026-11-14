@@ -181,7 +181,7 @@ when the build deviated from the docs.
 **Scope guarantee, by construction:** the run's scope is the WOs with that card's `source_change`
 (or the FRDs/plan of rows 2, 4, 6); `next` never returns a unit outside it; `report` commits with
 its own pathspec-limited `git commit` only after checking that the reported files equal the
-worktree's changes, every file is inside the unit's allowlist (build/patch: its WOs' `artifacts`; docs: `docs/**`, `README.md`, root `DESIGN.md`, `.env.example` and new WO files born `PLANNED`, carrying `source_change: [<card>]` in a card run (BL-0315); tests: test surfaces only), no `**/*-snapshots/**` path, no edit of an existing WO's frontmatter (the body of the unit's own WO only if that file is in `artifacts`), and no change to any hashed test or probe file; schema and migration paths are allowed (G3
+worktree's changes (manifest-proven, unchanged bootstrap outputs excluded, BL-0318), every file is inside the unit's allowlist (build/patch: its WOs' `artifacts`; docs: `docs/**`, `README.md`, root `DESIGN.md`, `.env.example` and new WO files born `PLANNED`, carrying `source_change: [<card>]` in a card run (BL-0315); tests: test surfaces only), no `**/*-snapshots/**` path, no edit of an existing WO's frontmatter (the body of the unit's own WO only if that file is in `artifacts`), and no change to any hashed test or probe file; schema and migration paths are allowed (G3
 gates them). The single reviewer opens a `scope` finding when the diff touches anything in Fuera. A
 dependency outside scope and not `VERIFIED` is a hand-back ("depende de WO-x, ¿la incluyo?"), never
 silently included.
@@ -683,7 +683,8 @@ No automatic revert-and-rebuild, no split gate, no automatic "next pass". Fable 
   already ended, `finished` included) returns the root unit and the dependents that hand-back blocked to
   `queued` at the SAME attempt (no budget spent, streak reset, WOs `BLOCKED -> PLANNED`, preserved
   worktree reused, previous report kept and named in the brief). Every other cause stays an owner
-  decision. Verification: `plugin/scripts/test-build-v2-unblock.mjs`.
+  decision, except a `code` hand-back whose rejection named only bootstrap-written files (BL-0318: the engine's
+  false rejection, lifted the same way). Verification: `plugin/scripts/test-build-v2-unblock.mjs`.
 - **Docs-only G3 red (BL-0316).** A batch of only `docs` units cannot turn code checks red: a G3 red with no
   doc-lint failure and no docs-surface path opens no patch; it retries the landing once per integration tip,
   then hands the docs units back as `env-infra` (`g3_red_not_from_batch`); `unblock` returns them to `integrated`.

@@ -26,6 +26,22 @@ export const UNBLOCK_NOTE = "unblocked.json";
 /** States a WO-less unit (docs/tests) returns to when it was blocked after finishing its own work (BL-0316). */
 export const RESTORABLE_STATES = Object.freeze(["committed", "integrated", "verified"]);
 
+/** Files the worktree bootstrap writes (BL-0318): a rejection naming only these is the engine's fault, not the worker's. */
+const BOOTSTRAP_FILE_RE = /^(?:\.claude\/launch\.json|(?:[^/\s]+\/)?(?:e2e\/server-env\.json|\.env\.local))$/;
+
+/**
+ * True when every rejection reason ("<path>: <why>" joined by "; ") names a bootstrap-written file (BL-0318). Pure.
+ * An empty or unparseable text is false: only a fully attributable rejection may be lifted without the owner.
+ */
+export function rejectionOnlyBootstrap(text) {
+  const parts = String(text ?? "").split(";").map((p) => p.trim()).filter(Boolean);
+  if (!parts.length) return false;
+  return parts.every((p) => {
+    const at = p.indexOf(": ");
+    return at > 0 && BOOTSTRAP_FILE_RE.test(p.slice(0, at)) && p.slice(at + 2).length > 0;
+  });
+}
+
 const handbackEvents = (events) => events.filter((e) => e.type === "handback" && Array.isArray(e.data?.blocked));
 /** The latest hand-back that blocked `unitId`, or null. */
 const lastBlockingHandback = (events, unitId) => handbackEvents(events).filter((e) => e.data.blocked.includes(unitId)).pop() ?? null;
@@ -36,7 +52,7 @@ const lastBlockingHandback = (events, unitId) => handbackEvents(events).filter((
  * @param {{state: object, events: object[], unitId: string, reason: string, at?: string}} input `events` = the run journal
  * @returns {{state: object, events: object[], units: string[], root: object, handback: object}}
  */
-export function planUnblock({ state, events, unitId, reason, at = null }) {
+export function planUnblock({ state, events, unitId, reason, at = null, rejectionText = null }) {
   const unit = findUnit(state, unitId);
   if (!unit) throw err("INVALID_STATE", `unknown unit ${unitId}`);
   if (!UNBLOCKABLE_KINDS.includes(unit.kind)) throw err("INVALID_INPUT", `unit ${unitId} is a ${unit.kind} unit: only docs, tests, build and patch units can be unblocked`);
@@ -44,7 +60,9 @@ export function planUnblock({ state, events, unitId, reason, at = null }) {
   const hb = lastBlockingHandback(events, unitId);
   if (!hb) throw err("INVALID_INPUT", `unit ${unitId} has no hand-back in the journal: it cannot be unblocked`);
   if (hb.data.unit !== unitId) throw err("INVALID_INPUT", `unit ${unitId} was blocked as a dependent of ${hb.data.unit}: unblock ${hb.data.unit} instead`, { root: hb.data.unit });
-  if (hb.data.cause !== UNBLOCK_CAUSE) {
+  // BL-0318: a code hand-back whose rejection named only bootstrap-written files was an engine false rejection.
+  const bootstrapOnly = hb.data.cause === "code" && rejectionOnlyBootstrap(rejectionText ?? hb.data.reason);
+  if (hb.data.cause !== UNBLOCK_CAUSE && !bootstrapOnly) {
     throw err("INVALID_INPUT", `unit ${unitId} was handed back for ${hb.data.cause} (${hb.data.reason_code ?? "?"}), not ${UNBLOCK_CAUSE}: the owner decides it (/pandacorp:decide), unblock only lifts an environment failure`, { cause: hb.data.cause });
   }
   if (Number.isInteger(hb.data.attempt) && hb.data.attempt !== unit.attempt) throw err("INVALID_STATE", `unit ${unitId} is at attempt ${unit.attempt} but was handed back at attempt ${hb.data.attempt}`, { hint: "rebuild-state" });
@@ -71,10 +89,16 @@ export function planUnblock({ state, events, unitId, reason, at = null }) {
     units: state.units.map((u) => (set.has(u.id) ? { ...u, state: restored.get(u.id), token_hash: null, worker: restored.get(u.id) === "queued" ? null : u.worker, parked: null, pending_answer: null, waiting_gate: null } : u)),
   };
   const planned = [
-    { type: "unblocked", data: { unit: unitId, cause: UNBLOCK_CAUSE, attempt: unit.attempt, reason: oneLine(reason, 400), units: ids, handback_seq: hb.seq ?? null, ...(at ? { at } : {}) } },
+    { type: "unblocked", data: { unit: unitId, cause: bootstrapOnly ? "code" : UNBLOCK_CAUSE, ...(bootstrapOnly ? { bootstrap_only: true } : {}), attempt: unit.attempt, reason: oneLine(reason, 400), units: ids, handback_seq: hb.seq ?? null, ...(at ? { at } : {}) } },
     ...ids.map((id) => ({ type: "unit_state", data: { unit: id, from: "blocked", to: restored.get(id), reason: "unblock" } })),
   ];
   return { state: next, events: planned, units: ids, restored: Object.fromEntries(restored), root: unit, handback: hb };
+}
+
+/** The full rejection text of the unit's current attempt (attempt-<n>.json), or null; the journal copy is truncated. */
+async function attemptReason(paths, unit, fs) {
+  if (!unit) return null;
+  try { return JSON.parse(await fs.readFile(path.join(paths.unitDir(unit.id), `attempt-${unit.attempt}.json`), "utf8"))?.reason ?? null; } catch { return null; }
 }
 
 /** Mark the newest pending hand-back entry of the unit in the decisions inbox (and its mirror) as resolved. Best effort. */
@@ -134,7 +158,7 @@ export async function applyUnblock(ctx, { unitId, reason }, deps = {}) {
   if (!state) throw err("INVALID_STATE", "no build state: nothing to unblock", { hint: "rebuild-state" });
   const { events } = await readJournal(paths.journalFile, deps);
   const at = nowIso(deps);
-  const plan = planUnblock({ state, events, unitId, reason, at });
+  const plan = planUnblock({ state, events, unitId, reason, at, rejectionText: await attemptReason(paths, findUnit(state, unitId), fs) });
   const unit = plan.root;
   const integrationRoot = path.resolve(project, state.integration.worktree);
 
@@ -183,8 +207,9 @@ export async function applyUnblock(ctx, { unitId, reason }, deps = {}) {
  * refuse before it takes the lease). Same refusals as {@link planUnblock}.
  */
 export async function checkUnblock({ project, state, unitId, reason }, deps = {}) {
-  const { events } = await readJournal(buildPaths(project, deps).journalFile, deps);
-  return planUnblock({ state, events, unitId, reason });
+  const paths = buildPaths(project, deps);
+  const { events } = await readJournal(paths.journalFile, deps);
+  return planUnblock({ state, events, unitId, reason, rejectionText: await attemptReason(paths, findUnit(state, unitId), deps.fs ?? fsp) });
 }
 
 /**

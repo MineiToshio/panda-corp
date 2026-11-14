@@ -1,5 +1,19 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-13 — Bootstrap-written files are not a worker's changes (BL-0318)
+
+**What:** `report` excludes modified bootstrap outputs (`.claude/launch.json`, `e2e/server-env.json`, `.env.local`) whose
+bytes still match the worktree's identity-bound bootstrap manifest; `worktree-sweep.mjs` exports the shared proof as
+`bootstrapOwnedUnchanged`. Plugin **10.4.4**.
+
+**Why:** funko-tracker run `br-2026-11-14-01` handed back 43 files of correct work as a code failure because the two
+bootstrap files showed as modified (their skip-worktree bit was lost) and fell outside the build allowlist. A worker edit,
+a missing or foreign manifest, or any non-bootstrap path still counts. `unblock` also lifts a `code` hand-back whose
+rejection reasons (from `attempt-<n>.json`) all name bootstrap files, so units already handed back by this bug recover at
+the same attempt. Canonical: [CLI reference](build-engine-cli.md)
+report checks, BUILD-8 in [build-engine.md](../../factory/standards/build-engine.md). Tests: `test-build-v2-report.mjs`
+BL-0318 cases.
+
 ## 2026-11-13 — No endless green G2 on a docs-only FRD (BL-0317)
 
 **What:** `frdsReadyForG2` no longer lets an integrated docs unit trigger G2; a green G2 with no build/patch/tests work

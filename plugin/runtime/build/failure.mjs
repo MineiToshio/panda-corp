@@ -21,7 +21,7 @@
 export { POLICY } from "./failure/common.mjs";
 export { buildEvidence, commitPlan, decideFailure, dependentsOf, envInfraStop, executionsUsed, planHandback, planRequeue } from "./failure/policy.mjs";
 export { handBack, handbackCommand } from "./failure/handback.mjs";
-export { UNBLOCK_CAUSE, UNBLOCK_NOTE, UNBLOCKABLE_KINDS, applyUnblock, checkUnblock, planUnblock, unblockCommand } from "./failure/unblock.mjs";
+export { UNBLOCK_CAUSE, UNBLOCK_NOTE, UNBLOCKABLE_KINDS, applyUnblock, checkUnblock, planUnblock, rejectionOnlyBootstrap, unblockCommand } from "./failure/unblock.mjs";
 export { applyUnitFailure, failUnit } from "./failure/unitFailure.mjs";
 export { doubtFromDiagnosis, openUnitDoubt } from "./failure/unitDoubt.mjs";
 export { engineFailureError, engineFault, handleEngineFailure, isEngineFault, withEngineRecovery } from "./failure/engineFailure.mjs";

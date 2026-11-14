@@ -13,6 +13,7 @@ import { frontmatterList, parseYamlSubset, setCardDocsSha, splitFrontmatter } fr
 import { applyUnitFailure, openUnitDoubt } from "./failure.mjs";
 import { loadSchema, sha256Hex, validate } from "./fsx.mjs";
 import { buildPaths } from "./paths.mjs";
+import { bootstrapOwnedUnchanged } from "../../scripts/worktree-sweep.mjs";
 import { fencedTwoPhase, findUnit, patchUnit } from "./state.mjs";
 import { emitEvent } from "./telemetry.mjs";
 import {
@@ -222,7 +223,11 @@ async function evaluateDone({ intent, deps }) {
   }
   const changes = [];
   const outside = [];
+  // BL-0318: bootstrap-generated wiring (.claude/launch.json, e2e/server-env.json, .env.local), unchanged since the
+  // bootstrap wrote it, is not the worker's change even when its skip-worktree bit was lost (it is never committed).
+  const bootstrapOwned = (deps.bootstrapOwnedUnchanged ?? bootstrapOwnedUnchanged)(worktree);
   for (const c of parseStatus(status.stdout)) {
+    if (c.status === "M" && bootstrapOwned.has(c.path)) continue;
     if (prefix && !c.path.startsWith(prefix)) outside.push(c.path);
     else changes.push({ rel: c.path.slice(prefix.length), status: c.status });
   }
