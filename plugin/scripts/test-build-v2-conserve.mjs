@@ -3,7 +3,7 @@
 // (a known reading at or above quota_conserve = 85 % used, 5-hour or weekly, and below the 90 % stop), reviews stay in the
 // author's company with a DIFFERENT model (Sol-built -> Astra, Astra-built -> Sol), builds keep the run label's company,
 // and no cross-company deferred re-review is queued. Run: node plugin/scripts/test-build-v2-conserve.mjs
-import { policy, QUOTA_CONSERVE_DEFAULT } from "../runtime/build/quota.mjs";
+import { effective, policy, QUOTA_CONSERVE_DEFAULT } from "../runtime/build/quota.mjs";
 import { builderCell, loadTiers, reviewCell } from "../runtime/build/routing.mjs";
 import { availabilityOf } from "../runtime/build/next/context.mjs";
 import { patchSupersedes } from "../runtime/build/next/harvest.mjs";
@@ -98,6 +98,29 @@ test("BL-0321: an integrated review-reopen patch supersedes the patching units o
   const patch = units[3];
   eq(patchSupersedes({ units }, patch, null), ["u-build-wo-01-017"], "same FRD + shared WO (case-insensitive) only");
   eq(patchSupersedes({ units }, patch, { fixes: ["u-build-wo-01-020", "u-patch-wo-01-017"] }), ["u-build-wo-01-020"], "a gate patch keeps its gate-failure.json list");
+});
+
+test("BL-0322: Sol + Astra authored and Claude out: Sol (the cell of the strongest author) reviews, same_model, never parked", () => {
+  const SOL_H = { runtime: "codex", model: "sol", effort: "high" };
+  for (const claude of ["quota", "conserve"]) {
+    const r = reviewCell({ authors: [SOL_H, ASTRA], kind: "frd", zone: "floor", availability: { claude, codex: "ok" } });
+    eq([cell(r.used), r.degraded, r.deferred, r.parked], [{ runtime: "codex", model: "sol", effort: "xhigh" }, "same_model", null, null], `Claude ${claude}`);
+    const rev = reviewCell({ authors: [ASTRA, SOL_H], kind: "frd", zone: "floor", availability: { claude, codex: "ok" } });
+    eq(cell(rev.used), cell(r.used), "author order does not change the reviewer");
+  }
+  eq(reviewCell({ authors: [SOL_H, ASTRA], kind: "frd", zone: "floor", availability: { claude: "unreachable", codex: "ok" } }).parked, "no_reviewer", "unreachable (not scarce) still parks");
+  eq(cell(reviewCell({ authors: [SOL_H, ASTRA], kind: "frd", zone: "floor", availability: { claude: "ok", codex: "ok" } }).used).runtime, "claude", "Claude with quota reviews");
+});
+
+test("BL-0322: a stale Claude reading at or above 85 % stays known until that window resets; below 85 % or past reset it is unknown", () => {
+  const now = Date.parse("2026-11-14T05:00:00Z");
+  const old = "2026-11-14T04:00:00Z"; const future = "2026-11-17T00:00:00Z"; const past = "2026-11-14T04:30:00Z";
+  const r = (weekly, wAt, fh = 11, fhAt = future) => ({ provider: "claude", status: "ok", five_hour_pct: fh, weekly_pct: weekly, five_hour_resets_at: fhAt, weekly_resets_at: wAt, observed_at: old });
+  eq(effective(r(91, future), now), { pct: 91, state: "known", needs_probe: false }, "91 % weekly, resets later");
+  eq(effective(r(91, past), now).state, "unknown", "the window already reset");
+  eq(effective(r(91, null), now).state, "unknown", "no resets_at: cannot prove it");
+  eq(effective(r(60, future), now).state, "unknown", "below 85 % a stale reading is unknown as before");
+  eq(effective({ ...r(91, future), observed_at: "2026-11-14T04:58:00Z" }, now).pct, 91, "fresh readings unchanged");
 });
 
 console.log(`RESULT: ${passed} passed, ${failed} failed`);

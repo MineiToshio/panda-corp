@@ -1,5 +1,12 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-13 — All-Codex mixed reviews and sticky high Claude readings (BL-0322)
+
+**What:** a diff authored by Sol and Astra with Claude out is reviewed by the strongest author's cell (Sol for Astra's
+lines), `same_model`, never parked; a Claude window at or above 85 % stays known until its `resets_at`. Plugin **10.7.0**.
+
+**Why:** funko-tracker `br-2026-11-14-01` parked its re-review, and an expired 91 % reading sent a review to Claude. DR-161.
+
 ## 2026-11-13 — Review-reopen patches return to G2; reviews below 15 % left never park (BL-0321)
 
 **What:** `patchSupersedes` restores the `patching` units a review-reopen patch supersedes (only gate patches were

@@ -347,6 +347,9 @@ Effort cells are extrapolated from calibration and fixed until phase D.
   fallback cell), `degraded: conserve`, with no deferred re-review. Builds keep the run label's company.
   The same review rule applies when that company is out of quota (≥90 %, also less than 15 % left): the
   `on_conserve` cell, `degraded: quota_90`, no deferred re-review, never `park` for rows 12, 13 and 15 (BL-0321).
+  When every author model of one company would be the reviewer (Sol and Astra both authored) and the other
+  company is conserved or out, the cell of the strongest author reviews (Sol for Astra's lines), recorded
+  `same_model`, no deferred re-review (BL-0322).
 - Degradations made under `drive` are labelled `quota_90`.
 - Sol answering "at capacity": resume the same Codex session id once (LESSON-0612); if it repeats,
   astra high with `degraded: at_capacity`.
@@ -437,7 +440,8 @@ knowledge for `--files`) and returns
   runs one minimal `codex exec` probe (≈20k input tokens) and re-reads.
 - Claude: the session calls Desktop `get_usage` (5 h and weekly) at start and at every safe point and
   stores it with `quota record`. Older than 10 min, or `unavailable` (terminal Claude Code, `drive`),
-  = unknown.
+  = unknown, except a window at or above `quota_conserve` (85 %) with a future `resets_at`: usage only rises
+  within a window, so it stays known until that reset (BL-0322; record the `--*-resets-at` flags).
 - Unknown → reactive only: the single limit detector (`classifyLimitText`, the union of every existing
   limit pattern, copied, not imported) on worker and report output.
 

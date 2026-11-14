@@ -241,7 +241,16 @@ export function createRouter(tiers) {
     const strength = (c) => MODEL_STRENGTH[c.model] * 10 + RANK.indexOf(c.effort);
     const candidates = results.filter((r) => r.used && (r.degraded === "same_model" || !authorCells.some((a) => sameModel(a, r.used))));
     const strictestPrimary = results.reduce((best, r) => (strength(r.primary) > strength(best.primary) ? r : best));
-    if (candidates.length === 0) return { ...strictestPrimary, used: null, degraded: null, deferred: null, parked: "no_reviewer" };
+    if (candidates.length === 0) {
+      // BL-0322 (DR-161): every model of one company authored and the other company has < 15 % left: the cell of the
+      // STRONGEST author reviews (Astra's lines by Sol), same_model on the rest, no deferred re-review, never parked.
+      const companies = new Set(authorCells.map((a) => a.runtime));
+      const scarce = companies.size === 1 && ["quota", "conserve"].includes(availability[other([...companies][0])]);
+      const strongestIdx = authorCells.reduce((bi, a, i) => ((MODEL_STRENGTH[a.model] ?? 0) > (MODEL_STRENGTH[authorCells[bi].model] ?? 0) ? i : bi), 0);
+      const pickR = results[strongestIdx];
+      if (scarce && pickR.used) return { ...pickR, degraded: "same_model", deferred: null, parked: null };
+      return { ...strictestPrimary, used: null, degraded: null, deferred: null, parked: "no_reviewer" };
+    }
     return candidates.reduce((best, r) => (strength(r.used) > strength(best.used) ? r : best));
   };
 

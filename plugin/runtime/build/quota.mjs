@@ -372,8 +372,14 @@ export function effective(reading, now, { thresholds, deps } = {}) {
   if (reading.provider === "claude") {
     const pcts = [reading.five_hour_pct, reading.weekly_pct].filter((v) => Number.isFinite(v));
     const fresh = Number.isFinite(ageMs) && ageMs <= limits.claude_reading_max_age_s * 1000;
-    if (reading.status !== "ok" || !pcts.length || !fresh) return { ...UNKNOWN };
-    return { pct: Math.max(...pcts), state: "known", needs_probe: false };
+    if (reading.status !== "ok" || !pcts.length) return { ...UNKNOWN };
+    if (fresh) return { pct: Math.max(...pcts), state: "known", needs_probe: false };
+    // BL-0322: usage only rises within a window, so a window at or above quota_conserve stays known until its resets_at.
+    const conserveAt = Number.isFinite(limits.quota_conserve) ? limits.quota_conserve : QUOTA_CONSERVE_DEFAULT;
+    const sticky = [[reading.five_hour_pct, reading.five_hour_resets_at], [reading.weekly_pct, reading.weekly_resets_at]]
+      .filter(([pct, at]) => Number.isFinite(pct) && pct >= conserveAt && Date.parse(at) > nowMs).map(([pct]) => pct);
+    if (!sticky.length) return { ...UNKNOWN };
+    return { pct: Math.max(...sticky), state: "known", needs_probe: false };
   }
   if (reading.provider === "codex") {
     if (reading.state !== "known" || !Number.isFinite(reading.used_percent)) return { ...UNKNOWN };

@@ -875,7 +875,7 @@ readCodexQuota({codexHome, now})
 recordClaude({five_hour_pct, weekly_pct, five_hour_resets_at, weekly_resets_at, status}, {now, file}) -> reading
   (persists quota.json at `file`; journals quota_reading only with an epoch)
 effective(reading, now) -> {pct|null, state:"known|unknown", needs_probe:bool}
-  claude: known iff age <= claude_reading_max_age_s; codex: known until resets_at;
+  claude: known iff age <= claude_reading_max_age_s, or a window >= quota_conserve whose resets_at is in the future (BL-0322); codex: known until resets_at;
   needs_probe iff age > codex_probe_age_s and pct >= codex_probe_min_pct
 probeCodex({exec}) -> minimal codex exec (~20k input tokens), preflight only, then readCodexQuota
 classifyLimitText(text) -> "usage_limit" | "rate_limit" | null
