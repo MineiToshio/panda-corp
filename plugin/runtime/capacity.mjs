@@ -15,8 +15,21 @@ const PRIORS = {
   "opus/low": [2, 0.5], "opus/medium": [3, 0.75], images: [4, 1],
 };
 const iso = ms => new Date(ms).toISOString();
-const timestamp = value => typeof value === "number" ? value : value instanceof Date ? value.getTime() :
-  typeof value === "string" && value.trim() ? Date.parse(value) : NaN;
+// Accept only calendar-valid ISO instants with an explicit zone; Date.parse alone rolls invalid days.
+function timestamp(value) {
+  if (typeof value === "number") return value;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value !== "string") return NaN;
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/.exec(value);
+  if (!m) return NaN;
+  const [, year, month, day, hour, minute, second, zone] = m;
+  const y = Number(year), mo = Number(month), d = Number(day);
+  const leap = y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (mo < 1 || mo > 12 || d < 1 || d > days[mo - 1] || Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59 ||
+      zone !== "Z" && (Number(zone.slice(1, 3)) > 23 || Number(zone.slice(4)) > 59)) return NaN;
+  return Date.parse(value);
+}
 const resetTime = value => typeof value === "number" ? timestamp(value < 1e12 ? value * 1000 : value) : timestamp(value);
 const validTime = value => Number.isFinite(value) && Math.abs(value) <= 8.64e15;
 const clock = value => {
@@ -29,27 +42,36 @@ const naCodex = () => ({ ...emptyWindow("five_hour", "not_applicable"), reason: 
 const unknown = (tool, reason) => ({ schema: 1, tool, source: tool === "codex" ? "codex_rollout" : "get_usage",
   state: "unknown", reason, observedAt: null, ageSeconds: null,
   windows: tool === "codex" ? [naCodex(), emptyWindow("weekly")] : [emptyWindow("five_hour"), emptyWindow("weekly")] });
-const relevant = windows => windows.filter(w => w.scope === "all");
+const relevant = (windows, model) => windows.filter(w => w.scope === "all" || model && w.scope === `model:${model}`);
 
 function assess(reading, now) {
   const ms = clock(now), observed = timestamp(reading.observedAt);
-  let reason = reading.state === "unknown" ? reading.reason : null;
+  // Window-level failures can be re-assessed without discarding independent, still-current constraints.
+  const windowReasons = ["expired_reset", "missing_window", "invalid_window", "conflicting_windows"];
+  let reason = reading.state === "unknown" && !windowReasons.includes(reading.reason) ? reading.reason : null;
   if (!validTime(observed) || observed > ms + 30000) reason ??= "invalid_timestamp";
   else if (reading.source !== "usage_limit" && (ms - observed) / 1000 > TTL[reading.tool]) reason ??= "stale_reading";
-  const windows = relevant(reading.windows);
+  const observationValid = !reason;
   const required = reading.tool === "claude" ? ["five_hour", "weekly"] : ["weekly"];
-  if (required.some(id => !windows.some(w => w.id === id && w.applicability === "required"))) reason ??= "missing_window";
-  const seen = new Map();
-  for (const w of windows) {
-    if (w.applicability === "not_applicable" && reading.tool === "codex" && w.id === "five_hour") continue;
-    if (w.applicability !== "required" || !Number.isFinite(w.percentUsed) || w.percentUsed < 0 || w.percentUsed > 100 ||
-        !validTime(timestamp(w.resetsAt))) reason ??= "invalid_window";
-    else if (timestamp(w.resetsAt) <= ms) reason ??= "expired_reset";
+  if (required.some(id => !relevant(reading.windows).some(w => w.id === id && w.applicability === "required"))) reason ??= "missing_window";
+  const conflicts = new Set(), seen = new Map();
+  for (const w of reading.windows) {
     const key = `${w.scope}/${w.id}`, previous = seen.get(key);
-    if (previous && (previous.percentUsed !== w.percentUsed || previous.resetsAt !== w.resetsAt)) reason ??= "conflicting_windows";
+    if (previous && (previous.percentUsed !== w.percentUsed || timestamp(previous.resetsAt) !== timestamp(w.resetsAt))) conflicts.add(key);
     seen.set(key, w);
   }
-  return { ...reading, state: reason ? "unknown" : "known", reason: reason || "fresh_reading",
+  const windows = reading.windows.map(w => {
+    if (w.applicability === "not_applicable" && reading.tool === "codex" && w.id === "five_hour") return { ...w };
+    let failure = null;
+    if (w.applicability !== "required" || !Number.isFinite(w.percentUsed) || w.percentUsed < 0 || w.percentUsed > 100 ||
+        !validTime(timestamp(w.resetsAt))) failure = "invalid_window";
+    else if (conflicts.has(`${w.scope}/${w.id}`)) failure = "conflicting_windows";
+    else if (timestamp(w.resetsAt) <= ms) failure = "expired_reset";
+    reason ??= failure;
+    return { ...w, state: observationValid && !failure ? "known" : "unknown",
+      reason: failure === "expired_reset" ? "reset_pending_confirmation" : failure || (observationValid ? "fresh_window" : reason) };
+  });
+  return { ...reading, windows, state: reason ? "unknown" : "known", reason: reason || "fresh_reading",
     ageSeconds: validTime(observed) ? Math.max(0, (ms - observed) / 1000) : null };
 }
 
@@ -73,7 +95,10 @@ export function normalizeClaudeUsage(json, now) {
     const label = typeof w?.label === "string" ? w.label.trim().toLowerCase() : "";
     if (label === "5-hour limit") windows.push(window("five_hour", w.percentUsed, w.resetsAt));
     else if (label === "weekly · all models") windows.push(window("weekly", w.percentUsed, w.resetsAt));
-    else if (label.startsWith("weekly · ")) windows.push(window("weekly", w.percentUsed, w.resetsAt, `model:${label.slice(9).trim()}`));
+    else if (/^(weekly|5-hour limit) · .+/.test(label)) {
+      const [duration, model] = label.split(" · ");
+      windows.push(window(duration === "weekly" ? "weekly" : "five_hour", w.percentUsed, w.resetsAt, model === "all models" ? "all" : `model:${model}`));
+    }
     else return unknown("claude", "unrecognized_window");
   }
   const status = json.status ?? plan.status ?? "ok";
@@ -97,7 +122,7 @@ export function normalizeCodexRateLimits(event, now) {
     const minutes = raw.window_minutes;
     if (!Number.isFinite(minutes) || minutes <= 0) return unknown("codex", "invalid_window_duration");
     windows.push(window(minutes === 10080 ? "weekly" : minutes === 300 ? "five_hour" : `other:${minutes}`,
-      raw.used_percent, raw.resets_at));
+      raw.used_percent, raw.resets_at, raw.scope ?? (raw.model ? `model:${raw.model}` : "all")));
   }
   if (!windows.some(w => w.id === "five_hour")) windows.unshift(naCodex());
   const wrongBucket = limits.limit_id != null && limits.limit_id !== "codex";
@@ -132,10 +157,12 @@ export function readCodexFromRolloutsSync(dir, now) {
       try {
         handle = fs.openSync(file, "r");
         const { size } = fs.fstatSync(handle), start = Math.max(0, size - TAIL_BYTES);
-        const buffer = Buffer.alloc(Math.min(size, TAIL_BYTES));
-        const bytesRead = fs.readSync(handle, buffer, 0, buffer.length, start);
-        const lines = buffer.subarray(0, bytesRead).toString("utf8").split("\n");
-        if (start) lines.shift();
+        // Include the preceding byte to distinguish a full boundary record from a partial one.
+        const readStart = start ? start - 1 : 0;
+        const buffer = Buffer.alloc(size - readStart);
+        const bytesRead = fs.readSync(handle, buffer, 0, buffer.length, readStart);
+        const lines = buffer.subarray(start ? 1 : 0, bytesRead).toString("utf8").split("\n");
+        if (start && buffer[0] !== 10) lines.shift();
         for (const line of lines) {
           if (!line.includes('"rate_limits"')) continue;
           let event;
@@ -184,23 +211,24 @@ function validateCosts(costs) {
 }
 
 function fit(reading, cell, type, imageReserve, costs, pinned) {
-  if (reading.state === "unknown") return { fits: true, resets: [] };
   const key = type === "images" ? "images" : `${cell.model}/${cell.effort}`;
   const prior = costs[key] ?? { five_hour: PRIORS[key][0], weekly: PRIORS[key][1] };
-  const blocked = relevant(reading.windows).filter(w => {
-    if (w.applicability === "not_applicable") return false;
-    if (pinned) return w.percentUsed >= 100;
+  const blocked = relevant(reading.windows, cell.model).filter(w => {
+    if (w.applicability === "not_applicable" || w.state !== "known") return false;
     const reserve = 2 + (cell.tool === "codex" && type !== "images" && w.id === "weekly" ? imageReserve : 0);
-    const cost = prior[w.id] ?? 100;
+    const cost = pinned ? 0 : prior[w.id] ?? 100;
     return w.percentUsed >= 100 || cost > 100 - w.percentUsed - reserve + 1e-10;
   });
-  return { fits: blocked.length === 0, resets: blocked.map(w => timestamp(w.resetsAt)) };
+  const required = reading.tool === "claude" ? ["five_hour", "weekly"] : ["weekly"];
+  const known = required.every(id => reading.windows.some(w => w.scope === "all" && w.id === id && w.state === "known")) &&
+    relevant(reading.windows, cell.model).every(w => w.applicability === "not_applicable" || w.state === "known");
+  return { fits: blocked.length === 0, known, resets: blocked.map(w => timestamp(w.resetsAt)) };
 }
 
 /** Decide one task without IO, mutation or model calls. Inputs are normalized schema-1 readings.
- * Pins use catalog keys (opus/sol/astra/luna/sonnet/haiku); only a fresh 100% limit pauses a pin.
+ * Pins use catalog keys (opus/sol/astra/luna/sonnet/haiku), preserve risk floors and mandatory reserves.
  * @param {object} input
- * @param {{id:string,type:string,risk?:string,override?:string|object,pin?:object,imageDemandPp?:number}} input.task
+ * @param {{id:string,type:string,risk?:string,override?:string|object,pin?:object,imageDemandPp?:number}} input.task Risk defaults to normal for images, critical otherwise.
  * @param {{claude?:object,codex?:object}} [input.readings] Cached readings retain their observedAt.
  * @param {string|number|Date} input.now Injected clock.
  * @param {Object<string,{five_hour:number,weekly:number}>} [input.costs] Overrides, keyed model/effort or images.
@@ -209,7 +237,7 @@ function fit(reading, cell, type, imageReserve, costs, pinned) {
 export function decide({ task, readings = {}, now, costs = {} }) {
   const ms = clock(now);
   if (!task || typeof task.id !== "string" || !task.id || !TYPES.includes(task.type)) throw new TypeError("Invalid task id/type");
-  const risk = task.risk ?? "critical", type = task.type === "image" ? "images" : task.type;
+  const type = task.type === "image" ? "images" : task.type, risk = task.risk ?? (type === "images" ? "normal" : "critical");
   if (!["normal", "delicate", "critical"].includes(risk) || type === "images" && risk !== "normal") {
     throw new TypeError("Invalid risk; image risk assessment must be a separate task");
   }
@@ -225,32 +253,42 @@ export function decide({ task, readings = {}, now, costs = {} }) {
   if (override && (!TOOLS.includes(override.tool) || type === "images" && override.tool !== "codex")) throw new TypeError("Invalid tool override");
   if (task.pin) {
     validateCell(task.pin);
+    const { model, effort } = task.pin;
+    const critical = cellFor("implement", "critical", task.pin.tool);
+    const delicate = cellFor("implement", "delicate", task.pin.tool);
+    if (risk === "critical" && (model !== critical.model || effort !== critical.effort) ||
+        risk === "delicate" && (![delicate.model, critical.model].includes(model) || ![delicate.effort, critical.effort].includes(effort))) {
+      throw new TypeError("Pin is below the task's risk floor");
+    }
+    if (override && (override.tool !== task.pin.tool || override.model !== undefined && override.model !== model ||
+        override.effort !== undefined && override.effort !== effort)) throw new TypeError("Pin conflicts with explicit override");
     if (type === "images" && (task.pin.tool !== "codex" || task.pin.model !== "sol" || task.pin.effort !== "low")) throw new TypeError("Images require Codex Sol low");
   }
   const tools = task.pin ? [task.pin.tool] : override ? [override.tool] : type === "images" ? ["codex"] : [preferred, TOOLS.find(t => t !== preferred)];
   const candidates = tools.map(tool => {
     const cell = task.pin ? { tool, model: task.pin.model, effort: task.pin.effort } : cellFor(type, risk, tool);
-    if (!task.pin && override && (override.model && override.model !== cell.model || override.effort && override.effort !== cell.effort)) {
+    if (!task.pin && override && (override.model !== undefined && override.model !== cell.model || override.effort !== undefined && override.effort !== cell.effort)) {
       throw new TypeError("Override must preserve the task's qualified cell and risk floor");
     }
     return { cell, reading: readings_used[tool], ...fit(readings_used[tool], cell, type, Math.min(8, Math.max(2, demand)), costs, !!task.pin) };
   });
   let viable = candidates.filter(c => c.fits), reason = task.pin ? "pinned_task" : override ? "explicit_override" : "preferred_tool";
   if (!task.pin && !override && viable.length) {
-    const known = viable.filter(c => c.reading.state === "known");
+    const known = viable.filter(c => c.known);
     if (known.length) viable = known;
-    if (viable[0].cell.tool !== preferred) reason = candidates[0].reading.state === "unknown" ? "healthy_reading_preferred" : "preferred_tool_unavailable";
-    if (viable.length > 1 && viable[0].reading.state === "known" && relevant(viable[0].reading.windows).some(w => w.applicability === "required" && w.percentUsed > 85)) {
+    if (viable[0].cell.tool !== preferred) reason = !candidates[0].known ? "healthy_reading_preferred" : "preferred_tool_unavailable";
+    if (viable.length > 1 && viable[0].known && relevant(viable[0].reading.windows, viable[0].cell.model).some(w => w.applicability === "required" && w.percentUsed > 85)) {
       viable.reverse(); reason = "preferred_tool_over_85";
     }
-    if (viable[0].reading.state === "unknown") reason = "unknown_reading_last_resort";
+    if (!viable[0].known) reason = "unknown_reading_last_resort";
   }
   if (viable.length) {
     const pin = { ...viable[0].cell };
     return { action: "run", ...pin, pin, reason, readings_used };
   }
   const fixed = candidates.length === 1 ? candidates[0].cell : { tool: null, model: null, effort: null };
-  const resets = candidates.flatMap(c => c.resets).filter(t => t > ms);
+  // A cell fits only after ALL its blocking windows reset; then choose the first eligible cell.
+  const resets = candidates.map(c => c.resets.filter(t => t > ms)).filter(ts => ts.length).map(ts => Math.max(...ts));
   return { action: "wait", ...fixed, ...(task.pin ? { pin: { ...fixed } } : {}),
     reason: task.pin ? "pinned_tool_exhausted" : "no_tool_fits", resumeAt: iso(resets.length ? Math.min(...resets) : ms + 60000), readings_used };
 }
@@ -308,7 +346,7 @@ export function readCapacity({ env = process.env, now = env.PANDACORP_NOW ?? new
   if (storedCodex && (!readings.codex?.observedAt || timestamp(storedCodex.observedAt) > timestamp(readings.codex.observedAt))) readings.codex = storedCodex;
   for (const tool of TOOLS) {
     const limit = readCapacitySnapshot(`${tool}-limit`, { env });
-    if (limit && Array.isArray(limit.windows) && relevant(limit.windows).some(w => timestamp(w.resetsAt) > clock(now)) &&
+    if (limit && Array.isArray(limit.windows) &&
         (!readings[tool]?.observedAt || timestamp(limit.observedAt) >= timestamp(readings[tool].observedAt))) readings[tool] = limit;
   }
   return readings;

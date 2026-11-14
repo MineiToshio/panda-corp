@@ -43,7 +43,10 @@ ejecuciones de build y patch gastan el presupuesto de tres intentos por unidad.
 El cupo se comparte por cuenta. Si una herramienta no tiene margen, la siguiente unidad pasa a la otra;
 una unidad en curso conserva su herramienta. Solo si ninguna puede trabajar, el run se aparca con
 `resumeAt`. El lead actualiza `get_usage` antes de cada ola y no pregunta al propietario por cupos.
-La reanudación automática corresponde a la fase 3.
+La selección fija respeta el piso de riesgo y las reservas: si deja de caber, espera solo esa tarea,
+sin cambiarla de herramienta en curso. Un reset vencido queda pendiente de confirmar y no borra otros
+límites vigentes. `resumeAt` indica cuándo podría caber alguna celda apta tras todos sus resets bloqueantes;
+la reanudación requiere otra lectura. La reanudación automática corresponde a la fase 3.
 
 Las preguntas iniciales incluyen sus valores por defecto. Una duda posterior se consulta;
 si no puede resolverse dentro del alcance autorizado, la unidad y sus dependientes se aparcan

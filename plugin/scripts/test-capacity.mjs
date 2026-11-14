@@ -56,9 +56,9 @@ await test("exhausted Codex waits only its image; implementation continues on Cl
   cell(decide("review", readings(20, 100)), "claude", "opus", "low");
   cell(decide("mechanical", readings(20, 100)), "claude", "haiku", "low");
 });
-await test("both exhausted wake at the nearest blocking reset, without inventing a balance", () => {
+await test("both exhausted resume at the first cell whose blocking windows all reset", () => {
   const d = decide("design", readings(100, 100, 100));
-  assert.equal(d.action, "wait"); assert.equal(d.resumeAt, C5);
+  assert.equal(d.action, "wait"); assert.equal(d.resumeAt, CW);
 });
 await test("risk is a transversal floor even for mechanical work", () => {
   cell(decide("mechanical", readings(), { risk: "delicate" }), "codex", "sol", "medium");
@@ -140,7 +140,7 @@ await test("explicit overrides constrain tool and cannot downgrade risk or enabl
 await test("pins survive pressure, changed task metadata and unknown readings", () => {
   const pin = { tool: "claude", model: "opus", effort: "high" };
   cell(decide("design", readings(94, 30), { pin }), "claude", "opus", "high");
-  cell(decide("design", readings(99.9, 30), { pin }), "claude", "opus", "high");
+  assert.equal(decide("design", readings(99.9, 30), { pin }).action, "wait");
   cell(decide("implement", {}, { pin }), "claude", "opus", "high");
   const d = decide("design", readings(100, 30), { pin });
   assert.equal(d.action, "wait"); assert.equal(d.resumeAt, CW); assert.deepEqual(d.pin, pin);
@@ -177,9 +177,133 @@ await test("decisions are deterministic, pure, explainable and never automatical
   assert.throws(() => decide("unknown"));
 });
 
+// Review P1 regressions: each finding has an independent contract-level reproduction.
+await test("R1: pins cannot lower either risk floor, including changed metadata", () => {
+  for (const risk of ["delicate", "critical"]) for (const pin of [
+    { tool: "codex", model: "luna", effort: "low" }, { tool: "claude", model: "haiku", effort: "low" },
+  ]) assert.throws(() => decide("mechanical", readings(), { risk, pin }), /risk floor/i);
+  assert.throws(() => decide("implement", readings(), { risk: "critical", pin: { tool: "codex", model: "sol", effort: "high" } }), /risk floor/i);
+  assert.throws(() => decide("implement", readings(), { risk: "critical", pin: { tool: "claude", model: "opus", effort: "low" } }), /risk floor/i);
+  cell(decide("implement", readings(), { risk: "critical", pin: { tool: "codex", model: "astra", effort: "high" } }), "codex", "astra", "high");
+});
+await test("R2: a pin cannot silently ignore explicit tool/model/effort overrides", () => {
+  const pin = { tool: "codex", model: "sol", effort: "low" };
+  for (const override of ["claude", { tool: "claude" }, { tool: "codex", model: "astra" }, { tool: "codex", effort: "high" }]) {
+    assert.throws(() => decide("implement", readings(), { pin, override }), /conflict/i);
+  }
+  cell(decide("implement", readings(), { pin, override: { ...pin } }), "codex", "sol", "low");
+  for (const override of [{ tool: "codex", model: "" }, { tool: "codex", effort: null }]) {
+    assert.throws(() => decide("implement", readings(), { pin, override }), /conflict/i);
+    assert.throws(() => decide("implement", readings(), { override }), /qualified cell/i);
+  }
+});
+await test("R3a: pinned implementation preserves image reserves and waits on its own tool", () => {
+  const pin = { tool: "codex", model: "sol", effort: "low" };
+  const d = decide("implement", readings(20, 91), { imageDemandPp: 8, pin });
+  assert.equal(d.action, "wait"); assert.deepEqual(d.pin, pin); assert.equal(d.resumeAt, XW);
+  cell(decide("implement", readings(20, 90), { imageDemandPp: 8, pin }), "codex", "sol", "low");
+});
+await test("R3b: pinned images cannot spend emergency capacity", () => {
+  const pin = { tool: "codex", model: "sol", effort: "low" };
+  const d = decide("images", readings(20, 99.9), { pin });
+  assert.equal(d.action, "wait"); assert.deepEqual(d.pin, pin); assert.equal(d.resumeAt, XW);
+});
+await test("R4a: an expired five-hour reset cannot erase live weekly exhaustion", () => {
+  const raw = usage(100, 100); raw.plan.windows[0].resetsAt = NOW;
+  const r = mod.normalizeClaudeUsage(raw, NOW);
+  const d = decide("design", { claude: r, codex: codex(100) });
+  assert.equal(d.action, "wait"); assert.equal(d.resumeAt, CW);
+  assert.equal(d.readings_used.claude.windows.find(w => w.id === "weekly" && w.scope === "all").percentUsed, 100);
+});
+await test("R4b: expired reset is pending confirmation, retains percent and loses to fresh quota", () => {
+  const event = structuredClone(fixture); event.payload.rate_limits.primary.resets_at = ms / 1000;
+  const r = mod.normalizeCodexRateLimits(event, NOW);
+  assert.equal(r.state, "unknown");
+  const w = r.windows.find(w => w.id === "weekly");
+  assert.equal(w.percentUsed, 30); assert.equal(w.state, "unknown"); assert.equal(w.reason, "reset_pending_confirmation");
+  cell(decide("implement", { claude: readings().claude, codex: r }), "claude", "sonnet", "medium");
+  cell(decide("implement", { claude: readings(100).claude, codex: r }), "codex", "sol", "low");
+});
+await test("R6a: model-specific Claude quota blocks only the selected model", () => {
+  const raw = usage(); raw.plan.windows.push({ label: "Weekly · Opus", percentUsed: 100, resetsAt: CW });
+  const rs = { claude: mod.normalizeClaudeUsage(raw, NOW), codex: codex() };
+  cell(decide("design", rs), "codex", "sol", "high");
+  cell(decide("implement", rs, { override: "claude" }), "claude", "sonnet", "medium");
+  assert.equal(decide("design", rs, { override: "claude" }).resumeAt, CW);
+  raw.plan.windows.at(-1).percentUsed = 20;
+  raw.plan.windows.find(w => w.label === "Weekly · Fable").resetsAt = NOW;
+  cell(decide("design", { claude: mod.normalizeClaudeUsage(raw, NOW), codex: codex() }), "claude", "opus", "high");
+});
+await test("R6b: model-scoped windows apply to pinned cells and pressure", () => {
+  const raw = usage(); raw.plan.windows.push({ label: "Weekly · Opus", percentUsed: 86, resetsAt: CW });
+  cell(decide("design", { claude: mod.normalizeClaudeUsage(raw, NOW), codex: codex() }), "codex", "sol", "high");
+  raw.plan.windows.at(-1).percentUsed = 100;
+  assert.equal(decide("design", { claude: mod.normalizeClaudeUsage(raw, NOW), codex: codex() }, { pin: { tool: "claude", model: "opus", effort: "high" } }).action, "wait");
+});
+await test("R8: resumeAt is min of each cell's final blocking reset", () => {
+  const rs = readings(100, 100, 100);
+  assert.equal(decide("design", rs).resumeAt, CW);
+  rs.codex.windows.find(w => w.id === "weekly").resetsAt = C5;
+  assert.equal(decide("design", rs).resumeAt, C5);
+  assert.equal(decide("design", rs, { pin: { tool: "claude", model: "opus", effort: "high" } }).resumeAt, CW);
+});
+await test("R9a: timestamps require explicit zones, independent of process timezone", () => {
+  for (const timestamp of ["2026-11-14T16:00:00", "2026-11-14", "2026-11-14 16:00:00Z"]) {
+    assert.equal(mod.normalizeCodexRateLimits({ ...fixture, timestamp }, NOW).state, "unknown");
+  }
+  for (const TZ of ["UTC", "America/Lima"]) {
+    const script = `import {normalizeCodexRateLimits as n} from './plugin/runtime/capacity.mjs'; console.log(n(${JSON.stringify({ ...fixture, timestamp: "2026-11-14T16:00:00" })}, ${JSON.stringify(NOW)}).state);`;
+    const r = spawnSync(process.execPath, ["--input-type=module", "-e", script], { cwd: fileURLToPath(new URL("../../", import.meta.url)), env: { ...process.env, TZ }, encoding: "utf8" });
+    assert.equal(r.status, 0, r.stderr); assert.equal(r.stdout.trim(), "unknown");
+  }
+});
+await test("R9b: impossible reset dates and offsets are rejected, leap days accepted", () => {
+  for (const reset of ["2027-02-30T00:00:00Z", "2026-02-29T00:00:00Z", "2026-11-31T00:00:00-05:00", "2027-01-01T24:00:00Z", "2027-01-01T00:00:00+25:00"]) {
+    const e = structuredClone(fixture); e.payload.rate_limits.primary.resets_at = reset;
+    assert.equal(mod.normalizeCodexRateLimits(e, NOW).state, "unknown", reset);
+  }
+  const e = structuredClone(fixture); e.payload.rate_limits.primary.resets_at = "2028-02-29T00:00:00Z";
+  assert.equal(mod.normalizeCodexRateLimits(e, NOW).state, "known");
+});
+await test("R10: image and images default omitted risk to normal", () => {
+  for (const type of ["images", "image"]) {
+    cell(mod.decide({ task: { id: "bare-image", type }, readings: readings(), now: NOW }), "codex", "sol", "low");
+    assert.throws(() => decide(type, readings(), { risk: "critical" }));
+  }
+});
+
 const sandboxRoot = fileURLToPath(new URL("../../", import.meta.url));
 const dir = await mkdtemp(path.join(sandboxRoot, ".capacity-test-"));
 try {
+  await test("R5: empty/malformed Claude telemetry stays unknown; CLI still decides", async () => {
+    const cli = fileURLToPath(new URL("../runtime/capacity-cli.mjs", import.meta.url));
+    for (const input of ["", "{bad"]) {
+      const r = spawnSync(process.execPath, [cli, "decide", "--task", '{"id":"t","type":"design","risk":"normal"}', "--claude-usage-stdin"], {
+        input, encoding: "utf8", env: { ...process.env, CODEX_HOME: path.join(dir, "absent"), PANDACORP_CAPACITY_DIR: path.join(dir, "empty-cli"), PANDACORP_NOW: NOW },
+      });
+      assert.equal(r.status, 0, r.stderr); const d = JSON.parse(r.stdout);
+      cell(d, "claude", "opus", "high"); assert.equal(d.readings_used.claude.state, "unknown");
+      assert.equal(d.readings_used.claude.reason, input ? "invalid_usage_json" : "missing_usage");
+    }
+  });
+  await test("R7: tail aligned exactly after newline retains the complete newest event", async () => {
+    const tailDir = path.join(dir, "tail-boundary"); await mkdir(tailDir);
+    const event = structuredClone(fixture); event.timestamp = NOW; event.payload.rate_limits.primary.used_percent = 100;
+    const head = JSON.stringify(event) + "\n", tail = head + JSON.stringify({ padding: "x".repeat(262144 - Buffer.byteLength(head) - 15) }) + "\n";
+    assert.equal(Buffer.byteLength(tail), 262144);
+    await writeFile(path.join(tailDir, "rollout-new.jsonl"), "{}\n" + tail);
+    await writeFile(path.join(tailDir, "rollout-old.jsonl"), JSON.stringify(fixture));
+    const r = await mod.readCodexFromRollouts(tailDir, NOW);
+    assert.equal(r.observedAt, NOW); assert.equal(r.windows.find(w => w.id === "weekly").percentUsed, 100);
+  });
+  await test("R9c: rollout timestamps are ordered by parsed instant across explicit offsets", async () => {
+    const offsetDir = path.join(dir, "offsets"); await mkdir(offsetDir);
+    const a = structuredClone(fixture); a.timestamp = "2026-11-14T16:05:00Z";
+    const b = structuredClone(fixture); b.timestamp = "2026-11-14T11:06:00-05:00"; b.payload.rate_limits.primary.used_percent = 42;
+    await writeFile(path.join(offsetDir, "rollout-offset.jsonl"), [JSON.stringify(b), JSON.stringify(a)].join("\n"));
+    const r = await mod.readCodexFromRollouts(offsetDir, NOW);
+    assert.equal(Date.parse(r.observedAt), Date.parse(b.timestamp)); assert.equal(r.windows.find(w => w.id === "weekly").percentUsed, 42);
+  });
   await test("rollout reader chooses event time across files/lines, not mtime, and skips broken JSON", async () => {
     const nested = path.join(dir, "sessions", "2026", "11", "14"); await mkdir(nested, { recursive: true });
     const old = { ...fixture, timestamp: "2026-11-14T16:05:00Z" };
@@ -201,6 +325,43 @@ try {
     await writeFile(path.join(conflictDir, "rollout-conflict.jsonl"), [JSON.stringify(fixture), JSON.stringify(conflict)].join("\n"));
     const r = await mod.readCodexFromRollouts(conflictDir, NOW);
     assert.equal(r.state, "unknown"); assert.equal(r.reason, "conflicting_events");
+  });
+  await test("R2 CLI: --only cannot conflict with an existing execution pin", () => {
+    const cli = fileURLToPath(new URL("../runtime/capacity-cli.mjs", import.meta.url));
+    const task = { id: "conflict", type: "implement", risk: "normal", pin: { tool: "codex", model: "sol", effort: "low" } };
+    const r = spawnSync(process.execPath, [cli, "decide", "--task", JSON.stringify(task), "--only", "claude"], {
+      encoding: "utf8", env: { ...process.env, CODEX_HOME: path.join(dir, "absent"), PANDACORP_CAPACITY_DIR: path.join(dir, "override-cli"), PANDACORP_NOW: NOW },
+    });
+    assert.notEqual(r.status, 0); assert.equal(r.stdout, ""); assert.match(r.stderr, /conflict/i);
+  });
+  await test("R4 account: an expired newer limit cannot reveal an older healthy balance", () => {
+    const env = { ...process.env, CODEX_HOME: path.join(dir, "absent"), PANDACORP_CAPACITY_DIR: path.join(dir, "pending-limit") };
+    const raw = { ...usage(), observedAt: new Date(ms - 120000).toISOString() };
+    mod.ingestClaude(raw, { env, now: NOW });
+    const limit = { schema: 1, tool: "claude", source: "usage_limit", state: "known", observedAt: new Date(ms - 60000).toISOString(), windows:
+      ["five_hour", "weekly"].map(id => ({ id, scope: "all", applicability: "required", percentUsed: 100, resetsAt: NOW })) };
+    mod.writeCapacitySnapshot("claude-limit", limit, { env });
+    const rs = mod.readCapacity({ env, now: NOW });
+    const d = decide("design", { ...rs, codex: codex() });
+    cell(d, "codex", "sol", "high"); assert.equal(d.readings_used.claude.state, "unknown");
+    assert.ok(d.readings_used.claude.windows.every(w => w.percentUsed === 100 && w.reason === "reset_pending_confirmation"));
+    mod.ingestClaude({ ...usage(), observedAt: NOW }, { env, now: NOW });
+    cell(decide("design", { ...mod.readCapacity({ env, now: NOW }), codex: codex() }), "claude", "opus", "high");
+  });
+  await test("R6 Codex: every model-scoped window constrains only its matching cell", () => {
+    const e = structuredClone(fixture);
+    e.payload.rate_limits.secondary = { used_percent: 100, window_minutes: 300, resets_at: Date.parse(C5) / 1000, scope: "model:sol" };
+    const rs = { ...readings(), codex: mod.normalizeCodexRateLimits(e, NOW) };
+    cell(decide("implement", rs), "claude", "sonnet", "medium");
+    cell(decide("implement", rs, { risk: "critical" }), "codex", "astra", "high");
+    assert.equal(decide("implement", rs, { override: "codex" }).resumeAt, C5);
+  });
+  await test("R7 partial tail: a cut inside a record skips that fragment and retains the next complete event", async () => {
+    const tailDir = path.join(dir, "tail-partial"); await mkdir(tailDir);
+    const event = structuredClone(fixture); event.timestamp = NOW; event.payload.rate_limits.primary.used_percent = 42;
+    await writeFile(path.join(tailDir, "rollout-partial.jsonl"), JSON.stringify({ padding: "x".repeat(262144) }) + "\n" + JSON.stringify(event) + "\n");
+    const r = await mod.readCodexFromRollouts(tailDir, NOW);
+    assert.equal(r.observedAt, NOW); assert.equal(r.windows.find(w => w.id === "weekly").percentUsed, 42);
   });
   await test("CLI consumes stdin, supports --only, prints JSON and appends decision records", async () => {
     const cli = fileURLToPath(new URL("../runtime/capacity-cli.mjs", import.meta.url)), log = path.join(dir, "decisions.jsonl");

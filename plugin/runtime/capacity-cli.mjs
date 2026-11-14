@@ -29,7 +29,11 @@ async function main() {
     let input = "";
     process.stdin.setEncoding("utf8");
     for await (const chunk of process.stdin) input += chunk;
-    claude = normalizeClaudeUsage(JSON.parse(input), now);
+    let payload;
+    try { payload = JSON.parse(input); }
+    catch { /* Telemetry is optional; task/option JSON errors still fail loudly above. */ }
+    claude = normalizeClaudeUsage(payload, now);
+    if (payload === undefined && input.trim()) claude.reason = "invalid_usage_json";
   }
   const readings = readCapacity({ now });
   if (claude) readings.claude = claude;

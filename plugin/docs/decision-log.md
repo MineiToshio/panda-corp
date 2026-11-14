@@ -1,5 +1,19 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-14 — Capacity review fixes and routing coverage recovery
+
+**What:** fix the ten phase-1 review findings: pin risk/override/reserve validation, per-window uncertainty,
+model-scoped limits, tolerant optional Claude telemetry, aligned rollout tails, cell-based resumeAt,
+strict zoned calendar instants and default normal image risk. Retain expired newer limit receipts as
+pending instead of exposing older balances. Restore historical routing/conserve guard rails and adversarial
+negative controls under DR-162, with an assertion-level retirement ledger and acceptance evidence in
+[capacity.md](capacity.md). Plugin **10.10.1**; manifests regenerated. No commit is made in this worker task.
+
+**Why:** a fixed execution cell must still respect safety and reserves. Unknown quota cannot erase
+independent current blocks, and coverage must prove the current policy without retaining obsolete
+threshold, author-company or retry escalation expectations. The owner explicitly requires never stopping
+while an eligible cell fits; unavailable pins/images wait only their own task.
+
 
 ## 2026-11-14 — Never-stop shared account capacity (phase 2a)
 

@@ -1,5 +1,12 @@
 # Decision Log — Mission Control
 
+## 2026-11-14 — Manual clarifies pinned capacity and reset uncertainty
+
+Updated the [partial implementation guide](../content/manual/guides/g-implement-parcial.md) to explain
+that pins retain safety/reserves, exhausted pins wait only their own task, expired resets need confirmation,
+and resumeAt follows the first eligible cell's final blocking reset. This mirrors the reviewed
+[capacity contract](../../plugin/docs/capacity.md); no app behavior changes.
+
 
 ## 2026-11-14 — Manual reflects shared capacity and context independence
 

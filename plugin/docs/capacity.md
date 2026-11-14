@@ -13,7 +13,8 @@ The account state lives in `~/.pandacorp/host/capacity/` (`PANDACORP_CAPACITY_DI
 replaces `claude.json` using a unique exclusive temp, rename and mode 0600. Readers see complete snapshots
 without a lock. `decide` reads that snapshot when `--claude-usage-stdin` is absent. Codex is read from rollouts;
 legacy recordCodex observations and real limit receipts are reconciled by observation time. Limit receipts
-remain effective until reset or a newer observation, without refreshing the recorded timestamp.
+retain known blocks until reset; after reset they remain unknown/pending until a newer observation,
+without refreshing the recorded timestamp or exposing an older healthy balance.
 
 Every dispatcher records JSONL with task, decision, reason and readings_used. Engine run path:
 `.pandacorp/run/build/capacity-decisions.jsonl`; otherwise `<capacity-dir>/decisions.jsonl`.
@@ -30,24 +31,32 @@ Core exports have JSDoc contracts. The normalizers and `decide` require an injec
 epoch milliseconds or Date); `decide()` remains pure; account helpers and rollout readers perform filesystem IO.
 
 Claude accepts Desktop `get_usage` JSON: `{status?, observedAt?, plan:{windows:[{label,percentUsed,resetsAt}]}}`.
-Labels are `5-hour limit`, `Weekly · all models` and `Weekly · Fable`. A live handoff without `observedAt`
+Labels are `5-hour limit`, `Weekly · all models`, and `Weekly · <model>` (also `5-hour limit · <model>`). A live handoff without `observedAt`
 is dated at ingestion; cached callers must preserve the original timestamp. Node never calls get_usage.
-The Fable window is retained for diagnostics and never restricts other models.
+Every model window restricts its matching cell, together with `all` windows. Fable never restricts other models.
+Candidate freshness also considers only its applicable windows, so an expired Fable window cannot demote Opus.
 
 Codex accepts the real rollout envelope: `{timestamp,type:"event_msg",payload:{type:"token_count",rate_limits}}`.
 `primary` and `secondary` use `used_percent`, `window_minutes` and epoch-seconds `resets_at`. Duration 10080
 is weekly and 300 is five-hour, independently of their position. An absent five-hour window is explicitly
 `not_applicable` for this owner's confirmed weekly-only account, with null percentage/reset; this is not
-a general inference from `plan_type:prolite`. Additional reported windows constrain admission too.
+a general inference from `plan_type:prolite`. Additional reported windows constrain admission too; optional
+`scope:"model:<model>"` (or `model`) applies only to that cell.
 
 Normalized schema 1 has `tool`, `source`, `state`, `reason`, `observedAt`, `ageSeconds` and `windows` with
-`id`, `scope`, `applicability`, `percentUsed`, `resetsAt`. The file reader adds `file`. All timestamps are UTC.
+`id`, `scope`, `applicability`, `percentUsed`, `resetsAt`, `state`, `reason` (except not-applicable windows).
+The file reader adds `file`. String instants require calendar-valid ISO dates and an explicit `Z` or offset;
+normalization emits UTC and ordering uses parsed milliseconds, never lexicographic strings.
 Missing/malformed/contradictory data, an expired reset, or age over 600s (Claude) / 3600s (Codex) gives
 `unknown`. Exact TTL boundaries are fresh; clock skew up to 30s in the future is tolerated. Reusing a
-normalized reading never refreshes its timestamp. `readings_used` contains both readings, revalidated at dispatch.
+normalized reading never refreshes its timestamp. An elapsed reset marks only that window unknown with
+`reset_pending_confirmation`, retaining its last percentage, never inventing 0%. Independent current windows
+still constrain admission even when the aggregate reading is unknown. Absent/stale readings remain a last resort.
+`readings_used` contains both readings, revalidated at dispatch.
 
 The rollout reader scans the last 256 KiB of **every** recursively discovered `rollout-*.jsonl` file,
-choosing the greatest valid event timestamp across the examined files and lines. It never uses mtime as
+choosing the greatest valid event timestamp across the examined files and lines. One preceding byte
+distinguishes a complete boundary record from a cut fragment; a complete record at the tail boundary is retained. It never uses mtime as
 observation time or launches a model. Partial JSON and invalid/far-future timestamps are skipped; differing
 windows at the same latest timestamp produce unknown. Symlinks are not followed. This bounded historical
 reader can miss events outside those tails and returns unknown if no usable event is found. A read error
@@ -57,7 +66,8 @@ also gives unknown, with its error code. It is not a server refresh or a subscri
 
 `decide({task:{id,type,risk,override,pin,imageDemandPp},readings,now,costs})` accepts types `plan`, `design`,
 `judgment`, `implement`, `review`, `mechanical`, `images`; risk is `normal`, `delicate` or `critical`.
-Missing risk defaults to critical. Invalid tasks/overrides/costs throw TypeError, rather than inventing a quota wait.
+Missing risk defaults to normal for images and critical otherwise. Invalid tasks/overrides/costs throw
+TypeError, rather than inventing a quota wait.
 
 | Task | Preferred cell | Other tool's cell |
 |---|---|---|
@@ -77,7 +87,7 @@ Codex work additionally protects `min(8,max(2,imageDemandPp))` weekly pp for pen
 can use that reserve. No extra rollout penalty or 90% stop is added. These are estimated admission margins,
 not a guarantee against external account consumption or real cost error.
 
-Preference never causes a wait. Among candidates that fit, known readings precede unknown readings.
+Preference never causes a wait. Among candidates that fit, known applicable windows precede unknown readings.
 If both are unknown, use the preferred cell; an unknown tool is still usable if the healthy other tool
 cannot fit. With both healthy and fitting, any applicable preferred window **strictly over 85%** reverses
 tool order, including design. Exactly 85% preserves preference. No effort degradation is performed.
@@ -85,13 +95,20 @@ tool order, including design. Exactly 85% preserves preference. No effort degrad
 `override` is `"claude"`, `"codex"` or `{tool,model?,effort?}` and fixes the tool. Optional model/effort must
 match the qualified task cell; an override cannot lower its risk floor or send images to Claude.
 `pin:{tool,model,effort}` preserves an already dispatched cell even under pressure/unknown readings.
-A pin is not charged a fresh task estimate: only a fresh applicable 100% window pauses it. The caller
+A pin is not charged a fresh task estimate, but preserves the 2 pp emergency and applicable weekly image reserve.
+If reserves no longer fit, only this pinned task waits with resumeAt; its tool never changes mid-execution.
+Pins below the current risk floor or conflicting with an explicit override (tool/model/effort) are rejected. The caller
 must retain task identity/scope and persist the returned pin; phase 1 owns no grant ledger or launch receipt.
 
 Run returns `{action:"run",tool,model,effort,pin,reason,readings_used}`. Wait retains the fixed cell if any,
-includes `resumeAt` at the earliest blocking reset, and never changes a pin's tool. Waiting applies to this
-task only. If different windows block, waking at the first reset requests reevaluation; it grants no launch
-and never fabricates a zero balance. `explain(decision)` produces one Spanish line for logs.
+includes `resumeAt = min(eligible cells.map(c => max(c.blocking resets)))`, and never changes a pin's tool.
+This is the first instant at which some eligible cell could fit after all of its blocking windows reset,
+not the earliest isolated reset. Waiting applies to this task only. A wake requires another observation/decision;
+it grants no launch and never fabricates a zero balance. `explain(decision)` produces one Spanish line for logs.
+
+Image tasks with omitted risk default to `normal`; other tasks default to `critical`. Explicit sensitive
+image risk requires a separate assessment task. Empty or malformed Claude telemetry on `decide` stdin is
+unknown (`missing_usage` / `invalid_usage_json`), while invalid task JSON and options remain input errors.
 
 ## Initial cost estimates
 
@@ -132,7 +149,152 @@ The redacted fixture in `plugin/scripts/fixtures/capacity-rollout.jsonl` follows
 object observed on 2026-11-14 (weekly 30%, secondary null). It deliberately omits unrelated token counters.
 Acceptance includes quota/routing regressions and real local rollout reading, without provider calls.
 
-## Phase-2a integration evidence (2026-11-14)
+## Review corrections and restored coverage (2026-11-14)
+
+Compared against `68487c7a` and the phase-2a HEAD `aaf893ee`. No commit is made by this correction.
+Capacity had 31 cases at HEAD; it now has 50, including 19 named review cases (regressions and controls). Before the fixes,
+14 of the first 15 added regressions failed (the offset-ordering control already passed). The later
+account-limit, CLI conflict, model-scope and partial-tail cases also cover the integration boundaries.
+
+| Finding | Correction | Regression in `test-capacity.mjs` |
+|---|---|---|
+| R1: pin bypassed safety floor | Reject pinned model/effort below delicate or critical risk, retaining the tool | `R1: pins cannot lower either risk floor` |
+| R2: pin ignored explicit override | Reject conflicting tool, model or effort, including CLI `--only` | `R2: a pin cannot silently ignore…`; `R2 CLI` |
+| R3: pin spent protected reserves | Charge no second task estimate, but preserve emergency and weekly image reserves; wait only this pin | `R3a` implementation and `R3b` images |
+| R4: expired window erased current blocks | Assess each window; keep live weekly blocks; mark elapsed resets unknown/pending without zeroing | `R4a`, `R4b`, `R4 account` (newer expired receipt cannot reveal older balance) |
+| R5: missing Claude stdin crashed CLI | Empty/malformed telemetry normalizes to unknown; task/options remain strict | `R5: empty/malformed Claude telemetry…` |
+| R6: all model limits were ignored | Apply `all` plus matching model windows to fit, pin and pressure, for both tools | `R6a`, `R6b`, `R6 Codex` |
+| R7: tail boundary dropped complete event | Inspect preceding byte; discard only a cut first record | `R7: tail aligned exactly…`; `R7 partial tail` |
+| R8: premature resumeAt | Minimum across eligible cells of the maximum blocking reset for each cell | `R8: resumeAt is min…` and corrected original both-exhausted test |
+| R9: ambiguous/impossible instants | Require explicit zone and valid calendar; order parsed milliseconds | `R9a` two process timezones; `R9b` invalid dates/leap day; `R9c` offset ordering |
+| R10: omitted image risk threw | Default `image` and `images` to normal; reject explicitly sensitive risk | `R10: image and images default…` |
+
+Routing coverage: **174 (`68487c7a`) → 13 (`aaf893ee`) → 364 cases**. Conserve coverage:
+**12 → 6 → 13 cases**. The restored routing suite keeps all 24 builder input rows, 288 named review
+cases (8 historical author models × 6 effort/origin variants × 2 kinds × 3 zones), and seven availability
+states per review, including both tools exhausted. An independent hand table checks role/risk, 4,860 builder
+combinations check valid catalog/model/runtime/effort/transport, frozen inputs check purity, and deliberately
+invalid results prove that the invariant checkers fail. Session eligibility, consultation, retries, mixed-author
+order, catalog validation and capability guards are checked separately. Author `max` is tested as rejected
+input; routed `max`/`ultra`, Fable and Terra remain forbidden. The conserve suite restores adapter symmetry,
+unknown/fresh/reset controls, author-order invariance, security audit fallback and all BL-0321 patch assertions.
+
+### tests retirados
+
+This is the assertion-level retirement ledger for the two historical files. Repeated generated variants
+of one assertion are identified by their original row numbers/input domains. All scenarios remain exercised
+with the current contract; only the following obsolete policy expectations are retired. Vocabulary, catalog,
+runtime capability, safety floor, result structure, deterministic/frozen-input and checker negative-control
+assertions remain active. No quota probe using a model is reintroduced.
+
+| Historical assertion (`68487c7a`) | Why retired / current assertion |
+|---|---|
+| Builder docs-touch rows (plain, r1, attempt 3): label chooses Sonnet medium / Sol low and docs ignore risk | Docs are design work; labels do not pin. All three scenarios now check role and transversal risk |
+| Builder docs feature/giant: label chooses Opus high / Sol high | Same qualified design cells remain; capacity chooses the eligible runtime |
+| Builder tests rows none/floor/r1: Sonnet high / Sol medium for all zones | Test implementation follows actual risk; ordinary Sol low, delicate Sol medium, critical Astra high |
+| Builder default/feature/attempt-2: label chooses runtime | Role preference plus capacity replaces label affinity; enabled models and floors remain checked |
+| Builder floor/r1: same Sonnet high / Sol medium for both risk levels | Floor is delicate; r1 is critical and cannot route below Astra high / Opus high |
+| Builder reopen 1/2 and reopen-over-zone: automatically Opus high / Sol high | Reopen count does not imply risk or escalate the model |
+| Builder attempt-3 and attempt-3-over-reopen/zone: Opus xhigh / Astra high | Attempts cannot escalate ordinary work to Astra; actual risk still governs |
+| Builder bounded/unbounded patch: Sonnet high / Sol medium vs Opus high / Sol high | Size/boundedness alone does not establish risk; both scenarios retain role/risk guards |
+| Builder patch-reopen: keep old bounded-patch cell | Reopen no longer selects the cell; both bounded values and retries remain exercised |
+| Builder bounded/unbounded patch attempt 3: Opus xhigh / Astra high | Attempt-only escalation is superseded |
+| Builder audit: always Claude Opus high, including Codex label | Eligible critical Codex Astra high also runs; an exhausted Claude cannot stop an audit |
+| Quota-switch tables: label selects a matrix column; switching preserves that row's old escalations | Fallback follows the task's role/risk cells; both exhaustion directions and each builder row remain checked |
+| Unrelated-company quota never changes label routing; exhaustive healthy labels always build their own units | Labels no longer define the preference; design vs implementation preference does |
+| Exact repeat raises effort one step on the same model/company; capped at xhigh | Previous cell/attempt cannot escalate risk. Retry chains still forbid invalid models/efforts and preserve current floors |
+| Non-exact previous cell does not bump; switch is not a repeat; retry chain stays in label company | No repeat bump exists; all previous model/effort/company variants now keep role/risk selection and capacity fallback |
+| Review matrix rows 1/2: Sonnet/Haiku author chooses Sol high/medium; 9/10: Sol/Luna author chooses Opus high/medium | Reviewer role and risk, not author company or FRD/touch size, select the cell |
+| Review matrix rows 3/4 and 11: floor/r1 choose old Sol high/Astra high/Opus xhigh columns | Separate delicate and critical floors remain; author-dependent company and effort are superseded |
+| Review matrix rows 5/7: Opus author requires Sol high; on quota N7 bumps Opus effort; unreachable parks | Fresh context permits the same model; one unavailable tool cannot park work that fits the other |
+| Review matrix row 6: Opus r1 requires Astra; fallback Opus xhigh only on quota, park on unreachable | Critical floor remains Astra high / Opus high independent of author; fallback runs when it fits |
+| Review matrix row 8: session Sonnet/Haiku/Opus uses a special touch row and null effort counts as high for N7 | Session origin does not select the reviewer or escalate effort; session authors and null effort remain inputs |
+| Review matrix row 8 Fable and row 16: Fable author always demands Astra; no Codex means park | Historical author cannot force ordinary Astra or prevent eligible Claude; automatic Fable remains forbidden |
+| Review matrix row 12: Astra author gets Opus normally, Sol high on quota, Astra xhigh on unreachable | Author and scarcity do not select stronger/different reviewer; fresh-context role/risk cells apply |
+| Review matrix row 13: Astra risk-zone author gets Opus xhigh; Sol xhigh on quota; unreachable parks | Critical floor cannot downgrade for scarcity; floor/r1 keep their own risk cells and eligible fallback |
+| Review matrix row 14: Terra author requires Opus or special Sol fallback | Disabled historical author is accepted as evidence but cannot choose current policy; Terra output stays forbidden |
+| Review matrix row 15: Codex session authors use Opus medium, Astra or Sol/xhigh by scarcity | Session/author effort no longer selects reviewer; all session variants remain exercised |
+| Review matrix all rows: primary stays fixed when availability changes | `primary` is now the actual allocated reviewer; it equals `used`, or both are null on wait |
+| Review matrix all rows: Sol at_capacity automatically escalates to Astra | Ordinary work never escalates to Astra from pressure; capacity fallback and actual risk select cells |
+| Review matrix all rows: quota/unreachable require degraded flags and sometimes a deferred cross-company re-review | Independent context satisfies review; routing sets degraded/deferred null and never waits for a preferred company |
+| Named owner rules: Sonnet/Opus whole-FRD vs small-change, Opus unit-touch vs session-touch choose distinct old cells | All author/kind/origin combinations remain; role/risk replace the old size/author matrix |
+| Named owner rules: no Codex quota → N7 next effort; unreachable Opus/Fable → park; Sonnet → degraded Opus | Context independence permits same model without N7 escalation; fallback runs if any cell fits |
+| Named owner rules: no Claude → Astra for Sol author; Astra author → Sol xhigh/high or parked by zone | Author never forces ordinary Astra, and scarcity cannot lower a critical floor |
+| Named owner rules: Fable session → Astra; Haiku session equals old Sonnet touch row | Sessions keep identical role/risk outcomes; never automatically emit Fable |
+| Mixed Claude authors choose the strictest author row/Opus xhigh under quota | Risk of the task is authoritative; author order does not affect the independent reviewer |
+| Review exhaustive: primary must be other company; same-model review only N7 quota exception | Same-company/model permitted with independent context, explicitly asserted |
+| Review exhaustive: author's company availability is irrelevant | That company may now be the preferred or fallback qualified reviewer |
+| Review exhaustive: Fable author may never use any Claude reviewer | Fable input does not disable otherwise qualified reviewers; Fable output is still forbidden |
+| Negative controls reject same-company primary, same-model unreachable, non-N7 effort or missing deferred re-review | Those are now valid. Negative controls instead reject missing independent context, forbidden cells, wrong risk, malformed results and used reviewer while parked |
+| Consult 1: origin Claude → Sol, origin Codex → Opus, drive/app → Astra | Consultation is design work; origin does not establish critical risk |
+| Consult 2: different/higher cell; drive/app cannot consult twice | Both qualified design consultations are allowed without origin/attempt escalation; >2 still returns no cell |
+| Conserve policy: 85 inclusive through 89 conserved; 90 stops new units | Pressure is a preference, never a global veto. Historical threshold metadata remains tested as compatibility data |
+| Conserve availability adapter: 87 maps to conserve | Current policy maps admitted providers to ok and actual exhaustion to quota; next/preflight adapter symmetry retained |
+| Conserve Sol-built review → Astra high; Astra-built → Sol high/xhigh (also 90+); symmetric Sonnet → other Claude model | Scarcity/author cannot force escalation or downgrade critical risk; risk-qualified review and no deferred ledger retained |
+| Conserve controls: healthy tool always reviews cross-company; unreachable triggers N7 and deferred review | Context independence and capacity, not provider identity, determine the reviewer |
+| Conserved builds stay with run label, including a conserved label tool | Label no longer pins tool selection; each new task follows role/risk and fitting capacity |
+| Conserved Claude-pinned audit waits/deferred until Claude recovers | Audit can use either qualified tool; both directions preserve critical floor |
+| BL-0322 mixed Sol+Astra authors → same_model Sol xhigh, park on unreachable, healthy Claude reviews | Current role/risk is independent of author set/order; no parked result while a qualified cell fits |
+| BL-0322 stale Claude at >=85 stays known until reset | TTL applies regardless of percentage; stale/reset/missing-reset/fresh controls are restored without sticky scarcity |
+
+### Current acceptance evidence
+
+Final current-tree battery: **35 suites, 1,449 passed, 0 failed**. Each command below ran with isolated
+`PANDACORP_CAPACITY_DIR` and empty `CODEX_HOME` per suite, `TMPDIR=/private/tmp` and
+`PANDACORP_TEST_TMP=/private/tmp`; the attended Python driver ran two independent fixture processes
+at a time. All test processes exited 0. `test-build-v2-nested` reports its nine tests through Node's
+native test runner. There were no inference/provider calls.
+
+| Command | Final observed result |
+|---|---|
+| `node plugin/scripts/test-build-v2-admission.mjs` | 29 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-answer.mjs` | 32 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-cli.mjs` | 36 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-conserve.mjs` | 13 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-detect.mjs` | 46 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-disk.mjs` | 26 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-doubts.mjs` | 38 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-drive.mjs` | 45 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-e2e.mjs` | 104 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-failure.mjs` | 32 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-g2-leftover.mjs` | 5 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-gate-patch.mjs` | 7 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-hardening.mjs` | 38 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-integrate.mjs` | 23 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-jobs.mjs` | 13 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-land.mjs` | 50 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-lock-stress.mjs` | 3 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-nested.mjs` | 9 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-next.mjs` | 68 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-perf.mjs` | 10 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-planner.mjs` | 30 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-preflight.mjs` | 26 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-quota.mjs` | 35 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-report.mjs` | 46 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-review-pin.mjs` | 3 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-review-r1.mjs` | 23 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-review.mjs` | 59 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-risk-backtest.mjs` | 28 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-risk.mjs` | 30 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-routing.mjs` | 364 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-state.mjs` | 76 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-telemetry.mjs` | 23 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-unblock.mjs` | 13 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-build-v2-workers.mjs` | 16 passed, 0 failed; exit 0 |
+| `node plugin/scripts/test-capacity.mjs` | 50 passed, 0 failed; exit 0 |
+| `node --check` for the five changed `.mjs` files | exit 0 for each |
+| `node plugin/scripts/generate-plugin-manifests.mjs` | exit 0; metadata/manifests 10.10.1 |
+| `bash plugin/scripts/check-derived-drift.sh "$PWD"` | exit 0; only the expected linked-WT personal ledger check skipped |
+| `git diff --check` | exit 0, clean |
+| `claude plugin validate plugin/` | First invocation passed; repeat rejected by automatic approval: Codex may not dispatch or steer the Claude runtime |
+
+No acceptance criterion remains unverified. Real provider reset/dispatch qualification and automatic wake-up
+remain outside this correction's scope. The existing worktree is retained for the coordinator; temporary
+battery drivers and logs are removed after recording this evidence. No commit is made.
+
+
+
+## Historical phase-2a integration evidence (2026-11-14)
 
 Base and retained HEAD: `68487c7a`. No commit was made. Plugin metadata and both generated manifests are
 10.10.0. The required fallback battery is **38 suites passed, 0 failed**; no plugin package.json or test-all
