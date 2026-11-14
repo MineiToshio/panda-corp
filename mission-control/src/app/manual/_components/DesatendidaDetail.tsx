@@ -24,8 +24,8 @@ export function DesatendidaDetail(): React.JSX.Element {
       <Body>
         La lease dura 30 minutos y se renueva mediante comandos del CLI, sin un proceso de latido
         independiente. Una lease vigente no demuestra que el coordinador siga respondiendo.{" "}
-        <Code>drive</Code> transfers the same run through a fenced epoch and uses the shared capacity
-        allocator for CLI workers. Long-running survival, machine sleep and notifications
+        <Code>drive</Code> transfers the same run through a fenced epoch and uses the shared
+        capacity allocator for CLI workers. Long-running survival, machine sleep and notifications
         requieren verificación real. Si falta programación, la sesión sigue atendida.
       </Body>
       <DocH title="Concurrencia adaptativa y disco" />
@@ -58,12 +58,14 @@ export function DesatendidaDetail(): React.JSX.Element {
       </Body>
       <DocH title="Dudas aparcadas y gates humanos" />
       <Body>
-        Reversible technical doubts become recorded engine assumptions with a reason and reversal path.
-        They proceed through review and integration without waiting for owner acceptance, even for a lone unit.
-        Production, money, deletion and unauthorized external communication retain their human gates.
+        Reversible technical doubts become recorded engine assumptions with a reason and reversal
+        path. They proceed through review and integration without waiting for owner acceptance, even
+        for a lone unit. Production, money, deletion and unauthorized external communication retain
+        their human gates.
       </Body>
       <Body>
-        Protected actions wait at their gate while independent work continues. Questions are recorded in
+        Protected actions wait at their gate while independent work continues. Questions are
+        recorded in
         <Code>.pandacorp/inbox/decisions.md</Code>. A tracked inbox has a local mirror at
         <Code>.pandacorp/inbox/decisions.pending.md</Code>. Existing authorization is reused;
         production permission is never granted by the engine.
@@ -74,20 +76,23 @@ export function DesatendidaDetail(): React.JSX.Element {
       </NotePanel>
       <DocH title="Una ruta a main y una reanudación segura" />
       <Body>
-        A subscription limit preserves dirty files, worktree, branch, worker session, cell and attempt.
-        Independent units continue on the other tool. When all work waits, the run records the earliest
+        A subscription limit preserves dirty files, worktree, branch, worker session, cell and
+        attempt. Independent units continue on the other tool. When all work waits, the run records
+        the earliest
         <Code>resumeAt</Code>. Drive waits until reset plus 60 seconds; the open Claude lead uses
         <Code>ScheduleWakeup</Code>, refreshes usage and resumes through the CLI. One fenced wake
-        generation prevents duplicate execution. An elapsed reset without fresh telemetry keeps waiting.
-        Every suspension, wait, wake and resume is recorded in <Code>capacity-decisions.jsonl</Code>.
+        generation prevents duplicate execution. An elapsed reset without fresh telemetry keeps
+        waiting. Every suspension, wait, wake and resume is recorded in{" "}
+        <Code>capacity-decisions.jsonl</Code>.
       </Body>
       <Body>
         Todo cambio versionado del run se commitea mediante el CLI en{" "}
         <Code>lane/&lt;run_id&gt;/integration</Code>. Las unidades usan{" "}
         <Code>lane/&lt;run_id&gt;/&lt;unit&gt;</Code>, luego <Code>&lt;unit&gt;-a2</Code> o{" "}
-        <Code>&lt;unit&gt;-a3</Code>; las decisiones técnicas reversibles registran un supuesto con su motivo y cómo revertirlo.{" "}
-        <Code>merge-queue</Code> es el único camino a main. En un proyecto lanzado la aprobación
-        pendiente se muestra como <Code>waiting_gate</Code>; no detiene trabajo independiente.
+        <Code>&lt;unit&gt;-a3</Code>; las decisiones técnicas reversibles registran un supuesto con
+        su motivo y cómo revertirlo. <Code>merge-queue</Code> es el único camino a main. En un
+        proyecto lanzado la aprobación pendiente se muestra como <Code>waiting_gate</Code>; no
+        detiene trabajo independiente.
       </Body>
       <Ul>
         <li>
