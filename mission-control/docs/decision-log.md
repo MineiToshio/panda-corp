@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-11-14 — Manual: recovery preserves execution time limits
+
+Updated the [partial-build guide](../../content/manual/guides/g-implement-parcial.md) to reflect
+recoverable continuation supervision and scoped reversible assumptions, following the factory's
+shared capacity contract. Documentation only; no application runtime change.
+
 ## 2026-11-14 — Manual: shared-capacity relay and accepted technical assumptions
 
 Aligned the unattended-build and runtime concepts with DR-162: independent review context, role/risk allocation on both tools, fixed running sessions and accepted reversible technical assumptions. Canonical: manual concepts and DesatendidaDetail explanation; no behavior or design change.

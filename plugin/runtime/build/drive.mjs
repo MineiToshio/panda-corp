@@ -1,18 +1,13 @@
-// `drive`: the Codex relay of the v2 build engine (BUILD-14; D10 as amended by PLAN 3.16 A9, A10, A21).
-// A long-lived Node process of the same CLI with NO LLM of its own that never calls Claude (LESSON-0501).
-//   - Armed by `start --run` / `start --resume` (lifecycle calls `armDrive`): detached standby, `caffeinate -i -w <pid>`.
-//     Codex quota is NOT checked at arming; never armed when `codex login status` fails or, in a launched project,
-//     the pre-push hook is not verified.
-//   - Standby polls every `drive_poll_s`: (a) `build/handoff.json`; (b) Claude's usage-limit text in the run's
-//     unit reports / worker output (or an optional transcript); (c) no lease renewal for `drive_silent_s` AND pending
-//     work AND the last Claude reading >= `drive_trigger_c_min_pct` or unknown. It exits when the run is not `active`.
-//   - Takeover = the same-run epoch `transfer` (build-state.mjs): epoch+1, new token file, no quiesce, workers and
-//     jobs survive and are adopted, the previous holder is fenced (exit 3). Codex re-read at takeover: >= quota_stop
-//     -> `paused-quota` (both resets_at, lease released) once nothing runs; otherwise the loop.
-//   - Loop: the same `next` logic with coordinator `drive` (routing shape `drive`: builders Codex, Claude counted as
-//     out, reviews degraded and queued for re-review, the security audit deferred to Claude opus high), `land`,
-//     `finish`; the lease is renewed every iteration (that renewal is also how a resumed owner is detected: FENCE ->
-//     the relay yields and exits cleanly). Only Codex units launched by the CLI (`via:"cli"`) are accepted.
+// `drive`: deterministic same-run CLI relay (BUILD-14 / DR-162), with no LLM of its own.
+//   - Start/resume arms standby with valid Codex login and the launched-project pre-push guard;
+//     infrastructure qualification is independent of quota. caffeinate keeps the host awake.
+//   - Standby reacts to explicit current-epoch handoff or silent lease with pending work, never quota.
+//   - Transfer checks native continuation ownership under the lease mutex. Native agent/session work
+//     retains its capable lead, credential, checkpoint and wake; eligible CLI executions survive relay.
+//   - next allocates each new unit/review/audit/consultation from shared role/risk capacity on either tool.
+//     Current executions stay pinned; only no fitting eligible cell waits with resumeAt and fenced wake.
+//   - Real report/review-record evidence and normal gates decide completion. No automatic audit
+//     deferral, false verified or mandatory cross-company re-review. Fenced relay yields to owner resume.
 // Everything time- or process-related is injected (clock, sleep, spawn, isAlive, exec) so tests run on fixture clocks.
 // Sibling engine modules (next, land, finish, workers, failure) are injected by the dispatcher, never imported here.
 // This file is the public entry; the relay is split by responsibility under `./drive/` (constants, context, standby,

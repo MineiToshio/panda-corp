@@ -46,11 +46,14 @@ una unidad en curso conserva su herramienta. Solo si ninguna puede trabajar, el 
 La selección fija respeta el piso de riesgo y las reservas: si deja de caber, espera solo esa tarea,
 sin cambiarla de herramienta en curso. Un reset vencido queda pendiente de confirmar y no borra otros
 límites vigentes. `resumeAt` indica cuándo podría caber alguna celda apta tras todos sus resets bloqueantes;
-la reanudación requiere otra lectura. La reanudación automática corresponde a la fase 3.
+la reanudación requiere otra lectura. El despertar automático conserva el trabajo y su herramienta.
+Si el lanzador se interrumpe al reanudar, la recuperación conserva también los límites de tiempo
+de esa ejecución, para que un proceso colgado no siga indefinidamente.
 
 Las preguntas iniciales incluyen sus valores por defecto. Una duda posterior se consulta;
-si no puede resolverse dentro del alcance autorizado, la unidad y sus dependientes se aparcan
-y el resto continúa. Las decisiones pendientes se responden por el canal de decide, no editando
+las decisiones técnicas reversibles quedan documentadas y permiten continuar. Las decisiones
+de alcance o irreversibles conservan sus gates: se aparca solo el trabajo afectado y sus
+dependientes, mientras el resto continúa. Las decisiones pendientes se responden por el canal de decide, no editando
 el estado del motor. Cuando el inbox está versionado, `decisions.pending.md` permite leer las
 preguntas antes de integrar.
 

@@ -1,5 +1,15 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-14 — Recover watchdog ownership and finish drive policy reconciliation
+
+Resume now reconciles missing supervision even after sequence adoption, using exclusive per-sequence
+monitor ownership and PID/sequence/startedAt fencing for every signal and terminal write. Recovery
+preserves the saved deadline. The after-commit crash regression checks timeout and provider uniqueness.
+Re-read and replaced the complete [drive contract table](build-engine-cli.md#9-drive-relay), including
+shared allocation, native authority retention, scoped consultations and evidence-only audit completion;
+updated the runtime overview and [capacity supervision contract](capacity.md#recoverable-continuation-supervision).
+Plugin 10.11.3; no commit requested. Fake-provider verification does not qualify live provider continuity.
+
 ## 2026-11-14 — Final-review continuity and policy corrections
 
 Crash recovery adopts a gated continuation runner under a recoverable mutex; capacity-parked reviews wake; native executions retain their capable coordinator atomically at transfer; audits require real reports and critical risk. Updated [capacity documentation](../../plugin/docs/capacity.md), CLI/role instructions, BUILD-10/11/14 references and the Manual to remove executable threshold, probe and N7 rules. Generator --check is read-only. No production/model qualification is implied.

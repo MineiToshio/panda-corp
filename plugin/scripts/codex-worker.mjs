@@ -283,48 +283,105 @@ function startDirect(dir, id, allocation) {
   const child = launch(dir, cwd, actualArgs, allocation.tool);
   const wd = Object.fromEntries(Object.keys(WATCHDOG_DEFAULTS_S).map((k) => [k, watchdogS(k)]));
   writePrivate(path.join(dir, "state.json"), JSON.stringify({ pid: child.pid, cwd, tool: allocation.tool, capacity: allocation, sessionId, schema, writableDirs: writableDirs(cwd), watchdog: wd, model: slug, effort, access: opt("access") || "sandbox", direct: true, json: Boolean(schema) || flag("json-answer"), role: opt("role"), startedAt: new Date().toISOString() }));
-  const watcherArgs = ["watch", "--project", project, "--id", id, ...Object.entries(wd).flatMap(([k, v]) => [`--${k}`, String(v)])];
-  spawn(process.execPath, [fileURLToPath(import.meta.url), ...watcherArgs], { detached: true, stdio: "ignore", env: childEnv() }).unref();
+  const saved = readJson(path.join(dir, "state.json"));
+  spawn(process.execPath, [fileURLToPath(import.meta.url), ...watcherArgs(id, saved)], { detached: true, stdio: "ignore", env: childEnv() }).unref();
   telemetry("worker_started", { id, role: opt("role"), model: slug, effort, access: opt("access") || "sandbox", direct: true });
 }
 
-/** Detached watchdog of one direct worker: kills its process group on start-hang, stall or the wall-clock cap, recording
- *  the cause in watchdog.json BEFORE the kill (and the exit file, since the killed shell wrapper cannot write it). */
-async function watch() {
-  const dir = workerDir(opt("id"));
-  const startHang = watchdogS("start-hang-s") * 1000;
-  const stall = watchdogS("stall-s") * 1000;
-  const cap = watchdogS("cap-s") * 1000;
-  const poll = Math.max(50, Math.min(2000, Math.floor(Math.min(startHang, stall, cap) / 4)));
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const exitFile = path.join(dir, "exit");
-  for (;;) {
-    const state = readJson(path.join(dir, "state.json"));
-    if (!state || existsSync(exitFile)) return;
-    if (!workerAlive(state)) { await sleep(1000); if (!existsSync(exitFile)) writeFileSync(exitFile, "137\n"); return; }
-    const now = Date.now();
-    const age = now - Date.parse(state.startedAt);
-    let log = null;
-    for (const name of state.tool === "claude" ? ["codex.log", "last.md"] : ["codex.log"]) {
-      try {
-        const observed = statSync(path.join(dir, name));
-        if (observed.size > 0 && (!log || observed.mtimeMs > log.mtimeMs)) log = observed;
-      } catch { /* not created yet */ }
-    }
-    const verdict = age >= cap ? ["cap", `wall-clock cap of ${cap / 1000} s reached`]
-      : !log || log.size === 0 ? (age >= startHang ? ["start-hang", `no output from Codex within ${startHang / 1000} s`] : null)
-      : now - log.mtimeMs >= stall ? ["stall", `no output from Codex for ${stall / 1000} s`] : null;
-    if (verdict) {
-      if (existsSync(exitFile)) return;
-      writeFileSync(path.join(dir, "watchdog.json"), JSON.stringify({ kind: verdict[0], detail: verdict[1], at: new Date().toISOString() }));
-      try { process.kill(-state.pid, "SIGTERM"); } catch { /* already gone */ }
-      for (let i = 0; i < 50 && workerAlive(state); i++) await sleep(100);
-      if (workerAlive(state)) { try { process.kill(-state.pid, "SIGKILL"); } catch { /* already gone */ } }
-      if (!existsSync(exitFile)) writeFileSync(exitFile, "124\n");
-      return;
-    }
-    await sleep(poll);
+// Every watchdog belongs to one execution, including the initial (sequence 0) launch.
+const executionOf = state => ({ pid: state.pid, sequence: state.resumeSequence ?? 0, startedAt: state.startedAt });
+const sameExecution = (state, execution) => state && execution && state.pid === execution.pid
+  && (state.resumeSequence ?? 0) === execution.sequence && state.startedAt === execution.startedAt;
+const supervisionPaths = (dir, execution) => {
+  const archive = path.join(dir, "continuations", String(execution.sequence));
+  return { owner: path.join(archive, "watchdog-owner.json"), mutex: path.join(archive, "supervision") };
+};
+const watcherArgs = (id, state) => ["watch", "--project", project, "--id", id,
+  "--worker-pid", String(state.pid), "--resume-sequence", String(state.resumeSequence ?? 0), "--worker-started-at", state.startedAt,
+  ...Object.entries(state.watchdog ?? {}).flatMap(([k, v]) => [`--${k}`, String(v)])];
+
+/** Called with the resume mutex held, both after adoption and on idempotent recovery. A child
+ * publishes its own ownership under a DIFFERENT per-sequence mutex before asking for resume's
+ * mutex. Crash after spawn is recoverable; duplicate candidate monitors exclude themselves.
+ * The saved startedAt/limits are never refreshed by a retry.
+ */
+async function ensureWatchdog(dir, id, state) {
+  if (!state.direct || existsSync(path.join(dir, "exit")) || !workerAlive(state)) return;
+  const execution = executionOf(state), paths = supervisionPaths(dir, execution);
+  const owned = () => {
+    const receipt = readJson(paths.owner);
+    return receipt && sameExecution(state, receipt.execution) && alive(receipt.pid);
+  };
+  if (owned()) return;
+  const child = spawn(process.execPath, [fileURLToPath(import.meta.url), ...watcherArgs(id, state)],
+    { detached: true, stdio: "ignore", env: childEnv() });
+  child.on("error", () => {}); // Missing readiness below fails closed instead of accepting RUNNING.
+  child.unref();
+  for (let i = 0; i < 500; i++) {
+    if (owned() || existsSync(path.join(dir, "exit"))) return;
+    await new Promise(resolve => setTimeout(resolve, 10));
   }
+  throw new Error("continuation watchdog not ready; retry the same sequence");
+}
+
+/** A detached monitor never follows state.json into a later execution. Its per-sequence
+ * ownership mutex prevents duplicate monitors; short resume-mutex transactions fence every
+ * signal and terminal write against adoption of another sequence. All polling is outside it.
+ */
+async function watch() {
+  const dir = workerDir(opt("id")), initial = readJson(path.join(dir, "state.json"));
+  if (!initial) return;
+  const execution = opt("worker-pid") ? { pid: Number(opt("worker-pid")), sequence: Number(opt("resume-sequence")), startedAt: opt("worker-started-at") } : executionOf(initial);
+  const startHang = watchdogS("start-hang-s") * 1000, stall = watchdogS("stall-s") * 1000, cap = watchdogS("cap-s") * 1000;
+  const poll = Math.max(50, Math.min(2000, Math.floor(Math.min(startHang, stall, cap) / 4)));
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const exitFile = path.join(dir, "exit"), watchdogFile = path.join(dir, "watchdog.json");
+  const paths = supervisionPaths(dir, execution);
+  await withAppendLock(paths.mutex, fsp, async () => {
+    if (!sameExecution(readJson(path.join(dir, "state.json")), execution) || existsSync(exitFile)) return;
+    writePrivate(paths.owner, JSON.stringify({ pid: process.pid, execution }));
+    let goneAt = null;
+    for (;;) {
+      // A finished/removed worker needs no mutex; do not recreate its directories on a later tick.
+      if (!sameExecution(readJson(path.join(dir, "state.json")), execution) || existsSync(exitFile)) return;
+      const done = await withAppendLock(path.join(dir, "resume"), fsp, async () => {
+        const state = readJson(path.join(dir, "state.json"));
+        if (!sameExecution(state, execution) || existsSync(exitFile)) return true;
+        const now = Date.now(), stopped = readJson(watchdogFile);
+        const terminating = stopped && (sameExecution(state, stopped.execution)
+          || !stopped.execution && Date.parse(stopped.at) >= Date.parse(state.startedAt));
+        const running = workerAlive(state);
+        if (terminating) {
+          if (running && now - Date.parse(stopped.at) < 5000) return false;
+          if (running) { try { process.kill(-state.pid, "SIGKILL"); } catch { /* already gone */ } }
+          writeFileSync(exitFile, "124\n"); return true;
+        }
+        if (!running) {
+          goneAt ??= now;
+          if (now - goneAt < 1000) return false;
+          writeFileSync(exitFile, "137\n"); return true;
+        }
+        goneAt = null;
+        const age = now - Date.parse(state.startedAt);
+        let log = null;
+        for (const name of state.tool === "claude" ? ["codex.log", "last.md"] : ["codex.log"]) {
+          try {
+            const observed = statSync(path.join(dir, name));
+            if (observed.size > 0 && (!log || observed.mtimeMs > log.mtimeMs)) log = observed;
+          } catch { /* not created yet */ }
+        }
+        const verdict = age >= cap ? ["cap", `wall-clock cap of ${cap / 1000} s reached`]
+          : !log || log.size === 0 ? (age >= startHang ? ["start-hang", `no output from provider within ${startHang / 1000} s`] : null)
+          : now - log.mtimeMs >= stall ? ["stall", `no output from provider for ${stall / 1000} s`] : null;
+        if (!verdict) return false;
+        writePrivate(watchdogFile, JSON.stringify({ kind: verdict[0], detail: verdict[1], at: new Date(now).toISOString(), execution }));
+        try { process.kill(-state.pid, "SIGTERM"); } catch { /* already gone */ }
+        return false;
+      });
+      if (done) return;
+      await sleep(poll);
+    }
+  });
 }
 
 /** Direct-mode usage-limit vs rate-limit (429) wording, for the engine's quota handling. */
@@ -454,6 +511,7 @@ async function resume() {
     const state = readJson(path.join(dir, "state.json"));
     if (!state) return refuse("missing-state", "cannot resume a worker without its state");
     if ((state.resumeSequence ?? 0) >= sequence) {
+      await ensureWatchdog(dir, id, state);
       if (existsSync(path.join(dir, "result.line"))) process.stdout.write(readFileSync(path.join(dir, "result.line"), "utf8"));
       else process.stdout.write(`CODEX-RUNNING ${id} continuation ${state.resumeSequence}\n`);
       return;
@@ -494,9 +552,9 @@ async function resume() {
       }
     }
     if (!receipt || !alive(receipt.pid)) return refuse("resume-busy", "continuation runner not ready; retry the same sequence");
-    writePrivate(path.join(dir, "state.json"), JSON.stringify({ ...state, sessionId, resumeSequence: sequence, continuationRunner: true, pid: receipt.pid, startedAt: receipt.startedAt }));
-    if (state.direct) spawn(process.execPath, [fileURLToPath(import.meta.url), "watch", "--project", project, "--id", id,
-      ...Object.entries(state.watchdog ?? {}).flatMap(([k,v]) => [`--${k}`, String(v)])], { detached: true, stdio: "ignore", env: childEnv() }).unref();
+    const adopted = { ...state, sessionId, resumeSequence: sequence, continuationRunner: true, pid: receipt.pid, startedAt: receipt.startedAt };
+    writePrivate(path.join(dir, "state.json"), JSON.stringify(adopted));
+    await ensureWatchdog(dir, id, adopted);
     process.stdout.write(`CODEX-RUNNING ${id} continuation ${sequence}\n`);
   });
 }

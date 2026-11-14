@@ -673,3 +673,12 @@ whose worker is not recorded yet) remains pending. Its lead keeps the automatic 
 A drive loop presented with that lease yields without consuming results or changing authority.
 After the native result is consumed, relay may proceed normally. Native IDs never become CLI IDs.
 Audits reach verified only through a valid review report; automatic audit deferral is retired.
+
+### Recoverable continuation supervision
+
+Idempotent resume reconciles a missing watchdog under the same continuation mutex before
+returning RUNNING. Monitor ownership is exclusive per sequence and bound to the saved worker PID,
+sequence and startedAt; retries never refresh the deadline. Each signal/terminal write revalidates
+that identity under the continuation mutex, including after timeout grace or dead-worker delays.
+A stale monitor cannot affect a later continuation. The crash suite's after-commit case enforces
+the timeout as well as provider uniqueness; the independent watchdog probe covers control and crash.
