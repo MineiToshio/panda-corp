@@ -11,8 +11,8 @@ created: 2026-10-13
 status: active
 promotion: none
 confidence: high
-times_applied: 1
-applied_in: [pandasaga]
+times_applied: 2
+applied_in: [pandasaga, funko-tracker]
 links: [LESSON-0312, BL-0056, BL-0233]
 ---
 
