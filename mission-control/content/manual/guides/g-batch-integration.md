@@ -21,7 +21,8 @@ continuar trabajo independiente. Una rama verificada no equivale a un snapshot e
 ## Ramas y limpieza
 
 Las ramas de unidades usan `lane/<run_id>/<unit>` y sufijos `-a2` o `-a3` para intentos
-posteriores; las suposiciones usan `lane/<run_id>/assume-<doubt>`. Las referencias pueden
+posteriores. Las ramas `lane/<run_id>/assume-<doubt>` son compatibilidad histórica; los nuevos
+supuestos técnicos reversibles pasan los gates y la integración ordinarios, sin aceptación posterior. Las referencias pueden
 seguir existiendo después de retirar sus worktrees: una carpeta ausente no demuestra un merge.
 
 El cierre solicita la limpieza de worktrees elegibles y conserva ramas. Comprueba el inventario

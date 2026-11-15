@@ -5,8 +5,8 @@
  * checks (groups scope, conflict, phase, access, mac, gates, deferred), each ask carrying an id (`q-<check id>`), a
  * conservative default, `affects` and `reversible`. Writes `build/preflight.json` (mode 0600; `start --run` reuses it
  * when at most 15 minutes old for the same row and scope, see `loadFreshPreflight`). In a launched project it only checks
- * the untracked pre-push hook (`start --run` installs it; a missing hook means `drive` is not armable). Codex availability comes from `codex login status` and, only when the reading is old and high, the
- * injected quota probe.
+ * the untracked pre-push hook (`start --run` installs it; a missing hook means `drive` is not armable). Codex authentication comes from `codex login status`; capacity readings are passive and
+ * historical probe flags never launch inference.
  *
  * Pure with respect to its inputs: every effect goes through `deps` (`fs`, `env`, `homedir`, `now`, `exec`,
  * `monotonic`, `platform`, `detect`, `installPrePush`, `probeCodex`, `computeRisk`, `readSignals`, `tcpProbe`, `statfs`).

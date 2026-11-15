@@ -11,8 +11,9 @@ node <plugin>/scripts/pandacorp-build.mjs <command>
 
 The executable implementation lives in `plugin/runtime/build/`; its interface and
 exit codes are documented in [build-engine-cli.md](build-engine-cli.md). Policy is
-owned by `factory/standards/build-engine.md`, routing by
-`plugin/runtime/model-tiers.json`, and runtime boundaries by
+owned by `factory/standards/build-engine.md`, cell selection by
+`plugin/runtime/capacity.mjs`, complexity resolution by `plugin/runtime/complexity.mjs`,
+and catalog validation/historical data by `plugin/runtime/model-tiers.json`, and runtime boundaries by
 `factory/standards/agent-portability.md`. These sources replace the retired
 separate project executors and their certification procedures.
 

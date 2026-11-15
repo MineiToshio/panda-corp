@@ -2,7 +2,8 @@
 
 The build engine, direct/alias worker launcher and image launcher use the shared allocator.
 `build/quota.mjs` preserves its public API as a compatibility adapter; local quota files are projections.
-Role and deterministic risk choose a cell, independent of author and attempt. One exhausted tool means
+Role, work-order complexity and deterministic risk choose the implementation cell; review must be strictly
+stronger than the actual author cell. Attempts never change model or effort. One exhausted tool means
 use the other qualified tool; only neither fitting parks capacity, persisting `resumeAt` in run state and journal.
 Never ask the owner about quota. Review independence is a fresh context, including on the same model.
 
@@ -445,7 +446,7 @@ This is the assertion-level retirement ledger for the two historical files. Repe
 of one assertion are identified by their original row numbers/input domains. All scenarios remain exercised
 with the current contract; only the following obsolete policy expectations are retired. Vocabulary, catalog,
 runtime capability, safety floor, result structure, deterministic/frozen-input and checker negative-control
-assertions remain active. No quota probe using a model is reintroduced.
+assertions remain active. Capacity reads never launch a model.
 
 | Historical assertion (`68487c7a`) | Why retired / current assertion |
 |---|---|
@@ -805,7 +806,7 @@ at 95%; its five-hour reset has expired, so that window is unknown. The latest C
 40% (observed 01:02:09Z), replacing the earlier stale 39% snapshot. Pure `decide()` returns implementation
 `{action:run,tool:codex,model:sol,effort:medium,reason:preferred_tool}` and review of that exact pin
 `{action:run,tool:codex,model:sol,effort:high,reason:preferred_tool}`. The regression also preserves the supplied
-stale 39% envelope (+5 pp to 44%) and checks the same cells. No live inference or quota probe was launched.
+stale 39% envelope (+5 pp to 44%) and checks the same cells. Historical verification: no live inference or quota probe was launched.
 
 ### Review qualification at execution boundaries (P7 F1–F3)
 

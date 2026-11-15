@@ -29,6 +29,7 @@ running: false                  # proyección durable; la vida del run viene de 
 blocked_work_orders: []         # work orders bloqueadas esperando desbloqueo`;
 
 const WORK_ORDER_SAMPLE = `implementation_status: IN_REVIEW   # PLANNED | IN_PROGRESS | IN_REVIEW | VERIFIED | BLOCKED
+complexity: normal                 # trivial | normal | complex
 artifacts: [src/lib/foo.ts]        # archivos que esta WO escribe (DR-060 serializa las que se solapan)
 dependsOn: [WO-01-000, WO-01-001]  # WOs de las que depende (DR-087): la fuente del grafo`;
 
@@ -67,6 +68,12 @@ export function EstadoDetail(): React.JSX.Element {
         estado en el frontmatter:
       </Body>
       <MonoBlock text={WORK_ORDER_SAMPLE} />
+      <Body margin="10px 0 0">
+        Las nuevas work orders declaran <Code>complexity</Code>. En las antiguas sin ese campo, el
+        motor aplica la heurística de metadatos de <Code>plugin/runtime/complexity.mjs</Code>,
+        documentada en <Code>plugin/docs/capacity.md</Code>, sección Work-order complexity; sin
+        señales suficientes usa <Code>normal</Code>.
+      </Body>
       <Body margin="10px 0 0">
         El motor de <Code>implement</Code> actualiza <Code>implementation_status</Code> al avanzar
         la work order y Mission Control lo lee para el tablero Kanban. <Code>dependsOn</Code>{" "}

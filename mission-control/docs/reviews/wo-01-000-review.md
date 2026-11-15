@@ -1,5 +1,7 @@
 # Review — WO-01-000 (Test fixtures + `PANDACORP_FACTORY_ROOT` harness)
 
+> Historical review record; model wording below describes that run, not current allocation policy.
+
 **FRD:** FRD-01 (Data reading) · **Reviewer model:** Opus 4.8 (different family from the sonnet/haiku implementer, DR-015)
 **Date:** 2026-06-16
 

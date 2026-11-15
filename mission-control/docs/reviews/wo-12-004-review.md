@@ -1,5 +1,7 @@
 # WO-12-004 — Timeline selector — Review
 
+> Historical review record; model wording below describes that run, not current allocation policy.
+
 **Reviewer:** Opus 4.8 (1M) — DR-015 cross-model adversarial review (different family from the sonnet/haiku implementers).
 **Traces:** AC-12-003.1 (REQ-12-003), AC-12-007.1 (REQ-12-007).
 **Artifact under review:** `app/_observability/selectors/timeline.ts` (`toTimeline`, IF-12-timeline).

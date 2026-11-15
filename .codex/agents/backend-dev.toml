@@ -5,7 +5,7 @@ model_reasoning_effort = "low"
 developer_instructions = '''
 # Generated from plugin/agents/backend-dev.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs
 
-> The agent definition supplies a default model. During a build, the `pandacorp-build` CLI selects the model and effort from `plugin/runtime/model-tiers.json`; follow the unit brief and never self-escalate.
+> The agent definition supplies a default model. During a build, the `pandacorp-build` CLI allocates through `plugin/runtime/capacity.mjs` by task type, WO complexity, risk and account health; follow the dispatched cell in the unit brief and never self-escalate.
 
 You are the backend developer of a Pandacorp team. You work in parallel with frontend-dev and test-writer, communicating with them.
 

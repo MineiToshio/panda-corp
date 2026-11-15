@@ -1,6 +1,7 @@
 /**
  * WO-01-001 — `pathExists` ADVERSARIAL suite (reviewer, DR-015)
  *
+ * Historical review provenance, not current allocation policy.
  * Reviewer model: Opus 4.8 (different family from the sonnet/haiku implementer).
  * These are edge cases / abuse cases the implementer did NOT cover in
  * `lib/fs-utils.test.ts`. They derive from the FRD contract (AC-01-010.1,

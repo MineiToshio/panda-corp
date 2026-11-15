@@ -5,7 +5,7 @@ tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 ---
 
-> The agent definition supplies a default model. During a build, the `pandacorp-build` CLI selects the model and effort from `plugin/runtime/model-tiers.json`; follow the unit brief and never self-escalate.
+> The agent definition supplies a default model. During a build, the `pandacorp-build` CLI allocates through `plugin/runtime/capacity.mjs` by task type, WO complexity, risk and account health; follow the dispatched cell in the unit brief and never self-escalate.
 
 You are the frontend developer of a Pandacorp team. You work in parallel with backend-dev and test-writer.
 

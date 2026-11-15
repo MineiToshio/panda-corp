@@ -47,13 +47,13 @@ at least 90 s (Claude Code Bash `timeout: 90000`).
 
 1. **Project.** `.pandacorp/status.yaml` missing → stop and say (Spanish) the folder is not a factory project yet
    (`/pandacorp:adopt` or `/pandacorp:spec`). `overlay_version` behind the plugin → `/pandacorp:upgrade` first (DR-048).
-2. **Label** (who builds: `claude` or `codex`), precedence: **explicit word in the arguments** > **orchestrate flag**
+2. **Label** (provenance: `claude` or `codex`), precedence: **explicit word in the arguments** > **orchestrate flag**
    > **session runtime**. The flag is `~/.claude/state/orchestrator-mode/$CLAUDE_CODE_SESSION_ID.on` (content
    `claude` or `codex`); it is **read-only** for this skill: never create, write or delete it. Codex has no flag.
    Pass the raw arguments and the session id; the CLI applies the precedence and returns `label` and `label_source`.
    Legacy words `pro|balanced|powerful|deep` are ignored by the CLI with a warning; never translate them into flags.
 3. **Coordinator.** Pass the session runtime: Claude Code uses `--session-runtime claude --coordinator claude`;
-   Codex uses `--session-runtime codex --coordinator codex`. Label is preference only. Follow each
+   Codex uses `--session-runtime codex --coordinator codex`. Label is provenance only, never a provider preference or pin. Each new unit receives its tool from the shared allocator. Follow each
    CLI allocation; cross-company cells use the deterministic worker launcher. Never refuse a label,
    ask the owner about quota or start another native runtime. Existing native continuations retain
    the original capable coordinator, its lease and automatic wake until the result is consumed.
@@ -107,7 +107,7 @@ Write the returned `scope` object verbatim to `.pandacorp/run/scope.json` (an in
    then pipes the unchanged JSON to `node <plugin-root>/runtime/capacity-cli.mjs ingest-claude`.
    Without Desktop, use the shared snapshot with its original observation time; never ask about quotas.
    `quota record` remains a compatibility writer to the same account state. Codex is read passively from rollouts.
-2. **Preflight** (no LLM, no quota probe):
+2. **Preflight** (no LLM, passive capacity readings only):
    ```
    pb start --preflight --row <row> --scope-json .pandacorp/run/scope.json --label <label> --coordinator claude|codex --session-model <m>
    ```
@@ -222,13 +222,13 @@ independent new units continue on the other qualified tool. Drive sleeps in leas
 1. Data: `finish` (`report_path`, `summary`) or `pb summary` for a run that stopped itself.
 2. Notify (Claude Code: `PushNotification`, one Spanish line: "Build terminado: <N> hechas, <M> aparcadas.").
 3. Reply to the owner in Spanish, this order, every heading present even when empty ("ninguna"):
-   - **Necesito de ti**: `open_questions[]` (parked questions, gates; "¿aterrizo?" lists degraded reviews not yet
-     re-reviewed) and the defaults applied because nobody answered ("apliqué el default X porque no respondiste").
+   - **Necesito de ti**: `open_questions[]` (parked questions, gates; "¿aterrizo?" lists only historical review debt actually present; valid fallback or same-model
+     fresh-context review creates no degradation or mandatory re-review) and the defaults applied because nobody answered ("apliqué el default X porque no respondiste").
    - **Decidí sin ti (N)**: one line per autonomous decision (question, choice, who advised, how to revert).
-   - **Aparcado**: units parked and why; work built on an assumption and its branch.
+   - **Aparcado**: protected units or legacy pending assumption work parked and why. New reversible assumptions belong in **Decidí sin ti** and integrate through ordinary gates, even for a lone unit.
    - **Hecho**: FRDs/WOs landed on `main`, or waiting on `lane/<run_id>/integration` for the owner's order; the report path.
-   - **Revisiones**: cross, degraded and deferred counts, e.g. "3 cruzadas (Codex Sol high), 1 degradada (Opus
-     xhigh, mismo modelo)".
+   - **Revisiones**: valid reviews and any historical degraded/deferred entries actually present, e.g. "3 revisiones
+     (Codex Sol high), 1 independiente del mismo modelo con esfuerzo superior (Opus xhigh)".
    - **Cupo**: each company's last reading and reset.
 4. Verify engine close-out with `git -C <projectDir> worktree list --porcelain`: eligible finished unit, assume, G2
    and integration worktrees are removed, branches retained. A `waiting_gate` run keeps its integration worktree

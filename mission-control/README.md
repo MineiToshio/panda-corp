@@ -6,7 +6,7 @@ The Órbita command center for the **Pandacorp** factory: ideas, projects, propo
 
 Mission Control turns running the Pandacorp factory from the terminal into a single command center. It shows, at a glance, what needs the owner's attention, what changed since their last visit, and the next `/pandacorp:*` command to run — plus La Fragua for live project construction, a documentation browser, and honest progress (XP, levels, achievements tied to real work, never to opening the app).
 
-It is **read-only**: it never calls Claude and never executes commands — the owner runs the suggested command themselves in Claude Code. The only writes are a small, bounded, human-triggered set (discard/restore an idea card's status, toggle its favorite flag). It's an internal tool for a single, Spanish-speaking operator — there is no auth, no multi-user support, and no deploy: it runs on `127.0.0.1`.
+It is **read-only**: it never calls Claude and never executes commands — the owner runs the suggested command in authorized Claude Code or Codex; the shared CLI selects workers under DR-162. The only writes are a small, bounded, human-triggered set (discard/restore an idea card's status, toggle its favorite flag). It's an internal tool for a single, Spanish-speaking operator — there is no auth, no multi-user support, and no deploy: it runs on `127.0.0.1`.
 
 See the full product spec in [`docs/product/prd.md`](docs/product/prd.md).
 

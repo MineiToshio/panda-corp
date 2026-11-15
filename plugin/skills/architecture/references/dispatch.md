@@ -8,6 +8,14 @@ scope changes regenerated instead of patched.
 
 ## 1. Tiers: portable, resolved at dispatch, never written as a model
 
+**Boundary:** this manual architecture-phase dispatch uses ad hoc PORT-2 tiers and runtime-local
+workers, not work-order complexity or the build allocator. DR-162 cell selection through
+`capacity.mjs` applies to build/CLI worker dispatch; this table does not promise account-health
+selection or strict actual-author review floors. G5 uses independent contexts at the explicit tiers
+below; it is an architecture document gate, not build review certification. When these WOs enter
+`implement`, dispatch goes through `capacity.mjs` with `complexity.mjs`, passive account health
+and review qualification against the actual author cells, rather than this table or frontmatter defaults.
+
 Every dispatch below is `TIER·effort`: TIER is a PORT-2 tier (MECH / STANDARD / JUDGE,
 `factory/standards/agent-portability.md`, CONV-12), effort a value of `effort_rank` in
 `${CLAUDE_PLUGIN_ROOT}/runtime/model-tiers.json`. Neither this skill nor a brief names a model: the JSON is the only

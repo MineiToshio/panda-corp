@@ -1,5 +1,15 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-14 — Synchronize capacity documentation (P8)
+
+Aligned allocator authority, complexity, strict actual-author review strength, passive readings,
+critical audit floors and option-B integration across CLI docs, agents, standards and skills.
+Legacy assumption branches and review debt are explicitly historical. Architecture dispatch
+is scoped to ad hoc phase tiers, outside build allocation. Manual examples cover complexity
+and applicable quota windows. Manifests regenerated; PATCH 10.12.2. Agent-mirror regeneration is required
+after the sandbox permits writes to `.codex/agents/`.
+Canonical: capacity.md, build-engine-cli.md, BUILD-10/12 and architecture references/dispatch.md.
+
 ## 2026-11-14 — Close review qualification bypasses (P7 F1–F3)
 
 Independent review found that cross-tool critical equality, missing-author pin/reduction floors and legacy

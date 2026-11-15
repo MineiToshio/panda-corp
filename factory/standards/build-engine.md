@@ -33,7 +33,7 @@ for what the engine runs.
 |---|---|
 | Unit | One dispatch. Kinds: `docs`, `tests`, `build`, `patch`, `review`, `audit`, `doubt-consult`, `deferred-review`. A `build` unit is a chain of ≤3 WOs of one FRD with one routing cell. "Plan" = `docs` at size feature/giant; "escalation" = `build` or `patch` at attempt 3. Ids `u-<kind>-<first wo, frd or doubt id>` (no attempt suffix; consults `u-doubt-consult-<doubt id>-c<n>`); chain id `c-<first wo>`; `attempt` is a field |
 | Safe point | A state the run can stop at and resume from with nothing lost: after a unit commit, a chain integration, a `review-record`, a batch landing |
-| Label | Which company builds: `claude` or `codex` (BUILD-7). Reviews follow BUILD-10, not the label |
+| Label | Provenance: `claude` or `codex` (BUILD-7), never the building company or a provider pin. Each new unit follows the shared allocator in BUILD-10 |
 | Coordinator | Who drives the loop: `claude-session`, `codex-session` or `drive`. The full mapping to lease fields and admission shapes is an interface (`build-engine-cli.md`); the policy consequences are stated in the rules |
 | Company / layer | Anthropic: haiku < sonnet < opus < fable. OpenAI (Codex): luna < terra < sol < astra. Model names everywhere (state, journal, reports, matrix) are these catalog keys; only CLI-launched Codex units carry the catalog slug (`gpt-6-luna`, `gpt-6.1-terra`, `gpt-6.1-sol`, `gpt-6-astra`) |
 | Author | The unit's dispatch cell (runtime, model, effort) as journaled at dispatch; a report's `authored_by` is informational only |
@@ -407,7 +407,7 @@ knowledge for `--files`) and returns
 
 | Rule | Signal | Effect |
 |---|---|---|
-| R1 | `productFloor(ctx).floor`, imported from `plugin/scripts/product-floor.mjs`: P1 auth/session, P2 payments, P3 persistence of personal data, P4 secrets/env, P5 destructive data operations | zone `r1` (the only Astra zone) |
+| R1 | `productFloor(ctx).floor`, imported from `plugin/scripts/product-floor.mjs`: P1 auth/session, P2 payments, P3 persistence of personal data, P4 secrets/env, P5 destructive data operations | zone `r1` (critical-risk floor; complex reviews or strong authors can also require Astra outside `r1`) |
 | R2 | `classify-change.mjs` returns a `floor_hits` entry with `level: "critical"` whose signal is in {S5, S6, S7, S8, S9, S17} (run via `execFile(process.execPath, [classify-change.mjs, "--repo", root, "--range"\|"--files", …], {timeout: 60000})`, one JSON line parsed) | zone `floor` when not r1: persistence without personal data, CI, tests and oracles, package files, plugin/factory machinery |
 | R3 | `securityDeltaTriggers(ctx).hits.length > 0` (product-floor) | `audit: true` (one security audit per build); does not change the zone |
 | R11 | a `risk` glob of `.pandacorp/risk-paths` matches | zone `floor` when not r1 |

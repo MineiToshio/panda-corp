@@ -1,5 +1,7 @@
 # Quality and testing
 
+> Historical frozen test fixture, not current factory policy.
+
 ## Gates (verified by scripts/CI, never by the agent's self-report)
 Validation order before considering something done:
 1. **Tests** (unit + integration) green.

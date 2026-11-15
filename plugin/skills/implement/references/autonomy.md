@@ -154,8 +154,8 @@ script, message text) so the owner's OK is one word.
    releases the unit with the OK in its brief. The session never performs a gated action itself.
 3. **Production** (launched project: `phase: release` and `deploy_target` not `internal`; landing on the default
    branch is production, DR-138): the run ends on `lane/<run_id>/integration` with its gates green and waits for "aterriza". The
-   question "¿aterrizo?" lists the degraded reviews not yet re-reviewed; landing with some pending is the owner's
-   informed choice. Only on the owner's chat order for that landing:
+   question "¿aterrizo?" lists only historical review debt actually present in the ledger; fallback or valid same-model fresh-context
+   review creates no degradation or mandatory re-review. Landing with historical debt is the owner's informed choice. Only on the owner's chat order for that landing:
    `PANDACORP_OWNER_RELEASE_OK=1 pb land --epoch <E>` (the variable on that one command only). If the run is not
    live, `pb start --resume` first, then the same `land` with the new epoch. Never through `answer`.
 4. Never set `PANDACORP_OWNER_RELEASE_OK` for anything else, never push, never bypass the `pre-push` hook.

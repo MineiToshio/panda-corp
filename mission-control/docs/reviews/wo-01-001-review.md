@@ -1,5 +1,7 @@
 # Review — WO-01-001 (`pathExists` read-only probe)
 
+> Historical review record; model wording below describes that run, not current allocation policy.
+
 **FRD:** FRD-01 (Data reading) · **Module:** `lib/fs-utils.ts`
 **IDs:** IF-01-pathExists · REQ-01-010 · AC-01-010.1
 **Reviewer model:** Opus 4.8 (different family from the sonnet/haiku implementer, DR-015)

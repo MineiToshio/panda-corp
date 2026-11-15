@@ -1,5 +1,12 @@
 # Decision Log — Mission Control
 
+## 2026-11-14 — Align capacity and work-order explanations (P8)
+
+Updated the Manual work-order example with explicit complexity and its legacy resolver,
+the concrete implementation/review cell map, applicable quota windows and historical
+assumption branches. Clarified authorized command runtimes in README. Canonical:
+manual/_components/EstadoDetail.tsx, manual/manualPages.tsx and the two affected guides.
+
 ## 2026-11-14 — Close review qualification bypasses (P7 F1–F3)
 
 Independent review found that cross-tool critical equality, missing-author pin/reduction floors and legacy
