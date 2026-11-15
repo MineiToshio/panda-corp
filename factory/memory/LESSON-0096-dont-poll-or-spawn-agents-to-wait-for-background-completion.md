@@ -106,3 +106,14 @@ general backstop and the discipline (just end the turn; let the automatic comple
 the session) must be followed proactively rather than relied on to be enforced. Folded here rather than
 given its own new lesson, consistent with this file's own 4th-6th precedent of aggregating same-shape
 repeats.
+
+**Eighth corroborating occurrence (2026-11-15, same routine):** during an automated `pandacorp-memory-review`
+scheduled-task firing (not an attended `/loop` session), `ScheduleWakeup` was called to wait on background
+`pandacorp:librarian` harvest/review agents and errored with the exact 4th/6th-occurrence shape ("`prompt`
+is required when `stop` is not true"). This time the note explicitly names WHY the tool keeps getting
+reached for here: a scheduled-task firing has no `/loop` re-entry prompt to supply and no need for one —
+background `Agent`-tool calls already deliver their own completion notification regardless of whether the
+session was entered via `/loop` or a scheduled task. No new design information beyond what the 4th/6th/7th
+occurrences already established; folded here per this lesson's own aggregation precedent. The operative
+takeaway for a scheduled-task context specifically: skip `ScheduleWakeup` entirely and let the automatic
+notification resume the session, exactly as the existing "Apply next time" guidance above already says.

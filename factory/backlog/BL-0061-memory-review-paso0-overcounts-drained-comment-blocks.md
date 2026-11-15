@@ -510,3 +510,17 @@ LAST `<!-- Drained ... -->` block's own closing `-->` (already-established bound
 2026-09-29/10-06/10-26/10-27 precedent: same project/routine family, no new lesson warranted. No new
 backlog item. Source: factory/memory/_inbox.md agent-inferred note (2026-10-28, landed mid-drain during
 the 2026-10-28 harvest).
+
+## Corroborating occurrence (2026-11-14) — the already-converged marker-anchor technique applied cleanly during the 2026-11-15 factory harvest itself
+
+A further live application, with no new failure mode: a 2026-11-14 note restated this item's own
+already-established core technique (find the LAST line-anchored `^<!-- No live notes pending as of`
+marker — the 2026-10-25 annotation's approach — and count only what follows it, rather than
+re-deriving a parser from a naive HTML-comment strip, which overcounts exactly as this item's original
+2026-07-10 Problem section describes) as a caution against re-deriving the count from scratch. Applying
+it during the 2026-11-15 factory harvest (the very next drain) correctly found 8 live notes past the
+last marker (line 2000 of `factory/memory/_inbox.md` at the time), matching a manual read. No new
+design information — the marker-anchor technique (2026-10-25, corroborated 2026-11-04/11-12) remains the
+working approach; this note is itself an instance of that already-converged fact, not a new trap. No new
+backlog item; checked against LESSON-0008 per this item's own standing precedent, no new lesson
+warranted. Source: factory/memory/_inbox.md agent-inferred note (2026-11-14, harvested 2026-11-15).

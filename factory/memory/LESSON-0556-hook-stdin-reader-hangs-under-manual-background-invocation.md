@@ -5,7 +5,7 @@ domain: hooks
 tags: [hooks, stdin, background, manual-invocation, claude-code]
 context: manually invoking (outside the real harness) a script that a Claude Code hook normally runs, which reads its input JSON from stdin, as a background shell call
 trigger: use this when running a hook script by hand (for debugging, a dry run, or a routine simulation) as a background process — before it appears to hang with no output
-source: "mission-control .pandacorp/run/lessons.md 2026-10-29 (agent-inferred): a script that reads hook-payload JSON from stdin hung indefinitely when invoked manually in the background (no real hook harness piping input), because nothing closes stdin for a background shell call — the read blocks forever waiting for input that will never arrive. CORROBORATED on a DIFFERENT project (funko-tracker .pandacorp/run/lessons.md 2026-11-08, agent-inferred): a background `codex exec` image-generation job waited on stdin until timeout unless run with `< /dev/null` — same mechanism (a background CLI invocation with nothing closing/redirecting stdin hangs on an implicit or explicit stdin read), a different tool (`codex exec` rather than a hook script)."
+source: "mission-control .pandacorp/run/lessons.md 2026-10-29 (agent-inferred): a script that reads hook-payload JSON from stdin hung indefinitely when invoked manually in the background (no real hook harness piping input), because nothing closes stdin for a background shell call — the read blocks forever waiting for input that will never arrive. CORROBORATED on a DIFFERENT project (funko-tracker .pandacorp/run/lessons.md 2026-11-08, agent-inferred): a background `codex exec` image-generation job waited on stdin until timeout unless run with `< /dev/null` — same mechanism (a background CLI invocation with nothing closing/redirecting stdin hangs on an implicit or explicit stdin read), a different tool (`codex exec` rather than a hook script). CORROBORATED a THIRD time on panda-corp itself (factory/memory/_inbox.md, 2026-11-13, agent-inferred), with a NEW trigger shape (not background): `bash plugin/scripts/check-derived-drift.sh` hung when invoked in the SAME Bash tool call as an earlier heredoc (`cmd1 <<EOF ... EOF; check-derived-drift.sh`) — a FOREGROUND invocation, not a backgrounded one. The script reads stdin (directly or via a dependency), and sharing the Bash call with a preceding heredoc left stdin in a state the script's read never resolved, hanging exactly like the background cases above. Workaround used: run it with `</dev/null` appended, or give it its own separate Bash call with no heredoc sharing the same invocation."
 provenance: agent-inferred
 created: 2026-10-29
 status: active   # 2026-11-09 (librarian eval-gate): cross-project corroboration (mission-control + funko-tracker), schema-valid, no contradiction
@@ -36,3 +36,10 @@ rather than fail loud.
 a background process (e.g. `codex exec` for an image-generation job) that reads or waits on stdin by
 default will hang the same way. Always run a background CLI call with `< /dev/null` unless you are
 deliberately piping real input to it.
+
+**Generalized further (panda-corp corroboration):** this is not even specific to backgrounding — a
+FOREGROUND script that reads stdin can hang too if it shares a single Bash tool invocation with an
+earlier heredoc (e.g. `cmd1 <<EOF ... EOF; some-stdin-reading-script.sh`). When a script you are running
+is known (or suspected) to read stdin, redirect `</dev/null` explicitly — or isolate it in its own Bash
+call, with no heredoc earlier in the same invocation — rather than assuming a foreground, same-call
+position protects it.
