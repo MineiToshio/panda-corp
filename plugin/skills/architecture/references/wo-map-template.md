@@ -53,13 +53,13 @@ forms; fidelity gate mode; knip reachability of harness/stub modules; ...>
 
 ## 2. Work-order catalogue
 
-Format per WO: wave · foundation · difficulty · dependsOn · ACs (REQ) · artifacts · API contract · mocks · installs ·
+Format per WO: wave · foundation · complexity · dependsOn · ACs (REQ) · artifacts · API contract · mocks · installs ·
 notes.
 
 ### FRD-NN <title> (<n> WOs, <a> ACs)
 
 **WO-NN-MMM <title>**
-- W<k> · foundation|feature · low|medium|high · dependsOn: [<ids>]
+- W<k> · foundation|feature · trivial|normal|complex · dependsOn: [<ids>]
 - Summary: <one or two lines: what this slice delivers>
 - ACs: <AC-NN-MMM.K, ...> (REQ-NN-MMM) — or "none (enables REQ-...)" for foundation/tooling
 - Artifacts: `<glob>`, `<glob>`, `docs/api/WO-NN-MMM.md`

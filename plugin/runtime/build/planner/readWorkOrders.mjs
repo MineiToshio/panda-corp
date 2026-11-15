@@ -1,5 +1,6 @@
 // Planner disk reader (BUILD-9): work orders and FRD acceptance criteria from a checkout.
 import path from "node:path";
+import { workOrderComplexity } from "../../complexity.mjs";
 import { frontmatterList, parseYamlSubset, resolveDeps, splitFrontmatter } from "../card.mjs";
 import { naturalCompare, norm } from "./common.mjs";
 import { extractAcIds } from "./pathRules.mjs";
@@ -41,7 +42,14 @@ export async function readPlanWorkOrders(root, deps = {}) {
       const status = typeof data.implementation_status === "string" ? data.implementation_status : "";
       if (!status) { errors.push({ file, reason: "implementation_status missing" }); continue; }
       const id = (typeof data.id === "string" && /^wo-/i.test(data.id) ? data.id : name.replace(/^(wo-\d+-\d+).*$/i, "$1")).toLowerCase();
+      const metadata = { ...data, artifacts: frontmatterList(data.artifacts),
+        acs: extractAcIds(parts.body), deps: frontmatterList(data.dependsOn ?? data.depends_on),
+        source_requirements: frontmatterList(data.source_requirements) };
+      let complexity;
+      try { complexity = workOrderComplexity(metadata); }
+      catch (error) { errors.push({ file, reason: error.message }); continue; }
       wos.push({
+        complexity, difficulty: data.difficulty,
         id, frd: frdName, file, status, deps: frontmatterList(data.dependsOn ?? data.depends_on).map(norm),
         artifacts: Object.hasOwn(data, "artifacts") ? frontmatterList(data.artifacts) : null,
         order: Number(/(\d+)$/.exec(id)?.[1] ?? wos.length), reopen_count: Number.parseInt(String(data.reopen_count ?? 0), 10) || 0,

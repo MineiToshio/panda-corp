@@ -284,17 +284,62 @@ Planner/architect/design/docs roles use `design`; builders/implementers/tests/pa
 reviewers/audits use `review`; mechanical roles use `mechanical`. Deterministic CLI operations still use no model.
 Risk from `risk.mjs`: `none` → normal, `floor` → delicate, `r1` → critical (fail-closed remains critical).
 
-| Task | Preferred | Fallback |
+| Task / complexity | Codex cell | Claude cell |
 |---|---|---|
-| Design/planning/judgment | Claude Opus high | Codex Sol high |
-| Implementation | Codex Sol low | Claude Sonnet medium |
-| Ordinary review | Codex Sol low | Claude Opus low |
-| Mechanical | Codex Luna low | Claude Haiku low |
-| Critical risk | Codex Astra high / Claude Opus high | Same risk floor on the other tool |
+| Implement / trivial | Sol low | Sonnet medium |
+| Implement / normal | Sol medium | Sonnet high |
+| Implement / complex | Sol high | Opus medium |
+| Implement / critical risk (any complexity) | Astra high | Opus high |
+| Review / trivial nominal author | Sol medium | Opus low |
+| Review / normal nominal author | Sol high | Opus low |
+| Review / complex nominal author | Astra high | Opus high |
+| Review / critical author on the same tool | Astra xhigh | Opus xhigh |
+| Design / planning / judgment (any complexity) | Sol high | Opus high |
+| Mechanical (any complexity) | Luna low | Haiku low |
+| Images | Sol low | Unavailable |
 
-Delicate work uses at least Sol medium / Sonnet medium; design retains its high effort. Astra high is reserved
-for security, money, sensitive data and the conservative r1 classifier result. Author model, reopen count,
-size and execution attempt never force Astra or raise effort. Fable remains disabled.
+Implementation complexity is independent of risk. Delicate work has at least Sol medium / Sonnet medium;
+critical risk (security, money, sensitive data or irreversible operations) has at least Astra high / Opus high.
+Design and mechanical routing retain their existing risk floors. Fable remains disabled.
+
+Review uses the **actual implementer cell**, including any capacity reduction, rather than recomputing its
+nominal complexity. On the selected tool it advances one rung, with minimum Sol medium / Opus low:
+Codex `Luna low < Sol low < Sol medium < Sol high < Astra high < Astra xhigh`;
+Claude `Haiku low < Sonnet medium < Sonnet high < Opus low < Opus medium < Opus high < Opus xhigh`.
+A reviewer never receives an identical tool/model/effort cell. Multiple authors require the maximum floor.
+Cross-tool implementation equivalents are Luna low ↔ Haiku low, Sol low ↔ Sonnet medium,
+Sol medium ↔ Sonnet high, Sol high ↔ Opus medium, Astra high ↔ Opus high and Astra xhigh ↔ Opus xhigh;
+Claude Opus low projects to Sol medium. Advance from that equivalent and apply the reviewer minimum.
+At top-high, cross-tool Astra high / Opus high equivalence is allowed; same-tool review advances to xhigh.
+At absolute xhigh ceiling with no stronger qualified reviewer, wait rather than reuse the identical cell.
+Tool health still outranks preference; ordinary complex reviews may therefore use Astra high.
+Audits without a recorded implementer retain their critical risk cell. Historical null efforts and disabled
+author models are normalized once by routing for both dispatch and wake; disabled models are never emitted.
+
+Only after **neither requested cell fits** may normal/complex implementation or review reduce effort by one
+step (`xhigh → high → medium → low`), keeping the model. Never reduce twice, change an active pin, lower a
+risk floor, or go below the reviewer's minimum/actual-author successor. Prefer a full cell on the other tool
+over any reduction. Pins and explicit model/effort overrides are preserved. Log `complexity_effort_reduced`;
+if no permitted cell fits, retain the existing wait/resumeAt contract. This is capacity admission, not retry escalation.
+
+### Work-order complexity (DR-162 option B)
+
+The planner stamps `complexity: trivial | normal | complex` in each WO frontmatter. **trivial** means a
+small, familiar, single-module change (Hello World); **normal** means a cohesive slice with ordinary logic
+(a form with validation); **complex** means novel/multiple integration seams or many modules (image ingestion,
+an external integration, a broad refactor). DR-100 still bounds WO size; splitting an oversized WO is mandatory.
+There is no existing numeric time/size estimate in the WO reader: `difficulty`, `artifacts`, AC ids,
+`dependsOn` and `source_requirements` are the available metadata.
+
+Resolution is deterministic in `plugin/runtime/complexity.mjs`: explicit enum wins (invalid values are rejected).
+Otherwise **complex** when legacy `difficulty: high`, ≥6 distinct artifact paths/globs, ≥5 distinct AC ids,
+≥3 distinct dependencies, ≥3 artifact areas, or requirements from ≥2 FRDs. An area is the first path component
+after optional `./` and `src/` (e.g. app, components, lib). Otherwise **trivial** only with `difficulty: low`
+or legacy `size: touch`, 1–2 concrete artifact files (no wildcards), ≤2 ACs, no dependency and one area.
+All other/missing metadata resolves to **normal**. Risk can always raise the resulting cell.
+Chain/unit complexity is the maximum of its WOs; the planner cuts chains when cells differ and persists
+complexity in the unit's optional schema field. Queued legacy units are backfilled from their WOs before dispatch;
+active executions retain their pins. Dispatch and wake share the same review demand and author projection.
 
 Exactly one reviewer runs in an independent context, including when it uses the author's model or company.
 The reviewer receives bounded evidence and adversarial instructions, never the author's conversation.

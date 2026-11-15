@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { COMPLEXITIES } from "./complexity.mjs";
 import os from "node:os";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -10,7 +11,8 @@ const TAIL_BYTES = 256 * 1024;
 const PRIORS = {
   "luna/low": [0.4, 0.1], "haiku/low": [0.6, 0.15],
   "sol/low": [1, 0.25], "sonnet/medium": [1.6, 0.4],
-  "sol/medium": [1.6, 0.4], "sol/high": [2.4, 0.6],
+  "sol/medium": [1.6, 0.4], "sol/high": [2.4, 0.6], "sonnet/high": [2.4, 0.6],
+  "astra/xhigh": [6, 1.5], "opus/xhigh": [6, 1.5],
   "astra/high": [4, 1], "opus/high": [4, 1],
   "opus/low": [2, 0.5], "opus/medium": [3, 0.75], images: [4, 1],
 };
@@ -192,13 +194,52 @@ export function readCodexFromRolloutsSync(dir, now) {
 
 export async function readCodexFromRollouts(dir, now) { return readCodexFromRolloutsSync(dir, now); }
 
-function cellFor(type, risk, tool) {
+// Ordered executable cells, independent of legacy model-tiers routing tables.
+export const CELL_LADDERS = Object.freeze({
+  codex: Object.freeze(["luna/low", "sol/low", "sol/medium", "sol/high", "astra/high", "astra/xhigh"]),
+  claude: Object.freeze(["haiku/low", "sonnet/medium", "sonnet/high", "opus/low", "opus/medium", "opus/high", "opus/xhigh"]),
+});
+const cellKey = cell => `${cell.model}/${cell.effort}`;
+const rank = cell => CELL_LADDERS[cell.tool].indexOf(cellKey(cell));
+const atRank = (tool, index) => {
+  const key = CELL_LADDERS[tool][index];
+  if (!key) return null; // At the absolute ceiling, another identical reviewer is never eligible.
+  const [model, effort] = key.split("/");
+  return { tool, model, effort };
+};
+const crossEquivalent = {
+  "luna/low": "haiku/low", "sol/low": "sonnet/medium", "sol/medium": "sonnet/high",
+  "sol/high": "opus/medium", "astra/high": "opus/high", "astra/xhigh": "opus/xhigh",
+  "haiku/low": "luna/low", "sonnet/medium": "sol/low", "sonnet/high": "sol/medium",
+  "opus/low": "sol/medium", "opus/medium": "sol/high", "opus/high": "astra/high", "opus/xhigh": "astra/xhigh",
+};
+function cellFor(type, risk, tool, complexity = "normal") {
   if (risk === "critical") return { tool, model: tool === "codex" ? "astra" : "opus", effort: "high" };
   if (type === "images") return tool === "codex" ? { tool, model: "sol", effort: "low" } : null;
   if (["plan", "design", "judgment"].includes(type)) return { tool, model: tool === "codex" ? "sol" : "opus", effort: "high" };
-  if (risk === "delicate") return { tool, model: tool === "codex" ? "sol" : "sonnet", effort: "medium" };
-  if (type === "mechanical") return { tool, model: tool === "codex" ? "luna" : "haiku", effort: "low" };
-  return { tool, model: tool === "codex" ? "sol" : type === "review" ? "opus" : "sonnet", effort: tool === "claude" && type === "implement" ? "medium" : "low" };
+  if (type === "mechanical") return risk === "delicate" ? atRank(tool, tool === "codex" ? 2 : 1) : atRank(tool, 0);
+  const index = COMPLEXITIES.indexOf(complexity);
+  const base = atRank(tool, tool === "codex" ? index + 1 : [1, 2, 4][index]);
+  return risk === "delicate" && tool === "codex" && rank(base) < 2 ? atRank(tool, 2) : base;
+}
+function reviewerFloor(tool, risk, authors) {
+  let floor = Math.max(tool === "codex" ? 2 : 3, rank(cellFor("implement", risk, tool, "trivial")));
+  for (const author of authors) {
+    const sameTool = author.tool === tool;
+    const equivalent = sameTool ? cellKey(author) : crossEquivalent[cellKey(author)];
+    let next = CELL_LADDERS[tool].indexOf(equivalent) + 1;
+    // Cross-tool top-high equivalence is allowed; same-tool review must advance to xhigh.
+    if (!sameTool && ["astra/high", "opus/high"].includes(cellKey(author))) next--;
+    floor = Math.max(floor, next);
+  }
+  return floor;
+}
+function qualifiedCell(type, risk, tool, complexity, authors) {
+  const base = cellFor(type, risk, tool, complexity);
+  if (type !== "review") return base;
+  // With no recorded author, ordinary reviews use the nominal implementer on this tool.
+  const reference = authors.length ? authors : risk === "critical" ? [] : [base];
+  return atRank(tool, reviewerFloor(tool, risk, reference));
 }
 
 function validateCell(cell) {
@@ -238,7 +279,7 @@ function fit(reading, cell, type, imageReserve, costs, pinned) {
 /** Decide one task without IO, mutation or model calls. Inputs are normalized schema-1 readings.
  * Pins use catalog keys (opus/sol/astra/luna/sonnet/haiku), preserve risk floors and mandatory reserves.
  * @param {object} input
- * @param {{id:string,type:string,risk?:string,override?:string|object,pin?:object,imageDemandPp?:number}} input.task Risk defaults to normal for images, critical otherwise.
+ * @param {{id:string,type:string,risk?:string,complexity?:string,implementerCell?:object,implementerCells?:object[],override?:string|object,pin?:object,imageDemandPp?:number}} input.task Complexity defaults to normal; implementerCell carries the actual author cell. Risk defaults to normal for images, critical otherwise.
  * @param {{claude?:object,codex?:object}} [input.readings] Cached readings retain their observedAt.
  * @param {string|number|Date} input.now Injected clock.
  * @param {Object<string,{five_hour:number,weekly:number}>} [input.costs] Overrides, keyed model/effort or images.
@@ -251,6 +292,12 @@ export function decide({ task, readings = {}, now, costs = {} }) {
   if (!["normal", "delicate", "critical"].includes(risk) || type === "images" && risk !== "normal") {
     throw new TypeError("Invalid risk; image risk assessment must be a separate task");
   }
+  const complexity = task.complexity ?? "normal";
+  if (!COMPLEXITIES.includes(complexity)) throw new TypeError("Invalid complexity");
+  const authors = [...(task.implementerCells ?? []), ...(task.implementerCell ? [task.implementerCell] : [])].map(cell => ({
+    tool: cell.tool ?? cell.runtime, model: cell.model, effort: cell.effort,
+  }));
+  for (const author of authors) validateCell(author);
   const demand = task.imageDemandPp ?? 0;
   if (!Number.isFinite(demand) || demand < 0) throw new TypeError("imageDemandPp must be nonnegative");
   validateCosts(costs);
@@ -264,25 +311,35 @@ export function decide({ task, readings = {}, now, costs = {} }) {
   if (task.pin) {
     validateCell(task.pin);
     const { model, effort } = task.pin;
-    const critical = cellFor("implement", "critical", task.pin.tool);
-    const delicate = cellFor("implement", "delicate", task.pin.tool);
-    if (risk === "critical" && (model !== critical.model || effort !== critical.effort) ||
-        risk === "delicate" && (![delicate.model, critical.model].includes(model) || ![delicate.effort, critical.effort].includes(effort))) {
-      throw new TypeError("Pin is below the task's risk floor");
-    }
+    const floor = type === "review" ? reviewerFloor(task.pin.tool, risk, authors) : risk === "normal" ? 0 : rank(cellFor("implement", risk, task.pin.tool, "trivial"));
+    if (rank(task.pin) < floor) throw new TypeError("Pin is below the task's risk floor or reviewer floor");
     if (override && (override.tool !== task.pin.tool || override.model !== undefined && override.model !== model ||
         override.effort !== undefined && override.effort !== effort)) throw new TypeError("Pin conflicts with explicit override");
     if (type === "images" && (task.pin.tool !== "codex" || task.pin.model !== "sol" || task.pin.effort !== "low")) throw new TypeError("Images require Codex Sol low");
   }
   const tools = task.pin ? [task.pin.tool] : override ? [override.tool] : type === "images" ? ["codex"] : [preferred, TOOLS.find(t => t !== preferred)];
   const candidates = tools.map(tool => {
-    const cell = task.pin ? { tool, model: task.pin.model, effort: task.pin.effort } : cellFor(type, risk, tool);
+    const cell = task.pin ? { tool, model: task.pin.model, effort: task.pin.effort } : qualifiedCell(type, risk, tool, complexity, authors);
+    if (!cell) return { cell: null, fits: false, resets: [] };
     if (!task.pin && override && (override.model !== undefined && override.model !== cell.model || override.effort !== undefined && override.effort !== cell.effort)) {
       throw new TypeError("Override must preserve the task's qualified cell and risk floor");
     }
     return { cell, reading: readings_used[tool], ...fit(readings_used[tool], cell, type, Math.min(8, Math.max(2, demand)), costs, !!task.pin) };
   });
-  let viable = candidates.filter(c => c.fits), reason = task.pin ? "pinned_task" : override ? "explicit_override" : "preferred_tool";
+  let viable = candidates.filter(c => c.fits), reduced = false;
+  // Only after neither requested cell fits, reduce effort once, preserving model and hard floors.
+  if (!viable.length && !task.pin && !override?.model && !override?.effort && complexity !== "trivial" && ["implement", "review"].includes(type)) {
+    const lower = candidates.filter(c => c.cell).map(c => {
+      const effort = { xhigh: "high", high: "medium", medium: "low" }[c.cell.effort];
+      const cell = { ...c.cell, effort };
+      const floor = type === "review" ? reviewerFloor(cell.tool, risk, authors) : rank(cellFor("implement", risk, cell.tool, "trivial"));
+      if (!Object.hasOwn(PRIORS, cellKey(cell)) || rank(cell) < floor) return null;
+      return { cell, ...fit(readings_used[cell.tool], cell, type, Math.min(8, Math.max(2, demand)), costs, false) };
+    }).filter(Boolean);
+    candidates.push(...lower);
+    viable = lower.filter(c => c.fits); reduced = viable.length > 0;
+  }
+  let reason = task.pin ? "pinned_task" : override ? "explicit_override" : "preferred_tool";
   if (!task.pin && !override && viable.length) {
     // Healthy <85% > unknown > high >=85%; unfit cells were excluded above.
     // Within high pressure, minimize the worst applicable window before the task tie-break.
@@ -293,9 +350,9 @@ export function decide({ task, readings = {}, now, costs = {} }) {
   }
   if (viable.length) {
     const pin = { ...viable[0].cell };
-    return { action: "run", ...pin, pin, reason, readings_used };
+    return { action: "run", ...pin, pin, reason: reduced ? "complexity_effort_reduced" : reason, ...(reduced ? { reduced: true } : {}), readings_used };
   }
-  const fixed = candidates.length === 1 ? candidates[0].cell : { tool: null, model: null, effort: null };
+  const fixed = candidates.length === 1 && candidates[0].cell ? candidates[0].cell : { tool: null, model: null, effort: null };
   // A cell fits only after ALL its blocking windows reset; then choose the first eligible cell.
   const resets = candidates.map(c => c.resets.filter(t => t > ms)).filter(ts => ts.length).map(ts => Math.max(...ts));
   return { action: "wait", ...fixed, ...(task.pin ? { pin: { ...fixed } } : {}),
@@ -306,7 +363,7 @@ export function decide({ task, readings = {}, now, costs = {} }) {
  * @param {object} decision Result of decide.
  * @returns {string} Single-line description, without task contents. */
 export function explain(decision) {
-  const reasons = { pinned_task: "selección fija de la tarea", explicit_override: "herramienta fijada explícitamente",
+  const reasons = { complexity_effort_reduced: "esfuerzo reducido un escalón por cupo, conservando los pisos", pinned_task: "selección fija de la tarea", explicit_override: "herramienta fijada explícitamente",
     preferred_tool: "preferencia por tipo y riesgo", capacity_health_preferred: "se prioriza el nivel de salud del cupo",
     preferred_tool_unavailable: "la herramienta preferida no tiene margen", lower_pressure_preferred: "menor uso máximo entre ventanas con presión alta",
     unknown_reading_selected: "lectura desconocida, preferida a un cupo alto", pinned_tool_exhausted: "cupo de la tarea fijada agotado",
@@ -373,8 +430,8 @@ function activeRunLog(start = process.cwd()) {
 export function logCapacityDecision(task, decision, { env = process.env, now = env.PANDACORP_NOW ?? new Date().toISOString(), log } = {}) {
   const file = log || env.PANDACORP_CAPACITY_LOG || activeRunLog() || path.join(capacityDir(env), "decisions.jsonl");
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  const { id, type, risk, override, pin, imageDemandPp } = task;
-  fs.appendFileSync(file, JSON.stringify({ at: new Date(now).toISOString(), task: { id, type, risk, override, pin, imageDemandPp },
+  const { id, type, risk, complexity, implementerCell, implementerCells, override, pin, imageDemandPp } = task;
+  fs.appendFileSync(file, JSON.stringify({ at: new Date(now).toISOString(), task: { id, type, risk, complexity, implementerCell, implementerCells, override, pin, imageDemandPp },
     decision, reason: decision.reason, readings_used: decision.readings_used }) + "\n", { mode: 0o600 });
   fs.chmodSync(file, 0o600);
 }

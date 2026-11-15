@@ -1,5 +1,6 @@
 // (3) Quota view and (4)(5) the units managed by `next`: deferred reviews, the planner round over the integration
 // worktree's work orders (static risk zones), first-minute questions (D19) and the run parameters.
+import { maxComplexity } from "../../complexity.mjs";
 import { execFile } from "node:child_process";
 import { readDeferred } from "../deferred.mjs";
 import { readJson } from "../fsx.mjs";
@@ -74,7 +75,20 @@ export async function planRound(run, state, pol) {
   const prefix = run.prefix ?? "";
   const readFrd = base ? (frd) => gitShow(root, base, `${prefix}docs/frds/${frd}/frd.md`) : undefined;
   const read = await (await sibling(d, "planner", "readPlanWorkOrders"))(root, { ...d, ...(readFrd ? { readFrd } : {}) });
+  if (read?.errors?.some(e => /complexity/.test(e.reason))) throw err("INVALID_STATE", "Invalid work-order complexity", { errors: read.errors });
   const wos = await withZones(run, state, read?.wos ?? [], root);
+  // Backfill queued legacy units from the canonical WOs before dispatch/wake; active pins stay fixed.
+  const complexityByWo = new Map(wos.map(w => [w.id.toLowerCase(), w.complexity]));
+  const legacy = state.units.filter(u => u.state === "queued" && !u.complexity && u.wos?.length);
+  if (legacy.length) state = await mutate(run, s => {
+    const events = [];
+    const units = s.units.map(u => {
+      if (!legacy.some(x => x.id === u.id)) return u;
+      const updated = { ...u, complexity: maxComplexity(u.wos.map(w => complexityByWo.get(w.toLowerCase()))) };
+      events.push({ type: "unit_queued", data: updated }); return updated;
+    });
+    return { state: { ...s, units }, events };
+  });
   const questions = [...(await readQuestions(run)).values()].filter((q) => !(q.id in (state.answers ?? {})));
   const params = await readRunParams(run);
   const plan = await (await sibling(d, "planner", "plan"))({

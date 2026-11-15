@@ -22,15 +22,15 @@ test("85/90/95 are not global veto or handoff thresholds", () => {
 });
 test("legacy conserve input causes per-task selection, no forced Astra or deferred review", () => {
   const r = reviewCell({ authors: [author], kind: "frd", zone: "none", availability: { claude: "conserve", codex: "ok" } });
-  eq([r.used.runtime, r.used.model, r.used.effort, r.deferred, r.degraded], ["codex", "sol", "low", null, null]);
+  eq([r.used.runtime, r.used.model, r.used.effort, r.deferred, r.degraded], ["codex", "sol", "medium", null, null]);
 });
 test("label no longer pins a conserved provider", () => {
   const b = builderCell({ kind: "build", size: "feature", zone: "none" }, { label: "claude", quota: { claude: "conserve", codex: "ok" } });
-  eq([b.runtime,b.model,b.effort], ["codex","sol","low"]);
+  eq([b.runtime,b.model,b.effort], ["codex","sol","medium"]);
 });
 test("same-model mixed-author review is allowed in fresh context", () => {
   const r = reviewCell({ authors: [author, { runtime: "codex", model: "astra", effort: "high" }], kind: "frd", zone: "floor", availability: { claude: "quota", codex: "ok" } });
-  eq([r.used.model, r.used.effort, r.parked, r.deferred], ["sol","medium",null,null]);
+  eq([r.used.model, r.used.effort, r.parked, r.deferred], ["astra","xhigh",null,null]);
 });
 test("stale high Claude observations retain conservative usage without sticky conserve", () => {
   const e = effective({ provider: "claude", status: "ok", observed_at: "2026-11-14T04:00:00Z", five_hour_pct: 91, weekly_pct: 20,
@@ -69,17 +69,17 @@ test("restored: neither unknown nor two pressured providers impose a global stop
 test("restored: symmetric review fallback preserves risk and fresh context", () => {
   for (const zone of ["none", "floor", "r1"]) {
     const r = reviewCell({ authors: [{ runtime: "claude", model: "sonnet", effort: "medium" }], kind: "frd", zone, availability: { claude: "ok", codex: "quota" } });
-    eq([r.used.runtime, r.used.model, r.used.effort], ["claude", zone === "floor" ? "sonnet" : "opus", zone === "none" ? "low" : zone === "floor" ? "medium" : "high"]);
+    eq([r.used.runtime, r.used.model, r.used.effort], ["claude", "opus", zone === "r1" ? "high" : "low"]);
     eq([r.independent_context, r.deferred, r.degraded, r.parked], [true, null, null, null]);
   }
 });
-test("restored: mixed-author order and unavailable provider never force ordinary Astra or park", () => {
+test("restored: mixed-author order is stable and strong authors require a stronger review", () => {
   const authors = [author, { runtime: "codex", model: "astra", effort: "high" }];
   for (const claude of ["quota", "conserve", "unreachable", "ok"]) for (const zone of ["none", "floor", "r1"]) {
     const input = { authors, kind: "frd", zone, availability: { claude, codex: "ok" } };
     const a = reviewCell(input), b = reviewCell({ ...input, authors: [...authors].reverse() });
     eq(a, b); eq([a.parked, a.deferred, a.degraded, a.independent_context], [null, null, null, true]);
-    eq(a.used.model, zone === "r1" ? "astra" : "sol");
+    eq([a.used.model, a.used.effort], ["astra", "xhigh"]);
   }
 });
 test("restored: audit keeps security floor and uses either eligible provider without deferral", () => {

@@ -17,8 +17,8 @@ The old TTL discarded Codex's usable lower bound and the selector preferred any 
 The current policy below supersedes historical stale-as-unknown claims in the dated verification tables.
 `test-capacity.mjs` retains those exact quota envelopes at `2026-11-15T00:00:00Z`, including the old
 observation time, and exercises both the pure allocator and stdin CLI. Expected: design → Codex Sol high;
-implement/review/image → Codex Sol low; mechanical → Codex Luna low; critical/security → Codex Astra high.
-Claude 50% / stale Codex 39% retains design on Claude Opus high and implementation on Codex Sol low.
+implement normal → Codex Sol medium; its review → Codex Sol high; image → Codex Sol low; mechanical → Codex Luna low; critical/security → Codex Astra high.
+Claude 50% / stale Codex 39% retains design on Claude Opus high and implementation on Codex Sol medium.
 No reading at all for Codex still beats Claude 95% for new eligible work.
 
 Verification for this correction: all ten requested suites (`test-capacity*.mjs`, `test-codex-worker*.mjs`,
@@ -251,22 +251,71 @@ also gives unknown, with its error code. It is not a server refresh or a subscri
 
 ## Selection contract
 
-`decide({task:{id,type,risk,override,pin,imageDemandPp},readings,now,costs})` accepts types `plan`, `design`,
+This section is current policy. The dated qualification/backtest sections below record superseded routing outcomes.
+
+
+`decide({task:{id,type,risk,complexity,implementerCell,override,pin,imageDemandPp},readings,now,costs})` accepts types `plan`, `design`,
 `judgment`, `implement`, `review`, `mechanical`, `images`; risk is `normal`, `delicate` or `critical`.
 Missing risk defaults to normal for images and critical otherwise. Invalid tasks/overrides/costs throw
 TypeError, rather than inventing a quota wait.
 
-| Task | Preferred cell | Other tool's cell |
+| Task / complexity | Codex cell | Claude cell |
 |---|---|---|
-| Plan/design/judgment | Claude opus/high | Codex sol/high |
-| Implementation | Codex sol/low | Claude sonnet/medium |
-| Ordinary review | Codex sol/low | Claude opus/low |
-| Mechanical | Codex luna/low | Claude haiku/low |
-| Images | Codex sol/low | None |
+| Implement / trivial | Sol low | Sonnet medium |
+| Implement / normal | Sol medium | Sonnet high |
+| Implement / complex | Sol high | Opus medium |
+| Implement / critical risk (any complexity) | Astra high | Opus high |
+| Review / trivial nominal author | Sol medium | Opus low |
+| Review / normal nominal author | Sol high | Opus low |
+| Review / complex nominal author | Astra high | Opus high |
+| Review / critical author on the same tool | Astra xhigh | Opus xhigh |
+| Design / planning / judgment (any complexity) | Sol high | Opus high |
+| Mechanical (any complexity) | Luna low | Haiku low |
+| Images | Sol low | Unavailable |
 
-Delicate work has the transversal floor Codex sol/medium or Claude sonnet/medium; planning/judgment keeps
-its higher cell. Critical work always uses Codex astra/high or Claude opus/high. Image requests must use
-normal risk; separate any sensitive assessment into its own task. Fable is disabled, including in pins/overrides.
+Implementation complexity is independent of risk. Delicate work has at least Sol medium / Sonnet medium;
+critical risk (security, money, sensitive data or irreversible operations) has at least Astra high / Opus high.
+Design and mechanical routing retain their existing risk floors. Fable remains disabled.
+
+Review uses the **actual implementer cell**, including any capacity reduction, rather than recomputing its
+nominal complexity. On the selected tool it advances one rung, with minimum Sol medium / Opus low:
+Codex `Luna low < Sol low < Sol medium < Sol high < Astra high < Astra xhigh`;
+Claude `Haiku low < Sonnet medium < Sonnet high < Opus low < Opus medium < Opus high < Opus xhigh`.
+A reviewer never receives an identical tool/model/effort cell. Multiple authors require the maximum floor.
+Cross-tool implementation equivalents are Luna low ↔ Haiku low, Sol low ↔ Sonnet medium,
+Sol medium ↔ Sonnet high, Sol high ↔ Opus medium, Astra high ↔ Opus high and Astra xhigh ↔ Opus xhigh;
+Claude Opus low projects to Sol medium. Advance from that equivalent and apply the reviewer minimum.
+At top-high, cross-tool Astra high / Opus high equivalence is allowed; same-tool review advances to xhigh.
+At absolute xhigh ceiling with no stronger qualified reviewer, wait rather than reuse the identical cell.
+Tool health still outranks preference; ordinary complex reviews may therefore use Astra high.
+Audits without a recorded implementer retain their critical risk cell. Historical null efforts and disabled
+author models are normalized once by routing for both dispatch and wake; disabled models are never emitted.
+
+Only after **neither requested cell fits** may normal/complex implementation or review reduce effort by one
+step (`xhigh → high → medium → low`), keeping the model. Never reduce twice, change an active pin, lower a
+risk floor, or go below the reviewer's minimum/actual-author successor. Prefer a full cell on the other tool
+over any reduction. Pins and explicit model/effort overrides are preserved. Log `complexity_effort_reduced`;
+if no permitted cell fits, retain the existing wait/resumeAt contract. This is capacity admission, not retry escalation.
+
+### Work-order complexity (DR-162 option B)
+
+The planner stamps `complexity: trivial | normal | complex` in each WO frontmatter. **trivial** means a
+small, familiar, single-module change (Hello World); **normal** means a cohesive slice with ordinary logic
+(a form with validation); **complex** means novel/multiple integration seams or many modules (image ingestion,
+an external integration, a broad refactor). DR-100 still bounds WO size; splitting an oversized WO is mandatory.
+There is no existing numeric time/size estimate in the WO reader: `difficulty`, `artifacts`, AC ids,
+`dependsOn` and `source_requirements` are the available metadata.
+
+Resolution is deterministic in `plugin/runtime/complexity.mjs`: explicit enum wins (invalid values are rejected).
+Otherwise **complex** when legacy `difficulty: high`, ≥6 distinct artifact paths/globs, ≥5 distinct AC ids,
+≥3 distinct dependencies, ≥3 artifact areas, or requirements from ≥2 FRDs. An area is the first path component
+after optional `./` and `src/` (e.g. app, components, lib). Otherwise **trivial** only with `difficulty: low`
+or legacy `size: touch`, 1–2 concrete artifact files (no wildcards), ≤2 ACs, no dependency and one area.
+All other/missing metadata resolves to **normal**. Risk can always raise the resulting cell.
+Chain/unit complexity is the maximum of its WOs; the planner cuts chains when cells differ and persists
+complexity in the unit's optional schema field. Queued legacy units are backfilled from their WOs before dispatch;
+active executions retain their pins. Dispatch and wake share the same review demand and author projection.
+
 Model names are catalog keys, as in the existing router; dispatchers resolve executable slugs from the existing catalog.
 
 Every new candidate must fit all its applicable windows after 2 pp emergency reserve per window. Ordinary
@@ -318,8 +367,9 @@ override (default 4× Sol low); other keys identify cells. Task-size scaling/cal
 | haiku/low | 0.6 | 0.15 |
 | sol/low | 1 | 0.25 |
 | sonnet/medium, sol/medium | 1.6 | 0.40 |
-| sol/high | 2.4 | 0.60 |
+| sol/high, sonnet/high | 2.4 | 0.60 |
 | astra/high, opus/high | 4 | 1 |
+| astra/xhigh, opus/xhigh | 6 | 1.50 |
 | opus/low | 2 | 0.50 |
 | opus/medium | 3 | 0.75 |
 | images | 4 | 1 |
@@ -726,3 +776,19 @@ sequence and startedAt; retries never refresh the deadline. Each signal/terminal
 that identity under the continuation mutex, including after timeout grace or dead-worker delays.
 A stale monitor cannot affect a later continuation. The crash suite's after-commit case enforces
 the timeout as well as provider uniqueness; the independent watchdog probe covers control and crash.
+
+### Option B verification, 2026-11-14 (Lima)
+
+Plugin 10.12.0 resolves task complexity and enforces a stronger actual-author review under BUILD-10.
+The 13 requested capacity/worker/routing/quota/conserve/next/review suites pass: 775 assertions, zero failures.
+The planner suite additionally passes 30 assertions. Before changes, `test-build-v2-next.mjs` at main
+`91095a71` passed 68/68 in this environment; its four ordinary low-effort expectations now assert medium.
+No new failure is waived. Independent runtime review reran routing (367/367) and verified that dispatch/wake
+use the same legacy-author projection. Generated-drift and whitespace checks exit 0. No commit was made.
+
+Real passive readings at 2026-11-15T01:02:33Z: the supplied Claude snapshot still constrains weekly usage
+at 95%; its five-hour reset has expired, so that window is unknown. The latest Codex rollout is now fresh
+40% (observed 01:02:09Z), replacing the earlier stale 39% snapshot. Pure `decide()` returns implementation
+`{action:run,tool:codex,model:sol,effort:medium,reason:preferred_tool}` and review of that exact pin
+`{action:run,tool:codex,model:sol,effort:high,reason:preferred_tool}`. The regression also preserves the supplied
+stale 39% envelope (+5 pp to 44%) and checks the same cells. No live inference or quota probe was launched.

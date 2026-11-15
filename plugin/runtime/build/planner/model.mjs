@@ -1,4 +1,5 @@
 // Planner model (BUILD-9): the normalized input shared by `plan` and `lint-plan`, plus routing cells and unit artifacts.
+import { workOrderComplexity, maxComplexity } from "../../complexity.mjs";
 import { builderCell } from "../routing.mjs";
 import {
   DEFAULT_CEILING, DOCS_GLOBS, PENDING, PLANNED_KINDS, SLOT_STATES, STALLED_STATES, WRITE_STATES, ZONE_RANK, isAssumed, maxZone, naturalCompare, norm, normGlob, uniq,
@@ -19,6 +20,7 @@ function buildNodes(wos) {
     const declared = Array.isArray(w.artifacts);
     const artifacts = declared ? w.artifacts.map(normGlob).filter(Boolean) : [];
     nodes.set(id, {
+      complexity: workOrderComplexity(w),
       id, index, frd: norm(w.frd), status: String(w.status ?? "").trim().toUpperCase(),
       deps: uniq((w.deps ?? w.depends_on ?? w.dependsOn ?? []).map(norm).filter(Boolean)),
       artifacts: artifacts.length > 0 ? artifacts : null, artifactsDeclared: declared,
@@ -135,7 +137,7 @@ export function routeCell(m, kind, wos) {
   if (!label && !m.deps.cellOf) return null;
   const zone = maxZone(wos.map((n) => n.zone));
   const reopen = Math.max(0, ...wos.map((n) => n.reopen));
-  const unit = { kind, size, zone, reopen_count: reopen, attempt: 1, wos: wos.map((n) => n.id) };
+  const unit = { kind, size, zone, complexity: maxComplexity(wos.map(n => n.complexity)), reopen_count: reopen, attempt: 1, wos: wos.map((n) => n.id) };
   const ctx = { label, zone, reopen_count: reopen, attempt: 1, quota, shape, coordinator, sessionModel };
   return m.deps.cellOf ? m.deps.cellOf(unit, ctx) : builderCell(unit, ctx, m.deps.routing);
 }

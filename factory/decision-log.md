@@ -1,5 +1,15 @@
 # Decision Log — Factory
 
+## 2026-11-14 — Complexity-driven implementation and stronger review (DR-162 option B)
+
+The owner chose per-task complexity, separate from risk. Explicit WO complexity overrides the documented
+legacy metadata heuristic; normal is the no-data default. Allocation now uses Sol low/medium/high or
+Sonnet medium/high/Opus medium, preserves critical floors, and reviews above the actual author cell.
+Capacity may reduce effort once only after both complete cells fail, within hard floors. Dispatch and wake
+share the author projection, including historical nullable effort. Canonical policy: [BUILD-10](standards/build-engine.md),
+[capacity contract](../plugin/docs/capacity.md), work-order template and architecture/work-orders skills. The Manual guide
+reflects the same flow. Priors add Sonnet high and top-xhigh cells; plugin minor version 10.12.0.
+
 ## 2026-11-14 — DR-162 clarification: stale bounds and health before preference
 
 Clarified [BUILD-11](standards/build-engine.md) and existing [DR-162](decisions/registry.yaml): valid

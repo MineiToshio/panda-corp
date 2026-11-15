@@ -1,5 +1,6 @@
 // (6) Candidates and cells: the ordered dispatch candidates (deferred reviews, consults, FRD reviews, the audit, then
 // the planner's ready units) with the routing cell each one runs on.
+import { maxComplexity } from "../../complexity.mjs";
 import { reviewDemand } from "../routing.mjs";
 import { retryCapacityConsults } from "../doubts/consult.mjs";
 import { logCapacityDecision } from "../../capacity.mjs";
@@ -103,7 +104,7 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
     if (!entry) continue;
     const routed = entry.kind === "audit"
       ? d.routing.builderCell({ ...u, kind: "audit", size: state.size, zone: u.zone, attempt: 1 }, { ...ctx, zone: u.zone, attempt: 1, sessionModel: null }, routingDeps(d))
-      : d.routing.reviewCell({ id: u.id, authors: [entry.author], kind: state.size === "touch" ? "touch" : "frd", zone: u.zone, availability: avail, shape: ctx.shape }, routingDeps(d));
+      : d.routing.reviewCell({ id: u.id, complexity: u.complexity, authors: [entry.author], kind: state.size === "touch" ? "touch" : "frd", zone: u.zone, availability: avail, shape: ctx.shape }, routingDeps(d));
     const cell = entry.kind === "audit" ? routed : routed.used;
     if (!cell || cell.paused || cell.deferred) {
       quotaBlocked = true;
@@ -147,7 +148,7 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
     if (!ready) continue;
     const authors = dedupeCells(pending.filter((x) => x.worker).map((x) => authorOf(x.worker)));
     if (!authors.length) throw err("INVALID_STATE", `review ${u.id}: no author cell among its units`, { hint: "rebuild-state" });
-    const rc = d.routing.reviewCell({ id: u.id, authors, kind: state.size === "touch" ? "touch" : "frd", zone: u.zone, availability: avail, shape: ctx.shape }, routingDeps(d));
+    const rc = d.routing.reviewCell({ id: u.id, complexity: maxComplexity(work.map(x => x.complexity)), authors, kind: state.size === "touch" ? "touch" : "frd", zone: u.zone, availability: avail, shape: ctx.shape }, routingDeps(d));
     if (rc.parked) { quotaBlocked = true; if (rc.resumeAt) capacityWaits.push(rc.resumeAt); if (rc.capacity) logCapacityDecision(rc.task, rc.capacity, { env: d.env, log: run.paths.capacityDecisionsFile, now: pol.now }); if (u.parked !== "no_reviewer") toParkNoReviewer.push(u.id); continue; }
     if (u.parked === "no_reviewer") toUnpark.push(u.id);
     const ids = pending.map((x) => x.id);

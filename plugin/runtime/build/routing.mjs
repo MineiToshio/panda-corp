@@ -1,5 +1,6 @@
 // Shared-capacity routing. The catalog validates capabilities; capacity.decide owns policy.
-import { decide } from "../capacity.mjs";
+import { workOrderComplexity, maxComplexity } from "../complexity.mjs";
+import { decide, CELL_LADDERS } from "../capacity.mjs";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,12 +17,29 @@ const EFFORT_CAP = "xhigh";
 /** Single source of truth for model strength; drive (and any other consumer) derives from this table. Fable is ranked but never selected automatically (CONV-12). */
 export const MODEL_STRENGTH = Object.freeze({ haiku: 1, luna: 1, sonnet: 2, sol: 2, terra: 2, opus: 3, astra: 3, fable: 4 });
 
+/** Shared legacy-author projection for dispatch and wake; stable ordering keeps decisions pure. */
+export function normalizeImplementerCells(authors = []) {
+  const efforts = ["minimal", "low", "medium", "high", "xhigh"];
+  return authors.map(a => {
+    const tool = a.tool ?? a.runtime ?? (["haiku", "sonnet", "opus", "fable"].includes(a.model) ? "claude" : "codex");
+    const model = a.model === "terra" ? "sol" : a.model === "fable" ? "opus" : a.model;
+    const supported = CELL_LADDERS[tool].filter(key => key.startsWith(`${model}/`)).map(key => key.split("/")[1]);
+    const requested = a.model === "fable" ? "xhigh" : a.effort ?? "high";
+    const effort = supported.find(e => efforts.indexOf(e) >= efforts.indexOf(requested)) ?? supported.at(-1);
+    return { tool, model, effort };
+  }).sort((a, b) => `${a.tool}/${a.model}/${a.effort}`.localeCompare(`${b.tool}/${b.model}/${b.effort}`));
+}
+
 /** The task/risk projection used for dispatch AND waking queued work. No synthetic global veto. */
-export function capacityTaskForUnit(unit) {
+export function capacityTaskForUnit(unit, state) {
   const role = unit.role ?? unit.kind;
   const type = /planner|architect|design|docs|doubt-consult/.test(role) ? "design"
     : /review|audit/.test(role) ? "review" : /mechanic/.test(role) ? "mechanical" : "implement";
-  return { id: unit.id, type, risk: unit.kind === "audit" || /security-auditor/.test(role) || unit.zone === "r1" ? "critical" : unit.zone === "floor" ? "delicate" : "normal" };
+  const demand = state && type === "review" ? reviewDemand(state, unit) : null;
+  const authors = demand ? demand.pending.filter(u => u.worker).map(u => u.worker) : unit.implementerCells;
+  const complexity = demand?.work.length ? maxComplexity(demand.work.map(u => u.complexity)) : workOrderComplexity(unit);
+  return { id: unit.id, type, complexity, ...(unit.implementerCell ? { implementerCell: unit.implementerCell } : {}),
+    ...(authors?.length ? { implementerCells: normalizeImplementerCells(authors) } : {}), risk: unit.kind === "audit" || /security-auditor/.test(role) || unit.zone === "r1" ? "critical" : unit.zone === "floor" ? "delicate" : "normal" };
 }
 
 /** Review eligibility shared by candidate dispatch and capacity wake. */
@@ -105,7 +123,7 @@ export function createRouter(tiers) {
     return unit.kind === "build" && unit.size === "touch" && attempt === 1 && zone === "none" && ctx.label === runtime && sessionModelOk(runtime, ctx.sessionModel);
   };
 
-  // Role and deterministic risk zone choose task kind/floor; author and attempt never escalate a cell.
+  // Role, WO complexity and deterministic risk choose implementation; actual authors bound review.
   const select = (unit, ctx = {}) => {
     const zone = ctx.zone ?? unit.zone ?? "none";
     if (!ZONES.includes(zone)) fail(`bad zone ${zone}`);
@@ -148,7 +166,11 @@ export function createRouter(tiers) {
       if (a.runtime && a.runtime !== company) fail("reviewCell: author runtime/model mismatched");
       if (a.effort != null && !RANK.includes(a.effort)) fail("reviewCell: invalid author effort");
     }
-    const { decision, task } = select({ id: input.id, kind: "review", zone: input.zone }, input);
+    // Legacy session authors without effort are conservatively treated as high; disabled historic
+    // models are mapped to their enabled family equivalent, never emitted as executable cells.
+    const implementerCells = normalizeImplementerCells(input.authors);
+    const { decision, task } = select({ id: input.id, kind: "review", zone: input.zone,
+      complexity: input.complexity, implementerCells }, input);
     let used = decision.action === "run" ? assertCell({ runtime: decision.tool, model: decision.model, effort: decision.effort }, "capacity review") : null;
     if (used && used.runtime === "claude" && ["R-B", "drive"].includes(input.shape)) used = { ...used, via: "cli" };
     return { primary: used, used, degraded: null, deferred: null, parked: used ? null : "no_reviewer", row: "capacity",

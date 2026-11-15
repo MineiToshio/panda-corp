@@ -19,7 +19,7 @@ You have no shell. To delete a file of yours, replace its content with one line 
 list it in your report; the lead removes it. The lead runs every check script and sends you its output.
 
 ## The plan is decided: follow the map
-`<path>/wo-map.md` fixes every WO id, title, AC assignment, artifacts, dependsOn, foundation flag, difficulty, wave,
+`<path>/wo-map.md` fixes every WO id, title, AC assignment, artifacts, dependsOn, foundation flag, complexity, wave,
 mocks and install commands, plus the global rules (§0) and the lead's binding resolutions (§8, which override §2).
 Do not re-decide coupling or move ACs. If the map is clearly wrong for your FRD (an artifact path that contradicts
 the route/module map, a dependency an AC obviously needs), fix it minimally inside your files AND report it.
@@ -47,7 +47,7 @@ concatenated ledger after every author is done.
 - Versions and exact install commands: `<versions record path>`.
 - Templates (follow exactly): `${CLAUDE_PLUGIN_ROOT}/templates/docs/{blueprint-template,work-order-template,work-orders-readme-template}.md`.
   Rules: `${CLAUDE_PLUGIN_ROOT}/skills/work-orders/SKILL.md` (Summary BL-0015, Visual reference DR-054/056,
-  dependsOn coupling DR-087a, difficulty DR-073, artifacts DR-060, Status Note, reuse before create DR-057) and
+  dependsOn coupling DR-087a, complexity DR-162, artifacts DR-060, Status Note, reuse before create DR-057) and
   `${CLAUDE_PLUGIN_ROOT}/skills/architecture/SKILL.md` steps 2, 8 (visual spec) and 9 (BL-0051 test-side supersession).
 - Lessons: `<factory>/factory/memory/INDEX.md`; cite a `LESSON-NNNN` in the blueprint/WO where one materially
   informs a choice.
@@ -66,7 +66,7 @@ and shapes, not code. No `TBD`, no `[NEEDS CLARIFICATION]`.
 
 ## Work orders
 One file per WO of the map, template frontmatter exactly (`status: DRAFT`, `implementation_status: PLANNED`,
-`foundation`, `difficulty`, `reopen_count: 0`, `artifacts`, `source_requirements`, `dependsOn`). Body: a FILLED
+`foundation`, `complexity: trivial|normal|complex` (copy the map; legacy `difficulty` is optional), `reopen_count: 0`, `artifacts`, `source_requirements`, `dependsOn`). Body: a FILLED
 `## Summary`, In/Out scope, Requirements & ACs with every AC this WO owns **copied verbatim** from the FRD as its
 `- **AC-NN-MMM.K:** ...` bullet (only those; mention other ACs in prose, never as a bullet), the CMP/IF it builds,
 reused components (reuse → adapt → create), the install step with the exact commands the map assigns, a FILLED
@@ -81,5 +81,5 @@ Every REQ → a CMP/IF; every AC → exactly one WO, copied verbatim; `dependsOn
 artifacts; every UI string you name is drawn in your FRD's captured states (or names the FRD that draws it, DR-130);
 no `TBD` / `[NEEDS CLARIFICATION]`; every path consistent with architecture.md.
 
-Final report (concise): files written, the WO list with difficulty, every deviation from the map (exact), every
+Final report (concise): files written, the WO list with complexity, every deviation from the map (exact), every
 tombstone, and the ledger lines you wrote.

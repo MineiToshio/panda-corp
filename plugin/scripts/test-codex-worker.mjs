@@ -47,11 +47,11 @@ ok(codexTier("sonnet", "minimal").effort === "low" && codexTier("weird-model").m
 // Happy path with a JSON answer.
 {
   const { dir, sum } = prep("w1", "Build the thing.");
-  const p = unseal(runCli(["run", "--project", project, "--id", "w1", "--sum", sum, "--model", "sonnet", "--effort", "low", "--role", "pandacorp:implementer", "--json-answer", "--max", "20"], { FAKE_MODE: "json" }));
+  const p = unseal(runCli(["run", "--project", project, "--id", "w1", "--sum", sum, "--model", "sonnet", "--effort", "medium", "--role", "pandacorp:implementer", "--json-answer", "--max", "20"], { FAKE_MODE: "json" }));
   ok(p && p.status === "done" && p.ok === true && p.answer.done === true && p.answer.sha === "abc123", "a JSON final message after prose → ok with the parsed answer");
   const rec = JSON.parse(readFileSync(path.join(dir, "last.md.argv.json"), "utf8"));
   const a = rec.argv;
-  ok(a[0] === "exec" && a.includes("--ignore-user-config") && a[a.indexOf("-m") + 1] === "gpt-6.1-sol" && a.includes('model_reasoning_effort="low"') && a.at(-1) === "-", "codex exec argv: ignores the user config, carries model + effort, prompt on stdin");
+  ok(a[0] === "exec" && a.includes("--ignore-user-config") && a[a.indexOf("-m") + 1] === "gpt-6.1-sol" && a.includes('model_reasoning_effort="medium"') && a.at(-1) === "-", "codex exec argv: ignores the user config, carries model + effort, prompt on stdin");
   ok(a[a.indexOf("-s") + 1] === "workspace-write" && a.includes("sandbox_workspace_write.network_access=true") && !a.includes("danger-full-access"), "default access is the workspace-write sandbox with network");
   ok(rec.stdin.includes("# Your role") && rec.stdin.includes("# Task\n\nBuild the thing.") && rec.stdin.includes("exactly ONE JSON object"), "the prompt carries the role instructions, the task and the JSON-answer rule");
   ok(path.resolve(rec.cwd) === path.resolve(project) || rec.cwd.endsWith("/proj"), "Codex runs in the project dir by default");

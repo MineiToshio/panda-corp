@@ -78,7 +78,7 @@ export async function wakeCapacity({ project, epoch, owner = "drive", generation
     let ready = suspended.some(u => continuationDecision(u, readings, now).ready);
     // Queued independent work may wake on either tool; suspended work may ONLY wake its own pin.
     if (!ready) for (const unit of state.units) {
-      let task = unit.state === "queued" && (!unit.parked || unit.kind === "review" && unit.parked === "no_reviewer") ? capacityTaskForUnit(unit) : null;
+      let task = unit.state === "queued" && (!unit.parked || unit.kind === "review" && unit.parked === "no_reviewer") ? capacityTaskForUnit(unit, state) : null;
       if (task && unit.kind === "review" && !reviewDemand(state, unit).ready) task = null;
       if (unit.state === "reported" && unit.doubt_id) {
         const record = await readJson(ctx.paths.doubtFile(unit.doubt_id));

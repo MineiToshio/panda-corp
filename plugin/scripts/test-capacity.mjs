@@ -54,8 +54,8 @@ const liveDecide = (type, rs = liveReadings(), extra = {}) => mod.decide({
 });
 for (const [type, risk, model, effort] of [
   ["design", "normal", "sol", "high"], ["plan", "normal", "sol", "high"],
-  ["judgment", "normal", "sol", "high"], ["implement", "normal", "sol", "low"],
-  ["review", "normal", "sol", "low"], ["mechanical", "normal", "luna", "low"],
+  ["judgment", "normal", "sol", "high"], ["implement", "normal", "sol", "medium"],
+  ["review", "normal", "sol", "high"], ["mechanical", "normal", "luna", "low"],
   ["review", "critical", "astra", "high"], ["implement", "critical", "astra", "high"],
   ["image", "normal", "sol", "low"],
 ]) await test(`live 95% Claude / stale 39% Codex: ${type}/${risk} uses Codex ${model}/${effort}`, () => {
@@ -77,24 +77,24 @@ await test("both high: stale Codex 88+5 beats Claude 95 by lower worst-window pr
   const event = structuredClone(liveRollout); event.payload.rate_limits.primary.used_percent = 88;
   const rs = { ...liveReadings(), codex: mod.normalizeCodexRateLimits(event, LIVE_NOW) };
   cell(liveDecide("design", rs), "codex", "sol", "high");
-  cell(liveDecide("implement", rs), "codex", "sol", "low");
+  cell(liveDecide("implement", rs), "codex", "sol", "medium");
   rs.codex.windows.find(w => w.id === "weekly").percentUsed = 91;
-  cell(liveDecide("implement", rs), "claude", "sonnet", "medium");
+  cell(liveDecide("implement", rs), "claude", "sonnet", "high");
   rs.codex.windows.find(w => w.id === "weekly").percentUsed = 90;
   cell(liveDecide("design", rs), "claude", "opus", "high"); // equal pressure: normal preference
-  cell(liveDecide("implement", rs), "codex", "sol", "low");
+  cell(liveDecide("implement", rs), "codex", "sol", "medium");
 });
 await test("unknown Codex beats high Claude for all eligible non-image cells", () => {
   for (const type of ["design", "implement", "review", "mechanical"]) {
     assert.equal(liveDecide(type, { claude: liveReadings().claude }).tool, "codex");
   }
-  cell(decide("implement", { codex: codex(95) }), "claude", "sonnet", "medium");
+  cell(decide("implement", { codex: codex(95) }), "claude", "sonnet", "high");
 });
 await test("Claude 50 and stale Codex 39 retain normal task preferences", () => {
   const raw = structuredClone(liveUsage); raw.plan.windows[1].percentUsed = 50;
   const rs = { ...liveReadings(), claude: mod.normalizeClaudeUsage(raw, LIVE_NOW) };
   cell(liveDecide("design", rs), "claude", "opus", "high");
-  cell(liveDecide("implement", rs), "codex", "sol", "low");
+  cell(liveDecide("implement", rs), "codex", "sol", "medium");
 });
 await test("stale margins are +5 through 24h, +10 after, capped at 100 and never compounded", () => {
   for (const [seconds, margin] of [[86400, 5], [86401, 10]]) {
@@ -112,7 +112,7 @@ await test("stale margin drives pressure at 85 and fit reserves, not just displa
   const e = structuredClone(liveRollout); e.payload.rate_limits.primary.used_percent = 80;
   const raw = structuredClone(liveUsage); raw.plan.windows[1].percentUsed = 50;
   let rs = { claude: mod.normalizeClaudeUsage(raw, LIVE_NOW), codex: mod.normalizeCodexRateLimits(e, LIVE_NOW) };
-  cell(liveDecide("implement", rs), "claude", "sonnet", "medium");
+  cell(liveDecide("implement", rs), "claude", "sonnet", "high");
   e.payload.rate_limits.primary.used_percent = 88;
   e.timestamp = "2026-11-13T23:59:59.000Z";
   rs = { ...liveReadings(), codex: mod.normalizeCodexRateLimits(e, LIVE_NOW) };
@@ -127,13 +127,13 @@ await test("cached pre-fix stale_reading snapshots are reassessed using the orig
 await test("today: design, implementation, security and images use the specified Codex cells", () => {
   const rs = readings(94, 30);
   cell(decide("design", rs), "codex", "sol", "high");
-  cell(decide("implement", rs), "codex", "sol", "low");
+  cell(decide("implement", rs), "codex", "sol", "medium");
   cell(decide("review", rs, { risk: "critical" }), "codex", "astra", "high");
   cell(decide("images", rs), "codex", "sol", "low");
 });
 await test("ample quota follows each pure preference; Fable does not block Opus", () => {
   for (const type of ["plan", "design", "judgment"]) cell(decide(type), "claude", "opus", "high");
-  for (const type of ["implement", "review", "images"]) cell(decide(type), "codex", "sol", "low");
+  for (const [type, effort] of [["implement", "medium"], ["review", "high"], ["images", "low"]]) cell(decide(type), "codex", "sol", effort);
   cell(decide("mechanical"), "codex", "luna", "low");
 });
 await test("exhausted Claude never stops new design when Codex fits", () => {
@@ -142,7 +142,7 @@ await test("exhausted Claude never stops new design when Codex fits", () => {
 await test("exhausted Codex waits only its image; implementation continues on Claude", () => {
   const d = decide("images", readings(20, 100));
   assert.equal(d.action, "wait"); assert.equal(d.resumeAt, XW); assert.equal(d.tool, "codex");
-  cell(decide("implement", readings(20, 100)), "claude", "sonnet", "medium");
+  cell(decide("implement", readings(20, 100)), "claude", "sonnet", "high");
   cell(decide("review", readings(20, 100)), "claude", "opus", "low");
   cell(decide("mechanical", readings(20, 100)), "claude", "haiku", "low");
 });
@@ -154,7 +154,7 @@ await test("risk is a transversal floor even for mechanical work", () => {
   cell(decide("mechanical", readings(), { risk: "delicate" }), "codex", "sol", "medium");
   cell(decide("mechanical", readings(), { risk: "critical" }), "codex", "astra", "high");
   cell(decide("mechanical", readings(20, 100), { risk: "delicate" }), "claude", "sonnet", "medium");
-  cell(decide("review", readings(20, 100), { risk: "delicate" }), "claude", "sonnet", "medium");
+  cell(decide("review", readings(20, 100), { risk: "delicate" }), "claude", "opus", "low");
   cell(decide("mechanical", readings(20, 100), { risk: "critical" }), "claude", "opus", "high");
 });
 await test("pressure starts at 85 inclusive in every applicable window", () => {
@@ -162,18 +162,18 @@ await test("pressure starts at 85 inclusive in every applicable window", () => {
   cell(decide("design", readings(85, 20)), "codex", "sol", "high");
   cell(decide("design", readings(85.001, 20)), "codex", "sol", "high");
   cell(decide("design", readings(20, 20, 86)), "codex", "sol", "high");
-  cell(decide("implement", readings(20, 86)), "claude", "sonnet", "medium");
+  cell(decide("implement", readings(20, 86)), "claude", "sonnet", "high");
 });
 await test("pressure never waits while the preferred tool still fits", () => {
   cell(decide("design", readings(94, 100)), "claude", "opus", "high");
-  cell(decide("implement", readings(100, 90)), "codex", "sol", "low");
+  cell(decide("implement", readings(100, 90)), "codex", "sol", "medium");
 });
 await test("Codex stale at 3601s remains known with margin and keeps implementation preference", () => {
   const event = structuredClone(fixture); event.timestamp = new Date(ms - 3601000).toISOString();
   const r = mod.normalizeCodexRateLimits(event, NOW);
   assert.equal(r.state, "stale"); assert.equal(r.ageSeconds, 3601);
   assert.equal(r.windows.find(w => w.id === "weekly").effectivePercentUsed, 35);
-  cell(decide("implement", { ...readings(), codex: r }), "codex", "sol", "low");
+  cell(decide("implement", { ...readings(), codex: r }), "codex", "sol", "medium");
 });
 await test("freshness TTLs are inclusive and cached known readings are revalidated", () => {
   const raw = { ...usage(), observedAt: new Date(ms - 600000).toISOString() };
@@ -182,18 +182,18 @@ await test("freshness TTLs are inclusive and cached known readings are revalidat
   assert.equal(mod.normalizeClaudeUsage(raw, NOW).state, "stale");
   const event = structuredClone(fixture); event.timestamp = new Date(ms - 3600000).toISOString();
   assert.equal(mod.normalizeCodexRateLimits(event, NOW).state, "known");
-  cell(decide("implement", readings(), {}, { now: new Date(ms + 3601000).toISOString() }), "codex", "sol", "low");
+  cell(decide("implement", readings(), {}, { now: new Date(ms + 3601000).toISOString() }), "codex", "sol", "medium");
 });
 await test("missing/both unknown readings continue on the preferred tool", () => {
   for (const rs of [{}, { claude: mod.normalizeClaudeUsage(null, NOW), codex: mod.normalizeCodexRateLimits(null, NOW) }]) {
     cell(decide("design", rs), "claude", "opus", "high");
-    cell(decide("implement", rs), "codex", "sol", "low");
+    cell(decide("implement", rs), "codex", "sol", "medium");
     cell(decide("images", rs), "codex", "sol", "low");
   }
   cell(decide("design", { claude: null, codex: codex() }), "codex", "sol", "high");
 });
 await test("an unknown tool remains a last resort when the known tool cannot fit", () => {
-  cell(decide("implement", { claude: null, codex: codex(100) }), "claude", "sonnet", "medium");
+  cell(decide("implement", { claude: null, codex: codex(100) }), "claude", "sonnet", "high");
 });
 await test("old high readings retain constraints and can wait when the other tool cannot fit", () => {
   assert.equal(decide("design", readings(94, 100), {}, { now: new Date(ms + 3601000).toISOString() }).action, "wait");
@@ -215,11 +215,11 @@ await test("expired reset and bad/future timestamps invalidate telemetry", () =>
   assert.equal(mod.normalizeCodexRateLimits(event, NOW).state, "unknown");
 });
 await test("images alone may use their dynamic weekly reserve; emergency is never spent", () => {
-  cell(decide("implement", readings(20, 95.8)), "claude", "sonnet", "medium");
+  cell(decide("implement", readings(20, 95.8)), "claude", "sonnet", "high");
   cell(decide("images", readings(20, 95.8)), "codex", "sol", "low");
   assert.equal(decide("images", readings(20, 98)).action, "wait");
   assert.equal(decide("implement", readings(20, 91), { imageDemandPp: 8, override: "codex" }).action, "wait");
-  cell(decide("implement", readings(20, 91), { imageDemandPp: 2, override: "codex" }), "codex", "sol", "low");
+  cell(decide("implement", readings(20, 91), { imageDemandPp: 2, override: "codex" }), "codex", "sol", "medium");
   assert.equal(decide("implement", readings(20, 91), { imageDemandPp: 100, override: "codex" }).action, "wait");
 });
 await test("explicit overrides constrain tool and cannot downgrade risk or enable Fable", () => {
@@ -238,10 +238,10 @@ await test("pins survive pressure, changed task metadata and unknown readings", 
   assert.equal(d.action, "wait"); assert.equal(d.resumeAt, CW); assert.deepEqual(d.pin, pin);
 });
 await test("default costs vary by cell and custom costs can block a candidate", () => {
-  const rs = readings(100, 95.6);
+  const rs = readings(100, 95.7);
   cell(decide("implement", rs), "codex", "sol", "low");
   assert.equal(decide("review", rs, { risk: "critical" }).action, "wait");
-  assert.equal(decide("implement", rs, {}, { costs: { "sol/low": { five_hour: 1, weekly: 2 } } }).action, "wait");
+  assert.equal(decide("implement", rs, {}, { costs: { "sol/medium": { five_hour: 1.6, weekly: 2 }, "sol/low": { five_hour: 1, weekly: 2 } } }).action, "wait");
   assert.throws(() => decide("implement", rs, {}, { costs: { "sol/low": { five_hour: 1, weekly: -1 } } }));
 });
 await test("redacted real rollout has a weekly primary and no applicable 5h", () => {
@@ -250,13 +250,13 @@ await test("redacted real rollout has a weekly primary and no applicable 5h", ()
   assert.equal(r.windows.find(w => w.id === "weekly").resetsAt, XW);
   assert.equal(r.windows.find(w => w.id === "five_hour").applicability, "not_applicable");
   assert.equal(r.windows.find(w => w.id === "five_hour").percentUsed, null);
-  cell(decide("implement", { claude: null, codex: r }), "codex", "sol", "low");
+  cell(decide("implement", { claude: null, codex: r }), "codex", "sol", "medium");
 });
 await test("all reported windows restrict admission; primary need not mean 5h", () => {
   const event = structuredClone(fixture);
   event.payload.rate_limits.secondary = { used_percent: 100, window_minutes: 300, resets_at: Date.parse(C5) / 1000 };
   const r = mod.normalizeCodexRateLimits(event, NOW);
-  cell(decide("implement", { ...readings(), codex: r }), "claude", "sonnet", "medium");
+  cell(decide("implement", { ...readings(), codex: r }), "claude", "sonnet", "high");
 });
 await test("decisions are deterministic, pure, explainable and never automatically Fable", () => {
   const input = { task: { id: "t", type: "design", risk: "normal" }, readings: readings(94, 30), now: NOW };
@@ -313,14 +313,14 @@ await test("R4b: expired reset is pending confirmation, retains percent and lose
   assert.equal(r.state, "unknown");
   const w = r.windows.find(w => w.id === "weekly");
   assert.equal(w.percentUsed, 30); assert.equal(w.state, "unknown"); assert.equal(w.reason, "reset_pending_confirmation");
-  cell(decide("implement", { claude: readings().claude, codex: r }), "claude", "sonnet", "medium");
-  cell(decide("implement", { claude: readings(100).claude, codex: r }), "codex", "sol", "low");
+  cell(decide("implement", { claude: readings().claude, codex: r }), "claude", "sonnet", "high");
+  cell(decide("implement", { claude: readings(100).claude, codex: r }), "codex", "sol", "medium");
 });
 await test("R6a: model-specific Claude quota blocks only the selected model", () => {
   const raw = usage(); raw.plan.windows.push({ label: "Weekly · Opus", percentUsed: 100, resetsAt: CW });
   const rs = { claude: mod.normalizeClaudeUsage(raw, NOW), codex: codex() };
   cell(decide("design", rs), "codex", "sol", "high");
-  cell(decide("implement", rs, { override: "claude" }), "claude", "sonnet", "medium");
+  cell(decide("implement", rs, { override: "claude" }), "claude", "sonnet", "high");
   assert.equal(decide("design", rs, { override: "claude" }).resumeAt, CW);
   raw.plan.windows.at(-1).percentUsed = 20;
   raw.plan.windows.find(w => w.label === "Weekly · Fable").resetsAt = NOW;
@@ -373,7 +373,7 @@ try {
     await writeFile(path.join(sessions, "rollout-live.jsonl"), JSON.stringify(liveRollout) + "\n");
     const cli = fileURLToPath(new URL("../runtime/capacity-cli.mjs", import.meta.url));
     for (const [type, risk, model, effort] of [["design", "normal", "sol", "high"],
-      ["implement", "normal", "sol", "low"], ["review", "normal", "sol", "low"],
+      ["implement", "normal", "sol", "medium"], ["review", "normal", "sol", "high"],
       ["mechanical", "normal", "luna", "low"], ["review", "critical", "astra", "high"],
       ["image", "normal", "sol", "low"]]) {
       const r = spawnSync(process.execPath, [cli, "decide", "--task", JSON.stringify({ id: "x", type, risk }), "--claude-usage-stdin"], {
@@ -460,7 +460,7 @@ try {
     const e = structuredClone(fixture);
     e.payload.rate_limits.secondary = { used_percent: 100, window_minutes: 300, resets_at: Date.parse(C5) / 1000, scope: "model:sol" };
     const rs = { ...readings(), codex: mod.normalizeCodexRateLimits(e, NOW) };
-    cell(decide("implement", rs), "claude", "sonnet", "medium");
+    cell(decide("implement", rs), "claude", "sonnet", "high");
     cell(decide("implement", rs, { risk: "critical" }), "codex", "astra", "high");
     assert.equal(decide("implement", rs, { override: "codex" }).resumeAt, C5);
   });
@@ -561,11 +561,64 @@ try {
       const args = direct ? ["--direct", "--prompt-file", prompt, "--codex-model", "gpt-6.1-sol"] : ["--model", "sonnet", "--sum", fnv("Fixture task")];
       const r = spawnSync(process.execPath, [worker, "run", "--risk", "normal", "--project", dir, "--id", id, "--max", "3", ...args], { env, encoding: "utf8", timeout: 10000 });
       assert.equal(r.status, 0, r.stderr); const payload = JSON.parse(JSON.parse(r.stdout.trim()).r);
-      assert.equal(payload.ok, true, JSON.stringify(payload)); assert.equal(payload.tool, "claude"); assert.equal(payload.model, "sonnet"); assert.equal(payload.effort, "medium");
+      assert.equal(payload.ok, true, JSON.stringify(payload)); assert.equal(payload.tool, "claude"); assert.equal(payload.model, "sonnet"); assert.equal(payload.effort, "high");
     }
     const logs = (await readFile(path.join(env.PANDACORP_CAPACITY_DIR, "decisions.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
     assert.equal(logs.length, 2); assert.ok(logs.every(x => x.decision.tool === "claude"));
   });
 } finally { await rm(dir, { recursive: true, force: true }); }
+// Owner option B: independent explicit contract tables (no production resolver in the oracle).
+for (const [tool, bases] of Object.entries({ codex: [["sol", "low"], ["sol", "medium"], ["sol", "high"]],
+  claude: [["sonnet", "medium"], ["sonnet", "high"], ["opus", "medium"]] })) {
+  for (const [i, complexity] of ["trivial", "normal", "complex"].entries()) for (const risk of ["normal", "delicate", "critical"]) {
+    await test(`option B implementation ${tool}/${complexity}/${risk}`, () => {
+      const expected = risk === "critical" ? [tool === "codex" ? "astra" : "opus", "high"] :
+        risk === "delicate" && tool === "codex" && i === 0 ? ["sol", "medium"] : bases[i];
+      const d = decide("implement", readings(), { complexity, risk, override: tool });
+      cell(d, tool, ...expected);
+      const reviews = { "sol/low": ["sol", "medium"], "sol/medium": ["sol", "high"], "sol/high": ["astra", "high"],
+        "astra/high": ["astra", "xhigh"], "sonnet/medium": ["opus", "low"], "sonnet/high": ["opus", "low"],
+        "opus/medium": ["opus", "high"], "opus/high": ["opus", "xhigh"] };
+      const r = decide("review", readings(), { complexity, risk, override: tool, implementerCell: d.pin });
+      cell(r, tool, ...reviews[`${d.model}/${d.effort}`]); assert.notDeepEqual(r.pin, d.pin);
+    });
+  }
+}
+await test("option B live reading: actual normal implementation medium -> its review high", () => {
+  const implementation = liveDecide("implement", liveReadings(), { complexity: "normal" });
+  const review = liveDecide("review", liveReadings(), { complexity: "normal", implementerCell: implementation.pin });
+  cell(implementation, "codex", "sol", "medium"); cell(review, "codex", "sol", "high");
+});
+await test("option B cross-tool equivalents, top and health precede preference", () => {
+  for (const [author, tool, expected] of [
+    [{ tool: "codex", model: "sol", effort: "medium" }, "claude", ["opus", "low"]],
+    [{ tool: "codex", model: "sol", effort: "high" }, "claude", ["opus", "high"]],
+    [{ tool: "codex", model: "astra", effort: "high" }, "claude", ["opus", "high"]],
+    [{ tool: "claude", model: "opus", effort: "medium" }, "codex", ["astra", "high"]],
+    [{ tool: "claude", model: "opus", effort: "high" }, "codex", ["astra", "high"]],
+  ]) cell(decide("review", readings(), { override: tool, implementerCell: author }), tool, ...expected);
+  const author = { tool: "codex", model: "astra", effort: "high" };
+  cell(decide("review", readings(20, 90), { risk: "critical", implementerCell: author }), "claude", "opus", "high");
+  cell(decide("review", readings(100, 20), { risk: "critical", implementerCell: author }), "codex", "astra", "xhigh");
+});
+await test("option B one effort reduction only after both full cells fail; floors and pins hold", () => {
+  for (const [complexity, used, expected] of [["normal", 95.7, "low"], ["complex", 95.5, "medium"]]) {
+    const d = decide("implement", readings(100, used), { complexity });
+    cell(d, "codex", "sol", expected); assert.equal(d.reason, "complexity_effort_reduced");
+  }
+  cell(decide("implement", readings(20, 95.7)), "claude", "sonnet", "high");
+  for (const [complexity, model, effort] of [["normal", "sonnet", "medium"], ["complex", "opus", "low"]]) {
+    const d = decide("implement", readings(97.5, 100), { complexity });
+    cell(d, "claude", model, effort); assert.equal(d.reason, "complexity_effort_reduced");
+  }
+  assert.equal(decide("implement", readings(100, 95.7), { risk: "delicate" }).action, "wait");
+  assert.equal(decide("implement", readings(100, 95.7), { risk: "critical" }).action, "wait");
+  assert.equal(decide("implement", readings(100, 95.8), { complexity: "complex" }).action, "wait");
+  const author = { tool: "codex", model: "sol", effort: "medium" };
+  assert.equal(decide("review", readings(100, 95.5), { implementerCell: author }).action, "wait");
+  assert.throws(() => decide("review", readings(), { implementerCell: author, pin: author }), /reviewer floor/);
+  assert.equal(decide("implement", readings(100, 95.7), { pin: author }).action, "run"); // pinned cost remains zero
+  assert.throws(() => decide("implement", readings(), { complexity: "guess" }), /complexity/);
+});
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exitCode = failed ? 1 : 0;

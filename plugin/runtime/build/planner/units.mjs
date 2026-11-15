@@ -1,4 +1,5 @@
 // Planner chains and units (BUILD-9, A13): greedy chain formation, the unit(s) of a chain and queued-unit candidates.
+import { maxComplexity } from "../../complexity.mjs";
 import { newUnit } from "../state.mjs";
 import { CHAIN_MAX, maxZone, naturalCompare, norm, uniq } from "./common.mjs";
 import { routeCell, unitArtifacts } from "./model.mjs";
@@ -61,7 +62,7 @@ export function makeUnits(m, sim, { nodes: chain, cut }) {
   const newAcs = cited.filter((a) => !known?.has(a));
   const reason = m.cardType === "bug" ? "bug_card" : zone !== "none" && newAcs.length > 0 ? "new_acs" : null;
   const pending = m.answerOf.get(head.id) ?? null;
-  const common = { wos: woIds, frd: head.frd, zone, risk_rules: uniq(chain.flatMap((n) => n.riskRules)), pending_answer: pending };
+  const common = { complexity: maxComplexity(chain.map(n => n.complexity)), wos: woIds, frd: head.frd, zone, risk_rules: uniq(chain.flatMap((n) => n.riskRules)), pending_answer: pending };
   const artifacts = unitArtifacts(m, "build", woIds);
   const barrier = chain.some((n) => n.barrier);
   const downstream = Math.max(...chain.map((n) => m.depth(n.id)));

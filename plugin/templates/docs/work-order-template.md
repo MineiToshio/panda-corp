@@ -8,7 +8,8 @@ parent: FRD-NN            # the owning FRD
 foundation: false         # true = a Wave-0 foundation/shared-substrate WO (DR-057), built before any feature WO. This marks the wave, NOT the id (the id still uses the owning FRD's number — no `00` FRD).
 implementation_status: PLANNED   # PLANNED | IN_PROGRESS | IN_REVIEW | VERIFIED | BLOCKED
 blocked_reason:           # only when BLOCKED: needs-owner | external | error
-difficulty: medium        # low | medium | high (planning metadata); the CLI derives dispatch from size, risk, attempt and provider availability.
+complexity: normal        # trivial | normal | complex; task effort under DR-162 (risk can only raise it).
+difficulty: medium        # legacy low | medium | high planning metadata; complexity takes precedence.
 reopen_count: 0           # CLI-managed reopen history; leave at 0 when authoring. Retries use the current dispatch policy, never a fixed model.
 artifacts: []             # globs of files/dirs this WO writes (DR-060). The CLI groups WOs into units and serializes overlapping artifacts. List every path this WO creates/edits, incl. its own API contract docs/api/WO-NN-MMM.md if backend.
 source_requirements: []   # REQ-NN-MMM ids this WO delivers (traceability)
@@ -43,6 +44,13 @@ not a single atomic component — and the outcome it produces.
 > can't be reviewed in one sitting, or it would push the implementer past the model's reliable context
 > zone (quality degrades well before the window fills). Mix one concern per WO — not "refactor + feature
 > + analytics" in one. The lower bound stays coarse; this only names the ceiling that was missing.
+
+## Complexity
+
+Set `complexity` explicitly: **trivial** = small familiar single-module work (Hello World);
+**normal** = a cohesive slice with ordinary logic (form with validation); **complex** = image ingestion,
+an external integration or a change spanning many modules. Explain the choice briefly. Risk is separate
+and can only raise the cell. DR-100 size limits still require splitting oversized work orders.
 
 ## In Scope
 

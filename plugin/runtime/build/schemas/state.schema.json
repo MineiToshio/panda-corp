@@ -203,6 +203,9 @@
               "null"
             ]
           },
+          "complexity": {
+            "enum": ["trivial", "normal", "complex"]
+          },
           "zone": {
             "enum": [
               "none",

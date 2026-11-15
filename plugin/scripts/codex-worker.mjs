@@ -452,7 +452,7 @@ function allocate(id) {
   else {
     const role = opt("role");
     const type = /planner|architect|design/.test(role) ? "design" : /review|audit/.test(role) ? "review" : /mechanic|tier-mech/.test(role) ? "mechanical" : "implement";
-    task = { id, type, ...(opt("risk") ? { risk: opt("risk") } : {}) };
+    task = { id, type, ...(opt("complexity") ? { complexity: opt("complexity") } : {}), ...(opt("risk") ? { risk: opt("risk") } : {}) };
   }
   // Security is a floor even when an old caller supplies a lower --risk/task risk.
   if (/security-auditor/.test(opt("role"))) task.risk = "critical";

@@ -26,7 +26,7 @@ order. Do not add asks of your own. Map the rest:
 Asks that exist by design (the CLI owns the text): `scope.doubts`, `scope.summary_citation`, `scope.giant`,
 `scope.version`, `conflict.foreign_lease`, `conflict.paused_plus_card`, `conflict.half_cards`, `access.codex_login`
 (an expired login only the owner can fix), `access.test_db`, `access.env_pending` (a value only the owner has), and a
-pre-push hook the CLI cannot install (tracked `core.hooksPath`). Fable remains disabled. Risk alone governs Astra; author model and attempt do not escalate it.
+pre-push hook the CLI cannot install (tracked `core.hooksPath`). Fable remains disabled. Implementation effort follows WO complexity with risk floors; review advances above the actual implementer cell (BUILD-10 / DR-162). Attempts do not escalate it.
 
 ### 1.2 Defaults (conservative)
 

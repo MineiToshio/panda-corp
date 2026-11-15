@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 // DR-162 replaces the old author/attempt matrix. Expectations below are owner contract cells, not catalog snapshots.
 import assert from "node:assert/strict";
+import { workOrderComplexity, maxComplexity } from "../runtime/complexity.mjs";
+import { readPlanWorkOrders, plan } from "../runtime/build/planner.mjs";
+import { capacityTaskForUnit } from "../runtime/build/routing.mjs";
+import { decide } from "../runtime/capacity.mjs";
 import { builderCell, reviewCell, consultCell, loadTiers, validateTiers, createRouter, sessionEligible, modelSlug, MODEL_STRENGTH } from "../runtime/build/routing.mjs";
+const RANK = ["minimal", "low", "medium", "high", "xhigh"];
 let passed = 0, failed = 0;
 const test = (name, fn) => { try { fn(); passed++; console.log(`PASS ${name}`); } catch(e) { failed++; console.error(`FAIL ${name}: ${e.stack}`); } };
 const pick = c => c && [c.runtime, c.model, c.effort];
@@ -16,7 +21,7 @@ test("catalog guards reject invalid metadata and never enable Fable/Terra", () =
   for (const model of ["fable", "terra", "bad"]) assert.throws(() => createRouter(tiers).assertCell({ runtime: "codex", model, effort: "low" }, "test"));
 });
 test("Claude 94 percent: design continues on Codex Sol high", () => assert.deepEqual(pick(build("docs", "none", { quota: quota(94, 30) })), ["codex", "sol", "high"]));
-test("Codex exhausted: implementation continues on Claude Sonnet medium", () => assert.deepEqual(pick(build("build", "none", { quota: quota(30, 100) })), ["claude", "sonnet", "medium"]));
+test("Codex exhausted: implementation continues on Claude Sonnet medium", () => assert.deepEqual(pick(build("build", "none", { quota: quota(30, 100) })), ["claude", "sonnet", "high"]));
 test("both exhausted: wait has the nearest reset, including review", () => {
   const q = quota(100, 100); q.readings.codex.windows[0].resetsAt = "2026-11-15T16:07:00Z";
   const b = build("build", "none", { quota: q }); assert.equal(b.paused, "quota"); assert.equal(b.resumeAt, "2026-11-15T16:07:00.000Z");
@@ -26,18 +31,18 @@ test("via session cannot bypass an exhausted provider or change the selected mod
   const ctx = { coordinator: "claude-session", sessionModel: "opus", quota: quota(100, 10) };
   const b = build("build", "none", ctx, { size: "touch" }); assert.equal(b.via, "cli"); assert.equal(b.runtime, "codex");
   const c = build("build", "none", { coordinator: "codex-session", sessionModel: "sol" }, { size: "touch" });
-  assert.equal(c.via, "session"); assert.deepEqual(pick(c), ["codex", "sol", "low"]);
+  assert.equal(c.via, "session"); assert.deepEqual(pick(c), ["codex", "sol", "medium"]);
 });
 test("reviews use independent context even with the same author model", () => {
   for (const model of ["luna", "sol", "astra"]) {
     const r = reviewCell({ authors: [{ runtime: "codex", model, effort: "high" }], kind: "frd", zone: "none" });
-    assert.deepEqual(pick(r.used), ["codex", "sol", "low"]); assert.equal(r.independent_context, true); assert.equal(r.deferred, null);
+    assert.deepEqual(pick(r.used), expectedReview([{ runtime: "codex", model, effort: "high" }], "none", "codex")); assert.equal(r.independent_context, true); assert.equal(r.deferred, null);
   }
 });
 test("attempts/reopens/previous cells never force escalation or a tool change", () => {
   for (const attempt of [1, 2, 3]) for (const reopen_count of [0, 4]) {
     const b = build("patch", "none", { attempt, reopen_count, previousCell: { runtime: "codex", model: "sol", effort: "low" } });
-    assert.deepEqual(pick(b), ["codex", "sol", "low"]); assert.equal(b.bumped, false);
+    assert.deepEqual(pick(b), ["codex", "sol", "medium"]); assert.equal(b.bumped, false);
   }
 });
 test("risk from risk.mjs governs transversal floors, audits can use either tool", () => {
@@ -48,13 +53,13 @@ test("risk from risk.mjs governs transversal floors, audits can use either tool"
 });
 test("role mapping: planner/architect/design, builder/implementer, reviewer and mechanical", () => {
   for (const role of ["planner", "architect", "design"]) assert.deepEqual(pick(build("build", "none", {}, { role })), ["claude", "opus", "high"]);
-  for (const role of ["builder", "implementer"]) assert.deepEqual(pick(build("build", "none", {}, { role })), ["codex", "sol", "low"]);
+  for (const role of ["builder", "implementer"]) assert.deepEqual(pick(build("build", "none", {}, { role })), ["codex", "sol", "medium"]);
   assert.deepEqual(pick(build("mechanical")), ["codex", "luna", "low"]);
 });
 test("all runtime shapes allow capacity fallback through their qualified transport", () => {
   for (const shape of ["R-A", "R-B", "R-C", "drive"]) {
     const c = build("build", "none", { shape, quota: quota(20, 100), coordinator: shape === "drive" ? "drive" : "codex-session" });
-    assert.deepEqual(pick(c), ["claude", "sonnet", "medium"]); assert.equal(c.via, "cli");
+    assert.deepEqual(pick(c), ["claude", "sonnet", "high"]); assert.equal(c.via, "cli");
   }
 });
 test("unknown kind/zone/label/shape/attempt and mismatched author are refused", () => {
@@ -72,7 +77,7 @@ test("exhaustive cells are deterministic, catalog-qualified, immutable and never
     if (zone !== "r1" && kind !== "audit") assert.notEqual(a.model, "astra");
     if (kind === "audit") { assert.ok(["astra", "opus"].includes(a.model)); assert.equal(a.effort, "high"); }
     const r = reviewCell({ authors: [{ runtime: a.runtime, model: a.model, effort: a.effort }], kind: "frd", zone });
-    assert.ok(r.used); assert.equal(r.deferred, null); if (zone !== "r1") assert.notEqual(r.used.model, "astra");
+    assert.ok(r.used); assert.equal(r.deferred, null); assert.notDeepEqual(pick(r.used), pick(a));
   }
 });
 test("consultation uses design capacity without an author/origin Astra escalation", () => {
@@ -83,18 +88,41 @@ test("consultation uses design capacity without an author/origin Astra escalatio
 // Restored from 68487c7a: independent hand tables, exhaustive vocab/shape/risk checks,
 // frozen inputs and negative controls. Expected cells come from DR-162, not model-tiers rows.
 const DATA = loadTiers(), router = createRouter(DATA);
-const RANK = ["minimal", "low", "medium", "high", "xhigh"];
+
 const freeze = o => { if (o && typeof o === "object" && !Object.isFrozen(o)) { Object.freeze(o); Object.values(o).forEach(freeze); } return o; };
 const expected = (type, zone, runtime) => {
   const cells = {
-    codex: { normal: { design: ["sol", "high"], implement: ["sol", "low"], review: ["sol", "low"], mechanical: ["luna", "low"] },
+    codex: { normal: { design: ["sol", "high"], implement: ["sol", "medium"], review: ["sol", "high"], mechanical: ["luna", "low"] },
       delicate: ["sol", "medium"], critical: ["astra", "high"] },
-    claude: { normal: { design: ["opus", "high"], implement: ["sonnet", "medium"], review: ["opus", "low"], mechanical: ["haiku", "low"] },
+    claude: { normal: { design: ["opus", "high"], implement: ["sonnet", "high"], review: ["opus", "low"], mechanical: ["haiku", "low"] },
       delicate: ["sonnet", "medium"], critical: ["opus", "high"] },
   };
-  const pair = zone === "r1" ? cells[runtime].critical : type === "design" ? cells[runtime].normal.design : zone === "floor" ? cells[runtime].delicate : cells[runtime].normal[type];
+  const pair = zone === "r1" ? cells[runtime].critical : type === "design" ? cells[runtime].normal.design : zone === "floor" && type === "mechanical" ? cells[runtime].delicate : cells[runtime].normal[type];
   return [runtime, ...pair];
 };
+function expectedReview(authors, zone, runtime) {
+  const ranks = { codex: ["luna/low", "sol/low", "sol/medium", "sol/high", "astra/high", "astra/xhigh"],
+    claude: ["haiku/low", "sonnet/medium", "sonnet/high", "opus/low", "opus/medium", "opus/high", "opus/xhigh"] };
+  const table = {
+    "luna/low": ["sol/medium", "opus/low"], "haiku/low": ["sol/medium", "opus/low"],
+    "sol/low": ["sol/medium", "opus/low"], "sol/medium": ["sol/high", "opus/low"], "sol/high": ["astra/high", "opus/high"],
+    "sonnet/medium": ["sol/medium", "opus/low"], "sonnet/high": ["sol/high", "opus/low"],
+    "opus/low": ["sol/high", "opus/medium"], "opus/medium": ["astra/high", "opus/high"],
+    "astra/high": ["astra/xhigh", "opus/high"], "opus/high": ["astra/high", "opus/xhigh"],
+    "astra/xhigh": [null, null], "opus/xhigh": [null, null],
+  };
+  let index = zone === "r1" ? ranks[runtime].indexOf(runtime === "codex" ? "astra/high" : "opus/high") : runtime === "codex" ? 2 : 3;
+  for (const a of authors) {
+    const tool = a.runtime, model = a.model === "terra" ? "sol" : a.model === "fable" ? "opus" : a.model;
+    const opts = ranks[tool].filter(k => k.startsWith(`${model}/`));
+    const wanted = a.model === "fable" ? "xhigh" : a.effort ?? "high";
+    const key = opts.find(k => RANK.indexOf(k.split("/")[1]) >= RANK.indexOf(wanted)) ?? opts.at(-1);
+    const next = table[key][runtime === "codex" ? 0 : 1];
+    if (!next) return null;
+    index = Math.max(index, ranks[runtime].indexOf(next));
+  }
+  return [runtime, ...ranks[runtime][index].split("/")];
+}
 const wellFormed = c => {
   assert.ok(c && typeof c === "object" && !Array.isArray(c), "single cell object");
   const enabled = { codex: ["luna", "sol", "astra"], claude: ["haiku", "sonnet", "opus"] };
@@ -207,7 +235,7 @@ for (const author of allAuthors) for (const kind of ["frd", "touch"]) for (const
       const input = freeze({ authors: [author], kind, zone, availability, now });
       const copy = structuredClone(input), r = reviewCell(input);
       const exp = availability.claude === "quota" && availability.codex === "quota" ? null :
-        expected("review", zone, ["quota", "unreachable"].includes(availability.codex) ? "claude" : "codex");
+        expectedReview([author], zone, ["quota", "unreachable"].includes(availability.codex) ? "claude" : "codex");
       checkReview(r, exp); assert.deepEqual(r, reviewCell(input)); assert.deepEqual(input, copy);
     }
   });
@@ -233,7 +261,7 @@ test("restored negative controls: catalog, runtime, effort, risk, transport and 
   const b = build("build", "r1"), exp = ["codex", "astra", "high"];
   checkBuilder(b, exp);
   for (const change of [{ model: "fable" }, { model: "terra" }, { model: "unknown" }, { runtime: "claude" }, { effort: "max" }, { effort: null }, { model: "sol" }, { effort: "low" }, { via: "bad" }, { row: "old" }, { bumped: true }]) assert.throws(() => checkBuilder({ ...b, ...change }, exp));
-  const input = { authors, kind: "frd", zone: "none" }, r = reviewCell(input), rexp = ["codex", "sol", "low"];
+  const input = { authors, kind: "frd", zone: "none" }, r = reviewCell(input), rexp = ["codex", "sol", "medium"];
   checkReview(r, rexp);
   for (const change of [{ independent_context: false }, { degraded: "same_model" }, { deferred: {} }, { parked: "no_reviewer" }, { primary: null }, { used: null }, { used: { ...r.used, model: "fable" } }, { used: { ...r.used, effort: "max" } }, { used: { ...r.used, model: "astra" } }]) assert.throws(() => checkReview({ ...r, ...change }, rexp));
   const waiting = reviewCell({ ...input, availability: quota(100, 100) }); checkReview(waiting, null);
@@ -276,4 +304,41 @@ for (const origin of ["claude", "codex", "drive", "codex_app"]) for (const zone 
   assert.ok(Number.isFinite(Date.parse(waiting.resumeAt)));
 });
 
+test("option B legacy complexity heuristic, explicit value wins, no data normal", () => {
+  assert.equal(workOrderComplexity({}), "normal");
+  for (const metadata of [{ difficulty: "high" }, { artifacts: Array.from({ length: 6 }, (_, i) => `src/a/${i}.ts`) },
+    { acs: [1,2,3,4,5] }, { deps: [1,2,3] }, { artifacts: ["src/app/a.ts", "src/lib/b.ts", "src/components/c.ts"] },
+    { source_requirements: ["REQ-01-001", "REQ-02-001"] }]) assert.equal(workOrderComplexity(metadata), "complex");
+  assert.equal(workOrderComplexity({ difficulty: "low", artifacts: ["src/ui/hello.ts"], acs: ["AC-01-001.1"] }), "trivial");
+  assert.equal(workOrderComplexity({ difficulty: "low", artifacts: ["src/**"] }), "normal");
+  assert.equal(workOrderComplexity({ complexity: "trivial", difficulty: "high", acs: [1,2,3,4,5] }), "trivial");
+  assert.equal(maxComplexity(["trivial", "complex"]), "complex");
+  assert.throws(() => workOrderComplexity({ complexity: "huge" }));
+});
+const readWo = async frontmatter => readPlanWorkOrders("/virtual", { fs: {
+  readdir: async p => p.endsWith("work-orders") ? ["wo-01-001-test.md"] : ["frd-01-test"],
+  readFile: async p => p.endsWith("frd.md") ? "AC-01-001.1" : `---\nid: WO-01-001\nimplementation_status: PLANNED\n${frontmatter}\n---\nAC-01-001.1`,
+} });
+const explicit = await readWo("complexity: trivial\ndifficulty: high\nartifacts: [src/ui/hello.ts]");
+const inferred = await readWo("difficulty: high\nartifacts: [src/ui/hello.ts]");
+const legacy = await readWo("");
+const invalid = await readWo("complexity: huge");
+test("option B disk reader accepts complexity, legacy fallback and rejects invalid enum", () => {
+  assert.equal(explicit.wos[0].complexity, "trivial"); assert.equal(inferred.wos[0].complexity, "complex");
+  assert.equal(legacy.wos[0].complexity, "normal"); assert.match(invalid.errors[0].reason, /complexity/);
+  const result = plan({ wos: explicit.wos, scope: { frds: ["frd-01-test"] }, label: "codex" });
+  assert.equal(result.units.find(u => u.kind === "build").complexity, "trivial");
+});
+test("option B actual author review and legacy null-effort wake match dispatch", () => {
+  for (const author of [{ runtime: "codex", model: "sol", effort: "medium" }, { runtime: "codex", model: "sol", effort: null },
+    { runtime: "codex", model: "terra", effort: "low" }]) {
+    const unit = { id: "review", kind: "review", frd: "frd", wos: ["wo"], zone: "none" };
+    const state = { units: [unit, { id: "build", kind: "build", state: "reviewing", frd: "frd", wos: ["wo"], complexity: "normal", worker: author }] };
+    const task = capacityTaskForUnit(unit, state);
+    const selected = decide({ task, readings: quota(95, 39).readings, now });
+    const review = reviewCell({ authors: [author], kind: "frd", zone: "none", quota: quota(95, 39), now });
+    assert.deepEqual(selected.pin, review.capacity.pin);
+    assert.notDeepEqual([selected.tool, selected.model, selected.effort], [author.runtime, author.model, author.effort]);
+  }
+});
 console.log(`RESULT ${passed} passed, ${failed} failed`); process.exitCode = failed ? 1 : 0;

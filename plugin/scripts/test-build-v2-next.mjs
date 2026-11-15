@@ -930,17 +930,17 @@ await test("A12: touch + build + attempt 1 + zone none + label company = coordin
     const r = await callNext(c);
     eq(r.units.length, 1, "one unit");
     const u = r.units[0];
-    eq([u.via, u.runtime, u.model, u.effort], ["cli", "codex", "sol", "low"], "claude-session / label claude");
+    eq([u.via, u.runtime, u.model, u.effort], ["cli", "codex", "sol", "medium"], "claude-session / label claude");
     ok(typeof u.token === "string" && u.token.length >= 16, "a session unit still carries the unit token");
     eq(u.model_slug, "gpt-6.1-sol", "allocated CLI slug");
     const su = await stateUnit(c, u.unit);
-    eq([su.worker.via, su.worker.runtime, su.worker.model, su.worker.effort], ["cli", "codex", "sol", "low"], "state worker keeps the null effort (legal only for session cells)");
+    eq([su.worker.via, su.worker.runtime, su.worker.model, su.worker.effort], ["cli", "codex", "sol", "medium"], "state worker keeps the allocated medium effort");
     const d = (await c.events()).find((e) => e.type === "unit_dispatched");
-    eq([d.data.cell.runtime, d.data.cell.model, d.data.cell.effort], ["codex", "sol", "low"], "journal allocated cell");
+    eq([d.data.cell.runtime, d.data.cell.model, d.data.cell.effort], ["codex", "sol", "medium"], "journal allocated cell");
   });
   await withCase({ coordinator: "codex-session", label: "codex", size: "touch", units: [touchUnit()], sessionModel: "sol" }, async (c) => {
     const u = (await callNext(c)).units[0];
-    eq([u.via, u.runtime, u.model, u.effort], ["session", "codex", "sol", "low"], "codex-session / label codex");
+    eq([u.via, u.runtime, u.model, u.effort], ["session", "codex", "sol", "medium"], "codex-session / label codex");
   });
 });
 

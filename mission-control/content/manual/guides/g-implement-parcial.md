@@ -63,3 +63,9 @@ Los cambios versionados del run se escriben en `lane/<run_id>/integration`, nunc
 principal. Merge-queue es el único camino a main. Una unidad verificada en una rama aún no
 significa trabajo entregado ni un snapshot seguro para probar. En un proyecto lanzado,
 `waiting_gate` conserva la espera de la orden explícita del propietario para producción.
+
+El esfuerzo del implementador sigue la complejidad de cada work order: trivial, normal o compleja.
+Hello World es trivial; un formulario con validación, normal; una ingesta de imágenes o integración externa, compleja.
+El riesgo puede subir el mínimo. El revisor usa un escalón superior a la celda real del implementador y un contexto
+independiente. Si ninguna herramienta admite la celda completa, se permite bajar una vez el esfuerzo en tareas
+normales o complejas, respetando los mínimos de riesgo y revisión; después se espera al cupo.
