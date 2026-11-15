@@ -1,8 +1,9 @@
 // Capacity continuation shares the build lease mutex; no timer, model or provider API lives here.
-import { decide, readCapacity, logCapacityDecision } from "../capacity.mjs";
+import { decide, readCapacity, logCapacityDecision, assertTaskCell } from "../capacity.mjs";
 import { fencedTwoPhase } from "../build/state.mjs";
 import { capacityTaskForUnit, reviewDemand } from "../build/routing.mjs";
 import { readJson } from "../build/fsx.mjs";
+import { readDeferred, entryForUnit } from "../build/deferred.mjs";
 import { buildPaths } from "../build/paths.mjs";
 
 export const BACKOFF_S = Object.freeze([60, 120, 240, 480, 900]);
@@ -13,7 +14,7 @@ export const backoffSeconds = (attempt = 0, retryAfter) => {
 export const capacityNow = (d = {}) => d.env?.PANDACORP_NOW ? Date.parse(d.env.PANDACORP_NOW) : d.clock ? new Date(d.clock()).getTime() : Date.now();
 const iso = (ms) => new Date(ms).toISOString();
 export const pinOf = (u) => u.pin ?? { tool: u.worker.runtime, model: u.worker.model, effort: u.worker.effort };
-const taskOf = (u) => ({ id: u.id, type: "implement", risk: "normal", pin: pinOf(u) });
+const taskOf = (u, state, entry) => ({ ...capacityTaskForUnit(u, state, entry), pin: pinOf(u) });
 export function capacityAudit(project, state, action, { unit = null, reason, resumeAt = null, cell = null, ...extra } = {}, d = {}) {
   const cells = state.units.filter(u => u.state === "suspended" && u.worker).map(pinOf);
   logCapacityDecision({ id: unit ?? state.run_id, type: "implement", risk: "normal" },
@@ -27,11 +28,16 @@ const healthyObservation = (reading, model) => {
 };
 
 /** A real subscription limit needs a NEW, healthy observation after its reset. Unknown is never renewal. */
-export function continuationDecision(unit, readings, now) {
-  const s = unit.suspension;
+export function continuationDecision(unit, readings, now, state, entry) {
+  const s = unit.suspension, task = taskOf(unit, state, entry);
+  try { assertTaskCell(task, task.pin); }
+  catch (error) {
+    if (task.type !== "review") throw error;
+    return { ready: false, requeue: true, reason: "reviewer_floor_changed", resumeAt: iso(now) };
+  }
   if (now < Date.parse(s.resumeAt)) return { ready: false, reason: "not_due", resumeAt: s.resumeAt };
   if (s.reason === "rate_limit") return { ready: true, reason: "transient_backoff_elapsed" };
-  const decision = decide({ task: taskOf(unit), readings, now });
+  const decision = decide({ task, readings, now });
   const reading = decision.readings_used[pinOf(unit).tool];
   const renewed = healthyObservation(reading, pinOf(unit).model) && Date.parse(reading.observedAt) > Date.parse(s.at)
     && Date.parse(reading.observedAt) >= Date.parse(s.resetAt);
@@ -74,11 +80,15 @@ export async function wakeCapacity({ project, epoch, owner = "drive", generation
       return { claimed: false, action: state.status === "active" ? "already_resumed" : "waiting", resumeAt: state.resumeAt };
     if (now < Date.parse(state.resumeAt) + 60000) return { claimed: false, action: "waiting", resumeAt: state.resumeAt };
     const readings = (d.readCapacity ?? readCapacity)({ env: d.env, now });
+    const deferred = state.units.some(u => u.kind === "deferred-review") ? await readDeferred(project, d) : [];
     const suspended = state.units.filter(u => u.state === "suspended");
-    let ready = suspended.some(u => continuationDecision(u, readings, now).ready);
+    let ready = suspended.some(u => {
+      const verdict = continuationDecision(u, readings, now, state, u.kind === "deferred-review" ? entryForUnit(deferred, u) : null);
+      return verdict.ready || verdict.requeue;
+    });
     // Queued independent work may wake on either tool; suspended work may ONLY wake its own pin.
     if (!ready) for (const unit of state.units) {
-      let task = unit.state === "queued" && (!unit.parked || unit.kind === "review" && unit.parked === "no_reviewer") ? capacityTaskForUnit(unit, state) : null;
+      let task = unit.state === "queued" && (!unit.parked || unit.kind === "review" && unit.parked === "no_reviewer") ? capacityTaskForUnit(unit, state, unit.kind === "deferred-review" ? entryForUnit(deferred, unit) : null) : null;
       if (task && unit.kind === "review" && !reviewDemand(state, unit).ready) task = null;
       if (unit.state === "reported" && unit.doubt_id) {
         const record = await readJson(ctx.paths.doubtFile(unit.doubt_id));

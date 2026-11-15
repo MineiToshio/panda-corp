@@ -507,8 +507,8 @@ await test("DR-161 control: the same degraded review queues its re-review when o
   eq((await c.ledger()).length, 1, "one entry");
 }));
 
-await test("audit unit recorded by claude opus high queues nothing and verifies (BUILD-9: a degraded audit is queued by the engine, never by review-record)", async () => withRun({ reviewKind: "audit", author: CELL.opusHigh, reviewer: CELL.opusHigh }, async (c) => {
-  await c.record({ reviewer: CELL.opusHigh }, ROUTE.cross(CELL.opusHigh));
+await test("audit unit recorded by claude opus high queues nothing and verifies (BUILD-9: a degraded audit is queued by the engine, never by review-record)", async () => withRun({ reviewKind: "audit", author: CELL.opusHigh, reviewer: CELL.opusXhigh }, async (c) => {
+  await c.record({ reviewer: CELL.opusXhigh }, ROUTE.cross(CELL.opusXhigh));
   eq(await c.ledger(), [], "review-record never queues an audit");
   eq((await c.unit(BUILD_UNIT)).state, "verified", "the audited work is verified");
 }));
@@ -546,7 +546,7 @@ await test("a parked review (no_reviewer) never marks work verified", async () =
   eq(await c.ledger(), [], "a parked review is not a degraded review: nothing queued in the ledger");
 }));
 
-await test("DR-162 same model reviews in an independent context without a deferred review", async () => withRun({ author: CELL.solHigh, reviewer: CELL.solHigh }, async c => {
+await test("DR-162 same model reviews in an independent context without a deferred review", async () => withRun({ author: CELL.solMed, reviewer: CELL.solHigh }, async c => {
   const out = await c.record({ reviewer: CELL.solHigh }, ROUTE.cross(CELL.solHigh));
   eq(out.verdict, "pass", "same model allowed"); eq(await c.ledger(), [], "no mandatory cross-company re-review");
 }));
@@ -556,6 +556,21 @@ await test("DR-162 identical worker identity is refused even when the model is o
   for (const u of state.units) if (u.worker) u.worker.worker_id = "same-context";
   await writeState(c.fx.root, state, { env: c.env });
   await refused(() => c.record({}, ROUTE.cross()), "same execution context");
+}));
+
+for (const reviewKind of ['review','deferred-review','audit']) await test(`F3 ${reviewKind} cannot certify its exact author cell`,async()=>withRun({reviewKind,author:CELL.solMed,reviewer:CELL.solMed},async c=>{
+ const before=await snapshot(c);const routing=await sib('routing.mjs');
+ await refused(()=>c.record({reviewer:CELL.solMed},routing.reviewCell),'identical reviewer');
+ eq(await snapshot(c),before,'refusal changes no state, journal or ledger');
+}));
+await test('F3 report effort must match the actual dispatched worker',async()=>withRun({},async c=>{
+ const before=await snapshot(c);
+ await refused(()=>c.record({reviewer:CELL.solMed},ROUTE.cross()),'effort mismatch');
+ eq(await snapshot(c),before,'no effect on refusal');
+}));
+await test('F3 stronger pinned review remains valid even when quota preference changes',async()=>withRun({author:CELL.solMed,reviewer:CELL.solHigh},async c=>{
+ const routing=await sib('routing.mjs');await c.record({reviewer:CELL.solHigh},routing.reviewCell);
+ eq((await c.unit(BUILD_UNIT)).state,'verified','qualified review certifies');
 }));
 
 // =====================================================================================================================

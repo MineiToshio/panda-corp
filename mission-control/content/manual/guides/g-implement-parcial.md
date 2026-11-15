@@ -69,3 +69,8 @@ Hello World es trivial; un formulario con validación, normal; una ingesta de im
 El riesgo puede subir el mínimo. El revisor usa un escalón superior a la celda real del implementador y un contexto
 independiente. Si ninguna herramienta admite la celda completa, se permite bajar una vez el esfuerzo en tareas
 normales o complejas, respetando los mínimos de riesgo y revisión; después se espera al cupo.
+
+La revisión debe superar al autor también al cambiar de herramienta: Astra high y Opus high son equivalentes,
+y requieren un revisor xhigh. Si una revisión antigua suspendida no cumple ese mínimo, vuelve a la cola
+con un contexto nuevo conservando sus archivos. El resultado sólo se acepta si su celda y esfuerzo cumplen
+la regla; un contexto independiente por sí solo no permite repetir la celda del autor.

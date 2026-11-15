@@ -293,7 +293,7 @@ Risk from `risk.mjs`: `none` → normal, `floor` → delicate, `r1` → critical
 | Review / trivial nominal author | Sol medium | Opus low |
 | Review / normal nominal author | Sol high | Opus low |
 | Review / complex nominal author | Astra high | Opus high |
-| Review / critical author on the same tool | Astra xhigh | Opus xhigh |
+| Review / critical author (either tool) | Astra xhigh | Opus xhigh |
 | Design / planning / judgment (any complexity) | Sol high | Opus high |
 | Mechanical (any complexity) | Luna low | Haiku low |
 | Images | Sol low | Unavailable |
@@ -307,13 +307,27 @@ nominal complexity. On the selected tool it advances one rung, with minimum Sol 
 Codex `Luna low < Sol low < Sol medium < Sol high < Astra high < Astra xhigh`;
 Claude `Haiku low < Sonnet medium < Sonnet high < Opus low < Opus medium < Opus high < Opus xhigh`.
 A reviewer never receives an identical tool/model/effort cell. Multiple authors require the maximum floor.
-Cross-tool implementation equivalents are Luna low ↔ Haiku low, Sol low ↔ Sonnet medium,
-Sol medium ↔ Sonnet high, Sol high ↔ Opus medium, Astra high ↔ Opus high and Astra xhigh ↔ Opus xhigh;
-Claude Opus low projects to Sol medium. Advance from that equivalent and apply the reviewer minimum.
-At top-high, cross-tool Astra high / Opus high equivalence is allowed; same-tool review advances to xhigh.
-At absolute xhigh ceiling with no stronger qualified reviewer, wait rather than reuse the identical cell.
+The common strength scale is explicit and symmetric (equal rows are equivalent):
+
+| Strength | Codex | Claude |
+|---:|---|---|
+| 0 | Luna low | Haiku low |
+| 1 | Sol low | Sonnet medium |
+| 2 | Sol medium | Sonnet high |
+| 2.5 | — | Opus low |
+| 3 | Sol high | Opus medium |
+| 4 | Astra high | Opus high |
+| 5 | Astra xhigh | Opus xhigh |
+
+Choose the first selected-tool cell strictly above the maximum author strength, while retaining risk and
+reviewer minima. No cross-tool exception permits equality: critical Astra high / Opus high authors require
+Astra xhigh / Opus xhigh review on either tool. At absolute xhigh ceiling there is no eligible reviewer.
+With no author cell, use the strongest nominal implementer across both tools for the task's complexity/risk
+(missing complexity remains normal). Missing writers in a partial author set add that nominal floor; retained unit complexity can only raise it;
+legacy authors with unknown effort use their model's highest supported effort. Never assume the lowest cell.
+Selection, pin validation and capacity reduction use this same effective author set.
 Tool health still outranks preference; ordinary complex reviews may therefore use Astra high.
-Audits without a recorded implementer retain their critical risk cell. Historical null efforts and disabled
+Audits recover their real authors; without recorded authors their critical nominal implementer is high, so review requires xhigh. Historical null efforts and disabled
 author models are normalized once by routing for both dispatch and wake; disabled models are never emitted.
 
 Only after **neither requested cell fits** may normal/complex implementation or review reduce effort by one
@@ -347,8 +361,9 @@ A provider switch for capacity creates no degraded verdict or obligatory cross-c
 The security audit also uses the allocator rather than waiting for a Claude-only cell.
 
 Selection occurs before `via:session` eligibility. A session may write only when its runtime AND model equal
-the allocated cell and all ordinary session constraints hold. Once dispatched, the persisted worker cell is fixed
-for that execution. A new execution may be selected again; an active execution is never migrated mid-task.
+the allocated cell and all ordinary session constraints hold. Once dispatched, a qualified persisted worker cell is fixed
+for that execution. Suspended legacy reviews that fail the current predicate are requeued with a new context
+and token, preserving their files, branch, attempt and an audited checkpoint; valid pins remain unchanged. A new execution may be selected again; an active execution is never migrated mid-task.
 `model-tiers.json` remains the model/capability catalog; its legacy builder/review tables are no longer policy.
 
 ### Execution and evidence safeguards
@@ -912,3 +927,20 @@ capable lead, epoch, credentials and automatic wake until their result is consum
 converts a native ID into a CLI session, replays a fresh task or certifies an audit without evidence.
 Capacity-only reviewer parking participates in the normal resumeAt wake and task risk projection;
 security audit roles always impose the critical floor, even when the changed files classify as floor.
+
+### Review qualification at execution boundaries (P7 F1–F3)
+
+`capacity.mjs assertTaskCell()` is the single quota-independent floor predicate. Dispatch admission,
+worker argv, continuation (including 429), and both phases of review-record apply it to the actual task,
+zone, complexity and author evidence. `capacityTaskForUnit()` shares author recovery: explicit work bindings,
+otherwise pending patch/build authors for re-review; audits include verified work; deferred reviews use
+their ledger author. Worker launch carries the complete capacity task, not an implementation/normal surrogate.
+A stale incompatible suspended review is requeued without consuming an attempt or removing its checkpoint;
+capacity wake admits that requalification path instead of indefinitely waiting on an invalid pin.
+
+Review-record checks ordinary, deferred and audit reviews, including the exact reported effort against the
+worker. It validates again under the final mutex before probe commits or VERIFIED effects. An equal/lower
+cell is refused even when contexts differ, the router offers another valid reviewer, or a legacy off-matrix
+record exists. A stronger qualified pin need not equal today's quota-preferred cell. Context independence
+remains an additional requirement. Regressions: `test-capacity-review-floor.mjs`, `test-capacity-review.mjs`
+and the real-lease cases in `test-build-v2-review.mjs`.

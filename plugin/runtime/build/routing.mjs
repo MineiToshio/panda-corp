@@ -24,22 +24,38 @@ export function normalizeImplementerCells(authors = []) {
     const tool = a.tool ?? a.runtime ?? (["haiku", "sonnet", "opus", "fable"].includes(a.model) ? "claude" : "codex");
     const model = a.model === "terra" ? "sol" : a.model === "fable" ? "opus" : a.model;
     const supported = CELL_LADDERS[tool].filter(key => key.startsWith(`${model}/`)).map(key => key.split("/")[1]);
-    const requested = a.model === "fable" ? "xhigh" : a.effort ?? "high";
+    const requested = a.model === "fable" ? "xhigh" : a.effort ?? supported.at(-1);
     const effort = supported.find(e => efforts.indexOf(e) >= efforts.indexOf(requested)) ?? supported.at(-1);
     return { tool, model, effort };
   }).sort((a, b) => `${a.tool}/${a.model}/${a.effort}`.localeCompare(`${b.tool}/${b.model}/${b.effort}`));
 }
 
+/** Explicit bindings win; otherwise re-review judges pending work, audits include verified work. */
+export function reviewedWorkForUnit(state, unit) {
+  const work = state.units.filter(u => ["build", "patch"].includes(u.kind));
+  const named = work.filter(u => (unit.depends_on ?? []).includes(u.id));
+  if (named.length) return named;
+  const matching = work.filter(u => (unit.kind === "audit" || unit.frd && u.frd === unit.frd));
+  const pending = matching.filter(u => ["integrated", "reviewing"].includes(u.state));
+  return unit.kind !== "audit" && pending.length ? pending : matching.filter(u => ["integrated", "reviewing", "verified"].includes(u.state));
+}
+
 /** The task/risk projection used for dispatch AND waking queued work. No synthetic global veto. */
-export function capacityTaskForUnit(unit, state) {
+export function capacityTaskForUnit(unit, state, deferredEntry) {
   const role = unit.role ?? unit.kind;
   const type = /planner|architect|design|docs|doubt-consult/.test(role) ? "design"
     : /review|audit/.test(role) ? "review" : /mechanic/.test(role) ? "mechanical" : "implement";
-  const demand = state && type === "review" ? reviewDemand(state, unit) : null;
-  const authors = demand ? demand.pending.filter(u => u.worker).map(u => u.worker) : unit.implementerCells;
-  const complexity = demand?.work.length ? maxComplexity(demand.work.map(u => u.complexity)) : workOrderComplexity(unit);
+  const work = state && type === "review" ? reviewedWorkForUnit(state, unit) : [];
+  const authors = deferredEntry?.author ? [deferredEntry.author] : work.length ? work.filter(u => u.worker).map(u => u.worker) : unit.implementerCells;
+  const complexity = work.length ? maxComplexity([...(unit.complexity ? [unit.complexity] : []), ...work.map(u => u.complexity)]) : workOrderComplexity(unit);
+  const zones = [unit.zone, ...work.map(u => u.zone)];
+  // A partially unknown set of authors retains the conservative nominal floor for the missing writers.
+  const missing = !deferredEntry?.author && work.some(u => !u.worker);
   return { id: unit.id, type, complexity, ...(unit.implementerCell ? { implementerCell: unit.implementerCell } : {}),
-    ...(authors?.length ? { implementerCells: normalizeImplementerCells(authors) } : {}), risk: unit.kind === "audit" || /security-auditor/.test(role) || unit.zone === "r1" ? "critical" : unit.zone === "floor" ? "delicate" : "normal" };
+    ...(authors?.length ? { implementerCells: normalizeImplementerCells(authors) } : {}),
+    ...(missing || unit.unknownImplementer ? { unknownImplementer: true } : {}),
+    risk: unit.kind === "audit" || deferredEntry?.kind === "audit" || /security-auditor/.test(role) || zones.includes("r1") ? "critical" : zones.includes("floor") ? "delicate" : "normal" };
+
 }
 
 /** Review eligibility shared by candidate dispatch and capacity wake. */
@@ -158,7 +174,7 @@ export function createRouter(tiers) {
       switched: cell.runtime !== ctx.label, bumped: false, capacity: decision, task };
   };
   const reviewCell = (input = {}) => {
-    if (!Array.isArray(input.authors) || !input.authors.length) fail("reviewCell: authors[] required");
+    if (!Array.isArray(input.authors)) fail("reviewCell: authors[] required");
     if (!REVIEW_KINDS.includes(input.kind)) fail(`reviewCell: bad kind ${input.kind}`);
     if (input.shape !== undefined && !SHAPES.includes(input.shape)) fail(`bad shape ${input.shape}`);
     for (const a of input.authors) {
@@ -170,7 +186,7 @@ export function createRouter(tiers) {
     // models are mapped to their enabled family equivalent, never emitted as executable cells.
     const implementerCells = normalizeImplementerCells(input.authors);
     const { decision, task } = select({ id: input.id, kind: "review", zone: input.zone,
-      complexity: input.complexity, implementerCells }, input);
+      complexity: input.complexity, unknownImplementer: input.unknownImplementer, implementerCells }, input);
     let used = decision.action === "run" ? assertCell({ runtime: decision.tool, model: decision.model, effort: decision.effort }, "capacity review") : null;
     if (used && used.runtime === "claude" && ["R-B", "drive"].includes(input.shape)) used = { ...used, via: "cli" };
     return { primary: used, used, degraded: null, deferred: null, parked: used ? null : "no_reviewer", row: "capacity",

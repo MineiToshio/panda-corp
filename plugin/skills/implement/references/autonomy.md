@@ -186,3 +186,7 @@ The Claude lead schedules ScheduleWakeup at `resumeAt+60s`, refreshes get_usage 
 `start --resume --coordinator claude --wake-generation <N>`; see SKILL.md for the conditional claim,
 stale-reading retries and attended fallback. A real limit suspends the same worker/thread/worktree/pin
 and attempt. Native-agent limits enter through `pb suspend` as described in engine-v2.md. Fresh review context provides independence even with the same model/company.
+
+Review pins must satisfy BUILD-10 on the common cross-tool strength scale. Dispatch, continuation and
+review-record validate the same floor. Incompatible suspended legacy reviewers requeue with fresh context
+and token, preserving their checkpoint and attempt; equal author/reviewer cells never certify VERIFIED.

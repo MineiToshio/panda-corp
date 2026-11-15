@@ -48,8 +48,8 @@ test("attempts/reopens/previous cells never force escalation or a tool change", 
 test("risk from risk.mjs governs transversal floors, audits can use either tool", () => {
   assert.deepEqual(pick(build("build", "floor")), ["codex", "sol", "medium"]);
   assert.deepEqual(pick(build("build", "r1")), ["codex", "astra", "high"]);
-  assert.deepEqual(pick(build("audit", "r1", { quota: quota(100, 20) })), ["codex", "astra", "high"]);
-  assert.deepEqual(pick(build("audit", "r1", { quota: quota(20, 100) })), ["claude", "opus", "high"]);
+  assert.deepEqual(pick(build("audit", "r1", { quota: quota(100, 20) })), ["codex", "astra", "xhigh"]);
+  assert.deepEqual(pick(build("audit", "r1", { quota: quota(20, 100) })), ["claude", "opus", "xhigh"]);
 });
 test("role mapping: planner/architect/design, builder/implementer, reviewer and mechanical", () => {
   for (const role of ["planner", "architect", "design"]) assert.deepEqual(pick(build("build", "none", {}, { role })), ["claude", "opus", "high"]);
@@ -64,7 +64,7 @@ test("all runtime shapes allow capacity fallback through their qualified transpo
 });
 test("unknown kind/zone/label/shape/attempt and mismatched author are refused", () => {
   for (const ctx of [{ label: "bad" }, { zone: "bad" }, { shape: "bad" }, { attempt: 0 }, { attempt: 4 }]) assert.throws(() => build("build", "none", ctx));
-  assert.throws(() => build("bad")); assert.throws(() => reviewCell({ authors: [], kind: "frd", zone: "none" }));
+  assert.throws(() => build("bad")); assert.ok(reviewCell({ authors: [], kind: "frd", zone: "none" }).used);
   assert.throws(() => reviewCell({ authors: [{ runtime: "claude", model: "sol" }], kind: "frd", zone: "none" }));
   assert.throws(() => consultCell({ origin: "bad", consultNo: 1 }));
 });
@@ -75,9 +75,9 @@ test("exhaustive cells are deterministic, catalog-qualified, immutable and never
     const a = builderCell(unit, ctx), b = builderCell(unit, ctx); assert.deepEqual(a, b);
     assert.ok(tiers.catalog[a.runtime][a.model]); assert.ok(!["fable", "terra"].includes(a.model)); assert.notEqual(a.effort, "max");
     if (zone !== "r1" && kind !== "audit") assert.notEqual(a.model, "astra");
-    if (kind === "audit") { assert.ok(["astra", "opus"].includes(a.model)); assert.equal(a.effort, "high"); }
+    if (kind === "audit") { assert.ok(["astra", "opus"].includes(a.model)); assert.equal(a.effort, "xhigh"); }
     const r = reviewCell({ authors: [{ runtime: a.runtime, model: a.model, effort: a.effort }], kind: "frd", zone });
-    assert.ok(r.used); assert.equal(r.deferred, null); assert.notDeepEqual(pick(r.used), pick(a));
+    if (a.effort === "xhigh") assert.equal(r.used, null); else assert.ok(r.used); assert.equal(r.deferred, null); assert.notDeepEqual(pick(r.used), pick(a));
   }
 });
 test("consultation uses design capacity without an author/origin Astra escalation", () => {
@@ -97,7 +97,7 @@ const expected = (type, zone, runtime) => {
     claude: { normal: { design: ["opus", "high"], implement: ["sonnet", "high"], review: ["opus", "low"], mechanical: ["haiku", "low"] },
       delicate: ["sonnet", "medium"], critical: ["opus", "high"] },
   };
-  const pair = zone === "r1" ? cells[runtime].critical : type === "design" ? cells[runtime].normal.design : zone === "floor" && type === "mechanical" ? cells[runtime].delicate : cells[runtime].normal[type];
+  const pair = zone === "r1" ? type === "review" ? [runtime === "codex" ? "astra" : "opus", "xhigh"] : cells[runtime].critical : type === "design" ? cells[runtime].normal.design : zone === "floor" && type === "mechanical" ? cells[runtime].delicate : cells[runtime].normal[type];
   return [runtime, ...pair];
 };
 function expectedReview(authors, zone, runtime) {
@@ -108,14 +108,14 @@ function expectedReview(authors, zone, runtime) {
     "sol/low": ["sol/medium", "opus/low"], "sol/medium": ["sol/high", "opus/low"], "sol/high": ["astra/high", "opus/high"],
     "sonnet/medium": ["sol/medium", "opus/low"], "sonnet/high": ["sol/high", "opus/low"],
     "opus/low": ["sol/high", "opus/medium"], "opus/medium": ["astra/high", "opus/high"],
-    "astra/high": ["astra/xhigh", "opus/high"], "opus/high": ["astra/high", "opus/xhigh"],
+    "astra/high": ["astra/xhigh", "opus/xhigh"], "opus/high": ["astra/xhigh", "opus/xhigh"],
     "astra/xhigh": [null, null], "opus/xhigh": [null, null],
   };
   let index = zone === "r1" ? ranks[runtime].indexOf(runtime === "codex" ? "astra/high" : "opus/high") : runtime === "codex" ? 2 : 3;
   for (const a of authors) {
     const tool = a.runtime, model = a.model === "terra" ? "sol" : a.model === "fable" ? "opus" : a.model;
     const opts = ranks[tool].filter(k => k.startsWith(`${model}/`));
-    const wanted = a.model === "fable" ? "xhigh" : a.effort ?? "high";
+    const wanted = a.model === "fable" ? "xhigh" : a.effort ?? opts.at(-1).split("/")[1];
     const key = opts.find(k => RANK.indexOf(k.split("/")[1]) >= RANK.indexOf(wanted)) ?? opts.at(-1);
     const next = table[key][runtime === "codex" ? 0 : 1];
     if (!next) return null;

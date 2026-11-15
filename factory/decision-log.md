@@ -1,5 +1,17 @@
 # Decision Log — Factory
 
+## 2026-11-14 — Close review qualification bypasses (P7 F1–F3)
+
+Independent review found that cross-tool critical equality, missing-author pin/reduction floors and legacy
+continuation/certification could admit an equal or weaker reviewer. The allocator now defines a symmetric
+common strength scale and one predicate shared by allocation, dispatch, worker argv, continuation and both
+review-record phases. Unknown authors use a conservative nominal floor across tools; unknown effort uses
+the model maximum. Suspended incompatible reviewers requeue without losing checkpoints or attempts.
+Ordinary/deferred/audit reports require the dispatched effort and a strictly stronger cell before any
+certification. Canonical: BUILD-10, capacity.md selection/execution contracts and the Manual guide.
+Permanent probes cover both cross-tool directions, unknown authors, 429, stale pins, worker task propagation
+and real-lease certification refusals. Plugin PATCH 10.12.1; manifests regenerated. No commit requested.
+
 ## 2026-11-14 — Complexity-driven implementation and stronger review (DR-162 option B)
 
 The owner chose per-task complexity, separate from risk. Explicit WO complexity overrides the documented

@@ -3,11 +3,13 @@
 // (committed on `lane/<run_id>`, hashed into the review unit's `probe_hashes`, within the probe budget), applies the
 // verdict (pass / reopen -> patch unit / blocked -> hand-back / doubt), queues a deferred re-review when the review was
 // degraded (other company out of quota or unreachable, N7, Sol at capacity) and journals `review_recorded` with
-// `data.verdict`. Reviewer selection is never hardcoded: the matrix lives in model-tiers.json behind routing.mjs.
+// `data.verdict`. The reviewer floor lives in capacity.mjs; routing.mjs projects actual author evidence.
 //
 // Two-phase rule (D5): phase 1 verifies fence, unit, token and report; the work phase hashes files read-only; phase 2
 // (mutex held) commits probes and work-order transitions in the integration worktree, writes the deferred ledger,
 // appends the journal events, then the state, then releases the token. Never writes a tracked file in the main checkout.
+import { assertTaskCell } from "../capacity.mjs";
+import { capacityTaskForUnit } from "./routing.mjs";
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { releaseToken, verifyToken } from "./admission.mjs";
@@ -29,6 +31,21 @@ export { fromRepoPath, productRootIn, repoPrefix, toRepoPath } from "./review/gi
 export { PROBE_EXTRA_PER_FRD } from "./review/probes.mjs";
 export { countFindings, isProbePath, validateReviewReport } from "./review/report.mjs";
 export { pickReopenWos, scanWorkOrders } from "./review/workOrders.mjs";
+
+async function validateExecution(state, unit, report, input, deps) {
+  const worker = unit.worker;
+  if (worker && ["runtime", "model", "effort"].some(key => worker[key] !== report.reviewer[key]))
+    throw err("INVALID_INPUT", "report reviewer differs from the dispatch cell (including effort)");
+  const entry = unit.kind === "deferred-review" ? entryForUnit(await readDeferred(input.project, deps), unit, input.deferredId ?? null) : null;
+  const task = capacityTaskForUnit(unit, state, entry);
+  try { assertTaskCell(task, worker ?? report.reviewer); }
+  catch (error) { throw err("INVALID_INPUT", `reviewer floor rejected: ${error.message}`); }
+  if (worker?.via === "session") throw err("INVALID_INPUT", "a review requires an independent worker context");
+  for (const author of reviewedUnits(state, unit)) {
+    if (unit.worktree && author.worktree === unit.worktree || worker?.worker_id && author.worker?.worker_id === worker.worker_id)
+      throw err("INVALID_INPUT", "review context is shared with its author");
+  }
+}
 
 /** DR-161: does `company` have < 15 % left (conserved, or out of quota at >= quota_stop)? Any read error: false. */
 async function neededConserved(project, state, company, deps) {
@@ -70,18 +87,12 @@ export async function reviewRecord(input, deps = {}) {
     const check = verifyToken(unitId, token, { file: ctx.paths.admissionFile, fs: deps.admissionFs });
     if (!check.ok) throw err("INVALID_INPUT", `unit token rejected (${check.reason})`);
     const report = await validateReviewReport(await loadReport(input, fs), { unit: unitId, token }, deps);
+    await validateExecution(state, unit, report, input, deps);
     const w = unit.worker;
-    if (w && (w.runtime !== report.reviewer.runtime || w.model !== report.reviewer.model)) throw err("INVALID_INPUT", "report reviewer differs from the dispatch cell");
     if (unit.kind === "review") {
       const route = inferDegradation({ authors: authorsOf(reviewedUnits(state, unit)), kind: state.size === "touch" ? "touch" : "frd",
         zone: unit.zone, reviewer: w ?? report.reviewer, hint: normalizeHint(deps.availability) }, deps);
       if (unit.parked === "no_reviewer" || route.parked) throw err("INVALID_INPUT", "review is parked without an allocated reviewer");
-      // DR-162: independence is an execution context, never a company/model comparison.
-      if (w?.via === "session") throw err("INVALID_INPUT", "a review requires an independent worker context");
-      for (const author of reviewedUnits(state, unit)) {
-        if (unit.worktree && author.worktree === unit.worktree || w?.worker_id && author.worker?.worker_id === w.worker_id)
-          throw err("INVALID_INPUT", "review context is shared with its author");
-      }
     }
     return { report };
   };
@@ -110,6 +121,7 @@ export async function reviewRecord(input, deps = {}) {
     const state = await ctx.readState();
     const review = findUnit(state, unitId);
     if (!review || !RECORDABLE_STATES.includes(review.state)) throw err("INVALID_STATE", `unit ${unitId} is no longer awaiting a review`);
+    await validateExecution(state, review, report, input, deps);
     const root = state.integration.worktree;
     const at = nowIso(deps);
     const reviewed = reviewedUnits(state, review);

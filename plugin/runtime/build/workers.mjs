@@ -17,7 +17,9 @@ import { stopCodexWorkers } from "../codex-workers.mjs";
 import { atomicWriteJson, validate } from "./fsx.mjs";
 import { assertSafeId, buildPaths } from "./paths.mjs";
 import { classifyLimitText, limitResetsAt, recordLimit as quotaRecordLimit } from "./quota.mjs";
-import { modelSlug } from "./routing.mjs";
+import { assertTaskCell } from "../capacity.mjs";
+import { readDeferred, entryForUnit } from "./deferred.mjs";
+import { modelSlug, capacityTaskForUnit } from "./routing.mjs";
 
 const WORKER_SCRIPT = fileURLToPath(new URL("../../scripts/codex-worker.mjs", import.meta.url));
 const WORKER_ID_MAX = 120; // codex-worker.mjs ID_RE
@@ -130,11 +132,14 @@ export function buildWorkerArgv(input, deps) {
     if (typeof value !== "string" || !path.isAbsolute(value)) throw new WorkersError("USAGE", `${label} must be an absolute path`);
   }
   if (schemaFile !== null && !path.isAbsolute(schemaFile)) throw new WorkersError("USAGE", "schemaFile must be an absolute path");
+  const task = { ...(input.task ?? { id: unit, type: "implement", risk: "normal" }), id: unit,
+    pin: { tool: cell.runtime, model: cell.model, effort } };
+  assertTaskCell(task, task.pin);
   const { bin, prefix, fake } = workerCommand(deps);
   const args = [
     "run", "--direct", "--project", project, "--id", assertSafeId(workerId, "worker id"), "--unit", assertSafeId(unit, "unit id"),
     "--prompt-file", promptFile, "--codex-model", slug, "--effort", effort,
-    "--capacity-task", JSON.stringify({ id: unit, type: "implement", risk: "normal", pin: { tool: cell.runtime, model: cell.model, effort } }),
+    "--capacity-task", JSON.stringify(task),
     ...(schemaFile ? ["--output-schema", schemaFile] : []),
     // The unit's own build/units/<unit>/ holds report_path, outside the worktree: the workspace-write sandbox must be
     // allowed to write it (BL-0313). Nothing else outside the worktree becomes writable.
@@ -257,7 +262,7 @@ export async function launchWorker(input, deps) {
   if (!fs.existsSync(promptFile)) return { ok: false, kind: "brief_missing", detail: `unit brief not found: ${promptFile}` };
   if (input.schemaFile && !fs.existsSync(input.schemaFile)) return { ok: false, kind: "schema_missing", detail: `output schema not found: ${input.schemaFile}` };
   if (!fs.existsSync(dir)) return { ok: false, kind: "worktree_missing", detail: `unit worktree not found: ${dir}` };
-  const { bin, args, fake } = buildWorkerArgv({ project: paths.project, workerId, unit, cell: input.cell, promptFile, schemaFile: input.schemaFile ?? null, dir }, deps);
+  const { bin, args, fake } = buildWorkerArgv({ project: paths.project, workerId, unit, task: input.task, cell: input.cell, promptFile, schemaFile: input.schemaFile ?? null, dir }, deps);
   const workerDir = paths.codexWorkerDir(workerId);
   const existing = peekWorker({ project, workerId }, deps);
   const adopted = (pid, startedAt, settled) => ({ ok: true, workerId, dir: workerDir, pid, startedAt, job: jobItem({ workerId, unit, frd, pid, cwd: dir, startedAt }), reused: true, argv: args, settled });
@@ -288,7 +293,12 @@ export async function launchWorker(input, deps) {
 }
 
 /** Resume the SAME worker id/thread/cell, with an idempotent continuation sequence. Never prepare/reset its tree. */
-export async function resumeWorker({ project, workerId, unit, frd, dir, sequence }, deps = {}) {
+export async function resumeWorker({ project, workerId, unit, frd, dir, sequence, task, cell }, deps = {}) {
+  const state = readJsonSync(buildPaths(project).stateFile, deps);
+  const saved = state?.units?.find(u => u.id === unit);
+  const entry = saved?.kind === "deferred-review" ? entryForUnit(await readDeferred(project, deps), saved) : null;
+  const qualified = saved ? capacityTaskForUnit(saved, state, entry) : task;
+  if (qualified) assertTaskCell(qualified, saved?.worker ?? cell);
   const { bin, prefix } = workerCommand(deps);
   const argv = [...prefix, "resume", "--project", project, "--id", assertSafeId(workerId, "worker id"), "--resume-sequence", String(sequence), "--max", "1"];
   const out = await runCapture(bin, argv, { cwd: project, env: workerEnv(deps), timeoutMs: deps.launchTimeoutMs ?? 15000 }, deps);

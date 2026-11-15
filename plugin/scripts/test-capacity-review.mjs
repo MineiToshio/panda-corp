@@ -106,7 +106,7 @@ await test('H3: dispatch requeues prelaunch wait without a job, attempt or quota
  c.d.admission={...admission,readDiskFreeGib:()=>100,countHostSlots:()=>({held:0}),decide:()=>({grant:'B'}),recordDiskWait:()=>false};
  c.d.units={prepareUnitWorktree:async()=>({worktree:c.tmp,branch:'audit'}),writeUnitBrief:async()=>({brief_path:path.join(c.tmp,'brief.md')})};
  c.d.workers={launchWorker:async()=>({ok:true,workerId:'not-started',pid:null,settled:{kind:'capacity_wait',resumeAt:at(3600)},job:{...c.job,id:'not-started',unit:'u-review'}})};
- const out=await dispatchRound(c.run,s,{list:[{unit:s.units[0],cell:{runtime:'codex',model:'astra',effort:'high'},via:'cli'}]},{k:1},{value:null},{policy:{},out:{claude:{pct:100},codex:{pct:100}}});
+ const out=await dispatchRound(c.run,s,{list:[{unit:s.units[0],cell:{runtime:'codex',model:'astra',effort:'xhigh'},via:'cli'}]},{k:1},{value:null},{policy:{},out:{claude:{pct:100},codex:{pct:100}}});
  assert.equal(out.units.length,0);assert.equal(out.state.units[0].state,'queued');assert.equal(out.state.units[0].attempt,1);assert.equal(out.state.units[0].token_hash,null);assert.equal(out.state.jobs.length,0);assert.deepEqual(out.capacityWaits,[at(3600)]);
 }));
 await test('H4: Claude stdout progress and deferred final output survive stream watchdog thresholds',()=>withRun(async c=>{
@@ -128,9 +128,9 @@ await test('H6: standalone security audit and unknown risk retain critical floor
  const fake=path.join(c.tmp,'fake-security.mjs');await fs.writeFile(fake,`#!/usr/bin/env node\nimport fs from 'node:fs';const a=process.argv.slice(2);fs.readFileSync(0,'utf8');fs.writeFileSync(a[a.indexOf('-o')+1],'done');\n`,{mode:0o755});
  const pf=path.join(c.tmp,'prompt.md');await fs.writeFile(pf,'audit');
  for(const role of ['pandacorp:security-auditor','']){
- const id=role?'security':'unknown';const args=[path.resolve('plugin/scripts/codex-worker.mjs'),'run','--direct','--project',c.fx.root,'--dir',c.tmp,'--id',id,'--prompt-file',pf,'--codex-model','gpt-6-astra','--effort','high','--max','5',...(role?['--role',role,'--risk','normal']:[])];
+ const id=role?'security':'unknown';const args=[path.resolve('plugin/scripts/codex-worker.mjs'),'run','--direct','--project',c.fx.root,'--dir',c.tmp,'--id',id,'--prompt-file',pf,'--codex-model','gpt-6-astra','--effort',role?'xhigh':'high','--max','5',...(role?['--role',role,'--risk','normal']:[])];
  const r=spawnSync(process.execPath,args,{env:{...c.env,PANDACORP_CODEX_BIN:fake},encoding:'utf8',timeout:10000});assert.equal(JSON.parse(JSON.parse(r.stdout.trim()).r).ok,true,r.stdout);
- const state=JSON.parse(await fs.readFile(path.join(c.p.codexWorkerDir(id),'state.json'),'utf8'));assert.deepEqual(state.capacity.pin,{tool:'codex',model:'astra',effort:'high'});
+ const state=JSON.parse(await fs.readFile(path.join(c.p.codexWorkerDir(id),'state.json'),'utf8'));assert.deepEqual(state.capacity.pin,{tool:'codex',model:'astra',effort:role?'xhigh':'high'});
  }
  const bad=spawnSync(process.execPath,[path.resolve('plugin/scripts/codex-worker.mjs'),'run','--direct','--project',c.fx.root,'--dir',c.tmp,'--id','security-low','--prompt-file',pf,'--role','pandacorp:security-auditor','--risk','normal','--codex-model','gpt-6.1-sol','--effort','low'],{env:{...c.env,PANDACORP_CODEX_BIN:fake},encoding:'utf8',timeout:10000});
  assert.equal(JSON.parse(JSON.parse(bad.stdout.trim()).r).kind,'incompatible-cell');
@@ -141,4 +141,16 @@ await test('H7: canonical non-routing safeguards survive and retired quota manda
  for(const text of ['One probe per finding','3 more per FRD','probe_hashes','RED on the new test files by assertion','never `git commit`/`push`/`reset`','floor mutation at G4','hashes those files'])assert.ok(doc.includes(text),`missing ${text}`);
  for(const text of ['≥90 %: `transfer`','Security audit: not run','strongest model not yet consulted'])assert.ok(!doc.includes(text),`retired ${text}`);
 });
+await test('F3 incompatible suspended review requeues with fresh context and preserves checkpoint',()=>withRun(async c=>{
+ const author=stateApi.newUnit({id:'author',kind:'build',frd:'f',state:'reviewing',wos:['wo'],worker:{...c.unit.worker,effort:'medium',worker_id:'author-worker'},complexity:'normal'});
+ const review={...c.unit,kind:'review',frd:'f',wos:['wo'],depends_on:['author'],state:'suspended',attempt:2,
+  worker:{...c.unit.worker,effort:'medium'},pin:{tool:'codex',model:'sol',effort:'medium'},
+  suspension:{reason:'rate_limit',at:NOW,resetAt:at(300),resumeAt:at(300),sequence:1}};
+ const s={...c.state,scope:{...c.state.scope,frds:['f'],wos:['wo']},units:[author,review],jobs:[]};await stateApi.writeState(c.fx.root,s,c.d);
+ const result=await buildCandidates(c.run,s,policy({readings:readings(),now:T}),{ready:[]},{},[]);
+ const queued=result.state.units.find(u=>u.id===review.id);assert.equal(queued.state,'queued');assert.equal(queued.attempt,2);
+ assert.equal(queued.worker,null);assert.equal(queued.pin,null);assert.equal(queued.token_hash,null);
+ assert.equal(result.list.length,1);assert.equal(result.list[0].cell.effort,'high');assert.ok(!result.list[0].resume);
+ assert.equal(queued.worktree,review.worktree);assert.equal(await fs.readFile(path.join(review.worktree,'saved.txt'),'utf8'),'dirty checkpoint\n');
+}));
 console.log(`RESULT ${passed} passed, ${failed} failed`);process.exitCode=failed?1:0;

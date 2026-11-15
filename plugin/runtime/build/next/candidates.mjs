@@ -1,12 +1,13 @@
 // (6) Candidates and cells: the ordered dispatch candidates (deferred reviews, consults, FRD reviews, the audit, then
 // the planner's ready units) with the routing cell each one runs on.
 import { maxComplexity } from "../../complexity.mjs";
-import { reviewDemand } from "../routing.mjs";
+import { reviewDemand, capacityTaskForUnit } from "../routing.mjs";
 import { retryCapacityConsults } from "../doubts/consult.mjs";
 import { logCapacityDecision } from "../../capacity.mjs";
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { reviewedUnits } from "../review/degradation.mjs";
+import { releaseToken } from "../admission.mjs";
 import { findUnit, newUnit } from "../state.mjs";
 import { PLANNED_KINDS } from "./constants.mjs";
 import { availabilityOf, cellOf, err, integrationProductRoot, isAssumed, mutate, routingDeps, shapeOf, sibling } from "./context.mjs";
@@ -84,7 +85,20 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
   const queued = (u) => u.state === "queued" && (!u.parked || isAssumed(u)) && inScope(state, u);
 
   for (const u of state.units.filter(u => u.state === "suspended" && inScope(state, u))) {
-    const now = capacityNow(d), verdict = continuationDecision(u, pol.readings, now);
+    const now = capacityNow(d), verdict = continuationDecision(u, pol.readings, now, state,
+      u.kind === "deferred-review" ? deferredEntries.find(e => deferredUnitId(e.id) === u.id) : null);
+    if (verdict.requeue) {
+      state = await mutate(run, s => {
+        const cur = findUnit(s, u.id);
+        const patch = { state: "queued", pin: null, worker: null, suspension: null, token_hash: null, parked: null };
+        releaseToken(u.id, { file: run.paths.admissionFile });
+        capacityAudit(run.ref.project, s, "requeued", { unit: u.id, reason: verdict.reason, cell: pinOf(cur),
+          checkpoint: { worker: cur.worker, suspension: cur.suspension, worktree: cur.worktree, branch: cur.branch } }, d);
+        return { state: { ...s, units: s.units.map(x => x.id === u.id ? { ...x, ...patch } : x) },
+          events: [{ type: "capacity_state", data: { unit: u.id, patch } }] };
+      });
+      continue;
+    }
     if (verdict.ready) {
       out.push({ unit: u, cell: cellOnly(u.worker), via: u.worker.via, resume: true });
     } else {
@@ -103,7 +117,7 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
     const entry = deferredEntries.find((e) => deferredUnitId(e.id) === u.id);
     if (!entry) continue;
     const routed = entry.kind === "audit"
-      ? d.routing.builderCell({ ...u, kind: "audit", size: state.size, zone: u.zone, attempt: 1 }, { ...ctx, zone: u.zone, attempt: 1, sessionModel: null }, routingDeps(d))
+      ? d.routing.builderCell({ ...u, ...capacityTaskForUnit(u, state, entry), kind: "audit", size: state.size, zone: u.zone, attempt: 1 }, { ...ctx, zone: u.zone, attempt: 1, sessionModel: null }, routingDeps(d))
       : d.routing.reviewCell({ id: u.id, complexity: u.complexity, authors: [entry.author], kind: state.size === "touch" ? "touch" : "frd", zone: u.zone, availability: avail, shape: ctx.shape }, routingDeps(d));
     const cell = entry.kind === "audit" ? routed : routed.used;
     if (!cell || cell.paused || cell.deferred) {
@@ -112,7 +126,7 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
       if (routed.capacity) logCapacityDecision(routed.task, routed.capacity, { env: d.env, log: run.paths.capacityDecisionsFile, now: pol.now });
       continue;
     }
-    out.push({ unit: u, cell: cellOnly(cell), capacity: routed.capacity, task: routed.task, via: viaOf(cell), review: { deferred_entry: entry.id } });
+    out.push({ unit: u, cell: cellOnly(cell), capacity: routed.capacity, task: capacityTaskForUnit(u, state, entry), via: viaOf(cell), review: { deferred_entry: entry.id } });
   }
 
   // A consult is dispatched exactly once, with the cell, via and brief its doubt record announced (CLI 3.12).
@@ -147,17 +161,16 @@ export async function buildCandidates(run, state, pol, plan, params, deferredEnt
     if (u.frd && !work.length && !named.size && queued(u)) { toSettle.push(u.id); continue; }
     if (!ready) continue;
     const authors = dedupeCells(pending.filter((x) => x.worker).map((x) => authorOf(x.worker)));
-    if (!authors.length) throw err("INVALID_STATE", `review ${u.id}: no author cell among its units`, { hint: "rebuild-state" });
-    const rc = d.routing.reviewCell({ id: u.id, complexity: maxComplexity(work.map(x => x.complexity)), authors, kind: state.size === "touch" ? "touch" : "frd", zone: u.zone, availability: avail, shape: ctx.shape }, routingDeps(d));
+    const rc = d.routing.reviewCell({ id: u.id, complexity: maxComplexity(work.map(x => x.complexity)), unknownImplementer: work.some(x => !x.worker), authors, kind: state.size === "touch" ? "touch" : "frd", zone: u.zone, availability: avail, shape: ctx.shape }, routingDeps(d));
     if (rc.parked) { quotaBlocked = true; if (rc.resumeAt) capacityWaits.push(rc.resumeAt); if (rc.capacity) logCapacityDecision(rc.task, rc.capacity, { env: d.env, log: run.paths.capacityDecisionsFile, now: pol.now }); if (u.parked !== "no_reviewer") toParkNoReviewer.push(u.id); continue; }
     if (u.parked === "no_reviewer") toUnpark.push(u.id);
     const ids = pending.map((x) => x.id);
     if (JSON.stringify(u.depends_on) !== JSON.stringify(ids)) bindings.set(u.id, ids);
-    out.push({ unit: { ...u, parked: null, state: "queued", depends_on: ids }, cell: cellOnly(rc.used), capacity: rc.capacity, task: rc.task, via: viaOf(rc.used), review: { primary: rc.primary, degraded: rc.degraded, deferred: rc.deferred } });
+    out.push({ unit: { ...u, parked: null, state: "queued", depends_on: ids }, cell: cellOnly(rc.used), capacity: rc.capacity, task: capacityTaskForUnit(u, state), via: viaOf(rc.used), review: { primary: rc.primary, degraded: rc.degraded, deferred: rc.deferred } });
   }
 
   for (const u of state.units.filter((x) => x.kind === "audit" && queued(x))) {
-    const cell = d.routing.builderCell({ ...u, kind: "audit", size: state.size, zone: u.zone, attempt: u.attempt }, { ...ctx, zone: u.zone, attempt: u.attempt, sessionModel: null }, routingDeps(d));
+    const cell = d.routing.builderCell({ ...u, ...capacityTaskForUnit(u, state), kind: "audit", size: state.size, zone: u.zone, attempt: u.attempt }, { ...ctx, zone: u.zone, attempt: u.attempt, sessionModel: null }, routingDeps(d));
     if (cell.paused || cell.deferred) { quotaBlocked = true; if (cell.resumeAt) capacityWaits.push(cell.resumeAt); if (cell.capacity) logCapacityDecision(cell.task, cell.capacity, { env: d.env, log: run.paths.capacityDecisionsFile, now: pol.now }); continue; }
     out.push({ unit: u, cell: cellOnly(cell), capacity: cell.capacity, task: cell.task, via: cell.via });
   }

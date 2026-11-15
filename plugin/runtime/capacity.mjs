@@ -207,12 +207,15 @@ const atRank = (tool, index) => {
   const [model, effort] = key.split("/");
   return { tool, model, effort };
 };
-const crossEquivalent = {
-  "luna/low": "haiku/low", "sol/low": "sonnet/medium", "sol/medium": "sonnet/high",
-  "sol/high": "opus/medium", "astra/high": "opus/high", "astra/xhigh": "opus/xhigh",
-  "haiku/low": "luna/low", "sonnet/medium": "sol/low", "sonnet/high": "sol/medium",
-  "opus/low": "sol/medium", "opus/medium": "sol/high", "opus/high": "astra/high", "opus/xhigh": "astra/xhigh",
-};
+// Common strength scale: equal numbers are equivalent across tools; review must be strictly greater.
+export const CELL_STRENGTH = Object.freeze({
+  "luna/low": 0, "haiku/low": 0,
+  "sol/low": 1, "sonnet/medium": 1,
+  "sol/medium": 2, "sonnet/high": 2, "opus/low": 2.5,
+  "sol/high": 3, "opus/medium": 3,
+  "astra/high": 4, "opus/high": 4,
+  "astra/xhigh": 5, "opus/xhigh": 5,
+});
 function cellFor(type, risk, tool, complexity = "normal") {
   if (risk === "critical") return { tool, model: tool === "codex" ? "astra" : "opus", effort: "high" };
   if (type === "images") return tool === "codex" ? { tool, model: "sol", effort: "low" } : null;
@@ -222,24 +225,41 @@ function cellFor(type, risk, tool, complexity = "normal") {
   const base = atRank(tool, tool === "codex" ? index + 1 : [1, 2, 4][index]);
   return risk === "delicate" && tool === "codex" && rank(base) < 2 ? atRank(tool, 2) : base;
 }
-function reviewerFloor(tool, risk, authors) {
-  let floor = Math.max(tool === "codex" ? 2 : 3, rank(cellFor("implement", risk, tool, "trivial")));
-  for (const author of authors) {
-    const sameTool = author.tool === tool;
-    const equivalent = sameTool ? cellKey(author) : crossEquivalent[cellKey(author)];
-    let next = CELL_LADDERS[tool].indexOf(equivalent) + 1;
-    // Cross-tool top-high equivalence is allowed; same-tool review must advance to xhigh.
-    if (!sameTool && ["astra/high", "opus/high"].includes(cellKey(author))) next--;
-    floor = Math.max(floor, next);
-  }
-  return floor;
+function effectiveAuthors(risk, complexity, authors) {
+  // Unknown provider/author: use the strongest nominal implementer of BOTH tools, including risk.
+  return authors.length ? authors : TOOLS.map(tool => cellFor("implement", risk, tool, complexity));
+}
+function reviewerFloor(tool, risk, complexity, authors) {
+  const strength = Math.max(...effectiveAuthors(risk, complexity, authors).map(a => CELL_STRENGTH[cellKey(a)]));
+  const min = Math.max(tool === "codex" ? 2 : 3, rank(cellFor("implement", risk, tool, "trivial")));
+  const index = CELL_LADDERS[tool].findIndex((key, i) => i >= min && CELL_STRENGTH[key] > strength);
+  return index < 0 ? CELL_LADDERS[tool].length : index;
 }
 function qualifiedCell(type, risk, tool, complexity, authors) {
-  const base = cellFor(type, risk, tool, complexity);
-  if (type !== "review") return base;
-  // With no recorded author, ordinary reviews use the nominal implementer on this tool.
-  const reference = authors.length ? authors : risk === "critical" ? [] : [base];
-  return atRank(tool, reviewerFloor(tool, risk, reference));
+  return type === "review" ? atRank(tool, reviewerFloor(tool, risk, complexity, authors)) : cellFor(type, risk, tool, complexity);
+}
+function taskContext(task) {
+  const type = task.type === "image" ? "images" : task.type;
+  const risk = task.risk ?? (type === "images" ? "normal" : "critical");
+  const complexity = task.complexity ?? "normal";
+  if (!TYPES.includes(task.type) || !["normal", "delicate", "critical"].includes(risk) || !COMPLEXITIES.includes(complexity))
+    throw new TypeError("Invalid task type, risk or complexity");
+  const authors = [...(task.implementerCells ?? []), ...(task.implementerCell ? [task.implementerCell] : [])]
+    .map(a => ({ tool: a.tool ?? a.runtime, model: a.model, effort: a.effort }));
+  for (const author of authors) validateCell(author);
+  if (task.unknownImplementer) authors.push(...TOOLS.map(tool => cellFor("implement", risk, tool, complexity)));
+  return { type, risk, complexity, authors };
+}
+/** Pure qualification, independent of quota and preference; shared by pins, continuation and certification. */
+export function assertTaskCell(task, cell) {
+  const { type, risk, complexity, authors } = taskContext(task);
+  const pin = { tool: cell.tool ?? cell.runtime, model: cell.model, effort: cell.effort };
+  validateCell(pin);
+  const floor = type === "review" ? reviewerFloor(pin.tool, risk, complexity, authors)
+    : risk === "normal" ? 0 : rank(cellFor("implement", risk, pin.tool, "trivial"));
+  if (rank(pin) < floor) throw new TypeError("Pin is below the task's risk floor or reviewer floor");
+  if (type === "images" && (pin.tool !== "codex" || pin.model !== "sol" || pin.effort !== "low")) throw new TypeError("Images require Codex Sol low");
+  return pin;
 }
 
 function validateCell(cell) {
@@ -292,12 +312,7 @@ export function decide({ task, readings = {}, now, costs = {} }) {
   if (!["normal", "delicate", "critical"].includes(risk) || type === "images" && risk !== "normal") {
     throw new TypeError("Invalid risk; image risk assessment must be a separate task");
   }
-  const complexity = task.complexity ?? "normal";
-  if (!COMPLEXITIES.includes(complexity)) throw new TypeError("Invalid complexity");
-  const authors = [...(task.implementerCells ?? []), ...(task.implementerCell ? [task.implementerCell] : [])].map(cell => ({
-    tool: cell.tool ?? cell.runtime, model: cell.model, effort: cell.effort,
-  }));
-  for (const author of authors) validateCell(author);
+  const { complexity, authors } = taskContext(task);
   const demand = task.imageDemandPp ?? 0;
   if (!Number.isFinite(demand) || demand < 0) throw new TypeError("imageDemandPp must be nonnegative");
   validateCosts(costs);
@@ -311,8 +326,7 @@ export function decide({ task, readings = {}, now, costs = {} }) {
   if (task.pin) {
     validateCell(task.pin);
     const { model, effort } = task.pin;
-    const floor = type === "review" ? reviewerFloor(task.pin.tool, risk, authors) : risk === "normal" ? 0 : rank(cellFor("implement", risk, task.pin.tool, "trivial"));
-    if (rank(task.pin) < floor) throw new TypeError("Pin is below the task's risk floor or reviewer floor");
+    assertTaskCell(task, task.pin);
     if (override && (override.tool !== task.pin.tool || override.model !== undefined && override.model !== model ||
         override.effort !== undefined && override.effort !== effort)) throw new TypeError("Pin conflicts with explicit override");
     if (type === "images" && (task.pin.tool !== "codex" || task.pin.model !== "sol" || task.pin.effort !== "low")) throw new TypeError("Images require Codex Sol low");
@@ -332,7 +346,7 @@ export function decide({ task, readings = {}, now, costs = {} }) {
     const lower = candidates.filter(c => c.cell).map(c => {
       const effort = { xhigh: "high", high: "medium", medium: "low" }[c.cell.effort];
       const cell = { ...c.cell, effort };
-      const floor = type === "review" ? reviewerFloor(cell.tool, risk, authors) : rank(cellFor("implement", risk, cell.tool, "trivial"));
+      const floor = type === "review" ? reviewerFloor(cell.tool, risk, complexity, authors) : rank(cellFor("implement", risk, cell.tool, "trivial"));
       if (!Object.hasOwn(PRIORS, cellKey(cell)) || rank(cell) < floor) return null;
       return { cell, ...fit(readings_used[cell.tool], cell, type, Math.min(8, Math.max(2, demand)), costs, false) };
     }).filter(Boolean);
@@ -430,8 +444,8 @@ function activeRunLog(start = process.cwd()) {
 export function logCapacityDecision(task, decision, { env = process.env, now = env.PANDACORP_NOW ?? new Date().toISOString(), log } = {}) {
   const file = log || env.PANDACORP_CAPACITY_LOG || activeRunLog() || path.join(capacityDir(env), "decisions.jsonl");
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
-  const { id, type, risk, complexity, implementerCell, implementerCells, override, pin, imageDemandPp } = task;
-  fs.appendFileSync(file, JSON.stringify({ at: new Date(now).toISOString(), task: { id, type, risk, complexity, implementerCell, implementerCells, override, pin, imageDemandPp },
+  const { id, type, risk, complexity, implementerCell, implementerCells, unknownImplementer, override, pin, imageDemandPp } = task;
+  fs.appendFileSync(file, JSON.stringify({ at: new Date(now).toISOString(), task: { id, type, risk, complexity, implementerCell, implementerCells, unknownImplementer, override, pin, imageDemandPp },
     decision, reason: decision.reason, readings_used: decision.readings_used }) + "\n", { mode: 0o600 });
   fs.chmodSync(file, 0o600);
 }

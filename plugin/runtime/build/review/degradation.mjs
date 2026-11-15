@@ -1,7 +1,5 @@
 // review-record degradation: which units a review judges, who authored them, and whether the review was degraded.
-import { MODEL_STRENGTH, reviewCell } from "../routing.mjs";
-import { findUnit } from "../state.mjs";
-import { REVIEWED_FROM } from "./common.mjs";
+import { MODEL_STRENGTH, reviewCell, reviewedWorkForUnit } from "../routing.mjs";
 
 const AVAILABILITY_LEVELS = ["ok", "quota", "unreachable", "at_capacity", "conserve"];
 
@@ -15,9 +13,7 @@ const isWorkUnit = (u) => u.kind === "build" || u.kind === "patch";
  * @returns {object[]}
  */
 export function reviewedUnits(state, review) {
-  const named = (review.depends_on ?? []).map((id) => findUnit(state, id)).filter((u) => u && isWorkUnit(u));
-  if (named.length > 0) return named;
-  return state.units.filter((u) => isWorkUnit(u) && REVIEWED_FROM.includes(u.state) && (review.kind === "audit" || (review.frd && u.frd === review.frd)));
+  return reviewedWorkForUnit(state, review);
 }
 
 /** Author cells (the dispatch cells) of the reviewed units, deduplicated. */

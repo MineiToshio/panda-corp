@@ -85,7 +85,7 @@ test("restored: mixed-author order is stable and strong authors require a strong
 test("restored: audit keeps security floor and uses either eligible provider without deferral", () => {
   for (const quota of [{ claude: "conserve", codex: "ok" }, { claude: "quota", codex: "ok" }, { claude: "ok", codex: "quota" }]) {
     const c = builderCell({ kind: "audit", size: "feature", zone: "r1" }, { label: "codex", quota });
-    eq(c.model, quota.codex === "quota" ? "opus" : "astra"); eq(c.effort, "high"); eq(c.deferred, undefined);
+    eq(c.model, quota.codex === "quota" ? "opus" : "astra"); eq(c.effort, "xhigh"); eq(c.deferred, undefined);
   }
 });
 test("restored: stale/reset/missing-reset and fresh Claude controls retain honest percentages", () => {

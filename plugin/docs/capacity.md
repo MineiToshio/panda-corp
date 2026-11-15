@@ -268,7 +268,7 @@ TypeError, rather than inventing a quota wait.
 | Review / trivial nominal author | Sol medium | Opus low |
 | Review / normal nominal author | Sol high | Opus low |
 | Review / complex nominal author | Astra high | Opus high |
-| Review / critical author on the same tool | Astra xhigh | Opus xhigh |
+| Review / critical author (either tool) | Astra xhigh | Opus xhigh |
 | Design / planning / judgment (any complexity) | Sol high | Opus high |
 | Mechanical (any complexity) | Luna low | Haiku low |
 | Images | Sol low | Unavailable |
@@ -282,13 +282,27 @@ nominal complexity. On the selected tool it advances one rung, with minimum Sol 
 Codex `Luna low < Sol low < Sol medium < Sol high < Astra high < Astra xhigh`;
 Claude `Haiku low < Sonnet medium < Sonnet high < Opus low < Opus medium < Opus high < Opus xhigh`.
 A reviewer never receives an identical tool/model/effort cell. Multiple authors require the maximum floor.
-Cross-tool implementation equivalents are Luna low ↔ Haiku low, Sol low ↔ Sonnet medium,
-Sol medium ↔ Sonnet high, Sol high ↔ Opus medium, Astra high ↔ Opus high and Astra xhigh ↔ Opus xhigh;
-Claude Opus low projects to Sol medium. Advance from that equivalent and apply the reviewer minimum.
-At top-high, cross-tool Astra high / Opus high equivalence is allowed; same-tool review advances to xhigh.
-At absolute xhigh ceiling with no stronger qualified reviewer, wait rather than reuse the identical cell.
+The common strength scale is explicit and symmetric (equal rows are equivalent):
+
+| Strength | Codex | Claude |
+|---:|---|---|
+| 0 | Luna low | Haiku low |
+| 1 | Sol low | Sonnet medium |
+| 2 | Sol medium | Sonnet high |
+| 2.5 | — | Opus low |
+| 3 | Sol high | Opus medium |
+| 4 | Astra high | Opus high |
+| 5 | Astra xhigh | Opus xhigh |
+
+Choose the first selected-tool cell strictly above the maximum author strength, while retaining risk and
+reviewer minima. No cross-tool exception permits equality: critical Astra high / Opus high authors require
+Astra xhigh / Opus xhigh review on either tool. At absolute xhigh ceiling there is no eligible reviewer.
+With no author cell, use the strongest nominal implementer across both tools for the task's complexity/risk
+(missing complexity remains normal). Missing writers in a partial author set add that nominal floor; retained unit complexity can only raise it;
+legacy authors with unknown effort use their model's highest supported effort. Never assume the lowest cell.
+Selection, pin validation and capacity reduction use this same effective author set.
 Tool health still outranks preference; ordinary complex reviews may therefore use Astra high.
-Audits without a recorded implementer retain their critical risk cell. Historical null efforts and disabled
+Audits recover their real authors; without recorded authors their critical nominal implementer is high, so review requires xhigh. Historical null efforts and disabled
 author models are normalized once by routing for both dispatch and wake; disabled models are never emitted.
 
 Only after **neither requested cell fits** may normal/complex implementation or review reduce effort by one
@@ -792,3 +806,37 @@ at 95%; its five-hour reset has expired, so that window is unknown. The latest C
 `{action:run,tool:codex,model:sol,effort:medium,reason:preferred_tool}` and review of that exact pin
 `{action:run,tool:codex,model:sol,effort:high,reason:preferred_tool}`. The regression also preserves the supplied
 stale 39% envelope (+5 pp to 44%) and checks the same cells. No live inference or quota probe was launched.
+
+### Review qualification at execution boundaries (P7 F1–F3)
+
+`capacity.mjs assertTaskCell()` is the single quota-independent floor predicate. Dispatch admission,
+worker argv, continuation (including 429), and both phases of review-record apply it to the actual task,
+zone, complexity and author evidence. `capacityTaskForUnit()` shares author recovery: explicit work bindings,
+otherwise pending patch/build authors for re-review; audits include verified work; deferred reviews use
+their ledger author. Worker launch carries the complete capacity task, not an implementation/normal surrogate.
+A stale incompatible suspended review is requeued without consuming an attempt or removing its checkpoint;
+capacity wake admits that requalification path instead of indefinitely waiting on an invalid pin.
+
+Review-record checks ordinary, deferred and audit reviews, including the exact reported effort against the
+worker. It validates again under the final mutex before probe commits or VERIFIED effects. An equal/lower
+cell is refused even when contexts differ, the router offers another valid reviewer, or a legacy off-matrix
+record exists. A stronger qualified pin need not equal today's quota-preferred cell. Context independence
+remains an additional requirement. Regressions: `test-capacity-review-floor.mjs`, `test-capacity-review.mjs`
+and the real-lease cases in `test-build-v2-review.mjs`.
+
+### P7 correction evidence (10.12.1)
+
+The 15 requested suites (including the new permanent floor probes) pass 829 checks, zero remaining failures.
+Routing: 367/0; review-record: 64/0; review lifecycle: 11/0; floor probes: 18/0; next: 68/0.
+The original pure scratch probes pass 6/0 and the original compatibility/patch controls pass unchanged.
+The real-lease record probe is converted to an INVALID_INPUT refusal assertion plus an unchanged
+state/journal check (1/0); its original successful-return assumption cannot represent a deliberate refusal.
+That refusal regression is permanent for ordinary, deferred and audit reviews, alongside effort mismatch
+and a successful stronger-pin control. No original scratch probe was edited.
+
+Bounded repeats: the new requeue fixture initially omitted its run scope; specifying the reviewed FRD/WO
+made its intended dispatch path execute. One crash-suite repeat missed its capture file; an isolated
+repeat passed 8/0 without changing that suite or weakening its assertions. Other requested suites pass;
+no environment failure is waived. Independent review reran the floor probes (17/0 before the additional
+explicit-complexity regression) and found no further blocker. Derived-drift and whitespace checks exit 0.
+All transports are fake fixtures; no live model inference or provider continuation was launched.

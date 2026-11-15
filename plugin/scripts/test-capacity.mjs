@@ -56,7 +56,7 @@ for (const [type, risk, model, effort] of [
   ["design", "normal", "sol", "high"], ["plan", "normal", "sol", "high"],
   ["judgment", "normal", "sol", "high"], ["implement", "normal", "sol", "medium"],
   ["review", "normal", "sol", "high"], ["mechanical", "normal", "luna", "low"],
-  ["review", "critical", "astra", "high"], ["implement", "critical", "astra", "high"],
+  ["review", "critical", "astra", "xhigh"], ["implement", "critical", "astra", "high"],
   ["image", "normal", "sol", "low"],
 ]) await test(`live 95% Claude / stale 39% Codex: ${type}/${risk} uses Codex ${model}/${effort}`, () => {
   const rs = liveReadings();
@@ -128,7 +128,7 @@ await test("today: design, implementation, security and images use the specified
   const rs = readings(94, 30);
   cell(decide("design", rs), "codex", "sol", "high");
   cell(decide("implement", rs), "codex", "sol", "medium");
-  cell(decide("review", rs, { risk: "critical" }), "codex", "astra", "high");
+  cell(decide("review", rs, { risk: "critical" }), "codex", "astra", "xhigh");
   cell(decide("images", rs), "codex", "sol", "low");
 });
 await test("ample quota follows each pure preference; Fable does not block Opus", () => {
@@ -374,7 +374,7 @@ try {
     const cli = fileURLToPath(new URL("../runtime/capacity-cli.mjs", import.meta.url));
     for (const [type, risk, model, effort] of [["design", "normal", "sol", "high"],
       ["implement", "normal", "sol", "medium"], ["review", "normal", "sol", "high"],
-      ["mechanical", "normal", "luna", "low"], ["review", "critical", "astra", "high"],
+      ["mechanical", "normal", "luna", "low"], ["review", "critical", "astra", "xhigh"],
       ["image", "normal", "sol", "low"]]) {
       const r = spawnSync(process.execPath, [cli, "decide", "--task", JSON.stringify({ id: "x", type, risk }), "--claude-usage-stdin"], {
         input: JSON.stringify(liveUsage), encoding: "utf8", env: { ...process.env, CODEX_HOME: home,
@@ -593,12 +593,12 @@ await test("option B cross-tool equivalents, top and health precede preference",
   for (const [author, tool, expected] of [
     [{ tool: "codex", model: "sol", effort: "medium" }, "claude", ["opus", "low"]],
     [{ tool: "codex", model: "sol", effort: "high" }, "claude", ["opus", "high"]],
-    [{ tool: "codex", model: "astra", effort: "high" }, "claude", ["opus", "high"]],
+    [{ tool: "codex", model: "astra", effort: "high" }, "claude", ["opus", "xhigh"]],
     [{ tool: "claude", model: "opus", effort: "medium" }, "codex", ["astra", "high"]],
-    [{ tool: "claude", model: "opus", effort: "high" }, "codex", ["astra", "high"]],
+    [{ tool: "claude", model: "opus", effort: "high" }, "codex", ["astra", "xhigh"]],
   ]) cell(decide("review", readings(), { override: tool, implementerCell: author }), tool, ...expected);
   const author = { tool: "codex", model: "astra", effort: "high" };
-  cell(decide("review", readings(20, 90), { risk: "critical", implementerCell: author }), "claude", "opus", "high");
+  cell(decide("review", readings(20, 90), { risk: "critical", implementerCell: author }), "claude", "opus", "xhigh");
   cell(decide("review", readings(100, 20), { risk: "critical", implementerCell: author }), "codex", "astra", "xhigh");
 });
 await test("option B one effort reduction only after both full cells fail; floors and pins hold", () => {

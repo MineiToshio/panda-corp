@@ -97,7 +97,7 @@ await test('ADVERSARIAL R2: takeover can continue a suspended native agent',()=>
  console.log('R2 OBSERVED',JSON.stringify(out));assert.notEqual(out.outcome,'engine_failure');
 }));
 await test('ADVERSARIAL R2: native security audit cannot be verified without execution',()=>withRun(async c=>{
- const s={...c.state,units:[{...c.unit,kind:'audit',zone:'r1',state:'suspended',worker:{runtime:'claude',model:'opus',effort:'high',via:'agent',pid:null,worker_id:null,session_id:'agent-native'},pin:{tool:'claude',model:'opus',effort:'high'},suspension:{reason:'usage_limit',at:NOW,resetAt:at(300),resumeAt:at(300),sequence:1,readRetries:0,rateAttempts:0}}],jobs:[]};
+ const s={...c.state,units:[{...c.unit,kind:'audit',zone:'r1',state:'suspended',worker:{runtime:'claude',model:'opus',effort:'xhigh',via:'agent',pid:null,worker_id:null,session_id:'agent-native'},pin:{tool:'claude',model:'opus',effort:'xhigh'},suspension:{reason:'usage_limit',at:NOW,resetAt:at(300),resumeAt:at(300),sequence:1,readRetries:0,rateAttempts:0}}],jobs:[]};
  await stateApi.writeState(c.fx.root,s,c.d);const transferred=await takeOver({project:c.fx.root,runId:s.run_id,trigger:'c'},c.d);
  c.run.ref.epoch=transferred.epoch;c.env.PANDACORP_NOW=at(361);
  const pol=policy({readings:readings(at(361),20,20,at(9000)),now:T+361000});
@@ -116,7 +116,7 @@ await test('ADVERSARIAL: R3 security audit must retain critical floor',()=>withR
  const {computeRisk}=await import('../runtime/build/risk.mjs');
  const risk=await computeRisk({root:c.fx.root,range:`${c.fx.sha}..HEAD`});
  const cell=routing.builderCell({id:'audit',kind:'audit',size:'feature',zone:risk.zone},{label:'codex',coordinator:'codex-session',quota:policy({readings:readings(),now:T})});
- console.log('AUDIT OBSERVED',JSON.stringify({risk,cell:{runtime:cell.runtime,model:cell.model,effort:cell.effort}}));assert.ok(risk.audit);assert.equal(cell.model,'astra');assert.equal(cell.effort,'high');
+ console.log('AUDIT OBSERVED',JSON.stringify({risk,cell:{runtime:cell.runtime,model:cell.model,effort:cell.effort}}));assert.ok(risk.audit);assert.equal(cell.model,'astra');assert.equal(cell.effort,'xhigh');
 }));
 // Beyond the review oracles: retain the capable coordinator through wake, dispatch and real report ingestion.
 import { suspendExecution } from '../runtime/build/capacity.mjs';
@@ -124,7 +124,7 @@ import { ingestReport } from '../runtime/build/report.mjs';
 import { reviewRecord } from '../runtime/build/review.mjs';
 import { deferAuditUnit } from '../runtime/build/drive/audit.mjs';
 for (const kind of ['build','audit']) await test(`native ${kind}: retained lease -> wake -> same Agent -> real report -> fenced relay`,()=>withRun(async c=>{
- const worker={runtime:'claude',model:kind==='audit'?'opus':'sonnet',effort:kind==='audit'?'high':'medium',via:'agent',pid:null,worker_id:null,session_id:'agent-native'};
+ const worker={runtime:'claude',model:kind==='audit'?'opus':'sonnet',effort:kind==='audit'?'xhigh':'medium',via:'agent',pid:null,worker_id:null,session_id:'agent-native'};
  if(kind==='build') {
    await fs.unlink(path.join(c.unit.worktree,'saved.txt'));
    await fs.appendFile(path.join(c.unit.worktree,'src/alpha/list.ts'),'\n// dirty native checkpoint\n');

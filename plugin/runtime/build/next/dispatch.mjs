@@ -1,4 +1,4 @@
-import { logCapacityDecision } from "../../capacity.mjs";
+import { logCapacityDecision, assertTaskCell } from "../../capacity.mjs";
 // (6)(7) Admission and dispatch: one fenced two-phase transaction (admit, prepare and launch, record), the G2 jobs
 // on their snapshots, the dispatch output and its one-line Spanish announcement.
 import { existsSync } from "node:fs";
@@ -7,13 +7,14 @@ import { releaseToken } from "../admission.mjs";
 import { notify } from "../notify.mjs";
 import { readJson } from "../fsx.mjs";
 import { reviewRange } from "../review/range.mjs";
-import { readDeferred } from "../deferred.mjs";
+import { readDeferred, entryForUnit } from "../deferred.mjs";
 import { REVIEW_TYPE_KINDS, fencedTwoPhase, findUnit } from "../state.mjs";
 import { dispatchOf } from "../workers.mjs";
 import { AGENT_TYPE, ENV_INFRA_STOP, G2_SCRIPT, VERB_ES } from "./constants.mjs";
 import { admissionCtx, err, fresh, integrationProductRoot, isAssumed, isLive, nowIsoOf, nowMs, routingDeps, shapeOf, sibling, unitEvent } from "./context.mjs";
 import { createG2Snapshot, g2Needed, removeG2Snapshot, trackG2SnapshotFailures } from "./g2.mjs";
 import { readQuestions } from "./planning.mjs";
+import { capacityTaskForUnit } from "../routing.mjs";
 import { capacityAudit, pinOf } from "../../capacity/scheduler.mjs";
 
 export async function readSignalsSafe(run) {
@@ -124,9 +125,12 @@ async function admitPhase(run, ctx, { g2, list, reservations, hostHeld, signals,
     if (decision.grant !== "B") { blocked = blocked ?? decision.motivo_limite; if (decision.motivo_limite === "disco") continue; break; }
     if (needsWorktree) diskLeft -= d.admission.ADMISSION.WT_NEED_GIB;
     if (c.capacity) logCapacityDecision(c.task, c.capacity, { env: d.env, log: run.paths.capacityDecisionsFile, now: reactive?.now });
+    const entry = cur.kind === "deferred-review" ? entryForUnit(await readDeferred(run.ref.project, d), cur) : null;
+    const task = capacityTaskForUnit(cur, s, entry);
+    assertTaskCell(task, c.cell);
     const issued = c.resume ? { token: null, token_hash: cur.token_hash } : d.admission.issueToken(c.unit.id, "B", adm);
     granted.add(c.unit.id);
-    grants.push({ ...c, unit: { ...cur, ...(c.unit.kind === "review" ? { parked: null } : {}) }, token: issued.token, token_hash: issued.token_hash });
+    grants.push({ ...c, task, unit: { ...cur, ...(c.unit.kind === "review" ? { parked: null } : {}) }, token: issued.token, token_hash: issued.token_hash });
     events.push(unitEvent(c.unit.id, cur.state, "admitted"));
     units = units.map((u) => (u.id === c.unit.id ? { ...u, state: "admitted", parked: isAssumed(u) ? u.parked : null, token_hash: issued.token_hash } : u));
     live.B += 1;
@@ -228,7 +232,7 @@ async function prepareGrant(run, current, g) {
     if (g.via !== "cli" && !unit.worker.session_id) throw err("INVALID_STATE", `native continuation ${unit.id} has no saved session id`);
     const launched = g.via === "cli" ? await (await sibling(d, "workers", "resumeWorker"))({
       project: ref.project, workerId: unit.worker.worker_id, unit: unit.id, frd: unit.frd,
-      cell: g.cell, dir: unit.worktree, sequence: unit.suspension.sequence,
+      cell: g.cell, task: g.task, dir: unit.worktree, sequence: unit.suspension.sequence,
     }, d) : null;
     if (g.via === "cli" && !launched?.ok) throw err("ENGINE_FAILURE", `could not resume ${unit.id}: ${launched?.detail ?? "unknown worker"}`);
     return { ...g, unit, slug, worktree: unit.worktree, branch: unit.branch, files, launched };
@@ -266,7 +270,7 @@ async function prepareGrant(run, current, g) {
     const dir = worktree ?? await integrationProductRoot(run, current);
     const res = await (await sibling(d, "workers", "launchWorker"))({
       project: ref.project, runId: current.run_id, unit: unit.id, attempt: unit.attempt, frd: unit.frd ?? null,
-      cell: g.cell, schemaFile: files.schema_path || null, dir, briefFile: briefPath, dispatch: dispatchOf(g.token_hash),
+      cell: g.cell, task: g.task ?? capacityTaskForUnit(unit, current), schemaFile: files.schema_path || null, dir, briefFile: briefPath, dispatch: dispatchOf(g.token_hash),
     }, d);
     if (!res?.ok) throw err("ENGINE_FAILURE", `the Codex worker of ${unit.id} did not start (${res?.kind ?? "unknown"}): ${res?.detail ?? ""}`);
     if (res.settled?.kind === "capacity_wait") return { ...g, unit, slug, worktree, branch,
