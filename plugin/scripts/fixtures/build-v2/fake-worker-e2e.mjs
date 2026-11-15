@@ -8,7 +8,8 @@
 //   review | deferred-review | audit
 //                   returns a review-report.schema.json object: verdict pass, no findings, reviewer = the brief's cell
 //   doubt-consult   returns {decision: <first option id or null>, rationale, confidence:"high", reversible:true}
-//   docs | tests    status done, no files
+//   docs            bounded FRD/blueprint specialist delta, or the required FDD/mock for a designer
+//   tests           status done, no files
 // The answer is also written to the brief's report path when one is found (harmless when the engine writes it too).
 // Plan ($PANDACORP_FAKE_WORKER_PLAN, optional): plan[unit] ?? plan["kind:<kind>"] ?? plan["*"] ?? "ok", where an entry is
 //   "ok" | "limit" | "hang" | {"limit":"usage_limit"|"rate_limit"} | {"hang":true} | {"_push":"main"} (with "ok" otherwise)
@@ -41,7 +42,10 @@ function parseBrief(text) {
   const wos = (text.match(/^-\s*work orders:\s*(.+)$/m)?.[1] || "").split(/[,\s]+/).map((s) => s.replace(/[`[\]]/g, "").toLowerCase()).filter((s) => /^wo-\d/.test(s));
   const reportPath = text.match(/to\s+`([^`]+\.json)`/)?.[1] || text.match(/report path[^`]*`([^`]+\.json)`/i)?.[1] || null;
   const cell = text.match(/Runtime:\s*`?(claude|codex)`?,\s*model\s*`?([a-z0-9.-]+)`?,\s*effort\s*`?([a-z]+)`?/i);
-  return { unit, kind, token: tokens.at(-1) || null, allowPaths, wos, reportPath, cell: cell ? { runtime: cell[1], model: cell[2], effort: cell[3] } : null };
+  const role = text.match(/Act as `pandacorp:([^`]+)`/)?.[1] || null;
+  const frd = text.match(/^- FRD:\s*(frd-[^\s]+)/m)?.[1] || "frd-01-alpha";
+  const designRefs = text.match(/HTML mock at (\[[^\n]+?\])\./)?.[1];
+  return { role, frd, designRefs: designRefs ? JSON.parse(designRefs) : [], unit, kind, token: tokens.at(-1) || null, allowPaths, wos, reportPath, cell: cell ? { runtime: cell[1], model: cell[2], effort: cell[3] } : null };
 }
 
 if (cmd === "read") {
@@ -94,6 +98,18 @@ if (cmd === "read") {
     let answer;
     if (["review", "deferred-review", "audit"].includes(kind)) {
       const reviewer = brief.cell && CATALOG.includes(brief.cell.model) ? { runtime: brief.cell.runtime.toLowerCase(), model: brief.cell.model, effort: ["minimal", "low", "medium", "high", "xhigh"].includes(brief.cell.effort) ? brief.cell.effort : "high" } : { runtime: "codex", model: key, effort: "high" };
+      if (kind === "docs") {
+        const role = brief.role || "architect";
+        const targets = role === "designer" ? brief.designRefs
+          : [`docs/frds/${brief.frd}/${role === "product-manager" ? "frd" : "blueprint"}.md`];
+        if (!targets.length) throw new Error("designer brief has no scoped FDD/mock outputs");
+        for (const rel of targets) {
+          const file = path.join(workDir, rel); mkdirSync(path.dirname(file), { recursive: true });
+          if (role === "designer") writeFileSync(file, rel.endsWith(".html") ? "<!doctype html><main>Scoped fixture modal mock</main>\n" : "# Scoped fixture FDD\nExisting tokens, modal open and closed states. Decision by agent, reversible.\n");
+          else appendFileSync(file, `\n## Incremental fixture preparation ${unit}\n${role === "product-manager" ? "The existing EARS acceptance criteria remain the selected change scope." : "The existing Build Plan, source_change ownership and dependency order cover the selected change."}\n`);
+          files.push(rel);
+        }
+      }
       answer = { schema: 1, unit, token: brief.token || "faketoken0000000", reviewer, verdict: "pass", findings: [], probes: [], traceability: [], doubt: null };
     } else if (kind === "doubt-consult") {
       answer = { decision: null, rationale: "no source answers", confidence: "high", reversible: true };
@@ -105,6 +121,18 @@ if (cmd === "read") {
           const f = path.join(workDir, rel);
           mkdirSync(path.dirname(f), { recursive: true });
           appendFileSync(f, `export const e2e_${unit.replace(/[^A-Za-z0-9]/g, "_")} = 1;\n`);
+          files.push(rel);
+        }
+      }
+      if (kind === "docs") {
+        const role = brief.role || "architect";
+        const targets = role === "designer" ? brief.designRefs
+          : [`docs/frds/${brief.frd}/${role === "product-manager" ? "frd" : "blueprint"}.md`];
+        if (!targets.length) throw new Error("designer brief has no scoped FDD/mock outputs");
+        for (const rel of targets) {
+          const file = path.join(workDir, rel); mkdirSync(path.dirname(file), { recursive: true });
+          if (role === "designer") writeFileSync(file, rel.endsWith(".html") ? "<!doctype html><main>Scoped fixture modal mock</main>\n" : "# Scoped fixture FDD\nExisting tokens, modal open and closed states. Decision by agent, reversible.\n");
+          else appendFileSync(file, `\n## Incremental fixture preparation ${unit}\n${role === "product-manager" ? "The existing EARS acceptance criteria remain the selected change scope." : "The existing Build Plan, source_change ownership and dependency order cover the selected change."}\n`);
           files.push(rel);
         }
       }

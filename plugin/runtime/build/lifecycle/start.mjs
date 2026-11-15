@@ -2,6 +2,7 @@
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { initializeAdmission, readDiskFreeGib } from "../admission.mjs";
+import { changePreparationUnits } from "../incremental.mjs";
 import { initializePerformance, startRecommendation } from "../perf.mjs";
 import { applyStartAnswers, readAnswersArg, readQuestions } from "../answers.mjs";
 import { buildingCardAction, cardCheckCommand, markCardBuilding, readCard, resetCardReady } from "../card.mjs";
@@ -106,13 +107,13 @@ export async function startRun(input, deps = {}) {
       scope: { ...scope, out_of_scope: [] }, integration: { branch, worktree: root, base_sha: created.base_sha },
     });
     const queued = [];
-    if (scope.card && scope.wos.length === 0) queued.push(newUnit({ id: `u-docs-${scope.card}`, kind: "docs", frd: taken.card?.frd || null }));
+    if (scope.card) queued.push(...changePreparationUnits(taken.card, scope.card));
     state = { ...state, units: queued };
     const answers = await readAnswersArg(input.answers, d);
     const questions = (pre.questions ?? []).filter((q) => !(q.id in answers));
-    const { input: pin } = await planInput({ root, state, scope: state.scope, questions, cardType: taken.card?.type, params: { sessionModel: input.sessionModel } }, d);
+    const { input: pin } = await planInput({ project, root, state, scope: state.scope, questions, cardType: taken.card?.type, params: { sessionModel: input.sessionModel } }, d);
     const learned = await startRecommendation(d);
-    const planned = plan({ ...pin, ceiling: learned.step }, d);
+    const planned = plan({ ...pin, design: taken.card, ceiling: learned.step }, d);
     if (planned.deadlock) throw err("INVALID_STATE", `the scope is not buildable: deadlock (${planned.deadlock.wos.join(", ") || planned.deadlock.units.join(", ")})`, { deadlock: planned.deadlock });
     const nowIds = new Set(planned.now);
     const add = planned.units.filter((u) => nowIds.has(u.id) && inScope(state, u)).map((u) => newUnit(u));

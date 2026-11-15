@@ -1,5 +1,15 @@
 # Decision Log — Factory
 
+## 2026-11-14 — Conversation routing and incremental design (DR-163)
+
+The owner chose refined option B: the conversation routes independent skills and honors an explicit
+request to work directly without Pandacorp. Existing agreed design is implemented faithfully; delegated
+small UI work receives a reversible agent-owned lightweight delta; changes without UI build directly.
+Full design gates remain for initial design and major redesigns. Updated constitution principle 5,
+[design standard](standards/design.md), BUILD-8, documentation rules and [registry](decisions/registry.yaml).
+The run prepares documentation through PM, optional designer and architect specialists, with a bounded
+report-compatible WO reopening contract. Project guide/rules propagate via overlay 9.4.0; plugin 10.13.0.
+
 ## 2026-11-14 — Close review qualification bypasses (P7 F1–F3)
 
 Independent review found that cross-tool critical equality, missing-author pin/reduction floors and legacy

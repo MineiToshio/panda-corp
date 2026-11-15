@@ -28,6 +28,8 @@ export async function readPlanWorkOrders(root, deps = {}) {
     const frdName = frd.toLowerCase();
     const text = deps.readFrd ? await deps.readFrd(frd) : await fs.readFile(path.join(base, frd, "frd.md"), "utf8").catch(() => null);
     if (text !== null) frdAcs[frdName] = extractAcIds(text);
+    const fdd = `docs/frds/${frd}/fdd.md`;
+    const hasFdd = Boolean((await fs.readFile(path.join(root, fdd), "utf8").catch(() => "")).trim());
     let names;
     try { names = (await fs.readdir(path.join(base, frd, "work-orders"))).filter((n) => /^wo-.*\.md$/i.test(n)).sort(naturalCompare); } catch (error) {
       if (error.code === "ENOENT") continue;
@@ -49,6 +51,8 @@ export async function readPlanWorkOrders(root, deps = {}) {
       try { complexity = workOrderComplexity(metadata); }
       catch (error) { errors.push({ file, reason: error.message }); continue; }
       wos.push({
+        ui: data.ui, design_source: data.design_source ?? (hasFdd ? "existing" : "pending"),
+        design_refs: data.design_refs ? frontmatterList(data.design_refs) : hasFdd ? [fdd] : [],
         complexity, difficulty: data.difficulty,
         id, frd: frdName, file, status, deps: frontmatterList(data.dependsOn ?? data.depends_on).map(norm),
         artifacts: Object.hasOwn(data, "artifacts") ? frontmatterList(data.artifacts) : null,

@@ -1,15 +1,21 @@
 ---
 name: design
-description: UX/UI design phase of a Pandacorp project - visual research, design system with web fonts, brand and logo (Codex image generation), navigable HTML prototype with accessibility and phone verification, the owner's visual gate, and a frozen fidelity hand-off (shards, measured components, exact SVG assets) so the build matches the design. Use inside the project after /pandacorp:spec.
+description: Design a Pandacorp project or a bounded UI change. Full mode establishes the visual system and frozen hand-off; lightweight incremental mode reuses existing tokens and DESIGN.md and produces only the affected FDD/mock delta without advancing the project phase.
 ---
 
 # /pandacorp:design
 
-Design phase. Runs IN the project (requires `docs/product/prd.md` and `docs/frds/` — if they are missing, run `/pandacorp:spec` first).
+Runs IN the project. The conversation agent selects the mode using `.pandacorp/guide.md`; this skill owns design and never invokes another skill. Missing product prerequisites are returned to the conversation for routing.
 
 This phase works at **two layers (DR-049)**: it establishes the project's **global design system** (the PDD — `docs/design/` + root `DESIGN.md`, ONE per project, never per-feature), and when it designs a specific UI feature it writes that feature's design **inside the FRD module** (`docs/frds/frd-NN-<slug>/fdd.md` + `mocks/`). The product-level **direction** mockups below are the exploration that picks the system; they are a different thing from a feature's `mocks/`.
 
-## Steps
+## Mode
+
+- **Lightweight / incremental:** an existing project needs a modal, section, page adjustment or small feature on its current design system. Read and follow only `references/incremental.md`, then return its bounded hand-off to the conversation or the owning run. Do not execute the full-phase steps below.
+- **Full:** first visual iteration or a broad redesign of the identity/system. Requires `docs/product/prd.md` and `docs/frds/`; follow the phase steps below, including the owner visual choice and freeze.
+- A design already agreed in the conversation or present in FDD/mocks/prototype is an implementation source, not a request to redesign. Return those citations; the conversation routes construction to implement.
+
+## Full-mode steps
 
 **Preflight — phase truth.** Read `.pandacorp/status.yaml`. If `phase` still says `product` while you are entering design, the product gate was approved but never recorded: confirm with the owner and set `phase: design` (Mission Control and the Step-9 gate read this field).
 
@@ -84,13 +90,13 @@ This phase works at **two layers (DR-049)**: it establishes the project's **glob
    - `fdd.md` + `mocks/` for every UI FRD, and **FDD ↔ oracle coverage** (DR-130, `scripts/check-fdd-coverage.mjs`, run inside the gate): every FDD screen/state row cites a captured state (and its `oracle-states.json` entry), every UI string the FDD names is drawn in those states, no FDD line overrules the prototype, and the copywriter's keyed strings are in `docs/design/microcopy.<locale>.json`;
    - on the legacy EXPLORE + Claude-Design path, a COMPLETE `docs/design/canvas/tracker.md` (DR-109: every row `owner-approved` or `deferred(owner)`, the `Closing sweep` row included).
 
-   **Non-UI projects:** the minimal set below. Only with READY AND the owner's approval: `phase: architecture` + `advance_pending: false`, and close the `design` thread in `.pandacorp/comms/iteration.md`. Next: `/pandacorp:architecture`.
+   **Non-UI projects:** the minimal set below. Only with READY AND the owner's approval: `phase: architecture` + `advance_pending: false`, and close the `design` thread in `.pandacorp/comms/iteration.md`. Return the completed hand-off; the conversation agent routes the next action using the project guide.
 
 ### Non-UI projects
 
 For a headless product (a pure API, scraper, CLI or automation with no human interface), the design phase does NOT fabricate a visual layer: it produces **only a root `DESIGN.md` explicitly stating "no UI — design phase N/A"** (one line + the rationale, e.g. "CLI tool; output formatting conventions live in the blueprint") and **skips** mockups, design tokens, microcopy, the component inventory, screenshots/a11y and the visual gate. The advance gate (Step 9) **accepts that minimal set** — `DESIGN.md` with the explicit N/A statement is the only required artifact; the rest of the checklist applies only to projects with UI.
 
-## Rules
+## Full-mode rules
 - **The freeze is a complete, measurable hand-off (DR-128)**: web fonts chosen by the owner, the logo designed and exported, the prototype in `docs/design/prototype/`, shards with every state, measured component styles, the component catalogue, exact SVG assets and the fidelity checklist. `scripts/check-design-gate.mjs` decides READY; a self-assessed "done" does not.
 - **Fidelity target (DR-129, `factory/standards/design.md` §5d).** L1 computed typography and colours 100% exact. L2 box sizes exact, with spacing, radius and anchor offsets ±1 px. L3 ≤ 0.5% differing pixels per viewport-height slice (YIQ 0.1, anti-aliasing ignored). L4 100% of the listed states × widths × themes, with axe 0 serious. The owner approves it as *"a simple vista no se distingue del prototipo, con fuentes y colores exactos"*. The build's fidelity gate blocks by default on a measured mismatch, and an infrastructure failure is always RED.
 - **Prototype contract from round 1 (DR-129 §5e)**: the round preflight runs after every round and its findings are fixed in that round. The freeze extracts; it does not repair.
@@ -104,7 +110,7 @@ For a headless product (a pure API, scraper, CLI or automation with no human int
 - Empty, loading and error states are designed here, not improvised while coding.
 - **URLs always in English (CONV-18, DR-139)**: prototype hrefs, `routes.ts` surfaces and the nav contract use English paths whatever the UI language; the copy is localized, the address never is.
 - **Bespoke per domain, never a house style (explore path).** Absent an approved visual, each app's look & feel is designed from scratch for its sector and audience; shadcn/ui is only the accessible component base. Mission Control's RPG/"guild" style is the factory's internal tool and is never applied to product apps.
-- **Claude Design is the preferred EXPLORE engine (DR-058), driven end-to-end by `references/canvas-procedure.md` (DR-109); offer it, don't force it.** Operational detail — routing, relay, polling, tracker, sweep — lives in Step 0 and the procedure; ADOPT-VISUAL MAY additionally push the extracted system **up** for central management + self-check. Content rules: `factory/standards/design.md` §1c, §9–§12.
+- **EXPLORE engine selection follows Step 0.** Legacy canvas work uses `references/canvas-procedure.md`; do not start a new canvas. Content rules: `factory/standards/design.md` §1c, §9–§12.
 - **The FULL screen set ships in two tracker-enforced stages (DR-101/DR-109)** — system first, then ALL UI-FRD screens enumerated up front; the owner never asks "where are the other pages?". Mechanics in Step 0; the tracker is gated at Step 9.
 - **Seed the component inventory (DR-057)** — the frozen system MUST leave a non-empty `docs/design/components.md` (`check before you create`); produced in Step 7, gated at Step 9.
 - **One cohesive application (DR-062).** The app must feel like ONE application, not screens each designed in isolation. Standardize the **framing patterns** across every surface: ONE page-title block (and the page H1 **equals its nav label** — extra context goes in a subtitle, never a different title), ONE section-header style, ONE tab style at each level, one chip/panel/command/empty-state language. A surface that invents its own variant of an existing pattern is a **cohesion defect** (same class as a duplicate component). These framing patterns are first-class entries in `docs/design/components.md`, not per-screen ad-hoc markup; deviations (an intentionally immersive view) are justified, not silent. The `reviewer` checks cross-surface consistency. Canonical: `factory/standards/design.md` §7.

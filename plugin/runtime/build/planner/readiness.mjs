@@ -1,5 +1,5 @@
 // Planner readiness (BUILD-9): dependency satisfaction, including the DR-132 floor wait and its waiver.
-import { PENDING, uniq } from "./common.mjs";
+import { PENDING, UNIT_DONE, uniq } from "./common.mjs";
 
 // ---------------------------------------------------------------------------------------------------------------
 // Readiness (dependency satisfaction incl. the DR-132 floor wait)
@@ -43,6 +43,6 @@ export function depStatus(m, sim, depId, of) {
   return sim.floor.waived(dep, of) ? true : "floor_wait";
 }
 
-export const plannable = (m, sim, n) => PENDING.has(n.status) && m.inScope(n) && !m.claimed.has(n.id) && !sim.claimed.has(n.id)
+export const plannable = (m, sim, n) => (!m.preparation || UNIT_DONE.has(m.preparation.state) || sim.unitDone.has(m.preparation.id)) && PENDING.has(n.status) && m.inScope(n) && !m.claimed.has(n.id) && !sim.claimed.has(n.id)
   && !m.blockedBy.has(n.id) && !m.irrevBy.has(n.id);
 export const depsMet = (m, sim, n, inside = new Set()) => n.deps.every((d) => inside.has(d) || depStatus(m, sim, d, n) === true);

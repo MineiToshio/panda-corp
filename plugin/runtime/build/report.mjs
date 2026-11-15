@@ -10,6 +10,7 @@ import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { releaseToken, verifyToken } from "./admission.mjs";
 import { frontmatterList, parseYamlSubset, setCardDocsSha, splitFrontmatter } from "./card.mjs";
+import { designPaths, existingWoAmendmentProblem } from "./incremental.mjs";
 import { applyUnitFailure, openUnitDoubt } from "./failure.mjs";
 import { loadSchema, sha256Hex, validate } from "./fsx.mjs";
 import { buildPaths } from "./paths.mjs";
@@ -117,7 +118,7 @@ export function newWoSourceChangeProblem(card, data) {
   return listed.includes(want) ? null : `a new work order of a card run must list the card in source_change: [${card}] (otherwise the planner never schedules it)`;
 }
 
-async function checkChanges({ unit, artifacts, changes, hashed, root, base, card = null, deps }) {
+async function checkChanges({ unit, artifacts, changes, hashed, root, base, card = null, claimed = [], deps }) {
   const fs = deps.fs ?? fsp;
   const problems = [];
   for (const { rel, status } of changes) {
@@ -128,8 +129,13 @@ async function checkChanges({ unit, artifacts, changes, hashed, root, base, card
     const before = await git(deps, root, ["show", `${base}:./${rel}`], { allowFail: true });
     if (before.code === 0) {
       const after = status === "D" ? null : await readFileText(fs, path.join(root, rel));
-      if (after === null || frontmatterBlock(before.stdout) !== frontmatterBlock(after)) problems.push({ path: rel, why: "the frontmatter of an existing work order must never change" });
+      if (after === null || frontmatterBlock(before.stdout) !== frontmatterBlock(after)) {
+        const id = parseYamlSubset(splitFrontmatter(before.stdout)?.fm ?? "").data.id;
+        const why = existingWoAmendmentProblem({ unit, card, before: before.stdout, after, claimed: claimed.includes(String(id).toLowerCase()) });
+        if (why) problems.push({ path: rel, why });
+      }
     } else if (status !== "D") {
+      if (unit.kind === "docs" && unit.role && unit.role !== "architect") problems.push({ path: rel, why: "only the architect planning unit creates work orders" });
       const text = await readFileText(fs, path.join(root, rel));
       const data = parseYamlSubset(splitFrontmatter(text ?? "")?.fm ?? "").data;
       if (data.implementation_status !== "PLANNED") problems.push({ path: rel, why: "a new work order must have implementation_status: PLANNED" });
@@ -243,7 +249,12 @@ async function evaluateDone({ intent, deps }) {
   if (!changes.length && !reasons.length) reasons.push("nothing to commit: the worktree has no changes");
 
   const workOrders = unit.kind === "build" || unit.kind === "patch" ? await readUnitWorkOrders(root, unit.wos, { ...deps, ref: base }) : [];
-  const problems = await checkChanges({ unit, artifacts: artifactsOf(workOrders), changes, hashed: intent.hashed, root, base, card: intent.card, deps });
+  const problems = await checkChanges({ unit, artifacts: artifactsOf(workOrders), changes, hashed: intent.hashed, root, base, card: intent.card, claimed: intent.claimed, deps });
+  if (unit.kind === "docs" && unit.role === "designer") {
+    for (const rel of unit.design_refs ?? designPaths(unit.frd, intent.card ?? unit.id)) {
+      if (!changed.has(rel) || !(await readFileText(fs, path.join(root, rel)))?.trim()) problems.push({ path: rel, why: "lightweight design requires the scoped FDD and mock delta before dependent UI construction" });
+    }
+  }
   for (const p of problems) reasons.push(`${p.path}: ${p.why}`);
   const evidenceFiles = [...new Set([...problems.map((p) => p.path), ...(reasons.length ? changed : [])])];
   if (reasons.length) return rejected(reasons, { evidence: { files: evidenceFiles } });
@@ -345,6 +356,7 @@ async function phase1({ ctx, input, deps }) {
   const { report, problems } = await readReportFile(fs, path.resolve(input.project, input.file));
   return {
     unit, report, problems, hashed, prefix, token: input.token, worktree: unit.worktree, root: productRoot(unit.worktree, prefix),
+    claimed: state.units.filter(u => ["build", "patch"].includes(u.kind)).flatMap(u => u.wos ?? []).map(id => id.toLowerCase()),
     integrationBranch: state.integration.branch, card: state.scope?.card ?? null, from: unit.state,
     gateApproved: state.answers?.[`g-${unit.id}`] === true,
   };
@@ -392,7 +404,7 @@ async function applyVerdict({ ctx, intent, verdict, deps }) {
     await ctx.appendEvent({ type: "report_received", data: { unit: unit.id, outcome: "committed", commit: verdict.commit, ...(hashes ? { test_hashes: hashes } : {}) } });
     await ctx.appendEvent({ type: "wo_committed", data: { unit: unit.id, wos: unit.wos, frd: unit.frd, commit: verdict.commit } });
     await ctx.appendEvent(stateEvent("committed"));
-    if (unit.kind === "docs" && intent.card) {
+    if (unit.kind === "docs" && unit.role !== "product-manager" && unit.role !== "designer" && intent.card) {
       try { await setCardDocsSha(ctx.project, intent.card, verdict.commit, deps); } catch (e) { warnings.push(`docs_sha not written to card ${intent.card}: ${oneLine(e.message, 160)}`); }
     }
     legacy = unit.wos.map((wo) => ({ name: "wo_commit", data: { frd: unit.frd, wo, unit: unit.id, state: "committed" } }));

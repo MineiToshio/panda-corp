@@ -14,7 +14,7 @@ A **Pandacorp** factory project. The whole lifecycle is managed with the `/panda
 
 ## How changes are made — work through the skills
 
-Changes to this project go through the `/pandacorp:*` skills, not ad-hoc free-chat edits. A skill keeps the process honest: two-layer documentation (canonical doc + `docs/decision-log.md`), `.pandacorp/status.yaml`, FRDs/work-orders, TDD and review. A free-chat edit skips all of that and the docs/state drift out of sync.
+By default, changes use the `/pandacorp:*` skills to maintain canonical documentation, decision history, work orders and verification. The conversation agent chooses the route; skills never invoke other skills. If the owner explicitly says "do it directly without Pandacorp", honor that route and keep documentation and verification proportional to the change. Production, money, deletion and external-communication gates still apply.
 
 **Pragmatic frontier — what needs a skill and what doesn't:**
 
@@ -28,10 +28,17 @@ Changes to this project go through the `/pandacorp:*` skills, not ad-hoc free-ch
 
 | What the owner asks | Skill |
 |---|---|
-| "implement this" / "change this behavior" / "fix this bug" / "resume the build" | **`/pandacorp:implement`** is the single build entry. It fixes the conversed scope in a cited card or resumes the pending plan, then drives the runtime-neutral `pandacorp-build.mjs` CLI. `iterate` and `bug` are internal engines, never owner-facing commands. |
+| UI whose design is already agreed in this conversation or exists in FDD/mocks/prototype | **`/pandacorp:implement`** implements and documents that source without redesigning it. Capture `ui: true`, `design_source: agreed\|existing`, `design_refs: [citations/paths]` and `design_decision_by: owner\|agent` in the scope card. |
+| Small UI change with no design, and "take care of everything" | The **conversation agent** invokes **`/pandacorp:design` in lightweight mode**, then **`/pandacorp:implement`**. Reuse DESIGN.md/tokens, produce only the affected FDD/mock delta, record the reversible decision as agent-made, and continue without owner visual approval. If routed to implement with `design_source: pending`, its run schedules a designer docs step before dependent UI construction; independent work continues. |
+| Change without UI / fix / resume build | **`/pandacorp:implement`**, the single build entry. For a new non-UI card record `ui: false`, `design_source: not-applicable`. `iterate` and `bug` describe internal contracts, not additional owner build commands. |
+| "design this modal/section/page adjustment" | **`/pandacorp:design` lightweight mode**: scoped FDD/mock delta, no global gate, full freeze or project phase change. |
+| First design iteration / large visual redesign | **`/pandacorp:design` full mode**, retaining its visual gate and full handoff. The conversation subsequently chooses the next skill. |
 | "write it down" / "save this for later" | Write a **`status: draft`** card in `.pandacorp/inbox/changes/<slug>.md`, then validate it with `node <plugin>/scripts/pandacorp-build.mjs card check <path>`. Capture stops there; no automatic queue drain. |
 | "I decide X" (on a pending point) | `/pandacorp:decide` |
-| big package / redesign | `/pandacorp:implement` routes milestone-sized scope to its internal planning engine. |
+| Large milestone beyond the current PRD | The conversation selects the appropriate milestone planning contract before construction. |
+| "do it directly without Pandacorp" | Work directly as requested; preserve the owner's existing scope, documentation and verification requirements. |
+
+The owner gives one request, not a chain of commands. A missing UI design source is explicit in the card, never permission for a builder to improvise visuals. Lightweight design records its source and decision author so the owner can iterate afterward.
 
 **Build execution.** Resolve `<plugin>` from the factory path above (`{{FACTORY_PATH}}/plugin`). The CLI owns governed transitions and commits tracked changes only on `lane/<run_id>/integration`; `.pandacorp/merge-queue.sh` is the only path to `main`. Workers use their active runtime. A launched project waits for the owner's explicit landing order. Never mix plugin versions in one project: after a plugin update, restart or close every session working on it.
 

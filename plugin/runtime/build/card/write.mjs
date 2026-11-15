@@ -51,6 +51,7 @@ export function renderCard(input) {
     `origin: ${serializeValue("origin", input.origin ?? "conversation")}`,
     `affected_frds: ${serializeValue("affected_frds", input.affected_frds ?? [])}`, "engine: v2",
   ];
+  for (const key of ["ui", "design_source", "design_refs", "design_decision_by"]) if (input[key] !== undefined) lines.push(`${key}: ${serializeValue(key, input[key])}`);
   return `---\n${lines.join("\n")}\n---\n\n# ${input.title}\n\n## Dentro\n${bullets(input.dentro, "")}\n\n## Fuera\n${bullets(input.fuera ?? [], "Nada.")}\n\n## Dudas\n${bullets(input.dudas ?? [], "Ninguna.")}\n`;
 }
 

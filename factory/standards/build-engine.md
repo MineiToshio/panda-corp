@@ -144,7 +144,9 @@ THIS conversation the owner described or accepted a behaviour **and** gave the o
 
 - File: `.pandacorp/inbox/changes/<slug>.md`. Fields the v2 session writes: `type`
   (`bug|feature|change`, required by Mission Control), `class`, `status`, `date`, `frd`,
-  `origin: conversation`, `affected_frds`, `engine: v2`; body sections **Dentro** (each item cites the
+  `origin: conversation`, `affected_frds`, `engine: v2`, `ui`, `design_source`
+  (`agreed|existing|pending|not-applicable`), `design_refs` (citations/paths),
+  `design_decision_by` (`owner|agent`); body sections **Dentro** (each item cites the
   owner's message, ≤1 line), **Fuera** (discussed and dropped, other cards, pending plan WOs),
   **Dudas**. The CLI later adds `run_id`, `docs_sha`, `shipped_sha`. v2 never writes
   `integration_paths` or `integration_transaction` (retired-engine compatibility fields).
@@ -164,14 +166,28 @@ through `build-state.mjs` `reconcileBuildingChange`. After the batch landing tha
 card moves to `done/` with `status: done` and `shipped_sha`. A failed or discarded build returns the
 card to `ready` with a note; on discard, the next `implement` offers in one line to revert `docs_sha`.
 
-**Docs before code (D17).** A card with no WOs starts with one `docs` unit (routed per BUILD-10) on
-`lane/<run_id>/integration`: FRD delta (only the REQ/AC that change) or a new FRD; one `docs/decision-log.md`
-entry (what, why, the citation, "pendiente de construir"); for feature/giant also WOs with
-`artifacts`, `dependsOn` and `source_change: [<slug>]`, plus the blueprint delta; `data-model.json`
-when the schema changes (DATA-7); README when commands or env vars change (DR-112). Its commit carries
-the trailer `Change-Docs: <slug>` and **never** `Change:`; the CLI writes `docs_sha` into the
-(gitignored) card. On that unit's committed report the planner re-runs on the integration worktree
-and queues the new units (the size may rise, never fall). Docs reach `main` only with the landing.
+**Docs before code (D17).** A card-scoped run starts a sequence of `docs` units on
+`lane/<run_id>/integration`, routed as planning/design per BUILD-10. `product-manager` prepares
+FRD/EARS AC deltas; an optional `designer` prepares missing UI design; `architect` prepares
+blueprint/ADR/logical-model deltas and applies the work-orders contract to create or reopen scoped
+WOs. Each unit has one writer and an explicit specialist brief. The sequence updates the decision
+log (what, why, citation, "pending construction"), and README when commands/env change.
+
+Three UI routes are distinct: `agreed|existing` with cited `design_refs` preserves that design and
+skips the designer; `pending` or missing UI provenance schedules lightweight designer preparation
+before dependent builds; `not-applicable` is direct non-UI implementation. The conversation normally
+selects lightweight design first for "take care of everything", then implementation; the in-run
+fallback executes the bounded designer contract, never invokes the full design skill. Reuse
+DESIGN.md/tokens, emit only the affected FDD/mock delta, record the reversible agent decision and
+its reversal, and continue without an owner visual wait. No global visual gate, full freeze or
+project phase mutation occurs. Designer reports must contain changed, nonempty scoped FDD and mock
+outputs; missing output cannot release dependent construction. Builders never improvise visual design.
+Independent work continues.
+
+Each docs commit carries `Change-Docs: <slug>`, never `Change:`; the CLI records `docs_sha` in the
+card. After the specialist sequence commits, the planner rereads integration and queues the scoped
+WOs (size may rise, never fall). Docs reach `main` only with landing. Initial design/broad redesign
+retain the full design contract and owner gate.
 
 **Commit trailers (D28).** Unit commits carry `Unit: <unit>` and one `WO: <wo id>` per WO, never
 `Change:`. The trailer `Change: <slug>` goes **only** on the landing metadata commit, and only when
@@ -181,10 +197,20 @@ when the build deviated from the docs.
 **Scope guarantee, by construction:** the run's scope is the WOs with that card's `source_change`
 (or the FRDs/plan of rows 2, 4, 6); `next` never returns a unit outside it; `report` commits with
 its own pathspec-limited `git commit` only after checking that the reported files equal the
-worktree's changes (manifest-proven, unchanged bootstrap outputs excluded, BL-0318), every file is inside the unit's allowlist (build/patch: its WOs' `artifacts`; docs: `docs/**`, `README.md`, root `DESIGN.md`, `.env.example` and new WO files born `PLANNED`, carrying `source_change: [<card>]` in a card run (BL-0315); tests: test surfaces only), no `**/*-snapshots/**` path, no edit of an existing WO's frontmatter (the body of the unit's own WO only if that file is in `artifacts`), and no change to any hashed test or probe file; schema and migration paths are allowed (G3
+worktree's changes (manifest-proven, unchanged bootstrap outputs excluded, BL-0318), every file is inside the unit's allowlist (build/patch: its WOs' `artifacts`; docs: `docs/**`, `README.md`, root `DESIGN.md`, `.env.example` and new WO files born `PLANNED`, carrying `source_change: [<card>]` in a card run (BL-0315); tests: test surfaces only), no `**/*-snapshots/**` path, no edit of an existing WO's frontmatter except the scoped architect-docs reopening contract below (the body of the unit's own WO only if that file is in `artifacts`), and no change to any hashed test or probe file; schema and migration paths are allowed (G3
 gates them). The single reviewer opens a `scope` finding when the diff touches anything in Fuera. A
 dependency outside scope and not `VERIFIED` is a hand-back ("depende de WO-x, ¿la incluyo?"), never
 silently included.
+
+**Incremental WO reopening.** Only a card-bound `docs` unit with role `architect` may amend an
+ACTIVE WO not yet claimed by build/patch through `report`: reopen it to `PLANNED`, append the current card
+to `source_change` without losing earlier links, and adjust the allowed planning fields for the
+changed ACs/artifacts/dependencies/complexity and design provenance. Reopening from VERIFIED or
+IN_REVIEW increments `reopen_count`; amending PLANNED retains it. A Status Note cites the card
+and reason. Identity and activation metadata remain intact;
+this is not permission for a builder to stamp its own progress or verification. The report
+validator enforces the precise allowlist (CLI contract), and the planner then includes the
+card-bound WO. No manual status edit outside this transaction is required.
 
 ## Rule — sizes, tranches, planner and admission (BUILD-9)
 
@@ -280,7 +306,7 @@ Verification: `test-build-v2-perf.mjs`, `test-build-v2-cli.mjs`, `test-build-v2-
 > validates the existing model catalog, and `next` records the dispatch. See DR-152 and DR-162.
 
 Each NEW unit uses `decide()` with current account readings. The run label is provenance, not a provider pin.
-Planner/architect/design/docs roles use `design`; builders/implementers/tests/patches use `implement`;
+Planner/architect/product-manager/designer/design/docs roles use `design`; builders/implementers/tests/patches use `implement`;
 reviewers/audits use `review`; mechanical roles use `mechanical`. Deterministic CLI operations still use no model.
 Risk from `risk.mjs`: `none` → normal, `floor` → delicate, `r1` → critical (fail-closed remains critical).
 

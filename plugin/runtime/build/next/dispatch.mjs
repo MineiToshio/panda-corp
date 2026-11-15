@@ -10,7 +10,7 @@ import { reviewRange } from "../review/range.mjs";
 import { readDeferred, entryForUnit } from "../deferred.mjs";
 import { REVIEW_TYPE_KINDS, fencedTwoPhase, findUnit } from "../state.mjs";
 import { dispatchOf } from "../workers.mjs";
-import { AGENT_TYPE, ENV_INFRA_STOP, G2_SCRIPT, VERB_ES } from "./constants.mjs";
+import { agentTypeForUnit, ENV_INFRA_STOP, G2_SCRIPT, VERB_ES } from "./constants.mjs";
 import { admissionCtx, err, fresh, integrationProductRoot, isAssumed, isLive, nowIsoOf, nowMs, routingDeps, shapeOf, sibling, unitEvent } from "./context.mjs";
 import { createG2Snapshot, g2Needed, removeG2Snapshot, trackG2SnapshotFailures } from "./g2.mjs";
 import { readQuestions } from "./planning.mjs";
@@ -67,7 +67,7 @@ export async function dispatchRound(run, state, candidates, params, signals, quo
     const note = { title: "Build esperando espacio", message: "No hay espacio suficiente para otra copia de trabajo. El trabajo en curso sigue; libera disco para continuar." };
     try { await (d.notify ?? ((n) => notify(n, { env: d.env, ...(d.notifyExec ? { exec: d.notifyExec } : {}) })))(note); } catch { /* notification bulkhead */ }
   }
-  for (const p of (result.prepared ?? []).filter(p => !p.disk && !p.capacityWait)) emit(run, state, "agent.working", { role: AGENT_TYPE[p.unit.kind], model: p.cell.model, unit: p.unit.id });
+  for (const p of (result.prepared ?? []).filter(p => !p.disk && !p.capacityWait)) emit(run, state, "agent.working", { role: agentTypeForUnit(p.unit), model: p.cell.model, unit: p.unit.id });
   const anyGrant = (result.prepared ?? []).some(p => !p.disk && !p.capacityWait) || (result.g2 ?? 0) > 0;
   const admit = result.lastDecision ? { decision: anyGrant ? "grant" : "wait", motivo_limite: result.lastDecision.motivo_limite } : null;
   if (admit) emit(run, state, "admit.decision", { ...admit, unit: result.prepared?.[0]?.unit.id ?? null });
@@ -260,7 +260,7 @@ async function prepareGrant(run, current, g) {
   let briefPath = g.consult?.brief_path ?? null;
   if (!briefPath) {
     const brief = await (await sibling(d, "units", "writeUnitBrief"))({
-      project: ref.project, state: current, unit: { ...unit, worktree }, cell: g.cell, agentType: AGENT_TYPE[unit.kind], token: g.token,
+      project: ref.project, state: current, unit: { ...unit, worktree }, cell: g.cell, agentType: agentTypeForUnit(unit), token: g.token,
       schemaPath: files.schema_path, worktree, reportPath: files.report_path, extra: await briefExtra(run, current, g),
     }, d);
     briefPath = brief?.brief_path ?? paths.briefFile(unit.id);
@@ -322,7 +322,7 @@ function unitOutput(state, p) {
     runtime: p.cell.runtime, model: p.cell.model, model_slug: p.via === "cli" ? p.slug : null, effort: p.cell.effort ?? null,
     budget_calls: u.kind === "review" && state.size === "touch" ? 10 : null,
     worktree: p.worktree, brief_path: p.files.brief_path, report_path: p.files.report_path, schema_path: p.files.schema_path,
-    agent_type: AGENT_TYPE[u.kind], via: p.via, dispatch_line: dispatchLine(u, p.cell, p.slug),
+    agent_type: agentTypeForUnit(u), via: p.via, dispatch_line: dispatchLine(u, p.cell, p.slug),
     ...(p.resume ? { resume: true, session_id: u.worker?.session_id ?? null, worker_id: u.worker?.worker_id ?? null } : {}),
   };
 }

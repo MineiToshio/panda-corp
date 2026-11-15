@@ -9,6 +9,14 @@ design phase discarded it ("reference for functionality only, invent a fresh pal
 produced the frozen artifacts, and the build shipped a UI that looked nothing like it — passing
 112/112 VERIFIED because nothing ever opened the app in a browser. This standard closes both holes.
 
+## 0. Full phase or incremental delta (DR-163)
+
+**Rule (MUST).** The conversation agent routes skills through the project's guide; skills do not invoke each other. Full design below applies to the first design iteration and major redesigns. Lightweight design handles a modal, section, page adjustment or small feature using the existing `DESIGN.md` and tokens. It writes only the scoped FDD/mock delta, states, accessibility checks and source references, without a global visual gate, global freeze or phase transition. Shared-component changes enumerate affected consumers.
+
+An agreed conversation design or existing FDD/mock/prototype is binding: record citations/files in the scope card's `design_source` / `design_refs` and implement faithfully, without redesign. If the owner delegates everything and no design exists, the conversation runs lightweight design before implement; an explicitly pending delta inside an implementation run is prepared by its designer specialist before dependent UI construction, while unrelated work continues. Record the agent's decision, rationale and reversal in the delta and decision log; never invent owner approval. A change without UI goes directly to implement. Full-mode visual gates and all existing build verification remain binding in their respective scopes.
+
+**Verification.** `test-build-v2-incremental-design.mjs` checks specialist planning, agreed-source bypass, missing-source prerequisite and scoped WO amendment. Review compares the rendered affected surface with its recorded design source. Lightweight output contract: `plugin/skills/design/references/incremental.md`.
+
 ## 1. Two design paths — anchor on an approved visual, or explore (DR-054)
 
 Before any visual exploration, the design phase (`/pandacorp:design`) and the brownfield adoption

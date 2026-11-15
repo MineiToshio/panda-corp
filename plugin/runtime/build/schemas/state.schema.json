@@ -204,7 +204,11 @@
             ]
           },
           "complexity": {
-            "enum": ["trivial", "normal", "complex"]
+            "enum": [
+              "trivial",
+              "normal",
+              "complex"
+            ]
           },
           "zone": {
             "enum": [
@@ -483,6 +487,30 @@
               "object",
               "null"
             ]
+          },
+          "role": {
+            "enum": [
+              "product-manager",
+              "architect",
+              "designer"
+            ]
+          },
+          "ui": {
+            "type": "boolean"
+          },
+          "design_source": {
+            "enum": [
+              "agreed",
+              "existing",
+              "pending",
+              "not-applicable"
+            ]
+          },
+          "design_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [

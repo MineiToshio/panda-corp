@@ -98,11 +98,19 @@ export function parseCardText(raw, { slug = "", source = "pending", requireScope
     if (field === undefined || field === "type" || field === "status") continue;
     errors.push(`${field}: ${e.message} (card-frontmatter schema)`);
   }
+  const ui = fm.ui;
+  const designSource = asText(fm.design_source);
+  const designRefs = asList(fm.design_refs);
+  if (ui === true && !["agreed", "existing", "pending"].includes(designSource)) errors.push("design_source: a UI card must record agreed, existing or pending");
+  if (["agreed", "existing"].includes(designSource) && !designRefs.some(ref => ref.trim())) errors.push("design_refs: agreed/existing design requires a conversation citation or artifact path");
+  if (ui === false && designSource && designSource !== "not-applicable") errors.push("design_source: a non-UI card must use not-applicable");
+  if (ui === undefined && strict) warnings.push("ui: classify the change and record design_source before building UI");
   if (engine === "v2") for (const key of V1_ONLY_KEYS) if (fm[key] !== undefined) errors.push(`${key}: v1-only field, v2 never writes it`);
   if (engine === "v2" && status === "building" && asText(fm.run_id) === "") warnings.push("run_id: a v2 building card should carry the run id");
   return {
     slug, source, ok: errors.length === 0, errors, warnings, fields: statusRaw === "obsolete" ? { ...fm, status: "discarded" } : fm,
     type: asText(fm.type), class: CARD_CLASSES.includes(fm.class) ? fm.class : "standard", status, date: asText(fm.date),
+    ui, design_source: designSource, design_refs: designRefs, design_decision_by: asText(fm.design_decision_by),
     frd, affected_frds: frds, engine, origin, run_id: asText(fm.run_id), docs_sha: asText(fm.docs_sha), shipped_sha: asText(fm.shipped_sha),
     v1: fm.integration_transaction !== undefined && asText(fm.integration_transaction) !== "",
     title, dentro: dentro ?? [], fuera: fuera ?? [], dudas: dudas ?? [], has_dentro: dentro !== null, body: parts.body,

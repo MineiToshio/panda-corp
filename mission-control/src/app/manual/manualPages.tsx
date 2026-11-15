@@ -2022,7 +2022,11 @@ function ConceptServiciosSecretos(): React.JSX.Element {
 
 const HUMAN_GATES: readonly { icon: IconName; label: React.ReactNode; body: React.ReactNode }[] = [
   { icon: "bulb", label: "Selección de idea", body: "elegir qué idea avanza." },
-  { icon: "palette", label: "Elección de diseño", body: "aprobar el diseño visual." },
+  {
+    icon: "palette",
+    label: "Elección de diseño",
+    body: "aprobar el diseño inicial o un rediseño amplio. Un ajuste ligero delegado al agente se registra como reversible y no espera aprobación visual.",
+  },
   {
     icon: "external",
     label: "Release a producción",
@@ -2679,8 +2683,9 @@ function GuideCambio(): React.JSX.Element {
       <DocH title="Cómo pedir un cambio" level={2} />
       <Lead>
         <Code>/pandacorp:implement</Code> es la puerta única para construir una feature, un ajuste,
-        un bug o un hito. Describe el resultado en lenguaje normal; el CLI detecta el alcance antes
-        de iniciar.
+        un bug o un hito. Describe el resultado en lenguaje normal; el agente de la conversación
+        elige la ruta de preparación y el CLI fija el alcance antes de construir. Los skills no se
+        llaman entre sí.
       </Lead>
       <Card>
         <Ul>
@@ -2688,6 +2693,36 @@ function GuideCambio(): React.JSX.Element {
             <B>Construir ahora:</B> la petición conversada se fija en una tarjeta citada. Un FRD o
             una tarjeta nombrados delimitan el objetivo; sin objetivo, se construye el plan
             pendiente.
+          </li>
+          <li>
+            <B>UI con diseño acordado o existente:</B> se implementa y documenta ese diseño sin
+            rediseñarlo. La tarjeta conserva la fuente en <Code>design_source</Code> y las citas o
+            archivos en <Code>design_refs</Code>.
+          </li>
+          <li>
+            <B>UI sin diseño y «encárgate de todo»:</B> el agente hace primero diseño ligero y luego
+            implementación. Reutiliza tokens y <Code>DESIGN.md</Code>, entrega solo el delta de FDD
+            y mock de la pieza y registra su decisión como reversible. No espera aprobación visual:
+            puedes iterar después. Si falta la fuente al entrar al run, un diseñador la prepara
+            antes de construir esa UI; el resto puede continuar.
+          </li>
+          <li>
+            <B>Cambio sin UI:</B> va directo a implementación, sin paso de diseño.
+          </li>
+          <li>
+            <B>Diseño ligero o completo:</B> un modal, sección o ajuste de página usa el modo ligero
+            de <Code>/pandacorp:design</Code>, sin gate global, freeze completo ni cambio de fase.
+            La primera iteración y los rediseños amplios conservan el modo completo y su aprobación
+            visual.
+          </li>
+          <li>
+            <B>Documentación por especialistas:</B> producto prepara FRD y criterios de aceptación;
+            arquitectura prepara blueprint, ADR, modelo y órdenes de trabajo. El diseñador solo
+            completa el diseño que falta. Quien programa sigue esa fuente visual.
+          </li>
+          <li>
+            <B>Trabajo directo:</B> puedes pedir «hazlo directo sin Pandacorp». El agente respeta
+            esa ruta y mantiene la documentación y verificación proporcionales al cambio.
           </li>
           <li>
             <B>Anotarlo para después:</B> se escribe una tarjeta <Code>draft</Code> en{" "}

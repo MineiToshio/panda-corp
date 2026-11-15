@@ -1,5 +1,17 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-14 — Lightweight design and specialist incremental planning (DR-163)
+
+Added lightweight design alongside full mode, preserving existing DESIGN.md/tokens and writing only the
+affected FDD/mock delta without global freeze, phase advance or delegated visual approval wait.
+The conversation guide distinguishes agreed/existing design, delegated missing design and no UI; skills
+return hand-offs rather than invoking one another. Cards record design provenance; docs preparation
+uses product-manager, optional designer and architect with the work-orders contract. The report gate
+accepts only scoped planning amendments/reopening, preserving WO identity and rejecting builder state
+edits. Canonical: skills/design/references/incremental.md, skills/implement, skills/iterate,
+[CLI contract](build-engine-cli.md), runtime/build/incremental.mjs and project guide template.
+MINOR 10.13.0; overlay 9.4.0. Manifests regenerated. No commit or local plugin activation requested.
+
 ## 2026-11-14 — Synchronize capacity documentation (P8)
 
 Aligned allocator authority, complexity, strict actual-author review strength, passive readings,

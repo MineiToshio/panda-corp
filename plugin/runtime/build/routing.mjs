@@ -43,7 +43,7 @@ export function reviewedWorkForUnit(state, unit) {
 /** The task/risk projection used for dispatch AND waking queued work. No synthetic global veto. */
 export function capacityTaskForUnit(unit, state, deferredEntry) {
   const role = unit.role ?? unit.kind;
-  const type = /planner|architect|design|docs|doubt-consult/.test(role) ? "design"
+  const type = /planner|architect|design|docs|product-manager|doubt-consult/.test(role) ? "design"
     : /review|audit/.test(role) ? "review" : /mechanic/.test(role) ? "mechanical" : "implement";
   const work = state && type === "review" ? reviewedWorkForUnit(state, unit) : [];
   const authors = deferredEntry?.author ? [deferredEntry.author] : work.length ? work.filter(u => u.worker).map(u => u.worker) : unit.implementerCells;

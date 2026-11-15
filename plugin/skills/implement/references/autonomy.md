@@ -183,7 +183,7 @@ For every new unit/review, the shared allocator chooses a qualified tool and ris
 fit, continue on the other; running units keep their selected tool. Only neither fitting parks capacity at a safe
 point with `resumeAt` in state and journal. Image work has only Codex and reports a per-task wait with exit 75.
 The Claude lead schedules ScheduleWakeup at `resumeAt+60s`, refreshes get_usage and invokes
-`start --resume --coordinator claude --wake-generation <N>`; see SKILL.md for the conditional claim,
+`start --resume --coordinator claude --wake-generation <N>`; see `shared-capacity.md` for the conditional claim,
 stale-reading retries and attended fallback. A real limit suspends the same worker/thread/worktree/pin
 and attempt. Native-agent limits enter through `pb suspend` as described in engine-v2.md. Fresh review context provides independence even with the same model/company.
 

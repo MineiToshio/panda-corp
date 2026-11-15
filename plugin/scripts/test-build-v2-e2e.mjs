@@ -168,6 +168,9 @@ async function startRun(sc, { label, row = 3 } = {}) {
   sc.runId = r.json.run_id; sc.epoch = r.json.epoch;
   if (r.json.drive?.pid) sc.pids.add(r.json.drive.pid);
   check(sc, "start --run: integration branch from paths.mjs exists, main untouched", gitTry(sc.root, ["rev-parse", "--verify", "--quiet", `refs/heads/${sc.p.integrationBranch(sc.runId)}`]) && gitTry(sc.root, ["rev-parse", "main"]) === sc.baseline, `branch ${sc.p.integrationBranch(sc.runId)}`);
+  const state = await readJson(sc.p.stateFile);
+  const docs = state.units.filter(u => u.kind === "docs");
+  check(sc, "incremental docs use serial specialist units before any builder claim", docs.map(u => u.role).join() === "product-manager,architect" && docs[1]?.depends_on.includes(docs[0]?.id) && !state.units.some(u => ["build", "patch"].includes(u.kind)), txt(state.units.map(u => ({ kind: u.kind, role: u.role, deps: u.depends_on }))));
   return { d, pf, r };
 }
 
@@ -196,6 +199,18 @@ async function serveUnit(sc, epoch, u) {
   const files = [];
   if (u.kind === "build" || u.kind === "patch") {
     for (const rel of await unitArtifacts(sc, u)) { const f = path.join(u.worktree, rel); await mkdir(path.dirname(f), { recursive: true }); await writeFile(f, `${await readFile(f, "utf8").catch(() => "")}export const e2e_agent_${u.unit.replace(/[^A-Za-z0-9]/g, "_")} = 1;\n`); files.push(rel); }
+  }
+  if (u.kind === "docs") {
+    const state = await readJson(sc.p.stateFile); const unit = state.units.find(x => x.id === u.unit);
+    const role = unit.role || "architect"; const frd = unit.frd || "frd-01-alpha";
+    const targets = role === "designer" ? unit.design_refs : [`docs/frds/${frd}/${role === "product-manager" ? "frd" : "blueprint"}.md`];
+    if (!targets?.length) throw new Error("designer unit has no scoped FDD/mock outputs");
+    for (const rel of targets) {
+      const file = path.join(u.worktree, rel); await mkdir(path.dirname(file), { recursive: true });
+      const text = role === "designer" ? rel.endsWith(".html") ? "<!doctype html><main>Scoped fixture modal mock</main>\n" : "# Scoped fixture FDD\nExisting tokens and modal states. Decision by agent, reversible.\n"
+        : `${await readFile(file, "utf8")}\n## Incremental fixture preparation ${u.unit}\n${role === "product-manager" ? "The existing EARS criteria define the selected bounded change." : "The existing Build Plan and source_change ownership cover the selected change."}\n`;
+      await writeFile(file, text); files.push(rel);
+    }
   }
   await writeFile(u.report_path, JSON.stringify({ schema: 1, unit: u.unit, token: u.token, status: "done", summary: `session-served ${u.kind}`, files, verification: [{ command: "fake verify", exit_code: 0, tail: "ok" }], pending: [], doubt: null, diagnosis: null, gate: null, authored_by: { runtime: u.runtime, model: u.model, effort } }));
   const r = await cli(sc, ["report", "--epoch", String(epoch), "--unit", u.unit, "--token", u.token, "--file", u.report_path]);

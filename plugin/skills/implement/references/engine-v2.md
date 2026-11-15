@@ -13,7 +13,8 @@ with `via:"session"`.
 ## 0. Invariants (read before step 1)
 
 1. **Never edit build state by hand.** Not `.pandacorp/run/**` (lease, token file, `build/state.json`, journal,
-   jobs, handoff, quota, doubt records), not WO frontmatter, not `status.yaml`. The only files you write under
+   jobs, handoff, quota, doubt records), not `status.yaml`. Only the card-scoped architect docs unit may
+   submit the constrained WO planning/reopening delta in `incremental.md`; the session never edits WO frontmatter. The only files you write under
    `.pandacorp/run/` are `.pandacorp/run/scope.json`, unit reports at `report_path`, `build/units/<unit>/doubt.json`,
    `build/units/<unit>/answer.json` and `build/doubts/<id>.sources.json`. **Never commit in the main checkout**: every
    tracked change of a run is a CLI commit on `lane/<run_id>/integration`, and `land` (merge-queue) is the only path to `main`.
@@ -46,7 +47,7 @@ at least 90 s (Claude Code Bash `timeout: 90000`).
 ## 2. Step 0: project, label, session facts
 
 1. **Project.** `.pandacorp/status.yaml` missing → stop and say (Spanish) the folder is not a factory project yet
-   (`/pandacorp:adopt` or `/pandacorp:spec`). `overlay_version` behind the plugin → `/pandacorp:upgrade` first (DR-048).
+   (adoption or product prerequisites returned to the conversation). `overlay_version` behind the plugin → return upgrade routing to the conversation (DR-048), never invoke another skill here.
 2. **Label** (provenance: `claude` or `codex`), precedence: **explicit word in the arguments** > **orchestrate flag**
    > **session runtime**. The flag is `~/.claude/state/orchestrator-mode/$CLAUDE_CODE_SESSION_ID.on` (content
    `claude` or `codex`); it is **read-only** for this skill: never create, write or delete it. Codex has no flag.
@@ -67,7 +68,9 @@ Write a card **only** if, in THIS conversation, the owner described or accepted 
 
 1. File `.pandacorp/inbox/changes/<slug>.md` (English kebab slug). Frontmatter (schema
    `plugin/runtime/build/schemas/card-frontmatter.schema.json`): `type` (`bug|feature|change`), `class: standard`,
-   `status: ready`, `date`, `frd` (if one), `origin: conversation`, `affected_frds: [...]`, `engine: v2`. Never
+   `status: ready`, `date`, `frd` (if one), `origin: conversation`, `affected_frds: [...]`, `engine: v2`, plus `ui`, `design_source`, `design_refs` and
+   `design_decision_by` from `incremental.md`. Record the actual agreed/existing source, or explicitly `pending`;
+   non-UI uses `not-applicable`. Never
    `integration_paths` or `integration_transaction` (v1 fields). Body in Spanish: an H1 title, **Dentro** (one
    bullet per point, each ending with a quote of the owner's message, at most one line, in quotes), **Fuera** (what
    was discussed and dropped, other cards, pending plan WOs), **Dudas** (open questions; empty if none).
@@ -77,8 +80,10 @@ Write a card **only** if, in THIS conversation, the owner described or accepted 
 4. "Anótalo para después" (not "impleméntalo") → write the same card with `status: draft`, `card check` it, tell the
    owner its slug, and stop. No build.
 
-The docs this card needs (FRD delta, WOs, decision-log line) are written by the run's first `docs` unit on
-`lane/<run_id>/integration` (commit `Change-Docs: <slug>`), never by the session and never on `main`.
+The docs this card needs are written by sequential specialist `docs` units on `lane/<run_id>/integration`:
+`product-manager` for FRD/ACs, optional `designer` for pending lightweight design, then `architect` for
+blueprint/ADR/model and the work-orders contract (`incremental.md`). Agreed/existing design skips the
+designer; no-UI changes skip it too. The CLI commits these deltas, never the session or `main`.
 
 ## 4. Step 2: detect
 
@@ -147,7 +152,7 @@ pb next --epoch <E> --wait 60
 | `action` | Do |
 |---|---|
 | `dispatch` | For each new unit in `units[]`, print its `dispatch_line` verbatim (continuations with `resume:true` stay silent), then by `via`: `cli` → nothing (the CLI launched the allocated provider worker and ingests it); `agent` → launch it (below); `session` → do it yourself (below). Launch all `agent` units of one `next` in ONE message, in the background |
-| `waiting` | Capacity checkpoint, not close-out. Follow SKILL.md "Claude lead wake-up": ScheduleWakeup at `resumeAt+60s`, refresh get_usage, `start --resume --coordinator claude --wake-generation <wake_generation>`. Rearm on `claimed:false, action:waiting`; leave an already-resumed winner running. Drive keeps its loop alive and rereads both shared accounts. No quota questions or detailed chat. |
+| `waiting` | Capacity checkpoint, not close-out. Follow `shared-capacity.md` "Claude lead wake-up": ScheduleWakeup at `resumeAt+60s`, refresh get_usage, `start --resume --coordinator claude --wake-generation <wake_generation>`. Rearm on `claimed:false, action:waiting`; leave an already-resumed winner running. Drive keeps its loop alive and rereads both shared accounts. No quota questions or detailed chat. |
 | `wait` | Call `next --epoch <E> --wait 60` again (it returns early when a report, a job, a worker, an answer or a handoff appears). For reason `disk`, report the allocation wait and let existing work continue; never bulk-delete state. Never end the turn instead |
 | `land` | The batch is complete: `pb land --epoch <E>` (below) |
 | `handoff` | `drive.md` §3 |
@@ -219,6 +224,14 @@ independent new units continue on the other qualified tool. Drive sleeps in leas
 
 ## 8. Step 6: the final report
 
+Before close-out, check new/changed e2e specs against both opted-in inventories (DR-159): parallel-safe or
+serial with a reason, and mobile classification with viewport evidence in the review document. Require
+reviewer inspection of changed classifications. Read the full gate report's `budget_warnings` and inventory
+WARNs; investigate regressions without removing tests or auto-raising `.pandacorp/gate-budget.json`.
+Without a baseline, the reviewer records the first full-green stage durations as project-owned configuration,
+with command/seed/toolchain/host conditions and test counts. Never initialize it from a red or partial run;
+report pending capture when the full gate runs elsewhere. Keep Vitest Node/DOM membership current.
+
 1. Data: `finish` (`report_path`, `summary`) or `pb summary` for a run that stopped itself.
 2. Notify (Claude Code: `PushNotification`, one Spanish line: "Build terminado: <N> hechas, <M> aparcadas.").
 3. Reply to the owner in Spanish, this order, every heading present even when empty ("ninguna"):
@@ -233,7 +246,7 @@ independent new units continue on the other qualified tool. Drive sleeps in leas
 4. Verify engine close-out with `git -C <projectDir> worktree list --porcelain`: eligible finished unit, assume, G2
    and integration worktrees are removed, branches retained. A `waiting_gate` run keeps its integration worktree
    without build caches. Report any retained dirty, locked, live or process-cwd path; never force removal.
-   Follow CONV-21 and `../../worktrees/SKILL.md` §Implementation teardown for session-owned resources: restore
+   Follow the CONV-21 implementation-teardown contract for session-owned resources: restore
    the actual session cwd, run `session-cleanup.mjs finish`, await its exit and remove only named own scratch
    paths. Never delete `.pandacorp/` or another session's resources. Include cleanup and performance-journal
    warnings from the CLI in the final report; do not promise cleanup that has not completed.
@@ -257,7 +270,8 @@ independent new units continue on the other qualified tool. Drive sleeps in leas
 ## 10. What the session never does
 
 Pick a model, effort or reviewer; queue another attempt (the CLI queues attempt 3 itself); build outside
-`scope`; drain other cards; edit state files, frontmatter or `status.yaml`; commit, push or reset anything
+`scope`; drain other cards; edit state files, WO frontmatter or `status.yaml` as the session (the card-scoped
+architect docs report has only the constrained reopening contract in `incremental.md`); commit, push or reset anything
 (the CLI commits on `lane/<run_id>/integration`); land except on `action: "land"` or the owner's order; set
 `PANDACORP_OWNER_RELEASE_OK` without that order; kill a process (BL-0223); spawn or stop `drive` (`drive.md`); ask
 the owner anything after the first-minute message except through `autonomy.md` §3 and §4.

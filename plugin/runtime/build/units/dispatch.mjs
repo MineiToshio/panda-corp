@@ -1,14 +1,10 @@
 // units/dispatch.mjs: the entry points `next` and the CLI call: brief of a unit and the unit's worktree plus brief.
 import path from "node:path";
+import { agentTypeForUnit } from "../next/constants.mjs";
 import { buildPaths } from "../paths.mjs";
 import { err, REVIEW_KINDS } from "./common.mjs";
 import { writeUnitBrief } from "./brief.mjs";
 import { createUnitWorktree } from "./worktrees.mjs";
-
-const AGENT_OF_KIND = Object.freeze({
-  docs: "pandacorp:implementer", build: "pandacorp:implementer", patch: "pandacorp:implementer", tests: "pandacorp:test-writer",
-  review: "pandacorp:reviewer", "deferred-review": "pandacorp:reviewer", audit: "pandacorp:security-auditor", "doubt-consult": "general-purpose",
-});
 
 /**
  * Write the brief of a unit from the run's current `state.json` ({@link writeUnitBrief} with the agent type and schema
@@ -25,7 +21,7 @@ export async function writeBrief({ project, unit, token, cell, agentType, worktr
   const p = buildPaths(project, deps);
   const reviewType = REVIEW_KINDS.includes(unit.kind);
   const schemaPath = unit.kind === "doubt-consult" ? "" : p.schemaFile(reviewType ? "review-report" : "report");
-  const out = await writeUnitBrief({ project, state, unit, cell, agentType: agentType ?? AGENT_OF_KIND[unit.kind], token, schemaPath, worktree, reportPath, extra }, deps);
+  const out = await writeUnitBrief({ project, state, unit, cell, agentType: agentType ?? agentTypeForUnit(unit), token, schemaPath, worktree, reportPath, extra }, deps);
   return { ...out, file: out.brief_path };
 }
 
@@ -50,7 +46,7 @@ export async function prepare({ project, state, unit, cell, via, token, attempt,
     ? { worktree: path.resolve(project, state.integration.worktree), branch: state.integration.branch }
     : await createUnitWorktree({ project, runId, unit: unit.id, attempt: n, base: state.integration.branch }, deps);
   const brief = await writeUnitBrief({
-    project, state, unit: { ...unit, attempt: n }, cell, agentType: AGENT_OF_KIND[unit.kind], token,
+    project, state, unit: { ...unit, attempt: n }, cell, agentType: agentTypeForUnit(unit), token,
     schemaPath: p.schemaFile(reviewType ? "review-report" : "report"), worktree: refs.worktree,
     extra: { review, questionDefaults },
   }, deps);

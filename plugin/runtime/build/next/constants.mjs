@@ -46,10 +46,12 @@ export const ENV_WORKER_OUTCOMES = Object.freeze(["worker_error", "watchdog"]);
 export const SETTLED_OUTCOME_CODES = Object.freeze(["INVALID_INPUT", "EVIDENCE", "INVALID_PATH", "GATE_RED", "WAITING_GATE"]);
 
 export const AGENT_TYPE = Object.freeze({
-  docs: "pandacorp:implementer", build: "pandacorp:implementer", patch: "pandacorp:implementer",
+  docs: "pandacorp:architect", build: "pandacorp:implementer", patch: "pandacorp:implementer",
   tests: "pandacorp:test-writer", review: "pandacorp:reviewer", "deferred-review": "pandacorp:reviewer",
   audit: "pandacorp:security-auditor", "doubt-consult": "general-purpose",
 });
+export const agentTypeForUnit = (unit) => unit.kind === "docs" && ["product-manager", "architect", "designer"].includes(unit.role)
+  ? `pandacorp:${unit.role}` : AGENT_TYPE[unit.kind];
 export const VERB_ES = Object.freeze({
   docs: "documenta", tests: "escribe pruebas de", build: "construye", patch: "corrige", review: "revisa",
   audit: "audita la seguridad de", "doubt-consult": "consulta la duda", "deferred-review": "revisa (diferida)",

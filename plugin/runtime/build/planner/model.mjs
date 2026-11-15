@@ -1,8 +1,9 @@
 // Planner model (BUILD-9): the normalized input shared by `plan` and `lint-plan`, plus routing cells and unit artifacts.
+import { designPaths, hasDesignSource, workOrderHasUi } from "../incremental.mjs";
 import { workOrderComplexity, maxComplexity } from "../../complexity.mjs";
 import { builderCell } from "../routing.mjs";
 import {
-  DEFAULT_CEILING, DOCS_GLOBS, PENDING, PLANNED_KINDS, SLOT_STATES, STALLED_STATES, WRITE_STATES, ZONE_RANK, isAssumed, maxZone, naturalCompare, norm, normGlob, uniq,
+  UNIT_DONE, DEFAULT_CEILING, DOCS_GLOBS, PENDING, PLANNED_KINDS, SLOT_STATES, STALLED_STATES, WRITE_STATES, ZONE_RANK, isAssumed, maxZone, naturalCompare, norm, normGlob, uniq,
 } from "./common.mjs";
 import { isBarrierPath } from "./pathRules.mjs";
 
@@ -20,6 +21,7 @@ function buildNodes(wos) {
     const declared = Array.isArray(w.artifacts);
     const artifacts = declared ? w.artifacts.map(normGlob).filter(Boolean) : [];
     nodes.set(id, {
+      ui: workOrderHasUi(w), design_source: w.design_source, design_refs: w.design_refs ?? [],
       complexity: workOrderComplexity(w),
       id, index, frd: norm(w.frd), status: String(w.status ?? "").trim().toUpperCase(),
       deps: uniq((w.deps ?? w.depends_on ?? w.dependsOn ?? []).map(norm).filter(Boolean)),
@@ -62,6 +64,16 @@ export function buildModel(input = {}, deps = {}) {
   const inScope = (n) => !scope.out.includes(n.id) && !scope.out.includes(n.frd) && (
     scope.wos.includes(n.id) || (scope.card !== null && n.sourceChange.includes(scope.card)) || (scope.card === null && scope.wos.length === 0 && scope.frds.includes(n.frd)));
   const units = input.units ?? [];
+  for (const n of nodes.values()) {
+    if (!inScope(n)) continue;
+    const design = input.design;
+    if (design?.ui === true) n.ui = true;
+    if (design?.ui === true && design.design_source === "pending") { n.design_source = "pending"; n.design_refs = []; }
+    if (hasDesignSource(design)) { n.design_source = design.design_source; n.design_refs = design.design_refs; }
+    const prepared = units.find(u => u.kind === "docs" && u.role === "designer" && UNIT_DONE.has(u.state)
+      && ((u.wos ?? []).map(norm).includes(n.id) || (!u.wos?.length && (!u.frd || norm(u.frd) === n.frd))));
+    if (prepared) { n.design_source = "existing"; n.design_refs = prepared.design_refs ?? designPaths(n.frd, n.id); }
+  }
   const frdOrder = uniq([...nodes.values()].map((n) => n.frd)).sort(naturalCompare);
   const children = new Map([...nodes.keys()].map((id) => [id, []]));
   for (const n of nodes.values()) for (const d of n.deps) children.get(d)?.push(n.id);
@@ -94,6 +106,7 @@ export function buildModel(input = {}, deps = {}) {
   const liveSlots = units.filter((u) => SLOT_STATES.has(u.state)).length + (Number(input.reserved) || 0);
 
   const m = {
+    preparation: units.find(u => scope.card && u.id === `u-docs-${scope.card}` && u.role === "architect"),
     deps, nodes, duplicates, scope, inScope, units, unitById: new Map(units.map((u) => [u.id, u])), frdOrder, children, unitOfWo, claimed,
     blockedBy: closureBelow(children, blockedRoots), irrevBy: closureBelow(children, irreversibleRoots), answerOf, openQuestions: open,
     initialVerified: verified, floorFrds, frdAcs, cardType: input.card_type ?? null, ceiling,

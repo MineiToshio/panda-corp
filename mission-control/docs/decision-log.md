@@ -1,5 +1,13 @@
 # Decision Log — Mission Control
 
+## 2026-11-14 — Explain incremental design and the three UI routes
+
+Updated the [Manual change guide](../src/app/manual/manualPages.tsx): agreed or existing design is
+implemented without redesign; delegated small UI work receives lightweight design first with a reversible
+agent decision; changes without UI build directly. Explained conversation-owned skill routing, the direct
+bypass, specialist documentation and scoped WO reopening. Lightweight design preserves the project phase
+and existing visual system, with only the affected FDD/mock delta. Policy: DR-163 and BUILD-8.
+
 ## 2026-11-14 — Align capacity and work-order explanations (P8)
 
 Updated the Manual work-order example with explicit complexity and its legacy resolver,

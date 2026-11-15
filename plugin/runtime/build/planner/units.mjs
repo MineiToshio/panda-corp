@@ -1,4 +1,5 @@
 // Planner chains and units (BUILD-9, A13): greedy chain formation, the unit(s) of a chain and queued-unit candidates.
+import { designPaths, hasDesignSource } from "../incremental.mjs";
 import { maxComplexity } from "../../complexity.mjs";
 import { newUnit } from "../state.mjs";
 import { CHAIN_MAX, maxZone, naturalCompare, norm, uniq } from "./common.mjs";
@@ -57,6 +58,7 @@ export function makeUnits(m, sim, { nodes: chain, cut }) {
   const woIds = chain.map((n) => n.id);
   const zone = maxZone(chain.map((n) => n.zone));
   const upstream = unitDepsOf(m, sim, chain);
+  if (m.preparation) upstream.push(m.preparation.id);
   const cited = uniq(chain.flatMap((n) => n.acs));
   const known = m.frdAcs.get(head.frd);
   const newAcs = cited.filter((a) => !known?.has(a));
@@ -72,12 +74,22 @@ export function makeUnits(m, sim, { nodes: chain, cut }) {
     const cell = routeCell(m, kind, chain);
     sim.cells[unit.id] = cell;
     sim.why[unit.id] = why;
-    sim.meta[unit.id] = { artifacts, barrier, downstream, new_acs: newAcs, tests_first: reason, cut: kind === "build" ? cut : null, floor_waived: waived, existing: false };
+    const owned = kind === "docs" ? unitArtifacts(m, "docs", woIds) : artifacts;
+    sim.meta[unit.id] = { artifacts: owned, barrier, downstream, new_acs: newAcs, tests_first: reason, cut: kind === "build" ? cut : null, floor_waived: waived, existing: false };
     sim.planned.push(unit);
-    const cand = { unit, existing: false, artifacts, barrier, downstream, frdIndex: m.frdOrder.indexOf(head.frd), order: head.order, picked: false };
+    const cand = { unit, existing: false, artifacts: owned, barrier, downstream, frdIndex: m.frdOrder.indexOf(head.frd), order: head.order, picked: false };
     out.push(cand);
     return cand;
   };
+  const missingDesign = chain.filter(n => n.ui && !hasDesignSource(n));
+  if (missingDesign.length) {
+    const existing = m.units.find(u => u.kind === "docs" && u.role === "designer" && (!u.frd || u.frd === head.frd)
+      && (!(u.wos ?? []).length || missingDesign.every(n => u.wos.map(norm).includes(n.id))));
+    const designId = existing?.id ?? `u-design-${head.id}`;
+    if (!existing) mk(newUnit({ id: designId, kind: "docs", role: "designer", ...common,
+      ui: true, design_source: "pending", design_refs: designPaths(head.frd, head.id), depends_on: [...upstream] }), "docs", "UI requires a lightweight design delta before construction");
+    upstream.push(designId);
+  }
   let testsId = null;
   if (reason) {
     testsId = `u-tests-${head.id}`;

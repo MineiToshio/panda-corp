@@ -2,6 +2,7 @@
 // worktree's work orders (static risk zones), first-minute questions (D19) and the run parameters.
 import { maxComplexity } from "../../complexity.mjs";
 import { execFile } from "node:child_process";
+import { readCard } from "../card.mjs";
 import { readDeferred } from "../deferred.mjs";
 import { readJson } from "../fsx.mjs";
 import { readJournal } from "../journal.mjs";
@@ -91,8 +92,9 @@ export async function planRound(run, state, pol) {
   });
   const questions = [...(await readQuestions(run)).values()].filter((q) => !(q.id in (state.answers ?? {})));
   const params = await readRunParams(run);
+  const design = state.scope?.card ? await readCard(run.ref.project, state.scope.card, { where: "any" }, d) : null;
   const plan = await (await sibling(d, "planner", "plan"))({
-    wos, frd_acs: read?.frd_acs ?? {}, scope: state.scope, units: state.units, label: state.label, size: state.size,
+    design, wos, frd_acs: read?.frd_acs ?? {}, scope: state.scope, units: state.units, label: state.label, size: state.size,
     questions, quota: pol, shape: shapeOf(state), coordinator: state.coordinator, session_model: params.sessionModel,
   }, d);
   const nowIds = Array.isArray(plan?.now) ? new Set(plan.now) : null;

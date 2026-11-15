@@ -1,13 +1,14 @@
 // units/brief.mjs: gather everything a brief needs and write `build/units/<unit>/brief.md`.
 import * as fsp from "node:fs/promises";
 import path from "node:path";
-import { readCard } from "../card.mjs";
+import { parseYamlSubset, splitFrontmatter, readCard } from "../card.mjs";
+import { designPaths, hasDesignSource, workOrderHasUi } from "../incremental.mjs";
 import { atomicWriteText, nowIso } from "../fsx.mjs";
 import { assertSafeId, buildPaths } from "../paths.mjs";
 import { allowlistPatterns } from "./allowlist.mjs";
 import { err, REVIEW_KINDS } from "./common.mjs";
 import { productPrefix, productRoot } from "./git.mjs";
-import { agentRoleFile, renderBrief } from "./render.mjs";
+import { PLUGIN_ROOT, agentRoleFile, renderBrief } from "./render.mjs";
 import { AC_ID_RE, artifactsOf, extractAcLines, readUnitWorkOrders } from "./workOrders.mjs";
 
 /**
@@ -93,8 +94,10 @@ export async function writeUnitBrief({ project, state, unit, cell, agentType, to
   const acLines = frdText ? extractAcLines(frdText, acIds) : [];
 
   let card = null;
+  let cardDesign = null;
   if (state.scope?.card) {
     const parsed = await readCard(project, state.scope.card, { where: "any" }, deps);
+    cardDesign = parsed;
     if (parsed) card = { dentro: parsed.dentro.map((i) => i.text), fuera: parsed.fuera.map((i) => i.text) };
   }
 
@@ -123,7 +126,23 @@ export async function writeUnitBrief({ project, state, unit, cell, agentType, to
     ? [`Every NEW work order you create must have \`source_change: [${state.scope.card}]\` in its frontmatter (with \`implementation_status: PLANNED\`); without it the engine never builds that work order and your report is rejected.`]
     : [];
   const complexityRule = unit.kind === "docs" ? ["Every NEW work order must stamp complexity: trivial | normal | complex in frontmatter. Trivial: Hello World or small familiar single-module work; normal: a form with validation; complex: image ingestion, external integration or many modules. Risk is independent and can only raise the floor (DR-162 / BUILD-10)."] : [];
-  const notes = [...complexityRule, ...cardWoRule, ...resumed, ...(extra.notes ?? []), ...(extra.questionDefaults ?? []).map((q) => `Owner question pending, working default: ${typeof q === "string" ? q : JSON.stringify(q)}`)];
+  const specialist = [];
+  if (unit.kind === "docs") {
+    specialist.push("This bounded incremental unit overrides phase-wide role SOPs: reuse the existing product, stack and visual system; do not start a full phase, request owner direction, run a global freeze or change project phase. Apply only this unit’s specialist delta contract. Never invoke skills.");
+    if (unit.role === "product-manager") specialist.push("Own only the product delta: FRD and EARS acceptance criteria, PRD only if its facts change. Preserve an agreed design. Record the bounded change and pending construction in docs/decision-log.md. Do not create work orders or design visuals; the following specialist owns those. Never call another skill.");
+    if (unit.role === "architect") specialist.push(`Own the technical delta: blueprint, ADR when a technical decision changes, logical data model and README only when their facts change. Read ${path.join(deps.pluginRoot ?? PLUGIN_ROOT, "skills/work-orders/SKILL.md")} as the WORK-ORDER DOCUMENT CONTRACT, without invoking that skill. Apply the work-orders readiness contract before activation: ground each WO in the current FRD EARS ACs and blueprint, verify dependency IDs/acyclic order, artifact ownership, design provenance for UI, test/verification commands and matching Build Plan; correct any inconsistency before setting status ACTIVE. Produce coarse ACTIVE WOs only after those checks, with complexity and source_change. The PM owns FRD/ACs; the designer owns FDD/mock. Never invent or redo visuals. Each UI WO must copy the agreed/existing design_source and design_refs from the scope card or cite the scoped FDD/mock produced by the preceding designer; otherwise stamp ui: true and design_source: pending so the engine schedules its designer prerequisite. Existing ACTIVE WOs may be amended only by the report-compatible card amendment contract: PLANNED/VERIFIED/IN_REVIEW to PLANNED, retain identity/activation and all previous source_change entries, add this card, increment reopen_count only when reopening non-PLANNED, and add a Status Note citing the card and reason. Planning-only fields may change: artifacts, dependsOn/depends_on, source_requirements, complexity, last_updated, ui, design_source, design_refs and design_decision_by. Never amend a WO already claimed by build/patch. Never call another skill.`);
+    if (unit.role === "designer") specialist.push(`Prepare lightweight design BEFORE any dependent UI construction: reuse existing DESIGN.md, tokens and components; produce only the scoped FDD and HTML mock at ${JSON.stringify(unit.design_refs ?? designPaths(unit.frd, state.scope?.card ?? unit.id))}. Include states, interactions, responsive behavior and component consumer impact. Record the visual decision in docs/decision-log.md as taken by the agent, reversible; the owner iterates afterwards. No owner visual approval, global freeze, phase change or skill invocation. Do not implement product code or edit work-order frontmatter.`);
+  }
+  const source = hasDesignSource(cardDesign) ? cardDesign : null;
+  const designNotes = source ? [`Design already ${source.design_source}; implement and document it without redesign. Source citations/artifacts: ${JSON.stringify(source.design_refs)}.`] : [];
+  if (["build", "patch"].includes(unit.kind)) {
+    for (const w of workOrders) {
+      const fm = parseYamlSubset(splitFrontmatter(w.text)?.fm ?? "").data;
+      const fdd = dir ? path.join(dir, "fdd.md") : null;
+      if (workOrderHasUi({ ...fm, artifacts: w.artifacts })) designNotes.push(`UI ${w.id}: reproduce the recorded source ${JSON.stringify(source?.design_refs ?? fm.design_refs ?? (fdd ? [fdd] : []))}; do not improvise design while coding. The designer prerequisite must be integrated first when its source was pending.`);
+    }
+  }
+  const notes = [...specialist, ...designNotes, ...complexityRule, ...cardWoRule, ...resumed, ...(extra.notes ?? []), ...(extra.questionDefaults ?? []).map((q) => `Owner question pending, working default: ${typeof q === "string" ? q : JSON.stringify(q)}`)];
   const text = renderBrief({
     unit, cell, agentType, roleFile: agentRoleFile(agentType, deps.pluginRoot), card, acLines,
     allowlist: allowlistPatterns(unit.kind, artifacts), contextPack, root, reportPath: outPath, schemaPath, token,

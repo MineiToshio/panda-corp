@@ -5,10 +5,13 @@ description: Build or resume any feature, change or bug through the runtime-neut
 
 # /pandacorp:implement
 
-**The single entry for building and resuming.** Claude Code and Codex use the same
+**The single Pandacorp entry for building and resuming.** Claude Code and Codex use the same
 `plugin/scripts/pandacorp-build.mjs` engine. No engine keyword or execution-mode choice
 is needed. The CLI owns scope detection, planning, admission, routing, review, governed
 state transitions and landing; the session converses and relays the work it returns.
+The conversation selects skills using `.pandacorp/guide.md`; skills never invoke each
+other. An explicit owner request to work directly without Pandacorp uses that direct
+workflow, rather than starting this engine.
 
 Read and follow `references/engine-v2.md` in order, together with
 `references/autonomy.md` and `references/drive.md`. Policy lives in
@@ -20,13 +23,14 @@ live in `plugin/docs/build-engine-cli.md`. Resolve the factory path from the pro
 
 - Confirm `.pandacorp/status.yaml` exists; otherwise stop and route an existing project
   to `/pandacorp:adopt`, or a new idea to `/pandacorp:spec` (DR-045).
-- If `overlay_version` is behind `plugin/templates/OVERLAY_VERSION`, run
-  `/pandacorp:upgrade` first (DR-048), only after verifying no live build owns the project.
+- If `overlay_version` is behind `plugin/templates/OVERLAY_VERSION`, return the prerequisite
+  to the conversation for upgrade routing (DR-048), after checking live-build ownership.
   Never mix plugin versions on one project: after a plugin update, restart or close all
   sessions working on it before continuing.
 - Use the CLI's detect and preflight checks. ACTIVE blueprints must have passed readiness,
   grounding and consistency gates, work orders must be ACTIVE, and ACTIVE docs must have
-  no `NEEDS CLARIFICATION` markers. Missing evidence routes back to architecture.
+  no `NEEDS CLARIFICATION` markers. Missing initial-plan evidence returns to the conversation for architecture routing;
+  an incremental card uses the run's specialist docs contract.
 - The fenced lease is authoritative. Never reset `running`, edit state or reclaim a live
   foreign run by hand. Resume only through the CLI and its ownership checks.
 
@@ -42,6 +46,17 @@ Send the first-minute message from `references/autonomy.md`, using preflight evi
 and its stated defaults. Later doubts follow sources and consultation; reversible technical choices become recorded assumptions
 with rationale and reversal instructions, and do not block integration. One protected action does not stop independent work. Human gates remain binding. A production
 landing requires the owner's explicit order; the engine never grants itself permission.
+
+## Design source and specialist preparation
+
+Read `references/incremental.md` for the three UI cases, card fields and docs roles.
+An agreed or existing design is implemented and documented faithfully, without redesign.
+When the owner delegates everything and no design exists, the conversation first selects
+lightweight design and then implement, without awaiting owner visual approval. If the
+run received `design_source: pending`, its designer docs unit produces that same bounded
+design before the affected UI unit builds; independent work continues. No UI goes
+straight to implementation without a recorded visual source. Non-UI changes go directly
+to implement. Builders never improvise visual design while coding.
 
 ## Adaptive resources and performance
 
@@ -65,30 +80,9 @@ in the owner's personal profile, not in this skill.
 
 ## Shared account capacity (DR-162)
 
-At startup and before every wave, the lead calls Desktop `get_usage` and pipes its unchanged JSON to
-`node <plugin-root>/runtime/capacity-cli.mjs ingest-claude`. Never launch a model to measure quota.
-When that tool is unavailable, use the stored account snapshot; the allocator handles unknown readings.
-Never ask the owner about quota. The CLI selects the other qualified tool when one cannot fit; capacity
-waits only when no remaining unit can progress, with `resumeAt` persisted. Subscription limits suspend
-the exact execution (dirty files, branch, worktree, thread, token, pin and attempt). Transient 429/529 errors
-retry the same cell after 60/120/240/480/900 seconds, honoring Retry-After up to 900 seconds.
-Dispatch exactly the returned cell, fixed for the execution. Review independence means a fresh context,
-including for the same model. Capacity switches never force Astra or a later cross-company re-review.
-
-### Claude lead wake-up (app open)
-
-On `next.action: waiting`, schedule **ScheduleWakeup** for `resumeAt + 60 seconds`, carrying the project,
-run id, epoch and `wake_generation`. This is the Claude session timer used by this protocol; do not also
-create a CronCreate job. On that wake, call Desktop `get_usage`, ingest its unchanged result, then run
-`pandacorp-build.mjs start --resume --coordinator claude --wake-generation <N>`.
-`claimed:false` means no new coordinator: `waiting` rearms ScheduleWakeup at the returned instant +60s;
-`already_resumed`/`already_resuming` leaves the winner running. On success continue `next` with the
-returned epoch. Drive and manual resume use the same conditional waiting→resuming claim under the run
-lease mutex; an obsolete generation cannot start another execution. An elapsed reset without a newer
-healthy observation retries reads after 60/120/240/480/900 seconds. Never ask for quota permission.
-One optional Spanish line only: "Cupo agotado; guardé el trabajo y retomaré automáticamente." All
-suspension/wait/wake/resume details belong in `capacity-decisions.jsonl`, never in chat. If ScheduleWakeup
-is unavailable, keep the attended `next` loop renewing the lease; do not claim a timer was installed.
+Follow `references/shared-capacity.md` for account ingestion, fixed execution cells,
+subscription suspension and the Claude lead wake-up contract. Keep the attended loop
+when scheduling is unavailable; never claim an unobserved automatic continuation.
 
 ## Execution, verification and landing
 
@@ -107,16 +101,7 @@ accounts/resources, preserve environment values and keep admin credentials out o
 
 ## Close-out and cleanup (CONV-21 / DR-145)
 
-Before close-out, check the new/changed e2e specs against both opted-in inventories
-(DR-159): parallel-safe or serial with a reason, and mobile classification with
-viewport evidence in the review document. Require reviewer inspection of changed
-classifications. Read the full gate report's `budget_warnings` and inventory WARNs;
-investigate regressions and report unresolved findings without removing tests or
-auto-raising `.pandacorp/gate-budget.json`. If no baseline exists, have the reviewer
-record the first full-green stage durations as project-owned configuration with
-command/seed/toolchain/host conditions and test counts in the review document.
-Never initialize it from a red or partial run; report pending baseline capture when
-the full gate runs in another environment. Keep Vitest Node/DOM membership current.
+Follow `references/engine-v2.md` §8 for close-out inventories, gate-budget evidence and cleanup.
 
 Use `finish` or the terminal action's summary, then follow the cleanup procedure in
 `references/engine-v2.md` §8 and `../worktrees/SKILL.md` §Implementation teardown.
