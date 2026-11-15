@@ -126,12 +126,34 @@ export function recoverQueuedDesign(m, sim) {
     const missing = (unit.wos ?? []).map(id => m.nodes.get(norm(id)))
       .filter(n => n && m.inScope(n) && n.ui && !hasDesignSource(n));
     if (!missing.length) continue;
-    const existing = [...m.units, ...repairs].find(u => !UNIT_DONE.has(u.state) && missing.every(n => designerMatches(u, n)));
+    const inherited = {
+      zone: maxZone([unit.zone ?? "none", ...missing.map(n => n.zone)]),
+      risk_rules: uniq([...(unit.risk_rules ?? []), ...missing.flatMap(n => n.riskRules)]),
+      complexity: maxComplexity([...(unit.complexity ? [unit.complexity] : []), ...missing.map(n => n.complexity)]),
+    };
+    const coversFloor = u => maxZone([u.zone ?? "none", inherited.zone]) === (u.zone ?? "none")
+      && maxComplexity([u.complexity, inherited.complexity]) === (u.complexity ?? "normal")
+      && inherited.risk_rules.every(rule => (u.risk_rules ?? []).includes(rule));
+    const existing = [...m.units, ...repairs].map(u => m.unitById.get(u.id) ?? u)
+      .find(u => !UNIT_DONE.has(u.state) && missing.every(n => designerMatches(u, n)) && (u.state === "queued" || coversFloor(u)));
+    // Queued legacy repairs can be raised before allocation; active worker pins must never be rewritten.
+    if (existing?.state === "queued" && !coversFloor(existing)) {
+      const raised = { ...existing,
+        zone: maxZone([existing.zone ?? "none", inherited.zone]),
+        complexity: maxComplexity([existing.complexity, inherited.complexity]),
+        risk_rules: uniq([...(existing.risk_rules ?? []), ...inherited.risk_rules]) };
+      const at = repairs.findIndex(u => u.id === existing.id);
+      if (at >= 0) repairs[at] = raised; else {
+        const updatedAt = sim.updated.findIndex(u => u.id === existing.id);
+        if (updatedAt >= 0) sim.updated[updatedAt] = raised; else sim.updated.push(raised);
+      }
+      m.unitById.set(existing.id, raised);
+    }
     let designId = existing?.id ?? `u-design-${missing[0].id}`;
     if (!existing) {
       while (m.unitById.has(designId)) designId += `-restore-${m.unitById.size}`;
       const designer = newUnit({ id: designId, kind: "docs", role: "designer", frd: missing[0].frd,
-        wos: missing.map(n => n.id), complexity: maxComplexity(missing.map(n => n.complexity)),
+        wos: missing.map(n => n.id), ...inherited,
         ui: true, design_source: "pending", design_refs: designPaths(missing[0].frd, missing[0].id),
         pending_answer: unit.pending_answer ?? null, depends_on: m.preparation ? [m.preparation.id] : [] });
       repairs.push(designer);

@@ -1,5 +1,12 @@
 # Decision Log — Mission Control
 
+## 2026-11-15 — Explain inherited floors for UI design recovery (P9 N2)
+
+Updated the [partial-build guide](../../content/manual/guides/g-implement-parcial.md): design
+recovery preserves the maximum repaired-unit/WO risk and complexity; queued legacy repairs are
+raised before allocation, while active selections stay fixed. Independent work continues.
+Canonical: BUILD-10 and the CLI contract.
+
 ## 2026-11-15 — Explain binary design handoff and queued UI recovery (P9-2)
 
 Updated the [Manual change guide](../src/app/manual/manualPages.tsx): exact standalone content

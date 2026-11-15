@@ -1,5 +1,14 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-15 — Keep inherited risk floors during design recovery (P9 N2)
+
+`recoverQueuedDesign` now propagates the maximum repaired-unit/WO risk zone and complexity and
+the union of risk rules. It raises queued legacy designer metadata through journaled updates;
+active pins stay fixed and an insufficient active repair is not reused for stronger work.
+Canonical: runtime/build/planner/units.mjs, BUILD-10 and [CLI contract](build-engine-cli.md).
+Permanent visual-source tests cover critical effective allocation and build/patch recovery.
+PATCH 10.13.3; manifests regenerated. No commit requested.
+
 ## 2026-11-15 — Close binary handoff and queued visual-source recovery gaps (P9-2)
 
 Handoff checks committed blob hashes against `hash-object --no-filters`, preserving exact binary

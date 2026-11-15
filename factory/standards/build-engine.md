@@ -343,7 +343,10 @@ Risk from `risk.mjs`: `none` → normal, `floor` → delicate, `r1` → critical
 
 Implementation complexity is independent of risk. Delicate work has at least Sol medium / Sonnet medium;
 critical risk (security, money, sensitive data or irreversible operations) has at least Astra high / Opus high.
-Design and mechanical routing retain their existing risk floors. Fable remains disabled.
+Design and mechanical routing retain their existing risk floors. A lightweight design repair inherits
+the maximum risk zone and complexity of the queued unit and affected WOs, plus their combined risk
+rules. Queued legacy repairs are raised before allocation; active worker pins remain unchanged and
+cannot satisfy a higher-floor repair prerequisite. Fable remains disabled.
 
 Review uses the **actual implementer cell**, including any capacity reduction, rather than recomputing its
 nominal complexity. On the selected tool it advances one rung, with minimum Sol medium / Opus low:

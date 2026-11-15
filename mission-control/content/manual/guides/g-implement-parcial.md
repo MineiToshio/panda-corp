@@ -67,6 +67,11 @@ significa trabajo entregado ni un snapshot seguro para probar. En un proyecto la
 El esfuerzo del implementador sigue la complejidad de cada work order: trivial, normal o compleja.
 Hello World es trivial; un formulario con validación, normal; una ingesta de imágenes o integración externa, compleja.
 Trivial usa Sol low o Sonnet medium; normal, Sol medium o Sonnet high; compleja, Sol high u Opus medium.
+Si una unidad de UI en cola pierde su fuente visual, el diseño reparador conserva el mayor riesgo
+y complejidad de la unidad y sus órdenes de trabajo. Una reparación antigua aún en cola se eleva
+antes de asignarse; una ejecución activa conserva su selección y no sustituye una reparación
+que exige un piso superior. El trabajo independiente sigue avanzando.
+
 El riesgo crítico impone Astra high u Opus high. Los mínimos de revisión son Sol medium u Opus low,
 siempre por encima del autor también entre herramientas. El riesgo puede subir el mínimo. El revisor usa un escalón superior a la celda real del implementador y un contexto
 independiente. Si ninguna herramienta admite la celda completa, se permite bajar una vez el esfuerzo en tareas

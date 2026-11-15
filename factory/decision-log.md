@@ -1,5 +1,14 @@
 # Decision Log — Factory
 
+## 2026-11-15 — Preserve risk and complexity floors in lightweight design recovery (P9 N2)
+
+Independent review showed that queued UI recovery dropped risk metadata and could select Sol high
+for critical work. Repairs now inherit the maximum unit/WO zone and complexity and combined risk
+rules. Legacy queued repairs are raised before allocation; lower-floor active repairs cannot be
+reused as the higher-floor prerequisite. Canonical: [BUILD-10](standards/build-engine.md),
+planner/units.mjs and the CLI contract. Permanent visual-source tests verify effective Astra high
+routing, unit/WO precedence and legacy recovery. Plugin PATCH 10.13.3.
+
 ## 2026-11-15 — Preserve binary visual identity and repair queued UI prerequisites (P9-2)
 
 Independent re-verification found that UTF-8 comparison could accept a changed binary mock and

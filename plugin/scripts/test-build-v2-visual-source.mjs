@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { createFixture, git, testEnv, writeSignalsFile } from "./fixtures/build-v2/make-fixture.mjs";
 import { plan, readPlanWorkOrders } from "../runtime/build/planner.mjs";
+import { capacityTaskForUnit, builderCell } from "../runtime/build/routing.mjs";
 import { buildModel } from "../runtime/build/planner/model.mjs";
 import { changePreparationUnits, designPaths } from "../runtime/build/incremental.mjs";
 import { renderCard, updateFrontmatter } from "../runtime/build/card.mjs";
@@ -270,6 +271,71 @@ await test("N1: persisted queued build/patch restores lost UI source, preserves 
     const restored = plan({ ...await readPlanWorkOrders(fx.root, { units: restoredUnits }), scope: selected, units: restoredUnits, capacity: 5 });
     assert.ok(restored.round.includes(build.id));
     assert.ok(!restored.units.some(u => u.role === "designer"));
+  });
+});
+
+await test("N2: design recovery inherits the maximum unit/WO risk and complexity, preserving the effective routing floor", () => {
+  const ctx = { label: "codex", size: "touch", quota: { claude_new_units: false, codex_new_units: true, now: Date.parse("2026-11-15T05:00:00Z") } };
+  for (const kind of ["build", "patch"]) for (const source of ["wo", "unit"]) {
+    const wos = [{ id, frd, status: "PLANNED", ui: true, design_source: "pending", artifacts: ["src/auth/panel.tsx"],
+      zone: source === "wo" ? "r1" : "floor", risk_rules: ["AUTH"], complexity: source === "wo" ? "complex" : "trivial" }];
+    const first = plan({ wos, scope });
+    const original = first.units.find(u => u.role === "designer");
+    const units = first.units.filter(u => first.now.includes(u.id)).map(u => u.id === original.id
+      ? { ...u, state: "integrated" }
+      : { ...u, kind, zone: source === "unit" ? "r1" : "floor", risk_rules: ["SESSION"], complexity: source === "unit" ? "complex" : "trivial" });
+    const recovered = plan({ wos, scope, units });
+    const repair = recovered.units.find(u => u.role === "designer");
+    assert.ok(repair);
+    assert.equal(repair.zone, "r1");
+    assert.deepEqual(new Set(repair.risk_rules), new Set(["AUTH", "SESSION"]));
+    const task = capacityTaskForUnit(repair);
+    assert.equal(task.risk, "critical"); assert.equal(task.complexity, "complex"); assert.equal(task.type, "design");
+    const cell = builderCell(repair, ctx);
+    assert.deepEqual([cell.runtime, cell.model, cell.effort], ["codex", "astra", "high"]);
+    // The floor wins even when complexity is explicitly trivial.
+    const trivial = builderCell({ ...repair, complexity: "trivial" }, ctx);
+    assert.deepEqual([trivial.model, trivial.effort], ["astra", "high"]);
+    // A legacy queued/running repair below the floor must never be reused for critical work.
+    for (const state of ["queued", "running"]) {
+      const weak = { ...repair, id: "u-design-legacy-low", zone: "none", risk_rules: [], complexity: "trivial", state };
+      const legacy = plan({ wos, scope, units: [...units, weak] });
+      const upgraded = [...legacy.units, ...legacy.updates].find(u => u.role === "designer");
+      assert.ok(upgraded);
+      assert.equal(upgraded.id === weak.id, state === "queued");
+      if (state === "running") assert.ok(!legacy.updates.some(u => u.id === weak.id), "active designer pins must stay untouched");
+      assert.equal(capacityTaskForUnit(upgraded).risk, "critical");
+      assert.equal(upgraded.complexity, "complex");
+      assert.ok(legacy.updates.find(u => u.kind === kind).depends_on.includes(upgraded.id));
+    }
+  }
+});
+
+await test("N2 persistence: queued legacy designer is raised before routing and journal replay preserves its attempt", async () => {
+  for (const kind of ["build", "patch"]) await withFixture(async (fx, dir) => {
+    await stamp(fx, woPath, { ui: true, design_source: "pending", complexity: "complex" });
+    const repair = newUnit({ id: "u-design-legacy", kind: "docs", role: "designer", frd, wos: [id],
+      zone: "none", complexity: "trivial", risk_rules: ["LEGACY"], attempt: 2 });
+    const builder = newUnit({ id: `u-${kind}-${id}`, kind, frd, wos: [id], zone: "r1", complexity: "trivial", risk_rules: ["SESSION"] });
+    const units = [repair, builder];
+    const deps = { fs, env: fx.env(), homedir: dir, risk: { staticZones: async wos => wos.map(w => ({ ...w, zone: "floor", risk_rules: ["AUTH"] })) } };
+    const paths = buildPaths(fx.root, deps), runId = "br-2026-11-15-01";
+    const lease = await acquire(fx.root, { runtime: "claude", runId, ttlSeconds: 1800, projectStatus: false });
+    const state = newState({ run_id: runId, epoch: lease.epoch, coordinator: "claude-session", label: "claude", size: "touch", scope, units, integration: { branch: "main", worktree: fx.root, base_sha: fx.sha } });
+    await writeState(fx.root, state, deps);
+    await appendEvent(paths.journalFile, { run_id: runId, epoch: lease.epoch, actor: "cli", type: "run_started", data: { state } }, deps);
+    const run = { ref: { project: fx.root, epoch: lease.epoch, deps }, d: deps, paths, overrides: { sessionModel: null, k: null } };
+    await planRound(run, state, { claude_new_units: true, codex_new_units: true });
+    const saved = await readState(fx.root, deps);
+    const raised = saved.units.find(u => u.id === repair.id);
+    assert.equal(raised.zone, "r1");
+    assert.equal(raised.complexity, "complex");
+    assert.deepEqual(new Set(raised.risk_rules), new Set(["LEGACY", "SESSION"]));
+    assert.equal(raised.attempt, 2);
+    assert.equal(saved.units.filter(u => u.role === "designer").length, 1);
+    assert.ok(saved.units.find(u => u.id === builder.id).depends_on.includes(repair.id));
+    const replayed = foldJournal((await readJournal(paths.journalFile, deps)).events);
+    assert.deepEqual(replayed.units.find(u => u.id === repair.id), raised);
   });
 });
 
