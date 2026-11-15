@@ -51,6 +51,7 @@ export { readPlanWorkOrders } from "./planner/readWorkOrders.mjs";
  *   held: {wo: string, reason: string, by: string}[], held_units: string[], integration_paused_by: string|null, capacity: number,
  *   floor_waived: {wo: string, frd: string, floors: string[]}[], progress: boolean, deadlock: null|{wos: string[], units: string[],
  *   waits: {wo: string, dep: string, why: string}[], cycles: string[][]}, issues: object[]}}
+ *   `updates` = queued units with restored visual prerequisites, persisted before dispatch;
  *   `units` = every NEW unit of the plan (state-shaped, `queued`), in plan order, future rounds included; `now` = the new units to
  *   queue now (chains ready now, a tests unit always with its build unit); `ready` = queued candidates (new and existing) whose
  *   dependencies are met; `round` = what to dispatch now within the capacity and without artifact overlap; `rounds` = the simulated
@@ -68,7 +69,7 @@ export function plan(input, deps = {}) {
     cycles: findCycles(m.nodes).filter((c) => c.some((id) => stuck.rest.some((n) => n.id === id))),
   };
   return {
-    units: sim.planned, now: run.nowIds, ready: run.readyIds, round: run.roundIds, rounds: run.rounds,
+    units: sim.planned, updates: sim.updated, now: run.nowIds, ready: run.readyIds, round: run.roundIds, rounds: run.rounds,
     cells: sim.cells, why: sim.why, meta: sim.meta, held: stuck.held, held_units: stuck.heldUnits,
     integration_paused_by: liveBarrier?.id ?? roundBarrier ?? null, capacity: m.capacity, floor_waived: sim.floorWaived,
     progress: run.roundIds.length > 0 || m.liveWrite.length > 0, deadlock, issues: lintModel(m, stuck),
@@ -102,5 +103,6 @@ export function planView(result, { explain = false, queued = [] } = {}) {
       cell: cell?.runtime ? { runtime: cell.runtime, model: cell.model, effort: cell.effort } : null, why: explain ? result.why[u.id] ?? null : null,
     };
   };
-  return { units: [...queued, ...result.units].map(view), rounds: result.rounds, issues: result.issues };
+  const updates = new Map((result.updates ?? []).map(u => [u.id, u]));
+  return { units: [...queued.map(u => updates.get(u.id) ?? u), ...result.units].map(view), rounds: result.rounds, issues: result.issues };
 }

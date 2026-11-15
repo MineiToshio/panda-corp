@@ -117,3 +117,32 @@ export function existingCandidate(m, unit) {
     order: Math.min(Infinity, ...chain.map((n) => n.order)), picked: false,
   };
 }
+
+/** Revalidate persisted builders too: a completed designer is insufficient if its files have disappeared. */
+export function recoverQueuedDesign(m, sim) {
+  const repairs = [];
+  for (const unit of m.units) {
+    if (unit.state !== "queued" || !["build", "patch"].includes(unit.kind)) continue;
+    const missing = (unit.wos ?? []).map(id => m.nodes.get(norm(id)))
+      .filter(n => n && m.inScope(n) && n.ui && !hasDesignSource(n));
+    if (!missing.length) continue;
+    const existing = [...m.units, ...repairs].find(u => !UNIT_DONE.has(u.state) && missing.every(n => designerMatches(u, n)));
+    let designId = existing?.id ?? `u-design-${missing[0].id}`;
+    if (!existing) {
+      while (m.unitById.has(designId)) designId += `-restore-${m.unitById.size}`;
+      const designer = newUnit({ id: designId, kind: "docs", role: "designer", frd: missing[0].frd,
+        wos: missing.map(n => n.id), complexity: maxComplexity(missing.map(n => n.complexity)),
+        ui: true, design_source: "pending", design_refs: designPaths(missing[0].frd, missing[0].id),
+        pending_answer: unit.pending_answer ?? null, depends_on: m.preparation ? [m.preparation.id] : [] });
+      repairs.push(designer);
+      m.unitById.set(designId, designer);
+    }
+    if (!(unit.depends_on ?? []).includes(designId)) {
+      const updated = { ...unit, depends_on: [...(unit.depends_on ?? []), designId] };
+      sim.updated.push(updated);
+      m.unitById.set(unit.id, updated);
+    }
+  }
+  sim.planned.push(...repairs);
+  return repairs;
+}

@@ -2705,8 +2705,9 @@ function GuideCambio(): React.JSX.Element {
             y mock de la pieza y registra su decisión como reversible. No espera aprobación visual:
             puedes iterar después. Antes de iniciar el run, la conversación guarda ese delta en un
             commit documental del checkout fuente; design no hace commits. El motor comprueba que
-            los archivos coinciden con esa revisión y están presentes en su copia de construcción.
-            Durante un run activo, el diseñador entrega los cambios por el informe de su unidad.
+            los archivos, incluidas las imágenes, coinciden exactamente con esa revisión y están
+            presentes en su copia de construcción. Durante un run activo, el diseñador entrega los
+            cambios por el informe de su unidad.
           </li>
           <li>
             <B>Cambio sin UI:</B> va directo a implementación, sin paso de diseño.
@@ -2723,7 +2724,9 @@ function GuideCambio(): React.JSX.Element {
             completa el diseño que falta después de planificar las unidades. Cada orden conserva su
             clasificación de UI o backend: una tarjeta mixta no convierte todo en UI. El backend
             independiente avanza mientras se diseña la UI pendiente. El planificador y quien
-            programa reciben las mismas referencias visuales, comprobadas en su checkout.
+            programa reciben las mismas referencias visuales, comprobadas en su checkout. Si una
+            unidad de UI ya en cola pierde su fuente, recibe un paso de diseño ligero antes de
+            construir; las unidades independientes siguen avanzando.
           </li>
           <li>
             <B>Trabajo directo:</B> puedes pedir «hazlo directo sin Pandacorp». El agente respeta

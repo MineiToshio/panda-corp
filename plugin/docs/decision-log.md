@@ -1,5 +1,15 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-15 — Close binary handoff and queued visual-source recovery gaps (P9-2)
+
+Handoff checks committed blob hashes against `hash-object --no-filters`, preserving exact binary
+content instead of comparing decoded text. Planner revalidates queued build/patch sources, emits
+scoped designer recovery plus updated dependencies, and next persists both through `unit_queued`
+before admission. Existing repairs are reused; backend remains independent. Canonical:
+`runtime/build/visual-source.mjs`, planner, next and [CLI contract](build-engine-cli.md).
+Permanent `test-build-v2-visual-source.mjs` reproduces both findings with state/journal evidence.
+PATCH 10.13.2; generated manifests. No commit or local plugin activation requested.
+
 ## 2026-11-14 — Repair incremental visual-source transport and per-WO dependencies (P9)
 
 Standalone design returns its delta to the conversation for a scoped source documentation commit before

@@ -1,5 +1,14 @@
 # Decision Log — Factory
 
+## 2026-11-15 — Preserve binary visual identity and repair queued UI prerequisites (P9-2)
+
+Independent re-verification found that UTF-8 comparison could accept a changed binary mock and
+that already queued UI builders could lose their source without designer recovery. The handoff
+now compares raw Git blob identities. Admission planning also repairs queued build/patch visual
+prerequisites, journals the dependency before dispatch and leaves independent work eligible.
+Canonical: [BUILD-8](standards/build-engine.md) and the plugin runtime/CLI contract. Permanent
+visual-source regressions cover colliding UTF-8 BMPs, queued builds/patches and journal replay.
+
 ## 2026-11-14 — Correct incremental visual-source hand-off and independence (P9 H1–H4)
 
 Independent review reproduced missing standalone deltas, divergent planner/brief evidence, FRD-only

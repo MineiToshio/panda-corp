@@ -3,7 +3,7 @@ import { PLANNED_KINDS, STALLED_STATES, UNIT_DONE, isAssumed, naturalCompare, no
 import { routeCell, unitArtifacts } from "./model.mjs";
 import { artifactsOverlap } from "./pathRules.mjs";
 import { depsMet, floorTools, isIntegrated } from "./readiness.mjs";
-import { existingCandidate, formChains, makeUnits } from "./units.mjs";
+import { existingCandidate, formChains, makeUnits, recoverQueuedDesign } from "./units.mjs";
 
 // ---------------------------------------------------------------------------------------------------------------
 
@@ -77,9 +77,11 @@ function refreshVerified(m, sim) {
 export function simulate(m) {
   const sim = {
     done: new Set(), verified: new Set(m.initialVerified), claimed: new Set(), unitOf: new Map(m.unitOfWo), unitDone: new Set(),
-    planned: [], meta: {}, cells: {}, why: {}, floorWaived: [], floor: null,
+    planned: [], updated: [], meta: {}, cells: {}, why: {}, floorWaived: [], floor: null,
   };
-  const existing = m.units.filter((u) => u.state === "queued" && PLANNED_KINDS.has(u.kind)).map((u) => existingCandidate(m, u));
+  const repairs = recoverQueuedDesign(m, sim);
+  const existing = [...m.units.filter((u) => u.state === "queued" && PLANNED_KINDS.has(u.kind))
+    .map(u => m.unitById.get(u.id)), ...repairs].map((u) => existingCandidate(m, u));
   for (const c of existing) {
     sim.meta[c.unit.id] = { artifacts: c.artifacts, barrier: c.barrier, downstream: c.downstream, new_acs: [], tests_first: null, cut: null, floor_waived: [], existing: true };
     sim.why[c.unit.id] = "already queued";
@@ -100,7 +102,7 @@ export function simulate(m) {
     const live = r === 0 ? m.liveWrite : [];
     const picked = selectRound(m, ready, live.map((u) => unitArtifacts(m, u.kind, u.wos ?? [])), r === 0 ? m.capacity : m.ceiling);
     if (r === 0) {
-      nowIds = created.map((c) => c.unit.id);
+      nowIds = [...repairs.map(u => u.id), ...created.map((c) => c.unit.id)];
       roundIds = picked.map((c) => c.unit.id);
       readyIds = ready.map((c) => c.unit.id);
     }

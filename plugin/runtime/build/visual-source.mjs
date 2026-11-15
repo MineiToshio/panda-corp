@@ -60,9 +60,11 @@ export async function assertDesignHandoff(project, source, deps = {}, revision =
   const sha = rev.stdout.trim();
   for (const rel of refs) {
     const file = safePath(rel) ? await fs.readFile(path.join(project, rel), "utf8").catch(() => null) : null;
+    // Compare blob identities, never decoded text: distinct image bytes may decode to the same UTF-8 replacement character.
     const recorded = file?.trim() && rev.code === 0 && prefix.code === 0
-      ? await run(["show", `${sha}:${prefix.stdout.trim()}${rel}`]) : null;
-    if (!recorded || recorded.code !== 0 || recorded.stdout !== file) throw Object.assign(
+      ? await run(["rev-parse", "--verify", `${sha}:${prefix.stdout.trim()}${rel}`]) : null;
+    const current = recorded?.code === 0 ? await run(["hash-object", "--no-filters", "--", path.join(project, rel)]) : null;
+    if (!recorded || recorded.code !== 0 || current?.code !== 0 || recorded.stdout.trim() !== current.stdout.trim()) throw Object.assign(
       new Error(`Design handoff incomplete: ${rel} must be nonempty and identical to the committed source revision. Before start, the conversation must commit the standalone design delta in the source checkout; design itself never commits or writes into an active run.`),
       { code: "INVALID_INPUT" },
     );

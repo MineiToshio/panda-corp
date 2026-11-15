@@ -11,10 +11,13 @@ import { plan, readPlanWorkOrders } from "../runtime/build/planner.mjs";
 import { buildModel } from "../runtime/build/planner/model.mjs";
 import { changePreparationUnits, designPaths } from "../runtime/build/incremental.mjs";
 import { renderCard, updateFrontmatter } from "../runtime/build/card.mjs";
-import { newState, newUnit, readState } from "../runtime/build/state.mjs";
+import { newState, newUnit, readState, writeState, foldJournal } from "../runtime/build/state.mjs";
 import { writeUnitBrief } from "../runtime/build/units/brief.mjs";
 import { createIntegrationWorktree } from "../runtime/build/integrate/worktrees.mjs";
 import { buildPaths } from "../runtime/build/paths.mjs";
+import { acquire } from "../runtime/build-state.mjs";
+import { appendEvent, readJournal } from "../runtime/build/journal.mjs";
+import { planRound } from "../runtime/build/next/planning.mjs";
 import { assertDesignHandoff } from "../runtime/build/visual-source.mjs";
 
 let passed = 0; let failed = 0;
@@ -189,6 +192,86 @@ await test("H1 real CLI rejects dirty handoff before lease; committed design is 
     for (const pid of [started?.drive?.pid, standby?.pid, caffeinate]) if (Number.isInteger(pid) && pid > 1) { try { process.kill(pid, "SIGKILL"); } catch { /* already stopped */ } }
   }
 }));
+
+await test("H1 binary handoff: distinct valid BMP bytes with identical UTF-8 text must be rejected", () => withFixture(async (fx, dir) => {
+  const before = Buffer.alloc(58);
+  before.write("BM"); before.writeUInt32LE(58, 2); before.writeUInt32LE(54, 10);
+  before.writeUInt32LE(40, 14); before.writeInt32LE(1, 18); before.writeInt32LE(1, 22);
+  before.writeUInt16LE(1, 26); before.writeUInt16LE(24, 28); before.writeUInt32LE(4, 34); before[54] = 128;
+  const after = Buffer.from(before); after[54] = 129;
+  assert.notDeepEqual(before, after);
+  assert.equal(before.toString("utf8"), after.toString("utf8"));
+  const ref = "docs/design-reference.bmp", source = { design_source: "existing", design_refs: [ref] };
+  await put(fx.root, ref, before);
+  git(fx.root, ["add", "--", ref]); git(fx.root, ["commit", "-qm", "fixture: agreed binary mock"]);
+  const sha = await assertDesignHandoff(fx.root, source);
+  await put(fx.root, ref, after);
+  await assert.rejects(assertDesignHandoff(fx.root, source), /Design handoff incomplete/);
+  await put(fx.root, ref, before);
+  const created = await createIntegrationWorktree({ project: fx.root, runId: "br-2026-11-15-binary", baseRef: sha }, { env: fx.env(), homedir: dir });
+  assert.deepEqual(await fs.readFile(path.join(created.worktree, ref)), before);
+  assert.equal(await assertDesignHandoff(created.worktree, source, {}, sha), sha);
+  await put(fx.root, ref, Buffer.alloc(0));
+  git(fx.root, ["add", "--", ref]); git(fx.root, ["commit", "-qm", "fixture: empty reference"]);
+  await assert.rejects(assertDesignHandoff(fx.root, source), /Design handoff incomplete/);
+}));
+
+await test("N1: persisted queued build/patch restores lost UI source, preserves backend and journals its prerequisite", async () => {
+  for (const kind of ["build", "patch"]) await withFixture(async (fx, dir) => {
+    await stamp(fx, woPath, { ui: true, design_source: "pending" });
+    const first = plan({ ...await readPlanWorkOrders(fx.root), scope });
+    let units = first.units.filter(u => first.now.includes(u.id)).map(u => u.role === "designer" ? { ...u, state: "integrated" } : { ...u, kind });
+    const build = units.find(u => u.kind === kind), designer = units.find(u => u.role === "designer");
+    assert.ok(build);
+    for (const ref of designer.design_refs) await put(fx.root, ref, "Integrated scoped design\n");
+    assert.ok(plan({ ...await readPlanWorkOrders(fx.root, { units }), scope, units }).round.includes(build.id));
+    await fs.unlink(path.join(fx.root, designer.design_refs[0]));
+    // An independent backend unit is already queued as well.
+    const backendId = "wo-02-001", backendFrd = "frd-02-beta";
+    await stamp(fx, `docs/frds/${backendFrd}/work-orders/${backendId}.md`, { ui: false, artifacts: ["src/server.ts"] });
+    const backend = newUnit({ id: "u-backend", kind: "build", wos: [backendId], frd: backendFrd });
+    units.push(backend);
+    const selected = { ...scope, wos: [id, backendId] };
+    const read = await readPlanWorkOrders(fx.root, { units });
+    const recovered = plan({ ...read, scope: selected, units, capacity: 5 });
+    const repair = recovered.units.find(u => u.role === "designer");
+    assert.ok(repair && repair.id !== designer.id);
+    assert.deepEqual(repair.wos, [id]);
+    assert.ok(recovered.round.includes(repair.id));
+    assert.ok(!recovered.ready.includes(build.id));
+    assert.ok(recovered.round.includes(backend.id));
+    assert.equal(recovered.deadlock, null);
+    const update = recovered.updates.find(u => u.id === build.id);
+    assert.ok(update.depends_on.includes(repair.id));
+    // A queued/running repair is reused on subsequent calls, never duplicated.
+    const pending = [...units.map(u => u.id === update.id ? update : u), { ...repair, state: "running" }];
+    const reused = plan({ ...read, scope: selected, units: pending, capacity: 5 });
+    assert.ok(!reused.units.some(u => u.role === "designer"));
+    assert.ok(!reused.round.includes(build.id));
+    assert.ok(reused.round.includes(backend.id));
+    // Verify the real fenced planner persists the dependency, and journal replay keeps it.
+    const deps = { fs, env: fx.env(), homedir: dir, risk: { staticZones: async wos => wos } };
+    const paths = buildPaths(fx.root, deps), runId = "br-2026-11-15-01";
+    const lease = await acquire(fx.root, { runtime: "claude", runId, ttlSeconds: 1800, projectStatus: false });
+    const state = newState({ run_id: runId, epoch: lease.epoch, coordinator: "claude-session", label: "claude", size: "touch", scope: selected, units, integration: { branch: "main", worktree: fx.root, base_sha: fx.sha } });
+    await writeState(fx.root, state, deps);
+    await appendEvent(paths.journalFile, { run_id: runId, epoch: lease.epoch, actor: "cli", type: "run_started", data: { state } }, deps);
+    const run = { ref: { project: fx.root, epoch: lease.epoch, deps }, d: deps, paths, overrides: { sessionModel: null, k: null } };
+    const planned = await planRound(run, state, { claude_new_units: true, codex_new_units: true });
+    const saved = await readState(fx.root, deps);
+    const savedRepair = saved.units.find(u => u.id === repair.id);
+    assert.ok(savedRepair);
+    assert.ok(saved.units.find(u => u.id === build.id).depends_on.includes(repair.id));
+    assert.ok(!planned.ready.includes(build.id));
+    const replayed = foldJournal((await readJournal(paths.journalFile, deps)).events);
+    assert.deepEqual(replayed.units.find(u => u.id === build.id).depends_on, saved.units.find(u => u.id === build.id).depends_on);
+    for (const ref of repair.design_refs) await put(fx.root, ref, "Restored scoped design\n");
+    const restoredUnits = saved.units.map(u => u.id === repair.id ? { ...u, state: "integrated" } : u);
+    const restored = plan({ ...await readPlanWorkOrders(fx.root, { units: restoredUnits }), scope: selected, units: restoredUnits, capacity: 5 });
+    assert.ok(restored.round.includes(build.id));
+    assert.ok(!restored.units.some(u => u.role === "designer"));
+  });
+});
 
 console.log(`RESULT: ${passed} passed, ${failed} failed`);
 process.exitCode = failed ? 1 : 0;

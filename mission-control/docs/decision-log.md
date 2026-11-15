@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-11-15 — Explain binary design handoff and queued UI recovery (P9-2)
+
+Updated the [Manual change guide](../src/app/manual/manualPages.tsx): exact standalone content
+includes image references, and a queued UI unit that loses its source receives lightweight design
+before construction while independent work continues. Canonical: BUILD-8 and the CLI contract.
+
 ## 2026-11-14 — Clarify incremental design hand-off and mixed changes (P9)
 
 Updated the [Manual change guide](../src/app/manual/manualPages.tsx): the conversation records standalone

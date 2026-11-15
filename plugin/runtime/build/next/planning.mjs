@@ -100,11 +100,13 @@ export async function planRound(run, state, pol) {
   const nowIds = Array.isArray(plan?.now) ? new Set(plan.now) : null;
   const add = (plan?.units ?? []).filter((u) => u && (!nowIds || nowIds.has(u.id)) && inScope(state, u));
   let next = state;
-  if (add.length) {
+  if (add.length || plan?.updates?.length) {
     next = await mutate(run, (s) => {
       const fresh = add.filter((u) => !findUnit(s, u.id)).map((u) => newUnit(u));
-      if (!fresh.length) return {};
-      return { state: { ...s, units: [...s.units, ...fresh] }, events: fresh.map((u) => ({ type: "unit_queued", data: u })) };
+      const updates = new Map((plan.updates ?? []).filter(u => findUnit(s, u.id)?.state === "queued" && inScope(s, u)).map(u => [u.id, u]));
+      if (!fresh.length && !updates.size) return {};
+      return { state: { ...s, units: [...s.units.map(u => updates.get(u.id) ?? u), ...fresh] },
+        events: [...fresh, ...updates.values()].map((u) => ({ type: "unit_queued", data: u })) };
     });
   }
   const round = Array.isArray(plan?.round) ? plan.round : Array.isArray(plan?.ready) ? plan.ready : [];

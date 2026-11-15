@@ -189,11 +189,14 @@ artifact inference (including directory globs); card-wide `ui` never classifies 
 cuts at UI/non-UI boundaries. One resolver (`visual-source.mjs`) selects completed scoped designer
 refs, explicit WO evidence, scoped card evidence, then eligible legacy FDD. A pending card suppresses
 only inferred legacy evidence. File references must be nonempty in the consuming checkout; planner
-and brief use the same resolved source, and the brief context pack includes those files.
+and brief use the same resolved source, and the brief context pack includes those files. Before admission,
+queued build/patch units are revalidated too: lost sources create or reuse a lightweight designer
+and persist its dependency in state and journal before dispatch. Independent units remain eligible.
 
 **Standalone hand-off.** Before starting a run, the conversation records its scoped FDD/mock delta
 in a documentation commit in the source checkout; design itself never commits. `start` requires
-every agreed/existing file reference to be nonempty and identical to the source commit, pins that
+every agreed/existing file reference to be nonempty and identical to the source commit by blob hash
+(including binary mocks, without text decoding or Git clean filters), pins that
 revision for integration and rechecks it there. Dirty/untracked artifacts are not an available
 source. Explicit `owner:`/`conversation:` citations need no file commit. During an active run,
 design changes only its assigned docs worktree and returns `report`; it never writes to source/main.
