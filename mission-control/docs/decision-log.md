@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-11-14 — Manual: quota health and stale observations
+
+Aligned the unattended-build explanation in [manualPages.tsx](../src/app/manual/manualPages.tsx) with
+[BUILD-11](../../factory/standards/build-engine.md): health before task preference, and stale future-reset
+readings retain a conservative margin. Explanatory copy only, following the live allocator correction.
+
 ## 2026-11-14 — Manual: recovery preserves execution time limits
 
 Updated the [partial-build guide](../../content/manual/guides/g-implement-parcial.md) to reflect

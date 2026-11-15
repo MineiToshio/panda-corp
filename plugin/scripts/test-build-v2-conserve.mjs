@@ -32,10 +32,10 @@ test("same-model mixed-author review is allowed in fresh context", () => {
   const r = reviewCell({ authors: [author, { runtime: "codex", model: "astra", effort: "high" }], kind: "frd", zone: "floor", availability: { claude: "quota", codex: "ok" } });
   eq([r.used.model, r.used.effort, r.parked, r.deferred], ["sol","medium",null,null]);
 });
-test("stale high Claude observations are unknown, never sticky conserve", () => {
+test("stale high Claude observations retain conservative usage without sticky conserve", () => {
   const e = effective({ provider: "claude", status: "ok", observed_at: "2026-11-14T04:00:00Z", five_hour_pct: 91, weekly_pct: 20,
     five_hour_resets_at: "2026-11-17T00:00:00Z", weekly_resets_at: "2026-11-17T00:00:00Z" }, "2026-11-14T05:00:00Z");
-  eq(e, { state: "unknown", pct: null, needs_probe: false });
+  eq(e, { state: "stale", pct: 96, needs_probe: false });
 });
 test("BL-0321: an integrated review-reopen patch supersedes the patching units of its FRD that own its work orders", () => {
   const units = [
@@ -92,7 +92,7 @@ test("restored: stale/reset/missing-reset and fresh Claude controls retain hones
   const now = "2026-11-14T05:00:00Z", future = "2026-11-17T00:00:00Z", past = "2026-11-14T04:30:00Z";
   const raw = (pct, reset, observed_at) => ({ provider: "claude", status: "ok", observed_at, five_hour_pct: 11, weekly_pct: pct, five_hour_resets_at: future, weekly_resets_at: reset });
   for (const pct of [60, 91]) {
-    eq(effective(raw(pct, future, "2026-11-14T04:00:00Z"), now), { state: "unknown", pct: null, needs_probe: false });
+    eq(effective(raw(pct, future, "2026-11-14T04:00:00Z"), now), { state: "stale", pct: pct + 5, needs_probe: false });
     eq(effective(raw(pct, future, "2026-11-14T04:58:00Z"), now), { state: "known", pct, needs_probe: false });
     for (const reset of [null, past]) eq(effective(raw(pct, reset, "2026-11-14T04:58:00Z"), now).state, "unknown");
   }

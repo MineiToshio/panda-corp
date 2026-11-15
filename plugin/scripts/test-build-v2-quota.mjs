@@ -85,13 +85,14 @@ await test("codex rate_limit_reached (primary 100 %) reads as 100 %", async () =
   const e = await eff(r); eq(e.pct, 100, "effective pct"); eq(e.state, "known", "effective state");
 });
 
-await test("codex stale rollout (6 days old, reader looks <= 3 days back) -> unknown with a reason", async () => {
+await test("codex six-day-old rollout with future reset retains stale usage and 10pp margin", async () => {
   const { codexHome } = await sandbox();
   await writeRolloutSample(codexHome, "stale", { now: NOW });
   const r = await readCodex(codexHome);
-  eq(r.provider, "codex", "provider"); eq(r.state, "unknown", "state");
-  ok(typeof r.reason === "string" && r.reason.length > 0, "unknown reading needs a non-empty reason");
-  ok(!("used_percent" in r) || r.used_percent == null, "unknown reading must not carry a percentage");
+  eq(r.provider, "codex", "provider"); eq(r.state, "stale", "state");
+  eq(r.reason, "stale_reading", "stale reason");
+  eq(r.used_percent, 36, "raw historical usage remains available");
+  eq((await eff(r)).pct, 46, "effective usage includes 10pp after 24h");
 });
 
 await test("codex malformed rollout (truncated JSON, garbage, token_count without usable rate_limits) -> unknown, never a throw", async () => {
@@ -189,12 +190,12 @@ await test("recordClaude unavailable: null percentages stored (no throw), effect
   eq(JSON.parse(await readFile(quotaFile, "utf8")).claude.five_hour_pct, null, "stored null");
 });
 
-await test("effective claude: freshness window of 10 min (known up to 600 s, unknown after)", async () => {
+await test("effective claude: freshness window of 10 min (known up to 600 s, stale with margin after)", async () => {
   const r = claudeReading({ five_hour_pct: 41, weekly_pct: 63, observed_at: NOW });
   const at = async (ms) => eff(r, shift(ms));
   eq((await at(0)).state, "known", "age 0"); eq((await at(0)).pct, 63, "pct is the max of both windows");
   eq((await at(599e3)).state, "known", "age 599 s"); eq((await at(600e3)).state, "known", "age 600 s (<= 10 min)");
-  const stale = await at(601e3); eq(stale.state, "unknown", "age 601 s"); eq(stale.pct, null, "stale pct");
+  const stale = await at(601e3); eq(stale.state, "stale", "age 601 s"); eq(stale.pct, 68, "stale pct includes 5pp safety margin");
 });
 
 await test("effective claude: either window drives the pct (weekly lower, five-hour higher)", async () => {
@@ -215,9 +216,9 @@ await test("effective codex: known until resets_at, unknown from then on (usage 
   const after = await eff(r, shift(3601e3)); eq(after.state, "unknown", "after resets_at"); eq(after.pct, null, "pct after reset");
 });
 
-await test("effective codex: a reading much older than a claude one is still known (valid until resets_at)", async () => {
+await test("effective codex: a five-hour-old reading remains stale with conservative usage until reset", async () => {
   const r = codexReading({ used_percent: 50, observed_at: shift(-5 * 3600e3), resets_at: shift(3600e3) });
-  const e = await eff(r); eq(e.state, "unknown", "state"); eq(e.pct, null, "pct");
+  const e = await eff(r); eq(e.state, "stale", "state"); eq(e.pct, 55, "pct includes 5pp safety margin");
 });
 
 await test("effective codex needs_probe: only when older than 1 h AND >= 70 %", async () => {

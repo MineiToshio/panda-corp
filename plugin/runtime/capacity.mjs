@@ -43,14 +43,18 @@ const unknown = (tool, reason) => ({ schema: 1, tool, source: tool === "codex" ?
   state: "unknown", reason, observedAt: null, ageSeconds: null,
   windows: tool === "codex" ? [naCodex(), emptyWindow("weekly")] : [emptyWindow("five_hour"), emptyWindow("weekly")] });
 const relevant = (windows, model) => windows.filter(w => w.scope === "all" || model && w.scope === `model:${model}`);
+const usableWindow = w => w.state === "known" || w.state === "stale";
 
 function assess(reading, now) {
   const ms = clock(now), observed = timestamp(reading.observedAt);
   // Window-level failures can be re-assessed without discarding independent, still-current constraints.
-  const windowReasons = ["expired_reset", "missing_window", "invalid_window", "conflicting_windows"];
+  // Reassess old snapshots too: pre-fix TTL expiry used to be stored as unknown/stale_reading.
+  const windowReasons = ["expired_reset", "missing_window", "invalid_window", "conflicting_windows", "stale_reading"];
   let reason = reading.state === "unknown" && !windowReasons.includes(reading.reason) ? reading.reason : null;
   if (!validTime(observed) || observed > ms + 30000) reason ??= "invalid_timestamp";
-  else if (reading.source !== "usage_limit" && (ms - observed) / 1000 > TTL[reading.tool]) reason ??= "stale_reading";
+  const ageSeconds = validTime(observed) ? Math.max(0, (ms - observed) / 1000) : null;
+  const stale = reading.source !== "usage_limit" && ageSeconds > TTL[reading.tool];
+  const margin = stale ? ageSeconds > 86400 ? 10 : 5 : 0;
   const observationValid = !reason;
   const required = reading.tool === "claude" ? ["five_hour", "weekly"] : ["weekly"];
   if (required.some(id => !relevant(reading.windows).some(w => w.id === id && w.applicability === "required"))) reason ??= "missing_window";
@@ -68,11 +72,14 @@ function assess(reading, now) {
     else if (conflicts.has(`${w.scope}/${w.id}`)) failure = "conflicting_windows";
     else if (timestamp(w.resetsAt) <= ms) failure = "expired_reset";
     reason ??= failure;
-    return { ...w, state: observationValid && !failure ? "known" : "unknown",
-      reason: failure === "expired_reset" ? "reset_pending_confirmation" : failure || (observationValid ? "fresh_window" : reason) };
+    const usable = observationValid && !failure;
+    return { ...w, state: usable ? stale ? "stale" : "known" : "unknown",
+      safetyMarginPp: usable ? margin : 0,
+      effectivePercentUsed: usable ? Math.min(100, w.percentUsed + margin) : null,
+      reason: failure === "expired_reset" ? "reset_pending_confirmation" : failure || (observationValid ? stale ? "stale_window" : "fresh_window" : reason) };
   });
-  return { ...reading, windows, state: reason ? "unknown" : "known", reason: reason || "fresh_reading",
-    ageSeconds: validTime(observed) ? Math.max(0, (ms - observed) / 1000) : null };
+  return { ...reading, windows, state: reason ? "unknown" : stale ? "stale" : "known",
+    reason: reason || (stale ? "stale_reading" : "fresh_reading"), ageSeconds };
 }
 
 function window(id, percentUsed, resetsAt, scope = "all") {
@@ -85,7 +92,7 @@ function window(id, percentUsed, resetsAt, scope = "all") {
  * is a live handoff observed at now; cached callers must retain observedAt.
  * @param {object|null} json {status?, observedAt?, plan:{windows:[{label,percentUsed,resetsAt}]}}
  * @param {string|number|Date} now Injected clock (epoch numbers are milliseconds).
- * @returns {object} Schema-1 reading; malformed/stale/contradictory input is unknown. */
+ * @returns {object} Schema-1 reading; stale valid windows retain conservative usage; invalid input is unknown. */
 export function normalizeClaudeUsage(json, now) {
   const ms = clock(now), plan = json?.plan;
   if (!plan || !Array.isArray(plan.windows)) return unknown("claude", "missing_usage");
@@ -214,15 +221,18 @@ function fit(reading, cell, type, imageReserve, costs, pinned) {
   const key = type === "images" ? "images" : `${cell.model}/${cell.effort}`;
   const prior = costs[key] ?? { five_hour: PRIORS[key][0], weekly: PRIORS[key][1] };
   const blocked = relevant(reading.windows, cell.model).filter(w => {
-    if (w.applicability === "not_applicable" || w.state !== "known") return false;
+    if (w.applicability === "not_applicable" || !usableWindow(w)) return false;
     const reserve = 2 + (cell.tool === "codex" && type !== "images" && w.id === "weekly" ? imageReserve : 0);
     const cost = pinned ? 0 : prior[w.id] ?? 100;
-    return w.percentUsed >= 100 || cost > 100 - w.percentUsed - reserve + 1e-10;
+    return w.effectivePercentUsed >= 100 || cost > 100 - w.effectivePercentUsed - reserve + 1e-10;
   });
   const required = reading.tool === "claude" ? ["five_hour", "weekly"] : ["weekly"];
-  const known = required.every(id => reading.windows.some(w => w.scope === "all" && w.id === id && w.state === "known")) &&
-    relevant(reading.windows, cell.model).every(w => w.applicability === "not_applicable" || w.state === "known");
-  return { fits: blocked.length === 0, known, resets: blocked.map(w => timestamp(w.resetsAt)) };
+  const known = required.every(id => reading.windows.some(w => w.scope === "all" && w.id === id && usableWindow(w))) &&
+    relevant(reading.windows, cell.model).every(w => w.applicability === "not_applicable" || usableWindow(w));
+  const pressure = Math.max(0, ...relevant(reading.windows, cell.model).filter(usableWindow).map(w => w.effectivePercentUsed));
+  // A valid high window still constrains a cell when a different window is unknown.
+  return { fits: blocked.length === 0, level: pressure >= 85 ? 2 : known ? 0 : 1, pressure,
+    resets: blocked.map(w => timestamp(w.resetsAt)) };
 }
 
 /** Decide one task without IO, mutation or model calls. Inputs are normalized schema-1 readings.
@@ -274,13 +284,12 @@ export function decide({ task, readings = {}, now, costs = {} }) {
   });
   let viable = candidates.filter(c => c.fits), reason = task.pin ? "pinned_task" : override ? "explicit_override" : "preferred_tool";
   if (!task.pin && !override && viable.length) {
-    const known = viable.filter(c => c.known);
-    if (known.length) viable = known;
-    if (viable[0].cell.tool !== preferred) reason = !candidates[0].known ? "healthy_reading_preferred" : "preferred_tool_unavailable";
-    if (viable.length > 1 && viable[0].known && relevant(viable[0].reading.windows, viable[0].cell.model).some(w => w.applicability === "required" && w.percentUsed > 85)) {
-      viable.reverse(); reason = "preferred_tool_over_85";
-    }
-    if (!viable[0].known) reason = "unknown_reading_last_resort";
+    // Healthy <85% > unknown > high >=85%; unfit cells were excluded above.
+    // Within high pressure, minimize the worst applicable window before the task tie-break.
+    viable.sort((a, b) => a.level - b.level || (a.level === 2 ? a.pressure - b.pressure : 0));
+    if (viable[0].cell.tool !== preferred) reason = !candidates[0].fits ? "preferred_tool_unavailable" :
+      viable[0].level < candidates[0].level ? "capacity_health_preferred" : "lower_pressure_preferred";
+    if (viable[0].level === 1) reason = "unknown_reading_selected";
   }
   if (viable.length) {
     const pin = { ...viable[0].cell };
@@ -298,9 +307,9 @@ export function decide({ task, readings = {}, now, costs = {} }) {
  * @returns {string} Single-line description, without task contents. */
 export function explain(decision) {
   const reasons = { pinned_task: "selección fija de la tarea", explicit_override: "herramienta fijada explícitamente",
-    preferred_tool: "preferencia por tipo y riesgo", healthy_reading_preferred: "se prioriza la lectura sana",
-    preferred_tool_unavailable: "la herramienta preferida no tiene margen", preferred_tool_over_85: "la preferida supera el 85 %",
-    unknown_reading_last_resort: "lectura desconocida, último recurso", pinned_tool_exhausted: "cupo de la tarea fijada agotado",
+    preferred_tool: "preferencia por tipo y riesgo", capacity_health_preferred: "se prioriza el nivel de salud del cupo",
+    preferred_tool_unavailable: "la herramienta preferida no tiene margen", lower_pressure_preferred: "menor uso máximo entre ventanas con presión alta",
+    unknown_reading_selected: "lectura desconocida, preferida a un cupo alto", pinned_tool_exhausted: "cupo de la tarea fijada agotado",
     no_tool_fits: "ninguna herramienta apta tiene margen" };
   const reason = reasons[decision.reason] ?? "decisión de capacidad";
   return decision.action === "wait" ? `Esperar hasta ${decision.resumeAt}: ${reason}.` :

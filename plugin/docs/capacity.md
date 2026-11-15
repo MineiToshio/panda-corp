@@ -6,6 +6,29 @@ Role and deterministic risk choose a cell, independent of author and attempt. On
 use the other qualified tool; only neither fitting parks capacity, persisting `resumeAt` in run state and journal.
 Never ask the owner about quota. Review independence is a fresh context, including on the same model.
 
+## Stale observations and quota health (2026-11-14)
+
+A live failure routed design, ordinary work and security back to Claude at **95% weekly / 3% five-hour**
+while Codex's last passive weekly reading was **39%**, observed at `2026-11-14T21:38:18.672Z`, with reset
+`2026-11-19T17:21:18Z`. The real Claude payload has `plan.status:"ok"`, resets at
+`2026-11-15T00:40:00.302Z` / `2026-11-17T08:00:00.302Z`, and a separate Fable window (25%).
+The old TTL discarded Codex's usable lower bound and the selector preferred any known reading to unknown.
+
+The current policy below supersedes historical stale-as-unknown claims in the dated verification tables.
+`test-capacity.mjs` retains those exact quota envelopes at `2026-11-15T00:00:00Z`, including the old
+observation time, and exercises both the pure allocator and stdin CLI. Expected: design → Codex Sol high;
+implement/review/image → Codex Sol low; mechanical → Codex Luna low; critical/security → Codex Astra high.
+Claude 50% / stale Codex 39% retains design on Claude Opus high and implementation on Codex Sol low.
+No reading at all for Codex still beats Claude 95% for new eligible work.
+
+Verification for this correction: all ten requested suites (`test-capacity*.mjs`, `test-codex-worker*.mjs`,
+`test-build-v2-{routing,quota,conserve}.mjs`) pass: **608 passed, 0 failed**. The new policy expectations
+first produced 21 failures against the original allocator. Legacy stale-as-unknown assertions in quota
+and conserve were migrated to adjusted stale usage; their expired-reset/invalid controls remain.
+The live stdin CLI was also checked for design, implement, review, mechanical, critical/security and
+image: all returned the expected Codex cells. That later passive reading was already 40% fresh; the
+frozen real-envelope regression preserves the original stale 39% case. No commit or installed update.
+
 ## Independent review fixes on phase-3 HEAD (2026-11-14)
 
 Reviewed baseline: `2b92b55e` (`feat/capacity-allocator`), including phase 3; comparison main: `bc923770`.
@@ -196,15 +219,27 @@ a general inference from `plan_type:prolite`. Additional reported windows constr
 `scope:"model:<model>"` (or `model`) applies only to that cell.
 
 Normalized schema 1 has `tool`, `source`, `state`, `reason`, `observedAt`, `ageSeconds` and `windows` with
-`id`, `scope`, `applicability`, `percentUsed`, `resetsAt`, `state`, `reason` (except not-applicable windows).
+`id`, `scope`, `applicability`, `percentUsed`, `resetsAt`, `state`, `reason`, `safetyMarginPp` and
+`effectivePercentUsed` (except not-applicable windows).
 The file reader adds `file`. String instants require calendar-valid ISO dates and an explicit `Z` or offset;
 normalization emits UTC and ordering uses parsed milliseconds, never lexicographic strings.
-Missing/malformed/contradictory data, an expired reset, or age over 600s (Claude) / 3600s (Codex) gives
-`unknown`. Exact TTL boundaries are fresh; clock skew up to 30s in the future is tolerated. Reusing a
-normalized reading never refreshes its timestamp. An elapsed reset marks only that window unknown with
-`reset_pending_confirmation`, retaining its last percentage, never inventing 0%. Independent current windows
-still constrain admission even when the aggregate reading is unknown. Absent/stale readings remain a last resort.
-`readings_used` contains both readings, revalidated at dispatch.
+Age over 600s (Claude) / 3600s (Codex), with a valid future reset, gives **`stale`**, a known lower bound:
+usage can only rise before reset. Keep `percentUsed` unchanged and use
+`effectivePercentUsed = min(100, percentUsed + safetyMarginPp)` for both selection and fit.
+The margin is **+5 pp** after TTL through 24 hours of age, **+10 pp** after 24 hours; fresh readings use 0.
+These simple conservative estimates are not upper-bound guarantees against unobserved account usage.
+Exact TTL boundaries are fresh; clock skew up to 30s in the future is tolerated. Reassessing a snapshot
+recomputes the margin from its original percentage/time, never compounds it or refreshes `observedAt`;
+pre-fix `unknown/stale_reading` snapshots recover by the same rule. Confirmed `usage_limit` receipts keep
+blocking until reset, independently of TTL.
+
+Only missing/malformed/contradictory data or an elapsed reset gives `unknown`. An elapsed reset marks only
+that window `reset_pending_confirmation`, retaining its last percentage, never inventing 0%. Independent
+valid windows still constrain admission even when the aggregate reading is unknown. Unknown is usable for
+new work after healthy capacity and before high pressure. Stale readings cannot certify a subscription
+renewal: continuation still requires a fresh observation at/after reset. `readings_used` contains both
+readings with raw/effective usage and margin, revalidated at dispatch. The legacy quota adapter preserves
+`stale`, projects raw usage, and exposes margin-adjusted `effective().pct` without creating another policy.
 
 The rollout reader scans the last 256 KiB of **every** recursively discovered `rollout-*.jsonl` file,
 choosing the greatest valid event timestamp across the examined files and lines. One preceding byte
@@ -236,13 +271,22 @@ Model names are catalog keys, as in the existing router; dispatchers resolve exe
 
 Every new candidate must fit all its applicable windows after 2 pp emergency reserve per window. Ordinary
 Codex work additionally protects `min(8,max(2,imageDemandPp))` weekly pp for pending images; only images
-can use that reserve. No extra rollout penalty or 90% stop is added. These are estimated admission margins,
+can use that reserve. Apply the stale margin before these reserves and task costs. No 90% stop is added. These are estimated admission margins,
 not a guarantee against external account consumption or real cost error.
 
-Preference never causes a wait. Among candidates that fit, known applicable windows precede unknown readings.
-If both are unknown, use the preferred cell; an unknown tool is still usable if the healthy other tool
-cannot fit. With both healthy and fitting, any applicable preferred window **strictly over 85%** reverses
-tool order, including design. Exactly 85% preserves preference. No effort degradation is performed.
+Preference never causes a wait. Order qualified candidates by **healthy > unknown > high > exhausted**:
+healthy means every applicable required window is known/future-reset (fresh or stale) and its adjusted
+usage is **<85%**; high starts at **>=85%** in any valid applicable window, even if another is unknown.
+Exhausted means the cell cannot fit its costs and reserves; it is excluded. Thus a high tool cannot win
+over a fitting healthy or unknown alternative. Task preference only breaks ties within the same level;
+healthy and unknown ties retain normal preferences. There is no effort degradation.
+
+When both fitting tools are high, minimize the **maximum adjusted percentage across applicable windows**,
+then break an exact tie by task preference. This uses the smaller worst-window pressure as the simple
+exhaustion-risk estimate. Example: stale Codex 88% + 5 pp = 93% beats fresh Claude 95%, including design;
+if Codex is older than 24 hours, 88% + 10 pp = 98% cannot fit protected reserves, so Claude 95% wins if
+its qualified cell fits. Reset distance is not a throughput forecast and does not override this order.
+Explicit overrides and execution pins remain fixed as described below.
 
 `override` is `"claude"`, `"codex"` or `{tool,model?,effort?}` and fixes the tool. Optional model/effort must
 match the qualified task cell; an override cannot lower its risk floor or send images to Claude.
@@ -387,7 +431,7 @@ assertions remain active. No quota probe using a model is reintroduced.
 | Conserved builds stay with run label, including a conserved label tool | Label no longer pins tool selection; each new task follows role/risk and fitting capacity |
 | Conserved Claude-pinned audit waits/deferred until Claude recovers | Audit can use either qualified tool; both directions preserve critical floor |
 | BL-0322 mixed Sol+Astra authors → same_model Sol xhigh, park on unreachable, healthy Claude reviews | Current role/risk is independent of author set/order; no parked result while a qualified cell fits |
-| BL-0322 stale Claude at >=85 stays known until reset | TTL applies regardless of percentage; stale/reset/missing-reset/fresh controls are restored without sticky scarcity |
+| BL-0322 stale Claude at >=85 stays known until reset | Superseded by the stale-observation correction: all valid future-reset readings remain `stale` after TTL, with age-based margin; expired/missing resets remain unknown |
 
 ### Historical acceptance evidence
 

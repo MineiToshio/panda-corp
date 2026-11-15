@@ -678,7 +678,12 @@ function ConceptEquipo(): React.JSX.Element {
         El CLI registra los resultados y cerca las escrituras mediante lease y epoch. El cupo se
         comparte por cuenta: si una herramienta no tiene margen, las unidades nuevas pasan a la
         otra. Solo si ninguna puede trabajar se aparca el run con <Code>resumeAt</Code>. El lead
-        actualiza <Code>get_usage</Code> antes de cada ola; leer el cupo no lanza un modelo.
+        actualiza <Code>get_usage</Code> antes de cada ola; leer el cupo no lanza un modelo. Primero
+        se elige la cuenta sana (menos del 85 % en todas sus ventanas), después una sin lectura y
+        después una con uso alto. La preferencia por tarea desempata dentro de cada nivel; si ambas
+        están altas, gana la de menor uso máximo ajustado. Una lectura antigua con reinicio futuro
+        conserva su porcentaje más 5 puntos de margen, o 10 si supera 24 horas. Ese margen se aplica
+        también al comprobar las reservas; confirmar un reinicio exige una lectura fresca.
       </Body>
       <NotePanel icon="grid" iconColor="var(--violet)">
         <B weight={500}>En Mission Control,</B> La Fragua muestra a los agentes activos con sus

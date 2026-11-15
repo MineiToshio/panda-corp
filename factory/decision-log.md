@@ -1,5 +1,13 @@
 # Decision Log — Factory
 
+## 2026-11-14 — DR-162 clarification: stale bounds and health before preference
+
+Clarified [BUILD-11](standards/build-engine.md) and existing [DR-162](decisions/registry.yaml): valid
+future-reset old observations remain known as `stale`, with +5 pp margin (+10 pp after 24h). New work
+orders healthy > unknown > high >=85% > exhausted before role preference; both high use lower adjusted
+worst-window usage. This fixes the live Claude 95% / stale Codex 39% misallocation. Renewal still needs
+a fresh post-reset observation; risk floors, pins, overrides and reserves retain their safeguards.
+
 ## 2026-11-14 — Capacity policy references and native relay boundaries
 
 Crash recovery adopts a gated continuation runner under a recoverable mutex; capacity-parked reviews wake; native executions retain their capable coordinator atomically at transfer; audits require real reports and critical risk. Updated [capacity documentation](../../plugin/docs/capacity.md), CLI/role instructions, BUILD-10/11/14 references and the Manual to remove executable threshold, probe and N7 rules. Generator --check is read-only. No production/model qualification is implied.

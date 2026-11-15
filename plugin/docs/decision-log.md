@@ -1,5 +1,14 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-14 — Keep stale quota bounds and prioritize account health
+
+Fixed a live policy failure: Claude 95% weekly beat an old Codex 39% rollout because TTL meant unknown
+and any known reading won. [capacity.md](capacity.md) now defines `stale` with raw usage plus +5 pp
+(+10 pp after 24h), health ordering before task preference and lower worst-window usage when both are high.
+The [allocator](../runtime/capacity.mjs), legacy quota projection and real-envelope CLI regressions retain
+risk floors, reserves, pins, overrides and fresh reset confirmation. Clarified DR-162/BUILD-11 and the Manual.
+Plugin **10.11.4** (PATCH); manifests regenerated. No commit or installation update requested.
+
 ## 2026-11-14 — Recover watchdog ownership and finish drive policy reconciliation
 
 Resume now reconciles missing supervision even after sequence adoption, using exclusive per-sequence

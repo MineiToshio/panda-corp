@@ -34,6 +34,96 @@ const cell = (d, tool, model, effort) => {
   for (const key of ["tool", "model", "effort"]) assert.equal(d[key], d.pin[key]);
 };
 
+// Real quota envelopes observed on 2026-11-14, before this session renewed the rollout.
+const LIVE_NOW = "2026-11-15T00:00:00.000Z";
+const liveUsage = { plan: { status: "ok", plan: "Max", windows: [
+  { label: "5-hour limit", percentUsed: 3, resetsAt: "2026-11-15T00:40:00.302Z" },
+  { label: "Weekly · all models", percentUsed: 95, resetsAt: "2026-11-17T08:00:00.302Z" },
+  { label: "Weekly · Fable", percentUsed: 25, resetsAt: "2026-11-17T08:00:00.302Z" },
+], extraUsage: { enabled: false } } };
+const liveRollout = { timestamp: "2026-11-14T21:38:18.672Z", type: "event_msg", payload: {
+  type: "token_count", rate_limits: { limit_id: "codex", limit_name: null,
+    primary: { used_percent: 39, window_minutes: 10080, resets_at: 1795108878 }, secondary: null,
+    credits: { has_credits: false, unlimited: false, balance: "0" }, individual_limit: null,
+    spend_control_reached: null, plan_type: "prolite", rate_limit_reached_type: null },
+} };
+const liveReadings = () => ({ claude: mod.normalizeClaudeUsage(liveUsage, LIVE_NOW),
+  codex: mod.normalizeCodexRateLimits(liveRollout, LIVE_NOW) });
+const liveDecide = (type, rs = liveReadings(), extra = {}) => mod.decide({
+  task: { id: "live-regression", type, risk: "normal", ...extra }, readings: rs, now: LIVE_NOW,
+});
+for (const [type, risk, model, effort] of [
+  ["design", "normal", "sol", "high"], ["plan", "normal", "sol", "high"],
+  ["judgment", "normal", "sol", "high"], ["implement", "normal", "sol", "low"],
+  ["review", "normal", "sol", "low"], ["mechanical", "normal", "luna", "low"],
+  ["review", "critical", "astra", "high"], ["implement", "critical", "astra", "high"],
+  ["image", "normal", "sol", "low"],
+]) await test(`live 95% Claude / stale 39% Codex: ${type}/${risk} uses Codex ${model}/${effort}`, () => {
+  const rs = liveReadings();
+  assert.equal(rs.codex.state, "stale");
+  assert.equal(rs.codex.observedAt, liveRollout.timestamp);
+  const w = rs.codex.windows.find(w => w.id === "weekly");
+  assert.equal(w.percentUsed, 39); assert.equal(w.effectivePercentUsed, 44); assert.equal(w.safetyMarginPp, 5);
+  cell(liveDecide(type, rs, { risk }), "codex", model, effort);
+});
+await test("live stale Claude snapshot also retains weekly pressure and selects healthy Codex", () => {
+  const rs = liveReadings();
+  rs.claude = mod.normalizeClaudeUsage({ ...liveUsage, observedAt: "2026-11-14T23:00:00.000Z" }, LIVE_NOW);
+  assert.equal(rs.claude.state, "stale");
+  assert.equal(rs.claude.windows.find(w => w.id === "weekly").effectivePercentUsed, 100);
+  cell(liveDecide("design", rs), "codex", "sol", "high");
+});
+await test("both high: stale Codex 88+5 beats Claude 95 by lower worst-window pressure", () => {
+  const event = structuredClone(liveRollout); event.payload.rate_limits.primary.used_percent = 88;
+  const rs = { ...liveReadings(), codex: mod.normalizeCodexRateLimits(event, LIVE_NOW) };
+  cell(liveDecide("design", rs), "codex", "sol", "high");
+  cell(liveDecide("implement", rs), "codex", "sol", "low");
+  rs.codex.windows.find(w => w.id === "weekly").percentUsed = 91;
+  cell(liveDecide("implement", rs), "claude", "sonnet", "medium");
+  rs.codex.windows.find(w => w.id === "weekly").percentUsed = 90;
+  cell(liveDecide("design", rs), "claude", "opus", "high"); // equal pressure: normal preference
+  cell(liveDecide("implement", rs), "codex", "sol", "low");
+});
+await test("unknown Codex beats high Claude for all eligible non-image cells", () => {
+  for (const type of ["design", "implement", "review", "mechanical"]) {
+    assert.equal(liveDecide(type, { claude: liveReadings().claude }).tool, "codex");
+  }
+  cell(decide("implement", { codex: codex(95) }), "claude", "sonnet", "medium");
+});
+await test("Claude 50 and stale Codex 39 retain normal task preferences", () => {
+  const raw = structuredClone(liveUsage); raw.plan.windows[1].percentUsed = 50;
+  const rs = { ...liveReadings(), claude: mod.normalizeClaudeUsage(raw, LIVE_NOW) };
+  cell(liveDecide("design", rs), "claude", "opus", "high");
+  cell(liveDecide("implement", rs), "codex", "sol", "low");
+});
+await test("stale margins are +5 through 24h, +10 after, capped at 100 and never compounded", () => {
+  for (const [seconds, margin] of [[86400, 5], [86401, 10]]) {
+    const e = structuredClone(liveRollout); e.timestamp = new Date(Date.parse(LIVE_NOW) - seconds * 1000).toISOString();
+    const rs = { ...liveReadings(), codex: mod.normalizeCodexRateLimits(e, LIVE_NOW) };
+    const d = liveDecide("implement", rs), again = liveDecide("implement", d.readings_used);
+    const w = d.readings_used.codex.windows.find(w => w.id === "weekly");
+    assert.equal(w.percentUsed, 39); assert.equal(w.safetyMarginPp, margin); assert.equal(w.effectivePercentUsed, 39 + margin);
+    assert.deepEqual(again, d);
+    e.payload.rate_limits.primary.used_percent = 99;
+    assert.equal(mod.normalizeCodexRateLimits(e, LIVE_NOW).windows.find(w => w.id === "weekly").effectivePercentUsed, 100);
+  }
+});
+await test("stale margin drives pressure at 85 and fit reserves, not just display", () => {
+  const e = structuredClone(liveRollout); e.payload.rate_limits.primary.used_percent = 80;
+  const raw = structuredClone(liveUsage); raw.plan.windows[1].percentUsed = 50;
+  let rs = { claude: mod.normalizeClaudeUsage(raw, LIVE_NOW), codex: mod.normalizeCodexRateLimits(e, LIVE_NOW) };
+  cell(liveDecide("implement", rs), "claude", "sonnet", "medium");
+  e.payload.rate_limits.primary.used_percent = 88;
+  e.timestamp = "2026-11-13T23:59:59.000Z";
+  rs = { ...liveReadings(), codex: mod.normalizeCodexRateLimits(e, LIVE_NOW) };
+  cell(liveDecide("design", rs), "claude", "opus", "high"); // 98% cannot spend emergency/image reserves
+  assert.equal(liveDecide("image", rs).action, "wait");
+});
+await test("cached pre-fix stale_reading snapshots are reassessed using the original timestamp", () => {
+  const r = liveReadings().codex; r.state = "unknown"; r.reason = "stale_reading";
+  cell(liveDecide("design", { ...liveReadings(), codex: r }), "codex", "sol", "high");
+});
+
 await test("today: design, implementation, security and images use the specified Codex cells", () => {
   const rs = readings(94, 30);
   cell(decide("design", rs), "codex", "sol", "high");
@@ -67,8 +157,9 @@ await test("risk is a transversal floor even for mechanical work", () => {
   cell(decide("review", readings(20, 100), { risk: "delicate" }), "claude", "sonnet", "medium");
   cell(decide("mechanical", readings(20, 100), { risk: "critical" }), "claude", "opus", "high");
 });
-await test("85 exactly preserves preference, pressure in either window switches at >85", () => {
-  cell(decide("design", readings(85, 20)), "claude", "opus", "high");
+await test("pressure starts at 85 inclusive in every applicable window", () => {
+  cell(decide("design", readings(84.999, 20)), "claude", "opus", "high");
+  cell(decide("design", readings(85, 20)), "codex", "sol", "high");
   cell(decide("design", readings(85.001, 20)), "codex", "sol", "high");
   cell(decide("design", readings(20, 20, 86)), "codex", "sol", "high");
   cell(decide("implement", readings(20, 86)), "claude", "sonnet", "medium");
@@ -77,17 +168,18 @@ await test("pressure never waits while the preferred tool still fits", () => {
   cell(decide("design", readings(94, 100)), "claude", "opus", "high");
   cell(decide("implement", readings(100, 90)), "codex", "sol", "low");
 });
-await test("Codex stale at 3601s is unknown and healthy Claude wins", () => {
+await test("Codex stale at 3601s remains known with margin and keeps implementation preference", () => {
   const event = structuredClone(fixture); event.timestamp = new Date(ms - 3601000).toISOString();
   const r = mod.normalizeCodexRateLimits(event, NOW);
-  assert.equal(r.state, "unknown"); assert.equal(r.ageSeconds, 3601);
-  cell(decide("implement", { ...readings(), codex: r }), "claude", "sonnet", "medium");
+  assert.equal(r.state, "stale"); assert.equal(r.ageSeconds, 3601);
+  assert.equal(r.windows.find(w => w.id === "weekly").effectivePercentUsed, 35);
+  cell(decide("implement", { ...readings(), codex: r }), "codex", "sol", "low");
 });
 await test("freshness TTLs are inclusive and cached known readings are revalidated", () => {
   const raw = { ...usage(), observedAt: new Date(ms - 600000).toISOString() };
   assert.equal(mod.normalizeClaudeUsage(raw, NOW).state, "known");
   raw.observedAt = new Date(ms - 601000).toISOString();
-  assert.equal(mod.normalizeClaudeUsage(raw, NOW).state, "unknown");
+  assert.equal(mod.normalizeClaudeUsage(raw, NOW).state, "stale");
   const event = structuredClone(fixture); event.timestamp = new Date(ms - 3600000).toISOString();
   assert.equal(mod.normalizeCodexRateLimits(event, NOW).state, "known");
   cell(decide("implement", readings(), {}, { now: new Date(ms + 3601000).toISOString() }), "codex", "sol", "low");
@@ -103,8 +195,8 @@ await test("missing/both unknown readings continue on the preferred tool", () =>
 await test("an unknown tool remains a last resort when the known tool cannot fit", () => {
   cell(decide("implement", { claude: null, codex: codex(100) }), "claude", "sonnet", "medium");
 });
-await test("old high percentages cannot reorder two unknown tools", () => {
-  cell(decide("design", readings(94, 100), {}, { now: new Date(ms + 3601000).toISOString() }), "claude", "opus", "high");
+await test("old high readings retain constraints and can wait when the other tool cannot fit", () => {
+  assert.equal(decide("design", readings(94, 100), {}, { now: new Date(ms + 3601000).toISOString() }).action, "wait");
 });
 await test("contradictory/invalid inputs are unknown, never fake zero or a quota wait", () => {
   const raw = usage(); raw.plan.windows.push({ label: "Weekly · all models", percentUsed: 99, resetsAt: CW });
@@ -273,8 +365,24 @@ await test("R10: image and images default omitted risk to normal", () => {
 });
 
 const sandboxRoot = fileURLToPath(new URL("../../", import.meta.url));
-const dir = await mkdtemp(path.join(sandboxRoot, ".capacity-test-"));
+const dir = await mkdtemp(path.join(process.env.PANDACORP_TEST_TMP || sandboxRoot, ".capacity-test-"));
 try {
+  await test("live CLI consumes the real usage payload and stale weekly-only rollout", async () => {
+    const home = path.join(dir, "live-cli"), sessions = path.join(home, "sessions");
+    await mkdir(sessions, { recursive: true });
+    await writeFile(path.join(sessions, "rollout-live.jsonl"), JSON.stringify(liveRollout) + "\n");
+    const cli = fileURLToPath(new URL("../runtime/capacity-cli.mjs", import.meta.url));
+    for (const [type, risk, model, effort] of [["design", "normal", "sol", "high"],
+      ["implement", "normal", "sol", "low"], ["review", "normal", "sol", "low"],
+      ["mechanical", "normal", "luna", "low"], ["review", "critical", "astra", "high"],
+      ["image", "normal", "sol", "low"]]) {
+      const r = spawnSync(process.execPath, [cli, "decide", "--task", JSON.stringify({ id: "x", type, risk }), "--claude-usage-stdin"], {
+        input: JSON.stringify(liveUsage), encoding: "utf8", env: { ...process.env, CODEX_HOME: home,
+          PANDACORP_CAPACITY_DIR: path.join(dir, "live-account"), PANDACORP_NOW: LIVE_NOW },
+      });
+      assert.equal(r.status, 0, r.stderr); cell(JSON.parse(r.stdout), "codex", model, effort);
+    }
+  });
   await test("R5: empty/malformed Claude telemetry stays unknown; CLI still decides", async () => {
     const cli = fileURLToPath(new URL("../runtime/capacity-cli.mjs", import.meta.url));
     for (const input of ["", "{bad"]) {

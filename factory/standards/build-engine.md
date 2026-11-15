@@ -385,13 +385,21 @@ Whole per-provider snapshots use unique temporary files, atomic rename and mode 
 shared read-modify-write document. Per-project `quota.json` is a compatibility projection, never authoritative.
 The lead calls Desktop `get_usage` at startup and before each wave and passes the unchanged JSON on stdin to
 `node plugin/runtime/capacity-cli.mjs ingest-claude`. Without that tool the stored reading is used honestly;
-missing, stale or invalid telemetry is unknown, never fabricated zero. No model runs to read quota.
+missing, expired-reset or invalid telemetry is unknown, never fabricated zero. After 600s (Claude) / 3600s
+(Codex), valid future-reset observations are `stale`, retaining a known lower bound. Adjust raw usage by
++5 pp through 24h of age, +10 pp after 24h, capped at 100; recompute without accumulating the margin.
+No model runs to read quota.
 Codex comes from passive rollout tails; both readers preserve observation times and applicable windows.
 
 All new work delegates fit, emergency/image reserves, preference and unknown handling to `decide()`;
 there is no separate 85/90/95 veto, conserve rule, automatic Astra escalation or quota-triggered drive handoff.
-Known healthy readings precede unknown readings; unknown remains usable as a last resort. Existing pins hold
-until an execution completes. A real usage limit is retained account-wide until reset or a newer observation;
+For fitting qualified cells, quota health precedes task preference: healthy (every applicable window
+<85% after margin, fresh or stale) > unknown > high (any valid applicable window >=85%) > exhausted
+(cost/reserves cannot fit). A known high window still constrains a cell with another unknown window.
+Among fitting high tools choose the lower maximum adjusted usage, then task preference on an exact tie.
+Thus stale Codex 88+5=93% beats Claude 95%; at age >24h its 98% cannot fit reserves and Claude may win.
+Task preference breaks ties within a level; pins and explicit overrides retain their fixed qualified cell.
+Existing pins hold until an execution completes. A real usage limit is retained account-wide until reset or a newer observation;
 transient rate limits remain distinct and do not mark the account exhausted.
 
 Every dispatched decision and capacity wait is JSONL with task id/type/risk, selected cell, reason and
@@ -410,7 +418,7 @@ When all work waits, drive sleeps until resumeAt+60s in lease-renewing chunks an
 accounts. The open Claude lead instead sets ScheduleWakeup at that instant, re-ingests Desktop
 get_usage and calls start --resume --coordinator claude --wake-generation N. No duplicate CronCreate
 job. A single conditional waiting→resuming claim under the lease mutex fences drive, lead and manual
-wakes; generation/epoch/pid permit stale-wake rejection and dead-claim recovery. Unknown telemetry
+wakes; generation/epoch/pid permit stale-wake rejection and dead-claim recovery. Stale or unknown telemetry
 never confirms reset: reread after 60/120/240/480/900 seconds until a newer healthy observation exists.
 Native-agent receipts use the fenced suspend command with their exact Agent resume id. CLI workers
 resume their saved provider session and continuation sequence without resetting or preparing the tree.

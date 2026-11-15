@@ -86,7 +86,7 @@ export function capacityReading(reading, provider, now) {
     plan: { windows: [ { label: "5-hour limit", percentUsed: reading?.five_hour_pct, resetsAt: reading?.five_hour_resets_at },
       { label: "Weekly · all models", percentUsed: reading?.weekly_pct, resetsAt: reading?.weekly_resets_at } ] } }, now);
   return normalizeCodexRateLimits({ type: "event_msg", timestamp: reading?.observed_at,
-    payload: { type: "token_count", rate_limits: reading?.state === "known" ? { primary: { used_percent: reading.used_percent,
+    payload: { type: "token_count", rate_limits: ["known", "stale"].includes(reading?.state) ? { primary: { used_percent: reading.used_percent,
       window_minutes: reading.window_minutes, resets_at: reading.resets_at } } : null } }, now);
 }
 function legacy(reading) {
@@ -94,14 +94,14 @@ function legacy(reading) {
   const wins = reading.windows.filter(w => w.scope === "all" && w.applicability === "required");
   if (reading.tool === "claude") {
     const w = id => wins.find(w => w.id === id);
-    return { provider: "claude", status: reading.state === "known" ? "ok" : "unavailable",
+    return { provider: "claude", status: ["known", "stale"].includes(reading.state) ? "ok" : "unavailable",
       five_hour_pct: w("five_hour")?.percentUsed ?? null, weekly_pct: w("weekly")?.percentUsed ?? null,
       five_hour_resets_at: w("five_hour")?.resetsAt ?? null, weekly_resets_at: w("weekly")?.resetsAt ?? null,
       observed_at: reading.observedAt, capacity: reading };
   }
   const binding = wins.reduce((a, w) => !a || w.percentUsed > a.percentUsed ? w : a, null);
   return { provider: "codex", state: reading.state, reason: reading.reason,
-    used_percent: reading.state === "known" ? binding?.percentUsed ?? null : null,
+    used_percent: ["known", "stale"].includes(reading.state) ? binding?.percentUsed ?? null : null,
     window_minutes: binding?.id === "weekly" ? 10080 : 300, resets_at: binding?.resetsAt ?? null,
     credits: null, source: reading.source === "usage_limit" ? "limit" : "rollout", observed_at: reading.observedAt,
     file: reading.file ?? null, capacity: reading };
@@ -148,8 +148,8 @@ export function effective(reading, now, { deps } = {}) {
   const ms = resolveNow(now, deps), r = capacityReading(reading, reading?.provider ?? reading?.tool, ms);
   const d = decide({ task: { id: "effective", type: "implement", risk: "normal" }, readings: { [r.tool]: r }, now: ms });
   const used = d.readings_used[r.tool];
-  const pcts = used?.windows.filter(w => w.scope === "all" && w.applicability === "required").map(w => w.percentUsed) ?? [];
-  return { pct: used?.state === "known" && pcts.length ? Math.max(...pcts) : null, state: used?.state ?? "unknown", needs_probe: false };
+  const pcts = used?.windows.filter(w => w.scope === "all" && w.applicability === "required").map(w => w.effectivePercentUsed) ?? [];
+  return { pct: ["known", "stale"].includes(used?.state) && pcts.length ? Math.max(...pcts) : null, state: used?.state ?? "unknown", needs_probe: false };
 }
 export function resetsAtOf(reading) {
   if (!reading) return null;
