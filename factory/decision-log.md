@@ -1,5 +1,16 @@
 # Decision Log — Factory
 
+## 2026-11-14 — Correct incremental visual-source hand-off and independence (P9 H1–H4)
+
+Independent review reproduced missing standalone deltas, divergent planner/brief evidence, FRD-only
+UI escaping design and card-wide visual dependencies holding backend. Clarified DR-163 without a new
+owner decision: the conversation commits standalone documentation before a run, whose start pins and
+validates that source; design does not commit. PM then architect plan WOs before per-UI designer
+prerequisites. Explicit WO UI overrides current FRD UI, then artifacts; card UI is never unit UI.
+One checked resolver feeds planner and brief. Canonical: [BUILD-8](standards/build-engine.md),
+[design](standards/design.md), [documentation](standards/documentation.md), registry DR-163 and guide.
+Plugin PATCH 10.13.1; overlay 9.4.1. Permanent P9 probes cover the four regressions and source checkout bounds.
+
 ## 2026-11-14 — Conversation routing and incremental design (DR-163)
 
 The owner chose refined option B: the conversation routes independent skills and honors an explicit

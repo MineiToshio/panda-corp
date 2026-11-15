@@ -3,6 +3,7 @@ import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { initializeAdmission, readDiskFreeGib } from "../admission.mjs";
 import { changePreparationUnits } from "../incremental.mjs";
+import { assertDesignHandoff } from "../visual-source.mjs";
 import { initializePerformance, startRecommendation } from "../perf.mjs";
 import { applyStartAnswers, readAnswersArg, readQuestions } from "../answers.mjs";
 import { buildingCardAction, cardCheckCommand, markCardBuilding, readCard, resetCardReady } from "../card.mjs";
@@ -86,6 +87,9 @@ export async function startRun(input, deps = {}) {
     if (!check.ok) throw err("INVALID_INPUT", `card ${scope.card} failed card check: ${check.errors.join("; ")}`, { errors: check.errors });
   }
 
+  const sourceCard = scope.card ? await readCard(project, scope.card, { where: "any" }, d) : null;
+  const designBase = await assertDesignHandoff(project, sourceCard, d);
+
   if ((await bs.currentLease(project)) && !((await readJson(p.stateFile).catch(() => null))?.status === "active")) throw err("CONTENDED", "the lease is held; use `stop --dead --owner-confirmed` when its owner is dead");
   const prepush = await ensurePrePush(project, det.signals.launched === true);
   await clearBuildDir(project, p, d);
@@ -95,9 +99,10 @@ export async function startRun(input, deps = {}) {
   const branch = p.integrationBranch(runId);
   const ctx = { project, p, runId, lease, branch, worktree: p.integrationWorktree, markedCard: null };
   try {
-    const created = await createIntegrationWorktree({ project, runId }, d);
+    const created = await createIntegrationWorktree({ project, runId, ...(designBase ? { baseRef: designBase } : {}) }, d);
     const prefix = await productPrefix(project, d);
     const root = path.resolve(productRoot(created.worktree, prefix));
+    if (designBase) await assertDesignHandoff(root, sourceCard, d, designBase);
     const taken = await takeCard(project, runId, scope, lease, d);
     ctx.markedCard = taken.marked ? scope.card : null;
 

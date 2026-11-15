@@ -8,13 +8,13 @@ import { staticZones } from "../risk.mjs";
 import { depsOf, readStateLoose, shapeOf } from "./common.mjs";
 
 export async function planInput({ root, project = root, state, scope, questions, cardType, params }, d) {
-  const read = await readPlanWorkOrders(root, d);
   const design = scope?.card ? await readCard(project, scope.card, { where: "any" }, d) : null;
+  const read = await readPlanWorkOrders(root, { ...d, design, units: state?.units });
   const wos = await staticZones(read.wos, root, d.riskDeps ?? {});
   return {
     read,
     input: {
-      design, wos, frd_acs: read.frd_acs, scope, units: state?.units ?? [], label: state?.label ?? "claude", size: state?.size ?? "feature",
+      design, visual_files: read.visual_files, wos, frd_acs: read.frd_acs, scope, units: state?.units ?? [], label: state?.label ?? "claude", size: state?.size ?? "feature",
       questions, card_type: cardType ?? null, shape: state ? shapeOf(state) : undefined, coordinator: state?.coordinator, session_model: params?.sessionModel ?? null,
     },
   };

@@ -2,7 +2,8 @@
 import { designPaths, hasDesignSource } from "../incremental.mjs";
 import { maxComplexity } from "../../complexity.mjs";
 import { newUnit } from "../state.mjs";
-import { CHAIN_MAX, maxZone, naturalCompare, norm, uniq } from "./common.mjs";
+import { CHAIN_MAX, UNIT_DONE, maxZone, naturalCompare, norm, uniq } from "./common.mjs";
+import { designerMatches } from "../visual-source.mjs";
 import { routeCell, unitArtifacts } from "./model.mjs";
 import { depsMet, isIntegrated, plannable } from "./readiness.mjs";
 
@@ -27,6 +28,7 @@ export function formChains(m, sim) {
       if (opened.length !== 1) { cut = opened.length ? "fan_out" : "end"; break; }
       const next = opened[0];
       if (next.frd !== head.frd) cut = "frd_change";
+      else if (next.ui !== head.ui) cut = "ui_change";
       else if (next.barrier) cut = "barrier";
       else if (m.cellKeyOf(next) !== m.cellKeyOf(head)) cut = "cell_change";
       else if (m.answerOf.get(next.id) !== m.answerOf.get(head.id)) cut = "answer_change";
@@ -83,10 +85,12 @@ export function makeUnits(m, sim, { nodes: chain, cut }) {
   };
   const missingDesign = chain.filter(n => n.ui && !hasDesignSource(n));
   if (missingDesign.length) {
-    const existing = m.units.find(u => u.kind === "docs" && u.role === "designer" && (!u.frd || u.frd === head.frd)
-      && (!(u.wos ?? []).length || missingDesign.every(n => u.wos.map(norm).includes(n.id))));
-    const designId = existing?.id ?? `u-design-${head.id}`;
+    const existing = m.units.find(u => !UNIT_DONE.has(u.state) && missingDesign.every(n => designerMatches(u, n)));
+    let designId = existing?.id ?? `u-design-${head.id}`;
+    // A previously completed design whose files disappeared is not proof of a usable source.
+    if (!existing && m.unitById.has(designId)) designId += `-restore-${m.units.length}`;
     if (!existing) mk(newUnit({ id: designId, kind: "docs", role: "designer", ...common,
+      wos: missingDesign.map(n => n.id),
       ui: true, design_source: "pending", design_refs: designPaths(head.frd, head.id), depends_on: [...upstream] }), "docs", "UI requires a lightweight design delta before construction");
     upstream.push(designId);
   }

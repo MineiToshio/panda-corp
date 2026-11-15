@@ -11,17 +11,15 @@ export const designPaths = (frd, key) => {
   const base = frd ? `docs/frds/${frd}` : `docs/design/changes/${key}`;
   return [`${base}/fdd.md`, `${base}/mocks/${key}.html`];
 };
-export const workOrderHasUi = (wo) => wo.ui === true || (wo.artifacts ?? []).some(p => /\.(?:tsx|jsx|vue|svelte|html|css|scss)$|(?:^|\/)(?:pages?|views?|components)\//i.test(p));
+export const workOrderHasUi = (wo) => typeof wo.ui === "boolean" ? wo.ui : typeof wo.frd_ui === "boolean" ? wo.frd_ui
+  : (wo.artifacts ?? []).some(p => /\.(?:tsx|jsx|vue|svelte|html|css|scss)$|(?:^|\/)(?:app|pages?|views?|components)\//i.test(p));
 
 /** One writer at a time. The architect owns the final WO handoff, never a generic implementation worker. */
 export function changePreparationUnits(card, slug) {
   const frd = card?.frd || null;
   const product = newUnit({ id: `u-product-${slug}`, kind: "docs", role: "product-manager", frd });
   const units = [product];
-  if (card?.ui === true && !hasDesignSource(card)) units.push(newUnit({
-    id: `u-design-${slug}`, kind: "docs", role: "designer", frd, ui: true, design_source: "pending",
-    design_refs: designPaths(frd, slug), depends_on: [product.id],
-  }));
+  // Plan the WOs before visual prerequisites: only their UI slices may depend on a designer.
   units.push(newUnit({ id: `u-docs-${slug}`, kind: "docs", role: "architect", frd, depends_on: [units.at(-1).id] }));
   return units;
 }

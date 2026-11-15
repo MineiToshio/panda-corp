@@ -26,4 +26,3 @@ healthy observation retries reads after 60/120/240/480/900 seconds. Never ask fo
 One optional Spanish line only: "Cupo agotado; guardé el trabajo y retomaré automáticamente." All
 suspension/wait/wake/resume details belong in `capacity-decisions.jsonl`, never in chat. If ScheduleWakeup
 is unavailable, keep the attended `next` loop renewing the lease; do not claim a timer was installed.
-

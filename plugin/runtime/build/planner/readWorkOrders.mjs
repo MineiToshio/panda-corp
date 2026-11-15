@@ -4,6 +4,7 @@ import { workOrderComplexity } from "../../complexity.mjs";
 import { frontmatterList, parseYamlSubset, resolveDeps, splitFrontmatter } from "../card.mjs";
 import { naturalCompare, norm } from "./common.mjs";
 import { extractAcIds } from "./pathRules.mjs";
+import { readVisualFiles } from "../visual-source.mjs";
 
 /**
  * Read every work order under `<root>/docs/frds/<frd>/work-orders/` into planner nodes, plus the AC ids each `frd.md` defines.
@@ -28,6 +29,9 @@ export async function readPlanWorkOrders(root, deps = {}) {
     const frdName = frd.toLowerCase();
     const text = deps.readFrd ? await deps.readFrd(frd) : await fs.readFile(path.join(base, frd, "frd.md"), "utf8").catch(() => null);
     if (text !== null) frdAcs[frdName] = extractAcIds(text);
+    // readFrd can point to the base revision for RED-first ACs. UI classification uses the current canonical FRD.
+    const current = await fs.readFile(path.join(base, frd, "frd.md"), "utf8").catch(() => "");
+    const frdData = parseYamlSubset(splitFrontmatter(current)?.fm ?? "").data;
     const fdd = `docs/frds/${frd}/fdd.md`;
     const hasFdd = Boolean((await fs.readFile(path.join(root, fdd), "utf8").catch(() => "")).trim());
     let names;
@@ -51,7 +55,8 @@ export async function readPlanWorkOrders(root, deps = {}) {
       try { complexity = workOrderComplexity(metadata); }
       catch (error) { errors.push({ file, reason: error.message }); continue; }
       wos.push({
-        ui: data.ui, design_source: data.design_source ?? (hasFdd ? "existing" : "pending"),
+        ui: data.ui, frd_ui: frdData.ui, design_inferred: !data.design_source,
+        design_source: data.design_source ?? (hasFdd ? "existing" : "pending"),
         design_refs: data.design_refs ? frontmatterList(data.design_refs) : hasFdd ? [fdd] : [],
         complexity, difficulty: data.difficulty,
         id, frd: frdName, file, status, deps: frontmatterList(data.dependsOn ?? data.depends_on).map(norm),
@@ -61,5 +66,6 @@ export async function readPlanWorkOrders(root, deps = {}) {
       });
     }
   }
-  return { wos, frds: frds.map((f) => f.toLowerCase()), frd_acs: frdAcs, errors };
+  const visual_files = await readVisualFiles(root, { wos, card: deps.design, units: deps.units }, deps);
+  return { wos, frds: frds.map((f) => f.toLowerCase()), frd_acs: frdAcs, errors, visual_files };
 }

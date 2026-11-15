@@ -46,6 +46,8 @@ at least 90 s (Claude Code Bash `timeout: 90000`).
 
 ## 2. Step 0: project, label, session facts
 
+Before this run protocol starts, the conversation must hand off standalone design artifacts through a scoped documentation commit in the source checkout. Every file in an agreed/existing card’s `design_refs` must be nonempty and identical to the committed revision. `start` checks and pins that revision before creating integration. This pre-run hand-off is not permission for design or a worker to commit, nor for a conversation to change tracked source files during a live run.
+
 1. **Project.** `.pandacorp/status.yaml` missing → stop and say (Spanish) the folder is not a factory project yet
    (adoption or product prerequisites returned to the conversation). `overlay_version` behind the plugin → return upgrade routing to the conversation (DR-048), never invoke another skill here.
 2. **Label** (provenance: `claude` or `codex`), precedence: **explicit word in the arguments** > **orchestrate flag**
@@ -80,10 +82,12 @@ Write a card **only** if, in THIS conversation, the owner described or accepted 
 4. "Anótalo para después" (not "impleméntalo") → write the same card with `status: draft`, `card check` it, tell the
    owner its slug, and stop. No build.
 
-The docs this card needs are written by sequential specialist `docs` units on `lane/<run_id>/integration`:
-`product-manager` for FRD/ACs, optional `designer` for pending lightweight design, then `architect` for
-blueprint/ADR/model and the work-orders contract (`incremental.md`). Agreed/existing design skips the
-designer; no-UI changes skip it too. The CLI commits these deltas, never the session or `main`.
+The docs this card needs are written by specialist `docs` units on `lane/<run_id>/integration`:
+`product-manager` prepares FRD/ACs, then `architect` prepares blueprint/ADR/model and the work-orders
+contract (`incremental.md`). Once that plan integrates, the planner schedules lightweight `designer`
+units only for UI WOs without an available visual source. Backend work proceeds independently;
+agreed/existing design and no-UI WOs need no designer. During the run the CLI commits these deltas,
+never the session or `main`.
 
 ## 4. Step 2: detect
 

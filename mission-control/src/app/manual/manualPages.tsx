@@ -2703,8 +2703,10 @@ function GuideCambio(): React.JSX.Element {
             <B>UI sin diseño y «encárgate de todo»:</B> el agente hace primero diseño ligero y luego
             implementación. Reutiliza tokens y <Code>DESIGN.md</Code>, entrega solo el delta de FDD
             y mock de la pieza y registra su decisión como reversible. No espera aprobación visual:
-            puedes iterar después. Si falta la fuente al entrar al run, un diseñador la prepara
-            antes de construir esa UI; el resto puede continuar.
+            puedes iterar después. Antes de iniciar el run, la conversación guarda ese delta en un
+            commit documental del checkout fuente; design no hace commits. El motor comprueba que
+            los archivos coinciden con esa revisión y están presentes en su copia de construcción.
+            Durante un run activo, el diseñador entrega los cambios por el informe de su unidad.
           </li>
           <li>
             <B>Cambio sin UI:</B> va directo a implementación, sin paso de diseño.
@@ -2718,7 +2720,10 @@ function GuideCambio(): React.JSX.Element {
           <li>
             <B>Documentación por especialistas:</B> producto prepara FRD y criterios de aceptación;
             arquitectura prepara blueprint, ADR, modelo y órdenes de trabajo. El diseñador solo
-            completa el diseño que falta. Quien programa sigue esa fuente visual.
+            completa el diseño que falta después de planificar las unidades. Cada orden conserva su
+            clasificación de UI o backend: una tarjeta mixta no convierte todo en UI. El backend
+            independiente avanza mientras se diseña la UI pendiente. El planificador y quien
+            programa reciben las mismas referencias visuales, comprobadas en su checkout.
           </li>
           <li>
             <B>Trabajo directo:</B> puedes pedir «hazlo directo sin Pandacorp». El agente respeta

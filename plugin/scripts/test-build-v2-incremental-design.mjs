@@ -35,10 +35,10 @@ await test("card design_source records citations and rejects an unsupported or u
   assert.equal(checkCardText(renderCard(card({ ui: false, design_source: "pending" }))).ok, false);
   assert.equal(checkCardText(renderCard(card({ ui: false, design_source: "not-applicable" }))).ok, true);
 });
-await test("docs preparation uses serial product-manager, designer and architect units with planning capacity", () => {
+await test("docs preparation plans with product-manager and architect before per-UI designer prerequisites", () => {
   const units = changePreparationUnits({ ...card(), frd: FRD }, CARD);
-  assert.deepEqual(units.map(u => u.role), ["product-manager", "designer", "architect"]);
-  assert.deepEqual(units[1].depends_on, [units[0].id]); assert.deepEqual(units[2].depends_on, [units[1].id]);
+  assert.deepEqual(units.map(u => u.role), ["product-manager", "architect"]);
+  assert.deepEqual(units[1].depends_on, [units[0].id]);
   for (const u of units) { assert.equal(capacityTaskForUnit(u).type, "design"); assert.equal(agentTypeForUnit(u), `pandacorp:${u.role}`); }
   assert.deepEqual(changePreparationUnits(card({ design_source: "agreed", design_refs: ["owner citation"] }), CARD).map(u => u.role), ["product-manager", "architect"]);
   assert.deepEqual(changePreparationUnits(card({ ui: false, design_source: "not-applicable" }), CARD).map(u => u.role), ["product-manager", "architect"]);
@@ -53,15 +53,15 @@ await test("UI WO without source receives lightweight design before build while 
 });
 await test("agreed conversation design and existing artifacts bypass redesign even for inferred UI", () => {
   for (const source of ["agreed", "existing"]) {
-    const result = plan({ wos: [wo()], scope, design: { ui: true, design_source: source, design_refs: [source === "agreed" ? "owner message 4" : `docs/frds/${FRD}/fdd.md`] } });
+    const result = plan({ wos: [wo()], scope, visual_files: { [`docs/frds/${FRD}/fdd.md`]: true }, design: { ui: true, design_source: source, design_refs: [source === "agreed" ? "owner message 4" : `docs/frds/${FRD}/fdd.md`] } });
     assert.ok(!result.units.some(u => u.role === "designer")); assert.ok(result.round.includes("u-build-wo-01-001"));
   }
 });
 await test("pending card design is not mistaken for an old FDD, completed designer is reused", () => {
-  const input = { wos: [wo({ design_source: "existing", design_refs: ["old/fdd.md"] })], scope, design: card() };
+  const input = { wos: [wo({ design_source: "existing", design_refs: ["old/fdd.md"], design_inferred: true })], scope, design: card(), visual_files: { "old/fdd.md": true } };
   assert.ok(plan(input).units.some(u => u.role === "designer"));
   const designer = newUnit({ id: `u-design-${CARD}`, kind: "docs", role: "designer", frd: FRD, state: "integrated", design_refs: designPaths(FRD, CARD) });
-  assert.ok(!plan({ ...input, units: [designer] }).units.some(u => u.role === "designer"));
+  assert.ok(!plan({ ...input, units: [designer], visual_files: Object.fromEntries(designer.design_refs.map(ref => [ref, true])) }).units.some(u => u.role === "designer"));
 });
 
 const withFixture = async (fn) => {
@@ -198,7 +198,7 @@ await test("real CLI pending UI integrates lightweight designer before dispatchi
     assert.ok(before.units.some(u => u.kind === "build")); assert.ok(before.units.some(u => u.id.startsWith("u-design-")));
     cli(["start", "--preflight", "--row", String(detected.row), "--scope-json", scopeFile, "--label", "claude", "--session-model", "sonnet", "--probe-codex"]);
     started = cli(["start", "--run", "--scope-json", scopeFile, "--label", "claude", "--coordinator", "claude", "--session-model", "sonnet"]);
-    const state = await readState(fx.root, { env }); assert.deepEqual(state.units.map(u => u.role), ["product-manager", "designer", "architect"]);
+    const state = await readState(fx.root, { env }); assert.deepEqual(state.units.map(u => u.role), ["product-manager", "architect"]);
     let built = false;
     for (let attempt = 0; attempt < 30 && !built; attempt++) {
       const action = cli(["next", "--epoch", String(started.epoch)]);

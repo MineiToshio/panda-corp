@@ -1,5 +1,17 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-14 — Repair incremental visual-source transport and per-WO dependencies (P9)
+
+Standalone design returns its delta to the conversation for a scoped source documentation commit before
+start; start checks nonempty identical committed files, pins integration and checks again. No design
+or worker bypasses report during a live run. A shared resolver supplies checked effective sources to
+planner and brief, including designer output outside an FRD. WO UI takes precedence over current FRD
+UI and artifact inference; the card no longer turns backend into UI. PM and architect plan first,
+then only UI WOs missing evidence get designer prerequisites; chains cut at UI boundaries. Restoring
+missing designer files cannot reuse a completed unit as proof. Fixed the shared-capacity final blank
+line. Canonical: runtime/build/visual-source.mjs, planner, units/brief.mjs, incremental design/implement
+references, guide template and [CLI contract](build-engine-cli.md). PATCH 10.13.1; overlay 9.4.1.
+
 ## 2026-11-14 — Lightweight design and specialist incremental planning (DR-163)
 
 Added lightweight design alongside full mode, preserving existing DESIGN.md/tokens and writing only the

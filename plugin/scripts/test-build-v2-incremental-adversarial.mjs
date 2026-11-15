@@ -20,11 +20,10 @@ test('missing UI provenance is detected from WO despite non-UI card', () => {
   assert.ok(result.units.find(u => u.kind === 'build').depends_on.includes(designer.id));
   assert.equal(result.deadlock, null);
 });
-test('pending card serializes PM, designer, architect', () => {
+test('pending card serializes PM and architect before scoped designer planning', () => {
   const units = changePreparationUnits({ ui: true, design_source: 'pending' }, 'change');
-  assert.deepEqual(units.map(u => u.role), ['product-manager', 'designer', 'architect']);
+  assert.deepEqual(units.map(u => u.role), ['product-manager', 'architect']);
   assert.deepEqual(units[1].depends_on, [units[0].id]);
-  assert.deepEqual(units[2].depends_on, [units[1].id]);
 });
 test('independent backend work runs while missing UI design is prepared', () => {
   const data = input();

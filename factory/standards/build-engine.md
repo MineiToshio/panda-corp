@@ -168,9 +168,11 @@ card to `ready` with a note; on discard, the next `implement` offers in one line
 
 **Docs before code (D17).** A card-scoped run starts a sequence of `docs` units on
 `lane/<run_id>/integration`, routed as planning/design per BUILD-10. `product-manager` prepares
-FRD/EARS AC deltas; an optional `designer` prepares missing UI design; `architect` prepares
+FRD/EARS AC deltas; `architect` then prepares
 blueprint/ADR/logical-model deltas and applies the work-orders contract to create or reopen scoped
-WOs. Each unit has one writer and an explicit specialist brief. The sequence updates the decision
+WOs. After this plan integrates, only UI WOs missing a source get a `designer` prerequisite;
+the architect never waits on visual preparation, so independent backend WOs remain dispatchable.
+Each unit has one writer and an explicit specialist brief. The sequence updates the decision
 log (what, why, citation, "pending construction"), and README when commands/env change.
 
 Three UI routes are distinct: `agreed|existing` with cited `design_refs` preserves that design and
@@ -182,7 +184,19 @@ DESIGN.md/tokens, emit only the affected FDD/mock delta, record the reversible a
 its reversal, and continue without an owner visual wait. No global visual gate, full freeze or
 project phase mutation occurs. Designer reports must contain changed, nonempty scoped FDD and mock
 outputs; missing output cannot release dependent construction. Builders never improvise visual design.
-Independent work continues.
+Independent work continues. Classification is explicit WO `ui`, then current FRD `ui`, then UI
+artifact inference (including directory globs); card-wide `ui` never classifies every WO. A chain
+cuts at UI/non-UI boundaries. One resolver (`visual-source.mjs`) selects completed scoped designer
+refs, explicit WO evidence, scoped card evidence, then eligible legacy FDD. A pending card suppresses
+only inferred legacy evidence. File references must be nonempty in the consuming checkout; planner
+and brief use the same resolved source, and the brief context pack includes those files.
+
+**Standalone hand-off.** Before starting a run, the conversation records its scoped FDD/mock delta
+in a documentation commit in the source checkout; design itself never commits. `start` requires
+every agreed/existing file reference to be nonempty and identical to the source commit, pins that
+revision for integration and rechecks it there. Dirty/untracked artifacts are not an available
+source. Explicit `owner:`/`conversation:` citations need no file commit. During an active run,
+design changes only its assigned docs worktree and returns `report`; it never writes to source/main.
 
 Each docs commit carries `Change-Docs: <slug>`, never `Change:`; the CLI records `docs_sha` in the
 card. After the specialist sequence commits, the planner rereads integration and queues the scoped
@@ -922,7 +936,7 @@ measurements need keeps being recorded.
 ## How it is verified
 
 - **BUILD-7 (entry, detection, one writer):** `node plugin/scripts/test-build-v2-detect.mjs` (each row; paused run plus card; `source_change` exclusion; label precedence; legacy words; card reference forms), `test-build-v2-state.mjs` (hash chain, per-run archive, `rebuild-state` idempotent, frontmatter wins), `test-build-v2-cli.mjs` (exit 3 on a stale epoch; one JSON line on stdout), `test-build-v2-next.mjs` (never drains the queue; never returns a unit outside scope; `--wait` early returns), `node plugin/scripts/test-build-state-handoff.mjs` (`transfer`, `forceRelease`, no status projection), `test-build-v2-e2e.mjs` (no tracked file of the main checkout changes until merge-queue lands).
-- **BUILD-8 (card, docs before):** `test-build-v2-detect.mjs` (`card check`, Mission Control enum, `obsolete` read alias), `test-build-v2-report.mjs` (own commit, `Unit:`/`WO:` trailers, files outside `artifacts`, snapshots, WO frontmatter edits and hashed-file changes rejected), `test-build-v2-land.mjs` (`Change:` only on the landing metadata commit; card to `done/`); citation fidelity to the conversation is review-only (no machine can check it).
+- **BUILD-8 (card, docs before):** `test-build-v2-detect.mjs` (`card check`, Mission Control enum, `obsolete` read alias), `test-build-v2-report.mjs` (own commit, `Unit:`/`WO:` trailers, files outside `artifacts`, snapshots, WO frontmatter edits and hashed-file changes rejected), `test-build-v2-land.mjs` (`Change:` only on the landing metadata commit; card to `done/`); `test-build-v2-visual-source.mjs` (P9 standalone hand-off, shared planner/brief evidence, FRD UI and mixed UI/backend independence); citation fidelity to the conversation is review-only (no machine can check it).
 - **BUILD-9 (sizes, planner, admission):** `test-build-v2-planner.mjs` (cyclic-FRD/acyclic-WO graph, barrier + wide DAG, literal-prefix overlap, out-of-scope never planned, chain cut, deadlock), `test-build-v2-perf.mjs` (learned start, bounded samples/records), `test-build-v2-disk.mjs` (disk waits, sparse fallback, cleanup/ref retention/resume/gc), `test-build-v2-admission.mjs` (signal fixtures: clean, warn, critical, swap rising, garbled → safe mode; `motivo_limite`; host slots; never kills; `admit` read-only), `test-build-v2-report.mjs` (tokenless unit rejected), `test-build-v2-jobs.mjs` (detached jobs, H slot, adoption by the epoch holder), `bash plugin/scripts/test-merge-queue-lock-refresh.sh` (lock refresh + host H slot).
 - **BUILD-10 (routing, single reviewer, risk):** `test-build-v2-routing.mjs` (role/risk cells, both-provider fallback, stable attempt/author behavior, session eligibility and forbidden cells), `test-build-v2-review.mjs` (fresh-context independence, probe commits/hashes, blocked hand-back), `test-build-v2-risk.mjs` and `test-build-v2-risk-backtest.mjs` (risk zones, audit, fail-closed, known exclusions), `test-codex-worker*.mjs` and `test-capacity-review.mjs` (standalone critical floor, explicit incompatible arguments, transport heartbeat).
 - **BUILD-11 (quota):** `test-capacity.mjs`, `test-build-v2-quota.mjs`, `test-capacity-review.mjs` (real-task fit instead of global veto, unconsumed pending consultation, prelaunch receipt without failure/false exhaustion), `test-capacity-resume.mjs` (same-session continuation, backoff, renewal, single fenced wake, native receipts). Fake providers do not certify authentication or a real subscription reset.

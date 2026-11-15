@@ -1,5 +1,6 @@
 // Planner model (BUILD-9): the normalized input shared by `plan` and `lint-plan`, plus routing cells and unit artifacts.
-import { designPaths, hasDesignSource, workOrderHasUi } from "../incremental.mjs";
+import { workOrderHasUi } from "../incremental.mjs";
+import { resolveVisualSource } from "../visual-source.mjs";
 import { workOrderComplexity, maxComplexity } from "../../complexity.mjs";
 import { builderCell } from "../routing.mjs";
 import {
@@ -21,7 +22,7 @@ function buildNodes(wos) {
     const declared = Array.isArray(w.artifacts);
     const artifacts = declared ? w.artifacts.map(normGlob).filter(Boolean) : [];
     nodes.set(id, {
-      ui: workOrderHasUi(w), design_source: w.design_source, design_refs: w.design_refs ?? [],
+      ui: workOrderHasUi(w), design_source: w.design_source, design_refs: w.design_refs ?? [], design_inferred: w.design_inferred,
       complexity: workOrderComplexity(w),
       id, index, frd: norm(w.frd), status: String(w.status ?? "").trim().toUpperCase(),
       deps: uniq((w.deps ?? w.depends_on ?? w.dependsOn ?? []).map(norm).filter(Boolean)),
@@ -66,13 +67,7 @@ export function buildModel(input = {}, deps = {}) {
   const units = input.units ?? [];
   for (const n of nodes.values()) {
     if (!inScope(n)) continue;
-    const design = input.design;
-    if (design?.ui === true) n.ui = true;
-    if (design?.ui === true && design.design_source === "pending") { n.design_source = "pending"; n.design_refs = []; }
-    if (hasDesignSource(design)) { n.design_source = design.design_source; n.design_refs = design.design_refs; }
-    const prepared = units.find(u => u.kind === "docs" && u.role === "designer" && UNIT_DONE.has(u.state)
-      && ((u.wos ?? []).map(norm).includes(n.id) || (!u.wos?.length && (!u.frd || norm(u.frd) === n.frd))));
-    if (prepared) { n.design_source = "existing"; n.design_refs = prepared.design_refs ?? designPaths(n.frd, n.id); }
+    Object.assign(n, resolveVisualSource(n, { card: input.design, units, files: input.visual_files }));
   }
   const frdOrder = uniq([...nodes.values()].map((n) => n.frd)).sort(naturalCompare);
   const children = new Map([...nodes.keys()].map((id) => [id, []]));

@@ -1,0 +1,194 @@
+#!/usr/bin/env node
+// Permanent regressions from independent P9 review probes (H1-H4).
+import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import os from "node:os";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import { createFixture, git, testEnv, writeSignalsFile } from "./fixtures/build-v2/make-fixture.mjs";
+import { plan, readPlanWorkOrders } from "../runtime/build/planner.mjs";
+import { buildModel } from "../runtime/build/planner/model.mjs";
+import { changePreparationUnits, designPaths } from "../runtime/build/incremental.mjs";
+import { renderCard, updateFrontmatter } from "../runtime/build/card.mjs";
+import { newState, newUnit, readState } from "../runtime/build/state.mjs";
+import { writeUnitBrief } from "../runtime/build/units/brief.mjs";
+import { createIntegrationWorktree } from "../runtime/build/integrate/worktrees.mjs";
+import { buildPaths } from "../runtime/build/paths.mjs";
+import { assertDesignHandoff } from "../runtime/build/visual-source.mjs";
+
+let passed = 0; let failed = 0;
+const test = async (name, fn) => { try { await fn(); passed++; console.log(`PASS ${name}`); } catch (e) { failed++; console.error(`FAIL ${name}: ${e.stack}`); } };
+const frd = "frd-01-alpha", id = "wo-01-001";
+const woPath = `docs/frds/${frd}/work-orders/${id}.md`, frdPath = `docs/frds/${frd}/frd.md`;
+const scope = { card: null, frds: [], wos: [id], out_of_scope: [] };
+const withFixture = async fn => {
+  const dir = await fs.mkdtemp(path.join(process.env.PANDACORP_TEST_TMP || os.tmpdir(), "pc-visual-source-"));
+  const fx = await createFixture("basic", { dir });
+  try { await fn(fx, dir); } finally { await fx.cleanup(); await fs.rm(dir, { recursive: true, force: true }); }
+};
+const put = async (root, ref, text) => { await fs.mkdir(path.dirname(path.join(root, ref)), { recursive: true }); await fs.writeFile(path.join(root, ref), text); };
+const stamp = async (fx, ref, fields) => put(fx.root, ref, updateFrontmatter(await fs.readFile(path.join(fx.root, ref), "utf8"), { set: fields }));
+
+await test("H3: FRD UI metadata covers directory globs; explicit backend WO wins", () => withFixture(async fx => {
+  await stamp(fx, frdPath, { ui: true });
+  await stamp(fx, woPath, { artifacts: ["src/app/account/**"] });
+  let read = await readPlanWorkOrders(fx.root);
+  let result = plan({ ...read, scope });
+  assert.ok(result.units.some(u => u.role === "designer"));
+  assert.ok(!result.round.includes(`u-build-${id}`));
+  await stamp(fx, woPath, { ui: false });
+  read = await readPlanWorkOrders(fx.root);
+  result = plan({ ...read, scope });
+  assert.ok(!result.units.some(u => u.role === "designer"));
+  assert.ok(result.round.includes(`u-build-${id}`));
+}));
+
+await test("H2: planner and brief consume the same integrated non-FRD design references", () => withFixture(async (fx, dir) => {
+  const card = { ui: true, design_source: "pending", frd: null };
+  const refs = designPaths(null, "new-panel");
+  const designer = newUnit({ id: "u-design-new-panel", kind: "docs", role: "designer", state: "integrated", design_refs: refs });
+  for (const ref of refs) await put(fx.root, ref, "Scoped integrated design reference\n");
+  await stamp(fx, woPath, { ui: true, design_source: "pending", source_change: ["new-panel"] });
+  await put(fx.root, ".pandacorp/inbox/changes/new-panel.md", renderCard({ type: "change", date: "2026-11-14", title: "Panel", dentro: ["Add panel (owner quote)"], ...card }));
+  const selected = { ...scope, card: "new-panel" };
+  const read = await readPlanWorkOrders(fx.root, { units: [designer], design: card });
+  const model = buildModel({ ...read, scope: selected, units: [designer], design: card });
+  assert.deepEqual(model.nodes.get(id).design_refs, refs);
+  const build = newUnit({ id: `u-build-${id}`, kind: "build", wos: [id], frd });
+  const state = newState({ run_id: "br-2026-11-14-01", epoch: 1, coordinator: "claude-session", label: "claude", size: "touch", scope: selected, units: [designer, build], integration: { branch: "main", worktree: fx.root, base_sha: fx.sha } });
+  const brief = await writeUnitBrief({ project: fx.root, state, unit: build, cell: { runtime: "claude", model: "sonnet", effort: "high" }, agentType: "pandacorp:implementer", token: "test-token", schemaPath: "schema", worktree: fx.root }, { env: fx.env(), homedir: dir });
+  for (const ref of refs) assert.ok(brief.text.includes(path.join(fx.root, ref)), `missing effective context source ${ref}`);
+  assert.ok(!brief.text.includes(`\"docs/frds/${frd}/fdd.md\"`));
+}));
+
+const mixedWos = [
+  { id: "wo-01", frd: "frd-01", status: "PLANNED", ui: true, artifacts: ["src/widget.tsx"], source_change: ["mixed"] },
+  { id: "wo-02", frd: "frd-02", status: "PLANNED", ui: false, artifacts: ["src/api.ts"], source_change: ["mixed"] },
+];
+const mixed = { wos: mixedWos, scope: { card: "mixed", frds: [], wos: ["wo-01", "wo-02"], out_of_scope: [] }, design: { ui: true, design_source: "pending" }, capacity: 5 };
+await test("H4: real preparation chain lets backend build while its UI designer runs", () => {
+  const prep = changePreparationUnits(mixed.design, "mixed");
+  assert.deepEqual(prep.map(u => u.role), ["product-manager", "architect"]);
+  for (const u of prep) u.state = "integrated";
+  const first = plan({ ...mixed, units: prep });
+  const designer = first.units.find(u => u.role === "designer");
+  assert.ok(designer);
+  assert.deepEqual(designer.wos, ["wo-01"]);
+  const running = plan({ ...mixed, units: [...prep, { ...designer, state: "running" }] });
+  assert.ok(running.now.includes("u-build-wo-02"));
+  assert.ok(!running.round.includes("u-build-wo-01"));
+  assert.equal(running.deadlock, null);
+});
+await test("H4b: a mixed UI card never adds a designer to an explicitly non-UI WO", () => {
+  const units = changePreparationUnits(mixed.design, "mixed").map(u => ({ ...u, state: "integrated" }));
+  assert.equal(buildModel({ ...mixed, units }).nodes.get("wo-02").ui, false);
+  const result = plan({ ...mixed, units });
+  assert.ok(!result.units.some(u => u.role === "designer" && u.wos.includes("wo-02")));
+  assert.ok(result.round.includes("u-build-wo-02"));
+});
+
+await test("H1: uncommitted standalone files do not count as available integration design", () => withFixture(async (fx, dir) => {
+  await stamp(fx, woPath, { ui: true });
+  git(fx.root, ["add", woPath]); git(fx.root, ["commit", "-qm", "fixture UI work order"]);
+  const refs = designPaths(frd, "standalone");
+  for (const ref of refs) await put(fx.root, ref, "Standalone delta\n");
+  const created = await createIntegrationWorktree({ project: fx.root, runId: "br-2026-11-14-standalone" }, { env: fx.env(), homedir: dir });
+  const read = await readPlanWorkOrders(created.worktree);
+  const result = plan({ ...read, scope, design: { ui: true, design_source: "existing", design_refs: refs } });
+  assert.ok(result.units.some(u => u.role === "designer"));
+  assert.ok(!result.round.includes(`u-build-${id}`));
+}));
+
+await test("H1 handoff: commit the exact standalone files before creating integration, including nested products", async () => {
+  for (const nested of [false, true]) {
+    const dir = await fs.mkdtemp(path.join(process.env.PANDACORP_TEST_TMP || os.tmpdir(), "pc-design-handoff-"));
+    const fx = await createFixture({ nested }, { dir });
+    try {
+      const refs = designPaths(frd, "standalone");
+      const source = { ui: true, design_source: "existing", design_refs: refs };
+      for (const ref of refs) await put(fx.root, ref, "Scoped standalone delta\n");
+      await assert.rejects(assertDesignHandoff(fx.root, source), /Design handoff incomplete/);
+      git(fx.root, ["add", "--", ...refs]); git(fx.root, ["commit", "-qm", "fixture: conversation hands off design"]);
+      const sha = await assertDesignHandoff(fx.root, source);
+      // Detect tracked edits too: a path existing at HEAD is insufficient when the delta was never recorded.
+      await put(fx.root, refs[0], "Newer standalone delta\n");
+      await assert.rejects(assertDesignHandoff(fx.root, source), /Design handoff incomplete/);
+      await put(fx.root, refs[0], "Scoped standalone delta\n");
+      const created = await createIntegrationWorktree({ project: fx.root, runId: "br-2026-11-14-handoff", baseRef: sha }, { env: fx.env(), homedir: dir });
+      const consumingRoot = nested ? path.join(created.worktree, "nested") : created.worktree;
+      assert.equal(await assertDesignHandoff(consumingRoot, source, {}, sha), sha);
+      const read = await readPlanWorkOrders(consumingRoot, { design: source });
+      const result = plan({ ...read, wos: [{ ...read.wos[0], ui: true }], scope, design: source });
+      assert.ok(result.round.includes(`u-build-${id}`));
+      assert.ok(!result.units.some(u => u.role === "designer"));
+      assert.equal(await assertDesignHandoff(fx.root, { design_source: "agreed", design_refs: ['owner: "compact modal"'] }), null);
+    } finally { await fx.cleanup(); await fs.rm(dir, { recursive: true, force: true }); }
+  }
+});
+
+await test("H2 fail closed: missing or empty integrated designer files cannot release UI", () => withFixture(async (fx, dir) => {
+  await stamp(fx, woPath, { ui: true, design_source: "pending" });
+  const refs = designPaths(frd, id);
+  const designer = newUnit({ id: `u-design-${id}`, kind: "docs", role: "designer", frd, wos: [id], state: "integrated", design_refs: refs });
+  for (const ref of refs) await put(fx.root, ref, " ");
+  const read = await readPlanWorkOrders(fx.root, { units: [designer] });
+  const result = plan({ ...read, scope, units: [designer] });
+  assert.ok(result.units.some(u => u.role === "designer" && u.id !== designer.id));
+  assert.ok(!result.round.includes(`u-build-${id}`));
+  const unit = newUnit({ id: `u-build-${id}`, kind: "build", wos: [id], frd });
+  const state = newState({ run_id: "br-2026-11-14-01", epoch: 1, coordinator: "claude-session", label: "claude", size: "touch", scope, units: [designer, unit], integration: { branch: "main", worktree: fx.root, base_sha: fx.sha } });
+  await assert.rejects(writeUnitBrief({ project: fx.root, state, unit, cell: { runtime: "claude", model: "sonnet", effort: "high" }, agentType: "pandacorp:implementer", token: "test", schemaPath: "schema", worktree: fx.root }, { env: fx.env(), homedir: dir }), /no available design source/);
+}));
+
+await test("H1 real CLI rejects dirty handoff before lease; committed design is pinned and never redesigned", () => withFixture(async (fx, dir) => {
+  const env = testEnv(dir);
+  await fs.mkdir(env.HOME, { recursive: true });
+  await fs.writeFile(env.PANDACORP_FAKE_WORKER_PLAN, "{}\n");
+  await writeSignalsFile(env.PANDACORP_SIGNALS_FILE, "clean");
+  const refs = designPaths(frd, "cli-handoff");
+  await stamp(fx, woPath, { ui: true, artifacts: ["src/components/modal.tsx"], source_change: ["cli-handoff"] });
+  for (const ref of refs) await put(fx.root, ref, "Committed scoped design\n");
+  git(fx.root, ["add", "--", woPath, ...refs]);
+  git(fx.root, ["commit", "-qm", "fixture: conversation records standalone design"]);
+  const sourceSha = git(fx.root, ["rev-parse", "HEAD"]);
+  await put(fx.root, ".pandacorp/inbox/changes/cli-handoff.md", renderCard({ type: "change", date: "2026-11-14", title: "Panel", dentro: ['Add agreed panel, owner: "Add the panel"'], ui: true, frd, design_source: "existing", design_refs: refs, design_decision_by: "agent" }));
+  const cliFile = fileURLToPath(new URL("./pandacorp-build.mjs", import.meta.url));
+  const cli = (args, success = true) => {
+    const out = spawnSync(process.execPath, [cliFile, ...args, "--project", fx.root], { cwd: fx.root, env, encoding: "utf8", timeout: 60000 });
+    const json = JSON.parse((out.stdout || "").trim().split("\n").at(-1));
+    if (success) assert.equal(out.status, 0, `${args.join(" ")}: ${JSON.stringify(json)} ${out.stderr}`);
+    else assert.notEqual(out.status, 0);
+    return json;
+  };
+  const paths = buildPaths(fx.root, { env });
+  let started;
+  try {
+    const detected = cli(["start", "--detect", "--args", "change:cli-handoff"]);
+    const scopeFile = path.join(dir, "scope.json");
+    await fs.writeFile(scopeFile, JSON.stringify(detected.scope));
+    cli(["start", "--preflight", "--row", String(detected.row), "--scope-json", scopeFile, "--label", "claude", "--session-model", "sonnet", "--probe-codex"]);
+    const args = ["start", "--run", "--scope-json", scopeFile, "--label", "claude", "--coordinator", "claude", "--session-model", "sonnet"];
+    await put(fx.root, refs[0], "Unrecorded newer delta\n");
+    assert.match(JSON.stringify(cli(args, false)), /Design handoff incomplete/);
+    assert.equal(await fs.access(paths.leaseFile).then(() => true, () => false), false, "dirty design must fail before taking lease");
+    assert.equal(await fs.access(paths.stateFile).then(() => true, () => false), false, "dirty design must not create a run");
+    await put(fx.root, refs[0], "Committed scoped design\n");
+    started = cli(args);
+    const state = await readState(fx.root, { env });
+    assert.equal(state.integration.base_sha, sourceSha);
+    assert.equal(git(state.integration.worktree, ["rev-parse", "HEAD"]), sourceSha);
+    for (const ref of refs) assert.equal(await fs.readFile(path.join(state.integration.worktree, ref), "utf8"), "Committed scoped design\n");
+    const during = cli(["plan"]);
+    assert.ok(during.units.some(u => u.kind === "build"));
+    assert.ok(!during.units.some(u => u.role === "designer"));
+  } finally {
+    if (started) { try { cli(["stop", "--epoch", String(started.epoch)]); } catch { /* fixture cleanup follows */ } }
+    const standby = await fs.readFile(paths.driveStandbyFile, "utf8").then(JSON.parse, () => null);
+    const caffeinate = Number(await fs.readFile(paths.driveCaffeinatePidFile, "utf8").catch(() => ""));
+    for (const pid of [started?.drive?.pid, standby?.pid, caffeinate]) if (Number.isInteger(pid) && pid > 1) { try { process.kill(pid, "SIGKILL"); } catch { /* already stopped */ } }
+  }
+}));
+
+console.log(`RESULT: ${passed} passed, ${failed} failed`);
+process.exitCode = failed ? 1 : 0;

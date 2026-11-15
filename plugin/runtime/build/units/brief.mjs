@@ -1,8 +1,10 @@
 // units/brief.mjs: gather everything a brief needs and write `build/units/<unit>/brief.md`.
 import * as fsp from "node:fs/promises";
 import path from "node:path";
-import { parseYamlSubset, splitFrontmatter, readCard } from "../card.mjs";
-import { designPaths, hasDesignSource, workOrderHasUi } from "../incremental.mjs";
+import { readCard } from "../card.mjs";
+import { designPaths, hasDesignSource } from "../incremental.mjs";
+import { designRefPath, resolveVisualSource } from "../visual-source.mjs";
+import { readPlanWorkOrders } from "../planner/readWorkOrders.mjs";
 import { atomicWriteText, nowIso } from "../fsx.mjs";
 import { assertSafeId, buildPaths } from "../paths.mjs";
 import { allowlistPatterns } from "./allowlist.mjs";
@@ -130,16 +132,21 @@ export async function writeUnitBrief({ project, state, unit, cell, agentType, to
   if (unit.kind === "docs") {
     specialist.push("This bounded incremental unit overrides phase-wide role SOPs: reuse the existing product, stack and visual system; do not start a full phase, request owner direction, run a global freeze or change project phase. Apply only this unit’s specialist delta contract. Never invoke skills.");
     if (unit.role === "product-manager") specialist.push("Own only the product delta: FRD and EARS acceptance criteria, PRD only if its facts change. Preserve an agreed design. Record the bounded change and pending construction in docs/decision-log.md. Do not create work orders or design visuals; the following specialist owns those. Never call another skill.");
-    if (unit.role === "architect") specialist.push(`Own the technical delta: blueprint, ADR when a technical decision changes, logical data model and README only when their facts change. Read ${path.join(deps.pluginRoot ?? PLUGIN_ROOT, "skills/work-orders/SKILL.md")} as the WORK-ORDER DOCUMENT CONTRACT, without invoking that skill. Apply the work-orders readiness contract before activation: ground each WO in the current FRD EARS ACs and blueprint, verify dependency IDs/acyclic order, artifact ownership, design provenance for UI, test/verification commands and matching Build Plan; correct any inconsistency before setting status ACTIVE. Produce coarse ACTIVE WOs only after those checks, with complexity and source_change. The PM owns FRD/ACs; the designer owns FDD/mock. Never invent or redo visuals. Each UI WO must copy the agreed/existing design_source and design_refs from the scope card or cite the scoped FDD/mock produced by the preceding designer; otherwise stamp ui: true and design_source: pending so the engine schedules its designer prerequisite. Existing ACTIVE WOs may be amended only by the report-compatible card amendment contract: PLANNED/VERIFIED/IN_REVIEW to PLANNED, retain identity/activation and all previous source_change entries, add this card, increment reopen_count only when reopening non-PLANNED, and add a Status Note citing the card and reason. Planning-only fields may change: artifacts, dependsOn/depends_on, source_requirements, complexity, last_updated, ui, design_source, design_refs and design_decision_by. Never amend a WO already claimed by build/patch. Never call another skill.`);
+    if (unit.role === "architect") specialist.push(`Own the technical delta: blueprint, ADR when a technical decision changes, logical data model and README only when their facts change. Read ${path.join(deps.pluginRoot ?? PLUGIN_ROOT, "skills/work-orders/SKILL.md")} as the WORK-ORDER DOCUMENT CONTRACT, without invoking that skill. Apply the work-orders readiness contract before activation: ground each WO in the current FRD EARS ACs and blueprint, verify dependency IDs/acyclic order, artifact ownership, test/verification commands and matching Build Plan. Classify each WO independently: ui: false for backend, ui: true for UI. Reuse agreed/existing design_source and design_refs only for affected UI; otherwise stamp design_source: pending so the engine schedules its scoped designer after your plan integrates. This visual prerequisite is mandatory before UI construction, but never blocks independent backend work. Produce coarse ACTIVE WOs after the planning checks, with complexity and source_change. The PM owns FRD/ACs; the designer owns FDD/mock. Never invent or redo visuals. Existing ACTIVE WOs may be amended only by the report-compatible card amendment contract: PLANNED/VERIFIED/IN_REVIEW to PLANNED, retain identity/activation and all previous source_change entries, add this card, increment reopen_count only when reopening non-PLANNED, and add a Status Note citing the card and reason. Planning-only fields may change: artifacts, dependsOn/depends_on, source_requirements, complexity, last_updated, ui, design_source, design_refs and design_decision_by. Never amend a WO already claimed by build/patch. Never call another skill.`);
     if (unit.role === "designer") specialist.push(`Prepare lightweight design BEFORE any dependent UI construction: reuse existing DESIGN.md, tokens and components; produce only the scoped FDD and HTML mock at ${JSON.stringify(unit.design_refs ?? designPaths(unit.frd, state.scope?.card ?? unit.id))}. Include states, interactions, responsive behavior and component consumer impact. Record the visual decision in docs/decision-log.md as taken by the agent, reversible; the owner iterates afterwards. No owner visual approval, global freeze, phase change or skill invocation. Do not implement product code or edit work-order frontmatter.`);
   }
-  const source = hasDesignSource(cardDesign) ? cardDesign : null;
-  const designNotes = source ? [`Design already ${source.design_source}; implement and document it without redesign. Source citations/artifacts: ${JSON.stringify(source.design_refs)}.`] : [];
-  if (["build", "patch"].includes(unit.kind)) {
-    for (const w of workOrders) {
-      const fm = parseYamlSubset(splitFrontmatter(w.text)?.fm ?? "").data;
-      const fdd = dir ? path.join(dir, "fdd.md") : null;
-      if (workOrderHasUi({ ...fm, artifacts: w.artifacts })) designNotes.push(`UI ${w.id}: reproduce the recorded source ${JSON.stringify(source?.design_refs ?? fm.design_refs ?? (fdd ? [fdd] : []))}; do not improvise design while coding. The designer prerequisite must be integrated first when its source was pending.`);
+  const designNotes = [];
+  if (["build", "patch"].includes(unit.kind) || isReview) {
+    const read = await readPlanWorkOrders(readRoot, { ...deps, design: cardDesign, units: state.units });
+    for (const w of read.wos.filter(w => unit.wos.some(id => id.toLowerCase() === w.id))) {
+      const source = resolveVisualSource(w, { card: cardDesign, units: state.units, files: read.visual_files });
+      if (!source.ui) continue;
+      if (!hasDesignSource(source)) throw err("INVALID_STATE", `UI ${w.id} has no available design source in its consuming checkout; integrate its lightweight designer prerequisite before construction.`);
+      for (const ref of source.design_refs) {
+        const rel = designRefPath(ref);
+        if (rel !== null && !contextPack.includes(abs(rel))) contextPack.push(abs(rel));
+      }
+      designNotes.push(`UI ${w.id}: design already ${source.design_source}; reproduce the recorded source ${JSON.stringify(source.design_refs)} without redesign. Do not improvise design while coding.`);
     }
   }
   const notes = [...specialist, ...designNotes, ...complexityRule, ...cardWoRule, ...resumed, ...(extra.notes ?? []), ...(extra.questionDefaults ?? []).map((q) => `Owner question pending, working default: ${typeof q === "string" ? q : JSON.stringify(q)}`)];

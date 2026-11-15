@@ -1,5 +1,13 @@
 # Decision Log — Mission Control
 
+## 2026-11-14 — Clarify incremental design hand-off and mixed changes (P9)
+
+Updated the [Manual change guide](../src/app/manual/manualPages.tsx): the conversation records standalone
+design as a source documentation commit before the run; design itself never commits and active-run
+changes use the assigned unit report. Each WO retains its UI/backend classification, backend proceeds
+while pending UI design runs, and planner and builder share the checked visual references.
+Canonical policy: DR-163 and BUILD-8.
+
 ## 2026-11-14 — Explain incremental design and the three UI routes
 
 Updated the [Manual change guide](../src/app/manual/manualPages.tsx): agreed or existing design is

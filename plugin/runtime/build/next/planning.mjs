@@ -75,7 +75,8 @@ export async function planRound(run, state, pol) {
   const base = state.integration?.base_sha;
   const prefix = run.prefix ?? "";
   const readFrd = base ? (frd) => gitShow(root, base, `${prefix}docs/frds/${frd}/frd.md`) : undefined;
-  const read = await (await sibling(d, "planner", "readPlanWorkOrders"))(root, { ...d, ...(readFrd ? { readFrd } : {}) });
+  const design = state.scope?.card ? await readCard(run.ref.project, state.scope.card, { where: "any" }, d) : null;
+  const read = await (await sibling(d, "planner", "readPlanWorkOrders"))(root, { ...d, design, units: state.units, ...(readFrd ? { readFrd } : {}) });
   if (read?.errors?.some(e => /complexity/.test(e.reason))) throw err("INVALID_STATE", "Invalid work-order complexity", { errors: read.errors });
   const wos = await withZones(run, state, read?.wos ?? [], root);
   // Backfill queued legacy units from the canonical WOs before dispatch/wake; active pins stay fixed.
@@ -92,9 +93,8 @@ export async function planRound(run, state, pol) {
   });
   const questions = [...(await readQuestions(run)).values()].filter((q) => !(q.id in (state.answers ?? {})));
   const params = await readRunParams(run);
-  const design = state.scope?.card ? await readCard(run.ref.project, state.scope.card, { where: "any" }, d) : null;
   const plan = await (await sibling(d, "planner", "plan"))({
-    design, wos, frd_acs: read?.frd_acs ?? {}, scope: state.scope, units: state.units, label: state.label, size: state.size,
+    design, visual_files: read?.visual_files, wos, frd_acs: read?.frd_acs ?? {}, scope: state.scope, units: state.units, label: state.label, size: state.size,
     questions, quota: pol, shape: shapeOf(state), coordinator: state.coordinator, session_model: params.sessionModel,
   }, d);
   const nowIds = Array.isArray(plan?.now) ? new Set(plan.now) : null;
