@@ -79,7 +79,7 @@ function scopeSection({ unit, card, acLines, allowlist }) {
   else lines.push("No card: the scope is this unit's work orders only.", "");
   lines.push("Owned acceptance criteria (verbatim):", bullets(acLines, "- (none cited)"), "");
   lines.push(`Write allowlist (\`artifacts\`): ${allowlist.length ? allowlist.map((a) => `\`${a}\``).join(", ") : "no repository files"}`, "");
-  lines.push(`Forbidden paths (never touch): \`**/*-snapshots/**\`, ${unit.kind === "docs" && unit.role === "architect" ? "work-order identity/activation fields (only the bounded card amendment contract may change planning fields)" : "the frontmatter of every existing work order"}, hashed test files, anything listed in Fuera.`);
+  lines.push(`Forbidden paths (never touch): \`**/*-snapshots/**\`, ${unit.kind === "docs" && unit.role === "architect" ? unit.scope_repair ? "all work-order fields except this approved scope repair’s artifacts and dependency additions" : "work-order identity/activation fields (only the bounded card amendment contract may change planning fields)" : "the frontmatter of every existing work order"}, hashed test files, anything listed in Fuera.`);
   if (unit.kind === "tests") lines.push("", "RED-first acceptance tests: each new test must fail by assertion, never by an import or syntax error; touch no production code. The report carries no hashes; the engine computes them.");
   lines.push("");
   return lines;

@@ -1,0 +1,130 @@
+{
+  "schema": 1,
+  "unit": "u-build-wo-12-003",
+  "token": "fixture-admission-token",
+  "status": "blocked",
+  "summary": "Implementados chrome público sin sesión de servidor, transporte Better Auth compartido con estados recuperables y descarte de respuestas antiguas, aislamiento de controles privados, cobertura por tags/año de generación y exclusiones exactas del proxy con headers equivalentes. Pruebas protegidas aprobadas; cierre bloqueado por exports de Contacto pendientes de WO-12-007 y una expectativa antigua de caché fuera del allowlist. Contrato y evidencias en docs/api/WO-12-003.md; aplicadas LESSON-0618 y LESSON-0671. Sin commits ni cambios en pruebas protegidas.",
+  "files": [
+    "docs/api/WO-12-003.md",
+    "docs/design/components.md",
+    "next.config.ts",
+    "src/app/api/health/route.ts",
+    "src/components/modules/AppShell/AccountArea.tsx",
+    "src/components/modules/AppShell/AppShell.tsx",
+    "src/components/modules/AppShell/SessionIsland.tsx",
+    "src/components/modules/AppShell/SessionMarker.tsx",
+    "src/components/modules/AppShell/TabBarSlot.tsx",
+    "src/components/modules/AppShell/_tests/AppShell.test.tsx",
+    "src/components/modules/AppShell/accountArea.module.css",
+    "src/components/modules/Footer/Footer.tsx",
+    "src/components/modules/GoalNavigation/GoalNavigation.tsx",
+    "src/components/modules/Nav/MenuItems.tsx",
+    "src/components/modules/Nav/useSignOut.ts",
+    "src/i18n/locales/es/messages.ts",
+    "src/lib/auth/sessionIsland/store.ts",
+    "src/lib/auth/sessionIsland/usePrivateSnapshot.ts",
+    "src/lib/auth/sessionIsland/useSessionIsland.ts",
+    "src/lib/coverage/cachedCoverage.ts",
+    "src/lib/goals/ui/GoalAddTrigger.tsx",
+    "src/lib/ownership/OwnershipViewer.tsx",
+    "src/lib/ownership/useOwnership.ts",
+    "src/lib/wishlist/useWishlist.ts",
+    "src/proxy.ts"
+  ],
+  "verification": [
+    {
+      "command": "bash .pandacorp/verify.sh --light",
+      "exit_code": 0,
+      "tail": "Estado inicial: Checked 2242 files. No fixes applied. No circular dependency found. Avisos previos de live-data-asserts, doc-lint, versión de Biome y configuración de knip."
+    },
+    {
+      "command": "bash .pandacorp/verify.sh --light --tests=src/components/modules/AppShell/_tests/publicChrome.test.tsx,src/_tests/proxy.test.ts,src/_tests/nextConfig.test.ts",
+      "exit_code": 1,
+      "tail": "RED inicial: AC-12-003.1/8 esperaba set-cookie=null; el proxy emitía contact-visitor. 1 failed, 3 passed, 7 skipped antes del bail."
+    },
+    {
+      "command": "pnpm exec tsc --noEmit",
+      "exit_code": 1,
+      "tail": "Primera comprobación: TS2322 en SessionIslandState; TS18048 en $sessionSignal. Corregidos con tipo explícito y suscripción opcional."
+    },
+    {
+      "command": "bash .pandacorp/verify.sh --light",
+      "exit_code": 1,
+      "tail": "knip: Unused exports (2): CONTACT_VISITOR_COOKIE y createContactVisitorCookie en src/lib/contact/visitor.ts, fuera del allowlist."
+    },
+    {
+      "command": "pnpm test:focus --failed src/_tests/proxy.test.ts src/components/modules/AppShell/_tests/AppShell.test.tsx src/components/modules/AppShell/_tests/publicChrome.test.tsx src/_tests/nextConfig.test.ts",
+      "exit_code": 1,
+      "tail": "AppShell: 3 failed, 2 passed. La consulta de enlace encontraba las variantes desktop y móvil en jsdom; corregida para ambas variantes existentes."
+    },
+    {
+      "command": "pnpm test:focus --failed src/components/modules/AppShell/_tests/AppShell.test.tsx src/components/modules/AppShell/_tests/publicChrome.test.tsx src/_tests/proxy.test.ts src/_tests/nextConfig.test.ts",
+      "exit_code": 1,
+      "tail": "AppShell 5 passed; proxy 32 passed. nextConfig bloqueado por SWC: caché nativa predeterminada fuera del sandbox."
+    },
+    {
+      "command": "SWC_NATIVE_BINDING_CACHE=/tmp/u-build-wo-12-003-swc pnpm test:focus --failed src/_tests/nextConfig.test.ts src/components/modules/AppShell/_tests/publicChrome.test.tsx",
+      "exit_code": 1,
+      "tail": "SWC rechazó /tmp por contener un enlace simbólico en la ruta; se utilizó la ruta física /private/tmp en el siguiente intento."
+    },
+    {
+      "command": "SWC_NATIVE_BINDING_CACHE=/private/tmp/u-build-wo-12-003-swc pnpm test:focus --failed src/_tests/nextConfig.test.ts src/components/modules/AppShell/_tests/publicChrome.test.tsx",
+      "exit_code": 0,
+      "tail": "nextConfig: 7 passed; publicChrome: 5 passed. También pasó la repetición de nextConfig que ejecuta test:focus."
+    },
+    {
+      "command": "pnpm exec tsc --noEmit",
+      "exit_code": 0,
+      "tail": "Sin errores."
+    },
+    {
+      "command": "SWC_NATIVE_BINDING_CACHE=/private/tmp/u-build-wo-12-003-swc pnpm test:focus src/lib/ownership/useOwnership.ts src/lib/wishlist/useWishlist.ts src/lib/goals/ui/GoalAddTrigger.tsx src/components/modules/GoalNavigation/GoalNavigation.tsx src/components/modules/Footer/Footer.tsx src/components/modules/Nav/useSignOut.ts src/components/modules/AppShell/_tests/SessionRefresher.test.tsx src/components/modules/ExportReadyNotification/_tests/notification.test.tsx",
+      "exit_code": 1,
+      "tail": "Ownership: 2 failed, 207 passed. Corregida la vinculación de snapshots que ya tienen OwnershipViewer explícito; sus pruebas se conservaron."
+    },
+    {
+      "command": "SWC_NATIVE_BINDING_CACHE=/private/tmp/u-build-wo-12-003-swc pnpm test:focus --failed src/lib/ownership/_tests/viewerIsolation.test.tsx --failed 'src/app/(catalog)/explore/_components/ExploreHub/_tests/accountIsolation.review.test.tsx' src/lib/ownership/useOwnership.ts src/lib/wishlist/useWishlist.ts src/lib/goals/ui/GoalAddTrigger.tsx src/components/modules/GoalNavigation/GoalNavigation.tsx src/components/modules/Footer/Footer.tsx src/components/modules/Nav/useSignOut.ts src/components/modules/AppShell/_tests/SessionRefresher.test.tsx src/components/modules/ExportReadyNotification/_tests/notification.test.tsx",
+      "exit_code": 0,
+      "tail": "Fallos corregidos y áreas relacionadas verdes: ownership 209, Wishlist 126, goal trigger 186, goal navigation 148, Footer 6, sign-out 25, SessionRefresher 4, notification 1. Los grupos se solapan; no son casos únicos."
+    },
+    {
+      "command": "SWC_NATIVE_BINDING_CACHE=/private/tmp/u-build-wo-12-003-swc bash .pandacorp/verify.sh --light --tests=src/components/modules/AppShell/_tests/AppShell.test.tsx",
+      "exit_code": 1,
+      "tail": "Gate final: comprobaciones estáticas previas a knip aprobadas. knip mantiene los dos exports de Contacto sin consumidores; el gate no llegó a Vitest."
+    },
+    {
+      "command": "SWC_NATIVE_BINDING_CACHE=/private/tmp/u-build-wo-12-003-swc pnpm exec vitest related --run --passWithNoTests=false src/lib/auth/sessionIsland/store.ts src/lib/auth/sessionIsland/usePrivateSnapshot.ts src/lib/ownership/OwnershipViewer.tsx src/lib/goals/ui/GoalAddTrigger.tsx src/components/modules/GoalNavigation/GoalNavigation.tsx src/components/modules/Footer/Footer.tsx src/components/modules/AppShell/SessionIsland.tsx src/components/modules/AppShell/TabBarSlot.tsx src/app/api/health/route.ts src/proxy.ts next.config.ts",
+      "exit_code": 1,
+      "tail": "Test Files 1 failed | 61 passed (62); Tests 13 failed | 383 passed (396). Único archivo rojo: src/lib/_tests/launchIntegration.test.ts:94 espera Cache-Control=null en rutas privadas, incompatible con private, no-store. Duración 11.37 s; jsdom 53 entornos, 16.76 s acumulados (aviso de rendimiento)."
+    },
+    {
+      "command": "git diff --exit-code -- scripts/ops/_tests/publicationCacheProtocol.test.ts src/_tests/nextConfig.test.ts src/_tests/proxy.test.ts 'src/app/(catalog)/explore/_actions/_tests/exploreAdmission.review.test.ts' 'src/app/(catalog)/explore/_components/ExploreHub/_tests/HubPersonalTransport.review.test.tsx' src/app/api/internal/revalidate/_tests/route.test.ts src/components/modules/AppShell/_tests/publicChrome.test.tsx",
+      "exit_code": 0,
+      "tail": "Los siete archivos protegidos permanecen sin cambios."
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "tail": "Sin errores de whitespace."
+    }
+  ],
+  "pending": [
+    "WO-12-007/coordinador debe consumir o retirar CONTACT_VISITOR_COOKIE y createContactVisitorCookie en src/lib/contact/visitor.ts para resolver knip; esta unidad no puede editar ese archivo.",
+    "Asignar actualización de src/lib/_tests/launchIntegration.test.ts:94 al contrato de private no-store; sus 13 expectativas antiguas están fuera del allowlist. No se debilitó la protección para satisfacerlas.",
+    "Reejecutar los dos gates prescritos tras resolver estas dependencias. No se certificaron build de producción, fidelidad visual 375/768/1280, E2E, caché entre instancias ni ahorro; WO-12-006 conserva esas comprobaciones. No se añadieron ni modificaron specs E2E.",
+    "Integrar los consumidores de sesión de WO-12-004/005/007 según el contrato: carga privada autorizada, inputs frescos al cambiar de cuenta y tratamiento explícito de pending/error.",
+    "Avisos existentes sin alterar baselines: live-data-asserts, ocho claves de estado en doc-lint, desfase de versión de esquema Biome, hints de knip/Vite y coste de creación de entornos jsdom.",
+    "Los cambios locales observados en .claude/launch.json y e2e/server-env.json no fueron editados por esta unidad y se conservaron. El checkout fue suministrado por el coordinador; no se creó ni eliminó ningún worktree."
+  ],
+  "doubt": null,
+  "diagnosis": {
+    "cause": "dependency",
+    "detail": "El gate estático queda rojo por dos exports de Contacto fuera del allowlist tras retirar su consumidor del proxy. La comprobación final también descubre 13 aserciones antiguas fuera del allowlist que exigen ausencia de Cache-Control en rutas privadas, contrarias al nuevo contrato. Se requiere integración/actualización de esos archivos por su propietario; el código y las pruebas protegidas quedan conservados."
+  },
+  "gate": null,
+  "authored_by": {
+    "runtime": "codex",
+    "model": "astra",
+    "effort": "high"
+  }
+}

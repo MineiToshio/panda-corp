@@ -1,5 +1,6 @@
 // One scheduling pass of `next`: renew + one admission reading, harvest, integrate, quota policy, managed units and the
 // planner round, landing, admission and dispatch, then wait or a terminal action (A11).
+import { settleScopeRepairs } from "../scope.mjs";
 import { withRunCleanup } from "../lifecycle/cleanup.mjs";
 import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
 import { bootstrapIntegrationWorktree } from "../integrate.mjs";
@@ -53,6 +54,7 @@ export async function step(run) {
   await harvest(run, await fresh(run), notes);
   // The land job rebases and fast-forwards the integration branch: nothing else writes it meanwhile (C05).
   if (!landRunning(await fresh(run))) await integrateStep(run, await fresh(run), notes);
+  if (!landRunning(await fresh(run))) await mutate(run, async (_s, ctx) => { await settleScopeRepairs(ctx, d); return {}; });
   state = await fresh(run);
   if (run.diskBlocked) return finish(run, state, { action: "wait", wait: { reason: "disk", retry_after_s: RETRY_S.disk }, notes });
 

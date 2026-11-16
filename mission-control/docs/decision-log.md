@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-11-16 — Explain blocked allowlist continuation (BL-0327)
+
+Updated the [partial-build guide](../../content/manual/guides/g-implement-parcial.md) to explain owner-approved
+scope-repair, bounded architect amendment and same-attempt continuation. Protected tests retain the existing
+dispute path. Canonical policy and command: BUILD-15 and build-engine-cli.md §3.14c.
+
 ## 2026-11-15 — Explain inherited floors for UI design recovery (P9 N2)
 
 Updated the [partial-build guide](../../content/manual/guides/g-implement-parcial.md): design

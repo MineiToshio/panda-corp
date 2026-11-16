@@ -84,6 +84,7 @@ export function decideFailure(input) {
 
   if (humanGate) return handbackDecision(base, "human_gate", "gate");
   if (diagnosis?.cause === "spec-ambiguous" || decisionMissing) return { ...base, action: "doubt", attempt: null };
+  if (diagnosis?.cause === "scope") return handbackDecision(base, "allowlist", cause);
   if (diagnosis?.cause === "dependency") return handbackDecision(base, "dependency_missing", cause);
   if (diagnosis?.cause === "test-defective") {
     return replies >= 1 ? handbackDecision(base, "test_defective_disputed", cause) : { ...base, action: "dispute", attempt: null };

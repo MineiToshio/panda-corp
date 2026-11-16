@@ -511,6 +511,45 @@
             "items": {
               "type": "string"
             }
+          },
+          "scope_repair": {
+            "type": "object",
+            "required": [
+              "target",
+              "attempt",
+              "wo_file",
+              "files",
+              "reason",
+              "handback_seq"
+            ],
+            "properties": {
+              "target": {
+                "type": "string"
+              },
+              "attempt": {
+                "type": "integer"
+              },
+              "wo_file": {
+                "type": "string"
+              },
+              "files": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "reason": {
+                "type": "string"
+              },
+              "handback_seq": {
+                "type": "integer"
+              }
+            },
+            "additionalProperties": false
+          },
+          "scope_revision": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40,64}$"
           }
         },
         "required": [

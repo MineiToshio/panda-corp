@@ -420,12 +420,12 @@ Procedure:
 Special cases:
 - **Tests units** (`kind:"tests"`, tests-first, D16): G1 must be RED on the new test files by assertion (not import or syntax errors) and green on everything else; outcome `committed`. The CLI hashes the test files into the tests unit's own `state.units[].test_hashes` and into `report_received.data.test_hashes`; the worker never reports hashes. The tests unit is integrated before the dependent build unit branches; that build unit's `report` rejects any change to a hashed file; `land` re-hashes. In v2 this replaces the `drift-proof.mjs` differential for bug cards.
 - **Docs units** (a card-scoped run): preparation runs `product-manager` for FRD/EARS ACs then `architect` for blueprint/ADR/model and the work-orders contract. Only after planning do UI WOs missing a usable source receive a scoped `designer` prerequisite; backend WOs do not wait on it. Classification is explicit WO `ui`, then current FRD `ui`, then UI artifacts; card-wide `ui` never changes every WO. `visual-source.mjs` resolves completed scoped designer refs, explicit WO source, scoped card source, then eligible legacy FDD for both planner and brief. A pending card suppresses inferred legacy FDD, not explicit WO evidence. File refs must exist and be nonempty in the consuming checkout; effective refs also enter the brief context pack, with no invented FDD fallback. `unit.role` selects the specialist worker and all these roles use capacity type `design`. Agreed/existing design skips designer; pending UI design precedes dependent construction without a global gate, full freeze, phase mutation or owner visual wait. Independent work continues. Designer reports must include changed, nonempty scoped FDD and HTML mock files in `design_refs`; omission or empty output is rejected before dependent construction. The paths are `<FRD>/fdd.md` and `<FRD>/mocks/<key>.html`, or `docs/design/changes/<key>/fdd.md` and `docs/design/changes/<key>/mocks/<key>.html` when no FRD exists. Each unit uses commit trailer `Change-Docs: <slug>` on the unit's own branch (it reaches `lane/<run_id>/integration` through the normal chain integration); the CLI writes `docs_sha` into the gitignored card; after architect integration the planner re-runs on the integration worktree and queues the new units (size may rise, never fall).
-- **Existing WO planning amendments:** `report` accepts reopening only from a card-bound `docs` unit with role `architect`. The WO returns to `implementation_status: PLANNED`, preserves prior `source_change` links and adds the current card. Only these frontmatter fields may change: `implementation_status`, `source_change`, `reopen_count`, `artifacts`, `dependsOn`, `depends_on`, `source_requirements`, `complexity`, `last_updated`, `ui`, `design_source`, `design_refs`, `design_decision_by`. The WO must stay ACTIVE and not yet be claimed by a build/patch unit. Prior PLANNED, VERIFIED or IN_REVIEW becomes PLANNED; reopening VERIFIED/IN_REVIEW increments `reopen_count`, while PLANNED preserves it. The body requires a Status Note citing the card and reason. Identity and activation stay unchanged. Other units retain the frontmatter prohibition. This report transaction is the incremental reopening contract, not a separate CLI command.
+- **Existing WO planning amendments:** `report` accepts reopening only from a card-bound `docs` unit with role `architect`. The WO returns to `implementation_status: PLANNED`, preserves prior `source_change` links and adds the current card. Only these frontmatter fields may change: `implementation_status`, `source_change`, `reopen_count`, `artifacts`, `dependsOn`, `depends_on`, `source_requirements`, `complexity`, `last_updated`, `ui`, `design_source`, `design_refs`, `design_decision_by`. The WO must stay ACTIVE and not yet be claimed by a build/patch unit. Prior PLANNED, VERIFIED or IN_REVIEW becomes PLANNED; reopening VERIFIED/IN_REVIEW increments `reopen_count`, while PLANNED preserves it. The body requires a Status Note citing the card and reason. Identity and activation stay unchanged. The separate owner-approved repair of a blocked claimed WO is documented in §3.14c. Other units retain the frontmatter prohibition. This report transaction is the incremental reopening contract, not a separate CLI command.
 
 - **`gate`**: a report with a non-null `gate`, or S8 or deploy reasons on the unit diff, puts the unit in `waiting_gate`, opens question `g-<unit>` and emits `WaitingGate`. The diff gate is on by default for every kind: after the checks, G1 and the unit commit, `risk.computeRisk` classifies `<unit base>..<commit>`; an `S8` hit opens the gate (the deploy pattern `vercel|wrangler|fly|netlify deploy|publish` gives kind `external`, otherwise `delete`; a failclosed classifier gives `delete` with detail "el clasificador no pudo revisar el diff"). The commit stays on the unit branch, the unit is `waiting_gate` at the same attempt, the token is released, the journal gets `waiting_gate` (no `wo_committed`) and the output carries `gate:{kind, detail, source:"diff"}`, `commit` and `question:"g-<unit>"`. The check is skipped when `state.answers["g-<unit>"]` is `true`; after the owner's OK the unit is re-dispatched on the same worktree and the same report resumes from that commit to `committed`.
 - **Idempotent re-ingest** (`resumeCommitted`): when a crash left exactly one unit commit ahead of base (`Unit:` trailer equal to the unit, committed files equal to `report.files`, clean worktree), a retried `report` completes phase 2 from that commit without re-running G1 and returns `resumed:true`; anything else is a rejection.
 - **Doubt**: `status:"doubt"` leaves the unit `reported` with `doubt_id` (a `doubt open` follows); no attempt is consumed and the token is released; `decided` re-queues the unit at the same attempt with the decision in its brief; `parked` parks it.
-- **Attempts**: at most 3 per unit (counted per WO as the max attempt of its build and patch units); a rejected or failed report re-queues the same unit at attempt+1 (the failure policy is `failure.mjs` `applyUnitFailure`, shared by `report` and `next`); a worker that ends without a valid report (crash, watchdog, unreadable or invalid `report.json`) is a failed execution of the same kind (`failUnit`, source `worker_failed`, not a public command); `status:"blocked"` never retries: it routes by diagnosis (`spec-ambiguous` to the doubt ladder, `test-defective` to the dispute, `dependency` to an immediate hand-back) and otherwise hands back with reason code `worker_blocked` (cause = the diagnosis cause, else `owner`); a failed or rejected attempt 2 with a `diagnosis` makes the CLI queue attempt 3 automatically (`next_attempt:3`); evidence identical to attempt 2 means hand-back. There is no public escalation command; the policy is BUILD-15.
+- **Attempts**: at most 3 per unit (counted per WO as the max attempt of its build and patch units); a rejected or failed report re-queues the same unit at attempt+1 (the failure policy is `failure.mjs` `applyUnitFailure`, shared by `report` and `next`); a worker that ends without a valid report (crash, watchdog, unreadable or invalid `report.json`) is a failed execution of the same kind (`failUnit`, source `worker_failed`, not a public command); `status:"blocked"` never retries: it routes by diagnosis (`spec-ambiguous` to the doubt ladder, `test-defective` to the dispute, `dependency` to an immediate hand-back, `scope` to an owner-approved allowlist repair in §3.14c) and otherwise hands back with reason code `worker_blocked` (cause = the diagnosis cause, else `owner`); a failed or rejected attempt 2 with a `diagnosis` makes the CLI queue attempt 3 automatically (`next_attempt:3`); evidence identical to attempt 2 means hand-back. There is no public escalation command; the policy is BUILD-15.
 
 Output: `{"ok":true,"cmd":"report","outcome":"committed|rejected|doubt|blocked|failed|waiting_gate","commit":"<sha>","g1":{"exit":0,"tail":"..."},"test_hashes":{"path":"<sha256>"},"next_attempt":null}`.
 
@@ -605,6 +605,78 @@ Fenced. Writes `build/handback/<unit>.md` (format defined in BUILD-15), writes t
 ### 3.14b `unblock` (BL-0312)
 
 `unblock --epoch <E> --unit <unit> --reason "<what was fixed>"`. Fenced. The one way back for a unit handed back for an **environment** failure (cause `env-infra`: the sandbox could not reach a service, a tool or disk failed) once the coordinator has fixed the environment. Accepted only when the unit is `blocked`, of kind `docs|tests|build|patch`, and the LATEST `handback` journal event that blocked it names it as the root (`data.unit`) with `cause:"env-infra"`, or with reason code `review_checkout` (BL-0323: a review blocked on a checkout that was not its range end; also an older `cause:"owner"` `review_blocked` whose review worktree HEAD differs from the `Diff range` end of its brief, journaled `unblocked {review_checkout:true}`: the reviewed units return to their prior state, `reviewing` or `integrated`, their WOs to IN_REVIEW, and the review unit is re-queued with its verdict cleared), or with `cause:"code"` when every reason of the attempt's rejection (`build/units/<unit>/attempt-<n>.json` `reason`, `"<path>: <why>"` joined by `; `) names a bootstrap-written file (`.claude/launch.json`, `e2e/server-env.json`, `.env.local`; BL-0318: an engine false rejection, journaled `unblocked {cause:"code", bootstrap_only:true}`); otherwise exit 6 (`INVALID_INPUT`): a dependent names its root (`unblock` the root instead), any other cause stays the owner's decision (`/pandacorp:decide`), a non-blocked unit has nothing to unblock. A missing `--reason` is exit 2. Effects, in one phase 2: the unit and the dependents that same hand-back blocked (a dependent re-blocked later by a hand-back of its own stays blocked; `doubt-consult` units stay settled) return to `queued` at the **same attempt**, except that a unit without work orders (`docs`, `tests`) blocked after it was `committed`, `integrated` or `verified` returns to that state (BL-0316: the landing is retried, nothing is rebuilt; output `restored{unit: state}`) (no execution of the per-WO budget is spent; `token_hash`, `worker`, `parked`, `pending_answer`, `waiting_gate` cleared), `handbacks_in_a_row` resets to 0, their WOs go `BLOCKED -> PLANNED` (`blocked_reason` removed) and the pending decisions entry of the hand-back is marked `RESUELTO` (one integration commit `chore(build): unblock <unit> after an environment fix` with `Unit:`/`WO:` trailers), `report.json` is kept as `build/units/<unit>/report-a<n>-blocked.json`, and `build/units/<unit>/unblocked.json` `{attempt, at, reason, previous_report, worktree, worktree_changes}` makes the next brief of THAT attempt say it resumes after the fix and name the previous report (a later attempt never sees it). The unit's registered worktree, uncommitted work included, is reused untouched by the next dispatch (`prepareUnitWorktree` re-adopts an existing worktree of the same attempt). Journal: `unblocked {unit, cause, attempt, reason, units, handback_seq}` then `unit_state blocked->queued` with `reason:"unblock"` (replayed by `rebuild-state`). Output: `{"ok":true,"cmd":"unblock","unit":"u-docs-x","attempt":1,"units":["u-docs-x"],"wos_planned":[],"worktree":"/abs/.../wt/u-docs-x","worktree_changes":13,"previous_report":"/abs/.../report-a1-blocked.json","commit":"<sha>|null","notice_es":"Unidad reanudada: ..."}`. A run that already ended (`next` returned `done` and `finish` closed it as `finished`, or it stopped on `env_infra_handbacks`) has no lease to fence against: use `start --resume --coordinator <C> --unblock <unit> --reason "<text>"` (3.4), which validates the same rules BEFORE it takes the lease and then applies the same effects.
+
+
+### 3.14c `scope-repair` (BL-0327)
+
+`scope-repair --epoch E --unit U --files '["src/existing.ts","src/_tests/existing.test.ts"]' --owner-approved --reason "<owner decision>"`.
+Fenced, owner-authorized repair of a **write allowlist**, not a new run or a build retry. Resume a stopped run first with
+`start --resume --coordinator codex` (omit `--run`: that flag restores an archived run, not the current stopped run).
+The command requires an active matching lease, a blocked in-scope build/patch unit owning exactly one WO, and the latest
+root hand-back at the same attempt. Its saved `report.json` must establish an explicit out-of-allowlist gap. This also
+accepts legacy `dependency` / `dependency_missing` hand-backs with that evidence; an ordinary missing account/service
+remains a dependency. `--owner-approved` records an already obtained owner approval; it never grants approval itself.
+The files must be existing regular product files, inside the integration checkout, with concrete relative paths: no
+wildcards, directories, traversal, escaping symlinks, docs, engine state or snapshots. Missing approval, conflicting
+repeated decisions and wrong roots are refused; stale epochs fail with exit 3. The same pending decision is idempotent.
+
+The CLI journals `scope_repair_approved {unit, attempt, files, reason, handback_seq, owner_approved:true, action}` and
+queues `u-scope-<unit>-h<handback seq>`, an ordinary isolated `docs` unit with role `architect`. Its `scope_repair` metadata
+bounds it to the one WO file. The report gate permits amendment of that claimed WO **only while its target remains
+blocked at the approved attempt** and no other build/patch claimant is active. It must retain existing artifacts and
+add exactly the approved files. Only dependency additions are otherwise allowed: preserve existing edges, use known
+acyclic WOs, and require already allocated in-scope build/patch units or VERIFIED dependencies. Identity, activation,
+implementation status, ACs, provenance and other metadata stay fixed. The existing body is preserved; a Status Note
+may be appended. The architect cannot create WOs or edit production/tests/other docs. Normal G1, engine commit and
+integration checks apply. The general card architect amendment contract still refuses claimed WOs.
+
+After that docs unit integrates, `next` validates the amendment again and re-admits the target and only dependents still
+blocked by the same hand-back. WOs return `BLOCKED -> PLANNED` in an integration commit; the decisions inbox is resolved.
+The attempt, registered worktree, dirty files and branch are preserved. No build/patch attempt is spent. The old report
+is archived as `report-a<n>-blocked.json`; `unblocked.json` explains the scope repair in the next brief. A pinned
+`scope_revision` supplies the amended artifacts to both the brief and the report gate, because the preserved builder
+checkout still has its original WO. Workers cannot widen their own artifacts. Added unit dependency edges, the scope
+revision and every changed unit are journaled as `unit_queued`, in addition to `unblocked` and `unit_state` events;
+`rebuild-state` restores them. Settlement is retried after a crash between docs integration and re-admission. A newer
+hand-back wins and cannot be lifted by an older repair. Plain `unblock` remains restricted to its existing causes.
+
+**Protected tests take precedence.** The union of `test_hashes` and `probe_hashes` remains protected at report and repair
+resolution. If requested files intersect it, `scope-repair` returns `action:"dispute"`, reopens the affected execution at
+the same attempt and opens the existing `test-defective` doubt path; it queues no architect and changes no allowlist or
+hash. A blocked report that explicitly names a protected file in an allowlist gap follows that dispute path at ingestion.
+Otherwise explicit out-of-allowlist evidence in `diagnosis.detail` / `pending` normalizes legacy `dependency` to
+`scope` / `allowlist`; the raw report remains intact. Diagnosis prose still does not determine execution evidence identity.
+
+#### Confirmed incident and coordinator commands
+
+Read-only source: funko-tracker `br-2026-11-16-01`, `u-build-wo-12-003`, journal seq 121–124, branch tip `d02f1e28`.
+The real report has `status:"blocked"`, `diagnosis.cause:"dependency"`, and Spanish `pending` / `diagnosis.detail` naming
+`src/lib/contact/visitor.ts` (two unused exports) and `src/lib/_tests/launchIntegration.test.ts:94` (13 obsolete
+Cache-Control assertions). Before this fix, `report.mjs:376` (pre-fix HEAD) forwarded the diagnosis without examining those fields;
+`failure/policy.mjs:87` (pre-fix HEAD) mapped **every** dependency diagnosis to `dependency_missing`, and `failure/handbackText.mjs`
+rendered that as a missing secret/account/service. `status:blocked` reaches policy as `report_failed` with the
+`worker_blocked` override (`failure/unitFailure.mjs:42–44`), which only replaces requeue/escalate and does not change an already selected dependency hand-back. `incremental.mjs:41` forbids the ordinary architect amendment once claimed. Seq 122 records that mapping;
+seq 124 records `no_progress`. No missing secret/account/service was reported. The real fixture (token sanitized) is
+`plugin/scripts/fixtures/build-v2/bl-0327/report.json` and the regression is `test-build-v2-scope.mjs`.
+
+The owner has approved this bounded repair. Execute these commands **only in the coordinator session**, using the
+updated factory CLI consistently. They were not executed against the read-only incident project during the fix.
+The resume output must match the run and show an armed standby; the Python check refuses a silent non-armed handoff.
+
+```bash
+set -euo pipefail
+CLI=/Users/Shared/Proyectos/panda-corp/plugin/scripts/pandacorp-build.mjs
+PROJECT=/Users/Shared/Proyectos/funko-tracker
+EPOCH=$(node "$CLI" start --resume --project "$PROJECT" --coordinator codex | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("run_id")=="br-2026-11-16-01",r; assert r.get("drive",{}).get("armed"),r; print(r["epoch"])')
+node "$CLI" scope-repair --project "$PROJECT" --epoch "$EPOCH" --unit u-build-wo-12-003 --files '["src/lib/contact/visitor.ts","src/lib/_tests/launchIntegration.test.ts"]' --owner-approved --reason 'ampliar el allowlist de WO-12-003 con los archivos de Contacto y los tests que contradicen el contrato nuevo'
+node "$CLI" handoff --project "$PROJECT" --epoch "$EPOCH" --reason manual
+```
+
+`start --resume` acquires a fresh epoch and preserves blocked work; `scope-repair` records the owner's exact decision;
+`handoff` lets the armed drive claim the same authorized run through the normal epoch transfer. Production and other
+existing human gates retain their normal behavior. If resumption returns `CONTENDED`, let the former drive yield before
+retrying the same resume command; never reset the lease or edit the build state. Verification:
+`TMPDIR=/private/tmp node plugin/scripts/test-build-v2-scope.mjs`.
 
 ### 3.15 `quota record` and `quota read`
 
@@ -872,7 +944,7 @@ the lease mutex. Verification: `plugin/scripts/test-build-v2-nested.mjs`,
 
 One journal per run. Line: `{"v":1,"seq":n,"at":"<iso>","run_id":"...","epoch":n,"actor":"cli|drive","type":"...","data":{},"prev":"<hex>"|null}`. The first line has `seq:1` and `prev:null`; `prev` is the lowercase hex sha256 of the previous line's UTF-8 bytes without its trailing `\n`. `seq` is gap-free; `journal.mjs` verifies the chain on read (a broken chain is exit 5).
 
-Types: `run_started` (carries the detect and preflight result), `run_resumed {from}`, `unblocked {unit,cause,attempt,reason,units}` (3.14b; resets `handbacks_in_a_row`), `run_stopped {reason}`, `run_finished`, `unit_queued`, `unit_state {unit,from,to}`, `admit`, `unit_dispatched {cell}`, `job_started`, `job_finished`, `report_received {test_hashes?}`, `wo_committed`, `gate {tier,exit,unit|frd}`, `integrated`, `review_recorded`, `patch`, `escalated`, `handback`, `safe_point {kind,sha}`, `batch_landed {sha}`, `pin_stale`, `quota_reading`, `doubt_opened`, `doubt_consulted`, `autonomous_decision`, `answer_recorded`, `parked`, `waiting_gate`, `handoff_requested`, `drive_armed`, `drive_takeover`, `deferred_review_queued`, `deferred_review_done`, `engine_failure`, `paused {reason}`. (`escalated` is written by the CLI's automatic attempt 3; there is no command behind it.)
+Types: `run_started` (carries the detect and preflight result), `run_resumed {from}`, `scope_repair_approved` (3.14c), `unblocked {unit,cause,attempt,reason,units}` (3.14b; resets `handbacks_in_a_row`), `run_stopped {reason}`, `run_finished`, `unit_queued`, `unit_state {unit,from,to}`, `admit`, `unit_dispatched {cell}`, `job_started`, `job_finished`, `report_received {test_hashes?}`, `wo_committed`, `gate {tier,exit,unit|frd}`, `integrated`, `review_recorded`, `patch`, `escalated`, `handback`, `safe_point {kind,sha}`, `batch_landed {sha}`, `pin_stale`, `quota_reading`, `doubt_opened`, `doubt_consulted`, `autonomous_decision`, `answer_recorded`, `parked`, `waiting_gate`, `handoff_requested`, `drive_armed`, `drive_takeover`, `deferred_review_queued`, `deferred_review_done`, `engine_failure`, `paused {reason}`. (`escalated` is written by the CLI's automatic attempt 3; there is no command behind it.)
 
 Event data needed by `rebuild-state`: `run_started.data = {detect, preflight, state}` (initial state, `units: []`); `unit_queued.data` = the full state unit; `unit_state.data = {unit, from, to}`; `unit_dispatched.data = {unit, cell, via, worktree, branch, token_hash, worker_id, pid}`; `job_started.data` = the `jobs[]` item; `job_finished.data = {id, state, exit}`; `report_received.data = {unit, outcome, commit, test_hashes}`; `integrated.data = {unit, sha}`; `parked.data = {unit, reason, question}`; `waiting_gate.data = {unit, kind}`. `rebuild-state` folds them in order, then applies the integration worktree's WO frontmatter (frontmatter wins). `admit` events are written by `next` only.
 
@@ -1121,7 +1193,7 @@ Variants:
  "verification":[{"command":"pnpm tsc","exit_code":0,"tail":"..."}],
  "pending":[],
  "doubt":{"question":"...","options":[{"id":"a","text":"..."}],"preferred":"a","why":"..."},
- "diagnosis":{"cause":"code|test-defective|spec-ambiguous|env-infra|dependency","detail":"..."},
+ "diagnosis":{"cause":"code|test-defective|spec-ambiguous|env-infra|dependency|scope","detail":"..."},
  "gate":{"kind":"money|delete|external","detail":"..."},
  "authored_by":{"runtime":"claude","model":"sonnet","effort":"medium"}}
 ```

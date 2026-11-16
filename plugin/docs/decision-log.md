@@ -1,5 +1,18 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-16 — Repair blocked artifact ownership without spending attempts (BL-0327)
+
+Plugin 10.13.6 (PATCH, DR-034) fixes a missing continuation in the existing build contract.
+A real dependency-labeled report described an allowlist gap; report ingestion now distinguishes scope from
+infrastructure and gives protected test disputes precedence. The fenced owner-approved scope-repair command
+queues a bounded architect docs unit, allows its blocked claimed-WO amendment, and re-admits the preserved
+execution only after normal verified integration. A pinned scope_revision supplies artifacts to the old checkout;
+unit snapshots journal that revision and dependency edges. Plain unblock and the general claimed-WO guard retain
+their contracts. Canonical: [CLI §3.14c](build-engine-cli.md#314c-scope-repair-bl-0327),
+[scope.mjs](../runtime/build/scope.mjs), BUILD-15. The real fixture went RED before the fix; scope regression and
+related build-v2 suites verify the complete repair/dispute paths. No writes or execution in the incident project;
+no factory git mutation. Exact coordinator commands are in the CLI contract.
+
 ## 2026-11-16 — Accept valid quoted WO statuses in governed transitions (BL-0326)
 
 Run `br-2026-11-16-01` stopped after its tests unit integrated: the architect's

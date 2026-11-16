@@ -214,12 +214,12 @@ when the build deviated from the docs.
 **Scope guarantee, by construction:** the run's scope is the WOs with that card's `source_change`
 (or the FRDs/plan of rows 2, 4, 6); `next` never returns a unit outside it; `report` commits with
 its own pathspec-limited `git commit` only after checking that the reported files equal the
-worktree's changes (manifest-proven, unchanged bootstrap outputs excluded, BL-0318), every file is inside the unit's allowlist (build/patch: its WOs' `artifacts`; docs: `docs/**`, `README.md`, root `DESIGN.md`, `.env.example` and new WO files born `PLANNED`, carrying `source_change: [<card>]` in a card run (BL-0315); tests: test surfaces only), no `**/*-snapshots/**` path, no edit of an existing WO's frontmatter except the scoped architect-docs reopening contract below (the body of the unit's own WO only if that file is in `artifacts`), and no change to any hashed test or probe file; schema and migration paths are allowed (G3
+worktree's changes (manifest-proven, unchanged bootstrap outputs excluded, BL-0318), every file is inside the unit's allowlist (build/patch: its WOs' `artifacts`; docs: `docs/**`, `README.md`, root `DESIGN.md`, `.env.example` and new WO files born `PLANNED`, carrying `source_change: [<card>]` in a card run (BL-0315); tests: test surfaces only), no `**/*-snapshots/**` path, no edit of an existing WO's frontmatter except the scoped architect-docs reopening contract below or the owner-approved blocked scope repair of BUILD-15 (the body of the unit's own WO only if that file is in `artifacts`), and no change to any hashed test or probe file; schema and migration paths are allowed (G3
 gates them). The single reviewer opens a `scope` finding when the diff touches anything in Fuera. A
 dependency outside scope and not `VERIFIED` is a hand-back ("depende de WO-x, ¿la incluyo?"), never
 silently included.
 
-**Incremental WO reopening.** Only a card-bound `docs` unit with role `architect` may amend an
+**Incremental WO reopening.** Apart from BUILD-15’s owner-approved blocked scope repair, only a card-bound `docs` unit with role `architect` may amend an
 ACTIVE WO not yet claimed by build/patch through `report`: reopen it to `PLANNED`, append the current card
 to `source_change` without losing earlier links, and adjust the allowed planning fields for the
 changed ACs/artifacts/dependencies/complexity and design provenance. Reopening from VERIFIED or
@@ -720,7 +720,7 @@ spend that WO budget. Unattributed gate patches have an independent budget below
 3. Escalation, **queued automatically by the CLI** (there is no `escalate` command), only with new
    evidence: {failing test ids and command of the CLI's own G1/G2 re-run, implicated files of the diff}
    plus the report's `diagnosis` (cause ∈ `code`, `test-defective`, `spec-ambiguous`, `env-infra`,
-   `dependency`). Evidence identical to attempt 2 → hand-back.
+   `dependency`, `scope`). Evidence identical to attempt 2 → hand-back.
 
 No automatic revert-and-rebuild, no split gate, no automatic "next pass". Fable is never chosen.
 
@@ -728,10 +728,10 @@ No automatic revert-and-rebuild, no split gate, no automatic "next pass". Fable 
 - A worker that ends without a valid report (crash, watchdog, invalid `report.json`) is one failed
   execution (`failUnit`, source `worker_failed`) under this same budget. `status: blocked` never retries:
   it routes by diagnosis (`spec-ambiguous` → doubt ladder, `test-defective` → dispute, `dependency` →
-  hand-back) and otherwise hands back as `worker_blocked`. Diagnosis prose is excluded from the
+  hand-back, `scope` → owner-approved allowlist repair) and otherwise hands back as `worker_blocked`. Diagnosis prose is excluded from the
   "identical evidence" hash; attempt 3 after a reviewer or gate failure needs no builder diagnosis (its
   RED tests and files are the evidence); a first reviewer reply to a `test-defective` claim is a `dispute`.
-- **Immediate hand-back** = the unit and its dependents become `blocked` (never `parked`; independent units continue) and their WOs `BLOCKED`. Reason codes: `rebase_conflict`, `g3_red`, `budget_exhausted`, `no_diagnosis`, `oracle_changed`, `owner_refused_gate`, `answer_rework_budget`, `worker_blocked`, `worker_failed`. Causes:
+- **Immediate hand-back** = the unit and its dependents become `blocked` (never `parked`; independent units continue) and their WOs `BLOCKED`. Reason codes: `rebase_conflict`, `g3_red`, `budget_exhausted`, `no_diagnosis`, `oracle_changed`, `owner_refused_gate`, `answer_rework_budget`, `worker_blocked`, `worker_failed`, `allowlist`. Causes:
   `test-defective` still disputed after one reviewer reply; a `dependency` on a missing secret or account;
   a human gate; the 3-execution budget exhausted. The hand-back writes `handback/<unit>.md` (unit, WO
   `BLOCKED` + `blocked_reason` committed on the integration branch, attempt, cause, failing command with
@@ -750,6 +750,18 @@ No automatic revert-and-rebuild, no split gate, no automatic "next pass". Fable 
   worktree reused, previous report kept and named in the brief). Every other cause stays an owner
   decision, except a `code` hand-back whose rejection named only bootstrap-written files (BL-0318: the engine's
   false rejection, lifted the same way). Verification: `plugin/scripts/test-build-v2-unblock.mjs`.
+- **Scope/allowlist repair (BL-0327).** An explicit out-of-allowlist blocker is `scope` / `allowlist`, even if a legacy
+  worker called it `dependency`; missing secrets/accounts/services remain dependencies. After owner approval of concrete
+  existing files, the fenced `scope-repair` command queues one isolated architect docs unit to add exactly those artifacts
+  to the blocked WO, optionally adding known acyclic in-scope dependency edges. This is a narrow exception to the claimed-WO
+  amendment prohibition: the target must remain blocked at its approved attempt; identity, ACs, status and other metadata
+  stay fixed. Normal report/G1 and integration checks apply. `next` then re-admits the preserved builder and only dependents
+  still blocked by that hand-back, at the same attempt, with a journaled pinned WO revision for artifacts. No execution
+  budget is spent and no manual state edit is allowed. Newer hand-backs win. Protected test/probe hashes take precedence:
+  requested protected files enter the existing `test-defective` dispute/doubt path, never an artifact expansion or hash
+  rewrite. Legacy dependency hand-backs require the saved report's explicit scope evidence. CLI and incident commands:
+  [build-engine-cli.md §3.14c](../../plugin/docs/build-engine-cli.md#314c-scope-repair-bl-0327).
+  Verification: `TMPDIR=/private/tmp node plugin/scripts/test-build-v2-scope.mjs`.
 - **Docs-only G3 red (BL-0316).** A batch of only `docs` units cannot turn code checks red: a G3 red with no
   doc-lint failure and no docs-surface path opens no patch; it retries the landing once per integration tip,
   then hands the docs units back as `env-infra` (`g3_red_not_from_batch`); `unblock` returns them to `integrated`.

@@ -58,7 +58,7 @@ function reviewsThatBlocked(state, hb, root) {
  * @param {{state: object, events: object[], unitId: string, reason: string, at?: string}} input `events` = the run journal
  * @returns {{state: object, events: object[], units: string[], root: object, handback: object}}
  */
-export function planUnblock({ state, events, unitId, reason, at = null, rejectionText = null, checkoutProof = false }) {
+export function planUnblock({ state, events, unitId, reason, at = null, rejectionText = null, checkoutProof = false, scopeResolution = null }) {
   const unit = findUnit(state, unitId);
   if (!unit) throw err("INVALID_STATE", `unknown unit ${unitId}`);
   if (!UNBLOCKABLE_KINDS.includes(unit.kind)) throw err("INVALID_INPUT", `unit ${unitId} is a ${unit.kind} unit: only docs, tests, build and patch units can be unblocked`);
@@ -71,7 +71,9 @@ export function planUnblock({ state, events, unitId, reason, at = null, rejectio
   // BL-0323: a review that blocked on the wrong checkout judged another tree. Recorded as env-infra `review_checkout`
   // from 10.8.0; an older `review_blocked` qualifies only with a proof (its checkout HEAD is not its brief's range end).
   const reviewCheckout = hb.data.reason_code === "review_checkout" || (hb.data.reason_code === "review_blocked" && checkoutProof === true);
-  if (hb.data.cause !== UNBLOCK_CAUSE && !bootstrapOnly && !reviewCheckout) {
+  const scopeApproved = scopeResolution && scopeResolution.handback_seq === hb.seq && ["scope", "dependency"].includes(hb.data.cause)
+    && (scopeResolution.dispute === true || (scopeResolution.docs && scopeResolution.revision));
+  if (hb.data.cause !== UNBLOCK_CAUSE && !bootstrapOnly && !reviewCheckout && !scopeApproved) {
     throw err("INVALID_INPUT", `unit ${unitId} was handed back for ${hb.data.cause} (${hb.data.reason_code ?? "?"}), not ${UNBLOCK_CAUSE}: the owner decides it (/pandacorp:decide), unblock only lifts an environment failure`, { cause: hb.data.cause });
   }
   if (Number.isInteger(hb.data.attempt) && hb.data.attempt !== unit.attempt) throw err("INVALID_STATE", `unit ${unitId} is at attempt ${unit.attempt} but was handed back at attempt ${hb.data.attempt}`, { hint: "rebuild-state" });
@@ -100,12 +102,15 @@ export function planUnblock({ state, events, unitId, reason, at = null, rejectio
   const next = {
     ...state,
     handbacks_in_a_row: 0,
-    units: state.units.map((u) => (set.has(u.id) ? { ...u, state: restored.get(u.id), token_hash: null, worker: restored.get(u.id) === "queued" ? null : u.worker, parked: null, pending_answer: null, waiting_gate: null, ...(u.kind === "review" && reviews.includes(u) ? { review: null } : {}) } : u)),
+    units: state.units.map((u) => (set.has(u.id) ? { ...u, state: restored.get(u.id), token_hash: null, worker: restored.get(u.id) === "queued" ? null : u.worker,
+      ...(u.id === unitId && scopeApproved && scopeResolution.revision ? { scope_revision: scopeResolution.revision, depends_on: [...new Set([...u.depends_on, scopeResolution.docs, ...(scopeResolution.depends_on ?? [])])] } : {}), parked: null, pending_answer: null, waiting_gate: null, ...(u.kind === "review" && reviews.includes(u) ? { review: null } : {}) } : u)),
   };
   const planned = [
-    { type: "unblocked", data: { unit: unitId, cause: bootstrapOnly ? "code" : reviewCheckout && hb.data.cause !== UNBLOCK_CAUSE ? hb.data.cause : UNBLOCK_CAUSE, ...(bootstrapOnly ? { bootstrap_only: true } : {}), ...(reviewCheckout ? { review_checkout: true } : {}), attempt: unit.attempt, reason: oneLine(reason, 400), units: ids, handback_seq: hb.seq ?? null, ...(at ? { at } : {}) } },
+    { type: "unblocked", data: { unit: unitId, cause: scopeApproved ? "scope" : bootstrapOnly ? "code" : reviewCheckout && hb.data.cause !== UNBLOCK_CAUSE ? hb.data.cause : UNBLOCK_CAUSE, ...(bootstrapOnly ? { bootstrap_only: true } : {}), ...(reviewCheckout ? { review_checkout: true } : {}), attempt: unit.attempt, reason: oneLine(reason, 400), units: ids, handback_seq: hb.seq ?? null, ...(at ? { at } : {}) } },
     ...ids.map((id) => ({ type: "unit_state", data: { unit: id, from: findUnit(state, id).state, to: restored.get(id), reason: "unblock" } })),
   ];
+  // Carry all changed fields in replay, including the preserved checkout, worker reset and pinned scope revision.
+  if (scopeApproved) planned.push(...next.units.filter(u => ids.includes(u.id)).map(u => ({ type: "unit_queued", data: u })));
   return { state: next, events: planned, units: ids, restored: Object.fromEntries(restored), root: unit, handback: hb, reviewCheckout };
 }
 
@@ -137,7 +142,7 @@ async function attemptReason(paths, unit, fs) {
 }
 
 /** Mark the newest pending hand-back entry of the unit in the decisions inbox (and its mirror) as resolved. Best effort. */
-async function markInboxResolved(project, integrationRoot, { unitId, reason, date }, deps) {
+async function markInboxResolved(project, integrationRoot, { unitId, reason, date, scope = false }, deps) {
   const fs = deps.fs ?? fsp;
   const rel = ".pandacorp/inbox/decisions.md";
   const { abs, tracked } = await writeTarget(project, rel, { integrationRoot, exec: deps.exec });
@@ -156,7 +161,7 @@ async function markInboxResolved(project, integrationRoot, { unitId, reason, dat
       const end = rest < 0 ? text.length : start + 3 + rest;
       const block = text.slice(start, end);
       if (/^- \*\*Estado:\*\* PENDIENTE/m.test(block)) {
-        const updated = block.replace(/^- \*\*Estado:\*\* PENDIENTE.*$/m, `- **Estado:** RESUELTO: entorno arreglado, unidad reanudada (${date}): ${oneLine(reason, 200)}`);
+        const updated = block.replace(/^- \*\*Estado:\*\* PENDIENTE.*$/m, `- **Estado:** RESUELTO: ${scope ? "alcance resuelto" : "entorno arreglado"}, unidad reanudada (${date}): ${oneLine(reason, 200)}`);
         await atomicWriteText(file, `${text.slice(0, start)}${updated}${text.slice(end)}`, { fs, mode: 0o644 });
         return true;
       }
@@ -186,7 +191,7 @@ async function worktreeChanges(worktree, deps) {
  * @param {object} [deps] fs, exec, buildState, emit, clock
  * @returns {Promise<{unit: string, attempt: number, units: string[], wos_planned: string[], worktree: string|null, worktree_changes: number|null, previous_report: string|null, commit: string|null, notice_es: string}>}
  */
-export async function applyUnblock(ctx, { unitId, reason }, deps = {}) {
+export async function applyUnblock(ctx, { unitId, reason, scopeResolution = null }, deps = {}) {
   const { project, paths } = ctx;
   const fs = deps.fs ?? fsp;
   const state = await ctx.readState();
@@ -194,7 +199,7 @@ export async function applyUnblock(ctx, { unitId, reason }, deps = {}) {
   const { events } = await readJournal(paths.journalFile, deps);
   const at = nowIso(deps);
   const checkoutProof = await reviewCheckoutProof({ paths, state, events, unitId }, deps);
-  const plan = planUnblock({ state, events, unitId, reason, at, rejectionText: await attemptReason(paths, findUnit(state, unitId), fs), checkoutProof });
+  const plan = planUnblock({ state, events, unitId, reason, at, rejectionText: await attemptReason(paths, findUnit(state, unitId), fs), checkoutProof, scopeResolution });
   const unit = plan.root;
   const integrationRoot = path.resolve(project, state.integration.worktree);
 
@@ -217,9 +222,9 @@ export async function applyUnblock(ctx, { unitId, reason }, deps = {}) {
       } catch (error) { if (error.code !== "INVALID_STATE") throw error; }
     }
   }
-  await markInboxResolved(project, integrationRoot, { unitId, reason, date: at.slice(0, 10) }, deps);
+  await markInboxResolved(project, integrationRoot, { unitId, reason, date: at.slice(0, 10), scope: Boolean(scopeResolution) }, deps);
   const trailers = [`Unit: ${unitId}`, ...wosPlanned.map((wo) => `WO: ${wo}`)].join("\n");
-  const commit = await commitIntegration(integrationRoot, await changedTrackedFiles(integrationRoot, deps), `chore(build): unblock ${unitId} after an environment fix\n\n${trailers}\n`, deps);
+  const commit = await commitIntegration(integrationRoot, await changedTrackedFiles(integrationRoot, deps), `chore(build): unblock ${unitId} after ${scopeResolution ? "an approved scope repair" : "an environment fix"}\n\n${trailers}\n`, deps);
 
   // 2. The previous report is kept aside (never read as this attempt's result) and the next brief is told about it.
   const unitDir = paths.unitDir(unitId);
@@ -229,7 +234,7 @@ export async function applyUnblock(ctx, { unitId, reason }, deps = {}) {
   if (!previousReport && await fs.stat(kept).then(() => true, () => false)) previousReport = kept;
   const changes = await worktreeChanges(unit.worktree, deps);
   await fs.mkdir(unitDir, { recursive: true });
-  await atomicWriteJson(path.join(unitDir, UNBLOCK_NOTE), { attempt: unit.attempt, at, reason: oneLine(reason, 400), previous_report: previousReport, worktree: unit.worktree ?? null, worktree_changes: changes }, { fs });
+  await atomicWriteJson(path.join(unitDir, UNBLOCK_NOTE), { attempt: unit.attempt, at, cause: scopeResolution ? "scope" : "env-infra", reason: oneLine(reason, 400), previous_report: previousReport, worktree: unit.worktree ?? null, worktree_changes: changes }, { fs });
 
   // 3. State and journal (the caller's phase 2 holds the lease mutex); no admission token survives.
   await ctx.writeState(plan.state);

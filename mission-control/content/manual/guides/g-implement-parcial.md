@@ -57,6 +57,13 @@ dependientes, mientras el resto continúa. Las decisiones pendientes se responde
 el estado del motor. Cuando el inbox está versionado, `decisions.pending.md` permite leer las
 preguntas antes de integrar.
 
+Si una unidad queda bloqueada porque necesita archivos fuera de su allowlist, el coordinador registra tu aprobación
+de archivos concretos con `scope-repair --epoch E --unit U --files '<JSON>' --owner-approved --reason '<decisión>'`.
+Si el run se detuvo, primero lo retoma con `start --resume`. Un architect recibe una unidad de documentación acotada
+para ampliar `artifacts` de esa orden bloqueada; tras verificar e integrar la reparación, el motor continúa el mismo
+intento, conservando la rama y los cambios locales. Los tests protegidos siguen el camino de disputa existente y no
+entran por una ampliación del allowlist. La decisión, la reparación y la reanudación quedan en el journal.
+
 ## Verificado en rama e integrado
 
 Los cambios versionados del run se escriben en `lane/<run_id>/integration`, nunca en la copia

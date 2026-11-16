@@ -4,11 +4,13 @@ import { POLICY, lastLines, oneLine } from "./common.mjs";
 
 const CAUSE_ES = Object.freeze({
   code: "fallo de código", "test-defective": "prueba defectuosa", "spec-ambiguous": "especificación ambigua", "env-infra": "entorno o infraestructura",
+  scope: "archivos fuera del allowlist",
   dependency: "dependencia externa (secreto, cuenta o servicio)", gate: "puerta humana", owner: "decisión del owner",
 });
 const REASON_ES = Object.freeze({
   budget_exhausted: "se agotaron las 3 ejecuciones de la unidad", evidence_identical: "el tercer intento no aportaba evidencia nueva respecto al segundo",
   no_diagnosis: "el segundo intento falló sin diagnóstico, no hay base para un tercero", test_defective_disputed: "la prueba sigue en disputa tras la réplica del revisor",
+  allowlist: "la unidad necesita ampliar artifacts con aprobación del owner y una reparación acotada del architect",
   dependency_missing: "falta un secreto, una cuenta o un servicio que solo tú puedes aportar", human_gate: "la unidad necesita una puerta humana",
   owner_refused_gate: "el owner rechazó la puerta humana", manual: "devuelta a mano por la sesión",
   worker_blocked: "el trabajador se declaró bloqueado y no puede seguir sin ti", worker_failed: "el trabajador falló sin informe válido en sus intentos",
@@ -21,6 +23,7 @@ const causeEs = (cause) => CAUSE_ES[cause] ?? String(cause);
 const reasonEs = (code) => REASON_ES[code] ?? String(code);
 
 const OPTIONS_ES = Object.freeze({
+  scope: (info) => [`Aprobar archivos concretos con \`scope-repair --epoch <E> --unit ${info.unit} --files <JSON> --owner-approved --reason <decisión>\`; el architect amplía artifacts y el motor reanuda el mismo intento (recomendada).`, "Mantener el alcance actual y dejar la unidad bloqueada."],
   dependency: ["Aportar el secreto, la cuenta o el servicio que falta y reanudar (recomendada: es lo único que bloquea).", "Cambiar el work order para que no dependa de ello."],
   "test-defective": ["Corregir la prueba discutida con /pandacorp:implement y reanudar (recomendada: el código no se toca).", "Mantener la prueba y reescribir el work order."],
   // BL-0312: the resume is a real command (failure/unblock.mjs), named with the unit so the coordinator can run it.

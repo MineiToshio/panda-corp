@@ -1,5 +1,29 @@
 # Decision Log — Factory
 
+## 2026-11-16 — Define owner-approved blocked scope repair (BL-0327)
+
+[BUILD-15](standards/build-engine.md) now distinguishes artifact ownership gaps from missing infrastructure.
+An owner-approved architect docs repair may add concrete artifacts/dependencies to its blocked claimed WO;
+the engine validates and integrates it before re-admitting the same preserved execution. Protected hashes take
+the existing dispute path. This fixes a missing implementation path within existing scope/owner/fencing policy,
+without changing defaults or adding a registry decision. Plugin 10.13.6, CLI §3.14c and build-v2 scope fixtures
+carry the behavior and exact incident commands. The original incident project remains read-only.
+
+## 2026-11-16 — Post-launch loop sweep (`pandacorp-review-launch`): funko-tracker's portfolio phase was stale
+
+Routine `pandacorp-review-launch` found `factory/portfolio.md`'s Funko Tracker row still showing
+`Fase: product` (last synced 2026-10-12) while the project's own `.pandacorp/status.yaml`
+(source of truth, rule 5) says `phase: release` since before 2026-10-26. Ran its first
+`/pandacorp:review-launch` pass anyway (precondition met via status.yaml): telemetry exists
+(PostHog Cloud US project 718854, cookieless) but no PostHog MCP is connected this session, and
+no recorded date of the kill-signal-triggering "public launch to @pandadcollector's audience" was
+found (only continuous production deploys at `https://funko.pandatrack.app`) — verdict `hold`,
+too early / no data, recorded in the portfolio's Veredicto cell. personal-page-v2 got its routine
+re-check (`hold`, unchanged, still no PostHog MCP). Mission Control stays out of scope (internal
+tool). Why this matters: the Fase column drift means `/pandacorp:sync-portfolio` hasn't run
+against funko-tracker in weeks — flagged in the portfolio cell for the owner, not fixed here
+(that column belongs to sync-portfolio, not review-launch).
+
 ## 2026-11-15 — Preserve risk and complexity floors in lightweight design recovery (P9 N2)
 
 Independent review showed that queued UI recovery dropped risk metadata and could select Sol high

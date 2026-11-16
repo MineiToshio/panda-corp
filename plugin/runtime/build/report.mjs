@@ -10,6 +10,7 @@ import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { releaseToken, verifyToken } from "./admission.mjs";
 import { frontmatterList, parseYamlSubset, setCardDocsSha, splitFrontmatter } from "./card.mjs";
+import { scopeDiagnosis, scopeAmendmentProblem, scopeDependencyUnits } from "./scope.mjs";
 import { designPaths, existingWoAmendmentProblem } from "./incremental.mjs";
 import { applyUnitFailure, openUnitDoubt } from "./failure.mjs";
 import { loadSchema, sha256Hex, validate } from "./fsx.mjs";
@@ -118,10 +119,11 @@ export function newWoSourceChangeProblem(card, data) {
   return listed.includes(want) ? null : `a new work order of a card run must list the card in source_change: [${card}] (otherwise the planner never schedules it)`;
 }
 
-async function checkChanges({ unit, artifacts, changes, hashed, root, base, card = null, claimed = [], deps }) {
+async function checkChanges({ unit, artifacts, changes, hashed, root, base, card = null, claimed = [], targets = [], deps }) {
   const fs = deps.fs ?? fsp;
   const problems = [];
   for (const { rel, status } of changes) {
+    if (unit.scope_repair && rel !== unit.scope_repair.wo_file) { problems.push({ path: rel, why: "scope repair may only write its approved work order" }); continue; }
     if (SNAPSHOT_RE.test(rel)) { problems.push({ path: rel, why: "blessed snapshot baselines are never written by workers" }); continue; }
     if (hashed.has(rel)) { problems.push({ path: rel, why: "hashed test or probe file (the run protects it)" }); continue; }
     if (!isAllowedPath(unit.kind, artifacts, rel)) { problems.push({ path: rel, why: `outside the ${unit.kind} write allowlist` }); continue; }
@@ -129,9 +131,11 @@ async function checkChanges({ unit, artifacts, changes, hashed, root, base, card
     const before = await git(deps, root, ["show", `${base}:./${rel}`], { allowFail: true });
     if (before.code === 0) {
       const after = status === "D" ? null : await readFileText(fs, path.join(root, rel));
-      if (after === null || frontmatterBlock(before.stdout) !== frontmatterBlock(after)) {
+      if (unit.scope_repair || after === null || frontmatterBlock(before.stdout) !== frontmatterBlock(after)) {
         const id = parseYamlSubset(splitFrontmatter(before.stdout)?.fm ?? "").data.id;
-        const why = existingWoAmendmentProblem({ unit, card, before: before.stdout, after, claimed: claimed.includes(String(id).toLowerCase()) });
+        const why = unit.scope_repair
+          ? scopeAmendmentProblem({ unit, rel, before: before.stdout, after, targets, hashed })
+          : existingWoAmendmentProblem({ unit, card, before: before.stdout, after, claimed: claimed.includes(String(id).toLowerCase()) });
         if (why) problems.push({ path: rel, why });
       }
     } else if (status !== "D") {
@@ -248,8 +252,13 @@ async function evaluateDone({ intent, deps }) {
   for (const rel of reported) if (!changed.has(rel)) reasons.push(`${rel}: listed in report.files but not changed in the worktree`);
   if (!changes.length && !reasons.length) reasons.push("nothing to commit: the worktree has no changes");
 
-  const workOrders = unit.kind === "build" || unit.kind === "patch" ? await readUnitWorkOrders(root, unit.wos, { ...deps, ref: base }) : [];
-  const problems = await checkChanges({ unit, artifacts: artifactsOf(workOrders), changes, hashed: intent.hashed, root, base, card: intent.card, claimed: intent.claimed, deps });
+  const workOrders = unit.kind === "build" || unit.kind === "patch" ? await readUnitWorkOrders(root, unit.wos, { ...deps, ref: unit.scope_revision ?? base }) : [];
+  const problems = await checkChanges({ unit, artifacts: artifactsOf(workOrders), changes, hashed: intent.hashed, root, base, card: intent.card, claimed: intent.claimed, targets: intent.targets, deps });
+  if (unit.scope_repair && !problems.length) {
+    const wo = { id: unit.wos[0], text: await readFileText(fs, path.join(root, unit.scope_repair.wo_file)) };
+    try { await scopeDependencyUnits(root, wo, intent.targets, deps); }
+    catch (error) { problems.push({ path: unit.scope_repair.wo_file, why: error.message }); }
+  }
   if (unit.kind === "docs" && unit.role === "designer") {
     for (const rel of unit.design_refs ?? designPaths(unit.frd, intent.card ?? unit.id)) {
       if (!changed.has(rel) || !(await readFileText(fs, path.join(root, rel)))?.trim()) problems.push({ path: rel, why: "lightweight design requires the scoped FDD and mock delta before dependent UI construction" });
@@ -357,7 +366,7 @@ async function phase1({ ctx, input, deps }) {
   return {
     unit, report, problems, hashed, prefix, token: input.token, worktree: unit.worktree, root: productRoot(unit.worktree, prefix),
     claimed: state.units.filter(u => ["build", "patch"].includes(u.kind)).flatMap(u => u.wos ?? []).map(id => id.toLowerCase()),
-    integrationBranch: state.integration.branch, card: state.scope?.card ?? null, from: unit.state,
+    targets: state.units, integrationBranch: state.integration.branch, card: state.scope?.card ?? null, from: unit.state,
     gateApproved: state.answers?.[`g-${unit.id}`] === true,
   };
 }
@@ -373,7 +382,7 @@ async function applyFailure({ ctx, intent, verdict, deps, base }) {
   const source = verdict.source ?? FAIL_SOURCE[verdict.kind] ?? "report_rejected";
   const evidence = verdict.kind === "rejected" ? verdict.evidence : { tests: [], command: null, files: report?.files ?? [] };
   const reasons = verdict.kind === "rejected" ? verdict.reasons : [oneLine(report?.summary, 200) || verdict.kind];
-  const diagnosis = report?.diagnosis ?? null;
+  const diagnosis = scopeDiagnosis(report, intent.hashed);
   const res = await applyUnitFailure(ctx, {
     unitId: unit.id, attempt: unit.attempt, source, diagnosis, evidence, reasons, outcome: verdict.kind,
     failure: { command: evidence.command ?? verdict.g1?.command ?? null, tail: verdict.g1?.tail ?? "" },
@@ -383,7 +392,7 @@ async function applyFailure({ ctx, intent, verdict, deps, base }) {
   if (!res.applied) throw err("INVALID_STATE", `unit ${unit.id} changed while its report was checked`, { hint: "rebuild-state" });
   return {
     ...base, outcome: verdict.kind, reasons, action: res.action, next_attempt: res.next_attempt, ...(verdict.g1 ? { g1: g1Public(verdict.g1) } : {}),
-    ...(res.action === "doubt" || res.action === "dispute" ? { doubt: report?.doubt ?? null } : {}), ...(res.handback ? { handback: res.handback } : {}),
+    ...(res.action === "doubt" || res.action === "dispute" ? { diagnosis, doubt: report?.doubt ?? null } : {}), ...(res.handback ? { handback: res.handback } : {}),
   };
 }
 
@@ -399,12 +408,16 @@ async function applyVerdict({ ctx, intent, verdict, deps }) {
   let legacy = [];
 
   if (verdict.kind === "committed") {
+    if (unit.scope_repair) {
+      const target = findUnit(state, unit.scope_repair.target);
+      if (!target || target.state !== "blocked" || target.attempt !== unit.scope_repair.attempt) throw err("INVALID_STATE", "scope repair target changed during verification");
+    }
     const hashes = verdict.test_hashes ?? undefined;
     await ctx.writeState(patchUnit(state, unit.id, { state: "committed", token_hash: null, ...(hashes ? { test_hashes: hashes } : {}) }));
     await ctx.appendEvent({ type: "report_received", data: { unit: unit.id, outcome: "committed", commit: verdict.commit, ...(hashes ? { test_hashes: hashes } : {}) } });
     await ctx.appendEvent({ type: "wo_committed", data: { unit: unit.id, wos: unit.wos, frd: unit.frd, commit: verdict.commit } });
     await ctx.appendEvent(stateEvent("committed"));
-    if (unit.kind === "docs" && unit.role !== "product-manager" && unit.role !== "designer" && intent.card) {
+    if (unit.kind === "docs" && unit.role !== "product-manager" && unit.role !== "designer" && !unit.scope_repair && intent.card) {
       try { await setCardDocsSha(ctx.project, intent.card, verdict.commit, deps); } catch (e) { warnings.push(`docs_sha not written to card ${intent.card}: ${oneLine(e.message, 160)}`); }
     }
     legacy = unit.wos.map((wo) => ({ name: "wo_commit", data: { frd: unit.frd, wo, unit: unit.id, state: "committed" } }));
@@ -489,7 +502,7 @@ async function openDoubtOfResult({ project, epoch, input, result }, deps) {
   const viaDoubt = result.outcome === "doubt";
   const viaPolicy = result.action === "doubt" || result.action === "dispute";
   if (!viaDoubt && !viaPolicy) return result;
-  const diagnosis = viaPolicy ? await diagnosisOf(input.file, deps) : null;
+  const diagnosis = viaPolicy ? result.diagnosis ?? await diagnosisOf(input.file, deps) : null;
   const opened = await openUnitDoubt({ project, epoch, unit: input.unit, doubt: result.doubt ?? null, diagnosis, actor: input.actor }, deps);
   return opened.opened ? { ...result, doubt_opened: opened } : { ...result, action: "handback", next_attempt: null, handback: opened.handback };
 }
