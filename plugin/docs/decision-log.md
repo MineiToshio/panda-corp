@@ -1,5 +1,24 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-16 — Accept valid quoted WO statuses in governed transitions (BL-0326)
+
+Run `br-2026-11-16-01` stopped after its tests unit integrated: the architect's
+WO-12-002 at `0d82b2d7` had `implementation_status: "PLANNED"`. The v2 index
+accepted that YAML, but the shared transition/rollup reader only accepted unquoted
+scalars. Earlier unquoted WOs worked; the source was already the integration worktree.
+Canonical: [build-state.mjs](../runtime/build-state.mjs) and
+[CLI contract §10](build-engine-cli.md). The reader now accepts matching single/double
+quotes and CRLF, stays inside frontmatter and rejects missing/malformed/unknown states.
+The real frontmatter fixture and integration regressions cover dispatch, quoted sibling
+rollups, legal reopen with one counter increment, idempotence and an untouched main.
+PATCH 10.13.5 is required by DR-034; both manifests are regenerated. No new command,
+owner decision or Manual guide flow is introduced.
+The full build-suite run also exposed a 1 ms wall-clock mismatch in the conserve author-order test;
+that test now supplies one fixed `now` for both comparisons, without changing routing behavior.
+The affected project/run is read-only in this task: resume and completion are unverified.
+No commit, installation/update, state repair or project mutation is performed.
+
+
 ## 2026-11-15 — Back-port TypeScript E2E module inventories and optional test-DB cleanup
 
 The funko-tracker 9.2.0 → 9.4.1 re-sync exposed two source-template gaps (DR-076).

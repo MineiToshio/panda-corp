@@ -29,6 +29,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildPaths } from "../runtime/build/paths.mjs";
+import { transitionWorkOrderAt } from "../runtime/build-state.mjs";
+import { readWorkOrderStatuses } from "../runtime/build/state.mjs";
 import { createFixture, git as fxGit, testEnv } from "./fixtures/build-v2/make-fixture.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -333,6 +335,66 @@ await test("transitionWorkOrders: IN_REVIEW -> IN_PROGRESS walks via PLANNED, re
     eq(again.commit, null, "second run writes no commit");
     assertMainUntouched(sb, "reopen");
   } finally { await sb.done(); }
+});
+
+// BL-0326: the architect introduced valid quoted YAML at 0d82b2d7; tests integrated at fa7e1e4a,
+// then u-build-wo-12-002 failed in applyWoTransition before creating a worker. Older WOs were unquoted.
+await test("BL-0326: dispatch a real quoted PLANNED WO from integration, roll up quoted siblings, reopen and retry", async () => {
+  const sb = await sandbox();
+  try {
+    await ensure(sb);
+    const frd = "frd-12-web-performance";
+    const file = `docs/frds/${frd}/work-orders/wo-12-002-publication-cache-protocol.md`;
+    const body = readFileSync(path.join(HERE, "fixtures/build-v2/bl-0326/wo-12-002-publication-cache-protocol.md"), "utf8");
+    const files = {
+      [file]: body,
+      [`docs/frds/${frd}/work-orders/wo-12-003-public-shell-proxy.md`]: body.replace('id: "WO-12-002"', 'id: "WO-12-003"'),
+      [`docs/frds/${frd}/frd.md`]: '---\nimplementation_status: "PLANNED"\n---\n',
+      [`docs/frds/${frd}/blueprint.md`]: '---\nimplementation_status: "PLANNED"\n---\n',
+    };
+    for (const [rel, text] of Object.entries(files)) {
+      await mkdir(path.dirname(path.join(sb.integration.worktree, rel)), { recursive: true });
+      await writeFile(path.join(sb.integration.worktree, rel), text);
+    }
+    sb.g(sb.integration.worktree, "add", "docs/frds");
+    sb.g(sb.integration.worktree, "commit", "-qm", "docs: architect WO frontmatter from BL-0326");
+    eq(readAt(sb, "main", file), null, "new WO exists only on integration, never read from main");
+    const before = tipOf(sb);
+    const input = { integration: sb.integration, runId: RUN, wos: ["wo-12-002"], to: "IN_PROGRESS", unitId: "u-build-wo-12-002" };
+    const result = await api("transitionWorkOrders")(input, sb.deps);
+    eq(result.steps.map(s => [s.from, s.to]), [["PLANNED", "IN_PROGRESS"]], "quoted source dispatches");
+    eq(sb.g(sb.fx.root, "rev-list", "--count", `${before}..${sb.integration.branch}`), "1", "one governed commit");
+    eq((await readWorkOrderStatuses(sb.integration.worktree)).get("wo-12-002"), "IN_PROGRESS", "rebuild reader agrees with writer");
+    ok(readAt(sb, sb.integration.branch, ".pandacorp/status.yaml").includes("work_orders_planned: 5"), "quoted sibling and four original WOs counted");
+    eq(readAt(sb, sb.integration.branch, `docs/frds/${frd}/frd.md`), files[`docs/frds/${frd}/frd.md`].trim(), "unchanged quoted rollup is recognized");
+    eq((await api("transitionWorkOrders")(input, sb.deps)).commit, null, "resume/retry of completed transition is idempotent");
+
+    // Reopening a single-quoted IN_REVIEW is the same governed path, with exactly one reopen increment.
+    await writeFile(path.join(sb.integration.worktree, file), body.replace('"PLANNED"', "'IN_REVIEW'").replace(/\n/g, "\r\n"));
+    sb.g(sb.integration.worktree, "add", file);
+    sb.g(sb.integration.worktree, "commit", "-qm", "docs: quoted reopened WO");
+    const reopened = await api("transitionWorkOrders")(input, sb.deps);
+    eq(reopened.steps.map(s => s.to), ["PLANNED", "IN_PROGRESS"], "single-quoted CRLF status reopens legally");
+    ok(/^reopen_count: 1\r?$/m.test(readAt(sb, sb.integration.branch, file)), "reopen count increments once");
+    wtClean(sb, "quoted WO dispatch");
+    assertMainUntouched(sb, "BL-0326");
+  } finally { await sb.done(); }
+});
+
+await test("BL-0326: missing, malformed or body-only source statuses still fail closed without writing", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "bl0326-invalid-"));
+  try {
+    const file = "docs/frds/frd-12/work-orders/wo-12-002.md";
+    await mkdir(path.dirname(path.join(root, file)), { recursive: true });
+    for (const header of ["", 'implementation_status: "PLANNED', "implementation_status: 'PLANNED\"", 'implementation_status: "UNKNOWN"', "implementation_status: PLANNED_EXTRA"]) {
+      const body = `---\nid: WO-12-002\n${header}\n---\n\nimplementation_status: PLANNED\n`;
+      await writeFile(path.join(root, file), body);
+      let error;
+      try { await transitionWorkOrderAt(root, { file, to: "IN_PROGRESS" }); } catch (e) { error = e; }
+      eq(error?.code, "INVALID_STATE", `reject ${JSON.stringify(header)}`);
+      eq(readFileSync(path.join(root, file), "utf8"), body, "rejection preserves source bytes");
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
 
 await test("transitionWorkOrders: an unknown work order fails loud and leaves the worktree clean", async () => {

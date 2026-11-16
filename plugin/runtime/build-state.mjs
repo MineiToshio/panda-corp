@@ -369,7 +369,10 @@ export async function setPendingDecisions(project, token, epoch, count) {
   return withFence(project, token, epoch, async (lease) => { const now = iso(); await yamlSet(paths(project).status, { pending_decisions: count, last_event_at: now, updated_at: now }); await reassertActiveProjection(project, lease); return { pending_decisions: count }; });
 }
 
-const fmStatus = (body) => body.match(/^implementation_status:\s*(PLANNED|IN_PROGRESS|IN_REVIEW|VERIFIED|BLOCKED)\s*$/m)?.[1] || null;
+// BL-0326: architect WOs may use quoted YAML scalars, just like the v2 index/rebuild readers.
+// Match balanced quotes and the exact enum inside frontmatter only; prose cannot supply a missing state.
+const fmStatus = (body) => body.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/)?.[1]
+  .match(/^implementation_status:[ \t]*(["']?)(PLANNED|IN_PROGRESS|IN_REVIEW|VERIFIED|BLOCKED)\1[ \t]*\r?$/m)?.[2] || null;
 const setFmStatus = (body, status) => /^implementation_status:/m.test(body) ? body.replace(/^implementation_status:.*$/m, `implementation_status: ${status}`) : body.replace(/^---\s*$/m, `---\nimplementation_status: ${status}`);
 const setFmKey = (body, key, value) => { const line = `${key}: ${value}`; const re = new RegExp(`^${key}:.*$`, "m"); return re.test(body) ? body.replace(re, line) : body.replace(/^---\s*$/m, `---\n${line}`); };
 const rollup = (states) => states.every((s) => s === "VERIFIED") ? "VERIFIED" : states.some((s) => s === "BLOCKED") ? "BLOCKED" : states.some((s) => s === "PLANNED") ? "PLANNED" : states.some((s) => s === "IN_PROGRESS") ? "IN_PROGRESS" : "IN_REVIEW";

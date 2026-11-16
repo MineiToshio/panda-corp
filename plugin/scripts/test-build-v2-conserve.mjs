@@ -76,7 +76,8 @@ test("restored: symmetric review fallback preserves risk and fresh context", () 
 test("restored: mixed-author order is stable and strong authors require a stronger review", () => {
   const authors = [author, { runtime: "codex", model: "astra", effort: "high" }];
   for (const claude of ["quota", "conserve", "unreachable", "ok"]) for (const zone of ["none", "floor", "r1"]) {
-    const input = { authors, kind: "frd", zone, availability: { claude, codex: "ok" } };
+    // Compare author order against the same capacity observation, not two different wall-clock milliseconds.
+    const input = { authors, kind: "frd", zone, now: Date.parse("2026-11-16T00:00:00Z"), availability: { claude, codex: "ok" } };
     const a = reviewCell(input), b = reviewCell({ ...input, authors: [...authors].reverse() });
     eq(a, b); eq([a.parked, a.deferred, a.degraded, a.independent_context], [null, null, null, true]);
     eq([a.used.model, a.used.effort], ["astra", "xhigh"]);

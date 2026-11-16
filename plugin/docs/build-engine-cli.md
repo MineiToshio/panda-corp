@@ -1044,7 +1044,7 @@ Fenced helpers in `plugin/runtime/build-state.mjs` for this relay and for resume
   - `{"kind":"review_start","frd":"...","at":"<iso>"}`
   - `{"kind":"review_end","frd":"...","at":"<iso>","verdict":"pass|reject"}`
   - `{"kind":"frd_end","frd":"...","at":"<iso>"}`
-- Branches: integration `lane/<run_id>/integration`, units `lane/<run_id>/<unit>[-a<n>]`, assumption `lane/<run_id>/assume-<doubt>` (Mission Control classifies `lane/` as engine-origin). Work orders keep the existing `implementation_status` values only (`PLANNED`, `IN_PROGRESS`, `IN_REVIEW`, `VERIFIED`, `BLOCKED`); card statuses keep the existing enum (no new token such as `parked`).
+- Branches: integration `lane/<run_id>/integration`, units `lane/<run_id>/<unit>[-a<n>]`, assumption `lane/<run_id>/assume-<doubt>` (Mission Control classifies `lane/` as engine-origin). Work orders keep the existing `implementation_status` values only (`PLANNED`, `IN_PROGRESS`, `IN_REVIEW`, `VERIFIED`, `BLOCKED`); card statuses keep the existing enum (no new token such as `parked`). Governed WO transitions and rollups accept these exact frontmatter scalars unquoted or enclosed in matching single/double YAML quotes (including CRLF files). Missing, malformed or unknown values and status-like Markdown body lines cannot supply a source state.
 - Contract with Mission Control and the verification suites: `build-engine.md` ("Mission Control telemetry contract").
 
 ## 11. Worker contract
