@@ -1,0 +1,8 @@
+{
+  "source": "BL-0328, funko-tracker br-2026-11-16-01 epoch 42, WO-12-003",
+  "tracked": "src/lib/coverage/cachedCoverage.ts",
+  "ignore": "/coverage/\n# Additional factory ignore entries\ncoverage/\n.env*\n*.pem\n",
+  "ignore_origin": ".gitignore:54, reintroduced by abdfd612 after ee5a7542 anchored /coverage/",
+  "artifacts": ["src/lib/coverage/**", "src/alpha/list.ts"],
+  "bootstrap": [".claude/launch.json", "e2e/server-env.json"]
+}

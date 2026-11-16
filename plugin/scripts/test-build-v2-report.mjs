@@ -249,6 +249,66 @@ const writeBootstrapManifest = async (c, u, files, { pathOverride = null } = {})
   await writeFile(file, JSON.stringify({ producer: "worktree-bootstrap", version: 1, path: pathOverride ?? wt, identity: `${st.dev}:${st.ino}:${st.birthtimeMs}`,
     gitdir: realpathSync(c.git(wt, ["rev-parse", "--absolute-git-dir"])), generated_files: generated }));
 };
+const ignoredFixture = JSON.parse(await readFile(path.join(HERE, "fixtures/build-v2/ignored-tracked.json"), "utf8"));
+const ignoredCase = async (c, { exact = null } = {}) => {
+  await c.integrateFile(ignoredFixture.tracked, "export const cachedCoverage = 1;\n");
+  await c.integrateFile(".gitignore", ignoredFixture.ignore);
+  const wo = `${WO_DIR}/wo-01-001.md`;
+  const text = await readFile(path.join(c.paths.integrationWorktree, wo), "utf8");
+  await c.integrateFile(wo, text.replace("artifacts:\n", `artifacts:\n  - '${exact ?? "src/lib/coverage/**"}'\n`));
+  c.integrationTip = c.tip(c.branch);
+  return c.dispatch(buildUnit());
+};
+await test("BL-0328 real fixture: tracked coverage file commits with other files and bootstrap remains untouched", async () => withRun(async (c) => {
+  for (const rel of ignoredFixture.bootstrap) await c.integrateFile(rel, "{\"port\":3000}\n");
+  const u = await ignoredCase(c);
+  await c.write(u, Object.fromEntries(ignoredFixture.bootstrap.map((f) => [f, "{\"port\":4000}\n"])));
+  await writeBootstrapManifest(c, u, ignoredFixture.bootstrap);
+  await c.write(u, { [ignoredFixture.tracked]: "export const cachedCoverage = 2;\n", "src/alpha/list.ts": "export const value = 3;\n" });
+  // Real incident: add -A partially staged the other files before rejecting the tracked ignored path.
+  c.git(u.wt, ["add", "--", "src/alpha/list.ts"]);
+  const res = await c.submit(u, c.report(u, { files: [ignoredFixture.tracked, "src/alpha/list.ts"] }));
+  eq(res.outcome, "committed", `tracked ignored path (${res.thrown?.message ?? res.reasons})`);
+  eq(c.files(u.branch), ["src/alpha/list.ts", ignoredFixture.tracked].sort(), "exact commit, no bootstrap files");
+  eq((await c.unit(u.id)).attempt, 1, "same attempt survives");
+}));
+await test("BL-0328: tracked ignored deletion is committed", async () => withRun(async (c) => {
+  const u = await ignoredCase(c);
+  await rm(path.join(u.wt, ignoredFixture.tracked));
+  const res = await c.submit(u, c.report(u, { files: [ignoredFixture.tracked] }));
+  eq(res.outcome, "committed", `ignored deletion (${res.thrown?.message ?? res.reasons})`);
+  eq(c.git(u.wt, ["diff-tree", "--no-commit-id", "--name-status", "-r", "HEAD"]), `D\t${ignoredFixture.tracked}`, "deletion committed");
+}));
+for (const staged of [false, true]) await test(`BL-0328: new ignored file under a broad artifact is a worker rejection (staged=${staged})`, async () => withRun(async (c) => {
+  const u = await ignoredCase(c);
+  const rel = "src/lib/coverage/unapproved.ts";
+  await c.write(u, { [rel]: "export const surprise = 1;\n" });
+  if (staged) c.git(u.wt, ["add", "-f", "--", rel]);
+  const res = await c.submit(u, c.report(u, { files: [rel] }));
+  await assertRejected(c, u, res, "new ignored file");
+  ok(!res.thrown, "report must settle the worker failure, never throw INVALID_STATE");
+  ok(res.reasons.some((r) => r.includes(rel) && /ignored.*explicit/i.test(r)), "readable ignored-file diagnosis");
+  await assertAttemptBumped(c, u, 2, "worker report failure");
+  eq((await c.journal()).filter((e) => e.type === "engine_failure").length, 0, "no engine failure");
+  eq((await c.g1Log()).length, 0, "rejected before G1");
+}));
+await test("BL-0328: exact WO artifact permits only that new ignored file, never adjacent output or .env", async () => withRun(async (c) => {
+  const rel = "src/lib/coverage/approved.ts";
+  const u = await ignoredCase(c, { exact: rel });
+  await c.write(u, { [rel]: "export const approved = 1;\n", "src/lib/coverage/other.ts": "output\n", ".env.local": "FAKE_FIXTURE_ONLY=1\n" });
+  const res = await c.submit(u, c.report(u, { files: [rel] }));
+  eq(res.outcome, "committed", `exact ignored artifact (${res.thrown?.message ?? res.reasons})`);
+  eq(c.files(u.branch), [rel], "only exact approved file committed");
+  eq(c.git(u.wt, ["ls-files", "--", ".env.local", "src/lib/coverage/other.ts"]), "", "ignored neighbors never staged");
+}));
+for (const rel of [".env.local", "src/lib/coverage/.env.example", "src/lib/coverage/private.pem"]) await test(`BL-0328: explicit artifacts cannot force sensitive path ${rel}`, async () => withRun(async (c) => {
+  const u = await ignoredCase(c, { exact: rel });
+  await c.write(u, { [rel]: "FAKE_FIXTURE_ONLY\n" });
+  const res = await c.submit(u, c.report(u, { files: [rel] }));
+  await assertRejected(c, u, res, "sensitive ignored path");
+  ok(!res.thrown, "sensitive file rejection must settle normally");
+  eq(c.git(u.wt, ["ls-files", "--", rel]), "", "sensitive file never staged");
+}));
 const bootstrapCase = async (c) => {
   await c.integrateFile(LAUNCH, `${JSON.stringify({ version: "0.0.1", configurations: [{ name: "app", port: 3000 }] })}\n`);
   c.integrationTip = c.tip(c.branch);
@@ -709,6 +769,73 @@ await test("units: a tests brief demands RED-first by assertion, no production c
   ok(/RED/.test(text) && /assertion/i.test(text), "tests brief must say RED-first / fail by assertion");
   ok(/import|syntax/i.test(text), "tests brief must exclude import/syntax failures");
   ok(/production code/i.test(text), "tests brief must forbid production code");
+}));
+
+await test("BL-0328 reviewer: ignored tracked deletion already staged commits without resurrecting it", async () => withRun(async (c) => {
+  const u = await ignoredCase(c);
+  c.git(u.wt, ["rm", "--", ignoredFixture.tracked]);
+  const res = await c.submit(u, c.report(u, { files: [ignoredFixture.tracked] }));
+  eq(res.outcome, "committed", `staged deletion (${res.thrown?.message ?? res.reasons})`);
+  eq(c.git(u.wt, ["diff-tree", "--no-commit-id", "--name-status", "-r", "HEAD"]), `D\t${ignoredFixture.tracked}`, "staged deletion remains a deletion");
+}));
+await test("BL-0328 reviewer: HEAD tracked ignored file removed only from index is a readable worker rejection", async () => withRun(async (c) => {
+  const u = await ignoredCase(c);
+  c.git(u.wt, ["rm", "--cached", "--", ignoredFixture.tracked]);
+  await c.write(u, { [ignoredFixture.tracked]: "export const cachedCoverage = 4;\n" });
+  const res = await c.submit(u, c.report(u, { files: [ignoredFixture.tracked] }));
+  await assertRejected(c, u, res, "HEAD tracked/index removed");
+  ok(!res.thrown, "inconsistent index must not raise INVALID_STATE");
+  ok(res.reasons.some((r) => r.includes(ignoredFixture.tracked) && /index/i.test(r)), "diagnosis explains index mismatch");
+  await assertAttemptBumped(c, u, 2, "inconsistent index is worker failure");
+  eq((await c.journal()).filter((e) => e.type === "engine_failure").length, 0, "no engine failure");
+  eq((await c.g1Log()).length, 0, "rejected before G1");
+}));
+await test("BL-0328 reviewer: nested product prefix and bracket path stay literal and do not stage neighbors", async () => withRun(async (c) => {
+  const prefix = "apps/product/";
+  const rel = "src/coverage/cache[1].ts";
+  const adjacent = "src/coverage/cache1.ts";
+  await c.integrateFile(`${prefix}${rel}`, "old\n");
+  await c.integrateFile(`${prefix}${adjacent}`, "old adjacent\n");
+  await c.integrateFile(".gitignore", "coverage/\n");
+  const u = await c.dispatch(buildUnit());
+  await c.write(u, { [`${prefix}${rel}`]: "new\n", [`${prefix}${adjacent}`]: "new adjacent\n" });
+  const { inspectReportFiles, stageReportFiles } = await buildMod("reportFiles.mjs");
+  const inspection = await inspectReportFiles({ worktree: u.wt, prefix, reported: new Set([rel]), artifacts: [rel], kind: "build" }, { env: c.env });
+  eq(inspection.reasons, [], "valid nested tracked path");
+  ok(inspection.tracked.has(`${prefix}${rel}`), "tracked paths retain repository prefix");
+  ok(!inspection.tracked.has(`${prefix}${adjacent}`), "brackets never expand as a pathspec");
+  await stageReportFiles(u.wt, [`${prefix}${rel}`], inspection, { env: c.env });
+  eq(c.git(u.wt, ["diff", "--cached", "--name-only"]), `${prefix}${rel}`, "only the literal prefixed path staged");
+}));
+await test("BL-0328 reviewer: exact ignored artifact works below nested product root", async () => withRun(async (c) => {
+  const prefix = "apps/product/";
+  const rel = "src/coverage/new.ts";
+  await c.integrateFile(".gitignore", "coverage/\n");
+  const u = await c.dispatch(buildUnit());
+  await c.write(u, { [`${prefix}${rel}`]: "approved\n", [`${prefix}src/coverage/neighbor.ts`]: "unapproved\n" });
+  const { inspectReportFiles, stageReportFiles } = await buildMod("reportFiles.mjs");
+  const inspection = await inspectReportFiles({ worktree: u.wt, prefix, reported: new Set([rel]), artifacts: [rel], kind: "build" }, { env: c.env });
+  eq(inspection.reasons, [], "exact product-relative allowlist permits ignored new file");
+  await stageReportFiles(u.wt, [`${prefix}${rel}`], inspection, { env: c.env });
+  eq(c.git(u.wt, ["diff", "--cached", "--name-only"]), `${prefix}${rel}`, "only approved nested new file staged");
+}));
+
+for (const entry of ["directory", "symlink", "symlink-parent"]) await test(`BL-0328 reviewer: explicit ignored artifact rejects ${entry} without an engine failure`, async () => withRun(async (c) => {
+  const rel = "src/lib/coverage/unsafe.ts";
+  const u = await ignoredCase(c, { exact: rel });
+  const { symlink } = await import("node:fs/promises");
+  if (entry === "directory") await mkdir(path.join(u.wt, rel));
+  else if (entry === "symlink") await symlink("../elsewhere.ts", path.join(u.wt, rel));
+  else {
+    const link = path.join(u.wt, "src/lib/coverage/output");
+    await symlink("..", link);
+  }
+  const reported = entry === "symlink-parent" ? "src/lib/coverage/output/new.ts" : rel;
+  const res = await c.submit(u, c.report(u, { files: [reported] }));
+  await assertRejected(c, u, res, entry);
+  ok(!res.thrown, "unsafe filesystem shape settles as worker rejection");
+  await assertAttemptBumped(c, u, 2, entry);
+  eq((await c.journal()).filter((e) => e.type === "engine_failure").length, 0, "no engine failure");
 }));
 
 console.log(`RESULT: ${passed} passed, ${failed} failed`);

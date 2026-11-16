@@ -18,6 +18,7 @@ import { buildPaths } from "./paths.mjs";
 import { bootstrapOwnedUnchanged } from "../../scripts/worktree-sweep.mjs";
 import { fencedTwoPhase, findUnit, patchUnit } from "./state.mjs";
 import { emitEvent } from "./telemetry.mjs";
+import { inspectReportFiles, stageReportFiles } from "./reportFiles.mjs";
 import {
   artifactsOf, frontmatterBlock, git, isAllowedPath, isTestSurface, isWorkOrderPath, productPrefix, productRoot, readUnitWorkOrders, runnerOf, unitBase,
 } from "./units.mjs";
@@ -99,7 +100,7 @@ export function parseStatus(out) {
 
 const normalizeRel = (file) => {
   const posix = String(file).replace(/\\/g, "/");
-  if (!posix || posix.startsWith("/") || /(^|\/)\.\.(\/|$)/.test(posix)) return null;
+  if (!posix || posix.includes("\0") || posix.startsWith("/") || /(^|\/)\.\.(\/|$)/.test(posix)) return null;
   return path.posix.normalize(posix).replace(/^\.\//, "");
 };
 
@@ -247,13 +248,17 @@ async function evaluateDone({ intent, deps }) {
     const rel = normalizeRel(f);
     if (rel === null) reasons.push(`${f}: not a repository-relative path`); else reported.add(rel);
   }
+  const workOrders = unit.kind === "build" || unit.kind === "patch" ? await readUnitWorkOrders(root, unit.wos, { ...deps, ref: unit.scope_revision ?? base }) : [];
+  const artifacts = artifactsOf(workOrders);
+  const inspection = await inspectReportFiles({ worktree, prefix, reported, artifacts, kind: unit.kind }, deps);
+  reasons.push(...inspection.reasons);
+  for (const c of inspection.additions) if (!changes.some((existing) => existing.rel === c.rel)) changes.push(c);
   const changed = new Set(changes.map((c) => c.rel));
   for (const rel of changed) if (!reported.has(rel)) reasons.push(`${rel}: changed in the worktree but missing from report.files`);
   for (const rel of reported) if (!changed.has(rel)) reasons.push(`${rel}: listed in report.files but not changed in the worktree`);
   if (!changes.length && !reasons.length) reasons.push("nothing to commit: the worktree has no changes");
 
-  const workOrders = unit.kind === "build" || unit.kind === "patch" ? await readUnitWorkOrders(root, unit.wos, { ...deps, ref: unit.scope_revision ?? base }) : [];
-  const problems = await checkChanges({ unit, artifacts: artifactsOf(workOrders), changes, hashed: intent.hashed, root, base, card: intent.card, claimed: intent.claimed, targets: intent.targets, deps });
+  const problems = await checkChanges({ unit, artifacts, changes, hashed: intent.hashed, root, base, card: intent.card, claimed: intent.claimed, targets: intent.targets, deps });
   if (unit.scope_repair && !problems.length) {
     const wo = { id: unit.wos[0], text: await readFileText(fs, path.join(root, unit.scope_repair.wo_file)) };
     try { await scopeDependencyUnits(root, wo, intent.targets, deps); }
@@ -285,7 +290,7 @@ async function evaluateDone({ intent, deps }) {
 
   const files = [...changed].sort().map((rel) => `${prefix}${rel}`);
   const { subject, trailers } = commitMessage({ unit, report, card: intent.card });
-  await git(deps, worktree, ["--literal-pathspecs", "add", "-A", "--", ...files]);
+  await stageReportFiles(worktree, files, inspection, deps);
   await git(deps, worktree, ["--literal-pathspecs", "-c", "commit.gpgsign=false", "commit", "--quiet", "--no-verify", "-m", subject, "-m", trailers, "--", ...files]);
   const commit = (await git(deps, worktree, ["rev-parse", "HEAD"])).stdout.trim();
   return { kind: "committed", commit, g1, test_hashes: unit.kind === "tests" ? testHashes : null };

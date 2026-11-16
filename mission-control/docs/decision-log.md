@@ -1,5 +1,12 @@
 # Decision Log — Mission Control
 
+## 2026-11-16 — Explain ignored-file handling in the build Manual (BL-0328)
+
+The shared [build explanation](../src/app/manual/_components/DesatendidaDetail.tsx) now states that
+tracked ignored files remain committable, new ignored files need exact WO authorization, and invalid
+reports consume worker attempts rather than stopping the engine. Mirrors [CLI §3.9](../../plugin/docs/build-engine-cli.md#39-report).
+No product behavior changed.
+
 ## 2026-11-16 — Explain blocked allowlist continuation (BL-0327)
 
 Updated the [partial-build guide](../../content/manual/guides/g-implement-parcial.md) to explain owner-approved

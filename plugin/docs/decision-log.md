@@ -1,5 +1,20 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-16 — Stage tracked ignored paths and reject unauthorized ignored output (BL-0328)
+
+Plugin 10.13.7 (PATCH, DR-034). In funko-tracker `br-2026-11-16-01`, explicit `add -A` rejected
+`src/lib/coverage/cachedCoverage.ts`: it was tracked, but `.gitignore:54` reintroduced the unanchored
+`coverage/` rule. Earlier run commits did not touch it. Report ingestion now distinguishes HEAD provenance
+from index membership, uses literal file-limited `-u` for tracked changes and retains staged deletions.
+New ignored report paths need an exact pinned WO artifact before bounded `-f`; broad patterns, index-only
+staging and implicit allowlists cannot authorize them. Sensitive paths and unsafe parents are rejected.
+Worker violations settle through the existing failure policy rather than an engine hand-back. The real-shaped
+fixture went RED before the fix; independent review added staged-deletion, removed-index and nested/literal
+adversaries. Canonical: [CLI §3.9](build-engine-cli.md#39-report),
+[reportFiles.mjs](../runtime/build/reportFiles.mjs), and the Mission Control Manual's shared build explanation.
+The incident project remains read-only; resume/handoff commands and live acceptance pending are in BL-0328.
+No factory git mutation or local plugin installation was performed.
+
 ## 2026-11-16 — Repair blocked artifact ownership without spending attempts (BL-0327)
 
 Plugin 10.13.6 (PATCH, DR-034) fixes a missing continuation in the existing build contract.

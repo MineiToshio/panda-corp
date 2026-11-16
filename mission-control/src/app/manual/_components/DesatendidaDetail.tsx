@@ -45,6 +45,11 @@ export function DesatendidaDetail(): React.JSX.Element {
       </Body>
       <DocH title="Revisar y reparar solo lo que falló" />
       <Body>
+        Reports can commit tracked files below ignored directories. A new ignored file needs an
+        exact work-order artifact; broad patterns never authorize forcing ignored output. Invalid
+        files are worker failures, while environment files and credentials remain excluded.
+      </Body>
+      <Body>
         An independent reviewer with a fresh context, including on the same model, contrasta el FRD
         completo y vuelve a ejecutar la evidencia. Pasar los criterios numerados no exime de cumplir
         las demás cláusulas normativas. Los tests se trazan al contrato y prueban límites
