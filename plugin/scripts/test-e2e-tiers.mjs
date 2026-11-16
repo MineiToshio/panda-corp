@@ -27,6 +27,10 @@ function load({ safe, mobile, env = {}, globalSetup = false, prodServer = false 
     writeFileSync(path.join(dir, 'e2e', 'read.spec.ts'), '')
     writeFileSync(path.join(dir, 'e2e', 'dialog.spec.ts'), '')
     writeFileSync(path.join(dir, 'e2e', 'new-dialog.spec.ts'), '')
+    for (const spec of ['nested/read.spec.mts', 'nested/read.spec.cts', 'nested/read.spec.js', 'nested/read.mts']) {
+      mkdirSync(path.dirname(path.join(dir, 'e2e', spec)), { recursive: true })
+      writeFileSync(path.join(dir, 'e2e', spec), '')
+    }
     mkdirSync(path.join(dir, 'docs/reviews'), { recursive: true })
     writeFileSync(path.join(dir, 'docs/reviews/mobile.md'), '# Reviewed inventory')
     if (mobile !== undefined) writeFileSync(path.join(dir, 'e2e/mobile-specs.json'), JSON.stringify(mobile))
@@ -124,6 +128,21 @@ check('unknown tier fails loud', !load({ env: { PANDACORP_E2E_TIER: 'fast' } }).
   check('unreviewed legacy allowlist fails loudly', !load({ mobile: ['read.spec.ts'] }).ok)
   check('missing review document cannot reduce coverage', !load({ mobile: { include: [], desktopOnly: ['read.spec.ts'], review: 'docs/reviews/missing.md' } }).ok)
   check('review cannot exclude mandatory visual core', !load({ mobile: { include: [], desktopOnly: ['visual.spec.ts'], review: 'docs/reviews/mobile.md' } }).ok)
+}
+
+// Both inventory readers accept TypeScript module variants, while retaining path validation.
+for (const spec of ['read.spec.ts', 'nested/read.spec.mts', 'nested/read.spec.cts']) {
+  const glob = `**/e2e/${spec}`
+  const parallel = load({ safe: [spec], env: { PANDACORP_E2E_TIER: 'parallel' } })
+  check(`parallel inventory accepts ${spec}`, parallel.ok && parallel.config.testMatch.includes(glob))
+  const mobile = load({ mobile: { include: [spec], desktopOnly: [], review: 'docs/reviews/mobile.md' } })
+  check(`mobile include accepts ${spec}`, mobile.ok && !project(mobile.config, 'mobile').testIgnore.includes(glob))
+  const desktopOnly = load({ mobile: { include: [], desktopOnly: [spec], review: 'docs/reviews/mobile.md' } })
+  check(`mobile exclusion accepts ${spec}`, desktopOnly.ok && project(desktopOnly.config, 'mobile').testIgnore.includes(glob))
+}
+for (const spec of ['nested/read.spec.js', 'nested/read.mts', 'nested/../read.spec.ts', 'missing.spec.mts']) {
+  check(`parallel inventory rejects ${spec}`, !load({ safe: [spec] }).ok)
+  check(`mobile inventory rejects ${spec}`, !load({ mobile: { include: [spec], desktopOnly: [], review: 'docs/reviews/mobile.md' } }).ok)
 }
 
 console.log(failed ? `RESULT: ${failed} failed` : 'RESULT: all passed')

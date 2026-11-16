@@ -1017,5 +1017,16 @@ if ls e2e/visual.spec.ts-snapshots/*.png >/dev/null 2>&1 && ! grep -rqs "prototy
   echo "⚠ DR-080: blessed visual baselines exist but no fdd.md records a 'prototype_blessed_at' provenance line — the baseline's independent oracle is unrecorded (advisory)."
 fi
 
+# DR-140: opt-in DB postcondition after selected test suites; DB-free projects need no script.
+if { gate_selected vitest || gate_selected playwright; } &&
+   node -e 'const script = require("./package.json").scripts?.["db:test:check-clean"]; process.exit(typeof script === "string" && script.trim() ? 0 : 1)'; then
+  DB_CLEAN_RC=0
+  run_gate database-clean plain pnpm db:test:check-clean || DB_CLEAN_RC=$?
+  if [ "$DB_CLEAN_RC" -ne 0 ]; then
+    write_gate_report "$DB_CLEAN_RC"
+    exit "$DB_CLEAN_RC"
+  fi
+fi
+
 write_gate_report 0
 exit 0

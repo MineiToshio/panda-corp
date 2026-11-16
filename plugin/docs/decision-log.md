@@ -1,5 +1,24 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-15 — Back-port TypeScript E2E module inventories and optional test-DB cleanup
+
+The funko-tracker 9.2.0 → 9.4.1 re-sync exposed two source-template gaps (DR-076).
+Both Playwright inventory validators now accept `.spec.ts`, `.spec.mts` and `.spec.cts`.
+Stack A's canonical verify runs the optional `db:test:check-clean` package script after
+selected Vitest/Playwright suites, records `database-clean`, and propagates its failure;
+projects without the script remain runnable. DR-140 commit `9b431c32d` prescribed the
+check in STACK.md and quality-and-testing.md but never wired it into this template;
+Git history contains no deliberate removal or replacement in hooks/runtime.
+Canonical: [verify.sh](../templates/stack-a-nextjs/verify.sh),
+[Playwright config](../templates/stack-a-nextjs/e2e/playwright.config.ts) and
+[Stack A](../templates/stack-a-nextjs/STACK.md).
+Regression coverage exercises module variants, invalid inventory entries, absent scripts,
+selected suites and cleanup failure. The template Biome self-test no longer initializes Git;
+its isolated files disable VCS filtering explicitly, preserving all lint/format checks.
+PATCH 10.13.4 and overlay 9.4.2 are required by DR-034/DR-051 for template propagation.
+The explicitly requested project upgrade remains targeted at 9.4.1 with these back-ports.
+No commit or local plugin activation requested.
+
 ## 2026-11-15 — Keep inherited risk floors during design recovery (P9 N2)
 
 `recoverQueuedDesign` now propagates the maximum repaired-unit/WO risk zone and complexity and

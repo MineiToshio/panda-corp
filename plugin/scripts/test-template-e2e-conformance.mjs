@@ -33,14 +33,13 @@ function hydrationImportsExist(dir) {
 }
 
 function checkBiome() {
-  const result = spawnSync(biome, ['check', 'e2e', '--error-on-warnings'], { cwd: fixture, encoding: 'utf8' });
+  const result = spawnSync(biome, ['check', 'e2e', '--error-on-warnings', '--vcs-enabled=false'], { cwd: fixture, encoding: 'utf8' });
   assert.ifError(result.error);
   return result;
 }
 
 try {
-  const git = spawnSync('git', ['init', '--quiet'], { cwd: fixture, encoding: 'utf8' });
-  assert.equal(git.status, 0, git.stderr);
+  // Isolated files need no Git index or ignore rules; keep this self-test read-only to Git.
   writeFileSync(path.join(fixture, '.gitignore'), '');
   cpSync(path.join(template, 'biome.json'), path.join(fixture, 'biome.json'));
   cpSync(path.join(template, 'e2e'), path.join(fixture, 'e2e'), { recursive: true });

@@ -47,7 +47,7 @@ No Docker, no Compose file (`infra.md` INFRA-9/10). Tests use a native Homebrew 
 "db:test:check-clean": "bash scripts/db-test.sh check-clean" // FAIL if any <slug>_test_* DB or a non-empty template table remains
 ```
 
-The test harness clones `<slug>_test_<run>_<worker>` from the template, rolls back per-test transactions, drops its databases at teardown, and at setup drops stale `<slug>_test_*` from crashed runs. `verify.sh` runs `pnpm db:test:up` before and `pnpm db:test:check-clean` after the DB-backed suites. `TEST_DATABASE_URL` (loopback, non-secret) lives in `.env.local`; a non-loopback host fails the test command before connecting.
+The test harness clones `<slug>_test_<run>_<worker>` from the template, rolls back per-test transactions, drops its databases at teardown, and at setup drops stale `<slug>_test_*` from crashed runs. `db:test:up` belongs in the project test setup before DB-backed suites. The canonical `verify.sh` runs `pnpm db:test:check-clean` as the `database-clean` postcondition after selected Vitest/Playwright suites when that package script exists; projects without it remain DB-free. A nonzero cleanup result fails the gate and is recorded in `gate-report.json`. `TEST_DATABASE_URL` (loopback, non-secret) lives in `.env.local`; a non-loopback host fails the test command before connecting.
 
 **`.worktreeinclude`** at the root (copies unversioned config to each new worktree, to test a snapshot without reconfiguring):
 

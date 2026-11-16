@@ -79,7 +79,7 @@ const readParallelSafe = (): string[] => {
     if (typeof spec !== "string" || !fs.existsSync(path.resolve("e2e", spec))) {
       throw new Error(`e2e/parallel-safe.json lists a spec that does not exist: ${String(spec)}`);
     }
-    if (!/^[\w./-]+\.spec\.ts$/.test(spec) || spec.split("/").includes(".."))
+    if (!/^[\w./-]+\.spec\.[cm]?ts$/.test(spec) || spec.split("/").includes(".."))
       throw new Error(`Unsafe parallel spec path: ${spec}`);
     if (spec === "visual.spec.ts")
       throw new Error("visual.spec.ts must stay on one worker (DR-056)");
@@ -125,7 +125,7 @@ const readMobileExclusions = (): string[] => {
   for (const spec of [...include, ...desktopOnly]) {
     if (
       typeof spec !== "string" ||
-      !/^[\w./-]+\.spec\.ts$/.test(spec) ||
+      !/^[\w./-]+\.spec\.[cm]?ts$/.test(spec) ||
       spec.split("/").includes("..") ||
       !fs.existsSync(path.resolve("e2e", spec))
     )
