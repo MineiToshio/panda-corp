@@ -620,18 +620,25 @@ Fenced. Writes `build/handback/<unit>.md` (format defined in BUILD-15), writes t
 
 ### 3.14c `scope-repair` (BL-0327)
 
-`scope-repair --epoch E --unit U --files '["src/existing.ts","src/_tests/existing.test.ts"]' --owner-approved --reason "<owner decision>"`.
+`scope-repair --epoch E --unit U [--wo WO] --files '["src/existing.ts","src/_tests/existing.test.ts"]' --owner-approved --reason "<owner decision>"`.
 Fenced, owner-authorized repair of a **write allowlist**, not a new run or a build retry. Resume a stopped run first with
 `start --resume --coordinator codex` (omit `--run`: that flag restores an archived run, not the current stopped run).
-The command requires an active matching lease, a blocked in-scope build/patch unit owning exactly one WO, and the latest
+The command requires an active matching lease, a blocked in-scope build/patch unit owning one or more WOs, and the latest
 root hand-back at the same attempt. Its saved `report.json` must establish an explicit out-of-allowlist gap. This also
 accepts legacy `dependency` / `dependency_missing` hand-backs with that evidence; an ordinary missing account/service
 remains a dependency. `--owner-approved` records an already obtained owner approval; it never grants approval itself.
 The files must be existing regular product files, inside the integration checkout, with concrete relative paths: no
-wildcards, directories, traversal, escaping symlinks, docs, engine state or snapshots. Missing approval, conflicting
+`*`, `?` (including `**`), directories, traversal, escaping symlinks, docs, engine state or snapshots. Missing approval, conflicting
 repeated decisions and wrong roots are refused; stale epochs fail with exit 3. The same pending decision is idempotent.
 
-The CLI journals `scope_repair_approved {unit, attempt, files, reason, handback_seq, owner_approved:true, action}` and
+Next.js segments such as `(catalog)/piece/[id]`, `[...slug]` and `[[...slug]]` are literal paths, not globs.
+All ordinary files in one invocation belong to one WO: `--wo <id>` selects a member of the unit (case-insensitive);
+omitting it selects `unit.wos[0]`. An unrelated WO is refused before recording approval. The architect's `wos` contains
+only that chosen WO, and report/integration/settlement validate that same WO. Other chained WOs retain their artifacts;
+normal engine re-admission still moves the chain's WOs from BLOCKED to PLANNED. An existing internal dependency on a
+sibling WO must not become a dependency of the unit on itself. A pending repair cannot be reassigned to another WO.
+
+The CLI journals `scope_repair_approved {unit, attempt, wo, files, reason, handback_seq, owner_approved:true, action}` and
 queues `u-scope-<unit>-h<handback seq>`, an ordinary isolated `docs` unit with role `architect`. Its `scope_repair` metadata
 bounds it to the one WO file. The report gate permits amendment of that claimed WO **only while its target remains
 blocked at the approved attempt** and no other build/patch claimant is active. It must retain existing artifacts and
@@ -652,11 +659,69 @@ revision and every changed unit are journaled as `unit_queued`, in addition to `
 hand-back wins and cannot be lifted by an older repair. Plain `unblock` remains restricted to its existing causes.
 
 **Protected tests take precedence.** The union of `test_hashes` and `probe_hashes` remains protected at report and repair
-resolution. If requested files intersect it, `scope-repair` returns `action:"dispute"`, reopens the affected execution at
-the same attempt and opens the existing `test-defective` doubt path; it queues no architect and changes no allowlist or
-hash. A blocked report that explicitly names a protected file in an allowlist gap follows that dispute path at ingestion.
+resolution. A protected-only request returns `action:"dispute"`, reopens the affected execution as `reported` at the
+same attempt and opens the existing `test-defective` doubt path; no architect, allowlist expansion or hash change occurs.
+For a mixed request, `action:"docs"` queues the architect for **ordinary files only**; `scope_repair.protected_files`
+retains the protected paths and the same reason. After integration, settlement writes the target as `reported` directly
+in the journaled unblock plan (never briefly dispatchable as `queued`). `next` opens its protected dispute outside the
+lease mutex before planning dispatch. A pass interrupted before doubt opening retries it on the next pass; an already
+opened dispute is recognized by the journal after its matching unblock, so later doubts are never overwritten. Both paths preserve the attempt, checkout and protected hashes. The architect never writes
+protected files. A blocked report naming a full protected path in an allowlist gap also follows the dispute at ingestion.
 Otherwise explicit out-of-allowlist evidence in `diagnosis.detail` / `pending` normalizes legacy `dependency` to
-`scope` / `allowlist`; the raw report remains intact. Diagnosis prose still does not determine execution evidence identity.
+`scope` / `allowlist`; the raw report remains intact. Diagnosis prose does not determine execution evidence identity.
+
+Protected-only crash recovery: if the process dies after unblock but before doubt opening, the unit can remain
+`reported` without a new doubt. At the same active epoch, write a doubt JSON with `question` citing the full protected
+path and approved d-0001 contract, `options:[{id:"fix-test",text:"Correct the test"},{id:"keep-test",text:"Keep the test"}]`,
+`preferred:"fix-test"`, and `why` citing the owner decision; run `doubt open --epoch E --unit U --file <doubt.json>`.
+Do not call scope-repair again on a non-blocked unit or reset it. Mixed requests recover via the docs metadata above.
+
+A dispute has options `fix-test` / `keep-test`. Its question includes the approved files and `--reason`, so cite the
+previous owner decision there. **Opening or answering a dispute does not authorize a build worker to edit a hashed
+oracle or regenerate its hash.** The existing dispute ladder records the decision and requeues the execution; it does
+not implement protected-oracle replacement. Such a replacement still requires an independently owned, governed test
+repair mechanism; this command provides the dispute entry, not a bypass of report/landing hash checks.
+
+#### Chained Next.js incident and Claude coordinator commands (BL-0329)
+
+Read-only evidence: funko-tracker `br-2026-11-16-01`, `handback/u-build-wo-12-004.md`, its saved `report.json`, and
+`state.json` (epoch 50 when inspected). The blocked unit owns wo-12-004/005/007. The report describes the now-async
+`pieceParams()` consumer in `src/lib/seo/_tests/discoveryBuild.test.ts`; the hashed test
+`src/app/(catalog)/piece/[id]/_tests/publicPrerender.test.tsx` still expects `[]`. `state.answers.d-0001` already equals
+`empty-only-sentinel`: the internal 404 parameter is allowed only with an empty catalog. Neither decision authorizes
+fabricated populated-catalog IDs or treating failed reads as empty. The sanitized fixture is `fixtures/build-v2/bl-0329/report.json`.
+
+Run only from the authorized Claude coordinator, using this updated CLI consistently (no project overlay upgrade or
+mixed-version coordinator). The command below records both repairs in one request. `--wo wo-12-004` explicitly owns
+the ordinary file; the protected path becomes a dispute after the architect integrates. `handoff` is last; the armed
+standby drives `next`, including deferred dispute opening. No command below was run on the incident project here.
+
+```bash
+set -euo pipefail
+CLI=/Users/Shared/Proyectos/panda-corp/plugin/scripts/pandacorp-build.mjs
+PROJECT=/Users/Shared/Proyectos/funko-tracker
+EPOCH=$(node "$CLI" start --resume --project "$PROJECT" --coordinator claude --session-model opus | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("run_id")=="br-2026-11-16-01",r; assert r.get("drive",{}).get("armed"),r; print(r["epoch"])')
+node "$CLI" answer --project "$PROJECT" --epoch "$EPOCH" --question d-0001 --value '"empty-only-sentinel"'
+node "$CLI" scope-repair --project "$PROJECT" --epoch "$EPOCH" --unit u-build-wo-12-004 --wo wo-12-004 --files '["src/lib/seo/_tests/discoveryBuild.test.ts","src/app/(catalog)/piece/[id]/_tests/publicPrerender.test.tsx"]' --owner-approved --reason 'Owner approved d-0001 = empty-only-sentinel: await the real async pieceParams enumeration; reconcile the protected empty-catalog oracle with one internal 404 parameter only for an empty catalog; preserve real populated IDs and fail loud on read errors'
+node "$CLI" handoff --project "$PROJECT" --epoch "$EPOCH" --reason manual
+```
+
+`answer d-0001` returns `applied:false, reason:"already_answered"` on the inspected run; if the question is still parked
+and unanswered it records `answer_recorded` and the owner decision in the doubt record/inbox. Never overwrite d-0001
+with `fix-test`: that is an option of the **new** protected-test dispute, not the original empty-catalog question.
+If the new dispute parks to the owner, resume the same run as above (fresh EPOCH), inspect `status`/`open_questions`,
+then register the owner's already authorized correction using its actual id:
+
+```bash
+DISPUTE_ID=d-0002 # use the actual new parked dispute id from status; never assume this number
+node "$CLI" answer --project "$PROJECT" --epoch "$EPOCH" --question "$DISPUTE_ID" --value '"fix-test"'
+node "$CLI" handoff --project "$PROJECT" --epoch "$EPOCH" --reason manual
+```
+
+If the new dispute is consulting, let the independent consult read the cited d-0001; do not fabricate a consultant
+answer or use `answer` on a non-parked doubt. If it is at `sources`, `doubt answer --id <actual-id> --file <sources.json>`
+is the sources-evidence path (see §3.12), not an owner approval substitute. A later protected-oracle correction remains
+subject to the limitation above. `CONTENDED` means wait for the previous owner to yield, never reset a lease or edit state.
 
 #### Confirmed incident and coordinator commands
 

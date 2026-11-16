@@ -753,13 +753,13 @@ No automatic revert-and-rebuild, no split gate, no automatic "next pass". Fable 
 - **Scope/allowlist repair (BL-0327).** An explicit out-of-allowlist blocker is `scope` / `allowlist`, even if a legacy
   worker called it `dependency`; missing secrets/accounts/services remain dependencies. After owner approval of concrete
   existing files, the fenced `scope-repair` command queues one isolated architect docs unit to add exactly those artifacts
-  to the blocked WO, optionally adding known acyclic in-scope dependency edges. This is a narrow exception to the claimed-WO
+  to one chosen blocked WO (`--wo`, default first WO), including chained multi-WO units. Next.js bracket segments are literal paths; star/question wildcards remain refused. It may add known acyclic in-scope dependency edges. This is a narrow exception to the claimed-WO
   amendment prohibition: the target must remain blocked at its approved attempt; identity, ACs, status and other metadata
   stay fixed. Normal report/G1 and integration checks apply. `next` then re-admits the preserved builder and only dependents
   still blocked by that hand-back, at the same attempt, with a journaled pinned WO revision for artifacts. No execution
   budget is spent and no manual state edit is allowed. Newer hand-backs win. Protected test/probe hashes take precedence:
   requested protected files enter the existing `test-defective` dispute/doubt path, never an artifact expansion or hash
-  rewrite. Legacy dependency hand-backs require the saved report's explicit scope evidence. CLI and incident commands:
+  rewrite. Mixed approvals integrate only ordinary artifacts first, then open the protected dispute from a journaled reported state before dispatch. A dispute decision does not grant an oracle/hash replacement exemption. Legacy dependency hand-backs require the saved report's explicit scope evidence. CLI and incident commands:
   [build-engine-cli.md §3.14c](../../plugin/docs/build-engine-cli.md#314c-scope-repair-bl-0327).
   Verification: `TMPDIR=/private/tmp node plugin/scripts/test-build-v2-scope.mjs`.
 - **Docs-only G3 red (BL-0316).** A batch of only `docs` units cannot turn code checks red: a G3 red with no

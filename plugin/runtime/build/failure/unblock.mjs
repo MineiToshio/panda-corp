@@ -90,6 +90,7 @@ export function planUnblock({ state, events, unitId, reason, at = null, rejectio
   // for reasons outside it) returns to that state, so the landing is simply retried; everything else is re-queued.
   const priorOf = (id) => events.filter((e) => e.type === "unit_state" && e.data?.unit === id && e.data?.to === "blocked").pop()?.data?.from ?? null;
   const restoredOf = (u) => {
+    if (scopeApproved && scopeResolution.dispute === true && u.id === unitId) return "reported";
     const prior = priorOf(u.id);
     // A review-checkout hand-back says nothing about the reviewed work: it goes back to where it was (reviewing).
     if (reviewCheckout && ["integrated", "reviewing"].includes(prior)) return prior;

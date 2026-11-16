@@ -1,5 +1,12 @@
 # Decision Log — Factory
 
+## 2026-11-16 — Clarify chained scope repair and protected dispute boundaries (BL-0329)
+
+[BUILD-15](standards/build-engine.md) and CLI §3.14c now explain literal Next paths, one selected WO in a
+multi-WO unit, and ordinary-artifact integration before a mixed protected dispute. The protected oracle/hash
+boundary remains enforced after a doubt decision. This repairs BL-0327's implementation without adding a
+policy default. Plugin 10.13.8; source project and factory Git metadata remain untouched.
+
 ## 2026-11-16 — Define owner-approved blocked scope repair (BL-0327)
 
 [BUILD-15](standards/build-engine.md) now distinguishes artifact ownership gaps from missing infrastructure.

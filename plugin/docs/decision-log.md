@@ -1,5 +1,16 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-16 — Accept literal paths and repair one WO of a chain (BL-0329)
+
+Plugin 10.13.8 (PATCH, DR-034). [CLI §3.14c](build-engine-cli.md#314c-scope-repair-bl-0327) now accepts
+literal Next.js brackets and an optional --wo member selector, defaulting to the unit's first WO. The bounded
+architect owns only that WO through report and integrated settlement. Mixed requests retain both obligations:
+ordinary artifacts integrate first; a journaled reported unblock opens the existing protected dispute before
+builder dispatch. Protected hashes remain immutable; fix-test records a decision, not permission to replace
+an oracle. The sanitized three-WO incident fixture and regression cover selection, paths, integration and replay.
+Claude coordinator commands cite the already recorded d-0001 empty-only-sentinel decision. No product or factory
+Git writes, installation/update, or product execution were performed.
+
 ## 2026-11-16 — Stage tracked ignored paths and reject unauthorized ignored output (BL-0328)
 
 Plugin 10.13.7 (PATCH, DR-034). In funko-tracker `br-2026-11-16-01`, explicit `add -A` rejected

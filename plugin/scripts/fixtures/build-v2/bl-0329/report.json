@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "unit": "u-build-wo-12-004",
+  "token": "sanitized-incident-token",
+  "status": "blocked",
+  "summary": "Entrega parcial de WO-12-004: enumerador asíncrono de IDs públicos reales, únicos y ordenados con PUBLIC_CATALOG; parámetro interno solo para catálogo vacío según la decisión autorizada, sin convertir fallos de lectura en vacío. Añadidos tres casos y contrato parcial. La verificación queda bloqueada por un consumidor de pruebas fuera del allowlist que exige enumeración síncrona sin DB. La prueba protegida del vacío también conserva el contrato anterior. WO-12-004 no está completada; WO-12-005 y WO-12-007 no se implementaron. No se certifican ACs, build, caché, aislamiento personal ni fidelidad visual.",
+  "files": [
+    "src/app/(catalog)/piece/[id]/page.tsx",
+    "src/queries/publicPieceIds.ts",
+    "src/queries/_tests/publicPieceIds.test.ts",
+    "docs/api/WO-12-004.md"
+  ],
+  "verification": [],
+  "pending": [
+    "El responsable independiente debe actualizar src/lib/seo/_tests/discoveryBuild.test.ts:47, fuera del allowlist: await de pieceParams() y sustitución de su supuesto de enumeración sin DB y exclusivamente con placeholder.",
+    "El responsable independiente debe reconciliar publicPrerender.test.tsx:36-38 y el contrato canónico BP-12 con la excepción autorizada para catálogo vacío; el archivo protegido sigue exigiendo []. No se modificó ni se ejecutó esa prueba.",
+    "Completar WO-12-004: islas personales autorizadas con control de generación, caché pública por tags para detalle/metadata/ofertas, aviso from aislado y desacoplamiento OG.",
+    "Implementar WO-12-005 y WO-12-007 con sus contratos y regresiones; permanecen pendientes Explore/Universe con proyecciones públicas y preparación privada de Contacto.",
+    "Ejecutar los nuevos tests y las regresiones afectadas después de resolver el bloqueo; verificar build/404/308, publicación e invalidación, reutilización, HTML/RSC público, no-JS y fidelidad mediante el responsable de integración.",
+    "Avisos observados del gate: live-data-asserts, 8 avisos DOC-LINT por campos de estado no declarados y schema Biome desalineado. No se modificaron baselines ni inventarios e2e."
+  ],
+  "doubt": null,
+  "diagnosis": {
+    "cause": "scope",
+    "detail": "La enumeración real requiere una lectura asíncrona. El test src/lib/seo/_tests/discoveryBuild.test.ts itera pieceParams() síncronamente y prohíbe toda lectura de DB; provoca TS2488 en ambos gates tras la reparación local. Está fuera de artifacts. Además, la prueba protegida publicPrerender aún exige [] donde la decisión autorizada requiere un parámetro interno 404 para Next 16.4.1 con Cache Components. No corresponde ocultar el Promise con casts, fabricar IDs cuando hay población ni editar pruebas protegidas o fuera del alcance."
+  },
+  "gate": null,
+  "authored_by": {
+    "runtime": "codex",
+    "model": "sol",
+    "effort": "high"
+  }
+}

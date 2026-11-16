@@ -62,7 +62,11 @@ de archivos concretos con `scope-repair --epoch E --unit U --files '<JSON>' --ow
 Si el run se detuvo, primero lo retoma con `start --resume`. Un architect recibe una unidad de documentación acotada
 para ampliar `artifacts` de esa orden bloqueada; tras verificar e integrar la reparación, el motor continúa el mismo
 intento, conservando la rama y los cambios locales. Los tests protegidos siguen el camino de disputa existente y no
-entran por una ampliación del allowlist. La decisión, la reparación y la reanudación quedan en el journal.
+entran por una ampliación del allowlist. En unidades con varias órdenes, `--wo <id>` elige la que recibirá esos archivos;
+si se omite, se usa la primera. Los corchetes de rutas Next, como `[id]`, son literales. Si la petición mezcla archivos
+ordinarios y protegidos, primero se integra la reparación de alcance y después se abre la disputa protegida.
+Su motivo conserva la decisión del owner que la fundamenta; responder una disputa no concede permiso para editar
+ni regenerar el hash de una prueba protegida. La decisión, la reparación y la reanudación quedan en el journal.
 
 ## Verificado en rama e integrado
 

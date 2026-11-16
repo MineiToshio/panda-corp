@@ -53,7 +53,7 @@ const COMMANDS = Object.freeze({
   doubt: { subs: ["open", "answer"], bool: [], value: ["epoch", "unit", "id", "file", "token"], usage: "doubt open|answer --epoch N ..." },
   answer: { bool: [], value: ["epoch", "question", "value"], usage: "answer --epoch N --question Q --value JSON" },
   handback: { bool: [], value: ["epoch", "unit", "reason"], usage: "handback --epoch N --unit U --reason TEXT" },
-  "scope-repair": { bool: ["owner-approved"], value: ["epoch", "unit", "files", "reason"], usage: "scope-repair --epoch N --unit U --files JSON --owner-approved --reason TEXT" },
+  "scope-repair": { bool: ["owner-approved"], value: ["epoch", "unit", "wo", "files", "reason"], usage: "scope-repair --epoch N --unit U [--wo WO] --files JSON --owner-approved --reason TEXT" },
   unblock: { bool: [], value: ["epoch", "unit", "reason"], usage: "unblock --epoch N --unit U --reason TEXT" },
   quota: {
     subs: ["record", "read"], bool: ["probe"],
@@ -298,7 +298,7 @@ const HANDLERS = {
   async "scope-repair"(c) {
     let files;
     try { files = JSON.parse(need(c.flags, "files")); } catch { throw usage("--files debe ser un array JSON de archivos concretos."); }
-    return { body: await fenced(c, () => scopeRepairCommand({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), unit: need(c.flags, "unit"), files, reason: need(c.flags, "reason"), ownerApproved: c.flags["owner-approved"] === true }, c.deps)) };
+    return { body: await fenced(c, () => scopeRepairCommand({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), unit: need(c.flags, "unit"), wo: c.flags.wo, files, reason: need(c.flags, "reason"), ownerApproved: c.flags["owner-approved"] === true }, c.deps)) };
   },
   async unblock(c) {
     const r = await fenced(c, () => unblockCommand({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), unit: need(c.flags, "unit"), reason: need(c.flags, "reason") }, c.deps));

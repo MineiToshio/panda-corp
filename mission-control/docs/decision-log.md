@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-11-16 — Explain chained allowlists and mixed protected disputes (BL-0329)
+
+The [partial-build guide](../content/manual/guides/g-implement-parcial.md) now explains --wo ownership,
+literal Next brackets, and mixed ordinary/protected approvals. It states the dispute decision's limit:
+it does not authorize modifying a protected oracle or refreshing its hash. The CLI contract is canonical.
+
 ## 2026-11-16 — Explain ignored-file handling in the build Manual (BL-0328)
 
 The shared [build explanation](../src/app/manual/_components/DesatendidaDetail.tsx) now states that
