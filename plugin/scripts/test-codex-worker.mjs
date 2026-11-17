@@ -33,7 +33,7 @@ chmodSync(fake, 0o755);
 const project = path.join(tmp, "proj");
 mkdirSync(project, { recursive: true });
 const eventsFile = path.join(tmp, "events.ndjson");
-const runCli = (args, env = {}) => execFileSync("node", [CLI, ...args, "--risk", "normal"], { encoding: "utf8", env: { ...process.env, PANDACORP_CODEX_BIN: fake, PANDACORP_EVENTS_FILE: eventsFile, ...env } }).trim();
+const runCli = (args, env = {}) => execFileSync("node", [CLI, ...args, "--risk", "normal"], { encoding: "utf8", env: { ...process.env, PANDACORP_CAPACITY_DIR: path.join(tmp, `capacity-${args[args.indexOf("--id") + 1] ?? "control"}`), PANDACORP_CODEX_BIN: fake, PANDACORP_EVENTS_FILE: eventsFile, ...env } }).trim();
 const events = () => readFileSync(eventsFile, "utf8").trim().split("\n").map((l) => JSON.parse(l));
 const unseal = (line) => { const s = JSON.parse(line); return fnv(s.r) === s.sum ? JSON.parse(s.r) : null; };
 const prep = (id, text) => { const dir = path.join(project, ".pandacorp/run/codex-workers", id); mkdirSync(dir, { recursive: true }); writeFileSync(path.join(dir, "prompt.md"), `${text}\n`); return { dir, sum: fnv(text) }; };

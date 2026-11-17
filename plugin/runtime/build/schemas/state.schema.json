@@ -45,7 +45,8 @@
         "finished",
         "stopped",
         "waiting",
-        "resuming"
+        "resuming",
+        "completed_with_gaps"
       ]
     },
     "status_reason": {
@@ -238,7 +239,9 @@
               "parked",
               "waiting_gate",
               "blocked",
-              "suspended"
+              "suspended",
+              "rescue",
+              "abandoned"
             ]
           },
           "attempt": {
@@ -604,6 +607,27 @@
               "report"
             ],
             "additionalProperties": false
+          },
+          "rescue": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "technical_failures": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "protected_action": {
+            "enum": [
+              null,
+              "production",
+              "money",
+              "delete",
+              "external"
+            ]
           }
         },
         "required": [

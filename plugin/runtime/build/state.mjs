@@ -27,7 +27,7 @@ export const JOB_STATES = Object.freeze([...stateSchemaSync.properties.jobs.item
 export const REVIEW_TYPE_KINDS = Object.freeze(["review", "audit", "doubt-consult", "deferred-review"]);
 
 /** Is a unit in a terminal state (A13: `landed`, `blocked`, and `verified` for review-type/consult kinds)? */
-export const isTerminalUnit = (unit) => unit.state === "landed" || unit.state === "blocked" || (unit.state === "verified" && REVIEW_TYPE_KINDS.includes(unit.kind));
+export const isTerminalUnit = (unit) => unit.state === "landed" || unit.state === "blocked" || unit.state === "abandoned" || (unit.state === "verified" && REVIEW_TYPE_KINDS.includes(unit.kind));
 
 /** Integrated preparation has no executable work left, but still participates in FRD closure/landing. */
 export const awaitsClosure = (unit) => ["docs", "tests"].includes(unit.kind) && ["integrated", "verified"].includes(unit.state);
@@ -245,7 +245,14 @@ export function foldJournal(events) {
         break;
       case "drive_takeover": state.coordinator = "drive"; break;
       case "run_stopped": state.status = "stopped"; state.status_reason = d.reason ?? null; break;
-      case "run_finished": state.status = "finished"; state.status_reason = d.reason ?? null; break;
+      case "technical_failure":
+      case "rescue_started":
+      case "rescue_stage":
+      case "rescue_completed":
+      case "unit_abandoned":
+        if (d.unit_snapshot) Object.assign(unitOrThrow(state, d.unit_snapshot.id, ev.type), clone(d.unit_snapshot));
+        break;
+      case "run_finished": state.status = d.status ?? "finished"; state.status_reason = d.reason ?? null; break;
       case "engine_failure": state.status = "stopped"; state.status_reason = d.reason ?? "engine_failure"; break;
       case "paused": state.resumeAt = d.resumeAt ?? null; state.status = STATE_STATUSES.includes(d.status) ? d.status : "paused"; state.status_reason = d.reason ?? null; break;
       case "unit_queued": {
@@ -354,6 +361,7 @@ export async function readWorkOrderStatuses(root, { fs = fsp } = {}) {
 // Frontmatter-implied unit state, or null when the cached state already agrees.
 function impliedUnitState(unit, statuses) {
   const s = unit.state;
+  if (s === "rescue" || s === "abandoned") return null;
   if (statuses.some((x) => x === "BLOCKED")) return s === "blocked" ? null : "blocked";
   if (statuses.every((x) => x === "VERIFIED")) return s === "landed" ? null : "landed";
   const late = ["integrated", "reviewing", "verified", "landed"];

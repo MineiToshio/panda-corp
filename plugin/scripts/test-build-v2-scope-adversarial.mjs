@@ -1,5 +1,35 @@
 #!/usr/bin/env node
 // Independent BL-0329 review: a process loss must never expose a protected dispute as builder-ready.
+// Explicit pre-rescue persisted fixture: exercise recovery compatibility without invoking current technical recovery.
+async function seedLegacyHandback(ctx, input, deps) {
+  const { planHandback, commitPlan } = await import("../runtime/build/failure/policy.mjs");
+  const { findWorkOrderFiles, commitIntegration, changedTrackedFiles } = await import("../runtime/build/failure/handback.mjs");
+  const { handbackDecisionEntry, handbackMarkdown } = await import("../runtime/build/failure/handbackText.mjs");
+  const { writeInbox } = await import("../runtime/build/doubts/integrationLog.mjs");
+  const buildState = await import("../runtime/build-state.mjs");
+  const io = await import("node:fs/promises");
+  const state = await ctx.readState();
+  const unit = state.units.find(u => u.id === input.unitId);
+  const handbackPath = ctx.paths.handbackFile(unit.id);
+  const plan = planHandback({ state, unitId: unit.id, cause: input.cause, reasonCode: input.reasonCode, reason: input.reason, path: handbackPath });
+  const root = path.resolve(ctx.project, state.integration.worktree);
+  const targets = plan.blocked.map(t => state.units.find(u => u.id === t.unit));
+  const files = await findWorkOrderFiles(root, targets.flatMap(u => u.wos), deps);
+  for (const target of targets) for (const wo of target.wos) {
+    const file = files.get(wo.toLowerCase());
+    if (file) await buildState.transitionWorkOrderAt(root, { file, to: "BLOCKED", reason: target.id === unit.id ? `needs-owner: ${input.cause}: ${input.reason}` : `blocked-by: ${unit.id}` });
+  }
+  const info = { unit: unit.id, wos: unit.wos, cause: input.cause, reasonCode: input.reasonCode, reason: input.reason,
+    attempt: unit.attempt, date: "2026-11-17", path: handbackPath, failure: input.failure ?? null, diagnosis: input.diagnosis ?? null,
+    attempts: [], preserved: [], blockedUnits: plan.blocked.map(t => t.unit), skippedWos: [] };
+  await writeInbox(ctx.project, root, handbackDecisionEntry(info), deps);
+  await io.mkdir(path.dirname(handbackPath), { recursive: true });
+  await io.writeFile(handbackPath, handbackMarkdown(info));
+  const commit = await commitIntegration(root, await changedTrackedFiles(root, deps), `test: seed legacy handback ${unit.id}`, deps);
+  await commitPlan(ctx, plan);
+  return { blocked: plan.blocked, commit, path: handbackPath };
+}
+
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as fs from "node:fs/promises";
@@ -14,7 +44,6 @@ import { createFixture, git, DEFAULT_NOW } from "./fixtures/build-v2/make-fixtur
 import { acquire } from "../runtime/build-state.mjs";
 import { buildPaths } from "../runtime/build/paths.mjs";
 import { appendEvent, readJournal } from "../runtime/build/journal.mjs";
-import { handBack } from "../runtime/build/failure.mjs";
 import { updateFrontmatter, frontmatterList, splitFrontmatter, parseYamlSubset } from "../runtime/build/card.mjs";
 import { readPlanWorkOrders } from "../runtime/build/planner.mjs";
 import { next } from "../runtime/build/next.mjs";
@@ -236,7 +265,7 @@ test("next opens an integrated mixed repair before planning, and never reuses it
       JSON.stringify({ unit: ID, status: "blocked", diagnosis: { cause: "scope", detail: "outside allowlist" } }),
     );
     await fencedTwoPhase({ project: fx.root, epoch: lease.epoch, deps }, undefined, undefined, (_r, _i, ctx) =>
-      handBack(ctx, { unitId: ID, cause: "scope", reasonCode: "allowlist", reason: "outside allowlist" }, deps),
+      seedLegacyHandback(ctx, { unitId: ID, cause: "scope", reasonCode: "allowlist", reason: "outside allowlist" }, deps),
     );
     const repair = await scopeRepairCommand(
       {

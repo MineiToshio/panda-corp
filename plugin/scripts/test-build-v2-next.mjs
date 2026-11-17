@@ -743,13 +743,12 @@ await test("terminal: build units verified and the FRD review verified -> land (
   await expectNotApplied(c);
 }));
 
-await test("terminal: 3 consecutive env-infra hand-backs -> stop, applied (status stopped, run_stopped, lease released); 2 do not", async () => {
-  await withCase({ units: [B("WO-01-001")], handbacks: 3 }, async (c) => {
-    const statusYaml = await readFile(c.P.statusYaml, "utf8");
-    const r = await callNext(c);
-    await expectApplied(c, r, { action: "stop", status: "stopped", journal: ["run_stopped"], statusYamlBefore: statusYaml });
+await test("terminal: legacy env-infra streaks never stop otherwise dispatchable work", async () => {
+  for (const handbacks of [2, 3]) await withCase({ units: [B("WO-01-001")], handbacks }, async (c) => {
+    eq((await callNext(c)).action, "dispatch", "technical streak keeps dispatching");
+    eq((await c.readState()).status, "active", "run stays active");
+    ok(!(await c.events()).some(e => e.type === "run_stopped"), "no technical stop journaled");
   });
-  await withCase({ units: [B("WO-01-001")], handbacks: 2 }, async (c) => eq((await callNext(c)).action, "dispatch", "two hand-backs keep dispatching"));
 });
 
 await test("terminal: nothing can progress and the blocker is an owner answer -> waiting-owner (status waiting_owner), applied", async () => withCase({
@@ -772,15 +771,21 @@ await test("terminal: every blocker is a gate -> waiting-owner with status waiti
   });
 });
 
-await test("terminal: queued units but the planner can make no progress and nobody waits on the owner -> deadlock, applied", async () => withCase({ units: [B("WO-01-001", { depends_on: ["u-build-wo-02-001"] }), B("WO-02-001", { depends_on: ["u-build-wo-01-001"] })], planner: "deadlock" }, async (c) => {
+await test("terminal: dependency deadlock records a technical retry without releasing the run", async () => withCase({ units: [B("WO-01-001", { depends_on: ["u-build-wo-02-001"] }), B("WO-02-001", { depends_on: ["u-build-wo-01-001"] })], planner: "deadlock" }, async (c) => {
   const statusYaml = await readFile(c.P.statusYaml, "utf8");
   const r = await callNext(c);
-  await expectApplied(c, r, { action: "deadlock", status: ["paused", "stopped", "waiting_owner"], journal: ["paused", "run_stopped"], statusYamlBefore: statusYaml });
+  eq(r.action, "wait", "first deadlock retries");
+  eq((await c.readState()).status, "active", "technical deadlock keeps active");
+  const ev = await c.events();
+  ok(ev.some(e => e.type === "technical_failure" && e.data.cause.includes("deadlock")), "retry cause recorded");
+  ok(!ev.some(e => e.type === "run_stopped"), "no technical stop");
+  await expectNotApplied(c);
+  eq(await readFile(c.P.statusYaml, "utf8"), statusYaml, "project status unchanged");
 }));
 
-await test("A11 priority: quota still pauses; critical memory never masks an env-infra stop", async () => {
+await test("A11 priority: quota still waits; an env-infra streak does not stop dispatch", async () => {
   await withCase({ units: [B("WO-01-001")], quota: { claude: 100, codex: 100 }, signals: "critical", handbacks: 3 }, async (c) => eq((await callNext(c)).action, "waiting", "quota first"));
-  await withCase({ units: [B("WO-01-001")], signals: "critical", handbacks: 3 }, async (c) => eq((await callNext(c)).action, "stop", "env-infra stops"));
+  await withCase({ units: [B("WO-01-001")], signals: "critical", handbacks: 3 }, async (c) => eq((await callNext(c)).action, "dispatch", "technical streak does not stop"));
 });
 
 await test("A11: a terminal action is returned only when nothing runs: with a running unit it is `wait` (workers_running) and nothing is applied", async () => {

@@ -26,7 +26,8 @@
         "finished",
         "stopped",
         "waiting",
-        "resuming"
+        "resuming",
+        "completed_with_gaps"
       ]
     },
     "need_from_owner": {
@@ -220,6 +221,18 @@
           "reversible"
         ],
         "additionalProperties": false
+      }
+    },
+    "rescues": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object"
       }
     }
   },

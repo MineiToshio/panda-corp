@@ -160,7 +160,7 @@ export async function readQuestions(run) {
 
 /** Queued units waiting on an irreversible (or unknown) first-minute answer park as `owner_question` (D19). */
 export async function parkIrreversiblePending(run, state) {
-  const waiting = state.units.filter((u) => u.state === "queued" && u.pending_answer && !u.parked && !(u.pending_answer in state.answers));
+  const waiting = state.units.filter((u) => ["queued", "parked"].includes(u.state) && u.parked !== "built_on_assumption" && u.pending_answer && !(u.pending_answer in state.answers));
   if (!waiting.length) return state;
   const questions = await readQuestions(run);
   const toPark = waiting.filter((u) => questions.get(u.pending_answer)?.reversible !== true);
@@ -169,11 +169,20 @@ export async function parkIrreversiblePending(run, state) {
     const ids = new Set(toPark.map((u) => u.id));
     const events = [];
     const units = s.units.map((u) => {
-      if (!ids.has(u.id) || u.state !== "queued" || u.parked) return u;
+      if (!ids.has(u.id) || !["queued", "parked"].includes(u.state)) return u;
+      const q = questions.get(u.pending_answer);
+      const text = `${q?.id ?? ""} ${q?.text_es ?? ""}`;
+      const protected_action = ["production", "money", "delete", "external"].includes(q?.gate) ? q.gate
+        : /drop[ _-]table|delet|borr|elimin.*dato/i.test(text) ? "delete"
+        : /producci[oó]n|production|deploy/i.test(text) ? "production"
+        : /dinero|money|spend|pago|gasto/i.test(text) ? "money"
+        : /external|externa|enviar.*(?:email|correo|mensaje)/i.test(text) ? "external" : null;
+      if (u.state === "parked" && u.protected_action === protected_action) return u;
+      events.push({ type: "capacity_state", data: { unit: u.id, patch: { protected_action } } });
       // `parked` carries the reason, `unit_state` the state: a rebuild-state replays both (N11b).
       events.push({ type: "parked", data: { unit: u.id, reason: "owner_question", question: u.pending_answer } });
       events.push(unitEvent(u.id, u.state, "parked"));
-      return { ...u, parked: "owner_question", state: "parked" };
+      return { ...u, protected_action, parked: "owner_question", state: "parked" };
     });
     return events.length ? { state: { ...s, units }, events } : {};
   });

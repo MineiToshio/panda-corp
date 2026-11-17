@@ -121,7 +121,7 @@ async function startResumeInternal(input, deps = {}) {
   const p = buildPaths(project, d);
   const isAlive = d.isAlive ?? isAliveDefault;
   const current = await readJson(p.stateFile).catch(() => null);
-  if (runId && current && current.status !== "finished") throw err("INVALID_STATE", "build/ holds a non-terminal run: resume it, or stop it first");
+  if (runId && current && !["finished", "completed_with_gaps"].includes(current.status)) throw err("INVALID_STATE", "build/ holds a non-terminal run: resume it, or stop it first");
   if (runId) { await clearBuildDir(project, p, d); await restoreSuspended({ project, runId }, d); }
 
   let state = await readStateLoose(project, d);

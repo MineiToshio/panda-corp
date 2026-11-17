@@ -1,5 +1,23 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-17 - Complete technical failures through supervised rescue (DR-164)
+
+Plugin 10.14.0 (MINOR). [BUILD-16](../../factory/standards/build-engine.md) and the
+[CLI rescue contract](build-engine-cli.md) implement the approved incident rescue plan:
+repeat identity detection, supervised direct work, protected independent oracle repair,
+fresh stronger pre-integration review, full project verify and Rescue commit provenance.
+One unsuccessful rescue abandons its dependent closure, preserving independent work and
+reporting completed_with_gaps. Safety gates and explicit cancellation remain authoritative.
+The [implement skill](../skills/implement/SKILL.md) and all coordinator references describe
+session/drive transport and visibility. Small fixture regressions and updated contract suites
+cover completion, safety, persistence and protected tests without provider calls.
+Recovery replays unreadable state caches before considering startup diagnostics. Previous
+writers require proven termination before checkout reuse; uncertain CLI/native writers
+remain isolated from the rescue checkout, with their original work preserved.
+Superseded jobs retire in the journal, and abandoned dependents release admission, so
+unreadable old results and stale reservations cannot hold independent work open forever.
+
+
 ## 2026-11-17 — Finish causal recovery after disputes and human gates
 
 Plugin 10.13.9 (PATCH). The funko-tracker audit found that `fix-test` released a builder without replacing its

@@ -1,5 +1,14 @@
 # Decision Log — Factory
 
+## 2026-11-17 - Adopt the approved supervised rescue rule (DR-164)
+
+[Registry DR-164](decisions/registry.yaml) and [BUILD-16](standards/build-engine.md) replace
+technical stops with one supervised rescue per unit. Failed rescue preserves progress,
+continues independent work and finishes with explicit gaps. Independent review, green
+verify, protected oracles and the four actual human gates remain mandatory. The owner's
+instruction authorizes this policy and the corresponding plugin implementation.
+
+
 ## 2026-11-17 — Causal build recovery preserves work and independent oracles
 
 [Build engine](standards/build-engine.md) now documents independent protected-test repair, exact-commit gate

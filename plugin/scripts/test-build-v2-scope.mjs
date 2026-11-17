@@ -1,5 +1,35 @@
 #!/usr/bin/env node
 // BL-0327: real blocked report from funko-tracker br-2026-11-16-01 (identity token sanitized).
+// Explicit pre-rescue persisted fixture: exercise recovery compatibility without invoking current technical recovery.
+async function seedLegacyHandback(ctx, input, deps) {
+  const { planHandback, commitPlan } = await import("../runtime/build/failure/policy.mjs");
+  const { findWorkOrderFiles, commitIntegration, changedTrackedFiles } = await import("../runtime/build/failure/handback.mjs");
+  const { handbackDecisionEntry, handbackMarkdown } = await import("../runtime/build/failure/handbackText.mjs");
+  const { writeInbox } = await import("../runtime/build/doubts/integrationLog.mjs");
+  const buildState = await import("../runtime/build-state.mjs");
+  const io = await import("node:fs/promises");
+  const state = await ctx.readState();
+  const unit = state.units.find(u => u.id === input.unitId);
+  const handbackPath = ctx.paths.handbackFile(unit.id);
+  const plan = planHandback({ state, unitId: unit.id, cause: input.cause, reasonCode: input.reasonCode, reason: input.reason, path: handbackPath });
+  const root = path.resolve(ctx.project, state.integration.worktree);
+  const targets = plan.blocked.map(t => state.units.find(u => u.id === t.unit));
+  const files = await findWorkOrderFiles(root, targets.flatMap(u => u.wos), deps);
+  for (const target of targets) for (const wo of target.wos) {
+    const file = files.get(wo.toLowerCase());
+    if (file) await buildState.transitionWorkOrderAt(root, { file, to: "BLOCKED", reason: target.id === unit.id ? `needs-owner: ${input.cause}: ${input.reason}` : `blocked-by: ${unit.id}` });
+  }
+  const info = { unit: unit.id, wos: unit.wos, cause: input.cause, reasonCode: input.reasonCode, reason: input.reason,
+    attempt: unit.attempt, date: "2026-11-17", path: handbackPath, failure: input.failure ?? null, diagnosis: input.diagnosis ?? null,
+    attempts: [], preserved: [], blockedUnits: plan.blocked.map(t => t.unit), skippedWos: [] };
+  await writeInbox(ctx.project, root, handbackDecisionEntry(info), deps);
+  await io.mkdir(path.dirname(handbackPath), { recursive: true });
+  await io.writeFile(handbackPath, handbackMarkdown(info));
+  const commit = await commitIntegration(root, await changedTrackedFiles(root, deps), `test: seed legacy handback ${unit.id}`, deps);
+  await commitPlan(ctx, plan);
+  return { blocked: plan.blocked, commit, path: handbackPath };
+}
+
 import assert from "node:assert/strict";
 import * as fs from "node:fs/promises";
 import os from "node:os";
@@ -26,7 +56,6 @@ import { integrateCommitted } from "../runtime/build/integrate.mjs";
 import { plan, readPlanWorkOrders } from "../runtime/build/planner.mjs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { handBack } from "../runtime/build/failure.mjs";
 const real = JSON.parse(await fs.readFile(new URL("./fixtures/build-v2/bl-0327/report.json", import.meta.url), "utf8"));
 const RUN = "br-2026-11-16-01",
   ID = real.unit,
@@ -116,7 +145,7 @@ async function withRun(fn, { legacy = false, hashed = false, chain = false } = {
     const input = { project, epoch: lease.epoch, unit: ID, token: token.token, file: p.reportFile(ID) };
     if (legacy)
       await fencedTwoPhase({ project, epoch: lease.epoch, deps }, undefined, undefined, (_r, _i, ctx) =>
-        handBack(
+        seedLegacyHandback(
           ctx,
           {
             unitId: ID,
@@ -137,10 +166,17 @@ await test("real dependency diagnosis describing allowlist is scope, not a missi
   withRun(async (c) => {
     const out = await ingestReport(c.input, c.deps);
     assert.equal(out.action, "handback");
-    const hb = (await readJournal(c.p.journalFile, c.deps)).events.find((e) => e.type === "handback");
-    assert.equal(hb.data.cause, "scope");
-    assert.equal(hb.data.reason_code, "allowlist");
-    assert.equal((await readState(c.project, c.deps)).units[0].attempt, 1);
+    const ev = (await readJournal(c.p.journalFile, c.deps)).events;
+    const failure = ev.find(e => e.type === "technical_failure");
+    const attempt = JSON.parse(await fs.readFile(path.join(c.p.unitDir(ID), "attempt-1.json"), "utf8"));
+    assert.equal(attempt.diagnosis.cause, "scope");
+    assert.equal(out.handback.reason_code, "allowlist");
+    assert.ok(failure.data.cause.includes("scope"));
+    const unit = (await readState(c.project, c.deps)).units[0];
+    assert.equal(unit.state, "queued");
+    assert.ok(unit.technical_failures.length);
+    assert.equal(unit.attempt, 2);
+    assert.ok(!ev.some(e => e.type === "run_stopped"));
   }));
 
 const repair = (c, extra = {}) =>

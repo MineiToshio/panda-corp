@@ -74,7 +74,7 @@ test('tracked mirror is refused before either inbox is written', () => fixture('
   assert.equal(await readFile(path.join(integration, '.pandacorp/inbox/decisions.md'), 'utf8'), before);
 }));
 
-test('PATCH2: nested failure draft appears in the summary and Spanish handback; performance closes outside the mutex', () => fixture({ nested: true }, async (fx, deps) => {
+test('DR-164: an active nested engine fault keeps its lease and rescues without a factory-main write or owner question', () => fixture({ nested: true }, async (fx, deps) => {
   const { acquire, currentLease } = await import('../runtime/build-state.mjs');
   const { newState, writeState } = await import('../runtime/build/state.mjs');
   const { buildPaths } = await import('../runtime/build/paths.mjs');
@@ -84,19 +84,24 @@ test('PATCH2: nested failure draft appears in the summary and Spanish handback; 
   const p = buildPaths(fx.root, deps);
   await writeState(fx.root, newState({ run_id: 'run-n17', epoch: lease.epoch, coordinator: 'claude-session', label: 'claude', size: 'feature', scope: { card: null, frds: [], wos: [], out_of_scope: [] }, integration: { branch: p.integrationBranch('run-n17'), worktree: p.integrationWorktree, base_sha: fx.sha } }), deps);
   let perfCalled = false;
-  const result = await handleEngineFailure({ project: fx.root, epoch: lease.epoch, error: new Error('nested fault') }, { ...deps,
+  const recover = () => handleEngineFailure({ project: fx.root, epoch: lease.epoch, error: new Error('nested fault') }, { ...deps,
     finishPerformance: async ({ state, outcome }) => {
       assert.equal(await currentLease(fx.root), null, 'performance runs after releasing the lease');
       assert.equal(state.status, 'stopped'); assert.equal(outcome, 'engine_failure'); perfCalled = true;
       return { ok: true };
     },
   });
-  assert(perfCalled, 'performance journal finalized');
-  assert.equal(result.bl.draft, true);
-  assert.match(await readFile(p.engineHandbackFile, 'utf8'), /borrador local/);
-  assert.doesNotMatch(await readFile(p.engineHandbackFile, 'utf8'), /backlog de la fábrica:/);
+  assert.equal((await recover()).action, 'retry');
+  const result = await recover();
+  assert.equal(result.action, 'rescue');
+  assert.equal(result.released, false);
+  assert.equal(perfCalled, false, 'active recovery does not finalize performance or release its lease');
+  assert.equal((await currentLease(fx.root)).epoch, lease.epoch);
+  await assert.rejects(readFile(p.engineHandbackFile), { code: 'ENOENT' });
   const summary = await readSummary(fx.root, deps);
-  assert(summary.need_from_owner.some((line) => line.includes(result.bl.file)), 'summary names the local draft');
-  assert(renderReportEs(summary).includes(result.bl.file), 'Spanish report names the local draft');
+  assert.equal(summary.status, 'active');
+  assert.equal(summary.rescues.length, 1);
+  assert.equal(summary.need_from_owner.length, 0, 'technical faults never ask the owner');
+  assert(renderReportEs(summary).includes('u-rescue-run'), 'Spanish report names the rescued run unit');
   assert.deepEqual(await readdir(path.join(deps.factoryRoot, 'factory/backlog')), []);
 }));

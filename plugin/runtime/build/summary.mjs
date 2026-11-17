@@ -327,6 +327,8 @@ export function buildSummary(input, deps = {}) {
     done: doneItems(state),
     quota: { claude: input.quota?.claude ?? null, codex: input.quota?.codex ?? null },
     units_by_state: unitsByState(state),
+    rescues: state.units.filter(u => u.rescue).map(u => ({ unit: u.id, cause: u.rescue.cause, skipped: u.rescue.skipped, outcome: u.rescue.phase })),
+    gaps: state.units.filter(u => u.state === "abandoned").map(u => ({ unit: u.id, wos: u.wos, reason: u.rescue?.failure ?? "dependency abandoned" })),
     admission: input.admission ?? null,
   };
 }
@@ -402,6 +404,8 @@ export function renderReportEs(summary) {
     `## ${H.need}`, ...list(asArray(summary.need_from_owner)), "",
     `## ${H.decided} (${asArray(summary.decided_without_owner).length})`, ...bullets(decided), "",
     `## ${H.parked}`, ...bullets(parked), "",
+    `## Rescates`, ...bullets(asArray(summary.rescues).map(r => `${r.unit}: ${r.cause}; resultado ${r.outcome}; excepciones: ${asArray(r.skipped).join(", ")}`)), "",
+    `## Sin completar`, ...bullets(asArray(summary.gaps).map(g => `${g.unit}: ${g.reason}`)), "",
     `## ${H.done}`, ...bullets(doneLines), "",
     `## ${H.reviews}`, ...bullets(reviewLines), "",
     `## ${H.quota}`, `- ${quotaLine("Claude", q.claude)}`, `- ${quotaLine("Codex", q.codex)}`, "",

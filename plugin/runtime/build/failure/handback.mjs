@@ -1,5 +1,6 @@
 // Hand-back I/O (BUILD-15): `handback/<unit>.md`, the pending decisions entry, WO `BLOCKED` plus one commit on the
 // integration branch, state and journal. ../failure.mjs is the public entry.
+import { recordTechnicalFailure } from "../rescue.mjs";
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { releaseToken } from "../admission.mjs";
@@ -107,6 +108,17 @@ export async function handBack(ctx, input, deps = {}) {
   const unit = findUnit(state, input.unitId);
   if (!unit) throw err("INVALID_STATE", `unknown unit ${input.unitId}`);
   const handbackPath = paths.handbackFile(unit.id);
+  if (input.reasonCode !== "owner_refused_gate" && unit.state !== "waiting_gate" && !["production", "money", "delete", "external"].includes(unit.waiting_gate)) {
+    const recovery = input.recoveryRecorded ? { action: "retry" } : await recordTechnicalFailure(ctx, unit.id, { code: input.reasonCode ?? input.cause ?? "technical_handback", detail: input.reason }, deps);
+    if (recovery.action === "retry") {
+      const s = await ctx.readState();
+      const current = findUnit(s, unit.id);
+      const updated = { ...current, state: current.attempt < 3 ? "queued" : "reported", attempt: Math.min(3, current.attempt + 1), token_hash: null };
+      await ctx.appendEvent({ type: "unit_queued", data: updated });
+      await ctx.writeState({ ...s, units: s.units.map(u => u.id === unit.id ? updated : u) });
+    }
+    return { path: handbackPath, already: false, blocked: [], wos_blocked: [], wos_skipped: [], commit: null, stop_run: false, notice_es: `Recuperación técnica de ${unit.id}: ${recovery.action}.`, recovery: recovery.action };
+  }
   if (unit.state === "blocked") return { path: handbackPath, already: true, blocked: [], wos_blocked: [], wos_skipped: [], commit: null, stop_run: envInfraStop(state), notice_es: "" };
 
   const cause = input.cause ?? "owner";

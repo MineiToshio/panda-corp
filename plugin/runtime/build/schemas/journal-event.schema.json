@@ -65,7 +65,12 @@
         "engine_failure",
         "paused",
         "capacity_state",
-        "scope_repair_approved"
+        "scope_repair_approved",
+        "technical_failure",
+        "rescue_started",
+        "rescue_stage",
+        "rescue_completed",
+        "unit_abandoned"
       ]
     },
     "data": {

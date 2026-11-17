@@ -37,7 +37,7 @@ export const DETECT_ROWS = Object.freeze({
 /** Words from the retired mode picker: accepted and ignored. */
 export const LEGACY_MODE_WORDS = Object.freeze(["pro", "balanced", "powerful", "deep"]);
 /** `state.status` values of a finished (not resumable) run; every other status is resumable. */
-export const TERMINAL_RUN_STATUSES = Object.freeze(["finished"]);
+export const TERMINAL_RUN_STATUSES = Object.freeze(["finished", "completed_with_gaps"]);
 /** Work-order `implementation_status` values (DR-050). */
 export const WO_STATUSES = Object.freeze(["PLANNED", "IN_PROGRESS", "IN_REVIEW", "VERIFIED", "BLOCKED"]);
 

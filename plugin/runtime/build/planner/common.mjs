@@ -12,7 +12,7 @@ export const PENDING = new Set(["PLANNED", "IN_PROGRESS"]);
 export const SLOT_STATES = new Set(["admitted", "running"]);
 export const WRITE_STATES = new Set(["admitted", "running", "reported", "committed"]);
 export const UNIT_DONE = new Set(["integrated", "reviewing", "patching", "verified", "landed"]);
-export const STALLED_STATES = new Set(["parked", "blocked", "waiting_gate"]);
+export const STALLED_STATES = new Set(["parked", "blocked", "abandoned", "rescue", "waiting_gate"]);
 export const PLANNED_KINDS = new Set(["docs", "tests", "build", "patch"]);
 
 export const norm = (s) => String(s ?? "").trim().toLowerCase();

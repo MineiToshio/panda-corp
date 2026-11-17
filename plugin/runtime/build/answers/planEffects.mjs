@@ -97,11 +97,11 @@ export function planGate({ state, unit, value }) {
   if (value === false) {
     return { state, events: [], units: [{ unit: unit.id, effect: "refused" }], handbacks: [{ unitId: unit.id, reason: GATE_REFUSED_REASON }] };
   }
-  const next = replace(state, new Map([[unit.id, { ...unit, state: unit.gate_report ? "reported" : "queued", waiting_gate: null, pending_answer: null, token_hash: null }]]));
+  const next = replace(state, new Map([[unit.id, { ...unit, state: unit.gate_report || unit.rescue ? "reported" : "queued", waiting_gate: null, pending_answer: null, token_hash: null }]]));
   return {
     state: next,
     events: [
-      { type: "unit_state", data: { unit: unit.id, from: "waiting_gate", to: unit.gate_report ? "reported" : "queued" } },
+      { type: "unit_state", data: { unit: unit.id, from: "waiting_gate", to: unit.gate_report || unit.rescue ? "reported" : "queued" } },
       { type: "waiting_gate", data: { unit: unit.id, kind: null } },
     ],
     units: [{ unit: unit.id, effect: "released" }],

@@ -581,7 +581,7 @@ await test("PATCH G3: one of three WOs fails, only its unit reopens and its brie
   ok(brief.text.includes("Write allowlist (`artifacts`): `src/alpha/filter.ts`") && !brief.text.includes("`src/alpha/list.ts`"), "brief allowlist is scoped");
   await assertMainUntouched(w, before);
 }));
-await test("PATCH G3 fallback: exhausted build does not charge it; three patch executions then budget_exhausted", async () => withWorld("fallback-budget", { attempt: 3, scopeCard: null }, async (w) => {
+await test("PATCH G3 fallback: exhausted build does not charge it; three patch executions then supervised technical retry", async () => withWorld("fallback-budget", { attempt: 3, scopeCard: null }, async (w) => {
   const stateModule = await import("../runtime/build/state.mjs");
   for (const n of [1, 2, 3]) {
     const { second } = await mqRound(w, "11");
@@ -594,25 +594,27 @@ await test("PATCH G3 fallback: exhausted build does not charge it; three patch e
     patch.state = "verified"; await stateModule.writeState(w.fx.root, st);
   }
   const { second } = await mqRound(w, "11"); eq(second.patch_unit, null, "no fourth patch execution");
-  eq(unitOf(await readState(w), "u-patch-g3").state, "blocked", "existing governed hand-back blocks the exhausted patch");
-  ok((await readEvents(w)).some((e) => e.type === "handback" && e.data.reason_code === "budget_exhausted"), "budget reason survives");
+  eq(unitOf(await readState(w), "u-patch-g3").state, "reported", "exhausted patch awaits technical recovery");
+  ok(unitOf(await readState(w), "u-patch-g3").technical_failures?.length, "failure identity retained");
+  ok((await readEvents(w)).some((e) => e.type === "technical_failure" && e.data.cause.includes("budget_exhausted")), "budget reason survives");
 }));
 await test("mq 11: the patch attempt follows the highest attempt of the run's units (build attempt 2 -> patch attempt 3)", async () => withWorld("exit11b", { attempt: 2, gateLog: "src/alpha/list.ts(2,1): error TS2322: wrong type\n" }, async (w) => {
   const { second } = await mqRound(w, "11"); eq(second.reason, "g3_red", "reason");
   eq((await readState(w)).units.find((u) => u.kind === "patch").attempt, 3, "attempt 2 + 1");
 }));
 
-await test("T-C05 mq 11 with the 3-execution budget exhausted (build attempt 3): hand-back, units AND dependents blocked (R4), WO BLOCKED on the lane, no patch unit, decisions entry pending, main untouched", async () => withWorld("exit11c", { attempt: 3, gateLog: "src/alpha/list.ts(2,1): error TS2322: wrong type\n" }, async (w) => {
+await test("T-C05 mq 11 with the 3-execution budget exhausted (build attempt 3): technical retry, no uncertified landing or owner question, main untouched", async () => withWorld("exit11c", { attempt: 3, gateLog: "src/alpha/list.ts(2,1): error TS2322: wrong type\n" }, async (w) => {
   const before = await snapshot(w);
   const { second } = await mqRound(w, "11");
   eq(second.result, "handback", "result"); eq(second.reason, "g3_red", "reason"); eq(second.mq_exit, 11, "mq_exit"); if (exitKey(second) !== undefined) eq(exitKey(second), 6, "land exit");
   eq(second.patch_unit ?? null, null, "patch_unit is null: no budget left for a patch");
   const st = await readState(w);
   ok(!st.units.some((u) => u.kind === "patch"), "no patch unit queued");
-  eq(unitOf(st, "u-build-wo-01-001").state, "blocked", "the fixed build unit is blocked, never left verified (next would land again) nor parked (R4)");
-  ok(!st.units.some((u) => u.kind === "build" && (u.state === "verified" || u.state === "landed")), "no build unit stays verified or landed");
-  ok(/^implementation_status:\s*BLOCKED\s*$/m.test(await readFile(path.join(w.wt, woPath("frd-01-alpha", "WO-01-001")), "utf8")), "the WO is BLOCKED on the lane");
-  const dec = await readFile(path.join(w.fx.root, ".pandacorp/inbox/decisions.md"), "utf8"); ok(/pending|pendiente/i.test(dec), "a pending entry was added to decisions.md");
+  eq(unitOf(st, "u-build-wo-01-001").state, "reported", "failed build awaits technical recovery");
+  ok(unitOf(st, "u-build-wo-01-001").technical_failures?.length, "budget failure recorded on build");
+  eq(st.status, "active", "technical failure keeps run active");
+  ok(!/^implementation_status:\s*BLOCKED\s*$/m.test(await readFile(path.join(w.wt, woPath("frd-01-alpha", "WO-01-001")), "utf8")), "no obsolete owner BLOCKED metadata");
+  ok(!(await readEvents(w)).some(e => e.type === "run_stopped"), "no technical stop");
   eq((await readEvents(w)).filter((e) => e.type === "batch_landed").length, 0, "no batch_landed");
   await assertNoReleaseVar(w); await assertMainUntouched(w, before);
 }));
@@ -761,7 +763,7 @@ await test("DENG production gate retains integration only and removes its .next"
 // ---- BL-0316: a docs-only batch whose G3 goes red for reasons outside it never spends patch attempts ----------------
 const docsOnly = (over = {}) => ({ extraUnits: [baseUnit({ id: "u-docs-add-filter", kind: "docs", wos: [], chain: null, state: "integrated" })], ...over });
 const TIMEOUT_LOG = "FAIL src/lib/ingest/runs/plan.test.ts > classifies a run\nError: Test timed out in 5000ms.\n ❯ planFile src/lib/ingest/runs/plan.ts:315:38\n";
-await test("BL-0316 docs-only G3 red not from the batch: first red retries without a patch, second red on the same tip hands back env-infra; no patch unit ever", async () => withWorld("docs-only-red", docsOnly({ gateLog: TIMEOUT_LOG }), async (w) => {
+await test("BL-0316 docs-only G3 red not from the batch: first red retries without a patch, repeated technical failures enter rescue; no patch unit ever", async () => withWorld("docs-only-red", docsOnly({ gateLog: TIMEOUT_LOG }), async (w) => {
   const before = await snapshot(w);
   const { second: r1 } = await mqRound(w, "11");
   eq(r1.result, "nothing_to_land", "first red: nothing to land (retry)"); eq(r1.reason, "g3_red_docs_only_retry", "reason");
@@ -772,17 +774,18 @@ await test("BL-0316 docs-only G3 red not from the batch: first red retries witho
   eq(r2.result, "handback", "second red: hand-back"); eq(r2.reason, "g3_red_not_from_batch", "reason"); eq(r2.patch_unit, null, "no patch unit");
   st = await readState(w);
   eq(st.units.filter((u) => u.kind === "patch").length, 0, "still no patch unit");
-  eq(unitOf(st, "u-docs-add-filter").state, "blocked", "docs unit handed back");
-  const hb = (await readEvents(w)).filter((e) => e.type === "handback" && e.data?.unit === "u-docs-add-filter").pop();
-  eq(hb?.data?.cause, "env-infra", "hand-back cause is env-infra (unblock can lift it)");
-  // BL-0312 + BL-0316: after fixing the machine the coordinator unblocks it and it returns to integrated (the landing is retried, nothing rebuilt).
-  const unblock = await need("failure.mjs", "unblockCommand");
-  const res = await unblock({ project: w.fx.root, epoch: w.epoch, unit: "u-docs-add-filter", reason: "swap freed, flaky test fixed on main" }, w.deps);
-  eq(res.restored?.["u-docs-add-filter"], "integrated", "restored to integrated");
+  eq(unitOf(st, "u-docs-add-filter").state, "queued", "first recorded technical failure retries");
+  ok(unitOf(st, "u-docs-add-filter").technical_failures?.length, "failure attached to docs unit");
+  eq(st.status, "active", "technical failure keeps run active");
+  // Re-offer the same reviewed document unit to reproduce the identical failing gate.
+  const { writeState } = await import("../runtime/build/state.mjs");
+  unitOf(st, "u-docs-add-filter").state = "integrated";
+  await writeState(w.fx.root, st, w.deps);
+  await mqRound(w, "11");
   st = await readState(w);
-  eq(unitOf(st, "u-docs-add-filter").state, "integrated", "integrated again"); eq(st.handbacks_in_a_row, 0, "streak reset");
-  const { second: r3 } = await mqRound(w, "0:ff");
-  eq(r3.result, "landed", "the retried landing lands");
+  eq(unitOf(st, "u-docs-add-filter").state, "rescue", "same technical failure twice enters rescue");
+  ok((await readEvents(w)).some(e => e.type === "rescue_started" && e.data.unit === "u-docs-add-filter"), "rescue journal identifies docs unit");
+  ok(!(await readEvents(w)).some(e => e.type === "batch_landed"), "unreviewed rescue never lands");
   await assertNoReleaseVar(w); void before;
 }));
 await test("BL-0316 a docs-only batch whose G3 red is doc-lint or names a docs path keeps the patch path (the batch caused it)", async () => {

@@ -283,35 +283,42 @@ await test("verdict reopen with several reviewed units: the patch attempt is the
   ok(patches.every((u) => u.attempt === 3), `every patch unit must carry attempt 3 (max 2 + 1), got ${patches.map((u) => u.attempt).join(",")}`);
 }));
 
-await test("verdict blocked: the reviewed units are handed back with the finding as reason (handback file, WO BLOCKED), nothing verified, no patch unit", async () => withRun({}, async (c) => {
+await test("verdict blocked: technical retry retains finding, nothing verified, no owner question or patch", async () => withRun({}, async (c) => {
   const out = await c.record({ verdict: "blocked", findings: [finding("F1", { severity: "critical", summary: "touches Fuera: rewrites billing" , lens: "scope" })] }, ROUTE.cross());
   eq(out.verdict, "blocked", "verdict");
-  const hb = c.p.handbackFile(BUILD_UNIT);
-  ok(await exists(hb), `handback file for the reviewed unit must exist at ${hb}`);
-  ok((await readFile(hb, "utf8")).includes("touches Fuera: rewrites billing"), "the handback carries the finding summary as its reason");
-  ok(/implementation_status:\s*BLOCKED/.test(await c.woText()), "the WO of the handed-back unit goes BLOCKED");
+  ok(!(await exists(c.p.handbackFile(BUILD_UNIT))), "no technical owner handback");
+  ok(/implementation_status:\s*IN_REVIEW/.test(await c.woText()), "WO is not falsely blocked or verified");
   const st = await c.readState();
-  ok(["blocked", "parked"].includes(st.units.find((u) => u.id === BUILD_UNIT).state), "reviewed unit is blocked or parked, never verified");
+  const unit = st.units.find(u => u.id === BUILD_UNIT);
+  eq(unit.state, "queued", "first technical finding retries autonomously");
+  eq(unit.technical_failures.at(-1).code, "review_blocked", "finding class retained");
+  ok(unit.technical_failures.at(-1).detail.includes("touches Fuera: rewrites billing"), "finding preserved");
+  ok((await c.events()).some(e => e.type === "technical_failure"), "technical recovery journaled");
   ok(!st.units.some((u) => u.kind === "patch"), "blocked opens no patch unit");
 }));
 
-await test("BL-0323: a blocked verdict issued on a checkout that is not the range end is env-infra review_checkout, liftable by unblock", async () => withRun({}, async (c) => {
+await test("BL-0323: wrong-checkout review retries with review_checkout evidence", async () => withRun({}, async (c) => {
   // The integration tip moves after the review worktree was checked out (a later patch): the reviewer judged an old tree.
   await writeFile(path.join(c.p.integrationWorktree, "LATER.md"), "later\n");
   c.git(c.p.integrationWorktree, ["add", "-A"]); c.git(c.p.integrationWorktree, ["commit", "-q", "-m", "fix: later patch"]);
   await c.record({ verdict: "blocked", findings: [finding("F1", { severity: "high", summary: "checkout is not at the requested pin", lens: "runtime" })] }, ROUTE.cross());
-  const hb = (await c.events()).filter((e) => e.type === "handback").pop();
-  eq([hb.data.cause, hb.data.reason_code], ["env-infra", "review_checkout"], "classified as an environment failure of the review");
-  const { planUnblock } = await sib("failure/unblock.mjs");
-  const plan = planUnblock({ state: await c.readState(), events: await c.events(), unitId: BUILD_UNIT, reason: "review re-dispatched on its pin" });
-  ok(["integrated", "reviewing"].includes(plan.restored[BUILD_UNIT]), `the reviewed work returns to its prior state, never re-queued for a rebuild: ${plan.restored[BUILD_UNIT]}`);
-  eq(plan.restored[REVIEW_UNIT], "queued", "the review itself runs again");
+  const failure = (await c.events()).find(e => e.type === "technical_failure");
+  eq(failure.data.unit_snapshot.technical_failures.at(-1).code, "review_checkout", "checkout failure retains technical class");
+  ok(failure.data.unit_snapshot.technical_failures.at(-1).detail.includes("checkout"), "checkout evidence retained");
+  const state = await c.readState();
+  eq(state.units.find(u => u.id === BUILD_UNIT).state, "queued", "technical first failure retries");
+  ok(!state.units.some(u => u.state === "blocked"), "no owner block");
+  ok(!(await exists(c.p.handbackFile(BUILD_UNIT))), "no owner handback");
+
 }));
 
-await test("BL-0323 control: a blocked verdict on the pinned checkout stays an owner review_blocked", async () => withRun({}, async (c) => {
+await test("BL-0323 control: pinned-checkout finding retains distinct review_blocked identity", async () => withRun({}, async (c) => {
   await c.record({ verdict: "blocked", findings: [finding("F1", { severity: "critical", summary: "touches Fuera", lens: "scope" })] }, ROUTE.cross());
-  const hb = (await c.events()).filter((e) => e.type === "handback").pop();
-  eq([hb.data.cause, hb.data.reason_code], ["owner", "review_blocked"], "a real block stays the owner's");
+  const failure = (await c.events()).find(e => e.type === "technical_failure");
+  eq(failure.data.unit_snapshot.technical_failures.at(-1).code, "review_blocked", "actual finding classified distinctly from checkout failure");
+  ok(failure.data.unit_snapshot.technical_failures.at(-1).detail.includes("touches Fuera"), "finding retained");
+  eq((await c.readState()).status, "active", "scope finding does not stop the run");
+
 }));
 
 await test("verdict doubt: nothing verified, no patch unit, no attempt consumed; the verdict is recorded", async () => withRun({}, async (c) => {

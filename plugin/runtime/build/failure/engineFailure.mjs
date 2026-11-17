@@ -1,5 +1,6 @@
-// Engine failure (a fault of the CLI, not of the product): classification, the stop at the last safe point and the
-// retry-once recovery wrapper. ../failure.mjs is the public entry.
+// Engine faults preserve an owned live run through retry/rescue. Unleased startup failures
+// retain their diagnostic fallback. ../failure.mjs is the public entry.
+import { recordTechnicalFailure } from "../rescue.mjs";
 import { withUnleasedProject } from "../../build-state.mjs";
 import * as fsp from "node:fs/promises";
 import path from "node:path";
@@ -8,7 +9,7 @@ import { withRunCleanup } from "../lifecycle/cleanup.mjs";
 import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
 import { finishPerformance } from "../perf.mjs";
 import { buildPaths } from "../paths.mjs";
-import { fencedTwoPhase, readLeaseToken, readState, rebuildState } from "../state.mjs";
+import { fencedTwoPhase, newUnit, readLeaseToken, readState, rebuildState } from "../state.mjs";
 import { DONE_STATES, POLICY, WO_UNIT_KINDS, emitSafely, err, integrationBranchOf, oneLine, woKey } from "./common.mjs";
 import { fileBacklogNote, sanitize } from "./engineBacklog.mjs";
 
@@ -21,7 +22,8 @@ const EXPECTED_CODES = new Set(["FENCE", "QUIESCED", "USAGE", "CONTENDED", "INVA
  * EIO, ENOSPC...) and an unsupported schema are engine faults; a fence, bad input or a refused state are not.
  */
 export function isEngineFault(error) {
-  if (!error || error.code === "ENGINE_FAILURE") return false;
+  if (!error || (error.code === "ENGINE_FAILURE" && error.result)) return false;
+  if (error.code === "ENGINE_FAILURE") return true;
   if (error.engine === true || error.hint === "rebuild-state") return true;
   return !EXPECTED_CODES.has(error.code);
 }
@@ -75,6 +77,39 @@ function engineMarkdown({ now, cmd, step, failure, runId, epoch, state, bl, noti
  * @returns {Promise<{message: string, path: string, bl: {id: string|null, file: string|null, reason: string|null}, run_id: string|null, warnings: string[], released: boolean, failures: number}>}
  */
 export async function handleEngineFailure({ project, epoch = null, cmd = null, step = null, error, retried = false }, deps = {}) {
+  if (epoch !== null && epoch !== undefined) {
+    let live = await readState(project, deps).catch(() => null);
+    if (!live) {
+      const bs = deps.buildState ?? await import("../../build-state.mjs");
+      const lease = await bs.currentLease(project);
+      if (lease && lease.epoch === Number(epoch) && !lease.quiesced_at) {
+        const token = await readLeaseToken(project, epoch, deps);
+        await bs.renew(project, token, Number(epoch), { projectStatus: false });
+        // state.json is a replayable cache, not authority to quiesce a healthy lease.
+        try { await defaultRebuild({ project, epoch }, deps); live = await readState(project, deps); }
+        catch (replayError) {
+          if (["FENCE", "QUIESCED", "CONTENDED"].includes(replayError.code)) throw replayError;
+          return { action: "retry", released: false, run_id: lease.run_id, message: `Recuperación del estado en curso: ${oneLine(replayError.message, 200)}.`, warnings: [] };
+        }
+      }
+    }
+    if (live && ["active", "waiting", "resuming"].includes(live.status)) {
+      let target = live.units.find(u => u.id === error?.unit && u.state !== "suspended") ?? live.units.find(u => u.state === "rescue") ?? live.units.find(u => !["landed", "abandoned", "verified", "waiting_gate", "suspended"].includes(u.state));
+      if (!target) {
+        target = newUnit({ id: "u-rescue-run", kind: "docs" });
+        await fencedTwoPhase({ project, epoch, deps }, async ctx => {
+          const s = await ctx.readState();
+          if (s.units.some(u => u.id === target.id)) return;
+          await ctx.appendEvent({ type: "unit_queued", data: target });
+          await ctx.writeState({ ...s, units: [...s.units, target] });
+        }, value => value);
+      }
+      if (target) {
+        const recovery = await fencedTwoPhase({ project, epoch, deps }, ctx => recordTechnicalFailure(ctx, target.id, { code: error?.code ?? error?.name ?? "Error", detail: error?.message, files: error?.file ? [error.file] : undefined }, deps), value => value);
+        return { action: recovery.action, released: false, run_id: live.run_id, message: `Recuperación técnica: ${target.id} (${recovery.action}).`, warnings: [] };
+      }
+    }
+  }
   const fs = deps.fs ?? fsp;
   const paths = buildPaths(project, deps);
   const bs = deps.buildState ?? await import("../../build-state.mjs");
@@ -157,14 +192,23 @@ async function defaultRebuild({ project, epoch }, deps) {
  * @throws ENGINE_FAILURE (exit 8) with `.result`; or the step's own expected error
  */
 export async function withEngineRecovery({ project, epoch = null, cmd = null, step }, deps = {}) {
+  const technical = error => isEngineFault(error) || cmd === "next" && ["INVALID_STATE", "EVIDENCE"].includes(error?.code);
+  const recovered = async error => handleEngineFailure({ project, epoch, cmd, step: error.step ?? cmd, error }, deps);
+  const response = result => {
+    const out = { ok: true, cmd, action: result.action === "rescue" ? "rescue" : "wait", outcome: result.action, epoch, units: [], wait: { reason: "gate", retry_after_s: 1 }, notes_es: [result.message] };
+    return cmd === "next" ? { body: out } : out;
+  };
   let first;
-  try { return await step(); } catch (error) { if (!isEngineFault(error)) throw error; first = error; }
-  if (first.noRetry) throw engineFailureError(await handleEngineFailure({ project, epoch, cmd, step: first.step ?? cmd, error: first, retried: false }, deps));
+  try { return await step(); } catch (error) { if (!technical(error)) throw error; first = error; }
+  const one = await recovered(first);
+  if (one.action === "rescue" || one.action === "abandoned") return response(one);
   try {
     await (deps.rebuild ?? defaultRebuild)({ project, epoch }, deps);
     return await step();
   } catch (second) {
-    if (!isEngineFault(second)) throw second;
-    throw engineFailureError(await handleEngineFailure({ project, epoch, cmd, step: second.step ?? first.step ?? cmd, error: second, retried: true }, deps));
+    if (!technical(second)) throw second;
+    const two = await recovered(second);
+    if (two.action) return response(two);
+    throw engineFailureError(two);
   }
 }

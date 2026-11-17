@@ -2,7 +2,6 @@
 // (status, journal, quiesce + finalizeRelease) and finishing the release of a run that already stopped.
 import { finishPerformance } from "../perf.mjs";
 import { awaitsClosure, fencedTwoPhase, isTerminalUnit, readLeaseToken } from "../state.mjs";
-import { ENV_INFRA_STOP } from "./constants.mjs";
 import { err, isAssumed, isLive, passIntent, resolveDeps, sibling } from "./context.mjs";
 import { removeAllG2Snapshots } from "./g2.mjs";
 import { blockedClosure, scopedState } from "./scope.mjs";
@@ -21,19 +20,21 @@ export function runningSummary(state) {
  */
 export function chooseTerminal(state, { pol, l4, plan, candidates, dispatch }) {
   state = scopedState(state);
-  if (state.handbacks_in_a_row >= ENV_INFRA_STOP) return { action: "stop", status: "stopped", reason: "env_infra_handbacks" };
+
   if (state.units.every(isTerminalUnit)) return { action: "done", status: state.status, reason: "done" };
   if (dispatch?.admissionBlocked) return { action: "wait", reason: dispatch.admissionBlocked };
   const nonTerminal = state.units.filter((u) => !isTerminalUnit(u));
   const { all, ownerRoots } = blockedClosure(state);
   if (ownerRoots.length && nonTerminal.every((u) => all.has(u.id) || awaitsClosure(u))) {
     const gatesOnly = ownerRoots.every((u) => u.state === "waiting_gate" || u.waiting_gate);
-    return { action: "waiting-owner", status: gatesOnly ? "waiting_gate" : "waiting_owner", reason: gatesOnly ? "gate" : "owner_answer" };
+    return gatesOnly || ownerRoots.every(u => u.state === "waiting_gate" || u.waiting_gate || u.protected_action)
+      ? { action: "waiting-owner", status: gatesOnly ? "waiting_gate" : "waiting_owner", reason: gatesOnly ? "gate" : "owner_answer" }
+      : { action: "recover", reason: "technical_park" };
   }
   if (nonTerminal.length && nonTerminal.every(awaitsClosure)) return { action: "wait", reason: "closure" };
   const queued = nonTerminal.some((u) => u.state === "queued" && (!u.parked || isAssumed(u)));
-  if (queued && (plan?.deadlock || !candidates?.quotaBlocked)) return { action: "deadlock", status: "stopped", reason: "deadlock" };
-  return { action: "stop", status: "stopped", reason: "no_progress" };
+  if (queued && (plan?.deadlock || !candidates?.quotaBlocked)) return { action: "recover", reason: "deadlock" };
+  return { action: "recover", reason: "no_progress" };
 }
 
 export function terminalNotes(terminal, quota) {
@@ -89,7 +90,7 @@ export async function applyTerminal(ref, terminal, deps = {}) {
 
 /** A run that is no longer active (a terminal action whose release was interrupted): finish the release, report it. */
 export async function alreadyStopped(run, state) {
-  const action = state.status === "finished" ? "done"
+  const action = ["finished", "completed_with_gaps"].includes(state.status) ? "done"
     : state.status === "waiting_owner" || state.status === "waiting_gate" ? "waiting-owner"
       : state.status === "paused" ? "paused-quota"
         : state.status_reason === "deadlock" ? "deadlock" : "stop";
@@ -102,7 +103,7 @@ export async function alreadyStopped(run, state) {
     await bs.finalizeRelease(run.ref.project, token, run.ref.epoch);
   } catch (error) {
     // A finished run whose release already completed has no lease left to fence against: that is the expected idempotent case.
-    if (state.status !== "finished" || error.code !== "FENCE") throw error;
+    if (!["finished", "completed_with_gaps"].includes(state.status) || error.code !== "FENCE") throw error;
   }
   return { ok: true, cmd: "next", epoch: run.ref.epoch, action, units: [], wait: null, admit: null, quota: null, notes_es: [] };
 }

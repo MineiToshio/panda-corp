@@ -80,7 +80,7 @@ export async function integrateUnit({ unit, integration, runId, workOrders = tru
  * @returns {object[]}
  */
 export function committedUnits(state) {
-  const pool = state.units.filter((u) => u.state === "committed" && INTEGRABLE_KINDS.includes(u.kind));
+  const pool = state.units.filter((u) => u.state === "committed" && (INTEGRABLE_KINDS.includes(u.kind) || u.rescue?.phase === "completed"));
   const ids = new Set(pool.map((u) => u.id));
   const ordered = [];
   const seen = new Set();
@@ -107,7 +107,7 @@ export function committedUnits(state) {
 export function frdsReadyForG2(state) {
   const byFrd = new Map();
   for (const u of state.units) {
-    if (!u.frd || !INTEGRABLE_KINDS.includes(u.kind)) continue;
+    if (!u.frd || u.state === "abandoned" || !INTEGRABLE_KINDS.includes(u.kind)) continue;
     byFrd.set(u.frd, [...(byFrd.get(u.frd) ?? []), u]);
   }
   return [...byFrd]

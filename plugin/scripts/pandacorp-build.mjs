@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { rescueResult } from "../runtime/build/rescue.mjs";
 import { scopeRepairCommand } from "../runtime/build/scope.mjs";
 // pandacorp-build: the v2 build engine's only executor (docs: plugin/docs/build-engine-cli.md).
 // This file is the dispatcher: argument parsing, project resolution, error-code to exit-code map (D26), one JSON line on stdout.
@@ -46,6 +47,7 @@ const COMMANDS = Object.freeze({
   "lint-plan": { bool: ["strict"], value: ["scope-json"], usage: "lint-plan [--strict]" },
   risk: { bool: [], value: ["files", "range"], usage: "risk --files a,b | --range base..head" },
   next: { bool: [], value: ["epoch", "wait"], usage: "next --epoch N [--wait S]" },
+  rescue: { bool: [], value: ["epoch", "unit", "token", "file"], usage: "rescue --epoch N --unit U --token T --file RESULT" },
   suspend: { bool: [], value: ["epoch", "unit", "file"], usage: "suspend --epoch N --unit U --file PROVIDER_RECEIPT" },
   report: { bool: [], value: FENCED_FILE, usage: "report --epoch N --unit U --token T --file F" },
   "review-record": { bool: [], value: FENCED_FILE, usage: "review-record --epoch N --unit U --token T --file F" },
@@ -274,6 +276,7 @@ const HANDLERS = {
   },
   next: (c) => fenced(c, async () => ({ body: await next({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), wait: int(c.flags, "wait", { max: 300 }) ?? 0, actor: "cli" }, c.deps) })),
   suspend: (c) => fenced(c, async () => ({ body: await suspendExecution({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), unit: need(c.flags, "unit"), file: abs(need(c.flags, "file")) }, c.deps) })),
+  rescue: (c) => fenced(c, async () => ({ body: await rescueResult({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), unit: need(c.flags, "unit"), token: need(c.flags, "token"), file: abs(need(c.flags, "file")) }, c.deps) })),
   async report(c) {
     const r = await fenced(c, () => ingestReport({ project: c.project, epoch: int(c.flags, "epoch", { required: true }), unit: need(c.flags, "unit"), token: need(c.flags, "token"), file: abs(need(c.flags, "file")), actor: "cli", openDoubt: true }, c.deps));
     return { body: r, exit: r.outcome === "rejected" ? 6 : r.outcome === "waiting_gate" ? 7 : 0 };

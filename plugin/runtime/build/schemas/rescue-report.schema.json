@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "status": {
+      "enum": [
+        "done",
+        "repair",
+        "failed",
+        "waiting_gate"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authored_by": {
+      "type": "object",
+      "properties": {
+        "runtime": {
+          "enum": [
+            "claude",
+            "codex"
+          ]
+        },
+        "model": {
+          "type": "string"
+        },
+        "effort": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "runtime",
+        "model",
+        "effort"
+      ],
+      "additionalProperties": false
+    },
+    "gate": {
+      "enum": [
+        null,
+        "production",
+        "money",
+        "delete",
+        "external"
+      ]
+    },
+    "oracle_repair": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "status",
+    "summary",
+    "authored_by",
+    "gate"
+  ],
+  "additionalProperties": false
+}

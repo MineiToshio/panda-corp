@@ -1,5 +1,12 @@
 # Decision Log — Mission Control
 
+## 2026-11-17 - Explain rescue and completion with gaps
+
+The [implementation guide](../../content/manual/guides/g-implement-parcial.md) explains
+supervised rescue, protected tests, independent review, abandonment and the final gap list.
+It reflects DR-164 and BUILD-16 without changing the dashboard's runtime projection.
+
+
 ## 2026-11-16 — Explain chained allowlists and mixed protected disputes (BL-0329)
 
 The [partial-build guide](../content/manual/guides/g-implement-parcial.md) now explains --wo ownership,

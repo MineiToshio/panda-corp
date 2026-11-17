@@ -60,7 +60,7 @@ export async function clearBuildDir(project, p, d) {
     const state = await readJson(p.stateFile).catch(() => { throw err("INVALID_STATE", "build/state.json is unreadable: stop or rebuild the run first", { hint: "rebuild-state" }); });
     if (!state) return null;
     if (state.status === "active") throw err("INVALID_STATE", "a run is active: resume or stop the run first");
-    const dest = state.status === "finished" ? p.buildArchiveDir(state.run_id) : p.buildSuspendedDir(state.run_id);
+    const dest = ["finished", "completed_with_gaps"].includes(state.status) ? p.buildArchiveDir(state.run_id) : p.buildSuspendedDir(state.run_id);
     await moveBuildDir({ project, from: p.build, to: dest, keep: ["preflight.json"], drop: ["lease-token.json"] }, d);
     return { run_id: state.run_id, moved_to: dest };
   });

@@ -86,9 +86,14 @@ export async function wakeCapacity({ project, epoch, owner = "drive", generation
       const verdict = continuationDecision(u, readings, now, state, u.kind === "deferred-review" ? entryForUnit(deferred, u) : null);
       return verdict.ready || verdict.requeue;
     });
+    if (!ready) ready = state.units.filter(u => u.state === "rescue" && u.rescue?.suspension).some(u => {
+      const r = u.rescue;
+      return continuationDecision({ ...u, worker: r.cell, pin: { tool: r.cell.runtime, model: r.cell.model, effort: r.cell.effort }, suspension: r.suspension }, readings, now, state).ready;
+    });
     // Queued independent work may wake on either tool; suspended work may ONLY wake its own pin.
     if (!ready) for (const unit of state.units) {
       let task = unit.state === "queued" && (!unit.parked || unit.kind === "review" && unit.parked === "no_reviewer") ? capacityTaskForUnit(unit, state, unit.kind === "deferred-review" ? entryForUnit(deferred, unit) : null) : null;
+      if (unit.state === "rescue" && !unit.rescue?.worker) task = unit.rescue?.task ?? capacityTaskForUnit(unit, state);
       if (task && unit.kind === "review" && !reviewDemand(state, unit).ready) task = null;
       if (unit.state === "reported" && unit.doubt_id) {
         const record = await readJson(ctx.paths.doubtFile(unit.doubt_id));

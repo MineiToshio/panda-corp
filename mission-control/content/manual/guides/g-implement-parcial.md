@@ -68,6 +68,24 @@ ordinarios y protegidos, primero se integra la reparación de alcance y después
 Su motivo conserva la decisión del owner que la fundamenta; responder una disputa no concede permiso para editar
 ni regenerar el hash de una prueba protegida. La decisión, la reparación y la reanudación quedan en el journal.
 
+## Rescate cuando falla el proceso
+
+Un fallo técnico no termina el run detenido. Si se repite dos veces la misma causa en una
+unidad o archivo, aparece `rescue`: el coordinador completa esa unidad directamente con
+su objetivo, archivos, pruebas protegidas e historial de fallos a la vista. El informe indica
+qué límites ordinarios se exceptuaron y por qué.
+
+Los tests protegidos se conservan. Si el oráculo es incorrecto, otra ejecución lo repara con
+el contrato citado, una justificación y los hashes de ambas versiones. Antes de integrar,
+un revisor independiente comprueba el resultado y la verificación completa debe estar verde.
+El commit registra la unidad rescatada y su causa.
+
+Cada unidad tiene un rescate. Si también falla, queda `abandoned` con un informe; el trabajo
+independiente continúa. El resultado final será `completed_with_gaps`, con una lista de lo
+que falta. El journal y el resumen muestran cada rescate, su causa y las excepciones aplicadas.
+Solo producción, dinero, borrado real o comunicación externa sin autorización esperan tu firma.
+Si ninguna herramienta tiene cupo, el motor conserva la espera y la reanudación automática.
+
 ## Verificado en rama e integrado
 
 Los cambios versionados del run se escriben en `lane/<run_id>/integration`, nunca en la copia

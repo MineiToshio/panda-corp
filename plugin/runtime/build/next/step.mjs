@@ -1,5 +1,6 @@
 // One scheduling pass of `next`: renew + one admission reading, harvest, integrate, quota policy, managed units and the
 // planner round, landing, admission and dispatch, then wait or a terminal action (A11).
+import { advanceRescues, recoverTechnicalStall } from "../rescue.mjs";
 import { settleScopeRepairs, openScopeDisputes } from "../scope.mjs";
 import { withRunCleanup } from "../lifecycle/cleanup.mjs";
 import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
@@ -47,6 +48,8 @@ export async function step(run) {
   d.adaptiveStep = run.reading?.step ?? d.admission.readAdaptive(admissionCtx(run)).step;
   const notes = [];
   run.diskBlocked = false;
+  const rescue = await advanceRescues(run.ref, d);
+  if (rescue) return { out: rescue, watch: [] };
   const boot = await bootstrapIntegrationWorktree({ project: run.ref.project, runId: state.run_id }, d);
   if (boot.exit === 4) return finish(run, state, { action: "wait", wait: { reason: "disk", retry_after_s: RETRY_S.disk }, notes });
 
@@ -115,7 +118,8 @@ export async function step(run) {
     // ENV_INFRA_STOP streak of hand-backs ends the run through chooseTerminal (FIX-D-4).
     return finish(run, state, { action: "wait", wait: { reason: "gate", retry_after_s: RETRY_S.gate }, admit: dispatch.admit, quota, notes });
   }
-  const capacityResumeAt = [...(candidates.capacityWaits ?? []), ...(dispatch.capacityWaits ?? [])].sort((a,b) => Date.parse(a)-Date.parse(b))[0];
+  const capacityResumeAt = [...(candidates.capacityWaits ?? []), ...(dispatch.capacityWaits ?? []),
+    ...state.units.filter(u => u.state === "rescue" && u.rescue?.capacity_wait).map(u => u.rescue.capacity_wait)].sort((a,b) => Date.parse(a)-Date.parse(b))[0];
   // A transient response is a running loop backoff, not a subscription-reset wait (+60s grace).
   const transient = state.units.filter(u => u.state === "suspended" && u.suspension.reason === "rate_limit")
     .some(u => u.suspension.resumeAt === capacityResumeAt);
@@ -124,6 +128,10 @@ export async function step(run) {
   const terminal = capacityResumeAt
     ? { action: "waiting", status: "waiting", reason: "capacity", resumeAt: capacityResumeAt }
     : chooseTerminal(state, { pol, plan, candidates, dispatch });
+  if (terminal.action === "recover") {
+    await recoverTechnicalStall(run.ref, terminal.reason, d);
+    return finish(run, await fresh(run), { action: "wait", wait: { reason: "gate", retry_after_s: 1 }, quota, notes });
+  }
   if (terminal.action === "wait") {
     return finish(run, state, { action: "wait", wait: { reason: terminal.reason, retry_after_s: RETRY_S[terminal.reason] }, admit: dispatch.admit, quota, notes });
   }

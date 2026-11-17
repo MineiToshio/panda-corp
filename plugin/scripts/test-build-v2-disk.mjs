@@ -13,7 +13,7 @@ import { prepareUnitWorktree, restoreUnitWorktree } from '../runtime/build/units
 import * as worktreeApi from '../runtime/build/integrate/worktrees.mjs';
 const { createIntegrationWorktree, cleanupRunWorktrees, removeWorktree } = worktreeApi;
 import { buildPaths } from '../runtime/build/paths.mjs';
-import { newState, newUnit, writeState } from '../runtime/build/state.mjs';
+import { newState, newUnit, writeState, readState } from '../runtime/build/state.mjs';
 import { handleEngineFailure } from '../runtime/build/failure/engineFailure.mjs';
 import * as buildState from '../runtime/build-state.mjs';
 import { finishRun, stopRun } from '../runtime/build/lifecycle/terminate.mjs';
@@ -131,7 +131,7 @@ try {
     } finally { await buildState.release(c.fx.root, lease.token, lease.epoch); }
     await assert.rejects(removeAllG2Snapshots({ project: c.fx.root }, c.deps), { code: 'FENCE' });
   });
-  for (const terminal of ['finish', 'stop', 'failure']) {
+  for (const terminal of ['finish', 'stop']) {
     for (const winsFirst of [false, true]) {
       await test(`FIX2 ${terminal}: ${winsFirst ? 'prior acquire preserves copies and state' : 'acquire is excluded throughout terminal cleanup'}`, async () => {
         const c = await setup(`terminal-${terminal}-${winsFirst}`);
@@ -160,8 +160,7 @@ try {
         };
         try {
           const action = () => terminal === 'finish' ? finishRun({ project: c.fx.root, epoch: original.epoch }, deps)
-            : terminal === 'stop' ? stopRun({ project: c.fx.root, epoch: original.epoch }, deps)
-              : handleEngineFailure({ project: c.fx.root, epoch: original.epoch, error: new Error('fixture fault') }, deps);
+            : stopRun({ project: c.fx.root, epoch: original.epoch }, deps);
           if (winsFirst && terminal !== 'failure') await assert.rejects(action, { code: 'CONTENDED' });
           else {
             const result = await action();
@@ -180,6 +179,40 @@ try {
         }
       });
     }
+  }
+  for (const foreignWins of [false, true]) {
+    await test(`FIX2 technical recovery: ${foreignWins ? 'a newer holder fences stale recovery without deleting copies' : 'the live lease excludes a competing acquire throughout recovery'}`, async () => {
+      const c = await setup(`recovery-race-${foreignWins}`);
+      const original = await buildState.acquire(c.fx.root, { runtime: 'claude', runId: 'r-disk', projectStatus: false });
+      await writeState(c.fx.root, stateOf(c, { epoch: original.epoch, units: [newUnit({ id: 'u-recover', kind: 'build' })] }), c.deps);
+      let acquired = null, attempted = false;
+      if (foreignWins) {
+        await buildState.release(c.fx.root, original.token, original.epoch);
+        acquired = await buildState.acquire(c.fx.root, { runtime: 'codex', runId: 'r-disk', projectStatus: false });
+        await writeState(c.fx.root, stateOf(c, { epoch: acquired.epoch, units: [newUnit({ id: 'u-recover', kind: 'build' })] }), c.deps);
+      }
+      const before = await readFile(c.p.stateFile, 'utf8'), refs = refsOf(c);
+      const deps = { ...c.deps, buildState: { ...buildState, withFence: async (...args) => {
+        if (!foreignWins && !attempted) {
+          attempted = true;
+          await assert.rejects(buildState.acquire(c.fx.root, { runtime: 'codex', runId: 'r-disk', projectStatus: false }), { code: 'CONTENDED' });
+        }
+        return buildState.withFence(...args);
+      } } };
+      try {
+        const action = () => handleEngineFailure({ project: c.fx.root, epoch: original.epoch, error: new Error('fixture technical fault') }, deps);
+        if (foreignWins) {
+          await assert.rejects(action, { code: 'FENCE' });
+          assert.equal(await readFile(c.p.stateFile, 'utf8'), before);
+        } else { assert.equal((await action()).action, 'retry'); assert.equal(attempted, true); }
+        assert.equal(await exists(c.p.integrationWorktree), true);
+        assert.equal(refsOf(c), refs);
+        assert.equal((await buildState.currentLease(c.fx.root)).epoch, (acquired ?? original).epoch);
+      } finally {
+        const held = acquired ?? original;
+        await buildState.release(c.fx.root, held.token, held.epoch);
+      }
+    });
   }
   await test('landing removes finished unit and assume trees but keeps refs and integration', async () => {
     const c = await setup('landing'); const { wt, assume, manifest } = await seedExtra(c); const refs = refsOf(c);
@@ -216,12 +249,14 @@ try {
     await createIntegrationWorktree({ project: c.fx.root, runId: 'r-disk' }, c.deps);
     assert.equal(git(wt.worktree, ['rev-parse', 'HEAD']), c.fx.sha); assert.equal(refsOf(c), refs);
   });
-  await test('engine failure removes clean unit and integration checkouts after lease release', async () => {
+  await test('engine failure preserves clean unit and integration checkouts and the live lease for retry', async () => {
     const c = await setup('engine-failure'); const { wt } = await seedExtra(c); const refs = refsOf(c);
     const lease = await buildState.acquire(c.fx.root, { runtime: 'claude', runId: 'r-disk', ttlSeconds: 1800, projectStatus: false });
     await writeState(c.fx.root, stateOf(c, { epoch: lease.epoch, units: [newUnit({ id: 'u-done', kind: 'build', state: 'queued', worktree: wt.worktree })] }), c.deps);
     const result = await handleEngineFailure({ project: c.fx.root, epoch: lease.epoch, cmd: 'next', error: new Error('fixture engine fault') }, c.deps);
-    assert.equal(result.released, true); assert.equal(git(c.fx.root, ['worktree', 'list', '--porcelain']).includes('/.pandacorp/run/'), false); assert.equal(refsOf(c), refs);
+    assert.equal(result.released, false); assert.equal(result.action, 'retry'); assert.equal(await exists(wt.worktree), true); assert.equal(await exists(c.p.integrationWorktree), true); assert.equal(refsOf(c), refs);
+    assert.equal((await buildState.currentLease(c.fx.root)).epoch, lease.epoch);
+    const after = await readState(c.fx.root, c.deps); assert.equal(after.status, 'active'); assert.equal(after.units[0].technical_failures.length, 1);
   });
   await test('attempt n+1 removes a clean previous directory and keeps its branch; dirty previous stays', async () => {
     const c = await setup('attempt'); const one = await prepareUnitWorktree({ project: c.fx.root, runId: 'r-disk', unit: 'u-retry' }, c.deps);

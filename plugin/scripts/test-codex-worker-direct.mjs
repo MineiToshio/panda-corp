@@ -60,7 +60,9 @@ const baseEnv = {
 function cli(args, extraEnv = {}, timeoutMs = 25000) {
   return new Promise((resolve) => {
     const id = args[args.indexOf("--id") + 1];
-    const child = spawn(process.execPath, [CLI, ...args, "--risk", "normal"], { env: { ...baseEnv, PANDACORP_FAKE_CODEX_LOG: logOf(id), ...extraEnv }, stdio: ["ignore", "pipe", "pipe"] });
+    // Transport cases run concurrently. A fake usage-limit receipt must not exhaust another case's account;
+    // re-reads of the same worker retain the same account directory. Shared-account behavior has its own suites.
+    const child = spawn(process.execPath, [CLI, ...args, "--risk", "normal"], { env: { ...baseEnv, PANDACORP_CAPACITY_DIR: path.join(tmp, `capacity-${id}`), PANDACORP_FAKE_CODEX_LOG: logOf(id), ...extraEnv }, stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     let err = "";
     let timedOut = false;

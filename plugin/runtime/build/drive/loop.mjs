@@ -40,7 +40,10 @@ async function stopUnrecordedWorkers(project, launched, workers, d, engineDeps) 
   if (!launched.size || typeof workers?.stopWorkers !== "function") return [];
   try {
     const state = await readState(project, { env: d.env, homedir: d.homedir }).catch(() => null);
-    const recorded = new Set((state?.units ?? []).filter((u) => u.state === "running" && u.worker?.worker_id).map((u) => u.worker.worker_id));
+    const recorded = new Set((state?.units ?? []).flatMap(u => [
+      ...(u.state === "running" && u.worker?.worker_id ? [u.worker.worker_id] : []),
+      ...(u.rescue?.worker?.workerId ? [u.rescue.worker.workerId] : []),
+    ]));
     const ids = [...launched.keys()].filter((id) => !recorded.has(id));
     if (ids.length) await workers.stopWorkers(project, ids, engineDeps);
     return ids;
@@ -92,6 +95,10 @@ export async function driveLoop({ project, epoch }, deps) {
       for (const line of out?.notes_es ?? []) driveLog(project, `next: ${line}`, d);
 
       switch (out?.action) {
+        case "rescue": {
+          await d.sleep(Math.min(pollMs, 1000 * (out.wait?.retry_after_s ?? 1)));
+          break;
+        }
         case "dispatch": {
           for (const unit of out.units ?? []) {
             if (["codex", "claude"].includes(unit.runtime) && unit.via === "cli") { driveLog(project, `dispatch: ${unit.unit} ${unit.kind} codex ${unit.model} ${unit.effort}`, d); continue; }
@@ -161,6 +168,8 @@ export async function driveLoop({ project, epoch }, deps) {
         await setOwnStandbyState(project, "stopped", d);
         return { outcome: "yielded", action: out?.action ?? null, exitCode: 0 };
       }
+      const recovered = await (await import("../failure/engineFailure.mjs")).handleEngineFailure({ project, epoch, cmd: "drive", error }, engineDeps);
+      if (recovered.action) { await d.sleep(Math.min(pollMs, 1000)); continue; }
       return engineFailure(project, epoch, error, d, engineDeps);
     }
   }

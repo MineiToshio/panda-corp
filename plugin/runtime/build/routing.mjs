@@ -42,6 +42,7 @@ export function reviewedWorkForUnit(state, unit) {
 
 /** The task/risk projection used for dispatch AND waking queued work. No synthetic global veto. */
 export function capacityTaskForUnit(unit, state, deferredEntry) {
+  if (unit.state === "rescue" && unit.rescue?.task) return unit.rescue.task;
   const role = unit.role ?? unit.kind;
   const type = /planner|architect|design|docs|product-manager|doubt-consult/.test(role) ? "design"
     : /review|audit/.test(role) ? "review" : /mechanic/.test(role) ? "mechanical" : "implement";
@@ -61,7 +62,7 @@ export function capacityTaskForUnit(unit, state, deferredEntry) {
 /** Review eligibility shared by candidate dispatch and capacity wake. */
 export function reviewDemand(state, unit) {
   const named = new Set(unit.depends_on ?? []);
-  const work = state.units.filter(x => ["build", "patch", "tests"].includes(x.kind) && x.state !== "blocked"
+  const work = state.units.filter(x => ["build", "patch", "tests"].includes(x.kind) && !["blocked", "abandoned"].includes(x.state)
     && (unit.frd ? x.frd === unit.frd : named.has(x.id)));
   const wos = new Set([...unit.wos, ...work.flatMap(x => x.wos)]);
   const pending = state.units.filter(x => ["build", "patch"].includes(x.kind) && ["reviewing", "integrated"].includes(x.state)

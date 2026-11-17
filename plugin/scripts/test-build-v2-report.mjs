@@ -644,11 +644,13 @@ await test("report: status doubt leaves the unit reported, consumes NO attempt, 
   eq(c.adm.verifyToken(u.id, u.token, { file: c.paths.admissionFile }).ok, false, "token released on a doubt");
   eq(c.tip(u.branch), c.tip(c.branch), "no commit on a doubt");
 }));
-await test("report: status blocked with a dependency diagnosis is an immediate hand-back: unit blocked, no commit on the unit branch (D21, R4)", async () => withRun(async (c) => {
+await test("report: dependency failure retries autonomously without committing or asking the owner", async () => withRun(async (c) => {
   const u = await c.dispatch(buildUnit());
   const forkTip = c.tip(u.branch);
   const res = await c.submit(u, c.report(u, { status: "blocked", summary: "missing secret", diagnosis: { cause: "dependency", detail: "STRIPE key absent" } }));
-  eq((await c.unit(u.id)).state, "blocked", "dependency => immediate hand-back, unit blocked (D21, R4)");
+  eq((await c.unit(u.id)).state, "queued", "first technical dependency failure retries");
+  eq((await c.unit(u.id)).technical_failures.length, 1, "failure retained");
+  ok(!(await c.journal()).some(e => e.type === "handback"), "no owner handback");
   eq(res.outcome, "blocked", "outcome"); ok(!res.commit, "no commit");
   ok((await c.unit(u.id)).state !== "committed", "unit must not be committed");
   eq(c.tip(u.branch), forkTip, "no commit on the unit branch on blocked");
@@ -691,34 +693,41 @@ const failG1 = async (c, id, attempt, testText, over = {}) => {
   const res = await c.submit(u, c.report(u, { files: ["src/alpha/list.ts", TEST_PATH], diagnosis: { cause: "code", detail: "the filter ignores status" }, ...over }));
   return { u, res };
 };
-await test("report: a failed attempt 2 WITH a diagnosis and NEW evidence queues attempt 3 automatically (next_attempt 3)", async () => withRun(async (c) => {
+await test("report: two G1 failures with the same cause and files rescue even when assertion evidence differs", async () => withRun(async (c) => {
   const id = "u-build-wo-01-001";
   const a1 = await failG1(c, id, 1, RED); eq(a1.res.outcome, "rejected", "attempt 1 outcome (G1 red)"); await assertAttemptBumped(c, a1.u, 2, "after attempt 1");
   const a2 = await failG1(c, id, 2, RED_OTHER);
   ok(["rejected", "failed"].includes(a2.res.outcome), `attempt 2 outcome: ${a2.res.outcome}`);
-  eq(a2.res.next_attempt, 3, "next_attempt"); await assertAttemptBumped(c, a2.u, 3, "after attempt 2");
-  const unit = await c.unit(id); ok(unit.evidence_hash, "evidence_hash must be recorded for the next comparison (D21)");
+  eq(a2.res.next_attempt, null, "ordinary attempt budget bypassed by rescue");
+  const unit = await c.unit(id); eq(unit.state, "rescue", "same failure identity rescued");
+  eq(unit.attempt, 2, "no third ordinary attempt");
+  eq(unit.technical_failures.length, 2, "both failures retained");
+  ok((await c.journal()).some(e => e.type === "rescue_started" && e.data.unit === id), "rescue journaled");
 }));
-await test("report: attempt 2 failing with evidence IDENTICAL to attempt 1 is a hand-back, not an attempt 3 (D21)", async () => withRun(async (c) => {
+await test("report: identical G1 failure evidence enters rescue instead of owner handback", async () => withRun(async (c) => {
   const id = "u-build-wo-01-001";
   const a1 = await failG1(c, id, 1, RED); eq(a1.res.outcome, "rejected", "attempt 1");
   const a2 = await failG1(c, id, 2, RED);
   ok(a2.res.next_attempt === null || a2.res.next_attempt === undefined, `identical evidence must not queue attempt 3 (next_attempt=${a2.res.next_attempt})`);
   const unit = await c.unit(id);
-  ok(unit.state !== "queued", `identical evidence must hand back (park/block), unit is ${unit.state}`); eq(unit.attempt, 2, "no attempt 3 was started");
+  eq(unit.state, "rescue", "identical failure enters rescue"); eq(unit.attempt, 2, "no attempt 3 was started");
+  ok((await c.journal()).some(e => e.type === "rescue_started"), "rescue journaled");
 }));
-await test("report: attempt 3 failing is final: no attempt 4, next_attempt null, the unit is not re-queued (hand-back)", async () => withRun(async (c) => {
-  const id = "u-build-wo-01-001";
-  await failG1(c, id, 1, RED); await failG1(c, id, 2, RED_OTHER);
-  const a3 = await failG1(c, id, 3, RED_OTHER);
-  ok(a3.res.next_attempt === null || a3.res.next_attempt === undefined, `no attempt 4 (next_attempt=${a3.res.next_attempt})`);
-  const unit = await c.unit(id);
-  ok(unit.state !== "queued" && unit.attempt <= 3, `attempt 3 evidence identical to attempt 2 must hand back; unit ${unit.state} attempt ${unit.attempt}`);
+await test("report: an isolated ordinary attempt 3 failure retries technically without creating attempt 4", async () => withRun(async (c) => {
+  const u = await c.dispatch(buildUnit({ attempt: 3 }));
+  await c.write(u, { "src/alpha/list.ts": "export const value = 20;\n", [TEST_PATH]: RED });
+  const res = await c.submit(u, c.report(u, { files: ["src/alpha/list.ts", TEST_PATH], diagnosis: { cause: "code", detail: "filter failure" } }));
+  ok(res.next_attempt === null || res.next_attempt === undefined, "no ordinary attempt 4");
+  const unit = await c.unit(u.id); eq(unit.state, "reported", "first technical budget failure awaits recovery");
+  eq(unit.attempt, 3, "ordinary budget held"); eq(unit.technical_failures.length, 1, "failure recorded");
+  ok(!(await c.journal()).some(e => e.type === "handback"), "no owner question");
+  c.mainClean();
 }));
 await test("report: attempt 3 uses the branch/worktree suffix -a3 and a fresh token (A13/A16 through the dispatch the test performs)", async () => withRun(async (c) => {
   const id = "u-build-wo-01-001";
-  await failG1(c, id, 1, RED); await failG1(c, id, 2, RED_OTHER);
+  const u1 = await c.dispatch(buildUnit({ id }));
   const u3 = await c.dispatch({ id, attempt: 3 });
+  ok(u3.token !== u1.token, "fresh execution token");
   eq(u3.branch, `lane/${RUN}/${id}-a3`, "branch"); eq(path.basename(u3.wt), `${id}-a3`, "worktree dir");
 }));
 

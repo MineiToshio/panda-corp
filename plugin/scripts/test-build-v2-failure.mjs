@@ -1,32 +1,8 @@
 #!/usr/bin/env node
 // test-build-v2-failure.mjs: official test of plugin/runtime/build/failure.mjs (PLAN 5.2 row C09; D21; BUILD-15).
-// Contract pinned (BUILD-15 / D21 / CLI 3.14):
-//   - at most 3 executions per unit; attempt 3 is queued automatically and ONLY with new evidence
-//     (failing test ids + command of the CLI's own re-run, implicated files) plus the report's diagnosis;
-//     evidence identical to attempt 2 -> hand-back; a failure of attempt 3 -> hand-back (budget exhausted);
-//   - spec-ambiguous enters the doubt ladder (not a hand-back); test-defective still disputed after one
-//     reviewer reply, a dependency on a missing secret/account, and a human gate are immediate hand-backs;
-//   - a hand-back parks the unit and its transitive dependents, independent units keep running; the lease
-//     is NOT released by a hand-back; 3 consecutive env-infra hand-backs request a stop, any other
-//     hand-back or a committed unit resets the streak;
-//   - handback/<unit>.md is Spanish, says the work is safe on the lane branch, carries the last 40 lines of
-//     the failing command, the attempts' evidence, the diagnosis, numbered options with a recommended one;
-//     a pending entry is added to .pandacorp/inbox/decisions.md; nothing tracked is touched in the main checkout;
-//   - engine failure: retry the step ONCE after rebuild-state; if it repeats, stop at the last safe point
-//     (status stopped, same run_id resumable), exit 8, handback/engine.md, the next free BL file valid for
-//     validate-backlog.sh, journal `engine_failure`, lease released; consumes no unit attempt; a fence error
-//     is not an engine failure; after 3 engine failures the Spanish message adds the "desastre" line.
-//
-// INTERFACE (reconciled with the real exports of failure.mjs, per the coordinator; behavior assertions unchanged):
-//   buildEvidence({tests, command, files, diagnosis}).hash          evidence identity
-//   decideFailure({state, unit, failure:{source}, diagnosis:{cause,detail}, evidence:{tests,command,files},
-//       previous_evidence_hash, reviewer_replies, human_gate}) -> {action: requeue|escalate|doubt|dispute|handback, attempt, evidence_hash}
-//   planHandback({state, unitId, cause, reasonCode, reason}) -> {state, events, blocked, stop_run}
-//   handBack(ctx, {unitId, cause, reasonCode, reason, failure:{command, tail}, attempts:string[], diagnosis}) inside fencedTwoPhase phase 2
-//   withEngineRecovery({project, epoch, cmd, step}, {rebuild, factoryRoot, ...}) -> value | throws ENGINE_FAILURE (.result.message, .result.bl, .result.released)
-// Test assumptions NOT backed by a failure.mjs export: "a committed unit resets the env-infra streak" (belongs to report/units), unit
-// `retried` flag on the success result (not part of the module's return value), and how a "missing secret/account" is expressed
-// for decideFailure (this test uses diagnosis.cause "dependency" with a detail naming the secret/account).
+// DR-164 active execution contract: repeated technical identity -> one rescue; rescue failure
+// abandons the dependent closure while independent work continues. Safety refusals retain handback.
+// Pure legacy D21 policy helpers remain covered separately from their active execution bridge.
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile, readdir } from "node:fs/promises";
@@ -136,7 +112,7 @@ await test("PATCH3 B1: fallback report failures spend only their own three execu
   }
 });
 
-await test("PATCH3 B2: exhausted fallback hand-back preserves healthy WOs and retains its allowlist", async () => {
+await test("PATCH3 B2: exhausted fallback technical retry preserves healthy WOs and retains its allowlist", async () => {
   const sb = await sandbox();
   try {
     const healthy = [U("healthy-list", { wos: ["WO-01-001"], state: "verified", attempt: 3 }), U("healthy-filter", { wos: ["WO-01-002"], state: "verified" })];
@@ -153,7 +129,7 @@ await test("PATCH3 B2: exhausted fallback hand-back preserves healthy WOs and re
     eq(res.wos_blocked, [], "no healthy WOs blocked"); eq(res.wos_skipped, [], "no attempted healthy transitions");
     eq(await Promise.all(files.map((file) => readFile(file, "utf8"))), before, "healthy frontmatter unchanged");
     const st = await readState(sb.project, { env: sb.env });
-    eq(st.units.map((u) => u.state), ["verified", "verified", "blocked"], "only fallback handed back");
+    eq(st.units.map((u) => u.state), ["verified", "verified", "reported"], "only fallback retries at its exhausted ordinary budget");
     eq(st.units.at(-1).wos, patch.wos, "allowlist retained in unit state");
   } finally { await sb.fx.cleanup(); }
 });
@@ -214,7 +190,7 @@ await test("planHandback: the unit and its transitive dependents are blocked, in
   eq(idsOf(res.blocked).filter((id) => id !== "u-build-WO-01-001").sort(), ["u-build-WO-01-002", "u-build-WO-01-003"], "blocked list = the dependents (plus the unit)");
   eq(res.stop_run, false, "one hand-back does not stop the run");
 });
-await test("three consecutive env-infra hand-backs request a stop; the first two do not", async () => {
+await test("legacy planHandback helper: env-infra counter retained (active technical path bypasses this plan)", async () => {
   let r = apply(mkState([U("u-a"), U("u-b"), U("u-c"), U("u-d")]), "u-a", "env-infra", "env_infra"); eq(r.stop_run, false, "1st"); eq(r.state.handbacks_in_a_row, 1, "streak 1");
   r = apply(r.state, "u-b", "env-infra", "env_infra"); eq(r.stop_run, false, "2nd"); eq(r.state.handbacks_in_a_row, 2, "streak 2");
   r = apply(r.state, "u-c", "env-infra", "env_infra"); eq(r.stop_run, true, "3rd must stop"); eq(r.state.handbacks_in_a_row, 3, "streak 3");
@@ -227,41 +203,40 @@ await test("a non-env-infra hand-back resets the env-infra counter", async () =>
 });
 
 // ---------------------------------------------------------------- handback file (Spanish, safe on the lane branch)
-await test("handBack writes handback/<unit>.md in Spanish: lane branch safe, last 40 output lines, evidence, diagnosis, numbered options with a recommendation", async () => {
+await test("technical handback retries once, then rescues with failure history and no owner question", async () => {
   const sb = await sandbox(); const { lease } = await seedRun(sb, HB_STATE(sb));
-  git(sb.project, ["branch", sb.p.unitBranch(RUN, HB_UNIT, 3), "main"]);
-  const res = await handBackIn(sb, lease, HB_INPUT());
-  eq(res.path, sb.p.handbackFile(HB_UNIT), "path is build/handback/<unit>.md");
-  const text = await readFile(res.path, "utf8");
-  ok(text.includes(HB_UNIT), "unit id"); ok(text.includes(sb.p.unitBranch(RUN, HB_UNIT, 3)), "the lane branch holding the work");
-  ok(/a salvo|preservad|conservad/i.test(text), "must say the work is preserved");
-  ok(/intento\s*3|3\s*(de|\/)\s*3|intento:?\s*3/i.test(text), "attempt number");
-  ok(text.includes("pnpm vitest run t/a.test.ts"), "failing command");
-  ok(text.includes("output line 100") && text.includes("output line 61"), "the last 40 lines of the output are present");
-  ok(!text.includes("output line 60\n") && !text.includes("output line 1\n"), "older lines (beyond the last 40) are cut");
-  ok(text.includes("t/a.test.ts#two") && text.includes("src/alpha/filter.ts"), "each attempt's evidence");
-  ok(text.includes("the list filter ignores empty input"), "diagnosis text");
-  ok(/^\s*1[.)]\s/m.test(text) && /^\s*2[.)]\s/m.test(text), "numbered options");
-  ok(/recomend/i.test(text), "the recommended option is marked");
-  ok(!/[\u2013\u2014]/.test(text), "no em/en dashes in owner-facing text");
-  ok(/(trabajo|rama|opciones|intento)/i.test(text), "Spanish text");
+  const branch = sb.p.unitBranch(RUN, HB_UNIT, 3); git(sb.project, ["branch", branch, "main"]);
+  const head = git(sb.project, ["rev-parse", branch]);
+  const first = await handBackIn(sb, lease, HB_INPUT()); eq(first.recovery, "retry", "first technical failure retries");
+  const second = await handBackIn(sb, lease, HB_INPUT()); eq(second.recovery, "rescue", "same cause enters rescue");
+  const unit = (await readState(sb.project, { env: sb.env })).units[0];
+  eq(unit.state, "rescue", "rescue state"); eq(unit.technical_failures.length, 2, "both failures retained");
+  ok(unit.technical_failures.every(f => f.code === "budget_exhausted" && f.detail === "tercer intento fallido"), "cause and diagnosis retained");
+  ok(unit.rescue.skipped.length > 0, "skipped fences disclosed");
+  eq(git(sb.project, ["rev-parse", branch]), head, "partial work preserved");
+  const { events } = await readJournal(sb.p.journalFile, { env: sb.env });
+  ok(events.some(e => e.type === "technical_failure") && events.some(e => e.type === "rescue_started"), "journal records retry and rescue");
+  ok(!existsSync(sb.p.handbackFile(HB_UNIT)), "no obsolete owner handback");
+  ok(!existsSync(path.join(sb.project, ".pandacorp/inbox/decisions.md")), "no technical owner question");
   await sb.fx.cleanup();
 });
-await test("handBack adds a pending entry to .pandacorp/inbox/decisions.md, parks the dependent, leaves the lease held and the main checkout clean", async () => {
+
+await test("failed rescue abandons dependent closure, preserves lease and main checkout", async () => {
   const sb = await sandbox(); const { lease } = await seedRun(sb, HB_STATE(sb));
   const before = git(sb.project, ["status", "--porcelain"]);
-  await handBackIn(sb, lease, HB_INPUT());
-  const dec = path.join(sb.project, ".pandacorp/inbox/decisions.md");
-  ok(existsSync(dec), "decisions.md must exist after a hand-back");
-  const text = await readFile(dec, "utf8");
-  ok(text.includes(HB_UNIT), "entry names the unit"); ok(/pending|pendiente/i.test(text), "entry is marked pending");
-  eq(git(sb.project, ["status", "--porcelain"]), before, "no tracked file of the main checkout changed");
+  for (let i = 0; i < 3; i++) await handBackIn(sb, lease, HB_INPUT());
   const st = await readState(sb.project, { env: sb.env });
-  eq(st.units.map((u) => u.state), ["blocked", "blocked"], "unit and its dependent blocked in state.json");
-  const cur = await bs.currentLease(sb.project);
-  ok(cur && cur.epoch === lease.epoch, "a hand-back must not release the lease");
+  eq(st.units.map(u => u.state), ["abandoned", "abandoned"], "failed rescue abandons dependent closure");
+  eq(st.status, "active", "run continues");
+  const { events } = await readJournal(sb.p.journalFile, { env: sb.env });
+  eq(events.filter(e => e.type === "rescue_started").length, 1, "one rescue only");
+  eq(events.filter(e => e.type === "unit_abandoned").length, 2, "root and dependency journaled");
+  ok(existsSync(path.join(sb.p.unitDir(HB_UNIT), "abandoned.json")), "abandonment report exists");
+  eq(git(sb.project, ["status", "--porcelain"]), before, "main checkout unchanged");
+  ok((await bs.currentLease(sb.project))?.epoch === lease.epoch, "lease held");
   await sb.fx.cleanup();
 });
+
 await test("handbackCommand rejects a unit id that is unsafe as a path segment", async () => {
   const sb = await sandbox(); const { lease } = await seedRun(sb, HB_STATE(sb)); let threw = false; let res; const cmd = fn("handbackCommand");
   try { res = await cmd({ project: sb.project, epoch: lease.epoch, unit: "../../etc/passwd", reason: "x" }, sb.deps); } catch { threw = true; }
@@ -289,19 +264,21 @@ await test("failUnit: attempt 1 without a valid report is requeued at attempt 2,
   eq(again.applied, false, "replaying the same failed attempt is idempotent"); eq(again.reason, "already_applied", "reason");
   await sb.fx.cleanup();
 });
-await test("failUnit: at the attempt budget (attempt 3) it hands back: unit and dependents blocked, independent unit untouched (R4)", async () => {
+await test("failUnit: ordinary attempt 3 records technical retry without blocking independent work", async () => {
   const sb = await sandbox(); const { lease } = await seedRun(sb, FU_STATE(3, sb));
   git(sb.project, ["branch", sb.p.unitBranch(RUN, FU_UNIT, 3), "main"]);
   const res = await fn("failUnit")({ project: sb.project, epoch: lease.epoch, unit: FU_UNIT, attempt: 3, cause: "code", detail: "sin informe valido", command: "codex exec", tail: "boom" }, sb.deps);
-  eq(res.action, "handback", "action"); ok(res.next_attempt === null || res.next_attempt === undefined, `no attempt 4 (next_attempt=${res.next_attempt})`);
-  ok(res.handback && res.handback.path, "hand-back result carries the handback path");
+  eq(res.action, "handback", "ordinary budget policy routes through technical recovery");
+  eq(res.handback.blocked, [], "technical recovery blocks no unit");
   const st = await readState(sb.project, { env: sb.env });
-  eq(st.units.find((x) => x.id === FU_UNIT).state, "blocked", "unit blocked");
-  eq(st.units.find((x) => x.id === "u-build-WO-01-002").state, "blocked", "dependent blocked");
-  eq(st.units.find((x) => x.id === "u-build-WO-01-003").state, "running", "independent unit untouched");
-  ok(existsSync(sb.p.handbackFile(FU_UNIT)), "handback/<unit>.md written");
+  eq(st.units.map(u => u.state), ["reported", "queued", "running"], "dependent and independent not blocked");
+  eq(st.units[0].attempt, 3, "no ordinary fourth attempt");
+  eq(st.units[0].technical_failures.length, 1, "failure evidence recorded");
+  ok(!existsSync(sb.p.handbackFile(FU_UNIT)), "no technical owner handback");
+  ok((await bs.currentLease(sb.project))?.epoch === lease.epoch, "lease held");
   await sb.fx.cleanup();
 });
+
 await test("failUnit: usage errors (no unit, no detail) are rejected before touching state", async () => {
   const sb = await sandbox(); const { lease } = await seedRun(sb, FU_STATE(1, sb));
   for (const bad of [{ attempt: 1, detail: "x" }, { unit: FU_UNIT, attempt: 1, detail: "  " }]) {
@@ -320,9 +297,17 @@ const REASON_TEXTS = {
   owner_refused_gate: "el owner rechazó la puerta humana",
 };
 for (const [code, text] of Object.entries(REASON_TEXTS)) {
-  await test(`handBack reason ${code}: the owner-facing handback and notice carry the Spanish text, no em/en dashes in it`, async () => {
+  await test(`handBack reason ${code}: technical recovery or authorized safety refusal retains its evidence`, async () => {
     const sb = await sandbox(); const { lease } = await seedRun(sb, HB_STATE(sb));
     const res = await handBackIn(sb, lease, HB_INPUT({ reasonCode: code, reason: "" }));
+    if (code !== "owner_refused_gate") {
+      eq(res.recovery, "retry", "technical reason retries autonomously");
+      ok(!existsSync(res.path), "no owner handback for technical reason");
+      const st = await readState(sb.project, { env: sb.env });
+      eq(st.units[0].technical_failures[0].code, code, "machine cause retained");
+      eq(st.status, "active", "run remains active");
+      await sb.fx.cleanup(); return;
+    }
     const md = await readFile(res.path, "utf8");
     ok(md.includes(text), `handback md must say: ${text}`);
     ok(!/[\u2013\u2014]/.test(text), "the reason text has no em/en dashes");
@@ -355,59 +340,45 @@ await test("a fault that goes away after rebuild-state: the step is retried exac
   ok(!existsSync(sb.p.engineHandbackFile), "no engine handback"); eq((await readState(sb.project, { env: sb.env })).status, "active", "run stays active"); ok((await bs.currentLease(sb.project)) !== null, "lease held");
   await sb.fx.cleanup();
 });
-await test("a repeating fault: exit 8, status stopped at the last safe point, handback/engine.md, lease released, same run resumable, no unit attempt consumed", async () => {
-  const sb = await sandbox();
-  const safe = { sha: "a".repeat(40), kind: "wo-commit", at: DEFAULT_NOW };
-  const { lease, state } = await seedRun(sb, mkState([U("u-build-WO-01-001", { attempt: 2, state: "committed" }), U("u-build-WO-01-002", { state: "queued" })], { last_safe_point: safe }));
+await test("a repeating engine fault rescues without releasing lease or consuming ordinary attempt", async () => {
+  const sb = await sandbox(); const safe = { sha: "a".repeat(40), kind: "wo-commit", at: DEFAULT_NOW };
+  const { lease, state } = await seedRun(sb, mkState([U(HB_UNIT, { attempt: 2, state: "committed" }), U("u-build-WO-01-002", { state: "queued" })], { last_safe_point: safe }));
   const rb = { n: 0 }; let calls = 0;
   const res = await recover(sb, lease, async () => { calls++; throw engineFault(); }, rb);
-  ok(res.ok === false, `expected ENGINE_FAILURE (exit 8): ${JSON.stringify(res)}`);
-  eq(calls, 2, "step tried twice only (retry once)"); eq(rb.n, 1, "rebuild-state once");
-  ok(existsSync(sb.p.engineHandbackFile), "handback/engine.md written");
-  eq(await bs.currentLease(sb.project), null, "lease released");
+  ok(res.ok, "engine fault recovered"); eq(res.value.body.action, "rescue", "rescue returned");
+  eq(calls, 2, "two identical failures"); eq(rb.n, 1, "rebuild once");
   const after = await readState(sb.project, { env: sb.env });
-  const perf = (await readFile(sb.p.perfJournalFile, "utf8")).trim().split("\n").map(JSON.parse);
-  eq(perf.length, 1, "one host performance record for the engine failure");
-  eq(perf[0].outcome, "engine_failure", "engine failure performance outcome");
-  eq(perf[0].run_id, RUN, "performance record belongs to the stopped run");
-  eq(after.status, "stopped", "stopped (resumable), not finished"); eq(after.run_id, RUN, "same run_id");
-  eq(after.last_safe_point, safe, "last safe point preserved");
-  eq(after.units.map((u) => [u.id, u.attempt]), state.units.map((u) => [u.id, u.attempt]), "no unit attempt consumed");
+  eq(after.status, "active", "not stopped"); eq(after.run_id, RUN, "same run"); eq(after.last_safe_point, safe, "safe point retained");
+  eq(after.units.map(u => u.attempt), state.units.map(u => u.attempt), "no ordinary attempt consumed");
+  eq(after.units[0].state, "rescue", "failed unit rescued"); eq(after.units[1].state, "queued", "independent unit untouched");
+  ok((await bs.currentLease(sb.project))?.epoch === lease.epoch, "lease retained");
   const { events } = await readJournal(sb.p.journalFile, { env: sb.env });
-  ok(events.some((e) => e.type === "engine_failure"), "journal has engine_failure");
-  ok(events.some((e) => e.type === "run_stopped") || after.status_reason, "the stop is recorded (run_stopped event or status_reason)");
-  ok(existsSync(sb.p.stateFile), "state.json kept for resume"); ok(existsSync(sb.p.journalFile), "journal kept for resume");
+  ok(events.some(e => e.type === "rescue_started"), "rescue journaled"); ok(!events.some(e => e.type === "run_stopped"), "no technical stop");
   await sb.fx.cleanup();
 });
-await test("engine failure writes the next free BL item, valid for validate-backlog.sh, and the Spanish owner message names it and the lane branch", async () => {
-  const sb = await sandbox(); const { lease } = await seedRun(sb, mkState([U("u-build-WO-01-001", { state: "committed" }), U("u-build-WO-01-002", { state: "landed" })]));
+
+await test("different engine failure classes retain separate history and do not rescue yet", async () => {
+  const sb = await sandbox(); const { lease } = await seedRun(sb, mkState([U(HB_UNIT)])); let calls = 0;
+  const res = await recover(sb, lease, async () => { throw Object.assign(new Error("distinct technical failure"), { code: calls++ ? "ENOENT" : "EIO" }); }, { n: 0 });
+  ok(res.ok, "technical errors returned as recovery"); eq(res.value.body.outcome, "retry", "distinct causes retry");
+  const st = await readState(sb.project, { env: sb.env }); eq(st.status, "active", "active");
+  eq(st.units[0].technical_failures.map(f => f.code), ["EIO", "ENOENT"], "both error classes retained");
+  ok(!st.units[0].rescue, "no repeated identity yet");
+  ok((await bs.currentLease(sb.project))?.epoch === lease.epoch, "lease held");
+  await sb.fx.cleanup();
+});
+
+await test("an engine failure during rescue abandons once and keeps independent work active", async () => {
+  const sb = await sandbox(); const { lease } = await seedRun(sb, mkState([U(HB_UNIT), U("u-build-WO-01-002", { state: "queued" })]));
+  await recover(sb, lease, async () => { throw engineFault(); }, { n: 0 });
   const res = await recover(sb, lease, async () => { throw engineFault(); }, { n: 0 });
-  ok(res.ok === false, "must be an engine failure");
-  const dir = path.join(sb.factory, "factory/backlog");
-  const fresh = (await readdir(dir)).filter((f) => /^BL-\d{4}/.test(f)).filter((f) => !["BL-0307-existing.md", "BL-0309-other.md"].includes(f));
-  eq(fresh.length, 1, "exactly one new BL file"); ok(fresh[0].startsWith("BL-0310"), `next free id after BL-0309 expected BL-0310, got ${fresh[0]}`);
-  const bl = await readFile(path.join(dir, fresh[0]), "utf8");
-  ok(/^type: bug$/m.test(bl) && /^area: build-engine$/m.test(bl) && /^status: open$/m.test(bl), "BL frontmatter: bug / build-engine / open");
-  let valid = true; let out = "";
-  try { out = execFileSync("bash", [path.join(REPO, "plugin/scripts/validate-backlog.sh"), dir], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }); } catch (e) { valid = false; out = `${e.stdout}${e.stderr}`; }
-  ok(valid, `validate-backlog.sh rejected the generated item: ${out}`);
-  const msg = res.error.message; ok(typeof msg === "string" && msg.length > 0, "owner message present");
-  ok(/El motor nuevo se ha parado por un fallo suyo, no de tu app/.test(msg), "owner message opening");
-  ok(msg.includes("BL-0310"), "message names the BL item"); ok(msg.includes(`lane/${RUN}`), "message names the lane branch");
-  ok(/a salvo/.test(msg), "message says the work is safe"); ok(/--resume/.test(msg), "message says how to continue");
-  ok(!/[\u2013\u2014]/.test(msg), "no em/en dashes in the owner message"); ok(!/desastre/.test(msg), "the 'desastre' line only appears after 3 engine failures");
-  const md = await readFile(sb.p.engineHandbackFile, "utf8");
-  ok(md.includes("BL-0310") && md.includes(`lane/${RUN}`), "engine.md names the BL item and the lane branch"); ok(/simulated engine fault/.test(md), "engine.md carries the error text");
+  ok(res.ok, "rescue failure returned without stopping"); eq(res.value.body.outcome, "abandoned", "rescue failed");
+  const st = await readState(sb.project, { env: sb.env }); eq(st.units.map(u => u.state), ["abandoned", "queued"], "independent work retained");
+  eq(st.status, "active", "run active"); ok((await bs.currentLease(sb.project))?.epoch === lease.epoch, "lease held");
+  const { events } = await readJournal(sb.p.journalFile, { env: sb.env }); eq(events.filter(e => e.type === "rescue_started").length, 1, "one rescue");
   await sb.fx.cleanup();
 });
-await test("after 3 engine failures in one build the message adds the informative 'desastre' line", async () => {
-  const sb = await sandbox(); const { lease } = await seedRun(sb, mkState([U("u-build-WO-01-001", { state: "committed" })]));
-  const jd = { env: sb.env, clock: () => new Date(DEFAULT_NOW) };
-  for (let i = 0; i < 2; i++) await appendEvent(sb.p.journalFile, { run_id: RUN, epoch: lease.epoch, type: "engine_failure", data: { step: "next", error: `earlier ${i}` } }, jd);
-  const res = await recover(sb, lease, async () => { throw engineFault(); }, { n: 0 });
-  ok(res.ok === false, "third failure stops"); ok(/desastre/.test(res.error.message), `expected the desastre line: ${res.error.message}`);
-  await sb.fx.cleanup();
-});
+
 await test("a fence error (FENCE/QUIESCED) is not an engine failure: rethrown at once, no retry, no handback, lease untouched", async () => {
   const sb = await sandbox(); const { lease } = await seedRun(sb, mkState([U("u-build-WO-01-001")])); const run = fn("withEngineRecovery");
   for (const code of ["FENCE", "QUIESCED"]) {

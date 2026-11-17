@@ -4,6 +4,7 @@ import { err, isAssumed } from "./common.mjs";
 import { assumeIntegration, mergeAcceptedAssumptions } from "./assumptions.mjs";
 import { committedUnits, integrateUnit } from "./chain.mjs";
 import { removeWorktree } from "./worktrees.mjs";
+import { transitionWorkOrders } from "./transitions.mjs";
 
 /**
  * Integrate every committed chain of a run into `lane/<run_id>/integration` (phase 2 of `next`, CLI doc 4.1), sequentially.
@@ -62,14 +63,21 @@ export async function integrateCommitted({ state, runId = state.run_id, appendEv
     const target = doubt ? assumeTargets.get(doubt) : integration;
     const res = await integrateUnit({ unit, integration: { branch: target.branch, worktree: target.worktree }, runId, workOrders: !doubt }, deps);
     if (res.outcome === "conflict") { conflicts.push(doubt ? { ...res, assumption: doubt } : res); blocked.add(unit.id); continue; }
-    integrated.push(doubt ? { ...res, assumption: doubt } : res);
+    const rescuedReview = unit.rescue?.phase === "completed" && ["review", "audit", "deferred-review", "doubt-consult"].includes(unit.kind);
+    const reviewed = unit.kind === "review" && rescuedReview ? state.units.filter(u => (unit.rescue.review_targets ?? []).includes(u.id) && ["integrated", "reviewing"].includes(u.state)) : [];
+    for (const target of reviewed) {
+      const transition = await transitionWorkOrders({ integration, runId, wos: target.wos, to: "VERIFIED", unitId: unit.id }, deps);
+      if (transition.commit) res.sha = transition.commit;
+    }
+    integrated.push(doubt ? { ...res, assumption: doubt } : { ...res, reviewed: reviewed.map(u => u.id) });
     await emit("integrated", { unit: unit.id, sha: res.sha, ...(doubt ? { assumption: doubt } : {}) });
-    await emit("unit_state", { unit: unit.id, from: "committed", to: "integrated" });
+    await emit("unit_state", { unit: unit.id, from: "committed", to: rescuedReview ? "verified" : "integrated" });
+    for (const target of reviewed) await emit("unit_state", { unit: target.id, from: target.state, to: "verified" });
     if (!doubt) await emit("safe_point", { sha: res.sha, kind: "integration-land" });
     next = {
       ...next,
       ...(doubt ? {} : { last_safe_point: { sha: res.sha, kind: "integration-land", at: nowIso(deps) } }),
-      units: next.units.map((u) => (u.id === unit.id ? { ...u, state: "integrated" } : u)),
+      units: next.units.map((u) => (u.id === unit.id ? { ...u, state: rescuedReview ? "verified" : "integrated" } : reviewed.some(t => t.id === u.id) ? { ...u, state: "verified" } : u)),
     };
     if (!keepWorktrees && unit.worktree && deps.project) {
       try { cleanup.push({ unit: unit.id, ...(await removeWorktree({ project: deps.project, worktree: unit.worktree, state: next }, deps)) }); }

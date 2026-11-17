@@ -52,8 +52,8 @@ export async function stopRun({ project, epoch = null, dead = false, ownerConfir
 }
 
 async function closeRun(ctx, state, waiting, d) {
-  const to = waiting ? { status: "waiting_gate", status_reason: "waiting_gate" } : { status: "finished", status_reason: null };
-  await ctx.appendEvent(waiting ? { type: "paused", data: { reason: "waiting_gate", status: "waiting_gate" } } : { type: "run_finished", data: {} });
+  const to = waiting ? { status: "waiting_gate", status_reason: "waiting_gate" } : { status: state.units.some(u => u.state === "abandoned") ? "completed_with_gaps" : "finished", status_reason: null };
+  await ctx.appendEvent(waiting ? { type: "paused", data: { reason: "waiting_gate", status: "waiting_gate" } } : { type: "run_finished", data: { status: to.status } });
   return ctx.writeState({ ...state, ...to });
 }
 
@@ -71,7 +71,7 @@ export async function finishRun({ project, epoch = null, actor = "cli" }, deps =
   if (!state0) throw err("INVALID_STATE", "no run to finish");
   let waiting = false;
   const decide = (s) => {
-    if (s.status === "finished") return "already";
+    if (["finished", "completed_with_gaps"].includes(s.status)) return "already";
     const open = s.units.filter((u) => !isTerminalUnit(u));
     waiting = open.length > 0 && open.every((u) => u.state === "waiting_gate");
     if (["active", "waiting", "resuming"].includes(s.status) && open.length > 0 && !waiting) throw err("INVALID_STATE", "the run has unfinished units: go back to the loop");
@@ -116,7 +116,7 @@ export async function finishRun({ project, epoch = null, actor = "cli" }, deps =
     await assertNotTracked(project, rel, { exec: d.exec });
     const reportPath = path.join(project, rel);
     await atomicWriteText(reportPath, renderReportEs(summary));
-    const warning = waiting ? null : await emit(project, state0, "build.complete", { run_id: state0.run_id, status: "finished" }, d);
+    const warning = waiting ? null : await emit(project, state0, "build.complete", { run_id: state0.run_id, status: current.status }, d);
     return { report_path: reportPath, summary, waiting_gate: waiting, ...(warning ? { warnings: [warning] } : {}) };
   }, d);
 }

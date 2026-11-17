@@ -11,6 +11,36 @@
 //   - journal replay (rebuild-state) agrees with the written state;
 //   - `start --resume --unblock` reopens a FINISHED run; without --unblock a finished run stays refused.
 // Run: node plugin/scripts/test-build-v2-unblock.mjs
+// Explicit pre-rescue persisted fixture: exercise recovery compatibility without invoking current technical recovery.
+async function seedLegacyHandback(ctx, input, deps) {
+  const { planHandback, commitPlan } = await import("../runtime/build/failure/policy.mjs");
+  const { findWorkOrderFiles, commitIntegration, changedTrackedFiles } = await import("../runtime/build/failure/handback.mjs");
+  const { handbackDecisionEntry, handbackMarkdown } = await import("../runtime/build/failure/handbackText.mjs");
+  const { writeInbox } = await import("../runtime/build/doubts/integrationLog.mjs");
+  const buildState = await import("../runtime/build-state.mjs");
+  const io = await import("node:fs/promises");
+  const state = await ctx.readState();
+  const unit = state.units.find(u => u.id === input.unitId);
+  const handbackPath = ctx.paths.handbackFile(unit.id);
+  const plan = planHandback({ state, unitId: unit.id, cause: input.cause, reasonCode: input.reasonCode, reason: input.reason, path: handbackPath });
+  const root = path.resolve(ctx.project, state.integration.worktree);
+  const targets = plan.blocked.map(t => state.units.find(u => u.id === t.unit));
+  const files = await findWorkOrderFiles(root, targets.flatMap(u => u.wos), deps);
+  for (const target of targets) for (const wo of target.wos) {
+    const file = files.get(wo.toLowerCase());
+    if (file) await buildState.transitionWorkOrderAt(root, { file, to: "BLOCKED", reason: target.id === unit.id ? `needs-owner: ${input.cause}: ${input.reason}` : `blocked-by: ${unit.id}` });
+  }
+  const info = { unit: unit.id, wos: unit.wos, cause: input.cause, reasonCode: input.reasonCode, reason: input.reason,
+    attempt: unit.attempt, date: "2026-11-17", path: handbackPath, failure: input.failure ?? null, diagnosis: input.diagnosis ?? null,
+    attempts: [], preserved: [], blockedUnits: plan.blocked.map(t => t.unit), skippedWos: [] };
+  await writeInbox(ctx.project, root, handbackDecisionEntry(info), deps);
+  await io.mkdir(path.dirname(handbackPath), { recursive: true });
+  await io.writeFile(handbackPath, handbackMarkdown(info));
+  const commit = await commitIntegration(root, await changedTrackedFiles(root, deps), `test: seed legacy handback ${unit.id}`, deps);
+  await commitPlan(ctx, plan);
+  return { blocked: plan.blocked, commit, path: handbackPath };
+}
+
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -80,7 +110,7 @@ const seedRun = async (sb, units) => {
   return { lease, wt };
 };
 const inPhase2 = (sb, lease, fn) => fencedTwoPhase({ project: sb.project, epoch: lease.epoch, deps: sb.deps }, undefined, undefined, (_r, _i, ctx) => fn(ctx));
-const handBackIn = (sb, lease, input) => inPhase2(sb, lease, (ctx) => F.handBack(ctx, input, sb.deps));
+const handBackIn = (sb, lease, input) => inPhase2(sb, lease, (ctx) => seedLegacyHandback(ctx, input, sb.deps));
 const ENV_HB = { unitId: ROOT, cause: "env-infra", reasonCode: "worker_blocked", reason: "database-clean: Operation not permitted on the local Postgres log" };
 const unblock = (sb, lease, extra = {}) => F.unblockCommand({ project: sb.project, epoch: lease.epoch, unit: ROOT, reason: "the test Postgres is now reached over TCP", ...extra }, sb.deps);
 const woStatus = async (sb, id) => {

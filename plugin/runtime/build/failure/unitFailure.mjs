@@ -1,4 +1,5 @@
 // Applying the D21 policy to one failed execution of a unit (`report` failures and `fail`). ../failure.mjs is the public entry.
+import { recordTechnicalFailure } from "../rescue.mjs";
 import path from "node:path";
 import { releaseToken } from "../admission.mjs";
 import { atomicWriteJson } from "../fsx.mjs";
@@ -43,6 +44,12 @@ export async function applyUnitFailure(ctx, input, deps = {}) {
   if (override === "worker_blocked" && (decision.action === "requeue" || decision.action === "escalate")) {
     decision = { ...decision, action: "handback", attempt: null, cause: diagnosis?.cause ?? "owner", reason_code: "worker_blocked" };
   }
+  {
+    const recovery = await recordTechnicalFailure(ctx, unit.id, { code: `${source}:${diagnosis?.cause ?? "code"}`, detail: reasons.join("; "), files: evidence.files?.length ? evidence.files : undefined }, deps);
+    if (["rescue", "abandoned"].includes(recovery.action)) return { applied: true, reason: null, action: recovery.action, next_attempt: null, cause: diagnosis?.cause ?? "code" };
+  }
+  const latest = await ctx.readState();
+  state.units = latest.units; // Retain the recorded history through ordinary retry planning.
   const tests = decision.evidence.tests;
   await atomicWriteJson(path.join(ctx.paths.unitDir(unit.id), `attempt-${unit.attempt}.json`), {
     attempt: unit.attempt, outcome: input.outcome ?? (decision.reason_code === "worker_blocked" ? "blocked" : OUTCOME_OF_SOURCE[source] ?? "failed"),
@@ -65,7 +72,7 @@ export async function applyUnitFailure(ctx, input, deps = {}) {
   }
   if (receivedEvent) await ctx.appendEvent(receivedEvent);
   const back = await handBack(ctx, {
-    unitId: unit.id, cause: decision.cause, reasonCode: decision.reason_code, reason: reasons.join("; "),
+    unitId: unit.id, recoveryRecorded: true, cause: decision.cause, reasonCode: decision.reason_code, reason: reasons.join("; "),
     failure: { command: failure.command ?? evidence.command ?? null, tail: failure.tail ?? "" }, diagnosis,
   }, deps);
   return { ...base, handback: { path: back.path, blocked: back.blocked.map((b) => b.unit), stop_run: back.stop_run, notice_es: back.notice_es, reason_code: decision.reason_code } };

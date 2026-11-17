@@ -344,7 +344,7 @@ const gitStatus = (c, root) => c.git(root, ["status", "--porcelain"]);
 // "control" cases run the same scenario in a flat project: they prove the harness and must pass on any version.
 for (const nested of [false, true]) {
   const tag = nested ? "B3 nested project" : "control flat project";
-  await test(`${tag}: hand-back of a running unit commits the WO BLOCKED on the integration branch and leaves the worktree clean`, async () => withRun({ nested, units: (c, { baseUnit: bu }) => [bu({ state: "running", attempt: 1, worker: workerOf(CELL.sonnetHigh) })] }, async (c) => {
+  await test(`${tag}: an actual money gate handback commits WO BLOCKED and leaves integration clean`, async () => withRun({ nested, units: (c, { baseUnit: bu }) => [bu({ state: "waiting_gate", waiting_gate: "money", attempt: 1, worker: workerOf(CELL.sonnetHigh) })] }, async (c) => {
     const failure = await mod("failure.mjs");
     const headBefore = c.git(c.gitRoot, ["rev-parse", "HEAD"]);
     const out = await failure.handbackCommand({ project: c.fx.root, epoch: c.epoch, unit: BUILD_UNIT, reason: "owner stops this unit" }, { env: c.env });
@@ -364,11 +364,14 @@ for (const nested of [false, true]) {
     eq(gitStatus(c, c.gitRoot), "", "the integration worktree must be clean after the reopen (WO transitions committed)");
   }));
 
-  await test(`${tag}: review verdict blocked hands the units back, commits the WO BLOCKED and leaves the worktree clean`, async () => withRun({ nested }, async (c) => {
+  await test(`${tag}: technical review finding retries without dirtying integration`, async () => withRun({ nested }, async (c) => {
     const out = await c.record({ verdict: "blocked", findings: [finding("F1", { severity: "critical", summary: "touches Fuera: rewrites billing", lens: "scope" })] });
     eq(out.verdict, "blocked", "verdict");
-    ok(await exists(c.p.handbackFile(BUILD_UNIT)), "the handback file of the reviewed unit must exist");
-    ok(/implementation_status:\s*BLOCKED/.test(await c.woText()), "the WO must be BLOCKED");
+    ok(!(await exists(c.p.handbackFile(BUILD_UNIT))), "no technical owner handback");
+    ok(/implementation_status:\s*IN_REVIEW/.test(await c.woText()), "WO remains unverified and not blocked");
+    eq((await c.unit(BUILD_UNIT)).state, "queued", "first technical finding retries");
+    eq((await c.unit(BUILD_UNIT)).technical_failures.at(-1).code, "review_blocked", "cause retained");
+    ok((await c.events()).some(e => e.type === "technical_failure"), "recovery journaled");
     eq(gitStatus(c, c.gitRoot), "", "the integration worktree must be clean after the blocked verdict");
   }));
 
@@ -642,34 +645,30 @@ await test("NB1 a unit that blocks spec-ambiguous again after a decided doubt ne
 // review-R1b NB2: when creating the G2 pinned snapshot worktree fails and nothing else is running (the last FRD), `next` answered
 // stop/no_progress in the same pass while the note said "se reintenta": the run quiesced and the retry never happened. The failure
 // is injected by making the snapshot root (<build>/g2) a regular file, so creating a worktree under it fails on every attempt.
-await test("NB2 a failing G2 snapshot never stops the run silently: `next` waits and retries (and works once the obstacle is gone), or hands back as env-infra", async () => withRun({ units: (c, h) => g2Units(c, h).slice(0, 2), state: { scope: { card: null, frds: ["frd-01-alpha"], wos: ["WO-01-001", "WO-01-002"], out_of_scope: [] } }, setup: slowVerify }, async (c) => {
+await test("NB2 failing G2 snapshot retries then records autonomous technical recovery without stopping", async () => withRun({ units: (c, h) => g2Units(c, h).slice(0, 2), state: { scope: { card: null, frds: ["frd-01-alpha"], wos: ["WO-01-001", "WO-01-002"], out_of_scope: [] } }, setup: slowVerify }, async (c) => {
   try {
     const g2Root = path.join(path.dirname(c.p.integrationWorktree), "g2");
     await rm(g2Root, { recursive: true, force: true });
     await writeFile(g2Root, "not a directory: makes every G2 snapshot creation fail\n");
-    const seen = []; let handedBack = false; let waits = 0;
-    for (let i = 0; i < 5 && !handedBack; i++) {
+    const seen = []; let recovered = false; let waits = 0;
+    for (let i = 0; i < 7 && !recovered; i++) {
       const r = nextOnce(c);
-      const text = `${r.stdout} ${r.stderr}`;
-      seen.push(`#${i + 1} exit ${r.code} action ${r.json?.action} reason ${r.json?.reason}`);
-      ok(r.code !== 3, `the run was fenced/ended silently after a G2 snapshot failure: ${seen.join(" ; ")}`);
-      const evs = await c.events();
-      handedBack = evs.some((e) => e.type === "handback");
-      if (handedBack) {
-        ok(/env.?infra|entorno/i.test(`${text} ${JSON.stringify(evs.filter((e) => e.type === "handback"))}`), `a G2 snapshot hand-back must be reported as an environment (env-infra) failure: ${text.slice(0, 400)}`);
-        ok(waits >= 1, `the engine must retry (wait) at least once before handing the FRD back: ${seen.join(" ; ")}`);
-        break; // the hand-back pass may legitimately answer done: nothing left to run
-      }
-      ok(r.json?.action !== "stop", `next stopped (${r.json?.reason}) after a G2 snapshot failure with neither a retry nor a hand-back: ${seen.join(" ; ")}`);
-      eq(r.json?.action, "wait", `a failed G2 snapshot must be retried later (action wait) until the hand-back, got ${seen.join(" ; ")}`);
-      waits++;
+      seen.push(`#${i + 1} exit ${r.code} action ${r.json?.action}`);
+      ok(r.code !== 3, `lease lost during technical recovery: ${seen.join(" ; ")}`);
+      ok(!["stop", "waiting-owner", "deadlock"].includes(r.json?.action), `technical failure stopped: ${seen.join(" ; ")}`);
+      const events = await c.events();
+      ok(!events.some(e => e.type === "handback"), "no technical owner handback");
+      recovered = events.some(e => e.type === "technical_failure" || e.type === "rescue_started");
+      if (r.json?.action === "wait") waits++;
+      if (!recovered) eq(r.json?.action, "wait", `snapshot failure retries before recovery: ${seen.join(" ; ")}`);
     }
-    if (!handedBack) {
-      await rm(g2Root, { force: true });
-      let jobs = [];
-      for (let i = 0; i < 3 && jobs.length < 1; i++) { nextOnce(c); jobs = await g2Jobs(c); }
-      ok(jobs.length >= 1, `after repeated snapshot failures the engine neither handed back nor retried; jobs ${JSON.stringify((await c.readState()).jobs)}; ${seen.join(" ; ")}`);
-    }
+    ok(waits >= 1, "snapshot failure waits at least once before recovery");
+    ok(recovered, `snapshot failure must enter recorded technical recovery: ${seen.join(" ; ")}`);
+    const state = await c.readState();
+    eq(state.status, "active", "run remains active after recovery");
+    ok(state.units.some(u => u.technical_failures?.length), "failure history retained");
+    await rm(g2Root, { force: true });
+
   } finally { await killJobs(c); }
 }));
 

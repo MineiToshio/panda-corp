@@ -27,7 +27,7 @@ export async function planInput({ root, project = root, state, scope, questions,
 export async function planCommand({ project, scopeFile = null, explain = false, strict = false, lint = false }, deps = {}) {
   const d = depsOf(deps);
   const state = await readStateLoose(project, d);
-  const run = state && !["finished"].includes(state.status) ? state : null;
+  const run = state && !["finished", "completed_with_gaps"].includes(state.status) ? state : null;
   const p = buildPaths(project, d);
   const root = run ? path.resolve(project, run.integration.worktree) : project;
   let scope = run?.scope;

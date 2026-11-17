@@ -1,5 +1,14 @@
 # `drive`: the relay from the session's side
 
+## Supervised rescue (DR-164)
+
+Read [the rescue protocol](rescue.md) before the ordinary loop below. Two technical failures
+with the same class and unit/file enter one supervised rescue. A failed rescue becomes
+`abandoned`; independent work continues to `completed_with_gaps`. Never close a run for
+a technical stop or ask the owner a technical question. Scope, protected oracles, independent
+review, full verify, the lease and actual human gates remain mandatory.
+
+
 Policy: BUILD-14 in `factory/standards/build-engine.md`; interface and exit codes:
 `plugin/docs/build-engine-cli.md`; `pb <cmd>` as in `engine-v2.md` §1.
 

@@ -1,4 +1,5 @@
 // `doubt open`: validate the worker's doubt, compute the deterministic veto, create the record and start the ladder.
+import { observeTechnicalFailure } from "../rescue.mjs";
 import { doubtBasis } from "../recovery.mjs";
 import path from "node:path";
 import { nowIso } from "../fsx.mjs";
@@ -61,7 +62,14 @@ export async function openDoubt({ project, epoch, unit: unitId, file }, deps = {
         ({ state, record, out } = parked);
       } else if (intent.repeat) {
         // The unit raises again what the ladder already decided for it: another autonomous decision would loop with no attempt consumed (NB1).
-        ({ state, record, out } = await parkOut(ctx, state, record, ["repeat_doubt"], deps));
+        const cause = { code: "repeat_doubt", detail: doubt.question, files: [intent.basis || unitId] };
+        let recovery = observeTechnicalFailure(state, unitId, cause);
+        for (const e of recovery.events) await ctx.appendEvent(e);
+        if (recovery.action === "retry") {
+          recovery = observeTechnicalFailure(recovery.state, unitId, cause);
+          for (const e of recovery.events) await ctx.appendEvent(e);
+        }
+        state = recovery.state; record.step = "decided"; out = { recovery: recovery.action };
       } else if (sourcesSkipped(state)) {
         ({ state, record, out } = await advance(ctx, state, record, deps));
       }

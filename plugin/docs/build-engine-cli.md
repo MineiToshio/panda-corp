@@ -1,5 +1,33 @@
 # `pandacorp-build` CLI: interface reference
 
+## Supervised rescue (DR-164)
+
+Policy: [BUILD-16](../../factory/standards/build-engine.md). Coordinator workflow:
+[rescue protocol](../skills/implement/references/rescue.md). Repeated technical failures
+never release a run as stopped. One supervised rescue per unit preserves protected oracles,
+fresh independent review and full verify; unsuccessful units become explicit gaps.
+
+### Rescue transport and terminal states
+
+`rescue --epoch N --unit U --token T --file RESULT` is fenced to the stage credential.
+A stale epoch or stage token exits 3 without state changes. A malformed result exits 6.
+A work result returns `outcome: review`; a fresh independent review returns `committed`
+(the original kind then determines ordinary integration or review closure). Failure returns
+`abandoned`; an actual protected action returns `waiting_gate`; an oracle request returns
+`oracle_repair`. Repeated failures preserve attempts and partial branches. `next` keeps its
+lease and emits `action: rescue` with `rescue{unit,phase,via,worktree,brief_path,report_path,
+schema_path,token?}` or an active `wait`. Only the session transport includes its credential.
+Both-tool capacity waits retain `resumeAt` and the shared fenced wake mechanism. Drive must
+continue polling rescue actions, including failed stages, instead of exiting on engine faults.
+
+State adds unit states `rescue` and `abandoned`, run status `completed_with_gaps`, and durable
+unit `technical_failures` / `rescue` metadata. Events `technical_failure`, `rescue_started`,
+`rescue_stage`, `rescue_completed`, `unit_abandoned` carry complete unit snapshots for replay.
+`run_finished.data.status` preserves completion with gaps. `summary.rescues[]` lists cause,
+exceptions and outcome; `summary.gaps[]` lists uncompleted WOs and reasons. Neither a missing
+review nor a red verify can be reported as successfully rescued.
+
+
 > Audience: the engineers (and agents) who implement, test or call the v2 build engine. This file owns the **interfaces**: commands, arguments, exit codes, JSON output shapes, on-disk files, environment test hooks and the worker brief. It owns no policy. Thresholds, routing and review matrices, admission constants, the autonomy ladder, human-gate rules and the failure policy belong to **`factory/standards/build-engine.md`** (rules BUILD-7 to BUILD-15). Session behavior (what the lead agent does between calls) belongs to `plugin/skills/implement/references/{engine-v2.md,autonomy.md,drive.md}`. JSON Schemas live in `plugin/runtime/build/schemas/`. Where this file says "policy", follow the link, do not copy. Where a design is referred to as `D<n>`, the text is the binding design list of the engine build plan (rev 2); this file restates only its interface consequences.
 
 ## Phase-3 capacity continuation interface (DR-162)
@@ -847,7 +875,7 @@ Order of work inside one call (phase 1 renews the lease; phase 2 writes):
 
 ```json
 {"ok":true,"cmd":"next","epoch":4,
- "action":"dispatch|wait|waiting|handoff|land|done|waiting-owner|deadlock|stop",
+ "action":"dispatch|rescue|wait|waiting|handoff|land|done|waiting-owner|stop",
  "units":[{"unit":"u-build-wo-05-002","kind":"docs|tests|build|patch|review|audit|doubt-consult|deferred-review","attempt":1,
    "token":"<opaque, returned once>","runtime":"claude|codex","model":"sonnet|opus|sol|astra (session units: the session model)","model_slug":null,"effort":"low|medium|high|xhigh|null",
    "budget_calls":null,"worktree":"<abs>","brief_path":"<abs>","report_path":"<abs>","schema_path":"<abs>",
@@ -870,7 +898,7 @@ Field notes:
 - `dispatch_line` is the one-line Spanish announcement the session prints.
 - Quota never requests handoff. Explicit handoff or silent-lease recovery retains native coordinator authority until native executions finish; CLI executions preserve their pin and checkpoint across relay.
 - `action:"land"`: the batch is complete; the session calls `land` (3.11).
-- Terminal actions are returned only when no unit, job or worker of the run is running (otherwise `wait`). Selection, first match: 3 consecutive `env-infra` hand-backs → `stop`; every unit `landed`, `blocked` or (review-type) `verified` → `done` (the session calls `finish`); nothing can progress and every blocked unit waits on an owner answer or a gate → `waiting-owner` (`state.status` `waiting_gate` when all blockers are gates, else `waiting_owner`); queued units but no planner progress → `deadlock`; any other no-progress state → `stop`. Non-`done` terminal actions arrive already applied: status and reason set, journaled, quiesced and released with `projectStatus:false` (nothing runs, so no worker is stopped); the drive standby exits.
+- Terminal actions require no live worker or job. Completed work returns `done`; `finish` records `completed_with_gaps` when any unit is abandoned. Actual protected actions return `waiting-owner` and release at their human gate. Capacity waiting retains the lease and automatic wake. Technical handbacks, dependency deadlocks and no-progress observations record cause identity and enter supervised rescue on repetition, never `stopped`. Explicit owner cancellation still uses `stop`.
 - `next` never returns a unit outside the run scope (test-asserted).
 - `--wait` returns early when a report or review file appears, a job or worker `exit` appears, an `answer_recorded` is journaled, or `handoff.json` appears.
 - `wait.reason`: `disk` (new-worktree admission or bootstrap exit 4; retry after 30 s), `ram` (admission denied), `cpu_H` (heavy slots taken), `workers_running` (CLI-launched workers pending), `jobs_running` (G2 or land job pending), `gate`, `quota`.
@@ -880,7 +908,7 @@ Field notes:
 `integrate.mjs` integrates every committed chain into `lane/<run_id>/integration`: rebase the unit branch onto the integration tip, fast-forward, journal `integrated` (an already-integrated unit returns `outcome: already`; a chain that conflicts returns outcome `conflict`, reason `rebase_conflict`, stays `committed` and `next` hands it back), commit WO `IN_REVIEW` on the integration branch (`transitionWorkOrderAt`) and append `track.jsonl` lines there. When all units of an FRD are integrated (or later) and at least one build, patch or tests unit is exactly `integrated`, a G2 job is spawned (a `docs` unit never triggers G2 on its own: it is never reviewed and lands as integrated, BL-0317): G2 (a detached job in its own snapshot worktree `build/g2/<frd>-<sha>`, created with `git worktree add --detach` at the integration tip `<sha>`; `.pandacorp/worktree-bootstrap.sh` runs inside the job under the H slot, and bootstrap exit 4 maps to reserved job exit 76 (`wait disk`, no verdict, patch or attempt), while other bootstrap failures map to exit 75: an `env-infra` hand-back of the FRD's first integrated unit, no verdict and no patch; it runs `bash .pandacorp/verify.sh --since <integration base sha>`; the `gate` event carries `sha`; the verdict is stale, journaled `stale:true`, re-run at the tip and queuing no patch, only when an integrated unit of that FRD has an `integrated` sha that is not an ancestor of `<sha>`, merges of other FRDs never invalidate it; the snapshot is removed at harvest; nested projects use the product root `<snapshot>/<prefix>`); a red G2 uses the selective attribution and fallback contract of 3.11; a green G2 schedules the FRD's review unit, unless the FRD has no build/patch/tests work to review (then no review is queued); a queued FRD review left with nothing to review is settled `verified` (`unit_state` reason `nothing_to_review`) and that `next` pass returns `wait` (reason `gate`) so the following pass reaches the landing (BL-0317). A patch after a review moves the WO `IN_REVIEW -> PLANNED -> IN_PROGRESS` (bumps `reopen_count`). Integration never touches `main`.
 
 **Integration worktree bootstrap.** `integrate.bootstrapIntegrationWorktree` runs `bash .pandacorp/worktree-bootstrap.sh` in the product root of the integration worktree (10 min timeout, `PANDACORP_OWNER_RELEASE_OK` removed from the child env; no script means `ran:false`). It is called after every `git worktree add` of `createIntegrationWorktree` (never fails `start`), at the beginning of each active `next` before harvesting or integration, and again when landing is considered. Each call resolves the nested product root through the repository prefix; a successful marker makes later calls no-ops. An early exit 4 returns `wait disk` before harvesting. A success writes the untracked marker `build/integration-bootstrap.json` `{run_id, root, ok, exit, at, tail}`; the same run and root are not bootstrapped again. A non-zero exit, timeout or spawn failure never throws and writes the marker with `ok:false`. Exit 4 is a disk wait: no hand-back, attempt or gate verdict, retry when capacity returns. Other
-failures in `next` mean: no `land` action, no land job, no G3 verdict, no patch; the first ready unit of the batch (an FRD work unit by preference) is handed back with cause `env-infra` (it and its dependents `blocked`, R4), `next` returns `wait` with reason `gate`, `retry_after_s` 60, and the next landing attempt re-runs the bootstrap; the 3rd consecutive `env-infra` hand-back stops the run (`env_infra_handbacks`). The non-disk contract matches the G2 snapshot (exit 75; disk uses 76): an environment failure is never a code verdict. A G2 snapshot's manifest in `<main checkout>/.pandacorp/run/worktrees/` is dropped with the snapshot (`integrate.dropBootstrapManifests`, also on `removeWorktree`). Eligible snapshots are removed at harvest, after a failed spawn, on terminal actions, `stop`, `finish` and `resume` (`next.removeAllG2Snapshots`); protected copies remain (5.1). `parkIrreversiblePending` journals `parked` followed by `unit_state queued -> parked`, so `rebuild-state` keeps those units parked.
+failures in `next` mean: no `land` action, no land job, no G3 verdict, no patch; the first ready unit of the batch (an FRD work unit by preference) is handed back with cause `env-infra` (it and its dependents `blocked`, R4), `next` returns `wait` with reason `gate`, `retry_after_s` 60, and the next landing attempt re-runs the bootstrap; repeated same-unit bootstrap failures enter supervised rescue under BUILD-16. The non-disk contract matches the G2 snapshot (exit 75; disk uses 76): an environment failure is never a code verdict. A G2 snapshot's manifest in `<main checkout>/.pandacorp/run/worktrees/` is dropped with the snapshot (`integrate.dropBootstrapManifests`, also on `removeWorktree`). Eligible snapshots are removed at harvest, after a failed spawn, on terminal actions, `stop`, `finish` and `resume` (`next.removeAllG2Snapshots`); protected copies remain (5.1). `parkIrreversiblePending` journals `parked` followed by `unit_state queued -> parked`, so `rebuild-state` keeps those units parked.
 
 ## 5. On-disk state
 
@@ -976,7 +1004,9 @@ warns of copying. After full G3, the queue releases its H slot before deleting `
 `plugin/scripts/test-worktree-bootstrap.sh`, `test-merge-queue-lock-refresh.sh`,
 `test-merge-queue-certified-tree.sh`, `test-merge-queue-release-gate.sh`.
 
-### 5.2 Engine-failure drafts for nested projects (DEC-14/DEC-16)
+### 5.2 Unfenced startup diagnostics for nested projects (DEC-14/DEC-16)
+
+Active fenced runs use supervised recovery above and do not invoke this legacy diagnostic close-out.
 
 `fileBacklogNote` detects a project root below repository top or a factory root equal to repo top.
 It checks `.pandacorp/run/build/handback/engine-backlog-<run>.md` untracked and writes a local draft,

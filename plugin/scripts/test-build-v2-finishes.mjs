@@ -15,13 +15,20 @@ import { ingestReport, resumeApprovedGates } from "../runtime/build/report.mjs";
 import { planAnswer } from "../runtime/build/answers/plan.mjs";
 import { planTestRepair, settleTestRepairs, doubtBasis } from "../runtime/build/recovery.mjs";
 import { atomicWriteJson, sha256Hex } from "../runtime/build/fsx.mjs";
-import { chooseTerminal } from "../runtime/build/next/terminal.mjs";
+import { chooseTerminal, runningSummary } from "../runtime/build/next/terminal.mjs";
 import { blockedClosure, depsMet } from "../runtime/build/next/scope.mjs";
 import { isRepeatDoubt } from "../runtime/build/doubts/repeat.mjs";
 import { vetoReasons } from "../runtime/build/doubts/veto.mjs";
 import { launchWorker, pollWorker, reportEnvelope, buildWorkerArgv } from "../runtime/build/workers.mjs";
 import { prepareSwcCache } from "../runtime/build/units/worktrees.mjs";
 import { plan } from "../runtime/build/planner.mjs";
+import { observeTechnicalFailure, recordTechnicalFailure, recoverTechnicalStall, advanceRescues, rescueResult } from "../runtime/build/rescue.mjs";
+import { integrateCommitted, transitionWorkOrders } from "../runtime/build/integrate.mjs";
+import { finishRun } from "../runtime/build/lifecycle.mjs";
+import { withEngineRecovery } from "../runtime/build/failure.mjs";
+import { runningWorktreePaths } from "./worktree-sweep.mjs";
+import { enterCapacityWaiting, wakeCapacity } from "../runtime/capacity/scheduler.mjs";
+import { integrateStep } from "../runtime/build/next/integration.mjs";
 
 const FRD = "frd-01-alpha", RUN = "finish-regression", FILE = "src/alpha/list.ts", ORACLE = "src/alpha/_tests/params.test.mjs";
 const write = async (root, rel, data) => { const file = path.join(root, rel); await fs.mkdir(path.dirname(file), { recursive: true }); await fs.writeFile(file, data); };
@@ -29,6 +36,297 @@ const verify = `#!/bin/bash
 for arg in "$@"; do case "$arg" in --tests=*) node --test "\${arg#--tests=}"; exit $?;; esac; done
 exit 0
 `;
+
+test("rescue detection: same class and file twice; different causes do not qualify", () => {
+  const state = st.newState({ units: [st.newUnit({ id: "u-build", kind: "build" })] });
+  const a = { code: "TypeError", files: [FILE], detail: "parser failed" };
+  const first = observeTechnicalFailure(state, "u-build", a);
+  assert.equal(first.action, "retry");
+  const other = observeTechnicalFailure(first.state, "u-build", { ...a, code: "EIO" });
+  assert.equal(other.action, "retry");
+  assert.equal(observeTechnicalFailure(other.state, "u-build", { ...a, files: ["src/other.ts"] }).action, "retry");
+  const repeated = observeTechnicalFailure(other.state, "u-build", { ...a, detail: "different wording" });
+  assert.equal(repeated.action, "rescue");
+  assert.equal(st.findUnit(repeated.state, "u-build").state, "rescue");
+  assert.equal(repeated.state.status, "active");
+});
+
+test("rescue: all four actual human gates stay gated; technical parking recovers", () => {
+  for (const gate of ["production", "money", "delete", "external"]) {
+    const state = st.newState({ units: [st.newUnit({ id: "u-gate", kind: "build", state: "waiting_gate", waiting_gate: gate })] });
+    assert.equal(chooseTerminal(state, {}).status, "waiting_gate");
+    const failed = observeTechnicalFailure(state, "u-gate", { code: "EIO" });
+    assert.equal(failed.action, "gate");
+    assert.deepEqual(failed.state, state);
+  }
+  const state = st.newState({ units: [st.newUnit({ id: "u-tech", kind: "build", parked: "owner_question" })] });
+  assert.equal(chooseTerminal(state, {}).action, "recover");
+});
+
+const startRescue = async c => {
+  const unit = await c.dispatch({ id: "u-rescue", kind: "build" });
+  await c.ctx.writeState(st.patchUnit(await c.ctx.readState(), unit.id, { worker: { runtime: "codex", model: "sol", effort: "medium", via: "session", pid: null, worker_id: null } }));
+  for (let i = 0; i < 2; i++) await recordTechnicalFailure(c.ctx, unit.id, { code: "no_progress", files: [FILE], detail: "artifact fence prevented completion" }, c.deps);
+  const out = await advanceRescues(c.ref, c.deps);
+  assert.equal(out.action, "rescue"); assert.equal(out.rescue.via, "session");
+  const body = await fs.readFile(out.rescue.brief_path, "utf8");
+  assert.match(body, /WO-01-001/); assert.match(body, /Protected hashes/); assert.match(body, /artifact fence/);
+  return { unit, out };
+};
+const rescueReport = async (c, out, status = "done", author = { runtime: "codex", model: "sol", effort: "medium" }) => {
+  await atomicWriteJson(out.rescue.report_path, { status, summary: "supervised fixture", authored_by: author, gate: null });
+  return rescueResult({ ...c.ref, unit: out.rescue.unit, token: out.rescue.token, file: out.rescue.report_path }, c.deps);
+};
+
+for (const dead of [true, false]) test(`rescue retires the previous writer; reuses its checkout only with positive termination (${dead})`, () => fixture(async c => {
+  const unit = await c.dispatch({ id: "u-live-writer", kind: "build" });
+  const worker = { runtime: "codex", model: "sol", effort: "medium", via: "cli", pid: 123456, worker_id: "old-writer" };
+  const job = { id: "old-writer", kind: "worker", unit: unit.id, frd: FRD, pid: worker.pid, cwd: unit.worktree, h_slot: false, started_at: new Date().toISOString(), state: "running", exit: null, worker_id: "old-writer" };
+  await c.ctx.writeState({ ...st.patchUnit(await c.ctx.readState(), unit.id, { worker }), jobs: [job] });
+  await c.ctx.appendEvent({ type: "job_started", data: job });
+  const calls = [];
+  c.deps.workers = { stopWorkers: async (_project, ids) => { calls.push(ids); return ids; }, peekWorker: () => ({ state: dead ? "dead" : "running", pid: worker.pid }) };
+  for (let i = 0; i < 2; i++) await recordTechnicalFailure(c.ctx, unit.id, { code: "EIO", detail: "scheduler read failed" }, c.deps);
+  const retired = await c.ctx.readState();
+  assert.equal(runningSummary(retired).any, false, "an unreadable old job cannot keep the scheduler waiting forever");
+  assert.equal(st.foldJournal((await jr.readJournal(c.paths.journalFile)).events).jobs[0].state, "done", "job retirement survives replay");
+  const out = await advanceRescues(c.ref, c.deps);
+  assert.deepEqual(calls, [["old-writer"]]);
+  assert.equal(out.rescue.worktree === unit.worktree, dead);
+  if (!dead) {
+    const current = st.findUnit(await c.ctx.readState(), unit.id);
+    assert.equal(current.rescue.displaced_worker.worktree, unit.worktree);
+    assert.ok(runningWorktreePaths(await c.ctx.readState(), { isAlive: () => true }).includes(unit.worktree));
+    assert.match(await fs.readFile(out.rescue.brief_path, "utf8"), /read-only inspection/);
+    await write(out.rescue.worktree, FILE, "export const recovered = true;\n");
+    assert.equal((await rescueReport(c, out)).outcome, "review");
+  }
+}));
+
+test("rescue isolates a native agent whose termination cannot be proven by the CLI", () => fixture(async c => {
+  const unit = await c.dispatch({ id: "u-native-writer", kind: "build" });
+  await c.ctx.writeState(st.patchUnit(await c.ctx.readState(), unit.id, { worker: { runtime: "codex", model: "sol", effort: "medium", via: "agent", pid: null, worker_id: null } }));
+  for (let i = 0; i < 2; i++) await recordTechnicalFailure(c.ctx, unit.id, { code: "EIO" }, c.deps);
+  const out = await advanceRescues(c.ref, c.deps);
+  assert.notEqual(out.rescue.worktree, unit.worktree);
+  assert.ok(runningWorktreePaths(await c.ctx.readState()).includes(unit.worktree));
+}));
+
+test("rescue success: independent fresh review, full verify, trailer, re-ingestion and next independent unit", () => fixture(async c => {
+  const { unit, out } = await startRescue(c);
+  await write(unit.worktree, FILE, "export const rescued = true;\n");
+  assert.equal((await rescueReport(c, out)).outcome, "review");
+  let state = await c.ctx.readState(), current = st.findUnit(state, unit.id);
+  assert.equal(current.state, "rescue"); // never integrated before independent review
+  assert.match(git(unit.worktree, ["log", "-1", "--format=%B"]), /Rescue: u-rescue/);
+  let reviewer;
+  c.deps.workers = { launchWorker: async args => { reviewer = { runtime: args.cell.runtime, model: args.cell.model, effort: args.cell.effort }; return { ok: true, workerId: "independent-rescue-review" }; }, pollWorker: async () => ({ state: "done", outcome: "report", report: { status: "done", summary: "independent checks passed", authored_by: reviewer, gate: null } }) };
+  const review = await advanceRescues(c.ref, c.deps);
+  assert.equal(review.rescue.via, "cli");
+  assert.notEqual(reviewer.effort, "medium");
+  await advanceRescues(c.ref, c.deps);
+  state = await c.ctx.readState(); current = st.findUnit(state, unit.id);
+  assert.equal(current.state, "committed"); assert.equal(current.rescue.phase, "completed");
+  const integration = await integrateCommitted({ state, keepWorktrees: true }, { ...c.deps, project: c.project });
+  assert.ok(integration.integrated.some(x => x.unit === unit.id));
+  const dependent = st.newUnit({ id: "u-next", kind: "build", depends_on: [unit.id] });
+  assert.equal(depsMet({ ...integration.state, units: [...integration.state.units, dependent] }, dependent), true);
+  assert.equal((await jr.readJournal(c.paths.journalFile)).events.some(e => e.type === "rescue_completed"), true);
+}));
+
+test("failed rescue: abandoned dependency, independent work continues, finish is completed_with_gaps", () => fixture(async c => {
+  const { unit, out } = await startRescue(c);
+  let state = await c.ctx.readState();
+  const independent = st.newUnit({ id: "u-independent", kind: "build", state: "queued" });
+  const dependent = st.newUnit({ id: "u-dependent", kind: "build", depends_on: [unit.id], state: "running" });
+  adm.issueToken(dependent.id, "B", { file: c.paths.admissionFile });
+  const obsolete = { id: "dependent-worker", kind: "worker", unit: dependent.id, frd: FRD, pid: null, cwd: unit.worktree, h_slot: false, started_at: new Date().toISOString(), state: "running", exit: null, worker_id: "dependent-worker" };
+  await c.ctx.writeState({ ...state, units: [...state.units, independent, dependent], jobs: [obsolete] });
+  await c.ctx.appendEvent({ type: "unit_queued", data: dependent });
+  await c.ctx.appendEvent({ type: "job_started", data: obsolete });
+  assert.equal((await rescueReport(c, out, "failed")).outcome, "abandoned");
+  state = await c.ctx.readState();
+  assert.equal(st.findUnit(state, unit.id).state, "abandoned");
+  assert.equal(st.findUnit(state, dependent.id).state, "abandoned");
+  assert.equal(st.findUnit(state, independent.id).state, "queued");
+  assert.equal(state.status, "active");
+  assert.equal(runningSummary(state).any, false, "abandoned dependency has no scheduler job left to poll");
+  assert.ok(!Object.values(JSON.parse(await fs.readFile(c.paths.admissionFile, "utf8")).tokens).some(t => t.unit === dependent.id), "abandoned dependencies release admission for independent work");
+  assert.equal(st.foldJournal((await jr.readJournal(c.paths.journalFile)).events).jobs[0].state, "done");
+  await c.ctx.writeState(st.patchUnit(state, independent.id, { state: "landed" }));
+  assert.equal(chooseTerminal(await c.ctx.readState(), {}).action, "done");
+  const finished = await finishRun(c.ref, c.deps);
+  assert.equal(finished.summary.status, "completed_with_gaps");
+  assert.equal(finished.summary.gaps.length, 2);
+  assert.match(await fs.readFile(finished.report_path, "utf8"), /u-dependent/);
+}));
+
+for (const attack of ["delete", "weaken", "gate"]) test(`rescue protects oracles against ${attack}`, () => fixture(async c => {
+  const { unit, out } = await startRescue(c);
+  if (attack === "delete") await fs.unlink(path.join(unit.worktree, ORACLE));
+  if (attack === "weaken") await write(unit.worktree, ORACLE, "// skip all assertions\n");
+  if (attack === "gate") await write(unit.worktree, ".pandacorp/verify.sh", "exit 0\n");
+  const result = await rescueReport(c, out);
+  assert.equal(result.outcome, "abandoned"); assert.match(result.reason, /protected oracle/);
+  assert.equal(st.findUnit(await c.ctx.readState(), unit.id).state, "abandoned");
+}));
+
+test("technical recovery never selects out-of-scope work", () => fixture(async c => {
+  const outside = st.newUnit({ id: "u-outside", kind: "build", wos: ["WO-99-999"], state: "reported" });
+  const inside = st.newUnit({ id: "u-inside", kind: "build", wos: ["WO-01-001"], state: "reported" });
+  await c.ctx.writeState({ ...await c.ctx.readState(), units: [outside, inside] });
+  await recoverTechnicalStall(c.ref, "no_progress", c.deps);
+  await recoverTechnicalStall(c.ref, "no_progress", c.deps);
+  const state = await c.ctx.readState();
+  assert.equal(st.findUnit(state, outside.id).state, "reported");
+  assert.equal(st.findUnit(state, inside.id).state, "rescue");
+}));
+
+test("rescue oracle repair: independent replacement refreshes causal base and resumes direct work", () => fixture(async c => {
+  const { unit, out } = await startRescue(c);
+  await write(unit.worktree, FILE, "export const partial = true;\n");
+  await atomicWriteJson(out.rescue.report_path, { status: "repair", summary: "installed framework rejects empty route", authored_by: { runtime: "codex", model: "sol", effort: "medium" }, gate: null,
+    oracle_repair: { files: [ORACLE], contract: "AC-01-001.1: installed framework needs a sentinel", reason: "Replace incompatible empty route expectation; retain positive and malformed-input checks" } });
+  assert.equal((await rescueResult({ ...c.ref, unit: unit.id, token: out.rescue.token, file: out.rescue.report_path }, c.deps)).outcome, "oracle_repair");
+  let state = await c.ctx.readState();
+  const repair = state.units.find(u => u.test_repair);
+  assert.notEqual(repair.id, unit.id);
+  const independent = await c.dispatch(repair);
+  await write(independent.worktree, ORACLE, "import assert from 'node:assert/strict'; assert.deepEqual(['sentinel'], ['sentinel']); assert.notDeepEqual(['sentinel'], []);\n");
+  const committed = await c.report(independent, [ORACLE]);
+  assert.equal(committed.outcome, "committed");
+  git(c.paths.integrationWorktree, ["merge", "--ff-only", committed.commit]);
+  await c.ctx.writeState(st.patchUnit(await c.ctx.readState(), repair.id, { state: "integrated" }));
+  await c.ctx.appendEvent({ type: "integrated", data: { unit: repair.id, sha: committed.commit } });
+  await settleTestRepairs(c.ctx, c.deps);
+  state = await c.ctx.readState();
+  const resumed = st.findUnit(state, unit.id);
+  assert.equal(resumed.state, "rescue"); assert.equal(resumed.rescue.base, git(unit.worktree, ["rev-parse", "HEAD"]));
+  assert.equal(await fs.readFile(path.join(unit.worktree, FILE), "utf8"), "export const partial = true;\n");
+  const next = await advanceRescues(c.ref, c.deps);
+  assert.equal((await rescueReport(c, next)).outcome, "review");
+}));
+
+test("rescue worker crash returns a scheduler action and preserves independent work", () => fixture(async c => {
+  const { unit, out } = await startRescue(c);
+  await write(unit.worktree, FILE, "export const rescued = true;\n");
+  assert.equal((await rescueReport(c, out)).outcome, "review");
+  const independent = st.newUnit({ id: "u-independent", kind: "build", state: "queued" });
+  await c.ctx.writeState({ ...await c.ctx.readState(), units: [...(await c.ctx.readState()).units, independent] });
+  c.deps.workers = { launchWorker: async () => ({ ok: true, workerId: "crashed-rescue" }), pollWorker: async () => ({ state: "done", outcome: "failed", detail: "supervisor worker crashed" }) };
+  await advanceRescues(c.ref, c.deps);
+  const failed = await advanceRescues(c.ref, c.deps);
+  assert.equal(failed.action, "rescue"); assert.equal(failed.outcome, "abandoned");
+  const state = await c.ctx.readState();
+  assert.equal(st.findUnit(state, independent.id).state, "queued");
+  assert.equal(st.findUnit(state, independent.id).technical_failures, undefined);
+  assert.equal(st.findUnit(state, unit.id).state, "abandoned");
+}));
+
+test("engine exceptions use the same repeated-cause rescue without releasing the lease", () => fixture(async c => {
+  const unit = await c.dispatch({ id: "u-exception", kind: "build" });
+  const failure = () => { throw Object.assign(new Error(`parser failed in ${FILE}`), { code: "EIO", unit: unit.id }); };
+  const result = await withEngineRecovery({ ...c.ref, cmd: "next", step: failure }, { ...c.deps, rebuild: async () => {} });
+  assert.equal(result.body.action, "rescue");
+  const state = await c.ctx.readState();
+  assert.equal(st.findUnit(state, unit.id).state, "rescue");
+  assert.equal(st.findUnit(state, unit.id).attempt, 1);
+  assert.equal(state.status, "active"); assert.equal((await bs.currentLease(c.project)).epoch, c.ref.epoch);
+  const folded = st.foldJournal((await jr.readJournal(c.paths.journalFile)).events);
+  assert.equal(st.findUnit(folded, unit.id).state, "rescue");
+}));
+
+test("a corrupt state cache is replayed before recovery and never quiesces the owned lease", () => fixture(async c => {
+  await c.dispatch({ id: "u-cache-replay", kind: "build" });
+  await fs.writeFile(c.paths.stateFile, "{");
+  const recovered = await withEngineRecovery({ ...c.ref, cmd: "next", step: () => c.ctx.readState() }, c.deps);
+  assert.equal(recovered.status, "active");
+  const lease = await bs.currentLease(c.project);
+  assert.ok(lease && !lease.quiesced_at);
+  const state = await c.ctx.readState();
+  assert.equal(state.status, "active");
+  assert.ok(st.findUnit(state, "u-cache-replay").technical_failures.length);
+}));
+
+test("rescue checkout cleanup requires positive termination evidence", () => {
+  const unit = st.newUnit({ id: "u-cleanup", kind: "build", state: "abandoned", worktree: "/fixture/rescue", rescue: { worker: { workerId: "live", pid: 99 } } });
+  assert.deepEqual(runningWorktreePaths({ units: [unit], jobs: [] }, { isAlive: () => true }), [unit.worktree]);
+  assert.deepEqual(runningWorktreePaths({ units: [unit], jobs: [] }, { isAlive: () => false }), []);
+});
+
+test("rescue capacity wait persists resumeAt and participates in fenced automatic wake", () => fixture(async c => {
+  const unit = await c.dispatch({ id: "u-capacity-rescue", kind: "build" });
+  for (let i = 0; i < 2; i++) await recordTechnicalFailure(c.ctx, unit.id, { code: "EIO", detail: "same fault" }, c.deps);
+  const reset = Date.now() - 120000, resumeAt = new Date(reset).toISOString();
+  const task = { id: unit.id, type: "implement", risk: "normal", complexity: "normal" };
+  c.deps.routing = { builderCell: () => ({ paused: "quota", resumeAt, task }) };
+  assert.equal(await advanceRescues(c.ref, c.deps), null);
+  let state = await c.ctx.readState();
+  assert.equal(st.findUnit(state, unit.id).rescue.capacity_wait, resumeAt);
+  await enterCapacityWaiting(c.ctx, state, resumeAt, c.deps);
+  const now = Date.now();
+  const readCapacity = () => Object.fromEntries(["claude", "codex"].map(tool => [tool, { schema: 1, tool, state: "known", observedAt: new Date(now).toISOString(), windows:
+    (tool === "claude" ? ["five_hour", "weekly"] : ["weekly"]).map(id => ({ id, scope: "all", applicability: "required", percentUsed: 0, resetsAt: new Date(now + 3600000).toISOString() })) }]));
+  const wake = await wakeCapacity({ ...c.ref, owner: "lead" }, { ...c.deps, readCapacity });
+  assert.equal(wake.claimed, true);
+  state = await c.ctx.readState();
+  assert.equal(state.status, "active"); assert.equal(st.findUnit(state, unit.id).state, "rescue");
+  assert.equal((await bs.currentLease(c.project)).epoch, c.ref.epoch);
+}));
+
+test("a rescued FRD reviewer uses an isolated candidate and closes reviewed work only after independent integration", () => fixture(async c => {
+  const work = st.newUnit({ id: "u-reviewed-build", kind: "build", frd: FRD, wos: ["WO-01-001"], state: "reviewing", worker: { runtime: "codex", model: "sol", effort: "high", via: "cli", pid: null, worker_id: "former-builder" } });
+  const reviewer = st.newUnit({ id: "u-review-rescue", kind: "review", frd: FRD, wos: work.wos, depends_on: [work.id], state: "reported", worktree: c.paths.integrationWorktree, branch: c.paths.integrationBranch(RUN) });
+  await c.ctx.writeState({ ...await c.ctx.readState(), units: [work, reviewer] });
+  const integration = (await c.ctx.readState()).integration;
+  await transitionWorkOrders({ integration, runId: RUN, wos: work.wos, to: "IN_PROGRESS", unitId: work.id }, c.deps);
+  await transitionWorkOrders({ integration, runId: RUN, wos: work.wos, to: "IN_REVIEW", unitId: work.id }, c.deps);
+  await c.ctx.appendEvent({ type: "unit_queued", data: work }); await c.ctx.appendEvent({ type: "unit_queued", data: reviewer });
+  for (let i = 0; i < 2; i++) await recordTechnicalFailure(c.ctx, reviewer.id, { code: "review_transport", detail: "reviewer could not file its result" }, c.deps);
+  const out = await advanceRescues(c.ref, c.deps);
+  assert.notEqual(out.rescue.worktree, c.paths.integrationWorktree);
+  const integrationHead = git(c.paths.integrationWorktree, ["rev-parse", "HEAD"]);
+  assert.equal((await rescueReport(c, out)).outcome, "review");
+  let cell;
+  c.deps.workers = { launchWorker: async args => { cell = { runtime: args.cell.runtime, model: args.cell.model, effort: args.cell.effort }; return { ok: true, workerId: "strong-review" }; }, pollWorker: async () => ({ state: "done", outcome: "report", report: { status: "done", summary: "review transport recovered and entire FRD verified", authored_by: cell, gate: null } }) };
+  await advanceRescues(c.ref, c.deps);
+  assert.notDeepEqual(cell, { runtime: "codex", model: "sol", effort: "high" }, "rescue reviewer also exceeds the actual source builder");
+  await advanceRescues(c.ref, c.deps);
+  let state = await c.ctx.readState();
+  assert.equal(st.findUnit(state, work.id).state, "reviewing");
+  assert.equal(git(c.paths.integrationWorktree, ["rev-parse", "HEAD"]), integrationHead);
+  await integrateStep({ ref: { ...c.ref, deps: c.deps }, d: c.deps, paths: c.paths }, state, []);
+  state = await c.ctx.readState();
+  assert.equal(st.findUnit(state, work.id).state, "verified");
+  assert.equal(st.findUnit(state, reviewer.id).state, "verified");
+  assert.match(await fs.readFile(path.join(c.paths.integrationWorktree, `docs/frds/${FRD}/work-orders/wo-01-001.md`), "utf8"), /implementation_status: VERIFIED/);
+}));
+
+test("a rescued audit retains the original verified builder's stronger review floor", () => fixture(async c => {
+  const source = { runtime: "codex", model: "astra", effort: "high", via: "cli", pid: null, worker_id: "source" };
+  const work = st.newUnit({ id: "u-audited", kind: "build", frd: FRD, wos: ["WO-01-001"], state: "verified", worker: source });
+  const audit = st.newUnit({ id: "u-audit-rescue", kind: "audit", state: "reported", worktree: c.paths.integrationWorktree, branch: c.paths.integrationBranch(RUN) });
+  await c.ctx.writeState({ ...await c.ctx.readState(), units: [work, audit] });
+  for (let i = 0; i < 2; i++) await recordTechnicalFailure(c.ctx, audit.id, { code: "audit_transport" }, c.deps);
+  const out = await advanceRescues(c.ref, c.deps);
+  assert.equal((await rescueReport(c, out)).outcome, "review");
+  const router = await import("../runtime/build/routing.mjs"); let demand;
+  c.deps.routing = { builderCell: (unit, ctx) => { demand = unit; return router.builderCell(unit, ctx); } };
+  c.deps.workers = { launchWorker: async () => ({ ok: true, workerId: "independent-audit-review" }) };
+  await advanceRescues(c.ref, c.deps);
+  assert.ok(demand.implementerCells.some(a => a.model === "astra" && a.effort === "high"));
+}));
+
+test("two unreadable rescue worker results abandon with an actionable scheduler response", () => fixture(async c => {
+  const { unit, out } = await startRescue(c);
+  assert.equal((await rescueReport(c, out)).outcome, "review");
+  c.deps.workers = { launchWorker: async () => ({ ok: true, workerId: "unreadable-rescue" }), pollWorker: async () => ({ state: "error", kind: "transport", detail: "result read denied" }) };
+  await advanceRescues(c.ref, c.deps);
+  assert.equal((await advanceRescues(c.ref, c.deps)).action, "rescue");
+  assert.equal(st.findUnit(await c.ctx.readState(), unit.id).state, "rescue");
+  assert.equal((await advanceRescues(c.ref, c.deps)).outcome, "abandoned");
+  assert.equal((await c.ctx.readState()).status, "active");
+}));
 async function fixture(fn) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "finish-"));
   const fx = await createFixture("basic", { dir });
@@ -56,6 +354,7 @@ async function fixture(fn) {
       git(project, ["worktree", "add", "-qb", branch, worktree, s.integration.branch]);
       const unit = st.newUnit({ ...fields, frd: FRD, wos: ["WO-01-001"], state: "running", worktree, branch, token_hash: token.token_hash });
       await ctx.writeState({ ...s, units: [...s.units.filter(u => u.id !== unit.id), unit] });
+      await ctx.appendEvent({ type: "unit_queued", data: unit });
       return { ...unit, token: token.token };
     };
     const report = async (unit, files) => {

@@ -117,6 +117,10 @@ export function runningWorktreePaths(state, deps = {}) {
   const provenDead = pid => Number.isInteger(pid) && pid > 0 && alive(pid) === false;
   return [
     ...(state?.units ?? []).filter(u => ['running', 'admitted'].includes(u.state) && !provenDead(u.worker?.pid)).map(u => u.worktree),
+    ...(state?.units ?? []).filter(u => (u.state === 'rescue' && !u.rescue?.worker) || (u.rescue?.worker && !provenDead(u.rescue.worker.pid))).map(u => u.worktree),
+    ...(state?.units ?? []).filter(u => u.rescue?.displaced_worker && !provenDead(u.rescue.displaced_worker.worker?.pid)).map(u => u.rescue.displaced_worker.worktree),
+    ...(state?.units ?? []).filter(u => u.rescue && ['cli', 'agent'].includes(u.worker?.via) && !provenDead(u.worker?.pid)).map(u => u.worktree),
+    ...(state?.units ?? []).flatMap(u => (u.rescue?.previous_jobs ?? []).filter(j => !provenDead(j.pid)).map(j => j.cwd)),
     ...(state?.jobs ?? []).filter(j => j.state === 'running' && !provenDead(j.pid)).map(j => j.cwd),
   ].filter(Boolean);
 }

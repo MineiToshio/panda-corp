@@ -291,7 +291,7 @@ await test("built on assumption rejected, a never-dispatched unit only loses its
   const u = await c.unit("u-build-wo-01-001"); eq([u.state, u.parked, u.pending_answer, u.attempt], ["queued", null, null, 1], "flags cleared, attempt kept");
 }));
 
-await test("built on assumption rejected at attempt 3 (DEC-7) -> handed_back answer_rework_budget: unit and dependents blocked (R4), never re-queued, branch never merged", async () => withRun({
+await test("built on assumption rejected at attempt 3 records technical retry without an owner question or branch merge", async () => withRun({
   doubt: assumeDoubt(), assumeBranch: DOUBT_ID,
   units: [
     mkUnit("u-build-wo-01-001", { wos: ["WO-01-001"], state: "integrated", attempt: 3, parked: "built_on_assumption", pending_answer: DOUBT_ID, doubt_id: DOUBT_ID }),
@@ -301,12 +301,13 @@ await test("built on assumption rejected at attempt 3 (DEC-7) -> handed_back ans
 }, async (c) => {
   const out = await c.ans(DOUBT_ID, "opt-yes");
   eq(c.effects(out)["u-build-wo-01-001"], "handed_back", "root effect");
-  eq((await c.unit("u-build-wo-01-001")).state, "blocked", "unit blocked");
-  const dep = await c.unit("u-build-wo-01-002"); ok(dep.state === "blocked" && dep.parked !== "owner_question", `dependent blocked, never parked (got ${dep.state}/${dep.parked})`);
+  eq((await c.unit("u-build-wo-01-001")).state, "reported", "first budget failure retries without ordinary attempt 4");
+  const dep = await c.unit("u-build-wo-01-002"); ok(dep.state !== "blocked" && dep.parked !== "owner_question", `dependent not blocked or owner-parked (got ${dep.state}/${dep.parked})`);
   eq((await c.unit("u-build-wo-02-001")).state, "queued", "independent unit untouched");
-  const hb = (await c.events("handback")).find((e) => e.data.unit === "u-build-wo-01-001");
-  ok(hb, "a handback event for the root unit"); eq(hb.data.reason_code, "answer_rework_budget", "reason_code");
-  ok(await exists(c.p.handbackFile("u-build-wo-01-001")), "handback file written");
+  const failure = (await c.events("technical_failure")).find(e => e.data.unit === "u-build-wo-01-001");
+  ok(failure, "technical failure journaled");
+  eq(failure.data.unit_snapshot.technical_failures.at(-1).code, "answer_rework_budget", "cause preserved");
+  ok(!(await exists(c.p.handbackFile("u-build-wo-01-001"))), "no technical owner handback");
   const rec = await c.doubtRec(DOUBT_ID); eq(rec.decision?.value, "opt-yes", "the owner's answer is recorded");
   ok(!isMerged(c), "the rejected assumption branch is never merged");
 }));

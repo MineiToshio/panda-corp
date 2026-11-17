@@ -14,8 +14,8 @@ other. An explicit owner request to work directly without Pandacorp uses that di
 workflow, rather than starting this engine.
 
 Read and follow `references/engine-v2.md` in order, together with
-`references/autonomy.md` and `references/drive.md`. Policy lives in
-`factory/standards/build-engine.md` (BUILD-7..15); exact commands, flags, JSON and exits
+`references/autonomy.md`, `references/drive.md` and `references/rescue.md`. Policy lives in
+`factory/standards/build-engine.md` (BUILD-7..16); exact commands, flags, JSON and exits
 live in `plugin/docs/build-engine-cli.md`. Resolve the factory path from the project's
 `.pandacorp/guide.md`; Claude Code may use `${CLAUDE_PLUGIN_ROOT}` for the installed plugin.
 
@@ -89,7 +89,8 @@ when scheduling is unavailable; never claim an unobserved automatic continuation
 The session follows the CLI's `next` loop, dispatches exactly its model/effort and files
 reports through the fenced commands. Continue in the active session when scheduling
 is unavailable; claim background continuity only after observing a working mechanism.
-Do not bypass independent review, deterministic gates or the three-execution budget.
+Do not bypass independent review or deterministic gates. The ordinary three-execution budget
+permits one supervised rescue under DR-164; see the rescue protocol at the top of the references.
 Only build and patch units spend that budget; a red gate patches the attributed failing
 scope, preserving healthy work. See BUILD-15 and the CLI reference for fallback behavior.
 
@@ -113,6 +114,12 @@ force-remove dirty, locked, live or process-cwd worktrees, or bulk-clean `.panda
 For session-owned resources, register them before dispatch, restore the actual session
 cwd, run `session-cleanup.mjs finish` and await its exit. Remove only named, eligible
 scratch paths created by this session. A timeout is not successful cleanup.
+
+Technical failures enter supervised rescue after the same cause occurs twice. A failed rescue
+abandons only the unit and dependent work; independent work continues to `completed_with_gaps`.
+The app lead executes session rescue briefs directly; drive uses a fresh worker. Tests stay
+protected and every rescued commit needs independent review plus full green project verify
+before integration. Never end the session for a technical `stop` or ask for technical approval.
 
 The final report uses verified CLI results: owner questions/gates, autonomous decisions,
 parked work, landed work versus work waiting on its branch, review status, quota and

@@ -1,5 +1,14 @@
 # Engine v2: the session protocol for a `pandacorp-build` run
 
+## Supervised rescue (DR-164)
+
+Read [the rescue protocol](rescue.md) before the ordinary loop below. Two technical failures
+with the same class and unit/file enter one supervised rescue. A failed rescue becomes
+`abandoned`; independent work continues to `completed_with_gaps`. Never close a run for
+a technical stop or ask the owner a technical question. Scope, protected oracles, independent
+review, full verify, the lease and actual human gates remain mandatory.
+
+
 **Default and only build engine.** `/pandacorp:implement` follows this protocol for every build and resume. Policy, thresholds and matrices live in
 `factory/standards/build-engine.md` (BUILD-7..15); every command, flag, exit code, file and JSON shape lives in
 `plugin/docs/build-engine-cli.md`. This file says only what the **session** does, in order. Autonomy (first minute,
@@ -146,7 +155,7 @@ Write the returned `scope` object verbatim to `.pandacorp/run/scope.json` (an in
 
 ## 7. Step 5: the loop
 
-Repeat until a terminal action (`done`, `waiting-owner`, `deadlock`, `stop`) or
+Repeat until completion (`done`), an actual human gate (`waiting-owner`), explicit owner cancellation or
 `handoff`:
 
 ```
@@ -155,13 +164,14 @@ pb next --epoch <E> --wait 60
 
 | `action` | Do |
 |---|---|
+| `rescue` | Follow `rescue.md`: execute a session brief directly or let the CLI worker run, file the staged result and continue `next`. Never close out a technical failure. |
 | `dispatch` | For each new unit in `units[]`, print its `dispatch_line` verbatim (continuations with `resume:true` stay silent), then by `via`: `cli` → nothing (the CLI launched the allocated provider worker and ingests it); `agent` → launch it (below); `session` → do it yourself (below). Launch all `agent` units of one `next` in ONE message, in the background |
 | `waiting` | Capacity checkpoint, not close-out. Follow `shared-capacity.md` "Claude lead wake-up": ScheduleWakeup at `resumeAt+60s`, refresh get_usage, `start --resume --coordinator claude --wake-generation <wake_generation>`. Rearm on `claimed:false, action:waiting`; leave an already-resumed winner running. Drive keeps its loop alive and rereads both shared accounts. No quota questions or detailed chat. |
 | `wait` | Call `next --epoch <E> --wait 60` again (it returns early when a report, a job, a worker, an answer or a handoff appears). For reason `disk`, report the allocation wait and let existing work continue; never bulk-delete state. Never end the turn instead |
 | `land` | The batch is complete: `pb land --epoch <E>` (below) |
 | `handoff` | `drive.md` §3 |
 | `done` | `pb finish --epoch <E>`, then the final report (step 6) |
-| `waiting-owner`, `deadlock`, `stop` | Already applied by the CLI (state set, lease released, drive standby ended). Do not call `finish`; take the data from `pb summary` and write the final report (step 6) with the reason on top (the open questions for `waiting-owner`; for `stop`: nothing else can progress), notify, stop |
+| `waiting-owner`, explicit owner `stop` | Already applied by the CLI. Read `summary` and report the actual protected gate or the owner's cancellation. Technical failures continue through rescue. |
 
 `notes_es[]` are owner-facing lines: keep them for the final report, never paraphrase them into English.
 
@@ -208,7 +218,7 @@ exit 6 `handback` → continue, it goes into the report.
 **Environment hand-back** (a unit handed back with cause `env-infra`: its sandbox could not reach a service, a
 tool or the disk failed; the hand-back file says "entorno o infraestructura"). Fix the environment first (never the
 unit's files). Then re-admit it: during the run `pb unblock --epoch <E> --unit <unit> --reason "<what you fixed>"`;
-when the run already ended (`next` said `done` and `finish` closed it, or it stopped on three env hand-backs)
+when the run already ended (`next` said `done` and `finish` closed it, or it was explicitly stopped by the owner)
 `pb start --resume --coordinator claude|codex --unblock <unit> --reason "<what you fixed>"`, then continue with
 `next`. The unit returns at the same attempt with its preserved worktree and its dependents; it spends no budget.
 Any other hand-back cause is the owner's decision: exit 6 says so, do not retry it.
@@ -267,7 +277,7 @@ report pending capture when the full gate runs elsewhere. Keep Vitest Node/DOM m
 | 5 INVALID_STATE | From `start --run` "re-run preflight": step 3.2 again. From `finish`: units still live, back to the loop. Otherwise `pb rebuild-state --epoch <E>`, retry the same call once; fails again → treat as exit 8 |
 | 6 INVALID_INPUT_OR_RED | A card: fix it. A `report`: the rejection is recorded, continue. An `answer`: `autonomy.md` §1.4 |
 | 7 WAITING_GATE | From `report` (`waiting_gate`), `land` or `finish` (`next` never exits 7): notify (`autonomy.md` §4); after `finish`, write the final report; otherwise continue the loop |
-| 8 ENGINE_FAILURE | The CLI stopped at a safe point, wrote `handback/engine.md` and its backlog note, released the lease. For nested projects the note is a draft under `build/handback/`, listed in `need_from_owner`; never create a factory-main backlog item yourself. Notify, final report with that path, stop |
+| 8 ENGINE_FAILURE | Retain evidence and retry the safe CLI step. Active fenced faults enter the rescue protocol; never ask for technical approval or close a technical failure as stopped. Read-only diagnostics that lack a valid run cannot certify any work. |
 | 9 FAILCLOSED | A signal was unreadable; the conservative path applied. Continue; mention it in the report |
 | 10 NOT_A_PROJECT | Step 0.1 message, stop |
 

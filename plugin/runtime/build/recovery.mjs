@@ -63,12 +63,14 @@ export async function settleTestRepairs(ctx, deps = {}) {
       await git(deps, work, ["merge", "--no-edit", sha]);
       for (const rel of files) if (sha256Hex(await fs.readFile(path.join(work, rel))) !== repair.test_hashes[rel]) throw err(`builder did not receive repaired oracle: ${rel}`);
     }
+    const rescueBase = target.rescue && target.worktree
+      ? (await git(deps, productRoot(target.worktree, prefix), ["rev-parse", "HEAD"])).stdout.trim() : null;
     // Hash ownership moves to the new oracle version; the predecessor remains in test_repair.old_hashes and git.
     const units = state.units.map(u => {
       const strip = hashes => Object.fromEntries(Object.entries(hashes ?? {}).filter(([f]) => !files.includes(f)));
       if (u.id === repair.id) return u;
       return { ...u, test_hashes: strip(u.test_hashes), probe_hashes: strip(u.probe_hashes),
-        ...(u.id === target.id ? { scope_revision: sha, depends_on: u.depends_on.filter(id => id !== repair.id) } : {}) };
+        ...(u.id === target.id ? { scope_revision: sha, depends_on: u.depends_on.filter(id => id !== repair.id), ...(u.rescue ? { state: "rescue", rescue: { ...u.rescue, base: rescueBase ?? u.rescue.base, credential: null, worker: null, protected: { ...u.rescue.protected, ...repair.test_hashes }, oracle_repair: { reason: repair.test_repair.reason, sha, old_hashes: repair.test_repair.old_hashes, new_hashes: repair.test_hashes } } } : {}) } : {}) };
     });
     for (const u of units.filter(u => u.id !== repair.id)) await ctx.appendEvent({ type: "unit_queued", data: u });
     state = { ...state, units };

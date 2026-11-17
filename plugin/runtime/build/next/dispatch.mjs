@@ -49,7 +49,7 @@ const motivoToWait = (motivo) => (motivo === "disco" ? "disk" : motivo === "cpu_
 
 export async function dispatchRound(run, state, candidates, params, signals, quota) {
   const { d, ref, paths } = run;
-  const blockedDispatch = state.handbacks_in_a_row >= ENV_INFRA_STOP;
+  const blockedDispatch = false; // DR-164: technical handbacks never veto independent work.
   const g2 = blockedDispatch ? [] : g2Needed(state);
   const list = blockedDispatch ? [] : candidates.list;
   if (!g2.length && !list.length) return { state, units: [], admit: null, admissionBlocked: null, g2Failed: [], g2Fails: {} };

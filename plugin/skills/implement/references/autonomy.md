@@ -1,5 +1,14 @@
 # Autonomy protocol: "impleméntalo" and the owner leaves for 2-3 hours
 
+## Supervised rescue (DR-164)
+
+Read [the rescue protocol](rescue.md) before the ordinary loop below. Two technical failures
+with the same class and unit/file enter one supervised rescue. A failed rescue becomes
+`abandoned`; independent work continues to `completed_with_gaps`. Never close a run for
+a technical stop or ask the owner a technical question. Scope, protected oracles, independent
+review, full verify, the lease and actual human gates remain mandatory.
+
+
 Session side of BUILD-12/BUILD-13 (`factory/standards/build-engine.md`); calls are specified in
 `plugin/docs/build-engine-cli.md`, `pb <cmd>` as defined in `engine-v2.md` §1. Principle: **the build never stops
 whole for one question.** What needs the owner is said in the first minute; what comes up later is answered from the

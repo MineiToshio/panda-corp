@@ -226,36 +226,34 @@ async function landingCase(fn) {
   } finally { restoreEnv(); await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
 }
 
-await test("S2 landing: a failing integration bootstrap (exit 75) never returns `land`: env-infra hand-back, wait/gate, no G3 job", async () => landingCase(async (c) => {
+await test("S2 landing: failing integration bootstrap records a technical retry without inventing G3 evidence", async () => landingCase(async (c) => {
   const r = await c.callNext();
-  ok(r.action !== "land", `a failed bootstrap must not return land (got ${r.action})`);
-  eq(r.action, "wait", "action"); eq(r.wait?.reason, "gate", "wait reason");
-  ok(existsSync(path.join(c.P.build, "integration-bootstrap.json")) && JSON.parse(readFileSync(path.join(c.P.build, "integration-bootstrap.json"), "utf8")).ok === false, "the failed bootstrap is recorded in its marker");
-  const st = await c.readState();
-  eq(st.handbacks_in_a_row, 1, "one env-infra hand-back counted");
-  ok(st.units.some((u) => u.state === "blocked"), `a unit is handed back (blocked): ${st.units.map((u) => `${u.id}:${u.state}`).join(", ")}`);
-  ok(!st.jobs.some((j) => j.kind === "land"), "no land job started");
+  eq(r.action, "wait", "first failure retries");
+  const st = await c.readState(); eq(st.status, "active", "run stays active");
+  eq(st.handbacks_in_a_row, 0, "no obsolete global handback counter");
+  ok(existsSync(path.join(c.P.build, "integration-bootstrap.json")) && JSON.parse(readFileSync(path.join(c.P.build, "integration-bootstrap.json"), "utf8")).ok === false, "failed bootstrap marker retained");
+  ok(!st.jobs.some(j => j.kind === "land"), "no land job started");
   const ev = await c.events();
-  const hb = ev.find((e) => e.type === "handback"); ok(hb, `a handback event is journaled: ${[...new Set(ev.map((e) => e.type))].join(", ")}`);
-  ok(JSON.stringify(hb).includes("env-infra"), `the hand-back cause is env-infra: ${JSON.stringify(hb).slice(0, 300)}`);
-  ok(!ev.some((e) => e.type === "gate" && /g3/i.test(JSON.stringify(e))), "no G3 verdict was produced");
+  ok(ev.some(e => e.type === "technical_failure"), "technical failure journaled");
+  ok(!ev.some(e => e.type === "gate" && /g3/i.test(JSON.stringify(e))), "no false G3 verdict");
+  ok(!ev.some(e => e.type === "run_stopped"), "no technical stop");
 }));
 
-await test("S2 landing: the third consecutive env-infra hand-back stops the run (stop / env_infra_handbacks); the first two wait", async () => landingCase(async (c) => {
-  const actions = [];
-  for (let i = 0; i < 3; i++) {
-    // re-offer a verified unit each round: the previous one was handed back (blocked), the batch is "complete" again
-    if (i > 0) {
-      const st = await c.readState();
-      const extra = c.stateMod.newUnit({ id: `u-build-wo-0${i + 2}-001`, kind: "build", wos: [`WO-0${i + 2}-001`], frd: "frd-01-alpha", chain: `c-wo-0${i + 2}-001`, state: "verified" });
-      st.units.push(extra); st.scope.wos.push(`WO-0${i + 2}-001`); await c.stateMod.writeState(c.fx.root, st, { env: c.env });
-    }
-    const r = await c.callNext(); actions.push(r.action);
-    if (r.action === "stop") break;
-  }
-  eq(actions, ["wait", "wait", "stop"], "wait, wait, then stop");
-  const st = await c.readState(); eq(st.status, "stopped", "state stopped");
-  const ev = await c.events(); ok(ev.some((e) => e.type === "run_stopped" && JSON.stringify(e).includes("env_infra_handbacks")), "run_stopped carries env_infra_handbacks");
+await test("S2 landing: two identical bootstrap failures rescue the same unit", async () => landingCase(async (c) => {
+  await c.callNext();
+  const before = await c.readState();
+  const target = before.units.find(u => u.technical_failures?.length);
+  ok(target, "first failure attached to concrete unit");
+  // Re-offer the same verified batch: a transient bootstrap failure does not replace its identity.
+  target.state = "verified";
+  await c.stateMod.writeState(c.fx.root, before, { env: c.env });
+  await c.callNext();
+  const st = await c.readState();
+  eq(st.units.find(u => u.id === target.id).state, "rescue", "same cause enters rescue");
+  eq(st.status, "active", "rescue keeps run active");
+  const ev = await c.events();
+  ok(ev.some(e => e.type === "rescue_started" && e.data.unit === target.id), "rescue journal identifies unit");
+  ok(!ev.some(e => e.type === "run_stopped"), "no technical stop");
 }));
 
 await test("S2 landing: a healthy bootstrap lets the batch land (control)", async () => landingCase(async (c) => {
@@ -513,7 +511,7 @@ await test("S6 N12: a doubt id is never reused after a kill -9 (journal doubt_op
 }));
 
 const SYNTH = (detail) => ({ question: `Spec ambigua: ${detail}`, options: [{ id: "conservative", text: "take the conservative reading" }, { id: "ask-owner", text: "ask the owner" }], preferred: "conservative", why: "synthesized by the engine" });
-await test("S6 DR1c-N1: synthesized doubts are compared by normalized question: a DISTINCT second ambiguity is consulted, a reworded repeat parks repeat_doubt", async () => {
+await test("S6 DR1c-N1: synthesized doubts are compared by normalized question: a DISTINCT second ambiguity is consulted, a reworded repeat enters supervised rescue", async () => {
   await withDoubts({}, async (c) => {
     const first = await c.open(SYNTH("AC-1 ordering unclear"));
     const d1 = await c.sources(first.doubt_id, { decision: "conservative", rationale: "docs/frds/frd-01-alpha/frd.md:3 reads conservatively", consulted: null });
@@ -528,8 +526,8 @@ await test("S6 DR1c-N1: synthesized doubts are compared by normalized question: 
     await c.sources(first.doubt_id, { decision: "conservative", rationale: "docs/frds/frd-01-alpha/frd.md:3 reads conservatively", consulted: null });
     const st = await c.readState(); st.units = st.units.map((u) => (u.id === U1 ? { ...u, state: "reported" } : u)); await c.stateMod.writeState(c.fx.root, st, { env: c.env });
     const again = await c.open(SYNTH("  ac-1:  ORDERING, unclear!! "));
-    eq(again.step, "parked", `a reworded repeat parks (step ${again.step})`);
-    ok(hasReason(await c.trace(again.doubt_id), "repeat_doubt"), "park reason repeat_doubt");
+    eq(again.step, "decided", "repeat closes the doubt without asking the owner");
+    eq((await c.unit(U1)).state, "rescue", "unit awaits supervised work");
   });
 });
 

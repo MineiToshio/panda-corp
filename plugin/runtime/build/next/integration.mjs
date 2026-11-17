@@ -8,7 +8,7 @@ import { err, fenceOf, gitOk, integrationRoot, nowIsoOf, sibling, unitEvent } fr
 
 export async function integrateStep(run, state, notes) {
   const { d, ref } = run;
-  const committed = state.units.some((u) => u.state === "committed" && PLANNED_KINDS.includes(u.kind));
+  const committed = state.units.some((u) => u.state === "committed" && (PLANNED_KINDS.includes(u.kind) || u.rescue?.phase === "completed"));
   if (!committed && !(await acceptedAssumptionPending(run, state))) return;
   const res = await fencedTwoPhase(run.ref,
     async (ctx) => {
@@ -36,10 +36,18 @@ export async function integrateStep(run, state, notes) {
       for (const item of done) {
         const u = findUnit(s, item.unit);
         if (!u || u.state !== "committed") continue;
-        units = units.map((x) => (x.id === u.id ? { ...x, state: "integrated" } : x));
+        const rescuedReview = u.rescue?.phase === "completed" && ["review", "audit", "deferred-review", "doubt-consult"].includes(u.kind);
+        const targetState = rescuedReview ? "verified" : "integrated";
+        units = units.map((x) => (x.id === u.id ? { ...x, state: targetState } : x));
         const onAssumption = typeof item.assumption === "string" ? item.assumption : null;
         events.push({ type: "integrated", data: { unit: u.id, sha: item.sha ?? null, ...(onAssumption ? { assumption: onAssumption } : {}) } });
-        events.push(unitEvent(u.id, "committed", "integrated"));
+        events.push(unitEvent(u.id, "committed", targetState));
+        if (rescuedReview && u.kind === "review") for (const id of item.reviewed ?? []) {
+          const target = findUnit(s, id);
+          if (!target || !["integrated", "reviewing"].includes(target.state)) continue;
+          units = units.map(x => x.id === id ? { ...x, state: "verified" } : x);
+          events.push(unitEvent(id, target.state, "verified"));
+        }
         // A chain integrated on an assume branch is not a safe point of the integration branch.
         if (typeof item.sha === "string" && !onAssumption) safePoint(item.sha);
       }

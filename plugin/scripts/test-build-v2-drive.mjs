@@ -509,7 +509,9 @@ await test("audit cannot be deferred or verified without a real report", async (
   await patchState(run, s => ({...s, units: [audit]}));
   const cell = unitCell({unit:audit.id, kind:"audit", runtime:"claude", model:"opus", effort:"high", via:"agent"});
   const {r} = await loop(run, {next:[act("dispatch",2,{units:[cell]})]});
-  eq(r.outcome,"engine_failure","an impossible native dispatch fails closed");
+  eq(r.outcome,"stop","scripted next stop ends the fake coordinator loop");
+  eq((await stateOf(run)).status, "active", "native dispatch failure does not stop the run");
+  ok((await stateOf(run)).units[0].technical_failures?.length, "native dispatch failure records a retry");
   const after = (await stateOf(run)).units[0];
   ok(after.state !== "verified", "unexecuted audit was certified");
   eq(after.worker, audit.worker, "native checkpoint preserved");eq(after.token_hash, audit.token_hash, "report token preserved");

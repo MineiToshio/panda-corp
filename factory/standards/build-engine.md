@@ -1,5 +1,54 @@
 # Build engine standard (`pandacorp-build` CLI, engine v2)
 
+## BUILD-16 Supervised rescue and completion with gaps (DR-164)
+
+A technical failure never ends an authorized run as `stopped`. Two observations with the
+same error class and unit/file identity enter `rescue`, including scheduler no-progress,
+exceptions and a repeated decided doubt. Different causes do not qualify yet. The journal
+owns the failure history and rescue stages; replay preserves them across coordinator changes.
+An unreadable state cache is replayed under the owned lease before recovery; it never
+authorizes releasing that lease as a technical startup failure.
+This rule supersedes historical technical stop/hand-back instructions below. An explicit
+owner stop remains authoritative. Only unauthorized production, money, real data deletion
+and external communication retain human gates. Capacity keeps its existing automatic wake.
+
+There is one rescue per unit. The CLI gives the supervising app lead (or a fresh drive
+worker) a brief containing the WO objective, necessary files/consumers, protected oracle
+hashes and failure history. Work happens directly in that unit's checkout, with exceptions
+to the failed ordinary artifact allowlist, report/G1 transport and attempt budget recorded
+explicitly. Scope, the lease fence, one writer, protected tests and production guards remain
+binding. Never modify the main checkout or set `PANDACORP_OWNER_RELEASE_OK`.
+An old CLI writer must stop with positive termination evidence before checkout reuse.
+An unproven CLI or native agent writer keeps its original checkout; rescue uses an isolated
+checkout and preserves the original for read-only inspection.
+Superseded jobs are retired in the journal without losing process/checkout ownership
+evidence. Abandoned dependents also retire their jobs, so late or unreadable results cannot
+hold the scheduler open indefinitely.
+
+For `next.action: rescue`, read `rescue.brief_path`. `rescue.via: session` means the app lead
+executes the work and files `pb rescue --epoch E --unit U --token T --file RESULT`.
+`via: cli` means the engine launches and harvests the worker; keep calling `next`.
+A rescue response carrying only `wait` is still active work, not close-out. The result schema
+is `schemas/rescue-report.schema.json`: status, summary, authored_by and gate (null unless
+one of the four actual human actions is required). Do not commit manually.
+
+Protected tests cannot be edited or deleted during direct work. If an oracle is wrong,
+return `status: repair` and `oracle_repair: {files, contract, reason}` with concrete protected
+paths, the incompatible AC/framework contract and replacement justification. The existing
+independent tests execution versions the predecessor hashes and verifies the replacement
+before the supervisor resumes; its reason and commit remain recorded. The supervisor
+cannot approve its own oracle repair.
+
+The CLI reruns full `bash .pandacorp/verify.sh`, freezes the candidate with a commit trailer
+`Rescue: <unit> <cause>`, and requires an allocator-qualified stronger reviewer in a fresh
+context before integration. Review reruns full verify on that exact clean commit; changed
+protected hashes or gate machinery fail closed. A successful result re-enters ordinary
+integration, FRD gates and landing. An unsuccessful rescue becomes `abandoned`, writes an
+explicit gap report and closes dependent work while independent work continues. At close-out
+any gaps produce `completed_with_gaps`, never technical `stopped`. Final summaries include
+every rescue, cause, exception and uncompleted unit. Do not ask the owner a technical question.
+
+
 > Domain: Quality/Process · Severity: **MUST** · Enforcement: the `pandacorp-build` CLI itself (deterministic, epoch-fenced, fail-closed) + its suites `plugin/scripts/test-build-v2-*.mjs` + the independent reviewer at each FRD/landing; **factory-internal (process) — not injected**: projects meet it through the CLI, `.pandacorp/merge-queue.sh` and the untracked git `pre-push` hook. See DR-150..DR-153.
 
 How `/pandacorp:implement` builds once it runs on the v2 engine: a thin session protocol over a
@@ -849,26 +898,27 @@ on both green and red. Verification: `test-build-v2-disk.mjs`, `test-worktree-bo
 `test-merge-queue-lock-refresh.sh`, `test-merge-queue-certified-tree.sh`,
 `test-merge-queue-release-gate.sh` under `plugin/scripts/`.
 
-**Engine failure** (a fault of the CLI, not of the product): retry the step once after `rebuild-state`;
-if it repeats, stop at the last safe point, exit 8, release the lease, write `handback/engine.md`, open the
-next free `factory/backlog/BL-NNNN` for a standalone project (DR-103), emit `engine_failure`.
-For a nested project (root below repo top) or a factory-root run, write only the untracked local
-`handback/engine-backlog-<run>.md` draft after `assertNotTracked`; never write factory backlog in
-the main checkout. Its return is `{draft:true,id:null,file,reason}`; the failure event's
-`backlog_draft` feeds `summary.need_from_owner` and the Spanish report (DEC-14/DEC-16).
-Verification: `plugin/scripts/test-build-v2-nested.mjs`, `test-build-v2-failure.mjs`. It consumes
-no unit attempt and never offers another engine. Standalone owner message: "El motor nuevo se ha parado por un fallo suyo, no de tu app. Tu
-trabajo está a salvo en la rama `lane/<run_id>/integration` (N WOs hechas). Para seguir: en la fábrica di 'arregla
-BL-NNNN'; luego aquí, `/pandacorp:implement --resume`." For a local draft the message names its
-path for factory triage instead of inventing a BL id.
-- **Fix and continue:** fixed in the factory through its normal change flow (never in the product build's worktree), PATCH or
-  MINOR, plugin update, new session; `--resume` continues the **same** `run_id`.
-- **State compatibility:** `state.json` and every journal line carry a schema version; a PATCH or MINOR
-  always reads the previous version's journal (previous-version fixtures in the suite); an incompatible
-  state makes `--resume` run `rebuild-state`, losing at most the unit in flight.
-- After 3 engine failures in one build the message adds one informative line ("si lo consideras un
-  desastre, dilo y se aplica el regreso").
-- **Run status and terminal actions (D32).** Harvest and evaluate real eligible tasks first; deterministic closing/landing never needs model capacity. With nothing running: three consecutive env-infra hand-backs stop; completed/handed-back work is done; only gates/owner answers wait for the owner; no eligible model cell fits means capacity waiting with the minimum resumeAt and lease retained; unresolved dependencies cause deadlock; other no-progress stops. Capacity waiting is automatically resumed under BUILD-11 and cannot be finished or released as a completed run. Other non-done terminal actions apply status/journal and release the lease. Waiting gates keep their human authority; the session reports the applied result.
+**Engine failure** (a fault of the CLI, not of the product): record the error class and
+unit/file identity, retry the safe step once after fenced `rebuild-state`, and enter the
+one supervised rescue on a second matching observation (BUILD-16). Preserve the lease,
+last safe point, partial checkout and attempts. Different errors remain individually
+recorded and do not falsely qualify as repetition. No active technical failure writes an
+owner question, releases the lease as stopped or requires a factory fix before continuation.
+Legacy unfenced startup diagnostics may still write a local engine-backlog draft; they
+cannot certify or terminate a live run they do not own.
+
+**State compatibility.** Schema-2 MINOR additions preserve older journal events. New rescue
+and abandonment events carry complete unit snapshots, including independent oracle repair
+provenance, so replay does not depend on a mutable cached flag. Work-order frontmatter
+never resurrects an abandoned or actively rescued unit.
+
+**Run status and terminal actions (D32/DR-164).** Harvest and evaluate real eligible tasks
+first; deterministic closing/landing never needs model capacity. Completed work returns
+done, with completed_with_gaps when any unit was abandoned. Only actual production,
+money, data-deletion or external-communication gates wait for the owner. Both tools unable
+to fit work retain capacity waiting with minimum resumeAt, the lease and BUILD-11 wake.
+Dependency deadlocks, repeated environment faults and other no-progress states use rescue;
+none is a technical stopped outcome. Explicit owner cancellation remains authoritative.
 
 ## Gates G0..G4 (D7)
 
