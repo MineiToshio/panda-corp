@@ -16,7 +16,7 @@ import { planAnswer } from "../runtime/build/answers/plan.mjs";
 import { planTestRepair, settleTestRepairs, doubtBasis } from "../runtime/build/recovery.mjs";
 import { atomicWriteJson, sha256Hex } from "../runtime/build/fsx.mjs";
 import { chooseTerminal, runningSummary } from "../runtime/build/next/terminal.mjs";
-import { blockedClosure, depsMet } from "../runtime/build/next/scope.mjs";
+import { blockedClosure, depsMet, batchState } from "../runtime/build/next/scope.mjs";
 import { isRepeatDoubt } from "../runtime/build/doubts/repeat.mjs";
 import { vetoReasons } from "../runtime/build/doubts/veto.mjs";
 import { launchWorker, pollWorker, reportEnvelope, buildWorkerArgv } from "../runtime/build/workers.mjs";
@@ -518,4 +518,170 @@ test("SWC: physical sandbox cache is probed, and unwritable/escaped cache uses a
   const fallback = await prepareSwcCache(alias, { fs: injected, env: {} }); assert.ok(fallback.cache.endsWith("swc-worker"));
   const argv = buildWorkerArgv({ project: c.project, workerId: "w-cache", unit: unit.id, cell: { runtime: "codex", model: "sol", effort: "high" }, promptFile: c.paths.schemaFile("report"), dir: alias });
   assert.equal(argv.args[argv.args.indexOf("--dir") + 1], await fs.realpath(unit.worktree));
+}));
+
+// Independent review R1 probes P1-P7, asserting the safe outcomes.
+import { harvest } from "../runtime/build/next/harvest.mjs";
+import { assessBatch } from "../runtime/build/land/batch.mjs";
+
+test("R1 P1: a reused atomic temp path never exempts deletion of foreign data", () => fixture(async c => {
+  const source = 'import { randomUUID } from "node:crypto";\nimport { writeFile, rename, unlink } from "node:fs/promises";\nconst temporary = `${target}.${randomUUID()}.tmp`;\nawait writeFile(temporary, data);\nawait rename(temporary, target);\nawait rename(victim, temporary);\nawait unlink(temporary);\n';
+  const file = path.join(c.project, "cleanup.ts");
+  for (const code of [source, source.replace("rename(victim, temporary)", "rename(victim, `${temporary}`)"), source.replace("await rename(victim, temporary)", "await copyFile(victim, temporary)"), source.replace("await rename(victim, temporary)", "await reuse(temporary)")]) {
+    await fs.writeFile(file, code);
+    const result = JSON.parse(execFileSync(process.execPath, [path.resolve("plugin/scripts/classify-change.mjs"), "--repo", c.project, "--files", "src/save.ts", "--text", file], { encoding: "utf8" }).trim().split("\n").at(-1));
+    assert.ok(result.floor_hits.some(h => h.signal === "S8"));
+  }
+}));
+
+test("R1 P2: exhausted global rescue closes with gaps and never reuses the abandoned unit", () => fixture(async c => {
+  const actions = [];
+  for (let i = 0; i < 8; i++) {
+    const out = await withEngineRecovery({ ...c.ref, cmd: "next", step: () => { throw Object.assign(new Error("persistent scheduler fault"), { code: "EIO", ...(i > 1 ? { unit: "u-rescue-run" } : {}) }); } }, { ...c.deps, rebuild: async () => {} });
+    actions.push(out.body?.action);
+  }
+  const state = await c.ctx.readState();
+  assert.equal(state.status, "completed_with_gaps");
+  assert.equal(state.units.length, 1);
+  assert.equal(state.units[0].state, "abandoned");
+  assert.equal(actions.at(-1), "done");
+  assert.equal(await bs.currentLease(c.project), null);
+  assert.equal(st.foldJournal((await jr.readJournal(c.paths.journalFile)).events).status, "completed_with_gaps");
+}));
+
+test("R1 P3: granted authorization clears protection and later technical failures rescue", () => fixture(async c => {
+  const unit = st.newUnit({ id: "u-approved", kind: "build", state: "parked", parked: "owner_question", pending_answer: "q-spend", protected_action: "money" });
+  const unanswered = { ...await c.ctx.readState(), units: [unit] };
+  const refused = planAnswer({ state: unanswered, question: "q-spend", value: false, questions: new Map([["q-spend", { id: "q-spend", reversible: false, gate: "money" }]]) });
+  assert.equal(refused.state.units[0].protected_action, "money", "a refusal cannot grant authorization");
+  await c.ctx.appendEvent({ type: "unit_queued", data: unit });
+  const answered = planAnswer({ state: unanswered, question: "q-spend", value: true, questions: new Map([["q-spend", { id: "q-spend", reversible: false, gate: "money" }]]) });
+  assert.equal(answered.state.units[0].protected_action ?? null, null);
+  for (const event of answered.events) await c.ctx.appendEvent(event);
+  assert.equal(st.findUnit(st.foldJournal((await jr.readJournal(c.paths.journalFile)).events), unit.id).protected_action, null);
+  await c.ctx.writeState(st.patchUnit(answered.state, unit.id, { state: "reported", attempt: 3 }));
+  for (let i = 0; i < 2; i++) await recoverTechnicalStall(c.ref, "no_progress", c.deps);
+  assert.equal((await c.ctx.readState()).units[0].state, "rescue");
+}));
+
+test("R1 P4: legacy live job without envelopes accepts its fenced report; repeated read failures rescue", () => fixture(async c => {
+  const unit = await c.dispatch({ id: "u-legacy", kind: "build" });
+  const worker = { runtime: "codex", model: "sol", effort: "medium", via: "cli", pid: null, worker_id: "legacy" };
+  const job = { id: "legacy", kind: "worker", unit: unit.id, frd: FRD, pid: null, cwd: unit.worktree, h_slot: false, started_at: new Date().toISOString(), state: "running", exit: null, worker_id: "legacy" };
+  await c.ctx.writeState({ ...st.patchUnit(await c.ctx.readState(), unit.id, { worker }), jobs: [job] });
+  const input = { project: c.project, workerId: "legacy", unit: unit.id, epoch: c.ref.epoch, required: true };
+  assert.equal(reportEnvelope(input).ok, true);
+  assert.equal(reportEnvelope({ ...input, epoch: c.ref.epoch + 1 }).ok, false);
+  assert.equal(reportEnvelope({ ...input, legacyToken: "wrong" }).ok, false);
+  await write(unit.worktree, FILE, "export const legacy = true;\n");
+  assert.equal((await c.report(unit, [FILE])).outcome, "committed");
+  await c.ctx.writeState(st.patchUnit(await c.ctx.readState(), unit.id, { state: "running" }));
+  const d = { ...c.deps, log: () => {}, workers: { pollWorker: async () => ({ state: "error", kind: "transport", detail: "unreadable envelope" }) } };
+  const token = adm.issueToken(unit.id, "B", { file: c.paths.admissionFile });
+  await c.ctx.writeState(st.patchUnit(await c.ctx.readState(), unit.id, { token_hash: token.token_hash }));
+  await harvest({ ref: { ...c.ref, deps: d }, paths: c.paths, d }, await c.ctx.readState(), []);
+  assert.equal(reportEnvelope({ ...input, legacyToken: token.token }).ok, true, "a transient read failure preserves the original worker credential");
+  for (let i = 0; i < 5; i++) await harvest({ ref: { ...c.ref, deps: d }, paths: c.paths, d }, await c.ctx.readState(), []);
+  const state = await c.ctx.readState();
+  assert.equal(state.units[0].state, "rescue");
+  assert.equal(state.units[0].technical_failures.length, 2);
+  assert.equal(runningSummary(state).any, false);
+}));
+
+test("R1 P5: global oracle repair closes through the landing gate without an FRD", () => {
+  const patch = st.newUnit({ id: "u-patch-global", kind: "patch", frd: null, state: "rescue", test_hashes: { [ORACLE]: "a".repeat(64) }, rescue: { phase: "work" } });
+  const planned = planTestRepair(st.newState({ units: [patch] }), { id: "r-global", unit: patch.id, question: ORACLE, why: "contract repair", options: [{ text: "replace oracle" }] });
+  const state = { ...planned.state, units: planned.state.units.map(u => ({ ...u, state: u.id === patch.id ? "abandoned" : "integrated", ...(u.id === patch.id ? { rescue: { ...u.rescue, exclusion: { pending: false, commits: [] } } } : {}) })) };
+  assert.equal(batchState(state).complete, true);
+  assert.equal(assessBatch(state).complete, true);
+  assert.deepEqual(assessBatch(state).landable.map(u => u.id), ["u-test-repair-r-global"]);
+});
+
+test("R1 P7: abandoning integrated rejected code excludes its diff while independent work can land", () => fixture(async c => {
+  const original = await c.dispatch({ id: "u-rejected-build", kind: "build" });
+  const before = await fs.readFile(path.join(c.paths.integrationWorktree, FILE), "utf8");
+  await write(original.worktree, FILE, "export const unacceptableBehavior = true;\n");
+  assert.equal((await c.report(original, [FILE])).outcome, "committed");
+  await integrateStep({ ref: { ...c.ref, deps: c.deps }, d: c.deps, paths: c.paths }, await c.ctx.readState(), []);
+  for (let i = 0; i < 2; i++) await recordTechnicalFailure(c.ctx, original.id, { code: "review_blocked", detail: "independent review rejected behavior" }, c.deps);
+  const out = await advanceRescues(c.ref, c.deps);
+  assert.equal((await rescueReport(c, out, "failed")).outcome, "abandoned");
+  const independent = st.newUnit({ id: "u-independent-docs", kind: "docs", state: "integrated" });
+  const state = { ...await c.ctx.readState(), units: [...(await c.ctx.readState()).units, independent] };
+  assert.equal(await fs.readFile(path.join(c.paths.integrationWorktree, FILE), "utf8"), before);
+  assert.equal(batchState(state).complete, true);
+  assert.equal(assessBatch(state).complete, true);
+  assert.deepEqual(assessBatch(state).landable.map(u => u.id), [independent.id]);
+  assert.equal(state.units[0].state, "abandoned");
+  assert.match(state.units[0].rescue.failure, /supervised fixture/);
+}));
+
+test("R1 P6: Mission Control renders rescue and abandonment with their Spanish reason", async () => {
+  const { buildWorkOrderDisplay } = await import("../../mission-control/src/lib/build-run/display.ts");
+  for (const [state, expected, label] of [["rescue", "in_progress", "Rescate en curso"], ["abandoned", "fail", "Abandonada"]]) {
+    const wo = { id: "WO-01-001", state: "todo" };
+    const run = { state: { status: "active", units: [{ id: "u-ui", kind: "build", wos: [wo.id], state, attempt: 1, rescue: { phase: "failed", failure: "fallo de transporte" } }] }, matchesLease: true, live: true };
+    const shown = buildWorkOrderDisplay([wo], run).items[0];
+    assert.equal(shown.state, expected);
+    assert.equal(shown.buildUnit.reason, `${label}: fallo de transporte`);
+    assert.ok(!shown.buildUnit.reason.includes("—"));
+  }
+});
+
+test("R1 B2: legacy abandonment excludes product code without reverting independent aggregate metadata", () => fixture(async c => {
+  const root = c.paths.integrationWorktree;
+  const one = await c.dispatch({ id: "u-meta-one", kind: "build" });
+  const before = await fs.readFile(path.join(root, FILE), "utf8");
+  await write(one.worktree, FILE, "export const rejected = true;\n");
+  await c.report(one, [FILE]);
+  await integrateStep({ ref: { ...c.ref, deps: c.deps }, d: c.deps, paths: c.paths }, await c.ctx.readState(), []);
+  const raw = await c.dispatch({ id: "u-meta-two", kind: "build" });
+  const two = { ...raw, frd: "frd-02-beta", wos: ["WO-02-001"] };
+  await c.ctx.writeState(st.patchUnit(await c.ctx.readState(), two.id, { frd: two.frd, wos: two.wos }));
+  await write(two.worktree, "src/beta/view.ts", "export const independent = true;\n");
+  await c.report(two, ["src/beta/view.ts"]);
+  await integrateStep({ ref: { ...c.ref, deps: c.deps }, d: c.deps, paths: c.paths }, await c.ctx.readState(), []);
+  let state = st.patchUnit(await c.ctx.readState(), one.id, { state: "abandoned", rescue: { phase: "failed", failure: "legacy rejected unit" } });
+  state = { ...st.patchUnit(state, two.id, { state: "verified" }), scope: { ...state.scope, frds: [FRD, two.frd], wos: ["WO-01-001", ...two.wos] } };
+  assert.equal(batchState(state).complete, false, "unproven legacy exclusion is not landable");
+  assert.equal(assessBatch(state).complete, false);
+  await c.ctx.writeState(state);
+  assert.equal(await advanceRescues(c.ref, c.deps), null);
+  state = await c.ctx.readState();
+  assert.equal(state.units[0].rescue.exclusion.pending, false);
+  assert.equal(await fs.readFile(path.join(root, FILE), "utf8"), before);
+  assert.match(await fs.readFile(path.join(root, "src/beta/view.ts"), "utf8"), /independent/);
+  assert.match(await fs.readFile(path.join(root, `docs/frds/${FRD}/work-orders/wo-01-001.md`), "utf8"), /implementation_status: BLOCKED/);
+  assert.match(await fs.readFile(path.join(root, "docs/frds/frd-02-beta/work-orders/wo-02-001.md"), "utf8"), /implementation_status: IN_REVIEW/);
+  assert.equal(batchState(state).complete, true);
+  assert.equal(assessBatch(state).complete, true);
+}));
+
+test("R1 I4: standalone global oracle repair lands through full G3 and finishes with its consumer gap", () => fixture(async c => {
+  const { land, harvestLand } = await import("../runtime/build/land.mjs");
+  const root = c.paths.integrationWorktree;
+  const old = sha256Hex(await fs.readFile(path.join(root, ORACLE)));
+  await write(root, ORACLE, "import assert from 'node:assert/strict'; assert.deepEqual(['sentinel'], ['sentinel']);\n");
+  // This fixture's merge queue really verifies and fast-forwards its own main checkout.
+  await write(root, ".pandacorp/merge-queue.sh", `#!/bin/bash\nset -e\nbash .pandacorp/verify.sh\nmkdir -p .pandacorp/run\nprintf verified > .pandacorp/run/g3-ran\ngit -C "$1" merge --ff-only "$2"\n`);
+  git(root, ["add", "-A"]); git(root, ["commit", "-qm", "test: global oracle replacement\n\nUnit: u-global-repair"]);
+  const target = st.newUnit({ id: "u-global-consumer", kind: "patch", state: "abandoned", test_hashes: { [ORACLE]: old }, rescue: { phase: "failed", failure: "consumer could not finish", exclusion: { pending: false, commits: [] } } });
+  const repair = st.newUnit({ id: "u-global-repair", kind: "tests", state: "integrated", test_hashes: { [ORACLE]: sha256Hex(await fs.readFile(path.join(root, ORACLE))) }, test_repair: { target: target.id, doubt: "r-global", reason: "framework contract", old_hashes: { [ORACLE]: old } } });
+  await c.ctx.writeState({ ...await c.ctx.readState(), units: [target, repair] });
+  for (const unit of [target, repair]) await c.ctx.appendEvent({ type: "unit_queued", data: unit });
+  const deps = { ...c.deps, jobs: {
+    spawnJob: async spec => { execFileSync(spec.cmd[0], [...spec.cmd.slice(1), c.project, c.paths.integrationBranch(RUN)], { cwd: spec.cwd, env: { ...process.env, ...c.env }, stdio: "pipe" }); return { id: spec.jobId }; },
+    pollJob: async () => ({ state: "done", exit: 0 }),
+  } };
+  assert.equal(batchState(await c.ctx.readState()).complete, true);
+  assert.equal((await land(c.ref, deps)).output.result, "running");
+  assert.equal(await fs.readFile(path.join(root, ".pandacorp/run/g3-ran"), "utf8"), "verified");
+  await harvestLand(c.ref, deps);
+  const state = await c.ctx.readState();
+  assert.equal(st.findUnit(state, repair.id).state, "landed");
+  assert.equal(st.findUnit(state, target.id).state, "abandoned");
+  await finishRun(c.ref, c.deps);
+  assert.equal((await c.ctx.readState()).status, "completed_with_gaps");
+  assert.equal(await bs.currentLease(c.project), null);
+  assert.match(await fs.readFile(path.join(c.project, ORACLE), "utf8"), /deepEqual\(\['sentinel'\], \['sentinel'\]\)/);
 }));

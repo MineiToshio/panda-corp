@@ -81,7 +81,12 @@ un revisor independiente comprueba el resultado y la verificación completa debe
 El commit registra la unidad rescatada y su causa.
 
 Cada unidad tiene un rescate. Si también falla, queda `abandoned` con un informe; el trabajo
-independiente continúa. El resultado final será `completed_with_gaps`, con una lista de lo
+independiente continúa. Antes de aterrizarlo, el motor retira el código rechazado y actualiza
+las órdenes abandonadas sin deshacer los contadores de otras unidades. Un conflicto al retirar
+ese código bloquea su aterrizaje y deja el motivo registrado. Si se agota el rescate del motor
+completo, el run cierra con lo conservado en su rama; no vuelve a usar el rescate abandonado.
+En el tablero, el rescate aparece en curso y el abandono como fallido, ambos con su motivo.
+El resultado final será `completed_with_gaps`, con una lista de lo
 que falta. El journal y el resumen muestran cada rescate, su causa y las excepciones aplicadas.
 Solo producción, dinero, borrado real o comunicación externa sin autorización esperan tu firma.
 Si ninguna herramienta tiene cupo, el motor conserva la espera y la reanudación automática.

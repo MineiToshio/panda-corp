@@ -294,11 +294,17 @@ export function foldJournal(events) {
       case "parked": {
         const u = unitOrThrow(state, d.unit, ev.type);
         u.parked = d.reason ?? null;
+        if (Object.hasOwn(d, "protected_action")) u.protected_action = d.protected_action;
         u.pending_answer = d.question ?? null;
         if (d.assumed_on) u.assumed_on = d.assumed_on; else delete u.assumed_on;
         break;
       }
-      case "waiting_gate": unitOrThrow(state, d.unit, ev.type).waiting_gate = d.kind ?? null; break;
+      case "waiting_gate": {
+        const u = unitOrThrow(state, d.unit, ev.type);
+        u.waiting_gate = d.kind ?? null;
+        if (Object.hasOwn(d, "protected_action")) u.protected_action = d.protected_action;
+        break;
+      }
       case "safe_point": state.last_safe_point = { sha: d.sha, kind: d.kind, at: ev.at }; break;
       case "doubt_opened": unitOrThrow(state, d.unit, ev.type).doubt_id = d.doubt_id; break;
       case "doubt_consulted": state.doubts_consulted += 1; break;

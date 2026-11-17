@@ -104,14 +104,14 @@ export const withoutAssumedOn = ({ assumed_on: _assumedOn, ...rest }) => rest;
  * @param {object} unit a `parked` state unit
  * @returns {{unit: object, events: {type: string, data: object}[]}}
  */
-export function releasedUnit(unit) {
+export function releasedUnit(unit, { authorized = true } = {}) {
   const carried = unit.assumed_on ?? null;
-  const next = { ...withoutAssumedOn(unit), state: "queued", parked: carried ? "built_on_assumption" : null, pending_answer: carried, token_hash: null };
+  const next = { ...withoutAssumedOn(unit), state: "queued", parked: carried ? "built_on_assumption" : null, pending_answer: carried, token_hash: null, ...(authorized ? { protected_action: null } : {}) };
   return {
     unit: next,
     events: [
       { type: "unit_state", data: { unit: unit.id, from: unit.state, to: "queued" } },
-      { type: "parked", data: { unit: unit.id, reason: next.parked, question: next.pending_answer } },
+      { type: "parked", data: { unit: unit.id, reason: next.parked, question: next.pending_answer, ...(authorized ? { protected_action: null } : {}) } },
     ],
   };
 }

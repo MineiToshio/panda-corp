@@ -1,6 +1,7 @@
 // (1) Harvest: finished CLI workers (reports, reviews, consult answers, limits), G2 verdicts pinned to their snapshot
 // sha (B5) and the land job; a refused report is routed, never swallowed.
 import path from "node:path";
+import { recordTechnicalFailure } from "../rescue.mjs";
 import { atomicWriteJson, readJson } from "../fsx.mjs";
 import { settleTestRepairs } from "../recovery.mjs";
 import { readGatePatch, writeGateFailure } from "../gatefail.mjs";
@@ -74,7 +75,8 @@ async function harvestWorker(run, job, notes) {
   if (!["running", "done", "error"].includes(h?.state)) throw err("ENGINE_FAILURE", `workers.pollWorker returned no worker state for ${job.worker_id}`);
   if (h.state === "running") return;
   if (h.state === "error") {
-    // The `read` itself failed (timeout, unreadable seal): the worker is not settled; the next pass polls again.
+    // A repeated transport failure is technical work, never an unbounded poll loop.
+    if (unit0) await fencedTwoPhase(ref, ctx => recordTechnicalFailure(ctx, unit0.id, { code: `worker_read:${h.kind ?? "error"}`, detail: h.detail }, d), value => value);
     d.log(`next: worker ${job.worker_id} could not be read (${h.kind ?? "error"}): ${h.detail ?? ""}`);
     return;
   }

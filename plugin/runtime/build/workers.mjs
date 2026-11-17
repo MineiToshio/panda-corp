@@ -407,7 +407,7 @@ export async function pollWorker(input, deps) {
     if (peek.state === "running") return { state: "running", workerId };
     return { state: "done", workerId, outcome: "worker_error", kind: "dead", detail: `worker ${workerId} left no sealed result (${peek.state})`, payload };
   }
-  const binding = reportEnvelope({ project, workerId, unit, epoch, required: input.requireEnvelope === true }, deps);
+  const binding = reportEnvelope({ project, workerId, unit, epoch, required: input.requireEnvelope === true, legacyToken: payload.answer?.token }, deps);
   if (!binding.ok) return { state: "error", workerId, kind: "transport", detail: binding.detail };
   if (binding.token && payload.answer && typeof payload.answer === "object") payload.answer = { ...payload.answer, token: binding.token };
   const verdict = classifyWorkerPayload(payload, { unit, schema: readSchema(schemaFile, deps), now: now ?? deps?.env?.PANDACORP_NOW ?? Date.now() });
@@ -437,7 +437,7 @@ export function stopWorkers(project, ids, deps) {
 }
 
 /** Launcher-owned, job/epoch-bound credentials. A damaged envelope is a retryable read error, never a code failure. */
-export function reportEnvelope({ project, workerId, unit, epoch, required = false }, deps = {}) {
+export function reportEnvelope({ project, workerId, unit, epoch, required = false, legacyToken }, deps = {}) {
   const paths = buildPaths(project);
   const state = readJsonSync(paths.stateFile, deps);
   const live = state?.jobs?.find(j => j.kind === "worker" && j.worker_id === workerId && j.unit === unit && j.state === "running");
@@ -445,6 +445,16 @@ export function reportEnvelope({ project, workerId, unit, epoch, required = fals
   if (!live) return required ? { ok: false, detail: "no matching live engine job for the launcher envelope" } : { ok: true, token: null };
   let envelope = readJsonSync(path.join(paths.build, "worker-envelopes", `${workerId}.json`), deps);
   const saved = state.units.find(u => u.id === unit);
+  const receiptFile = path.join(paths.build, "worker-envelopes", `${workerId}.launch.json`);
+  const envelopeFile = path.join(paths.build, "worker-envelopes", `${workerId}.json`);
+  // Pre-envelope jobs still carry their original report token. Accept only a current,
+  // matching job/worker/epoch; ingestion verifies that token against admission as before.
+  const fs = fsOf(deps);
+  if (!fs.existsSync(envelopeFile) && !fs.existsSync(receiptFile)) {
+    const bound = state.epoch === epoch && saved?.worker?.worker_id === workerId && typeof saved.token_hash === "string" && saved.token_hash.length > 0;
+    const tokenValid = legacyToken === undefined || typeof legacyToken === "string" && createHash("sha256").update(legacyToken).digest("hex") === saved?.token_hash && verifyToken(unit, legacyToken, { file: paths.admissionFile }).ok;
+    return bound && tokenValid ? { ok: true, token: null, legacy: true } : { ok: false, detail: "legacy report does not match the live job, epoch and admission" };
+  }
   const valid = candidate => {
     if (!candidate || typeof candidate.token !== "string" || !candidate.token || !Number.isInteger(candidate.epoch) || candidate.epoch < 1) return false;
     const hash = createHash("sha256").update(candidate.token).digest("hex");

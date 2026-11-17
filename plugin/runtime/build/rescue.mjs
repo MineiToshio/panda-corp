@@ -1,5 +1,6 @@
 // DR-164: one supervised escape from technical fences, with a fresh review before re-ingestion.
 // The lease, protected oracles, full verify and actual human gates are never escape hatches.
+import { excludeAbandoned } from "./integrate/abandoned.mjs";
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
@@ -26,7 +27,7 @@ const isGateFile = file => /^(?:\.pandacorp\/|\.github\/|AGENTS\.md$|CLAUDE\.md$
 const SKIPPED = ["ordinary artifact allowlist", "ordinary report/G1 transport", "ordinary attempt budget"];
 const fsOf = d => d.fs ?? fsp;
 const clean = text => String(text ?? "").replace(/\s+/g, " ").slice(0, 1200);
-const protectedHashes = state => Object.assign({}, ...state.units.map(u => ({ ...u.test_hashes, ...u.probe_hashes })));
+const protectedHashes = state => Object.assign({}, ...state.units.filter(u => u.state !== "abandoned").map(u => ({ ...u.test_hashes, ...u.probe_hashes })));
 
 /** Same class AND same unit/file, independent of attempt, error prose or coordinator epoch. */
 export function failureIdentity(unit, failure) {
@@ -44,7 +45,7 @@ export function observeTechnicalFailure(state, unitId, failure) {
   let type = "technical_failure", action = "retry";
   if (unit.rescue && unit.rescue.phase !== "failed") {
     next = { ...next, state: "abandoned", token_hash: null, parked: null, pending_answer: null,
-      rescue: { ...unit.rescue, phase: "failed", failure: last.detail || last.code } };
+      rescue: { ...unit.rescue, phase: "failed", exclusion: { pending: true }, failure: last.detail || last.code } };
     type = "unit_abandoned"; action = "abandoned";
   } else if (repeated && !unit.rescue) {
     next = { ...next, state: "rescue", parked: null, pending_answer: null, token_hash: null,
@@ -70,9 +71,12 @@ export async function recordTechnicalFailure(ctx, unit, failure, deps = {}) {
   const state = await ctx.readState();
   if (state.run_id !== ctx.runId) throw err("FENCE", "rescue state does not belong to the lease run");
   let result = observeTechnicalFailure(state, unit, failure);
-  releaseToken(unit, { file: ctx.paths.admissionFile });
+  if (["rescue", "abandoned"].includes(result.action)) releaseToken(unit, { file: ctx.paths.admissionFile });
   await save(ctx, result);
-  if (result.action === "abandoned") await abandonDependents(ctx, unit, deps);
+  if (result.action === "abandoned") {
+    await abandonDependents(ctx, unit, deps);
+    await excludeAbandoned(ctx, deps);
+  }
   return result;
 }
 
@@ -87,7 +91,7 @@ async function abandonDependents(ctx, rootId, deps) {
       // An FRD-wide reviewer/audit can still judge surviving independent units.
       if (["review", "audit"].includes(u.kind) && u.depends_on.some(id => !lost.has(id))) continue;
       const retired = (state.jobs ?? []).filter(j => j.unit === u.id && j.kind === "worker" && j.state === "running");
-      const next = { ...u, state: "abandoned", token_hash: null, rescue: { ...(u.rescue ?? {}), previous_jobs: [...(u.rescue?.previous_jobs ?? []), ...retired], phase: "failed", failure: `dependency abandoned: ${rootId}`, skipped: [], cause: `dependency:${rootId}` } };
+      const next = { ...u, state: "abandoned", token_hash: null, rescue: { ...(u.rescue ?? {}), previous_jobs: [...(u.rescue?.previous_jobs ?? []), ...retired], phase: "failed", exclusion: { pending: true }, failure: `dependency abandoned: ${rootId}`, skipped: [], cause: `dependency:${rootId}` } };
       releaseToken(u.id, { file: ctx.paths.admissionFile });
       await ctx.appendEvent({ type: "unit_abandoned", data: { unit: u.id, unit_snapshot: next } });
       for (const j of retired) await ctx.appendEvent({ type: "job_finished", data: { id: j.id, state: "done", exit: null } });
@@ -131,12 +135,16 @@ async function updateRescue(ref, id, patch, deps) {
 
 /** Prepare one rescue stage. App lead writes work directly; drive and every review use fresh CLI contexts. */
 export async function advanceRescues(ref, deps = {}) {
-  const state = await readState(ref.project, deps);
+  let state = await readState(ref.project, deps);
+  if (state.units.some(u => u.state === "abandoned" && u.rescue?.exclusion?.pending !== false)) {
+    await fencedTwoPhase({ ...ref, deps }, ctx => excludeAbandoned(ctx, deps), value => value);
+    state = await readState(ref.project, deps);
+  }
   const approved = state.units.find(u => inScope(state, u) && u.rescue && u.state === "reported" && state.answers?.[`g-${u.id}`] === true);
   if (approved) {
     await fencedTwoPhase({ ...ref, deps }, async ctx => {
       const s = await ctx.readState(), current = findUnit(s, approved.id);
-      const next = { ...current, state: "rescue", waiting_gate: null, rescue: { ...current.rescue, authorized_gates: [...new Set([...(current.rescue.authorized_gates ?? []), current.rescue.pending_gate].filter(Boolean))], pending_gate: null } };
+      const next = { ...current, state: "rescue", waiting_gate: null, protected_action: null, rescue: { ...current.rescue, authorized_gates: [...new Set([...(current.rescue.authorized_gates ?? []), current.rescue.pending_gate].filter(Boolean))], pending_gate: null } };
       await ctx.appendEvent({ type: "rescue_stage", data: { unit: next.id, unit_snapshot: next } });
       await ctx.writeState(patchUnit(s, next.id, next));
     }, value => value);

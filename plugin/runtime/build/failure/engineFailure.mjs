@@ -9,7 +9,7 @@ import { withRunCleanup } from "../lifecycle/cleanup.mjs";
 import { cleanupRunWorktrees } from "../integrate/worktrees.mjs";
 import { finishPerformance } from "../perf.mjs";
 import { buildPaths } from "../paths.mjs";
-import { fencedTwoPhase, newUnit, readLeaseToken, readState, rebuildState } from "../state.mjs";
+import { fencedTwoPhase, isTerminalUnit, newUnit, readLeaseToken, readState, rebuildState } from "../state.mjs";
 import { DONE_STATES, POLICY, WO_UNIT_KINDS, emitSafely, err, integrationBranchOf, oneLine, woKey } from "./common.mjs";
 import { fileBacklogNote, sanitize } from "./engineBacklog.mjs";
 
@@ -93,8 +93,16 @@ export async function handleEngineFailure({ project, epoch = null, cmd = null, s
         }
       }
     }
+    if (live?.status === "completed_with_gaps" && live.epoch === Number(epoch)) return { action: "done", released: true, run_id: live.run_id, message: "Run cerrado con huecos tras agotar el rescate global.", warnings: [] };
     if (live && ["active", "waiting", "resuming"].includes(live.status)) {
-      let target = live.units.find(u => u.id === error?.unit && u.state !== "suspended") ?? live.units.find(u => u.state === "rescue") ?? live.units.find(u => !["landed", "abandoned", "verified", "waiting_gate", "suspended"].includes(u.state));
+      let target = live.units.find(u => u.id === error?.unit && !isTerminalUnit(u) && u.state !== "suspended") ?? live.units.find(u => u.state === "rescue") ?? live.units.find(u => !isTerminalUnit(u) && !["verified", "waiting_gate", "suspended"].includes(u.state));
+      if (!target && live.units.some(u => u.id === "u-rescue-run" && u.state === "abandoned")) {
+        const { applyTerminal } = await import("../next/terminal.mjs");
+        await applyTerminal({ project, epoch }, { action: "done", status: "completed_with_gaps", reason: "global_rescue_exhausted" }, deps);
+        const { finishRun } = await import("../lifecycle.mjs");
+        await finishRun({ project, epoch }, deps);
+        return { action: "done", released: true, run_id: live.run_id, message: "Run cerrado con huecos tras agotar el rescate global; el trabajo queda conservado en su rama.", warnings: [] };
+      }
       if (!target) {
         target = newUnit({ id: "u-rescue-run", kind: "docs" });
         await fencedTwoPhase({ project, epoch, deps }, async ctx => {
@@ -195,13 +203,13 @@ export async function withEngineRecovery({ project, epoch = null, cmd = null, st
   const technical = error => isEngineFault(error) || cmd === "next" && ["INVALID_STATE", "EVIDENCE"].includes(error?.code);
   const recovered = async error => handleEngineFailure({ project, epoch, cmd, step: error.step ?? cmd, error }, deps);
   const response = result => {
-    const out = { ok: true, cmd, action: result.action === "rescue" ? "rescue" : "wait", outcome: result.action, epoch, units: [], wait: { reason: "gate", retry_after_s: 1 }, notes_es: [result.message] };
+    const out = { ok: true, cmd, action: result.action === "done" ? "done" : result.action === "rescue" ? "rescue" : "wait", outcome: result.action, epoch, units: [], wait: result.action === "done" ? null : { reason: "gate", retry_after_s: 1 }, notes_es: [result.message] };
     return cmd === "next" ? { body: out } : out;
   };
   let first;
   try { return await step(); } catch (error) { if (!technical(error)) throw error; first = error; }
   const one = await recovered(first);
-  if (one.action === "rescue" || one.action === "abandoned") return response(one);
+  if (one.action === "rescue" || one.action === "abandoned" || one.action === "done") return response(one);
   try {
     await (deps.rebuild ?? defaultRebuild)({ project, epoch }, deps);
     return await step();

@@ -125,6 +125,9 @@ function readState(raw: string, file: string, errors: BuildSourceError[]): Build
       wos: u.wos,
       frd: u.frd,
       state: u.state,
+      ...(u.rescue
+        ? { rescue: { phase: u.rescue.phase, cause: u.rescue.cause, failure: u.rescue.failure } }
+        : {}),
       attempt: u.attempt,
       worker: u.worker
         ? { runtime: u.worker.runtime, model: u.worker.model, effort: u.worker.effort }

@@ -89,3 +89,24 @@ it("keeps branch verification and stale execution distinct from delivery", () =>
   expect(screen.getByText(/Borrador local de fallo del motor/)).toBeVisible();
   expect(screen.queryByText("En main (1)")).not.toBeInTheDocument();
 });
+
+it("AC-04-020.4 displays rescue, abandonment and completed gaps with their public cause", () => {
+  const data = run();
+  if (!data.state) throw new Error("fixture");
+  data.state.status = "completed_with_gaps";
+  data.live = false;
+  data.state.units = [
+    unit({ state: "rescue", rescue: { phase: "work", cause: "fallo de lectura" } }),
+    unit({
+      id: "u-lost",
+      state: "abandoned",
+      rescue: { phase: "failed", failure: "rescate agotado" },
+    }),
+  ];
+  render(<BuildRunPanel run={data} />);
+  expect(screen.getByText("En rescate (1)")).toBeVisible();
+  expect(screen.getByText("Abandonada (1)")).toBeVisible();
+  expect(screen.getByText("Rescate en curso: fallo de lectura")).toBeVisible();
+  expect(screen.getByText("Abandonada: rescate agotado")).toBeVisible();
+  expect(screen.getByText(/Finalizado con pendientes/)).toBeVisible();
+});

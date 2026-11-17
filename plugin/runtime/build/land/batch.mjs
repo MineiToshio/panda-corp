@@ -37,6 +37,8 @@ export function assessBatch(state) {
   const landable = [];
   const blockers = [];
   for (const unit of state.units) {
+    if (unit.state === "abandoned" && unit.rescue?.exclusion?.pending !== false) { blockers.push(unit.id); continue; }
+    if (unit.state === "abandoned") continue;
     if (REVIEW_TYPE_KINDS.includes(unit.kind) || unit.state === "landed" || unit.state === "blocked" || unit.state === "parked") continue;
     if (READY_STATES.includes(unit.state)) { landable.push(unit); continue; }
     if (unit.state === "integrated" && (unit.kind === "docs" || unit.kind === "tests")) { landable.push(unit); continue; }

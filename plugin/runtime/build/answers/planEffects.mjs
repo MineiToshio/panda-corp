@@ -23,7 +23,7 @@ export function planAsk({ state, question, value, q }) {
   for (const u of state.units) {
     if (u.pending_answer !== question || isTerminalUnit(u)) continue;
     if (u.state === "parked" && u.parked === "owner_question") {
-      const released = releasedUnit(u);
+      const released = releasedUnit(u, { authorized: value !== false });
       changed.set(u.id, released.unit);
       events.push(...released.events);
       units.push({ unit: u.id, effect: "released" });
@@ -97,12 +97,12 @@ export function planGate({ state, unit, value }) {
   if (value === false) {
     return { state, events: [], units: [{ unit: unit.id, effect: "refused" }], handbacks: [{ unitId: unit.id, reason: GATE_REFUSED_REASON }] };
   }
-  const next = replace(state, new Map([[unit.id, { ...unit, state: unit.gate_report || unit.rescue ? "reported" : "queued", waiting_gate: null, pending_answer: null, token_hash: null }]]));
+  const next = replace(state, new Map([[unit.id, { ...unit, state: unit.gate_report || unit.rescue ? "reported" : "queued", waiting_gate: null, pending_answer: null, token_hash: null, protected_action: null }]]));
   return {
     state: next,
     events: [
       { type: "unit_state", data: { unit: unit.id, from: "waiting_gate", to: unit.gate_report || unit.rescue ? "reported" : "queued" } },
-      { type: "waiting_gate", data: { unit: unit.id, kind: null } },
+      { type: "waiting_gate", data: { unit: unit.id, kind: null, protected_action: null } },
     ],
     units: [{ unit: unit.id, effect: "released" }],
     handbacks: [],

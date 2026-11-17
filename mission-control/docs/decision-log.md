@@ -1,5 +1,15 @@
 # Decision Log — Mission Control
 
+
+## 2026-11-17 - Show rescue and abandoned work with reasons
+
+The [FRD-04 contract](frds/frd-04-project-workspace/frd.md) and shared build-run projection
+now expose only rescue phase/cause/failure, display rescue as in progress and abandonment as
+failed, and retain terminal gaps. Spanish labels avoid em dashes. The runtime schema reader
+accepts and validates the producer's date-time format. Build-run and display tests cover
+public-field redaction and terminal visibility. The [partial-build guide](../content/manual/guides/g-implement-parcial.md)
+explains bounded global recovery and removal of rejected diffs before independent work lands.
+
 ## 2026-11-17 - Explain rescue and completion with gaps
 
 The [implementation guide](../../content/manual/guides/g-implement-parcial.md) explains

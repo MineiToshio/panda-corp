@@ -7,7 +7,14 @@ export interface BuildRunState {
   coordinator: "claude-session" | "codex-session" | "drive";
   label: "claude" | "codex";
   size: "touch" | "feature" | "giant";
-  status: "active" | "paused" | "waiting_owner" | "waiting_gate" | "finished" | "stopped";
+  status:
+    | "active"
+    | "paused"
+    | "waiting_owner"
+    | "waiting_gate"
+    | "finished"
+    | "stopped"
+    | "completed_with_gaps";
   status_reason: string | null;
   tranche: { index: number; of: number } | null;
   scope: { card: string | null; frds: string[]; wos: string[]; out_of_scope: string[] };
@@ -51,7 +58,10 @@ export interface BuildRunUnit {
     | "landed"
     | "parked"
     | "waiting_gate"
-    | "blocked";
+    | "blocked"
+    | "rescue"
+    | "abandoned";
+  rescue?: { phase?: string; cause?: string; failure?: string };
   attempt: number;
   worker: { runtime: "claude" | "codex"; model: string; effort: string | null } | null;
   branch: string | null;

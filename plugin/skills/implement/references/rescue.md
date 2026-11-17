@@ -42,4 +42,3 @@ integration, FRD gates and landing. An unsuccessful rescue becomes `abandoned`, 
 explicit gap report and closes dependent work while independent work continues. At close-out
 any gaps produce `completed_with_gaps`, never technical `stopped`. Final summaries include
 every rescue, cause, exception and uncompleted unit. Do not ask the owner a technical question.
-

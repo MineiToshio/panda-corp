@@ -99,3 +99,29 @@ it("mismatched or expired runs cannot overlay durable delivery", () => {
   );
   expect(buildWorkOrderDisplay(orders, { ...current, live: false }).items[0]?.state).toBe("todo");
 });
+
+it.each([
+  ["rescue", "in_progress", "Rescate en curso: fallo de transporte"],
+  ["abandoned", "fail", "Abandonada: fallo de transporte"],
+] as const)("shows %s and its cause", (state, expected, reason) => {
+  const model = buildWorkOrderDisplay(
+    orders,
+    run([
+      unit({ state, rescue: { phase: "failed", cause: "read", failure: "fallo de transporte" } }),
+    ]),
+  );
+  expect(model.items[0]).toMatchObject({ state: expected, buildUnit: { state, reason } });
+  expect(model.items[0]?.buildUnit?.reason).not.toContain("—");
+});
+it("keeps abandoned gaps visible after terminal closure", () => {
+  const current = run([
+    unit({ state: "abandoned", rescue: { phase: "failed", failure: "rescate agotado" } }),
+  ]);
+  if (current.state) current.state.status = "completed_with_gaps";
+  current.live = false;
+  current.matchesLease = false;
+  expect(buildWorkOrderDisplay(orders, current).items[0]).toMatchObject({
+    state: "fail",
+    buildUnit: { reason: "Abandonada: rescate agotado" },
+  });
+});

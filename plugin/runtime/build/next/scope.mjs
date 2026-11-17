@@ -57,7 +57,7 @@ export function blockedClosure(state) {
   return { all: blocked, ownerRoots };
 }
 
-const landReady = (u) => (FRD_WORK_KINDS.includes(u.kind) && u.state === "verified") || (u.kind === "docs" && (u.state === "integrated" || u.state === "verified"));
+const landReady = (u) => (FRD_WORK_KINDS.includes(u.kind) && u.state === "verified") || (u.kind === "tests" && u.test_repair && !u.frd && u.state === "integrated") || (u.kind === "docs" && (u.state === "integrated" || u.state === "verified"));
 
 /**
  * Is the batch complete (CLI 3.11: every non-parked unit of the run, or tranche, is ready to land)?
@@ -68,5 +68,5 @@ export function batchState(state) {
   const { all } = blockedClosure(state);
   const active = state.units.filter((u) => !isTerminalUnit(u) && !all.has(u.id));
   const ready = active.filter(landReady);
-  return { complete: ready.length > 0 && active.every(landReady), ready: ready.map((u) => u.id) };
+  return { complete: !state.units.some(u => u.state === "abandoned" && u.rescue?.exclusion?.pending !== false) && ready.length > 0 && active.every(landReady), ready: ready.map((u) => u.id) };
 }

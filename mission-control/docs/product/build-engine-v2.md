@@ -86,3 +86,12 @@ The Manual explains the CLI as the common executor, local runtime coordination, 
 | RX2 | Record the Day 1 MC contract change in the area decision log; no log, registry, machine profile or version is written by MCD. |
 
 Suggested decision-log entry for the integrator (English): **2026-11-12 — Specify Mission Control's Day 1 build surface.** Replace power modes with build/resume/FRD-or-card commands; define a shared lease/run reader, live-versus-landed progress, tracked-inbox mirroring, local performance history, engine branch visibility and full Manual truth. Source evidence is engine 540afa2c; the documents distinguish pending cleanup and nested-handback wiring from observed producer behavior. Canonical changes: this contract, the PRD/architecture and FRD-02/03/04/05/06/08/11/12/18/21/24. Existing VERIFIED metadata remains historical and does not self-certify the amended criteria.
+
+
+## Rescue projection amendment (2026-11-17)
+
+The shared unit model accepts `rescue` and `abandoned`; public rescue metadata contains only
+`phase`, `cause` and `failure`. Credentials, protected hashes and paths remain server-only.
+The WO display uses `in_progress` for rescue and `fail` for abandonment, with Spanish reasons
+and no em dashes. Terminal `completed_with_gaps` retains abandoned WO visibility without
+reviving run liveness. The schema subset accepts the producer's `format: date-time` rule.

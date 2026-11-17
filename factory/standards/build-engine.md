@@ -45,7 +45,17 @@ context before integration. Review reruns full verify on that exact clean commit
 protected hashes or gate machinery fail closed. A successful result re-enters ordinary
 integration, FRD gates and landing. An unsuccessful rescue becomes `abandoned`, writes an
 explicit gap report and closes dependent work while independent work continues. At close-out
-any gaps produce `completed_with_gaps`, never technical `stopped`. Final summaries include
+any gaps produce `completed_with_gaps`, never technical `stopped`. Before surviving work can
+land, the CLI reverses the abandoned units' product commits and recomputes their WO metadata;
+it never reverses shared status/track aggregates. Conflicting inverses block landing with an
+explicit exclusion reason. Historical abandoned units require the same exclusion proof.
+A global rescue that has already failed is terminal, never reused, including errors naming
+its unit explicitly. Repeated worker-read errors enter technical rescue; a first read failure
+preserves the live job's admission. Pre-envelope reports remain accepted only for the matching
+live job, worker and current epoch with the original admission-validated report token.
+Granted authorization clears `protected_action` durably; a refusal grants nothing. An integrated
+oracle repair without an FRD closes through the landing/full G3 gate, even if its consumer
+was abandoned. Own-temp cleanup loses its exemption on any foreign/unknown use or path reuse. Final summaries include
 every rescue, cause, exception and uncompleted unit. Do not ask the owner a technical question.
 
 

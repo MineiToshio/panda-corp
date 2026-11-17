@@ -1,5 +1,13 @@
 # Decision Log — Factory
 
+
+## 2026-11-17 - Close rescue review gaps
+
+[BUILD-16](standards/build-engine.md) now requires product-diff exclusion before landing
+survivors, bounded global rescue and worker reads, compatible fenced legacy reports,
+authorization cleanup and a G3 closure for standalone oracle repair. Independent R1 probes
+P1-P7 are permanent regression tests; temporary path ownership also tracks interpolated uses.
+
 ## 2026-11-17 - Adopt the approved supervised rescue rule (DR-164)
 
 [Registry DR-164](decisions/registry.yaml) and [BUILD-16](standards/build-engine.md) replace

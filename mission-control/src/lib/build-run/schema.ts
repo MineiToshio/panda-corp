@@ -10,6 +10,7 @@ export type Schema = {
   minimum?: number;
   maximum?: number;
   pattern?: string;
+  format?: "date-time";
 };
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -44,6 +45,12 @@ function scalarError(value: unknown, schema: Schema, at: string): string | null 
   return null;
 }
 function rangeError(value: unknown, schema: Schema, at: string): string | null {
+  if (
+    typeof value === "string" &&
+    schema.format === "date-time" &&
+    !Number.isFinite(Date.parse(value))
+  )
+    return `${at}: fecha inválida`;
   if (typeof value === "number") {
     if (schema.minimum !== undefined && value < schema.minimum) return `${at}: inferior al mínimo`;
     if (schema.maximum !== undefined && value > schema.maximum) return `${at}: superior al máximo`;
@@ -97,6 +104,7 @@ function checkSchema(value: unknown): void {
     "minimum",
     "maximum",
     "pattern",
+    "format",
   ]);
   if (Object.keys(value).some((key) => !allowed.has(key)))
     throw new Error("Unsupported schema rule");
@@ -127,6 +135,8 @@ function checkScalarRules(value: Record<string, unknown>): void {
 }
 
 function checkRangeRules(value: Record<string, unknown>): void {
+  if (value.format !== undefined && value.format !== "date-time")
+    throw new Error("Unsupported schema format");
   if (value.pattern !== undefined) {
     if (typeof value.pattern !== "string") throw new Error("Invalid pattern");
     new RegExp(value.pattern);

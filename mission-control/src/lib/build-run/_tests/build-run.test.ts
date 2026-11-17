@@ -74,6 +74,50 @@ describe("v2 read-only run boundary (FRD-04 REQ-017/018)", () => {
     expect(JSON.stringify(result)).not.toContain("private");
     expect(result.stateMtimeMs).toBeGreaterThan(0);
   });
+  it("projects only the public rescue cause, never credentials or protected hashes", () => {
+    const f = fixture();
+    const unit = {
+      id: "u-rescue",
+      kind: "build",
+      wos: ["WO-04-001"],
+      frd: "FRD-04",
+      state: "rescue",
+      attempt: 1,
+      worker: null,
+      branch: null,
+      depends_on: [],
+      pending_answer: null,
+      parked: null,
+      waiting_gate: null,
+      chain: null,
+      zone: "none",
+      risk_rules: [],
+      token_hash: "private",
+      worktree: null,
+      evidence_hash: null,
+      doubt_id: null,
+      test_hashes: {},
+      probe_hashes: {},
+      review: null,
+      rescue: {
+        phase: "work",
+        cause: "fallo de lectura",
+        failure: "resultado ilegible",
+        credential: "private",
+        protected: { "secret.test.ts": "private" },
+      },
+    };
+    f.write(".pandacorp/run/build/state.json", { ...f.state, units: [unit] });
+    const result = readBuildRun(f.root, f.options);
+    expect(result.errors).toEqual([]);
+    expect(result.state?.units[0]?.rescue).toEqual({
+      phase: "work",
+      cause: "fallo de lectura",
+      failure: "resultado ilegible",
+    });
+    expect(JSON.stringify(result)).not.toContain("private");
+    expect(JSON.stringify(result)).not.toContain("secret.test.ts");
+  });
   it("keeps durable siblings usable and reports malformed present sources", () => {
     const f = fixture();
     f.write(".pandacorp/run/build/state.json", { ...f.state, units: [{}] });
@@ -90,6 +134,7 @@ describe("v2 read-only run boundary (FRD-04 REQ-017/018)", () => {
     expect(readBuildRun(f.root, f.options).errors).toHaveLength(2);
   });
   it.each([
+    "completed_with_gaps",
     "finished",
     "stopped",
     "paused",

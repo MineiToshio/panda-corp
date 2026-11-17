@@ -1,5 +1,21 @@
 # Decision log — Plugin pandacorp
 
+
+## 2026-11-17 - Fix independent rescue review findings
+
+Plugin 10.14.1 (PATCH), following [BUILD-16](../../factory/standards/build-engine.md).
+Regression mapping in `test-build-v2-finishes.mjs`:
+- B1 / P1: foreign use, path reuse and template interpolation invalidate own-temp S8 exemption.
+- B2 / P7: reverse abandoned product commits, reconcile WO status, retain independent aggregates;
+  migrate legacy abandonments and block landing until exclusion is proven. Ignore discarded oracle hashes.
+- I1 / P2: exhausted global rescue closes with gaps, also when the error names the abandoned unit.
+- I2 / P4: accept admission-validated legacy reports bound to live job/worker/epoch; repeated reads rescue;
+  a transient read retains its original credential.
+- I3 / P3: granted authorization clears protection in state and replay; a refusal grants nothing.
+- I4 / P5: an integrated global oracle repair can close through landing/G3 without an FRD.
+- M1 / P6: Mission Control projects only public rescue reasons and displays rescue/abandonment explicitly.
+Tests first failed against the reviewed implementation. No source commit or live provider call is part of this fix.
+
 ## 2026-11-17 - Complete technical failures through supervised rescue (DR-164)
 
 Plugin 10.14.0 (MINOR). [BUILD-16](../../factory/standards/build-engine.md) and the

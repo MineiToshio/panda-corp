@@ -1,6 +1,7 @@
 import { Card, CardHeader } from "@/components/core/Card/Card";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { FileReadErrors } from "@/components/modules/FileReadErrors/FileReadErrors";
+import { buildUnitReason } from "@/lib/build-run/display";
 import type { BuildRun, BuildRunUnit } from "@/lib/build-run/types";
 import type { DecisionPoint } from "@/lib/docs/activity";
 import styles from "./BuildRunPanel.module.css";
@@ -165,6 +166,7 @@ function UnitRow({ unit }: { readonly unit: BuildRunUnit }): React.JSX.Element {
           {COPY.branch}: <code>{unit.branch}</code>
         </p>
       )}
+      {(unit.state === "rescue" || unit.state === "abandoned") && <p>{buildUnitReason(unit)}</p>}
       {unit.state === "verified" && <p>{COPY.pendingLanding}</p>}
       {unit.waiting_gate && (
         <p>

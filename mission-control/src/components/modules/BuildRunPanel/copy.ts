@@ -57,6 +57,7 @@ export const RUN_STATUS = {
   waiting_owner: "Esperando al propietario",
   waiting_gate: "Esperando aprobación",
   finished: "Finalizado",
+  completed_with_gaps: "Finalizado con pendientes",
   stopped: "Detenido",
 } as const;
 export const UNIT_STATUS = {
@@ -73,6 +74,8 @@ export const UNIT_STATUS = {
   parked: "Aparcada",
   waiting_gate: "Esperando aprobación",
   blocked: "Bloqueada",
+  rescue: "En rescate",
+  abandoned: "Abandonada",
 } as const;
 export const GATE = {
   production: "Producción",

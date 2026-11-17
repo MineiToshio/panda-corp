@@ -42,7 +42,7 @@ async function rebaseOntoMain(intent, ctx, d) {
 
 async function staleOracles(state, root, d) {
   const hashed = new Map();
-  for (const unit of state.units) {
+  for (const unit of state.units.filter(u => u.state !== "abandoned")) {
     for (const [file, hash] of [...Object.entries(unit.test_hashes), ...Object.entries(unit.probe_hashes)]) hashed.set(file, hash);
   }
   const changed = [];

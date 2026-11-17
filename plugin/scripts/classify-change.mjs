@@ -796,6 +796,15 @@ function classify(opts, ctx) {
       const exclusive = open && literals.get(open.index + open[0].length)?.slice(1, -1) === "wx";
       const creation = op("writeFile") && write ? write : exclusive ? open : null;
       if (!creation || !rename || creation.index < match.index || rename.index < creation.index) continue;
+      // Template interpolation is an executable use even though literals are masked above.
+      if ([...literals.values()].some(value => value.startsWith("`") && new RegExp(`\\$\\{[^}]*\\b${name}\\b`).test(value))) continue;
+      // A path is not an object identity: once another operation receives it, ownership
+      // is no longer proven (rename/copy/link into it, aliases and unknown helpers included).
+      const uses = code.slice(match.index + match[0].length).replace(new RegExp(`(?<![\\w.])(?:writeFile|open|rename)\\(\\s*${name}\\s*,|(?<![\\w.])unlink\\(\\s*${name}\\s*\\)`, "g"), "");
+      const creations = [...code.matchAll(new RegExp(`(?<![\\w.])(?:writeFile|open)\\(\\s*${name}\\s*,`, "g"))];
+      const renames = [...code.matchAll(new RegExp(`(?<![\\w.])rename\\(\\s*${name}\\s*,`, "g"))];
+      const unlinks = [...code.matchAll(new RegExp(`(?<![\\w.])unlink\\(\\s*${name}\\s*\\)`, "g"))];
+      if (new RegExp(`\\b${name}\\b`).test(uses) || creations.length !== 1 || renames.length !== 1 || unlinks.length !== 1 || unlinks[0].index < rename.index) continue;
       safe.add(name);
     }
     return safe;
