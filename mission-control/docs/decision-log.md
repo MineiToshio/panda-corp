@@ -1,5 +1,14 @@
 # Decision Log — Mission Control
 
+## 2026-11-17 - Upgrade Next.js to 16.4.6 and pin patched build-tool transitives
+
+`next` moves from 16.4.3 to 16.4.6 (exact): GHSA-mfr8-8qww-v76h and GHSA-vc7v-qv4w-wrv8 affect
+16.2.0 through 16.4.4, and `next build` stopped the local deploy until retried. pnpm overrides pin
+the patched `browserslist` 4.29.6, `baseline-browser-mapping` 2.11.38 and `source-map-js` 1.2.2
+that Next pulls in; `pnpm audit --prod` reports no known vulnerabilities. The main checkout's
+`node_modules` had drifted to 16.2.9 behind the 16.4.3 lockfile; a frozen install realigned it.
+Stack table: [architecture](product/architecture.md).
+
 ## 2026-11-17 - Explain bounded rescue exclusion and oracle coverage review
 
 The shared construction explanation in `src/app/manual/_components/DesatendidaDetail.tsx` now reflects

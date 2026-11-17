@@ -67,7 +67,7 @@ The lockfile (`pnpm-lock.yaml`) is the authority; these are the installed versio
 
 | Package | Installed | Manifest range |
 |---|---|---|
-| `next` | 16.4.3 | `16.4.3` (exact; pnpm override `js-yaml@3` → 3.15.2) |
+| `next` | 16.4.6 | `16.4.6` (exact; pnpm overrides `js-yaml@3` → 3.15.2, `browserslist@4` → 4.29.6, `baseline-browser-mapping@2` → 2.11.38, `source-map-js@1` → 1.2.2) |
 | `react` / `react-dom` | 19.2.7 | `^19.2.7` |
 | `tailwindcss` | 4.3.1 | `^4.1.13` |
 | `typescript` | 5.9.3 | `^5.9.3` |
