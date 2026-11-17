@@ -82,6 +82,11 @@ export function DesatendidaDetail(): React.JSX.Element {
         fue abandonado. Si la revisión falla o no puede hacerse, se excluye la reparación y se
         conserva el oráculo original.
       </Body>
+      <Body>
+        Completed repair reviews retain their commit-pinned hashes and verdict when a later
+        independently reviewed repair takes ownership of the current oracle. An authorized diff gate
+        starts the same independent repair review before integration as an ordinary report.
+      </Body>
       <DocH title="Dudas aparcadas y gates humanos" />
       <Body>
         Reversible technical doubts become recorded engine assumptions with a reason and reversal

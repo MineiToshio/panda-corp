@@ -1,5 +1,16 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-17 - Preserve sequential oracle reviews and review authorized repairs
+
+Plugin 10.14.3 (PATCH), [oracle report contract](build-engine-cli.md). R3 N4 separates
+immutable commit-pinned coverage evidence from transferable current oracle hash ownership;
+a later reviewed repair no longer invalidates or reverses an earlier approved repair.
+R3 N5 shares repair-review initialization between ordinary report ingestion and authorized
+diff-gate re-ingestion, including journal replay. The [Manual](../../mission-control/src/app/manual/_components/DesatendidaDetail.tsx)
+explains both guarantees. Two permanent incident tests first failed
+on the reviewed engine, then passed with real reports, commits, review dispatch and integration.
+Removed the trailing empty line in failure-identity.mjs. No design or scope change.
+
 ## 2026-11-17 - Close second independent rescue review findings
 
 Plugin 10.14.2 (PATCH), [BUILD-16](../../factory/standards/build-engine.md) and the

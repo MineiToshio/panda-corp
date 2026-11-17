@@ -5,4 +5,3 @@ export function failureIdentity(unit, failure) {
   const files = [...new Set(failure.files ?? clean(failure.detail).match(/(?:[\w@.\-[\]]+\/)+[\w.\-[\]]+/g) ?? [])].sort();
   return JSON.stringify([failure.code ?? failure.cause ?? "no_progress", unit.id, files, ...(failure.worker ? [failure.worker] : [])]);
 }
-

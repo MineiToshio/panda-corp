@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import * as fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createFixture, git, testEnv, FAKE_WORKER_BIN } from "./fixtures/build-v2/make-fixture.mjs";
 import { buildPaths } from "../runtime/build/paths.mjs";
 import * as st from "../runtime/build/state.mjs";
@@ -690,7 +690,7 @@ test("R1 I4: standalone global oracle repair lands through full G3 and finishes 
 
 // Independent R2: real commits and transitions, including a discarded consumer and changing diagnostics.
 import { next } from "../runtime/build/next.mjs";
-import { protectedOracleHashes } from "../runtime/build/oracle-review.mjs";
+import { oracleReviewPassed, protectedOracleHashes } from "../runtime/build/oracle-review.mjs";
 import { signalsExec } from "./fixtures/build-v2/make-fixture.mjs";
 import { defaultExec } from "../runtime/build/fsx.mjs";
 
@@ -825,4 +825,101 @@ for (const global of [false, true]) test(`R2 N2: legacy unreviewed integrated re
   assert.equal(st.findUnit(replay, repair.id).state, "abandoned");
   assert.equal(st.findUnit(replay, repair.id).rescue.exclusion.pending, false);
   assert.equal((await finishRun(c.ref, c.deps)).summary.status, "completed_with_gaps");
+}));
+
+// Third independent review: historical oracle evidence and authorized report re-ingestion.
+test("R3 N4: sequential reviewed repairs retain immutable review evidence and current hash ownership", () => fixture(async c=>{
+ await write(c.paths.integrationWorktree,'.pandacorp/verify.sh',`#!/bin/bash\nnode --test ${ORACLE}\n`);
+ git(c.paths.integrationWorktree,['add','-A']); git(c.paths.integrationWorktree,['commit','-qm','test: execute complete oracle verification']);
+ let previous=null, priorEvidence;
+ for (let i=1;i<=2;i++) {
+  const before=await fs.readFile(path.join(c.paths.integrationWorktree,ORACLE),'utf8');
+  const old=sha256Hex(before);
+  const target=st.newUnit({id:`u-consumer-${i}`,kind:'patch',frd:null,state:'running',test_hashes:{[ORACLE]:old}});
+  const state=await c.ctx.readState();
+  const planned=planTestRepair({...state,units:[...state.units,target]}, {id:`repair-${i}`,unit:target.id,question:ORACLE,why:'approved contract requires sentinel and regression coverage',options:[{text:'replace incompatible oracle'}]});
+  await c.ctx.writeState(planned.state);
+  const dispatched=await c.dispatch(planned.state.units.find(u=>u.test_repair?.target===target.id));
+  const repair={...dispatched,frd:null,wos:[],worker:{runtime:'codex',model:'sol',effort:'high',via:'cli',pid:null,worker_id:`repair-author-${i}`}};
+  await c.ctx.writeState(st.patchUnit(await c.ctx.readState(),repair.id,{frd:null,wos:[],worker:repair.worker}));
+  const after=i===1 ? "import assert from 'node:assert/strict'; assert.deepEqual(['sentinel'], ['sentinel']);\n" : before+"assert.notDeepEqual(['sentinel'], []);\n";
+  await write(repair.worktree,ORACLE,after);
+  assert.equal((await c.report(repair,[ORACLE])).outcome,'committed');
+  let cell;
+  c.deps.workers={
+   launchWorker:async args=>{cell={runtime:args.cell.runtime,model:args.cell.model,effort:args.cell.effort};return {ok:true,workerId:`review-${i}`};},
+   pollWorker:async()=>({state:'done',outcome:'report',report:{status:'done',summary:'All predecessor assertions conserved or replaced by equivalent contract assertion',authored_by:cell,gate:null,oracle_coverage:{preserves_coverage:true,files:[{file:ORACLE,old_hash:old,new_hash:sha256Hex(after),assertions:[{before: i===1?"assert.deepEqual(['sentinel'], [])":"assert.deepEqual(['sentinel'], ['sentinel'])",after:"assert.deepEqual(['sentinel'], ['sentinel'])",reason:'approved contract sentinel, preserve equivalent assertion'}]}]}}})
+  };
+  await advanceRescues(c.ref,c.deps); await advanceRescues(c.ref,c.deps);
+  assert.equal(st.findUnit(await c.ctx.readState(),repair.id).state,'committed');
+  await integrateStep({ref:{...c.ref,deps:c.deps},d:c.deps,paths:c.paths},await c.ctx.readState(),[]);
+  let integrated=await c.ctx.readState();
+  assert.equal(st.findUnit(integrated,repair.id).state,'integrated');
+  assert.equal(oracleReviewPassed(st.findUnit(integrated,repair.id)),true);
+  if(previous) {
+   assert.equal(spawnSync('bash',['.pandacorp/verify.sh'],{cwd:c.paths.integrationWorktree}).status,0);
+   const prior=st.findUnit(integrated,previous);
+   assert.equal(prior.review.verdict,'pass');
+   assert.equal(oracleReviewPassed(prior),true, "hash transfer must not invalidate a historical review");
+   assert.deepEqual(prior.test_hashes,{});
+   assert.deepEqual({review: prior.review, proof: prior.rescue.coverage_review}, priorEvidence);
+   assert.equal(protectedOracleHashes(integrated)[ORACLE], sha256Hex(after));
+   assert.equal(await advanceRescues(c.ref,c.deps),null);
+   integrated=await c.ctx.readState();
+   const replay=st.foldJournal((await jr.readJournal(c.paths.journalFile)).events);
+   for(const id of [previous,repair.id]) {
+    assert.equal(st.findUnit(integrated,id).state,'integrated');
+    assert.equal(oracleReviewPassed(st.findUnit(replay,id)),true, "review evidence survives journal replay");
+   }
+   assert.equal(spawnSync('bash',['.pandacorp/verify.sh'],{cwd:c.paths.integrationWorktree}).status,0);
+   assert.equal(await fs.readFile(path.join(c.paths.integrationWorktree,ORACLE),'utf8'),after);
+  }
+  previous=repair.id;
+  const checked=st.findUnit(integrated,repair.id);
+  priorEvidence={review: checked.review, proof: checked.rescue.coverage_review};
+ }
+}));
+
+test("R3 N5: approved diff gate launches the repair coverage review before integration", () => fixture(async c=>{
+ const original=await fs.readFile(path.join(c.paths.integrationWorktree,ORACLE),'utf8');
+ const target=st.newUnit({id:'u-consumer',kind:'patch',frd:null,state:'running',test_hashes:{[ORACLE]:sha256Hex(original)}});
+ const planned=planTestRepair({...await c.ctx.readState(),units:[target]}, {id:'approved-repair',unit:target.id,question:ORACLE,why:'approved contract requires sentinel',options:[{text:'replace incompatible oracle'}]});
+ await c.ctx.writeState(planned.state);
+ const raw=await c.dispatch(planned.state.units.find(u=>u.test_repair));
+ const repair={...raw,frd:null,wos:[],worker:{runtime:'codex',model:'sol',effort:'high',via:'cli',pid:null,worker_id:'repair-author'}};
+ await c.ctx.writeState(st.patchUnit(await c.ctx.readState(),repair.id,{frd:null,wos:[],worker:repair.worker}));
+ await write(repair.worktree,ORACLE,"import assert from 'node:assert/strict'; assert.deepEqual(['sentinel'], ['sentinel']);\n");
+ // Simulate a legitimate diff classifier gate, then the owner's explicit authorization.
+ c.deps.computeRisk=async()=>({zone:'floor',failclosed:false,signals:{classify:[{signal:'S8',detail:'protected delete operation in approved test fixture'}]}});
+ assert.equal((await c.report(repair,[ORACLE])).outcome,'waiting_gate');
+ const answered=planAnswer({state:await c.ctx.readState(),question:`g-${repair.id}`,value:true});
+ for(const e of answered.events) await c.ctx.appendEvent(e);
+ await c.ctx.writeState(answered.state);
+ const resumed=await resumeApprovedGates(c.ref,c.deps);
+ assert.equal(resumed.length,1);
+ let state=await c.ctx.readState();
+ assert.equal(st.findUnit(state,repair.id).state,'rescue');
+ assert.equal(st.findUnit(state,repair.id).rescue.phase,'review');
+ assert.equal(st.findUnit(state,repair.id).gate_report,null);
+ const replay=st.foldJournal((await jr.readJournal(c.paths.journalFile)).events);
+ assert.equal(st.findUnit(replay,repair.id).state,'rescue');
+ assert.equal(st.findUnit(replay,repair.id).rescue.phase,'review');
+ assert.equal(st.findUnit(replay,repair.id).gate_report,null);
+ assert.equal(protectedOracleHashes(state)[ORACLE],sha256Hex(original));
+ let launches=0, cell;
+ c.deps.workers={
+  launchWorker:async args=>{launches++; cell={runtime:args.cell.runtime,model:args.cell.model,effort:args.cell.effort}; return {ok:true,workerId:'independent-review'};},
+  pollWorker:async()=>({state:'done',outcome:'report',report:{status:'done',summary:'retained equivalent sentinel assertion',authored_by:cell,gate:null,oracle_coverage:{preserves_coverage:true,files:[{file:ORACLE,old_hash:sha256Hex(original),new_hash:sha256Hex("import assert from 'node:assert/strict'; assert.deepEqual(['sentinel'], ['sentinel']);\n"),assertions:[{before:"assert.deepEqual(['sentinel'], [])",after:"assert.deepEqual(['sentinel'], ['sentinel'])",reason:'approved sentinel contract'}]}]}}})
+ };
+ await advanceRescues(c.ref,c.deps);
+ assert.equal(launches,1, "an authorized repair must launch its available independent reviewer");
+ await advanceRescues(c.ref,c.deps);
+ state=await c.ctx.readState();
+ assert.equal(st.findUnit(state,repair.id).state,'committed');
+ assert.equal(oracleReviewPassed(st.findUnit(state,repair.id)),true);
+ await integrateStep({ref:{...c.ref,deps:c.deps},d:c.deps,paths:c.paths},state,[]);
+ state=await c.ctx.readState();
+ assert.equal(st.findUnit(state,repair.id).state,'integrated');
+ assert.equal(st.findUnit(state,target.id).state,'queued');
+ assert.equal(st.findUnit(state,target.id).depends_on.includes(repair.id),false);
 }));

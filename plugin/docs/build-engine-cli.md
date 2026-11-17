@@ -718,6 +718,7 @@ unit. Only the repair worker may replace those exact tests (never implementation
 checks the old hashes, requires changed new hashes and independently runs G1: green or assertion-RED with the rest
 of the light gates green; import/syntax/tool failures reject it. The candidate stays `rescue/review` until
 its own stronger independent fresh-context reviewer confirms conserved or equivalent assertions.
+Re-ingestion after an authorized diff gate initializes this same review before integration.
 This applies to global repairs and abandoned consumers too. The rescue report must include
 `oracle_coverage: {preserves_coverage:true, files:[{file,old_hash,new_hash,assertions:[{before,after,reason}]}]}`:
 exact assertion text from both pinned versions, all assertions mapped, and a contract equivalence
@@ -725,7 +726,9 @@ justification. Missing, mismatched, rejected or unavailable review excludes the 
 the predecessor oracle stays authoritative. G1/hash changes and FRD reviews cannot replace this
 review. Integration verifies the approved hashes again, retains the
 previous version in git and `test_repair.old_hashes`, transfers hash ownership, and merges the verified revision into
-the preserved builder checkout before it resumes at the same attempt. A disputed file missing from the evidence is
+the preserved builder checkout before it resumes at the same attempt. Each completed review retains its
+commit-pinned old/new hashes and verdict independently of current hash ownership: a later reviewed repair
+does not invalidate or exclude an earlier reviewed repair. A disputed file missing from the evidence is
 an error, never an unchanged redispatch. Rephrased doubts share file/AC/contract identity; unrelated test integration
 does not count as a repair, and repeated unanswered causes cannot be redispatched by merely deciding them again.
 
