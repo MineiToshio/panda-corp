@@ -6,6 +6,7 @@
 // UNIT branch (never the integration branch, never `main`); phase 2 writes the state, journals and releases the token.
 // A rejected or failed report is never an error to the caller: the offender pays, i.e. the unit is re-queued at
 // attempt+1 (or handed back) by the D21 policy in `failure.mjs`.
+import { protectedOracleHashes } from "./oracle-review.mjs";
 import * as fsp from "node:fs/promises";
 import path from "node:path";
 import { releaseToken, verifyToken } from "./admission.mjs";
@@ -431,10 +432,16 @@ async function applyVerdict({ ctx, intent, verdict, deps }) {
       if (!target || target.state !== "blocked" || target.attempt !== unit.scope_repair.attempt) throw err("INVALID_STATE", "scope repair target changed during verification");
     }
     const hashes = verdict.test_hashes ?? undefined;
-    await ctx.writeState(patchUnit(state, unit.id, { state: "committed", token_hash: null, ...(hashes ? { test_hashes: hashes } : {}) }));
+    const review = unit.test_repair ? { phase: "review", cause: "oracle_coverage_review", skipped: [],
+      base: (await git(deps, intent.root, ["rev-parse", `${verdict.commit}^`])).stdout.trim(), commit: verdict.commit,
+      author: unit.worker, worker: null, credential: null, ownership_settled: true,
+      protected: { ...protectedOracleHashes(state), ...hashes } } : null;
+    const next = { ...cur, state: review ? "rescue" : "committed", token_hash: null, ...(hashes ? { test_hashes: hashes } : {}), ...(review ? { rescue: review } : {}) };
+    await ctx.writeState(patchUnit(state, unit.id, next));
     await ctx.appendEvent({ type: "report_received", data: { unit: unit.id, outcome: "committed", commit: verdict.commit, ...(hashes ? { test_hashes: hashes } : {}) } });
     await ctx.appendEvent({ type: "wo_committed", data: { unit: unit.id, wos: unit.wos, frd: unit.frd, commit: verdict.commit } });
     await ctx.appendEvent(stateEvent("committed"));
+    if (review) await ctx.appendEvent({ type: "rescue_stage", data: { unit: unit.id, unit_snapshot: next } });
     if (unit.kind === "docs" && unit.role !== "product-manager" && unit.role !== "designer" && !unit.scope_repair && intent.card) {
       try { await setCardDocsSha(ctx.project, intent.card, verdict.commit, deps); } catch (e) { warnings.push(`docs_sha not written to card ${intent.card}: ${oneLine(e.message, 160)}`); }
     }

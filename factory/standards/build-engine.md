@@ -3,8 +3,9 @@
 ## BUILD-16 Supervised rescue and completion with gaps (DR-164)
 
 A technical failure never ends an authorized run as `stopped`. Two observations with the
-same error class and unit/file identity enter `rescue`, including scheduler no-progress,
-exceptions and a repeated decided doubt. Different causes do not qualify yet. The journal
+same error class and unit/worker/file identity enter `rescue`, including scheduler no-progress,
+exceptions and a repeated decided doubt. Identity uses `failureIdentity`, excludes PID/error prose,
+and counts matching observations across interleaved causes. Different causes do not qualify yet. The journal
 owns the failure history and rescue stages; replay preserves them across coordinator changes.
 An unreadable state cache is replayed under the owned lease before recovery; it never
 authorizes releasing that lease as a technical startup failure.
@@ -36,7 +37,15 @@ Protected tests cannot be edited or deleted during direct work. If an oracle is 
 return `status: repair` and `oracle_repair: {files, contract, reason}` with concrete protected
 paths, the incompatible AC/framework contract and replacement justification. The existing
 independent tests execution versions the predecessor hashes and verifies the replacement
-before the supervisor resumes; its reason and commit remain recorded. The supervisor
+before the supervisor resumes; its reason and commit remain recorded. Every repair, including a
+global repair without an FRD or surviving consumer, requires its OWN stronger fresh-context review
+before integration, hash ownership transfer or landing. The reviewer compares the pinned predecessor
+and replacement with the cited contract and confirms no loss of coverage: every assertion is conserved
+or replaced by an equivalent, including malformed-input/error checks. `oracle_coverage` records each
+file's old/new hashes and exact before/after assertion mappings with justification; the CLI checks the
+pinned contents and rejects absent or mismatched evidence. A hash change or later G2/G3 pass alone
+never qualifies. A failed or unavailable review abandons/excludes the repair as a gap and retains the
+original oracle. Legacy integrated repairs without this proof are excluded too. The supervisor
 cannot approve its own oracle repair.
 
 The CLI reruns full `bash .pandacorp/verify.sh`, freezes the candidate with a commit trailer
@@ -47,8 +56,12 @@ integration, FRD gates and landing. An unsuccessful rescue becomes `abandoned`, 
 explicit gap report and closes dependent work while independent work continues. At close-out
 any gaps produce `completed_with_gaps`, never technical `stopped`. Before surviving work can
 land, the CLI reverses the abandoned units' product commits and recomputes their WO metadata;
-it never reverses shared status/track aggregates. Conflicting inverses block landing with an
-explicit exclusion reason. Historical abandoned units require the same exclusion proof.
+it never reverses shared status/track aggregates. An inverse conflict counts as a technical failure.
+Recovery excludes later writers of the conflict paths and their transitive dependents, then reverses
+them before retrying the original unit. Each retry must exclude a new writer (at most the run's unit
+count); otherwise quarantine every unlanded contribution, forbid landing the unresolved tree and
+finish `completed_with_gaps`, listing all excluded units. Never keep waiting on closure indefinitely.
+Source branches remain intact. Historical abandoned units require the same exclusion proof.
 A global rescue that has already failed is terminal, never reused, including errors naming
 its unit explicitly. Repeated worker-read errors enter technical rescue; a first read failure
 preserves the live job's admission. Pre-envelope reports remain accepted only for the matching
@@ -658,7 +671,8 @@ and its preferred one; the unit stays `reported` with its `doubt_id`):
    cap and the ladder advances.
 
 **Causal recovery (10.13.9).** `fix-test` creates an independent tests unit limited to the disputed protected files,
-with predecessor hashes and contract evidence. G1 verifies the replacement; integration versions the oracle, transfers
+with predecessor hashes and contract evidence. G1 checks the candidate; its own pinned independent coverage
+review (BUILD-16) must pass before integration versions the oracle, transfers
 its active hash ownership and updates the preserved builder checkout before same-attempt admission. Builders cannot
 edit either oracle version. A repeated file/contract dispute requires a causal repair, not another unchanged dispatch.
 An approved diff gate re-ingests its saved engine commit/report at the exact SHA without a new worker or attempt.
@@ -706,7 +720,7 @@ acceptance is needed. Consult caps bound reasoning cost, not owner dependence. P
   unit scoped by failing evidence (BUILD-15); 12 → nothing to land, `busy_main`; 14 → nothing to land, `port_busy`
   (12 and 14 retried at the next safe point, never hand-backs); 13 → landed with a "push falló" note
   (only possible with the owner's order); 20 → nothing to land, `mq_precondition` (retried at the next safe point; a second consecutive 20 is an engine failure, BUILD-15); 21 → `waiting_gate: production`.
-- Land specifics: `land` also hands back with `oracle_changed` (a hashed test or probe file changed); `docs` and `tests` units land when `integrated` (they are never reviewed); any `parked` unit is outside the batch; a G3 red moves only implicated build/patch units `verified → patching` (BUILD-15), and exhausted implicated work is handed back (`budget_exhausted`); a retry is idempotent (the run's own landing metadata commit is dropped and rewritten).
+- Land specifics: `land` also hands back with `oracle_changed` (a hashed test or probe file changed); `docs` and ordinary `tests` units land when `integrated`; test repairs require their own pinned coverage review before integration (BUILD-16); any `parked` unit is outside the batch; a G3 red moves only implicated build/patch units `verified → patching` (BUILD-15), and exhausted implicated work is handed back (`budget_exhausted`); a retry is idempotent (the run's own landing metadata commit is dropped and rewritten).
 - **Launched project** = `status.yaml` `phase: release` and `deploy_target` not `internal` (the same test
   as `merge-queue.sh`). There, building on the branch needs no question and nothing is written on `main`
   (BUILD-7); landing is the production gate: exit 21 → `waiting_gate: production`, and the CLI **never

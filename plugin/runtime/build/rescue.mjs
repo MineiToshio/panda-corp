@@ -27,13 +27,11 @@ const isGateFile = file => /^(?:\.pandacorp\/|\.github\/|AGENTS\.md$|CLAUDE\.md$
 const SKIPPED = ["ordinary artifact allowlist", "ordinary report/G1 transport", "ordinary attempt budget"];
 const fsOf = d => d.fs ?? fsp;
 const clean = text => String(text ?? "").replace(/\s+/g, " ").slice(0, 1200);
-const protectedHashes = state => Object.assign({}, ...state.units.filter(u => u.state !== "abandoned").map(u => ({ ...u.test_hashes, ...u.probe_hashes })));
+const protectedHashes = protectedOracleHashes;
 
-/** Same class AND same unit/file, independent of attempt, error prose or coordinator epoch. */
-export function failureIdentity(unit, failure) {
-  const files = [...new Set(failure.files ?? clean(failure.detail).match(/(?:[\w@.\-[\]]+\/)+[\w.\-[\]]+/g) ?? [])].sort();
-  return JSON.stringify([failure.code ?? failure.cause ?? "no_progress", unit.id, files]);
-}
+export { failureIdentity } from "./failure-identity.mjs";
+import { failureIdentity } from "./failure-identity.mjs";
+import { oracleReviewPassed, protectedOracleHashes, validateOracleCoverage } from "./oracle-review.mjs";
 
 export function observeTechnicalFailure(state, unitId, failure) {
   const unit = findUnit(state, unitId);
@@ -140,6 +138,19 @@ export async function advanceRescues(ref, deps = {}) {
     await fencedTwoPhase({ ...ref, deps }, ctx => excludeAbandoned(ctx, deps), value => value);
     state = await readState(ref.project, deps);
   }
+  // Legacy or crash-replayed repairs have no independently pinned coverage evidence.
+  // Do not bless their hash/G2 verdict; exclude them and keep the original oracle.
+  const unreviewed = state.units.find(u => u.test_repair && ["committed", "integrated", "verified"].includes(u.state) && !oracleReviewPassed(u));
+  if (unreviewed) {
+    await fencedTwoPhase({ ...ref, deps }, async ctx => {
+      const s = await ctx.readState(), current = findUnit(s, unreviewed.id);
+      const pending = { ...current, rescue: { ...current.rescue, phase: "review" } };
+      await ctx.appendEvent({ type: "rescue_stage", data: { unit: current.id, unit_snapshot: pending } });
+      await ctx.writeState(patchUnit(s, current.id, pending));
+      await recordTechnicalFailure(ctx, current.id, { code: "oracle_review_missing", detail: "independent oracle coverage review is missing" }, deps);
+    }, value => value);
+    return { ok: true, cmd: "next", action: "rescue", outcome: "abandoned", unit: unreviewed.id, units: [], wait: { reason: "gate", retry_after_s: 1 }, notes_es: ["Reparación de oráculo excluida: falta su revisión independiente de cobertura."] };
+  }
   const approved = state.units.find(u => inScope(state, u) && u.rescue && u.state === "reported" && state.answers?.[`g-${u.id}`] === true);
   if (approved) {
     await fencedTwoPhase({ ...ref, deps }, async ctx => {
@@ -171,12 +182,14 @@ export async function advanceRescues(ref, deps = {}) {
   if (r.worker) {
     const h = await (deps.workers ?? workers).pollWorker({ project: ref.project, workerId: r.worker.workerId, unit: unit.id, schemaFile: files.schema, reportFile: files.report }, deps);
     if (h.state === "error") {
-      const key = `${h.kind ?? "read"}:${clean(h.detail)}`;
-      const count = r.poll_error?.key === key ? r.poll_error.count + 1 : 1;
+      const key = failureIdentity(unit, { code: h.kind ?? "read", worker: r.worker.workerId, files: h.files ?? [files.report] });
+      const history = [...(r.poll_errors ?? (r.poll_error ? Array(r.poll_error.count).fill(r.poll_error.key) : [])), key];
+      const count = history.filter(previous => previous === key).length;
+      await updateRescue(ref, unit.id, { poll_errors: history, poll_error: { key, count } }, deps);
       if (count >= 2) return failRescue(ref, unit.id, `rescue worker result unreadable twice: ${key}`, deps);
-      await updateRescue(ref, unit.id, { poll_error: { key, count } }, deps);
     }
     if (h.state !== "done") return out({ wait: { reason: "workers_running", retry_after_s: 5 } });
+    if (unit.test_repair && ["limit", "capacity_wait"].includes(h.outcome)) return failRescue(ref, unit.id, "independent oracle coverage review unavailable", deps);
     if (h.outcome === "limit" || h.outcome === "capacity_wait") {
       if (h.outcome === "capacity_wait") {
         await updateRescue(ref, unit.id, { worker: null, credential: null, capacity_wait: h.resumeAt }, deps);
@@ -208,11 +221,13 @@ export async function advanceRescues(ref, deps = {}) {
   const sourceAuthors = state.units.filter(u => (r.review_targets ?? []).includes(u.id)).map(u => u.worker);
   if (unit.kind === "deferred-review") sourceAuthors.push(entryForUnit(await readDeferred(ref.project, deps), unit)?.author);
   const taskUnit = { ...unit, state: "queued", rescue: null, kind: r.phase === "work" ? "build" : "audit", role: r.phase === "work" ? "implementer" : "review", implementerCells: r.author ? [r.author, unit.worker, ...sourceAuthors].filter(Boolean) : undefined,
-    unknownImplementer: r.phase !== "work" && (sourceAuthors.some(a => !a) || ["review", "audit", "deferred-review"].includes(unit.kind) && !sourceAuthors.length) };
+    unknownImplementer: r.phase !== "work" && (!r.author || sourceAuthors.some(a => !a) || ["review", "audit", "deferred-review"].includes(unit.kind) && !sourceAuthors.length) };
   const cell = (deps.routing?.builderCell ?? builderCell)(taskUnit, { label: state.label, coordinator: "drive", quota: { readings: q.readings }, shape: "drive", sessionModel: null });
+  if (cell.paused && unit.test_repair) return failRescue(ref, unit.id, "independent oracle reviewer unavailable", deps);
   if (cell.paused) { await updateRescue(ref, unit.id, { capacity_wait: cell.resumeAt, task: cell.task }, deps); return null; }
   const direct = state.coordinator !== "drive" && r.phase === "work";
-  const prepared = await fencedTwoPhase({ ...ref, deps }, async ctx => {
+  let prepared;
+  try { prepared = await fencedTwoPhase({ ...ref, deps }, async ctx => {
     const current = findUnit(await ctx.readState(), unit.id);
     if (current.rescue.credential || current.rescue.worker) throw err("INVALID_STATE", "rescue already dispatched");
     return current;
@@ -247,6 +262,7 @@ export async function advanceRescues(ref, deps = {}) {
     }
     // Existing independently repaired hashes are authoritative over their frozen predecessors.
     Object.assign(frozen, protectedHashes(state));
+    if (current.test_repair) Object.assign(frozen, current.test_hashes);
     current.rescue.protected = frozen;
     const token = randomBytes(24).toString("hex");
     const text = ["# Supervised rescue", `Unit: ${unit.id}; stage: ${r.phase}; worktree: ${root}`,
@@ -259,7 +275,11 @@ export async function advanceRescues(ref, deps = {}) {
       "Run bash .pandacorp/verify.sh (full, no partial flags). A fresh independent reviewer must pass before integration.",
       r.phase === "review" ? `Independently inspect and rerun full verify on commit ${r.commit}. Do not edit any file. Reject weakened tests, scope creep and missing acceptance criteria. This is a fresh context, not the author.` : "Execute directly as the supervising coordinator, outside the failed ordinary artifact/report fences. Preserve useful partial work.",
       `Protected hashes: ${JSON.stringify(frozen)}`, `Failure history: ${JSON.stringify(unit.technical_failures)}`,
-      `Independent oracle replacement provenance: ${JSON.stringify(r.oracle_repair ?? null)}. Review its cited contract, predecessor and replacement in git; reject a deletion or weaker assertions, including loss of malformed-input coverage.`,
+      `Independent oracle replacement provenance: ${JSON.stringify(unit.test_repair ?? r.oracle_repair ?? null)}. Review its cited contract, predecessor and replacement in git; reject a deletion or weaker assertions, including loss of malformed-input coverage.`,
+      ...(unit.test_repair ? [
+        `This is the repair's own independent coverage review, required even without an FRD or surviving consumer. Compare git ${r.base} with ${r.commit} and the cited contract. Enumerate EVERY predecessor assertion (including malformed-input/error checks); require each conserved assertion or an equivalent replacement. Reject empty tests, missing checks or a changed hash without coverage.`,
+        'For status done include oracle_coverage: {preserves_coverage: true, files: [{file, old_hash, new_hash, assertions: [{before: exact predecessor assertion text, after: exact replacement assertion text, reason: contract equivalence justification}]}]}. Cover every approved file and every assertion. Never edit tests; reject with status failed if coverage is lost or cannot be confirmed.'
+      ] : []),
       ...wos.map(w => `## ${w.file}\n${w.text}`),
       `Write JSON to ${files.report} using ${files.schema}: {status: 'done'|'repair'|'failed'|'waiting_gate', summary: string, authored_by: {runtime,model,effort}, gate: null|'production'|'money'|'delete'|'external'}. Return the same JSON.`,
     ].join("\n\n");
@@ -275,6 +295,10 @@ export async function advanceRescues(ref, deps = {}) {
     await ctx.writeState(patchUnit(s, unit.id, next));
     return { ...work, current: next };
   });
+  } catch (error) {
+    if (!unit.test_repair || ["FENCE", "QUIESCED"].includes(error.code)) throw error;
+    return failRescue(ref, unit.id, `independent oracle review unavailable: ${clean(error.message)}`, deps);
+  }
   return out({ rescue: { unit: unit.id, phase: r.phase, via: direct ? "session" : "cli", token: direct ? prepared.token : undefined, worktree: prepared.root, brief_path: files.brief, report_path: files.report, schema_path: files.schema } });
 }
 
@@ -295,6 +319,7 @@ export async function rescueResult({ project, epoch, unit: id, token, file, acto
     return { state, unit };
   }, async ({ state, unit }) => {
     const r = unit.rescue, prefix = await productPrefix(project, deps), root = productRoot(unit.worktree, prefix);
+    if (unit.test_repair && report.status === "waiting_gate") return { failure: "independent oracle coverage review unavailable" };
     if (report.status === "waiting_gate") {
       if (!GATES.has(report.gate)) throw err("INVALID_INPUT", "rescue gate must name an actual protected action");
       return { gate: report.gate };
@@ -312,7 +337,7 @@ export async function rescueResult({ project, epoch, unit: id, token, file, acto
         const c = report.authored_by;
         if (!c || ["runtime", "model", "effort"].some(k => c[k] !== r.cell[k])) throw err("EVIDENCE", "review must match the independent dispatched cell");
       }
-      const hashes = { ...r.protected, ...protectedHashes(state) };
+      const hashes = { ...r.protected, ...protectedHashes(state), ...(unit.test_repair ? unit.test_hashes : {}) };
       await assertProtected(root, hashes, deps);
       if (r.phase === "review") {
         if ((await git(deps, root, ["rev-parse", "HEAD"])).stdout.trim() !== r.commit || (await git(deps, root, ["status", "--porcelain"])).stdout.trim()) throw err("EVIDENCE", "review changed the candidate tree");
@@ -338,7 +363,8 @@ export async function rescueResult({ project, epoch, unit: id, token, file, acto
         await git(deps, root, ["-c", "commit.gpgsign=false", "commit", "--allow-empty", "--no-verify", "-m", `fix(build): rescue ${id}\n\nUnit: ${id}\nRescue: ${id} ${clean(r.cause)}`]);
         return { commit: (await git(deps, root, ["rev-parse", "HEAD"])).stdout.trim(), author: report.authored_by, hashes };
       }
-      return { success: true, commit: r.commit };
+      const coverage = unit.test_repair ? await validateOracleCoverage({ unit, report, root, deps }) : null;
+      return { success: true, commit: r.commit, coverage };
     } catch (error) { return { failure: clean(error.message) }; }
   }, async (result, intent, ctx) => {
     const state = await ctx.readState(), unit = findUnit(state, id), r = unit.rescue;
@@ -354,7 +380,7 @@ export async function rescueResult({ project, epoch, unit: id, token, file, acto
     if (result.failure) { await recordTechnicalFailure(ctx, id, { code: "rescue_failed", detail: result.failure }, deps); return { ok: true, cmd: "rescue", unit: id, outcome: "abandoned", reason: result.failure }; }
     let next;
     if (result.gate) next = { ...unit, state: "waiting_gate", waiting_gate: result.gate, rescue: { ...r, pending_gate: result.gate, credential: null, worker: null } };
-    else if (result.success) next = { ...unit, ...(unit.kind === "tests" ? { test_hashes: r.protected } : {}), state: "committed", worker: { ...r.author, via: "session", pid: null, worker_id: null }, rescue: { ...r, phase: "completed", credential: null, worker: null, reviewer: report.authored_by }, review: { verdict: "pass", reviewer: report.authored_by, degraded: null, deferred_id: null } };
+    else if (result.success) next = { ...unit, ...(unit.kind === "tests" ? { test_hashes: unit.test_repair ? unit.test_hashes : r.protected } : {}), state: "committed", worker: unit.test_repair ? unit.worker : { ...r.author, via: "session", pid: null, worker_id: null }, rescue: { ...r, phase: "completed", credential: null, worker: null, reviewer: report.authored_by, ...(result.coverage ? { coverage_review: result.coverage } : {}) }, review: { verdict: "pass", reviewer: report.authored_by, degraded: null, deferred_id: null } };
     else next = { ...unit, rescue: { ...r, phase: "review", credential: null, worker: null, commit: result.commit, author: result.author, protected: result.hashes } };
     await ctx.appendEvent({ type: result.success ? "rescue_completed" : "rescue_stage", data: { unit: id, skipped: SKIPPED, unit_snapshot: next } });
     if (result.gate) await ctx.appendEvent({ type: "waiting_gate", data: { unit: id, kind: result.gate } });

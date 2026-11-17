@@ -1,5 +1,12 @@
 # Decision Log — Factory
 
+## 2026-11-17 - Bound exclusions and independently review oracle repairs
+
+[BUILD-16](standards/build-engine.md) clarifies the second independent rescue review:
+repairs require their own assertion-equivalence review before integration/landing,
+exclusion conflicts have a finite recovery and non-landable completion-with-gaps fallback,
+and repeated fault identity excludes changing diagnostics while counting interleaved repeats.
+The implementation and regression evidence live in the [plugin log](../plugin/docs/decision-log.md).
 
 ## 2026-11-17 - Close rescue review gaps
 

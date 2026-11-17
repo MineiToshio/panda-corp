@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-11-17 - Explain bounded rescue exclusion and oracle coverage review
+
+The shared construction explanation in `src/app/manual/_components/DesatendidaDetail.tsx` now reflects
+[BUILD-16](../../factory/standards/build-engine.md): bounded technical exclusion, completion
+with all gaps, and a repair-specific independent assertion-equivalence review that retains
+the original oracle when review fails or is unavailable.
 
 ## 2026-11-17 - Show rescue and abandoned work with reasons
 

@@ -195,6 +195,7 @@ test("rescue oracle repair: independent replacement refreshes causal base and re
   await write(independent.worktree, ORACLE, "import assert from 'node:assert/strict'; assert.deepEqual(['sentinel'], ['sentinel']); assert.notDeepEqual(['sentinel'], []);\n");
   const committed = await c.report(independent, [ORACLE]);
   assert.equal(committed.outcome, "committed");
+  await reviewRepair(c);
   git(c.paths.integrationWorktree, ["merge", "--ff-only", committed.commit]);
   await c.ctx.writeState(st.patchUnit(await c.ctx.readState(), repair.id, { state: "integrated" }));
   await c.ctx.appendEvent({ type: "integrated", data: { unit: repair.id, sha: committed.commit } });
@@ -394,6 +395,7 @@ test("F9: fix-test creates a separate verified oracle version before the same bu
   await write(independent.worktree, ORACLE, "import assert from 'node:assert/strict'; assert.deepEqual(['sentinel'], ['sentinel']); assert.notDeepEqual(['sentinel'], []);\n");
   const res = await c.report(independent, [ORACLE]);
   assert.equal(res.outcome, "committed", JSON.stringify(res));
+  await reviewRepair(c);
   git(c.paths.integrationWorktree, ["merge", "--ff-only", res.commit]);
   state = await c.ctx.readState();
   await c.ctx.writeState(st.patchUnit(state, repair.id, { state: "integrated" }));
@@ -588,14 +590,15 @@ test("R1 P4: legacy live job without envelopes accepts its fenced report; repeat
   assert.equal(runningSummary(state).any, false);
 }));
 
-test("R1 P5: global oracle repair closes through the landing gate without an FRD", () => {
-  const patch = st.newUnit({ id: "u-patch-global", kind: "patch", frd: null, state: "rescue", test_hashes: { [ORACLE]: "a".repeat(64) }, rescue: { phase: "work" } });
-  const planned = planTestRepair(st.newState({ units: [patch] }), { id: "r-global", unit: patch.id, question: ORACLE, why: "contract repair", options: [{ text: "replace oracle" }] });
-  const state = { ...planned.state, units: planned.state.units.map(u => ({ ...u, state: u.id === patch.id ? "abandoned" : "integrated", ...(u.id === patch.id ? { rescue: { ...u.rescue, exclusion: { pending: false, commits: [] } } } : {}) })) };
-  assert.equal(batchState(state).complete, true);
-  assert.equal(assessBatch(state).complete, true);
-  assert.deepEqual(assessBatch(state).landable.map(u => u.id), ["u-test-repair-r-global"]);
-});
+test("R1 P5: reviewed global oracle repair closes through the landing gate without an FRD", () => fixture(async c => {
+  const { repair } = await reportedRepair(c);
+  assert.equal(batchState(await c.ctx.readState()).complete, false);
+  await reviewRepair(c);
+  await integrateStep({ ref: { ...c.ref, deps: c.deps }, d: c.deps, paths: c.paths }, await c.ctx.readState(), []);
+  assert.equal(batchState(await c.ctx.readState()).complete, true);
+  assert.equal(assessBatch(await c.ctx.readState()).complete, true);
+  assert.deepEqual(assessBatch(await c.ctx.readState()).landable.map(u => u.id), [repair.id]);
+}));
 
 test("R1 P7: abandoning integrated rejected code excludes its diff while independent work can land", () => fixture(async c => {
   const original = await c.dispatch({ id: "u-rejected-build", kind: "build" });
@@ -660,15 +663,13 @@ test("R1 B2: legacy abandonment excludes product code without reverting independ
 test("R1 I4: standalone global oracle repair lands through full G3 and finishes with its consumer gap", () => fixture(async c => {
   const { land, harvestLand } = await import("../runtime/build/land.mjs");
   const root = c.paths.integrationWorktree;
-  const old = sha256Hex(await fs.readFile(path.join(root, ORACLE)));
-  await write(root, ORACLE, "import assert from 'node:assert/strict'; assert.deepEqual(['sentinel'], ['sentinel']);\n");
-  // This fixture's merge queue really verifies and fast-forwards its own main checkout.
+  // Full project verification and an actual local fast-forward, after the repair's own review.
+  await write(root, ".pandacorp/verify.sh", `#!/bin/bash\nnode --test ${ORACLE}\n`);
   await write(root, ".pandacorp/merge-queue.sh", `#!/bin/bash\nset -e\nbash .pandacorp/verify.sh\nmkdir -p .pandacorp/run\nprintf verified > .pandacorp/run/g3-ran\ngit -C "$1" merge --ff-only "$2"\n`);
-  git(root, ["add", "-A"]); git(root, ["commit", "-qm", "test: global oracle replacement\n\nUnit: u-global-repair"]);
-  const target = st.newUnit({ id: "u-global-consumer", kind: "patch", state: "abandoned", test_hashes: { [ORACLE]: old }, rescue: { phase: "failed", failure: "consumer could not finish", exclusion: { pending: false, commits: [] } } });
-  const repair = st.newUnit({ id: "u-global-repair", kind: "tests", state: "integrated", test_hashes: { [ORACLE]: sha256Hex(await fs.readFile(path.join(root, ORACLE))) }, test_repair: { target: target.id, doubt: "r-global", reason: "framework contract", old_hashes: { [ORACLE]: old } } });
-  await c.ctx.writeState({ ...await c.ctx.readState(), units: [target, repair] });
-  for (const unit of [target, repair]) await c.ctx.appendEvent({ type: "unit_queued", data: unit });
+  git(root, ["add", "-A"]); git(root, ["commit", "-qm", "test: full verification and local queue"]);
+  const { repair, target } = await reportedRepair(c);
+  await reviewRepair(c);
+  await integrateStep({ ref: { ...c.ref, deps: c.deps }, d: c.deps, paths: c.paths }, await c.ctx.readState(), []);
   const deps = { ...c.deps, jobs: {
     spawnJob: async spec => { execFileSync(spec.cmd[0], [...spec.cmd.slice(1), c.project, c.paths.integrationBranch(RUN)], { cwd: spec.cwd, env: { ...process.env, ...c.env }, stdio: "pipe" }); return { id: spec.jobId }; },
     pollJob: async () => ({ state: "done", exit: 0 }),
@@ -684,4 +685,144 @@ test("R1 I4: standalone global oracle repair lands through full G3 and finishes 
   assert.equal((await c.ctx.readState()).status, "completed_with_gaps");
   assert.equal(await bs.currentLease(c.project), null);
   assert.match(await fs.readFile(path.join(c.project, ORACLE), "utf8"), /deepEqual\(\['sentinel'\], \['sentinel'\]\)/);
+}));
+
+
+// Independent R2: real commits and transitions, including a discarded consumer and changing diagnostics.
+import { next } from "../runtime/build/next.mjs";
+import { protectedOracleHashes } from "../runtime/build/oracle-review.mjs";
+import { signalsExec } from "./fixtures/build-v2/make-fixture.mjs";
+import { defaultExec } from "../runtime/build/fsx.mjs";
+
+const reviewRepair = async (c, status = "done", coverage = true) => {
+  let cell, brief;
+  const repair = (await c.ctx.readState()).units.find(u => u.test_repair);
+  c.deps.workers = {
+    launchWorker: async args => { cell = { runtime: args.cell.runtime, model: args.cell.model, effort: args.cell.effort }; brief = await fs.readFile(args.briefFile, "utf8"); return { ok: true, workerId: "oracle-review" }; },
+    pollWorker: async () => ({ state: "done", outcome: "report", report: { status, summary: status === "done" ? "all assertions conserved or equivalent" : "coverage was removed", authored_by: cell, gate: null,
+      ...(coverage ? { oracle_coverage: { preserves_coverage: true, files: Object.entries(repair.test_repair.old_hashes).map(([file, old_hash]) => ({ file, old_hash, new_hash: repair.test_hashes[file], assertions: [{ before: "assert.deepEqual(['sentinel'], [])", after: "assert.deepEqual(['sentinel'], ['sentinel'])", reason: "contract requires sentinel for empty input; retain remaining checks" }] })) } } : {}) } }),
+  };
+  await advanceRescues(c.ref, c.deps);
+  const result = await advanceRescues(c.ref, c.deps);
+  return { result, cell, brief };
+};
+
+const reportedRepair = async (c, { global = true, weakened = false } = {}) => {
+  const old = sha256Hex(await fs.readFile(path.join(c.paths.integrationWorktree, ORACLE)));
+  const target = st.newUnit({ id: "u-consumer", kind: "patch", frd: global ? null : FRD, state: "rescue", test_hashes: { [ORACLE]: old }, rescue: { phase: "work" } });
+  const planned = planTestRepair({ ...await c.ctx.readState(), units: [target] }, { id: "r-oracle", unit: target.id, question: ORACLE, why: "AC requires sentinel", options: [{ text: "replace incompatible oracle" }] });
+  await c.ctx.writeState(planned.state);
+  const dispatched = await c.dispatch(planned.state.units.find(u => u.test_repair));
+  const repair = { ...dispatched, frd: target.frd, wos: [], worker: { runtime: "codex", model: "sol", effort: "high", via: "cli", pid: null, worker_id: "repair-author" } };
+  await c.ctx.writeState(st.patchUnit(await c.ctx.readState(), repair.id, { frd: repair.frd, wos: repair.wos, worker: repair.worker }));
+  await write(repair.worktree, ORACLE, weakened ? "// all assertions removed by repair\n" : "import assert from 'node:assert/strict'; assert.deepEqual(['sentinel'], ['sentinel']); assert.notDeepEqual(['sentinel'], []);\n");
+  assert.equal((await c.report(repair, [ORACLE])).outcome, "committed");
+  assert.equal(protectedOracleHashes(await c.ctx.readState())[ORACLE], old, "candidate hashes must not replace the protected predecessor before review");
+  await c.ctx.writeState(st.patchUnit(await c.ctx.readState(), target.id, { state: "abandoned", rescue: { phase: "failed", exclusion: { pending: false } } }));
+  return { repair, target, old };
+};
+
+for (const global of [false, true]) for (const verdict of ["failed", "missing-coverage", "forged-coverage", "unavailable", "no-qualified-cell", "capacity-wait"]) test(`R2 N2: ${global ? "global" : "FRD"} oracle repair cannot integrate with ${verdict} review`, () => fixture(async c => {
+  const original = await fs.readFile(path.join(c.paths.integrationWorktree, ORACLE), "utf8");
+  const { repair } = await reportedRepair(c, { global, weakened: true });
+  await integrateStep({ ref: { ...c.ref, deps: c.deps }, d: c.deps, paths: c.paths }, await c.ctx.readState(), []);
+  assert.equal(await fs.readFile(path.join(c.paths.integrationWorktree, ORACLE), "utf8"), original, "unreviewed oracle never enters integration");
+  assert.equal(assessBatch(await c.ctx.readState()).complete, false);
+  if (verdict === "no-qualified-cell") {
+    c.deps.routing = { builderCell: () => ({ paused: "quota", resumeAt: new Date(Date.now() + 60000).toISOString() }) };
+    await advanceRescues(c.ref, c.deps);
+  } else if (verdict === "capacity-wait") {
+    c.deps.workers = { launchWorker: async () => ({ ok: true, workerId: "unavailable-review" }), pollWorker: async () => ({ state: "done", outcome: "capacity_wait", resumeAt: new Date(Date.now() + 60000).toISOString() }) };
+    await advanceRescues(c.ref, c.deps);
+    await advanceRescues(c.ref, c.deps);
+  } else if (verdict === "unavailable") {
+    c.deps.workers = { launchWorker: async () => ({ ok: false, detail: "review transport unavailable" }) };
+    await advanceRescues(c.ref, c.deps);
+  } else await reviewRepair(c, verdict === "failed" ? "failed" : "done", verdict !== "missing-coverage");
+  const s = await c.ctx.readState();
+  assert.equal(st.findUnit(s, repair.id).state, "abandoned");
+  assert.equal(await fs.readFile(path.join(c.paths.integrationWorktree, ORACLE), "utf8"), original);
+  const closed = await finishRun(c.ref, c.deps);
+  assert.equal(closed.summary.status, "completed_with_gaps");
+  assert.ok(closed.summary.gaps.some(g => g.unit === repair.id));
+}));
+
+for (const global of [false, true]) test(`R2 N2: ${global ? "global" : "FRD"} repair carries pinned independent assertion equivalence before integration`, () => fixture(async c => {
+  const { repair } = await reportedRepair(c, { global });
+  const reviewed = await reviewRepair(c);
+  assert.equal(reviewed.result?.action, "rescue", "repair requires its own independent reviewer");
+  assert.match(reviewed.brief, /assertions|coverage/);
+  const checked = st.findUnit(await c.ctx.readState(), repair.id);
+  assert.equal(checked.state, "committed");
+  assert.equal(checked.review.verdict, "pass");
+  assert.ok(checked.rescue.coverage_review.files[0].assertions.length);
+  assert.deepEqual(checked.review.reviewer, reviewed.cell);
+  assert.notDeepEqual(reviewed.cell, { runtime: repair.worker.runtime, model: repair.worker.model, effort: repair.worker.effort }, "own repair review must exceed its actual author");
+  await integrateStep({ ref: { ...c.ref, deps: c.deps }, d: c.deps, paths: c.paths }, await c.ctx.readState(), []);
+  assert.equal(st.findUnit(await c.ctx.readState(), repair.id).state, "integrated");
+  assert.match(await fs.readFile(path.join(c.paths.integrationWorktree, ORACLE), "utf8"), /assert.notDeepEqual/);
+}));
+
+for (const permanent of [false, true]) test(`R2 N1: abandoned inverse conflict terminates, permanent=${permanent}`, () => fixture(async c => {
+  const doc = "docs/recovery-note.md";
+  await c.ctx.writeState({ ...await c.ctx.readState(), scope: { card: null, wos: [], frds: [], out_of_scope: [] } });
+  const originals = [];
+  for (const name of ["a", "b"]) {
+    const raw = await c.dispatch({ id: `u-doc-${name}`, kind: "docs" });
+    const unit = { ...raw, frd: null, wos: [] }; originals.push(unit);
+    await c.ctx.writeState(st.patchUnit(await c.ctx.readState(), unit.id, { frd: unit.frd, wos: unit.wos }));
+    await write(unit.worktree, doc, `Version from ${name}\n`);
+    await c.report(unit, [doc]);
+    await integrateStep({ ref: { ...c.ref, deps: c.deps }, d: c.deps, paths: c.paths }, await c.ctx.readState(), []);
+  }
+  if (permanent) c.deps.exec = async (cmd, args, options) => cmd === "git" && args[0] === "revert" && args[1] === "--no-commit" ? { code: 1, stdout: "", stderr: "permanent revert I/O fault" } : defaultExec(cmd, args, options);
+  for (let i = 0; i < 2; i++) await recordTechnicalFailure(c.ctx, originals[0].id, { code: "EIO" }, c.deps);
+  const out = await advanceRescues(c.ref, c.deps);
+  assert.equal((await rescueReport(c, out, "failed")).outcome, "abandoned");
+  let done = false;
+  for (let i = 0; i < 6; i++) {
+    const tick = await next(c.ref, { ...c.deps, signalExec: signalsExec("clean"), env: { ...c.env, PANDACORP_DISK_FREE_GIB: "100" }, risk: { staticZones: async wos => wos.map(w => ({ ...w, zone: "none", risk_rules: [] })), computeRisk: async () => ({ zone: "none", rules: [], audit: false }) } });
+    if (tick.action === "done") { done = true; break; }
+    assert.notEqual(tick.wait?.reason, "closure");
+  }
+  assert.equal(done, true, "bounded recovery must finish rather than spin on closure");
+  const s = await c.ctx.readState();
+  assert.ok(s.units.every(u => u.state === "abandoned"));
+  assert.ok(s.units.some(u => u.technical_failures?.some(f => f.code === "exclusion_failed")), "exclusion faults count as technical failures");
+  if (!permanent) assert.equal(await fs.stat(path.join(c.paths.integrationWorktree, doc)).then(() => true, () => false), false);
+  const closed = await finishRun(c.ref, c.deps);
+  assert.equal(closed.summary.status, "completed_with_gaps");
+  assert.deepEqual(closed.summary.gaps.map(g => g.unit).sort(), originals.map(u => u.id).sort());
+  assert.equal(await fs.stat(path.join(c.project, doc)).then(() => true, () => false), false, "excluded code never lands");
+}));
+
+for (const interleaved of [false, true]) test(`R2 N3: rescue read failures ignore PID and remember nonconsecutive causes (${interleaved})`, () => fixture(async c => {
+  const { unit, out } = await startRescue(c);
+  await rescueReport(c, out);
+  let reads = 0;
+  c.deps.workers = { launchWorker: async () => ({ ok: true, workerId: "stable-worker" }), pollWorker: async () => ({ state: "error", kind: interleaved && reads === 1 ? (++reads, "transport") : (++reads, "read_failed"), detail: `read failed from child pid ${1000 + reads}; attempt ${reads}` }) };
+  await advanceRescues(c.ref, c.deps);
+  for (let i = 0; i < (interleaved ? 3 : 2); i++) await advanceRescues(c.ref, c.deps);
+  const checked = st.findUnit(await c.ctx.readState(), unit.id);
+  assert.equal(checked.state, "abandoned");
+  assert.equal(checked.rescue.poll_error.count, 2);
+  assert.ok(!checked.rescue.poll_error.key.includes("pid"));
+  assert.match(checked.rescue.poll_error.key, /stable-worker/);
+  assert.match(checked.rescue.poll_error.key, /rescue-review\.json/);
+}));
+
+for (const global of [false, true]) test(`R2 N2: legacy unreviewed integrated repair restores its predecessor (${global})`, () => fixture(async c => {
+  const original = await fs.readFile(path.join(c.paths.integrationWorktree, ORACLE), "utf8");
+  const { repair } = await reportedRepair(c, { global, weakened: true });
+  // Emulate a pre-upgrade journal that integrated the hash change without a coverage review.
+  git(c.paths.integrationWorktree, ["merge", "--ff-only", repair.branch]);
+  await c.ctx.writeState(st.patchUnit(await c.ctx.readState(), repair.id, { state: "integrated", rescue: null }));
+  assert.equal(assessBatch(await c.ctx.readState()).complete, false);
+  await advanceRescues(c.ref, c.deps);
+  assert.equal(st.findUnit(await c.ctx.readState(), repair.id).state, "abandoned");
+  assert.equal(await fs.readFile(path.join(c.paths.integrationWorktree, ORACLE), "utf8"), original);
+  const replay = st.foldJournal((await jr.readJournal(c.paths.journalFile)).events);
+  assert.equal(st.findUnit(replay, repair.id).state, "abandoned");
+  assert.equal(st.findUnit(replay, repair.id).rescue.exclusion.pending, false);
+  assert.equal((await finishRun(c.ref, c.deps)).summary.status, "completed_with_gaps");
 }));

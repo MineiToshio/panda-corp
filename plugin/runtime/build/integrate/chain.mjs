@@ -1,3 +1,4 @@
+import { oracleReviewPassed } from "../oracle-review.mjs";
 // Chain integration (D22): one committed unit branch onto the integration tip, the integration order, FRD readiness for G2.
 import * as fsp from "node:fs/promises";
 import path from "node:path";
@@ -80,7 +81,7 @@ export async function integrateUnit({ unit, integration, runId, workOrders = tru
  * @returns {object[]}
  */
 export function committedUnits(state) {
-  const pool = state.units.filter((u) => u.state === "committed" && (INTEGRABLE_KINDS.includes(u.kind) || u.rescue?.phase === "completed"));
+  const pool = state.units.filter((u) => u.state === "committed" && oracleReviewPassed(u) && (INTEGRABLE_KINDS.includes(u.kind) || u.rescue?.phase === "completed"));
   const ids = new Set(pool.map((u) => u.id));
   const ordered = [];
   const seen = new Set();

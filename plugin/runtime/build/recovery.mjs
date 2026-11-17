@@ -1,3 +1,4 @@
+import { oracleReviewPassed, protectedOracleHashes } from "./oracle-review.mjs";
 // Causal oracle repair: an independent tests execution, never permission for a builder to change its own oracle.
 import * as fsp from "node:fs/promises";
 import path from "node:path";
@@ -10,7 +11,7 @@ import { git, isTestSurface, productPrefix, productRoot } from "./units.mjs";
 const err = message => Object.assign(new Error(message), { code: "INVALID_INPUT" });
 export const doubtBasis = (state, unit, doubt) => {
   const text = [doubt.question, doubt.why, ...(doubt.options ?? []).map(o => o.text)].join(" ");
-  const hashes = Object.assign({}, ...state.units.map(u => ({ ...u.test_hashes, ...u.probe_hashes })));
+  const hashes = protectedOracleHashes(state);
   // Only a replacement of a disputed oracle is causal. Tests of another contract and scope-only edits do not count.
   return JSON.stringify(Object.entries(hashes).filter(([f]) => text.includes(f)).sort());
 };
@@ -19,7 +20,7 @@ export function planTestRepair(state, record) {
   const target = findUnit(state, record.unit);
   if (!target || !["build", "patch"].includes(target.kind)) throw err("fix-test requires a builder with an independent protected oracle");
   const body = [record.question, record.why, ...record.options.map(o => o.text)].join("\n");
-  const old = Object.assign({}, ...state.units.map(u => ({ ...u.test_hashes, ...u.probe_hashes })));
+  const old = protectedOracleHashes(state);
   const files = Object.keys(old).filter(f => isTestSurface(f) && body.includes(f));
   if (!files.length) throw err("fix-test must cite concrete protected test files and the incompatible contract in the dispute");
   const id = `u-test-repair-${record.id}`;
@@ -40,7 +41,7 @@ export function planTestRepair(state, record) {
 export async function settleTestRepairs(ctx, deps = {}) {
   let state = await ctx.readState();
   const fs = deps.fs ?? fsp;
-  for (const repair of state.units.filter(u => u.test_repair && u.state === "integrated")) {
+  for (const repair of state.units.filter(u => u.test_repair && u.state === "integrated" && oracleReviewPassed(u))) {
     const target = findUnit(state, repair.test_repair.target);
     if (!target?.depends_on.includes(repair.id) || target.state !== "queued") continue;
     const files = Object.keys(repair.test_repair.old_hashes);

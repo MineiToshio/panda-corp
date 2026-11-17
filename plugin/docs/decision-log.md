@@ -1,5 +1,19 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-17 - Close second independent rescue review findings
+
+Plugin 10.14.2 (PATCH), [BUILD-16](../../factory/standards/build-engine.md) and the
+[oracle report contract](build-engine-cli.md). N2 now requires a repair-specific stronger
+fresh-context coverage review on pinned predecessor/replacement commits before integration,
+hash adoption or either landing path, including global repairs with abandoned consumers.
+Missing/rejected/unavailable review excludes the repair and preserves the original oracle.
+N1 records inverse conflicts as technical failures, excludes colliding later writers and
+dependents and retries in reverse order within a finite budget. Unresolved exclusion
+quarantines all remaining contributions and closes with gaps without landing that tree.
+N3 shares failureIdentity across ordinary, exclusion and rescue transport observations;
+PID/prose changes and interleaved causes no longer reset the repeated-cause count.
+Permanent incident tests exercise RED against the predecessor engine, safe outcomes,
+review rejection/missing coverage/unavailable transport and retained P1–P7 behavior.
 
 ## 2026-11-17 - Fix independent rescue review findings
 

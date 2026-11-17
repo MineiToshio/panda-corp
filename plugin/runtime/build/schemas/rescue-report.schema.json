@@ -51,6 +51,9 @@
         "object",
         "null"
       ]
+    },
+    "oracle_coverage": {
+      "type": "object"
     }
   },
   "required": [

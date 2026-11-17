@@ -64,11 +64,23 @@ export function DesatendidaDetail(): React.JSX.Element {
       <Body>
         A disputed protected test is repaired by a separate tests worker. The engine verifies and
         versions its hash before the original builder resumes with its code and attempt preserved.
-        Approving a diff gate reuses the exact saved commit and report; it does not rebuild the unit.
-        Integrated preparation waiting for that gate remains waiting. Rephrasing the same unresolved
-        contract cannot trigger another unchanged execution. CLI credentials come from a validated
-        launcher envelope; transport recovery preserves the attempt, and SWC uses a writable physical
-        cache inside the worker checkout.
+        Approving a diff gate reuses the exact saved commit and report; it does not rebuild the
+        unit. Integrated preparation waiting for that gate remains waiting. Rephrasing the same
+        unresolved contract cannot trigger another unchanged execution. CLI credentials come from a
+        validated launcher envelope; transport recovery preserves the attempt, and SWC uses a
+        writable physical cache inside the worker checkout.
+      </Body>
+      <Body>
+        Los fallos técnicos repetidos activan un rescate. Si falla, la unidad y sus dependientes
+        quedan como huecos y el trabajo independiente continúa. Un conflicto al excluir código tiene
+        una recuperación acotada; si no se resuelve, se cierra con todos los huecos y se impide
+        aterrizar esa contribución.
+      </Body>
+      <Body>
+        Cada reparación de un test exige su propia revisión independiente: debe confirmar que
+        conserva las aserciones o las sustituye por equivalentes, incluso sin FRD o si su consumidor
+        fue abandonado. Si la revisión falla o no puede hacerse, se excluye la reparación y se
+        conserva el oráculo original.
       </Body>
       <DocH title="Dudas aparcadas y gates humanos" />
       <Body>
