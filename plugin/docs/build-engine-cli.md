@@ -449,6 +449,12 @@ Output: `{"ok":true,"cmd":"report","outcome":"committed|rejected|doubt|blocked|f
 | `failed` | worker returned `status:"failed"` | 0 |
 | `waiting_gate` | `gate` set or S8/deploy reasons on the unit diff | 7 |
 
+Approved diff gates retain the engine commit (including its `Unit:` trailer) and the original report in
+`unit.gate_report`. Approval moves that execution to `reported`; `next` re-ingests only the exact saved SHA/file set
+on a clean checkout, then commits its state and integrates it. No builder is launched and no attempt is consumed.
+A changed SHA, dirty checkout or mismatched report fails closed. Integrated docs/tests waiting for consumers' gates
+count as closure work, so the scheduler returns `waiting_gate`/`waiting_owner` (or `wait:closure`), never `no_progress`.
+
 ### 3.10 `review-record`
 
 Fenced. Records a reviewer's verdict for `review`, `deferred-review` and `audit` units. Arguments: `--epoch`, `--unit`, `--token`, `--file <review.json>` (valid against `schemas/review-report.schema.json`).
@@ -678,9 +684,15 @@ Do not call scope-repair again on a non-blocked unit or reset it. Mixed requests
 
 A dispute has options `fix-test` / `keep-test`. Its question includes the approved files and `--reason`, so cite the
 previous owner decision there. **Opening or answering a dispute does not authorize a build worker to edit a hashed
-oracle or regenerate its hash.** The existing dispute ladder records the decision and requeues the execution; it does
-not implement protected-oracle replacement. Such a replacement still requires an independently owned, governed test
-repair mechanism; this command provides the dispute entry, not a bypass of report/landing hash checks.
+oracle or regenerate its hash.** Choosing `fix-test` queues a separate `tests` unit with `test_repair` metadata:
+target builder, dispute/contract evidence, exact protected paths and predecessor hashes. The builder waits on that
+unit. Only the repair worker may replace those exact tests (never implementation, deletions or snapshots). Report
+checks the old hashes, requires changed new hashes and independently runs G1: green or assertion-RED with the rest
+of the light gates green; import/syntax/tool failures reject it. Integration verifies the hashes again, retains the
+previous version in git and `test_repair.old_hashes`, transfers hash ownership, and merges the verified revision into
+the preserved builder checkout before it resumes at the same attempt. A disputed file missing from the evidence is
+an error, never an unchanged redispatch. Rephrased doubts share file/AC/contract identity; unrelated test integration
+does not count as a repair, and repeated unanswered causes cannot be redispatched by merely deciding them again.
 
 #### Chained Next.js incident and Claude coordinator commands (BL-0329)
 
@@ -1260,6 +1272,18 @@ Variants:
 - A `tests` brief adds "RED-first acceptance tests: each new test must fail by assertion, never by an import or syntax error; touch no production code". The report carries no hashes; the CLI computes them.
 - A `doubt-consult` brief carries the doubt object and asks for `{decision, rationale, confidence, reversible}` (3.12); it says to check the sources first when the sources step was skipped.
 - The brief never contains the lease token, only the unit token.
+
+CLI workers receive a non-authoritative `launcher-bound` placeholder instead of the admission credential. The launcher
+stores a private envelope and launch receipt outside worker-writable report directories, bound to the worker job,
+run, dispatch epoch and admission hash. Polling validates them against the current live job and fenced state, and
+replaces the generated report's token before canonical schema/ingestion checks. The model never supplies control
+authority. A damaged envelope is repaired from the validated launch receipt; damaged receipts return a retryable
+transport read error without closing the job or charging an attempt. Existing same-job epoch transfers retain the
+original credential; another job/run/token cannot borrow it.
+
+Before bootstrap, verification and worker launch/resume, the engine probes a writable SWC cache inside the physical
+checkout (`/tmp` aliases resolve to `/private/tmp` on macOS). An external host cache is replaced by a sandbox-local
+cache; a denied cache uses a separately probed local fallback. Tests remain enabled.
 
 ### 11.2 Report out (`schemas/report.schema.json`; all keys required, for Codex `--output-schema` strictness)
 

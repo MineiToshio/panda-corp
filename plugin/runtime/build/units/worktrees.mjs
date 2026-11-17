@@ -177,7 +177,8 @@ async function bootstrapWorktree(root, deps) {
   if (deps.bootstrap === false) return none;
   const script = path.join(root, ".pandacorp", "worktree-bootstrap.sh");
   if (!(await (deps.fs ?? fsp).stat(script).then(() => true, () => false))) return none;
-  const res = await runnerOf(deps)("bash", [".pandacorp/worktree-bootstrap.sh"], { cwd: root, env: deps.env, timeout: BOOTSTRAP_TIMEOUT_MS });
+  const swc = await prepareSwcCache(root, deps);
+  const res = await runnerOf(deps)("bash", [".pandacorp/worktree-bootstrap.sh"], { cwd: swc.root, env: { ...process.env, ...deps.env, NEXT_SWC_PATH: swc.cache }, timeout: BOOTSTRAP_TIMEOUT_MS });
   return { ran: true, exit: res.code, tail: `${res.stdout}\n${res.stderr}`.trim().split("\n").slice(-10).join("\n") };
 }
 
@@ -265,4 +266,30 @@ export async function pinReviewWorktree({ project, runId, worktree, sha }, deps 
   const after = await head();
   if (after !== target) throw err("INVALID_STATE", `review worktree ${worktree} is at ${after}, not the review pin ${target}`);
   return { moved: true, head: after };
+}
+
+/** Probe a cache inside the sandbox's physical checkout before bootstrap/verification/dispatch. */
+export async function prepareSwcCache(root, deps = {}) {
+  const fs = deps.fs ?? fsp;
+  const physical = await fs.realpath(root);
+  const requested = (deps.env ?? process.env).NEXT_SWC_PATH;
+  let cache = requested ? path.resolve(physical, requested) : path.join(physical, ".next", "cache", "swc");
+  // A writable host cache may still be outside the worker sandbox. Keep the cache inside its writable checkout.
+  if (path.relative(physical, cache).startsWith("..") || path.isAbsolute(path.relative(physical, cache))) cache = path.join(physical, ".next", "cache", "swc");
+  const probe = async candidate => {
+    await fs.mkdir(candidate, { recursive: true });
+    const resolved = await fs.realpath(candidate);
+    const rel = path.relative(physical, resolved);
+    if (rel.startsWith("..") || path.isAbsolute(rel)) throw err("INVALID_PATH", "SWC cache escapes the worker checkout");
+    const file = path.join(resolved, `.write-probe-${process.pid}-${(await import("node:crypto")).randomUUID()}`);
+    await fs.writeFile(file, "", { flag: "wx", mode: 0o600 });
+    await fs.unlink(file);
+    return { root: physical, cache: resolved };
+  };
+  try { return await probe(cache); }
+  catch (error) {
+    const fallback = path.join(physical, ".next", "cache", "swc-worker");
+    if (cache === fallback) throw error;
+    return probe(fallback);
+  }
 }

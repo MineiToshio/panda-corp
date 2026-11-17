@@ -1,7 +1,7 @@
 // Terminal actions (A11, D32): what is still running, the first-match terminal choice, its Spanish notes, applying it
 // (status, journal, quiesce + finalizeRelease) and finishing the release of a run that already stopped.
 import { finishPerformance } from "../perf.mjs";
-import { fencedTwoPhase, isTerminalUnit, readLeaseToken } from "../state.mjs";
+import { awaitsClosure, fencedTwoPhase, isTerminalUnit, readLeaseToken } from "../state.mjs";
 import { ENV_INFRA_STOP } from "./constants.mjs";
 import { err, isAssumed, isLive, passIntent, resolveDeps, sibling } from "./context.mjs";
 import { removeAllG2Snapshots } from "./g2.mjs";
@@ -26,10 +26,11 @@ export function chooseTerminal(state, { pol, l4, plan, candidates, dispatch }) {
   if (dispatch?.admissionBlocked) return { action: "wait", reason: dispatch.admissionBlocked };
   const nonTerminal = state.units.filter((u) => !isTerminalUnit(u));
   const { all, ownerRoots } = blockedClosure(state);
-  if (ownerRoots.length && nonTerminal.every((u) => all.has(u.id))) {
+  if (ownerRoots.length && nonTerminal.every((u) => all.has(u.id) || awaitsClosure(u))) {
     const gatesOnly = ownerRoots.every((u) => u.state === "waiting_gate" || u.waiting_gate);
     return { action: "waiting-owner", status: gatesOnly ? "waiting_gate" : "waiting_owner", reason: gatesOnly ? "gate" : "owner_answer" };
   }
+  if (nonTerminal.length && nonTerminal.every(awaitsClosure)) return { action: "wait", reason: "closure" };
   const queued = nonTerminal.some((u) => u.state === "queued" && (!u.parked || isAssumed(u)));
   if (queued && (plan?.deadlock || !candidates?.quotaBlocked)) return { action: "deadlock", status: "stopped", reason: "deadlock" };
   return { action: "stop", status: "stopped", reason: "no_progress" };

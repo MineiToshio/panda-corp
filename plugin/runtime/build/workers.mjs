@@ -9,6 +9,9 @@
 // attempt budget. Every function takes the injected `deps` as its LAST optional argument.
 //
 // deps: {env, fs, spawn, sleep, tiers, recordLimit, stopWorkers, isAlive, fnv, launchTimeoutMs, readTimeoutMs}.
+import { createHash } from "node:crypto";
+import { verifyToken } from "./admission.mjs";
+import { prepareSwcCache } from "./units/worktrees.mjs";
 import { spawn as nodeSpawn } from "node:child_process";
 import nodeFs from "node:fs";
 import path from "node:path";
@@ -136,6 +139,7 @@ export function buildWorkerArgv(input, deps) {
     pin: { tool: cell.runtime, model: cell.model, effort } };
   assertTaskCell(task, task.pin);
   const { bin, prefix, fake } = workerCommand(deps);
+  const physical = value => { try { return nodeFs.realpathSync(value); } catch { return value; } };
   const args = [
     "run", "--direct", "--project", project, "--id", assertSafeId(workerId, "worker id"), "--unit", assertSafeId(unit, "unit id"),
     "--prompt-file", promptFile, "--codex-model", slug, "--effort", effort,
@@ -145,6 +149,7 @@ export function buildWorkerArgv(input, deps) {
     // allowed to write it (BL-0313). Nothing else outside the worktree becomes writable.
     "--dir", dir, "--access", "sandbox", "--writable-dir", buildPaths(project).unitDir(unit), "--max", String(Math.max(1, Math.floor(maxSeconds))),
   ];
+  for (let i = 1; i < args.length; i++) if (PATH_FLAGS.has(args[i - 1])) args[i] = physical(args[i]);
   assertArgvClean(args);
   return { bin, args: [...prefix, ...args], fake };
 }
@@ -264,13 +269,21 @@ export async function launchWorker(input, deps) {
   if (!fs.existsSync(dir)) return { ok: false, kind: "worktree_missing", detail: `unit worktree not found: ${dir}` };
   const { bin, args, fake } = buildWorkerArgv({ project: paths.project, workerId, unit, task: input.task, cell: input.cell, promptFile, schemaFile: input.schemaFile ?? null, dir }, deps);
   const workerDir = paths.codexWorkerDir(workerId);
+  if (input.token !== undefined) {
+    const checked = verifyToken(unit, input.token, { file: paths.admissionFile });
+    if (!checked.ok || !Number.isInteger(input.epoch)) return { ok: false, kind: "transport", detail: "invalid launcher credential or epoch" };
+    const envelope = { workerId, unit, epoch: input.epoch, runId: input.runId, token: input.token, token_hash: checked.token_hash };
+    await atomicWriteJson(path.join(paths.build, "worker-envelopes", `${workerId}.launch.json`), envelope);
+    await atomicWriteJson(path.join(paths.build, "worker-envelopes", `${workerId}.json`), envelope);
+  }
+  const swc = await prepareSwcCache(dir, { env: workerEnv(deps) });
   const existing = peekWorker({ project, workerId }, deps);
   const adopted = (pid, startedAt, settled) => ({ ok: true, workerId, dir: workerDir, pid, startedAt, job: jobItem({ workerId, unit, frd, pid, cwd: dir, startedAt }), reused: true, argv: args, settled });
   if (existing.sealed || existing.state === "running" || existing.state === "exited") {
     const state = readJsonSync(path.join(workerDir, "state.json"), deps);
     return adopted(existing.pid, state?.startedAt ?? null, null);
   }
-  const wait = await runCapture(bin, args, { cwd: paths.project, env: workerEnv(deps), timeoutMs: deps?.launchTimeoutMs ?? LAUNCH_WAIT_S * 1000 + LAUNCH_GRACE_MS, isWorkerItself: fake ? (launcherPid) => readJsonSync(path.join(workerDir, "state.json"), deps)?.pid === launcherPid : null }, deps);
+  const wait = await runCapture(bin, args, { cwd: paths.project, env: { ...workerEnv(deps), NEXT_SWC_PATH: swc.cache }, timeoutMs: deps?.launchTimeoutMs ?? LAUNCH_WAIT_S * 1000 + LAUNCH_GRACE_MS, isWorkerItself: fake ? (launcherPid) => readJsonSync(path.join(workerDir, "state.json"), deps)?.pid === launcherPid : null }, deps);
   const state = readJsonSync(path.join(workerDir, "state.json"), deps);
   const startedAt = state?.startedAt ?? null;
   const pid = Number.isInteger(state?.pid) ? state.pid : null;
@@ -301,7 +314,8 @@ export async function resumeWorker({ project, workerId, unit, frd, dir, sequence
   if (qualified) assertTaskCell(qualified, saved?.worker ?? cell);
   const { bin, prefix } = workerCommand(deps);
   const argv = [...prefix, "resume", "--project", project, "--id", assertSafeId(workerId, "worker id"), "--resume-sequence", String(sequence), "--max", "1"];
-  const out = await runCapture(bin, argv, { cwd: project, env: workerEnv(deps), timeoutMs: deps.launchTimeoutMs ?? 15000 }, deps);
+  const swc = await prepareSwcCache(dir, { env: workerEnv(deps) });
+  const out = await runCapture(bin, argv, { cwd: project, env: { ...workerEnv(deps), NEXT_SWC_PATH: swc.cache }, timeoutMs: deps.launchTimeoutMs ?? 15000 }, deps);
   releaseChild(out.child);
   if (out.spawnError) return { ok: false, detail: out.spawnError };
   const line = lastLine(out.stdout);
@@ -393,6 +407,9 @@ export async function pollWorker(input, deps) {
     if (peek.state === "running") return { state: "running", workerId };
     return { state: "done", workerId, outcome: "worker_error", kind: "dead", detail: `worker ${workerId} left no sealed result (${peek.state})`, payload };
   }
+  const binding = reportEnvelope({ project, workerId, unit, epoch, required: input.requireEnvelope === true }, deps);
+  if (!binding.ok) return { state: "error", workerId, kind: "transport", detail: binding.detail };
+  if (binding.token && payload.answer && typeof payload.answer === "object") payload.answer = { ...payload.answer, token: binding.token };
   const verdict = classifyWorkerPayload(payload, { unit, schema: readSchema(schemaFile, deps), now: now ?? deps?.env?.PANDACORP_NOW ?? Date.now() });
   const stored = readJsonSync(path.join(paths.codexWorkerDir(workerId), "state.json"), deps);
   const result = { state: "done", workerId, ...verdict, model: payload.model ?? null, effort: payload.effort ?? null,
@@ -417,4 +434,35 @@ export async function pollWorker(input, deps) {
  */
 export function stopWorkers(project, ids, deps) {
   return (deps?.stopWorkers ?? stopCodexWorkers)(path.resolve(project), ids);
+}
+
+/** Launcher-owned, job/epoch-bound credentials. A damaged envelope is a retryable read error, never a code failure. */
+export function reportEnvelope({ project, workerId, unit, epoch, required = false }, deps = {}) {
+  const paths = buildPaths(project);
+  const state = readJsonSync(paths.stateFile, deps);
+  const live = state?.jobs?.find(j => j.kind === "worker" && j.worker_id === workerId && j.unit === unit && j.state === "running");
+  // Standalone/legacy polling has no engine job and does not gain any credential authority.
+  if (!live) return required ? { ok: false, detail: "no matching live engine job for the launcher envelope" } : { ok: true, token: null };
+  let envelope = readJsonSync(path.join(paths.build, "worker-envelopes", `${workerId}.json`), deps);
+  const saved = state.units.find(u => u.id === unit);
+  const valid = candidate => {
+    if (!candidate || typeof candidate.token !== "string" || !candidate.token || !Number.isInteger(candidate.epoch) || candidate.epoch < 1) return false;
+    const hash = createHash("sha256").update(candidate.token).digest("hex");
+    return state.epoch === epoch && candidate.epoch <= epoch && candidate.runId === state.run_id && candidate.unit === unit && candidate.workerId === workerId &&
+      saved?.worker?.worker_id === workerId && saved.token_hash === hash && candidate.token_hash === hash && verifyToken(unit, candidate.token, { file: paths.admissionFile }).ok;
+  };
+  if (!valid(envelope)) {
+    const launch = readJsonSync(path.join(paths.build, "worker-envelopes", `${workerId}.launch.json`), deps);
+    if (!valid(launch)) return { ok: false, detail: "launcher envelope does not match the live job, epoch and admission" };
+    // Recover transport from the launcher-owned receipt, never from model text. Same worker, pin, edits and attempt.
+    envelope = launch;
+    const fs = fsOf(deps), file = path.join(paths.build, "worker-envelopes", `${workerId}.json`);
+    const tmp = `${file}.repair-${process.pid}`;
+    try { fs.writeFileSync(tmp, JSON.stringify(envelope), { mode: 0o600 }); fs.renameSync(tmp, file); }
+    catch (error) {
+      try { fs.unlinkSync(tmp); } catch { /* Only the launcher's own failed write is eligible. */ }
+      return { ok: false, detail: `launcher envelope repair failed: ${error.code ?? error.message}` };
+    }
+  }
+  return { ok: true, token: envelope.token };
 }

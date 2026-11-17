@@ -19,7 +19,7 @@ function candidateReady(m, sim, cand) {
   const { unit } = cand;
   if ((unit.parked && !isAssumed(unit)) || (cand.existing && pendingIrreversible(m, unit))) return false;
   if (!unit.depends_on.every((d) => unitDep(m, sim, d) === true)) return false;
-  if (!cand.existing || !["build", "patch", "tests"].includes(unit.kind)) return true;
+  if (unit.test_repair || !cand.existing || !["build", "patch", "tests"].includes(unit.kind)) return true;
   const inside = new Set((unit.wos ?? []).map(norm));
   // A unit built on an assumption also counts the WOs already built on the SAME assumption branch as done.
   if (isAssumed(unit)) for (const id of m.unitOfWo.keys()) if (assumedDoneOn(m, sim, id, unit.pending_answer)) inside.add(id);

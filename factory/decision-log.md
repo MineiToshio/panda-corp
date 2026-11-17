@@ -1,5 +1,12 @@
 # Decision Log — Factory
 
+## 2026-11-17 — Causal build recovery preserves work and independent oracles
+
+[Build engine](standards/build-engine.md) now documents independent protected-test repair, exact-commit gate
+re-ingestion, closure waiting, causal doubt identity, launcher-owned report credentials and physical SWC caches.
+These repair the funko-tracker incident without changing capacity policy or builder authority. Details and tests:
+[plugin decision](../plugin/docs/decision-log.md#2026-11-17--finish-causal-recovery-after-disputes-and-human-gates).
+
 ## 2026-11-16 — Clarify chained scope repair and protected dispute boundaries (BL-0329)
 
 [BUILD-15](standards/build-engine.md) and CLI §3.14c now explain literal Next paths, one selected WO in a

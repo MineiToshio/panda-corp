@@ -1,5 +1,6 @@
 // (2) Integration (CLI doc 4.1): git work outside the mutex, state and journal under it; accepted assumption branches
 // merge first (C10); a conflict hands the unit back.
+import { settleTestRepairs } from "../recovery.mjs";
 import { readJson } from "../fsx.mjs";
 import { fencedTwoPhase, findUnit } from "../state.mjs";
 import { PLANNED_KINDS } from "./constants.mjs";
@@ -44,6 +45,7 @@ export async function integrateStep(run, state, notes) {
       }
       for (const ev of events) await ctx.appendEvent(ev);
       if (events.length) await ctx.writeState({ ...s, units, last_safe_point: safe });
+      await settleTestRepairs(ctx, d);
       return { conflicts: Array.isArray(result?.conflicts) ? result.conflicts : [] };
     });
   for (const c of res.conflicts) {

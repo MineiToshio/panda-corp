@@ -1,5 +1,18 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-17 — Finish causal recovery after disputes and human gates
+
+Plugin 10.13.9 (PATCH). The funko-tracker audit found that `fix-test` released a builder without replacing its
+protected oracle, and diff-gate approval reconstructed work already committed by the engine. Independent bounded
+test repairs now verify/version the oracle before same-attempt builder admission; gate recovery re-ingests the
+saved SHA/report. Integrated preparation remains waiting, paraphrased disputes retain causal identity, own atomic
+temporary cleanup requires a concrete provenance proof, CLI credentials use launcher-owned job/epoch envelopes
+with transport receipts, and SWC caches are probed inside physical sandbox checkouts. Routing/capacity is unchanged.
+F1/F2/F5/F7/F8 were already fixed at main 37f64f3c and are retained. Seven small regressions use isolated fixtures
+and fake workers, with no models or tokens purchased. Canonical: [CLI contract](build-engine-cli.md),
+[BUILD-12](../../factory/standards/build-engine.md), and the shared Mission Control Manual explanation.
+No factory commit, install/update or incident-product write is part of this change.
+
 ## 2026-11-16 — Accept literal paths and repair one WO of a chain (BL-0329)
 
 Plugin 10.13.8 (PATCH, DR-034). [CLI §3.14c](build-engine-cli.md#314c-scope-repair-bl-0327) now accepts

@@ -16,8 +16,22 @@ const SYNTHESIZED_KEYS = new Set(Object.values(SYNTHESIZED_OPTION_IDS).map((ids)
  * @param {{question: string, options: {id: string}[], preferred: string}} doubt the doubt being opened
  * @returns {boolean}
  */
-export function isRepeatDoubt(previous, doubt) {
+const identities = doubt => {
+  const text = [doubt.question, doubt.why, ...(doubt.options ?? []).map(o => o.text)].join(" ");
+  return new Set(text.match(/(?:[\w@.-]+\/)+[\w.\[\]@-]+|\b(?:AC|REQ|DR)-[\w.-]+\b|\b(?:generateStaticParams|cacheComponents)\b/g) ?? []);
+};
+
+export function isRepeatDoubt(previous, doubt, basis = null) {
   if (!previous || previous.step !== "decided") return false;
+  if (basis && previous.basis && basis !== previous.basis) {
+    // A different wording may select different files. Only replacement of a COMMON predecessor is causal.
+    try {
+      const current = new Map(JSON.parse(basis));
+      if (JSON.parse(previous.basis).some(([file, hash]) => current.has(file) && current.get(file) !== hash)) return false;
+    } catch { /* Legacy/unreadable fingerprint is not proof of a repair. */ }
+  }
+  const priorKeys = identities(previous);
+  if ([...identities(doubt)].some(key => priorKeys.has(key))) return true;
   if (normalizeQuestion(previous.question) === normalizeQuestion(doubt.question)) return true;
   const key = optionKey(doubt.options);
   if (SYNTHESIZED_KEYS.has(key)) return false;

@@ -260,7 +260,7 @@ async function prepareGrant(run, current, g) {
   let briefPath = g.consult?.brief_path ?? null;
   if (!briefPath) {
     const brief = await (await sibling(d, "units", "writeUnitBrief"))({
-      project: ref.project, state: current, unit: { ...unit, worktree }, cell: g.cell, agentType: agentTypeForUnit(unit), token: g.token,
+      project: ref.project, state: current, unit: { ...unit, worktree }, cell: g.cell, agentType: agentTypeForUnit(unit), token: g.via === "cli" ? "launcher-bound" : g.token,
       schemaPath: files.schema_path, worktree, reportPath: files.report_path, extra: await briefExtra(run, current, g),
     }, d);
     briefPath = brief?.brief_path ?? paths.briefFile(unit.id);
@@ -270,7 +270,7 @@ async function prepareGrant(run, current, g) {
     const dir = worktree ?? await integrationProductRoot(run, current);
     const res = await (await sibling(d, "workers", "launchWorker"))({
       project: ref.project, runId: current.run_id, unit: unit.id, attempt: unit.attempt, frd: unit.frd ?? null,
-      cell: g.cell, task: g.task ?? capacityTaskForUnit(unit, current), schemaFile: files.schema_path || null, dir, briefFile: briefPath, dispatch: dispatchOf(g.token_hash),
+      cell: g.cell, task: g.task ?? capacityTaskForUnit(unit, current), schemaFile: files.schema_path || null, dir, briefFile: briefPath, dispatch: dispatchOf(g.token_hash), epoch: ref.epoch, token: g.token,
     }, d);
     if (!res?.ok) throw err("ENGINE_FAILURE", `the Codex worker of ${unit.id} did not start (${res?.kind ?? "unknown"}): ${res?.detail ?? ""}`);
     if (res.settled?.kind === "capacity_wait") return { ...g, unit, slug, worktree, branch,

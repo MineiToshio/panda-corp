@@ -1,5 +1,6 @@
 // Ladder effects that end a doubt: decide (decision-log entry, inbox, commit, unit re-queued) and park (park or build on
 // an assumption). They run inside a phase that holds the lease mutex; the caller writes the returned state.
+import { planTestRepair } from "../recovery.mjs";
 import path from "node:path";
 import { nowIso } from "../fsx.mjs";
 import { assumeUnits, createAssumeBranch, parkOrAssume, parkUnits } from "../park.mjs";
@@ -19,6 +20,7 @@ export async function decide(ctx, state, record, { value, decided_by, why, voter
   if (settledUnit(state, record)) return { state, record, decision: null, sha: null, warnings: [], applied: false };
   const unit = findUnit(state, record.unit);
   const decided = { ...record, step: "decided", decision: { value, why: oneLine(why, 600) || "decided by the ladder", decided_by } };
+  const repair = value === "fix-test" ? planTestRepair(state, record) : null;
   const integrationRoot = path.resolve(ctx.project, state.integration.worktree);
   const date = nowIso(deps).slice(0, 10);
   const logAbs = path.join(integrationRoot, "docs", "decision-log.md");
@@ -30,7 +32,8 @@ export async function decide(ctx, state, record, { value, decided_by, why, voter
   }), deps);
   const files = ["docs/decision-log.md", ...(inbox.tracked ? [inbox.rel] : [])];
   const sha = await commitIntegration(integrationRoot, files, `docs(build): decided without the owner ${record.id} (${unit.id})\n\nUnit: ${unit.id}\nDoubt: ${record.id}\n`, deps);
-  const nextState = { ...state, units: state.units.map((u) => (u.id === unit.id ? { ...u, state: "queued", token_hash: null } : u)) };
+  const nextState = repair?.state ?? { ...state, units: state.units.map((u) => (u.id === unit.id ? { ...u, state: "queued", token_hash: null } : u)) };
+  for (const event of repair?.events ?? []) await ctx.appendEvent(event);
   if (unit.state !== "queued") await ctx.appendEvent({ type: "unit_state", data: { unit: unit.id, from: unit.state, to: "queued" } });
   await ctx.appendEvent({
     type: "autonomous_decision",

@@ -760,12 +760,54 @@ function classify(opts, ctx) {
   // --- S8 · FLOOR irreversible / data loss ---------------------------------------------------
   // BL-0165: an rmSync/rmdirSync match is skipped (search continues) when it is exempt test-tmpdir
   // cleanup (see rmCallsAreTempCleanup above); every other S8 pattern is unaffected.
+  // A narrow provenance proof, never a filename/variable-name exemption: immutable unique temp, own write,
+  // atomic rename and cleanup of that exact binding. Partial diffs without the proof remain gated.
+  const ownedCleanup = source => {
+    const literals = new Map();
+    // Mask comments and literals before reading bindings/calls; prose cannot manufacture provenance.
+    const code = source.replace(/("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (all, literal, offset) => {
+      if (literal) literals.set(offset, literal);
+      return (literal ? "@" : " ") + all.slice(1).replace(/[^\n]/g, " ");
+    });
+    const imports = new Set();
+    for (const m of code.matchAll(/\bimport\s*\{([^}]+)\}\s*from[ \t]*/g)) {
+      const spec = literals.get(m.index + m[0].length)?.slice(1, -1);
+      if (!["node:crypto", "node:fs/promises", "fs/promises"].includes(spec)) continue;
+      for (const binding of m[1].split(",").map(x => x.trim())) imports.add(`${spec}:${binding}`);
+    }
+    if (!imports.has("node:crypto:randomUUID")) return new Set();
+    const op = name => imports.has(`node:fs/promises:${name}`) || imports.has(`fs/promises:${name}`);
+    if (!["rename", "unlink"].every(op)) return new Set();
+    // Imported provenance is invalid if any operation/UUID binding is shadowed or rebound.
+    const symbols = "randomUUID|writeFile|open|rename|unlink";
+    const untrusted = new RegExp(`\\b(?:let|var|const|function)\\s+(?:${symbols})\\b|\\((?=[^)]*\\b(?:${symbols})\\b)[^)]*\\)`);
+    if (untrusted.test(code) || new RegExp(`\\b(?:let|var|const)\\s*[\\[{][^;=\\n]*\\b(?:${symbols})\\b`).test(code)) return new Set();
+    const safe = new Set();
+    for (const match of code.matchAll(/\bconst\s+(\w+)\s*=[ \t]*/g)) {
+      const [, name] = match, value = literals.get(match.index + match[0].length) ?? "";
+      if (!/^`/.test(value) || !/\$\{randomUUID\(\)\}(?:\.tmp)?`$/.test(value) || !/\.tmp|\.temp-/.test(value)) continue;
+      const writes = code.match(new RegExp(`\\b${name}\\s*=(?!=)|\\b(?:let|var|const)\\s+${name}\\b`, "g")) ?? [];
+      if (writes.length !== 1 || new RegExp(`\\b(?:let|var|const)\\s*[\\[{][^;=\\n]*\\b${name}\\b`).test(code)) continue;
+      const shadow = new RegExp(`(?:function\\s*[\\w]*\\s*\\([^)]*\\b${name}\\b[^)]*\\)|catch\\s*\\(\\s*${name}\\s*\\)|(?:\\([^)]*\\b${name}\\b[^)]*\\)|\\b${name})\\s*=>)`);
+      if (shadow.test(code) || new RegExp(`\\([^)]*\\b${name}\\b[^)]*\\)\\s*\\{`).test(code)) continue;
+      const write = new RegExp(`(?<![\\w.])writeFile\\(\\s*${name}\\s*,`).exec(code);
+      const rename = new RegExp(`(?<![\\w.])rename\\(\\s*${name}\\s*,`).exec(code);
+      const open = op("open") ? new RegExp(`(?<![\\w.])open\\(\\s*${name}\\s*,[ \\t]*`).exec(code) : null;
+      const exclusive = open && literals.get(open.index + open[0].length)?.slice(1, -1) === "wx";
+      const creation = op("writeFile") && write ? write : exclusive ? open : null;
+      if (!creation || !rename || creation.index < match.index || rename.index < creation.index) continue;
+      safe.add(name);
+    }
+    return safe;
+  };
   const joinedByPath = new Map(codeAddedJoinedByFile.map((f) => [f.path, f.joined]));
+  const cleanups = new Map([...joinedByPath].map(([p, joined]) => [p, ownedCleanup(joined)]));
+  const withoutOwnedCleanup = (p, text) => text.replace(/(?<![\w.])unlink\(\s*(\w+)\s*\)/g, (call, name) => cleanups.get(p)?.has(name) ? "ownedTempCleanup()" : call);
   const isExemptRmFile = (p) => isTestSurface(p) && rmCallsAreTempCleanup(joinedByPath.get(p) || "");
   const findS8 = () => {
     for (const { path: p, line } of codeAdded) {
       for (const re of S8_CONTENT) {
-        const m = line.match(re);
+        const m = withoutOwnedCleanup(p, line).match(re);
         if (!m) continue;
         const text = m[0].trim().slice(0, 60);
         if (isRmSyncText(text) && isExemptRmFile(p)) continue;
@@ -774,7 +816,7 @@ function classify(opts, ctx) {
     }
     for (const { path: p, joined } of codeAddedJoinedByFile) {
       for (const re of S8_CONTENT_JOINED) {
-        const m = joined.match(re);
+        const m = withoutOwnedCleanup(p, joined).match(re);
         if (!m) continue;
         const text = m[0].trim().slice(0, 60).replace(/\s+/g, " ");
         if (isRmSyncText(text) && isExemptRmFile(p)) continue;

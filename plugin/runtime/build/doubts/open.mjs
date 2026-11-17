@@ -1,4 +1,5 @@
 // `doubt open`: validate the worker's doubt, compute the deterministic veto, create the record and start the ladder.
+import { doubtBasis } from "../recovery.mjs";
 import path from "node:path";
 import { nowIso } from "../fsx.mjs";
 import { fencedTwoPhase, findUnit } from "../state.mjs";
@@ -38,7 +39,7 @@ export async function openDoubt({ project, epoch, unit: unitId, file }, deps = {
       }
       if (!OPENABLE_STATES.includes(unit.state)) throw err("INVALID_STATE", `unit ${unitId} is ${unit.state}: a doubt is opened from running or reported`);
       const previous = unit.doubt_id ? await readDoubt(project, unit.doubt_id, deps) : null;
-      return { unit, root: path.resolve(project, state.integration.worktree), repeat: isRepeatDoubt(previous, doubt) };
+      return { unit, root: path.resolve(project, state.integration.worktree), basis: doubtBasis(state, unit, doubt), repeat: isRepeatDoubt(previous, doubt, doubtBasis(state, unit, doubt)) };
     },
     async (intent) => (intent.existing ? null : assessVeto({ project, root: intent.root, unit: intent.unit, doubt }, deps)),
     async (veto, intent, ctx) => {
@@ -49,7 +50,7 @@ export async function openDoubt({ project, epoch, unit: unitId, file }, deps = {
       const id = await nextDoubtId(project, deps);
       let record = {
         schema: 1, id, unit: unitId, opened_at: nowIso(deps), question: doubt.question, options: doubt.options.map((o) => ({ id: o.id, text: o.text })),
-        preferred: doubt.preferred, why: doubt.why, step: "sources", consults: [], decision: null, assumption: null,
+        preferred: doubt.preferred, why: doubt.why, basis: intent.basis, repeated: intent.repeat, step: "sources", consults: [], decision: null, assumption: null,
       };
       state = { ...state, units: state.units.map((u) => (u.id === unitId ? { ...u, state: "reported", doubt_id: id, token_hash: null } : u)) };
       if (unit.state !== "reported") await ctx.appendEvent({ type: "unit_state", data: { unit: unitId, from: unit.state, to: "reported" } });

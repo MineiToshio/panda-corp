@@ -284,6 +284,12 @@
         "no"
       ],
       "additionalProperties": false
+    },
+    "basis": {
+      "type": "string"
+    },
+    "repeated": {
+      "type": "boolean"
     }
   },
   "required": [

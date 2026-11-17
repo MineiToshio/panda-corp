@@ -1,6 +1,6 @@
 // Pure state queries of the `next` scheduler: the run scope (CLI 4), dependency readiness (D16), the owner-blocked
 // closure and whether the batch is complete (CLI 3.11).
-import { findUnit, isTerminalUnit } from "../state.mjs";
+import { awaitsClosure, findUnit, isTerminalUnit } from "../state.mjs";
 import { FRD_WORK_KINDS, OWNER_PARKS } from "./constants.mjs";
 import { assumedRunnable } from "./context.mjs";
 
@@ -47,6 +47,11 @@ export function blockedClosure(state) {
       if (blocked.has(u.id) || isTerminalUnit(u)) continue;
       if ((u.depends_on ?? []).some((dep) => blocked.has(dep))) { blocked.add(u.id); grew = true; }
     }
+  }
+  // Preparation is held with its consumers, including dependencies running in the opposite direction.
+  for (const u of state.units.filter(awaitsClosure)) {
+    const consumers = state.units.filter(c => (c.depends_on ?? []).includes(u.id) && !isTerminalUnit(c));
+    if (consumers.length && consumers.every(c => blocked.has(c.id) || awaitsClosure(c))) blocked.add(u.id);
   }
   const ownerRoots = roots.filter((u) => OWNER_PARKS.includes(u.parked) || u.state === "waiting_gate" || (u.state === "parked" && u.parked !== "no_reviewer"));
   return { all: blocked, ownerRoots };

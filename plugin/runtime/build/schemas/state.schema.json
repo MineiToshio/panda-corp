@@ -556,6 +556,54 @@
           "scope_revision": {
             "type": "string",
             "pattern": "^[0-9a-f]{40,64}$"
+          },
+          "test_repair": {
+            "type": "object",
+            "properties": {
+              "target": {
+                "type": "string"
+              },
+              "doubt": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "old_hashes": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            },
+            "required": [
+              "target",
+              "doubt",
+              "reason",
+              "old_hashes"
+            ],
+            "additionalProperties": false
+          },
+          "gate_report": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "commit": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40,64}$"
+              },
+              "report": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "commit",
+              "report"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [

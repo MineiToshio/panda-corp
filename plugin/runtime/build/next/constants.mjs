@@ -10,7 +10,7 @@ export const MAX_WAIT_S = 300;
 /** Consecutive `env-infra` hand-backs that stop the run (D21). */
 export const ENV_INFRA_STOP = 3;
 
-export const RETRY_S = Object.freeze({ disk: 30, ram: 30, cpu_H: 30, workers_running: 30, jobs_running: 30, gate: 60, quota: 60 });
+export const RETRY_S = Object.freeze({ closure: 30, disk: 30, ram: 30, cpu_H: 30, workers_running: 30, jobs_running: 30, gate: 60, quota: 60 });
 export const LAND_RETRY_EXITS = Object.freeze([12, 14, 20]);
 export const LAND_RETRY_S = 60;
 // G2 snapshot worktrees (B5): `<build>/g2/<frd>-<pinned sha>`, one per job, never the integration worktree itself.

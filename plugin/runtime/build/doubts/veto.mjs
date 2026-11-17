@@ -158,7 +158,8 @@ export function vetoReasons({ unit, doubt, risk = null, text = null, ownerDrs = 
   if (unit.zone === "r1") add("irreversible", "unit zone r1");
   if (unit.waiting_gate) add("human_gate", `unit waits at gate ${unit.waiting_gate}`);
   if (risk?.failclosed) add("failclosed", "risk of the unit files was computed fail-closed");
-  else if (risk?.irreversible) add("irreversible", `risk of the unit files: zone ${risk.zone}`);
+  // Content operations elsewhere in the unit do not make this particular decision irreversible.
+  else if (risk?.irreversible && risk.zone === "r1") add("irreversible", `risk of the unit files: zone ${risk.zone}`);
   if (text && !text.ok) add("failclosed", `doubt text classifier: ${text.detail}`);
   for (const hit of text?.hits ?? []) {
     if (hit.level !== "critical") continue;

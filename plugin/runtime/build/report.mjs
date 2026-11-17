@@ -126,6 +126,12 @@ async function checkChanges({ unit, artifacts, changes, hashed, root, base, card
   for (const { rel, status } of changes) {
     if (unit.scope_repair && rel !== unit.scope_repair.wo_file) { problems.push({ path: rel, why: "scope repair may only write its approved work order" }); continue; }
     if (SNAPSHOT_RE.test(rel)) { problems.push({ path: rel, why: "blessed snapshot baselines are never written by workers" }); continue; }
+    if (unit.test_repair) {
+      const expected = unit.test_repair.old_hashes[rel];
+      const before = expected && await git(deps, root, ["show", `${base}:./${rel}`], { allowFail: true });
+      if (!expected || status === "D" || !isTestSurface(rel) || before.code !== 0 || sha256Hex(before.stdout) !== expected) problems.push({ path: rel, why: "oracle repair must replace its exact protected predecessor, without deletion" });
+      continue;
+    }
     if (hashed.has(rel)) { problems.push({ path: rel, why: "hashed test or probe file (the run protects it)" }); continue; }
     if (!isAllowedPath(unit.kind, artifacts, rel)) { problems.push({ path: rel, why: `outside the ${unit.kind} write allowlist` }); continue; }
     if (!isWorkOrderPath(rel)) continue;
@@ -164,7 +170,8 @@ async function runG1(root, testFiles, deps) {
   const fs = deps.fs ?? fsp;
   if ((await readFileText(fs, path.join(root, ".pandacorp", "verify.sh"))) === null) throw err("FAILCLOSED", `G1 oracle missing: ${path.join(root, ".pandacorp", "verify.sh")}`);
   const args = [".pandacorp/verify.sh", "--light", ...(testFiles.length ? [`--tests=${testFiles.join(",")}`] : [])];
-  const res = await runnerOf(deps)("bash", args, { cwd: root, env: deps.env, timeout: deps.g1TimeoutMs ?? G1_TIMEOUT_MS });
+  const swc = await (await import("./units/worktrees.mjs")).prepareSwcCache(root, deps);
+  const res = await runnerOf(deps)("bash", args, { cwd: swc.root, env: { ...process.env, ...deps.env, NEXT_SWC_PATH: swc.cache }, timeout: deps.g1TimeoutMs ?? G1_TIMEOUT_MS });
   const output = `${res.stdout}\n${res.stderr}`;
   return { exit: res.timedOut ? 124 : res.code, tail: lastLines(output), output, command: `bash ${args.join(" ")}`, timed_out: Boolean(res.timedOut) };
 }
@@ -276,17 +283,23 @@ async function evaluateDone({ intent, deps }) {
   const live = changes.filter((c) => c.status !== "D").map((c) => c.rel);
   const testFiles = live.filter(isTestSurface);
   let g1;
-  if (unit.kind === "tests") {
+  if (unit.kind === "tests" && !unit.test_repair) {
     const verdict = await checkTestsUnit(root, testFiles, deps);
     g1 = verdict.g1;
     if (!verdict.ok) return rejected([verdict.why], { g1, source: "g1_red", evidence: { tests: g1 ? failingTests(g1.output) : [], command: g1?.command ?? null, files: [...changed] } });
   } else {
     g1 = await runG1(root, testFiles, deps);
+    if (unit.test_repair && g1.exit !== 0 && !g1.timed_out && classifyRed(g1.output) === "assertion") {
+      const rest = await runG1(root, [], deps);
+      if (rest.exit === 0) g1 = { ...g1, exit: 0 };
+    }
     if (g1.exit !== 0) return rejected([`G1 red (exit ${g1.exit})`], { g1, source: "g1_red", evidence: { tests: failingTests(g1.output), command: g1.command, files: [...changed] } });
   }
 
   const testHashes = {};
   if (unit.kind === "tests") for (const rel of testFiles) testHashes[rel] = sha256Hex(await fs.readFile(path.join(root, rel)));
+
+  if (unit.test_repair && (Object.keys(testHashes).length !== Object.keys(unit.test_repair.old_hashes).length || Object.entries(testHashes).some(([rel, hash]) => hash === unit.test_repair.old_hashes[rel]))) return rejected(["oracle repair must causally replace every approved protected hash"]);
 
   const files = [...changed].sort().map((rel) => `${prefix}${rel}`);
   const { subject, trailers } = commitMessage({ unit, report, card: intent.card });
@@ -435,8 +448,9 @@ async function applyVerdict({ ctx, intent, verdict, deps }) {
   } else if (verdict.kind === "waiting_gate") {
     const { kind, detail } = verdict.gate;
     // A diff gate keeps the unit commit on the unit branch (never reset); the resumed report completes phase 2 from it.
-    await ctx.writeState(patchUnit(state, unit.id, { state: "waiting_gate", waiting_gate: kind, token_hash: null }));
-    await ctx.appendEvent({ type: "report_received", data: { unit: unit.id, outcome: "waiting_gate", commit: null } });
+    await ctx.writeState(patchUnit(state, unit.id, { state: "waiting_gate", waiting_gate: kind, token_hash: null, ...(verdict.commit ? { gate_report: { commit: verdict.commit, report: intent.report } } : {}) }));
+    if (verdict.commit) await ctx.appendEvent({ type: "capacity_state", data: { unit: unit.id, patch: { gate_report: { commit: verdict.commit, report: intent.report } } } });
+    await ctx.appendEvent({ type: "report_received", data: { unit: unit.id, outcome: "waiting_gate", commit: verdict.commit ?? null } });
     await ctx.appendEvent({ type: "waiting_gate", data: { unit: unit.id, kind, detail, question: `g-${unit.id}` } });
     await ctx.appendEvent(stateEvent("waiting_gate"));
     legacy = [{ name: "WaitingGate", data: { unit: unit.id, kind, detail, question: `g-${unit.id}` } }];
@@ -524,3 +538,38 @@ export const report = ingestReport;
 
 /** `next` calls its sibling as `report.ingest({project, epoch, actor, unit, token, file, via})`. */
 export const ingest = ingestReport;
+
+/** Approved diff gates re-ingest the engine's exact saved report/commit, without admission or another worker. */
+export async function resumeApprovedGates(ref, deps = {}) {
+  return fencedTwoPhase({ ...ref, deps }, async ctx => {
+    const state = await ctx.readState();
+    const prefix = await productPrefix(ref.project, deps);
+    return state.units.filter(u => u.state === "reported" && u.gate_report && state.answers[`g-${u.id}`] === true)
+      .map(unit => ({ unit, report: unit.gate_report.report, worktree: unit.worktree, root: productRoot(unit.worktree, prefix), prefix,
+        integrationBranch: state.integration.branch, from: unit.state, card: state.scope?.card ?? null }));
+  }, async intents => {
+    const results = [];
+    for (const intent of intents) {
+      const head = (await git(deps, intent.root, ["rev-parse", "HEAD"])).stdout.trim();
+      if (head !== intent.unit.gate_report.commit) throw err("INVALID_STATE", "approved gate commit changed; refusing reconstruction");
+      const base = await unitBase(intent.root, intent.integrationBranch, deps);
+      const ahead = Number((await git(deps, intent.root, ["rev-list", "--count", `${base}..HEAD`])).stdout.trim());
+      const dirty = (await git(deps, intent.worktree, ["status", "--porcelain=v1", "--untracked-files=all"])).stdout.trim() !== "";
+      const verdict = await resumeCommitted({ intent, deps, ahead, dirty });
+      if (!verdict || verdict.commit !== head) throw err("INVALID_STATE", "approved gate report no longer matches the engine commit");
+      results.push({ intent, verdict });
+    }
+    return results;
+  }, async (results, _intents, ctx) => {
+    for (const { intent, verdict } of results) {
+      const state = await ctx.readState();
+      const unit = findUnit(state, intent.unit.id);
+      if (unit.state !== "reported" || unit.gate_report?.commit !== verdict.commit || state.answers[`g-${unit.id}`] !== true) throw err("INVALID_STATE", "gate changed during re-ingestion");
+      await ctx.writeState(patchUnit(state, unit.id, { state: "committed", gate_report: null, ...(verdict.test_hashes ? { test_hashes: verdict.test_hashes } : {}) }));
+      await ctx.appendEvent({ type: "report_received", data: { unit: unit.id, outcome: "committed", commit: verdict.commit, ...(verdict.test_hashes ? { test_hashes: verdict.test_hashes } : {}) } });
+      await ctx.appendEvent({ type: "wo_committed", data: { unit: unit.id, wos: unit.wos, frd: unit.frd, commit: verdict.commit } });
+      await ctx.appendEvent({ type: "unit_queued", data: { ...unit, state: "committed", gate_report: null, ...(verdict.test_hashes ? { test_hashes: verdict.test_hashes } : {}) } });
+    }
+    return results.map(r => r.verdict.commit);
+  });
+}

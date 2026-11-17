@@ -61,6 +61,15 @@ export function DesatendidaDetail(): React.JSX.Element {
         patch lo consumen, no las unidades de tests. Un bloqueo conserva su motivo y permite
         continuar unidades independientes.
       </Body>
+      <Body>
+        A disputed protected test is repaired by a separate tests worker. The engine verifies and
+        versions its hash before the original builder resumes with its code and attempt preserved.
+        Approving a diff gate reuses the exact saved commit and report; it does not rebuild the unit.
+        Integrated preparation waiting for that gate remains waiting. Rephrasing the same unresolved
+        contract cannot trigger another unchanged execution. CLI credentials come from a validated
+        launcher envelope; transport recovery preserves the attempt, and SWC uses a writable physical
+        cache inside the worker checkout.
+      </Body>
       <DocH title="Dudas aparcadas y gates humanos" />
       <Body>
         Reversible technical doubts become recorded engine assumptions with a reason and reversal

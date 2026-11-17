@@ -598,7 +598,16 @@ and its preferred one; the unit stays `reported` with its `doubt_id`):
    consult that returns no JSON counts as a low-confidence, irreversible non-answer: it counts toward the
    cap and the ladder advances.
 
-**Never decided this way:** anything `irreversible` (BUILD-10 §Risk zone: r1, S5 or S8; decided by the
+**Causal recovery (10.13.9).** `fix-test` creates an independent tests unit limited to the disputed protected files,
+with predecessor hashes and contract evidence. G1 verifies the replacement; integration versions the oracle, transfers
+its active hash ownership and updates the preserved builder checkout before same-attempt admission. Builders cannot
+edit either oracle version. A repeated file/contract dispute requires a causal repair, not another unchanged dispatch.
+An approved diff gate re-ingests its saved engine commit/report at the exact SHA without a new worker or attempt.
+Integrated preparation awaiting closure remains waiting. CLI report credentials come from launcher-owned, job/epoch-
+bound envelopes with recoverable transport receipts, never generated text. Workers use physically resolved, probed
+sandbox-local SWC caches without disabling tests. Canonical details: `plugin/docs/build-engine-cli.md` §§3.9, 3.14c, 11.
+
+**Never decided this way:** a concrete decision that is `irreversible` (r1, S5 or S8 in the decision itself; unrelated operations in the unit do not taint it; decided by the
 CLI, never by an LLM); widening scope beyond Dentro; **reducing or reinterpreting** a Dentro item;
 product scope (PRD, epics); DRs with `requiere_humano: true`; human gates; spending money.
 

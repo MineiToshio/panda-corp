@@ -29,6 +29,9 @@ export const REVIEW_TYPE_KINDS = Object.freeze(["review", "audit", "doubt-consul
 /** Is a unit in a terminal state (A13: `landed`, `blocked`, and `verified` for review-type/consult kinds)? */
 export const isTerminalUnit = (unit) => unit.state === "landed" || unit.state === "blocked" || (unit.state === "verified" && REVIEW_TYPE_KINDS.includes(unit.kind));
 
+/** Integrated preparation has no executable work left, but still participates in FRD closure/landing. */
+export const awaitsClosure = (unit) => ["docs", "tests"].includes(unit.kind) && ["integrated", "verified"].includes(unit.state);
+
 // ---------------------------------------------------------------------------------------------
 // Shapes
 // ---------------------------------------------------------------------------------------------

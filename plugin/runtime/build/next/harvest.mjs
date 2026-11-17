@@ -2,6 +2,7 @@
 // sha (B5) and the land job; a refused report is routed, never swallowed.
 import path from "node:path";
 import { atomicWriteJson, readJson } from "../fsx.mjs";
+import { settleTestRepairs } from "../recovery.mjs";
 import { readGatePatch, writeGateFailure } from "../gatefail.mjs";
 import { readJournal } from "../journal.mjs";
 import { REVIEW_TYPE_KINDS, fencedTwoPhase, findUnit, newUnit } from "../state.mjs";
@@ -12,6 +13,8 @@ import { reviewZone } from "./landing.mjs";
 import { backoffSeconds, capacityAudit, capacityNow, pinOf } from "../../capacity/scheduler.mjs";
 
 export async function harvest(run, state, notes) {
+  if (state.units.some(u => u.state === "reported" && u.gate_report)) await (await sibling(run.d, "report", "resumeApprovedGates"))(run.ref, run.d);
+  if (state.units.some(u => u.test_repair && u.state === "integrated")) await fencedTwoPhase(run.ref, async ctx => settleTestRepairs(ctx, run.d));
   await restorePatchedUnits(run, state);
   for (const job of state.jobs.filter((j) => j.state === "running")) {
     if (job.kind === "worker") await harvestWorker(run, job, notes);
@@ -67,7 +70,7 @@ async function harvestWorker(run, job, notes) {
   const consult = unit0?.kind === "doubt-consult";
   const reportFile = !unit0 ? null : consult ? paths.unitAnswerFile(unit0.id) : reviewType ? paths.reviewFile(unit0.id) : paths.reportFile(unit0.id);
   const schemaFile = !unit0 ? null : paths.schemaFile(consult ? "doubt-answer" : reviewType ? "review-report" : "report");
-  const h = await (await sibling(d, "workers", "pollWorker"))({ project: ref.project, workerId: job.worker_id, unit: job.unit, schemaFile, reportFile, epoch: ref.epoch }, d);
+  const h = await (await sibling(d, "workers", "pollWorker"))({ project: ref.project, workerId: job.worker_id, unit: job.unit, schemaFile, reportFile, epoch: ref.epoch, requireEnvelope: true }, d);
   if (!["running", "done", "error"].includes(h?.state)) throw err("ENGINE_FAILURE", `workers.pollWorker returned no worker state for ${job.worker_id}`);
   if (h.state === "running") return;
   if (h.state === "error") {

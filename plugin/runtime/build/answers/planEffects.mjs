@@ -5,6 +5,7 @@ import { findUnit, isTerminalUnit, newUnit } from "../state.mjs";
 import { GATE_REFUSED_REASON, MAX_EXECUTIONS, NOT_DISPATCHED } from "./constants.mjs";
 import { replace } from "./common.mjs";
 import { discardAssumption } from "./assumption.mjs";
+import { planTestRepair } from "../recovery.mjs";
 import { matchesDefault } from "./questions.mjs";
 
 const patchIdFor = (unit) => {
@@ -86,6 +87,8 @@ export function planParked({ state, question, value, record }) {
       units: [...plan.units, ...released.units.map((unit) => ({ unit, effect: "released" }))], record: decided, assumption,
     };
   }
+  if (value === "fix-test") return { ...planTestRepair(state, record), record: decided, assumption: null };
+  if (record.repeated) throw Object.assign(new Error("repeated doubt needs a causal repair before redispatch; cite protected files and choose fix-test for an oracle defect"), { code: "INVALID_INPUT" });
   const released = releaseParked(state, question);
   return { state: released.state, events: released.events, units: released.units.map((unit) => ({ unit, effect: "released" })), handbacks: [], record: decided, assumption: null };
 }
@@ -94,11 +97,11 @@ export function planGate({ state, unit, value }) {
   if (value === false) {
     return { state, events: [], units: [{ unit: unit.id, effect: "refused" }], handbacks: [{ unitId: unit.id, reason: GATE_REFUSED_REASON }] };
   }
-  const next = replace(state, new Map([[unit.id, { ...unit, state: "queued", waiting_gate: null, pending_answer: null, token_hash: null }]]));
+  const next = replace(state, new Map([[unit.id, { ...unit, state: unit.gate_report ? "reported" : "queued", waiting_gate: null, pending_answer: null, token_hash: null }]]));
   return {
     state: next,
     events: [
-      { type: "unit_state", data: { unit: unit.id, from: "waiting_gate", to: "queued" } },
+      { type: "unit_state", data: { unit: unit.id, from: "waiting_gate", to: unit.gate_report ? "reported" : "queued" } },
       { type: "waiting_gate", data: { unit: unit.id, kind: null } },
     ],
     units: [{ unit: unit.id, effect: "released" }],
