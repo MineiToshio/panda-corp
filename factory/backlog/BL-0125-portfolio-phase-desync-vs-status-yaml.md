@@ -151,3 +151,21 @@ self-corrected in this pass (read-only, consistent with PASO 0's established res
 fix-design step beyond sharpening the (c) prior; folded here per this item's own no-redundancy
 precedent. Source: factory/memory/_inbox.md agent-inferred note (2026-11-01, harvested same day by the
 librarian review pass).
+
+**2026-11-16 (`pandacorp-review-launch` routine) — EIGHTH occurrence, FIRST to pin the exact mechanism
+inside `review-launch`'s own eligibility-discovery step, not just downstream code.** funko-tracker's
+`factory/portfolio.md` row read `Fase: product` since 2026-10-12, while its own `.pandacorp/status.yaml`
+had read `phase: release` since before 2026-10-26 — the routine's canonical prompt (per
+`plugin/docs/routines.md`'s `pandacorp-review-launch`) tells the agent to "read `factory/portfolio.md`
+and find each project with Fase: release," so following that instruction literally would have made the
+routine silently skip an already-launched project entirely, with no error or flag — a sharper mechanism
+than the general "portfolio drifts" framing above: the routine's OWN discovery step reads the cached
+pointer column, not the project's live `status.yaml`, as its primary eligibility filter. This strengthens
+the already-recorded 2026-09-21 fix-design angle ("a downstream consumer... should read the project's own
+`status.yaml` `phase` directly rather than trust `factory/portfolio.md`'s cached column") by naming
+`review-launch`'s PASO-0-equivalent discovery prompt specifically as the place that needs it, and adds a
+second candidate fix: trigger `/pandacorp:sync-portfolio` automatically on any `phase` write in a
+project's `status.yaml`, rather than depending on a manual/scheduled run to catch up. No new root-cause
+resolution between (a)/(b)/(c) above — this is a sharper design detail for whichever fix is implemented,
+folded here per this item's own no-redundancy precedent. Source: factory/memory/_inbox.md agent-inferred
+note (2026-11-16, harvested 2026-11-18).

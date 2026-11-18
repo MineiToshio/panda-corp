@@ -524,3 +524,41 @@ design information — the marker-anchor technique (2026-10-25, corroborated 202
 working approach; this note is itself an instance of that already-converged fact, not a new trap. No new
 backlog item; checked against LESSON-0008 per this item's own standing precedent, no new lesson
 warranted. Source: factory/memory/_inbox.md agent-inferred note (2026-11-14, harvested 2026-11-15).
+
+## Corroborating occurrence (2026-11-17) — the marker-anchor technique's FIXED phrase is itself not a stable contract: a different project closed its drain with a different exact sentence
+
+A new facet of the already-converged marker-anchor technique (2026-10-25): a pending-note counter that
+anchors to the single exact phrase `No live notes pending as of <date>.` under/over-counted on
+`personal-page-v2/.pandacorp/run/lessons.md`, whose most recent drain closed with a different exact
+sentence, `No live notes remain.` — a valid drain-closing marker in spirit, but a different literal
+string than the one the counter's fallback logic was anchored to. Verified by hand (reading the file's
+tail directly): the true pending count was 0, not the 1 the mismatched-phrase fallback reported. This is
+the SAME root-cause family this item already documents at length (a fixed-string/fixed-tag anchor breaks
+the moment a real file uses a different, equally valid variant of the convention — see the 2026-10-21
+annotation's "no fixed tag-vocabulary regex can ever be the sole counting mechanism" finding, and the
+2026-10-14 annotation's parallel finding for the factory inbox's own bullet shape) — here the variance is
+in the CLOSING-MARKER SENTENCE itself, not the live-note bullet shape. No new fix-design principle beyond
+what is already converged (match the marker's FUNCTION — "this file's tail after the last drain close" —
+rather than one exact literal sentence; e.g. accept a small enumerated set of known closing phrases, or
+anchor structurally on the last `<!-- ... -->` block's end per the 2026-09-26/27/29 boundary-detection
+rules, which do not depend on the marker's wording at all). Checked against LESSON-0008
+(line-anchored-parsing-not-substring-greedy, active, high confidence) per this item's own
+2026-09-29/10-06/10-26/10-27/11-08/11-09/11-12 precedent: same already-cited project/routine incident
+family (a fixed-string anchor shadowed by a real but differently-worded variant), no new lesson warranted.
+No new backlog item — same item, same scope. Source: factory/memory/_inbox.md agent-inferred note
+(2026-11-17, pandacorp-memory-review sweep, harvested 2026-11-18).
+
+## Corroborating occurrence (2026-11-18) — PASO 0's own prompt wording, not a script, is the ambiguity; no new design beyond the original Fix plan
+
+A further occurrence, pinned to the routine's own prompt TEXT rather than any counting implementation:
+`plugin/docs/routines.md`'s PASO 0 literally says "cuenta las notas pendientes: líneas con contenido,"
+with no mention of anchoring to the last `<!-- No live notes pending as of ... -->`/`<!-- Drained ... -->`
+marker. Taken literally, a raw non-empty-line count of `factory/memory/_inbox.md` (2053 lines at the time)
+returned 1762 "pending" lines when only 14 were actually live past the last 2026-11-15 drain marker — no
+false sweep resulted this time only because the correctly-anchored count (15, including a note that
+landed after this harvest's own brief was written) still sat under the `>= 20` threshold. This is no new
+design information: the original Fix plan already specifies exactly this fix ("state explicitly: strip
+every `<!--...-->` block... before counting"). Recorded only to reinforce that the doc's prose itself
+remains unfixed as of this date. No new backlog item; checked against LESSON-0008 per this item's own
+standing precedent, no new lesson warranted. Source: factory/memory/_inbox.md agent-inferred note
+(2026-11-18, same sweep).
