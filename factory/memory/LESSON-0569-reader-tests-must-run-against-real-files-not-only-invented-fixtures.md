@@ -8,12 +8,12 @@ trigger: "use this when a new reader/parser test suite is all green against inve
 source: "mission-control .pandacorp/run/lessons.md 2026-10-31 (agent-inferred) — a reader test built entirely from invented fixtures passed green, but hid that the reader mis-parsed the LIVE decisions.md: an undated heading was silently skipped and its Estado line was mis-attributed to the block above, because no invented fixture happened to exercise that exact real-world shape"
 provenance: agent-inferred
 created: 2026-10-31
-status: candidate
-promotion: proposed
+status: active
+promotion: approved
 confidence: medium
 times_applied: 3
 applied_in: [funko-tracker, mission-control, personal-page-v2]
-links: []
+links: [DR-144, DR-078]
 ---
 
 **Situation:** a new reader for `.pandacorp/inbox/decisions.md`-style content was tested exclusively
@@ -36,4 +36,4 @@ the artifact currently on disk (not just invented fixtures), and diff its output
 reading that real file would expect. A reader whose only tests are invented fixtures has proven it matches
 its own author's mental model, not that it correctly parses what actually exists.
 
-**Auto-proposed for promotion** (2026-11-13): cited by 3 projects (funko-tracker, mission-control, personal-page-v2) — measured by count-lesson-citations.sh. Target/rationale to be refined by the next `/pandacorp:memory review`; approval is `/pandacorp:learn` + the owner (DR-047 high-risk gate).
+**Promoted** (2026-11-18 librarian review, refining the 2026-11-13 auto-proposal): already incorporated — `factory/standards/quality.md` §"Behavior on owned fixtures, not curated volume (DR-144)" cites this lesson by id verbatim ("Reader tests still run against real files (LESSON-0569 / DR-078)"), landed 2026-11-03 (commit `d85ba1da1`) as part of the DR-144 change. Status/promotion corrected to match reality rather than left stale at `proposed`.
