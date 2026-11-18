@@ -18,7 +18,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0431, LESSON-0635, LESSON-0636, LESSON-0637]
+links: [LESSON-0431, LESSON-0635, LESSON-0636, LESSON-0637, LESSON-0691]
 ---
 
 **Situation:** four independently-discovered incidents on the same project, each against Neon serverless
@@ -59,6 +59,17 @@ fixed-instance behavior:
   branch-identity equivalent), never just host/name/oid/port (LESSON-0636);
 - any row-by-row/array-order comparison between two Postgres sources — sort both sides explicitly before
   comparing, never rely on incidental physical row order (LESSON-0637).
+- any transaction that pages through a snapshot read by ID (rather than one bulk query) — round-trip
+  count grows with catalog size and can blow a fixed transaction-timeout budget over Neon's real
+  connection RTT, even though a near-zero-latency local test Postgres never shows it (LESSON-0691).
 
-Single-project evidence so far (all four incidents are funko-tracker) — stays `candidate` per DR-047 until
+**Fifth incident (2026-11-17, funko-tracker):** `getPublicBrowseSnapshot`'s interactive transaction
+serialized one statement per 100-ID page across the whole catalog; against Neon DEV's ~90ms RTT the 108
+serialized statements (832 pieces) outlasted the transaction's time bound, returning 500s in production
+while every local-Postgres-backed test passed. Fixed by reading all public cards in one query instead of
+paging, cutting the statement count to O(1) — see LESSON-0691 for the full write-up. This is the same
+root pattern as incident 2 (cold-start `maxWait`) but a distinct mechanism: here the transaction DOES
+start in time, it just serializes too many round trips once inside it.
+
+Single-project evidence so far (all five incidents are funko-tracker) — stays `candidate` per DR-047 until
 a second distinct project corroborates the pattern on Neon or another branchable serverless Postgres.

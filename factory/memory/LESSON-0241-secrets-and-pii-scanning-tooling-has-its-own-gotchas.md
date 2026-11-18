@@ -8,7 +8,9 @@ trigger: use this when standing up or auditing an automated secrets/PII scanning
 source: "synthesized from LESSON-0201 (scan old repo for secrets before flipping public), LESSON-0231 (gitleaks findings map by file field not line number), LESSON-0232 (PII regex rules need corpus validation and masked-shape review) — all personal-page-v2, 2026-09-06..2026-09-13, agent-inferred. Single-project origin so far; awaits corroboration from a second project before activation (loop v2 anti-poisoning)."
 provenance: agent-inferred
 created: 2026-09-13
-status: candidate
+status: active   # 2026-11-18 librarian eval-gate: facet 4 (funko-tracker, 2026-10-21/22) already
+  # cross-corroborated this pattern across 2 distinct projects (personal-page-v2 origin +
+  # funko-tracker) with no contradicting evidence — missed at the time it was added; activated now.
 promotion: none
 confidence: medium
 times_applied: 0
@@ -61,3 +63,17 @@ re-read the project's own already-documented "launch dependencies" (architecture
 step of the visibility-change action itself, not something assumed already handled because it was written
 down once. See also LESSON-0494 (a related but distinct privacy gotcha: a design-freeze capture pass
 rendering real data on a public repo) and BL-0279 (the actionable release-flow checklist gap this surfaced).
+
+**Fifth facet — a secrets scanner's own detection rules produce false positives on long PROSE strings,
+not just on code (funko-tracker, 2026-11, `.pandacorp/run/lessons.md`, agent-inferred):** gitleaks'
+`generic-api-key` rule (a heuristic over high-entropy-looking assigned strings) flagged long descriptive
+prose "reason" strings inside e2e JSON test-case inventories and review markdown docs (e.g. a bug-card or
+work-order rationale sentence assigned to a `reason:`/`"reason"` field) as if they were a leaked API key —
+not because they contain a secret, but because a long enough quoted string after an assignment-shaped key
+trips the entropy/shape heuristic regardless of content.
+**Apply next time (addition):** when gitleaks (or a similar regex/entropy-based scanner) flags a
+long descriptive-prose string assigned to a generic key-shaped field, do NOT reach for an allowlist
+entry first (that permanently blinds the scanner to that exact string shape, including a future real
+secret landing in the same field) — rephrase the prose (shorten it, or move it out of a bare
+key:"value" shape, e.g. into a markdown bullet or a differently-named field) so the false positive
+disappears without weakening the scanner's actual coverage.

@@ -44,3 +44,17 @@ real HTML stream (Next's server-reference encoder + `decodeFormState`), not just
 HTML for an expected marker. If the result is missing for the native path specifically, render it
 outside the segment's automatic streaming boundary when the `next-action` header is absent, while
 keeping GET and hydrated-action requests on their normal independent streams.
+
+**Second occurrence, same project, a different slot — the boundary also wraps parallel-route slots, not
+only the main segment (funko-tracker, 2026-11-17, docs/decision-log.md + `docs/frds/frd-12-web-performance/
+blueprint.md#native-goal-receiver-in-the-request-layout--2026-11-17`):** the first full-browser run past
+the personal-island specs showed a native (no-JS) goal POST's result hidden inside a streamed buffer
+again — this time because the segment's `loading.tsx` boundary also wraps its `@goal` parallel-route
+slot, not just the segment's own direct children. The fix generalizes the same way: render the native
+goal receiver directly in the route's request layout (outside the automatic boundary) and remove the
+`@goal` slot, reusing the verified native-action-kind detection for both Discovery and goal. **Apply next
+time (addition):** when auditing a `loading.tsx`-boundary route for this class of bug, check every
+parallel-route slot it wraps, not only the segment's main `page.tsx`/action — the boundary's streaming
+applies to the whole segment tree, so any Server Action reachable through ANY of its slots can hide its
+native-POST result the same way. Still single-project evidence (both occurrences are funko-tracker); stays
+`candidate` per DR-047 until a different project corroborates it.

@@ -3,12 +3,12 @@ id: BL-0328
 type: bug
 area: build-engine
 title: "Fix v2 build engine failure in drive: git --literal-pathspecs failed (exit 1) in <project>/.pandacorp/run/build/wt/u-build-wo-12"
-status: doing
+status: done
 severity: p1
 opened: 2026-11-16
-closed:
+closed: 2026-11-18
 source: "pandacorp-build engine failure, run br-2026-11-16-01"
-closes:
+closes: "Plugin 10.13.7 fix (plugin/runtime/build/reportFiles.mjs); the resumed run br-2026-11-16-01 (same run id) completed to run_finished on 2026-11-18T05:30:47Z"
 links: [DR-103]
 ---
 
@@ -138,3 +138,16 @@ Status remains `doing`: the original Done-when requires the real interrupted run
 owner explicitly restricted that project to read-only work in this task. Close only after the coordinator
 executes the continuation and verifies the live result. The factory fix and automated evidence are ready;
 the real continuation and `claude plugin validate plugin/` remain unexecuted.
+
+## Closed (2026-11-18, observed during a funko-tracker harvest sweep)
+
+Read-only observation of `funko-tracker/.pandacorp/run/build/journal.jsonl`: at `2026-11-16T17:05:54Z`
+a `run_resumed` event (`from: stopped`) **reattached and adopted `u-build-wo-12-003`** — exactly the WO
+this failure blocked — on the SAME `run_id` (`br-2026-11-16-01`), confirming the continuation command
+above was executed and worked. The run continued through further resumes and finished cleanly:
+`2026-11-18T05:30:47Z run_finished {status: finished}`. `docs/frds/frd-12-web-performance/work-orders/
+wo-12-003-public-shell-proxy.md` now carries `implementation_status: VERIFIED`. The original Done-when
+criterion ("the failed run resumes to completion") is met. No write was made to funko-tracker or its git
+history to produce or observe this evidence — the project's own subsequent commits already record it.
+`claude plugin validate plugin/` remains unexecuted but is not load-bearing for this closure (the
+derived-drift/manifest checks already recorded above cover plugin-side correctness).

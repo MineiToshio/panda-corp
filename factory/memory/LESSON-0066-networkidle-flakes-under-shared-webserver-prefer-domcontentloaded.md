@@ -11,8 +11,8 @@ created: 2026-07-04
 status: active
 promotion: none
 confidence: medium
-times_applied: 1
-applied_in: [mission-control]
+times_applied: 2
+applied_in: [mission-control, funko-tracker]
 links: [LESSON-0040, LESSON-0185]
 ---
 

@@ -3,12 +3,12 @@ id: BL-0326
 type: bug
 area: build-engine
 title: "Fix v2 build engine failure in drive: source WO status missing"
-status: doing
+status: done
 severity: p1
 opened: 2026-11-16
-closed:
+closed: 2026-11-18
 source: "pandacorp-build engine failure, run br-2026-11-16-01"
-closes:
+closes: "Plugin 10.13.5 fix; the resumed run br-2026-11-16-01 (same run id) completed to run_finished on 2026-11-18T05:30:47Z"
 links: [DR-103]
 ---
 
@@ -80,6 +80,18 @@ executor yields, never kill it or reset its state.
 The owner explicitly forbids writes to funko-tracker and `.git`: no live resume, commit or plugin
 activation was attempted. Status remains `doing` until the original live-run completion criterion
 can be observed; the factory fix and its verification are delivered independently below.
+
+## Closed (2026-11-18, observed during a funko-tracker harvest sweep)
+
+Read-only observation of `funko-tracker/.pandacorp/run/build/journal.jsonl`: at `2026-11-16T07:36:17Z`
+a `run_resumed` event (`from: stopped`) **requeued `u-build-wo-12-002`** — exactly the WO this failure
+blocked — on the SAME `run_id` (`br-2026-11-16-01`), confirming the resume command above (or its
+equivalent) was executed and worked. The run continued through further resumes and finished cleanly:
+`2026-11-18T05:30:47Z run_finished {status: finished}`. `docs/frds/frd-12-web-performance/work-orders/
+wo-12-002-publication-cache-protocol.md` now carries `implementation_status: VERIFIED`. The original
+Done-when criterion ("the failed run resumes to completion") is met. No write was made to funko-tracker
+or its git history to produce or observe this evidence — the project's own subsequent commits already
+record it.
 
 ## Verification (2026-11-16)
 
