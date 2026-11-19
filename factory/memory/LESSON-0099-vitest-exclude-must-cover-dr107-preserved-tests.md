@@ -10,6 +10,16 @@ provenance: agent-inferred
 created: 2026-07-07
 status: active
 promotion: proposed   # 2026-09-10 (librarian review) — target: factory/standards/build-orchestration.md's DR-107 section, codify "any project using DR-107 preserved-test archives or the concurrent gate-worktree (DR-118) must exclude `.pandacorp/**` in its test runner's exclude/glob config" as a standing rule. Corroborated across 2 distinct projects with two DIFFERENT root causes converging on the same fix (mission-control: a preserved-test archive glob; personal-page-v2: a leftover gate-worktree's own node_modules resolving a second React copy) — a scaffold-time default would prevent both classes of ghost-red.
+  # RETARGET NOTE (2026-11-19, librarian review, scheduled sweep): DR-107 (patch self-repair ladder) and
+  # DR-118 (concurrent gate-worktree) are both retired by the Day 1 build-engine rewrite (plugin 10.0.0,
+  # DR-150/BUILD-15/BUILD-9) — their specific mechanisms no longer exist, so a section literally keyed to
+  # "DR-107's section" may no longer exist either. The underlying rule is NOT engine-specific though: any
+  # whole-tree test glob can still collect stray test-shaped files from a gitignored `.pandacorp/**`
+  # subtree (run/, worktree bootstrap copies, etc.) under the new engine too. On promotion, retarget the
+  # section reference to a current test-hygiene/scaffold-defaults location (e.g. quality.md or
+  # build-orchestration.md's present worktree/test-isolation section) and state the rule generically
+  # ("exclude `.pandacorp/**` from any test runner's include/glob config") rather than citing the retired
+  # DR-107/DR-118 numbers as the reason.
 confidence: high
 times_applied: 2
 applied_in: [panda-corp, funko-tracker]
