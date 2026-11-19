@@ -5,7 +5,7 @@ domain: infra
 tags: [launchd, deploy, worktree, path, port-collision, env]
 context: an always-on local deployment served via launchd from an isolated git worktree (the DR-089 pattern) that also needs to reach the main checkout's gitignored live data
 trigger: use this when wiring or debugging a launchd-served (or any daemonized, worktree-isolated) local deployment that dies with a toolchain error, collides with the dev server's port, or serves stale/empty owner data
-source: "panda-corp — Mission Control always-on deploy incident 2026-07-05 (factory/decision-log.md 2026-06-25/2026-07-05 entries, factory/standards/infra.md DR-089 section); 3 distinct failure modes hit in the same incident chain. Extended 2026-07-07 (FRD-23 build): the same worktree-only-carries-tracked-files axis also bites a project's OWN materialized read-model cache (`.pandacorp/stats*.json`, gitignored) — `PANDACORP_FACTORY_ROOT` fixes the factory-wide facts (point 3 below) but does NOT make the per-project cache exist in the deploy worktree; that part correctly falls back to live/aggregate derivation (DR-078) rather than serving stale/missing data, but it's a reminder to think through how an isolated deploy worktree sees ANY gitignored materialized cache the app reads, not just the factory's own global data."
+source: "panda-corp — Mission Control always-on deploy incident 2026-07-05 (factory/decision-log.md 2026-06-25/2026-07-05 entries, factory/standards/infra.md DR-089 section); 3 distinct failure modes hit in the same incident chain. Extended 2026-07-07 (FRD-23 build): the same worktree-only-carries-tracked-files axis also bites a project's OWN materialized read-model cache (`.pandacorp/stats*.json`, gitignored) — `PANDACORP_FACTORY_ROOT` fixes the factory-wide facts (point 3 below) but does NOT make the per-project cache exist in the deploy worktree; that part correctly falls back to live/aggregate derivation (DR-078) rather than serving stale/missing data, but it's a reminder to think through how an isolated deploy worktree sees ANY gitignored materialized cache the app reads, not just the factory's own global data. Extended 2026-11-13 (mission-control .pandacorp/run/lessons.md, agent-inferred): a 4th axis — the deploy worktree does not auto-track new commits landed on `main`. After a build lands, the always-on `:1987` deploy (and the content it serves, e.g. the Manual) stays on whatever it was last built from until `.pandacorp/run/deploy-local.sh` is re-run explicitly; nothing about landing on `main` triggers it."
 provenance: agent-inferred
 created: 2026-07-06
 status: candidate
@@ -17,7 +17,7 @@ links: [LESSON-0090, LESSON-0125]
 ---
 
 **Situation:** Mission Control's always-on local deployment (a launchd-served, git-worktree-isolated
-production build, DR-089) failed in three DISTINCT ways that all trace to the same root class — a
+production build, DR-089) failed in four DISTINCT ways that all trace to the same root class — a
 launchd/worktree-isolated process does not inherit the interactive shell's environment or the main
 checkout's context, so anything implicit must be wired explicitly:
 
@@ -37,14 +37,23 @@ checkout's context, so anything implicit must be wired explicitly:
    derived via `dirname "$(git -C "$DEPLOY_DIR" rev-parse --git-common-dir)"`), or it reads an empty
    `factory/` and trips the onboarding gate ("no profile") even though the dev server (which runs from
    the main checkout) shows the data fine — that asymmetry is the tell.
+4. **Staleness after landing.** The deploy worktree is a SNAPSHOT, not a live mirror of `main` — it does
+   not rebuild or restart itself when new commits land. After a build merges to `main`, the always-on
+   deploy keeps serving whatever it was last built from (stale app code, a stale Manual, stale content)
+   until `.pandacorp/run/deploy-local.sh` is re-run by hand; landing on `main` does not imply the deploy
+   saw it.
 
-**Lesson:** these are the same underlying gotcha wearing three costumes — a launchd-daemonized,
-worktree-isolated deploy is environmentally naked: it inherits neither the interactive shell's PATH, nor
-a dedicated port unless one is reserved, nor the main checkout's gitignored data unless pointed at it.
-"It works when I run it by hand" does not predict "it works under launchd from a worktree."
+**Lesson:** these are the same underlying gotcha wearing four costumes — a launchd-daemonized,
+worktree-isolated deploy is environmentally naked AND temporally frozen: it inherits neither the
+interactive shell's PATH, nor a dedicated port unless one is reserved, nor the main checkout's
+gitignored data unless pointed at it, nor new commits unless explicitly redeployed. "It works when I
+run it by hand" does not predict "it works under launchd from a worktree," and "it landed on main" does
+not predict "the deploy shows it."
 
 **Apply next time:** when standing up (or debugging) any daemonized/isolated-worktree local deployment,
-audit all three axes up front in `serve.sh`: (1) export an explicit, stable `PATH` covering every
-toolchain the app needs; (2) reserve a port distinct from the dev/preview server's; (3) if the app reads
-any gitignored/live state, export an explicit root pointing at the main checkout, never assume the
-worktree has it. A symptom split between "dev works, deploy doesn't" is the signature of this whole class.
+audit all four axes: (1) export an explicit, stable `PATH` covering every toolchain the app needs (in
+`serve.sh`); (2) reserve a port distinct from the dev/preview server's; (3) if the app reads any
+gitignored/live state, export an explicit root pointing at the main checkout, never assume the worktree
+has it; (4) after any build lands on `main`, re-run the project's deploy script explicitly — never
+assume the always-on deploy picked it up on its own. A symptom split between "dev works, deploy doesn't"
+(axes 1-3) or "main has it, the deploy doesn't show it" (axis 4) is the signature of this whole class.

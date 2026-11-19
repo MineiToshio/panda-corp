@@ -16,7 +16,11 @@ source: "mission-control .pandacorp/run/lessons.md 2026-10-23 (agent-inferred): 
   login on this account. Sixth, corroborating instance, factory/memory/_inbox.md 2026-10-24
   (agent-inferred): `codex exec -s read-only` cannot write anything, including its own temp
   script/report file, so a worker dispatched that way silently returns nothing useful for a task that
-  needs to produce a scratch script or a written report."
+  needs to produce a scratch script or a written report. Seventh, corroborating instance,
+  mission-control .pandacorp/run/lessons.md 2026-11-13 (agent-inferred): a Codex worker running under
+  `workspace-write` still gets `EPERM` trying to write `.codex/agents/*` — the generated Codex agent
+  mirrors are outside its writable scope even with workspace-write — so the coordinator must run
+  `generate-codex-agents.mjs` itself and commit the result before handing anything to a Codex worker."
 provenance: agent-inferred
 created: 2026-10-23
 status: candidate
@@ -27,7 +31,7 @@ applied_in: []
 links: [LESSON-0325, LESSON-0506, LESSON-0524]
 ---
 
-**Situation:** six distinct, unrelated Codex CLI operating gotchas surfaced across two sessions, none
+**Situation:** seven distinct, unrelated Codex CLI operating gotchas surfaced across three sessions, none
 about model selection (which LESSON-0325/LESSON-0506 already cover): (1) a personal skill under
 `~/.codex/skills` or `~/.agents/skills` is invoked with `$name`, while a plugin-provided skill instead
 shows up as a slash command — the two surfaces look and invoke differently even though both are "Codex
@@ -40,7 +44,9 @@ inject additional context at all on this Codex version — the equivalent inject
 on this account (a login/entitlement issue, not a usage error); (6) `codex exec -s read-only` is
 read-only in the literal, total sense — it cannot write even its own scratch script or a report file it
 was asked to produce, so an inventory/analysis worker dispatched with that sandbox flag comes back
-empty with no loud error pointing at the cause.
+empty with no loud error pointing at the cause; (7) even under `-s workspace-write`, a Codex worker's
+sandbox refuses `EPERM` on writes to `.codex/agents/*` specifically — the generated agent-mirror
+directory sits outside what workspace-write grants, regardless of `-C`/`--add-dir`.
 
 **Lesson:** Codex's skill-discovery, hook-trust and hook-output conventions differ from Claude Code's in
 several independent, easy-to-miss ways — assuming Claude Code's hook/skill mental model (any hook that
@@ -54,4 +60,7 @@ with a bare `[` — emit structured JSON instead; use a `SessionStart` hook with
 as an account/entitlement issue to resolve, not a transient error to retry. When a dispatched `codex
 exec` worker needs to write ANYTHING — even just its own temp script or final report — never use
 `-s read-only`; use `-s workspace-write` with `-C` pinned to a scratch directory, and forbid writes
-elsewhere explicitly in the prompt.
+elsewhere explicitly in the prompt. Never route a step that must write `.codex/agents/*` (regenerating
+the Codex agent mirrors after editing `plugin/agents/*.md`, DR-034/agent-portability.md Maintenance) to
+a Codex worker at all — run `generate-codex-agents.mjs` and commit it from the coordinator before
+dispatching any Codex worker that depends on the result.
