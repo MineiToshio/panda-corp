@@ -938,7 +938,8 @@ function ConceptHooks(): React.JSX.Element {
         por defecto y carga DOM y jest-dom solo donde se declaran. El presupuesto bloquea cuando
         el tiempo sumado de tests nuevos supera su límite revisado; las demoras de tests existentes
         solo avisan (DR-159). Solo Mission Control interno admite exclusiones por ID exacto con
-        firma del owner y vencimiento de hasta 14 días. Los agentes nunca las autorizan. Las pruebas
+        firma del owner y vencimiento de hasta 14 días. La clave se fija en main de la fábrica;
+        cada firma requiere su aprobación en el diálogo de Keychain de macOS. Los agentes nunca las autorizan. Las pruebas
         siguen ejecutándose; el sello vence con la primera exclusión. El pase nocturno desde main
         ignora las exclusiones, registra resultados y nunca certifica (DR-165).
       </Lead>

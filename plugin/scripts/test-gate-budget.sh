@@ -12,11 +12,16 @@ cat > "$WT/bin/pnpm" <<'PNPM'
 #!/bin/bash
 if [ "$1" = vitest ]; then
  for arg in "$@"; do case "$arg" in --outputFile=*) out=${arg#--outputFile=};; esac; done
- printf '{"testResults":[{"name":"src/_tests/a.test.ts","assertionResults":[{"fullName":"old","status":"passed","duration":5000},{"fullName":"new","status":"passed","duration":%s}]}]}' "${NEW_MS:-10}" > "$out"
+ printf '{"numTotalTests":2,"numPassedTests":2,"numFailedTests":0,"numPendingTests":0,"numTodoTests":0,"testResults":[{"name":"src/_tests/a.test.ts","assertionResults":[{"fullName":"old","status":"passed","duration":5000},{"fullName":"new","status":"passed","duration":%s}]}]}' "${NEW_MS:-10}" > "$out"
+ node - "$out" "$PANDACORP_VITEST_ERRORS_FILE" "${UNIT_RED:-0}" <<'PROOF'
+const fs=require('fs'),[file,out,red]=process.argv.slice(2),r=JSON.parse(fs.readFileSync(file));
+if(red==='1'){r.numPassedTests=1;r.numFailedTests=1;r.testResults[0].assertionResults[1].status='failed';fs.writeFileSync(file,JSON.stringify(r));}
+fs.writeFileSync(out,JSON.stringify({reason:red==='1'?'failed':'passed',unhandledErrors:[],plannedModules:1,completedModules:1,tests:r.testResults[0].assertionResults.map(t=>({id:'src/_tests/a.test.ts > '+t.fullName,status:t.status,declaredSkip:false}))}));
+PROOF
  [ "${UNIT_RED:-0}" != 1 ] || { sed 's/"fullName":"new","status":"passed"/"fullName":"new","status":"failed"/' "$out" > "$out.tmp"; mv "$out.tmp" "$out"; exit 1; }
 elif [ "$1 $2" = 'exec playwright' ]; then
  touch .pandacorp/run/browser-ran
- printf '{"suites":[{"title":"smoke.spec.ts","specs":[{"file":"smoke.spec.ts","title":"browser","tests":[{"projectName":"desktop","results":[{"status":"passed","duration":%s}]}]}]}]}' "${BROWSER_MS:-1}" > "$PLAYWRIGHT_JSON_OUTPUT_FILE"
+ printf '{"errors":[],"stats":{"expected":1,"unexpected":0,"skipped":0,"flaky":0},"suites":[{"title":"smoke.spec.ts","specs":[{"file":"smoke.spec.ts","title":"browser","tests":[{"projectName":"desktop","expectedStatus":"passed","status":"expected","results":[{"status":"passed","duration":%s}]}]}]}]}' "${BROWSER_MS:-1}" > "$PLAYWRIGHT_JSON_OUTPUT_FILE"
 fi
 exit 0
 PNPM
@@ -61,4 +66,16 @@ rows=list(map(json.loads,(main/'.pandacorp/run/test-outcomes.jsonl').read_text()
 assert {r['runner'] for r in rows}=={'vitest','playwright'}
 assert any(r['status']=='failed' for r in rows)
 PY_NIGHTLY
-echo 'RESULT: gate budget cases passed, 0 failed' 
+# A preserved legacy budget allows one reviewed migration from real full-green timings.
+echo '{"stages":{"vitest":55000,"playwright":432000},"margin":0.25}' > "$WT/.pandacorp/gate-budget.json"
+run 10 10
+test "$RC" = 0; grep -q 'legacy budget timing-capture transition' "$FX/result"
+node "$QUEUE_FACTORY/plugin/scripts/gate-budget-baseline.mjs" "$WT" --from "$WT/.pandacorp/run/gate-report.json"
+node --input-type=module - "$WT" <<'MIGRATE'
+import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
+import {checkBudget} from './plugin/templates/shared/.pandacorp/test-gate-policy.mjs';
+const wt=process.argv[2],b=JSON.parse(readFileSync(wt+'/.pandacorp/gate-budget.json'));
+assert.equal(b.schemaVersion,1);assert.equal(b.baseline['src/_tests/a.test.ts > new'],10);
+assert.throws(()=>checkBudget(wt,[{id:'truly-new',runner:'vitest',duration_ms:30001}]),/exceed/);
+MIGRATE
+echo 'RESULT: gate budget cases passed, 0 failed'

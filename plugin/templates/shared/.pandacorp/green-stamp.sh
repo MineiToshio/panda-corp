@@ -138,6 +138,11 @@ group('verify', ['.pandacorp/verify.sh', '.pandacorp/green-stamp.sh', '.pandacor
 group('dependencies', ['node_modules/.modules.yaml', 'node_modules/.pnpm/lock.yaml',
                        'node_modules/.package-lock.json', 'package.json', *Path('.').glob('*lock*')])
 group('e2e', ['e2e', 'playwright.config.ts', '.pandacorp/run/lane.env', '.pandacorp/run/e2e-port', *Path('.').glob('.env*')])
+policy = Path('.pandacorp/test-exclusions.json')
+if policy.exists():
+    import json
+    if json.loads(policy.read_text()):
+        groups['owner_exclusion_key'] = subprocess.check_output(['node', '.pandacorp/test-gate-policy.mjs', 'owner-key', '.'], text=True).strip()
 groups['node'] = hashlib.sha256(subprocess.check_output(['node', '--version'])).hexdigest()
 controls = {
     'PANDACORP_VITEST_ERRORS_FILE', 'PANDACORP_DISABLE_TEST_EXCLUSIONS', 'PANDACORP_GATE_FULL', 'PANDACORP_VERIFY_OWNER_PID', 'PANDACORP_STAMP_CHECK_PID', 'PANDACORP_VITEST_SEED',

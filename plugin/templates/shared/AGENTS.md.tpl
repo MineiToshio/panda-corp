@@ -84,6 +84,11 @@ A **Pandacorp** factory project. The whole lifecycle is managed with the `/panda
 - Enforcement hooks are Claude-local; safety gates, verification and documentation discipline bind every runtime even when hooks are unavailable.
 - Load the engineering rules and project guide through the `@` lines in **Read first**, and read the applicable rule files before changing code.
 
+
+## Owner-only test exclusions (DR-165)
+
+Agents NEVER run `authorize-exclusion.mjs`, including with a TTY, fabricate authorization evidence, replace the owner public key, bootstrap the Keychain item, approve macOS authorization dialogs or add exclusions autonomously. Trust is pinned to factory committed main; branch/project keys never authorize, and signing requires an owner-approved login Keychain read on macOS. Only the owner can authorize individual ledger suspects in Mission Control/internal. Review the signed committed policy and expiry (maximum 14 days). Browser gates remain blocking. Budget baseline refreshes require a green full run and a reviewed commit; never raise caps to hide a red.
+
 <!-- pandacorp:managed:end -->
 
 <!-- ──────────────────────────────────────────────────────────────────
@@ -91,7 +96,3 @@ A **Pandacorp** factory project. The whole lifecycle is managed with the `/panda
      Pandacorp manages the sections above and the `.pandacorp/` folder;
      `/pandacorp:upgrade` never edits below this line.
      ────────────────────────────────────────────────────────────────── -->
-
-## Owner-only test exclusions (DR-165)
-
-Agents NEVER run `authorize-exclusion.mjs`, including with a TTY, fabricate authorization evidence, replace the owner public key or add exclusions autonomously. Only the owner can authorize individual ledger suspects in Mission Control/internal. Review the signed committed policy and expiry (maximum 14 days). Browser gates remain blocking. Budget baseline refreshes require a green full run and a reviewed commit; never raise caps to hide a red.

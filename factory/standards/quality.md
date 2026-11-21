@@ -201,7 +201,9 @@ Executable evidence: `test-verify-gate-report.sh`, `test-verify-before-stop.sh`,
   runner. Full runs fail only when summed new-test time exceeds its cap; existing
   tests slowing down warn. Absolute stage time never fails. Missing budget warns.
   The helper refreshes only from green full reporter evidence in a reviewed commit.
-  Owner-only Mission Control exclusions (5B) use signed evidence, suspect checks,
+  Valid legacy stage budgets retain warning-only full timing capture until a reviewed
+  schemaVersion 1 baseline commit. Owner-only Mission Control exclusions (5B) use
+  factory-main-pinned signatures plus macOS Keychain human presence, suspect checks,
   <=14-day expiry and a non-certifying nightly full run; agents never authorize.
   Canonical contract and measured 30 s defaults: [build orchestration](build-orchestration.md#owner-exclusions-and-added-test-cost-dr-165-phase-3).
 

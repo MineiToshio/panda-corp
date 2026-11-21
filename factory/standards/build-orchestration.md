@@ -655,26 +655,59 @@ The date expires at UTC midnight, not the end of that date. External launched
 projects and all other projects fail loudly. Missing/malformed suspect evidence
 also fails. An empty array is valid opt-in without exclusions.
 
+**Owner bootstrap (one time, macOS only; never run by an agent).** In an attended
+Terminal, run `node <factory>/plugin/scripts/authorize-exclusion.mjs --bootstrap-owner
+<factory-main-checkout>` and type `BOOTSTRAP`. The command generates an Ed25519 key
+in memory, creates the `pandacorp.exclusions.signing` / `owner` generic password in
+the macOS **login Keychain** using `security add-generic-password ... -T ''` (empty
+trusted-app list, never `-A` or an update), and writes only its public key to
+`factory/owner-keys/exclusions.pub`. Review and commit that public file on factory
+`main` yourself. The command never commits. Until that reviewed commit exists,
+exclusions are inert/fail closed; the coordinator never bootstraps the owner key.
+Existing project public keys and former disk-based private keys are NOT reused.
+
 OWNER ONLY, from the project: `node <plugin>/scripts/authorize-exclusion.mjs
 "<exact test id>" --reason "<reason>" --days 7`. It requires stdin/stdout TTY and
-literal `AUTHORIZE`. It signs a SHA-256 binding of id, reason, owner, dates and
-protocol with an Ed25519 owner-local key (`~/.config/pandacorp/exclusion-owner-key.pem`,
-mode 0600). Commit the entry and `.pandacorp/exclusion-owner.pub` for review;
-verify rejects uncommitted policy/key changes, invalid signatures, non-suspects
-and expired authorizations. Agents NEVER run this command or manufacture evidence.
-This is evidence, not a human authentication boundary: an agent with a TTY could
-confirm, and one with access to the private key or authority to replace the reviewed
-public key could forge approval. The real control remains owner review and gate.
+literal `AUTHORIZE`, then reads the private key with the absolute `/usr/bin/security
+find-generic-password -w` command at signing time. The owner must approve the macOS
+authorization dialog for that read: select **Allow once**, never **Always Allow**.
+Non-macOS signing/bootstrap refuses. No private-key file is created or read; secret
+material is held only transiently in the signing/bootstrap process and never logged.
+Commit/review only the exclusion entry. Agents NEVER run bootstrap/signing commands,
+answer authorization dialogs, change the pinned key or manufacture owner evidence.
+
+Verification reads `refs/heads/main:factory/owner-keys/exclusions.pub` with the absolute
+system Git binary with sanitized Git environment/config/replace refs from the factory repository, never the evaluated branch, the
+factory working tree or `.pandacorp/exclusion-owner.pub`. For a standalone project,
+the factory pointer comes from the project's **committed main guide**, so a branch
+cannot redirect trust; nested Mission Control uses the enclosing factory repo.
+A key rotation requires a reviewed factory-main commit. Verification prints the
+SHA-256 public-key fingerprint used; stamps fingerprint that committed key so a
+rotation invalidates previous proof. Policy edits must still be committed and regular,
+with a valid exact-id signature, suspect evidence and unexpired dates.
+
+**Residual limit:** this is a human-presence anchor and tamper evidence, not perfect
+isolation on a single-user machine. A compromised account/runtime, approval of an
+agent-triggered dialog, changed Keychain ACL (including Always Allow), debugger/memory
+or process inspection during owner bootstrap/signing, or an unauthorized factory-main
+key change can defeat it. Review the fingerprint, key commits and each owner prompt;
+TTY alone and file mode 0600 are not an agent boundary. Tests stub Keychain access
+and use disposable factory repositories; they never create/read the owner's item.
 
 Exclusions apply to the **verdict**, not collection: every test still executes once,
 without bail or retries. Only failures with the exact authorized reporter identity
 can be omitted from the verdict. Infrastructure errors, unmatched failures and
-incomplete interrupted runs stay red. Observed failures remain in reports/ledger.
+incomplete interrupted runs stay red. Reporter identities/collections, uniqueness and
+summary counts are validated before any verdict or timing calculation. Vitest adds
+a runner sidecar with planned/completed modules, per-test results and declared skips;
+Playwright checks expectedStatus and outcome. Declared skipped/todo tests remain in
+the inventory and do not veto another exclusion. Unexecuted, pending, interrupted,
+retried, missing-result or malformed tests stay red. Observed failures remain in reports/ledger.
 Vitest identity: repository-relative suite `name` + ` > ` + assertion `fullName`.
 Playwright identity: spec `file` + ` > ` + suite titles joined by ` > ` + spec title
 + ` [projectName]` (including the JSON reporter's top-level suite title). No regex
 or glob matching. A reporter identity change requires fresh owner authorization.
-The stamp hashes policy, public key and helper, records earliest expiry and doubts
+The stamp hashes policy, pinned factory-main key and helper, records earliest expiry and doubts
 after it; it never extends the ordinary 12-hour lifetime.
 
 `flaky-suspects.mjs [<ledger>] --json` emits a stable JSON array sorted by
@@ -693,9 +726,13 @@ Decision 6C uses a committed project-owned `.pandacorp/gate-budget.json`:
 On full scope, sum reporter test durations absent from the baseline independently
 for each runner. Above its cap is RED, naming new tests and the baseline command;
 old tests growing >25% and >=1000 ms warn only. Never fail on absolute stage time.
-A missing file warns and does not fail; malformed schema fails loudly. Legacy
-stage-only baselines require reviewed migration; their old stage warnings remain
-readable during rollout. Partial runs do not enforce added-test budgets.
+A missing file warns and does not fail; malformed schema fails loudly. A valid legacy
+stage-only budget retains advisory stage warnings and emits a timing-capture migration
+warning while the full gate records validated per-test timings. Run the unchanged
+full gate, then use `gate-budget-baseline.mjs --from <green-full-report>` and review/
+commit schemaVersion 1. Only that reviewed file activates added-test caps; no removal,
+auto-raise or red/partial baseline is needed. Invalid legacy shapes still fail closed.
+Partial runs do not enforce added-test budgets.
 
 Default proposal: **30,000 ms per runner** for both measured projects. Using
 max(30 s, 2% stage time), Mission Control Vitest ~55 s => 30 s, Playwright 432 s
@@ -708,4 +745,4 @@ raw reporter matching those timings in the project's current green full report.
 Review/commit the refresh (scope, seed, counts and timings); never bless a red,
 partial or arbitrary raw reporter. Upgrade preserves policy and baseline.
 Verification: `test-test-exclusions.sh`, `test-nightly-excluded-run.sh`,
-`test-gate-budget.sh`; existing stamp/report/diagnosis/snapshot suites remain required.
+`test-gate-budget.sh` and `test-gate-policy-review.mjs`; existing stamp/report/diagnosis/snapshot suites remain required.

@@ -1182,7 +1182,7 @@ PLAYWRIGHT_REPORTERS=()
 if [ "$LEDGER" -eq 1 ] || { [ "$GATE_SCOPE" = full ] && [ -f .pandacorp/test-gate-policy.mjs ]; } || [ -f .pandacorp/test-exclusions.json ]; then
   VITEST_REPORTERS+=(--reporter=json "--outputFile=$GATE_FRAGMENTS_DIR/vitest.json")
   PLAYWRIGHT_REPORTERS=(--reporter=line,json)
-  if [ -f .pandacorp/test-exclusions.json ] && [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" != 1 ]; then
+  if [ -f .pandacorp/test-gate-policy.mjs ]; then
     VITEST_REPORTERS+=(--reporter=./.pandacorp/test-gate-policy.mjs)
     export PANDACORP_VITEST_ERRORS_FILE="$GATE_FRAGMENTS_DIR/vitest.json.errors.json"
   fi
