@@ -5,9 +5,10 @@
 # plugin/scripts/install-pre-push.mjs into `git rev-parse --git-path hooks`; never committed in a project.
 #
 # What it does: in a LAUNCHED project (status.yaml `phase: release` and NOT `deploy_target: internal`,
-# the same test as .pandacorp/merge-queue.sh) it rejects any push or delete of the default branch unless
-# PANDACORP_OWNER_RELEASE_OK=1 is set, whichever runtime (Claude Code, Codex, a plain shell) runs git.
-# The default branch is production there (Vercel deploys every push). Anything else exits 0.
+# the same test as .pandacorp/merge-queue.sh) it requires PANDACORP_OWNER_RELEASE_OK=1 AND proof
+# for the stdin commit: queue ff evidence, or a matching main-checkout green stamp. An explicit
+# PANDACORP_OWNER_UNGATED_PUSH=1 bypasses only proof and must be durably logged first.
+# The default branch is production there (Vercel deploys every push). Other refs remain unchanged.
 #
 # Honest limits: PANDACORP_OWNER_RELEASE_OK is a FLAG, not a secret. This hook stops an unprompted push
 # by an agent; it does not stop a deliberate bypass (`git push --no-verify`, editing this file, setting
@@ -82,7 +83,92 @@ touches_scope() {
   return 1
 }
 
-if [ "${PANDACORP_OWNER_RELEASE_OK:-}" != "1" ]; then
+# The queue pushes after ff, BEFORE it can write push/end. Accept an exact-sha successful ff
+# with its own start and either no end + a still-live start.pid, or end.exit 0/13 (13 permits
+# retrying a failed publication of the already-gated sha). Never join different attempts.
+# The queue writes ff under its merge lock; the hook must not acquire that same lock and deadlock
+# its parent. These local records are evidence, not a defense against deliberate log forgery.
+queue_proof() {
+  python3 - "$1" "$2" <<'PY_QUEUE'
+import json, os, pathlib, sys, uuid
+try:
+    root, sha = pathlib.Path(sys.argv[1]).resolve(), sys.argv[2]
+    attempts = {}
+    for line in (root / '.pandacorp/run/queue-log.jsonl').read_text().splitlines():
+        row = json.loads(line)
+        if not isinstance(row, dict) or row.get('v') != 1:
+            raise ValueError('invalid queue event')
+        attempt = row['attempt']
+        uuid.UUID(attempt)
+        if pathlib.Path(row['project']).resolve() != root:
+            continue
+        attempts.setdefault(attempt, []).append(row)
+    for rows in attempts.values():
+        starts = [(i, r) for i, r in enumerate(rows) if r.get('event') == 'start']
+        ends = [(i, r) for i, r in enumerate(rows) if r.get('event') == 'end']
+        if len(starts) != 1 or len(ends) > 1:
+            continue
+        start_index, start = starts[0]
+        matches = [i for i, r in enumerate(rows) if r.get('event') == 'ff'
+                   and r.get('result') == 'ok' and r.get('sha') == sha and i > start_index]
+        if not matches:
+            continue
+        if ends:
+            end_index, end = ends[0]
+            if end_index > max(matches) and type(end.get('exit')) is int and end['exit'] in (0, 13):
+                sys.exit(0)
+        else:
+            pid = start.get('pid')
+            if type(pid) is int and pid > 0:
+                try:
+                    os.kill(pid, 0)
+                    sys.exit(0)
+                except OSError:
+                    pass
+except (OSError, ValueError, KeyError, TypeError):
+    pass
+sys.exit(1)
+PY_QUEUE
+}
+
+stamp_proof() (
+  # Check main's physical ignored inputs, never the pushing worktree's certificate. Git may
+  # export repository selectors to hooks; do not let them redirect the main checkout check.
+  unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_PREFIX
+  cd "$1" || exit 1
+  pushed_tree=$(git rev-parse --verify "$2^{tree}" 2>/dev/null) || exit 1
+  main_tree=$(git rev-parse --verify 'HEAD^{tree}' 2>/dev/null) || exit 1
+  [ "$pushed_tree" = "$main_tree" ] || exit 1
+  # Handed-off stamps can differ in install metadata, ignored e2e inputs, .env* or environment.
+  # This fallback never repairs a mismatch: use check --explain for diagnosis; queue proof is
+  # the landing path. Even a fresh main certificate may differ when Git prepends its exec path
+  # to PATH and exports GIT_EXEC_PATH. Keep those inputs hashed: check (2) is diagnostic in that
+  # environment, not a guaranteed publication path or permission to weaken the fingerprint.
+  bash .pandacorp/green-stamp.sh check >/dev/null 2>&1
+)
+
+log_bypass() {
+  python3 - "$1" "$2" <<'PY_BYPASS'
+import datetime, json, os, pathlib, sys
+try:
+    target = pathlib.Path(sys.argv[1]) / '.pandacorp/run/ungated-pushes.jsonl'
+    target.parent.mkdir(parents=True, exist_ok=True)
+    row = dict(commit=sys.argv[2], time=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+               reason=os.environ.get('PANDACORP_OWNER_UNGATED_REASON') or 'unspecified')
+    data = (json.dumps(row, ensure_ascii=True) + '\n').encode()
+    fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        if os.write(fd, data) != len(data):
+            raise OSError('incomplete audit record')
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+except OSError as error:
+    print('pandacorp pre-push: cannot log ungated push: ' + str(error), file=sys.stderr)
+    sys.exit(1)
+PY_BYPASS
+}
+
   TOP=$(git rev-parse --show-toplevel 2>/dev/null) || TOP=
   MAIN_WT=$(git worktree list --porcelain 2>/dev/null | awk -v b="refs/heads/$DEFAULT" '
     /^worktree /{wt=substr($0,10)} /^branch /{if($2==b) print wt}' | head -1)
@@ -114,7 +200,17 @@ if [ "${PANDACORP_OWNER_RELEASE_OK:-}" != "1" ]; then
         deny "$ACTION rejected: cannot parse $STATUS (fail closed)."
       fi
       if [ "$rc_phase" -eq 0 ] && [ "$rc_internal" -ne 0 ]; then
-        deny "$ACTION rejected for $project."
+        [ "${PANDACORP_OWNER_RELEASE_OK:-}" = 1 ] || deny "$ACTION rejected for $project."
+        PROOF_ROOT="${MAIN_WT:-$TOP}/$project"
+        if [ "${PANDACORP_OWNER_UNGATED_PUSH:-}" = 1 ]; then
+          log_bypass "$PROOF_ROOT" "$local_sha" || deny "$ACTION rejected: bypass audit failed."
+        elif [ -n "$MAIN_WT" ] && [ "$local_sha" != "$ZERO_SHA" ] && {
+          queue_proof "$PROOF_ROOT" "$local_sha" || stamp_proof "$PROOF_ROOT" "$local_sha"
+        }; then
+          :
+        else
+          deny "$ACTION rejected: no full-gate proof for $local_sha. Land through merge-queue.sh; only an explicit owner exception may use PANDACORP_OWNER_UNGATED_PUSH=1 (logged with PANDACORP_OWNER_UNGATED_REASON)."
+        fi
       fi
     done <<EOF_PROJECTS
 $PROJECT_SCOPES
@@ -122,7 +218,6 @@ EOF_PROJECTS
   done <<EOF_REFS
 $STDIN_DATA
 EOF_REFS
-fi
 
 # Gate passed: run the foreign hook this one replaced, if any.
 if [ -x "$CHAINED" ]; then

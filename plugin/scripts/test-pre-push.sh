@@ -1,7 +1,8 @@
 #!/bin/bash
 # Suite for the git pre-push hook template and its installer (B10; design D29, PLAN 3.15, standard
 # BUILD-13, CLI doc section 12). This guards a human gate: a push to the default branch of a LAUNCHED
-# project (production, DR-138) must be rejected unless PANDACORP_OWNER_RELEASE_OK=1.
+# project (production, DR-138) requires PANDACORP_OWNER_RELEASE_OK=1 AND either full-gate proof
+# or the explicit logged bypass. The dedicated proof suite covers certification independently.
 # Run from anywhere: bash plugin/scripts/test-pre-push.sh   (prints a RESULT line; non-zero on failure)
 #
 # ASSUMED INTERFACE (everything below comes from the contract docs; items marked (A) are assumptions
@@ -19,7 +20,8 @@
 #     launched = `phase: release` and NOT `deploy_target: internal` (regex of merge-queue.sh:249-250);
 #     launched + any remote_ref == refs/heads/<default> (push or delete) + OWNER_RELEASE_OK != 1 ->
 #     exit 1, reason on stderr; unreadable/missing status.yaml + push to the default branch -> exit 1;
-#     everything else exit 0. Only the exact value `1` opens the gate. Tags and other branches pass.
+#     with an order, proof or the logged bypass is also required. Only exact value `1` is accepted.
+#     Tags and other branches pass.
 #   (A) the stderr reason names the variable PANDACORP_OWNER_RELEASE_OK (so the owner knows the gate).
 #   (A) the Spanish line of the reason is NOT asserted (no wording is specified).
 #   (A) with PANDACORP_OWNER_RELEASE_OK=1 AND an unreadable status.yaml the outcome is not asserted
@@ -52,7 +54,7 @@ trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/home"
 
 # Isolation: no user git config, no inherited hook/git env, no inherited release flag.
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY PANDACORP_OWNER_RELEASE_OK
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY PANDACORP_OWNER_RELEASE_OK PANDACORP_OWNER_UNGATED_PUSH PANDACORP_OWNER_UNGATED_REASON
 export HOME="$TMP/home" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0 LANG=C
 export GIT_AUTHOR_NAME=Fixture GIT_AUTHOR_EMAIL=fixture@example.invalid GIT_COMMITTER_NAME=Fixture GIT_COMMITTER_EMAIL=fixture@example.invalid
 export PANDACORP_NOTIFY=off
@@ -185,6 +187,8 @@ t "chained foreign hook still byte-identical to the original" cmp -s "$D/foreign
 t "refreshed hook carries the marker" grep -qF "$MARKER" "$P/.git/hooks/pre-push"
 
 # ---------------------------------------------------------------------------------------------------
+# Legacy routing/installer/chain cases use an explicit synthetic owner bypass when allowed.
+# test-pre-push-requires-stamp.sh independently proves the stricter evidence requirement.
 section "2. launched project: default branch is gated"
 mkfx '{"preset":"launched"}'; inst "$P"
 cmt "$P"
@@ -197,13 +201,15 @@ for v in 0 true yes " " ""; do
   gpush "$P" "PANDACORP_OWNER_RELEASE_OK=$v" origin main
   tf "flag value '$v' does not open the gate" [ "$PRC" -eq 0 ]
 done
-eq "remote main still unchanged after wrong flag values" "$m0" "$(rref refs/heads/main)"
 gpush "$P" "PANDACORP_OWNER_RELEASE_OK=1" origin main
-eq "push main with PANDACORP_OWNER_RELEASE_OK=1 succeeds" 0 "$PRC"
+tf "release order alone does not supply full-gate proof" [ "$PRC" -eq 0 ]
+eq "remote main still unchanged after wrong flag values" "$m0" "$(rref refs/heads/main)"
+gpush "$P" "PANDACORP_OWNER_RELEASE_OK=1 PANDACORP_OWNER_UNGATED_PUSH=1" origin main
+eq "push main with order + logged bypass succeeds" 0 "$PRC"
 eq "remote main advanced to the local tip" "$(git -C "$P" rev-parse main)" "$(rref refs/heads/main)"
 cmt "$P"; git -C "$P" checkout -q -b feat; cmt "$P"
-gpush "$P" "PANDACORP_OWNER_RELEASE_OK=1" origin HEAD:main
-eq "HEAD:main with the flag succeeds" 0 "$PRC"
+gpush "$P" "PANDACORP_OWNER_RELEASE_OK=1 PANDACORP_OWNER_UNGATED_PUSH=1" origin HEAD:main
+eq "HEAD:main with order + logged bypass succeeds" 0 "$PRC"
 
 section "2b. launched: refspecs that update the default branch are rejected (remote untouched)"
 mkfx '{"preset":"launched"}'; inst "$P"
@@ -266,22 +272,24 @@ gpush "$P" "" origin --delete mainline
 eq "allowed: --delete mainline" 0 "$PRC"
 gpush "$P" "" origin :refs/tags/v1
 eq "allowed: delete a tag" 0 "$PRC"
-section "2d. launched: deleting the default branch with the flag passes the hook"
+section "2d. launched: deleting the default branch with order + logged bypass passes the hook"
 git --git-dir="$R" config receive.denyDeleteCurrent ignore
 gpush "$P" "" origin :main
 tf "delete main without the flag rejected" [ "$PRC" -eq 0 ]
 t "remote main still exists" [ "$(rref refs/heads/main)" != none ]
 gpush "$P" "PANDACORP_OWNER_RELEASE_OK=1" origin :main
-eq "delete main with the flag succeeds (the flag is the owner's order)" 0 "$PRC"
+tf "delete main with order alone has no certifiable commit and is rejected" [ "$PRC" -eq 0 ]
+gpush "$P" "PANDACORP_OWNER_RELEASE_OK=1 PANDACORP_OWNER_UNGATED_PUSH=1" origin :main
+eq "delete main with order + logged bypass succeeds (the flag is the owner's order)" 0 "$PRC"
 eq "remote main deleted" none "$(rref refs/heads/main)"
 
 section "2e. direct hook runs: stdin forms, mixed lines, empty input"
 mkfx '{"preset":"launched"}'; inst "$P"
 hookrun "$P" "$(line refs/heads/feat refs/heads/feat)" "";        eq "feature branch line passes" 0 "$HRC"
 hookrun "$P" "$(line refs/heads/main refs/heads/main)" "";        eq "main line is rejected" 1 "$HRC"
-hookrun "$P" "$(line refs/heads/main refs/heads/main)" "PANDACORP_OWNER_RELEASE_OK=1"; eq "main line with the flag passes" 0 "$HRC"
+hookrun "$P" "$(line refs/heads/main refs/heads/main)" "PANDACORP_OWNER_RELEASE_OK=1 PANDACORP_OWNER_UNGATED_PUSH=1"; eq "main line with order + logged bypass passes" 0 "$HRC"
 hookrun "$P" "$(line '(delete)' refs/heads/main "$(git -C "$P" rev-parse HEAD)")" ""; eq "delete line for main is rejected" 1 "$HRC"
-hookrun "$P" "$(line '(delete)' refs/heads/main "$(git -C "$P" rev-parse HEAD)")" "PANDACORP_OWNER_RELEASE_OK=1"; eq "delete line for main with the flag passes" 0 "$HRC"
+hookrun "$P" "$(line '(delete)' refs/heads/main "$(git -C "$P" rev-parse HEAD)")" "PANDACORP_OWNER_RELEASE_OK=1 PANDACORP_OWNER_UNGATED_PUSH=1"; eq "delete line for main with order + logged bypass passes" 0 "$HRC"
 hookrun "$P" "$(line '(delete)' refs/heads/feat "$(git -C "$P" rev-parse HEAD)")" ""; eq "delete line for another branch passes" 0 "$HRC"
 hookrun "$P" "$(line refs/tags/v1 refs/tags/v1)" "";               eq "tag line passes" 0 "$HRC"
 hookrun "$P" "$(line refs/tags/main refs/tags/main)" "";           eq "a TAG named main is not the default branch (passes)" 0 "$HRC"
@@ -289,7 +297,7 @@ hookrun "$P" "$(line refs/heads/feat refs/heads/feat)"$'\n'"$(line refs/heads/ma
 hookrun "$P" "$(line refs/heads/main refs/heads/main)"$'\n'"$(line refs/heads/feat refs/heads/feat)" ""; eq "main line then feature line: rejected" 1 "$HRC"
 hookrun "$P" "$(line refs/heads/feat refs/heads/feat)"$'\n'"$(line refs/tags/v1 refs/tags/v1)" ""; eq "feature + tag lines pass" 0 "$HRC"
 hookrun "$P" "" "";                                                  eq "empty stdin passes" 0 "$HRC"
-hookrun "$P" "$(line refs/heads/main refs/heads/main)" "PANDACORP_OWNER_RELEASE_OK=1 PANDACORP_X=1"; eq "extra env does not matter, flag 1 passes" 0 "$HRC"
+hookrun "$P" "$(line refs/heads/main refs/heads/main)" "PANDACORP_OWNER_RELEASE_OK=1 PANDACORP_OWNER_UNGATED_PUSH=1 PANDACORP_X=1"; eq "extra env does not matter, order + logged bypass passes" 0 "$HRC"
 hookrun "$P" "$(line refs/heads/main refs/heads/main)" ""; t "stderr is non-empty on rejection" [ -n "$HERR" ]
 t "stderr names the variable" grep -q PANDACORP_OWNER_RELEASE_OK <<<"$HERR"
 
@@ -300,7 +308,7 @@ git --git-dir="$R" branch release/prod main && git -C "$P" fetch -q origin
 inst "$P"
 eq "origin/HEAD resolves to trunk (fixture sanity)" "origin/trunk" "$(git -C "$P" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)"
 hookrun "$P" "$(line refs/heads/trunk refs/heads/trunk)" "";     eq "trunk (the remote's default) is gated" 1 "$HRC"
-hookrun "$P" "$(line refs/heads/trunk refs/heads/trunk)" "PANDACORP_OWNER_RELEASE_OK=1"; eq "trunk with the flag passes" 0 "$HRC"
+hookrun "$P" "$(line refs/heads/trunk refs/heads/trunk)" "PANDACORP_OWNER_RELEASE_OK=1 PANDACORP_OWNER_UNGATED_PUSH=1"; eq "trunk with order + logged bypass passes" 0 "$HRC"
 hookrun "$P" "$(line refs/heads/main refs/heads/main)" "";       eq "main is NOT gated when the default is trunk" 0 "$HRC"
 cmt "$P"; git -C "$P" checkout -q -b feat; cmt "$P"
 b=$(refs); gpush "$P" "" origin feat:trunk
@@ -341,8 +349,8 @@ hookrun "$P" "$(line refs/heads/main refs/heads/main)" ""; eq "phase implementat
 status_set release external
 cmt "$P"; gpush "$P" "" origin main
 tf "launched via a real push: rejected" [ "$PRC" -eq 0 ]
-gpush "$P" "PANDACORP_OWNER_RELEASE_OK=1" origin main
-eq "launched via a real push with the flag: allowed" 0 "$PRC"
+gpush "$P" "PANDACORP_OWNER_RELEASE_OK=1 PANDACORP_OWNER_UNGATED_PUSH=1" origin main
+eq "launched via a real push with order + logged bypass: allowed" 0 "$PRC"
 
 # ---------------------------------------------------------------------------------------------------
 section "4. fail closed: the hook cannot determine the state"
@@ -401,8 +409,8 @@ n=$(grep -c '^ARGS' "$D/foreign.log")
 gpush "$P" "" origin HEAD:main
 tf "default-branch push still rejected with a foreign hook present" [ "$PRC" -eq 0 ]
 eq "remote main unchanged" "$(git -C "$P" rev-parse refs/remotes/origin/main)" "$(rref refs/heads/main)"
-gpush "$P" "PANDACORP_OWNER_RELEASE_OK=1" origin HEAD:main
-eq "default-branch push with the flag allowed through the chain" 0 "$PRC"
+gpush "$P" "PANDACORP_OWNER_RELEASE_OK=1 PANDACORP_OWNER_UNGATED_PUSH=1" origin HEAD:main
+eq "default-branch push with order + logged bypass allowed through the chain" 0 "$PRC"
 t "foreign hook ran again for the allowed push" [ "$(grep -c '^ARGS' "$D/foreign.log")" -gt "$n" ]
 inst "$P"; inst "$P"
 t "after re-installs the chained hook is still the original foreign hook" cmp -s "$D/foreign.orig" "$CH"
@@ -417,8 +425,8 @@ gpush "$P" "" origin feat
 tf "a failing foreign hook blocks a push the gate would allow" [ "$PRC" -eq 0 ]
 t "the foreign hook's message is visible" grep -q FOREIGN-REJECT <<<"$POUT"
 eq "remote untouched when the foreign hook fails" "$b" "$(refs)"
-gpush "$P" "PANDACORP_OWNER_RELEASE_OK=1" origin HEAD:main
-tf "a failing foreign hook still blocks even with the flag set" [ "$PRC" -eq 0 ]
+gpush "$P" "PANDACORP_OWNER_RELEASE_OK=1 PANDACORP_OWNER_UNGATED_PUSH=1" origin HEAD:main
+tf "a failing foreign hook still blocks even with order + logged bypass set" [ "$PRC" -eq 0 ]
 eq "remote untouched (flag set, foreign hook failing)" "$b" "$(refs)"
 mkfx_unlaunched
 printf '#!/bin/sh\necho FOREIGN-REJECT >&2\nexit 7\n' > "$P/.git/hooks/pre-push"; chmod +x "$P/.git/hooks/pre-push"
@@ -443,8 +451,8 @@ eq "work tree untouched" "$before" "$(snap "$P")"
 inst "$P" --check; eq "--check honors the hooksPath (exit 0)" 0 "$IRC"
 cmt "$P"; gpush "$P" "" origin main
 tf "hook in the custom hooksPath is the one that gates main" [ "$PRC" -eq 0 ]
-gpush "$P" "PANDACORP_OWNER_RELEASE_OK=1" origin main
-eq "with the flag it passes through the chain" 0 "$PRC"
+gpush "$P" "PANDACORP_OWNER_RELEASE_OK=1 PANDACORP_OWNER_UNGATED_PUSH=1" origin main
+eq "with order + logged bypass it passes through the chain" 0 "$PRC"
 t "custom foreign hook ran" [ -s "$D/custom.log" ]
 git -C "$P" config core.hooksPath "$D/emptyhooks"
 inst "$P" --check; eq "--check in a hooksPath without the hook exits 1" 1 "$IRC"
