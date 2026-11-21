@@ -17,11 +17,11 @@
 # even for an untracked/ignored verify.sh) and its age (12 h max, so a toolchain/env drift cannot
 # ride a stamp forever). It lives in gitignored runtime state; a missing, corrupt or foreign-format
 # stamp is simply "not certified" — the caller then runs the full gate.
-set -u
+set -uo pipefail
 
 STAMP=".pandacorp/run/green-stamp"
 MAX_AGE_S=43200
-VERSION=2
+VERSION=3
 
 doubt() { echo "green-stamp: $1" >&2; exit 1; }
 
@@ -38,23 +38,87 @@ verify_sha256() {
 
 # Ignored inputs are outside HEAD's tree. Hash values privately, never print env/fixture contents.
 # Dependency installation metadata binds the installed graph (not arbitrary node_modules edits).
-inputs_sha256() {
-  python3 - <<'INPUTPY'
+# One parser owns both cleanup and hashing: an invalid declaration can never silently weaken proof.
+input_groups() {
+  python3 - "${1:-hash}" <<'INPUTPY'
 import hashlib
 import os
 from pathlib import Path
+import re
+import shutil
 import subprocess
+import sys
 
-h = hashlib.sha256()
-def add(path):
-    label = str(path)
-    h.update(label.encode() + b'\0')
+manifest = Path('e2e/.run-outputs')
+outputs = []
+if manifest.is_symlink():
+    raise ValueError('invalid e2e/.run-outputs: symlink')
+if manifest.exists():
+    tracked = set(subprocess.check_output(['git', 'ls-files', '-z']).decode().split('\0'))
+    if str(manifest) not in tracked or subprocess.call(
+            ['git', 'diff', '--quiet', 'HEAD', '--', str(manifest)]) != 0:
+        raise ValueError('e2e/.run-outputs must be committed and unchanged')
+    for line in manifest.read_text().splitlines():
+        if not line or line.startswith('#'):
+            continue
+        directory = line.endswith('/')
+        name = line[:-1] if directory else line
+        parts = name.split('/')
+        if (not name.startswith('e2e/') or len(parts) < 2
+                or any(x in ('', '.', '..') for x in parts)
+                or re.search(r'[\x00-\x1f\x7f*?\[\]{}\\]', name)
+                or name == str(manifest)):
+            raise ValueError('invalid e2e/.run-outputs path')
+        path = Path(name)
+        if any(x.is_symlink() for x in (path, *path.parents)):
+            raise ValueError('invalid e2e/.run-outputs: symlink path')
+        if any(x == name or x.startswith(name + '/') for x in tracked):
+            raise ValueError('invalid e2e/.run-outputs: tracked input')
+        if path.exists() and path.is_dir() != directory:
+            raise ValueError('invalid e2e/.run-outputs: wrong path type')
+        outputs.append((name, directory))
+
+def excluded(path):
+    name = str(path)
+    return any(name == item or (directory and name.startswith(item + '/'))
+               for item, directory in outputs)
+
+if sys.argv[1] == 'clean':
+    for name, directory in outputs:
+        path = Path(name)
+        if directory and path.exists():
+            shutil.rmtree(path)
+        elif path.exists():
+            path.unlink()
+    fixtures = Path('e2e/fixtures')
+    if fixtures.exists() and not fixtures.is_symlink():
+        for base, dirs, files in os.walk(fixtures, topdown=False, followlinks=False):
+            path = Path(base)
+            if not path.is_symlink() and not any(path.iterdir()):
+                path.rmdir()
+    sys.exit(0)
+
+# Empty fixture directories are normalized at both ends: tests can recreate them after cleanup.
+# Keep every nonempty directory label, symlink and unlisted file in the fingerprint.
+def add(h, path):
+    if excluded(path):
+        return False
+    if path.is_dir() and not path.is_symlink():
+        children = hashlib.sha256()
+        present = [add(children, child) for child in sorted(path.iterdir())]
+        if (str(path) == 'e2e/fixtures' or str(path).startswith('e2e/fixtures/')) and not any(present):
+            return False
+        h.update(str(path).encode() + b'\0dir:' + children.digest() + b'\0')
+        return True
+    h.update(str(path).encode() + b'\0')
     if path.is_symlink():
         h.update(b'link:' + os.readlink(path).encode())
-        path = path.resolve(strict=True)
-    if path.is_dir():
-        for child in sorted(path.iterdir()):
-            add(child)
+        target = path.resolve(strict=True)
+        # Preserve physical ignored symlink inputs without recursing through a cycle.
+        if target.is_dir():
+            add(h, target)
+        else:
+            h.update(target.read_bytes())
     elif path.is_file():
         h.update(path.read_bytes())
     elif not path.exists():
@@ -62,32 +126,40 @@ def add(path):
     else:
         raise ValueError('unhashable input')
     h.update(b'\0')
-for path in sorted(set([Path('.pandacorp/verify.sh'), Path('.pandacorp/green-stamp.sh'),
-                       Path('.pandacorp/run/lane.env'), Path('.pandacorp/vitest-policy.ts'),
-                       Path('node_modules/.modules.yaml'), Path('node_modules/.pnpm/lock.yaml'),
-                       Path('node_modules/.package-lock.json'), Path('e2e'),
-                       Path('playwright.config.ts'), Path('package.json'),
-                       *Path('.').glob('*lock*'), *Path('.').glob('.env*')])):
-    add(path)
-h.update(subprocess.check_output(['node', '--version']))
-# User-provided environment can alter builds and fixtures too. Exclude per-invocation runtime
-# controls and shell bookkeeping, whose values legitimately change between gate and consumer.
+    return True
+
+groups = {}
+def group(name, paths):
+    h = hashlib.sha256()
+    for path in sorted(set(map(Path, paths))):
+        add(h, path)
+    groups[name] = h.hexdigest()
+group('verify', ['.pandacorp/verify.sh', '.pandacorp/green-stamp.sh', '.pandacorp/vitest-policy.ts'])
+group('dependencies', ['node_modules/.modules.yaml', 'node_modules/.pnpm/lock.yaml',
+                       'node_modules/.package-lock.json', 'package.json', *Path('.').glob('*lock*')])
+group('e2e', ['e2e', 'playwright.config.ts', '.pandacorp/run/lane.env', *Path('.').glob('.env*')])
+groups['node'] = hashlib.sha256(subprocess.check_output(['node', '--version'])).hexdigest()
 controls = {
     'PANDACORP_VERIFY_OWNER_PID', 'PANDACORP_STAMP_CHECK_PID', 'PANDACORP_VITEST_SEED',
     'PANDACORP_VERIFY_NO_BAIL', 'PANDACORP_E2E_SERVER', 'PANDACORP_E2E_TIER',
     'PANDACORP_E2E_WORKERS', 'PANDACORP_E2E_CERTIFICATION', 'PANDACORP_STOP_GATE',
     'PANDACORP_EVENTS_LOG', 'PANDACORP_OWNER_RELEASE_OK',
-    # Shell bookkeeping/terminal presentation, never product/test configuration.
+    'TMPDIR', 'npm_config_cache', 'PANDACORP_CLEANUP_SESSION', 'PANDACORP_SESSION_TEMP_BASE',
+    'PANDACORP_HOST_SLOT_TOKEN', 'PANDACORP_STAMP_BASE', 'PANDACORP_E2E_SNAPSHOTS',
     '_', 'SHLVL', 'PWD', 'OLDPWD', 'PS1', 'PS2', 'TERM', 'COLUMNS', 'LINES',
 }
 for key, value in sorted(os.environ.items()):
-    # Hash ALL ambient inputs, including unknown future product variables. A name-prefix
-    # allowlist cannot know MC_CLOCK / MC_GIT_FIXTURE / NAVIGATION_TEST_FACTORY_ROOT.
     if key not in controls:
-        h.update(key.encode() + b'=' + value.encode() + b'\0')
-print(h.hexdigest())
+        # Names are public diagnostics; values never leave this process except as SHA-256.
+        if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', key):
+            raise ValueError('unsupported environment variable name')
+        groups['env_' + key] = hashlib.sha256(value.encode()).hexdigest()
+body = ''.join(f'{key}={value}\n' for key, value in sorted(groups.items()))
+print('inputs_sha256=' + hashlib.sha256(body.encode()).hexdigest())
+print(body, end='')
 INPUTPY
 }
+inputs_sha256() { input_groups | sed -n 's/^inputs_sha256=//p'; }
 
 current_tree() { git rev-parse --verify -q 'HEAD^{tree}' 2>/dev/null; }
 
@@ -119,12 +191,15 @@ case "${1:-}" in
     now_tree=$(current_tree) || doubt "not a git checkout"
     [ "$now_tree" = "$tree" ] || doubt "tree changed during the run — nothing certified"
     tree_is_clean || doubt "working tree not clean — nothing certified"
-    inputs=$(inputs_sha256) || doubt "cannot fingerprint inputs"
+    groups=$(input_groups) || doubt "cannot fingerprint inputs"
+    inputs=$(printf '%s\n' "$groups" | sed -n 's/^inputs_sha256=//p')
     [ "$inputs" = "$start_inputs" ] || doubt "inputs changed during the run — nothing certified"
     vsum=$(verify_sha256) || doubt "cannot hash .pandacorp/verify.sh — nothing certified"
     mkdir -p "$(dirname "$STAMP")" || doubt "cannot create $(dirname "$STAMP")"
     tmp=$(mktemp "$STAMP.XXXXXX") || doubt "cannot write $STAMP"
-    printf 'version=%s\ntree=%s\nverify_sha256=%s\ninputs_sha256=%s\nat_epoch=%s\n' "$VERSION" "$tree" "$vsum" "$inputs" "$(date +%s)" > "$tmp" \
+    base="${PANDACORP_STAMP_BASE:-}"
+    case "$base" in *[!0-9a-f]*) doubt "invalid stamp base" ;; esac
+    { printf 'version=%s\ntree=%s\nverify_sha256=%s\nbase=%s\nat_epoch=%s\n' "$VERSION" "$tree" "$vsum" "$base" "$(date +%s)"; printf '%s\n' "$groups"; } > "$tmp" \
       && mv "$tmp" "$STAMP" || { rm -f "$tmp"; doubt "cannot write $STAMP"; }
     echo "green-stamp: certified tree $tree (full verify.sh green on a clean tree)"
     ;;
@@ -161,17 +236,37 @@ CHECKPY
     tree_is_clean || doubt "working tree not clean"
     vsum=$(verify_sha256) || doubt "cannot hash .pandacorp/verify.sh"
     [ "$vsum" = "$s_vsum" ] || doubt ".pandacorp/verify.sh changed since the certifying run"
-    inputs=$(inputs_sha256) || doubt "cannot fingerprint inputs"
-    [ "$inputs" = "$(stamp_field inputs_sha256)" ] || doubt "environment/dependencies/e2e fixtures changed"
+    groups=$(input_groups) || doubt "cannot fingerprint inputs"
+    inputs=$(printf '%s\n' "$groups" | sed -n 's/^inputs_sha256=//p')
+    if [ "$inputs" != "$(stamp_field inputs_sha256)" ]; then
+      if [ "${2:-}" = "--explain" ]; then
+        python3 - "$STAMP" "$groups" <<'EXPLAINPY'
+from pathlib import Path
+import sys
+def parse(text):
+    return dict(line.split('=', 1) for line in text.splitlines() if '=' in line)
+before, after = parse(Path(sys.argv[1]).read_text()), parse(sys.argv[2])
+keys = set(after) | {key for key in before if key.startswith('env_')}
+for key in sorted(keys - {'inputs_sha256'}):
+    if before.get(key) != after.get(key):
+        label = 'environment variable ' + key[4:] if key.startswith('env_') else key + ' group'
+        print('green-stamp: differs: ' + label, file=sys.stderr)
+EXPLAINPY
+      fi
+      doubt "environment/dependencies/e2e fixtures changed"
+    fi
     age=$(( $(date +%s) - s_at ))
     [ "$age" -ge 0 ] && [ "$age" -le "$MAX_AGE_S" ] || doubt "stamp is ${age}s old (max ${MAX_AGE_S}s)"
     echo "certified tree $s_tree, ${age}s old"
+    ;;
+  clean-outputs)
+    input_groups clean || doubt "cannot clean declared run outputs"
     ;;
   invalidate)
     rm -f "$STAMP"
     ;;
   *)
-    echo "usage: green-stamp.sh start | record <tree:inputs_sha256> | check | invalidate" >&2
+    echo "usage: green-stamp.sh start | record <tree:inputs_sha256> | check [--explain] | clean-outputs | invalidate" >&2
     exit 2
     ;;
 esac

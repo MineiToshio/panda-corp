@@ -4,6 +4,7 @@
 // by ready width, owner k and reactive quota. Critical pressure and unreadable signals keep 1+1 possible.
 // RAM reservations estimate heavy jobs only. Tests isolate host state and permit process.kill only as a probe.
 import { mkdtemp, mkdir, readFile, readdir, rm, stat, utimes, writeFile } from "node:fs/promises";
+import * as syncFs from "node:fs";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import os from "node:os";
@@ -190,9 +191,10 @@ await test("acquireHostSlot: mkdir in index order under <host>/h-slots, owner.js
   eq((await slotsOf(host)).join(","), "slot-0", "first slot is slot-0");
   const oj = JSON.parse(await readFile(path.join(host, "h-slots", "slot-0", "owner.json"), "utf8"));
   eq(oj.pid, process.pid, "owner.pid"); eq(oj.kind, "g2", "owner.kind"); eq(oj.project, "/tmp/proj", "owner.project"); ok(typeof oj.at === "string" && !Number.isNaN(Date.parse(oj.at)), "owner.at must be an ISO instant");
-  eq(Object.keys(oj).sort().join(","), "at,kind,pid,project", "owner.json has exactly the A1 keys");
+  eq(Object.keys(oj).sort().join(","), "at,kind,pid,project,token", "owner.json has the shared token protocol keys");
   const b = await acq(acquireOpts(host, { kind: "merge-queue" })); ok(b && b.slot !== null, "second acquire"); eq((await slotsOf(host)).join(","), "slot-0,slot-1", "second slot is slot-1");
   eq(JSON.parse(await readFile(path.join(host, "h-slots", "slot-1", "owner.json"), "utf8")).kind, "merge-queue", "kind merge-queue accepted");
+  ok(typeof oj.token === "string" && oj.token.length > 10, "unique owner token");
   await a.release(); await b.release();
 });
 await test("acquireHostSlot: respects max, then a release frees exactly that slot (rm -rf by owner)", async () => {
@@ -242,6 +244,36 @@ await test("acquireHostSlot: concurrent acquirers never share a slot", async () 
   const results = await Promise.allSettled(Array.from({ length: 6 }, () => acq(acquireOpts(host, { max: 2 }))));
   const got = results.filter((r) => r.status === "fulfilled" && r.value && r.value.slot !== null && r.value.slot !== undefined).map((r) => r.value);
   eq(got.length, 2, "exactly max slots granted"); eq((await slotsOf(host)).length, 2, "two slot dirs"); for (const g of got) await g.release();
+});
+await test("acquireHostSlot: release preserves missing or replaced owner tokens", async () => {
+  const acq = need("acquireHostSlot"); const host = path.join(await sandbox(), "host");
+  const a = acq(acquireOpts(host, { max: 1 }));
+  const file = path.join(a.slot, "owner.json");
+  const owner = JSON.parse(await readFile(file, "utf8"));
+  await writeFile(file, JSON.stringify({ ...owner, token: "foreign-owner" }));
+  eq(a.release(), false, "replacement token is not ours");
+  eq(JSON.parse(await readFile(file, "utf8")).token, "foreign-owner", "foreign owner preserved");
+  await rm(file);
+  eq(a.release(), false, "ownerless is not ours");
+  ok((await stat(a.slot)).isDirectory(), "ownerless directory preserved");
+});
+await test("acquireHostSlot: a stale owner replaced during rename is re-checked and preserved", async () => {
+  const host = path.join(await sandbox(), "host"); const slot = path.join(host, "h-slots", "slot-0");
+  await mkdir(slot, { recursive: true });
+  const file = path.join(slot, "owner.json");
+  await writeFile(file, JSON.stringify({ pid: 99999999, kind: "g2", project: "/gone", at: "old", token: "old" }));
+  let raced = false;
+  const fs = { ...syncFs, renameSync(from, to) {
+    if (from === slot && !raced) {
+      raced = true;
+      syncFs.writeFileSync(file, JSON.stringify({ pid: process.pid, kind: "g2", project: "/live", at: "new", token: "foreign" }));
+    }
+    return syncFs.renameSync(from, to);
+  } };
+  const got = need("acquireHostSlot")(acquireOpts(host, { max: 1, fs, isAlive: (pid) => pid === process.pid }));
+  eq(got, null, "a live replacement must not be reclaimed");
+  eq(JSON.parse(await readFile(file, "utf8")).token, "foreign", "live replacement preserved after atomic detach");
+  eq((await readdir(path.dirname(slot))).join(","), "slot-0", "no foreign tomb left behind");
 });
 await test("the whole run never signalled a process (only kill -0 probes)", async () => { eq(badKills.length, 0, `real signals sent: ${JSON.stringify(badKills)}`); });
 

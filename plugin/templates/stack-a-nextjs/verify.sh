@@ -411,9 +411,7 @@ GATE_SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
 # DR-146: the tree a FULL run is about to judge, captured BEFORE any gate and only when it is clean
 # (green-stamp.sh owns what "clean" means). Empty = this run can never certify a tree.
 STAMP_START_TREE=""
-if [ "$GATE_SCOPE" = "full" ] && [ -f .pandacorp/green-stamp.sh ]; then
-  STAMP_START_TREE=$(bash .pandacorp/green-stamp.sh start 2>/dev/null || true)
-fi
+
 # DR-146: vitest order is always shuffled with an explicit seed so a red caused by test order can be
 # replayed exactly. A malformed replay seed is an invocation error, never silently replaced.
 VITEST_SEED="${PANDACORP_VITEST_SEED:-}"
@@ -424,7 +422,116 @@ fi
 
 GATE_FRAGMENTS_DIR=$(mktemp -d)
 : > "$GATE_FRAGMENTS_DIR/fragments.jsonl"
-cleanup_gate_report() { rm -rf "$GATE_FRAGMENTS_DIR"; }
+HOST_SLOT_OWNED=""
+# A full ad-hoc gate participates in the same host cap as the queue and the Node engine.
+# Only an exact inherited token bypasses admission; a child never releases its caller's slot.
+host_slot() {
+  python3 - "$1" "$$" "$HOST_SLOT_OWNED" <<'SLOTPY'
+import datetime
+import json
+import os
+from pathlib import Path
+import shutil
+import sys
+import time
+import uuid
+
+action, pid, owned = sys.argv[1:]
+pid = int(pid)
+def owner(slot):
+    try:
+        value = json.loads((slot / 'owner.json').read_text())
+        return value if type(value.get('pid')) is int and value['pid'] > 0 else None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+def stale(slot):
+    value = owner(slot)
+    if value:
+        try:
+            os.kill(value['pid'], 0)
+            return False
+        except ProcessLookupError:
+            return True
+        except PermissionError:
+            return False
+    return time.time() - slot.stat().st_mtime > 60
+
+def detach(slot, identity, allowed):
+    tomb = slot.with_name(slot.name + '.tomb-' + str(uuid.uuid4()))
+    try:
+        current = slot.stat()
+        if (current.st_dev, current.st_ino) != identity:
+            return False
+        slot.rename(tomb)
+    except FileNotFoundError:
+        return False
+    current = tomb.stat()
+    if (current.st_dev, current.st_ino) != identity or not allowed(tomb):
+        # A re-taken/initializing directory is never ours to delete.
+        if not slot.exists():
+            tomb.rename(slot)
+        return False
+    shutil.rmtree(tomb)
+    return True
+
+try:
+    if action == 'release':
+        if owned:
+            name, token = owned.rsplit('|', 1)
+            slot = Path(name)
+            current = slot.stat()
+            detach(slot, (current.st_dev, current.st_ino),
+                   lambda target: (owner(target) or {}).get('token') == token)
+        sys.exit(0)
+    inherited = os.environ.get('PANDACORP_HOST_SLOT_TOKEN', '')
+    if '|' in inherited:
+        name, token = inherited.rsplit('|', 1)
+        if token and Path(name).is_dir() and (owner(Path(name)) or {}).get('token') == token:
+            sys.exit(0)
+    root = Path(os.environ.get('PANDACORP_HOST_DIR', str(Path.home() / '.pandacorp/host'))) / 'h-slots'
+    root.mkdir(parents=True, exist_ok=True)  # Any failure is RED, never optional admission.
+    maximum = max(1, min(2, (os.cpu_count() or 1) // 4))
+    timeout = float(os.environ.get('PANDACORP_HOST_SLOT_WAIT_S', '600'))
+    if not 0 <= timeout < float('inf'):
+        raise ValueError('invalid host slot wait limit')
+    deadline = time.monotonic() + timeout
+    while True:
+        held = 0
+        for index in range(maximum):
+            slot = root / ('slot-' + str(index))
+            for attempt in range(3):
+                try:
+                    slot.mkdir()
+                except FileExistsError:
+                    identity = slot.stat()
+                    if not stale(slot):
+                        held += 1
+                        break
+                    detach(slot, (identity.st_dev, identity.st_ino), stale)
+                    continue
+                token = str(uuid.uuid4())
+                value = dict(pid=pid, kind='verify', project=str(Path.cwd()),
+                             at=datetime.datetime.now(datetime.timezone.utc).isoformat(), token=token)
+                # A publishing error leaves our newly created directory ownerless for the 60s grace.
+                temporary = slot / 'owner.json.tmp'
+                temporary.write_text(json.dumps(value) + '\n')
+                temporary.replace(slot / 'owner.json')
+                print(str(slot) + '|' + token)
+                sys.exit(0)
+        print(f'verify: waiting for host heavy-job slot; position {held + 1} ({held}/{maximum} held)', file=sys.stderr)
+        if time.monotonic() >= deadline:
+            raise TimeoutError('bounded host-slot wait expired')
+        time.sleep(min(1, max(0, deadline - time.monotonic())))
+except Exception as error:
+    print('verify: environment not ready: host slot: ' + str(error), file=sys.stderr)
+    sys.exit(16)
+SLOTPY
+}
+cleanup_gate_report() {
+  [ -z "$HOST_SLOT_OWNED" ] || host_slot release || true
+  rm -rf "$GATE_FRAGMENTS_DIR"
+}
 trap cleanup_gate_report EXIT
 
 # Portable millisecond clock. GNU `date +%s%N` gives nanoseconds; BSD `date` on older macOS does
@@ -747,6 +854,47 @@ run_cheap_gate() {
   fi
 }
 
+# Admission and output normalization precede the start fingerprint and every gate.
+if [ "$GATE_SCOPE" = "full" ]; then
+  _slot_rc=0
+  HOST_SLOT_OWNED=$(host_slot acquire) || _slot_rc=$?
+  if [ "$_slot_rc" -ne 0 ]; then write_gate_report "$_slot_rc"; exit "$_slot_rc"; fi
+  [ -z "$HOST_SLOT_OWNED" ] || export PANDACORP_HOST_SLOT_TOKEN="$HOST_SLOT_OWNED"
+  export PANDACORP_E2E_SNAPSHOTS=none
+else
+  export PANDACORP_E2E_SNAPSHOTS=missing
+fi
+if [ -f .pandacorp/green-stamp.sh ]; then
+  _outputs_rc=0
+  bash .pandacorp/green-stamp.sh clean-outputs || _outputs_rc=$?
+  if [ "$_outputs_rc" -ne 0 ]; then write_gate_report "$_outputs_rc"; exit "$_outputs_rc"; fi
+elif [ -e e2e/.run-outputs ] || [ -L e2e/.run-outputs ]; then
+  dr146_invocation_error "e2e/.run-outputs requires green-stamp.sh for validated cleanup"
+elif [ -d e2e/fixtures ]; then
+  # Legacy overlays without the stamp helper still normalize empty fixture directories.
+  find e2e/fixtures -depth -type d -empty -delete
+fi
+if [ "$GATE_SCOPE" = "full" ] && [ -f .pandacorp/green-stamp.sh ]; then
+  STAMP_START_TREE=$(bash .pandacorp/green-stamp.sh start 2>/dev/null || true)
+fi
+
+# Type definitions are generated after cleanup/rebase, before any static checks (full or light).
+gate_next_typegen() {
+  if [ -x node_modules/.bin/next ] && [ ! -d .next/types ]; then
+    node_modules/.bin/next typegen
+  fi
+}
+_static_selected=0
+for _static_gate in $KNOWN_GATES; do
+  case "$_static_gate" in vitest|playwright) continue ;; esac
+  if gate_selected "$_static_gate"; then _static_selected=1; break; fi
+done
+if [ "$_static_selected" -eq 1 ] && [ -x node_modules/.bin/next ] && [ ! -d .next/types ]; then
+  _typegen_rc=0
+  run_gate next-typegen plain gate_next_typegen || _typegen_rc=$?
+  if [ "$_typegen_rc" -ne 0 ]; then write_gate_report "$_typegen_rc"; exit "$_typegen_rc"; fi
+fi
+
 # --- Structure guard (file placement isn't lintable; DR-059) -------------------
 # Fail if any unit/component test sits loose outside a _tests/ folder.
 gate_structure_guard() {
@@ -1003,6 +1151,9 @@ if gate_selected playwright && [ "$AFFECTED_SKIP" -eq 0 ]; then
 PLAYWRIGHT_RC=0
 run_gate playwright playwright gate_playwright || PLAYWRIGHT_RC=$?
 if [ "$PLAYWRIGHT_RC" -ne 0 ]; then
+  if [ "$GATE_SCOPE" = "full" ] && grep -Eiq "(snapshot.*(doesn't exist|does not exist|missing)|missing.*snapshot|no snapshot)" "$GATE_FRAGMENTS_DIR/log-playwright.txt"; then
+    echo "baseline not blessed — bless it at the feature gate (DR-080), commit it, re-queue"
+  fi
   write_gate_report "$PLAYWRIGHT_RC"
   exit "$PLAYWRIGHT_RC"
 fi
