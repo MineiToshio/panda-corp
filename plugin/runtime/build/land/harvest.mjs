@@ -62,7 +62,7 @@ async function onLanded(ctx, state, job, mqExit, d) {
   const batch = assessBatch(state);
   let next = await moveUnits(ctx, state, batch.landable, "landed", { waiting_gate: null });
   const card = where.changeSlug && where.changeSlug === state.scope?.card ? await archiveLandedCard(ctx.project, where.changeSlug, sha, d) : null;
-  const notes = mqExit === 13 ? "El aterrizaje llegó a main pero el push falló (origin): producción NO se actualizó. Arregla el remoto y vuelve a hacer push de main." : null;
+  const notes = mqExit === 13 ? "El aterrizaje llegó a main pero el push falló o no pudo confirmarse: revisa origin/main antes de reintentar." : null;
   await ctx.appendEvent({ type: "batch_landed", data: { sha, units: batch.landable.map((u) => u.id), mq_exit: mqExit, card, ...(notes ? { notes_es: notes } : {}) } });
   await ctx.appendEvent({ type: "safe_point", data: { kind: "batch-landed", sha } });
   next = { ...next, last_safe_point: { sha, kind: "batch-landed", at: nowIso(d) } };
@@ -172,6 +172,14 @@ export async function prepareLandHarvest(ctx, deps = {}) {
     prepared.tip = await gitOk(d, state.integration.worktree, ["rev-parse", "HEAD"], "rev-parse");
     prepared.plan = await readGatePatch({ state, units: assessBatch(state).landable, gate: "G3", job, paths: ctx.paths }, { ...d, ref: prepared.tip });
   }
+  if (polled.state === "done" && polled.exit === 16) {
+    const previous = state.jobs.filter(j => j.kind === "land" && j.id !== job.id && j.state === "done").at(-1);
+    // Preparation can install packages: run it outside the lease mutex, once per
+    // consecutive environment failure. Harvest never creates a code patch for this.
+    if (previous?.exit !== 16) {
+      prepared.bootstrap = await d.exec("bash", [".pandacorp/worktree-bootstrap.sh"], { cwd: state.integration.worktree, env: d.env });
+    }
+  }
   return prepared;
 }
 
@@ -234,8 +242,14 @@ export async function harvestLandJob(ctx, deps = {}) {
     else if (mqExit === 11) applied = await onGateRed(ctx, state, job, prepared.plan, d);
     else if (mqExit === 21) applied = await onGate(ctx, state);
     else {
+      if (mqExit === 16) {
+        const retry = previous?.exit !== 16 && prepared.bootstrap?.code === 0;
+        await ctx.appendEvent({ type: "handback", data: { reason: "environment_not_ready", cause: "env-infra", retry, bootstrap_exit: prepared.bootstrap?.code ?? null } });
+        applied = { state, exit: retry ? 0 : 6, output: { result: retry ? "nothing_to_land" : "handback", reason: "environment_not_ready", mq_exit: 16, sha: null, patch_unit: null,
+          notes_es: retry ? "Bootstrap ejecutado; reintenta el aterrizaje una vez." : "Entorno no preparado tras el intento de bootstrap; revisa el log de la cola antes de reanudar." } };
+      }
       if (mqExit === 10) await ctx.appendEvent({ type: "handback", data: { reason: "rebase_conflict", cause: "landing" } });
-      applied = { state, exit: mapped.exit, output: { result: mapped.result, reason: mapped.reason, mq_exit: mqExit, sha: null } };
+      if (mqExit !== 16) applied = { state, exit: mapped.exit, output: { result: mapped.result, reason: mapped.reason, mq_exit: mqExit, sha: null } };
     }
   } catch (error) {
     // job_finished is already journaled: persist the finished job so the next harvest does not journal it twice.

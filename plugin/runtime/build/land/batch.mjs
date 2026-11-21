@@ -20,6 +20,8 @@ export function mapMergeQueueExit(code) {
     case 12: return { result: "nothing_to_land", reason: "busy_main", exit: 0 };
     case 13: return { result: "landed", reason: null, exit: 0 };
     case 14: return { result: "nothing_to_land", reason: "port_busy", exit: 0 };
+    case 16: return { result: "nothing_to_land", reason: "environment_not_ready", exit: 0 };
+    case 17: return { result: "nothing_to_land", reason: "main_advanced", exit: 0 };
     case 20: return { result: "nothing_to_land", reason: "mq_precondition", exit: 0 };
     case 21: return { result: "waiting_gate", reason: null, exit: 7 };
     default: return null;

@@ -30,12 +30,14 @@ function validateEvent(e) {
     case 'rebase':
       check('result', choice('ok', 'conflict')); check('base', sha); check('head', sha);
       check('duration_s', number); break;
+    case 'env_step': check('result', choice('ok', 'failed')); check('duration_s', number); break;
     case 'stamp_check': check('result', choice('match', 'miss')); check('reason', string); break;
     case 'gate_start': load(); break;
     case 'gate_end':
       load(); check('rc', status); check('duration_s', number); check('report', string); break;
     case 'order_check': check('launched', flag); check('order_present', flag); break;
-    case 'ff': case 'push': check('sha', sha); check('result', choice('ok', 'failed')); break;
+    case 'ff': check('sha', sha); check('result', choice('ok', 'failed')); break;
+    case 'push': check('sha', sha); check('result', choice('ok', 'failed', 'unknown')); break;
     case 'reconcile': check('rc', status); break;
     case 'end': check('exit', status); break;
     case 'archive_error': check('path', nonempty); check('reason', nonempty); break;

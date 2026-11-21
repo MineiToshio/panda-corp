@@ -619,7 +619,7 @@ await test("T-C05 mq 11 with the 3-execution budget exhausted (build attempt 3):
   await assertNoReleaseVar(w); await assertMainUntouched(w, before);
 }));
 
-for (const [code, reason] of [[12, "busy_main"], [14, "port_busy"]]) {
+for (const [code, reason] of [[12, "busy_main"], [14, "port_busy"], [17, "main_advanced"]]) {
   await test(`mq ${code}: nothing_to_land ${reason} (exit 0), NOT a handback and no patch; retried at the next safe point without a second metadata commit; then lands`, async () => withWorld(`exit${code}`, {}, async (w) => {
     const before = await snapshot(w); const { second } = await mqRound(w, `${code}`);
     eq(second.result, "nothing_to_land", "result"); eq(second.reason, reason, "reason"); eq(second.mq_exit, code, "mq_exit"); if (exitKey(second) !== undefined) eq(exitKey(second), 0, "land exit");
@@ -631,6 +631,22 @@ for (const [code, reason] of [[12, "busy_main"], [14, "port_busy"]]) {
     eq(git(w.wt, ["rev-parse", "HEAD~1"]), git(w.wt, ["rev-parse", `${tipAfterFirst}~1`]), "only the metadata commit is rewritten, on the same code tip"); await assertNoReleaseVar(w);
   }));
 }
+
+await test("mq 16: bootstrap once outside the lease mutex, retry once without a patch; repeated 16 hands back", async () => withWorld("exit16", {}, async (w) => {
+  await writeFile(path.join(w.wt, ".pandacorp/worktree-bootstrap.sh"), "#!/bin/bash\nmkdir -p .pandacorp/run\necho bootstrap >> .pandacorp/run/bootstrap-count\n");
+  git(w.wt, ["add", ".pandacorp/worktree-bootstrap.sh"]);
+  git(w.wt, ["commit", "-qm", "fixture: bootstrap"]);
+  const { second } = await mqRound(w, "16");
+  eq(second.result, "nothing_to_land", "bootstrap succeeded: retry once");
+  eq(second.reason, "environment_not_ready", "environment outcome");
+  eq(second.mq_exit, 16, "queue status");
+  eq((await readFile(path.join(w.wt, ".pandacorp/run/bootstrap-count"), "utf8")).trim(), "bootstrap", "one bootstrap");
+  const { second: again } = await mqRound(w, "16");
+  eq(again.result, "handback", "second environment failure is not an endless retry");
+  eq(again.patch_unit, null, "no code patch");
+  eq((await readFile(path.join(w.wt, ".pandacorp/run/bootstrap-count"), "utf8")).trim(), "bootstrap", "bootstrap not repeated");
+  ok(!(await readState(w)).units.some(u => u.kind === "patch"), "environment never creates a patch");
+}));
 
 await test("mq 20 once: nothing_to_land mq_precondition (exit 0), retried at the next safe point", async () => withWorld("exit20", {}, async (w) => {
   const before = await snapshot(w); const { second } = await mqRound(w, "20");

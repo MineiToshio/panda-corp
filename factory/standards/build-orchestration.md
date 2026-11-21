@@ -267,6 +267,59 @@ The worktree isolates files + git, **not** a database. Parallel worktrees of a D
 worktree). Hard caveat: the template must have **zero active connections** during the clone, so
 branch-creation serializes. Automated tests use native local PostgreSQL with zero residue under `infra.md` INFRA-9/10; Neon dev is not a test database. A stateless project (the MC case) declares "none".
 
+### Queue critical section (DR-165 phase 0.5; amends DR-096/146)
+
+One shared Git-directory lock covers admission, rebase, environment preparation, stamp check,
+full gate, owner-order check, fast-forward and push. Every waiter has a FIFO ticket; only the
+unique owner token may refresh or release the lock. Dead local holders or holders without a
+refresh for 15 minutes are reclaimed by atomic rename and identity re-check. Waiters report
+position, holder start and the median logged gate duration when available. Direct-main writers
+(memory routine, upgrade, sync close-out and factory backlog merging) use the same protocol:
+`bash .pandacorp/with-merge-lock.sh <command...>` in projects, or
+`bash plugin/scripts/with-merge-lock.sh <command...>` in the factory. Keep a whole merge,
+validation and possible rollback transaction inside one wrapper invocation; never nest the queue.
+
+For nested projects, busy-main checks consider only paths changed by `main..<gated-sha>`;
+repeat the comparison after rebase before fast-forward. Telemetry exclusions cover only untracked
+outputs, never tracked WIP. Required verified commit reads fail closed independently of optional
+log reads. Restore committed configuration before
+rebasing. After rebase, reinstall with the present pnpm/npm frozen lockfile only if that rebase
+changed a lockfile; regenerate missing `.next/types` with supported `next typegen`, and require
+jq and biome when the project uses it. This step never rewrites `e2e/server-env.json` or
+`.claude/launch.json`, and never sets skip-worktree. Exit **16** means environment not ready,
+before gate time: the engine runs bootstrap and retries once, without a code patch. Exit **17**
+means main advanced during the gate: re-run the land job, without a code patch. Exit **12**
+remains dirty main; a missing/non-executable gate is an explicit **20** (`no gate`).
+
+Pin the gated commit before verification. Fast-forward that exact SHA, then push that SHA to
+`refs/heads/main` for an owner-authorized launched landing. Push has a bounded timeout; log an
+unknown result and reread origin/main before deciding, since terminating a client cannot undo
+an accepted update. Transfer the stamp between ff and push as before. Release the lock before
+running the reconciler resolved inside the main checkout's project directory.
+
+The queue holds one host heavy slot only around a full gate and exports
+`PANDACORP_HOST_SLOT_TOKEN=<slot directory>|<owner token>`; full verify validates and inherits it,
+or acquires its own slot. An unusable slot root fails closed, and waits are bounded/visible.
+Shell and Node admission share token-bearing `owner.json` records and atomic stale reclamation.
+The queue exports `PANDACORP_STAMP_BASE` from main's rebase SHA; stamp checks log `--explain`
+(group/environment key names only), with a plain-check fallback for older overlays.
+Stamp controls exclude invocation-specific temp/cache/cleanup/slot/snapshot variables; PATH and
+HOME remain inputs. The new stamp format stores group/key hashes and the base; older formats
+require a full gate. Base is recorded, but not checked for matching in phase 0.5.
+
+Projects may commit `e2e/.run-outputs` with literal relative paths under `e2e/` (no `..`, no
+globs; trailing `/` denotes a directory). Invalid declarations fail loudly. Verify deletes declared
+outputs and prunes empty `e2e/fixtures` directories before its start fingerprint; stamp hashing
+excludes declared outputs, while unlisted changes still invalidate it. Temporary ledger files
+remain undeclared. Full gates alone set `PANDACORP_E2E_SNAPSHOTS=none`: a missing visual baseline
+is red with the DR-080 feature-gate blessing instruction. Light/since gates retain `missing`.
+
+Verification: `test-merge-queue-lock-ownership.sh`, `test-merge-queue-env-step-keeps-committed-config.sh`,
+`test-merge-queue-env-step-after-rebase.sh`, `test-merge-queue-ff-gated-sha.sh`,
+`test-merge-queue-single-slot.sh`, `test-green-stamp-controls.sh`, `test-green-stamp-run-outputs.sh`,
+`test-verify-snapshots-none-full-only.sh`, `test-host-slot-fail-closed.sh` and `test-build-v2-land.mjs`.
+This phase does not change DR-138 or ship phase 1's required stamp-record/pre-push/status controls.
+
 ### 5. Batch integration through the serialized merge queue (DR-141, BUILD-4)
 
 **Rule (MUST; enforcement: landing-session checklist).** When two or more finished branches

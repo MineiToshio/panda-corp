@@ -1,5 +1,30 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-20 - Ship proposal 43 phase 0.5: queue and certification cheap fixes
+
+Under DR-165, plugin **10.16.0** / overlay **9.6.0** amend DR-096 with FIFO tickets,
+token-owned release/refresh, atomic stale reclamation, visible waiting, dependency-only
+post-rebase preparation (exit 16), exact gated-SHA ff/push and advanced-main exit 17.
+The [queue](../templates/shared/.pandacorp/merge-queue.sh) fails explicitly without a gate,
+logs environment/explanation/unknown-push events and resolves reconciliation inside the project.
+Required verified commit reads are separate from optional telemetry reads; telemetry exclusions
+never hide tracked WIP, and inspection failures are explicit precondition errors.
+Direct-main writers use [with-merge-lock](../scripts/with-merge-lock.sh); the landing engine
+bootstraps once on 16 and retries 17 without a patch.
+
+DR-146 now includes stamp group/key explanations, invocation controls and recorded base;
+PATH/HOME remain hashed, older formats re-gate. Full verify inherits one host slot, otherwise
+acquires one with closed admission, sharing Node's token/reclaim protocol. Committed
+`e2e/.run-outputs` declarations reset/exclude approved outputs; empty fixture directories
+are pruned before fingerprinting, unlisted residue still invalidates, and malformed lists fail.
+DR-056/080's missing-baseline rule is amended **only for full scope**: snapshot updates are
+`none` and missing baselines turn red with the feature-gate blessing instruction; light/since
+retain `missing`. Canonical protocol and named regression coverage:
+[build orchestration](../../factory/standards/build-orchestration.md) and
+[project quality rules](../templates/rules/quality-and-testing.md). The owner's order remains
+mandatory under DR-138. Required stamp-record enforcement, status/done semantics and stronger
+pre-push proof remain phase 1; no project copies or Mission Control output list ship here.
+
 ## 2026-11-20 - Repair phase 0 lifecycle, provenance and metric validation
 
 Independent review exposed four false-evidence paths. The [queue](../templates/shared/.pandacorp/merge-queue.sh)

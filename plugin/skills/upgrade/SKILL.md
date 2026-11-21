@@ -61,7 +61,7 @@ Tell the owner in Spanish that the upgrade is deferred until the build stops. Do
      a live build. Existing projects activate this on their next normal compatible upgrade.
 
    - **Certified tree + light Stop gate (DR-146):** copy `templates/shared/.pandacorp/green-stamp.sh`
-     verbatim with merge-queue.sh (the stack's `verify.sh`, synced by the gate-config conformance below,
+     verbatim with merge-queue.sh and `templates/shared/.pandacorp/with-merge-lock.sh` (the stack's `verify.sh`, synced by the gate-config conformance below,
      calls it and gains `--light`/`--tests`/the printed vitest seed). The Stop hook uses the light gate as soon
      as the project's `verify.sh` accepts `--light`/`--tests=` (until then it keeps the full gate); without
      `green-stamp.sh` nothing is ever certified, so the queue always runs the full gate (fail-closed). Never create, copy or edit a
@@ -129,6 +129,8 @@ Tell the owner in Spanish that the upgrade is deferred until the build stops. Do
    for the exact inventory. Stage the other changed integration files by their explicit paths; never
    `git add -f .pandacorp/` or broad repository staging in a shared factory checkout. Existing tracked
    owner-state files require a separate index cleanup; ignore rules do not untrack them.
+
+   When committing directly on main, wrap the commit with `bash .pandacorp/with-merge-lock.sh git commit ...` (DR-165); do not wrap the gate or recursively invoke the queue.
 
    **Commit on its own**: `chore: upgrade pandacorp overlay <old> → <new>` (moved files + machinery + managed layer + any DR-049 docs relocation from step 2b). Do NOT mix product *behavior* changes into this commit — the docs migration is a structural move, not a content rewrite.
 

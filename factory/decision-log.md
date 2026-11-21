@@ -1,5 +1,18 @@
 # Decision Log — Factory
 
+## 2026-11-20 - Ship proposal 43 phase 0.5 under DR-165
+
+[Build orchestration](standards/build-orchestration.md) and the
+[registry](decisions/registry.yaml) enact DR-096's owned FIFO lock, dependency-only post-rebase
+preparation, exits 16/17, immutable landing/push SHA and locked direct-main writers.
+DR-146 gains explainable stamp groups/controls/base, one inherited host slot with closed
+admission, and declared run-output cleanup/exclusion including empty fixture directories.
+Full-scope missing visual baselines are now red (DR-056/080); light/since keep feature-gate
+blessing with provenance. The [plugin log](../plugin/docs/decision-log.md) records the machinery
+and regression coverage at plugin **10.16.0** / overlay **9.6.0**. This removes the measured
+ownership/environment/certification hazards without altering DR-138. Phase 1's required
+record, status and pre-push changes remain pending; Mission Control adoption is separate.
+
 ## 2026-11-20 - Correct phase 0 evidence and the phase 0.5 baseline
 
 The independent review of [proposal 43](../docs/proposals/43-done-means-queue-green.md)

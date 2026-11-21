@@ -21,6 +21,10 @@ fixture() {
   mkdir -p "$root/app/.pandacorp"
   printf '%b' "$1" > "$root/app/.pandacorp/status.yaml"
   cp "$MQ" "$root/app/.pandacorp/merge-queue.sh"
+  # Phase 0.5 rejects a missing gate explicitly; release-policy fixtures must
+  # provide a green executable gate rather than relying on the former silent skip.
+  printf '#!/bin/bash\nexit 0\n' > "$root/app/.pandacorp/verify.sh"
+  chmod +x "$root/app/.pandacorp/verify.sh"
   ( cd "$root/app" && git add -A && git commit -q -m init && git push -q origin main 2>/dev/null \
     && git worktree add -q "$root/wt" -b feature-x && cd "$root/wt" && echo x > feature.txt \
     && git add feature.txt && git commit -q -m "feat: x" )
