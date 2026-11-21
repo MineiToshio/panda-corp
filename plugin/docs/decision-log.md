@@ -2,7 +2,7 @@
 
 ## 2026-11-21 - Preserve admission deadlines and environment retry consumption
 
-Plugin **10.16.2** / overlay **9.6.2** retries inherited-slot validation within the full admission
+Plugin **10.17.0** / overlay **9.6.2** retries inherited-slot validation within the full admission
 deadline and preserves verify exit 16 through the queue. Environment bootstrap consumption and
 exhaustion now consult every matching code-tip job, including journal replay, so an intermediate
 exit 14 cannot renew either budget. Regressions reproduced both defects before the fixes.
@@ -11,7 +11,7 @@ Canonical contracts: [queue protocol](../../factory/standards/build-orchestratio
 
 ## 2026-11-20 - Close five independent-review failures in phase 0.5
 
-Plugin **10.16.1** / overlay **9.6.1** correct five proven failure paths under DR-165:
+Plugin **10.17.0** / overlay **9.6.1** correct five proven failure paths under DR-165:
 atomic FIFO ticket publication plus bounded malformed-ticket recovery; one initialized-directory
 admission mutex shared by Node, queue and full verify; installation receipts that detect stale
 dependencies even when the engine already rebased; journaled per-code-tip environment retry
@@ -27,7 +27,7 @@ full-scope baseline rules are unchanged. No project copies are upgraded by this 
 
 ## 2026-11-20 - Ship proposal 43 phase 0.5: queue and certification cheap fixes
 
-Under DR-165, plugin **10.16.0** / overlay **9.6.0** amend DR-096 with FIFO tickets,
+Under DR-165, plugin **10.17.0** / overlay **9.6.0** amend DR-096 with FIFO tickets,
 token-owned release/refresh, atomic stale reclamation, visible waiting, dependency-only
 post-rebase preparation (exit 16), exact gated-SHA ff/push and advanced-main exit 17.
 The [queue](../templates/shared/.pandacorp/merge-queue.sh) fails explicitly without a gate,
@@ -49,6 +49,21 @@ retain `missing`. Canonical protocol and named regression coverage:
 [project quality rules](../templates/rules/quality-and-testing.md). The owner's order remains
 mandatory under DR-138. Required stamp-record enforcement, status/done semantics and stronger
 pre-push proof remain phase 1; no project copies or Mission Control output list ship here.
+
+## 2026-11-20 - Pace-balanced capacity allocation
+
+Plugin 10.16.0 (MINOR), [DR-162](../../factory/decisions/registry.yaml) amended,
+[BUILD-11](../../factory/standards/build-engine.md) and [capacity.md](capacity.md). The owner observed
+that the allocator let the task-type preferred account absorb nearly all work until it reached 85%,
+ignoring the other subscription's usage and both reset times, so quota expired unused. `decide()` now
+ranks fitting cells by spend pace: slack per window = elapsed fraction x 100 - adjusted used %, the
+tool's tightest window counts, and the preferred tool gets a 15-point band. Safety order is kept
+(unknown never beats a known tool with margin; >=85% and ahead of pace ranks last, lowest worst window
+first); a reset further away than its window length is treated as unknown. Tests: `test-capacity.mjs`
+(+4 pace contracts; three preference-only expectations rewritten to the new rule; neutral 5-hour
+fixture) and `test-build-v2-routing.mjs` (realistic per-window resets). The standalone orchestrate
+skill keeps an independent copy of the same algorithm; neither depends on the other. The
+[Manual](../../mission-control/src/app/manual/manualPages.tsx) paragraph is updated.
 
 ## 2026-11-20 - Repair phase 0 lifecycle, provenance and metric validation
 
@@ -136,7 +151,6 @@ remain isolated from the rescue checkout, with their original work preserved.
 Superseded jobs retire in the journal, and abandoned dependents release admission, so
 unreadable old results and stale reservations cannot hold independent work open forever.
 
-
 ## 2026-11-17 — Finish causal recovery after disputes and human gates
 
 Plugin 10.13.9 (PATCH). The funko-tracker audit found that `fix-test` released a builder without replacing its
@@ -206,7 +220,6 @@ The full build-suite run also exposed a 1 ms wall-clock mismatch in the conserve
 that test now supplies one fixed `now` for both comparisons, without changing routing behavior.
 The affected project/run is read-only in this task: resume and completion are unverified.
 No commit, installation/update, state repair or project mutation is performed.
-
 
 ## 2026-11-15 — Back-port TypeScript E2E module inventories and optional test-DB cleanup
 
@@ -346,7 +359,6 @@ and independent review preserve one execution and protected production/money/del
 Historical regression scenarios now assert this replacement policy; real reset and native timers remain
 phase-4 evidence, and shared concurrent reservations remain outside this phase.
 
-
 ## 2026-11-14 — Capacity review fixes and routing coverage recovery
 
 **What:** fix the ten phase-1 review findings: pin risk/override/reserve validation, per-window uncertainty,
@@ -360,7 +372,6 @@ negative controls under DR-162, with an assertion-level retirement ledger and ac
 independent current blocks, and coverage must prove the current policy without retaining obsolete
 threshold, author-company or retry escalation expectations. The owner explicitly requires never stopping
 while an eligible cell fits; unavailable pins/images wait only their own task.
-
 
 ## 2026-11-14 — Never-stop shared account capacity (phase 2a)
 
@@ -544,7 +555,6 @@ projects form an ordering cycle in the installed scheduler, so diagnostics delib
 speed for complete isolated evidence. Canonical: [quality](../../factory/standards/quality.md),
 [orchestration](../../factory/standards/build-orchestration.md), [DR-158](../../factory/decisions/registry.yaml).
 
-
 ## 2026-11-12 — Correct certification provenance, mobile upgrades and production live harness (RVB)
 
 **What:** fix reviewer B1/B2: hash all ambient environment inputs except explicit invocation/shell
@@ -562,7 +572,6 @@ new failures record SSE/RSC observations. The reported non-test error is Playwri
 maxFailures notice, not an additional product exception; no error suppression was added.
 
 Canonical: [gate provenance](../templates/shared/.pandacorp/green-stamp.sh), [mobile config](../templates/stack-a-nextjs/e2e/playwright.config.ts), [quality](../../factory/standards/quality.md).
-
 
 ## 2026-11-12 — Faster certification without weakening landing (DR-158)
 
@@ -588,7 +597,6 @@ Canonical: [Stack A](../templates/stack-a-nextjs/STACK.md), [gate](../templates/
 **Why:** owner-selected research option B preserves final coverage while removing redundant
 work and avoidable failures. Browser time savings are hypotheses until an unrestricted
 benchmark measures the same tree/fixtures/host; retries and baseline updates are not acceptance.
-
 
 ## v10.0.0 — 2026-11-12 (MAJOR): Day 1 CLI-only builds, overlay 9.0.0
 
@@ -924,7 +932,6 @@ No commit, real worktree deletion, installed-plugin update or live project-overl
 **What:** Back-ported the visually-hidden clipped-text exemption and obscured-target re-measurement to the stack-a responsive helper template.
 **Why:** `/pandacorp:upgrade` overwrites project helpers from this template; the Mission Control fixes must survive upgrades without carrying project-specific behavior.
 
-
 ## v9.146.5 — 2026-10-30 (PATCH): Codex relays survive a later owner question; the plan stays on Claude
 
 **What:** the relay prompt states it belongs to the launched build, a relay that left no worker is retried once, and the `plan` call keeps its Claude agent. Overlay 8.114.4.
@@ -989,17 +996,14 @@ No commit, real worktree deletion, installed-plugin update or live project-overl
 **What / why:** Owner-approved batch integration for several finished independently verified branches: one integration branch and one full queue gate, scoped owning repair on red; singleton behavior and production gates unchanged. Updated [quality rule](../templates/rules/quality-and-testing.md), [project guide](../templates/shared/.pandacorp/guide.md.tpl), rule catalog, landing guidance in change/architecture/worktrees and [workflow guide](dynamic-workflows.md). Compatible overlay 8.114.0 propagates through upgrade. No runtime merge-queue change or new CLI: documented squash-merge procedure keeps resolutions through plain rebase and retains source SHA mapping/branches. Added `test-batch-integration.sh` using the real queue (combined pass, red blocks main, scoped retry). Factory BUILD-4 and DR-141 are canonical; live compliance is a named manual checklist, not claimed as automated. Mission Control's new authored Manual guide explains the rule; Reference derives canonical sources. Activation follows commit, plugin update and session restart.
 **Verification:** `check-standards.sh` exit 0 (178 rules, 32 files); `test-batch-integration.sh` exit 0 (combined gate once, conflict resolution survives an actual rebase, red blocks main, scoped retry, source tips retained); `test-merge-queue-release-gate.sh` 12/12; `check-derived-drift.sh` exit 0; Bash syntax and `git diff --check` clean. Independent review re-ran the gates. Repository `.git` is read-only in this session: no commit/activation performed. `claude plugin validate` is unavailable under the runtime policy.
 
-
 ## v9.143.0 — 2026-10-24 (MINOR): native test Postgres + zero residue (DR-140)
 
 **What:** [architecture](../skills/architecture/SKILL.md) step (f), [stack-install.md](../skills/architecture/references/stack-install.md) (d) and [environment-delivery.md](../skills/architecture/references/environment-delivery.md) now generate the native test DB (Homebrew Postgres on `127.0.0.1:<base+2>`, `db:test:up`/`down`/`check-clean` wired into `verify.sh`) and `TEST_DATABASE_URL` with its real loopback value in `.env.local`/`.env.example` (one comment per variable), documented in architecture.md's new test-database section ([template](../templates/docs/architecture-template.md)). Docker Compose removed from stack A STACK.md; stack B/C, [devops](../agents/devops.md) and injected rules `quality-and-testing.md`, `data-modeling.md`, `external-services.md` updated. Overlay 8.113.0 (compatible).
 **Why:** owner rule 2026-10-24 (factory decision log, DR-140).
 
-
 ## 2026-10-24 — Inject mandatory gh CLI GitHub access (CONV-19)
 
 **What / why:** Owner-approved rule after GitHub MCP rejected its token while `gh` worked: all agent GitHub service interactions use `gh` with existing keyring authentication, including `gh api`; no GitHub MCP or alternate service-access path. Updated [code-conventions](../templates/rules/code-conventions.md) (`applies_when: always`), its catalog and the [Manual guide](services-and-accounts.md). Compatible overlay bump 8.111.0 → 8.112.0 triggers normal project upgrade; no project is edited in this change. Checklist enforcement audits executed tool calls at handoff; this is review-only, not automated CI enforcement. Existing owner gates and token secrecy remain binding. Canonical standard and catalog row: `factory/standards/conventions.md` CONV-19 and `rule-registry.md`. Standards catalog exits 0.
-
 
 ## v9.142.0 — 2026-10-23 (MINOR): DR-138 production = `main` via GitHub, gated after launch; DR-139 English URLs
 
@@ -1030,7 +1034,6 @@ No commit, real worktree deletion, installed-plugin update or live project-overl
 **Why:** Local execution does not make the production database connection unnecessary. Avoid moving it to development, deleting a consumed credential, or treating it like Python/browser tooling. No migration variables without a real approved consumer; no migration execution, credential changes or new files in this factory change. Plugin 9.138.1 / overlay 8.108.1.
 **Validation:** Skill quick validation, independent migration-versus-local-tool scenario review, derived-artifact drift and diff checks pass. Standards catalog exits 1 only on the pre-existing navigation-identities failures tracked by BL-0264; no migration or runtime execution was performed.
 
-
 ## 2026-10-20 — Three environment files with destination isolation
 
 **What:** Architecture now delivers exactly `.env.example`, `.env.local` and `.env.production`, grouped by service within destination blocks. Local-only tooling is last in guide/dev and excluded from production. Distinct credentials remain distinct through storage aliases and explicit runtime selectors/exporters; shared secrets name their consumers. Supersedes the production `.env.production.local` handoff and additional worker/migration/fidelity/offline/secret-fragment files. Existing values survive scoped consolidation; upgrades propagate the convention without rewriting private files.
@@ -1038,13 +1041,10 @@ No commit, real worktree deletion, installed-plugin update or live project-overl
 **Impact:** External-services standard/operative rule/registry, architecture installer/delivery/template, implement/release guidance and Manual share the contract. Synthetic selection/isolation evidence and independent metadata review are required; unresolved bindings stay pending. Plugin 9.138.0 / overlay 8.108.0.
 **Validation:** Native skill validation, independent baseline/candidate instruction review (new-service and legacy-conflict scenarios), derived-artifact drift, service-catalog validation and Manual copy lint pass. This is not a full lifecycle benchmark or a deployed selector. `check-standards.sh` exits 1 on the same three navigation-identities catalog failures reproduced from untouched HEAD, already tracked as BL-0264; no new catalog failure is introduced.
 
-
 ## 2026-10-20 — Architecture delivers private environment values, not only a map
 
 **What:** Extend DR-134 preparation: preflight inventories only; after final decisions/consumer contract, architecture step 9b3 fills every obtainable authorized provider value and generated app secret. Protected `.env.local` and explicit `.env.production.local` web handoff preserve existing values, separate dev/prod and web/worker/migration/CI, and record exact pending steps in a value-free private report. Concrete planned consumers remain distinct from installed/runtime-verified ones. The approved shared per-app Google OAuth client is the explicit environment exception.
 **Why:** The owner asked for usable environment preparation, including application-generated secrets, rather than a names/origins list or an unsupported production-ready claim. Expand existing standard, operative rule, architecture/installer/gates/template, implement/release readiness and Manual guide. No cloud calls, actual environment files, generic secret writer or Mission Control app changes are part of this factory change. Manual independent delivery checklist remains explicit; catalog validation does not certify secret files. Plugin 9.137.0 / overlay 8.107.0.
-
-
 
 ## 2026-10-20 — Approved service reuse and honest preparation (DR-134)
 
@@ -1054,20 +1054,17 @@ Adopt the consolidated owner-approved services proposal: public provider recipes
 
 The owner explicitly superseded DR-120: both runtimes may execute every Pandacorp skill and edit every application, including canonical plans and build state. Updated PORT-5, constitution, registry, overlay AGENTS, implement/architecture guidance, capability policy and Manual. Full authorization is separate from the optional automated launcher's targeted foreground evidence; no unattended certification or new engine is claimed. Existing safety gates, independent review, atomic ownership and one-writer safe-point handoff remain. Plugin 9.135.0 / overlay 8.105.0.
 
-
 ## v9.134.0 — 2026-10-19 (MINOR): keep custom database backups out of MVP architecture
 
 **What:** Architecture's recovery round, downstream scope contract, installer and contradiction gate exclude custom external database backups in MVP/v1: no dump jobs, backup buckets/keys, restore scaffolding or associated speculative work. The architect verifies the actual provider/plan recovery availability and window, records limitations and resolves unmet legal/FRD guarantees before proceeding. Product exports/media storage remain independent legitimate scope; no existing project backup/data is removed by this prospective rule. Updated DR-012 and the Manual. Aligned infra.md’s former mandatory pre-release external dump with native MVP recovery and injected the matching resilience rule; overlay 8.104.0 propagates it without changing existing project scope.
 **Why:** Explicit owner request: validate the product before investing in an additional backup system; keep R2 available for downloadable posters without conflating that with database backup infrastructure.
 **Validation:** Native skill-creator validation, independent bounded baseline/candidate prompt review, manifest validation, derived-artifact drift check and Manual lint; no product build or end-to-end lifecycle benchmark.
 
-
 ## v9.133.0 — 2026-10-19 (MINOR): explicit architecture choices for analytics, errors, languages and SEO
 
 **What:** Architecture's decision round always resolves four separate owner choices: PostHog, Sentry, internationalization scope and SEO (including actual metadata deliverables). Explicit answers or explicit acceptance of recommendations are required; silence stays pending and accepted ADRs are reused. Deferred/excluded scope cannot introduce SDKs, stubs, keys, provider erasure, tests or work orders. Centralized launch-locale strings and structured logs remain baseline. The installer, planning/map briefs, gates and post-digest check carry the scope; narrow SEO is preserved. No-events versions keep only a scope/N/A record with `## Verification` for the existing hardening evidence contract. The implement skill and analytics role respect it; no engine logic changed. Updated stack guidance, injected analytics/resilience rules, manual and manifests. Overlay 8.103.0 propagates the changed rule text on future upgrades; existing product scope is not changed by this update.
 **Why:** The owner explicitly requested project-by-project choices so optional services and multilingual/SEO features are never built merely because they appear in a golden path. This supersedes Sentry's previous automatic day-one integration (DR-026) and the unanswered-default behavior for these four choices (DR-131).
 **Validation:** Native skill-creator structural validation; independent read-only baseline/candidate forward evaluation of five scenarios, accepted after reference fixes (not a full live lifecycle or triggering benchmark); architecture-plan 63/63 and architecture-packs 29/29; manifest validation and derived-drift checks. Aggregate standards catalog exits 1 on three pre-existing navigation-identities.md shape/registry findings, reproduced from isolated HEAD and filed as BL-0264. No unrelated catalog repair or product build was run.
-
 
 ## v9.132.0 — 2026-10-18 (MINOR): DR-132, the fast lane schedules per work order, never deadlocks on a floor FRD, and never "repairs" a half-built tree
 
@@ -1120,7 +1117,6 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 **What:** Added the all-stack `templates/rules/logical-data-model.md` (`applies_when: always`), its version-1 publication contract/examples and a cross-reference from documentation rules. Architecture creates `docs/product/data-model.json` and includes it in schema-owning WO scopes; iterations, sync close-out/reconciliation and the reviewer require same-change updates plus independent schema-to-artifact comparison. Architecture/digest templates identify the actual structured viewer input. The compatible rule propagation bump is overlay 8.99.1. Source: [data-modeling standard](../../factory/standards/data-modeling.md), DATA-7; Manual guide updated (DR-046).
 **Why:** Owner instruction: whenever the data model changes, the model shown in Architecture must change too, across every project. A source-grounded projection is maintained once for both entry points/modes. Untouched legacy projects stay pending until reviewed publication; no fake none state or schema-verification badge. No new skill, schema extractor, state writer or build-engine change is introduced.
 **Verification:** Contract examples pass Mission Control's real parser; standards catalog, generated mirrors/manifests and scoped Manual/model tests are checked. Semantic freshness is a named reviewer correctness checklist with source-path evidence, rather than a timestamp-based automated claim.
-
 
 ## v9.124.0 — 2026-10-15 (MINOR): one stable artifact per design prototype
 
@@ -1678,7 +1674,6 @@ Tests for the flip: `test-build-engine.mjs` `default-lane-is-fast` (no `lane` ke
 
 **Impact:** `plugin/templates/shared/.claude/engines/pandacorp-build.js` + `mission-control/.claude/engines/pandacorp-build.js`; `plugin/scripts/pandacorp-build-state.mjs`; `plugin/scripts/block-dangerous.sh`; `plugin/scripts/launch-implement.sh`; `plugin/agents/drift-finder.md` (new), `plugin/agents/reviewer.md`, `.codex/agents/drift-finder.toml` (new), `.codex/agents/reviewer.toml`; `plugin/runtime/source-graph.json`; `plugin/scripts/generate-build-prompt-fragments.mjs`; tests `test-pandacorp-build.mjs`, `test-build-state.mjs`, `test-block-dangerous.sh`, `test-build-run-id.mjs`, `test-preflight-version-skew.sh`; `plugin/skills/implement/SKILL.md`; `factory/standards/build-orchestration.md`; `factory/backlog/BL-0202` (`done`), `BL-0203` (`done`), `BL-0201` (link); `plugin/runtime/plugin-metadata.json` + both manifests; `plugin/templates/OVERLAY_VERSION`; `mission-control/.pandacorp/status.yaml`.
 
-
 ## v9.114.0 — 2026-09-26 (MINOR): canary E2 findings fixed — a dependency orders only the LANDING of parallel gates, nested-project path conventions (pre-check prefix, reviewer-test port/stage), a literal landing commit protocol, visual-qa relay scope, fresh-slot collector, BL-0179's since-reuse retired (BL-0194..0200); canary E2 result, adopted defaults and sprint verdict. `OVERLAY_VERSION` 8.91.0
 
 **What:** one branch (`fix-e2-findings`, worktree `/Users/Shared/Proyectos/panda-corp-fix-e2`), cut from `main` at `08f5c113` and fast-forward-merged (main had not moved): `7c741f90` (engine + tests), `44dfce4f` (standard + skill docs), `42ee9311` (backlog), plus this release commit. Source: `docs/reviews/canary-e2-report.md`.
@@ -1710,7 +1705,6 @@ Also filed: **BL-0201 (`open`)** canaries F1/F2 (below); **BL-0202 (`open`, p1, 
 
 **Impact:** `plugin/templates/shared/.claude/engines/pandacorp-build.js` + `mission-control/.claude/engines/pandacorp-build.js`; `plugin/templates/stack-a-nextjs/verify.sh` + `mission-control/.pandacorp/verify.sh` (comment); `plugin/scripts/test-pandacorp-build.mjs`; `plugin/skills/implement/SKILL.md`; `factory/standards/build-orchestration.md` (§5c + the canary E2 defaults note); `factory/backlog/BL-0192` (phase 2 note), `BL-0194..0197`, `BL-0199`, `BL-0200` (`done`), `BL-0198`, `BL-0201`, `BL-0202` (`open`); `plugin/runtime/plugin-metadata.json` + both manifests; `plugin/templates/OVERLAY_VERSION`; `mission-control/.pandacorp/status.yaml`.
 
-
 ## v9.113.0 — 2026-09-25 (MINOR): canary E findings fixed — `certify-patch:<frd>` split from `verify-patch`, gate-slot top-up during landings, bounded evidence collector (BL-0191/0192/0193). `OVERLAY_VERSION` 8.90.0
 
 **What:** integrates one branch (`fix-canary-e-findings`, worktree `/Users/Shared/Proyectos/panda-corp-fix-e`, already built and closed on its own worktree: `c76299d0`/`000d1022`/`baf71c73`), rebased onto `main` (2 commits ahead — the archived canary E run 1 logs and the E2 plan prep) and fast-forward-merged with zero conflicts (`bbff01b5`/`801d669c`/`000f10ff`).
@@ -1731,7 +1725,6 @@ Also filed: **BL-0201 (`open`)** canaries F1/F2 (below); **BL-0202 (`open`, p1, 
 **Plugin version → 9.113.0 (MINOR, DR-034):** a new engine step (`certify-patch:<frd>` split out of `verify-patch`), a new lever (`topUpBeforeLanding`/`laneTopUp`) and a bounded evidence collector, plus a new launcher/SKILL advisory warning. Nothing renamed or removed. No `plugin/agents/*.md` changed.
 
 **Impact:** `plugin/templates/shared/.claude/engines/pandacorp-build.js` + `mission-control/.claude/engines/pandacorp-build.js`; `plugin/scripts/launch-implement.sh`, `plugin/scripts/test-build-run-id.mjs`, `plugin/scripts/test-pandacorp-build.mjs`; `plugin/skills/implement/SKILL.md`; `factory/standards/build-orchestration.md`; `factory/backlog/BL-0191,0192,0193` (all `done`); `plugin/runtime/plugin-metadata.json` + both manifests; `plugin/templates/OVERLAY_VERSION`; `mission-control/.pandacorp/status.yaml`.
-
 
 ## v9.112.0 — 2026-09-25 (MINOR): parallel FRD gates behind `args.parallelGates` (BL-0186, launcher `--parallel-gates [--gate-slots N]`), `gateEvidence:'digested'` operational on a nested project (BL-0187), gate context scope behind `args.gateContextScope` (BL-0188), FRD contract-inventory cache behind `args.gateInventoryCache` (BL-0189), launcher `--gate-evidence`, and the integration of the two lanes. `OVERLAY_VERSION` 8.89.0
 
@@ -2215,7 +2208,6 @@ if (ctx.u.id !== row.o) return null;
 **Why:** the sprint's own rule ("no WP closes without `run-engine-tests.sh` green") is necessary but not sufficient — a unit suite only catches what its own author thought to test; two independent adversarial passes, deliberately not shown the implementer's reasoning, is what found REV2-A/B/C and the D-1..D-11 gaps above. REV2-C staying open rather than being papered over is the same discipline applied to the review process's own limits: a floor-evasion the reviewer construction TRIED and found is worth more, recorded honestly, than a suite that looks 100% green because the one gap it couldn't yet close was hidden instead of documented.
 
 **Impact:** `plugin/scripts/test-classify-change.sh` (REV2-C → `xf()`, `xfail` counter added to the summary), new `factory/backlog/BL-0140-classify-change-s5-semantic-ownership-check.md` (status open, p1). `run-engine-tests.sh`: 20/20 suites green (REV2-C counted as a documented xfail within `test-classify-change.sh`, not a suite failure). Links: BL-0044, BL-0134..BL-0140, LESSON-0002 (a red gate can be either wrong production code or a defective gate/test — applied when triaging which of D-1..D-11 were engine bugs vs test-corpus gaps), LESSON-0078, LESSON-0151, LESSON-0155, LESSON-0184.
-
 
 ## v9.102.6 — 2026-09-03 (PATCH): verdict — narrow LESSON-0096, don't condemn the ~2-min liveness tick (BL-0099)
 
@@ -3001,7 +2993,6 @@ targets.
 
 **Why:** BL-0093 (`docs/proposals/33-model-era-audit.md` §6 R-72, LESSON-0113 promise-without-mechanism
 pattern) — a job cannot be "designed to run" on a mechanism that structurally cannot outlive a week.
-
 
 ## v9.98.4 — 2026-09-03 (PATCH): the standards-catalog gate gets its trigger (BL-0055)
 

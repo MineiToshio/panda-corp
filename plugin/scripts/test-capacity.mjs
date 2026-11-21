@@ -15,7 +15,9 @@ const test = async (name, fn) => {
 const NOW = "2026-11-14T16:07:00.000Z", ms = Date.parse(NOW);
 const C5 = "2026-11-14T19:39:59.000Z", CW = "2026-11-17T07:59:59.000Z", XW = "2026-11-19T17:21:18.000Z";
 const fixture = JSON.parse(await readFile(new URL("./fixtures/capacity-rollout.jsonl", import.meta.url), "utf8"));
-const usage = (weekly = 20, five = 7) => ({ status: "ok", plan: { windows: [
+// five defaults to 30 (= 30% elapsed of the 5-hour window at NOW): Claude on pace, so tool choice
+// follows task preference unless a test sets a deliberate imbalance (pace balancing, DR-162 amendment).
+const usage = (weekly = 20, five = 30) => ({ status: "ok", plan: { windows: [
   { label: "5-hour limit", percentUsed: five, resetsAt: C5 },
   { label: "Weekly · all models", percentUsed: weekly, resetsAt: CW },
   { label: "Weekly · Fable", percentUsed: 100, resetsAt: CW },
@@ -24,7 +26,7 @@ const codex = (used = 30) => {
   const event = structuredClone(fixture); event.payload.rate_limits.primary.used_percent = used;
   return mod.normalizeCodexRateLimits(event, NOW);
 };
-const readings = (c = 20, x = 30, five = 7) => ({ claude: mod.normalizeClaudeUsage(usage(c, five), NOW), codex: codex(x) });
+const readings = (c = 20, x = 30, five = 30) => ({ claude: mod.normalizeClaudeUsage(usage(c, five), NOW), codex: codex(x) });
 const decide = (type = "implement", rs = readings(), extra = {}, options = {}) => mod.decide({
   task: { id: "t1", type, risk: "normal", ...extra }, readings: rs, now: NOW, ...options,
 });
@@ -90,11 +92,14 @@ await test("unknown Codex beats high Claude for all eligible non-image cells", (
   }
   cell(decide("implement", { codex: codex(95) }), "claude", "sonnet", "high");
 });
-await test("Claude 50 and stale Codex 39 retain normal task preferences", () => {
+await test("pace balancing: Claude 50% at 67% of its week is behind pace and takes implementation too", () => {
   const raw = structuredClone(liveUsage); raw.plan.windows[1].percentUsed = 50;
   const rs = { ...liveReadings(), claude: mod.normalizeClaudeUsage(raw, LIVE_NOW) };
   cell(liveDecide("design", rs), "claude", "opus", "high");
-  cell(liveDecide("implement", rs), "codex", "sol", "medium");
+  const d = liveDecide("implement", rs); // Claude slack +16.7 vs stale Codex 44% at 33% elapsed (-11) + band 15
+  cell(d, "claude", "sonnet", "high"); assert.equal(d.reason, "pace_balanced");
+  raw.plan.windows[1].percentUsed = 66; // Claude now ~on pace (+0.7 vs Codex -11.5+15): preference keeps Codex
+  cell(liveDecide("implement", { ...liveReadings(), claude: mod.normalizeClaudeUsage(raw, LIVE_NOW) }), "codex", "sol", "medium");
 });
 await test("stale margins are +5 through 24h, +10 after, capped at 100 and never compounded", () => {
   for (const [seconds, margin] of [[86400, 5], [86401, 10]]) {
@@ -158,9 +163,10 @@ await test("risk is a transversal floor even for mechanical work", () => {
   cell(decide("mechanical", readings(20, 100), { risk: "critical" }), "claude", "opus", "high");
 });
 await test("pressure starts at 85 inclusive in every applicable window", () => {
-  cell(decide("design", readings(84.999, 20)), "claude", "opus", "high");
-  cell(decide("design", readings(85, 20)), "codex", "sol", "high");
-  cell(decide("design", readings(85.001, 20)), "codex", "sol", "high");
+  // Codex at 50% is ahead of pace too, so below 85 the design preference keeps Claude; from 85 Claude is hot.
+  cell(decide("design", readings(84.999, 50)), "claude", "opus", "high");
+  cell(decide("design", readings(85, 50)), "codex", "sol", "high");
+  cell(decide("design", readings(85.001, 50)), "codex", "sol", "high");
   cell(decide("design", readings(20, 20, 86)), "codex", "sol", "high");
   cell(decide("implement", readings(20, 86)), "claude", "sonnet", "high");
 });
@@ -182,7 +188,9 @@ await test("freshness TTLs are inclusive and cached known readings are revalidat
   assert.equal(mod.normalizeClaudeUsage(raw, NOW).state, "stale");
   const event = structuredClone(fixture); event.timestamp = new Date(ms - 3600000).toISOString();
   assert.equal(mod.normalizeCodexRateLimits(event, NOW).state, "known");
-  cell(decide("implement", readings(), {}, { now: new Date(ms + 3601000).toISOString() }), "codex", "sol", "medium");
+  const later = decide("implement", readings(), {}, { now: new Date(ms + 3601000).toISOString() });
+  assert.equal(later.action, "run"); // tool follows pace at the later time; the point is revalidation:
+  assert.equal(later.readings_used.claude.state, "stale"); assert.equal(later.readings_used.codex.state, "stale");
 });
 await test("missing/both unknown readings continue on the preferred tool", () => {
   for (const rs of [{}, { claude: mod.normalizeClaudeUsage(null, NOW), codex: mod.normalizeCodexRateLimits(null, NOW) }]) {
@@ -619,6 +627,39 @@ await test("option B one effort reduction only after both full cells fail; floor
   assert.throws(() => decide("review", readings(), { implementerCell: author, pin: author }), /reviewer floor/);
   assert.equal(decide("implement", readings(100, 95.7), { pin: author }).action, "run"); // pinned cost remains zero
   assert.throws(() => decide("implement", readings(), { complexity: "guess" }), /complexity/);
+});
+// Pace balancing (DR-162 amendment 2026-11-20): spend both subscriptions evenly toward their resets.
+await test("pace: equal pace keeps task preference; preference band is 15 pp", () => {
+  cell(decide("implement", readings(20, 30)), "codex", "sol", "medium");   // Claude 0, Codex -2: band wins
+  cell(decide("design", readings(20, 30)), "claude", "opus", "high");
+  cell(decide("implement", readings(20, 15)), "codex", "sol", "medium");
+  // Codex 12 pp ahead of Claude's slack: still inside the band -> preference (Claude 0+15 vs Codex -14)
+  cell(decide("design", readings(20, 42)), "claude", "opus", "high");
+});
+await test("pace: the tool far behind its schedule takes work against preference", () => {
+  // Claude 5-hour 5% used at 30% elapsed (+25) vs Codex weekly 30% at 28% elapsed (-2): 25 > -2+15
+  const d = decide("implement", readings(20, 30, 5));
+  cell(d, "claude", "sonnet", "high"); assert.equal(d.reason, "pace_balanced");
+  // Codex weekly 5% at 28% elapsed (+23) vs Claude on pace: design goes to Codex
+  const e = decide("design", readings(20, 5));
+  cell(e, "codex", "sol", "high"); assert.equal(e.reason, "pace_balanced");
+});
+await test("pace: quota about to expire unused is spent even above 85%", () => {
+  // Claude weekly 88% but 99% of the week elapsed (+11 slack) vs Codex ahead of pace: use Claude.
+  const late = new Date(Date.parse(CW) - 0.01 * 7 * 24 * 3600e3).toISOString();
+  const fiveReset = new Date(Date.parse(late) + 3.5 * 3600e3).toISOString(); // 30% of the 5-hour window elapsed
+  const raw = { status: "ok", observedAt: late, plan: { windows: [
+    { label: "5-hour limit", percentUsed: 10, resetsAt: fiveReset }, // +20 slack: weekly (+11) binds
+    { label: "Weekly · all models", percentUsed: 88, resetsAt: CW } ] } };
+  const ev = structuredClone(fixture); ev.timestamp = late; ev.payload.rate_limits.primary.used_percent = 80;
+  const rs = { claude: mod.normalizeClaudeUsage(raw, late), codex: mod.normalizeCodexRateLimits(ev, late) };
+  assert.equal(rs.claude.state, "known"); assert.equal(rs.codex.state, "known");
+  const d = mod.decide({ task: { id: "late", type: "implement", risk: "normal" }, readings: rs, now: late });
+  assert.equal(d.tool, "claude"); assert.equal(d.reason, "pace_balanced"); // Claude +11 vs Codex -15+15
+});
+await test("pace: unknown reading never beats a known tool with margin", () => {
+  cell(decide("implement", { claude: readings().claude }), "claude", "sonnet", "high");
+  cell(decide("design", { codex: readings(20, 60).codex }), "codex", "sol", "high");
 });
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exitCode = failed ? 1 : 0;

@@ -12,8 +12,11 @@ const test = (name, fn) => { try { fn(); passed++; console.log(`PASS ${name}`); 
 const pick = c => c && [c.runtime, c.model, c.effort];
 const authors = [{ runtime: "codex", model: "sol", effort: "low" }];
 const now = "2026-11-14T16:07:00Z";
+// Realistic resets per window (pace balancing, DR-162 amendment): the 5-hour window is halfway, the weekly one
+// 3 days out. Equal usage then leaves both tools within the 15-point preference band.
+const RESETS = { five_hour: "2026-11-14T18:37:00Z", weekly: "2026-11-17T16:07:00Z" };
 const reading = (tool, pct) => ({ schema: 1, tool, state: "known", observedAt: now, windows:
-  (tool === "claude" ? ["five_hour", "weekly"] : ["weekly"]).map(id => ({ id, scope: "all", applicability: "required", percentUsed: pct, resetsAt: "2026-11-17T16:07:00Z" })) });
+  (tool === "claude" ? ["five_hour", "weekly"] : ["weekly"]).map(id => ({ id, scope: "all", applicability: "required", percentUsed: pct, resetsAt: RESETS[id] })) });
 const quota = (c, x) => ({ now, readings: { claude: reading("claude", c), codex: reading("codex", x) } });
 const build = (kind = "build", zone = "none", ctx = {}, unit = {}) => builderCell({ kind, zone, size: "feature", ...unit }, { label: "claude", ...ctx });
 test("catalog guards reject invalid metadata and never enable Fable/Terra", () => {

@@ -152,8 +152,10 @@ export function createRouter(tiers) {
       if (typeof status === "string" && !AVAILABILITY.includes(status)) fail(`bad availability ${tool}=${status}`);
       const pct = quota[`${tool}_new_units`] === false || ["quota", "unreachable"].includes(status) ? 100 : status === "conserve" ? 86 : 0;
       return [tool, { schema: 1, tool, state: typeof status === "string" || quota[`${tool}_new_units`] !== undefined ? "known" : "unknown", reason: typeof status === "string" || quota[`${tool}_new_units`] !== undefined ? null : "missing_reading", observedAt: new Date(now).toISOString(), windows:
+        // Synthetic windows sit halfway through their cycle so pace balancing (DR-162) sees equal pace
+        // on both tools and only the availability status and task preference decide.
         (tool === "claude" ? ["five_hour", "weekly"] : ["weekly"]).map(id => ({ id, scope: "all", applicability: "required", percentUsed: pct,
-          resetsAt: new Date(Number(new Date(now)) + 3600000).toISOString() })) }];
+          resetsAt: new Date(Number(new Date(now)) + (id === "five_hour" ? 2.5 * 3600000 : 3.5 * 86400000)).toISOString() })) }];
     }));
     const task = capacityTaskForUnit({ ...unit, id: unit.id ?? unit.kind, zone });
     const decision = decide({ task, readings, now });

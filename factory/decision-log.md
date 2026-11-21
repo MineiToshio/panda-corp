@@ -6,7 +6,7 @@
 uses the admission deadline and retains environment exit 16 through the queue. Per-SHA bootstrap
 consumption and exhaustion survive intermediate land outcomes in state and journal; only a new
 repair commit renews the budget. [Plugin history](../plugin/docs/decision-log.md) records the
-two regression fixes in **10.16.2** / overlay **9.6.2** under DR-165.
+two regression fixes in **10.17.0** / overlay **9.6.2** under DR-165.
 
 ## 2026-11-20 - Repair phase 0.5 after independent review (DR-165)
 
@@ -14,7 +14,7 @@ two regression fixes in **10.16.2** / overlay **9.6.2** under DR-165.
 a shared initialized-directory mutex around every host-slot mutation, target-versus-installed
 lock identity rather than rebase-only detection, durable per-code-tip retry exhaustion, and a
 bounded confirmation read after push timeout. [Plugin history](../plugin/docs/decision-log.md)
-records five red-to-green regressions and the journal/schema bridge. Version **10.16.1** /
+records five red-to-green regressions and the journal/schema bridge. Version **10.17.0** /
 overlay **9.6.1** preserve existing production and baseline gates; changes are template-first.
 
 ## 2026-11-20 - Ship proposal 43 phase 0.5 under DR-165
@@ -26,9 +26,18 @@ DR-146 gains explainable stamp groups/controls/base, one inherited host slot wit
 admission, and declared run-output cleanup/exclusion including empty fixture directories.
 Full-scope missing visual baselines are now red (DR-056/080); light/since keep feature-gate
 blessing with provenance. The [plugin log](../plugin/docs/decision-log.md) records the machinery
-and regression coverage at plugin **10.16.0** / overlay **9.6.0**. This removes the measured
+and regression coverage at plugin **10.17.0** / overlay **9.6.0**. This removes the measured
 ownership/environment/certification hazards without altering DR-138. Phase 1's required
 record, status and pre-push changes remain pending; Mission Control adoption is separate.
+
+## 2026-11-20 - Spend both subscriptions evenly (DR-162 amended)
+
+[DR-162](decisions/registry.yaml) and [BUILD-11](standards/build-engine.md) now rank fitting
+capacity cells by spend pace toward each window's reset instead of "healthy > unknown > high with
+preference as tie-break", which let the preferred account take nearly all work below 85% while the
+other subscription expired unused. The owner delegated the design and asked that the standalone
+orchestrate skill stay fully independent of the factory: both carry the same algorithm as separate
+copies. Implementation and tests live in the [plugin log](../plugin/docs/decision-log.md).
 
 ## 2026-11-20 - Correct phase 0 evidence and the phase 0.5 baseline
 
@@ -72,7 +81,6 @@ technical stops with one supervised rescue per unit. Failed rescue preserves pro
 continues independent work and finishes with explicit gaps. Independent review, green
 verify, protected oracles and the four actual human gates remain mandatory. The owner's
 instruction authorizes this policy and the corresponding plugin implementation.
-
 
 ## 2026-11-17 — Causal build recovery preserves work and independent oracles
 
@@ -189,11 +197,9 @@ Crash recovery adopts a gated continuation runner under a recoverable mutex; cap
 
 Restored probes/tests-first/hash/worker/session safeguards from bc923770 while retaining only DR-162 routing. Updated BUILD-12/14, constants, verification and registry DR-151/152/153/161; quota is never an owner question or a reason to migrate current work. Canonical: [build-engine.md](standards/build-engine.md), [registry.yaml](decisions/registry.yaml).
 
-
 ## 2026-11-14 — DR-162 phase 3: automatic continuation and option B
 
 Extended DR-162 and BUILD-11/12: retain the exact suspended execution; use fresh reset observations and one fenced wake generation; record reversible technical assumptions with reversal instructions. Canonical: [build-engine.md](standards/build-engine.md), [registry.yaml](decisions/registry.yaml). Protected operation gates and model risk floors remain. Fake-provider verification does not qualify real provider resets.
-
 
 ## 2026-11-14 — Never-stop account capacity (DR-162)
 
@@ -269,7 +275,6 @@ projects form an ordering cycle in the installed scheduler, so diagnostics delib
 speed for complete isolated evidence. Canonical: [quality](standards/quality.md),
 [orchestration](standards/build-orchestration.md), [DR-158](decisions/registry.yaml).
 
-
 ## 2026-11-12 — Correct certification provenance, mobile upgrades and production live harness (RVB)
 
 **What:** fix reviewer B1/B2: hash all ambient environment inputs except explicit invocation/shell
@@ -287,7 +292,6 @@ new failures record SSE/RSC observations. The reported non-test error is Playwri
 maxFailures notice, not an additional product exception; no error suppression was added.
 
 Canonical: [DR-158](decisions/registry.yaml), [quality](standards/quality.md).
-
 
 ## 2026-11-12 — Faster certification without weakening landing (DR-158)
 
@@ -313,7 +317,6 @@ Canonical: [DR-158](decisions/registry.yaml), [quality](standards/quality.md), [
 **Why:** owner-selected research option B preserves final coverage while removing redundant
 work and avoidable failures. Browser time savings are hypotheses until an unrestricted
 benchmark measures the same tree/fixtures/host; retries and baseline updates are not acceptance.
-
 
 ## 2026-11-12 — Day 1: one CLI, canonical instructions, adaptive resources and safe teardown (DR-150/154..157)
 
@@ -571,7 +574,6 @@ to safe-point upgrades. Exact cleanup CLI permission is preauthorized without we
 **What:** [DR-143](decisions/registry.yaml) lets a project opt specs into a parallel e2e tier through `e2e/parallel-safe.json`, backed by per-test write evidence. [build-orchestration.md](standards/build-orchestration.md) keeps visual specs on one worker.
 **Why:** full passes are slow, but a global worker bump is unsafe: specs share one fixture user and a naive 3-worker run failed on it. The tier saves about 12% on funko-tracker, so it stays opt-in. A larger gain needs a production-build e2e server, which is not yet proven.
 
-
 ## 2026-10-29 — `/pandacorp:implement codex`: Codex as a subordinate worker of the Claude engine (DR-142)
 
 **What:** [DR-142](decisions/registry.yaml) adds an opt-in tag that sends every non-mechanical worker of the Claude build engine to the owner's Codex subscription through a sealed relay (plugin 9.145.0). The engine, its lease and every gate decision stay in Claude; without the tag nothing changes.
@@ -588,20 +590,17 @@ to safe-point upgrades. Exact cleanup CLI permission is preauthorized without we
 **Why:** Explicit owner order: repeated full gates for accumulated finished work multiply latency. Manual squash merges preserve conflict resolutions through the unchanged queue's plain rebase; retain source branches and SHA mapping rather than pretending squash proves ancestry. Review-only landing evidence checklist plus a real-queue rehearsal; no new multi-branch CLI. Propagation: always-injected quality rule + project guide, overlay 8.114.0. Manual: new batch-integration guide. No sibling project is changed.
 **Verification:** `check-standards.sh` exit 0 (178 rules, 32 files); `test-batch-integration.sh` exit 0 (combined gate once, conflict resolution survives an actual rebase, red blocks main, scoped retry, source tips retained); `test-merge-queue-release-gate.sh` 12/12; `check-derived-drift.sh` exit 0; Bash syntax and `git diff --check` clean. Independent review re-ran the gates. Repository `.git` is read-only in this session: no commit/activation performed. `claude plugin validate` is unavailable under the runtime policy.
 
-
 ## 2026-10-24 — DB tests only on native local Postgres, zero residue; Docker not required (DR-140)
 
 **What:** New MUST rules INFRA-9 (DB-backed tests run only against a native Homebrew PostgreSQL on loopback `base+2`; never Docker, never Neon) and INFRA-10 (zero residue: drop per-run DBs, roll back, sweep stale `<slug>_test_*`, post-run `db:test:check-clean` fails the gate) in [infra.md](standards/infra.md); INFRA-1 rewritten (Docker Compose form superseded); rows in [rule-registry.md](standards/rule-registry.md); pointers in [quality.md](standards/quality.md) and [external-services.md](standards/external-services.md); DR-140 in the registry. App development uses the Neon dev branch. LESSON-0429/0441/0446 deprecated.
 **Why:** owner-stated 2026-10-24: two macOS users run in parallel and the work user must run Docker Desktop, which cannot run for both, so the personal user must not depend on Docker; cloud DBs are wrong for tests (per-worker create/drop, quota, pollution). Triggered by funko-tracker's red local `verify.sh`; that project migrates in its own session and is not touched here.
 **Verification:** `check-standards.sh`; supersession sweep of `docker` across `factory/`, `plugin/` (remaining hits are deploy Dockerfiles and the Playwright image, unrelated). The zero-residue check is a per-project script; no factory canary exists yet.
 
-
 ## 2026-10-24 — Require gh CLI for every agent GitHub interaction (CONV-19)
 
 **What:** Owner-approved convention in [conventions.md](standards/conventions.md): MUST use `gh` with existing owner keyring authentication for PRs, issues, CI/Actions, API calls and releases; never GitHub MCP or alternate service-access paths. Registered as review-only/manual in [rule-registry.md](standards/rule-registry.md) and indexed in the standards README. The named reviewer checklist audits executed calls; the catalog gate does not prove runtime compliance. All existing operation-level owner gates remain intact.
 **Why:** Owner report on 2026-10-24: GitHub MCP failed with an invalid token while `gh` worked. This records the owner's evidence, not a fresh credential test. Supersedes the capability research's GitHub MCP recommendation and clarifies proposal API paths as `gh api` and backlog alternatives as gh-only for agents; dated decision-log history and research source links remain historical references. The always-injected rule and compatible overlay 8.112.0 propagate on normal upgrade; no product projects or credentials were changed. Manual guide: [services and accounts](../plugin/docs/services-and-accounts.md).
 **Verification:** `bash factory/standards/check-standards.sh` exits 0; supersession sweep covers `factory/`, `plugin/`, `docs/`. No authenticated GitHub operation is needed for this documentation change.
-
 
 ## 2026-10-23 — `main` is the only production branch; deploys only through GitHub; URLs always English
 
@@ -611,7 +610,6 @@ to safe-point upgrades. Exact cleanup CLI permission is preauthorized without we
 ## 2026-10-20 — Namespace every project-owned skill
 
 **What / why:** Owner decision: project skills expose `<project-slug>:<skill-slug>`; incremental ingestion is `ingest-delta`. Added [CONV-17](standards/conventions.md), DR-137 and the rule registry entry; [the injectable rule](../plugin/templates/rules/code-conventions.md) and overlay 8.110.0 carry it into projects. Standalone Claude skills use namespaced frontmatter with bare folder slugs; plugin loaders supply their own prefix. The binary checker is called by doc-lint before its no-docs exit; plugin/other-runtime resolution is checked at authoring review. Existing project skill migration goes through that project's change flow; compatible upgrades warn on pre-8.110.0 or unknown birth versions and never rename skills. Newly created projects enforce the naming gate, and authoring review always runs the scoped strict check for new/renamed skills in every project. This avoids cross-project command collisions while retaining persisted extractor compatibility and historical evidence.
-
 
 ## 2026-10-20 — Restore navigation identity standard catalog coverage (BL-0264)
 
@@ -623,11 +621,9 @@ to safe-point upgrades. Exact cleanup CLI permission is preauthorized without we
 **What:** Architecture delivery comments distinguish execution from the owner's Mac from the development/production database being changed. Migration entries sit below the final local/operator-only separator in `.env.local`/`.env.example`; `.env.production` retains a labelled production-target operator block. Name the actual migration CLI and explain that the value is read locally rather than uploaded to Vercel/Modal runtime. Updated the standard, operative rule, template, gate and Manual guide; EXT-7 is clarified without another rule.
 **Why:** Local execution does not make the production database connection unnecessary. Avoid moving it to development, deleting a consumed credential, or treating it like Python/browser tooling. No migration variables without a real approved consumer; no migration execution, credential changes or new files in this factory change. Plugin 9.138.1 / overlay 8.108.1.
 
-
 ## 2026-10-20 — Standardize three environment files across project architecture
 
 The owner-approved three-file convention replaces the separate production-local/worker/migration/tooling files. Updated [external-services](standards/external-services.md), the operative rule and EXT-7 registry, architecture/installer/template and downstream guidance. Service/destination sections retain distinct privileges via explicit selectors/exports, with local-only entries last in guide/dev and absent from production. Port/Compose/readme/worktree instructions no longer create a fourth `.env`. Legacy private-file consolidation is scoped, value-preserving and never triggered by an upgrade alone. Plugin 9.138.0 / overlay 8.108.0; existing provider identities/resources and product scopes unchanged.
-
 
 ## 2026-10-20 — Refine the Neon recipe after the first provisioning trial
 
@@ -638,8 +634,6 @@ The [provider catalog](services/catalog.yaml) now distinguishes Neon API/CLI boo
 **What:** Extend DR-134 preparation: preflight inventories only; after final decisions/consumer contract, architecture step 9b3 fills every obtainable authorized provider value and generated app secret. Protected `.env.local` and explicit `.env.production.local` web handoff preserve existing values, separate dev/prod and web/worker/migration/CI, and record exact pending steps in a value-free private report. Concrete planned consumers remain distinct from installed/runtime-verified ones. The approved shared per-app Google OAuth client is the explicit environment exception.
 **Why:** The owner asked for usable environment preparation, including application-generated secrets, rather than a names/origins list or an unsupported production-ready claim. Expand existing standard, operative rule, architecture/installer/gates/template, implement/release readiness and Manual guide. No cloud calls, actual environment files, generic secret writer or Mission Control app changes are part of this factory change. Manual independent delivery checklist remains explicit; catalog validation does not certify secret files. Plugin 9.137.0 / overlay 8.107.0.
 
-
-
 ## 2026-10-20 — Approved service reuse and honest preparation (DR-134)
 
 Adopt the consolidated owner-approved services proposal: public provider recipes, private account metadata and project associations; exact resource slugs, default PandaTrack subdomains and provider-specific dev/prod boundaries. Replace automatic Kit/Sentry, PostHog organization-per-app fee avoidance, universal pandacorp prefix, single R2 bucket and Resend domain-per-app. Architecture reads reuse data, resolves optional scope and prepares variable origins/destinations with honest pending evidence; API/CLI documentation is not tested access. Preserve existing resources, secrets outside repositories and all external-action gates. Modal supersedes Railway/Cloud Run for Funko export compute only. Catalog and malformed-input verifier ship together; Manual guide is `plugin/docs/services-and-accounts.md`. Plugin 9.136.0, overlay 8.106.0.
@@ -648,18 +642,15 @@ Adopt the consolidated owner-approved services proposal: public provider recipes
 
 The owner explicitly superseded DR-120: both runtimes may execute every Pandacorp skill and edit every application, including canonical plans and build state. Updated PORT-5, constitution, registry, overlay AGENTS, implement/architecture guidance, capability policy and Manual. Full authorization is separate from the optional automated launcher's targeted foreground evidence; no unattended certification or new engine is claimed. Existing safety gates, independent review, atomic ownership and one-writer safe-point handoff remain. Plugin 9.135.0 / overlay 8.105.0.
 
-
 ## 2026-10-19 — MVP database recovery uses native provider capabilities
 
 **What:** [DR-012](decisions/registry.yaml) and architecture's recovery round now exclude custom external database backups in MVP/v1. Verify the selected provider plan and recovery window and declare limitations; resolve conflicting requirements before planning. Custom external backup work waits until product validation. Product exports/media storage and factory personal-state backups are separate and unchanged.
 **Why:** Owner request to keep first versions focused on validating user value, without speculative backup jobs and infrastructure. The operative skill/manual changes ship in plugin 9.134.0 and the resilience rule in overlay 8.104.0; existing project removals still require their own scoped change.
 
-
 ## 2026-10-19 — Optional architecture capabilities require explicit owner scope
 
 **What:** [DR-026/131](decisions/registry.yaml) now require separate explicit PostHog, Sentry, internationalization and SEO choices before planning; silence cannot enable them. [Observability](standards/observability.md), [stack](standards/stack.md), [SEO/i18n](standards/seo-i18n.md), [jobs](standards/background-jobs.md) and the rule registry reflect the approved current-version scope. Centralized launch-locale strings, structured logs and independent access control remain baseline. Operative skill/template/agent changes ship in plugin 9.133.0; rule propagation uses overlay 8.103.0. Existing projects' decisions are not retroactively changed.
 **Why:** Owner request: avoid implementing optional services/features that were intended for later. Sentry's unconditional day-one rule and default approval for the four choices are superseded, not duplicated. The catalog check's pre-existing navigation standard mismatch is tracked separately in BL-0264.
-
 
 ## 2026-10-18 — The fast lane schedules per work order and never deadlocks on a floor FRD (DR-132)
 
@@ -691,7 +682,6 @@ Added [the navigation identity producer contract](standards/navigation-identitie
 **Why:** The owner explicitly requires the model in Mission Control's Architecture tab to stay current whenever a project's model changes. A diagram that silently falls behind the schema defeats its purpose. One artifact feeds Diagram/Esquema and board/portfolio; no duplicate presentation schema or live-production data access is introduced.
 **Propagation and evidence:** The rule ships with `applies_when: always`, the rule catalog and compatible overlay bump. Architecture/iteration/sync/reviewer instructions and architecture templates enforce creation, same-change ownership and correctness review; Mission Control's Architecture guide reflects the policy. Existing projects receive it on their next safe upgrade/skill preflight; no bulk rewrite or fabricated backfill. Contract examples are exercised through the actual Mission Control validator. Semantic correspondence remains an explicitly manual correctness gate, not a claimed universal exporter/CI proof. Catalog entry: DATA-7.
 
-
 ## 2026-10-16 — The design freeze is bounded and its fidelity target is layered and measured (DR-129)
 
 **What:** Added [DR-129](decisions/registry.yaml), which extends DR-128, and [standards/design.md §5d to §5f](standards/design.md). §5d is the layered fidelity target (L1 type and colour exact, L2 geometry ±1 px, L3 ≤0.5% per viewport-height slice at YIQ 0.1, L4 full listed coverage) plus the capture conditions. §5e is the prototype contract from round 1, checked by a preflight after every round. §5f is the freeze's stop rule: a parallel staged plan, one independent audit, blockers only, a 60 to 100 min target and a 2 h hard limit, with the leftovers in `.pandacorp/comms/visual-punch-list.md`. **Gate mode:** the build's fidelity gate blocks by default on a measured L1-L4 mismatch, and an infrastructure failure is always RED. This amends DR-072 for measured mismatches only; judged nits stay advisory. DR-072's and DR-106's notes point here, and [build-orchestration.md §9](standards/build-orchestration.md) and [quality.md](standards/quality.md) were scoped to match. In [rule-registry.md](standards/rule-registry.md), DES-4..7 were added: DES-5..7 are `wired` and DES-4 stays `manual` until the build itself invokes the comparator.
@@ -710,7 +700,6 @@ Added [the navigation identity producer contract](standards/navigation-identitie
 **Why:** The owner explicitly wants to recognize what an idea does months later without opening it. The earlier brand-only rename lost that context. A generic short-title placeholder is superseded; historical decision logs and other cards are not bulk rewritten.
 **Verification:** Parse the decision registry, check unique IDs and the card's two-part title, validate the capture guide syntax, and confirm the live board serves the updated title. Semantic clarity remains a capture/rename checklist, not a claimed automated branding judgment.
 **Scope:** Factory-internal authoring policy. Existing capture skills consume this shared template and the registry. No new skill, plugin code, project overlay or build state is changed.
-
 
 ## 2026-10-11 — Claude Design sunset: DR-058/DR-109 superseded-pending, standards/design.md §1c legacy (BL-0229, proposal 42)
 
