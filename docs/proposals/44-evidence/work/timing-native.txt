@@ -1,0 +1,167 @@
+{
+  "v": 1,
+  "projects": [
+    {
+      "project": "/Users/Shared/Proyectos/panda-corp/mission-control",
+      "done_to_main": {
+        "Q_s": {
+          "n": 3,
+          "median": 2750.088,
+          "p90": 3139.134
+        },
+        "R_s": {
+          "n": 3,
+          "median": 2750.088,
+          "p90": 3139.134
+        }
+      },
+      "rounds": {
+        "n": 3,
+        "median": 4,
+        "p90": 4,
+        "at_least_3": 3,
+        "share_at_least_3": 1
+      },
+      "exits": {
+        "0": 3,
+        "10": 1,
+        "11": 6,
+        "20": 1
+      },
+      "certified_tree_skips": 0,
+      "full_gates": 9,
+      "episodes": [
+        {
+          "branch": "chore/mc-overlay-9.6.2",
+          "rounds": 4,
+          "open": false,
+          "pending_attempts": [],
+          "Q_s": 2025.291,
+          "R_s": 2025.291
+        },
+        {
+          "branch": "feat/p43-phase2-mc",
+          "rounds": 3,
+          "open": false,
+          "pending_attempts": [],
+          "Q_s": 2750.088,
+          "R_s": 2750.088
+        },
+        {
+          "branch": "feat/p43-phase3",
+          "rounds": 4,
+          "open": false,
+          "pending_attempts": [],
+          "Q_s": 3139.134,
+          "R_s": 3139.134
+        }
+      ]
+    }
+  ]
+}
+{
+  "v": 1,
+  "projects": [
+    {
+      "project": "/Users/Shared/Proyectos/funko-tracker",
+      "done_to_main": {
+        "Q_s": {
+          "n": 1,
+          "median": 7281.411,
+          "p90": 7281.411
+        },
+        "R_s": {
+          "n": 1,
+          "median": 7281.411,
+          "p90": 7281.411
+        }
+      },
+      "rounds": {
+        "n": 2,
+        "median": 3.5,
+        "p90": 4,
+        "at_least_3": 2,
+        "share_at_least_3": 1
+      },
+      "exits": {
+        "0": 1,
+        "11": 1,
+        "21": 5
+      },
+      "certified_tree_skips": 3,
+      "full_gates": 4,
+      "episodes": [
+        {
+          "branch": "chore/overlay-9.6.2",
+          "rounds": 4,
+          "open": true,
+          "pending_attempts": [],
+          "Q_s": null,
+          "R_s": null
+        },
+        {
+          "branch": "chore/overlay-9.9.5",
+          "rounds": 3,
+          "open": false,
+          "pending_attempts": [],
+          "Q_s": 7281.411,
+          "R_s": 7281.411
+        }
+      ]
+    }
+  ]
+}
+{
+  "v": 1,
+  "projects": [
+    {
+      "project": "/Users/Shared/Proyectos/personal-page-v2",
+      "done_to_main": {
+        "Q_s": {
+          "n": 1,
+          "median": 7183.557,
+          "p90": 7183.557
+        },
+        "R_s": {
+          "n": 1,
+          "median": 7183.557,
+          "p90": 7183.557
+        }
+      },
+      "rounds": {
+        "n": 2,
+        "median": 4,
+        "p90": 4,
+        "at_least_3": 2,
+        "share_at_least_3": 1
+      },
+      "exits": {
+        "0": 1,
+        "11": 1,
+        "12": 1,
+        "20": 1,
+        "21": 4
+      },
+      "certified_tree_skips": 2,
+      "full_gates": 4,
+      "episodes": [
+        {
+          "branch": "chore/overlay-9.6.2",
+          "rounds": 4,
+          "open": true,
+          "pending_attempts": [],
+          "Q_s": null,
+          "R_s": null
+        },
+        {
+          "branch": "chore/overlay-9.9.5",
+          "rounds": 4,
+          "open": false,
+          "pending_attempts": [],
+          "Q_s": 7183.557,
+          "R_s": 7183.557
+        }
+      ]
+    }
+  ]
+}

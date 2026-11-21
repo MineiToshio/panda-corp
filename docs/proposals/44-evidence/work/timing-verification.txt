@@ -1,0 +1,5 @@
+PASS 26 starts/ends, 17 matching reports, 8 red gate exits, 7,953 queue-gate seconds and 7,908.365 report-stage seconds
+PASS same-tree opposite outcomes independently checked against the two line references
+PASS 8 build journals, 39 harvested green G2 events and 40 successful saved job exits on their common command inputs
+PASS 21 Git project slices / 16 unique ref moves and two archived Mission Control timing sources
+PASS report sections, key numbers and raw evidence attachments present

@@ -1,0 +1,52 @@
+d812059e result (161, '2026-10-18T03:36:05.547Z') 167 2026-10-18T03:36:05.931Z wjcd1x09g wf_751dec65-1f7 Workflow launched in background. Task ID: wjcd1x09g
+Summary: Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES —
+d812059e result (576, '2026-10-18T04:58:25.772Z') 577 2026-10-18T04:58:26.139Z w42mbq20i wf_d404ef61-c3a Workflow launched in background. Task ID: w42mbq20i
+Summary: Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES —
+d812059e result (883, '2026-10-18T14:27:57.928Z') 884 2026-10-18T14:27:58.155Z w0lx9yrlf wf_37df01ec-23e Workflow launched in background. Task ID: w0lx9yrlf
+Summary: Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES —
+d812059e result (1222, '2026-10-18T15:38:30.296Z') 1223 2026-10-18T15:38:30.597Z wach3uo2l wf_8fee8c21-0a8 Workflow launched in background. Task ID: wach3uo2l
+Summary: Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES —
+d812059e result (1760, '2026-10-18T18:44:34.793Z') 1761 2026-10-18T18:44:35.112Z wdl0nbkwf wf_f8bc3eb5-921 Workflow launched in background. Task ID: wdl0nbkwf
+Summary: Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES —
+d812059e WORKFLOW 161 2026-10-18T03:36:05.547Z task wjcd1x09g wf_751dec65-1f7
+   323 2026-10-18T04:05:10.659Z minutes 29.085 [('status', 'completed'), ('summary', 'Dynamic workflow "Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES — every wave takes the ready work orders of ALL FRDs (dependsOn satisfied, artifacts disjoint per DR-060, capped at the mode\'s wave) so independent features build in parallel; the per-FRD review/test gate runs CONCURRENTLY with the next wave\'s build, against its own pinned detached worktree snapshot (DR-118) — ga'), ('result', '{"mode":"powerful","builtFrds":[],"blockedFrds":[],"reopenedFrds":["frd-01-catalog-browsing","frd-02-collectible-detail","frd-03-private-inventory","frd-05-checklist-export","frd-06-franchise-backfill","frd-04-goals-and-to-get","frd-08-help-contact-legal","frd-07-delta-discovery"],"blockedReasons":{},"blockedFailures":{},"stopReason":null,"usable":[],"reviewDebt":[],"pushHint":"","lanes":{"k":2,"parked":[],'), ('agent_count', '30'), ('agents_done', '30')]
+d812059e WORKFLOW 576 2026-10-18T04:58:25.772Z task w42mbq20i wf_d404ef61-c3a
+   687 2026-10-18T05:48:02.667Z minutes 49.615 [('status', 'completed'), ('summary', 'Dynamic workflow "Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES — every wave takes the ready work orders of ALL FRDs (dependsOn satisfied, artifacts disjoint per DR-060, capped at the mode\'s wave) so independent features build in parallel; the per-FRD review/test gate runs CONCURRENTLY with the next wave\'s build, against its own pinned detached worktree snapshot (DR-118) — ga'), ('result', '{"mode":"powerful","builtFrds":[],"blockedFrds":[],"reopenedFrds":["frd-01-catalog-browsing","frd-02-collectible-detail","frd-03-private-inventory","frd-05-checklist-export","frd-06-franchise-backfill","frd-04-goals-and-to-get","frd-08-help-contact-legal","frd-07-delta-discovery"],"blockedReasons":{},"blockedFailures":{},"stopReason":null,"usable":[],"reviewDebt":[],"pushHint":"","lanes":{"k":2,"parked":["c'), ('agent_count', '40'), ('agents_done', '40')]
+d812059e WORKFLOW 883 2026-10-18T14:27:57.928Z task w0lx9yrlf wf_37df01ec-23e
+d812059e WORKFLOW 1222 2026-10-18T15:38:30.296Z task wach3uo2l wf_8fee8c21-0a8
+   1469 2026-10-18T17:44:22.386Z minutes 125.868 [('status', 'completed'), ('summary', 'Dynamic workflow "Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES — every wave takes the ready work orders of ALL FRDs (dependsOn satisfied, artifacts disjoint per DR-060, capped at the mode\'s wave) so independent features build in parallel; the per-FRD review/test gate runs CONCURRENTLY with the next wave\'s build, against its own pinned detached worktree snapshot (DR-118) — ga'), ('result', '{"mode":"powerful","builtFrds":[],"blockedFrds":["frd-01-catalog-browsing","frd-02-collectible-detail","frd-03-private-inventory","frd-04-goals-and-to-get","frd-05-checklist-export","frd-06-franchise-backfill","frd-07-delta-discovery","frd-08-help-contact-legal"],"reopenedFrds":[],"blockedReasons":{"frd-01-catalog-browsing":"needs-owner","frd-02-collectible-detail":"needs-owner","frd-03-private-inventory":"'), ('agent_count', '29'), ('agents_done', '29')]
+d812059e WORKFLOW 1760 2026-10-18T18:44:34.793Z task wdl0nbkwf wf_f8bc3eb5-921
+   3040 2026-10-19T05:36:04.250Z minutes 651.491 [('status', 'completed'), ('summary', 'Dynamic workflow "Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES — every wave takes the ready work orders of ALL FRDs (dependsOn satisfied, artifacts disjoint per DR-060, capped at the mode\'s wave) so independent features build in parallel; the per-FRD review/test gate runs CONCURRENTLY with the next wave\'s build, against its own pinned detached worktree snapshot (DR-118) — ga'), ('result', '{"mode":"powerful","builtFrds":["frd-01-catalog-browsing","frd-02-collectible-detail","frd-03-private-inventory","frd-04-goals-and-to-get","frd-08-help-contact-legal","frd-06-franchise-backfill"],"blockedFrds":[],"reopenedFrds":[],"blockedReasons":{},"blockedFailures":{},"stopReason":"rethink","usable":[],"reviewDebt":["frd-05-checklist-export"],"pushHint":""}'), ('agent_count', '136'), ('agents_done', '136')]
+d812059e local files wf_d404ef61-c3a 41 41
+d812059e local files wf_37df01ec-23e 22 22
+d812059e local files wf_751dec65-1f7 31 31
+d812059e local files wf_f8bc3eb5-921 137 137
+d812059e local files wf_8fee8c21-0a8 30 30
+4dac9675 result (14539, '2026-10-22T16:47:52.772Z') 14540 2026-10-22T16:47:53.060Z w60vfbzn7 wf_087e8e9c-c96 Workflow launched in background. Task ID: w60vfbzn7
+Summary: Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES —
+4dac9675 WORKFLOW 14539 2026-10-22T16:47:52.772Z task w60vfbzn7 wf_087e8e9c-c96
+   14722 2026-10-22T16:57:16.450Z minutes 9.395 [('status', 'failed'), ('summary', 'Dynamic workflow "Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES — every wave takes the ready work orders of ALL FRDs (dependsOn satisfied, artifacts disjoint per DR-060, capped at the mode\'s wave) so independent features build in parallel; the per-FRD review/test gate runs CONCURRENTLY with the next wave\'s build, against its own pinned detached worktree snapshot (DR-118) — ga'), ('agent_count', '5'), ('agents_done', '5')]
+4dac9675 local files wf_087e8e9c-c96 6 6
+62d4cf83 result (267, '2026-10-30T09:10:32.823Z') 268 2026-10-30T09:10:33.768Z wjb0mv0us wf_13c4509f-c5d Workflow launched in background. Task ID: wjb0mv0us
+Summary: Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES —
+62d4cf83 result (469, '2026-10-30T12:59:12.603Z') 470 2026-10-30T12:59:13.424Z ws8fxcm5h wf_62f1950f-d1e Workflow launched in background. Task ID: ws8fxcm5h
+Summary: Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES —
+62d4cf83 result (596, '2026-10-30T13:03:27.872Z') 597 2026-10-30T13:03:28.746Z wt43f9ct8 wf_f1dd62aa-303 Workflow launched in background. Task ID: wt43f9ct8
+Summary: Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES —
+62d4cf83 result (893, '2026-10-30T14:42:26.041Z') 894 2026-10-30T14:42:27.159Z wajye05j9 wf_9ae0c641-1f5 Workflow launched in background. Task ID: wajye05j9
+Summary: Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES —
+62d4cf83 result (1039, '2026-10-30T15:33:16.578Z') 1040 2026-10-30T15:33:17.668Z w01rm73oq wf_9ae0c641-1f5 Workflow launched in background. Task ID: w01rm73oq
+Summary: Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES —
+62d4cf83 result (1135, '2026-10-30T16:09:28.871Z') 1137 2026-10-30T16:09:32.923Z wmymxren8 wf_663738b8-2cf Workflow launched in background. Task ID: wmymxren8
+Summary: Pandacorp build engine v2 (DR-050 + BL-0021 + DR-118): builds in GLOBAL WAVES —
+62d4cf83 WORKFLOW 267 2026-10-30T09:10:32.823Z task wjb0mv0us wf_13c4509f-c5d
+62d4cf83 WORKFLOW 469 2026-10-30T12:59:12.603Z task ws8fxcm5h wf_62f1950f-d1e
+62d4cf83 WORKFLOW 596 2026-10-30T13:03:27.872Z task wt43f9ct8 wf_f1dd62aa-303
+62d4cf83 WORKFLOW 893 2026-10-30T14:42:26.041Z task wajye05j9 wf_9ae0c641-1f5
+62d4cf83 WORKFLOW 1039 2026-10-30T15:33:16.578Z task w01rm73oq wf_9ae0c641-1f5
+62d4cf83 WORKFLOW 1135 2026-10-30T16:09:28.871Z task wmymxren8 wf_663738b8-2cf
+62d4cf83 local files wf_62f1950f-d1e 5 5
+62d4cf83 local files wf_f1dd62aa-303 62 62
+62d4cf83 local files wf_663738b8-2cf 64 64
+62d4cf83 local files wf_9ae0c641-1f5 31 31
+62d4cf83 local files wf_13c4509f-c5d 4 4

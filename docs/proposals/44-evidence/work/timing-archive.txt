@@ -1,0 +1,63 @@
+STDOUT /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/archive/queue-next-16-4-3.log.gz file mtime UTC 2026-11-03T12:52:06.700+00:00
+954 Duration  80.31s (transform 17.97s, setup 111.64s, import 73.18s, tests 215.43s, environment 240.32s)
+222430 1034 passed (21.6m)
+222440 merge-queue: merged fin/next-land → main
+STDOUT /Users/Shared/Proyectos/panda-corp/docs/proposals/43-evidence/out/verify-mission-control.log file mtime UTC 2026-11-21T00:03:33.000+00:00
+974 Duration  53.15s (transform 22.62s, setup 62.43s, import 66.54s, tests 165.03s, environment 119.77s)
+2522 890 passed (7.2m)
+2524 real 523.34
+HISTORICAL REFLOG a99d4a9761cd2dc3a96dff0d8cafcac217399681 main@{2026-11-03T07:51:54-05:00} merge fin/next-land: Fast-forward
+HISTORICAL MC BENCHMARK (epoch sidecars) 2026-11-20T23:54:50.000+00:00 2026-11-21T00:03:33.000+00:00 523
+HISTORICAL TRANSCRIPT EPISODES funko-tracker /Users/Shared/Proyectos/panda-corp/docs/proposals/43-evidence/w-tr/episodes.md:26-87 dates 2026-11-01 2026-11-20 episodes 61 calls 137 landed 57 requeues (post-first calls) 76 requeues on landed 71 landed minute stats (rounded input) (57, 29.02, 275.75, 740.47, 4771.64)
+HISTORICAL TRANSCRIPT EPISODES mission-control / panda-corp /Users/Shared/Proyectos/panda-corp/docs/proposals/43-evidence/w-tr/episodes.md:67-67 dates 2026-11-13 2026-11-13 episodes 1 calls 1 landed 1 requeues (post-first calls) 0 requeues on landed 0 landed minute stats (rounded input) (1, 0.44, 0.44, 0.44, 0.44)
+HISTORICAL TRANSCRIPT prior aggregate JSON (source-reported) {
+  "episodes": 62,
+  "sessions": 29,
+  "attempts": 138,
+  "landed": 58,
+  "first_attempt_landed": 27,
+  "first_attempt_pct": 43.548,
+  "wall_landed_median_s": 1738.4395,
+  "wall_landed_max_s": 44427.977,
+  "wall_observed_median_s": 1738.4395,
+  "wall_observed_max_s": 108290.144,
+  "censored": 4,
+  "certified_episodes": 2,
+  "certified_calls": 2,
+  "full_gate_calls": 28,
+  "red_causes": {
+    "a": 19,
+    "e": 1,
+    "f": 23,
+    "g": 7,
+    "h": 10
+  },
+  "reds": 60,
+  "all_nonlanding_causes": {
+    "a": 19,
+    "b": 6,
+    "e": 6,
+    "f": 23,
+    "g": 7,
+    "h": 19
+  },
+  "queue_median_s": {
+    "funko-tracker": 690.508,
+    "mission-control / panda-corp": 26.431
+  },
+  "queue_measured": 137,
+  "queue_upper_bounds": 13,
+  "queue_unknown": 1
+}
+RUNS ROOT /Users/Shared/Proyectos/panda-corp/.pandacorp/run/runs False
+RUNS ROOT /Users/Shared/Proyectos/panda-corp/.pandacorp/runs False
+RUNS ROOT /Users/Shared/Proyectos/panda-corp/.pandacorp/run/build/runs False
+RUNS ROOT /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/runs False
+RUNS ROOT /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/runs False
+RUNS ROOT /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/build/runs False
+RUNS ROOT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/runs False
+RUNS ROOT /Users/Shared/Proyectos/funko-tracker/.pandacorp/runs False
+RUNS ROOT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/runs False
+RUNS ROOT /Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/runs False
+RUNS ROOT /Users/Shared/Proyectos/personal-page-v2/.pandacorp/runs False
+RUNS ROOT /Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/build/runs False

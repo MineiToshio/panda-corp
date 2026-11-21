@@ -1,0 +1,367 @@
+Analysis window UTC 2026-10-22T16:00:00.000+00:00 2026-11-21T16:00:00.000+00:00 stats=(n,median,nearest-rank-p90,max,sum), seconds
+
+PROJECT panda-corp /Users/Shared/Proyectos/panda-corp
+WORKTREE ROOTS
+ panda-corp
+ /Users/Shared/Proyectos/panda-corp
+ /Users/Shared/local-deployments/panda-corp
+ /Users/Shared/Proyectos/panda-corp-wt-ci
+ /Users/Shared/Proyectos/panda-corp-wt-verify-affected
+INVENTORY discoveries {'gate-report.json': 1}
+QUEUE SUMMARY none runs 0 exits {} outcomes {} exit11 0/0 (unavailable) recorded gate rc!=0/16/75 0/0 (unavailable) repeat branch 0/0 (unavailable) repeat branch/head 0/0 (unavailable) ready events (without start) 0 stamp matched 0 requeues before landing [] mean None
+QUEUE OTHER CLOCKS {} first enqueue-to-ff (0, None, None, None, 0)
+QUEUE GATES (0, None, None, None, 0) rc {} summed 30d h 0.0 union approx 30d h 0.0
+QUEUE WAIT lock (0, None, None, None, 0) summed 30d seconds 0
+QUEUE WAIT host slot (0, None, None, None, 0) summed 30d seconds 0
+REPORT COHORT queue archive 0 none
+REPORT stage sums per report (0, None, None, None, 0) category seconds and percent {} 30d reported stage seconds {}
+PRIMARY RED STAGE {}
+RED STAGES TOP 10 []
+REPORT COHORT other reports 1 2026-10-21T01:09:23.000+00:00 .. 2026-10-21T01:09:23.000+00:00
+REPORT /Users/Shared/Proyectos/panda-corp/.pandacorp/run/gate-report.json at 2026-10-21T01:09:23Z scope full green False sha 3809f047be7e312057bcd021f2c3e9a7a0624212 subgates name:seconds:exit structure-guard:0.011:0,data-layer:0.01:0,api-error-contract:0.008:0,doc-lint:0.009:0,residual-ambiguity:0.049:0,biome:0.347:1
+REPORT stage sums per report (1, 0.434, 0.434, 0.434, 0.434) category seconds and percent {'static': (0.424, 97.7), 'other': (0.01, 2.3)} 30d reported stage seconds {}
+STAGE biome (1, 0.347, 0.347, 0.347, 0.347) red 1
+STAGE residual-ambiguity (1, 0.049, 0.049, 0.049, 0.049) red 0
+STAGE structure-guard (1, 0.011, 0.011, 0.011, 0.011) red 0
+STAGE data-layer (1, 0.01, 0.01, 0.01, 0.01) red 0
+STAGE doc-lint (1, 0.009, 0.009, 0.009, 0.009) red 0
+STAGE api-error-contract (1, 0.008, 0.008, 0.008, 0.008) red 0
+PRIMARY RED STAGE {'biome': 1}
+RED STAGES TOP 10 [('biome', 1)]
+TEST SUMMARY 0 none runner/status {} attempts 0 failures 0 distinct failed 0 same-tree distinct IDs 0 ID/tree pairs 0 suspects by runner {}
+
+PROJECT mission-control /Users/Shared/Proyectos/panda-corp/mission-control
+WORKTREE ROOTS
+ mission-control
+ /Users/Shared/Proyectos/panda-corp/mission-control
+ /Users/Shared/local-deployments/panda-corp/mission-control
+ /Users/Shared/Proyectos/panda-corp-wt-ci/mission-control
+ /Users/Shared/Proyectos/panda-corp-wt-verify-affected/mission-control
+QUEUE SOURCE /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl rows 118 2026-11-21T06:24:30.432+00:00 .. 2026-11-21T12:35:59.568+00:00
+REPORT duplicate /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/gate-evidence/frd-25-persistent-navigation/gate-report.json /Users/Shared/Proyectos/panda-corp/docs/proposals/43-evidence/w-mc/gate-report-snapshot-1.json
+TEST SOURCE /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/test-outcomes.jsonl 28161 2026-11-21T09:26:49.620+00:00 .. 2026-11-21T12:35:52.857+00:00
+INVENTORY discoveries {'gate-report.json': 11, 'gate-report-snapshot-1.json': 1, 'gate-report-snapshot-2.json': 1, 'canonical-gate-report.json': 6, 'build-journal.jsonl': 4, 'queue-next-16-4-3.log.gz': 1, 'gate-reports/*.json': 9, 'green-stamp': 1, 'queue-log.jsonl': 1, 'track.jsonl': 6, 'test-outcomes.jsonl': 1, 'pre-integration-canonical-gate-report.json': 1}
+ATTEMPT 0e255cfb-2ac4-4255-9675-a0f957ea1017 2026-11-21T06:24:30.432Z chore/mc-overlay-9.6.2 afb7ae0ed3 exit 20 outcome queue usage/lock error stamp None gate None None lock_s 0 slot_s None land_sha None refs start:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:1,end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:5
+ATTEMPT 239307b7-7c0f-44f8-bf36-ca01abaf496e 2026-11-21T06:24:56.997Z chore/mc-overlay-9.6.2 9890fcc1b6 exit 11 outcome gate/certification rejected stamp miss gate 1 298 lock_s 0 slot_s 101 land_sha None refs start:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:6,gate_end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:14,end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:16
+ATTEMPT 3f98fcb6-4e32-4c03-9c52-65576f62eb68 2026-11-21T06:31:56.754Z chore/mc-overlay-9.6.2 9890fcc1b6 exit 11 outcome gate/certification rejected stamp miss gate 1 338 lock_s 1 slot_s 0 land_sha None refs start:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:17,gate_end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:25,end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:27
+ATTEMPT 42320f6c-2963-41a8-9be4-22b56506577d 2026-11-21T06:39:54.241Z chore/mc-overlay-9.6.2 9890fcc1b6 exit 0 outcome landed stamp miss gate 0 1093 lock_s 0 slot_s 5 land_sha 9890fcc1b61378b973b8492c855d8346660943b0 refs start:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:28,gate_end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:36,ff:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:39,end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:41
+ATTEMPT 9b46f6a0-73b9-4393-978b-24bd79a4b33d 2026-11-21T09:24:37.456Z feat/p43-phase2-mc b43ade51a8 exit 10 outcome rebase conflict stamp None gate None None lock_s 0 slot_s None land_sha None refs start:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:42,end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:46
+ATTEMPT b3214d18-ab1a-48d5-ace7-3cc11b652edc 2026-11-21T09:25:17.682Z feat/p43-phase2-mc a81ed27b51 exit 11 outcome gate/certification rejected stamp miss gate 1 87 lock_s 0 slot_s 0 land_sha None refs start:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:47,gate_end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:55,end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:57
+ATTEMPT 732924db-dcec-4b5d-91ab-248c86ca9206 2026-11-21T10:00:32.144Z feat/p43-phase2-mc 50579d40b0 exit 0 outcome landed stamp miss gate 0 593 lock_s 0 slot_s 0 land_sha 50579d40b06fe8712a7d970729c0cfcfdccd9868 refs start:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:58,gate_end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:66,ff:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:69,end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:71
+ATTEMPT e325c9ce-246f-4775-a091-b2859d02de32 2026-11-21T11:43:39.687Z feat/p43-phase3 3ef64a150b exit 11 outcome gate/certification rejected stamp miss gate 1 16 lock_s 0 slot_s 0 land_sha None refs start:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:72,gate_end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:80,end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:82
+ATTEMPT 9e5120b5-338d-431b-897c-f8d35267b408 2026-11-21T11:45:03.271Z feat/p43-phase3 c97cc75bc5 exit 11 outcome gate/certification rejected stamp miss gate 1 93 lock_s 0 slot_s 0 land_sha None refs start:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:83,gate_end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:91,end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:93
+ATTEMPT 0ab31f4d-b393-4465-979c-d5914abe584d 2026-11-21T12:04:19.443Z feat/p43-phase3 baa8cf1436 exit 11 outcome gate/certification rejected stamp miss gate 1 79 lock_s 0 slot_s 0 land_sha None refs start:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:94,gate_end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:102,end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:104
+ATTEMPT 01d59110-b70b-42d7-9b42-3a82977742c3 2026-11-21T12:26:07.048Z feat/p43-phase3 d5e1c96d7b exit 0 outcome landed stamp miss gate 0 589 lock_s 0 slot_s 0 land_sha d5e1c96d7bac6ae1c423cdcf75bd27fc473da343 refs start:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:105,gate_end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:113,ff:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:116,end:/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/queue-log.jsonl:118
+QUEUE SUMMARY 2026-11-21T06:24:30.432+00:00 .. 2026-11-21T12:35:59.568+00:00 runs 11 exits {20: 1, 11: 6, 0: 3, 10: 1} outcomes {'queue usage/lock error': 1, 'gate/certification rejected': 6, 'landed': 3, 'rebase conflict': 1} exit11 6/11 (54.55%) recorded gate rc!=0/16/75 6/11 (54.55%) repeat branch 8/11 (72.73%) repeat branch/head 2/11 (18.18%) ready events (without start) 0 stamp matched 0 requeues before landing [3, 2, 3] mean 2.667
+QUEUE OTHER CLOCKS {'rebase': (11, 0, 1, 1, 2), 'start-to-exit': (11, 94.487, 596.156, 1102.349, 3330.947), 'env_step': (9, 1, 5, 5, 18)} first enqueue-to-ff (3, 2750.088, 3139.134, 3139.134, 7914.513)
+QUEUE GATES (9, 298, 1093, 1093, 3186) rc {1: 6, 0: 3} summed 30d h 0.885 union approx 30d h 0.885
+QUEUE WAIT lock (11, 0, 0, 1, 1) summed 30d seconds 1.0
+QUEUE WAIT host slot (9, 0, 101, 101, 106) summed 30d seconds 106.0
+REPORT COHORT queue archive 9 2026-11-21T06:26:44.000+00:00 .. 2026-11-21T12:26:09.000+00:00
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/gate-reports/01d59110-b70b-42d7-9b42-3a82977742c3.json at 2026-11-21T12:26:09Z scope full green True sha d5e1c96d7bac6ae1c423cdcf75bd27fc473da343 subgates name:seconds:exit structure-guard:0.038:0,live-data-asserts:0.159:0,data-layer:0.008:0,api-error-contract:0.013:0,doc-lint:13.248:0,residual-ambiguity:0.707:0,biome:0.856:0,tsc:2.246:0,knip:1.799:0,madge:3.198:0,vitest:56.597:0,playwright:503.607:0
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/gate-reports/0ab31f4d-b393-4465-979c-d5914abe584d.json at 2026-11-21T12:04:21Z scope full green False sha baa8cf1436fdda1882f0af57727b59f9b0fddc88 subgates name:seconds:exit structure-guard:0.038:0,live-data-asserts:0.157:0,data-layer:0.008:0,api-error-contract:0.013:0,doc-lint:13.419:0,residual-ambiguity:0.538:0,biome:0.88:0,tsc:2.297:0,knip:1.755:0,madge:3.12:0,vitest:54.792:1,vitest-policy:0.0:1
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/gate-reports/239307b7-7c0f-44f8-bf36-ca01abaf496e.json at 2026-11-21T06:26:44Z scope full green False sha 9890fcc1b61378b973b8492c855d8346660943b0 subgates name:seconds:exit structure-guard:0.057:0,live-data-asserts:0.264:0,data-layer:0.009:0,api-error-contract:0.016:0,doc-lint:18.561:0,residual-ambiguity:0.983:0,biome:1.964:0,tsc:27.32:0,knip:4.078:0,madge:5.461:0,vitest:136.0:0,playwright:101.269:1
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/gate-reports/3f98fcb6-4e32-4c03-9c52-65576f62eb68.json at 2026-11-21T06:31:59Z scope full green False sha 9890fcc1b61378b973b8492c855d8346660943b0 subgates name:seconds:exit structure-guard:0.08:0,live-data-asserts:0.427:0,data-layer:0.01:0,api-error-contract:0.025:0,doc-lint:26.242:0,residual-ambiguity:2.71:0,biome:4.232:0,tsc:9.423:0,knip:7.139:0,madge:7.382:0,vitest:166.012:0,playwright:112.453:1
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/gate-reports/42320f6c-2963-41a8-9be4-22b56506577d.json at 2026-11-21T06:40:01Z scope full green True sha 9890fcc1b61378b973b8492c855d8346660943b0 subgates name:seconds:exit structure-guard:0.046:0,live-data-asserts:0.265:0,data-layer:0.009:0,api-error-contract:0.015:0,doc-lint:16.013:0,residual-ambiguity:0.958:0,biome:1.308:0,tsc:14.345:0,knip:2.396:0,madge:4.378:0,vitest:134.193:0,playwright:910.529:0
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/gate-reports/732924db-dcec-4b5d-91ab-248c86ca9206.json at 2026-11-21T10:00:33Z scope full green True sha 50579d40b06fe8712a7d970729c0cfcfdccd9868 subgates name:seconds:exit structure-guard:0.038:0,live-data-asserts:0.221:0,data-layer:0.007:0,api-error-contract:0.014:0,doc-lint:13.662:0,residual-ambiguity:0.677:0,biome:0.826:0,tsc:2.823:0,knip:1.828:0,madge:3.28:0,vitest:61.7:0,playwright:500.757:0
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/gate-reports/9e5120b5-338d-431b-897c-f8d35267b408.json at 2026-11-21T11:45:05Z scope full green False sha c97cc75bc5bff37d9a41c21572fb1fe4b99e6d8e subgates name:seconds:exit structure-guard:0.039:0,live-data-asserts:0.157:0,data-layer:0.007:0,api-error-contract:0.013:0,doc-lint:13.242:0,residual-ambiguity:0.506:0,biome:1.008:0,tsc:8.065:0,knip:1.958:0,madge:3.347:0,vitest:62.335:0,vitest-policy:0.0:1
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/gate-reports/b3214d18-ab1a-48d5-ace7-3cc11b652edc.json at 2026-11-21T09:25:23Z scope full green False sha a81ed27b518c6d76aceb396f354ba2e4286633da subgates name:seconds:exit structure-guard:0.039:0,live-data-asserts:0.222:0,data-layer:0.008:0,api-error-contract:0.014:0,doc-lint:13.566:0,residual-ambiguity:0.887:0,biome:3.113:0,tsc:8.416:0,knip:4.17:0,madge:3.524:0,vitest:51.536:1
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/gate-reports/e325c9ce-246f-4775-a091-b2859d02de32.json at 2026-11-21T11:43:44Z scope full green False sha 3ef64a150bea9fc8a34bbcecfea853cc548af8a4 subgates name:seconds:exit structure-guard:0.037:0,live-data-asserts:0.158:0,data-layer:0.008:0,api-error-contract:0.014:0,doc-lint:13.247:0,residual-ambiguity:0.534:0,biome:1.065:1
+REPORT stage sums per report (9, 295.982, 1084.455, 1084.455, 3153.133) category seconds and percent {'static': (299.249, 9.49), 'other': (2.104, 0.07), 'vitest': (723.165, 22.93), 'playwright': (2128.615, 67.51)} 30d reported stage seconds {'static': 299.249, 'other': 2.104, 'vitest': 723.165, 'playwright': 2128.615}
+STAGE playwright (5, 500.757, 910.529, 910.529, 2128.615) red 2
+STAGE vitest (8, 62.017, 166.012, 166.012, 723.165) red 2
+STAGE doc-lint (9, 13.566, 26.242, 26.242, 141.2) red 0
+STAGE tsc (8, 8.241, 27.32, 27.32, 74.935) red 0
+STAGE madge (8, 3.436, 7.382, 7.382, 33.69) red 0
+STAGE knip (8, 2.177, 7.139, 7.139, 25.123) red 0
+STAGE biome (9, 1.065, 4.232, 4.232, 15.252) red 1
+STAGE residual-ambiguity (9, 0.707, 2.71, 2.71, 8.5) red 0
+STAGE live-data-asserts (9, 0.221, 0.427, 0.427, 2.03) red 0
+STAGE structure-guard (9, 0.039, 0.08, 0.08, 0.412) red 0
+STAGE api-error-contract (9, 0.014, 0.025, 0.025, 0.137) red 0
+STAGE data-layer (9, 0.008, 0.01, 0.01, 0.074) red 0
+STAGE vitest-policy (2, 0.0, 0.0, 0.0, 0.0) red 2
+PRIMARY RED STAGE {'vitest': 2, 'playwright': 2, 'vitest-policy': 1, 'biome': 1}
+RED STAGES TOP 10 [('playwright', 2), ('vitest', 2), ('vitest-policy', 2), ('biome', 1)]
+REPORT COHORT other reports 19 2026-09-26T04:30:52.000+00:00 .. 2026-11-21T15:59:37.000+00:00
+REPORT /Users/Shared/Proyectos/panda-corp/docs/proposals/43-evidence/out/before-mc/gate-report.json at 2026-11-20T23:48:42Z scope partial green True sha 494ec4f8530b74a9732942dd562a849824066f1c subgates name:seconds:exit structure-guard:0.02:0,live-data-asserts:0.193:0,data-layer:0.007:0,api-error-contract:0.011:0,doc-lint:9.23:0,residual-ambiguity:1.832:0,biome:0.658:0,tsc:1.421:0,knip:1.203:0,madge:2.187:0
+REPORT /Users/Shared/Proyectos/panda-corp/docs/proposals/43-evidence/w-mc/gate-report-snapshot-1.json at 2026-10-30T17:23:46Z scope since green False sha d174599d764b2eb270b936f863f8de06a1cd1b60 subgates name:seconds:exit structure-guard:0.1:0,data-layer:0.016:0,api-error-contract:0.028:0,doc-lint:33.301:0,residual-ambiguity:1.289:0,biome:2.722:0,tsc:6.908:0,knip:4.772:0,madge:13.259:0,vitest:199.317:1
+REPORT /Users/Shared/Proyectos/panda-corp/docs/proposals/43-evidence/w-mc/gate-report-snapshot-2.json at 2026-11-20T23:44:35Z scope partial green True sha 494ec4f8530b74a9732942dd562a849824066f1c subgates name:seconds:exit structure-guard:0.027:0,live-data-asserts:0.264:0,data-layer:0.009:0,api-error-contract:0.01:0,doc-lint:12.185:0,residual-ambiguity:3.293:0,biome:2.253:0,tsc:4.894:0,knip:2.527:0,madge:3.685:0
+REPORT /Users/Shared/Proyectos/panda-corp/docs/reviews/canary-f1-run/gate-evidence/frd-03-portfolio/gate-report.json at 2026-09-26T04:30:52Z scope since green False sha 7740eb95912a78c1c6561b9d409d70e0db7b0a72 subgates name:seconds:exit structure-guard:0.022:0,data-layer:0.004:0,api-error-contract:0.007:0,doc-lint:2.473:0,residual-ambiguity:0.049:0,biome:0.559:0,tsc:1.194:0,knip:0.904:0,madge:1.804:0,vitest:17.844:1
+REPORT /Users/Shared/Proyectos/panda-corp/docs/reviews/canary-f1-run/gate-evidence/frd-04-project-workspace/gate-report.json at 2026-09-26T04:44:08Z scope since green False sha 7740eb95912a78c1c6561b9d409d70e0db7b0a72 subgates name:seconds:exit structure-guard:0.027:0,data-layer:0.005:0,api-error-contract:0.008:0,doc-lint:2.757:0,residual-ambiguity:0.058:0,biome:0.693:0,tsc:1.506:0,knip:0.966:0,madge:2.286:0,vitest:25.699:1
+REPORT /Users/Shared/Proyectos/panda-corp/docs/reviews/canary-f1-run/gate-evidence/frd-05-work-orders/gate-report.json at 2026-09-26T04:52:20Z scope since green True sha 7740eb95912a78c1c6561b9d409d70e0db7b0a72 subgates name:seconds:exit structure-guard:0.054:0,data-layer:0.005:0,api-error-contract:0.007:0,doc-lint:3.001:0,residual-ambiguity:0.052:0,biome:1.008:0,tsc:1.592:0,knip:0.994:0,madge:1.924:0,vitest:18.943:0,playwright:45.628:0
+REPORT /Users/Shared/Proyectos/panda-corp/docs/reviews/canary-f1-run/gate-report.json at 2026-09-26T05:42:14Z scope full green True sha ace8a67fc64d7f122e6057d918880da940866ed8 subgates name:seconds:exit structure-guard:0.023:0,data-layer:0.005:0,api-error-contract:0.007:0,doc-lint:2.508:0,residual-ambiguity:0.05:0,biome:0.688:0,tsc:1.41:0,knip:0.903:0,madge:1.711:0,vitest:42.665:0,playwright:65.978:0
+REPORT /Users/Shared/Proyectos/panda-corp/docs/reviews/canary-f2-run/gate-evidence/frd-02-ideas-board/gate-report.json at 2026-09-26T05:57:05Z scope since green True sha 7b44a77241c10b4712d499aef28b249acef7b62b subgates name:seconds:exit structure-guard:0.019:0,data-layer:0.004:0,api-error-contract:0.007:0,doc-lint:2.407:0,residual-ambiguity:0.055:0,biome:0.589:0,tsc:4.622:0,knip:0.886:0,madge:1.868:0,vitest:24.606:0,playwright:74.539:0
+REPORT /Users/Shared/Proyectos/panda-corp/docs/reviews/canary-f2-run/gate-evidence/frd-04-project-workspace/gate-report.json at 2026-09-26T06:11:11Z scope since green False sha 7b44a77241c10b4712d499aef28b249acef7b62b subgates name:seconds:exit structure-guard:0.022:0,data-layer:0.004:0,api-error-contract:0.007:0,doc-lint:2.457:0,residual-ambiguity:0.05:0,biome:0.629:0,tsc:1.54:0,knip:0.891:0,madge:1.81:0,vitest:24.02:1
+REPORT /Users/Shared/Proyectos/panda-corp/docs/reviews/canary-f2-run/gate-report.json at 2026-09-26T06:59:23Z scope full green True sha e3083d5e6c8cfb00f34f6314e4ea238389fc7d02 subgates name:seconds:exit structure-guard:0.034:0,data-layer:0.005:0,api-error-contract:0.007:0,doc-lint:3.328:0,residual-ambiguity:0.052:0,biome:0.771:0,tsc:2.301:0,knip:1.566:0,madge:1.942:0,vitest:52.074:0,playwright:97.301:0
+REPORT /Users/Shared/Proyectos/panda-corp/docs/reviews/logical-data-model-freshness/canonical-gate-report.json at 2026-10-16T23:21:08Z scope since green True sha da0d3a8404fae6f82e66f2870e7e69cb0bdcef21 subgates name:seconds:exit structure-guard:0.06:0,data-layer:0.009:0,api-error-contract:0.018:0,doc-lint:6.082:0,residual-ambiguity:0.283:0,biome:3.457:0,tsc:12.03:0,knip:4.492:0,madge:11.351:0,vitest:47.572:0,playwright:48.697:0
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/gate-report.json at 2026-11-21T15:59:37Z scope partial green True sha 3105fd559c67c285ec5eaa4d51e38e1ebc3dc551 subgates name:seconds:exit structure-guard:0.018:0,live-data-asserts:0.136:0,data-layer:0.004:0,api-error-contract:0.007:0,doc-lint:7.455:0,residual-ambiguity:1.688:0,biome:0.629:0,tsc:1.332:0,knip:1.13:0,madge:1.698:0
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/docs/reviews/architecture-responsive-usability/canonical-gate-report.json at 2026-10-17T05:31:14Z scope since green True sha 5e5198cb57b11e611f2577397b267c5a4f44252a subgates name:seconds:exit structure-guard:0.02:0,data-layer:0.004:0,api-error-contract:0.008:0,doc-lint:2.901:0,residual-ambiguity:0.07:0,biome:0.728:0,tsc:1.75:0,knip:0.913:0,madge:2.319:0,vitest:8.604:0,playwright:30.326:0
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/docs/reviews/architecture-responsive-usability/pre-integration-canonical-gate-report.json at 2026-10-17T05:26:58Z scope since green True sha d913da83dff8f4b7a9f59a56e47c561345cace86 subgates name:seconds:exit structure-guard:0.041:0,data-layer:0.01:0,api-error-contract:0.014:0,doc-lint:5.011:0,residual-ambiguity:0.133:0,biome:3.411:0,tsc:11.691:0,knip:4.501:0,madge:4.158:0,vitest:12.999:0,playwright:40.653:0
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/docs/reviews/logical-data-model-viewer/canonical-gate-report.json at 2026-10-16T23:12:48Z scope since green True sha da0d3a8404fae6f82e66f2870e7e69cb0bdcef21 subgates name:seconds:exit structure-guard:0.048:0,data-layer:0.008:0,api-error-contract:0.015:0,doc-lint:5.23:0,residual-ambiguity:0.132:0,biome:1.349:0,tsc:2.836:0,knip:1.817:0,madge:4.009:0,vitest:12.868:0,playwright:59.225:0
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/docs/reviews/model-graph-consistency/canonical-gate-report.json at 2026-10-17T03:50:41Z scope since green True sha 275293a84b4c293e233f4a95d8e19a20c01a0020 subgates name:seconds:exit structure-guard:0.038:0,data-layer:0.008:0,api-error-contract:0.014:0,doc-lint:5.238:0,residual-ambiguity:0.127:0,biome:3.818:0,tsc:9.657:0,knip:4.179:0,madge:3.963:0,vitest:11.944:0,playwright:42.979:0
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/docs/reviews/portfolio-spec/canonical-gate-report.json at 2026-10-17T01:34:50Z scope since green True sha e555a1d8102be8fe9c4b64dd075a8e4f98a9f923 subgates name:seconds:exit structure-guard:0.021:0,data-layer:0.005:0,api-error-contract:0.007:0,doc-lint:3.105:0,residual-ambiguity:0.075:0,biome:0.647:0,tsc:5.222:0,knip:0.914:0,madge:1.85:0,vitest:13.305:0,playwright:46.578:0
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/docs/reviews/readable-fullscreen-model/canonical-gate-report.json at 2026-10-17T03:36:03Z scope since green True sha ca949642ee49dfda8a50979e71f4b7ab14c97fa9 subgates name:seconds:exit structure-guard:0.037:0,data-layer:0.008:0,api-error-contract:0.013:0,doc-lint:5.267:0,residual-ambiguity:0.129:0,biome:1.472:0,tsc:8.92:0,knip:2.388:0,madge:5.209:0,vitest:87.041:0,playwright:43.37:0
+REPORT /Users/Shared/Proyectos/panda-corp/mission-control/docs/reviews/services-accounts/gate-report.json at 2026-10-20T12:31:50Z scope since green True sha df08aadd028c00242d542a88b5275d51375487cd subgates name:seconds:exit structure-guard:0.038:0,data-layer:0.008:0,api-error-contract:0.013:0,doc-lint:5.598:0,residual-ambiguity:0.149:0,biome:1.195:0,tsc:8.672:0,knip:1.678:0,madge:3.682:0,vitest:26.555:0,playwright:47.346:0
+REPORT stage sums per report (19, 81.965, 159.381, 261.712, 1624.487) category seconds and percent {'static': (355.09, 21.86), 'other': (0.721, 0.04), 'vitest': (626.056, 38.54), 'playwright': (642.62, 39.56)} 30d reported stage seconds {'static': 121.772, 'other': 0.629, 'vitest': 199.317}
+STAGE playwright (12, 46.962, 74.539, 97.301, 642.62) red 0
+STAGE vitest (16, 24.313, 87.041, 199.317, 626.056) red 4
+STAGE doc-lint (19, 5.011, 12.185, 33.301, 119.534) red 0
+STAGE tsc (19, 2.836, 11.691, 12.03, 89.498) red 0
+STAGE madge (19, 2.286, 11.351, 13.259, 70.715) red 0
+STAGE knip (19, 1.203, 4.501, 4.772, 37.624) red 0
+STAGE biome (19, 0.771, 3.457, 3.818, 27.276) red 0
+STAGE residual-ambiguity (19, 0.127, 1.832, 3.293, 9.566) red 0
+STAGE structure-guard (19, 0.027, 0.06, 0.1, 0.669) red 0
+STAGE live-data-asserts (3, 0.193, 0.264, 0.264, 0.593) red 0
+STAGE api-error-contract (19, 0.008, 0.018, 0.028, 0.208) red 0
+STAGE data-layer (19, 0.005, 0.01, 0.016, 0.128) red 0
+PRIMARY RED STAGE {'vitest': 4}
+RED STAGES TOP 10 [('vitest', 4)]
+TEST SUMMARY 28156 2026-11-21T09:26:49.620+00:00 .. 2026-11-21T12:35:52.857+00:00 runner/status {('vitest', 'passed'): 26335, ('vitest', 'skipped'): 34, ('vitest', 'failed'): 1, ('playwright', 'passed'): 1786} attempts 5 failures 1 distinct failed 1 same-tree distinct IDs 0 ID/tree pairs 0 suspects by runner {}
+TEST FAIL 1 ('mission-control', 'vitest', 'src/app/manual/_tests/manualSingleSource.test.ts > Manual pages have one source of content concepts/hooks-gates-seguridad: the .md of a bespoke page is an index stub, not prose') same-tree suspect False /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/test-outcomes.jsonl:4117
+
+PROJECT funko-tracker /Users/Shared/Proyectos/funko-tracker
+WORKTREE ROOTS
+ funko-tracker
+ /Users/Shared/Proyectos/funko-tracker
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/catalog-line-scope
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/catalog-line-scope/.pandacorp/run/build/integration
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/catalog-line-scope/.pandacorp/run/build/wt/u-docs-catalog-line-scope
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/catalog-line-scope/.pandacorp/run/build/wt/u-product-catalog-line-scope
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/integration
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007-a2
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007-rescue
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-09-002
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-docs-hide-empty-series-and-research-window
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-a2
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-a3
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-rescue
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-product-hide-empty-series-and-research-window
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-product-hide-empty-series-and-research-window-a2
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-tests-wo-06-007
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/line-scope-direct
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/nifty-haibt-c4dee1
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-a2
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-a3
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-rescue
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-patch-g2-frd-06-franchise-backfill
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-product-sweep-data-only-corrections
+ /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-tests-wo-06-008
+ /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/integration
+ /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/wt/u-docs-catalog-line-scope
+ /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/wt/u-docs-catalog-line-scope-a2
+ /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/wt/u-product-catalog-line-scope
+ /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/wt/u-product-catalog-line-scope-a2
+ /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/wt/u-tests-wo-06-010
+ /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/wt/u-tests-wo-06-010-a2
+QUEUE SOURCE /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl rows 74 2026-11-21T06:24:33.960+00:00 .. 2026-11-21T14:41:10.619+00:00
+TEST SOURCE /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/test-outcomes.jsonl 14344 2026-11-21T12:45:58.893+00:00 .. 2026-11-21T14:41:00.375+00:00
+INVENTORY discoveries {'build-journal.jsonl': 36, 'track.jsonl': 36, 'journal.jsonl': 8, 'perf-rollup.json': 8, 'perf-samples.jsonl': 8, 'gate-report.json': 38, 'green-stamp': 3, 'gate-reports/*.json': 4, 'queue-log.jsonl': 1, 'funko-overlay-upgrade-8-109.gate-report.json': 1, 'test-outcomes.jsonl': 1}
+ATTEMPT d893293c-a1f3-41e8-8d93-b0703bb33377 2026-11-21T06:24:33.960Z chore/overlay-9.6.2 c5fc3a81fe exit 11 outcome gate/certification rejected stamp miss gate 1 1083 lock_s 0 slot_s 0 land_sha None refs start:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:1,gate_end:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:9,end:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:11
+ATTEMPT 01cdac65-c9fe-4428-b6f9-daf55617d11f 2026-11-21T06:47:36.683Z chore/overlay-9.6.2 c5fc3a81fe exit 21 outcome owner release hold stamp miss gate 0 1387 lock_s 1 slot_s 0 land_sha None refs start:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:12,gate_end:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:20,end:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:23
+ATTEMPT fd1fe029-7dc4-422d-946f-d2e5031e8365 2026-11-21T07:11:05.556Z chore/overlay-9.6.2 c5fc3a81fe exit 21 outcome owner release hold stamp match gate None None lock_s 0 slot_s None land_sha None refs start:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:24,end:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:31
+ATTEMPT 85b28366-5896-4e9a-ae57-6664dfd7acf2 2026-11-21T07:16:43.046Z chore/overlay-9.6.2 c5fc3a81fe exit 21 outcome owner release hold stamp match gate None None lock_s 0 slot_s None land_sha None refs start:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:32,end:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:39
+ATTEMPT a960f419-e4c9-4d64-89b9-74499c3b88a0 2026-11-21T12:39:45.235Z chore/overlay-9.9.5 bb2745f3e9 exit 21 outcome owner release hold stamp miss gate 0 1080 lock_s 0 slot_s 0 land_sha None refs start:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:40,gate_end:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:48,end:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:51
+ATTEMPT 0bb0ca26-46f4-4716-80bd-8e75df6ca8db 2026-11-21T12:58:23.705Z chore/overlay-9.9.5 bb2745f3e9 exit 21 outcome owner release hold stamp match gate None None lock_s 0 slot_s None land_sha None refs start:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:52,end:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:59
+ATTEMPT 8f0ab3ea-0d1c-4ee8-8827-3d535cf41325 2026-11-21T14:27:43.872Z chore/overlay-9.9.5 bb2745f3e9 exit 0 outcome landed stamp miss gate 0 799 lock_s 1 slot_s 0 land_sha e205e106a8b93ef3bfddf0242c2c4d97d62ad3a8 refs start:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:60,gate_end:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:68,ff:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:71,end:/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/queue-log.jsonl:74
+QUEUE SUMMARY 2026-11-21T06:24:33.960+00:00 .. 2026-11-21T14:41:10.619+00:00 runs 7 exits {11: 1, 21: 5, 0: 1} outcomes {'gate/certification rejected': 1, 'owner release hold': 5, 'landed': 1} exit11 1/7 (14.29%) recorded gate rc!=0/16/75 1/7 (14.29%) repeat branch 5/7 (71.43%) repeat branch/head 5/7 (71.43%) ready events (without start) 0 stamp matched 3 requeues before landing [2] mean 2
+QUEUE OTHER CLOCKS {'env_step': (7, 1, 7, 7, 15), 'rebase': (7, 0, 0, 0, 0), 'start-to-exit': (7, 806.747, 1393.37, 1393.37, 4396.52)} first enqueue-to-ff (1, 7281.411, 7281.411, 7281.411, 7281.411)
+QUEUE GATES (4, 1081.5, 1387, 1387, 4349) rc {1: 1, 0: 3} summed 30d h 1.208056 union approx 30d h 1.208056
+QUEUE WAIT lock (7, 0, 1, 1, 2) summed 30d seconds 2.0
+QUEUE WAIT host slot (4, 0.0, 0, 0, 0) summed 30d seconds 0
+REPORT COHORT queue archive 4 2026-11-21T06:24:41.000+00:00 .. 2026-11-21T14:27:44.000+00:00
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-reports/01cdac65-c9fe-4428-b6f9-daf55617d11f.json at 2026-11-21T06:47:38Z scope full green True sha c5fc3a81fe85abe5f42107c7995b63bb8108210a subgates name:seconds:exit structure-guard:0.041:0,live-data-asserts:0.295:0,data-layer:0.876:0,api-error-contract:0.062:0,doc-lint:7.246:0,residual-ambiguity:1.406:0,biome:3.333:0,tsc:1.349:0,knip:3.722:0,madge:8.886:0,vitest:457.136:0,playwright:896.231:0,database-clean:4.845:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-reports/8f0ab3ea-0d1c-4ee8-8827-3d535cf41325.json at 2026-11-21T14:27:44Z scope full green True sha e205e106a8b93ef3bfddf0242c2c4d97d62ad3a8 subgates name:seconds:exit structure-guard:0.022:0,live-data-asserts:0.179:0,data-layer:0.419:0,api-error-contract:0.022:0,doc-lint:3.03:0,residual-ambiguity:0.601:0,biome:1.231:0,tsc:0.698:0,knip:1.743:0,madge:3.534:0,vitest:248.762:0,playwright:534.392:0,database-clean:3.172:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-reports/a960f419-e4c9-4d64-89b9-74499c3b88a0.json at 2026-11-21T12:39:52Z scope full green True sha bb2745f3e9db93ad53f79ee1625fb7c07a63e40f subgates name:seconds:exit structure-guard:0.038:0,live-data-asserts:0.206:0,data-layer:0.594:0,api-error-contract:0.042:0,doc-lint:5.089:0,residual-ambiguity:0.564:0,biome:1.457:0,tsc:3.244:0,knip:2.574:0,madge:6.223:0,vitest:345.355:0,playwright:707.92:0,database-clean:4.991:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-reports/d893293c-a1f3-41e8-8d93-b0703bb33377.json at 2026-11-21T06:24:41Z scope full green False sha c5fc3a81fe85abe5f42107c7995b63bb8108210a subgates name:seconds:exit structure-guard:0.04:0,live-data-asserts:0.2:0,data-layer:0.585:0,api-error-contract:0.042:0,doc-lint:6.309:0,residual-ambiguity:1.248:0,biome:2.692:0,tsc:7.525:0,knip:7.835:0,madge:10.087:0,vitest:655.493:0,playwright:389.764:1
+REPORT stage sums per report (4, 1080.059, 1385.428, 1385.428, 4343.35) category seconds and percent {'static': (91.935, 2.12), 'other': (16.362, 0.38), 'vitest': (1706.746, 39.3), 'playwright': (2528.307, 58.21)} 30d reported stage seconds {'static': 91.935, 'other': 16.362, 'vitest': 1706.746, 'playwright': 2528.307}
+STAGE playwright (4, 621.156, 896.231, 896.231, 2528.307) red 1
+STAGE vitest (4, 401.245, 655.493, 655.493, 1706.746) red 0
+STAGE madge (4, 7.554, 10.087, 10.087, 28.73) red 0
+STAGE doc-lint (4, 5.699, 7.246, 7.246, 21.674) red 0
+STAGE knip (4, 3.148, 7.835, 7.835, 15.874) red 0
+STAGE database-clean (3, 4.845, 4.991, 4.991, 13.008) red 0
+STAGE tsc (4, 2.296, 7.525, 7.525, 12.816) red 0
+STAGE biome (4, 2.075, 3.333, 3.333, 8.713) red 0
+STAGE residual-ambiguity (4, 0.924, 1.406, 1.406, 3.819) red 0
+STAGE data-layer (4, 0.589, 0.876, 0.876, 2.474) red 0
+STAGE live-data-asserts (4, 0.203, 0.295, 0.295, 0.88) red 0
+STAGE api-error-contract (4, 0.042, 0.062, 0.062, 0.168) red 0
+STAGE structure-guard (4, 0.039, 0.041, 0.041, 0.141) red 0
+PRIMARY RED STAGE {'playwright': 1}
+RED STAGES TOP 10 [('playwright', 1)]
+REPORT COHORT other reports 39 2026-10-18T19:52:58.000+00:00 .. 2026-11-21T15:58:36.000+00:00
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/catalog-line-scope/.pandacorp/run/build/wt/u-product-catalog-line-scope/.pandacorp/run/gate-report.json at 2026-11-21T15:40:09Z scope partial green True sha e205e106a8b93ef3bfddf0242c2c4d97d62ad3a8 subgates name:seconds:exit next-typegen:2.74:0,structure-guard:0.021:0,live-data-asserts:0.144:0,data-layer:0.336:0,api-error-contract:0.021:0,doc-lint:2.652:0,residual-ambiguity:0.528:0,biome:2.568:0,tsc:2.773:0,knip:3.086:0,madge:3.899:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/integration/.pandacorp/run/gate-report.json at 2026-11-18T22:18:57Z scope partial green True sha 12293c08a19a08647f4c8ae0e0ea3bc07b838a5a subgates name:seconds:exit structure-guard:0.158:0,live-data-asserts:3.344:0,data-layer:3.497:0,api-error-contract:0.319:0,doc-lint:16.035:0,residual-ambiguity:3.311:0,biome:10.977:0,tsc:33.562:0,knip:12.67:0,madge:7.333:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007/.pandacorp/run/gate-report.json at 2026-11-18T21:36:19Z scope partial green False sha 589c90b7bc3f7dda31528bebf9b1b722fe000b0f subgates name:seconds:exit structure-guard:0.026:0,live-data-asserts:0.135:0,data-layer:0.381:0,api-error-contract:0.022:0,doc-lint:3.103:0,residual-ambiguity:0.67:0,biome:1.067:0,tsc:0.922:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007-a2/.pandacorp/run/gate-report.json at 2026-11-18T21:42:45Z scope partial green False sha 589c90b7bc3f7dda31528bebf9b1b722fe000b0f subgates name:seconds:exit structure-guard:0.023:0,live-data-asserts:0.128:0,data-layer:0.357:0,api-error-contract:0.026:0,doc-lint:3.072:0,residual-ambiguity:0.653:0,biome:1.136:0,tsc:0.834:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007-rescue/.pandacorp/run/gate-report.json at 2026-11-18T22:55:55Z scope full green True sha 12293c08a19a08647f4c8ae0e0ea3bc07b838a5a subgates name:seconds:exit structure-guard:0.025:0,live-data-asserts:0.113:0,data-layer:0.396:0,api-error-contract:0.028:0,doc-lint:2.884:0,residual-ambiguity:0.615:0,biome:1.064:0,tsc:0.954:0,knip:1.656:0,madge:4.172:0,vitest:443.854:0,playwright:1037.416:0,database-clean:6.354:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-09-002/.pandacorp/run/gate-report.json at 2026-11-18T22:10:19Z scope partial green True sha 1d361ef42d92d8390f2392cddd4a17b8de5665f8 subgates name:seconds:exit structure-guard:0.047:0,live-data-asserts:0.489:0,data-layer:1.356:0,api-error-contract:0.17:0,doc-lint:15.499:0,residual-ambiguity:2.389:0,biome:4.091:0,tsc:4.239:0,knip:6.578:0,madge:12.025:0,vitest:203.964:0,database-clean:7.737:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-docs-hide-empty-series-and-research-window/.pandacorp/run/gate-report.json at 2026-11-18T21:11:44Z scope partial green True sha ce52e0c53888a6f7cdb5285e307caadc93bd7609 subgates name:seconds:exit structure-guard:0.032:0,live-data-asserts:0.231:0,data-layer:0.534:0,api-error-contract:0.032:0,doc-lint:5.893:0,residual-ambiguity:0.67:0,biome:2.868:0,tsc:10.048:0,knip:5.03:0,madge:9.393:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe/.pandacorp/run/gate-report.json at 2026-11-18T22:21:55Z scope partial green True sha 12293c08a19a08647f4c8ae0e0ea3bc07b838a5a subgates name:seconds:exit structure-guard:0.031:0,live-data-asserts:0.169:0,data-layer:0.381:0,api-error-contract:0.031:0,doc-lint:3.37:0,residual-ambiguity:0.6:0,biome:1.439:0,tsc:1.412:0,knip:1.596:0,madge:7.936:0,vitest:3.102:0,database-clean:4.565:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-a2/.pandacorp/run/gate-report.json at 2026-11-18T22:30:11Z scope partial green False sha 12293c08a19a08647f4c8ae0e0ea3bc07b838a5a subgates name:seconds:exit structure-guard:0.053:0,live-data-asserts:0.25:0,data-layer:0.551:0,api-error-contract:0.029:0,doc-lint:0.635:0,residual-ambiguity:0.405:0,biome:4.897:0,tsc:10.578:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-a3/.pandacorp/run/gate-report.json at 2026-11-18T22:40:21Z scope partial green False sha 12293c08a19a08647f4c8ae0e0ea3bc07b838a5a subgates name:seconds:exit structure-guard:0.025:0,live-data-asserts:0.109:0,data-layer:0.33:0,api-error-contract:0.026:0,doc-lint:0.476:0,residual-ambiguity:0.314:0,biome:3.62:0,tsc:4.115:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-rescue/.pandacorp/run/gate-report.json at 2026-11-18T23:24:17Z scope full green False sha 0e82cc62af992f41f3b263567aee9e2ca2027ea3 subgates name:seconds:exit structure-guard:0.029:0,live-data-asserts:0.211:0,data-layer:0.428:0,api-error-contract:0.023:0,doc-lint:3.069:0,residual-ambiguity:0.595:0,biome:2.909:0,tsc:6.075:0,knip:12.893:0,madge:12.641:0,vitest:70.854:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-product-hide-empty-series-and-research-window/.pandacorp/run/gate-report.json at 2026-11-18T20:56:31Z scope partial green False sha 2e23c4e0b611dab8cdc82fb359afd32853753eb7 subgates name:seconds:exit structure-guard:0.045:0,live-data-asserts:0.203:0,data-layer:0.599:0,api-error-contract:0.042:0,doc-lint:5.004:0,residual-ambiguity:0.922:0,biome:1.431:0,tsc:1.48:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-product-hide-empty-series-and-research-window-a2/.pandacorp/run/gate-report.json at 2026-11-18T20:59:32Z scope partial green True sha 2e23c4e0b611dab8cdc82fb359afd32853753eb7 subgates name:seconds:exit structure-guard:0.049:0,live-data-asserts:0.322:0,data-layer:0.749:0,api-error-contract:0.044:0,doc-lint:5.307:0,residual-ambiguity:0.922:0,biome:4.582:0,tsc:4.6:0,knip:4.674:0,madge:7.162:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-tests-wo-06-007/.pandacorp/run/gate-report.json at 2026-11-18T21:23:00Z scope partial green True sha cd55c1f0d4ab884f80e2f5c73e6cef64eaa7f680 subgates name:seconds:exit structure-guard:0.027:0,live-data-asserts:0.133:0,data-layer:0.362:0,api-error-contract:0.025:0,doc-lint:4.305:0,residual-ambiguity:0.632:0,biome:1.515:0,tsc:1.022:0,knip:1.636:0,madge:4.387:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/gate-report.json at 2026-11-18T23:57:17Z scope partial green False sha d51d07494d03c956e92902c9bafa284e416d4958 subgates name:seconds:exit playwright:288.866:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/nifty-haibt-c4dee1/.pandacorp/run/gate-report.json at 2026-11-21T00:16:13Z scope full green True sha e1482b63d04447167917b10403b10217200face7 subgates name:seconds:exit structure-guard:0.024:0,live-data-asserts:0.11:0,data-layer:0.315:0,api-error-contract:0.023:0,doc-lint:3.074:0,residual-ambiguity:0.649:0,biome:0.963:0,tsc:0.788:0,knip:1.641:0,madge:4.34:0,vitest:303.903:0,playwright:741.93:0,database-clean:2.578:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008/.pandacorp/run/gate-report.json at 2026-11-19T00:02:08Z scope partial green True sha a4b3c34c47b6774d8a7d3235880a1b1bbbb872e6 subgates name:seconds:exit structure-guard:0.025:0,live-data-asserts:0.152:0,data-layer:0.416:0,api-error-contract:0.025:0,doc-lint:3.085:0,residual-ambiguity:0.638:0,biome:1.468:0,tsc:0.952:0,knip:1.905:0,madge:5.497:0,vitest:36.627:0,database-clean:5.956:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-a2/.pandacorp/run/gate-report.json at 2026-11-19T00:06:16Z scope partial green False sha 7f4b9ca5714dff3f8c707a8079dbaeb03937883f subgates name:seconds:exit structure-guard:0.027:0,live-data-asserts:0.186:0,data-layer:0.409:0,api-error-contract:0.024:0,doc-lint:4.122:0,residual-ambiguity:0.789:0,biome:1.383:0,tsc:1.071:0,knip:2.463:0,madge:4.6:0,vitest:13.346:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-a3/.pandacorp/run/gate-report.json at 2026-11-19T00:10:27Z scope partial green True sha 7f4b9ca5714dff3f8c707a8079dbaeb03937883f subgates name:seconds:exit structure-guard:0.044:0,live-data-asserts:0.267:0,data-layer:0.707:0,api-error-contract:0.04:0,doc-lint:5.009:0,residual-ambiguity:0.902:0,biome:1.545:0,tsc:1.058:0,knip:2.583:0,madge:7.031:0,vitest:23.985:0,database-clean:6.15:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-rescue/.pandacorp/run/gate-report.json at 2026-11-19T00:12:39Z scope full green True sha 7f4b9ca5714dff3f8c707a8079dbaeb03937883f subgates name:seconds:exit structure-guard:0.042:0,live-data-asserts:0.29:0,data-layer:0.739:0,api-error-contract:0.045:0,doc-lint:5.24:0,residual-ambiguity:0.919:0,biome:3.636:0,tsc:5.525:0,knip:4.65:0,madge:7.203:0,vitest:384.149:0,playwright:986.706:0,database-clean:8.772:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-patch-g2-frd-06-franchise-backfill/.pandacorp/run/gate-report.json at 2026-11-19T00:38:03Z scope partial green False sha 2439a79e4c48e5b975f42471db4d7bb374a4245b subgates name:seconds:exit structure-guard:0.045:0,live-data-asserts:0.205:0,data-layer:0.612:0,api-error-contract:0.049:0,doc-lint:1.171:0,residual-ambiguity:0.43:0,biome:3.454:0,tsc:4.797:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-product-sweep-data-only-corrections/.pandacorp/run/gate-report.json at 2026-11-18T22:13:03Z scope partial green False sha c37727f00d278b9ff85045a11af035b7bf4d31fd subgates name:seconds:exit structure-guard:0.107:0,live-data-asserts:1.201:0,data-layer:1.316:0,api-error-contract:0.097:0,doc-lint:13.724:0,residual-ambiguity:3.0:0,biome:11.537:0,tsc:51.665:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-tests-wo-06-008/.pandacorp/run/gate-report.json at 2026-11-18T23:27:29Z scope partial green True sha 22f22b4671ecdbafa4bcf6a5352d749b75f82be8 subgates name:seconds:exit structure-guard:0.033:0,live-data-asserts:0.157:0,data-layer:0.417:0,api-error-contract:0.023:0,doc-lint:3.218:0,residual-ambiguity:0.592:0,biome:1.46:0,tsc:0.9:0,knip:1.763:0,madge:5.188:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/gate-report.json at 2026-11-19T02:24:23Z scope full green True sha ea6739fd76b0877207ebcf3150b14fd1d75dd32c subgates name:seconds:exit structure-guard:0.058:0,live-data-asserts:0.827:0,data-layer:0.794:0,api-error-contract:0.048:0,doc-lint:5.534:0,residual-ambiguity:0.956:0,biome:1.841:0,tsc:1.848:0,knip:2.706:0,madge:8.182:0,vitest:467.591:0,playwright:962.644:0,database-clean:6.789:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/wt/u-docs-catalog-line-scope/.pandacorp/run/gate-report.json at 2026-11-21T15:05:07Z scope partial green False sha d061ab0c4c64529e3cafad0b58134769b678e63a subgates name:seconds:exit structure-guard:0.02:0,live-data-asserts:0.171:0,data-layer:0.39:0,api-error-contract:0.021:0,doc-lint:2.691:0,residual-ambiguity:0.403:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/wt/u-docs-catalog-line-scope-a2/.pandacorp/run/gate-report.json at 2026-11-21T15:17:01Z scope partial green True sha d061ab0c4c64529e3cafad0b58134769b678e63a subgates name:seconds:exit structure-guard:0.019:0,live-data-asserts:0.167:0,data-layer:0.379:0,api-error-contract:0.021:0,doc-lint:2.695:0,residual-ambiguity:0.242:0,biome:2.427:0,tsc:2.685:0,knip:3.01:0,madge:3.631:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/wt/u-product-catalog-line-scope/.pandacorp/run/gate-report.json at 2026-11-21T14:36:56Z scope partial green False sha 8963bb836be3f0330d12be0bc4e95115a43d0a04 subgates name:seconds:exit structure-guard:0.02:0,live-data-asserts:0.105:0,data-layer:0.337:0,api-error-contract:0.021:0,doc-lint:2.88:0,residual-ambiguity:0.56:0,biome:2.465:0,tsc:2.784:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/wt/u-product-catalog-line-scope-a2/.pandacorp/run/gate-report.json at 2026-11-21T14:45:45Z scope partial green True sha 8963bb836be3f0330d12be0bc4e95115a43d0a04 subgates name:seconds:exit structure-guard:0.02:0,live-data-asserts:0.172:0,data-layer:0.385:0,api-error-contract:0.02:0,doc-lint:2.563:0,residual-ambiguity:0.515:0,biome:2.276:0,tsc:2.754:0,knip:3.014:0,madge:3.723:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/wt/u-tests-wo-06-010/.pandacorp/run/gate-report.json at 2026-11-21T15:17:27Z scope partial green False sha 9177c74f1f480e7e317731eb27d40b0af8a8b7be subgates name:seconds:exit structure-guard:0.023:0,live-data-asserts:0.112:0,data-layer:0.3:0,api-error-contract:0.023:0,doc-lint:0.611:0,residual-ambiguity:0.193:0,biome:2.166:0,tsc:2.546:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/wt/u-tests-wo-06-010-a2/.pandacorp/run/gate-report.json at 2026-11-21T15:17:53Z scope partial green False sha 9177c74f1f480e7e317731eb27d40b0af8a8b7be subgates name:seconds:exit structure-guard:0.022:0,live-data-asserts:0.111:0,data-layer:0.313:0,api-error-contract:0.021:0,doc-lint:0.625:0,residual-ambiguity:0.2:0,biome:2.193:0,tsc:2.824:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-01-catalog-browsing/gate-report.json at 2026-10-18T19:52:58Z scope full green False sha 6e987d1c147cda2dd4a8b421cf5fe8ee0a2bed41 subgates name:seconds:exit structure-guard:0.026:0,data-layer:0.316:0,api-error-contract:0.016:0,doc-lint:2.364:0,residual-ambiguity:0.642:0,biome:0.521:0,tsc:0.69:0,knip:1.597:0,madge:3.006:0,vitest:34.576:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-02-collectible-detail/gate-report.json at 2026-10-18T22:14:16Z scope since green False sha c40d2071519cede7a3cb172b7840535c09f7c1d9 subgates name:seconds:exit structure-guard:0.026:0,data-layer:0.4:0,api-error-contract:0.016:0,doc-lint:2.533:0,residual-ambiguity:0.616:0,biome:0.486:0,tsc:0.855:0,knip:1.788:0,madge:3.24:0,vitest:6.549:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-03-private-inventory/gate-report.json at 2026-10-19T00:33:38Z scope since green False sha 901d320ca1949a09b1cec8a6c5b68b72f08af9d5 subgates name:seconds:exit structure-guard:0.017:0,data-layer:0.19:0,api-error-contract:0.009:0,doc-lint:1.376:0,residual-ambiguity:0.397:0,biome:0.279:0,tsc:0.425:0,knip:0.747:0,madge:1.606:0,vitest:4.084:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-04-goals-and-to-get/gate-report.json at 2026-10-19T02:40:15Z scope since green False sha 002b99ae24a8d30ddd6016ecea50ceae9c4aae7b subgates name:seconds:exit structure-guard:0.014:0,data-layer:0.174:0,api-error-contract:0.008:0,doc-lint:1.355:0,residual-ambiguity:0.407:0,biome:0.301:0,tsc:0.398:0,knip:0.935:0,madge:1.858:0,vitest:3.602:1
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-06-franchise-backfill/gate-report.json at 2026-10-19T03:32:43Z scope since green True sha 5efba6fa36659f233dddf0dfcc76d49008f6b13d subgates name:seconds:exit structure-guard:0.037:0,data-layer:0.355:0,api-error-contract:0.013:0,doc-lint:3.061:0,residual-ambiguity:0.699:0,biome:0.676:0,tsc:1.787:0,knip:2.073:0,madge:4.31:0,vitest:28.766:0,playwright:38.875:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-08-help-contact-legal/gate-report.json at 2026-10-19T02:28:36Z scope since green True sha 868951ce89db76afcf292c4c19b7e3bb73615af8 subgates name:seconds:exit structure-guard:0.015:0,data-layer:0.243:0,api-error-contract:0.008:0,doc-lint:1.356:0,residual-ambiguity:0.403:0,biome:0.346:0,tsc:1.047:0,knip:0.928:0,madge:1.854:0,vitest:6.13:0,playwright:20.309:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-report.json at 2026-11-21T15:58:36Z scope partial green True sha e205e106a8b93ef3bfddf0242c2c4d97d62ad3a8 subgates name:seconds:exit structure-guard:0.024:0,live-data-asserts:0.674:0,data-layer:0.446:0,api-error-contract:0.024:0,doc-lint:3.381:0,residual-ambiguity:0.651:0,biome:1.106:0,tsc:0.91:0,knip:1.672:0,madge:3.507:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/scheduler-investigation/upgrade/funko-overlay-upgrade-8-109.gate-report.json at 2026-10-21T00:42:35Z scope full green True sha 0629bbf0ec4217f0caf97762e76eea7b6917ad34 subgates name:seconds:exit structure-guard:0.047:0,data-layer:0.647:0,api-error-contract:0.039:0,doc-lint:5.094:0,residual-ambiguity:0.829:0,biome:1.403:0,tsc:5.058:0,knip:2.878:0,madge:7.526:0,vitest:533.822:0,playwright:467.95:0
+REPORT /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/upgrade-9.4.1-evidence/gate-report.json at 2026-11-16T03:20:55Z scope full green False sha ca8b166dc4a3bd7e968be4f30785eabbc00abe83 subgates name:seconds:exit structure-guard:0.02:0,live-data-asserts:0.136:0,data-layer:0.314:0,api-error-contract:0.017:0,doc-lint:2.612:0,residual-ambiguity:0.582:0,biome:0.748:0,tsc:0.705:0,knip:1.38:2
+REPORT stage sums per report (39, 18.768, 1060.338, 1499.531, 7878.721) category seconds and percent {'other': (83.836, 1.06), 'static': (681.285, 8.65), 'vitest': (2568.904, 32.61), 'playwright': (4544.696, 57.68)} 30d reported stage seconds {'other': 81.511, 'static': 611.244, 'vitest': 1951.375, 'playwright': 4017.562}
+STAGE playwright (8, 604.94, 1037.416, 1037.416, 4544.696) red 1
+STAGE vitest (17, 34.576, 467.591, 533.822, 2568.904) red 6
+STAGE tsc (37, 1.787, 10.048, 51.665, 176.686) red 10
+STAGE doc-lint (38, 3.071, 5.893, 16.035, 150.678) red 0
+STAGE madge (26, 4.493, 9.393, 12.641, 145.25) red 0
+STAGE biome (37, 1.515, 4.582, 11.537, 88.844) red 0
+STAGE knip (27, 2.073, 6.578, 12.893, 87.552) red 1
+STAGE database-clean (8, 6.252, 8.772, 8.772, 48.901) red 0
+STAGE residual-ambiguity (38, 0.624, 0.956, 3.311, 29.44) red 1
+STAGE data-layer (38, 0.393, 0.794, 3.497, 21.171) red 0
+STAGE live-data-asserts (31, 0.171, 0.674, 3.344, 11.024) red 0
+STAGE next-typegen (1, 2.74, 2.74, 2.74, 2.74) red 0
+STAGE api-error-contract (38, 0.024, 0.049, 0.319, 1.489) red 0
+STAGE structure-guard (38, 0.026, 0.053, 0.158, 1.346) red 0
+PRIMARY RED STAGE {'tsc': 10, 'vitest': 6, 'playwright': 1, 'residual-ambiguity': 1, 'knip': 1}
+RED STAGES TOP 10 [('tsc', 10), ('vitest', 6), ('knip', 1), ('playwright', 1), ('residual-ambiguity', 1)]
+TEST SUMMARY 14344 2026-11-21T12:45:58.893+00:00 .. 2026-11-21T14:41:00.375+00:00 runner/status {('vitest', 'passed'): 13096, ('vitest', 'skipped'): 6, ('playwright', 'passed'): 1222, ('playwright', 'skipped'): 20} attempts 2 failures 0 distinct failed 0 same-tree distinct IDs 0 ID/tree pairs 0 suspects by runner {}
+
+PROJECT personal-page-v2 /Users/Shared/Proyectos/personal-page-v2
+WORKTREE ROOTS
+ personal-page-v2
+ /Users/Shared/Proyectos/personal-page-v2
+ /Users/Shared/Proyectos/personal-page-v2/.claude/worktrees/gallant-sanderson-f04745
+QUEUE SOURCE /Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl rows 75 2026-11-21T06:24:26.108+00:00 .. 2026-11-21T14:59:50.810+00:00
+TEST SOURCE /Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/test-outcomes.jsonl 4812 2026-11-21T13:00:37.576+00:00 .. 2026-11-21T14:59:46.962+00:00
+INVENTORY discoveries {'build-journal.jsonl': 2, 'track.jsonl': 2, 'gate-report.json': 1, 'gate-reports/*.json': 4, 'green-stamp': 1, 'queue-log.jsonl': 1, 'test-outcomes.jsonl': 1}
+ATTEMPT eefbc2c7-178f-4093-9ae3-201a1e07c36e 2026-11-21T06:24:26.108Z chore/overlay-9.6.2 ee7a6305ff exit 12 outcome main busy stamp None gate None None lock_s 0 slot_s None land_sha None refs start:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:1,end:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:4
+ATTEMPT 5afc3416-c69d-4711-bb11-53405f5478d0 2026-11-21T06:41:19.149Z chore/overlay-9.6.2 ee7a6305ff exit 20 outcome queue usage/lock error stamp None gate None None lock_s 0 slot_s None land_sha None refs start:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:5,end:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:9
+ATTEMPT 630d580e-14df-4361-a3ed-6d6ad59a9436 2026-11-21T06:41:36.772Z chore/overlay-9.6.2 fe215266bb exit 21 outcome owner release hold stamp miss gate 0 129 lock_s 1 slot_s 66 land_sha None refs start:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:10,gate_end:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:18,end:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:21
+ATTEMPT 7e982c22-3743-4678-b18e-d0dcf0d18938 2026-11-21T06:45:04.775Z chore/overlay-9.6.2 fe215266bb exit 21 outcome owner release hold stamp match gate None None lock_s 1 slot_s None land_sha None refs start:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:22,end:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:29
+ATTEMPT 723feb1d-222e-48e1-807b-afe71bae49ff 2026-11-21T13:00:04.143Z chore/overlay-9.9.5 92588fc4c7 exit 21 outcome owner release hold stamp miss gate 0 101 lock_s 0 slot_s 0 land_sha None refs start:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:30,gate_end:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:38,end:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:41
+ATTEMPT c166da82-0187-41f3-bcd2-68ef60f2e813 2026-11-21T13:01:56.814Z chore/overlay-9.9.5 92588fc4c7 exit 21 outcome owner release hold stamp match gate None None lock_s 0 slot_s None land_sha None refs start:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:42,end:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:49
+ATTEMPT e843af86-9176-4e03-b7d8-52b8b6241b2f 2026-11-21T14:25:43.388Z chore/overlay-9.9.5 92588fc4c7 exit 11 outcome gate/certification rejected stamp miss gate 1 104 lock_s 0 slot_s 0 land_sha None refs start:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:50,gate_end:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:58,end:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:60
+ATTEMPT 6f66602c-c3df-4366-a85d-ec41df3b6287 2026-11-21T14:58:22.462Z chore/overlay-9.9.5 32971cc00b exit 0 outcome landed stamp miss gate 0 84 lock_s 0 slot_s 0 land_sha 32971cc00b0c142fd9e40d83d882dd33784c932b refs start:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:61,gate_end:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:69,ff:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:72,end:/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/queue-log.jsonl:75
+QUEUE SUMMARY 2026-11-21T06:24:26.108+00:00 .. 2026-11-21T14:59:50.810+00:00 runs 8 exits {12: 1, 20: 1, 21: 4, 11: 1, 0: 1} outcomes {'main busy': 1, 'queue usage/lock error': 1, 'owner release hold': 4, 'gate/certification rejected': 1, 'landed': 1} exit11 1/8 (12.50%) recorded gate rc!=0/16/75 1/8 (12.50%) repeat branch 6/8 (75.00%) repeat branch/head 4/8 (50.00%) ready events (without start) 0 stamp matched 2 requeues before landing [3] mean 3
+QUEUE OTHER CLOCKS {'start-to-exit': (8, 45.71, 198.543, 198.543, 502.957), 'rebase': (7, 0, 0, 0, 0), 'env_step': (6, 1.0, 2, 2, 6)} first enqueue-to-ff (1, 7183.557, 7183.557, 7183.557, 7183.557)
+QUEUE GATES (4, 102.5, 129, 129, 418) rc {0: 3, 1: 1} summed 30d h 0.116111 union approx 30d h 0.116111
+QUEUE WAIT lock (8, 0.0, 1, 1, 2) summed 30d seconds 2.0
+QUEUE WAIT host slot (4, 0.0, 66, 66, 66) summed 30d seconds 66.0
+REPORT COHORT queue archive 4 2026-11-21T06:42:45.000+00:00 .. 2026-11-21T14:58:23.000+00:00
+REPORT /Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/gate-reports/630d580e-14df-4361-a3ed-6d6ad59a9436.json at 2026-11-21T06:42:45Z scope full green True sha fe215266bbdb045bd64d931a4601280223626742 subgates name:seconds:exit structure-guard:0.043:0,live-data-asserts:0.135:0,data-layer:0.024:0,api-error-contract:0.013:0,doc-lint:3.92:0,residual-ambiguity:0.159:0,biome:1.067:0,tsc:3.888:0,knip:1.6:0,madge:2.231:0,vitest:35.597:0,playwright:78.268:0
+REPORT /Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/gate-reports/6f66602c-c3df-4366-a85d-ec41df3b6287.json at 2026-11-21T14:58:23Z scope full green True sha 32971cc00b0c142fd9e40d83d882dd33784c932b subgates name:seconds:exit structure-guard:0.012:0,live-data-asserts:0.036:0,data-layer:0.004:0,api-error-contract:0.003:0,doc-lint:1.276:0,residual-ambiguity:0.046:0,biome:0.262:0,tsc:0.952:0,knip:0.607:0,madge:0.883:0,vitest:19.229:0,playwright:59.821:0
+REPORT /Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/gate-reports/723feb1d-222e-48e1-807b-afe71bae49ff.json at 2026-11-21T13:00:06Z scope full green True sha 92588fc4c7d1080868cb6554002d07878227c207 subgates name:seconds:exit structure-guard:0.022:0,live-data-asserts:0.067:0,data-layer:0.008:0,api-error-contract:0.007:0,doc-lint:2.03:0,residual-ambiguity:0.079:0,biome:0.655:0,tsc:3.554:0,knip:1.25:0,madge:1.505:0,vitest:21.363:0,playwright:68.092:0
+REPORT /Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/gate-reports/e843af86-9176-4e03-b7d8-52b8b6241b2f.json at 2026-11-21T14:25:44Z scope full green False sha 92588fc4c7d1080868cb6554002d07878227c207 subgates name:seconds:exit structure-guard:0.015:0,live-data-asserts:0.056:0,data-layer:0.004:0,api-error-contract:0.004:0,doc-lint:1.305:0,residual-ambiguity:0.054:0,biome:1.018:0,tsc:1.203:0,knip:0.935:0,madge:1.004:0,vitest:21.361:0,playwright:76.215:1,playwright-policy:0.0:1
+REPORT stage sums per report (4, 100.903, 126.945, 126.945, 411.882) category seconds and percent {'static': (31.602, 7.67), 'other': (0.334, 0.08), 'vitest': (97.55, 23.68), 'playwright': (282.396, 68.56)} 30d reported stage seconds {'static': 31.602, 'other': 0.334, 'vitest': 97.55, 'playwright': 282.396}
+STAGE playwright (4, 72.154, 78.268, 78.268, 282.396) red 1
+STAGE vitest (4, 21.362, 35.597, 35.597, 97.55) red 0
+STAGE tsc (4, 2.378, 3.888, 3.888, 9.597) red 0
+STAGE doc-lint (4, 1.667, 3.92, 3.92, 8.531) red 0
+STAGE madge (4, 1.254, 2.231, 2.231, 5.623) red 0
+STAGE knip (4, 1.093, 1.6, 1.6, 4.392) red 0
+STAGE biome (4, 0.837, 1.067, 1.067, 3.002) red 0
+STAGE residual-ambiguity (4, 0.067, 0.159, 0.159, 0.338) red 0
+STAGE live-data-asserts (4, 0.061, 0.135, 0.135, 0.294) red 0
+STAGE structure-guard (4, 0.018, 0.043, 0.043, 0.092) red 0
+STAGE data-layer (4, 0.006, 0.024, 0.024, 0.04) red 0
+STAGE api-error-contract (4, 0.005, 0.013, 0.013, 0.027) red 0
+STAGE playwright-policy (1, 0.0, 0.0, 0.0, 0.0) red 1
+PRIMARY RED STAGE {'playwright': 1}
+RED STAGES TOP 10 [('playwright', 1), ('playwright-policy', 1)]
+REPORT COHORT other reports 1 2026-11-13T01:38:38.000+00:00 .. 2026-11-13T01:38:38.000+00:00
+REPORT /Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/gate-report.json at 2026-11-13T01:38:38Z scope full green True sha a8c00853a844c93a14f0b792ee2212079b6f8f36 subgates name:seconds:exit structure-guard:0.038:0,live-data-asserts:0.123:0,data-layer:0.011:0,api-error-contract:0.008:0,doc-lint:3.651:0,residual-ambiguity:0.117:0,biome:0.725:0,tsc:3.026:0,knip:1.663:0,madge:2.007:0,vitest:58.024:0,playwright:160.631:0
+REPORT stage sums per report (1, 230.024, 230.024, 230.024, 230.024) category seconds and percent {'static': (11.235, 4.88), 'other': (0.134, 0.06), 'vitest': (58.024, 25.23), 'playwright': (160.631, 69.83)} 30d reported stage seconds {'static': 11.235, 'other': 0.134, 'vitest': 58.024, 'playwright': 160.631}
+STAGE playwright (1, 160.631, 160.631, 160.631, 160.631) red 0
+STAGE vitest (1, 58.024, 58.024, 58.024, 58.024) red 0
+STAGE doc-lint (1, 3.651, 3.651, 3.651, 3.651) red 0
+STAGE tsc (1, 3.026, 3.026, 3.026, 3.026) red 0
+STAGE madge (1, 2.007, 2.007, 2.007, 2.007) red 0
+STAGE knip (1, 1.663, 1.663, 1.663, 1.663) red 0
+STAGE biome (1, 0.725, 0.725, 0.725, 0.725) red 0
+STAGE live-data-asserts (1, 0.123, 0.123, 0.123, 0.123) red 0
+STAGE residual-ambiguity (1, 0.117, 0.117, 0.117, 0.117) red 0
+STAGE structure-guard (1, 0.038, 0.038, 0.038, 0.038) red 0
+STAGE data-layer (1, 0.011, 0.011, 0.011, 0.011) red 0
+STAGE api-error-contract (1, 0.008, 0.008, 0.008, 0.008) red 0
+PRIMARY RED STAGE {}
+RED STAGES TOP 10 []
+SAME-TREE ('personal-page-v2', 'playwright', 'blog-cover-alt.spec.ts > blog-cover-alt.spec.ts > Blog cover alt text reaches the browser from the committed MDX > /en/blog loads its cover with no failed request [mobile]') 2cdf469b1fa3448789073315a973f180a6594358 [('/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/test-outcomes.jsonl:1571', 'passed', '723feb1d-222e-48e1-807b-afe71bae49ff', 0), ('/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/test-outcomes.jsonl:3182', 'failed', 'e843af86-9176-4e03-b7d8-52b8b6241b2f', 0)]
+TEST SUMMARY 4812 2026-11-21T13:00:37.576+00:00 .. 2026-11-21T14:59:46.962+00:00 runner/status {('vitest', 'passed'): 4182, ('playwright', 'passed'): 629, ('playwright', 'failed'): 1} attempts 3 failures 1 distinct failed 1 same-tree distinct IDs 1 ID/tree pairs 1 suspects by runner {'playwright': 1}
+TEST FAIL 1 ('personal-page-v2', 'playwright', 'blog-cover-alt.spec.ts > blog-cover-alt.spec.ts > Blog cover alt text reaches the browser from the committed MDX > /en/blog loads its cover with no failed request [mobile]') same-tree suspect True /Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/test-outcomes.jsonl:3182
+
+OVERALL
+QUEUE SUMMARY 2026-11-21T06:24:26.108+00:00 .. 2026-11-21T14:59:50.810+00:00 runs 26 exits {12: 1, 20: 2, 11: 8, 0: 5, 21: 9, 10: 1} outcomes {'main busy': 1, 'queue usage/lock error': 2, 'gate/certification rejected': 8, 'landed': 5, 'owner release hold': 9, 'rebase conflict': 1} exit11 8/26 (30.77%) recorded gate rc!=0/16/75 8/26 (30.77%) repeat branch 19/26 (73.08%) repeat branch/head 11/26 (42.31%) ready events (without start) 0 stamp matched 5 requeues before landing [3, 2, 3, 2, 3] mean 2.6
+QUEUE OTHER CLOCKS {'start-to-exit': (26, 93.632, 1098.764, 1393.37, 8230.424), 'rebase': (25, 0, 0, 1, 2), 'env_step': (22, 1.0, 5, 7, 39)} first enqueue-to-ff (5, 3139.134, 7281.411, 7281.411, 22379.481)
+QUEUE GATES (17, 298, 1093, 1387, 7953) rc {1: 8, 0: 9} summed 30d h 2.209167 union approx 30d h 1.774858
+QUEUE WAIT lock (26, 0.0, 1, 1, 5) summed 30d seconds 5.0
+QUEUE WAIT host slot (17, 0, 66, 101, 172) summed 30d seconds 172.0
+REPORT COHORT queue archive 17 2026-11-21T06:24:41.000+00:00 .. 2026-11-21T14:58:23.000+00:00
+REPORT stage sums per report (17, 295.982, 1084.455, 1385.428, 7908.365) category seconds and percent {'static': (422.786, 5.35), 'other': (18.8, 0.24), 'vitest': (2527.461, 31.96), 'playwright': (4939.318, 62.46)} 30d reported stage seconds {'static': 422.786, 'other': 18.8, 'vitest': 2527.461, 'playwright': 4939.318}
+STAGE playwright (13, 389.764, 896.231, 910.529, 4939.318) red 4
+STAGE vitest (16, 62.017, 457.136, 655.493, 2527.461) red 2
+STAGE doc-lint (17, 13.242, 18.561, 26.242, 171.405) red 0
+STAGE tsc (16, 3.399, 14.345, 27.32, 97.348) red 0
+STAGE madge (16, 3.436, 8.886, 10.087, 68.043) red 0
+STAGE knip (16, 1.893, 7.139, 7.835, 45.389) red 0
+STAGE biome (17, 1.067, 3.333, 4.232, 26.967) red 1
+STAGE database-clean (3, 4.845, 4.991, 4.991, 13.008) red 0
+STAGE residual-ambiguity (17, 0.601, 1.406, 2.71, 12.657) red 0
+STAGE live-data-asserts (17, 0.179, 0.295, 0.427, 3.204) red 0
+STAGE data-layer (17, 0.008, 0.594, 0.876, 2.588) red 0
+STAGE structure-guard (17, 0.038, 0.057, 0.08, 0.645) red 0
+STAGE api-error-contract (17, 0.014, 0.042, 0.062, 0.332) red 0
+STAGE vitest-policy (2, 0.0, 0.0, 0.0, 0.0) red 2
+STAGE playwright-policy (1, 0.0, 0.0, 0.0, 0.0) red 1
+PRIMARY RED STAGE {'vitest': 2, 'playwright': 4, 'vitest-policy': 1, 'biome': 1}
+RED STAGES TOP 10 [('playwright', 4), ('vitest', 2), ('vitest-policy', 2), ('biome', 1), ('playwright-policy', 1)]
+REPORT COHORT other reports 60 2026-09-26T04:30:52.000+00:00 .. 2026-11-21T15:59:37.000+00:00
+REPORT stage sums per report (60, 33.322, 261.712, 1499.531, 9733.666) category seconds and percent {'static': (1048.034, 10.77), 'other': (84.701, 0.87), 'vitest': (3252.984, 33.42), 'playwright': (5347.947, 54.94)} 30d reported stage seconds {'static': 744.251, 'other': 82.274, 'vitest': 2208.716, 'playwright': 4178.193}
+STAGE playwright (21, 59.225, 962.644, 1037.416, 5347.947) red 1
+STAGE vitest (34, 26.127, 384.149, 533.822, 3252.984) red 10
+STAGE doc-lint (59, 3.085, 9.23, 33.301, 273.872) red 0
+STAGE tsc (57, 2.301, 10.048, 51.665, 269.21) red 10
+STAGE madge (46, 3.931, 9.393, 13.259, 217.972) red 0
+STAGE knip (47, 1.763, 4.772, 12.893, 126.839) red 1
+STAGE biome (58, 1.417, 3.818, 11.537, 117.192) red 1
+STAGE database-clean (8, 6.252, 8.772, 8.772, 48.901) red 0
+STAGE residual-ambiguity (59, 0.56, 1.688, 3.311, 39.172) red 1
+STAGE data-layer (59, 0.33, 0.739, 3.497, 21.32) red 0
+STAGE live-data-asserts (35, 0.171, 0.674, 3.344, 11.74) red 0
+STAGE next-typegen (1, 2.74, 2.74, 2.74, 2.74) red 0
+STAGE structure-guard (59, 0.027, 0.054, 0.158, 2.064) red 0
+STAGE api-error-contract (59, 0.021, 0.045, 0.319, 1.713) red 0
+PRIMARY RED STAGE {'biome': 1, 'vitest': 10, 'tsc': 10, 'playwright': 1, 'residual-ambiguity': 1, 'knip': 1}
+RED STAGES TOP 10 [('tsc', 10), ('vitest', 10), ('biome', 1), ('knip', 1), ('playwright', 1), ('residual-ambiguity', 1)]
+SAME-TREE ('personal-page-v2', 'playwright', 'blog-cover-alt.spec.ts > blog-cover-alt.spec.ts > Blog cover alt text reaches the browser from the committed MDX > /en/blog loads its cover with no failed request [mobile]') 2cdf469b1fa3448789073315a973f180a6594358 [('/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/test-outcomes.jsonl:1571', 'passed', '723feb1d-222e-48e1-807b-afe71bae49ff', 0), ('/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/test-outcomes.jsonl:3182', 'failed', 'e843af86-9176-4e03-b7d8-52b8b6241b2f', 0)]
+TEST SUMMARY 47312 2026-11-21T09:26:49.620+00:00 .. 2026-11-21T14:59:46.962+00:00 runner/status {('vitest', 'passed'): 43613, ('vitest', 'skipped'): 40, ('vitest', 'failed'): 1, ('playwright', 'passed'): 3637, ('playwright', 'skipped'): 20, ('playwright', 'failed'): 1} attempts 10 failures 2 distinct failed 2 same-tree distinct IDs 1 ID/tree pairs 1 suspects by runner {'playwright': 1}
+TEST FAIL 1 ('mission-control', 'vitest', 'src/app/manual/_tests/manualSingleSource.test.ts > Manual pages have one source of content concepts/hooks-gates-seguridad: the .md of a bespoke page is an index stub, not prose') same-tree suspect False /Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/test-outcomes.jsonl:4117
+TEST FAIL 1 ('personal-page-v2', 'playwright', 'blog-cover-alt.spec.ts > blog-cover-alt.spec.ts > Blog cover alt text reaches the browser from the committed MDX > /en/blog loads its cover with no failed request [mobile]') same-tree suspect True /Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/test-outcomes.jsonl:3182

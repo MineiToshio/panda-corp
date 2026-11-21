@@ -1,0 +1,63 @@
+mission-control
+lock_acquired waited_s (11, 0, 0, 1)
+slot_acquired waited_s (9, 0, 0, 101)
+env_step duration_s (9, 1, 0, 5)
+rebase duration_s (11, 0, 0, 1)
+gate_end duration_s (9, 298, 16, 1093)
+end duration_s -
+gate rc Counter({1: 6, 0: 3}) stamp Counter({'miss': 9})
+full gate outcomes
+14 1 298 chore/mc-overlay-9.6.2 (16, ['mission-control/.pandacorp/green-stamp.sh', 'mission-control/.pandacorp/guide.md', 'mission-control/.pandacorp/merge-queue.sh'])
+25 1 338 chore/mc-overlay-9.6.2 (16, ['mission-control/.pandacorp/green-stamp.sh', 'mission-control/.pandacorp/guide.md', 'mission-control/.pandacorp/merge-queue.sh'])
+36 0 1093 chore/mc-overlay-9.6.2 (16, ['mission-control/.pandacorp/green-stamp.sh', 'mission-control/.pandacorp/guide.md', 'mission-control/.pandacorp/merge-queue.sh'])
+55 1 87 feat/p43-phase2-mc (66, ['factory/decision-log.md', 'factory/decisions/registry.yaml', 'factory/standards/build-orchestration.md'])
+66 0 593 feat/p43-phase2-mc (68, ['factory/decision-log.md', 'factory/decisions/registry.yaml', 'factory/standards/build-orchestration.md'])
+80 1 16 feat/p43-phase3 (40, ['.gitignore', 'factory/decision-log.md', 'factory/decisions/registry.yaml'])
+91 1 93 feat/p43-phase3 (40, ['.gitignore', 'factory/decision-log.md', 'factory/decisions/registry.yaml'])
+102 1 79 feat/p43-phase3 (43, ['.gitignore', 'factory/decision-log.md', 'factory/decisions/registry.yaml'])
+113 0 589 feat/p43-phase3 (45, ['.gitignore', 'factory/decision-log.md', 'factory/decisions/registry.yaml'])
+gate-budget.json False
+test-exclusions.json False
+exclusion-owner.pub False
+physical e2e snapshots 10
+green full attempts [(36, 1093), (66, 593), (113, 589)]
+funko-tracker
+lock_acquired waited_s (7, 0, 0, 1)
+slot_acquired waited_s (4, 0.0, 0, 0)
+env_step duration_s (7, 1, 0, 7)
+rebase duration_s (7, 0, 0, 0)
+gate_end duration_s (4, 1081.5, 799, 1387)
+end duration_s -
+gate rc Counter({0: 3, 1: 1}) stamp Counter({'miss': 4, 'match': 3})
+full gate outcomes
+9 1 1083 chore/overlay-9.6.2 (9, ['.pandacorp/green-stamp.sh', '.pandacorp/guide.md', '.pandacorp/merge-queue.sh'])
+20 0 1387 chore/overlay-9.6.2 (9, ['.pandacorp/green-stamp.sh', '.pandacorp/guide.md', '.pandacorp/merge-queue.sh'])
+48 0 1080 chore/overlay-9.9.5 (19, ['.pandacorp/doc-lint.sh', '.pandacorp/green-stamp.sh', '.pandacorp/guide.md'])
+68 0 799 chore/overlay-9.9.5 (19, ['.pandacorp/doc-lint.sh', '.pandacorp/green-stamp.sh', '.pandacorp/guide.md'])
+gate-budget.json False
+test-exclusions.json False
+exclusion-owner.pub False
+physical e2e snapshots 0
+green full attempts [(20, 1387), (48, 1080), (68, 799)]
+personal-page-v2
+lock_acquired waited_s (8, 0.0, 0, 1)
+slot_acquired waited_s (4, 0.0, 0, 66)
+env_step duration_s (6, 1.0, 0, 2)
+rebase duration_s (7, 0, 0, 0)
+gate_end duration_s (4, 102.5, 84, 129)
+end duration_s -
+gate rc Counter({0: 3, 1: 1}) stamp Counter({'miss': 4, 'match': 2})
+full gate outcomes
+18 0 129 chore/overlay-9.6.2 (14, ['.pandacorp/green-stamp.sh', '.pandacorp/guide.md', '.pandacorp/merge-queue.sh'])
+38 0 101 chore/overlay-9.9.5 (19, ['.pandacorp/canary.sh', '.pandacorp/doc-lint.sh', '.pandacorp/green-stamp.sh'])
+58 1 104 chore/overlay-9.9.5 (19, ['.pandacorp/canary.sh', '.pandacorp/doc-lint.sh', '.pandacorp/green-stamp.sh'])
+69 0 84 chore/overlay-9.9.5 (22, ['.pandacorp/canary.sh', '.pandacorp/doc-lint.sh', '.pandacorp/green-stamp.sh'])
+gate-budget.json False
+test-exclusions.json False
+exclusion-owner.pub False
+physical e2e snapshots 16
+green full attempts [(18, 129), (38, 101), (69, 84)]
+FT journal build-archive/br-2026-11-13-01/journal.jsonl completed jobs n/median/min/max {} G2 pins {}
+FT journal build-archive/br-2026-11-16-01/journal.jsonl completed jobs n/median/min/max {} G2 pins {}
+FT journal build-suspended/br-2026-11-13-02/journal.jsonl completed jobs n/median/min/max {('land', 'done', 11): (2, 343.679, 299.759, 387.599), ('g2', 'done', 0): (39, 152.772, 143.765, 698.107)} G2 pins {('ce047e0b16c3b8c6a61cb4e701812968b53b0ecd', 0, None): 39}
+FT journal build-suspended/br-2026-11-14-01/journal.jsonl completed jobs n/median/min/max {('g2', 'done', 0): (2, 106.748, 84.61, 128.886)} G2 pins {('646d2b80068d6d3262d7d23d09b772b8d62e6012', 0, None): 1, ('d712d1edd1c53cc95d1074926dbc53d6630d051d', 0, None): 1}

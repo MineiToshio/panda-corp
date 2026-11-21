@@ -1,0 +1,57 @@
+verify.sh [(1464, '130be29f0ac9'), (1464, '130be29f0ac9'), (1464, '130be29f0ac9'), (1464, '130be29f0ac9')]
+merge-queue.sh [(1021, '3ddf483df71d'), (1021, '3ddf483df71d'), (1021, '3ddf483df71d'), (1021, '3ddf483df71d')]
+with-merge-lock.sh [(29, 'a8ff8b89941e'), (29, 'a8ff8b89941e'), (29, 'a8ff8b89941e'), (29, 'a8ff8b89941e')]
+green-stamp.sh [(307, '831b65022d4d'), (307, '831b65022d4d'), (307, '831b65022d4d'), (307, '831b65022d4d')]
+change-reconcile.mjs [(324, '2407c9496cbc'), (324, '2407c9496cbc'), (324, '2407c9496cbc'), (324, '2407c9496cbc')]
+session-cleanup.sh [(10, 'c39c5b193847'), (10, 'c39c5b193847'), (10, 'c39c5b193847'), (10, 'c39c5b193847')]
+doc-lint.sh [(321, 'b4190e02d51a'), (321, 'b4190e02d51a'), (321, 'b4190e02d51a'), (321, 'b4190e02d51a')]
+test-gate-policy.mjs [(360, '2a2fc0026c26'), (360, '2a2fc0026c26'), (360, '2a2fc0026c26'), (360, '2a2fc0026c26')]
+canary.sh [(200, 'f18a163e9bf2'), (200, 'f18a163e9bf2'), (200, 'f18a163e9bf2'), (200, 'f18a163e9bf2')]
+vitest-policy.ts [(73, '0d241d2ae105'), (73, '0d241d2ae105'), (73, '0d241d2ae105'), (73, '0d241d2ae105')]
+Stage selection 12 fixed calls 17 unique 14 ['api-error-contract', 'biome', 'data-layer', 'database-clean', 'doc-lint', 'knip', 'live-data-asserts', 'madge', 'next-typegen', 'playwright', 'residual-ambiguity', 'structure-guard', 'tsc', 'vitest'] runtime policy rows vitest-policy/playwright-policy via record_gate_result
+rule README.md 0 0 0
+rule accessibility.md 0 0 0
+rule ai-implementation.md 0 0 0
+rule api-design.md 1 0 1
+rule clean-code.md 0 0 0
+rule code-conventions.md 1 0 1
+rule debugging.md 0 0 0
+rule documentation-and-decisions.md 0 0 0
+rule error-handling.md 0 0 0
+rule external-services.md 2 0 2
+rule logical-data-model.md 2 0 2
+rule nextjs.md 0 0 0
+rule project-structure.md 0 0 0
+rule quality-and-testing.md 3 2 5
+rule react.md 0 0 0
+rule resilience.md 0 0 0
+rule styling-and-ui.md 0 0 0
+rule typescript.md 0 0 0
+rule web-performance.md 0 0 0
+rule totals 19 9 2 11
+DR selected 73 registry 165 DR-003 DR-004 DR-006 DR-015 DR-016 DR-017 DR-019 DR-023 DR-027 DR-028 DR-038 DR-040 DR-046 DR-048 DR-050 DR-051 DR-052 DR-054 DR-055 DR-056 DR-059 DR-062 DR-063 DR-065 DR-067 DR-070 DR-071 DR-072 DR-073 DR-074 DR-075 DR-076 DR-077 DR-079 DR-080 DR-085 DR-088 DR-090 DR-091 DR-093 DR-094 DR-096 DR-097 DR-099 DR-100 DR-102 DR-104 DR-105 DR-106 DR-107 DR-108 DR-112 DR-116 DR-117 DR-118 DR-122 DR-124 DR-125 DR-130 DR-131 DR-138 DR-140 DR-141 DR-143 DR-144 DR-146 DR-152 DR-158 DR-159 DR-161 DR-162 DR-164 DR-165
+mission-control vitest 540 4547 with modifiers 4716 PW 72 baselines 10 visual.spec baselines 10 unitLOC 78483 pwLOC 6957 srcLOC 152374 non-test srcLOC 69220
+suite paths Counter({'src': 536, 'content': 2, 'scripts': 2}) baseline dirs Counter({'visual.spec.ts-snapshots': 10})
+queue-log.jsonl 118 Counter({'start': 11, 'lock_wait': 11, 'lock_acquired': 11, 'rebase': 11, 'end': 11, 'env_step': 9, 'stamp_check': 9, 'slot_acquired': 9, 'gate_start': 9, 'gate_end': 9, 'slot_released': 9, 'order_check': 3, 'ff': 3, 'reconcile': 3}) samples [('reconcile', None, None, '2026-11-21T12:35:59.487Z'), ('end', None, None, '2026-11-21T12:35:59.568Z')]
+test-outcomes.jsonl 28161 Counter({'passed': 28126, 'skipped': 34, 'failed': 1}) samples [(None, None, None, '2026-11-21T12:35:52.857Z'), (None, None, None, '2026-11-21T12:35:52.857Z')]
+archive [('01d59110-b70b-42d7-9b42-3a82977742c3.json', 'full', None, 12), ('0ab31f4d-b393-4465-979c-d5914abe584d.json', 'full', None, 12), ('239307b7-7c0f-44f8-bf36-ca01abaf496e.json', 'full', None, 12), ('3f98fcb6-4e32-4c03-9c52-65576f62eb68.json', 'full', None, 12), ('42320f6c-2963-41a8-9be4-22b56506577d.json', 'full', None, 12), ('732924db-dcec-4b5d-91ab-248c86ca9206.json', 'full', None, 12), ('9e5120b5-338d-431b-897c-f8d35267b408.json', 'full', None, 12), ('b3214d18-ab1a-48d5-ace7-3cc11b652edc.json', 'full', None, 11), ('e325c9ce-246f-4775-a091-b2859d02de32.json', 'full', None, 7)]
+subgate success n,median,min,max ms {'structure-guard': (9, 39, 37, 80), 'live-data-asserts': (9, 221, 157, 427), 'data-layer': (9, 8, 7, 10), 'api-error-contract': (9, 14, 13, 25), 'doc-lint': (9, 13566, 13242, 26242), 'residual-ambiguity': (9, 707, 506, 2710), 'biome': (8, 1158.0, 826, 4232), 'tsc': (8, 8240.5, 2246, 27320), 'knip': (8, 2177.0, 1755, 7139), 'madge': (8, 3435.5, 3120, 7382), 'vitest': (6, 98264.0, 56597, 166012), 'playwright': (3, 503607, 500757, 910529)}
+latest [('gate-report.json', 'partial', None, 10)]
+subgate success n,median,min,max ms {'structure-guard': (1, 18, 18, 18), 'live-data-asserts': (1, 136, 136, 136), 'data-layer': (1, 4, 4, 4), 'api-error-contract': (1, 7, 7, 7), 'doc-lint': (1, 7455, 7455, 7455), 'residual-ambiguity': (1, 1688, 1688, 1688), 'biome': (1, 629, 629, 629), 'tsc': (1, 1332, 1332, 1332), 'knip': (1, 1130, 1130, 1130), 'madge': (1, 1698, 1698, 1698)}
+funko-tracker vitest 889 3591 with modifiers 4164 PW 72 baselines 0 visual.spec baselines 0 unitLOC 111766 pwLOC 7363 srcLOC 156083 non-test srcLOC 79011
+suite paths Counter({'src': 657, 'scripts': 232}) baseline dirs Counter()
+queue-log.jsonl 74 Counter({'start': 7, 'lock_wait': 7, 'lock_acquired': 7, 'rebase': 7, 'env_step': 7, 'stamp_check': 7, 'end': 7, 'order_check': 6, 'slot_acquired': 4, 'gate_start': 4, 'gate_end': 4, 'slot_released': 4, 'ff': 1, 'push': 1, 'reconcile': 1}) samples [('reconcile', None, None, '2026-11-21T14:41:10.576Z'), ('end', None, None, '2026-11-21T14:41:10.619Z')]
+test-outcomes.jsonl 14344 Counter({'passed': 14318, 'skipped': 26}) samples [(None, None, None, '2026-11-21T14:41:00.375Z'), (None, None, None, '2026-11-21T14:41:00.375Z')]
+archive [('01cdac65-c9fe-4428-b6f9-daf55617d11f.json', 'full', None, 13), ('8f0ab3ea-0d1c-4ee8-8827-3d535cf41325.json', 'full', None, 13), ('a960f419-e4c9-4d64-89b9-74499c3b88a0.json', 'full', None, 13), ('d893293c-a1f3-41e8-8d93-b0703bb33377.json', 'full', None, 12)]
+subgate success n,median,min,max ms {'structure-guard': (4, 39.0, 22, 41), 'live-data-asserts': (4, 203.0, 179, 295), 'data-layer': (4, 589.5, 419, 876), 'api-error-contract': (4, 42.0, 22, 62), 'doc-lint': (4, 5699.0, 3030, 7246), 'residual-ambiguity': (4, 924.5, 564, 1406), 'biome': (4, 2074.5, 1231, 3333), 'tsc': (4, 2296.5, 698, 7525), 'knip': (4, 3148.0, 1743, 7835), 'madge': (4, 7554.5, 3534, 10087), 'vitest': (4, 401245.5, 248762, 655493), 'playwright': (3, 707920, 534392, 896231), 'database-clean': (3, 4845, 3172, 4991)}
+latest [('gate-report.json', 'partial', None, 10)]
+subgate success n,median,min,max ms {'structure-guard': (1, 24, 24, 24), 'live-data-asserts': (1, 674, 674, 674), 'data-layer': (1, 446, 446, 446), 'api-error-contract': (1, 24, 24, 24), 'doc-lint': (1, 3381, 3381, 3381), 'residual-ambiguity': (1, 651, 651, 651), 'biome': (1, 1106, 1106, 1106), 'tsc': (1, 910, 910, 910), 'knip': (1, 1672, 1672, 1672), 'madge': (1, 3507, 3507, 3507)}
+personal-page-v2 vitest 180 1104 with modifiers 1114 PW 17 baselines 16 visual.spec baselines 16 unitLOC 18010 pwLOC 1233 srcLOC 29162 non-test srcLOC 16899
+suite paths Counter({'src': 151, 'scripts': 29}) baseline dirs Counter({'visual.spec.ts-snapshots': 16})
+queue-log.jsonl 75 Counter({'start': 8, 'lock_wait': 8, 'lock_acquired': 8, 'end': 8, 'rebase': 7, 'env_step': 6, 'stamp_check': 6, 'order_check': 5, 'slot_acquired': 4, 'gate_start': 4, 'gate_end': 4, 'slot_released': 4, 'ff': 1, 'push': 1, 'reconcile': 1}) samples [('reconcile', None, None, '2026-11-21T14:59:50.765Z'), ('end', None, None, '2026-11-21T14:59:50.810Z')]
+test-outcomes.jsonl 4812 Counter({'passed': 4811, 'failed': 1}) samples [(None, None, None, '2026-11-21T14:59:46.962Z'), (None, None, None, '2026-11-21T14:59:46.962Z')]
+archive [('630d580e-14df-4361-a3ed-6d6ad59a9436.json', 'full', None, 12), ('6f66602c-c3df-4366-a85d-ec41df3b6287.json', 'full', None, 12), ('723feb1d-222e-48e1-807b-afe71bae49ff.json', 'full', None, 12), ('e843af86-9176-4e03-b7d8-52b8b6241b2f.json', 'full', None, 13)]
+subgate success n,median,min,max ms {'structure-guard': (4, 18.5, 12, 43), 'live-data-asserts': (4, 61.5, 36, 135), 'data-layer': (4, 6.0, 4, 24), 'api-error-contract': (4, 5.5, 3, 13), 'doc-lint': (4, 1667.5, 1276, 3920), 'residual-ambiguity': (4, 66.5, 46, 159), 'biome': (4, 836.5, 262, 1067), 'tsc': (4, 2378.5, 952, 3888), 'knip': (4, 1092.5, 607, 1600), 'madge': (4, 1254.5, 883, 2231), 'vitest': (4, 21362.0, 19229, 35597), 'playwright': (3, 68092, 59821, 78268)}
+latest [('gate-report.json', 'full', None, 12)]
+subgate success n,median,min,max ms {'structure-guard': (1, 38, 38, 38), 'live-data-asserts': (1, 123, 123, 123), 'data-layer': (1, 11, 11, 11), 'api-error-contract': (1, 8, 8, 8), 'doc-lint': (1, 3651, 3651, 3651), 'residual-ambiguity': (1, 117, 117, 117), 'biome': (1, 725, 725, 725), 'tsc': (1, 3026, 3026, 3026), 'knip': (1, 1663, 1663, 1663), 'madge': (1, 2007, 2007, 2007), 'vitest': (1, 58024, 58024, 58024), 'playwright': (1, 160631, 160631, 160631)}
+StopGate n,median,min,max ms {"('funko-tracker', 'full', False)": (439, 7213, 3913, 299250), "('funko-tracker', 'light', True)": (340, 16083.0, 9109, 61985), "('mission-control', 'full', False)": (240, 13691.5, 6753, 203898), "('mission-control', 'light', False)": (8, 16145.0, 27, 21206), "('mission-control', 'light', True)": (243, 29151, 14498, 243331), "('funko-tracker', 'light', False)": (152, 10443.5, 20, 41713)}
