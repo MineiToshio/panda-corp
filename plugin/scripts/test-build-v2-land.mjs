@@ -646,6 +646,31 @@ await test("mq 16: bootstrap once outside the lease mutex, retry once without a 
   eq(again.patch_unit, null, "no code patch");
   eq((await readFile(path.join(w.wt, ".pandacorp/run/bootstrap-count"), "utf8")).trim(), "bootstrap", "bootstrap not repeated");
   ok(!(await readState(w)).units.some(u => u.kind === "patch"), "environment never creates a patch");
+  const exhausted = await readState(w);
+  const { landDecision } = await import("../runtime/build/next/landing.mjs");
+  const run = { ref: { project: w.fx.root }, prefix: "", d: { ...w.deps, bootstrap: false, risk: { computeRisk: async () => ({ audit: false, zone: "none", rules: [] }) } } };
+  const decision = await landDecision(run, exhausted, {}, [], []);
+  eq(decision.action, null, "scheduler cannot propose a third land for exhausted environment");
+  ok(decision.environmentBlocked, "scheduler exposes the persisted budget block");
+  ok(exhausted.jobs.at(-1).environment_retry_exhausted, "exhaustion is durable job state");
+  const { foldJournal } = await import("../runtime/build/state.mjs");
+  const replayed = foldJournal(await readEvents(w));
+  eq(replayed.jobs.at(-1).environment_retry_exhausted, true, "replay retains exhaustion");
+  eq(replayed.jobs.at(-1).environment_retry_sha, exhausted.jobs.at(-1).environment_retry_sha, "replay retains bound code tip");
+  const { writeState } = await import("../runtime/build/state.mjs");
+  const unrelated = { ...exhausted.jobs.at(-1), id: "unrelated-finished-g2", kind: "g2", exit: 0 };
+  delete unrelated.environment_retry_sha; delete unrelated.environment_retry_exhausted;
+  await writeState(w.fx.root, { ...exhausted, jobs: [...exhausted.jobs, unrelated] }, w.deps);
+  const third = await callLand(w);
+  eq(third.result, "handback", "direct land cannot bypass the exhausted budget");
+  eq(w.jobs.spawns.length, 2, "no third job spawned");
+  git(w.wt, ["commit", "--allow-empty", "-qm", "chore(env): record environment repair"]);
+  const repaired = await landDecision(run, await readState(w), {}, [], []);
+  eq(repaired.action, "land", "a recorded repair starts a new budget");
+  const { second: newBudget } = await mqRound(w, "16");
+  eq(newBudget.result, "nothing_to_land", "new code tip gets its one bootstrap retry");
+  eq((await readFile(path.join(w.wt, ".pandacorp/run/bootstrap-count"), "utf8")).trim(), "bootstrap\nbootstrap", "bootstrap renewed only after repair");
+
 }));
 
 await test("mq 20 once: nothing_to_land mq_precondition (exit 0), retried at the next safe point", async () => withWorld("exit20", {}, async (w) => {

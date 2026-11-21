@@ -72,3 +72,8 @@ export async function pollLandJob(ctx, job, d) {
 }
 
 export const maxZone = (units) => ZONES[Math.max(0, ...units.map((u) => ZONES.indexOf(u.zone)))];
+
+/** Budget identity ignores the per-attempt landing metadata commit. */
+export async function landingCodeTip(d, root, runId) {
+  return gitOk(d, root, ["rev-parse", "--verify", (await tipIsLandingMetadata(d, root, runId)) ? "HEAD~1^{commit}" : "HEAD^{commit}"], "landing-code-tip");
+}

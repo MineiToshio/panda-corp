@@ -1,5 +1,21 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-20 - Close five independent-review failures in phase 0.5
+
+Plugin **10.16.1** / overlay **9.6.1** correct five proven failure paths under DR-165:
+atomic FIFO ticket publication plus bounded malformed-ticket recovery; one initialized-directory
+admission mutex shared by Node, queue and full verify; installation receipts that detect stale
+dependencies even when the engine already rebased; journaled per-code-tip environment retry
+exhaustion enforced by the scheduler and direct land; and a bounded remote-confirmation query
+after an unknown push, terminating owned process groups and releasing the queue lock.
+
+Canonical contracts: [queue protocol](../../factory/standards/build-orchestration.md),
+[CLI/state budget](build-engine-cli.md), and the runtime state schema/reducer. Regressions first
+reproduced all five bugs; the slot test exercises the original ABA interleaving and real concurrent
+Node/queue/verify clients at capacity one. Land tests prove replay, direct/scheduler refusal,
+unrelated-job preservation and reset only after a recorded repair. Existing DR-138 and
+full-scope baseline rules are unchanged. No project copies are upgraded by this change.
+
 ## 2026-11-20 - Ship proposal 43 phase 0.5: queue and certification cheap fixes
 
 Under DR-165, plugin **10.16.0** / overlay **9.6.0** amend DR-096 with FIFO tickets,

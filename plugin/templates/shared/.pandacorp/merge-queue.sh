@@ -38,7 +38,8 @@ lock = os.path.join(common, 'pandacorp-merge.lock')
 waiters = os.path.join(common, 'pandacorp-merge.waiters')
 def read(file):
     try:
-        with open(file) as f: return json.load(f)
+        with open(file) as f: value = json.load(f)
+        return value if isinstance(value, dict) else {}
     except (ValueError, OSError): return {}
 def alive(pid):
     if not isinstance(pid, int) or pid <= 0: return False
@@ -69,7 +70,18 @@ with open(os.path.join(common, 'pandacorp-merge.guard'), 'a') as guard:
     tickets = []
     for name in sorted(os.listdir(waiters)):
         file = os.path.join(waiters, name)
+        # Temporary publications are not FIFO participants. Old partial files
+        # from interrupted older publishers expire after a bounded grace.
+        if not name.endswith('.json'):
+            if time.time() - os.stat(file).st_mtime > 60: os.unlink(file)
+            continue
         owner = read(file)
+        if (not isinstance(owner.get('token'), str) or not owner['token']
+                or type(owner.get('pid')) is not int or owner['pid'] <= 0
+                or not isinstance(owner.get('hostname'), str)
+                or not name.split('-', 1)[0].isdigit()):
+            if time.time() - os.stat(file).st_mtime > 60: os.unlink(file)
+            continue
         if owner.get('hostname') == host and not alive(owner.get('pid')):
             os.unlink(file)
         else: tickets.append((file, owner))
@@ -84,7 +96,12 @@ with open(os.path.join(common, 'pandacorp-merge.guard'), 'a') as guard:
             sequence = max([int(os.path.basename(file).split('-', 1)[0]) for file, _ in tickets] or [0])
             own = os.path.join(waiters, '%020d-%s.json' % (max(time.time_ns(), sequence + 1), token))
             owner = dict(pid=pid, hostname=host, token=token)
-            with open(own, 'x') as f: json.dump(owner, f)
+            temporary = os.path.join(waiters, '.ticket-new-' + token)
+            with open(temporary, 'x') as f:
+                json.dump(owner, f)
+                f.flush()
+                os.fsync(f.fileno())
+            os.rename(temporary, own)
             tickets.append((own, owner))
             tickets.sort()
         position = next(i + 1 for i, (file, _) in enumerate(tickets) if file == own)
@@ -371,31 +388,85 @@ def remove(slot, predicate):
         return False
     shutil.rmtree(tomb)
     return True
-if act == 'release':
-    remove(root, lambda p: (owner(p) or {}).get('token') == token)
-else:
+# Same initialized-directory/unique-owner protocol as hostSlotMutex.mjs.
+import contextlib
+@contextlib.contextmanager
+def admission_mutex(root):
+    root = str(root)
     os.makedirs(root, exist_ok=True)
-    maximum = int(token)
-    for i in range(maximum):
-        slot = os.path.join(root, 'slot-%s' % i)
-        for attempt in range(3):
-            try: os.mkdir(slot)
-            except FileExistsError:
-                if remove(slot, stale): continue
-                break
-            token = uuid.uuid4().hex
-            o = dict(pid=int(pid), kind='merge-queue', project=project,
-                     at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                     hostname=socket.gethostname(), token=token)
+    token = uuid.uuid4().hex
+    name = 'owner-%s-%s.json' % (os.getpid(), token)
+    lock = os.path.join(root, '.admission.lock')
+    staging = os.path.join(root, '.admission.new-%s-%s' % (os.getpid(), token))
+    timeout = float(os.environ.get('PANDACORP_HOST_MUTEX_WAIT_S', '1'))
+    if not 0 <= timeout <= 60: raise ValueError('invalid host mutex wait limit')
+    started = time.monotonic()
+    held = False
+    def clear(directory):
+        try: os.unlink(os.path.join(directory, name))
+        except FileNotFoundError: pass
+        try: os.rmdir(directory)
+        except OSError as error:
+            if error.errno not in (2, 17, 39, 66): raise
+    try:
+        os.mkdir(staging)
+        with open(os.path.join(staging, name), 'x') as f:
+            json.dump(dict(pid=os.getpid(), token=token), f)
+        while True:
             try:
-                with open(os.path.join(slot, 'owner.json.tmp'), 'x') as f: json.dump(o, f)
-                os.rename(os.path.join(slot, 'owner.json.tmp'), os.path.join(slot, 'owner.json'))
-            except Exception:
-                # This is the directory just created here, not a foreign semaphore.
-                os.rmdir(slot) if not os.listdir(slot) else None
-                raise
-            print(slot + '|' + token)
-            sys.exit(0)
+                os.rename(staging, lock)
+                held = True
+                break
+            except OSError as error:
+                if error.errno not in (17, 21, 39, 66): raise
+            try: entries = os.listdir(lock)
+            except FileNotFoundError: continue
+            for entry in entries:
+                parts = entry.split('-', 2)
+                if len(parts) != 3 or parts[0] != 'owner' or not parts[1].isdigit() or not entry.endswith('.json'): continue
+                try: os.kill(int(parts[1]), 0)
+                except ProcessLookupError:
+                    try: os.unlink(os.path.join(lock, entry))
+                    except FileNotFoundError: pass
+                except PermissionError: pass
+            try: os.rmdir(lock)
+            except OSError as error:
+                if error.errno not in (2, 17, 39, 66): raise
+            if time.monotonic() - started >= timeout: raise TimeoutError('host admission mutex busy')
+            time.sleep(.01)
+        yield
+    finally:
+        clear(lock if held else staging)
+
+try:
+    with admission_mutex(os.path.dirname(root) if act == 'release' else root):
+        if act == 'release':
+            remove(root, lambda p: (owner(p) or {}).get('token') == token)
+        else:
+            os.makedirs(root, exist_ok=True)
+            maximum = int(token)
+            for i in range(maximum):
+                slot = os.path.join(root, 'slot-%s' % i)
+                for attempt in range(3):
+                    try: os.mkdir(slot)
+                    except FileExistsError:
+                        if remove(slot, stale): continue
+                        break
+                    token = uuid.uuid4().hex
+                    o = dict(pid=int(pid), kind='merge-queue', project=project,
+                             at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                             hostname=socket.gethostname(), token=token)
+                    try:
+                        with open(os.path.join(slot, 'owner.json.tmp'), 'x') as f: json.dump(o, f)
+                        os.rename(os.path.join(slot, 'owner.json.tmp'), os.path.join(slot, 'owner.json'))
+                    except Exception:
+                        # This is the directory just created here, not a foreign semaphore.
+                        os.rmdir(slot) if not os.listdir(slot) else None
+                        raise
+                    print(slot + '|' + token)
+                    sys.exit(0)
+            sys.exit(75)
+except TimeoutError:
     sys.exit(75)
 SLOTPY
 }
@@ -534,18 +605,42 @@ environment_not_ready() {
   fail "environment not ready: $1" 16
 }
 QUEUE_ENV_STARTED=$SECONDS
-for lockfile in pnpm-lock.yaml package-lock.json npm-shrinkwrap.json; do
-  if ! git diff --quiet "$QUEUE_PRE_REBASE_SHA" HEAD -- "$lockfile"; then
+dependency_identity() {
+  python3 - "$1" <<'DEPSPY'
+import hashlib, json, os, pathlib, subprocess, sys, tempfile
+locks = ['pnpm-lock.yaml', 'package-lock.json', 'npm-shrinkwrap.json']
+metadata = ['node_modules/.modules.yaml', 'node_modules/.pnpm/lock.yaml', 'node_modules/.package-lock.json']
+def digest(name):
+    path = pathlib.Path(name)
+    return hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None
+identity = dict(package=digest('package.json'), locks={name: digest(name) for name in locks}, metadata={name: digest(name) for name in metadata},
+                node=subprocess.check_output(['node', '--version'], text=True).strip())
+receipt = pathlib.Path('node_modules/.pandacorp-lock-id.json')
+if sys.argv[1] == 'check':
+    try: stored = json.loads(receipt.read_text())
+    except (OSError, ValueError): sys.exit(1)
+    sys.exit(0 if stored == identity else 1)
+receipt.parent.mkdir(parents=True, exist_ok=True)
+fd, temporary = tempfile.mkstemp(prefix='.pandacorp-lock-id-', dir=receipt.parent)
+try:
+    with os.fdopen(fd, 'w') as f: json.dump(identity, f)
+    os.replace(temporary, receipt)
+finally:
+    if os.path.exists(temporary): os.unlink(temporary)
+DEPSPY
+}
+if [ -f pnpm-lock.yaml ] || [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+  if ! dependency_identity check; then
     if [ -f pnpm-lock.yaml ]; then
       command -v pnpm >/dev/null 2>&1 || environment_not_ready "pnpm is required"
       pnpm install --frozen-lockfile || environment_not_ready "pnpm install failed"
-    elif [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+    else
       command -v npm >/dev/null 2>&1 || environment_not_ready "npm is required"
       npm ci || environment_not_ready "npm ci failed"
     fi
-    break
+    dependency_identity record || environment_not_ready "cannot record dependency installation identity"
   fi
-done
+fi
 command -v jq >/dev/null 2>&1 || environment_not_ready "jq is required"
 if [ -f package.json ]; then
   QUEUE_USES_BIOME=$(python3 - <<'BIOMEPY'
@@ -713,26 +808,43 @@ echo "merge-queue: merged $BRANCH → $DEFAULT_BRANCH"
 # Launched + owner's order: publishing main IS the production release (Vercel's GitHub integration).
 if [ "$LAUNCHED" = 1 ]; then
   QUEUE_PUSH_SHA="$QUEUE_GATED_SHA"
-  git -C "$MAIN_WT" push origin "$QUEUE_PUSH_SHA:refs/heads/$DEFAULT_BRANCH" &
-  QUEUE_PUSH_PID=$!
-  QUEUE_PUSH_STARTED=$SECONDS
-  QUEUE_PUSH_UNKNOWN=0
-  while kill -0 "$QUEUE_PUSH_PID" 2>/dev/null; do
-    if [ "$((SECONDS - QUEUE_PUSH_STARTED))" -ge "${PANDACORP_PUSH_TIMEOUT_SECS:-120}" ]; then
-      QUEUE_PUSH_UNKNOWN=1
-      kill "$QUEUE_PUSH_PID" 2>/dev/null || true
-      sleep 1
-      kill -KILL "$QUEUE_PUSH_PID" 2>/dev/null || true
-      break
-    fi
-    sleep 1
-  done
+  bounded_git() {
+    python3 - "$@" <<'TIMEOUTPY'
+import os, signal, subprocess, sys
+seconds = float(sys.argv[1])
+if not 0 <= seconds <= 3600: raise ValueError('invalid Git timeout')
+process = subprocess.Popen(sys.argv[2:], stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+timed_out = False
+try:
+    output, errors = process.communicate(timeout=seconds)
+except subprocess.TimeoutExpired:
+    timed_out = True
+    try: os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError: pass
+    try: output, errors = process.communicate(timeout=.5)
+    except subprocess.TimeoutExpired:
+        try: os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError: pass
+        try: output, errors = process.communicate(timeout=.5)
+        except subprocess.TimeoutExpired as error:
+            output, errors = error.output or b'', error.stderr or b''
+            process.stdout.close()
+            process.stderr.close()
+            try: process.wait(timeout=.5)
+            except subprocess.TimeoutExpired: pass  # Still unknown; never turn a timeout into a failed-push claim.
+sys.stdout.buffer.write(output)
+sys.stderr.buffer.write(errors)
+sys.exit(124 if timed_out else process.returncode)
+TIMEOUTPY
+  }
   QUEUE_PUSH_RC=0
-  wait "$QUEUE_PUSH_PID" || QUEUE_PUSH_RC=$?
+  bounded_git "${PANDACORP_PUSH_TIMEOUT_SECS:-120}" git -C "$MAIN_WT" push origin "$QUEUE_PUSH_SHA:refs/heads/$DEFAULT_BRANCH" || QUEUE_PUSH_RC=$?
+  QUEUE_PUSH_UNKNOWN=0
+  [ "$QUEUE_PUSH_RC" -ne 124 ] || QUEUE_PUSH_UNKNOWN=1
   if [ "$QUEUE_PUSH_UNKNOWN" = 1 ]; then
     queue_event push sha str "$QUEUE_PUSH_SHA" result str unknown
     # Killing the client cannot undo an accepted remote update. Read before retrying.
-    QUEUE_REMOTE_SHA=$(git -C "$MAIN_WT" ls-remote origin "refs/heads/$DEFAULT_BRANCH" | awk '{print $1}') || QUEUE_REMOTE_SHA=""
+    QUEUE_REMOTE_SHA=$(bounded_git "${PANDACORP_REMOTE_TIMEOUT_SECS:-30}" git -C "$MAIN_WT" ls-remote origin "refs/heads/$DEFAULT_BRANCH" | awk '{print $1}') || QUEUE_REMOTE_SHA=""
     [ "$QUEUE_REMOTE_SHA" = "$QUEUE_PUSH_SHA" ] || fail "push result unknown; origin/main could not confirm the gated sha — inspect the remote before retrying" 13
   elif [ "$QUEUE_PUSH_RC" -ne 0 ]; then
     queue_event push sha str "$QUEUE_PUSH_SHA" result str failed

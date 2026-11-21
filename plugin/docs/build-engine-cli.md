@@ -507,7 +507,7 @@ Fenced. Lands the integration branch through merge-queue and harvests its result
 Phases:
 1. *Phase 1:* verify the fence, renew; if a land job is alive return `result:"running"`; if a land job already finished, harvest it (step 5).
 2. *Rebase, outside the mutex:* rebase `lane/<run_id>/integration` onto the current `main` in the integration worktree (a conflict → `handback` reason `rebase_conflict`, exit 6). *Phase 2:* re-verify the epoch and that the integration tip is the rebased one, re-hash the run's hashed set, then commit on it the landing metadata commit: WO `VERIFIED` for every review-verified unit (with rollups), `status.yaml` `last_green_sha: <sha of the code tip just below this commit>`, `safe_to_test: true`, `phase: implementation` if it was `architecture`, and the trailer `Change: <slug>` only if this landing completes the card.
-3. Before the job is spawned, `next` (not `land`) checks that the integration worktree is bootstrapped (4.1); `land` itself runs no bootstrap. Spawn the `land` job (a detached job with no H slot of its own; `merge-queue.sh` takes the host H slot around its `verify.sh`): `merge-queue.sh` run from the integration worktree. Return `result:"running"`.
+3. Before the job is spawned, `next` (not `land`) checks that the integration worktree is bootstrapped (4.1); `land` does not bootstrap before spawning; an exit-16 harvest performs the one environment retry bootstrap outside the lease mutex. Spawn the `land` job (a detached job with no H slot of its own; `merge-queue.sh` takes the host H slot around its `verify.sh`): `merge-queue.sh` run from the integration worktree. Return `result:"running"`.
 4. `merge-queue.sh`'s G3 judges that tree; red means nothing reaches `main`.
 5. *Harvest* (by `land` or by `next`): map the exit code (table below); after exit 0 archive the card idempotently (it is in `inbox/changes/` → `status: done`, `shipped_sha`, moved to `done/`; already in `done/` because merge-queue's DR-147 reconciler moved it → add `shipped_sha` if missing; in neither → journal a note; never an error) and journal `batch_landed {sha}`; if `last_green_sha` is not an ancestor of the new `main` (merge-queue re-rebased because `main` moved) journal `pin_stale` (the next landing rewrites it; a documented race). `landed` sets the units' state to `landed`.
 
@@ -520,9 +520,21 @@ Phases:
 | 11 | `handback` | `g3_red` (evidence-scoped patch; see below) | 6 |
 | 12 | `nothing_to_land` | `busy_main` (retried at the next safe point) | 0 |
 | 14 | `nothing_to_land` | `port_busy` (retried at the next safe point) | 0 |
-| 13 | `landed` | `null`, `notes_es` says "push falló"; only possible with the owner's order | 0 |
+| 13 | `landed` | `null`, `notes_es` reports a failed or unconfirmed push; only possible with the owner's order | 0 |
+| 16 | `nothing_to_land` / `handback` | `environment_not_ready`: bootstrap once, then persist exhaustion for the code tip; no patch | 0 / 6 |
+| 17 | `nothing_to_land` | `main_advanced`: rerun land without a patch | 0 |
 | 20 | `nothing_to_land` | `mq_precondition` (retried at the next safe point; a second consecutive 20 in the run is an engine failure, exit 8) | 0 |
 | 21 | `waiting_gate` | `null`; `waiting_gate:"production"` is stored on the units; the CLI never sets `PANDACORP_OWNER_RELEASE_OK` | 7 |
+
+**Environment retry budget (DR-165, phase 0.5 review fix).** Finished land jobs optionally carry
+`environment_retry_sha` (integration code tip, excluding the queue attempt's landing-metadata
+commit) and `environment_retry_exhausted` in both `job_finished` and the state schema. Replay
+restores them. The first 16 with a successful bootstrap permits one retry; another 16 at the
+same code tip, or a failed bootstrap, exhausts it. `next` then waits with reason `gate` and an
+explanation instead of returning `action:land`; direct `land` returns exit 6 with reason
+`environment_retry_exhausted` without spawning a job. Other G2/worker job completions cannot
+reset this budget. After repairing the environment, a recorded repair commit changes the code
+tip and opens a fresh budget. No patch unit or production authorization is created by this path.
 
 Other reasons: `handback` `rebase_conflict` from the pre-job rebase (exit 6); `handback` `oracle_changed` (a hashed test or probe file changed since it was recorded, exit 6); `nothing_to_land` (exit 0, nothing is written or journaled): `batch_incomplete` (called before the batch is complete), `no_verified_work`, `land_job_dead` (the job is gone and `main` lacks the branch; retried). The output may also carry `patch_unit` and `notes_es`; the landing metadata commit carries the trailer `Landing-Metadata: <run_id>`. Units are landable when `verified`, or `integrated` for `docs` and `tests` units (they are never reviewed); a unit with any `parked` value is outside the batch, so legacy pending assumption work never blocks landing the independent batch. New option-B reversible assumptions pass ordinary gates and integrate, including a lone unit, without later acceptance. A retry is idempotent: the run's own landing metadata commit at the tip is dropped and rewritten (no intent is persisted). A G3 red (mq exit 11) follows selective repair below; it never reopens the entire batch by default. **Docs-only batch (BL-0316):** when every landable unit is `docs` and the red names no doc-lint failure and no docs-surface path (`docs/**`, `README.md`, `DESIGN.md`, `.env.example`), the batch cannot have caused it (a timeout under swap, a red main): no patch unit is opened; the first such red on an integration tip returns `nothing_to_land` with reason `g3_red_docs_only_retry` (journal `handback {reason:"g3_red", docs_only:true, tip, retry}`) and the landing is retried; a second red on the same tip hands the docs units back with cause `env-infra`, reason code `g3_red_not_from_batch` (exit 6), lifted with `unblock` (3.14b) after the machine or main is fixed.
 

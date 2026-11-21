@@ -3,6 +3,7 @@ import * as nodeFs from 'node:fs'
 import os from 'node:os'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
+import { withHostSlotMutex } from './hostSlotMutex.mjs'
 import { ADMISSION, hMax } from './constants.mjs'
 
 /** `<host>` = $PANDACORP_HOST_DIR or ~/.pandacorp/host. */
@@ -53,6 +54,15 @@ function removeSlot(fs, slot, expected, allowed) {
   return true
 }
 
+function underAdmission(slots, fs, timeoutMs, busyValue, body) {
+  try { return withHostSlotMutex(slots, body, { fs, timeoutMs }) }
+  catch (error) {
+    if (error.code === 'EHOSTMUTEXBUSY') return busyValue
+    throw error
+  }
+}
+
+
 /**
  * Try once to take a host heavy-tool slot (non-blocking). Protocol: `mkdir <dir>/slot-<i>` in index order, then write
  * owner.json {pid, kind, project, at, token}; dead-pid or ownerless >60s slots are atomically reclaimed.
@@ -62,41 +72,41 @@ function removeSlot(fs, slot, expected, allowed) {
  *   `$PANDACORP_HOST_DIR` or `~/.pandacorp/host`.
  * @returns {{slot: string, index: number, token: string, release: () => boolean}|null} null when every slot is held.
  */
+
 export function acquireHostSlot({
   dir, host, max = hMax(), kind, project, pid = process.pid, now = Date.now, isAlive = defaultIsAlive,
-  fs = nodeFs, graceMs = ADMISSION.SLOT_OWNERLESS_GRACE_MS,
+  fs = nodeFs, graceMs = ADMISSION.SLOT_OWNERLESS_GRACE_MS, mutexTimeoutMs,
 }) {
   if (!['g2', 'merge-queue', 'verify'].includes(kind)) throw new TypeError(`acquireHostSlot: kind must be g2|merge-queue|verify, got ${kind}`)
   const slots = dir ?? hSlotsDir(host ?? hostDir())
-  fs.mkdirSync(slots, { recursive: true })
-  for (let i = 0; i < max; i++) {
-    const slot = path.join(slots, `slot-${i}`)
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        fs.mkdirSync(slot)
-      } catch (e) {
-        if (e.code !== 'EEXIST') throw e
-        // Re-judge right before deleting so a slot a faster waiter just re-took is never removed.
-        let expected
-        try { expected = fs.statSync(slot) } catch (error) { if (error.code === 'ENOENT') continue; throw error }
-        if (!isStaleSlot(fs, slot, now(), isAlive, graceMs)) break
-        removeSlot(fs, slot, expected, (target) => isStaleSlot(fs, target, now(), isAlive, graceMs))
-        continue
+  return underAdmission(slots, fs, mutexTimeoutMs, null, () => {
+    for (let i = 0; i < max; i++) {
+      const slot = path.join(slots, `slot-${i}`)
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try { fs.mkdirSync(slot) }
+        catch (error) {
+          if (error.code !== 'EEXIST') throw error
+          let expected
+          try { expected = fs.statSync(slot) }
+          catch (error) { if (error.code === 'ENOENT') continue; throw error }
+          if (!isStaleSlot(fs, slot, now(), isAlive, graceMs)) break
+          removeSlot(fs, slot, expected, target => isStaleSlot(fs, target, now(), isAlive, graceMs))
+          continue
+        }
+        const owner = { pid, kind, project, at: new Date(now()).toISOString(), token: randomUUID() }
+        fs.writeFileSync(path.join(slot, 'owner.json.tmp'), `${JSON.stringify(owner)}\n`)
+        fs.renameSync(path.join(slot, 'owner.json.tmp'), path.join(slot, 'owner.json'))
+        const identity = fs.statSync(slot)
+        const release = () => underAdmission(slots, fs, mutexTimeoutMs, false, () => {
+          const current = readOwner(fs, slot)
+          if (!current || current.token !== owner.token) return false
+          return removeSlot(fs, slot, identity, target => readOwner(fs, target)?.token === owner.token)
+        })
+        return { slot, index: i, token: owner.token, release }
       }
-      const owner = { pid, kind, project, at: new Date(now()).toISOString(), token: randomUUID() }
-      // tmp + rename like merge-queue.sh, so a concurrent reader never sees a half-written owner.json
-      fs.writeFileSync(path.join(slot, 'owner.json.tmp'), `${JSON.stringify(owner)}\n`)
-      fs.renameSync(path.join(slot, 'owner.json.tmp'), path.join(slot, 'owner.json'))
-      const identity = fs.statSync(slot)
-      const release = () => {
-        const cur = readOwner(fs, slot)
-        if (!cur || cur.token !== owner.token) return false // never delete an unknown/replacement owner
-        return removeSlot(fs, slot, identity, (target) => readOwner(fs, target)?.token === owner.token)
-      }
-      return { slot, index: i, token: owner.token, release }
     }
-  }
-  return null
+    return null
+  })
 }
 
 /**

@@ -273,7 +273,9 @@ One shared Git-directory lock covers admission, rebase, environment preparation,
 full gate, owner-order check, fast-forward and push. Every waiter has a FIFO ticket; only the
 unique owner token may refresh or release the lock. Dead local holders or holders without a
 refresh for 15 minutes are reclaimed by atomic rename and identity re-check. Waiters report
-position, holder start and the median logged gate duration when available. Direct-main writers
+position, holder start and the median logged gate duration when available. Tickets are published
+by atomic rename from hidden temporary files; malformed legacy publications are ignored and
+removed after a 60-second grace, so a killed publisher cannot become a permanent FIFO head. Direct-main writers
 (memory routine, upgrade, sync close-out and factory backlog merging) use the same protocol:
 `bash .pandacorp/with-merge-lock.sh <command...>` in projects, or
 `bash plugin/scripts/with-merge-lock.sh <command...>` in the factory. Keep a whole merge,
@@ -283,24 +285,37 @@ For nested projects, busy-main checks consider only paths changed by `main..<gat
 repeat the comparison after rebase before fast-forward. Telemetry exclusions cover only untracked
 outputs, never tracked WIP. Required verified commit reads fail closed independently of optional
 log reads. Restore committed configuration before
-rebasing. After rebase, reinstall with the present pnpm/npm frozen lockfile only if that rebase
-changed a lockfile; regenerate missing `.next/types` with supported `next typegen`, and require
+rebasing. Before gating, compare the target package manifest, lock hashes, Node version and installed metadata against
+`node_modules/.pandacorp-lock-id.json`; missing/mismatching proof requires a frozen pnpm/npm
+install and an atomic receipt. This also catches the engine rebase before the queue starts; regenerate missing `.next/types` with supported `next typegen`, and require
 jq and biome when the project uses it. This step never rewrites `e2e/server-env.json` or
 `.claude/launch.json`, and never sets skip-worktree. Exit **16** means environment not ready,
-before gate time: the engine runs bootstrap and retries once, without a code patch. Exit **17**
+before gate time: the engine runs bootstrap and retries once, without a code patch.
+The finished job journals `environment_retry_sha` and `environment_retry_exhausted`, bound to
+the code tip below landing metadata. Exhaustion survives replay and blocks both `next` and direct
+`land`; a new commit recording the environment repair opens a new budget. Exit **17**
 means main advanced during the gate: re-run the land job, without a code patch. Exit **12**
 remains dirty main; a missing/non-executable gate is an explicit **20** (`no gate`).
 
 Pin the gated commit before verification. Fast-forward that exact SHA, then push that SHA to
 `refs/heads/main` for an owner-authorized launched landing. Push has a bounded timeout; log an
 unknown result and reread origin/main before deciding, since terminating a client cannot undo
-an accepted update. Transfer the stamp between ff and push as before. Release the lock before
+an accepted update. The confirmation read is also bounded (30 seconds by default); failure
+to confirm retains unknown, exits 13 and releases the merge lock. Timeouts terminate the
+command process group, including blocked Git transport children. Transfer the stamp between ff and push as before. Release the lock before
 running the reconciler resolved inside the main checkout's project directory.
 
 The queue holds one host heavy slot only around a full gate and exports
 `PANDACORP_HOST_SLOT_TOKEN=<slot directory>|<owner token>`; full verify validates and inherits it,
 or acquires its own slot. An unusable slot root fails closed, and waits are bounded/visible.
 Shell and Node admission share token-bearing `owner.json` records and atomic stale reclamation.
+Every admission, owner publication, stale reclaim and release holds `h-slots/.admission.lock`.
+Node and both shell entry points atomically publish an initialized mutex directory with one
+`owner-<pid>-<unique-token>.json` file. Recovery unlinks only a dead owner's exact unique file,
+then uses `rmdir`; it never renames an occupied mutex or deletes a replacement generation.
+Mutex acquisition waits at most one second by default (bounded to 60 seconds); a live owner is
+never expired by age. The mutex is held only across filesystem operations, never the gate or
+slot wait. An unusable guard fails closed; contention waits within the existing slot deadline.
 The queue exports `PANDACORP_STAMP_BASE` from main's rebase SHA; stamp checks log `--explain`
 (group/environment key names only), with a plain-check fallback for older overlays.
 Stamp controls exclude invocation-specific temp/cache/cleanup/slot/snapshot variables; PATH and
@@ -317,7 +332,7 @@ is red with the DR-080 feature-gate blessing instruction. Light/since gates reta
 Verification: `test-merge-queue-lock-ownership.sh`, `test-merge-queue-env-step-keeps-committed-config.sh`,
 `test-merge-queue-env-step-after-rebase.sh`, `test-merge-queue-ff-gated-sha.sh`,
 `test-merge-queue-single-slot.sh`, `test-green-stamp-controls.sh`, `test-green-stamp-run-outputs.sh`,
-`test-verify-snapshots-none-full-only.sh`, `test-host-slot-fail-closed.sh` and `test-build-v2-land.mjs`.
+`test-verify-snapshots-none-full-only.sh`, `test-host-slot-fail-closed.sh`, `test-host-slot-mutex.mjs` and `test-build-v2-land.mjs`.
 This phase does not change DR-138 or ship phase 1's required stamp-record/pre-push/status controls.
 
 ### 5. Batch integration through the serialized merge queue (DR-141, BUILD-4)

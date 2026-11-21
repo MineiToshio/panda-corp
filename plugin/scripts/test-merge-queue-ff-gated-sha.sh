@@ -125,4 +125,31 @@ r=list(map(json.loads,open(sys.argv[1])))
 assert not any(e['event']=='gate_start' for e in r)
 assert r[-1]['exit']==20
 CHECK
-echo 'RESULT: 8 passed, 0 failed (exact ff/push, divergent/descendant main, nested busy, reconcile, unknown push/reread, no gate, required reads)'
+
+# A push AND its confirmation query can stall; neither may retain the merge lock.
+fixture confirmation-timeout
+printf 'phase: release\ndeploy_target: external\n' > "$APP/.pandacorp/status.yaml"
+git -C "$APP" add .; git -C "$APP" commit -qm launched
+cat > "$WT/bin/git" <<'GIT'
+#!/bin/bash
+for arg in "$@"; do
+  case "$arg" in push|ls-remote) exec sleep 8;; esac
+done
+exec "$P43_REAL_GIT" "$@"
+GIT
+chmod +x "$WT/bin/git"; commit_wt
+export PANDACORP_OWNER_RELEASE_OK=1 PANDACORP_PUSH_TIMEOUT_SECS=0 PANDACORP_REMOTE_TIMEOUT_SECS=0
+started=$SECONDS
+run_queue
+elapsed=$((SECONDS-started))
+need test "$RC" = 13
+need test "$elapsed" -lt 6
+need test ! -d "$FX/app/.git/pandacorp-merge.lock"
+python3 - "$QLOG" <<'CHECK'
+import json, sys
+r=list(map(json.loads,open(sys.argv[1])))
+assert [e['result'] for e in r if e['event']=='push']==['unknown']
+assert r[-1]['exit']==13
+CHECK
+unset PANDACORP_OWNER_RELEASE_OK PANDACORP_PUSH_TIMEOUT_SECS PANDACORP_REMOTE_TIMEOUT_SECS
+echo 'RESULT: 9 passed, 0 failed (exact SHA, main advance, bounded push AND confirmation, required reads)'

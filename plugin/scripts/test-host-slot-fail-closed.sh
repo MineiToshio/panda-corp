@@ -63,6 +63,14 @@ assert len(list(slots.glob('slot-*'))) == maximum, 'inherited slot released'
 result = run(PANDACORP_HOST_SLOT_TOKEN=str(slot) + '|wrong-token')
 assert result.returncode == 16 and 'position ' in result.stdout, result.stdout
 assert not (fx / 'calls').exists()
+# A token for another root must not bypass this host's shared admission mutex.
+foreign = fx / 'foreign/h-slots/slot-0'
+foreign.mkdir(parents=True)
+(foreign / 'owner.json').write_text(json.dumps(dict(pid=os.getpid(), kind='g2', project=str(fx), at='now', token='foreign')))
+result = run(PANDACORP_HOST_SLOT_TOKEN=str(foreign) + '|foreign')
+assert result.returncode == 16 and 'root mismatch' in result.stdout, result.stdout
+assert not (fx / 'calls').exists()
+assert (foreign / 'owner.json').exists()
 # Ownerless recent slots must not be reclaimed; dead owners and old ownerless slots must be.
 for file in slots.glob('slot-*/owner.json'):
     file.unlink()
@@ -76,7 +84,7 @@ for index in range(1, maximum):
 result = run(TEST_EXPECT_SLOTS=str(maximum))
 assert result.returncode == 0, result.stdout
 assert not (slots / 'slot-0').exists(), 'owned slot leaked'
-print('RESULT: 5 passed, 0 failed')
+print('RESULT: 6 passed, 0 failed')
 PY
 node --input-type=module - "$ROOT" "$FX" <<'JS'
 import assert from 'node:assert/strict';

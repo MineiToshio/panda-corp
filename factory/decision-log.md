@@ -1,5 +1,14 @@
 # Decision Log — Factory
 
+## 2026-11-20 - Repair phase 0.5 after independent review (DR-165)
+
+[Build orchestration](standards/build-orchestration.md) now specifies crash-safe FIFO publication,
+a shared initialized-directory mutex around every host-slot mutation, target-versus-installed
+lock identity rather than rebase-only detection, durable per-code-tip retry exhaustion, and a
+bounded confirmation read after push timeout. [Plugin history](../plugin/docs/decision-log.md)
+records five red-to-green regressions and the journal/schema bridge. Version **10.16.1** /
+overlay **9.6.1** preserve existing production and baseline gates; changes are template-first.
+
 ## 2026-11-20 - Ship proposal 43 phase 0.5 under DR-165
 
 [Build orchestration](standards/build-orchestration.md) and the

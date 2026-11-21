@@ -58,4 +58,30 @@ rc=0
 (cd "$FX/app" && bash "$WRAPPER" bash -c 'exit 37') || rc=$?
 need test "$rc" = 37
 need test ! -d "$COMMON/pandacorp-merge.lock"
-echo 'RESULT: 6 passed, 0 failed (waiter ownership, FIFO, position, dead/aged reclaim, exit propagation)'
+
+# A publisher killed in json.dump must not leave a visible incomplete FIFO ticket.
+mkdir -p "$FX/inject"
+cat > "$FX/inject/sitecustomize.py" <<'INJECT'
+import json, os
+original = json.dump
+def dump(value, stream, *args, **kwargs):
+    if 'pandacorp-merge.waiters' in str(getattr(stream, 'name', '')) and not os.path.exists(os.environ['TEST_KILLED_PUBLISHER']):
+        open(os.environ['TEST_KILLED_PUBLISHER'], 'w').close()
+        os._exit(99)
+    return original(value, stream, *args, **kwargs)
+json.dump = dump
+INJECT
+rc=0
+(cd "$FX/app" && PYTHONPATH="$FX/inject" TEST_KILLED_PUBLISHER="$FX/killed" bash "$WRAPPER" true) > "$FX/killed-log" 2>&1 || rc=$?
+need test "$rc" = 20
+need test -f "$FX/killed"
+(cd "$FX/app" && PANDACORP_MERGE_LOCK_TIMEOUT_SECS=1 PANDACORP_MERGE_LOCK_POLL_SECS=.1 bash "$WRAPPER" true)
+# Recover malformed tickets from older publishers after their bounded grace.
+python3 - "$COMMON/pandacorp-merge.waiters/00000000000000000001-broken.json" <<'CORRUPT'
+import os, sys, time
+open(sys.argv[1], 'w').write('{')
+os.utime(sys.argv[1], (time.time()-120, time.time()-120))
+CORRUPT
+(cd "$FX/app" && PANDACORP_MERGE_LOCK_TIMEOUT_SECS=1 PANDACORP_MERGE_LOCK_POLL_SECS=.1 bash "$WRAPPER" true)
+need test ! -f "$COMMON/pandacorp-merge.waiters/00000000000000000001-broken.json"
+echo 'RESULT: 8 passed, 0 failed (ownership, FIFO, stale holders, killed publisher, incomplete tickets)'

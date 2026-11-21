@@ -1,5 +1,7 @@
 // Landing: the land decision once the batch is complete, the integration worktree bootstrap before a landing
 // (FIX-D-4), the one security audit per build (BUILD-10) and the risk zone of a review.
+import { environmentRetryExhausted } from "../land/batch.mjs";
+import { landingCodeTip } from "../land/common.mjs";
 import { bootstrapIntegrationWorktree } from "../integrate.mjs";
 import { findUnit, newUnit } from "../state.mjs";
 import { FRD_WORK_KINDS, LAND_RETRY_EXITS, LAND_RETRY_S } from "./constants.mjs";
@@ -12,6 +14,10 @@ export async function landDecision(run, state, pol, deferredEntries, notes = [])
   const batch = batchState(state);
   if (!batch.complete) return { state, action: null, waitLand: false };
   const last = jobs.at(-1);
+  if (last?.environment_retry_exhausted && environmentRetryExhausted(state, await landingCodeTip(run.d, integrationRoot(run, state), state.run_id))) {
+    notes.push("El reintento de entorno se agotó para esta integración; repara el entorno y registra la reparación en un nuevo commit antes de aterrizar.");
+    return { state, action: null, waitLand: false, environmentBlocked: true };
+  }
   if (last && LAND_RETRY_EXITS.includes(last.exit) && nowMs(run.d) - Date.parse(last.started_at) < LAND_RETRY_S * 1000) {
     return { state, action: null, waitLand: true };
   }

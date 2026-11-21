@@ -283,7 +283,11 @@ export function foldJournal(events) {
       }
       case "job_finished": {
         const job = state.jobs.find((j) => j.id === d.id);
-        if (job) { job.state = d.state; job.exit = d.exit ?? null; }
+        if (job) {
+          job.state = d.state; job.exit = d.exit ?? null;
+          if (Object.hasOwn(d, "environment_retry_exhausted")) job.environment_retry_exhausted = d.environment_retry_exhausted;
+          if (Object.hasOwn(d, "environment_retry_sha")) job.environment_retry_sha = d.environment_retry_sha;
+        }
         break;
       }
       case "report_received": {

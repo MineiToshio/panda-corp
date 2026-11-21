@@ -9,7 +9,7 @@ import { isAllowedPath } from "../units/allowlist.mjs";
 import { findUnit, newUnit, upsertJob } from "../state.mjs";
 import { assessBatch, mapMergeQueueExit } from "./batch.mjs";
 import {
-  assertCleanWorktree, defaultBranchOf, dropLandingMetadata, err, git, gitOk, markerLine, maxZone, pollLandJob, resolveLandDeps, tipMessage,
+  assertCleanWorktree, defaultBranchOf, dropLandingMetadata, err, git, gitOk, landingCodeTip, markerLine, maxZone, pollLandJob, resolveLandDeps, tipMessage,
 } from "./common.mjs";
 
 /** Move units to a state, journaling each transition; returns the new state (pure on `state`). */
@@ -176,7 +176,8 @@ export async function prepareLandHarvest(ctx, deps = {}) {
     const previous = state.jobs.filter(j => j.kind === "land" && j.id !== job.id && j.state === "done").at(-1);
     // Preparation can install packages: run it outside the lease mutex, once per
     // consecutive environment failure. Harvest never creates a code patch for this.
-    if (previous?.exit !== 16) {
+    prepared.environmentTip = await landingCodeTip(d, state.integration.worktree, ctx.runId);
+    if (previous?.exit !== 16 || previous.environment_retry_sha !== prepared.environmentTip) {
       prepared.bootstrap = await d.exec("bash", [".pandacorp/worktree-bootstrap.sh"], { cwd: state.integration.worktree, env: d.env });
     }
   }
@@ -218,8 +219,10 @@ export async function harvestLandJob(ctx, deps = {}) {
     mqExit = contained.code === 0 ? 0 : null;
   }
   const previous = state.jobs.filter((j) => j.kind === "land" && j.id !== job.id && j.state === "done").at(-1);
-  const finished = { ...job, state: polled.state === "dead" && mqExit === null ? "dead" : "done", exit: mqExit };
-  await ctx.appendEvent({ type: "job_finished", data: { id: job.id, kind: "land", state: finished.state, exit: mqExit } });
+  const environmentRetry = mqExit === 16 && prepared.bootstrap?.code === 0;
+  const environmentBudget = mqExit === 16 ? { environment_retry_sha: prepared.environmentTip, environment_retry_exhausted: !environmentRetry } : {};
+  const finished = { ...job, ...environmentBudget, state: polled.state === "dead" && mqExit === null ? "dead" : "done", exit: mqExit };
+  await ctx.appendEvent({ type: "job_finished", data: { id: job.id, kind: "land", state: finished.state, exit: mqExit, ...environmentBudget } });
   state = upsertJob(state, finished);
 
   if (mqExit === null && polled.state === "dead") {
@@ -243,7 +246,7 @@ export async function harvestLandJob(ctx, deps = {}) {
     else if (mqExit === 21) applied = await onGate(ctx, state);
     else {
       if (mqExit === 16) {
-        const retry = previous?.exit !== 16 && prepared.bootstrap?.code === 0;
+        const retry = environmentRetry;
         await ctx.appendEvent({ type: "handback", data: { reason: "environment_not_ready", cause: "env-infra", retry, bootstrap_exit: prepared.bootstrap?.code ?? null } });
         applied = { state, exit: retry ? 0 : 6, output: { result: retry ? "nothing_to_land" : "handback", reason: "environment_not_ready", mq_exit: 16, sha: null, patch_unit: null,
           notes_es: retry ? "Bootstrap ejecutado; reintenta el aterrizaje una vez." : "Entorno no preparado tras el intento de bootstrap; revisa el log de la cola antes de reanudar." } };

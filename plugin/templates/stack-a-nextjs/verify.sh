@@ -475,21 +475,76 @@ def detach(slot, identity, allowed):
     shutil.rmtree(tomb)
     return True
 
+# Same initialized-directory/unique-owner protocol as hostSlotMutex.mjs.
+import contextlib
+@contextlib.contextmanager
+def admission_mutex(root):
+    root = str(root)
+    os.makedirs(root, exist_ok=True)
+    token = uuid.uuid4().hex
+    name = 'owner-%s-%s.json' % (os.getpid(), token)
+    lock = os.path.join(root, '.admission.lock')
+    staging = os.path.join(root, '.admission.new-%s-%s' % (os.getpid(), token))
+    timeout = float(os.environ.get('PANDACORP_HOST_MUTEX_WAIT_S', '1'))
+    if not 0 <= timeout <= 60: raise ValueError('invalid host mutex wait limit')
+    started = time.monotonic()
+    held = False
+    def clear(directory):
+        try: os.unlink(os.path.join(directory, name))
+        except FileNotFoundError: pass
+        try: os.rmdir(directory)
+        except OSError as error:
+            if error.errno not in (2, 17, 39, 66): raise
+    try:
+        os.mkdir(staging)
+        with open(os.path.join(staging, name), 'x') as f:
+            json.dump(dict(pid=os.getpid(), token=token), f)
+        while True:
+            try:
+                os.rename(staging, lock)
+                held = True
+                break
+            except OSError as error:
+                if error.errno not in (17, 21, 39, 66): raise
+            try: entries = os.listdir(lock)
+            except FileNotFoundError: continue
+            for entry in entries:
+                parts = entry.split('-', 2)
+                if len(parts) != 3 or parts[0] != 'owner' or not parts[1].isdigit() or not entry.endswith('.json'): continue
+                try: os.kill(int(parts[1]), 0)
+                except ProcessLookupError:
+                    try: os.unlink(os.path.join(lock, entry))
+                    except FileNotFoundError: pass
+                except PermissionError: pass
+            try: os.rmdir(lock)
+            except OSError as error:
+                if error.errno not in (2, 17, 39, 66): raise
+            if time.monotonic() - started >= timeout: raise TimeoutError('host admission mutex busy')
+            time.sleep(.01)
+        yield
+    finally:
+        clear(lock if held else staging)
+
 try:
-    if action == 'release':
-        if owned:
-            name, token = owned.rsplit('|', 1)
-            slot = Path(name)
-            current = slot.stat()
-            detach(slot, (current.st_dev, current.st_ino),
-                   lambda target: (owner(target) or {}).get('token') == token)
-        sys.exit(0)
-    inherited = os.environ.get('PANDACORP_HOST_SLOT_TOKEN', '')
-    if '|' in inherited:
-        name, token = inherited.rsplit('|', 1)
-        if token and Path(name).is_dir() and (owner(Path(name)) or {}).get('token') == token:
-            sys.exit(0)
     root = Path(os.environ.get('PANDACORP_HOST_DIR', str(Path.home() / '.pandacorp/host'))) / 'h-slots'
+    if action == 'release' or '|' in os.environ.get('PANDACORP_HOST_SLOT_TOKEN', ''):
+        guard_root = Path(owned.rsplit('|', 1)[0]).parent if action == 'release' and owned else root
+        with admission_mutex(guard_root):
+            if action == 'release':
+                if owned:
+                    name, token = owned.rsplit('|', 1)
+                    slot = Path(name)
+                    current = slot.stat()
+                    detach(slot, (current.st_dev, current.st_ino),
+                           lambda target: (owner(target) or {}).get('token') == token)
+                sys.exit(0)
+            inherited = os.environ.get('PANDACORP_HOST_SLOT_TOKEN', '')
+            if '|' in inherited:
+                name, token = inherited.rsplit('|', 1)
+                if Path(name).parent.resolve() != root.resolve():
+                    raise ValueError('inherited host slot root mismatch')
+                if token and Path(name).is_dir() and (owner(Path(name)) or {}).get('token') == token and not stale(Path(name)):
+                    sys.exit(0)
     root.mkdir(parents=True, exist_ok=True)  # Any failure is RED, never optional admission.
     maximum = max(1, min(2, (os.cpu_count() or 1) // 4))
     timeout = float(os.environ.get('PANDACORP_HOST_SLOT_WAIT_S', '600'))
@@ -497,28 +552,32 @@ try:
         raise ValueError('invalid host slot wait limit')
     deadline = time.monotonic() + timeout
     while True:
-        held = 0
-        for index in range(maximum):
-            slot = root / ('slot-' + str(index))
-            for attempt in range(3):
-                try:
-                    slot.mkdir()
-                except FileExistsError:
-                    identity = slot.stat()
-                    if not stale(slot):
-                        held += 1
-                        break
-                    detach(slot, (identity.st_dev, identity.st_ino), stale)
-                    continue
-                token = str(uuid.uuid4())
-                value = dict(pid=pid, kind='verify', project=str(Path.cwd()),
-                             at=datetime.datetime.now(datetime.timezone.utc).isoformat(), token=token)
-                # A publishing error leaves our newly created directory ownerless for the 60s grace.
-                temporary = slot / 'owner.json.tmp'
-                temporary.write_text(json.dumps(value) + '\n')
-                temporary.replace(slot / 'owner.json')
-                print(str(slot) + '|' + token)
-                sys.exit(0)
+        try:
+            with admission_mutex(root):
+                held = 0
+                for index in range(maximum):
+                    slot = root / ('slot-' + str(index))
+                    for attempt in range(3):
+                        try:
+                            slot.mkdir()
+                        except FileExistsError:
+                            identity = slot.stat()
+                            if not stale(slot):
+                                held += 1
+                                break
+                            detach(slot, (identity.st_dev, identity.st_ino), stale)
+                            continue
+                        token = str(uuid.uuid4())
+                        value = dict(pid=pid, kind='verify', project=str(Path.cwd()),
+                                     at=datetime.datetime.now(datetime.timezone.utc).isoformat(), token=token)
+                        # A publishing error leaves our newly created directory ownerless for the 60s grace.
+                        temporary = slot / 'owner.json.tmp'
+                        temporary.write_text(json.dumps(value) + '\n')
+                        temporary.replace(slot / 'owner.json')
+                        print(str(slot) + '|' + token)
+                        sys.exit(0)
+        except TimeoutError:
+            held = maximum
         print(f'verify: waiting for host heavy-job slot; position {held + 1} ({held}/{maximum} held)', file=sys.stderr)
         if time.monotonic() >= deadline:
             raise TimeoutError('bounded host-slot wait expired')

@@ -717,7 +717,9 @@
               "string",
               "null"
             ]
-          }
+          },
+          "environment_retry_exhausted": { "type": "boolean" },
+          "environment_retry_sha": { "type": "string" }
         },
         "required": [
           "id",

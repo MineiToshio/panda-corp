@@ -53,4 +53,36 @@ assert not any(e['event']=='gate_start' for e in r)
 assert any(e['event']=='env_step' and e['result']=='failed' for e in r)
 assert r[-1]['exit']==16
 CHECK
-echo 'RESULT: 3 passed, 0 failed (post-rebase install, typegen, pre-gate exit 16)'
+
+# The build engine already rebased: HEAD no longer reveals the install's old lock.
+fixture pre-rebased
+printf 'node_modules/\n' >> "$WT/.gitignore"
+mkdir -p "$WT/node_modules"
+echo old > "$WT/node_modules/.package-lock.json"
+cat > "$WT/bin/npm" <<'NPM'
+#!/bin/bash
+set -e
+[ "$1" = ci ]
+mkdir -p node_modules
+cp package-lock.json node_modules/.package-lock.json
+echo install >> "$ENV_TRACE"
+NPM
+chmod +x "$WT/bin/npm"
+printf '#!/bin/bash\ncmp package-lock.json node_modules/.package-lock.json || exit 1\necho gate >> "$ENV_TRACE"\n' > "$WT/.pandacorp/verify.sh"
+commit_wt
+echo new > "$APP/package-lock.json"
+git -C "$APP" add .; git -C "$APP" commit -qm 'main lock changed'
+git -C "$WT" rebase main >/dev/null 2>&1
+export ENV_TRACE="$FX/prerebased-trace"
+run_queue
+need test "$RC" = 0
+need test "$(cat "$ENV_TRACE")" = "$(printf 'install\ngate')"
+run_queue
+need test "$RC" = 0
+need test "$(grep -c '^install$' "$ENV_TRACE")" = 1
+# Even with the same target lock, replacing installed metadata invalidates the receipt.
+echo stale > "$WT/node_modules/.package-lock.json"
+run_queue
+need test "$RC" = 0
+need test "$(grep -c '^install$' "$ENV_TRACE")" = 2
+echo 'RESULT: 5 passed, 0 failed (post-rebase tools, pre-rebased stale installation, metadata identity)'

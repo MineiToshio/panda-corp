@@ -77,6 +77,7 @@ export async function step(run) {
   const landing = await landDecision(run, state, pol, deferredEntries, notes);
   state = landing.state;
   if (landing.diskBlocked) return finish(run, state, { action: "wait", wait: { reason: "disk", retry_after_s: RETRY_S.disk }, quota, notes });
+  if (landing.environmentBlocked) return finish(run, state, { action: "wait", wait: { reason: "gate", retry_after_s: RETRY_S.gate }, quota, notes });
   if (landing.action === "land") return finish(run, state, { action: "land", quota, notes });
   if (landRunning(state)) return finish(run, state, { action: "wait", wait: { reason: "jobs_running", retry_after_s: RETRY_S.jobs_running }, quota, notes });
 

@@ -3,10 +3,10 @@ import path from "node:path";
 import { nowIso, sha256Hex } from "../fsx.mjs";
 import { resolveInside } from "../paths.mjs";
 import { fencedTwoPhase, upsertJob } from "../state.mjs";
-import { assessBatch, cardCompletedBy, setStatusScalars } from "./batch.mjs";
+import { assessBatch, cardCompletedBy, environmentRetryExhausted, setStatusScalars } from "./batch.mjs";
 import { harvestLandJob, prepareLandHarvest } from "./harvest.mjs";
 import {
-  MERGE_QUEUE, OUTPUT_TAIL_BYTES, RELEASE_VAR, WO_KINDS, assertCleanWorktree, defaultBranchOf, dropLandingMetadata, err, git, gitOk,
+  MERGE_QUEUE, OUTPUT_TAIL_BYTES, RELEASE_VAR, WO_KINDS, assertCleanWorktree, defaultBranchOf, dropLandingMetadata, err, git, gitOk, landingCodeTip,
   handbackResult, markerLine, nothing, resolveLandDeps, result,
 } from "./common.mjs";
 
@@ -19,6 +19,10 @@ async function phase1(ctx, d) {
   if (!batch.complete) return { done: nothing("batch_incomplete") };
   if (!batch.landable.length) return { done: nothing("no_verified_work") };
   const root = state.integration.worktree;
+  const lastLand = state.jobs.filter(j => j.kind === "land").at(-1);
+  if (lastLand?.environment_retry_exhausted && environmentRetryExhausted(state, await landingCodeTip(d, root, ctx.runId))) {
+    return { done: handbackResult("environment_retry_exhausted", { mq_exit: 16, patch_unit: null }) };
+  }
   const script = await d.fs.stat(path.join(root, MERGE_QUEUE)).catch(() => null);
   if (!script?.isFile()) throw err("INVALID_STATE", `the project has no ${MERGE_QUEUE} in the integration worktree (run /pandacorp:upgrade)`);
   const branch = ctx.paths.integrationBranch(ctx.runId);
