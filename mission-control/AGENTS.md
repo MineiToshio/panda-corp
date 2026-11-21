@@ -17,6 +17,24 @@ User request → this AGENTS.md → the project's **engineering rules** (`docs/r
 ## Engineering rules (mandatory) — `docs/rules/`
 This project's engineering rules live in **`docs/rules/`**, split by purpose and technology and indexed by `docs/rules/README.md`. **Read them before writing or changing code, and follow them** (they are not optional reading). Only the rules that apply to THIS project are present: the general best-practice files (always) plus the tech-specific ones for the chosen stack. They are the operative, portable form of the Pandacorp factory standards and hold **whether or not** this project is built with Pandacorp. If a situation isn't covered there, follow the spirit of those rules; for recurring decisions consult the factory's decision registry.
 
+**Queue completion (DR-165 phase 1).** The recipe is commit → `bash .pandacorp/merge-queue.sh`.
+Plain `verify.sh` is diagnosis. Until the queue certifies the current rebased tree, report
+`implemented-uncertified` ("implementado, sin certificar"). Read `bash .pandacorp/merge-queue.sh --status`:
+`certified-awaiting-order` ("certificado, espera tu orden", exit 21 with matching stamp/base),
+`certified-stale` (main moved or stamp expired; re-queue), or `landed` (queue ff, plus published for launched projects).
+Only `certified-awaiting-order` and `landed` may be called done. Work-order `VERIFIED` is review/feature evidence.
+For a launched project, ask for the explicit per-landing order at the START of the work (DR-138 unchanged);
+if deferred, certify and preserve the branch at exit 21. A direct commit on launched main cannot be
+published through a main-checkout stamp: supported paths are the queue or the explicit logged owner
+bypass. The agent never sets the bypass. A transferred stamp's main-checkout check is diagnosis only.
+
+**Repair pre-check.** After a static/Vitest red, run
+`bash .pandacorp/verify.sh --only=live-data-asserts,structure-guard,data-layer,api-error-contract,doc-lint,residual-ambiguity,biome,tsc,knip,madge,vitest`
+(the whole unit suite) before re-queueing. After a Playwright red, run the failing spec plus all static checks.
+`bash .pandacorp/verify.sh --diagnose-unit` reports all static/unit failures under the host slot, never
+certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandacorp/run/test-outcomes.jsonl`;
+`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or exclusions.
+
 ## Language & interaction
 Git-tracked status decides the language: committed → English (code: variables, functions, types, comments, commits; and product/technical docs); gitignored → Spanish (the owner-facing communication layer + personal data). User-facing content via i18n (never hardcoded), default locale from the product's launch-language decision. **The interaction with the owner is always in Spanish** — everything the agent says in chat and inside any skill (questions, explanations, progress, recommendations) is in Spanish, regardless of the artifact's language.
 

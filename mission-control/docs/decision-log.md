@@ -40,6 +40,17 @@ The checked-in case table is historical; full production discovery/timing and th
 remain external validation. Template versions are intentionally left to the coordinating phase-1/2
 merge. Factory machinery is changed directly under LESSON-0675, outside the engine being changed.
 
+## 2026-11-21 - Pandacorp overlay upgraded 9.6.2 -> 9.8.0
+
+Compatible bump. The managed machinery (`merge-queue.sh`, `green-stamp.sh`, `verify.sh`,
+`worktree-bootstrap.sh`, `session-cleanup.sh`) already matched the 9.8.0 templates; installed the
+missing `with-merge-lock.sh` and set the executable bit on `canary.sh`, `doc-lint.sh` and
+`session-cleanup.sh`. Regenerated `.pandacorp/guide.md`, the managed `AGENTS.md` block and the
+`quality-and-testing` rule (queue completion and repair pre-check, DR-165 phase 1). `knip.json` keeps its `scripts/navigation/*` project entries, as
+recorded in the 9.6.2 entry below. Proposal 43 phase 2 adds per-worker fixture slots for the
+isolated browser specs listed in `e2e/isolated-specs.json`, and the worktree e2e port moves to an
+ignored file. Spec: [guide](../.pandacorp/guide.md).
+
 ## 2026-11-21 - Pandacorp overlay upgraded 9.2.0 -> 9.6.2
 
 Compatible bump. Regenerated `.pandacorp/guide.md` and the managed `AGENTS.md` block; installed
