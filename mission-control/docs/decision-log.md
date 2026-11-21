@@ -1,5 +1,19 @@
 # Decision Log — Mission Control
 
+## 2026-11-21 - Pandacorp overlay upgraded 9.2.0 -> 9.6.2
+
+Compatible bump. Regenerated `.pandacorp/guide.md` and the managed `AGENTS.md` block; installed
+`with-merge-lock.sh` and refreshed `merge-queue.sh`, `green-stamp.sh` and the Stack A `verify.sh`
+(DR-146/DR-165 queue ownership and certified tree). Conformance re-synced `playwright.config.ts`,
+`e2e/_hydration.ts`, `e2e/_skip.ts` and `e2e/hydration.spec.ts`, plus the four drifted engineering
+rules (`documentation-and-decisions`, `external-services`, `quality-and-testing`, `styling-and-ui`).
+`e2e/.run-outputs` declares the browser-run outputs (the fixture gamification ledger, its lock and
+the fixture host `Library` directory) that `verify.sh` resets and `green-stamp.sh` excludes from the
+tree fingerprint. `knip.json` deliberately keeps its project entries for `scripts/navigation/*`: the
+canonical Stack A config reports `isNavigationSlug` and `validateNavigationCatalog` as unused exports
+because their consumer is that script, so overwriting it would red-lock the gate. The `--canary`
+passed 11/11. Spec: [guide](../.pandacorp/guide.md).
+
 ## 2026-11-17 - Upgrade Next.js to 16.4.6 and pin patched build-tool transitives
 
 `next` moves from 16.4.3 to 16.4.6 (exact): GHSA-mfr8-8qww-v76h and GHSA-vc7v-qv4w-wrv8 affect

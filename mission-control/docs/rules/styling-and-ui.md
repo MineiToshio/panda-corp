@@ -17,6 +17,10 @@ source: Pandacorp standard — patterns
 - Tokens live in the **`@theme` block** (Tailwind v4 registry); **semantic** tokens (`--color-primary`, `bg-background text-foreground`) reference base tokens. Never hardcode colors/spacing/radii; never fixed colors like `bg-white text-black`. (Contract: `docs/design/design-tokens.json`.)
 - **No arbitrary values** in committed code (`w-[37px]`, `text-[#abc]`); a value needed twice becomes an `@theme` token. Only exception: `calc()` referencing a theme var.
 
+## Design source before UI code (DR-163)
+- Reproduce the agreed conversation design or existing FDD/mock/prototype cited by the scope card. Never redesign while coding.
+- If no design source exists, a designer prepares the scoped lightweight FDD/mock delta first, reusing `DESIGN.md` and tokens. Delegated decisions are agent-owned and reversible, with rationale and reversal recorded; no global gate, freeze or phase change.
+
 ## Visual coherence — one app, not a set of screens (DR-062)
 - Every new page/section/tab/panel must be visually consistent with siblings — same scale and meaning for colors, type sizes, spacing, radii, component styles. Inconsistency is a **defect**, same class as a near-duplicate component.
 - Before styling a new surface, look at its siblings and reuse their values (title size, muted-text token, established card/section style). Don't invent a parallel scale.

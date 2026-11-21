@@ -35,3 +35,9 @@ The root `README.md` is this repo's front door — never let it drift. If a chan
 ## Two-layer, feature-centric docs
 - A thin **product layer** (`docs/product/`: `prd.md`, `architecture.md`, `research.md`) + one **self-contained module per feature** (`docs/frds/frd-NN-<slug>/`: `frd.md`, optional `fdd.md`+`mocks/`, `blueprint.md`, `work-orders/`).
 - Two architecture layers — **platform** (`docs/product/architecture.md`, one per project) vs **feature** (`frd-NN-<slug>/blueprint.md`) — never fuse them.
+
+## Incremental changes (DR-163)
+
+The conversation routes through `.pandacorp/guide.md`. A UI change with an agreed conversation design or existing FDD/mock/prototype records `design_source: agreed|existing`, `design_refs` and `design_decision_by`, then implements it faithfully. When the owner delegates the whole change without a design, prepare a lightweight designer-owned FDD/mock delta using existing `DESIGN.md` and tokens before building the affected UI. Record a reversible agent decision; no global visual gate, full freeze or phase change. Without UI, use `ui: false` and `design_source: not-applicable`.
+
+During a run, product-manager owns FRD/AC deltas, architect owns blueprint/ADR/model and work-order planning, and designer owns pending visual deltas. Use the report-compatible incremental WO amendment contract in the CLI documentation; never edit arbitrary state frontmatter. Every canonical delta still records its why in the decision log.
