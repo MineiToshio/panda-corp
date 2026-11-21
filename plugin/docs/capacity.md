@@ -338,18 +338,25 @@ Codex work additionally protects `min(8,max(2,imageDemandPp))` weekly pp for pen
 can use that reserve. Apply the stale margin before these reserves and task costs. No 90% stop is added. These are estimated admission margins,
 not a guarantee against external account consumption or real cost error.
 
-Preference never causes a wait. Order qualified candidates by **healthy > unknown > high > exhausted**:
-healthy means every applicable required window is known/future-reset (fresh or stale) and its adjusted
-usage is **<85%**; high starts at **>=85%** in any valid applicable window, even if another is unknown.
-Exhausted means the cell cannot fit its costs and reserves; it is excluded. Thus a high tool cannot win
-over a fitting healthy or unknown alternative. Task preference only breaks ties within the same level;
-healthy and unknown ties retain normal preferences. There is no effort degradation.
+Preference never causes a wait. Exhausted cells (cost and reserves cannot fit) are excluded; the
+rest are ordered in three tiers (DR-162, amended 2026-11-20 for pace balancing):
 
-When both fitting tools are high, minimize the **maximum adjusted percentage across applicable windows**,
-then break an exact tie by task preference. This uses the smaller worst-window pressure as the simple
-exhaustion-risk estimate. Example: stale Codex 88% + 5 pp = 93% beats fresh Claude 95%, including design;
-if Codex is older than 24 hours, 88% + 10 pp = 98% cannot fit protected reserves, so Claude 95% wins if
-its qualified cell fits. Reset distance is not a throughput forecast and does not override this order.
+- **Tier 0:** every known reading, except a tool that is **>=85%** adjusted in a valid applicable window
+  **and** ahead of its linear spend schedule. A tool at >=85% that is still *behind* pace holds quota
+  that will expire unused at reset, so it stays here.
+- **Tier 1:** a tool with an unknown reading. It never beats a known tool with margin.
+- **Tier 2 (hot):** >=85% and ahead of pace. Choose the lower **maximum adjusted percentage across
+  applicable windows**, then task preference on an exact tie. Example: stale Codex 88% + 5 pp = 93%
+  beats fresh Claude 95% when both are ahead of pace; if Codex is older than 24 hours, 88% + 10 pp = 98%
+  cannot fit protected reserves, so Claude 95% wins if its qualified cell fits.
+
+Within tier 0 the choice is **pace balancing**. For each applicable window, slack = elapsed fraction of
+the window x 100 - adjusted used %: positive means quota that will expire unused, negative means
+spending ahead of schedule. A tool's slack is its tightest window; an unusable window, or one whose reset
+is further away than the window's own length (contradictory data), counts as -15. The candidate with the
+highest slack + 15 for the task-type preferred tool wins (reason `pace_balanced` when that is the other
+tool), so both subscriptions are spent evenly toward their resets and preference decides only while
+both run at a similar pace. There is no effort degradation from this order.
 Explicit overrides and execution pins remain fixed as described below.
 
 `override` is `"claude"`, `"codex"` or `{tool,model?,effort?}` and fixes the tool. Optional model/effort must

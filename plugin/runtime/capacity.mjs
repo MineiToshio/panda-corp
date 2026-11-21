@@ -278,7 +278,27 @@ function validateCosts(costs) {
   }
 }
 
-function fit(reading, cell, type, imageReserve, costs, pinned) {
+// Pace balancing (DR-162 amendment 2026-11-20): spend both subscriptions evenly toward their resets.
+// Slack = percentage points a window is BEHIND a linear spend schedule: (elapsed fraction x 100) - used.
+// Positive = quota that expires unused at reset; negative = spending ahead of schedule. A tool's slack is
+// its tightest applicable window; an unusable window counts as UNKNOWN_SLACK. The same algorithm lives,
+// independently, in the standalone orchestrate skill (~/.claude/skills/orchestrate/capacity/): neither
+// depends on the other, so a change to one is ported by hand to the other.
+export const WINDOW_MS = Object.freeze({ five_hour: 5 * 3600e3, weekly: 7 * 24 * 3600e3 });
+export const UNKNOWN_SLACK = -15;
+export const PREFERENCE_BAND = 15;
+function paceSlack(reading, cell, ms) {
+  const windows = relevant(reading.windows, cell.model).filter(w => w.applicability !== "not_applicable");
+  if (!windows.length) return UNKNOWN_SLACK;
+  return Math.min(...windows.map(w => {
+    const reset = timestamp(w.resetsAt), dur = WINDOW_MS[w.id];
+    // A reset further away than the window's own length is contradictory data: treat it as unknown.
+    if (!usableWindow(w) || !dur || !Number.isFinite(reset) || reset - ms > dur) return UNKNOWN_SLACK;
+    const elapsed = Math.min(1, Math.max(0, 1 - (reset - ms) / dur));
+    return elapsed * 100 - w.effectivePercentUsed;
+  }));
+}
+function fit(reading, cell, type, imageReserve, costs, pinned, ms = Date.now()) {
   const key = type === "images" ? "images" : `${cell.model}/${cell.effort}`;
   const prior = costs[key] ?? { five_hour: PRIORS[key][0], weekly: PRIORS[key][1] };
   const blocked = relevant(reading.windows, cell.model).filter(w => {
@@ -292,7 +312,7 @@ function fit(reading, cell, type, imageReserve, costs, pinned) {
     relevant(reading.windows, cell.model).every(w => w.applicability === "not_applicable" || usableWindow(w));
   const pressure = Math.max(0, ...relevant(reading.windows, cell.model).filter(usableWindow).map(w => w.effectivePercentUsed));
   // A valid high window still constrains a cell when a different window is unknown.
-  return { fits: blocked.length === 0, level: pressure >= 85 ? 2 : known ? 0 : 1, pressure,
+  return { fits: blocked.length === 0, level: pressure >= 85 ? 2 : known ? 0 : 1, pressure, slack: paceSlack(reading, cell, ms),
     resets: blocked.map(w => timestamp(w.resetsAt)) };
 }
 
@@ -338,7 +358,7 @@ export function decide({ task, readings = {}, now, costs = {} }) {
     if (!task.pin && override && (override.model !== undefined && override.model !== cell.model || override.effort !== undefined && override.effort !== cell.effort)) {
       throw new TypeError("Override must preserve the task's qualified cell and risk floor");
     }
-    return { cell, reading: readings_used[tool], ...fit(readings_used[tool], cell, type, Math.min(8, Math.max(2, demand)), costs, !!task.pin) };
+    return { cell, reading: readings_used[tool], ...fit(readings_used[tool], cell, type, Math.min(8, Math.max(2, demand)), costs, !!task.pin, ms) };
   });
   let viable = candidates.filter(c => c.fits), reduced = false;
   // Only after neither requested cell fits, reduce effort once, preserving model and hard floors.
@@ -348,18 +368,23 @@ export function decide({ task, readings = {}, now, costs = {} }) {
       const cell = { ...c.cell, effort };
       const floor = type === "review" ? reviewerFloor(cell.tool, risk, complexity, authors) : rank(cellFor("implement", risk, cell.tool, "trivial"));
       if (!Object.hasOwn(PRIORS, cellKey(cell)) || rank(cell) < floor) return null;
-      return { cell, ...fit(readings_used[cell.tool], cell, type, Math.min(8, Math.max(2, demand)), costs, false) };
+      return { cell, ...fit(readings_used[cell.tool], cell, type, Math.min(8, Math.max(2, demand)), costs, false, ms) };
     }).filter(Boolean);
     candidates.push(...lower);
     viable = lower.filter(c => c.fits); reduced = viable.length > 0;
   }
   let reason = task.pin ? "pinned_task" : override ? "explicit_override" : "preferred_tool";
   if (!task.pin && !override && viable.length) {
-    // Healthy <85% > unknown > high >=85%; unfit cells were excluded above.
-    // Within high pressure, minimize the worst applicable window before the task tie-break.
-    viable.sort((a, b) => a.level - b.level || (a.level === 2 ? a.pressure - b.pressure : 0));
+    // Tiers keep the safety ordering: 0 = known and not (>=85% AND ahead of pace); 1 = unknown reading;
+    // 2 = known, >=85% and ahead of pace (hot). A >=85% window BEHIND pace is quota about to expire
+    // unused, so it stays in tier 0. Tier 0 sorts by pace score (slack + preference band); tier 2 by
+    // lower worst window, then task preference (stable order) on an exact tie.
+    const tier = c => c.level === 1 ? 1 : c.level === 2 && c.slack < 0 ? 2 : 0;
+    const score = c => c.slack + (c.cell.tool === preferred ? PREFERENCE_BAND : 0);
+    viable.sort((a, b) => tier(a) - tier(b) || (tier(a) === 0 ? score(b) - score(a) : tier(a) === 2 ? a.pressure - b.pressure : 0));
     if (viable[0].cell.tool !== preferred) reason = !candidates[0].fits ? "preferred_tool_unavailable" :
-      viable[0].level < candidates[0].level ? "capacity_health_preferred" : "lower_pressure_preferred";
+      tier(viable[0]) < tier(candidates[0]) ? "capacity_health_preferred" :
+      tier(viable[0]) === 2 ? "lower_pressure_preferred" : "pace_balanced";
     if (viable[0].level === 1) reason = "unknown_reading_selected";
   }
   if (viable.length) {
@@ -379,7 +404,7 @@ export function decide({ task, readings = {}, now, costs = {} }) {
 export function explain(decision) {
   const reasons = { complexity_effort_reduced: "esfuerzo reducido un escalón por cupo, conservando los pisos", pinned_task: "selección fija de la tarea", explicit_override: "herramienta fijada explícitamente",
     preferred_tool: "preferencia por tipo y riesgo", capacity_health_preferred: "se prioriza el nivel de salud del cupo",
-    preferred_tool_unavailable: "la herramienta preferida no tiene margen", lower_pressure_preferred: "menor uso máximo entre ventanas con presión alta",
+    preferred_tool_unavailable: "la herramienta preferida no tiene margen", pace_balanced: "reparto parejo: la otra cuenta va más atrás de su ritmo hacia el reinicio", lower_pressure_preferred: "menor uso máximo entre ventanas con presión alta",
     unknown_reading_selected: "lectura desconocida, preferida a un cupo alto", pinned_tool_exhausted: "cupo de la tarea fijada agotado",
     no_tool_fits: "ninguna herramienta apta tiene margen" };
   const reason = reasons[decision.reason] ?? "decisión de capacidad";

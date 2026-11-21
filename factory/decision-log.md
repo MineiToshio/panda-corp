@@ -1,5 +1,13 @@
 # Decision Log — Factory
 
+## 2026-11-20 - Spend both subscriptions evenly (DR-162 amended)
+
+[DR-162](decisions/registry.yaml) and [BUILD-11](standards/build-engine.md) now rank fitting
+capacity cells by spend pace toward each window's reset instead of "healthy > unknown > high with
+preference as tie-break", which let the preferred account take nearly all work below 85% while the
+other subscription expired unused. The owner delegated the design and asked that the standalone
+orchestrate skill stay fully independent of the factory: both carry the same algorithm as separate
+copies. Implementation and tests live in the [plugin log](../plugin/docs/decision-log.md).
 ## 2026-11-20 - Correct phase 0 evidence and the phase 0.5 baseline
 
 The independent review of [proposal 43](../docs/proposals/43-done-means-queue-green.md)

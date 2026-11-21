@@ -1,5 +1,19 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-20 - Pace-balanced capacity allocation
+
+Plugin 10.16.0 (MINOR), [DR-162](../../factory/decisions/registry.yaml) amended,
+[BUILD-11](../../factory/standards/build-engine.md) and [capacity.md](capacity.md). The owner observed
+that the allocator let the task-type preferred account absorb nearly all work until it reached 85%,
+ignoring the other subscription's usage and both reset times, so quota expired unused. `decide()` now
+ranks fitting cells by spend pace: slack per window = elapsed fraction x 100 - adjusted used %, the
+tool's tightest window counts, and the preferred tool gets a 15-point band. Safety order is kept
+(unknown never beats a known tool with margin; >=85% and ahead of pace ranks last, lowest worst window
+first); a reset further away than its window length is treated as unknown. Tests: `test-capacity.mjs`
+(+4 pace contracts; three preference-only expectations rewritten to the new rule; neutral 5-hour
+fixture) and `test-build-v2-routing.mjs` (realistic per-window resets). The standalone orchestrate
+skill keeps an independent copy of the same algorithm; neither depends on the other. The
+[Manual](../../mission-control/src/app/manual/manualPages.tsx) paragraph is updated.
 ## 2026-11-20 - Repair phase 0 lifecycle, provenance and metric validation
 
 Independent review exposed four false-evidence paths. The [queue](../templates/shared/.pandacorp/merge-queue.sh)

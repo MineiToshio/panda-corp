@@ -571,12 +571,18 @@ Codex comes from passive rollout tails; both readers preserve observation times 
 
 All new work delegates fit, emergency/image reserves, preference and unknown handling to `decide()`;
 there is no separate 85/90/95 veto, conserve rule, automatic Astra escalation or quota-triggered drive handoff.
-For fitting qualified cells, quota health precedes task preference: healthy (every applicable window
-<85% after margin, fresh or stale) > unknown > high (any valid applicable window >=85%) > exhausted
-(cost/reserves cannot fit). A known high window still constrains a cell with another unknown window.
-Among fitting high tools choose the lower maximum adjusted usage, then task preference on an exact tie.
-Thus stale Codex 88+5=93% beats Claude 95%; at age >24h its 98% cannot fit reserves and Claude may win.
-Task preference breaks ties within a level; pins and explicit overrides retain their fixed qualified cell.
+For fitting qualified cells (exhausted = cost/reserves cannot fit, excluded) the order is three tiers
+(DR-162, amended 2026-11-20): tier 0 = known readings, except a tool >=85% after margin in a valid
+applicable window that is also ahead of its linear spend schedule; tier 1 = unknown; tier 2 = that
+>=85%-and-ahead "hot" tool. Within tier 0, **pace balancing**: slack per window = elapsed fraction
+x 100 - adjusted used %; a tool's slack is its tightest applicable window (an unusable window, or a
+reset further away than the window length, counts as -15); the highest slack plus 15 points for the
+task-type preferred tool wins, so both subscriptions are spent evenly toward their resets and quota
+about to expire unused (>=85% but behind pace) is still used. A known high window still constrains a
+cell with another unknown window. Within tier 2 choose the lower maximum adjusted usage, then task
+preference on an exact tie: stale Codex 88+5=93% beats Claude 95% when both are ahead of pace; at age
+>24h its 98% cannot fit reserves and Claude may win. Pins and explicit overrides retain their fixed
+qualified cell.
 Existing pins hold until an execution completes. A real usage limit is retained account-wide until reset or a newer observation;
 transient rate limits remain distinct and do not mark the account exhausted.
 
