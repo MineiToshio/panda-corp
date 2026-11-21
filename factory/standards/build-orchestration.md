@@ -702,7 +702,12 @@ summary counts are validated before any verdict or timing calculation. Vitest ad
 a runner sidecar with planned/completed modules, per-test results and declared skips;
 Playwright checks expectedStatus and outcome. Declared skipped/todo tests remain in
 the inventory and do not veto another exclusion. Unexecuted, pending, interrupted,
-retried, missing-result or malformed tests stay red. Observed failures remain in reports/ledger.
+retried, missing-result or malformed tests stay red. An empty Vitest inventory is permitted
+only for green partial `--files`/`--tests` commands that explicitly use
+`--passWithNoTests`: all test/suite counts must be zero, success true and the runner
+proof completed/passed with no modules, tests or errors. Full certification, browser
+runs and other partial modes still reject zero tests; an exclusion file (even `[]`)
+does not change that scope contract. Observed failures remain in reports/ledger.
 Vitest identity: repository-relative suite `name` + ` > ` + assertion `fullName`.
 Playwright identity: spec `file` + ` > ` + suite titles joined by ` > ` + spec title
 + ` [projectName]` (including the JSON reporter's top-level suite title). No regex

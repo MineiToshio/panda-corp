@@ -1274,7 +1274,7 @@ OUTCOMESPY
 # Full reporter data is persisted with the report for reviewed baseline refreshes.
 # Keep Bash 3.2 arrays/arguments; no GNU timeout/date or process-substitution serialization.
 evaluate_test_policy() {
-  local runner="$1" original="$2" rc=0
+  local runner="$1" original="$2" rc=0 empty_policy=""
   if [ "$GATE_SCOPE" != full ] && [ ! -f .pandacorp/test-exclusions.json ]; then return "$original"; fi
   if [ ! -f .pandacorp/test-gate-policy.mjs ]; then
     if [ -f .pandacorp/test-exclusions.json ] || { [ -f .pandacorp/gate-budget.json ] && grep -q '"schemaVersion"' .pandacorp/gate-budget.json; }; then
@@ -1283,7 +1283,13 @@ evaluate_test_policy() {
     echo 'WARN DR-159: missing gate-budget.json / policy helper (upgrade overlay)'
     return "$original"
   fi
-  PANDACORP_GATE_FULL="$([ "$GATE_SCOPE" = full ] && echo 1 || echo 0)" node .pandacorp/test-gate-policy.mjs evaluate . "$runner" "$GATE_FRAGMENTS_DIR/$runner.json" "$original" 2>&1 | tee "$GATE_FRAGMENTS_DIR/log-$runner-policy.txt" || rc=$?
+  # Match exactly the two commands below that deliberately pass --passWithNoTests.
+  # --only/--since/--affected alone never authorize an empty inventory.
+  if [ "$runner" = vitest ] && [ "$original" -eq 0 ] && [ "$GATE_SCOPE" = partial ] &&
+     { [ "${#SCOPE_TESTS_ARR[@]}" -gt 0 ] || [ "${#SCOPE_FILES_ARR[@]}" -gt 0 ]; }; then
+    empty_policy="--allow-empty-partial"
+  fi
+  PANDACORP_GATE_FULL="$([ "$GATE_SCOPE" = full ] && echo 1 || echo 0)" node .pandacorp/test-gate-policy.mjs evaluate . "$runner" "$GATE_FRAGMENTS_DIR/$runner.json" "$original" "$empty_policy" 2>&1 | tee "$GATE_FRAGMENTS_DIR/log-$runner-policy.txt" || rc=$?
   if [ "$rc" -ne 0 ]; then
     record_gate_result "$runner-policy" plain "$rc" 0 "$GATE_FRAGMENTS_DIR/log-$runner-policy.txt"
   fi

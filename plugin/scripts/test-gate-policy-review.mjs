@@ -2,7 +2,7 @@
 // Regressions from the independent phase-3 review, using only disposable repositories.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, rmSync, chmodSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -94,3 +94,50 @@ test('3: Vitest declared skip passes while an unexecuted task is rejected by run
 test('3: interrupted result remains red',()=>{const r=browser();r.suites[0].specs[0].tests[0].results[0].status='interrupted';assert.notEqual(evaluate(r).status,0);});
 test('4: valid legacy stage budget captures timings before schema 1 is enforced',()=>{writeFileSync(join(project,'.pandacorp/gate-budget.json'),'{"stages":{"vitest":55000,"playwright":432000},"margin":0.25}');try{assert.doesNotThrow(()=>policy.checkBudget(project,[{id:'new',runner:'vitest',duration_ms:50000}]));}finally{rmSync(join(project,'.pandacorp/gate-budget.json'));}});
 test('5: owner prohibition is in the actual managed upgrade projection',()=>{const template=readFileSync(join(root,'plugin/templates/shared/AGENTS.md.tpl'),'utf8');const managed=template.split('<!-- pandacorp:managed:start -->')[1].split('<!-- pandacorp:managed:end -->')[0];assert.match(managed,/replace the owner public key/);});
+
+// Re-review P2: the real gate's passWithNoTests command must agree with policy evaluation.
+test('partial no-related-tests: empty and populated exclusion policies allow a coherent green scoped run',()=>{
+ for (const dir of ['bin','src','e2e']) mkdirSync(join(project,dir),{recursive:true});
+ writeFileSync(join(project,'src/no-related.ts'),'export const value = 1;\n');
+ for (const name of ['smoke','visual','responsive','shell','headers']) writeFileSync(join(project,'e2e',name+'.spec.ts'),'');
+ writeFileSync(join(project,'playwright.config.ts'),'');
+ for (const name of ['green-stamp.sh','test-gate-policy.mjs']) writeFileSync(join(project,'.pandacorp',name),readFileSync(join(root,'plugin/templates/shared/.pandacorp',name)));
+ writeFileSync(join(project,'.pandacorp/verify.sh'),readFileSync(join(root,'plugin/templates/stack-a-nextjs/verify.sh')));
+ writeFileSync(join(project,'bin/pnpm'),`#!/usr/bin/env node
+const fs=require('fs'),args=process.argv.slice(2);
+if(args[0]==='vitest'){
+ const file=args.find(a=>a.startsWith('--outputFile='))?.slice(13);
+ if(file){
+  fs.writeFileSync(file,JSON.stringify({success:true,numTotalTestSuites:0,numPassedTestSuites:0,numFailedTestSuites:0,numPendingTestSuites:0,numTotalTests:0,numPassedTests:0,numFailedTests:0,numPendingTests:0,numTodoTests:0,testResults:[]}));
+  fs.writeFileSync(process.env.PANDACORP_VITEST_ERRORS_FILE,JSON.stringify({reason:'passed',plannedModules:0,completedModules:0,tests:[],unhandledErrors:[]}));
+ }
+}else if(args[0]==='exec' && args[1]==='playwright'){
+ fs.writeFileSync(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE,JSON.stringify({errors:[],stats:{expected:1,unexpected:0,skipped:0,flaky:0},suites:[{title:'smoke.spec.ts',specs:[{file:'smoke.spec.ts',title:'renders',tests:[{projectName:'desktop',expectedStatus:'passed',status:'expected',results:[{status:'passed',duration:1}]}]}]}]}));
+}
+`);chmodSync(join(project,'bin/pnpm'),0o755);
+ const run=args=>spawnSync('bash',['.pandacorp/verify.sh',...args],{cwd:project,env:{...process.env,PATH:join(project,'bin')+':'+process.env.PATH,PANDACORP_HOST_DIR:join(scratch,'host')},encoding:'utf8'});
+ for(const populated of [false,true]){
+  if(populated)setPolicy(keys);else{writeFileSync(join(project,'.pandacorp/test-exclusions.json'),'[]');commit(project);}
+  const result=run(['--files','src/no-related.ts']);assert.equal(result.status,0,result.stdout+result.stderr);
+  const report=JSON.parse(readFileSync(join(project,'.pandacorp/run/gate-report.json')));
+  assert.equal(report.scope,'partial');assert.equal(report.green,true);assert.equal(report.subgates.find(g=>g.name==='vitest').exit,0);
+  assert(!existsSync(join(project,'.pandacorp/run/green-stamp')));
+ }
+ const explicit=run(['--only=vitest','--tests=src/not-found.test.ts']);assert.equal(explicit.status,0,explicit.stdout+explicit.stderr);
+ for(const args of [['--only=vitest'],[]]){
+  const result=run(args);assert.notEqual(result.status,0,'zero inventory must fail without passWithNoTests authorization: '+args);
+  const report=JSON.parse(readFileSync(join(project,'.pandacorp/run/gate-report.json')));assert.equal(report.green,false);assert.equal(report.scope,args.length?'partial':'full');assert(!existsSync(join(project,'.pandacorp/run/green-stamp')));
+ }
+});
+test('partial empty inventory: red exits, incoherent summaries and interrupted proofs remain red',()=>{
+ const file=join(project,'.pandacorp/run/empty.json');
+ const base={success:true,numTotalTestSuites:0,numPassedTestSuites:0,numFailedTestSuites:0,numPendingTestSuites:0,numTotalTests:0,numPassedTests:0,numFailedTests:0,numPendingTests:0,numTodoTests:0,testResults:[]};
+ const proof={reason:'passed',plannedModules:0,completedModules:0,tests:[],unhandledErrors:[]};
+ const run=(report,sidecar,rc='0',full='0',flag='--allow-empty-partial')=>{
+  writeFileSync(file,JSON.stringify(report));writeFileSync(file+'.errors.json',JSON.stringify(sidecar));
+  return spawnSync(process.execPath,[join(project,'.pandacorp/test-gate-policy.mjs'),'evaluate',project,'vitest',file,rc,flag],{env:{...process.env,PANDACORP_GATE_FULL:full},encoding:'utf8'});
+ };
+ assert.equal(run(base,proof).status,0);
+ for(const [r,p,rc,full,flag] of [[base,proof,'1','0','--allow-empty-partial'],[{...base,success:false},proof,'0','0','--allow-empty-partial'],[{...base,numTotalTests:1},proof,'0','0','--allow-empty-partial'],[{...base,numTotalTestSuites:1},proof,'0','0','--allow-empty-partial'],[{...base,numFailedTestSuites:1},proof,'0','0','--allow-empty-partial'],[base,{...proof,reason:'interrupted'},'0','0','--allow-empty-partial'],[base,proof,'0','1','--allow-empty-partial'],[base,proof,'0','0','']]) assert.notEqual(run(r,p,rc,full,flag).status,0);
+ assert.throws(()=>policy.reporterTests('vitest',base,project),/empty/);
+});

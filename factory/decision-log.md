@@ -1,5 +1,9 @@
 # Decision Log — Factory
 
+## 2026-11-21 — Keep the scoped no-related-tests contract alongside exclusion policy
+
+The [build orchestration contract](standards/build-orchestration.md) now states the narrow zero-test exception already intended by --passWithNoTests. Exclusion policy must not turn a valid scoped iteration red. The gate explicitly authorizes only green partial --files/--tests Vitest runs; coherent empty reporters and runner proof are mandatory. Full certification continues to reject zero inventory. The regression covers both empty and populated exclusion lists and keeps red/full/incoherent cases negative.
+
 ## 2026-11-21 — Pin owner trust outside evaluated branches and repair gate migration
 
 Independent review found branch-local keys and mode 0600 did not separate an agent from signing authority. The coordinator selected committed factory-main trust plus a macOS login Keychain human-presence prompt, with same-user/runtime/ACL compromise documented as residual risk. The [registry](decisions/registry.yaml), [build orchestration](standards/build-orchestration.md), quality and managed instructions now require that design. Reporter inventory validation precedes exclusions/timing sums; legitimate declared skips remain valid. A legacy budget captures green-full timings before a reviewed schemaVersion 1 commit. Owner bootstrap is documented only; no owner key, project copy, commit or Keychain item is created here.

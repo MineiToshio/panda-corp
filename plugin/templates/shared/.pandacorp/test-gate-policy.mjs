@@ -111,7 +111,7 @@ function count(value, label) {
   if (!Number.isSafeInteger(value) || value < 0) throw new Error('invalid reporter count: ' + label);
   return value;
 }
-export function reporterTests(runner, report, project) {
+export function reporterTests(runner, report, project, {allowEmpty = false} = {}) {
   if (!report || typeof report !== 'object') throw new Error('invalid reporter object');
   const rows = [], ids = new Set();
   const add = (id, status, duration) => {
@@ -170,7 +170,9 @@ export function reporterTests(runner, report, project) {
     for (const suite of array(report.suites,'suites')) visit(suite,[]);
     if (!report.stats || Object.keys(counts).some(k => count(report.stats[k], 'stats.' + k) !== counts[k])) throw new Error('Playwright reporter inventory/count mismatch');
   } else throw new Error('unknown test runner');
-  if (!rows.length) throw new Error('empty reporter test inventory');
+  // Only an explicitly authorized partial Vitest passWithNoTests run may be empty.
+  // Keep all summary validation above; an empty module is still malformed.
+  if (!rows.length && !(allowEmpty && runner === 'vitest' && report.success === true && ['numTotalTestSuites','numPassedTestSuites','numFailedTestSuites','numPendingTestSuites'].every(key=>report[key] === 0) && report.testResults.length === 0)) throw new Error('empty reporter test inventory');
   return rows;
 }
 // JSON lacks reliable global errors and original skip modes. Record both from the runner.
@@ -209,6 +211,7 @@ export default class GateErrorReporter {
 }
 function validateVitestProof(report, tests, proof) {
   if (!proof || !['passed','failed'].includes(proof.reason) || !Array.isArray(proof.unhandledErrors) || proof.unhandledErrors.length || !Number.isSafeInteger(proof.plannedModules) || proof.plannedModules !== proof.completedModules || proof.completedModules !== report.testResults.length || !Array.isArray(proof.tests) || proof.tests.length !== tests.length) throw new Error('incomplete/interrupted Vitest inventory or global errors');
+  if (!tests.length && proof.reason !== 'passed') throw new Error('empty Vitest inventory requires a green completed run');
   const ids = new Set();
   for (const test of proof.tests) {
     if (typeof test.declaredSkip !== 'boolean') throw new Error('invalid declared skip proof');
@@ -242,8 +245,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     if (cmd === 'validate') loadExclusions(project);
     else if (cmd === 'owner-key') console.log(ownerPublicKey(project).fingerprint);
     else if (cmd === 'evaluate') {
-      const report = JSON.parse(readFileSync(filename,'utf8')), tests = reporterTests(runner,report,project);
-      const rc = Number(exitArg), exclusions = process.env.PANDACORP_DISABLE_TEST_EXCLUSIONS === '1' ? [] : loadExclusions(project);
+      const report = JSON.parse(readFileSync(filename,'utf8')), rc = Number(exitArg);
+      const allowEmpty = process.argv[7] === '--allow-empty-partial' && process.env.PANDACORP_GATE_FULL === '0' && runner === 'vitest' && rc === 0;
+      const tests = reporterTests(runner,report,project,{allowEmpty});
+      const exclusions = process.env.PANDACORP_DISABLE_TEST_EXCLUSIONS === '1' ? [] : loadExclusions(project);
       const failed = tests.filter(t=>['failed','timedOut','interrupted'].includes(t.status));
       // Runner crashes, global errors and incomplete/fail-fast inventories never become green.
       const infrastructure = runner === 'vitest' ? (report.numRuntimeErrorTestSuites > 0 || report.unhandledErrors?.length > 0 || report.testResults.some(s => s.message)) : (report.errors?.length > 0 || report.stats?.interrupted > 0);
