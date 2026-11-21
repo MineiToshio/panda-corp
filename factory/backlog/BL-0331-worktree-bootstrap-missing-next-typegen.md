@@ -3,10 +3,10 @@ id: BL-0331
 type: bug
 area: templates
 title: "worktree-bootstrap.sh does not run next typegen, so a fresh Next.js worktree's tsc gate fails on global route types"
-status: open
+status: done
 severity: p2
 opened: 2026-11-18
-closed:
+closed: 2026-11-21
 source: "funko-tracker .pandacorp/run/lessons.md, 2026-11 (agent-inferred): 'a fresh worktree's tsc gate fails on Next global PageProps until pnpm exec next typegen runs; worktree-bootstrap does not generate route types'; confirmed by reading plugin/templates/shared/.pandacorp/worktree-bootstrap.sh, which has no typegen step"
 closes:
 links: [DR-103]
@@ -54,3 +54,30 @@ type file) now exists — RED before the fix (bootstrap does nothing for this ca
 
 ## Out of scope
 Any framework other than Next.js; this item only closes the specific `PageProps`/route-type gap.
+
+## Resolution — 2026-11-21 (pandacorp-memory-review harvest)
+
+Fixed, but via a different mechanism than this item's original fix plan: instead of adding a typegen
+step to `worktree-bootstrap.sh`, commit `5419e778` ("feat(plugin): stamp controls, explain, declared run
+outputs, full-scope snapshots and inherited host slot (proposal 43 phase 0.5, shard B)", 2026-11-20)
+added a `gate_next_typegen` step directly to `plugin/templates/stack-a-nextjs/verify.sh`: it runs
+`node_modules/.bin/next typegen` whenever `.next/types` is missing and a static gate (which includes
+`tsc`) is selected, BEFORE those static gates run. This covers exactly the symptom this item was filed
+for — a fresh worktree/checkout with no `.next/types/` failing `tsc` on the missing route types — for
+every invocation that goes through `verify.sh` (bootstrap-only worktrees, merge-queue landings,
+profiling runs), which is strictly more coverage than fixing `worktree-bootstrap.sh` alone would have
+given (a bare `tsc` run outside `verify.sh` still would not regenerate the types, but that was never
+this item's scope).
+
+Corroborating evidence this was a real, recurring gap before the fix (both from 2026-11-21, i.e. the day
+after the fix landed, observed on PROJECTS that had not yet picked it up via `/pandacorp:upgrade`):
+funko-tracker profiling (agent-inferred) — "funko's installed `.pandacorp/verify.sh` (overlay 9.6.2) has
+NO `next typegen` step while the factory template (`stack-a-nextjs/verify.sh` `gate_next_typegen`) does:
+a fresh detached worktree (bootstrap only) reds the full gate at `tsc` after 14s with `Cannot find name
+'PageProps'`"; and funko-tracker e2e (agent-inferred) — "a fresh worktree after `worktree-bootstrap.sh`
+has no gitignored `next-env.d.ts`... `tsc` in merge-queue fails with TS2304... the bootstrap should
+create it (next typegen) or the gate should run typegen first." Both describe the pre-fix symptom on a
+project whose overlay predates commit `5419e778`; once those projects run `/pandacorp:upgrade` to pick
+up the current `verify.sh` template, the gate itself will generate the missing types before `tsc` runs.
+
+No further action needed on `worktree-bootstrap.sh` itself.

@@ -3,10 +3,10 @@ id: BL-0309
 type: bug
 area: templates
 title: "Confirm whether worktree-bootstrap.sh's skip-worktree bits block green-stamp.sh's certified-tree fast path for lane gates"
-status: open
+status: done
 severity: p2
 opened: 2026-11-11
-closed:
+closed: 2026-11-21
 source: "funko-tracker .pandacorp/run/lessons.md 2026-11-10 (agent-inferred, UNVERIFIED in this harvest session): 'worktree-bootstrap.sh sets skip-worktree on launch.json/e2e/server-env.json so green-stamp never certifies a worktree tree -> merge-queue always re-runs the full gate.'"
 closes:
 links: []
@@ -67,3 +67,25 @@ locally-expected override" and "a real uncertified divergence."
 Changing `worktree-bootstrap.sh`'s own choice to set skip-worktree for local dev PORT overrides (that
 part is working as intended, per BL-0288); changing the merge-queue's own landing-time skip-worktree
 clearing (already implemented).
+
+## Resolution — 2026-11-21 (pandacorp-memory-review harvest)
+
+Step 1's reproduction is now confirmed, and the answer is "refuted as an unintended gap — this is
+already the documented, accepted design."
+
+Corroborating evidence (personal-page-v2, overlay 9.2.0->9.6.2, 2026-11-21, agent-inferred): "a manual
+full `bash .pandacorp/verify.sh` inside a worktree prepared by `worktree-bootstrap.sh` can NEVER record
+the DR-146 green-stamp: bootstrap sets skip-worktree on `e2e/server-env.json` and `.claude/launch.json`,
+and `green-stamp.sh start` refuses a tree with skip-worktree entries ('working tree not clean'), so the
+documented 'commit -> verify.sh -> merge-queue.sh' recipe yields `[full-gate]`, not `[certified-tree]`,
+in any bootstrapped worktree of a project with a per-worktree PORT; only the queue's own gate (it
+un-skips those files first) can stamp."
+
+This is exactly scenario (a) this item asked to confirm. The current registry text (DR-146, "Known
+limits" paragraph) already states the resolution this item's step 2(b) proposed: "a worktree whose
+bootstrap overrides tracked files with skip-worktree cannot pre-certify the queue; the queue's own
+green then certifies its retries." The fast path is a main-checkout/queue-owned optimization; a lane
+worktree's own pre-land `verify.sh` run is expected to always pay the full gate, and
+`merge-queue.sh`'s landing-time skip-worktree clearing is what actually produces a certified tree. No
+code change needed — closing as "already handled," per this item's own step 3, with the reproduction
+evidence now recorded.

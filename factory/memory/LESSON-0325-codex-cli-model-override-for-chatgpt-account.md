@@ -59,3 +59,14 @@ sandbox flag re-passed) recovered the in-progress work rather than losing it.
 no progress and never erroring out. A background/detached invocation of `codex exec` must always close
 or redirect stdin explicitly (`</dev/null`), the same discipline any backgrounded CLI needs, or a silent,
 indefinite hang is indistinguishable from a slow-but-working run until someone checks on it.
+
+**Sixth corroborating instance, model-catalog staleness tied to the CLI binary (panda-corp, 2026-11-20,
+agent-inferred):** separately from the account-tier 400 rejection this lesson already tracks, the Codex
+CLI's locally-cached model catalog (`codex debug models`, `~/.codex/models_cache.json`) is filtered
+server-side by the installed CLI's `client_version` — a newer model family (e.g. a `gpt-6.2-sol`-class
+id) will not appear in the catalog at all until the CLI itself is updated (`codex update`), even though
+the account/subscription may already support it. Verified across two CLI versions on this machine
+(0.163 -> 0.171): the newer model only became visible/selectable after the update. "Use the latest
+model" on this machine requires keeping the CLI binary current, not just resolving model-family ids at
+runtime — a model absent from the catalog may simply mean "this CLI build predates it," not "this
+account doesn't have it."

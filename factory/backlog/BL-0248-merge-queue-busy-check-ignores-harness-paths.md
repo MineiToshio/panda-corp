@@ -53,3 +53,18 @@ refused.
 
 - The tests pass in `run-engine-tests.sh`; the standard states the file's status and the templates follow it.
 - Plugin + overlay versions bumped; decision-log entry.
+
+## Corroborating occurrence (2026-11-21, personal-page-v2)
+
+Reproduced on a THIRD project with the SAME file (`.pandacorp/navigation-identity.json`), confirming the
+bug is still live in the current `merge-queue.sh` (read 2026-11-21): the "busy main" preflight
+(`main_busy()`, the Python helper around line ~633) exempts only three specific runtime paths
+(`queue-log.jsonl`, `test-outcomes.jsonl`, `gate-reports/`) and otherwise, for a non-nested project
+(`QUEUE_PREFIX` empty), returns "busy" (`sys.exit(0)`) on ANY status-porcelain entry at all — tracked OR
+untracked — because `if not prefix or path in touched: sys.exit(0)` short-circuits true whenever
+`prefix` is empty, before even checking whether the untracked path is touched by the incoming branch.
+Agent-inferred note: "merge-queue.sh exit 12 fires at preflight on ANY untracked file in the main
+checkout (here an owner-owned `.pandacorp/navigation-identity.json` that is not gitignored), before the
+gate/stamp, so no gate time or `[certified-tree]` re-run can be measured through the queue until that
+file is committed or ignored." The Fix plan above (compute busy from tracked changes only, and check
+untracked-overwrite risk separately) still applies and is unimplemented.

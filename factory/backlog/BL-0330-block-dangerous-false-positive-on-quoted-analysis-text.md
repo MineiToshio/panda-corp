@@ -85,3 +85,19 @@ that suite green (no regression on the real recursive-delete detection this gate
 A general shell parser for this hook (explicitly rejected by the hook's own design comment — "the design
 is deliberately dumb"); this item only needs the backslash-stripping step to stop manufacturing false
 shell structure out of quoted regex syntax.
+
+## Related occurrence (2026-11-21, funko-tracker profiling) — needs its own reproduction
+
+A related, not-yet-isolated false positive from the same detector family, agent-inferred: "the Bash
+policy hook false-positives on any command whose text merely mentions a recursive delete (even inside a
+heredoc or a notes append), and a later literal single-path recursive delete of a scratchpad subdir was
+denied outright: scratch probe copies (APFS clones of the 1 GB build dir) could not be cleaned by the
+agent; avoid creating them, or write probes that clean up through a non-shell API in the same script."
+The first half (text merely mentioning a delete) matches this item's documented class and
+`factory/memory/LESSON-0105`'s "heredoc-body gap" corroborations. The second half — a literal,
+single-path `rm -rf <scratchpad-subdir>` reportedly denied outright even though the hint text
+(`block-dangerous.sh:527`) says that exact form is allowed without asking — was NOT isolated to its exact
+invocation text in this harvest; it may be the same backslash-stripping/heredoc-adjacency root cause this
+item already tracks, or a different trigger. Flagged here rather than filed separately so the next
+reproduction attempt captures the EXACT failing command line before deciding whether it is this item's
+bug or a new one.

@@ -85,3 +85,13 @@ Fix plan (a real merge/extension path) is still the right systemic fix; this occ
 manual-restore stopgap works but still depends on an agent noticing, which is exactly the risk this item
 exists to remove. Source: `factory/memory/LESSON-0004` addendum (2026-11-12) + mission-control
 `.pandacorp/run/lessons.md` 2026-11-11 notes.
+
+## Corroborating occurrence (2026-11-21, mission-control, overlay 9.2.0->9.6.2 upgrade)
+
+A THIRD occurrence on the same project (mission-control), agent-inferred: "MC's `knip.json` legitimately
+diverges from the Stack A template (`scripts/navigation/*` entries); overwriting it reds knip
+(`isNavigationSlug`/`validateNavigationCatalog` unused exports), so conformance must keep the project
+copy: the template needs a project-extension mechanism for knip entries." Same exact entries as the
+2026-11-12 corroboration, confirming the manual-restore stopgap still has to be re-applied on every
+upgrade pass rather than being durably fixed. This item's systemic fix (a real merge/extension path for
+`knip.json`) remains the right fix and is still unimplemented.
