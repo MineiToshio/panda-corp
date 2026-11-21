@@ -1339,7 +1339,11 @@ fi
 append_test_outcomes vitest
 if ! evaluate_test_policy vitest "$VITEST_RC"; then
   if [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" = 1 ]; then NIGHTLY_RED=1;
-  else write_gate_report 1; exit 1; fi
+  else
+    # Preserve runner/infrastructure exit identity; a new policy-only red uses exit 1.
+    [ "$VITEST_RC" -ne 0 ] || VITEST_RC=1
+    write_gate_report "$VITEST_RC"; exit "$VITEST_RC"
+  fi
 fi
 fi
 
@@ -1431,7 +1435,11 @@ if ! evaluate_test_policy playwright "$PLAYWRIGHT_RC"; then
     echo "baseline not blessed — bless it at the feature gate (DR-080), commit it, re-queue"
   fi
   if [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" = 1 ]; then NIGHTLY_RED=1;
-  else write_gate_report 1; exit 1; fi
+  else
+    # Same precedence as Vitest: policy rejection must not erase the runner's exit.
+    [ "$PLAYWRIGHT_RC" -ne 0 ] || PLAYWRIGHT_RC=1
+    write_gate_report "$PLAYWRIGHT_RC"; exit "$PLAYWRIGHT_RC"
+  fi
 fi
 
 fi

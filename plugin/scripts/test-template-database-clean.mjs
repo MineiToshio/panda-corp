@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const verify = fileURLToPath(new URL('../templates/stack-a-nextjs/verify.sh', import.meta.url));
 let passed = 0;
-function scenario({ script, args = [], cleanupExit = 0, suiteExit = 0 }) {
+function scenario({ script, args = [], cleanupExit = 0, suiteExit = 0, browserExit = 0 }) {
   const dir = mkdtempSync(path.join(tmpdir(), 'template-database-clean-'));
   try {
     for (const folder of ['bin', 'src/_tests', 'e2e']) mkdirSync(path.join(dir, folder), { recursive: true });
@@ -21,6 +21,7 @@ printf '%s\\n' "$*" >> calls.log
 case "$1" in
   db:test:check-clean) echo 'fixture: residual test database'; exit ${cleanupExit} ;;
   vitest) exit ${suiteExit} ;;
+  exec) exit ${browserExit} ;;
   *) exit 0 ;;
 esac
 `, { mode: 0o755 });
@@ -61,10 +62,20 @@ for (const args of [['--only=tsc'], ['--light']]) {
   assert.ok(!r.calls.includes('db:test:check-clean'));
   passed++;
 }
-{
-  const r = scenario({ script: 'node check-clean.mjs', suiteExit: 9 });
-  assert.equal(r.status, 9);
+// The policy layer must preserve the failing runner's original exit in full and scoped gates.
+// This does not change DR-140: a suite red still prevents the DB-clean postcondition.
+for (const options of [
+  { suiteExit: 9 },
+  { args: ['--only=vitest'], suiteExit: 9 },
+  { browserExit: 13 },
+  { args: ['--only=playwright'], browserExit: 13 },
+]) {
+  const expected = options.suiteExit || options.browserExit;
+  const runner = options.suiteExit ? 'vitest' : 'playwright';
+  const r = scenario({ script: 'node check-clean.mjs', ...options });
+  assert.equal(r.status, expected);
   assert.equal(r.report.green, false);
+  assert.equal(r.report.subgates.find(g => g.name === runner).exit, expected);
   assert.ok(!r.calls.includes('db:test:check-clean'), 'retain the first suite failure');
   passed++;
 }

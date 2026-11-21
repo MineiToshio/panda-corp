@@ -1,5 +1,9 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-21 — Preserve runner exit codes through test-policy rejection
+
+Plugin 10.19.3 / overlay 9.9.3. The phase-3 caller hardcoded exit 1 when Vitest/Playwright policy evaluation returned red, erasing an existing runner exit such as 9. Restore original nonzero runner codes; only a new policy failure on a green runner uses 1. The unchanged DB-clean contract remains: an ordinary suite failure stops before the DB postcondition. test-template-database-clean.mjs reproduced 1 != 9 before the fix; its assertion was not relaxed, only extended to full/scoped Vitest and Playwright exits and recorded runner codes. Canonical: [build orchestration](../../factory/standards/build-orchestration.md). Verification: template-database-clean 14/0 after the reproduced 1 != 9 RED; gate-budget green; shell/Node syntax, derived drift and whitespace checks green. Only affected suites were run, using the requested TMPDIR and a disposable host-slot directory for sandbox-safe DB-template testing.
+
 ## 2026-11-21 — Preserve explicit partial passWithNoTests with exclusions
 
 Plugin 10.19.2 / overlay 9.9.2. The evaluator receives an internal empty-inventory authorization only for green partial Vitest --files/--tests commands that pass --passWithNoTests. Reporter success, all zero test/suite counters and a passed empty runner proof are required. Full gates, unspecialized partial gates, browser suites, red exits and incoherent/interrupted reports remain fail-closed. The two targeted integration regressions first failed RED, then passed with empty/populated exclusions, explicit --tests and full/unauthorized negative controls. Canonical: [build orchestration](../../factory/standards/build-orchestration.md). Only lightweight affected tests are run; no product runner/build or commit.

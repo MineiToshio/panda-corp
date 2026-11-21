@@ -1,5 +1,9 @@
 # Decision Log — Factory
 
+## 2026-11-21 — Keep original test-runner failure identity after phase-3 policy checks
+
+The [build orchestration contract](standards/build-orchestration.md) now makes the existing exit-code precedence explicit. Phase-3 policy evaluation must not replace an already-red test runner's exit with 1; policy-only failures still use 1. The database-clean regression keeps its original expected 9 and now checks both runners and full/scoped gates. This is a production template correction, not a changed acceptance contract.
+
 ## 2026-11-21 — Keep the scoped no-related-tests contract alongside exclusion policy
 
 The [build orchestration contract](standards/build-orchestration.md) now states the narrow zero-test exception already intended by --passWithNoTests. Exclusion policy must not turn a valid scoped iteration red. The gate explicitly authorizes only green partial --files/--tests Vitest runs; coherent empty reporters and runner proof are mandatory. Full certification continues to reject zero inventory. The regression covers both empty and populated exclusion lists and keeps red/full/incoherent cases negative.

@@ -695,7 +695,11 @@ TTY alone and file mode 0600 are not an agent boundary. Tests stub Keychain acce
 and use disposable factory repositories; they never create/read the owner's item.
 
 Exclusions apply to the **verdict**, not collection: every test still executes once,
-without bail or retries. Only failures with the exact authorized reporter identity
+without bail or retries. If policy evaluation rejects a runner that already failed,
+verify preserves that runner's original exit code and report; a new policy-only red
+on a green runner uses exit 1. An ordinary suite red still prevents the DB-clean
+postcondition; owner-authorized exclusions may change the effective verdict, never
+the recorded observed runner exit. Only failures with the exact authorized reporter identity
 can be omitted from the verdict. Infrastructure errors, unmatched failures and
 incomplete interrupted runs stay red. Reporter identities/collections, uniqueness and
 summary counts are validated before any verdict or timing calculation. Vitest adds
