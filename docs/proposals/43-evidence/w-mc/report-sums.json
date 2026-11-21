@@ -1,0 +1,16 @@
+[
+  {
+    "path": "/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/gate-evidence/frd-25-persistent-navigation/gate-report.json",
+    "at": "2026-10-30T17:23:46Z",
+    "sum_ms": 261712,
+    "snapshot": "gate-report-snapshot-1.json",
+    "sha256": "cf738497d7e55f0bbe78771cf6065bad253887669f5fa85b5d81713278d3c8d1"
+  },
+  {
+    "path": "/Users/Shared/Proyectos/panda-corp/mission-control/.pandacorp/run/gate-report.json",
+    "at": "2026-11-20T23:44:35Z",
+    "sum_ms": 29147,
+    "snapshot": "gate-report-snapshot-2.json",
+    "sha256": "12fc485d58ece38f83489147fa9e79dd49183b7dcd585b4527ed7ec30093d13b"
+  }
+]

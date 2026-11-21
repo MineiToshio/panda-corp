@@ -1,0 +1,2 @@
+# Files over 1 MB stay on disk, unversioned (regenerable raw dumps)
+w-tr/episodes.json

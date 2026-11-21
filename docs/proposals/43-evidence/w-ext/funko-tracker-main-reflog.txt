@@ -1,0 +1,494 @@
+e1ffcfaeeffe80e8481a2c432713bfafdc7e56b6|main@{2026-11-20 16:54:19 -0500}|commit: fix(ingest): accept any clear owner approval phrasing
+d98eaccd553453a41e4185a2a19843e303974e72|main@{2026-11-20 15:57:37 -0500}|commit: docs(ingest): add per-format AI image prompt templates
+703e9ad29afad4cc3c3f32a713b6d8999c8a96c0|main@{2026-11-20 15:29:26 -0500}|merge feat/discovery-random: Fast-forward
+78abe6184a9ae9ce99dc93601107dad314fba24f|main@{2026-11-20 11:33:39 -0500}|merge feat/explore-rows-fill: Fast-forward
+f7aa3ea84e6dff099e22a1f0005af3aeef191d21|main@{2026-11-20 09:07:19 -0500}|commit: chore(memory): stamp last_harvest after factory review sweep
+841a941bb30eacf8a16675c4b4f00584d67f13cd|main@{2026-11-20 05:58:48 -0500}|merge fix/news-recently-added: Fast-forward
+815ca87a2caada25e71f96d02488d5bca062bc76|main@{2026-11-19 23:21:19 -0500}|merge docs/delta-new-pieces-only: Fast-forward
+5429cc7cd54e498b8440f0a0c71dcba160fff806|main@{2026-11-19 21:39:58 -0500}|merge feat/sweep-product-code-corrections: Fast-forward
+a849558c70ab666e88e2e328d821a6c4ef59f3be|main@{2026-11-19 20:31:02 -0500}|commit: docs(catalog): refresh franchise universe after dl_bleach_20261118
+25b56b8e557187de3e690e7f51fdd39698c75467|main@{2026-11-19 20:28:02 -0500}|merge fix/approval-with-neutral-clauses: Fast-forward
+6285984f384470042d4798a47c4d5b898681699b|main@{2026-11-19 20:13:58 -0500}|merge fix/franchise-logos-hydration: Fast-forward
+c1930edf2786d49a5e4246845b25606fb2236684|main@{2026-11-19 19:04:24 -0500}|commit: docs(catalog): refresh franchise universe after dl_aot_20261118
+40abeabd17e9b64d8afbc533ed5fd7d3b126b4be|main@{2026-11-19 19:04:12 -0500}|commit: docs(catalog): refresh franchise universe after dl_naruto_20261118
+b9cce441b1389d087e09fd1263fd3ca0e69b61a4|main@{2026-11-19 19:03:59 -0500}|commit: docs(catalog): refresh franchise universe after dl_onepiece_20261118
+2d4db8024c891986f41d98fa676ab6ab3e109578|main@{2026-11-19 18:59:22 -0500}|merge fix/postverify-unexported-coverage: Fast-forward
+a376f17f4a6a919f68185b58beeb769e849ae6d9|main@{2026-11-19 18:00:32 -0500}|commit: chore(deploy): redeploy main after Vercel account unblock
+e177685afd9d83bc4fcaed71414f9d612030d945|main@{2026-11-19 15:30:03 -0500}|merge fix/single-owner-approval: Fast-forward
+fec3d32e42ef9b5010349632f9d2d5670feba392|main@{2026-11-19 12:16:13 -0500}|merge fix/single-owner-approval: Fast-forward
+2d62f1fd52b8cb0d70469b979ceb0c8138e77891|main@{2026-11-19 09:55:10 -0500}|merge fix/single-owner-approval: Fast-forward
+7e36c56e2bd71580b73ad9a71ff71752f0467d92|main@{2026-11-19 09:09:54 -0500}|commit: chore(memory): stamp last_harvest after factory review sweep
+ea6739fd76b0877207ebcf3150b14fd1d75dd32c|main@{2026-11-18 21:48:48 -0500}|merge claude/pensive-wing-dad871: Fast-forward
+7d2652985ab8fe9b7a1cf0a3bab492065b7b0aa5|main@{2026-11-18 20:26:49 -0500}|merge fix/minis-view-requirements: Fast-forward
+2e23c4e0b611dab8cdc82fb359afd32853753eb7|main@{2026-11-18 09:17:00 -0500}|commit: chore(memory): harvest -- 5 lessons, 2 backlog items
+b16eeb21009cfacb3cb94a9c6fb6ed3191c88c58|main@{2026-11-18 08:26:56 -0500}|merge fix/ingest-neon-project-id: Fast-forward
+22832036ffc8a93fbd25bf5ffd942626492ac52e|main@{2026-11-18 07:33:18 -0500}|merge fix/neonctl-project-id: Fast-forward
+b8ac99c15c980141641ccc7a276f63ef012e2df3|main@{2026-11-18 01:10:18 -0500}|merge fix/news-personal-readiness: Fast-forward
+a9914718e65c9c9340373e56a4d0fad2c54e4dc5|main@{2026-11-17 17:26:19 -0500}|merge fix/projection-neon-timeout: Fast-forward
+0d774d3cc4aaafa79ba6e4c69aeb0a642b1bcc0a|main@{2026-11-17 16:22:16 -0500}|merge feat/cut-fluid-cpu: Fast-forward
+67be1f56a1678c97b807b115bc6c65c105917592|main@{2026-11-15 22:43:08 -0500}|commit: chore: upgrade pandacorp overlay 9.2.0 → 9.4.2
+ca8b166dc4a3bd7e968be4f30785eabbc00abe83|main@{2026-11-15 09:09:10 -0500}|commit: chore(memory): harvest -- 2 lessons, 0 backlog items
+b5ae29707ad2fc37910d988bbdda3c53847270c9|main@{2026-11-14 06:12:03 -0500}|merge feat/daily-delta-routine: Fast-forward
+8d0cbba123a095149958048bb4818fe90eb23804|main@{2026-11-14 05:33:45 -0500}|merge feat/explore-home-alive-final: Fast-forward
+ce047e0b16c3b8c6a61cb4e701812968b53b0ecd|main@{2026-11-13 17:17:57 -0500}|merge lane/br-2026-11-13-02/integration: Fast-forward
+66732ce6b317ef399612b840baa6dacf92358dde|main@{2026-11-13 15:07:05 -0500}|merge fix/test-pg-tcp-probe: Fast-forward
+f8bb2706e4804cc9f58699a4c978f091d3e057bf|main@{2026-11-13 09:23:42 -0500}|commit: chore(memory): harvest -- 3 lessons, 0 backlog items
+203d711f774c05c75da2cc3613c1d783aff43619|main@{2026-11-13 09:00:26 -0500}|merge perf/parallel-e2e: Fast-forward
+07bd3f5dbc87cb423a8c5cca35ddef23e39ffa45|main@{2026-11-13 01:46:23 -0500}|merge chore/overlay-9.1.2: Fast-forward
+6c3db2c02ea4c5ec81bffe282b87cc7f658562a9|main@{2026-11-12 22:29:20 -0500}|commit: chore(pandacorp): activate project risk paths (R11)
+b719af626c863eaeeaea0862a3856963df545c40|main@{2026-11-12 20:50:17 -0500}|commit: chore: upgrade pandacorp overlay 8.124.0 -> 9.0.0
+4cd7b9569eb5cdcb717c387ef1c70400b053f02f|main@{2026-11-12 19:12:19 -0500}|commit: chore: upgrade pandacorp overlay 8.120.0 → 8.124.0
+7e43231a358af0ee1e2a918b8f77affc10b114d3|main@{2026-11-12 15:11:29 -0500}|merge fix/pop-pop-piece-ids: Fast-forward
+69df732760cdc1e8f26d46819e5f446b4fb670aa|main@{2026-11-12 11:16:36 -0500}|merge worktree-agent-a6137d07983ba3206: Fast-forward
+2d3a78d112a971cc6c04f79fad6cfb7b20c4b70e|main@{2026-11-11 23:19:49 -0500}|merge worktree-agent-a1f0a667e9e7f8830: Fast-forward
+9286f4fec375045639efa9c19557e3fef8858024|main@{2026-11-11 11:33:45 -0500}|merge integration/v5-2026-11-11: Fast-forward
+cb828cda5fe296722dbcfd330d1cd085d436b588|main@{2026-11-11 10:05:27 -0500}|commit: chore(memory): stamp last_harvest 2026-11-11 (librarian sweep)
+347363711f24efcfc9c795ab4c39fe1e88ac8eb2|main@{2026-11-10 19:05:01 -0500}|merge worktree-agent-a8c935be2c68227da: Fast-forward
+bf28eb2d7dc404426fe51feba4be0b050b7edae1|main@{2026-11-10 18:29:14 -0500}|merge integration/2026-11-10: Fast-forward
+ab736d95313e72b7f51133ebc502bfd2dc184e19|main@{2026-11-10 16:33:28 -0500}|commit: docs(catalog): classify by actual box line, not Pop! & Buddy marketing copy
+501d7ac2526e6ebac63f7d1133efb668d3b18d78|main@{2026-11-10 13:04:30 -0500}|commit: chore: upgrade pandacorp overlay 8.119.1 → 8.120.0
+54b84ff04433df68b65e25601c883b96d61571cc|main@{2026-11-10 13:02:42 -0500}|merge integrate/to-get-order-2026-11-10: Fast-forward
+5ff1b59742160364df7e3058e7454b44886f3123|main@{2026-11-10 09:08:44 -0500}|merge orch/reliability-batch: Fast-forward
+313facb6d08615fe121d735e3f3264ac731055eb|main@{2026-11-09 23:08:13 -0500}|merge fix/seo-legacy-piece-redirects: Fast-forward
+979264bdb9801878bbe472ce8b91b0f4ee91b3d9|main@{2026-11-09 22:26:24 -0500}|merge land/aot-ingest-fixes: Fast-forward
+1e497e28a26a61625618e34e9da1ac79f707749a|main@{2026-11-09 17:41:05 -0500}|commit: docs(catalog): refresh franchise universe after Attack on Titan ingestion
+7a44fe00376a3706b9d2002998ab2700555891de|main@{2026-11-09 17:37:11 -0500}|merge fix/box-outline-ai-input: Fast-forward
+6252eb814523641cd626bb5ab482fa27cc3d7fd7|main@{2026-11-09 17:07:41 -0500}|merge fix/box-outline-ai-input: Fast-forward
+f40e056f357940ff546e66124a493e9110589cf9|main@{2026-11-09 13:26:22 -0500}|merge fix/box-outline-ai-input: Fast-forward
+ee705cdd0613538eb84a74d6c80bff6550dee4ed|main@{2026-11-09 12:59:14 -0500}|merge fix/box-outline-ai-input: Fast-forward
+a9c6b24f53198ab8be4edbdd2a94859c805fa362|main@{2026-11-09 10:53:27 -0500}|merge fix/box-outline-ai-input: Fast-forward
+cd2fb08599ef095d50c5ca77d39a13c7600018b9|main@{2026-11-09 09:58:12 -0500}|merge fix/box-outline-ai-input: Fast-forward
+a23525a33b044b43d2ebd005858df7bcabb802eb|main@{2026-11-09 09:26:10 -0500}|commit: chore(memory): stamp librarian harvest 2026-11-09
+93a827e0f9cc8fa3716de98738466efe7b99c6fb|main@{2026-11-09 08:07:56 -0500}|merge fix/box-outline-ai-input: Fast-forward
+335c01cafd00f7d32a23f32724a9d5d3446eaa2a|main@{2026-11-09 07:49:33 -0500}|merge fix/box-outline-ai-input: Fast-forward
+3d12777e475167c85de6dd0bd3262be9cd772956|main@{2026-11-09 02:14:11 -0500}|merge fix/review-html-port: Fast-forward
+0838eddfe265f00bec90329a8b3857e87890e676|main@{2026-11-09 01:32:37 -0500}|merge fix/box-outline-ai-input: Fast-forward
+1c3570f3c7b740319b5870f44c1e670c8c64446e|main@{2026-11-09 00:54:28 -0500}|merge worktree-agent-a8a9eb709bc02b433: Fast-forward
+ff0fa449058168f21eaed820f294db14d3b94679|main@{2026-11-08 23:51:34 -0500}|merge worktree-agent-a1e67107589de7f14: Fast-forward
+cba395b94db7231b63747f4517589cfe8b522a3f|main@{2026-11-08 23:07:24 -0500}|merge worktree-agent-ab4913e02b67610c9: Fast-forward
+b3b7a6d7e4c10f75220a55c84209106288fc4323|main@{2026-11-08 22:01:58 -0500}|merge worktree-agent-a9c0a7e4cb8d9e297: Fast-forward
+aec2a7ebe33c2c3b3a75dbfb472d5fd971e1e78e|main@{2026-11-08 20:20:22 -0500}|merge worktree-agent-a94245650bd7a00af: Fast-forward
+d49bc3d1ffdc52d9fb7bdca87789e84be77e32bd|main@{2026-11-08 18:58:04 -0500}|merge land/ingest-view-matrix: Fast-forward
+ec7a6f07682a0f5c8f2403d0bec0af3f0cef83b6|main@{2026-11-08 18:46:12 -0500}|reset: moving to origin/main
+aec2a7ebe33c2c3b3a75dbfb472d5fd971e1e78e|main@{2026-11-08 18:28:40 -0500}|merge worktree-agent-a94245650bd7a00af: Fast-forward
+d49bc3d1ffdc52d9fb7bdca87789e84be77e32bd|main@{2026-11-08 12:36:59 -0500}|merge fix/photo-record-tools: Fast-forward
+027ef261a650642f578aa2ce7589473d6583476b|main@{2026-11-08 11:37:26 -0500}|merge 027ef261a650642f578aa2ce7589473d6583476b: Fast-forward
+ec7a6f07682a0f5c8f2403d0bec0af3f0cef83b6|main@{2026-11-08 10:53:44 -0500}|merge docs/architecture-launch-services: Fast-forward
+5af774f64a9fd4e75532248d05e0c84ed3f0d991|main@{2026-11-08 10:02:33 -0500}|merge integrate/2026-11-08-monitor-lcp: Fast-forward
+1a530f6dad7227108f40f18fb0aa3688d2dacfcc|main@{2026-11-08 03:39:53 -0500}|merge fix/og-image-dynamic: Fast-forward
+15ce1f1cf35cdd2636859b53e859d7f6c6695c7d|main@{2026-11-08 02:57:09 -0500}|merge feat/ingest-quick-path: Fast-forward
+d44a68c7975fad3a5abd8916c74e269849b4cb10|main@{2026-11-08 02:44:50 -0500}|merge fix/proxy-busboy-bundle: Fast-forward
+a1a6dfb489722e0498f6a578ef22fb4bdb03ed61|main@{2026-11-08 00:01:29 -0500}|merge feat/launch-readiness: Fast-forward
+f72fae6c2405fe08914ef9fbd069e388424c5bfb|main@{2026-11-07 21:26:41 -0500}|merge claude/sleepy-thompson-c24e43: Fast-forward
+fb829137d81b1a226feded63db84a8344409931e|main@{2026-11-07 19:26:06 -0500}|merge fix/export-no-separator-lines: Fast-forward
+cbc3a576d5b56ad8d148bae65872c4c060a2505f|main@{2026-11-07 18:55:25 -0500}|commit: fix(ingest): unblock targeted closure on Neon
+95e04fe04c869def3e57621d4d22615e68a056ca|main@{2026-11-07 13:25:06 -0500}|commit (amend): docs(catalog): refresh universe report after One Piece Glow Chase gift box photo delta
+6d124bae84ac2ef2f860c23adfaf76308b3db8d6|main@{2026-11-07 13:24:40 -0500}|commit: docs(catalog): refresh universe report after One Piece Glow Chase gift box photo delta
+b22eb34a918fa2982b719a2b616a0729d1043b98|main@{2026-11-07 09:16:28 -0500}|commit: chore(memory): stamp last_harvest for funko-tracker
+b730de45a92433f2c94a1249361fbc4068df48b5|main@{2026-11-07 04:09:03 -0500}|merge feat/ingest-approval-scope-ab: Fast-forward
+495e5dd795a5eaa55716e6e30baf19becd6e37e6|main@{2026-11-06 23:51:02 -0500}|merge feat/franchise-logos-and-export-levels: Fast-forward
+de5c85c7d4a6eee55359fe0583b50d3e1911a62e|main@{2026-11-06 19:36:13 -0500}|merge land/universe-186: Fast-forward
+fc7122c9f124cee175851fae8aec96adc9f037d1|main@{2026-11-06 19:15:22 -0500}|reset: moving to fc7122c9
+de5c85c7d4a6eee55359fe0583b50d3e1911a62e|main@{2026-11-06 19:02:20 -0500}|commit: docs(catalog): refresh universe report after Naruto #186 note-photo delta
+fc7122c9f124cee175851fae8aec96adc9f037d1|main@{2026-11-06 17:20:16 -0500}|merge fix/note-delta-photos: Fast-forward
+8e6c81717046a13e3260187a88ff80a9f10dc229|main@{2026-11-06 13:54:49 -0500}|merge catalog/naruto-universe: Fast-forward
+5e848a4ca2a4005ae958d1d8df0cf7a6a5f38cd9|main@{2026-11-06 12:44:41 -0500}|merge claude/kind-joliot-79a1f4: Fast-forward
+6dca4b6821611c30a978e38d99a8167203725258|main@{2026-11-06 02:29:04 -0500}|merge photo/integration: Fast-forward
+de191d9a2a9eacec5e5e86fcca7d1aefeaa5e890|main@{2026-11-05 15:55:34 -0500}|merge chore/verify-speed-integrate: Fast-forward
+8e5155bf5a61b3dfc2cc3aa0bec5ec1a6b45bc8a|main@{2026-11-05 15:10:34 -0500}|merge perf/cpu-batch: Fast-forward
+d4fa7736c3a138a2abb1ef6698f53f9ab30b5db1|main@{2026-11-05 10:59:05 -0500}|merge ops/op-bgfix-20261105: Fast-forward
+3748edd8faf342d3e0786fe9df4f31ecd3b83d92|main@{2026-11-05 09:08:56 -0500}|commit: chore(memory): stamp last_harvest -- panda-corp harvest, 6 lessons
+5b5d2e9eee2016ba8933b8127b645bff65b94162|main@{2026-11-05 08:20:57 -0500}|merge worktree-export-families: Fast-forward
+25905516f3745b280f7b5bcf0a174588dd8833e7|main@{2026-11-04 23:22:48 -0500}|merge worktree-export-parts-10: Fast-forward
+5324b265b7ca3a8e8e643353724deb7c6a64b62b|main@{2026-11-04 21:53:56 -0500}|merge worktree-export-badges-columns: Fast-forward
+75c46128a123a9674a147496c669afd6a033c192|main@{2026-11-04 19:05:38 -0500}|merge worktree-export-badges-columns: Fast-forward
+d1b31d1174e2d3b062246bef9d49981dd91ef440|main@{2026-11-04 09:16:53 -0500}|commit: chore(memory): drain harvested notes, stamp last_harvest
+f0a7f250cd98767d7fd5bd03bb96d025fd405c07|main@{2026-11-04 01:23:11 -0500}|commit: chore: re-sync pandacorp overlay 8.117.0 → 8.117.1
+ecc88d4e3f6560f0d61582a706411b9dec27357c|main@{2026-11-04 00:22:04 -0500}|commit: chore: upgrade pandacorp overlay 8.114.1 → 8.117.0
+9628896e55ae107f34aeb73470d37ac5b402599e|main@{2026-11-03 23:32:26 -0500}|merge feat/retire-unknown-release-status: Fast-forward
+d28ba0c1387d5e0154fdb23b0d15e66f3922e24a|main@{2026-11-03 22:27:24 -0500}|merge chore/behavior-only-tests: Fast-forward
+4c4409666ad97465ce733a0e8bf6e99d55e5ef4b|main@{2026-11-03 21:14:31 -0500}|merge feat/review-template: Fast-forward
+fddb5b95c0672893549b02f1398db3d174a19d92|main@{2026-11-03 18:18:27 -0500}|merge fix/announced-pieces-always-public: Fast-forward
+72a5cb10ec7457fa8968f33abd2621789b462d1c|main@{2026-11-03 12:51:34 -0500}|commit: docs(catalog): refresh the franchise universe map after the Chopper #2647 ingestion
+ac6a30ee89e945b35e490e23f9deef5133b563eb|main@{2026-11-03 12:51:14 -0500}|commit: fix(catalog): merge generic Bleach series into its base series
+f2c6e51b7388b64bfd599d5839e482bbab6ee259|main@{2026-11-03 11:46:31 -0500}|merge fix/ingest-skill-lessons: Fast-forward
+1c7d6bd607f45c951160afccad591b7530221256|main@{2026-11-03 09:12:37 -0500}|commit: chore(memory): harvest -- 3 lessons, 0 backlog items, last_harvest stamped
+f22bba4e2cf2e995e4a77a1662d503555fecaa37|main@{2026-11-03 07:40:17 -0500}|merge feat/universe-logos-round7: Fast-forward
+68fc880bfd38c6f0315aa26dbfaece3379ef82be|main@{2026-11-01 13:41:37 -0500}|merge feat/universe-box-logos: Fast-forward
+2f820d5f56c89e03402029d7c67778d91b804a95|main@{2026-11-01 09:30:27 -0500}|commit: chore(memory): harvest -- 7 lessons, 0 backlog items, last_harvest stamped
+70ff840a5760e8663c71982ed45e0081543a917b|main@{2026-11-01 05:01:12 -0500}|merge feat/funko-universe: Fast-forward
+3e2fe8862fb818ec9832730bfd33c3be5d752ae5|main@{2026-10-31 22:57:06 -0500}|merge chore/e2e-prod-gate: Fast-forward
+a99b3feb64af15ef668ee04aa782816aadf0b4cd|main@{2026-10-31 22:36:49 -0500}|commit: docs(adr): renumber the checklist metadata ADR to resolve a duplicate id
+4bc39b75944a8232257c2b51e8c0e50604d9422f|main@{2026-10-31 14:51:31 -0500}|merge fix/retire-transaction-wait: Fast-forward
+85e8a5c9328a861b3ab9e65f484627116ea77a20|main@{2026-10-31 12:18:08 -0500}|merge chore/fast-test-loop: Fast-forward
+ebfe1d7f9da0da2052b7a6f9a81bc74a01ca3d25|main@{2026-10-31 09:30:32 -0500}|commit: chore(memory): stamp last_harvest after factory memory harvest
+21b8dee1ee150feec16c2ffc3d6531ee12db7217|main@{2026-10-31 01:48:45 -0500}|merge feat/enforce-ingestion-rules: Fast-forward
+a2f7f08c9d97fa3f54b558bcb69f9f91aeb257af|main@{2026-10-30 20:59:58 -0500}|merge feat/any-image-source: Fast-forward
+78deaf1d838f5c7388f7d4f8d306902698dccc25|main@{2026-10-30 09:13:47 -0500}|commit: chore(memory): stamp librarian harvest timestamp
+5485687cff5d516051b0bbfbafb9e99bb28462b1|main@{2026-10-29 23:47:12 -0500}|commit: docs(skills): let both ingestion skills run under the orchestrator with Claude or Codex workers
+c5be4d3d167f240fb87180af2ae0d3f53e323eef|main@{2026-10-29 23:11:15 -0500}|merge chore/overlay-8.114.1: Fast-forward
+5e9aa5b9e36effd50760352ef45522d891bf23d0|main@{2026-10-29 21:25:39 -0500}|merge fix/test-tmp-root-linux: Fast-forward
+8ea6e5c9a0711fa8fc53e37814fe41b0e381d5e5|main@{2026-10-29 20:54:48 -0500}|merge land/2026-10-29-retention-reserved-ci: Fast-forward
+b55fdf0105208b500fa29e938b726c6227b634fd|main@{2026-10-29 14:56:04 -0500}|merge feat/photo-quality-skills: Fast-forward
+6997a12f2b70788d8b47d818e27274b6a272467a|main@{2026-10-29 13:54:32 -0500}|merge docs/landing-2026-10-29-b: Fast-forward
+587a3f0a81e24164f73a2e563204b76faff51916|main@{2026-10-29 11:27:47 -0500}|merge fix/domain-export-lazy: Fast-forward
+21bbd688fa69bfa720145b69e50f46ddcdbf10a3|main@{2026-10-29 07:55:08 -0500}|merge feat/hidden-announced: Fast-forward
+7b139f9ea19f8df94c443f73eecaa04e07c9e8d9|main@{2026-10-29 07:34:29 -0500}|merge feat/hidden-announced: Fast-forward
+ffd76328097b4a0acb1b3bab9e49d01b0ab4129c|main@{2026-10-28 23:57:09 -0500}|merge land/2026-10-28-export-series: Fast-forward
+9546eaa42154b491da7d1ebb1afd04cb6fbb9238|main@{2026-10-28 09:31:00 -0500}|commit: chore(memory): stamp last_harvest after factory harvest sweep
+b59cfa09094224e00d83795d2ff227712f4a12e8|main@{2026-10-28 02:51:16 -0500}|merge feat/split-status-button: Fast-forward
+ed370f8299cfef0c82c2ec296cc38b796929e0b3|main@{2026-10-28 01:40:04 -0500}|merge chore/batch-2026-10-28: Fast-forward
+a76f1a855f5afeae6c920c7442425410860e85ef|main@{2026-10-28 00:11:26 -0500}|merge fix/personal-controls-e2e-flakes: Fast-forward
+6bd2869a1c89dbb607dd0cbe6c8f9daab86a315a|main@{2026-10-27 22:09:47 -0500}|merge chore/pandacorp-upgrade-8.114: Fast-forward
+2c9df4412c00a840f17d6f53ee55d23528bf1c06|main@{2026-10-27 21:32:34 -0500}|merge chore/integrate-redesign-urls: Fast-forward
+decd4b6907bb068c3ffa5f8b523055cc09e02697|main@{2026-10-27 21:10:38 -0500}|merge fix/skip-boxed-figure-media: Fast-forward
+859c4db23d0a58783bed403d9da015f71e699600|main@{2026-10-27 20:55:41 -0500}|merge fix/frd05-export-goal-flake: Fast-forward
+6d05b98a313a2b5e273d82bc74f1b531d78c79eb|main@{2026-10-27 18:55:32 -0500}|merge fix/prep-utc-timestamps: Fast-forward
+2ae4329110a9c05d4f076df3d2653954b54dac0c|main@{2026-10-27 18:44:02 -0500}|merge feat/hide-unboxed-label: Fast-forward
+6d382e318645ac3d8e50fcd9be33f7d23f4e40d1|main@{2026-10-27 17:33:05 -0500}|merge chore/redeploy-light: Fast-forward
+f8d9e809739fc6fbf3af5ebddbf2fc5ad3715c29|main@{2026-10-27 16:48:32 -0500}|merge feat/light-catalog: Fast-forward
+51e2fba0bf8ee5022ccf820d6dad9c790c76810e|main@{2026-10-27 12:53:08 -0500}|merge chore/media-hosts-op: Fast-forward
+e0ff8d3d7b1bd66d37b8da2f7d3cdc6aa9ef6402|main@{2026-10-26 19:19:41 -0500}|merge codex/personal-controls-motion: Fast-forward
+a12710c7c9f2603ba3abc38760f7532cb235cbca|main@{2026-10-26 18:47:39 -0500}|merge codex/personal-controls-motion: Fast-forward
+55a101f6ae9cfce471a0d7fe639ad29426014352|main@{2026-10-26 13:38:39 -0500}|merge codex/personal-controls-motion: Fast-forward
+8525a3edc819077c28d77a92825f38366f8b012e|main@{2026-10-26 12:21:15 -0500}|merge chore/ingest-neon-dev: Fast-forward
+f173829aa6aceca74b7002e5f0d2313deeb9c1ab|main@{2026-10-26 00:34:28 -0500}|commit: chore: finalize reserved state release checkpoint
+0b841fb7b98837c2e630f1db14f333b68a271bac|main@{2026-10-26 00:32:04 -0500}|merge codex/reserved-state: Fast-forward
+a62d00d5066ee75a0c1180060971f3b013acbb8b|main@{2026-10-26 00:19:15 -0500}|commit: chore(build): quiesce integration-oracle repair controller
+b9a9d6d67e3c13fe98e61f7f08a66df3bdb864c6|main@{2026-10-26 00:03:50 -0500}|commit: chore(build): quiesce verified reserved-state controller
+3f3911fd84a1084cbbfad7148ab2eb1675bb1790|main@{2026-10-26 00:01:14 -0500}|commit: chore(build): checkpoint reserved-state release controller
+a8da02ff2a8812b9509a8b32fe034bd21b790bf7|main@{2026-10-25 22:56:59 -0500}|commit: chore(build): track reserved-state implementation run
+69213e17e6cca0f055ad6136d8a37ac73803f923|main@{2026-10-25 20:30:24 -0500}|merge docs/franchise-universe: Fast-forward
+b04b0955f8109a1a626bd6834fd7470206c86163|main@{2026-10-25 20:01:36 -0500}|merge chore/long-session: Fast-forward
+4b0a035be5fb62618c59a6ef01593d0763a4bde5|main@{2026-10-25 17:55:42 -0500}|merge chore/pwa-installable: Fast-forward
+094a20900e4ae4f43717e1a186553760afe46522|main@{2026-10-25 15:43:30 -0500}|merge chore/collection-tabs-spacing: Merge made by the 'ort' strategy.
+604811b4e3ee07c82f8af29ec3e2c271676631e0|main@{2026-10-25 11:08:26 -0500}|merge chore/rescue-photo-tools: Fast-forward
+90319a3c157dece1738fea8c00789006902d2929|main@{2026-10-25 10:11:17 -0500}|merge integrate/2026-10-25: Fast-forward
+1587744e9666c140036fb5fdea5a8dfba9508fea|main@{2026-10-25 09:17:54 -0500}|commit: chore(memory): stamp last_harvest after librarian sweep
+24f689e188827cbc0c457737d94833514b7883bb|main@{2026-10-25 03:07:18 -0500}|merge codex/ingest-skills-v2: Fast-forward
+9b7d097e1de3da6565e47a0ecec5be4bf710b88e|main@{2026-10-24 23:37:08 -0500}|merge worktree-agent-a51d4afac6cadb7e1: Fast-forward
+447d9224ce5ff0ad91c3a8460d39fb50674b8ecc|main@{2026-10-24 22:35:31 -0500}|commit: docs(catalog): record swipe between photos in the carousel and lightbox
+7f0a4fb64d5d4b55ed7c6255189b0700bbf6d101|main@{2026-10-24 22:35:13 -0500}|merge worktree-agent-a5e6949a04908f06c: Fast-forward
+c6f6d12c4d96d6d6044bf602ad3e65025851173a|main@{2026-10-24 22:35:09 -0500}|merge chore/native-test-postgres: Fast-forward
+a3e4f7734055b62773e3f75dac7d0493fc308a11|main@{2026-10-24 20:35:01 -0500}|merge codex/catalog-r2-rollout: Fast-forward
+a584cb35ba4253959ebb3f3bef0c989ffa8c5661|main@{2026-10-24 20:14:57 -0500}|merge codex/catalog-r2-rollout: Fast-forward
+a7fc6ab7eae1022523367ced3a603c5dd5fc34a5|main@{2026-10-24 20:03:02 -0500}|merge codex/catalog-r2-rollout: Fast-forward
+c3982fffedf74a1d12ba82ec5c23f15c1df580a2|main@{2026-10-24 18:54:12 -0500}|merge codex/catalog-r2-rollout: Fast-forward
+a6ba0d731ca8ff029a90c48559432ac92f4f487f|main@{2026-10-24 18:39:51 -0500}|merge codex/catalog-r2-rollout: Fast-forward
+333a199bc59176c5708f83a011a37576d88527ca|main@{2026-10-24 17:30:37 -0500}|merge codex/catalog-r2-rollout: Fast-forward
+cb1ded6763762417ec1f9ec7c32d9a2ce56c9bd0|main@{2026-10-24 00:01:38 -0500}|merge fix/main-is-production: Fast-forward
+098e146071ace19100a876026e8872e7f1e2ce1e|main@{2026-10-23 12:52:28 -0500}|rebase (finish): refs/heads/main onto 17c0d12c42469ce7e86ca4dc234f2c8879e9cf96
+8206848fd1ae65ed6d55dbf29e4512eb28b56291|main@{2026-10-23 09:14:55 -0500}|commit: chore(memory): stamp last_harvest after librarian sweep
+14e4c7188efb978b5988c6332938b775b4496a31|main@{2026-10-23 00:25:22 -0500}|commit: docs(ingest): prefer real high-quality photos over official-only sources
+8a21f05a20edfb88fbb04936752dfada6d02c25f|main@{2026-10-22 19:17:06 -0500}|merge origin/main: Fast-forward
+cf6161eede4fc99e918a3d132ee6d89aaffdb35b|main@{2026-10-21 01:28:13 -0500}|commit: docs: retain reviewed streaming repair and refreshed acceptance measurements
+96cdb5c9225881a21f4e88fbd209ab600efc6969|main@{2026-10-21 01:21:59 -0500}|cherry-pick: test(export): use explicit streamed shell fixture
+9f1d18d137a6c496b14c8fb09ea91532ebda70de|main@{2026-10-21 01:21:59 -0500}|cherry-pick: fix(export): await resolved route before ready toast suppression
+035f5d0ee723e44c4053ecdcde0cb081dc48a87a|main@{2026-10-21 01:08:02 -0500}|commit: docs: record public-origin repair and complete browser findings
+39bb810b316737d7842dbc508e3bd868956553ff|main@{2026-10-21 01:05:21 -0500}|cherry-pick: fix: validate contact origin against configured public URL
+b6473117f28777111125eb5065e77f6a98cc24a3|main@{2026-10-21 00:39:52 -0500}|commit: docs: record isolated native recovery and current acceptance boundaries
+a81a672c73455aff43fd64320eb1dfaa8d251243|main@{2026-10-21 00:29:03 -0500}|cherry-pick: test(fixtures): separate frozen snapshots from model factories
+fd7f89d4da548b4483b122f97453051f395b8ecb|main@{2026-10-21 00:16:39 -0500}|commit: docs: retain independently verified runtime acceptance and open deployment checks
+a6f2a7251003e98fde8a0c9a2a12d5e0fa08dc27|main@{2026-10-21 00:16:09 -0500}|cherry-pick: test: independently verify maintenance and erasure escalation boundaries
+f4ff5dbbf520a927018de6f3244377d9304b3cc6|main@{2026-10-21 00:13:33 -0500}|cherry-pick: fix: map frozen contact submit selector in fidelity recipes
+4fb022b9b78957a2a7b4575de98f5d7dcaf69fdf|main@{2026-10-21 00:11:48 -0500}|cherry-pick: test: enforce export cleanup isolation with reverse recovery fixtures
+5852f0ecc89fc52a6824c58a3ac9b62997624198|main@{2026-10-21 00:11:48 -0500}|cherry-pick: test: verify export recovery paging and attempt cleanup
+203f1ec3252e58f7568160ce7728a9073a425f92|main@{2026-10-20 23:48:15 -0500}|cherry-pick: fix(fidelity): require owned Next server readiness
+5ab846180d3db6f6d67e5b06c25e568afc56c3cb|main@{2026-10-20 23:40:10 -0500}|commit: chore: move repaired fidelity harness to independent review
+bd1067823e6b666896b7f8f58041b5f15ba97f68|main@{2026-10-20 23:38:57 -0500}|cherry-pick: test(fidelity): classify contact oracle action states
+285ebccc3ef7cf520725cf5a12af1c402d6abd6d|main@{2026-10-20 23:38:21 -0500}|cherry-pick: test(render): observe attempts that settle before media download
+beec7afb1ef7dd38aae3856b20aa0e7071491b2a|main@{2026-10-20 23:37:05 -0500}|cherry-pick: test(fidelity): persist RED report after rejected browser closes
+92f5583609684abdb6e382befed0c6672cb329de|main@{2026-10-20 23:37:05 -0500}|cherry-pick: fix(fidelity): retain report after browser cleanup failure
+47a86b8c2f2df8645fa89abf6daeb31a3a27fab2|main@{2026-10-20 23:35:41 -0500}|cherry-pick: fix(fidelity): bound poster comparison and account for oracle recipes
+fa8ede66f355f8191e3daff9763ffb80aacec24e|main@{2026-10-20 23:29:22 -0500}|commit: docs(storage): clarify real R2 in interactive development
+60c856c5105b3b00fe587a49f5d7cae15182862c|main@{2026-10-20 23:29:08 -0500}|cherry-pick: test: bound heartbeat fencing test and clear timer
+d175e38b7d88f2ec9c03d4ac63ee6ddc595f4ddc|main@{2026-10-20 23:26:53 -0500}|cherry-pick: test: verify session lock cleanup and heartbeat fencing
+6852f5059cb9ec8feba8e7139c5b4c49e066e04a|main@{2026-10-20 23:26:53 -0500}|cherry-pick: test(storage): require complete scoped credentials
+523e3b7d830acdcfa67c2256934d8456c3cb659b|main@{2026-10-20 23:21:51 -0500}|cherry-pick: test(privacy): reject unpageable R2 listings and scope mutation checks
+87f65c1229b60b0daa65f7ab21304320158f5175|main@{2026-10-20 23:21:51 -0500}|cherry-pick: test(maintenance): verify task deadline failure and resume protocol
+bb751b0d0dc4e7e9654a34d2e8d1ac0e0fd483df|main@{2026-10-20 23:11:03 -0500}|commit: docs(fidelity): reconcile capture isolation and recipe schema
+f264eb09f67c6fbd528871102720c801b7529ccf|main@{2026-10-20 23:07:28 -0500}|commit: docs(fidelity): bind missing action states to explicit capture coverage
+127927cfe87a2f4323a3a58609e930ff8cdf5568|main@{2026-10-20 23:05:33 -0500}|cherry-pick: style: format session lock review test
+a634ce4853b712a08df5eee819254eb863f7b90c|main@{2026-10-20 23:05:33 -0500}|cherry-pick: test: verify export session lock ownership contracts
+4516a86b4dda29da92e582fd04940e8427c3bdd4|main@{2026-10-20 23:05:32 -0500}|commit: docs(plan): reopen independently reproduced capture recipe defects
+876268797a19730da80fa597214ec71e379a30b8|main@{2026-10-20 23:01:54 -0500}|cherry-pick: test(render): exercise default logo download cancellation
+30ec77f4ee9bbba89640df501fa5e238ccc49a93|main@{2026-10-20 23:01:54 -0500}|cherry-pick: test(render): cover cancellation and fenced storage boundaries
+5ff6a523224f0366469d58bad382d655aca023f0|main@{2026-10-20 22:52:49 -0500}|cherry-pick: test(runtime): allow bounded startup variance in mutation jobs
+b064955a5075354512ad0950bf357f1ed993b817|main@{2026-10-20 22:52:49 -0500}|cherry-pick: test(deploy): isolate independent Vercel target cases
+fb632390fafaadc794b4ef8e9f2d05991dc19ae6|main@{2026-10-20 22:41:27 -0500}|cherry-pick: test(deploy): isolate real Next config loading from operator dotenv
+93119aaba5e28c784372c91447ccfc1d3f3e3a9f|main@{2026-10-20 22:38:34 -0500}|commit: fix(test): keep ignored operator scratch outside application discovery
+23ab24a90e06a8189eedc29830ab9a0f2e264086|main@{2026-10-20 22:26:14 -0500}|commit: docs(work-orders): replace retired runtime artifact paths
+3942a373718d596010f76ab8c7e96dc57e675266|main@{2026-10-20 22:26:01 -0500}|commit: fix(tooling): inspect fidelity imports and retire unused mutation adapter
+d3a14649940fc543c2d0ca92c113a4efd81780e3|main@{2026-10-20 22:23:18 -0500}|cherry-pick: test(contact): cover HTTP boundary and malformed response cases
+b774a5a58c60b9d33e353f6ec6701b71a8c65f16|main@{2026-10-20 22:20:24 -0500}|commit: docs(fidelity): distinguish advisory oracle from required browser gates
+637b6b955f728e88e64ced84385d39aa10162fb4|main@{2026-10-20 22:18:55 -0500}|commit: docs(contact): clarify token issuance and trusted address selection
+9f3e6a5457cefccee89d5e8d3e3eb305262ff51d|main@{2026-10-20 22:18:06 -0500}|cherry-pick: docs: reconcile FRD-08 contact and privacy contracts
+7bc47c30354457bf458b379b9f9542bbf18eb1d2|main@{2026-10-20 22:18:06 -0500}|cherry-pick: docs(acceptance): reconcile reviewed runtime contracts and Modal allowance
+4d6f206567fc0472941f9e1c68e36acd4f904280|main@{2026-10-20 22:16:47 -0500}|commit: docs(state): send reviewed acceptance repairs to verification
+c2a84a6a9ac9c4d391677c391046b2f5f3606ca2|main@{2026-10-20 22:15:41 -0500}|cherry-pick: test(runtime): retain per-slice mutation reports
+165305244ca961b6851730802aa8039829145ce3|main@{2026-10-20 22:15:41 -0500}|cherry-pick: test(runtime): preserve broad mutation gate alongside scoped acceptance
+ecb56e24e05372028b6615f4061261372a48b16c|main@{2026-10-20 22:15:41 -0500}|cherry-pick: test(runtime): cover URL identities and deployment code boundaries
+4e343ce0b166579ae2d1798f27d1bf5f33639561|main@{2026-10-20 22:15:41 -0500}|cherry-pick: test(runtime): make mutation gates reproducible and cover ready mail guards
+365f6abd964435fdb7005dfd141af0132dc5634b|main@{2026-10-20 22:15:41 -0500}|cherry-pick: test(runtime): cover Modal configuration and dispatch boundaries
+6e0ee13992ce6aee48498dc24969e2add673f319|main@{2026-10-20 22:15:41 -0500}|cherry-pick: test(fidelity): exclude late and inherited credentials
+8a8d8b5d5074f24f6878fca561dc93de3f47aa89|main@{2026-10-20 22:15:41 -0500}|cherry-pick: fix(fidelity): close the child environment to ambient credentials
+986065f71f767b70d5f9b9aff8f6dcca27997240|main@{2026-10-20 22:15:41 -0500}|cherry-pick: fix(fidelity): mask all Next dotenv inputs before launch
+34459cfa6d621b136150e98500df051dbb6782bc|main@{2026-10-20 22:15:41 -0500}|cherry-pick: fix(fidelity): isolate validated local optimized fixtures
+b715fbb84625399bde403fb648f238e599f8275b|main@{2026-10-20 22:15:41 -0500}|cherry-pick: fix(contact): bound browser submission lifetime
+b25aa9ed31080b3568ea8810a1f1de5dd268f977|main@{2026-10-20 22:15:41 -0500}|cherry-pick: test(contact): require bounded HTTP submission timeout
+6d7f60b2313eb2c8de160531e436c8429fdfbebc|main@{2026-10-20 22:15:41 -0500}|cherry-pick: test(contact): independently probe HTTP and privacy contracts
+cfefc99078b7bb68a4910a2020bc4eef08b72c6e|main@{2026-10-20 22:15:41 -0500}|cherry-pick: fix(privacy): disclose configured provider recovery history
+37fbe6329dea12173a9c63efdf287e719bdf70c8|main@{2026-10-20 22:15:41 -0500}|cherry-pick: fix(contact): return HTTP 429 for limited submissions
+62db607ddc9efccc9af03c481899b2f7b91b9800|main@{2026-10-20 22:15:41 -0500}|cherry-pick: fix(exports): retry restored jobs without rebuilding snapshots
+adf13425cedbf7d067371889570e60d16156255a|main@{2026-10-20 21:50:14 -0500}|commit: docs(plan): reopen independently reproduced acceptance failures
+37e7c218ff6842dd20578141008b63aacc0718c2|main@{2026-10-20 21:46:39 -0500}|cherry-pick: docs(sync): record Neon history and open legal copy gap
+e4ca8838d4d79de32dd9eed20156770b37ec79c7|main@{2026-10-20 21:46:38 -0500}|cherry-pick: docs(sync): reconcile pending FRD acceptance contracts
+6e8c00c74c6482c1d804d7ca93a9fba57b90de49|main@{2026-10-20 21:44:45 -0500}|cherry-pick: chore: upgrade pandacorp overlay 8.109.0 to 8.110.0
+c50f333fdd044c4db308f1cd9612043fd4beeac3|main@{2026-10-20 20:36:10 -0500}|commit: docs(ops): preserve scheduler observation and daily maintenance follow-up
+7da50732889bd8b6578397569329af6d3bd104ad|main@{2026-10-20 20:03:14 -0500}|commit: docs(env): identify the Modal dispatcher signing recipient
+4f2bd2eaff0cf5bcb6e94719ada56bbfd95412cf|main@{2026-10-20 20:02:49 -0500}|cherry-pick: chore: upgrade pandacorp overlay 8.108.1 → 8.109.0
+90d35f32ed53d1c99f52b513c64fd96f50731747|main@{2026-10-20 19:57:24 -0500}|commit: chore(build): record released skill rename run
+60d61410bb4c51e20bf16c65db98ab8c8c97b05c|main@{2026-10-20 19:41:18 -0500}|commit: test(ops): isolate scheduled event delivery without production access
+0629bbf0ec4217f0caf97762e76eea7b6917ad34|main@{2026-10-20 19:30:46 -0500}|commit: docs(ops): record unverified automatic maintenance and latest full gate
+ad509e00934b0666dabb110b22842343b43a7dce|main@{2026-10-20 19:15:26 -0500}|cherry-pick: docs(export): record bounded real-image production acceptance
+45095e82f14f34806403d78a2956da5fc32b9856|main@{2026-10-20 19:00:24 -0500}|cherry-pick: test(ops): restore normal hourly maintenance schedule
+9355a8ae4512bb39cb7e54b5185dfe2ac8913aa6|main@{2026-10-20 18:43:15 -0500}|cherry-pick: test(ops): add bounded automatic maintenance acceptance window
+2929eba89ee74a5443f7fd8a44103d26eff038a6|main@{2026-10-20 18:35:52 -0500}|commit: docs(release): record verified production export integration
+2f3f88de188bca6a3b8a2da30e2243bcc792e9fe|main@{2026-10-20 18:20:58 -0500}|cherry-pick: fix(ops): use bounded batch deadline for read-only commands
+e3898104b607e7d56e37e3e00ca174f9e3d01def|main@{2026-10-20 18:18:59 -0500}|cherry-pick: fix(ci): install Chromium before renderer unit gates
+597b3bc21e43ba98989900fa1dff12179ae0cc13|main@{2026-10-20 18:02:55 -0500}|merge 597b3bc21e43ba98989900fa1dff12179ae0cc13: Fast-forward
+684e15a2c29b05e294bca84a4e757ad6e0c381b5|main@{2026-10-20 17:56:10 -0500}|merge 684e15a2c29b05e294bca84a4e757ad6e0c381b5: Fast-forward
+e15c4fb989995aeb0b23d7c53a5984b358aa1696|main@{2026-10-20 17:04:29 -0500}|commit: chore(build): record integrated test admission decision
+880e3e5ba398997fd6c925b8e01ce213c3b667c1|main@{2026-10-20 17:00:04 -0500}|commit: docs(build): reconcile verified implementation and external acceptance
+f044e1563ff8514bd548504c85d2a3b5df4f2591|main@{2026-10-20 16:56:36 -0500}|merge f044e1563ff8514bd548504c85d2a3b5df4f2591: Fast-forward
+80159bbc1eb5e3292d9ee5c935b7e80f6fc19676|main@{2026-10-20 13:38:09 -0500}|commit: chore(build): start bounded poster renderer migration
+1a82fc54ae08f16512781d846d51ee0ce6deffe4|main@{2026-10-20 13:37:14 -0500}|cherry-pick: test(observability): use deployment identity and reject retired Railway flags
+db3f9505045ef4fb64404b8330c176eaf49a8b22|main@{2026-10-20 13:36:47 -0500}|commit: chore(build): start async export interface implementation
+983c73e1ff46a823005bf5851dce74e31d8bc719|main@{2026-10-20 13:33:05 -0500}|commit: docs(analytics): reconcile implemented caller removals with review evidence
+847528898b1462e43bf214d16d241959929b8a46|main@{2026-10-20 13:29:03 -0500}|commit: chore(build): record independent catalog and detail review
+555a5c2df20b4de84cbc4a80e364a3f3208f2a30|main@{2026-10-20 13:29:03 -0500}|cherry-pick: refactor(detail): remove viewed telemetry island
+d45cbd28ee0569d3d91f1f668c43919a4a60718a|main@{2026-10-20 13:29:03 -0500}|cherry-pick: refactor(catalog): remove search telemetry hook and payload
+f205093703e2153bcd4dddc82c2ec2957a8b2554|main@{2026-10-20 13:29:03 -0500}|cherry-pick: test(explore): keep pagination inert with obsolete analytics keys
+e35dcf93747bb59428bb7a20b12f58b747b9a258|main@{2026-10-20 13:29:03 -0500}|cherry-pick: test(detail): require inert analytics and preserve formatting contracts
+cb69377c83b18110165f8f0775959b5ca90175d1|main@{2026-10-20 13:29:03 -0500}|cherry-pick: test(explore): replace event payload checks with inert searches
+c8f716c26d1e4994ce886543fca719b08edc97cc|main@{2026-10-20 13:27:17 -0500}|commit: chore(build): start legal copy and bounded contact retention updates
+ecfc382f0a813b3379fe837ded74a5864cbd31bc|main@{2026-10-20 13:26:55 -0500}|revert: Revert "feat(runtime): add fenced session contexts and bounded maintenance contracts"
+bf0c49decc6b7fb563a64a0a3a9ec1f73cb27f19|main@{2026-10-20 13:26:26 -0500}|cherry-pick: feat(runtime): add fenced session contexts and bounded maintenance contracts
+3019f7afcd91a7bb14e3f0a48cf595855089409f|main@{2026-10-20 13:25:41 -0500}|commit: chore(build): start durable export integration against published interfaces
+d838dd5ff9debf40371e66b774cc5f9ba647570a|main@{2026-10-20 13:23:54 -0500}|commit: chore(build): record goals review and start public page cleanup
+c37e08370d3b95bba917665f1c4d33e12ac33e4b|main@{2026-10-20 13:23:54 -0500}|cherry-pick: refactor(inventory): keep ownership change type internal
+a1cb217f47eff546b0555cb37b0a4064ce79cc85|main@{2026-10-20 13:23:54 -0500}|cherry-pick: refactor(goals): remove save and wishlist analytics
+0638a48cde353d6ee64d6ffded397360c43b7098|main@{2026-10-20 13:23:54 -0500}|cherry-pick: test(goals): require goal and wishlist mutations without analytics
+bb5c6e4b5f5b1a03359d5039cb92a9c07b4deea2|main@{2026-10-20 13:19:42 -0500}|commit: chore(build): record inventory review and start goals update
+4c4bf23bc5cf1b021c08759609e2a2f3c709efe0|main@{2026-10-20 13:19:42 -0500}|cherry-pick: refactor(ownership): remove transition analytics
+cfee2dec741a08a40a49f2b45c72c534a4eaa18d|main@{2026-10-20 13:19:42 -0500}|cherry-pick: test(ownership): require mutations without analytics
+3a01a735934c5efc2614ad087cda167983c9c08c|main@{2026-10-20 13:17:38 -0500}|commit: chore(build): record shell review and start inventory and privacy work
+042bdd669c8e148dffcaf88fcb90f1fe7a448995|main@{2026-10-20 13:17:29 -0500}|cherry-pick: refactor(shell): remove root analytics mount
+d9dd2f857abfc80ca14a694e2d3a9b0b26f7b51e|main@{2026-10-20 13:17:29 -0500}|cherry-pick: test(shell): require root layout without analytics provider
+3aa7c1a5ac6a9c09e0f569533512d5248ce0ab08|main@{2026-10-20 13:12:48 -0500}|commit: chore(build): record auth review and start shell and runner waves
+306f962ab741c2eabdb3e2d940f747be68ed3a0f|main@{2026-10-20 13:12:48 -0500}|cherry-pick: refactor(auth): remove account creation analytics hooks
+81520ef42892c0c85eea4c746ebf199be2822529|main@{2026-10-20 13:12:48 -0500}|cherry-pick: test(auth): require signup without analytics hooks
+79264b4db65f7cde04a9725a12d8f8dface391e5|main@{2026-10-20 13:10:00 -0500}|commit: chore(build): record reviewed foundation and start auth update
+3a7b9d02496321b6cf0727f30d521f46085fdcc0|main@{2026-10-20 13:09:43 -0500}|cherry-pick: test(foundation): align target profiles and guard generate authority
+00e686391fee2ab520a1028fd6f8bc41b6e7786f|main@{2026-10-20 13:09:43 -0500}|cherry-pick: fix(foundation): keep Prisma generation outside migration profile
+18ebc1fa1cbe913a4de170e9bb7c8256c2cdd4c1|main@{2026-10-20 13:09:43 -0500}|cherry-pick: feat(foundation): validate Modal profiles and defer analytics
+eb42548fd975d2db54dc75362c8683bf89394d55|main@{2026-10-20 13:09:43 -0500}|cherry-pick: test(foundation): rebless deferred analytics and deployment boundaries
+b8ec641d413fca3ab68f7436a5a93a20690dbab3|main@{2026-10-20 12:57:11 -0500}|commit: chore(build): start remaining implementation foundation
+abdfd6129ef9c0b963946a402a2821032bef32b8|main@{2026-10-20 12:56:26 -0500}|commit: chore: upgrade pandacorp overlay 8.102.0 → 8.108.1
+ff8bc19808369f5e6a0e271792f95840a696e6c2|main@{2026-10-20 12:20:11 -0500}|commit: docs(env): clarify locally executed migration credentials
+53182aab39d9469a49057ba4af26deefaa275c52|main@{2026-10-20 11:57:23 -0500}|commit: Consolidate environment handoffs with destination isolation
+3dc4d039ecedbd7dccdc9a3de46dd8c914f9b2e7|main@{2026-10-20 10:59:00 -0500}|commit: chore: close the documentation planning lease
+20c26476eb62b8a5ab2e3f052f52b517de541e84|main@{2026-10-20 10:58:50 -0500}|commit: docs: integrate the PostHog deferral work plan
+01783aec7cd293a2194d6aacafdc8ae2310f968c|main@{2026-10-20 10:43:41 -0500}|commit: docs: defer PostHog analytics for the MVP
+1cc0d6a6d9a305e179ce0b65670803ba5b93ae08|main@{2026-10-20 08:53:44 -0500}|merge 1cc0d6a: Fast-forward
+a4f0670a1f395fe072d4a87866412541b1c26081|main@{2026-10-20 07:48:21 -0500}|merge a4f0670a1f395fe072d4a87866412541b1c26081: Fast-forward
+ff6f58aac66525b4e46e867581f2478b5a0b08f4|main@{2026-10-20 00:51:32 -0500}|commit: docs(state): synchronize Modal replan and pending work-order counts
+a69294c59c102fda5d8ed1e4f4d836de4040d2e4|main@{2026-10-20 00:50:59 -0500}|commit: docs: replan exports for on-demand Modal under zero-spend policy
+1f7af90c66b2da6f06d116ea211142568792acc0|main@{2026-10-20 00:50:59 -0500}|reset: moving to HEAD~2
+2abccbea10aaa7959431922dbe885bbce31df51e|main@{2026-10-20 00:50:39 -0500}|commit: docs(plan): separate account visual references from dependency rows
+dd6e3f7b59326ee4753fc5c853752ba50ea4686d|main@{2026-10-20 00:48:49 -0500}|merge codex/modal-docs: Fast-forward
+1f7af90c66b2da6f06d116ea211142568792acc0|main@{2026-10-20 00:37:59 -0500}|commit: docs(governance): authorize Codex and Claude across Pandacorp skills
+197768103c534b686031c90d9113486c5b08fb2c|main@{2026-10-19 11:37:13 -0500}|commit: docs(env): separate local-only configuration from deployment variables
+6748fa2f9dba74e636eb455f5ad08947297b343b|main@{2026-10-19 09:19:10 -0500}|commit: chore(memory): stamp last_harvest after factory memory sweep
+874b8749c158863b75efba7ef83b1b1be541fe07|main@{2026-10-19 05:46:45 -0500}|commit: test(security): give the 10 000-row SEC-08 capacity test an explicit timeout
+2fa9ece60dd98e9a35f6c412fa55b5b4a0a14869|main@{2026-10-19 05:42:49 -0500}|commit (cherry-pick): fix(security): resolve close-out audit findings
+855cc6628d3c4b489dea325e0462617be4b604b8|main@{2026-10-19 05:42:44 -0500}|cherry-pick: docs(security): close-out security audit
+6493f662f71828b493cc0f0aeccc86b0f08973a5|main@{2026-10-19 05:14:26 -0500}|cherry-pick: fix(frd-06-franchise-backfill): resolve codex review gate corrections
+4d654654fcbb41562f2bcdc3c8497a6d843db105|main@{2026-10-19 05:14:26 -0500}|cherry-pick: test(frd-06-franchise-backfill): codex review gate
+6ce06402188ed6166dcbf07c1d985cf0fc005953|main@{2026-10-19 04:43:50 -0500}|cherry-pick: docs(analytics): verify close-out events
+da0820930d087aeabe6272bc794f39873faf4e59|main@{2026-10-19 04:37:53 -0500}|commit: chore(frd-05-checklist-export): VERIFIED by the Codex review gate
+f39c0e3e66e9176fb08be3fdcc83550af0725e30|main@{2026-10-19 04:37:53 -0500}|commit: test(frd-05-checklist-export): make the invalid-franchise gate test order-independent
+fc1203d71e3a747035edc13b7c96a0aa90a075bb|main@{2026-10-19 04:30:21 -0500}|commit: test(frd-05-checklist-export): make the silhouette gate test order-independent
+12d531e1e6bd74dc215da90b5228f1bad1cb1351|main@{2026-10-19 04:26:06 -0500}|commit: chore(frd-01,frd-02,frd-03): VERIFIED by the Codex review gates
+1cd15b1163ccf7b940c3df9130ffff0387692f94|main@{2026-10-19 04:25:53 -0500}|cherry-pick: test(frd-03-private-inventory): codex review gate
+a3af425ec0c36f9eeb7702521455844d6c6bd2ba|main@{2026-10-19 04:25:53 -0500}|cherry-pick: test(frd-01-catalog-browsing): codex review gate
+92cea7beb59eb1cf3958a85a68eac5745d5ed89d|main@{2026-10-19 04:24:55 -0500}|cherry-pick: test(frd-02-collectible-detail): expect the FRD's generic set heading
+93ce170aa54bca4700c8787be9b43f316fc29ced|main@{2026-10-19 04:24:55 -0500}|cherry-pick: fix(frd-02-collectible-detail): resolve codex review gate corrections
+b695de1a12b5aa72b817fdfd9ae4fd7da33f3f2f|main@{2026-10-19 04:24:55 -0500}|cherry-pick: test(frd-02-collectible-detail): codex review gate
+08a0f8c260fd754dbb9372feed267106956fb19a|main@{2026-10-19 03:55:15 -0500}|commit: test(frd-05-checklist-export): scope the invalid-franchise alert to the export form
+6352e617daa2963fe76ade2376753580b6e425cb|main@{2026-10-19 03:45:32 -0500}|commit (cherry-pick): fix(frd-05-checklist-export): resolve codex review gate corrections
+7470baf6d071dd1e7713deae366fc5b57d90e9ec|main@{2026-10-19 03:45:24 -0500}|cherry-pick: test(frd-05-checklist-export): codex review gate
+9c44a6ac9d5f474ae4331913f2289adda8ca176a|main@{2026-10-19 03:45:09 -0500}|reset: moving to 9c44a6ac9d5f474ae4331913f2289adda8ca176a
+cf494d3ac3aa6f1ab59022d75053bfc955e15b1c|main@{2026-10-19 03:45:09 -0500}|cherry-pick: test(frd-05-checklist-export): codex review gate
+9c44a6ac9d5f474ae4331913f2289adda8ca176a|main@{2026-10-19 03:44:53 -0500}|commit: test(db): give the per-worker database teardown the same timeout as setup
+6bb0aa1a708ae84ea74e4b875f02f915d2695f86|main@{2026-10-19 03:42:24 -0500}|commit: chore(frd-07-delta-discovery): VERIFIED by the Codex review gate
+9287219bae906c761e8dc5e9c0ca6b2d22c2f240|main@{2026-10-19 03:41:59 -0500}|cherry-pick: fix(frd-07-delta-discovery): resolve codex review gate corrections
+e15d6f719b5d2c4b45b243210122d276f32d4f86|main@{2026-10-19 03:41:59 -0500}|cherry-pick: test(frd-07-delta-discovery): codex review gate
+8a05acfe5197e2649b529ccf0bc4e51b03a8d5bc|main@{2026-10-19 02:10:12 -0500}|commit: chore(build): WO-07-002 built by Codex, IN_REVIEW
+603332cd07cde45635d5c2d0517d67c18da87421|main@{2026-10-19 02:09:43 -0500}|cherry-pick: feat(delta-discovery): wo-07-002-catalog-delta-skill-routine
+77e33a9bd1601a601d94d04df04b201c105aa976|main@{2026-10-19 01:58:37 -0500}|commit: chore(build): WO-03-008 built by Codex, IN_REVIEW
+d172c5842864d11288c3ff643db51fefb1e648f4|main@{2026-10-19 01:56:09 -0500}|cherry-pick: feat(private-inventory): wo-03-008-fidelity-punch-list
+3b209278dba9efe0346979a22105d91320129d9c|main@{2026-10-19 01:50:30 -0500}|commit: chore(build): WO-07-001 built by Codex, IN_REVIEW
+bda5e9a6aea2ae62366068dda5f71732f0061375|main@{2026-10-19 01:46:05 -0500}|cherry-pick: feat(frd-07-delta-discovery): WO-07-001 delta engine
+7b5045e9bcbb7fe17e0d6b93a93e89ef06558306|main@{2026-10-19 01:44:53 -0500}|commit: chore(build): WO-02-005 built by Codex, IN_REVIEW
+c68892658010dc71d4d89c37b7558c31572666d1|main@{2026-10-19 01:44:53 -0500}|commit: fix(fidelity): keep ported prototype CSS verbatim after the Codex punch lists
+2776088bfa89ad1a3540b370762a896c6c749ccf|main@{2026-10-19 01:30:58 -0500}|cherry-pick: feat(collectible-detail): wo-02-005-fidelity-punch-list
+181c6d996f4ffde924770fb5bf07e448635d46d8|main@{2026-10-19 01:25:11 -0500}|commit: fix(catalog-browsing): restore the verbatim prototype checklist.css
+f0b9acc9af95bd26cf776a11d021f6c795dbbf4e|main@{2026-10-19 01:22:39 -0500}|commit: chore(build): WO-01-015 built by Codex, IN_REVIEW
+a978488305df950105b761812f0d77a2691a90de|main@{2026-10-19 01:22:39 -0500}|merge codex/wo-01-015-fidelity-punch-list: Fast-forward
+1add8ded008bebb0ac65fb6185ee5bcefa385874|main@{2026-10-19 00:36:27 -0500}|commit: chore(build): record pass-5 rollup and hand the remaining work orders to Codex
+571e9e802bc8aab005c86fe53282236a8d58eb8f|main@{2026-10-19 00:35:58 -0500}|commit: chore: quiesce Claude build lease
+20d1eb7bf2a37b11e4919bf4b5abf44e9b848211|main@{2026-10-19 00:27:08 -0500}|commit: style(visual-qa): sweep punch-list for frd-01-catalog-browsing, frd-02-collectible-detail, frd-04-goals-and-to-get, frd-08-help-contact-legal
+f28d132761d5310be5a7ce02f5236fcf4b1bca95|main@{2026-10-19 00:23:30 -0500}|commit: chore(build): publish last green snapshot
+8f04c8fcf9200860f27915f789ca9b65ebe4e5cc|main@{2026-10-19 00:23:26 -0500}|commit: fix(frd-06-franchise-backfill): certify WO-06-001 to WO-06-005 after independent gate
+b5d9b21fe815fa3f02b3dc4313ec4f79c6754567|main@{2026-10-19 00:23:11 -0500}|commit: chore(build): sync frd-06 rollups after gate verification
+db320c16fd0f4e9101140cc5ce22be81ce15b869|main@{2026-10-19 00:11:21 -0500}|commit: fix(frd-06-franchise-backfill): WO-06-001 WO-06-002 WO-06-003 WO-06-004 close gate probe findings
+78ac43f6494753ef38c6670b94e61627b3ae1cef|main@{2026-10-19 00:02:21 -0500}|commit: chore(build): publish last green snapshot
+634b0610dd0f37d6198a54b37220dab19f1ca429|main@{2026-10-19 00:02:12 -0500}|commit: fix(frd-08-help-contact-legal): certify WO-08-001 and WO-08-002 after independent gate
+bd5f2028f338934ac3a6a6afa0782f2389806f4e|main@{2026-10-19 00:02:02 -0500}|commit: chore(build): sync frd rollups after frd-08 patch verification
+d04627585c30ac0ca81abaaf8d5e2638f23bf90c|main@{2026-10-18 23:51:32 -0500}|commit: fix(frd-08-help-contact-legal): WO-08-002 give an edited contact draft a new request id
+5f59db6a6ceb5dc0b3b2bc159b9f05d581639f5e|main@{2026-10-18 23:38:54 -0500}|commit: fix(frd-05-checklist-export): keep WO-03-006 onboarding buttons disabled until hydrated
+bb39f322fa52f3ac362ac498b949e2d401818397|main@{2026-10-18 22:58:06 -0500}|commit: fix(frd-05-checklist-export): fixup WO-05-005
+27211069e855c7d51dbd2b3289b2bf185d4647b4|main@{2026-10-18 22:31:38 -0500}|commit: chore(build): floor classification of frd-05-checklist-export=true
+78c52a0696e8bdc322699a84ddfaba0cd216ae6c|main@{2026-10-18 22:30:07 -0500}|commit: feat(frd-05-checklist-export): WO-05-005 exportar-page
+5ae9d94ccb6259ab25eb0f9c8887ce3790ac7bb7|main@{2026-10-18 22:17:14 -0500}|commit: feat(frd-05-checklist-export): WO-05-004 poster-renderer-job
+0adf60b81659764758d97e6f471c17827c727b66|main@{2026-10-18 22:04:22 -0500}|commit: feat(frd-05-checklist-export): WO-05-003 export-jobs-snapshot-delivery
+b8a0a33de757fc9d68bbc43c990047ce7ea34871|main@{2026-10-18 21:56:24 -0500}|commit: chore(build): dispatch WO-05-003, WO-05-004, WO-05-005 (IN_PROGRESS)
+03a2b9b6e5633e768a8f80b958abd82d8b1445bf|main@{2026-10-18 21:56:16 -0500}|commit: chore(build): publish last green snapshot
+0a9370d7c24c185818401e7d0838bd282e6cf4a5|main@{2026-10-18 21:56:12 -0500}|commit: fix(frd-04-goals-and-to-get): certify gate-verified patch snapshot
+5bf938b681da4514d989f731a44b68b4c65ab8d6|main@{2026-10-18 21:56:03 -0500}|commit: chore(build): re-derive FRD rollups after frd-04 verification
+354c61cadfe24a0859e36555a94ebc4c008f0b2f|main@{2026-10-18 21:49:16 -0500}|commit: fix(frd-04-goals-and-to-get): patch WO-04-004, WO-04-002, WO-04-003 gate findings
+5efba6fa36659f233dddf0dfcc76d49008f6b13d|main@{2026-10-18 21:21:09 -0500}|commit: chore(build): floor classification of frd-06-franchise-backfill=true
+3b9329bdc61cd86b29587cf344354991e493d82e|main@{2026-10-18 21:20:09 -0500}|commit: fix(frd-06-franchise-backfill): fixup WO-06-001
+610bbdaedbc3d38946aa5c81ca5f528c4877bc88|main@{2026-10-18 21:19:36 -0500}|commit: feat(frd-06-franchise-backfill): WO-06-005 ingest-catalog-skill
+8c4c86425122dc3e39a57e41087981683b0c6014|main@{2026-10-18 21:17:12 -0500}|commit: feat(frd-06-franchise-backfill): WO-06-003 owner-decisions-merges
+fd845bd07241605be238ea4311702d8135efb0c0|main@{2026-10-18 21:10:52 -0500}|commit: feat(frd-06-franchise-backfill): WO-06-002 runs-plan-apply-commands
+05151a6fe2a1ee16d46c02bade56ec52e1dacaab|main@{2026-10-18 20:57:25 -0500}|commit: feat(frd-06-franchise-backfill): WO-06-004 media-check-command
+e8ca6c03a42a91ef5e3437ec330012466d09352f|main@{2026-10-18 20:55:49 -0500}|commit: feat(frd-06-franchise-backfill): WO-06-001 ingest-engine-core
+c5741201a22a0b22d492acf05f113b309a7f4c8d|main@{2026-10-18 20:43:33 -0500}|commit: chore(build): dispatch WO-06-001, WO-06-004, WO-06-002, WO-06-003, WO-06-005 (IN_PROGRESS)
+487ffe2495e7e9327065d427305230b505b368ee|main@{2026-10-18 20:42:49 -0500}|commit: fix(fidelity): reproduce each oracle state on the build (WO-01-016)
+f43ebef4dd25e8f62e8bd366ed6cecd63c81a90d|main@{2026-10-18 20:28:40 -0500}|commit: docs(frd-03-private-inventory): plan WO-03-008 fidelity punch list
+868951ce89db76afcf292c4c19b7e3bb73615af8|main@{2026-10-18 20:22:23 -0500}|commit: fix(frd-08-help-contact-legal): fixup WO-08-002
+974d6d4abb6ac0f90ce9019e7cf35ea118333149|main@{2026-10-18 20:17:02 -0500}|commit: chore(build): floor classification of frd-08-help-contact-legal=true
+38479d8dd825dc6067e0e485e3df4a5f9b959d77|main@{2026-10-18 20:15:45 -0500}|commit: feat(frd-08-help-contact-legal): WO-08-002 contacto
+44997994b75a974622988c6d3fb9cdc11190a369|main@{2026-10-18 20:08:11 -0500}|commit: feat(frd-08-help-contact-legal): WO-08-001 help-legal-not-found
+dd3c2f379d6c28409cf9b0af8b2b22c935b98067|main@{2026-10-18 20:01:38 -0500}|commit: chore(build): dispatch WO-08-001, WO-08-002 (IN_PROGRESS)
+002b99ae24a8d30ddd6016ecea50ceae9c4aae7b|main@{2026-10-18 19:57:38 -0500}|commit: fix(frd-04-goals-and-to-get): drop unused WO-05-002 exports to green knip
+9f3b40e8f011f388ec71c77902e707400750fcfc|main@{2026-10-18 19:51:09 -0500}|commit: fix(frd-04-goals-and-to-get): fixup WO-04-002
+d08a9f838f3b9ded49435d32ba71dcae172c3410|main@{2026-10-18 19:50:37 -0500}|commit: chore(build): floor classification of frd-04-goals-and-to-get=true
+46b38d2d09cfa8c11caabbb047cdcbf17c414dd9|main@{2026-10-18 19:50:30 -0500}|commit: fix(frd-04-goals-and-to-get): fixup WO-04-002
+8a3ef9baa28b7e74b2041bbb4c9f89e217cac400|main@{2026-10-18 19:49:47 -0500}|commit: feat(frd-04-goals-and-to-get): WO-04-002 metas-tab
+590d0a630e0c7a10534f57a8860fd4bd39dd733b|main@{2026-10-18 19:49:33 -0500}|commit: feat(frd-04-goals-and-to-get): WO-04-002 metas-tab
+eb7e791c060ced03f9bfafffb68af7c490512609|main@{2026-10-18 19:46:47 -0500}|commit: chore(build): dispatch WO-04-002 (IN_PROGRESS)
+a216961ecef9b5aa5cb14c397199abac711b35ec|main@{2026-10-18 19:46:37 -0500}|commit: chore(build): publish last green snapshot
+ca95fc460f7cc0c3a4d63573049b759bed0b6418|main@{2026-10-18 19:46:32 -0500}|commit: fix(frd-03-private-inventory): certify patched gate findings and verify WOs
+00f07d62878fb51b7aee557aae8521314eb7d749|main@{2026-10-18 19:46:21 -0500}|commit: chore(build): sync feature rollups from work-order state
+26d491f163be13c2124c06a00f63eff8ad031bbc|main@{2026-10-18 19:43:35 -0500}|commit: fix(frd-03-private-inventory): patch WO-03-001, WO-03-002, WO-03-003, WO-03-004 gate findings
+4d5a3f8078a618922f3f2656c11e8adadb535d24|main@{2026-10-18 19:10:28 -0500}|commit: fix(frd-04-goals-and-to-get): fixup WO-04-004
+7bd2d6d9821d9d360065a42115fb0ed230056f96|main@{2026-10-18 18:59:44 -0500}|commit: feat(frd-04-goals-and-to-get): WO-04-004 goal-editor
+88d5fbe09030e987b7c16b658b14c613238dbe37|main@{2026-10-18 18:49:02 -0500}|commit: chore(build): dispatch WO-04-004 (IN_PROGRESS)
+0e9e523453f55cfcfe31a844ea84190989748daa|main@{2026-10-18 18:48:36 -0500}|commit: feat(frd-05-checklist-export): WO-05-002 export-poster-and-sheet-planner
+7ca2bf1778f84987a257074cafe4a8ce1e3fdff3|main@{2026-10-18 18:43:55 -0500}|commit: chore(build): dispatch WO-05-002 (IN_PROGRESS)
+901d320ca1949a09b1cec8a6c5b68b72f08af9d5|main@{2026-10-18 18:41:01 -0500}|commit: fix(frd-03-private-inventory): fixup WO-03-004
+bd6481d9c5436561ed363007c60a17a870bdbb99|main@{2026-10-18 18:00:42 -0500}|commit: fix(frd-03-private-inventory): fixup WO-03-005
+2685ee18ae561ba7ab78d92f18cc570486b868bf|main@{2026-10-18 17:53:45 -0500}|commit: feat(frd-03-private-inventory): WO-03-005 mi-coleccion
+45179bd16e051c6818fde3cea6ff9fe0f7c59a66|main@{2026-10-18 17:46:20 -0500}|commit: chore(build): dispatch WO-03-005 (IN_PROGRESS)
+f56b1a662a6d8f4fa149b436f9c2de979e64193f|main@{2026-10-18 17:45:53 -0500}|commit: docs(frd-02-collectible-detail): plan WO-02-005 fidelity punch list
+f6de9238c07ff507cf5c5d83159577a6c49a39f8|main@{2026-10-18 17:43:25 -0500}|commit: docs(frd-01-catalog-browsing): plan WO-01-015 fidelity punch list
+ee2bce0fa4fa40960a29b54517e2f6ff22aafdd6|main@{2026-10-18 17:41:38 -0500}|commit: chore(build): publish last green snapshot
+b72e91d1ef7bb97c0348215e7b6e2ef51daac6f9|main@{2026-10-18 17:41:33 -0500}|commit: fix(frd-02-collectible-detail): persist independently verified Ficha patch
+98b5cc6139da25e56e23f5a5e5450c9ed2527749|main@{2026-10-18 17:41:20 -0500}|commit: chore(frd-02-collectible-detail): roll up implementation status to VERIFIED
+5026d6bf86e03ca38a98979199ea3132d7a94e71|main@{2026-10-18 17:21:58 -0500}|commit: fix(frd-02-collectible-detail): patch WO-02-004 ficha review findings
+c40d2071519cede7a3cb172b7840535c09f7c1d9|main@{2026-10-18 16:11:21 -0500}|commit: fix(frd-02-collectible-detail): fixup WO-02-004
+182155cfecd795756ff0deba76792ac92bee682c|main@{2026-10-18 16:08:30 -0500}|commit: feat(frd-02-collectible-detail): WO-02-004 ficha-page
+be42a56978d3f808495d4a003087095ba61a2584|main@{2026-10-18 16:01:30 -0500}|commit: chore(build): dispatch WO-02-004 (IN_PROGRESS)
+ca7b44e612853287049ebc0c3d86ed6b972fa0fd|main@{2026-10-18 15:51:27 -0500}|commit: fix(fidelity): give the production gate server a gate-only auth secret
+f99988445079cd8170d3725be0b2828c6d100fa5|main@{2026-10-18 15:28:53 -0500}|commit: chore(build): publish last green snapshot
+4d5b3becd665b3c5975d09312bb5c35d403351eb|main@{2026-10-18 15:28:49 -0500}|commit: chore(frd-01-catalog-browsing): certify verified gate-patch snapshot
+5fe47897adc1575c33a17daf572544123a95d7de|main@{2026-10-18 15:28:30 -0500}|commit: chore(frd-01-catalog-browsing): re-derive blueprint rollup from work orders
+a858fb20fdfde9c9261832dd23090963a0a7e23b|main@{2026-10-18 15:04:34 -0500}|commit: fix(frd-01-catalog-browsing): patch WO-01-008, WO-01-007, WO-01-010, WO-01-012, WO-01-005, WO-01-002 gate findings
+164a487ece4787ba55cd62b7e9477a98d3a4c651|main@{2026-10-18 14:27:31 -0500}|commit: fix(fidelity): create the gate database before the build and opt blocking pages out of prerender
+6e987d1c147cda2dd4a8b421cf5fe8ee0a2bed41|main@{2026-10-18 13:44:14 -0500}|commit: build(fidelity): make the prototype-oracle gate advisory and unblock FRD-01
+d8d0705af933bdc9f528220f88abd3b5391fb81e|main@{2026-10-18 12:44:30 -0500}|commit: chore(build): record usage rollup for run_20261018T153827Z_48230
+57d2590bb1fd82ed51b92fbd2d62067e2e9566b2|main@{2026-10-18 12:44:15 -0500}|commit: chore: quiesce Claude build lease
+19affd66ea5189b40704db5f8bbcff00c18cf902|main@{2026-10-18 12:35:22 -0500}|commit: chore(frd-01-catalog-browsing): block rejected WOs needs-owner
+fe81c0a07fae2bff3319fb9a79bc3dee14cc9540|main@{2026-10-18 12:34:06 -0500}|commit: chore(frd-01-catalog-browsing): block WO-01-008 needs-owner
+e037519dc6c1e6869565cfc20f7051c09bdb647b|main@{2026-10-18 12:06:27 -0500}|commit: fix(frd-01-catalog-browsing): fixup WO-01-007
+0d9651dfbef2fd3716a10da32f9c1b1f34acbb36|main@{2026-10-18 11:54:59 -0500}|commit: fix(frd-01-catalog-browsing): fixup WO-01-012
+e7c507a64ac3d40dbf70da2b00ba82c4900e8a3b|main@{2026-10-18 11:53:40 -0500}|commit: feat(frd-01-catalog-browsing): WO-01-012 explore-results-page
+9161631f7a73ee41d01147712aaed929914b0899|main@{2026-10-18 11:43:09 -0500}|commit: feat(frd-01-catalog-browsing): WO-01-010 explore-hub-directories
+51a2b352c773240c680fa0ae95cd4bfcf12de950|main@{2026-10-18 11:34:50 -0500}|commit: chore(build): dispatch WO-01-010, WO-01-012 (IN_PROGRESS)
+411abee80da6301f471cc1bcc6e3dbadb31a7521|main@{2026-10-18 11:31:19 -0500}|commit: fix(frd-04-goals-and-to-get): fixup WO-04-003
+6565b51df5d2c87c39257a523c102faba78621f5|main@{2026-10-18 11:30:26 -0500}|commit: feat(frd-04-goals-and-to-get): WO-04-003 por-conseguir
+23a83de488b374536b1436474ef441d42e5aa2dc|main@{2026-10-18 11:22:06 -0500}|commit: feat(frd-04-goals-and-to-get): WO-04-001 goals-eligibility-wishlist-core
+9aab6fbd3953b6b987914f973fd34f2cddcd8601|main@{2026-10-18 11:11:06 -0500}|commit: chore(build): dispatch WO-04-001, WO-04-003 (IN_PROGRESS)
+355f84dbea0d34d5c36b1f6d7dfe9efc12ba243b|main@{2026-10-18 11:07:26 -0500}|commit: feat(frd-03-private-inventory): WO-03-006 mi-cuenta-onboarding
+aaa5cefdd8a3b84669eefc4c6a68d0cc843bcd9f|main@{2026-10-18 10:58:27 -0500}|commit: chore(build): dispatch WO-03-006 (IN_PROGRESS)
+4383acc807bf8890eb0fa4071d2780bb0aae62a7|main@{2026-10-18 10:57:20 -0500}|commit: feat(frd-01-catalog-browsing): WO-01-008 fidelity-gate-harness
+ee5a75425b9df9f9bb1e6bebf5850862c9d32d82|main@{2026-10-18 10:49:22 -0500}|commit: fix(frd-01-catalog-browsing): fixup WO-01-007
+c52211dfd3a1aefe67a2fafff08ca5f60e2455ae|main@{2026-10-18 10:49:12 -0500}|commit: feat(frd-01-catalog-browsing): WO-01-007 site-footer-coverage
+b815d68725ef110aed5fec4770bb8863dfb76230|main@{2026-10-18 10:47:17 -0500}|commit: chore(build): dispatch WO-01-008 (IN_PROGRESS)
+320ac4e5728ed90ed18d0874f16e346328eb82f3|main@{2026-10-18 10:47:17 -0500}|commit: chore(build): sync rollups and producer freshness
+5f1562803805bc4f30599927efaabc67985f3b0a|main@{2026-10-18 10:38:20 -0500}|commit: chore(build): record usage rollup for run_20261018T142754Z_67530
+fc29602eaa62b97af00351ae142f4350dc68da0f|main@{2026-10-18 10:38:04 -0500}|commit: chore: quiesce Claude build lease
+2f6679f113c33e6dcced99bf86258e72dd2dca5d|main@{2026-10-18 10:36:06 -0500}|commit: feat(frd-03-private-inventory): WO-03-007 account-deletion-erasure
+31e7c7af15218281afc41969d6de07a044bcf7a5|main@{2026-10-18 10:28:06 -0500}|commit: feat(frd-03-private-inventory): WO-03-004 sign-in-sign-up-verify-recover
+02d9967406e69c03419c22c594c61844ee83da62|main@{2026-10-18 10:20:30 -0500}|commit: feat(frd-03-private-inventory): WO-03-003 ownership-core
+93afcded191831bb7e8e3192bdfebfb28545af86|main@{2026-10-18 10:13:59 -0500}|commit: feat(frd-03-private-inventory): WO-03-002 app-shell-theme-visitor-gate
+767d48d496f91f6be0e3d866f0ada9e815b69397|main@{2026-10-18 10:04:05 -0500}|commit: chore(build): dispatch WO-03-002, WO-03-003, WO-03-004, WO-03-007 (IN_PROGRESS)
+495fdac58152ae7e00546100baf603cb0a876a5a|main@{2026-10-18 10:03:31 -0500}|commit: feat(frd-01-catalog-browsing): WO-01-011 filter-rail-follow-scope
+1f61570bb407a465cf8880e6c3c764adf4fe7cfe|main@{2026-10-18 10:00:02 -0500}|commit: feat(frd-01-catalog-browsing): WO-01-009 catalog-search-engine
+d0bd6cd8889b340ee03ce16ae5e3b42a857f827a|main@{2026-10-18 09:53:09 -0500}|commit: chore(build): dispatch WO-01-009, WO-01-011 (IN_PROGRESS)
+dfd6c65fdb6523bd4147b2f633c23586b81c0e4c|main@{2026-10-18 09:52:22 -0500}|commit: feat(frd-02-collectible-detail): WO-02-003 collectible-detail-read-model
+5fdbd8872b36e27e18be46a7fb6993acad34ef31|main@{2026-10-18 09:47:49 -0500}|commit: feat(frd-02-collectible-detail): WO-02-002 fixture-seed-taxonomy
+239f15bd43abfab555ed39f5786f29e3d98a326b|main@{2026-10-18 09:38:55 -0500}|commit: chore(build): dispatch WO-02-002, WO-02-003 (IN_PROGRESS)
+b99a71f58124230d20fb4c92f11020ffacbc5f8f|main@{2026-10-18 09:35:50 -0500}|commit: chore(build): dispatch WO-01-007 (IN_PROGRESS)
+84dc0a9935543cc7aff2069bcc9869d6c1dd5956|main@{2026-10-18 09:35:48 -0500}|commit (amend): chore(build): sync rollups (corrected 0)
+b1b9dbfcbcbfd3353dcc20e050910bba01f05325|main@{2026-10-18 09:35:46 -0500}|commit: chore(build): sync rollups (corrected 0)
+75f653cac4b0a113ef8e31890aa77d6f8fa4988b|main@{2026-10-18 09:27:48 -0500}|commit: build(worktrees): link the main checkout's .env.local into every worktree
+b9f1d0b38570378384bcaad8633a7608b0884192|main@{2026-10-18 09:18:54 -0500}|commit: chore(memory): stamp last_harvest after factory memory sweep
+1380ef91b3fff6a188b7dec7db0fc94658009242|main@{2026-10-18 00:50:01 -0500}|commit: chore(build): record usage rollup for run_20261018T045818Z_46300
+37b12f62beee3c51f72c594f7fedf662b8d15383|main@{2026-10-18 00:47:57 -0500}|commit: chore: quiesce Claude build lease
+eb6391c91ae6923e97c1bf38cc82b6dbf9b9aeb5|main@{2026-10-18 00:46:58 -0500}|merge eb6391c91ae6923e97c1bf38cc82b6dbf9b9aeb5: Fast-forward
+2cd56338e96b34e3d82dbaa4d95a90a92253e98b|main@{2026-10-18 00:42:44 -0500}|commit: feat(frd-05-checklist-export): WO-05-001 worker-runtime-storage-ops-cli
+ae6c0d53fe4af94f14e1b3871b27539c93569038|main@{2026-10-18 00:31:54 -0500}|commit: chore(build): dispatch WO-05-001 (IN_PROGRESS)
+f45df8e0fbaf012bd6efac90fd7c2a6fb7e2821d|main@{2026-10-18 00:30:56 -0500}|commit: feat(frd-03-private-inventory): WO-03-001 auth-private-state-platform
+534542bf2fd010d8a1fc60e0e3d2fba2739e6036|main@{2026-10-18 00:23:12 -0500}|commit: chore(build): dispatch WO-03-001 (IN_PROGRESS)
+fa3ee5b4251ab30d08954e9df05a91de2fc576ff|main@{2026-10-18 00:22:25 -0500}|commit: fix(frd-02-collectible-detail): fixup WO-02-001
+cf78bdb7883bdba675eb6d69f16e89f9263b84b7|main@{2026-10-18 00:20:56 -0500}|commit: feat(frd-02-collectible-detail): WO-02-001 data-layer
+e56d5fa8220c98b66d58cfddf51375854f080fb2|main@{2026-10-18 00:06:06 -0500}|commit: chore(build): dispatch WO-02-001 (IN_PROGRESS)
+5b162b289caff9b8ecd7ce530b895f1424069b58|main@{2026-10-18 00:05:59 -0500}|commit: chore(build): sync FRD rollups and status after lease epoch 2
+df4da4a007d90b3e6c835446fbff15149b688689|main@{2026-10-17 23:58:04 -0500}|commit: chore: upgrade pandacorp overlay 8.101.0 → 8.102.0
+cddb50ad641a01d62532871dbfadcca0b156075d|main@{2026-10-17 23:08:33 -0500}|commit: chore(build): record usage rollup for run_20261018T033601Z_80858
+47772772d0fd374b6ef21664f9f2f5163daae8fa|main@{2026-10-17 23:05:06 -0500}|commit: chore: quiesce Claude build lease
+744d5fd6ba6cbe5468f8389330a8f9f7b23f53aa|main@{2026-10-17 23:03:46 -0500}|commit: feat(frd-01-catalog-browsing): WO-01-006 list-results-toolkit
+c6c8f201b89c9ee8a2bf6ddb04d4ea7dfd3f4406|main@{2026-10-17 23:01:06 -0500}|commit: feat(frd-01-catalog-browsing): WO-01-005 collectible-card-kit
+5e0a44fe2e9385de616e25aafddeac9936a739f0|main@{2026-10-17 22:56:17 -0500}|commit: chore(build): dispatch WO-01-005, WO-01-006 (IN_PROGRESS)
+18a6f5ebe9c56e3a7e5c4b461ff49bf6dadeb276|main@{2026-10-17 22:56:01 -0500}|merge 18a6f5ebe9c56e3a7e5c4b461ff49bf6dadeb276: Fast-forward
+879b5b1fe4819121f4e390c2d080f468b197ce1f|main@{2026-10-17 22:53:18 -0500}|commit: feat(frd-01-catalog-browsing): WO-01-001 platform-runtime
+2b29e1ea93ed8544053592b044546060e21b3491|main@{2026-10-17 22:43:50 -0500}|commit: chore(build): dispatch WO-01-001 (IN_PROGRESS)
+0d76a9e7bf712d9da33ba9e63cdd0a6ea7daa9eb|main@{2026-10-17 22:43:42 -0500}|commit: chore(build): sync work-order rollups (corrected=0)
+1674575b41417b717817764ea98b04d5faed4a0c|main@{2026-10-17 22:43:27 -0500}|commit: chore(build): floor classification of frd-01-catalog-browsing=true, frd-02-collectible-detail=false, frd-03-private-inventory=true, frd-05-checklist-export=false, frd-06-franchise-backfill=false, frd-04-goals-and-to-get=false, frd-08-help-contact-legal=false, frd-07-delta-discovery=false
+52cfa9e5c8b086c46bb6516290997b3f3f07f0f3|main@{2026-10-17 22:34:56 -0500}|commit: chore: upgrade pandacorp overlay 8.100.0 → 8.101.0
+98bd21da2b127afd0e1884f8e226489551786c63|main@{2026-10-17 21:04:29 -0500}|commit: docs(architecture): restore the WO-06-004 README row and fix WO-05-005's wave label
+3c894a07b35ec1a081177d2300ddbd0df2462475|main@{2026-10-17 16:46:18 -0500}|merge arch/hotlinked-media: Fast-forward
+abcae240c79d541d0e0c0e803110ac4d723b63ac|main@{2026-10-17 15:45:10 -0500}|merge arch/architecture-phase: Fast-forward
+fd2180416499d62cf66bd42be16df1b0ee346b79|main@{2026-10-17 09:34:08 -0500}|commit: chore(memory): harvest funko-tracker -- 13 lessons, 1 backlog item
+7cf55dd6b0ab137369dfead08bbac5bf1542219d|main@{2026-10-16 21:18:03 -0500}|commit: chore: upgrade pandacorp overlay 8.98.0 → 8.100.0
+810902d91e50d60d8a8f72115001f92887f5be3d|main@{2026-10-16 14:51:26 -0500}|commit: docs(design): close the final fidelity audit items
+b71074f9533699220a434d2606e16c493e0a4c72|main@{2026-10-16 12:36:03 -0500}|commit: docs(design): make the fidelity gate executable: fail-closed tools, build recipes and anchor offsets
+0a0526256f31b185d06002da142d91d931c81c2d|main@{2026-10-16 10:51:54 -0500}|commit: docs(design): harden the fidelity hand-off with portable CSS, state measurements and an oracle gate
+f6650f5f5c9a8842730eb40fcb06856e61dbe2f8|main@{2026-10-15 19:08:36 -0500}|commit: docs(design): freeze the design contract and advance to architecture
+fae60e26074f4310fb2db71d3cfc66cbb498e364|main@{2026-10-15 09:53:06 -0500}|commit: docs(design): apply the pre-freeze audit fixes to the prototype
+4ed9f2834e0a437ee255f0f0b1bb98bec612e6f9|main@{2026-10-15 09:18:15 -0500}|commit: chore(memory): harvest funko-tracker -- 14 lessons, 2 backlog items
+1c9818b327ddf18156ea878d3dfecf276490934a|main@{2026-10-15 02:39:26 -0500}|commit: docs(design): Explorar start page for several franchises, collection grouping, export closing summary

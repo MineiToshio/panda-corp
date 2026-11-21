@@ -1,0 +1,110 @@
+494ec4f8 main@{2026-11-20 09:10:20 -0500}: commit: chore(memory): review -- 0 deprecated, 0 merged, 1 reflection added
+6f29479a main@{2026-11-20 09:07:06 -0500}: commit: chore(memory): harvest funko-tracker -- 4 lessons, 0 backlog items
+a8eb7a8c main@{2026-11-19 09:18:24 -0500}: commit: chore(memory): review -- 0 deprecated, 0 merged, 1 promotion-queue update
+1fdb57fd main@{2026-11-19 09:14:30 -0500}: commit: chore(memory): harvest mission-control -- 4 lessons, 0 backlog items
+13bb9337 main@{2026-11-19 09:10:20 -0500}: commit: chore(memory): harvest funko-tracker -- 1 lesson, 0 backlog items
+d0d99875 main@{2026-11-18 09:20:32 -0500}: commit: chore(memory): correct LESSON-0569 promotion status to reflect reality
+385ecc39 main@{2026-11-18 09:16:53 -0500}: commit: chore(memory): harvest funko-tracker -- 5 lessons, 2 backlog items
+9ec362dd main@{2026-11-18 09:10:04 -0500}: commit: chore(memory): harvest factory -- 7 lessons, 0 backlog items
+56fcd1f9 main@{2026-11-17 16:23:58 -0500}: merge chore/mc-next-16.4.6: Fast-forward
+7d9a1cc5 main@{2026-11-17 15:42:32 -0500}: merge fix/implement-finishes: Fast-forward
+37f64f3c main@{2026-11-16 12:50:29 -0500}: commit: fix(build): scope-repair accepts Next dynamic-route paths and chained multi-WO units (BL-0329, plugin 10.13.8)
+81a1a991 main@{2026-11-16 12:05:50 -0500}: commit: fix(build): stage tracked files under ignored paths when integrating unit reports (BL-0328, plugin 10.13.7)
+a2179e7b main@{2026-11-16 11:30:33 -0500}: commit: fix(build): owner-approved scope repair for units blocked by files outside their WO allowlist (BL-0327, plugin 10.13.6)
+9869938e main@{2026-11-16 02:36:01 -0500}: commit: fix(build): accept quoted WO implementation_status in transitions and rollups (BL-0326, plugin 10.13.5)
+23579f00 main@{2026-11-15 22:43:08 -0500}: commit: fix(templates): accept .spec.mts/.cts in e2e inventories and keep the test-DB residue check (plugin 10.13.4, overlay 9.4.2)
+70a14ece main@{2026-11-15 09:13:14 -0500}: commit: chore(memory): harvest factory -- 0 new lessons, 2 backlog items, 5 lesson updates
+d0b8bf36 main@{2026-11-15 09:09:24 -0500}: commit: chore(memory): harvest funko-tracker -- 2 lessons, 0 backlog items
+19823cdf main@{2026-11-15 00:28:33 -0500}: merge feat/incremental-design-routing: Fast-forward
+6cfec3de main@{2026-11-14 21:01:59 -0500}: merge docs/capacity-sync: Fast-forward
+249f7b7b main@{2026-11-14 20:33:32 -0500}: merge feat/capacity-complexity: Fast-forward
+91095a71 main@{2026-11-14 19:13:40 -0500}: merge fix/capacity-stale-codex: Fast-forward
+cb86f17f main@{2026-11-14 16:40:48 -0500}: commit: style(mission-control): format manual pages touched by the capacity allocator
+761bf964 main@{2026-11-14 16:39:09 -0500}: merge feat/capacity-allocator: Fast-forward
+bc923770 main@{2026-11-14 00:16:55 -0500}: merge refs/heads/bl-review-pin: Fast-forward
+8ede7b49 main@{2026-11-13 23:57:25 -0500}: merge refs/heads/bl-mixed-codex-review: Fast-forward
+30a56e6f main@{2026-11-13 23:45:43 -0500}: merge refs/heads/bl-review-patch-g2: Fast-forward
+becefe70 main@{2026-11-13 23:33:38 -0500}: merge refs/heads/bl/quota-conserve: Fast-forward
+b278cea0 main@{2026-11-13 20:38:09 -0500}: merge bl/preflight-coordinator: Fast-forward
+c14f0a81 main@{2026-11-13 20:28:38 -0500}: merge bl/bootstrap-owned-report: Fast-forward
+d62ed1f9 main@{2026-11-13 19:40:58 -0500}: merge bl/g2-docs-loop: Fast-forward
+70442116 main@{2026-11-13 17:22:29 -0500}: merge bl/g2-leftover-docs-g3: Fast-forward
+f828d0c3 main@{2026-11-13 17:16:46 -0500}: merge fix/mc-changes-tab-alignment: Fast-forward
+38b2f117 main@{2026-11-13 17:05:52 -0500}: merge bl/docs-source-change: Fast-forward
+ad0e5cfb main@{2026-11-13 16:37:27 -0500}: merge feat/posthog-org-per-app: Fast-forward
+e6af9b5c main@{2026-11-13 14:19:55 -0500}: merge bl/engine-unblock: Fast-forward
+38c36cef main@{2026-11-13 09:29:52 -0500}: commit: chore(memory): review -- 2 deprecated, 1 reconciled, 0 merged, 44 promotion proposals (unchanged net)
+223235b5 main@{2026-11-13 09:23:49 -0500}: commit: chore(memory): harvest funko-tracker -- 3 lessons, 0 backlog items
+59718d0d main@{2026-11-13 09:17:24 -0500}: commit: chore(memory): harvest personal-page-v2 -- 1 lesson, 0 backlog items
+409a4f1e main@{2026-11-13 09:14:59 -0500}: commit: chore(memory): harvest mission-control -- 4 lessons, 0 backlog items
+04187504 main@{2026-11-13 09:06:17 -0500}: commit: chore(memory): harvest factory -- 0 lessons, 0 backlog items, 1 BL annotation
+0ddb7a2a main@{2026-11-13 08:37:53 -0500}: commit: fix(plugin): track nested MC vitest-policy and gate-budget; regression for every managed overlay file - plugin 10.2.1
+57504bc4 main@{2026-11-13 08:35:09 -0500}: merge feat/gate-durability: Fast-forward
+f99a39a3 main@{2026-11-13 00:56:28 -0500}: merge feat/verify-speed: Merge made by the 'ort' strategy.
+bba3afa0 main@{2026-11-12 20:51:52 -0500}: commit: docs(backlog): file BL-0310/0311 nested-project pre-push and overlay tracking
+127a74eb main@{2026-11-12 20:29:48 -0500}: commit: chore(mission-control): upgrade pandacorp overlay 8.114.4 -> 9.0.0, deterministic tests, workspace tokens
+9a1fc816 main@{2026-11-12 19:20:05 -0500}: commit (merge): merge: engine v2 day 1 (plugin 10.0.0, overlay 9.0.0)
+b3cba934 main@{2026-11-12 15:00:59 -0500}: commit: refactor(mission-control): drop unused liveness exports (knip)
+b19a61fc main@{2026-11-12 15:00:17 -0500}: commit: style(mission-control): biome format remaining files
+5719fae8 main@{2026-11-12 14:58:07 -0500}: commit: style(mission-control): biome format status.ts lease check
+1477e9a5 main@{2026-11-12 13:30:31 -0500}: merge feat/implement-engine-v10: Fast-forward
+e167fbf4 main@{2026-11-12 10:40:59 -0500}: merge feat/conv-20-decision-card-v2: Fast-forward
+1a532f0b main@{2026-11-11 13:29:55 -0500}: commit: feat(standards): every Neon project declares NEON_PROJECT_ID (EXT-8, DR-149)
+d2c2c456 main@{2026-11-11 10:20:15 -0500}: commit: chore(permissions): allowlist 3 read-only build-engine test/check scripts
+b6272b23 main@{2026-11-11 10:15:57 -0500}: commit: chore(memory): review -- 0 deprecations, 0 merges, 3 promotion rationales refined
+0ed05421 main@{2026-11-11 10:08:30 -0500}: commit: chore(memory): harvest mission-control -- 1 lesson, 0 backlog items
+5f2b22fa main@{2026-11-11 10:05:25 -0500}: commit: chore(memory): harvest funko-tracker -- 15 lessons, 2 backlog items
+f83b2b7d main@{2026-11-11 09:49:38 -0500}: commit: chore(memory): harvest factory inbox -- 1 lesson, 0 backlog items
+1c5460bb main@{2026-11-10 21:15:18 -0500}: commit: feat(standards): decision cards for every decision put to the owner (CONV-20, DR-148)
+a96834ca main@{2026-11-10 12:04:10 -0500}: merge claude/laughing-davinci-b7dd49: Fast-forward
+3f5f0906 main@{2026-11-10 07:40:57 -0500}: merge fix/gate-speed-stop-hook: Fast-forward
+f3645f81 main@{2026-11-10 07:25:34 -0500}: merge fix/gate-speed-stop-hook: Fast-forward
+0f9cd0e1 main@{2026-11-09 09:33:07 -0500}: commit: chore(memory): review -- 1 reflection synthesis, 0 deprecated, 2 folds
+9b857c53 main@{2026-11-09 09:25:59 -0500}: commit: chore(memory): harvest funko-tracker -- 21 lessons, 0 backlog items
+12a36ad0 main@{2026-11-09 09:11:29 -0500}: commit: chore(memory): harvest factory -- 1 lesson, 1 backlog item
+1214ce38 main@{2026-11-07 09:25:23 -0500}: commit: chore(memory): review -- 1 reflection synthesis, 0 deprecated, 1 fold
+0ffdcd12 main@{2026-11-07 09:16:49 -0500}: commit: chore(memory): harvest funko-tracker -- 8 lessons, 0 backlog items
+1caff747 main@{2026-11-07 09:07:30 -0500}: commit: chore(memory): harvest factory -- 0 new lessons, 0 backlog items
+15efe57b main@{2026-11-05 13:30:39 -0500}: commit: fix(backlog): BL-0304 — reclaim merged session worktrees and temporary artifacts safely
+c1b9304f main@{2026-11-05 09:13:21 -0500}: commit: chore(memory): review -- 1 reflection synthesis, 0 deprecated, 0 merges
+0d89ca3e main@{2026-11-05 09:08:54 -0500}: commit: chore(memory): harvest funko-tracker -- 6 lessons, 0 backlog items
+d65e1f80 main@{2026-11-04 09:28:55 -0500}: commit: chore(backlog): close BL-0302 -- fix already landed, status was never flipped
+7baf4425 main@{2026-11-04 09:27:49 -0500}: commit: chore(settings): allowlist git fetch + Claude_Browser get_page_text (BL-0103/DR-121)
+ac7c4735 main@{2026-11-04 09:23:52 -0500}: commit: chore(memory): review -- 0 deprecated, 1 reflection synthesis, 1 new promotion
+6213bb8f main@{2026-11-04 09:16:38 -0500}: commit: chore(memory): harvest funko-tracker -- 10 lessons, 1 backlog item
+9864fbf6 main@{2026-11-04 09:10:15 -0500}: commit: chore(memory): harvest mission-control -- 3 lessons, 0 backlog items
+485e96b8 main@{2026-11-04 01:07:06 -0500}: merge fix/stack-a-template-e2e-conformance: Fast-forward
+d85ba1da main@{2026-11-03 22:17:28 -0500}: merge chore/behavior-only-tests-rule: Fast-forward
+5c5cdd20 main@{2026-11-03 09:35:21 -0500}: merge fix/engine-tests-ci: Fast-forward
+c601d158 main@{2026-11-03 09:17:39 -0500}: commit: chore(memory): review -- 0 deprecated, 1 reflection synthesis, 0 new promotions
+92494b81 main@{2026-11-03 09:12:41 -0500}: commit: chore(memory): harvest funko-tracker -- 3 lessons, 0 backlog items
+332a9ee0 main@{2026-11-03 09:07:04 -0500}: commit: chore(memory): harvest factory -- 0 new lessons, 2 updated, 0 backlog items
+3dd5a51e main@{2026-11-03 08:51:15 -0500}: merge fin/hydration: Fast-forward
+a99d4a97 main@{2026-11-03 07:51:54 -0500}: merge fin/next-land: Fast-forward
+53cd41a2 main@{2026-11-01 09:37:38 -0500}: commit: chore(memory): review -- 1 synthesis lesson, 3 lessons flagged for promotion, 1 inbox gap routed to BL-0125
+a34036ec main@{2026-11-01 09:30:22 -0500}: commit (amend): chore(memory): harvest funko-tracker -- 7 lessons, 0 backlog items
+0ba61d48 main@{2026-11-01 09:30:06 -0500}: commit: chore(memory): harvest funko-tracker -- 7 lessons, 0 backlog items
+830b508e main@{2026-11-01 09:17:28 -0500}: commit: chore(memory): harvest mission-control -- 13 lessons, 0 backlog items
+08fee772 main@{2026-11-01 00:14:07 -0500}: merge fin/closeout: Fast-forward
+cef80900 main@{2026-10-31 22:19:24 -0500}: commit: chore(mission-control): record the verified LAN address and integration repairs
+6d61f45d main@{2026-10-31 21:47:24 -0500}: merge fin/integration2: Fast-forward
+ee6d09a8 main@{2026-10-31 21:22:23 -0500}: merge feat/e2e-prod-server: Fast-forward
+977b9aa2 main@{2026-10-31 18:49:38 -0500}: merge fin/integration: Fast-forward
+c34dbe01 main@{2026-10-31 17:06:48 -0500}: merge feat/e2e-parallel-tier: Fast-forward
+840f2ce9 main@{2026-10-31 10:10:34 -0500}: merge orch/g1: Fast-forward
+673c5ea6 main@{2026-10-31 09:52:08 -0500}: merge orch/fx: Fast-forward
+9134329a main@{2026-10-31 09:37:06 -0500}: commit: chore(memory): review -- 1 merged/deprecated, 1 lesson augmented with a 4th facet, 4 cross-links added, 0 new deprecations/promotions
+fd929d72 main@{2026-10-31 09:30:46 -0500}: commit: chore(memory): harvest funko-tracker -- 9 lessons, 0 backlog items
+dc8cf930 main@{2026-10-31 09:22:50 -0500}: commit: chore(memory): harvest mission-control -- 5 lessons, 2 backlog items
+f79634e9 main@{2026-10-31 09:10:16 -0500}: commit (amend): chore(memory): harvest factory inbox -- 6 lessons, 1 backlog item
+7523201e main@{2026-10-31 09:09:57 -0500}: commit: chore(memory): harvest factory inbox -- 6 lessons, 1 backlog item
+d9f03478 main@{2026-10-31 08:31:12 -0500}: merge orch/bl259: Fast-forward
+b18ad5d2 main@{2026-10-31 08:30:47 -0500}: merge orch/vqa: Fast-forward
+39acdb71 main@{2026-10-31 07:05:28 -0500}: merge orch/s7: Fast-forward
+98a25a9e main@{2026-10-31 05:00:35 -0500}: merge orch/batch-w6: Fast-forward
+026f9730 main@{2026-10-31 03:57:37 -0500}: merge orch/batch-w45: Fast-forward
+f6fd93ae main@{2026-10-31 02:08:51 -0500}: merge orch/batch-w34: Fast-forward
+a82a3238 main@{2026-10-31 00:32:39 -0500}: merge orch/batch-w23: Fast-forward
+860c4287 main@{2026-10-30 23:07:47 -0500}: merge orch/batch-w1: Fast-forward
+63d1b9e3 main@{2026-10-30 21:44:45 -0500}: merge orch/nav-spec: Fast-forward
+31916752 main@{2026-10-30 21:05:44 -0500}: merge orch/batch-w0: Fast-forward

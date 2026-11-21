@@ -1,0 +1,7 @@
+547e214942218082b6be7e389d3b16546894164e|2026-11-13 09:17:17 -0500|2026-11-13 09:17:17 -0500|chore(memory): harvest -- 1 lesson, 0 backlog items
+8c9c618e78a3acb001f5414d90ef95280b04cd6d|2026-11-13 09:00:21 -0500|2026-11-13 09:00:21 -0500|chore: upgrade pandacorp overlay 9.1.2 -> 9.2.0 (gate durability, shared Vitest policy)
+2f292cadccc71b6cc37e03039abb10739f3e544c|2026-11-13 01:18:20 -0500|2026-11-13 01:18:20 -0500|chore: upgrade pandacorp overlay 9.0.0 -> 9.1.2 (faster gate) and run Zod jitless under strict CSP
+8caffb099ca9669c5711191c799a28e644eb22fa|2026-11-12 22:29:22 -0500|2026-11-12 22:29:22 -0500|chore(pandacorp): activate project risk paths (R11)
+70bdffd3b4556233bc03a52a500b83cae20abffa|2026-11-12 20:42:36 -0500|2026-11-12 20:42:36 -0500|chore: upgrade pandacorp overlay 8.98.0 -> 9.0.0
+a8c00853a844c93a14f0b792ee2212079b6f8f36|2026-11-04 09:06:24 -0500|2026-11-04 09:06:32 -0500|chore(memory): stamp last_harvest (orphan catch-up)
+30d8655a96a11db2ec1c0aa8612e49ab867e5387|2026-10-31 22:36:49 -0500|2026-10-31 22:36:49 -0500|docs(frd-03): quote YAML frontmatter values that broke strict readers

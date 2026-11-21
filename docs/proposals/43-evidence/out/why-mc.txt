@@ -1,0 +1,71 @@
+== e2e files newer than gate start
+e2e/fixtures
+e2e/fixtures/factory-root/events.ndjson
+e2e/fixtures/factory-root/.pandacorp
+e2e/fixtures/factory-root/mission-control
+e2e/fixtures/factory-root/factory
+e2e/fixtures/factory-root/plugin/templates
+e2e/fixtures/factory-root/navigation-review-second/.pandacorp
+e2e/fixtures/factory-root/mission-control/.pandacorp
+e2e/fixtures/factory-root/factory/memory
+e2e/fixtures/factory-root/factory/backlog
+== e2e ignored?
+total 984
+drwxr-xr-x@ 85 sergio  staff   2720 Nov 13 08:35 .
+drwxr-xr-x@ 39 sergio  staff   1248 Nov 20 18:56 ..
+-rw-rw-r--@  1 sergio  staff   5962 Oct  1 10:39 _hydration.ts
+-rw-rw-r--@  1 sergio  staff    748 Nov 12 19:18 _ledger.ts
+-rw-rw-r--@  1 sergio  staff   5246 Nov 13 00:56 _live-refresh.ts
+-rw-rw-r--@  1 sergio  staff   7902 Oct  3 09:29 _prod-smoke.ts
+-rw-rw-r--@  1 sergio  staff   2518 Nov 13 00:56 _read-only-state.ts
+-rw-rw-r--@  1 sergio  staff   2728 Nov 13 00:56 _read-only.ts
+-rw-rw-r--@  1 sergio  staff  11951 Nov  4 01:07 _responsive-helper.ts
+-rw-rw-r--@  1 sergio  staff   4386 Jul  5 18:46 _skip.ts
+-rw-r--r--@  1 sergio  staff   2472 Jul  5 18:46 _target.ts
+-rw-rw-r--@  1 sergio  staff    458 Oct 30 18:00 _workspaceTabs.ts
+drwxrwxr-x@  3 sergio  staff     96 Nov 20 19:01 fixtures
+-rw-rw-r--@  1 sergio  staff   2603 Nov 13 00:56 mobile-specs.json
+-rw-rw-r--@  1 sergio  staff   1151 Nov 13 00:56 parallel-safe.json
+drwxrwxr-x@ 16 sergio  staff    512 Nov 13 00:56 persistent-navigation
+-rw-rw-r--@  1 sergio  staff    204 Oct 31 02:08 prod-samples.json
+-rw-rw-r--@  1 sergio  staff   1482 Nov 13 00:56 prod-server.mjs
+-rw-rw-r--@  1 sergio  staff   4346 Oct 31 05:00 routes.ts
+== check output tail after read of check section
+
+lock = os.open('.pandacorp/run/verify.lock', os.O_RDWR | os.O_CREAT, 0o600)
+try:
+    fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+except BlockingIOError:
+    print('green-stamp: verification owner active; no certificate reuse', file=sys.stderr)
+    sys.exit(1)
+os.dup2(lock, 8, inheritable=True)
+if lock != 8:
+    os.close(lock)
+os.environ['PANDACORP_STAMP_CHECK_PID'] = str(os.getpid())
+os.execvp('bash', ['bash', *sys.argv[1:]])
+CHECKPY
+    fi
+    [ "$(stamp_field version)" = "$VERSION" ] || doubt "stamp format unknown or corrupt"
+    s_tree=$(stamp_field tree); s_vsum=$(stamp_field verify_sha256); s_at=$(stamp_field at_epoch)
+    case "$s_tree" in ''|*[!0-9a-f]*) doubt "stamp tree missing or corrupt" ;; esac
+    case "$s_vsum" in ''|*[!0-9a-f]*) doubt "stamp verify.sh hash missing or corrupt" ;; esac
+    case "$s_at" in ''|*[!0-9]*) doubt "stamp time missing or corrupt" ;; esac
+    now_tree=$(current_tree) || doubt "not a git checkout"
+    [ "$now_tree" = "$s_tree" ] || doubt "tree $now_tree is not the certified tree $s_tree"
+    tree_is_clean || doubt "working tree not clean"
+    vsum=$(verify_sha256) || doubt "cannot hash .pandacorp/verify.sh"
+    [ "$vsum" = "$s_vsum" ] || doubt ".pandacorp/verify.sh changed since the certifying run"
+    inputs=$(inputs_sha256) || doubt "cannot fingerprint inputs"
+    [ "$inputs" = "$(stamp_field inputs_sha256)" ] || doubt "environment/dependencies/e2e fixtures changed"
+    age=$(( $(date +%s) - s_at ))
+    [ "$age" -ge 0 ] && [ "$age" -le "$MAX_AGE_S" ] || doubt "stamp is ${age}s old (max ${MAX_AGE_S}s)"
+    echo "certified tree $s_tree, ${age}s old"
+    ;;
+  invalidate)
+    rm -f "$STAMP"
+    ;;
+  *)
+    echo "usage: green-stamp.sh start | record <tree:inputs_sha256> | check | invalidate" >&2
+    exit 2
+    ;;
+esac

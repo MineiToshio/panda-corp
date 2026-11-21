@@ -1,0 +1,68 @@
+{
+  "at": "2026-11-20T23:44:35Z",
+  "scope": "partial",
+  "green": true,
+  "sha": "494ec4f8530b74a9732942dd562a849824066f1c",
+  "subgates": [
+    {
+      "name": "structure-guard",
+      "exit": 0,
+      "duration_ms": 27,
+      "failures": []
+    },
+    {
+      "name": "live-data-asserts",
+      "exit": 0,
+      "duration_ms": 264,
+      "failures": []
+    },
+    {
+      "name": "data-layer",
+      "exit": 0,
+      "duration_ms": 9,
+      "failures": []
+    },
+    {
+      "name": "api-error-contract",
+      "exit": 0,
+      "duration_ms": 10,
+      "failures": []
+    },
+    {
+      "name": "doc-lint",
+      "exit": 0,
+      "duration_ms": 12185,
+      "failures": []
+    },
+    {
+      "name": "residual-ambiguity",
+      "exit": 0,
+      "duration_ms": 3293,
+      "failures": []
+    },
+    {
+      "name": "biome",
+      "exit": 0,
+      "duration_ms": 2253,
+      "failures": []
+    },
+    {
+      "name": "tsc",
+      "exit": 0,
+      "duration_ms": 4894,
+      "failures": []
+    },
+    {
+      "name": "knip",
+      "exit": 0,
+      "duration_ms": 2527,
+      "failures": []
+    },
+    {
+      "name": "madge",
+      "exit": 0,
+      "duration_ms": 3685,
+      "failures": []
+    }
+  ]
+}

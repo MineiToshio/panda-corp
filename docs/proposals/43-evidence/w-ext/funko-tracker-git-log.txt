@@ -1,0 +1,473 @@
+35a37631632f25cbd1f10a052549957753ae1c6e|2026-11-20 17:57:55 -0500|2026-11-20 17:57:55 -0500|test(detail): wait for personal actions to unfence before pressing Wishlist
+e1ffcfaeeffe80e8481a2c432713bfafdc7e56b6|2026-11-20 16:54:19 -0500|2026-11-20 16:54:19 -0500|fix(ingest): accept any clear owner approval phrasing
+d98eaccd553453a41e4185a2a19843e303974e72|2026-11-20 15:57:37 -0500|2026-11-20 15:57:37 -0500|docs(ingest): add per-format AI image prompt templates
+703e9ad29afad4cc3c3f32a713b6d8999c8a96c0|2026-11-20 15:13:24 -0500|2026-11-20 15:13:24 -0500|test(cache): mask every Discovery shell copy when comparing public HTML
+b9cadb205cbff69e650278868bc67f6d5a321cd9|2026-11-20 14:55:39 -0500|2026-11-20 14:55:39 -0500|test(cache): ignore the random Discovery sample when comparing public HTML
+9203ead5e6755bcee46136af74786edc616189ab|2026-11-20 14:34:28 -0500|2026-11-20 14:34:28 -0500|feat(explore): random Discovery sample per visit across the whole scope
+78abe6184a9ae9ce99dc93601107dad314fba24f|2026-11-20 10:59:11 -0500|2026-11-20 10:59:11 -0500|refactor(explore): drop unused explore query exports
+499c0bb4c3036a76348322c8449593cf021214c1|2026-11-20 10:57:50 -0500|2026-11-20 10:57:50 -0500|feat(explore): fill released and discovery rows like news
+f7aa3ea84e6dff099e22a1f0005af3aeef191d21|2026-11-20 09:07:19 -0500|2026-11-20 09:07:19 -0500|chore(memory): stamp last_harvest after factory review sweep
+841a941bb30eacf8a16675c4b4f00584d67f13cd|2026-11-20 05:31:15 -0500|2026-11-20 05:31:15 -0500|test(catalog): align Novedades shelf expectation with publication order
+c8f4292065ec8c5c4db2686fd5436568134c8348|2026-11-20 05:25:20 -0500|2026-11-20 05:25:20 -0500|feat(catalog): order Novedades by latest publication
+815ca87a2caada25e71f96d02488d5bca062bc76|2026-11-19 23:07:09 -0500|2026-11-19 23:07:09 -0500|docs(ingest): keep the seven review sections in the narrowed delta skill
+a18f5a38c27bc9e929d88dba1571fdfa2fde8dfc|2026-11-19 23:01:29 -0500|2026-11-19 23:01:29 -0500|docs(ingest): limit delta to new pieces of onboarded franchises
+5429cc7cd54e498b8440f0a0c71dcba160fff806|2026-11-19 21:24:44 -0500|2026-11-19 21:24:44 -0500|feat(ingest): admit product-code fixes in sweep corrections
+a849558c70ab666e88e2e328d821a6c4ef59f3be|2026-11-19 20:31:02 -0500|2026-11-19 20:31:02 -0500|docs(catalog): refresh franchise universe after dl_bleach_20261118
+25b56b8e557187de3e690e7f51fdd39698c75467|2026-11-19 20:13:55 -0500|2026-11-19 20:14:27 -0500|fix(ingest): accept a clear approval alongside neutral owner commentary
+6285984f384470042d4798a47c4d5b898681699b|2026-11-19 19:58:49 -0500|2026-11-19 19:58:49 -0500|test(catalog): prove denied franchise logos at the server query
+6fdca603e3e9e3822086376a7b92f5d551666122|2026-11-19 19:52:20 -0500|2026-11-19 19:52:20 -0500|fix(catalog): keep franchise logos after hydration
+c1930edf2786d49a5e4246845b25606fb2236684|2026-11-19 19:04:24 -0500|2026-11-19 19:04:24 -0500|docs(catalog): refresh franchise universe after dl_aot_20261118
+40abeabd17e9b64d8afbc533ed5fd7d3b126b4be|2026-11-19 19:04:12 -0500|2026-11-19 19:04:12 -0500|docs(catalog): refresh franchise universe after dl_naruto_20261118
+b9cce441b1389d087e09fd1263fd3ca0e69b61a4|2026-11-19 19:03:59 -0500|2026-11-19 19:03:59 -0500|docs(catalog): refresh franchise universe after dl_onepiece_20261118
+2d4db8024c891986f41d98fa676ab6ab3e109578|2026-11-19 18:11:06 -0500|2026-11-19 18:11:06 -0500|fix(ingest): postverify compares only exported coverage dates
+a376f17f4a6a919f68185b58beeb769e849ae6d9|2026-11-19 18:00:32 -0500|2026-11-19 18:00:32 -0500|chore(deploy): redeploy main after Vercel account unblock
+e177685afd9d83bc4fcaed71414f9d612030d945|2026-11-19 13:55:14 -0500|2026-11-19 13:55:14 -0500|fix(ingest): let v3 sweeps publish with partial research coverage
+fec3d32e42ef9b5010349632f9d2d5670feba392|2026-11-19 11:53:22 -0500|2026-11-19 11:53:22 -0500|feat(ingest): carry owner approval across technical regenerations
+191d9c569dfc5553e4228950585a5a9a1ecd0969|2026-11-19 10:00:52 -0500|2026-11-19 10:00:52 -0500|fix(review): bump renderer to v6 for collection alias drift, keep v5 replay
+2d62f1fd52b8cb0d70469b979ceb0c8138e77891|2026-11-19 09:34:33 -0500|2026-11-19 09:34:33 -0500|fix(ingest): accept 'publica' as an approval clause
+d88990c427064cc12be8ef4777b3e1142ec4498e|2026-11-19 09:29:31 -0500|2026-11-19 09:29:31 -0500|style(ingest): format owner intent module
+646a0cf0f67ccade214a9c34e6ecc82c8cafcefd|2026-11-19 09:28:50 -0500|2026-11-19 09:28:50 -0500|refactor(ingest): drop unused approval helper exports
+74c86e46def0f02233abe4fdd5f179b3e0201745|2026-11-19 09:26:56 -0500|2026-11-19 09:27:19 -0500|feat(ingest): one owner approval covers every delivery it answers
+7e36c56e2bd71580b73ad9a71ff71752f0467d92|2026-11-19 09:09:54 -0500|2026-11-19 09:09:54 -0500|chore(memory): stamp last_harvest after factory review sweep
+ea6739fd76b0877207ebcf3150b14fd1d75dd32c|2026-11-18 20:52:12 -0500|2026-11-18 21:24:14 -0500|feat(ingest): admit data-only corrections of published pieces in v3 sweeps
+97c654f4389e169f60df98d2fe78e56e39f4f62c|2026-11-18 18:58:33 -0500|2026-11-18 21:24:14 -0500|docs(build): decided without the owner d-0001 (u-build-wo-06-008)
+36440880208d6f7c71e58fa775778f64b3e378fd|2026-11-18 18:27:45 -0500|2026-11-18 21:24:14 -0500|chore(build): WO-06-008, WO-06-009 -> IN_PROGRESS (u-build-wo-06-008)
+6da3d5171aa78cca3f1a29ddb28a86c0a8781d5a|2026-11-18 18:27:43 -0500|2026-11-18 21:24:14 -0500|test(franchise-backfill): RED-first acceptance tests for REQ-06-043 (AC-06-043.1-.7, AC-06-039.3 v
+65a589e390e6cc2e48fdb814e8e48bf7a0fc5cc1|2026-11-18 17:50:46 -0500|2026-11-18 21:24:14 -0500|docs(franchise-backfill): Architect delta for card sweep-data-only-corrections (docs and planning
+7f06caa2fb1315fc139ba26252bf4fac2571f4c6|2026-11-18 17:25:19 -0500|2026-11-18 21:24:04 -0500|docs(franchise-backfill): Product delta for card sweep-data-only-corrections (docs only, no code,
+7d2652985ab8fe9b7a1cf0a3bab492065b7b0aa5|2026-11-18 19:52:47 -0500|2026-11-18 19:52:47 -0500|test(ingest): align delta intra-run similar fixture with number-aware name anchors
+d9b4d8576720aa9a1180c044d3f82725b8695be0|2026-11-18 19:46:54 -0500|2026-11-18 19:46:54 -0500|fix(ops): keep composite collection references readable in review change notes
+35214798a80dedd686ca5161c5b65e8865a67cff|2026-11-18 19:40:15 -0500|2026-11-18 19:40:15 -0500|test(ingest): align intra-run similar fixtures with number-aware name anchors
+2439a79e4c48e5b975f42471db4d7bb374a4245b|2026-11-18 19:36:20 -0500|2026-11-18 19:36:20 -0500|chore(build): WO-06-008, WO-06-009 -> BLOCKED (u-build-wo-06-008)
+5cf5a69d30330ef657146d1711f9139ef26bdaba|2026-11-18 19:36:20 -0500|2026-11-18 19:36:20 -0500|fix(build): exclude abandoned u-build-wo-06-008
+d50ed0903f9a5ebbf20ae81e5c99191504903658|2026-11-18 19:06:58 -0500|2026-11-18 19:06:58 -0500|fix(ops): accept absent candidate facts in review projections
+7f4b9ca5714dff3f8c707a8079dbaeb03937883f|2026-11-18 18:58:33 -0500|2026-11-18 18:58:33 -0500|docs(build): decided without the owner d-0001 (u-build-wo-06-008)
+d51d07494d03c956e92902c9bafa284e416d4958|2026-11-18 18:44:11 -0500|2026-11-18 18:44:11 -0500|style(ingest): extract pre-migration column fill to satisfy lint complexity
+d4a79fe0c7888156d69cf34d6097048e3c72d97f|2026-11-18 18:43:24 -0500|2026-11-18 18:43:24 -0500|fix(ingest): read pre-migration baselines' series_researched_at as null
+a4b3c34c47b6774d8a7d3235880a1b1bbbb872e6|2026-11-18 18:27:45 -0500|2026-11-18 18:27:45 -0500|chore(build): WO-06-008, WO-06-009 -> IN_PROGRESS (u-build-wo-06-008)
+87d48aa3a1de319744e72617acf37bb5ee234556|2026-11-18 18:27:43 -0500|2026-11-18 18:27:43 -0500|test(franchise-backfill): RED-first acceptance tests for REQ-06-043 (AC-06-043.1-.7, AC-06-039.3 v
+4da4b39496b804a09bf9c73d318cc61e25224c60|2026-11-18 18:26:45 -0500|2026-11-18 18:26:45 -0500|feat(ingest): thirty-day series research window with Collection.seriesResearchedAt (WO-06-007)
+0e82cc62af992f41f3b263567aee9e2ca2027ea3|2026-11-18 18:21:54 -0500|2026-11-18 18:21:54 -0500|chore(build): WO-06-007 -> BLOCKED (u-build-wo-06-007)
+6c3d862b7d1a85debb5b7cc563310343556d84c5|2026-11-18 18:17:25 -0500|2026-11-18 18:17:25 -0500|fix(ops): review announced pieces without a release date
+938dbf3718e00d3e64f551348f3856dee15d58b8|2026-11-18 18:12:00 -0500|2026-11-18 18:12:00 -0500|fix(ops): key the public catalog projection by each table's natural key
+ea2320e9c3c7dcdc3f68b8556707f1d0c8d6a3a4|2026-11-18 18:08:29 -0500|2026-11-18 18:08:29 -0500|fix(ingest): ignore name-only anchors contradicted by numbers or product codes
+22f22b4671ecdbafa4bcf6a5352d749b75f82be8|2026-11-18 17:50:46 -0500|2026-11-18 17:50:46 -0500|docs(franchise-backfill): Architect delta for card sweep-data-only-corrections (docs and planning
+5a217fa35b85c378b62888051747e061338c3465|2026-11-18 17:27:12 -0500|2026-11-18 17:27:12 -0500|fix(ingest): scope printed-number identity anchors to the same numbering line
+7480d013242e12c1f1878148e0bd3db953ab8911|2026-11-18 17:25:19 -0500|2026-11-18 17:25:19 -0500|docs(franchise-backfill): Product delta for card sweep-data-only-corrections (docs only, no code,
+12293c08a19a08647f4c8ae0e0ea3bc07b838a5a|2026-11-18 17:14:46 -0500|2026-11-18 17:14:46 -0500|chore(build): WO-09-002 -> IN_REVIEW (u-build-wo-09-002)
+732f4cfa3fc4687cf7a4b808d6c771797e20903c|2026-11-18 17:14:41 -0500|2026-11-18 17:14:41 -0500|feat(funko-universe): WO-09-002 implemented: Universe index, modal, search projection and the
+1d361ef42d92d8390f2392cddd4a17b8de5665f8|2026-11-18 16:50:38 -0500|2026-11-18 16:50:38 -0500|chore(build): WO-09-002 -> IN_PROGRESS (u-build-wo-09-002)
+589c90b7bc3f7dda31528bebf9b1b722fe000b0f|2026-11-18 16:23:22 -0500|2026-11-18 16:23:22 -0500|chore(build): WO-06-007 -> IN_PROGRESS (u-build-wo-06-007)
+37cdce1cc7e8c35641e21bcaffc3834bc8e66001|2026-11-18 16:23:14 -0500|2026-11-18 16:23:14 -0500|test(franchise-backfill): RED-first acceptance tests for WO-06-007 (REQ-06-042). 18 new cases in 4
+cd55c1f0d4ab884f80e2f5c73e6cef64eaa7f680|2026-11-18 16:12:20 -0500|2026-11-18 16:12:20 -0500|docs(funko-universe): Architect delta for change hide-empty-series-and-research-window. It add
+ce52e0c53888a6f7cdb5285e307caadc93bd7609|2026-11-18 16:00:01 -0500|2026-11-18 16:00:01 -0500|docs(funko-universe): Attempt 2: re-applied the identical six doc changes from attempt 1 in th
+c37727f00d278b9ff85045a11af035b7bf4d31fd|2026-11-18 14:59:23 -0500|2026-11-18 14:59:23 -0500|test(ops): run the sweep transaction test in the node environment
+1761fe7a8fb0bbeac214c049956186d8affc0af5|2026-11-18 14:49:31 -0500|2026-11-18 14:49:31 -0500|docs(ingest): list the Funko Minis row in the skill view matrix
+dc59491f22a1f4c9e64ce523845f3a1bc051b3bc|2026-11-18 14:41:59 -0500|2026-11-18 14:41:59 -0500|test(worker): give the renderer CLI security test room for tsx cold start under load
+8bec22446a6475dabf89280dc76adc2b2c2995d6|2026-11-18 14:37:51 -0500|2026-11-18 14:37:51 -0500|fix(ops): share a 60s transaction timeout across ingest ops for remote Neon latency
+d1310c911429debf1ab31a1fb37646851e4340bc|2026-11-18 14:31:26 -0500|2026-11-18 14:31:26 -0500|feat(ingest): require box and loose figure for numbered Funko Minis
+2e23c4e0b611dab8cdc82fb359afd32853753eb7|2026-11-18 09:17:00 -0500|2026-11-18 09:17:00 -0500|chore(memory): harvest -- 5 lessons, 2 backlog items
+b16eeb21009cfacb3cb94a9c6fb6ed3191c88c58|2026-11-18 07:40:46 -0500|2026-11-18 07:40:46 -0500|fix(ops): load NEON_PROJECT_ID for ingest:run and surface preflight causes
+22832036ffc8a93fbd25bf5ffd942626492ac52e|2026-11-18 02:36:35 -0500|2026-11-18 02:36:35 -0500|fix(ops): resolve Neon release targets from NEON_PROJECT_ID
+b8ac99c15c980141641ccc7a276f63ef012e2df3|2026-11-18 00:53:35 -0500|2026-11-18 00:53:35 -0500|docs(web-performance): mark FRD-12 work orders verified and record the review close-out
+2e44ec8cc804012f89087055c92f6a91bcfc82ff|2026-11-18 00:52:53 -0500|2026-11-18 00:52:53 -0500|fix(web-performance): adopt late goal membership, move retry focus and re-enable visitors on News
+8069f9bcd7b5c748f22d701546de77b86693a38c|2026-11-18 00:42:36 -0500|2026-11-18 00:42:36 -0500|fix(web-performance): fence News card actions until private facts are ready and keep their nodes
+c11591e9e5191baddd8fc1b894b6484f6f0738d0|2026-11-18 00:32:22 -0500|2026-11-18 00:32:22 -0500|chore(build): preserve uncommitted unit state before closing run br-2026-11-16-01
+6876407df022b7019ec4dc1b6c36d411ff34e9d4|2026-11-18 00:32:22 -0500|2026-11-18 00:32:22 -0500|chore(build): preserve uncommitted unit state before closing run br-2026-11-16-01
+e61093a80f2f07e192e168bdb1b3f194490f3d78|2026-11-18 00:32:22 -0500|2026-11-18 00:32:22 -0500|chore(build): preserve uncommitted unit state before closing run br-2026-11-16-01
+a9914718e65c9c9340373e56a4d0fad2c54e4dc5|2026-11-17 16:32:44 -0500|2026-11-17 16:32:44 -0500|fix(web-performance): keep the public snapshot transaction within its bounds on remote Postgres
+0d774d3cc4aaafa79ba6e4c69aeb0a642b1bcc0a|2026-11-17 15:10:24 -0500|2026-11-17 15:10:24 -0500|fix(web-performance): open a fenced split menu once private facts arrive
+089d41a490e9a237acad02cce781c50c6288f3b4|2026-11-17 14:29:27 -0500|2026-11-17 14:29:27 -0500|docs(web-performance): record the Ficha fence race seen once in the touch controls spec
+82a4336dce8d2527bf01ff2a57f49999d77a3cfa|2026-11-17 14:09:47 -0500|2026-11-17 14:09:47 -0500|fix(web-performance): keep personal islands through same-login refresh and retry failed sessions
+146027761f2d2d89fcc0ff7c66c1425f76e37934|2026-11-17 14:05:21 -0500|2026-11-17 14:05:21 -0500|test(web-performance): final independent review of FRD-12 (BLOCKED, FINAL-1/2) with adversarial tests
+edd769e41ae3b12c6d44e45d6541132e4eb646b4|2026-11-17 13:15:31 -0500|2026-11-17 13:15:31 -0500|test(e2e): stop waiting for Flight EOF in the restored export notification spec
+0dc627439ff9fac81e80d031eca8c39421fe652f|2026-11-17 12:37:11 -0500|2026-11-17 12:37:11 -0500|docs(web-performance): record the ingest publication timeout comparison with base
+b0ddd3977af68efba1fbbfae29d7f29eaaeac512|2026-11-17 12:30:40 -0500|2026-11-17 12:30:40 -0500|fix(web-performance): one Explore hub section per viewer and fenced Discovery until private data
+41ca1a2897de3f1f346a753a760b5d7e6c25a1e4|2026-11-17 11:39:35 -0500|2026-11-17 11:39:35 -0500|docs(web-performance): record viewer flake triage and the full diagnostic browser run
+6258cd90b7573ca9b1c04b913c5bc28467f45845|2026-11-17 11:24:03 -0500|2026-11-17 11:24:03 -0500|fix(web-performance): give cached shell copies their own ids during streaming
+36ea5912f518e067314e3545ae43da2b931f84da|2026-11-17 10:51:44 -0500|2026-11-17 10:51:44 -0500|fix(web-performance): keep the Explore hub document id on the live copy only
+8974fed92006302c40c1242936d772ccf20fff62|2026-11-17 10:27:38 -0500|2026-11-17 10:27:38 -0500|test(e2e): align RR4 public cache workflow oracles with base behavior and the harness
+bd08ee8f2b9ed253e909e88db665721d1fb08b9b|2026-11-17 10:27:37 -0500|2026-11-17 10:27:37 -0500|fix(web-performance): render the native goal receiver from the Explore request layout
+16df7832ff359a7bc50931a54929f83f1011122f|2026-11-17 10:00:52 -0500|2026-11-17 10:00:52 -0500|test(e2e): read Explore facet chips from the desktop rail in the first-index failure case
+ce9f6aa4d184538820b152624b74d788825b4aaf|2026-11-17 09:20:48 -0500|2026-11-17 09:20:48 -0500|fix(web-performance): single personal-island contract with measurable locked controls and no remounts
+91b5237b903628fb73eb6f4097b5f2bd89c83817|2026-11-17 02:22:57 -0500|2026-11-17 02:22:57 -0500|fix(web-performance): stable personal placeholder while the private piece read is pending
+7092c4a52e7caf35697f3a9d7c46436d34426e84|2026-11-17 01:52:45 -0500|2026-11-17 01:52:45 -0500|fix(web-performance): render ficha personal controls for members as soon as their state is known
+09bfc6f5afcc0d7c7ff697a9233bf3f8f0101d83|2026-11-17 01:32:05 -0500|2026-11-17 01:32:05 -0500|fix(web-performance): keep personal island controls mounted in place across hydration and revalidation
+405715f27d6a2693136723b45a95db8260359b04|2026-11-17 00:46:14 -0500|2026-11-17 00:46:14 -0500|fix(web-performance): collection split status on touch, ficha siblings setup and Explore catalog retry
+35115c43c8199ee7c19a7655e3873e751b0b50f5|2026-11-17 00:16:27 -0500|2026-11-17 00:16:27 -0500|fix(web-performance): restore desktop applied-chip behaviour, all-franchises collection view and robust isolated e2e teardown
+218f35f76d75ad825a795724c7eb09faf1530fa4|2026-11-16 23:48:03 -0500|2026-11-16 23:48:03 -0500|test(e2e): migrate Contact/Export specs to deferred private preparation and explicit preview (FRD-12)
+22122435070266834328e221b827aede6e682474|2026-11-16 23:33:56 -0500|2026-11-16 23:33:56 -0500|fix(web-performance): e2e isolated startup, Explore filter regressions and News capture from the full browser triage
+3a10cedf46b88e7b54558fbb602285b54a6292b5|2026-11-16 22:12:42 -0500|2026-11-16 22:12:42 -0500|test(config): make nextConfig.test hermetic with isolated process, env and directories
+6bd683e16cb83ed03a17eed41cf790fac72f4dde|2026-11-16 21:55:04 -0500|2026-11-16 21:55:04 -0500|fix(web-performance): pre-hydration form privacy for public browse shells and e2e migration to the FRD-12 contract
+95905d367272bf29910c2d67923679d4379fe2d4|2026-11-16 20:42:41 -0500|2026-11-16 20:42:41 -0500|fix(web-performance): re-review corrections RR1-RR3, directory schema SEO, integrated browser specs (RR4) and e2e regressions
+6fc2c912d7571acd70efb574a955fb66239b3733|2026-11-16 19:13:30 -0500|2026-11-16 19:13:30 -0500|test(web-performance): independent re-review of FRD-12 (BLOCKED) with adversarial tests
+813ed9cbf9d26e4336bf8fce8a3068cbf27349d5|2026-11-16 18:50:01 -0500|2026-11-16 18:50:01 -0500|fix(web-performance): restore 204 for accepted legacy revalidation without a WorkStore (WO-12-002)
+b5ea3e556667bf36c67fe0d8218ac70aca592d66|2026-11-16 18:41:14 -0500|2026-11-16 18:41:14 -0500|fix(deps): upgrade Next.js to 16.4.5 for GHSA-mfr8-8qww-v76h and close native no-JS GET visibility (review P2)
+8bf56c428a9ff2c1f89c649a04e8358c7fbd67e4|2026-11-16 18:22:32 -0500|2026-11-16 18:22:32 -0500|fix(web-performance): review corrections P1, P3-P5 (publication freshness, cursors, discovery lifetime, pending controls)
+845a03a1ca03c9101f0fcf15500ec5eafa3fb89e|2026-11-16 17:24:44 -0500|2026-11-16 17:24:44 -0500|test(web-performance): independent review of FRD-12 delta (BLOCKED) with adversarial tests
+e51cf2a299a949b4f22fb7e9450c4145411ba641|2026-11-16 16:59:48 -0500|2026-11-16 16:59:48 -0500|fix(web-performance): register native Explore segment and clean quick-ingest test databases (WO-12-005)
+c917979bc07f78aa0ba45a1fc588193c868888b0|2026-11-16 16:35:20 -0500|2026-11-16 16:35:20 -0500|fix(web-performance): public Explore/Universe shells under Suspense with isolated native posts (WO-12-005)
+a5927082b27f8b02efbd47a59ec8b8c54bfdcbf2|2026-11-16 16:02:18 -0500|2026-11-16 16:02:18 -0500|feat(web-performance): public Explore/Universe projection with client filters and personal islands (WO-12-005, partial)
+2e11458315c7c1f04a9e7727a872e972c9c101ec|2026-11-16 15:24:54 -0500|2026-11-16 15:25:00 -0500|feat(web-performance): private contact preparation, explicit export preview and cached discovery responses (WO-12-006, WO-12-007, WO-12-008)
+97da3ca1c16ce30895e9f627364ad1727727e00e|2026-11-16 14:35:30 -0500|2026-11-16 14:35:30 -0500|feat(web-performance): prerender public pieces with a personal client island (WO-12-004)
+97b4a7e25a36fc5b54ec285cea149ee1b505be00|2026-11-16 12:56:51 -0500|2026-11-16 12:56:51 -0500|chore(build): WO-12-004, WO-12-005, WO-12-007 -> IN_PROGRESS (u-build-wo-12-004)
+58d8f06db034909a06f77cae467c66f0864f9c98|2026-11-16 12:54:22 -0500|2026-11-16 12:54:22 -0500|chore(build): unblock u-build-wo-12-004 after an approved scope repair
+810223a145369558c559b6dbb6531b4e2f4e241a|2026-11-16 12:54:20 -0500|2026-11-16 12:54:20 -0500|docs(web-performance): Reparación documental aprobada aplicada: añadido únicamente src/lib/seo/
+e8efbb150772b0c0fd5b420876d08d22218cf6bc|2026-11-16 12:35:32 -0500|2026-11-16 12:35:32 -0500|chore(build): hand back u-build-wo-12-004 (scope)
+4220554f11bb35110434307d6fcd9c40905ca00c|2026-11-16 12:19:51 -0500|2026-11-16 12:19:51 -0500|chore(build): WO-12-004, WO-12-005, WO-12-007 -> IN_PROGRESS (u-build-wo-12-004)
+a327fa575d4240a3bb74b43b593716395d654010|2026-11-16 12:19:48 -0500|2026-11-16 12:19:48 -0500|test(web-performance): Ocho pruebas RED de AC-12-003.2/.3/.6 fallan por aserción; 79 regresione
+7b1ccba4d9f876efccf774c8d5854d7688f8d05a|2026-11-16 12:06:55 -0500|2026-11-16 12:06:55 -0500|chore(build): WO-12-003 -> IN_REVIEW (u-build-wo-12-003)
+4f354ca5ce1c24393b7b66c949ca285223322e7f|2026-11-16 12:06:54 -0500|2026-11-16 12:06:55 -0500|feat(web-performance): Completada WO-12-003 desde los cambios conservados: chrome público, sesi
+0cb8e763d52a92004d909c796221cc3c189d7dbe|2026-11-16 12:06:54 -0500|2026-11-16 12:06:54 -0500|feat(web-performance): Completada WO-12-003 desde los cambios conservados: chrome público, sesi
+11a96f0ec56282c8ab4e19d78aea171f870676a1|2026-11-16 11:42:13 -0500|2026-11-16 11:42:13 -0500|chore(build): WO-12-003 -> IN_PROGRESS (u-build-wo-12-003)
+db4eb561c878f167b5fb9461780deef495de5f48|2026-11-16 11:42:10 -0500|2026-11-16 11:42:10 -0500|chore(build): unblock u-build-wo-12-003 after an approved scope repair
+a7133d0533dc3742df2ba2657279a82bf82a156c|2026-11-16 11:42:08 -0500|2026-11-16 11:42:08 -0500|docs(web-performance): Ampliado únicamente artifacts de WO-12-003 con src/lib/contact/visitor.t
+9748c36ee0a596a646ad47e3031c19a50a148498|2026-11-16 11:10:41 -0500|2026-11-16 11:10:41 -0500|chore(build): hand back u-build-wo-12-003 (dependency)
+d02f1e28eea2cba1898ac0440136047f065cd6c5|2026-11-16 10:51:05 -0500|2026-11-16 10:51:05 -0500|chore(build): WO-12-003 -> IN_PROGRESS (u-build-wo-12-003)
+0270506b8f1bc5f82a5b4fb972b3f42072b1fd7b|2026-11-16 10:51:03 -0500|2026-11-16 10:51:03 -0500|test(web-performance): Pruebas RED de AC-12-003.1/.8: 10 casos nuevos o actualizados fallan por
+20a9800afe7b7bc7010eb130d185eec1fa726f0b|2026-11-16 10:36:54 -0500|2026-11-16 10:36:54 -0500|chore(build): WO-12-002 -> IN_REVIEW (u-build-wo-12-002)
+2af12e45c5b57c7214090af9dce34d8dc4e2d6b4|2026-11-16 10:36:53 -0500|2026-11-16 10:36:53 -0500|feat(web-performance): AC-12-003.4 implementado: política/tags compartidos, invalidación firmad
+2fbafbf6d617d0ebbcfed5470fa96845b9b9dc6e|2026-11-16 03:11:23 -0500|2026-11-16 03:11:23 -0500|feat(web-performance): Implementado el protocolo de AC-12-003.4: política pública compartida, l
+d59054dedfe6d5d5251d0dbe423ff588adb2bc59|2026-11-16 02:36:48 -0500|2026-11-16 02:36:48 -0500|chore(build): WO-12-002 -> IN_PROGRESS (u-build-wo-12-002)
+fa7e1e4aaff924f1ec278f1b4f77616fadf9452a|2026-11-15 23:30:14 -0500|2026-11-15 23:30:14 -0500|test(web-performance): AC-12-003.4: cuatro pruebas nuevas RED por aserción para lote firmado, a
+0d82b2d7f0694886f25f604439a8e5ad03c88117|2026-11-15 23:21:43 -0500|2026-11-15 23:21:43 -0500|docs(web-performance): Delta técnico documentado en BP-12, ADR-0028 y arquitectura; siete WOs A
+916174e2f263dd8a4e272afd17e20d26a7e4bb45|2026-11-15 23:05:57 -0500|2026-11-15 23:05:57 -0500|docs(web-performance): Delta documental completado: ocho criterios EARS en FRD-12, contratos re
+94fab379bb9c086f90d7a4bf982fbaa28f322749|2026-11-15 23:05:57 -0500|2026-11-15 23:05:57 -0500|docs(web-performance): Delta documental completado: ocho criterios EARS en FRD-12, contratos re
+2e2cd24ef5b32c233d7368bd7e35fb283a596fc4|2026-11-15 23:04:16 -0500|2026-11-15 23:04:16 -0500|test(frd-01-catalog-browsing): failed-first probes from review u-deferred-review-dr-0001
+67be1f56a1678c97b807b115bc6c65c105917592|2026-11-15 22:43:08 -0500|2026-11-15 22:43:08 -0500|chore: upgrade pandacorp overlay 9.2.0 → 9.4.2
+ca8b166dc4a3bd7e968be4f30785eabbc00abe83|2026-11-15 09:09:10 -0500|2026-11-15 09:09:10 -0500|chore(memory): harvest -- 2 lessons, 0 backlog items
+b962d246ce792e77a44d368ded301b983c8106a4|2026-11-14 09:48:38 -0500|2026-11-14 09:48:38 -0500|wip(explore): preserve superseded first build attempt of br-2026-11-14-01
+b5ae29707ad2fc37910d988bbdda3c53847270c9|2026-11-14 05:58:54 -0500|2026-11-14 05:58:54 -0500|docs(delta): keep the owner-request rule with the scheduled prepare-only exception
+5e3884dab5e30beaf223f0ac149bf6701638461a|2026-11-14 05:52:36 -0500|2026-11-14 05:52:36 -0500|docs(delta): clarify routine read timeouts
+ae4fe13e5aadd0d7d2cb090b68d33bb0e5511594|2026-11-14 05:47:44 -0500|2026-11-14 05:47:44 -0500|feat(delta): daily scheduled ingest-delta preparation, disabled by default
+8d0cbba123a095149958048bb4818fe90eb23804|2026-11-14 05:20:26 -0500|2026-11-14 05:20:26 -0500|test(explore): keep the RDC patch test statically traceable
+99c8e05486a6788c7b4981c1211f24ae2c909233|2026-11-14 05:12:38 -0500|2026-11-14 05:12:38 -0500|fix(explore): restore the native Tu meta retry result without an SSR loop
+394056edefb32da46b74d475d5c8b0d29baf56a2|2026-11-14 05:04:25 -0500|2026-11-14 05:04:25 -0500|fix(explore): only the Discovery sample action takes the native POST path
+f2a9ea15d72e2fcd8478bffada0b4733f4a21b4e|2026-11-14 04:41:10 -0500|2026-11-14 04:41:10 -0500|fix(explore): render native no-JS action POSTs fully instead of reusing the prerender
+ef4a27a96938b912ac57042e10c948b2db200d51|2026-11-14 04:07:41 -0500|2026-11-14 04:07:41 -0500|test(explore): global Novedades parity, test-owned discovery fixtures, catalog link always asserted
+72797cbb8be174777fc0b186b3c8e0ae908d551f|2026-11-14 03:52:32 -0500|2026-11-14 03:52:32 -0500|fix(explore): render the native Mostrar otras result outside the streaming boundary
+8ad0883ad24c3c76eb35e500a588e54e63198bcf|2026-11-14 03:21:57 -0500|2026-11-14 03:21:57 -0500|test(explore): make the native discovery POST e2e independent of the random sample
+16452d12b88fc569418145c79d2217d7a1ffef4b|2026-11-14 02:58:02 -0500|2026-11-14 02:58:02 -0500|test(explore): align the start-page directory spec with the amended AC-01-002.3
+0b33ae6ae9b8d29263696b23ebdba95504c57bdb|2026-11-14 02:41:02 -0500|2026-11-14 02:41:02 -0500|chore(frd-01): WO-01-017 and WO-01-018 verified after independent review and green e2e
+22e10d114a6a02adda0ba0babb93d551eaf7d2f4|2026-11-14 02:40:00 -0500|2026-11-14 02:40:00 -0500|test(explore): pin discovery fixture behaviour and recovery states
+bf5b5c8bc5ccf8af04e646087f66a45f53133205|2026-11-14 02:25:34 -0500|2026-11-14 02:25:34 -0500|fix(explore): let visitors paginate with empty private overlays
+52acb86344ec9bdc716340a637ed1976e8545497|2026-11-14 02:16:42 -0500|2026-11-14 02:16:42 -0500|fix(explore): session-bound pagination, canonical release predicates, e2e sync
+8c6b950281a5bc40e58fed576fe814525af55b44|2026-11-14 01:48:10 -0500|2026-11-14 01:48:10 -0500|fix(explore): scope client ownership state to the signed-in viewer
+e2f50bb6c2a330a8e95d250a9ece6c76573946fe|2026-11-14 00:26:52 -0500|2026-11-14 00:26:52 -0500|chore(build): hand back u-patch-wo-01-017 (code)
+aae2dc6aa43489f15c493b213c225e5c7c5e6668|2026-11-14 00:26:52 -0500|2026-11-14 00:26:52 -0500|chore(build): hand back u-build-wo-01-017 (code)
+148a85c535a99f931772317dcca274e7b548c92a|2026-11-14 00:26:52 -0500|2026-11-14 00:26:52 -0500|test(frd-01-catalog-browsing): failed-first probes from review u-review-frd-01-catalog-browsing
+8605c96ea34d8ca017528be750fa13a138cbc7a7|2026-11-14 00:17:28 -0500|2026-11-14 00:17:28 -0500|chore(build): unblock u-patch-wo-01-017 after an environment fix
+4fa81e263077d34cb8408aa10588e8227070f7e5|2026-11-14 00:17:28 -0500|2026-11-14 00:17:28 -0500|chore(build): unblock u-build-wo-01-017 after an environment fix
+983e6a77b7e61e21e13904cdafc132d1ee26be7d|2026-11-14 00:00:25 -0500|2026-11-14 00:00:25 -0500|chore(build): hand back u-patch-wo-01-017 (owner)
+7daa6c6ec086f772fad6c42cb5e49d9d84b995b8|2026-11-14 00:00:25 -0500|2026-11-14 00:00:25 -0500|chore(build): hand back u-build-wo-01-017 (owner)
+d712d1edd1c53cc95d1074926dbc53d6630d051d|2026-11-13 21:01:25 -0500|2026-11-13 21:01:25 -0500|chore(build): WO-01-017, WO-01-018 -> IN_REVIEW (u-patch-wo-01-017)
+546c552080989a647791f027d3d7861010e510ad|2026-11-13 21:01:24 -0500|2026-11-13 21:01:24 -0500|fix(catalog-browsing): Corregidos el límite público del POST de Explore y los errores de transp
+0953e48e3afd617b40ea170b0d17f707ef37b73d|2026-11-13 20:53:36 -0500|2026-11-13 20:53:36 -0500|chore(engine): reopen wo-01-017, wo-01-018 after review u-review-frd-01-catalog-browsing
+4e380caa9a40d0f5b45ab19c34e651651afa3308|2026-11-13 20:53:36 -0500|2026-11-13 20:53:36 -0500|test(frd-01-catalog-browsing): failed-first probes from review u-review-frd-01-catalog-browsing
+c396aa3806d3aba168e7dabdfe2715ee870d35ea|2026-11-13 20:32:03 -0500|2026-11-13 20:32:03 -0500|feat(catalog-browsing): Reanudación de WO-01-017/018 completada sin rehacer ni modificar la impl
+646d2b80068d6d3262d7d23d09b772b8d62e6012|2026-11-13 20:32:03 -0500|2026-11-13 20:32:03 -0500|chore(build): WO-01-017, WO-01-018 -> IN_REVIEW (u-build-wo-01-017)
+e3b4322d4d984404476469bfa15b071954e1069b|2026-11-13 20:32:03 -0500|2026-11-13 20:32:03 -0500|feat(catalog-browsing): Reanudación de WO-01-017/018 completada sin rehacer ni modificar la impl
+3f6a38b4340afd8b27056b50f2f341ce5c258718|2026-11-13 20:29:24 -0500|2026-11-13 20:29:24 -0500|chore(build): WO-01-017, WO-01-018 -> IN_PROGRESS (u-build-wo-01-017)
+8a3d78b5b4950b4c2187e714ff2f3d8e0ca6d680|2026-11-13 20:29:20 -0500|2026-11-13 20:29:20 -0500|chore(build): unblock u-build-wo-01-017 after an environment fix
+79e625c74981d8e188f12a6c0f79ada8ea40d22f|2026-11-13 20:16:41 -0500|2026-11-13 20:16:41 -0500|chore(build): hand back u-build-wo-01-017 (code)
+df1eabda27c14104d6afe977c05966b4dc7ed092|2026-11-13 20:14:15 -0500|2026-11-13 20:14:15 -0500|chore(build): WO-01-017, WO-01-018 -> IN_PROGRESS (u-build-wo-01-017)
+b7b17f7b19011c817d3772f706c900bcef114226|2026-11-13 20:14:11 -0500|2026-11-13 20:14:11 -0500|chore(build): unblock u-build-wo-01-017 after an environment fix
+51670562ff317534b35d633d8d5d7ecb7636b599|2026-11-13 20:13:52 -0500|2026-11-13 20:13:52 -0500|chore(build): hand back u-build-wo-01-017 (env-infra)
+c71ea78b4b5a446642c9e27c0fdb9f476300903d|2026-11-13 19:33:05 -0500|2026-11-13 19:33:05 -0500|chore(build): WO-01-017, WO-01-018 -> IN_PROGRESS (u-build-wo-01-017)
+ce047e0b16c3b8c6a61cb4e701812968b53b0ecd|2026-11-13 15:53:29 -0500|2026-11-13 15:53:29 -0500|docs(catalog-browsing): Actualizados FRD-01, FDD, blueprints, DESIGN.md, componentes, contrato d
+91c4e0ef50d45fbf11355740312a08c9809d3ce4|2026-11-13 15:41:26 -0500|2026-11-13 15:41:26 -0500|wip(docs): preserve blocked docs unit draft of run br-2026-11-13-01
+66732ce6b317ef399612b840baa6dacf92358dde|2026-11-13 14:20:22 -0500|2026-11-13 14:20:22 -0500|fix(test-db): probe the test Postgres over TCP before pg_ctl
+f8bb2706e4804cc9f58699a4c978f091d3e057bf|2026-11-13 09:23:42 -0500|2026-11-13 09:23:42 -0500|chore(memory): harvest -- 3 lessons, 0 backlog items
+203d711f774c05c75da2cc3613c1d783aff43619|2026-11-13 09:00:26 -0500|2026-11-13 09:00:26 -0500|chore: upgrade pandacorp overlay 9.1.2 -> 9.2.0 (gate durability, shared Vitest policy)
+5d50c11488f3faeefc72fe7890838579895cce3d|2026-11-13 08:26:09 -0500|2026-11-13 08:26:09 -0500|test(e2e): per-worker isolated DB/server so DB specs run in parallel; vitest worker benchmark helper
+07bd3f5dbc87cb423a8c5cca35ddef23e39ffa45|2026-11-13 01:46:20 -0500|2026-11-13 01:46:20 -0500|chore: upgrade pandacorp overlay 9.0.0 -> 9.1.2 (faster gate), faster Vitest setup, fix fidelity reset photo host
+6c3db2c02ea4c5ec81bffe282b87cc7f658562a9|2026-11-12 22:29:20 -0500|2026-11-12 22:29:20 -0500|chore(pandacorp): activate project risk paths (R11)
+b719af626c863eaeeaea0862a3856963df545c40|2026-11-12 20:50:17 -0500|2026-11-12 20:50:17 -0500|chore: upgrade pandacorp overlay 8.124.0 -> 9.0.0
+4cd7b9569eb5cdcb717c387ef1c70400b053f02f|2026-11-12 19:12:19 -0500|2026-11-12 19:12:19 -0500|chore: upgrade pandacorp overlay 8.120.0 → 8.124.0
+7e43231a358af0ee1e2a918b8f77affc10b114d3|2026-11-12 12:52:52 -0500|2026-11-12 12:52:52 -0500|test(ops): list catalog:rename-pop-ids in the dispatcher registry test
+facf4c1093a9924f2c3be9292cc7f1df14feb7b4|2026-11-12 12:48:18 -0500|2026-11-12 12:48:18 -0500|chore(ops): unexport rename schemas used only locally
+e0cba15d02d7071fef5c8e43c9205ed8f6add4fb|2026-11-12 12:47:54 -0500|2026-11-12 12:47:54 -0500|fix(catalog): stop doubling the family prefix in new piece IDs and rename pop-pop- IDs
+69df732760cdc1e8f26d46819e5f446b4fb670aa|2026-11-12 10:58:06 -0500|2026-11-12 10:58:06 -0500|fix(e2e): make the Lista completa in-place mark test race-free
+c00508b42d1354f8ca4a1b78b966cbb1fe6e5a64|2026-11-12 09:10:34 -0500|2026-11-12 09:10:34 -0500|test(routes): guard route folders against unregistered or non-ASCII segments
+0ce3649dee9dff9bcd669ee3f177d85b94517301|2026-11-12 09:08:14 -0500|2026-11-12 09:08:14 -0500|refactor(routes): rename the last Spanish-named test and work order
+c6ad4aadb7012a5d078f2461ae5571ca4b5dfbe5|2026-11-12 09:07:11 -0500|2026-11-12 09:07:11 -0500|refactor(routes): remove every trace of the non-English URLs
+2d3a78d112a971cc6c04f79fad6cfb7b20c4b70e|2026-11-11 22:46:30 -0500|2026-11-11 22:46:30 -0500|fix(goals): give the notice chip close button and the rename pencil a 44 px hit area
+51f5e8b005d1836e984e13503ca840f32faf5ba8|2026-11-11 22:45:13 -0500|2026-11-11 22:45:13 -0500|feat(goals): open a goal from the list on its first non-empty tab
+af6450539b133cd838b3e8ad42af00cf215342b1|2026-11-11 22:44:37 -0500|2026-11-11 22:44:37 -0500|fix(goals): pluralize the catalog-update chip and its sentence
+f4d26d46a44bedf122746a9c82861e560e772122|2026-11-11 22:44:17 -0500|2026-11-11 22:44:17 -0500|test(goals): cover the strip read degradation in GoalsSlot
+9eb8723472666226789bbe88a08fe3cfe521074d|2026-11-11 22:44:02 -0500|2026-11-11 22:44:02 -0500|refactor(goals): drop the unused per-franchise counts from WishlistSummary
+f515ccfae9e53ebbc6bc7551cd146753e217ae07|2026-11-11 22:43:37 -0500|2026-11-11 22:43:37 -0500|fix(e2e): seed fixture photos with the oracle origin the e2e server reads
+9124ad24ef16e85629fb04edf8c11339307c7ddd|2026-11-11 22:35:10 -0500|2026-11-11 22:35:10 -0500|chore(goals): keep StripKind internal to the strip module
+5db307bc683ad35d0ed7d55b22535b1d11ad57c6|2026-11-11 22:26:17 -0500|2026-11-11 22:26:17 -0500|feat(goals): Mis metas v6.1 rows, compact Wishlist row and strips
+96df444a123031c28af2a810825c613f6f43edce|2026-11-11 22:18:12 -0500|2026-11-11 22:18:12 -0500|feat(goals): add the PieceStrip module and its fixed-size strip styles
+10e78837d64dd6c9501969a413a59ac420fbf58e|2026-11-11 22:16:31 -0500|2026-11-11 22:16:31 -0500|feat(goals): batch the strip data with one order and one card read
+b04194db26894b988a29925402fbf1cdd894aad4|2026-11-11 22:13:27 -0500|2026-11-11 22:13:27 -0500|feat(goals): never suggest a franchise that already has any goal
+42460cd992274095229f175672c87d614e8696ff|2026-11-11 22:13:00 -0500|2026-11-11 22:13:00 -0500|refactor(components): promote PieceThumb to a shared module
+053ccf48eda417e4c9d54f8dd9ac0580e353fa10|2026-11-11 22:12:36 -0500|2026-11-11 22:12:36 -0500|docs(goals): specify Mis metas v6.1 (Ver meta, three-part progress, piece strips, compact Wishlist)
+9286f4fec375045639efa9c19557e3fef8858024|2026-11-11 10:52:18 -0500|2026-11-11 11:22:31 -0500|fix(goals): keep the per-franchise Wishlist tally type internal
+eb84128e667cf6e3d432e69734ad841b5e9ce7dd|2026-11-11 10:51:39 -0500|2026-11-11 11:22:31 -0500|fix(goals): align Wishlist create-goal count, suggested goal and compact summary with their specs
+0104e08589839b77b3e1d9b850569f04b954930a|2026-11-11 10:32:17 -0500|2026-11-11 11:22:31 -0500|docs(goals): record the integrated Mis metas behaviour in the FRDs, blueprints and copy tables
+c7d20fc2ce285590d4d700945685c45e48b48d85|2026-11-11 10:30:49 -0500|2026-11-11 11:22:31 -0500|feat(goals): rename the page Mis metas in the shipped copy and retire the old goal surfaces
+ff937deb1deb0a129f546ae6c878c9e3b3d53550|2026-11-11 10:30:40 -0500|2026-11-11 11:22:31 -0500|feat(my-collection): retire the Metas tab and redirect it to Mis metas
+f0f8e69283d711547a00c0ac4beaf6469c62a842|2026-11-11 10:30:31 -0500|2026-11-11 11:22:31 -0500|refactor(to-get): load only the open view's data and share one card and URL helper
+3cdcab68b7bb74a5d0b0a01777f678e69c01fe83|2026-11-11 10:02:44 -0500|2026-11-11 11:22:31 -0500|feat(to-get): integrate the Wishlist special list grouped by franchise (S5)
+f03237f61efce960e6b215c6f8740927395d4a92|2026-11-11 10:02:12 -0500|2026-11-11 11:22:31 -0500|feat(goals): integrate the goal view of Mis metas with tiles, Lo tengo and Lista completa (S4a+S4b)
+a2f5d1b88109e892d925af6b57e7f46d5c18d770|2026-11-11 10:02:00 -0500|2026-11-11 11:22:31 -0500|feat(to-get): integrate the Mis metas list with the pinned Wishlist special list (S3)
+52c8eb78e5a9d1ca230bc3533df16fdd2c84db97|2026-11-11 10:01:54 -0500|2026-11-11 11:22:31 -0500|feat(my-collection): integrate the all-franchises view and the catalog header link (S2)
+4ac53b3849c2d1bc80ba68ab09711fe4fcabbccd|2026-11-11 10:01:51 -0500|2026-11-11 11:22:31 -0500|feat(goals): integrate Mis metas navigation and editor entry points (S1+S6)
+c02f333d9d1e21e5e5e606b49c941e0f65fe568f|2026-11-11 10:01:40 -0500|2026-11-11 11:22:31 -0500|feat(to-get): integrate docs v5 and the Mis metas foundation (S0)
+cb828cda5fe296722dbcfd330d1cd085d436b588|2026-11-11 10:05:27 -0500|2026-11-11 10:05:27 -0500|chore(memory): stamp last_harvest 2026-11-11 (librarian sweep)
+272f3a7f2246c1cc1bc17a65b5f852fec3685fe9|2026-11-11 10:00:14 -0500|2026-11-11 10:00:14 -0500|feat(to-get): show the Wishlist as a special list grouped by franchise
+5fff2e5f46c52e678da7875a6fd5483b6fff19de|2026-11-11 09:56:18 -0500|2026-11-11 09:56:18 -0500|feat(goals): add the goal view of Mis metas with tiles, Lo tengo and Lista completa
+d7b2aba5267c4959cd6d6dfe17191ce04c55626f|2026-11-11 00:25:41 -0500|2026-11-11 00:25:41 -0500|feat(my-collection): add the all-franchises view and the catalog header link
+5ec8560055e1f36aea45d65209cbd4079196c2e5|2026-11-11 00:18:23 -0500|2026-11-11 00:18:23 -0500|feat(to-get): show the Mis metas list with the pinned Wishlist special list
+fd012db3e2789520ffb03913edf3a8867e20f6f9|2026-11-11 00:17:59 -0500|2026-11-11 00:17:59 -0500|feat(goals): add goal tiles, the goal switcher and segmented progress
+d153fb80d080e2e3bd6d990c21a26e4cb8cbd104|2026-11-11 00:14:55 -0500|2026-11-11 00:14:55 -0500|feat(goals): name Mis metas in navigation and open the editor from the Wishlist and the catalog header
+956ee5b2565aad4f9a8718551ddaba629fe1a4a6|2026-11-11 00:06:57 -0500|2026-11-11 00:06:57 -0500|feat(to-get): add the Mis metas view parser, goal equivalence and goal page queries
+a056d39fcce7f25bdb0eb2b0baf5f472599a72c5|2026-11-10 23:56:07 -0500|2026-11-10 23:56:07 -0500|docs(goals): specify Mis metas, the Wishlist special list and all-franchise collection (v5)
+347363711f24efcfc9c795ab4c39fe1e88ac8eb2|2026-11-10 18:37:52 -0500|2026-11-10 18:37:52 -0500|fix(ingest): keep unchanged photos out of the view matrix in quick data-fix
+bf28eb2d7dc404426fe51feba4be0b050b7edae1|2026-11-10 18:07:51 -0500|2026-11-10 18:07:51 -0500|test(ops): serialize destination copies per worker and give the A-B-A quick test its real budget
+c01769d2e8a2d70a689622db9076027c065a3abc|2026-11-10 16:35:05 -0500|2026-11-10 16:35:05 -0500|docs(decision-log): restore blank separators after batch merge
+94ab8f3ddda4fccc4cf5dcfb899dd17638b08fe6|2026-11-10 16:34:55 -0500|2026-11-10 16:34:55 -0500|perf(my-collection): skip off-screen tiles and coalesce ownership wake-ups
+a5b5cd3b18284db45118096532cc2d943ddecc16|2026-11-10 16:34:49 -0500|2026-11-10 16:34:49 -0500|feat(ingest): allow same-family format_id in quick data-fix
+f03557bfa69e38ea6be2175f13ccb8220bc3f2a0|2026-11-10 16:34:28 -0500|2026-11-10 16:34:28 -0500|feat(ingest): allow same-family format_id in quick data-fix
+fc5de40b8c9fbb09dfc1925f457f87b63029371c|2026-11-10 16:34:28 -0500|2026-11-10 16:34:28 -0500|perf(my-collection): skip off-screen tiles and coalesce ownership wake-ups
+ab736d95313e72b7f51133ebc502bfd2dc184e19|2026-11-10 16:33:28 -0500|2026-11-10 16:33:28 -0500|docs(catalog): classify by actual box line, not Pop! & Buddy marketing copy
+501d7ac2526e6ebac63f7d1133efb668d3b18d78|2026-11-10 13:04:30 -0500|2026-11-10 13:04:30 -0500|chore: upgrade pandacorp overlay 8.119.1 → 8.120.0
+54b84ff04433df68b65e25601c883b96d61571cc|2026-11-10 12:19:10 -0500|2026-11-10 12:19:10 -0500|fix(e2e): trust the e2e server origin and assert named contact errors
+c1f3c16d52894d1a0d97a9ebf175e0124c78eed5|2026-11-10 12:19:09 -0500|2026-11-10 12:19:09 -0500|feat(to-get): share the checklist export order
+6ce1afb1305d5405320f17944bf5a494ba57fa4d|2026-11-10 12:13:37 -0500|2026-11-10 12:13:37 -0500|fix(e2e): assert the named contact errors instead of an alert count
+5c56e6aef10ff42764a0ecbf91f5f3c1211bf3f3|2026-11-10 12:02:57 -0500|2026-11-10 12:02:57 -0500|fix(e2e): trust the e2e server origin for auth callbacks
+977ee0b3770678fb2a6d4b5ec0af7bea00c16f4a|2026-11-10 11:46:48 -0500|2026-11-10 11:46:48 -0500|feat(to-get): share the checklist export order
+5ff1b59742160364df7e3058e7454b44886f3123|2026-11-10 08:40:41 -0500|2026-11-10 08:40:41 -0500|test(deps): drop the retired fixtureTarget createRequire exemption
+0d70ef7f2d22306f2d7faf3f6538c52f3fa365ca|2026-11-10 08:36:24 -0500|2026-11-10 08:36:24 -0500|docs(ingest): document the delivery verdict memo, rehearsal seam and test clone sweep
+d420045ad361cfe959d29a9d210acda86cff1838|2026-11-10 08:35:52 -0500|2026-11-10 08:35:52 -0500|test(ops): keep one real rehearsal child in the targeted publication test
+fd281e650c4d1307c9c318ceede7b23b0d44ef0c|2026-11-10 08:35:00 -0500|2026-11-10 08:35:00 -0500|test(ops): prove the delivery verdict memo misses on any changed identity
+a47799a916b6c408514367dd430e947e75736daa|2026-11-10 08:33:16 -0500|2026-11-10 08:33:16 -0500|fix(test-db): sweep a crashed run's destination copies
+56ef32443e6d5664be23968aa8b00c3a1fd9f8f0|2026-11-10 08:32:24 -0500|2026-11-10 08:32:24 -0500|test(ops): prove delivery verdicts once per input hashes and drop 180 s test overrides
+834774e56c8dfb290b9edbdd87f5b13748fbf9f8|2026-11-10 07:52:01 -0500|2026-11-10 07:52:01 -0500|refactor(ingest): move the content digest into a leaf module to break an import cycle
+e28b194dcf9cbca2dd0412a3c92537af9c4eb4bd|2026-11-10 07:47:15 -0500|2026-11-10 07:47:15 -0500|chore: upgrade pandacorp overlay 8.117.1 → 8.119.1
+854a81bddeabaea91dc7449dfebf98b1f49e9602|2026-11-10 07:31:40 -0500|2026-11-10 07:31:40 -0500|docs(ingest): record the reliability batch in FRD-06, guides and decision log
+9c72a0db0cbae6c8953b9c09cc345bcbc5816cc7|2026-11-10 07:28:31 -0500|2026-11-10 07:28:31 -0500|fix(fidelity): clear the stale Next type cache before the gate build
+e7152eb6eb95bad07b8f5aadaa9e823b5a53ecf6|2026-11-10 07:27:36 -0500|2026-11-10 07:27:36 -0500|test: make app tests deterministic with virtual time and operation bounds
+90c34fa28d21b26b771774c6a44af0e7071172b0|2026-11-10 07:27:32 -0500|2026-11-10 07:27:32 -0500|feat(ingest): chain publication and closure into ingest:run publish/close
+fed2007f80085113caacaf9be3d4fc98d2830077|2026-11-10 07:27:28 -0500|2026-11-10 07:27:28 -0500|feat(ingest): fix the box turn direction, record turn resolution, key AI grants on messages
+c99241f4c435865e405455d062e2263c51b08d19|2026-11-10 07:27:23 -0500|2026-11-10 07:27:23 -0500|test(ops): cut review and approval test cost with memoized encodes and shards
+fbeea8cc1adeaf27c2990494f2a502ac99739e82|2026-11-10 07:27:06 -0500|2026-11-10 07:27:06 -0500|fix(ops): make media:publish linear with bounded retry and journal resume
+313facb6d08615fe121d735e3f3264ac731055eb|2026-11-09 11:00:41 -0500|2026-11-09 22:47:09 -0500|test(routing): allow permanent English piece aliases alongside the root redirect
+d188d6e3644b3d5d903ad9fffc34412df3a48b34|2026-11-09 10:47:44 -0500|2026-11-09 22:47:09 -0500|fix(seo): redirect four legacy piece URLs to their current IDs
+979264bdb9801878bbe472ce8b91b0f4ee91b3d9|2026-11-09 20:19:38 -0500|2026-11-09 20:19:38 -0500|test(ingest): extend the 60 s timeout to the remaining wait-bound approval cases
+e1c96a5003ad7dacf6d466fc8edaffc3b7d79886|2026-11-09 19:52:15 -0500|2026-11-09 19:52:15 -0500|test(ingest): give the heaviest approval-replay cases a 60 s timeout
+c76b1d4efba583f8ba3a8489a56ebd9c55c8b28d|2026-11-09 18:25:24 -0500|2026-11-09 18:25:24 -0500|fix(ingest): validate the media base URL without breaking fixture transports
+1e497e28a26a61625618e34e9da1ac79f707749a|2026-11-09 17:41:05 -0500|2026-11-09 17:41:05 -0500|docs(catalog): refresh franchise universe after Attack on Titan ingestion
+7a44fe00376a3706b9d2002998ab2700555891de|2026-11-09 17:37:11 -0500|2026-11-09 17:37:11 -0500|fix(ingest): keep configuration errors from consuming postverify attempts
+6252eb814523641cd626bb5ab482fa27cc3d7fd7|2026-11-09 17:07:41 -0500|2026-11-09 17:07:41 -0500|fix(ingest): ignore apply-time coverage timestamps when matching full and sweep exports
+f40e056f357940ff546e66124a493e9110589cf9|2026-11-09 13:26:21 -0500|2026-11-09 13:26:21 -0500|fix(ingest): fingerprint candidates the same way at approval and publication
+ee705cdd0613538eb84a74d6c80bff6550dee4ed|2026-11-09 12:59:14 -0500|2026-11-09 12:59:14 -0500|fix(ingest): accept the review stamp's middle-dot separator in delivery messages
+a9c6b24f53198ab8be4edbdd2a94859c805fa362|2026-11-09 10:53:27 -0500|2026-11-09 10:53:27 -0500|fix(ingest): list each published object once in the review change section
+cd2fb08599ef095d50c5ca77d39a13c7600018b9|2026-11-09 09:58:12 -0500|2026-11-09 09:58:12 -0500|fix(ingest): raise the technical ceiling for owner-granted AI attempts to 8
+a23525a33b044b43d2ebd005858df7bcabb802eb|2026-11-09 09:26:10 -0500|2026-11-09 09:26:10 -0500|chore(memory): stamp librarian harvest 2026-11-09
+93a827e0f9cc8fa3716de98738466efe7b99c6fb|2026-11-09 08:07:56 -0500|2026-11-09 08:07:56 -0500|fix(ingest): validate red-note summaries without the view-label prefix
+335c01cafd00f7d32a23f32724a9d5d3446eaa2a|2026-11-09 07:49:33 -0500|2026-11-09 07:49:33 -0500|fix(ingest): ignore the flat generation backdrop in the box-outline control
+3d12777e475167c85de6dd0bd3262be9cd772956|2026-11-09 02:00:23 -0500|2026-11-09 02:00:23 -0500|docs(ingest): restore stable-ordinal and altered-output contract rules
+d42b7905a8e9f5b0441e08721c81a6c1a3704285|2026-11-09 01:50:40 -0500|2026-11-09 01:50:40 -0500|refactor(ingest): break review renderer import cycles with standalone type contracts
+455cf3d40f450cfc24f18059920b8945c301e691|2026-11-09 01:34:38 -0500|2026-11-09 01:42:19 -0500|fix(ingest): ordered numbering, one-line notes and authenticated regeneration for review HTML
+0838eddfe265f00bec90329a8b3857e87890e676|2026-11-09 01:32:37 -0500|2026-11-09 01:32:37 -0500|fix(ingest): compare AI box cut-outs with the generation they were cut from
+1c3570f3c7b740319b5870f44c1e670c8c64446e|2026-11-09 00:54:28 -0500|2026-11-09 00:54:28 -0500|fix(ingest): bind owner AI grants to their view and archive them in full
+f2ef1f8d7bbb4993df8348fda019e7a7630317d6|2026-11-09 00:41:48 -0500|2026-11-09 00:41:48 -0500|feat(ingest): allow an owner-granted extra AI attempt per view
+ff0fa449058168f21eaed820f294db14d3b94679|2026-11-08 23:45:29 -0500|2026-11-08 23:45:29 -0500|fix(ingest): judge delivered content from durable evidence before re-rendering
+61d78e614198538fc843d14ca98b808629182f94|2026-11-08 23:21:28 -0500|2026-11-08 23:31:56 -0500|fix(ingest): move delivery change notes out of the first review card
+cba395b94db7231b63747f4517589cfe8b522a3f|2026-11-08 23:07:01 -0500|2026-11-08 23:07:01 -0500|feat(ingest): show one-line red reasons on review cards
+b3b7a6d7e4c10f75220a55c84209106288fc4323|2026-11-08 22:01:12 -0500|2026-11-08 22:01:12 -0500|fix(ingest): keep a run's recorded review renderer across comparison batches
+ed479843e79373e15262ecf9c711e57edf959a44|2026-11-08 21:52:41 -0500|2026-11-08 21:57:31 -0500|feat(ingest): open review photos in a modal at full size
+aec2a7ebe33c2c3b3a75dbfb472d5fd971e1e78e|2026-11-08 18:15:04 -0500|2026-11-08 18:15:04 -0500|fix(ingest): release same-run similar identities in delta files too
+99a6d42729902429c3ae3cf4d011e2002b591d25|2026-11-08 18:07:27 -0500|2026-11-08 18:13:13 -0500|fix(ingest): publish intra-file similar identities in sealed runs
+d49bc3d1ffdc52d9fb7bdca87789e84be77e32bd|2026-11-08 12:28:53 -0500|2026-11-08 12:28:53 -0500|fix(ingest): detect outlined white lid cuts again in the box-outline control
+92c003ad65a34d5ac52f7d62ad6e499cb5c61280|2026-11-08 12:12:30 -0500|2026-11-08 12:12:30 -0500|fix(ingest): accept large provider review lines and stop false box-outline alerts on pale boxes
+027ef261a650642f578aa2ce7589473d6583476b|2026-11-08 11:30:27 -0500|2026-11-08 11:30:27 -0500|feat(ingest): add Dorbz, Pop! Premium and Pop! & Tee rows to the view matrix
+ec7a6f07682a0f5c8f2403d0bec0af3f0cef83b6|2026-11-08 10:41:52 -0500|2026-11-08 10:41:52 -0500|docs(perf): record post-fix production Lighthouse evidence for WO-12-001
+61562316ebd624af1ad0eb1dbbc5eaaa8f63f589|2026-11-08 10:06:08 -0500|2026-11-08 10:06:08 -0500|docs(architecture): reconcile platform docs with the services live at launch
+5af774f64a9fd4e75532248d05e0c84ed3f0d991|2026-11-08 09:45:00 -0500|2026-11-08 09:45:00 -0500|perf(catalog): load the above-the-fold photo eagerly and preconnect to media
+0f7a2dab3487a1a011098f603eeb8f4188ae60fe|2026-11-08 09:45:00 -0500|2026-11-08 09:45:00 -0500|fix(maintenance): match the Sentry cron monitor to GitHub's throttled cadence
+bcbf301da34f0c7561e2d4b93370cee034ea9f75|2026-11-08 09:44:55 -0500|2026-11-08 09:44:55 -0500|perf(catalog): load the above-the-fold photo eagerly and preconnect to media
+a47104795b9a6c4852322d2b3bd44c8cb0cc0a3d|2026-11-08 09:44:11 -0500|2026-11-08 09:44:11 -0500|fix(maintenance): match the Sentry cron monitor to GitHub's throttled cadence
+1a530f6dad7227108f40f18fb0aa3688d2dacfcc|2026-11-08 03:28:16 -0500|2026-11-08 03:28:16 -0500|fix(seo): cache the social card render and keep image enumeration request-free
+74acfd8c99805e2ebf9ec1f91d17ba1f1176cbef|2026-11-08 03:13:46 -0500|2026-11-08 03:13:46 -0500|fix(seo): defer social image enumeration to request time
+e7b14317d83e103d20b60c809efd50a244a28bef|2026-11-08 02:55:11 -0500|2026-11-08 02:57:23 -0500|fix(seo): render social images at request time under cache components
+15ce1f1cf35cdd2636859b53e859d7f6c6695c7d|2026-11-08 02:21:26 -0500|2026-11-08 02:44:56 -0500|feat(ingest): quick path for single photo/data fixes on published pieces
+d44a68c7975fad3a5abd8916c74e269849b4cb10|2026-11-08 02:28:58 -0500|2026-11-08 02:28:58 -0500|fix(proxy): import the multipart parser statically so the deployed proxy bundles it
+a1a6dfb489722e0498f6a578ef22fb4bdb03ed61|2026-11-07 23:25:43 -0500|2026-11-07 23:25:43 -0500|fix(dialog): detect hidden controls with computed style so the focus trap keeps real tabbables
+4d5e883be91b6eced1c33b24bc79b270954682d2|2026-11-07 23:12:33 -0500|2026-11-07 23:12:38 -0500|docs(launch): mark gate-covered launch work orders VERIFIED
+d556b88635a885faba7c9708fe7000b5164c21c7|2026-11-07 23:12:19 -0500|2026-11-07 23:12:38 -0500|fix(contact): apply the report cap to action markers sent as file parts
+8d4618a9ea73e1e240a8b8b69d9e310d6e36ccd4|2026-11-07 22:57:53 -0500|2026-11-07 23:12:38 -0500|fix(contact): cap native report posts, serve /contact without redirect, tabbable-only focus trap, validate bootstrap hints
+1342c0ceb5ffe2e67fbb4304ed2e38be5ca77407|2026-11-07 22:39:27 -0500|2026-11-07 23:12:38 -0500|docs(analytics): record PostHog Cloud US region (squash of feat/launch-us-docs 74721247)
+625226a2af7129358b939e65881125fad47aa777|2026-11-07 22:39:22 -0500|2026-11-07 23:12:38 -0500|fix(launch): render public content and contact form without JS, wrap dialog focus, PRG for no-JS reports
+3edad13a11b1a12658fb5c32cc0c59c287f38a08|2026-11-07 21:23:07 -0500|2026-11-07 23:12:38 -0500|fix(launch): keep PWA manifest in head, fix report radios on mobile, align e2e with contextual reports
+acc04bb44e23bf0d599df096ac03657f84f5691c|2026-11-07 19:40:53 -0500|2026-11-07 23:12:38 -0500|fix(env): ignore Sentry bundler pipeline label in local fidelity fixture detection
+1b96798fd60663bf1a968d0af3d3a9b9c55d2424|2026-11-07 19:12:28 -0500|2026-11-07 23:12:38 -0500|fix(discovery): serve sitemap partitions at request time so builds never read gated env
+c79f0f0fe47c1646c555620619a266fb7f105d82|2026-11-07 18:55:32 -0500|2026-11-07 23:12:38 -0500|test(launch): align existing suites with ADR-0026 analytics and new launch registries
+46074a5b00bfb3e230abdff45f5733d1adf51db9|2026-11-07 18:40:15 -0500|2026-11-07 23:12:38 -0500|fix(launch): cap report action bodies on every route, add directory JSON-LD, break report dialog cycle
+66b3049bdd1b70299c53af6c6f4156d720f397cf|2026-11-07 18:25:28 -0500|2026-11-07 23:12:38 -0500|docs(env): describe PostHog proxy origins individually
+2e8a8a15f4df3b053588e81309490d9c18f6d17f|2026-11-07 18:24:51 -0500|2026-11-07 23:12:38 -0500|fix(discovery): return empty OG image metadata for unknown entities instead of aborting the build
+21d12cb0cca9d163fad11902d19fedc1a21ce8fb|2026-11-07 18:20:08 -0500|2026-11-07 23:12:38 -0500|chore(performance): add pinned Lighthouse runner and launch measurement evidence
+3e44b10f022f10a0dcb1f6365bee42c439bcf3ea|2026-11-07 18:10:05 -0500|2026-11-07 23:12:38 -0500|feat(launch): wire discovery metadata, contextual reports, analytics and observability adapters
+87b63084111986223b5a518ec4a6e42e3076591f|2026-11-07 17:50:52 -0500|2026-11-07 23:12:38 -0500|chore(integration): squash feat/launch-p6 (7508a4500cb3a9cc74edade7b171b9371d0fa203)
+3c960427b424b123dad81db315ad99c4a45ca6b9|2026-11-07 17:50:52 -0500|2026-11-07 23:12:38 -0500|chore(integration): squash feat/launch-p5 (903b8e4dd46443c9b14bf842120f63e1b63c9b70)
+096d827b0f541bec51abac8512c2686e00a873ff|2026-11-07 17:50:52 -0500|2026-11-07 23:12:38 -0500|chore(integration): squash feat/launch-p4 (cc58925147afb27fbaeb4f2ef682598dda2cfef7)
+97b650cdad63807d46eb1f3234f95b7035ce6661|2026-11-07 17:50:52 -0500|2026-11-07 23:12:38 -0500|chore(integration): squash feat/launch-p3 (063b5f7772ed13b5061548b998eff6655cfc2a6f)
+2ac6c79f5eb83fde2258e41791177fb0b7db8653|2026-11-07 17:50:51 -0500|2026-11-07 23:12:38 -0500|chore(integration): squash feat/launch-p2 (d583c654cfe2e28b847344558b22839270a9a7e8)
+57f1b07065b4374ff0d75c725699c305f1b9e4ce|2026-11-07 17:17:06 -0500|2026-11-07 23:12:38 -0500|feat(launch): add shared launch foundation (routes, CSP, env, footer entries, posthog-js)
+e9be30d4f81aab2bb4f32436f1fc43c7b974a4e8|2026-11-07 16:54:36 -0500|2026-11-07 23:12:38 -0500|docs(launch): specify discovery, measurement, contextual reports and performance
+74721247f375fd572d98ab22d795ccc636daad2a|2026-11-07 21:29:05 -0500|2026-11-07 21:29:05 -0500|docs(analytics): record PostHog Cloud US region for launch measurement
+332390febd2c9a2feb089d4f327421cdf071eeb6|2026-11-07 21:23:07 -0500|2026-11-07 21:23:07 -0500|fix(launch): keep PWA manifest in head, fix report radios on mobile, align e2e with contextual reports
+f72fae6c2405fe08914ef9fbd069e388424c5bfb|2026-11-07 21:01:38 -0500|2026-11-07 21:01:38 -0500|test(e2e): tolerate sub-layout-unit rounding in the 44 px touch target check
+d3bd45d99818c2075e827eb9283118ed813b9d46|2026-11-07 13:07:11 -0500|2026-11-07 20:00:40 -0500|refactor(ingest): keep the series-correction origin constant module-private
+fcd8b378fc67ac52ba6ddc867cba26c6d3b717cf|2026-11-07 13:01:22 -0500|2026-11-07 20:00:40 -0500|test(ingest): fold the unchanged-marker probe into the series-correction suite
+39fede41340d566401f9d0610eb63da3ff174a6d|2026-11-07 13:00:37 -0500|2026-11-07 20:00:40 -0500|fix(ingest): enforce the series-correction route on every re-check
+c962b95d68a6420ee4256052862398eb2007532e|2026-11-07 12:46:39 -0500|2026-11-07 20:00:40 -0500|feat(ingest): sealed data-only series correction through the v3 route
+eceef266b28911854a26471bf6aeab7e37edce92|2026-11-07 19:40:53 -0500|2026-11-07 19:40:53 -0500|fix(env): ignore Sentry bundler pipeline label in local fidelity fixture detection
+4bdd83117ecd5a08e7a08b81d166df938a29361a|2026-11-07 19:12:28 -0500|2026-11-07 19:12:28 -0500|fix(discovery): serve sitemap partitions at request time so builds never read gated env
+fb829137d81b1a226feded63db84a8344409931e|2026-11-07 11:32:48 -0500|2026-11-07 18:55:35 -0500|fix(export): drop decorative separator lines from the export poster
+2224181cf6c5a23a277a2b6d0ecf6a38182c9312|2026-11-07 18:55:32 -0500|2026-11-07 18:55:32 -0500|test(launch): align existing suites with ADR-0026 analytics and new launch registries
+cbc3a576d5b56ad8d148bae65872c4c060a2505f|2026-11-07 18:55:25 -0500|2026-11-07 18:55:25 -0500|fix(ingest): unblock targeted closure on Neon
+ad6766e11fc49990fea0544d34b0365e3f9d919f|2026-11-07 18:40:15 -0500|2026-11-07 18:40:15 -0500|fix(launch): cap report action bodies on every route, add directory JSON-LD, break report dialog cycle
+84de03645030f5444de1fb7a0da3421cc976c9aa|2026-11-07 18:25:28 -0500|2026-11-07 18:25:28 -0500|docs(env): describe PostHog proxy origins individually
+2e602291ce277d80571aeed92c4d99d1d37cfe70|2026-11-07 18:24:51 -0500|2026-11-07 18:24:51 -0500|fix(discovery): return empty OG image metadata for unknown entities instead of aborting the build
+b9791260dfbd0434b9ec49e2f711bf9e089f36c5|2026-11-07 18:20:08 -0500|2026-11-07 18:20:08 -0500|chore(performance): add pinned Lighthouse runner and launch measurement evidence
+d3bc311bd5e8b0cb038c58e4d922b9c8a55f8fe2|2026-11-07 18:10:05 -0500|2026-11-07 18:10:05 -0500|feat(launch): wire discovery metadata, contextual reports, analytics and observability adapters
+b552712c120e70ce2898478544da6e36b6af2872|2026-11-07 17:50:52 -0500|2026-11-07 17:50:52 -0500|chore(integration): squash feat/launch-p6 (7508a4500cb3a9cc74edade7b171b9371d0fa203)
+b433d01d0ea9714116a081456b9db8c0974af2fb|2026-11-07 17:50:52 -0500|2026-11-07 17:50:52 -0500|chore(integration): squash feat/launch-p5 (903b8e4dd46443c9b14bf842120f63e1b63c9b70)
+38e12df71e342823d9766cf9a8787c7925af1960|2026-11-07 17:50:52 -0500|2026-11-07 17:50:52 -0500|chore(integration): squash feat/launch-p4 (cc58925147afb27fbaeb4f2ef682598dda2cfef7)
+0bd6558b0e4c3f874358feff5f8bca6bd7a823b2|2026-11-07 17:50:52 -0500|2026-11-07 17:50:52 -0500|chore(integration): squash feat/launch-p3 (063b5f7772ed13b5061548b998eff6655cfc2a6f)
+063b5f7772ed13b5061548b998eff6655cfc2a6f|2026-11-07 17:50:51 -0500|2026-11-07 17:50:51 -0500|feat(contact): add contextual user reports with durable mail delivery
+d50976f25ade6cd7ca2e3b6af3e4cfa6a9012fe1|2026-11-07 17:50:51 -0500|2026-11-07 17:50:51 -0500|chore(integration): squash feat/launch-p2 (d583c654cfe2e28b847344558b22839270a9a7e8)
+cc58925147afb27fbaeb4f2ef682598dda2cfef7|2026-11-07 17:37:29 -0500|2026-11-07 17:37:29 -0500|feat(analytics): add cookieless PostHog capture with sanitised outcome events
+d583c654cfe2e28b847344558b22839270a9a7e8|2026-11-07 17:32:25 -0500|2026-11-07 17:32:25 -0500|feat(discovery): add franchise pages, robots, sitemaps, JSON-LD, OG images and llms.txt
+7508a4500cb3a9cc74edade7b171b9371d0fa203|2026-11-07 17:27:34 -0500|2026-11-07 17:27:34 -0500|feat(observability): harden Sentry privacy, filtering and release tagging
+af28233d4048da04ed38e676e7715bf2469923d2|2026-11-07 17:17:06 -0500|2026-11-07 17:17:06 -0500|feat(launch): add shared launch foundation (routes, CSP, env, footer entries, posthog-js)
+903b8e4dd46443c9b14bf842120f63e1b63c9b70|2026-11-07 17:04:13 -0500|2026-11-07 17:04:13 -0500|feat(analytics): add read-only launch activation report
+b630900724e7216f2514a3d9fbf0b874e47d4816|2026-11-07 16:54:36 -0500|2026-11-07 16:54:36 -0500|docs(launch): specify discovery, measurement, contextual reports and performance
+95e04fe04c869def3e57621d4d22615e68a056ca|2026-11-07 13:24:40 -0500|2026-11-07 13:25:06 -0500|docs(catalog): refresh universe report after One Piece Glow Chase gift box photo delta
+b22eb34a918fa2982b719a2b616a0729d1043b98|2026-11-07 09:16:28 -0500|2026-11-07 09:16:28 -0500|chore(memory): stamp last_harvest for funko-tracker
+b730de45a92433f2c94a1249361fbc4068df48b5|2026-11-07 03:41:46 -0500|2026-11-07 03:41:50 -0500|feat(ingest): single content-bound approval, targeted vs weekly-sweep delta and durable run re-anchoring
+d7bd939d7c3cba7684b4254790ca43ec72092c57|2026-11-07 03:41:32 -0500|2026-11-07 03:41:32 -0500|fix(ingest): any stop or condition clause suspends publication
+df35da8533d34c5f903dc47570c5232415d4baf1|2026-11-07 03:30:04 -0500|2026-11-07 03:30:04 -0500|fix(ingest): refuse registering neutral owner messages as revocations
+813418f1842813cbf6bb0f89b931ea7f8dd94b01|2026-11-07 03:23:04 -0500|2026-11-07 03:23:04 -0500|test(ingest): location-independent working-root test and restored skill contract wording
+aa7e7dc1174b8703f036c59cefcc048efb79f798|2026-11-07 03:11:46 -0500|2026-11-07 03:11:46 -0500|fix(ingest): explicit owner stop suspends publication and break ops module cycles
+4905dedfa3e59f8002a1445f6794d296f2fe1593|2026-11-07 02:42:06 -0500|2026-11-07 02:42:06 -0500|fix(ingest): delivery-scoped approvals and revocations, append-only conditions and sweep resolution
+6ae60a191ee5303c51e737404aa4854b8ebebc43|2026-11-07 01:53:22 -0500|2026-11-07 01:53:22 -0500|fix(ingest): first-human-reply approval, sealed sweep eligibility and full cleanup closure
+85f97881591ebf21304eb07a8f00eb8f3b220150|2026-11-07 00:59:03 -0500|2026-11-07 00:59:03 -0500|fix(ingest): bind approvals to real transcripts, chain journals and enforce targeted scope and weekly sweep
+376a7ef0b134dc3d550d3dd92de897243a64eb30|2026-11-06 23:40:41 -0500|2026-11-06 23:40:41 -0500|docs(ingest): reconcile skills, FRDs and compaction hook with the integrated CLI
+33e02c72a3438a082bbd26368f4fcdf47d26b95c|2026-11-06 23:32:55 -0500|2026-11-06 23:32:55 -0500|Merge branch 'docs/ingest-approval-scope-c' into feat/ingest-approval-scope-ab
+dea281d147968563be4a7c8cd460a3b536307119|2026-11-06 23:32:55 -0500|2026-11-06 23:32:55 -0500|wip(ingest): sealed-run guards, weekly sweep record and end-to-end targeted flow (checkpoint)
+495e5dd795a5eaa55716e6e30baf19becd6e37e6|2026-11-06 23:08:43 -0500|2026-11-06 23:08:43 -0500|feat(export): keep franchise blocks in every mode and pack short family runs on shared rows
+cdf1b75a6ebef368c3173b50e72a473b07358e1a|2026-11-06 23:08:39 -0500|2026-11-06 23:08:39 -0500|feat(catalog): show franchise logos on franchise cards and separate the universe action from search
+71d1ad4c5658a425f4e4fa7e8bde3a5861d749cf|2026-11-06 23:08:37 -0500|2026-11-06 23:08:37 -0500|fix(export): keep active-job lock without a job row and drop inherited strut from family heads
+de01d7ab8ccd016984e71d85c0018aa91201edef|2026-11-06 23:05:21 -0500|2026-11-06 23:05:21 -0500|test(export): add behaviour e2e for franchise blocks, family chips and shared rows
+1b06039dc8b2cf8df7abd6b57c8d08ec19c6f539|2026-11-06 22:53:43 -0500|2026-11-06 22:53:43 -0500|wip(ingest): content-bound approval, delivery preflight and run progress (checkpoint)
+e4e0f59c84f33a40792f1706d90699d9e3005074|2026-11-06 22:43:46 -0500|2026-11-06 22:43:46 -0500|fix(export): package renderer assets, isolate poster styles and fix flow fitting convergence
+7efb70497c5d6e46bdc375323db27583ff8caa59|2026-11-06 22:34:01 -0500|2026-11-06 22:34:01 -0500|docs(ingest): single content-bound approval, targeted vs sweep delta and run re-anchoring
+4f7273f7168cabf6a297e65ba2e69207e7ecc866|2026-11-06 22:29:23 -0500|2026-11-06 22:29:23 -0500|feat(export): keep franchise blocks in every mode and pack short family runs on shared rows
+720934d43b0f5ff99c89a5dfb0d189c9a91419ca|2026-11-06 22:20:10 -0500|2026-11-06 22:20:10 -0500|fix(catalog): tokenize logo plates, drop collage CSS and log the franchise-logo decision
+f16db9eb7e7b8fe0654f7cca169e9e3cfd22c575|2026-11-06 22:06:17 -0500|2026-11-06 22:06:17 -0500|feat(catalog): show franchise logos on franchise cards and separate the universe action from search
+de5c85c7d4a6eee55359fe0583b50d3e1911a62e|2026-11-06 19:02:20 -0500|2026-11-06 19:02:20 -0500|docs(catalog): refresh universe report after Naruto #186 note-photo delta
+fc7122c9f124cee175851fae8aec96adc9f037d1|2026-11-06 17:10:13 -0500|2026-11-06 17:10:13 -0500|test(ingest): align skill contract tests with the single post-delivery approval
+0fa8ffb1943e9277ce4c38b3484b1dc27ccb35a6|2026-11-06 16:52:09 -0500|2026-11-06 16:52:09 -0500|test(ingest): migrate active photo fixtures to the v2 contract
+85fdb2cb728b6b3b7e3cfdc50f4bb070263c1051|2026-11-06 16:39:19 -0500|2026-11-06 16:39:19 -0500|fix(ingest): bind note-only evidence to the trusted run baseline and require v2 for new deliveries
+e852078efff311861168b72415562e953f1ace2a|2026-11-06 16:31:44 -0500|2026-11-06 16:31:44 -0500|test(ingest): add reviewer tests for forged baseline and v1 delivery
+49f5499b21cd028740f02a69e1483f6db4e11e60|2026-11-06 16:26:11 -0500|2026-11-06 16:26:11 -0500|fix(ingest): require published main-view evidence for note-only photo deltas
+3db2ed1e5b2af105d1e51a18ebb1c757a815f777|2026-11-06 16:19:59 -0500|2026-11-06 16:19:59 -0500|test(ingest): add reviewer adversarial tests for note-only photo deltas
+7f1cd125f2f1db7657b9835dbe73673ef355c8a4|2026-11-06 16:14:27 -0500|2026-11-06 16:14:27 -0500|docs(ingest): require a single owner approval on the official review delivery
+b6a7ef3acf3a67630f065c766ef3dbae835fca50|2026-11-06 16:14:27 -0500|2026-11-06 16:14:27 -0500|docs(ingest): single owner approval on official review delivery (squash of 7f1cd125f2f1db7657b9835dbe73673ef355c8a4, docs/single-owner-approval)
+31b15cc0c870cc8ae5b6498296d89936f8506749|2026-11-06 16:14:27 -0500|2026-11-06 16:14:27 -0500|fix(ingest): certify note-only production-run photo deltas
+8e6c81717046a13e3260187a88ff80a9f10dc229|2026-11-06 13:44:32 -0500|2026-11-06 13:44:32 -0500|docs(catalog): refresh franchise universe after the Naruto ingest
+5e848a4ca2a4005ae958d1d8df0cf7a6a5f38cd9|2026-11-06 07:42:53 -0500|2026-11-06 07:42:53 -0500|fix(e2e): keep the fixture reset out of browserless setup tests
+b4055479206dc2980e83c0f8d25a56f51567e8d1|2026-11-06 07:35:48 -0500|2026-11-06 07:35:48 -0500|fix(e2e): declare the fixture reset script as a knip entry
+256f6767bb561066151e302b69e3f930adaabe2c|2026-11-06 07:35:19 -0500|2026-11-06 07:35:19 -0500|fix(e2e): reset the shared ft_gate fixture before every Playwright run
+6dca4b6821611c30a978e38d99a8167203725258|2026-11-06 02:01:10 -0500|2026-11-06 02:01:10 -0500|fix(media): count only a publicly shown can as a SODA can, pin SODA run-photo behaviour, test owner file results
+483d6645ed7df14b37d4fbbcb9ea0538cdb9da6c|2026-11-06 01:46:18 -0500|2026-11-06 01:46:18 -0500|feat(media): publish an optional Vinyl SODA can, widen skill permissions, align control docs (squash of 7eb1aa32, photo/f2)
+68b0c1e12597112d4859189b74e4497f88e6c962|2026-11-06 01:32:30 -0500|2026-11-06 01:32:30 -0500|docs(media): record owner photo rules, contract v2 and photo:record in canonical docs (squash of 1dccd024, photo/s7)
+b559b7a5b0ab3f0676fb97e331f7e38176f8bdbe|2026-11-06 01:32:30 -0500|2026-11-06 01:32:30 -0500|fix(media): align photo:record, skills and tests with the integrated photo contract (squash of 6972e791, photo/r1)
+6bfb5436c3016453b1ffd77b880960eac62ba5ea|2026-11-06 01:15:37 -0500|2026-11-06 01:15:37 -0500|feat(ops): add photo:record and the read-only ingest:run readiness check (squash of c4fc9ac8, photo/s6)
+3c061cb402a8bfed4c8a4bbd2442eb8163c502ae|2026-11-06 01:10:37 -0500|2026-11-06 01:10:37 -0500|fix(media): address review findings on photo contract v2, box outline, SODA scope and image search (squash of 8554cf5f, photo/f1)
+5dbbb6031e92f9bb7695ee99df3a1d85efba3ae9|2026-11-06 01:10:36 -0500|2026-11-06 01:10:36 -0500|feat(review): official v3 review generator with fixed numbers, severity, stamp and delivery-wide approval (squash of 91ef66a7, photo/s5)
+1987fea9978c1200568408577754442670ed3e62|2026-11-06 00:45:15 -0500|2026-11-06 00:45:15 -0500|docs(skills): apply owner photo rules of 2026-11-05 to ingestion skills (squash of 3349ed01, photo/s4)
+31da8ae0c24a969d7b0c3442a4b419166b747bbe|2026-11-06 00:44:59 -0500|2026-11-06 00:44:59 -0500|feat(media): move processed fixtures out of the checkout and add the image search tool (squash of 66619602, photo/s3)
+3ac63ee381ef019b269fe6ee873d1478b47be1d4|2026-11-06 00:44:59 -0500|2026-11-06 00:44:59 -0500|feat(media): add deterministic photo controls, deskew and sweep regression tools (squash of e970f309, photo/s2)
+367aa2cbb7d40ce20c11cab3c5e6d93cff1ac77b|2026-11-06 00:44:58 -0500|2026-11-06 00:44:58 -0500|feat(media): add ingest view matrix and photo-readiness contract v2 (squash of 6e8a24cb, photo/s1)
+de191d9a2a9eacec5e5e86fcca7d1aefeaa5e890|2026-11-05 15:47:23 -0500|2026-11-05 15:47:23 -0500|test(deploy): drive the modal health-wait window with a controlled clock
+c05464a1cb576e63a0075d68d72a83ad4ee982a7|2026-11-05 15:37:36 -0500|2026-11-05 15:37:36 -0500|fix(e2e): rebuild checkout-local processed fixture media before browser runs
+2b3155c9f59ec11f37a81f4703db3f58583f0934|2026-11-05 15:22:37 -0500|2026-11-05 15:22:37 -0500|chore(test): raise vitest workers to five, record lease wait, small render sheets (squash of 4329448b, chore/verify-speed-batch)
+8e5155bf5a61b3dfc2cc3aa0bec5ec1a6b45bc8a|2026-11-05 14:18:37 -0500|2026-11-05 14:18:37 -0500|test(export): tolerate in-flight processed-media routes at test end (perf/cpu-export)
+5a384f5e05ef097043b61d87aa38ac6c3588bf50|2026-11-05 13:58:22 -0500|2026-11-05 13:58:22 -0500|test(export): compare retry job id instead of the status input shape (perf/cpu-export)
+9e575f2cbfa093901762bb1fcc4eb914bbc5ed9a|2026-11-05 13:42:39 -0500|2026-11-05 13:42:39 -0500|test(deploy): drop explicit prisma generate from the Vercel build expectation (perf/cpu-config)
+77e206c917faf1c5d943df3178f169cbdc6631cb|2026-11-05 13:42:39 -0500|2026-11-05 13:42:39 -0500|test(export): align worker and closeout fixtures with stored-copy-only media (perf/cpu-export)
+5c2af4df550d2766174442565f1a36fb40af765e|2026-11-05 13:42:39 -0500|2026-11-05 13:42:39 -0500|fix(export): guard poll coordinator reuse against an undefined account id (perf/cpu-export)
+d895d2a5a034e441653c45e35352313f90bca106|2026-11-05 13:18:41 -0500|2026-11-05 13:18:41 -0500|docs(decision-log): record Vercel CPU reduction batch
+de80a0bf0696c145fd6ab615bd2079aecfa67d5f|2026-11-05 13:18:41 -0500|2026-11-05 13:18:41 -0500|test(catalog): align ficha streaming fixture with session identity
+a1d081db6df0398482cd1b5c870521fc642d16ad|2026-11-05 13:18:24 -0500|2026-11-05 13:18:24 -0500|perf(export): drop realtime cutout, light state, single cross-tab reader, preview dedupe (squash of 643d9c1ba, perf/cpu-export)
+cb21d9a13a9f31bcefc79768582fe3b560fc236c|2026-11-05 13:18:06 -0500|2026-11-05 13:18:06 -0500|perf(catalog): public piece before session, single rate limit, bounded help (squash of 5c5165ca4, perf/cpu-catalog)
+83b8a81a78ef770618e2dc782ed2a821ba0e93d6|2026-11-05 13:18:06 -0500|2026-11-05 13:18:06 -0500|perf(config): hashed long-cache fonts, single prisma generate, build filter (squash of e8dcfaeaa, perf/cpu-config)
+498d74feca0c16124e9a4279f5ec8b8e28600730|2026-11-05 13:18:06 -0500|2026-11-05 13:18:06 -0500|perf(session): dedupe pendingAction, maintenance preflight revalidation, identity without method (squash of c34cf7ace, perf/cpu-session)
+d4fa7736c3a138a2abb1ef6698f53f9ab30b5db1|2026-11-05 10:43:05 -0500|2026-11-05 10:43:45 -0500|docs(catalog): record owner exception for seven One Piece Bitty Pop boxed backdrop removals
+3748edd8faf342d3e0786fe9df4f31ecd3b83d92|2026-11-05 09:08:56 -0500|2026-11-05 09:08:56 -0500|chore(memory): stamp last_harvest -- panda-corp harvest, 6 lessons
+5b5d2e9eee2016ba8933b8127b645bff65b94162|2026-11-05 08:11:05 -0500|2026-11-05 08:11:05 -0500|fix(export): lock layout switches while a generation is running
+eccf7f7da77e12d604f9241712c7cc2c2bba5441|2026-11-05 07:47:55 -0500|2026-11-05 07:47:55 -0500|feat(export): add separate-by-families option and fill part sheets
+4e1f3e1f17cd59b57b9ef48fe6a8f6a4edc60ce4|2026-11-04 23:22:40 -0500|2026-11-04 23:22:40 -0500|style(ingest): format backfill contract test
+e6785686b2be72568a4bf11c53a648fb76908230|2026-11-04 23:22:04 -0500|2026-11-04 23:22:04 -0500|docs(skills): add canary, single state manifest and render rules to ingestion skills
+25905516f3745b280f7b5bcf0a174588dd8833e7|2026-11-04 23:02:47 -0500|2026-11-04 23:02:47 -0500|refactor(export): keep the parts column constant module-private
+f4599f2ecdbb8bbaddfa536eedae78bd7de83554|2026-11-04 22:55:04 -0500|2026-11-04 22:55:04 -0500|feat(export): render parts at ten fixed columns and show the full preview with page scroll
+5324b265b7ca3a8e8e643353724deb7c6a64b62b|2026-11-04 21:37:20 -0500|2026-11-04 21:37:20 -0500|style(export): format component stylesheets
+f902301ee51433ca5b81d810e4c087ff0c421bc6|2026-11-04 21:36:39 -0500|2026-11-04 21:36:39 -0500|fix(export): keep reference stylesheets untouched and regenerate the data model
+e92dde5729838ecadc02f0c4c2121df33df6bbc3|2026-11-04 21:15:27 -0500|2026-11-04 21:15:27 -0500|feat(export): proportional checklist typography, show-checks option, real-size preview and social parts notice
+75c46128a123a9674a147496c669afd6a033c192|2026-11-04 18:50:17 -0500|2026-11-04 18:50:17 -0500|fix(export): keep the 1x capture floor unbounded and name sticker badge ratios
+b7487fc8849bf871339baf9f96130398273ea460|2026-11-04 18:26:20 -0500|2026-11-04 18:26:20 -0500|fix(export): scale checklist capture continuously within the 60M pixel budget
+e715301f4e2d72ce927d536b5ec6f61db4a9b8aa|2026-11-04 17:51:37 -0500|2026-11-04 17:51:39 -0500|fix(export): cap checklist grid at 16 columns and scale sticker badges with the cell
+056944551ebeb5f5edfcdf85ba9f4b4b87bf3029|2026-11-04 11:34:49 -0500|2026-11-04 11:34:49 -0500|docs(ingest): restore contractual review and upscale wording
+1698488669fec58a3779e80a01e5e5fcae61976c|2026-11-04 11:28:16 -0500|2026-11-04 11:28:16 -0500|docs(ingest): define the owner review HTML: keep design, flag cards by severity
+d1b31d1174e2d3b062246bef9d49981dd91ef440|2026-11-04 09:16:53 -0500|2026-11-04 09:16:53 -0500|chore(memory): drain harvested notes, stamp last_harvest
+f2de1e096a1fc20f4507be300f076dfb2f679085|2026-11-04 07:19:08 -0500|2026-11-04 07:19:08 -0500|docs(ingest): require Node sidecars, pilot-gated runner contract and Naruto photo lessons
+f0a7f250cd98767d7fd5bd03bb96d025fd405c07|2026-11-04 01:23:11 -0500|2026-11-04 01:23:11 -0500|chore: re-sync pandacorp overlay 8.117.0 → 8.117.1
+daf5ff2b798d63c7cd501517c2c7a7a6311e1b5b|2026-11-04 00:23:34 -0500|2026-11-04 00:23:34 -0500|docs(ingest): require pooled photo processing and pilot acceptance
+ecc88d4e3f6560f0d61582a706411b9dec27357c|2026-11-04 00:22:04 -0500|2026-11-04 00:22:04 -0500|chore: upgrade pandacorp overlay 8.114.1 → 8.117.0
+9628896e55ae107f34aeb73470d37ac5b402599e|2026-11-03 23:12:53 -0500|2026-11-03 23:12:53 -0500|fix(ingest): keep lifecycle updates independent of announcement image gating
+e4e78e27147bde57a23dfe568d024ada831676a9|2026-11-03 22:28:32 -0500|2026-11-03 22:47:25 -0500|fix(ingest): use display eligibility for announcement images
+c83824d3b4f2088fc27e9bc0448cb374f0cb3196|2026-11-03 22:23:21 -0500|2026-11-03 22:47:25 -0500|docs(catalog): align product docs with hidden imageless announcements
+359a78621a8cc8c5e85e01b8d26fcb9438607516|2026-11-03 22:12:25 -0500|2026-11-03 22:47:25 -0500|fix(ingest): hide imageless announcements until an image is found
+f32508acbe87384b8b8b91605d2cfccaa341f3df|2026-11-03 22:04:59 -0500|2026-11-03 22:47:25 -0500|docs(catalog): hide imageless announcements until an image is found
+76e3635596f6d67f0cb3abfa50d00d83347d2f70|2026-11-03 21:03:16 -0500|2026-11-03 22:47:25 -0500|fix(catalog): keep ingest import boundary and reference CSS intact
+0821fe01befa19640a6dcae17e6ec2865b67fc91|2026-11-03 20:18:47 -0500|2026-11-03 22:47:25 -0500|fix(ingest): replace stale hidden provenance when policy publishes announcements
+701c819b6d09fe25cc21a8ac304fd3ba6f1f7b37|2026-11-03 20:13:27 -0500|2026-11-03 22:47:25 -0500|docs(ingest): document official postponement marker and lead publication
+cf5a0c1cf17b4eb0dd80fdd05f2bce86224ccdea|2026-11-03 20:08:01 -0500|2026-11-03 22:47:25 -0500|fix(catalog): honour postponements, publish official announcements, read legacy export filters
+4bbfde4d116bdf131cdb7fd9f7a65a790b89de56|2026-11-03 19:45:50 -0500|2026-11-03 22:47:25 -0500|feat(ops): report announced release deadlines
+c61efddbb3d495acff36cc26d38704eb8f399f82|2026-11-03 19:45:50 -0500|2026-11-03 22:47:25 -0500|refactor(catalog): retire unknown collectible release status
+1625fae6bae587c3d03d7c95d99ba19d616801c9|2026-11-03 19:40:37 -0500|2026-11-03 22:47:08 -0500|docs(catalog): retire unknown release status and define announced-to-released rules
+d28ba0c1387d5e0154fdb23b0d15e66f3922e24a|2026-11-03 20:36:29 -0500|2026-11-03 22:06:04 -0500|test(universe): assert behavior on own fixtures instead of live catalog counts
+4c4409666ad97465ce733a0e8bf6e99d55e5ef4b|2026-11-03 19:59:15 -0500|2026-11-03 19:59:15 -0500|docs(ingest): restore required review contract wording
+916026d3f50a5089516de431d2675ced5dbb12f2|2026-11-03 19:37:23 -0500|2026-11-03 19:37:23 -0500|fix(ingest): correct review renderer migration and photo ordering
+a379cfda9f7912b1342bb3b8237400713f360cdb|2026-11-03 19:25:44 -0500|2026-11-03 19:25:44 -0500|feat(ingest): standardize single-file review template
+fddb5b95c0672893549b02f1398db3d174a19d92|2026-11-03 17:56:50 -0500|2026-11-03 17:56:50 -0500|test(universe): align taxonomy import fixtures with the merged Bleach series
+98a2cda4c0e9ef9efd664d14f27471b17214ce55|2026-11-03 17:35:48 -0500|2026-11-03 17:35:48 -0500|fix(universe): align frozen-map invariants with the merged Bleach series
+2d8f24aba2f3f5168c7918b52771d3bbcd8d038b|2026-11-03 17:10:07 -0500|2026-11-03 17:10:07 -0500|feat(ingest): publish officially announced pieces regardless of image host
+72a5cb10ec7457fa8968f33abd2621789b462d1c|2026-11-03 12:51:34 -0500|2026-11-03 12:51:34 -0500|docs(catalog): refresh the franchise universe map after the Chopper #2647 ingestion
+ac6a30ee89e945b35e490e23f9deef5133b563eb|2026-11-03 12:51:14 -0500|2026-11-03 12:51:14 -0500|fix(catalog): merge generic Bleach series into its base series
+f2c6e51b7388b64bfd599d5839e482bbab6ee259|2026-11-03 11:36:26 -0500|2026-11-03 11:36:26 -0500|feat(ingest): check scratch database bindings early and record chat-only review attachments
+1c7d6bd607f45c951160afccad591b7530221256|2026-11-03 09:12:37 -0500|2026-11-03 09:12:37 -0500|chore(memory): harvest -- 3 lessons, 0 backlog items, last_harvest stamped
+f22bba4e2cf2e995e4a77a1662d503555fecaa37|2026-11-01 17:15:27 -0500|2026-11-01 17:15:27 -0500|feat(universe): add 128 round-seven franchise logos
+68fc880bfd38c6f0315aa26dbfaece3379ef82be|2026-11-01 13:31:28 -0500|2026-11-01 13:31:28 -0500|feat(universe): add 242 box-derived franchise logos
+2f820d5f56c89e03402029d7c67778d91b804a95|2026-11-01 09:30:27 -0500|2026-11-01 09:30:27 -0500|chore(memory): harvest -- 7 lessons, 0 backlog items, last_harvest stamped
+70ff840a5760e8663c71982ed45e0081543a917b|2026-11-01 04:46:20 -0500|2026-11-01 04:46:23 -0500|fix(universe): render the title and search form in the static shell
+e88abb5985192976bf8f17a11cbfdceb9f3e8db7|2026-11-01 04:18:29 -0500|2026-11-01 04:18:29 -0500|fix(universe): restore the client directive as the first statement
+97ec7dac2b8d52d044cf543da9219c0f22cdc3f5|2026-11-01 04:07:12 -0500|2026-11-01 04:07:12 -0500|feat(universe): add the Funko universe page
+3e2fe8862fb818ec9832730bfd33c3be5d752ae5|2026-10-31 21:22:23 -0500|2026-10-31 22:37:06 -0500|chore(test): serve the full browser gate from a production build
+a99b3feb64af15ef668ee04aa782816aadf0b4cd|2026-10-31 22:36:49 -0500|2026-10-31 22:36:49 -0500|docs(adr): renumber the checklist metadata ADR to resolve a duplicate id
+4bc39b75944a8232257c2b51e8c0e50604d9422f|2026-10-31 13:03:31 -0500|2026-10-31 13:03:31 -0500|fix(ops): tolerate slow Neon acquisition in media retirement
+85e8a5c9328a861b3ab9e65f484627116ea77a20|2026-10-31 11:58:41 -0500|2026-10-31 11:58:45 -0500|feat(test): add focused test loop and move browserless contracts to vitest
+ebfe1d7f9da0da2052b7a6f9a81bc74a01ca3d25|2026-10-31 09:30:32 -0500|2026-10-31 09:30:32 -0500|chore(memory): stamp last_harvest after factory memory harvest
+21b8dee1ee150feec16c2ffc3d6531ee12db7217|2026-10-31 00:10:33 -0500|2026-10-31 00:10:33 -0500|docs(skills): document the mandatory ingestion gates in the ingest skills
+80d18d7d14c00435dfd6c10b095f8db573d418f7|2026-10-31 00:10:32 -0500|2026-10-31 00:10:32 -0500|feat(ops): enforce ingestion rules with preflight, review receipts and photo-readiness gates
+2649591fcd2b1c20b4ca2d391b23a75f8f91d0b2|2026-10-31 00:10:28 -0500|2026-10-31 00:10:28 -0500|feat(test): serialize heavy test gates behind a machine-wide lease
+a2f7f08c9d97fa3f54b558bcb69f9f91aeb257af|2026-10-30 20:27:53 -0500|2026-10-30 20:27:53 -0500|test(e2e): align the FRD-06 skill-contract spec with the hardened ingestion skills
+3666da7d0b65d696bd1a654b2934de33f7eabf63|2026-10-30 19:43:13 -0500|2026-10-30 19:43:13 -0500|test(db): give the fixture-target child process a load-tolerant timeout
+4177696ae88d55c091e4db22308b6dd084865cc0|2026-10-30 19:13:38 -0500|2026-10-30 19:13:38 -0500|test: widen the hook, scale and deploy-health time bounds for shared-machine load
+689175ba294fdcf884233e770b17a7f8648b8f61|2026-10-30 19:13:37 -0500|2026-10-30 19:13:37 -0500|test(ops): follow the Bleach holder series in the universe total

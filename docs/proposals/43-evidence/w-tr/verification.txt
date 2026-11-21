@@ -1,0 +1,42 @@
+PASS: 62 filas = 62 episodios; 138 tool IDs únicos; 393 referencias fuente con timestamps válidos.
+PASS: todos los agregados recalculados coinciden con aggregates.json y la tabla (vueltas/desenlace/pared).
+PASS: exclusión de 2 transcripciones investigadoras; ningún proyecto ejecutado ni modificado por estos scripts.
+{
+  "episodes": 62,
+  "sessions": 29,
+  "attempts": 138,
+  "landed": 58,
+  "first_attempt_landed": 27,
+  "first_attempt_pct": 43.548,
+  "wall_landed_median_s": 1738.4395,
+  "wall_landed_max_s": 44427.977,
+  "wall_observed_median_s": 1738.4395,
+  "wall_observed_max_s": 108290.144,
+  "censored": 4,
+  "certified_episodes": 2,
+  "certified_calls": 2,
+  "full_gate_calls": 28,
+  "red_causes": {
+    "a": 19,
+    "e": 1,
+    "f": 23,
+    "g": 7,
+    "h": 10
+  },
+  "reds": 60,
+  "all_nonlanding_causes": {
+    "a": 19,
+    "b": 6,
+    "e": 6,
+    "f": 23,
+    "g": 7,
+    "h": 19
+  },
+  "queue_median_s": {
+    "funko-tracker": 690.508,
+    "mission-control / panda-corp": 26.431
+  },
+  "queue_measured": 137,
+  "queue_upper_bounds": 13,
+  "queue_unknown": 1
+}

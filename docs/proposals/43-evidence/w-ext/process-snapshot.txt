@@ -1,0 +1,1 @@
+Sin coincidencias o ps no accesible: ps aux BLOQUEADO por sandbox: [Errno 1] Operation not permitted: 'ps'

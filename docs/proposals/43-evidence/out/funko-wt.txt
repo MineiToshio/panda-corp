@@ -1,0 +1,19 @@
+## /Users/Shared/Proyectos/funko-tracker
+-rw-------@ 1 sergio  staff   234 Nov 20 18:52 /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/green-stamp
+-rw-rw-r--@ 1 sergio  staff  2055 Nov  5 15:10 /Users/Shared/Proyectos/funko-tracker/e2e/server-env.json
+## /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282
+S .claude/launch.json
+S e2e/server-env.json
+ls: /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/green-stamp: No such file or directory
+-rw-------@ 1 sergio  staff  2055 Nov 18 15:45 /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/e2e/server-env.json
+## /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/integration
+S .claude/launch.json
+S e2e/server-env.json
+ls: /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/integration/.pandacorp/run/green-stamp: No such file or directory
+-rw-------@ 1 sergio  staff  2055 Nov 18 15:46 /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/integration/e2e/server-env.json
+## /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007
+ls: /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007/.pandacorp/run/green-stamp: No such file or directory
+-rw-------@ 1 sergio  staff  2055 Nov 18 16:23 /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007/e2e/server-env.json
+## /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007-a2
+ls: /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007-a2/.pandacorp/run/green-stamp: No such file or directory
+-rw-------@ 1 sergio  staff  2055 Nov 18 16:41 /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007-a2/e2e/server-env.json

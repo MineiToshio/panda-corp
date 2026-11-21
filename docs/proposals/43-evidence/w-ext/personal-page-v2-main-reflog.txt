@@ -1,0 +1,158 @@
+547e214942218082b6be7e389d3b16546894164e|main@{2026-11-13 09:17:17 -0500}|commit: chore(memory): harvest -- 1 lesson, 0 backlog items
+8c9c618e78a3acb001f5414d90ef95280b04cd6d|main@{2026-11-13 09:00:21 -0500}|merge chore/overlay-9.2.0: Fast-forward
+2f292cadccc71b6cc37e03039abb10739f3e544c|main@{2026-11-13 01:18:20 -0500}|merge chore/overlay-9.1.2: Fast-forward
+8caffb099ca9669c5711191c799a28e644eb22fa|main@{2026-11-12 22:29:22 -0500}|commit: chore(pandacorp): activate project risk paths (R11)
+70bdffd3b4556233bc03a52a500b83cae20abffa|main@{2026-11-12 20:42:36 -0500}|commit: chore: upgrade pandacorp overlay 8.98.0 -> 9.0.0
+a8c00853a844c93a14f0b792ee2212079b6f8f36|main@{2026-11-04 09:06:32 -0500}|commit (amend): chore(memory): stamp last_harvest (orphan catch-up)
+d34cb5f0548901f9b500ec129eaceb66373d9965|main@{2026-11-04 09:06:24 -0500}|commit: chore(memory): stamp last_harvest (orphan catch-up)
+30d8655a96a11db2ec1c0aa8612e49ab867e5387|main@{2026-10-31 22:36:49 -0500}|commit: docs(frd-03): quote YAML frontmatter values that broke strict readers
+a25a23266c22f158bd00d79f83ae7f4f6433a954|main@{2026-10-28 09:33:29 -0500}|commit: chore(memory): stamp last_harvest after 2026-10-28 sweep (no-op)
+18554ca27d3bc1be784991b24d345324d92ac254|main@{2026-10-20 00:38:00 -0500}|commit: docs(governance): authorize Codex and Claude across Pandacorp skills
+cfbb0e6a134096597ec81b46fe25c35fe03da033|main@{2026-10-10 21:48:04 -0500}|commit: docs(design): archive Claude Design canvas export before standalone sunset (2026-12-14)
+0b1fa8a7fee39669b049b50ac5b68e63591ff591|main@{2026-10-07 01:13:17 -0500}|commit: chore(release): v1.0.0, launch toshiominei.com (deploy_target external)
+c65e4796cb5f2c52706920aae7efe0ff0b11470a|main@{2026-10-07 01:07:27 -0500}|commit: docs(release): launch plan with channels, UTM convention and draft posts
+a6a725e5cd9411942dd29954aeab149cbdbe2592|main@{2026-10-07 00:29:36 -0500}|commit: chore(memory): stamp last_harvest after the release close-out harvest
+c5bf4ba6c2b3b79dd0f4b9c48d09735c70e6d49a|main@{2026-10-07 00:27:08 -0500}|commit: chore(release): close construction (DR-085 hardening) and set phase release
+73a7acdc89fa365f8eede9ac8da09e02d1424ff8|main@{2026-10-07 00:26:30 -0500}|commit: chore(next): commit the files next 16.3 regenerates
+d02ec95a1be4f345b779ce55802cc75409917d38|main@{2026-10-07 00:23:57 -0500}|commit: docs(security): fix pass for H-1 and L-1
+91278caf864e28de9bdcb2017a49ed094334a6f3|main@{2026-10-07 00:21:25 -0500}|commit: fix(deps): bump next to 16.3.7 to clear critical advisories
+6bc48b381eb443984609f51e1b02aeb8f3a53e69|main@{2026-10-07 00:19:20 -0500}|commit: fix(site-config): drop the unused email field from the client bundle
+bd7e9b3767c5462e8b7e895765dc593ffbf025fd|main@{2026-10-07 00:18:30 -0500}|commit: docs(security): audit report 2026-10-07
+a62d6fa2e2bd3078523962100a81f0b6e6d65f91|main@{2026-10-07 00:18:30 -0500}|commit: feat(analytics): close three tracking gaps found by the DR-085 telemetry check
+55feb22b16bcb5eb043386a99d741d1db02605a8|main@{2026-10-06 23:43:24 -0500}|commit: chore: quiesce Claude build lease
+9c45bf92ea016bb658ac47cde35db2e2438c9a00|main@{2026-10-06 23:41:25 -0500}|commit: docs(seo): plan case-study OG cover image and Alohub wording
+8d1182358564d6c68c45e69cdae286f78ba614a7|main@{2026-10-06 23:33:53 -0500}|commit: docs(blog): plan optional updated date across FRD-05/06/08
+988dca8b550471f731ffcff291239a83b58c7078|main@{2026-10-06 23:26:06 -0500}|merge fix/frd08-gate-findings: Fast-forward
+7ac7c3378d4e4772f05818a1bd7f7a6a145e8728|main@{2026-10-06 23:23:59 -0500}|commit: chore(stats): refresh generated stats snapshot
+5943aa48eb2b948a17403df8b12c8df16a51df6e|main@{2026-10-06 22:36:57 -0500}|commit: chore: upgrade pandacorp overlay 8.81.0 → 8.98.0
+016ea74c780a69e50ec950f206f1646d27f9566d|main@{2026-10-06 22:36:57 -0500}|commit: test(e2e): re-bless visual baselines after the 2026-09-30 copy rewrite
+200a1db131008447add163c510d3ac5bf1f2e9b3|main@{2026-10-01 09:26:53 -0500}|commit: chore(memory): harvest run/lessons.md -- stamp last_harvest timestamp
+56d0654d859399a8c7a5e1cc43a0b23987f8a4b2|main@{2026-09-30 15:18:51 -0500}|merge codex/bilingual-editorial: Fast-forward
+2837f9f56ff532451e74d8aba8327ed3f11793fe|main@{2026-09-30 12:48:59 -0500}|commit: docs(blog): refine English copy and localization guidance
+8ddb3e92ef9d0012981b93cddc7eabd9b91a5811|main@{2026-09-30 11:15:43 -0500}|commit: content(blog): publish "Dejé de programar con IA y empecé a dirigirla" in both locales
+3c7437ce79f2ce5550084baca35241f1a52b472a|main@{2026-09-30 09:27:00 -0500}|commit: content(blog): editorial pass on the ES draft, and "caso esquina" stays
+d45e517e4aebfbb1facaa489864e164c561e6ffc|main@{2026-09-29 20:07:09 -0500}|merge worktree-blog-draft-mdx: Fast-forward
+b478c5f0a124d631c23ae6c1dbdea826c5abfef3|main@{2026-09-28 21:13:37 -0500}|merge worktree-blog-quote-elided-noun: Fast-forward
+03217fb1b7fafbbb8006934ab4eb6f3a1184ec36|main@{2026-09-25 09:20:16 -0500}|commit: chore(memory): stamp last_harvest after factory librarian sweep
+32fe79c443afe4ed5500448e998fc790e78698b6|main@{2026-09-24 23:36:45 -0500}|merge worktree-blog-links-new-tab: Fast-forward
+e64f104708fb8fdf81d7697c7b8928a0d13f28de|main@{2026-09-24 23:15:58 -0500}|merge worktree-blog-affirmative-phrasing: Fast-forward
+095b11449219e842a40082870e873ad6fb901f22|main@{2026-09-24 22:01:25 -0500}|commit: docs(blog-generator): the preview artifact carries one tab per locale
+54c4509b972b101be0676599e337ccabe2faad5c|main@{2026-09-22 09:23:15 -0500}|commit: chore(memory): stamp last_harvest -- personal-page-v2 6th drain
+d86f92a2ebe2ddc4685e788a46a0e1d12538f371|main@{2026-09-20 23:14:48 -0500}|commit: docs(voice): require every blog blockquote to stand alone
+e1c6b9f8d080bb79e743611f002cc3d4a840e85e|main@{2026-09-20 21:10:19 -0500}|merge worktree-blog-internal-links: Fast-forward
+f737bc4ac016f50977175f80a64d8b16b2ed1304|main@{2026-09-16 09:16:05 -0500}|commit: chore(memory): stamp last_harvest -- personal-page-v2 5th drain
+9e6f14cfd01be97293664af1988f66e4d5b84734|main@{2026-09-15 16:56:42 -0500}|commit: fix(blog): close a tropicalization gap, add the no-clickbait rule, fix one unnatural phrase
+ef19404f38a5ed8ebd84dd5a528e49f6d727c39a|main@{2026-09-15 16:36:44 -0500}|commit: docs(blog-generator): FRD-08 v3 spec + skill orchestration for multi-source, dual-context ideas
+6a744d5440aacad55f3d4d9e06a7c855ccda81fa|main@{2026-09-15 16:36:29 -0500}|commit: feat(blog-generator): FRD-08 v3 multi-source idea adapters (case studies, decision log, lessons, profile, work transcripts)
+8b06907d34f9c02a946739675f18dc7c854a8c4e|main@{2026-09-15 12:32:44 -0500}|merge worktree-rebless-visual-baselines: Fast-forward
+1f0f081bee8ea8db41d5a48bf82162b97f990a49|main@{2026-09-15 11:42:01 -0500}|commit: feat(blog): publish "For Me, Leading Well Means Hitting the Goal and Growing the Team at the Same Time"
+8e42159055f02e6a0c9c880bd1bb1638730b95d5|main@{2026-09-15 11:41:52 -0500}|commit: feat(blog-generator): make cover-image prompts maximally descriptive and photographically real
+9478e7d802e88dd7098c7912ce07c1a4767c2b01|main@{2026-09-13 09:21:42 -0500}|commit: chore(memory): stamp last_harvest for 2026-09-13 factory memory harvest
+231cfb1da38646d81df35f9eb11f5637d097d7aa|main@{2026-09-13 01:26:27 -0500}|commit: feat(blog): add the cover image to "Why I Built One Generic Engine..."
+eb5dbee48b91132c5b6223de6dda57fe33f1ee24|main@{2026-09-13 01:23:52 -0500}|commit: feat(blog): publish "Why I Built One Generic Engine Instead of Another One-Off Panel"
+17d28c277aabe83f2f582a56c73a917d16bd575b|main@{2026-09-12 14:58:22 -0500}|commit: fix(blog): replace tests-en-verde-produccion-rota's cover with a landscape shot
+e5531cbe960fe4d97b9d385bd0a3f93166594c27|main@{2026-09-12 14:52:46 -0500}|commit: fix(blog): replace el-trabajo-que-bote's cover with a landscape shot
+2a8382caef813636f6437ca58160c61a46ea2ceb|main@{2026-09-12 14:02:05 -0500}|commit: feat(blog-generator): cover-image prompt specifies landscape composition
+931b64f35e8399b95fd85b92e0ef5bb23a05d641|main@{2026-09-12 13:33:28 -0500}|commit: fix(seo): add the second blog post to llms.txt
+2ad3e4f0e10f9d80ee63c3c1b0b22bb34d7b1f0c|main@{2026-09-12 13:30:56 -0500}|commit: feat(blog): add the cover image to "Why My Tests Passed..."
+2c9939c2efccd4f802b90060bc5111ccacb76f01|main@{2026-09-12 03:36:09 -0500}|commit: feat(blog-generator): cover images are real scenes, not abstract renders
+4e6acc97d6d6b980dc8536fa6ac94e1cd023ddef|main@{2026-09-12 03:20:11 -0500}|commit: feat(blog): publish "Why My Tests Passed While My Blog Was Broken in Production"
+4692c7d2b96652ef43e65a62f783fcc7e6de41ef|main@{2026-09-12 02:05:15 -0500}|commit: fix(link-arrow): put the chevron before the text in the back variant
+e26f94ea0a2d7ae31368c397f99d10516d256df9|main@{2026-09-12 01:55:55 -0500}|commit: fix(blog): square off the non-featured post card's cover corners
+9cc3593304c0b535559cabe599fdda6f8292af57|main@{2026-09-12 01:40:25 -0500}|commit: fix(prose): restore list markers in the shared .prose primitive
+f74cc902ec224c8d72922878497db29f997ea0f4|main@{2026-09-12 01:24:31 -0500}|commit: fix(blog): style the "What I took away" box as a real callout
+1b3a5c05310a647938b740b055fc2bdbd3ae88dd|main@{2026-09-12 01:17:17 -0500}|merge worktree-post-header-byline-layout: Fast-forward
+78b7ec8d9428f354db79232c73f1e733adbe3c36|main@{2026-09-12 00:45:53 -0500}|merge worktree-post-avatar-photo: Fast-forward
+2737cf00741b72d3c1256185428b9eec8de6691d|main@{2026-09-12 00:17:30 -0500}|commit: feat(blog): add the cover image to "My Rule for..."
+f3e9df3e0e2722c8bcdff435997ecc10cfaf8728|main@{2026-09-12 00:04:33 -0500}|commit: feat(blog): publish "My Rule for Deciding When to Throw Out AI-Written Code"
+f220cadc332b3904464f0eff54c9b1ebcc2713d9|main@{2026-09-12 00:04:26 -0500}|commit: docs(voice): capture zero-assumed-context and sentence-clarity rules
+f2fe64de8deef0553a0525be66fd5fce0e3bbe08|main@{2026-09-12 00:04:20 -0500}|commit: fix(blog): open external post links in a new tab
+c79b545f62e2514fb8ad150c1c9537a547565d3a|main@{2026-09-11 12:18:28 -0500}|merge worktree-voice-tone-localization: Fast-forward
+2a1ae372aa0465713b5d8e323aed56a046f10f08|main@{2026-09-11 00:44:59 -0500}|commit: fix(blog-generator): roll back a published locale if its sibling fails
+b4c61e36092637ecbb99c23d1eda7520fc22d3a7|main@{2026-09-11 00:30:44 -0500}|commit: chore: quiesce Claude build lease
+971fc8711ff61352f07977fe7639a3812860cf72|main@{2026-09-11 00:15:41 -0500}|commit: fix(blog-generator): extend the dash ban to coverAlt and tags
+c40d90746fbbf30f3b2b3dbe5a9a177a0df96406|main@{2026-09-10 23:50:39 -0500}|commit: feat(blog-generator): SKILL.md v2 orchestration — story discovery through publish
+1be2007b1e11f2a0be864fce9c5cec5bc12f4e4e|main@{2026-09-10 23:32:52 -0500}|commit: feat(blog-generator): add claim ledger and publish guard
+e28d58f0c8f8639ba2f02794ee68b50fe0026dab|main@{2026-09-10 23:17:45 -0500}|commit: feat(storyLedger): implement story ledger card & consent gate
+daef2498a869881ee493890d9397ca9dff281d48|main@{2026-09-10 22:44:39 -0500}|commit: feat(blog-generator): deterministic privacy gate with secret scan and denylist
+de0e625212db4f867ac56d78c5758f3e725a5701|main@{2026-09-10 22:22:29 -0500}|commit: feat(blog-generator): story index + transcript extraction for v2 pipeline
+996024850df6993d2ec3f27e2f0dbdb91d6a19c3|main@{2026-09-10 22:16:32 -0500}|commit: feat(blog-generator): add deterministic cover image prompt builder and WebP optimizer
+8c5176093a62400e026d805a7e1131c79b2707c0|main@{2026-09-10 22:14:19 -0500}|commit: feat(blog-generator): implement seoLint with SEO/AEO checks
+b0e0a336ac064acd8977cf92da69f55e6c5545b1|main@{2026-09-10 22:00:56 -0500}|commit: build(state): sync rollups — 20 WOs (7 planned, 13 verified)
+96d762f72ff7aa1a9047b52c0014aeb41523138e|main@{2026-09-10 21:58:13 -0500}|commit: feat(blog-generator): scope v2 story factory into FRD-08
+84fec3fb47a5d0ac32c4f573a9e433389a531875|main@{2026-09-10 21:35:44 -0500}|commit: chore: quiesce Claude build lease
+9fc49a2fbdb6cc089bed2b60e47183c7e6547110|main@{2026-09-10 21:31:54 -0500}|commit: chore(.pandacorp): archive landed change blog-cover-alt-field
+7e3664be87ce26db1d73de4bed5c70fd2225c8d9|main@{2026-09-10 21:30:01 -0500}|commit (amend): style(visual-qa): sweep punch-list for frd-05-blog-mdx
+1c837da0c0df9d978c8c0531c9c2d09f3339bc41|main@{2026-09-10 21:29:28 -0500}|commit: style(visual-qa): sweep punch-list for frd-05-blog-mdx
+7f7bb0d96d37f77bd8be7ce32e3532a08870d8db|main@{2026-09-10 21:08:13 -0500}|commit: chore(build): publish last green snapshot
+cf9bdf455335cf453e564a5fdcafc086f0f2532e|main@{2026-09-10 21:08:02 -0500}|commit: feat(blog): complete FRD-05 blog-mdx coverage with bilingual alt text (WO-05-002)
+047c23d0f550cfb2e94cd6dfdce2cecaedfd7a2e|main@{2026-09-10 20:41:55 -0500}|commit: feat(blog): add mandatory bilingual cover alt text
+97f2dec752009d8ade34e7fd739a707869de0564|main@{2026-09-10 20:31:38 -0500}|commit: feat(design-system): build the missing SectionHeader and SocialLinks primitives
+5aff22b99f5b94c603da0271ef5b03ae5ba50e88|main@{2026-09-10 20:15:43 -0500}|commit: chore(rollups): sync FRD-05 work-order counters
+a1b29d36bf8ada4e050bdb194b904158d521cbdb|main@{2026-09-10 20:14:17 -0500}|commit: docs(blog): plan WO-05-002, mandatory coverAlt paired with a post cover
+e5eb4123429d6feaff415a4fc7acfa500f978066|main@{2026-09-10 19:55:59 -0500}|commit: chore: quiesce Claude build lease
+1ea212f2dbf15f71665fd0580217b341e89c79a4|main@{2026-09-10 19:48:31 -0500}|commit (amend): chore(build): release stuck lease from crashed run_20260911T003916Z_11365
+9a9e07aca967ae2d34631d2b55f4d66d2e9a0456|main@{2026-09-10 19:48:14 -0500}|commit: chore(build): release stuck lease from crashed run_20260911T003916Z_11365
+3ef217a0e9a9aea9f3f26327bfc370f42fa94c2b|main@{2026-09-10 15:33:44 -0500}|merge worktree-contact-warmline2: Fast-forward
+e2f6e4736e5073e6c6d839791afa88620d537102|main@{2026-09-10 15:21:50 -0500}|merge worktree-contact-warmline: Fast-forward
+bdf5ee2f15830c2389badb47089a2c749ba96c1a|main@{2026-09-10 12:43:51 -0500}|merge worktree-case-studies-es: Fast-forward
+86883c0576cf653dcdaee21ac72e7bb6b4393c5b|main@{2026-09-10 12:29:34 -0500}|merge worktree-es-naturalness: Fast-forward
+61006134dfcc4f57c70f6368914d84b541dcfebb|main@{2026-09-10 12:25:20 -0500}|merge worktree-home-copy-round2: Fast-forward
+ac0bffea2f1f88dba0edc55ff93233add0b09659|main@{2026-09-10 09:32:31 -0500}|merge worktree-hero-ai-copy: Fast-forward
+5cef85a534013e21271249c3e7b544afe20a76cd|main@{2026-09-10 09:22:29 -0500}|commit: chore(memory): stamp last_harvest 2026-09-10 (librarian sweep)
+4da47af6fd83000ed74e3ae40208a9910e76dba4|main@{2026-09-10 08:48:17 -0500}|merge worktree-feedback-copy-fixes: Fast-forward
+9fc14e1e8ebb03c9db1b11095fb8390981e5d032|main@{2026-09-10 07:59:16 -0500}|merge worktree-home-ai-eyebrow: Fast-forward
+95e818bd2b3b7fa8a0c46bae74a97992400e4084|main@{2026-09-10 07:35:40 -0500}|commit: fix(shell): land cross-route hash links on their section under Next 16 smooth scroll
+6ead45da3c829d54eb2c9744accb0c90d027c08e|main@{2026-09-09 22:58:14 -0500}|merge worktree-home-how-i-work: Fast-forward
+67064f44eaff2303615f5d36530735adc85005ef|main@{2026-09-09 21:19:55 -0500}|merge worktree-case-studies-recruiter-rewrite: Fast-forward
+6edbe9a3ad00e0a906ea9aacfb3a9d6391fc5f23|main@{2026-09-09 21:17:15 -0500}|commit: fix(contact): drop the email address, retire the fit line, fix the favicon
+c98554f0af491fb6216068bc8a246025de86898c|main@{2026-09-09 00:47:52 -0500}|commit: feat(projects): remove the redundant Stack field from the case-study glance bar
+0a29d3726cd54cb22f561734bf8378c1a7fe17a7|main@{2026-09-08 23:08:03 -0500}|commit: fix(test): exclude .pandacorp/run/** from vitest to stop globbing nested worktree node_modules
+10a1062290c0770eaa0bb8ece373250576f58934|main@{2026-09-08 22:53:40 -0500}|commit: chore: quiesce Claude build lease
+d37be5acc742149b387233a41353077cda258a9a|main@{2026-09-08 22:35:17 -0500}|commit: style(visual-qa): sweep punch-list for frd-03-projects-case-studies
+0e443b04d02ca69cde92d7750b6ef2253ce6adb2|main@{2026-09-08 22:16:45 -0500}|commit: chore(build): publish last green snapshot
+06d116b2154f90b049aae30d3c0dd78e989f4bc5|main@{2026-09-08 22:16:18 -0500}|commit: chore(review): verify WO-03-002 patch, mark FRD-03 fully VERIFIED
+e618a315da51869565e2cc07799f6eeb852ac888|main@{2026-09-08 22:11:20 -0500}|commit: docs(projects): land the mediaAnchorId JSDoc rewording missing from the FRD-03 removal commit
+200d96fc5b46c362731108730465cfc207d9417a|main@{2026-09-08 21:49:51 -0500}|commit: feat(projects): remove per-decision artifact links from case studies
+0f9881ba97416204e6c0b910443fbfdbc09edc13|main@{2026-09-08 21:40:05 -0500}|commit: chore(rollups): sync work-order state and blueprint metadata (FRD-03)
+19a32ceeff629e3e3c925d087b9a9beb901f6791|main@{2026-09-08 21:38:40 -0500}|commit: docs(projects): queue WO-03-002 to remove the per-decision artifact links
+f9d35b675bf836c6e34a25d635230b9b606d59a1|main@{2026-09-08 18:11:35 -0500}|commit: feat(about): rewrite About from owner interviews, retire before/after AI-vs-hand framing sitewide
+2fb468780a56ee0cecfbb0954d22fcd0e23d6c2b|main@{2026-09-08 09:22:48 -0500}|commit: chore(memory): drain lessons inbox, stamp last_harvest
+f42be745ce0e8b3def816c1ba7b11ebd6f6ad54f|main@{2026-09-08 09:14:51 -0500}|commit: feat(about): rebuild About from owner interview, reorder sections (FRD-04)
+9e7b8b0146c176465a24726dad5c739dd5defc0f|main@{2026-09-07 23:00:28 -0500}|commit: chore: upgrade pandacorp overlay 8.69.0 → 8.81.0
+1848992b8dc44ddca4065f8742129723a0540326|main@{2026-09-07 19:13:54 -0500}|commit: chore(status): re-stamp last_green_sha after the 2026-09-07 iteration pass
+8634f6b0d6191f5e9635215ae29c861f3e82c7a6|main@{2026-09-07 19:13:22 -0500}|commit: docs: log the 2026-09-07 iteration pass, remove unused prod-preview launcher
+df29a18e68ab683aa5d16df37a5df2f0d1bd3d58|main@{2026-09-07 19:13:15 -0500}|commit: test(e2e): pin Playwright dev port to 4010, refresh visual baselines
+7c2012ffc38977e9f9471b4a65027f6170d66a1d|main@{2026-09-07 19:13:08 -0500}|commit: feat(projects): revert to single case-study grid, fix era-badge wrap (FRD-03)
+1fc8888c8f92c8fbec7b80d72ccb6372dd618cbc|main@{2026-09-07 19:13:01 -0500}|commit: feat(about): restructure to How-I-work + credentials, add Now copy (FRD-04)
+6d266889e0c6089a8183a93447404c45d8ea11a6|main@{2026-09-07 19:12:56 -0500}|commit: feat(home): "At a glance" proof strip and two-column hero (FRD-02)
+738d310182d7c09d79ad2746129771060c8f88e6|main@{2026-09-07 19:12:50 -0500}|commit: fix(ui): heading structure, CTA-band spotlight and blog streaming order
+63f0cc012c708bae3d82dff3b34fc91f1f387bd0|main@{2026-09-07 19:12:43 -0500}|commit: feat(seo): structured data, llms.txt and breadcrumb JSON-LD (FRD-06)
+f0373addba0aae7e9f3addfb5868df55d362b709|main@{2026-09-07 19:12:38 -0500}|commit: chore(i18n): sync copy bundles and add content-integrity test infra
+70df2eeba848c3656326035b77a3156d314c02b7|main@{2026-09-07 09:20:36 -0500}|commit: chore(memory): stamp last_harvest from panda-corp memory sweep
+96a68a992c7794c172d62fc80b7bbce295ecd73a|main@{2026-09-07 09:06:05 -0500}|commit: docs(decision-log): review-launch re-check 2026-09-07 -- build went green, cutover still didn't happen
+21f984005cf581e27aba97df3e542aa9cb37988f|main@{2026-09-07 00:57:48 -0500}|commit: chore(status): re-stamp last_green_sha after the doc audit
+bc891499853d3d8c791ea561729adb9c9ad891c4|main@{2026-09-07 00:57:48 -0500}|commit: docs: realign six canonical docs with what the build actually does
+0a0290b08726b0f0ef18bc8d1b4fe2d4f10361cc|main@{2026-09-07 00:43:14 -0500}|commit: chore(status): re-stamp last_green_sha after the CTA decision
+0bda43325bdd1af7cc1a309c0b5eb104a78d94fd|main@{2026-09-07 00:43:14 -0500}|commit: docs(frd-02): the ES primary CTA is "Trabajemos juntos"; correct the AC
+d5e9258dd327ccfac4febf0f75ce316c9a3b903a|main@{2026-09-07 00:33:20 -0500}|commit: chore(status): re-stamp last_green_sha after the punch-list sweep
+808ea17b9c2b3718d30ee61977d9c873b06f8028|main@{2026-09-07 00:33:20 -0500}|commit: fix(visual): stop blessing blank baselines, and bless all seven routes
+13c773a1d3a08df13cfcaf9f8f6719fca4054bd9|main@{2026-09-07 00:02:41 -0500}|commit: chore(status): re-stamp last_green_sha after the archive rebalance
+88ff316d7de338b30dd0c4f3ec732d00406c6e21|main@{2026-09-07 00:00:25 -0500}|commit: fix(projects): keep archive tags aligned when a card carries links
+69838779cd9643fba2e727e968dc9dd05d6165e3|main@{2026-09-06 23:54:56 -0500}|commit: feat(projects): rebalance the archive — six projects, newest first
+0a2015fe3316848cf8edfe2f4193fb639ff86033|main@{2026-09-06 23:32:47 -0500}|commit: chore(status): re-stamp last_green_sha after the Job Research assets
+4e202379f39cdf08bb8f753d7dd4db697bd64331|main@{2026-09-06 23:32:47 -0500}|commit: feat(projects): ship Job Research's real screenshots, drop the placeholders
+8b49feee8fffe677b04a1fe609254dae9dd970aa|main@{2026-09-06 22:35:37 -0500}|commit: chore(status): re-stamp last_green_sha after the cover redaction
+51522d66dcaa8d73ce8d84d1b0f109b51934d2e4|main@{2026-09-06 22:35:37 -0500}|commit: fix(projects): redact the real-looking address from the Work Connect cover
+eafe52f07b4e7426915f6df2d2fde6819c8af278|main@{2026-09-06 22:27:35 -0500}|commit: chore(status): record the first full green gate since 2026-07-01
+48eca9daecad546f2c7e7643d450c595a34e2fd7|main@{2026-09-06 22:27:27 -0500}|commit: feat(projects): ship Work Connect's real screenshots, drop the placeholders
+f0655305fc702320b0aa4f552eb67e491cc31b7b|main@{2026-09-06 21:38:44 -0500}|commit: chore(status): stop claiming a testable point the tree never reached
+e09893924d6f5b35a56e2d36728d13cbfa726d50|main@{2026-09-06 20:55:31 -0500}|commit: docs(analytics): correct the web-vitals claim — the setting emits nothing here
+795706cbb89860ecd35cb3b275d83da3ae53ec96|main@{2026-09-06 20:47:20 -0500}|merge worktree-retire-hello-world-and-lang-switch: Fast-forward
+d812e3266a6639f840eef73c760b3c2e3ad51b50|main@{2026-09-06 20:20:33 -0500}|commit: docs(analytics): all ten events now observed landing in PostHog
+f4ed29ac4f19858c363ae9071b8f5fe26ad029c1|main@{2026-09-06 20:19:42 -0500}|merge worktree-fix-blog-mdx-csp: Fast-forward
+e4a095292b72df6eda525b6cee16dcb9fc16d966|main@{2026-09-06 19:41:37 -0500}|commit: docs(analytics): record that blog_post_viewed never fires in a production build
+33ff25b58882cb8dc4dc612c57b6e8640cbce276|main@{2026-09-06 19:30:48 -0500}|merge worktree-fix-pageview-init-race: Fast-forward
+756410c20e5305ae13381edcdc2636b73fc2dba5|main@{2026-09-05 23:18:30 -0500}|merge worktree-about-photo-recentre: Fast-forward
+75621d490b02232606c21b78210c3ee90ece2e4d|main@{2026-09-05 23:00:22 -0500}|merge worktree-about-owner-photo: Fast-forward
+3b95f555d250338b000c459134ce32adfe6114b3|main@{2026-09-05 22:58:31 -0500}|commit: chore(status): stamp last_harvest after the memory sweep

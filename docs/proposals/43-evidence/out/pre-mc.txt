@@ -1,0 +1,70 @@
+== status (factory-wide)
+== status MC
+main
+== run
+total 4008
+drwxr--r--  47 sergio  staff    1504 Nov 20 18:49 .
+drwxrwxr-x@ 27 sergio  staff     864 Nov 19 09:12 ..
+drwxrwxr-x@ 15 sergio  staff     480 Oct 22 16:24 architecture
+drwxrwxr-x@  6 sergio  staff     192 Nov  3 07:52 archive
+-rw-rw-r--@  1 sergio  staff       0 Oct 30 13:45 build.lock
+drwxrwxr-x@ 36 sergio  staff    1152 Oct 30 13:35 codex-workers
+drwxrwxr-x@  8 sergio  staff     256 Oct 30 13:12 context
+-rwxr-xr-x@  1 sergio  staff    2417 Oct 17 02:02 deploy-local.sh
+drwxrwxr-x@  8 sergio  staff     256 Oct 30 13:12 dispatch
+drwxrwxr-x@  3 sergio  staff      96 Sep 26 00:50 drift-probes
+-rw-rw-r--@  1 sergio  staff  336276 Oct 30 11:52 fix-forward-frd25-verify.log
+drwxrwxr-x@ 12 sergio  staff     384 Oct 30 12:37 frd11-fidelity
+-rw-rw-r--@  1 sergio  staff     340 Oct 30 12:30 frd11-fidelity-entry.tsx
+-rw-rw-r--@  1 sergio  staff     405 Oct 30 12:31 frd11-fidelity.config.ts
+-rw-rw-r--@  1 sergio  staff    1736 Oct 30 12:37 frd11-fidelity.spec.ts
+-rw-rw-r--@  1 sergio  staff     531 Oct 30 13:16 frd14-fidelity.config.ts
+-rw-rw-r--@  1 sergio  staff     415 Oct 30 13:15 frd14-fidelity.spec.ts
+-rw-rw-r--@  1 sergio  staff   41846 Oct 30 13:17 frd14-panel.png
+-rw-rw-r--@  1 sergio  staff  182424 Oct 30 13:17 frd14-route.png
+-rw-rw-r--@  1 sergio  staff   87795 Oct 30 12:47 frd21-card.png
+-rw-rw-r--@  1 sergio  staff  182875 Oct 30 12:47 frd21-dialog.png
+-rw-rw-r--@  1 sergio  staff     323 Oct 30 12:46 frd21-fidelity.config.ts
+-rw-rw-r--@  1 sergio  staff     484 Oct 30 12:47 frd21-fidelity.html
+-rw-rw-r--@  1 sergio  staff    1044 Oct 30 12:45 frd21-fidelity.spec.ts
+drwxrwxr-x@  5 sergio  staff     160 Oct 30 12:35 gate-evidence
+-rw-r--r--@  1 sergio  staff    1201 Nov 20 18:49 gate-report.json
+-rw-rw-r--@  1 sergio  staff     240 Oct 30 13:03 gate-report.provenance.json
+drwxrwxr-x@  4 sergio  staff     128 Nov 12 11:57 lanes
+-rw-------@  1 sergio  staff      79 Oct 30 04:26 last-green.json
+-rw-------@  1 sergio  staff       2 Oct 30 11:09 lease-epoch
+-rw-r--r--@  1 sergio  staff  133269 Nov 20 18:45 lessons.md
+-rw-r--r--   1 sergio  staff  650018 Nov  1 18:55 mc-serve.err.log
+-rw-r--r--   1 sergio  staff   15897 Nov 19 19:07 mc-serve.log
+drwxrwxr-x@  3 sergio  staff      96 Jul  6 18:11 preserved-tests
+drwxrwxr-x@ 72 sergio  staff    2304 Oct 30 13:45 receipts
+drwxrwxr-x@  9 sergio  staff     288 Oct 30 17:51 salvage
+drwxrwxr-x@  3 sergio  staff      96 Oct 30 12:27 security-early
+-rwxr-xr-x@  1 sergio  staff    1905 Oct 12 22:56 serve.sh
+drwxrwxr-x@  2 sergio  staff      64 Oct 30 13:03 verify-slots
+-rw-------@  1 sergio  staff      69 Nov 20 18:48 verify.lock
+drwxrwxr-x@  9 sergio  staff     288 Oct 30 13:44 wo-revert
+-rw-rw-r--@  1 sergio  staff   42072 Oct 30 11:37 wo25-e2e.log
+drwxrwxr-x@  5 sergio  staff     160 Oct 30 11:27 wo25-evidence
+-rw-rw-r--@  1 sergio  staff    1740 Oct 30 11:26 wo25-format.log
+-rw-rw-r--@  1 sergio  staff   35505 Oct 30 11:26 wo25-repro-current.log
+-rw-rw-r--@  1 sergio  staff   35422 Oct 30 11:29 wo25-repro-stable.log
+-rw-rw-r--@  1 sergio  staff  217402 Oct 30 11:35 wo25-self-verify.log
+== wt
+/Users/Shared/Proyectos/panda-corp                     494ec4f8 [main]
+/Users/Shared/local-deployments/panda-corp             56fcd1f9 (detached HEAD) locked
+/Users/Shared/Proyectos/panda-corp-wt-ci               5c5cdd20 [fix/engine-tests-ci]
+/Users/Shared/Proyectos/panda-corp-wt-verify-affected  af3894a6 [feat/verify-affected-browser-gates]
+== ps
+sergio           70405   0.0  0.0 436199104   6528   ??  S     6:44PM   0:00.31 node /Users/sergio/.npm/_npx/9833c18b2d85bc59/node_modules/.bin/playwright-mcp
+sergio           70337   0.0  0.1 436228608   8448   ??  S     6:43PM   0:00.92 npm exec @playwright/mcp@latest  
+== hslots
+total 0
+drwxrwxr-x@ 5 sergio  staff  160 Nov 14 15:32 .
+drwxrwxr-x@ 3 sergio  staff   96 Nov 13 14:02 ..
+drwx------@ 4 sergio  staff  128 Nov 20 18:42 capacity
+drwxrwxr-x@ 2 sergio  staff   64 Nov 20 18:52 h-slots
+drwxrwxr-x@ 3 sergio  staff   96 Nov 18 19:38 perf
+18:54  up 1 day, 27 mins, 2 users, load averages: 5.61 6.76 8.33
+.pandacorp/green-stamp.sh
+.pandacorp/verify.sh

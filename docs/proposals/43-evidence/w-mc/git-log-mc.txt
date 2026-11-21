@@ -1,0 +1,170 @@
+1fdb57fd035a7f16bf343b55cc8211f3419930ca|2026-11-19 09:14:30 -0500|2026-11-19 09:14:30 -0500|chore(memory): harvest mission-control -- 4 lessons, 0 backlog items
+56fcd1f926995500c498c40ab4f5d5421f11b70f|2026-11-17 16:10:58 -0500|2026-11-17 16:10:58 -0500|chore(mission-control): upgrade next to 16.4.6 and pin patched build-tool transitives
+7d9a1cc56c994a10922d016379da16ec9e19fc6d|2026-11-17 15:42:23 -0500|2026-11-17 15:42:23 -0500|fix(build): keep reviewed repair evidence immutable and review repairs after authorized gates
+b2e73fa9f309b7cb9e5e30ef5979da3e24d7aacc|2026-11-17 15:25:53 -0500|2026-11-17 15:25:53 -0500|fix(build): reviewed oracle repairs, bounded exclusion conflicts, stable failure identity (plugin 10.14.2)
+a84ac214ac22b99ee3dca4a9481b50a386e0d346|2026-11-17 14:57:23 -0500|2026-11-17 14:57:23 -0500|fix(build): close review findings on supervised rescue
+c3f6fe11577d011a5d038ba7232a9528bcca7036|2026-11-17 14:27:24 -0500|2026-11-17 14:27:24 -0500|feat(build): supervised rescue so implement always finishes (plugin 10.14.0)
+138ca18e2b9159d59774e723a550cfb97a3ca582|2026-11-17 13:17:06 -0500|2026-11-17 13:17:06 -0500|fix(build): implement keeps moving — real fix-test repair, gate commit reuse, close-out wait
+37f64f3cf8c70fc002472ea8068871d8eef51c6d|2026-11-16 12:50:29 -0500|2026-11-16 12:50:29 -0500|fix(build): scope-repair accepts Next dynamic-route paths and chained multi-WO units (BL-0329, plugin 10.13.8)
+81a1a9910ebcad2deea5147b7e67a64c4fd3733f|2026-11-16 12:05:50 -0500|2026-11-16 12:05:50 -0500|fix(build): stage tracked files under ignored paths when integrating unit reports (BL-0328, plugin 10.13.7)
+a2179e7b38a361028552971b5d6950d9c0bd85b5|2026-11-16 11:30:33 -0500|2026-11-16 11:30:33 -0500|fix(build): owner-approved scope repair for units blocked by files outside their WO allowlist (BL-0327, plugin 10.13.6)
+19823cdf8962b7b2de442f67f19a9bfb0763e7b8|2026-11-15 00:28:32 -0500|2026-11-15 00:28:32 -0500|fix(implement): design repair inherits the repaired unit's risk and complexity
+6bf205e0cf66d3b2a20b279fa75a0c2968e1818f|2026-11-15 00:12:55 -0500|2026-11-15 00:12:55 -0500|fix(implement): hash binary visual references; repair design for queued UI units
+f7c07d90b321c4013ee52b835a8497f308d629a7|2026-11-14 23:50:11 -0500|2026-11-14 23:50:11 -0500|fix(implement): shared visual-source resolution; design gate only for undesigned UI units
+fa9b64627c9c40bf53f7755b2777cebabe4715b5|2026-11-14 23:20:10 -0500|2026-11-14 23:20:10 -0500|feat(implement): light design mode and three UI cases; specialists own change docs
+6cfec3de1f4829b879577e3252883da38d67844d|2026-11-14 21:01:58 -0500|2026-11-14 21:01:58 -0500|docs(capacity): sync manual, agents, standards and engine docs with the allocator
+249f7b7ba1c4567ac1701fc1af026502c562deb3|2026-11-14 20:33:32 -0500|2026-11-14 20:33:32 -0500|fix(capacity): reviewer strictly above implementer on a shared cross-tool scale
+2d44f7eb534b2a120348637a3fe34f048a2e3821|2026-11-14 20:07:46 -0500|2026-11-14 20:07:46 -0500|feat(capacity): implementer effort by task complexity; reviewer one rung above
+91095a71f77a2cb5d9fd736fb233545574dd96d5|2026-11-14 19:13:40 -0500|2026-11-14 19:13:40 -0500|fix(capacity): stale weekly readings stay known; health tier beats preference
+cb86f17f1771c278046a6b85a6c2c600d57399ad|2026-11-14 16:40:48 -0500|2026-11-14 16:40:48 -0500|style(mission-control): format manual pages touched by the capacity allocator
+761bf964237d95f508880641d5448895b0e3678a|2026-11-14 16:38:58 -0500|2026-11-14 16:38:58 -0500|fix(capacity): restore the watchdog on idempotent resume; align drive relay docs
+8b8b5e6d251a7e6c6b0158ec855a230bec183c5a|2026-11-14 16:11:22 -0500|2026-11-14 16:11:22 -0500|fix(capacity): close final review blockers
+0687c8af2c61b61d71cb8ce930a0cb5f6714cf20|2026-11-14 15:32:34 -0500|2026-11-14 15:32:34 -0500|fix(capacity): close independent review blockers
+2b92b55e16cd3adeb186ad91f9f61b2a6eee806c|2026-11-14 15:09:17 -0500|2026-11-14 15:09:17 -0500|feat(capacity): suspend on quota limit and resume with the same cell (phase 3)
+05a9fdafba0cd20b1f536f491f035142af125f8e|2026-11-14 14:30:51 -0500|2026-11-14 14:30:51 -0500|fix(capacity): close review findings and restore routing coverage (phase 2c)
+aaf893eef9ae7d479f4c14ddd23417b613e48322|2026-11-14 14:06:45 -0500|2026-11-14 14:06:45 -0500|feat(capacity): route engine, image and worker launches through the allocator (phase 2a)
+f828d0c33e8bc7d1a251a69822f820cbe3f9d1c8|2026-11-13 17:16:42 -0500|2026-11-13 17:16:42 -0500|fix(mission-control): align Changes tab section headers, description and pills
+409a4f1ef6b686706f3e89febb74bd82498e919b|2026-11-13 09:14:59 -0500|2026-11-13 09:14:59 -0500|chore(memory): harvest mission-control -- 4 lessons, 0 backlog items
+0ddb7a2abb389ba53bf83af16616769111b7e0d0|2026-11-13 08:37:53 -0500|2026-11-13 08:37:53 -0500|fix(plugin): track nested MC vitest-policy and gate-budget; regression for every managed overlay file - plugin 10.2.1
+57504bc4689c28e0a4b8121135fc8a7af9dab7b8|2026-11-13 07:53:04 -0500|2026-11-13 07:53:04 -0500|feat(plugin): keep the gate fast over time (unclassified-spec and stage-budget warnings, shared Vitest policy) - plugin 10.2.0, overlay 9.2.0
+15273e1585279da9292b69ec034a836e73ddc2f0|2026-11-13 00:38:29 -0500|2026-11-13 00:38:29 -0500|test(mission-control): re-bless stale /proposals mobile baseline (design change 71669b85)
+9c505fe819ded8c373f32cf5725ec89592d8cf2f|2026-11-13 00:27:48 -0500|2026-11-13 00:27:48 -0500|fix(plugin): scope RSC refresh matchers; diagnostic mode runs every phase - plugin 10.1.2, overlay 9.1.2
+35a9154bdd11395ccf72a3fa41752f75f18f74fe|2026-11-13 00:02:20 -0500|2026-11-13 00:02:20 -0500|test(mission-control): classify e2e specs for parallel safety; 465 cases run in parallel
+3d124d67a53c60db50eb6853e1474ec00f1d2464|2026-11-12 23:22:00 -0500|2026-11-12 23:22:00 -0500|fix(plugin): green-stamp fingerprints effective env inputs; keep mobile selection without reviewed inventory; sync live-refresh harness with SSE - plugin 10.1.1, overlay 9.1.1
+14e5b10c18c4330e06de81e1b28c142c3f278e67|2026-11-12 22:51:56 -0500|2026-11-12 22:51:56 -0500|feat(plugin): faster quality gate (fail-fast, single gate owner, prod-build browser gates, mobile allowlist, parallel-safe workers, affected iteration) - plugin 10.1.0, overlay 9.1.0
+457ffb963eb391749a87666e001a075b238f9826|2026-11-12 22:48:53 -0500|2026-11-12 22:48:53 -0500|fix(plugin): keep root scope on v1 pre-push migration; anchor nested overlay negations
+3d1121cdd8fdf48f1ed82de19ea17f6e9c1d6235|2026-11-12 22:36:50 -0500|2026-11-12 22:36:50 -0500|fix(plugin): nested-project pre-push guard and tracked nested overlay files (BL-0310, BL-0311)
+127a74eb25133e50800f90d816404fcf5496dba4|2026-11-12 20:29:48 -0500|2026-11-12 20:29:48 -0500|chore(mission-control): upgrade pandacorp overlay 8.114.4 -> 9.0.0, deterministic tests, workspace tokens
+06bbeefc2a92c2ad775c0158060d543eaaae7799|2026-11-12 18:45:14 -0500|2026-11-12 18:45:14 -0500|fix(mission-control): runtime schema loading, client/server split, deterministic e2e harness
+20af58404efb71a10e086a01e51390ab22e8e3d2|2026-11-12 16:54:14 -0500|2026-11-12 16:54:14 -0500|fix(build-engine): reserve terminal cleanup and replace basename retirement greps
+ea3a87a80e12d7829c1ab517e8b054eb512298c9|2026-11-12 16:10:41 -0500|2026-11-12 16:10:41 -0500|feat(mission-control): day-1 v2 engine: single implement selector, v2 run reader and Build en curso panel, Manual truth, tests reconciled
+9d6ccdbbf06765ab65f6475aeaa0a8859e5a7e61|2026-11-12 15:41:08 -0500|2026-11-12 15:41:08 -0500|feat(build-engine): day-1 batch 2: review fixes, retire /pandacorp:change, skills/templates/standards/docs sweep, MC contracts
+540afa2c890207f2bcd99db44bff711be36bf02e|2026-11-12 15:10:57 -0500|2026-11-12 15:10:57 -0500|feat(build-engine): day-1 batch 1: delete v1 engine, adaptive concurrency, scoped gate patches, disk hygiene, AGENTS.md single source
+e133584ca077786abe4a25e63769204f8c453d05|2026-11-12 11:46:33 -0500|2026-11-12 11:46:33 -0500|chore(build-engine): merge main (CONV-20 v2) into engine v2, plugin 9.157.0
+26e0fba7d281f241e68b184def7436d6e0d5606b|2026-11-11 21:46:31 -0500|2026-11-11 21:46:31 -0500|feat(build-engine): wave D assembly of the v2 engine CLI (9.155.0)
+6a354c401c9089fa08ef07309eecab47dbb0ea33|2026-11-11 19:43:48 -0500|2026-11-11 19:43:48 -0500|wip(build-engine): wave C engine modules and tests, partial and unverified
+087394ab984d81d4b614cd736709d48ee85b64eb|2026-11-11 15:16:01 -0500|2026-11-11 15:16:01 -0500|docs(build-engine): v2 engine standard, CLI reference, schemas and session protocol (BUILD-7..15, DR-150..153)
+0ed054218502006b7323e6c3306e0fda45e710b4|2026-11-11 10:08:30 -0500|2026-11-11 10:08:30 -0500|chore(memory): harvest mission-control -- 1 lesson, 0 backlog items
+a96834ca7d796196f1d22b4040bd3614dd2bc3a5|2026-11-10 12:04:04 -0500|2026-11-10 12:04:04 -0500|fix(changes): keep the change queue equal to reality whatever the door (DR-147)
+6f7d6440c47eb1e460c237c487696810d976d271|2026-11-10 02:09:09 -0500|2026-11-10 02:09:13 -0500|feat(gate): light Stop gate, certified-tree queue skip, seeded vitest (DR-146)
+15efe57bfab9672a00d3dc4e974f84a6563b1945|2026-11-05 13:30:39 -0500|2026-11-05 13:30:39 -0500|fix(backlog): BL-0304 — reclaim merged session worktrees and temporary artifacts safely
+9864fbf65eb5ef357596ee698929c2e3da255e69|2026-11-04 09:10:15 -0500|2026-11-04 09:10:15 -0500|chore(memory): harvest mission-control -- 3 lessons, 0 backlog items
+d85ba1da17d0d1d6bfd20fb799d562bc1d4d0b6e|2026-11-03 20:55:04 -0500|2026-11-03 20:55:04 -0500|feat(standards): tests assert behavior on own data, never live-data volumes (DR-144)
+5c5cdd20183fd9df5b001eb95f23706cc226ac84|2026-11-03 09:26:48 -0500|2026-11-03 09:26:48 -0500|Merge branch 'main' into fix/engine-tests-ci
+3dd5a51e4408f527633cd674f016f6039cd822b3|2026-11-03 08:23:40 -0500|2026-11-03 08:23:40 -0500|fix(mission-control): hydrate shell location from the server-rendered pathname
+1e65ce45373c12738b1d5d2b5f1723002f931adc|2026-11-03 08:03:58 -0500|2026-11-03 08:03:58 -0500|fix(mission-control): stabilize deferred shell hydration across navigation
+a99d4a9761cd2dc3a96dff0d8cafcac217399681|2026-11-01 00:14:45 -0500|2026-11-03 07:28:24 -0500|docs(mission-control): record the Next 16.4.3 re-application
+cf9ec1f539ff2509725630afe17988964d580054|2026-10-31 22:54:13 -0500|2026-11-03 07:28:24 -0500|chore(mission-control): upgrade next to 16.4.3 and pin patched js-yaml
+830b508e408530154e1dce568104537ddaf8618c|2026-11-01 09:17:28 -0500|2026-11-01 09:17:28 -0500|chore(memory): harvest mission-control -- 13 lessons, 0 backlog items
+a6146909e3961f4802564a843193090d6d06f809|2026-11-01 00:02:13 -0500|2026-11-01 00:02:13 -0500|fix(build-liveness): treat a fresh lease as live and bound the renewal drain
+08fee7726dd6775fd1a253cde11f8cbcf8b255d4|2026-10-31 23:54:39 -0500|2026-10-31 23:54:39 -0500|test(mission-control): keep live refresh oracles valid across reconnects
+7acbd65fc688fa2bb838c38ccba7bca5e4f39ec8|2026-10-31 23:21:15 -0500|2026-10-31 23:21:15 -0500|docs(mission-control): record Next 16.4.3 closeout
+1b0c4f91ce9562b5461902fa51b889f88c8f0551|2026-10-31 23:20:34 -0500|2026-10-31 23:20:34 -0500|revert(mission-control): withdraw next 16.4.3 until the live refresh gate is explained
+bedacffb6de3bb085ef901c428ab9a58c1abc002|2026-10-31 23:08:47 -0500|2026-10-31 23:08:47 -0500|fix(engine-tests): make the CI engine corpus pass on a clean runner
+c7c6785d085f0cf233a3b1f81161a06b6ed348b4|2026-10-31 22:54:13 -0500|2026-10-31 22:54:13 -0500|chore(mission-control): upgrade next to 16.4.3 and pin patched js-yaml
+820f5571fc7580c1e3eefb18b826b32471854a76|2026-10-31 22:36:07 -0500|2026-10-31 22:36:07 -0500|docs(mission-control): close owner decisions and fidelity disposition
+cef80900fe8fc8d1cbbe43d3e420174c815b95cc|2026-10-31 22:19:24 -0500|2026-10-31 22:19:24 -0500|chore(mission-control): record the verified LAN address and integration repairs
+6d61f45db62e0e554bb903d202810ab6a25150d9|2026-10-31 21:33:02 -0500|2026-10-31 21:33:09 -0500|fix(mission-control): defer navigation during refresh
+496b76c5c992974f9d75ec56d6ea38d46cb9245c|2026-10-31 21:04:26 -0500|2026-10-31 21:33:09 -0500|test(mission-control): isolate tablet and report gates from owner data
+714960c60dc36569c059c8989b9f3c31602c8ff9|2026-10-31 21:04:26 -0500|2026-10-31 21:33:09 -0500|fix(mission-control): publish committed router URL changes
+a89ea8d7db7b5faed40a4f9c96bf01579a59b101|2026-10-31 21:00:50 -0500|2026-10-31 21:33:09 -0500|fix(mission-control): navigate dependency details atomically
+a57cebb226892f7ccd479810a7c5816a846d9efc|2026-10-31 21:00:50 -0500|2026-10-31 21:33:09 -0500|fix(mission-control): size series labels before hydration
+139212c36470f8e857b5ad0841e7c0ab9dda4f83|2026-10-31 20:55:57 -0500|2026-10-31 21:33:09 -0500|fix(mission-control): restore reader and chart accessibility contracts
+afffc3d1e48cb7c83a3e422770d56ba48fdcea19|2026-10-31 20:25:20 -0500|2026-10-31 21:33:09 -0500|style(mission-control): sort imports after the frontmatter wrapper migration
+30ec221821c7cf2e4799c1b25a5d190531c872ad|2026-10-31 20:18:00 -0500|2026-10-31 21:33:09 -0500|fix(mission-control): centralize gray-matter parsing
+16c5795739b855518e3b10b4f79cd0ee80708995|2026-10-31 20:14:12 -0500|2026-10-31 21:33:09 -0500|test(mission-control): bless Documentation baselines after prototype alignment
+29a5e3c9bf499718f52c46920d05fa945b9169eb|2026-10-31 20:13:04 -0500|2026-10-31 21:33:09 -0500|test(mission-control): pin the document reader's executable frontmatter boundary
+3c1b65055f5200410b64609144e67eb1f41475ca|2026-10-31 20:07:37 -0500|2026-10-31 21:33:09 -0500|test(mission-control): reconcile review oracles with prototype and security decisions
+20dde489f49ce432137a65e110c539b44c3744f4|2026-10-31 19:55:44 -0500|2026-10-31 21:33:09 -0500|fix(mission-control): keep frontmatter helpers module-private after integration
+e226dfc78a46057f751ea3fd99a8b401466a490f|2026-10-31 19:54:33 -0500|2026-10-31 21:33:09 -0500|docs(mission-control): log integration of lanes k-p
+cc802e00f5b3cbf7d126d546e0a7f762359f7c36|2026-10-31 19:53:34 -0500|2026-10-31 21:33:09 -0500|fix(mission-control): drop dead locked-rank opacity and cover achievements contrast
+727997b6cc104d86086a13af291adfd10c17921b|2026-10-31 19:51:36 -0500|2026-10-31 21:33:09 -0500|chore(mission-control): integrate lane p (a2a93e94)
+db014252ca60bf67194c9a7803d23bba81c975d1|2026-10-31 19:51:28 -0500|2026-10-31 21:33:09 -0500|chore(mission-control): integrate lane o (cdc9fe64)
+f69c8f77992225f4ebea75546dcdec7f4289f08b|2026-10-31 19:51:21 -0500|2026-10-31 21:33:08 -0500|chore(mission-control): integrate lane n (6431e634)
+f1b3484b43cf34a5f8e470e25b09ba02a93320f0|2026-10-31 19:51:07 -0500|2026-10-31 21:33:08 -0500|chore(mission-control): integrate lane m (0d342bc7)
+72c93037df268349e1c95ffe24b156373b1fd27c|2026-10-31 19:51:01 -0500|2026-10-31 21:33:08 -0500|chore(mission-control): integrate lane l (69a20ab2)
+9cba90525a09d52d83786bcf3b19e5fd51640ea8|2026-10-31 19:51:00 -0500|2026-10-31 21:33:08 -0500|chore(mission-control): integrate lane k (cb64a993)
+977b9aa2427aa5bc1eda5c26eb760ec93c44cc28|2026-10-31 18:31:15 -0500|2026-10-31 18:31:15 -0500|test(mission-control): wait for the live baseline and walk every fresh trophy
+0ddef42554b36bda21b4a2ba988a191c7b41c252|2026-10-31 18:00:56 -0500|2026-10-31 18:01:22 -0500|fix(mission-control): restore phone header touch targets
+2a60b33aaefbe1cca920418843f247bcdbf29e28|2026-10-31 17:59:43 -0500|2026-10-31 18:01:22 -0500|test(mission-control): align navigation oracles with server canonical URLs
+b6dcadff9f2d4b36a1bbf032f311a62dd81cb539|2026-10-31 17:04:55 -0500|2026-10-31 18:01:22 -0500|test(mission-control): select diagram before testing expanded model state
+74757927c6b73b1374f9190a49d3fc08a0f1d8e8|2026-10-31 16:55:01 -0500|2026-10-31 18:01:22 -0500|test(mission-control): prove canonical refresh and bounded radar labels
+c788937fbc8f4f8a1d3c31704fb09d53324aabf1|2026-10-31 16:54:38 -0500|2026-10-31 18:01:22 -0500|fix(mission-control): fit compact headers and bound radar text metrics
+afe56d6e52db6f554ee320c563cc8aa68848def8|2026-10-31 16:54:34 -0500|2026-10-31 18:01:22 -0500|fix(mission-control): clear focused tabs from circular overflow controls
+7a93c35316c1627f2811e97ec2a5ed5c4bc2a6cc|2026-10-31 16:23:57 -0500|2026-10-31 18:01:22 -0500|test(mission-control): align reviewer oracles with server canonical redirects
+5c5597b5f90c6a9758650accbac73cdede723d14|2026-10-31 16:06:39 -0500|2026-10-31 18:01:22 -0500|test(mission-control): adapt shell and workspace tests to lane b navigation
+6b9d3a82d591f1510c2f0e7bd6f9e4c75e8a6bee|2026-10-31 16:01:57 -0500|2026-10-31 18:01:22 -0500|docs(mission-control): log navigation entry preservation decision
+556846e9127ae83fc41397ad1c61037a85a38cc4|2026-10-31 16:01:48 -0500|2026-10-31 18:01:22 -0500|chore(mission-control): integrate lane b (6f04be68)
+f510879066541b69a61878019bd0dfb6b5b45c8f|2026-10-31 15:45:48 -0500|2026-10-31 18:01:22 -0500|fix(mission-control): preserve partial architecture work-order mosaic
+e254ae28d98027baedf2b98a664ec1d8f87ae5b1|2026-10-31 15:45:02 -0500|2026-10-31 18:01:22 -0500|test(mission-control): pin localized work order reasons in reviewer oracles
+1cb3f0b1b81f565d1f1d291029e7038bf5b46918|2026-10-31 15:40:02 -0500|2026-10-31 18:01:22 -0500|test(mission-control): re-bless Logros baselines after the review fixes
+74c34dd03035235248a6c81e3cc1ea914d73e83e|2026-10-31 15:32:14 -0500|2026-10-31 18:01:22 -0500|fix(mission-control): close integration report and accessibility defects
+1b3cc067b7f69fa27e47dc5080639392a7ca9742|2026-10-31 15:20:41 -0500|2026-10-31 18:01:22 -0500|test(mission-control): re-bless workspace baselines for the summary order
+c9ae2992e4e3d0b92f04e4239232546758ee410a|2026-10-31 15:16:15 -0500|2026-10-31 18:01:22 -0500|test(mission-control): align reviewer oracles with the close-out decisions
+61158b681d0ab90d6b511795cbf3822d63a2bdb8|2026-10-31 15:02:29 -0500|2026-10-31 18:01:22 -0500|test(mission-control): align the env fold test with the count pill and warning chip
+5408a83784cd8419e821a32fe953a09bf1a37b03|2026-10-31 14:59:55 -0500|2026-10-31 18:01:22 -0500|docs(mission-control): record lane decisions in the decision log
+a933459c1c6e6f756ec146412ca36f6a6bdeef38|2026-10-31 14:58:54 -0500|2026-10-31 18:01:21 -0500|chore(mission-control): integrate lane j (49a6596d)
+b4ac9f16957c7f2150a8f4337246f39172eb2169|2026-10-31 14:58:49 -0500|2026-10-31 18:01:21 -0500|chore(mission-control): integrate lane i (1dfc4137)
+473a9bdec7fc1b6fa16a6fe8ea755a87c3e1ebc8|2026-10-31 14:58:42 -0500|2026-10-31 18:01:21 -0500|chore(mission-control): integrate lane h (a099145a)
+4fd418662dab8576e57f3dbd714aab6b418ae36c|2026-10-31 14:58:15 -0500|2026-10-31 18:01:21 -0500|chore(mission-control): integrate lane g (16d53fd8)
+cf104c73d7aeca50b2e4bacc8edb1ebfca4d41e3|2026-10-31 14:58:00 -0500|2026-10-31 18:01:21 -0500|chore(mission-control): integrate lane f (27ce81f5)
+7d9b77bb93a11b710e88b636111716da91db3c92|2026-10-31 14:57:56 -0500|2026-10-31 18:01:21 -0500|chore(mission-control): integrate lane e (6273deae)
+21ff74a2f55e85bf189962023b77e86568a444f8|2026-10-31 14:57:45 -0500|2026-10-31 18:01:21 -0500|chore(mission-control): integrate lane d (f997152f)
+061866976b4a283579b437b3c30f82724069432b|2026-10-31 14:57:32 -0500|2026-10-31 18:01:21 -0500|chore(mission-control): integrate lane c (fae28c0f)
+98e46ad268786fc3b5200c3c52cb2649fdeb93d2|2026-10-31 14:57:21 -0500|2026-10-31 18:01:21 -0500|chore(mission-control): integrate lane a (fb8ba51b)
+840f2ce9fa7d41a140e258cd80402d2061710101|2026-10-31 09:58:15 -0500|2026-10-31 09:58:15 -0500|chore(mission-control): correct pending counts at close-out
+17ec70f3ffabd4c036e3dd345a5674b463569056|2026-10-31 09:58:15 -0500|2026-10-31 09:58:15 -0500|refactor(mission-control): split the ported Orbita rules into files under the size limit
+673c5ea62b11aaa6f2c04f0874d30cc2e7e6238a|2026-10-31 09:04:25 -0500|2026-10-31 09:40:23 -0500|fix(mission-control): paint report band bleed without layout overflow
+25a3fa6823b56a171189f8de742bf8b7cd697496|2026-10-31 08:49:42 -0500|2026-10-31 09:40:23 -0500|fix(mission-control): reconcile the patches with the FRD-13, FRD-18 and FRD-22 gates
+6d75739907ff23065165614df2c55f3a87885745|2026-10-31 08:47:53 -0500|2026-10-31 09:40:23 -0500|test(mission-control): re-bless Logros and phone workspace baselines
+be27b07f1726270bad8bd38226ef885333e34c65|2026-10-31 08:47:10 -0500|2026-10-31 09:40:23 -0500|fix(mission-control): close the remaining prototype gaps on the reviewed surfaces
+3a0bdac466aff75c07881961461e98a2370d51bd|2026-10-31 08:47:10 -0500|2026-10-31 09:40:23 -0500|fix(mission-control): keep one change-queue read and one project short name
+99db7f52770dce3ca18ee7bb6c361bd25df87571|2026-10-31 08:29:36 -0500|2026-10-31 09:40:23 -0500|fix(mission-control): match the prototype on Logros, Cuentas, Spec and phone idea header
+cf17136326fba123cad9ce202820632ea114bae4|2026-10-31 08:29:21 -0500|2026-10-31 09:40:23 -0500|fix(mission-control): align Inicio, backlog and project name readers with the oracle
+dc8cf93081899d4d90d4969a6677146106399add|2026-10-31 09:22:50 -0500|2026-10-31 09:22:50 -0500|chore(memory): harvest mission-control -- 5 lessons, 2 backlog items
+b18ad5d27c98020d0e2a4db9ad03fce77f9c57ad|2026-10-31 08:06:10 -0500|2026-10-31 08:06:10 -0500|test(mission-control): re-bless the Logros baselines after the radar rule change
+5f2912e9a9dd95b536626385f909e9173fc50b50|2026-10-31 07:54:17 -0500|2026-10-31 07:54:17 -0500|fix(mission-control): keep report-band bleed and ported rules inside the responsive gate
+766d109d14e78790c2f0912fbc436a6d6787ebd2|2026-10-31 07:40:04 -0500|2026-10-31 07:40:04 -0500|chore(mission-control): keep the ported cascade order past the Biome gate
+71669b85f0ff9e301da364903d17d1c950f97ccc|2026-10-31 07:38:58 -0500|2026-10-31 07:38:58 -0500|fix(mission-control): align the build with the Orbita oracle in the Visual QA pass
+39acdb71ccdf822440441691de191b4efa9ede26|2026-10-31 06:53:12 -0500|2026-10-31 06:53:12 -0500|chore(mission-control): verify FRD-13 after the landing recheck
+d4d294d2942fb175a5d7eed20430d08914dcb783|2026-10-31 06:39:32 -0500|2026-10-31 06:39:32 -0500|fix(frd-05): keep the work-order back link clickable at phone width
+fa562783abf220dbd46d99653c6d5e72303a2f03|2026-10-31 06:15:15 -0500|2026-10-31 06:15:15 -0500|fix(frd-13-visual-system-accessibility): close the Chromium recheck and bless first mobile baselines
+8dc3c8777b2576d4908c2b83e95de0e9011e5402|2026-10-31 05:57:28 -0500|2026-10-31 05:57:28 -0500|fix(frd-13-visual-system-accessibility): patch final gate findings
+0e9bcf1bf6d352fc3b2cd92c34d59fe4be4156e9|2026-10-31 05:49:20 -0500|2026-10-31 05:49:20 -0500|test(mission-control): reconcile the FRD-13 gate and repair the first responsive run
+fc45903f17f59f7a97abf6197461724bfec2b678|2026-10-31 05:00:46 -0500|2026-10-31 05:00:52 -0500|feat(frd-13-visual-system-accessibility): retire the v1 skin and go responsive for WO-13-013
+98a25a9e0eb81cf446ac0cafeb88c9441f97ffec|2026-10-31 04:47:02 -0500|2026-10-31 04:47:02 -0500|fix(mission-control): scroll the worktrees card into view when it streams in after the hash navigation
+1dd65604e375c6d58d7ae6e140498695dc049b9a|2026-10-31 04:33:37 -0500|2026-10-31 04:33:37 -0500|chore(mission-control): verify FRD-01, 10 and 19 after the wave 6 gate
+fc52d703be4e13bb45f9ba1ad1bd1fc745dcd271|2026-10-31 04:32:52 -0500|2026-10-31 04:32:52 -0500|test(mission-control): gate the wave 6 batch and bless the filled sidebar
+212f86f469f266b920f895bff2952483a1d7b7db|2026-10-31 03:58:29 -0500|2026-10-31 03:58:29 -0500|chore(mission-control): integrate orch/s6b into wave 6 batch
+ec3b174111f1ec1e402ef837dc6b4d278530b912|2026-10-31 03:58:23 -0500|2026-10-31 03:58:23 -0500|chore(mission-control): integrate orch/s6a into wave 6 batch
+026f97309e932c9e2e129f79eee4935f5c8ac0f0|2026-10-31 03:49:14 -0500|2026-10-31 03:49:14 -0500|fix(mission-control): keep the documents index open across the canonical selection redirect
+a4977bdbf7a33baa266a0430cf9133b9119089e2|2026-10-31 03:36:52 -0500|2026-10-31 03:36:52 -0500|chore(mission-control): verify FRD-04, 05, 06, 11 and 12 after the wave 4-5 gate
+8f5388afa0cde0c3a093a767d209be39c4ff419e|2026-10-31 03:26:34 -0500|2026-10-31 03:26:34 -0500|test(mission-control): gate the wave 4-5 batch and bless the workspace surface
+18628db8ae656ca29e8f8ea75a0cbfb3d4ac2f9a|2026-10-31 03:12:51 -0500|2026-10-31 03:12:51 -0500|fix(mission-control): keep client URL moves ahead of late router work
+7a20f3a358880ae5d9f3581a68c329969ada86f7|2026-10-31 02:19:33 -0500|2026-10-31 02:19:33 -0500|fix(mission-control): reconcile the wave 4-5 seams after integration
+9a741ca404b24e6048da2046d0d2c5d07d80cb23|2026-10-31 02:12:57 -0500|2026-10-31 02:12:57 -0500|chore(mission-control): integrate orch/s5c into wave 4-5 batch
+f6df68132db92bb071f6bb752a91c14ae3fa1b55|2026-10-31 02:12:20 -0500|2026-10-31 02:12:20 -0500|chore(mission-control): integrate orch/s5b into wave 4-5 batch
+87685beab91da423ca1400e958f120997875c531|2026-10-31 02:11:21 -0500|2026-10-31 02:11:21 -0500|chore(mission-control): integrate orch/s5a into wave 4-5 batch
+8f2f0ccbca47bb9aa4710677bf9fac454c136411|2026-10-31 02:10:08 -0500|2026-10-31 02:10:08 -0500|chore(mission-control): integrate orch/s4a into wave 4-5 batch
+f6fd93ae21f90f3759bcb91ccd28e2b9ba18df18|2026-10-31 02:00:18 -0500|2026-10-31 02:00:18 -0500|chore(mission-control): ignore the ledger lock under the shared fixture root
+2a71cf70ae0de9e009c5cbddf8ea781403fb7fb2|2026-10-31 01:59:28 -0500|2026-10-31 01:59:28 -0500|test(mission-control): gate wave 3-4 batch and verify FRD-02, 07, 17, 18
+51682e295187810e368eff6e2cdacab5e679cd05|2026-10-31 00:35:05 -0500|2026-10-31 00:35:05 -0500|chore(mission-control): integrate orch/s4c into wave 3-4 batch
+ec27f7574c789211683301c819006384a2ed70be|2026-10-31 00:34:59 -0500|2026-10-31 00:34:59 -0500|chore(mission-control): integrate orch/s4b into wave 3-4 batch
+245ee03735816e04b94a2b9ed4db377f03612cdf|2026-10-31 00:34:52 -0500|2026-10-31 00:34:52 -0500|chore(mission-control): integrate orch/s3b into wave 3-4 batch
+a82a3238902e43c1dfcfa5dfdbbcb4301cdd6899|2026-10-31 00:19:00 -0500|2026-10-31 00:19:15 -0500|fix(mission-control): break the board type cycle and show lesson target and rationale
+f5095dbfd225f4beb1fe84f2f653f754a69422f6|2026-10-31 00:12:06 -0500|2026-10-31 00:12:06 -0500|test(mission-control): gate wave 2-3 batch and bless the rebuilt surfaces
+fada773bc6160b3e46bf4a8d0228e67435869f76|2026-10-30 23:09:50 -0500|2026-10-30 23:09:50 -0500|chore(mission-control): integrate orch/s3c into wave 2-3 batch
+17e5837f3bfaa41d62a83285bb81f25f1edff666|2026-10-30 23:08:41 -0500|2026-10-30 23:08:41 -0500|chore(mission-control): integrate orch/s3a into wave 2-3 batch
+519570d1510459058d51605df2ab7b645c89ef77|2026-10-30 23:08:41 -0500|2026-10-30 23:08:41 -0500|chore(mission-control): integrate orch/s2c into wave 2-3 batch
+334fbb6a7a287e245c7dd7c0724f5a8141b73bc2|2026-10-30 23:08:41 -0500|2026-10-30 23:08:41 -0500|chore(mission-control): integrate orch/s2b into wave 2-3 batch
+52b06124b2e0fc0563bee8792855c7924a5c9b16|2026-10-30 23:08:41 -0500|2026-10-30 23:08:41 -0500|chore(mission-control): integrate orch/s2a into wave 2-3 batch
+860c4287e0935403669a6c57a70fb83c9deef767|2026-10-30 22:54:39 -0500|2026-10-30 22:54:39 -0500|test(frd-19-app-shell): give sidebar navigation time to compile under a loaded gate
+05486b3e35d3760a10a2e3001726565e44cea047|2026-10-30 22:26:25 -0500|2026-10-30 22:26:25 -0500|test(mission-control): gate wave 1 batch and bless the shell baselines
+1b1e8fad300a8711d08fc6cb28600686420d0069|2026-10-30 22:02:33 -0500|2026-10-30 22:02:33 -0500|fix(frd-13-design-system): keep keyboard-focused tabs in view and name the login copy button
+faff6887efad98aaabc90a8f8042f61803b974eb|2026-10-30 21:56:54 -0500|2026-10-30 21:56:54 -0500|chore(mission-control): integrate orch/s1c into wave 1 batch
+f14e75ca33146d57aeb34f347a77e5725b1a2419|2026-10-30 21:56:54 -0500|2026-10-30 21:56:54 -0500|chore(mission-control): integrate orch/s1b into wave 1 batch
+63d1b9e37404cd2a55cc993984e0323dbf00725b|2026-10-30 21:30:34 -0500|2026-10-30 21:30:34 -0500|test(frd-25-persistent-navigation): wait for hydration commit and two-hop navigation in sibling specs
+3ebd94cdc06cda18f351d3427f0b309d2bff8f06|2026-10-30 21:27:24 -0500|2026-10-30 21:27:24 -0500|test(frd-25-persistent-navigation): wait for hydration commit and restore fixtures after timeouts
+31916752126a4a11520512097cf0108d27e7de0a|2026-10-30 20:51:30 -0500|2026-10-30 20:51:30 -0500|chore(mission-control): integrate orch/gate-w0 into wave 0 batch
+d61de0a9631b319e39a240146558cbbfe799f9a1|2026-10-30 20:51:29 -0500|2026-10-30 20:51:29 -0500|chore(mission-control): integrate orch/w0 into wave 0 batch
+d825ed1188056a6f45891b00d11de71167011b8f|2026-10-30 20:51:29 -0500|2026-10-30 20:51:29 -0500|chore(mission-control): integrate orch/frd-02 into wave 0 batch

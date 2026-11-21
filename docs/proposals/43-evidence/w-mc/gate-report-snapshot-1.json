@@ -1,0 +1,102 @@
+{
+  "at": "2026-10-30T17:23:46Z",
+  "scope": "since",
+  "green": false,
+  "sha": "d174599d764b2eb270b936f863f8de06a1cd1b60",
+  "subgates": [
+    {
+      "name": "structure-guard",
+      "exit": 0,
+      "duration_ms": 100,
+      "failures": []
+    },
+    {
+      "name": "data-layer",
+      "exit": 0,
+      "duration_ms": 16,
+      "failures": []
+    },
+    {
+      "name": "api-error-contract",
+      "exit": 0,
+      "duration_ms": 28,
+      "failures": []
+    },
+    {
+      "name": "doc-lint",
+      "exit": 0,
+      "duration_ms": 33301,
+      "failures": []
+    },
+    {
+      "name": "residual-ambiguity",
+      "exit": 0,
+      "duration_ms": 1289,
+      "failures": []
+    },
+    {
+      "name": "biome",
+      "exit": 0,
+      "duration_ms": 2722,
+      "failures": []
+    },
+    {
+      "name": "tsc",
+      "exit": 0,
+      "duration_ms": 6908,
+      "failures": []
+    },
+    {
+      "name": "knip",
+      "exit": 0,
+      "duration_ms": 4772,
+      "failures": []
+    },
+    {
+      "name": "madge",
+      "exit": 0,
+      "duration_ms": 13259,
+      "failures": []
+    },
+    {
+      "name": "vitest",
+      "exit": 1,
+      "duration_ms": 199317,
+      "failures": [
+        {
+          "file": "src/lib/navigation/_tests/v2-boundaries.reviewer.test.tsx",
+          "msg": "> FRD-25 whole-contract boundary probes (LESSON-0450, LESSON-0185) > AC-25-008.1: alias normalization cannot silently discard an unsupported Board tail"
+        },
+        {
+          "file": "src/lib/navigation/_tests/v2-boundaries.reviewer.test.tsx",
+          "msg": "> FRD-25 whole-contract boundary probes (LESSON-0450, LESSON-0185) > AC-25-010.1: every descendant retains the shell and the project keeps Portfolio active"
+        },
+        {
+          "file": "src/lib/navigation/_tests/v2-boundaries.reviewer.test.tsx",
+          "msg": "> FRD-25 whole-contract boundary probes (LESSON-0450, LESSON-0185) > AC-25-010.1: every descendant retains the shell and the project keeps Portfolio active"
+        },
+        {
+          "file": "src/lib/navigation/_tests/v2-boundaries.reviewer.test.tsx",
+          "msg": "> FRD-25 whole-contract boundary probes (LESSON-0450, LESSON-0185) > AC-25-010.1: every descendant retains the shell and the project keeps Portfolio active"
+        },
+        {
+          "file": "src/lib/navigation/_tests/v2-boundaries.reviewer.test.tsx",
+          "msg": "> FRD-25 whole-contract boundary probes (LESSON-0450, LESSON-0185) > AC-25-010.1: every descendant retains the shell and the project keeps Portfolio active"
+        },
+        {
+          "file": "src/lib/navigation/_tests/v2-boundaries.reviewer.test.tsx",
+          "msg": "> FRD-25 whole-contract boundary probes (LESSON-0450, LESSON-0185) > AC-25-001.1/002.1: restores the canonical Esquema model mode rather than the diagram default"
+        },
+        {
+          "file": "src/lib/navigation/_tests/v2-boundaries.reviewer.test.tsx",
+          "msg": "> FRD-25 whole-contract boundary probes (LESSON-0450, LESSON-0185) > AC-25-011.1: expanded paste restores the inline viewer without opening a modal or native fullscreen"
+        },
+        {
+          "file": "src/lib/navigation/_tests/v2-boundaries.reviewer.test.tsx",
+          "msg": "> FRD-25 whole-contract boundary probes (LESSON-0450, LESSON-0185) > AC-25-011.1: expanded paste restores the inline viewer without opening a modal or native fullscreen"
+        }
+      ]
+    }
+  ],
+  "since": "5c594bde"
+}

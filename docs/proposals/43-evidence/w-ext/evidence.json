@@ -1,0 +1,2835 @@
+{
+  "funko-tracker": {
+    "reports": [
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/integration/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T22:18:57Z",
+          "scope": "partial",
+          "green": true,
+          "sha": "12293c08a19a08647f4c8ae0e0ea3bc07b838a5a",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 158,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 3344,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 3497,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 319,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 16035,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 3311,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 10977,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 33562,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 12670,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 7333,
+              "failures": []
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T21:36:19Z",
+          "scope": "partial",
+          "green": false,
+          "sha": "589c90b7bc3f7dda31528bebf9b1b722fe000b0f",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 26,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 135,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 381,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 22,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 3103,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 670,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 1067,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 1,
+              "duration_ms": 922,
+              "failures": [
+                {
+                  "file": "scripts/ops/lib/_tests/catalogExport.test.ts",
+                  "line": 76,
+                  "code": "TS2741",
+                  "msg": "Property 'seriesResearchedAt' is missing in type '{ id: string; franchiseId: string; sortOrder: number; createdAt: Date; updatedAt: Date; slug: string; name: string; kind: \"series\"; premiereDate: Date; premiereDateSource: string; }' but required in type '{ id: string; franchiseId: string; slug: string; name: string; kind: CollectionKind; premiereDate: Date | null; premiereDateSource: string | null; sortOrder: number; seriesResearchedAt: Date | null; createdAt: Date; updatedAt: Date; }'."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007-a2/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T21:42:45Z",
+          "scope": "partial",
+          "green": false,
+          "sha": "589c90b7bc3f7dda31528bebf9b1b722fe000b0f",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 23,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 128,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 357,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 26,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 3072,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 653,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 1136,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 1,
+              "duration_ms": 834,
+              "failures": [
+                {
+                  "file": "scripts/ops/lib/_tests/catalogExport.test.ts",
+                  "line": 76,
+                  "code": "TS2741",
+                  "msg": "Property 'seriesResearchedAt' is missing in type '{ id: string; franchiseId: string; sortOrder: number; createdAt: Date; updatedAt: Date; slug: string; name: string; kind: \"series\"; premiereDate: Date; premiereDateSource: string; }' but required in type '{ id: string; franchiseId: string; slug: string; name: string; kind: CollectionKind; premiereDate: Date | null; premiereDateSource: string | null; sortOrder: number; seriesResearchedAt: Date | null; createdAt: Date; updatedAt: Date; }'."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007-rescue/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T22:55:55Z",
+          "scope": "full",
+          "green": true,
+          "sha": "12293c08a19a08647f4c8ae0e0ea3bc07b838a5a",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 25,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 113,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 396,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 28,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 2884,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 615,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 1064,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 954,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 1656,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 4172,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 0,
+              "duration_ms": 443854,
+              "failures": []
+            },
+            {
+              "name": "playwright",
+              "exit": 0,
+              "duration_ms": 1037416,
+              "failures": []
+            },
+            {
+              "name": "database-clean",
+              "exit": 0,
+              "duration_ms": 6354,
+              "failures": []
+            }
+          ],
+          "vitest_seed": 259402720
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-09-002/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T22:10:19Z",
+          "scope": "partial",
+          "green": true,
+          "sha": "1d361ef42d92d8390f2392cddd4a17b8de5665f8",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 47,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 489,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 1356,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 170,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 15499,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 2389,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 4091,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 4239,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 6578,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 12025,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 0,
+              "duration_ms": 203964,
+              "failures": []
+            },
+            {
+              "name": "database-clean",
+              "exit": 0,
+              "duration_ms": 7737,
+              "failures": []
+            }
+          ],
+          "vitest_seed": 897981705
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-docs-hide-empty-series-and-research-window/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T21:11:44Z",
+          "scope": "partial",
+          "green": true,
+          "sha": "ce52e0c53888a6f7cdb5285e307caadc93bd7609",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 32,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 231,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 534,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 32,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 5893,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 670,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 2868,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 10048,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 5030,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 9393,
+              "failures": []
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T22:21:55Z",
+          "scope": "partial",
+          "green": true,
+          "sha": "12293c08a19a08647f4c8ae0e0ea3bc07b838a5a",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 31,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 169,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 381,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 31,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 3370,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 600,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 1439,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 1412,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 1596,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 7936,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 0,
+              "duration_ms": 3102,
+              "failures": []
+            },
+            {
+              "name": "database-clean",
+              "exit": 0,
+              "duration_ms": 4565,
+              "failures": []
+            }
+          ],
+          "vitest_seed": 781953913
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-a2/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T22:30:11Z",
+          "scope": "partial",
+          "green": false,
+          "sha": "12293c08a19a08647f4c8ae0e0ea3bc07b838a5a",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 53,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 250,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 551,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 29,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 635,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 405,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 4897,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 1,
+              "duration_ms": 10578,
+              "failures": [
+                {
+                  "msg": "src/app/(help)/contact/page.tsx(8,53): error TS2304: Cannot find name 'PageProps'."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-a3/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T22:40:21Z",
+          "scope": "partial",
+          "green": false,
+          "sha": "12293c08a19a08647f4c8ae0e0ea3bc07b838a5a",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 25,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 109,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 330,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 26,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 476,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 314,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 3620,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 1,
+              "duration_ms": 4115,
+              "failures": [
+                {
+                  "msg": "src/app/(help)/contact/page.tsx(8,53): error TS2304: Cannot find name 'PageProps'."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-rescue/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T23:24:17Z",
+          "scope": "full",
+          "green": false,
+          "sha": "0e82cc62af992f41f3b263567aee9e2ca2027ea3",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 29,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 211,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 428,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 23,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 3069,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 595,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 2909,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 6075,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 12893,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 12641,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 1,
+              "duration_ms": 70854,
+              "failures": [
+                {
+                  "msg": "\u276f scripts/ops/_tests/seriesResearchRecord.test.ts:167:35\n    165|     ]);\n    166|     await researchEvidence(digest, { researched: [], blocked: [] });\n    167|     await expect(recordResearch()).rejects.toThrow(/series-research-in\u2026\n       |                                   ^\n    168|   });\n    169| });\n\n\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af[1/1]\u23af\n\n\n Test Files  1 failed | 122 passed | 1 skipped (864)\n      Tests  1 failed | 756 passed | 23 skipped (785)\n   Start at  18:24:57\n   Duration  69.68s (tests 70%, import 11%, transform 9%, environment 8%, setup 2%)\n\nEnvironment  |dom| jsdom was created 28 times \u00b7 25.08s total, 32% of tracked time\n             create it once per worker with pool: 'vmThreads' (keeps per-file isolation)\n             learn more: https://vitest.dev/guide/improving-performance#test-environments"
+                }
+              ]
+            }
+          ],
+          "vitest_seed": 126878954
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-product-hide-empty-series-and-research-window/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T20:56:31Z",
+          "scope": "partial",
+          "green": false,
+          "sha": "2e23c4e0b611dab8cdc82fb359afd32853753eb7",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 45,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 203,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 599,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 42,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 5004,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 922,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 1431,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 1,
+              "duration_ms": 1480,
+              "failures": [
+                {
+                  "msg": "src/app/(help)/contact/page.tsx(8,53): error TS2304: Cannot find name 'PageProps'."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-product-hide-empty-series-and-research-window-a2/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T20:59:32Z",
+          "scope": "partial",
+          "green": true,
+          "sha": "2e23c4e0b611dab8cdc82fb359afd32853753eb7",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 49,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 322,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 749,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 44,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 5307,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 922,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 4582,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 4600,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 4674,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 7162,
+              "failures": []
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-tests-wo-06-007/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T21:23:00Z",
+          "scope": "partial",
+          "green": true,
+          "sha": "cd55c1f0d4ab884f80e2f5c73e6cef64eaa7f680",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 27,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 133,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 362,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 25,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 4305,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 632,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 1515,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 1022,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 1636,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 4387,
+              "failures": []
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T23:57:17Z",
+          "scope": "partial",
+          "green": false,
+          "sha": "d51d07494d03c956e92902c9bafa284e416d4958",
+          "subgates": [
+            {
+              "name": "playwright",
+              "exit": 1,
+              "duration_ms": 288866,
+              "failures": [
+                {
+                  "msg": "117 |   try {\n      118 |     await toggle.click();\n    > 119 |     await expect(row.getByText(\"Tengo\", { exact: true })).toBeVisible();\n          |                                                           ^\n      120 |     await expect(toggle).not.toHaveAttribute(\"data-saving\", \"\");\n      121 |     const rowsAfter = await page\n      122 |       .locator(\"[data-own]:visible\")\n        at /Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/e2e/frd-04-goals-and-to-get.behaviour.spec.ts:119:59\n\n    Error Context: test-results/frd-04-goals-and-to-get.be-fc40a-and-the-row-keeps-its-place-desktop-parallel/error-context.md\n\n  1 failed\n    [desktop-parallel] \u203a e2e/frd-04-goals-and-to-get.behaviour.spec.ts:96:5 \u203a AC-04-013.4: marking a piece in Lista completa changes its badge in place and the row keeps its place \n  2 interrupted\n    [desktop-parallel] \u203a e2e/goals/goals.spec.ts:8:5 \u203a AC-04-012.3, AC-04-001.1: with no goal and an empty Wishlist the list shows one empty state with both ways forward \n    [desktop-parallel] \u203a e2e/to-get/to-get.spec.ts:12:5 \u203a AC-04-003.1: a visitor sees the sign-in prompt inside the page and the URL stays \n  3 skipped\n  426 did not run\n  197 passed (3.7m)\n  1 error was not a part of any test, see above for details"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-19T00:02:08Z",
+          "scope": "partial",
+          "green": true,
+          "sha": "a4b3c34c47b6774d8a7d3235880a1b1bbbb872e6",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 25,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 152,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 416,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 25,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 3085,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 638,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 1468,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 952,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 1905,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 5497,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 0,
+              "duration_ms": 36627,
+              "failures": []
+            },
+            {
+              "name": "database-clean",
+              "exit": 0,
+              "duration_ms": 5956,
+              "failures": []
+            }
+          ],
+          "vitest_seed": 735886737
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-a2/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-19T00:06:16Z",
+          "scope": "partial",
+          "green": false,
+          "sha": "7f4b9ca5714dff3f8c707a8079dbaeb03937883f",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 27,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 186,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 409,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 24,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 4122,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 789,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 1383,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 1071,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 2463,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 4600,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 1,
+              "duration_ms": 13346,
+              "failures": [
+                {
+                  "msg": "194|   const keys = file.candidates.map((candidate) => candidate.sourceItem\u2026\n    195|   if (input.items.length !== keys.length || input.items.some((item) =>\u2026\n    196|     throw new Error(\"Review/candidate roster mismatch\");\n       |           ^\n    197|   for (const item of input.items) {\n    198|     const candidate = file.candidates.find((entry) => entry.sourceItem\u2026\n \u276f verifiedSources scripts/ops/lib/reviewReplayContext.ts:76:3\n \u276f createReviewDeliveryContext scripts/ops/lib/reviewReplayContext.ts:272:18\n \u276f generatePages scripts/ops/lib/reviewPages.ts:176:31\n \u276f withRunActivity scripts/ops/lib/runActivity.ts:119:19\n \u276f scripts/ops/_tests/sweepCorrectionRoute.test.ts:177:22\n\n\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af\u23af[1/1]\u23af\n\n\n Test Files  1 failed | 12 passed (17)\n      Tests  1 failed | 86 passed | 12 skipped (110)\n   Start at  19:06:32\n   Duration  12.59s (tests 79%, import 10%, transform 6%, environment 3%, setup 1%)"
+                }
+              ]
+            }
+          ],
+          "vitest_seed": 805388330
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-a3/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-19T00:10:27Z",
+          "scope": "partial",
+          "green": true,
+          "sha": "7f4b9ca5714dff3f8c707a8079dbaeb03937883f",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 44,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 267,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 707,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 40,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 5009,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 902,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 1545,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 1058,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 2583,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 7031,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 0,
+              "duration_ms": 23985,
+              "failures": []
+            },
+            {
+              "name": "database-clean",
+              "exit": 0,
+              "duration_ms": 6150,
+              "failures": []
+            }
+          ],
+          "vitest_seed": 235402713
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-rescue/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-19T00:12:39Z",
+          "scope": "full",
+          "green": true,
+          "sha": "7f4b9ca5714dff3f8c707a8079dbaeb03937883f",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 42,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 290,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 739,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 45,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 5240,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 919,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 3636,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 5525,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 4650,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 7203,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 0,
+              "duration_ms": 384149,
+              "failures": []
+            },
+            {
+              "name": "playwright",
+              "exit": 0,
+              "duration_ms": 986706,
+              "failures": []
+            },
+            {
+              "name": "database-clean",
+              "exit": 0,
+              "duration_ms": 8772,
+              "failures": []
+            }
+          ],
+          "vitest_seed": 768640453
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-patch-g2-frd-06-franchise-backfill/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-19T00:38:03Z",
+          "scope": "partial",
+          "green": false,
+          "sha": "2439a79e4c48e5b975f42471db4d7bb374a4245b",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 45,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 205,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 612,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 49,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 1171,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 430,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 3454,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 1,
+              "duration_ms": 4797,
+              "failures": [
+                {
+                  "msg": "src/app/(help)/contact/page.tsx(8,53): error TS2304: Cannot find name 'PageProps'."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-product-sweep-data-only-corrections/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T22:13:03Z",
+          "scope": "partial",
+          "green": false,
+          "sha": "c37727f00d278b9ff85045a11af035b7bf4d31fd",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 107,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 1201,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 1316,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 97,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 13724,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 3000,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 11537,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 1,
+              "duration_ms": 51665,
+              "failures": [
+                {
+                  "msg": "src/app/(help)/contact/page.tsx(8,53): error TS2304: Cannot find name 'PageProps'."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-tests-wo-06-008/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-18T23:27:29Z",
+          "scope": "partial",
+          "green": true,
+          "sha": "22f22b4671ecdbafa4bcf6a5352d749b75f82be8",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 33,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 157,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 417,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 23,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 3218,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 592,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 1460,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 900,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 1763,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 5188,
+              "failures": []
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-19T02:24:23Z",
+          "scope": "full",
+          "green": true,
+          "sha": "ea6739fd76b0877207ebcf3150b14fd1d75dd32c",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 58,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 827,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 794,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 48,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 5534,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 956,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 1841,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 1848,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 2706,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 8182,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 0,
+              "duration_ms": 467591,
+              "failures": []
+            },
+            {
+              "name": "playwright",
+              "exit": 0,
+              "duration_ms": 962644,
+              "failures": []
+            },
+            {
+              "name": "database-clean",
+              "exit": 0,
+              "duration_ms": 6789,
+              "failures": []
+            }
+          ],
+          "vitest_seed": 720609451
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-01-catalog-browsing/gate-report.json",
+        "data": {
+          "at": "2026-10-18T19:52:58Z",
+          "scope": "full",
+          "green": false,
+          "sha": "6e987d1c147cda2dd4a8b421cf5fe8ee0a2bed41",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 26,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 316,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 16,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 2364,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 642,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 521,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 690,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 1597,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 3006,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 1,
+              "duration_ms": 34576,
+              "failures": [
+                {
+                  "file": "src/queries/_tests/catalogDirectory.gate.test.ts",
+                  "msg": "> FRD-01 gate \u00b7 Novedades (AC-01-009.1) > Reci\u00e9n lanzados lists the 12 most recently released pieces, newest first, whatever their number or photo"
+                },
+                {
+                  "file": "src/components/modules/Footer/_tests/responsiveMarkers.gate.test.tsx",
+                  "msg": "> FRD-01 gate \u00b7 designed clipping carries the responsive opt-out > the footer's hidden new-tab note (on every page) is opted out"
+                },
+                {
+                  "file": "src/components/modules/Footer/_tests/responsiveMarkers.gate.test.tsx",
+                  "msg": "> FRD-01 gate \u00b7 designed clipping carries the responsive opt-out > the catalog search's visually hidden label is opted out"
+                },
+                {
+                  "file": "src/components/modules/Footer/_tests/responsiveMarkers.gate.test.tsx",
+                  "msg": "> FRD-01 gate \u00b7 designed clipping carries the responsive opt-out > the Franquicias name search's visually hidden label is opted out"
+                },
+                {
+                  "file": "src/components/modules/Footer/_tests/responsiveMarkers.gate.test.tsx",
+                  "msg": "> FRD-01 gate \u00b7 designed clipping carries the responsive opt-out > a Button label that collapses to its icon on narrow screens is opted out"
+                },
+                {
+                  "file": "src/components/modules/Footer/_tests/responsiveMarkers.gate.test.tsx",
+                  "msg": "> FRD-01 gate \u00b7 designed clipping carries the responsive opt-out > the toolbar's collapsing sort label is opted out"
+                },
+                {
+                  "file": "src/lib/media/_tests/resolveMediaUrl.gate.test.ts",
+                  "msg": "> FRD-01 gate \u00b7 oracle media follows the app's own origin > AC-01-008.1: a seeded oracle photo and a sticker resolve to the same-origin /oracle-media path"
+                },
+                {
+                  "file": "src/components/modules/CollectibleCard/_tests/CollectibleCard.gate.test.tsx",
+                  "msg": "> FRD-01 gate \u00b7 CollectibleCard > AC-01-008.1: the two-photo slider is declared an intentional horizontal scroll for the responsive gate"
+                },
+                {
+                  "file": "src/app/(catalog)/explorar/_tests/page.gate.test.tsx",
+                  "msg": "> FRD-01 gate \u00b7 /explorar validation and failure states > AC-01-006.1: a search longer than 200 characters keeps its text in the box and names the length limit"
+                },
+                {
+                  "file": "src/components/modules/Footer/_tests/Footer.gate.test.tsx",
+                  "msg": "> FRD-01 gate \u00b7 footer links into Explorar > AC-01-010.1: Recientes opens Explorar's results in the Recientes order, not the start page, when several franchises are published"
+                },
+                {
+                  "file": "scripts/fidelity/_tests/gate.test.ts",
+                  "msg": "> poster CLI contract and server env > AC-01-008.1, AC-05-008.1, AC-08-005.1: the CLI arguments, a malformed stdout and the e2e server env"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-02-collectible-detail/gate-report.json",
+        "data": {
+          "at": "2026-10-18T22:14:16Z",
+          "scope": "since",
+          "green": false,
+          "sha": "c40d2071519cede7a3cb172b7840535c09f7c1d9",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 26,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 400,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 16,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 2533,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 616,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 486,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 855,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 1788,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 3240,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 1,
+              "duration_ms": 6549,
+              "failures": [
+                {
+                  "file": "src/app/(catalog)/pieza/[id]/_components/FichaLayout/_tests/FichaLayout.gate.test.tsx",
+                  "msg": "> FRD-02 gate: unverified facts are never shown as verified > AC-02-001.1, AC-02-005.1: a release status, finish and region with only reported evidence carry the Sin confirmar marker"
+                },
+                {
+                  "file": "src/app/(catalog)/pieza/[id]/_components/FichaLayout/_tests/FichaLayout.gate.test.tsx",
+                  "msg": "> FRD-02 gate: unverified facts are never shown as verified > AC-02-001.1: a Kinder surprise without a recorded code still comes in an egg, never a blind box"
+                },
+                {
+                  "file": "src/app/(catalog)/pieza/[id]/_components/FichaLayout/_tests/FichaLayout.gate.test.tsx",
+                  "msg": "> FRD-02 gate: lifecycle rows > AC-02-003.1: two observations of the same region render one row per region (the newest) without a key collision"
+                },
+                {
+                  "file": "src/app/(catalog)/pieza/[id]/_components/FichaLayout/_tests/FichaLayout.gate.test.tsx",
+                  "msg": "> FRD-02 gate: the retryable error stays retryable > AC-02-007.1: after a retry that fails again, Reintentar is enabled for another attempt"
+                }
+              ]
+            }
+          ],
+          "since": "4d5b3becd665b3c5975d09312bb5c35d403351eb"
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-03-private-inventory/gate-report.json",
+        "data": {
+          "at": "2026-10-19T00:33:38Z",
+          "scope": "since",
+          "green": false,
+          "sha": "901d320ca1949a09b1cec8a6c5b68b72f08af9d5",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 17,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 190,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 9,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 1376,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 397,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 279,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 425,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 747,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 1606,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 1,
+              "duration_ms": 4084,
+              "failures": [
+                {
+                  "file": "src/lib/pendingAction/_tests/pendingAction.gate.test.ts",
+                  "msg": "> post-sign-in return route at the FRD-03 gate > AC-03-001.5, AC-03-002.1: a return route smuggling a tab, newline or carriage return never leaves the origin"
+                },
+                {
+                  "file": "src/lib/pendingAction/_tests/pendingAction.gate.test.ts",
+                  "msg": "> post-sign-in return route at the FRD-03 gate > AC-03-001.5: the stored return route that postAuthDestination hands to the sign-in form is same-origin"
+                },
+                {
+                  "file": "src/lib/ownership/_tests/ownership.gate.test.ts",
+                  "msg": "> ownership engine at the FRD-03 gate > AC-03-003.3, AC-03-006.1, AC-03-005.1: an owned piece that was later archived can be unmarked and Deshacer restores it"
+                },
+                {
+                  "file": "src/lib/ownership/_tests/ownership.gate.test.ts",
+                  "msg": "> ownership engine at the FRD-03 gate > AC-03-006.1: an accidental Quitar on a historical piece can be undone in place by tapping Lo tengo again"
+                },
+                {
+                  "file": "src/lib/mail/_tests/outbox.gate.test.ts",
+                  "msg": "> test-build mail outbox at the FRD-03 gate > AC-03-001.3: a Vitest worker never shares the machine-wide outbox the e2e server reads"
+                },
+                {
+                  "file": "src/app/(auth)/_tests/validation.gate.test.ts",
+                  "msg": "> sign-up password rules at the FRD-03 gate > AC-03-001.2: a password that is the typed address is never 'Distinta de tu correo', whatever its letter case"
+                }
+              ]
+            }
+          ],
+          "since": "b72e91d1ef7bb97c0348215e7b6e2ef51daac6f9"
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-04-goals-and-to-get/gate-report.json",
+        "data": {
+          "at": "2026-10-19T02:40:15Z",
+          "scope": "since",
+          "green": false,
+          "sha": "002b99ae24a8d30ddd6016ecea50ceae9c4aae7b",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 14,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 174,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 8,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 1355,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 407,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 301,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 398,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 935,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 1858,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 1,
+              "duration_ms": 3602,
+              "failures": [
+                {
+                  "file": "src/components/modules/GoalEditor/_tests/GoalEditor.gate.test.tsx",
+                  "msg": "> GoalEditor tiles (gate) > AC-04-001.2: the scope preview shows every piece in neutral styling, never the owned or missing treatment, and no Lo tengo"
+                },
+                {
+                  "file": "src/components/modules/GoalEditor/_tests/GoalEditor.gate.test.tsx",
+                  "msg": "> GoalEditor tiles (gate) > AC-04-001.2: hand-picked catalog tiles are neutral too; the selection mark is distinct from ownership"
+                },
+                {
+                  "file": "src/app/meta/_tests/params.gate.test.ts",
+                  "msg": "> parseMetaParams return target (gate) > AC-04-001.2: dot segments that normalise to a protocol-relative path never become the return target"
+                },
+                {
+                  "file": "src/components/modules/GoalRow/_tests/GoalRow.gate.test.tsx",
+                  "msg": "> GoalRow (gate) > AC-04-006.1, AC-04-001.1: after a 409 and Actualizar, the row shows the refreshed name and renames from the refreshed revision"
+                },
+                {
+                  "file": "src/queries/_tests/toGet.gate.test.ts",
+                  "msg": "> Por conseguir integration (gate) > FRD-04 invariant: an archived (tombstoned) wished piece stays inspectable in the Wishlist and the tab count matches what is listed"
+                }
+              ]
+            }
+          ],
+          "since": "ca95fc460f7cc0c3a4d63573049b759bed0b6418"
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-06-franchise-backfill/gate-report.json",
+        "data": {
+          "at": "2026-10-19T03:32:43Z",
+          "scope": "since",
+          "green": true,
+          "sha": "5efba6fa36659f233dddf0dfcc76d49008f6b13d",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 37,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 355,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 13,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 3061,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 699,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 676,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 1787,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 2073,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 4310,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 0,
+              "duration_ms": 28766,
+              "failures": []
+            },
+            {
+              "name": "playwright",
+              "exit": 0,
+              "duration_ms": 38875,
+              "failures": []
+            }
+          ],
+          "since": "ca95fc460f7cc0c3a4d63573049b759bed0b6418"
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-08-help-contact-legal/gate-report.json",
+        "data": {
+          "at": "2026-10-19T02:28:36Z",
+          "scope": "since",
+          "green": true,
+          "sha": "868951ce89db76afcf292c4c19b7e3bb73615af8",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 15,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 243,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 8,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 1356,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 403,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 346,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 1047,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 928,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 1854,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 0,
+              "duration_ms": 6130,
+              "failures": []
+            },
+            {
+              "name": "playwright",
+              "exit": 0,
+              "duration_ms": 20309,
+              "failures": []
+            }
+          ],
+          "since": "ca95fc460f7cc0c3a4d63573049b759bed0b6418"
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-20T23:33:20Z",
+          "scope": "partial",
+          "green": true,
+          "sha": "e1ffcfaeeffe80e8481a2c432713bfafdc7e56b6",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 42,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 889,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 686,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 39,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 5940,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 907,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 1523,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 984,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 2536,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 6712,
+              "failures": []
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/scheduler-investigation/upgrade/funko-overlay-upgrade-8-109.gate-report.json",
+        "data": {
+          "at": "2026-10-21T00:42:35Z",
+          "scope": "full",
+          "green": true,
+          "sha": "0629bbf0ec4217f0caf97762e76eea7b6917ad34",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 47,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 647,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 39,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 5094,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 829,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 1403,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 5058,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 2878,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 7526,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 0,
+              "duration_ms": 533822,
+              "failures": []
+            },
+            {
+              "name": "playwright",
+              "exit": 0,
+              "duration_ms": 467950,
+              "failures": []
+            }
+          ]
+        }
+      },
+      {
+        "path": "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/upgrade-9.4.1-evidence/gate-report.json",
+        "data": {
+          "at": "2026-11-16T03:20:55Z",
+          "scope": "full",
+          "green": false,
+          "sha": "ca8b166dc4a3bd7e968be4f30785eabbc00abe83",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 20,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 136,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 314,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 17,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 2612,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 582,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 748,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 705,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 2,
+              "duration_ms": 1380,
+              "failures": [
+                {
+                  "file": "knip.project.ts",
+                  "msg": "> knip --config knip.project.ts"
+                },
+                {
+                  "file": "playwright.config.ts",
+                  "msg": "ERROR: Error loading playwright.config.ts (Invalid mobile spec: fidelity/referenceActions.spec.mts)"
+                },
+                {
+                  "file": ".d.ts",
+                  "msg": "**/*.d.ts                    knip.project.ts  Remove from ignore"
+                },
+                {
+                  "file": "knip.project.ts",
+                  "msg": ".next/**                     knip.project.ts  Remove from ignore"
+                },
+                {
+                  "file": "knip.project.ts",
+                  "msg": "tailwindcss                  knip.project.ts  Remove from ignoreDependencies"
+                },
+                {
+                  "file": "knip.project.ts",
+                  "msg": "@axe-core/playwright         knip.project.ts  Remove from ignoreDependencies"
+                },
+                {
+                  "file": "src/middleware.ts",
+                  "msg": "src/middleware.ts            knip.project.ts  Refine entry pattern (no matches)"
+                },
+                {
+                  "file": "src/proxy.ts",
+                  "msg": "src/proxy.ts                 knip.project.ts  Remove redundant entry pattern"
+                },
+                {
+                  "file": "src/instrumentation.ts",
+                  "msg": "src/instrumentation.ts       knip.project.ts  Remove redundant entry pattern"
+                },
+                {
+                  "file": "playwright.config.ts",
+                  "msg": "playwright.config.ts         knip.project.ts  Remove redundant entry pattern"
+                },
+                {
+                  "file": "scripts/fidelity/gate.mjs",
+                  "msg": "scripts/fidelity/gate.mjs    knip.project.ts  Remove redundant entry pattern"
+                },
+                {
+                  "file": "scripts/ops/main.ts",
+                  "msg": "scripts/ops/main.ts          knip.project.ts  Remove redundant entry pattern"
+                },
+                {
+                  "file": "knip.project.ts",
+                  "msg": ".prisma                      knip.project.ts  Compiled extension excluded by project (imports not followed)"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "matches": [
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build-suspended/br-2026-11-13-02/jobs/land-25-1/out.log",
+        2,
+        "merge-queue: running the full integration gate [full-gate] (green-stamp: no certified-tree stamp)",
+        "?",
+        ""
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build-suspended/br-2026-11-13-02/jobs/land-25-1/out.log",
+        414,
+        "merge-queue: integration gate RED on the rebased result \u2014 fix on lane/br-2026-11-13-02/integration and re-run (NOT a semantic-conflict pass)",
+        "?",
+        ""
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build-suspended/br-2026-11-13-02/jobs/land-25-2/out.log",
+        2,
+        "merge-queue: running the full integration gate [full-gate] (green-stamp: no certified-tree stamp)",
+        "?",
+        ""
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build-suspended/br-2026-11-13-02/jobs/land-25-2/out.log",
+        279,
+        "merge-queue: integration gate RED on the rebased result \u2014 fix on lane/br-2026-11-13-02/integration and re-run (NOT a semantic-conflict pass)",
+        "?",
+        ""
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build-suspended/br-2026-11-13-02/units/u-patch-g3/brief.md",
+        80,
+        "merge-queue: integration gate RED on the rebased result \u2014 fix on lane/br-2026-11-13-02/integration and re-run (NOT a semantic-conflict pass)",
+        "?",
+        ""
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/codex-workers/w-br-2026-11-13-02-u-patch-g3-a2-daec9533d/full-prompt.md",
+        80,
+        "merge-queue: integration gate RED on the rebased result \u2014 fix on lane/br-2026-11-13-02/integration and re-run (NOT a semantic-conflict pass)",
+        "?",
+        ""
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/codex-workers/w-br-2026-11-13-02-u-patch-g3-a2-daec9533d/prompt.md",
+        80,
+        "merge-queue: integration gate RED on the rebased result \u2014 fix on lane/br-2026-11-13-02/integration and re-run (NOT a semantic-conflict pass)",
+        "?",
+        ""
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/codex-workers/w-br-2026-11-13-02-u-patch-g3-dc3743761/codex.log",
+        16,
+        "merge-queue: integration gate RED on the rebased result \u2014 fix on lane/br-2026-11-13-02/integration and re-run (NOT a semantic-conflict pass)",
+        0,
+        "/bin/zsh -lc 'cat /Users/Shared/Proyectos/funko-tracker/.pandacorp/run/build/units/u-patch-g3/brief.md'"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/codex-workers/w-br-2026-11-13-02-u-patch-g3-dc3743761/full-prompt.md",
+        81,
+        "merge-queue: integration gate RED on the rebased result \u2014 fix on lane/br-2026-11-13-02/integration and re-run (NOT a semantic-conflict pass)",
+        "?",
+        ""
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/codex-workers/w-br-2026-11-13-02-u-patch-g3-dc3743761/prompt.md",
+        81,
+        "merge-queue: integration gate RED on the rebased result \u2014 fix on lane/br-2026-11-13-02/integration and re-run (NOT a semantic-conflict pass)",
+        "?",
+        ""
+      ]
+    ],
+    "totals": [
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/integration/.pandacorp/run/gate-report.json",
+        "2026-11-18T22:18:57Z",
+        91206,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007/.pandacorp/run/gate-report.json",
+        "2026-11-18T21:36:19Z",
+        6326,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007-a2/.pandacorp/run/gate-report.json",
+        "2026-11-18T21:42:45Z",
+        6229,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007-rescue/.pandacorp/run/gate-report.json",
+        "2026-11-18T22:55:55Z",
+        1499531,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-09-002/.pandacorp/run/gate-report.json",
+        "2026-11-18T22:10:19Z",
+        258584,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-docs-hide-empty-series-and-research-window/.pandacorp/run/gate-report.json",
+        "2026-11-18T21:11:44Z",
+        34731,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe/.pandacorp/run/gate-report.json",
+        "2026-11-18T22:21:55Z",
+        24632,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-a2/.pandacorp/run/gate-report.json",
+        "2026-11-18T22:30:11Z",
+        17398,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-a3/.pandacorp/run/gate-report.json",
+        "2026-11-18T22:40:21Z",
+        9015,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-rescue/.pandacorp/run/gate-report.json",
+        "2026-11-18T23:24:17Z",
+        109727,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-product-hide-empty-series-and-research-window/.pandacorp/run/gate-report.json",
+        "2026-11-18T20:56:31Z",
+        9726,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-product-hide-empty-series-and-research-window-a2/.pandacorp/run/gate-report.json",
+        "2026-11-18T20:59:32Z",
+        28411,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-tests-wo-06-007/.pandacorp/run/gate-report.json",
+        "2026-11-18T21:23:00Z",
+        14044,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/gate-report.json",
+        "2026-11-18T23:57:17Z",
+        288866,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008/.pandacorp/run/gate-report.json",
+        "2026-11-19T00:02:08Z",
+        56746,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-a2/.pandacorp/run/gate-report.json",
+        "2026-11-19T00:06:16Z",
+        28420,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-a3/.pandacorp/run/gate-report.json",
+        "2026-11-19T00:10:27Z",
+        49321,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-rescue/.pandacorp/run/gate-report.json",
+        "2026-11-19T00:12:39Z",
+        1407916,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-patch-g2-frd-06-franchise-backfill/.pandacorp/run/gate-report.json",
+        "2026-11-19T00:38:03Z",
+        10763,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-product-sweep-data-only-corrections/.pandacorp/run/gate-report.json",
+        "2026-11-18T22:13:03Z",
+        82647,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-tests-wo-06-008/.pandacorp/run/gate-report.json",
+        "2026-11-18T23:27:29Z",
+        13751,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/gate-report.json",
+        "2026-11-19T02:24:23Z",
+        1459818,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-01-catalog-browsing/gate-report.json",
+        "2026-10-18T19:52:58Z",
+        43754,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-02-collectible-detail/gate-report.json",
+        "2026-10-18T22:14:16Z",
+        16509,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-03-private-inventory/gate-report.json",
+        "2026-10-19T00:33:38Z",
+        9130,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-04-goals-and-to-get/gate-report.json",
+        "2026-10-19T02:40:15Z",
+        9052,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-06-franchise-backfill/gate-report.json",
+        "2026-10-19T03:32:43Z",
+        80652,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-evidence/frd-08-help-contact-legal/gate-report.json",
+        "2026-10-19T02:28:36Z",
+        32639,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/gate-report.json",
+        "2026-11-20T23:33:20Z",
+        20258,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/scheduler-investigation/upgrade/funko-overlay-upgrade-8-109.gate-report.json",
+        "2026-10-21T00:42:35Z",
+        1025293,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ],
+      [
+        "/Users/Shared/Proyectos/funko-tracker/.pandacorp/run/upgrade-9.4.1-evidence/gate-report.json",
+        "2026-11-16T03:20:55Z",
+        6514,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ]
+    ],
+    "worktrees": [
+      "/Users/Shared/Proyectos/funko-tracker",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/integration",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007-a2",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-06-007-rescue",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-build-wo-09-002",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-docs-hide-empty-series-and-research-window",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-a2",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-a3",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-patch-g2-frd-09-funko-universe-rescue",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-product-hide-empty-series-and-research-window",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-product-hide-empty-series-and-research-window-a2",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/eloquent-nash-b37282/.pandacorp/run/build/wt/u-tests-wo-06-007",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/nifty-haibt-c4dee1",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-a2",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-a3",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-build-wo-06-008-rescue",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-patch-g2-frd-06-franchise-backfill",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-product-sweep-data-only-corrections",
+      "/Users/Shared/Proyectos/funko-tracker/.claude/worktrees/pensive-wing-dad871/.pandacorp/run/build/wt/u-tests-wo-06-008"
+    ]
+  },
+  "personal-page-v2": {
+    "reports": [
+      {
+        "path": "/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/gate-report.json",
+        "data": {
+          "at": "2026-11-13T01:38:38Z",
+          "scope": "full",
+          "green": true,
+          "sha": "a8c00853a844c93a14f0b792ee2212079b6f8f36",
+          "subgates": [
+            {
+              "name": "structure-guard",
+              "exit": 0,
+              "duration_ms": 38,
+              "failures": []
+            },
+            {
+              "name": "live-data-asserts",
+              "exit": 0,
+              "duration_ms": 123,
+              "failures": []
+            },
+            {
+              "name": "data-layer",
+              "exit": 0,
+              "duration_ms": 11,
+              "failures": []
+            },
+            {
+              "name": "api-error-contract",
+              "exit": 0,
+              "duration_ms": 8,
+              "failures": []
+            },
+            {
+              "name": "doc-lint",
+              "exit": 0,
+              "duration_ms": 3651,
+              "failures": []
+            },
+            {
+              "name": "residual-ambiguity",
+              "exit": 0,
+              "duration_ms": 117,
+              "failures": []
+            },
+            {
+              "name": "biome",
+              "exit": 0,
+              "duration_ms": 725,
+              "failures": []
+            },
+            {
+              "name": "tsc",
+              "exit": 0,
+              "duration_ms": 3026,
+              "failures": []
+            },
+            {
+              "name": "knip",
+              "exit": 0,
+              "duration_ms": 1663,
+              "failures": []
+            },
+            {
+              "name": "madge",
+              "exit": 0,
+              "duration_ms": 2007,
+              "failures": []
+            },
+            {
+              "name": "vitest",
+              "exit": 0,
+              "duration_ms": 58024,
+              "failures": []
+            },
+            {
+              "name": "playwright",
+              "exit": 0,
+              "duration_ms": 160631,
+              "failures": []
+            }
+          ],
+          "vitest_seed": 563547614
+        }
+      }
+    ],
+    "matches": [],
+    "totals": [
+      [
+        "/Users/Shared/Proyectos/personal-page-v2/.pandacorp/run/gate-report.json",
+        "2026-11-13T01:38:38Z",
+        230024,
+        "no existe",
+        "sin total wall-clock; suma de etapas, excluye preflight/esperas/overhead"
+      ]
+    ],
+    "worktrees": [
+      "/Users/Shared/Proyectos/personal-page-v2",
+      "/Users/Shared/Proyectos/personal-page-v2/.claude/worktrees/gallant-sanderson-f04745"
+    ]
+  }
+}

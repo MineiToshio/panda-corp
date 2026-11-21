@@ -1,0 +1,17 @@
+worktree /Users/Shared/Proyectos/panda-corp
+HEAD 494ec4f8530b74a9732942dd562a849824066f1c
+branch refs/heads/main
+
+worktree /Users/Shared/local-deployments/panda-corp
+HEAD 56fcd1f926995500c498c40ab4f5d5421f11b70f
+detached
+locked LIVE DEPLOY served by launchd on :1987 (factory/standards/infra.md); never remove
+
+worktree /Users/Shared/Proyectos/panda-corp-wt-ci
+HEAD 5c5cdd20183fd9df5b001eb95f23706cc226ac84
+branch refs/heads/fix/engine-tests-ci
+
+worktree /Users/Shared/Proyectos/panda-corp-wt-verify-affected
+HEAD af3894a6a492379932410c4a2b7376310b6b1b05
+branch refs/heads/feat/verify-affected-browser-gates
+

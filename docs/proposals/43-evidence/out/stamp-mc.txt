@@ -1,0 +1,29 @@
+== gate-report
+scope=full green=true seed=347387652 sha=494ec4f8530b74a9732942dd562a849824066f1c at=2026-11-20T23:54:50Z
+structure-guard	19	exit=0
+live-data-asserts	137	exit=0
+data-layer	4	exit=0
+api-error-contract	7	exit=0
+doc-lint	9545	exit=0
+residual-ambiguity	2745	exit=0
+biome	932	exit=0
+tsc	1751	exit=0
+knip	1595	exit=0
+madge	2435	exit=0
+vitest	54480	exit=0
+playwright	446666	exit=0
+520316
+== stamp
+ls: .pandacorp/run/green-stamp: No such file or directory
+cat: .pandacorp/run/green-stamp: No such file or directory
+== status
+== hidden
+== check1
+green-stamp: no certified-tree stamp
+rc=1
+== check TMPDIR
+green-stamp: no certified-tree stamp
+rc=1
+== check FOO
+green-stamp: no certified-tree stamp
+rc=1

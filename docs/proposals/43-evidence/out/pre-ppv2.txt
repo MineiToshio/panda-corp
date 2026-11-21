@@ -1,0 +1,25 @@
+== status
+?? .pandacorp/navigation-identity.json
+main
+== run
+total 200
+drwxrwxr-x@ 12 sergio  staff    384 Nov 13 09:16 .
+drwxrwxr-x@ 30 sergio  staff    960 Nov 13 09:17 ..
+-rw-rw-r--@  1 sergio  staff      0 Oct  6 23:43 build.lock
+-rw-r--r--@  1 sergio  staff  18056 Oct  7 00:19 foreign-red.log
+-rw-rw-r--@  1 sergio  staff   1436 Nov 12 20:42 gate-report.json
+drwxrwxr-x@  3 sergio  staff     96 Oct  6 23:06 gate-tests
+-rw-------@  1 sergio  staff     79 Oct  7 01:16 last-green.json
+-rw-------@  1 sergio  staff      2 Oct  6 23:26 lease-epoch
+-rw-rw-r--@  1 sergio  staff  66197 Nov 13 09:16 lessons.md
+drwxrwxr-x@  3 sergio  staff     96 Oct  6 23:26 receipts
+drwxr-xr-x@ 41 sergio  staff   1312 Oct  6 23:02 sessions
+drwxrwxr-x@ 26 sergio  staff    832 Nov 13 08:35 worktrees
+== wt
+/Users/Shared/Proyectos/personal-page-v2                                             547e214 [main]
+/Users/Shared/Proyectos/personal-page-v2/.claude/worktrees/gallant-sanderson-f04745  5471613 [claude/gallant-sanderson-f04745]
+== ps
+sergio           70405   0.0  0.0 436199104   6528   ??  S     6:44PM   0:00.31 node /Users/sergio/.npm/_npx/9833c18b2d85bc59/node_modules/.bin/playwright-mcp
+sergio           70337   0.0  0.1 436228608   8432   ??  S     6:43PM   0:00.92 npm exec @playwright/mcp@latest  
+== hslots
+(eval):1: no matches found: /Users/sergio/.pandacorp/host/h-slots/*/owner.json

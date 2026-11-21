@@ -1,0 +1,43 @@
+## B1
+funko-tracker 61 137 26/61 29.0 272.4 11.5 21.6 60
+mission-control / panda-corp 1 1 1/1 0.4 0.4 0.4 0.4 0
+## B3
+Counter({'rojo gate': 60, 'aterrizó': 58, 'conflicto rebase': 6, 'código 12/main ocupado': 5, 'código 21': 4, 'desconocido/no ejecutó (hook bloqueó antes de ejecutar)': 2, 'desconocido/no ejecutó (verify previo rojo; if no ejec)': 1, 'desconocido/no ejecutó (interrumpido; no aterrizaje ob)': 1, 'desconocido/no ejecutó (indeterminado)': 1})
+## B2
+funko-tracker pared 79.53 h cola 25.25 h entre 54.27 h n21 [('EP031', 69.2), ('EP047', 281.3), ('EP048', 30.8)]
+mission-control / panda-corp pared 0.01 h cola 0.01 h entre 0.0 h n21 []
+## B4
+ninguno/desconocido: [28, 15]
+tests sueltos [15, 7]
+verify completo [19, 5]
+primer intento sin rojo de gate / rojos totales {'ninguno/desconocido:': [28, 18, 27], 'tests sueltos': [15, 10, 6], 'verify completo': [19, 9, 27]}
+## B5
+Counter({1: 30, 2: 11, 4: 11, 3: 10})
+EP001 funko- [('rojo g', 'a'), ('rojo g', 'f'), ('aterri', None)]
+EP010 funko- [('rojo g', 'a'), ('rojo g', 'g'), ('aterri', None)]
+EP014 funko- [('rojo g', 'a'), ('rojo g', 'a'), ('rojo g', 'h'), ('rojo g', 'f'), ('aterri', None)]
+EP020 funko- [('código', 'e'), ('código', 'e'), ('rojo g', 'f'), ('aterri', None)]
+EP021 funko- [('código', 'e'), ('rojo g', 'f'), ('rojo g', 'f'), ('aterri', None)]
+EP022 funko- [('rojo g', 'a'), ('rojo g', 'h'), ('aterri', None)]
+EP023 funko- [('confli', 'b'), ('rojo g', 'a'), ('aterri', None)]
+EP025 funko- [('rojo g', 'a'), ('rojo g', 'h'), ('aterri', None)]
+EP028 funko- [('código', 'h'), ('rojo g', 'g'), ('rojo g', 'f'), ('rojo g', 'f'), ('rojo g', 'f'), ('rojo g', 'h')]
+EP030 funko- [('rojo g', 'a'), ('confli', 'b'), ('confli', 'b'), ('confli', 'b'), ('rojo g', 'g'), ('rojo g', 'g'), ('aterri', None)]
+EP031 funko- [('rojo g', 'a'), ('código', 'h'), ('rojo g', 'f'), ('rojo g', 'f'), ('rojo g', 'e'), ('aterri', None)]
+EP039 funko- [('rojo g', 'f'), ('rojo g', 'f'), ('aterri', None)]
+EP043 funko- [('descon', 'h'), ('rojo g', 'a'), ('aterri', None)]
+EP047 funko- [('rojo g', 'f'), ('código', 'h'), ('aterri', None)]
+EP049 funko- [('rojo g', 'f'), ('rojo g', 'h'), ('código', 'e'), ('rojo g', 'g'), ('rojo g', 'g'), ('rojo g', 'a'), ('rojo g', 'h'), ('aterri', None)]
+EP051 funko- [('rojo g', 'a'), ('rojo g', 'g'), ('rojo g', 'a'), ('aterri', None)]
+EP054 funko- [('rojo g', 'f'), ('descon', 'h'), ('aterri', None)]
+EP055 funko- [('rojo g', 'a'), ('rojo g', 'f'), ('rojo g', 'f'), ('aterri', None)]
+EP058 funko- [('rojo g', 'f'), ('rojo g', 'a'), ('descon', 'h'), ('aterri', None)]
+EP061 funko- [('rojo g', 'a'), ('rojo g', 'a'), ('descon', 'h'), ('aterri', None)]
+EP062 funko- [('rojo g', 'f'), ('rojo g', 'h'), ('aterri', None)]
+## B6
+EP042 mission-control / panda-corp E25.A01 aterrizó 26.431 False cd /private/tmp/claude-501/-Users-sergio--claude-spares-spare-dW03tQ/c23356ec-d88d-4db8-90ed-c9c12ab6576e/scratchpad/wt/mission-control && b
+EP046 funko-tracker E26.A03 aterrizó 10.061 True S=/private/tmp/claude-501/-Users-Shared-Proyectos-funko-tracker/f16022dc-e854-4964-98bc-998b3d90c24b/scratchpad; cd $S/wt-news && SWC_NATIVE
+EP048 funko-tracker E27.A05 aterrizó 43.536 True S=/private/tmp/claude-501/-Users-sergio--claude-spares-spare-7Z87yA/69d0d18c-4a61-4786-b56f-ced77c780aaa/scratchpad; cd $S/wt-neon2 && PANDA
+## B7
+reds 60 overlap con cola de otra sesión 1
+## causas de rojos rc11 Counter({'f': 23, 'a': 19, 'h': 10, 'g': 7, 'e': 1})
