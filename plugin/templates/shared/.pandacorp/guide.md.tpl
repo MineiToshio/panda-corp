@@ -166,3 +166,5 @@ Browser gates remain blocking. Only `package.json.name: mission-control` + `depl
 Committed `.pandacorp/gate-budget.json` schemaVersion 1 sets `addedTestTimeBudgetMs` (vitest/playwright, default proposal 30000 each) and exact-id duration `baseline`. Full scope fails when summed new-test time exceeds its cap; slower old tests and a missing file warn. Absolute stage time never fails. Refresh only from green full reporter evidence with `gate-budget-baseline.mjs` in a reviewed commit; upgrades preserve it.
 
 Valid legacy stage budgets keep warning-only timing capture for one full run; generate schemaVersion 1 from that green-full report and review/commit it before added-test enforcement. Reporter collection/identity/count validation precedes exclusions and budgets; declared skips remain in the inventory, interruptions never pass.
+
+Test IDs use reversible json-string-v1 escaping, including newlines and literal backslashes. Canonical ids carry an encoding marker; legacy unmarked ids are read as raw without rewriting signed exclusions. Owner signing accepts the decoded canonical value from flaky-suspects JSON, not the serialized JSON string.

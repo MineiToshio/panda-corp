@@ -1,5 +1,9 @@
 # Decision Log — Factory
 
+## 2026-11-21 — Preserve multiline reporter identities without weakening validation
+
+The real Mission Control queue gate found four valid multiline parameterized test names. [Build orchestration](standards/build-orchestration.md) now defines the shared reversible encoding and explicit format markers across policy, exclusion matching, budget baselines and the flaky ledger. Marked ids are validated rather than re-escaped; legacy raw data and signatures remain readable without mutation. Literal backslash+n remains distinct from a newline, and NUL/empty/undefined still fail. Managed Mission Control copies/status are updated under the coordinator's explicit authorization; no test names, owner evidence or queue policy are weakened.
+
 ## 2026-11-21 — Keep original test-runner failure identity after phase-3 policy checks
 
 The [build orchestration contract](standards/build-orchestration.md) now makes the existing exit-code precedence explicit. Phase-3 policy evaluation must not replace an already-red test runner's exit with 1; policy-only failures still use 1. The database-clean regression keeps its original expected 9 and now checks both runners and full/scoped gates. This is a production template correction, not a changed acceptance contract.

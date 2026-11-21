@@ -803,6 +803,7 @@ for runner in ('vitest', 'playwright'):
     path = Path(frag_path).parent / (runner + '.json.tests.json')
     if path.exists(): timings.extend(json.loads(path.read_text()))
 report['test_timings'] = timings
+report['test_id_encoding'] = 'json-string-v1'
 policy_warnings = []
 for path in Path(frag_path).parent.glob('log-*-policy.txt'):
     policy_warnings.extend(line for line in path.read_text().splitlines() if line.startswith('WARN DR-159'))
@@ -1222,53 +1223,50 @@ TREEPY
 fi
 append_test_outcomes() {
   [ "$LEDGER" -eq 1 ] || return 0
-  python3 - "$1" "$GATE_FRAGMENTS_DIR/$1.json" "$OUTCOMES_TREE" "$VITEST_SEED" <<'OUTCOMESPY' || { echo 'verify: WARNING test-outcomes ledger incomplete (reporter/append error)' >&2; [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" != 1 ] || NIGHTLY_RED=1; }
-import datetime, json, os, pathlib, subprocess, sys, uuid
-runner, filename, tree, seed = sys.argv[1:]
-def git(*args): return subprocess.check_output(['git', *args], text=True).strip()
-prefix = git('rev-parse', '--show-prefix')
-default = subprocess.run(['git', 'symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], capture_output=True, text=True).stdout.strip().removeprefix('origin/') or 'main'
-lines = git('worktree', 'list', '--porcelain').splitlines()
-main = None
-for line in lines:
-    if line.startswith('worktree '): checkout = line[9:]
-    elif line == 'branch refs/heads/' + default: main = checkout
-if main is None: raise ValueError('test outcomes require the main checkout')
-project = str((pathlib.Path(main) / prefix).resolve())
-report = json.loads(pathlib.Path(filename).read_text())
-attempt = os.environ.get('PANDACORP_QUEUE_ATTEMPT') or str(uuid.uuid4())
-rows = []
-def add(test, status, worker, retry=0):
-    if status not in ('passed', 'failed', 'skipped', 'pending', 'todo', 'disabled', 'timedOut', 'interrupted'): raise ValueError('unknown test status: ' + str(status))
-    status = {'timedOut': 'failed', 'interrupted': 'failed', 'pending': 'skipped', 'todo': 'skipped', 'disabled': 'skipped'}.get(status, status)
-    rows.append(dict(v=1, ts=datetime.datetime.now(datetime.timezone.utc).isoformat(), test_id=test, status=status,
-                     tree=tree, seed=int(seed), worker=worker, project=project, attempt=attempt, runner=runner, retry=retry))
-if runner == 'vitest':
-    for suite in report['testResults']:
-        file = suite['name']
-        try: file = pathlib.Path(file).relative_to(pathlib.Path.cwd()).as_posix()
-        except ValueError: pass
-        for test in suite['assertionResults']:
-            add(file + ' > ' + test['fullName'], test['status'], test.get('workerId'))
-else:
-    def visit(suite, parents):
-        names = parents + ([suite['title']] if suite.get('title') else [])
-        for spec in suite.get('specs', []):
-            for test in spec['tests']:
-                ident = spec['file'] + ' > ' + ' > '.join(names + [spec['title']]) + ' [' + test.get('projectName', '') + ']'
-                for result in test['results']:
-                    add(ident, result['status'], result.get('workerIndex'), result.get('retry', 0))
-        for child in suite.get('suites', []): visit(child, names)
-    for suite in report['suites']: visit(suite, [])
-target = pathlib.Path(project) / '.pandacorp/run/test-outcomes.jsonl'
-target.parent.mkdir(parents=True, exist_ok=True)
-fd = os.open(target, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
-try:
-    for row in rows:
-        data = (json.dumps(row, ensure_ascii=True, separators=(',', ':')) + '\n').encode()
-        if os.write(fd, data) != len(data): raise OSError('short ledger append')
-finally: os.close(fd)
-OUTCOMESPY
+  node --input-type=module - "$1" "$GATE_FRAGMENTS_DIR/$1.json" "$OUTCOMES_TREE" "$VITEST_SEED" <<'OUTCOMESJS' || { echo 'verify: WARNING test-outcomes ledger incomplete (reporter/append error)' >&2; [ "${PANDACORP_DISABLE_TEST_EXCLUSIONS:-0}" != 1 ] || NIGHTLY_RED=1; }
+import {readFileSync,mkdirSync,openSync,writeSync,closeSync,realpathSync} from 'node:fs';
+import {resolve,relative,isAbsolute,join} from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {execFileSync,spawnSync} from 'node:child_process';
+import {randomUUID} from 'node:crypto';
+const {vitestTestId,playwrightTestId,TEST_ID_ENCODING}=await import(pathToFileURL(resolve('.pandacorp/test-gate-policy.mjs')));
+const [runner,filename,tree,seed]=process.argv.slice(2);
+const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim();
+const prefix=git('rev-parse','--show-prefix');
+const symbolic=spawnSync('git',['symbolic-ref','--quiet','--short','refs/remotes/origin/HEAD'],{encoding:'utf8'}).stdout.trim();
+const defaultBranch=symbolic.replace(/^origin\//,'') || 'main';
+let checkout,main;
+for(const line of git('worktree','list','--porcelain').split('\n')) {
+  if(line.startsWith('worktree '))checkout=line.slice(9);
+  else if(line==='branch refs/heads/'+defaultBranch)main=checkout;
+}
+if(!main)throw new Error('test outcomes require the main checkout');
+const project=realpathSync(resolve(main,prefix)),report=JSON.parse(readFileSync(filename,'utf8')),rows=[];
+const attempt=process.env.PANDACORP_QUEUE_ATTEMPT || randomUUID();
+function add(test_id,status,worker,retry=0){
+ if(!['passed','failed','skipped','pending','todo','disabled','timedOut','interrupted'].includes(status))throw new Error('unknown test status');
+ status=({timedOut:'failed',interrupted:'failed',pending:'skipped',todo:'skipped',disabled:'skipped'})[status] ?? status;
+ rows.push({v:1,ts:new Date().toISOString(),test_id,id_encoding:TEST_ID_ENCODING,status,tree,seed:Number(seed),worker:worker ?? null,project,attempt,runner,retry});
+}
+if(runner==='vitest')for(const suite of report.testResults){
+ const file=isAbsolute(suite.name)?relative(process.cwd(),suite.name):suite.name;
+ for(const test of suite.assertionResults)add(vitestTestId(file,test.fullName),test.status,test.workerId);
+}else{
+ const visit=(suite,parents)=>{
+  if(typeof suite.title!=='string')throw new Error('invalid suite identity');
+  const names=parents.concat(suite.title?[suite.title]:[]);
+  for(const spec of suite.specs ?? [])for(const test of spec.tests){
+   const id=playwrightTestId(spec.file,names,spec.title,test.projectName);
+   for(const result of test.results)add(id,result.status,result.workerIndex,result.retry ?? 0);
+  }
+  for(const child of suite.suites ?? [])visit(child,names);
+ };
+ for(const suite of report.suites)visit(suite,[]);
+}
+const target=join(project,'.pandacorp/run/test-outcomes.jsonl');mkdirSync(join(project,'.pandacorp/run'),{recursive:true});
+const fd=openSync(target,'a',0o600);
+try{for(const row of rows){const data=Buffer.from(JSON.stringify(row)+'\n');if(writeSync(fd,data)!==data.length)throw new Error('short ledger append');}}finally{closeSync(fd);}
+OUTCOMESJS
 }
 
 # Full reporter data is persisted with the report for reviewed baseline refreshes.

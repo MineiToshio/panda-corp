@@ -38,6 +38,7 @@ grep -q 'missing green-stamp.sh' "$FX/output"
 # Exercise the actual verify template: record refusal is observable but keeps diagnosis green.
 fixture real-record
 cp "$QUEUE_FACTORY/plugin/templates/stack-a-nextjs/verify.sh" "$WT/.pandacorp/verify.sh"
+cp "$QUEUE_FACTORY/plugin/templates/shared/.pandacorp/test-gate-policy.mjs" "$WT/.pandacorp/"
 mkdir -p "$WT/src/_tests" "$WT/e2e"
 printf '.env.local\n' >> "$WT/.gitignore"
 echo '{"name":"record-fixture"}' > "$WT/package.json"
@@ -47,10 +48,11 @@ cat > "$WT/bin/pnpm" <<'PNPM'
 #!/bin/bash
 [ "$1" != biome ] || echo changed >> .env.local
 if [ "$1" = vitest ]; then
-  for arg in "$@"; do case "$arg" in --outputFile=*) printf '{"testResults":[]}' > "${arg#--outputFile=}";; esac; done
+  for arg in "$@"; do case "$arg" in --outputFile=*) printf '%s' '{"numTotalTests":1,"numPassedTests":1,"numFailedTests":0,"numPendingTests":0,"numTodoTests":0,"testResults":[{"name":"src/_tests/record.test.ts","assertionResults":[{"fullName":"unit","status":"passed","duration":1}]}]}' > "${arg#--outputFile=}";; esac; done
+  printf '%s' '{"reason":"passed","plannedModules":1,"completedModules":1,"tests":[{"id":"src/_tests/record.test.ts > unit","status":"passed","declaredSkip":false}],"unhandledErrors":[]}' > "$PANDACORP_VITEST_ERRORS_FILE"
 fi
 if [ "${2:-}" = playwright ] && [ -n "${PLAYWRIGHT_JSON_OUTPUT_FILE:-}" ]; then
-  printf '{"suites":[{"title":"smoke.spec.ts","specs":[{"file":"smoke.spec.ts","title":"renders","tests":[{"projectName":"desktop","results":[{"status":"passed","workerIndex":2,"retry":0}]}]}]}]}' > "$PLAYWRIGHT_JSON_OUTPUT_FILE"
+  printf '{"errors":[],"stats":{"expected":1,"unexpected":0,"skipped":0,"flaky":0},"suites":[{"title":"smoke.spec.ts","specs":[{"file":"smoke.spec.ts","title":"renders","tests":[{"projectName":"desktop","expectedStatus":"passed","status":"expected","results":[{"status":"passed","duration":1,"workerIndex":2,"retry":0}]}]}]}]}' > "$PLAYWRIGHT_JSON_OUTPUT_FILE"
 fi
 exit 0
 PNPM
@@ -71,6 +73,8 @@ grep -q 'green but uncertifiable:' "$FX/output"
 python3 - "$APP" <<'PY_LEDGER'
 import json,pathlib,sys
 rows=list(map(json.loads,(pathlib.Path(sys.argv[1])/'.pandacorp/run/test-outcomes.jsonl').read_text().splitlines()))
+assert len(rows)==2 and {r['runner'] for r in rows}=={'vitest','playwright'}
+rows=[r for r in rows if r['runner']=='playwright']
 assert len(rows)==1 and rows[0]['runner']=='playwright' and rows[0]['worker']==2 and rows[0]['status']=='passed'
 assert 'renders' in rows[0]['test_id'] and rows[0]['attempt']
 PY_LEDGER

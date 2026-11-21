@@ -3,6 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/queue-test-fixture.sh"
 fixture diagnosis
 cp "$QUEUE_FACTORY/plugin/templates/stack-a-nextjs/verify.sh" "$WT/.pandacorp/verify.sh"
+cp "$QUEUE_FACTORY/plugin/templates/shared/.pandacorp/test-gate-policy.mjs" "$WT/.pandacorp/"
 mkdir -p "$WT/src/_tests" "$WT/e2e"
 echo '{"name":"diagnosis"}' > "$WT/package.json"
 touch "$WT/playwright.config.ts"
@@ -15,7 +16,7 @@ if [ "$1" = vitest ]; then
   for arg in "$@"; do case "$arg" in --outputFile=*) out=${arg#--outputFile=};; esac; done
   echo 'FAIL src/_tests/a.test.ts > first failure'
   echo 'FAIL src/_tests/a.test.ts > second failure'
-  printf '{"testResults":[{"name":"src/_tests/a.test.ts","assertionResults":[{"fullName":"first failure","status":"failed"},{"fullName":"second failure","status":"failed"}]}]}' > "$out"
+  printf '%s' '{"testResults":[{"name":"src/_tests/a.test.ts","assertionResults":[{"fullName":"first failure\nparameter","status":"failed"},{"fullName":"second failure","status":"failed"}]}]}' > "$out"
   exit 1
 fi
 exit 0
@@ -35,6 +36,7 @@ wt,main=map(pathlib.Path,sys.argv[1:]);r=json.loads((wt/'.pandacorp/run/gate-rep
 assert r['scope']=='partial' and not r['green']
 assert {'biome','tsc','vitest'} <= {g['name'] for g in r['subgates'] if g['exit']}
 rows=list(map(json.loads,(main/'.pandacorp/run/test-outcomes.jsonl').read_text().splitlines()))
+assert rows[0]['test_id']=='src/_tests/a.test.ts > first failure\\nparameter' and rows[0].get('id_encoding')=='json-string-v1'
 assert len(rows)==2 and all(r['status']=='failed' and r['worker'] is None and r['attempt'] for r in rows)
 assert not (wt/'.pandacorp/run/test-outcomes.jsonl').exists()
 PY

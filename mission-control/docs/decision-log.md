@@ -1,5 +1,16 @@
 # Decision Log — Mission Control
 
+## 2026-11-21 — Upgrade test identity handling to overlay 9.9.4
+
+Sync `.pandacorp/test-gate-policy.mjs` and `verify.sh` byte-identical to the factory
+shared/Stack A templates. Legitimate multiline parameterized names now use the same
+reversible, explicitly marked identity encoding in policy/proof, exclusions, budgets
+and the flaky ledger. NUL/empty/undefined ids remain invalid; existing test names and
+owner evidence are unchanged. Set only `status.yaml.overlay_version` to 9.9.4. No
+commit, owner exclusion or production action is performed by this managed repair.
+Scoped native verification: 23 tests passed across backlog.test.ts and readSummary.test.ts;
+the installed evaluator/proof accepts all four multiline ids. Full queue not rerun here.
+
 ## 2026-11-21 - Pandacorp overlay upgraded 9.8.0 -> 9.9.3
 
 Adopt the proposal 43 phase 3 gate policy: `verify.sh` and `green-stamp.sh` re-synced from the

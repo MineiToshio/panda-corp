@@ -109,3 +109,5 @@ certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandac
 - Refresh with `node <plugin>/scripts/gate-budget-baseline.mjs <project> --from <green-full-gate-report.json>` and review/commit the baseline; never auto-raise caps or bless partial/red evidence.
 
 - Validate reporter schema, identities, unique inventory and summary counts before exclusions/budgets. Vitest runner proof distinguishes declared skips from unfinished tests. Declared skips do not veto other exclusions; interrupted/incomplete tests stay red. Valid legacy stage budgets allow full timing capture with a warning, then a reviewed green-full baseline commit activates schemaVersion 1 caps; invalid legacy data fails.
+
+- Test identities use the shared reversible `json-string-v1` escaping (whole id once; backslashes escaped too). Multiline names are valid; empty/undefined/NUL ids are not. New ledger/exclusion/budget/proof data declares `id_encoding`; gate timing reports use `test_id_encoding`. Unmarked legacy ids are raw and normalized only in memory. Never re-escape marked ids or rewrite signed entries; owner signing uses canonical ids extracted from suspect JSON.

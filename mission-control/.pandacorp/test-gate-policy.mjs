@@ -1,12 +1,38 @@
 // Shared exact reporter identities and gate policy; no retries or automatic authorizations.
-import { readFileSync, existsSync, writeFileSync, lstatSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, lstatSync, realpathSync } from 'node:fs';
 import { createHash, createPublicKey, verify } from 'node:crypto';
 import { resolve, relative, isAbsolute } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 export const exclusionsPath = '.pandacorp/test-exclusions.json';
+export const TEST_ID_ENCODING = 'json-string-v1';
+// Encode the WHOLE assembled id once. Escaping backslashes also distinguishes a real LF
+// from a literal backslash+n. Stored ids carry a marker; never guess or double-escape.
+export function encodeTestId(value) {
+  nonempty(value,'test id');
+  return JSON.stringify(value).slice(1,-1).replace(/[\u007f-\u009f\u2028\u2029]/g, char => '\\u' + char.charCodeAt(0).toString(16).padStart(4,'0'));
+}
+export function readTestId(value, encoding) {
+  if (encoding === undefined) return encodeTestId(value); // legacy raw identity
+  if (encoding !== TEST_ID_ENCODING) throw new Error('unknown test id encoding');
+  nonempty(value,'encoded test id');
+  let decoded;
+  try { decoded = JSON.parse('"' + value + '"'); }
+  catch { throw new Error('invalid encoded test id'); }
+  if (encodeTestId(decoded) !== value) throw new Error('non-canonical encoded test id');
+  return value;
+}
+export function vitestTestId(file, fullName) {
+  return encodeTestId(nonempty(file,'Vitest file') + ' > ' + nonempty(fullName,'Vitest fullName'));
+}
+export function playwrightTestId(file, parents, title, projectName) {
+  for (const name of parents) nonempty(name,'suite title',true);
+  return encodeTestId(nonempty(file,'spec file') + ' > ' + [...parents,nonempty(title,'spec title')].join(' > ') + ' [' + nonempty(projectName,'projectName',true) + ']');
+}
 export function binding(entry) {
-  return createHash('sha256').update(JSON.stringify([entry.id, entry.reason, entry.authorized_by, entry.authorized_at, entry.expires, 'owner-confirmed-v1'])).digest('hex');
+  const fields=[entry.id, entry.reason, entry.authorized_by, entry.authorized_at, entry.expires, 'owner-confirmed-v1'];
+  if (Object.hasOwn(entry,'id_encoding')) fields.push(entry.id_encoding); // bind interpretation too; retain legacy signatures
+  return createHash('sha256').update(JSON.stringify(fields)).digest('hex');
 }
 export function flakySuspects(text) {
   const groups = new Map();
@@ -18,8 +44,9 @@ export function flakySuspects(text) {
       if (!row || row.v !== 1 || !['test_id', 'tree', 'project', 'attempt', 'runner'].every(k => typeof row[k] === 'string' && row[k]) ||
           !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(row.tree) || !['vitest', 'playwright'].includes(row.runner) || !['passed', 'failed', 'skipped'].includes(row.status) ||
           !Number.isInteger(row.seed) || row.seed < 0 || !(row.worker === null || Number.isInteger(row.worker)) || !Number.isFinite(Date.parse(row.ts))) throw new Error('invalid outcome fields');
-      const key = JSON.stringify([row.project, row.tree, row.runner, row.test_id]);
-      const g = groups.get(key) ?? {project: row.project, tree: row.tree, runner: row.runner, test_id: row.test_id, passed: 0, failed: 0, attempts: new Set()};
+      const testId = readTestId(row.test_id,row.id_encoding);
+      const key = JSON.stringify([row.project, row.tree, row.runner, testId]);
+      const g = groups.get(key) ?? {project: row.project, tree: row.tree, runner: row.runner, test_id: testId, id_encoding: TEST_ID_ENCODING, passed: 0, failed: 0, attempts: new Set()};
       if (row.status !== 'skipped') { g[row.status]++; g.attempts.add(row.attempt); }
       groups.set(key, g);
     } catch (error) { throw new Error(`test-outcomes line ${i + 1}: ${error.message}`); }
@@ -32,7 +59,7 @@ export function projectIdentity(project) {
   let checkout;
   for (const line of lines) {
     if (line.startsWith('worktree ')) checkout = line.slice(9);
-    if (line === 'branch refs/heads/main') return resolve(checkout, prefix);
+    if (line === 'branch refs/heads/main') return realpathSync(resolve(checkout, prefix));
   }
   throw new Error('main checkout required for suspect ledger');
 }
@@ -89,18 +116,21 @@ export function loadExclusions(project) {
   console.log('owner exclusion key: SHA256:' + pinned.fingerprint + ' (factory committed main)');
   const ids = new Set();
   for (const e of entries) {
-    if (!e || typeof e.id !== 'string' || !e.id.trim() || /[\n\r\0*?]/.test(e.id) || ids.has(e.id) || typeof e.reason !== 'string' || !e.reason.trim() || e.authorized_by !== 'owner') throw new Error('exact unique id, reason and authorized_by: owner required');
-    ids.add(e.id);
+    if (!e || typeof e.id !== 'string' || !e.id.trim() || /[\0*?]/.test(e.id) || typeof e.reason !== 'string' || !e.reason.trim() || e.authorized_by !== 'owner') throw new Error('exact unique id, reason and authorized_by: owner required');
+    const testId=readTestId(e.id,e.id_encoding);
+    if (ids.has(testId)) throw new Error('duplicate exclusion identity');
+    ids.add(testId);
     for (const key of ['authorized_at','expires']) if (!/^\d{4}-\d{2}-\d{2}$/.test(e[key]) || new Date(e[key]).toISOString().slice(0,10) !== e[key]) throw new Error('invalid exclusion date');
     const start = Date.parse(e.authorized_at), end = Date.parse(e.expires);
     if (end <= start || end - start > 14*86400000 || Date.now() < start || Date.now() > end) throw new Error('exclusion expired, future-dated or exceeds 14 days');
     if (typeof e.authorization !== 'string' || !e.authorization.startsWith('tty-v1:') || !verify(null, Buffer.from(binding(e)), pinned.pem, Buffer.from(e.authorization.slice(7),'base64'))) throw new Error('missing/invalid owner TTY authorization signature binding');
-    if (!suspects.some(s => s.project === identity && s.test_id === e.id)) throw new Error('excluded id is not a ledger suspect: ' + e.id);
+    if (!suspects.some(s => s.project === identity && s.test_id === testId)) throw new Error('excluded id is not a ledger suspect: ' + e.id);
   }
-  return entries;
+  // Canonical comparison view only; never rewrite the original signed evidence.
+  return entries.map(e=>({...e,id:readTestId(e.id,e.id_encoding),id_encoding:TEST_ID_ENCODING}));
 }
 function nonempty(value, label, allowEmpty = false) {
-  if (typeof value !== 'string' || (!allowEmpty && !value.trim()) || /[\0\r\n]/.test(value)) throw new Error('invalid reporter identity: ' + label);
+  if (typeof value !== 'string' || (!allowEmpty && !value.trim()) || /[\0]/.test(value)) throw new Error('invalid reporter identity: ' + label);
   return value;
 }
 function array(value, label) {
@@ -115,6 +145,7 @@ export function reporterTests(runner, report, project, {allowEmpty = false} = {}
   if (!report || typeof report !== 'object') throw new Error('invalid reporter object');
   const rows = [], ids = new Set();
   const add = (id, status, duration) => {
+    readTestId(id,TEST_ID_ENCODING);
     if (ids.has(id)) throw new Error('duplicate reporter identity: ' + id);
     ids.add(id);
     if (!['passed','failed','skipped','pending','todo','disabled','timedOut','interrupted'].includes(status)) throw new Error('unknown reporter status');
@@ -131,7 +162,7 @@ export function reporterTests(runner, report, project, {allowEmpty = false} = {}
       if (files.has(file)) throw new Error('duplicate Vitest module');
       files.add(file);
       if (!array(suite.assertionResults,'assertionResults').length) throw new Error('empty Vitest module inventory');
-      for (const t of array(suite.assertionResults, 'assertionResults')) add(file + ' > ' + nonempty(t?.fullName, 'Vitest fullName'), t.status, t.duration);
+      for (const t of array(suite.assertionResults, 'assertionResults')) add(vitestTestId(file,t?.fullName), t.status, t.duration);
     }
     const total = count(report.numTotalTests, 'numTotalTests');
     const actual = status => rows.filter(t => status.includes(t.status)).length;
@@ -152,7 +183,7 @@ export function reporterTests(runner, report, project, {allowEmpty = false} = {}
           const projectName = nonempty(t?.projectName, 'projectName', true);
           if (!['passed','failed','skipped'].includes(t.expectedStatus) || !Object.hasOwn(counts,t.status)) throw new Error('invalid Playwright expectedStatus/outcome');
           counts[t.status]++;
-          const id = file + ' > ' + [...names,title].join(' > ') + ' [' + projectName + ']';
+          const id = playwrightTestId(file,names,title,projectName);
           const results = array(t.results, 'results');
           if (t.status === 'skipped' && t.expectedStatus === 'skipped' && !results.length) { add(id,'skipped',0); continue; }
           if (results.length !== 1 || t.status === 'flaky') throw new Error('incomplete or retried Playwright inventory');
@@ -194,9 +225,9 @@ export default class GateErrorReporter {
     return rows;
   }
   id(module, task) {
-    const names = [task.name];
-    for (let suite=task.suite; suite; suite=suite.suite) names.unshift(suite.name);
-    return relative(process.cwd(),module.moduleId) + ' > ' + names.join(' ');
+    const names = [nonempty(task.name,'Vitest task name')];
+    for (let suite=task.suite; suite; suite=suite.suite) names.unshift(nonempty(suite.name,'suite title',true));
+    return vitestTestId(relative(process.cwd(),module.moduleId),names.join(' '));
   }
   onTestModuleCollected(module) {
     for (const task of this.tasks(module)) if (['skip','todo'].includes(task.mode)) this.declared.add(this.id(module,task));
@@ -206,7 +237,7 @@ export default class GateErrorReporter {
     if (!file) throw new Error('missing gate error reporter destination');
     const statuses = {pass:'passed',fail:'failed',skip:'skipped',todo:'todo',run:'pending',queued:'pending',only:'pending'};
     const tests = modules.flatMap(module => this.tasks(module).map(task => ({id:this.id(module,task),status:statuses[task.result?.state ?? task.mode] ?? 'pending',declaredSkip:this.declared.has(this.id(module,task)) || (task.result?.state === 'skip' && task.result.pending === true)})));
-    writeFileSync(file,JSON.stringify({reason,plannedModules:this.plannedModules,completedModules:modules.length,tests,unhandledErrors:unhandledErrors.map(e=>String(e.message ?? e))}));
+    writeFileSync(file,JSON.stringify({id_encoding:TEST_ID_ENCODING,reason,plannedModules:this.plannedModules,completedModules:modules.length,tests,unhandledErrors:unhandledErrors.map(e=>String(e.message ?? e))}));
   }
 }
 function validateVitestProof(report, tests, proof) {
@@ -215,13 +246,15 @@ function validateVitestProof(report, tests, proof) {
   const ids = new Set();
   for (const test of proof.tests) {
     if (typeof test.declaredSkip !== 'boolean') throw new Error('invalid declared skip proof');
-    if (ids.has(test.id)) throw new Error('duplicate Vitest proof identity');
-    ids.add(test.id);
-    const row = tests.find(t=>t.id===test.id && t.status===test.status);
+    const id=readTestId(test.id,proof.id_encoding);
+    if (ids.has(id)) throw new Error('duplicate Vitest proof identity');
+    ids.add(id);
+    const row = tests.find(t=>t.id===id && t.status===test.status);
     if (!row || (['skipped','todo','disabled'].includes(row.status) && !test.declaredSkip)) throw new Error('undeclared/unexecuted Vitest test or reporter mismatch');
   }
 }
 export function checkBudget(project, tests) {
+  for (const test of tests) readTestId(test.id,TEST_ID_ENCODING);
   const file = resolve(project,'.pandacorp/gate-budget.json');
   if (!existsSync(file)) { console.log('WARN DR-159: missing .pandacorp/gate-budget.json; generate a reviewed baseline'); return; }
   const b = JSON.parse(readFileSync(file,'utf8'));
@@ -232,10 +265,11 @@ export function checkBudget(project, tests) {
     return;
   }
   if (b.schemaVersion !== 1 || !b.baseline || Array.isArray(b.baseline) || typeof b.baseline !== 'object' || !b.addedTestTimeBudgetMs || ['vitest','playwright'].some(r => !Number.isFinite(b.addedTestTimeBudgetMs[r]) || b.addedTestTimeBudgetMs[r] < 0) || Object.values(b.baseline).some(ms => !Number.isFinite(ms) || ms < 0)) throw new Error('invalid gate-budget.json schemaVersion 1');
+  const baseline=Object.fromEntries(Object.entries(b.baseline).map(([id,ms])=>[readTestId(id,b.id_encoding),ms]));
   for (const runner of ['vitest','playwright']) {
-    const added = tests.filter(t => t.runner === runner && !Object.hasOwn(b.baseline,t.id));
+    const added = tests.filter(t => t.runner === runner && !Object.hasOwn(baseline,t.id));
     const total = added.reduce((s,t) => s+t.duration_ms,0);
-    for (const t of tests.filter(t => t.runner === runner && Object.hasOwn(b.baseline,t.id))) if (t.duration_ms > b.baseline[t.id]*1.25 && t.duration_ms-b.baseline[t.id] >= 1000) console.log(`WARN DR-159: slower existing test ${t.id}: ${t.duration_ms} ms`);
+    for (const t of tests.filter(t => t.runner === runner && Object.hasOwn(baseline,t.id))) if (t.duration_ms > baseline[t.id]*1.25 && t.duration_ms-baseline[t.id] >= 1000) console.log(`WARN DR-159: slower existing test ${t.id}: ${t.duration_ms} ms`);
     if (total > b.addedTestTimeBudgetMs[runner]) throw new Error(`DR-159 ${runner}: added tests ${total} ms exceed ${b.addedTestTimeBudgetMs[runner]} ms: ` + added.sort((a,b)=>b.duration_ms-a.duration_ms).map(t=>`${t.id} (${t.duration_ms} ms)`).join('; ') + '. Optimize tests or refresh baseline from a green full run with gate-budget-baseline.mjs; commit for review.');
   }
 }

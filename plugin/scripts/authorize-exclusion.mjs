@@ -7,7 +7,7 @@ import { homedir } from 'node:os';
 import { resolve, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createInterface } from 'node:readline/promises';
-import { binding, exclusionsPath, flakySuspects, ownerPublicKey, ownerGit, projectIdentity } from '../templates/shared/.pandacorp/test-gate-policy.mjs';
+import { binding, exclusionsPath, flakySuspects, TEST_ID_ENCODING, readTestId, ownerPublicKey, ownerGit, projectIdentity } from '../templates/shared/.pandacorp/test-gate-policy.mjs';
 const service = 'pandacorp.exclusions.signing';
 const account = 'owner';
 const loginKeychain = () => resolve(homedir(),'Library/Keychains/login.keychain-db');
@@ -44,6 +44,11 @@ export function bootstrapOwnerKey(factory, {platform=process.platform,runSecurit
   writeFileSync(file,keys.publicKey.export({type:'spki',format:'pem'}),{flag:'wx'});
   console.log('Public key written. Review and commit factory/owner-keys/exclusions.pub on factory main. No key was committed by this command.');
 }
+export function replaceAuthorizedExclusion(entries,entry) {
+  if (!Array.isArray(entries)) throw new Error('exclusions must be an array');
+  const id=readTestId(entry.id,entry.id_encoding);
+  return [...entries.filter(e=>readTestId(e.id,e.id_encoding)!==id),entry];
+}
 async function main() {
   if (process.platform !== 'darwin') throw new Error('owner authorization requires macOS login Keychain');
   if (!process.stdin.isTTY || !process.stdout.isTTY) throw new Error('owner authorization requires interactive TTY confirmation; non-interactive process refused');
@@ -61,18 +66,18 @@ async function main() {
   try {
     if (lstatSync('.pandacorp').isSymbolicLink() || !lstatSync('.pandacorp').isDirectory()) throw new Error('real .pandacorp directory required');
     if (existsSync(exclusionsPath) && (lstatSync(exclusionsPath).isSymbolicLink() || !lstatSync(exclusionsPath).isFile())) throw new Error('regular policy file required');
+    readTestId(id,TEST_ID_ENCODING); // owner copies the canonical id printed by flaky-suspects
     const project = projectIdentity(process.cwd());
     const suspects = flakySuspects(readFileSync(resolve(project,'.pandacorp/run/test-outcomes.jsonl'),'utf8'));
     if (!suspects.some(s=>s.project===project && s.test_id===id)) throw new Error('id is not a ledger suspect');
     const pinned = ownerPublicKey(process.cwd());
     console.log('owner exclusion key: SHA256:' + pinned.fingerprint + ' (factory committed main)');
     const start = new Date().toISOString().slice(0,10);
-    const entry = {id,reason,authorized_by:'owner',authorized_at:start,expires:new Date(Date.parse(start)+days*86400000).toISOString().slice(0,10)};
+    const entry = {id,id_encoding:TEST_ID_ENCODING,reason,authorized_by:'owner',authorized_at:start,expires:new Date(Date.parse(start)+days*86400000).toISOString().slice(0,10)};
     if (await rl.question(`Exclude exactly ${id}\nReason: ${reason}\nExpires (UTC midnight): ${entry.expires}\nType AUTHORIZE, then approve the macOS Keychain dialog: `) !== 'AUTHORIZE') throw new Error('owner did not confirm; nothing written');
     entry.authorization = signWithKeychain(entry,pinned.pem);
     const entries = existsSync(exclusionsPath) ? JSON.parse(readFileSync(exclusionsPath,'utf8')) : [];
-    if (!Array.isArray(entries)) throw new Error('exclusions must be an array');
-    writeFileSync(exclusionsPath,JSON.stringify([...entries.filter(e=>e.id!==id),entry],null,2)+'\n');
+    writeFileSync(exclusionsPath,JSON.stringify(replaceAuthorizedExclusion(entries,entry),null,2)+'\n');
     console.log('Owner confirmation recorded. Review and commit the exclusions file before verification.');
   } finally { rl.close(); }
 }

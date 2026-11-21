@@ -715,13 +715,33 @@ does not change that scope contract. Observed failures remain in reports/ledger.
 Vitest identity: repository-relative suite `name` + ` > ` + assertion `fullName`.
 Playwright identity: spec `file` + ` > ` + suite titles joined by ` > ` + spec title
 + ` [projectName]` (including the JSON reporter's top-level suite title). No regex
-or glob matching. A reporter identity change requires fresh owner authorization.
+or glob matching. All assembled ids use the shared `json-string-v1` codec in `test-gate-policy.mjs`:
+JSON string contents without the outer quotes, with DEL/C1 and Unicode line separators
+also escaped as `\uXXXX`. LF/CR/tab become literal `\n`/`\r`/`\t`; backslashes
+and quotes are escaped too, keeping a real LF distinct from the literal characters
+backslash+n. Encoding is reversible, applied exactly once to the complete id, and
+never trims names. Empty/undefined identities and NUL remain invalid.
+
+New ledger rows, flaky-suspect output, exclusion entries, runner sidecars and budget
+files declare `id_encoding: json-string-v1`; gate-report timing arrays declare
+`test_id_encoding: json-string-v1`. Missing markers mean legacy RAW ids. Readers
+normalize those in memory; marked ids must be canonical and are never double-escaped.
+Unknown markers and encoded NUL fail. Legacy signatures bind the original raw id;
+new signatures also bind the encoding marker. Never rewrite existing signed entries.
+Renewal compares normalized ids while preserving unrelated signed evidence.
+Baseline generation normalizes both green-full timings and native reporter input;
+budget comparisons normalize old baseline keys. The ledger writer imports the SAME
+shared builders as policy/proof; install verify and the helper together on upgrade.
+`flaky-suspects.mjs --json` inherits this codec from the shared resolver. For owner
+signing, pass the canonical decoded JSON value (e.g. extract with `jq -r '.[0].test_id'`),
+not its JSON serialization/outer quotes. A reporter identity change requires fresh
+owner authorization; reversible encoding migration alone preserves legacy signatures.
 The stamp hashes policy, pinned factory-main key and helper, records earliest expiry and doubts
 after it; it never extends the ordinary 12-hour lifetime.
 
 `flaky-suspects.mjs [<ledger>] --json` emits a stable JSON array sorted by
 (project, tree, runner, test_id), with keys `project`, `tree`, `runner`, `test_id`,
-`passed`, `failed`, `attempts` (sorted unique strings). A suspect has both pass and
+`id_encoding`, `passed`, `failed`, `attempts` (sorted unique strings). A suspect has both pass and
 fail on the same project/tree/runner/id; output is observation only, no retries.
 Mission Control display is a separate product change. Nightly execution is defined
 in [routines](../../plugin/docs/routines.md): disposable main-tip worktree, full gate,
@@ -754,4 +774,4 @@ raw reporter matching those timings in the project's current green full report.
 Review/commit the refresh (scope, seed, counts and timings); never bless a red,
 partial or arbitrary raw reporter. Upgrade preserves policy and baseline.
 Verification: `test-test-exclusions.sh`, `test-nightly-excluded-run.sh`,
-`test-gate-budget.sh` and `test-gate-policy-review.mjs`; existing stamp/report/diagnosis/snapshot suites remain required.
+`test-gate-budget.sh`, `test-gate-policy-review.mjs` and `test-test-id-escaping.mjs`; existing stamp/report/diagnosis/snapshot suites remain required.
