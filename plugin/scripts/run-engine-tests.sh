@@ -48,7 +48,7 @@ for _f in "${all_mjs[@]}"; do
   [ "$_skip" = "0" ] && files+=("$_f")
 done
 
-EXPLICIT_SH_SUITES=(test-verify-gate-report.sh test-verify-before-stop.sh test-classify-change.sh test-check-derived-drift.sh test-doc-lint-closing.sh test-doc-lint-env-example.sh test-doc-lint-neon-project-id.sh test-worktree-bootstrap.sh test-warn-adhoc-write.sh test-scan-portfolio.sh test-serve-once.sh test-merge-queue-certified-tree.sh test-pipefail-readers.sh test-pre-push.sh test-merge-queue-lock-refresh.sh)
+EXPLICIT_SH_SUITES=(test-queue-log-events.sh test-gate-report-archive-unique.sh test-verify-gate-report.sh test-verify-before-stop.sh test-classify-change.sh test-check-derived-drift.sh test-doc-lint-closing.sh test-doc-lint-env-example.sh test-doc-lint-neon-project-id.sh test-worktree-bootstrap.sh test-warn-adhoc-write.sh test-scan-portfolio.sh test-serve-once.sh test-merge-queue-certified-tree.sh test-pipefail-readers.sh test-pre-push.sh test-merge-queue-lock-refresh.sh)
 for _sh in "${EXPLICIT_SH_SUITES[@]}"; do
   [ -f "$DIR/$_sh" ] && files+=("$DIR/$_sh")
 done

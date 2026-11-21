@@ -382,6 +382,8 @@ Full decision cards, in Spanish, are in `S/out/decisions-es.md`. One line each, 
 
 ### Owner decisions (2026-11-20)
 
+**Owner override (2026-11-20): phase 0.5 does not wait a week; overriding the waiting period in section 8, its baseline is the transcript dataset (n = 22 since 13 Nov, `docs/proposals/43-evidence/out/v3counts.py`) plus whatever the new queue log accumulates.**
+
 The owner delegated the six decisions with this criterion: "the easiest and fastest possible, without affecting that things are reliable and well done". Decisions taken:
 
 | # | Decision | Option chosen | Reason (one line) |

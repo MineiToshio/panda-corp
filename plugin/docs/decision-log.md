@@ -1,5 +1,33 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-20 - Repair phase 0 lifecycle, provenance and metric validation
+
+Independent review exposed four false-evidence paths. The [queue](../templates/shared/.pandacorp/merge-queue.sh)
+now maps TERM/INT/HUP to one terminal 128+signal status; contention never archives a report,
+and archival checks a fresh file generation, timestamp, full scope and commit before an
+exclusive byte copy. [Metrics](../scripts/queue-metrics.mjs) validate every v1 event and its
+required fields with line numbers; a first successful close is immutable, late overlapping
+attempts remain assigned to that episode and cannot clear a newer active episode.
+Regressions cover Bash 3.2 signals without a counted landing, real verifier-lock contention,
+unchanged stale reports, overlapping branch attempts and malformed event fields.
+[DR-165](../../factory/decisions/registry.yaml) also corrects the baseline to the owner's
+2026-11-20 override: transcripts n=22 since 13 Nov plus the new log, no week-long wait.
+Plugin 10.15.0 and overlay 9.5.0 remain the pending phase 0 release.
+
+## 2026-11-20 - Ship proposal 43 phase 0 measurement (DR-165)
+
+Plugin 10.15.0, overlay 9.5.0. The [queue template](../templates/shared/.pandacorp/merge-queue.sh)
+appends bounded JSONL events to the main project's runtime directory before locking,
+including rejected and interrupted attempts, gate/load timings, landing SHAs and exits.
+Full-gate reports are archived once per UUID without overwriting an existing report.
+[queue-metrics.mjs](../scripts/queue-metrics.mjs) reports Q/R latency, rounds, exit codes
+and certified-tree skips; malformed lines fail with their line number. Gate, lock,
+owner-order and landing decisions remain unchanged. [The corpus](engine-tests.md)
+covers exit paths, nested projects, SIGKILL, archive collisions and metric fixtures.
+The owner's [section 12 override](../../docs/proposals/43-done-means-queue-green.md)
+allows phase 0.5 without waiting, using transcripts n=22 since 13 Nov plus accumulated
+queue events; later behavioral phases are not shipped here.
+
 ## 2026-11-17 - Preserve sequential oracle reviews and review authorized repairs
 
 Plugin 10.14.3 (PATCH), [oracle report contract](build-engine-cli.md). R3 N4 separates

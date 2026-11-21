@@ -1,5 +1,25 @@
 # Decision Log — Factory
 
+## 2026-11-20 - Correct phase 0 evidence and the phase 0.5 baseline
+
+The independent review of [proposal 43](../docs/proposals/43-done-means-queue-green.md)
+found signal exits reported as success, stale report provenance, mutable overlapping episodes
+and incomplete event validation. The [plugin log](../plugin/docs/decision-log.md) records
+the fixes and regression coverage. [DR-165](decisions/registry.yaml) now records the owner's
+explicit override: the n=22 transcript baseline plus accumulated queue events is sufficient;
+phase 0.5 does not wait a week. The memo's section 12 records that override without rewriting
+its original section 8 rollout table.
+
+## 2026-11-20 - Adopt proposal 43 and ship measurement only (DR-165)
+
+[DR-165](decisions/registry.yaml) records the owner's 2026-11-20 decisions
+1A, 2A, 3A, 4A, 5B and 6C, their declared policy amendments and phased rollout.
+Only phase 0 ships: a shared project queue log, immutable per-attempt gate reports
+and Q/R done-to-main metrics. [The plugin log](../plugin/docs/decision-log.md)
+links implementation and regression coverage. Existing gates and DR-138 remain unchanged;
+the owner explicitly allows phase 0.5 without a waiting period, using the transcript
+baseline (n=22 since 13 Nov, `docs/proposals/43-evidence/out/v3counts.py`) plus the new queue log.
+
 ## 2026-11-17 - Bound exclusions and independently review oracle repairs
 
 [BUILD-16](standards/build-engine.md) clarifies the second independent rescue review:

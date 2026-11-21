@@ -35,6 +35,152 @@ DEFAULT_BRANCH="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/d
 MAIN_WT="$(git worktree list --porcelain | awk -v b="refs/heads/$DEFAULT_BRANCH" '
   /^worktree /{wt=$2} /^branch /{if($2==b) print wt}' | head -1)"
 
+# Telemetry must survive a rejected invocation without becoming another landing gate.
+QUEUE_PROJECT=""
+QUEUE_PREFIX=""
+QUEUE_LOG=""
+QUEUE_ATTEMPT=""
+QUEUE_LOG_WARNED=0
+QUEUE_SIGNAL_STATUS=0
+QUEUE_EXIT_RUNNING=0
+QUEUE_CLEANUP_READY=0
+queue_log_warning() {
+  if [ "$QUEUE_LOG_WARNED" = 0 ]; then
+    echo "merge-queue: WARNING: queue telemetry could not be written" >&2 || true
+    QUEUE_LOG_WARNED=1
+  fi
+  return 0
+}
+queue_event() {
+  local line
+  if [ -z "$QUEUE_LOG" ] || [ -z "$QUEUE_ATTEMPT" ]; then queue_log_warning; return 0; fi
+  if line=$(python3 - "$QUEUE_ATTEMPT" "$BRANCH" "$QUEUE_PROJECT" "$@" 2>/dev/null <<'LOGPY'
+import datetime, json, os, sys
+attempt, branch, project, event, *fields = sys.argv[1:]
+record = dict(v=1, attempt=attempt,
+              ts=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z'),
+              event=event, branch=branch, project=project)
+for i in range(0, len(fields), 3):
+    key, kind, value = fields[i:i+3]
+    record[key] = json.loads(value) if kind == 'json' else value
+if event in ('gate_start', 'gate_end'):
+    record['load'] = os.getloadavg()[0]
+    record['ncpu'] = os.cpu_count() or 1
+line = json.dumps(record, ensure_ascii=True, separators=(',', ':'))
+if len(line.encode()) + 1 >= 4096:
+    raise ValueError('event exceeds atomic append bound')
+print(line)
+LOGPY
+  ); then
+    # One bounded O_APPEND write keeps concurrent attempts' records separate.
+    (printf '%s\n' "$line" >> "$QUEUE_LOG") 2>/dev/null || queue_log_warning
+  else
+    queue_log_warning
+  fi
+  return 0
+}
+queue_log_init() {
+  local prefix status head owner=0
+  prefix=$(git rev-parse --show-prefix 2>/dev/null) || return 1
+  [ -n "$MAIN_WT" ] || return 1
+  QUEUE_PREFIX="$prefix"
+  QUEUE_PROJECT="${MAIN_WT}/${prefix}"; QUEUE_PROJECT="${QUEUE_PROJECT%/}"
+  QUEUE_LOG="$QUEUE_PROJECT/.pandacorp/run/queue-log.jsonl"
+  QUEUE_ATTEMPT=$(uuidgen 2>/dev/null | tr '[:upper:]' '[:lower:]') || QUEUE_ATTEMPT=""
+  [ -n "$QUEUE_ATTEMPT" ] || QUEUE_ATTEMPT=$(python3 -c 'import uuid; print(uuid.uuid4())' 2>/dev/null) || return 1
+  mkdir -p "$QUEUE_PROJECT/.pandacorp/run" 2>/dev/null || return 1
+  status="$MAIN_WT/.pandacorp/status.yaml"
+  QUEUE_START_LAUNCHED=0
+  if [ -f "$status" ] && grep -Eq '^phase:[[:space:]]*release([[:space:]]|#|$)' "$status" \
+     && ! grep -Eq '^deploy_target:[[:space:]]*internal([[:space:]]|#|$)' "$status"; then
+    QUEUE_START_LAUNCHED=1
+  fi
+  [ "${PANDACORP_OWNER_RELEASE_OK:-}" != 1 ] || owner=1
+  head=$(git rev-parse HEAD 2>/dev/null) || { head=""; queue_log_warning; }
+  queue_event start head str "$head" launched json "$QUEUE_START_LAUNCHED" owner_release_ok json "$owner" pid json "$$"
+}
+queue_end() { queue_event end exit json "$1"; }
+queue_signal_exit() {
+  QUEUE_SIGNAL_STATUS="$1"
+  if [ "$QUEUE_EXIT_RUNNING" = 0 ]; then exit "$QUEUE_SIGNAL_STATUS"; fi
+  return 0
+}
+queue_finish() {
+  local result="$1"
+  QUEUE_EXIT_RUNNING=1
+  if [ "$QUEUE_CLEANUP_READY" = 1 ]; then cleanup "$result" || true; fi
+  # Once the terminal record is committed, a later signal must not change its exit status.
+  trap '' TERM INT HUP
+  [ "$QUEUE_SIGNAL_STATUS" = 0 ] || result="$QUEUE_SIGNAL_STATUS"
+  queue_end "$result"
+  trap - EXIT
+  exit "$result"
+}
+queue_read_sha() {
+  QUEUE_SHA=$(git "$@" 2>/dev/null) || { QUEUE_SHA=""; queue_log_warning; }
+  return 0
+}
+trap 'queue_signal_exit 143' TERM
+trap 'queue_signal_exit 130' INT
+trap 'queue_signal_exit 129' HUP
+trap 'queue_finish "$?"' EXIT
+queue_log_init || queue_log_warning
+
+queue_report_snapshot() {
+  python3 - <<'SNAPSHOTPY'
+import hashlib, json, os, subprocess, time
+try:
+    with open('.pandacorp/run/gate-report.json', 'rb') as report:
+        data = report.read()
+        stat = os.fstat(report.fileno())
+    identity = [stat.st_dev, stat.st_ino, stat.st_mtime_ns, stat.st_ctime_ns,
+                stat.st_size, hashlib.sha256(data).hexdigest()]
+except FileNotFoundError:
+    identity = None
+sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+print(json.dumps(dict(identity=identity, sha=sha, at_ns=time.time_ns())))
+SNAPSHOTPY
+}
+
+# A UUID collision must preserve the first report, even across concurrent writers.
+archive_gate_report() {
+  QUEUE_ARCHIVED_REPORT=""
+  [ -n "$QUEUE_PROJECT" ] && [ -n "$QUEUE_ATTEMPT" ] || { queue_log_warning; return 0; }
+  local target="$QUEUE_PROJECT/.pandacorp/run/gate-reports/$QUEUE_ATTEMPT.json"
+  [ -f .pandacorp/run/gate-report.json ] || return 0
+  [ -n "$QUEUE_REPORT_BEFORE" ] || { queue_log_warning; return 0; }
+  if mkdir -p "$QUEUE_PROJECT/.pandacorp/run/gate-reports" 2>/dev/null &&
+     python3 - "$QUEUE_REPORT_BEFORE" "$target" 2>/dev/null <<'ARCHIVEPY'
+import datetime, hashlib, json, os, sys, time
+before = json.loads(sys.argv[1])
+with open('.pandacorp/run/gate-report.json', 'rb') as source:
+    data = source.read()
+    stat = os.fstat(source.fileno())
+identity = [stat.st_dev, stat.st_ino, stat.st_mtime_ns, stat.st_ctime_ns,
+            stat.st_size, hashlib.sha256(data).hexdigest()]
+report = json.loads(data)
+at = datetime.datetime.fromisoformat(report['at'].replace('Z', '+00:00'))
+previous = before['identity']
+# Touch/chmod cannot turn an existing report into new verification evidence.
+same_generation_and_bytes = (previous is not None and identity[:2] == previous[:2]
+                             and identity[5] == previous[5])
+if (same_generation_and_bytes or stat.st_mtime_ns < before['at_ns']
+        or not before['at_ns'] // 1_000_000_000 <= at.timestamp() <= time.time()
+        or report['sha'] != before['sha'] or report['scope'] != 'full'):
+    raise ValueError('report is not from this full-gate invocation')
+# O_EXCL preserves an earlier UUID archive; copy the exact bytes whose provenance was checked.
+with open(sys.argv[2], 'xb') as target:
+    target.write(data)
+ARCHIVEPY
+  then
+    QUEUE_ARCHIVED_REPORT="$target"
+  else
+    queue_event archive_error path str "$target" reason str "report archive failed (stale/invalid report, existing UUID or write error)"
+    queue_log_warning
+  fi
+  return 0
+}
+
 # Loud hand-back (DR-099, #2): a merge that can't LAND (rebase conflict 10 / red gate 11 / busy main 12)
 # must never be silent — fire a desktop notification so the owner sees it even if the message scrolls
 # past. Precondition errors (20, the caller's own setup mistake) stay quiet (the agent reads stderr).
@@ -57,6 +203,7 @@ LOCK="$COMMON_DIR/pandacorp-merge.lock"     # in the shared git dir → every wo
 STALE_MIN=15                                  # a holder that died leaves a lock; reclaim after N minutes
 acquire() {
   local waited=0
+  queue_event lock_wait waited_s json 0
   while ! mkdir "$LOCK" 2>/dev/null; do
     # reclaim a stale lock (its owner crashed) — mtime older than STALE_MIN
     if [ -z "$(find "$LOCK" -mmin -"$STALE_MIN" 2>/dev/null)" ]; then
@@ -64,9 +211,11 @@ acquire() {
       rm -rf "$LOCK"; continue
     fi
     [ "$waited" -ge 600 ] && fail "merge lock held for >10min by $(cat "$LOCK/owner" 2>/dev/null) — try again" 20
+    queue_event lock_wait waited_s json "$waited"
     sleep 5; waited=$((waited + 5))
   done
   echo "$BRANCH @ $WORKTREE" > "$LOCK/owner"
+  queue_event lock_acquired waited_s json "$waited"
 }
 release() { rm -rf "$LOCK"; }
 
@@ -124,6 +273,7 @@ host_slot_reclaimable() {
 acquire_host_slot() {
   local host="${PANDACORP_HOST_DIR:-$HOME/.pandacorp/host}" max i slot project at
   local root="$host/h-slots"
+  local slot_started=$SECONDS
   max="$(host_slot_max)"
   mkdir -p "$root" 2>/dev/null || return 0     # unusable host dir: never block the landing on the optional semaphore
   project="$WORKTREE/$(git rev-parse --show-prefix)"; project="${project%/}"
@@ -137,6 +287,7 @@ acquire_host_slot() {
         printf '{"pid":%s,"kind":"merge-queue","project":"%s","at":"%s"}\n' "$$" "$project" "$at" > "$slot/owner.json.tmp" \
           && mv "$slot/owner.json.tmp" "$slot/owner.json"
         HSLOT="$slot"
+        queue_event slot_acquired slot str "$HSLOT" waited_s json "$((SECONDS - slot_started))"
         return 0
       fi
       if host_slot_reclaimable "$slot"; then
@@ -151,7 +302,10 @@ acquire_host_slot() {
   done
 }
 release_host_slot() {
-  if [ -n "$HSLOT" ]; then rm -rf "$HSLOT"; fi
+  if [ -n "$HSLOT" ]; then
+    rm -rf "$HSLOT"
+    queue_event slot_released slot str "$HSLOT"
+  fi
   HSLOT=""
   return 0
 }
@@ -160,7 +314,7 @@ release_host_slot() {
 # preserve the original status even if bootstrap fails or leaves committed PORT/unset index bits.
 RESTORE_LOCAL=0
 cleanup() {
-  local result=$?
+  local result="$1"
   stop_lock_refresh
   release_host_slot
   release
@@ -171,7 +325,7 @@ cleanup() {
   fi
   return "$result"
 }
-trap cleanup EXIT
+QUEUE_CLEANUP_READY=1
 acquire
 
 # ── Preflight: is the main checkout quiescent? (fast early hand-back, DR-096) ──────────────────────
@@ -180,7 +334,11 @@ acquire
 # that work only to fail at the last step. This is an EARLY hand-back; the authoritative check is still
 # the `git merge --ff-only` below (state can change between here and there), so the recheck is never
 # skipped. Same exit 12 ("busy main") — the work is preserved on the branch, nothing is lost.
-if [ -n "$(git -C "$MAIN_WT" status --porcelain 2>/dev/null)" ]; then
+# Legacy checkouts may lack runtime ignores; our own measurement must not make main busy.
+if [ -n "$(git -C "$MAIN_WT" status --porcelain --untracked-files=no 2>/dev/null)" ] ||
+   [ -n "$(git -C "$MAIN_WT" status --porcelain -- . \
+  ":(top,exclude,literal)${QUEUE_PREFIX}.pandacorp/run/queue-log.jsonl" \
+  ":(top,exclude,literal)${QUEUE_PREFIX}.pandacorp/run/gate-reports" 2>/dev/null)" ]; then
   fail "the $DEFAULT_BRANCH checkout has uncommitted changes (busy) — land when quiescent [preflight, re-checked at merge]" 12
 fi
 
@@ -199,11 +357,18 @@ while IFS= read -r -d '' entry; do
   fi
 done < <(git -C "$WORKTREE" ls-files -v -z -- ':(literal).claude/launch.json' \
   ":(literal)${PROJECT_PREFIX}e2e/server-env.json")
+QUEUE_REBASE_STARTED=$SECONDS
+QUEUE_REBASE_BASE=$(git rev-parse "$DEFAULT_BRANCH" 2>/dev/null) || { QUEUE_REBASE_BASE=""; queue_log_warning; }
 if ! git rebase "$DEFAULT_BRANCH"; then
   git rebase --abort 2>/dev/null || true
+  queue_read_sha rev-parse HEAD
+  queue_event rebase result str conflict base str "$QUEUE_REBASE_BASE" head str "$QUEUE_SHA" duration_s json "$((SECONDS - QUEUE_REBASE_STARTED))"
   # BL-0288: EXIT re-bootstraps after abort too, leaving a usable clean worktree.
   fail "rebase onto $DEFAULT_BRANCH hit a conflict git can't auto-resolve — resolve on the branch or escalate" 10
 fi
+
+queue_read_sha rev-parse HEAD
+queue_event rebase result str ok base str "$QUEUE_REBASE_BASE" head str "$QUEUE_SHA" duration_s json "$((SECONDS - QUEUE_REBASE_STARTED))"
 
 # ── Integration gate on the MERGED result (the arbiter; a textual merge can still fail to compile) ─
 # BL-0288: keep the committed e2e/server-env.json byte-identical to HEAD after restore/rebase;
@@ -225,8 +390,12 @@ fi
 # untouched: a skip never lands a launched project without PANDACORP_OWNER_RELEASE_OK=1.
 if [ -x ".pandacorp/verify.sh" ]; then
   if [ -f ".pandacorp/green-stamp.sh" ] && stamp_note=$(bash .pandacorp/green-stamp.sh check 2>&1); then
+    queue_event stamp_check result str match reason str ""
     echo "merge-queue: integration gate SKIPPED [certified-tree] — rebased tree is identical to one a full verify.sh passed ($stamp_note)"
   else
+    QUEUE_STAMP_REASON="${stamp_note:-no green-stamp.sh in this overlay}"
+    QUEUE_STAMP_REASON="${QUEUE_STAMP_REASON%%$'\n'*}"
+    queue_event stamp_check result str miss reason str "${QUEUE_STAMP_REASON:0:500}"
     echo "merge-queue: running the full integration gate [full-gate] (${stamp_note:-no green-stamp.sh in this overlay})"
     # A certified identical tree needs no port. Probe only when a full gate is necessary.
     if [ -n "${COMMITTED_PORT:-}" ]; then
@@ -239,7 +408,14 @@ if [ -x ".pandacorp/verify.sh" ]; then
     start_lock_refresh
     acquire_host_slot
     GATE_RC=0
+    QUEUE_GATE_STARTED=$SECONDS
+    QUEUE_REPORT_BEFORE=$(queue_report_snapshot 2>/dev/null) || { QUEUE_REPORT_BEFORE=""; queue_log_warning; }
+    queue_event gate_start
     bash .pandacorp/verify.sh || GATE_RC=$?
+    QUEUE_GATE_DURATION=$((SECONDS - QUEUE_GATE_STARTED))
+    QUEUE_ARCHIVED_REPORT=""
+    if [ "$GATE_RC" -ne 75 ]; then archive_gate_report; fi
+    queue_event gate_end rc json "$GATE_RC" duration_s json "$QUEUE_GATE_DURATION" report str "$QUEUE_ARCHIVED_REPORT"
     release_host_slot
     [ "$GATE_RC" -ne 75 ] || fail "verification owner busy in this checkout; wait and retry (no project verdict)" 14
     # Generated gate output belongs to this integration checkout only. Release the heavy
@@ -259,6 +435,9 @@ if [ -f "$STATUS" ] && grep -Eq '^phase:[[:space:]]*release([[:space:]]|#|$)' "$
    && ! grep -Eq '^deploy_target:[[:space:]]*internal([[:space:]]|#|$)' "$STATUS"; then
   LAUNCHED=1
 fi
+QUEUE_ORDER_PRESENT=0
+[ "${PANDACORP_OWNER_RELEASE_OK:-}" != 1 ] || QUEUE_ORDER_PRESENT=1
+queue_event order_check launched json "$LAUNCHED" order_present json "$QUEUE_ORDER_PRESENT"
 if [ "$LAUNCHED" = 1 ] && [ "${PANDACORP_OWNER_RELEASE_OK:-}" != "1" ]; then
   echo "merge-queue: $BRANCH is rebased on $DEFAULT_BRANCH and its gate is green, but this project is LAUNCHED:" >&2
   echo "merge-queue: $DEFAULT_BRANCH is production (Vercel deploys every push). Ask the owner; on their explicit order run:" >&2
@@ -271,8 +450,13 @@ fi
 # ff-only so main only ever moves forward to an already-gated, linear history; if the main checkout has
 # conflicting uncommitted WIP from another session, git refuses → hand back (land when it's quiescent).
 if ! git -C "$MAIN_WT" merge --ff-only "$BRANCH" 2>/dev/null; then
+  queue_read_sha -C "$MAIN_WT" rev-parse HEAD
+  queue_event ff sha str "$QUEUE_SHA" result str failed
   fail "the $DEFAULT_BRANCH checkout is busy (uncommitted changes block the ff-merge) — land when quiescent" 12
 fi
+
+queue_read_sha -C "$MAIN_WT" rev-parse HEAD
+queue_event ff sha str "$QUEUE_SHA" result str ok
 
 # The worktree is deliberately NOT removed here. The session that invoked this script is
 # standing INSIDE it: deleting the directory under a live Claude session leaves its cwd
@@ -299,9 +483,12 @@ echo "merge-queue: merged $BRANCH → $DEFAULT_BRANCH"
 
 # Launched + owner's order: publishing main IS the production release (Vercel's GitHub integration).
 if [ "$LAUNCHED" = 1 ]; then
+  QUEUE_PUSH_SHA=$(git -C "$MAIN_WT" rev-parse "$DEFAULT_BRANCH" 2>/dev/null) || { QUEUE_PUSH_SHA=""; queue_log_warning; }
   if ! git -C "$MAIN_WT" push origin "$DEFAULT_BRANCH"; then
+    queue_event push sha str "$QUEUE_PUSH_SHA" result str failed
     fail "merged into $DEFAULT_BRANCH locally but 'git push origin $DEFAULT_BRANCH' failed — production is NOT updated; fix the remote and push again" 13
   fi
+  queue_event push sha str "$QUEUE_PUSH_SHA" result str ok
   echo "merge-queue: pushed $DEFAULT_BRANCH to origin — Vercel deploys it to production"
 fi
 
@@ -311,8 +498,12 @@ fi
 # the inbox is gitignored and lives only there. Best-effort: the landing already succeeded, so a
 # reconciler failure (or a live build, exit 3) is reported, never turned into a failed merge.
 if [ -f "$MAIN_WT/.pandacorp/change-reconcile.mjs" ] && command -v node >/dev/null 2>&1; then
-  node "$MAIN_WT/.pandacorp/change-reconcile.mjs" --apply --project "$MAIN_WT" \
-    || echo "merge-queue: change-reconcile did not complete (exit $?) — run it on $DEFAULT_BRANCH: node .pandacorp/change-reconcile.mjs --apply" >&2
+  QUEUE_RECONCILE_RC=0
+  node "$MAIN_WT/.pandacorp/change-reconcile.mjs" --apply --project "$MAIN_WT" || QUEUE_RECONCILE_RC=$?
+  queue_event reconcile rc json "$QUEUE_RECONCILE_RC"
+  if [ "$QUEUE_RECONCILE_RC" -ne 0 ]; then
+    echo "merge-queue: change-reconcile did not complete (exit $QUEUE_RECONCILE_RC) — run it on $DEFAULT_BRANCH: node .pandacorp/change-reconcile.mjs --apply" >&2
+  fi
 fi
 echo "merge-queue: worktree KEPT (your session is inside it) — restore the session cwd WITHOUT removal, stop owned writers, then run the validated DR-145 cleanup: cd $MAIN_WT && bash .pandacorp/session-cleanup.sh finish --session <session-root>"
 exit 0
