@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { assertPreHydrationSubmitIsInert, gotoHydrated } from "./_hydration";
+import { assertPreHydrationSubmitIsInert, gotoHydrated, waitForHydrated } from "./_hydration";
 
 /**
  * Self-test of the hydration helpers (`_hydration.ts`). VERBATIM stack template (DR-059). It needs no app
@@ -26,6 +26,22 @@ const unguardedForm = `<!doctype html><html><body><main><form><input name="q"><b
 const guardedForm = `<!doctype html><html><body><main><form method="dialog"><input name="q"><button type="submit">Send</button></form></main></body></html>`;
 
 test.describe("gotoHydrated", () => {
+  test("waits after a product navigation without reloading the current document", async ({
+    page,
+  }) => {
+    await page.route(`${ORIGIN}/**`, (route) =>
+      route.fulfill({ contentType: "text/html", body: lateHydration }),
+    );
+    await page.goto(`${ORIGIN}/product-return`, { waitUntil: "domcontentloaded" });
+    await page.evaluate(() => {
+      document.documentElement.dataset.navigationSentinel = "preserved";
+    });
+    await waitForHydrated(page);
+    expect(await page.locator("form#f").getAttribute("data-hydrated")).toBe("true");
+    await expect(page.locator("html")).toHaveAttribute("data-navigation-sentinel", "preserved");
+    await expect(page).toHaveURL(`${ORIGIN}/product-return`);
+  });
+
   test("waits for the form to be interactive, not just for <main>", async ({ page }) => {
     await page.route(`${ORIGIN}/**`, (route) =>
       route.fulfill({ contentType: "text/html", body: lateHydration }),
