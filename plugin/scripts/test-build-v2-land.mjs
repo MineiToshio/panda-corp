@@ -33,7 +33,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -223,7 +223,7 @@ async function makeWorld(label, o = {}) {
 const withWorld = async (label, o, fn) => { const w = await makeWorld(label, o); try { return await fn(w); } finally { await w.cleanup(); } };
 
 // ---- driving the module --------------------------------------------------------------------------------------------
-const callLand = async (w, { epoch = w.epoch } = {}) => { const r = await (await need("land.mjs", "land"))({ project: w.fx.root, epoch }, w.deps); return r.output ? { ...r.output, exit: r.exit } : r; };
+const callLand = async (w, { epoch = w.epoch, project = w.fx.root } = {}) => { const r = await (await need("land.mjs", "land"))({ project, epoch }, w.deps); return r.output ? { ...r.output, exit: r.exit } : r; };
 const attempt = async (fn) => { try { return { value: await fn() }; } catch (error) { return { error }; } };
 const setMq = (w, ...lines) => writeFile(w.ctl, `${lines.join("\n")}\n`);
 /** spawn (call 1, must answer running), release the held job, harvest (call 2). */
@@ -783,7 +783,11 @@ await test("phase 1 review: CLI order never reaches a detached land; attended pu
       const rows = [{...common,event:'start',head:sha,pid:process.pid,owner_release_ok:1}, {...common,event:'ff',sha,result:'ok'}, {...common,event:'push',sha,result:'ok'}, {...common,event:'end',exit:0}];
       const log = path.join(w.fx.root,'.pandacorp/run/queue-log.jsonl');
       await writeFile(log, await readFile(log,'utf8') + rows.map(r=>JSON.stringify(r)).join('\n')+'\n');
-      const adopted = await callLand(w);
+      const projectAlias=path.join(w.dir,'project-alias');
+      await symlink(w.fx.root,projectAlias,'dir');
+      const metadataBefore=laneTip(w);
+      const adopted = await callLand(w,{project:projectAlias});
+      eq(laneTip(w),metadataBefore,"--project alias must not regenerate landing metadata");
       eq(adopted.result, "landed", "foreground queue receipt adopted");
       eq(adopted.sha, sha, "report must name the foreground published tip, not older landing metadata");
       eq(shippedSha((await cardState(w)).text), sha, "card must name the same published receipt SHA");

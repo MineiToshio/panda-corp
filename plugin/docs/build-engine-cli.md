@@ -585,7 +585,8 @@ Exit 21 returns `publish_command`: run that queue command in the foreground, wit
 that one command only, once this landing has the owner's explicit order. Exit 21 keeps committed
 certified inputs intact (no bootstrap/skip-worktree restoration). The next `land --epoch <E>` adopts
 only an exact-current-SHA, same-project/branch, ordered ff/push/end-0 receipt with the explicit order
-logged; main ancestry is independently checked before state/card closure. No new detached job or
+logged. Project identity uses physical paths (`realpath`): existing symlink aliases match,
+while different or missing foreign projects do not. Main ancestry is independently checked before state/card closure. No new detached job or
 landing metadata is created. Resume the same run first if its lease was already released.
 
 ### 3.12 `doubt open|answer`

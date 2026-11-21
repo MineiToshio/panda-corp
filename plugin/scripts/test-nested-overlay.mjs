@@ -3,7 +3,7 @@ import test from 'node:test';
 import { MANAGED_OVERLAY_FILES } from './stage-managed-overlay.mjs';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, symlinkSync, chmodSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -103,4 +103,28 @@ test('combined ignore rules reject private descendants of directories named like
   }
   f.git('add', '-A');
   assert.equal(f.git('diff', '--cached', '--name-only'), '', 'allowlisted filenames must not open directories');
+});
+
+test('upgrade stages with-merge-lock.sh and repairs every gate script mode with unchanged content', t => {
+  for(const nested of [false,true]) {
+    const f=fixture(t,nested);
+    const scripts=['verify.sh','merge-queue.sh','green-stamp.sh','with-merge-lock.sh','worktree-bootstrap.sh'];
+    assert.ok(managed.includes('with-merge-lock.sh'),'upgrade inventory must include the merge-lock helper');
+    if(nested) assert.equal(spawnSync('git',['-C',f.repo,'check-ignore','-q','mission-control/.pandacorp/with-merge-lock.sh'],{env}).status,1,'factory allowlist must expose exactly the helper');
+    for(const file of scripts)chmodSync(path.join(f.project,'.pandacorp',file),0o644);
+    const result=f.stage();assert.equal(result.status,0,result.stderr);
+    const staged=f.git('diff','--cached','--name-only').split('\n');
+    const prefix=nested?'mission-control/':'';
+    for(const file of scripts) {
+      const relative=prefix+'.pandacorp/'+file;
+      assert.ok(staged.includes(relative),relative+' is staged');
+      assert.ok((statSync(path.join(f.project,'.pandacorp',file)).mode & 0o111)===0o111,file+' is executable');
+      assert.match(f.git('ls-files','--stage','--',relative),/^100755 /,'index records executable mode');
+    }
+    f.git('commit','-qm','initial managed executable scripts');
+    for(const file of scripts)chmodSync(path.join(f.project,'.pandacorp',file),0o644);
+    assert.equal(f.stage().status,0);
+    assert.equal(f.git('diff','--cached','--name-only'),'','equal content and repaired mode do not create spurious changes');
+    for(const file of scripts)assert.ok((statSync(path.join(f.project,'.pandacorp',file)).mode & 0o111)===0o111);
+  }
 });

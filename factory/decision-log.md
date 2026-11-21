@@ -1,5 +1,14 @@
 # Decision Log — Factory
 
+## 2026-11-21 - Preserve attended publication across project path aliases
+
+[The CLI contract](../plugin/docs/build-engine-cli.md) now defines same-project receipt
+identity by physical path, so a successful foreground publication is adopted when CLI and
+Git use different symlink aliases. Distinct project receipts remain invalid. DR-165 tracks
+plugin **10.18.2** / overlay **9.7.2**; explicit per-landing order is unchanged.
+Upgrade regressions additionally prove the existing helper inventory, nested allowlist and
+executable repair for all five gate scripts, including equal-content upgrades.
+
 ## 2026-11-21 - Close phase-1 independent review under DR-165
 
 [Build orchestration](standards/build-orchestration.md), [BUILD-13](standards/build-engine.md)

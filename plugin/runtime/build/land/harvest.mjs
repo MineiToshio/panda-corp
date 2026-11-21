@@ -169,6 +169,10 @@ export async function prepareAttendedLanding(ctx, state, d) {
   let text;
   try { text = await d.fs.readFile(path.join(ctx.project, ".pandacorp/run/queue-log.jsonl"), "utf8"); }
   catch (error) { if (error.code === "ENOENT") return null; throw error; }
+  // Git records physical checkout paths; CLI --project may retain /tmp or another
+  // symlink alias. Resolve existing paths, never equate unrelated lexical aliases.
+  const project = await d.fs.realpath(ctx.project);
+  const projects = new Map([[ctx.project, project]]);
   const attempts = new Map();
   const lines = text.split("\n");
   if (lines.at(-1) === "") lines.pop();
@@ -176,7 +180,14 @@ export async function prepareAttendedLanding(ctx, state, d) {
     let row;
     try { row = JSON.parse(line); } catch { throw err("INVALID_STATE", "malformed queue receipt for attended landing"); }
     if (!row || row.v !== 1 || typeof row.attempt !== "string" || typeof row.project !== "string") throw err("INVALID_STATE", "invalid queue receipt");
-    if (path.resolve(row.project) !== path.resolve(ctx.project)) continue;
+    if (!projects.has(row.project)) {
+      try { projects.set(row.project, await d.fs.realpath(row.project)); }
+      catch (error) {
+        if (error.code !== "ENOENT" && error.code !== "ENOTDIR") throw error;
+        projects.set(row.project, null); // Removed foreign projects cannot prove this landing.
+      }
+    }
+    if (projects.get(row.project) !== project) continue;
     const rows = attempts.get(row.attempt) ?? []; rows.push(row); attempts.set(row.attempt, rows);
   }
   const tip = await gitOk(d, state.integration.worktree, ["rev-parse", "HEAD"], "rev-parse");

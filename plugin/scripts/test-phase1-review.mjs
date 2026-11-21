@@ -81,10 +81,34 @@ test('review 1: attended receipt adoption rejects wrong SHA, ordering, scope and
   const state={jobs:[{kind:'land',state:'done',exit:21}],integration:{worktree:project}};
   const common={v:1,project,attempt:'same-attempt',branch};
   const valid=[{...common,event:'start',owner_release_ok:1},{...common,event:'ff',sha,result:'ok'},{...common,event:'push',sha,result:'ok'},{...common,event:'end',exit:0}];
-  const observe=rows=>prepareAttendedLanding(ctx,state,{fs:{readFile:async()=>rows.map(r=>JSON.stringify(r)).join('\n')+'\n'},exec:async()=>({code:0,stdout:sha,stderr:''})});
+  const observe=rows=>prepareAttendedLanding(ctx,state,{fs:{realpath:async p=>p,readFile:async()=>rows.map(r=>JSON.stringify(r)).join('\n')+'\n'},exec:async()=>({code:0,stdout:sha,stderr:''})});
   assert.equal((await observe(valid)).tip,sha);
   for(const change of [r=>r[1].sha='b'.repeat(40),r=>r[2].attempt='other',r=>r[0].owner_release_ok=0,r=>r.reverse(),r=>r[3].exit=13,r=>r[0].branch='other',r=>r[0].project='/other',r=>r.splice(2,1),r=>r.push({...r[0]})]) {
     const rows=structuredClone(valid);change(rows);assert.equal(await observe(rows),null);
   }
-  await assert.rejects(()=>prepareAttendedLanding(ctx,state,{fs:{readFile:async()=>'\n'},exec:async()=>({code:0,stdout:sha})}),/malformed/);
+  await assert.rejects(()=>prepareAttendedLanding(ctx,state,{fs:{realpath:async p=>p,readFile:async()=>'\n'},exec:async()=>({code:0,stdout:sha})}),/malformed/);
+});
+
+test('re-review: attended receipts compare physical project paths and reject different existing projects', async t => {
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'p43-project-alias-'));
+  t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  const project=path.join(root,'project'),alias=path.join(root,'project-alias'),other=path.join(root,'other');
+  await fs.mkdir(path.join(project,'.pandacorp/run'),{recursive:true});await fs.mkdir(other);
+  await fs.symlink(project,alias,'dir');
+  const physical=await fs.realpath(project),sha='a'.repeat(40),branch='lane/alias/integration';
+  const state={jobs:[{kind:'land',state:'done',exit:21}],integration:{worktree:physical}};
+  const ctx={project:alias,runId:'alias',paths:{integrationBranch:()=>branch}};
+  const {prepareAttendedLanding}=await import('../runtime/build/land/harvest.mjs');
+  const writeReceipt=async receiptProject=>{
+    const common={v:1,project:receiptProject,attempt:'alias-receipt',branch};
+    const rows=[{...common,event:'start',owner_release_ok:1},{...common,event:'ff',sha,result:'ok'},{...common,event:'push',sha,result:'ok'},{...common,event:'end',exit:0}];
+    await fs.writeFile(path.join(project,'.pandacorp/run/queue-log.jsonl'),rows.map(row=>JSON.stringify(row)).join('\n')+'\n');
+  };
+  const deps={fs,exec:async()=>({code:0,stdout:sha,stderr:''})};
+  await writeReceipt(physical);
+  assert.equal((await prepareAttendedLanding(ctx,state,deps))?.tip,sha,'--project alias must accept physical Git receipt');
+  await writeReceipt(alias);
+  assert.equal((await prepareAttendedLanding({...ctx,project:physical},state,deps))?.tip,sha,'either spelling must identify the same project');
+  await writeReceipt(other);assert.equal(await prepareAttendedLanding(ctx,state,deps),null,'existing different project remains rejected');
+  await writeReceipt(path.join(root,'missing'));assert.equal(await prepareAttendedLanding(ctx,state,deps),null,'missing foreign project cannot be evidence');
 });

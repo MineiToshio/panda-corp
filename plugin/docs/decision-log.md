@@ -1,5 +1,17 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-21 - Adopt attended receipts across physical project aliases
+
+Plugin **10.18.2** / overlay **9.7.2** compare attended landing receipt projects using
+`realpath`, accepting an existing CLI symlink alias without creating another metadata commit
+or detached job. Different projects and missing foreign paths remain rejected. The
+[CLI contract](build-engine-cli.md) records this identity rule.
+Regressions exercise receipt scope and an actual `land` call with an alias in `--project`.
+The existing managed inventory, nested factory allowlist and executable-mode repair already
+cover `with-merge-lock.sh`; expanded nested/standalone upgrade tests prove all five gate
+scripts are staged as 100755 and unchanged content still receives mode repair. Removing
+each protection in an isolated test copy makes its regression fail.
+
 ## 2026-11-21 - Repair all five independent phase-1 review failures
 
 Plugin **10.18.1** / overlay **9.7.1** close the review's five reproduced defects.
