@@ -14,7 +14,7 @@ export async function landDecision(run, state, pol, deferredEntries, notes = [])
   const batch = batchState(state);
   if (!batch.complete) return { state, action: null, waitLand: false };
   const last = jobs.at(-1);
-  if (last?.environment_retry_exhausted && environmentRetryExhausted(state, await landingCodeTip(run.d, integrationRoot(run, state), state.run_id))) {
+  if (jobs.some(j => j.environment_retry_exhausted) && environmentRetryExhausted(state, await landingCodeTip(run.d, integrationRoot(run, state), state.run_id))) {
     notes.push("El reintento de entorno se agotó para esta integración; repara el entorno y registra la reparación en un nuevo commit antes de aterrizar.");
     return { state, action: null, waitLand: false, environmentBlocked: true };
   }

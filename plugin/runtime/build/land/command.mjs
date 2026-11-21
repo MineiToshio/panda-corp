@@ -19,8 +19,7 @@ async function phase1(ctx, d) {
   if (!batch.complete) return { done: nothing("batch_incomplete") };
   if (!batch.landable.length) return { done: nothing("no_verified_work") };
   const root = state.integration.worktree;
-  const lastLand = state.jobs.filter(j => j.kind === "land").at(-1);
-  if (lastLand?.environment_retry_exhausted && environmentRetryExhausted(state, await landingCodeTip(d, root, ctx.runId))) {
+  if (state.jobs.some(j => j.kind === "land" && j.environment_retry_exhausted) && environmentRetryExhausted(state, await landingCodeTip(d, root, ctx.runId))) {
     return { done: handbackResult("environment_retry_exhausted", { mq_exit: 16, patch_unit: null }) };
   }
   const script = await d.fs.stat(path.join(root, MERGE_QUEUE)).catch(() => null);

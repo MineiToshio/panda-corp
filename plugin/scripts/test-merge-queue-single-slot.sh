@@ -50,6 +50,14 @@ run_queue
 need test "$RC" = 0
 need test -f "$WT/.pandacorp/run/inherited-observed"
 unset PANDACORP_HOST_SLOT_TIMEOUT_SECS
+# The verifier's bounded admission failure is environmental, not a project RED.
+fixture verifier-admission-expired
+printf '#!/bin/bash\nexit 16\n' > "$WT/.pandacorp/verify.sh"
+commit_wt
+run_queue
+need test "$RC" = 16
+need grep -q 'environment not ready:' "$FX/output"
+need test "$(find "$PANDACORP_HOST_DIR/h-slots" -name 'slot-*' | wc -l | tr -d ' ')" = 0
 # Closed admission: a regular file cannot become the slot directory.
 fixture closed
 echo file > "$FX/not-directory"
@@ -78,4 +86,4 @@ run_queue
 wait "$a"
 need test "$RC" = 0
 need test "$(find "$PANDACORP_HOST_DIR/h-slots" -name 'slot-*' | wc -l | tr -d ' ')" = 0
-echo 'RESULT: 5 passed, 0 failed (one token, real verify inheritance, release, fail closed, two queues)'
+echo 'RESULT: 6 passed, 0 failed (one token, real verify inheritance, environment verdict, release, fail closed, two queues)'

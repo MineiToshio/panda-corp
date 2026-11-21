@@ -173,11 +173,11 @@ export async function prepareLandHarvest(ctx, deps = {}) {
     prepared.plan = await readGatePatch({ state, units: assessBatch(state).landable, gate: "G3", job, paths: ctx.paths }, { ...d, ref: prepared.tip });
   }
   if (polled.state === "done" && polled.exit === 16) {
-    const previous = state.jobs.filter(j => j.kind === "land" && j.id !== job.id && j.state === "done").at(-1);
     // Preparation can install packages: run it outside the lease mutex, once per
-    // consecutive environment failure. Harvest never creates a code patch for this.
+    // code tip, even across intermediate queue outcomes. No code patch is created.
     prepared.environmentTip = await landingCodeTip(d, state.integration.worktree, ctx.runId);
-    if (previous?.exit !== 16 || previous.environment_retry_sha !== prepared.environmentTip) {
+    const consumed = state.jobs.some(j => j.kind === "land" && j.id !== job.id && j.state === "done" && j.exit === 16 && j.environment_retry_sha === prepared.environmentTip);
+    if (!consumed) {
       prepared.bootstrap = await d.exec("bash", [".pandacorp/worktree-bootstrap.sh"], { cwd: state.integration.worktree, env: d.env });
     }
   }

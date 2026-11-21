@@ -11,6 +11,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import threading
 import time
 root, fx = map(Path, sys.argv[1:])
 (fx / '.pandacorp').mkdir()
@@ -42,7 +43,7 @@ env = dict(os.environ, PATH=str(fx / 'bin') + ':' + os.environ['PATH'],
            PANDACORP_HOST_DIR=str(host), PANDACORP_HOST_SLOT_WAIT_S='0')
 def run(**extra):
     return subprocess.run(['bash', '.pandacorp/verify.sh'], cwd=fx, env=dict(env, **extra),
-                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=20)
 host.write_text('unusable')
 result = run()
 assert result.returncode == 16 and 'environment not ready: host slot' in result.stdout, result.stdout
@@ -60,6 +61,35 @@ result = run(PANDACORP_HOST_SLOT_TOKEN=str(slot) + '|owner-token-0', TEST_EXPECT
 assert result.returncode == 0, result.stdout
 assert len(list(slots.glob('slot-*'))) == maximum, 'inherited slot released'
 (fx / 'calls').unlink()
+# Inheritance must wait through mutex contention using the full admission budget,
+# rather than fail after the mutex's default one-second acquisition attempt.
+guard = slots / '.admission.lock'
+guard.mkdir()
+guard_owner = guard / ('owner-' + str(os.getpid()) + '-contention.json')
+guard_owner.write_text('{}')
+def release_guard():
+    guard_owner.unlink()
+    guard.rmdir()
+timer = threading.Timer(2, release_guard)
+timer.start()
+try:
+    result = run(PANDACORP_HOST_SLOT_TOKEN=str(slot) + '|owner-token-0',
+                 PANDACORP_HOST_SLOT_WAIT_S='600', TEST_EXPECT_SLOTS=str(maximum))
+finally:
+    timer.join()
+assert result.returncode == 0, 'inherited admission failed before its deadline: ' + result.stdout
+assert (slot / 'owner.json').exists(), 'inherited slot released after contention'
+(fx / 'calls').unlink()
+guard.mkdir()
+guard_owner.write_text('{}')
+try:
+    started = time.monotonic()
+    result = run(PANDACORP_HOST_SLOT_TOKEN=str(slot) + '|owner-token-0', PANDACORP_HOST_SLOT_WAIT_S='.05')
+    assert result.returncode == 16 and 'environment not ready: host slot' in result.stdout, result.stdout
+    assert time.monotonic() - started < 1, 'mutex wait exceeded the admission deadline'
+    assert not (fx / 'calls').exists(), 'gate ran after admission expired'
+finally:
+    release_guard()
 result = run(PANDACORP_HOST_SLOT_TOKEN=str(slot) + '|wrong-token')
 assert result.returncode == 16 and 'position ' in result.stdout, result.stdout
 assert not (fx / 'calls').exists()
@@ -84,7 +114,7 @@ for index in range(1, maximum):
 result = run(TEST_EXPECT_SLOTS=str(maximum))
 assert result.returncode == 0, result.stdout
 assert not (slots / 'slot-0').exists(), 'owned slot leaked'
-print('RESULT: 6 passed, 0 failed')
+print('RESULT: 8 passed, 0 failed')
 PY
 node --input-type=module - "$ROOT" "$FX" <<'JS'
 import assert from 'node:assert/strict';

@@ -1,5 +1,13 @@
 # Decision Log — Factory
 
+## 2026-11-21 - Retain phase 0.5 admission and retry guarantees across contention
+
+[Build orchestration](standards/build-orchestration.md) clarifies that inherited-slot validation
+uses the admission deadline and retains environment exit 16 through the queue. Per-SHA bootstrap
+consumption and exhaustion survive intermediate land outcomes in state and journal; only a new
+repair commit renews the budget. [Plugin history](../plugin/docs/decision-log.md) records the
+two regression fixes in **10.16.2** / overlay **9.6.2** under DR-165.
+
 ## 2026-11-20 - Repair phase 0.5 after independent review (DR-165)
 
 [Build orchestration](standards/build-orchestration.md) now specifies crash-safe FIFO publication,

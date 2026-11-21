@@ -727,6 +727,7 @@ if [ -x ".pandacorp/verify.sh" ]; then
     # Generated gate output belongs to this integration checkout only. Release the heavy
     # slot first, on both green and red; preserve the gate verdict after cleanup.
     rm -rf -- .next .next-fidelity test-results
+    [ "$GATE_RC" -ne 16 ] || environment_not_ready "verification environment preparation or host-slot admission failed"
     if [ "$GATE_RC" -ne 0 ]; then
       fail "integration gate RED on the rebased result — fix on $BRANCH and re-run (NOT a semantic-conflict pass)" 11
     fi

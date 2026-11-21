@@ -478,7 +478,7 @@ def detach(slot, identity, allowed):
 # Same initialized-directory/unique-owner protocol as hostSlotMutex.mjs.
 import contextlib
 @contextlib.contextmanager
-def admission_mutex(root):
+def admission_mutex(root, deadline=None):
     root = str(root)
     os.makedirs(root, exist_ok=True)
     token = uuid.uuid4().hex
@@ -487,6 +487,8 @@ def admission_mutex(root):
     staging = os.path.join(root, '.admission.new-%s-%s' % (os.getpid(), token))
     timeout = float(os.environ.get('PANDACORP_HOST_MUTEX_WAIT_S', '1'))
     if not 0 <= timeout <= 60: raise ValueError('invalid host mutex wait limit')
+    if deadline is not None:
+        timeout = min(timeout, max(0, deadline - time.monotonic()))
     started = time.monotonic()
     held = False
     def clear(directory):
@@ -527,24 +529,16 @@ def admission_mutex(root):
 
 try:
     root = Path(os.environ.get('PANDACORP_HOST_DIR', str(Path.home() / '.pandacorp/host'))) / 'h-slots'
-    if action == 'release' or '|' in os.environ.get('PANDACORP_HOST_SLOT_TOKEN', ''):
-        guard_root = Path(owned.rsplit('|', 1)[0]).parent if action == 'release' and owned else root
+    if action == 'release':
+        guard_root = Path(owned.rsplit('|', 1)[0]).parent if owned else root
         with admission_mutex(guard_root):
-            if action == 'release':
-                if owned:
-                    name, token = owned.rsplit('|', 1)
-                    slot = Path(name)
-                    current = slot.stat()
-                    detach(slot, (current.st_dev, current.st_ino),
-                           lambda target: (owner(target) or {}).get('token') == token)
-                sys.exit(0)
-            inherited = os.environ.get('PANDACORP_HOST_SLOT_TOKEN', '')
-            if '|' in inherited:
-                name, token = inherited.rsplit('|', 1)
-                if Path(name).parent.resolve() != root.resolve():
-                    raise ValueError('inherited host slot root mismatch')
-                if token and Path(name).is_dir() and (owner(Path(name)) or {}).get('token') == token and not stale(Path(name)):
-                    sys.exit(0)
+            if owned:
+                name, token = owned.rsplit('|', 1)
+                slot = Path(name)
+                current = slot.stat()
+                detach(slot, (current.st_dev, current.st_ino),
+                       lambda target: (owner(target) or {}).get('token') == token)
+            sys.exit(0)
     root.mkdir(parents=True, exist_ok=True)  # Any failure is RED, never optional admission.
     maximum = max(1, min(2, (os.cpu_count() or 1) // 4))
     timeout = float(os.environ.get('PANDACORP_HOST_SLOT_WAIT_S', '600'))
@@ -553,7 +547,16 @@ try:
     deadline = time.monotonic() + timeout
     while True:
         try:
-            with admission_mutex(root):
+            with admission_mutex(root, deadline):
+                # Inherited validation competes for the same mutex as admission;
+                # a busy mutex consumes the slot wait budget, not a gate verdict.
+                inherited = os.environ.get('PANDACORP_HOST_SLOT_TOKEN', '')
+                if '|' in inherited:
+                    name, token = inherited.rsplit('|', 1)
+                    if Path(name).parent.resolve() != root.resolve():
+                        raise ValueError('inherited host slot root mismatch')
+                    if token and Path(name).is_dir() and (owner(Path(name)) or {}).get('token') == token and not stale(Path(name)):
+                        sys.exit(0)
                 held = 0
                 for index in range(maximum):
                     slot = root / ('slot-' + str(index))

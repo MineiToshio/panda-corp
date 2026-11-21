@@ -87,6 +87,5 @@ export function setStatusScalars(text, updates) {
 
 /** Durable across scheduler calls and journal replay; only a new integration tip resets it. */
 export function environmentRetryExhausted(state, sha) {
-  const last = state.jobs.filter(j => j.kind === "land").at(-1);
-  return last?.environment_retry_exhausted === true && last.environment_retry_sha === sha;
+  return state.jobs.some(j => j.kind === "land" && j.environment_retry_exhausted === true && j.environment_retry_sha === sha);
 }

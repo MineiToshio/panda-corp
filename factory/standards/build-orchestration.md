@@ -292,7 +292,8 @@ jq and biome when the project uses it. This step never rewrites `e2e/server-env.
 `.claude/launch.json`, and never sets skip-worktree. Exit **16** means environment not ready,
 before gate time: the engine runs bootstrap and retries once, without a code patch.
 The finished job journals `environment_retry_sha` and `environment_retry_exhausted`, bound to
-the code tip below landing metadata. Exhaustion survives replay and blocks both `next` and direct
+the code tip below landing metadata. Consumption survives intermediate landing results (including
+exit 14) in state and journal; only a different code tip renews it. Exhaustion survives replay and blocks both `next` and direct
 `land`; a new commit recording the environment repair opens a new budget. Exit **17**
 means main advanced during the gate: re-run the land job, without a code patch. Exit **12**
 remains dirty main; a missing/non-executable gate is an explicit **20** (`no gate`).
@@ -315,7 +316,9 @@ Node and both shell entry points atomically publish an initialized mutex directo
 then uses `rmdir`; it never renames an occupied mutex or deletes a replacement generation.
 Mutex acquisition waits at most one second by default (bounded to 60 seconds); a live owner is
 never expired by age. The mutex is held only across filesystem operations, never the gate or
-slot wait. An unusable guard fails closed; contention waits within the existing slot deadline.
+slot wait. An unusable guard fails closed; contention waits within the existing slot deadline,
+including inherited-token validation. An expired verify admission remains exit 16 through the queue,
+without becoming a project gate RED (11).
 The queue exports `PANDACORP_STAMP_BASE` from main's rebase SHA; stamp checks log `--explain`
 (group/environment key names only), with a plain-check fallback for older overlays.
 Stamp controls exclude invocation-specific temp/cache/cleanup/slot/snapshot variables; PATH and

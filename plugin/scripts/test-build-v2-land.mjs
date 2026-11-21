@@ -673,6 +673,42 @@ await test("mq 16: bootstrap once outside the lease mutex, retry once without a 
 
 }));
 
+await test("mq 16 -> 14 -> 16: an intermediate result cannot renew the code-tip budget in state or replay", async () => withWorld("exit16gap", {}, async (w) => {
+  await writeFile(path.join(w.wt, ".pandacorp/worktree-bootstrap.sh"), "#!/bin/bash\nmkdir -p .pandacorp/run\necho bootstrap >> .pandacorp/run/bootstrap-count\n");
+  git(w.wt, ["add", ".pandacorp/worktree-bootstrap.sh"]);
+  git(w.wt, ["commit", "-qm", "fixture: bootstrap"]);
+  eq((await mqRound(w, "16")).second.result, "nothing_to_land", "first 16 gets bootstrap");
+  eq((await mqRound(w, "14")).second.mq_exit, 14, "a busy port intervenes without a repair commit");
+  const { foldJournal, writeState } = await import("../runtime/build/state.mjs");
+  const afterPort = await readState(w);
+  const replayedPort = foldJournal(await readEvents(w));
+  const consumed = afterPort.jobs.find(j => j.environment_retry_sha);
+  eq(replayedPort.jobs.find(j => j.id === consumed.id).environment_retry_sha, consumed.environment_retry_sha, "replay retains consumption across 14");
+  eq(replayedPort.jobs.find(j => j.id === consumed.id).environment_retry_exhausted, false, "replay retains the single permitted retry");
+  // Resume from journal-derived jobs, not an in-memory counter.
+  await writeState(w.fx.root, { ...afterPort, jobs: replayedPort.jobs }, w.deps);
+  const { second } = await mqRound(w, "16");
+  eq(second.result, "handback", "second 16 at the same code tip exhausts the budget despite 14");
+  eq(second.patch_unit, null, "no code patch");
+  eq((await readFile(path.join(w.wt, ".pandacorp/run/bootstrap-count"), "utf8")).trim(), "bootstrap", "only one bootstrap per code tip");
+  const exhausted = await readState(w);
+  const replayed = foldJournal(await readEvents(w));
+  const budget = exhausted.jobs.at(-1);
+  eq(budget.environment_retry_sha, consumed.environment_retry_sha, "same code tip through all three attempts");
+  eq(budget.environment_retry_exhausted, true, "state records exhaustion");
+  eq(replayed.jobs.at(-1).environment_retry_exhausted, true, "journal records exhaustion");
+  // A later intermediate outcome in persisted history must not mask exhaustion either.
+  const intermediate = { ...budget, id: "later-port-busy", exit: 14 };
+  delete intermediate.environment_retry_sha; delete intermediate.environment_retry_exhausted;
+  const later = { ...exhausted, jobs: [...replayed.jobs, intermediate] };
+  await writeState(w.fx.root, later, w.deps);
+  const { landDecision } = await import("../runtime/build/next/landing.mjs");
+  const run = { ref: { project: w.fx.root }, prefix: "", d: { ...w.deps, bootstrap: false, risk: { computeRisk: async () => ({ audit: false, zone: "none", rules: [] }) } } };
+  ok((await landDecision(run, later, {}, [], [])).environmentBlocked, "scheduler scans the persisted budget beyond intermediate results");
+  eq((await callLand(w)).result, "handback", "direct land also scans beyond intermediate results");
+  eq(w.jobs.spawns.length, 3, "no fourth attempt");
+}));
+
 await test("mq 20 once: nothing_to_land mq_precondition (exit 0), retried at the next safe point", async () => withWorld("exit20", {}, async (w) => {
   const before = await snapshot(w); const { second } = await mqRound(w, "20");
   eq(second.result, "nothing_to_land", "result"); eq(second.reason, "mq_precondition", "reason"); eq(second.mq_exit, 20, "mq_exit"); if (exitKey(second) !== undefined) eq(exitKey(second), 0, "land exit");

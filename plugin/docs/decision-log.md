@@ -1,5 +1,14 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-21 - Preserve admission deadlines and environment retry consumption
+
+Plugin **10.16.2** / overlay **9.6.2** retries inherited-slot validation within the full admission
+deadline and preserves verify exit 16 through the queue. Environment bootstrap consumption and
+exhaustion now consult every matching code-tip job, including journal replay, so an intermediate
+exit 14 cannot renew either budget. Regressions reproduced both defects before the fixes.
+Canonical contracts: [queue protocol](../../factory/standards/build-orchestration.md) and
+[environment retry budget](build-engine-cli.md#311-land).
+
 ## 2026-11-20 - Close five independent-review failures in phase 0.5
 
 Plugin **10.16.1** / overlay **9.6.1** correct five proven failure paths under DR-165:
