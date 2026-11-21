@@ -25,6 +25,7 @@ export async function statusSnapshot(project, deps = {}) {
   } catch { gaps.push("drive"); }
   return {
     run_id: state.run_id, epoch: lease?.epoch ?? state.epoch, coordinator: state.coordinator, status: state.status, status_reason: state.status_reason ?? null,
+    landing_state: summary.landing_state,
     admission: summary.admission ?? null,
     label: state.label, size: state.size, units_by_state: summary.units_by_state ?? {},
     lease: lease ? { renewed_at: lease.renewed_at, ttl_seconds: lease.ttl_seconds, live: bs.isFresh(lease, clockMs(d)) } : { renewed_at: null, ttl_seconds: null, live: false },

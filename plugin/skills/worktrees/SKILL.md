@@ -5,6 +5,25 @@ description: Cleans up a repository's git worktrees and leftover branches — th
 
 # /pandacorp:worktrees
 
+**Queue completion (DR-165 phase 1).** The recipe is commit → `bash .pandacorp/merge-queue.sh`.
+Plain `verify.sh` is diagnosis. Until the queue certifies the current rebased tree, report
+`implemented-uncertified` ("implementado, sin certificar"). Read `bash .pandacorp/merge-queue.sh --status`:
+`certified-awaiting-order` ("certificado, espera tu orden", exit 21 with matching stamp/base),
+`certified-stale` (main moved or stamp expired; re-queue), or `landed` (queue ff, plus published for launched projects).
+Only `certified-awaiting-order` and `landed` may be called done. Work-order `VERIFIED` is review/feature evidence.
+For a launched project, ask for the explicit per-landing order at the START of the work (DR-138 unchanged);
+if deferred, certify and preserve the branch at exit 21. A direct commit on launched main cannot be
+published through a main-checkout stamp: supported paths are the queue or the explicit logged owner
+bypass. The agent never sets the bypass. A transferred stamp's main-checkout check is diagnosis only.
+
+**Repair pre-check.** After a static/Vitest red, run
+`bash .pandacorp/verify.sh --only=live-data-asserts,structure-guard,data-layer,api-error-contract,doc-lint,residual-ambiguity,biome,tsc,knip,madge,vitest`
+(the whole unit suite) before re-queueing. After a Playwright red, run the failing spec plus all static checks.
+`bash .pandacorp/verify.sh --diagnose-unit` reports all static/unit failures under the host slot, never
+certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandacorp/run/test-outcomes.jsonl`;
+`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or exclusions.
+
+
 Depurates the git worktrees and un-merged branches of the repository you are standing in (a product project or the factory itself). After months away, a raw `git worktree list` is unreadable; this skill turns it into three piles: **removed** (it was safe), **kept** (it must never be touched), and **your call** (each one explained, with a recommendation). Runs in the project folder or the factory; one repository per run.
 
 The judgment of what is safe is NOT yours to make by eye: a script decides it deterministically, and you only present its verdicts, ask, and act on the owner's answers. That split is the whole safety model — a confident-looking guess is exactly how a stranded branch with a week of work gets deleted.
@@ -60,7 +79,7 @@ The judgment of what is safe is NOT yours to make by eye: a script decides it de
    - **DR-141:** when several finished independently verified items have each been authorized for integration, collect those items into one integration branch and run the full queue gate once, per the project guide; never per source. The individual landing instructions below apply to a singleton; when several eligible items have approvals, assemble the batch before invoking the queue. Do not include an unapproved item; production release approval must cover the selected batch. Keep squashed source branches and the mapping; the automatic merged-ancestor cleanup below does not apply to them.
    - **Integrar** —
      - *Product project with `.pandacorp/merge-queue.sh`* (`mergeQueue: true`): if the item is a clean worktree on a branch, run `cd <worktree> && bash .pandacorp/merge-queue.sh` (0 merged · 10 rebase conflict · 11 red gate · 12 main busy · 13 launched: merged but push failed · 20 precondition · 21 launched project, waiting for the owner's explicit order to release, DR-138 — Integrar on a launched project IS a production release: run it with `PANDACORP_OWNER_RELEASE_OK=1` only when the owner's answer explicitly says to launch it to production — a non-zero exit is handed back to the owner in Spanish, never forced). For a branch with no worktree, first `git worktree add .claude/worktrees/integrate-<slug> <branch>` and `bash .pandacorp/worktree-bootstrap.sh` inside it, then the merge queue from there.
-     - *Factory (no merge queue — its branches merge directly to main, CLAUDE.md)*: the main checkout must be clean (`git -C <main> status --porcelain` empty, else hand back "main está ocupado"); then `git -C <main> merge --no-edit <branch>`; on conflict `git -C <main> merge --abort` and hand back. Do not push.
+     - *Factory (no merge queue — its branches merge directly to main, CLAUDE.md)*: the main checkout must be clean (`git -C <main> status --porcelain` empty, else hand back "main está ocupado"); then `(cd <main> && bash <factory>/plugin/scripts/with-merge-lock.sh git merge --no-edit <branch>)`; on conflict `git -C <main> merge --abort` and hand back. Do not push.
      - A **detached** worktree with commits gets a branch first (`git branch rescue/<slug> <head>`). A worktree with **uncommitted** changes is integrated only if the owner, in the same answer, says to commit them (show the file list first); otherwise leave it.
      - Afterwards remove the now-merged item with `clean --also <path-or-branch>` (`--also` lifts only the recent-activity hold for the item the owner named).
    - **Descartar** —

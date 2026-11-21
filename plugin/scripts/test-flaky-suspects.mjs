@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { flakySuspects } from './flaky-suspects.mjs';
+const row = { v:1,ts:new Date().toISOString(),test_id:'src/a.test.ts > suite > test',status:'failed',tree:'a'.repeat(40),seed:42,worker:null,project:'/synthetic/app',attempt:'first',runner:'vitest' };
+const encode = rows => rows.map(r=>JSON.stringify(r)).join('\n')+'\n';
+assert.equal(flakySuspects(encode([row])).length,0);
+assert.equal(flakySuspects(encode([row,{...row,status:'passed',attempt:'second',worker:2}])).length,1);
+assert.equal(flakySuspects(encode([row,{...row,status:'passed',tree:'b'.repeat(40)}])).length,0);
+assert.equal(flakySuspects(encode([row,{...row,status:'passed',project:'/other'}])).length,0);
+assert.equal(flakySuspects(encode([row,{...row,status:'skipped'}])).length,0);
+for(const bad of ['{bad','{}','null',JSON.stringify({...row,status:'unknown'}),JSON.stringify({...row,worker:'unknown'}),'\n']) assert.throws(()=>flakySuspects(bad),/line/);
+assert.deepEqual(flakySuspects(''),[]);
+console.log('RESULT: 12 passed, 0 failed');

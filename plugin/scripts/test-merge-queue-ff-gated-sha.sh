@@ -13,8 +13,9 @@ cat > "$WT/.pandacorp/verify.sh" <<'GATE'
 #!/bin/bash
 set -e
 git rev-parse HEAD > "$TEST_OUT/gated"
-echo extra > extra.txt
-git add extra.txt; git commit -qm 'arrived during gate'
+# An equal-tree commit arriving by branch name may not ride the pinned SHA.
+# A different tree now correctly refuses required record (covered by requires-record).
+git commit --allow-empty -qm 'arrived during gate'
 GATE
 commit_wt
 export TEST_OUT="$FX" PANDACORP_OWNER_RELEASE_OK=1

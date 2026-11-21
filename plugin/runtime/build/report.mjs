@@ -19,6 +19,7 @@ import { buildPaths } from "./paths.mjs";
 import { bootstrapOwnedUnchanged } from "../../scripts/worktree-sweep.mjs";
 import { fencedTwoPhase, findUnit, patchUnit } from "./state.mjs";
 import { emitEvent } from "./telemetry.mjs";
+import { emitQueueReady } from "./land/common.mjs";
 import { inspectReportFiles, stageReportFiles } from "./reportFiles.mjs";
 import {
   artifactsOf, frontmatterBlock, git, isAllowedPath, isTestSurface, isWorkOrderPath, productPrefix, productRoot, readUnitWorkOrders, runnerOf, unitBase,
@@ -443,10 +444,11 @@ async function applyVerdict({ ctx, intent, verdict, deps }) {
     }
     const hashes = verdict.test_hashes ?? undefined;
     const next = await committedUnit({ unit: cur, state, verdict, root: intent.root, deps });
-    await ctx.writeState(patchUnit(state, unit.id, next));
+    await ctx.writeState({ ...patchUnit(state, unit.id, next), landing_state: "implemented-uncertified" });
     await ctx.appendEvent({ type: "report_received", data: { unit: unit.id, outcome: "committed", commit: verdict.commit, ...(hashes ? { test_hashes: hashes } : {}) } });
     await ctx.appendEvent({ type: "wo_committed", data: { unit: unit.id, wos: unit.wos, frd: unit.frd, commit: verdict.commit } });
     await ctx.appendEvent(stateEvent("committed"));
+    if (["build", "patch"].includes(unit.kind)) await emitQueueReady(ctx, { ...deps, fs: deps.fs ?? fsp }, unit.id);
     if (unit.test_repair) await ctx.appendEvent({ type: "rescue_stage", data: { unit: unit.id, unit_snapshot: next } });
     if (unit.kind === "docs" && unit.role !== "product-manager" && unit.role !== "designer" && !unit.scope_repair && intent.card) {
       try { await setCardDocsSha(ctx.project, intent.card, verdict.commit, deps); } catch (e) { warnings.push(`docs_sha not written to card ${intent.card}: ${oneLine(e.message, 160)}`); }

@@ -8,9 +8,27 @@ source: Pandacorp standard — quality
 # Quality & testing
 
 ## Definition of done
-- Nothing is "done" until `verify.sh`/CI is green — never by self-assessment. The gate already enforces tests, strict typecheck, lint/format, build, dead code (knip), circular deps (madge), test hygiene, the browser gates (Preview Smoke DR-055 · Visual-Fidelity DR-056 · Responsive DR-074 · Shell-Presence DR-075) and no residual `[NEEDS CLARIFICATION]` (DR-100) — not repeated here; fix the gate's message, don't argue with it.
+- Nothing is "done" until the queue reports `certified-awaiting-order` or `landed` — never by self-assessment. The gate already enforces tests, strict typecheck, lint/format, build, dead code (knip), circular deps (madge), test hygiene, the browser gates (Preview Smoke DR-055 · Visual-Fidelity DR-056 · Responsive DR-074 · Shell-Presence DR-075) and no residual `[NEEDS CLARIFICATION]` (DR-100) — not repeated here; fix the gate's message, don't argue with it.
 - **Fail-closed**: a MISSING harness (smoke/visual/responsive) is a RED gate, not a skip — static checks passing while the page is broken is the failure this closes.
-- A missing visual baseline on a genuinely-new route = "bless at the FRD gate", not a failure.
+- A missing visual baseline on a genuinely-new route = "bless at the FRD gate", a red only in full scope (bless first at the light/since feature gate).
+
+**Queue completion (DR-165 phase 1).** The recipe is commit → `bash .pandacorp/merge-queue.sh`.
+Plain `verify.sh` is diagnosis. Until the queue certifies the current rebased tree, report
+`implemented-uncertified` ("implementado, sin certificar"). Read `bash .pandacorp/merge-queue.sh --status`:
+`certified-awaiting-order` ("certificado, espera tu orden", exit 21 with matching stamp/base),
+`certified-stale` (main moved or stamp expired; re-queue), or `landed` (queue ff, plus published for launched projects).
+Only `certified-awaiting-order` and `landed` may be called done. Work-order `VERIFIED` is review/feature evidence.
+For a launched project, ask for the explicit per-landing order at the START of the work (DR-138 unchanged);
+if deferred, certify and preserve the branch at exit 21. A direct commit on launched main cannot be
+published through a main-checkout stamp: supported paths are the queue or the explicit logged owner
+bypass. The agent never sets the bypass. A transferred stamp's main-checkout check is diagnosis only.
+
+**Repair pre-check.** After a static/Vitest red, run
+`bash .pandacorp/verify.sh --only=live-data-asserts,structure-guard,data-layer,api-error-contract,doc-lint,residual-ambiguity,biome,tsc,knip,madge,vitest`
+(the whole unit suite) before re-queueing. After a Playwright red, run the failing spec plus all static checks.
+`bash .pandacorp/verify.sh --diagnose-unit` reports all static/unit failures under the host slot, never
+certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandacorp/run/test-outcomes.jsonl`;
+`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or exclusions.
 
 ## Numeric bars & test ownership
 - **Mutation score ≥ 60%** on new business logic (Stryker/mutmut) — at FRD milestone close and toward main, not every gate.
@@ -61,12 +79,12 @@ source: Pandacorp standard — quality
 - On red: attribute the failure to its owning change, repair only that defect, commit and re-run the full queue once on the combined result. Further retries require a fresh observed failure within the repair budget. Unknown attribution/conflict/busy main is an immediate DR-099 hand-back; never mask or sweep unrelated reds.
 - **Production gates unchanged:** explicit owner order covering the selected batch before production merge/push; `PANDACORP_OWNER_RELEASE_OK=1` only for that landing (DR-138). No approval inferred from grouping work. A later authorized retry after exit 21 or an advanced main keeps the queue’s existing recheck (a full run, or the DR-146 certified-tree match on an unchanged tree); record it separately, never per source.
 - Preserve source branches and the source-to-integration mapping; squashed sources are not ancestors of main. Do not run the queue again on each source after batch success, or force-delete source branches based on that success.
-- **Verification (landing-session checklist, review-only):** source SHA/green evidence and combined commits are present; the evidence shows exactly one full gate for the assembled batch before repairs: either the queue's own `[full-gate]` run or the full `verify.sh` that certified that exact combined tree (the queue then logs `[certified-tree]`, DR-146), every later pass linked to an observed red/scoped fix or the existing queue’s exit-21/advanced-main safety retry. A per-source full integration-gate loop fails the checklist. Canonical: `build-orchestration.md`, Parallel manual sessions §5; executable rehearsal: factory `test-batch-integration.sh` (not proof of live-session compliance).
+- **Verification (landing-session checklist, review-only):** source SHA/green evidence and combined commits are present; the evidence shows exactly one full gate for the assembled batch before repairs: the queue's own `[full-gate]` run (a matching `[certified-tree]` retry reuses its evidence, DR-146), every later pass linked to an observed red/scoped fix or the existing queue’s exit-21/advanced-main safety retry. A per-source full integration-gate loop fails the checklist. Canonical: `build-orchestration.md`, Parallel manual sessions §5; executable rehearsal: factory `test-batch-integration.sh` (not proof of live-session compliance).
 
 
 ## Gate cost: light Stop gate, certified tree, replayable order (DR-146)
-- The per-turn Stop gate runs `verify.sh --light` plus `--tests=` the tests that belong to the files this session edited: cheap static stages, never Playwright or the whole vitest suite. It certifies nothing (`scope: partial`). The full gate runs in `merge-queue.sh` and at the build's close-out. On the default branch it prints that the FULL gate has not run for this tree: work committed directly on `main` MUST be certified with a full `bash .pandacorp/verify.sh` (or landed through `merge-queue.sh`) before it is pushed. Its candidate tests come from this session's edit record plus every dirty/untracked path (Codex `apply_patch` headers are recorded too); only the edit record is used to attribute reds (DR-099).
-- A FULL `verify.sh` that passes on a clean tree records it in `.pandacorp/run/green-stamp` (any red drops it). The queue skips its post-rebase gate, and the Stop hook skips entirely, only when `.pandacorp/green-stamp.sh check` proves the current tree is that exact tree (clean incl. untracked, no skip-worktree entries, same `verify.sh`, under 12 h); any doubt runs the full gate. To land without a second full run: commit, run `bash .pandacorp/verify.sh`, then `bash .pandacorp/merge-queue.sh`. Never hand-write or copy a stamp.
+- The per-turn Stop gate runs `verify.sh --light` plus `--tests=` the tests that belong to the files this session edited: cheap static stages, never Playwright or the whole vitest suite. It certifies nothing (`scope: partial`). The full gate runs in `merge-queue.sh` and at the build's close-out. In a worktree it prints the observed queue state. On the default branch it prints that the FULL gate has not run for this tree; launched pushes require queue evidence or the logged owner bypass: before launch/internal only, work committed directly on `main` MUST be certified with a full `bash .pandacorp/verify.sh` (or landed through `merge-queue.sh`) before it is pushed. Its candidate tests come from this session's edit record plus every dirty/untracked path (Codex `apply_patch` headers are recorded too); only the edit record is used to attribute reds (DR-099).
+- A FULL `verify.sh` that passes on a clean tree records it in `.pandacorp/run/green-stamp` (any red drops it). The queue skips its post-rebase gate, and the Stop hook skips entirely, only when `.pandacorp/green-stamp.sh check` proves the current tree is that exact tree (clean incl. untracked, no skip-worktree entries, same `verify.sh`, under 12 h); any doubt runs the full gate. Land as commit → `bash .pandacorp/merge-queue.sh`; plain `verify.sh` is diagnosis. Never hand-write or copy a stamp.
 - Vitest always runs shuffled with an explicit seed, printed by `verify.sh` and recorded as `vitest_seed` in `.pandacorp/run/gate-report.json`. Reproduce an order-dependent red with `PANDACORP_VITEST_SEED=<seed> bash .pandacorp/verify.sh --only=vitest`, then fix the coupling; never add retries.
 
 

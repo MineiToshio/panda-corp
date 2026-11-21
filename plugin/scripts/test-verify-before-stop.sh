@@ -296,5 +296,18 @@ if [ "$rc" = 2 ] && echo "$out" | grep -q 'another verification owner'; then ok 
 touch "$fx/.pandacorp/run/owner-release"; wait "$owner"
 rm -rf "$fx"
 
+# Worktree wording is informational and must precede even an ad-hoc stamp fast path.
+fx=$(make_fixture)
+git -C "$fx" switch -qc phase1-branch
+run_hook "$fx" phase1-state
+if [ "$rc" = 0 ] && echo "$out" | grep -q 'estado: implementado, sin certificar'; then ok 'worktree reports implemented-uncertified'; else bad "missing worktree state: $out"; fi
+cat > "$fx/.pandacorp/merge-queue.sh" <<'STATUS'
+#!/bin/bash
+printf 'certified-awaiting-order\ncertificado, espera tu orden\n'
+STATUS
+run_hook "$fx" phase1-certified
+if [ "$rc" = 0 ] && echo "$out" | grep -q 'estado: certificado, espera tu orden'; then ok 'worktree reports current queue certification'; else bad "missing certified worktree state: $out"; fi
+rm -rf "$fx"
+
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = "0" ]

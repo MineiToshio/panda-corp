@@ -153,11 +153,18 @@ export async function writeUnitBrief({ project, state, unit, cell, agentType, to
       designNotes.push(`UI ${w.id}: design already ${source.design_source}; reproduce the recorded source ${JSON.stringify(source.design_refs)} without redesign. Do not improvise design while coding.`);
     }
   }
+  if (unit.kind === "patch") specialist.push("Repair pre-check before re-queueing: after a static/Vitest red, run bash .pandacorp/verify.sh --only=live-data-asserts,structure-guard,data-layer,api-error-contract,doc-lint,residual-ambiguity,biome,tsc,knip,madge,vitest (whole Vitest suite). After a Playwright red, run the failing spec plus all static checks. bash .pandacorp/verify.sh --diagnose-unit lists all static/unit failures under the host slot, never certifies and leaves Playwright policy unchanged. The next queue run is the certification.");
+  const staticChecks = "live-data-asserts,structure-guard,data-layer,api-error-contract,doc-lint,residual-ambiguity,biome,tsc,knip,madge";
+  const browserRepair = unit.kind === "patch" && gateFailure?.checks.includes("playwright");
+  const failingSpecs = [...new Set((gateFailure?.paths ?? []).filter(file => /^e2e\/[^\s]+\.spec\.[cm]?[jt]sx?$/.test(file)))];
+  const repairVerification = unit.kind !== "patch" ? null : browserRepair
+    ? [`bash .pandacorp/verify.sh --only=${staticChecks}`, failingSpecs.length ? `pnpm exec playwright test ${failingSpecs.map(file => "'" + file.replaceAll("'", "'\\''") + "'").join(" ")}` : "Run the failing Playwright spec identified in gate-failure.json plus the static checks before re-queueing."]
+    : [`bash .pandacorp/verify.sh --only=${staticChecks},vitest`];
   const notes = [...specialist, ...designNotes, ...complexityRule, ...cardWoRule, ...resumed, ...(extra.notes ?? []), ...(extra.questionDefaults ?? []).map((q) => `Owner question pending, working default: ${typeof q === "string" ? q : JSON.stringify(q)}`)];
   const text = renderBrief({
     unit, cell, agentType, roleFile: agentRoleFile(agentType, deps.pluginRoot), card, acLines,
     allowlist: unit.test_repair ? Object.keys(unit.test_repair.old_hashes) : unit.scope_repair ? [unit.scope_repair.wo_file] : allowlistPatterns(unit.kind, artifacts), contextPack, root, reportPath: outPath, schemaPath, token,
-    verification: extra.verification ?? ["bash .pandacorp/verify.sh --light", "bash .pandacorp/verify.sh --light --tests=<the test files you changed>"],
+    verification: extra.verification ?? repairVerification ?? ["bash .pandacorp/verify.sh --light", "bash .pandacorp/verify.sh --light --tests=<the test files you changed>"],
     readOnlyPaths: [...hashed].sort(), previous, findings: extra.findings, decision, notes,
     review: extra.review, doubt: extra.doubt, sourcesSkipped: extra.sourcesSkipped, gateFailure,
   });

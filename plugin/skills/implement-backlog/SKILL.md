@@ -5,6 +5,27 @@ description: Implements factory/backlog/BL-* items — the factory's own actiona
 
 # /pandacorp:implement-backlog
 
+**Factory exception.** Take the shared merge lock for direct-main commits/merges. After touching files read by Mission Control tests, report "merged to the factory; Mission Control gate not run" until its queue certifies them. Backlog `done` closes the item, never implies product certification.
+
+**Queue completion (DR-165 phase 1).** The recipe is commit → `bash .pandacorp/merge-queue.sh`.
+Plain `verify.sh` is diagnosis. Until the queue certifies the current rebased tree, report
+`implemented-uncertified` ("implementado, sin certificar"). Read `bash .pandacorp/merge-queue.sh --status`:
+`certified-awaiting-order` ("certificado, espera tu orden", exit 21 with matching stamp/base),
+`certified-stale` (main moved or stamp expired; re-queue), or `landed` (queue ff, plus published for launched projects).
+Only `certified-awaiting-order` and `landed` may be called done. Work-order `VERIFIED` is review/feature evidence.
+For a launched project, ask for the explicit per-landing order at the START of the work (DR-138 unchanged);
+if deferred, certify and preserve the branch at exit 21. A direct commit on launched main cannot be
+published through a main-checkout stamp: supported paths are the queue or the explicit logged owner
+bypass. The agent never sets the bypass. A transferred stamp's main-checkout check is diagnosis only.
+
+**Repair pre-check.** After a static/Vitest red, run
+`bash .pandacorp/verify.sh --only=live-data-asserts,structure-guard,data-layer,api-error-contract,doc-lint,residual-ambiguity,biome,tsc,knip,madge,vitest`
+(the whole unit suite) before re-queueing. After a Playwright red, run the failing spec plus all static checks.
+`bash .pandacorp/verify.sh --diagnose-unit` reports all static/unit failures under the host slot, never
+certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandacorp/run/test-outcomes.jsonl`;
+`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or exclusions.
+
+
 **Product work routing.** “Impleméntalo” routes to `/pandacorp:implement` in the target project, limited to the requested scope. “Anótalo” only writes `.pandacorp/inbox/changes/<slug>.md` from `${CLAUDE_PLUGIN_ROOT}/templates/docs/change-request-template.md` with `status: draft`, English frontmatter and a Spanish body recording the request, context and explicit Dentro/Fuera boundaries (cite the source request for each Dentro item). Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build.mjs" card check .pandacorp/inbox/changes/<slug>.md` from that project and fix validation errors before reporting capture complete. This never starts a build; the engine does not drain cards automatically. A live build keeps ownership: capture only, without mutating its docs or launching a competing run.
 
 The mechanism referenced by the backlog's own read-only note ("pídeselo a un agente, p. ej. «implementa BL-0007»") and by Mission Control's Backlog tab. There is no separate *filing* skill on this side — a `BL-*.md` item already exists (filed by the librarian's routing, an audit, or hand-authored per `factory/backlog/_item-template.md`); this skill only **works and closes** it. Read `factory/backlog/README.md` first if you haven't — it owns the plane-3 model (DR-103) and the item schema.

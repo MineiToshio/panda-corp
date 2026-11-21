@@ -56,7 +56,8 @@ exit 1
 STAMP
 commit_wt
 run_queue
-need test "$RC" = 0
+need test "$RC" = 11
+need grep -q "green but uncertifiable" "$FX/output"
 python3 - "$QLOG" <<'CHECK'
 import json, sys
 r=list(map(json.loads, open(sys.argv[1])))

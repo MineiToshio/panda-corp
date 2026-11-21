@@ -88,6 +88,18 @@ if [ "$hook_runtime" = "claude" ] && [ ! -f "$lease" ] && [ -f "$status_yaml" ];
   done
 fi
 
+# Queue state is informational here; the light gate's verdict remains unchanged.
+stop_default=$(git -C "$cwd" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
+[ -n "$stop_default" ] || stop_default=main
+if [ "$(git -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null)" != "$stop_default" ]; then
+  queue_status=$(cd "$cwd" && bash .pandacorp/merge-queue.sh --status 2>/dev/null) || queue_status=""
+  case "$queue_status" in
+    certified-awaiting-order*) echo 'verify-before-stop: estado: certificado, espera tu orden' >&2 ;;
+    landed*) echo "verify-before-stop: estado: $(printf '%s\n' "$queue_status" | sed -n '2p')" >&2 ;;
+    *) echo 'verify-before-stop: estado: implementado, sin certificar' >&2 ;;
+  esac
+fi
+
 # FAST-PATH (DR-146; replaces BL-0044's HEAD-keyed last-green.json, which only this hook wrote and only
 # after a FULL gate that could not finish inside the hook's own 300 s timeout on a real project, so the
 # anchor froze and every Stop ran the full suite). The certified-tree stamp is written by verify.sh
@@ -189,7 +201,7 @@ if [ "$gate_scope" = "light" ] && [ -n "$sid" ] && [ -s "$touched" ]; then
   default_branch=$(git -C "$cwd" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
   [ -n "$default_branch" ] || default_branch="main"
   if [ "$(git -C "$cwd" rev-parse --abbrev-ref HEAD 2>/dev/null)" = "$default_branch" ]; then
-    full_gate_notice="Pandacorp Stop gate NOTICE (DR-146): only the LIGHT gate ran — the FULL gate (whole vitest suite + Playwright) has NOT run for this tree on ${default_branch}. Certify it with a full 'bash .pandacorp/verify.sh' (or land the work through .pandacorp/merge-queue.sh) before it is pushed."
+    full_gate_notice="Pandacorp Stop gate NOTICE (DR-146): only the LIGHT gate ran — the FULL gate (whole vitest suite + Playwright) has NOT run for this tree on ${default_branch}. estado: implementado, sin certificar. Commit → bash .pandacorp/merge-queue.sh. Plain verify.sh is diagnosis; launched main pushes require the queue or the logged owner bypass."
     echo "verify-before-stop: $full_gate_notice" >&2
   fi
 fi

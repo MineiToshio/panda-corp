@@ -18,6 +18,7 @@ fixture() {
   printf '#!/bin/bash\nexit 0\n' > "$APP/bin/osascript"
   chmod +x "$APP/bin/osascript"
   cp "$QUEUE_FACTORY/plugin/templates/shared/.pandacorp/merge-queue.sh" "$APP/.pandacorp/"
+  cp "$QUEUE_FACTORY/plugin/templates/shared/.pandacorp/green-stamp.sh" "$APP/.pandacorp/"
   printf 'phase: implementation\n' > "$APP/.pandacorp/status.yaml"
   cat > "$APP/.pandacorp/verify.sh" <<'VERIFY'
 #!/bin/bash
@@ -48,7 +49,7 @@ VERIFY
   git -C "$FX/app" add .
   git -C "$FX/app" commit -qm init
   git -C "$FX/app" push -q origin main
-  git -C "$FX/app" worktree add -q "$FX/wt" -b "feature-$name"
+  git -C "$FX/app" worktree add -q "$FX/wt" -b "feature-${name// /-}"
   WT="$FX/wt/${prefix}"
   echo feature > "$WT/value.txt"
   git -C "$FX/wt" add .

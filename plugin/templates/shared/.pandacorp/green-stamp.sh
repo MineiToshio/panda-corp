@@ -145,7 +145,7 @@ controls = {
     'PANDACORP_E2E_WORKERS', 'PANDACORP_E2E_CERTIFICATION', 'PANDACORP_STOP_GATE',
     'PANDACORP_EVENTS_LOG', 'PANDACORP_OWNER_RELEASE_OK',
     'TMPDIR', 'npm_config_cache', 'PANDACORP_CLEANUP_SESSION', 'PANDACORP_SESSION_TEMP_BASE',
-    'PANDACORP_HOST_SLOT_TOKEN', 'PANDACORP_STAMP_BASE', 'PANDACORP_E2E_SNAPSHOTS',
+    'PANDACORP_HOST_SLOT_TOKEN', 'GIT_OPTIONAL_LOCKS', 'PANDACORP_STAMP_BASE', 'PANDACORP_QUEUE_ATTEMPT', 'PLAYWRIGHT_JSON_OUTPUT_FILE', 'PANDACORP_E2E_SNAPSHOTS',
     '_', 'SHLVL', 'PWD', 'OLDPWD', 'PS1', 'PS2', 'TERM', 'COLUMNS', 'LINES',
 }
 for key, value in sorted(os.environ.items()):
@@ -195,19 +195,35 @@ case "${1:-}" in
     inputs=$(printf '%s\n' "$groups" | sed -n 's/^inputs_sha256=//p')
     [ "$inputs" = "$start_inputs" ] || doubt "inputs changed during the run — nothing certified"
     vsum=$(verify_sha256) || doubt "cannot hash .pandacorp/verify.sh — nothing certified"
+    record_epoch=$(date +%s)
+    if [ "${3:-}" = --preserve-age ]; then
+      # Rebinding an unchanged certificate to a new rebase base is not a new gate.
+      # Verify the old identity independently and preserve its original expiry.
+      [ "$(stamp_field version)" = "$VERSION" ] && [ "$(stamp_field tree)" = "$tree" ] &&
+        [ "$(stamp_field inputs_sha256)" = "$inputs" ] && [ "$(stamp_field verify_sha256)" = "$vsum" ] || doubt "cannot rebase a different certificate"
+      old_epoch=$(stamp_field at_epoch)
+      case "$old_epoch" in ''|*[!0-9]*) doubt "invalid original certificate time" ;; esac
+      age=$((record_epoch - old_epoch))
+      [ "$age" -ge 0 ] && [ "$age" -le "$MAX_AGE_S" ] || doubt "original certificate expired"
+      record_epoch="$old_epoch"
+    elif [ -n "${3:-}" ]; then
+      doubt "unknown record option"
+    fi
     mkdir -p "$(dirname "$STAMP")" || doubt "cannot create $(dirname "$STAMP")"
     tmp=$(mktemp "$STAMP.XXXXXX") || doubt "cannot write $STAMP"
     base="${PANDACORP_STAMP_BASE:-}"
     case "$base" in *[!0-9a-f]*) doubt "invalid stamp base" ;; esac
-    { printf 'version=%s\ntree=%s\nverify_sha256=%s\nbase=%s\nat_epoch=%s\n' "$VERSION" "$tree" "$vsum" "$base" "$(date +%s)"; printf '%s\n' "$groups"; } > "$tmp" \
+    { printf 'version=%s\ntree=%s\nverify_sha256=%s\nbase=%s\nat_epoch=%s\n' "$VERSION" "$tree" "$vsum" "$base" "$record_epoch"; printf '%s\n' "$groups"; } > "$tmp" \
       && mv "$tmp" "$STAMP" || { rm -f "$tmp"; doubt "cannot write $STAMP"; }
     echo "green-stamp: certified tree $tree (full verify.sh green on a clean tree)"
     ;;
-  check)
+  check|observe)
     [ -f "$STAMP" ] || doubt "no certified-tree stamp"
+    # observe is an informational no-lock/no-write snapshot for queue --status only.
+    # Certification/push callers MUST use check, which fences concurrent verification.
     # Readers may reuse evidence only while no writer is changing its report/build/fixtures.
     # Hold a shared kernel lock through all comparisons, then release on exit.
-    if [ "${PANDACORP_STAMP_CHECK_PID:-}" != "$$" ]; then
+    if [ "$1" = check ] && [ "${PANDACORP_STAMP_CHECK_PID:-}" != "$$" ]; then
       exec python3 - "$0" "$@" <<'CHECKPY'
 import fcntl
 import os
@@ -266,7 +282,7 @@ EXPLAINPY
     rm -f "$STAMP"
     ;;
   *)
-    echo "usage: green-stamp.sh start | record <tree:inputs_sha256> | check [--explain] | clean-outputs | invalidate" >&2
+    echo "usage: green-stamp.sh start | record <tree:inputs_sha256> | check [--explain] | observe | clean-outputs | invalidate" >&2
     exit 2
     ;;
 esac

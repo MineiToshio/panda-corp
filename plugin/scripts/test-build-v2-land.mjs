@@ -466,6 +466,18 @@ await test("(INFERRED) a DEAD land job (pid gone, no exit file) is never reporte
 // ---------------------------------------------------------------------------------------------------------------------
 // D24 / A15: the merge-queue exit map
 // ---------------------------------------------------------------------------------------------------------------------
+await test("phase 1: a false exit 0 never persists or replays landed", async () => withWorld("false-zero", {}, async w => {
+  await setMq(w, "0"); await callLand(w); await w.jobs.runPending();
+  const result = await attempt(() => callLand(w));
+  ok(result.error?.code === "ENGINE_FAILURE", "main ancestry must reject false success");
+  const state = await readState(w);
+  eq(state.landing_state, "implemented-uncertified", "failed oracle cannot publish landed");
+  const events = await readEvents(w);
+  events.find(e => e.type === "run_started").data.state.units = state.units;
+  const { foldJournal } = await import('../runtime/build/state.mjs');
+  eq(foldJournal(events).landing_state, "implemented-uncertified", "raw job exit cannot replay as landed");
+}));
+
 await test("mq 0 (ff): landed, sha = new main tip, units landed, batch_landed {sha}, no pin_stale, card archived with shipped_sha, status.yaml pinned on main by the merge only", async () => withWorld("exit0", {}, async (w) => {
   const before = await snapshot(w); const { second } = await mqRound(w, "0:ff");
   eq(second.result, "landed", "result"); eq(second.reason ?? null, null, "reason"); eq(second.mq_exit, 0, "mq_exit"); if (exitKey(second) !== undefined) eq(exitKey(second), 0, "land exit");
@@ -733,6 +745,15 @@ await test("(INFERRED) 20, then 12, then 20: not consecutive, so no engine failu
 await test("mq 21 (launched project): waiting_gate (exit 7), units waiting_gate/production, journal waiting_gate, NO retry, `git log main` and origin unchanged, card not archived, variable never set", async () => withWorld("exit21", {}, async (w) => {
   const before = await snapshot(w); const logBefore = git(w.fx.root, ["log", "--format=%H", "main"]);
   const { second } = await mqRound(w, "21");
+  eq((await readState(w)).landing_state, "certified-awaiting-order", "run stores exact exit-21 landing state");
+  const { foldJournal } = await import('../runtime/build/state.mjs');
+  const replayEvents = await readEvents(w);
+  replayEvents.find(e => e.type === "run_started").data.state.units = (await readState(w)).units; // fixture prebuilds units without unit_queued events
+  eq(foldJournal(replayEvents).landing_state, "certified-awaiting-order", "journal replay preserves landing state");
+  const ready = (await readFile(path.join(w.fx.root, '.pandacorp/run/queue-log.jsonl'), 'utf8')).trim().split('\n').map(JSON.parse);
+  eq(ready.filter(r => r.event === 'ready').length, 1, "ready event emitted before first queue attempt");
+  eq(ready[0].branch, w.branch, "ready uses queue integration branch");
+  eq(second.landing_state, "certified-awaiting-order", "land output carries exact state");
   eq(second.result, "waiting_gate", "result"); eq(second.reason ?? null, null, "reason"); eq(second.mq_exit, 21, "mq_exit"); eq(second.sha ?? null, null, "sha"); if (exitKey(second) !== undefined) eq(exitKey(second), 7, "land exit");
   eq(git(w.fx.root, ["log", "--format=%H", "main"]), logBefore, "`git log main` is unchanged");
   const st = await readState(w); const bu = unitOf(st, "u-build-wo-01-001"); eq(bu.state, "waiting_gate", "build unit state"); eq(bu.waiting_gate, "production", "waiting_gate:production stored on the unit");
@@ -749,6 +770,8 @@ await test("owner's order: with PANDACORP_OWNER_RELEASE_OK=1 already in the CALL
     process.env.PANDACORP_OWNER_RELEASE_OK = "1";
     try {
       await setMq(w, "0:ff"); const first = await callLand(w); eq(first.result, "running", "the owner's order spawns the landing again"); await w.jobs.runPending(); const second = await callLand(w);
+      eq((await readState(w)).landing_state, "landed", "run stores exact exit-0 landing state");
+      eq(second.landing_state, "landed", "landed output state");
       eq(second.result, "landed", "result"); eq(second.sha, mainTip(w), "sha");
       const logs = await stubLog(w); eq(logs.at(-1).owner_ok, "1", "the variable the OWNER set reached the merge-queue; the engine did not strip it");
       const bu = unitOf(await readState(w), "u-build-wo-01-001"); eq(bu.state, "landed", "waiting_gate -> landed"); eq(bu.waiting_gate ?? null, null, "the gate marker is cleared");

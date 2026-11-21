@@ -6,7 +6,7 @@ import { fencedTwoPhase, upsertJob } from "../state.mjs";
 import { assessBatch, cardCompletedBy, environmentRetryExhausted, setStatusScalars } from "./batch.mjs";
 import { harvestLandJob, prepareLandHarvest } from "./harvest.mjs";
 import {
-  MERGE_QUEUE, OUTPUT_TAIL_BYTES, RELEASE_VAR, WO_KINDS, assertCleanWorktree, defaultBranchOf, dropLandingMetadata, err, git, gitOk, landingCodeTip,
+  MERGE_QUEUE, OUTPUT_TAIL_BYTES, RELEASE_VAR, WO_KINDS, assertCleanWorktree, defaultBranchOf, dropLandingMetadata, emitQueueReady, err, git, gitOk, landingCodeTip,
   handbackResult, markerLine, nothing, resolveLandDeps, result,
 } from "./common.mjs";
 
@@ -140,6 +140,9 @@ async function phase2(work, intent, ctx, d) {
     await git(d, root, ["reset", "--hard", "HEAD"]);
     throw error;
   }
+  // R starts when implementation is declared complete, before the first queue attempt.
+  // Same project/branch identity as the queue; telemetry failure cannot grant or block landing.
+  if (!state.jobs.some(j => j.kind === "land")) await emitQueueReady(ctx, d);
   const job = await spawnLandJob(ctx, state, root, d);
   await ctx.appendEvent({ type: "job_started", data: job });
   await ctx.writeState(upsertJob(state, job));

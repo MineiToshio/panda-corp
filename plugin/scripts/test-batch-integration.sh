@@ -3,13 +3,16 @@
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 fx=$(mktemp -d)
-echo "Batch fixture retained for inspection: $fx"
+trap 'rm -rf "$fx"' EXIT
+export PANDACORP_HOST_DIR="$fx/host"
 git init -q -b main "$fx/app"
 cd "$fx/app"
 git config user.name 'Batch canary'
 git config user.email 'batch@example.invalid'
 mkdir -p .pandacorp
 cp "$ROOT/plugin/templates/shared/.pandacorp/merge-queue.sh" .pandacorp/
+cp "$ROOT/plugin/templates/shared/.pandacorp/green-stamp.sh" .pandacorp/
+printf ".pandacorp/run/\n" > .gitignore
 printf 'phase: implementation\n' > .pandacorp/status.yaml
 cat > .pandacorp/verify.sh <<'GATE'
 #!/bin/bash
@@ -22,7 +25,7 @@ test ! -f broken.txt
 GATE
 chmod +x .pandacorp/verify.sh
 printf 'base\n' > shared.txt
-git add .pandacorp shared.txt
+git add .pandacorp .gitignore shared.txt
 git commit -qm 'chore(test): initialize batch fixture'
 base=$(git rev-parse HEAD)
 git worktree add -qb first "$fx/first" main

@@ -60,7 +60,7 @@ async function onLanded(ctx, state, job, mqExit, d) {
   const where = await locateLanding(ctx, root, defaultBranch, d);
   const sha = where.metaSha ?? where.mainTip;
   const batch = assessBatch(state);
-  let next = await moveUnits(ctx, state, batch.landable, "landed", { waiting_gate: null });
+  let next = { ...await moveUnits(ctx, state, batch.landable, "landed", { waiting_gate: null }), landing_state: mqExit === 0 ? "landed" : "implemented-uncertified" };
   const card = where.changeSlug && where.changeSlug === state.scope?.card ? await archiveLandedCard(ctx.project, where.changeSlug, sha, d) : null;
   const notes = mqExit === 13 ? "El aterrizaje llegó a main pero el push falló o no pudo confirmarse: revisa origin/main antes de reintentar." : null;
   await ctx.appendEvent({ type: "batch_landed", data: { sha, units: batch.landable.map((u) => u.id), mq_exit: mqExit, card, ...(notes ? { notes_es: notes } : {}) } });
@@ -154,7 +154,7 @@ async function onGateRed(ctx, state, job, plan, d) {
 async function onGate(ctx, state) {
   const batch = assessBatch(state);
   const next = await moveUnits(ctx, state, batch.landable, "waiting_gate", { waiting_gate: "production" });
-  return { state: next, output: { result: "waiting_gate", reason: null, mq_exit: 21, sha: null, notes_es: "main de este proyecto lanzado es producción. Solo se aterriza con tu orden en el chat: PANDACORP_OWNER_RELEASE_OK=1 sobre ese único comando land." }, exit: 7 };
+  return { state: next, output: { result: "waiting_gate", landing_state: "certified-awaiting-order", reason: null, mq_exit: 21, sha: null, notes_es: "main de este proyecto lanzado es producción. Solo se aterriza con tu orden en el chat: PANDACORP_OWNER_RELEASE_OK=1 sobre ese único comando land." }, exit: 7 };
 }
 
 /** Identity of the facts used by a work-phase harvest; any concurrent change invalidates that plan. */
@@ -223,7 +223,7 @@ export async function harvestLandJob(ctx, deps = {}) {
   const environmentBudget = mqExit === 16 ? { environment_retry_sha: prepared.environmentTip, environment_retry_exhausted: !environmentRetry } : {};
   const finished = { ...job, ...environmentBudget, state: polled.state === "dead" && mqExit === null ? "dead" : "done", exit: mqExit };
   await ctx.appendEvent({ type: "job_finished", data: { id: job.id, kind: "land", state: finished.state, exit: mqExit, ...environmentBudget } });
-  state = upsertJob(state, finished);
+  state = { ...upsertJob(state, finished), landing_state: mqExit === 21 ? "certified-awaiting-order" : "implemented-uncertified" };
 
   if (mqExit === null && polled.state === "dead") {
     await ctx.writeState(state);
@@ -263,5 +263,5 @@ export async function harvestLandJob(ctx, deps = {}) {
   if (applied.output.result === "landed" || applied.output.result === "waiting_gate") {
     await cleanupRunWorktrees({ project: ctx.project, state: applied.state, mode: applied.output.result === "landed" ? "landed" : "waiting_gate" }, d);
   }
-  return { harvested: true, exit: applied.exit, output: { ok: true, cmd: "land", ...applied.output } };
+  return { harvested: true, exit: applied.exit, output: { ok: true, cmd: "land", landing_state: applied.state.landing_state, ...applied.output } };
 }

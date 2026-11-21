@@ -12,6 +12,9 @@
  */
 import * as fsp from "node:fs/promises";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+const observeQueue = promisify(execFile);
 import { assertValid, loadSchema, readJson } from "./fsx.mjs";
 import { readJournal } from "./journal.mjs";
 import { buildPaths } from "./paths.mjs";
@@ -22,7 +25,7 @@ export const REPORT_HEADINGS_ES = Object.freeze({
   need: "Necesito de ti",
   decided: "Decidí sin ti",
   parked: "Aparcado",
-  done: "Hecho",
+  done: "Estado de implementación",
   reviews: "Revisiones",
   quota: "Cupo",
 });
@@ -313,6 +316,7 @@ export function buildSummary(input, deps = {}) {
   return {
     run_id: state.run_id,
     status: state.status,
+    landing_state: state.landing_state ?? "implemented-uncertified",
     need_from_owner: [
       ...open.map((q) => `${sentence(q.text_es)} Si no respondes: ${q.default_es ?? "nada cambia"}.`),
       ...unique(asArray(input.events).filter((e) => e.type === "engine_failure" && e.data?.backlog_draft).map((e) => e.data.backlog_draft))
@@ -370,6 +374,16 @@ export async function readSummary(project, deps = {}) {
     deferred: (await readJson(p.deferredReviewsFile, { fs })) ?? [],
     quota: quota ? { claude: quota.claude ?? null, codex: quota.codex ?? null } : null,
   });
+  // Exit 21 is historical evidence. A report must re-observe the current stamp/base;
+  // expiry or another main landing cannot keep claiming current certification.
+  if (summary.landing_state === "certified-awaiting-order") {
+    const root = path.resolve(project, state.integration.worktree);
+    try {
+      const observed = await observeQueue("bash", [".pandacorp/merge-queue.sh", "--status"], { cwd: root, env: deps.env ?? process.env, timeout: 30000 });
+      const current = observed.stdout?.split("\n")[0];
+      summary.landing_state = ["certified-awaiting-order", "certified-stale", "landed"].includes(current) ? current : "implemented-uncertified";
+    } catch { summary.landing_state = "implemented-uncertified"; }
+  }
   assertValid(await loadSchema("summary", { fs }), summary, { label: "summary", code: "INVALID_STATE" });
   return summary;
 }
@@ -389,7 +403,7 @@ export function renderReportEs(summary) {
   const done = summary.done ?? { landed_wos: [], waiting_on_branch_wos: [], branch: null };
   const doneLines = [
     `Aterrizadas en main: ${done.landed_wos.length ? done.landed_wos.join(", ") : "ninguna"}`,
-    `Esperando tu orden en ${done.branch ?? "la rama del run"}: ${done.waiting_on_branch_wos.length ? done.waiting_on_branch_wos.join(", ") : "ninguna"}`,
+    `Implementadas en ${done.branch ?? "la rama del run"}: ${done.waiting_on_branch_wos.length ? done.waiting_on_branch_wos.join(", ") : "ninguna"}`,
   ];
   const reviews = summary.reviews ?? { cross: 0, degraded: [] };
   const reviewLines = [
@@ -399,6 +413,7 @@ export function renderReportEs(summary) {
   const quotaLine = (name, r) => `${name}: ${r ? "lectura guardada" : "desconocido"}`;
   return [
     `# Informe del build ${summary.run_id}`, "",
+    `Aterrizaje: ${summary.landing_state ?? "implemented-uncertified"}`, "",
     `Estado: ${summary.status}${summary.status_reason ? ` (${summary.status_reason})` : ""}`, "",
     ...(summary.admission ? [`Concurrencia: paso ${summary.admission.step}. Motivo: ${summary.admission.motivo}.`, ""] : []),
     `## ${H.need}`, ...list(asArray(summary.need_from_owner)), "",

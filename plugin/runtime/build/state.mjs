@@ -58,7 +58,7 @@ export function newUnit(fields) {
 export function newState(fields) {
   return {
     schema: STATE_SCHEMA_VERSION, engine: "v2", status: "active", status_reason: null, tranche: null,
-    last_safe_point: null, units: [], jobs: [], handbacks_in_a_row: 0, doubts_consulted: 0, answers: {}, quota_at_unit: {},
+    landing_state: "implemented-uncertified", last_safe_point: null, units: [], jobs: [], handbacks_in_a_row: 0, doubts_consulted: 0, answers: {}, quota_at_unit: {},
     ...fields,
   };
 }
@@ -262,7 +262,7 @@ export function foldJournal(events) {
       }
       case "unit_state": {
         unitOrThrow(state, d.unit, ev.type).state = d.to;
-        if (d.to === "committed") state.handbacks_in_a_row = 0;
+        if (d.to === "committed") { state.handbacks_in_a_row = 0; state.landing_state = "implemented-uncertified"; }
         break;
       }
       case "unit_dispatched": {
@@ -285,11 +285,13 @@ export function foldJournal(events) {
         const job = state.jobs.find((j) => j.id === d.id);
         if (job) {
           job.state = d.state; job.exit = d.exit ?? null;
+          if (job.kind === "land") state.landing_state = d.exit === 21 ? "certified-awaiting-order" : "implemented-uncertified";
           if (Object.hasOwn(d, "environment_retry_exhausted")) job.environment_retry_exhausted = d.environment_retry_exhausted;
           if (Object.hasOwn(d, "environment_retry_sha")) job.environment_retry_sha = d.environment_retry_sha;
         }
         break;
       }
+      case "batch_landed": state.landing_state = d.mq_exit === 0 ? "landed" : "implemented-uncertified"; break;
       case "report_received": {
         const u = unitOrThrow(state, d.unit, ev.type);
         if (d.test_hashes && typeof d.test_hashes === "object") u.test_hashes = clone(d.test_hashes);

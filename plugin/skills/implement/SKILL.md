@@ -5,6 +5,25 @@ description: Build or resume any feature, change or bug through the runtime-neut
 
 # /pandacorp:implement
 
+**Queue completion (DR-165 phase 1).** The recipe is commit → `bash .pandacorp/merge-queue.sh`.
+Plain `verify.sh` is diagnosis. Until the queue certifies the current rebased tree, report
+`implemented-uncertified` ("implementado, sin certificar"). Read `bash .pandacorp/merge-queue.sh --status`:
+`certified-awaiting-order` ("certificado, espera tu orden", exit 21 with matching stamp/base),
+`certified-stale` (main moved or stamp expired; re-queue), or `landed` (queue ff, plus published for launched projects).
+Only `certified-awaiting-order` and `landed` may be called done. Work-order `VERIFIED` is review/feature evidence.
+For a launched project, ask for the explicit per-landing order at the START of the work (DR-138 unchanged);
+if deferred, certify and preserve the branch at exit 21. A direct commit on launched main cannot be
+published through a main-checkout stamp: supported paths are the queue or the explicit logged owner
+bypass. The agent never sets the bypass. A transferred stamp's main-checkout check is diagnosis only.
+
+**Repair pre-check.** After a static/Vitest red, run
+`bash .pandacorp/verify.sh --only=live-data-asserts,structure-guard,data-layer,api-error-contract,doc-lint,residual-ambiguity,biome,tsc,knip,madge,vitest`
+(the whole unit suite) before re-queueing. After a Playwright red, run the failing spec plus all static checks.
+`bash .pandacorp/verify.sh --diagnose-unit` reports all static/unit failures under the host slot, never
+certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandacorp/run/test-outcomes.jsonl`;
+`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or exclusions.
+
+
 **The single Pandacorp entry for building and resuming.** Claude Code and Codex use the same
 `plugin/scripts/pandacorp-build.mjs` engine. No engine keyword or execution-mode choice
 is needed. The CLI owns scope detection, planning, admission, routing, review, governed

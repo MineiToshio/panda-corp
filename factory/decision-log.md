@@ -1,5 +1,19 @@
 # Decision Log — Factory
 
+## 2026-11-21 - Ship proposal 43 phase 1 under DR-165
+
+[Build orchestration](standards/build-orchestration.md) and the [registry](decisions/registry.yaml)
+now activate DR-141 queue-owned batch evidence, DR-146 required record/current completion
+states, and DR-153 exact-commit pre-push proof. Commit → queue is the landing recipe;
+plain verify is diagnosis, and launched projects ask for the explicit landing order at work start.
+The [plugin history](../plugin/docs/decision-log.md) records **10.18.0** / overlay **9.7.0**,
+JSON test outcomes, flaky suspects without exclusions, diagnosis and load classification.
+The Manual reflects the same state vocabulary. Project copies are untouched; Mission Control
+must commit its declared run outputs before this overlay is applied. Phases 2/3 remain pending.
+
+Launched pre-push hooks now require proof for the exact pushed commit: a queue-log ff event for that sha from a live unfinished attempt or one that ended 0/13; otherwise the owner bypass PANDACORP_OWNER_UNGATED_PUSH=1, logged with commit, time and reason. A transferred stamp checked in the main checkout (memo proof 2) did NOT match in tests (own node_modules metadata, e2e/.env* inputs and Git's hook PATH/GIT_EXEC_PATH differ), so proof 2 is diagnosis only.
+
+
 ## 2026-11-21 - Retain phase 0.5 admission and retry guarantees across contention
 
 [Build orchestration](standards/build-orchestration.md) clarifies that inherited-slot validation

@@ -34,9 +34,27 @@ is a **DERIVED rollup** of its work orders, never an independent state — `VERI
 `VERIFIED`; else `BLOCKED` if any is `BLOCKED`; else `PLANNED` if any is `PLANNED`; else `IN_PROGRESS`
 if any is; else `IN_REVIEW`. **On any discrepancy between an FRD and its work orders, the work orders
 win** — the FRD field is a *cache* of the rollup, trustworthy on its own only when it reads `VERIFIED`
-(only the gate writes that). "**Done**" means `VERIFIED`: a work order is done when `VERIFIED`, an FRD
-when **all** its work orders are, the project when all FRDs are — never read "done" off an FRD field
-that hasn't been re-derived. The CLI owns rollup commits on the integration branch. Readers needing current progress derive from that branch's work orders and the active run snapshot, rather than treating the main checkout's last landed rollup as live. `.pandacorp/status.yaml` on `main` changes only at landing; it is not a live lock.
+(only the gate writes that). `VERIFIED` means independently reviewed plus feature-gate evidence: a work order reaches it through the gate,
+an FRD when **all** its work orders do. Run completion still requires the queue state below;
+never infer completion from an FRD rollup alone. The CLI owns rollup commits on the integration branch. Readers needing current progress derive from that branch's work orders and the active run snapshot, rather than treating the main checkout's last landed rollup as live. `.pandacorp/status.yaml` on `main` changes only at landing; it is not a live lock.
+
+**Queue completion (DR-165 phase 1).** The recipe is commit → `bash .pandacorp/merge-queue.sh`.
+Plain `verify.sh` is diagnosis. Until the queue certifies the current rebased tree, report
+`implemented-uncertified` ("implementado, sin certificar"). Read `bash .pandacorp/merge-queue.sh --status`:
+`certified-awaiting-order` ("certificado, espera tu orden", exit 21 with matching stamp/base),
+`certified-stale` (main moved or stamp expired; re-queue), or `landed` (queue ff, plus published for launched projects).
+Only `certified-awaiting-order` and `landed` may be called done. Work-order `VERIFIED` is review/feature evidence.
+For a launched project, ask for the explicit per-landing order at the START of the work (DR-138 unchanged);
+if deferred, certify and preserve the branch at exit 21. A direct commit on launched main cannot be
+published through a main-checkout stamp: supported paths are the queue or the explicit logged owner
+bypass. The agent never sets the bypass. A transferred stamp's main-checkout check is diagnosis only.
+
+**Repair pre-check.** After a static/Vitest red, run
+`bash .pandacorp/verify.sh --only=live-data-asserts,structure-guard,data-layer,api-error-contract,doc-lint,residual-ambiguity,biome,tsc,knip,madge,vitest`
+(the whole unit suite) before re-queueing. After a Playwright red, run the failing spec plus all static checks.
+`bash .pandacorp/verify.sh --diagnose-unit` reports all static/unit failures under the host slot, never
+certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandacorp/run/test-outcomes.jsonl`;
+`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or exclusions.
 
 ## 2. Coarse work orders
 
@@ -336,7 +354,17 @@ Verification: `test-merge-queue-lock-ownership.sh`, `test-merge-queue-env-step-k
 `test-merge-queue-env-step-after-rebase.sh`, `test-merge-queue-ff-gated-sha.sh`,
 `test-merge-queue-single-slot.sh`, `test-green-stamp-controls.sh`, `test-green-stamp-run-outputs.sh`,
 `test-verify-snapshots-none-full-only.sh`, `test-host-slot-fail-closed.sh`, `test-host-slot-mutex.mjs` and `test-build-v2-land.mjs`.
-This phase does not change DR-138 or ship phase 1's required stamp-record/pre-push/status controls.
+Phase 1 now adds required record before ff: a full green with a refused record exits 11
+"green but uncertifiable: <reason>". verify.sh exposes its record receipt without changing ordinary
+green/red. Declared run-output normalization must ship before this overlay is applied (Mission Control's
+`e2e/.run-outputs` is a coordinator prerequisite). Gate start/end retain load/core observations;
+timeout reds under load greater than core count carry `classification: environment-suspect`.
+Engine state/journal records `landing_state` on land exit 21/0 and emits `ready` before its first queue attempt.
+Launched pre-push requires exact-commit queue ff evidence (live unfinished attempt or end 0/13),
+or the logged owner bypass; a transferred/main-checkout stamp is diagnosis only. DR-138 remains unchanged.
+Verification: `test-merge-queue-status.sh`, `test-merge-queue-requires-record.sh`,
+`test-pre-push-requires-stamp.sh`, `test-verify-diagnose-unit.sh`, `test-build-v2-land.mjs`,
+`test-flaky-suspects.mjs` and `test-verify-before-stop.sh`.
 
 ### 5. Batch integration through the serialized merge queue (DR-141, BUILD-4)
 
@@ -395,12 +423,12 @@ only when `green-stamp.sh check` proves the rebased tree is byte-identical to on
 passed in that checkout (clean, no skip-worktree entries, same `verify.sh`, stamp under 12 h); the
 log says `[certified-tree]` or `[full-gate]`. An advanced main, a partial/`--light`/`--since` run, a red
 run (which drops the stamp), a dirty or bootstrap-overridden tree or a stale/corrupt stamp all run the
-full gate. Order the landing as commit → `verify.sh` → queue to benefit. The DR-138 owner check runs
+full gate. Order the landing as commit → queue; plain `verify.sh` is diagnosis. The DR-138 owner check runs
 after the gate decision and is never bypassed by a skip. Single-change behavior and all other human gates remain intact.
 
 **How it is verified (binary, review-only):** the landing session checks the recorded source
 SHAs/branch-green evidence, the commits including all selected changes, and the queue log: exactly
-one full gate for the assembled batch before any repair (the queue's own `[full-gate]` run, or the full `verify.sh` that certified that exact combined tree, after which the queue logs `[certified-tree]`), with each further
+one full gate for the assembled batch before any repair (the queue's own `[full-gate]` run; `[certified-tree]` is only reuse of matching existing evidence), with each further
 invocation linked to an observed red and its scoped fix (or the existing queue’s documented
 exit-21/advanced-main safety retry). Per-source queue/full-gate invocations
 fail this checklist. `plugin/scripts/test-batch-integration.sh` rehearses the manual procedure
@@ -504,7 +532,7 @@ just in a doc:
 - **Conversation isolation.** An agent handles a FOREIGN red silently (recognise via `git status`
   ownership, never touch/mask — §7) and does NOT narrate to the owner what OTHER sessions are doing:
   cross-session status is PULL (Mission Control), never noise pushed into a conversation; and never
-  reports work as "done" until it is in main. **At commit time:** when `git status` shows files this
+  reports work as "done" until its queue state is certified-awaiting-order or landed. **At commit time:** when `git status` shows files this
   session did not touch (foreign WIP), `git add` ONLY this session's own files (never `git add -A`) and
   commit — do NOT ask the owner whether to commit, do NOT mention the other session's files. Committing
   only your own files is correct and permission-free (it leaves the foreign WIP untouched); pausing to

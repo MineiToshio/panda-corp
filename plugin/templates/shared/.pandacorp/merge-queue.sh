@@ -3,14 +3,14 @@
 # serialized so two sessions never race the merge. The single-writer principle of build-orchestration
 # §2 (DR-060/086) applied at MERGE granularity instead of COMMIT granularity.
 #
-# Run it FROM INSIDE the worktree once the work is committed and the worktree's own gate is green.
+# Run it FROM INSIDE the worktree after committing: commit -> queue (plain verify is diagnosis).
 # It: acquires one shared lock → rebases the branch onto the CURRENT main tip → runs the integration
-# gate on the merged result → fast-forward-merges into main → removes the worktree + branch → releases.
+# gate on the merged result -> required record -> exact fast-forward/push -> releases; checkout kept.
 #
 # Exit codes (so the calling agent can act):
-#   0  merged + cleaned up      (done — tell the owner "merged")
+#   0  landed (worktree kept; launched also published)
 #   10 handed back: rebase conflict git can't auto-resolve (the agent resolves, or escalates to owner)
-#   11 handed back: integration gate RED on the merged result (fix on the branch, re-run)
+#   11 handed back: integration gate red or green but uncertifiable (no ff)
 #   12 handed back: main checkout busy (uncommitted changes block the ff-merge — land when it's quiescent)
 #   13 LAUNCHED project: merged into main but the push to origin failed or remains unconfirmed
 #   14 handed back: committed e2e PORT busy (stop the dev server / other gate, then re-run) (BL-0288)
@@ -179,7 +179,65 @@ COMMON_DIR="$(cd "$(git rev-parse --git-common-dir)" && pwd)"          # shared 
 DEFAULT_BRANCH="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##' || echo main)"
 # The working tree where the default branch is checked out (where we ff-merge into).
 MAIN_WT="$(git worktree list --porcelain | awk -v b="refs/heads/$DEFAULT_BRANCH" '
-  /^worktree /{wt=$2} /^branch /{if($2==b) print wt}' | head -1)"
+  /^worktree /{wt=substr($0,10)} /^branch /{if($2==b) print wt}' | head -1)"
+
+# Status is deliberately before telemetry/traps: observing a branch cannot enqueue or mutate it.
+if [ "${1:-}" = --status ]; then
+  GIT_OPTIONAL_LOCKS=0 python3 - "$MAIN_WT" "$DEFAULT_BRANCH" "$BRANCH" <<'STATUSPY'
+import json, pathlib, subprocess, sys, time
+main, default, branch = sys.argv[1:]
+def git(*args):
+    return subprocess.check_output(['git', *args], text=True).strip()
+try:
+    if not main: raise ValueError('cannot locate main checkout')
+    prefix = git('rev-parse', '--show-prefix')
+    project = pathlib.Path(main) / prefix
+    tip = git('rev-parse', '--verify', 'HEAD^{commit}')
+    tree = git('rev-parse', '--verify', 'HEAD^{tree}')
+    base = git('rev-parse', '--verify', 'refs/heads/' + default)
+    status = (project / '.pandacorp/status.yaml').read_text()
+    import re
+    launched = bool(re.search(r'^phase:\s*release(?:\s|#|$)', status, re.M)) and not re.search(r'^deploy_target:\s*internal(?:\s|#|$)', status, re.M)
+    log = project / '.pandacorp/run/queue-log.jsonl'
+    rows = [json.loads(line) for line in log.read_text().splitlines()] if log.exists() else []
+    attempts = {}
+    for row in rows:
+        if not isinstance(row, dict) or row.get('v') != 1: raise ValueError('malformed queue event')
+        if pathlib.Path(row['project']).resolve() == project.resolve():
+            attempts.setdefault(row['attempt'], []).append(row)
+    state = 'implemented-uncertified'
+    clean = not git('status', '--porcelain') and not any(line[:1] == 'S' or line[:1].islower() for line in git('ls-files', '-v').splitlines())
+    contained = subprocess.run(['git', 'merge-base', '--is-ancestor', tip, base], capture_output=True).returncode == 0
+    for events in attempts.values():
+        ff = any(r.get('event') == 'ff' and r.get('sha') == tip and r.get('result') == 'ok' for r in events)
+        pushed = any(r.get('event') == 'push' and r.get('sha') == tip and r.get('result') == 'ok' for r in events)
+        ended = any(r.get('event') == 'end' and r.get('exit') == 0 for r in events)
+        if clean and contained and ff and ended and (not launched or pushed): state = 'landed'
+    stamp = pathlib.Path('.pandacorp/run/green-stamp')
+    fields = dict(line.split('=', 1) for line in stamp.read_text().splitlines() if '=' in line) if stamp.exists() else {}
+    if state != 'landed' and fields.get('tree') == tree and clean:
+        age = time.time() - int(fields.get('at_epoch', '0'))
+        stamp_base = fields.get('base')
+        observation = subprocess.run(['bash', '.pandacorp/green-stamp.sh', 'observe'], capture_output=True, text=True)
+        valid_or_expired = observation.returncode == 0 or 's old (max ' in observation.stderr
+        if valid_or_expired and stamp_base and (stamp_base != base or age > 12 * 3600):
+            state = 'certified-stale'
+        elif stamp_base == base and launched:
+            waiting = any(any(r.get('event') == 'start' and r.get('branch') == branch for r in events)
+                          and any(r.get('event') == 'rebase' and r.get('head') == tip for r in events)
+                          and any(r.get('event') == 'end' and r.get('exit') == 21 for r in events) for events in attempts.values())
+            if waiting and observation.returncode == 0:
+                state = 'certified-awaiting-order'
+    words = {'implemented-uncertified': 'implementado, sin certificar', 'certified-awaiting-order': 'certificado, espera tu orden',
+             'certified-stale': 'certificado sobre un main viejo: hace falta otra pasada del gate',
+             'landed': 'en main y publicado' if launched else 'en main'}
+    print(state + '\n' + words[state])
+except (OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError) as error:
+    print('merge-queue status: ' + str(error), file=sys.stderr)
+    sys.exit(20)
+STATUSPY
+  exit $?
+fi
 
 # Telemetry must survive a rejected invocation without becoming another landing gate.
 QUEUE_PROJECT=""
@@ -212,6 +270,13 @@ for i in range(0, len(fields), 3):
 if event in ('gate_start', 'gate_end'):
     record['load'] = os.getloadavg()[0]
     record['ncpu'] = os.cpu_count() or 1
+    if event == 'gate_end' and record.get('rc', 0) != 0:
+        try:
+            report = json.load(open(record.get('report', '')))
+            timeout = any(__import__('re').search(r'time[ -]?out|timed out|exceeded.*timeout', str(g.get('failures', [])), __import__('re').I) for g in report.get('subgates', []))
+        except (OSError, ValueError): timeout = False
+        if timeout and max(record['load'], record.get('start_load', 0)) > record['ncpu']:
+            record['classification'] = 'environment-suspect'
 line = json.dumps(record, ensure_ascii=True, separators=(',', ':'))
 if len(line.encode()) + 1 >= 4096:
     raise ValueError('event exceeds atomic append bound')
@@ -543,6 +608,7 @@ base = git('rev-parse', '--verify', 'HEAD^{commit}').strip().decode()
 touched = set(git('diff', '--name-only', '--no-renames', '-z', base + '..' + head).split(b'\0'))
 entries = git('status', '--porcelain', '-z', '--untracked-files=all').split(b'\0')
 ignored = [(prefix + '.pandacorp/run/queue-log.jsonl').encode(),
+           (prefix + '.pandacorp/run/test-outcomes.jsonl').encode(),
            (prefix + '.pandacorp/run/gate-reports/').encode()]
 i = 0
 while i < len(entries):
@@ -700,6 +766,13 @@ if [ -x ".pandacorp/verify.sh" ]; then
   if [ -f ".pandacorp/green-stamp.sh" ] && stamp_check; then
     queue_event stamp_check result str match reason str "${stamp_note:0:1500}"
     echo "merge-queue: integration gate SKIPPED [certified-tree] — rebased tree is identical to one a full verify.sh passed ($stamp_note)"
+    # An equal-tree rebase may advance only commit metadata. The certificate remains
+    # valid, but status needs the current rebase base, written by the canonical helper.
+    if [ -f .pandacorp/run/green-stamp ] &&
+       [ "$(sed -n 's/^base=//p' .pandacorp/run/green-stamp)" != "$QUEUE_STAMP_BASE" ]; then
+      QUEUE_REBASE_TOKEN=$(bash .pandacorp/green-stamp.sh start 2>&1) || fail "green but uncertifiable: $QUEUE_REBASE_TOKEN" 11
+      QUEUE_REBASE_RECORD=$(bash .pandacorp/green-stamp.sh record "$QUEUE_REBASE_TOKEN" --preserve-age 2>&1) || fail "green but uncertifiable: $QUEUE_REBASE_RECORD" 11
+    fi
   else
     QUEUE_STAMP_REASON="${stamp_note:-no green-stamp.sh in this overlay}"
     queue_event stamp_check result str miss reason str "${QUEUE_STAMP_REASON:0:1500}"
@@ -716,12 +789,20 @@ if [ -x ".pandacorp/verify.sh" ]; then
     GATE_RC=0
     QUEUE_GATE_STARTED=$SECONDS
     QUEUE_REPORT_BEFORE=$(queue_report_snapshot 2>/dev/null) || { QUEUE_REPORT_BEFORE=""; queue_log_warning; }
+    # A stale record result must never certify a later invocation. Old verify scripts can
+    # still request a record using the same start/end fingerprint through the helper.
+    [ -f .pandacorp/green-stamp.sh ] || fail "green but uncertifiable: missing green-stamp.sh" 11
+    bash .pandacorp/green-stamp.sh clean-outputs || fail "green but uncertifiable: declared run outputs invalid" 11
+    QUEUE_RECORD_START=$(bash .pandacorp/green-stamp.sh start 2>/dev/null) || QUEUE_RECORD_START=""
+    mkdir -p .pandacorp/run
+    rm -f .pandacorp/run/stamp-record-result.json
+    QUEUE_GATE_START_LOAD=$(python3 -c 'import os; print(os.getloadavg()[0])')
     queue_event gate_start
-    bash .pandacorp/verify.sh || GATE_RC=$?
+    PANDACORP_QUEUE_ATTEMPT="$QUEUE_ATTEMPT" bash .pandacorp/verify.sh || GATE_RC=$?
     QUEUE_GATE_DURATION=$((SECONDS - QUEUE_GATE_STARTED))
     QUEUE_ARCHIVED_REPORT=""
     if [ "$GATE_RC" -ne 75 ]; then archive_gate_report; fi
-    queue_event gate_end rc json "$GATE_RC" duration_s json "$QUEUE_GATE_DURATION" report str "$QUEUE_ARCHIVED_REPORT"
+    queue_event gate_end start_load json "$QUEUE_GATE_START_LOAD" rc json "$GATE_RC" duration_s json "$QUEUE_GATE_DURATION" report str "$QUEUE_ARCHIVED_REPORT"
     release_host_slot
     [ "$GATE_RC" -ne 75 ] || fail "verification owner busy in this checkout; wait and retry (no project verdict)" 14
     # Generated gate output belongs to this integration checkout only. Release the heavy
@@ -729,8 +810,25 @@ if [ -x ".pandacorp/verify.sh" ]; then
     rm -rf -- .next .next-fidelity test-results
     [ "$GATE_RC" -ne 16 ] || environment_not_ready "verification environment preparation or host-slot admission failed"
     if [ "$GATE_RC" -ne 0 ]; then
-      fail "integration gate RED on the rebased result — fix on $BRANCH and re-run (NOT a semantic-conflict pass)" 11
+      fail "integration gate RED on the rebased result — fix on $BRANCH; diagnose with bash .pandacorp/verify.sh --diagnose-unit outside the lock, then run the repair pre-check and re-queue" 11
     fi
+    QUEUE_RECORD_REASON=""
+    if [ -f .pandacorp/run/stamp-record-result.json ]; then
+      QUEUE_RECORD_REASON=$(python3 - <<'RECORDPY'
+import json
+try:
+    row = json.load(open('.pandacorp/run/stamp-record-result.json'))
+    if row.get('ok') is not True: print(row.get('reason') or 'stamp record refused')
+except (OSError, ValueError, AttributeError): print('invalid stamp record result')
+RECORDPY
+      )
+    else
+      # Compatibility with project-owned gates: certify only their unchanged start/end inputs.
+      bash .pandacorp/green-stamp.sh record "$QUEUE_RECORD_START" > .pandacorp/run/queue-record.txt 2>&1 ||
+        QUEUE_RECORD_REASON=$(cat .pandacorp/run/queue-record.txt)
+    fi
+    [ -z "$QUEUE_RECORD_REASON" ] || fail "green but uncertifiable: $QUEUE_RECORD_REASON" 11
+    if ! stamp_check; then fail "green but uncertifiable: $stamp_note" 11; fi
   fi
 fi
 

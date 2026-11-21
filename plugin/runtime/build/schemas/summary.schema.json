@@ -234,6 +234,14 @@
       "items": {
         "type": "object"
       }
+    },
+    "landing_state": {
+      "enum": [
+        "implemented-uncertified",
+        "certified-awaiting-order",
+        "certified-stale",
+        "landed"
+      ]
     }
   },
   "additionalProperties": true

@@ -21,6 +21,8 @@ fixture() {
   mkdir -p "$root/app/.pandacorp"
   printf '%b' "$1" > "$root/app/.pandacorp/status.yaml"
   cp "$MQ" "$root/app/.pandacorp/merge-queue.sh"
+cp "$HERE/plugin/templates/shared/.pandacorp/green-stamp.sh" "$root/app/.pandacorp/"
+  printf ".pandacorp/run/\n" > "$root/app/.gitignore"
   # Phase 0.5 rejects a missing gate explicitly; release-policy fixtures must
   # provide a green executable gate rather than relying on the former silent skip.
   printf '#!/bin/bash\nexit 0\n' > "$root/app/.pandacorp/verify.sh"
@@ -80,11 +82,12 @@ for outcome in success conflict nested launched busy red; do
   [ "$outcome" = nested ] && project_rel=mission-control
   mkdir -p "$fx/app/$project_rel/e2e" "$fx/app/$project_rel/.pandacorp" "$fx/app/.claude" "$fx/bin"
   cp "$MQ" "$fx/app/$project_rel/.pandacorp/merge-queue.sh"
+  cp "$HERE/plugin/templates/shared/.pandacorp/green-stamp.sh" "$fx/app/$project_rel/.pandacorp/"
   printf '#!/bin/bash\nmkdir -p node_modules\n' > "$fx/bin/pnpm"
   chmod +x "$fx/bin/pnpm"
   echo original > "$fx/app/user-local.txt"
   echo '{"name":"queue-fixture"}' > "$fx/app/$project_rel/package.json"
-  printf 'node_modules/\n.env.local\n.pandacorp/run/\ngate-port.txt\n' > "$fx/app/.gitignore"
+  printf 'node_modules/\n.env.local\n**/.pandacorp/run/\ngate-port.txt\n' > "$fx/app/.gitignore"
   # BL-0288: probe a free high port; never bind the owner's real application port.
   committed_port=$(python3 - <<'PORT'
 import socket
@@ -157,8 +160,9 @@ LISTENER
     wait "$listener_pid" 2>/dev/null || true
   fi
   if [ "$outcome" != conflict ]; then
-    expected=0
-    case "$outcome" in launched) expected=21 ;; busy) expected=14 ;; red) expected=11 ;; esac
+    # Phase 1 preserves the user override but refuses to certify its hidden input.
+    expected=11
+    case "$outcome" in busy) expected=14 ;; esac
     [ "$rc" = "$expected" ] && ok "$outcome: exit $expected" || bad "$outcome: expected $expected, got $rc: $(cat "$fx/queue.log")"
     if [ "$outcome" = busy ]; then
       [ ! -f "$fx/wt/$project_rel/gate-port.txt" ] && ok "busy: verify never ran" || bad "busy: verify ran"

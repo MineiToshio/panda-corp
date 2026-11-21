@@ -1,5 +1,7 @@
 // Shared plumbing of the landing modules: constants, result shapes, the injected-dependency defaults and the git helpers.
 import * as fsp from "node:fs/promises";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { defaultExec } from "../fsx.mjs";
 import { ZONES } from "../state.mjs";
 
@@ -76,4 +78,14 @@ export const maxZone = (units) => ZONES[Math.max(0, ...units.map((u) => ZONES.in
 /** Budget identity ignores the per-attempt landing metadata commit. */
 export async function landingCodeTip(d, root, runId) {
   return gitOk(d, root, ["rev-parse", "--verify", (await tipIsLandingMetadata(d, root, runId)) ? "HEAD~1^{commit}" : "HEAD^{commit}"], "landing-code-tip");
+}
+
+/** Shared queue-metrics R observation, emitted on accepted implementation, never certification. */
+export async function emitQueueReady(ctx, d, unit = null) {
+  const directory = path.join(ctx.project, ".pandacorp/run");
+  const row = { v: 1, event: "ready", attempt: randomUUID(), ts: new Date().toISOString(), project: ctx.project, branch: ctx.paths.integrationBranch(ctx.runId), run_id: ctx.runId, ...(unit ? { unit } : {}) };
+  try {
+    await d.fs.mkdir(directory, { recursive: true });
+    await d.fs.appendFile(path.join(directory, "queue-log.jsonl"), JSON.stringify(row) + "\n");
+  } catch (error) { console.error(`build: WARNING ready event not written: ${error.message}`); }
 }

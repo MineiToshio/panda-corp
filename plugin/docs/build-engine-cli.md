@@ -502,6 +502,17 @@ Exit: 0; 6 (`INVALID_INPUT`) when the review file is invalid JSON or schema, the
 
 ### 3.11 `land`
 
+Proposal 43 phase 1 adds `landing_state`: `implemented-uncertified` until a queue result,
+`certified-awaiting-order` on exit 21, and `landed` only after exit 0 plus the main-ancestry oracle.
+Journal replay never promotes a raw exit 0 without `batch_landed`. Summary/status re-observe
+awaiting-order certification with `merge-queue.sh --status` (no lock/writes, exact ambient env);
+main movement or expiry reports `certified-stale`. WO `VERIFIED` remains feature evidence.
+Accepted build/patch reports and the first land request emit `ready` in the main project's queue
+log for metric R; planning/TDD do not declare implementation complete. No new job kind is added.
+Patch briefs require static checks plus whole Vitest after static/unit reds, or the failing
+Playwright spec plus static checks after a browser red, before re-queueing. Plain verify is diagnosis;
+commit → queue remains the certification recipe. Ask for the explicit landing order at work start.
+
 Fenced. Lands the integration branch through merge-queue and harvests its result. Chains reach the integration branch inside `next` (4.1). The session calls `land` when `next` returns `action:"land"` (the batch is complete: all non-parked units of the run, or of the tranche for a giant run). Argument: `--epoch`. There is no `--chain`. `land` returns `{exit, output}`: the exit travels beside the JSON for the result-bearing non-zero exits 6 and 7.
 
 Phases:

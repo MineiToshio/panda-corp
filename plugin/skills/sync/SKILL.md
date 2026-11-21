@@ -1,9 +1,28 @@
 ---
 name: sync
-description: Reconciles a Pandacorp project's documentation BACKWARDS from changes made directly in the code — the inverse of iterate (code→docs). Use after editing an app by hand (e.g. Mission Control) outside spec/design/implement. EXHAUSTIVE by design — it propagates each change through its FULL cascade of owning docs (behaviour→FRD + work orders + FDD; architecture→blueprint + ADR; UI→FDD + design tokens; scope→PRD) across BOTH docs/ and .pandacorp/, and records the area's decision log so nothing is left undocumented. Works warm (changes already in context) or COLD (no context — it audits the whole app against the docs and finds every gap). A third mode, CLOSE-OUT, batch-closes ONE already-implemented change queue card (documentation proportional to its rigor, one commit, gated on a green non-partial verify.sh) instead of the full cascade. Behind an INTENT gate (warm/cold only); marks what it writes as reconciled-from-code; it documents, it never verifies — and where the DOC is right (a bug, or documented-but-unbuilt work) it routes to /pandacorp:implement or marks it pending, never rewrites the spec down to the code. Runs INSIDE the project (modo proyecto). Hand-edits to the plugin/factory go to /pandacorp:learn.
+description: Reconciles a Pandacorp project's documentation BACKWARDS from changes made directly in the code — the inverse of iterate (code→docs). Use after editing an app by hand (e.g. Mission Control) outside spec/design/implement. EXHAUSTIVE by design — it propagates each change through its FULL cascade of owning docs (behaviour→FRD + work orders + FDD; architecture→blueprint + ADR; UI→FDD + design tokens; scope→PRD) across BOTH docs/ and .pandacorp/, and records the area's decision log so nothing is left undocumented. Works warm (changes already in context) or COLD (no context — it audits the whole app against the docs and finds every gap). A third mode, CLOSE-OUT, batch-closes ONE already-implemented change queue card (documentation proportional to its rigor, one commit, landed through the queue (or locked on internal main)) instead of the full cascade. Behind an INTENT gate (warm/cold only); marks what it writes as reconciled-from-code; it documents, it never verifies — and where the DOC is right (a bug, or documented-but-unbuilt work) it routes to /pandacorp:implement or marks it pending, never rewrites the spec down to the code. Runs INSIDE the project (modo proyecto). Hand-edits to the plugin/factory go to /pandacorp:learn.
 ---
 
 # /pandacorp:sync
+
+**Queue completion (DR-165 phase 1).** The recipe is commit → `bash .pandacorp/merge-queue.sh`.
+Plain `verify.sh` is diagnosis. Until the queue certifies the current rebased tree, report
+`implemented-uncertified` ("implementado, sin certificar"). Read `bash .pandacorp/merge-queue.sh --status`:
+`certified-awaiting-order` ("certificado, espera tu orden", exit 21 with matching stamp/base),
+`certified-stale` (main moved or stamp expired; re-queue), or `landed` (queue ff, plus published for launched projects).
+Only `certified-awaiting-order` and `landed` may be called done. Work-order `VERIFIED` is review/feature evidence.
+For a launched project, ask for the explicit per-landing order at the START of the work (DR-138 unchanged);
+if deferred, certify and preserve the branch at exit 21. A direct commit on launched main cannot be
+published through a main-checkout stamp: supported paths are the queue or the explicit logged owner
+bypass. The agent never sets the bypass. A transferred stamp's main-checkout check is diagnosis only.
+
+**Repair pre-check.** After a static/Vitest red, run
+`bash .pandacorp/verify.sh --only=live-data-asserts,structure-guard,data-layer,api-error-contract,doc-lint,residual-ambiguity,biome,tsc,knip,madge,vitest`
+(the whole unit suite) before re-queueing. After a Playwright red, run the failing spec plus all static checks.
+`bash .pandacorp/verify.sh --diagnose-unit` reports all static/unit failures under the host slot, never
+certifies and leaves Playwright policy unchanged. Outcomes go to main's `.pandacorp/run/test-outcomes.jsonl`;
+`node <plugin>/scripts/flaky-suspects.mjs <ledger>` lists same-tree pass/fail suspects. No reruns or exclusions.
+
 
 **Product work routing.** “Impleméntalo” routes to `/pandacorp:implement` in the target project, limited to the requested scope. “Anótalo” only writes `.pandacorp/inbox/changes/<slug>.md` from `${CLAUDE_PLUGIN_ROOT}/templates/docs/change-request-template.md` with `status: draft`, English frontmatter and a Spanish body recording the request, context and explicit Dentro/Fuera boundaries (cite the source request for each Dentro item). Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build.mjs" card check .pandacorp/inbox/changes/<slug>.md` from that project and fix validation errors before reporting capture complete. This never starts a build; the engine does not drain cards automatically. A live build keeps ownership: capture only, without mutating its docs or launching a competing run.
 
@@ -35,8 +54,8 @@ The two below are open-ended **reconciliation**: they find divergences and propa
 
    - **critical**: refuse ("critical changes go through `/pandacorp:implement`") unless the owner explicitly passes `--force-critical`; then do the `normal` set PLUS the full cascade (FRD/blueprint/ADR as it applies), marked `reconciled-from-code` exactly like cold mode. The close-out commit message must quote the owner's literal sentence authorizing it.
 5. **Logical schema closure (DATA-7, every rigor tier).** If this card changes entities, attributes/types, optionality, keys, mappings, relations/cardinalities or persistence, update `docs/product/data-model.json` with the canonical schema in this same closure, following the injected `logical-data-model.md`. Retain independent schema-to-artifact review evidence; a missing/stale projection is incomplete regardless of the card tier.
-6. **One commit.** On main, wrap the commit with `bash .pandacorp/with-merge-lock.sh git commit ...` (DR-165); run the gate before acquiring this lock. Code (if not committed yet) and docs land together, Conventional Commits, `(WO-…)` when applicable, citing the card with the git trailer **`Change: <slug>`** on its own line (DR-147 — the durable link `change-reconcile.mjs` reads; without it a later sweep cannot tell this card shipped). Code already committed → a separate `docs(<scope>): close-out <slug>` commit, same trailer.
-7. **Finish or fail honestly.** On success, clear `closing` (the card is now in `done/`, its rigor already covers this). Mid-way failure → leave the card `closing` with a note of exactly what landed and what's missing; tell the owner the same, in Spanish.
+6. **One commit.** On an internal main, wrap the commit with `bash .pandacorp/with-merge-lock.sh git commit ...` (DR-165); plain verify.sh is diagnosis. On a branch, commit then run the queue; only its current certified/landed state supports completion. Code (if not committed yet) and docs land together, Conventional Commits, `(WO-…)` when applicable, citing the card with the git trailer **`Change: <slug>`** on its own line (DR-147 — the durable link `change-reconcile.mjs` reads; without it a later sweep cannot tell this card shipped). Code already committed → a separate `docs(<scope>): close-out <slug>` commit, same trailer.
+7. **Finish or fail honestly.** Report the queue state; a since gate alone remains implemented-uncertified. On success, clear `closing` (the card is now in `done/`, its rigor already covers this). Mid-way failure → leave the card `closing` with a note of exactly what landed and what's missing; tell the owner the same, in Spanish.
 
 ## Steps (warm / cold reconciliation)
 
@@ -75,4 +94,4 @@ The two below are open-ended **reconciliation**: they find divergences and propa
 - **External mirrors: detect + offer, never auto-push** (step 7).
 - **Close-out is proportional, never degraded (proposal 37 §A.6).** Rigor decides HOW MUCH gets written, not WHETHER; a `critical` card refuses without an explicit owner `--force-critical`; the `closing` state plus doc-lint's unconditional 48h check keep an interrupted close-out visible, never silently lost.
 - **Modo proyecto only (v1):** plugin/factory hand-edits go to `/pandacorp:learn`.
-- **`status.yaml` is read, not hand-authored (DR-050);** commits conventional + English, direct to main is fine, never force-push.
+- **`status.yaml` is read, not hand-authored (DR-050);** commits conventional + English, internal direct-main commits take the merge lock and remain implemented-uncertified; launched landings use the queue and an explicit order, never force-push.

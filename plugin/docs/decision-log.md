@@ -1,5 +1,32 @@
 # Decision log — Plugin pandacorp
 
+## 2026-11-21 - Ship proposal 43 phase 1: one meaning of done
+
+Plugin **10.18.0** / overlay **9.7.0** enact DR-165 phase 1 and the DR-141, DR-146
+and DR-153 amendments. The [queue](../templates/shared/.pandacorp/merge-queue.sh) exposes
+read-only observable states and requires a successful stamp record before ff; ordinary verify
+retains its green/red result while exposing record refusal. The engine journals exit-21 certification
+and verified exit-0 landing, reports current certification and emits `ready` for queue R metrics.
+Stop wording, skills, templates, [build orchestration](../../factory/standards/build-orchestration.md)
+and the factory Manual use commit → queue; plain verify is diagnosis. Ask for the explicit
+per-landing production order at the start (DR-138 unchanged).
+
+Diagnosis accumulates static and Vitest failures under the slot without changing Playwright.
+Queue/diagnosis JSON reporters append outcomes in the main project; dirty diagnoses use a
+physical source snapshot, preventing deterministic repairs from manufacturing flaky suspects.
+The suspect reader fails loudly on malformed lines; no reruns or exclusions ship. Gate load
+is recorded and timeout reds above core count are labelled environment-suspect.
+
+Launched pre-push hooks now require proof for the exact pushed commit: a queue-log ff event for that sha from a live unfinished attempt or one that ended 0/13; otherwise the owner bypass PANDACORP_OWNER_UNGATED_PUSH=1, logged with commit, time and reason. A transferred stamp checked in the main checkout (memo proof 2) did NOT match in tests (own node_modules metadata, e2e/.env* inputs and Git's hook PATH/GIT_EXEC_PATH differ), so proof 2 is diagnosis only.
+
+Required-record rollout depends on the declared-output machinery already shipped in phase 0.5;
+Mission Control's committed `e2e/.run-outputs` remains the coordinator prerequisite before upgrading
+its overlay. No project overlay copies are changed here. Named acceptance/regression suites are
+listed in the canonical queue protocol; independent review added no-lock status, false-success
+replay, current-state environment preservation and dirty-diagnosis identity checks. Equal-tree
+base rebinding preserves the original certificate expiry; unit readiness excludes planning/TDD.
+
+
 ## 2026-11-21 - Preserve admission deadlines and environment retry consumption
 
 Plugin **10.17.0** / overlay **9.6.2** retries inherited-slot validation within the full admission

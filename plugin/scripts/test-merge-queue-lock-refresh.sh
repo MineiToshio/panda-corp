@@ -71,7 +71,8 @@ fixture() {
   git clone -q "$root/origin.git" "$root/app" 2>/dev/null
   mkdir -p "$root/app/.pandacorp"
   printf '%b' "$1" > "$root/app/.pandacorp/status.yaml"
-  printf ".next/\n.next-fidelity/\ntest-results/\n" > "$root/app/.gitignore"
+  cp "$HERE/plugin/templates/shared/.pandacorp/green-stamp.sh" "$root/app/.pandacorp/"
+  printf ".next/\n.next-fidelity/\ntest-results/\n.pandacorp/run/\n" > "$root/app/.gitignore"
   # Observe the slot state when artifact deletion starts, without changing rm behavior.
   mkdir -p "$root/app/bin"
   cat > "$root/app/bin/rm" <<'REMOVE'

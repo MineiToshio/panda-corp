@@ -127,7 +127,7 @@ fi
 REPORT_DIR=".pandacorp/run"
 REPORT_FILE="$REPORT_DIR/gate-report.json"
 mkdir -p "$REPORT_DIR"
-rm -f "$REPORT_FILE"
+rm -f "$REPORT_FILE" "$REPORT_DIR/stamp-record-result.json"
 
 # DR-159: inventory drift is advisory; selection remains serial + both platforms.
 # Opt in independently on each axis by keeping its project-owned inventory.
@@ -201,6 +201,7 @@ fi
 # spelling, so a plausible invocation can never be silently ignored and degrade to a full run).
 NO_BAIL="${PANDACORP_VERIFY_NO_BAIL:-0}"
 REPORT_ALL=0
+DIAGNOSE_UNIT=0
 ONLY_GATES=""
 SCOPE_FILES=""
 LIGHT=0
@@ -218,6 +219,7 @@ for _wp05_arg in "$@"; do
   fi
   case "$_wp05_arg" in
     --report-all) REPORT_ALL=1 ;;
+    --diagnose-unit) DIAGNOSE_UNIT=1; REPORT_ALL=1 ;;
     --no-bail) NO_BAIL=1 ;;
     --affected) AFFECTED=1 ;;
     --light)      LIGHT=1 ;;
@@ -257,6 +259,17 @@ KNOWN_GATES="live-data-asserts structure-guard data-layer api-error-contract doc
 # DR-146 `--light`: derived from KNOWN_GATES (one list, never a second hand-kept copy) — every cheap
 # gate, vitest only for an explicit `--tests` list, never Playwright. `--only` would make the meaning
 # of the run ambiguous, so the combination is refused below (fail-closed), never resolved silently.
+# Diagnosis accumulates all static and unit failures, without changing Playwright's
+# worker policy through PANDACORP_VERIFY_NO_BAIL. It can never certify a tree.
+if [ "$DIAGNOSE_UNIT" -eq 1 ]; then
+  [ -z "$ONLY_GATES$SCOPE_FILES$SCOPE_TESTS$SINCE" ] && [ "$LIGHT" -eq 0 ] && [ "$AFFECTED" -eq 0 ] || {
+    echo 'verify: --diagnose-unit cannot be narrowed or combined with other scope flags' >&2; exit 2;
+  }
+  for _diagnose_gate in $KNOWN_GATES; do
+    [ "$_diagnose_gate" = playwright ] || ONLY_GATES="$ONLY_GATES,$_diagnose_gate"
+  done
+  ONLY_GATES="${ONLY_GATES#,}"
+fi
 LIGHT_CONFLICT=0
 if [ "$LIGHT" -eq 1 ]; then
   if [ -n "$ONLY_GATES" ]; then
@@ -788,13 +801,22 @@ with open(out_path, "w") as fh:
 PY
   # DR-146 certified tree: only a FULL green that started on a clean tree may certify it (and
   # green-stamp.sh re-checks the tree is unchanged and still clean); ANY red drops the stamp so a
-  # tree that just failed can never be skipped on the strength of an older green. Best-effort: a
-  # stamp that cannot be written only means the next merge-queue runs the full gate.
+  # tree that just failed can never be skipped on the strength of an older green.
+  # Record receipts preserve the ordinary gate verdict; the queue requires successful record.
   if [ -f .pandacorp/green-stamp.sh ]; then
     if [ "$green_exit" -ne 0 ]; then
       bash .pandacorp/green-stamp.sh invalidate || true
     elif [ "$GATE_SCOPE" = "full" ] && [ -n "$STAMP_START_TREE" ]; then
-      bash .pandacorp/green-stamp.sh record "$STAMP_START_TREE" || true
+      record_rc=0
+      record_reason=$(bash .pandacorp/green-stamp.sh record "$STAMP_START_TREE" 2>&1) || record_rc=$?
+      python3 - "$record_rc" "$record_reason" <<'RECORDPY'
+import json, sys
+with open('.pandacorp/run/stamp-record-result.json', 'w') as f:
+    json.dump(dict(ok=sys.argv[1] == '0', reason=sys.argv[2]), f)
+RECORDPY
+      printf '%s\n' "$record_reason"
+    elif [ "$GATE_SCOPE" = full ]; then
+      printf '%s\n' '{"ok":false,"reason":"start fingerprint unavailable (dirty tree or invalid inputs)"}' > .pandacorp/run/stamp-record-result.json
     fi
   fi
 }
@@ -917,7 +939,7 @@ run_cheap_gate() {
 }
 
 # Admission and output normalization precede the start fingerprint and every gate.
-if [ "$GATE_SCOPE" = "full" ]; then
+if [ "$GATE_SCOPE" = "full" ] || [ "$DIAGNOSE_UNIT" -eq 1 ]; then
   _slot_rc=0
   HOST_SLOT_OWNED=$(host_slot acquire) || _slot_rc=$?
   if [ "$_slot_rc" -ne 0 ]; then write_gate_report "$_slot_rc"; exit "$_slot_rc"; fi
@@ -954,7 +976,10 @@ done
 if [ "$_static_selected" -eq 1 ] && [ -x node_modules/.bin/next ] && [ ! -d .next/types ]; then
   _typegen_rc=0
   run_gate next-typegen plain gate_next_typegen || _typegen_rc=$?
-  if [ "$_typegen_rc" -ne 0 ]; then write_gate_report "$_typegen_rc"; exit "$_typegen_rc"; fi
+  if [ "$_typegen_rc" -ne 0 ]; then
+    if [ "$DIAGNOSE_UNIT" -eq 1 ]; then CHEAP_GATES_FAILED=1; LAST_CHEAP_RC="$_typegen_rc";
+    else write_gate_report "$_typegen_rc"; exit "$_typegen_rc"; fi
+  fi
 fi
 
 # --- Structure guard (file placement isn't lintable; DR-059) -------------------
@@ -1122,10 +1147,104 @@ run_cheap_gate madge pathlist pnpm madge --circular --extensions ts,tsx src
 # `--report-all`: all 9 cheap gates above have now run and reported independently — abort ONCE,
 # here, with the aggregate verdict, instead of at the first one (vitest/Playwright never run on a
 # cheap-gate red; there is nothing more the expensive layers would add to an already-red verdict).
-if [ "$REPORT_ALL" -eq 1 ] && [ "$CHEAP_GATES_FAILED" -eq 1 ]; then
+if [ "$REPORT_ALL" -eq 1 ] && [ "$CHEAP_GATES_FAILED" -eq 1 ] && [ "$DIAGNOSE_UNIT" -ne 1 ]; then
   write_gate_report "$LAST_CHEAP_RC"
   exit "$LAST_CHEAP_RC"
 fi
+
+# Outcomes are observations, never retries or exclusions. JSON reporters are enabled only
+# for queue gates and diagnosis; ordinary scoped command lines retain their existing shape.
+LEDGER=0
+[ "$DIAGNOSE_UNIT" -ne 1 ] && [ -z "${PANDACORP_QUEUE_ATTEMPT:-}" ] || LEDGER=1
+VITEST_REPORTERS=(--reporter=dot)
+PLAYWRIGHT_REPORTERS=()
+if [ "$LEDGER" -eq 1 ]; then
+  VITEST_REPORTERS+=(--reporter=json "--outputFile=$GATE_FRAGMENTS_DIR/vitest.json")
+  PLAYWRIGHT_REPORTERS=(--reporter=line,json)
+  export PLAYWRIGHT_JSON_OUTPUT_FILE="$GATE_FRAGMENTS_DIR/playwright.json"
+fi
+# A diagnosis often precedes its repair commit. Never attribute different physical
+# source content to HEAD's tree and manufacture a flaky suspect from a deterministic fix.
+OUTCOMES_TREE=""
+if [ "$LEDGER" -eq 1 ]; then
+OUTCOMES_TREE=$(python3 - <<'TREEPY'
+import hashlib, os, pathlib, stat, subprocess
+root = pathlib.Path(subprocess.check_output(['git', 'rev-parse', '--show-toplevel'], text=True).strip())
+def git(*args): return subprocess.check_output(['git', '-C', str(root), *args])
+head = git('rev-parse', 'HEAD^{tree}').strip().decode()
+hidden = any(line[:1] == b'S' or line[:1].islower() for line in git('ls-files', '-v').splitlines())
+if not git('status', '--porcelain') and not hidden:
+    print(head)
+else:
+    digest = hashlib.sha256()
+    names = sorted(set(git('ls-files', '--cached', '--others', '--exclude-standard', '-z').split(b'\0')) - {b''})
+    for name in names:
+        path = root / os.fsdecode(name)
+        digest.update(name + b'\0')
+        try:
+            mode = path.lstat().st_mode
+            digest.update(str(stat.S_IFMT(mode) | (mode & 0o111)).encode() + b'\0')
+            if path.is_symlink(): digest.update(os.fsencode(os.readlink(path)))
+            elif path.is_file():
+                with path.open('rb') as f:
+                    for chunk in iter(lambda: f.read(1024 * 1024), b''): digest.update(chunk)
+            elif path.is_dir(): digest.update(git('ls-tree', 'HEAD', '--', os.fsdecode(name)))
+        except FileNotFoundError: digest.update(b'deleted')
+        digest.update(b'\0')
+    print(digest.hexdigest())
+TREEPY
+) || { echo 'verify: cannot fingerprint diagnosis tree' >&2; exit 2; }
+fi
+append_test_outcomes() {
+  [ "$LEDGER" -eq 1 ] || return 0
+  python3 - "$1" "$GATE_FRAGMENTS_DIR/$1.json" "$OUTCOMES_TREE" "$VITEST_SEED" <<'OUTCOMESPY' || echo 'verify: WARNING test-outcomes ledger incomplete (reporter/append error)' >&2
+import datetime, json, os, pathlib, subprocess, sys, uuid
+runner, filename, tree, seed = sys.argv[1:]
+def git(*args): return subprocess.check_output(['git', *args], text=True).strip()
+prefix = git('rev-parse', '--show-prefix')
+default = subprocess.run(['git', 'symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], capture_output=True, text=True).stdout.strip().removeprefix('origin/') or 'main'
+lines = git('worktree', 'list', '--porcelain').splitlines()
+main = None
+for line in lines:
+    if line.startswith('worktree '): checkout = line[9:]
+    elif line == 'branch refs/heads/' + default: main = checkout
+if main is None: raise ValueError('test outcomes require the main checkout')
+project = str((pathlib.Path(main) / prefix).resolve())
+report = json.loads(pathlib.Path(filename).read_text())
+attempt = os.environ.get('PANDACORP_QUEUE_ATTEMPT') or str(uuid.uuid4())
+rows = []
+def add(test, status, worker, retry=0):
+    if status not in ('passed', 'failed', 'skipped', 'pending', 'todo', 'disabled', 'timedOut', 'interrupted'): raise ValueError('unknown test status: ' + str(status))
+    status = {'timedOut': 'failed', 'interrupted': 'failed', 'pending': 'skipped', 'todo': 'skipped', 'disabled': 'skipped'}.get(status, status)
+    rows.append(dict(v=1, ts=datetime.datetime.now(datetime.timezone.utc).isoformat(), test_id=test, status=status,
+                     tree=tree, seed=int(seed), worker=worker, project=project, attempt=attempt, runner=runner, retry=retry))
+if runner == 'vitest':
+    for suite in report['testResults']:
+        file = suite['name']
+        try: file = pathlib.Path(file).relative_to(pathlib.Path.cwd()).as_posix()
+        except ValueError: pass
+        for test in suite['assertionResults']:
+            add(file + ' > ' + test['fullName'], test['status'], test.get('workerId'))
+else:
+    def visit(suite, parents):
+        names = parents + ([suite['title']] if suite.get('title') else [])
+        for spec in suite.get('specs', []):
+            for test in spec['tests']:
+                ident = spec['file'] + ' > ' + ' > '.join(names + [spec['title']]) + ' [' + test.get('projectName', '') + ']'
+                for result in test['results']:
+                    add(ident, result['status'], result.get('workerIndex'), result.get('retry', 0))
+        for child in suite.get('suites', []): visit(child, names)
+    for suite in report['suites']: visit(suite, [])
+target = pathlib.Path(project) / '.pandacorp/run/test-outcomes.jsonl'
+target.parent.mkdir(parents=True, exist_ok=True)
+fd = os.open(target, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+try:
+    for row in rows:
+        data = (json.dumps(row, ensure_ascii=True, separators=(',', ':')) + '\n').encode()
+        if os.write(fd, data) != len(data): raise OSError('short ledger append')
+finally: os.close(fd)
+OUTCOMESPY
+}
 
 # --- Behavior -----------------------------------------------------------------
 # shellcheck disable=SC2086
@@ -1148,15 +1267,16 @@ fi
 if gate_selected vitest; then
 VITEST_RC=0
 VITEST_SEED_USED="$VITEST_SEED"
-VITEST_ORDER=("--bail=$((1 - NO_BAIL))" --sequence.shuffle "--sequence.seed=$VITEST_SEED")
+VITEST_ORDER=("--bail=$(( (1 - NO_BAIL) * (1 - DIAGNOSE_UNIT) ))" --sequence.shuffle "--sequence.seed=$VITEST_SEED")
 echo "vitest order: shuffled with seed $VITEST_SEED — replay this exact order: PANDACORP_VITEST_SEED=$VITEST_SEED bash .pandacorp/verify.sh $* (vitest alone: PANDACORP_VITEST_SEED=$VITEST_SEED bash .pandacorp/verify.sh --only=vitest)"
 if [ "${#SCOPE_TESTS_ARR[@]}" -gt 0 ]; then
-  run_gate vitest vitest pnpm vitest run "${SCOPE_TESTS_ARR[@]}" --reporter=dot --passWithNoTests "${VITEST_ORDER[@]}" || VITEST_RC=$?
+  run_gate vitest vitest pnpm vitest run "${SCOPE_TESTS_ARR[@]}" "${VITEST_REPORTERS[@]}" --passWithNoTests "${VITEST_ORDER[@]}" || VITEST_RC=$?
 elif [ "${#SCOPE_FILES_ARR[@]}" -gt 0 ]; then
-  run_gate vitest vitest pnpm vitest related "${SCOPE_FILES_ARR[@]}" --run --reporter=dot --passWithNoTests "${VITEST_ORDER[@]}" || VITEST_RC=$?
+  run_gate vitest vitest pnpm vitest related "${SCOPE_FILES_ARR[@]}" --run "${VITEST_REPORTERS[@]}" --passWithNoTests "${VITEST_ORDER[@]}" || VITEST_RC=$?
 else
-  run_gate vitest vitest pnpm vitest run --reporter=dot ${SINCE:+--changed "$SINCE"} "${VITEST_ORDER[@]}" || VITEST_RC=$?
+  run_gate vitest vitest pnpm vitest run "${VITEST_REPORTERS[@]}" ${SINCE:+--changed "$SINCE"} "${VITEST_ORDER[@]}" || VITEST_RC=$?
 fi
+append_test_outcomes vitest
 if [ "$VITEST_RC" -ne 0 ]; then
   write_gate_report "$VITEST_RC"
   exit "$VITEST_RC"
@@ -1199,11 +1319,11 @@ gate_playwright() {
     export PANDACORP_E2E_SERVER=prod
   fi
   if [ -n "$SINCE" ]; then
-    pnpm exec playwright test e2e/smoke.spec.ts e2e/shell.spec.ts
+    pnpm exec playwright test ${PLAYWRIGHT_REPORTERS[@]+"${PLAYWRIGHT_REPORTERS[@]}"} e2e/smoke.spec.ts e2e/shell.spec.ts
   elif [ -f e2e/parallel-safe.json ]; then
-    PANDACORP_E2E_TIER=combined pnpm exec playwright test e2e/
+    PANDACORP_E2E_TIER=combined pnpm exec playwright test ${PLAYWRIGHT_REPORTERS[@]+"${PLAYWRIGHT_REPORTERS[@]}"} e2e/
   else
-    pnpm exec playwright test e2e/
+    pnpm exec playwright test ${PLAYWRIGHT_REPORTERS[@]+"${PLAYWRIGHT_REPORTERS[@]}"} e2e/
   fi
 }
 # Same `set -e` hazard as vitest above: `|| PLAYWRIGHT_RC=$?`, not a bare call.
@@ -1212,6 +1332,7 @@ gate_playwright() {
 if gate_selected playwright && [ "$AFFECTED_SKIP" -eq 0 ]; then
 PLAYWRIGHT_RC=0
 run_gate playwright playwright gate_playwright || PLAYWRIGHT_RC=$?
+append_test_outcomes playwright
 if [ "$PLAYWRIGHT_RC" -ne 0 ]; then
   if [ "$GATE_SCOPE" = "full" ] && grep -Eiq "(snapshot.*(doesn't exist|does not exist|missing)|missing.*snapshot|no snapshot)" "$GATE_FRAGMENTS_DIR/log-playwright.txt"; then
     echo "baseline not blessed — bless it at the feature gate (DR-080), commit it, re-queue"
@@ -1241,5 +1362,9 @@ if { gate_selected vitest || gate_selected playwright; } &&
   fi
 fi
 
+if [ "$DIAGNOSE_UNIT" -eq 1 ] && [ "$CHEAP_GATES_FAILED" -eq 1 ]; then
+  write_gate_report "$LAST_CHEAP_RC"
+  exit "$LAST_CHEAP_RC"
+fi
 write_gate_report 0
 exit 0
