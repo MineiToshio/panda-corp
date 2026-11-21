@@ -1,5 +1,12 @@
 # Decision Log — Mission Control
 
+## 2026-11-21 - Render proposal 43 gate guidance from the Manual single source
+
+Move the phase-1 queue completion and attended-publication guidance into
+[`HooksDetail`](../src/app/manual/_components/HooksDetail.tsx), in Spanish using the existing
+Manual prose components. Restore the indexed Markdown page to its three-line stub: bespoke
+pages render React, so Markdown prose was invisible and violated the single-source guard.
+
 ## 2026-11-21 - Reject invalid Git-directory bootstrap ownership
 
 The bootstrap mirror now applies cleanup's complete manifest validity checks before renewing

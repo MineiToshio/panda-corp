@@ -66,6 +66,53 @@ export function HooksDetail(): React.JSX.Element {
         .
       </Body>
 
+      <DocH title="Listo significa cola en verde" />
+      <Body>
+        Cada intento de la cola queda registrado, con su resultado. Tras guardar el commit, se
+        ejecuta <Code>bash .pandacorp/merge-queue.sh</Code>. Correr <Code>verify.sh</Code> por
+        separado sirve para diagnosticar; no certifica la entrega. La consulta <Code>--status</Code>{" "}
+        muestra el estado sin bloquear la cola ni escribir archivos:
+      </Body>
+      <Ul>
+        <li>
+          <B weight={500}>Implementado sin certificar:</B> todavía falta la certificación de la
+          cola.
+        </li>
+        <li>
+          <B weight={500}>Certificado, espera tu orden:</B> el pase completo está vigente y solo
+          falta autorizar la entrega (salida 21).
+        </li>
+        <li>
+          <B weight={500}>En main:</B> la cola incorporó el commit y, en proyectos lanzados,
+          confirmó su publicación.
+        </li>
+      </Ul>
+      <Body>
+        Solo se dice «listo» con la cola en verde: certificado a la espera de tu orden o ya en main.
+        Si main cambió o el sello caducó, hay que volver a pasar por la cola. Sin un registro válido
+        del pase completo, la cola no incorpora el commit aunque los tests hayan pasado.
+      </Body>
+      <Body>
+        En proyectos lanzados, el control previo al push exige prueba de que ese commit exacto pasó
+        el gate completo de la cola, o una excepción explícita y registrada del propietario. Un
+        sello generado en main solo sirve de diagnóstico. La prueba activa exige el bloqueo de la
+        cola del proceso original y el identificador del intento; reutilizar su PID no basta.
+      </Body>
+      <NotePanel icon="lock">
+        La orden de publicar se pide al empezar y vale para esa entrega. Ningún trabajo en segundo
+        plano la hereda: se detiene tras certificar y conserva el commit. El coordinador presente
+        ejecuta el comando de publicación indicado y la cola recoge el comprobante exacto.
+      </NotePanel>
+      <Body>
+        Antes de reintentar una reparación, se ejecutan los controles estáticos y toda la suite
+        Vitest; si falló el navegador, la prueba que falló y los controles estáticos. La opción{" "}
+        <Code>verify.sh --diagnose-unit</Code> reúne los fallos estáticos y unitarios sin detenerse
+        al primero, bajo el turno del host, sin certificar ni cambiar las pruebas de navegador. Los
+        resultados se guardan en <Code>test-outcomes.jsonl</Code> de main: un mismo árbol que pasa y
+        falla señala una prueba sospechosa de ser inestable, nunca una exclusión o repetición
+        automática. La actualización también comprueba que el gate tenga permiso de ejecución.
+      </Body>
+
       <DocH title="Gate de revisión por FRD (DR-050)" />
       <Body margin="0 0 8px">
         Cuando todas las work orders de un FRD están en <Code>IN_REVIEW</Code>, el agente{" "}
