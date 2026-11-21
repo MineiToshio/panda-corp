@@ -8,7 +8,8 @@
         "repair",
         "failed",
         "waiting_gate"
-      ]
+      ],
+      "type": "string"
     },
     "summary": {
       "type": "string",
@@ -21,7 +22,8 @@
           "enum": [
             "claude",
             "codex"
-          ]
+          ],
+          "type": "string"
         },
         "model": {
           "type": "string"
@@ -44,6 +46,10 @@
         "money",
         "delete",
         "external"
+      ],
+      "type": [
+        "null",
+        "string"
       ]
     },
     "oracle_repair": {

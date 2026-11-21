@@ -5,7 +5,8 @@
   "type": "object",
   "properties": {
     "schema": {
-      "const": 1
+      "const": 1,
+      "type": "integer"
     },
     "unit": {
       "type": "string"
@@ -20,7 +21,8 @@
           "enum": [
             "claude",
             "codex"
-          ]
+          ],
+          "type": "string"
         },
         "model": {
           "enum": [
@@ -32,7 +34,8 @@
             "terra",
             "sol",
             "astra"
-          ]
+          ],
+          "type": "string"
         },
         "effort": {
           "enum": [
@@ -41,7 +44,8 @@
             "medium",
             "high",
             "xhigh"
-          ]
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -57,7 +61,8 @@
         "reopen",
         "blocked",
         "doubt"
-      ]
+      ],
+      "type": "string"
     },
     "findings": {
       "type": "array",
@@ -73,7 +78,8 @@
               "high",
               "medium",
               "low"
-            ]
+            ],
+            "type": "string"
           },
           "lens": {
             "enum": [
@@ -82,7 +88,8 @@
               "quality",
               "runtime",
               "scope"
-            ]
+            ],
+            "type": "string"
           },
           "file": {
             "type": "string"
@@ -151,14 +158,16 @@
               "limit",
               "error",
               "exclusion"
-            ]
+            ],
+            "type": "string"
           },
           "status": {
             "enum": [
               "pass",
               "fail",
               "not-applicable"
-            ]
+            ],
+            "type": "string"
           },
           "tests": {
             "type": "array",
